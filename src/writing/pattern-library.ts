@@ -420,12 +420,19 @@ export class PatternLibrary {
    * Export patterns in various formats
    */
   exportPatterns(format: 'json' | 'yaml' | 'markdown'): string {
+    // RegExp objects otherwise serialize as {}, losing executable behavior.
+    const serialized = this.patterns.map(pattern => ({
+      ...pattern,
+      pattern: pattern.pattern instanceof RegExp
+        ? { source: pattern.pattern.source, flags: pattern.pattern.flags }
+        : pattern.pattern
+    }));
     switch (format) {
       case 'json':
-        return JSON.stringify(this.patterns, null, 2);
+        return JSON.stringify(serialized, null, 2);
 
       case 'yaml':
-        return yaml.stringify(this.patterns);
+        return yaml.stringify(serialized);
 
       case 'markdown':
         return this.exportAsMarkdown();
@@ -439,7 +446,7 @@ export class PatternLibrary {
    * Import patterns from JSON or YAML
    */
   importPatterns(data: string, format: 'json' | 'yaml'): void {
-    let patterns: AIPattern[];
+    let patterns: Array<Omit<AIPattern, 'pattern'> & { pattern: unknown }>;
 
     if (format === 'json') {
       patterns = JSON.parse(data);
@@ -449,12 +456,26 @@ export class PatternLibrary {
       throw new Error(`Unsupported import format: ${format}`);
     }
 
-    for (const pattern of patterns) {
-      // Convert string patterns to RegExp
-      if (typeof pattern.pattern === 'string') {
-        pattern.pattern = this.createRegExpFromPattern(pattern.pattern);
+    if (!Array.isArray(patterns)) {
+      throw new Error('Imported patterns must be an array');
+    }
+    // Compile the complete input before changing any library index.
+    const compiled = patterns.map(pattern => {
+      const value = pattern?.pattern;
+      let regex: RegExp;
+      if (typeof value === 'string') {
+        regex = this.createRegExpFromPattern(value);
+      } else if (value && typeof value === 'object' &&
+        'source' in value && typeof value.source === 'string' &&
+        'flags' in value && typeof value.flags === 'string') {
+        regex = new RegExp(value.source, value.flags);
+      } else {
+        throw new Error('Invalid pattern: expected a phrase string or regex source/flags');
       }
+      return { ...pattern, pattern: regex };
+    });
 
+    for (const pattern of compiled) {
       // Skip duplicates
       if (!this.patternsById.has(pattern.id)) {
         this.addPattern(pattern);

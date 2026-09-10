@@ -666,20 +666,35 @@ Furthermore, it scales well.`;
       expect(JSON.parse(emptyJson)).toEqual([]);
     });
 
-    it('should export and re-import without loss', () => {
-      const originalCount = library.getPatternCount();
-      const json = library.exportPatterns('json');
+    it.each(['json', 'yaml'] as const)('should export and re-import without loss (%s)', (format) => {
+      const text = 'It is important to note that we utilize a robust solution.';
+      const expectedMatches = library.detectPatterns(text);
+      expect(expectedMatches.length).toBeGreaterThan(0);
+      const restored = new PatternLibrary();
+      restored.importPatterns(library.exportPatterns(format), format);
 
-      const newLibrary = new PatternLibrary();
-      newLibrary.importPatterns(json, 'json');
+      expect(restored.getPatternCount()).toBe(library.getPatternCount());
+      expect(restored.getAllPatterns()).toEqual(library.getAllPatterns());
+      for (const pattern of library.getAllPatterns()) {
+        const regex = restored.getPatternById(pattern.id)!.pattern as RegExp;
+        expect(regex).toBeInstanceOf(RegExp);
+        expect(regex.source).toBe((pattern.pattern as RegExp).source);
+        expect(regex.flags).toBe((pattern.pattern as RegExp).flags);
+      }
+      expect(restored.detectPatterns(text)).toEqual(expectedMatches);
+      expect(restored.detectPatterns(text)).toEqual(expectedMatches);
+    });
 
-      expect(newLibrary.getPatternCount()).toBeGreaterThanOrEqual(originalCount - 10);
-
-      const pattern = library.getAllPatterns()[0];
-      const reimported = newLibrary.getPatternById(pattern.id);
-      expect(reimported).toBeDefined();
-      expect(reimported?.severity).toBe(pattern.severity);
-      expect(reimported?.confidence).toBe(pattern.confidence);
+    it.each([{}, { source: '[', flags: 'g' }, { source: 'ok', flags: 'gg' },
+      { source: 12, flags: 'g' }, { source: 'ok' }])('rejects malformed regex envelopes atomically: %j', (invalid) => {
+      const before = library.getAllPatterns();
+      const template = before[0];
+      expect(() => library.importPatterns(JSON.stringify([
+        { ...template, id: 'staged-valid', pattern: 'legacy phrase' },
+        { ...template, id: 'staged-invalid', pattern: invalid }
+      ]), 'json')).toThrow();
+      expect(library.getAllPatterns()).toEqual(before);
+      expect(library.getPatternById('staged-valid')).toBeUndefined();
     });
   });
 
