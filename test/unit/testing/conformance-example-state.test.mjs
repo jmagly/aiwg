@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -15,6 +15,42 @@ beforeEach(async () => {
 afterEach(async () => { await fs.rm(root, { recursive: true, force: true }); });
 
 describe('conformance example restoration evidence', () => {
+  it('does not observe a source when no baseline was acquired', async () => {
+    const stat = vi.spyOn(fs, 'lstat');
+    const read = vi.spyOn(fs, 'readFile');
+    try {
+      expect(await inspectRestoration(file, undefined, false)).toEqual({ sourceRestored: true, diagnostics: [] });
+      expect(stat).not.toHaveBeenCalled();
+      expect(read).not.toHaveBeenCalled();
+    } finally { stat.mockRestore(); read.mockRestore(); }
+  });
+  it('rejects and preserves a directory replacement without reading its contents', async () => {
+    await fs.unlink(file);
+    await fs.mkdir(file);
+    const child = path.join(file, 'owned.txt');
+    await fs.writeFile(child, 'keep directory content');
+    const read = vi.spyOn(fs, 'readFile');
+    try {
+      expect(await inspectRestoration(file, before)).toEqual({
+        sourceRestored: false, diagnostics: ['Source is no longer a regular file.'],
+      });
+      expect(read).not.toHaveBeenCalled();
+    } finally { read.mockRestore(); }
+    expect((await fs.lstat(file)).isDirectory()).toBe(true);
+    expect(await fs.readFile(child, 'utf8')).toBe('keep directory content');
+  });
+  it('retains an observation error message when no error code exists', async () => {
+    const error = new Error('controlled observation failure');
+    expect(error.code).toBeUndefined();
+    const stat = vi.spyOn(fs, 'lstat').mockRejectedValueOnce(error);
+    try {
+      expect(await inspectRestoration(file, before)).toEqual({
+        sourceRestored: false, diagnostics: ['Source restoration cannot be observed: controlled observation failure'],
+      });
+      expect(stat).toHaveBeenCalledExactlyOnceWith(file);
+    } finally { stat.mockRestore(); }
+    expect(await fs.readFile(file, 'utf8')).toBe(before.content);
+  });
   it('requires the recorded transaction and observed baseline to agree', async () => {
     expect(await inspectRestoration(file, before, true)).toEqual({ sourceRestored: true, diagnostics: [] });
     expect(await inspectRestoration(file, before, false)).toEqual({

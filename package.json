@@ -150,6 +150,7 @@
     "test:conformance:example": "node tools/testing/run-conformance-example.mjs",
     "lint:test-registration": "node tools/testing/check-test-registration.mjs",
     "test:coverage:testing-quality": "vitest run --config config/vitest.testing-quality-coverage.config.js",
+    "test:coverage:audit-foundations": "vitest run --config config/vitest.audit-foundations-coverage.config.js",
     "test:coverage:enforcement": "node tools/testing/verify-coverage-enforcement.mjs",
     "test:conformance:audit": "node tools/testing/audit-conformance-inventory.mjs"
   },

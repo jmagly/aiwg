@@ -9,6 +9,7 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Fixed
 
+- Cover restoration-observer edge cases and import-lease ownership preservation, with per-file source coverage in CI.
 - Replace untrusted fleet transport and response-decoding errors with safe diagnostics in structured and text reports.
 - Include workspace discovery and retrieval in context-pack elapsed time, with deterministic timing-boundary tests.
 - Strengthen memory confirmation, CLI routing, independent budgets, metrics, and cache regression assertions.

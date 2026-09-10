@@ -6,6 +6,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { writeFile, mkdir, rm } from 'fs/promises';
 import { resolve } from 'path';
 import { randomUUID } from 'crypto';
+import { EventEmitter } from 'node:events';
+import chokidar from 'chokidar';
 import { WatchService, WatchEvent } from '../../../src/cli/watch-service.ts';
 import { WatchConfig } from '../../../src/cli/config-loader.ts';
 
@@ -205,25 +207,50 @@ describe('WatchService', () => {
 
   describe('callbacks', () => {
     it('should call registered callbacks', async () => {
-      let callback1Called = false;
-      let callback2Called = false;
-
-      // Register callbacks BEFORE starting
-      service.onFileChange(async () => {
-        callback1Called = true;
+      // This case owns callback fan-out, not OS event delivery. The separate
+      // add/change/unlink cases retain the real filesystem watcher boundary.
+      const watcher = Object.assign(new EventEmitter(), {
+        getWatched: () => ({}),
+        close: async () => {},
       });
-      service.onFileChange(async () => {
-        callback2Called = true;
-      });
-
-      await service.start(config.patterns, config);
-
+      const callback1 = vi.fn(async (_event: WatchEvent) => {});
+      const callback2 = vi.fn(async (_event: WatchEvent) => {});
+      const epoch = new Date('2026-01-01T00:00:00.000Z');
       const filePath = resolve(testDir, 'callback.md');
-      await writeFile(filePath, 'Content', 'utf-8');
-      await waitFor(() => callback1Called && callback2Called);
+      const watch = vi.spyOn(chokidar, 'watch').mockReturnValue(
+        watcher as unknown as ReturnType<typeof chokidar.watch>
+      );
+      vi.useFakeTimers();
+      vi.setSystemTime(epoch);
+      try {
+        service.onFileChange(callback1);
+        service.onFileChange(callback2);
+        const started = service.start(config.patterns, config);
+        watcher.emit('ready');
+        await started;
 
-      expect(callback1Called).toBe(true);
-      expect(callback2Called).toBe(true);
+        watcher.emit('add', filePath);
+        await vi.advanceTimersByTimeAsync(config.debounce - 1);
+        expect(callback1).not.toHaveBeenCalled();
+        expect(callback2).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1);
+
+        const expected = {
+          type: 'add', path: filePath,
+          timestamp: new Date(epoch.getTime() + config.debounce),
+        };
+        expect(callback1).toHaveBeenCalledExactlyOnceWith(expected);
+        expect(callback2).toHaveBeenCalledExactlyOnceWith(expected);
+        expect(callback2.mock.calls[0][0]).toBe(callback1.mock.calls[0][0]);
+        expect(service.getStats().eventsProcessed).toBe(1);
+      } finally {
+        try {
+          await service.stop();
+        } finally {
+          watch.mockRestore();
+          vi.useRealTimers();
+        }
+      }
     }, 10000);
 
     it('should remove callbacks', async () => {
