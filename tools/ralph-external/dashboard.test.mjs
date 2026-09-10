@@ -5,11 +5,13 @@
  */
 
 import { Dashboard } from './dashboard.mjs';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import { after, test } from 'node:test';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
 import assert from 'assert';
 
-const TEST_DIR = '.aiwg/ralph/dashboard-test';
+const TEST_DIR = mkdtempSync(join(tmpdir(), 'aiwg-dashboard-test-'));
 
 function cleanup() {
   if (existsSync(TEST_DIR)) {
@@ -20,17 +22,6 @@ function cleanup() {
 function setup() {
   cleanup();
   mkdirSync(TEST_DIR, { recursive: true });
-}
-
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`✓ ${name}`);
-  } catch (error) {
-    console.error(`✗ ${name}`);
-    console.error(`  ${error.message}`);
-    throw error;
-  }
 }
 
 // Test: Initialization
@@ -53,6 +44,10 @@ test('centerText() centers text correctly', () => {
   assert.ok(centered.endsWith('│'));
   assert.strictEqual(centered.length, 20);
   assert.ok(centered.includes('Hello'));
+
+  const truncated = dashboard.centerText('x'.repeat(80), 20);
+  assert.strictEqual(truncated.length, 20);
+  assert.ok(truncated.includes('..'));
 });
 
 // Test: formatDuration
@@ -167,6 +162,30 @@ test('getAggregateMetrics() calculates metrics correctly', () => {
   assert.ok(metrics.avgProgress > 0);
 });
 
+test('getAggregateMetrics() sums only finite nonnegative numeric costs', () => {
+  setup();
+  const dashboard = new Dashboard({ projectRoot: TEST_DIR });
+  const loopDir = join(TEST_DIR, '.aiwg', 'ralph', 'loops', 'cost-loop');
+  mkdirSync(loopDir, { recursive: true });
+  writeFileSync(join(loopDir, 'state.json'), JSON.stringify({
+    status: 'completed',
+    currentIteration: 1,
+    maxIterations: 1,
+    startTime: new Date().toISOString(),
+    iterations: [
+      { analysis: { tokenCost: 1.25 } },
+      { analysis: { tokenCost: 0.75 } },
+      { analysis: { tokenCost: '9.5' } },
+      { analysis: { tokenCost: -2 } },
+      { analysis: { tokenCost: null } },
+    ],
+  }));
+
+  const metrics = dashboard.getAggregateMetrics();
+  assert.strictEqual(metrics.totalCost, 2);
+  assert.strictEqual(typeof metrics.totalCost, 'number');
+});
+
 // Test: countCrashesToday
 test('countCrashesToday() counts recent crashes', () => {
   setup();
@@ -239,6 +258,4 @@ test('render() produces valid output with loops', () => {
   assert.ok(output.includes('7/20'));
 });
 
-// Cleanup after all tests
-cleanup();
-console.log('\n=== All Dashboard Tests Passed ===\n');
+after(cleanup);

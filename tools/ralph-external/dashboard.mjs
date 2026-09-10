@@ -92,10 +92,15 @@ export class Dashboard {
    * @returns {string}
    */
   centerText(text, width) {
-    const padding = Math.floor((width - 2 - text.length) / 2);
+    if (!Number.isInteger(width) || width < 2) throw new RangeError('Dashboard width must be an integer of at least 2');
+    const innerWidth = width - 2;
+    const displayText = text.length > innerWidth
+      ? (innerWidth >= 2 ? `${text.slice(0, innerWidth - 2)}..` : text.slice(0, innerWidth))
+      : text;
+    const padding = Math.floor((innerWidth - displayText.length) / 2);
     const leftPad = ' '.repeat(padding);
-    const rightPad = ' '.repeat(width - 2 - text.length - padding);
-    return `│${leftPad}${text}${rightPad}│`;
+    const rightPad = ' '.repeat(innerWidth - displayText.length - padding);
+    return `│${leftPad}${displayText}${rightPad}│`;
   }
 
   /**
@@ -278,8 +283,9 @@ export class Dashboard {
 
         if (state.iterations) {
           for (const iteration of state.iterations) {
-            if (iteration.analysis?.tokenCost) {
-              total += iteration.analysis.tokenCost;
+            const cost = iteration.analysis?.tokenCost;
+            if (typeof cost === 'number' && Number.isFinite(cost) && cost >= 0) {
+              total += cost;
             }
           }
         }

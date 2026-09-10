@@ -8,11 +8,13 @@
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
+import { randomUUID } from 'crypto';
 import { CrossTaskLearner } from './cross-task-learner.mjs';
 
-const TEST_DIR = join(process.cwd(), '.test-cross-task-memory');
+const TEST_DIR = mkdtempSync(join(tmpdir(), 'aiwg-cross-task-test-'));
 
 describe('CrossTaskLearner', () => {
   let learner;
@@ -183,20 +185,34 @@ describe('CrossTaskLearner', () => {
         'Fix authentication bug in login'
       );
 
-      // Should return at most 1 result
-      assert.ok(similar.length <= 1);
+      assert.equal(similar.length, 1);
+    });
+
+    it('should honor explicit zero options and reject invalid retrieval options', () => {
+      const none = learner.findSimilarTasks('Implement authentication', {
+        top_k: 0,
+        similarity_threshold: 0,
+        max_age_days: 90,
+      });
+      assert.deepEqual(none, []);
+
+      for (const options of [
+        { top_k: -1 }, { top_k: 1.5 }, { similarity_threshold: Number.NaN },
+        { similarity_threshold: 1.1 }, { max_age_days: -1 }, { max_age_days: 1.5 },
+      ]) {
+        assert.throws(() => learner.findSimilarTasks('auth', options));
+      }
     });
 
     it('should sort by similarity score', () => {
       const similar = learner.findSimilarTasks(
-        'Implement authentication for login'
+        'Implement authentication for login',
+        { similarity_threshold: 0 }
       );
 
-      if (similar.length > 1) {
-        // Verify descending order
-        for (let i = 0; i < similar.length - 1; i++) {
-          assert.ok(similar[i].similarity_score >= similar[i + 1].similarity_score);
-        }
+      assert.ok(similar.length > 1);
+      for (let i = 0; i < similar.length - 1; i++) {
+        assert.ok(similar[i].similarity_score >= similar[i + 1].similarity_score);
       }
     });
   });
@@ -458,6 +474,37 @@ describe('CrossTaskLearner', () => {
 
       const tasks = learner.getAllTasks();
       assert.equal(tasks[0].task_description, 'Task to export');
+    });
+
+    it('should reject invalid imports before writing or mutating the index', () => {
+      const before = learner.export();
+      const escapedPath = join(TEST_DIR, 'escaped-task.json');
+      const invalid = {
+        ...before.tasks[0],
+        task_id: '../escaped-task',
+      };
+
+      assert.throws(() => learner.import({ ...before, total_tasks: 1, tasks: [invalid] }), /canonical UUID/);
+      assert.equal(existsSync(escapedPath), false);
+      assert.equal(learner.getStatistics().total_tasks, 1);
+
+      assert.throws(() => learner.import({ ...before, total_tasks: 1, tasks: [before.tasks[0]] }), /Duplicate imported task ID/);
+      assert.equal(learner.getStatistics().total_tasks, 1);
+
+      for (const mutation of [
+        { timestamp: 'not-a-date' },
+        { task_type: 'unknown' },
+        { outcome: 'unknown' },
+        { iterations: 0 },
+        { final_quality: 2 },
+        { tags: [42] },
+        { reflections: [{ iteration: 0, content: '', type: 'unknown', effectiveness: 'unknown' }] },
+      ]) {
+        const task = { ...before.tasks[0], task_id: randomUUID(), ...mutation };
+        assert.throws(() => learner.import({ ...before, total_tasks: 1, tasks: [task] }));
+      }
+      assert.throws(() => learner.import({ tasks: [] }), /versioned export envelope/);
+      assert.equal(learner.getStatistics().total_tasks, 1);
     });
   });
 

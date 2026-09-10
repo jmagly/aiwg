@@ -11,7 +11,7 @@ import { WatchConfig } from '../../../src/cli/config-loader.ts';
 
 async function waitFor(
   condition: () => boolean,
-  timeoutMs = 3000,
+  timeoutMs = 5000,
   pollIntervalMs = 25
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -96,16 +96,11 @@ describe('WatchService', () => {
 
       await service.start(config.patterns, config);
 
-      // Give watcher time to initialize (must wait for ready event)
-      await new Promise(resolve => setTimeout(resolve, 200));
-
       // Create file
       const filePath = resolve(testDir, 'new.md');
       await writeFile(filePath, 'Content', 'utf-8');
 
-      // Wait for awaitWriteFinish (200ms stability + 100ms poll) + debounce + processing
-      // Total: ~500ms minimum
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await waitFor(() => events.some(event => event.type === 'add'));
 
       expect(events.length).toBeGreaterThan(0);
       expect(events.some(e => e.type === 'add')).toBe(true);
@@ -123,16 +118,10 @@ describe('WatchService', () => {
       });
 
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Modify file
       await writeFile(filePath, 'Modified', 'utf-8');
-      // Poll through awaitWriteFinish + debounce + processing. Fixed sleeps are
-      // unreliable when the full integration suite is saturating the host.
-      const deadline = Date.now() + 5000;
-      while (service.getStats().eventsProcessed === 0 && Date.now() < deadline) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+      await waitFor(() => events.some(event => event.type === 'change'));
 
       expect(events.some(e => e.type === 'change')).toBe(true);
     }, 10000);
@@ -148,12 +137,10 @@ describe('WatchService', () => {
       });
 
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Delete file (use force option to avoid errors if file doesn't exist)
       await rm(filePath, { force: true });
-      // Wait for awaitWriteFinish + debounce + processing
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await waitFor(() => events.some(event => event.type === 'unlink'));
 
       expect(events.some(e => e.type === 'unlink')).toBe(true);
     }, 10000);
@@ -171,7 +158,6 @@ describe('WatchService', () => {
       });
 
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Make rapid changes
       for (let i = 0; i < 5; i++) {
@@ -179,11 +165,10 @@ describe('WatchService', () => {
         await new Promise(resolve => setTimeout(resolve, 20));
       }
 
-      // Wait for awaitWriteFinish + debounce + processing
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await waitFor(() => eventCount > 0);
 
       // Should have processed only once (debounced)
-      expect(eventCount).toBeLessThan(5);
+      expect(eventCount).toBe(1);
     }, 10000);
 
     it('should respect custom debounce time', async () => {
@@ -199,7 +184,6 @@ describe('WatchService', () => {
       // Use 500ms debounce
       config.debounce = 500;
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       await writeFile(filePath, 'Modified', 'utf-8');
 
@@ -233,12 +217,10 @@ describe('WatchService', () => {
       });
 
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       const filePath = resolve(testDir, 'callback.md');
       await writeFile(filePath, 'Content', 'utf-8');
-      // Wait for awaitWriteFinish + debounce + processing
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await waitFor(() => callback1Called && callback2Called);
 
       expect(callback1Called).toBe(true);
       expect(callback2Called).toBe(true);
@@ -254,12 +236,10 @@ describe('WatchService', () => {
       service.removeCallback(callback);
 
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       const filePath = resolve(testDir, 'removed.md');
       await writeFile(filePath, 'Content', 'utf-8');
-      // Wait for awaitWriteFinish + debounce + processing
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await waitFor(() => service.getStats().eventsProcessed > 0);
 
       expect(callbackCalled).toBe(false);
     }, 10000);
@@ -274,12 +254,10 @@ describe('WatchService', () => {
       });
 
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       const filePath = resolve(testDir, 'error.md');
       await writeFile(filePath, 'Content', 'utf-8');
-      // Wait for awaitWriteFinish + debounce + processing + error handling
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await waitFor(() => errorThrown && service.getStats().errors > 0);
 
       // Should not crash the service
       expect(service.running()).toBe(true);
@@ -298,12 +276,10 @@ describe('WatchService', () => {
       service.onFileChange(async () => {});
 
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       const filePath = resolve(testDir, 'stats.md');
       await writeFile(filePath, 'Content', 'utf-8');
-      // Wait for awaitWriteFinish + debounce + processing
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await waitFor(() => service.getStats().eventsProcessed > 0);
 
       const stats = service.getStats();
       expect(stats.eventsProcessed).toBeGreaterThan(0);
@@ -316,12 +292,10 @@ describe('WatchService', () => {
       });
 
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       const filePath = resolve(testDir, 'error-stats.md');
       await writeFile(filePath, 'Content', 'utf-8');
-      // Wait for awaitWriteFinish + debounce + processing
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await waitFor(() => service.getStats().errors > 0);
 
       const stats = service.getStats();
       expect(stats.errors).toBeGreaterThan(0);
@@ -332,12 +306,10 @@ describe('WatchService', () => {
       service.onFileChange(async () => {});
 
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       const filePath = resolve(testDir, 'reset.md');
       await writeFile(filePath, 'Content', 'utf-8');
-      // Wait for awaitWriteFinish + debounce + processing
-      await new Promise(resolve => setTimeout(resolve, 600));
+      await waitFor(() => service.getStats().eventsProcessed > 0);
 
       service.resetStats();
 
@@ -385,12 +357,10 @@ describe('WatchService', () => {
       await writeFile(resolve(testDir, 'watched.md'), 'Content', 'utf-8');
 
       await service.start(config.patterns, config);
-      await new Promise(resolve => setTimeout(resolve, 1000));
 
       const files = service.getWatchedFiles();
 
-      // Should have files (exact count depends on timing)
-      expect(Array.isArray(files)).toBe(true);
+      expect(files).toContain(resolve(testDir, 'watched.md'));
     }, 5000);
   });
 

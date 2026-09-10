@@ -33,12 +33,19 @@ export interface CodeReference {
   filePath: string;
   requirementIds: string[];
   lineNumbers: number[];
+  linkMetadata?: Map<string, LinkMetadata>;
 }
 
 export interface TestReference {
   filePath: string;
   requirementIds: string[];
   testNames: string[];
+  linkMetadata?: Map<string, LinkMetadata>;
+}
+
+interface LinkMetadata {
+  verified: boolean;
+  confidence: number;
 }
 
 export interface ScanResult {
@@ -308,12 +315,13 @@ export class TraceabilityChecker {
       // Find code references
       for (const [filePath, codeRef] of this.codeReferences) {
         if (codeRef.requirementIds.includes(reqId)) {
+          const metadata = codeRef.linkMetadata?.get(reqId);
           linkedItems.push({
             type: 'code',
             path: filePath,
             lineNumber: codeRef.lineNumbers[codeRef.requirementIds.indexOf(reqId)],
-            verified: true,
-            confidence: 1.0
+            verified: metadata?.verified ?? true,
+            confidence: metadata?.confidence ?? 1.0
           });
         }
       }
@@ -321,11 +329,12 @@ export class TraceabilityChecker {
       // Find test references
       for (const [filePath, testRef] of this.testReferences) {
         if (testRef.requirementIds.includes(reqId)) {
+          const metadata = testRef.linkMetadata?.get(reqId);
           linkedItems.push({
             type: 'test',
             path: filePath,
-            verified: true,
-            confidence: 1.0
+            verified: metadata?.verified ?? true,
+            confidence: metadata?.confidence ?? 1.0
           });
         }
       }
@@ -748,22 +757,25 @@ export class TraceabilityChecker {
    * Validate traceability against threshold
    */
   async validateTraceability(threshold: number): Promise<ValidationResult> {
+    if (typeof threshold !== 'number' || !Number.isFinite(threshold) || threshold < 0 || threshold > 1) {
+      throw new RangeError('Traceability threshold must be a finite number between 0 and 1');
+    }
     const coverage = await this.calculateCoverage();
-    const passed = coverage.percentage >= threshold * 100;
 
     const issues: string[] = [];
-    if (!passed) {
+    if (coverage.percentage < threshold * 100) {
       issues.push(`Coverage ${coverage.percentage.toFixed(1)}% is below threshold ${(threshold * 100).toFixed(1)}%`);
     }
 
     // Check P0 requirements
     const p0Coverage = coverage.byPriority.get('P0') || 0;
-    if (p0Coverage < 100) {
+    const hasP0Requirements = Array.from(this.requirements.values()).some(requirement => requirement.priority === 'P0');
+    if (hasP0Requirements && p0Coverage < 100) {
       issues.push(`P0 coverage ${p0Coverage.toFixed(1)}% is not 100%`);
     }
 
     return {
-      passed,
+      passed: issues.length === 0,
       coverage: coverage.percentage,
       threshold: threshold * 100,
       issues
@@ -816,6 +828,7 @@ export class TraceabilityChecker {
     if (!this.requirements.has(requirementId)) {
       throw new Error(`Requirement ${requirementId} not found`);
     }
+    this.validateLinkedItem(linkedItem);
 
     // Add to appropriate cache
     if (linkedItem.type === 'code') {
@@ -824,8 +837,15 @@ export class TraceabilityChecker {
         requirementIds: [],
         lineNumbers: []
       };
-      existing.requirementIds.push(requirementId);
-      existing.lineNumbers.push(linkedItem.lineNumber || 0);
+      const index = existing.requirementIds.indexOf(requirementId);
+      if (index === -1) {
+        existing.requirementIds.push(requirementId);
+        existing.lineNumbers.push(linkedItem.lineNumber ?? 0);
+      } else {
+        existing.lineNumbers[index] = linkedItem.lineNumber ?? existing.lineNumbers[index] ?? 0;
+      }
+      existing.linkMetadata ??= new Map();
+      existing.linkMetadata.set(requirementId, { verified: linkedItem.verified, confidence: linkedItem.confidence });
       this.codeReferences.set(linkedItem.path, existing);
     } else if (linkedItem.type === 'test') {
       const existing = this.testReferences.get(linkedItem.path) || {
@@ -833,8 +853,12 @@ export class TraceabilityChecker {
         requirementIds: [],
         testNames: []
       };
-      existing.requirementIds.push(requirementId);
+      if (!existing.requirementIds.includes(requirementId)) existing.requirementIds.push(requirementId);
+      existing.linkMetadata ??= new Map();
+      existing.linkMetadata.set(requirementId, { verified: linkedItem.verified, confidence: linkedItem.confidence });
       this.testReferences.set(linkedItem.path, existing);
+    } else {
+      throw new Error(`Manual link type ${linkedItem.type} is not supported`);
     }
   }
 
@@ -849,6 +873,7 @@ export class TraceabilityChecker {
       if (index !== -1) {
         codeRef.requirementIds.splice(index, 1);
         codeRef.lineNumbers.splice(index, 1);
+        codeRef.linkMetadata?.delete(requirementId);
       }
     }
 
@@ -858,6 +883,7 @@ export class TraceabilityChecker {
       const index = testRef.requirementIds.indexOf(requirementId);
       if (index !== -1) {
         testRef.requirementIds.splice(index, 1);
+        testRef.linkMetadata?.delete(requirementId);
       }
     }
   }
@@ -866,11 +892,23 @@ export class TraceabilityChecker {
    * Update a traceability link
    */
   async updateLink(requirementId: string, itemPath: string, updates: Partial<LinkedItem>): Promise<void> {
-    // For now, remove and re-add
-    await this.removeLink(requirementId, itemPath);
-    if (updates.type && updates.path) {
-      await this.addLink(requirementId, updates as LinkedItem);
+    const codeRef = this.codeReferences.get(itemPath);
+    const codeIndex = codeRef?.requirementIds.indexOf(requirementId) ?? -1;
+    const testRef = this.testReferences.get(itemPath);
+    const testIndex = testRef?.requirementIds.indexOf(requirementId) ?? -1;
+    let current: LinkedItem | null = null;
+    if (codeRef && codeIndex >= 0) {
+      const metadata = codeRef.linkMetadata?.get(requirementId);
+      current = { type: 'code', path: itemPath, lineNumber: codeRef.lineNumbers[codeIndex], verified: metadata?.verified ?? true, confidence: metadata?.confidence ?? 1 };
+    } else if (testRef && testIndex >= 0) {
+      const metadata = testRef.linkMetadata?.get(requirementId);
+      current = { type: 'test', path: itemPath, verified: metadata?.verified ?? true, confidence: metadata?.confidence ?? 1 };
     }
+    if (!current) throw new Error(`Link ${requirementId} -> ${itemPath} not found`);
+    const updated = { ...current, ...updates } as LinkedItem;
+    this.validateLinkedItem(updated);
+    await this.removeLink(requirementId, itemPath);
+    await this.addLink(requirementId, updated);
   }
 
   // Helper methods
@@ -927,5 +965,18 @@ export class TraceabilityChecker {
     }
 
     return (traced / reqs.length) * 100;
+  }
+
+  private validateLinkedItem(linkedItem: LinkedItem): void {
+    if ((linkedItem.type !== 'code' && linkedItem.type !== 'test') || typeof linkedItem.path !== 'string' || linkedItem.path.length === 0) {
+      throw new TypeError('Manual links require a non-empty path and a code or test type');
+    }
+    if (typeof linkedItem.verified !== 'boolean') throw new TypeError('Manual link verified must be boolean');
+    if (typeof linkedItem.confidence !== 'number' || !Number.isFinite(linkedItem.confidence) || linkedItem.confidence < 0 || linkedItem.confidence > 1) {
+      throw new RangeError('Manual link confidence must be a finite number between 0 and 1');
+    }
+    if (linkedItem.lineNumber !== undefined && (!Number.isInteger(linkedItem.lineNumber) || linkedItem.lineNumber < 0)) {
+      throw new RangeError('Manual link line number must be a non-negative integer');
+    }
   }
 }

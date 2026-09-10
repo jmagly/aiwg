@@ -94,6 +94,7 @@ export class BestOutputTracker {
       keep_all_iterations: config.keep_all_iterations !== false,
       quality_weights: { ...DEFAULT_WEIGHTS, ...(config.quality_weights || {}) },
     };
+    this.validateConfig();
 
     this.iterationsDir = join(this.config.storage_path, 'iterations');
     this.trackingFile = join(this.config.storage_path, 'best-output-tracking.json');
@@ -126,6 +127,13 @@ export class BestOutputTracker {
    * @returns {number} Score 0-100
    */
   calculateQualityScore(dimensions) {
+    const names = ['validation', 'completeness', 'correctness', 'readability', 'efficiency'];
+    for (const name of names) {
+      const value = dimensions?.[name];
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
+        throw new RangeError(`Quality dimension ${name} must be a finite number between 0 and 1`);
+      }
+    }
     const weights = this.config.quality_weights;
     const weighted =
       dimensions.validation * weights.validation +
@@ -270,6 +278,9 @@ export class BestOutputTracker {
     const selectable = this.iterations.filter(
       (it) => it.verification_status !== 'void' || it.eval_human_override === true
     );
+    if (selectable.length === 0) {
+      throw new Error('No selectable iterations: all iterations are VOID without human override');
+    }
 
     // Filter by threshold
     let candidates = selectable.filter(
@@ -286,7 +297,7 @@ export class BestOutputTracker {
     // If no candidates meet criteria, fall back to all non-VOID iterations
     // (never fall back to a VOID iteration).
     if (candidates.length === 0) {
-      candidates = selectable.length > 0 ? [...selectable] : [...this.iterations];
+      candidates = [...selectable];
     }
 
     let selected;
@@ -648,6 +659,22 @@ export class BestOutputTracker {
       total_cost_usd: totalCost,
       total_time_ms: totalTime,
     };
+  }
+
+  validateConfig() {
+    const { threshold } = this.config.selection;
+    if (typeof threshold !== 'number' || !Number.isFinite(threshold) || threshold < 0 || threshold > 100) {
+      throw new RangeError('Selection threshold must be a finite number between 0 and 100');
+    }
+    if (!['highest_quality', 'highest_quality_verified', 'most_recent_above_threshold'].includes(this.config.selection.mode)) {
+      throw new RangeError(`Unknown selection mode: ${this.config.selection.mode}`);
+    }
+    const weights = Object.values(this.config.quality_weights);
+    if (weights.length !== 5 || weights.some(weight => typeof weight !== 'number' || !Number.isFinite(weight) || weight < 0)) {
+      throw new RangeError('Quality weights must be five finite non-negative numbers');
+    }
+    const sum = weights.reduce((total, weight) => total + weight, 0);
+    if (Math.abs(sum - 1) > 1e-9) throw new RangeError('Quality weights must sum to 1');
   }
 }
 

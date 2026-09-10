@@ -139,9 +139,37 @@ export class MatrixGenerator {
    * Export matrix to Excel (TSV) format
    */
   exportToExcel(matrix: TraceabilityMatrix, options: MatrixExportOptions = { format: 'excel' }): string {
-    // Excel export is TSV (tab-separated values)
-    const csv = this.exportToCSV(matrix, options);
-    return csv.replace(/,/g, '\t');
+    const lines: string[] = [];
+    const headers = ['Requirement', 'Code Files', 'Tests', 'Documentation', 'Coverage'];
+    if (options.includeVerification) headers.push('Verified');
+    if (options.includeConfidence) headers.push('Confidence');
+    lines.push(headers.map(value => this.escapeTSV(value)).join('\t'));
+
+    for (let i = 0; i < matrix.requirements.length; i++) {
+      const reqId = matrix.requirements[i];
+      const row = matrix.links[i];
+      const linkedCode = row.filter(cell => cell.itemType === 'code' && cell.linked).map(cell => cell.itemPath);
+      const linkedTests = row.filter(cell => cell.itemType === 'test' && cell.linked).map(cell => cell.itemPath);
+      const linkedDocs = row.filter(cell => cell.itemType === 'documentation' && cell.linked).map(cell => cell.itemPath);
+      const coverage = (linkedCode.length > 0 ? 33 : 0) + (linkedTests.length > 0 ? 33 : 0) + (linkedDocs.length > 0 ? 34 : 0);
+      const fields = [
+        reqId,
+        linkedCode.join('; ') || 'NONE',
+        linkedTests.join('; ') || 'NONE',
+        linkedDocs.join('; ') || 'NONE',
+        `${coverage}%`
+      ];
+      if (options.includeVerification) {
+        fields.push(row.every(cell => !cell.linked || cell.verified) ? 'YES' : 'NO');
+      }
+      if (options.includeConfidence) {
+        const average = row.length > 0 ? row.reduce((sum, cell) => sum + cell.confidence, 0) / row.length : 0;
+        fields.push(`${(average * 100).toFixed(1)}%`);
+      }
+      lines.push(fields.map(value => this.escapeTSV(value)).join('\t'));
+    }
+
+    return lines.join('\n');
   }
 
   /**
@@ -307,6 +335,14 @@ export class MatrixGenerator {
    */
   private escapeCSV(value: string): string {
     if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  }
+
+  /** Escape a value without changing commas, which are ordinary TSV data. */
+  private escapeTSV(value: string): string {
+    if (value.includes('\t') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
       return `"${value.replace(/"/g, '""')}"`;
     }
     return value;

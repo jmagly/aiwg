@@ -89,6 +89,12 @@ const DEFAULT_CONFIG = {
   max_age_days: 90,
 };
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TASK_TYPES = new Set(['implementation', 'debugging', 'refactoring', 'testing', 'documentation', 'architecture', 'research']);
+const OUTCOMES = new Set(['success', 'partial', 'failure']);
+const REFLECTION_TYPES = new Set(['error_analysis', 'strategy_change', 'success_pattern', 'constraint_discovery']);
+const EFFECTIVENESS = new Set(['helpful', 'neutral', 'unhelpful']);
+
 // Common action verbs for tag extraction
 const ACTION_VERBS = new Set([
   'implement', 'fix', 'add', 'remove', 'update', 'refactor', 'optimize',
@@ -113,6 +119,7 @@ export class CrossTaskLearner {
    */
   constructor(config = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.validateRetrievalOptions(this.config);
 
     // Storage paths
     this.memoryPath = this.config.memory_path;
@@ -178,6 +185,9 @@ export class CrossTaskLearner {
    * @returns {TaskRecord|null}
    */
   loadTask(taskId) {
+    if (!UUID_PATTERN.test(taskId)) {
+      return null;
+    }
     const taskFile = join(this.tasksDir, `${taskId}.json`);
     if (!existsSync(taskFile)) {
       return null;
@@ -197,6 +207,7 @@ export class CrossTaskLearner {
    * @param {TaskRecord} task - Task record
    */
   saveTask(task) {
+    this.validateTaskRecord(task);
     const taskFile = join(this.tasksDir, `${task.task_id}.json`);
     writeFileSync(taskFile, JSON.stringify(task, null, 2), 'utf8');
   }
@@ -416,9 +427,10 @@ export class CrossTaskLearner {
    * @returns {SimilarTask[]}
    */
   findSimilarTasks(description, options = {}) {
-    const topK = options.top_k || this.config.top_k;
-    const threshold = options.similarity_threshold || this.config.similarity_threshold;
-    const maxAgeDays = options.max_age_days || this.config.max_age_days;
+    const topK = options.top_k ?? this.config.top_k;
+    const threshold = options.similarity_threshold ?? this.config.similarity_threshold;
+    const maxAgeDays = options.max_age_days ?? this.config.max_age_days;
+    this.validateRetrievalOptions({ top_k: topK, similarity_threshold: threshold, max_age_days: maxAgeDays });
 
     // Extract tags from query description
     const queryTags = this.extractTags(description);
@@ -714,8 +726,19 @@ export class CrossTaskLearner {
    * @param {Object} data - Exported data
    */
   import(data) {
-    if (!data.tasks || !Array.isArray(data.tasks)) {
-      throw new Error('Invalid import data: missing tasks array');
+    if (!data || typeof data !== 'object' || data.version !== '1.0.0' || typeof data.exported_at !== 'string' || !Number.isFinite(Date.parse(data.exported_at)) || !Array.isArray(data.tasks) || !Number.isInteger(data.total_tasks) || data.total_tasks !== data.tasks.length) {
+      throw new Error('Invalid import data: expected a versioned export envelope with an exact task count');
+    }
+
+    // Validate the complete transaction before writing any task or index data.
+    const importedIds = new Set();
+    const existingIds = new Set(this.index.tasks.map(task => task.task_id));
+    for (const task of data.tasks) {
+      this.validateTaskRecord(task);
+      if (importedIds.has(task.task_id) || existingIds.has(task.task_id)) {
+        throw new Error(`Duplicate imported task ID: ${task.task_id}`);
+      }
+      importedIds.add(task.task_id);
     }
 
     // Import each task
@@ -760,5 +783,39 @@ export class CrossTaskLearner {
     };
 
     this.saveIndex();
+  }
+
+  validateRetrievalOptions(options) {
+    if (!Number.isInteger(options.top_k) || options.top_k < 0) {
+      throw new RangeError('top_k must be a non-negative integer');
+    }
+    if (typeof options.similarity_threshold !== 'number' || !Number.isFinite(options.similarity_threshold) || options.similarity_threshold < 0 || options.similarity_threshold > 1) {
+      throw new RangeError('similarity_threshold must be a finite number between 0 and 1');
+    }
+    if (!Number.isInteger(options.max_age_days) || options.max_age_days < 0) {
+      throw new RangeError('max_age_days must be a non-negative integer');
+    }
+  }
+
+  validateTaskRecord(task) {
+    if (!task || typeof task !== 'object') throw new TypeError('Task record must be an object');
+    if (typeof task.task_id !== 'string' || !UUID_PATTERN.test(task.task_id)) throw new TypeError('Task ID must be a canonical UUID');
+    if (typeof task.task_description !== 'string' || task.task_description.trim().length === 0) throw new TypeError('Task description must be a non-empty string');
+    if (!TASK_TYPES.has(task.task_type)) throw new TypeError(`Invalid task type: ${task.task_type}`);
+    if (!OUTCOMES.has(task.outcome)) throw new TypeError(`Invalid task outcome: ${task.outcome}`);
+    if (typeof task.timestamp !== 'string' || !Number.isFinite(Date.parse(task.timestamp))) throw new TypeError('Task timestamp must be a valid date-time');
+    if (!Number.isInteger(task.iterations) || task.iterations < 1) throw new RangeError('Task iterations must be a positive integer');
+    if (typeof task.final_quality !== 'number' || !Number.isFinite(task.final_quality) || task.final_quality < 0 || task.final_quality > 1) throw new RangeError('Task final_quality must be between 0 and 1');
+    for (const field of ['reflections', 'key_learnings', 'tags']) {
+      if (!Array.isArray(task[field])) throw new TypeError(`Task ${field} must be an array`);
+    }
+    if (task.key_learnings.some(value => typeof value !== 'string') || task.tags.some(value => typeof value !== 'string')) {
+      throw new TypeError('Task learnings and tags must contain only strings');
+    }
+    for (const reflection of task.reflections) {
+      if (!reflection || typeof reflection !== 'object' || !Number.isInteger(reflection.iteration) || reflection.iteration < 1 || typeof reflection.content !== 'string' || reflection.content.trim().length === 0 || !REFLECTION_TYPES.has(reflection.type) || !EFFECTIVENESS.has(reflection.effectiveness)) {
+        throw new TypeError('Task reflections must satisfy the reflection schema');
+      }
+    }
   }
 }

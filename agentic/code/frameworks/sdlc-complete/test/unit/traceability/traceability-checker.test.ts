@@ -216,6 +216,7 @@ export class Foo {
       const testCases = [
         { id: 'UC-001', expected: { prefix: 'UC', number: '001' } },
         { id: 'NFR-PERF-001', expected: { prefix: 'NFR', category: 'PERF', number: '001' } },
+        { id: 'NFR-SECURITY-999', expected: { prefix: 'NFR', category: 'SECURITY', number: '999' } },
         { id: 'US-042', expected: { prefix: 'US', number: '042' } },
         { id: 'F-005', expected: { prefix: 'F', number: '005' } },
         { id: 'INVALID', expected: null },
@@ -369,11 +370,27 @@ describe('MatrixGenerator', () => {
     });
 
     it('should export to Excel (TSV)', () => {
-      const matrix = createTestMatrix();
-      const tsv = generator.exportToExcel(matrix);
+      const matrix = createTestMatrix('src/file,with\ttab"and\nnewline.ts');
+      const tsv = generator.exportToExcel(matrix, { format: 'excel', includeVerification: true, includeConfidence: true });
 
       expect(tsv).toContain('\t');
-      expect(tsv).not.toContain(',');
+      expect(tsv).toContain('file,with');
+      expect(tsv).toContain('""and');
+
+      const logicalRows = tsv.match(/(?:[^"\n]|"(?:[^"]|"")*")+(?:\n|$)/g) ?? [];
+      expect(logicalRows).toHaveLength(2);
+      const countFields = (row: string) => {
+        let fields = 1;
+        let quoted = false;
+        for (let i = 0; i < row.length; i++) {
+          if (row[i] === '"' && row[i + 1] === '"') i++;
+          else if (row[i] === '"') quoted = !quoted;
+          else if (row[i] === '\t' && !quoted) fields++;
+        }
+        return fields;
+      };
+      expect(countFields(logicalRows[0])).toBe(7);
+      expect(countFields(logicalRows[1])).toBe(7);
     });
   });
 });
@@ -543,13 +560,7 @@ it('should handle errors', () => {});
       expect(result.scanTime).toBeGreaterThan(0);
     });
 
-    it('should complete scan in <1min for 1000 files (NFR-TRACE-001)', async () => {
-      // This is a performance test - skip in normal runs
-      // To enable, set environment variable: RUN_PERF_TESTS=true
-      if (!process.env.RUN_PERF_TESTS) {
-        return;
-      }
-
+    it.skipIf(!process.env.RUN_PERF_TESTS)('should complete scan in <1min for 1000 files (NFR-TRACE-001)', async () => {
       // Create 1000 small files
       await sandbox.createDirectory('src');
       for (let i = 0; i < 1000; i++) {
@@ -679,12 +690,7 @@ it('should handle errors', () => {});
       expect(matrix.links.length).toBeGreaterThan(0);
     });
 
-    it('should generate matrix in <30s for 1000 requirements (NFR-TRACE-05)', async () => {
-      // Performance test - skip in normal runs
-      if (!process.env.RUN_PERF_TESTS) {
-        return;
-      }
-
+    it.skipIf(!process.env.RUN_PERF_TESTS)('should generate matrix in <30s for 1000 requirements (NFR-TRACE-05)', async () => {
       // Create 1000 requirements
       await sandbox.createDirectory('.aiwg/requirements');
       for (let i = 0; i < 1000; i++) {
@@ -810,6 +816,20 @@ it('should handle errors', () => {});
       expect(result.passed).toBe(false);
       expect(result.issues.length).toBeGreaterThan(0);
     });
+
+    it('should reject invalid thresholds and never pass with blocking P0 gaps', async () => {
+      for (const threshold of [-0.01, 1.01, Number.NaN, Number.POSITIVE_INFINITY]) {
+        await expect(checker.validateTraceability(threshold)).rejects.toThrow(/finite number between 0 and 1/);
+      }
+      await expect(checker.validateTraceability('0.8' as unknown as number)).rejects.toThrow(/finite number between 0 and 1/);
+
+      await sandbox.createDirectory('.aiwg/requirements');
+      await sandbox.writeFile('.aiwg/requirements/p0.md', '# UC-001\n**Priority**: P0');
+      await checker.scanAll();
+      const result = await checker.validateTraceability(0);
+      expect(result.passed).toBe(false);
+      expect(result.issues).toContain('P0 coverage 0.0% is not 100%');
+    });
   });
 
   describe('checkConstructionGate', () => {
@@ -871,6 +891,9 @@ it('should handle errors', () => {});
 
       expect(link.linkedItems.some(item => item.path === 'src/new-file.ts')).toBe(true);
       expect(link.linkedItems.some(item => item.path === 'test/new-test.test.ts')).toBe(true);
+      const addedCode = link.linkedItems.find(item => item.path === 'src/new-file.ts')!;
+      expect(addedCode.verified).toBe(true);
+      expect(addedCode.confidence).toBe(1);
 
       // Remove link
       await checker.removeLink('UC-001', sandbox.getPath() + '/src/engine.ts');
@@ -879,18 +902,43 @@ it('should handle errors', () => {});
       expect(link.linkedItems.some(item => item.path.includes('engine.ts'))).toBe(false);
 
       // Update link
-      const oldPath = sandbox.getPath() + '/src/new-file.ts';
-      const newPath = sandbox.getPath() + '/src/updated-file.ts';
+      const oldPath = 'src/new-file.ts';
+      const newPath = 'src/updated-file.ts';
       await checker.updateLink('UC-001', oldPath, {
-        type: 'code',
-        path: newPath,
-        verified: true,
         confidence: 0.9
       });
 
       links = await checker.buildTraceabilityLinks();
       link = links.get('UC-001')!;
-      expect(link.linkedItems.some(item => item.path === newPath)).toBe(true);
+      expect(link.linkedItems.find(item => item.path === oldPath)).toMatchObject({
+        type: 'code', verified: true, confidence: 0.9
+      });
+
+      await checker.updateLink('UC-001', oldPath, { path: newPath });
+
+      links = await checker.buildTraceabilityLinks();
+      link = links.get('UC-001')!;
+      const updated = link.linkedItems.find(item => item.path === newPath)!;
+      expect(updated).toMatchObject({ type: 'code', verified: true, confidence: 0.9 });
+
+      await checker.addLink('UC-001', {
+        type: 'code',
+        path: 'src/unverified.ts',
+        lineNumber: 7,
+        verified: false,
+        confidence: 0.25
+      });
+      await checker.addLink('UC-001', {
+        type: 'code',
+        path: 'src/unverified.ts',
+        lineNumber: 8,
+        verified: false,
+        confidence: 0.5
+      });
+      link = (await checker.buildTraceabilityLinks()).get('UC-001')!;
+      const unverified = link.linkedItems.filter(item => item.path === 'src/unverified.ts');
+      expect(unverified).toHaveLength(1);
+      expect(unverified[0]).toMatchObject({ lineNumber: 8, verified: false, confidence: 0.5 });
     });
 
     it('should throw error for non-existent requirement', async () => {

@@ -167,7 +167,7 @@ export class IDExtractor {
     }
 
     // NFR: NFR-PERF-001
-    const nfrMatch = id.match(/^(NFR)-([A-Z]{3,6})-(\d{3})$/);
+    const nfrMatch = id.match(/^(NFR)-([A-Z]{3,10})-(\d{3})$/);
     if (nfrMatch) {
       return { prefix: nfrMatch[1], category: nfrMatch[2], number: nfrMatch[3] };
     }
