@@ -9,6 +9,8 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Fixed
 
+- Preserve required runtime and idempotency extension activation when forwarding mission approval replies (#2310).
+
 - Route public mission approvals over the task's negotiated A2A transport, retaining prompt correlation,
   validating pending responses and rejecting duplicate submissions (#2310).
 
