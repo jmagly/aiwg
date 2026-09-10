@@ -72,7 +72,11 @@ export class MultiLoopGiteaReporter {
       analysis: progress.analysis,
     });
 
-    this.tracker.postProgressComment(issueNumber, progress.iteration, progress.analysis || {});
+    this.tracker.apiCall(
+      'POST',
+      `/repos/${this.tracker.owner}/${this.tracker.repo}/issues/${issueNumber}/comments`,
+      { body }
+    );
 
     return issueNumber;
   }
