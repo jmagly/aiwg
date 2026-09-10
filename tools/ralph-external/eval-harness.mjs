@@ -119,7 +119,10 @@ export class EvalHarness {
     const trimmed = (stdout || '').trim();
     if (!trimmed) return {};
     try {
-      return JSON.parse(trimmed);
+      const parsed = JSON.parse(trimmed);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed
+        : { raw_text: trimmed };
     } catch {
       return { raw_text: trimmed };
     }
@@ -152,13 +155,17 @@ export class EvalHarness {
     }
 
     // 2. Score — aggregate pass/total/score.
+    let scoreError = false;
     if (this.contract.score?.command) {
       const r = this._run(this.contract.score.command, { cwd: this.workingDir });
       const parsed = this._parse(r.stdout);
       privateDiagnostics.instruments.score = { code: r.code, ...parsed };
-      if (typeof parsed.score === 'number') raw.score = parsed.score;
-      if (typeof parsed.pass_count === 'number') raw.pass_count = parsed.pass_count;
-      if (typeof parsed.total_count === 'number') raw.total_count = parsed.total_count;
+      scoreError = r.code !== 0 || !this._validScorePayload(parsed);
+      if (!scoreError) {
+        if (typeof parsed.score === 'number') raw.score = parsed.score;
+        if (typeof parsed.pass_count === 'number') raw.pass_count = parsed.pass_count;
+        if (typeof parsed.total_count === 'number') raw.total_count = parsed.total_count;
+      }
       // Carry through any forbidden fields the harness emitted so the leakage
       // audit can catch a misconfigured harness — they are stripped below.
       for (const f of this.forbiddenFields) {
@@ -184,6 +191,9 @@ export class EvalHarness {
       status = 'void';
       raw.status = 'void';
       raw.void_reason = voidReason;
+    } else if (scoreError) {
+      status = 'error';
+      raw.status = 'error';
     } else if (raw.total_count > 0) {
       status = raw.pass_count === raw.total_count ? 'pass' : 'fail';
     } else if (typeof raw.score === 'number') {
@@ -224,5 +234,19 @@ export class EvalHarness {
       human_override: status === 'void' ? humanOverride : false,
       _forbidden_fields_seen: leaked,
     };
+  }
+
+  _validScorePayload(parsed) {
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.raw_text === 'string') return false;
+    const hasScore = parsed.score !== undefined;
+    const hasPass = parsed.pass_count !== undefined;
+    const hasTotal = parsed.total_count !== undefined;
+    if (!hasScore && !hasPass && !hasTotal) return false;
+    if (hasScore && (typeof parsed.score !== 'number' || !Number.isFinite(parsed.score) || parsed.score < 0 || parsed.score > 100)) return false;
+    if (hasPass !== hasTotal) return false;
+    if (hasPass) {
+      if (!Number.isInteger(parsed.pass_count) || parsed.pass_count < 0 || !Number.isInteger(parsed.total_count) || parsed.total_count <= 0 || parsed.pass_count > parsed.total_count) return false;
+    }
+    return true;
   }
 }

@@ -6,7 +6,8 @@
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { existsSync, mkdirSync, rmSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, rmSync, readFileSync, writeFileSync, lstatSync, readlinkSync, symlinkSync, unlinkSync } from 'fs';
+import { spawnSync } from 'node:child_process';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
@@ -121,19 +122,19 @@ describe('ExternalMultiLoopStateManager', () => {
 
     it('should create new loop with explicit ID', async () => {
       const config = {
-        loopId: 'ralph-explicit-loop-id',
+        loopId: 'ralph-explicit-loop-deadbeef',
         objective: 'Fix all tests',
         completionCriteria: 'npm test passes',
       };
 
       const { loopId, state } = await manager.createLoop(config);
 
-      assert.strictEqual(loopId, 'ralph-explicit-loop-id');
-      assert.strictEqual(state.loopId, 'ralph-explicit-loop-id');
-      assert(existsSync(manager.getLoopDir('ralph-explicit-loop-id')));
+      assert.strictEqual(loopId, 'ralph-explicit-loop-deadbeef');
+      assert.strictEqual(state.loopId, 'ralph-explicit-loop-deadbeef');
+      assert(existsSync(manager.getLoopDir('ralph-explicit-loop-deadbeef')));
 
       const registry = manager.loadRegistry();
-      assert.strictEqual(registry.active_loops[0].loop_id, 'ralph-explicit-loop-id');
+      assert.strictEqual(registry.active_loops[0].loop_id, 'ralph-explicit-loop-deadbeef');
     });
 
     it('should enforce MAX_CONCURRENT_LOOPS', async () => {
@@ -180,7 +181,18 @@ describe('ExternalMultiLoopStateManager', () => {
       assert.strictEqual(registry.active_loops.length, 5);
     });
 
-    it('should create legacy symlink for single loop', async () => {
+    it('should create legacy symlink for single loop', async (t) => {
+      const probe = join(testRoot, 'symlink-probe');
+      try {
+        symlinkSync('target', probe);
+        unlinkSync(probe);
+      } catch (error) {
+        if (process.platform === 'win32' && ['EPERM', 'EACCES', 'ENOSYS'].includes(error.code)) {
+          t.skip(`Symlink prerequisite unavailable: ${error.code}`);
+          return;
+        }
+        throw error;
+      }
       const { loopId } = await manager.createLoop({
         objective: 'Single task',
         completionCriteria: 'done',
@@ -188,13 +200,9 @@ describe('ExternalMultiLoopStateManager', () => {
 
       const legacyPath = join(manager.baseDir, 'session-state.json');
 
-      // Symlink may not be supported on all platforms
-      if (existsSync(legacyPath)) {
-        // Verify it points to loop state
-        const content = readFileSync(legacyPath, 'utf8');
-        const state = JSON.parse(content);
-        assert.strictEqual(state.loopId, loopId);
-      }
+      assert(lstatSync(legacyPath).isSymbolicLink());
+      assert.strictEqual(readlinkSync(legacyPath), join('loops', loopId, 'session-state.json'));
+      assert.strictEqual(JSON.parse(readFileSync(legacyPath, 'utf8')).loopId, loopId);
     });
   });
 
@@ -308,8 +316,9 @@ describe('ExternalMultiLoopStateManager', () => {
         completionCriteria: 'done',
       });
 
-      // Set to unlikely PID
+      // Model a dead process explicitly; an arbitrary PID may be live on CI.
       await manager.updateLoopPid(loopId, 99999);
+      manager.processExists = pid => { assert.strictEqual(pid, 99999); return false; };
 
       assert.strictEqual(manager.isLoopAlive(loopId), false);
     });
@@ -374,8 +383,9 @@ describe('ExternalMultiLoopStateManager', () => {
         completionCriteria: 'done',
       });
 
-      // Set to unlikely dead PID
+      // Inject the process boundary rather than assuming a PID is unused.
       await manager.updateLoopPid(loopId, 99999);
+      manager.processExists = pid => { assert.strictEqual(pid, 99999); return false; };
 
       const crashed = manager.detectCrashedLoops();
 
@@ -391,6 +401,7 @@ describe('ExternalMultiLoopStateManager', () => {
 
       manager.updateLoop(loopId, { status: 'paused' });
       await manager.updateLoopPid(loopId, 99999);
+      manager.processExists = () => { assert.fail('Paused loops must not probe process liveness'); };
 
       const crashed = manager.detectCrashedLoops();
 
@@ -411,6 +422,26 @@ describe('ExternalMultiLoopStateManager', () => {
   });
 
   describe('file locking', () => {
+    it('rejects a corrupt lock within bounded attempts without a synchronous hang', () => {
+      manager.ensureBaseDir();
+      writeFileSync(manager.lockPath, '{broken');
+      const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+        import assert from 'node:assert/strict';
+        import { ExternalMultiLoopStateManager } from ${JSON.stringify(new URL('./external-multi-loop-state-manager.mjs', import.meta.url).href)};
+        const manager = new ExternalMultiLoopStateManager(process.argv[1]);
+        manager.maxLockAttempts = 2;
+        let waits = 0;
+        manager.sleep = async () => { waits++; };
+        await assert.rejects(manager.acquireLock('corrupt-probe'), /after 2 attempts/);
+        assert.equal(waits, 1);
+        console.log('bounded-rejection');
+      `, testRoot], { encoding: 'utf8', timeout: 5000 });
+      assert.ifError(result.error);
+      assert.strictEqual(result.status, 0, result.stderr);
+      assert.strictEqual(result.stdout.trim(), 'bounded-rejection');
+      assert.strictEqual(readFileSync(manager.lockPath, 'utf8'), '{broken');
+    });
+
     it('should acquire and release lock', async () => {
       const { acquired } = await manager.acquireLock('test-lock');
 
@@ -468,6 +499,117 @@ describe('ExternalMultiLoopStateManager', () => {
   });
 
   describe('path helpers', () => {
+    for (const status of ['completed', 'failed', 'aborted', 'limit_reached', 'budget_exhausted', 'plateau', 'interrupted']) {
+      it(`archives the real orchestrator terminal status ${status}`, async () => {
+        const { loopId } = await manager.createLoop({ objective: 'terminal status', completionCriteria: 'done' });
+        manager.updateLoop(loopId, { status });
+        await manager.archiveLoop(loopId);
+        const archived = JSON.parse(readFileSync(join(manager.archiveDir, loopId, 'session-state.json'), 'utf8'));
+        assert.strictEqual(archived.status, status);
+        assert(!existsSync(manager.getLoopDir(loopId)));
+        const registry = manager.loadRegistry();
+        assert.deepStrictEqual(registry.active_loops, []);
+        assert.strictEqual(registry.total_completed, status === 'completed' ? 1 : 0);
+        assert.strictEqual(registry.total_aborted, status === 'completed' ? 0 : 1);
+      });
+    }
+
+    it('migrates legacy state and artifacts once without losing contents', async () => {
+      manager.ensureBaseDir();
+      const legacy = { objective: 'Legacy task', completionCriteria: 'done', status: 'paused', currentIteration: 2, maxIterations: 5, currentPid: null };
+      const legacyPath = join(manager.baseDir, 'session-state.json');
+      writeFileSync(legacyPath, JSON.stringify(legacy));
+      for (const name of ['iterations', 'prompts', 'outputs', 'analysis', 'checkpoints']) {
+        mkdirSync(join(manager.baseDir, name));
+        writeFileSync(join(manager.baseDir, name, 'preserved.txt'), name);
+      }
+      assert.strictEqual(await manager.migrateLegacyState(), true);
+      const registry = manager.loadRegistry();
+      assert.strictEqual(registry.active_loops.length, 1);
+      const entry = registry.active_loops[0];
+      assert.strictEqual(entry.task_summary, 'Legacy task');
+      assert.strictEqual(entry.status, 'paused');
+      assert.strictEqual(entry.iteration, 2);
+      assert.strictEqual(entry.max_iterations, 5);
+      assert.deepStrictEqual(manager.getLoop(entry.loop_id), legacy);
+      for (const name of ['iterations', 'prompts', 'outputs', 'analysis', 'checkpoints']) {
+        assert(!existsSync(join(manager.baseDir, name)));
+        assert.strictEqual(readFileSync(join(manager.getLoopDir(entry.loop_id), name, 'preserved.txt'), 'utf8'), name);
+      }
+      assert.strictEqual(await manager.migrateLegacyState(), false);
+      assert.deepStrictEqual(manager.loadRegistry(), registry);
+      assert(!existsSync(manager.lockPath));
+    });
+
+    it('leaves missing or malformed legacy state untouched and releases the lock', async () => {
+      assert.strictEqual(await manager.migrateLegacyState(), false);
+      manager.ensureBaseDir();
+      const legacyPath = join(manager.baseDir, 'session-state.json');
+      writeFileSync(legacyPath, '{broken');
+      await assert.rejects(manager.migrateLegacyState(), SyntaxError);
+      assert.strictEqual(readFileSync(legacyPath, 'utf8'), '{broken');
+      assert(!existsSync(manager.lockPath));
+    });
+
+    it('does not replace regular legacy state while creating another loop', async () => {
+      manager.ensureBaseDir();
+      const legacyPath = join(manager.baseDir, 'session-state.json');
+      writeFileSync(legacyPath, '{"owned":"legacy"}');
+      await manager.createLoop({ objective: 'new loop', completionCriteria: 'done' });
+      assert.strictEqual(readFileSync(legacyPath, 'utf8'), '{"owned":"legacy"}');
+      assert(lstatSync(legacyPath).isFile());
+    });
+
+    it('rejects unsafe identities in every public path boundary', async () => {
+      for (const loopId of ['../../escaped', '../loop', '/tmp/loop', 'ralph-a/b-deadbeef', 'ralph-a\\b-deadbeef', '', '.', '..']) {
+        for (const method of ['getLoop', 'getLoopDir', 'isLoopAlive']) {
+          assert.throws(() => manager[method](loopId), /loopId/);
+        }
+        for (const method of ['getIterationDir', 'getPromptPath', 'getOutputPaths']) {
+          assert.throws(() => manager[method](loopId, 1), /loopId/);
+        }
+        assert.throws(() => manager.updateLoop(loopId, {}), /loopId/);
+        await assert.rejects(manager.archiveLoop(loopId), /loopId/);
+        await assert.rejects(manager.updateLoopPid(loopId, process.pid), /loopId/);
+        await assert.rejects(manager.createLoop({ loopId, objective: 'test', completionCriteria: 'done' }), /loopId/);
+      }
+      assert(!existsSync(manager.baseDir), 'invalid input must not create persistent state');
+    });
+
+    it('generates usable identities for punctuation and truncated separators', async () => {
+      for (const objective of ['!!!', `${'a'.repeat(29)} b`]) {
+        const { loopId } = await manager.createLoop({ objective, completionCriteria: 'done' });
+        assert.match(loopId, /^ralph-[a-z0-9]+(?:-[a-z0-9]+)*-[a-f0-9]{8}$/);
+        assert.strictEqual(manager.getLoop(loopId).objective, objective);
+      }
+    });
+
+    it('rejects duplicate identities without modifying state or registry', async () => {
+      const config = { loopId: 'ralph-duplicate-deadbeef', objective: 'first', completionCriteria: 'done' };
+      await manager.createLoop(config);
+      const statePath = join(manager.getLoopDir(config.loopId), 'session-state.json');
+      const state = readFileSync(statePath, 'utf8');
+      const registry = manager.loadRegistry();
+      await assert.rejects(manager.createLoop({ ...config, objective: 'overwrite' }), /already exists/);
+      assert.strictEqual(readFileSync(statePath, 'utf8'), state);
+      assert.deepStrictEqual(manager.loadRegistry(), registry);
+    });
+
+    it('rejects invalid creation options before creating state', async () => {
+      for (const [field, values] of [
+        ['objective', ['', ' ', null]], ['completionCriteria', ['', null]],
+        ['maxIterations', [0, -1, 1.5, Infinity]],
+        ['budgetPerIteration', [0, -1, NaN, Infinity, '5']],
+        ['timeoutMinutes', [0, -1, NaN, Infinity]],
+        ['priority', ['invalid']], ['tags', ['tag', [1]]],
+      ]) {
+        for (const value of values) {
+          await assert.rejects(manager.createLoop({ objective: 'test', completionCriteria: 'done', [field]: value }), new RegExp(field));
+        }
+      }
+      assert(!existsSync(manager.baseDir));
+    });
+
     it('should generate correct paths', async () => {
       const { loopId } = await manager.createLoop({
         objective: 'Test task',

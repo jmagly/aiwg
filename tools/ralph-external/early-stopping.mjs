@@ -49,13 +49,15 @@ const DEFAULT_CONFIG = {
   enableDiminishingReturns: true,
 };
 
+const VERIFICATION_STATUSES = new Set(['passed', 'failed', 'skipped', 'void']);
+
 export class EarlyStopping {
   /**
    * @param {Partial<EarlyStoppingConfig>} config - Configuration
    * @param {import('./iteration-analytics.mjs').IterationAnalytics} [iterationAnalytics] - Analytics instance
    */
   constructor(config = {}, iterationAnalytics = null) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.config = this.validateConfig({ ...DEFAULT_CONFIG, ...config });
     this.iterationHistory = [];
     this.iterationAnalytics = iterationAnalytics;
     this.stoppingReason = null;
@@ -68,6 +70,7 @@ export class EarlyStopping {
    * @param {IterationResult} result - Iteration result
    */
   recordIterationResult(iteration, result) {
+    this.validateIterationResult(iteration, result);
     const record = {
       iteration_number: iteration,
       quality_score: result.quality_score,
@@ -322,7 +325,7 @@ export class EarlyStopping {
    * @param {Partial<EarlyStoppingConfig>} options - Configuration options
    */
   configure(options) {
-    this.config = { ...this.config, ...options };
+    this.config = this.validateConfig({ ...this.config, ...options });
   }
 
   /**
@@ -378,6 +381,40 @@ export class EarlyStopping {
       config: this.config,
       details: stopDecision.details,
     };
+  }
+
+  validateConfig(config) {
+    const finiteRange = (name, value, min, max) => {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+        throw new RangeError(`${name} must be a finite number between ${min} and ${max}`);
+      }
+    };
+    finiteRange('highConfidenceThreshold', config.highConfidenceThreshold, 0, 1);
+    finiteRange('plateauImprovementThreshold', config.plateauImprovementThreshold, 0, 1);
+    finiteRange('minQualityThreshold', config.minQualityThreshold, 0, 100);
+    if (!Number.isInteger(config.plateauConsecutiveCount) || config.plateauConsecutiveCount < 2) {
+      throw new RangeError('plateauConsecutiveCount must be an integer of at least 2');
+    }
+    for (const name of ['requireVerification', 'enablePlateauDetection', 'enableDiminishingReturns']) {
+      if (typeof config[name] !== 'boolean') throw new TypeError(`${name} must be boolean`);
+    }
+    return { ...config };
+  }
+
+  validateIterationResult(iteration, result) {
+    if (!Number.isInteger(iteration) || iteration < 1) throw new RangeError('iteration must be a positive integer');
+    if (!result || typeof result !== 'object') throw new TypeError('iteration result must be an object');
+    if (typeof result.quality_score !== 'number' || !Number.isFinite(result.quality_score) || result.quality_score < 0 || result.quality_score > 100) {
+      throw new RangeError('quality_score must be a finite number between 0 and 100');
+    }
+    if (typeof result.confidence !== 'number' || !Number.isFinite(result.confidence) || result.confidence < 0 || result.confidence > 1) {
+      throw new RangeError('confidence must be a finite number between 0 and 1');
+    }
+    if (typeof result.quality_delta !== 'number' || !Number.isFinite(result.quality_delta)) throw new TypeError('quality_delta must be finite');
+    if (!VERIFICATION_STATUSES.has(result.verification_status)) throw new TypeError(`Invalid verification_status: ${result.verification_status}`);
+    if (result.timestamp !== undefined && (typeof result.timestamp !== 'string' || !Number.isFinite(Date.parse(result.timestamp)))) {
+      throw new TypeError('timestamp must be a valid date-time string');
+    }
   }
 }
 

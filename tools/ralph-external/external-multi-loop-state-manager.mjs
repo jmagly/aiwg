@@ -74,6 +74,9 @@ const MAX_CONCURRENT_LOOPS = 4; // REF-086, REF-088
 const LOCK_LEASE_MS = 30000; // 30 second lease
 const LOCK_RETRY_MS = 100;
 const MAX_LOCK_ATTEMPTS = 300; // 30 seconds total wait
+const LOOP_ID_PATTERN = /^ralph-[a-z0-9]+(?:-[a-z0-9]+)*-[a-f0-9]{8}$/;
+const LOOP_PRIORITIES = new Set(['low', 'medium', 'high', 'critical']);
+const LOOP_STATUSES = new Set(['running', 'paused', 'waiting', 'completing', 'completed', 'aborted', 'failed', 'limit_reached', 'budget_exhausted', 'plateau', 'interrupted']);
 
 export class ExternalMultiLoopStateManager {
   /**
@@ -118,7 +121,8 @@ export class ExternalMultiLoopStateManager {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
-      .slice(0, 30);
+      .slice(0, 30)
+      .replace(/-+$/g, '') || 'task';
     const shortUuid = randomUUID().split('-')[0]; // First 8 chars
     return `ralph-${slug}-${shortUuid}`;
   }
@@ -223,7 +227,10 @@ export class ExternalMultiLoopStateManager {
             attempts++;
             continue;
           } catch (readError) {
-            // Lock file corrupted or deleted - retry
+            // A concurrently removed or unreadable lock still consumes a
+            // bounded attempt and yields; corrupt data must never busy-spin.
+            attempts++;
+            if (attempts < maxAttempts) await this.sleep(LOCK_RETRY_MS);
             continue;
           }
         }
@@ -284,6 +291,7 @@ export class ExternalMultiLoopStateManager {
    * @returns {Promise<{loopId: string, state: Object}>}
    */
   async createLoop(config, options = {}) {
+    this.validateLoopConfig(config);
     await this.acquireLock('create-loop');
 
     try {
@@ -307,6 +315,9 @@ export class ExternalMultiLoopStateManager {
 
       const loopId = config.loopId || this.generateLoopId(config.objective);
       const loopDir = join(this.loopsDir, loopId);
+      if (registry.active_loops.some(loop => loop.loop_id === loopId) || existsSync(loopDir)) {
+        throw new Error(`Loop already exists: ${loopId}`);
+      }
       mkdirSync(loopDir, { recursive: true });
 
       // Create subdirectories
@@ -326,7 +337,7 @@ export class ExternalMultiLoopStateManager {
         objective: config.objective,
         completionCriteria: config.completionCriteria,
         status: 'running',
-        maxIterations: config.maxIterations || 10,
+        maxIterations: config.maxIterations ?? 10,
         currentIteration: 0,
         startTime: now,
         lastUpdate: now,
@@ -340,11 +351,11 @@ export class ExternalMultiLoopStateManager {
           // #1450 P0: pin claude-sonnet-4-6 (500K); 'opus' bare alias under a
           // 1M-context parent hits credit gate on most plans. Budget bumped to
           // 5.0 to clear cache-creation cost (~$1.60 sonnet / ~$3.90 opus).
-          model: config.model || 'claude-sonnet-4-6',
-          budgetPerIteration: config.budgetPerIteration || 5.0,
-          timeoutMinutes: config.timeoutMinutes || 60,
-          mcpConfig: config.mcpConfig || null,
-          workingDir: config.workingDir || this.projectRoot,
+          model: config.model ?? 'claude-sonnet-4-6',
+          budgetPerIteration: config.budgetPerIteration ?? 5.0,
+          timeoutMinutes: config.timeoutMinutes ?? 60,
+          mcpConfig: config.mcpConfig ?? null,
+          workingDir: config.workingDir ?? this.projectRoot,
         },
       };
 
@@ -385,6 +396,7 @@ export class ExternalMultiLoopStateManager {
    * @returns {Object} Loop state
    */
   getLoop(loopId) {
+    this.validateLoopId(loopId);
     const statePath = join(this.loopsDir, loopId, 'session-state.json');
     if (!existsSync(statePath)) {
       throw new Error(`Loop not found: ${loopId}`);
@@ -405,6 +417,8 @@ export class ExternalMultiLoopStateManager {
    * @returns {Object} Updated state
    */
   updateLoop(loopId, changes) {
+    this.validateLoopId(loopId);
+    this.validateLoopChanges(changes);
     const state = this.getLoop(loopId);
     const updated = { ...state, ...changes };
     updated.lastUpdate = new Date().toISOString();
@@ -442,6 +456,8 @@ export class ExternalMultiLoopStateManager {
    * @param {number|null} pid - Process ID
    */
   async updateLoopPid(loopId, pid) {
+    this.validateLoopId(loopId);
+    if (pid !== null && (!Number.isInteger(pid) || pid < 1)) throw new RangeError('pid must be null or a positive integer');
     await this.acquireLock(`update-pid-${loopId}`);
 
     try {
@@ -466,6 +482,7 @@ export class ExternalMultiLoopStateManager {
    * @returns {boolean}
    */
   isLoopAlive(loopId) {
+    this.validateLoopId(loopId);
     try {
       const state = this.getLoop(loopId);
       if (!state.currentPid) return false;
@@ -480,6 +497,7 @@ export class ExternalMultiLoopStateManager {
    * @param {string} loopId - Loop ID
    */
   async archiveLoop(loopId) {
+    this.validateLoopId(loopId);
     await this.acquireLock(`archive-${loopId}`);
 
     try {
@@ -657,6 +675,7 @@ export class ExternalMultiLoopStateManager {
    * @returns {string}
    */
   getLoopDir(loopId) {
+    this.validateLoopId(loopId);
     return join(this.loopsDir, loopId);
   }
 
@@ -667,6 +686,8 @@ export class ExternalMultiLoopStateManager {
    * @returns {string}
    */
   getIterationDir(loopId, iteration) {
+    this.validateLoopId(loopId);
+    if (!Number.isInteger(iteration) || iteration < 0) throw new RangeError('iteration must be a non-negative integer');
     return join(this.loopsDir, loopId, 'iterations', String(iteration).padStart(3, '0'));
   }
 
@@ -677,6 +698,8 @@ export class ExternalMultiLoopStateManager {
    * @returns {string}
    */
   getPromptPath(loopId, iteration) {
+    this.validateLoopId(loopId);
+    if (!Number.isInteger(iteration) || iteration < 0) throw new RangeError('iteration must be a non-negative integer');
     return join(this.loopsDir, loopId, 'prompts', `${String(iteration).padStart(3, '0')}-prompt.md`);
   }
 
@@ -687,11 +710,47 @@ export class ExternalMultiLoopStateManager {
    * @returns {{stdout: string, stderr: string}}
    */
   getOutputPaths(loopId, iteration) {
+    this.validateLoopId(loopId);
+    if (!Number.isInteger(iteration) || iteration < 0) throw new RangeError('iteration must be a non-negative integer');
     const prefix = String(iteration).padStart(3, '0');
     return {
       stdout: join(this.loopsDir, loopId, 'outputs', `${prefix}-stdout.log`),
       stderr: join(this.loopsDir, loopId, 'outputs', `${prefix}-stderr.log`),
     };
+  }
+
+  validateLoopId(loopId) {
+    if (typeof loopId !== 'string' || !LOOP_ID_PATTERN.test(loopId)) {
+      throw new TypeError('loopId must match ralph-{slug}-{8 lowercase hex characters}');
+    }
+  }
+
+  validateLoopConfig(config) {
+    if (!config || typeof config !== 'object') throw new TypeError('Loop configuration must be an object');
+    if (typeof config.objective !== 'string' || config.objective.trim().length === 0) throw new TypeError('objective must be a non-empty string');
+    if (typeof config.completionCriteria !== 'string' || config.completionCriteria.trim().length === 0) throw new TypeError('completionCriteria must be a non-empty string');
+    if (config.loopId !== undefined) this.validateLoopId(config.loopId);
+    if (config.maxIterations !== undefined && (!Number.isInteger(config.maxIterations) || config.maxIterations < 1)) throw new RangeError('maxIterations must be a positive integer');
+    for (const name of ['budgetPerIteration', 'timeoutMinutes']) {
+      if (config[name] !== undefined && (typeof config[name] !== 'number' || !Number.isFinite(config[name]) || config[name] <= 0)) throw new RangeError(`${name} must be a finite positive number`);
+    }
+    for (const name of ['model', 'workingDir', 'owner']) {
+      if (config[name] !== undefined && (typeof config[name] !== 'string' || config[name].trim().length === 0)) throw new TypeError(`${name} must be a non-empty string`);
+    }
+    if (config.priority !== undefined && !LOOP_PRIORITIES.has(config.priority)) throw new TypeError(`Invalid priority: ${config.priority}`);
+    if (config.tags !== undefined && (!Array.isArray(config.tags) || config.tags.some(tag => typeof tag !== 'string'))) throw new TypeError('tags must be an array of strings');
+    for (const name of ['mcpConfig', 'giteaIntegration']) {
+      if (config[name] !== undefined && config[name] !== null && (typeof config[name] !== 'object' || Array.isArray(config[name]))) throw new TypeError(`${name} must be an object or null`);
+    }
+  }
+
+  validateLoopChanges(changes) {
+    if (!changes || typeof changes !== 'object' || Array.isArray(changes)) throw new TypeError('Loop changes must be an object');
+    if (changes.loopId !== undefined || changes.version !== undefined || changes.sessionId !== undefined) throw new TypeError('Loop identity fields cannot be changed');
+    if (changes.status !== undefined && !LOOP_STATUSES.has(changes.status)) throw new TypeError(`Invalid loop status: ${changes.status}`);
+    if (changes.currentIteration !== undefined && (!Number.isInteger(changes.currentIteration) || changes.currentIteration < 0)) throw new RangeError('currentIteration must be a non-negative integer');
+    if (changes.maxIterations !== undefined && (!Number.isInteger(changes.maxIterations) || changes.maxIterations < 1)) throw new RangeError('maxIterations must be a positive integer');
+    if (changes.currentPid !== undefined && changes.currentPid !== null && (!Number.isInteger(changes.currentPid) || changes.currentPid < 1)) throw new RangeError('currentPid must be null or a positive integer');
   }
 }
 

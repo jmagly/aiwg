@@ -80,6 +80,23 @@ const DEFAULT_CONFIG = {
   },
 };
 
+function objectValue(name, value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${name} must be an object`);
+}
+
+function numberValue(name, value, min = 0, max = Number.MAX_VALUE, integer = false) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max || (integer && !Number.isSafeInteger(value))) {
+    throw new RangeError(`${name} must be a finite ${integer ? 'safe integer' : 'number'} between ${min} and ${max}`);
+  }
+}
+
+function textValue(name, value) {
+  if (typeof value !== 'string' || !value.trim()) throw new TypeError(`${name} must be a non-empty string`);
+}
+
+const SELECTION_CRITERIA = new Set(['highest_quality_verified', 'highest_quality', 'most_recent_above_threshold']);
+const BUDGET_DIMENSIONS = new Set(['total_tokens', 'input_tokens', 'output_tokens', 'spend_usd', 'tool_calls', 'wall_clock_minutes']);
+
 export class IterationAnalytics {
   /**
    * @param {string} loopId - Loop identifier
@@ -87,9 +104,29 @@ export class IterationAnalytics {
    * @param {AnalyticsConfig} config - Analytics configuration
    */
   constructor(loopId, taskDescription, config = {}) {
+    textValue('loopId', loopId);
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(loopId)) throw new TypeError('loopId must be a safe single path segment');
+    textValue('taskDescription', taskDescription);
+    objectValue('config', config);
     this.loopId = loopId;
     this.taskDescription = taskDescription;
     this.config = { ...DEFAULT_CONFIG, ...config };
+    textValue('storagePath', this.config.storagePath);
+    numberValue('diminishingReturnsThreshold', this.config.diminishingReturnsThreshold, 0, 1);
+    numberValue('consecutiveCountThreshold', this.config.consecutiveCountThreshold, 1, Number.MAX_SAFE_INTEGER, true);
+    numberValue('qualityThreshold', this.config.qualityThreshold, 0, 100);
+    if (!SELECTION_CRITERIA.has(this.config.selectionCriteria)) throw new TypeError('Invalid selectionCriteria');
+    objectValue('budgetLimits', this.config.budgetLimits);
+    for (const [name, limit] of Object.entries(this.config.budgetLimits)) {
+      if (!BUDGET_DIMENSIONS.has(name)) throw new TypeError(`Unknown budgetLimits dimension: ${name}`);
+      numberValue(`budgetLimits.${name}`, limit, Number.MIN_VALUE);
+    }
+    objectValue('explorationQuota', this.config.explorationQuota);
+    const quota = this.config.explorationQuota;
+    if (quota.enabled !== undefined && typeof quota.enabled !== 'boolean') throw new TypeError('explorationQuota.enabled must be boolean');
+    if (quota.k !== undefined) numberValue('explorationQuota.k', quota.k, 0, Number.MAX_SAFE_INTEGER, true);
+    this.config.budgetLimits = { ...this.config.budgetLimits };
+    this.config.explorationQuota = { ...quota };
 
     this.startTime = new Date().toISOString();
     this.endTime = null;
@@ -121,6 +158,7 @@ export class IterationAnalytics {
    * @returns {IterationMetrics} Complete iteration record
    */
   recordIteration(metrics) {
+    this.validateMetrics(metrics);
     const timestamp = new Date().toISOString();
 
     // Calculate quality delta
@@ -171,6 +209,70 @@ export class IterationAnalytics {
     this.saveAnalytics();
 
     return record;
+  }
+
+  validateMetrics(metrics) {
+    objectValue('metrics', metrics);
+    numberValue('iteration_number', metrics.iteration_number, 1, Number.MAX_SAFE_INTEGER, true);
+    numberValue('quality_score', metrics.quality_score, 0, 100);
+    for (const name of ['tokens_used', 'input_tokens', 'output_tokens', 'token_cost_usd']) {
+      if (metrics[name] != null) numberValue(name, metrics[name], 0, Number.MAX_VALUE, name !== 'token_cost_usd');
+    }
+    if (metrics.tool_calls !== undefined) numberValue('tool_calls', metrics.tool_calls, 0, Number.MAX_SAFE_INTEGER, true);
+    numberValue('execution_time_ms', metrics.execution_time_ms);
+    if (!['passed', 'failed', 'skipped', 'void'].includes(metrics.verification_status)) throw new TypeError('Invalid verification_status');
+    if (metrics.output_snapshot_path != null && typeof metrics.output_snapshot_path !== 'string') throw new TypeError('output_snapshot_path must be a string or null');
+    if (metrics.reflections !== undefined && (!Array.isArray(metrics.reflections) || metrics.reflections.some(value => typeof value !== 'string'))) throw new TypeError('reflections must be an array of strings');
+    if (metrics.eval_human_override !== undefined && typeof metrics.eval_human_override !== 'boolean') throw new TypeError('eval_human_override must be boolean');
+    if (metrics.experiment != null) {
+      objectValue('experiment', metrics.experiment);
+      for (const name of ['hypothesis', 'expected_failure_mode', 'distinguishing_diagnostic', 'probe_or_generalization_signal']) {
+        if (metrics.experiment[name] !== undefined && typeof metrics.experiment[name] !== 'string') throw new TypeError(`experiment.${name} must be a string`);
+      }
+      for (const name of ['structural_variant', 'adjustment_key']) {
+        if (metrics.experiment[name] != null && typeof metrics.experiment[name] !== 'string') throw new TypeError(`experiment.${name} must be a string or null`);
+      }
+      if (metrics.experiment.recorded_before_change !== undefined && typeof metrics.experiment.recorded_before_change !== 'boolean') throw new TypeError('experiment.recorded_before_change must be boolean');
+      if (metrics.experiment.result !== undefined && !['passed', 'failed'].includes(metrics.experiment.result)) throw new TypeError('Invalid experiment.result');
+    }
+    for (const name of ['baseline_comparison', 'random_walk_baseline']) {
+      if (metrics[name] == null) continue;
+      objectValue(name, metrics[name]);
+      const baseline = metrics[name].random_walk ?? metrics[name].baseline ?? metrics[name];
+      objectValue(name, baseline);
+      numberValue(`${name}.quality_score`, baseline.quality_score, 0, 100);
+      for (const field of ['tokens_used', 'total_tokens', 'execution_time_ms', 'tool_calls']) {
+        if (baseline[field] !== undefined) numberValue(`${name}.${field}`, baseline[field], 0, Number.MAX_VALUE, field !== 'execution_time_ms');
+      }
+    }
+    if (metrics.eval_harness_result != null) {
+      const result = metrics.eval_harness_result;
+      objectValue('eval_harness_result', result);
+      if (!['pass', 'fail', 'void', 'error'].includes(result.status)) throw new TypeError('Invalid eval_harness_result.status');
+      objectValue('optimizer_feedback', result.optimizer_feedback);
+      const feedback = result.optimizer_feedback;
+      for (const name of Object.keys(feedback)) {
+        if (!['score', 'pass_count', 'total_count', 'status', 'void_reason'].includes(name)) throw new TypeError(`Forbidden optimizer_feedback field: ${name}`);
+      }
+      if (feedback.score !== undefined) numberValue('optimizer_feedback.score', feedback.score, 0, 100);
+      for (const name of ['pass_count', 'total_count']) {
+        if (feedback[name] !== undefined) numberValue(`optimizer_feedback.${name}`, feedback[name], 0, Number.MAX_SAFE_INTEGER, true);
+      }
+      for (const name of ['status', 'void_reason']) {
+        if (feedback[name] !== undefined && typeof feedback[name] !== 'string') throw new TypeError(`optimizer_feedback.${name} must be a string`);
+      }
+      if (result.private_diagnostics_ref != null && typeof result.private_diagnostics_ref !== 'string') throw new TypeError('eval_harness_result.private_diagnostics_ref must be a string or null');
+      if (result.human_override !== undefined && typeof result.human_override !== 'boolean') throw new TypeError('eval_harness_result.human_override must be boolean');
+      if (result._forbidden_fields_seen !== undefined && (!Array.isArray(result._forbidden_fields_seen) || result._forbidden_fields_seen.some(value => typeof value !== 'string'))) throw new TypeError('eval_harness_result._forbidden_fields_seen must be an array of strings');
+      if (result.leakage_audit !== undefined) {
+        objectValue('eval_harness_result.leakage_audit', result.leakage_audit);
+        if (typeof result.leakage_audit.checked !== 'boolean' || !['pass', 'fail', 'not_applicable'].includes(result.leakage_audit.result)) throw new TypeError('Invalid eval_harness_result.leakage_audit');
+      }
+    }
+    for (const name of ['tokens_used', 'input_tokens', 'output_tokens', 'token_cost_usd', 'tool_calls', 'execution_time_ms']) {
+      const total = this.iterations.reduce((sum, it) => sum + (it[name] ?? 0), metrics[name] ?? 0);
+      if (!Number.isFinite(total)) throw new RangeError(`${name} cumulative total must remain finite`);
+    }
   }
 
   /**
@@ -553,7 +655,8 @@ export class IterationAnalytics {
     const selectable = this.iterations.filter(
       it => it.verification_status !== 'void' || it.eval_human_override === true
     );
-    const pool = selectable.length > 0 ? selectable : this.iterations;
+    const pool = selectable;
+    if (pool.length === 0) return null;
 
     let candidates = [...pool];
 
@@ -583,10 +686,13 @@ export class IterationAnalytics {
    * @returns {Object} Selection result
    */
   selectBestIteration() {
-    if (this.iterations.length === 0) {
+    const selectable = this.iterations.filter(
+      it => it.verification_status !== 'void' || it.eval_human_override === true
+    );
+    if (selectable.length === 0) {
       return {
         selected: null,
-        reason: 'No iterations available',
+        reason: this.iterations.length === 0 ? 'No iterations available' : 'No eligible iterations available (all VOID)',
       };
     }
 
@@ -598,7 +704,7 @@ export class IterationAnalytics {
       case 'highest_quality_verified': {
         const optimal = this.getOptimalIteration(true);
         selected = optimal;
-        reason = optimal
+        reason = optimal?.verification_status === 'passed' && optimal.quality_score >= this.config.qualityThreshold
           ? `Highest quality verified iteration (${optimal.quality_score})`
           : 'No verified iterations above threshold, using best available';
 
@@ -616,11 +722,11 @@ export class IterationAnalytics {
       }
 
       case 'most_recent_above_threshold': {
-        const aboveThreshold = this.iterations
+        const aboveThreshold = selectable
           .filter(it => it.quality_score >= this.config.qualityThreshold)
           .reverse();
 
-        selected = aboveThreshold[0] || this.iterations[this.iterations.length - 1];
+        selected = aboveThreshold[0] || selectable[selectable.length - 1];
         reason = aboveThreshold[0]
           ? `Most recent iteration above threshold (${selected.quality_score})`
           : 'No iterations above threshold, using final iteration';
@@ -628,7 +734,7 @@ export class IterationAnalytics {
       }
 
       default:
-        selected = this.iterations[this.iterations.length - 1];
+        selected = selectable[selectable.length - 1];
         reason = 'Using final iteration (unknown selection criteria)';
     }
 
@@ -666,6 +772,14 @@ export class IterationAnalytics {
     const summary = {
       loop_id: this.loopId,
       task_description: this.taskDescription,
+      analytics_config: {
+        diminishingReturnsThreshold: this.config.diminishingReturnsThreshold,
+        consecutiveCountThreshold: this.config.consecutiveCountThreshold,
+        qualityThreshold: this.config.qualityThreshold,
+        selectionCriteria: this.config.selectionCriteria,
+        budgetLimits: { ...this.config.budgetLimits },
+        explorationQuota: { ...this.config.explorationQuota },
+      },
       start_time: this.startTime,
       end_time: this.endTime,
       iterations: this.iterations,
@@ -950,11 +1064,16 @@ ${recommendations.join('\n')}
 
     const content = readFileSync(filepath, 'utf8');
     const summary = JSON.parse(content);
+    if (summary.analytics_config !== undefined) objectValue('analytics_config', summary.analytics_config);
 
     const analytics = new IterationAnalytics(
       summary.loop_id,
       summary.task_description,
-      { storagePath: join(filepath, '..') }
+      {
+        ...(summary.analytics_config ?? {}),
+        budgetLimits: summary.analytics_config?.budgetLimits ?? summary.budget_limits ?? {},
+        storagePath: join(filepath, '..'),
+      }
     );
 
     analytics.startTime = summary.start_time;

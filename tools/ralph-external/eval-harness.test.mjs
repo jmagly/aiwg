@@ -5,9 +5,10 @@
  */
 
 import assert from 'assert';
-import { existsSync, mkdirSync, rmSync, readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { test, after } from 'node:test';
 import {
   EvalHarness,
   buildOptimizerFeedback,
@@ -15,21 +16,12 @@ import {
   DEFAULT_FORBIDDEN_OPTIMIZER_FIELDS,
 } from './eval-harness.mjs';
 
-const TEST_DIR = join(dirname(fileURLToPath(import.meta.url)), '.tmp-eval-harness');
+const TEST_DIR = mkdtempSync(join(tmpdir(), 'aiwg-eval-harness-'));
+after(() => rmSync(TEST_DIR, { recursive: true, force: true }));
 
 function setup() {
   if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true });
   mkdirSync(TEST_DIR, { recursive: true });
-}
-
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`✓ ${name}`);
-  } catch (err) {
-    console.error(`✗ ${name}\n  ${err.message}`);
-    throw err;
-  }
 }
 
 /** A stub command runner returning canned {code, stdout} keyed by command. */
@@ -37,7 +29,32 @@ function stubRunner(map) {
   return { run: (cmd) => map[cmd] || { code: 0, stdout: '{}' } };
 }
 
-try {
+test('default runner captures real command success and nonzero exit', () => {
+  setup();
+  const quote = value => process.platform === 'win32'
+    ? `"${value.replaceAll('"', '\\"')}"`
+    : `'${value.replaceAll("'", "'\\''")}'`;
+  const command = code => `${quote(process.execPath)} -e ${quote(`process.stdout.write(JSON.stringify({score:100}));process.exitCode=${code}`)}`;
+  const success = new EvalHarness({ score: { command: command(0) } }, { workingDir: TEST_DIR }).run();
+  assert.deepStrictEqual(success.optimizer_feedback, { score: 100, status: 'pass' });
+  const failed = new EvalHarness({ score: { command: command(7) } }, { workingDir: TEST_DIR }).run();
+  assert.deepStrictEqual(failed.optimizer_feedback, { status: 'error' });
+});
+
+test('optional probe and status diagnostics stay private', () => {
+  setup();
+  const harness = new EvalHarness({ score: { command: 'score' }, probe: { command: 'probe' }, status: { command: 'status' } }, {
+    runner: stubRunner({ score: { code: 0, stdout: '{"score":100}' }, probe: { code: 2, stdout: '{"oracle_traces":"PRIVATE-PROBE"}' }, status: { code: 0, stdout: '{"detail":"PRIVATE-STATUS"}' } }),
+  });
+  const result = harness.run({ iterationDir: TEST_DIR });
+  assert.deepStrictEqual(result.optimizer_feedback, { score: 100, status: 'pass' });
+  const diagnostics = JSON.parse(readFileSync(result.private_diagnostics_ref, 'utf8'));
+  assert.deepStrictEqual(diagnostics.instruments.probe, { code: 2, oracle_traces: 'PRIVATE-PROBE' });
+  assert.deepStrictEqual(diagnostics.instruments.status, { code: 0, detail: 'PRIVATE-STATUS' });
+  assert(!JSON.stringify(result).includes('PRIVATE-'));
+});
+
+{
   // ── Pure isolation core ────────────────────────────────────────────────
 
   test('buildOptimizerFeedback strips every forbidden field (holdout-leakage)', () => {
@@ -152,10 +169,61 @@ try {
     assert.ok(priv.includes(CANARY), 'canary missing from private diagnostics');
   });
 
-  console.log('\n=== All eval-harness tests passed ===\n');
-  if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true });
-} catch (err) {
-  console.error('\n=== Eval-harness test suite FAILED ===\n');
-  if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true, force: true });
-  process.exit(1);
 }
+
+for (const [name, payload] of [
+  ['fractional counts', { pass_count: 0.5, total_count: 0.5 }],
+  ['negative counts', { pass_count: -1, total_count: 2 }],
+  ['zero denominator', { pass_count: 0, total_count: 0 }],
+  ['passes exceed total', { pass_count: 3, total_count: 2 }],
+  ['missing total', { pass_count: 1 }],
+  ['missing pass count', { total_count: 1 }],
+  ['score above range', { score: 101 }],
+  ['score below range', { score: -1 }],
+  ['string score', { score: '100' }],
+  ['null', null],
+  ['array', []],
+  ['primitive', true],
+  ['empty object', {}],
+]) {
+  test(`invalid scoring payload is an error: ${name}`, () => {
+    const harness = new EvalHarness({ score: { command: 'score' } }, {
+      runner: stubRunner({ score: { code: 0, stdout: JSON.stringify(payload) } }),
+    });
+    const result = harness.run();
+    assert.strictEqual(result.status, 'error');
+    assert.deepStrictEqual(result.optimizer_feedback, { status: 'error' });
+  });
+}
+
+test('failed command cannot pass through a valid-looking score', () => {
+  const harness = new EvalHarness({ score: { command: 'score' } }, {
+    runner: stubRunner({ score: { code: 7, stdout: '{"score":100,"pass_count":2,"total_count":2}' } }),
+  });
+  assert.deepStrictEqual(harness.run().optimizer_feedback, { status: 'error' });
+});
+
+for (const stdout of ['', 'not JSON', '{"score":1e999}']) {
+  test(`invalid scoring output is an error: ${JSON.stringify(stdout)}`, () => {
+    const harness = new EvalHarness({ score: { command: 'score' } }, {
+      runner: stubRunner({ score: { code: 0, stdout } }),
+    });
+    assert.deepStrictEqual(harness.run().optimizer_feedback, { status: 'error' });
+  });
+}
+
+for (const [score, status] of [[0, 'fail'], [100, 'pass']]) {
+  test(`score-only boundary ${score} produces ${status}`, () => {
+    const harness = new EvalHarness({ score: { command: 'score' } }, {
+      runner: stubRunner({ score: { code: 0, stdout: JSON.stringify({ score }) } }),
+    });
+    assert.deepStrictEqual(harness.run().optimizer_feedback, { score, status });
+  });
+}
+
+test('VOID takes precedence over a failed score command', () => {
+  const harness = new EvalHarness({ lint: { command: 'lint' }, score: { command: 'score' } }, {
+    runner: stubRunner({ lint: { code: 1, stdout: 'null' }, score: { code: 7, stdout: '{}' } }),
+  });
+  assert.deepStrictEqual(harness.run().optimizer_feedback, { status: 'void', void_reason: 'lint violation' });
+});

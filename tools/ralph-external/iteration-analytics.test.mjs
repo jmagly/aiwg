@@ -5,14 +5,140 @@
  */
 
 import { IterationAnalytics } from './iteration-analytics.mjs';
-import { existsSync, mkdirSync, rmSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { test, after } from 'node:test';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import assert from 'assert';
 import Ajv from 'ajv';
 import yaml from 'js-yaml';
 
-const TEST_DIR = '.aiwg/ralph/analytics-test';
+const TEST_DIR = mkdtempSync(join(tmpdir(), 'aiwg-analytics-'));
+after(cleanup);
+
+const validMetrics = { iteration_number: 1, quality_score: 75, tokens_used: 10, token_cost_usd: 0.1, execution_time_ms: 100, verification_status: 'passed', output_snapshot_path: null };
+
+test('save/load preserves budget and selection decisions and declared exploration policy', () => {
+  setup();
+  const analytics = new IterationAnalytics('reload', 'test', { storagePath: TEST_DIR,
+    qualityThreshold: 60, selectionCriteria: 'most_recent_above_threshold',
+    diminishingReturnsThreshold: 0.1, consecutiveCountThreshold: 3,
+    budgetLimits: { total_tokens: 10 }, explorationQuota: { enabled: true, k: 1 },
+  });
+  analytics.recordIteration({ ...validMetrics, quality_score: 80 });
+  analytics.recordIteration({ ...validMetrics, iteration_number: 2, quality_score: 79 });
+  const loaded = IterationAnalytics.load(analytics.saveAnalytics());
+  assert.deepStrictEqual(loaded.config, analytics.config);
+  assert.deepStrictEqual(loaded.checkBudgetLimits(), analytics.checkBudgetLimits());
+  assert.strictEqual(loaded.checkBudgetLimits().exhausted, true);
+  assert.deepStrictEqual(loaded.checkExplorationQuota(), analytics.checkExplorationQuota());
+  assert.deepStrictEqual(loaded.selectBestIteration(), analytics.selectBestIteration());
+  assert.strictEqual(loaded.selectBestIteration().selected.iteration_number, 2);
+});
+
+test('load preserves legacy budget_limits and anchors writes to the artifact directory', () => {
+  setup();
+  const analytics = new IterationAnalytics('reload', 'test', { storagePath: TEST_DIR, budgetLimits: { total_tokens: 10 } });
+  analytics.recordIteration(validMetrics);
+  const filename = analytics.saveAnalytics();
+  const summary = JSON.parse(readFileSync(filename, 'utf8'));
+  delete summary.analytics_config;
+  writeFileSync(filename, JSON.stringify(summary));
+  const legacy = IterationAnalytics.load(filename);
+  assert.strictEqual(legacy.checkBudgetLimits().exhausted, true);
+  summary.analytics_config = { storagePath: join(TEST_DIR, 'must-not-exist') };
+  writeFileSync(filename, JSON.stringify(summary));
+  const loaded = IterationAnalytics.load(filename);
+  assert.strictEqual(loaded.config.storagePath, TEST_DIR);
+  assert.strictEqual(loaded.saveAnalytics(), filename);
+  assert(!existsSync(join(TEST_DIR, 'must-not-exist')));
+  summary.analytics_config = { qualityThreshold: 101 };
+  writeFileSync(filename, JSON.stringify(summary));
+  assert.throws(() => IterationAnalytics.load(filename), /qualityThreshold/);
+  for (const config of [null, [], 'invalid']) {
+    summary.analytics_config = config;
+    writeFileSync(filename, JSON.stringify(summary));
+    assert.throws(() => IterationAnalytics.load(filename), /analytics_config/);
+  }
+});
+
+for (const [field, values] of [
+  ['diminishingReturnsThreshold', [NaN, Infinity, -1, 2, '0.05']],
+  ['consecutiveCountThreshold', [0, -1, 1.5, Infinity]],
+  ['qualityThreshold', [-1, 101, NaN, '70']],
+  ['selectionCriteria', ['unknown', null]],
+  ['budgetLimits', [null, [], { total_tokens: '100' }, { spend_usd: -1 }, { total_tokens: 0 }, { total_tokens: Infinity }, { unknown: 1 }]],
+  ['explorationQuota', [null, [], { k: 1.5 }, { k: -1 }, { k: '2' }, { enabled: 'true' }]],
+  ['storagePath', ['', null]],
+]) {
+  for (const [index, value] of values.entries()) {
+    test(`invalid configuration ${field} case ${index} cannot create storage`, () => {
+      const storagePath = join(TEST_DIR, 'must-not-exist');
+      assert.throws(() => new IterationAnalytics('validation', 'test', { storagePath, [field]: value }), new RegExp(field));
+      assert(!existsSync(storagePath));
+    });
+  }
+}
+
+test('rejects unsafe loop identities and empty task before creating storage', () => {
+  const storagePath = join(TEST_DIR, 'must-not-exist');
+  for (const loopId of ['../escaped', '/tmp/escaped', 'a/b', 'a\\b', '', '..', null]) {
+    assert.throws(() => new IterationAnalytics(loopId, 'test', { storagePath }), /loopId/);
+  }
+  assert.throws(() => new IterationAnalytics('valid', ' ', { storagePath }), /taskDescription/);
+  assert(!existsSync(storagePath));
+});
+
+for (const [field, values] of [
+  ['iteration_number', [0, -1, 1.5, NaN, '1']],
+  ['quality_score', [-1, 101, NaN, Infinity, '75']],
+  ['tokens_used', [-1, 1.5, Infinity, '10']],
+  ['input_tokens', [-1, 1.5]], ['output_tokens', [-1, '1']],
+  ['token_cost_usd', [-1, '2.5', Infinity]],
+  ['tool_calls', [-1, 0.5, null]],
+  ['execution_time_ms', [-1, NaN, Infinity, '100']],
+  ['verification_status', ['invalid', null]],
+  ['output_snapshot_path', [1, {}]],
+  ['reflections', ['text', [1], null]],
+  ['eval_human_override', ['true']],
+  ['experiment', [[], { hypothesis: 1 }, { recorded_before_change: 'true' }, { result: 'invalid' }]],
+  ['baseline_comparison', [[], { quality_score: '70' }, { quality_score: 70, tokens_used: -1 }]],
+  ['eval_harness_result', [[], { status: 'invalid', optimizer_feedback: {} },
+    { status: 'pass', optimizer_feedback: {}, private_diagnostics_ref: 2 },
+    { status: 'pass', optimizer_feedback: {}, human_override: 'true' },
+    { status: 'pass', optimizer_feedback: {}, _forbidden_fields_seen: [2] },
+    { status: 'pass', optimizer_feedback: {}, leakage_audit: { checked: 'true', result: 'pass' } },
+    { status: 'pass', optimizer_feedback: {}, leakage_audit: { checked: true, result: 'unknown' } },
+  ]],
+]) {
+  for (const [index, value] of values.entries()) {
+    test(`invalid metric ${field} case ${index} cannot alter history or saved output`, () => {
+      setup();
+      const analytics = new IterationAnalytics('validation', 'test', { storagePath: TEST_DIR });
+      const filename = join(TEST_DIR, 'validation.json');
+      const invalid = { ...validMetrics, [field]: value };
+      assert.throws(() => analytics.recordIteration(invalid), new RegExp(field));
+      assert.deepStrictEqual(analytics.iterations, []);
+      assert(!existsSync(filename));
+      analytics.recordIteration(validMetrics);
+      const before = readFileSync(filename, 'utf8');
+      assert.throws(() => analytics.recordIteration(invalid), new RegExp(field));
+      assert.strictEqual(analytics.iterations.length, 1);
+      assert.strictEqual(readFileSync(filename, 'utf8'), before);
+    });
+  }
+}
+
+test('rejects aggregate overflow before appending or saving', () => {
+  setup();
+  const analytics = new IterationAnalytics('overflow', 'test', { storagePath: TEST_DIR });
+  analytics.recordIteration({ ...validMetrics, token_cost_usd: Number.MAX_VALUE });
+  const before = readFileSync(join(TEST_DIR, 'overflow.json'), 'utf8');
+  assert.throws(() => analytics.recordIteration({ ...validMetrics, iteration_number: 2, token_cost_usd: Number.MAX_VALUE }), /cumulative total/);
+  assert.strictEqual(analytics.iterations.length, 1);
+  assert.strictEqual(readFileSync(join(TEST_DIR, 'overflow.json'), 'utf8'), before);
+});
 
 function cleanup() {
   if (existsSync(TEST_DIR)) {
@@ -23,17 +149,6 @@ function cleanup() {
 function setup() {
   cleanup();
   mkdirSync(TEST_DIR, { recursive: true });
-}
-
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`✓ ${name}`);
-  } catch (error) {
-    console.error(`✗ ${name}`);
-    console.error(`  ${error.message}`);
-    throw error;
-  }
 }
 
 // Test: Basic initialization
@@ -394,294 +509,7 @@ test('load() restores analytics from JSON', () => {
 });
 
 // Run all tests
-console.log('\n=== Running IterationAnalytics Tests ===\n');
-
-try {
-  test('IterationAnalytics initializes correctly', () => {
-    setup();
-    const analytics = new IterationAnalytics(
-      'test-loop-001',
-      'Test task',
-      { storagePath: TEST_DIR }
-    );
-
-    assert.strictEqual(analytics.loopId, 'test-loop-001');
-    assert.strictEqual(analytics.taskDescription, 'Test task');
-    assert.strictEqual(analytics.iterations.length, 0);
-  });
-
-  test('recordIteration() tracks metrics correctly', () => {
-    setup();
-    const analytics = new IterationAnalytics(
-      'test-loop-002',
-      'Test task',
-      { storagePath: TEST_DIR }
-    );
-
-    const record = analytics.recordIteration({
-      iteration_number: 1,
-      quality_score: 75,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/to/snapshot',
-    });
-
-    assert.strictEqual(record.iteration_number, 1);
-    assert.strictEqual(record.quality_score, 75);
-    assert.strictEqual(record.quality_delta, 0);
-    assert.strictEqual(analytics.iterations.length, 1);
-  });
-
-  test('Quality delta calculated correctly', () => {
-    setup();
-    const analytics = new IterationAnalytics(
-      'test-loop-003',
-      'Test task',
-      { storagePath: TEST_DIR }
-    );
-
-    analytics.recordIteration({
-      iteration_number: 1,
-      quality_score: 70,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/1',
-    });
-
-    const record2 = analytics.recordIteration({
-      iteration_number: 2,
-      quality_score: 85,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/2',
-    });
-
-    assert.strictEqual(record2.quality_delta, 15);
-  });
-
-  test('detectDiminishingReturns() detects consecutive low deltas', () => {
-    setup();
-    const analytics = new IterationAnalytics(
-      'test-loop-004',
-      'Test task',
-      {
-        storagePath: TEST_DIR,
-        diminishingReturnsThreshold: 0.05,
-        consecutiveCountThreshold: 2,
-      }
-    );
-
-    analytics.recordIteration({
-      iteration_number: 1,
-      quality_score: 70,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/1',
-    });
-
-    analytics.recordIteration({
-      iteration_number: 2,
-      quality_score: 72,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/2',
-    });
-
-    analytics.recordIteration({
-      iteration_number: 3,
-      quality_score: 73,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/3',
-    });
-
-    const result = analytics.detectDiminishingReturns();
-    assert.strictEqual(result.detected, true);
-    assert.strictEqual(result.iteration, 3);
-  });
-
-  test('getTrajectory() calculates trajectory correctly', () => {
-    setup();
-    const analytics = new IterationAnalytics(
-      'test-loop-005',
-      'Test task',
-      { storagePath: TEST_DIR }
-    );
-
-    [70, 80, 90, 95].forEach((score, i) => {
-      analytics.recordIteration({
-        iteration_number: i + 1,
-        quality_score: score,
-        tokens_used: 1000,
-        token_cost_usd: 0.01,
-        execution_time_ms: 5000,
-        verification_status: 'passed',
-        output_snapshot_path: `/path/${i + 1}`,
-      });
-    });
-
-    const trajectory = analytics.getTrajectory();
-    assert.strictEqual(trajectory, 'improving');
-  });
-
-  test('getOptimalIteration() returns highest quality', () => {
-    setup();
-    const analytics = new IterationAnalytics(
-      'test-loop-006',
-      'Test task',
-      { storagePath: TEST_DIR, qualityThreshold: 70 }
-    );
-
-    analytics.recordIteration({
-      iteration_number: 1,
-      quality_score: 70,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/1',
-    });
-
-    analytics.recordIteration({
-      iteration_number: 2,
-      quality_score: 85,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/2',
-    });
-
-    analytics.recordIteration({
-      iteration_number: 3,
-      quality_score: 80,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/3',
-    });
-
-    const optimal = analytics.getOptimalIteration();
-    assert.strictEqual(optimal.iteration_number, 2);
-    assert.strictEqual(optimal.quality_score, 85);
-  });
-
-  test('generateSummary() includes all required fields', () => {
-    setup();
-    const analytics = new IterationAnalytics(
-      'test-loop-007',
-      'Test task description',
-      { storagePath: TEST_DIR }
-    );
-
-    analytics.recordIteration({
-      iteration_number: 1,
-      quality_score: 75,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/1',
-    });
-
-    const summary = analytics.generateSummary();
-
-    assert.strictEqual(summary.loop_id, 'test-loop-007');
-    assert.strictEqual(summary.task_description, 'Test task description');
-    assert.strictEqual(summary.total_iterations, 1);
-    assert.strictEqual(summary.total_tokens, 1000);
-    assert.strictEqual(summary.total_cost_usd, 0.01);
-    assert.strictEqual(summary.total_time_ms, 5000);
-  });
-
-  test('generateReport() produces markdown', () => {
-    setup();
-    const analytics = new IterationAnalytics(
-      'test-loop-008',
-      'Test task',
-      { storagePath: TEST_DIR }
-    );
-
-    analytics.recordIteration({
-      iteration_number: 1,
-      quality_score: 75,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/1',
-    });
-
-    const report = analytics.generateReport();
-
-    assert.ok(report.includes('# Ralph Loop Analytics'));
-    assert.ok(report.includes('test-loop-008'));
-    assert.ok(report.includes('## Summary'));
-    assert.ok(report.includes('Quality / 1K Tokens'));
-    assert.ok(report.includes('Quality / Minute'));
-  });
-
-  test('export() creates both JSON and Markdown files', () => {
-    setup();
-    const analytics = new IterationAnalytics(
-      'test-loop-009',
-      'Test task',
-      { storagePath: TEST_DIR }
-    );
-
-    analytics.recordIteration({
-      iteration_number: 1,
-      quality_score: 75,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/1',
-    });
-
-    const paths = analytics.export();
-
-    assert.ok(existsSync(paths.json));
-    assert.ok(existsSync(paths.markdown));
-  });
-
-  test('load() restores analytics from JSON', () => {
-    setup();
-    const analytics = new IterationAnalytics(
-      'test-loop-010',
-      'Test task',
-      { storagePath: TEST_DIR }
-    );
-
-    analytics.recordIteration({
-      iteration_number: 1,
-      quality_score: 75,
-      tokens_used: 1000,
-      token_cost_usd: 0.01,
-      execution_time_ms: 5000,
-      verification_status: 'passed',
-      output_snapshot_path: '/path/1',
-    });
-
-    const jsonPath = analytics.saveAnalytics();
-    const loaded = IterationAnalytics.load(jsonPath);
-
-    assert.strictEqual(loaded.loopId, 'test-loop-010');
-    assert.strictEqual(loaded.iterations.length, 1);
-  });
+{
 
   test('checkBudgetLimits() detects hard total token exhaustion', () => {
     setup();
@@ -998,10 +826,23 @@ try {
     assert.ok(reportValid, `BudgetStopReport failed schema: ${JSON.stringify(validateReport.errors, null, 2)}`);
   });
 
-  console.log('\n=== All Tests Passed ===\n');
-  cleanup();
-} catch (error) {
-  console.error('\n=== Test Suite Failed ===\n');
-  cleanup();
-  process.exit(1);
+}
+
+for (const selectionCriteria of ['highest_quality_verified', 'highest_quality', 'most_recent_above_threshold']) {
+  test(`${selectionCriteria} excludes all VOID candidates and permits explicit override`, () => {
+    setup();
+    const analytics = new IterationAnalytics('void-selection', 'test', { storagePath: TEST_DIR, selectionCriteria });
+    const metrics = { iteration_number: 1, quality_score: 100, tokens_used: 0, token_cost_usd: 0, execution_time_ms: 0, verification_status: 'void', output_snapshot_path: null };
+    analytics.recordIteration(metrics);
+    assert.strictEqual(analytics.getOptimalIteration(), null);
+    assert.strictEqual(analytics.getOptimalIteration(false), null);
+    assert.strictEqual(analytics.selectBestIteration().selected, null);
+    assert.strictEqual(analytics.generateSummary().selected_iteration, null);
+    analytics.recordIteration({ ...metrics, iteration_number: 2, quality_score: 80, verification_status: 'passed' });
+    analytics.recordIteration({ ...metrics, iteration_number: 3 });
+    assert.strictEqual(analytics.selectBestIteration().selected.iteration_number, 2);
+    analytics.recordIteration({ ...metrics, iteration_number: 4, quality_score: 90, eval_human_override: true });
+    const selected = analytics.selectBestIteration().selected;
+    assert.strictEqual(selected.iteration_number, selectionCriteria === 'highest_quality_verified' ? 2 : 4);
+  });
 }

@@ -6,10 +6,14 @@
 
 import { EarlyStopping } from './early-stopping.mjs';
 import { IterationAnalytics } from './iteration-analytics.mjs';
-import { existsSync, mkdirSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { test, after } from 'node:test';
 import assert from 'assert';
 
-const TEST_DIR = '.aiwg/ralph/early-stopping-test';
+const TEST_DIR = mkdtempSync(join(tmpdir(), 'aiwg-early-stopping-'));
+after(cleanup);
 
 function cleanup() {
   if (existsSync(TEST_DIR)) {
@@ -20,17 +24,6 @@ function cleanup() {
 function setup() {
   cleanup();
   mkdirSync(TEST_DIR, { recursive: true });
-}
-
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`✓ ${name}`);
-  } catch (error) {
-    console.error(`✗ ${name}`);
-    console.error(`  ${error.message}`);
-    throw error;
-  }
 }
 
 // Test: Basic initialization
@@ -487,6 +480,55 @@ test('Plateau detection requires minimum consecutive iterations', () => {
   assert.strictEqual(decision.stop, false);
 });
 
-console.log('\n✅ All early stopping tests passed!');
+for (const [field, values] of [
+  ['highConfidenceThreshold', [NaN, Infinity, -0.1, 1.1, '0.95']],
+  ['plateauImprovementThreshold', [NaN, Infinity, -0.1, 1.1]],
+  ['minQualityThreshold', [NaN, Infinity, -1, 101]],
+  ['plateauConsecutiveCount', [0, 1, 2.5, Infinity]],
+  ['requireVerification', ['false', 0, null]],
+  ['enablePlateauDetection', ['false']],
+  ['enableDiminishingReturns', ['false']],
+]) {
+  for (const value of values) {
+    test(`rejects invalid ${field}: ${String(value)} without changing configuration`, () => {
+      assert.throws(() => new EarlyStopping({ [field]: value }), new RegExp(field));
+      const stopping = new EarlyStopping();
+      const before = stopping.getConfig();
+      assert.throws(() => stopping.configure({ [field]: value }), new RegExp(field));
+      assert.deepStrictEqual(stopping.getConfig(), before);
+    });
+  }
+}
 
-cleanup();
+const validResult = { quality_score: 75, confidence: 0.8, quality_delta: 0, verification_status: 'passed' };
+for (const [field, values] of [
+  ['quality_score', [NaN, Infinity, -1, 101, '75']],
+  ['confidence', [NaN, Infinity, -0.1, 1.1, '0.8']],
+  ['quality_delta', [NaN, Infinity, '1']],
+  ['verification_status', ['unknown', null]],
+  ['timestamp', ['invalid', null]],
+]) {
+  for (const value of values) {
+    test(`rejects invalid result ${field}: ${String(value)} before recording`, () => {
+      const stopping = new EarlyStopping();
+      assert.throws(() => stopping.recordIterationResult(1, { ...validResult, [field]: value }), new RegExp(field));
+      assert.deepStrictEqual(stopping.getIterationHistory(), []);
+    });
+  }
+}
+
+test('rejects invalid iteration numbers and missing result objects', () => {
+  const stopping = new EarlyStopping();
+  for (const iteration of [0, -1, 1.5, NaN, Infinity, '1']) {
+    assert.throws(() => stopping.recordIterationResult(iteration, validResult), /iteration/);
+  }
+  assert.throws(() => stopping.recordIterationResult(1, null), /object/);
+  assert.deepStrictEqual(stopping.getIterationHistory(), []);
+});
+
+test('accepts finite boundary values and negative quality deltas', () => {
+  const stopping = new EarlyStopping({ highConfidenceThreshold: 0, minQualityThreshold: 100, plateauImprovementThreshold: 1, plateauConsecutiveCount: 2 });
+  stopping.recordIterationResult(1, { quality_score: 0, confidence: 0, quality_delta: -100, verification_status: 'void' });
+  stopping.recordIterationResult(2, { quality_score: 100, confidence: 1, quality_delta: 100, verification_status: 'skipped', timestamp: '2026-09-10T00:00:00Z' });
+  assert.strictEqual(stopping.getIterationHistory().length, 2);
+});
