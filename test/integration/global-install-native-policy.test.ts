@@ -13,6 +13,7 @@ import {
   TEST_VERSION,
 } from '../fixtures/web-resource-release.js';
 import { acquireDirectoryLock } from '../../src/artifacts/prebuilt-build-lock.js';
+import { hasSevenDayReleaseAge } from '../helpers/npm-release-age.js';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 let tempRoot = '';
@@ -148,13 +149,14 @@ describe('global install native lifecycle-script policy', () => {
         '--min-release-age=7', '--no-audit', '--no-fund', tarball,
     ];
     // Probe the actual install options after environment/userconfig isolation.
+    const policyStartedAt = Date.now();
     const policy = spawnSync(
       process.platform === 'win32' ? 'npm.cmd' : 'npm',
-      ['config', 'get', 'min-release-age', ...installArgs.slice(1, -1)],
+      ['config', 'get', 'min-release-age', 'before', ...installArgs.slice(1, -1)],
       { cwd: tempRoot, encoding: 'utf8', timeout: 30_000, env: cleanEnv },
     );
     expect(policy.status, policy.stderr).toBe(0);
-    expect(policy.stdout.trim()).toBe('7');
+    expect(hasSevenDayReleaseAge(policy.stdout, policyStartedAt, Date.now()), policy.stdout).toBe(true);
     const install = spawnSync(
       process.platform === 'win32' ? 'npm.cmd' : 'npm',
       installArgs,
