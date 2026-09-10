@@ -359,8 +359,8 @@ export class SessionLauncher extends EventEmitter {
         // Whether the provider actually reported token/cost usage this session.
         // Distinguishes "observed 0" from "cannot observe" so token/spend
         // ceilings aren't silently inert on providers that emit no usage (#1766).
-        result.tokenUsageObserved = stats.usageEvents > 0;
-        result.costObserved = stats.costUsd > 0 || (stats.usageEvents > 0 && stats.costFieldSeen === true);
+        result.tokenUsageObserved = stats.tokenFieldSeen;
+        result.costObserved = stats.costFieldSeen;
       }
     } catch (err) {
       // Log but don't fail the session
@@ -446,6 +446,7 @@ export class SessionLauncher extends EventEmitter {
       totalTokens: 0,
       costUsd: 0,
       usageEvents: 0,
+      tokenFieldSeen: false,
       costFieldSeen: false,
     };
 
@@ -483,6 +484,9 @@ export class SessionLauncher extends EventEmitter {
           }
 
           const usage = this._extractUsageStats(event);
+          if (usage.hasTokenField) {
+            stats.tokenFieldSeen = true;
+          }
           if (usage.hasCostField) {
             stats.costFieldSeen = true;
           }
@@ -628,40 +632,46 @@ export class SessionLauncher extends EventEmitter {
       for (const value of values) {
         if (typeof value === 'number' && Number.isFinite(value)) return value;
       }
-      return 0;
+      return undefined;
+    };
+    let hasTokenField = false;
+    const tokenFrom = (...values) => {
+      const value = numberFrom(...values);
+      if (value !== undefined) hasTokenField = true;
+      return value;
     };
 
-    const inputTokens = numberFrom(
+    const inputTokens = tokenFrom(
       usage.input_tokens,
       usage.inputTokens,
       event.input_tokens,
       event.inputTokens
-    );
-    const outputTokens = numberFrom(
+    ) ?? 0;
+    const outputTokens = tokenFrom(
       usage.output_tokens,
       usage.outputTokens,
       event.output_tokens,
       event.outputTokens
-    );
-    const cacheCreationInputTokens = numberFrom(
+    ) ?? 0;
+    const cacheCreationInputTokens = tokenFrom(
       usage.cache_creation_input_tokens,
       usage.cacheCreationInputTokens,
       event.cache_creation_input_tokens,
       event.cacheCreationInputTokens
-    );
-    const cacheReadInputTokens = numberFrom(
+    ) ?? 0;
+    const cacheReadInputTokens = tokenFrom(
       usage.cache_read_input_tokens,
       usage.cacheReadInputTokens,
       event.cache_read_input_tokens,
       event.cacheReadInputTokens
-    );
-    const explicitTotal = numberFrom(
+    ) ?? 0;
+    const explicitTotal = tokenFrom(
       usage.total_tokens,
       usage.totalTokens,
       event.total_tokens,
       event.totalTokens
     );
-    const totalTokens = explicitTotal ||
+    const totalTokens = explicitTotal ??
       inputTokens + outputTokens + cacheCreationInputTokens + cacheReadInputTokens;
     const costCandidates = [
       event.cost_usd,
@@ -674,7 +684,7 @@ export class SessionLauncher extends EventEmitter {
     const hasCostField = costCandidates.some(
       (v) => typeof v === 'number' && Number.isFinite(v)
     );
-    const costUsd = numberFrom(...costCandidates);
+    const costUsd = numberFrom(...costCandidates) ?? 0;
 
     return {
       inputTokens,
@@ -684,7 +694,8 @@ export class SessionLauncher extends EventEmitter {
       totalTokens,
       costUsd,
       hasCostField,
-      hasUsage: totalTokens > 0 || costUsd > 0,
+      hasTokenField,
+      hasUsage: hasTokenField || hasCostField,
     };
   }
 }
