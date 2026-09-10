@@ -236,11 +236,14 @@ function hasFlag(args: string[], flag: string): boolean {
  * dispatch missions with no ceiling while the operator believed one applied
  * (#1770).
  */
-function parseNumberFlag(args: string[], flag: string, invalidSink?: string[]): number | undefined {
+function parseNumberFlag(args: string[], flag: string, invalidSink?: string[], integer = false): number | undefined {
+  if (!args.some(arg => arg === flag || arg.startsWith(`${flag}=`))) return undefined;
   const raw = parseFlag(args, flag);
-  if (raw === undefined) return undefined;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0) {
+  // Presence and validity are distinct: a trailing flag must not silently
+  // disappear, and counter limits must not accept fractional/unsafe values.
+  const decimal = typeof raw === 'string' && /^[+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw);
+  const value = decimal ? Number(raw) : NaN;
+  if (!Number.isFinite(value) || value <= 0 || (integer && !Number.isSafeInteger(value))) {
     invalidSink?.push(`${flag} (got '${raw}')`);
     return undefined;
   }
@@ -415,22 +418,13 @@ async function mcDispatch(ctx: HandlerContext): Promise<HandlerResult> {
   const completion = parseFlag(ctx.args, '--completion');
   const priority = parseFlag(ctx.args, '--priority') || 'normal';
   const invalidFlags: string[] = [];
-  const maxIterationsRaw = parseFlag(ctx.args, '--max-iterations');
-  let maxIterations = 10;
-  if (maxIterationsRaw !== undefined) {
-    const parsedIterations = parseInt(maxIterationsRaw, 10);
-    if (!Number.isFinite(parsedIterations) || parsedIterations <= 0) {
-      invalidFlags.push(`--max-iterations (got '${maxIterationsRaw}')`);
-    } else {
-      maxIterations = parsedIterations;
-    }
-  }
-  const maxTotalTokens = parseNumberFlag(ctx.args, '--max-total-tokens', invalidFlags);
-  const maxOutputTokens = parseNumberFlag(ctx.args, '--max-output-tokens', invalidFlags);
-  const maxToolCalls = parseNumberFlag(ctx.args, '--max-tool-calls', invalidFlags);
+  const maxIterations = parseNumberFlag(ctx.args, '--max-iterations', invalidFlags, true) ?? 10;
+  const maxTotalTokens = parseNumberFlag(ctx.args, '--max-total-tokens', invalidFlags, true);
+  const maxOutputTokens = parseNumberFlag(ctx.args, '--max-output-tokens', invalidFlags, true);
+  const maxToolCalls = parseNumberFlag(ctx.args, '--max-tool-calls', invalidFlags, true);
   const maxTotalCost = parseNumberFlag(ctx.args, '--max-total-cost', invalidFlags);
   const maxWallClockMinutes = parseNumberFlag(ctx.args, '--max-wall-clock-minutes', invalidFlags);
-  const explorationQuota = parseNumberFlag(ctx.args, '--exploration-quota', invalidFlags);
+  const explorationQuota = parseNumberFlag(ctx.args, '--exploration-quota', invalidFlags, true);
   const budgetStopPolicyRaw = parseFlag(ctx.args, '--budget-stop-policy');
   let budgetStopPolicy: 'completion-wins' | 'budget-wins' | undefined;
   if (budgetStopPolicyRaw !== undefined) {

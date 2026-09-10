@@ -5,7 +5,8 @@
  * @implements #1322-#1332
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { z } from "zod";
 
 const { runAiwgCliMock } = vi.hoisted(() => ({
   runAiwgCliMock: vi.fn(async () => ({ stdout: '{"ok":true}', stderr: "", code: 0 })),
@@ -19,10 +20,43 @@ vi.mock("../../../src/mcp/helpers.mjs", async (importOriginal) => {
   };
 });
 
+beforeEach(() => runAiwgCliMock.mockClear());
+
 // @ts-expect-error — .mjs untyped
 import * as subsystems from "../../../src/mcp/tools/subsystems.mjs";
 
 const { parseToolsets, KNOWN_TOOLSETS, registerOptInToolsets } = subsystems as any;
+
+describe("mc-dispatch numeric schema contracts", () => {
+  function captureSchema() {
+    const tools = new Map<string, any>();
+    const server = { registerTool(name: string, config: any) { tools.set(name, config); } };
+    registerOptInToolsets(server, new Set(["mc"]));
+    return tools.get("mc-dispatch").inputSchema;
+  }
+  const counters = ["max_iterations", "max_total_tokens", "max_output_tokens", "max_tool_calls", "exploration_quota"];
+  const decimals = ["max_total_cost", "max_wall_clock_minutes"];
+  for (const field of [...counters, ...decimals]) {
+    const invalid: unknown[] = [0, -1, NaN, Infinity, "1"];
+    if (counters.includes(field)) invalid.push(1.5, Number.MAX_SAFE_INTEGER + 1);
+    it.each(invalid)(`rejects ${field}=%s in the registered schema`, value => {
+      expect(captureSchema()[field].safeParse(value).success).toBe(false);
+      expect(runAiwgCliMock).not.toHaveBeenCalled();
+    });
+  }
+  it("accepts exact boundary values and fractional decimal limits", () => {
+    const schema = captureSchema();
+    for (const field of counters) {
+      expect(schema[field].parse(1)).toBe(1);
+      expect(schema[field].parse(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER);
+    }
+    for (const field of decimals) expect(schema[field].parse(0.25)).toBe(0.25);
+  });
+  it("leaves omitted quota and ceilings absent without injecting defaults", () => {
+    const schema = captureSchema();
+    for (const field of [...counters, ...decimals]) expect(schema[field].parse(undefined)).toBeUndefined();
+  });
+});
 
 describe("MCP subsystems — toolset parsing", () => {
   it("empty string returns empty set", () => {
@@ -81,7 +115,7 @@ describe("MCP subsystems — toolset parsing", () => {
 
     registerOptInToolsets(server, new Set(["mc"]));
 
-    await tools.get("mc-dispatch").handler({
+    await tools.get("mc-dispatch").handler(z.object(tools.get("mc-dispatch").config.inputSchema).parse({
       session_id: "mc-123",
       objective: "tighten loop controls",
       completion: "budget-stop report emitted",
@@ -92,7 +126,7 @@ describe("MCP subsystems — toolset parsing", () => {
       max_total_cost: 4.5,
       max_wall_clock_minutes: 30,
       exploration_quota: 3,
-    });
+    }));
 
     expect(runAiwgCliMock).toHaveBeenCalledWith([
       "mc",

@@ -135,6 +135,10 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 // ── mcHandler metadata ────────────────────────────────────────
 
 describe('mcHandler metadata', () => {
@@ -192,6 +196,61 @@ describe('mc start', () => {
 // ── mc dispatch ───────────────────────────────────────────────
 
 describe('mc dispatch', () => {
+  const integerFlags = ['--max-iterations', '--max-total-tokens', '--max-output-tokens', '--max-tool-calls', '--exploration-quota'];
+  const decimalFlags = ['--max-total-cost', '--max-wall-clock-minutes'];
+  for (const flag of [...integerFlags, ...decimalFlags]) {
+    const invalid = ['1junk', '1,000', '0x10', '0', '-1', 'Infinity', ''];
+    if (integerFlags.includes(flag)) invalid.push('1.5', '9007199254740992');
+    for (const syntax of ['separate', 'equals']) {
+      it.each(invalid)(`rejects ${syntax} ${flag}=%s without changing session state`, async raw => {
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        const started = await mcHandler.execute(makeCtx(['start']));
+        expect(started.exitCode).toBe(0);
+        const before = [...inMemoryFs.store.entries()];
+        const args = syntax === 'equals' ? [`${flag}=${raw}`] : [flag, raw];
+        const result = await mcHandler.execute(makeCtx(['dispatch', started.message!, 'Synthetic mission', ...args]));
+        expect([...inMemoryFs.store.entries()]).toEqual(before);
+        expect(result.exitCode).toBe(1);
+        const ui = await import('../../../../src/cli/ui.js');
+        expect(ui.error).toHaveBeenCalledWith(expect.stringContaining(flag));
+        expect(launchExternalRalph).not.toHaveBeenCalled();
+      });
+    }
+    it(`rejects missing ${flag} value without dispatching`, async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      const started = await mcHandler.execute(makeCtx(['start']));
+      const before = [...inMemoryFs.store.entries()];
+      const result = await mcHandler.execute(makeCtx(['dispatch', started.message!, 'Synthetic mission', flag]));
+      expect([...inMemoryFs.store.entries()]).toEqual(before);
+      expect(result.exitCode).toBe(1);
+      expect(launchExternalRalph).not.toHaveBeenCalled();
+    });
+  }
+
+  it.each(['separate', 'equals'])('persists exact valid numeric values using %s syntax', async syntax => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const started = await mcHandler.execute(makeCtx(['start']));
+    const values = [...integerFlags.map(flag => [flag, '1e2']), ...decimalFlags.map(flag => [flag, '0.25'])];
+    const args = values.flatMap(([flag, raw]) => syntax === 'equals' ? [`${flag}=${raw}`] : [flag, raw]);
+    const result = await mcHandler.execute(makeCtx(['dispatch', started.message!, 'Synthetic mission', ...args]));
+    expect(result.exitCode).toBe(0);
+    const saved = JSON.parse(inMemoryFs.store.get(`.aiwg/ralph-external/mc/sessions/${started.message}/session.json`)!);
+    expect(saved.missions).toHaveLength(1);
+    expect(saved.missions[0]).toMatchObject({ maxIterations: 100, maxTotalTokens: 100, maxOutputTokens: 100,
+      maxToolCalls: 100, explorationQuota: 100, maxTotalCost: 0.25, maxWallClockMinutes: 0.25 });
+  });
+
+  it('keeps quota disabled and iteration defaults when numeric flags are absent', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const started = await mcHandler.execute(makeCtx(['start']));
+    expect((await mcHandler.execute(makeCtx(['dispatch', started.message!, 'Synthetic mission']))).exitCode).toBe(0);
+    const saved = JSON.parse(inMemoryFs.store.get(`.aiwg/ralph-external/mc/sessions/${started.message}/session.json`)!);
+    expect(saved.missions).toHaveLength(1);
+    expect(saved.missions[0].maxIterations).toBe(10);
+    expect(saved.missions[0]).not.toHaveProperty('explorationQuota');
+    expect(saved.missions[0]).not.toHaveProperty('maxTotalTokens');
+  });
+
   it('exits 1 when no objective given', async () => {
     const result = await mcHandler.execute(makeCtx(['dispatch']));
     expect(result.exitCode).toBe(1);

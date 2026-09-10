@@ -23,6 +23,13 @@ import {
 } from './ralph-launcher.js';
 import { handlerResultFromError } from '../errors.js';
 
+/** Parse a complete positive decimal value without truncating counter limits. */
+function parsePositiveLimit(raw: string | undefined, integer = false): number | undefined {
+  if (typeof raw !== 'string' || !/^[+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw)) return undefined;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 && (!integer || Number.isSafeInteger(value)) ? value : undefined;
+}
+
 /**
  * Parse Ralph command arguments
  */
@@ -67,8 +74,8 @@ function parseRalphArgs(args: string[]): {
   // Present-but-invalid numeric values are a hard usage error: an operator who
   // typed --max-total-cost expects a ceiling to exist (#1770).
   const positiveNumber = (flag: string, raw: string | undefined, integer = false): number | undefined => {
-    const value = integer ? parseInt(raw ?? '', 10) : parseFloat(raw ?? '');
-    if (!Number.isFinite(value) || value <= 0) {
+    const value = parsePositiveLimit(raw, integer);
+    if (value === undefined) {
       result.invalidFlags.push(`${flag} (got '${raw ?? ''}')`);
       return undefined;
     }
@@ -480,8 +487,11 @@ export class RalphResumeHandler implements CommandHandler {
       const arg = ctx.args[i];
       if (arg === '--loop-id' && ctx.args[i + 1]) {
         loopId = ctx.args[++i];
-      } else if (arg === '--max-iterations' && ctx.args[i + 1]) {
-        maxIterations = parseInt(ctx.args[++i], 10);
+      } else if (arg === '--max-iterations') {
+        maxIterations = parsePositiveLimit(ctx.args[++i], true);
+        if (maxIterations === undefined) {
+          return { exitCode: 1, message: 'Error: --max-iterations requires a positive safe integer. Loop not resumed.' };
+        }
       }
     }
 
