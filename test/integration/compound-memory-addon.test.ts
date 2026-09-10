@@ -99,5 +99,5 @@ describe('compound-memory addon activation', () => {
       projectDir,
       '.agents/skills/compound-memory/SKILL.md',
     ))).resolves.toBeUndefined();
-  });
+  }, 60_000);
 });

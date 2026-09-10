@@ -439,20 +439,20 @@ describe.skipIf(!GIT_AVAILABLE)('aiwg use all — deployment coverage', { timeou
     }
   }, 30_000);
 
-  it('writes complete RULES-ONDEMAND indexes for Claude and Codex after real aiwg use all (#1784)', async () => {
-    for (const provider of ['claude', 'codex']) {
-      const result = runAiwg(['use', 'all', '--provider', provider, '--target', projectDir], projectDir);
-      expect(result.exitCode, `aiwg use all --provider ${provider} failed:\nstdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
+  // One bounded CLI child per case; each provider gets an isolated project and
+  // a distinct failure identity instead of sharing a 90s budget for two calls.
+  it.each(['claude', 'codex'])('writes complete RULES-ONDEMAND indexes for %s after real aiwg use all (#1784)', async (provider) => {
+    const result = runAiwg(['use', 'all', '--provider', provider, '--target', projectDir], projectDir);
+    expect(result.exitCode, `aiwg use all --provider ${provider} failed:\nstdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
 
-      const rulesDir = provider === 'claude'
-        ? path.join(projectDir, '.claude', 'rules')
-        : path.join(projectDir, '.codex', 'rules');
-      const body = await fs.readFile(path.join(rulesDir, 'RULES-ONDEMAND.md'), 'utf8');
-      const actual = [...body.matchAll(/^- `([^`]+)`/gm)].map((match) => match[1]).sort();
+    const rulesDir = provider === 'claude'
+      ? path.join(projectDir, '.claude', 'rules')
+      : path.join(projectDir, '.codex', 'rules');
+    const body = await fs.readFile(path.join(rulesDir, 'RULES-ONDEMAND.md'), 'utf8');
+    const actual = [...body.matchAll(/^- `([^`]+)`/gm)].map((match) => match[1]).sort();
 
-      expect(actual).toEqual(EXPECTED_ON_DEMAND_RULE_NAMES);
-      expect(actual).toEqual(expect.arrayContaining(ISSUE_1784_MISSING_EXAMPLES));
-    }
+    expect(actual).toEqual(EXPECTED_ON_DEMAND_RULE_NAMES);
+    expect(actual).toEqual(expect.arrayContaining(ISSUE_1784_MISSING_EXAMPLES));
   }, 90_000);
 });
 
