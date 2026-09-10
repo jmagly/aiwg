@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { existsSync, mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -30,6 +30,45 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe('canonical compound-memory context', () => {
+  it.each(['value', 'reviewer', 'stale', 'operation', 'revoke', 'import'] as const)(
+    'rejects a mismatched %s confirmation without changing state or receipts', (kind) => {
+      const repository = new CanonicalContextRepository(root);
+      repository.confirm({ preview: repository.previewUpsert(proposal), proposal });
+      const next = { ...proposal, value: 'Reviewed replacement decision.' };
+      let input: Parameters<CanonicalContextRepository['confirm']>[0] = {
+        preview: repository.previewUpsert(next), proposal: next,
+      };
+      if (kind === 'value') input.proposal = { ...next, value: 'A different decision.' };
+      if (kind === 'reviewer') input.proposal = { ...next, reviewer: 'maintainer:other' };
+      if (kind === 'stale') {
+        const unrelated = { ...proposal, key: 'another.decision' };
+        repository.confirm({ preview: repository.previewUpsert(unrelated), proposal: unrelated });
+      }
+      if (kind === 'operation') input.preview = { ...input.preview, operation: 'revoke' };
+      if (kind === 'revoke') {
+        const entryId = Object.keys(repository.read().entries)[0];
+        input = {
+          preview: repository.previewRevoke(entryId, proposal.reviewer, 'Withdrawn'),
+          revoke: { entryId, reviewer: proposal.reviewer, reason: 'Different reason' },
+        };
+      }
+      if (kind === 'import') {
+        const bundle = repository.export();
+        input = {
+          preview: repository.previewImport(bundle),
+          bundle: { ...bundle, exportedAt: '2000-01-01T00:00:00.000Z' },
+        };
+      }
+      const state = repository.read();
+      const receiptRoot = join(root, '.aiwg/context/compound-memory/receipts');
+      const receipts = () => readdirSync(receiptRoot).sort().map(name => [name, readFileSync(join(receiptRoot, name), 'utf8')]);
+      const before = receipts();
+      expect(() => repository.confirm(input)).toThrow('confirmation requires the exact current canonical-context preview');
+      expect(repository.read()).toEqual(state);
+      expect(receipts()).toEqual(before);
+      expect(existsSync(join(root, '.aiwg/context/compound-memory/.lock'))).toBe(false);
+    },
+  );
   it('previews without mutation and confirms idempotently with minimized provenance', () => {
     const repository = new CanonicalContextRepository(root);
     const preview = repository.previewUpsert(proposal);

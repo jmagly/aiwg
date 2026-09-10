@@ -89,17 +89,16 @@ describe('Token Counter', () => {
       const content = 'hello world test\n\nfoo bar baz test';
       const result = countTokens(content);
 
-      expect(result.tokens).toBe(estimateTokens(content));
-      expect(result.characters).toBe(content.length);
-      expect(result.nonBlankLines).toBe(2);
-      expect(result.totalLines).toBe(3);
-      expect(result.tokensPerLine).toBeGreaterThan(0);
+      expect(result).toEqual({
+        tokens: 9, characters: 34, nonBlankLines: 2, totalLines: 3, tokensPerLine: 4.5,
+      });
     });
 
     it('should round tokensPerLine to 2 decimal places', () => {
-      const result = countTokens('abc\ndef');
-      const decimalPlaces = (result.tokensPerLine.toString().split('.')[1] || '').length;
-      expect(decimalPlaces).toBeLessThanOrEqual(2);
+      const result = countTokens('a\nb\nc');
+      expect(result).toEqual({
+        tokens: 2, characters: 5, nonBlankLines: 3, totalLines: 3, tokensPerLine: 0.67,
+      });
     });
   });
 
@@ -141,15 +140,27 @@ describe('Token Counter', () => {
   describe('analyzeTokenEfficiency', () => {
     it('should include threshold status', () => {
       const result = analyzeTokenEfficiency('short line\nanother line');
-      expect(result.threshold).toBeDefined();
-      expect(result.threshold.level).toBeDefined();
+      expect(result.threshold).toEqual({ level: 'green', action: 'none', message: 'Meeting benchmark' });
     });
 
     it('should calculate benchmark comparison', () => {
       const result = analyzeTokenEfficiency('test content');
-      expect(typeof result.vsBenchmark).toBe('number');
-      expect(typeof result.vsBaseline).toBe('number');
+      expect(result.tokensPerLine).toBe(3);
+      expect(result.vsBenchmark).toBe(-97.58);
+      expect(result.vsBaseline).toBe(-98.5);
     });
+
+    it.each([
+      [124, 'green', 'none', 'Meeting benchmark', 0, -38],
+      [135, 'yellow', 'flag_for_review', 'Review for optimization', 8.87, -32.5],
+      [200, 'red', 'generate_recommendations', 'Requires optimization', 61.29, 0],
+    ] as const)('should compose exact efficiency metrics for %i tokens per line',
+      (tokens, level, action, message, vsBenchmark, vsBaseline) => {
+        expect(analyzeTokenEfficiency('a'.repeat(tokens * 4))).toEqual({
+          tokens, characters: tokens * 4, nonBlankLines: 1, totalLines: 1, tokensPerLine: tokens,
+          threshold: { level, action, message }, vsBenchmark, vsBaseline,
+        });
+      });
 
     it('should return zero comparisons for empty content', () => {
       const result = analyzeTokenEfficiency('');

@@ -7,27 +7,38 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, rmSync } from 'fs';
+import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { resolveRlmParallel } from '../../../src/rlm/cli.js';
 import { emptyConfig, writeAiwgConfig } from '../../../src/config/aiwg-config.js';
 
-function makeTmpDir(): string {
-  const dir = join(tmpdir(), `aiwg-rlm-parallel-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
+const ARTIFACT_ENV_KEYS = [
+  'AIWG_ARTIFACTS_PATH',
+  'AIWG_PROJECT_ARTIFACTS_PATH',
+  'AIWG_PROJECT_AIWG_DIR',
+] as const;
 
 describe('resolveRlmParallel (#1360)', () => {
   let tmpDir: string;
+  let originalArtifactEnv: Array<string | undefined>;
 
   beforeEach(() => {
-    tmpDir = makeTmpDir();
+    tmpDir = mkdtempSync(join(tmpdir(), 'aiwg-rlm-parallel-'));
+    originalArtifactEnv = ARTIFACT_ENV_KEYS.map(key => process.env[key]);
+    for (const key of ARTIFACT_ENV_KEYS) delete process.env[key];
   });
 
   afterEach(() => {
-    rmSync(tmpDir, { recursive: true, force: true });
+    try {
+      rmSync(tmpDir, { recursive: true, force: true });
+    } finally {
+      ARTIFACT_ENV_KEYS.forEach((key, index) => {
+        const original = originalArtifactEnv[index];
+        if (original === undefined) delete process.env[key];
+        else process.env[key] = original;
+      });
+    }
   });
 
   describe('without aiwg.config', () => {

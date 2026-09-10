@@ -47,10 +47,7 @@ describe('cache store', () => {
     put(root, e);
     expect(has(root, HASH_A)).toBe(true);
     const got = get(root, HASH_A);
-    expect(got.hash).toBe(HASH_A);
-    expect(got.result).toEqual({ findings: ['stub'] });
-    expect(got.metadata.model).toBe('claude-sonnet-4-6');
-    expect(got.manifest.inputs).toHaveLength(1);
+    expect(got).toEqual(e);
   });
 
   it('rejects invalid hash format', () => {
@@ -62,16 +59,20 @@ describe('cache store', () => {
   });
 
   it('list returns sorted summaries', () => {
-    put(root, entry(HASH_A, '2026-05-01T00:00:00Z'));
-    put(root, entry(HASH_B, '2026-05-08T00:00:00Z'));
+    // Both insertion and lexical hash order oppose chronological order.
+    put(root, entry(HASH_A, '2026-05-08T00:00:00Z', 0.02));
+    put(root, entry(HASH_B, '2026-05-01T00:00:00Z', 0.03));
     const result = list(root, new Date('2026-05-09T00:00:00Z'));
-    expect(result).toHaveLength(2);
-    // Sorted ascending by createdAt
-    expect(result[0]?.hash).toBe(HASH_A);
-    expect(result[1]?.hash).toBe(HASH_B);
-    expect(result[0]?.ageDays).toBe(8);
-    expect(result[1]?.ageDays).toBe(1);
-    expect(result[0]?.inputCount).toBe(1);
+    expect(result).toEqual([
+      {
+        hash: HASH_B, model: 'claude-sonnet-4-6', query: 'stub query',
+        createdAt: '2026-05-01T00:00:00Z', ageDays: 8, inputCount: 1, costUsd: 0.03,
+      },
+      {
+        hash: HASH_A, model: 'claude-sonnet-4-6', query: 'stub query',
+        createdAt: '2026-05-08T00:00:00Z', ageDays: 1, inputCount: 1, costUsd: 0.02,
+      },
+    ]);
   });
 
   it('stats aggregates counts, sizes, ages, and cost', () => {
@@ -101,6 +102,7 @@ describe('cache store', () => {
     const r = evict(root, { olderThanDays: 30 }, new Date('2026-05-09T00:00:00Z'));
     expect(r.evictedCount).toBe(1);
     expect(r.hashes).toEqual([HASH_A]);
+    expect(has(root, HASH_A)).toBe(false);
     expect(has(root, HASH_B)).toBe(true);
   });
 

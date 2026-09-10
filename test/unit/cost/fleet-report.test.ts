@@ -187,7 +187,48 @@ describe('OpenRouter fleet cost reporting', () => {
 
     expect(report.bots[0].error).toContain('status 401');
     expect(JSON.stringify(report)).not.toContain(credential);
+    expect(formatFleetSpendReport(report)).toContain('status 401');
+    expect(formatFleetSpendReport(report)).not.toContain(credential);
   });
+
+  it.each(['transport Error', 'transport string', 'response decoding'] as const)(
+    'sanitizes untrusted %s diagnostics in structured and rendered reports', async failure => {
+      const directory = await temporaryDirectory();
+      const credential = 'synthetic-fleet-regression-key';
+      const untrusted = `untrusted-diagnostic Authorization: Bearer ${credential}`;
+      const fetchImpl = vi.fn(async () => {
+        if (failure === 'transport Error') throw new Error(untrusted);
+        if (failure === 'transport string') throw untrusted;
+        const response = new Response('{}', { status: 200 });
+        vi.spyOn(response, 'json').mockRejectedValue(new SyntaxError(untrusted));
+        return response;
+      });
+      const report = await generateFleetSpendReport({
+        cwd: directory,
+        homeDir: directory,
+        fleet: [{ bot: 'synthetic', machine: 'local', key_ref: 'synthetic-key', monthly_cap: 10 }],
+        env: { AIWG_OPENROUTER_KEY_SYNTHETIC_KEY: credential },
+        fetchImpl,
+        apiBaseUrl: 'https://openrouter.test/api/v1',
+      });
+      const diagnostic = failure === 'response decoding'
+        ? 'OpenRouter returned unreadable JSON. Check the API response format.'
+        : 'OpenRouter request could not complete. Check connectivity, timeout, or cancellation.';
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(report.bots[0]).toMatchObject({
+        spend_mtd: null, percent_used: null, cap: 10, top_sessions: [],
+        model_tier_breakdown: {}, anomalies: ['observation-error'], error: diagnostic,
+      });
+      for (const output of [JSON.stringify(report), formatFleetSpendReport(report)]) {
+        expect(output).toContain(diagnostic);
+        expect(output).toContain('observation-error');
+        expect(output).not.toContain(credential);
+        expect(output).not.toContain(untrusted);
+        expect(output).not.toContain('Authorization');
+        expect(output).not.toContain('untrusted-diagnostic');
+      }
+    },
+  );
 
   it('returns helpful guidance when fleet.yaml is absent', async () => {
     const directory = await temporaryDirectory();

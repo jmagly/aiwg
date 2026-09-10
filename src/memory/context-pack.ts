@@ -344,6 +344,7 @@ export function buildWorkspaceContextPack(
   task: string,
   options: WorkspaceContextOptions = {},
 ): ContextPack {
+  const started = performance.now();
   if (!task.trim()) throw new Error('context task must be nonblank');
   const root = realpathSync(projectRoot);
   const taskTerms = terms(task);
@@ -355,5 +356,8 @@ export function buildWorkspaceContextPack(
       return indexed.length > 0 ? indexed : wikiCandidates(root, taskTerms, maxFiles);
     })(),
   ];
-  return buildContextPack(task, candidates, { ...options, maxFiles });
+  const pack = buildContextPack(task, candidates, { ...options, maxFiles });
+  // Workspace callers need retrieval plus assembly latency, not assembly alone.
+  pack.metrics.elapsedMs = Number((performance.now() - started).toFixed(3));
+  return pack;
 }

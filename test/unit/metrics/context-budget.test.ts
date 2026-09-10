@@ -163,6 +163,16 @@ describe('Context Budget Manager', () => {
       });
       expect(mgr.wouldExceed('a'.repeat(400))).toBe(true);
     });
+
+    it('should include existing usage at the exact budget and one token beyond', () => {
+      const mgr = new ContextBudgetManager(PROJECT_PATH, { totalTokens: 100 });
+      mgr.addItem('existing', 'a'.repeat(160), 'user');
+      expect(mgr.contextBudget).toBe(70);
+      expect(mgr.getStatus().contextUsed).toBe(40);
+      expect(mgr.wouldExceed('b'.repeat(120))).toBe(false);
+      expect(mgr.wouldExceed('b'.repeat(124))).toBe(true);
+      expect(mgr.getStatus().contextUsed).toBe(40);
+    });
   });
 
   describe('degrade', () => {
@@ -179,9 +189,11 @@ describe('Context Budget Manager', () => {
 
       const result = mgr.degrade();
 
-      expect(result.dropped.length).toBeGreaterThan(0);
-      expect(result.dropped[0].source.type).toBe('auto');
-      expect(result.tokensFreed).toBeGreaterThan(0);
+      expect(result.dropped.map(item => item.id)).toEqual(['auto-1', 'user-1']);
+      expect(result.kept.map(item => item.id)).toEqual(['mention-1']);
+      expect(result.tokensFreed).toBe(100);
+      expect(mgr.getItems().map(item => item.id)).toEqual(['mention-1']);
+      expect(mgr.getStatus()).toMatchObject({ contextUsed: 50, contextRemaining: 90, itemCount: 1 });
     });
 
     it('should never drop system items', () => {
@@ -196,8 +208,11 @@ describe('Context Budget Manager', () => {
 
       const result = mgr.degrade();
 
-      const droppedIds = result.dropped.map((d) => d.id);
-      expect(droppedIds).not.toContain('sys');
+      expect(result.dropped.map(item => item.id)).toEqual(['auto']);
+      expect(result.kept.map(item => item.id)).toEqual(['sys']);
+      expect(result.tokensFreed).toBe(50);
+      expect(mgr.getItems().map(item => item.id)).toEqual(['sys']);
+      expect(mgr.getStatus()).toMatchObject({ contextUsed: 50, contextRemaining: 20, itemCount: 1 });
     });
   });
 

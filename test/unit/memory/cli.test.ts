@@ -21,6 +21,9 @@ describe('memory CLI (#966)', () => {
 
   beforeEach(async () => {
     projectRoot = await mkdtemp(join(tmpdir(), 'aiwg-memory-cli-test-'));
+    vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
+    for (const name of ['AIWG_ARTIFACTS_PATH', 'AIWG_PROJECT_ARTIFACTS_PATH', 'AIWG_PROJECT_AIWG_DIR']) vi.stubEnv(name, undefined);
+    vi.stubEnv('AIWG_PROJECT_MEMORY_HOME', join(projectRoot, 'registry'));
     memoryRoot = join(projectRoot, '.aiwg', 'memory');
     resetStorage();
     await initStorage(projectRoot);
@@ -34,26 +37,33 @@ describe('memory CLI (#966)', () => {
   afterEach(async () => {
     logSpy.mockRestore();
     resetStorage();
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
     await rm(projectRoot, { recursive: true, force: true });
   });
 
   describe('path', () => {
+    it('reports a non-filesystem backend without resolving or contacting it', async () => {
+      await mkdir(join(projectRoot, '.aiwg'), { recursive: true });
+      await writeFile(join(projectRoot, '.aiwg/storage.config'), JSON.stringify({ version: '1', backends: { memory: { type: 'fortemi' } } }));
+      resetStorage();
+      await main(['path', '--json']);
+      expect(JSON.parse(stdout[0])).toEqual({ backend: 'fortemi', note: 'memory subsystem uses backend "fortemi" — physical filesystem path is not applicable. Use `aiwg memory get/list` instead.' });
+    });
     it('prints the resolved memory root for the default fs backend', async () => {
       await main(['path']);
-      expect(stdout.join('\n')).toMatch(/\.aiwg\/memory$|^\//);
+      expect(stdout).toEqual([memoryRoot]);
     });
 
     it('prints subpath when given', async () => {
       await main(['path', 'research-complete/index.md']);
-      expect(stdout.join('\n')).toContain('.aiwg/memory/research-complete/index.md');
+      expect(stdout).toEqual([join(memoryRoot, 'research-complete/index.md')]);
     });
 
     it('--json outputs structured data', async () => {
       await main(['path', '--json']);
       const parsed = JSON.parse(stdout.join('\n'));
-      expect(parsed).toHaveProperty('backend');
-      expect(parsed).toHaveProperty('root');
-      expect(parsed).toHaveProperty('path');
+      expect(parsed).toEqual({ backend: 'fs', root: memoryRoot, path: memoryRoot });
     });
   });
 
@@ -100,10 +110,11 @@ describe('memory CLI (#966)', () => {
       const adapter = await resolveStorage('memory');
       await adapter.write('research-complete/page.md', '# page content');
 
-      // get() succeeds without throwing — content equivalence verified
-      // through the adapter (vitest workers can't reliably spy stdout)
-      await expect(main(['get', 'research-complete/page.md'])).resolves.toBeUndefined();
-      expect(await adapter.read('research-complete/page.md')).toBe('# page content');
+      const output = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+      try {
+        await main(['get', 'research-complete/page.md']);
+        expect(output.mock.calls).toEqual([['# page content']]);
+      } finally { output.mockRestore(); }
     });
 
     it('get throws clear error for missing entry', async () => {
@@ -227,9 +238,24 @@ describe('memory CLI (#966)', () => {
       resetStorage();
       await initStorage(projectRoot);
 
-      const { resolveStorage } = await import('../../../src/storage/index.js');
-      const adapter = await resolveStorage('memory');
-      await adapter.write('redirected.md', 'x');
+      const originalStdin = Object.getOwnPropertyDescriptor(process, 'stdin')!;
+      Object.defineProperty(process, 'stdin', { configurable: true, value: {
+        async *[Symbol.asyncIterator]() { yield 'custom content\n'; },
+      } });
+      try { await main(['put', 'redirected.md']); }
+      finally { Object.defineProperty(process, 'stdin', originalStdin); }
+      expect(await readFile(join(projectRoot, 'custom-memory/redirected.md'), 'utf8')).toBe('custom content\n');
+      const output = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+      try {
+        await main(['get', 'redirected.md']);
+        expect(output.mock.calls).toEqual([['custom content\n']]);
+      } finally { output.mockRestore(); }
+      stdout.length = 0;
+      await main(['list']);
+      expect(stdout).toEqual(['redirected.md']);
+      stdout.length = 0;
+      await main(['path', 'redirected.md', '--json']);
+      expect(JSON.parse(stdout[0])).toEqual({ backend: 'fs', root: join(projectRoot, 'custom-memory'), path: join(projectRoot, 'custom-memory/redirected.md') });
 
       // Default path must NOT exist; custom path must
       expect(existsSync(join(projectRoot, '.aiwg/memory/redirected.md'))).toBe(false);

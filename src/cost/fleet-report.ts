@@ -257,12 +257,24 @@ async function openRouterGet<T>(
   options: FleetReportOptions,
 ): Promise<T> {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const response = await fetchImpl(`${options.apiBaseUrl ?? OPENROUTER_API}${endpoint}`, {
-    headers: { Authorization: `Bearer ${key}` },
-    signal: requestSignal(options.signal),
-  });
+  let response: Response;
+  try {
+    response = await fetchImpl(`${options.apiBaseUrl ?? OPENROUTER_API}${endpoint}`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: requestSignal(options.signal),
+    });
+  } catch {
+    // Transport diagnostics can embed Authorization headers or request bodies.
+    throw new Error('OpenRouter request could not complete. Check connectivity, timeout, or cancellation.');
+  }
   if (!response.ok) throw new Error(`OpenRouter request failed with status ${response.status}.`);
-  const payload = await response.json() as { data?: T };
+  let payload: { data?: T };
+  try {
+    payload = await response.json() as { data?: T };
+  } catch {
+    // Decoder exceptions can quote arbitrary response content.
+    throw new Error('OpenRouter returned unreadable JSON. Check the API response format.');
+  }
   if (!payload || typeof payload !== 'object' || !payload.data) throw new Error('OpenRouter returned an invalid response.');
   return payload.data;
 }
