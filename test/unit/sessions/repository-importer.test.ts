@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRequire } from 'node:module';
+import { requireFeaturePackage } from '../../../src/features/runtime.js';
 import {
   appendFile, mkdtemp, rename, rm, stat, utimes, writeFile,
 } from 'node:fs/promises';
@@ -23,8 +23,6 @@ import {
   type SessionSource,
   type SessionSourceAdapter,
 } from '../../../src/sessions/index.js';
-
-const require = createRequire(import.meta.url);
 
 function adapter(records: ProviderRecord[]): SessionSourceAdapter {
   return {
@@ -1680,7 +1678,7 @@ describe('transactional session repository and importer', () => {
       });
       repository.close();
 
-      const Database = require('better-sqlite3');
+      const Database = requireFeaturePackage('better-sqlite3') as new (path: string) => any;
       let raw = new Database(databasePath);
       raw.prepare('DELETE FROM session_catalog_meta').run();
       raw.close();

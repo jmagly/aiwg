@@ -164,37 +164,46 @@ function createStatusFixture(t) {
   return root;
 }
 
-test('ralph-external --status shows LFD budget and efficiency metrics', t => {
-  const root = createStatusFixture(t);
+for (const [locale, suffix, expectedTokens] of [
+  ['en_US.UTF-8', '', '1,500 / 2,000 (75.0%)'],
+  ['de_DE.UTF-8', ' (German locale)', '1.500 / 2.000 (75.0%)'],
+]) {
+  test(`ralph-external --status shows LFD budget and efficiency metrics${suffix}`, t => {
+    const root = createStatusFixture(t);
 
-  try {
-    const result = spawnSync(process.execPath, [CLI_PATH, '--status'], {
-      cwd: root,
-      encoding: 'utf8',
-      timeout: 10000,
-    });
+    try {
+      const result = spawnSync(process.execPath, [CLI_PATH, '--status'], {
+        cwd: root,
+        // Production intentionally formats token counts using its process locale.
+        // Pin the child's locale, not the parent or production implementation.
+        env: { ...process.env, LANG: locale, LC_ALL: locale },
+        encoding: 'utf8',
+        timeout: 10000,
+      });
 
-    assert.equal(result.error, undefined);
-    assert.equal(result.signal, null);
-    assert.strictEqual(result.status, 0, result.stderr);
-    assert.match(result.stdout, /LFD Controls:/);
-    assert.match(result.stdout, /Total Tokens:\s+1,500 \/ 2,000 \(75\.0%\)/);
-    assert.match(result.stdout, /Output Tokens:\s+300 \/ 500 \(60\.0%\)/);
-    assert.match(result.stdout, /Tool Calls:\s+4 \/ 10 \(40\.0%\)/);
-    assert.match(result.stdout, /Spend:\s+\$0\.1200 \/ \$0\.5000 \(24\.0%\)/);
-    assert.match(result.stdout, /Runtime:\s+2\.50 min \/ 10\.00 min \(25\.0%\)/);
-    assert.match(result.stdout, /Best \/ 1K Tok:\s+iteration 2 \(60\.00\)/);
-    assert.match(result.stdout, /Best \/ Minute:\s+iteration 1 \(120\.00\)/);
-    assert.match(result.stdout, /Random Lift:\s+iteration 2 \(\+25\.00\)/);
-    assert.match(result.stdout, /Random TokLift:\s+iteration 2 \(\+30\.00\)/);
-    assert.match(result.stdout, /Random SpdLift:\s+iteration 1 \(\+40\.00\)/);
-    assert.match(result.stdout, /Structural Var:\s+not required \(1\/3 flat cycles\)/);
-  } finally {
-    if (existsSync(root)) {
-      rmSync(root, { recursive: true, force: true });
+      assert.equal(result.error, undefined);
+      assert.equal(result.signal, null);
+      assert.strictEqual(result.status, 0, result.stderr);
+      assert.match(result.stdout, /LFD Controls:/);
+      const totalTokensLine = result.stdout.split('\n').find(line => line.trimStart().startsWith('Total Tokens:'));
+      assert.equal(totalTokensLine?.trim(), `Total Tokens:   ${expectedTokens}`);
+      assert.match(result.stdout, /Output Tokens:\s+300 \/ 500 \(60\.0%\)/);
+      assert.match(result.stdout, /Tool Calls:\s+4 \/ 10 \(40\.0%\)/);
+      assert.match(result.stdout, /Spend:\s+\$0\.1200 \/ \$0\.5000 \(24\.0%\)/);
+      assert.match(result.stdout, /Runtime:\s+2\.50 min \/ 10\.00 min \(25\.0%\)/);
+      assert.match(result.stdout, /Best \/ 1K Tok:\s+iteration 2 \(60\.00\)/);
+      assert.match(result.stdout, /Best \/ Minute:\s+iteration 1 \(120\.00\)/);
+      assert.match(result.stdout, /Random Lift:\s+iteration 2 \(\+25\.00\)/);
+      assert.match(result.stdout, /Random TokLift:\s+iteration 2 \(\+30\.00\)/);
+      assert.match(result.stdout, /Random SpdLift:\s+iteration 1 \(\+40\.00\)/);
+      assert.match(result.stdout, /Structural Var:\s+not required \(1\/3 flat cycles\)/);
+    } finally {
+      if (existsSync(root)) {
+        rmSync(root, { recursive: true, force: true });
+      }
     }
-  }
-});
+  });
+}
 
 for (const [name, args, diagnostic] of [
   ['malformed JSON option', ['--mcp-config', '{broken'], /SyntaxError:/],

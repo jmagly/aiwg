@@ -10,6 +10,30 @@ const cliCommandPattern = /\b(?:npx\s+)?aiwg\s+(?:--?)?[a-z][a-z0-9-]*\b/;
 const legacyProviderCommandPattern = /(?<![a-z0-9~.])\/aiwg-[a-z][a-z0-9-]*\b|\$aiwg-[a-z][a-z0-9-]*\b|\baiwg-regenerate\b/;
 let outputRoot: string;
 
+function assertCompleteAudienceInventory(audit: {
+  inventory: { path: string; publicOperatorNoticeRequired: boolean }[];
+  totals: { markdownFiles: number; publicOperatorGuidancePages: number };
+}) {
+  const markdownPaths = (directory: string): string[] =>
+    readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) return markdownPaths(absolute);
+      return entry.isFile() && entry.name.endsWith('.md')
+        ? [path.relative(docs, absolute).split(path.sep).join('/')]
+        : [];
+    });
+  const expectedPaths = markdownPaths(docs).sort();
+  expect(expectedPaths.length, 'source Markdown population must be nonempty').toBeGreaterThan(0);
+  expect(audit.inventory.map((row) => row.path).sort(), 'inventory must contain every source Markdown path exactly once')
+    .toEqual(expectedPaths);
+  expect(audit.totals.markdownFiles).toBe(expectedPaths.length);
+  const guidanceRows = audit.inventory.filter((row) => row.publicOperatorNoticeRequired);
+  expect(guidanceRows.length, 'staged guidance checks must not be vacuous').toBeGreaterThan(0);
+  expect(guidanceRows.length, 'guidance selection must match the report total')
+    .toBe(audit.totals.publicOperatorGuidancePages);
+  return guidanceRows;
+}
+
 beforeAll(() => {
   outputRoot = mkdtempSync(path.join(tmpdir(), 'aiwg-audience-boundary-'));
 });
@@ -129,6 +153,7 @@ describe('documentation audience boundary', () => {
       stdio: 'pipe',
     });
     const audit = JSON.parse(readFileSync(output, 'utf8'));
+    assertCompleteAudienceInventory(audit);
     expect(audit.totals.onboardingNeedsReview).toBe(0);
     expect(audit.totals.publicCommandPages).toBeGreaterThan(0);
     expect(audit.totals.publicOperatorGuidancePages).toBeGreaterThan(0);
@@ -158,9 +183,7 @@ describe('documentation audience boundary', () => {
       stdio: 'pipe',
     });
     const audit = JSON.parse(readFileSync(auditOutput, 'utf8'));
-    for (const row of audit.inventory.filter(
-      (entry: { publicOperatorNoticeRequired: boolean }) => entry.publicOperatorNoticeRequired,
-    )) {
+    for (const row of assertCompleteAudienceInventory(audit)) {
       const staged = readFileSync(path.join(output, row.path), 'utf8');
       expect(staged).toContain('<!-- aiwg-public-operator-guidance -->');
       expect(staged).toContain('Describe the outcome you want');

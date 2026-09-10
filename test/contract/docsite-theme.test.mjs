@@ -28,7 +28,11 @@ describe('docs.aiwg.io open-kit theme contract', () => {
     ]) {
       expect(shell).toContain(`id="${id}"`);
     }
-    expect(shell.indexOf('href="./styles.css"')).toBeLessThan(shell.indexOf('href="./open-kit.css"'));
+    const baseStylesheet = shell.indexOf('href="./styles.css"');
+    const themeStylesheet = shell.indexOf('href="./open-kit.css"');
+    expect(baseStylesheet, 'base stylesheet must be present').toBeGreaterThanOrEqual(0);
+    expect(themeStylesheet, 'theme stylesheet must be present').toBeGreaterThanOrEqual(0);
+    expect(baseStylesheet).toBeLessThan(themeStylesheet);
     expect(shell).toContain('src="./app.js"');
   });
 

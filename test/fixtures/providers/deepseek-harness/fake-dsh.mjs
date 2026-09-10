@@ -9,7 +9,8 @@ if (args[0] === '--version') {
 
 if (args.includes('--profile') && args[args.indexOf('--profile') + 1] === 'headless') {
   if (args.at(-1) === 'hang-headless') {
-    process.on('SIGTERM', () => {});
+    process.on('SIGTERM', () => writeSync(1, 'term-ignored\n'));
+    writeSync(1, 'headless-ready\n');
     setInterval(() => {}, 1_000);
   } else {
     writeSync(2, 'fake diagnostic\n');

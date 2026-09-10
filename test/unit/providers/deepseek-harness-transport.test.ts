@@ -1,7 +1,9 @@
 import { access, chmod, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import type { ChildProcess } from 'node:child_process';
+import { setTimeout as realSetTimeout, clearTimeout as realClearTimeout } from 'node:timers';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DshJsonRpcClient,
   DSH_MAX_FRAME_BYTES,
@@ -16,6 +18,18 @@ import {
 } from '../../../tools/providers/deepseek-harness-transport.mjs';
 
 const fakeDsh = resolve('test/fixtures/providers/deepseek-harness/fake-dsh.mjs');
+const spawnObserver = vi.hoisted(() => ({ observe: undefined as ((child: ChildProcess) => void) | undefined }));
+vi.mock('node:child_process', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    spawn: (...args: Parameters<typeof actual.spawn>) => {
+      const child = actual.spawn(...args);
+      spawnObserver.observe?.(child);
+      return child;
+    },
+  };
+});
 const fixtureRoots: string[] = [];
 const clients: DshJsonRpcClient[] = [];
 const routeCleanups: Array<() => Promise<void>> = [];
@@ -232,8 +246,18 @@ describe('DeepSeek Harness transport safety', () => {
 
   it('waits for forced teardown when a headless child ignores SIGTERM', async () => {
     const fixture = await fixtureFiles();
-    const started = Date.now();
-    await expect(runDshHeadless({
+    let child: ChildProcess | undefined;
+    let output = '';
+    const onData = (chunk: Buffer) => { output += chunk.toString('utf8'); };
+    spawnObserver.observe = spawned => {
+      child = spawned;
+      spawned.stdout!.on('data', onData);
+    };
+    // Only deadline timers are controlled. The child, streams and OS signals
+    // are real; startup gets a separately bounded readiness handshake.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    let settled = false;
+    const operation = runDshHeadless({
       binary: fakeDsh,
       prompt: 'hang-headless',
       cwd: fixture.root,
@@ -245,7 +269,51 @@ describe('DeepSeek Harness transport safety', () => {
       version: '0.1.3-alpha.1',
       timeoutMs: 100,
       terminateGraceMs: 40,
-    })).rejects.toThrow(/timed out/);
-    expect(Date.now() - started).toBeGreaterThanOrEqual(125);
+    }).then(value => { settled = true; return { value, error: undefined }; },
+      error => { settled = true; return { value: undefined, error }; });
+    try {
+      await waitForRealCondition(() => output.split('\n').includes('headless-ready'));
+      expect(child?.pid).toBeGreaterThan(0);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(100);
+      await waitForRealCondition(() => output.split('\n').includes('term-ignored'));
+      expect(settled).toBe(false);
+      expect(child?.signalCode).toBeNull();
+      await vi.advanceTimersByTimeAsync(39);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await waitForRealCondition(() => settled);
+      const result = await operation;
+      expect(result.error?.message).toBe('DeepSeek Harness run timed out');
+      expect(child?.exitCode).toBeNull();
+      expect(child?.signalCode).toBe('SIGKILL');
+    } finally {
+      spawnObserver.observe = undefined;
+      vi.useRealTimers();
+      child?.stdout?.off('data', onData);
+      if (child?.pid && child.exitCode === null && child.signalCode === null) {
+        child.kill('SIGKILL');
+        await waitForRealCondition(() => child!.exitCode !== null || child!.signalCode !== null);
+      }
+    }
   });
 });
+
+function waitForRealCondition(predicate: () => boolean, timeoutMs = 5_000): Promise<void> {
+  return new Promise((resolveWait, reject) => {
+    let poll: ReturnType<typeof realSetTimeout>;
+    const deadline = realSetTimeout(() => {
+      realClearTimeout(poll);
+      reject(new Error('Timed out waiting for real child lifecycle condition'));
+    }, timeoutMs);
+    const check = () => {
+      if (predicate()) {
+        realClearTimeout(deadline);
+        resolveWait();
+      } else {
+        poll = realSetTimeout(check, 5);
+      }
+    };
+    check();
+  });
+}

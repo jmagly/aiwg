@@ -9,6 +9,11 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Fixed
 
+- Preserve provider JSON and TOML settings during MCP registration, escaping values and rejecting malformed input.
+- Handle split UTF-8 output, child timeouts, and stdin failures in MCP CLI requests; use structured command discovery.
+- Reject incomplete, fractional, unsafe, and non-finite mission limits before dispatch through CLI and MCP surfaces.
+- Strengthen memory, recovery, session, provider, and documentation test assertions and fixture cleanup.
+
 - Preserve required runtime and idempotency extension activation when forwarding mission approval replies (#2310).
 
 - Route public mission approvals over the task's negotiated A2A transport, retaining prompt correlation,
