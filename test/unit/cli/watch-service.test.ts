@@ -205,144 +205,138 @@ describe('WatchService', () => {
     });
   });
 
+  // Callback/statistics contracts use a controlled transport boundary. Real
+  // filesystem add/change/unlink and debounce qualification remain above.
+  async function withControlledWatcher(
+    check: (watcher: EventEmitter, emit: (type: WatchEvent['type'], name: string) => Promise<WatchEvent>) => Promise<void>
+  ): Promise<void> {
+    const watcher = Object.assign(new EventEmitter(), {
+      getWatched: () => ({ [testDir]: ['existing.md'] }),
+      close: async () => {},
+    });
+    const watch = vi.spyOn(chokidar, 'watch').mockReturnValue(
+      watcher as unknown as ReturnType<typeof chokidar.watch>
+    );
+    try {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const started = service.start(config.patterns, config);
+      watcher.emit('ready');
+      await started;
+      await check(watcher, async (type, name) => {
+        const path = resolve(testDir, name);
+        const timestamp = new Date(Date.now() + config.debounce);
+        watcher.emit(type, path);
+        await vi.advanceTimersByTimeAsync(config.debounce);
+        return { type, path, timestamp };
+      });
+    } finally {
+      try {
+        await service.stop();
+      } finally {
+        watch.mockRestore();
+        vi.useRealTimers();
+      }
+    }
+  }
+
   describe('callbacks', () => {
     it('should call registered callbacks', async () => {
-      // This case owns callback fan-out, not OS event delivery. The separate
-      // add/change/unlink cases retain the real filesystem watcher boundary.
-      const watcher = Object.assign(new EventEmitter(), {
-        getWatched: () => ({}),
-        close: async () => {},
-      });
       const callback1 = vi.fn(async (_event: WatchEvent) => {});
       const callback2 = vi.fn(async (_event: WatchEvent) => {});
-      const epoch = new Date('2026-01-01T00:00:00.000Z');
-      const filePath = resolve(testDir, 'callback.md');
-      const watch = vi.spyOn(chokidar, 'watch').mockReturnValue(
-        watcher as unknown as ReturnType<typeof chokidar.watch>
-      );
-      vi.useFakeTimers();
-      vi.setSystemTime(epoch);
-      try {
-        service.onFileChange(callback1);
-        service.onFileChange(callback2);
-        const started = service.start(config.patterns, config);
-        watcher.emit('ready');
-        await started;
-
-        watcher.emit('add', filePath);
+      service.onFileChange(callback1);
+      service.onFileChange(callback2);
+      await withControlledWatcher(async (watcher) => {
+        const path = resolve(testDir, 'callback.md');
+        const timestamp = new Date(Date.now() + config.debounce);
+        watcher.emit('add', path);
         await vi.advanceTimersByTimeAsync(config.debounce - 1);
         expect(callback1).not.toHaveBeenCalled();
         expect(callback2).not.toHaveBeenCalled();
         await vi.advanceTimersByTimeAsync(1);
-
-        const expected = {
-          type: 'add', path: filePath,
-          timestamp: new Date(epoch.getTime() + config.debounce),
-        };
+        const expected = { type: 'add', path, timestamp };
         expect(callback1).toHaveBeenCalledExactlyOnceWith(expected);
         expect(callback2).toHaveBeenCalledExactlyOnceWith(expected);
         expect(callback2.mock.calls[0][0]).toBe(callback1.mock.calls[0][0]);
         expect(service.getStats().eventsProcessed).toBe(1);
-      } finally {
-        try {
-          await service.stop();
-        } finally {
-          watch.mockRestore();
-          vi.useRealTimers();
-        }
-      }
+      });
     }, 10000);
 
     it('should remove callbacks', async () => {
-      let callbackCalled = false;
-      const callback = async () => {
-        callbackCalled = true;
-      };
-
-      service.onFileChange(callback);
-      service.removeCallback(callback);
-
-      await service.start(config.patterns, config);
-
-      const filePath = resolve(testDir, 'removed.md');
-      await writeFile(filePath, 'Content', 'utf-8');
-      await waitFor(() => service.getStats().eventsProcessed > 0);
-
-      expect(callbackCalled).toBe(false);
+      const removed = vi.fn(async (_event: WatchEvent) => {});
+      const retained = vi.fn(async (_event: WatchEvent) => {});
+      service.onFileChange(removed);
+      service.onFileChange(retained);
+      service.removeCallback(removed);
+      await withControlledWatcher(async (_watcher, emit) => {
+        const expected = await emit('add', 'removed.md');
+        expect(removed).not.toHaveBeenCalled();
+        expect(retained).toHaveBeenCalledExactlyOnceWith(expected);
+        expect(service.getStats().eventsProcessed).toBe(1);
+      });
     }, 10000);
 
     it('should handle callback errors gracefully', async () => {
-      let errorThrown = false;
-
-      // Register callback BEFORE starting
-      service.onFileChange(async () => {
-        errorThrown = true;
-        throw new Error('Callback error');
+      const failure = new Error('Callback error');
+      const failing = vi.fn(async (_event: WatchEvent) => { throw failure; });
+      const following = vi.fn(async (_event: WatchEvent) => {});
+      service.onFileChange(failing);
+      service.onFileChange(following);
+      await withControlledWatcher(async (_watcher, emit) => {
+        const expected = await emit('add', 'error.md');
+        expect(failing).toHaveBeenCalledExactlyOnceWith(expected);
+        expect(following).toHaveBeenCalledExactlyOnceWith(expected);
+        expect(following.mock.calls[0][0]).toBe(failing.mock.calls[0][0]);
+        expect(service.running()).toBe(true);
+        expect(service.getStats()).toMatchObject({ eventsProcessed: 1, errors: 1 });
       });
-
-      await service.start(config.patterns, config);
-
-      const filePath = resolve(testDir, 'error.md');
-      await writeFile(filePath, 'Content', 'utf-8');
-      await waitFor(() => errorThrown && service.getStats().errors > 0);
-
-      // Should not crash the service
-      expect(service.running()).toBe(true);
-
-      // Verify the callback was actually invoked
-      expect(errorThrown).toBe(true);
-
-      const stats = service.getStats();
-      expect(stats.errors).toBeGreaterThan(0);
     }, 10000);
   });
 
   describe('statistics', () => {
     it('should track events processed', async () => {
-      // Register callback BEFORE starting (even if empty, to track events)
-      service.onFileChange(async () => {});
-
-      await service.start(config.patterns, config);
-
-      const filePath = resolve(testDir, 'stats.md');
-      await writeFile(filePath, 'Content', 'utf-8');
-      await waitFor(() => service.getStats().eventsProcessed > 0);
-
-      const stats = service.getStats();
-      expect(stats.eventsProcessed).toBeGreaterThan(0);
+      const callback = vi.fn(async (_event: WatchEvent) => {});
+      service.onFileChange(callback);
+      await withControlledWatcher(async (_watcher, emit) => {
+        expect(service.getStats()).toMatchObject({ eventsProcessed: 0, errors: 0 });
+        const first = await emit('add', 'stats.md');
+        expect(service.getStats()).toMatchObject({ eventsProcessed: 1, errors: 0, lastEvent: first.timestamp });
+        const second = await emit('change', 'stats.md');
+        expect(callback).toHaveBeenCalledTimes(2);
+        expect(callback).toHaveBeenNthCalledWith(1, first);
+        expect(callback).toHaveBeenNthCalledWith(2, second);
+        expect(service.getStats()).toMatchObject({ eventsProcessed: 2, errors: 0, lastEvent: second.timestamp });
+      });
     }, 10000);
 
     it('should track errors', async () => {
-      // Register callback BEFORE starting
-      service.onFileChange(async () => {
-        throw new Error('Test error');
+      const failing = vi.fn(async (_event: WatchEvent) => { throw new Error('Test error'); });
+      service.onFileChange(failing);
+      await withControlledWatcher(async (_watcher, emit) => {
+        expect(service.getStats().errors).toBe(0);
+        await emit('add', 'error-stats.md');
+        expect(service.getStats()).toMatchObject({ eventsProcessed: 1, errors: 1 });
+        await emit('change', 'error-stats.md');
+        expect(failing).toHaveBeenCalledTimes(2);
+        expect(service.getStats()).toMatchObject({ eventsProcessed: 2, errors: 2 });
       });
-
-      await service.start(config.patterns, config);
-
-      const filePath = resolve(testDir, 'error-stats.md');
-      await writeFile(filePath, 'Content', 'utf-8');
-      await waitFor(() => service.getStats().errors > 0);
-
-      const stats = service.getStats();
-      expect(stats.errors).toBeGreaterThan(0);
     }, 10000);
 
     it('should reset statistics', async () => {
-      // Register callback BEFORE starting
-      service.onFileChange(async () => {});
-
-      await service.start(config.patterns, config);
-
-      const filePath = resolve(testDir, 'reset.md');
-      await writeFile(filePath, 'Content', 'utf-8');
-      await waitFor(() => service.getStats().eventsProcessed > 0);
-
-      service.resetStats();
-
-      const stats = service.getStats();
-      expect(stats.eventsProcessed).toBe(0);
-      expect(stats.errors).toBe(0);
+      service.onFileChange(async () => { throw new Error('Reset precondition'); });
+      await withControlledWatcher(async (_watcher, emit) => {
+        const event = await emit('add', 'reset.md');
+        expect(service.getStats()).toMatchObject({
+          filesWatched: 1, eventsProcessed: 1, errors: 1, lastEvent: event.timestamp,
+        });
+        await vi.advanceTimersByTimeAsync(1);
+        const resetAt = new Date();
+        service.resetStats();
+        expect(service.getStats()).toEqual({
+          filesWatched: 1, eventsProcessed: 0, errors: 0,
+          startTime: resetAt, lastEvent: undefined,
+        });
+      });
     }, 10000);
   });
 

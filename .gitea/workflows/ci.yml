@@ -87,6 +87,13 @@ jobs:
       - name: Build CLI (required by integration tests that spawn bin/aiwg.mjs)
         run: npm run build:cli
 
+      - name: Install SQLite test backend
+        # Keep native prebuild plumbing out of the default/package-lock install
+        # tree while making the optional production backend mandatory in CI.
+        # This exact-version follow-up must not re-resolve the already-locked
+        # graph through the seven-day age filter; match the publish gate.
+        run: npm install --no-save --save-dev --package-lock=false --min-release-age=0 better-sqlite3@12.8.0
+
       - name: Verify test runner ownership
         run: npm run lint:test-registration
 
@@ -163,13 +170,6 @@ jobs:
         # state-manager suites' async rot (#1777) is now fixed, so the full
         # `test:node` set is gated here. Deterministic, no network.
         run: npm run test:node
-
-      - name: Install SQLite test backend
-        # Keep native prebuild plumbing out of the default/package-lock install
-        # tree while making the optional production backend mandatory in CI.
-        # This exact-version follow-up must not re-resolve the already-locked
-        # graph through the seven-day age filter; match the publish gate.
-        run: npm install --no-save --save-dev --package-lock=false --min-release-age=0 better-sqlite3@12.8.0
 
       - name: Run storage backend conformance gate (#2190/#2191)
         # Enforces the zero-dependency golden corpus, migration safety/fault
