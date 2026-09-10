@@ -142,13 +142,22 @@ describe('global install native lifecycle-script policy', () => {
     const cleanEnv = Object.fromEntries(
       Object.entries(process.env).filter(([key]) => !key.toLowerCase().startsWith('npm_config_')),
     );
-    const install = spawnSync(
-      process.platform === 'win32' ? 'npm.cmd' : 'npm',
-      [
+    const installArgs = [
         'install', '--global', '--prefix', prefix,
         '--cache', path.join(tempRoot, 'cache'), '--userconfig', npmrc,
-        '--no-audit', '--no-fund', tarball,
-      ],
+        '--min-release-age=7', '--no-audit', '--no-fund', tarball,
+    ];
+    // Probe the actual install options after environment/userconfig isolation.
+    const policy = spawnSync(
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
+      ['config', 'get', 'min-release-age', ...installArgs.slice(1, -1)],
+      { cwd: tempRoot, encoding: 'utf8', timeout: 30_000, env: cleanEnv },
+    );
+    expect(policy.status, policy.stderr).toBe(0);
+    expect(policy.stdout.trim()).toBe('7');
+    const install = spawnSync(
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
+      installArgs,
       { cwd: tempRoot, encoding: 'utf8', timeout: 240_000, env: cleanEnv },
     );
     installOutput = `${install.stdout}\n${install.stderr}`;

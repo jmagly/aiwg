@@ -183,14 +183,23 @@ describe('@aiwg/cli packaged web distribution', () => {
     packMetadata = packed[0]!;
 
     const prefix = path.join(tempRoot, 'prefix');
-    const install = spawnSync(
-      process.platform === 'win32' ? 'npm.cmd' : 'npm',
-      [
+    const installArgs = [
         'install', '--prefix', prefix,
         '--cache', path.join(tempRoot, 'npm-cache'),
-        '--ignore-scripts', '--no-audit', '--no-fund',
+        '--min-release-age=7', '--ignore-scripts', '--no-audit', '--no-fund',
         path.join(tempRoot, packed[0]!.filename),
-      ],
+    ];
+    // Probe the same options that will reach npm, not the repository's ambient config.
+    const policy = spawnSync(
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
+      ['config', 'get', 'min-release-age', ...installArgs.slice(1, -1)],
+      { cwd: tempRoot, env: isolatedNpmEnv(), encoding: 'utf8', timeout: 30_000 },
+    );
+    expect(policy.status, policy.stderr).toBe(0);
+    expect(policy.stdout.trim()).toBe('7');
+    const install = spawnSync(
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
+      installArgs,
       { cwd: tempRoot, env: isolatedNpmEnv(), encoding: 'utf8', timeout: 120_000 },
     );
     if (install.status !== 0) throw new Error(`${install.stdout}\n${install.stderr}`);
