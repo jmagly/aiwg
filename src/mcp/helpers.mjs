@@ -6,6 +6,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -72,7 +73,7 @@ export async function resolveProjectAiwgDir(projectDir) {
  */
 export async function findProjectRoot(startDir = process.cwd()) {
   let currentDir = startDir;
-  while (currentDir !== path.dirname(currentDir)) {
+  while (true) {
     const aiwgPath = path.join(currentDir, '.aiwg');
     const pointerPath = path.join(currentDir, PROJECT_AIWG_LOCATION_FILE);
     try {
@@ -87,7 +88,10 @@ export async function findProjectRoot(startDir = process.cwd()) {
     } catch {
       // continue up
     }
-    currentDir = path.dirname(currentDir);
+    // Inspect the root candidate too, then stop instead of revisiting it.
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) break;
+    currentDir = parentDir;
   }
   throw new Error('No .aiwg directory or .aiwg-location pointer found. Run from an AIWG project or `aiwg new` first.');
 }
@@ -167,33 +171,56 @@ export function runAiwgCli(args, { cwd, env, timeoutMs = 120_000, input } = {}) 
     });
     let stdout = '';
     let stderr = '';
-    let timedOut = false;
+    const stdoutDecoder = new StringDecoder('utf8');
+    const stderrDecoder = new StringDecoder('utf8');
+    let settled = false;
+    let killTimer;
+    const rejectAndTerminate = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      // Settlement must not depend on a cooperative close event. Give the
+      // owned child one second to exit gracefully, then escalate cleanup.
+      reject(err);
+      killTimer = setTimeout(() => {
+        try { proc.kill('SIGKILL'); } catch { /* child may already have exited */ }
+      }, 1000);
+      killTimer.unref?.();
+      // Install cleanup first: kill() can synchronously trigger close in an adapter.
+      try { proc.kill('SIGTERM'); } catch { /* retain the original failure */ }
+    };
     const timer = setTimeout(() => {
-      timedOut = true;
-      proc.kill('SIGTERM');
+      rejectAndTerminate(new Error(`aiwg ${args[0] || ''} timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
-    proc.stdout.on('data', (chunk) => { stdout += chunk; });
-    proc.stderr.on('data', (chunk) => { stderr += chunk; });
+    proc.stdout.on('data', (chunk) => { stdout += stdoutDecoder.write(chunk); });
+    proc.stderr.on('data', (chunk) => { stderr += stderrDecoder.write(chunk); });
 
     proc.on('close', (code) => {
       clearTimeout(timer);
-      if (timedOut) {
-        reject(new Error(`aiwg ${args[0] || ''} timed out after ${timeoutMs}ms`));
-        return;
-      }
+      clearTimeout(killTimer);
+      if (settled) return;
+      settled = true;
+      stdout += stdoutDecoder.end();
+      stderr += stderrDecoder.end();
       resolve({ stdout, stderr, code: code ?? -1 });
     });
     proc.on('error', (err) => {
       clearTimeout(timer);
+      // A late error must not cancel cleanup of a failed, still-live child.
+      if (settled) return;
+      settled = true;
       reject(err);
     });
 
-    if (input !== undefined) {
-      proc.stdin.write(input);
-      proc.stdin.end();
-    } else {
-      proc.stdin.end();
+    // Pipe errors are emitted on stdin, not on the ChildProcess. Register
+    // before writing so synchronous adapter events and late EPIPE are handled.
+    proc.stdin.on('error', rejectAndTerminate);
+    try {
+      if (input !== undefined) proc.stdin.write(input);
+      if (!settled) proc.stdin.end();
+    } catch (err) {
+      rejectAndTerminate(err);
     }
   });
 }
@@ -244,13 +271,20 @@ export async function loadCommandAllowList() {
     }
   }
   if (!text) {
-    // Last-resort fallback: spawn `aiwg help` and parse — slower but always works
+    // Installed packages need not contain TypeScript sources. Ask the CLI for
+    // its versioned canonical registry; human help is incomplete and contains examples.
     try {
-      const { stdout } = await runAiwgCli(['help'], { timeoutMs: 30_000 });
-      _commandIds = new Set(
-        Array.from(stdout.matchAll(/^\s{4}([a-z][a-z0-9-]+)\s/gm))
-          .map(m => m[1])
-      );
+      const { stdout, code } = await runAiwgCli(['help', '--json'], { timeoutMs: 30_000 });
+      if (code !== 0) throw new Error('Command registry subprocess failed');
+      const registry = JSON.parse(stdout);
+      const ids = registry?.commandIds;
+      if (registry?.schema !== 'aiwg.command-registry.v1'
+        || !Array.isArray(ids) || ids.length === 0
+        || ids.some(id => typeof id !== 'string' || !/^[a-z][a-z0-9-]*$/.test(id))
+        || new Set(ids).size !== ids.length) {
+        throw new Error('Invalid command registry response');
+      }
+      _commandIds = new Set(ids);
       return _commandIds;
     } catch (e) {
       _commandIds = new Set();

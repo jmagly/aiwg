@@ -12,6 +12,7 @@ import type { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 import * as ui from '../ui.js';
 import { maybePrintCommunityFooter } from '../../community/footer.js';
 import { listProviderDefinitions } from '../../providers/provider-definitions.js';
+import { getCommandIds } from '../../extensions/commands/definitions.js';
 
 /**
  * Help command handler
@@ -23,7 +24,12 @@ export const helpHandler: CommandHandler = {
   category: 'maintenance',
   aliases: ['-h', '-help', '--help'],
 
-  async execute(_ctx: HandlerContext): Promise<HandlerResult> {
+  async execute(ctx: HandlerContext): Promise<HandlerResult> {
+    if (ctx.args.includes('--json')) {
+      // Canonical IDs only: aliases and example prose are not registry entries.
+      console.log(JSON.stringify({ schema: 'aiwg.command-registry.v1', commandIds: getCommandIds() }));
+      return { exitCode: 0 };
+    }
     displayHelp();
     return { exitCode: 0 };
   },

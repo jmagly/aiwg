@@ -161,6 +161,7 @@ Display comprehensive CLI help information.
 
 ```bash
 aiwg help
+aiwg help --json
 aiwg -help
 aiwg --help
 aiwg <command> --help
@@ -171,6 +172,13 @@ Per-command help is intercepted before command hooks and normal handler
 execution, so requesting help does not enter a state-changing command path.
 Commands that declare detailed help return it; all other registered commands
 return a non-executing pointer to `aiwg help`.
+
+`aiwg help --json` emits one machine-readable object with
+`schema: "aiwg.command-registry.v1"` and a `commandIds` array from the canonical
+CLI command registry. It excludes aliases and human-readable examples. The MCP
+command allow-list uses this versioned response when source definitions are
+unavailable (for example, in an installed package), and fails closed if the
+response is unsuccessful or malformed.
 
 **Capabilities:** cli, help, documentation
 **Platforms:** All
