@@ -7,30 +7,42 @@
 import { ProcessMonitor } from './process-monitor.mjs';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import assert from 'assert';
+import assert from 'node:assert/strict';
+import { test, beforeEach, afterEach, mock } from 'node:test';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import childProcess from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
 
-const TEST_DIR = '.aiwg/ralph/monitor-test';
+let TEST_DIR;
 
 function cleanup() {
-  if (existsSync(TEST_DIR)) {
+  if (TEST_DIR && existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
 }
 
 function setup() {
-  cleanup();
-  mkdirSync(TEST_DIR, { recursive: true });
+  TEST_DIR = mkdtempSync(join(tmpdir(), 'aiwg-process-monitor-'));
 }
 
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`✓ ${name}`);
-  } catch (error) {
-    console.error(`✗ ${name}`);
-    console.error(`  ${error.message}`);
-    throw error;
-  }
+beforeEach(() => {
+  mock.timers.enable({ apis: ['Date', 'setInterval'], now: 1700000000000 });
+});
+afterEach(() => {
+  mock.timers.reset();
+  cleanup();
+  TEST_DIR = undefined;
+});
+
+function mockProcessStats(t, implementation) {
+  const stub = t.mock.method(childProcess, 'execFileSync', implementation);
+  syncBuiltinESMExports();
+  t.after(() => {
+    stub.mock.restore();
+    syncBuiltinESMExports();
+  });
+  return stub;
 }
 
 // Test: Initialization
@@ -49,7 +61,7 @@ test('ProcessMonitor initializes correctly', () => {
 });
 
 // Test: isProcessAlive
-test('isProcessAlive() detects running process', () => {
+test('isProcessAlive() detects running process', t => {
   setup();
   const monitor = new ProcessMonitor({ projectRoot: TEST_DIR });
 
@@ -61,8 +73,19 @@ test('isProcessAlive() detects running process', () => {
   assert.strictEqual(monitor.isProcessAlive(-1), false);
   assert.strictEqual(monitor.isProcessAlive(null), false);
 
-  // Non-existent process (high PID unlikely to exist)
-  assert.strictEqual(monitor.isProcessAlive(999999), false);
+  // Exercise OS outcomes without assuming any numeric PID is unused.
+  const calls = [];
+  let code = 'ESRCH';
+  t.mock.method(process, 'kill', (pid, signal) => {
+    calls.push([pid, signal]);
+    throw Object.assign(new Error('controlled process result'), { code });
+  });
+  assert.strictEqual(monitor.isProcessAlive(123), false);
+  code = 'EPERM';
+  assert.strictEqual(monitor.isProcessAlive(123), true);
+  code = 'EINVAL';
+  assert.strictEqual(monitor.isProcessAlive(123), false);
+  assert.deepEqual(calls, [[123, 0], [123, 0], [123, 0]]);
 });
 
 // Test: parseUptime
@@ -252,17 +275,21 @@ test('getProcessHealth() returns metrics for current process', () => {
 });
 
 // Test: getProcessHealth for non-existent process
-test('getProcessHealth() returns dead status for non-existent process', () => {
+test('getProcessHealth() returns dead status for non-existent process', t => {
   setup();
   const monitor = new ProcessMonitor({ projectRoot: TEST_DIR });
 
   const loopId = 'test-loop-009';
-  monitor.monitoredLoops.set(loopId, { pid: 999999 }); // Non-existent PID
+  monitor.monitoredLoops.set(loopId, { pid: 123 });
+  t.mock.method(monitor, 'isProcessAlive', pid => {
+    assert.equal(pid, 123);
+    return false;
+  });
 
   const health = monitor.getProcessHealth(loopId);
 
   assert.ok(health);
-  assert.strictEqual(health.pid, 999999);
+  assert.strictEqual(health.pid, 123);
   assert.strictEqual(health.status, 'dead');
   assert.strictEqual(health.cpu, 0);
   assert.strictEqual(health.memory, 0);
@@ -293,6 +320,146 @@ test('stopAll() stops all monitoring', () => {
   assert.strictEqual(monitor.heartbeatTimer, null);
 });
 
-// Cleanup after all tests
-cleanup();
-console.log('\n=== All ProcessMonitor Tests Passed ===\n');
+for (const [name, record] of [
+  ['missing timestamp', {}],
+  ['nonnumeric timestamp', { timestamp: 'invalid' }],
+  ['numeric string timestamp', { timestamp: '1700000000000' }],
+  ['null timestamp', { timestamp: null }],
+  ['array record', []],
+  ['primitive record', 1700000000000],
+]) {
+  test(`malformed heartbeat is stale and emits its original data: ${name}`, () => {
+    setup();
+    const monitor = new ProcessMonitor({ projectRoot: TEST_DIR });
+    const loopId = 'test-loop-malformed';
+    writeFileSync(join(monitor.heartbeatDir, `${loopId}.json`), JSON.stringify(record));
+    monitor.monitoredLoops.set(loopId, { pid: 123 });
+    monitor.isProcessAlive = () => true;
+    const events = [];
+    monitor.on('stale', event => events.push(event));
+    assert.equal(monitor.isStale(loopId), true);
+    monitor.checkAllHeartbeats();
+    assert.deepEqual(events, [{ loopId, pid: 123, lastHeartbeat: record }]);
+  });
+}
+
+test('nonfinite timestamps cannot establish freshness', () => {
+  setup();
+  const monitor = new ProcessMonitor({ projectRoot: TEST_DIR });
+  for (const timestamp of [NaN, Infinity, -Infinity]) {
+    // JSON cannot retain these numbers; exercise the parsed-record boundary.
+    monitor.getLastHeartbeat = () => ({ timestamp });
+    assert.equal(monitor.isStale('test-loop-nonfinite'), true);
+  }
+});
+
+test('freshness uses a strict age boundary and preserves threshold overrides', () => {
+  setup();
+  const monitor = new ProcessMonitor({ projectRoot: TEST_DIR, staleThresholdMs: 100 });
+  monitor.recordHeartbeat('test-loop-boundary');
+  assert.equal(monitor.isStale('test-loop-boundary'), false);
+  assert.equal(monitor.isStale('test-loop-boundary', -1), true);
+  mock.timers.tick(100);
+  assert.equal(monitor.isStale('test-loop-boundary'), false);
+  mock.timers.tick(1);
+  assert.equal(monitor.isStale('test-loop-boundary'), true);
+  assert.equal(monitor.isStale('test-loop-boundary', 101), false);
+});
+
+test('heartbeat checks distinguish crashes, missing records and fresh live loops', t => {
+  setup();
+  const monitor = new ProcessMonitor({ projectRoot: TEST_DIR });
+  monitor.monitoredLoops.set('crashed', { pid: 123 });
+  monitor.monitoredLoops.set('missing', { pid: null });
+  monitor.monitoredLoops.set('fresh', { pid: 456 });
+  monitor.recordHeartbeat('fresh');
+  t.mock.method(monitor, 'isProcessAlive', pid => pid === 456);
+  const events = [];
+  monitor.on('crash', event => events.push(['crash', event]));
+  monitor.on('stale', event => events.push(['stale', event]));
+  monitor.checkAllHeartbeats();
+  assert.deepEqual(events, [
+    ['crash', { loopId: 'crashed', pid: 123, reason: 'process_died' }],
+    ['stale', { loopId: 'missing', pid: null, lastHeartbeat: null }],
+  ]);
+});
+
+test('unreadable JSON heartbeat remains missing and stale', () => {
+  setup();
+  const monitor = new ProcessMonitor({ projectRoot: TEST_DIR });
+  writeFileSync(join(monitor.heartbeatDir, 'broken.json'), '{broken');
+  assert.equal(monitor.getLastHeartbeat('broken'), null);
+  assert.equal(monitor.isStale('broken'), true);
+});
+
+test('monitoring schedules one timer and stopping removes its callbacks', t => {
+  setup();
+  const monitor = new ProcessMonitor({ projectRoot: TEST_DIR, heartbeatIntervalMs: 100 });
+  const stateDir = join(TEST_DIR, '.aiwg', 'ralph', 'loops', 'timer-loop');
+  mkdirSync(stateDir, { recursive: true });
+  writeFileSync(join(stateDir, 'state.json'), JSON.stringify({ currentPid: 123 }));
+  const check = t.mock.method(monitor, 'checkAllHeartbeats', () => {});
+  monitor.startMonitoring(['timer-loop']);
+  const timer = monitor.heartbeatTimer;
+  monitor.startMonitoring(['timer-loop']);
+  assert.equal(monitor.heartbeatTimer, timer);
+  mock.timers.tick(100);
+  assert.equal(check.mock.callCount(), 1);
+  monitor.stopMonitoring('timer-loop');
+  assert.equal(monitor.heartbeatTimer, null);
+  mock.timers.tick(100);
+  assert.equal(check.mock.callCount(), 1);
+});
+
+test('process metrics use exact RSS units and an argument-vector command', t => {
+  setup();
+  const monitor = new ProcessMonitor({ projectRoot: TEST_DIR });
+  monitor.monitoredLoops.set('metrics', { pid: process.pid });
+  const calls = [];
+  mockProcessStats(t, (...args) => {
+    calls.push(args);
+    return ' 12.5 65536 1:30 S+\n';
+  });
+  assert.deepEqual(monitor.getProcessHealth('metrics'), {
+    pid: process.pid, cpu: 12.5, memory: 64, uptime: 90, status: 'sleeping',
+  });
+  assert.deepEqual(calls, [['ps', ['-p', String(process.pid), '-o', '%cpu,rss,etime,stat', '--no-headers'], { encoding: 'utf8' }]]);
+});
+
+for (const [name, row, expected] of [
+  ['zero metrics', '0 0 00:00 R', { cpu: 0, memory: 0, uptime: 0, status: 'running' }],
+  ['fractional MiB', '1.25 1536 2-12:30:45 Z', { cpu: 1.25, memory: 1.5, uptime: 217845, status: 'zombie' }],
+  ['empty output', '', null],
+  ['missing columns', '1 100', null],
+  ['extra columns', '1 100 00:01 R extra', null],
+  ['invalid CPU', 'junk 100 00:01 R', null],
+  ['CPU suffix', '1junk 100 00:01 R', null],
+  ['negative CPU', '-1 100 00:01 R', null],
+  ['infinite CPU', 'Infinity 100 00:01 R', null],
+  ['invalid RSS', '1 junk 00:01 R', null],
+  ['negative RSS', '1 -100 00:01 R', null],
+  ['infinite RSS', '1 Infinity 00:01 R', null],
+]) {
+  test(`process metric row handling: ${name}`, t => {
+    setup();
+    const monitor = new ProcessMonitor({ projectRoot: TEST_DIR });
+    monitor.monitoredLoops.set('metrics', { pid: process.pid });
+    const stub = mockProcessStats(t, () => row);
+    const result = monitor.getProcessHealth('metrics');
+    assert.equal(stub.mock.callCount(), 1);
+    assert.deepEqual(result, expected && { pid: process.pid, ...expected });
+  });
+}
+
+test('unavailable stats return null and unmonitored processes are not queried', t => {
+  setup();
+  const monitor = new ProcessMonitor({ projectRoot: TEST_DIR });
+  const stub = mockProcessStats(t, () => { throw new Error('ps failed'); });
+  assert.equal(monitor.getProcessHealth('missing'), null);
+  monitor.monitoredLoops.set('no-pid', { pid: null });
+  assert.equal(monitor.getProcessHealth('no-pid'), null);
+  assert.equal(stub.mock.callCount(), 0);
+  monitor.monitoredLoops.set('metrics', { pid: process.pid });
+  assert.equal(monitor.getProcessHealth('metrics'), null);
+  assert.equal(stub.mock.callCount(), 1);
+});

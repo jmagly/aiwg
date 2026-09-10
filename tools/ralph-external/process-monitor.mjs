@@ -10,13 +10,13 @@
 import { EventEmitter } from 'events';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 /**
  * @typedef {Object} ProcessHealth
  * @property {number} pid - Process ID
  * @property {number} cpu - CPU usage percentage
- * @property {number} memory - Memory usage in MB
+ * @property {number} memory - Resident memory usage in MiB
  * @property {number} uptime - Process uptime in seconds
  * @property {string} status - Process status (running, zombie, sleeping)
  */
@@ -151,9 +151,10 @@ export class ProcessMonitor extends EventEmitter {
 
     try {
       // Use ps command to get process stats
-      // Format: %cpu %mem etime stat
-      const output = execSync(
-        `ps -p ${pid} -o %cpu,%mem,etime,stat --no-headers`,
+      // RSS is reported in KiB; unlike %mem it does not lose small readings
+      // to percentage rounding or require an assumed host memory capacity.
+      const output = execFileSync(
+        'ps', ['-p', String(pid), '-o', '%cpu,rss,etime,stat', '--no-headers'],
         { encoding: 'utf8' }
       ).trim();
 
@@ -162,16 +163,20 @@ export class ProcessMonitor extends EventEmitter {
       }
 
       const parts = output.split(/\s+/);
-      const cpu = parseFloat(parts[0]) || 0;
-      const memPercent = parseFloat(parts[1]) || 0;
-      const etime = parts[2] || '0:00';
-      const stat = parts[3] || 'R';
+      if (parts.length !== 4 || !/^\d+(?:\.\d+)?$/.test(parts[0]) || !/^\d+$/.test(parts[1])) {
+        return null;
+      }
+      const cpu = Number(parts[0]);
+      const rssKiB = Number(parts[1]);
+      if (!Number.isFinite(cpu) || !Number.isSafeInteger(rssKiB)) return null;
+      const etime = parts[2];
+      const stat = parts[3];
 
       // Parse uptime (format: [[dd-]hh:]mm:ss or mm:ss)
       const uptime = this.parseUptime(etime);
+      if (!Number.isFinite(uptime) || uptime < 0) return null;
 
-      // Estimate memory in MB (assuming 16GB total RAM)
-      const memory = (memPercent / 100) * 16384;
+      const memory = rssKiB / 1024;
 
       // Parse status
       const status = this.parseStatus(stat);
@@ -291,8 +296,11 @@ export class ProcessMonitor extends EventEmitter {
   isStale(loopId, thresholdMs = this.staleThresholdMs) {
     const heartbeat = this.getLastHeartbeat(loopId);
 
-    if (!heartbeat) {
-      return true; // No heartbeat = stale
+    if (!heartbeat || typeof heartbeat !== 'object' || Array.isArray(heartbeat)
+      || !Number.isFinite(heartbeat.timestamp)) {
+      // Missing or malformed records cannot establish freshness. Numeric
+      // strings are invalid too: recordHeartbeat writes a numeric timestamp.
+      return true;
     }
 
     const age = Date.now() - heartbeat.timestamp;
