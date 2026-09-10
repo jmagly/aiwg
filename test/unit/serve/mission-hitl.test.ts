@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { ExecutorRegistry } from '../../../src/serve/executor-registry.js';
 import { respondToA2AMission } from '../../../src/serve/mission-hitl.js';
-import { A2A_HITL_PROMPT_V1 } from '../../../src/a2a/client.js';
+import { A2A_HITL_PROMPT_V1, DEFAULT_REQUIRED_EXTENSIONS } from '../../../src/a2a/client.js';
 
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -31,7 +31,11 @@ function setup() {
   let fail = false;
   const fetcher = async (input: any, init?: RequestInit) => {
     if (init?.method === 'POST') {
-      sent.push({ url: String(input), body: JSON.parse(String(init.body)) });
+      const extensions = new Headers(init.headers).get('a2a-extensions')?.split(',').map(value => value.trim()) ?? [];
+      if (![...DEFAULT_REQUIRED_EXTENSIONS, A2A_HITL_PROMPT_V1].every(extension => extensions.includes(extension))) {
+        return new Response(JSON.stringify({ code: 'extension.required_not_activated' }), { status: 400 });
+      }
+      sent.push({ url: String(input), body: JSON.parse(String(init.body)), extensions });
       if (fail) throw new Error('fixture network failure');
     }
     return new Response(JSON.stringify(task), { headers: { 'content-type': 'application/json' } });
@@ -43,6 +47,7 @@ describe('mission A2A approval routing', () => {
   it('binds the reply to the owning instance/task/context and rejects duplicates without another send', async () => {
     const s = setup();
     expect((await respondToA2AMission(s.registry, 'mission', promptId, { approve: false }, { fetch: s.fetcher })).status).toBe(200);
+    expect(s.sent[0].extensions).toEqual(expect.arrayContaining([...DEFAULT_REQUIRED_EXTENSIONS, A2A_HITL_PROMPT_V1]));
     expect(s.sent[0].url).toBe('http://fixture.test/agents/instance/v1/messages:send');
     expect(s.sent[0].body.message).toMatchObject({ taskId: 'task', contextId: 'context', metadata: { hitl_response_for: { prompt_id: promptId, payload: { approve: false } } } });
     expect((await respondToA2AMission(s.registry, 'mission', promptId, { approve: true }, { fetch: s.fetcher })).status).toBe(409);

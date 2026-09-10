@@ -1,7 +1,7 @@
 /** A2A approval routing for the public mission API. */
 import { createHash, randomUUID } from 'node:crypto';
 import Ajv from 'ajv';
-import { A2AClient, A2A_HITL_PROMPT_V1, A2A_IDEMPOTENCY_V1 } from '../a2a/client.js';
+import { A2AClient, A2A_HITL_PROMPT_V1 } from '../a2a/client.js';
 import { buildHitlResponseMessage, extractHitlEnvelope } from '../a2a/hitl.js';
 import type { A2AProtocolVersion, JsonValue, NormalizedAgentInterface } from '../a2a/types.js';
 import type { ExecutorRegistry } from './executor-registry.js';
@@ -77,7 +77,7 @@ export async function respondToA2AMission(
     const result = await client.sendMessage(buildHitlResponseMessage({
       promptId, response, messageId: attempt.messageId, taskId: binding.taskId,
       ...(binding.contextId ? { contextId: binding.contextId } : {}),
-    }), { extensions: [A2A_HITL_PROMPT_V1, A2A_IDEMPOTENCY_V1] });
+    }));
     if (result.task.id !== binding.taskId || result.task.contextId !== binding.contextId) return reply(502, 'approval_result_binding_mismatch');
     binding.acceptedPrompts.add(promptId);
     // Audit correlation only; approval payloads can contain sensitive data.
