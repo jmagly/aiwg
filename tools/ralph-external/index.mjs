@@ -85,8 +85,11 @@ function parseArgs(args) {
   // A numeric flag that is present but not a positive number is a hard usage
   // error — NaN limits used to be accepted and then silently never fire (#1770)
   const positiveNumber = (flag, raw, { integer = false } = {}) => {
-    const value = integer ? parseInt(raw, 10) : parseFloat(raw);
-    if (!Number.isFinite(value) || value <= 0) {
+    // Consume the whole decimal value; prefix parsers silently truncate typos
+    // and fractional counters. Exponents are allowed, non-decimal bases are not.
+    const decimal = typeof raw === 'string' && /^[+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw);
+    const value = decimal ? Number(raw) : NaN;
+    if (!Number.isFinite(value) || value <= 0 || (integer && !Number.isSafeInteger(value))) {
       console.error(`Error: ${flag} requires a positive number (got '${raw}')`);
       process.exit(1);
     }
@@ -668,7 +671,10 @@ async function main() {
 // main(), fail the no-objective check, and process.exit(1) — killing the caller.
 const invokedDirectly = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
 if (invokedDirectly) {
-  main().catch(console.error);
+  main().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
 
 // Import process reliability modules
