@@ -804,6 +804,11 @@ async function runDoctor() {
     }
 
     // Agents
+    // #2506: track the per-class artifact counts so a provider tree that was
+    // pruned to a half-deployed shape (commands/rules present, zero agents)
+    // is reported instead of rendering as healthy.
+    let deployedAgentCount = null;
+    let deployedCommandCount = null;
     const agentsPathRel = provider.paths.agents;
     const agentsPath = resolveProviderPath(agentsPathRel);
     if (agentsPath && await fileExists(agentsPath)) {
@@ -814,7 +819,12 @@ async function runDoctor() {
           const agentCount = files.filter(
             f => f.endsWith('.md') || f.endsWith('.agent.md') || f.endsWith('.toml'),
           ).length;
-          check(`${label} Agents`, 'ok', `${agentCount} agents deployed (${agentsPathRel})`);
+          deployedAgentCount = agentCount;
+          check(
+            `${label} Agents`,
+            agentCount > 0 ? 'ok' : 'info',
+            `${agentCount} agents deployed (${agentsPathRel})`,
+          );
 
           // Agent-def size ceiling (#1587). A deployed agent definition is loaded
           // verbatim as the subagent system prompt; stacked with a rule-heavy host
@@ -903,6 +913,7 @@ async function runDoctor() {
         try {
           const files = await fs.readdir(commandsPath);
           const cmdCount = files.filter(f => f.endsWith('.md') || f.endsWith('.prompt.md')).length;
+          deployedCommandCount = cmdCount;
           check(`${label} Commands`, 'ok', `${cmdCount} commands deployed (${commandsPathRel})`);
         } catch {
           // Skip silently — commands are optional for several providers
@@ -916,6 +927,64 @@ async function runDoctor() {
           'ok',
           'Skill-only model — capabilities reached via natural language or `aiwg discover`'
         );
+      }
+    }
+
+    // Deployment consistency (#2506). A provider tree holding commands or
+    // rules but no agents is half-deployed: commands and rules reference
+    // agents that are no longer on disk. This is the shape a cross-provider
+    // prune used to leave behind, and a bare "0 agents deployed" check mark
+    // is the line most likely to stop someone investigating.
+    {
+      const rulesPathRel = provider.paths.rules;
+      const rulesPath = rulesPathRel ? resolveProviderPath(rulesPathRel) : null;
+      let deployedRuleCount = null;
+      if (rulesPath && await fileExists(rulesPath)) {
+        try {
+          const stat = await fs.stat(rulesPath);
+          if (stat.isDirectory()) {
+            const files = await fs.readdir(rulesPath);
+            deployedRuleCount = files.filter(f => f.endsWith('.md') || f.endsWith('.mdc')).length;
+          }
+        } catch {
+          /* unreadable rules dir — treat as unknown */
+        }
+      }
+      const companions = [];
+      if (deployedCommandCount > 0) companions.push(`${deployedCommandCount} command(s)`);
+      if (deployedRuleCount > 0) companions.push(`${deployedRuleCount} rule(s)`);
+      if (deployedAgentCount === 0 && companions.length > 0) {
+        check(
+          `${label} Deployment consistency`,
+          'warn',
+          `Half-deployed tree: ${companions.join(' and ')} present with 0 agents at ${agentsPathRel}. `
+          + `Commands and rules can reference agents that are no longer on disk. `
+          + `Run 'aiwg use sdlc --provider ${provName}' to restore the agent surface, `
+          + `or remove the tree if this provider is no longer in use.`,
+        );
+      }
+
+      // #2506: recorded deployment state that claims agents against an empty
+      // directory is unambiguous drift. Only the zero-on-disk case is flagged;
+      // per-bundle counts legitimately differ from a raw directory listing.
+      if (deployedAgentCount === 0) {
+        try {
+          const cfg = await readAiwgConfig(process.cwd());
+          const claiming = Object.entries(cfg?.installed ?? {})
+            .filter(([, entry]) => (entry?.deployedTo?.[provName]?.agents ?? 0) > 0)
+            .map(([name, entry]) => `${name} (${entry.deployedTo[provName].agents})`);
+          if (claiming.length > 0) {
+            check(
+              `${label} Recorded deployment drift`,
+              'warn',
+              `.aiwg/aiwg.config records deployed agents for ${provName} that are not on disk: `
+              + `${claiming.join(', ')}. Re-run 'aiwg use <bundle> --provider ${provName}' to redeploy, `
+              + `or 'aiwg refresh --provider ${provName}' to reconcile.`,
+            );
+          }
+        } catch {
+          /* no readable config — nothing to reconcile against */
+        }
       }
     }
 

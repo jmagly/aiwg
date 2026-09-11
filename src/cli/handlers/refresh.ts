@@ -28,6 +28,7 @@ import {
   getProviderParallelismDefaults,
 } from '../../config/aiwg-config.js';
 import { discoverProjectLocalBundles } from '../../extensions/project-local-discovery.js';
+import { getProviderArtifactPathStrings } from '../../providers/provider-definitions.js';
 import {
   collectPackagedAgentInventory,
   normalizeAgentArtifactName,
@@ -87,20 +88,51 @@ function isOlderManagedVersion(deployedVersion: string, currentVersion: string):
   return deployed.prerelease.localeCompare(current.prerelease, undefined, { numeric: true }) < 0;
 }
 
-export async function pruneStaleManagedAgentFiles(options: {
-  projectRoot: string;
-  frameworkRoot: string;
-  /** Provider successfully refreshed in this invocation. */
-  provider?: string;
-  currentVersion?: string;
-  dryRun?: boolean;
-}): Promise<ProviderStaleAgentRemoval[]> {
-  const desired = await currentBundledAgentBasenames(options.frameworkRoot);
-  const currentVersion = options.currentVersion ?? await readFrameworkVersion(options.frameworkRoot);
-  const removals: ProviderStaleAgentRemoval[] = [];
+/** Artifact classes considered when pruning a provider tree as a unit (#2506). */
+type ProviderArtifactKind = 'agents' | 'commands' | 'rules';
 
-  for (const [provider, relDir] of Object.entries(PROVIDER_AGENT_DIRS)) {
-    const dir = path.join(options.projectRoot, relDir);
+const PRUNABLE_ARTIFACT_KINDS: readonly ProviderArtifactKind[] = ['agents', 'commands', 'rules'];
+
+/**
+ * Resolve the on-disk artifact directories for a provider.
+ *
+ * `PROVIDER_AGENT_DIRS` remains the enumeration of providers AIWG can prune;
+ * the command/rule directories come from the provider definitions so the
+ * unit-prune path never drifts from what `aiwg use` actually wrote.
+ */
+function providerArtifactDirs(provider: string): Record<ProviderArtifactKind, string | null> {
+  const agents = PROVIDER_AGENT_DIRS[provider] ?? null;
+  const declared = getProviderArtifactPathStrings(provider);
+  const usable = (value: string | undefined): string | null =>
+    typeof value === 'string' && value.length > 0 && !path.isAbsolute(value) ? value : null;
+  return {
+    agents,
+    commands: usable(declared?.commands),
+    rules: usable(declared?.rules),
+  };
+}
+
+interface ManagedArtifactHit {
+  kind: ProviderArtifactKind;
+  absolutePath: string;
+  relativePath: string;
+  version: string;
+  artifactName: string;
+}
+
+/** Collect every AIWG-managed (`source: bundled`) artifact in one provider tree. */
+async function collectManagedProviderArtifacts(
+  projectRoot: string,
+  provider: string,
+  kinds: readonly ProviderArtifactKind[],
+): Promise<ManagedArtifactHit[]> {
+  const dirs = providerArtifactDirs(provider);
+  const hits: ManagedArtifactHit[] = [];
+
+  for (const kind of kinds) {
+    const relDir = dirs[kind];
+    if (!relDir) continue;
+    const dir = path.join(projectRoot, relDir);
     let entries;
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
@@ -110,6 +142,8 @@ export async function pruneStaleManagedAgentFiles(options: {
 
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      // Generated indexes are rewritten on every deploy, never orphaned.
+      if (entry.name === 'RULES-INDEX.md' || entry.name === 'RULES-ONDEMAND.md') continue;
       const file = path.join(dir, entry.name);
       let content;
       try {
@@ -119,32 +153,174 @@ export async function pruneStaleManagedAgentFiles(options: {
       }
       const marker = parseManagedArtifactMarker(content);
       if (marker?.source !== 'bundled') continue;
+      hits.push({
+        kind,
+        absolutePath: file,
+        relativePath: path.relative(projectRoot, file),
+        version: marker.version,
+        artifactName: normalizeAgentArtifactName(entry.name),
+      });
+    }
+  }
 
-      const artifactName = normalizeAgentArtifactName(entry.name);
-      const missingFromCurrentPackage = !desired.has(artifactName);
-      // Addons have independent manifest versions. Comparing their managed
-      // marker to the top-level package version makes a successful refresh
-      // delete freshly restored addon agents. Version-based cleanup remains
-      // valid for other provider trees that were not refreshed, while the
-      // active provider removes only artifacts absent from current sources.
-      const fromOlderPackage = provider !== options.provider
-        && currentVersion !== null
-        && isOlderManagedVersion(marker.version, currentVersion);
-      if (!missingFromCurrentPackage && !fromOlderPackage) continue;
+  return hits;
+}
 
-      const relFile = path.relative(options.projectRoot, file);
-      if (!options.dryRun) await fs.rm(file, { force: true });
+/**
+ * Non-target provider trees left behind by an older package (#2506).
+ *
+ * A provider-scoped refresh reports these instead of mutating them, so the
+ * operator decides whether to refresh, prune, or keep the tree.
+ */
+export interface ProviderStaleTree {
+  provider: string;
+  /** Oldest managed version observed in the tree. */
+  version: string;
+  counts: Record<ProviderArtifactKind, number>;
+  total: number;
+}
+
+export async function detectStaleProviderTrees(options: {
+  projectRoot: string;
+  frameworkRoot: string;
+  /** Provider refreshed in this invocation; its own tree is never reported. */
+  provider?: string;
+  currentVersion?: string;
+}): Promise<ProviderStaleTree[]> {
+  const currentVersion = options.currentVersion ?? await readFrameworkVersion(options.frameworkRoot);
+  if (currentVersion === null) return [];
+
+  const trees: ProviderStaleTree[] = [];
+  for (const provider of Object.keys(PROVIDER_AGENT_DIRS)) {
+    if (provider === options.provider) continue;
+    const hits = (await collectManagedProviderArtifacts(options.projectRoot, provider, PRUNABLE_ARTIFACT_KINDS))
+      .filter((hit) => isOlderManagedVersion(hit.version, currentVersion));
+    if (hits.length === 0) continue;
+
+    const counts: Record<ProviderArtifactKind, number> = { agents: 0, commands: 0, rules: 0 };
+    for (const hit of hits) counts[hit.kind] += 1;
+    const oldest = hits
+      .map((hit) => hit.version)
+      .reduce((a, b) => (isOlderManagedVersion(a, b) ? a : b));
+    trees.push({ provider, version: oldest, counts, total: hits.length });
+  }
+
+  trees.sort((a, b) => a.provider.localeCompare(b.provider));
+  return trees;
+}
+
+export async function pruneStaleManagedAgentFiles(options: {
+  projectRoot: string;
+  frameworkRoot: string;
+  /** Provider successfully refreshed in this invocation. */
+  provider?: string;
+  currentVersion?: string;
+  dryRun?: boolean;
+  /**
+   * How to treat provider trees this run did not refresh (#2506).
+   *
+   * `skip` (default) leaves them entirely alone — a claude-scoped refresh must
+   * never mutate `.codex/`. `prune` removes the whole tree as a unit
+   * (agents + commands + rules) so the surface is never left half-deployed.
+   */
+  crossProvider?: 'skip' | 'prune';
+}): Promise<ProviderStaleAgentRemoval[]> {
+  const desired = await currentBundledAgentBasenames(options.frameworkRoot);
+  const currentVersion = options.currentVersion ?? await readFrameworkVersion(options.frameworkRoot);
+  const crossProvider = options.crossProvider ?? 'skip';
+  const removals: ProviderStaleAgentRemoval[] = [];
+
+  for (const provider of Object.keys(PROVIDER_AGENT_DIRS)) {
+    const isTargetProvider = provider === options.provider;
+    // Non-target trees are pruned as a unit or not at all; the refreshed
+    // provider only drops agents whose source no longer ships them.
+    if (!isTargetProvider && crossProvider === 'skip') continue;
+    const kinds = isTargetProvider ? (['agents'] as const) : PRUNABLE_ARTIFACT_KINDS;
+
+    const hits = await collectManagedProviderArtifacts(options.projectRoot, provider, kinds);
+    for (const hit of hits) {
+      if (isTargetProvider) {
+        // Addons have independent manifest versions. Comparing their managed
+        // marker to the top-level package version makes a successful refresh
+        // delete freshly restored addon agents, so the active provider removes
+        // only artifacts absent from current sources.
+        if (desired.has(hit.artifactName)) continue;
+      } else if (currentVersion === null || !isOlderManagedVersion(hit.version, currentVersion)) {
+        continue;
+      }
+
+      if (!options.dryRun) await fs.rm(hit.absolutePath, { force: true });
       let providerRemoval = removals.find((item) => item.provider === provider);
       if (!providerRemoval) {
         providerRemoval = { provider, paths: [] };
         removals.push(providerRemoval);
       }
-      providerRemoval.paths.push(relFile);
+      providerRemoval.paths.push(hit.relativePath);
     }
   }
 
   for (const removal of removals) removal.paths.sort((a, b) => a.localeCompare(b));
   return removals;
+}
+
+/**
+ * Reconcile `installed.deployedTo` with the artifacts a prune pass left behind (#2506).
+ *
+ * Recorded counts are written by `aiwg use` before the prune runs, so a run
+ * that deletes artifacts otherwise leaves the config permanently claiming
+ * files that are gone. Two cases:
+ *
+ *  - **Unit-pruned provider tree** (a non-refreshed provider removed wholesale):
+ *    every managed agent/command/rule for that provider is gone, so those
+ *    counts drop to zero across all installed bundles. Skills are not part of
+ *    the prune pass and keep their recorded values.
+ *  - **Refreshed provider** (agent orphans only): subtract the removed count
+ *    from the recorded agent totals, largest contributor first, clamped at 0.
+ */
+async function reconcileDeployedToAfterPrune(
+  projectRoot: string,
+  removals: ProviderStaleAgentRemoval[],
+  refreshedProvider: string | null,
+): Promise<void> {
+  if (removals.length === 0) return;
+  const config = await readAiwgConfig(projectRoot);
+  if (!config) return;
+
+  let changed = false;
+  for (const removal of removals) {
+    const unitPruned = removal.provider !== refreshedProvider;
+    const entries = Object.values(config.installed)
+      .filter((entry) => entry.deployedTo?.[removal.provider]);
+    if (entries.length === 0) continue;
+
+    if (unitPruned) {
+      for (const entry of entries) {
+        const counts = entry.deployedTo[removal.provider];
+        if (counts.agents === 0 && counts.commands === 0 && counts.rules === 0) continue;
+        counts.agents = 0;
+        counts.commands = 0;
+        counts.rules = 0;
+        changed = true;
+      }
+      continue;
+    }
+
+    let outstanding = removal.paths.length;
+    const byAgentsDesc = entries
+      .slice()
+      .sort((a, b) => b.deployedTo[removal.provider].agents - a.deployedTo[removal.provider].agents);
+    for (const entry of byAgentsDesc) {
+      if (outstanding <= 0) break;
+      const counts = entry.deployedTo[removal.provider];
+      const deduct = Math.min(counts.agents, outstanding);
+      if (deduct <= 0) continue;
+      counts.agents -= deduct;
+      outstanding -= deduct;
+      changed = true;
+    }
+  }
+
+  if (changed) await writeAiwgConfig(projectRoot, config);
 }
 
 /**
@@ -186,6 +362,12 @@ Options:
   --skip-update             Skip the installation update
   --packages-only           Refresh remote packages only
   --provider <name>         Override provider auto-detection
+  --prune-other-providers   Remove stale AIWG-managed trees belonging to
+                            providers this run did not refresh. Off by default:
+                            a provider-scoped refresh never mutates another
+                            provider's deployed surface.
+  --force                   Re-write every deployed artifact, replacing files
+                            AIWG does not currently manage
   --channel <name>          Select the update channel (stable or main)
   --frameworks <list>       Re-deploy a comma-separated installed subset
   --model <name>            Override all deployed agent model tiers
@@ -220,6 +402,10 @@ export const refreshHandler: CommandHandler = {
     const quiet = hasFlag(ctx.args, '--quiet');
     const skipUpdate = hasFlag(ctx.args, '--skip-update');
     const packagesOnly = hasFlag(ctx.args, '--packages-only');
+    // #2506: cross-provider pruning is opt-in. A provider-scoped refresh must
+    // not silently delete another provider's deployed surface.
+    const pruneOtherProviders = hasFlag(ctx.args, '--prune-other-providers');
+    const forceDeploy = hasFlag(ctx.args, '--force');
     const provider = parseFlag(ctx.args, '--provider');
     const channel = parseFlag(ctx.args, '--channel');
     const frameworksArg = parseFlag(ctx.args, '--frameworks');
@@ -333,6 +519,9 @@ export const refreshHandler: CommandHandler = {
             '--target', ctx.cwd,
             '--yes',
             '--json',
+            // #2507: give operators a reclaim path for artifacts an older
+            // AIWG left behind without a managed marker.
+            ...(forceDeploy ? ['--force'] : []),
             ...modelDeployArgs,
           ],
           rawArgs: ['use', fw],
@@ -378,7 +567,7 @@ export const refreshHandler: CommandHandler = {
       // Non-fatal — refresh continues
     }
 
-    // Step 4.5: Stale deployment check (#621, #1460, #1799)
+    // Step 4.5: Stale deployment check (#621, #1460, #1799, #2506)
     if (!quiet) ui.info('Checking for stale deployments...');
     let staleAgentRemovals: ProviderStaleAgentRemoval[] = [];
     if (!dryRun && deploymentFailures.length === 0) {
@@ -387,11 +576,12 @@ export const refreshHandler: CommandHandler = {
           projectRoot: ctx.cwd,
           frameworkRoot,
           provider: detectedProvider,
+          crossProvider: pruneOtherProviders ? 'prune' : 'skip',
         });
         if (staleAgentRemovals.length > 0 && !quiet) {
           const total = staleAgentRemovals.reduce((sum, item) => sum + item.paths.length, 0);
-          ui.success(
-            `Removed ${total} stale AIWG-managed agent file${total === 1 ? '' : 's'} ` +
+          ui.warn(
+            `Removed ${total} stale AIWG-managed file${total === 1 ? '' : 's'} ` +
             `across ${staleAgentRemovals.length} provider${staleAgentRemovals.length === 1 ? '' : 's'}`,
           );
           for (const removal of staleAgentRemovals) {
@@ -401,9 +591,47 @@ export const refreshHandler: CommandHandler = {
               `    ${removal.provider}: ${removal.paths.length} (${shown}${remainder > 0 ? `, ...and ${remainder} more` : ''})`,
             );
           }
+          ui.dim('    Review `git status` before committing — deployed artifacts may be tracked.');
         }
+        // #2506: keep the recorded deployment state consistent with what the
+        // prune actually left on disk, so a later run does not trust counts
+        // for artifacts that no longer exist.
+        await reconcileDeployedToAfterPrune(
+          ctx.cwd,
+          staleAgentRemovals,
+          pruneOtherProviders ? detectedProvider : null,
+        );
       } catch {
         if (!quiet) ui.dim('  Agent orphan cleanup skipped (non-critical)');
+      }
+
+      // #2506: a provider-scoped refresh reports other providers' stale trees
+      // instead of mutating them. Silent cross-provider deletion destroyed
+      // git-tracked artifacts and left half-deployed surfaces behind.
+      if (!pruneOtherProviders) {
+        try {
+          const staleTrees = await detectStaleProviderTrees({
+            projectRoot: ctx.cwd,
+            frameworkRoot,
+            provider: detectedProvider,
+          });
+          for (const tree of staleTrees) {
+            const breakdown = (['agents', 'commands', 'rules'] as const)
+              .filter((kind) => tree.counts[kind] > 0)
+              .map((kind) => `${tree.counts[kind]} ${kind}`)
+              .join(', ');
+            ui.warn(
+              `Stale ${tree.provider} deployment: ${tree.total} AIWG-managed file(s) from v${tree.version} ` +
+              `(${breakdown}) — this run refreshed ${detectedProvider ?? 'the active provider'} only`,
+            );
+            ui.dim(
+              `    Refresh it with 'aiwg refresh --provider ${tree.provider}', ` +
+              `or remove it with 'aiwg refresh --prune-other-providers'`,
+            );
+          }
+        } catch {
+          if (!quiet) ui.dim('  Stale provider tree check skipped (non-critical)');
+        }
       }
 
       try {
@@ -434,6 +662,12 @@ export const refreshHandler: CommandHandler = {
           if (stale.length > 0) {
             for (const name of stale) {
               ui.warn(`Stale deployment: ${name} — run 'aiwg use ${name}' to redeploy`);
+            }
+          } else if (staleAgentRemovals.length > 0) {
+            // #2506: a run that deleted artifacts is not an "up to date" run.
+            const removed = staleAgentRemovals.reduce((sum, item) => sum + item.paths.length, 0);
+            if (!quiet) {
+              ui.warn(`Deployments current, but ${removed} stale artifact(s) were removed this run — review the list above`);
             }
           } else {
             if (!quiet) ui.success('All deployments up to date');
