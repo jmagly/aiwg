@@ -73,9 +73,11 @@ import os from 'os';
 import readline from 'readline';
 import { fileURLToPath } from 'url';
 import {
+  addManagedMarker,
   collectBehaviorDirs,
   collectFrameworkArtifacts,
   computeAllArtifactBasenames,
+  contentHash,
   deployEmulatedBehaviors,
   getAddonSkillDirs,
   listSkillDirs,
@@ -85,6 +87,7 @@ import {
   parseFrontmatter,
   pruneStaleAiwgFiles,
   resolveAiwgRoot,
+  updateSidecarManifest,
 } from './providers/base.mjs';
 const modelCatalog = loadRuntimeModelCatalog(staticModelCatalog);
 
@@ -293,6 +296,7 @@ function mirrorSkillsAsCommands(provider, target, srcRoot, opts) {
   if (!opts.dryRun) fs.mkdirSync(targetDir, { recursive: true });
 
   const ext = commandFileExtensionForProvider(provider);
+  const deployedEntries = [];
   let count = 0;
 
   for (const skillDir of skillDirs) {
@@ -301,8 +305,15 @@ function mirrorSkillsAsCommands(provider, target, srcRoot, opts) {
     if (typeof provider.transformCommand === 'function') {
       content = provider.transformCommand(path.join(skillDir, `${skillName}.md`), content, opts);
     }
+    // #2507: mirrored wrappers used to be written with no ownership signal, so
+    // AIWG could neither count them as deployed nor prune them when the source
+    // skill went away — a later run reported its own 46 wrappers as unmanaged
+    // artifacts the operator should delete. They carry the same managed marker
+    // and sidecar entry as any other deployed command now.
+    content = addManagedMarker(content, opts.deployVersion || 'unknown', opts.deploySource || 'bundled');
 
-    const dest = path.join(targetDir, `${skillName}${ext}`);
+    const filename = `${skillName}${ext}`;
+    const dest = path.join(targetDir, filename);
     if (opts.dryRun) {
       if (opts.verbose) console.log(`[dry-run] mirror skill command ${skillName} -> ${dest}`);
       const raw = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf8');
@@ -315,11 +326,21 @@ function mirrorSkillsAsCommands(provider, target, srcRoot, opts) {
     } else {
       fs.writeFileSync(dest, content, 'utf8');
     }
+    deployedEntries.push({ filename, hash: contentHash(content), kind: 'skill-command' });
     count++;
+  }
+
+  if (deployedEntries.length > 0) {
+    updateSidecarManifest(targetDir, deployedEntries, {
+      dryRun: opts.dryRun,
+      version: opts.deployVersion || 'unknown',
+      source: opts.deploySource || 'bundled',
+    });
   }
 
   return count;
 }
+
 
 // ============================================================================
 // Stale-Artifact Prune (agents / commands / rules) — #1627
@@ -346,6 +367,29 @@ function mirrorSkillsAsCommands(provider, target, srcRoot, opts) {
  * @param {object} opts deploy opts (dryRun/verbose/quiet + deploy flags)
  * @param {string|null} explicitSource the raw `--source` value (null when unset)
  */
+/** Bundles whose deploy is itself the kernel-only bulk install. */
+const BULK_INSTALL_BUNDLES = new Set(['all']);
+
+/**
+ * True when the kernel-only bulk install is the only thing this project has
+ * deployed, so clearing leftover flat artifacts is a migration and not a
+ * deletion of another bundle's surface (#2508).
+ *
+ * A project with no readable `.aiwg/aiwg.config` has no recorded owner, so the
+ * pre-#152 migration cleanup still applies.
+ */
+export function bulkInstallOwnsFlatArtifacts(target) {
+  let installed;
+  try {
+    const raw = realFs.readFileSync(path.join(target, '.aiwg', 'aiwg.config'), 'utf8');
+    installed = JSON.parse(raw)?.installed;
+  } catch {
+    return true;
+  }
+  if (!installed || typeof installed !== 'object') return true;
+  return !Object.keys(installed).some(name => !BULK_INSTALL_BUNDLES.has(name));
+}
+
 function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explicitSource) {
   if (opts.skillsOnly && !opts.kernelOnly) return; // skills run their own prune in the provider
 
@@ -363,6 +407,23 @@ function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explicitSource
   }
 
   if (opts.kernelOnly) {
+    // A kernel-only run deploys skills and nothing else (deployCommands /
+    // deployRules / deployBehaviors are all forced false above), so it has no
+    // basis for judging any flat artifact stale. The empty desired set below
+    // exists for one narrow migration: clearing agents/commands/rules left by
+    // the pre-#152 bulk default, when the bulk install is the only thing this
+    // project ever deployed.
+    //
+    // #2508: applying it unconditionally deleted every artifact a sibling
+    // bundle owned — `aiwg use sdlc` followed by `aiwg use all` took
+    // .claude/agents from 139 to 0. When another bundle is installed, it owns
+    // this surface deliberately and the migration assumption does not hold.
+    if (!bulkInstallOwnsFlatArtifacts(target)) {
+      if (opts.verbose) {
+        console.log('skip kernel-only flat prune: another installed bundle owns agents/commands/rules');
+      }
+      return;
+    }
     for (const type of ['agents', 'commands', 'rules']) {
       const relPath = provider.paths?.[type];
       if (!relPath || relPath.endsWith('.md')) continue;

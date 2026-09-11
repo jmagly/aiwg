@@ -719,6 +719,7 @@ async function mirrorStandardCommandSkills(opts: {
       projectPath: opts.target,
       dryRun: opts.dryRun,
       verbose: opts.verbose,
+      deployVersion: (await getVersionInfo()).version,
       nameFilter: shouldMirrorStandardCommandSkill,
     });
     count += result.translated.length;
@@ -3793,6 +3794,7 @@ export class UseHandler implements CommandHandler {
           projectPath: target,
           dryRun,
           verbose,
+          deployVersion: (await getVersionInfo()).version,
         });
         if (verbose && translationResult.translated.length > 0) {
           ui.success(`Translated ${translationResult.translated.length} skills → commands (${provider})`);
@@ -3844,6 +3846,7 @@ export class UseHandler implements CommandHandler {
             projectPath: target,
             dryRun,
             verbose,
+            deployVersion: (await getVersionInfo()).version,
             nameFilter: shouldMirrorKernelCommandSkill,
           });
           if (verbose && kernel.translated.length > 0) {

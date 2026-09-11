@@ -12,8 +12,70 @@
  * @issue #550
  */
 
+import { createHash } from 'node:crypto';
 import fs from 'fs/promises';
 import path from 'path';
+
+/**
+ * Ownership signal for generated command files (#2507).
+ *
+ * Command wrappers were written as bare files: no `aiwg:managed` marker and no
+ * `.aiwg-manifest.json` entry. AIWG could neither count them as deployed nor
+ * recognise them as its own, so a later run reported the wrappers it had just
+ * written as unmanaged artifacts the operator should delete. They now carry the
+ * same signals as any other deployed artifact, tagged `skill-command` so the
+ * flat-command prune leaves them to the skills prune that governs their source.
+ */
+const MANAGED_SIDECAR = '.aiwg-manifest.json';
+const MANAGED_MARKER_PATTERN = /^(?:<!--\s*aiwg:managed\s|#\s*aiwg:managed\s)/m;
+
+interface ManagedSidecar {
+  managed: Record<string, { hash: string; source: string; version: string; kind?: string }>;
+}
+
+function addManagedMarker(content: string, version: string, source: string): string {
+  if (MANAGED_MARKER_PATTERN.test(content)) return content;
+  if (content.startsWith('---\n')) {
+    return content.replace(/^---\n/, `---\n# aiwg:managed v${version} ${source}\n`);
+  }
+  return `<!-- aiwg:managed v${version} ${source} -->\n${content}`;
+}
+
+/**
+ * Merge generated command entries into a directory's managed sidecar.
+ *
+ * Best-effort: a translation that cannot record ownership still produced a
+ * usable command file, so a sidecar failure must not fail the deploy.
+ */
+async function recordManagedCommands(
+  targetDir: string,
+  entries: { filename: string; content: string }[],
+  version: string,
+  source: string,
+): Promise<void> {
+  if (entries.length === 0) return;
+  const sidecarPath = path.join(targetDir, MANAGED_SIDECAR);
+  let sidecar: ManagedSidecar = { managed: {} };
+  try {
+    const parsed = JSON.parse(await fs.readFile(sidecarPath, 'utf-8')) as Partial<ManagedSidecar>;
+    if (parsed && typeof parsed === 'object' && parsed.managed) sidecar = parsed as ManagedSidecar;
+  } catch {
+    // No sidecar yet, or unreadable — start a fresh managed map.
+  }
+  for (const entry of entries) {
+    sidecar.managed[entry.filename] = {
+      hash: `sha256:${createHash('sha256').update(entry.content).digest('hex')}`,
+      source,
+      version,
+      kind: 'skill-command',
+    };
+  }
+  try {
+    await fs.writeFile(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`, 'utf-8');
+  } catch {
+    // Non-fatal — the command files themselves are already written.
+  }
+}
 
 // ============================================
 // Types
@@ -28,6 +90,11 @@ export interface TranslationOptions {
   dryRun?: boolean;
   /** If true, log verbose output */
   verbose?: boolean;
+  /**
+   * Version stamped into the managed marker and sidecar entry for generated
+   * commands. Defaults to `unknown` when the caller has no version context.
+   */
+  deployVersion?: string;
   /**
    * Project root path. Used by per-provider dual-write paths (e.g., Copilot
    * `.github/prompts/<id>.prompt.md`). When omitted, dual-write derives the
@@ -373,6 +440,9 @@ export async function translateSkillsToCommands(
     errors: [],
     totalProcessed: 0,
   };
+  // Ownership records for the commands this call writes (#2507).
+  const managedEntries: { filename: string; content: string }[] = [];
+  const promptEntries: { filename: string; content: string }[] = [];
 
   // Check if this provider needs commands. nameFilter overrides the
   // provider gating: when an operator passes an explicit filter (e.g. Claude
@@ -426,8 +496,10 @@ export async function translateSkillsToCommands(
       }
 
       // Generate command content
-      const commandContent = generateCommandContent(
-        skillName, frontmatter, body, options.provider,
+      const commandContent = addManagedMarker(
+        generateCommandContent(skillName, frontmatter, body, options.provider),
+        options.deployVersion ?? 'unknown',
+        'bundled',
       );
       const commandFilename = `${skillName}.md`;
 
@@ -456,7 +528,9 @@ export async function translateSkillsToCommands(
           const promptPath = path.join(promptsDir, `${skillName}.prompt.md`);
           await fs.mkdir(promptsDir, { recursive: true });
           await fs.writeFile(promptPath, commandContent, 'utf-8');
+          promptEntries.push({ filename: `${skillName}.prompt.md`, content: commandContent });
         }
+        managedEntries.push({ filename: commandFilename, content: commandContent });
       }
 
       result.translated.push(translated);
@@ -474,6 +548,21 @@ export async function translateSkillsToCommands(
       if (options.verbose) {
         console.error(`  Error: ${skillName} — ${errMsg}`);
       }
+    }
+  }
+
+  if (!options.dryRun) {
+    const version = options.deployVersion ?? 'unknown';
+    await recordManagedCommands(options.targetDir, managedEntries, version, 'bundled');
+    if (promptEntries.length > 0) {
+      const projectRoot = options.projectPath
+        ?? path.dirname(path.dirname(options.targetDir));
+      await recordManagedCommands(
+        path.join(projectRoot, '.github', 'prompts'),
+        promptEntries,
+        version,
+        'bundled',
+      );
     }
   }
 

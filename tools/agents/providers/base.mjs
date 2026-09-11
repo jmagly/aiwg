@@ -199,7 +199,7 @@ export function addManagedMarker(content, version, source, style = 'markdown') {
 /**
  * Compute SHA-256 hash of content (hex string).
  */
-function contentHash(content) {
+export function contentHash(content) {
   return createHash('sha256').update(content).digest('hex');
 }
 
@@ -240,9 +240,12 @@ export function updateSidecarManifest(dir, deployedEntries, opts) {
   const existing = readSidecarManifest(dir) || { managed: {} };
 
   for (const entry of deployedEntries) {
-    const { filename, hash, frameworkSlug } = entry;
+    const { filename, hash, frameworkSlug, kind } = entry;
     const sidecarEntry = { hash: `sha256:${hash}`, source, version };
     if (frameworkSlug) sidecarEntry.frameworkSlug = frameworkSlug;
+    // `kind` marks artifacts whose lifecycle is governed elsewhere — currently
+    // only `skill-command` wrappers, which follow their source skill (#2507).
+    if (kind) sidecarEntry.kind = kind;
     existing.managed[filename] = sidecarEntry;
   }
 
@@ -1396,6 +1399,13 @@ export function pruneStaleAiwgFiles(destDir, desiredStems, opts = {}) {
     if (!artifactExtensions.some(extension => lower.endsWith(extension))) continue;
 
     if (desired.has(artifactStem(name))) continue;
+
+    // Skill-command wrappers are named after skills, not command sources, so
+    // they are absent from the command desired set by construction. Their
+    // lifecycle follows the source skill and is governed by the skills prune
+    // (`pruneStaleAiwgSkills`); deleting them here would remove wrappers the
+    // same deploy had just written (#2507).
+    if (managed[name]?.kind === 'skill-command') continue;
 
     // Ownership gate — never delete a file AIWG didn't deploy.
     let owned = Object.prototype.hasOwnProperty.call(managed, name);
@@ -2907,6 +2917,11 @@ export function migrateCommandsDirectory(commandsDir, opts = {}) {
     const lower = entry.name.toLowerCase();
     if (!lower.endsWith('.md')) continue; // only command markdown files
     const filePath = path.join(commandsDir, entry.name);
+    // Skill-command wrappers ARE the current skill surface, not legacy command
+    // files superseded by it. Migrating them away deletes what the same deploy
+    // just wrote — and on a kernel-only run, which does not re-translate, they
+    // are never restored (#2507).
+    if (managed[entry.name]?.kind === 'skill-command') continue;
     let owned = Object.prototype.hasOwnProperty.call(managed, entry.name);
     if (!owned) {
       try {

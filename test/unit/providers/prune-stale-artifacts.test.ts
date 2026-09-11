@@ -197,3 +197,102 @@ describe('#1627 migrateCommandsDirectory preserves user commands', () => {
     expect(fs.existsSync(path.join(dir, 'aiwg-command.md'))).toBe(true);
   });
 });
+
+/**
+ * #2507 — skill-command wrappers are named after skills, not command sources,
+ * so they fall outside the command desired set by construction. Once they carry
+ * an ownership signal, both the flat prune and the commands→skills migration
+ * would delete wrappers the same deploy had just written.
+ */
+describe('#2507 skill-command wrappers survive prune and migration', () => {
+  function writeSkillCommand(name: string): void {
+    fs.writeFileSync(path.join(dir, name), `${MARKER}# wrapper\n`, 'utf8');
+    const manifestPath = path.join(dir, '.aiwg-manifest.json');
+    const manifest = fs.existsSync(manifestPath)
+      ? JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+      : { managed: {} };
+    manifest.managed[name] = {
+      hash: 'sha256:test', source: 'bundled', version: '0.0.0', kind: 'skill-command',
+    };
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  }
+
+  it('pruneStaleAiwgFiles leaves skill-command wrappers alone', async () => {
+    const base = await importBase();
+    writeSkillCommand('address-issues.md');
+    writeManaged('stale-real-command.md');
+
+    const removed = base.pruneStaleAiwgFiles(dir, new Set([]));
+
+    expect(removed.map((p: string) => path.basename(p))).toEqual(['stale-real-command.md']);
+    expect(fs.existsSync(path.join(dir, 'address-issues.md'))).toBe(true);
+  });
+
+  it('migrateCommandsDirectory leaves skill-command wrappers alone', async () => {
+    const base = await importBase();
+    writeSkillCommand('aiwg-doctor.md');
+    writeManaged('legacy-command.md');
+
+    const changed = base.migrateCommandsDirectory(dir, {});
+
+    expect(changed).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'legacy-command.md'))).toBe(false);
+    expect(fs.existsSync(path.join(dir, 'aiwg-doctor.md'))).toBe(true);
+  });
+
+  it('updateSidecarManifest records the artifact kind', async () => {
+    const base = await importBase();
+    base.updateSidecarManifest(
+      dir,
+      [{ filename: 'wrapper.md', hash: 'abc', kind: 'skill-command' }],
+      { version: '1.0.0', source: 'bundled' },
+    );
+    const manifest = JSON.parse(fs.readFileSync(path.join(dir, '.aiwg-manifest.json'), 'utf8'));
+    expect(manifest.managed['wrapper.md'].kind).toBe('skill-command');
+  });
+});
+
+/**
+ * #2508 — `aiwg use all` runs kernel-only, which deploys no flat artifacts and
+ * therefore cannot judge any of them stale. The empty-desired-set prune is a
+ * migration for the pre-#152 bulk default and only applies when the bulk
+ * install is the sole thing the project deployed.
+ */
+describe('#2508 kernel-only flat prune is gated on bundle ownership', () => {
+  async function importDeployAgents() {
+    return import(/* @vite-ignore */ path.join(REPO_ROOT, 'tools/agents/deploy-agents.mjs'));
+  }
+
+  function writeConfig(installed: Record<string, unknown>): void {
+    fs.mkdirSync(path.join(dir, '.aiwg'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, '.aiwg', 'aiwg.config'),
+      JSON.stringify({ version: '1', providers: ['claude'], installed }, null, 2),
+      'utf8',
+    );
+  }
+
+  it('allows the migration prune when only the bulk install is recorded', async () => {
+    const mod = await importDeployAgents();
+    writeConfig({ all: { deployedTo: {} } });
+    expect(mod.bulkInstallOwnsFlatArtifacts(dir)).toBe(true);
+  });
+
+  it('allows the migration prune when no config is present', async () => {
+    const mod = await importDeployAgents();
+    expect(mod.bulkInstallOwnsFlatArtifacts(dir)).toBe(true);
+  });
+
+  it('blocks the migration prune when another bundle owns the surface', async () => {
+    const mod = await importDeployAgents();
+    writeConfig({ all: { deployedTo: {} }, sdlc: { deployedTo: {} } });
+    expect(mod.bulkInstallOwnsFlatArtifacts(dir)).toBe(false);
+  });
+
+  it('blocks the migration prune for an addon-only install', async () => {
+    const mod = await importDeployAgents();
+    writeConfig({ rlm: { deployedTo: {} } });
+    expect(mod.bulkInstallOwnsFlatArtifacts(dir)).toBe(false);
+  });
+});
+
