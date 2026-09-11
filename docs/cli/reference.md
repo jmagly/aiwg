@@ -401,6 +401,8 @@ exit-0 resilience path for a successful package update.
 | `--skip-update`             | Skip the installation update                     |
 | `--packages-only`           | Refresh remote packages only                     |
 | `--provider <name>`         | Target specific provider (default: auto-detect)  |
+| `--prune-other-providers`   | Remove stale AIWG-managed trees for providers this run did not refresh (off by default) |
+| `--force`                   | Re-write every deployed artifact, replacing files AIWG does not currently manage |
 | `--channel <name>`          | Update channel (stable, main)                    |
 | `--frameworks <list>`       | Comma-separated frameworks to re-deploy          |
 | `--model <name>`            | Override all deployed agent model tiers          |
@@ -573,7 +575,9 @@ being falsely described as pinned.
 
 - `--save-user` - Save model overrides to `~/.config/aiwg/models.json`
 - `--no-utils` - Skip aiwg-utils addon installation (frameworks only)
-- `--force` - Overwrite existing deployments
+- `--force` - Overwrite existing deployments, including artifacts AIWG does not
+  currently manage. This is the supported way to reclaim a provider directory
+  left behind by an older AIWG install.
 - `--dry-run` - Preview without making changes
 - `--verbose` / `-v` - Include deployment phase details, framework-index build
   time, registry diagnostics, and the provider-specific reload rationale. The
@@ -588,6 +592,16 @@ being falsely described as pinned.
 - `--no-harness-agents` - OpenHuman only: explicitly skip native TOML harness agents and deploy only kernel skills/rules.
 - `--skip-commands-migration` - Skip deleting the legacy commands directory (warns about duplicate entries in the command palette)
 - `--profile <name>` - Select a topology profile for addons that declare multiple page templates (e.g., `llm-wiki` ships `book-companion | personal | research-deep-dive | business-team | generic`). Without the flag, an interactive prompt appears on TTY. The selection is written to `.aiwg/<namespace>/config.json` so subsequent skill invocations pick the right template.
+
+Deployment counts report what the run accounts for: artifacts it wrote, plus
+artifacts AIWG already manages. Files in a provider directory that AIWG does not
+own are never counted as deployed — they are reported as a separate advisory
+naming the files and the command to replace or remove them.
+
+A provider-scoped `aiwg refresh` never mutates another provider's deployed
+surface. Stale trees belonging to providers the run did not refresh are reported
+with the two concrete next actions; `--prune-other-providers` removes such a
+tree as a unit (agents, commands, and rules together) rather than partially.
 
 **Capabilities:** cli, framework, deployment, addon
 **Platforms:** All
