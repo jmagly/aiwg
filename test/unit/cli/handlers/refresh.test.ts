@@ -8,6 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import type { HandlerContext } from '../../../../src/cli/handlers/types.js';
@@ -443,7 +444,7 @@ describe('refreshHandler stale AIWG-managed agent cleanup (#1460)', () => {
         '---\n# aiwg:managed v1.4.0 bundled\nname: RLM Agent\n---\n',
       );
 
-      const removed = await pruneStaleManagedAgentFiles({
+      const { removals: removed } = await pruneStaleManagedAgentFiles({
         projectRoot,
         frameworkRoot,
         provider: 'claude',
@@ -481,7 +482,7 @@ describe('refreshHandler stale AIWG-managed agent cleanup (#1460)', () => {
         '---\nname: Operator Agent\nmodel: sonnet\n---\n',
       );
 
-      const removed = await pruneStaleManagedAgentFiles({ projectRoot, frameworkRoot, provider: 'claude' });
+      const { removals: removed } = await pruneStaleManagedAgentFiles({ projectRoot, frameworkRoot, provider: 'claude' });
 
       expect(removed).toEqual([{
         provider: 'claude',
@@ -508,7 +509,7 @@ describe('refreshHandler stale AIWG-managed agent cleanup (#1460)', () => {
         '---\n# aiwg:managed v2026.5.0-rc.7 bundled\nname: Old\nmodel: sonnet\n---\n',
       );
 
-      const removed = await pruneStaleManagedAgentFiles({ projectRoot, frameworkRoot, provider: 'claude', dryRun: true });
+      const { removals: removed } = await pruneStaleManagedAgentFiles({ projectRoot, frameworkRoot, provider: 'claude', dryRun: true });
 
       expect(removed).toEqual([{
         provider: 'claude',
@@ -530,7 +531,7 @@ describe('refreshHandler stale AIWG-managed agent cleanup (#1460)', () => {
       const { frameworkRoot, projectRoot, claudeAgents, codexAgents, codexCommands, codexRules } =
         makeCrossProviderFixture(root);
 
-      const removed = await pruneStaleManagedAgentFiles({
+      const { removals: removed } = await pruneStaleManagedAgentFiles({
         projectRoot,
         frameworkRoot,
         provider: 'claude',
@@ -577,7 +578,7 @@ describe('refreshHandler stale AIWG-managed agent cleanup (#1460)', () => {
       const { frameworkRoot, projectRoot, claudeAgents, codexAgents, codexCommands, codexRules } =
         makeCrossProviderFixture(root);
 
-      const removed = await pruneStaleManagedAgentFiles({
+      const { removals: removed } = await pruneStaleManagedAgentFiles({
         projectRoot,
         frameworkRoot,
         provider: 'claude',
@@ -642,7 +643,7 @@ describe('refreshHandler stale AIWG-managed agent cleanup (#1460)', () => {
         '---\n# aiwg:managed v2026.7.13 bundled\nname: removed-from-package\n---\n',
       );
 
-      const removed = await pruneStaleManagedAgentFiles({
+      const { removals: removed } = await pruneStaleManagedAgentFiles({
         projectRoot,
         frameworkRoot,
         provider: 'claude',
@@ -716,6 +717,113 @@ function makeCrossProviderFixture(root: string) {
 
   return { frameworkRoot, projectRoot, packagedAgents, claudeAgents, codexAgents, codexCommands, codexRules };
 }
+
+describe('#2509 cross-provider prune defers to VCS state', () => {
+  function initGitRepo(root: string): void {
+    execFileSync('git', ['init', '-q', '.'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'test'], { cwd: root });
+    execFileSync('git', ['add', '-A'], { cwd: root });
+    execFileSync('git', ['commit', '-qm', 'baseline'], { cwd: root });
+  }
+
+  it('leaves git-tracked artifacts in place and reports them', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'aiwg-refresh-tracked-'));
+    try {
+      const { frameworkRoot, projectRoot, codexAgents, codexRules } = makeCrossProviderFixture(root);
+      initGitRepo(projectRoot);
+
+      const { removals, trackedSkipped } = await pruneStaleManagedAgentFiles({
+        projectRoot,
+        frameworkRoot,
+        provider: 'claude',
+        crossProvider: 'prune',
+      });
+
+      expect(removals).toEqual([]);
+      expect(trackedSkipped).toHaveLength(1);
+      expect(trackedSkipped[0].provider).toBe('codex');
+      expect(trackedSkipped[0].paths).toHaveLength(49);
+      expect(existsSync(join(codexAgents, 'stale-agent-01.md'))).toBe(true);
+      expect(existsSync(join(codexRules, 'stale-rule.md'))).toBe(true);
+      // Nothing was staged for deletion in a tree the run was not asked to touch.
+      const status = execFileSync('git', ['status', '--short'], { cwd: projectRoot }).toString();
+      expect(status.split('\n').filter((line) => line.startsWith(' D'))).toHaveLength(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('removes tracked artifacts when the operator states the intent twice', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'aiwg-refresh-tracked-force-'));
+    try {
+      const { frameworkRoot, projectRoot, codexAgents, codexRules } = makeCrossProviderFixture(root);
+      initGitRepo(projectRoot);
+
+      const { removals, trackedSkipped } = await pruneStaleManagedAgentFiles({
+        projectRoot,
+        frameworkRoot,
+        provider: 'claude',
+        crossProvider: 'prune',
+        allowTrackedDeletes: true,
+      });
+
+      expect(trackedSkipped).toEqual([]);
+      expect(removals).toHaveLength(1);
+      expect(removals[0].paths).toHaveLength(49);
+      expect(existsSync(join(codexAgents, 'stale-agent-01.md'))).toBe(false);
+      expect(existsSync(join(codexRules, 'stale-rule.md'))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('prunes normally in a project that is not a git repository', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'aiwg-refresh-untracked-'));
+    try {
+      const { frameworkRoot, projectRoot, codexAgents } = makeCrossProviderFixture(root);
+
+      const { removals, trackedSkipped } = await pruneStaleManagedAgentFiles({
+        projectRoot,
+        frameworkRoot,
+        provider: 'claude',
+        crossProvider: 'prune',
+      });
+
+      expect(trackedSkipped).toEqual([]);
+      expect(removals[0].paths).toHaveLength(49);
+      expect(existsSync(join(codexAgents, 'stale-agent-01.md'))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('never defers the refreshed provider\'s own orphan cleanup to VCS state', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'aiwg-refresh-target-tracked-'));
+    try {
+      const { frameworkRoot, projectRoot, claudeAgents } = makeCrossProviderFixture(root);
+      writeFileSync(
+        join(claudeAgents, 'removed-from-package.md'),
+        '---\n# aiwg:managed v2026.7.13 bundled\nname: removed-from-package\n---\n',
+      );
+      initGitRepo(projectRoot);
+
+      const { removals, trackedSkipped } = await pruneStaleManagedAgentFiles({
+        projectRoot,
+        frameworkRoot,
+        provider: 'claude',
+      });
+
+      expect(trackedSkipped).toEqual([]);
+      expect(removals).toEqual([{
+        provider: 'claude',
+        paths: ['.claude/agents/removed-from-package.md'],
+      }]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe('sync integration: all 5 script paths exist on disk', () => {
   // Derive repo root from this file's location: test/unit/cli/handlers/ → 4 levels up

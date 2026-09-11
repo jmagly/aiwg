@@ -15,7 +15,11 @@
 
 import type { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 import { promises as fs } from 'fs';
+import { execFile } from 'node:child_process';
 import path from 'path';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 import { createScriptRunner } from './script-runner.js';
 import { createUseHandler } from './use.js';
 import { getFrameworkRoot } from '../../channel/manager.mjs';
@@ -209,6 +213,45 @@ export async function detectStaleProviderTrees(options: {
   return trees;
 }
 
+/**
+ * Split project-relative paths into the ones git tracks and the ones it does not (#2509).
+ *
+ * Deleting an ignored, regenerable artifact and deleting a committed file are
+ * not the same act. A project that is not a git repo — or a machine without
+ * git — reports everything as untracked, so the caller behaves as before.
+ */
+export async function partitionTrackedPaths(
+  projectRoot: string,
+  relativePaths: string[],
+): Promise<{ tracked: string[]; untracked: string[] }> {
+  if (relativePaths.length === 0) return { tracked: [], untracked: [] };
+  let trackedSet: Set<string>;
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['ls-files', '-z', '--', ...relativePaths],
+      { cwd: projectRoot, maxBuffer: 32 * 1024 * 1024 },
+    );
+    trackedSet = new Set(stdout.split('\0').filter(Boolean));
+  } catch {
+    return { tracked: [], untracked: [...relativePaths] };
+  }
+  const tracked: string[] = [];
+  const untracked: string[] = [];
+  for (const relativePath of relativePaths) {
+    // git reports POSIX separators regardless of platform.
+    (trackedSet.has(relativePath.split(path.sep).join('/')) ? tracked : untracked).push(relativePath);
+  }
+  return { tracked, untracked };
+}
+
+export interface ProviderStalePruneResult {
+  /** Artifacts removed (or, in dry-run, that would be removed). */
+  removals: ProviderStaleAgentRemoval[];
+  /** Tracked artifacts left in place because deleting them needs `--force` (#2509). */
+  trackedSkipped: ProviderStaleAgentRemoval[];
+}
+
 export async function pruneStaleManagedAgentFiles(options: {
   projectRoot: string;
   frameworkRoot: string;
@@ -224,11 +267,30 @@ export async function pruneStaleManagedAgentFiles(options: {
    * (agents + commands + rules) so the surface is never left half-deployed.
    */
   crossProvider?: 'skip' | 'prune';
-}): Promise<ProviderStaleAgentRemoval[]> {
+  /**
+   * Delete git-tracked artifacts during a cross-provider unit prune (#2509).
+   *
+   * Off by default: removing another provider's committed files is a working-
+   * tree mutation the operator did not ask for when they refreshed this one.
+   * The refreshed provider's own orphan cleanup is unaffected — pruning the
+   * tree you just refreshed is that pass's purpose.
+   */
+  allowTrackedDeletes?: boolean;
+}): Promise<ProviderStalePruneResult> {
   const desired = await currentBundledAgentBasenames(options.frameworkRoot);
   const currentVersion = options.currentVersion ?? await readFrameworkVersion(options.frameworkRoot);
   const crossProvider = options.crossProvider ?? 'skip';
   const removals: ProviderStaleAgentRemoval[] = [];
+  const trackedSkipped: ProviderStaleAgentRemoval[] = [];
+
+  const record = (list: ProviderStaleAgentRemoval[], provider: string, relativePath: string): void => {
+    let entry = list.find((item) => item.provider === provider);
+    if (!entry) {
+      entry = { provider, paths: [] };
+      list.push(entry);
+    }
+    entry.paths.push(relativePath);
+  };
 
   for (const provider of Object.keys(PROVIDER_AGENT_DIRS)) {
     const isTargetProvider = provider === options.provider;
@@ -238,29 +300,42 @@ export async function pruneStaleManagedAgentFiles(options: {
     const kinds = isTargetProvider ? (['agents'] as const) : PRUNABLE_ARTIFACT_KINDS;
 
     const hits = await collectManagedProviderArtifacts(options.projectRoot, provider, kinds);
-    for (const hit of hits) {
+    const eligible = hits.filter((hit) => {
       if (isTargetProvider) {
         // Addons have independent manifest versions. Comparing their managed
         // marker to the top-level package version makes a successful refresh
         // delete freshly restored addon agents, so the active provider removes
         // only artifacts absent from current sources.
-        if (desired.has(hit.artifactName)) continue;
-      } else if (currentVersion === null || !isOlderManagedVersion(hit.version, currentVersion)) {
+        return !desired.has(hit.artifactName);
+      }
+      return currentVersion !== null && isOlderManagedVersion(hit.version, currentVersion);
+    });
+    if (eligible.length === 0) continue;
+
+    // Only the cross-provider unit prune defers to VCS state.
+    let protectedPaths = new Set<string>();
+    if (!isTargetProvider && !options.allowTrackedDeletes) {
+      const { tracked } = await partitionTrackedPaths(
+        options.projectRoot,
+        eligible.map((hit) => hit.relativePath),
+      );
+      protectedPaths = new Set(tracked);
+    }
+
+    for (const hit of eligible) {
+      if (protectedPaths.has(hit.relativePath)) {
+        record(trackedSkipped, provider, hit.relativePath);
         continue;
       }
-
       if (!options.dryRun) await fs.rm(hit.absolutePath, { force: true });
-      let providerRemoval = removals.find((item) => item.provider === provider);
-      if (!providerRemoval) {
-        providerRemoval = { provider, paths: [] };
-        removals.push(providerRemoval);
-      }
-      providerRemoval.paths.push(hit.relativePath);
+      record(removals, provider, hit.relativePath);
     }
   }
 
-  for (const removal of removals) removal.paths.sort((a, b) => a.localeCompare(b));
-  return removals;
+  for (const list of [removals, trackedSkipped]) {
+    for (const entry of list) entry.paths.sort((a, b) => a.localeCompare(b));
+  }
+  return { removals, trackedSkipped };
 }
 
 /**
@@ -570,14 +645,33 @@ export const refreshHandler: CommandHandler = {
     // Step 4.5: Stale deployment check (#621, #1460, #1799, #2506)
     if (!quiet) ui.info('Checking for stale deployments...');
     let staleAgentRemovals: ProviderStaleAgentRemoval[] = [];
+    let trackedSkipped: ProviderStaleAgentRemoval[] = [];
     if (!dryRun && deploymentFailures.length === 0) {
       try {
-        staleAgentRemovals = await pruneStaleManagedAgentFiles({
+        const pruneResult = await pruneStaleManagedAgentFiles({
           projectRoot: ctx.cwd,
           frameworkRoot,
           provider: detectedProvider,
           crossProvider: pruneOtherProviders ? 'prune' : 'skip',
+          allowTrackedDeletes: forceDeploy,
         });
+        staleAgentRemovals = pruneResult.removals;
+        trackedSkipped = pruneResult.trackedSkipped;
+        if (trackedSkipped.length > 0 && !quiet) {
+          const total = trackedSkipped.reduce((sum, item) => sum + item.paths.length, 0);
+          ui.warn(
+            `Left ${total} git-tracked AIWG-managed file${total === 1 ? '' : 's'} in place ` +
+            `across ${trackedSkipped.length} provider${trackedSkipped.length === 1 ? '' : 's'}`,
+          );
+          for (const skipped of trackedSkipped) {
+            const shown = skipped.paths.slice(0, 3).join(', ');
+            const remainder = skipped.paths.length - 3;
+            ui.dim(
+              `    ${skipped.provider}: ${skipped.paths.length} (${shown}${remainder > 0 ? `, ...and ${remainder} more` : ''})`,
+            );
+          }
+          ui.dim("    These are committed files. Add --force to remove them as well.");
+        }
         if (staleAgentRemovals.length > 0 && !quiet) {
           const total = staleAgentRemovals.reduce((sum, item) => sum + item.paths.length, 0);
           ui.warn(
