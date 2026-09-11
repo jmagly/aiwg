@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -404,6 +404,60 @@ describe.sequential('deployment verification contract (#2069)', () => {
     expect(result.providers[0]).toMatchObject({ provider: 'codex', scope: 'user' });
     expect(result.requestedBundles).toEqual(['sdlc']);
     expect(result.findings.some(item => item.id === 'deployment-not-configured')).toBe(false);
+  });
+
+  // #2507 — deployment counts came from a readdir of the provider directory, so
+  // a run that wrote nothing still reported every stale file sitting there as a
+  // successful deploy.
+  it('excludes unmanaged artifacts from deployment counts and reports them', async () => {
+    const fixture = await readyCodexFixture();
+    const commandsDir = path.join(fixture.projectRoot, '.codex', 'commands');
+    const stale = path.join(commandsDir, 'stale-unmanaged.md');
+    await writeFile(stale, '---\nname: stale\n---\n\nLeft behind by an older AIWG.\n');
+    const longAgo = new Date(Date.now() - 60 * 60 * 1000);
+    await utimes(stale, longAgo, longAgo);
+
+    const invocationStartedAt = new Date().toISOString();
+    const result = await verifyFixture(fixture.projectRoot, fixture.frameworkRoot, {
+      invocationStartedAt,
+    });
+
+    // Only the sidecar-managed fixture command counts as deployed.
+    expect(result.counts.commands).toBe(1);
+    const unmanaged = result.findings.find((item) => item.id === 'unmanaged-artifacts:commands');
+    expect(unmanaged).toBeDefined();
+    expect(unmanaged?.severity).toBe('advisory');
+    expect(unmanaged?.message).toContain('stale-unmanaged.md');
+    expect(unmanaged?.remediation).toContain('--force');
+  });
+
+  it('counts artifacts this run wrote even when they carry no ownership marker', async () => {
+    const fixture = await readyCodexFixture();
+    const commandsDir = path.join(fixture.projectRoot, '.codex', 'commands');
+    const invocationStartedAt = new Date(Date.now() - 1_000).toISOString();
+    // Skill-command wrappers are written without a managed marker or sidecar
+    // entry; attribution by write time keeps them out of the unmanaged bucket.
+    await writeFile(path.join(commandsDir, 'mirrored-wrapper.md'), '---\nname: wrapper\n---\n');
+
+    const result = await verifyFixture(fixture.projectRoot, fixture.frameworkRoot, {
+      invocationStartedAt,
+    });
+
+    expect(result.counts.commands).toBe(2);
+    expect(result.findings.some((item) => item.id === 'unmanaged-artifacts:commands')).toBe(false);
+  });
+
+  it('keeps the plain entry count when the run has no attribution boundary', async () => {
+    const fixture = await readyCodexFixture();
+    const stale = path.join(fixture.projectRoot, '.codex', 'commands', 'stale-unmanaged.md');
+    await writeFile(stale, '---\nname: stale\n---\n');
+    const longAgo = new Date(Date.now() - 60 * 60 * 1000);
+    await utimes(stale, longAgo, longAgo);
+
+    const result = await verifyFixture(fixture.projectRoot, fixture.frameworkRoot);
+
+    expect(result.counts.commands).toBe(2);
+    expect(result.findings.some((item) => item.id === 'unmanaged-artifacts:commands')).toBe(false);
   });
 });
 

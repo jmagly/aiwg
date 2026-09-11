@@ -1,4 +1,4 @@
-import { access, readFile, readdir } from 'node:fs/promises';
+import { access, readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { loadGraphIndexFile } from '../../artifacts/index-reader.js';
@@ -212,6 +212,109 @@ async function countEntries(candidate: string): Promise<number> {
 
 function emptyCounts(): DeployedArtifactCounts & { behaviors: number } {
   return { agents: 0, commands: 0, skills: 0, rules: 0, behaviors: 0 };
+}
+
+/**
+ * Flat-artifact attribution (#2507).
+ *
+ * Deployment counts used to be a plain `readdir` of the provider directory, so
+ * a run that wrote nothing still reported every pre-existing file as deployed —
+ * a no-op deploy over a stale, unmanaged tree was indistinguishable from a
+ * successful one. An artifact now counts as deployed only when this run wrote
+ * it (mtime at or after the invocation start) or AIWG owns it (sidecar entry or
+ * in-file managed marker). Everything else is reported as unmanaged.
+ */
+const MANAGED_SIDECAR = '.aiwg-manifest.json';
+const MANAGED_MARKER_PATTERN = /^(?:<!--\s*aiwg:managed\s|#\s*aiwg:managed\s)/m;
+const FLAT_ARTIFACT_KINDS = ['agents', 'commands', 'rules'] as const;
+const FLAT_ARTIFACT_EXTENSIONS = ['.md', '.mdc', '.toml'];
+/** Clock skew tolerance between the recorded invocation start and file mtimes. */
+const WRITE_ATTRIBUTION_SKEW_MS = 2_000;
+
+type FlatArtifactKind = (typeof FLAT_ARTIFACT_KINDS)[number];
+
+const FLAT_ARTIFACT_NOUNS: Readonly<Record<FlatArtifactKind, string>> = {
+  agents: 'agent',
+  commands: 'command',
+  rules: 'rule',
+};
+
+interface FlatArtifactTally {
+  deployed: number;
+  unmanaged: string[];
+}
+
+async function readManagedSidecarNames(dir: string): Promise<Set<string>> {
+  try {
+    const raw = await readFile(path.join(dir, MANAGED_SIDECAR), 'utf8');
+    const parsed = JSON.parse(raw) as { managed?: Record<string, unknown> };
+    return new Set(Object.keys(parsed.managed ?? {}));
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Split one flat artifact directory into artifacts this deployment accounts for
+ * and artifacts it does not. Returns `null` when the directory cannot be
+ * attributed (missing, unreadable, or no invocation boundary to compare
+ * against), so callers fall back to the plain entry count.
+ */
+async function tallyFlatArtifacts(dir: string, writtenSince: number | null): Promise<FlatArtifactTally | null> {
+  if (!dir || writtenSince === null) return null;
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+
+  const managedNames = await readManagedSidecarNames(dir);
+  const tally: FlatArtifactTally = { deployed: 0, unmanaged: [] };
+
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    if (!entry.isFile()) {
+      // Nested directories (e.g. deployed behaviors under rules/) are counted
+      // as-is; they are not flat artifacts and have their own lifecycle.
+      tally.deployed += 1;
+      continue;
+    }
+    const lower = entry.name.toLowerCase();
+    if (!FLAT_ARTIFACT_EXTENSIONS.some((extension) => lower.endsWith(extension))) continue;
+
+    const absolute = path.join(dir, entry.name);
+    if (managedNames.has(entry.name)) {
+      tally.deployed += 1;
+      continue;
+    }
+
+    let writtenThisRun = false;
+    try {
+      const info = await stat(absolute);
+      writtenThisRun = info.mtimeMs + WRITE_ATTRIBUTION_SKEW_MS >= writtenSince;
+    } catch {
+      writtenThisRun = false;
+    }
+    if (writtenThisRun) {
+      tally.deployed += 1;
+      continue;
+    }
+
+    let owned = false;
+    try {
+      owned = MANAGED_MARKER_PATTERN.test(await readFile(absolute, 'utf8'));
+    } catch {
+      // Unreadable files are not claimed as deployed, but neither are they
+      // reported as shadowing artifacts we could not inspect.
+      continue;
+    }
+    if (owned) tally.deployed += 1;
+    else tally.unmanaged.push(entry.name);
+  }
+
+  tally.unmanaged.sort((a, b) => a.localeCompare(b));
+  return tally;
 }
 
 function phase(
@@ -442,9 +545,34 @@ export async function verifyProviderDeployment(
     const artifactPaths = options.scope === 'user'
       ? USER_SCOPE_PATHS[normalized] ?? definition.paths.artifacts
       : definition.paths.artifacts;
+    const writtenSince = options.invocationStartedAt
+      ? Date.parse(options.invocationStartedAt)
+      : Number.NaN;
+    const attributionBoundary = Number.isFinite(writtenSince) ? writtenSince : null;
     for (const type of ['agents', 'commands', 'skills', 'rules', 'behaviors'] as const) {
       const resolved = resolveProviderPathValue(artifactPaths[type], deploymentRoot);
       counts[type] = await countEntries(resolved);
+      // #2507: flat artifact directories report what this deployment accounts
+      // for, not whatever happens to be sitting in the directory.
+      const flatKind: FlatArtifactKind | undefined = FLAT_ARTIFACT_KINDS.find((kind) => kind === type);
+      if (!flatKind) continue;
+      const tally = await tallyFlatArtifacts(resolved, attributionBoundary);
+      if (!tally) continue;
+      counts[flatKind] = tally.deployed;
+      if (tally.unmanaged.length === 0) continue;
+      const shown = tally.unmanaged.slice(0, 3).join(', ');
+      const remainder = tally.unmanaged.length - 3;
+      findings.push(finding(
+        normalized,
+        `unmanaged-artifacts:${flatKind}`,
+        'advisory',
+        `${tally.unmanaged.length} unmanaged ${FLAT_ARTIFACT_NOUNS[flatKind]} file(s) left in place at ${artifactPaths[flatKind]}: `
+        + `${shown}${remainder > 0 ? `, and ${remainder} more` : ''}. `
+        + 'They are not managed by AIWG and were not counted as deployed.',
+        `Re-run aiwg use ${options.requestedBundles[0] ?? 'all'} --provider ${normalized} --force to replace them, `
+        + `or delete ${artifactPaths[flatKind]} so AIWG can reclaim the directory.`,
+        { kind: flatKind, unmanaged: tally.unmanaged },
+      ));
     }
     const resolvedSkillsPath = resolveProviderPathValue(artifactPaths.skills, deploymentRoot);
     const kernelPath = options.scope === 'user'

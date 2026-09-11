@@ -2439,6 +2439,36 @@ async function mirrorProjectLocalBundleToUserScope(opts: {
  * Deploys framework agents, commands, and skills to the current project,
  * then registers them in the extension registry for discovery.
  */
+const USE_HELP = `Usage: aiwg use <bundle> [options]
+
+Deploy an AIWG framework, addon, or extension into the current project.
+
+Bundles:
+  all                       Kernel surface only (kernel skills, rules, behaviors)
+  sdlc | research | ops | forensics | marketing | media-curator | ...
+                            Full framework surface (agents, commands, skills, rules)
+  <addon> | <extension>     Any installed addon or extension name
+
+Options:
+  --provider <name>         Target provider (default: .aiwg/aiwg.config providers)
+  --target <dir>            Deploy into <dir> instead of the current directory
+  --scope project|user      Deploy to the project (default) or the user scope
+  --force                   Re-write every artifact, replacing files AIWG does
+                            not currently manage. Use this to reclaim a
+                            directory left behind by an older AIWG install.
+  --copy-all                Mirror standard-tier skills into the project instead
+                            of relying on index-driven discovery
+  --dry-run                 Preview the deployment without writing files
+  --verbose, -v             Show per-artifact deploy decisions
+  --json                    Emit the machine-readable deployment result
+  --no-project-local        Skip project-local bundles under .aiwg/
+  --no-context-files        Skip WORKSPACE.md / AIWG.md / AGENTS.md emission
+  -h, --help                Show this help without deploying
+
+Deployment counts report what the run wrote or already manages. Files AIWG does
+not own are listed separately as unmanaged and are never counted as deployed.
+`;
+
 export class UseHandler implements CommandHandler {
   id = 'use';
   name = 'Use Framework';
@@ -2446,6 +2476,10 @@ export class UseHandler implements CommandHandler {
   category = 'framework' as const;
   aliases: string[] = [];
   private orchestrationDepth = 0;
+
+  async help(): Promise<HandlerResult> {
+    return { exitCode: 0, message: USE_HELP, rawOutput: true };
+  }
 
   async execute(ctx: HandlerContext): Promise<HandlerResult> {
     const requestedBundle = firstUsePositional(ctx.args)
