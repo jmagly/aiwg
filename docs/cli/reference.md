@@ -401,8 +401,8 @@ exit-0 resilience path for a successful package update.
 | `--skip-update`             | Skip the installation update                     |
 | `--packages-only`           | Refresh remote packages only                     |
 | `--provider <name>`         | Target specific provider (default: auto-detect)  |
-| `--prune-other-providers`   | Remove stale AIWG-managed trees for providers this run did not refresh (off by default) |
-| `--force`                   | Re-write every deployed artifact, replacing files AIWG does not currently manage |
+| `--prune-other-providers`   | Remove stale AIWG-managed trees for providers this run did not refresh (off by default). Git-tracked files are left in place unless `--force` is also given |
+| `--force`                   | Re-write every deployed artifact, replacing files AIWG does not currently manage, and allow the cross-provider prune to remove git-tracked files |
 | `--channel <name>`          | Update channel (stable, main)                    |
 | `--frameworks <list>`       | Comma-separated frameworks to re-deploy          |
 | `--model <name>`            | Override all deployed agent model tiers          |
@@ -602,6 +602,16 @@ A provider-scoped `aiwg refresh` never mutates another provider's deployed
 surface. Stale trees belonging to providers the run did not refresh are reported
 with the two concrete next actions; `--prune-other-providers` removes such a
 tree as a unit (agents, commands, and rules together) rather than partially.
+That prune also defers to version control: git-tracked artifacts are left in
+place and reported separately, because deleting an ignored regenerable artifact
+and deleting a committed file are not the same act. Adding `--force` alongside
+the prune flag removes them as well.
+
+`aiwg use all` deploys the kernel surface — kernel skills, rules, and behaviors —
+and does not deploy agents or commands. It leaves the artifacts other bundles
+deployed alone: running it after `aiwg use sdlc` does not remove the SDLC agent
+surface. In a project whose only recorded deployment is the bulk install itself,
+it still clears flat artifacts left by the pre-kernel bulk default.
 
 **Capabilities:** cli, framework, deployment, addon
 **Platforms:** All
