@@ -11,20 +11,52 @@ import chokidar from 'chokidar';
 import { WatchService, WatchEvent } from '../../../src/cli/watch-service.ts';
 import { WatchConfig } from '../../../src/cli/config-loader.ts';
 
+/**
+ * Latency floor a real-filesystem watcher event cannot beat (#2510).
+ *
+ * `WatchService.start` configures chokidar with
+ * `awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 100 }`, so a
+ * `change` is only emitted after the file has been observed stable across a
+ * 200ms window sampled every 100ms; `handleEvent` then applies the service's
+ * own debounce. Every component is poll-driven, so the floor stretches
+ * proportionally when the vitest worker is CPU-starved — which a full-suite
+ * parallel run does and a single-file local run does not.
+ */
+const WATCHER_LATENCY_FLOOR_MS = 200 + 100 + 100;
+/** Headroom for a loaded CI runner. Generous on purpose: an event that never
+ *  arrives still fails, so the cost of a wide bound is seconds, while the cost
+ *  of a narrow one is a red build on unrelated work (#2419, #2501, #2510). */
+const FS_EVENT_TIMEOUT_MS = WATCHER_LATENCY_FLOOR_MS * 30;
+/** Kept above FS_EVENT_TIMEOUT_MS so vitest never cuts in before waitFor and
+ *  replaces a diagnosable message with a bare per-test timeout. */
+const FS_EVENT_TEST_TIMEOUT_MS = FS_EVENT_TIMEOUT_MS + 8000;
+
 async function waitFor(
   condition: () => boolean,
   timeoutMs = 5000,
-  pollIntervalMs = 25
+  pollIntervalMs = 25,
+  describeObserved: () => string = () => 'no observation reporter supplied'
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
+  const started = Date.now();
 
   while (!condition()) {
     if (Date.now() >= deadline) {
-      throw new Error(`Condition was not met within ${timeoutMs}ms`);
+      // Report what did arrive. These cases only fail under CI load, where a
+      // local repro is unavailable and the log is the whole investigation.
+      throw new Error(
+        `Condition was not met within ${timeoutMs}ms (waited ${Date.now() - started}ms); observed: ${describeObserved()}`
+      );
     }
 
     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
   }
+}
+
+/** Render collected watch events for a waitFor failure message. */
+function describeEvents(events: WatchEvent[]): string {
+  if (events.length === 0) return 'no events';
+  return events.map(event => `${event.type}:${resolve(event.path)}`).join(', ');
 }
 
 describe('WatchService', () => {
@@ -102,11 +134,16 @@ describe('WatchService', () => {
       const filePath = resolve(testDir, 'new.md');
       await writeFile(filePath, 'Content', 'utf-8');
 
-      await waitFor(() => events.some(event => event.type === 'add'));
+      await waitFor(
+        () => events.some(event => event.type === 'add'),
+        FS_EVENT_TIMEOUT_MS,
+        25,
+        () => describeEvents(events),
+      );
 
       expect(events.length).toBeGreaterThan(0);
       expect(events.some(e => e.type === 'add')).toBe(true);
-    }, 10000);
+    }, FS_EVENT_TEST_TIMEOUT_MS);
 
     it('should detect file changes', async () => {
       // Create file before watching
@@ -123,10 +160,15 @@ describe('WatchService', () => {
 
       // Modify file
       await writeFile(filePath, 'Modified', 'utf-8');
-      await waitFor(() => events.some(event => event.type === 'change'));
+      await waitFor(
+        () => events.some(event => event.type === 'change'),
+        FS_EVENT_TIMEOUT_MS,
+        25,
+        () => describeEvents(events),
+      );
 
       expect(events.some(e => e.type === 'change')).toBe(true);
-    }, 10000);
+    }, FS_EVENT_TEST_TIMEOUT_MS);
 
     it('should detect file deletions', async () => {
       const filePath = resolve(testDir, 'delete.md');
@@ -142,10 +184,15 @@ describe('WatchService', () => {
 
       // Delete file (use force option to avoid errors if file doesn't exist)
       await rm(filePath, { force: true });
-      await waitFor(() => events.some(event => event.type === 'unlink'));
+      await waitFor(
+        () => events.some(event => event.type === 'unlink'),
+        FS_EVENT_TIMEOUT_MS,
+        25,
+        () => describeEvents(events),
+      );
 
       expect(events.some(e => e.type === 'unlink')).toBe(true);
-    }, 10000);
+    }, FS_EVENT_TEST_TIMEOUT_MS);
   });
 
   describe('debouncing', () => {
@@ -167,11 +214,16 @@ describe('WatchService', () => {
         await new Promise(resolve => setTimeout(resolve, 20));
       }
 
-      await waitFor(() => eventCount > 0);
+      await waitFor(
+        () => eventCount > 0,
+        FS_EVENT_TIMEOUT_MS,
+        25,
+        () => `eventCount=${eventCount}`,
+      );
 
       // Should have processed only once (debounced)
       expect(eventCount).toBe(1);
-    }, 10000);
+    }, FS_EVENT_TEST_TIMEOUT_MS);
 
     it('should respect custom debounce time', async () => {
       const filePath = resolve(testDir, 'custom-debounce.md');
@@ -196,9 +248,16 @@ describe('WatchService', () => {
 
       // Chokidar event delivery can be delayed under full-suite CI load. Wait for
       // the debounced callback instead of assuming it arrives in a fixed window.
-      await waitFor(() => processed);
+      // This case raises the service debounce to 500ms, so its floor is the
+      // highest of the real-filesystem set.
+      await waitFor(
+        () => processed,
+        FS_EVENT_TIMEOUT_MS,
+        25,
+        () => `processed=${processed}`,
+      );
       expect(processed).toBe(true);
-    }, 10000);
+    }, FS_EVENT_TEST_TIMEOUT_MS);
 
     it('should throw on negative debounce', () => {
       expect(() => service.debounce(-100)).toThrow('must be >= 0');
