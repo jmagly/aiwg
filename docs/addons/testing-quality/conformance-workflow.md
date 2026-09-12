@@ -26,7 +26,7 @@ aiwg test-conformance init --root /path/to/target --platform auto --system examp
 aiwg test-conformance validate --root /path/to/target --input .aiwg/testing/conformance.yaml --schema conformance-protocol.v1
 ```
 
-Review generated configuration using [protocol review](../templates/protocol-review.md). Auto-detection is a starting
+Review generated configuration using [protocol review](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/testing-quality/templates/protocol-review.md). Auto-detection is a starting
 point, not qualification. Protocol fields are `spec.platform`, `system`, `source`, `tests`, `areas`, `lanes`, `policy`
 and `research`. Source/test include and exclude globs are explicit. Areas have stable IDs and include globs; a directory
 label alone does not define an observed test type or SUT boundary.
@@ -93,7 +93,7 @@ proof of test validity.
 
 ## Oracle review and assessment
 
-Assign cases to the Test Oracle Reviewer with [test review](../templates/test-review.md), exact source bindings and
+Assign cases to the Test Oracle Reviewer with [test review](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/testing-quality/templates/test-review.md), exact source bindings and
 relevant helpers/SUT. Record what a test actually observes, wrong behavior it rejects, fixture isolation, cleanup and
 normalization concerns. Early returns, count-only acceptance, absent `findIndex` values, permissive timeout outcomes and
 fail-open validator setup deserve control-flow inspection. A lexical candidate is not a confirmed defect.
@@ -108,7 +108,7 @@ aiwg test-conformance assess --root /path/to/target --inventory .aiwg/testing/in
 aiwg test-conformance report --root /path/to/target --assessment .aiwg/testing/assessment-01.json --format markdown --output .aiwg/testing/report-01.md
 ```
 
-Use [conformance report](../templates/conformance-report.md) for additional narrative: test breakdown/types/SUT,
+Use [conformance report](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/testing-quality/templates/conformance-report.md) for additional narrative: test breakdown/types/SUT,
 coverage denominator, sampling limits, research and prioritized repair. Artifact validation checks structure;
 substantive conformance needs correct sufficient evidence. Report exact assessment status and scope rather than implying
 all tests are certified.
@@ -117,7 +117,7 @@ all tests are certified.
 
 Create an edits JSON document with `purpose` and `edits: [{path, content}]`. Content is the complete intended UTF-8
 file; null means an intentional deletion. The plan captures complete original and replacement content, hashes and
-permissions. Use [normalization plan review](../templates/normalization-plan.md) for acceptance and verification.
+permissions. Use [normalization plan review](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/testing-quality/templates/normalization-plan.md) for acceptance and verification.
 
 ```bash
 aiwg test-conformance plan --root /path/to/target --changes .aiwg/testing/edits-01.json --output .aiwg/testing/plan-01.json
@@ -192,7 +192,7 @@ status with remaining findings; do not loosen the acceptance scope to finish the
 aiwg test-conformance research --root /path/to/target --query "mutation and property testing for the configured platform" --output .aiwg/testing/tool-research.json
 ```
 
-Use the platform research skill and [tool recommendation](../templates/tool-recommendation.md) to turn located sources
+Use the platform research skill and [tool recommendation](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/testing-quality/templates/tool-recommendation.md) to turn located sources
 into grounded choices. The prior audit's corpus was `~/dev/research/research-papers`; configure real user paths rather
 than embedding that location into shipped defaults. Missing local roots are reported. Web lookup plans and shipped links
 are leads until actually opened and assessed; no research command silently installs proposed tooling.
@@ -208,7 +208,7 @@ Keep qualification levels separate:
 A format enum or profile does not certify support. Unsupported JUnit/TRX or other reporter variants must produce a
 missing-adapter gap until their parser is implemented and qualified. Custom runners may emit the canonical result
 format; preserve original output and qualify mapping using [adapter
-qualification](../templates/adapter-qualification.md). Consult the runtime's current support matrix and tests rather
+qualification](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/testing-quality/templates/adapter-qualification.md). Consult the runtime's current support matrix and tests rather
 than assuming all researched platforms are verified.
 
 ## YAML flow contract

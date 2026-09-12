@@ -6,7 +6,7 @@
 
 ## Overview
 
-The RLM (Recursive Language Models) addon supports running root agents and sub-agents across multiple AI providers. This enables cost optimization (e.g., Claude Opus root with Codex Mini sub-calls), provider-specific strengths (e.g., Claude for reasoning, OpenAI Codex for code generation), and resource deployment across AIWG's 13 named provider integrations. Runtime sub-agent execution still depends on the selected provider's capabilities.
+The RLM (Recursive Language Models) addon supports running root agents and sub-agents across multiple AI providers. This enables cost optimization (e.g., Claude Opus root with Codex Mini sub-calls), provider-specific strengths (e.g., Claude for reasoning, OpenAI Codex for code generation), and resource deployment across AIWG's 15 named provider integrations. Runtime sub-agent execution still depends on the selected provider's capabilities.
 
 ## Model Mapping for RLM
 
