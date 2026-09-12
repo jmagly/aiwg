@@ -458,6 +458,39 @@ describe('refreshHandler stale AIWG-managed agent cleanup (#1460)', () => {
     }
   });
 
+  it('preserves project-local bundle agents absent from the packaged corpus (#2502)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'aiwg-refresh-project-local-'));
+    try {
+      const frameworkRoot = join(root, 'framework-root');
+      const projectRoot = join(root, 'project');
+      mkdirSync(join(frameworkRoot, 'agentic/code/frameworks/sdlc-complete/agents'), { recursive: true });
+      mkdirSync(join(projectRoot, '.claude/agents'), { recursive: true });
+      writeFileSync(join(frameworkRoot, 'package.json'), '{"version":"2026.9.6"}\n');
+      writeFileSync(
+        join(frameworkRoot, 'agentic/code/frameworks/sdlc-complete/agents/current-agent.md'),
+        '---\nname: Current\n---\n',
+      );
+      // A project-local bundle's agent never appears in the packaged corpus, so
+      // the `missingFromCurrentPackage` branch matches it on every run. Its
+      // managed-marker source is what keeps it out of the prune's reach.
+      writeFileSync(
+        join(projectRoot, '.claude/agents/repro-agent.md'),
+        '---\n# aiwg:managed v1.0.0 project-local\nname: Repro Agent\nmodel: sonnet\n---\n',
+      );
+
+      const { removals: removed } = await pruneStaleManagedAgentFiles({
+        projectRoot,
+        frameworkRoot,
+        provider: 'claude',
+      });
+
+      expect(removed).toEqual([]);
+      expect(existsSync(join(projectRoot, '.claude/agents/repro-agent.md'))).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('removes bundled managed agent files that no longer exist in current sources', async () => {
     const root = mkdtempSync(join(tmpdir(), 'aiwg-refresh-orphan-'));
     try {

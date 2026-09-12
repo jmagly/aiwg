@@ -1247,6 +1247,52 @@ async function countBundleDeployedArtifacts(
 
 const SKILL_SUPPORT_REFERENCE = /(?:^|[\s`('"\[])((?:templates|references|scripts|assets)\/[A-Za-z0-9._@/+\-]+)(?=$|[\s`)'"\],:;])/gm;
 
+/** Copy one support file, preserving its executable bit. */
+async function copySkillSupportFile(source: string, destination: string): Promise<void> {
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.copyFile(source, destination);
+  await fs.chmod(destination, (await fs.stat(source)).mode & 0o777);
+}
+
+/**
+ * Materialize a directory-valued support-asset reference (#2503).
+ *
+ * Applies the same rules the single-file path applies, per entry: symlinks are
+ * refused rather than followed (a link inside a bundle can point anywhere), and
+ * file modes are preserved so script packs stay executable. Empty directories
+ * are still created — a reference to an empty pack is odd but not an error.
+ */
+async function copySkillSupportTree(
+  source: string,
+  destination: string,
+  sourceSkillMd: string,
+  reference: string,
+  deployFile: ((from: string, to: string) => void) | null,
+): Promise<void> {
+  await fs.mkdir(destination, { recursive: true });
+  const label = reference.replace(/\/+$/, '');
+  const entries = await fs.readdir(source, { withFileTypes: true });
+  for (const entry of entries) {
+    const from = path.join(source, entry.name);
+    const to = path.join(destination, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new Error(
+        `unsafe skill support asset '${label}/${entry.name}' referenced by ${sourceSkillMd}: symbolic links are not deployed`,
+      );
+    }
+    if (entry.isDirectory()) {
+      await copySkillSupportTree(from, to, sourceSkillMd, `${label}/${entry.name}`, deployFile);
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    if (deployFile) {
+      deployFile(from, to);
+      continue;
+    }
+    await copySkillSupportFile(from, to);
+  }
+}
+
 /**
  * Skill-relative support files may live beside the skill or at the bundle root
  * (plugin payloads commonly share report templates). Materialize
@@ -1297,10 +1343,19 @@ async function reconcileDeployedSkillAssets(
       }
       const candidates = [path.join(sourceSkillDir, normalized), path.join(bundlePath, normalized)];
       let source: string | undefined;
+      let sourceIsDirectory = false;
       for (const candidate of candidates) {
         try {
           const stat = await fs.lstat(candidate);
-          if (stat.isFile() && !stat.isSymbolicLink()) { source = candidate; break; }
+          if (stat.isSymbolicLink()) continue;
+          // A reference may name a whole support directory (a templates pack,
+          // a references folder). Rejecting those as "missing" aborted the
+          // bundle deploy over a path that was present all along (#2503).
+          if (stat.isFile() || stat.isDirectory()) {
+            source = candidate;
+            sourceIsDirectory = stat.isDirectory();
+            break;
+          }
         } catch { /* try bundle-root fallback */ }
       }
       if (!source) {
@@ -1308,6 +1363,11 @@ async function reconcileDeployedSkillAssets(
           throw new Error(`missing skill support asset '${relative}' referenced by ${sourceSkillMd}`);
         }
         continue;
+      }
+      if (sourceIsDirectory && declaredEntrypoints.has(relative)) {
+        throw new Error(
+          `skill entrypoint '${relative}' in ${sourceSkillMd} resolves to a directory; an entrypoint must be a file`,
+        );
       }
 
       let deployedSkillRoot: string | undefined;
@@ -1321,17 +1381,36 @@ async function reconcileDeployedSkillAssets(
       }
       if (!deployedSkillRoot) throw new Error(`deployed skill '${skillName}' not found while reconciling support assets`);
       const destination = path.join(deployedSkillRoot, skillName, ...normalized.split('/'));
-      if (provider === 'omp') {
-        const adapter = await import(pathToFileURL(path.join(await getFrameworkRoot(), 'tools/agents/providers/omp.mjs')).href);
-        adapter.deploySkillSupportAsset(source, destination, { quiet: true });
+      const deployFile = provider === 'omp'
+        ? await (async (): Promise<(from: string, to: string) => void> => {
+          const adapter = await import(pathToFileURL(path.join(await getFrameworkRoot(), 'tools/agents/providers/omp.mjs')).href);
+          return (from, to) => adapter.deploySkillSupportAsset(from, to, { quiet: true });
+        })()
+        : null;
+      if (sourceIsDirectory) {
+        await copySkillSupportTree(source, destination, sourceSkillMd, relative, deployFile);
         continue;
       }
-      await fs.mkdir(path.dirname(destination), { recursive: true });
-      await fs.copyFile(source, destination);
-      const mode = (await fs.stat(source)).mode & 0o777;
-      await fs.chmod(destination, mode);
+      if (deployFile) {
+        deployFile(source, destination);
+        continue;
+      }
+      await copySkillSupportFile(source, destination);
     }
   }
+}
+
+/**
+ * Managed-marker version for a project-local bundle's deployed artifacts (#2502).
+ *
+ * The deployer otherwise derives this from a `package.json` in the `--source`
+ * tree; project-local bundles carry a `manifest.json` instead, so every
+ * artifact was stamped `vunknown`. Falls back to `unknown` only when the
+ * manifest itself omits a version.
+ */
+function projectLocalDeployVersion(bundle: ProjectLocalBundle): string {
+  const version = (bundle.manifest as { version?: unknown }).version;
+  return typeof version === 'string' && version.length > 0 ? version : 'unknown';
 }
 
 /**
@@ -1392,6 +1471,12 @@ async function deployOneProjectLocalBundle(opts: {
       // never reach <provider>/.aiwg/skills/, leaving them invisible to
       // both the platform and the index.
       '--copy-all',
+      // Provenance for the managed marker (#2502). Without this the deployer
+      // stamps `bundled`/`unknown`, and `aiwg refresh`'s stale-artifact prune —
+      // whose desired set is the packaged framework corpus — deletes every
+      // project-local agent in the same run that re-deployed it.
+      '--deploy-source', 'project-local',
+      '--deploy-version', projectLocalDeployVersion(bundle),
       ...modelArgs,
     ];
     if (dryRun) args.push('--dry-run');

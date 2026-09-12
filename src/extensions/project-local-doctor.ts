@@ -35,6 +35,8 @@ export interface DoctorSectionResult {
   denylistViolations: number;
   /** Count of artifacts whose deployed file hash differs from the registered hash. */
   driftCount: number;
+  /** Discovered bundles with no recorded deployment — usually an aborted deploy (#2503). */
+  undeployedCount: number;
   /** True when the section had failing content (validation, denylist, drift). */
   hasFailures: boolean;
 }
@@ -99,7 +101,7 @@ export async function buildProjectLocalDoctorSection(
 
   // No project-local content → no section at all
   if (discovery.isEmpty && discovery.errors.length === 0 && !quickrefAudit.exists && quickrefErrors.length === 0) {
-    return { output: '', validationErrors: 0, denylistViolations: 0, driftCount: 0, hasFailures: false };
+    return { output: '', validationErrors: 0, denylistViolations: 0, driftCount: 0, undeployedCount: 0, hasFailures: false };
   }
 
   const lines: string[] = ['', '── Project-local artifacts ────────────────────────────────────'];
@@ -141,6 +143,9 @@ export async function buildProjectLocalDoctorSection(
 
   // Shadows + denylist
   let denylistViolations = 0;
+  // Bundles the resolver deliberately refused are already reported below as
+  // denylist violations; the undeployed check must not double-count them.
+  const refusedBundleIds = new Set<string>();
   if (discovery.bundles.length > 0) {
     try {
       const upstream = await buildUpstreamRegistry({ frameworkRoot });
@@ -149,6 +154,7 @@ export async function buildProjectLocalDoctorSection(
         r => r.verdict === 'refuse-unsafe' || r.verdict === 'refuse-phantom' || r.verdict === 'refuse-duplicate',
       );
       denylistViolations = refusals.length;
+      for (const refusal of refusals) refusedBundleIds.add(refusal.bundleId);
 
       if (!quiet) {
         const informational = shadowResult.shadows.filter(
@@ -225,6 +231,35 @@ export async function buildProjectLocalDoctorSection(
     lines.push('');
   }
 
+  // Undeployed bundles (#2503).
+  //
+  // A bundle whose deploy aborted (a bad support-asset reference, a failed CLI
+  // contribution) leaves no `installed` entry, so every check above — manifest
+  // validation, drift — silently skips it and reports a clean bill of health
+  // for a bundle that is not actually available. The only prior signal was a
+  // WARN line in `aiwg use` output, long scrolled away by the time anyone
+  // wonders where the skill went.
+  const undeployed = config
+    ? discovery.bundles.filter((bundle) => {
+      if (refusedBundleIds.has(bundle.id)) return false;
+      const entry = config.installed[bundle.id];
+      return !entry || entry.source !== 'project-local';
+    })
+    : [];
+  if (undeployed.length > 0) {
+    lines.push(`  Deployment: ✗ ${undeployed.length} discovered bundle${undeployed.length === 1 ? '' : 's'} not deployed`);
+    for (const bundle of undeployed.slice(0, 5)) {
+      lines.push(`    ✗ ${bundle.type}/${bundle.id} (${bundle.localPath}) — no deployment recorded`);
+    }
+    if (undeployed.length > 5) lines.push(`    + ${undeployed.length - 5} more`);
+    lines.push(`    Run \`aiwg use ${undeployed[0].id}\` and read the output — a deploy that`);
+    lines.push('    fails reports the reason there.');
+    lines.push('');
+  } else if (!quiet && config && discovery.bundles.length > 0) {
+    lines.push('  Deployment: ✓ all discovered bundles deployed');
+    lines.push('');
+  }
+
   // Provider deployment matrix
   if (!quiet && config) {
     const projectLocalEntries = Object.entries(config.installed).filter(
@@ -290,12 +325,14 @@ export async function buildProjectLocalDoctorSection(
     }
   }
 
-  const hasFailures = validationErrors > 0 || denylistViolations > 0 || driftCount > 0 || gitignoredCount > 0;
+  const hasFailures = validationErrors > 0 || denylistViolations > 0 || driftCount > 0
+    || gitignoredCount > 0 || undeployed.length > 0;
   return {
     output: lines.join('\n'),
     validationErrors,
     denylistViolations,
     driftCount,
+    undeployedCount: undeployed.length,
     hasFailures,
   };
 }

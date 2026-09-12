@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'fs';
+import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, statSync, chmodSync } from 'fs';
 import { mkdtempSync } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -106,6 +106,49 @@ function makePluginWrapperEnv(label: string): Env {
   }
   rmSync(env.bundleDir, { recursive: true, force: true });
   return { ...env, bundleDir: payload };
+}
+
+/**
+ * Project-local extension whose SKILL.md references a *directory* of support
+ * assets rather than individual files (#2503).
+ */
+function makeDirectoryAssetEnv(label: string): Env {
+  const base = mkdtempSync(path.join(os.tmpdir(), `aiwg-pl-dirasset-${label}-`));
+  const projectDir = path.join(base, 'project');
+  const homeDir = path.join(base, 'home');
+  mkdirSync(projectDir, { recursive: true });
+  mkdirSync(homeDir, { recursive: true });
+
+  const bundleDir = path.join(projectDir, '.aiwg', 'extensions', 'dir-asset-ext');
+  const skillDir = path.join(bundleDir, 'skills', 'dir-asset-skill');
+  mkdirSync(path.join(skillDir, 'templates', 'pack', 'nested'), { recursive: true });
+  mkdirSync(path.join(skillDir, 'scripts', 'bin'), { recursive: true });
+
+  writeFileSync(
+    path.join(bundleDir, 'manifest.json'),
+    JSON.stringify({
+      id: 'dir-asset-ext',
+      type: 'extension',
+      name: 'Dir Asset Ext',
+      version: '1.0.0',
+      description: 'Extension referencing a directory-valued support asset.',
+      manifestVersion: '1',
+      platforms: { claude: 'full', codex: 'full' },
+      keywords: ['test'],
+      deployment: { pathTemplate: '.{platform}/skills/{id}.md' },
+    }, null, 2),
+  );
+  writeFileSync(path.join(skillDir, 'templates', 'pack', 'a.md'), '# A\n');
+  writeFileSync(path.join(skillDir, 'templates', 'pack', 'nested', 'b.md'), '# B\n');
+  writeFileSync(path.join(skillDir, 'scripts', 'bin', 'run.sh'), '#!/bin/sh\necho run\n');
+  chmodSync(path.join(skillDir, 'scripts', 'bin', 'run.sh'), 0o755);
+  writeFileSync(
+    path.join(skillDir, 'SKILL.md'),
+    '---\nname: dir-asset-skill\ndescription: Skill referencing a directory-valued support asset.\nplatforms: [all]\n---\n\n'
+    + '# Dir Asset Skill\n\n## Resources\n\n- `templates/pack/`: a directory of templates.\n- `scripts/bin/`: a directory of scripts.\n',
+  );
+
+  return { projectDir, homeDir, bundleDir };
 }
 
 function makeEnv(label: string): Env {
@@ -572,7 +615,8 @@ describe('project-local deploy integration (#1046)', () => {
 
     const config = JSON.parse(readFileSync(path.join(env.projectDir, '.aiwg', 'aiwg.config'), 'utf-8'));
     expect(config.installed?.['pl-test']?.deployedTo?.codex?.skills).toBe(1);
-  });
+    // Spawns a real `aiwg use`; the default 5s budget is not enough under load.
+  }, 180_000);
 
   it.each([
     ['claude', false],
@@ -616,6 +660,32 @@ describe('project-local deploy integration (#1046)', () => {
     },
     240_000,
   );
+
+  it('PL-DIRASSET (#2503): deploys directory-valued support asset references recursively', () => {
+    const dirEnv = makeDirectoryAssetEnv('claude');
+    try {
+      writeFileSync(path.join(dirEnv.projectDir, '.aiwg', 'aiwg.config'), JSON.stringify({
+        version: '1', providers: ['claude'], installed: {}, scripts: {},
+      }, null, 2));
+
+      const deploy = runAiwg(dirEnv, ['use', 'dir-asset-ext', '--provider', 'claude', '--quiet']);
+      // A directory that exists on disk is not a missing asset — rejecting it
+      // aborted the whole bundle deploy with a WARN and exit 1.
+      expect(deploy.stdout).not.toMatch(/missing skill support asset/);
+      expect(deploy.status, deploy.stdout).toBe(0);
+
+      const skillRoot = path.join(dirEnv.projectDir, '.claude', '.aiwg', 'skills', 'dir-asset-skill');
+      expect(existsSync(path.join(skillRoot, 'SKILL.md'))).toBe(true);
+      for (const ref of ['templates/pack/a.md', 'templates/pack/nested/b.md', 'scripts/bin/run.sh']) {
+        expect(existsSync(path.join(skillRoot, ref)), `missing deployed asset: ${ref}`).toBe(true);
+      }
+      // Executable bits survive the recursive copy the same way they do for
+      // single-file references.
+      expect(statSync(path.join(skillRoot, 'scripts', 'bin', 'run.sh')).mode & 0o111).not.toBe(0);
+    } finally {
+      cleanup(dirEnv);
+    }
+  }, 240_000);
 
   it('PL-ASSETS (#2109): deploys every referenced BT6 asset and repairs drift', () => {
     const bt6 = makePluginWrapperEnv('codex-assets');

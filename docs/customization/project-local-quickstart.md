@@ -165,6 +165,49 @@ If you adopted project-local bundles before this self-heal landed, run `aiwg doc
 - Pick the right type for your next bundle — see [`extensions-vs-addons-vs-frameworks-vs-plugins.md`](extensions-vs-addons-vs-frameworks-vs-plugins.md)
 - Graduate to upstream — see "Graduation" in the lifecycle doc
 
+## Skill support assets
+
+A `SKILL.md` can reference support files beside it — templates, references,
+scripts, assets. AIWG deploys every referenced path alongside the transformed
+skill, so the deployed instruction never points at something that isn't there.
+
+```text
+.aiwg/extensions/my-team-tools/
+└── skills/
+    └── my-report/
+        ├── SKILL.md
+        └── templates/
+            ├── summary.md
+            └── audit-report/
+                ├── findings.md
+                └── appendix.md
+```
+
+References are picked up from the body of `SKILL.md` under the four recognized
+prefixes (`templates/`, `references/`, `scripts/`, `assets/`):
+
+```markdown
+## Resources
+
+- `templates/summary.md`: the single-file summary skeleton.
+- `templates/audit-report/`: the multi-file report skeleton.
+```
+
+Both forms work. A reference to a **directory** deploys that directory
+recursively, preserving file modes so script packs stay executable. A reference
+that resolves to neither a file nor a directory fails the deploy rather than
+shipping a skill that points at a missing asset.
+
+Two constraints:
+
+- **Symlinks are never deployed.** A link inside a bundle can point anywhere on
+  the host, so the deploy refuses it instead of following it.
+- **A declared `script.entrypoint` must be a file**, not a directory.
+
+A bundle whose deploy fails for any of these reasons records no deployment, and
+`aiwg doctor` reports it under `Project-local artifacts → Deployment`. Re-run
+`aiwg use <bundle>` to see the specific reason.
+
 ## Script-backed skills
 
 For a per-repo skill that runs a script, put both the `SKILL.md` and its

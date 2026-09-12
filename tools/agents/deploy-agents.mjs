@@ -29,6 +29,8 @@
  *   --as-agents-md               Aggregate to single AGENTS.md (OpenAI/Codex)
  *   --create-agents-md           Create/update AGENTS.md template
  *   --skip-commands-migration    Skip deleting the commands directory (warns about duplicate TUI entries) (Factory/Codex/OpenCode/Cursor)
+ *   --deploy-source <name>       Managed-marker source for deployed artifacts (default: bundled)
+ *   --deploy-version <version>   Managed-marker version for deployed artifacts (default: source package.json)
  *
  * Modes:
  *   general       - Deploy only writing-quality addon agents and commands (alias: writing)
@@ -502,7 +504,13 @@ function parseArgs() {
     quiet: false,           // Suppress all non-error output (for embedding in use.ts)
     asPlugin: false,        // Generate .factory-plugin/ bundle (Factory provider only)
     deployBehaviors: false, // Deploy behaviors in addition to agents
-    skipCommandsMigration: false  // Skip commands → skills migration (warns about duplicates)
+    skipCommandsMigration: false, // Skip commands → skills migration (warns about duplicates)
+    // Managed-marker provenance (#2502). Deployers that are not shipping the
+    // bundled framework corpus (project-local bundles, in particular) must
+    // override these so `aiwg refresh` does not mistake their artifacts for
+    // stale copies of packaged ones.
+    deploySource: null,           // Managed-marker source; defaults to 'bundled'
+    deployVersion: null           // Managed-marker version; defaults to srcRoot package.json
   };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -537,6 +545,8 @@ function parseArgs() {
     else if (a === '--as-plugin') cfg.asPlugin = true;
     else if (a === '--skip-commands-migration') cfg.skipCommandsMigration = true;
     else if (a === '--copy-all' || a === '--copy-standard-skills') cfg.copyStandardSkills = true;
+    else if (a === '--deploy-source' && args[i + 1]) cfg.deploySource = String(args[++i]);
+    else if (a === '--deploy-version' && args[i + 1]) cfg.deployVersion = String(args[++i]);
     else if (a === '--help' || a === '-h') {
       printHelp();
       process.exit(0);
@@ -579,6 +589,12 @@ Options:
   --as-agents-md               Aggregate to single AGENTS.md (Codex)
   --create-agents-md           Create/update AGENTS.md template
   --skip-commands-migration    Skip deleting the commands directory before skills deployment
+  --deploy-source <name>       Managed-marker source stamped into deployed artifacts.
+                               Defaults to 'bundled'. Deploys that do not ship the packaged
+                               framework corpus (e.g. project-local bundles) MUST override
+                               this so refresh's stale-artifact prune skips them (#2502).
+  --deploy-version <version>   Managed-marker version stamped into deployed artifacts.
+                               Defaults to the --source tree's package.json version.
   --copy-all                   Copy ALL skills per-project (legacy mirror at <provider>/.aiwg/skills/).
                                For aiwg use all, this also restores the legacy full agent,
                                command, and expanded-rule copy. Default bulk deployment is
@@ -999,8 +1015,8 @@ export async function main() {
     // Replaces the legacy AIWG_COPY_STANDARD_SKILLS env var (removed rc.30).
     // Default (#1217) is no-copy + index-driven discovery.
     copyStandardSkills: cfg.copyStandardSkills === true,
-    deployVersion: getDeployVersion(srcRoot),
-    deploySource: 'bundled',
+    deployVersion: cfg.deployVersion || getDeployVersion(srcRoot),
+    deploySource: cfg.deploySource || 'bundled',
   };
 
   // Commands → Skills migration: prompt then delete the commands directory
