@@ -13,6 +13,7 @@ import {
   type ProjectQuickref,
 } from '../../../src/extensions/project-quickref.js';
 import { PROJECT_LOCAL_SEARCH_PATHS_ENV } from '../../../src/extensions/project-local-paths.js';
+import { isOwnedByNamespace, checkCollisions } from '../../../src/smiths/skillsmith/collision-detector.js';
 
 const roots: string[] = [];
 const ARTIFACT_ENV_KEYS = [
@@ -236,6 +237,27 @@ describe('project quickref generation and deployment (#1788)', () => {
     expect(first.changed).toBe(true);
     expect(second.changed).toBe(false);
     expect(await readFile(first.targetPath, 'utf8')).toContain('kernel: true');
+  });
+
+  it('deploys a quickref the collision scan recognizes as AIWG-owned (#2504)', async () => {
+    const { projectDir } = await fixture();
+    const deployed = await deployProjectQuickref(projectDir, 'claude');
+    const skillDir = join(projectDir, '.claude', 'skills', deployed.skillName);
+
+    // AIWG generated and deployed this skill. Without the ownership marker the
+    // scan reported AIWG's own artifact as an unowned overwrite on every run,
+    // and the suggested fix regenerated the same unowned file.
+    expect(await readFile(deployed.targetPath, 'utf8')).toContain('namespace: aiwg');
+    expect(await isOwnedByNamespace(skillDir, 'aiwg')).toBe(true);
+
+    const collisions = await checkCollisions({
+      platform: 'claude',
+      projectPath: projectDir,
+      skillNames: [deployed.skillName],
+      namespace: 'aiwg',
+      skillsBaseDir: join(projectDir, '.claude', 'skills'),
+    });
+    expect(collisions.filter(r => r.severity === 'warn' || r.severity === 'error')).toEqual([]);
   });
 
   it('prunes obsolete output beneath the generated quickref root', async () => {

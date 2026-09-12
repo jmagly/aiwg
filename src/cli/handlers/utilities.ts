@@ -595,18 +595,34 @@ export const doctorHandler: CommandHandler = {
           namespace: 'aiwg',
           skillsBaseDir: skillsDir,
         });
-        const errorAndWarn = collisions.filter(r => r.severity === 'error' || r.severity === 'warn');
-        if (errorAndWarn.length > 0) {
-          // In doctor context we report stale skills, not deployment blocks.
-          // Re-running `aiwg use` will auto-clean aiwg-owned stale skills.
+        // Two distinct causes share this scan, and conflating them mislabels
+        // one as the other: an `error` is a name that shadows a Claude
+        // built-in; a `warn` is a deployed skill this namespace does not own
+        // (#2504). Report each under its own heading with its own remedy.
+        const builtinCollisions = collisions.filter(r => r.severity === 'error');
+        const unownedCollisions = collisions.filter(r => r.severity === 'warn');
+        if (builtinCollisions.length > 0 || unownedCollisions.length > 0) {
           console.log('\n── Skill collision scan ──');
-          console.log('');
-          console.log('⚠ Stale skills detected (names collide with Claude built-ins):');
-          for (const r of errorAndWarn) {
-            console.log(`  ✗ ${r.skillName}: ${r.reason}`);
+          if (builtinCollisions.length > 0) {
+            console.log('');
+            console.log('⚠ Stale skills detected (names collide with Claude built-ins):');
+            for (const r of builtinCollisions) {
+              console.log(`  ✗ ${r.skillName}: ${r.reason}`);
+            }
+            console.log('');
+            console.log('  Fix: run `aiwg use <framework>` to redeploy and auto-clean stale skill directories.');
           }
-          console.log('');
-          console.log('  Fix: run `aiwg use <framework>` to redeploy and auto-clean stale skill directories.');
+          if (unownedCollisions.length > 0) {
+            console.log('');
+            console.log("⚠ Deployed skills not owned by namespace 'aiwg' (a redeploy would overwrite them):");
+            for (const r of unownedCollisions) {
+              console.log(`  ✗ ${r.skillName}: ${r.reason}`);
+            }
+            console.log('');
+            console.log("  Fix: if the skill is yours, move it out of the AIWG-managed skills directory");
+            console.log("  or give it its own namespace. If AIWG generated it, re-run `aiwg use` to");
+            console.log('  restore the ownership marker.');
+          }
         }
       }
     } catch {

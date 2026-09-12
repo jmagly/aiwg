@@ -334,6 +334,10 @@ export function renderProjectQuickref(definition: ProjectQuickref): string {
     '---',
     `name: ${skillName}`,
     `description: ${JSON.stringify(`Project-specific orientation for ${definition.project.name}`)}`,
+    // AIWG generates and deploys this skill, so it must declare AIWG ownership.
+    // Without it the collision scan treats every redeploy of AIWG's own artifact
+    // as an unowned overwrite and warns permanently (#2504).
+    'namespace: aiwg',
     'kernel: true',
     'platforms: [all]',
     '---',
