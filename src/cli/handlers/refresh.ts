@@ -399,6 +399,20 @@ async function reconcileDeployedToAfterPrune(
 }
 
 /**
+ * Whether this run may delete git-tracked artifacts during a cross-provider
+ * prune (#2514).
+ *
+ * Deliberately not derived from `--force`. `--force` governs what gets
+ * *written* — it replaces artifacts AIWG does not currently manage. Deleting
+ * files someone committed, in a provider tree this run was not asked to touch,
+ * is a different decision and gets its own switch, so habitual `--force` use
+ * can never authorise it.
+ */
+export function allowsTrackedDeletes(args: string[]): boolean {
+  return args.includes('--prune-tracked');
+}
+
+/**
  * Parse --flag value pairs from args
  */
 function parseFlag(args: string[], flag: string): string | undefined {
@@ -440,9 +454,14 @@ Options:
   --prune-other-providers   Remove stale AIWG-managed trees belonging to
                             providers this run did not refresh. Off by default:
                             a provider-scoped refresh never mutates another
-                            provider's deployed surface.
+                            provider's deployed surface. Git-tracked files are
+                            always left in place unless --prune-tracked is given.
+  --prune-tracked           Allow --prune-other-providers to delete git-tracked
+                            files. Deleting committed files is a separate
+                            decision from --force, which only governs writes.
   --force                   Re-write every deployed artifact, replacing files
-                            AIWG does not currently manage
+                            AIWG does not currently manage. Never authorises
+                            deleting tracked files.
   --channel <name>          Select the update channel (stable or main)
   --frameworks <list>       Re-deploy a comma-separated installed subset
   --model <name>            Override all deployed agent model tiers
@@ -481,6 +500,10 @@ export const refreshHandler: CommandHandler = {
     // not silently delete another provider's deployed surface.
     const pruneOtherProviders = hasFlag(ctx.args, '--prune-other-providers');
     const forceDeploy = hasFlag(ctx.args, '--force');
+    // #2514: deleting committed files in a tree this run was not asked to touch
+    // is its own decision, not a consequence of asking for a forceful re-write.
+    // `--force` governs what gets written; this governs what gets destroyed.
+    const pruneTracked = allowsTrackedDeletes(ctx.args);
     const provider = parseFlag(ctx.args, '--provider');
     const channel = parseFlag(ctx.args, '--channel');
     const frameworksArg = parseFlag(ctx.args, '--frameworks');
@@ -644,6 +667,10 @@ export const refreshHandler: CommandHandler = {
 
     // Step 4.5: Stale deployment check (#621, #1460, #1799, #2506)
     if (!quiet) ui.info('Checking for stale deployments...');
+    // A modifier with nothing to modify is almost always a mistyped intent.
+    if (pruneTracked && !pruneOtherProviders && !quiet) {
+      ui.warn('--prune-tracked has no effect without --prune-other-providers; nothing was removed.');
+    }
     let staleAgentRemovals: ProviderStaleAgentRemoval[] = [];
     let trackedSkipped: ProviderStaleAgentRemoval[] = [];
     if (!dryRun && deploymentFailures.length === 0) {
@@ -653,7 +680,7 @@ export const refreshHandler: CommandHandler = {
           frameworkRoot,
           provider: detectedProvider,
           crossProvider: pruneOtherProviders ? 'prune' : 'skip',
-          allowTrackedDeletes: forceDeploy,
+          allowTrackedDeletes: pruneTracked,
         });
         staleAgentRemovals = pruneResult.removals;
         trackedSkipped = pruneResult.trackedSkipped;
@@ -670,7 +697,7 @@ export const refreshHandler: CommandHandler = {
               `    ${skipped.provider}: ${skipped.paths.length} (${shown}${remainder > 0 ? `, ...and ${remainder} more` : ''})`,
             );
           }
-          ui.dim("    These are committed files. Add --force to remove them as well.");
+          ui.dim("    These are committed files. Add --prune-tracked to remove them as well.");
         }
         if (staleAgentRemovals.length > 0 && !quiet) {
           const total = staleAgentRemovals.reduce((sum, item) => sum + item.paths.length, 0);

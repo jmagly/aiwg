@@ -72,6 +72,7 @@ vi.mock('../../../../src/cli/ui.js', () => ({
 
 import {
   collectModelDeployArgs, refreshHandler, pruneStaleManagedAgentFiles, detectStaleProviderTrees,
+  allowsTrackedDeletes,
 } from '../../../../src/cli/handlers/refresh.js';
 import * as ui from '../../../../src/cli/ui.js';
 // Backward-compat alias for existing test references
@@ -718,6 +719,28 @@ function makeCrossProviderFixture(root: string) {
   return { frameworkRoot, projectRoot, packagedAgents, claudeAgents, codexAgents, codexCommands, codexRules };
 }
 
+describe('#2514 tracked deletion is its own decision, not a consequence of --force', () => {
+  it('does not let --force authorise deleting tracked files', () => {
+    expect(allowsTrackedDeletes(['--prune-other-providers', '--force'])).toBe(false);
+    expect(allowsTrackedDeletes(['--force'])).toBe(false);
+  });
+
+  it('requires the dedicated switch', () => {
+    expect(allowsTrackedDeletes(['--prune-other-providers', '--prune-tracked'])).toBe(true);
+  });
+
+  it('defaults to refusing', () => {
+    expect(allowsTrackedDeletes([])).toBe(false);
+    expect(allowsTrackedDeletes(['--prune-other-providers'])).toBe(false);
+  });
+
+  it('documents both flags and their separation', async () => {
+    const help = (await refreshHandler.help!(makeCtx(['--help']))).message ?? '';
+    expect(help).toContain('--prune-tracked');
+    expect(help).toContain('Never authorises');
+  });
+});
+
 describe('#2509 cross-provider prune defers to VCS state', () => {
   function initGitRepo(root: string): void {
     execFileSync('git', ['init', '-q', '.'], { cwd: root });
@@ -754,7 +777,7 @@ describe('#2509 cross-provider prune defers to VCS state', () => {
     }
   });
 
-  it('removes tracked artifacts when the operator states the intent twice', async () => {
+  it('removes tracked artifacts only under the dedicated opt-in', async () => {
     const root = mkdtempSync(join(tmpdir(), 'aiwg-refresh-tracked-force-'));
     try {
       const { frameworkRoot, projectRoot, codexAgents, codexRules } = makeCrossProviderFixture(root);

@@ -401,8 +401,9 @@ exit-0 resilience path for a successful package update.
 | `--skip-update`             | Skip the installation update                     |
 | `--packages-only`           | Refresh remote packages only                     |
 | `--provider <name>`         | Target specific provider (default: auto-detect)  |
-| `--prune-other-providers`   | Remove stale AIWG-managed trees for providers this run did not refresh (off by default). Git-tracked files are left in place unless `--force` is also given |
-| `--force`                   | Re-write every deployed artifact, replacing files AIWG does not currently manage, and allow the cross-provider prune to remove git-tracked files |
+| `--prune-other-providers`   | Remove stale AIWG-managed trees for providers this run did not refresh (off by default). Git-tracked files are always left in place unless `--prune-tracked` is also given |
+| `--prune-tracked`           | Allow `--prune-other-providers` to delete git-tracked files. Separate from `--force` on purpose — see below |
+| `--force`                   | Re-write every deployed artifact, replacing files AIWG does not currently manage. Never authorises deleting tracked files |
 | `--channel <name>`          | Update channel (stable, main)                    |
 | `--frameworks <list>`       | Comma-separated frameworks to re-deploy          |
 | `--model <name>`            | Override all deployed agent model tiers          |
@@ -604,8 +605,13 @@ with the two concrete next actions; `--prune-other-providers` removes such a
 tree as a unit (agents, commands, and rules together) rather than partially.
 That prune also defers to version control: git-tracked artifacts are left in
 place and reported separately, because deleting an ignored regenerable artifact
-and deleting a committed file are not the same act. Adding `--force` alongside
-the prune flag removes them as well.
+and deleting a committed file are not the same act.
+
+Removing them requires `--prune-tracked`, which is deliberately not `--force`.
+`--force` governs what gets **written** — it replaces artifacts AIWG does not
+currently manage. Deleting files someone committed, in a provider tree the run
+was not asked to touch, is a different decision, so habitual `--force` use can
+never authorise it.
 
 `aiwg use all` deploys the kernel surface — kernel skills, rules, and behaviors —
 and does not deploy agents or commands. It leaves the artifacts other bundles
