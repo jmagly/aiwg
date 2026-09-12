@@ -250,6 +250,50 @@ describe('#2507 skill-command wrappers survive prune and migration', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(dir, '.aiwg-manifest.json'), 'utf8'));
     expect(manifest.managed['wrapper.md'].kind).toBe('skill-command');
   });
+
+  // #2511 — the exemption that keeps a wrapper alive while its skill exists was
+  // also keeping it alive after the skill was deleted. Retiring it needs a skill
+  // inventory, not the command desired set it can never appear in.
+  it('retires a wrapper whose source skill no longer ships', async () => {
+    const base = await importBase();
+    writeSkillCommand('address-issues.md');
+    writeSkillCommand('deleted-skill.md');
+
+    const removed = base.pruneStaleAiwgFiles(dir, new Set([]), {
+      skillCommandStems: new Set(['address-issues']),
+    });
+
+    expect(removed.map((p: string) => path.basename(p))).toEqual(['deleted-skill.md']);
+    expect(fs.existsSync(path.join(dir, 'address-issues.md'))).toBe(true);
+  });
+
+  it('keeps the blanket exemption when no skill inventory is supplied', async () => {
+    const base = await importBase();
+    writeSkillCommand('deleted-skill.md');
+
+    expect(base.pruneStaleAiwgFiles(dir, new Set([]))).toEqual([]);
+    expect(base.pruneStaleAiwgFiles(dir, new Set([]), { skillCommandStems: null })).toEqual([]);
+    expect(fs.existsSync(path.join(dir, 'deleted-skill.md'))).toBe(true);
+  });
+
+  it('accepts the skill inventory as an array', async () => {
+    const base = await importBase();
+    writeSkillCommand('kept.md');
+    writeSkillCommand('gone.md');
+
+    const removed = base.pruneStaleAiwgFiles(dir, new Set([]), { skillCommandStems: ['kept'] });
+
+    expect(removed.map((p: string) => path.basename(p))).toEqual(['gone.md']);
+  });
+
+  it('computeAllSkillNames returns kernel and standard skills together', async () => {
+    const base = await importBase();
+    const names = base.computeAllSkillNames(REPO_ROOT);
+    expect(names).toBeInstanceOf(Set);
+    // A kernel skill and a standard skill must both be present.
+    expect(names.has('aiwg-doctor')).toBe(true);
+    expect(names.has('address-issues')).toBe(true);
+  });
 });
 
 /**

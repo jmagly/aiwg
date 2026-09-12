@@ -77,6 +77,7 @@ import {
   collectBehaviorDirs,
   collectFrameworkArtifacts,
   computeAllArtifactBasenames,
+  computeAllSkillNames,
   contentHash,
   deployEmulatedBehaviors,
   getAddonSkillDirs,
@@ -454,6 +455,10 @@ function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explicitSource
     const removed = pruneStaleAiwgFiles(destDir, desired, {
       dryRun: opts.dryRun,
       verbose: opts.verbose,
+      // Retire wrappers whose source skill no longer ships (#2511). Only the
+      // command directory holds them; the kernel-only branch returns earlier,
+      // so a bulk install still cannot touch wrappers it did not write.
+      skillCommandStems: type === 'commands' ? computeAllSkillNames(srcRoot) : null,
     });
     if (removed.length > 0 && !opts.quiet) {
       console.log(`  Pruned: ${removed.length} stale AIWG ${type} file${removed.length === 1 ? '' : 's'}`);
