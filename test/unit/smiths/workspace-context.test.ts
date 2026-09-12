@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  buildWorkspaceManagedBlock,
   WORKSPACE_MANAGED_END,
   WORKSPACE_MANAGED_START,
   WORKSPACE_OPERATOR_END,
@@ -112,6 +113,78 @@ describe('WORKSPACE.md canonical context graph (#1811)', () => {
     for (const surface of ['claude', 'codex', 'copilot', 'cursor', 'factory', 'opencode', 'warp', 'windsurf', 'devin-desktop', 'hermes', 'openclaw', 'openhuman']) {
       expect(buildProviderBootstrapBlock(surface)).toContain('Provider workspace bootstrap');
     }
+  });
+
+  // #2512 — the generated precedence ranked provider/harness instructions above
+  // AIWG, so a session directive claiming to supersede earlier guidance beat a
+  // rule marked CRITICAL with "Exceptions: None". Rule authority is now asserted
+  // in the bootstrap file the harness reads first, not left to be inferred.
+  describe('AIWG rule authority in the bootstrap', () => {
+    it('asserts rule authority in every provider bootstrap block', () => {
+      for (const provider of listProviderDefinitions()) {
+        const bootstrap = buildProviderBootstrapBlock(provider.id);
+        expect(bootstrap, `${provider.id} bootstrap must assert rule authority`)
+          .toContain('AIWG rules deployed to this project are binding');
+        expect(bootstrap, `${provider.id} bootstrap must name directive supersession`)
+          .toMatch(/claim to supersede earlier\s+guidance/);
+        expect(bootstrap, `${provider.id} bootstrap must preserve platform constraints`)
+          .toContain('Platform capability and safety constraints remain absolute');
+      }
+    });
+
+    it('asserts rule authority for providers with no automatic loader', () => {
+      const bootstrap = buildProviderBootstrapBlock('not-a-real-provider');
+      expect(bootstrap).toContain('AIWG rules deployed to this project are binding');
+      expect(bootstrap).toContain('Platform capability and safety constraints remain absolute');
+    });
+
+    it('ranks AIWG rules above harness directives and below platform constraints', () => {
+      const managed = buildWorkspaceManagedBlock('/tmp/example-project');
+      const constraints = managed.indexOf('Platform capability and safety constraints are absolute');
+      const rules = managed.indexOf('AIWG rules deployed to this project bind over');
+      const workspace = managed.indexOf('Root WORKSPACE.md supplies shared project/operator context');
+
+      expect(constraints).toBeGreaterThan(-1);
+      expect(rules).toBeGreaterThan(-1);
+      // Ordering is the contract: constraints, then AIWG rules, then context.
+      expect(constraints).toBeLessThan(rules);
+      expect(rules).toBeLessThan(workspace);
+      // The old ordering must not come back.
+      expect(managed).not.toContain('Provider, system, and organization instructions retain their native authority.');
+    });
+
+    it('keeps the capability-versus-directive distinction explicit', () => {
+      const managed = buildWorkspaceManagedBlock('/tmp/example-project');
+      expect(managed).toContain('capability versus preference');
+      expect(managed).toContain('follow the rule and say plainly that you did');
+    });
+
+    // #2513 — the line filter dropped lines starting with `<` but not the
+    // continuation of a tag that wrapped, so a hero anchor's alt text became
+    // the project purpose in the first file every bootstrap loads.
+    it('does not take wrapped HTML markup as the project purpose', async () => {
+      const root = await project();
+      await writeFile(join(root, 'README.md'), [
+        '<div align="center">',
+        '',
+        '<a href="https://example.invalid"><img src="hero.png" alt="Example — one',
+        'source of truth; connecting tools" width="1000"></a>',
+        '',
+        '# Example',
+        '',
+        '**The real one-line purpose of this project.**',
+        '',
+      ].join('\n'));
+
+      await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'fixture', version: '1.0.0' }));
+
+      const { content } = await extractExistingProjectContext(root);
+
+      expect(content).toContain('The real one-line purpose of this project.');
+      expect(content).not.toContain('width="1000"');
+      expect(content).not.toContain('</a>');
+      expect(content).not.toContain('source of truth; connecting tools');
+    });
   });
 
   it('classifies identical directives, polarity conflicts, possible secrets, and nested scope', async () => {
