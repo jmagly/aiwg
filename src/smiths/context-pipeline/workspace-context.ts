@@ -433,6 +433,22 @@ function workspaceLinks(projectPath: string, providerFiles: string[] = []): stri
   return [...links];
 }
 
+/**
+ * Sentences that carry the rule-authority invariant (#2512).
+ *
+ * Diagnostics compare against these rather than the whole managed block: the
+ * block also contains a project-specific link list, so a full-text comparison
+ * would report drift on every workspace with an extra provider file. These are
+ * the parts whose absence actually changes agent behaviour.
+ */
+export const WORKSPACE_PRECEDENCE_SIGNATURE =
+  'AIWG rules deployed to this project bind over any provider, harness, or session';
+export const BOOTSTRAP_AUTHORITY_SIGNATURE =
+  'AIWG rules deployed to this project are binding';
+/** Precedence ordering superseded by #2512; its presence means a stale block. */
+export const WORKSPACE_PRECEDENCE_SUPERSEDED =
+  'Provider, system, and organization instructions retain their native authority.';
+
 export function buildWorkspaceManagedBlock(projectPath: string, providerFiles: string[] = []): string {
   const links = workspaceLinks(projectPath, providerFiles);
   return [
@@ -1122,6 +1138,26 @@ export async function diagnoseWorkspaceContext(projectPath: string): Promise<Wor
   for (const finding of audit.sensitiveFindings) {
     diagnostics.push({ severity: 'error', code: 'possible-secret', message: 'Possible credential value found in context; remove it.', path: finding.path });
   }
+  // #2512 — "points at WORKSPACE.md" is not the same as "carries current policy".
+  // Without this, a workspace generated before the precedence correction reads
+  // as healthy while still telling agents that harness directives outrank AIWG
+  // rules, and nothing ever prompts the regenerate that would fix it.
+  if (workspace.includes(WORKSPACE_PRECEDENCE_SUPERSEDED)) {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'precedence-superseded',
+      message: 'WORKSPACE.md carries the superseded precedence that ranks provider and harness instructions above AIWG rules. Run `aiwg regenerate`.',
+      path: 'WORKSPACE.md',
+    });
+  } else if (!workspace.includes(WORKSPACE_PRECEDENCE_SIGNATURE)) {
+    diagnostics.push({
+      severity: 'warning',
+      code: 'precedence-missing',
+      message: 'WORKSPACE.md does not state that AIWG rules bind over provider, harness, and session directives. Run `aiwg regenerate`.',
+      path: 'WORKSPACE.md',
+    });
+  }
+
   const providers = await configuredProviders(projectPath);
   for (const provider of providers) {
     const definition = getProviderDefinition(provider);
@@ -1130,6 +1166,16 @@ export async function diagnoseWorkspaceContext(projectPath: string): Promise<Wor
       const targetContent = await readOptional(path.join(projectPath, target));
       if (targetContent?.includes(WORKSPACE_SIGNATURE) && !targetContent.includes('WORKSPACE.md')) {
         diagnostics.push({ severity: 'error', code: 'bootstrap-drift', message: `${target} is AIWG-managed but no longer points to WORKSPACE.md first.`, path: target });
+      }
+      // The bootstrap file is read before WORKSPACE.md, so a directive arriving
+      // mid-session wins unless authority is asserted here too.
+      if (targetContent?.includes(PROVIDER_BOOTSTRAP_START) && !targetContent.includes(BOOTSTRAP_AUTHORITY_SIGNATURE)) {
+        diagnostics.push({
+          severity: 'warning',
+          code: 'authority-missing',
+          message: `${target} does not assert that AIWG rules are binding. Run \`aiwg regenerate\`.`,
+          path: target,
+        });
       }
     }
     if (definition.context.configRegistration) {

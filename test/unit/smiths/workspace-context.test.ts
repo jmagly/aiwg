@@ -13,6 +13,7 @@ import {
   auditWorkspaceContext,
   buildProviderBootstrapBlock,
   diagnoseWorkspaceContext,
+  WORKSPACE_PRECEDENCE_SUPERSEDED,
   ensureWorkspaceContext,
   extractExistingProjectContext,
   migrateWorkspaceContext,
@@ -184,6 +185,54 @@ describe('WORKSPACE.md canonical context graph (#1811)', () => {
       expect(content).not.toContain('width="1000"');
       expect(content).not.toContain('</a>');
       expect(content).not.toContain('source of truth; connecting tools');
+    });
+
+    // #2512 — the diagnostic checked that bootstrap files point AT WORKSPACE.md
+    // but never that the policy inside it was current, so a workspace on the
+    // superseded precedence read as healthy and nothing prompted a regenerate.
+    it('flags a workspace still carrying the superseded precedence', async () => {
+      const root = await project();
+      await ensureWorkspaceContext(root);
+      const workspacePath = join(root, 'WORKSPACE.md');
+      const current = await readFile(workspacePath, 'utf8');
+      await writeFile(
+        workspacePath,
+        current.replace(
+          /1\. Platform capability[\s\S]*?within the ceiling set above\./,
+          `1. ${WORKSPACE_PRECEDENCE_SUPERSEDED}`,
+        ),
+      );
+
+      const codes = (await diagnoseWorkspaceContext(root)).map((item) => item.code);
+      expect(codes).toContain('precedence-superseded');
+    });
+
+    it('flags a bootstrap file that does not assert rule authority', async () => {
+      const root = await project();
+      await ensureWorkspaceContext(root);
+      await writeFile(join(root, '.aiwg', 'aiwg.config'), JSON.stringify({
+        version: '1', providers: ['claude'], installed: {}, scripts: {},
+      }));
+      const claudeMd = join(root, 'CLAUDE.md');
+      await writeFile(claudeMd, buildProviderBootstrapBlock('claude')
+        .replace(/AIWG rules deployed to this project are binding[\s\S]*?distinction\./, ''));
+
+      const codes = (await diagnoseWorkspaceContext(root)).map((item) => item.code);
+      expect(codes).toContain('authority-missing');
+    });
+
+    it('reports no policy drift for a freshly generated workspace', async () => {
+      const root = await project();
+      await ensureWorkspaceContext(root);
+      await writeFile(join(root, '.aiwg', 'aiwg.config'), JSON.stringify({
+        version: '1', providers: ['claude'], installed: {}, scripts: {},
+      }));
+      await writeFile(join(root, 'CLAUDE.md'), buildProviderBootstrapBlock('claude'));
+
+      const codes = (await diagnoseWorkspaceContext(root)).map((item) => item.code);
+      expect(codes).not.toContain('precedence-superseded');
+      expect(codes).not.toContain('precedence-missing');
+      expect(codes).not.toContain('authority-missing');
     });
   });
 
