@@ -26,8 +26,60 @@
 const fs = require('fs');
 const path = require('path');
 
-// Configuration
-const TRACE_DIR = process.env.AIWG_TRACE_DIR || '.aiwg/traces';
+/**
+ * Resolve the project's AIWG artifact root.
+ *
+ * Traces are payload, not control plane, so they belong under the configured
+ * artifact root rather than the repository-local `.aiwg`. Hardcoding
+ * `.aiwg/traces` wrote payload into the control plane on every subagent stop,
+ * which on a split-root workspace re-dirtied it continuously — a reconciled
+ * corpus regressed to `duplicated-divergent-payload` the next time an agent ran.
+ *
+ * Mirrors `resolveProjectAiwgDir()` in src/config/project-artifacts-runtime.mjs.
+ * Duplicated deliberately: this hook is deployed standalone as CommonJS into
+ * `.claude/hooks/` and cannot import the package's ESM resolver.
+ */
+function resolveArtifactRoot(projectDir) {
+  for (const key of ['AIWG_ARTIFACTS_PATH', 'AIWG_PROJECT_ARTIFACTS_PATH', 'AIWG_PROJECT_AIWG_DIR']) {
+    const value = process.env[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return expandArtifactPath(value, projectDir);
+    }
+  }
+  try {
+    const pointer = path.resolve(projectDir, '.aiwg-location');
+    if (fs.existsSync(pointer)) {
+      for (const rawLine of fs.readFileSync(pointer, 'utf-8').split(/\r?\n/)) {
+        let line = rawLine.trim();
+        if (line.length === 0 || line.startsWith('#')) continue;
+        if (line.startsWith('export ')) line = line.slice('export '.length).trim();
+        const assignment = line.match(/^AIWG_ARTIFACTS_PATH\s*=\s*(.+)$/);
+        if (assignment) line = assignment[1].trim();
+        if ((line.startsWith('"') && line.endsWith('"')) || (line.startsWith("'") && line.endsWith("'"))) {
+          line = line.slice(1, -1);
+        }
+        if (line.length > 0) return expandArtifactPath(line, projectDir);
+        break;
+      }
+    }
+  } catch {
+    // Unreadable pointer falls back to the repository-local default below.
+  }
+  return path.resolve(projectDir, '.aiwg');
+}
+
+function expandArtifactPath(value, projectDir) {
+  const trimmed = value.trim();
+  const home = require('os').homedir();
+  if (trimmed === '~') return home;
+  if (trimmed.startsWith('~/')) return path.resolve(home, trimmed.slice(2));
+  if (path.isAbsolute(trimmed)) return trimmed;
+  return path.resolve(projectDir, trimmed);
+}
+
+// Configuration. AIWG_TRACE_DIR remains the explicit per-call override.
+const TRACE_DIR = process.env.AIWG_TRACE_DIR
+  || path.join(resolveArtifactRoot(process.cwd()), 'traces');
 const TRACE_FILE = process.env.AIWG_TRACE_FILE || 'current-trace.jsonl';
 const VERBOSE = process.env.AIWG_TRACE_VERBOSE === 'true';
 

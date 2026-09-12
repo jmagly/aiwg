@@ -11,8 +11,56 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import { homedir } from 'os';
 
-const TRACE_DIR = process.env.AIWG_TRACE_DIR || '.aiwg/traces';
+/**
+ * Resolve the project's AIWG artifact root.
+ *
+ * Traces are payload and live under the configured artifact root, not the
+ * repository-local control plane. The viewer must resolve them exactly as the
+ * trace hook writes them, or it reports "no traces" on a split-root workspace
+ * that has them (#2517).
+ *
+ * Mirrors `resolveProjectAiwgDir()` in src/config/project-artifacts-runtime.mjs.
+ * Inlined rather than imported because this script is deployed into user
+ * projects, where the package's `src/` tree is not on a resolvable path.
+ */
+function resolveArtifactRoot(projectDir) {
+  const expand = (value) => {
+    const trimmed = value.trim();
+    if (trimmed === '~') return homedir();
+    if (trimmed.startsWith('~/')) return path.resolve(homedir(), trimmed.slice(2));
+    if (path.isAbsolute(trimmed)) return trimmed;
+    return path.resolve(projectDir, trimmed);
+  };
+  for (const key of ['AIWG_ARTIFACTS_PATH', 'AIWG_PROJECT_ARTIFACTS_PATH', 'AIWG_PROJECT_AIWG_DIR']) {
+    const value = process.env[key];
+    if (typeof value === 'string' && value.trim().length > 0) return expand(value);
+  }
+  try {
+    const pointer = path.resolve(projectDir, '.aiwg-location');
+    if (fs.existsSync(pointer)) {
+      for (const rawLine of fs.readFileSync(pointer, 'utf-8').split(/\r?\n/)) {
+        let line = rawLine.trim();
+        if (line.length === 0 || line.startsWith('#')) continue;
+        if (line.startsWith('export ')) line = line.slice('export '.length).trim();
+        const assignment = line.match(/^AIWG_ARTIFACTS_PATH\s*=\s*(.+)$/);
+        if (assignment) line = assignment[1].trim();
+        if ((line.startsWith('"') && line.endsWith('"')) || (line.startsWith("'") && line.endsWith("'"))) {
+          line = line.slice(1, -1);
+        }
+        if (line.length > 0) return expand(line);
+        break;
+      }
+    }
+  } catch {
+    // Unreadable pointer falls back to the repository-local default below.
+  }
+  return path.resolve(projectDir, '.aiwg');
+}
+
+const TRACE_DIR = process.env.AIWG_TRACE_DIR
+  || path.join(resolveArtifactRoot(process.cwd()), 'traces');
 const DEFAULT_TRACE = 'current-trace.jsonl';
 
 // Parse command line args
