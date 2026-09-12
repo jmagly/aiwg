@@ -309,6 +309,9 @@ async function handleRuntimeInfo(args: string[], cwd = process.cwd()): Promise<v
       console.log(`\nAIWG Installation:`);
       console.log(`  Canonical: ${installation.identity?.method ?? 'unrecorded'} at ${installation.identity?.root ?? '(unrecorded)'}`);
       console.log(`  Actual:    ${installation.actualMethod} at ${installation.actualRoot}`);
+      if (installation.launcher) {
+        console.log(`  Launcher:  ${installation.launcher.method} at ${installation.launcher.root} (edge redirect)`);
+      }
       console.log(`  Run mode:  ${installation.identity?.runMode ?? '(unrecorded)'}`);
       console.log(`  State:     ${installation.state}`);
 

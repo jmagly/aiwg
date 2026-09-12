@@ -112,6 +112,63 @@ describe('canonical installation identity', () => {
     expect(status.drift.join(' ')).toContain('differs from canonical root');
   });
 
+  it('treats an edge launcher redirect as aligned, not drift (#2505)', () => {
+    const configDir = tempDir('config');
+    // The framework root: a local clone the operator develops against.
+    const clone = packageRoot('aiwg', true);
+    // The launcher: a real npm-global package directory whose bin redirects to
+    // the clone. This is what `channel: edge` + `edgePath` is for.
+    const npmGlobal = packageRoot();
+    const git = path.join(clone, 'git');
+    fs.writeFileSync(git, '');
+    fs.chmodSync(git, 0o755);
+    saveInstallationIdentity(createInstallationIdentity({
+      actualRoot: clone,
+      method: 'source',
+      channel: 'edge',
+      edgePath: clone,
+      managerExecutable: git,
+    }), { configDir });
+
+    const status = inspectInstallation({ configDir, actualRoot: npmGlobal });
+
+    // Before #2505 this reported `mismatch` with two drift entries, while
+    // `aiwg doctor` — running from the clone — reported aligned for the very
+    // same workspace. The steward gates its repair ladder on this state.
+    expect(status.state).toBe('aligned');
+    expect(status.drift).toEqual([]);
+    // Launcher and framework root are reported separately, and only the
+    // framework root drives state.
+    expect(status.frameworkRoot).toBe(status.canonicalRoot);
+    expect(status.launcher).toEqual({ root: status.actualRoot, method: 'npm' });
+  });
+
+  it('still reports drift when the launcher redirect is not what the identity declares (#2505)', () => {
+    const configDir = tempDir('config');
+    const clone = packageRoot('aiwg', true);
+    const npmGlobal = packageRoot();
+    const unrelated = packageRoot();
+    const git = path.join(clone, 'git');
+    fs.writeFileSync(git, '');
+    fs.chmodSync(git, 0o755);
+    // edgePath points somewhere other than the canonical root, so the running
+    // executable is not the declared launcher for this framework root.
+    saveInstallationIdentity(createInstallationIdentity({
+      actualRoot: clone,
+      method: 'source',
+      channel: 'edge',
+      edgePath: unrelated,
+      managerExecutable: git,
+    }), { configDir });
+
+    const status = inspectInstallation({ configDir, actualRoot: npmGlobal });
+
+    expect(status.state).toBe('mismatch');
+    expect(status.drift.join(' ')).toContain('differs from canonical root');
+    expect(status.launcher).toBeNull();
+    expect(status.frameworkRoot).toBe(status.actualRoot);
+  });
+
   it('reports a stale canonical root and supports explicit recovery', () => {
     const configDir = tempDir('config');
     const oldRoot = packageRoot();

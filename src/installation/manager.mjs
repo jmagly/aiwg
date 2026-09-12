@@ -176,13 +176,44 @@ export function inspectInstallation(options = {}) {
   const actualRoot = canonicalPath(options.actualRoot);
   const actualMethod = options.actualMethod ?? inferInstallationMethod(actualRoot);
   const identity = options.identity ?? loadInstallationIdentity({ ...options, actualRoot });
-  if (!identity) return { state: 'unrecorded', identity: null, actualRoot, actualMethod, drift: ['installation identity is not recorded'] };
+  if (!identity) {
+    return {
+      state: 'unrecorded',
+      identity: null,
+      actualRoot,
+      actualMethod,
+      frameworkRoot: actualRoot,
+      launcher: null,
+      drift: ['installation identity is not recorded'],
+    };
+  }
 
   const drift = [];
   const canonicalRoot = canonicalPath(identity.root);
+
+  // Edge/customize mode deliberately separates the *launcher* (the executable
+  // that ran, typically an npm-global install) from the *framework root* (the
+  // local clone named by `edgePath`). Comparing the launcher's package root
+  // against the canonical root then reports the supported configuration as
+  // drift, and does so only for the commands that happen to run from the
+  // npm-global copy — `aiwg doctor`, loaded through the redirect, saw the
+  // clone and reported aligned for the same workspace (#2505).
+  //
+  // The redirect is only trusted when the identity actually declares it: the
+  // channel is `edge` and `edgePath` resolves to the canonical root.
+  const edgePath = identity.edgePath ? canonicalPath(identity.edgePath) : null;
+  const rootsDiffer = canonicalRoot !== actualRoot;
+  const launcherRedirect = identity.channel === 'edge' && edgePath !== null && edgePath === canonicalRoot && rootsDiffer;
+  const launcher = launcherRedirect ? { root: actualRoot, method: actualMethod } : null;
+  // The framework root is what AIWG actually reads its corpus from, and it is
+  // the single value that drives `state`.
+  const frameworkRoot = launcherRedirect ? canonicalRoot : actualRoot;
+
   if (!existsSync(canonicalRoot)) drift.push(`canonical root does not exist: ${canonicalRoot}`);
-  if (canonicalRoot !== actualRoot) drift.push(`actual root ${actualRoot} differs from canonical root ${canonicalRoot}`);
-  if (identity.method !== actualMethod) drift.push(`actual method ${actualMethod} differs from canonical method ${identity.method}`);
+  if (rootsDiffer && !launcherRedirect) drift.push(`actual root ${actualRoot} differs from canonical root ${canonicalRoot}`);
+  if (identity.method !== actualMethod && !launcherRedirect) {
+    drift.push(`actual method ${actualMethod} differs from canonical method ${identity.method}`);
+  }
   if (identity.method !== 'web' && !identity.managerExecutable) {
     drift.push(`canonical ${identity.method} installation has no recorded manager executable`);
   }
@@ -214,6 +245,10 @@ export function inspectInstallation(options = {}) {
     canonicalRoot,
     actualRoot,
     actualMethod,
+    /** Where the corpus is read from. Equals actualRoot unless a launcher redirect applies. */
+    frameworkRoot,
+    /** Non-null only in edge/customize mode: the executable's own package root. */
+    launcher,
     drift,
     managerProbe,
   };

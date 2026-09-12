@@ -641,6 +641,10 @@ async function runDoctor() {
   const installationDetail = [
     `canonical=${installation.identity?.method ?? 'unrecorded'}:${installation.identity?.root ?? '(none)'}`,
     `actual=${installation.actualMethod}:${installation.actualRoot}`,
+    // An edge/customize install launches from one root and reads the corpus
+    // from another; naming both keeps this line and `aiwg installation show`
+    // describing the same configuration (#2505).
+    ...(installation.launcher ? [`launcher=${installation.launcher.method}:${installation.launcher.root}`] : []),
     `mode=${installation.identity?.runMode ?? 'unrecorded'}`,
     `state=${installation.state}`,
   ].join(' | ');

@@ -21,6 +21,10 @@ export interface InstallationStatus {
   canonicalRoot?: string;
   actualRoot: string;
   actualMethod: InstallationMethod;
+  /** Root AIWG reads its corpus from. Equals actualRoot unless an edge launcher redirect applies. */
+  frameworkRoot: string;
+  /** Edge/customize mode only: the running executable's own package root (#2505). */
+  launcher: { root: string; method: InstallationMethod } | null;
   drift: string[];
   managerProbe: { state: 'usable' | 'failed'; error?: string } | null;
 }

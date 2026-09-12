@@ -28,6 +28,10 @@ function display(status: ReturnType<typeof inspectInstallation>, json: boolean):
   console.log(`Release channel:   ${status.identity?.channel ?? '(unrecorded)'}`);
   console.log(`Actual method:     ${status.actualMethod}`);
   console.log(`Actual root:       ${status.actualRoot}`);
+  console.log(`Framework root:    ${status.frameworkRoot}`);
+  if (status.launcher) {
+    console.log(`Launcher:          ${status.launcher.method} at ${status.launcher.root} (edge redirect — expected)`);
+  }
   if (status.drift.length > 0) {
     console.log('Drift:');
     for (const item of status.drift) console.log(`  - ${item}`);
