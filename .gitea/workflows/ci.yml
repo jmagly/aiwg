@@ -92,7 +92,9 @@ jobs:
         # tree while making the optional production backend mandatory in CI.
         # This exact-version follow-up must not re-resolve the already-locked
         # graph through the seven-day age filter; match the publish gate.
-        run: npm install --no-save --save-dev --package-lock=false --min-release-age=0 better-sqlite3@12.8.0
+        # Shared with contributors as `npm run features:sqlite` so a local run
+        # and a CI run install the same backend the same way (#2515).
+        run: npm run features:sqlite
 
       - name: Verify test runner ownership
         run: npm run lint:test-registration

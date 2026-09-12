@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import { backendUnavailable } from '../../helpers/sqlite.js';
 
 const roots: string[] = [];
 const execFileAsync = promisify(execFile);
@@ -41,7 +42,7 @@ async function workspace(backend: 'json' | 'graphology' | 'sqlite'): Promise<str
 
 describe('public index CLI backend selection (#2188)', () => {
   for (const backend of ['json', 'graphology', 'sqlite'] as const) {
-    it(`builds a configured ${backend} graph through the public command`, async () => {
+    it.skipIf(backendUnavailable(backend))(`builds a configured ${backend} graph through the public command`, async () => {
       const root = await workspace(backend);
 
       const script = `const { main } = await import(${JSON.stringify(cliModuleUrl)}); await main(['build', '--graph', 'sample']);`;

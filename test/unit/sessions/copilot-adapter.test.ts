@@ -11,6 +11,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/copilot');
 
@@ -132,7 +133,7 @@ describe('Copilot session adapter', () => {
   });
 });
 
-describe('Copilot adapter repository conformance', () => {
+describeWithSqlite('Copilot adapter repository conformance', () => {
   it('imports a synthetic export, redacts normalized text, and replays as a no-op', async () => {
     const adapter = new CopilotSessionAdapter();
     const selectedSource = selected('redaction.chat.json');

@@ -9,6 +9,7 @@ import { buildHandlerMap } from '../../../../src/cli/handlers/index.js';
 import { sessionsHandler } from '../../../../src/cli/handlers/sessions.js';
 import { acquireImportLease } from '../../../../src/sessions/index.js';
 import type { HandlerContext } from '../../../../src/cli/handlers/types.js';
+import { describeWithSqlite } from '../../../helpers/sqlite.js';
 
 function context(args: string[], cwd = process.cwd()): HandlerContext {
   return { args, rawArgs: ['sessions', ...args], cwd, frameworkRoot: process.cwd() };
@@ -405,7 +406,7 @@ describe('sessions CLI contracts', () => {
   });
 });
 
-describe('sessions CLI catalog lifecycle', () => {
+describeWithSqlite('sessions CLI catalog lifecycle', () => {
   let root: string;
   let log: ReturnType<typeof vi.spyOn>;
 

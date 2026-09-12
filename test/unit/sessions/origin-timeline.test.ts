@@ -13,8 +13,9 @@ import {
   type SessionSourceAdapter,
   type TimelineInput,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
-describe('session event origin and intent', () => {
+describeWithSqlite('session event origin and intent', () => {
   it('classifies known provider envelopes conservatively without reattributing ambiguity', () => {
     expect(classify('codex', {
       kind: 'message',

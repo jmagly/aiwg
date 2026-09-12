@@ -14,6 +14,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/claude');
 const temporaryRoots: string[] = [];
@@ -189,7 +190,7 @@ describe('Claude session adapter', () => {
   });
 });
 
-describe('Claude adapter repository conformance', () => {
+describeWithSqlite('Claude adapter repository conformance', () => {
   it('imports active append incrementally, redacts content, and replays as a no-op', async () => {
     const root = await mkdtemp(resolve(tmpdir(), 'aiwg-claude-append-'));
     temporaryRoots.push(root);

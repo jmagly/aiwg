@@ -11,6 +11,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/generic');
 
@@ -91,7 +92,7 @@ describe('generic session interchange adapter', () => {
   });
 });
 
-describe('generic interchange repository conformance', () => {
+describeWithSqlite('generic interchange repository conformance', () => {
   it('imports deterministically, redacts content, preserves opaque events, and replays as a no-op', async () => {
     const adapter = new GenericSessionInterchangeAdapter();
     const selectedSource = selected('valid-v1.jsonl', 'generic-fixture-v1');

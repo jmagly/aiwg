@@ -19,6 +19,7 @@ import {
   scanSessionFixtureText,
   scanSessionRegressionCorpus,
 } from '../../../tools/ci/session-fixture-sanitize.mjs';
+import { itWithSqlite } from '../../helpers/sqlite.js';
 
 interface CorpusFile {
   path: string;
@@ -76,7 +77,7 @@ describe('versioned session regression corpus', () => {
     },
   );
 
-  it('imports all positive fixtures with stable cross-provider identity and replay', async () => {
+  itWithSqlite('imports all positive fixtures with stable cross-provider identity and replay', async () => {
     const repository = new SessionRepository();
     const importer = new IncrementalSessionImporter(repository);
     const workspaceId = 'workspace-regression-corpus';

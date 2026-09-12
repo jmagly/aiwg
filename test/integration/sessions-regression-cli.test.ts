@@ -6,6 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getFeaturesRoot } from '../../src/features/paths.js';
+import { sqliteAvailable } from '../helpers/sqlite.js';
 
 const root = resolve('.');
 const bin = resolve(root, 'bin/aiwg.mjs');
@@ -23,7 +24,7 @@ const sources = [
   ['factory', 'factory/current.jsonl'],
 ] as const;
 
-describe.skipIf(missingBuild)('spawned session regression CLI', () => {
+describe.skipIf(missingBuild || !sqliteAvailable)('spawned session regression CLI', () => {
   beforeAll(() => {
     temporaryRoot = mkdtempSync(join(tmpdir(), 'aiwg-session-cli-'));
     workspace = join(temporaryRoot, 'workspace');

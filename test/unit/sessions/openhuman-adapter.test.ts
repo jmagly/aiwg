@@ -11,6 +11,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/openhuman');
 
@@ -124,7 +125,7 @@ describe('OpenHuman session adapter', () => {
   });
 });
 
-describe('OpenHuman adapter repository conformance', () => {
+describeWithSqlite('OpenHuman adapter repository conformance', () => {
   it('redacts searchable content and makes identical replay a no-op', async () => {
     const adapter = new OpenHumanSessionAdapter();
     const selectedSource = selected('redaction.jsonl', 'openhuman-session-raw-jsonl');

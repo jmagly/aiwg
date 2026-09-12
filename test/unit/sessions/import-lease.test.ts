@@ -11,6 +11,7 @@ import {
   importLeasePath,
   SessionRepository,
 } from '../../../src/sessions/index.js';
+import { itWithSqlite } from '../../helpers/sqlite.js';
 
 const roots: string[] = [];
 
@@ -250,7 +251,7 @@ describe('session import lease', () => {
     });
   });
 
-  it('keeps catalog readers available while an application import lease is held', async () => {
+  itWithSqlite('keeps catalog readers available while an application import lease is held', async () => {
     const root = await mkdtemp(join(tmpdir(), 'aiwg-session-reader-lease-'));
     roots.push(root);
     const database = join(root, 'catalog.sqlite');

@@ -11,6 +11,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/cursor');
 
@@ -202,7 +203,7 @@ describe('Cursor session adapter', () => {
   });
 });
 
-describe('Cursor adapter repository conformance', () => {
+describeWithSqlite('Cursor adapter repository conformance', () => {
   it('redacts normalized text and makes identical replay a no-op', async () => {
     const adapter = new CursorSessionAdapter();
     const selectedSource = selected('redaction.jsonl');

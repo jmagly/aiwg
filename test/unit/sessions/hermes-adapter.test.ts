@@ -12,6 +12,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/hermes');
 
@@ -169,7 +170,7 @@ describe('Hermes session adapter', () => {
   });
 });
 
-describe('Hermes adapter repository conformance', () => {
+describeWithSqlite('Hermes adapter repository conformance', () => {
   it('redacts searchable content and makes identical replay a no-op', async () => {
     const adapter = new HermesSessionAdapter();
     const selectedSource = selected('redaction.jsonl');

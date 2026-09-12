@@ -11,6 +11,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/warp');
 
@@ -127,7 +128,7 @@ describe('Warp session adapter', () => {
   });
 });
 
-describe('Warp adapter repository conformance', () => {
+describeWithSqlite('Warp adapter repository conformance', () => {
   it('redacts searchable content and makes identical replay a no-op', async () => {
     const adapter = new WarpSessionAdapter();
     const selectedSource = selected('redaction.md');

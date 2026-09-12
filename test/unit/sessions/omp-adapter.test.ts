@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { OmpSessionAdapter, PiSessionAdapter, IncrementalSessionImporter, SessionRepository, SessionSourceSchema, stableSessionId, discoverWorkspaceHistories, importDiscoveryManifest, type SelectedSource } from '../../../src/sessions/index.js';
+import { itWithSqlite } from '../../helpers/sqlite.js';
 const fixtures = resolve('test/fixtures/sessions/omp');
 const roots: string[] = [];
 async function temp() { const root = await mkdtemp(join(tmpdir(), 'omp-sessions-')); roots.push(root); return root; }
@@ -41,7 +42,7 @@ describe('OMP native sessions', () => {
     const discover = async () => { for await (const _ of new OmpSessionAdapter(undefined, 1).discover(selected().authorizedScope)) {} };
     await expect(discover()).rejects.toMatchObject({ code: 'RESOURCE_LIMIT_EXCEEDED' });
   });
-  it('imports idempotently through persistent checkpoints after title rewrite plus append', async () => {
+  itWithSqlite('imports idempotently through persistent checkpoints after title rewrite plus append', async () => {
     const root = await temp(); await cp(join(fixtures, 'title-slot.jsonl'), join(root, 'title-slot.jsonl'));
     const selection = selected('title-slot.jsonl', root);
     const source = SessionSourceSchema.parse({ contractVersion: '1.0.0', sourceId: selection.sourceId, provider: 'omp', providerProfile: 'native-title-slot-v3', locatorClass: selection.locatorClass, redactedLocator: '<omp>', adapterVersion: '1.0.0', sourceSchemaVersion: '3.0.0', disposition: 'implemented', operationalState: 'available', consistency: 'complete', authorizedAt: '2026-09-04T12:00:00Z' });
@@ -62,7 +63,7 @@ describe('OMP native sessions', () => {
     const file = await open(selection.locator, 'r+'); await file.write(text.slice(256).replace('Review OMP', 'REVIEW OMP'), 256, 'utf8'); await file.close();
     await expect(importer.import(request)).rejects.toMatchObject({ code: 'SCHEMA_DRIFT' }); repository.close();
   });
-  it('discovers only authorized OMP roots matching workspace', async () => {
+  itWithSqlite('discovers only authorized OMP roots matching workspace', async () => {
     const root = await temp(); const workspace = await temp();
     const content = (await readFile(join(fixtures,'title-slot.jsonl'),'utf8')).replace('"cwd":"/workspace"', `"cwd":${JSON.stringify(workspace)}`);
     await writeFile(join(root,'matching.jsonl'), content);

@@ -13,6 +13,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/openclaw');
 
@@ -181,7 +182,7 @@ describe('OpenClaw session adapter', () => {
   });
 });
 
-describe('OpenClaw adapter repository conformance', () => {
+describeWithSqlite('OpenClaw adapter repository conformance', () => {
   it('redacts searchable content and makes identical replay a no-op', async () => {
     const adapter = new OpenClawSessionAdapter();
     const selectedSource = selected('redaction.jsonl');

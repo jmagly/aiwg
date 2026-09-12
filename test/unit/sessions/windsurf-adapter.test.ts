@@ -18,6 +18,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/windsurf');
 
@@ -128,7 +129,7 @@ describe('Devin Desktop (Windsurf compatibility) session adapter', () => {
   });
 });
 
-describe('Devin Desktop adapter repository conformance', () => {
+describeWithSqlite('Devin Desktop adapter repository conformance', () => {
   it('redacts searchable content and makes identical replay a no-op', async () => {
     const adapter = new DevinDesktopSessionAdapter();
     const selectedSource = selected('redaction.jsonl');

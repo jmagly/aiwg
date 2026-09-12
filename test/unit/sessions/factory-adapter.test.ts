@@ -12,6 +12,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/factory');
 
@@ -172,7 +173,7 @@ describe('Factory session adapter', () => {
   });
 });
 
-describe('Factory adapter repository conformance', () => {
+describeWithSqlite('Factory adapter repository conformance', () => {
   it('redacts searchable content and makes identical replay a no-op', async () => {
     const adapter = new FactorySessionAdapter();
     const selectedSource = selected('redaction.jsonl');

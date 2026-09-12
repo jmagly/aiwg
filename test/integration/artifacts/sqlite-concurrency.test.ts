@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SqliteGraphBackend } from '../../../src/artifacts/backends/sqlite-backend.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const execFileAsync = promisify(execFile);
 const roots: string[] = [];
@@ -91,7 +92,7 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })));
 });
 
-describe('SQLite same-host concurrency and crash recovery (#2189)', () => {
+describeWithSqlite('SQLite same-host concurrency and crash recovery (#2189)', () => {
   it('waits for a rollback-journal writer before initializing WAL and the graph schema', async () => {
     const root = await mkdtemp(join(tmpdir(), 'aiwg-sqlite-init-'));
     roots.push(root);
@@ -157,7 +158,7 @@ describe('SQLite same-host concurrency and crash recovery (#2189)', () => {
   }, 30_000);
 });
 
-describe('SQLite locker readiness protocol', () => {
+describeWithSqlite('SQLite locker readiness protocol', () => {
   it.each([
     ['early exit', 'process.stderr.write("synthetic startup failure"); process.exit(7)', /code=7.*synthetic startup failure/],
     ['wrong marker', 'process.stdout.write("not-locked\\n"); setInterval(() => {}, 1000)', /unexpected readiness marker/],

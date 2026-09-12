@@ -13,6 +13,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/opencode');
 
@@ -146,7 +147,7 @@ describe('OpenCode session adapter', () => {
   });
 });
 
-describe('OpenCode adapter repository conformance', () => {
+describeWithSqlite('OpenCode adapter repository conformance', () => {
   it('redacts searchable content and makes identical replay a no-op', async () => {
     const adapter = new OpenCodeSessionAdapter();
     const selectedSource = selected('redaction.json');

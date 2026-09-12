@@ -6,6 +6,18 @@ import { parse } from 'yaml';
 const githubWorkflow = readFileSync(resolve('.github/workflows/npm-publish.yml'), 'utf8');
 const giteaWorkflow = readFileSync(resolve('.gitea/workflows/npm-publish.yml'), 'utf8');
 const smoke = readFileSync(resolve('tools/ci/session-feature-install-smoke.mjs'), 'utf8');
+const packageScripts = JSON.parse(readFileSync(resolve('package.json'), 'utf8')).scripts as Record<string, string>;
+
+/**
+ * Expand `npm run <script>` so a version pin asserted here keeps tracking its
+ * single definition after CI started sharing the installer with contributors
+ * (#2515). Asserting the literal in the workflow would only prove the workflow
+ * still inlines it, not that the pin survived.
+ */
+function resolveRun(run: string): string {
+  const script = run.match(/npm run ([\w:-]+)/)?.[1];
+  return script ? packageScripts[script] ?? run : run;
+}
 
 describe('session SQLite feature release gate', () => {
   it('installs SQLite before the audit-foundations coverage gate', () => {
@@ -15,7 +27,7 @@ describe('session SQLite feature release gate', () => {
     const gates = steps.filter(step => step.run?.includes('npm run test:coverage:audit-foundations'));
     expect(installs).toHaveLength(1);
     expect(gates).toHaveLength(1);
-    expect(installs[0].run).toContain('better-sqlite3@12.8.0');
+    expect(resolveRun(installs[0].run ?? '')).toContain('better-sqlite3@12.8.0');
     expect(steps.indexOf(installs[0])).toBeLessThan(steps.indexOf(gates[0]));
   });
 

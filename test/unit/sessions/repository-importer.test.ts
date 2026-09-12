@@ -23,6 +23,7 @@ import {
   type SessionSource,
   type SessionSourceAdapter,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 function adapter(records: ProviderRecord[]): SessionSourceAdapter {
   return {
@@ -72,7 +73,7 @@ const records: ProviderRecord[] = [
   },
 ];
 
-describe('transactional session repository and importer', () => {
+describeWithSqlite('transactional session repository and importer', () => {
   it('maintains content-free analytics and forensic indices across lifecycle mutations', async () => {
     const repository = new SessionRepository();
     const importer = new IncrementalSessionImporter(repository);

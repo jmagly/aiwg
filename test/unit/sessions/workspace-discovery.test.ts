@@ -11,6 +11,7 @@ import {
   readDiscoveryManifest,
   writeDiscoveryManifest,
 } from '../../../src/sessions/index.js';
+import { itWithSqlite } from '../../helpers/sqlite.js';
 
 const roots: string[] = [];
 
@@ -62,7 +63,7 @@ describe('workspace session discovery and batch import', () => {
       .toEqual(['claude', 'codex', 'cursor', 'factory']);
   });
 
-  it('resumes only incomplete sources and reconciles partial coverage', async () => {
+  itWithSqlite('resumes only incomplete sources and reconciles partial coverage', async () => {
     const fixture = await providerFixture();
     const manifest = await discoverWorkspaceHistories({
       workspace: fixture.workspace,
@@ -100,7 +101,7 @@ describe('workspace session discovery and batch import', () => {
     }
   });
 
-  it('reports the observed 304-discovered/35-accepted case without claiming completeness', async () => {
+  itWithSqlite('reports the observed 304-discovered/35-accepted case without claiming completeness', async () => {
     const fixture = await providerFixture();
     const manifest = await discoverWorkspaceHistories({
       workspace: fixture.workspace,
@@ -150,7 +151,7 @@ describe('workspace session discovery and batch import', () => {
     }
   });
 
-  it.each([
+  itWithSqlite.each([
     'run-saved',
     'source-staged',
     'before-publication',

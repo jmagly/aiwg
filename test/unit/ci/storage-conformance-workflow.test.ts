@@ -5,11 +5,15 @@ import { describe, expect, it } from 'vitest';
 describe('storage conformance CI gate (#2191)', () => {
   it('runs the zero-dependency storage gate after the pinned SQLite backend is available', () => {
     const workflow = readFileSync(resolve('.gitea/workflows/ci.yml'), 'utf8');
-    const install = workflow.indexOf('better-sqlite3@12.8.0');
+    const install = workflow.indexOf('npm run features:sqlite');
     const gate = workflow.indexOf('npm run test:conformance:storage');
+    const scripts = JSON.parse(readFileSync(resolve('package.json'), 'utf8')).scripts as Record<string, string>;
 
     expect(install).toBeGreaterThanOrEqual(0);
     expect(gate).toBeGreaterThan(install);
+    // The pin moved into the shared installer so a contributor and CI get the
+    // same build (#2515); assert it where it now lives, not where it used to.
+    expect(scripts['features:sqlite']).toContain('better-sqlite3@12.8.0');
     expect(workflow).toContain('Run storage backend conformance gate (#2190/#2191)');
   });
 

@@ -12,6 +12,7 @@ import { SqliteGraphBackend } from '../../../src/artifacts/backends/sqlite-backe
 import { JsonGraphBackend } from '../../../src/artifacts/backends/json-backend.js';
 import { createGraphBackend } from '../../../src/artifacts/graph-backend.js';
 import type { DependencyGraph } from '../../../src/artifacts/types.js';
+import { itWithSqlite } from '../../helpers/sqlite.js';
 
 describe('JsonGraphBackend', () => {
   describe('addNode / hasNode', () => {
@@ -234,7 +235,7 @@ describe('createGraphBackend', () => {
     }
   });
 
-  it('creates a real sqlite backend through the supported package resolver', async () => {
+  itWithSqlite('creates a real sqlite backend through the supported package resolver', async () => {
     const backend = await createGraphBackend('sqlite');
     try {
       expect(backend).toBeInstanceOf(SqliteGraphBackend);

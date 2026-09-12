@@ -3,9 +3,10 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { sessionsHandler } from '../../../src/cli/handlers/sessions.js';
+import { itWithSqlite } from '../../helpers/sqlite.js';
 const roots: string[] = [];
 afterEach(async () => { vi.restoreAllMocks(); await Promise.all(roots.splice(0).map(root=>rm(root,{recursive:true,force:true}))); });
-it('registers OMP sources and imports/replays native v3 through the CLI handler', async () => {
+itWithSqlite('registers OMP sources and imports/replays native v3 through the CLI handler', async () => {
   const root=await mkdtemp(join(tmpdir(),'omp-cli-')); roots.push(root);
   const log=vi.spyOn(console,'log').mockImplementation(()=>{});
   const execute=(args:string[])=>sessionsHandler.execute({args,rawArgs:['sessions',...args],cwd:root,frameworkRoot:process.cwd()});

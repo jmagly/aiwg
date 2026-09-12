@@ -5,6 +5,7 @@ import type { GraphBackend } from '../../src/artifacts/graph-backend.js';
 import { JsonGraphBackend } from '../../src/artifacts/backends/json-backend.js';
 import { GraphologyBackend } from '../../src/artifacts/backends/graphology-backend.js';
 import { SqliteGraphBackend } from '../../src/artifacts/backends/sqlite-backend.js';
+import { backendUnavailable } from '../helpers/sqlite.js';
 
 interface GoldenDataset {
   schemaVersion: string;
@@ -32,7 +33,7 @@ describe('versioned storage backend golden dataset (#2191)', () => {
   });
 
   for (const backend of ['json', 'graphology', 'sqlite'] as const) {
-    it(`${backend} preserves CRUD, Unicode, null attributes, traversal, and set parity`, async () => {
+    it.skipIf(backendUnavailable(backend))(`${backend} preserves CRUD, Unicode, null attributes, traversal, and set parity`, async () => {
       const graph = await createBackend(backend);
       try {
         loadFixture(graph);

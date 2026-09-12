@@ -102,6 +102,45 @@ in Claude Code sessions.
 - Factory AI: `test/integration/factory-deployment.test.ts`
 - OpenAI/Codex: `test/integration/openai-deployment.test.ts`
 
+## Optional Backends
+
+`better-sqlite3` is an **optional** peer dependency. `npm install && npm test` on a
+clean checkout is green without it: every suite that needs the sqlite backend
+reports as *skipped*, and the run warns once naming the remedy.
+
+```
+[skip] optional sqlite backend unavailable — `better-sqlite3` is not installed;
+run `npm run features:sqlite` (or `aiwg features install sqlite`) to enable these suites
+```
+
+To run those suites locally, install the backend the same way CI does:
+
+```bash
+npm run features:sqlite
+npm test
+```
+
+CI runs `npm run features:sqlite` before the suite, so the sqlite-backed paths are
+always exercised for real on `main` — a local skip and a CI run are both honest.
+
+A missing optional backend warns; it never fails the suite. When you add a test
+that needs sqlite, guard it with the shared helper rather than assuming the
+package is present:
+
+```ts
+import { describeWithSqlite, itWithSqlite, backendUnavailable } from '../helpers/sqlite.js';
+
+describeWithSqlite('catalog lifecycle', () => { /* ... */ });
+itWithSqlite('imports through the repository', async () => { /* ... */ });
+
+// Table-driven suites that loop over backends:
+it.skipIf(backendUnavailable(backend))(`${backend} round-trips`, async () => { /* ... */ });
+```
+
+Tests whose *subject* is the unavailable-backend path — such as
+`createGraphBackend`'s remediation message — must stay unguarded so the degraded
+path keeps its coverage.
+
 ## Minimum Test Coverage
 
 | Category | Minimum Coverage | Current |

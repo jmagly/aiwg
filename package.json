@@ -60,6 +60,7 @@
     "build:web": "node tools/scripts/resource-preflight.mjs --profile web && npm --prefix apps/web ci && npm --prefix apps/web run build",
     "test": "vitest run --config config/vitest.config.js",
     "lint:session-fixtures": "node tools/ci/session-fixture-sanitize.mjs",
+    "features:sqlite": "npm install --no-save --save-dev --package-lock=false --min-release-age=0 better-sqlite3@12.8.0",
     "test:sessions:sqlite": "npm run build:cli && node tools/ci/session-sqlite-gate.mjs",
     "test:sessions:feature-install": "node tools/ci/session-feature-install-smoke.mjs",
     "benchmark:sessions": "tsx tools/benchmarks/session-production.ts",

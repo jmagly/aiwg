@@ -13,6 +13,7 @@ import {
   type SelectedSource,
   type SessionSource,
 } from '../../../src/sessions/index.js';
+import { describeWithSqlite } from '../../helpers/sqlite.js';
 
 const fixturesRoot = resolve('test/fixtures/sessions/codex');
 const temporaryRoots: string[] = [];
@@ -132,7 +133,7 @@ describe('Codex session adapter', () => {
   });
 });
 
-describe('Codex adapter repository conformance', () => {
+describeWithSqlite('Codex adapter repository conformance', () => {
   it('imports App Server evidence, redacts content, and replays as a no-op', async () => {
     const selected = selectedSource('threads.app-server.jsonl', 'codex-app-import');
     const source = sourceFor(selected, 'provisional');
