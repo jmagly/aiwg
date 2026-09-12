@@ -282,6 +282,69 @@ describe('WatchService', () => {
     });
   });
 
+  // `start()` waits for the watch to be armed, not merely scanned (#2518).
+  // These use a controlled watcher on REAL timers: the arming poll sleeps, and
+  // a faked clock would never advance it.
+  describe('arming the watch', () => {
+    function controlledWatcher(getWatched: () => Record<string, string[]>) {
+      const watcher = Object.assign(new EventEmitter(), {
+        getWatched,
+        close: async () => {},
+      });
+      vi.spyOn(chokidar, 'watch').mockReturnValue(
+        watcher as unknown as ReturnType<typeof chokidar.watch>
+      );
+      return watcher;
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('resolves start() once a target that arrives late is reported as armed', async () => {
+      let armed = false;
+      const watcher = controlledWatcher(() => (armed ? { [testDir]: [] } : {}));
+
+      const started = service.start(config.patterns, config);
+      watcher.emit('ready');
+      // Unarmed at `ready`: the poll must keep waiting rather than resolve.
+      setTimeout(() => { armed = true; }, 120);
+      await started;
+
+      expect(service.running()).toBe(true);
+      expect(service.getWatchedFiles()).toEqual([]);
+    }, 5000);
+
+    it('gives up waiting rather than hanging when a target is never armed', async () => {
+      // A target that does not exist on disk can never arm. start() must still
+      // return, bounded, instead of blocking the caller forever.
+      const watcher = controlledWatcher(() => ({}));
+
+      const startedAt = Date.now();
+      const started = service.start(config.patterns, config);
+      watcher.emit('ready');
+      await started;
+
+      expect(service.running()).toBe(true);
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(400);
+    }, 5000);
+
+    it('treats a file target listed under its parent directory as armed', async () => {
+      const filePath = resolve(testDir, 'existing.md');
+      const watcher = controlledWatcher(() => ({ [testDir]: ['existing.md'] }));
+
+      const startedAt = Date.now();
+      const started = service.start([filePath], config);
+      watcher.emit('ready');
+      await started;
+
+      expect(service.running()).toBe(true);
+      // Armed on the first check: no polling delay was incurred.
+      expect(Date.now() - startedAt).toBeLessThan(400);
+      expect(service.getWatchedFiles()).toEqual([filePath]);
+    }, 5000);
+  });
+
   // Callback/statistics contracts use a controlled transport boundary. Real
   // filesystem add/change/unlink and debounce qualification remain above.
   async function withControlledWatcher(
