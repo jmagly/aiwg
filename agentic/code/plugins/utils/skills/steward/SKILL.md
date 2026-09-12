@@ -49,6 +49,8 @@ Alternate expressions and non-obvious activations (primary phrases are matched a
 | Model routing | "which model should this use" | `aiwg steward models`; then `aiwg models audit` or `aiwg models resolve` |
 | Install or repair AIWG | "get AIWG working in this project" | Follow the public `setup.aiwg.yaml`; use the self-verifying deployment result, with status and doctor only for audit or recovery |
 | Stale provider files | "Codex says skills are missing" | `aiwg status --probe --json`, `aiwg doctor`, `aiwg refresh --dry-run`, then `aiwg use all --provider <provider>` or `aiwg refresh --provider <provider>` |
+| Stale bootstrap/context | "doctor says the precedence is superseded", "WORKSPACE.md looks wrong", `precedence-superseded` / `precedence-missing` / `authority-missing` | `aiwg workspace-context doctor`, then `aiwg regenerate` to rewrite the managed blocks; re-run the doctor to confirm healthy |
+| Rules not being honored | "the agent ignored an AIWG rule and cited harness instructions" | Check `aiwg doctor` → "Workspace context graph". A missing or superseded precedence means the bootstrap never asserted rule authority; `aiwg regenerate` restores it |
 | Stale discovery | "discover cannot find a known skill" | Rebuild and sync the framework index, then re-run discovery |
 | Issue cleanup | "clean up stale issues" | Discover first: `issue-audit` for backlog cleanup, `address-issues` for implementation, `aiwg-issue` for AIWG product issues |
 
