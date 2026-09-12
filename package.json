@@ -1,6 +1,6 @@
 {
   "name": "aiwg",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Reusable project context and specialist workflows for the AI tools you already use. AIWG places agents, skills, commands, and rules in provider-readable locations, with optional utilities for artifact memory, workflow orchestration, recovery, and discovery.",
   "type": "module",
   "bin": {

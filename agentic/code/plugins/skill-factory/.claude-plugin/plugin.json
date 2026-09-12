@@ -1,6 +1,6 @@
 {
   "name": "skill-factory",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Build, enhance, validate, and package Claude skills end-to-end. Coordinates skill-builder, skill-enhancer, quality-checker, and skill-packager via the skill-architect agent.",
   "author": {
     "name": "AIWG Contributors",

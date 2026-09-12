@@ -1,6 +1,6 @@
 {
   "name": "rlm",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "RLM-inspired recursive context decomposition for processing arbitrarily large codebases and document corpora through programmatic sub-agent delegation",
   "author": {
     "name": "AIWG Contributors",

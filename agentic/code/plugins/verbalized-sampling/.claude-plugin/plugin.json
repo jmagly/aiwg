@@ -1,6 +1,6 @@
 {
   "name": "verbalized-sampling",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Training-free prompting technique that improves output diversity by 1.6-2.1x through verbalized probability distributions, addressing RLHF mode collapse",
   "author": {
     "name": "AIWG Contributors",

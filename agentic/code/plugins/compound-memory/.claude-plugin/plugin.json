@@ -1,6 +1,6 @@
 {
   "name": "compound-memory",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Governed orchestration across AIWG line memory, semantic memory, and llm-wiki.",
   "author": {
     "name": "AIWG Contributors",

@@ -5,13 +5,13 @@
     "email": "support@aiwg.io"
   },
   "description": "AIWG - Modular agentic framework for SDLC, marketing automation, and workflow orchestration. 200+ agents, 67+ CLI commands, 400+ deployable agent/skill/command/rule artifacts.",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "plugins": [
     {
       "name": "sdlc",
       "source": "./agentic/code/plugins/sdlc",
       "description": "Complete SDLC framework with 180+ specialized agents for software development lifecycle management.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -23,7 +23,7 @@
       "name": "marketing",
       "source": "./agentic/code/plugins/marketing",
       "description": "Marketing automation framework with 37 specialized agents for campaign management.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -35,7 +35,7 @@
       "name": "voice",
       "source": "./agentic/code/plugins/voice",
       "description": "Voice profile system for consistent, authentic writing.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -47,7 +47,7 @@
       "name": "writing",
       "source": "./agentic/code/plugins/writing",
       "description": "Writing quality validation and AI pattern detection.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -59,7 +59,7 @@
       "name": "utils",
       "source": "./agentic/code/plugins/utils",
       "description": "Core AIWG utilities for context regeneration and workspace management.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -71,7 +71,7 @@
       "name": "forensics",
       "source": "./agentic/code/plugins/forensics",
       "description": "Digital forensics and incident response framework with 14 specialized agents covering target profiling, evidence acquisition, log/memory/container/cloud analysis, IOC extraction, and reporting.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -83,7 +83,7 @@
       "name": "security-engineering",
       "source": "./agentic/code/plugins/security-engineering",
       "description": "Applied security framework for cryptographic primitive selection, chain-of-trust design, authentication factor analysis, supply-chain trust, and physical-threat modeling. Complements OWASP-style application audits.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -95,7 +95,7 @@
       "name": "research",
       "source": "./agentic/code/plugins/research",
       "description": "Research workflow framework with 9 specialized agents for discovery, acquisition, synthesis, citation management, GRADE quality assessment, and OAIS-compliant archival.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -107,7 +107,7 @@
       "name": "media-curator",
       "source": "./agentic/code/plugins/media-curator",
       "description": "Media archive management framework with 7 specialized agents for source discovery, acquisition (yt-dlp / Internet Archive / Bandcamp), quality assessment, metadata tagging, and provenance tracking.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -119,7 +119,7 @@
       "name": "ops",
       "source": "./agentic/code/plugins/ops",
       "description": "Operational infrastructure framework with 12 specialized agents covering incident response, runbook execution, fleet inventory, certificate lifecycle, and disaster recovery planning.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -131,7 +131,7 @@
       "name": "knowledge-base",
       "source": "./agentic/code/plugins/knowledge-base",
       "description": "Knowledge-base / wiki framework with skills for ingestion, query, and lint. Build a structured, citable corpus with cross-references and concept pages.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -143,7 +143,7 @@
       "name": "hooks",
       "source": "./agentic/code/plugins/hooks",
       "description": "Claude Code hooks for workflow tracing and observability.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -155,7 +155,7 @@
       "name": "validation-complete",
       "source": "./agentic/code/plugins/validation-complete",
       "description": "Validation Complete for AIWG",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -167,7 +167,7 @@
       "name": "agent-loop",
       "source": "./agentic/code/plugins/agent-loop",
       "description": "Iterative AI coding loops with automatic recovery - iteration beats perfection",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -189,7 +189,7 @@
       "name": "agent-persistence",
       "source": "./agentic/code/plugins/agent-persistence",
       "description": "Human-in-the-loop (HITL) gate definitions for agent operations. Provides reusable YAML gates for destructive-action authorization, false-positive override, and recovery escalation. Loaded by agent loops and orchestrators that need bounded human checkpoints.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -209,7 +209,7 @@
       "name": "agentic-installer",
       "source": "./agentic/code/plugins/agentic-installer",
       "description": "Structured YAML manifests for reproducible, agent-driven software installation across platforms. Scripts are the primary artifact; agentic instructions handle adaptation and recovery.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -228,7 +228,7 @@
       "name": "aiwg-evals",
       "source": "./agentic/code/plugins/aiwg-evals",
       "description": "Automated evaluation framework for agent quality, based on KAMI benchmark methodology and ReAct patterns",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -248,7 +248,7 @@
       "name": "aiwg-dev",
       "source": "./agentic/code/plugins/aiwg-dev",
       "description": "Developer tooling for building AIWG itself and AIWG addons/frameworks. Not for end users — install explicitly with `aiwg use aiwg-dev`.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -267,7 +267,7 @@
       "name": "auto-memory",
       "source": "./agentic/code/plugins/auto-memory",
       "description": "Automatic memory seed templates for AIWG projects",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -285,7 +285,7 @@
       "name": "browser-control",
       "source": "./agentic/code/plugins/browser-control",
       "description": "Drive a real, user-installed Chromium-derived browser from an AIWG agent. Wraps @playwright/mcp with a setup wizard, health-check doctor, allow-list enforcement, and an opinionated agent persona that respects authorization and audit boundaries.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -309,7 +309,7 @@
       "name": "color-palette",
       "source": "./agentic/code/plugins/color-palette",
       "description": "Color palette selection and review tooling with color theory fundamentals, current trend research, and accessibility analysis.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -329,7 +329,7 @@
       "name": "context-curator",
       "source": "./agentic/code/plugins/context-curator",
       "description": "Context curation and distractor filtering for production-grade agent reliability",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -341,7 +341,7 @@
       "name": "compound-memory",
       "source": "./agentic/code/plugins/compound-memory",
       "description": "Governed orchestration across AIWG line memory, semantic memory, and llm-wiki.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -360,7 +360,7 @@
       "name": "daemon",
       "source": "./agentic/code/plugins/daemon",
       "description": "Persistent daemon session capabilities: Concierge front-end, session memory, scheduler integration",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -380,7 +380,7 @@
       "name": "doc-intelligence",
       "source": "./agentic/code/plugins/doc-intelligence",
       "description": "Documentation intelligence addon for scraping, extraction, analysis, and generated-docs auditing.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -401,7 +401,7 @@
       "name": "droid-bridge",
       "source": "./agentic/code/plugins/droid-bridge",
       "description": "MCP server bridging Claude Code to Factory Droid for batch operations and automated fixes",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -419,7 +419,7 @@
       "name": "guided-implementation",
       "source": "./agentic/code/plugins/guided-implementation",
       "description": "Bounded iteration control for autonomous issue-to-code implementation",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -431,7 +431,7 @@
       "name": "line-memory",
       "source": "./agentic/code/plugins/line-memory",
       "description": "Bounded, plain-text project memory with least-recently-used retention.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -450,7 +450,7 @@
       "name": "llm-wiki",
       "source": "./agentic/code/plugins/llm-wiki",
       "description": "LLM-maintained markdown wiki that compounds as sources are ingested. Thin topology declaration on the semantic memory kernel — ships schema profiles and page templates, no custom mechanics.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -473,7 +473,7 @@
       "name": "nlp-prod",
       "source": "./agentic/code/plugins/nlp-prod",
       "description": "Tools, skills, and CLI extensions for designing and productionizing LLM inference pipelines. Pattern-guided, slim by default, eval-first.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -498,7 +498,7 @@
       "name": "prose-integration",
       "source": "./agentic/code/plugins/prose-integration",
       "description": "Tools for reading, parsing, validating, and executing OpenProse programs from AIWG workflows",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -518,7 +518,7 @@
       "name": "rlm",
       "source": "./agentic/code/plugins/rlm",
       "description": "RLM-inspired recursive context decomposition for processing arbitrarily large codebases and document corpora through programmatic sub-agent delegation",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -540,7 +540,7 @@
       "name": "semantic-memory",
       "source": "./agentic/code/plugins/semantic-memory",
       "description": "Topology-agnostic semantic memory operations: ingest, lint, query-capture, and structured event logging. Consumers declare a memory topology in their manifest.json; kernel skills read that contract to parameterize behavior.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -562,7 +562,7 @@
       "name": "skill-factory",
       "source": "./agentic/code/plugins/skill-factory",
       "description": "Build, enhance, validate, and package Claude skills end-to-end. Coordinates skill-builder, skill-enhancer, quality-checker, and skill-packager via the skill-architect agent.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -582,7 +582,7 @@
       "name": "star-prompt",
       "source": "./agentic/code/plugins/star-prompt",
       "description": "Tasteful prompt to encourage users to star the repository after successful command completion",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -600,7 +600,7 @@
       "name": "testing-quality",
       "source": "./agentic/code/plugins/testing-quality",
       "description": "Evidence-bound test conformance, platform protocols, normalization transactions and research-guided testing workflows",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -612,7 +612,7 @@
       "name": "twelve-factor",
       "source": "./agentic/code/plugins/twelve-factor",
       "description": "Design-time and audit-time workflows for Twelve-Factor and modern 12+ Factor cloud-native application practices.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -635,7 +635,7 @@
       "name": "uat-mcp",
       "source": "./agentic/code/plugins/uat-mcp",
       "description": "Agent-executable acceptance testing via MCP connections — generate, execute, and report on UAT plans that validate MCP tool surfaces.",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },
@@ -655,7 +655,7 @@
       "name": "verbalized-sampling",
       "source": "./agentic/code/plugins/verbalized-sampling",
       "description": "Training-free prompting technique that improves output diversity by 1.6-2.1x through verbalized probability distributions, addressing RLHF mode collapse",
-      "version": "2026.9.6",
+      "version": "2026.9.7",
       "author": {
         "name": "AIWG Contributors"
       },

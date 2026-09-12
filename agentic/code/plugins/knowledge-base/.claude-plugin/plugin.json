@@ -1,6 +1,6 @@
 {
   "name": "knowledge-base",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Knowledge-base / wiki framework with skills for ingestion, query, and lint. Build a structured, citable corpus with cross-references and concept pages.",
   "author": {
     "name": "AIWG Contributors",

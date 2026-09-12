@@ -1,6 +1,6 @@
 {
   "name": "aiwg-dev",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Developer tooling for building AIWG itself and AIWG addons/frameworks. Not for end users — install explicitly with `aiwg use aiwg-dev`.",
   "author": {
     "name": "AIWG Contributors",

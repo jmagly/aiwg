@@ -7,7 +7,57 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.9.7] - 2026-09-12 – "Only what the run owns"
+
+### Changed
+
+- Rank AIWG's deployed rules above provider, harness, and session directives in the generated
+  WORKSPACE.md precedence block. Platform capability and safety constraints remain absolute; a
+  session-level directive no longer outranks a rule marked CRITICAL. Regenerate to pick this up.
+
+### Added
+
+- Detect a bootstrap whose precedence block no longer puts AIWG rules first, and route the
+  finding to `aiwg regenerate` through the steward.
+
+### Changed
+
+- Lead the README with natural-language requests rather than CLI invocations, keep its tooling
+  interactions prompt-driven, and fix Mermaid diagram rendering.
+
 ### Fixed
+
+- Stop `aiwg use all` from deleting another bundle's surface. The kernel-only path called the
+  flat-artifact prune with an empty desired set, so every AIWG-managed agent, command, and rule
+  matched as stale: `aiwg use sdlc` followed by `aiwg use all` took `.claude/agents` from 139 to
+  0 and `.claude/rules` from 47 to 2, and reported success.
+- Report the artifacts a deploy accounts for rather than a directory listing. Counts came from a
+  readdir, so a run that wrote nothing still printed whatever sat in the provider tree and a
+  no-op deploy was indistinguishable from a successful one.
+- Retire skill-command wrappers whose source skill is gone, instead of leaving them advertising
+  a command that resolves to nothing.
+- Stop a provider-scoped refresh from pruning provider trees it was not asked to touch.
+  `aiwg refresh --provider claude` had been leaving `.codex/` with zero agents while its
+  commands, rules, and AGENTS.md bridge stayed intact and advertised.
+- Leave git-tracked artifacts to an explicit opt-in during the cross-provider prune. Deleting a
+  regenerable ignored artifact and deleting a committed file are different questions; the prune
+  had answered both the same way and produced 161 staged deletions in a working tree holding
+  unrelated in-flight work.
+- Keep `--force` scoped to overwriting artifacts AIWG does not manage, rather than also
+  authorising deletion of tracked files in a tree the run was not asked to touch.
+- Treat an edge launcher redirect as aligned rather than reporting it as installation drift.
+- Report divergent artifact payload as repairable instead of manual-only.
+- Resolve the artifact root when writing hook traces instead of hardcoding `.aiwg`, so
+  split-root workspaces record traces in the configured corpus.
+- Declare AIWG ownership on the generated project quickref.
+- Keep bundle agents and deploy-directory support assets in project-local deployments.
+- Resolve `WatchService.start()` only once chokidar reports the watch armed, not merely that its
+  initial scan finished. A file created in that window was reported by neither, so the `add`
+  event was absent rather than late and no caller-side wait could recover it.
+- Skip sqlite-backed test suites with a named remedy when the optional `better-sqlite3` backend
+  is absent, instead of failing 61 tests across 25 files with symptoms that never name the
+  cause. A default `npm install && npm test` is green; `npm run features:sqlite` enables the
+  suites, and CI installs the same pinned build.
 
 - Cover restoration-observer edge cases and import-lease ownership preservation, with per-file source coverage in CI.
 - Replace untrusted fleet transport and response-decoding errors with safe diagnostics in structured and text reports.

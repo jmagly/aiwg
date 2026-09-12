@@ -1,6 +1,6 @@
 {
   "name": "security-engineering",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Applied security framework for cryptographic primitive selection, chain-of-trust design, authentication factor analysis, supply-chain trust, and physical-threat modeling. Complements OWASP-style application audits.",
   "author": {
     "name": "AIWG Contributors",

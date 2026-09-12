@@ -1,6 +1,6 @@
 {
   "name": "research",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Research workflow framework with 9 specialized agents for discovery, acquisition, synthesis, citation management, GRADE quality assessment, and OAIS-compliant archival.",
   "author": {
     "name": "AIWG Contributors",

@@ -1,6 +1,6 @@
 {
   "name": "agent-persistence",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Human-in-the-loop (HITL) gate definitions for agent operations. Provides reusable YAML gates for destructive-action authorization, false-positive override, and recovery escalation. Loaded by agent loops and orchestrators that need bounded human checkpoints.",
   "author": {
     "name": "AIWG Contributors",

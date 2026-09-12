@@ -1,6 +1,6 @@
 {
   "name": "uat-mcp",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Agent-executable acceptance testing via MCP connections — generate, execute, and report on UAT plans that validate MCP tool surfaces.",
   "author": {
     "name": "AIWG Contributors",

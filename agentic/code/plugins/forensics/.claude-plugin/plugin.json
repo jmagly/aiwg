@@ -1,6 +1,6 @@
 {
   "name": "forensics",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Digital forensics and incident response framework with 14 specialized agents covering target profiling, evidence acquisition, log/memory/container/cloud analysis, IOC extraction, and reporting.",
   "author": {
     "name": "AIWG Contributors",

@@ -1,6 +1,6 @@
 {
   "name": "llm-wiki",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "LLM-maintained markdown wiki that compounds as sources are ingested. Thin topology declaration on the semantic memory kernel — ships schema profiles and page templates, no custom mechanics.",
   "author": {
     "name": "AIWG Contributors",

@@ -1,6 +1,6 @@
 {
   "name": "prose-integration",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Tools for reading, parsing, validating, and executing OpenProse programs from AIWG workflows",
   "author": {
     "name": "AIWG Contributors",

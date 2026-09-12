@@ -1,6 +1,6 @@
 {
   "name": "semantic-memory",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Topology-agnostic semantic memory operations: ingest, lint, query-capture, and structured event logging. Consumers declare a memory topology in their manifest.json; kernel skills read that contract to parameterize behavior.",
   "author": {
     "name": "AIWG Contributors",

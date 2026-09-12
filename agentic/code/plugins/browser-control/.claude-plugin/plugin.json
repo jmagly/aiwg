@@ -1,6 +1,6 @@
 {
   "name": "browser-control",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Drive a real, user-installed Chromium-derived browser from an AIWG agent. Wraps @playwright/mcp with a setup wizard, health-check doctor, allow-list enforcement, and an opinionated agent persona that respects authorization and audit boundaries.",
   "author": {
     "name": "AIWG Contributors",

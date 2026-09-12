@@ -525,7 +525,15 @@
     "addons/network-analysis/offline-analysis",
     "addons/network-analysis/operator-guide",
     "addons/network-analysis/release-checklist",
-    "addons/network-analysis/termshark-handoff"
+    "addons/network-analysis/termshark-handoff",
+    "addons/testing-quality/conformance-workflow",
+    "addons/voice-framework/contextual-diagnostics-evaluation",
+    "addons/voice-framework/contextual-diagnostics",
+    "addons/voice-framework/natural-voice",
+    "addons/voice-framework/natural-voice/ADR-001-evidence-and-ownership",
+    "addons/voice-framework/natural-voice/verification-2026-09-06",
+    "addons/voice-framework/voice-output-impact",
+    "addons/voice-framework/writing-workflows"
   ],
   "sections": [
     {
@@ -3990,6 +3998,62 @@
       "summary": "Design background from external research, separate from AIWG performance claims",
       "file": "overview/reading-list.md",
       "parent": "getting-started"
+    },
+    {
+      "id": "addons/testing-quality/conformance-workflow",
+      "title": "Conformance Workflow",
+      "summary": "The testing-quality addon couples an explicit target protocol with executable inventory, evidence co",
+      "file": "addons/testing-quality/conformance-workflow.md",
+      "parent": "addons/testing-quality"
+    },
+    {
+      "id": "addons/voice-framework/contextual-diagnostics-evaluation",
+      "title": "Contextual Diagnostics Evaluation",
+      "summary": "This is a developer-labeled deterministic regression evaluation for #2297. The cases deliberately co",
+      "file": "addons/voice-framework/contextual-diagnostics-evaluation.md",
+      "parent": "addons/voice-framework"
+    },
+    {
+      "id": "addons/voice-framework/contextual-diagnostics",
+      "title": "Contextual Diagnostics",
+      "summary": "The JavaScript package exports diagnoseWriting, diagnoseWritingBatch and",
+      "file": "addons/voice-framework/contextual-diagnostics.md",
+      "parent": "addons/voice-framework"
+    },
+    {
+      "id": "addons/voice-framework/natural-voice",
+      "title": "Natural Voice",
+      "summary": "",
+      "collapsed": true,
+      "parent": "addons/voice-framework"
+    },
+    {
+      "id": "addons/voice-framework/natural-voice/ADR-001-evidence-and-ownership",
+      "title": "ADR 001 Evidence And Ownership",
+      "summary": "Status: accepted design decision, 2026-09-06. Tracks #2293 and #2292.",
+      "file": "addons/voice-framework/natural-voice/ADR-001-evidence-and-ownership.md",
+      "parent": "addons/voice-framework/natural-voice"
+    },
+    {
+      "id": "addons/voice-framework/natural-voice/verification-2026-09-06",
+      "title": "Verification 2026 09 06",
+      "summary": "Scope: #2293 evidence contract. This is a citation/provenance check, not a replicated experiment or ",
+      "file": "addons/voice-framework/natural-voice/verification-2026-09-06.md",
+      "parent": "addons/voice-framework/natural-voice"
+    },
+    {
+      "id": "addons/voice-framework/voice-output-impact",
+      "title": "Voice Output Impact",
+      "summary": "Use requested gpt-6-astra, medium reasoning, one initial draw, primary-session criticism, at most on",
+      "file": "addons/voice-framework/voice-output-impact.md",
+      "parent": "addons/voice-framework"
+    },
+    {
+      "id": "addons/voice-framework/writing-workflows",
+      "title": "Writing Workflows",
+      "summary": "These recipes use the existing mode resolver and opt-in writer sidecars. They do not activate a univ",
+      "file": "addons/voice-framework/writing-workflows.md",
+      "parent": "addons/voice-framework"
     }
   ],
   "pages": [

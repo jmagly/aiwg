@@ -1,6 +1,6 @@
 {
   "name": "utils",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Core AIWG utilities for context regeneration and workspace management.",
   "author": {
     "name": "AIWG Contributors",

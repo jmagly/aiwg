@@ -1,6 +1,6 @@
 {
   "name": "daemon",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Persistent daemon session capabilities: Concierge front-end, session memory, scheduler integration",
   "author": {
     "name": "AIWG Contributors",

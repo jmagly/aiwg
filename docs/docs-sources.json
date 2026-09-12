@@ -428,6 +428,7 @@
     "source": "agentic/code/addons/testing-quality/docs",
     "dest": "docs/addons/testing-quality",
     "files": [
+      "conformance-workflow.md",
       "overview.md",
       "quickstart.md"
     ]
@@ -438,12 +439,18 @@
     "source": "agentic/code/addons/voice-framework/docs",
     "dest": "docs/addons/voice-framework",
     "files": [
+      "contextual-diagnostics-evaluation.md",
+      "contextual-diagnostics.md",
       "custom-output-modes.md",
+      "natural-voice/ADR-001-evidence-and-ownership.md",
+      "natural-voice/verification-2026-09-06.md",
       "output-mode-integration.md",
       "output-mode-troubleshooting.md",
       "output-modes.md",
       "overview.md",
-      "quickstart.md"
+      "quickstart.md",
+      "voice-output-impact.md",
+      "writing-workflows.md"
     ]
   },
   {

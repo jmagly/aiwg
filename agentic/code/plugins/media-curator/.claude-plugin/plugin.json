@@ -1,6 +1,6 @@
 {
   "name": "media-curator",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Media archive management framework with 7 specialized agents for source discovery, acquisition (yt-dlp / Internet Archive / Bandcamp), quality assessment, metadata tagging, and provenance tracking.",
   "author": {
     "name": "AIWG Contributors",

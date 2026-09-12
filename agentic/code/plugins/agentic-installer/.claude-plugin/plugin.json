@@ -1,6 +1,6 @@
 {
   "name": "agentic-installer",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Structured YAML manifests for reproducible, agent-driven software installation across platforms. Scripts are the primary artifact; agentic instructions handle adaptation and recovery.",
   "author": {
     "name": "AIWG Contributors",

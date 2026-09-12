@@ -1,6 +1,6 @@
 {
   "name": "twelve-factor",
-  "version": "2026.9.6",
+  "version": "2026.9.7",
   "description": "Design-time and audit-time workflows for Twelve-Factor and modern 12+ Factor cloud-native application practices.",
   "author": {
     "name": "AIWG Contributors",
