@@ -9,12 +9,6 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [2026.9.7] - 2026-09-12 – "Only what the run owns"
 
-### Changed
-
-- Rank AIWG's deployed rules above provider, harness, and session directives in the generated
-  WORKSPACE.md precedence block. Platform capability and safety constraints remain absolute; a
-  session-level directive no longer outranks a rule marked CRITICAL. Regenerate to pick this up.
-
 ### Added
 
 - Detect a bootstrap whose precedence block no longer puts AIWG rules first, and route the
@@ -22,6 +16,9 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Changed
 
+- Rank AIWG's deployed rules above provider, harness, and session directives in the generated
+  WORKSPACE.md precedence block. Platform capability and safety constraints remain absolute; a
+  session-level directive no longer outranks a rule marked CRITICAL. Regenerate to pick this up.
 - Lead the README with natural-language requests rather than CLI invocations, keep its tooling
   interactions prompt-driven, and fix Mermaid diagram rendering.
 
