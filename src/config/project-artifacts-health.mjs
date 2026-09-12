@@ -89,10 +89,23 @@ export function auditProjectArtifactHealth(projectDir, env = process.env) {
       severity = 'error';
       repairable = controls.filter((item) => !item.local).every((item) => item.external);
       action = 'Run `aiwg artifacts repair --dry-run`, then `aiwg artifacts repair --apply` after reviewing the plan.';
-    } else if (divergentControl.length || divergentPayload.length) {
+    } else if (divergentControl.length) {
+      // Only control-plane divergence is genuinely manual: `repairProjectArtifacts`
+      // refuses outright on it, because AIWG.md / aiwg.config / registry.json have
+      // no safe automatic winner (#2516).
       classification = 'duplicated-divergent';
       severity = 'error';
-      action = 'Reconcile the reported local and external files manually; no automatic repair will overwrite divergent content.';
+      action = 'Reconcile the reported control-plane files manually; automatic repair refuses while they diverge.';
+    } else if (divergentPayload.length) {
+      // Divergent *payload* is repairable and always has been — repair archives the
+      // local variant under archive/local-corpus-migration/conflicts/local/, leaves
+      // the external variant untouched, and removes local only after byte
+      // verification. Reporting this as manual-only steered operators away from a
+      // working automatic path and into hand-migrating corpora (#2516).
+      classification = 'duplicated-divergent-payload';
+      severity = 'warning';
+      repairable = true;
+      action = 'Run `aiwg artifacts repair --dry-run`, then `aiwg artifacts repair --apply`; divergent local variants are archived, never overwritten.';
     } else if (localPayload.length) {
       classification = 'duplicated-identical';
       severity = 'warning';

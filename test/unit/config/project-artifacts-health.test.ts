@@ -60,9 +60,41 @@ describe('auditProjectArtifactHealth', () => {
     writeFileSync(join(identical.external, 'requirements', 'UC-1.md'), '# Same\n');
     expect(auditProjectArtifactHealth(identical.project, {}).classification).toBe('duplicated-identical');
 
+    // Divergent *payload* is repairable: repair archives the local variant and
+    // leaves the external one untouched. Reporting it as manual-only steered
+    // operators into hand-migrating corpora (#2516).
     writeFileSync(join(identical.project, '.aiwg', 'requirements', 'UC-1.md'), '# Different\n');
     expect(auditProjectArtifactHealth(identical.project, {})).toMatchObject({
-      classification: 'duplicated-divergent', repairable: false,
+      classification: 'duplicated-divergent-payload', severity: 'warning', repairable: true,
     });
+  });
+
+  it('reserves the manual duplicated-divergent state for control-plane divergence', () => {
+    const { project, external } = fixture();
+    controls(join(project, '.aiwg'));
+    controls(external, '-external');
+
+    // `repairProjectArtifacts` refuses outright while control-plane files
+    // diverge, so this is the one state whose guidance must stay manual.
+    expect(auditProjectArtifactHealth(project, {})).toMatchObject({
+      classification: 'duplicated-divergent', severity: 'error', repairable: false,
+    });
+    expect(auditProjectArtifactHealth(project, {}).divergent_control_files.sort())
+      .toEqual(['AIWG.md', 'aiwg.config', 'frameworks/registry.json']);
+  });
+
+  it('keeps control-plane divergence dominant when payload also diverges', () => {
+    const { project, external } = fixture();
+    controls(join(project, '.aiwg'), '-local');
+    controls(external, '-external');
+    mkdirSync(join(project, '.aiwg', 'requirements'), { recursive: true });
+    mkdirSync(join(external, 'requirements'), { recursive: true });
+    writeFileSync(join(project, '.aiwg', 'requirements', 'UC-1.md'), '# Local\n');
+    writeFileSync(join(external, 'requirements', 'UC-1.md'), '# External\n');
+
+    const report = auditProjectArtifactHealth(project, {});
+    expect(report.classification).toBe('duplicated-divergent');
+    expect(report.repairable).toBe(false);
+    expect(report.divergent_local_corpus_files).toEqual(['requirements/UC-1.md']);
   });
 });

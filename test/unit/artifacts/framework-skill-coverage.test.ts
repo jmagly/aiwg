@@ -72,7 +72,9 @@ describe('framework graph skill coverage', () => {
     } finally {
       fs.rmSync(outputDir, { recursive: true, force: true });
     }
-  });
+    // Walks the entire packaged framework corpus; the default 5s budget is not
+    // enough once the suite runs in parallel.
+  }, 120_000);
 
   it('indexes repo-maintainer flat extension skill with role-aware discovery metadata', async () => {
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-repo-maintainer-discover-'));

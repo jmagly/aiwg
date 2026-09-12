@@ -4299,9 +4299,24 @@ payload is copied to the external corpus, byte-identical duplicates are
 deduplicated, and divergent local variants are preserved under
 `archive/local-corpus-migration/conflicts/local/` with a content-hash suffix.
 The external variant is never overwritten, and local payload is removed only
-after byte-for-byte verification of its external or archived copy. Divergent
-control-plane files still require manual reconciliation. The same classification
-is reported by `aiwg status --probe --json` and `aiwg doctor`.
+after byte-for-byte verification of its external or archived copy.
+
+Divergent **control-plane** files (`AIWG.md`, `aiwg.config`,
+`frameworks/registry.json`) are the one case repair refuses outright — they have
+no safe automatic winner — and must be reconciled by hand. Divergent **payload**
+is repairable and is reported separately, so the two are not confused for one
+another. The same classification is reported by `aiwg status --probe --json` and
+`aiwg doctor`:
+
+| Classification | Severity | Repairable | Meaning |
+|---|---|---|---|
+| `healthy-split-root` | ok | — | Local holds only the control plane; all corpus content is external. |
+| `duplicated-identical` | warning | yes | Local payload duplicates the external corpus byte-for-byte. |
+| `duplicated-divergent-payload` | warning | yes | Local payload differs from (or is missing from) the external corpus. Repair migrates local-only files and archives conflicting local variants. |
+| `duplicated-divergent` | error | no | A control-plane file differs between local and external. Reconcile manually before any repair. |
+| `legacy-missing-control-plane` | error | yes | Local control-plane files are absent and recoverable from the external corpus. |
+| `degraded-offline` | warning/error | no | The configured external corpus is unreachable. |
+
 `AIWG_ARTIFACTS_PATH` still has highest precedence for per-call overrides.
 
 **Capabilities:** cli, index, artifacts, search, dependencies
