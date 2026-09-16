@@ -67,6 +67,7 @@
     "integrations/opencode-quickstart",
     "integrations/warp-terminal-quickstart",
     "integrations/windsurf-quickstart",
+    "integrations/grokbot-quickstart",
     "integrations/hermes-quickstart",
     "integrations/openhuman-quickstart",
     "integrations/openclaw-quickstart",
@@ -757,6 +758,13 @@
       "title": "Devin Desktop",
       "summary": "Setup for Devin Desktop using the Windsurf compatibility adapter",
       "file": "integrations/windsurf-quickstart.md",
+      "parent": "integrations"
+    },
+    {
+      "id": "integrations/grokbot-quickstart",
+      "title": "Grok Bot",
+      "summary": "Connect AIWG to Grok Bot (experimental, fail-closed skill root)",
+      "file": "integrations/grokbot-quickstart.md",
       "parent": "integrations"
     },
     {

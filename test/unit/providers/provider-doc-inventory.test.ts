@@ -92,6 +92,7 @@ describe('public provider inventory', () => {
       'cursor-quickstart',
       'deepseek-harness-quickstart',
       'factory-quickstart',
+      'grokbot-quickstart',
       'hermes-quickstart',
       'opencode-quickstart',
       'openclaw-quickstart',
@@ -104,6 +105,7 @@ describe('public provider inventory', () => {
     expect(homepage).toContain('href="#integrations/omp-quickstart">Oh My Pi</a>');
     expect(homepage).toContain('href="#integrations/pi-quickstart">Pi Coding Agent (pi.dev)</a>');
     expect(homepage).toContain('href="#integrations/deepseek-harness-quickstart">DeepSeek Harness</a>');
+    expect(homepage).toContain('href="#integrations/grokbot-quickstart">Grok Bot</a>');
     expect(homepage).not.toMatch(/Local\/Ollama/);
   });
 });

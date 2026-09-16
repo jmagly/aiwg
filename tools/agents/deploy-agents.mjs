@@ -20,7 +20,7 @@
  *   --rules-only             Deploy only rules (skip agents)
  *   --dry-run                Show what would be deployed without writing
  *   --force                  Overwrite existing files
- *   --provider <name>        Target provider: antigravity (agy), claude (default), openai, codex, cursor, opencode, copilot, factory, pi, omp, deepseek-harness (dsh), warp, devin, hermes, or openclaw
+ *   --provider <name>        Target provider: antigravity (agy), claude (default), openai, codex, cursor, opencode, copilot, factory, grokbot, pi, omp, deepseek-harness (dsh), warp, devin, hermes, openhuman, or openclaw
  *   --model <name>            Override model for all tiers (blanket)
  *   --reasoning-model <name> Override model for reasoning tasks
  *   --coding-model <name>    Override model for coding tasks
@@ -651,6 +651,7 @@ Providers (all deploy agents, commands, skills, and rules):
               Paths: AGENTS.md, .agents/skills/, .dsh/aiwg.cordis.patch.yml
   devin     - Devin Desktop (preferred; aliases: devin-desktop, windsurf)
               Paths: .windsurf/agents/, .windsurf/workflows/, .windsurf/skills/, .windsurf/rules/
+  grokbot   - Grok Bot (experimental; AGENTS.md bridge; skills only with AIWG_GROKBOT_SKILLS_DIR)
   hermes    - Hermes Agent (MCP-based integration)
               Skills: $HERMES_HOME/skills/ (user-global; defaults to ~/.hermes/skills/) | Agents: AGENTS.md
               Commands/Rules: served via MCP, not file-deployed

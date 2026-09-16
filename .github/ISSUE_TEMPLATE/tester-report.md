@@ -22,7 +22,7 @@ node --version                # Node version
 
 - [ ] **AIWG version**: `<paste from aiwg version>`
 - [ ] **Operating system**: `<paste from uname -a>`
-- [ ] **Provider** (AIWG harness): one of `claude-code` / `hermes` / `codex` / `copilot` / `cursor` / `warp` / `factory` / `opencode` / `windsurf` / `openclaw`
+- [ ] **Provider** (AIWG harness): one of `claude-code` / `grokbot` / `hermes` / `codex` / `copilot` / `cursor` / `warp` / `factory` / `opencode` / `windsurf` / `openclaw`
 - [ ] **Node version**: `<paste from node --version>`
 - [ ] **Install location**: one of `npm-global` / `linuxbrew` / `local-source` / `project-local`
 

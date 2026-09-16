@@ -169,6 +169,7 @@ See [Al Guide](../ralph-guide.md) for full documentation.
 | Warp Terminal | [Setup Guide](warp-terminal-quickstart.md) |
 | Devin Desktop | [Setup Guide](windsurf-quickstart.md) |
 | OpenClaw | [Setup Guide](openclaw-quickstart.md) |
+| Grok Bot | [Setup Guide](grokbot-quickstart.md) |
 | Hermes | [Setup Guide](hermes-quickstart.md) |
 | OpenHuman | [Setup Guide](openhuman-quickstart.md) |
 | Oh My Pi | [Setup Guide](omp-quickstart.md) · [Full provider guide](../providers/omp.md) |
