@@ -144,6 +144,11 @@ const RESTART_NOTICES: Readonly<Record<string, ReloadNotice>> = {
     action: 'Reload the Cursor workspace so it reloads agents and rules.',
     reason: 'Cursor reads workspace agents and rules when the workspace opens.',
   },
+  grokbot: {
+    policy: 'restart-required',
+    action: 'Start a new Grok Bot agent chat (or re-read skills) so deployed AIWG context and skills are visible.',
+    reason: 'Grok Bot skill/context reload behavior is not yet verified; AIWG does not claim live refresh.',
+  },
   factory: {
     policy: 'restart-required',
     action: 'Restart the Factory droid runtime so it reloads deployed droids.',

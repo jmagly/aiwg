@@ -108,6 +108,7 @@ const PROVIDER_LABELS = {
   openhuman: 'OpenHuman',
   omp: 'Oh My Pi',
   hermes:   'Hermes',
+  grokbot:  'Grok Bot',
 };
 
 // Quick-detect dirs (agents-only) — used when no --provider flag is given.
@@ -1078,7 +1079,7 @@ async function runDoctor() {
   if (!noBudgetCheck) {
     try {
       const supported = providersToCheck.filter((name) =>
-        ['antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'opencode', 'pi', 'omp', 'warp', 'windsurf', 'hermes', 'openhuman'].includes(name),
+        ['antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'opencode', 'pi', 'omp', 'warp', 'windsurf', 'hermes', 'openhuman', 'grokbot'].includes(name),
       );
       const firewall = await scanContextMemoryFirewall({
         rootDir: process.cwd(),

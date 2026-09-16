@@ -1,0 +1,30 @@
+# AIWG × Grok Bot
+
+Read `WORKSPACE.md` first, then `.aiwg/AIWG.md` (or project `AIWG.md`) for
+framework routing. This file is a **discover-first bridge** — it does not claim
+that Grok Bot auto-loads AIWG paths.
+
+{{REMOTES_TOPOLOGY}}
+## Before improvising
+
+1. Run `aiwg discover "<what you need>"`.
+2. Run `aiwg show <type> <name>` for the full artifact body.
+3. Prefer indexed agents/commands/rules over guessing.
+
+## Boundaries
+
+- AIWG artifacts live under the project `.aiwg/` tree and the AIWG index.
+- Grok profile / shared / project memory is **Grok-owned**. Store path +
+  one-sentence summary only — never paste full artifact bodies into memory.
+- Markdown agent files in AIWG are **not** native Grok CreateAgent teammates.
+- Routines, connectors, and registered-machine setup remain Grok-owned
+  operations (AIWG does not invent those writers in the experimental adapter).
+
+## Skills
+
+User-global AIWG skills deploy only when `AIWG_GROKBOT_SKILLS_DIR` is set to the
+absolute Grok Bot skills/workflows root. Without that override, use
+`aiwg discover` / `aiwg show` — AIWG will not invent `~/.grokbot`.
+
+After deploy, start a **new agent chat** or re-read skills; live refresh is not
+claimed until product behavior is verified.

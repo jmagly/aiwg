@@ -14,6 +14,7 @@ import { resolveOmpPaths } from '../providers/omp-paths.mjs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { resolveHermesHome, resolveHermesHomePath } from '../providers/hermes-home.js';
+import { resolveGrokbotSkillsDir } from '../providers/grokbot-paths.js';
 
 export const hermesHome = resolveHermesHome;
 
@@ -218,6 +219,18 @@ export const USER_SCOPE_PATHS: Record<string, { agents: string; skills: string; 
     commands: '',
     rules: path.join(homedir(), '.openhuman', '.aiwg', 'rules'),
     behaviors: '',
+  },
+  get grokbot() {
+    // Fail-closed: skills path is empty until AIWG_GROKBOT_SKILLS_DIR is set.
+    // Never invent ~/.grokbot. See adr-grokbot-provider-target / #205/#207.
+    const skills = resolveGrokbotSkillsDir() || '';
+    return {
+      agents: '',
+      skills,
+      commands: '',
+      rules: '',
+      behaviors: '',
+    };
   },
   factory: {
     // #1164 — Verified against Factory docs (docs.factory.ai/cli/configuration/skills).
