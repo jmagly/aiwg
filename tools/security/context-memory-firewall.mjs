@@ -76,6 +76,11 @@ const PROVIDERS = Object.freeze({
     agents: '.agents/agents', rules: '.agents/rules', skills: ['.agents/skills'],
     bridges: ['AGENTS.md'],
   },
+  // Bridge-only: never invent ~/.grokbot or skill trees. Shared AIWG.md /
+  // WORKSPACE.md are scanned via SHARED_CONTEXT.
+  grokbot: {
+    bridges: ['AGENTS.md'],
+  },
 });
 
 const SHARED_CONTEXT = Object.freeze([

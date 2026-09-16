@@ -774,10 +774,13 @@ const BUILT_IN_SEEDS: BuiltInSeed[] = [
       configFile: 'AGENTS.md',
       aggregated: false,
     },
+    // Skills root is env-gated (AIWG_GROKBOT_SKILLS_DIR). skillsBaseDir is a
+    // documentation sentinel only — deployer resolves via resolveGrokbotSkillsDir
+    // and never joins ~/grokbot-skills.
     skillNamespace: {
       deploymentGroup: 'deep-recursion',
       pathType: 'home-dir',
-      skillsBaseDir: 'grokbot-skills',
+      skillsBaseDir: 'AIWG_GROKBOT_SKILLS_DIR',
       subdirLayout: true,
     },
     adapters: {
