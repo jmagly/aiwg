@@ -33,7 +33,7 @@
       "Media curation — Assess a collection, organize metadata, and plan acquisition work",
       "Operations — Prepare runbooks, review infrastructure, and document recovery steps",
       "Optional utilities — Add workflow recovery, artifact indexing, and project-specific skills as needed",
-      "15 provider integrations — Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub Copilot, Cursor, DeepSeek Harness, Factory AI, Hermes, OpenCode, OpenClaw, OpenHuman, Oh My Pi, Pi Coding Agent, Warp Terminal, Devin Desktop"
+      "16 provider integrations — Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub Copilot, Cursor, DeepSeek Harness, Factory AI, Grok Bot, Hermes, OpenCode, OpenClaw, OpenHuman, Oh My Pi, Pi Coding Agent, Warp Terminal, Devin Desktop"
     ],
     "checklist": [
       "Open your project in your AI tool",

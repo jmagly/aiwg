@@ -58,8 +58,8 @@ The [first-result walkthrough](../getting-started/just-try-it.md) provides a con
 
 ## Compatibility and next steps
 
-AIWG tracks **15 named provider integrations**, including Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub
-Copilot, Cursor, DeepSeek Harness, Factory AI, Hermes, OpenCode, OpenClaw, OpenHuman, Oh My Pi, Pi Coding Agent, Warp
+AIWG tracks **16 named provider integrations**, including Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub
+Copilot, Cursor, DeepSeek Harness, Factory AI, Grok Bot, Hermes, OpenCode, OpenClaw, OpenHuman, Oh My Pi, Pi Coding Agent, Warp
 Terminal, and Devin Desktop. See the [provider inventory](../providers/provider-inventory.md) for status and scope,
 including experimental integrations and the separate generic fallback.
 

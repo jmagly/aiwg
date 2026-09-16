@@ -55,7 +55,7 @@ Writes are atomic: the loader writes to a randomly-suffixed temp sibling, then
 | `uhp`           | `UhpConfig`                      | optional | Explicit experimental UHP client profiles. See [UHP Client Profiles](#uhp-client-profiles).                                                           |
 
 Valid `providers` values: `antigravity` (alias `agy`), `claude`, `codex`,
-`copilot`, `cursor`, `factory`, `hermes`, `opencode`, `openclaw`, `openhuman`,
+`copilot`, `cursor`, `deepseek-harness`, `factory`, `grokbot`, `hermes`, `opencode`, `openclaw`, `openhuman`,
 `omp`, `pi`, `warp`, and `windsurf`.
 
 ## UHP Client Profiles

@@ -37,6 +37,11 @@ import type {
 } from './types.js';
 import { validateAgentSkillContent } from './validator.js';
 import { resolveHermesHomePath } from '../providers/hermes-home.js';
+import {
+  GROKBOT_SKILLS_DIR_ENV,
+  grokbotMissingRootRemediation,
+  resolveGrokbotSkillsDir,
+} from '../providers/grokbot-paths.js';
 
 export const AGENT_SKILL_MANAGED_MARKER = '.aiwg-managed';
 export const AGENT_SKILL_DEPLOYMENT_SIDECAR = '.aiwg-agent-skill.json';
@@ -173,6 +178,25 @@ function resolvePolicy(
       appendToDescription = namespace.appendToDescription;
       reasons.push('applies the Factory description guidance before strict validation');
       break;
+    case 'grokbot': {
+      // Fail closed: never invent ~/grokbot-skills or ~/.grokbot.
+      const configured = resolveGrokbotSkillsDir(process.env);
+      if (!configured) {
+        root = '';
+        status = 'unsupported';
+        supported = false;
+        reasons.push(grokbotMissingRootRemediation(process.env));
+        warnings.push(
+          `Agent Skills deploy for grokbot requires absolute ${GROKBOT_SKILLS_DIR_ENV}; no filesystem root was invented`,
+        );
+      } else {
+        root = configured;
+        reasons.push(
+          `uses the operator-configured ${GROKBOT_SKILLS_DIR_ENV} skills root with strict managed ownership markers`,
+        );
+      }
+      break;
+    }
     case 'hermes':
       if (options.homeDir === undefined) {
         root = resolveHermesHomePath('skills');

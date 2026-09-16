@@ -6,59 +6,150 @@
   "providers": {
     "antigravity": {
       "roles": {
-        "reasoning": { "id": "configured/reasoning", "status": "unverified", "observed": false },
-        "coding": { "id": "configured/coding", "status": "unverified", "observed": false },
-        "efficiency": { "id": "configured/efficiency", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "configured/reasoning",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "configured/coding",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "configured/efficiency",
+          "status": "unverified",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://antigravity.google/docs/cli/overview/", "verifiedAt": "2026-09-04"
+      "sourceUrl": "https://antigravity.google/docs/cli/overview/",
+      "verifiedAt": "2026-09-04"
     },
     "claude": {
       "roles": {
-        "reasoning": { "id": "claude-opus-4-7", "status": "active", "observed": false },
-        "coding": { "id": "claude-sonnet-4-6", "status": "active", "observed": false },
-        "efficiency": { "id": "claude-haiku-4-5", "status": "active", "observed": false }
+        "reasoning": {
+          "id": "claude-opus-4-7",
+          "status": "active",
+          "observed": false
+        },
+        "coding": {
+          "id": "claude-sonnet-4-6",
+          "status": "active",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "claude-haiku-4-5",
+          "status": "active",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://docs.anthropic.com/en/docs/about-claude/models/overview", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://docs.anthropic.com/en/docs/about-claude/models/overview",
+      "verifiedAt": "2026-07-20"
     },
     "codex": {
       "roles": {
-        "reasoning": { "id": "gpt-5.4", "status": "active", "observed": true },
-        "coding": { "id": "gpt-5.5", "status": "active", "observed": true },
-        "efficiency": { "id": "gpt-5.4-mini", "status": "active", "observed": true }
+        "reasoning": {
+          "id": "gpt-5.4",
+          "status": "active",
+          "observed": true
+        },
+        "coding": {
+          "id": "gpt-5.5",
+          "status": "active",
+          "observed": true
+        },
+        "efficiency": {
+          "id": "gpt-5.4-mini",
+          "status": "active",
+          "observed": true
+        }
       },
-      "sourceUrl": "https://learn.chatgpt.com/docs/agent-configuration/subagents", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://learn.chatgpt.com/docs/agent-configuration/subagents",
+      "verifiedAt": "2026-07-20"
     },
     "copilot": {
       "roles": {
-        "reasoning": { "id": "claude-opus-4.6", "status": "unverified", "observed": false },
-        "coding": { "id": "claude-sonnet-4.6", "status": "unverified", "observed": false },
-        "efficiency": { "id": "gpt-5.1-codex-mini", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "claude-opus-4.6",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "claude-sonnet-4.6",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "gpt-5.1-codex-mini",
+          "status": "unverified",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://docs.github.com/en/copilot/reference/ai-models/supported-models", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://docs.github.com/en/copilot/reference/ai-models/supported-models",
+      "verifiedAt": "2026-07-20"
     },
     "cursor": {
       "roles": {
-        "reasoning": { "id": "claude-4.6-opus-high-thinking", "status": "unverified", "observed": false },
-        "coding": { "id": "claude-4.6-sonnet", "status": "unverified", "observed": false },
-        "efficiency": { "id": "auto", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "claude-4.6-opus-high-thinking",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "claude-4.6-sonnet",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "auto",
+          "status": "unverified",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://cursor.com/docs/models", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://cursor.com/docs/models",
+      "verifiedAt": "2026-07-20"
     },
     "factory": {
       "roles": {
-        "reasoning": { "id": "heavy", "status": "active", "observed": false },
-        "coding": { "id": "medium", "status": "active", "observed": false },
-        "efficiency": { "id": "light", "status": "active", "observed": false }
+        "reasoning": {
+          "id": "heavy",
+          "status": "active",
+          "observed": false
+        },
+        "coding": {
+          "id": "medium",
+          "status": "active",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "light",
+          "status": "active",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://docs.factory.ai/cli/user-guides/choosing-your-model", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://docs.factory.ai/cli/user-guides/choosing-your-model",
+      "verifiedAt": "2026-07-20"
     },
     "opencode": {
       "roles": {
-        "reasoning": { "id": "anthropic/claude-opus-4-7", "status": "unverified", "observed": false },
-        "coding": { "id": "anthropic/claude-sonnet-4-6", "status": "unverified", "observed": false },
-        "efficiency": { "id": "anthropic/claude-haiku-4-5", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "anthropic/claude-opus-4-7",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "anthropic/claude-sonnet-4-6",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "anthropic/claude-haiku-4-5",
+          "status": "unverified",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://opencode.ai/docs/models", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://opencode.ai/docs/models",
+      "verifiedAt": "2026-07-20"
     },
     "omp": {
       "roles": {
@@ -83,59 +174,171 @@
     },
     "pi": {
       "roles": {
-        "reasoning": { "id": "configured/reasoning", "status": "unverified", "observed": false },
-        "coding": { "id": "configured/coding", "status": "unverified", "observed": false },
-        "efficiency": { "id": "configured/efficiency", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "configured/reasoning",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "configured/coding",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "configured/efficiency",
+          "status": "unverified",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://github.com/earendil-works/pi/tree/main/packages/coding-agent#providers--models", "verifiedAt": "2026-09-04"
+      "sourceUrl": "https://github.com/earendil-works/pi/tree/main/packages/coding-agent#providers--models",
+      "verifiedAt": "2026-09-04"
     },
     "deepseek-harness": {
       "roles": {
-        "reasoning": { "id": "configured/reasoning", "status": "unverified", "observed": false },
-        "coding": { "id": "configured/coding", "status": "unverified", "observed": false },
-        "efficiency": { "id": "configured/efficiency", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "configured/reasoning",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "configured/coding",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "configured/efficiency",
+          "status": "unverified",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://github.com/deepseek-ai/deepseek-harness", "verifiedAt": "2026-09-05"
+      "sourceUrl": "https://github.com/deepseek-ai/deepseek-harness",
+      "verifiedAt": "2026-09-05"
     },
     "warp": {
       "roles": {
-        "reasoning": { "id": "profile-selected", "status": "unverified", "observed": false },
-        "coding": { "id": "profile-selected", "status": "unverified", "observed": false },
-        "efficiency": { "id": "profile-selected", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "profile-selected",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "profile-selected",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "profile-selected",
+          "status": "unverified",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://docs.warp.dev/agent-platform/capabilities/agent-profiles-permissions", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://docs.warp.dev/agent-platform/capabilities/agent-profiles-permissions",
+      "verifiedAt": "2026-07-20"
     },
     "windsurf": {
       "roles": {
-        "reasoning": { "id": "inherited", "status": "unverified", "observed": false },
-        "coding": { "id": "inherited", "status": "unverified", "observed": false },
-        "efficiency": { "id": "inherited", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "inherited",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "inherited",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "inherited",
+          "status": "unverified",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://docs.devin.ai/desktop/cascade/models", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://docs.devin.ai/desktop/cascade/models",
+      "verifiedAt": "2026-07-20"
     },
     "openclaw": {
       "roles": {
-        "reasoning": { "id": "configured/reasoning", "status": "unverified", "observed": false },
-        "coding": { "id": "configured/coding", "status": "unverified", "observed": false },
-        "efficiency": { "id": "configured/efficiency", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "configured/reasoning",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "configured/coding",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "configured/efficiency",
+          "status": "unverified",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://docs.openclaw.ai/tools/subagents", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://docs.openclaw.ai/tools/subagents",
+      "verifiedAt": "2026-07-20"
+    },
+    "grokbot": {
+      "roles": {
+        "reasoning": {
+          "id": "global-delegation-model",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "global-delegation-model",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "global-delegation-model",
+          "status": "unverified",
+          "observed": false
+        }
+      },
+      "sourceUrl": "https://github.com/jmagly/aiwg/blob/main/docs/architecture/adr-grokbot-provider-target.md",
+      "verifiedAt": "2026-09-15"
     },
     "hermes": {
       "roles": {
-        "reasoning": { "id": "global-delegation-model", "status": "unverified", "observed": false },
-        "coding": { "id": "global-delegation-model", "status": "unverified", "observed": false },
-        "efficiency": { "id": "global-delegation-model", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "global-delegation-model",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "global-delegation-model",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "global-delegation-model",
+          "status": "unverified",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation",
+      "verifiedAt": "2026-07-20"
     },
     "openhuman": {
       "roles": {
-        "reasoning": { "id": "Hint(reasoning)", "status": "active", "observed": false },
-        "coding": { "id": "Hint(coding)", "status": "active", "observed": false },
-        "efficiency": { "id": "Hint(efficiency)", "status": "active", "observed": false }
+        "reasoning": {
+          "id": "Hint(reasoning)",
+          "status": "active",
+          "observed": false
+        },
+        "coding": {
+          "id": "Hint(coding)",
+          "status": "active",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "Hint(efficiency)",
+          "status": "active",
+          "observed": false
+        }
       },
-      "sourceUrl": "https://github.com/tinyhumansai/openhuman/blob/main/src/openhuman/agent/harness/definition.rs", "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://github.com/tinyhumansai/openhuman/blob/main/src/openhuman/agent/harness/definition.rs",
+      "verifiedAt": "2026-07-20"
     }
   }
 }

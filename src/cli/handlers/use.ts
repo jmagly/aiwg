@@ -3706,6 +3706,15 @@ export class UseHandler implements CommandHandler {
           message: `--scope user not supported for provider '${provider}' — see docs/customization/user-scope-deployment.md for the supported list`,
         };
       }
+      if (provider === 'grokbot') {
+        const { isGrokbotUserScopeConfigured, grokbotMissingRootRemediation } = await import('../../providers/grokbot-paths.js');
+        if (!isGrokbotUserScopeConfigured()) {
+          return {
+            exitCode: 1,
+            message: grokbotMissingRootRemediation(),
+          };
+        }
+      }
     }
 
     // Pre-deployment collision check (skip in dry-run — nothing is written)

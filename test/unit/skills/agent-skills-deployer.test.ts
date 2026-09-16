@@ -18,6 +18,7 @@ import { validateAgentSkillFile } from '../../../src/skills/validator.js';
 const IMPORTED_AT = '2026-07-26T12:00:00.000Z';
 const AIWG_VERSION = 'test-version';
 const ORIGINAL_HERMES_HOME = process.env.HERMES_HOME;
+const ORIGINAL_GROKBOT_SKILLS_DIR = process.env.AIWG_GROKBOT_SKILLS_DIR;
 
 let root: string;
 let projectDir: string;
@@ -107,6 +108,8 @@ beforeEach(() => {
 afterEach(() => {
   if (ORIGINAL_HERMES_HOME === undefined) delete process.env.HERMES_HOME;
   else process.env.HERMES_HOME = ORIGINAL_HERMES_HOME;
+  if (ORIGINAL_GROKBOT_SKILLS_DIR === undefined) delete process.env.AIWG_GROKBOT_SKILLS_DIR;
+  else process.env.AIWG_GROKBOT_SKILLS_DIR = ORIGINAL_GROKBOT_SKILLS_DIR;
   vi.restoreAllMocks();
   fs.rmSync(root, { recursive: true, force: true });
 });
@@ -115,6 +118,9 @@ describe('managed Agent Skills provider matrix', () => {
   it('projects one conforming resource bundle through every provider policy', async () => {
     const name = 'provider-matrix-skill';
     const source = await importActive(name);
+    const grokbotSkills = path.join(homeDir, 'configured-grokbot-skills');
+    fs.mkdirSync(grokbotSkills, { recursive: true });
+    process.env.AIWG_GROKBOT_SKILLS_DIR = grokbotSkills;
     const results = PROVIDER_IDS.map((target) => (
       deployImportedAgentSkill(name, deployOptions(target))
     ));
@@ -128,6 +134,7 @@ describe('managed Agent Skills provider matrix', () => {
       ['cursor', 'native'],
       ['deepseek-harness', 'native'],
       ['factory', 'projected'],
+      ['grokbot', 'native'],
       ['hermes', 'native'],
       ['opencode', 'native'],
       ['openclaw', 'native'],
@@ -221,6 +228,8 @@ describe('managed Agent Skills provider matrix', () => {
       .toBe(path.join(homeDir, '.openhuman', 'skills', name));
     expect(results.find((item) => item.provider === 'hermes')?.path)
       .toBe(path.join(homeDir, '.hermes', 'skills', name));
+    expect(results.find((item) => item.provider === 'grokbot')?.path)
+      .toBe(path.join(homeDir, 'configured-grokbot-skills', name));
     expect(fs.existsSync(path.join(projectDir, '.openhuman'))).toBe(false);
     expect(fs.existsSync(path.join(projectDir, '.hermes'))).toBe(false);
   });
@@ -460,3 +469,44 @@ describe('strict projection serialization', () => {
     });
   });
 });
+
+describe('grokbot Agent Skills fail-closed deploy (#212)', () => {
+  it('blocks deploy without AIWG_GROKBOT_SKILLS_DIR and invents no home skill root', async () => {
+    delete process.env.AIWG_GROKBOT_SKILLS_DIR;
+    const name = 'grokbot-blocked-skill';
+    await importActive(name);
+    const result = deployImportedAgentSkill(name, deployOptions('grokbot'));
+    expect(result.outcome).toBe('blocked');
+    expect(result.projectionStatus).toBe('unsupported');
+    expect(result.reasons.join(' ')).toMatch(/AIWG_GROKBOT_SKILLS_DIR/);
+    expect(fs.existsSync(path.join(homeDir, 'grokbot-skills'))).toBe(false);
+    expect(fs.existsSync(path.join(homeDir, '.grokbot'))).toBe(false);
+    expect(fs.existsSync(path.join(homeDir, 'AIWG_GROKBOT_SKILLS_DIR'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, '.cursor'))).toBe(false);
+  });
+
+  it('deploys under absolute AIWG_GROKBOT_SKILLS_DIR only', async () => {
+    const name = 'grokbot-configured-skill';
+    await importActive(name);
+    const skillsRoot = path.join(homeDir, 'real-grokbot-skills');
+    fs.mkdirSync(skillsRoot, { recursive: true });
+    process.env.AIWG_GROKBOT_SKILLS_DIR = skillsRoot;
+    const result = deployImportedAgentSkill(name, deployOptions('grokbot'));
+    expect(result.outcome).toBe('deployed');
+    expect(result.path).toBe(path.join(skillsRoot, name));
+    expect(fs.existsSync(path.join(result.path, 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(homeDir, 'grokbot-skills'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, '.cursor'))).toBe(false);
+  });
+
+  it('rejects relative AIWG_GROKBOT_SKILLS_DIR overrides', async () => {
+    const name = 'grokbot-relative-skill';
+    await importActive(name);
+    process.env.AIWG_GROKBOT_SKILLS_DIR = 'relative-skills';
+    const result = deployImportedAgentSkill(name, deployOptions('grokbot'));
+    expect(result.outcome).toBe('blocked');
+    expect(fs.existsSync(path.join(projectDir, 'relative-skills'))).toBe(false);
+    expect(fs.existsSync(path.join(homeDir, 'relative-skills'))).toBe(false);
+  });
+});
+

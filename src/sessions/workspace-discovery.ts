@@ -82,7 +82,7 @@ interface DiscoverableProvider {
 }
 
 const MANUAL_EXPORT_PROVIDERS = new Set<SessionProviderId>([
-  'copilot', 'hermes', 'opencode', 'openclaw', 'openhuman',
+  'copilot', 'hermes', 'opencode', 'openclaw', 'openhuman', 'grokbot',
   'warp', 'devin-desktop', 'generic',
 ]);
 

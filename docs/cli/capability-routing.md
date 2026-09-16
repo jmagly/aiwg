@@ -295,6 +295,7 @@ entry.
 | GitHub Copilot | `.github/skills/` | `.github/.aiwg/skills/` | — |
 | Warp | `.warp/skills/` | `.warp/.aiwg/skills/` | — |
 | Windsurf | `.windsurf/skills/` | `.windsurf/.aiwg/skills/` | — |
+| Grok Bot | configured `AIWG_GROKBOT_SKILLS_DIR` only (fail-closed) | same configured root when set | — |
 | Hermes | `~/.hermes/skills/` | `~/.hermes/.aiwg/skills/` | — |
 | OpenCode | `.opencode/skill/` | `.opencode/.aiwg/skill/` | `.agents/skills/` |
 | OpenClaw | `~/.openclaw/skills/aiwg/` | `~/.openclaw/.aiwg/skills/` | `.agents/skills/` |

@@ -1,159 +1,413 @@
 {
   "contractVersion": "1.0.0",
-  "canonicalProviderCount": 15,
+  "canonicalProviderCount": 16,
   "providers": [
     {
       "provider": "claude",
       "issue": 1910,
       "status": "implemented",
-      "operations": ["discover", "inspect", "stream"],
+      "operations": [
+        "discover",
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/claude",
       "tests": "test/unit/sessions/claude-adapter.test.ts",
       "documentation": "docs/providers/claude-code-sessions.md",
-      "conformance": {"locatorClass": "claude-transcript-jsonl", "malformed": ["malformed.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.jsonl", "UNKNOWN_SCHEMA_MAJOR"]}
+      "conformance": {
+        "locatorClass": "claude-transcript-jsonl",
+        "malformed": [
+          "malformed.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ]
+      }
     },
     {
       "provider": "codex",
       "issue": 1911,
       "status": "implemented",
-      "operations": ["discover", "inspect", "stream"],
+      "operations": [
+        "discover",
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/codex",
       "tests": "test/unit/sessions/codex-adapter.test.ts",
       "documentation": "docs/providers/codex-sessions.md",
-      "conformance": {"locatorClass": "codex-app-server-jsonl", "malformed": ["malformed.app-server.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.app-server.jsonl", "UNKNOWN_SCHEMA_MAJOR"]}
+      "conformance": {
+        "locatorClass": "codex-app-server-jsonl",
+        "malformed": [
+          "malformed.app-server.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.app-server.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ]
+      }
     },
     {
       "provider": "copilot",
       "issue": 1912,
       "status": "implemented",
-      "operations": ["inspect", "stream"],
+      "operations": [
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/copilot",
       "tests": "test/unit/sessions/copilot-adapter.test.ts",
       "documentation": "docs/providers/copilot-sessions.md",
-      "conformance": {"locatorClass": "copilot-chat-json-export", "malformed": ["malformed.chat.json", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.chat.json", "UNKNOWN_SCHEMA_MAJOR"], "exceptions": {"discovery": "provider exposes authorized manual export only"}}
+      "conformance": {
+        "locatorClass": "copilot-chat-json-export",
+        "malformed": [
+          "malformed.chat.json",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.chat.json",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ],
+        "exceptions": {
+          "discovery": "provider exposes authorized manual export only"
+        }
+      }
     },
     {
       "provider": "cursor",
       "issue": 1913,
       "status": "implemented",
-      "operations": ["discover", "inspect", "stream"],
+      "operations": [
+        "discover",
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/cursor",
       "tests": "test/unit/sessions/cursor-adapter.test.ts",
       "documentation": "docs/providers/cursor-sessions.md",
-      "conformance": {"locatorClass": "cursor-cli-stream-json", "malformed": ["malformed.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.jsonl", "UNKNOWN_SCHEMA_MAJOR"]}
+      "conformance": {
+        "locatorClass": "cursor-cli-stream-json",
+        "malformed": [
+          "malformed.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ]
+      }
     },
     {
       "provider": "factory",
       "issue": 1914,
       "status": "implemented",
-      "operations": ["discover", "inspect", "stream"],
+      "operations": [
+        "discover",
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/factory",
       "tests": "test/unit/sessions/factory-adapter.test.ts",
       "documentation": "docs/providers/factory-sessions.md",
-      "conformance": {"locatorClass": "factory-droid-jsonl", "malformed": ["malformed.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.jsonl", "UNKNOWN_SCHEMA_MAJOR"]}
+      "conformance": {
+        "locatorClass": "factory-droid-jsonl",
+        "malformed": [
+          "malformed.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ]
+      }
     },
     {
       "provider": "hermes",
       "issue": 1915,
       "status": "implemented",
-      "operations": ["inspect", "stream"],
+      "operations": [
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/hermes",
       "tests": "test/unit/sessions/hermes-adapter.test.ts",
       "documentation": "docs/providers/hermes-sessions.md",
-      "conformance": {"locatorClass": "hermes-export-jsonl", "malformed": ["malformed.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.jsonl", "UNKNOWN_SCHEMA_MAJOR"], "exceptions": {"discovery": "provider requires explicit export or negotiated transport"}}
+      "conformance": {
+        "locatorClass": "hermes-export-jsonl",
+        "malformed": [
+          "malformed.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ],
+        "exceptions": {
+          "discovery": "provider requires explicit export or negotiated transport"
+        }
+      }
     },
     {
       "provider": "opencode",
       "issue": 1916,
       "status": "implemented",
-      "operations": ["inspect", "stream"],
+      "operations": [
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/opencode",
       "tests": "test/unit/sessions/opencode-adapter.test.ts",
       "documentation": "docs/providers/opencode-sessions.md",
-      "conformance": {"locatorClass": "opencode-export-json", "malformed": ["malformed.json", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.json", "UNKNOWN_SCHEMA_MAJOR"], "exceptions": {"discovery": "provider requires explicit sanitized export or negotiated transport"}}
+      "conformance": {
+        "locatorClass": "opencode-export-json",
+        "malformed": [
+          "malformed.json",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.json",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ],
+        "exceptions": {
+          "discovery": "provider requires explicit sanitized export or negotiated transport"
+        }
+      }
     },
     {
       "provider": "openclaw",
       "issue": 1917,
       "status": "implemented",
-      "operations": ["inspect", "stream"],
+      "operations": [
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/openclaw",
       "tests": "test/unit/sessions/openclaw-adapter.test.ts",
       "documentation": "docs/providers/openclaw-sessions.md",
-      "conformance": {"locatorClass": "openclaw-consistent-snapshot-jsonl", "malformed": ["malformed.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.jsonl", "UNKNOWN_SCHEMA_MAJOR"], "exceptions": {"discovery": "provider requires explicit snapshot or negotiated Gateway transport"}}
+      "conformance": {
+        "locatorClass": "openclaw-consistent-snapshot-jsonl",
+        "malformed": [
+          "malformed.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ],
+        "exceptions": {
+          "discovery": "provider requires explicit snapshot or negotiated Gateway transport"
+        }
+      }
     },
     {
       "provider": "openhuman",
       "issue": 1918,
       "status": "implemented",
-      "operations": ["inspect", "stream"],
+      "operations": [
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/openhuman",
       "tests": "test/unit/sessions/openhuman-adapter.test.ts",
       "documentation": "docs/providers/openhuman-sessions.md",
-      "conformance": {"locatorClass": "openhuman-enriched-jsonl", "malformed": ["malformed.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.jsonl", "UNKNOWN_SCHEMA_MAJOR"], "exceptions": {"discovery": "provider requires explicit authorized JSONL export"}}
+      "conformance": {
+        "locatorClass": "openhuman-enriched-jsonl",
+        "malformed": [
+          "malformed.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ],
+        "exceptions": {
+          "discovery": "provider requires explicit authorized JSONL export"
+        }
+      }
+    },
+    {
+      "provider": "grokbot",
+      "issue": 215,
+      "status": "manual-only",
+      "operations": [
+        "inspect",
+        "stream"
+      ],
+      "fixtures": "test/fixtures/sessions/grokbot",
+      "tests": "test/unit/sessions/grokbot-adapter.test.ts",
+      "documentation": "docs/providers/grokbot-sessions.md",
+      "conformance": {
+        "locatorClass": "manual-export",
+        "malformed": [
+          "opaque-input.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major-v2.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ],
+        "exceptions": {
+          "discovery": "manual-export only until verified Grok Bot session locator; no auto-discover of ~/.grokbot or Cursor paths"
+        }
+      }
     },
     {
       "provider": "pi",
       "issue": 2152,
       "status": "implemented",
-      "operations": ["discover", "inspect", "stream"],
+      "operations": [
+        "discover",
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/pi",
       "tests": "test/unit/sessions/pi-adapter.test.ts",
       "documentation": "docs/providers/pi-sessions.md",
-      "conformance": {"locatorClass": "pi-session-v3-jsonl", "malformed": ["malformed.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.jsonl", "UNKNOWN_SCHEMA_MAJOR"]}
+      "conformance": {
+        "locatorClass": "pi-session-v3-jsonl",
+        "malformed": [
+          "malformed.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ]
+      }
     },
     {
       "provider": "omp",
       "issue": 2253,
       "status": "implemented",
-      "operations": ["discover", "inspect", "stream"],
+      "operations": [
+        "discover",
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/omp",
       "tests": "test/unit/sessions/omp-adapter.test.ts",
       "documentation": "docs/providers/omp-sessions.md",
-      "conformance": {"locatorClass": "omp-session-v3-jsonl", "malformed": ["missing-header.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.jsonl", "UNKNOWN_SCHEMA_MAJOR"]}
+      "conformance": {
+        "locatorClass": "omp-session-v3-jsonl",
+        "malformed": [
+          "missing-header.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ]
+      }
     },
     {
       "provider": "deepseek-harness",
       "issue": 2165,
       "status": "implemented",
-      "operations": ["discover", "inspect", "stream"],
+      "operations": [
+        "discover",
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/deepseek-harness",
       "tests": "test/unit/sessions/deepseek-harness-adapter.test.ts",
       "documentation": "docs/providers/deepseek-harness-sessions.md",
-      "conformance": {"locatorClass": "deepseek-harness-session-v2-jsonl", "malformed": ["malformed.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.jsonl", "UNKNOWN_SCHEMA_MAJOR"]}
+      "conformance": {
+        "locatorClass": "deepseek-harness-session-v2-jsonl",
+        "malformed": [
+          "malformed.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ]
+      }
     },
     {
       "provider": "warp",
       "issue": 1919,
       "status": "manual-only",
-      "operations": ["inspect", "stream"],
+      "operations": [
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/warp",
       "tests": "test/unit/sessions/warp-adapter.test.ts",
       "documentation": "docs/providers/warp-sessions.md",
-      "conformance": {"locatorClass": "warp-markdown-export", "malformed": ["malformed.md", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.md", "UNKNOWN_SCHEMA_MAJOR"], "exceptions": {"discovery": "manual-only lossy Markdown export"}}
+      "conformance": {
+        "locatorClass": "warp-markdown-export",
+        "malformed": [
+          "malformed.md",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.md",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ],
+        "exceptions": {
+          "discovery": "manual-only lossy Markdown export"
+        }
+      }
     },
     {
       "provider": "devin-desktop",
       "issue": 1920,
       "status": "implemented",
-      "operations": ["inspect", "stream"],
+      "operations": [
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/windsurf",
       "tests": "test/unit/sessions/windsurf-adapter.test.ts",
       "documentation": "docs/providers/windsurf-sessions.md",
       "product": "Devin Desktop",
-      "compatibilityAliases": ["windsurf"],
+      "compatibilityAliases": [
+        "windsurf"
+      ],
       "compatibilityNote": "devin-desktop is canonical; windsurf remains an accepted deprecated alias through at least 2027-07-27",
-      "conformance": {"locatorClass": "windsurf-cascade-hook-jsonl", "malformed": ["malformed.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major.jsonl", "UNKNOWN_SCHEMA_MAJOR"], "exceptions": {"discovery": "explicit opt-in transcript hook output only"}}
+      "conformance": {
+        "locatorClass": "windsurf-cascade-hook-jsonl",
+        "malformed": [
+          "malformed.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ],
+        "exceptions": {
+          "discovery": "explicit opt-in transcript hook output only"
+        }
+      }
     },
     {
       "provider": "generic",
       "issue": 1921,
       "status": "manual-only",
-      "operations": ["inspect", "stream"],
+      "operations": [
+        "inspect",
+        "stream"
+      ],
       "fixtures": "test/fixtures/sessions/generic",
       "tests": "test/unit/sessions/generic-adapter.test.ts",
       "documentation": "docs/providers/generic-session-interchange.md",
-      "conformance": {"locatorClass": "manual-export", "malformed": ["opaque-input.jsonl", "MALFORMED_SOURCE"], "schemaEvolution": ["unknown-major-v2.jsonl", "UNKNOWN_SCHEMA_MAJOR"], "exceptions": {"discovery": "manual interchange import only"}}
+      "conformance": {
+        "locatorClass": "manual-export",
+        "malformed": [
+          "opaque-input.jsonl",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major-v2.jsonl",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ],
+        "exceptions": {
+          "discovery": "manual interchange import only"
+        }
+      }
     }
   ]
 }

@@ -103,7 +103,7 @@ aiwg use all --provider codex
 **Options:**
 
 - `--provider <name>`: Target platform (`claude`, `codex`, `copilot`, `cursor`,
-  `devin`, `factory`, `hermes`, `opencode`, `openclaw`, `openhuman`, `omp`,
+  `devin`, `factory`, `grokbot`, `hermes`, `opencode`, `openclaw`, `openhuman`, `omp`,
   `pi`, or `warp`). The deprecated `windsurf` selector remains an alias for
   Devin Desktop's `.windsurf/` compatibility paths.
 - `--no-utils`: Skip aiwg-utils addon

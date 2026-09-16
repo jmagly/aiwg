@@ -359,6 +359,48 @@ providers:
     deploy_target: project
     aggregated_output: true
 
+  grokbot:
+    display_name: Grok Bot
+    status: experimental
+    # Multi-agent desktop assistant runtime. Distinct from Cursor IDE and from
+    # xAI Grok Build / API. Native skill root is operator-configured via
+    # AIWG_GROKBOT_SKILLS_DIR (fail-closed; no invented ~/.grokbot).
+    # ADR: docs/architecture/adr-grokbot-provider-target.md · epic #196.
+    # Optional natives (routines/CreateAgent/connectors) deferred #209.
+    # Stable promotion deferred #210 pending PUW evidence.
+    daemon_tier: unsupported
+    daemon_pty_adapter: false
+    artifact_paths:
+      agents: "Indexed: aiwg discover / aiwg show agent"   # native CreateAgent teammates are Grok-owned (#209)
+      commands: "Indexed: aiwg discover / aiwg show command"
+      skills: "AIWG_GROKBOT_SKILLS_DIR when configured (fail-closed)"
+      skills_cross_agent: "AIWG_GROKBOT_SKILLS_DIR/.aiwg/skills with --copy-all"
+      rules: "Indexed: aiwg show rule + AGENTS.md discover-first bridge"
+      behaviors: "Unsupported as automatic AIWG artifact; map manually to Grok routines (#209)"
+    native_features:
+      cron: true            # Grok routines — capability present; AIWG does not own the clock
+      agent_teams: true     # CreateAgent/teammates — Grok-owned orchestration
+      tasks: false          # no verified separate task contract
+      mcp: true             # connectors/dynamic tools — capability; AIWG MCP install deferred #209
+      behaviors: false
+      mission_control: false
+      daemon: false
+    emulation:
+      cron: null
+      agent_teams: null
+      tasks: aiwg-mc
+      mcp: null
+      behaviors: aiwg-mc
+      mission_control: aiwg-mc
+      daemon: null
+    hook_wiring:
+      at_link_support: false
+      hook_file: null
+      fallback: full-inject
+      context_file: AGENTS.md
+    deploy_target: mixed
+    aggregated_output: false
+
   hermes:
     display_name: Hermes
     status: stable

@@ -1,4 +1,4 @@
-import { access, mkdtemp, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -189,4 +189,40 @@ describe('context/memory firewall', () => {
     );
     await expect(access(join(outside, 'new'))).rejects.toThrow();
   });
+
+  it('accepts grokbot bridge-only layout without inventing home skill trees (#213)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-context-firewall-grokbot-'));
+    try {
+      await write(root, 'AGENTS.md', '# Grok Bot bridge\n');
+      await write(root, 'AIWG.md', '# AIWG\n');
+      const result = await scanContextMemoryFirewall({
+        rootDir: root,
+        packageRoot: root,
+        providers: ['grokbot'],
+        contentScan: false,
+      });
+      expect(() => result).not.toThrow();
+      const paths = result.records.map((record) => record.path);
+      expect(paths).toEqual(expect.arrayContaining(['AGENTS.md', 'AIWG.md']));
+      expect(paths.every((entry) => !entry.includes('.grokbot') && !entry.includes('grokbot-skills'))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not throw Unknown provider for grokbot (#213)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-context-firewall-grokbot-unknown-'));
+    try {
+      await write(root, 'AGENTS.md', '# bridge\n');
+      await expect(scanContextMemoryFirewall({
+        rootDir: root,
+        packageRoot: root,
+        providers: ['grokbot'],
+        contentScan: false,
+      })).resolves.toBeTruthy();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
 });

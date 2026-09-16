@@ -73,7 +73,7 @@ afterEach(async () => {
 describe('dynamic model catalog', () => {
   it('records an implemented-or-unsupported decision for every AIWG provider', () => {
     expect(Object.keys(PROVIDER_DISCOVERY_DECISIONS).sort()).toEqual([
-      'claude', 'codex', 'copilot', 'cursor', 'factory', 'hermes',
+      'claude', 'codex', 'copilot', 'cursor', 'factory', 'grokbot', 'hermes',
       'omp', 'openclaw', 'opencode', 'openhuman', 'pi', 'warp', 'windsurf',
     ]);
     expect(Object.values(PROVIDER_DISCOVERY_DECISIONS).every(decision =>

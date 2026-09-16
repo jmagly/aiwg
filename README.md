@@ -164,7 +164,7 @@ guide](docs/troubleshooting/index.md) for the full recovery paths.
 
 AIWG gives your AI assistant reusable project context and specialist workflows. Its deployment layer connects those
 instructions to your provider: `aiwg use` copies markdown and YAML source files into the paths each provider reads, so
-one source of truth works across 15 named provider integrations. A sixteenth `generic` adapter emits portable files
+one source of truth works across 16 named provider integrations. A seventeenth `generic` adapter emits portable files
 for unrecognized or custom harnesses and is not counted as a named integration.
 
 Around that core, AIWG ships agent-facing utilities for work that benefits from additional structure: persistent
@@ -1601,6 +1601,7 @@ See [cross-platform overview](docs/integrations/cross-platform-overview.md) for 
 | GitHub Copilot | `aiwg use all --provider copilot` | `.github` assets | Prompts, instructions, agents, MCP config | Uses `.github/prompts/*.prompt.md`, `.github/instructions/*.instructions.md`, and `.github/agents/*.agent.md`. |
 | Devin | `aiwg use all --provider devin` | Devin-compatible context | Compatibility packaging | Uses compatibility paths where Devin can read project instructions. |
 | Factory | `aiwg use all --provider factory` | Factory context | Agents and commands where supported | Provider behavior depends on the installed Factory environment. |
+| Grok Bot | `aiwg use all --provider grokbot` | `AGENTS.md` | Discover-first skills when `AIWG_GROKBOT_SKILLS_DIR` is set | Experimental; not Cursor / not xAI Grok Build. See [Grok Bot reference](docs/agents/providers/grokbot.md). |
 | Oh My Pi | `aiwg use all --provider omp` | `.omp/AGENTS.md` | Agents, prompts, rules, skills | Dedicated OMP quickstart: [Oh My Pi quickstart](docs/providers/omp.md). |
 | Pi Coding Agent | `aiwg use all --provider pi` | `AGENTS.md` | Agent Skills, prompt templates, trust-gated extension bridge | Experimental; see [Pi quickstart](docs/integrations/pi-quickstart.md). |
 | Antigravity | `aiwg use all --provider antigravity` | `AGENTS.md` and `.agents/` | Agents, skills, indexed commands, MCP config when enabled | See [Antigravity provider docs](docs/providers/antigravity.md). |

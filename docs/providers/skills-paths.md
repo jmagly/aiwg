@@ -172,6 +172,19 @@ Deploying to `.agents/skills/` is the most portable option if you need a single 
 
 ---
 
+
+### Grok Bot
+
+| Scope | Path | Notes |
+|-------|------|-------|
+| User (when configured) | `$AIWG_GROKBOT_SKILLS_DIR/` | Absolute override required; AIWG does **not** invent `~/.grokbot` |
+| User standard (optional) | `$AIWG_GROKBOT_SKILLS_DIR/.aiwg/skills/` | Only with `--copy-all` |
+| Project | Indexed via `aiwg discover` / `aiwg show` | Discover-first bridge in `AGENTS.md` |
+
+Fail-closed until `AIWG_GROKBOT_SKILLS_DIR` is set. Never deploys to `.cursor/`.
+See `docs/architecture/adr-grokbot-provider-target.md`.
+
+
 ## Distribution Mechanism by Provider
 
 Not all providers have a native plugin marketplace. The table below distinguishes providers with marketplace-based distribution from those that use `aiwg use --provider <name>` as the file-deploy adapter.
@@ -188,6 +201,7 @@ Not all providers have a native plugin marketplace. The table below distinguishe
 | **Windsurf** | File-deploy adapter | `aiwg use sdlc --provider windsurf` |
 | **OpenClaw** | File-deploy adapter | `aiwg use sdlc --provider openclaw` |
 | **Hermes** | File-deploy adapter; managed Agent Skills target | `aiwg use sdlc --provider hermes`; `aiwg skills deploy <name> --target hermes` |
+| **Grok Bot** | File-deploy adapter; fail-closed user skill root | `aiwg use sdlc --provider grokbot`; set `AIWG_GROKBOT_SKILLS_DIR` for user-scope |
 
 **Marketplace vs. file-deploy distinction:**
 

@@ -879,6 +879,7 @@ export interface ResolvedParallelism {
  *     less aggressive at small fan-outs (10 is a safe middle ground)
  *   - hermes: MCP sidecar; rate-limit depends on upstream provider, operator
  *     should tune. Conservative 10 default.
+ *   - grokbot: desktop multi-agent; conservative 4 until native evidence.
  *   - unknown: conservative 4 default.
  */
 export const PROVIDER_PARALLELISM_DEFAULTS: Record<string, ResolvedParallelism> = {
@@ -893,6 +894,8 @@ export const PROVIDER_PARALLELISM_DEFAULTS: Record<string, ResolvedParallelism> 
   windsurf: { max_parallel_subagents: 10, max_parallel_ralph_loops: 3, max_parallel_mc_missions: 6 },
   openclaw: { max_parallel_subagents: 10, max_parallel_ralph_loops: 3, max_parallel_mc_missions: 6 },
   hermes:   { max_parallel_subagents: 10, max_parallel_ralph_loops: 3, max_parallel_mc_missions: 6 },
+  // Desktop multi-agent; conservative until native concurrency evidence exists.
+  grokbot:  { max_parallel_subagents: 4,  max_parallel_ralph_loops: 2, max_parallel_mc_missions: 4 },
 };
 
 const UNKNOWN_PROVIDER_PARALLELISM: ResolvedParallelism = {

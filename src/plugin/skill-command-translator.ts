@@ -194,6 +194,7 @@ const SKILLS_ONLY_PROVIDERS = new Set([
   'antigravity',
   'claude',
   'cursor',
+  'grokbot',
   'hermes',
   'openhuman',
   'pi',

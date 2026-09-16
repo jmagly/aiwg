@@ -13,7 +13,7 @@ const resultsRoot = resolve(root, 'test-results');
 const adapterFiles = [
   ...[
     'claude', 'codex', 'copilot', 'cursor', 'factory', 'generic', 'hermes',
-    'openclaw', 'opencode', 'openhuman', 'warp', 'windsurf',
+    'grokbot', 'openclaw', 'opencode', 'openhuman', 'warp', 'windsurf',
   ].map((provider) => `test/unit/sessions/${provider}-adapter.test.ts`),
 ];
 const crossProviderFiles = [
