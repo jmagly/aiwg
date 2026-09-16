@@ -108,6 +108,17 @@ const USE_PATH_GOLDENS = {
     },
     kernelSkills: '.factory/skills',
   },
+  grokbot: {
+    deployTarget: 'mixed',
+    artifacts: {
+      agents: null,
+      commands: null,
+      skills: null,
+      rules: null,
+      behaviors: null,
+    },
+    kernelSkills: null,
+  },
   hermes: {
     deployTarget: 'mixed',
     artifacts: {
@@ -193,6 +204,7 @@ const REGENERATE_FILE_GOLDENS: Record<string, string[]> = {
   copilot: ['AIWG.md', '.aiwg/AIWG.md', 'AGENTS.md', '.github/copilot-instructions.md'],
   cursor: ['AIWG.md', '.aiwg/AIWG.md', 'AGENTS.md'],
   factory: ['AIWG.md', '.aiwg/AIWG.md', 'AGENTS.md'],
+  grokbot: ['AIWG.md', '.aiwg/AIWG.md', 'AGENTS.md'],
   hermes: ['AIWG.md', '.aiwg/AIWG.md', 'AGENTS.md', '.hermes.md'],
   opencode: ['AIWG.md', '.aiwg/AIWG.md', 'AGENTS.md'],
   warp: ['AIWG.md', '.aiwg/AIWG.md', 'AGENTS.md', 'WARP.md'],

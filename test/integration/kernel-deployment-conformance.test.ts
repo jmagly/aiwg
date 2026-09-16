@@ -29,6 +29,7 @@ const PROVIDERS = [
   { id: 'opencode', root: (project: string) => join(project, '.opencode/skill'), standardRoot: (project: string) => join(project, '.opencode/.aiwg/skill') },
   { id: 'warp', root: (project: string) => join(project, '.warp/skills'), standardRoot: (project: string) => join(project, '.warp/.aiwg/skills') },
   { id: 'windsurf', root: (project: string) => join(project, '.windsurf/skills'), standardRoot: (project: string) => join(project, '.windsurf/.aiwg/skills') },
+  { id: 'grokbot', root: (_project: string, home: string) => join(home, 'configured-grokbot-skills'), standardRoot: (_project: string, home: string) => join(home, 'configured-grokbot-skills/.aiwg/skills') },
   { id: 'hermes', root: (_project: string, home: string) => join(home, '.hermes/skills'), standardRoot: (_project: string, home: string) => join(home, '.hermes/skills/.aiwg') },
   { id: 'openclaw', root: (_project: string, home: string) => join(home, '.openclaw/skills/aiwg'), standardRoot: (_project: string, home: string) => join(home, '.openclaw/.aiwg/skills') },
   { id: 'openhuman', root: (_project: string, home: string) => join(home, '.openhuman/skills'), standardRoot: (_project: string, home: string) => join(home, '.openhuman/.aiwg/skills') },
@@ -119,7 +120,7 @@ function deploy(
     // inherited from the developer's environment (e.g. a per-role Hermes home)
     // redirects hermes skill deploys away from the test root and into the
     // real home — breaking test hermeticity and mutating user state.
-    env: { ...process.env, HOME: home, USERPROFILE: home, HERMES_HOME: join(home, '.hermes') },
+    env: { ...process.env, HOME: home, USERPROFILE: home, HERMES_HOME: join(home, '.hermes'), AIWG_GROKBOT_SKILLS_DIR: join(home, 'configured-grokbot-skills') },
     stdio: 'pipe',
   });
   return { project, home };
@@ -281,7 +282,7 @@ describe('kernel deployment conformance', () => {
 
   it('matches the command mirror policy for every deployable provider', () => {
     const commandProviders = ['factory', 'opencode', 'warp', 'windsurf', 'copilot', 'codex', 'openclaw'];
-    const nativeOnlyProviders = ['claude', 'cursor', 'hermes', 'openhuman', 'pi'];
+    const nativeOnlyProviders = ['claude', 'cursor', 'grokbot', 'hermes', 'openhuman', 'pi'];
     expect(PROVIDERS.map(provider => provider.id).sort()).toEqual(
       [...commandProviders, ...nativeOnlyProviders].sort(),
     );
@@ -306,3 +307,35 @@ describe('kernel deployment conformance', () => {
     }
   });
 });
+
+describe('grokbot fail-closed kernel deploy (#219)', () => {
+  it('does not invent ~/grokbot-skills when AIWG_GROKBOT_SKILLS_DIR is unset', () => {
+    const project = join(TEST_ROOT, 'grokbot-unset');
+    const home = join(TEST_ROOT, 'grokbot-unset-home');
+    mkdirSync(project, { recursive: true });
+    mkdirSync(home, { recursive: true });
+    const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, USERPROFILE: home };
+    delete env.AIWG_GROKBOT_SKILLS_DIR;
+    let exitCode = 0;
+    let stdout = '';
+    let stderr = '';
+    try {
+      stdout = execFileSync(
+        'node',
+        [join(REPO_ROOT, 'bin/aiwg.mjs'), 'use', 'all', '--provider', 'grokbot', '--scope', 'user', '--dry-run'],
+        { cwd: project, env, encoding: 'utf8', timeout: 120_000 },
+      );
+    } catch (error) {
+      const err = error as { status?: number; stdout?: string; stderr?: string };
+      exitCode = err.status ?? 1;
+      stdout = err.stdout ?? '';
+      stderr = err.stderr ?? '';
+    }
+    expect(exitCode).not.toBe(0);
+    expect(stdout + stderr).toMatch(/AIWG_GROKBOT_SKILLS_DIR/);
+    expect(existsSync(join(home, 'grokbot-skills'))).toBe(false);
+    expect(existsSync(join(home, '.grokbot'))).toBe(false);
+    expect(existsSync(join(project, '.cursor'))).toBe(false);
+  });
+});
+

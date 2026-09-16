@@ -111,7 +111,7 @@ describe('WORKSPACE.md canonical context graph (#1811)', () => {
         expect(bootstrap.indexOf('WORKSPACE.md')).toBeLessThan(bootstrap.indexOf('AIWG.md'));
       }
     }
-    for (const surface of ['claude', 'codex', 'copilot', 'cursor', 'factory', 'opencode', 'warp', 'windsurf', 'devin-desktop', 'hermes', 'openclaw', 'openhuman']) {
+    for (const surface of ['claude', 'codex', 'copilot', 'cursor', 'factory', 'opencode', 'warp', 'windsurf', 'devin-desktop', 'hermes', 'openclaw', 'openhuman', 'grokbot']) {
       expect(buildProviderBootstrapBlock(surface)).toContain('Provider workspace bootstrap');
     }
   });
