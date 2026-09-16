@@ -684,3 +684,25 @@ describe('aiwg use presentation contract (#2066)', () => {
     expect(output).toContain('Reload the Cursor workspace.');
   });
 });
+
+describe('grokbot deployment verification (#208)', () => {
+  it('plans restart-required with Grok Bot guidance and never Cursor wording', () => {
+    const dryRun = buildDryRunUseResult({
+      projectRoot: '/tmp/aiwg-grokbot-probe',
+      frameworkRoot: '/tmp/aiwg-grokbot-framework',
+      providers: ['grokbot'],
+      scope: 'project',
+      requestedBundles: ['all'],
+    });
+    const grokbot = dryRun.providers.find((item) => item.provider === 'grokbot');
+    expect(grokbot).toBeDefined();
+    expect(grokbot?.reloadPolicy).toBe('restart-required');
+    expect(grokbot?.restartRequired).toBe(true);
+    expect(grokbot?.restartAction).toMatch(/Grok Bot/i);
+    expect(grokbot?.restartAction).toMatch(/new .*chat|re-read skills/i);
+    expect(grokbot?.restartAction).not.toMatch(/Cursor/i);
+    expect(grokbot?.restartReason).not.toMatch(/Cursor/i);
+    expect(grokbot?.restartReason).toMatch(/not yet verified|does not claim live refresh/i);
+  });
+});
+

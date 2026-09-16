@@ -377,6 +377,7 @@ describe('doctor: provider awareness (regression)', () => {
     const content = readFileSync(DOCTOR_SCRIPT, 'utf-8');
 
     expect(content).toMatch(/openhuman:\s*'OpenHuman'/);
+    expect(content).toMatch(/grokbot:\s*'Grok Bot'/);
     expect(content).toContain('checkOpenHumanHarnessTier2');
     expect(content).toContain('OpenHuman Tier-2 harness');
     expect(content).toContain("'agent', 'prompts'");

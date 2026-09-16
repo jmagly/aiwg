@@ -316,7 +316,7 @@ describe('rejectOpenClawProjectScope (#1156)', () => {
 
 describe('USER_SCOPE_PATHS coverage', () => {
   it('covers all 12 supported providers', () => {
-    const expected = ['claude', 'codex', 'pi', 'copilot', 'cursor', 'opencode', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'factory'];
+    const expected = ['claude', 'codex', 'pi', 'copilot', 'cursor', 'opencode', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'factory', 'grokbot'];
     for (const p of expected) {
       expect(USER_SCOPE_PATHS[p], `${p} should have user-scope paths`).toBeDefined();
     }
@@ -408,3 +408,27 @@ describe('hermesHome (#2119 HERMES_HOME)', () => {
     expect(fresh.USER_SCOPE_PATHS.hermes.skills).toBe('/tmp/hermes-user-scope/skills');
   });
 });
+
+describe('grokbot USER_SCOPE_PATHS fail-closed (#205/#207)', () => {
+  const saved = process.env.AIWG_GROKBOT_SKILLS_DIR;
+
+  afterEach(() => {
+    if (saved === undefined) delete process.env.AIWG_GROKBOT_SKILLS_DIR;
+    else process.env.AIWG_GROKBOT_SKILLS_DIR = saved;
+  });
+
+  it('keeps skills empty when AIWG_GROKBOT_SKILLS_DIR is unset', async () => {
+    delete process.env.AIWG_GROKBOT_SKILLS_DIR;
+    vi.resetModules();
+    const fresh = await import('../../../src/cli/scope-resolver.js');
+    expect(fresh.USER_SCOPE_PATHS.grokbot.skills).toBe('');
+  });
+
+  it('uses the absolute AIWG_GROKBOT_SKILLS_DIR override', async () => {
+    process.env.AIWG_GROKBOT_SKILLS_DIR = '/tmp/grokbot-user-scope';
+    vi.resetModules();
+    const fresh = await import('../../../src/cli/scope-resolver.js');
+    expect(fresh.USER_SCOPE_PATHS.grokbot.skills).toBe('/tmp/grokbot-user-scope');
+  });
+});
+

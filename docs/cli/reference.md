@@ -4204,7 +4204,7 @@ and the
 
 ### Best-practice usage guidance
 
-Discovery is the operator surface that makes the **kernel + on-demand model** work across all 15 named provider integrations (Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub Copilot, Cursor, DeepSeek Harness, Factory AI, Hermes, OpenCode, OpenClaw, OpenHuman, Pi Coding Agent from pi.dev, Oh My Pi, Warp Terminal, and Devin Desktop). Each provider deploys a small kernel set on its supported skill surface; everything else is reached via `aiwg discover`.
+Discovery is the operator surface that makes the **kernel + on-demand model** work across all 16 named provider integrations (Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub Copilot, Cursor, DeepSeek Harness, Factory AI, Grok Bot, Hermes, OpenCode, OpenClaw, OpenHuman, Pi Coding Agent from pi.dev, Oh My Pi, Warp Terminal, and Devin Desktop). Each provider deploys a small kernel set on its supported skill surface; everything else is reached via `aiwg discover`.
 
 **Lead with discovery, not with memory.** When a user describes a capability, query first:
 
