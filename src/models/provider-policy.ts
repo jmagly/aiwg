@@ -27,7 +27,7 @@ const capabilityData = requireModelResource('model-capabilities.v1.json');
 const catalogData = requireModelResource('model-catalog.v1.json');
 
 const ProviderSchema = z.enum([
-  'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'hermes',
+  'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'grokbot', 'hermes',
   'opencode', 'openclaw', 'openhuman', 'omp', 'pi', 'warp', 'windsurf',
 ]);
 const OutcomeSchema = z.enum([

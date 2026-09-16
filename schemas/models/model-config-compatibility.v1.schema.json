@@ -12,7 +12,7 @@
       "properties": {
         "tier": { "enum": ["economy", "standard", "premium", "max-quality"] },
         "provider": {
-          "enum": ["claude", "codex", "copilot", "cursor", "factory", "hermes", "opencode", "openclaw", "openhuman", "warp", "windsurf"]
+          "enum": ["claude", "codex", "copilot", "cursor", "factory", "grokbot", "hermes", "opencode", "openclaw", "openhuman", "warp", "windsurf"]
         }
       }
     },

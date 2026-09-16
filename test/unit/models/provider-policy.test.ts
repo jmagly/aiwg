@@ -13,12 +13,12 @@ describe('provider model registry', () => {
   it('covers every audited provider with sourced, dated capability entries', () => {
     const registry = loadProviderModelCapabilities();
     expect(Object.keys(registry.providers).sort()).toEqual([
-      'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'hermes',
+      'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'grokbot', 'hermes',
       'omp', 'openclaw', 'opencode', 'openhuman', 'pi', 'warp', 'windsurf',
     ]);
     for (const capability of Object.values(registry.providers)) {
       expect(capability.sourceUrl).toMatch(/^https:\/\//);
-      expect(capability.verifiedAt).toMatch(/^2026-(?:07-20|09-04|09-05)$/);
+      expect(capability.verifiedAt).toMatch(/^2026-(?:07-20|09-04|09-05|09-15)$/);
       expect(capability.identifierSyntax).not.toBe('');
       expect(capability.verification).not.toBe('');
     }

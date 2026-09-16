@@ -154,6 +154,7 @@ export const ProviderConfigSchema = z.object({
     'cursor',
     'deepseek-harness',
     'factory',
+    'grokbot',
     'hermes',
     'opencode',
     'openclaw',

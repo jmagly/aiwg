@@ -65,6 +65,7 @@ export type Provider =
   | 'copilot'
   | 'cursor'
   | 'factory'
+  | 'grokbot'
   | 'hermes'
   | 'opencode'
   | 'openclaw'

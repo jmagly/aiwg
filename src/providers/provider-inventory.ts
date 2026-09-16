@@ -18,6 +18,7 @@ const PROVIDER_EXECUTABLES: Partial<Record<Platform, string[]>> = {
   cursor: ['cursor'],
   'deepseek-harness': ['dsh'],
   factory: ['droid'],
+  // Grok Bot has no verified CLI executable name; omit rather than invent.
   hermes: ['hermes'],
   opencode: ['opencode'],
   openclaw: ['openclaw'],

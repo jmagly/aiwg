@@ -28,7 +28,7 @@ const OPERATIONAL_TYPES = new Map([
 ]);
 const COMPONENT_ROOTS = ['addons', 'frameworks', 'extensions'];
 const PROVIDERS = [
-  'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'hermes',
+  'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'grokbot', 'hermes',
   'openclaw', 'opencode', 'openhuman', 'omp', 'pi', 'warp', 'windsurf',
 ];
 

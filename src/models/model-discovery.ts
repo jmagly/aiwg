@@ -51,6 +51,13 @@ export const PROVIDER_DISCOVERY_DECISIONS: Record<string, ProviderDiscoveryDecis
     reason: 'Droid exposes model selection through policy and interactive surfaces, but no documented non-interactive model-list command.',
     documentation: 'https://docs.factory.ai/cli/configuration/models',
   },
+  grokbot: {
+    provider: 'grokbot',
+    status: 'unsupported',
+    interface: null,
+    reason: 'Grok Bot is a desktop multi-agent runtime with no verified non-interactive model-list command; AIWG does not invent xAI/Grok API enumeration as Grok Bot entitlement.',
+    documentation: 'https://github.com/jmagly/aiwg/blob/main/docs/architecture/adr-grokbot-provider-target.md',
+  },
   hermes: {
     provider: 'hermes',
     status: 'unsupported',
