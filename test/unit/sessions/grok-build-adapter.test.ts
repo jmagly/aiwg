@@ -107,6 +107,14 @@ describe('Grok Build session adapter', () => {
     });
   });
 
+  it('rejects unsafe numeric export cursors instead of silently skipping every record', async () => {
+    const source = selected('0199a111-1111-7111-8111-111111111111.md');
+    for (const value of ['9007199254740992', '9'.repeat(400)]) {
+      await expect(collect(adapter.stream(source, { value })))
+        .rejects.toMatchObject({ code: 'SCHEMA_DRIFT' });
+    }
+  });
+
   it('covers documented CLI projections without inventing native mode or lineage data', async () => {
     const manifest = JSON.parse(await readFile(resolve(fixturesRoot, 'coverage.json'), 'utf8')) as {
       status: string;

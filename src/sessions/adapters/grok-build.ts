@@ -225,5 +225,9 @@ function parseCursor(value?: string): number {
   if (!/^\d+$/.test(value)) {
     throw new SessionContractError('SCHEMA_DRIFT', 'invalid Grok Build export cursor');
   }
-  return Number(value);
+  const cursor = Number(value);
+  if (!Number.isSafeInteger(cursor)) {
+    throw new SessionContractError('SCHEMA_DRIFT', 'invalid Grok Build export cursor');
+  }
+  return cursor;
 }

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /** Released-binary qualification and stable promotion gate for Grok Build (#2580). */
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { release as osRelease } from 'node:os';
-import { resolve, join } from 'node:path';
+import { resolve, join, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -43,7 +43,25 @@ export function platformName(platform = process.platform, release = osRelease())
   fail(`Unsupported qualification platform: ${platform}`);
 }
 
-export function verifyPromotion(contract, receipts, providerStatus) {
+function hasReviewableEvidence(reference, repositoryRoot) {
+  // Offline promotion cannot establish that an HTTPS URL still exists or contains
+  // the reviewed artifact. Keep a local copy in the repository instead.
+  if (typeof reference !== 'string' || !/^(docs|test-results)\//.test(reference)
+    || reference.includes('\\') || reference.includes('%')
+    || reference.split('/').some(part => !part || part === '.' || part === '..')) return false;
+  try {
+    const canonicalRoot = realpathSync(repositoryRoot);
+    const canonicalFile = realpathSync(resolve(repositoryRoot, reference));
+    const withinRoot = relative(canonicalRoot, canonicalFile);
+    const file = statSync(canonicalFile);
+    return !!withinRoot && withinRoot !== '..' && !withinRoot.startsWith(`..${sep}`)
+      && !isAbsolute(withinRoot) && file.isFile() && file.size > 0;
+  } catch {
+    return false;
+  }
+}
+
+export function verifyPromotion(contract, receipts, providerStatus, repositoryRoot = root) {
   validateContract(contract);
   const errors = [];
   if (providerStatus !== 'stable') return { ready: false, gated: false, errors: [] };
@@ -58,7 +76,7 @@ export function verifyPromotion(contract, receipts, providerStatus) {
     for (const [name, claim] of Object.entries(contract.surfaces)) {
       if (claim.status !== 'native') continue;
       if (receipt.surfaces?.[name] !== 'pass' || receipt.evidence?.[name]?.kind !== 'live'
-        || !/^https:\/\/|^docs\/|^test-results\//.test(receipt.evidence?.[name]?.reference ?? '')) {
+        || !hasReviewableEvidence(receipt.evidence?.[name]?.reference, repositoryRoot)) {
         errors.push(`${platform}: native ${name} lacks live evidence`);
       }
     }

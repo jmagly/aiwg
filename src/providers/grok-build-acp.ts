@@ -153,16 +153,24 @@ export class GrokAcpClient {
   async prompt(prompt: string, signal?: AbortSignal): Promise<{ text: string; stopReason?: string }> {
     if (!this.sessionId) throw new Error('Grok ACP session is not initialized');
     if (!prompt.trim()) throw new Error('Grok ACP prompt is required');
+    const aborted = (): Error => Object.assign(new Error('Grok ACP prompt aborted'), { name: 'AbortError' });
+    // A pre-aborted request never starts a provider turn, so there is nothing
+    // to cancel. Sending session/cancel here could cancel an unrelated turn.
+    if (signal?.aborted) throw aborted();
     this.text = '';
-    const onAbort = (): void => { this.cancel(); };
+    let abortRequested = false;
+    const onAbort = (): void => { abortRequested = true; this.cancel(); };
     signal?.addEventListener('abort', onAbort, { once: true });
-    if (signal?.aborted) onAbort();
     try {
       const result = await this.request('session/prompt', { sessionId: this.sessionId, prompt: [{ type: 'text', text: prompt }] });
       // Grok can deliver final session/update chunks immediately after the
       // completion response; give the pipe a bounded settling window.
       await new Promise(resolve => setTimeout(resolve, 150));
+      if (abortRequested || signal?.aborted) throw aborted();
       return { text: this.text.trim(), ...(typeof result.stopReason === 'string' ? { stopReason: result.stopReason } : {}) };
+    } catch (error) {
+      if (abortRequested || signal?.aborted) throw aborted();
+      throw error;
     } finally { signal?.removeEventListener('abort', onAbort); }
   }
 

@@ -60,9 +60,13 @@ and observed instruction/skill surfaces. It does not record credential values,
 raw `grok inspect` output, or configuration contents. The `checks` fields start
 at `pending`; an operator records `pass` only after the corresponding PUW is
 observed and adds an `evidence.<surface>` entry with `kind: "live"` and a
-reviewable `reference` under `docs/`, `test-results/`, or an HTTPS URL for every
-native surface. The live command's own receipt is evidence for instruction and
-skill inspection, but a reviewable copy or link must be attached. Never
+reviewable, nonempty repository-local `reference` under `docs/` or
+`test-results/` for every native surface. The gate resolves each reference and
+rejects missing files, directories, and symlinks that leave the repository.
+If evidence originates at an HTTPS URL, retain a reviewed copy in the
+repository and cite that local copy; the offline gate cannot verify a remote
+link or its contents. The live command's own receipt is evidence for instruction
+and skill inspection, but a reviewable copy must be attached. Never
 edit a receipt into a false pass merely to promote the provider.
 Without `XAI_API_KEY`, the receipt records authentication as `unverified`;
 inspection alone cannot prove an interactive or managed login.

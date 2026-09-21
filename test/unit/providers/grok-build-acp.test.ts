@@ -11,6 +11,7 @@ rl.on('line',line=>{
  if(m.method==='authenticate') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{}}));
  if(m.method==='session/new') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{sessionId:'s1'}}));
  if(m.method==='session/prompt') {
+  process.stderr.write('PROMPT_SEEN\\n');
   console.log(JSON.stringify({jsonrpc:'2.0',method:'session/update',params:{update:{sessionUpdate:'agent_message_chunk',content:{text:'Hello '}}}}));
   console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{stopReason:'end_turn'}}));
   setTimeout(()=>console.log(JSON.stringify({jsonrpc:'2.0',method:'session/update',params:{update:{sessionUpdate:'agent_message_chunk',content:{text:'world'}}}})),10);
@@ -67,6 +68,46 @@ describe('Grok Build ACP contract', () => {
     const acp = client(script);
     try {
       await expect(acp.initialize()).rejects.toThrow(/\[REDACTED\] denied/);
+    } finally { acp.close(); }
+  });
+
+  it('rejects a pre-aborted prompt without sending prompt or cancel', async () => {
+    const acp = client();
+    try {
+      await acp.initialize();
+      const controller = new AbortController();
+      controller.abort();
+      await expect(acp.prompt('should not run', controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+      await new Promise(resolve => setTimeout(resolve, 30));
+      expect(acp.stderr).not.toContain('PROMPT_SEEN');
+      expect(acp.stderr).not.toContain('cancelled');
+    } finally { acp.close(); }
+  });
+
+  it('cancels an in-flight prompt and rejects after its completion response', async () => {
+    const script = `
+const rl=require('readline').createInterface({input:process.stdin});let promptId;
+rl.on('line',line=>{const m=JSON.parse(line);
+ if(m.method==='initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{authMethods:[{id:'xai.api_key'}]}}));
+ if(m.method==='authenticate') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{}}));
+ if(m.method==='session/new') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{sessionId:'s1'}}));
+ if(m.method==='session/prompt'){promptId=m.id;process.stderr.write('PROMPT_SEEN\\n');}
+ if(m.method==='session/cancel'){
+  process.stderr.write('CANCEL_SEEN\\n');
+  console.log(JSON.stringify({jsonrpc:'2.0',id:promptId,result:{stopReason:'cancelled'}}));
+ }
+});`;
+    const acp = client(script);
+    try {
+      await acp.initialize();
+      const controller = new AbortController();
+      const pending = acp.prompt('slow', controller.signal);
+      const deadline = Date.now() + 1_000;
+      while (!acp.stderr.includes('PROMPT_SEEN') && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+      expect(acp.stderr).toContain('PROMPT_SEEN');
+      controller.abort();
+      await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+      expect(acp.stderr).toMatch(/PROMPT_SEEN[\s\S]*CANCEL_SEEN/);
     } finally { acp.close(); }
   });
 });
