@@ -27,7 +27,8 @@ function run(command, args, cwd) {
 export function validateContract(contract) {
   if (contract.schema !== 'aiwg.grok-build.qualification-contract.v1') fail('Qualification contract schema mismatch');
   if (!/^\d+\.\d+\.\d+$/.test(contract.releasedVersion)) fail('Contract needs an exact released version');
-  if (!/^[0-9a-f]{40}$/.test(contract.upstreamRevision)) fail('Contract needs a full upstream source revision');
+  if (!/^[0-9a-f]{40}$/.test(contract.publicSourceCommit)) fail('Contract needs a full public source commit');
+  if (!/^[0-9a-f]{40}$/.test(contract.upstreamSourceRevision)) fail('Contract needs a full upstream SOURCE_REV');
   for (const [name, claim] of Object.entries(contract.surfaces ?? {})) {
     if (!['native', 'unsupported', 'deferred'].includes(claim.status)) fail(`Unclassified surface: ${name}`);
     if (claim.status !== 'native' && !claim.reason) fail(`Deferred/unsupported surface lacks reason: ${name}`);
@@ -48,7 +49,8 @@ export function verifyPromotion(contract, receipts, providerStatus) {
   if (providerStatus !== 'stable') return { ready: false, gated: false, errors: [] };
   for (const platform of platforms) {
     const matching = receipts.filter(r => r?.schema === receiptSchema && r.platform === platform
-      && r.version === contract.releasedVersion && r.upstreamRevision === contract.upstreamRevision);
+      && r.version === contract.releasedVersion && r.publicSourceCommit === contract.publicSourceCommit
+      && r.upstreamSourceRevision === contract.upstreamSourceRevision);
     if (matching.length !== 1) { errors.push(`${platform}: requires exactly one current qualification receipt`); continue; }
     const receipt = matching[0];
     for (const check of checks) if (receipt.checks?.[check] !== 'pass') errors.push(`${platform}: ${check} not passed`);
@@ -68,7 +70,7 @@ function providerStatus(contract) {
   const definition = readFileSync(join(root, 'src/providers/provider-definitions.ts'), 'utf8');
   const match = definition.match(/id: 'grok-build',[\s\S]*?status: '(experimental|stable)',[\s\S]*?version: '([^']+)',[\s\S]*?revision: '([^']+)'/);
   if (!match) fail('Cannot resolve Grok Build provider status');
-  if (match[2] !== contract.releasedVersion || match[3] !== contract.upstreamRevision) fail('Provider inventory and qualification contract release pins differ');
+  if (match[2] !== contract.releasedVersion || match[3] !== contract.publicSourceCommit) fail('Provider inventory and qualification contract release pins differ');
   const provider = definition.slice(match.index, definition.indexOf("matrixRef: 'grok-build'", match.index));
   for (const [surface, pattern] of [
     ['mcp', /mcpInjection: 'grok-build'/],
@@ -102,7 +104,8 @@ function smoke(args, contract) {
   const verification = JSON.parse(run('aiwg', ['build-verify', '--provider', 'grok-build'], cwd));
   if (verification.status !== 'ready') fail('aiwg build-verify is not ready');
   const receipt = {
-    schema: receiptSchema, platform: platformName(), version, upstreamRevision: contract.upstreamRevision,
+    schema: receiptSchema, platform: platformName(), version,
+    publicSourceCommit: contract.publicSourceCommit, upstreamSourceRevision: contract.upstreamSourceRevision,
     recordedAt: new Date().toISOString(),
     authenticationMode: process.env.XAI_API_KEY ? 'api-key-environment' : 'unverified',
     inspect: 'pass', buildVerify: 'ready',
@@ -115,15 +118,23 @@ function smoke(args, contract) {
   return { receipt: target, platform: receipt.platform, version, inspect: receipt.inspect, buildVerify: receipt.buildVerify };
 }
 
-function drift(contract) {
-  const url = 'https://raw.githubusercontent.com/xai-org/grok-build/main/SOURCE_REV';
-  return fetch(url, { signal: AbortSignal.timeout(15_000) }).then(async response => {
-    if (!response.ok) fail(`Upstream SOURCE_REV fetch failed: HTTP ${response.status}`);
-    const revision = (await response.text()).trim();
-    if (!/^[0-9a-f]{40}$/.test(revision)) fail('Upstream SOURCE_REV shape changed');
-    if (revision !== contract.upstreamRevision) fail(`Upstream Grok Build source changed: ${contract.upstreamRevision} -> ${revision}; review docs/providers/grok-build-qualification.json and inspect/config contracts`);
-    return { status: 'current', revision };
-  });
+export function verifyUpstreamDrift(contract, publicCommit, sourceRevision) {
+  if (!/^[0-9a-f]{40}$/.test(publicCommit)) fail('Upstream public commit shape changed');
+  if (!/^[0-9a-f]{40}$/.test(sourceRevision)) fail('Upstream SOURCE_REV shape changed');
+  if (publicCommit !== contract.publicSourceCommit) fail(`Upstream Grok Build public commit changed: ${contract.publicSourceCommit} -> ${publicCommit}; review docs/providers/grok-build-qualification.json and inspect/config contracts`);
+  if (sourceRevision !== contract.upstreamSourceRevision) fail(`Upstream Grok Build SOURCE_REV changed: ${contract.upstreamSourceRevision} -> ${sourceRevision}; review docs/providers/grok-build-qualification.json and inspect/config contracts`);
+  return { status: 'current', publicCommit, sourceRevision };
+}
+
+async function drift(contract) {
+  const [commitResponse, revisionResponse] = await Promise.all([
+    fetch('https://api.github.com/repos/xai-org/grok-build/commits/main', { signal: AbortSignal.timeout(15_000) }),
+    fetch('https://raw.githubusercontent.com/xai-org/grok-build/main/SOURCE_REV', { signal: AbortSignal.timeout(15_000) }),
+  ]);
+  if (!commitResponse.ok) fail(`Upstream public commit fetch failed: HTTP ${commitResponse.status}`);
+  if (!revisionResponse.ok) fail(`Upstream SOURCE_REV fetch failed: HTTP ${revisionResponse.status}`);
+  const commit = await commitResponse.json();
+  return verifyUpstreamDrift(contract, commit.sha, (await revisionResponse.text()).trim());
 }
 
 async function main() {

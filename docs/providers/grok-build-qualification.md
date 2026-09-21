@@ -1,10 +1,12 @@
 # Grok Build qualification and stable-promotion gate
 
 The contract is [grok-build-qualification.json](grok-build-qualification.json),
-pinned to released CLI **1.0.38** and public source revision
-`4247f661689354b831191f11eeeac8424993fe3d`. AIWG remains experimental.
-The source revision is provenance, not proof that an unreleased checkout behaves
-like the released binary. Use the official released binary on each host.
+pinned to released CLI **1.0.38**, public repository commit
+`4247f661689354b831191f11eeeac8424993fe3d`, and that commit's internal
+`SOURCE_REV` of `9bb727ccdff0a793ee73bcde4e2e09cbef6b5387`. AIWG remains
+experimental. These source identifiers describe the reviewed public tree;
+neither proves that the released 1.0.38 binary was built from it. Use the
+official released binary on each host.
 
 Run each provider-under-workflow (PUW) in a disposable project and home, with
 a second project that already contains operator-owned `.grok/config.toml`,
@@ -51,7 +53,8 @@ For each host, after deployment, create a redacted smoke receipt:
 npm run smoke:grok-build:live -- --output /path/to/private/receipt.json
 ```
 
-The command records OS, released version, upstream source revision,
+The command records OS, released version, public repository commit, internal
+`SOURCE_REV`,
 authentication **mode only**, Grok inspection outcome, AIWG build verification,
 and observed instruction/skill surfaces. It does not record credential values,
 raw `grok inspect` output, or configuration contents. The `checks` fields start
@@ -68,10 +71,10 @@ Promotion is checked by `npm run gate:grok-build`. If provider inventory is set
 to `stable`, the gate requires exactly one current receipt for Linux, macOS,
 Windows PowerShell, and WSL, all lifecycle/security checks passed, and a live
 `pass` for every native surface in the contract. Deferred or unsupported
-surfaces need explicit reasons. The scheduled drift job compares the pinned
-source revision with upstream `SOURCE_REV` and points maintainers here when
-the CLI/config/InspectReport contract needs review. A new upstream revision
-does not silently update the tested release pin.
+surfaces need explicit reasons. The scheduled drift job compares the public
+repository commit and its internal `SOURCE_REV` separately with upstream main,
+then points maintainers here when the CLI/config/InspectReport contract needs
+review. A new upstream revision does not silently update the tested release pin.
 
 Official contracts: [overview](https://docs.x.ai/build/overview),
 [CLI reference](https://docs.x.ai/build/cli/reference),

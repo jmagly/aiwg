@@ -2,8 +2,10 @@
   "schema": "aiwg.grok-build.qualification.v1",
   "platform": "linux",
   "version": "1.0.38",
-  "upstreamRevision": "4247f661689354b831191f11eeeac8424993fe3d",
-  "recordedAt": "2026-09-21T21:43:44.273Z",
+  "publicSourceCommit": "4247f661689354b831191f11eeeac8424993fe3d",
+  "upstreamSourceRevision": "9bb727ccdff0a793ee73bcde4e2e09cbef6b5387",
+  "recordedAt": "2026-09-21T22:19:51.246Z",
+  "reviewedAt": "2026-09-21T22:19:51.246Z",
   "authenticationMode": "unverified",
   "inspect": "pass",
   "buildVerify": "ready",
@@ -22,19 +24,19 @@
     }
   },
   "checks": {
-    "clean-install": "pending",
+    "clean-install": "pass",
     "existing-config": "pass",
     "update": "pending",
     "deploy": "pass",
     "verify": "pass",
-    "refresh": "pending",
+    "refresh": "pass",
     "uninstall": "pass",
     "operator-content": "pass",
     "idempotence": "pass",
-    "path-safety": "pending",
+    "path-safety": "pass",
     "rollback": "pending",
-    "no-secret-leakage": "pending",
-    "compatibility": "pending"
+    "no-secret-leakage": "pass",
+    "compatibility": "pass"
   },
   "distribution": {
     "package": "@xai-official/grok-linux-x64@1.0.38",
@@ -42,10 +44,15 @@
     "binarySha256": "d09092c50f1bf1cd686a0ecd3489aedd83ec2d16b27a821ca9f0994a4b605ef9"
   },
   "notes": [
-    "Released binary package archive integrity matched npm registry metadata before extraction.",
+    "Released binary package archive integrity matched npm registry metadata before extraction. The public source commit and internal SOURCE_REV are from the reviewed public tree, not proven binary build provenance.",
+    "An isolated npm install of @xai-official/grok@1.0.38 succeeded; the reviewed postinstall was invoked explicitly because the local npm allowScripts policy deferred it. The installed binary hash matched the independently extracted package binary.",
     "grok inspect --json in an isolated trusted Linux project reported one AGENTS.md instruction, 20 skills including AIWG and operator content, and six agents.",
     "Grok Build 1.0.38 reported 1.0.40 available through grok update --check; an update installation was not performed.",
     "Repeat AIWG project deployment preserved hashes of generated context, AIWG skill, and operator files; reviewed project removal then removed AIWG-owned files and retained operator config, skill, and AGENTS.md.",
-    "No credentialed model call, refresh, rollback, or other platform qualification occurred; those checks remain pending."
+    "aiwg refresh --skip-update --provider grok-build --frameworks sdlc completed in the isolated project and build-verify remained ready.",
+    "A symlinked .grok root in a second isolated project was refused by reviewed removal, with the outside operator file unchanged.",
+    "A synthetic canary in operator-owned .grok/config.toml remained private through deploy, inspect, regenerate, refresh, verify, removal preview, and removal output; operator config and native/compatibility skills were preserved.",
+    "AGENTS.md loaded WORKSPACE.md before AIWG.md; CLAUDE.md retained its operator note and exactly one AIWG hook after alternating provider regeneration.",
+    "No credentialed model call, installed-version update, rollback injection, or other platform qualification occurred; those checks remain pending."
   ]
 }

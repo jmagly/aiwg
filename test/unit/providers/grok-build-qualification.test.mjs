@@ -2,12 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { checks, platforms, platformName, validateContract, verifyPromotion } from '../../../tools/providers/grok-build-qualification.mjs';
+import { checks, platforms, platformName, validateContract, verifyPromotion, verifyUpstreamDrift } from '../../../tools/providers/grok-build-qualification.mjs';
 
 const contract = JSON.parse(readFileSync(join(process.cwd(), 'docs/providers/grok-build-qualification.json'), 'utf8'));
 const receipt = platform => ({
   schema: 'aiwg.grok-build.qualification.v1', platform,
-  version: contract.releasedVersion, upstreamRevision: contract.upstreamRevision,
+  version: contract.releasedVersion, publicSourceCommit: contract.publicSourceCommit,
+  upstreamSourceRevision: contract.upstreamSourceRevision,
   inspect: 'pass', buildVerify: 'ready',
   checks: Object.fromEntries(checks.map(name => [name, 'pass'])),
   surfaces: Object.fromEntries(Object.entries(contract.surfaces)
@@ -42,6 +43,16 @@ test('stable promotion requires a complete receipt for each OS and every native 
 
 test('contract rejects unclassified surfaces and unverifiable release pins', () => {
   assert.throws(() => validateContract({ ...contract, releasedVersion: 'main' }), /exact released version/);
+  assert.throws(() => validateContract({ ...contract, publicSourceCommit: 'short' }), /full public source commit/);
+  assert.throws(() => validateContract({ ...contract, upstreamSourceRevision: 'short' }), /full upstream SOURCE_REV/);
   assert.throws(() => validateContract({ ...contract, surfaces: { ...contract.surfaces, x: { status: 'maybe' } } }), /Unclassified surface/);
   assert.throws(() => validateContract({ ...contract, surfaces: { ...contract.surfaces, x: { status: 'deferred' } } }), /lacks reason/);
+});
+
+test('drift distinguishes the public Git commit from its internal SOURCE_REV', () => {
+  assert.deepEqual(verifyUpstreamDrift(contract, contract.publicSourceCommit, contract.upstreamSourceRevision), {
+    status: 'current', publicCommit: contract.publicSourceCommit, sourceRevision: contract.upstreamSourceRevision,
+  });
+  assert.throws(() => verifyUpstreamDrift(contract, 'a'.repeat(40), contract.upstreamSourceRevision), /public commit changed/);
+  assert.throws(() => verifyUpstreamDrift(contract, contract.publicSourceCommit, 'b'.repeat(40)), /SOURCE_REV changed/);
 });

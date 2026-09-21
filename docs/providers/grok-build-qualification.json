@@ -1,7 +1,8 @@
 {
   "schema": "aiwg.grok-build.qualification-contract.v1",
   "releasedVersion": "1.0.38",
-  "upstreamRevision": "4247f661689354b831191f11eeeac8424993fe3d",
+  "publicSourceCommit": "4247f661689354b831191f11eeeac8424993fe3d",
+  "upstreamSourceRevision": "9bb727ccdff0a793ee73bcde4e2e09cbef6b5387",
   "surfaces": {
     "instructions": { "status": "native" },
     "skills": { "status": "native" },
