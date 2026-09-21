@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
 import { assessPrEvidence, collectPrEvidence } from '../../../tools/security/pr-evidence-receipt.mjs';
 
 const fixture = JSON.parse(readFileSync('test/fixtures/security/pr204-style-evidence.json', 'utf8'));
@@ -108,6 +110,10 @@ describe('PR evidence receipts', () => {
   it('exports source hashes and an action trail for forensics and maintainer consumers', async () => {
     const result = await receipt();
     const schema = JSON.parse(readFileSync('schemas/security/pr-evidence-receipt.v1.schema.json', 'utf8'));
+    const ajv = new Ajv({ strict: true });
+    addFormats(ajv);
+    const validate = ajv.compile(schema);
+    expect(validate(result), JSON.stringify(validate.errors)).toBe(true);
     expect(schema.properties.assessed.items.properties.surface.enum).toContain('pull-request-diff-summary');
     expect(result.evidenceManifest.length).toBeGreaterThan(3);
     expect(result.evidenceManifest.every((entry: any) => /^[a-f0-9]{64}$/.test(entry.sha256))).toBe(true);

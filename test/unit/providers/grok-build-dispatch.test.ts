@@ -7,12 +7,12 @@ import { GrokBuildDispatcher, prepareGrokWorktree } from '../../../src/providers
 
 function cleanRepo(): string {
   const root = mkdtempSync(join(tmpdir(), 'aiwg-grok-source-'));
-  execFileSync('git', ['init', '-q', root]);
-  execFileSync('git', ['-C', root, 'config', 'user.email', 'test@example.invalid']);
-  execFileSync('git', ['-C', root, 'config', 'user.name', 'AIWG Test']);
+  execFileSync('git', ['init', '-q', root], { timeout: 5_000 });
+  execFileSync('git', ['-C', root, 'config', 'user.email', 'test@example.invalid'], { timeout: 5_000 });
+  execFileSync('git', ['-C', root, 'config', 'user.name', 'AIWG Test'], { timeout: 5_000 });
   writeFileSync(join(root, 'README.md'), 'source\n');
-  execFileSync('git', ['-C', root, 'add', 'README.md']);
-  execFileSync('git', ['-C', root, 'commit', '-qm', 'fixture']);
+  execFileSync('git', ['-C', root, 'add', 'README.md'], { timeout: 5_000 });
+  execFileSync('git', ['-C', root, 'commit', '-qm', 'fixture'], { timeout: 5_000 });
   return root;
 }
 
@@ -26,11 +26,11 @@ describe('Grok Build governed dispatch', () => {
       expect(record).toMatchObject({ schema: 'aiwg.grok-build.worktree.v1', owner: 'test-owner', source: root });
       expect(worktree).not.toBe(root);
       expect(readFileSync(join(worktree, 'README.md'), 'utf8')).toBe('source\n');
-      const gitDir = execFileSync('git', ['-C', worktree, 'rev-parse', '--absolute-git-dir'], { encoding: 'utf8' }).trim();
+      const gitDir = execFileSync('git', ['-C', worktree, 'rev-parse', '--absolute-git-dir'], { encoding: 'utf8', timeout: 5_000 }).trim();
       expect(JSON.parse(readFileSync(join(gitDir, 'aiwg-grok-owner.json'), 'utf8'))).toMatchObject({ owner: 'test-owner', path: worktree });
       expect(record.recovery).toContain('worktree list');
     } finally {
-      if (worktree && existsSync(worktree)) execFileSync('git', ['-C', root, 'worktree', 'remove', '--force', worktree]);
+      if (worktree && existsSync(worktree)) execFileSync('git', ['-C', root, 'worktree', 'remove', '--force', worktree], { timeout: 5_000 });
       rmSync(root, { recursive: true, force: true });
     }
   });
