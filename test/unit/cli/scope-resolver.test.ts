@@ -187,6 +187,35 @@ describe('mirrorToUserScope (#1156)', () => {
     expect(r.rules.count).toBe(0);
   });
 
+  it('refuses Grok Build user-scope symlink escapes before mirroring', async () => {
+    const skill = path.join(projectSkillsDir, 'aiwg-test');
+    await fs.mkdir(skill);
+    await fs.writeFile(path.join(skill, 'SKILL.md'), '# managed\n');
+    await fs.writeFile(path.join(skill, '.aiwg-managed'), 'aiwg\n');
+    const outside = path.join(tmpRoot, 'outside');
+    await fs.mkdir(outside);
+    await fs.writeFile(path.join(outside, 'operator.txt'), 'keep\n');
+    const grokHome = path.join(tmpRoot, 'user', '.grok');
+    await fs.mkdir(grokHome, { recursive: true });
+    const userSkills = path.join(grokHome, 'skills');
+    const priorHome = process.env.GROK_HOME;
+    process.env.GROK_HOME = grokHome;
+    const paths = { agents: projectAgentsDir, skills: projectSkillsDir, commands: '', rules: '', behaviors: '' };
+    try {
+      await fs.symlink(outside, userSkills, 'dir');
+      await expect(mirrorToUserScope('grok-build', paths)).rejects.toThrow(/unsafe Grok Build user mirror root/);
+      await fs.rm(userSkills);
+      await fs.mkdir(userSkills);
+      await fs.symlink(outside, path.join(userSkills, 'aiwg-test'), 'dir');
+      await expect(mirrorToUserScope('grok-build', paths)).rejects.toThrow(/unsafe Grok Build user mirror target/);
+      expect(await fs.readFile(path.join(outside, 'operator.txt'), 'utf8')).toBe('keep\n');
+      await expect(fs.access(path.join(outside, 'SKILL.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      if (priorHome === undefined) delete process.env.GROK_HOME;
+      else process.env.GROK_HOME = priorHome;
+    }
+  });
+
   it('emits non-empty target dirs for claude', async () => {
     const r = await mirrorToUserScope('claude', {
       agents: projectAgentsDir,

@@ -21,6 +21,7 @@ import {
   collectFrameworkArtifacts,
   getAddonSkillDirs,
   injectPlatformInContent,
+  isKernelSkill,
   normalizeDeploymentMode,
   resolveAiwgRoot,
   deployFiles,
@@ -71,12 +72,42 @@ export function resolveGrokHome(env = process.env, userHome = os.homedir()) {
 }
 
 export function createAgentsMd(target, srcRoot, dryRun) {
+  assertSafeAgentsMd(target);
   createAgentsMdFromTemplate(
     target,
     resolveAiwgRoot(srcRoot) || srcRoot,
     'grok-build/AGENTS.md.aiwg-template',
     dryRun,
   );
+}
+
+function assertSafeAgentsMd(target) {
+  const dest = path.join(target, 'AGENTS.md');
+  const stat = existingStat(dest);
+  if (stat && (!stat.isFile() || stat.isSymbolicLink())) {
+    throw new Error(`Refusing unsafe Grok Build AGENTS.md target: ${dest}`);
+  }
+}
+
+function existingStat(target) {
+  try { return fs.lstatSync(target); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+function assertSafeNativeDirectory(target, relative) {
+  let current = path.resolve(target);
+  for (const segment of relative.split(path.sep)) {
+    current = path.join(current, segment);
+    const stat = existingStat(current);
+    if (!stat) continue;
+    if (stat.isSymbolicLink() || !stat.isDirectory()) {
+      throw new Error(`Refusing unsafe Grok Build deployment directory: ${current}`);
+    }
+  }
+  return current;
 }
 
 /**
@@ -86,6 +117,13 @@ export function createAgentsMd(target, srcRoot, dryRun) {
 export function deploySkills(skillDirs, targetDir, opts = {}) {
   const kernelDest = path.join(targetDir, kernelSkillsPath);
   const standardDest = path.join(targetDir, standardSkillsPath);
+  assertSafeNativeDirectory(targetDir, kernelSkillsPath);
+  assertSafeNativeDirectory(targetDir, standardSkillsPath);
+  for (const source of skillDirs) {
+    const relative = path.join(isKernelSkill(source) ? kernelSkillsPath : standardSkillsPath, path.basename(source));
+    const dest = assertSafeNativeDirectory(targetDir, relative);
+    if (fs.existsSync(dest)) regularFiles(dest);
+  }
   return deploySkillsWithKernelRouting(skillDirs, standardDest, kernelDest, {
     ...opts,
     copyStandardSkills: opts.copyStandardSkills === true,
@@ -140,7 +178,18 @@ export function compileGrokAgent(source, content, opts = {}) {
 
 export function deployAgents(agentFiles, targetDir, opts = {}) {
   const selected = agentFiles.filter(file => /^aiwg-model-(reasoning|coding|efficiency)-worker\.md$/.test(path.basename(file)));
-  const dir = path.join(targetDir, paths.agents);
+  const dir = assertSafeNativeDirectory(targetDir, paths.agents);
+  for (const source of selected) {
+    const dest = path.join(dir, path.basename(source));
+    const stat = existingStat(dest);
+    if (!stat) continue;
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`Refusing unsafe Grok Build agent target: ${dest}`);
+  }
+  const manifest = path.join(dir, '.aiwg-manifest.json');
+  const manifestStat = existingStat(manifest);
+  if (manifestStat && (!manifestStat.isFile() || manifestStat.isSymbolicLink())) {
+    throw new Error(`Refusing unsafe Grok Build agent manifest: ${manifest}`);
+  }
   ensureDir(dir, opts.dryRun);
   return deployFiles(selected, dir, { ...opts, provider: 'grok-build' }, compileGrokAgent);
 }
@@ -294,6 +343,9 @@ export function getFileExtension() {
 
 export async function deploy(opts) {
   const mode = normalizeDeploymentMode(opts.mode);
+  if (opts.createAgentsMd || (!opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly)) {
+    assertSafeAgentsMd(opts.target);
+  }
   const aiwgRoot = resolveAiwgRoot(opts.srcRoot) || opts.srcRoot;
   const skillDirs = [...getAddonSkillDirs(opts.srcRoot)];
   skillDirs.push(

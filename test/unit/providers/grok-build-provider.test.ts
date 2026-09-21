@@ -148,6 +148,48 @@ describe('grok-build nested context contract', () => {
 });
 
 describe('grok-build writer dry-run', () => {
+  it('refuses provider-root and managed-skill symlink escapes during deployment', () => {
+    const source = temporaryRoot('aiwg-grok-link-skill-src-');
+    const skill = writeSkill(source, 'aiwg-status', { kernel: true });
+    const outside = temporaryRoot('aiwg-grok-link-skill-outside-');
+    writeFileSync(join(outside, 'operator.txt'), 'keep\n');
+
+    const linkedRoot = temporaryRoot('aiwg-grok-link-root-');
+    symlinkSync(outside, join(linkedRoot, '.grok'), 'dir');
+    expect(() => deploySkills([skill], linkedRoot, { dryRun: false, provider: 'grok-build', srcRoot: repoRoot }))
+      .toThrow(/unsafe Grok Build deployment directory/);
+
+    const linkedSkill = temporaryRoot('aiwg-grok-link-skill-');
+    mkdirSync(join(linkedSkill, '.grok', 'skills'), { recursive: true });
+    symlinkSync(outside, join(linkedSkill, '.grok', 'skills', 'aiwg-status'), 'dir');
+    expect(() => deploySkills([skill], linkedSkill, { dryRun: false, provider: 'grok-build', srcRoot: repoRoot }))
+      .toThrow(/unsafe Grok Build deployment directory/);
+    expect(readFileSync(join(outside, 'operator.txt'), 'utf8')).toBe('keep\n');
+    expect(existsSync(join(outside, 'SKILL.md'))).toBe(false);
+  });
+
+  it('refuses a symlinked native-agent root during deployment', () => {
+    const project = temporaryRoot('aiwg-grok-link-agents-');
+    const outside = temporaryRoot('aiwg-grok-link-agents-outside-');
+    mkdirSync(join(project, '.grok'), { recursive: true });
+    symlinkSync(outside, join(project, '.grok', 'agents'), 'dir');
+    const source = join(project, 'aiwg-model-coding-worker.md');
+    writeFileSync(source, '---\nname: aiwg-model-coding-worker\ndescription: Coding worker\nmodel-role: coding\ntools:\n  - Read\n---\n\nDo the scoped task.\n');
+    expect(() => deployAgents([source], project, { dryRun: false, deployVersion: 'test' }))
+      .toThrow(/unsafe Grok Build deployment directory/);
+    expect(existsSync(join(outside, 'aiwg-model-coding-worker.md'))).toBe(false);
+  });
+
+  it('refuses an AGENTS.md symlink without changing the outside instruction file', () => {
+    const project = temporaryRoot('aiwg-grok-link-agents-md-');
+    const outside = temporaryRoot('aiwg-grok-link-instructions-');
+    const instructions = join(outside, 'AGENTS.md');
+    writeFileSync(instructions, '# Operator instructions\n');
+    symlinkSync(instructions, join(project, 'AGENTS.md'));
+    expect(() => createAgentsMd(project, repoRoot, false)).toThrow(/unsafe Grok Build AGENTS\.md target/);
+    expect(readFileSync(instructions, 'utf8')).toBe('# Operator instructions\n');
+  });
+
   it('refuses a symlinked Grok root without touching its target', () => {
     const project = temporaryRoot('aiwg-grok-uninstall-link-');
     const outside = temporaryRoot('aiwg-grok-uninstall-outside-');

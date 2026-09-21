@@ -15,6 +15,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { buildProviderBootstrapBlock } from './workspace-context.js';
 import { dominantLineEnding, withLineEnding } from './line-endings.js';
+import { assertSafeContextFile } from './context-file-safety.js';
 
 export const CONTEXT_HOOK_START = '<!-- AIWG:context-hook:start -->';
 export const CONTEXT_HOOK_END = '<!-- AIWG:context-hook:end -->';
@@ -55,6 +56,7 @@ export function hasContextHook(content: string): boolean {
  * operator-authored content. Additive by default (no `--force` needed).
  */
 export async function ensureManagedHook(filePath: string, opts: { force?: boolean; provider?: string } = {}): Promise<ManagedHookResult> {
+  await assertSafeContextFile(filePath);
   const base = path.basename(filePath);
   let block = buildContextHookBlock(opts.provider);
   const result: ManagedHookResult = { path: filePath, action: 'skipped', warnings: [] };

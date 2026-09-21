@@ -387,6 +387,7 @@ export async function mirrorToUserScope(
   if (!userPaths) {
     return { agents: empty, skills: empty, commands: empty, rules: empty, behaviors: empty };
   }
+  if (provider === 'grok-build') await assertGrokUserMirrorPaths(projectPaths, userPaths);
   const [agents, skills, commands, rules, behaviors] = await Promise.all([
     userPaths.agents ? mirrorArtifactDir(projectPaths.agents, userPaths.agents) : Promise.resolve(empty),
     userPaths.skills
@@ -400,6 +401,50 @@ export async function mirrorToUserScope(
     userPaths.behaviors ? mirrorArtifactDir(projectPaths.behaviors, userPaths.behaviors) : Promise.resolve(empty),
   ]);
   return { agents, skills, commands, rules, behaviors };
+}
+
+async function assertGrokUserMirrorPaths(
+  projectPaths: { agents: string; skills: string; kernelSkills?: string },
+  userPaths: { agents: string; skills: string },
+): Promise<void> {
+  const fs = await import('node:fs/promises');
+  const statIfPresent = async (target: string) => {
+    try { return await fs.lstat(target); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
+  };
+  const checkTarget = async (target: string): Promise<void> => {
+    const stat = await statIfPresent(target);
+    if (!stat) return;
+    if (stat.isSymbolicLink() || (!stat.isDirectory() && !stat.isFile())) {
+      throw new Error(`Refusing unsafe Grok Build user mirror target: ${target}`);
+    }
+    if (stat.isDirectory()) {
+      for (const name of await fs.readdir(target)) await checkTarget(path.join(target, name));
+    }
+  };
+  for (const [destination, sources] of [
+    [userPaths.agents, [projectPaths.agents]],
+    [userPaths.skills, [projectPaths.skills, projectPaths.kernelSkills ?? '']],
+  ] as const) {
+    if (!destination) continue;
+    const rootStat = await statIfPresent(destination);
+    if (rootStat && (rootStat.isSymbolicLink() || !rootStat.isDirectory())) {
+      throw new Error(`Refusing unsafe Grok Build user mirror root: ${destination}`);
+    }
+    for (const source of sources) {
+      if (!source) continue;
+      let names: string[];
+      try { names = await fs.readdir(source); }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+        throw error;
+      }
+      for (const name of names) await checkTarget(path.join(destination, name));
+    }
+  }
 }
 
 /**

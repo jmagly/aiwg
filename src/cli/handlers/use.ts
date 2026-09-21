@@ -4150,6 +4150,9 @@ export class UseHandler implements CommandHandler {
           }
         }
       } catch (err) {
+        if (provider === 'grok-build') {
+          return { exitCode: 1, message: `--scope user mirror failed: ${err instanceof Error ? err.message : String(err)}` };
+        }
         ui.warn(`--scope user mirror failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     }

@@ -28,6 +28,7 @@ import {
   PROVIDER_BOOTSTRAP_END,
 } from './workspace-context.js';
 import { dominantLineEnding, withLineEnding } from './line-endings.js';
+import { assertSafeContextFile } from './context-file-safety.js';
 
 export const CLAUDE_HOOK_START = '<!-- AIWG:claude-md-hook:start -->';
 export const CLAUDE_HOOK_END = '<!-- AIWG:claude-md-hook:end -->';
@@ -102,6 +103,7 @@ export async function ensureClaudeMdHook(
   opts: ClaudeHookOptions = {},
 ): Promise<ClaudeHookResult> {
   const claudeMdPath = path.join(projectPath, 'CLAUDE.md');
+  await assertSafeContextFile(claudeMdPath);
   const result: ClaudeHookResult = {
     claudeMdPath,
     action: 'skipped',

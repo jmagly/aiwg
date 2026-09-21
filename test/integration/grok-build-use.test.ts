@@ -7,7 +7,7 @@
  * @issue #2575
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -69,6 +69,32 @@ function runRemoval(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
 }
 
 describe('aiwg use grok-build e2e (#2575)', () => {
+  it('fails a user-scope mirror before writing through a linked skill root', () => {
+    const home = isolated('aiwg-grok-user-link-home-');
+    const project = isolated('aiwg-grok-user-link-project-');
+    const outside = isolated('aiwg-grok-user-link-outside-');
+    const grokHome = path.join(home, 'grok');
+    mkdirSync(grokHome);
+    writeFileSync(path.join(outside, 'operator.txt'), 'keep\n');
+    symlinkSync(outside, path.join(grokHome, 'skills'), 'dir');
+    mkdirSync(path.join(home, '.aiwg'), { recursive: true });
+    writeFileSync(path.join(home, '.aiwg', 'channel.json'), JSON.stringify({
+      channel: 'edge', edgePath: REPO_ROOT, devMode: true,
+    }));
+    const result = runUse(['use', 'sdlc', '--provider', 'grok-build', '--scope', 'user', '--no-project-local', '--no-utils', '--json'], {
+      HOME: home,
+      USERPROFILE: home,
+      GROK_HOME: grokHome,
+      AIWG_TEST_PROJECT_ROOT: project,
+      AIWG_USER_REGISTRY_PATH: path.join(home, '.aiwg', 'installed.json'),
+      PATH: path.dirname(process.execPath),
+    }, project);
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain('unsafe Grok Build user mirror root');
+    expect(readFileSync(path.join(outside, 'operator.txt'), 'utf8')).toBe('keep\n');
+    expect(readdirSync(outside)).toEqual(['operator.txt']);
+  }, 180_000);
+
   it('deploys project kernel skills, mirrors to $GROK_HOME, and records registry/receipts', () => {
     const home = isolated('aiwg-grok-use-home-');
     const project = isolated('aiwg-grok-use-project-');
