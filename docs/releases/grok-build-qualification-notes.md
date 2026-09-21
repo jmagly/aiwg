@@ -10,5 +10,4 @@ each native claim; deferred/unsupported surfaces are listed in the contract.
 Grok Build is xAI's coding-agent CLI. It is separate from the stable Grok Bot
 provider and from the Grok web Build experience. See the
 [quickstart](../integrations/grok-build-quickstart.md),
-[operator reference](../agents/providers/grok-build.md), and
 [qualification gate](../providers/grok-build-qualification.md).

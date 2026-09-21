@@ -21,7 +21,8 @@ inspect --json`. For user-scope skills, inspect the target with a dry run of
 `aiwg use all --provider grok-build --scope user` first. Operator-owned `.grok`
 files and text outside managed context blocks must survive refreshes.
 
-The [operational reference](../agents/providers/grok-build.md) covers skill
-paths, MCP/hooks, sessions, models, CI, recovery, and migration from temporary
-`claude` deployment. The [qualification matrix](../providers/grok-build-qualification.md)
-explains why the adapter remains experimental.
+See [native extensions](grok-build-native-extensions.md) for MCP/hooks,
+[sessions](../providers/grok-build-sessions.md), [models](../providers/grok-build-models.md),
+the [CI guide](grok-build-ci.md), and the Grok Build migration guide.
+The [qualification matrix](../providers/grok-build-qualification.md) documents
+scope, recovery, and the evidence still needed for stable promotion.
