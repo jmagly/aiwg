@@ -11,6 +11,10 @@ export interface GrokAcpOptions {
   timeoutMs?: number;
   maxStderrBytes?: number;
   onUpdate?: (update: Record<string, unknown>) => void;
+  /** Disable internal fan-out for a caller that accounts for workers itself. */
+  disableSubagents?: boolean;
+  /** Called when the child process has actually exited. */
+  onExit?: () => void | Promise<void>;
 }
 
 type Pending = { resolve: (value: Record<string, unknown>) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> };
@@ -37,11 +41,14 @@ export class GrokAcpClient {
     this.timeoutMs = Math.min(Math.max(options.timeoutMs ?? 30_000, 1), 120_000);
     this.maxStderrBytes = options.maxStderrBytes ?? 1024 * 1024;
     this.onUpdate = options.onUpdate;
-    this.child = spawn(options.command ?? 'grok', [...(options.prefixArgs ?? []), '--no-auto-update', 'agent', 'stdio'], {
+    this.child = spawn(options.command ?? 'grok', [...(options.prefixArgs ?? []), '--no-auto-update', ...(options.disableSubagents ? ['--no-subagents'] : []), 'agent', 'stdio'], {
       cwd: options.cwd, env: this.env, stdio: ['pipe', 'pipe', 'pipe'], shell: false,
     });
     this.child.on('error', error => this.failAll(new Error(`Grok ACP launch failed: ${error.message}`)));
-    this.child.on('close', code => this.failAll(new Error(`Grok ACP closed (exit ${code ?? 'signal'})`)));
+    this.child.on('close', code => {
+      this.failAll(new Error(`Grok ACP closed (exit ${code ?? 'signal'})`));
+      void options.onExit?.();
+    });
     this.child.stdout.on('data', (chunk: Buffer) => this.receive(chunk.toString('utf8')));
     this.child.stderr.on('data', (chunk: Buffer) => {
       this.stderrBuffer += chunk.toString('utf8');
@@ -169,6 +176,9 @@ export class GrokAcpClient {
     this.terminated = true;
     this.failAll(new Error('Grok ACP connection closed'));
     this.child.stdin.end();
-    this.child.kill('SIGTERM');
+    if (!this.child.kill('SIGTERM')) return;
+    const forceTimer = setTimeout(() => this.child.kill('SIGKILL'), 2_000);
+    forceTimer.unref();
+    this.child.once('close', () => clearTimeout(forceTimer));
   }
 }

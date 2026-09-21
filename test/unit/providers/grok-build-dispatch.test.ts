@@ -102,4 +102,64 @@ describe('Grok Build governed dispatch', () => {
         .resolves.toMatchObject({ result: { exitCode: 0 } });
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
+
+  it('holds the same cross-process slot for an ACP session until its process exits', async () => {
+    const root = cleanRepo();
+    const key = join(root, '.git');
+    mkdirSync(join(root, '.aiwg'));
+    writeFileSync(join(root, '.aiwg', 'aiwg.config'), JSON.stringify({ parallelism: { max_parallel_subagents: 1 } }));
+    const script = `require('readline').createInterface({input:process.stdin}).on('line',line=>{
+      const message=JSON.parse(line);
+      if(message.method==='initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{authMethods:[{id:'xai.api_key'}]}}));
+      if(message.method==='authenticate') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{}}));
+      if(message.method==='session/new') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{sessionId:process.argv.includes('--no-subagents')?'acp-fixture':'missing-cap-flag'}}));
+      if(message.method==='session/prompt') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{stopReason:'end_turn'}}));
+    })`;
+    try {
+      const dispatcher = await GrokBuildDispatcher.forProject(root);
+      const options = { projectRoot: root, command: process.execPath, prefixArgs: ['-e', script, '--'],
+        env: { ...process.env, XAI_API_KEY: 'fixture-secret' },
+        authorize: () => true, budgetRemaining: () => true };
+      const externalRelease = await acquireGrokProjectSlot(key, 1);
+      try { await expect(dispatcher.openAcp(options)).rejects.toThrow(/parallelism cap/); }
+      finally { await externalRelease(); }
+      const session = await dispatcher.openAcp(options);
+      expect(session.sessionId).toBe('acp-fixture');
+      expect(session.authMethod).toBe('xai.api_key');
+      expect(dispatcher.activeDispatches).toBe(1);
+      await expect(acquireGrokProjectSlot(key, 1)).rejects.toThrow(/parallelism cap/);
+      await session.close();
+      expect(dispatcher.activeDispatches).toBe(0);
+      const released = await acquireGrokProjectSlot(key, 1);
+      await released();
+      const noCredential = { ...process.env };
+      delete noCredential.XAI_API_KEY;
+      await expect(dispatcher.openAcp({ ...options, env: noCredential })).rejects.toThrow(/authentication unavailable/);
+      expect(dispatcher.activeDispatches).toBe(0);
+      const afterFailure = await acquireGrokProjectSlot(key, 1);
+      await afterFailure();
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it('keeps an ACP lease until a SIGTERM-resistant process is forcibly stopped', async () => {
+    const root = cleanRepo();
+    mkdirSync(join(root, '.aiwg'));
+    writeFileSync(join(root, '.aiwg', 'aiwg.config'), JSON.stringify({ parallelism: { max_parallel_subagents: 1 } }));
+    const script = `process.on('SIGTERM',()=>{});setInterval(()=>{},1000);require('readline').createInterface({input:process.stdin}).on('line',line=>{
+      const message=JSON.parse(line);
+      const result=message.method==='initialize'?{authMethods:[{id:'xai.api_key'}]}:
+        message.method==='session/new'?{sessionId:'resistant'}:{};
+      console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result}));
+    })`;
+    try {
+      const dispatcher = await GrokBuildDispatcher.forProject(root);
+      const session = await dispatcher.openAcp({ projectRoot: root, command: process.execPath,
+        prefixArgs: ['-e', script, '--'], env: { ...process.env, XAI_API_KEY: 'fixture-secret' },
+        authorize: () => true, budgetRemaining: () => true });
+      const started = Date.now();
+      await session.close();
+      expect(Date.now() - started).toBeLessThan(4_000);
+      expect(dispatcher.activeDispatches).toBe(0);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
 });

@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { readAiwgConfig, resolveParallelism } from '../config/aiwg-config.js';
 import { runGrokHeadless, type GrokHeadlessOptions, type GrokHeadlessResult } from './grok-build-headless.js';
+import { GrokAcpClient, type GrokAcpOptions } from './grok-build-acp.js';
 
 const git = promisify(execFile);
 const dispatchers = new Map<string, GrokBuildDispatcher>();
@@ -137,6 +138,23 @@ export interface GrokDispatchOptions extends Omit<GrokHeadlessOptions, 'cwd' | '
   env?: NodeJS.ProcessEnv;
 }
 
+export interface GrokAcpDispatchOptions extends Omit<GrokAcpOptions, 'cwd' | 'env' | 'disableSubagents' | 'onExit'> {
+  projectRoot: string;
+  isolate?: boolean;
+  authorize: () => boolean | Promise<boolean>;
+  budgetRemaining: () => boolean | Promise<boolean>;
+  env?: NodeJS.ProcessEnv;
+}
+
+export interface GrokManagedAcpSession {
+  client: GrokAcpClient;
+  authMethod: string;
+  sessionId: string;
+  worktree?: GrokWorktreeRecord;
+  /** Releases the project slot only after the ACP process exits. */
+  close(): Promise<void>;
+}
+
 export class GrokBuildDispatcher {
   private active = 0;
   maxParallel: number;
@@ -160,6 +178,48 @@ export class GrokBuildDispatcher {
   }
 
   get activeDispatches(): number { return this.active; }
+
+  async openAcp(options: GrokAcpDispatchOptions): Promise<GrokManagedAcpSession> {
+    if (await projectKey(options.projectRoot) !== this.key) throw new Error('Grok Build dispatcher project root changed');
+    if (this.active >= this.maxParallel) throw new Error(`Grok Build project parallelism cap ${this.maxParallel} reached`);
+    if (!await options.authorize()) throw new Error('Grok Build dispatch authorization gate denied');
+    if (!await options.budgetRemaining()) throw new Error('Grok Build orchestration budget exhausted');
+    const release = await acquireGrokProjectSlot(this.key, this.maxParallel);
+    this.active += 1;
+    let settle!: () => void;
+    let fail!: (error: Error) => void;
+    const exited = new Promise<void>((resolveExit, rejectExit) => { settle = resolveExit; fail = rejectExit; });
+    // The process can exit before its caller asks to close the session.
+    // Keep the rejection observable through close() without an unhandled one.
+    void exited.catch(() => {});
+    let worktree: GrokWorktreeRecord | undefined;
+    let client: GrokAcpClient | undefined;
+    let released = false;
+    const releaseAfterExit = async (): Promise<void> => {
+      if (released) return;
+      released = true;
+      this.active -= 1;
+      try { await release(); settle(); }
+      catch (error) { fail(error instanceof Error ? error : new Error(String(error))); }
+    };
+    try {
+      worktree = options.isolate ? await prepareGrokWorktree(options.projectRoot) : undefined;
+      const env = { ...process.env, ...options.env };
+      client = new GrokAcpClient({
+        ...options, cwd: worktree?.path ?? options.projectRoot, env,
+        disableSubagents: true, onExit: releaseAfterExit,
+      });
+      const { authMethod, sessionId } = await client.initialize();
+      return {
+        client, authMethod, sessionId, ...(worktree ? { worktree } : {}),
+        close: async () => { client!.close(); await exited; },
+      };
+    } catch (error) {
+      if (client) { client.close(); await exited; }
+      else await releaseAfterExit();
+      throw error;
+    }
+  }
 
   async dispatch(options: GrokDispatchOptions): Promise<{ result: GrokHeadlessResult; worktree?: GrokWorktreeRecord }> {
     if (await projectKey(options.projectRoot) !== this.key) throw new Error('Grok Build dispatcher project root changed');
