@@ -28,6 +28,7 @@ import { writeNormalizedAiwgMd } from './finalization.js';
 import { shouldEmitAgentsMd, shouldEmitAiwgMd, shouldEmitClaudeMdHook } from './provider-policy.js';
 import { ensureClaudeMdHook } from './claude-hook.js';
 import { ensureManagedHook } from './managed-hook.js';
+import { assertSafeContextFile } from './context-file-safety.js';
 import {
   buildProviderBootstrapBlock,
   ensureWorkspaceContext,
@@ -396,6 +397,17 @@ async function writeSpilloverBlock(
  * is present; otherwise it is skipped with a warning.
  */
 export async function generate(opts: ContextPipelineOptions): Promise<ContextPipelineResult> {
+  // Check every startup/context output before writing the first one. A linked
+  // AGENTS.md or CLAUDE.md must not become an input to generated context, even
+  // when an additive hook or forced backup would otherwise read it.
+  const plannedFiles = [
+    ...(!opts.skip?.workspaceMd ? ['WORKSPACE.md'] : []),
+    ...(!opts.skip?.agentsMd && shouldEmitAgentsMd(opts.provider) ? ['AGENTS.md'] : []),
+    ...(!opts.skip?.aiwgMd && shouldEmitAiwgMd(opts.provider) ? ['AIWG.md'] : []),
+    ...(shouldEmitClaudeMdHook(opts.provider) ? ['CLAUDE.md'] : []),
+  ];
+  for (const file of plannedFiles) await assertSafeContextFile(path.join(opts.projectPath, file));
+
   const result: ContextPipelineResult = {
     workspaceMdPath: '',
     aiwgMdPath: '',
