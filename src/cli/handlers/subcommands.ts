@@ -798,6 +798,35 @@ export const removeHandler: CommandHandler = {
       return await removeUserScopeDeploy(ctx.args);
     }
 
+    if (firstRemovePositional(ctx.args) === 'grok-build') {
+      const providerParse = parseRemoveProvider(ctx.args);
+      if (providerParse.provider !== 'grok-build' || providerParse.error) {
+        return { exitCode: 1, message: 'Use aiwg remove grok-build --provider grok-build [--dry-run] for reviewed project-scope removal.' };
+      }
+      const { uninstall } = await import('../../../tools/agents/providers/grok-build.mjs');
+      const { readAiwgConfig, writeAiwgConfig } = await import('../../config/aiwg-config.js');
+      const target = getProjectDir({ cwd: ctx.cwd }, ctx.args);
+      const dryRun = ctx.args.includes('--dry-run');
+      const report = uninstall(target, { dryRun, srcRoot: await getFrameworkRoot() });
+      if (!dryRun && report.skipped.length === 0) {
+        const config = await readAiwgConfig(target);
+        if (config) {
+          for (const [name, entry] of Object.entries(config.installed ?? {})) {
+            delete entry.deployedTo?.['grok-build'];
+            if (Object.keys(entry.deployedTo ?? {}).length === 0) delete config.installed[name];
+          }
+          await writeAiwgConfig(target, config);
+        }
+      }
+      const lines = [
+        `${dryRun ? 'Would remove' : 'Removed'} ${dryRun ? report.planned.length : report.removed.length} unchanged AIWG-owned Grok Build artifact(s).`,
+        ...report.planned.map(relative => `  ${relative}`),
+        ...report.skipped.map(relative => `  Preserved modified or unverifiable: ${relative}`),
+        'Operator-owned Grok content and shared context files are preserved.',
+      ];
+      return { exitCode: report.skipped.length ? 1 : 0, message: lines.join('\n') };
+    }
+
     // #1037 — Project-local-aware remove. If the first positional arg matches
     // a project-local entry in `installed`, route to the new handler.
     // Otherwise fall through to the existing plugin-uninstaller flow.

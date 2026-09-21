@@ -59,9 +59,11 @@ session-storage behavior remain evidence-gated in the qualification contract.
 
 For a refresh, run `aiwg regenerate --workspace --provider grok-build` for
 context only, or `aiwg refresh` to redeploy assets, then rerun `aiwg
-build-verify --provider grok-build`. To remove AIWG, preview each deployed
-bundle with `aiwg remove <bundle> --provider grok-build --dry-run`, then run
-the same command without `--dry-run` after reviewing its targets. Keep operator-owned `.grok`
+build-verify --provider grok-build`. To remove AIWG's Grok Build project
+deployment, preview `aiwg remove grok-build --provider grok-build --dry-run`,
+then run the same command without `--dry-run` after reviewing its targets.
+The provider removal verifies unchanged generated files against the installed
+source and preserves modified or unverifiable files. Keep operator-owned `.grok`
 content and context files. If discovery fails, compare `grok inspect --json`
 with the AIWG deployment receipt, check the configured `GROK_HOME`, and restart
 the Grok Build session. The [qualification matrix](../../providers/grok-build-qualification.md)

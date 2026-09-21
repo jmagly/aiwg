@@ -1,8 +1,8 @@
 /**
  * Practical end-to-end coverage for `aiwg use --provider grok-build`.
  * Project deploy, $GROK_HOME user mirroring, registry record, and receipts.
- * Full remove + live `grok inspect` binary verification remain separate from
- * this deterministic absent-binary integration path.
+ * Reviewed project removal is covered here; live `grok inspect` verification
+ * remains separate from this deterministic absent-binary integration path.
  *
  * @issue #2575
  */
@@ -168,5 +168,38 @@ describe('aiwg use grok-build e2e (#2575)', () => {
         ]),
       })],
     });
+
+    const managedSkill = path.join(project, '.grok', 'skills', 'aiwg-help', 'SKILL.md');
+    const originalSkill = readFileSync(managedSkill, 'utf8');
+    writeFileSync(managedSkill, `${originalSkill}\nOperator modification.\n`);
+    const modifiedPreview = runUse(['remove', 'grok-build', '--provider', 'grok-build', '--dry-run'], useEnv, project);
+    expect(modifiedPreview.status).toBe(1);
+    expect(modifiedPreview.stdout + modifiedPreview.stderr).toContain('Preserved modified or unverifiable: .grok/skills/aiwg-help');
+    expect(readFileSync(managedSkill, 'utf8')).toContain('Operator modification.');
+    writeFileSync(managedSkill, originalSkill);
+
+    const addedFile = path.join(path.dirname(managedSkill), 'operator-note.txt');
+    writeFileSync(addedFile, 'Preserve this operator file.\n');
+    const addedFilePreview = runUse(['remove', 'grok-build', '--provider', 'grok-build', '--dry-run'], useEnv, project);
+    expect(addedFilePreview.status).toBe(1);
+    expect(existsSync(addedFile)).toBe(true);
+    rmSync(addedFile);
+
+    const preview = runUse(['remove', 'grok-build', '--provider', 'grok-build', '--dry-run'], useEnv, project);
+    expect(preview.status, preview.stderr).toBe(0);
+    expect(preview.stdout).toContain('Would remove');
+    expect(preview.stdout).not.toContain(operatorProjectSkill);
+    expect(preview.stdout).not.toContain('SECRET_CANARY_2580');
+    expect(existsSync(managedSkill)).toBe(true);
+
+    const removal = runUse(['remove', 'grok-build', '--provider', 'grok-build'], useEnv, project);
+    expect(removal.status, removal.stderr).toBe(0);
+    expect(existsSync(managedSkill)).toBe(false);
+    expect(readdirSync(projectAgents).filter(name => name.endsWith('.md'))).toHaveLength(0);
+    expect(readFileSync(operatorProjectSkill, 'utf8')).toBe('# Operator-owned project skill\n');
+    expect(readFileSync(operatorUserSkill, 'utf8')).toBe('# Operator-owned user skill\n');
+    expect(readFileSync(path.join(project, '.grok', 'config.toml'), 'utf8')).toBe(operatorConfig);
+    expect(existsSync(path.join(project, 'AGENTS.md'))).toBe(true);
+    expect(JSON.parse(readFileSync(path.join(project, '.aiwg', 'aiwg.config'), 'utf8')).installed?.sdlc).toBeUndefined();
   }, 180_000);
 });

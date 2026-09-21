@@ -32,9 +32,10 @@ aiwg use all --provider grok-build --scope user
 aiwg refresh
 ```
 
-For uninstall, run `aiwg remove <bundle> --provider grok-build --dry-run`
-for each deployed bundle, then repeat without `--dry-run` after reviewing the
-target list. Before/after each operation, snapshot operator-owned files and the intended
+For uninstall, run `aiwg remove grok-build --provider grok-build --dry-run`,
+then repeat without `--dry-run` after reviewing the provider-owned target list.
+The command preserves modified or unverifiable files and shared context hooks.
+Before/after each operation, snapshot operator-owned files and the intended
 deployment roots. Repeat deploy and regenerate and compare hashes for
 idempotence. Inject a controlled failure during refresh and verify backup or
 transactional rollback restores the preimage. Run uninstall first as a dry run,

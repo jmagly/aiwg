@@ -13,12 +13,14 @@
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
 import yaml from 'js-yaml';
 import {
   createAgentsMdFromTemplate,
   deploySkillsWithKernelRouting,
   collectFrameworkArtifacts,
   getAddonSkillDirs,
+  injectPlatformInContent,
   normalizeDeploymentMode,
   resolveAiwgRoot,
   deployFiles,
@@ -147,6 +149,130 @@ export function deployRules() {
   return 0;
 }
 
+function regularFiles(dir, prefix = '') {
+  const files = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) throw new Error('symlink in managed Grok Build artifact');
+    const relative = path.join(prefix, entry.name);
+    if (entry.isDirectory()) {
+      files.push(`${relative}${path.sep}`);
+      files.push(...regularFiles(path.join(dir, entry.name), relative));
+    }
+    else if (entry.isFile()) files.push(relative);
+    else throw new Error('special file in managed Grok Build artifact');
+  }
+  return files.sort();
+}
+
+function matchesSkillSource(source, target) {
+  try {
+    const expected = regularFiles(source);
+    const actual = regularFiles(target).filter(name => name !== '.aiwg-managed');
+    if (JSON.stringify(expected) !== JSON.stringify(actual)) return false;
+    return expected.every(relative => {
+      if (relative.endsWith(path.sep)) return true;
+      let content = fs.readFileSync(path.join(source, relative), 'utf8');
+      if (relative === 'SKILL.md') content = injectPlatformInContent(content, 'grok-build');
+      return content === fs.readFileSync(path.join(target, relative), 'utf8');
+    });
+  } catch { return false; }
+}
+
+/** Remove only unchanged AIWG Grok artifacts; shared context files stay intact. */
+export function uninstall(target, opts = {}) {
+  const root = path.resolve(target);
+  const native = path.join(root, '.grok');
+  if (!fs.existsSync(native)) return { planned: [], removed: [], skipped: [] };
+  if (fs.lstatSync(native).isSymbolicLink()) throw new Error('Refusing symlinked Grok Build root');
+  const internal = path.join(native, '.aiwg');
+  if (fs.existsSync(internal) && fs.lstatSync(internal).isSymbolicLink()) throw new Error('Refusing symlinked Grok Build AIWG mirror');
+  const sourceRoot = resolveAiwgRoot(opts.srcRoot) || opts.srcRoot;
+  if (!sourceRoot) throw new Error('AIWG source is required for safe Grok Build removal');
+  const sources = [
+    ...getAddonSkillDirs(sourceRoot),
+    ...collectFrameworkArtifacts(sourceRoot, 'all', {
+      includeAgents: false, includeCommands: false, includeSkills: true, includeRules: false,
+    }).skills,
+  ];
+  const byName = new Map();
+  for (const source of sources) {
+    const name = path.basename(source);
+    if (!byName.has(name)) byName.set(name, []);
+    byName.get(name).push(source);
+  }
+  const planned = [];
+  const skipped = [];
+  for (const skillRoot of [path.join(native, 'skills'), path.join(native, '.aiwg', 'skills')]) {
+    if (!fs.existsSync(skillRoot)) continue;
+    if (fs.lstatSync(skillRoot).isSymbolicLink()) throw new Error('Refusing symlinked Grok Build skill root');
+    for (const entry of fs.readdirSync(skillRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+      const skill = path.join(skillRoot, entry.name);
+      const marker = path.join(skill, '.aiwg-managed');
+      if (!fs.existsSync(marker)) continue;
+      const relative = path.relative(root, skill);
+      if (fs.lstatSync(marker).isSymbolicLink() || fs.readFileSync(marker, 'utf8') !== 'aiwg\n') {
+        skipped.push(relative); continue;
+      }
+      if ((byName.get(entry.name) ?? []).some(source => matchesSkillSource(source, skill))) {
+        planned.push(relative);
+      } else skipped.push(relative);
+    }
+  }
+  const agentsDir = path.join(native, 'agents');
+  const manifestPath = path.join(agentsDir, '.aiwg-manifest.json');
+  let manifest;
+  if (fs.existsSync(manifestPath)) {
+    if (fs.lstatSync(agentsDir).isSymbolicLink() || fs.lstatSync(manifestPath).isSymbolicLink()) {
+      throw new Error('Refusing symlinked Grok Build agent manifest');
+    }
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    for (const [name, record] of Object.entries(manifest.managed ?? {})) {
+      if (path.basename(name) !== name || !/^aiwg-model-(reasoning|coding|efficiency)-worker\.md$/.test(name)) continue;
+      const file = path.join(agentsDir, name);
+      const relative = path.relative(root, file);
+      if (!fs.existsSync(file) || fs.lstatSync(file).isSymbolicLink() || !fs.lstatSync(file).isFile()) {
+        skipped.push(relative); continue;
+      }
+      const digest = `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
+      if (record?.source === 'bundled' && record.hash === digest) planned.push(relative);
+      else skipped.push(relative);
+    }
+  }
+  const removed = [];
+  if (!opts.dryRun) {
+    for (const relative of planned) {
+      const file = path.join(root, relative);
+      if (relative.includes(`${path.sep}skills${path.sep}`)) {
+        const marker = path.join(file, '.aiwg-managed');
+        if (!fs.existsSync(marker) || fs.readFileSync(marker, 'utf8') !== 'aiwg\n'
+          || !(byName.get(path.basename(file)) ?? []).some(source => matchesSkillSource(source, file))) {
+          skipped.push(relative); continue;
+        }
+        fs.rmSync(file, { recursive: true });
+      } else {
+        const name = path.basename(file);
+        const record = manifest?.managed?.[name];
+        const digest = fs.existsSync(file) && !fs.lstatSync(file).isSymbolicLink()
+          ? `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}` : '';
+        if (!record || digest !== record.hash) { skipped.push(relative); continue; }
+        fs.unlinkSync(file);
+        delete manifest.managed[name];
+      }
+      removed.push(relative);
+    }
+    if (manifest && removed.some(relative => relative.startsWith(`.grok${path.sep}agents${path.sep}`))) {
+      if (Object.keys(manifest.managed).length === 0) fs.unlinkSync(manifestPath);
+      else {
+        const temporary = `${manifestPath}.${randomUUID()}.tmp`;
+        fs.writeFileSync(temporary, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
+        fs.renameSync(temporary, manifestPath);
+      }
+    }
+  }
+  return { planned, removed, skipped: [...new Set(skipped)] };
+}
+
 export async function postDeploy(target, opts = {}) {
   if (opts.createAgentsMd || (!opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly)) {
     createAgentsMd(target, opts.srcRoot, opts.dryRun);
@@ -211,4 +337,5 @@ export default {
   postDeploy,
   getFileExtension,
   deploy,
+  uninstall,
 };

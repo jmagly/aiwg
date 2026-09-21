@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, existsSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, existsSync, rmSync, writeFileSync, readFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, win32 } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -25,6 +25,7 @@ import {
   support as grokBuildSupport,
   compileGrokAgent,
   deployAgents,
+  uninstall,
 } from '../../../tools/agents/providers/grok-build.mjs';
 
 const roots: string[] = [];
@@ -147,6 +148,15 @@ describe('grok-build nested context contract', () => {
 });
 
 describe('grok-build writer dry-run', () => {
+  it('refuses a symlinked Grok root without touching its target', () => {
+    const project = temporaryRoot('aiwg-grok-uninstall-link-');
+    const outside = temporaryRoot('aiwg-grok-uninstall-outside-');
+    writeFileSync(join(outside, 'operator.txt'), 'keep\n');
+    symlinkSync(outside, join(project, '.grok'), 'dir');
+    expect(() => uninstall(project, { srcRoot: repoRoot, dryRun: false })).toThrow(/symlinked Grok Build root/);
+    expect(readFileSync(join(outside, 'operator.txt'), 'utf8')).toBe('keep\n');
+  });
+
   it('exposes native model-worker agents and keeps rules indexed', () => {
     const project = temporaryRoot('aiwg-grok-build-project-');
     const result = deploySkills([], project, { dryRun: true, quiet: true, srcRoot: repoRoot });
