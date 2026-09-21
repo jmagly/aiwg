@@ -48,9 +48,9 @@ describe('Grok Build ACP contract', () => {
     finally { acp.close(); }
   });
 
-  it('fails closed on the released 1.0.40 grok.com-only ACP advertisement', async () => {
-    const observation = JSON.parse(readFileSync(new URL('../../fixtures/providers/grok-build-acp-init-1.0.40.json', import.meta.url), 'utf8'));
-    expect(observation.authMethods).toEqual([{ id: 'grok.com' }]);
+  it.each(['1.0.38', '1.0.40'])('fails closed on the released %s grok.com-only ACP advertisement', async version => {
+    const observation = JSON.parse(readFileSync(new URL(`../../fixtures/providers/grok-build-acp-init-${version}.json`, import.meta.url), 'utf8'));
+    expect(observation).toMatchObject({ binaryVersion: version, protocolVersion: 1, authMethods: [{ id: 'grok.com' }] });
     const acp = client(responder.replace("{id:'xai.api_key'},{id:'cached_token'}", "{id:'grok.com'}"));
     try { await expect(acp.initialize()).rejects.toThrow(/grok\.com interactive authentication is not qualified/); }
     finally { acp.close(); }
