@@ -234,11 +234,10 @@ export const USER_SCOPE_PATHS: Record<string, { agents: string; skills: string; 
     };
   },
   get 'grok-build'() {
-    // Skills mirror to $GROK_HOME/skills. Agents/rules writers deferred #2577 —
-    // leave those user paths empty so mirroring does not invent empty trees.
+    // Grok Build discovers user agents and skills under the resolved home.
     const home = resolveGrokHome();
     return {
-      agents: '',
+      agents: home ? path.join(home, 'agents') : '',
       skills: home ? path.join(home, 'skills') : '',
       commands: '',
       rules: '',
@@ -407,7 +406,8 @@ export async function mirrorToUserScope(
  * Merge standard and kernel skill directories into one user-discoverable
  * target. Provider deployments intentionally keep those source surfaces
  * separate, while user scope exposes one native skill root. Duplicate skill
- * names are overwritten by the later source and counted once.
+ * names created by the earlier source are overwritten by the later source
+ * and counted once; pre-existing operator-owned names are preserved.
  */
 export async function mirrorSkillDirsToUserScope(
   sourceDirs: ReadonlyArray<string>,
@@ -415,7 +415,7 @@ export async function mirrorSkillDirsToUserScope(
 ): Promise<ArtifactMirrorResult> {
   const entries = new Set<string>();
   for (const sourceDir of sourceDirs) {
-    const result = await mirrorArtifactDir(sourceDir, targetDir);
+    const result = await mirrorArtifactDir(sourceDir, targetDir, entries);
     for (const entry of result.entries) entries.add(entry);
   }
   return {
@@ -437,7 +437,7 @@ export async function mirrorSkillDirsToUserScope(
  * providers). Failures on individual entries are swallowed so a single bad
  * entry doesn't fail the whole mirror.
  */
-async function mirrorArtifactDir(src: string, dst: string): Promise<ArtifactMirrorResult> {
+async function mirrorArtifactDir(src: string, dst: string, ownedThisCall: ReadonlySet<string> = new Set()): Promise<ArtifactMirrorResult> {
   if (!src || !dst) return { count: 0, targetDir: dst, entries: [] };
   const fs = await import('node:fs/promises');
 
@@ -452,9 +452,12 @@ async function mirrorArtifactDir(src: string, dst: string): Promise<ArtifactMirr
   // path. Inventory that source for registry accounting instead of trying to
   // recursively copy each entry onto itself.
   if (path.resolve(src) === path.resolve(dst)) {
-    const entries = dirents
-      .filter((entry) => entry.isDirectory() || entry.isFile())
-      .map((entry) => entry.name);
+    const entries: string[] = [];
+    for (const entry of dirents) {
+      if ((entry.isDirectory() || entry.isFile()) && await isAiwgManagedEntry(path.join(dst, entry.name), entry.isDirectory())) {
+        entries.push(entry.name);
+      }
+    }
     return { count: entries.length, targetDir: dst, entries };
   }
 
@@ -465,6 +468,15 @@ async function mirrorArtifactDir(src: string, dst: string): Promise<ArtifactMirr
     const s = path.join(src, entry.name);
     const d = path.join(dst, entry.name);
     try {
+      // User-scope directories are shared with operator-created artifacts.
+      // A same-named unmanaged entry belongs to the operator, even when a
+      // project has an AIWG-managed source with that name.
+      try {
+        const existing = await fs.lstat(d);
+        if (!ownedThisCall.has(entry.name) && !await isAiwgManagedEntry(d, existing.isDirectory())) continue;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') continue;
+      }
       if (entry.isDirectory()) {
         await fs.cp(s, d, { recursive: true, force: true });
       } else if (entry.isFile()) {
@@ -479,6 +491,23 @@ async function mirrorArtifactDir(src: string, dst: string): Promise<ArtifactMirr
     }
   }
   return { count, targetDir: dst, entries };
+}
+
+async function isAiwgManagedEntry(target: string, directory: boolean): Promise<boolean> {
+  const fs = await import('node:fs/promises');
+  if (directory) {
+    try {
+      const marker = await fs.readFile(path.join(target, '.aiwg-managed'), 'utf8');
+      if (marker.trim() === 'aiwg') return true;
+    } catch { /* legacy deployed skill may use an inline marker */ }
+  }
+  const markerFile = directory ? path.join(target, 'SKILL.md') : target;
+  try {
+    const text = await fs.readFile(markerFile, 'utf8');
+    return /(?:#|<!--) aiwg:managed v[^\s]+ [^\r\n]+/.test(text.slice(0, 2048));
+  } catch {
+    return false;
+  }
 }
 
 /**

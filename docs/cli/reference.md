@@ -260,7 +260,7 @@ aiwg doctor [--provider <name>] [--all-providers] [--project-local] [--quiet]
 
 **Flags:**
 
-- `--provider <name>` — Inspect a specific provider's deployment paths (claude, codex, copilot, cursor, factory, grokbot, hermes, opencode, openclaw, openhuman, omp, pi, warp, or devin). Defaults to auto-detect across deployed providers.
+- `--provider <name>` — Inspect a specific provider's deployment paths (claude, codex, copilot, cursor, factory, grokbot, grok-build, hermes, opencode, openclaw, openhuman, omp, pi, warp, or devin). Defaults to auto-detect across deployed providers.
 - `--all-providers` — Enumerate every supported provider, including ones with nothing deployed.
 - `--project-local` — Show only the project-local artifacts section. Exit code reflects only project-local findings.
 - `--quiet` — Suppress informational subsections (counts, shadows). Show only failures.
@@ -560,7 +560,7 @@ aiwg use <framework|addon>
 
 **Options:**
 
-- `--provider <name>` - Target platform (claude, copilot, factory, cursor, devin, warp, codex, opencode, grokbot, hermes, openclaw, openhuman, pi, local)
+- `--provider <name>` - Target platform (claude, copilot, factory, cursor, devin, warp, codex, opencode, grokbot, grok-build, hermes, openclaw, openhuman, pi, local)
 - `--scope user` / `--user` - Additively deploy to the project and mirror the
   artifacts into the provider's user-level discovery paths.
 - `--global` - Install framework and kernel assets into provider user-level
@@ -755,7 +755,9 @@ reload are shown with `--verbose`.
 | Warp Terminal  | `warp`          | `.warp/agents/`, `.warp/commands/`, `.warp/skills/`, `.warp/rules/`, `WARP.md` (aggregated)                           | —         |
 | OpenAI/Codex   | `codex`         | `.codex/agents/`, `~/.codex/prompts/`, `.agents/skills/`, `.codex/rules/`                                             | —         |
 | OpenCode       | `opencode`      | `.opencode/agent/`, `.opencode/commands/`, `.opencode/skill/`, `.opencode/rule/`                                      | —         |
-| Hermes         | `grokbot`, `hermes`        | `~/.hermes/skills/`, `AGENTS.md` (lean)                                                                               | —         |
+| Grok Bot       | `grokbot`      | `AGENTS.md` bridge; optional configured user skills root                                                       | —         |
+| Grok Build (experimental) | `grok-build` | `WORKSPACE.md` via `AGENTS.md`, `.grok/agents/`, `.grok/skills/`, `$GROK_HOME/skills/`; [qualification](../providers/grok-build-qualification.md) | Trust-gated MCP/hooks |
+| Hermes         | `hermes`       | `~/.hermes/skills/`, `AGENTS.md` (lean)                                                                        | —         |
 | OpenClaw       | `openclaw`      | `~/.openclaw/agents/`, `~/.openclaw/commands/`, `~/.openclaw/skills/`, `~/.openclaw/rules/`, `~/.openclaw/behaviors/` | ✓         |
 | OpenHuman      | `openhuman`     | `~/.openhuman/skills/`, `~/.openhuman/.aiwg/rules/`, optional `~/.openhuman/agents/aiwg_*.toml`, project `AGENTS.md`  | —         |
 | Local/Ollama   | `local`         | Same as `claude` (local model, Claude Code paths)                                                                     | —         |

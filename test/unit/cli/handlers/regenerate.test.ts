@@ -95,6 +95,49 @@ describe('regenerateHandler', () => {
     expect(adapter).not.toContain('## Context Finalization');
   });
 
+  it('keeps Grok Build and Claude bridges attached to canonical WORKSPACE.md across refreshes', async () => {
+    const { regenerateHandler } = await import('../../../../src/cli/handlers/regenerate.js');
+    writeConfig(tmpDir, ['grok-build', 'claude']);
+    writeFileSync(join(tmpDir, 'WORKSPACE.md'), '# Operator workspace\n\nKeep project guidance.\n');
+    writeFileSync(join(tmpDir, 'AGENTS.md'), '# Operator agent notes\n\nKeep agent guidance.\n');
+    writeFileSync(join(tmpDir, 'CLAUDE.md'), '# Operator Claude notes\n\nKeep Claude guidance.\n');
+
+    for (const provider of ['grok-build', 'claude', 'grok-build', 'claude']) {
+      const result = await regenerateHandler.execute(makeCtx(tmpDir, ['--workspace', '--provider', provider]));
+      expect(result.exitCode).toBe(0);
+    }
+
+    const workspace = readFileSync(join(tmpDir, 'WORKSPACE.md'), 'utf8');
+    const agents = readFileSync(join(tmpDir, 'AGENTS.md'), 'utf8');
+    const claude = readFileSync(join(tmpDir, 'CLAUDE.md'), 'utf8');
+    expect(workspace).toContain('Keep project guidance.');
+    expect(agents).toContain('Keep agent guidance.');
+    expect(claude).toContain('Keep Claude guidance.');
+    expect(agents.indexOf('WORKSPACE.md')).toBeLessThan(agents.indexOf('AIWG.md'));
+    expect(claude.indexOf('@WORKSPACE.md')).toBeLessThan(claude.indexOf('@AIWG.md'));
+    expect(agents.match(/AIWG:provider-bootstrap:start/g)).toHaveLength(1);
+    expect(claude.match(/AIWG:provider-bootstrap:start/g)).toHaveLength(1);
+  });
+
+  it('rolls back Grok Build existing-project adoption to exact operator preimages', async () => {
+    const { migrateWorkspaceContext, rollbackWorkspaceContext } = await import('../../../../src/smiths/context-pipeline/workspace-context.js');
+    writeConfig(tmpDir, ['grok-build']);
+    writeFileSync(join(tmpDir, 'package.json'), JSON.stringify({ name: 'grok-existing-project' }));
+    writeFileSync(join(tmpDir, 'README.md'), '# Existing Grok project\n');
+    const beforeAgents = '# Operator agents\n\nKeep project-specific instructions.\n';
+    const beforeClaude = '# Operator Claude compatibility\n';
+    writeFileSync(join(tmpDir, 'AGENTS.md'), beforeAgents);
+    writeFileSync(join(tmpDir, 'CLAUDE.md'), beforeClaude);
+
+    const applied = await migrateWorkspaceContext(tmpDir, { apply: true });
+    expect(applied.transactionId).toBeTruthy();
+    expect(readFileSync(join(tmpDir, 'AGENTS.md'), 'utf8')).toContain('WORKSPACE.md');
+    await rollbackWorkspaceContext(tmpDir, applied.transactionId);
+    expect(readFileSync(join(tmpDir, 'AGENTS.md'), 'utf8')).toBe(beforeAgents);
+    expect(readFileSync(join(tmpDir, 'CLAUDE.md'), 'utf8')).toBe(beforeClaude);
+    expect(existsSync(join(tmpDir, 'WORKSPACE.md'))).toBe(false);
+  });
+
   it('exposes validated external links in provider-facing context without fetching them', async () => {
     const { regenerateHandler } = await import('../../../../src/cli/handlers/regenerate.js');
     writeConfig(tmpDir, ['codex'], {

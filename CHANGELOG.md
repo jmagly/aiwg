@@ -7,6 +7,12 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Added
+
+- Four-platform Grok Build qualification contract, live smoke receipt, upstream
+  drift check, and stable-promotion gate. The adapter remains experimental
+  until released-binary evidence is complete; Grok Build remains distinct
+  from Grok Bot and Grok web Build.
 ## [2026.9.20] - 2026-09-21 - "Stable channels and exact-source evidence"
 
 ### Changed

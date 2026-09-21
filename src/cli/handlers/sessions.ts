@@ -30,6 +30,10 @@ import {
   GROK_BUILD_ADAPTER_VERSION,
   GROK_BUILD_CLI_EXPORT_LOCATOR_CLASS,
   GrokBuildSessionAdapter,
+  grokBuildList,
+  grokBuildSearch,
+  grokBuildExport,
+  grokHeadlessSessionIdFromFile,
   PI_ADAPTER_VERSION,
   PiSessionAdapter,
   DEEPSEEK_HARNESS_ADAPTER_VERSION,
@@ -138,6 +142,10 @@ Commands:
   sources                         Show all canonical provider dispositions
   discover --workspace <path>     Inventory authorized workspace histories
   import-discovered --workspace <path>  Import the exact saved manifest
+  grok-list --workspace <path>    List Grok Build CLI session IDs for a workspace
+  grok-search <query> --workspace <path>  Search Grok Build CLI session IDs
+  grok-export <id> --workspace <path> --out <dir>  Export one CLI transcript
+  grok-id <file> --format json|streaming-json  Read a headless session ID
   import <file> --source-id <id>  Import a supported provider JSONL source
   list [--limit N] [--cursor N]   List normalized sessions
   timeline [--gap 30m]            Report chronological activity segments
@@ -267,6 +275,28 @@ async function executeCommand(
   if (command === 'import') return importSource(ctx, args);
   if (command === 'discover') return discoverWorkspace(ctx, args);
   if (command === 'import-discovered') return importDiscovered(ctx, args);
+  if (command === 'grok-list' || command === 'grok-search' || command === 'grok-export') {
+    const workspace = resolve(ctx.cwd, requiredValue(args, '--workspace'));
+    const options = { cwd: workspace, binary: args.values.get('--grok-bin') };
+    if (command === 'grok-list') {
+      return ok(command, { sessionIds: await grokBuildList(options, boundedInteger(args.values.get('--limit'), 20, 1, 500, '--limit')) });
+    }
+    if (command === 'grok-search') {
+      return ok(command, { sessionIds: await grokBuildSearch(options, requiredPositional(args, 0, 'query'), boundedInteger(args.values.get('--limit'), 20, 1, 500, '--limit')) });
+    }
+    if (isDryRun(ctx, args)) {
+      return preview(command, { sessionId: requiredPositional(args, 0, 'session ID'), wouldExport: true });
+    }
+    const output = await grokBuildExport(options, requiredPositional(args, 0, 'session ID'), resolve(ctx.cwd, requiredValue(args, '--out')));
+    return ok(command, { source: output, provider: 'grok-build', sourceId: `grok-build-${basename(output, '.md')}` });
+  }
+  if (command === 'grok-id') {
+    const format = args.values.get('--format');
+    if (format !== 'json' && format !== 'streaming-json') {
+      throw new SessionContractError('INVALID_ARGUMENT', '--format must be json or streaming-json');
+    }
+    return ok(command, { sessionId: await grokHeadlessSessionIdFromFile(resolve(ctx.cwd, requiredPositional(args, 0, 'file')), format) });
+  }
 
   const repository = openRepository(ctx, args);
   try {
@@ -1754,7 +1784,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     '--inactivity-threshold',
     '--control-events',
     '--session', '--status', '--actor', '--group-by',
-    '--out', '--plan', '--input', '--shard-name', '--max-attachment-bytes',
+    '--out', '--plan', '--input', '--shard-name', '--max-attachment-bytes', '--format', '--grok-bin',
   ]);
   let command: string | undefined;
   for (let index = 0; index < argv.length; index += 1) {

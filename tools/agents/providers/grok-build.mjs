@@ -3,15 +3,17 @@
  * Project skills under `.grok/skills`; user home via $GROK_HOME (default ~/.grok).
  * Distinct from grokbot. No bare `grok` alias.
  *
- * Wave 1: native kernel skills + AGENTS.md bridge. Agents and rules are
- * indexed/deferred until #2577 (Grok discovers `.grok/agents` and
- * `.grok/rules`, but AIWG does not yet emit qualified writers for them).
+ * Native agent compilation is deliberately limited to the three AIWG model
+ * workers until the wider corpus has a qualified Grok tool mapping (#2577).
+ * Rules remain indexed; Grok loads AGENTS.md and native .grok/rules itself.
  *
  * @issue #2575
  */
 
 import path from 'node:path';
 import os from 'node:os';
+import fs from 'node:fs';
+import yaml from 'js-yaml';
 import {
   createAgentsMdFromTemplate,
   deploySkillsWithKernelRouting,
@@ -19,13 +21,14 @@ import {
   getAddonSkillDirs,
   normalizeDeploymentMode,
   resolveAiwgRoot,
+  deployFiles,
+  ensureDir,
 } from './base.mjs';
 
 export const name = 'grok-build';
 export const aliases = [];
 export const paths = {
-  // Agents/rules dirs exist in Grok Build, but Wave 1 does not write them.
-  agents: '',
+  agents: '.grok/agents',
   skills: '.grok/skills',
   rules: '',
   hooks: '.grok/hooks',
@@ -36,7 +39,7 @@ export const kernelSkillsPath = '.grok/skills';
 export const standardSkillsPath = '.grok/.aiwg/skills';
 
 export const support = {
-  agents: 'indexed', // deferred native writer until #2577
+  agents: 'native',
   commands: 'indexed', // discoverable through the AIWG index; no native command writer
   skills: 'native',
   rules: 'indexed', // deferred native writer until #2577; host still loads AGENTS.md + .grok/rules hierarchically
@@ -87,8 +90,57 @@ export function deploySkills(skillDirs, targetDir, opts = {}) {
   });
 }
 
-export function deployAgents() {
-  return 0;
+const WORKER_ROLES = new Set(['reasoning', 'coding', 'efficiency']);
+const ROLE_FROM_ALIAS = { opus: 'reasoning', sonnet: 'coding', haiku: 'efficiency' };
+const GROK_TOOLS = new Set(['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob']);
+
+/** Grok agent files accept a small YAML frontmatter subset, not AIWG metadata. */
+export function compileGrokAgent(source, content, opts = {}) {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  if (!match) throw new Error(`${source}: expected YAML agent frontmatter`);
+  const metadata = yaml.load(match[1]);
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    throw new Error(`${source}: invalid agent frontmatter`);
+  }
+  const name = metadata.name;
+  const role = metadata['model-role'] || ROLE_FROM_ALIAS[metadata.model];
+  if (!/^aiwg-model-(reasoning|coding|efficiency)-worker$/.test(String(name)) || !WORKER_ROLES.has(role)) {
+    throw new Error(`${source}: Grok Build native compilation currently supports only the three AIWG model-worker roles; use aiwg show agent for other roles`);
+  }
+  if (typeof metadata.description !== 'string' || !metadata.description.trim()) {
+    throw new Error(`${source}: agent description is required`);
+  }
+  const tools = metadata.tools;
+  if (!Array.isArray(tools) || tools.some(tool => !GROK_TOOLS.has(tool))) {
+    throw new Error(`${source}: unsupported Grok Build tool mapping; supported tools: ${[...GROK_TOOLS].join(', ')}`);
+  }
+  const sourceModel = String(metadata.model || '').trim();
+  if (sourceModel && !ROLE_FROM_ALIAS[sourceModel] && sourceModel !== 'inherit') {
+    throw new Error(`${source}: exact model pin '${sourceModel}' is not a qualified Grok Build selector; configure --${role}-model with a discovered Grok model`);
+  }
+  const configuredModel = opts[`${role}Model`] || opts.modelsConfig?.['grok-build']?.[role]?.model;
+  if (configuredModel && (typeof configuredModel !== 'string' || /^(configured\/|inherit$)/.test(configuredModel))) {
+    throw new Error(`${source}: unresolved Grok Build ${role} model; configure --${role}-model with a discovered selector`);
+  }
+  const header = [
+    '---',
+    `name: ${name}`,
+    `description: ${JSON.stringify(metadata.description)}`,
+    `tools: ${tools.join(', ')}`,
+    ...(configuredModel ? [`model: ${JSON.stringify(configuredModel)}`] : []),
+    '---',
+  ];
+  const intent = configuredModel
+    ? `AIWG model role: ${role}; exact Grok Build selector: ${configuredModel}.`
+    : `AIWG model role: ${role}; no exact Grok Build model is configured. This agent inherits the parent model. Configure --${role}-model after native model discovery to pin this role.`;
+  return `${header.join('\n')}\n\n${intent}\n\n${match[2].trim()}\n`;
+}
+
+export function deployAgents(agentFiles, targetDir, opts = {}) {
+  const selected = agentFiles.filter(file => /^aiwg-model-(reasoning|coding|efficiency)-worker\.md$/.test(path.basename(file)));
+  const dir = path.join(targetDir, paths.agents);
+  ensureDir(dir, opts.dryRun);
+  return deployFiles(selected, dir, { ...opts, provider: 'grok-build' }, compileGrokAgent);
 }
 
 export function deployRules() {
@@ -104,7 +156,7 @@ export async function postDeploy(target, opts = {}) {
     console.log(
       `Grok Build (experimental): kernel skills → ${kernelSkillsPath}; ` +
         `standard skills index-driven (opt-in mirror → ${standardSkillsPath} with --copy-all); ` +
-        `agents/rules indexed until #2577; user home → ${home || '(unresolved GROK_HOME)'}. ` +
+        `model-worker agents → ${paths.agents}; rules indexed; user home → ${home || '(unresolved GROK_HOME)'}. ` +
         'Distinct from grokbot.',
     );
   }
@@ -116,6 +168,7 @@ export function getFileExtension() {
 
 export async function deploy(opts) {
   const mode = normalizeDeploymentMode(opts.mode);
+  const aiwgRoot = resolveAiwgRoot(opts.srcRoot) || opts.srcRoot;
   const skillDirs = [...getAddonSkillDirs(opts.srcRoot)];
   skillDirs.push(
     ...collectFrameworkArtifacts(opts.srcRoot, mode, {
@@ -126,6 +179,13 @@ export async function deploy(opts) {
     }).skills,
   );
   let count = 0;
+  if (!opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly) {
+    const workerDir = path.join(aiwgRoot, 'agentic', 'code', 'addons', 'aiwg-utils', 'agents');
+    const workers = ['reasoning', 'coding', 'efficiency']
+      .map(role => path.join(workerDir, `aiwg-model-${role}-worker.md`))
+      .filter(file => fs.existsSync(file));
+    count += deployAgents(workers, opts.target, opts).filter(action => action.type === 'deploy').length;
+  }
   if (!opts.commandsOnly && !opts.rulesOnly) {
     const result = deploySkills(skillDirs, opts.target, opts);
     count += (result?.kernel ?? 0) + (result?.standardCopied ?? 0);
@@ -146,6 +206,7 @@ export default {
   createAgentsMd,
   deploySkills,
   deployAgents,
+  compileGrokAgent,
   deployRules,
   postDeploy,
   getFileExtension,

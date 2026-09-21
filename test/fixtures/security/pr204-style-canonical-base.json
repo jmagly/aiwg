@@ -1,0 +1,11 @@
+{
+  "source": "trusted-base",
+  "revision": "d6af36f8d3cd29ff94ce0902086672d09fe0f2f4",
+  "relationship": {
+    "verified": true,
+    "head": "85b86b5199313828f0a80fd5e3f7eadc3473a4bc",
+    "base": "d6af36f8d3cd29ff94ce0902086672d09fe0f2f4",
+    "status": "unexplained",
+    "evidence": ["The canonical base has no card-market tree or integration plan."]
+  }
+}

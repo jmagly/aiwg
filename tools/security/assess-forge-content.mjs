@@ -2,6 +2,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { assessThreat, formatThreatAssessment } from './threat-assessment.mjs';
+import { inventoryWorkflowExecution } from './workflow-execution-inventory.mjs';
+
+const ACTION_RANK = { proceed: 0, record: 1, flag: 2, 'separate-authorization-required': 3,
+  'require-authorization': 4, reject: 5 };
 
 function parseArgs(argv) {
   const options = { input: '', config: '', format: 'json' };
@@ -32,8 +36,17 @@ try {
   const configPath = options.config || (fs.existsSync(defaultConfigPath) ? defaultConfigPath : '');
   const projectConfig = configPath ? readJson(configPath) : undefined;
   const report = assessThreat(input, projectConfig?.security?.threatAssessment);
-  if (options.format === 'markdown') console.log(formatThreatAssessment(report));
-  else if (options.format === 'json') console.log(JSON.stringify(report, null, 2));
+  const inventory = input.executionSnapshot === undefined ? null : inventoryWorkflowExecution(input.executionSnapshot,
+    { executionBoundary: input.executionBoundary ?? 'read', reviewedScriptHashes: input.reviewedScriptHashes,
+      policy: projectConfig?.security?.threatAssessment });
+  if (options.format === 'markdown') {
+    console.log(formatThreatAssessment(report));
+    if (inventory) console.log(`\n## Workflow execution inventory\n\n\`\`\`json\n${JSON.stringify(inventory, null, 2)}\n\`\`\``);
+  } else if (options.format === 'json') console.log(JSON.stringify(inventory
+    ? { threatAssessment: report, executionInventory: inventory,
+      executionGate: ACTION_RANK[inventory.decision.action] > ACTION_RANK[report.decision.action]
+        ? inventory.decision.action : report.decision.action }
+    : report, null, 2));
   else throw new Error(`Unknown format '${options.format}'`);
 } catch (error) {
   console.error(`threat-assessment: ${error.message}`);

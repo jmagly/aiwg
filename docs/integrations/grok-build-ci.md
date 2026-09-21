@@ -30,7 +30,9 @@ aiwg build-verify --provider grok-build
 The deploy creates the project instruction bridge and kernel skills in
 `.grok/skills`. Standard skills remain accessible through `aiwg discover` and
 `aiwg show`; the AIWG installation must remain available throughout the job.
-The current experimental provider keeps native agent/rule writers deferred.
+The experimental provider deploys qualified native model-worker agent files;
+rules remain deferred. Live agent execution remains behind the
+[stable-promotion evidence gate](../providers/grok-build-qualification.md).
 
 The provider-neutral [build-verify](build-verify.md) command uses the common
 deployment checks. With `--provider grok-build` it also requires the CLI and

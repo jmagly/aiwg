@@ -28,6 +28,7 @@ or command interface so it can connect AIWG to the current project.
 | `aiwg.agent-reference.provider.cursor` | Cursor | [Operational reference](cursor.md) |
 | `aiwg.agent-reference.provider.factory` | Factory | [Operational reference](factory.md) |
 | `aiwg.agent-reference.provider.grokbot` | Grok Bot | [Operational reference](grokbot.md) |
+| `aiwg.agent-reference.provider.grok-build` | Grok Build | [Operational reference](grok-build.md) |
 | `aiwg.agent-reference.provider.hermes` | Hermes | [Operational reference](hermes.md) |
 | `aiwg.agent-reference.provider.openclaw` | OpenClaw | [Operational reference](openclaw.md) |
 | `aiwg.agent-reference.provider.opencode` | OpenCode | [Operational reference](opencode.md) |

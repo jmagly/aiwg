@@ -211,6 +211,13 @@ describe('mirrorToUserScope (#1156)', () => {
     await fs.writeFile(path.join(projectSkillsDir, 'skill-bar', 'SKILL.md'), '# bar', 'utf-8');
     await fs.writeFile(path.join(projectCommandsDir, 'cmd-baz.md'), '# baz', 'utf-8');
 
+    const originalUserPaths = { ...USER_SCOPE_PATHS.claude };
+    Object.assign(USER_SCOPE_PATHS.claude, {
+      agents: path.join(tmpRoot, 'user', 'agents'),
+      skills: path.join(tmpRoot, 'user', 'skills'),
+      commands: path.join(tmpRoot, 'user', 'commands'),
+      rules: path.join(tmpRoot, 'user', 'rules'),
+    });
     const r = await mirrorToUserScope('claude', {
       agents: projectAgentsDir,
       skills: projectSkillsDir,
@@ -218,6 +225,7 @@ describe('mirrorToUserScope (#1156)', () => {
       rules: projectRulesDir,
       behaviors: '',
     });
+    Object.assign(USER_SCOPE_PATHS.claude, originalUserPaths);
 
     expect(r.skills.entries.sort()).toEqual(['skill-bar', 'skill-foo']);
     expect(r.skills.count).toBe(2);
@@ -278,6 +286,7 @@ describe('mirrorSkillDirsToUserScope', () => {
   it('inventories providers whose kernel source is already the user target', async () => {
     const target = path.join(tmpRoot, 'home', '.hermes', 'skills');
     await fs.mkdir(path.join(target, 'aiwg-status'), { recursive: true });
+    await fs.writeFile(path.join(target, 'aiwg-status', 'SKILL.md'), '---\n# aiwg:managed v1 bundled\n---\n', 'utf8');
 
     const result = await mirrorSkillDirsToUserScope([target], target);
 
@@ -431,4 +440,3 @@ describe('grokbot USER_SCOPE_PATHS fail-closed (#205/#207)', () => {
     expect(fresh.USER_SCOPE_PATHS.grokbot.skills).toBe('/tmp/grokbot-user-scope');
   });
 });
-

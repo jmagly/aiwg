@@ -58,6 +58,14 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     const home = isolated('aiwg-grok-use-home-');
     const project = isolated('aiwg-grok-use-project-');
     const grokHome = path.join(home, 'custom-grok-home');
+    const operatorProjectSkill = path.join(project, '.grok', 'skills', 'operator', 'SKILL.md');
+    const operatorUserSkill = path.join(grokHome, 'skills', 'operator', 'SKILL.md');
+    mkdirSync(path.dirname(operatorProjectSkill), { recursive: true });
+    mkdirSync(path.dirname(operatorUserSkill), { recursive: true });
+    writeFileSync(operatorProjectSkill, '# Operator-owned project skill\n');
+    writeFileSync(operatorUserSkill, '# Operator-owned user skill\n');
+    const operatorConfig = '[mcp_servers.operator]\ncommand = "operator-tool"\n# SECRET_CANARY_2580\n';
+    writeFileSync(path.join(project, '.grok', 'config.toml'), operatorConfig);
     mkdirSync(path.join(home, '.aiwg'), { recursive: true });
     writeFileSync(path.join(home, '.aiwg', 'channel.json'), JSON.stringify({
       channel: 'edge',
@@ -66,7 +74,7 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     }));
     const userRegistry = path.join(home, '.aiwg', 'installed.json');
 
-    const use = runUse([
+    const useArgs = [
       'use', 'sdlc',
       '--provider', 'grok-build',
       '--target', project,
@@ -74,7 +82,8 @@ describe('aiwg use grok-build e2e (#2575)', () => {
       '--no-project-local',
       '--no-utils',
       '--json',
-    ], {
+    ];
+    const useEnv = {
       HOME: home,
       USERPROFILE: home,
       XDG_CACHE_HOME: path.join(home, '.cache'),
@@ -85,9 +94,18 @@ describe('aiwg use grok-build e2e (#2575)', () => {
       GROK_HOME: grokHome,
       // Keep the runner's Node executable available without normal Grok install roots.
       PATH: path.dirname(process.execPath),
-    }, project);
+    };
+    const use = runUse(useArgs, useEnv, project);
 
     expect(use.status, use.stderr || use.stdout).toBe(0);
+    expect(readFileSync(operatorProjectSkill, 'utf8')).toBe('# Operator-owned project skill\n');
+    expect(readFileSync(operatorUserSkill, 'utf8')).toBe('# Operator-owned user skill\n');
+    expect(readFileSync(path.join(project, '.grok', 'config.toml'), 'utf8')).toBe(operatorConfig);
+    expect(use.stdout + use.stderr).not.toContain('SECRET_CANARY_2580');
+    const repeated = runUse(useArgs, useEnv, project);
+    expect(repeated.status, repeated.stderr || repeated.stdout).toBe(0);
+    expect(readFileSync(operatorProjectSkill, 'utf8')).toBe('# Operator-owned project skill\n');
+    expect(readFileSync(operatorUserSkill, 'utf8')).toBe('# Operator-owned user skill\n');
     expect(use.json).toMatchObject({
       schema: 'aiwg.use.result.v1',
     });
@@ -101,8 +119,11 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     expect(projectSkills.length).toBeLessThan(80);
     // No full-corpus dump into the standard mirror without --copy-all.
     expect(existsSync(path.join(project, '.grok', '.aiwg', 'skills'))).toBe(false);
-    // Agents/rules writers deferred — should not invent agent trees.
-    expect(existsSync(path.join(project, '.grok', 'agents'))).toBe(false);
+    // Qualified native agent writer deploys the model-worker wrappers (#2577).
+    const projectAgents = path.join(project, '.grok', 'agents');
+    expect(existsSync(projectAgents)).toBe(true);
+    expect(readdirSync(projectAgents).filter(name => name.endsWith('.md')).length).toBeGreaterThan(0);
+    expect(existsSync(path.join(project, '.grok', 'rules'))).toBe(false);
 
     // User-scope mirror via $GROK_HOME/skills
     expect(existsSync(path.join(grokHome, 'skills'))).toBe(true);
@@ -137,6 +158,7 @@ describe('aiwg use grok-build e2e (#2575)', () => {
       scope: 'user',
       disposition: 'local-source',
     });
+    expect(readFileSync(evidencePath, 'utf8')).not.toContain('SECRET_CANARY_2580');
 
     expect(use.json).toMatchObject({
       providers: [expect.objectContaining({

@@ -159,6 +159,39 @@ project's config:
 node tools/security/assess-forge-content.mjs --input assessment.json
 ```
 
+For a proposed workflow execution, add `executionSnapshot` (an exact-head
+`contents` array of `{path, content, sha256}`) and set `executionBoundary` to
+`execute` in the trusted CLI input. The CLI returns both `threatAssessment`
+and `executionInventory`, plus an `executionGate`. A passing lexical check
+never approves execution. For read-only review, use `executionBoundary: "read"`;
+ordinary commands can be quoted and inspected without running them.
+At `execute`, structural severity is evaluated against the repository's
+resolved threat-assessment profile, and the gate still requires separate
+execution authorization even when every finding is low risk.
+
+```bash
+node tools/security/assess-forge-content.mjs --input assessment-with-snapshot.json
+```
+
+The structural inventory traverses workflow jobs and reusable workflows,
+local actions, package scripts and lifecycle hooks, Docker build contexts and
+base images, and browser downloads. Every command/script/action finding has a
+source path and SHA-256 hash; edges connect commands to the files they reach.
+Action commit pins and image digests are lower-risk evidence, while tags such
+as `@v4` and `postgres:17-alpine` remain mutable. A frozen lockfile is reported
+as resolution evidence and does not attest dependency lifecycle code.
+Unresolved targets, cycles, malformed input, and size/depth limits make the
+graph explicitly incomplete. Only trusted caller-supplied exact SHA-256 values
+in `reviewedScriptHashes` can mark offline scripts as reviewed; text inside the
+snapshot cannot grant itself that status. The inventory is read-only and does
+not fetch, install, build, or execute any snapshot content.
+
+The standalone form accepts the same snapshot and an explicit boundary:
+
+```bash
+node tools/security/inventory-workflow-execution.mjs --input snapshot.json --execution-boundary execute
+```
+
 Input:
 
 ```json

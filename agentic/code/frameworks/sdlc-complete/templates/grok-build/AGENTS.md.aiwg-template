@@ -15,13 +15,14 @@ hierarchically from the repo root to the working directory; deeper files win on
 conflicts. Prefer explicit `aiwg discover` / `aiwg show` for the full framework
 corpus beyond the deployed kernel skills.
 
-## Native paths (Wave 1)
+## Native paths
 
 - Project kernel skills: `.grok/skills/` (standard skills stay index-driven unless `--copy-all`)
-- Startup / context: `AGENTS.md` and host-discovered `.grok/rules/*.md` (AIWG rule writer deferred until #2577)
+- Startup / context: `AGENTS.md` and host-discovered `.grok/rules/*.md` (AIWG rule writer remains indexed)
 - Config only (not startup context): `.grok/config.toml`
 - User home: `$GROK_HOME` (default `~/.grok`) — skills under `$GROK_HOME/skills/`
 
-Agents under `.grok/agents/` are host-native but AIWG does not emit agent files yet (#2577).
+AIWG emits the qualified reasoning, coding, and efficiency model-worker agents under `.grok/agents/`.
+Other AIWG agents remain discoverable through `aiwg discover` and `aiwg show agent` until their native mappings are qualified.
 
 This bridge is distinct from Grok Bot (`grokbot` / `AIWG_GROKBOT_SKILLS_DIR`).

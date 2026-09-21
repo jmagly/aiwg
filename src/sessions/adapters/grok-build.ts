@@ -99,7 +99,7 @@ export class GrokBuildSessionAdapter implements SessionSourceAdapter {
       );
     }
     const filename = basename(source.locator, extname(source.locator));
-    if (!UUID.test(filename)) {
+    if (extname(source.locator).toLowerCase() !== '.md' || !UUID.test(filename)) {
       throw new SessionContractError(
         'MALFORMED_SOURCE',
         'Grok Build export filename must be <session-id>.md so the documented CLI session ID is preserved.',
@@ -109,18 +109,26 @@ export class GrokBuildSessionAdapter implements SessionSourceAdapter {
       selectedPath: source.locator,
       allowedRoots: source.authorizedScope.allowedRoots,
     }, this.limits);
-    const blocks = parseBlocks(value);
-    if (blocks.length === 0 || !blocks.some((block) => block.heading === 'User')) {
-      throw new SessionContractError(
-        'MALFORMED_SOURCE',
-        'Unrecognized Grok Build CLI export; expected exact `## User`, `## Assistant`, or `## Tools` headings.',
-      );
-    }
+    const blocks = validateGrokBuildMarkdown(value);
     return { sessionId: filename.toLowerCase(), blocks };
   }
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function validateGrokBuildMarkdown(value: string): ExportBlock[] {
+  const blocks = parseBlocks(value);
+  for (const [sequence, block] of blocks.entries()) {
+    if (block.heading === 'Tools') parseTools(block.text, sequence);
+  }
+  if (blocks.length === 0 || !blocks.some((block) => block.heading === 'User')) {
+    throw new SessionContractError(
+      'MALFORMED_SOURCE',
+      'Unrecognized Grok Build CLI export; expected exact `## User`, `## Assistant`, or `## Tools` headings.',
+    );
+  }
+  return blocks;
+}
 
 function parseBlocks(value: string): ExportBlock[] {
   const blocks: ExportBlock[] = [];
@@ -128,6 +136,9 @@ function parseBlocks(value: string): ExportBlock[] {
   const flush = () => {
     if (!current) return;
     const text = current.lines.join('\n').trim();
+    if (!text && current.heading === 'Tools') {
+      throw new SessionContractError('SCHEMA_DRIFT', 'Grok Build tools block is empty');
+    }
     if (text) blocks.push({ heading: current.heading, text });
   };
   for (const line of value.replace(/\r\n/g, '\n').split('\n')) {
@@ -135,7 +146,7 @@ function parseBlocks(value: string): ExportBlock[] {
     if (match) {
       flush();
       current = { heading: match[1] as ExportBlock['heading'], lines: [] };
-    } else if (/^##\s+/.test(line) && !current) {
+    } else if (/^##\s+/.test(line)) {
       throw new SessionContractError(
         'SCHEMA_DRIFT',
         `unknown Grok Build CLI export heading: ${line}`,
@@ -159,6 +170,9 @@ function parseTools(text: string, blockSequence: number): Array<{
   text: string;
 }> {
   const lines = text.split('\n').filter((line) => line.trim());
+  if (lines.length === 0 || lines.length > 1_000) {
+    throw new SessionContractError('SCHEMA_DRIFT', 'Grok Build tools block has no summaries or exceeds 1,000 summaries');
+  }
   return lines.map((line, index) => {
     const match = /^- (.+)$/.exec(line);
     if (!match) {

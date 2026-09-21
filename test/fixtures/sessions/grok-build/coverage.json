@@ -1,0 +1,17 @@
+{
+  "status": "synthetic-cli-contract-only",
+  "upstreamHarnessRevision": "4247f661689354b831191f11eeeac8424993fe3d",
+  "releasedBinaryNativeFixtureVersion": null,
+  "cases": [
+    { "scenario": "tui", "file": "0199a111-1111-7111-8111-111111111111.md", "evidence": "synthetic Markdown projection" },
+    { "scenario": "headless", "file": "0199a666-6666-7666-8666-666666666666.md", "evidence": "synthetic Markdown projection" },
+    { "scenario": "acp", "file": "0199a777-7777-7777-8777-777777777777.md", "evidence": "synthetic Markdown projection" },
+    { "scenario": "compaction", "file": "0199a888-8888-7888-8888-888888888888.md", "evidence": "CLI omission only; native evidence missing" },
+    { "scenario": "resumed-forked", "file": "0199a222-2222-7222-8222-222222222222.md", "evidence": "CLI omission only; native lineage evidence missing" },
+    { "scenario": "subagents", "file": "0199a999-9999-7999-8999-999999999999.md", "evidence": "CLI omission only; native evidence missing" },
+    { "scenario": "attachments-snapshots", "file": "0199aaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa.md", "evidence": "CLI omission only; native ownership evidence missing" },
+    { "scenario": "partial", "file": "0199a333-3333-7333-8333-333333333333.md", "evidence": "synthetic Markdown projection" },
+    { "scenario": "corrupt", "file": "0199a555-5555-7555-8555-555555555555.md", "evidence": "synthetic malformed export" },
+    { "scenario": "changed-heading", "file": "0199a444-4444-7444-8444-444444444444.md", "evidence": "synthetic schema drift" }
+  ]
+}

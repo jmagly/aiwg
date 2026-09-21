@@ -834,16 +834,14 @@ const BUILT_IN_SEEDS: BuiltInSeed[] = [
     surfaces: {
       primary: 'grok-build',
       compatibility: [],
-      // Agents/rules native writers deferred #2577; host still discovers those dirs.
-      precedence: ['AGENTS.md', '.grok/skills/', '.grok/rules/ (host; AIWG writer deferred #2577)', '.grok/config.toml (config only)', '$GROK_HOME'],
+      precedence: ['AGENTS.md', '.grok/agents/ (qualified model workers)', '.grok/skills/', '.grok/rules/ (host)', '.grok/config.toml (config only)', '$GROK_HOME'],
       related: [],
     },
     detection: { env: ['GROK_HOME'], process: ['grok'], capabilityId: 'grok-build' },
     paths: {
       deployTarget: 'mixed',
       artifacts: {
-        // Wave 1 writes skills + AGENTS.md only; agents/rules indexed until #2577.
-        agents: null,
+        agents: '.grok/agents',
         commands: null,
         skills: '.grok/skills',
         rules: null,
@@ -860,7 +858,7 @@ const BUILT_IN_SEEDS: BuiltInSeed[] = [
       contextFiles: { aiwgMd: true, agentsMd: true, claudeMdHook: false, hookFile: null, contextFile: 'AGENTS.md' },
     },
     smithPaths: {
-      agents: null,
+      agents: '.grok/agents',
       commands: null,
       skills: '.grok/skills',
       rules: null,

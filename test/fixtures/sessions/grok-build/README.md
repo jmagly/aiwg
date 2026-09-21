@@ -6,8 +6,10 @@ These synthetic fixtures reproduce the documented output of `grok export <id>
 exact `## User`, `## Assistant`, and `## Tools` sections. The fixture text
 contains no account, credential, machine, or repository data.
 
-The cases model visible transcript content, resumed/forked-session wording,
-partial content, and changed headings. The Markdown contract intentionally
+The `coverage.json` manifest maps synthetic CLI projection cases for TUI,
+headless, ACP, compaction, resume/fork, subagent, attachments/snapshots, partial,
+corrupt, and changed-heading inputs. It explicitly marks which cases are only
+loss assertions and still lack native evidence. The Markdown contract intentionally
 omits TUI/headless/ACP mode, timestamps, model/version, cwd, compaction markers,
 lineage, subagents, attachments, snapshots, and tool results. Tests assert that
 AIWG reports those fields as unavailable rather than reconstructing them. These

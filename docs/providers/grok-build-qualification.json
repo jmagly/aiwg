@@ -1,0 +1,17 @@
+{
+  "schema": "aiwg.grok-build.qualification-contract.v1",
+  "releasedVersion": "1.0.38",
+  "upstreamRevision": "4247f661689354b831191f11eeeac8424993fe3d",
+  "surfaces": {
+    "instructions": { "status": "native" },
+    "skills": { "status": "native" },
+    "mcp": { "status": "native" },
+    "hooks": { "status": "native" },
+    "sessions": { "status": "native" },
+    "models": { "status": "native" },
+    "headless": { "status": "native" },
+    "acp": { "status": "native" },
+    "subagents": { "status": "native" },
+    "worktrees": { "status": "native" }
+  }
+}

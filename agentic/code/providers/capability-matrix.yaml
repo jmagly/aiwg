@@ -405,11 +405,18 @@ providers:
     display_name: Grok Build
     status: experimental
     # xAI Grok Build CLI/TUI. Distinct from Grok Bot (`grokbot`).
-    # Wave 1 (#2575): native kernel skills + AGENTS.md. Agents/rules writers deferred #2577.
+    # #2577: fixture-backed native subagents and background tasks; see
+    # test/unit/providers/grok-build-provider.test.ts and
+    # test/unit/providers/grok-build-dispatch.test.ts. MCP is independently
+    # covered by test/unit/providers/grok-build-native-integration.test.ts.
+    # Headless and ACP protocol contracts are tested in grok-build-headless.test.ts
+    # and grok-build-acp.test.ts. ACP does not establish a daemon lifecycle.
+    # No fixture supports native cron, multi-agent teams, mission control,
+    # or AIWG behavior registration; those claims remain false.
     daemon_tier: unsupported
     daemon_pty_adapter: false
     artifact_paths:
-      agents: "Indexed: aiwg discover / aiwg show agent (native .grok/agents writer deferred #2577)"
+      agents: .grok/agents/  # qualified AIWG model workers only
       commands: null
       skills: .grok/skills/
       skills_cross_agent: .grok/.aiwg/skills/  # --copy-all opt-in mirror
@@ -417,16 +424,16 @@ providers:
       behaviors: null
     native_features:
       cron: false
-      agent_teams: false
-      tasks: false
+      agent_teams: false # independent subagents do not imply native team orchestration
+      tasks: true        # native background subagents/tasks
       mcp: true
       behaviors: false
       mission_control: false
       daemon: false
     emulation:
       cron: null
-      agent_teams: null
-      tasks: aiwg-mc
+      agent_teams: aiwg-mc
+      tasks: native
       mcp: null
       behaviors: aiwg-mc
       mission_control: aiwg-mc

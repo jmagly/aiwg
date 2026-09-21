@@ -1,4 +1,4 @@
-import { mkdtemp, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -105,6 +105,52 @@ describe('Grok Build session adapter', () => {
         ]) },
       },
     });
+  });
+
+  it('covers documented CLI projections without inventing native mode or lineage data', async () => {
+    const manifest = JSON.parse(await readFile(resolve(fixturesRoot, 'coverage.json'), 'utf8')) as {
+      status: string;
+      releasedBinaryNativeFixtureVersion: string | null;
+      cases: Array<{ scenario: string; file: string; evidence: string }>;
+    };
+    expect(manifest.status).toBe('synthetic-cli-contract-only');
+    expect(manifest.releasedBinaryNativeFixtureVersion).toBeNull();
+    expect(manifest.cases.map((item) => item.scenario)).toEqual([
+      'tui', 'headless', 'acp', 'compaction', 'resumed-forked', 'subagents',
+      'attachments-snapshots', 'partial', 'corrupt', 'changed-heading',
+    ]);
+    for (const item of manifest.cases) {
+      if (item.scenario === 'corrupt' || item.scenario === 'changed-heading') continue;
+      const records = await collect(adapter.stream(selected(item.file)));
+      expect(records.length, item.scenario).toBeGreaterThan(0);
+      for (const record of records) {
+        expect(record.occurredAt).toBeUndefined();
+        expect(record.model).toBeUndefined();
+        expect(record.extensions).toMatchObject({
+          lossReport: { unavailableInCliExport: expect.arrayContaining([
+            'grokVersion', 'workingDirectory', 'compaction', 'lineage',
+            'subagents', 'attachments', 'fileSnapshots',
+          ]) },
+        });
+      }
+    }
+  });
+
+  it('rejects unknown headings after a valid block and oversized tool blocks', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-grok-build-drift-'));
+    roots.push(root);
+    const laterHeading = join(root, '0199abbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb.md');
+    await writeFile(laterHeading, '## User\n\nHello.\n\n## System\n\nChanged structure.\n');
+    const oversizeTools = join(root, '0199accc-cccc-7ccc-8ccc-cccccccccccc.md');
+    await writeFile(oversizeTools, `## User\n\nHello.\n\n## Tools\n\n${'- Read: synthetic\n'.repeat(1001)}`);
+    for (const path of [laterHeading, oversizeTools]) {
+      await expect(adapter.inspect({
+        provider: 'grok-build', locator: path,
+        locatorClass: GROK_BUILD_CLI_EXPORT_LOCATOR_CLASS,
+        sourceId: path,
+        authorizedScope: { workspaceId: 'workspace', allowedRoots: [root] },
+      })).rejects.toMatchObject({ code: 'SCHEMA_DRIFT' });
+    }
   });
 
   it('fails closed for changed headings, native/Cursor locator classes, and missing CLI IDs', async () => {

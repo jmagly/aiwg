@@ -26,6 +26,12 @@ Evidence that cannot be authenticated is evidence that cannot be used. Without d
 
 ## Behavior
 
+For a pull-request investigation, ingest the exact-head receipt described in
+`docs/security/pr-evidence-receipts.md` with its source blobs. Verify each
+`evidenceManifest` SHA-256, record omissions and `actionTrail` in custody notes,
+and keep scope triage separate from attack attribution. A partial PR receipt
+is evidence of incomplete collection, not evidence of compromise.
+
 When triggered, this skill:
 
 1. **Initialize case record**:
