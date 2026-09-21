@@ -26,6 +26,7 @@ import { getProjectDir } from "../../config/aiwg-config.js";
 import { formatDeployedWorkspaceSignalPlan, readWorkspaceSignalPlan } from "../workspace-signals.js";
 import * as path from "node:path";
 import * as fsSync from "node:fs";
+import { pathToFileURL } from "node:url";
 
 /** Generate or deploy the canonical project quickref. */
 export const quickrefHandler: CommandHandler = {
@@ -803,11 +804,12 @@ export const removeHandler: CommandHandler = {
       if (providerParse.provider !== 'grok-build' || providerParse.error) {
         return { exitCode: 1, message: 'Use aiwg remove grok-build --provider grok-build [--dry-run] for reviewed project-scope removal.' };
       }
-      const { uninstall } = await import('../../../tools/agents/providers/grok-build.mjs');
+      const frameworkRoot = await getFrameworkRoot();
+      const { uninstall } = (await import(pathToFileURL(path.join(frameworkRoot, 'tools/agents/providers/grok-build.mjs')).href)) as typeof import('../../../tools/agents/providers/grok-build.mjs');
       const { readAiwgConfig, writeAiwgConfig } = await import('../../config/aiwg-config.js');
       const target = getProjectDir({ cwd: ctx.cwd }, ctx.args);
       const dryRun = ctx.args.includes('--dry-run');
-      const report = uninstall(target, { dryRun, srcRoot: await getFrameworkRoot() });
+      const report = uninstall(target, { dryRun, srcRoot: frameworkRoot });
       if (!dryRun && report.skipped.length === 0) {
         const config = await readAiwgConfig(target);
         if (config) {

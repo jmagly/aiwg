@@ -61,6 +61,8 @@ reviewable `reference` under `docs/`, `test-results/`, or an HTTPS URL for every
 native surface. The live command's own receipt is evidence for instruction and
 skill inspection, but a reviewable copy or link must be attached. Never
 edit a receipt into a false pass merely to promote the provider.
+Without `XAI_API_KEY`, the receipt records authentication as `unverified`;
+inspection alone cannot prove an interactive or managed login.
 
 Promotion is checked by `npm run gate:grok-build`. If provider inventory is set
 to `stable`, the gate requires exactly one current receipt for Linux, macOS,

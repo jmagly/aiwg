@@ -104,7 +104,7 @@ function smoke(args, contract) {
   const receipt = {
     schema: receiptSchema, platform: platformName(), version, upstreamRevision: contract.upstreamRevision,
     recordedAt: new Date().toISOString(),
-    authenticationMode: process.env.XAI_API_KEY ? 'api-key-environment' : 'interactive-or-managed',
+    authenticationMode: process.env.XAI_API_KEY ? 'api-key-environment' : 'unverified',
     inspect: 'pass', buildVerify: 'ready',
     surfaces: { instructions: 'pass', skills: 'pass' },
     evidence: {},

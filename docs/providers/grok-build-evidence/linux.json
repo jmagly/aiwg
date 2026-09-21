@@ -1,0 +1,51 @@
+{
+  "schema": "aiwg.grok-build.qualification.v1",
+  "platform": "linux",
+  "version": "1.0.38",
+  "upstreamRevision": "4247f661689354b831191f11eeeac8424993fe3d",
+  "recordedAt": "2026-09-21T21:43:44.273Z",
+  "authenticationMode": "unverified",
+  "inspect": "pass",
+  "buildVerify": "ready",
+  "surfaces": {
+    "instructions": "pass",
+    "skills": "pass"
+  },
+  "evidence": {
+    "instructions": {
+      "kind": "live",
+      "reference": "docs/providers/grok-build-evidence/linux.json"
+    },
+    "skills": {
+      "kind": "live",
+      "reference": "docs/providers/grok-build-evidence/linux.json"
+    }
+  },
+  "checks": {
+    "clean-install": "pending",
+    "existing-config": "pass",
+    "update": "pending",
+    "deploy": "pass",
+    "verify": "pass",
+    "refresh": "pending",
+    "uninstall": "pass",
+    "operator-content": "pass",
+    "idempotence": "pass",
+    "path-safety": "pending",
+    "rollback": "pending",
+    "no-secret-leakage": "pending",
+    "compatibility": "pending"
+  },
+  "distribution": {
+    "package": "@xai-official/grok-linux-x64@1.0.38",
+    "integrity": "sha512-8NRoj3kQhQllbmTvOxtkwl+KGb6vBKpdCb8+wIif9p1wISmllYWcuwMoWdJWxK1SOrsyOd6Ev8AfOgnljZIuhQ==",
+    "binarySha256": "d09092c50f1bf1cd686a0ecd3489aedd83ec2d16b27a821ca9f0994a4b605ef9"
+  },
+  "notes": [
+    "Released binary package archive integrity matched npm registry metadata before extraction.",
+    "grok inspect --json in an isolated trusted Linux project reported one AGENTS.md instruction, 20 skills including AIWG and operator content, and six agents.",
+    "Grok Build 1.0.38 reported 1.0.40 available through grok update --check; an update installation was not performed.",
+    "Repeat AIWG project deployment preserved hashes of generated context, AIWG skill, and operator files; reviewed project removal then removed AIWG-owned files and retained operator config, skill, and AGENTS.md.",
+    "No credentialed model call, refresh, rollback, or other platform qualification occurred; those checks remain pending."
+  ]
+}

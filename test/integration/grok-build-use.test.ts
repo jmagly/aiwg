@@ -53,6 +53,21 @@ function runUse(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
   };
 }
 
+function runRemoval(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
+  // CI builds the packaged CLI before tests. Exercise that path when available;
+  // source-only local test runs can still validate the removal contract.
+  if (!existsSync(path.join(REPO_ROOT, 'dist/src/cli/router.js'))) return runUse(args, env, cwd);
+  const routerUrl = pathToFileURL(path.join(REPO_ROOT, 'dist/src/cli/router.js')).href;
+  const runner = `import { run } from ${JSON.stringify(routerUrl)}; await run(process.argv.slice(1), { cwd: process.env.AIWG_TEST_PROJECT_ROOT }); process.exit(typeof process.exitCode === 'number' ? process.exitCode : 0);`;
+  const result = spawnSync(process.execPath, ['--eval', runner, ...args], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    timeout: 180_000,
+    env: { ...process.env, ...env, NO_UPDATE_NOTIFIER: '1' },
+  });
+  return { status: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
+}
+
 describe('aiwg use grok-build e2e (#2575)', () => {
   it('deploys project kernel skills, mirrors to $GROK_HOME, and records registry/receipts', () => {
     const home = isolated('aiwg-grok-use-home-');
@@ -172,7 +187,7 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     const managedSkill = path.join(project, '.grok', 'skills', 'aiwg-help', 'SKILL.md');
     const originalSkill = readFileSync(managedSkill, 'utf8');
     writeFileSync(managedSkill, `${originalSkill}\nOperator modification.\n`);
-    const modifiedPreview = runUse(['remove', 'grok-build', '--provider', 'grok-build', '--dry-run'], useEnv, project);
+    const modifiedPreview = runRemoval(['remove', 'grok-build', '--provider', 'grok-build', '--dry-run'], useEnv, project);
     expect(modifiedPreview.status).toBe(1);
     expect(modifiedPreview.stdout + modifiedPreview.stderr).toContain('Preserved modified or unverifiable: .grok/skills/aiwg-help');
     expect(readFileSync(managedSkill, 'utf8')).toContain('Operator modification.');
@@ -180,19 +195,19 @@ describe('aiwg use grok-build e2e (#2575)', () => {
 
     const addedFile = path.join(path.dirname(managedSkill), 'operator-note.txt');
     writeFileSync(addedFile, 'Preserve this operator file.\n');
-    const addedFilePreview = runUse(['remove', 'grok-build', '--provider', 'grok-build', '--dry-run'], useEnv, project);
+    const addedFilePreview = runRemoval(['remove', 'grok-build', '--provider', 'grok-build', '--dry-run'], useEnv, project);
     expect(addedFilePreview.status).toBe(1);
     expect(existsSync(addedFile)).toBe(true);
     rmSync(addedFile);
 
-    const preview = runUse(['remove', 'grok-build', '--provider', 'grok-build', '--dry-run'], useEnv, project);
+    const preview = runRemoval(['remove', 'grok-build', '--provider', 'grok-build', '--dry-run'], useEnv, project);
     expect(preview.status, preview.stderr).toBe(0);
     expect(preview.stdout).toContain('Would remove');
     expect(preview.stdout).not.toContain(operatorProjectSkill);
     expect(preview.stdout).not.toContain('SECRET_CANARY_2580');
     expect(existsSync(managedSkill)).toBe(true);
 
-    const removal = runUse(['remove', 'grok-build', '--provider', 'grok-build'], useEnv, project);
+    const removal = runRemoval(['remove', 'grok-build', '--provider', 'grok-build'], useEnv, project);
     expect(removal.status, removal.stderr).toBe(0);
     expect(existsSync(managedSkill)).toBe(false);
     expect(readdirSync(projectAgents).filter(name => name.endsWith('.md'))).toHaveLength(0);
