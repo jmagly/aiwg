@@ -2,6 +2,8 @@
 
 Grok Build is xAI's coding-agent CLI (`grok-build` in AIWG). Grok Bot is a
 separate desktop integration; the Grok web Build experience is not this CLI.
+Start with the [AIWG install, connect, and verify guide](../getting-started/install-connect-verify.md)
+if AIWG is not yet installed in the project.
 Install a reviewed released binary from the [upstream instructions](https://github.com/xai-org/grok-build#installing-the-released-binary),
 then check `grok --version`. In a project with AIWG installed:
 
