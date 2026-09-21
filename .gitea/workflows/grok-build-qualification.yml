@@ -29,6 +29,10 @@ jobs:
   qualification:
     runs-on: ubuntu-latest
     container: node:24@sha256:050bf2bbe33c1d6754e060bec89378a79ed831f04a7bb1a53fe45e997df7b3bb
+    env:
+      VAULT_ADDR: ${{ vars.VAULT_ADDR }}
+      XAI_API_KEY_VAULT_PATH: ${{ vars.XAI_API_KEY_VAULT_PATH }}
+      XAI_API_KEY_VAULT_FIELD: ${{ vars.XAI_API_KEY_VAULT_FIELD }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: Enforce stable-promotion contract
@@ -38,10 +42,22 @@ jobs:
       - name: Detect upstream source/config drift
         if: gitea.event_name == 'schedule' || gitea.event_name == 'workflow_dispatch'
         run: node tools/providers/grok-build-qualification.mjs drift
-      - name: Live headless smoke (explicit secret gate and SHA-pinned binary)
+      - name: Fetch opt-in Grok credential from Vault
+        if: ${{ (gitea.event_name == 'schedule' || gitea.event_name == 'workflow_dispatch') && vars.AIWG_GROK_BUILD_LIVE_SMOKE == '1' && secrets.VAULT_CI_ROLE_ID != '' && secrets.VAULT_CI_SECRET_ID != '' && vars.XAI_API_KEY_VAULT_PATH != '' && vars.XAI_API_KEY_VAULT_FIELD != '' }}
         env:
-          AIWG_GROK_BUILD_LIVE_SMOKE: ${{ secrets.AIWG_GROK_BUILD_LIVE_SMOKE }}
+          VAULT_CI_ROLE_ID: ${{ secrets.VAULT_CI_ROLE_ID }}
+          VAULT_CI_SECRET_ID: ${{ secrets.VAULT_CI_SECRET_ID }}
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends curl jq
+          bash ci/vault-fetch.sh --spec ci/vault-fetch.grok-build.spec
+      - name: Live headless smoke (explicit secret gate and SHA-pinned binary)
+        if: gitea.event_name == 'schedule' || gitea.event_name == 'workflow_dispatch'
+        env:
+          AIWG_GROK_BUILD_LIVE_SMOKE: ${{ vars.AIWG_GROK_BUILD_LIVE_SMOKE }}
           AIWG_GROK_BUILD_BIN: ${{ vars.AIWG_GROK_BUILD_BIN }}
           AIWG_GROK_BUILD_EXPECTED_SHA256: ${{ vars.AIWG_GROK_BUILD_EXPECTED_SHA256 }}
-          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
         run: node tools/providers/grok-build-native-smoke.mjs
+      - name: Remove fetched Grok credential
+        if: always()
+        run: bash ci/vault-fetch.sh --cleanup

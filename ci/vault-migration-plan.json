@@ -33,6 +33,8 @@
     "AIWG_FORTEMI_LIVE_URL_VAULT_FIELD",
     "AIWG_FORTEMI_LIVE_TOKEN_VAULT_PATH",
     "AIWG_FORTEMI_LIVE_TOKEN_VAULT_FIELD",
+    "XAI_API_KEY_VAULT_PATH",
+    "XAI_API_KEY_VAULT_FIELD",
     "DOCSITE_DEPLOY_HOST",
     "DOCSITE_DEPLOY_PORT",
     "DOCSITE_DEPLOY_USER",
@@ -142,6 +144,14 @@
       "env": "AIWG_FORTEMI_LIVE_TOKEN",
       "type": "api-token",
       "purpose": "Optional authenticated Fortemi live MCP storage qualification"
+    },
+    {
+      "id": "grok-build-api-key",
+      "path_variable": "XAI_API_KEY_VAULT_PATH",
+      "field_variable": "XAI_API_KEY_VAULT_FIELD",
+      "env": "XAI_API_KEY",
+      "type": "api-token",
+      "purpose": "Optional Grok Build live qualification"
     }
   ]
 }

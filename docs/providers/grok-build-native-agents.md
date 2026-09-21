@@ -42,7 +42,10 @@ omitted from the worker's view.
 Live smoke is opt-in: run `node tools/providers/grok-build-native-smoke.mjs` with
 `AIWG_GROK_BUILD_LIVE_SMOKE=1`, a provisioned Grok binary, its exact
 `AIWG_GROK_BUILD_EXPECTED_SHA256`, and `XAI_API_KEY`. The CI qualification
-workflow uses the same explicit gate. The script skips cleanly when the gate,
+workflow uses the same explicit gate on scheduled or manual runs. It reads the
+credential through the Vault CI bootstrap and configured
+`XAI_API_KEY_VAULT_PATH`/`XAI_API_KEY_VAULT_FIELD` variables; the opt-in gate,
+binary path, and expected hash are repository variables. The script skips cleanly when the gate,
 binary, or credential is unavailable; it fails on a binary hash mismatch or a
 malformed/incomplete provider response. It emits only status and counts. Fixture
 tests do not substitute for a credentialed run on Linux, macOS, Windows, and WSL;
