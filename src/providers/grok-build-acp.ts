@@ -130,7 +130,12 @@ export class GrokAcpClient {
       ? init.authMethods.map(item => (item as Record<string, unknown>).id) : [];
     const authMethod = this.env.XAI_API_KEY && methods.includes('xai.api_key') ? 'xai.api_key'
       : methods.includes('cached_token') ? 'cached_token' : null;
-    if (!authMethod) throw new Error('Grok ACP authentication unavailable; run grok login or set XAI_API_KEY');
+    if (!authMethod) {
+      const reason = methods.includes('grok.com')
+        ? 'grok.com interactive authentication is not qualified for AIWG ACP'
+        : 'no supported non-interactive method was offered';
+      throw new Error(`Grok ACP authentication unavailable: ${reason}`);
+    }
     await this.request('authenticate', { methodId: authMethod, _meta: { headless: true } });
     const session = await this.request('session/new', { cwd: this.cwd, mcpServers: [] });
     if (typeof session.sessionId !== 'string' || !session.sessionId) throw new Error('Grok ACP session/new returned no sessionId');

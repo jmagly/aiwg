@@ -19,6 +19,12 @@ uses `grok --no-auto-update agent stdio`, initializes JSON-RPC, chooses
 `cached_token`, and handles session updates, cancellation, stderr, and timeouts.
 Neither transport auto-approves tool use.
 
+A sanitized ACP initialize observation from the Linux 1.0.40 released binary
+is in `test/fixtures/providers/grok-build-acp-init-1.0.40.json`. This binary
+advertised only `grok.com` authentication in the tested account state. AIWG
+fails closed because that interactive ACP flow has not been qualified; a
+fixture-backed `cached_token` contract does not prove it works in 1.0.40.
+
 `GrokBuildDispatcher.forProject(root)` resolves the project's
 `parallelism.max_parallel_subagents` and admits no more than that many
 AIWG-controlled headless workers across independent AIWG processes using

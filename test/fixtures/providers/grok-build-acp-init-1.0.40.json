@@ -1,0 +1,11 @@
+{
+  "schema": "aiwg.grok-build.acp-init-observation.v1",
+  "platform": "linux",
+  "binaryVersion": "1.0.40",
+  "binarySha256": "92c997dfd109c0672d40d5ae6fbd15835d53ffaf12cf9ea124d22aaef3ff23fc",
+  "protocolVersion": 1,
+  "authMethods": [
+    { "id": "grok.com" }
+  ],
+  "sanitization": "Only protocol version and authentication method IDs are retained; no credentials, session content, endpoint URLs, or provider metadata are included."
+}

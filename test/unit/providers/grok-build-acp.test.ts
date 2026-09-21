@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { GrokAcpClient } from '../../../src/providers/grok-build-acp.js';
 
 const responder = `
@@ -44,6 +45,14 @@ describe('Grok Build ACP contract', () => {
   it('fails closed when no supported authentication method is advertised', async () => {
     const acp = client(responder.replace("{id:'xai.api_key'},{id:'cached_token'}", "{id:'browser'}"));
     try { await expect(acp.initialize()).rejects.toThrow(/authentication unavailable/); }
+    finally { acp.close(); }
+  });
+
+  it('fails closed on the released 1.0.40 grok.com-only ACP advertisement', async () => {
+    const observation = JSON.parse(readFileSync(new URL('../../fixtures/providers/grok-build-acp-init-1.0.40.json', import.meta.url), 'utf8'));
+    expect(observation.authMethods).toEqual([{ id: 'grok.com' }]);
+    const acp = client(responder.replace("{id:'xai.api_key'},{id:'cached_token'}", "{id:'grok.com'}"));
+    try { await expect(acp.initialize()).rejects.toThrow(/grok\.com interactive authentication is not qualified/); }
     finally { acp.close(); }
   });
 
