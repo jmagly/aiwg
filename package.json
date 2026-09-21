@@ -90,7 +90,7 @@
     "test:ui": "vitest --config config/vitest.config.js --ui",
     "test:watch": "vitest --config config/vitest.config.js",
     "test:leaks": "vitest run --config config/vitest.config.js --detectAsyncLeaks",
-    "test:node": "node --test tools/ralph-external/*.test.mjs test/unit/ralph/*.test.mjs",
+    "test:node": "node --test tools/ralph-external/*.test.mjs test/unit/ralph/*.test.mjs test/unit/providers/grok-build-qualification.test.mjs",
     "test:node:ralph-external": "node --test tools/ralph-external/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "clean": "npm run clean:build",

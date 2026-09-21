@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
-import { artifactIndexFiles, packagingFiles, discoveryFiles } from './test-lanes.mjs';
+import { artifactIndexFiles, packagingFiles, discoveryFiles, nodeFiles } from './test-lanes.mjs';
 
 // Watch-service tests use polling so host-wide inotify quotas cannot make the
 // suite nondeterministic on shared development and CI machines.
@@ -35,7 +35,7 @@ export default defineConfig({
     // VS Code Extension Test Runner — never let vitest discover it (#1210).
     exclude: [
       // Required serial packaging and corpus lanes run separately in CI.
-      ...packagingFiles, ...artifactIndexFiles, ...discoveryFiles,
+      ...packagingFiles, ...artifactIndexFiles, ...discoveryFiles, ...nodeFiles,
       'test/uat/**',
       'tools/ralph-external/**',
       'test/unit/ralph/**',

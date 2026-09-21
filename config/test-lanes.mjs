@@ -16,6 +16,7 @@ export const artifactIndexFiles = [
 export const discoveryFiles = ['test/integration/artifacts/discover-fortemi-corpus.test.ts'];
 export const nodeFiles = [
   'tools/ralph-external/*.test.mjs', 'test/unit/ralph/*.test.mjs',
+  'test/unit/providers/grok-build-qualification.test.mjs',
   'test/contract/agentic-publication-source.test.mjs',
   'test/contract/setup-manifest-site-dispatch.test.mjs',
   'test/contract/site-manifest-release-dispatch.test.mjs',
