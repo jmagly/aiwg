@@ -16,7 +16,7 @@ The AIWG MCP Daemon is listed in the
 # Start MCP server (stdio transport)
 aiwg mcp serve
 
-# Install config for Claude Desktop
+# Install config for Claude Code (CLI and Claude Desktop's Code tab share this config)
 aiwg mcp install claude
 
 # Install config for Cursor
@@ -73,11 +73,20 @@ These prompts are auto-integrated and available in compatible tools.
 
 ## Configuration
 
-### Claude Desktop
+### Claude Code
 
-After running `aiwg mcp install claude`, the config is placed in:
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Linux:** `~/.config/Claude/claude_desktop_config.json`
+`aiwg mcp install claude` configures **Claude Code** — the CLI and Claude
+Desktop's Code tab, which share project configuration. After running it, the
+config is placed at `.claude/settings.local.json` in the project directory.
+
+This is distinct from the Claude Desktop **chat app** (the Cowork surface),
+which reads MCP servers from its own `claude_desktop_config.json`
+(`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS,
+`~/.config/Claude/claude_desktop_config.json` on Linux,
+`%APPDATA%\Claude\claude_desktop_config.json` on Windows). `aiwg mcp
+install` does not write that file today; see
+[roctinam/aiwg#2632](https://git.integrolabs.net/roctinam/aiwg/issues/2632)
+for that work.
 
 ### Cursor
 

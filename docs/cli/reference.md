@@ -1679,7 +1679,7 @@ aiwg mcp serve --toolsets=all                      # everything (66 tools)
 - Starts stdio-based MCP server
 - Exposes 15 core tools by default (discover, _-list/_-show pairs, command-run, and artifact-read/write)
 - Additional 51 tools available via opt-in toolsets
-- Supports Claude Desktop, Cursor, Factory, Hermes (as MCP sidecar)
+- Supports Claude Code (CLI and Desktop Code tab), Cursor, Factory, Hermes (as MCP sidecar)
 
 **Default surface (15 tools; schema cost should be re-measured after tool changes)**:
 
@@ -1715,14 +1715,14 @@ aiwg mcp install <client>
 **Actions:**
 
 - Generates client-specific config
-- Adds to `~/.config/claude/config.json` (Claude Desktop)
+- Adds to `.claude/settings.local.json` (Claude Code — CLI and Desktop Code tab; see [MCP README](../mcp/README.md#claude-code))
 - Adds to `.cursor/config.json` (Cursor)
 - Shows manual steps if auto-install fails
 
 **Example:**
 
 ```bash
-# Install for Claude Desktop
+# Install for Claude Code (CLI and Claude Desktop's Code tab)
 aiwg mcp install claude
 
 # Preview config
