@@ -71,7 +71,6 @@
     "integrations/grokbot-cloud-session-global-install",
     "integrations/grokbot-native-surfaces-evidence",
     "integrations/grok-build-quickstart",
-    "agents/providers/grok-build",
     "providers/grok-build-qualification",
     "migration/grok-build-from-claude-workaround",
     "integrations/grokbot-linux-puw",

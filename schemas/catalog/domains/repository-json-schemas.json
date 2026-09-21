@@ -1384,6 +1384,26 @@
       "consumers": []
     },
     {
+      "logicalName": "schemas.security.pr.evidence.receipt.v1",
+      "id": "https://aiwg.io/schemas/security/pr-evidence-receipt.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "http://json-schema.org/draft-07/schema#",
+      "lifecycle": "active",
+      "stability": "stable",
+      "owner": {
+        "id": "schema-security"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "schemas/security/pr-evidence-receipt.v1.schema.json"
+      },
+      "compatibility": {
+        "mode": "unknown"
+      },
+      "consumers": []
+    },
+    {
       "logicalName": "schemas.security.threat.assessment.input.v1",
       "id": "https://aiwg.io/schemas/security/threat-assessment-input.v1.schema.json",
       "version": "1.0.0",
