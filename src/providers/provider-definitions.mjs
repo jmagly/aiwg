@@ -1,6 +1,6 @@
 import { resolveOmpPaths } from './omp-paths.mjs';
 import { homedir } from 'os';
-import { resolve } from 'path';
+import { isAbsolute, join, resolve } from 'path';
 
 const MCP_INJECTION_DEFINITIONS = [
   {
@@ -70,6 +70,19 @@ const MCP_INJECTION_DEFINITIONS = [
       serversKey: null,
       configPath: { scope: 'home', path: '.codex/config.toml' },
       supportsEphemeral: true,
+    },
+  },
+  {
+    id: 'grok-build', aliases: [],
+    mcp: {
+      providerId: 'grok-build',
+      includeInSupportedProviders: true,
+      configFormat: 'toml',
+      serverConfigFormat: 'grok-build',
+      serversKey: null,
+      configPath: { scope: 'project', path: '.grok/config.toml' },
+      supportsEphemeral: false,
+      unsupportedReason: 'Grok Build project MCP configuration is trust-scoped and must remain in its reviewed config layer.',
     },
   },
   {
@@ -171,6 +184,13 @@ export function resolveMcpConfigPath(provider, projectDir = '.', options = {}) {
   }
   if (normalizeRuntimeProviderId(provider) === 'omp' && options.scope === 'user') {
     return resolve(resolveOmpPaths(options).agentDir, 'mcp.json');
+  }
+  if (normalizeRuntimeProviderId(provider) === 'grok-build' && options.scope === 'user') {
+    const userHome = process.env.HOME || process.env.USERPROFILE || homedir();
+    const raw = process.env.GROK_HOME || join(userHome, '.grok');
+    const home = raw.startsWith('~/') ? join(userHome, raw.slice(2)) : raw;
+    if (!isAbsolute(home) || resolve(home) === resolve(home, '..')) throw new Error('GROK_HOME must be an absolute non-root path for MCP injection');
+    return resolve(home, 'config.toml');
   }
   const definition = getMcpInjectionDefinition(provider);
   if (!definition) return '';

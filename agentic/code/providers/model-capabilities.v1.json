@@ -228,6 +228,19 @@
       "sourceUrl": "https://github.com/jmagly/aiwg/blob/main/docs/architecture/adr-grokbot-provider-target.md",
       "verifiedAt": "2026-09-15"
     },
+    "grok-build": {
+      "agent": "inherited",
+      "skill": "inherited",
+      "globalChild": "native",
+      "identifierSyntax": "Provider-local alias from grok inspect and $GROK_HOME config; distinct from API model id",
+      "inheritance": "Agent and skill roles resolve through the session model unless a validated Grok Build alias is selected",
+      "invalidPinFallback": "Report the unavailable alias; use the sole discovered model only when exactly one is available",
+      "configTarget": "$GROK_HOME/config.toml [models] and [model.<alias>] (read-only discovery)",
+      "artifactFormat": "Grok Build model alias",
+      "verification": "grok inspect --json plus bounded parsing of model fields from reported config layers",
+      "sourceUrl": "https://docs.x.ai/build/settings",
+      "verifiedAt": "2026-09-21"
+    },
     "hermes": {
       "agent": "global-only",
       "skill": "unsupported",

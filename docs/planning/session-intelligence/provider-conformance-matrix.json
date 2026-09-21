@@ -1,6 +1,6 @@
 {
   "contractVersion": "1.0.0",
-  "canonicalProviderCount": 16,
+  "canonicalProviderCount": 17,
   "providers": [
     {
       "provider": "claude",
@@ -251,6 +251,32 @@
         ],
         "exceptions": {
           "discovery": "manual-export only until verified Grok Bot session locator; no auto-discover of ~/.grokbot or Cursor paths"
+        }
+      }
+    },
+    {
+      "provider": "grok-build",
+      "issue": 2578,
+      "status": "implemented",
+      "operations": [
+        "inspect",
+        "stream"
+      ],
+      "fixtures": "test/fixtures/sessions/grok-build",
+      "tests": "test/unit/sessions/grok-build-adapter.test.ts",
+      "documentation": "docs/providers/grok-build-sessions.md",
+      "conformance": {
+        "locatorClass": "grok-build-cli-markdown-export",
+        "malformed": [
+          "0199a555-5555-7555-8555-555555555555.md",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "0199a444-4444-7444-8444-444444444444.md",
+          "SCHEMA_DRIFT"
+        ],
+        "exceptions": {
+          "discovery": "use grok sessions list/search and grok export; direct $GROK_HOME/sessions parsing remains disabled until released-binary native fixtures qualify it"
         }
       }
     },

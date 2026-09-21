@@ -1,4 +1,5 @@
 import { manageOmpMcp } from './omp-config.mjs';
+import { manageGrokBuildMcp } from './grok-build-config.mjs';
 import { replaceServer } from './toml-editor.mjs';
 import { resolveOmpPaths } from '../providers/omp-paths.mjs';
 /**
@@ -12,7 +13,7 @@ import { resolveOmpPaths } from '../providers/omp-paths.mjs';
  */
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
-import { resolve } from 'path';
+import { dirname, resolve } from 'path';
 import { resolveConfigDir } from '../config/user-config.js';
 import { getProviderDefinition } from '../providers/provider-definitions.js';
 
@@ -92,11 +93,12 @@ export type InjectProvider =
   | 'factory'
   | 'codex'
   | 'openai'
+  | 'grok-build'
   | 'opencode'
   | 'windsurf'
   | 'warp';
 
-type McpInjectionAdapter = 'antigravity' | 'claude-code' | 'cursor' | 'factory' | 'codex' | 'opencode' | 'windsurf' | 'warp' | null;
+type McpInjectionAdapter = 'antigravity' | 'claude-code' | 'cursor' | 'factory' | 'codex' | 'grok-build' | 'opencode' | 'windsurf' | 'warp' | null;
 
 // ============================================
 // Registry
@@ -431,6 +433,9 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
     factory: resolve(homeDir, '.factory/mcp.json'),
     codex: resolve(homeDir, '.codex/config.toml'),
     openai: resolve(homeDir, '.codex/config.toml'),
+    'grok-build': options.scope === 'user'
+      ? resolve(process.env.GROK_HOME || resolve(homeDir, '.grok'), 'config.toml')
+      : resolve(projectDir, '.grok/config.toml'),
     opencode: resolve(projectDir, 'opencode.json'),
     windsurf: resolve(homeDir, '.codeium/windsurf/mcp_config.json'),
     warp: resolve(homeDir, '.warp/mcp.json'),
@@ -479,6 +484,19 @@ export async function injectServers(
     try {
       const managed = await manageOmpMcp(configPath, allServers, { dryRun });
       if (!dryRun) for (const server of allServers) await registry.recordInjection(server.name, 'omp');
+      return { ...result, ...managed };
+    } catch (error) {
+      return { ...result, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  if (provider === 'grok-build') {
+    try {
+      const managed = await manageGrokBuildMcp(configPath, allServers, {
+        dryRun,
+        root: options.scope === 'user' ? dirname(dirname(configPath)) : resolve(projectDir),
+      });
+      if (!dryRun && !managed.error) for (const server of allServers) await registry.recordInjection(server.name, 'grok-build');
       return { ...result, ...managed };
     } catch (error) {
       return { ...result, error: error instanceof Error ? error.message : String(error) };
@@ -597,6 +615,7 @@ export const SUPPORTED_PROVIDERS: InjectProvider[] = [
   'cursor',
   'factory',
   'codex',
+  'grok-build',
   'opencode',
   'windsurf',
   'warp',

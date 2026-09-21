@@ -298,6 +298,15 @@
       "sourceUrl": "https://github.com/jmagly/aiwg/blob/main/docs/architecture/adr-grokbot-provider-target.md",
       "verifiedAt": "2026-09-15"
     },
+    "grok-build": {
+      "roles": {
+        "reasoning": { "id": "configured/reasoning", "status": "unverified", "observed": false },
+        "coding": { "id": "configured/coding", "status": "unverified", "observed": false },
+        "efficiency": { "id": "configured/efficiency", "status": "unverified", "observed": false }
+      },
+      "sourceUrl": "https://docs.x.ai/build/settings",
+      "verifiedAt": "2026-09-21"
+    },
     "hermes": {
       "roles": {
         "reasoning": {

@@ -67,6 +67,8 @@ export const EXIT_CODE_MAP: Record<string, { allow: number; block: number; warn:
   factory: { allow: 0, block: 1, warn: 0 },
   hermes: { allow: 0, block: 1, warn: 2 },
   openclaw: { allow: 0, block: 1, warn: 2 },
+  // Grok only honors an explicit PreToolUse deny decision; other failures are fail-open.
+  'grok-build': { allow: 0, block: 2, warn: 0 },
 };
 
 /**

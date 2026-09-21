@@ -6,6 +6,7 @@ import {
   isOrchestratorStatusComment,
   resolveTrustedActors,
 } from '../../../agentic/code/frameworks/sdlc-complete/skills/address-issues-threat-assess/scripts/assess.mjs';
+import { THREAT_ASSESSMENT_LIMITS } from '../../../tools/security/threat-assessment.mjs';
 
 /** Real #2153 thread: three roctinam-authored AL CYCLE comments describing a
  *  live-smoke harness, env gates, and an upstream `npx` launcher (#2549). */
@@ -66,6 +67,22 @@ describe('address-issues-threat-assess', () => {
     expect(report.verdict).toBe('safe');
     expect(report.action).toBe('proceed');
     expect(report.signals).toEqual([]);
+  });
+
+  it('propagates incomplete scans through the forge compatibility adapter', () => {
+    const report = assessIssue({
+      number: 2586,
+      title: 'Large issue',
+      author: 'reporter',
+      labels: [],
+      body: 'ordinary text '.repeat(Math.ceil(THREAT_ASSESSMENT_LIMITS.maxInputCharacters / 14) + 1),
+      comments: [],
+    });
+    expect(report.verdict).toBe('flag');
+    expect(report.action).toBe('require-human-authorization');
+    expect(report.policy_report.completeness.complete).toBe(false);
+    expect(report.why_verdict).toMatch(/incomplete.*manual authorization/i);
+    expect(report.comment_markdown).toContain('Incomplete assessment');
   });
 
   it('returns paragraph-level evidence and actionable detail for CI secret migration requests', () => {

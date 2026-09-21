@@ -287,6 +287,7 @@ describe('provider output characterization for registry migration', () => {
       'cursor',
       'factory',
       'codex',
+      'grok-build',
       'opencode',
       'windsurf',
       'warp',
@@ -305,6 +306,8 @@ describe('provider output characterization for registry migration', () => {
     expect(getProviderConfigPath('factory', projectDir)).toBe(resolve(homeDir, '.factory/mcp.json'));
     expect(getProviderConfigPath('codex', projectDir)).toBe(resolve(homeDir, '.codex/config.toml'));
     expect(getProviderConfigPath('openai', projectDir)).toBe(resolve(homeDir, '.codex/config.toml'));
+    expect(getProviderConfigPath('grok-build', projectDir)).toBe(resolve(projectDir, '.grok/config.toml'));
+    expect(getProviderConfigPath('grok-build', projectDir, { scope: 'user' })).toBe(resolve(homeDir, '.grok/config.toml'));
     expect(getProviderConfigPath('opencode', projectDir)).toBe(resolve(projectDir, 'opencode.json'));
     expect(getProviderConfigPath('windsurf', projectDir)).toBe(resolve(homeDir, '.codeium/windsurf/mcp_config.json'));
     expect(getProviderConfigPath('warp', projectDir)).toBe(resolve(homeDir, '.warp/mcp.json'));

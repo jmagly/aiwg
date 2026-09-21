@@ -14,6 +14,7 @@ import {
 import type { CanonicalModelPolicy, ModelTier } from '../../models/types.js';
 import type { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 import type { DynamicModelCatalog } from '../../models/model-discovery.js';
+import { resolveGrokBuildRoleModel } from '../../models/grok-build-models.js';
 
 type ArtifactKind = 'agent' | 'skill';
 interface Artifact {
@@ -34,7 +35,7 @@ interface ParsedArgs {
 }
 const TIERS = new Set(['economy', 'standard', 'premium', 'max-quality']);
 const PROVIDERS = new Set([
-  'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'hermes',
+  'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'grok-build', 'grokbot', 'hermes',
   'opencode', 'openclaw', 'openhuman', 'omp', 'pi', 'warp', 'windsurf',
 ]);
 
@@ -179,6 +180,7 @@ async function effectiveCatalog(
   target: string,
   allowNetwork: boolean,
   parsed: ParsedArgs,
+  provider?: string,
 ): Promise<DynamicModelCatalog> {
   const { collectProviderInventory } = await import('../../providers/provider-inventory.js');
   const { resolveDynamicModelCatalog } = await import('../../models/model-discovery.js');
@@ -186,11 +188,18 @@ async function effectiveCatalog(
   const aiwgRoot = await fs.access(path.join(ctx.frameworkRoot, 'agentic/code/providers/model-catalog.v1.json'))
     .then(() => ctx.frameworkRoot)
     .catch(() => process.cwd());
+  const nativeDiscoverers = provider === 'grok-build' ? {
+    'grok-build': async () => {
+      const { discoverGrokBuildModels } = await import('../../models/grok-build-models.js');
+      return discoverGrokBuildModels({ cwd: target, env: process.env });
+    },
+  } : undefined;
   return resolveDynamicModelCatalog({
     aiwgRoot,
     inventory,
     allowNetwork,
     forceRefresh: allowNetwork,
+    ...(nativeDiscoverers ? { nativeDiscoverers } : {}),
     ...(flagString(parsed, 'url') ? { remoteUrl: flagString(parsed, 'url') } : {}),
   });
 }
@@ -230,7 +239,7 @@ async function execute(ctx: HandlerContext): Promise<HandlerResult> {
   }
   if (parsed.subcommand === 'sources' || parsed.subcommand === 'refresh') {
     const { diffModelCatalog } = await import('../../models/model-discovery.js');
-    const catalog = await effectiveCatalog(ctx, target, parsed.subcommand === 'refresh', parsed);
+    const catalog = await effectiveCatalog(ctx, target, parsed.subcommand === 'refresh', parsed, provider);
     if (parsed.flags.has('drift')) {
       const staticCatalog = JSON.parse(await fs.readFile(
         path.join(ctx.frameworkRoot, 'agentic/code/providers/model-catalog.v1.json'),
@@ -259,15 +268,35 @@ async function execute(ctx: HandlerContext): Promise<HandlerResult> {
   const artifacts = select(discovered, parsed, parsed.subcommand !== 'set');
   if (parsed.subcommand === 'list') { print(artifacts, json); return { exitCode: 0 }; }
   if (parsed.subcommand === 'audit' || parsed.subcommand === 'resolve') {
-    const catalog = await effectiveCatalog(ctx, target, false, parsed);
+    const catalog = await effectiveCatalog(ctx, target, false, parsed, provider);
     const catalogSource = catalog.discovery?.source ?? 'static';
-    const output = artifacts.map(item => ({
-      ...resolved(item, provider, catalog as ProviderModelCatalog),
-      catalogSource,
-      catalogFetchedAt: catalog.discovery?.fetchedAt ?? null,
-    }));
+    let roleMappings: Record<string, string> = {};
+    if (provider === 'grok-build') {
+      try {
+        const projectConfig = JSON.parse(await fs.readFile(path.join(target, 'models.json'), 'utf8'));
+        const candidate = projectConfig?.providers?.['grok-build'];
+        if (candidate && typeof candidate === 'object') roleMappings = candidate;
+      } catch { /* optional project policy */ }
+    }
+    const output = artifacts.map(item => {
+      const base = {
+        ...resolved(item, provider, catalog as ProviderModelCatalog),
+        catalogSource,
+        catalogFetchedAt: catalog.discovery?.fetchedAt ?? null,
+      };
+      if (provider !== 'grok-build') return base;
+      const discovery = catalog.discovery?.providers['grok-build'];
+      if (!discovery) return base;
+      const providerResolution = resolveGrokBuildRoleModel(discovery, base.policy.role, roleMappings,
+        flagString(parsed, 'model'));
+      return { ...base,
+        compiled: { ...base.compiled, effectiveModel: providerResolution.model, fields: {},
+          source: 'inheritance' as const },
+        providerPolicy: discovery.policy, providerResolution };
+    });
     print(output, json);
-    return { exitCode: output.some(item => item.compiled.diagnostics.some(d => d.severity === 'error')) ? 2 : 0 };
+    return { exitCode: output.some(item => item.compiled.diagnostics.some(d => d.severity === 'error')
+      || ('providerResolution' in item && item.providerResolution?.source === 'unresolved')) ? 2 : 0 };
   }
   if (parsed.subcommand === 'validate') {
     const invalid = artifacts.filter(item => !validateCanonicalModelPolicy({

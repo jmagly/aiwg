@@ -153,7 +153,9 @@ function toLegacyReport(report, issue) {
       taxonomy: finding.taxonomy,
       source: { partId: finding.partId, ...(finding.source ?? {}) },
     }));
-  const why = report.decision.matchedMandatoryRule
+  const why = !report.completeness.complete
+    ? `Threat assessment was incomplete (${report.completeness.reasons.join(', ')}); manual authorization is required.`
+    : report.decision.matchedMandatoryRule
     ? `This is reject rather than flag because mandatory policy rule '${report.decision.matchedMandatoryRule}' matched.`
     : signals.length
       ? `The '${report.profile}' profile selected '${action}' for ${report.risk.severity} risk.`

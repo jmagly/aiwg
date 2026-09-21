@@ -57,6 +57,12 @@ export { ModelResolver } from './resolver.js';
 export { routeModelTier } from './router.js';
 
 export {
+  discoverGrokBuildModels,
+  parseGrokBuildModelConfig,
+  resolveGrokBuildRoleModel,
+} from './grok-build-models.js';
+
+export {
   compileModelPolicy,
   loadProviderModelCapabilities,
   loadProviderModelCatalog,

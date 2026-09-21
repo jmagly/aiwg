@@ -556,6 +556,15 @@ export const doctorHandler: CommandHandler = {
     let agentSkillsFailure = false;
 
     try {
+      const { inspectGrokBuildNative } = await import('../../mcp/grok-build-config.mjs');
+      const native = await inspectGrokBuildNative({ projectDir: ctx.cwd || process.cwd() });
+      console.log(`\n── Grok Build native extensions ──\n  MCP: ${native.mcp}\n  Hooks: ${native.hooks}`);
+      for (const diagnostic of native.diagnostics) console.log(`  ⚠ ${diagnostic}`);
+    } catch (error) {
+      console.log(`\n── Grok Build native extensions ──\n  ⚠ unable to audit: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    try {
       const { buildAgentSkillsDoctorSection } = await import('../../skills/doctor.js');
       const section = buildAgentSkillsDoctorSection(ctx.cwd || process.cwd());
       console.log(section.output);

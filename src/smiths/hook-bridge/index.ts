@@ -15,6 +15,7 @@ import { translateForCodex } from './codex-translator.js';
 import { translateForCopilot } from './copilot-translator.js';
 import { translateForFactory } from './factory-translator.js';
 import { translateForHermes } from './hermes-translator.js';
+import { translateForGrokBuild } from './grok-build-translator.js';
 import { getProviderDefinition } from '../../providers/provider-definitions.js';
 
 export type { HookSource, HookEvent, HookExitSemantic, TranslateOptions, TranslateResult, ProviderTranslator } from './types.js';
@@ -24,6 +25,7 @@ export { translateForCodex, renderCodexHookToml, injectHookBlock as injectCodexH
 export { translateForCopilot } from './copilot-translator.js';
 export { translateForFactory } from './factory-translator.js';
 export { translateForHermes } from './hermes-translator.js';
+export { translateForGrokBuild, GROK_EVENT_MAP } from './grok-build-translator.js';
 export { loadHookSources } from './loader.js';
 
 /**
@@ -39,6 +41,7 @@ export const TRANSLATORS: Record<string, ProviderTranslator> = {
   copilot: translateForCopilot,
   factory: translateForFactory,
   hermes: translateForHermes,
+  'grok-build': translateForGrokBuild,
 };
 
 function resolveHookTranslator(providerId: string): ProviderTranslator | undefined {

@@ -4208,7 +4208,7 @@ export class UseHandler implements CommandHandler {
           }
         } else {
           // Cross-provider providers per ADR-3 §7 (no-op if their dir not present)
-          const bridgeProviders = ['codex', 'copilot', 'factory', 'hermes'];
+          const bridgeProviders = ['codex', 'copilot', 'factory', 'grok-build', 'hermes'];
           const results = await bridgeAll(sources, bridgeProviders, {
             projectPath: target,
             dryRun,

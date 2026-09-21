@@ -73,7 +73,7 @@ afterEach(async () => {
 describe('dynamic model catalog', () => {
   it('records an implemented-or-unsupported decision for every AIWG provider', () => {
     expect(Object.keys(PROVIDER_DISCOVERY_DECISIONS).sort()).toEqual([
-      'claude', 'codex', 'copilot', 'cursor', 'factory', 'grokbot', 'hermes',
+      'claude', 'codex', 'copilot', 'cursor', 'factory', 'grok-build', 'grokbot', 'hermes',
       'omp', 'openclaw', 'opencode', 'openhuman', 'pi', 'warp', 'windsurf',
     ]);
     expect(Object.values(PROVIDER_DISCOVERY_DECISIONS).every(decision =>
@@ -82,7 +82,7 @@ describe('dynamic model catalog', () => {
     expect(Object.values(PROVIDER_DISCOVERY_DECISIONS)
       .filter(decision => decision.status === 'native')
       .map(decision => decision.provider)
-      .sort()).toEqual(['codex', 'omp', 'openclaw', 'opencode', 'pi']);
+      .sort()).toEqual(['codex', 'grok-build', 'omp', 'openclaw', 'opencode', 'pi']);
   });
 
   it('maps enumerated models to semantic roles without inventing identifiers', () => {

@@ -122,4 +122,9 @@ export const NATIVE_ENV_VAR_MAP: Record<string, Record<string, string>> = {
   copilot: {
     PROJECT_DIR: '$GITHUB_WORKSPACE',
   },
+  'grok-build': {
+    PROJECT_DIR: '$GROK_WORKSPACE_ROOT',
+    HOOK_EVENT: '$GROK_HOOK_EVENT',
+    SESSION_ID: '$GROK_SESSION_ID',
+  },
 };

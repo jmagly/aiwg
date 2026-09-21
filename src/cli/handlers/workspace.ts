@@ -60,9 +60,11 @@ export const statusHandler: CommandHandler = {
         provider: statusFlagValue(ctx.args, '--provider'),
         bundle: statusFlagValue(ctx.args, '--bundle'),
       });
+      const { inspectGrokBuildNative } = await import('../../mcp/grok-build-config.mjs');
+      const grokBuildNative = await inspectGrokBuildNative({ projectDir: projectRoot });
       return {
         exitCode: probe.status === 'needs-repair' ? 1 : 0,
-        message: JSON.stringify(probe, null, 2),
+        message: JSON.stringify({ ...probe, grokBuildNative }, null, 2),
         rawOutput: true,
       };
     }

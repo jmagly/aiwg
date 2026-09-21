@@ -1,4 +1,5 @@
 import { manageOmpMcp } from './omp-config.mjs';
+import { manageGrokBuildMcp } from './grok-build-config.mjs';
 import { replaceServer } from './toml-editor.mjs';
 import { resolveOmpPaths } from '../providers/omp-paths.mjs';
 /**
@@ -15,7 +16,7 @@ import { resolveOmpPaths } from '../providers/omp-paths.mjs';
  */
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
-import { resolve } from 'path';
+import { dirname, resolve } from 'path';
 import { homedir } from 'os';
 import { existsSync } from 'fs';
 import {
@@ -339,6 +340,24 @@ export async function injectServers(registry, provider, options = {}) {
     try {
       const managed = await manageOmpMcp(configPath, allServers, { dryRun });
       if (!dryRun) for (const server of allServers) await registry.recordInjection(server.name, 'omp');
+      return { ...result, ...managed };
+    } catch (error) {
+      return { ...result, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  if (normalizedProvider === 'grok-build') {
+    try {
+      const managed = await manageGrokBuildMcp(configPath, allServers, {
+        dryRun,
+        root: options.scope === 'user'
+          ? dirname(dirname(configPath))
+          : resolve(projectDir),
+        blockedByPolicy: options.blockedByPolicy,
+      });
+      if (!dryRun && !managed.error) {
+        for (const server of allServers) await registry.recordInjection(server.name, 'grok-build');
+      }
       return { ...result, ...managed };
     } catch (error) {
       return { ...result, error: error instanceof Error ? error.message : String(error) };

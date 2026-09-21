@@ -66,6 +66,7 @@ export type Provider =
   | 'cursor'
   | 'factory'
   | 'grokbot'
+  | 'grok-build'
   | 'hermes'
   | 'opencode'
   | 'openclaw'

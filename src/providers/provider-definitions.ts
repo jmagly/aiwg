@@ -876,8 +876,8 @@ const BUILT_IN_SEEDS: BuiltInSeed[] = [
     },
     adapters: {
       agentFormat: 'agents-md',
-      hookBridge: null,
-      mcpInjection: null,
+      hookBridge: 'grok-build',
+      mcpInjection: 'grok-build',
       contextAggregation: 'agents-md',
       ruleFormat: 'agents-md-section',
     },

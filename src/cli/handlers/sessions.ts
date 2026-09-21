@@ -27,6 +27,9 @@ import {
   OpenHumanSessionAdapter,
   GROKBOT_ADAPTER_VERSION,
   GrokbotSessionAdapter,
+  GROK_BUILD_ADAPTER_VERSION,
+  GROK_BUILD_CLI_EXPORT_LOCATOR_CLASS,
+  GrokBuildSessionAdapter,
   PI_ADAPTER_VERSION,
   PiSessionAdapter,
   DEEPSEEK_HARNESS_ADAPTER_VERSION,
@@ -813,7 +816,7 @@ async function importSource(
   if (provider !== 'generic' && provider !== 'claude' && provider !== 'codex'
     && provider !== 'copilot' && provider !== 'cursor' && provider !== 'factory'
     && provider !== 'hermes' && provider !== 'opencode' && provider !== 'openclaw'
-    && provider !== 'openhuman' && provider !== 'grokbot' && provider !== 'pi' && provider !== 'omp' && provider !== 'deepseek-harness' && provider !== 'warp' && provider !== 'devin-desktop') {
+    && provider !== 'openhuman' && provider !== 'grokbot' && provider !== 'grok-build' && provider !== 'pi' && provider !== 'omp' && provider !== 'deepseek-harness' && provider !== 'warp' && provider !== 'devin-desktop') {
     throw new CliError('UNSUPPORTED_OPERATION', `session import is not implemented for ${provider}`, EXIT.unsupported);
   }
   const sourceId = requiredValue(args, '--source-id');
@@ -830,6 +833,7 @@ async function importSource(
   const isOpenClaw = provider === 'openclaw';
   const isOpenHuman = provider === 'openhuman';
   const isGrokbot = provider === 'grokbot';
+  const isGrokBuild = provider === 'grok-build';
   const isPi = provider === 'pi';
   const isOmp = provider === 'omp';
   const isDsh = provider === 'deepseek-harness';
@@ -855,6 +859,8 @@ async function importSource(
                     ? new OpenHumanSessionAdapter()
                     : isGrokbot
                       ? new GrokbotSessionAdapter()
+                      : isGrokBuild
+                        ? new GrokBuildSessionAdapter()
                       : isPi
                         ? new PiSessionAdapter()
                     : isWarp
@@ -880,9 +886,11 @@ async function importSource(
                   ? 'openclaw-consistent-snapshot-jsonl'
                   : isOpenHuman
                     ? 'openhuman-enriched-jsonl'
-                    : isGrokbot
-                      ? 'manual-export'
-                      : isPi
+                  : isGrokbot
+                    ? 'manual-export'
+                    : isGrokBuild
+                      ? GROK_BUILD_CLI_EXPORT_LOCATOR_CLASS
+                    : isPi
                         ? 'pi-session-v3-jsonl'
                     : isWarp
                       ? 'warp-markdown-export'
@@ -916,6 +924,8 @@ async function importSource(
                       ? 'schema-1-session-raw-enriched'
                       : isGrokbot
                         ? 'manual-interchange'
+                        : isGrokBuild
+                          ? 'documented-cli-markdown-export'
                         : isWarp
                           ? 'manual-lossy-markdown-export'
                         : isDevinDesktop
@@ -942,6 +952,8 @@ async function importSource(
                       ? OPENHUMAN_ADAPTER_VERSION
                       : isGrokbot
                         ? GROKBOT_ADAPTER_VERSION
+                        : isGrokBuild
+                          ? GROK_BUILD_ADAPTER_VERSION
                         : isWarp
                           ? WARP_ADAPTER_VERSION
                         : isDevinDesktop
@@ -951,7 +963,7 @@ async function importSource(
     disposition: isWarp || isGrokbot
       ? 'manual-only'
       : isClaude || isCodex || isCopilot || isCursor || isFactory || isHermes
-        || isOpenCode || isOpenClaw || isOpenHuman || isDevinDesktop || isOmp || isDsh || isPi
+        || isOpenCode || isOpenClaw || isOpenHuman || isGrokBuild || isDevinDesktop || isOmp || isDsh || isPi
         ? 'implemented' : 'manual-only',
     operationalState: probe.operationalState,
     consistency: probe.consistency, authorizedAt: new Date().toISOString(),
@@ -975,6 +987,8 @@ async function importSource(
                       ? { 'native.openhuman': {} }
                       : isGrokbot
                         ? { 'native.grokbot': {} }
+                        : isGrokBuild
+                          ? { 'native.grok-build': { acquisition: 'grok-cli-export-markdown' } }
                         : isWarp
                           ? { 'native.warp': {} }
                         : isDevinDesktop
@@ -1606,6 +1620,20 @@ function providerDisposition(provider: SessionProviderId): Record<string, unknow
         adapterVersion: GROKBOT_ADAPTER_VERSION,
         verifiedAt: '2026-09-15',
         documentation: 'docs/providers/grokbot-sessions.md',
+      },
+    };
+  }
+  if (provider === 'grok-build') {
+    return {
+      provider, disposition: 'implemented', operationalState: 'available',
+      supportedOperations: ['inspect', 'stream'],
+      acquisitionModes: ['manual-export'],
+      reasonCode: 'CLI_EXPORT_REQUIRED',
+      remediation: 'Run `grok sessions list`, then `grok export <session-id> <session-id>.md` and import the explicitly authorized Markdown file.',
+      evidence: {
+        adapterVersion: GROK_BUILD_ADAPTER_VERSION,
+        verifiedAt: '2026-09-21',
+        documentation: 'https://docs.x.ai/build/features/sessions',
       },
     };
   }

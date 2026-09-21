@@ -19,6 +19,7 @@ import {
 import { McpProfileRegistry } from './profiles.mjs';
 import { getMcpInjectionDefinition } from '../providers/provider-definitions.mjs';
 import { manageOmpMcp } from './omp-config.mjs';
+import { unmanageGrokBuildMcp } from './grok-build-config.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1202,12 +1203,21 @@ export async function main(args = process.argv.slice(2)) {
 
     case 'uninject': {
       const provider = parseFlag(subArgs, '--provider');
-      if (!['omp', 'oh-my-pi'].includes(provider)) throw new Error('uninject currently supports --provider omp');
+      if (!['omp', 'oh-my-pi', 'grok-build'].includes(provider)) throw new Error('uninject supports --provider omp or grok-build');
       const scope = parseFlag(subArgs, '--scope') || 'project';
       if (!['project', 'user'].includes(scope)) throw new Error('Scope must be project or user');
       const remove = (parseFlag(subArgs, '--servers') || '').split(',').map(s => s.trim()).filter(Boolean);
       if (!remove.length) throw new Error('uninject requires --servers name[,name]');
       const configPath = getProviderConfigPath(provider, parseFlag(subArgs, '--project') || '.', { scope });
+      if (provider === 'grok-build') {
+        const projectDir = parseFlag(subArgs, '--project') || '.';
+        const result = await unmanageGrokBuildMcp(configPath, remove, {
+          dryRun: subArgs.includes('--dry-run'),
+          root: scope === 'user' ? path.dirname(path.dirname(configPath)) : path.resolve(projectDir),
+        });
+        console.log(JSON.stringify(result, null, 2));
+        break;
+      }
       const result = await manageOmpMcp(configPath, [], { remove, dryRun: subArgs.includes('--dry-run') });
       console.log(JSON.stringify(result, null, 2));
       break;

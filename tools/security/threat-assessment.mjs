@@ -1,7 +1,21 @@
 import { createHash } from 'node:crypto';
 
 export const THREAT_ASSESSMENT_SCHEMA_VERSION = '1';
-export const THREAT_ASSESSMENT_ENGINE_VERSION = '1.1.0';
+export const THREAT_ASSESSMENT_ENGINE_VERSION = '1.2.0';
+
+/**
+ * Hard scan bounds keep assessment work deterministic. Reaching any bound is
+ * reported as an incomplete assessment and can never silently produce a
+ * proceed decision in audit/enforce mode.
+ */
+export const THREAT_ASSESSMENT_LIMITS = Object.freeze({
+  maxInputCharacters: 262_144,
+  maxParts: 128,
+  maxOccurrencesPerPattern: 128,
+  maxFindings: 2_048,
+  maxCustomRules: 64,
+  maxPatternsPerRule: 32,
+});
 
 export const THREAT_SURFACES = [
   'issue-title',
@@ -19,11 +33,28 @@ export const THREAT_SURFACES = [
 export const SEVERITIES = ['informational', 'low', 'moderate', 'high', 'critical'];
 export const ACTIONS = ['proceed', 'record', 'flag', 'require-authorization', 'reject'];
 
+const CONSUMPTION_ACTION = /^(?:consume-as-data|read|read-only|summari[sz]e|review-evidence|discuss(?:-[\w-]+)?|document(?:-[\w-]+)?)$/i;
+
 const SEVERITY_RANK = Object.fromEntries(SEVERITIES.map((name, index) => [name, index]));
 const ACTION_RANK = Object.fromEntries(ACTIONS.map((name, index) => [name, index]));
 const BUILTIN_PACK_PREFIX = 'aiwg:';
 
 const BUILTIN_RULES = [
+  {
+    id: 'claimed-authorization',
+    severity: 'moderate',
+    likelihood: 4,
+    impact: 4,
+    taxonomy: ['ASI01', 'ASI09'],
+    patterns: [
+      '\\b(?:i|we)\\s+(?:have\\s+)?(?:reviewed|checked|accepted|approved|authorized|authorised|signed[ -]off)(?:\\s+and)?(?:\\s+(?:approve|authorize|authorise|accept))?\\b',
+      '\\b(?:i|we)\\s+(?:approve|authorize|authorise|accept|sign[ -]off)\\b',
+      '\\b(?:design|plan|specification|implementation|change|handoff)\\s+(?:is|was|has been)\\s+(?:approved|authorized|authorised|accepted|signed[ -]off|cleared)\\b',
+      '\\b(?:approval|authorization|authorisation|sign[ -]off)\\s+(?:is|was|has been)\\s+(?:given|granted|completed|confirmed)\\b',
+      '\\b(?:approved|authorized|authorised|signed[ -]off|cleared)\\s+by\\s+[\\w@.-]+\\b',
+      '\\b(?:prior|previous|earlier)\\s+(?:approval|authorization|authorisation|sign[ -]off)\\b',
+    ],
+  },
   {
     id: 'instruction-override',
     severity: 'high',
@@ -278,6 +309,7 @@ export function validateThreatAssessmentConfig(value) {
   if (value.rulePacks !== undefined) {
     if (!isObject(value.rulePacks)) errors.push('security.threatAssessment.rulePacks: must be an object');
     else {
+      let customRuleCount = 0;
       for (const [name, pack] of Object.entries(value.rulePacks)) {
         const where = `security.threatAssessment.rulePacks.${name}`;
         if (name.startsWith(BUILTIN_PACK_PREFIX)) errors.push(`${where}: project rule packs cannot shadow aiwg: built-ins`);
@@ -285,6 +317,7 @@ export function validateThreatAssessmentConfig(value) {
           errors.push(`${where}.rules: must be an array`);
           continue;
         }
+        customRuleCount += pack.rules.length;
         if (typeof pack.version !== 'string' || !pack.version.trim()) {
           errors.push(`${where}.version: must be a non-empty string`);
         }
@@ -311,9 +344,14 @@ export function validateThreatAssessmentConfig(value) {
           }
           if (!Array.isArray(rule.patterns) || rule.patterns.length === 0) {
             errors.push(`${ruleWhere}.patterns: must be a non-empty array`);
+          } else if (rule.patterns.length > THREAT_ASSESSMENT_LIMITS.maxPatternsPerRule) {
+            errors.push(`${ruleWhere}.patterns: cannot exceed ${THREAT_ASSESSMENT_LIMITS.maxPatternsPerRule} patterns`);
           } else rule.patterns.forEach((pattern, patternIndex) =>
             validatePattern(pattern, `${ruleWhere}.patterns[${patternIndex}]`, errors));
         });
+      }
+      if (customRuleCount > THREAT_ASSESSMENT_LIMITS.maxCustomRules) {
+        errors.push(`security.threatAssessment.rulePacks: cannot exceed ${THREAT_ASSESSMENT_LIMITS.maxCustomRules} custom rules`);
       }
     }
   }
@@ -448,6 +486,76 @@ function normalizeParts(input) {
   return [{ id: 'content', text: String(input.content ?? ''), context: input.semanticContext }];
 }
 
+function isAuthorityAdoption(requestedAction) {
+  return !CONSUMPTION_ACTION.test(String(requestedAction ?? 'consume-as-data').trim());
+}
+
+function authorizationBinding(input) {
+  const requestedAction = input.requestedAction ?? 'consume-as-data';
+  const required = isAuthorityAdoption(requestedAction);
+  const parts = normalizeParts(input);
+  const contentHash = stableHash(parts.map(part => ({ id: part.id, text: part.text, source: part.source })));
+  const provenance = input.provenance ?? input.source ?? { kind: 'unknown' };
+  const checkpoint = input.adoptionCheckpoint ?? (required ? 'action-adoption' : 'consumption');
+  const receipt = input.authorizationReceipt;
+  const reasons = [];
+
+  if (!required) reasons.push('authorization-not-required-for-data-consumption');
+  else if (!isObject(receipt)) reasons.push('authorization-receipt-missing');
+  else {
+    if (receipt.verified !== true) reasons.push('receipt-not-verified-by-trusted-caller');
+    if (!isObject(receipt.operator) || receipt.operator.authenticated !== true || typeof receipt.operator.id !== 'string' || !receipt.operator.id.trim()) {
+      reasons.push('authenticated-operator-missing');
+    }
+    if (receipt.action !== requestedAction) reasons.push('action-mismatch');
+    if (input.actionTarget === undefined || receipt.target === undefined
+      || stableHash(receipt.target) !== stableHash(input.actionTarget)) reasons.push('target-mismatch');
+    if (input.actionScope === undefined || receipt.scope === undefined
+      || stableHash(receipt.scope) !== stableHash(input.actionScope)) reasons.push('scope-mismatch');
+    if (!isObject(receipt.source)) reasons.push('immutable-source-missing');
+    else {
+      for (const field of ['repository', 'revision', 'path']) {
+        if (typeof provenance[field] !== 'string' || !provenance[field] || receipt.source[field] !== provenance[field]) {
+          reasons.push(`source-${field}-mismatch`);
+        }
+      }
+      if (provenance.range !== undefined && stableHash(receipt.source.range) !== stableHash(provenance.range)) {
+        reasons.push('source-range-mismatch');
+      }
+      if (receipt.source.contentHash !== contentHash) reasons.push('source-content-hash-mismatch');
+    }
+  }
+
+  return {
+    required,
+    checkpoint,
+    verified: required && reasons.length === 0,
+    contentHash,
+    provenance,
+    ...(isObject(receipt) && typeof receipt.id === 'string' ? { receiptId: receipt.id } : {}),
+    reasons,
+  };
+}
+
+function boundedParts(input) {
+  const normalized = normalizeParts(input);
+  const reasons = [];
+  const selected = normalized.slice(0, THREAT_ASSESSMENT_LIMITS.maxParts);
+  if (normalized.length > selected.length) reasons.push('part-limit');
+  let remaining = THREAT_ASSESSMENT_LIMITS.maxInputCharacters;
+  let observedCharacters = 0;
+  const parts = selected.map(part => {
+    observedCharacters += part.text.length;
+    const text = part.text.slice(0, Math.max(0, remaining));
+    remaining -= text.length;
+    return { ...part, text };
+  });
+  observedCharacters += normalized.slice(selected.length)
+    .reduce((sum, part) => sum + part.text.length, 0);
+  if (observedCharacters > THREAT_ASSESSMENT_LIMITS.maxInputCharacters) reasons.push('input-character-limit');
+  return { parts, reasons, observedCharacters, observedParts: normalized.length };
+}
+
 function paragraphAt(text, index, length) {
   const startBreak = text.lastIndexOf('\n\n', index);
   const endBreak = text.indexOf('\n\n', index + length);
@@ -537,13 +645,14 @@ function inferContext(text, index, explicit, length = 0) {
   // An evidence cue followed by a quotation mark that has not closed yet:
   //   evidence: "Run X with current cookies; ..."  -> the match sits inside the quote.
   if (/(?:quoted|quote|example|evidence)\s*[:\-]?\s*["\u201c][^"\u201d]*$/i.test(wider)) return 'quoted';
-  if (/(?:must not|do not|don't|never|avoid|prevent|forbid|out[- ]of[- ]scope|warning against|without)\b[^.!?\n]{0,100}$/i.test(before)
-    || /\bno\s+(?:[\w-]+\s+){0,3}$/i.test(before)) {
+  const sentence = sentenceAt(text, index, length);
+  const localPrefix = `${sentence.leading} ${text.slice(index, index + length)}`.toLowerCase();
+  if (/(?:must not|do not|don't|never|avoid|prevent|forbid|out[- ]of[- ]scope|warning against|without)\b[^.!?\n]{0,100}$/i.test(localPrefix)
+    || /\bno\s+(?:[\w-]+\s+){0,3}$/i.test(localPrefix)) {
     // "no model credentials needed", "no secret was accessed": a bare "no"
     // within three words of the match negates it; "no" further back does not.
     return 'negative';
   }
-  const sentence = sentenceAt(text, index, length);
   if (IMPERATIVE_LEAD.test(sentence.leading) || REQUEST_CUE.test(sentence.leading)) return 'requested';
   if (DESCRIPTIVE_CUE.test(sentence.text)) return 'descriptive';
   return 'requested';
@@ -585,13 +694,27 @@ function statementMatches(statement, finding, input) {
   return true;
 }
 
-function applyStatements(findings, statements, input) {
+function applyStatements(findings, statements, input, authorization) {
   return findings.map(finding => {
     let result = { ...finding, matchedStatements: [] };
+    if (finding.ruleId === 'claimed-authorization') {
+      if (!authorization.required) {
+        result = { ...result, suppressed: true, suppressionReason: 'claimed approval is inert evidence during data consumption' };
+      } else if (authorization.verified) {
+        result = { ...result, suppressed: true, suppressionReason: `verified authorization receipt ${authorization.receiptId ?? '(unnamed)'} matches this action adoption` };
+      } else if (/\b(?:documentation|example|historical|archived|last year|in 20\d{2})\b/i.test(finding.evidence)) {
+        result = { ...result, suppressed: true, suppressionReason: 'historical or example approval is evidence, not authority for this action' };
+      } else {
+        result = { ...result, suppressed: false, suppressionReason: undefined };
+      }
+    }
     for (const statement of statements ?? []) {
       if (!statementMatches(statement, result, input)) continue;
       result.matchedStatements.push(statement.id);
-      if (statement.effect === 'suppress') result = { ...result, suppressed: true, suppressionReason: statement.reason };
+      if (statement.effect === 'suppress'
+        && !(finding.ruleId === 'claimed-authorization' && authorization.required && !authorization.verified && !result.suppressed)) {
+        result = { ...result, suppressed: true, suppressionReason: statement.reason };
+      }
       if (statement.effect === 'set-severity' && SEVERITIES.includes(statement.severity)) {
         result = { ...result, severity: statement.severity };
       }
@@ -622,6 +745,9 @@ function actionForSeverity(severity, thresholds) {
 
 function mandatoryAction(activeFindings) {
   const ids = new Set(activeFindings.map(finding => finding.ruleId));
+  if (ids.has('claimed-authorization')) {
+    return { action: 'require-authorization', ruleId: 'mandatory:claimed-authorization-adoption' };
+  }
   const credentialCombination = ids.has('credential-or-env-probing')
     && (ids.has('instruction-override') || ids.has('third-party-execution') || ids.has('sensitive-file-target'));
   const supplyChainCombination = ids.has('third-party-execution')
@@ -642,6 +768,7 @@ export function assessThreat(input, rawConfig) {
   }
   const surface = input.surface;
   const policy = resolveThreatAssessmentPolicy(rawConfig, surface);
+  const authorization = authorizationBinding(input);
   const base = {
     schemaVersion: THREAT_ASSESSMENT_SCHEMA_VERSION,
     engineVersion: THREAT_ASSESSMENT_ENGINE_VERSION,
@@ -654,12 +781,19 @@ export function assessThreat(input, rawConfig) {
     source: input.source ?? { kind: 'unknown' },
     actor: input.actor ?? { trust: 'unknown' },
     requestedAction: input.requestedAction ?? 'consume-as-data',
+    authorization,
     policyProvenance: policy.provenance,
   };
   if (policy.mode === 'off') {
     return {
       ...base,
       assessed: false,
+      completeness: {
+        complete: true,
+        reasons: [],
+        limits: THREAT_ASSESSMENT_LIMITS,
+        observed: { parts: normalizeParts(input).length, characters: 0, findings: 0 },
+      },
       findings: [],
       risk: { score: 0, severity: 'informational', likelihood: 0, impact: 0 },
       decision: { action: 'proceed', wouldAction: 'proceed', interrupts: false, reason: 'AIWG assessment is explicitly off.' },
@@ -667,12 +801,37 @@ export function assessThreat(input, rawConfig) {
   }
 
   const findings = [];
-  for (const part of normalizeParts(input)) {
+  const bounded = boundedParts(input);
+  const incompleteReasons = [...bounded.reasons];
+  for (const part of bounded.parts) {
     for (const rule of configuredRules(policy)) {
-      for (const patternText of rule.patterns) {
-        const pattern = new RegExp(patternText, 'imu');
-        const match = pattern.exec(part.text);
-        if (!match) continue;
+      const occurrences = new Map();
+      for (const [patternIndex, patternText] of rule.patterns.entries()) {
+        const pattern = new RegExp(patternText, 'gimu');
+        let match;
+        let occurrenceCount = 0;
+        while ((match = pattern.exec(part.text)) !== null) {
+          if (occurrenceCount >= THREAT_ASSESSMENT_LIMITS.maxOccurrencesPerPattern) {
+            incompleteReasons.push('occurrence-limit');
+            break;
+          }
+          occurrenceCount += 1;
+          const start = match.index;
+          const end = match.index + match[0].length;
+          const key = `${start}:${end}`;
+          const existing = occurrences.get(key);
+          if (existing) existing.patternIndexes.push(patternIndex);
+          else occurrences.set(key, { match, start, end, patternIndexes: [patternIndex] });
+          if (match[0].length === 0) pattern.lastIndex += 1;
+        }
+      }
+      const ordered = [...occurrences.values()].sort((left, right) => left.start - right.start || left.end - right.end);
+      for (const occurrence of ordered) {
+        if (findings.length >= THREAT_ASSESSMENT_LIMITS.maxFindings) {
+          incompleteReasons.push('finding-limit');
+          break;
+        }
+        const match = occurrence.match;
         const paragraph = paragraphAt(part.text, match.index, match[0].length);
         const context = inferContext(part.text, match.index, part.context, match[0].length);
         const suppressed = SUPPRESSED_CONTEXTS.includes(context);
@@ -685,6 +844,14 @@ export function assessThreat(input, rawConfig) {
           taxonomy: rule.taxonomy ?? [],
           partId: part.id,
           ...(part.source ? { source: part.source } : {}),
+          occurrence: {
+            start: occurrence.start,
+            end: occurrence.end,
+            match: match[0],
+            paragraphStart: paragraph.start,
+            paragraphEnd: paragraph.end,
+            patternIndexes: occurrence.patternIndexes,
+          },
           context,
           evidence: paragraph.text,
           suppressed,
@@ -695,13 +862,14 @@ export function assessThreat(input, rawConfig) {
             : undefined,
           matchedStatements: [],
         });
-        break;
       }
     }
   }
 
+  const reasons = [...new Set(incompleteReasons)];
+  const complete = reasons.length === 0;
   const statements = [...(policy.config.statements ?? []), ...(policy.profile.statements ?? [])];
-  const evaluated = applyStatements(findings, statements, input);
+  const evaluated = applyStatements(findings, statements, input, authorization);
   const active = evaluated.filter(finding => !finding.suppressed);
   const likelihood = active.reduce((max, finding) => Math.max(max, finding.likelihood ?? 0), 0);
   const impact = active.reduce((max, finding) => Math.max(max, finding.impact ?? 0), 0);
@@ -713,17 +881,33 @@ export function assessThreat(input, rawConfig) {
   let wouldAction = actionForSeverity(severity, policy.profile.thresholds ?? BUILTIN_PROFILES.balanced.thresholds);
   const mandatory = mandatoryAction(active);
   if (mandatory && ACTION_RANK[mandatory.action] > ACTION_RANK[wouldAction]) wouldAction = mandatory.action;
+  if (!complete && ACTION_RANK['require-authorization'] > ACTION_RANK[wouldAction]) {
+    wouldAction = 'require-authorization';
+  }
   const action = policy.mode === 'audit' ? (active.length ? 'record' : 'proceed') : wouldAction;
+  const appliedAction = policy.mode === 'audit' && !complete ? 'record' : action;
   return {
     ...base,
     assessed: true,
+    completeness: {
+      complete,
+      reasons,
+      limits: THREAT_ASSESSMENT_LIMITS,
+      observed: {
+        parts: bounded.observedParts,
+        characters: bounded.observedCharacters,
+        findings: findings.length,
+      },
+    },
     findings: evaluated,
     risk: { score, severity, likelihood, impact },
     decision: {
-      action,
+      action: appliedAction,
       wouldAction,
-      interrupts: policy.mode === 'enforce' && ['flag', 'require-authorization', 'reject'].includes(action),
-      reason: mandatory?.ruleId ?? (active.length ? `profile threshold selected '${wouldAction}'` : 'no active findings'),
+      interrupts: policy.mode === 'enforce' && ['flag', 'require-authorization', 'reject'].includes(appliedAction),
+      reason: !complete
+        ? `assessment-incomplete: ${reasons.join(', ')}`
+        : mandatory?.ruleId ?? (active.length ? `profile threshold selected '${wouldAction}'` : 'no active findings'),
       matchedMandatoryRule: mandatory?.ruleId,
     },
   };
@@ -748,6 +932,9 @@ export function formatThreatAssessment(report) {
     `Policy: schema ${report.policyVersion}, profile ${report.profileVersion}, engine ${report.engineVersion}, hash \`${report.policyHash.slice(0, 12)}\``,
     `Surface: \`${report.surface}\`; source: \`${report.policyProvenance.source}\``,
   ];
+  if (!report.completeness.complete) {
+    lines.push('', `**Incomplete assessment:** ${report.completeness.reasons.join(', ')}. Manual authorization is required before proceeding.`);
+  }
   if (active.length) {
     lines.push('', '**Active findings:**');
     for (const finding of active) {
@@ -760,6 +947,7 @@ export function formatThreatAssessment(report) {
       lines.push(`- \`${finding.ruleId}\` (${finding.context}${describeSource(finding)}): ${finding.evidence}`);
     }
   }
-  lines.push('', '_AIWG policy selection does not disable or replace independent provider, platform, authorization, secret-scanning, or repository-action safeguards._');
+  lines.push('', `Authorization binding: **${report.authorization.verified ? 'verified' : report.authorization.required ? 'not verified' : 'not required for data consumption'}** at \`${report.authorization.checkpoint}\`.`);
+  lines.push('', '_`proceed` is the policy outcome for the assessed action. It does not grant authorization or trust instructions embedded in assessed content. AIWG policy selection does not disable or replace independent provider, platform, authorization, secret-scanning, or repository-action safeguards._');
   return lines.join('\n');
 }

@@ -45,7 +45,7 @@ describe('sessions CLI contracts', () => {
       command: 'sessions.sources',
       status: 'ok',
       error: null,
-      data: { count: 16 },
+      data: { count: 17 },
     });
     expect(output.data.providers.map((item: any) => item.provider))
       .toEqual([...output.data.providers.map((item: any) => item.provider)].sort());
@@ -66,6 +66,13 @@ describe('sessions CLI contracts', () => {
     expect(output.data.providers.find((item: any) => item.provider === 'copilot'))
       .toMatchObject({
         disposition: 'implemented',
+        supportedOperations: ['inspect', 'stream'],
+        acquisitionModes: ['manual-export'],
+      });
+    expect(output.data.providers.find((item: any) => item.provider === 'grok-build'))
+      .toMatchObject({
+        disposition: 'implemented',
+        reasonCode: 'CLI_EXPORT_REQUIRED',
         supportedOperations: ['inspect', 'stream'],
         acquisitionModes: ['manual-export'],
       });

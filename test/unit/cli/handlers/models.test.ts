@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -93,5 +93,40 @@ describe('models CLI handler', () => {
     expect(config.description).toBe('operator content');
     expect(config.providers.custom.coding).toBe('local/model');
     expect((await run(root, ['set', '--all', '--tier', 'invalid'])).exitCode).toBe(2);
+  });
+
+  it('reports Grok Build source precedence and resolved project roles without leaking credentials', async () => {
+    const { root } = await fixture();
+    const home = path.join(root, 'grok-home');
+    const bin = path.join(root, 'bin');
+    await mkdir(home, { recursive: true });
+    await mkdir(bin, { recursive: true });
+    const config = path.join(home, 'config.toml');
+    await writeFile(config, '[model.local]\nmodel = "actual-backend-id"\nenv_key = "TEST_GROK_API_KEY"\nextra_headers = { Authorization = "secret-config-value" }\n[models]\ndefault = "local"\n');
+    const executable = path.join(bin, 'grok');
+    await writeFile(executable, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo 'grok 1.0.38'; else printf '%s\\n' '{"configSources":{"layers":[{"role":"user","path":"${config}"}]}}'; fi\n`);
+    await chmod(executable, 0o755);
+    await writeFile(path.join(root, 'models.json'), JSON.stringify({ providers: { 'grok-build': { efficiency: 'local' } } }));
+    const previous = { PATH: process.env.PATH, GROK_HOME: process.env.GROK_HOME, TEST_GROK_API_KEY: process.env.TEST_GROK_API_KEY };
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      process.env.PATH = `${bin}:${previous.PATH ?? ''}`;
+      process.env.GROK_HOME = home;
+      process.env.TEST_GROK_API_KEY = 'secret-env-value';
+      expect((await run(root, ['sources', '--provider', 'grok-build', '--json'])).exitCode).toBe(0);
+      const sources = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+      expect(sources.discovery.providers['grok-build'].policy.selected['models.default']).toMatchObject({ scope: 'user', value: 'local' });
+      expect((await run(root, ['resolve', '--skill', 'check', '--provider', 'grok-build', '--json'])).exitCode).toBe(0);
+      const resolved = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+      expect(resolved[0].providerResolution).toMatchObject({ source: 'project-policy', model: 'local' });
+      expect(JSON.stringify(log.mock.calls)).not.toMatch(/secret-config-value|secret-env-value/);
+      expect(sources.discovery.providers['grok-build'].models[0]).toMatchObject({ id: 'local', apiModelId: 'actual-backend-id' });
+      expect((await run(root, ['audit', '--skill', 'check', '--provider', 'grok-build', '--model', 'missing', '--json'])).exitCode).toBe(2);
+      expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))[0].providerResolution.diagnostic).toContain('unavailable');
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key]; else process.env[key] = value;
+      }
+    }
   });
 });
