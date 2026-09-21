@@ -5,7 +5,7 @@
   "publicSourceCommit": "4247f661689354b831191f11eeeac8424993fe3d",
   "upstreamSourceRevision": "9bb727ccdff0a793ee73bcde4e2e09cbef6b5387",
   "recordedAt": "2026-09-21T22:19:51.246Z",
-  "reviewedAt": "2026-09-21T22:31:32Z",
+  "reviewedAt": "2026-09-21T23:08:38Z",
   "authenticationMode": "unverified",
   "inspect": "pass",
   "buildVerify": "ready",
@@ -34,7 +34,7 @@
     "operator-content": "pass",
     "idempotence": "pass",
     "path-safety": "pass",
-    "rollback": "pending",
+    "rollback": "pass",
     "no-secret-leakage": "pass",
     "compatibility": "pass"
   },
@@ -53,8 +53,9 @@
     "aiwg refresh --skip-update --provider grok-build --frameworks sdlc completed in the isolated project and build-verify remained ready.",
     "Project and user scopes were exercised separately. aiwg use all --provider grok-build --scope user deployed into the isolated GROK_HOME; aiwg remove all --scope user --provider grok-build removed all AIWG user skills and preserved the operator user skill.",
     "A symlinked .grok root in a second isolated project was refused by both Grok Build deployment and reviewed removal, with the outside operator file unchanged. A linked user-scope skills root was also refused before mirroring, without writes to its outside target.",
+    "A controlled refresh failure and exact backup-based recovery are recorded in docs/providers/grok-build-evidence/linux-rollback.md. This is operator recovery, not automatic transactional rollback.",
     "A synthetic canary in operator-owned .grok/config.toml remained private through deploy, inspect, regenerate, refresh, verify, removal preview, and removal output; operator config and native/compatibility skills were preserved.",
     "AGENTS.md loaded WORKSPACE.md before AIWG.md; CLAUDE.md retained its operator note and exactly one AIWG hook after alternating provider regeneration.",
-    "No credentialed model call, rollback injection, or other platform qualification occurred; those checks remain pending."
+    "No credentialed model call or other platform qualification occurred; those checks remain pending."
   ]
 }
