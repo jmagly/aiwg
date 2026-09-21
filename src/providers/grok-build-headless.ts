@@ -9,6 +9,8 @@ export interface GrokHeadlessOptions {
   command?: string;
   /** Test-only launcher prefix; production always invokes grok directly. */
   prefixArgs?: string[];
+  /** Use the released CLI's explicit switch for AIWG-controlled leaf workers. */
+  disableSubagents?: boolean;
   timeoutMs?: number;
   maxOutputBytes?: number;
   env?: NodeJS.ProcessEnv;
@@ -66,7 +68,7 @@ export async function runGrokHeadless(options: GrokHeadlessOptions): Promise<Gro
   const timeoutMs = Math.min(Math.max(options.timeoutMs ?? DEFAULT_TIMEOUT_MS, 1), MAX_TIMEOUT_MS);
   const maxBytes = Math.min(Math.max(options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT, 1024), DEFAULT_MAX_OUTPUT);
   const env = options.env ?? process.env;
-  const args = [...(options.prefixArgs ?? []), '--no-auto-update', '-p', options.prompt, '--output-format', format];
+  const args = [...(options.prefixArgs ?? []), '--no-auto-update', ...(options.disableSubagents ? ['--no-subagents'] : []), '-p', options.prompt, '--output-format', format];
   return new Promise((resolve, reject) => {
     const child = spawn(options.command ?? 'grok', args, {
       cwd: options.cwd,

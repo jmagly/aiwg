@@ -21,15 +21,19 @@ Neither transport auto-approves tool use.
 
 `GrokBuildDispatcher.forProject(root)` resolves the project's
 `parallelism.max_parallel_subagents` and admits no more than that many
-AIWG-controlled headless workers in the current AIWG process. Dispatchers for
-the same project share one admission counter. Every dispatch requires caller-provided
-authorization and remaining-budget checks. It sets `GROK_SUBAGENTS=0` because
+AIWG-controlled headless workers across independent AIWG processes using
+atomic, private slots in Git's common directory (or a per-user runtime
+directory for non-Git projects). Dispatchers for worktrees of the same Git
+repository share those slots. Every dispatch requires caller-provided
+authorization and remaining-budget checks. Stale slots fail closed and need
+operator review before explicit removal. Changing the cap while workers run
+requires those workers to finish before new dispatch. AIWG passes the released
+CLI's `--no-subagents` switch and sets `GROK_SUBAGENTS=0` because
 Grok Build's internal autonomous subagent fan-out has no documented hard project
 cap. The native host can still spawn subagents in an interactive session; AIWG
 cannot presently prove a hard cap over that external path. This is a
 qualification limitation, not a claim that Grok's native subagents lack value.
-Independent AIWG processes also do not share this in-memory counter; use one
-orchestrator process for bounded automation until a durable lease is qualified.
+Grok sessions started outside AIWG's dispatcher remain outside this cap.
 
 An isolated dispatch creates a detached Git worktree from a clean source HEAD,
 leaves the user's checkout alone, and writes `aiwg-grok-owner.json` in Git's

@@ -15,6 +15,13 @@ describe('Grok Build bounded headless transport', () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it('uses the released CLI switch to disable native subagents for governed workers', async () => {
+    const result = await runGrokHeadless({
+      ...fake('process.stdout.write(process.argv.join(" "))'), prompt: 'hello', format: 'plain', disableSubagents: true,
+    });
+    expect(result.text).toContain('--no-auto-update --no-subagents -p hello');
+  });
+
   it('parses JSON result and propagates JSON errors', async () => {
     const result = await runGrokHeadless({ ...fake('console.log(JSON.stringify({type:"result",text:"ok"}))'), prompt: 'hello', format: 'json' });
     expect(result.events[0]).toMatchObject({ type: 'result', text: 'ok' });
