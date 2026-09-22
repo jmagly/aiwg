@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "decision-telemetry/v1",
+  "scenarios": {
+    "retry-then-success": {
+      "spanNames": ["decision.workflow", "decision.validate", "decision.attempt", "decision.attempt", "decision.normalize", "decision.accept", "decision.attempt", "decision.normalize", "decision.accept", "decision.attempt", "decision.normalize", "decision.accept", "decision.compose", "decision.persist"],
+      "retryEvents": 1,
+      "terminalStatus": "ok"
+    },
+    "caller-cancellation": {
+      "spanNames": ["decision.workflow", "decision.validate", "decision.normalize", "decision.accept", "decision.normalize", "decision.accept", "decision.normalize", "decision.accept", "decision.compose", "decision.persist"],
+      "terminalStatus": "error"
+    },
+    "approved-action-link": {
+      "spanNames": ["decision.review", "decision.action"],
+      "actionParent": "decision.review",
+      "linkRelationship": "review"
+    },
+    "malformed-id-source": { "emittedSpans": 0, "decisionUnaffected": true },
+    "deletion": { "remainingSpans": 0, "tombstoneReason": "expired during restore" },
+    "cardinality": { "acceptedPoints": 2, "rejectedPoints": 1, "forbiddenDimensionPresent": false }
+  }
+}

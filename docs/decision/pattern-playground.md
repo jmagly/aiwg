@@ -24,6 +24,13 @@ selection, same-subject batching, durable review, and candidate selection. The
 dependent two-stage example is explicitly `unavailable` until the governed DAG
 runtime is present. Durable review is `experimental` for production use.
 
+The durable-review pack additionally exports
+`runOfflineDurableReviewFixture(directory)`. It uses the production
+`FileDecisionReviewStore` and `DecisionReviewService`, restarts both service and
+store, performs an authorized resume, then repeats resume and proves that the
+stored effect receipt is returned without a second executor call. The fixture is
+local-only and requires the caller to supply a disposable directory.
+
 Live execution is deliberately outside the playground runner. Call
 `planLiveDecisionPattern()` to obtain a non-executing readiness plan. It requires
 explicit opt-in, approved synthetic egress, logical credential resolution, and
@@ -81,3 +88,10 @@ a source checkout path exists. They use the `aiwg://decision-patterns/` scheme
 and resolve locally through `resolveDecisionPatternArtifact()` from
 `aiwg/decision`, without filesystem or network access. Each pack exposes its own
 rollback text and limitations through discovery.
+
+## Operational closure
+
+Opt-in live operation is governed by the versioned
+[`JEV-22-G6` closure manifest](operations/closure-manifest.v1.json) and its
+resolved [incident runbooks](operations/README.md). The offline package smoke
+fails when a required runbook ID, drill, or packaged reference is absent.

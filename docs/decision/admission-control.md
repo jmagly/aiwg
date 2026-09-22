@@ -30,3 +30,13 @@ No live provider qualification is required in CI, and no vendor ceiling is hard-
 ## Preregistered offline load manifest
 
 The initial qualification manifest is [`load-manifest.v1.json`](./load-manifest.v1.json). Its limits are preregistered inputs, not claims of measured provider capacity. A run is valid only when its result records the manifest digest before observations are collected. Changing a bound after observing results requires a new manifest version.
+
+The v1 manifest byte digest is
+`sha256:9c6db981b0e1d124e317651ed15e8972fbf27b7a7596b15aa23ea3baac4bb03f`.
+The scheduler unit gate pins that digest, expands the declared load, spike, and
+900-second soak durations into deterministic synthetic arrivals, and checks
+active-call, canonical-output, and eligible-lane fairness bounds. It also runs
+the 1/2/N/N+1 permit matrix and randomized completion schedules. Resident
+memory, CPU utilization, wall-clock cancellation latency, retry amplification,
+and provider capacity remain qualification-run observations; the synthetic gate
+does not promote them into measured claims.

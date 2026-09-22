@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   decisionPatternPacks,
   getDecisionPatternPack,
@@ -6,8 +9,12 @@ import {
   planLiveDecisionPattern,
   runOfflineDecisionPattern,
   resolveDecisionPatternArtifact,
+  runOfflineDurableReviewFixture,
   validateDecisionPattern,
 } from '../../../src/decision/patterns/index.js';
+
+const fixtureDirectories: string[] = [];
+afterEach(async () => Promise.all(fixtureDirectories.splice(0).map(directory => rm(directory, { recursive: true, force: true }))));
 
 describe('PAT decision pattern playground', () => {
   it('discovers every required pack with governed artifacts and offline fixtures', () => {
@@ -95,5 +102,16 @@ describe('PAT decision pattern playground', () => {
     expect(planLiveDecisionPattern('intent-routing', { explicitOptIn: true, credentialResolved: false, egressApproved: true })).toMatchObject({ status: 'skipped', reason: 'credential-unavailable', executes: false });
     expect(planLiveDecisionPattern('intent-routing', { explicitOptIn: true, credentialResolved: true, egressApproved: false })).toMatchObject({ status: 'denied', reason: 'egress-denied', executes: false });
     expect(planLiveDecisionPattern('intent-routing', { explicitOptIn: true, credentialResolved: true, egressApproved: true })).toMatchObject({ status: 'ready', reason: 'ready', executes: false, limits: { allowUnknownCost: false, maxCalls: 2 } });
+  });
+
+  it('PAT-DURABLE-001 uses the real offline store across restart and resumes idempotently', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'aiwg-pattern-review-'));
+    fixtureDirectories.push(directory);
+    await expect(runOfflineDurableReviewFixture(directory)).resolves.toMatchObject({
+      schema: 'decision-pattern-durable-review-fixture/v1', executionMode: 'offline-local',
+      networkAllowed: false, credentialRequired: false, store: 'file-decision-review-store',
+      restarted: true, reviewId: 'durable-review-fixture', executorCalls: 1,
+      duplicateResumeReturnedReceipt: true,
+    });
   });
 });

@@ -3,13 +3,17 @@ import type {
   DecisionReviewServiceOptions, ReviewEventType, ReviewListOptions, ReviewScope, ReviewStore,
 } from './types.js';
 import { currentProposal, ReviewAccessError, ReviewConflictError, reviewDigest } from './validate.js';
+import { DecisionTraceBuilder } from '../telemetry/trace.js';
+import { sanitizeOpaqueValue } from '../telemetry/redaction.js';
 
 export class DecisionReviewService {
   private readonly resumingLeaseMs: number;
   private readonly pollIntervalMs: number;
+  private readonly telemetry: DecisionReviewServiceOptions['telemetry'];
   constructor(private readonly store: ReviewStore, private readonly authorization: ReviewAuthorization, private readonly now = () => Date.now(), options: DecisionReviewServiceOptions = {}) {
     this.resumingLeaseMs = options.resumingLeaseMs ?? 30_000;
     this.pollIntervalMs = options.pollIntervalMs ?? 10;
+    this.telemetry = options.telemetry;
     if (!Number.isSafeInteger(this.resumingLeaseMs) || this.resumingLeaseMs < 1) throw new Error('resumingLeaseMs must be a positive integer');
     if (!Number.isSafeInteger(this.pollIntervalMs) || this.pollIntervalMs < 1) throw new Error('pollIntervalMs must be a positive integer');
   }
@@ -30,6 +34,7 @@ export class DecisionReviewService {
       events: [{ sequence: 1, type: 'created', atEpochMs: at, actor: scope.actor, proposalVersion: 1, rationale: input.rationale }],
     };
     if (!await this.store.create(review)) throw new ReviewConflictError('Review ID already exists');
+    await this.emitTelemetry(review);
     return review;
   }
 
@@ -132,6 +137,7 @@ export class DecisionReviewService {
         const effectId = reviewDigest({ reviewId: id, continuationId: review.continuation.id, proposalVersion: proposal.version });
         const recovered = this.append(review, 'resumed', scope.actor, 'stale continuation lease recovered', 'resuming', { effectId, recovered: true });
         if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, recovered)) continue;
+        await this.emitTelemetry(recovered);
         return this.executeAndFinish(scope, id, recovered, proposal.action, effectId, execute);
       }
       if (review.status !== 'approved') throw new ReviewConflictError(`Review cannot resume from ${review.status}`);
@@ -139,6 +145,7 @@ export class DecisionReviewService {
       const effectId = reviewDigest({ reviewId: id, continuationId: review.continuation.id, proposalVersion: proposal.version });
       const resuming = this.append(review, 'resumed', scope.actor, 'continuation acquired', 'resuming', { effectId });
       if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, resuming)) continue;
+      await this.emitTelemetry(resuming);
       return this.executeAndFinish(scope, id, resuming, proposal.action, effectId, execute);
     }
   }
@@ -148,6 +155,8 @@ export class DecisionReviewService {
       const result = await execute(effectId, structuredClone(action));
       const receipt: ReviewEffectReceipt = { effectId, continuationId: resuming.continuation.id, proposalVersion: currentProposal(resuming).version, completedAtEpochMs: this.now(), result };
       await this.finish(scope, id, resuming.revision, receipt);
+      const completed = await this.store.read(id, scope.tenantId, scope.projectId);
+      if (completed) await this.emitTelemetry(completed, receipt.effectId);
       return receipt;
     } catch (error) {
       const failed = this.append(resuming, 'execution-failed', scope.actor, 'executor failed', 'execution-failed');
@@ -167,7 +176,10 @@ export class DecisionReviewService {
   private async mutate(scope: ReviewScope, id: string, operation: Parameters<ReviewAuthorization['authorize']>[1], build: (review: DecisionReview) => DecisionReview | Promise<DecisionReview>, allowNoop = false): Promise<DecisionReview> {
     for (;;) { const review = await this.requireReview(scope, id); await this.allowed(scope, operation, review); const next = await build(review);
       if (allowNoop && next === review) return review;
-      if (await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, next)) return next; }
+      if (await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, next)) {
+        await this.emitTelemetry(next);
+        return next;
+      } }
   }
   private async requireReview(scope: ReviewScope, id: string) { const review = await this.store.read(id, scope.tenantId, scope.projectId); if (!review) throw new ReviewAccessError('Review not found'); return review; }
   private async allowed(scope: ReviewScope, operation: Parameters<ReviewAuthorization['authorize']>[1], review?: DecisionReview) { if (!await this.authorization.authorize(scope, operation, review)) throw new ReviewAccessError('Review access denied'); }
@@ -177,5 +189,38 @@ export class DecisionReviewService {
     const at = Math.max(this.now(), review.updatedAtEpochMs); const proposalVersion = currentProposal(review).version;
     return { ...structuredClone(review), revision: review.revision + 1, status, updatedAtEpochMs: at,
       events: [...review.events, { sequence: review.events.length + 1, type, atEpochMs: at, actor, proposalVersion, rationale, ...(data ? { data } : {}) }] };
+  }
+
+  private async emitTelemetry(review: DecisionReview, effectId?: string): Promise<void> {
+    if (!this.telemetry) return;
+    try {
+      const builder = new DecisionTraceBuilder(this.telemetry.ids, this.now);
+      const root = builder.startSpan('decision.review', {
+        ...(this.telemetry.parent ? { parent: this.telemetry.parent } : {}),
+        attributes: {
+          'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128),
+          'aiwg.review.status': review.status,
+          'aiwg.review.revision': review.revision,
+          'aiwg.review.event': review.events.at(-1)?.type ?? 'unknown',
+        },
+        provenance: {
+          'aiwg.review.id': 'client-derived', 'aiwg.review.status': 'client-derived',
+          'aiwg.review.revision': 'client-derived', 'aiwg.review.event': 'client-derived',
+        },
+      });
+      builder.endSpan(root, review.status === 'execution-failed' ? 'error' : 'ok');
+      if (effectId) {
+        const action = builder.startSpan('decision.action', { parent: root.context,
+          links: [{ ...root.context, relationship: 'review', attributes: { 'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128) } }],
+          attributes: { 'aiwg.effect_receipt.id': sanitizeOpaqueValue(effectId, 128), 'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128) },
+          provenance: { 'aiwg.effect_receipt.id': 'client-derived', 'aiwg.review.id': 'client-derived' } });
+        builder.endSpan(action, review.status === 'completed' ? 'ok' : 'error');
+      }
+      for (const span of builder.build().spans) {
+        try { await this.telemetry.hook.emit(span); } catch { /* isolate exporter failure */ }
+      }
+    } catch {
+      // Observability must never alter durable review state or action delivery.
+    }
   }
 }

@@ -14,6 +14,8 @@ import type {
   CompileCacheReadContext,
   CompileCacheResult,
 } from './compile-cache/types.js';
+import type { DecisionTelemetryContext, DecisionTelemetryHook } from './telemetry/types.js';
+import type { DecisionTelemetryIdSource } from './telemetry/context.js';
 
 export const DECISION_API_VERSION = 'decision.aiwg.io/v1alpha1' as const;
 export const DECISION_API_VERSION_STRUCTURED = 'decision.aiwg.io/v1alpha2' as const;
@@ -558,4 +560,10 @@ export interface DecisionEvaluationRequest {
   context?: DecisionContextPolicy;
   scheduler?: DecisionSchedulerPolicy;
   compileCache?: DecisionCompileCachePolicy;
+  /** Optional metadata-only observability sink. Its failures never affect evaluation. */
+  telemetry?: {
+    hook: DecisionTelemetryHook;
+    ids?: DecisionTelemetryIdSource;
+    parent?: DecisionTelemetryContext;
+  };
 }

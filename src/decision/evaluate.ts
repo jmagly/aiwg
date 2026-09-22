@@ -11,6 +11,7 @@ import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch
 import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
 import type { CompatibilityDecision } from './calibration/types.js';
 import { prepareAdapterRequest } from './compile-cache/runtime.js';
+import { emitRulesetRuntimeTrace } from './telemetry/runtime.js';
 import {
   assertContextPlanCurrent,
   ContextPlanError,
@@ -57,6 +58,12 @@ const RETRIABLE = new Set<DecisionFailureReason>([
 const admissionControllers = new WeakMap<object, DecisionAdmissionController>();
 
 export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest): Promise<RulesetResult> {
+  const result = await evaluateDecisionRulesetInternal(request);
+  await emitRulesetRuntimeTrace(request, result);
+  return result;
+}
+
+async function evaluateDecisionRulesetInternal(request: DecisionEvaluationRequest): Promise<RulesetResult> {
   let rulesetPin: ArtifactPin;
   let bindingPin: ArtifactPin;
   let base: RulesetResult = invalidResultBase(request);

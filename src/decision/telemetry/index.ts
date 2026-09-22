@@ -4,5 +4,6 @@ export * from './mapping.js';
 export * from './metrics.js';
 export * from './redaction.js';
 export * from './retention.js';
+export * from './runtime.js';
 export * from './trace.js';
 export * from './types.js';

@@ -1,0 +1,25 @@
+{
+  "schema": "decision-pattern-closure-manifest/v1",
+  "id": "JEV-22-G6",
+  "version": "1.0.0",
+  "issue": 2607,
+  "runbookDocument": "docs/decision/operations/README.md",
+  "runbooks": [
+    "RUN-JEV-OUTAGE-v1", "RUN-JEV-CREDENTIAL-v1", "RUN-JEV-EGRESS-v1",
+    "RUN-JEV-RECONCILE-v1", "RUN-JEV-CACHE-v1", "RUN-JEV-DRIFT-v1",
+    "RUN-JEV-TELEMETRY-v1", "RUN-JEV-ROLLBACK-v1"
+  ],
+  "drills": [
+    { "id": "DRILL-CREDENTIAL-v1", "runbook": "RUN-JEV-CREDENTIAL-v1", "expectedContainment": "binding-disabled" },
+    { "id": "DRILL-RETRY-STORM-v1", "runbook": "RUN-JEV-OUTAGE-v1", "expectedContainment": "attempt-cap-reached" },
+    { "id": "DRILL-INCOMPATIBLE-ALIAS-v1", "runbook": "RUN-JEV-DRIFT-v1", "expectedContainment": "action-route-blocked" },
+    { "id": "DRILL-CACHE-TAMPER-v1", "runbook": "RUN-JEV-CACHE-v1", "expectedContainment": "namespace-quarantined" },
+    { "id": "DRILL-EGRESS-v1", "runbook": "RUN-JEV-EGRESS-v1", "expectedContainment": "request-denied" }
+  ],
+  "gates": {
+    "offlinePackageSmoke": "npm run smoke:decision:patterns:offline",
+    "typecheck": "npm run typecheck",
+    "build": "npm run build:cli",
+    "schemaCatalog": "npm run schema:catalog:check"
+  }
+}

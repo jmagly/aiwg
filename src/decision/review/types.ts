@@ -102,7 +102,16 @@ export interface ReviewStore {
 }
 
 export interface ReviewListOptions { includeTombstoned?: boolean }
-export interface DecisionReviewServiceOptions { resumingLeaseMs?: number; pollIntervalMs?: number }
+export interface DecisionReviewServiceOptions {
+  resumingLeaseMs?: number;
+  pollIntervalMs?: number;
+  /** Optional metadata-only sink; exporter failures never affect review state. */
+  telemetry?: {
+    hook: import('../telemetry/types.js').DecisionTelemetryHook;
+    ids?: import('../telemetry/context.js').DecisionTelemetryIdSource;
+    parent?: import('../telemetry/types.js').DecisionTelemetryContext;
+  };
+}
 
 export interface CreateReviewInput {
   reviewId: string;

@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   AdmissionError,
@@ -34,9 +37,158 @@ describe('bounded fair decision scheduler', () => {
     expect(await running).toEqual(['result-0', 'result-1', 'result-2', 'result-3']);
     expect(maximum).toBe(2);
   });
+
+  it.each([
+    { label: '1', items: 1, expectedMaximum: 1 },
+    { label: '2', items: 2, expectedMaximum: 2 },
+    { label: 'N', items: 4, expectedMaximum: 4 },
+    { label: 'N+1', items: 5, expectedMaximum: 4 },
+  ])('enforces the 1/2/N/N+1 concurrency boundary at $label', async ({ items, expectedMaximum }) => {
+    const ceiling = 4;
+    let active = 0;
+    let maximum = 0;
+    const releases: Array<() => void> = [];
+    const started: number[] = [];
+    const running = runBoundedFair(
+      Array.from({ length: items }, (_, value) => ({ value, lane: `lane-${value}` })),
+      ceiling,
+      async value => {
+        active += 1;
+        maximum = Math.max(maximum, active);
+        started.push(value);
+        await new Promise<void>(release => releases.push(release));
+        active -= 1;
+        return value;
+      },
+    );
+
+    await Promise.resolve();
+    expect(started).toHaveLength(expectedMaximum);
+    while (releases.length) releases.shift()!();
+    if (items > ceiling) {
+      await new Promise<void>(done => setImmediate(done));
+      expect(started).toHaveLength(items);
+      while (releases.length) releases.shift()!();
+    }
+    expect(await running).toEqual(Array.from({ length: items }, (_, value) => value));
+    expect(maximum).toBe(expectedMaximum);
+  });
+
+  it('is byte-identical in canonical input order across randomized completion orders', async () => {
+    const inputs = Array.from({ length: 64 }, (_, value) => ({ value, lane: `lane-${value % 7}` }));
+    const execute = async (seed: number): Promise<string> => {
+      let state = seed >>> 0;
+      const delays = inputs.map(() => {
+        state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+        return state % 7;
+      });
+      const results = await runBoundedFair(inputs, 8, async (value, index) => {
+        await new Promise<void>(done => setTimeout(done, delays[index]));
+        return { ordinal: value, stable: `result-${value}` };
+      });
+      return JSON.stringify(results);
+    };
+
+    const baseline = await execute(1);
+    for (const seed of [2, 17, 2_601, 0xffff_ffff]) expect(await execute(seed)).toBe(baseline);
+  });
+
+  it('round-robins an eligible quiet lane through a noisy neighbor backlog', async () => {
+    const starts: string[] = [];
+    const work = [
+      ...Array.from({ length: 32 }, (_, value) => ({ value: `noisy-${value}`, lane: 'noisy' })),
+      { value: 'quiet-0', lane: 'quiet' },
+      { value: 'third-0', lane: 'third' },
+    ];
+    const results = await runBoundedFair(work, 1, async value => {
+      starts.push(value);
+      return value;
+    });
+
+    expect(starts.slice(0, 3)).toEqual(['noisy-0', 'quiet-0', 'third-0']);
+    expect(results).toEqual(work.map(item => item.value));
+  });
+
+  it('keeps the preregistered load spike and synthetic soak within active and fairness bounds', async () => {
+    const manifestPath = resolve(process.cwd(), 'docs/decision/load-manifest.v1.json');
+    const manifestBytes = readFileSync(manifestPath);
+    expect(createHash('sha256').update(manifestBytes).digest('hex'))
+      .toBe('9c6db981b0e1d124e317651ed15e8972fbf27b7a7596b15aa23ea3baac4bb03f');
+    const manifest = JSON.parse(manifestBytes.toString('utf8')) as {
+      arrivalModel: { averageRequestsPerSecond: number; spikeMultiplier: number; spikeDurationSeconds: number };
+      duration: { loadSeconds: number; spikeSeconds: number; soakSeconds: number };
+      bounds: { maximumActiveCalls: number; maximumEligibleLaneWaitMs: number };
+    };
+    const base = manifest.arrivalModel.averageRequestsPerSecond;
+    const seconds = manifest.duration.loadSeconds + manifest.duration.spikeSeconds + manifest.duration.soakSeconds;
+    const syntheticRequests = (base * seconds)
+      + (base * (manifest.arrivalModel.spikeMultiplier - 1) * manifest.arrivalModel.spikeDurationSeconds);
+    const laneCount = 37;
+    let active = 0;
+    let maximum = 0;
+    const dispatchOrdinal = new Map<number, number>();
+    let dispatches = 0;
+    const work = Array.from({ length: syntheticRequests }, (_, value) => ({ value, lane: `principal-${value % laneCount}` }));
+    const results = await runBoundedFair(work, manifest.bounds.maximumActiveCalls, async value => {
+      active += 1;
+      maximum = Math.max(maximum, active);
+      dispatchOrdinal.set(value, dispatches++);
+      await Promise.resolve();
+      active -= 1;
+      return value;
+    });
+
+    expect(maximum).toBeLessThanOrEqual(manifest.bounds.maximumActiveCalls);
+    expect(results).toEqual(work.map(item => item.value));
+    // Under the manifest's 20 request/s arrival rate, one full lane round is
+    // 1.85 seconds. Every initially eligible lane therefore starts below the
+    // preregistered 2 second fairness ceiling, even during the burst backlog.
+    const maximumInitialLaneDispatch = Math.max(...Array.from({ length: laneCount }, (_, lane) => dispatchOrdinal.get(lane)!));
+    expect((maximumInitialLaneDispatch / base) * 1_000).toBeLessThan(manifest.bounds.maximumEligibleLaneWaitMs);
+  });
 });
 
 describe('decision provider admission', () => {
+  it('enforces admission permits at 1/2/N/N+1 without over-admitting the queued request', async () => {
+    const guarded = limits({ concurrency: 4 });
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    const leases = [];
+    for (let count = 1; count <= 4; count += 1) {
+      leases.push(await controller.acquire({ ...request(), principalId: `principal-${count}` }));
+      expect(leases.at(-1)!.evidence.active).toBe(1);
+    }
+    let fifthSettled = false;
+    const fifth = controller.acquire({ ...request(), principalId: 'principal-5' }).then(lease => {
+      fifthSettled = true;
+      return lease;
+    });
+    await Promise.resolve();
+    expect(fifthSettled).toBe(false);
+    leases[0]!.release({ success: true });
+    const admitted = await fifth;
+    expect(admitted.evidence).toMatchObject({ decision: 'admit', reason: 'admitted' });
+    admitted.release({ success: true });
+    leases.slice(1).forEach(lease => lease.release({ success: true }));
+  });
+
+  it('admits a quiet principal after at most one noisy-neighbor continuation', async () => {
+    const principal = limits({ concurrency: 1, maxQueueLength: 64 });
+    const workspace = limits({ concurrency: 1, maxQueueLength: 64 });
+    const provider = limits({ concurrency: 1, maxQueueLength: 64 });
+    const controller = new DecisionAdmissionController(() => ({ principal, workspace, provider }));
+    const first = await controller.acquire({ ...request(), principalId: 'noisy' });
+    const order: string[] = [];
+    const noisy = Array.from({ length: 12 }, (_, index) => controller
+      .acquire({ ...request(), principalId: 'noisy', budgetId: `noisy-${index}` })
+      .then(lease => { order.push(`noisy-${index}`); lease.release({ success: true }); }));
+    const quiet = controller.acquire({ ...request(), principalId: 'quiet', budgetId: 'quiet' })
+      .then(lease => { order.push('quiet'); lease.release({ success: true }); });
+    first.release({ success: true });
+    await Promise.all([...noisy, quiet]);
+
+    expect(order.indexOf('quiet')).toBeLessThanOrEqual(1);
+  });
+
   it('cancels a queued caller without consuming a provider permit', async () => {
     const shared = limits();
     const controller = new DecisionAdmissionController(() => ({ principal: shared, workspace: shared, provider: shared }));
