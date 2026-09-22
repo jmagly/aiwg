@@ -36,6 +36,17 @@ export class FileDecisionReviewStore implements ReviewStore {
   }
 
   async create(review: DecisionReview): Promise<boolean> { validateReview(review); return this.publish(review); }
+  async list(tenantId: string, projectId: string): Promise<DecisionReview[]> {
+    let names: string[];
+    try { names = await readdir(this.directory); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error; }
+    const ids = new Set<string>();
+    for (const name of names.filter(candidate => /\.r\d+\.json$/.test(candidate))) {
+      const envelope = JSON.parse(await readFile(join(this.directory, name), 'utf8')) as { review?: DecisionReview };
+      if (envelope.review?.reviewId) ids.add(envelope.review.reviewId);
+    }
+    const reviews = await Promise.all([...ids].map(id => this.read(id, tenantId, projectId)));
+    return reviews.filter((review): review is DecisionReview => review !== null).sort((a, b) => a.reviewId.localeCompare(b.reviewId));
+  }
   async compareAndSwap(reviewId: string, tenantId: string, projectId: string, expectedRevision: number, next: DecisionReview): Promise<boolean> {
     const current = await this.read(reviewId, tenantId, projectId);
     if (!current) throw new ReviewIntegrityError('Missing review');

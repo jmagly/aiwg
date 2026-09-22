@@ -2,11 +2,12 @@ export const DECISION_REVIEW_API_VERSION = 'decision.aiwg.io/v1alpha1' as const;
 
 export type ReviewStatus =
   | 'pending' | 'claimed' | 'approved' | 'rejected' | 'expired'
-  | 'escalated' | 'canceled' | 'resuming' | 'completed' | 'execution-failed';
+  | 'escalated' | 'canceled' | 'resuming' | 'completed' | 'execution-failed' | 'tombstoned';
 
 export type ReviewEventType =
   | 'created' | 'claimed' | 'approved' | 'rejected' | 'edited' | 'expired'
-  | 'escalated' | 'canceled' | 'resumed' | 'execution-completed' | 'execution-failed';
+  | 'escalated' | 'canceled' | 'resumed' | 'execution-completed' | 'execution-failed'
+  | 'legal-hold-placed' | 'legal-hold-released' | 'tombstoned';
 
 export interface ReviewActor {
   id: string;
@@ -76,12 +77,19 @@ export interface DecisionReview {
   continuation: { id: string; tokenDigest: `sha256:${string}` };
   effectReceipt?: ReviewEffectReceipt;
   executionError?: string;
+  lifecycle?: {
+    legalHold: boolean;
+    tombstonedAtEpochMs?: number;
+    tombstoneReason?: string;
+  };
 }
 
 export interface ReviewScope { tenantId: string; projectId: string; actor: ReviewActor }
 
+export type ReviewOperation = 'create' | 'read' | 'list' | 'export' | 'claim' | 'decide' | 'edit' | 'escalate' | 'cancel' | 'resume' | 'legal-hold' | 'delete' | 'tombstone';
+
 export interface ReviewAuthorization {
-  authorize(scope: ReviewScope, operation: 'create' | 'read' | 'claim' | 'decide' | 'edit' | 'escalate' | 'cancel' | 'resume', review?: DecisionReview): boolean | Promise<boolean>;
+  authorize(scope: ReviewScope, operation: ReviewOperation, review?: DecisionReview): boolean | Promise<boolean>;
   eligible(scope: ReviewScope, review: DecisionReview, proposal: ReviewProposal): boolean | Promise<boolean>;
   authorizeAction(scope: ReviewScope, review: DecisionReview, proposal: ReviewProposal): boolean | Promise<boolean>;
 }
@@ -90,7 +98,11 @@ export interface ReviewStore {
   read(reviewId: string, tenantId: string, projectId: string): Promise<DecisionReview | null>;
   create(review: DecisionReview): Promise<boolean>;
   compareAndSwap(reviewId: string, tenantId: string, projectId: string, expectedRevision: number, next: DecisionReview): Promise<boolean>;
+  list(tenantId: string, projectId: string): Promise<DecisionReview[]>;
 }
+
+export interface ReviewListOptions { includeTombstoned?: boolean }
+export interface DecisionReviewServiceOptions { resumingLeaseMs?: number; pollIntervalMs?: number }
 
 export interface CreateReviewInput {
   reviewId: string;

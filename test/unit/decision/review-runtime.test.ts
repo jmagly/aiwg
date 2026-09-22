@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DecisionReviewService, FileDecisionReviewStore, ReviewAccessError, ReviewConflictError,
-  type CreateReviewInput, type ReviewActor, type ReviewAuthorization, type ReviewScope,
+  reviewDigest, type CreateReviewInput, type DecisionReview, type ReviewActor, type ReviewAuthorization, type ReviewScope,
 } from '../../../src/decision/review/index.js';
 
 const directories: string[] = [];
@@ -97,6 +97,68 @@ describe('durable decision review runtime', () => {
     const restarted = new DecisionReviewService(new FileDecisionReviewStore(h.directory, new Uint8Array(32).fill(7)), h.authorization, () => 1_100);
     expect(await restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute)).toEqual(first);
     expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers a stale resuming revision after a crash using the same effect id', async () => {
+    const time = { value: 1_000 }; const h = await harness(time);
+    await h.service.create(scope(actor('alice', ['requester'])), input(time.value));
+    const approved = await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approved');
+    const effectId = reviewDigest({ reviewId: 'review-1', continuationId: approved.continuation.id, proposalVersion: 1 });
+    const stranded: DecisionReview = {
+      ...structuredClone(approved), revision: approved.revision + 1, status: 'resuming', updatedAtEpochMs: time.value,
+      events: [...approved.events, { sequence: approved.events.length + 1, type: 'resumed', atEpochMs: time.value,
+        actor: actor('bob'), proposalVersion: 1, rationale: 'continuation acquired', data: { effectId } }],
+    };
+    expect(await h.store.compareAndSwap('review-1', 'tenant-a', 'project-a', approved.revision, stranded)).toBe(true);
+    time.value += 101;
+    const restarted = new DecisionReviewService(new FileDecisionReviewStore(h.directory, new Uint8Array(32).fill(7)), h.authorization, () => time.value, { resumingLeaseMs: 100 });
+    const execute = vi.fn(async (id: string) => ({ id, recovered: true }));
+    const receipt = await restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute);
+    expect(receipt.effectId).toBe(effectId);
+    expect(execute).toHaveBeenCalledWith(effectId, { kind: 'notify', target: 'fixture' });
+    const stored = await h.store.read('review-1', 'tenant-a', 'project-a');
+    expect(stored?.events.at(-2)).toMatchObject({ type: 'resumed', data: { effectId, recovered: true } });
+    expect(stored?.status).toBe('completed');
+  });
+
+  it('reauthorizes token, reviewer, and action before stale-resume recovery', async () => {
+    const time = { value: 1_000 }; let eligible = true;
+    const h = await harness(time, { eligible: () => eligible });
+    await h.service.create(scope(actor('alice', ['requester'])), input(time.value));
+    const approved = await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approved');
+    const effectId = reviewDigest({ reviewId: 'review-1', continuationId: approved.continuation.id, proposalVersion: 1 });
+    const stranded: DecisionReview = { ...structuredClone(approved), revision: approved.revision + 1, status: 'resuming', updatedAtEpochMs: time.value,
+      events: [...approved.events, { sequence: approved.events.length + 1, type: 'resumed', atEpochMs: time.value, actor: actor('bob'), proposalVersion: 1, rationale: 'acquired', data: { effectId } }] };
+    await h.store.compareAndSwap('review-1', 'tenant-a', 'project-a', approved.revision, stranded); time.value += 101;
+    const restarted = new DecisionReviewService(h.store, h.authorization, () => time.value, { resumingLeaseMs: 100 });
+    await expect(restarted.resume(scope(actor('bob')), 'review-1', 'wrong', async () => 'no')).rejects.toBeInstanceOf(ReviewAccessError);
+    eligible = false;
+    await expect(restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', async () => 'no')).rejects.toBeInstanceOf(ReviewAccessError);
+  });
+
+  it('filters list/read/export without object enumeration and applies tombstone/legal hold lifecycle', async () => {
+    const hidden = new Set(['review-hidden']);
+    const h = await harness({ value: 1_000 }, { authorize: (_scope, operation, review) => {
+      if (operation === 'list' || operation === 'create' || operation === 'legal-hold' || operation === 'delete' || operation === 'tombstone') return true;
+      return !review || !hidden.has(review.reviewId);
+    } });
+    await h.service.create(scope(actor('alice', ['requester'])), input(1_000));
+    await h.service.create(scope(actor('alice', ['requester'])), input(1_000, { reviewId: 'review-hidden' }));
+    expect((await h.service.list(scope(actor('auditor')))).map(review => review.reviewId)).toEqual(['review-1']);
+    expect(await h.service.read(scope(actor('auditor')), 'review-hidden')).toBeNull();
+    expect(await h.service.read(scope(actor('auditor')), 'does-not-exist')).toBeNull();
+    expect(await h.service.export(scope(actor('auditor')), 'review-hidden')).toBeNull();
+
+    await h.service.setLegalHold(scope(actor('operator')), 'review-1', true, 'case preservation');
+    await expect(h.service.delete(scope(actor('operator')), 'review-1', 'retention elapsed')).rejects.toThrow(/legal hold/);
+    await h.service.setLegalHold(scope(actor('operator')), 'review-1', false, 'case closed');
+    const tombstone = await h.service.delete(scope(actor('operator')), 'review-1', 'retention elapsed');
+    expect(tombstone).toMatchObject({ status: 'tombstoned', lifecycle: { legalHold: false, tombstoneReason: 'retention elapsed' } });
+    expect(await h.service.read(scope(actor('auditor')), 'review-1')).toBeNull();
+    expect(await h.service.list(scope(actor('auditor')))).toEqual([]);
+    expect((await h.service.list(scope(actor('auditor')), { includeTombstoned: true })).map(review => review.reviewId)).toEqual(['review-1']);
+    expect(await h.service.export(scope(actor('auditor')), 'review-1')).toMatchObject({ status: 'tombstoned' });
+    expect(await h.service.tombstone(scope(actor('operator')), 'review-1', 'idempotent retry')).toEqual(tombstone);
   });
 
   it('rejects cross-project lookup without disclosing the object', async () => {

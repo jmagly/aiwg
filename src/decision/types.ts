@@ -1,3 +1,7 @@
+import type { ContextPlan } from './context-plan.js';
+import type { BatchResultReference } from './batch-receipts/receipt.js';
+import type { BatchReceiptStore, PriceCatalogRecord } from './batch-receipts/types.js';
+
 export const DECISION_API_VERSION = 'decision.aiwg.io/v1alpha1' as const;
 export const DECISION_API_VERSION_STRUCTURED = 'decision.aiwg.io/v1alpha2' as const;
 
@@ -282,6 +286,8 @@ export interface DecisionResult {
     uncertainty: DecisionUncertainty | null;
     acceptance?: DecisionAcceptanceEvidence;
     attempts: DecisionAttempt[];
+    /** Reference-only link to the durable owner of shared batch transport accounting. */
+    batchResult?: BatchResultReference;
   };
 }
 
@@ -394,6 +400,17 @@ export interface DecisionBatchPolicy {
   evaluations: Record<string, DecisionBatchEvaluationPolicy>;
 }
 
+/** Durable ownership required before a native shared-state dispatch is attempted. */
+export interface DecisionBatchReceiptPolicy {
+  store: BatchReceiptStore;
+  tenantId: string;
+  projectId: string;
+  contextPlan: ContextPlan;
+  subjectHash: `sha256:${string}`;
+  /** Optional reviewed catalog for deriving cost when the provider omits it. */
+  priceCatalog?: PriceCatalogRecord;
+}
+
 export interface DecisionBatchEvidence {
   mode: 'native' | 'single';
   groupId: string;
@@ -447,5 +464,6 @@ export interface DecisionEvaluationRequest {
   random?: () => number;
   delay?: (ms: number, signal: AbortSignal) => Promise<void>;
   batching?: DecisionBatchPolicy;
+  batchReceipts?: DecisionBatchReceiptPolicy;
   scheduler?: DecisionSchedulerPolicy;
 }

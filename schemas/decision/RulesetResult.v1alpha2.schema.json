@@ -639,6 +639,18 @@
                       "additionalProperties": false
                     },
                     "minItems": 0
+                  },
+                  "batchResult": {
+                    "type": "object",
+                    "properties": {
+                      "schemaVersion": { "const": "decision-batch-result-ref/v1" },
+                      "batchId": { "type": "string", "minLength": 1 },
+                      "receiptRevision": { "type": "integer", "minimum": 1 },
+                      "questionId": { "type": "string", "minLength": 1 },
+                      "answerId": { "type": "string", "minLength": 1 }
+                    },
+                    "required": ["schemaVersion", "batchId", "receiptRevision", "questionId", "answerId"],
+                    "additionalProperties": false
                   }
                 },
                 "required": [

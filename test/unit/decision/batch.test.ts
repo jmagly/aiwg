@@ -9,6 +9,11 @@ import {
   type DecisionRuleset,
   type DecisionAdapter,
   type AdapterObservation,
+  CanonicalJsonByteEstimator,
+  MemoryBatchReceiptStore,
+  batchAccountingTotals,
+  decisionBatchQuestionId,
+  planDecisionContext,
 } from '../../../src/decision/index.js';
 
 const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
@@ -32,6 +37,18 @@ function request(fetchImpl: typeof fetch, subjects?: Record<string, string>) {
     adapters: { jev: new JevDecisionAdapter({ fetch: fetchImpl }) }, batching: policy(subjects),
     resolveCredential: async () => new TextEncoder().encode('token'),
   };
+}
+
+function durableBatching(store = new MemoryBatchReceiptStore()) {
+  const questionIds = ['category', 'severity', 'core_unavailable'].map(decisionBatchQuestionId);
+  const estimator = new CanonicalJsonByteEstimator();
+  const contextPlan = planDecisionContext({ subject: 'ticket:42', authorizedState: fixture('input.json'),
+    authorizationDigest: `sha256:${'a'.repeat(64)}`, incompleteContext: false,
+    questions: questionIds.map(id => ({ id, subject: 'ticket:42', entry: { question: id } })) },
+  { id: 'jev', version: '1', estimator: { id: estimator.id, version: estimator.version },
+    limits: { aggregateTokens: 100_000, stateAndLongestQuestionTokens: 100_000 }, safetyMarginBps: 0, requestEnvelopeTokens: 0 }, estimator);
+  return { store, tenantId: 'tenant', projectId: 'project', contextPlan,
+    subjectHash: `sha256:${'b'.repeat(64)}` as const };
 }
 
 function validResponse(body: Record<string, unknown>, omitLast = false): Response {
@@ -105,5 +122,51 @@ describe('native shared-state decision batching', () => {
     expect(adapter.evaluate).toHaveBeenCalledTimes(3);
     expect(Object.values(result.spec.evaluations).map(value => value.spec.attempts[0]?.batch?.degradationReason))
       .toEqual(['unsupported', 'unsupported', 'unsupported']);
+  });
+
+  it('REC-BATCH runtime owns shared accounting once and emits reference-only result links', async () => {
+    const store = new MemoryBatchReceiptStore();
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(
+      JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(store) });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const references = Object.values(result.spec.evaluations).map(value => value.spec.batchResult);
+    expect(references.every(Boolean)).toBe(true);
+    expect(new Set(references.map(value => value!.batchId)).size).toBe(1);
+    expect(Object.values(result.spec.evaluations).map(value => value.spec.attempts[0]!.usage))
+      .toEqual(Array(3).fill({ inputTokens: null, outputTokens: null, costUsd: null }));
+    const receipt = await store.read(references[0]!.batchId, 'tenant', 'project');
+    expect(receipt?.answerReferences).toHaveLength(3);
+    expect(batchAccountingTotals(receipt!).usage).toEqual({ inputTokens: 9, outputTokens: 3 });
+    Object.values(result.spec.evaluations).forEach(validateDecisionDocument);
+  });
+
+  it('concurrent acquisition dispatches a durable native batch at most once', async () => {
+    const store = new MemoryBatchReceiptStore();
+    let release!: () => void;
+    const blocked = new Promise<void>(resolve => { release = resolve; });
+    const fetchImpl = vi.fn(async (_url, options) => {
+      await blocked;
+      return validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>);
+    }) as typeof fetch;
+    const configured = { ...request(fetchImpl), batchReceipts: durableBatching(store) };
+    const first = evaluateDecisionRuleset(configured);
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    const second = evaluateDecisionRuleset(configured);
+    release();
+    const [owned, replay] = await Promise.all([first, second]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect([owned, replay].some(value => Object.values(value.spec.evaluations).some(item => item.spec.batchResult))).toBe(true);
+  });
+
+  it('persists uncertain transport before replay and never redispatches after a crash boundary', async () => {
+    const store = new MemoryBatchReceiptStore();
+    const fetchImpl = vi.fn(async () => { throw new Error('connection lost after dispatch'); }) as typeof fetch;
+    const configured = { ...request(fetchImpl), batchReceipts: durableBatching(store) };
+    const first = await evaluateDecisionRuleset(configured);
+    const second = await evaluateDecisionRuleset(configured);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(Object.values(first.spec.evaluations).every(value => value.spec.reason === 'execution-uncertain')).toBe(true);
+    expect(second.spec.status).not.toBe('completed');
   });
 });

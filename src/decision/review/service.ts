@@ -1,11 +1,18 @@
 import type {
   CreateReviewInput, DecisionReview, ReviewActor, ReviewAuthorization, ReviewEffectReceipt,
-  ReviewEventType, ReviewScope, ReviewStore,
+  DecisionReviewServiceOptions, ReviewEventType, ReviewListOptions, ReviewScope, ReviewStore,
 } from './types.js';
 import { currentProposal, ReviewAccessError, ReviewConflictError, reviewDigest } from './validate.js';
 
 export class DecisionReviewService {
-  constructor(private readonly store: ReviewStore, private readonly authorization: ReviewAuthorization, private readonly now = () => Date.now()) {}
+  private readonly resumingLeaseMs: number;
+  private readonly pollIntervalMs: number;
+  constructor(private readonly store: ReviewStore, private readonly authorization: ReviewAuthorization, private readonly now = () => Date.now(), options: DecisionReviewServiceOptions = {}) {
+    this.resumingLeaseMs = options.resumingLeaseMs ?? 30_000;
+    this.pollIntervalMs = options.pollIntervalMs ?? 10;
+    if (!Number.isSafeInteger(this.resumingLeaseMs) || this.resumingLeaseMs < 1) throw new Error('resumingLeaseMs must be a positive integer');
+    if (!Number.isSafeInteger(this.pollIntervalMs) || this.pollIntervalMs < 1) throw new Error('pollIntervalMs must be a positive integer');
+  }
 
   async create(scope: ReviewScope, input: CreateReviewInput): Promise<DecisionReview> {
     await this.allowed(scope, 'create');
@@ -27,9 +34,43 @@ export class DecisionReviewService {
   }
 
   async read(scope: ReviewScope, reviewId: string): Promise<DecisionReview | null> {
-    await this.allowed(scope, 'read');
-    return this.store.read(reviewId, scope.tenantId, scope.projectId);
+    const review = await this.store.read(reviewId, scope.tenantId, scope.projectId);
+    if (!review || !await this.authorization.authorize(scope, 'read', review)) return null;
+    return review.status === 'tombstoned' ? null : review;
   }
+
+  async list(scope: ReviewScope, options: ReviewListOptions = {}): Promise<DecisionReview[]> {
+    if (!await this.authorization.authorize(scope, 'list')) return [];
+    const reviews = await this.store.list(scope.tenantId, scope.projectId);
+    const visible: DecisionReview[] = [];
+    for (const review of reviews) {
+      if ((!options.includeTombstoned && review.status === 'tombstoned') || !await this.authorization.authorize(scope, 'read', review)) continue;
+      visible.push(review);
+    }
+    return visible;
+  }
+
+  async export(scope: ReviewScope, id: string): Promise<DecisionReview | null> {
+    const review = await this.store.read(id, scope.tenantId, scope.projectId);
+    if (!review || !await this.authorization.authorize(scope, 'export', review)) return null;
+    return structuredClone(review);
+  }
+
+  setLegalHold(scope: ReviewScope, id: string, legalHold: boolean, rationale: string) { return this.mutate(scope, id, 'legal-hold', review => {
+    if (review.status === 'tombstoned') throw new ReviewConflictError('Tombstoned review cannot change legal hold');
+    if ((review.lifecycle?.legalHold ?? false) === legalHold) return review;
+    return this.append({ ...review, lifecycle: { ...review.lifecycle, legalHold } }, legalHold ? 'legal-hold-placed' : 'legal-hold-released', scope.actor, rationale, review.status);
+  }, true); }
+
+  delete(scope: ReviewScope, id: string, rationale: string) { return this.applyTombstone(scope, id, rationale, 'delete'); }
+  tombstone(scope: ReviewScope, id: string, rationale: string) { return this.applyTombstone(scope, id, rationale, 'tombstone'); }
+
+  private applyTombstone(scope: ReviewScope, id: string, rationale: string, operation: 'delete' | 'tombstone') { return this.mutate(scope, id, operation, review => {
+    if (review.lifecycle?.legalHold) throw new ReviewConflictError('Review deletion prohibited by legal hold');
+    if (review.status === 'tombstoned') return review;
+    const at = this.now();
+    return this.append({ ...review, lifecycle: { legalHold: false, tombstonedAtEpochMs: at, tombstoneReason: rationale } }, 'tombstoned', scope.actor, rationale, 'tombstoned');
+  }, true); }
 
   claim(scope: ReviewScope, id: string, rationale: string) { return this.mutate(scope, id, 'claim', review => {
     this.requireStatus(review, ['pending', 'claimed']);
@@ -77,32 +118,42 @@ export class DecisionReviewService {
     for (;;) {
       const review = await this.requireReview(scope, id);
       await this.allowed(scope, 'resume', review);
-      if (review.effectReceipt) return review.effectReceipt;
-      if (review.status === 'resuming') { await new Promise(resolve => setTimeout(resolve, 10)); continue; }
-      if (review.status !== 'approved') throw new ReviewConflictError(`Review cannot resume from ${review.status}`);
       if (review.continuation.tokenDigest !== reviewDigest(token)) throw new ReviewAccessError('Invalid resume token');
-      if (this.now() >= review.expiresAtEpochMs) throw new ReviewConflictError('Review expired before resume');
+      if (review.effectReceipt) return review.effectReceipt;
       const proposal = currentProposal(review);
       const approvals = review.decisions.filter(item => item.proposalVersion === proposal.version && item.decision === 'approve');
       if (approvals.length < review.quorum) throw new ReviewConflictError('Approval quorum is no longer satisfied');
       if (!await this.authorization.eligible(scope, review, proposal) || !await this.authorization.authorizeAction(scope, review, proposal)) {
         throw new ReviewAccessError('Authorization is no longer valid');
       }
+      if (review.status === 'resuming') {
+        const acquiredAt = review.events.at(-1)?.atEpochMs ?? review.updatedAtEpochMs;
+        if (this.now() - acquiredAt < this.resumingLeaseMs) { await new Promise(resolve => setTimeout(resolve, this.pollIntervalMs)); continue; }
+        const effectId = reviewDigest({ reviewId: id, continuationId: review.continuation.id, proposalVersion: proposal.version });
+        const recovered = this.append(review, 'resumed', scope.actor, 'stale continuation lease recovered', 'resuming', { effectId, recovered: true });
+        if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, recovered)) continue;
+        return this.executeAndFinish(scope, id, recovered, proposal.action, effectId, execute);
+      }
+      if (review.status !== 'approved') throw new ReviewConflictError(`Review cannot resume from ${review.status}`);
+      if (this.now() >= review.expiresAtEpochMs) throw new ReviewConflictError('Review expired before resume');
       const effectId = reviewDigest({ reviewId: id, continuationId: review.continuation.id, proposalVersion: proposal.version });
       const resuming = this.append(review, 'resumed', scope.actor, 'continuation acquired', 'resuming', { effectId });
       if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, resuming)) continue;
-      try {
-        const result = await execute(effectId, structuredClone(proposal.action));
-        const completedAtEpochMs = this.now();
-        const receipt: ReviewEffectReceipt = { effectId, continuationId: review.continuation.id, proposalVersion: proposal.version, completedAtEpochMs, result };
-        await this.finish(scope, id, resuming.revision, receipt);
-        return receipt;
-      } catch (error) {
-        const failed = this.append(resuming, 'execution-failed', scope.actor, 'executor failed', 'execution-failed');
-        failed.executionError = error instanceof Error ? error.message : String(error);
-        await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, resuming.revision, failed);
-        throw error;
-      }
+      return this.executeAndFinish(scope, id, resuming, proposal.action, effectId, execute);
+    }
+  }
+
+  private async executeAndFinish(scope: ReviewScope, id: string, resuming: DecisionReview, action: unknown, effectId: string, execute: (effectId: string, action: unknown) => Promise<unknown>): Promise<ReviewEffectReceipt> {
+    try {
+      const result = await execute(effectId, structuredClone(action));
+      const receipt: ReviewEffectReceipt = { effectId, continuationId: resuming.continuation.id, proposalVersion: currentProposal(resuming).version, completedAtEpochMs: this.now(), result };
+      await this.finish(scope, id, resuming.revision, receipt);
+      return receipt;
+    } catch (error) {
+      const failed = this.append(resuming, 'execution-failed', scope.actor, 'executor failed', 'execution-failed');
+      failed.executionError = error instanceof Error ? error.message : String(error);
+      await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, resuming.revision, failed);
+      throw error;
     }
   }
 
@@ -113,8 +164,9 @@ export class DecisionReviewService {
     if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, revision, completed)) throw new ReviewConflictError('Could not persist effect receipt');
   }
 
-  private async mutate(scope: ReviewScope, id: string, operation: Parameters<ReviewAuthorization['authorize']>[1], build: (review: DecisionReview) => DecisionReview | Promise<DecisionReview>): Promise<DecisionReview> {
+  private async mutate(scope: ReviewScope, id: string, operation: Parameters<ReviewAuthorization['authorize']>[1], build: (review: DecisionReview) => DecisionReview | Promise<DecisionReview>, allowNoop = false): Promise<DecisionReview> {
     for (;;) { const review = await this.requireReview(scope, id); await this.allowed(scope, operation, review); const next = await build(review);
+      if (allowNoop && next === review) return review;
       if (await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, next)) return next; }
   }
   private async requireReview(scope: ReviewScope, id: string) { const review = await this.store.read(id, scope.tenantId, scope.projectId); if (!review) throw new ReviewAccessError('Review not found'); return review; }

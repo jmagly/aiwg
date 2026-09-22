@@ -11,7 +11,7 @@ export function reviewDigest(value: unknown): `sha256:${string}` {
 }
 
 const digestPattern = /^sha256:[a-f0-9]{64}$/;
-const legalEvents = new Set<ReviewEventType>(['created', 'claimed', 'approved', 'rejected', 'edited', 'expired', 'escalated', 'canceled', 'resumed', 'execution-completed', 'execution-failed']);
+const legalEvents = new Set<ReviewEventType>(['created', 'claimed', 'approved', 'rejected', 'edited', 'expired', 'escalated', 'canceled', 'resumed', 'execution-completed', 'execution-failed', 'legal-hold-placed', 'legal-hold-released', 'tombstoned']);
 
 export function currentProposal(review: DecisionReview): ReviewProposal {
   const proposal = review.proposals.at(-1);
@@ -27,6 +27,10 @@ export function validateReview(review: DecisionReview): void {
     || !Number.isSafeInteger(review.createdAtEpochMs) || review.updatedAtEpochMs < review.createdAtEpochMs
     || review.expiresAtEpochMs <= review.createdAtEpochMs || !Array.isArray(review.proposals) || !review.proposals.length
     || !Array.isArray(review.events) || !review.events.length) throw new ReviewIntegrityError('Invalid review envelope');
+  if (review.lifecycle && (typeof review.lifecycle.legalHold !== 'boolean'
+    || (review.lifecycle.tombstonedAtEpochMs !== undefined && !Number.isSafeInteger(review.lifecycle.tombstonedAtEpochMs)))) {
+    throw new ReviewIntegrityError('Invalid review lifecycle');
+  }
   review.proposals.forEach((proposal, index) => {
     if (proposal.version !== index + 1 || proposal.actionDigest !== reviewDigest(proposal.action)) throw new ReviewIntegrityError('Invalid proposal lineage');
   });

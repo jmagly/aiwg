@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { composeRuleset } from './compose.js';
 import { applyPrimitiveAcceptance, validatePrimitiveAcceptancePolicy } from './acceptance.js';
 import { DecisionPreDispatchError, decisionInvocationFingerprint, nextReceipt } from './receipts.js';
@@ -6,6 +6,9 @@ import { admitEntry, EntryAdmissionError } from './entry.js';
 import { correlateAtomicBatch, decisionBatchQuestionId, planNativeDecisionBatches } from './batch.js';
 import { AdmissionError, DecisionAdmissionController } from './admission.js';
 import { runBoundedFair, SchedulerWaitError } from './scheduler.js';
+import { allocateEstimatedUsage, deriveCost } from './batch-receipts/accounting.js';
+import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch-receipts/receipt.js';
+import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
 import { DECISION_API_VERSION, DECISION_API_VERSION_STRUCTURED } from './types.js';
 import type {
   AdapterObservation,
@@ -177,9 +180,9 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
     await advance('observation-received', { evaluations, pending: null });
   }
 
-  // Durable per-evaluation receipts do not yet model one dispatch shared by many
-  // questions (D07/#2602). Preserve their exactly-once semantics by degrading.
-  if (!request.receiptStore && request.batching?.enabled) {
+  // Native batching may coexist with the invocation receipt only when a batch
+  // receipt owns the shared dispatch and its accounting before transport begins.
+  if ((!request.receiptStore || request.batchReceipts) && request.batching?.enabled) {
     const candidates = [];
     for (const item of resolved) {
       if (evaluations[item.alias]) continue;
@@ -200,8 +203,46 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
       const deadline = Math.min(totalDeadline, ...plan.candidates.map(candidate => started + candidate.target.timeoutMs));
       const questionIds = plan.candidates.map(candidate => decisionBatchQuestionId(candidate.alias));
       let observations = new Map<string, AdapterObservation>();
+      let durableReceipt: DecisionBatchReceipt | undefined;
+      let batchReferences = new Map<string, ReturnType<typeof batchResultReference>>();
       try {
         const adapter = plan.candidates[0]!.adapter;
+        if (request.batchReceipts) {
+          const partition = request.batchReceipts.contextPlan.partitions.find(candidate =>
+            sameStringSet(candidate.questionIds, questionIds));
+          if (!partition) throw new ReceiptPersistenceError();
+          const initial = newBatchReceipt({
+            tenantId: request.batchReceipts.tenantId,
+            projectId: request.batchReceipts.projectId,
+            batchId: durableBatchId(request.invocationId, plan.groupId, partition.id),
+            invocationId: request.invocationId,
+            runId: request.runId,
+            contextPlan: request.batchReceipts.contextPlan,
+            partition,
+            nativeBatchGroupId: plan.groupId,
+            subjectHash: request.batchReceipts.subjectHash,
+            executionEnvelope: plan.candidates[0]!.capabilities.batch!.executionEnvelope,
+            nowEpochMs: started,
+          });
+          const acquired = await request.batchReceipts.store.acquire(initial);
+          durableReceipt = acquired.receipt;
+          if (!acquired.owner) {
+            if (durableReceipt.status === 'completed') {
+              batchReferences = new Map(questionIds.map(questionId =>
+                [questionId, batchResultReference(durableReceipt!, questionId)]));
+              observations = new Map(questionIds.map(questionId =>
+                [questionId, observationFailure('execution-uncertain')]));
+              // The shared request already has an owner. Never dispatch it again.
+              throw new ReplayedBatchReceipt();
+            }
+            throw new RemoteUncertainError();
+          }
+          const running = nextBatchReceipt(durableReceipt, { status: 'running', updatedAtEpochMs: now() });
+          if (!await request.batchReceipts.store.compareAndSwap(durableReceipt, running)) {
+            throw new ReceiptPersistenceError();
+          }
+          durableReceipt = running;
+        }
         const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
           requests: plan.candidates.map((candidate, index) => ({
             alias: candidate.alias, questionId: questionIds[index], definition: structuredClone(candidate.definition),
@@ -219,15 +260,78 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
             observations.get(questionIds[index]!)!));
         });
         observations = normalized;
-      } catch {
+        if (durableReceipt && request.batchReceipts) {
+          const requestIds = uniqueNonNull(response.answers.map(answer => answer.observation.requestId));
+          if (requestIds.length > 1) throw new Error('batch response contained multiple provider request IDs');
+          const models = uniqueNonNull(response.answers.map(answer => answer.observation.actualModel));
+          const cost = providerCost(response.sharedUsage.costUsd)
+            ?? (request.batchReceipts.priceCatalog
+              ? deriveCost(response.sharedUsage, request.batchReceipts.priceCatalog) : { kind: 'unknown' as const });
+          const certainties = response.answers.map(answer => answer.observation.dispatchCertainty);
+          const attemptStatus: BatchAttempt['status'] = certainties.some(value => value === 'unknown')
+            ? 'execution-uncertain' : certainties.every(value => value === 'not-sent') ? 'not-sent' : 'succeeded';
+          const attempt: BatchAttempt = {
+            ordinal: durableReceipt.attempts.length + 1,
+            adapterId: adapter.id,
+            adapterVersion: adapter.version,
+            requestedModel: plan.candidates[0]!.target.model,
+            actualModel: models.length === 1 ? models[0]! : null,
+            providerRequestId: requestIds[0] ?? null,
+            status: attemptStatus,
+            dispatchedAtEpochMs: attemptStatus === 'not-sent' ? null : started,
+            completedAtEpochMs: now(),
+            usage: { inputTokens: response.sharedUsage.inputTokens, outputTokens: response.sharedUsage.outputTokens },
+            cost,
+            fallbackFromAttemptOrdinal: null,
+          };
+          const answerReferences = plan.candidates.map((candidate, index) => ({
+            questionId: questionIds[index]!,
+            answerId: durableAnswerId(durableReceipt!.batchId, questionIds[index]!),
+            resultId: `${request.invocationId}-${candidate.alias}`,
+          }));
+          const terminalStatus = attemptStatus === 'succeeded' ? 'completed'
+            : attemptStatus === 'not-sent' ? 'failed' : 'execution-uncertain';
+          const terminal = nextBatchReceipt(durableReceipt, { status: terminalStatus, updatedAtEpochMs: now(),
+            attempts: [...durableReceipt.attempts, attempt],
+            ...(terminalStatus === 'completed' ? { answerReferences,
+              allocations: allocateEstimatedUsage(questionIds, attempt.usage) } : {}) });
+          if (!await request.batchReceipts.store.compareAndSwap(durableReceipt, terminal)) {
+            throw new ReceiptPersistenceError();
+          }
+          durableReceipt = terminal;
+          if (terminalStatus === 'completed') batchReferences = new Map(questionIds.map(questionId =>
+            [questionId, batchResultReference(terminal, questionId)]));
+          else observations = new Map(questionIds.map(questionId =>
+            [questionId, observationFailure(terminalStatus === 'execution-uncertain' ? 'execution-uncertain' : 'service-error')]));
+          // Shared request identity, usage, and cost live only on the receipt.
+          observations = new Map([...observations].map(([questionId, observation]) => {
+            const { requestIdSource: _requestIdSource, ...withoutRequestIdSource } = observation;
+            return [questionId, { ...withoutRequestIdSource,
+              usage: { inputTokens: null, outputTokens: null, costUsd: null }, requestId: null }];
+          }));
+        }
+      } catch (error) {
+        if (error instanceof ReplayedBatchReceipt) {
+          // References and a fail-closed result were prepared above.
+        } else if (durableReceipt && request.batchReceipts && durableReceipt.status === 'running') {
+          const uncertain = nextBatchReceipt(durableReceipt, { status: 'execution-uncertain', updatedAtEpochMs: now(),
+            attempts: [...durableReceipt.attempts, uncertainBatchAttempt(plan, started, now())] });
+          if (!await request.batchReceipts.store.compareAndSwap(durableReceipt, uncertain)) {
+            throw new ReceiptPersistenceError();
+          }
+          observations = new Map(questionIds.map(id => [id, observationFailure('execution-uncertain')]));
+        } else if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) {
+          throw error;
+        } else {
         observations = new Map(questionIds.map(id => [id, observationFailure('invalid-output')]));
+        }
       }
       plan.candidates.forEach((candidate, index) => {
         const item = resolved.find(value => value.alias === candidate.alias)!;
         const evidence: DecisionBatchEvidence = { mode: 'native', groupId: plan.groupId, questionId: questionIds[index]! };
         const observation = observations.get(questionIds[index]!)!;
         const context: OneContext = { request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
-          attemptBudget, now, advance };
+          attemptBudget, now, advance, batchResult: batchReferences.get(questionIds[index]!) };
         evaluations[item.alias] = decisionResult(context, observation,
           [toAttempt(candidate.target, 1, observation, Math.max(0, now() - started), evidence)]);
       });
@@ -303,6 +407,7 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
 
 class ReceiptPersistenceError extends Error {}
 class RemoteUncertainError extends Error {}
+class ReplayedBatchReceipt extends Error {}
 
 interface OneContext {
   request: DecisionEvaluationRequest;
@@ -316,6 +421,7 @@ interface OneContext {
   now: () => number;
   advance: (state: DecisionReceipt['state'], extra?: Partial<Pick<DecisionReceipt, 'result' | 'remoteHandles' | 'evaluations' | 'pending'>>) => Promise<void>;
   batchEvidence?: DecisionBatchEvidence;
+  batchResult?: ReturnType<typeof batchResultReference>;
 }
 
 async function evaluateOne(context: OneContext): Promise<DecisionResult> {
@@ -553,6 +659,7 @@ function decisionResult(context: OneContext, observation: AdapterObservation, at
       status: observation.status, ...(observation.status === 'success' ? { value: observation.value! } : {}),
       reason: observation.reason, uncertainty: observation.uncertainty,
       ...(observation.acceptance ? { acceptance: observation.acceptance } : {}), attempts,
+      ...(context.batchResult ? { batchResult: context.batchResult } : {}),
     },
   };
 }
@@ -627,6 +734,38 @@ function toAttempt(target: ExecutionTarget, ordinal: number, observation: Adapte
     ...(batch ? { batch } : {}),
     ...(observation.admission ? { admission: observation.admission } : {}),
   };
+}
+
+function durableBatchId(invocationId: string, groupId: string, partitionId: string): string {
+  return `batch_${createHash('sha256').update(`${invocationId}\0${groupId}\0${partitionId}`, 'utf8').digest('hex').slice(0, 32)}`;
+}
+
+function durableAnswerId(batchId: string, questionId: string): string {
+  return `answer_${createHash('sha256').update(`${batchId}\0${questionId}`, 'utf8').digest('hex').slice(0, 32)}`;
+}
+
+function sameStringSet(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every(value => right.includes(value));
+}
+
+function uniqueNonNull(values: readonly (string | null)[]): string[] {
+  return [...new Set(values.filter((value): value is string => value !== null))];
+}
+
+function providerCost(costUsd: number | null): BatchAttempt['cost'] | null {
+  if (costUsd === null) return null;
+  const amountMicros = Math.round(costUsd * 1_000_000);
+  return Number.isSafeInteger(amountMicros) && amountMicros >= 0
+    ? { kind: 'provider-authoritative', currency: 'USD', amountMicros }
+    : null;
+}
+
+function uncertainBatchAttempt(plan: ReturnType<typeof planNativeDecisionBatches>[number], started: number, completed: number): BatchAttempt {
+  const target = plan.candidates[0]!.target;
+  return { ordinal: 1, adapterId: target.adapter, adapterVersion: target.adapterVersion,
+    requestedModel: target.model, actualModel: null, providerRequestId: null, status: 'execution-uncertain',
+    dispatchedAtEpochMs: started, completedAtEpochMs: completed,
+    usage: { inputTokens: null, outputTokens: null }, cost: { kind: 'unknown' }, fallbackFromAttemptOrdinal: null };
 }
 
 class AttemptBudget {

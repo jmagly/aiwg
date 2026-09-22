@@ -15,3 +15,9 @@ Receipts bind the deterministic context plan digest and partition ID from `conte
 Both stores expose acquisition plus compare-and-swap. File revisions are immutable and published with an exclusive hard-link, so concurrent owners cannot both acquire or publish the same revision. Reads validate every contiguous transition; retrying acquisition returns the existing identity and timestamps.
 
 Sanitized exports retain hashes, plan/partition lineage, chronology, answer references, and accounting evidence. Raw state and response bodies are never accepted by the receipt type. Provider request IDs are bounded opaque internal values; public exports replace them with deployment-salted hashes. They must not be metric labels, authorization inputs, or cross-provider correlation keys.
+
+## Runtime ownership
+
+Set `batchReceipts` on a decision evaluation request to enable durable native batching alongside invocation receipts. The supplied context plan must contain a partition whose question IDs exactly match the opaque IDs in the native batch. The evaluator acquires that batch receipt and publishes its `running` revision before calling the adapter. A concurrent or restarted evaluator that does not own the receipt never repeats the transport request.
+
+After a terminal provider response, the receipt stores the shared request ID, usage, and cost once. Each emitted `DecisionResult.spec.batchResult` is a reference-only link to its correlated answer. Per-result attempts deliberately contain null usage and no provider request ID. Unknown dispatch outcomes become `execution-uncertain`, remain replay-safe, and are not automatically retried.
