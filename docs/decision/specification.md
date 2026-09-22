@@ -108,6 +108,21 @@ interface DecisionAdapter {
 
 AdapterObservation contains typed value, uncertainty metadata, actual model, usage, and request ID, or a typed failure code. It cannot mark a ruleset approved, alter definitions, or execute outcomes. Shared runtime owns acceptance, retry, validation, receipts and fallback. `capabilities()` describes actual configured execution support; `executable=false` fails before dispatch. Credentials are resolved only by the adapter when needed and are never passed to an LLM prompt.
 
+An adapter may additionally advertise an atomic `native` batch capability and
+implement `evaluateMany`. The runtime enables it only by explicit invocation
+policy and only for independent questions with the same canonical
+`decisionSubject`, projected state, ordered stage, adapter/version, target
+(including model and credential reference), authorized egress policy, deadline,
+and adapter execution-envelope identity. Stable opaque question IDs correlate
+answers. Requested and returned IDs must be exactly equal; any missing, extra,
+duplicate, or wrong-primitive answer invalidates every sibling in that provider
+request. Results remain ordered by ruleset declaration, never response-map order.
+Unsupported or ineligible groups use `evaluate` and record single-call
+degradation evidence. Native batching is side-effect-free and remains disabled
+unless a caller supplies an enabled batch policy. Receipt-backed invocations
+degrade to single calls until the separately governed shared-usage receipt model
+is available.
+
 ### Jev mapping
 
 Map choice to Choice criteria by option ID; ordinal-score to the ordered Score description array; truth-probability to Noul with true/false criteria. Use an opaque evaluation alias as the question key and preserve input as state. Native HTTP request/response examples are in `evidence/jev-request.json` and `evidence/jev-live.json`. The live test returned fractional Score and absent Noul confidence, validating these distinctions.

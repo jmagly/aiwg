@@ -3,11 +3,13 @@ import { composeRuleset } from './compose.js';
 import { applyPrimitiveAcceptance, validatePrimitiveAcceptancePolicy } from './acceptance.js';
 import { DecisionPreDispatchError, decisionInvocationFingerprint, nextReceipt } from './receipts.js';
 import { admitEntry, EntryAdmissionError } from './entry.js';
+import { correlateAtomicBatch, decisionBatchQuestionId, planNativeDecisionBatches } from './batch.js';
 import { DECISION_API_VERSION, DECISION_API_VERSION_STRUCTURED } from './types.js';
 import type {
   AdapterObservation,
   ArtifactPin,
   DecisionAdapter,
+  DecisionBatchEvidence,
   DecisionAttempt,
   DecisionDefinition,
   DecisionEvaluationRequest,
@@ -166,6 +168,64 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
     attemptsUsed += attempts.length;
     await advance('observation-received', { evaluations, pending: null });
   }
+
+  // Durable per-evaluation receipts do not yet model one dispatch shared by many
+  // questions (D07/#2602). Preserve their exactly-once semantics by degrading.
+  if (!request.receiptStore && request.batching?.enabled) {
+    const candidates = [];
+    for (const item of resolved) {
+      if (evaluations[item.alias]) continue;
+      const configured = request.binding.spec.evaluations[item.alias];
+      const target = configured?.targets.length === 1 && configured.targets[0]?.retry.maxRetries === 0
+        ? configured.targets[0] : undefined;
+      const adapter = target ? request.adapters[target.adapter] : undefined;
+      if (!target || !adapter) continue;
+      const capabilityFailure = await checkCapabilities(adapter, target, item.definition);
+      if (capabilityFailure) continue;
+      candidates.push({ alias: item.alias, definition: item.definition, input: item.input, target, adapter,
+        capabilities: await adapter.capabilities() });
+    }
+    for (const plan of planNativeDecisionBatches(candidates, request.batching)) {
+      if (plan.candidates.some(candidate => evaluations[candidate.alias])) continue;
+      if (attemptsUsed + plan.candidates.length > request.binding.spec.maxAttempts) continue;
+      const started = now();
+      const deadline = Math.min(totalDeadline, ...plan.candidates.map(candidate => started + candidate.target.timeoutMs));
+      const questionIds = plan.candidates.map(candidate => decisionBatchQuestionId(candidate.alias));
+      let observations = new Map<string, AdapterObservation>();
+      try {
+        const adapter = plan.candidates[0]!.adapter;
+        const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
+          requests: plan.candidates.map((candidate, index) => ({
+            alias: candidate.alias, questionId: questionIds[index], definition: structuredClone(candidate.definition),
+            input: structuredClone(candidate.input), target: structuredClone(candidate.target),
+            invocationId: `${request.invocationId}:${plan.groupId}`, deadlineEpochMs: deadline,
+            signal: totalAbort, callerSignal: request.signal ?? new AbortController().signal, totalSignal: totalAbort,
+            resolveCredential: request.resolveCredential ?? unauthorizedCredential,
+          })) });
+        observations = correlateAtomicBatch(questionIds,
+          response.answers.map(answer => ({ questionId: answer.questionId, value: answer.observation })));
+        // Validate every sibling before publishing any result: the batch is atomic.
+        const normalized = new Map<string, AdapterObservation>();
+        plan.candidates.forEach((candidate, index) => {
+          normalized.set(questionIds[index]!, normalizeObservation(candidate.definition, candidate.target,
+            observations.get(questionIds[index]!)!));
+        });
+        observations = normalized;
+      } catch {
+        observations = new Map(questionIds.map(id => [id, observationFailure('invalid-output')]));
+      }
+      plan.candidates.forEach((candidate, index) => {
+        const item = resolved.find(value => value.alias === candidate.alias)!;
+        const evidence: DecisionBatchEvidence = { mode: 'native', groupId: plan.groupId, questionId: questionIds[index]! };
+        const observation = observations.get(questionIds[index]!)!;
+        const context: OneContext = { request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
+          attemptsAvailable: 1, now, advance };
+        evaluations[item.alias] = decisionResult(context, observation,
+          [toAttempt(candidate.target, 1, observation, Math.max(0, now() - started), evidence)]);
+      });
+      attemptsUsed += plan.candidates.length;
+    }
+  }
   for (const item of resolved) {
     if (evaluations[item.alias]) continue;
     if (totalAbort.aborted) {
@@ -184,6 +244,7 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
       attemptsAvailable: request.binding.spec.maxAttempts - attemptsUsed,
       now,
       advance,
+      batchEvidence: singleBatchEvidence(request, item.alias),
     });
     attemptsUsed += execution.spec.attempts.length;
     evaluations[item.alias] = execution;
@@ -192,13 +253,16 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
 
   if (receipt?.state === 'execution-uncertain') return failureResult(base, 'execution-uncertain', evaluations);
 
+  const orderedEvaluations = Object.fromEntries(resolved
+    .filter(item => evaluations[item.alias])
+    .map(item => [item.alias, evaluations[item.alias]!]));
   let result: RulesetResult;
   if (totalAbort.aborted) {
     const reason = request.signal?.aborted ? 'cancelled' : 'timeout';
-    result = { ...base, spec: { ...base.spec, status: reason === 'cancelled' ? 'cancelled' : 'error', reason, matchedRules: [], evaluations } };
+    result = { ...base, spec: { ...base.spec, status: reason === 'cancelled' ? 'cancelled' : 'error', reason, matchedRules: [], evaluations: orderedEvaluations } };
   } else {
     try {
-      const composition = composeRuleset(request.ruleset, request.input, evaluations);
+      const composition = composeRuleset(request.ruleset, request.input, orderedEvaluations);
       result = {
         ...base,
         spec: {
@@ -207,11 +271,11 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
           reason: composition.reason as DecisionFailureReason,
           ...(composition.outcome !== undefined ? { outcome: composition.outcome } : {}),
           matchedRules: composition.matchedRules,
-          evaluations,
+          evaluations: orderedEvaluations,
         },
       };
     } catch {
-      result = { ...base, spec: { ...base.spec, status: 'error', reason: 'invalid-output', matchedRules: [], evaluations } };
+      result = { ...base, spec: { ...base.spec, status: 'error', reason: 'invalid-output', matchedRules: [], evaluations: orderedEvaluations } };
     }
   }
 
@@ -241,6 +305,7 @@ interface OneContext {
   attemptsAvailable: number;
   now: () => number;
   advance: (state: DecisionReceipt['state'], extra?: Partial<Pick<DecisionReceipt, 'result' | 'remoteHandles' | 'evaluations' | 'pending'>>) => Promise<void>;
+  batchEvidence?: DecisionBatchEvidence;
 }
 
 async function evaluateOne(context: OneContext): Promise<DecisionResult> {
@@ -262,7 +327,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
     const capabilityFailure = await checkCapabilities(adapter, target, context.item.definition);
     if (capabilityFailure) {
       final = capabilityFailure;
-      attempts.push(toAttempt(target, attempts.length + 1, final, 0));
+      attempts.push(toAttempt(target, attempts.length + 1, final, 0, context.batchEvidence));
     } else {
       for (let retry = 0; retry <= target.retry.maxRetries; retry += 1) {
         if (context.signal.aborted || context.now() >= context.totalDeadline) {
@@ -294,7 +359,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
           if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) throw error;
           final = observationFailure(error instanceof DecisionValidationError ? 'invalid-output' : 'service-error');
         }
-        attempts.push(toAttempt(target, attempts.length + 1, final, Math.max(0, context.now() - started)));
+        attempts.push(toAttempt(target, attempts.length + 1, final, Math.max(0, context.now() - started), context.batchEvidence));
         if (final.status === 'success') break;
         if (!RETRIABLE.has(final.reason) || retry === target.retry.maxRetries) break;
         const remaining = Math.max(0, context.totalDeadline - context.now());
@@ -505,7 +570,8 @@ function observationFailure(
   };
 }
 
-function toAttempt(target: ExecutionTarget, ordinal: number, observation: AdapterObservation, durationMs: number): DecisionAttempt {
+function toAttempt(target: ExecutionTarget, ordinal: number, observation: AdapterObservation, durationMs: number,
+  batch?: DecisionBatchEvidence): DecisionAttempt {
   return {
     ordinal, adapter: target.adapter, adapterVersion: target.adapterVersion, requestedModel: target.model,
     actualModel: observation.actualModel, subagent: target.subagent ?? null, status: observation.status,
@@ -514,6 +580,22 @@ function toAttempt(target: ExecutionTarget, ordinal: number, observation: Adapte
     ...(observation.httpStatus !== undefined ? { httpStatus: observation.httpStatus } : {}),
     ...(observation.termination ? { termination: observation.termination } : {}),
     ...(observation.remoteExecution ? { remoteExecution: observation.remoteExecution } : {}),
+    ...(batch ? { batch } : {}),
+  };
+}
+
+function singleBatchEvidence(request: DecisionEvaluationRequest, alias: string): DecisionBatchEvidence | undefined {
+  if (!request.batching) return undefined;
+  const configured = request.batching.evaluations[alias];
+  const target = request.binding.spec.evaluations[alias]?.targets[0];
+  const adapter = target ? request.adapters[target.adapter] : undefined;
+  const reason = !request.batching.enabled ? 'disabled'
+    : configured?.independent && (!adapter?.evaluateMany || Boolean(request.receiptStore)) ? 'unsupported' : 'ineligible';
+  return {
+    mode: 'single',
+    groupId: `single_${decisionBatchQuestionId(alias).slice(2)}`,
+    questionId: decisionBatchQuestionId(alias),
+    degradationReason: reason,
   };
 }
 

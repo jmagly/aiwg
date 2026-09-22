@@ -198,6 +198,7 @@ export interface DecisionAttempt {
   termination?: 'caller-cancelled' | 'target-timeout' | 'total-deadline' | 'backend-cancelled';
   /** Remote execution and billing are uncertain after a dispatched cancellation or timeout. */
   remoteExecution?: 'unknown';
+  batch?: DecisionBatchEvidence;
 }
 
 export type DecisionStatus = 'success' | 'abstained' | 'error' | 'unsupported' | 'cancelled';
@@ -246,6 +247,13 @@ export interface AdapterCapabilities {
   maxLevels: number | null;
   confidenceProfiles: string[];
   executable: boolean;
+  /** Native shared-state batching is optional and must be atomic. */
+  batch?: {
+    native: boolean;
+    atomic: true;
+    /** Opaque adapter/configuration identity for host and transport policy. */
+    executionEnvelope: string;
+  };
 }
 
 export interface AdapterObservation {
@@ -282,6 +290,19 @@ export interface DecisionAdapterRequest {
   resolveCredential: (logicalRef: string) => Promise<Uint8Array>;
   /** Persist an opaque remote handle before the adapter reports completion. */
   onRemoteHandle?: (handle: string) => Promise<void>;
+  /** Stable opaque provider correlation key; defaults to alias for single calls. */
+  questionId?: string;
+}
+
+export interface DecisionAdapterBatchRequest {
+  requests: DecisionAdapterRequest[];
+  decisionSubject: string;
+}
+
+export interface DecisionAdapterBatchObservation {
+  /** An array is deliberate: duplicate IDs remain detectable and fail closed. */
+  answers: Array<{ questionId: string; observation: AdapterObservation }>;
+  sharedUsage: DecisionUsage;
 }
 
 export interface DecisionAdapter {
@@ -289,6 +310,31 @@ export interface DecisionAdapter {
   readonly version: string;
   capabilities(): Promise<AdapterCapabilities>;
   evaluate(request: DecisionAdapterRequest): Promise<AdapterObservation>;
+  evaluateMany?(request: DecisionAdapterBatchRequest): Promise<DecisionAdapterBatchObservation>;
+}
+
+export interface DecisionBatchEvaluationPolicy {
+  /** Canonical record/entity identity. Equal projected JSON alone is insufficient. */
+  decisionSubject: string;
+  /** Only explicitly independent questions may share a provider request. */
+  independent: boolean;
+  /** Dependent questions use later ordered stages and never share a stage. */
+  stage?: number;
+  /** Identity of the already-authorized egress policy, not policy text. */
+  egressPolicy: string;
+}
+
+export interface DecisionBatchPolicy {
+  /** Rollout switch. Native batching remains disabled unless explicitly enabled. */
+  enabled: boolean;
+  evaluations: Record<string, DecisionBatchEvaluationPolicy>;
+}
+
+export interface DecisionBatchEvidence {
+  mode: 'native' | 'single';
+  groupId: string;
+  questionId: string;
+  degradationReason?: 'disabled' | 'unsupported' | 'ineligible';
 }
 
 export type DecisionReceiptState = 'acquired' | 'dispatched' | 'remote-handle-known' | 'observation-received' | 'composed' | 'completed' | 'failed' | 'execution-uncertain';
@@ -336,4 +382,5 @@ export interface DecisionEvaluationRequest {
   /** Uniform [0,1) source for bounded retry jitter. */
   random?: () => number;
   delay?: (ms: number, signal: AbortSignal) => Promise<void>;
+  batching?: DecisionBatchPolicy;
 }

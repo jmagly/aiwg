@@ -301,6 +301,54 @@
       "publication": {
         "public": true
       }
+    },
+    {
+      "logicalName": "decision.review",
+      "id": "https://aiwg.io/schemas/decision/DecisionReview.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionReview.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [
+        { "id": "decision-review-runtime", "boundary": "Durable human review lifecycle", "path": "src/decision/review/validate.ts" }
+      ],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.calibration-artifact",
+      "id": "https://aiwg.io/schemas/decision/CalibrationArtifact.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/CalibrationArtifact.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [
+        { "id": "decision-calibration-registry", "boundary": "Immutable calibration evidence", "path": "src/decision/calibration/registry.ts" }
+      ],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.calibration-compatibility",
+      "id": "https://aiwg.io/schemas/decision/CalibrationCompatibility.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/CalibrationCompatibility.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [
+        { "id": "decision-calibration-registry", "boundary": "Pinned model compatibility decisions", "path": "src/decision/calibration/registry.ts" }
+      ],
+      "publication": { "public": true }
     }
   ]
 }
