@@ -19,6 +19,7 @@ import type {
 import type { ProviderPrefixReport } from './compile-cache/prefix.js';
 import type { DecisionTelemetryContext, DecisionTelemetryHook } from './telemetry/types.js';
 import type { DecisionTelemetryIdSource } from './telemetry/context.js';
+import type { DecisionProjectionEvidence, DecisionProjectionPolicy } from './projection.js';
 
 export const DECISION_API_VERSION = 'decision.aiwg.io/v1alpha1' as const;
 export const DECISION_API_VERSION_STRUCTURED = 'decision.aiwg.io/v1alpha2' as const;
@@ -235,6 +236,7 @@ export type DecisionAdmissionReason =
   | 'concurrency' | 'requests-per-minute' | 'tokens-per-second'
   | 'attempts' | 'batch-size' | 'cost' | 'unknown-cost'
   | 'queue-full' | 'queue-timeout' | 'request-too-large' | 'too-many-items'
+  | 'retained-work' | 'unknown-retained-work'
   | 'retry-after' | 'circuit-open';
 
 export interface DecisionAdmissionEvidence {
@@ -263,6 +265,8 @@ export interface DecisionAdmissionLimits {
   maxQueueWaitMs?: number;
   maxRequestBytes?: number;
   maxItems?: number;
+  /** Maximum work units the host may retain for this request. */
+  maxRetainedWork?: number;
   circuitBreaker?: { failureThreshold: number; openMs: number; halfOpenMaxCalls: number };
 }
 
@@ -273,6 +277,8 @@ export interface DecisionAdmissionEstimate {
   items?: number;
   attempts?: number;
   batchSize?: number;
+  /** Host-computed retained work units; required when a retained-work quota is configured. */
+  retainedWork?: number;
 }
 
 export interface DecisionSchedulerPolicy {
@@ -401,6 +407,18 @@ export interface DecisionAdapterRequest {
    * enabling the cache cannot change provider request semantics.
    */
   compiledArtifact?: JsonValue;
+  /** Metadata-only evidence that host-authorized projection preceded dispatch. */
+  projectionEvidence?: DecisionProjectionEvidence;
+}
+
+export interface DecisionRuntimeProjectionPolicy {
+  /** Trusted host callback. Portable artifacts and model-visible state cannot supply this policy. */
+  resolve(input: {
+    alias: string;
+    target: ExecutionTarget;
+  }): DecisionProjectionPolicy;
+  incompleteContext?: boolean;
+  onEvidence?: (input: { alias: string; evidence: DecisionProjectionEvidence }) => void;
 }
 
 export interface DecisionAdapterCompileRequest {
@@ -582,6 +600,8 @@ export interface DecisionEvaluationRequest {
   compileCache?: DecisionCompileCachePolicy;
   /** Optional policy for consuming provider-reported prompt-prefix metadata. */
   providerPrefix?: DecisionProviderPrefixPolicy;
+  /** Optional trusted host-side state projection boundary. */
+  projection?: DecisionRuntimeProjectionPolicy;
   /** Optional metadata-only observability sink. Its failures never affect evaluation. */
   telemetry?: {
     hook: DecisionTelemetryHook;

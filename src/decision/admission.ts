@@ -100,6 +100,8 @@ export class DecisionAdmissionController {
       if (estimate.batchSize !== undefined && limit.maxBatchSize !== undefined && estimate.batchSize > limit.maxBatchSize) return this.error('batch-size', 'reject', request, false);
       if (estimate.requestBytes !== undefined && limit.maxRequestBytes !== undefined && estimate.requestBytes > limit.maxRequestBytes) return this.error('request-too-large', 'reject', request, false);
       if (estimate.items !== undefined && limit.maxItems !== undefined && estimate.items > limit.maxItems) return this.error('too-many-items', 'reject', request, false);
+      if (limit.maxRetainedWork !== undefined && estimate.retainedWork === undefined) return this.error('unknown-retained-work', 'reject', request, false);
+      if (estimate.retainedWork !== undefined && limit.maxRetainedWork !== undefined && estimate.retainedWork > limit.maxRetainedWork) return this.error('retained-work', 'reject', request, false);
       if (estimate.costUsd == null && limit.maxCostUsd !== undefined && !limit.allowUnknownCost) return this.error('unknown-cost', 'reject', request, false);
     }
     return null;
@@ -129,7 +131,9 @@ export class DecisionAdmissionController {
         const admitted = this.tryAdmit(waiter);
         if (admitted instanceof AdmissionError) {
           if (!admitted.retryable) { queue.shift(); waiter.cleanup(); waiter.reject(admitted); progressed = true; }
-          else nearest = Math.min(nearest, admitted.evidence.retryAfterMs ?? 25);
+          else nearest = Math.min(nearest, admitted.evidence.retryAfterMs ?? 25,
+            Math.max(1, waiter.request.deadlineEpochMs - this.now()),
+            Math.max(1, waitLimit - (this.now() - waiter.enqueuedAt)));
           continue;
         }
         queue.shift();

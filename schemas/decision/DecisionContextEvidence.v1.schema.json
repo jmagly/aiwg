@@ -18,11 +18,17 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["schemaVersion", "planDigest", "partitionId", "estimatedInputTokens", "actualInputTokens"],
+        "required": ["schemaVersion", "planDigest", "partitionId", "questionIds", "estimatedInputTokens", "actualInputTokens"],
         "properties": {
           "schemaVersion": { "const": "decision-context-usage/v1" },
           "planDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
           "partitionId": { "type": "string", "minLength": 1 },
+          "questionIds": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
           "estimatedInputTokens": { "type": "integer", "minimum": 0 },
           "actualInputTokens": { "type": "integer", "minimum": 0 }
         }

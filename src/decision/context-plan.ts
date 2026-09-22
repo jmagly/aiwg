@@ -97,6 +97,8 @@ export interface ContextActualUsageEvidence {
   schemaVersion: 'decision-context-usage/v1';
   planDigest: `sha256:${string}`;
   partitionId: string;
+  /** Exact questions carried by this provider request. */
+  questionIds: string[];
   estimator: { id: string; version: string };
   providerProfile: { id: string; version: string };
   estimatedInputTokens: number;
@@ -256,16 +258,26 @@ export function recordContextActualUsage(
   plan: ContextPlan,
   partitionId: string,
   actualInputTokens: number,
+  questionId?: string,
 ): ContextActualUsageEvidence {
   const partition = plan.partitions.find(candidate => candidate.id === partitionId);
   if (!partition) throw new ContextPlanError('invalid-input', `unknown context partition '${partitionId}'`);
   if (!Number.isSafeInteger(actualInputTokens) || actualInputTokens < 0) {
     throw new ContextPlanError('invalid-input', 'actualInputTokens must be a non-negative safe integer');
   }
-  const estimatedInputTokens = partition.estimate.aggregateTokens;
+  if (questionId !== undefined && !partition.questionIds.includes(questionId)) {
+    throw new ContextPlanError('invalid-input', `question '${questionId}' does not belong to context partition '${partitionId}'`);
+  }
+  const questionIds = questionId === undefined ? [...partition.questionIds] : [questionId];
+  const estimatedInputTokens = questionId === undefined
+    ? partition.estimate.aggregateTokens
+    : partition.estimate.aggregateTokens
+      - Object.entries(partition.estimate.questionTokens)
+        .filter(([id]) => id !== questionId)
+        .reduce((sum, [, tokens]) => sum + tokens, 0);
   const estimationErrorTokens = actualInputTokens - estimatedInputTokens;
   return {
-    schemaVersion: 'decision-context-usage/v1', planDigest: plan.planDigest, partitionId,
+    schemaVersion: 'decision-context-usage/v1', planDigest: plan.planDigest, partitionId, questionIds,
     estimator: { ...plan.estimator }, providerProfile: { id: plan.providerProfile.id, version: plan.providerProfile.version },
     estimatedInputTokens, actualInputTokens, estimationErrorTokens,
     estimationErrorBps: actualInputTokens === 0 ? null : Math.round(estimationErrorTokens * 10_000 / actualInputTokens),

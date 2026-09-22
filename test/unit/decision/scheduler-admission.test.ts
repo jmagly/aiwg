@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AdmissionError,
   DecisionAdmissionController,
@@ -149,6 +149,7 @@ describe('bounded fair decision scheduler', () => {
 });
 
 describe('decision provider admission', () => {
+  afterEach(() => vi.useRealTimers());
   it('enforces admission permits at 1/2/N/N+1 without over-admitting the queued request', async () => {
     const guarded = limits({ concurrency: 4 });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
@@ -210,6 +211,36 @@ describe('decision provider admission', () => {
     await expect(controller.acquire(request(new AbortController().signal, { costUsd: 0.1, batchSize: 3 }))).rejects.toMatchObject({ evidence: { reason: 'batch-size' } });
   });
 
+  it.each([
+    { limits: { maxRequestBytes: 8 }, estimate: { requestBytes: 9 }, reason: 'request-too-large' },
+    { limits: { maxItems: 2 }, estimate: { items: 3 }, reason: 'too-many-items' },
+    { limits: { maxRetainedWork: 2 }, estimate: {}, reason: 'unknown-retained-work' },
+    { limits: { maxRetainedWork: 2 }, estimate: { retainedWork: 3 }, reason: 'retained-work' },
+  ] as const)('rejects $reason independently before queueing', async ({ limits: overrides, estimate, reason }) => {
+    const guarded = limits(overrides);
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    await expect(controller.acquire(request(new AbortController().signal, estimate)))
+      .rejects.toMatchObject({ retryable: false, evidence: { decision: 'reject', reason } });
+  });
+
+  it.each([
+    { limits: { requestsPerMinute: 1 }, estimate: {}, reason: 'requests-per-minute' },
+    { limits: { tokensPerSecond: 1 }, estimate: { tokens: 1 }, reason: 'tokens-per-second' },
+  ] as const)('defers $reason independently after its bucket is consumed', async ({ limits: overrides, estimate, reason }) => {
+    const guarded = limits(overrides);
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    const first = await controller.acquire(request(new AbortController().signal, estimate));
+    first.release({ success: true });
+    const abort = new AbortController();
+    const waiting = controller.acquire(request(abort.signal, estimate));
+    let settled = false;
+    void waiting.then(() => { settled = true; }, () => { settled = true; });
+    await Promise.resolve();
+    expect(settled, `${reason} must independently hold the next request`).toBe(false);
+    abort.abort();
+    await expect(waiting).rejects.toMatchObject({ evidence: { reason: 'cancelled' } });
+  });
+
   it('enforces invocation-scoped attempt and cost budgets independently', async () => {
     const attemptLimits = limits({ maxAttempts: 1 });
     const attempts = new DecisionAdmissionController(() => ({ principal: attemptLimits, workspace: attemptLimits, provider: attemptLimits }));
@@ -248,6 +279,52 @@ describe('decision provider admission', () => {
     const paused = controller.acquire(request(abort.signal));
     abort.abort();
     await expect(paused).rejects.toMatchObject({ evidence: { reason: 'cancelled' } });
+  });
+
+  it('resumes a provider lane after Retry-After and wakes at an earlier deadline', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const shared = limits({ concurrency: 2, maxQueueWaitMs: 1_000 });
+    const controller = new DecisionAdmissionController(() => ({ principal: shared, workspace: shared, provider: shared }));
+    controller.coordinateRetryAfter('jev', 100);
+    const resumed = controller.acquire({ ...request(), deadlineEpochMs: 500 });
+    await vi.advanceTimersByTimeAsync(99);
+    let settled = false;
+    void resumed.then(() => { settled = true; });
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    const lease = await resumed;
+    expect(lease.evidence).toMatchObject({ decision: 'admit', reason: 'admitted' });
+    lease.release({ success: true });
+
+    controller.coordinateRetryAfter('jev', 100);
+    const expired = controller.acquire({ ...request(), deadlineEpochMs: Date.now() + 20 });
+    const expiredAssertion = expect(expired).rejects.toMatchObject({ evidence: { reason: 'deadline-exceeded' } });
+    await vi.advanceTimersByTimeAsync(20);
+    await expiredAssertion;
+  });
+
+  it('caps half-open probes and reopens the breaker when the probe fails', async () => {
+    let now = 0;
+    const guarded = limits({ circuitBreaker: { failureThreshold: 1, openMs: 100, halfOpenMaxCalls: 1 } });
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }), () => now);
+    const failed = await controller.acquire({ ...request(), deadlineEpochMs: 1_000 });
+    failed.release({ success: false });
+    const probePromise = controller.acquire({ ...request(), deadlineEpochMs: 1_000 });
+    now = 101;
+    const followerAbort = new AbortController();
+    const follower = controller.acquire({ ...request(followerAbort.signal), deadlineEpochMs: 1_000 });
+    const probe = await probePromise;
+    expect(probe.evidence.breakerState).toBe('half-open');
+    let followerSettled = false;
+    void follower.then(() => { followerSettled = true; }, () => { followerSettled = true; });
+    await Promise.resolve();
+    expect(followerSettled).toBe(false);
+    probe.release({ success: false });
+    await Promise.resolve();
+    expect(followerSettled).toBe(false);
+    followerAbort.abort();
+    await expect(follower).rejects.toMatchObject({ evidence: { reason: 'cancelled' } });
   });
 
   it('moves a failed provider through open and half-open back to closed', async () => {

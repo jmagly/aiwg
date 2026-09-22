@@ -10,6 +10,7 @@ import {
   type DecisionAdapter,
   type AdapterObservation,
   type DecisionContextPolicy,
+  type DecisionProjectionPolicy,
   CanonicalJsonByteEstimator,
   MemoryBatchReceiptStore,
   batchAccountingTotals,
@@ -70,6 +71,17 @@ function contextRuntime(questionTokens = 1): DecisionContextPolicy {
     profile: { id: 'jev', version: 'runtime-1', estimator: { id: estimator.id, version: estimator.version },
       limits: { aggregateTokens: 45, stateAndLongestQuestionTokens: 45 }, safetyMarginBps: 0, requestEnvelopeTokens: 0 },
     estimator,
+  };
+}
+
+function runtimeProjectionPolicy(): DecisionProjectionPolicy {
+  return {
+    version: '1.0.0', provider: 'jev', model: 'jev-latest', origin: 'https://api.typesafe.ai', region: 'us',
+    purpose: 'triage', allowIncompleteContext: false,
+    fields: [{ pointer: '/message', output: 'excerpt', source: 'caller', subject: 'ticket:42', trust: 'untrusted',
+      sensitivity: 'internal', purpose: 'triage', retentionClass: 'ephemeral', accessScopes: ['decision-runtime'],
+      exportPolicy: 'sanitized', deletionPolicy: 'erase', backupPolicy: 'not-persisted', allowedProviders: ['jev'],
+      allowedModels: ['jev-latest'], allowedOrigins: ['https://api.typesafe.ai'], allowedRegions: ['us'] }],
   };
 }
 
@@ -151,6 +163,77 @@ describe('native shared-state decision batching', () => {
     const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime });
     expect(result.spec.reason).toBe('invalid-input');
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('PROJ-RUNTIME projects trusted host state before credential lookup for single requests', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_url, options) => {
+      const body = JSON.parse(String(options?.body)) as Record<string, unknown>;
+      bodies.push(body);
+      return validResponse(body);
+    }) as typeof fetch;
+    const configured = request(fetchImpl);
+    configured.batching.enabled = false;
+    const credential = vi.fn(async () => new TextEncoder().encode('token'));
+    const evidence = vi.fn();
+    const result = await evaluateDecisionRuleset({ ...configured, resolveCredential: credential,
+      projection: { resolve: runtimeProjectionPolicy, onEvidence: evidence } });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(credential).toHaveBeenCalledTimes(3);
+    expect(bodies.every(body => JSON.stringify(body.state) === JSON.stringify({
+      excerpt: 'The documentation link on the settings page is broken. The application otherwise works.',
+    }))).toBe(true);
+    expect(evidence).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(evidence.mock.calls)).not.toContain('The documentation link');
+    expect(Object.values(result.spec.evaluations).every(item => item.spec.status === 'success')).toBe(true);
+  });
+
+  it('PROJ-RUNTIME fails a native batch closed before credential lookup or transport', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const credential = vi.fn(async () => new TextEncoder().encode('token'));
+    const configured = request(fetchImpl);
+    const result = await evaluateDecisionRuleset({ ...configured, resolveCredential: credential,
+      projection: { resolve: ({ alias }) => ({ ...runtimeProjectionPolicy(),
+        ...(alias === 'severity' ? { model: 'unapproved-model' } : {}) }) } });
+    expect(credential).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(Object.values(result.spec.evaluations).map(item => item.spec.reason)).toEqual([
+      'data-boundary-denied', 'data-boundary-denied', 'data-boundary-denied',
+    ]);
+  });
+
+  it('CTX-RUNTIME preserves dependency waves when partitions degrade to single requests', async () => {
+    const pending = new Map<string, () => void>();
+    const started: string[] = [];
+    const fetchImpl = vi.fn(async (_url, options) => {
+      const body = JSON.parse(String(options?.body)) as Record<string, unknown>;
+      const id = Object.keys(body.questions as object)[0]!;
+      started.push(id);
+      await new Promise<void>(resolve => pending.set(id, resolve));
+      return validResponse(body);
+    }) as typeof fetch;
+    const configured = request(fetchImpl);
+    configured.batching.enabled = false;
+    configured.binding.spec.concurrency = 3;
+    const sharedLimits = { concurrency: 3, maxQueueLength: 8, maxQueueWaitMs: 1_000 };
+    configured.scheduler = { enabled: true, profileVersion: 'offline-v1', callerConcurrency: 3,
+      workspace: { id: 'workspace', limits: sharedLimits }, principal: { id: 'principal', limits: sharedLimits },
+      providers: { jev: sharedLimits } };
+    const runtime = contextRuntime();
+    runtime.input.questions.find(question => question.id === decisionBatchQuestionId('severity'))!.dependsOn = [
+      decisionBatchQuestionId('category'),
+    ];
+    const evaluation = evaluateDecisionRuleset({ ...configured, context: runtime });
+    await vi.waitFor(() => expect(started).toHaveLength(2));
+    expect(started).not.toContain('severity');
+    for (const resolve of pending.values()) resolve();
+    await vi.waitFor(() => expect(started).toContain('severity'));
+    pending.get('severity')!();
+    const result = await evaluation;
+    expect(result.spec.context?.actualUsage).toHaveLength(3);
+    expect(result.spec.context?.actualUsage.map(item => item.questionIds)).toEqual(expect.arrayContaining([
+      [decisionBatchQuestionId('category')], [decisionBatchQuestionId('core_unavailable')], [decisionBatchQuestionId('severity')],
+    ]));
   });
 
   it('BCH-001/006 sends heterogeneous questions once and normalizes in declaration order', async () => {

@@ -120,6 +120,14 @@ describe('decision context planning', () => {
     expect(plan).toEqual(snapshot);
   });
 
+  it('records degraded single requests independently with request-accurate estimates', () => {
+    const plan = planDecisionContext(input(100, [200, 300]), profile(), exactEstimator);
+    const first = recordContextActualUsage(plan, plan.partitions[0].id, 315, 'q1');
+    const second = recordContextActualUsage(plan, plan.partitions[0].id, 425, 'q2');
+    expect(first).toMatchObject({ questionIds: ['q1'], estimatedInputTokens: 310, actualInputTokens: 315 });
+    expect(second).toMatchObject({ questionIds: ['q2'], estimatedInputTokens: 410, actualInputTokens: 425 });
+  });
+
   it('handles Unicode and deeply structured Choice/Score-like entries deterministically', () => {
     const estimator = new CanonicalJsonByteEstimator('1.0.0');
     const unicodeProfile = profile({ estimator: { id: estimator.id, version: estimator.version } });

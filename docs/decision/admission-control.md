@@ -9,7 +9,7 @@ Admission occurs before every adapter attempt. The controller applies, independe
 - concurrent-call limits;
 - token-bucket request/minute and token/second limits;
 - invocation-scoped attempt and monetary budgets, including fail-closed unknown-cost policy;
-- batch, request-byte, item, waiter, queue-length, and queue-dwell bounds;
+- batch, request-byte, item, retained-work, waiter, queue-length, and queue-dwell bounds;
 - provider-wide `Retry-After` pauses; and
 - closed/open/half-open circuit-breaker transitions.
 

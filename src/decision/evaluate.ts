@@ -12,6 +12,7 @@ import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.
 import type { CompatibilityDecision } from './calibration/types.js';
 import { prepareAdapterRequest } from './compile-cache/runtime.js';
 import { providerPrefixEvidence } from './compile-cache/prefix.js';
+import { DecisionProjectionError, projectDecisionState, type DecisionProjectionEvidence } from './projection.js';
 import { emitRulesetRuntimeTrace } from './telemetry/runtime.js';
 import {
   assertContextPlanCurrent,
@@ -234,6 +235,10 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
       let batchReferences = new Map<string, ReturnType<typeof batchResultReference>>();
       try {
         const adapter = plan.candidates[0]!.adapter;
+        const projectedCandidates = await Promise.all(plan.candidates.map(async candidate => ({
+          candidate,
+          projected: await projectRuntimeInput(request, candidate.alias, candidate.target, candidate.input),
+        })));
         if (request.batchReceipts) {
           const partition = request.batchReceipts.contextPlan.partitions.find(candidate =>
             sameStringSet(candidate.questionIds, questionIds));
@@ -270,18 +275,19 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
           }
           durableReceipt = running;
         }
-        const preparedRequests = await Promise.all(plan.candidates.map((candidate, index) =>
+        const preparedRequests = await Promise.all(projectedCandidates.map(({ candidate, projected }, index) =>
           prepareAdapterRequest({
             alias: candidate.alias, questionId: questionIds[index], definition: structuredClone(candidate.definition),
-            input: structuredClone(candidate.input), target: structuredClone(candidate.target),
+            input: structuredClone(projected.input), target: structuredClone(candidate.target),
             invocationId: `${request.invocationId}:${plan.groupId}`, deadlineEpochMs: deadline,
             signal: totalAbort, callerSignal: request.signal ?? new AbortController().signal, totalSignal: totalAbort,
             resolveCredential: request.resolveCredential ?? unauthorizedCredential,
+            ...(projected.evidence ? { projectionEvidence: projected.evidence } : {}),
           }, adapter, request.compileCache)));
         const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
           requests: preparedRequests });
         if (contextPlan && response.sharedUsage.inputTokens !== null) {
-          recordRuntimeContextUsage(contextPlan, questionIds[0]!, response.sharedUsage.inputTokens, contextUsage);
+          recordRuntimeContextUsage(contextPlan, questionIds[0]!, response.sharedUsage.inputTokens, contextUsage, 'partition');
         }
         observations = correlateAtomicBatch(questionIds,
           response.answers.map(answer => ({ questionId: answer.questionId, value: answer.observation })));
@@ -356,7 +362,9 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
         } else if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) {
           throw error;
         } else {
-        observations = new Map(questionIds.map(id => [id, observationFailure('invalid-output')]));
+        observations = new Map(questionIds.map(id => [id, observationFailure(
+          error instanceof DecisionProjectionError ? 'data-boundary-denied' : 'invalid-output',
+        )]));
         }
       }
       plan.candidates.forEach((candidate, index) => {
@@ -375,22 +383,29 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
       attemptBudget.consume(plan.candidates.length);
     }
   }
-  const remainingItems = resolved.filter(item => !evaluations[item.alias]);
   const concurrency = effectiveConcurrency(request);
-  const scheduled = await runBoundedFair(remainingItems.map(item => ({ value: item, lane: schedulerLane(request, item) })), concurrency,
-    async item => evaluateOne({ request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
-      attemptBudget, now, advance, batchEvidence: singleBatchEvidence(request, item.alias), contextPlan, contextUsage }),
-    { signal: totalAbort, deadlineEpochMs: totalDeadline, now });
-  scheduled.forEach((execution, index) => {
-    const item = remainingItems[index]!;
-    if (execution instanceof SchedulerWaitError) {
-      const reason = execution.reason === 'cancelled' ? 'cancelled' : 'timeout';
-      evaluations[item.alias] = emptyDecisionResult(request, item, rulesetPin, bindingPin,
-        reason === 'cancelled' ? 'cancelled' : 'error', reason);
-    } else {
-      evaluations[item.alias] = execution;
-    }
-  });
+  const remainingItems = resolved.filter(item => !evaluations[item.alias]);
+  const waves = contextPlan
+    ? [...new Set(contextPlan.partitions.map(partition => partition.wave))].sort((left, right) => left - right)
+        .map(wave => remainingItems.filter(item => contextPlan.partitions.some(partition =>
+          partition.wave === wave && partition.questionIds.includes(decisionBatchQuestionId(item.alias)))))
+    : [remainingItems];
+  for (const waveItems of waves) {
+    const scheduled = await runBoundedFair(waveItems.map(item => ({ value: item, lane: schedulerLane(request, item) })), concurrency,
+      async item => evaluateOne({ request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
+        attemptBudget, now, advance, batchEvidence: singleBatchEvidence(request, item.alias), contextPlan, contextUsage }),
+      { signal: totalAbort, deadlineEpochMs: totalDeadline, now });
+    scheduled.forEach((execution, index) => {
+      const item = waveItems[index]!;
+      if (execution instanceof SchedulerWaitError) {
+        const reason = execution.reason === 'cancelled' ? 'cancelled' : 'timeout';
+        evaluations[item.alias] = emptyDecisionResult(request, item, rulesetPin, bindingPin,
+          reason === 'cancelled' ? 'cancelled' : 'error', reason);
+      } else {
+        evaluations[item.alias] = execution;
+      }
+    });
+  }
   // Receipt v2 has one pending slot; concurrency is forced to one when durable
   // ownership is enabled, so this update remains an atomic chronology.
   if (request.receiptStore) await advance('observation-received', { evaluations, pending: null });
@@ -502,9 +517,10 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
         const started = context.now();
         const attemptDeadline = Math.min(context.totalDeadline, started + target.timeoutMs);
         try {
+          const projected = await projectRuntimeInput(context.request, context.item.alias, target, context.item.input);
           await context.advance('dispatched', { pending: { alias: context.item.alias, targetIndex, ordinal: attempts.length + 1, attempts } });
           try {
-            final = await invokeWithDeadline(context, adapter!, target, attemptDeadline, attempts.length + 1);
+            final = await invokeWithDeadline(context, adapter!, target, attemptDeadline, attempts.length + 1, projected);
           } catch (error) {
             if (context.request.receiptStore && !(error instanceof DecisionPreDispatchError)) throw new RemoteUncertainError();
             await context.advance('observation-received');
@@ -525,7 +541,8 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
           }
         } catch (error) {
           if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) throw error;
-          final = observationFailure(error instanceof DecisionValidationError ? 'invalid-output' : 'service-error');
+          final = observationFailure(error instanceof DecisionProjectionError ? 'data-boundary-denied'
+            : error instanceof DecisionValidationError ? 'invalid-output' : 'service-error');
         }
         attempts.push(toAttempt(target, attempts.length + 1, final, Math.max(0, context.now() - started), context.batchEvidence));
         if (final.status === 'success') break;
@@ -562,6 +579,7 @@ async function invokeWithDeadline(
   target: ExecutionTarget,
   deadlineEpochMs: number,
   ordinal: number,
+  projected: { input: unknown; evidence?: DecisionProjectionEvidence },
 ): Promise<AdapterObservation> {
   const controller = new AbortController();
   const signal = AbortSignal.any([context.signal, controller.signal]);
@@ -614,7 +632,7 @@ async function invokeWithDeadline(
     const preparedRequest = await prepareAdapterRequest({
         alias: context.item.alias,
         definition: structuredClone(context.item.definition),
-        input: structuredClone(context.item.input),
+        input: structuredClone(projected.input),
         target: structuredClone(target),
         invocationId: `${context.request.invocationId}:${context.item.alias}:${ordinal}`,
         deadlineEpochMs,
@@ -622,6 +640,7 @@ async function invokeWithDeadline(
         callerSignal: context.request.signal ?? new AbortController().signal,
         totalSignal: context.signal,
         resolveCredential: context.request.resolveCredential ?? unauthorizedCredential,
+        ...(projected.evidence ? { projectionEvidence: projected.evidence } : {}),
         onRemoteHandle: async handle => {
           try {
             const previous = await context.request.receiptStore?.read(context.request.invocationId, context.request.receiptProjectId ?? 'default');
@@ -657,6 +676,24 @@ async function invokeWithDeadline(
     if (timer) clearTimeout(timer);
     removeAbortListener();
   }
+}
+
+async function projectRuntimeInput(
+  request: DecisionEvaluationRequest,
+  alias: string,
+  target: ExecutionTarget,
+  input: unknown,
+): Promise<{ input: unknown; evidence?: DecisionProjectionEvidence }> {
+  if (!request.projection) return { input };
+  const policy = request.projection.resolve({ alias, target: structuredClone(target) });
+  if (policy.provider !== target.adapter || policy.model !== target.model) {
+    throw new DecisionProjectionError('data-boundary-denied', 'projection destination does not match execution target');
+  }
+  const projected = await projectDecisionState(input, policy, {
+    incompleteContext: request.projection.incompleteContext,
+  });
+  request.projection.onEvidence?.({ alias, evidence: structuredClone(projected.evidence) });
+  return { input: projected.state, evidence: projected.evidence };
 }
 
 function interruption(context: OneContext): AdapterObservation {
@@ -906,11 +943,15 @@ function recordRuntimeContextUsage(
   questionId: string,
   actualInputTokens: number,
   evidence: ContextActualUsageEvidence[],
+  scope: 'single' | 'partition' = 'single',
 ): void {
   const partition = plan.partitions.find(candidate => candidate.questionIds.includes(questionId));
   if (!partition) throw new ContextPlanError('invalid-input', `question '${questionId}' has no context partition`);
-  const recorded = recordContextActualUsage(plan, partition.id, actualInputTokens);
-  const index = evidence.findIndex(candidate => candidate.planDigest === plan.planDigest && candidate.partitionId === partition.id);
+  const recorded = recordContextActualUsage(plan, partition.id, actualInputTokens,
+    scope === 'single' ? questionId : undefined);
+  const key = recorded.questionIds.join('\0');
+  const index = evidence.findIndex(candidate => candidate.planDigest === plan.planDigest
+    && candidate.partitionId === partition.id && candidate.questionIds.join('\0') === key);
   if (index < 0) evidence.push(recorded);
   else evidence[index] = recorded;
 }
@@ -933,7 +974,9 @@ function withRulesetContext(result: RulesetResult, plan: ContextPlan, usage: rea
 function contextUsageFromEvaluations(evaluations: Record<string, DecisionResult>): ContextActualUsageEvidence[] {
   const usage = new Map<string, ContextActualUsageEvidence>();
   for (const result of Object.values(evaluations)) {
-    for (const item of result.spec.context?.actualUsage ?? []) usage.set(`${item.planDigest}\0${item.partitionId}`, structuredClone(item));
+    for (const item of result.spec.context?.actualUsage ?? []) {
+      usage.set(`${item.planDigest}\0${item.partitionId}\0${item.questionIds.join('\0')}`, structuredClone(item));
+    }
   }
   return [...usage.values()];
 }
@@ -1025,7 +1068,7 @@ function validateSchedulerPolicy(request: DecisionEvaluationRequest): void {
   }
   for (const limit of limits) {
     for (const value of [limit.requestsPerMinute, limit.tokensPerSecond, limit.maxAttempts, limit.maxBatchSize,
-      limit.maxQueueLength, limit.maxQueueWaitMs, limit.maxRequestBytes, limit.maxItems]) {
+      limit.maxQueueLength, limit.maxQueueWaitMs, limit.maxRequestBytes, limit.maxItems, limit.maxRetainedWork]) {
       if (value !== undefined && (!Number.isFinite(value) || value < 0)) throw new DecisionValidationError('scheduler admission limits must be finite and non-negative');
     }
     if (limit.maxCostUsd !== undefined && (!Number.isFinite(limit.maxCostUsd) || limit.maxCostUsd < 0)) {
