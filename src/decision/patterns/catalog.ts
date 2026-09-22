@@ -36,11 +36,14 @@ export const decisionPatternPacks: readonly DecisionPatternPack[] = [
     fixture('route-unauthorized', { authorizedCandidates: ['summarize'] }, { selected: 'admin', confidence: 0.99 }, 'review', 'candidate-not-authorized'),
   ]),
   pack('rag-screen', 'composite', 'Advisory relevance, contradiction, and injection evidence.', [
-    fixture('rag-injection', { deterministicPolicy: 'deny' }, { relevant: true, contradiction: false, injection: false }, 'deny', 'deterministic-policy-deny'),
+    fixture('rag-relevant', { sourceLocator: 'doc:rag#1' }, { relevant: true, contradiction: false, injection: false }, 'accept', 'relevant-no-conflict'),
+    fixture('rag-contradiction', { sourceLocator: 'doc:rag#2' }, { relevant: true, contradiction: true, injection: false }, 'review', 'source-contradiction'),
+    fixture('rag-injection', { sourceLocator: 'doc:rag#3' }, { relevant: true, contradiction: false, injection: true }, 'deny', 'prompt-injection-detected'),
+    fixture('rag-policy-deny', { sourceLocator: 'doc:rag#4', deterministicPolicy: 'deny' }, { relevant: true, contradiction: false, injection: false }, 'deny', 'deterministic-policy-deny'),
   ]),
   pack('citation-support', 'choice', 'Citation support with independent locator and provenance validation.', [
-    fixture('citation-valid', { sourceLocators: ['doc:1#p2'] }, { selectedLocator: 'doc:1#p2', support: 'supported' }, 'accept', 'locator-verified'),
-    fixture('citation-fabricated', { sourceLocators: ['doc:1#p2'] }, { selectedLocator: 'doc:9#p1', support: 'supported' }, 'review', 'locator-not-provided'),
+    fixture('citation-valid', { sources: [{ locator: 'doc:1#p2', digest: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', provenanceVerified: true }] }, { selectedLocator: 'doc:1#p2', sourceDigest: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', support: 'supported' }, 'accept', 'locator-verified'),
+    fixture('citation-fabricated', { sources: [{ locator: 'doc:1#p2', digest: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', provenanceVerified: true }] }, { selectedLocator: 'doc:9#p1', sourceDigest: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', support: 'supported' }, 'review', 'locator-not-provided'),
   ]),
   pack('guardrails', 'truth-probability', 'Model screening remains advisory beside deterministic input/output policy.', [
     fixture('guardrail-conflict', { deterministicPolicy: 'deny' }, { allowProbability: 1 }, 'deny', 'deterministic-policy-deny'),
@@ -52,10 +55,12 @@ export const decisionPatternPacks: readonly DecisionPatternPack[] = [
     fixture('classification-unknown', { allowedOptions: ['bug', 'feature', 'none'] }, { selected: 'sales' }, 'review', 'candidate-not-authorized'),
   ]),
   pack('ordinal-scoring', 'ordinal-score', 'Ordinal score preserving legend, distribution, mean, and dispersion.', [
-    fixture('ordinal-full', { legend: ['low', 'medium', 'high'] }, { distribution: { low: 0.2, medium: 0.5, high: 0.3 }, mean: 1.1, dispersion: 0.49 }, 'accept', 'distribution-preserved'),
+    fixture('ordinal-full', { legend: ['low', 'medium', 'high'], weights: { low: 0, medium: 1, high: 2 } }, { distribution: { low: 0.2, medium: 0.5, high: 0.3 }, mean: 1.1, dispersion: 0.49 }, 'accept', 'distribution-preserved'),
   ]),
   pack('function-selection', 'choice', 'Choose but never execute a code-enumerated function with typed arguments.', [
-    fixture('function-unauthorized', { legalFunctions: ['lookup'], argumentSchemas: { lookup: 'lookup/v1' } }, { selected: 'deleteAll', arguments: {} }, 'deny', 'function-not-authorized'),
+    fixture('function-valid', { legalFunctions: ['lookup'], argumentSchemas: { lookup: { type: 'object', required: ['query'], properties: { query: { type: 'string' } }, additionalProperties: false } } }, { selected: 'lookup', arguments: { query: 'synthetic' } }, 'accept', 'authorized-function'),
+    fixture('function-unauthorized', { legalFunctions: ['lookup'], argumentSchemas: { lookup: { type: 'object', required: ['query'], properties: { query: { type: 'string' } }, additionalProperties: false } } }, { selected: 'deleteAll', arguments: {} }, 'deny', 'function-not-authorized'),
+    fixture('function-invalid-arguments', { legalFunctions: ['lookup'], argumentSchemas: { lookup: { type: 'object', required: ['query'], properties: { query: { type: 'string' } }, additionalProperties: false } } }, { selected: 'lookup', arguments: { query: 42 } }, 'deny', 'arguments-invalid'),
   ]),
   pack('same-subject-batch', 'composite', 'Heterogeneous questions sharing one explicit subject identity.', [
     fixture('batch-one-subject', { itemSubjects: ['case:1', 'case:1'], questions: ['risk', 'route'] }, { requestUsage: { inputTokens: 20, outputTokens: 4 } }, 'accept', 'same-subject-batch'),

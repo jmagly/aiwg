@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "decision-calibration-cross-product/v1",
+  "description": "Credential-free deterministic qualification fixture; not product-quality calibration evidence.",
+  "dimensions": [
+    { "evidenceId": "CAL-PROVIDER-01", "path": "provider", "replacement": "other-provider" },
+    { "evidenceId": "CAL-BACKEND-01", "path": "backend", "replacement": "batch" },
+    { "evidenceId": "CAL-MODEL-01", "path": "actualModel", "replacement": "jev-1.14.0" },
+    { "evidenceId": "CAL-PRIMITIVE-01", "path": "primitive", "replacement": "ordinal-score" },
+    { "evidenceId": "CAL-DEFINITION-01", "path": "definitionDigest", "replacement": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" },
+    { "evidenceId": "CAL-ADAPTER-01", "path": "adapterVersion", "replacement": "prompt-v2" },
+    { "evidenceId": "CAL-DATASET-01", "path": "dataset.hash", "replacement": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" },
+    { "evidenceId": "CAL-DATASET-ID-01", "path": "dataset.id", "replacement": "other-dataset" },
+    { "evidenceId": "CAL-SLICE-01", "path": "slice.hash", "replacement": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" },
+    { "evidenceId": "CAL-SLICE-ID-01", "path": "slice.id", "replacement": "other-slice" },
+    { "evidenceId": "CAL-CALIBRATOR-01", "path": "calibrator.parametersDigest", "replacement": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" },
+    { "evidenceId": "CAL-CALIBRATOR-ID-01", "path": "calibrator.id", "replacement": "platt" },
+    { "evidenceId": "CAL-CALIBRATOR-VERSION-01", "path": "calibrator.version", "replacement": "2" }
+  ],
+  "expectedMutationState": "unknown",
+  "expectedMutationAction": "defer"
+}

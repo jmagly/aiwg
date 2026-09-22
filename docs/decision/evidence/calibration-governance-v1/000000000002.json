@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "decision-calibration-governance-receipt/v1",
+  "receiptId": "rollback:jev-latest:fixture:3",
+  "sequence": 2,
+  "kind": "rollback",
+  "alias": "jev-latest",
+  "from": { "aliasRevision": 2, "identityDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222" },
+  "to": { "aliasRevision": 1, "identityDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+  "action": "rollback",
+  "reviewedEvidence": {
+    "evaluationIntegrityReport": { "id": "qualification:calibration-cross-product-v1", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333" },
+    "calibrationArtifact": { "id": "calibration:jev-1.14.0:fixture", "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444" },
+    "compatibilityRelation": { "id": "compatibility:jev-1.13.0:jev-1.14.0:fixture", "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555" }
+  },
+  "approvalReference": "approval:fixture-rollback-18",
+  "eligibilityId": null,
+  "reasons": ["preregistered-fixture-drift-bound-breached"],
+  "recordedAt": "2026-09-22T13:00:00.000Z",
+  "previousReceiptDigest": "sha256:58f51adfc331039fe0c27834183af9206442bfc7cd88c7ab1f0ec761db0769ed",
+  "digest": "sha256:7e2e20bcfdcee1e62ac2e4f8d05a83ca835792bd4e77b92e3dabbdd942e95eee"
+}

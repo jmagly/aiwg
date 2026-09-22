@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "decision-calibration-governance-receipt/v1",
+  "receiptId": "promotion:jev-latest:fixture:2",
+  "sequence": 1,
+  "kind": "promotion",
+  "alias": "jev-latest",
+  "from": { "aliasRevision": 1, "identityDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+  "to": { "aliasRevision": 2, "identityDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222" },
+  "action": "promote",
+  "reviewedEvidence": {
+    "evaluationIntegrityReport": { "id": "qualification:calibration-cross-product-v1", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333" },
+    "calibrationArtifact": { "id": "calibration:jev-1.14.0:fixture", "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444" },
+    "compatibilityRelation": { "id": "compatibility:jev-1.13.0:jev-1.14.0:fixture", "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555" }
+  },
+  "approvalReference": "approval:fixture-review-17",
+  "eligibilityId": "eligibility:jev-1.14.0:fixture",
+  "reasons": ["held-out-fixture-gates-passed", "explicit-fixture-approval-recorded"],
+  "recordedAt": "2026-09-22T12:00:00.000Z",
+  "previousReceiptDigest": null,
+  "digest": "sha256:58f51adfc331039fe0c27834183af9206442bfc7cd88c7ab1f0ec761db0769ed"
+}

@@ -87,6 +87,46 @@ export interface PatternReceipt {
   checks: string[];
 }
 
+export interface LivePatternRequest {
+  /** The runner accepts synthetic state only; callers cannot override this invariant. */
+  synthetic: true;
+  input: Record<string, JsonValue>;
+}
+
+export interface LivePatternObservation {
+  requestedModel: string;
+  actualModel: string;
+  output: Record<string, JsonValue>;
+  attempts: number;
+  usage: { inputTokens: number; outputTokens: number; costUsd: number | null };
+}
+
+export interface LivePatternReceipt {
+  schema: 'decision-pattern-live-receipt/v1';
+  pattern: { id: DecisionPatternId; version: string };
+  executionMode: 'live';
+  evidenceOrigin: 'live-synthetic';
+  requestedModel: string;
+  actualModel: string;
+  attempts: number;
+  usage: LivePatternObservation['usage'];
+  deadlineMs: number;
+  action: { status: 'unexecuted' };
+  output: Record<string, JsonValue>;
+}
+
+export interface PatternDrillReceipt {
+  schema: 'decision-pattern-operational-drill/v1';
+  drillId: string;
+  runbookId: string;
+  scenario: string;
+  observedContainment: string;
+  expectedContainment: string;
+  passed: boolean;
+  evidence: readonly string[];
+  action: { status: 'unexecuted' };
+}
+
 export interface LivePatternPlan {
   mode: 'live';
   status: 'ready' | 'skipped' | 'denied';

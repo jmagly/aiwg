@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "decision-calibration-rollout/v1",
+  "recordId": "jev-calibration-rollout-fixture-v1",
+  "recordedAt": "2026-09-22T12:00:00.000Z",
+  "status": "fixture-only",
+  "alias": "jev-latest",
+  "immutableInputs": {
+    "definitionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "dataset": { "id": "workflow-held-out-v1", "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+    "slice": { "id": "high-risk", "hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" },
+    "split": { "id": "split-v1", "hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" },
+    "adapterVersion": "prompt-v1",
+    "primitive": "choice"
+  },
+  "champion": {
+    "state": "observed",
+    "actualModel": "jev-1.13.0",
+    "identityDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "calibratedAutomationEnabled": false
+  },
+  "candidate": {
+    "state": "shadow",
+    "actualModel": "jev-1.14.0",
+    "identityDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "pairedAgainstChampion": true,
+    "calibratedAutomationEnabled": false
+  },
+  "heldOutApproval": {
+    "report": { "id": "qualification:calibration-cross-product-v1", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333" },
+    "approvalReference": "approval:fixture-review-17",
+    "holdoutAccessedAt": "2026-09-22T11:00:00.000Z",
+    "decision": "approved-for-fixture-promotion"
+  },
+  "sampleCounts": {
+    "minimumTotal": 100,
+    "observedTotal": 200,
+    "minimumPerSlice": 40,
+    "observedPerSlice": 80
+  },
+  "limitations": [
+    "Deterministic synthetic fixture only; it is not production qualification.",
+    "The sample counts demonstrate registry plumbing and do not support a safety or automation claim.",
+    "Public-corpus contamination, selection bias, and future distribution shift remain unmeasured."
+  ],
+  "promotionReceipt": "docs/decision/evidence/calibration-governance-v1/000000000001.json",
+  "rollbackReceipt": "docs/decision/evidence/calibration-governance-v1/000000000002.json"
+}

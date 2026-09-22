@@ -30,3 +30,12 @@ deployment or routing changes.
 Qualification artifacts carry named `CAL-*` and `DRF-*` IDs from their case's `evidenceIds`.
 The verifier compares those IDs with the digest-protected artifact, preventing a manifest from
 claiming calibration or drift coverage that the runner did not persist.
+
+The checked-in [cross-product fixture](../../test/fixtures/decision/calibration-compatibility-cross-product-v1.json)
+and [rollout record](evidence/calibration-rollout-v1.json) are the retained offline qualification
+sources for D09. The executable TV-10 case changes every compatibility-key dimension, retains the
+requested alias and both observed model versions, and links its named `CAL-*`/`DRF-*` evidence to
+those sources by digest. The rollout record pins the observed champion, shadow candidate, immutable
+held-out inputs, preregistered and observed sample counts, approval, limitations, and the append-only
+promotion/rollback receipts. Every record is explicitly fixture-only and makes no production
+calibration or safety claim.

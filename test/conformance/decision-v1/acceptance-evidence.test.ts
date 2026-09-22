@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -197,6 +198,22 @@ afterEach(async () => {
 });
 
 describe('primitive acceptance qualification evidence', () => {
+  it('retains the checkpointed D11 release manifest and every digest-addressed artifact', async () => {
+    const releaseRoot = `${GOLDEN_ROOT}/release`;
+    const manifest = JSON.parse(await readFile(`${releaseRoot}/evidence-manifest.json`, 'utf8')) as {
+      sourceCommit: string; evidence: Array<{ artifact: { path: string; digest: string }; sourceGoldens: Array<{ path: string; digest: string }> }>;
+    };
+    expect(manifest.sourceCommit).not.toBe('working-tree');
+    for (const entry of manifest.evidence) {
+      const artifact = await readFile(join(releaseRoot, entry.artifact.path));
+      expect(`sha256:${createHash('sha256').update(artifact).digest('hex')}`).toBe(entry.artifact.digest);
+      for (const source of entry.sourceGoldens) {
+        const bytes = await readFile(join(SOURCE_ROOT, source.path));
+        expect(`sha256:${createHash('sha256').update(bytes).digest('hex')}`).toBe(source.digest);
+      }
+    }
+  });
+
   it('executes C08-C10 and TV-03/04/05/11 through the qualification runner and emits D11 linkage', async () => {
     const artifactRoot = await mkdtemp(join(tmpdir(), 'acceptance-qualification-'));
     roots.push(artifactRoot);

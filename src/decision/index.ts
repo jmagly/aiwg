@@ -5,6 +5,7 @@ export * from './convert.js';
 export * from './predicates.js';
 export * from './compose.js';
 export * from './acceptance.js';
+export * from './acceptance-rollout.js';
 export * from './batch.js';
 export * from './batch-benchmark.js';
 export * from './scheduler.js';

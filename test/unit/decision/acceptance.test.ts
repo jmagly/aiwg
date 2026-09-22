@@ -4,6 +4,8 @@ import {
   DECISION_API_VERSION_STRUCTURED,
   DecisionValidationError,
   MemoryDecisionReceiptStore,
+  createAcceptancePromotionRecord,
+  replayAcceptancePolicyShadow,
   applyPrimitiveAcceptance,
   artifactPin,
   evaluateDecisionRuleset,
@@ -79,6 +81,44 @@ describe('primitive-aware acceptance', () => {
       if (disposition === 'act') acted = true;
       if (acted) expect(disposition).toBe('act');
     }
+  });
+
+  it('POL-ACCEPT-PROPERTY preserves the intentional non-monotonic review/act/review shape of a bounded band', () => {
+    const bounded = policy({ rules: [{ id: 'bounded', primitive: 'truth-probability',
+      all: [{ metric: 'yes-probability', op: 'between', minimumBps: 3000, maximumBps: 7000 }], route: route('act') }],
+      defaultRoute: route('review') });
+    const routes = Array.from({ length: 101 }, (_, step) => applyPrimitiveAcceptance(
+      definition('truth-probability'), bounded, observation(step / 100, null),
+    ).acceptance!.disposition);
+    expect(routes.slice(0, 30).every(item => item === 'review')).toBe(true);
+    expect(routes.slice(30, 71).every(item => item === 'act')).toBe(true);
+    expect(routes.slice(71).every(item => item === 'review')).toBe(true);
+  });
+
+  it('POL-ACCEPT-ROLLOUT replays stored evidence in shadow and records a use-case-scoped promotion with rollback', () => {
+    const incumbent = policy({ version: '1.0.0', rules: [{ id: 'act', primitive: 'truth-probability',
+      all: [{ metric: 'yes-probability', op: 'gte', thresholdBps: 7000 }], route: route('act') }] });
+    const candidate = policy({ version: '1.1.0', rules: [{ id: 'act', primitive: 'truth-probability',
+      all: [{ metric: 'yes-probability', op: 'gte', thresholdBps: 6000 }], route: route('act') }] });
+    const stored = [0.4, 0.6, 0.8].map((value, index) => ({
+      id: `invoice-${index + 1}`, definition: definition('truth-probability'), observation: observation(value, null),
+    }));
+    const before = structuredClone(stored);
+    const shadow = replayAcceptancePolicyShadow({
+      rolloutId: 'invoice-routing-shadow-1', useCaseId: 'invoice-auto-route-v1',
+      incumbent: { id: 'invoice-risk', policy: incumbent }, candidate: { id: 'invoice-risk', policy: candidate },
+      evidence: stored, recordedAt: '2026-09-22T16:00:00.000Z',
+    });
+    expect(stored).toEqual(before);
+    expect(shadow).toMatchObject({ actionAuthorization: 'not-authorized', summary: { total: 3, changed: 1, candidateActionCount: 2 } });
+    const promotion = createAcceptancePromotionRecord({
+      promotionId: 'invoice-routing-promotion-1', useCaseId: 'invoice-auto-route-v1', shadow,
+      qualificationManifest: { path: 'test/fixtures/decision/acceptance/release/evidence-manifest.json', digest: `sha256:${'1'.repeat(64)}` },
+      approvalReference: 'approval:invoice-routing:2026-09-22', promotedAt: '2026-09-22T17:00:00.000Z',
+    });
+    expect(promotion).toMatchObject({ useCaseId: 'invoice-auto-route-v1', from: shadow.incumbent, to: shadow.candidate,
+      rollback: shadow.incumbent, shadowRecordDigest: shadow.digest });
+    expect(() => createAcceptancePromotionRecord({ ...promotion, promotionId: 'bad', useCaseId: 'other-use-case', shadow } as never)).toThrow(/different use case/);
   });
 
   it.each([

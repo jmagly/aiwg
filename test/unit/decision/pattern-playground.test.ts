@@ -7,6 +7,7 @@ import {
   getDecisionPatternPack,
   listDecisionPatterns,
   planLiveDecisionPattern,
+  runLiveDecisionPattern,
   runOfflineDecisionPattern,
   resolveDecisionPatternArtifact,
   runOfflineDurableReviewFixture,
@@ -58,8 +59,8 @@ describe('PAT decision pattern playground', () => {
   });
 
   it('keeps deterministic denial stronger than conflicting model evidence', () => {
-    for (const id of ['rag-screen', 'guardrails', 'tool-risk-preflight'] as const) {
-      const receipt = runOfflineDecisionPattern(id);
+    for (const [id, fixture] of [['rag-screen', 'rag-policy-deny'], ['guardrails', undefined], ['tool-risk-preflight', undefined]] as const) {
+      const receipt = runOfflineDecisionPattern(id, fixture);
       expect(receipt.route).toBe('deny');
       expect(receipt.reason).toBe('deterministic-policy-deny');
       expect(receipt.action).toEqual({ status: 'unexecuted', candidate: null });
@@ -86,6 +87,12 @@ describe('PAT decision pattern playground', () => {
     expect(runOfflineDecisionPattern('citation-support', 'citation-fabricated')).toMatchObject({ route: 'review', action: { candidate: null } });
   });
 
+  it('evaluates RAG relevance, contradiction, and injection as distinct evidence', () => {
+    expect(runOfflineDecisionPattern('rag-screen', 'rag-relevant')).toMatchObject({ route: 'accept', reason: 'relevant-no-conflict' });
+    expect(runOfflineDecisionPattern('rag-screen', 'rag-contradiction')).toMatchObject({ route: 'review', reason: 'source-contradiction' });
+    expect(runOfflineDecisionPattern('rag-screen', 'rag-injection')).toMatchObject({ route: 'deny', reason: 'prompt-injection-detected' });
+  });
+
   it('accepts one-subject heterogeneous batches and rejects multiple subjects', () => {
     expect(runOfflineDecisionPattern('same-subject-batch', 'batch-one-subject').route).toBe('accept');
     expect(runOfflineDecisionPattern('same-subject-batch', 'batch-multi-subject')).toMatchObject({ route: 'deny', reason: 'multi-subject-batch-rejected' });
@@ -102,6 +109,20 @@ describe('PAT decision pattern playground', () => {
     expect(planLiveDecisionPattern('intent-routing', { explicitOptIn: true, credentialResolved: false, egressApproved: true })).toMatchObject({ status: 'skipped', reason: 'credential-unavailable', executes: false });
     expect(planLiveDecisionPattern('intent-routing', { explicitOptIn: true, credentialResolved: true, egressApproved: false })).toMatchObject({ status: 'denied', reason: 'egress-denied', executes: false });
     expect(planLiveDecisionPattern('intent-routing', { explicitOptIn: true, credentialResolved: true, egressApproved: true })).toMatchObject({ status: 'ready', reason: 'ready', executes: false, limits: { allowUnknownCost: false, maxCalls: 2 } });
+  });
+
+  it('runs only bounded synthetic live probes and retains actual model identity', async () => {
+    const options = { explicitOptIn: true, credentialResolved: true, egressApproved: true };
+    await expect(runLiveDecisionPattern('intent-routing', { synthetic: true, input: { text: 'synthetic' } }, options, async (_request, limits) => {
+      expect(limits).toMatchObject({ maxCalls: 2, maxAttempts: 1, allowUnknownCost: false });
+      return { requestedModel: 'jev:test', actualModel: 'jev:test-2026-09', output: { selected: 'search' }, attempts: 1, usage: { inputTokens: 10, outputTokens: 2, costUsd: 0.001 } };
+    })).resolves.toMatchObject({ executionMode: 'live', evidenceOrigin: 'live-synthetic', actualModel: 'jev:test-2026-09', action: { status: 'unexecuted' } });
+    await expect(runLiveDecisionPattern('intent-routing', { synthetic: true, input: {} }, options, async () => ({
+      requestedModel: 'jev:test', actualModel: 'jev:test', output: {}, attempts: 2, usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.001 },
+    }))).rejects.toThrow('attempt limit');
+    await expect(runLiveDecisionPattern('intent-routing', { synthetic: true, input: {} }, options, async () => ({
+      requestedModel: 'jev:test', actualModel: 'jev:test', output: {}, attempts: 1, usage: { inputTokens: 1, outputTokens: 1, costUsd: null },
+    }))).rejects.toThrow('cost unavailable');
   });
 
   it('PAT-DURABLE-001 uses the real offline store across restart and resumes idempotently', async () => {
