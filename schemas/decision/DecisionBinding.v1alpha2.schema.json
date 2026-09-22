@@ -28,6 +28,10 @@
       "properties": {
         "mode": { "const": "primitive-policy" },
         "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "compatibleUncertaintyProfiles": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
         "precedence": { "const": "first-match" },
         "calibration": { "enum": ["advisory", "required"] },
         "rules": {
@@ -50,7 +54,7 @@
         "tieRoute": { "$ref": "#/$defs/acceptanceRoute" },
         "requiredOptions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
       },
-      "required": ["mode", "version", "precedence", "calibration", "rules", "defaultRoute", "missingEvidenceRoute", "invalidEvidenceRoute", "tieRoute"],
+      "required": ["mode", "version", "compatibleUncertaintyProfiles", "precedence", "calibration", "rules", "defaultRoute", "missingEvidenceRoute", "invalidEvidenceRoute", "tieRoute"],
       "additionalProperties": false
     }
   },

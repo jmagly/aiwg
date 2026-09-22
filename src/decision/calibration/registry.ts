@@ -120,7 +120,8 @@ export class CalibrationRegistry {
     if (alias?.kind === 'retired') reasons.push('alias-retired');
     if (alias && alias.actualIdentityDigest !== actualDigest) reasons.push('alias-drift');
     let action: CompatibilityDecision['action'];
-    if (reasons.length) action = policy.unusableCalibration;
+    const unusable = !artifact || usable.length > 0 || alias?.kind === 'retired';
+    if (unusable) action = policy.unusableCalibration;
     else if (state === 'exact' || state === 'approved-compatible') action = 'allow';
     else if (state === 'shadow-required') action = policy.shadowRequired;
     else if (state === 'incompatible') action = policy.incompatible;

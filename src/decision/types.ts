@@ -1,6 +1,8 @@
 import type { ContextPlan } from './context-plan.js';
 import type { BatchResultReference } from './batch-receipts/receipt.js';
 import type { BatchReceiptStore, PriceCatalogRecord } from './batch-receipts/types.js';
+import type { CalibrationRegistry } from './calibration/registry.js';
+import type { CalibrationIdentity, CompatibilityDecision, CompatibilityPolicy } from './calibration/types.js';
 
 export const DECISION_API_VERSION = 'decision.aiwg.io/v1alpha1' as const;
 export const DECISION_API_VERSION_STRUCTURED = 'decision.aiwg.io/v1alpha2' as const;
@@ -107,6 +109,8 @@ export interface AcceptanceCondition {
 export interface PrimitiveAcceptancePolicy {
   mode: 'primitive-policy';
   version: string;
+  /** Explicit allow-list; prevents applying one backend's uncertainty semantics to another. */
+  compatibleUncertaintyProfiles: string[];
   /** Ordered rules make overlapping gray bands explicit and deterministic. */
   precedence: 'first-match';
   calibration: 'advisory' | 'required';
@@ -165,6 +169,7 @@ export interface DecisionUncertainty {
 
 export interface DecisionAcceptanceEvidence {
   policyVersion: string;
+  uncertaintyProfile: string | null;
   disposition: AcceptanceDisposition;
   matchedRule: string | null;
   fallbackTarget?: string;
@@ -285,6 +290,8 @@ export interface DecisionResult {
     reason: DecisionFailureReason;
     uncertainty: DecisionUncertainty | null;
     acceptance?: DecisionAcceptanceEvidence;
+    /** Immutable compatibility decision applied before calibrated acceptance evidence was consumed. */
+    calibrationCompatibility?: CompatibilityDecision;
     attempts: DecisionAttempt[];
     /** Reference-only link to the durable owner of shared batch transport accounting. */
     batchResult?: BatchResultReference;
@@ -392,6 +399,8 @@ export interface DecisionBatchEvaluationPolicy {
   stage?: number;
   /** Identity of the already-authorized egress policy, not policy text. */
   egressPolicy: string;
+  /** Identity of the trusted host policy governing this execution. */
+  hostPolicy: string;
 }
 
 export interface DecisionBatchPolicy {
@@ -456,6 +465,18 @@ export interface DecisionEvaluationRequest {
   receiptProjectId?: string;
   policyPin?: ArtifactPin | null;
   calibrationPin?: ArtifactPin | null;
+  /** Optional fail-closed runtime binding for separately registered calibration evidence. */
+  calibrationCompatibility?: {
+    registry: CalibrationRegistry;
+    policy: CompatibilityPolicy;
+    calibrationArtifactId?: string;
+    identityFor: (context: {
+      alias: string;
+      definition: DecisionDefinition;
+      target: ExecutionTarget;
+      actualModel: string;
+    }) => CalibrationIdentity;
+  };
   /** Resolve a persisted handle without starting another remote operation. */
   reconcileRemote?: (handle: string, signal: AbortSignal) => Promise<AdapterObservation | null>;
   signal?: AbortSignal;

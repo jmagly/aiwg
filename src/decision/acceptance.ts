@@ -17,6 +17,11 @@ const METRICS: Record<DecisionDefinition['spec']['answer']['kind'], ReadonlySet<
 
 export function validatePrimitiveAcceptancePolicy(policy: PrimitiveAcceptancePolicy, definition?: DecisionDefinition): void {
   if (!/^\d+\.\d+\.\d+$/.test(policy.version)) throw new DecisionValidationError('acceptance policy version must be semver');
+  if (!policy.compatibleUncertaintyProfiles.length
+    || new Set(policy.compatibleUncertaintyProfiles).size !== policy.compatibleUncertaintyProfiles.length
+    || policy.compatibleUncertaintyProfiles.some(profile => !profile.trim())) {
+    throw new DecisionValidationError('primitive acceptance requires unique non-empty compatible uncertainty profiles');
+  }
   if (policy.precedence !== 'first-match') throw new DecisionValidationError('acceptance policy requires explicit first-match precedence');
   const ids = new Set<string>();
   for (const rule of policy.rules) {
@@ -50,6 +55,13 @@ export function applyPrimitiveAcceptance(
 ): AdapterObservation {
   if (observation.status !== 'success') return observation;
   validatePrimitiveAcceptancePolicy(policy, definition);
+  const uncertaintyProfile = observation.uncertainty?.profile;
+  if (!uncertaintyProfile) {
+    return routed(observation, policy, policy.missingEvidenceRoute, 'missing-evidence', {});
+  }
+  if (!policy.compatibleUncertaintyProfiles.includes(uncertaintyProfile)) {
+    return routed(observation, policy, policy.invalidEvidenceRoute, 'invalid-evidence', {});
+  }
   const evidence = deriveEvidence(definition, observation);
   if (!evidence) return routed(observation, policy, policy.invalidEvidenceRoute, 'invalid-evidence', {});
   if (policy.calibration === 'required' && evidence['calibrated-risk'] === undefined) {
@@ -132,7 +144,8 @@ function routed(
   matchedRule: string | null = null,
 ): AdapterObservation {
   const acceptance: DecisionAcceptanceEvidence = {
-    policyVersion: policy.version, disposition: route.disposition, matchedRule, reason, values,
+    policyVersion: policy.version, uncertaintyProfile: observation.uncertainty?.profile ?? null,
+    disposition: route.disposition, matchedRule, reason, values,
     ...(route.fallbackTarget ? { fallbackTarget: route.fallbackTarget } : {}),
   };
   if (route.disposition === 'act') return { ...observation, acceptance };

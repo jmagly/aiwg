@@ -6,6 +6,7 @@
       "type": "object",
       "properties": {
         "policyVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "uncertaintyProfile": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
         "disposition": { "enum": ["act", "review", "reject", "fallback"] },
         "matchedRule": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
         "fallbackTarget": { "type": "string", "minLength": 1 },
@@ -26,7 +27,7 @@
           }
         }
       },
-      "required": ["policyVersion", "disposition", "matchedRule", "reason", "values"],
+      "required": ["policyVersion", "uncertaintyProfile", "disposition", "matchedRule", "reason", "values"],
       "additionalProperties": false
     }
   },
@@ -639,6 +640,25 @@
                       "additionalProperties": false
                     },
                     "minItems": 0
+                  },
+                  "calibrationCompatibility": {
+                    "type": "object",
+                    "required": ["schemaVersion", "pinId", "runId", "requestedAlias", "actualModel", "aliasRevision", "artifactId", "artifactDigest", "state", "action", "reasons", "decidedAt"],
+                    "properties": {
+                      "schemaVersion": { "const": "decision-calibration-compatibility/v1" },
+                      "pinId": { "type": "string", "minLength": 1 },
+                      "runId": { "type": "string", "minLength": 1 },
+                      "requestedAlias": { "type": "string", "minLength": 1 },
+                      "actualModel": { "type": "string", "minLength": 1 },
+                      "aliasRevision": { "type": ["integer", "null"], "minimum": 1 },
+                      "artifactId": { "type": ["string", "null"] },
+                      "artifactDigest": { "anyOf": [{ "type": "null" }, { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }] },
+                      "state": { "enum": ["exact", "approved-compatible", "shadow-required", "incompatible", "unknown"] },
+                      "action": { "enum": ["allow", "fail", "defer", "shadow", "require-approval"] },
+                      "reasons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                      "decidedAt": { "type": "string", "format": "date-time" }
+                    },
+                    "additionalProperties": false
                   },
                   "batchResult": {
                     "type": "object",

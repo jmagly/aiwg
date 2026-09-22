@@ -20,6 +20,7 @@ export interface BatchCandidate {
 export interface NativeBatchPlan {
   groupId: string;
   decisionSubject: string;
+  stage: number;
   candidates: BatchCandidate[];
 }
 
@@ -37,7 +38,7 @@ export function planNativeDecisionBatches(
   for (const candidate of candidates) {
     const rule = policy.evaluations[candidate.alias];
     const batch = candidate.capabilities.batch;
-    if (!rule?.independent || !rule.decisionSubject || !rule.egressPolicy || !batch?.native
+    if (!rule?.independent || !rule.decisionSubject || !rule.egressPolicy || !rule.hostPolicy || !batch?.native
       || !candidate.adapter.evaluateMany) continue;
     const stage = rule.stage ?? 0;
     const key = canonicalJson({
@@ -45,6 +46,7 @@ export function planNativeDecisionBatches(
       state: candidate.input,
       stage,
       egressPolicy: rule.egressPolicy,
+      hostPolicy: rule.hostPolicy,
       adapter: candidate.adapter.id,
       adapterVersion: candidate.adapter.version,
       executionEnvelope: batch.executionEnvelope,
@@ -67,10 +69,11 @@ export function planNativeDecisionBatches(
     .map(([key, values]) => ({
       groupId: `batch_${createHash('sha256').update(key, 'utf8').digest('hex').slice(0, 24)}`,
       decisionSubject: policy.evaluations[values[0]!.alias]!.decisionSubject,
+      stage: policy.evaluations[values[0]!.alias]!.stage ?? 0,
       // Candidate iteration follows ruleset declaration order; response order never does.
       candidates: [...values],
     }))
-    .sort((left, right) => left.groupId.localeCompare(right.groupId));
+    .sort((left, right) => left.stage - right.stage || left.groupId.localeCompare(right.groupId));
 }
 
 export function correlateAtomicBatch<T>(

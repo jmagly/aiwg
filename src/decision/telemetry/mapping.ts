@@ -98,6 +98,15 @@ export function mapDecisionResult(result: DecisionResult): AttributeMapping {
     put(out, 'aiwg.acceptance.disposition', result.spec.acceptance.disposition, 'client-derived');
     put(out, 'aiwg.acceptance.reason', result.spec.acceptance.reason, 'client-derived');
   }
+  if (result.spec.calibrationCompatibility) {
+    const calibration = result.spec.calibrationCompatibility;
+    put(out, 'aiwg.calibration.compatibility_state', calibration.state, 'client-derived');
+    put(out, 'aiwg.calibration.compatibility_action', calibration.action, 'client-derived');
+    put(out, 'aiwg.calibration.artifact_id', calibration.artifactId, 'client-derived');
+    put(out, 'aiwg.calibration.artifact_digest', calibration.artifactDigest, 'client-derived');
+    put(out, 'aiwg.calibration.alias_revision', calibration.aliasRevision, 'client-derived');
+    put(out, 'aiwg.calibration.reason_count', calibration.reasons.length, 'client-derived');
+  }
   return out;
 }
 

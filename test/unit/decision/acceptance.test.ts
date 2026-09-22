@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   DECISION_API_VERSION_STRUCTURED,
   DecisionValidationError,
+  MemoryDecisionReceiptStore,
   applyPrimitiveAcceptance,
   artifactPin,
   evaluateDecisionRuleset,
@@ -21,7 +22,8 @@ const route = (disposition: 'act' | 'review' | 'reject' | 'fallback', fallbackTa
 
 function policy(overrides: Partial<PrimitiveAcceptancePolicy> = {}): PrimitiveAcceptancePolicy {
   return {
-    mode: 'primitive-policy', version: '1.0.0', precedence: 'first-match', calibration: 'advisory',
+    mode: 'primitive-policy', version: '1.0.0', compatibleUncertaintyProfiles: ['fixture'],
+    precedence: 'first-match', calibration: 'advisory',
     rules: [], defaultRoute: route('review'), missingEvidenceRoute: route('review'),
     invalidEvidenceRoute: route('reject'), tieRoute: route('review'), ...overrides,
   };
@@ -146,6 +148,48 @@ describe('primitive-aware acceptance', () => {
     expect(present.acceptance?.disposition).toBe('act');
   });
 
+  it('POL-ACCEPT-PROFILE fails closed for missing or incompatible declared uncertainty semantics', () => {
+    const guarded = policy({
+      compatibleUncertaintyProfiles: ['typesafe-truth-v1'],
+      defaultRoute: route('act'),
+      missingEvidenceRoute: route('review'),
+      invalidEvidenceRoute: route('reject'),
+    });
+    const incompatible = applyPrimitiveAcceptance(definition('truth-probability'), guarded, observation(0.9, null));
+    expect(incompatible.acceptance).toMatchObject({
+      disposition: 'reject', reason: 'invalid-evidence', uncertaintyProfile: 'fixture', values: {},
+    });
+    const absent = observation(0.9, null);
+    absent.uncertainty = null;
+    expect(applyPrimitiveAcceptance(definition('truth-probability'), guarded, absent).acceptance).toMatchObject({
+      disposition: 'review', reason: 'missing-evidence', uncertaintyProfile: null, values: {},
+    });
+  });
+
+  it('POL-ACCEPT-QUANTIZATION records raw evidence while comparison uses the documented basis-point projection', () => {
+    const justBelow = 0.4999999999999;
+    const result = applyPrimitiveAcceptance(definition('truth-probability'), policy({
+      rules: [{ id: 'boundary', primitive: 'truth-probability',
+        all: [{ metric: 'yes-probability', op: 'gte', thresholdBps: 5000 }], route: route('act') }],
+      defaultRoute: route('reject'),
+    }), observation(justBelow, null));
+    expect(result.acceptance).toMatchObject({ disposition: 'act', values: {
+      'yes-probability': { value: justBelow, normalizedBps: 5000 },
+    } });
+    expect(result.uncertainty?.profile).toBe('fixture');
+  });
+
+  it('POL-ACCEPT-NO-SIDE-EFFECT returns routing evidence without mutating policy or observation', () => {
+    const immutablePolicy = policy({ defaultRoute: route('fallback', 'operator') });
+    const immutableObservation = observation(0.25, null);
+    const policyBefore = structuredClone(immutablePolicy);
+    const observationBefore = structuredClone(immutableObservation);
+    const result = applyPrimitiveAcceptance(definition('truth-probability'), immutablePolicy, immutableObservation);
+    expect(result.acceptance).toMatchObject({ disposition: 'fallback', fallbackTarget: 'operator' });
+    expect(immutablePolicy).toEqual(policyBefore);
+    expect(immutableObservation).toEqual(observationBefore);
+  });
+
   it('POL-ACCEPT-VALIDATE rejects ambiguous structure, invalid boundaries, and incomplete Choice spaces', () => {
     expect(() => validatePrimitiveAcceptancePolicy(policy({ precedence: 'last-match' as 'first-match' }))).toThrow(/precedence/);
     expect(() => validatePrimitiveAcceptancePolicy(policy({ rules: [
@@ -153,6 +197,8 @@ describe('primitive-aware acceptance', () => {
     ] }))).toThrow(/ordered/);
     expect(() => validatePrimitiveAcceptancePolicy(policy({ requiredOptions: ['unknown'] }), definition('choice'))).toThrow(/missing an option/);
     expect(() => validatePrimitiveAcceptancePolicy(policy({ defaultRoute: route('fallback') }))).toThrow(/fallbackTarget/);
+    expect(() => validatePrimitiveAcceptancePolicy(policy({ compatibleUncertaintyProfiles: [] }))).toThrow(/uncertainty profiles/);
+    expect(() => validatePrimitiveAcceptancePolicy(policy({ compatibleUncertaintyProfiles: ['fixture', 'fixture'] }))).toThrow(/uncertainty profiles/);
   });
 
   it('POL-ACCEPT-RECEIPT persists evidence while preserving the raw distribution', async () => {
@@ -170,12 +216,17 @@ describe('primitive-aware acceptance', () => {
     const adapter: DecisionAdapter = { id: 'jev', version: target.adapterVersion,
       capabilities: async () => ({ answerKinds: ['choice'], features: ['structured-entries'], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true }),
       evaluate: vi.fn(async () => observed) };
-    const result = await evaluateDecisionRuleset({ ruleset, binding, definitions: { category: decision },
+    const receiptStore = new MemoryDecisionReceiptStore();
+    const request = { ruleset, binding, definitions: { category: decision },
       input: JSON.parse(readFileSync('examples/decision/input.json', 'utf8')),
-      runId: 'run', invocationId: 'primitive-receipt', adapters: { jev: adapter } });
+      runId: 'run', invocationId: 'primitive-receipt', adapters: { jev: adapter }, receiptStore };
+    const result = await evaluateDecisionRuleset(request);
     expect(result.spec.evaluations.category?.spec.acceptance).toMatchObject({ disposition: 'act', policyVersion: '1.0.0' });
     expect(result.spec.evaluations.category?.spec.uncertainty?.distribution).toEqual({ yes: 0.7, no: 0.2, none: 0.1 });
     expect(() => validateDecisionDocument(result)).not.toThrow();
+    const replay = await evaluateDecisionRuleset(request);
+    expect(replay).toEqual(result);
+    expect(adapter.evaluate).toHaveBeenCalledTimes(1);
   });
 
   it('POL-ACCEPT-COMPAT does not admit primitive policy into v1alpha1', () => {

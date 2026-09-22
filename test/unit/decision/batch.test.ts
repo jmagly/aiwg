@@ -14,6 +14,7 @@ import {
   batchAccountingTotals,
   decisionBatchQuestionId,
   planDecisionContext,
+  planNativeDecisionBatches,
 } from '../../../src/decision/index.js';
 
 const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
@@ -27,7 +28,7 @@ const policy = (subjects: Record<string, string> = {
 }) => ({
   enabled: true,
   evaluations: Object.fromEntries(Object.entries(subjects).map(([alias, decisionSubject]) => [alias,
-    { decisionSubject, independent: true, egressPolicy: 'jev-public-v1' }]))
+    { decisionSubject, independent: true, egressPolicy: 'jev-public-v1', hostPolicy: 'host-policy-v1' }]))
 });
 
 function request(fetchImpl: typeof fetch, subjects?: Record<string, string>) {
@@ -51,7 +52,7 @@ function durableBatching(store = new MemoryBatchReceiptStore()) {
     subjectHash: `sha256:${'b'.repeat(64)}` as const };
 }
 
-function validResponse(body: Record<string, unknown>, omitLast = false): Response {
+function validPayload(body: Record<string, unknown>, omitLast = false): Record<string, unknown> {
   const ids = Object.keys(body.questions as object);
   const answers: Record<string, unknown> = {};
   for (const id of [...ids].reverse().slice(omitLast ? 1 : 0)) {
@@ -63,7 +64,31 @@ function validResponse(body: Record<string, unknown>, omitLast = false): Respons
             legend: { 0: 'Cosmetic or documentation issue; core functions work.', 1: 'A feature fails but has a workaround.', 2: 'Core functions unavailable.' }, confidence: 0.8 }
         : { type: 'noul', noul: 0.05 };
   }
-  return new Response(JSON.stringify({ answers, model: 'jev-fixture', usage: { input_tokens: 9, output_tokens: 3 } }), { status: 200 });
+  return { answers, model: 'jev-fixture', usage: { input_tokens: 9, output_tokens: 3 } };
+}
+
+function validResponse(body: Record<string, unknown>, omitLast = false): Response {
+  return new Response(JSON.stringify(validPayload(body, omitLast)), { status: 200 });
+}
+
+function malformedResponse(body: Record<string, unknown>, kind: 'missing' | 'extra' | 'duplicate' | 'swapped' | 'wrong-primitive'): Response {
+  const payload = validPayload(body) as { answers: Record<string, unknown>; model: string; usage: Record<string, number> };
+  const ids = Object.keys(payload.answers);
+  if (kind === 'missing') delete payload.answers[ids.at(-1)!];
+  if (kind === 'extra') payload.answers.q_unrequested = { type: 'noul', noul: 0.5 };
+  if (kind === 'swapped') [payload.answers[ids[0]!], payload.answers[ids[1]!]] =
+    [payload.answers[ids[1]!]!, payload.answers[ids[0]!]!];
+  if (kind === 'wrong-primitive') {
+    const wrongId = Object.keys(body.questions as object).find(id =>
+      (body.questions as Record<string, { type: string }>)[id]!.type !== 'noul')!;
+    payload.answers[wrongId] = { type: 'noul', noul: 0.5 };
+  }
+  if (kind !== 'duplicate') return new Response(JSON.stringify(payload), { status: 200 });
+  const [first, ...rest] = Object.entries(payload.answers);
+  const duplicateAnswers = [[first![0], first![1]], [first![0], first![1]], ...rest]
+    .map(([key, value]) => `${JSON.stringify(key)}:${JSON.stringify(value)}`).join(',');
+  return new Response(`{"answers":{${duplicateAnswers}},"model":"jev-fixture","usage":{"input_tokens":9,"output_tokens":3}}`,
+    { status: 200 });
 }
 
 describe('native shared-state decision batching', () => {
@@ -84,14 +109,45 @@ describe('native shared-state decision batching', () => {
     validateDecisionDocument(result.spec.evaluations.category!);
   });
 
-  it('BCH-004/005 rejects a malformed atomic response for every sibling', async () => {
-    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>, true)) as typeof fetch;
+  it.each(['missing', 'extra', 'duplicate', 'swapped', 'wrong-primitive'] as const)(
+    'BCH-004/005 rejects a %s atomic response for every sibling', async kind => {
+    const fetchImpl = vi.fn(async (_url, options) => malformedResponse(
+      JSON.parse(String(options?.body)) as Record<string, unknown>, kind)) as typeof fetch;
     const result = await evaluateDecisionRuleset(request(fetchImpl));
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(Object.values(result.spec.evaluations).map(value => value.spec.reason)).toEqual([
       'invalid-output', 'invalid-output', 'invalid-output',
     ]);
     expect(result.spec.status).toBe('review');
+  });
+
+  it('includes trusted host-policy identity in batch eligibility', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(
+      JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const configured = request(fetchImpl);
+    configured.batching.evaluations.category!.hostPolicy = 'isolated-host-policy';
+    const result = await evaluateDecisionRuleset(configured);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result.spec.evaluations.category!.spec.attempts[0]!.batch!.mode).toBe('single');
+    expect(result.spec.evaluations.severity!.spec.attempts[0]!.batch!.mode).toBe('native');
+    expect(result.spec.evaluations.core_unavailable!.spec.attempts[0]!.batch!.mode).toBe('native');
+  });
+
+  it('orders independent batch groups by dependency stage and never combines stages', async () => {
+    const adapter = new JevDecisionAdapter({ fetch: vi.fn() as unknown as typeof fetch });
+    const capabilities = await adapter.capabilities();
+    const target = fixture<DecisionBinding>('binding-jev.json').spec.evaluations.category!.targets[0]!;
+    const definition = definitions().category!;
+    const aliases = ['later-a', 'earlier-a', 'later-b', 'earlier-b'];
+    const candidates = aliases.map(alias => ({ alias, definition, input: fixture('input.json'), target, adapter, capabilities }));
+    const evaluations = Object.fromEntries(aliases.map(alias => [alias, {
+      decisionSubject: 'ticket:42', independent: true, egressPolicy: 'jev-public-v1', hostPolicy: 'host-policy-v1',
+      stage: alias.startsWith('later') ? 1 : 0,
+    }]));
+    const plans = planNativeDecisionBatches(candidates, { enabled: true, evaluations });
+    expect(plans.map(plan => [plan.stage, plan.candidates.map(candidate => candidate.alias).sort()])).toEqual([
+      [0, ['earlier-a', 'earlier-b']], [1, ['later-a', 'later-b']],
+    ]);
   });
 
   it('BCH-002/003/009 fans out different subjects despite identical projected state', async () => {
@@ -122,6 +178,25 @@ describe('native shared-state decision batching', () => {
     expect(adapter.evaluate).toHaveBeenCalledTimes(3);
     expect(Object.values(result.spec.evaluations).map(value => value.spec.attempts[0]?.batch?.degradationReason))
       .toEqual(['unsupported', 'unsupported', 'unsupported']);
+  });
+
+  it('BCH-CONFORMANCE preserves primitive and domain semantics between native batch and single calls', async () => {
+    const batchFetch = vi.fn(async (_url, options) => validResponse(
+      JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const singleFetch = vi.fn(async (_url, options) => validResponse(
+      JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const batched = await evaluateDecisionRuleset(request(batchFetch));
+    const singles = await evaluateDecisionRuleset({ ...request(singleFetch), batching: { enabled: false, evaluations: {} } });
+    const semantics = (result: typeof batched) => Object.fromEntries(Object.entries(result.spec.evaluations)
+      .map(([alias, evaluation]) => [alias, {
+        status: evaluation.spec.status, reason: evaluation.spec.reason, value: evaluation.spec.value,
+        uncertainty: evaluation.spec.uncertainty,
+      }]));
+    expect(semantics(batched)).toEqual(semantics(singles));
+    expect(batchFetch).toHaveBeenCalledTimes(1);
+    expect(singleFetch).toHaveBeenCalledTimes(3);
+    Object.values(batched.spec.evaluations).forEach(validateDecisionDocument);
+    Object.values(singles.spec.evaluations).forEach(validateDecisionDocument);
   });
 
   it('REC-BATCH runtime owns shared accounting once and emits reference-only result links', async () => {

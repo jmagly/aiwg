@@ -9,6 +9,7 @@ import { runBoundedFair, SchedulerWaitError } from './scheduler.js';
 import { allocateEstimatedUsage, deriveCost } from './batch-receipts/accounting.js';
 import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch-receipts/receipt.js';
 import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
+import type { CompatibilityDecision } from './calibration/types.js';
 import { DECISION_API_VERSION, DECISION_API_VERSION_STRUCTURED } from './types.js';
 import type {
   AdapterObservation,
@@ -168,13 +169,18 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
     const target = request.binding.spec.evaluations[pending.alias]?.targets[pending.targetIndex];
     if (!item || !target) throw new RemoteUncertainError();
     let observation: AdapterObservation;
-    try { observation = normalizeObservation(item.definition, target, reconciled); }
+    let calibrationCompatibility: CompatibilityDecision | undefined;
+    try {
+      const calibrated = normalizeObservationForRuntime({ request, item, target, observation: reconciled, now });
+      observation = calibrated.observation;
+      calibrationCompatibility = calibrated.calibrationCompatibility;
+    }
     catch { throw new RemoteUncertainError(); }
     if (observation.status !== 'success') throw new RemoteUncertainError();
     const context: OneContext = { request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
       attemptBudget, now, advance };
     const attempts = [...pending.attempts, toAttempt(target, pending.ordinal, observation, 0)];
-    evaluations[item.alias] = decisionResult(context, observation, attempts);
+    evaluations[item.alias] = decisionResult(context, observation, attempts, calibrationCompatibility);
     attemptsUsed += attempts.length;
     attemptBudget.consume(attempts.length);
     await advance('observation-received', { evaluations, pending: null });
@@ -254,12 +260,13 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
         observations = correlateAtomicBatch(questionIds,
           response.answers.map(answer => ({ questionId: answer.questionId, value: answer.observation })));
         // Validate every sibling before publishing any result: the batch is atomic.
-        const normalized = new Map<string, AdapterObservation>();
+        const normalized = new Map<string, { observation: AdapterObservation; calibrationCompatibility?: CompatibilityDecision }>();
         plan.candidates.forEach((candidate, index) => {
-          normalized.set(questionIds[index]!, normalizeObservation(candidate.definition, candidate.target,
-            observations.get(questionIds[index]!)!));
+          const item = resolved.find(value => value.alias === candidate.alias)!;
+          normalized.set(questionIds[index]!, normalizeObservationForRuntime({ request, item, target: candidate.target,
+            observation: observations.get(questionIds[index]!)!, now }));
         });
-        observations = normalized;
+        observations = new Map([...normalized].map(([id, value]) => [id, value.observation]));
         if (durableReceipt && request.batchReceipts) {
           const requestIds = uniqueNonNull(response.answers.map(answer => answer.observation.requestId));
           if (requestIds.length > 1) throw new Error('batch response contained multiple provider request IDs');
@@ -332,8 +339,11 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
         const observation = observations.get(questionIds[index]!)!;
         const context: OneContext = { request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
           attemptBudget, now, advance, batchResult: batchReferences.get(questionIds[index]!) };
+        const calibrationCompatibility = request.calibrationCompatibility && observation.status === 'success'
+          ? normalizeObservationForRuntime({ request, item, target: candidate.target, observation, now }).calibrationCompatibility
+          : undefined;
         evaluations[item.alias] = decisionResult(context, observation,
-          [toAttempt(candidate.target, 1, observation, Math.max(0, now() - started), evidence)]);
+          [toAttempt(candidate.target, 1, observation, Math.max(0, now() - started), evidence)], calibrationCompatibility);
       });
       attemptsUsed += plan.candidates.length;
       attemptBudget.consume(plan.candidates.length);
@@ -428,6 +438,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
   const evaluation = context.request.binding.spec.evaluations[context.item.alias]!;
   const attempts: DecisionAttempt[] = [];
   let final: AdapterObservation = observationFailure('budget-exhausted');
+  let calibrationCompatibility: CompatibilityDecision | undefined;
 
   for (let targetIndex = 0; targetIndex < evaluation.targets.length; targetIndex += 1) {
     const target = evaluation.targets[targetIndex]!;
@@ -471,7 +482,10 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
             throw new RemoteUncertainError();
           }
           await context.advance('observation-received');
-          final = normalizeObservation(context.item.definition, target, final);
+          const calibrated = normalizeObservationForRuntime({ request: context.request, item: context.item, target,
+            observation: final, now: context.now });
+          final = calibrated.observation;
+          calibrationCompatibility = calibrated.calibrationCompatibility;
         } catch (error) {
           if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) throw error;
           final = observationFailure(error instanceof DecisionValidationError ? 'invalid-output' : 'service-error');
@@ -502,7 +516,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
     if (!hasNext || !evaluation.fallbackOn.includes(final.reason)) break;
   }
 
-  return decisionResult(context, final, attempts);
+  return decisionResult(context, final, attempts, calibrationCompatibility);
 }
 
 async function invokeWithDeadline(
@@ -649,7 +663,56 @@ function normalizeObservation(definition: DecisionDefinition, target: ExecutionT
   return observation;
 }
 
-function decisionResult(context: OneContext, observation: AdapterObservation, attempts: DecisionAttempt[]): DecisionResult {
+function normalizeObservationForRuntime(input: {
+  request: DecisionEvaluationRequest;
+  item: OneContext['item'];
+  target: ExecutionTarget;
+  observation: AdapterObservation;
+  now: () => number;
+}): { observation: AdapterObservation; calibrationCompatibility?: CompatibilityDecision } {
+  let observation = input.observation;
+  const runtime = input.request.calibrationCompatibility;
+  if (runtime && observation.status === 'success') {
+    if (observation.actualModel === null) {
+      observation = withoutCalibratedRisk(observation);
+    } else {
+      const identity = runtime.identityFor({ alias: input.item.alias, definition: structuredClone(input.item.definition),
+        target: structuredClone(input.target), actualModel: observation.actualModel });
+      if (identity.actualModel !== observation.actualModel) {
+        throw new DecisionValidationError('calibration identity actual model does not match provider evidence');
+      }
+      const calibrationCompatibility = runtime.registry.resolve({
+        runId: `${input.request.runId}:${input.request.invocationId}:${input.item.alias}`,
+        requestedAlias: input.target.model,
+        actualIdentity: identity,
+        calibrationArtifactId: runtime.calibrationArtifactId,
+        at: new Date(input.now()).toISOString(),
+      }, runtime.policy);
+      observation = calibrationCompatibility.action === 'allow'
+        ? retainPinnedCalibratedRisk(observation, calibrationCompatibility)
+        : withoutCalibratedRisk(observation);
+      return { observation: normalizeObservation(input.item.definition, input.target, observation), calibrationCompatibility };
+    }
+  }
+  return { observation: normalizeObservation(input.item.definition, input.target, observation) };
+}
+
+function withoutCalibratedRisk(observation: AdapterObservation): AdapterObservation {
+  if (!observation.uncertainty?.calibratedRisk) return observation;
+  const uncertainty = structuredClone(observation.uncertainty);
+  delete uncertainty.calibratedRisk;
+  return { ...observation, uncertainty };
+}
+
+function retainPinnedCalibratedRisk(observation: AdapterObservation, pin: CompatibilityDecision): AdapterObservation {
+  const risk = observation.uncertainty?.calibratedRisk;
+  if (!risk || !pin.artifactId || !pin.artifactDigest) return withoutCalibratedRisk(observation);
+  const acceptedReferences = new Set([pin.artifactId, pin.artifactDigest, `${pin.artifactId}@${pin.artifactDigest}`]);
+  return acceptedReferences.has(risk.calibrationRef) ? observation : withoutCalibratedRisk(observation);
+}
+
+function decisionResult(context: OneContext, observation: AdapterObservation, attempts: DecisionAttempt[],
+  calibrationCompatibility?: CompatibilityDecision): DecisionResult {
   return {
     apiVersion: resultVersion(context.request), kind: 'DecisionResult',
     metadata: { id: `${context.request.invocationId}-${context.item.alias}`, version: '1.0.0', description: `Decision result for ${context.item.alias}` },
@@ -659,6 +722,7 @@ function decisionResult(context: OneContext, observation: AdapterObservation, at
       status: observation.status, ...(observation.status === 'success' ? { value: observation.value! } : {}),
       reason: observation.reason, uncertainty: observation.uncertainty,
       ...(observation.acceptance ? { acceptance: observation.acceptance } : {}), attempts,
+      ...(calibrationCompatibility ? { calibrationCompatibility } : {}),
       ...(context.batchResult ? { batchResult: context.batchResult } : {}),
     },
   };
@@ -685,7 +749,7 @@ function resultBase(request: DecisionEvaluationRequest, ruleset: ArtifactPin, bi
 }
 
 function resultVersion(request: DecisionEvaluationRequest): typeof DECISION_API_VERSION | typeof DECISION_API_VERSION_STRUCTURED {
-  if (request.ruleset.apiVersion === DECISION_API_VERSION_STRUCTURED || request.binding.apiVersion === DECISION_API_VERSION_STRUCTURED
+  if (request.calibrationCompatibility || request.ruleset.apiVersion === DECISION_API_VERSION_STRUCTURED || request.binding.apiVersion === DECISION_API_VERSION_STRUCTURED
     || Object.values(request.definitions).some(definition => definition.apiVersion === DECISION_API_VERSION_STRUCTURED)) {
     return DECISION_API_VERSION_STRUCTURED;
   }
