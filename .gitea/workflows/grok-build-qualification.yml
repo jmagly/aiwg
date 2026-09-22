@@ -9,6 +9,8 @@ on:
       - 'tools/agents/providers/grok-build.mjs'
       - 'tools/providers/grok-build-native-smoke.mjs'
       - 'docs/providers/grok-build-qualification.json'
+      - 'docs/providers/grok-build-qualification.md'
+      - 'docs/providers/grok-build-evidence/**'
       - 'tools/providers/grok-build-qualification.mjs'
       - '.gitea/workflows/grok-build-qualification.yml'
   pull_request:
@@ -19,6 +21,8 @@ on:
       - 'tools/agents/providers/grok-build.mjs'
       - 'tools/providers/grok-build-native-smoke.mjs'
       - 'docs/providers/grok-build-qualification.json'
+      - 'docs/providers/grok-build-qualification.md'
+      - 'docs/providers/grok-build-evidence/**'
       - 'tools/providers/grok-build-qualification.mjs'
       - '.gitea/workflows/grok-build-qualification.yml'
   schedule:
