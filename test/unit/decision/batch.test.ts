@@ -9,6 +9,7 @@ import {
   type DecisionRuleset,
   type DecisionAdapter,
   type AdapterObservation,
+  type DecisionContextPolicy,
   CanonicalJsonByteEstimator,
   MemoryBatchReceiptStore,
   batchAccountingTotals,
@@ -52,6 +53,26 @@ function durableBatching(store = new MemoryBatchReceiptStore()) {
     subjectHash: `sha256:${'b'.repeat(64)}` as const };
 }
 
+function contextRuntime(questionTokens = 1): DecisionContextPolicy {
+  const estimator = {
+    id: 'runtime-fixture', version: '1',
+    estimate(value: unknown) {
+      const tokens = (value as { tokens?: number }).tokens ?? 1;
+      return { tokens, serializedBytes: tokens };
+    },
+  };
+  return {
+    input: { subject: 'ticket:42', authorizedState: { tokens: 1 },
+      authorizationDigest: `sha256:${'c'.repeat(64)}` as const, incompleteContext: false,
+      questions: ['category', 'severity', 'core_unavailable'].map(alias => ({
+        id: decisionBatchQuestionId(alias), subject: 'ticket:42', entry: { tokens: questionTokens },
+      })) },
+    profile: { id: 'jev', version: 'runtime-1', estimator: { id: estimator.id, version: estimator.version },
+      limits: { aggregateTokens: 45, stateAndLongestQuestionTokens: 45 }, safetyMarginBps: 0, requestEnvelopeTokens: 0 },
+    estimator,
+  };
+}
+
 function validPayload(body: Record<string, unknown>, omitLast = false): Record<string, unknown> {
   const ids = Object.keys(body.questions as object);
   const answers: Record<string, unknown> = {};
@@ -92,6 +113,46 @@ function malformedResponse(body: Record<string, unknown>, kind: 'missing' | 'ext
 }
 
 describe('native shared-state decision batching', () => {
+  it('CTX-RUNTIME partitions provider calls and attaches estimate-versus-actual evidence', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_url, options) => {
+      const body = JSON.parse(String(options?.body)) as Record<string, unknown>;
+      bodies.push(body);
+      return validResponse(body);
+    }) as typeof fetch;
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: contextRuntime(20) });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(bodies.map(body => Object.keys(body.questions as object).length).sort()).toEqual([1, 2]);
+    expect(result.spec.context?.plan.partitions.map(partition => partition.questionIds.length)).toEqual([2, 1]);
+    expect(result.spec.context?.actualUsage).toHaveLength(2);
+    expect(result.spec.context?.actualUsage.every(item => item.actualInputTokens === 9)).toBe(true);
+    expect(Object.values(result.spec.evaluations).every(item => item.spec.context?.plan.planDigest === result.spec.context?.plan.planDigest)).toBe(true);
+    Object.values(result.spec.evaluations).forEach(validateDecisionDocument);
+  });
+
+  it('CTX-RUNTIME rejects stale plans before capability, credential, or transport access', async () => {
+    const runtime = contextRuntime();
+    runtime.plan = planDecisionContext(runtime.input, runtime.profile, runtime.estimator);
+    runtime.input.authorizationDigest = `sha256:${'d'.repeat(64)}`;
+    const adapter = new JevDecisionAdapter({ fetch: vi.fn() as unknown as typeof fetch });
+    const capabilities = vi.spyOn(adapter, 'capabilities');
+    const credential = vi.fn(async () => new TextEncoder().encode('token'));
+    const result = await evaluateDecisionRuleset({ ...request(vi.fn() as unknown as typeof fetch),
+      adapters: { jev: adapter }, resolveCredential: credential, context: runtime });
+    expect(result.spec.reason).toBe('invalid-input');
+    expect(capabilities).not.toHaveBeenCalled();
+    expect(credential).not.toHaveBeenCalled();
+  });
+
+  it('CTX-RUNTIME rejects mixed subjects before transport access', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const runtime = contextRuntime();
+    runtime.input.questions[1]!.subject = 'ticket:other';
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime });
+    expect(result.spec.reason).toBe('invalid-input');
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('BCH-001/006 sends heterogeneous questions once and normalizes in declaration order', async () => {
     const bodies: Record<string, unknown>[] = [];
     const fetchImpl = vi.fn(async (_url, options) => {
@@ -195,6 +256,41 @@ describe('native shared-state decision batching', () => {
     expect(semantics(batched)).toEqual(semantics(singles));
     expect(batchFetch).toHaveBeenCalledTimes(1);
     expect(singleFetch).toHaveBeenCalledTimes(3);
+    Object.values(batched.spec.evaluations).forEach(validateDecisionDocument);
+    Object.values(singles.spec.evaluations).forEach(validateDecisionDocument);
+  });
+
+  it('BCH-CONFORMANCE does not assume batch and single probabilities are numerically invariant', async () => {
+    const batchFetch = vi.fn(async (_url, options) => validResponse(
+      JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const singleFetch = vi.fn(async (_url, options) => {
+      const body = JSON.parse(String(options?.body)) as Record<string, unknown>;
+      const payload = validPayload(body) as { answers: Record<string, Record<string, unknown>>; model: string; usage: Record<string, number> };
+      const [answer] = Object.values(payload.answers);
+      if (answer?.type === 'choice') {
+        answer.probabilities = { documentation: 0.6, runtime: 0.3, other: 0.1 };
+        answer.confidence = 0.7;
+      } else if (answer?.type === 'score') {
+        answer.score = 0.4;
+        answer.probabilities = { 0: 0.6, 1: 0.4, 2: 0 };
+        answer.confidence = 0.65;
+      } else if (answer?.type === 'noul') {
+        answer.noul = 0.15;
+      }
+      return new Response(JSON.stringify(payload), { status: 200 });
+    }) as typeof fetch;
+    const batched = await evaluateDecisionRuleset(request(batchFetch));
+    const singles = await evaluateDecisionRuleset({ ...request(singleFetch), batching: { enabled: false, evaluations: {} } });
+
+    expect(batchFetch).toHaveBeenCalledTimes(1);
+    expect(singleFetch).toHaveBeenCalledTimes(3);
+    expect(Object.values(batched.spec.evaluations).map(value => value.spec.status)).toEqual(['success', 'success', 'success']);
+    expect(Object.values(singles.spec.evaluations).map(value => value.spec.status)).toEqual(['success', 'success', 'success']);
+    expect(singles.spec.evaluations.category?.spec.value).toBe('documentation');
+    expect(singles.spec.evaluations.severity?.spec.value).toBe(0.4);
+    expect(singles.spec.evaluations.core_unavailable?.spec.value).toBe(0.15);
+    expect(singles.spec.evaluations.category?.spec.uncertainty?.distribution)
+      .not.toEqual(batched.spec.evaluations.category?.spec.uncertainty?.distribution);
     Object.values(batched.spec.evaluations).forEach(validateDecisionDocument);
     Object.values(singles.spec.evaluations).forEach(validateDecisionDocument);
   });

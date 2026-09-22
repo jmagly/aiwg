@@ -480,6 +480,9 @@
           },
           "required": ["schemaVersion", "batchId", "receiptRevision", "questionId", "answerId"],
           "additionalProperties": false
+        },
+        "context": {
+          "$ref": "DecisionContextEvidence.v1.schema.json"
         }
       },
       "required": [

@@ -1,8 +1,19 @@
-import type { ContextPlan } from './context-plan.js';
+import type {
+  ContextActualUsageEvidence,
+  ContextPlan,
+  ContextPlanInput,
+  ContextProviderProfile,
+  ContextTokenEstimator,
+} from './context-plan.js';
 import type { BatchResultReference } from './batch-receipts/receipt.js';
 import type { BatchReceiptStore, PriceCatalogRecord } from './batch-receipts/types.js';
 import type { CalibrationRegistry } from './calibration/registry.js';
 import type { CalibrationIdentity, CompatibilityDecision, CompatibilityPolicy } from './calibration/types.js';
+import type {
+  CompileCacheIdentity,
+  CompileCacheReadContext,
+  CompileCacheResult,
+} from './compile-cache/types.js';
 
 export const DECISION_API_VERSION = 'decision.aiwg.io/v1alpha1' as const;
 export const DECISION_API_VERSION_STRUCTURED = 'decision.aiwg.io/v1alpha2' as const;
@@ -295,6 +306,8 @@ export interface DecisionResult {
     attempts: DecisionAttempt[];
     /** Reference-only link to the durable owner of shared batch transport accounting. */
     batchResult?: BatchResultReference;
+    /** Body-free evidence for the context assumptions governing this dispatch. */
+    context?: DecisionContextEvidence;
   };
 }
 
@@ -312,6 +325,8 @@ export interface RulesetResult {
     outcome?: JsonValue;
     matchedRules: string[];
     evaluations: Record<string, DecisionResult>;
+    /** Invocation-wide context plan plus immutable estimate-versus-actual evidence. */
+    context?: DecisionContextEvidence;
   };
 }
 
@@ -369,6 +384,17 @@ export interface DecisionAdapterRequest {
   onRemoteHandle?: (handle: string) => Promise<void>;
   /** Stable opaque provider correlation key; defaults to alias for single calls. */
   questionId?: string;
+  /**
+   * Immutable backend preparation produced by the adapter's compile hook. The
+   * evaluator obtains this through the same hook with and without caching so
+   * enabling the cache cannot change provider request semantics.
+   */
+  compiledArtifact?: JsonValue;
+}
+
+export interface DecisionAdapterCompileRequest {
+  definition: DecisionDefinition;
+  target: ExecutionTarget;
 }
 
 export interface DecisionAdapterBatchRequest {
@@ -386,8 +412,37 @@ export interface DecisionAdapter {
   readonly id: string;
   readonly version: string;
   capabilities(): Promise<AdapterCapabilities>;
+  /** Compile stable definition/adapter material; must not resolve credentials or dispatch. */
+  compile?(request: DecisionAdapterCompileRequest): Promise<JsonValue>;
   evaluate(request: DecisionAdapterRequest): Promise<AdapterObservation>;
   evaluateMany?(request: DecisionAdapterBatchRequest): Promise<DecisionAdapterBatchObservation>;
+}
+
+export interface DecisionCompileCacheStore {
+  getOrCompile(
+    identity: CompileCacheIdentity,
+    context: CompileCacheReadContext,
+    ttlMs: number,
+    compile: () => Promise<JsonValue>,
+    options?: { bypass?: boolean },
+  ): Promise<CompileCacheResult<JsonValue>>;
+}
+
+export interface DecisionCompileCachePolicy {
+  /** Conservative rollout default: omitted or false always takes the bypass path. */
+  enabled: boolean;
+  ttlMs: number;
+  store: DecisionCompileCacheStore;
+  context: CompileCacheReadContext | (() => CompileCacheReadContext);
+  identityFor(input: {
+    alias: string;
+    definition: DecisionDefinition;
+    target: ExecutionTarget;
+    adapter: DecisionAdapter;
+  }): CompileCacheIdentity;
+  /** Cache rejection can safely recompile; strict mode instead fails before dispatch. */
+  failureMode?: 'recompile' | 'fail';
+  onResult?: (input: { alias: string; outcome: CompileCacheResult<JsonValue>['outcome'] }) => void;
 }
 
 export interface DecisionBatchEvaluationPolicy {
@@ -418,6 +473,20 @@ export interface DecisionBatchReceiptPolicy {
   subjectHash: `sha256:${string}`;
   /** Optional reviewed catalog for deriving cost when the provider omits it. */
   priceCatalog?: PriceCatalogRecord;
+}
+
+export interface DecisionContextEvidence {
+  plan: ContextPlan;
+  actualUsage: ContextActualUsageEvidence[];
+}
+
+/** Explicit, qualified context preflight. It remains inert unless supplied. */
+export interface DecisionContextPolicy {
+  input: ContextPlanInput;
+  profile: ContextProviderProfile;
+  estimator: ContextTokenEstimator;
+  /** Optional caller-persisted plan. A stale plan fails closed instead of silently replanning. */
+  plan?: ContextPlan;
 }
 
 export interface DecisionBatchEvidence {
@@ -486,5 +555,7 @@ export interface DecisionEvaluationRequest {
   delay?: (ms: number, signal: AbortSignal) => Promise<void>;
   batching?: DecisionBatchPolicy;
   batchReceipts?: DecisionBatchReceiptPolicy;
+  context?: DecisionContextPolicy;
   scheduler?: DecisionSchedulerPolicy;
+  compileCache?: DecisionCompileCachePolicy;
 }

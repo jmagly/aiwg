@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
-  CompileCacheRejectedError, MemoryCompileCache, cacheBenchmarkReport, compileCacheKey, providerPrefixEvidence,
+  CompileCacheRejectedError, FileCompileCache, MemoryCompileCache, cacheBenchmarkReport, compileCacheKey,
+  prepareAdapterRequest, providerPrefixEvidence,
   providerPrefixKey, type CompileCacheIdentity, type CompileCacheReadContext, type ProviderPrefixIdentity,
 } from '../../../src/decision/compile-cache/index.js';
+import type { DecisionAdapter, DecisionAdapterRequest, DecisionDefinition, ExecutionTarget } from '../../../src/decision/types.js';
 
 const digest = (character: string) => `sha256:${character.repeat(64)}` as `sha256:${string}`;
 function identity(overrides: Partial<CompileCacheIdentity> = {}): CompileCacheIdentity {
@@ -116,7 +121,63 @@ describe('decision compile and provider-prefix cache', () => {
     expect(report).toMatchObject({ warmupCalls: 2, measuredCalls: 2, minimumBenefitTargetBps: 500,
       enabled: { averagePreparationLatencyMs: 2, averageCostUsd: null, averageCachedInputTokens: null, hitRateBps: 10_000 } });
   });
+
+  it('CCP-008 persists isolated entries and enforces lifecycle integrity across store restarts', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-'));
+    const first = new FileCompileCache<{ stable: boolean }>(directory);
+    const filled = await first.getOrCompile(identity(), context(), 1_000, async () => ({ stable: true }));
+    const restarted = new FileCompileCache<{ stable: boolean }>(directory);
+    expect((await restarted.read(identity(), context(101)))?.value).toEqual({ stable: true });
+    expect(await restarted.backup(identity(), context(102))).toMatchObject({ key: filled.key });
+    await expect(restarted.read(identity(), context(103, { projectId: 'other' }))).rejects.toThrow('unavailable');
+    const path = join(directory, `${filled.key.slice('sha256:'.length)}.json`);
+    await writeFile(path, (await readFile(path, 'utf8')).replace('true', 'false'));
+    await expect(restarted.read(identity(), context(104))).rejects.toThrow('unavailable');
+  });
+
+  it('CCP-008 preserves byte-equivalent compiled artifacts through disabled and cached runtime paths', async () => {
+    let compilations = 0;
+    const seen: string[] = [];
+    const definition = compileDefinition();
+    const target = compileTarget();
+    const adapter: DecisionAdapter = {
+      id: 'jev', version: '1',
+      capabilities: async () => ({ answerKinds: ['choice'], features: [], maxOptions: 10, maxLevels: null,
+        confidenceProfiles: [], executable: true }),
+      compile: async value => ({ bytes: JSON.stringify(value) }),
+      evaluate: async request => { compilations += 0; seen.push(JSON.stringify(request.compiledArtifact));
+        return { status: 'success', reason: 'none', value: 'yes', uncertainty: null, actualModel: 'm',
+          usage: { inputTokens: null, outputTokens: null, costUsd: null }, requestId: null }; },
+    };
+    adapter.compile = async value => { compilations += 1; return { bytes: JSON.stringify(value) }; };
+    const request = compileRequest(definition, target);
+    const store = new MemoryCompileCache();
+    const common = { ttlMs: 1_000, store, context: context(), identityFor: () => identity() };
+    const bypass = await prepareAdapterRequest(request, adapter, { enabled: false, ...common });
+    const miss = await prepareAdapterRequest(request, adapter, { enabled: true, ...common });
+    const hit = await prepareAdapterRequest(request, adapter, { enabled: true, ...common });
+    await adapter.evaluate(bypass); await adapter.evaluate(miss); await adapter.evaluate(hit);
+    expect(compilations).toBe(2);
+    expect(new Set(seen).size).toBe(1);
+  });
 });
+
+function compileDefinition(): DecisionDefinition {
+  return { apiVersion: 'decision.aiwg.io/v1alpha1', kind: 'DecisionDefinition',
+    metadata: { id: 'compiled', version: '1', description: 'compiled' },
+    spec: { purpose: 'test', inputSchema: {}, question: 'question',
+      answer: { kind: 'choice', options: [{ id: 'yes', description: 'yes' }] }, requiredCapabilities: [] } };
+}
+
+function compileTarget(): ExecutionTarget {
+  return { adapter: 'jev', adapterVersion: '1', model: 'm', requiredCapabilities: [], acceptance: { mode: 'typed-value' },
+    timeoutMs: 1_000, retry: { maxRetries: 0, initialDelayMs: 1, maxDelayMs: 1 } };
+}
+
+function compileRequest(definition: DecisionDefinition, target: ExecutionTarget): DecisionAdapterRequest {
+  return { alias: 'compiled', definition, input: {}, target, invocationId: 'i', deadlineEpochMs: 1_000,
+    signal: new AbortController().signal, resolveCredential: async () => new Uint8Array() };
+}
 
 function prefix(overrides: Partial<ProviderPrefixIdentity> = {}): ProviderPrefixIdentity {
   return { schemaVersion: 'decision-provider-prefix-identity/v1', orderedPrefixDigest: digest('c'), provider: 'jev', backend: 'structured',

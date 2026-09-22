@@ -10,12 +10,22 @@ import { allocateEstimatedUsage, deriveCost } from './batch-receipts/accounting.
 import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch-receipts/receipt.js';
 import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
 import type { CompatibilityDecision } from './calibration/types.js';
+import { prepareAdapterRequest } from './compile-cache/runtime.js';
+import {
+  assertContextPlanCurrent,
+  ContextPlanError,
+  planDecisionContext,
+  recordContextActualUsage,
+  type ContextActualUsageEvidence,
+  type ContextPlan,
+} from './context-plan.js';
 import { DECISION_API_VERSION, DECISION_API_VERSION_STRUCTURED } from './types.js';
 import type {
   AdapterObservation,
   ArtifactPin,
   DecisionAdapter,
   DecisionBatchEvidence,
+  DecisionContextEvidence,
   DecisionAttempt,
   DecisionAdmissionEvidence,
   DecisionDefinition,
@@ -49,9 +59,10 @@ const admissionControllers = new WeakMap<object, DecisionAdmissionController>();
 export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest): Promise<RulesetResult> {
   let rulesetPin: ArtifactPin;
   let bindingPin: ArtifactPin;
-  let base: RulesetResult | undefined;
+  let base: RulesetResult = invalidResultBase(request);
   let resolved: Array<{ alias: string; definition: DecisionDefinition; pin: ArtifactPin; input: unknown }>;
   let admissionStage: 'artifact' | 'input' = 'artifact';
+  let contextPlan: ContextPlan | undefined;
   try {
     admitEntry(request.ruleset);
     admitEntry(request.binding);
@@ -73,6 +84,7 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
     validateSchedulerPolicy(request);
     validateAgainstSchema(request.ruleset.spec.inputSchema, request.input, 'ruleset input');
     resolved = resolveDefinitions(request);
+    contextPlan = prepareContextPlan(request, resolved);
     for (const item of resolved) {
       for (const target of request.binding.spec.evaluations[item.alias]!.targets) {
         if (target.acceptance.mode === 'primitive-policy') {
@@ -86,9 +98,9 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
   } catch (error) {
     const reason = error instanceof EntryAdmissionError && admissionStage === 'input'
       ? 'invalid-input' : classifyValidationFailure(error);
-    return failureResult(base ?? invalidResultBase(request), reason);
+    return failureResult(base, reason);
   }
-  if (!base) return failureResult(invalidResultBase(request), 'invalid-definition');
+  if (contextPlan) base = withRulesetContext(base, contextPlan, []);
 
   const fingerprint = decisionInvocationFingerprint({
     invocationId: request.invocationId,
@@ -159,6 +171,7 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
   const totalTimeout = AbortSignal.timeout(request.binding.spec.totalTimeoutMs);
   const totalAbort = AbortSignal.any([request.signal ?? new AbortController().signal, totalTimeout]);
   const evaluations: Record<string, DecisionResult> = structuredClone(receipt?.evaluations ?? {});
+  const contextUsage: ContextActualUsageEvidence[] = contextUsageFromEvaluations(evaluations);
   let attemptsUsed = Object.values(evaluations).reduce((sum, result) => sum + result.spec.attempts.length, 0);
   const attemptBudget = new AttemptBudget(request.binding.spec.maxAttempts, attemptsUsed);
 
@@ -202,7 +215,7 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
       candidates.push({ alias: item.alias, definition: item.definition, input: item.input, target, adapter,
         capabilities: await adapter.capabilities() });
     }
-    for (const plan of planNativeDecisionBatches(candidates, request.batching)) {
+    for (const plan of contextPartitionedBatchPlans(planNativeDecisionBatches(candidates, request.batching), contextPlan)) {
       if (plan.candidates.some(candidate => evaluations[candidate.alias])) continue;
       if (attemptsUsed + plan.candidates.length > request.binding.spec.maxAttempts) continue;
       const started = now();
@@ -249,14 +262,19 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
           }
           durableReceipt = running;
         }
-        const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
-          requests: plan.candidates.map((candidate, index) => ({
+        const preparedRequests = await Promise.all(plan.candidates.map((candidate, index) =>
+          prepareAdapterRequest({
             alias: candidate.alias, questionId: questionIds[index], definition: structuredClone(candidate.definition),
             input: structuredClone(candidate.input), target: structuredClone(candidate.target),
             invocationId: `${request.invocationId}:${plan.groupId}`, deadlineEpochMs: deadline,
             signal: totalAbort, callerSignal: request.signal ?? new AbortController().signal, totalSignal: totalAbort,
             resolveCredential: request.resolveCredential ?? unauthorizedCredential,
-          })) });
+          }, adapter, request.compileCache)));
+        const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
+          requests: preparedRequests });
+        if (contextPlan && response.sharedUsage.inputTokens !== null) {
+          recordRuntimeContextUsage(contextPlan, questionIds[0]!, response.sharedUsage.inputTokens, contextUsage);
+        }
         observations = correlateAtomicBatch(questionIds,
           response.answers.map(answer => ({ questionId: answer.questionId, value: answer.observation })));
         // Validate every sibling before publishing any result: the batch is atomic.
@@ -338,7 +356,7 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
         const evidence: DecisionBatchEvidence = { mode: 'native', groupId: plan.groupId, questionId: questionIds[index]! };
         const observation = observations.get(questionIds[index]!)!;
         const context: OneContext = { request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
-          attemptBudget, now, advance, batchResult: batchReferences.get(questionIds[index]!) };
+          attemptBudget, now, advance, batchResult: batchReferences.get(questionIds[index]!), contextPlan, contextUsage };
         const calibrationCompatibility = request.calibrationCompatibility && observation.status === 'success'
           ? normalizeObservationForRuntime({ request, item, target: candidate.target, observation, now }).calibrationCompatibility
           : undefined;
@@ -353,7 +371,7 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
   const concurrency = effectiveConcurrency(request);
   const scheduled = await runBoundedFair(remainingItems.map(item => ({ value: item, lane: schedulerLane(request, item) })), concurrency,
     async item => evaluateOne({ request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
-      attemptBudget, now, advance, batchEvidence: singleBatchEvidence(request, item.alias) }),
+      attemptBudget, now, advance, batchEvidence: singleBatchEvidence(request, item.alias), contextPlan, contextUsage }),
     { signal: totalAbort, deadlineEpochMs: totalDeadline, now });
   scheduled.forEach((execution, index) => {
     const item = remainingItems[index]!;
@@ -400,7 +418,12 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
     }
   }
 
+  if (contextPlan && !contextPlan.automaticActionAllowed && (result.spec.status === 'completed' || result.spec.status === 'defaulted')) {
+    const { outcome: _outcome, ...withoutOutcome } = result.spec;
+    result = { ...result, spec: { ...withoutOutcome, status: 'review', reason: 'insufficient-information' } };
+  }
   await advance('composed');
+  if (contextPlan) result = withRulesetContext(result, contextPlan, contextUsage);
   await advance('completed', { result });
   releaseAdmissionBudget(request);
   return result;
@@ -432,6 +455,8 @@ interface OneContext {
   advance: (state: DecisionReceipt['state'], extra?: Partial<Pick<DecisionReceipt, 'result' | 'remoteHandles' | 'evaluations' | 'pending'>>) => Promise<void>;
   batchEvidence?: DecisionBatchEvidence;
   batchResult?: ReturnType<typeof batchResultReference>;
+  contextPlan?: ContextPlan;
+  contextUsage?: ContextActualUsageEvidence[];
 }
 
 async function evaluateOne(context: OneContext): Promise<DecisionResult> {
@@ -486,6 +511,10 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
             observation: final, now: context.now });
           final = calibrated.observation;
           calibrationCompatibility = calibrated.calibrationCompatibility;
+          if (context.contextPlan && final.usage.inputTokens !== null && context.contextUsage) {
+            recordRuntimeContextUsage(context.contextPlan, decisionBatchQuestionId(context.item.alias),
+              final.usage.inputTokens, context.contextUsage);
+          }
         } catch (error) {
           if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) throw error;
           final = observationFailure(error instanceof DecisionValidationError ? 'invalid-output' : 'service-error');
@@ -574,8 +603,7 @@ async function invokeWithDeadline(
         throw error;
       }
     }
-    const observed = await Promise.race([
-      adapter.evaluate({
+    const preparedRequest = await prepareAdapterRequest({
         alias: context.item.alias,
         definition: structuredClone(context.item.definition),
         input: structuredClone(context.item.input),
@@ -592,7 +620,9 @@ async function invokeWithDeadline(
             if (previous && !previous.remoteHandles.includes(handle)) await context.advance('remote-handle-known', { remoteHandles: [...previous.remoteHandles, handle] });
           } catch { throw new ReceiptPersistenceError(); }
         },
-      }),
+      }, adapter, context.request.compileCache);
+    const observed = await Promise.race([
+      adapter.evaluate(preparedRequest),
       boundary,
     ]);
     const result = context.request.signal?.aborted ? observationFailure('cancelled', 'cancelled', observed, 'caller-cancelled') : observed;
@@ -724,6 +754,8 @@ function decisionResult(context: OneContext, observation: AdapterObservation, at
       ...(observation.acceptance ? { acceptance: observation.acceptance } : {}), attempts,
       ...(calibrationCompatibility ? { calibrationCompatibility } : {}),
       ...(context.batchResult ? { batchResult: context.batchResult } : {}),
+      ...(context.contextPlan ? { context: decisionContextEvidence(context.contextPlan,
+        context.contextUsage ?? [], decisionBatchQuestionId(context.item.alias)) } : {}),
     },
   };
 }
@@ -798,6 +830,87 @@ function toAttempt(target: ExecutionTarget, ordinal: number, observation: Adapte
     ...(batch ? { batch } : {}),
     ...(observation.admission ? { admission: observation.admission } : {}),
   };
+}
+
+function prepareContextPlan(
+  request: DecisionEvaluationRequest,
+  resolved: Array<{ alias: string; definition: DecisionDefinition; pin: ArtifactPin; input: unknown }>,
+): ContextPlan | undefined {
+  const runtime = request.context;
+  if (!runtime) return undefined;
+  const expectedIds = resolved.map(item => decisionBatchQuestionId(item.alias)).sort();
+  const suppliedIds = runtime.input.questions.map(question => question.id).sort();
+  if (!sameStringSet(expectedIds, suppliedIds)) {
+    throw new ContextPlanError('invalid-input', 'context questions must exactly cover the resolved decision evaluations');
+  }
+  if (request.batching?.enabled) {
+    for (const item of resolved) {
+      const batching = request.batching.evaluations[item.alias];
+      if (batching?.independent && batching.decisionSubject !== runtime.input.subject) {
+        throw new ContextPlanError('invalid-input', `batch subject for '${item.alias}' differs from context subject`);
+      }
+    }
+  }
+  const plan = runtime.plan ?? planDecisionContext(runtime.input, runtime.profile, runtime.estimator);
+  assertContextPlanCurrent(plan, runtime.input, runtime.profile, runtime.estimator);
+  if (request.batchReceipts && request.batchReceipts.contextPlan.planDigest !== plan.planDigest) {
+    throw new ContextPlanError('stale-plan', 'batch receipt context plan differs from runtime context plan');
+  }
+  return plan;
+}
+
+function contextPartitionedBatchPlans(
+  plans: ReturnType<typeof planNativeDecisionBatches>,
+  contextPlan: ContextPlan | undefined,
+): ReturnType<typeof planNativeDecisionBatches> {
+  if (!contextPlan) return plans;
+  const split = [] as ReturnType<typeof planNativeDecisionBatches>;
+  for (const partition of [...contextPlan.partitions].sort((left, right) => left.wave - right.wave || left.id.localeCompare(right.id))) {
+    const permitted = new Set(partition.questionIds);
+    for (const plan of plans) {
+      if (plan.decisionSubject !== partition.subject) continue;
+      const candidates = plan.candidates.filter(candidate => permitted.has(decisionBatchQuestionId(candidate.alias)));
+      if (candidates.length > 1) split.push({ ...plan, candidates });
+    }
+  }
+  return split;
+}
+
+function recordRuntimeContextUsage(
+  plan: ContextPlan,
+  questionId: string,
+  actualInputTokens: number,
+  evidence: ContextActualUsageEvidence[],
+): void {
+  const partition = plan.partitions.find(candidate => candidate.questionIds.includes(questionId));
+  if (!partition) throw new ContextPlanError('invalid-input', `question '${questionId}' has no context partition`);
+  const recorded = recordContextActualUsage(plan, partition.id, actualInputTokens);
+  const index = evidence.findIndex(candidate => candidate.planDigest === plan.planDigest && candidate.partitionId === partition.id);
+  if (index < 0) evidence.push(recorded);
+  else evidence[index] = recorded;
+}
+
+function decisionContextEvidence(
+  plan: ContextPlan,
+  actualUsage: readonly ContextActualUsageEvidence[],
+  questionId?: string,
+): DecisionContextEvidence {
+  const partitionIds = questionId === undefined
+    ? new Set(plan.partitions.map(partition => partition.id))
+    : new Set(plan.partitions.filter(partition => partition.questionIds.includes(questionId)).map(partition => partition.id));
+  return { plan: structuredClone(plan), actualUsage: structuredClone(actualUsage.filter(item => partitionIds.has(item.partitionId))) };
+}
+
+function withRulesetContext(result: RulesetResult, plan: ContextPlan, usage: readonly ContextActualUsageEvidence[]): RulesetResult {
+  return { ...result, spec: { ...result.spec, context: decisionContextEvidence(plan, usage) } };
+}
+
+function contextUsageFromEvaluations(evaluations: Record<string, DecisionResult>): ContextActualUsageEvidence[] {
+  const usage = new Map<string, ContextActualUsageEvidence>();
+  for (const result of Object.values(evaluations)) {
+    for (const item of result.spec.context?.actualUsage ?? []) usage.set(`${item.planDigest}\0${item.partitionId}`, structuredClone(item));
+  }
+  return [...usage.values()];
 }
 
 function durableBatchId(invocationId: string, groupId: string, partitionId: string): string {
@@ -912,6 +1025,7 @@ function singleBatchEvidence(request: DecisionEvaluationRequest, alias: string):
 }
 
 function classifyValidationFailure(error: unknown): DecisionFailureReason {
+  if (error instanceof ContextPlanError) return 'invalid-input';
   if (!(error instanceof DecisionValidationError)) return 'invalid-definition';
   if (/digest/.test(error.message)) return 'digest-mismatch';
   if (/input|projection/.test(error.message)) return 'invalid-input';

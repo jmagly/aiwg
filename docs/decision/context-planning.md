@@ -10,11 +10,6 @@ Oversized state or single-question inputs raise `ContextPlanError` synchronously
 
 Before dispatch, call `assertContextPlanCurrent`. Any authorized-input, authorization-digest, estimator, profile-version, limit, margin, or envelope change produces `stale-plan`; replan rather than dispatching stale assumptions. After a provider response, `recordContextActualUsage` creates separate estimate-versus-actual evidence linked to the immutable plan digest.
 
-Integration points still required in the shared runtime are:
+The shared evaluator accepts an explicit `DecisionContextPolicy` runtime binding. It plans (or verifies a supplied plan) before adapter capability checks, credential lookup, admission, or transport. Question IDs must exactly cover resolved evaluations, and batching subjects must equal the context subject. Native provider calls are constrained to deterministic plan partitions in wave order; questions isolated by a partition degrade to the single-call path rather than being recombined.
 
-1. Convert each eligible Jev batch group into `ContextPlanInput`, using projected-state evidence for `subject`, `authorizationDigest`, and `incompleteContext`.
-2. Resolve a qualified `ContextProviderProfile` from the provider registry.
-3. Plan and validate before credential lookup or adapter invocation.
-4. Dispatch partitions in ascending wave order; resolve each partition's stable question IDs from the unchanged source group.
-5. Prohibit automatic outcome application when `automaticActionAllowed` is false.
-6. Attach the plan and `ContextActualUsageEvidence` to the sanitized decision receipt; neither contains state or question bodies.
+The resulting body-free plan and actual-versus-estimated token evidence are attached to each decision result and the ruleset result. Durable invocation receipts therefore preserve the same evidence with their stored results, while batch receipts retain their immutable plan/partition references. Incomplete context converts an otherwise automatic completed/defaulted composition to review and removes its outcome.

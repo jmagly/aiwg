@@ -169,6 +169,9 @@
           },
           "minItems": 0
         },
+        "context": {
+          "$ref": "DecisionContextEvidence.v1.schema.json"
+        },
         "evaluations": {
           "type": "object",
           "additionalProperties": {
@@ -622,6 +625,17 @@
                         },
                         "admission": {
                           "$ref": "DecisionAdmissionEvidence.v1.schema.json"
+                        },
+                        "batch": {
+                          "type": "object",
+                          "properties": {
+                            "mode": { "enum": ["native", "single"] },
+                            "groupId": { "type": "string", "pattern": "^(batch|single)_[0-9a-f]{24}$" },
+                            "questionId": { "type": "string", "pattern": "^q_[0-9a-f]{24}$" },
+                            "degradationReason": { "enum": ["disabled", "unsupported", "ineligible"] }
+                          },
+                          "required": ["mode", "groupId", "questionId"],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -671,6 +685,9 @@
                     },
                     "required": ["schemaVersion", "batchId", "receiptRevision", "questionId", "answerId"],
                     "additionalProperties": false
+                  },
+                  "context": {
+                    "$ref": "DecisionContextEvidence.v1.schema.json"
                   }
                 },
                 "required": [

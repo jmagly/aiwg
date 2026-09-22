@@ -10,4 +10,8 @@ Cache telemetry is metadata-only. It uses bounded layer/outcome labels and must 
 
 Compilation or prefix reuse does **not** imply a cached answer, correctness, calibration, deterministic inference, semantic equivalence, or semantic freshness. Deploy compile caching disabled first, compare the normalized requests from bypass and cache paths, and enable provider-prefix handling only for a pinned backend revision with documented semantics and approved privacy policy.
 
+Runtime compilation is opt-in through `DecisionEvaluationRequest.compileCache`. Adapters that expose `compile` receive the same cloned definition and target on both paths, and the resulting immutable artifact is attached to the adapter request. When the policy is absent or disabled the compiler runs directly; enabled policies may use the memory or atomic filesystem store. A rejected cache read recompiles by default, while `failureMode: "fail"` makes rejection a pre-dispatch failure. Neither path resolves credentials or starts transport during compilation.
+
+`FileCompileCache` persists entries using digest-only filenames and atomic rename, revalidates content and identity on every read, and exposes scope-authorized backup, restore, tombstone, legal-hold, and deletion operations. Backup media encryption remains the caller's responsibility.
+
 Paired benchmarks must pin their configuration digest, warmup and measured calls, minimum benefit target, and confidence interval. They report preparation latency, authoritative provider token/cache usage when available, total token/cost observations, hit and invalidation rates, and memory/storage. Unknown provider economics remain `null`, not zero.
