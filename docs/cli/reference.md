@@ -669,7 +669,7 @@ aiwg use sdlc --model sonnet
 aiwg use sdlc --reasoning opus --coding sonnet --efficiency haiku
 
 # Use a specific model ID on Factory
-aiwg use sdlc --provider factory --coding-model gpt-5.3-codex
+aiwg use sdlc --provider factory --coding-model gpt-5.6-terra
 
 # Blanket with per-tier override
 aiwg use sdlc --model sonnet --reasoning opus
@@ -1985,7 +1985,7 @@ aiwg catalog info <model-id>
 
 **Arguments:**
 
-- `<model-id>` - Model identifier (e.g., `claude-opus-4-6`)
+- `<model-id>` - Model identifier (e.g., `claude-opus-5`)
 
 #### catalog search
 
