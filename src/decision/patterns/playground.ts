@@ -1,4 +1,5 @@
 import { getDecisionPatternPack, decisionPatternPacks } from './catalog.js';
+import { resolveDecisionPatternArtifact } from './artifacts.js';
 import type { JsonValue } from '../types.js';
 import type { DecisionPatternId, DecisionPatternPack, LivePatternPlan, PatternFixture, PatternReceipt } from './types.js';
 
@@ -15,6 +16,9 @@ export function validateDecisionPattern(pack: DecisionPatternPack): string[] {
   if (!/^\d+\.\d+\.\d+$/.test(pack.version)) errors.push('invalid-version');
   for (const [name, value] of Object.entries(pack.artifacts)) {
     if (Array.isArray(value) ? value.length === 0 || value.some(item => !item) : !value) errors.push(`missing-artifact:${name}`);
+    for (const reference of Array.isArray(value) ? value : [value]) {
+      try { resolveDecisionPatternArtifact(reference); } catch { errors.push(`unresolvable-artifact:${name}`); }
+    }
   }
   if (pack.status !== 'unavailable' && pack.fixtures.length === 0) errors.push('missing-offline-fixture');
   if (!pack.failurePath || !pack.rollback || pack.limitations.length === 0) errors.push('missing-governance-guidance');

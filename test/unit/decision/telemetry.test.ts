@@ -10,6 +10,7 @@ import {
   extractTraceContext,
   injectTraceContext,
   mapDecisionAttempt,
+  recordBatchReceiptTrace,
   restoreTelemetryTrace,
   sanitizedTelemetryExport,
   scanTelemetryCanaries,
@@ -18,6 +19,7 @@ import {
   type DecisionTelemetryTrace,
 } from '../../../src/decision/telemetry/index.js';
 import type { DecisionAttempt } from '../../../src/decision/types.js';
+import type { DecisionBatchReceipt } from '../../../src/decision/batch-receipts/index.js';
 
 function deterministicIds(): DecisionTelemetryIdSource {
   let value = 1;
@@ -65,6 +67,38 @@ describe('decision telemetry foundation', () => {
     const allocations = estimatedUsageAllocation(7, [1, 1, 1], 'largest-remainder', 'v1');
     expect(allocations.reduce((sum, item) => sum + item.value, 0)).toBe(7);
     expect(new Set(allocations.map(item => item.provenance))).toEqual(new Set(['estimate']));
+  });
+
+  it('maps durable retry receipts to one authoritative usage record per consumed attempt', () => {
+    const builder = new DecisionTraceBuilder(deterministicIds(), () => 100);
+    const root = builder.startSpan('decision.workflow');
+    const receipt: DecisionBatchReceipt = {
+      schemaVersion: 'decision-batch-receipt/v1', revision: 3, tenantId: 'tenant', projectId: 'project',
+      batchId: 'batch-1', invocationId: 'invocation-1', runId: 'run-1',
+      plan: { planDigest: `sha256:${'a'.repeat(64)}`, partitionId: 'partition-1', nativeBatchGroupId: 'group-1' },
+      subjectHash: `sha256:${'b'.repeat(64)}`, stateHash: `sha256:${'c'.repeat(64)}`, executionEnvelope: 'jev/v1',
+      questionIds: ['q-1', 'q-2'], answerReferences: [
+        { questionId: 'q-1', answerId: 'a-1', resultId: 'r-1' },
+        { questionId: 'q-2', answerId: 'a-2', resultId: 'r-2' },
+      ], allocations: [], status: 'completed', createdAtEpochMs: 10, updatedAtEpochMs: 40, terminalAtEpochMs: 40,
+      attempts: [
+        { ordinal: 1, adapterId: 'jev', adapterVersion: '1', requestedModel: 'alias', actualModel: null,
+          providerRequestId: 'failed-request', status: 'failed', dispatchedAtEpochMs: 10, completedAtEpochMs: 20,
+          usage: { inputTokens: 5, outputTokens: 1 }, cost: { kind: 'client-derived', currency: 'USD', amountMicros: 42,
+            priceCatalogId: 'catalog', priceCatalogVersion: '2026-09-20', effectiveAt: '2026-09-20T00:00:00Z' }, fallbackFromAttemptOrdinal: null },
+        { ordinal: 2, adapterId: 'jev', adapterVersion: '1', requestedModel: 'alias', actualModel: 'served',
+          providerRequestId: 'success-request', status: 'succeeded', dispatchedAtEpochMs: 21, completedAtEpochMs: 40,
+          usage: { inputTokens: 7, outputTokens: 3 }, cost: { kind: 'provider-authoritative', currency: 'USD', amountMicros: 100 },
+          fallbackFromAttemptOrdinal: 1 },
+      ],
+    };
+    const spans = recordBatchReceiptTrace(builder, receipt, root.context);
+    expect(spans).toHaveLength(2);
+    expect(spans.map(span => span.attributes['gen_ai.usage.input_tokens'])).toEqual([5, 7]);
+    expect(spans.map(span => span.attributes['aiwg.batch.item_count'])).toEqual([2, 2]);
+    expect(spans.map(span => span.provenance['aiwg.usage.cost_usd'])).toEqual(['client-derived', 'provider-fact']);
+    expect(spans.reduce((sum, span) => sum + Number(span.attributes['gen_ai.usage.input_tokens']), 0)).toBe(12);
+    expect(JSON.stringify(spans)).not.toContain('q-1');
   });
 
   it('redacts protected content, provider IDs, and injected canaries from public export', () => {

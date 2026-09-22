@@ -77,5 +77,7 @@ An author must:
    installed-package imports rather than source-relative paths.
 
 Pattern artifact strings are stable installed-package references, not claims that
-a source checkout path exists. Each pack exposes its own rollback text and
-limitations through discovery.
+a source checkout path exists. They use the `aiwg://decision-patterns/` scheme
+and resolve locally through `resolveDecisionPatternArtifact()` from
+`aiwg/decision`, without filesystem or network access. Each pack exposes its own
+rollback text and limitations through discovery.

@@ -1,5 +1,6 @@
 import { createTelemetryContext, type DecisionTelemetryIdSource } from './context.js';
 import { sanitizeAttributes, sanitizeOpaqueValue } from './redaction.js';
+import type { BatchCostEvidence, DecisionBatchReceipt } from '../batch-receipts/types.js';
 import { DECISION_TELEMETRY_SCHEMA_VERSION, type DecisionSpanName, type DecisionTelemetryContext, type DecisionTelemetryLink, type DecisionTelemetrySpan, type DecisionTelemetryTrace, type TelemetryAttributes, type TelemetryProvenance } from './types.js';
 
 export interface StartSpanOptions {
@@ -45,10 +46,12 @@ export class DecisionTraceBuilder {
     batchId: string,
     usage: { inputTokens: number | null; outputTokens: number | null; costUsd: number | null },
     provider: { requestId?: string | null; actualModel?: string | null } = {},
+    options: { accountingKey?: string; costProvenance?: TelemetryProvenance } = {},
   ): void {
     if (span.name !== 'decision.batch.request') throw new Error('Batch usage can only be recorded on a batch request span');
-    if (this.batchUsage.has(batchId)) throw new Error(`Batch usage already recorded: ${batchId}`);
-    this.batchUsage.add(batchId);
+    const accountingKey = options.accountingKey ?? batchId;
+    if (this.batchUsage.has(accountingKey)) throw new Error(`Batch usage already recorded: ${accountingKey}`);
+    this.batchUsage.add(accountingKey);
     span.attributes['aiwg.batch.id'] = batchId;
     span.attributes['gen_ai.usage.input_tokens'] = usage.inputTokens;
     span.attributes['gen_ai.usage.output_tokens'] = usage.outputTokens;
@@ -58,9 +61,11 @@ export class DecisionTraceBuilder {
       ? null : sanitizeOpaqueValue(provider.requestId, 128);
     span.attributes['gen_ai.response.model'] = provider.actualModel === null || provider.actualModel === undefined
       ? null : sanitizeOpaqueValue(provider.actualModel, 128);
-    for (const key of ['gen_ai.usage.input_tokens', 'gen_ai.usage.output_tokens', 'aiwg.usage.cost_usd']) {
+    for (const key of ['gen_ai.usage.input_tokens', 'gen_ai.usage.output_tokens']) {
       span.provenance[key] = span.attributes[key] === null ? 'unknown' : 'provider-fact';
     }
+    span.provenance['aiwg.usage.cost_usd'] = span.attributes['aiwg.usage.cost_usd'] === null
+      ? 'unknown' : (options.costProvenance ?? 'provider-fact');
     span.provenance['aiwg.provider.request_id'] = provider.requestId === null || provider.requestId === undefined ? 'unknown' : 'provider-fact';
     span.provenance['gen_ai.response.model'] = provider.actualModel === null || provider.actualModel === undefined ? 'unknown' : 'provider-fact';
   }
@@ -68,6 +73,67 @@ export class DecisionTraceBuilder {
   build(): DecisionTelemetryTrace {
     if (!this.root) throw new Error('Cannot build an empty decision trace');
     return { schemaVersion: DECISION_TELEMETRY_SCHEMA_VERSION, traceId: this.root.traceId, spans: structuredClone(this.spans) };
+  }
+}
+
+/**
+ * Emit transport-attempt spans from the durable accounting authority. Each
+ * consumed provider attempt owns its usage exactly once, including failed
+ * retry/fallback attempts. Per-answer allocations remain off these spans.
+ */
+export function recordBatchReceiptTrace(
+  builder: DecisionTraceBuilder,
+  receipt: DecisionBatchReceipt,
+  parent: DecisionTelemetryContext,
+): DecisionTelemetrySpan[] {
+  const spans: DecisionTelemetrySpan[] = [];
+  for (const attempt of receipt.attempts) {
+    if (attempt.status === 'not-sent') continue;
+    const cost = batchCost(attempt.cost);
+    const span = builder.startSpan('decision.batch.request', {
+      parent,
+      startTimeUnixMs: attempt.dispatchedAtEpochMs ?? receipt.createdAtEpochMs,
+      attributes: {
+        'aiwg.batch.id': receipt.batchId,
+        'aiwg.batch.plan_digest': receipt.plan.planDigest,
+        'aiwg.batch.partition_id': receipt.plan.partitionId,
+        'aiwg.batch.item_count': receipt.questionIds.length,
+        'aiwg.batch.result_count': receipt.answerReferences.length,
+        'aiwg.attempt.ordinal': attempt.ordinal,
+        'aiwg.adapter.id': attempt.adapterId,
+        'aiwg.adapter.version': attempt.adapterVersion,
+        'gen_ai.request.model': attempt.requestedModel,
+        'aiwg.decision.status': attempt.status,
+      },
+      provenance: {
+        'aiwg.batch.id': 'client-derived', 'aiwg.batch.plan_digest': 'client-derived',
+        'aiwg.batch.partition_id': 'client-derived', 'aiwg.batch.item_count': 'client-derived',
+        'aiwg.batch.result_count': 'client-derived', 'aiwg.attempt.ordinal': 'client-derived',
+        'aiwg.adapter.id': 'client-derived', 'aiwg.adapter.version': 'client-derived',
+        'gen_ai.request.model': 'client-derived', 'aiwg.decision.status': 'client-derived',
+      },
+    });
+    builder.recordBatchUsage(span, receipt.batchId, {
+      inputTokens: attempt.usage.inputTokens,
+      outputTokens: attempt.usage.outputTokens,
+      costUsd: cost.amountUsd,
+    }, { requestId: attempt.providerRequestId, actualModel: attempt.actualModel }, {
+      accountingKey: `${receipt.batchId}:${attempt.ordinal}`,
+      costProvenance: cost.provenance,
+    });
+    builder.endSpan(span, attempt.status === 'succeeded' ? 'ok' : 'error',
+      attempt.completedAtEpochMs ?? attempt.dispatchedAtEpochMs ?? receipt.updatedAtEpochMs);
+    spans.push(span);
+  }
+  return spans;
+}
+
+function batchCost(cost: BatchCostEvidence): { amountUsd: number | null; provenance: TelemetryProvenance } {
+  switch (cost.kind) {
+    case 'provider-authoritative': return { amountUsd: cost.amountMicros / 1_000_000, provenance: 'provider-fact' };
+    case 'client-derived': return { amountUsd: cost.amountMicros / 1_000_000, provenance: 'client-derived' };
+    case 'bounded-unknown':
+    case 'unknown': return { amountUsd: null, provenance: 'unknown' };
   }
 }
 

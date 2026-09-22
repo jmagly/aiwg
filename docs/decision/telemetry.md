@@ -26,6 +26,8 @@ AIWG trace and span IDs are random W3C IDs. Provider request IDs are bounded opa
 
 Unknown values remain `null`; they are never rewritten to zero. Derived cost must name its catalog version. Per-answer allocation is optional, marked `estimate`, names its allocation method/version, and must reconcile exactly. Shared provider usage is recorded once on `decision.batch.request`, while answer spans link to it.
 
+`recordBatchReceiptTrace()` is the bridge from the durable batch receipt to telemetry. It emits one request span for each dispatched attempt, including consumed failed retry/fallback attempts, and no span for a `not-sent` attempt. Provider-authoritative and client-derived costs retain distinct provenance; bounded or unknown costs remain `null`. Question and answer identifiers are represented only by bounded counts, so request-level accounting cannot become duplicated per-answer telemetry.
+
 ## Privacy and redaction
 
 Metadata-only is the default. Attribute keys matching state, question, prompt, response/answer body, authorization, API key, credential, vault locator/hash, secret, cookie, access token, or private reasoning are dropped. Values are control-character stripped and bounded. Canary values are scanned and removed from spans, events, links, diagnostics, and sanitized exports. Public export also removes provider request IDs.

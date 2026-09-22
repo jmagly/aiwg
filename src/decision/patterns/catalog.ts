@@ -1,4 +1,5 @@
 import type { DecisionPatternId, DecisionPatternPack, PatternFixture } from './types.js';
+import { decisionPatternArtifactUri } from './artifacts.js';
 
 const fixture = (id: string, input: PatternFixture['input'], recordedEvidence: PatternFixture['recordedEvidence'], route: PatternFixture['expected']['route'], reason: string): PatternFixture => ({
   id, subjectId: `synthetic:${id}`, input, recordedEvidence, expected: { route, reason },
@@ -11,15 +12,15 @@ function pack(
   fixtures: PatternFixture[],
   status: DecisionPatternPack['status'] = 'supported',
 ): DecisionPatternPack {
-  const root = `decision-patterns/${id}/v1`;
+  const artifact = (kind: Parameters<typeof decisionPatternArtifactUri>[2]) => decisionPatternArtifactUri(id, '1.0.0', kind);
   return {
     schema: 'decision-pattern-pack/v1', id, version: '1.0.0', status, summary, primitive,
     artifacts: {
-      definitions: [`${root}/definitions.json`], inputSchema: `${root}/input.schema.json`,
-      outputSchema: `${root}/output.schema.json`, candidatePolicy: `${root}/candidate-policy.json`,
-      ruleset: `${root}/ruleset.json`, offlineBinding: `${root}/binding.offline.json`,
-      ...(status !== 'unavailable' ? { liveBindingTemplate: `${root}/binding.live.template.json` } : {}),
-      expectedReceipt: `${root}/expected-receipt.json`,
+      definitions: [artifact('definition')], inputSchema: artifact('input-schema'),
+      outputSchema: artifact('output-schema'), candidatePolicy: artifact('candidate-policy'),
+      ruleset: artifact('ruleset'), offlineBinding: artifact('offline-binding'),
+      ...(status !== 'unavailable' ? { liveBindingTemplate: artifact('live-binding-template') } : {}),
+      expectedReceipt: artifact('expected-receipt'), readme: artifact('readme'),
     },
     fixtures,
     limitations: ['Recorded evidence is illustrative, not workload qualification or universal calibration.', 'Typed output does not guarantee semantic correctness.'],

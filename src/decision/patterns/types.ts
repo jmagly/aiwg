@@ -19,6 +19,21 @@ export interface PatternArtifactSet {
   offlineBinding: string;
   liveBindingTemplate?: string;
   expectedReceipt: string;
+  readme: string;
+}
+
+export type PatternArtifactKind =
+  | 'definition' | 'input-schema' | 'output-schema' | 'candidate-policy'
+  | 'ruleset' | 'offline-binding' | 'live-binding-template' | 'expected-receipt'
+  | 'readme';
+
+export interface ResolvedPatternArtifact {
+  schema: 'decision-pattern-artifact/v1';
+  patternId: DecisionPatternId;
+  patternVersion: string;
+  kind: PatternArtifactKind;
+  mediaType: 'application/json' | 'text/markdown';
+  content: JsonValue | string;
 }
 
 export interface PatternFixture {

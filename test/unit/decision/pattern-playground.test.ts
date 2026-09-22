@@ -5,6 +5,7 @@ import {
   listDecisionPatterns,
   planLiveDecisionPattern,
   runOfflineDecisionPattern,
+  resolveDecisionPatternArtifact,
   validateDecisionPattern,
 } from '../../../src/decision/patterns/index.js';
 
@@ -19,6 +20,18 @@ describe('PAT decision pattern playground', () => {
     for (const pack of decisionPatternPacks) expect(validateDecisionPattern(pack)).toEqual([]);
     expect(getDecisionPatternPack('durable-review').status).toBe('experimental');
     expect(getDecisionPatternPack('dependent-two-stage').status).toBe('unavailable');
+  });
+
+  it('resolves every advertised artifact through the installed package API', () => {
+    for (const pack of decisionPatternPacks) {
+      for (const value of Object.values(pack.artifacts)) {
+        for (const reference of Array.isArray(value) ? value : [value]) {
+          expect(resolveDecisionPatternArtifact(reference)).toMatchObject({
+            schema: 'decision-pattern-artifact/v1', patternId: pack.id, patternVersion: pack.version,
+          });
+        }
+      }
+    }
   });
 
   it('runs all available fixtures offline with normalized, non-live receipts', () => {
