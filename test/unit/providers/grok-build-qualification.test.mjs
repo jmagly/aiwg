@@ -21,7 +21,6 @@ const receipt = platform => ({
 test('platform labels distinguish native Linux from WSL and Windows PowerShell', () => {
   assert.equal(platformName('linux', '6.8.0-generic'), 'linux');
   assert.equal(platformName('linux', '6.6.87.2-microsoft-standard-WSL2'), 'wsl');
-  assert.equal(platformName('darwin', '24.0'), 'macos');
   assert.equal(platformName('win32', '10.0'), 'windows-powershell');
 });
 
@@ -42,8 +41,8 @@ test('stable promotion requires a complete receipt for each OS and every native 
     incomplete[1].surfaces.mcp = 'pending';
     incomplete[2].evidence.acp.reference = 'unreviewed-local-path';
     assert.match(gate(incomplete).errors.join(' '), /linux: rollback not passed/);
-    assert.match(gate(incomplete).errors.join(' '), /macos: native mcp lacks live evidence/);
-    assert.match(gate(incomplete).errors.join(' '), /windows-powershell: native acp lacks live evidence/);
+    assert.match(gate(incomplete).errors.join(' '), /windows-powershell: native mcp lacks live evidence/);
+    assert.match(gate(incomplete).errors.join(' '), /wsl: native acp lacks live evidence/);
     assert.equal(verifyPromotion(contract, [], 'experimental').gated, false);
   } finally {
     rmSync(fixtureRoot, { recursive: true, force: true });

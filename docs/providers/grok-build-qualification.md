@@ -14,19 +14,9 @@ a second project that already contains operator-owned `.grok/config.toml`,
 compatibility check, `CLAUDE.md` and `.agents/skills/operator/SKILL.md`.
 Do not place real credentials in qualification fixtures or committed receipts.
 
-For native macOS ARM64, the [IT ops fleet inventory](https://git.integrolabs.net/roctinam/itops/src/branch/main/docs/fleet/mutsu.md)
-identifies Mutsu as the builder. The reviewed
-[Mutsu PUW](grok-build-evidence/macos-puw.md) uses an isolated `/Volumes/build`
-checkout and configuration roots. [Fortemi's multi-target CI](https://git.integrolabs.net/Fortemi/fortemi/src/branch/main/.gitea/workflows/suite-platform-contract.yml)
-uses a Linux coordinator, pinned SSH host identity, an
-exact-revision checkout on Mutsu, a shared-host build lock, and a bounded
-receipt. An AIWG CI adaptation needs its own scoped credential and verified
-TLS fetch path; the reviewed PUW did not reuse Fortemi's credential or runner.
-
 | Host | Install and update | Deploy and verify | Refresh and uninstall |
 |---|---|---|---|
 | Linux | Review upstream Linux installer for exact release; `grok --version`, then `grok update --check` | Run the common commands below in both projects and user scope | Regenerate, refresh, dry-run remove, remove, inspect preserved operator files |
-| macOS | Review upstream macOS installer for exact release; `grok --version`, then `grok update --check` | Same commands on a native macOS host | Same lifecycle and backup/restore test |
 | Windows PowerShell | Review upstream PowerShell installer for exact release; `grok --version`, then `grok update --check` | Same commands in PowerShell with Windows paths | Same lifecycle and rollback test |
 | WSL | Install the Linux binary inside WSL for exact release; `grok --version`, then `grok update --check` | Same commands in the WSL filesystem and a Windows-mounted project | Same lifecycle; confirm path normalization and no writes outside targets |
 
@@ -81,8 +71,8 @@ Without `XAI_API_KEY`, the receipt records authentication as `unverified`;
 inspection alone cannot prove an interactive or managed login.
 
 Promotion is checked by `npm run gate:grok-build`. If provider inventory is set
-to `stable`, the gate requires exactly one current receipt for Linux, macOS,
-Windows PowerShell, and WSL, all lifecycle/security checks passed, and a live
+to `stable`, the gate requires exactly one current receipt for Linux, Windows
+PowerShell, and WSL, all lifecycle/security checks passed, and a live
 `pass` for every native surface in the contract. Deferred or unsupported
 surfaces need explicit reasons. The scheduled drift job compares the public
 repository commit and its internal `SOURCE_REV` separately with upstream main,

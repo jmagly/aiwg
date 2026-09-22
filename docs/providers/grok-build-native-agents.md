@@ -22,12 +22,10 @@ Neither transport auto-approves tool use.
 A sanitized ACP initialize observation from the Linux 1.0.40 released binary
 is in `test/fixtures/providers/grok-build-acp-init-1.0.40.json`; the pinned
 Linux 1.0.38 observation is in
-`test/fixtures/providers/grok-build-acp-init-1.0.38.json`. A native macOS
-ARM64 Mutsu observation from the same 1.0.38 release is in
-`test/fixtures/providers/grok-build-acp-init-1.0.38-macos.json`. Each tested
-binary advertised only `grok.com` authentication in its isolated account
-state. AIWG fails closed because that interactive ACP flow has not been
-qualified; a fixture-backed `cached_token` contract does not prove it works.
+`test/fixtures/providers/grok-build-acp-init-1.0.38.json`. Each tested binary
+advertised only `grok.com` authentication in its isolated account state. AIWG
+fails closed because that interactive ACP flow has not been qualified; a
+fixture-backed `cached_token` contract does not prove it works.
 
 `GrokBuildDispatcher.forProject(root)` resolves the project's
 `parallelism.max_parallel_subagents` and admits no more than that many
@@ -65,7 +63,7 @@ credential through the Vault CI bootstrap and configured
 binary path, and expected hash are repository variables. The script skips cleanly when the gate,
 binary, or credential is unavailable; it fails on a binary hash mismatch or a
 malformed/incomplete provider response. It emits only status and counts. Fixture
-tests do not substitute for a credentialed run on Linux, macOS, Windows, and WSL;
+tests do not substitute for a credentialed run on Linux, Windows, and WSL;
 stable promotion remains governed by the cross-platform qualification contract.
 
 Source contracts: [Subagents](https://docs.x.ai/build/features/subagents),

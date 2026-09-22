@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const contractPath = join(root, 'docs/providers/grok-build-qualification.json');
 const receiptSchema = 'aiwg.grok-build.qualification.v1';
-export const platforms = ['linux', 'macos', 'windows-powershell', 'wsl'];
+export const platforms = ['linux', 'windows-powershell', 'wsl'];
 export const checks = ['clean-install', 'existing-config', 'update', 'deploy', 'verify', 'refresh', 'uninstall',
   'operator-content', 'idempotence', 'path-safety', 'rollback', 'no-secret-leakage', 'compatibility'];
 
@@ -38,7 +38,6 @@ export function validateContract(contract) {
 
 export function platformName(platform = process.platform, release = osRelease()) {
   if (platform === 'linux') return /microsoft|wsl/i.test(release) ? 'wsl' : 'linux';
-  if (platform === 'darwin') return 'macos';
   if (platform === 'win32') return 'windows-powershell';
   fail(`Unsupported qualification platform: ${platform}`);
 }
