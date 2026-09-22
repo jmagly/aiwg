@@ -28,5 +28,9 @@ Structured entry fields, version migration, and rollback rules are described in
 Jev request, retry, cancellation, and egress behavior is documented in the
 [transport contract](jev-transport.md).
 
+The [offline pattern playground](pattern-playground.md) provides discoverable,
+sanitized examples and a governed authoring checklist without requiring network
+access or a provider credential.
+
 Decision results are data, not authority. Any workflow action selected from an
 outcome must pass the existing AIWG policy and approval gates independently.

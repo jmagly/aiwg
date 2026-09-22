@@ -397,6 +397,48 @@
         { "id": "decision-telemetry", "boundary": "Redacted decision trace and lifecycle evidence", "path": "src/decision/telemetry/trace.ts" }
       ],
       "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.compile-cache-identity",
+      "id": "https://aiwg.io/schemas/decision/DecisionCompileCacheIdentity.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionCompileCacheIdentity.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-compile-cache", "boundary": "Compilation artifact semantic identity", "path": "src/decision/compile-cache/identity.ts" }],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.provider-prefix-evidence",
+      "id": "https://aiwg.io/schemas/decision/DecisionProviderPrefixEvidence.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionProviderPrefixEvidence.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-prefix-cache", "boundary": "Provider-reported prefix reuse evidence", "path": "src/decision/compile-cache/provider-prefix.ts" }],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.result-cache-entry",
+      "id": "https://aiwg.io/schemas/decision/DecisionResultCacheEntry.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionResultCacheEntry.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-result-cache", "boundary": "Semantic result reuse evidence", "path": "src/decision/result-cache/cache.ts" }],
+      "publication": { "public": true }
     }
   ]
 }

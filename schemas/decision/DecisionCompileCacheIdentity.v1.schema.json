@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionCompileCacheIdentity.v1.schema.json",
+  "title": "AIWG Decision Compile Cache Identity v1",
+  "type": "object",
+  "required": ["identityVersion", "layer", "sourceArtifactDigests", "compiler", "runtimeVersion", "schemaVersion", "canonicalizer", "adapter", "backendCapabilityMode", "modelPolicy", "featureFlags", "tenantId", "projectId", "dataClass"],
+  "additionalProperties": false,
+  "properties": {
+    "identityVersion": { "const": "decision-compile-cache-identity/v1" },
+    "layer": { "enum": ["definition-compilation", "adapter-compilation"] },
+    "sourceArtifactDigests": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/digest" } },
+    "compiler": { "$ref": "#/$defs/versioned" },
+    "runtimeVersion": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "type": "string", "minLength": 1 },
+    "canonicalizer": { "$ref": "#/$defs/versioned" },
+    "adapter": { "type": "object", "required": ["id", "version", "promptVersion"], "additionalProperties": false, "properties": { "id": { "type": "string", "minLength": 1 }, "version": { "type": "string", "minLength": 1 }, "promptVersion": { "type": "string", "minLength": 1 } } },
+    "backendCapabilityMode": { "type": "string", "minLength": 1 },
+    "modelPolicy": { "type": "object", "required": ["requested", "compatibleActualModels"], "additionalProperties": false, "properties": { "requested": { "type": "string", "minLength": 1 }, "compatibleActualModels": { "type": "array", "items": { "type": "string", "minLength": 1 } } } },
+    "featureFlags": { "type": "object", "additionalProperties": { "oneOf": [{ "type": "boolean" }, { "type": "number" }, { "type": "string" }] } },
+    "tenantId": { "type": "string", "minLength": 1 }, "projectId": { "type": "string", "minLength": 1 }, "dataClass": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "versioned": { "type": "object", "required": ["id", "version"], "additionalProperties": false, "properties": { "id": { "type": "string", "minLength": 1 }, "version": { "type": "string", "minLength": 1 } } }
+  }
+}

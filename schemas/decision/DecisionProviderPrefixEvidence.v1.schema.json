@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionProviderPrefixEvidence.v1.schema.json",
+  "title": "AIWG Decision Provider Prefix Evidence v1",
+  "type": "object",
+  "required": ["schemaVersion", "identityDigest", "status", "source", "cacheVersion", "savedInputTokens", "expiresAtEpochMs"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "decision-provider-prefix-evidence/v1" },
+    "identityDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "status": { "enum": ["hit", "miss", "bypass", "unsupported", "unknown"] },
+    "source": { "enum": ["provider-report", "documented-unsupported", "policy-bypass", "unreported"] },
+    "cacheVersion": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "savedInputTokens": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+    "expiresAtEpochMs": { "oneOf": [{ "type": "number" }, { "type": "null" }] }
+  }
+}

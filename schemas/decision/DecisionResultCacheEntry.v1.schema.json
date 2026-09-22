@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionResultCacheEntry.v1.schema.json",
+  "title": "Decision semantic result cache entry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "revision", "entryId", "scope", "keyDigest", "identityDigest", "policyVersion", "sensitivity", "createdAtEpochMs", "expiresAtEpochMs", "evidence", "integrityDigest"],
+  "properties": {
+    "schemaVersion": { "const": "decision-result-cache/v1" },
+    "revision": { "const": 1 },
+    "entryId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tenantId", "projectId", "workspaceId"],
+      "properties": {
+        "tenantId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "projectId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "workspaceId": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "keyDigest": { "$ref": "#/$defs/digest" },
+    "identityDigest": { "$ref": "#/$defs/digest" },
+    "policyVersion": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "sensitivity": { "enum": ["public", "internal", "confidential", "restricted"] },
+    "createdAtEpochMs": { "type": "integer", "minimum": 0 },
+    "expiresAtEpochMs": { "type": "integer", "minimum": 1 },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["result", "resultDigest", "sourceInvocationId", "sourceReceiptId", "evaluatedAtEpochMs", "actualModel", "uncertainty", "calibrationStatus", "durationMs", "usage", "status", "failureReason"],
+      "properties": {
+        "result": {}, "resultDigest": { "$ref": "#/$defs/digest" },
+        "sourceInvocationId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "sourceReceiptId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "evaluatedAtEpochMs": { "type": "integer", "minimum": 0 },
+        "actualModel": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "uncertainty": {}, "calibrationStatus": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "usage": {
+          "type": "object", "additionalProperties": false, "required": ["inputTokens", "outputTokens", "costUsd"],
+          "properties": {
+            "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+            "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+            "costUsd": { "type": ["number", "null"], "minimum": 0 }
+          }
+        },
+        "status": { "enum": ["success", "terminal-failure"] },
+        "failureReason": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "integrityDigest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": { "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" } }
+}

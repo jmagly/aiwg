@@ -20,3 +20,6 @@ export * from './adapters/llm-subagent.js';
 export * from './review/index.js';
 export * from './qualification/index.js';
 export * from './telemetry/index.js';
+export * from './patterns/index.js';
+export * from './compile-cache/index.js';
+export * from './result-cache/index.js';
