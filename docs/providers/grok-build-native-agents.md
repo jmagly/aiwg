@@ -20,10 +20,14 @@ uses `grok --no-auto-update agent stdio`, initializes JSON-RPC, chooses
 Neither transport auto-approves tool use.
 
 A sanitized ACP initialize observation from the Linux 1.0.40 released binary
-is in `test/fixtures/providers/grok-build-acp-init-1.0.40.json`. This binary
-advertised only `grok.com` authentication in the tested account state. AIWG
-fails closed because that interactive ACP flow has not been qualified; a
-fixture-backed `cached_token` contract does not prove it works in 1.0.40.
+is in `test/fixtures/providers/grok-build-acp-init-1.0.40.json`; the pinned
+Linux 1.0.38 observation is in
+`test/fixtures/providers/grok-build-acp-init-1.0.38.json`. A native macOS
+ARM64 Mutsu observation from the same 1.0.38 release is in
+`test/fixtures/providers/grok-build-acp-init-1.0.38-macos.json`. Each tested
+binary advertised only `grok.com` authentication in its isolated account
+state. AIWG fails closed because that interactive ACP flow has not been
+qualified; a fixture-backed `cached_token` contract does not prove it works.
 
 `GrokBuildDispatcher.forProject(root)` resolves the project's
 `parallelism.max_parallel_subagents` and admits no more than that many

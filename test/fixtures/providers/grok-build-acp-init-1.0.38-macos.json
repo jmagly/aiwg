@@ -1,0 +1,11 @@
+{
+  "schema": "aiwg.grok-build.acp-init-observation.v1",
+  "platform": "macos",
+  "binaryVersion": "1.0.38",
+  "binarySha256": "a3c5c279339a1294cc99b4d105fe7c67a9f64d20647f2edf131ee72d70f94ed1",
+  "protocolVersion": 1,
+  "authMethods": [
+    { "id": "grok.com" }
+  ],
+  "sanitization": "Only platform, protocol version, authentication method IDs, and the independently verified binary hash are retained; credentials, session content, endpoint URLs, provider metadata, host identity, and agent identifiers are excluded."
+}

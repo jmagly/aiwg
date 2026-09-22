@@ -49,6 +49,12 @@ until sanitized files from a released binary qualify the schema and exact
 version range. Use `grok sessions list` or `search` for discovery and `grok
 export` for acquisition.
 
+On Mutsu, the pinned macOS ARM64 1.0.38 binary returned `No sessions found.`
+from a fresh isolated `GROK_HOME`; `grok sessions search` returned `Total: 0`
+with an authentication warning. These observations prove the bounded CLI
+failure behavior only; they do not establish native storage schema, lineage,
+or an authenticated session fixture.
+
 ## Export limits and privacy
 
 The CLI Markdown export contains prompts, assistant output, and compact tool
