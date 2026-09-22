@@ -14,6 +14,15 @@ a second project that already contains operator-owned `.grok/config.toml`,
 compatibility check, `CLAUDE.md` and `.agents/skills/operator/SKILL.md`.
 Do not place real credentials in qualification fixtures or committed receipts.
 
+For native macOS ARM64, the [IT ops fleet inventory](https://git.integrolabs.net/roctinam/itops/src/branch/main/docs/fleet/mutsu.md)
+identifies Mutsu as the builder. The reviewed
+[Mutsu PUW](grok-build-evidence/macos-puw.md) uses an isolated `/Volumes/build`
+checkout and configuration roots. [Fortemi's multi-target CI](https://git.integrolabs.net/Fortemi/fortemi/src/branch/main/.gitea/workflows/suite-platform-contract.yml)
+uses a Linux coordinator, pinned SSH host identity, an
+exact-revision checkout on Mutsu, a shared-host build lock, and a bounded
+receipt. An AIWG CI adaptation needs its own scoped credential and verified
+TLS fetch path; the reviewed PUW did not reuse Fortemi's credential or runner.
+
 | Host | Install and update | Deploy and verify | Refresh and uninstall |
 |---|---|---|---|
 | Linux | Review upstream Linux installer for exact release; `grok --version`, then `grok update --check` | Run the common commands below in both projects and user scope | Regenerate, refresh, dry-run remove, remove, inspect preserved operator files |

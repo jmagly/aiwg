@@ -1,0 +1,57 @@
+{
+  "schema": "aiwg.grok-build.qualification.v1",
+  "platform": "macos",
+  "version": "1.0.38",
+  "publicSourceCommit": "4247f661689354b831191f11eeeac8424993fe3d",
+  "upstreamSourceRevision": "9bb727ccdff0a793ee73bcde4e2e09cbef6b5387",
+  "recordedAt": "2026-09-22T01:06:08.461Z",
+  "authenticationMode": "unverified",
+  "inspect": "pass",
+  "buildVerify": "ready",
+  "surfaces": {
+    "instructions": "pass",
+    "skills": "pass"
+  },
+  "evidence": {
+    "instructions": {
+      "kind": "live",
+      "reference": "docs/providers/grok-build-evidence/macos-puw.md"
+    },
+    "skills": {
+      "kind": "live",
+      "reference": "docs/providers/grok-build-evidence/macos-puw.md"
+    }
+  },
+  "checks": {
+    "clean-install": "pass",
+    "existing-config": "pass",
+    "update": "pass",
+    "deploy": "pass",
+    "verify": "pass",
+    "refresh": "pass",
+    "uninstall": "pass",
+    "operator-content": "pass",
+    "idempotence": "pass",
+    "path-safety": "pass",
+    "rollback": "pass",
+    "no-secret-leakage": "pass",
+    "compatibility": "pass"
+  },
+  "reviewedAt": "2026-09-22T01:12:28Z",
+  "distribution": {
+    "package": "@xai-official/grok-darwin-arm64@1.0.38",
+    "integrity": "sha512-PUyVeEKffN0EJa59jjsxk0+lCrgqoeGalTJDCEybkP3nfmqVEQtSwBbHc9/GmgyjgNxNIWKCygFViFUnAfDE1A==",
+    "archiveSha256": "0cdee905e0fdd6aa1d4503fa1517b4ed88d29c7f3351d57fd1621fab7c064425",
+    "binarySha256": "a3c5c279339a1294cc99b4d105fe7c67a9f64d20647f2edf131ee72d70f94ed1"
+  },
+  "notes": [
+    "Native macOS ARM64 PUW on Mutsu using a disposable checkout of AIWG 39fc0c25d850bf0275f82819582836b47695efd8 and isolated Grok/AIWG configuration roots. Host macOS reported 26.6.1.",
+    "The released 1.0.38 macOS platform archive matched npm registry SHA-512 metadata before installation. The installed binary reported 1.0.38 and its SHA-256 is recorded above. Public source commit and SOURCE_REV do not prove binary build provenance.",
+    "Grok Build project trust was granted only to disposable Git fixtures. Inspect found AGENTS.md and AIWG skills; aiwg build-verify reported ready.",
+    "Clean and existing-config projects exercised project deploy, regeneration, verification, repeat deploy, framework refresh, reviewed removal, operator preservation, and user-scope deploy/removal. The user-scope test used isolated GROK_HOME.",
+    "Grok update --check reported 1.0.40. An exact-version npm update to @xai-official/grok@1.0.40 preserved the prior binary and operator content; the installer postinstall script hash matched 1.0.38. The 1.0.40 archive integrity was independently checked.",
+    "Symlinked project and user skill roots were refused without outside writes. A controlled refresh failure was recovered with an exact operator backup; this is manual backup recovery, not automatic transactional rollback.",
+    "A synthetic canary in operator-owned config was absent from captured logs and inspection/verification summaries. Alternating Claude and Grok workspace regeneration preserved both operator notes, loaded WORKSPACE.md before AIWG.md, and left one Claude bootstrap hook.",
+    "No Grok authentication or credentialed model call was established. Native authenticated surfaces remain pending; this receipt must not promote the provider to stable."
+  ]
+}
