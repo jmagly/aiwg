@@ -90,7 +90,7 @@ All types require a provenance record in `.aiwg/research/provenance/records/` na
 
 | Type | Description | Example |
 |------|-------------|---------|
-| `ai_assistant` | Base LLM (Claude, GPT) | `claude-sonnet-4.5` |
+| `ai_assistant` | Base LLM (Claude, GPT) | `claude-sonnet-5` |
 | `aiwg_agent` | AIWG specialized agent | `software-implementer` |
 | `human` | Human developer | `developer@example.com` |
 | `automated_tool` | Script or CLI tool | `eslint`, `prettier` |

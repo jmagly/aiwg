@@ -17,15 +17,15 @@
 // ---------------------------------------------------------------------------
 
 export const CLAUDE_MODELS = {
-  reasoning: 'claude-opus-4-6',
-  coding: 'claude-sonnet-4-6',
-  efficiency: 'claude-haiku-3-5',
+  reasoning: 'claude-opus-5',
+  coding: 'claude-sonnet-5',
+  efficiency: 'claude-haiku-4-5',
 } as const;
 
 export const OPENAI_MODELS = {
-  reasoning: 'gpt-5.4',
-  coding: 'gpt-5.5',
-  efficiency: 'gpt-5.4-mini',
+  reasoning: 'gpt-5.6-sol',
+  coding: 'gpt-5.6-terra',
+  efficiency: 'gpt-5.6-luna',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -33,13 +33,23 @@ export const OPENAI_MODELS = {
 // These are the model IDs that each adapter maps generic aliases (opus/sonnet/haiku) to.
 // ---------------------------------------------------------------------------
 
-export const CODEX_ADAPTER_MODEL = 'gpt-5.4';
+export const CODEX_ADAPTER_MODELS = {
+  opus: 'gpt-5.6-sol',
+  sonnet: 'gpt-5.6-terra',
+  haiku: 'gpt-5.6-luna',
+} as const;
+
+/** Flagship IDs are user-elected only and must never be reached via an alias. */
+export const FLAGSHIP_MODELS = {
+  claude: 'claude-fable-5-1',
+  openai: 'gpt-6-astra',
+} as const;
 
 export const OPENCODE_ADAPTER_MODEL = 'opencode/big-pickle';
 
 export const FACTORY_ADAPTER_MODELS = {
-  opus: 'claude-opus-4-6',
-  sonnet: 'claude-sonnet-4-6',
+  opus: 'claude-opus-5',
+  sonnet: 'claude-sonnet-5',
   haiku: 'claude-haiku-4-5-20251001',
 } as const;
 
@@ -55,8 +65,8 @@ export const FACTORY_DEPLOY_MODELS = {
 } as const;
 
 export const DEFAULT_SHORTHAND = {
-  opus: 'claude-opus-4-6',
-  sonnet: 'claude-sonnet-4-6',
+  opus: 'claude-opus-5',
+  sonnet: 'claude-sonnet-5',
   haiku: 'claude-haiku-4-5-20251001',
   inherit: 'inherit',
 } as const;
@@ -66,8 +76,8 @@ export const DEFAULT_SHORTHAND = {
 // ---------------------------------------------------------------------------
 
 export const OPENCODE_DEPLOY_MODELS = {
-  reasoning: 'anthropic/claude-opus-4-6',
-  coding: 'anthropic/claude-sonnet-4-6',
+  reasoning: 'anthropic/claude-opus-5',
+  coding: 'anthropic/claude-sonnet-5',
   efficiency: 'anthropic/claude-haiku-4-5-20251001',
 } as const;
 

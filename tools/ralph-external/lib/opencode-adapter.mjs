@@ -15,7 +15,7 @@
  * - No --max-turns flag
  * - No --mcp-config flag
  * - Session resume via -s/--session instead of --session-id
- * - Model format: provider/model (e.g., opencode/big-pickle, anthropic/claude-sonnet-4-6)
+ * - Model format: provider/model (e.g., opencode/big-pickle, anthropic/claude-sonnet-5)
  * - Agent flag: --agent
  * - JSON output: newline-delimited events, text in type="text" events
  *
@@ -33,7 +33,7 @@ import { ProviderAdapter, registerProvider } from './provider-adapter.mjs';
  *
  * Free tier uses opencode/* models. Users who have connected an Anthropic
  * account via `opencode auth add` can pass anthropic/* IDs directly
- * (e.g., --model anthropic/claude-sonnet-4-6) and they pass through unchanged
+ * (e.g., --model anthropic/claude-sonnet-5) and they pass through unchanged
  * because mapModel() only substitutes known generic aliases.
  */
 const MODEL_MAP = {

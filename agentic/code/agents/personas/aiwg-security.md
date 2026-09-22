@@ -8,7 +8,7 @@ triggers:
   - select a security persona
   - persona
   - soul
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 tools:
   - Read
   - Grep

@@ -1,7 +1,7 @@
 {
   "$schema": "../../../schemas/models/model-catalog.v1.schema.json",
   "version": "1.0.0",
-  "refreshedAt": "2026-07-20",
+  "refreshedAt": "2026-09-21",
   "staleAfterDays": 90,
   "providers": {
     "antigravity": {
@@ -28,12 +28,12 @@
     "claude": {
       "roles": {
         "reasoning": {
-          "id": "claude-opus-4-7",
+          "id": "claude-opus-5",
           "status": "active",
           "observed": false
         },
         "coding": {
-          "id": "claude-sonnet-4-6",
+          "id": "claude-sonnet-5",
           "status": "active",
           "observed": false
         },
@@ -43,29 +43,29 @@
           "observed": false
         }
       },
-      "sourceUrl": "https://docs.anthropic.com/en/docs/about-claude/models/overview",
-      "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "verifiedAt": "2026-09-21"
     },
     "codex": {
       "roles": {
         "reasoning": {
-          "id": "gpt-5.4",
+          "id": "gpt-5.6-sol",
           "status": "active",
           "observed": true
         },
         "coding": {
-          "id": "gpt-5.5",
+          "id": "gpt-5.6-terra",
           "status": "active",
           "observed": true
         },
         "efficiency": {
-          "id": "gpt-5.4-mini",
+          "id": "gpt-5.6-luna",
           "status": "active",
           "observed": true
         }
       },
-      "sourceUrl": "https://learn.chatgpt.com/docs/agent-configuration/subagents",
-      "verifiedAt": "2026-07-20"
+      "sourceUrl": "https://learn.chatgpt.com/docs/models",
+      "verifiedAt": "2026-09-21"
     },
     "copilot": {
       "roles": {
@@ -133,12 +133,12 @@
     "opencode": {
       "roles": {
         "reasoning": {
-          "id": "anthropic/claude-opus-4-7",
+          "id": "anthropic/claude-opus-5",
           "status": "unverified",
           "observed": false
         },
         "coding": {
-          "id": "anthropic/claude-sonnet-4-6",
+          "id": "anthropic/claude-sonnet-5",
           "status": "unverified",
           "observed": false
         },
@@ -149,7 +149,7 @@
         }
       },
       "sourceUrl": "https://opencode.ai/docs/models",
-      "verifiedAt": "2026-07-20"
+      "verifiedAt": "2026-09-21"
     },
     "omp": {
       "roles": {
@@ -300,9 +300,21 @@
     },
     "grok-build": {
       "roles": {
-        "reasoning": { "id": "configured/reasoning", "status": "unverified", "observed": false },
-        "coding": { "id": "configured/coding", "status": "unverified", "observed": false },
-        "efficiency": { "id": "configured/efficiency", "status": "unverified", "observed": false }
+        "reasoning": {
+          "id": "configured/reasoning",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "configured/coding",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "configured/efficiency",
+          "status": "unverified",
+          "observed": false
+        }
       },
       "sourceUrl": "https://docs.x.ai/build/settings",
       "verifiedAt": "2026-09-21"

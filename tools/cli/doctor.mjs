@@ -2004,8 +2004,8 @@ async function runDoctor() {
     );
     const registry = JSON.parse(await fs.readFile(registryPath, 'utf-8'));
     const PINNED_MAP = {
-      sonnet: 'claude-sonnet-4-6',
-      opus:   'claude-opus-4-7',
+      sonnet: 'claude-sonnet-5',
+      opus:   'claude-opus-5',
       haiku:  'claude-haiku-4-5',
     };
     for (const provName of providersToCheck) {

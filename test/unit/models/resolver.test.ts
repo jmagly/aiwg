@@ -14,6 +14,7 @@ import { routeModelTier } from '../../../src/models/router.js';
 import type { UserProjectConfig } from '../../../src/models/types.js';
 import {
   CLAUDE_MODELS,
+  FLAGSHIP_MODELS,
   OPENAI_MODELS,
   LEGACY_MODELS,
   PROVIDERS,
@@ -205,7 +206,7 @@ describe('ModelResolver', () => {
             id: CLAUDE_MODELS.reasoning,
             provider: 'claude',
             role: 'reasoning',
-            contextWindow: 200000,
+            contextWindow: 1000000,
           },
         },
         {
@@ -220,8 +221,8 @@ describe('ModelResolver', () => {
           query: CLAUDE_MODELS.coding,
           expected: {
             costPer1kTokens: {
-              input: 0.003,
-              output: 0.015,
+              input: 0.002,
+              output: 0.01,
             },
           },
         },
@@ -332,10 +333,10 @@ describe('ModelResolver', () => {
           ],
         },
         {
-          name: 'max-quality for best',
+          name: 'max-quality (explicitly elected flagship) for best',
           tier: 'max-quality',
           assertions: [
-            { role: 'reasoning', expected: CLAUDE_MODELS.reasoning },
+            { role: 'reasoning', expected: FLAGSHIP_MODELS.claude },
             { role: 'coding', expected: CLAUDE_MODELS.reasoning },
             { role: 'efficiency', expected: CLAUDE_MODELS.coding },
           ],

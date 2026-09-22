@@ -43,7 +43,7 @@ describe('model worker provider matrix', () => {
     {
       provider: 'codex',
       path: (root: string, role: string) => join(root, `.codex/agents/aiwg-model-${role}-worker.toml`),
-      models: ['gpt-5.4', 'gpt-5.5', 'gpt-5.4-mini'],
+      models: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'],
     },
     {
       provider: 'copilot',
@@ -64,8 +64,8 @@ describe('model worker provider matrix', () => {
       provider: 'opencode',
       path: (root: string, role: string) => join(root, `.opencode/agent/aiwg-model-${role}-worker.md`),
       models: [
-        'anthropic/claude-opus-4-7',
-        'anthropic/claude-sonnet-4-6',
+        'anthropic/claude-opus-5',
+        'anthropic/claude-sonnet-5',
         'anthropic/claude-haiku-4-5',
       ],
     },

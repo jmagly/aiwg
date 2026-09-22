@@ -4,20 +4,20 @@
   "title": "AIWG Model Configuration",
   "description": "Default model mappings for AIWG SDLC framework deployment. Users can customize these values for their specific needs.",
   "version": "1.0.0",
-  "lastUpdated": "2026-03-01",
+  "lastUpdated": "2026-09-21",
 
   "claude": {
     "reasoning": {
-      "model": "claude-opus-4-7",
-      "description": "Claude Opus 4.7 (pinned 500K-context variant) - Best for complex reasoning, architecture design, strategic decisions. Bare aliases inherit the parent session's variant and hit the credit-gated 1M path under a 1M parent (#1442); opt into 1M explicitly with --reasoning-model opus[1m]."
+      "model": "claude-opus-5",
+      "description": "Claude Opus 5 (pinned ID; premium tier) - Best for complex reasoning, architecture design, strategic decisions. Bare aliases inherit the parent session's variant and hit the credit-gated 1M path under a 1M parent (#1442); opt into 1M explicitly with --reasoning-model opus[1m]."
     },
     "coding": {
-      "model": "claude-sonnet-4-6",
-      "description": "Claude Sonnet 4.6 (pinned 500K-context variant) - Best for code generation, implementation, debugging. Pinned so subagent dispatch never inherits a 1M-context parent (#1442, #2563); opt into 1M explicitly with --coding-model sonnet[1m]."
+      "model": "claude-sonnet-5",
+      "description": "Claude Sonnet 5 (pinned ID; standard tier) - Best for code generation, implementation, debugging. Pinned so subagent dispatch never inherits a 1M-context parent (#1442, #2563); opt into 1M explicitly with --coding-model sonnet[1m]."
     },
     "efficiency": {
       "model": "claude-haiku-4-5",
-      "description": "Claude Haiku 4.5 (pinned variant) - Best for quick tasks, file operations, simple edits."
+      "description": "Claude Haiku 4.5 (pinned ID; economy tier) - Best for quick tasks, file operations, simple edits. Anthropic lists retirement not before 2026-10-15; re-verify then."
     }
   },
 
@@ -41,27 +41,27 @@
 
   "openai": {
     "reasoning": {
-      "model": "gpt-5.4",
-      "description": "GPT-5.4 - Newest flagship, priority 0 in Codex CLI model catalog (Mar 2026)"
+      "model": "gpt-5.6-sol",
+      "description": "GPT-5.6 Sol - Premium tier; Codex 'latest frontier agentic coding model' (observed in Codex model/list 2026-09-21). GPT-6 Astra is the flagship and is user-elected only."
     },
     "coding": {
-      "model": "gpt-5.3-codex",
-      "description": "GPT-5.3-Codex - Proven flagship coding model, priority 0 (Feb 2026)"
+      "model": "gpt-5.6-terra",
+      "description": "GPT-5.6 Terra - Standard tier; 'balanced agentic coding model for everyday work' (observed 2026-09-21)"
     },
     "efficiency": {
-      "model": "gpt-5.1-codex-mini",
-      "description": "GPT-5.1-Codex-Mini - Listed budget model, free-tier compatible (priority 12)"
+      "model": "gpt-5.6-luna",
+      "description": "GPT-5.6 Luna - Economy tier; 'fast and affordable agentic coding model' (observed 2026-09-21)"
     }
   },
 
   "windsurf": {
     "_status": "EXPERIMENTAL",
     "reasoning": {
-      "model": "claude-opus-4-6",
+      "model": "claude-opus-5",
       "description": "Windsurf uses Claude models via API (experimental)"
     },
     "coding": {
-      "model": "claude-sonnet-4-6",
+      "model": "claude-sonnet-5",
       "description": "Windsurf uses Claude models via API (experimental)"
     },
     "efficiency": {
@@ -87,8 +87,9 @@
   },
 
   "shorthand": {
-    "opus": "claude-opus-4-7",
-    "sonnet": "claude-sonnet-4-6",
+    "fable": "claude-fable-5-1",
+    "opus": "claude-opus-5",
+    "sonnet": "claude-sonnet-5",
     "haiku": "claude-haiku-4-5",
     "inherit": "inherit"
   },
@@ -101,7 +102,17 @@
     "sonnet-1m": "sonnet[1m]",
     "sonnet[1m]": "sonnet[1m]",
     "haiku": "haiku",
+    "fable": "fable",
+    "fable-1m": "fable[1m]",
+    "fable[1m]": "fable[1m]",
     "inherit": "inherit"
+  },
+
+  "openai_shorthand": {
+    "astra": "gpt-6-astra",
+    "sol": "gpt-5.6-sol",
+    "terra": "gpt-5.6-terra",
+    "luna": "gpt-5.6-luna"
   },
 
   "_comments": {
@@ -110,6 +121,7 @@
     "location": "Place custom models.json in project root to override defaults",
     "precedence": "Project models.json > User ~/.config/aiwg/models.json > AIWG defaults",
     "documentation": "See docs/configuration/model-configuration.md for details",
-    "claudeLongContext": "Claude Code documents sonnet and sonnet[1m] as separate selectors. AIWG deploys pinned standard-context variants (claude-sonnet-4-6 etc.) because a bare alias inherits a 1M-context parent and subagent dispatch then hits the usage-credit gate (#1442, #2563); opt into 1M with --coding-model sonnet[1m] or sonnet-1m."
+    "flagship": "Flagship models (claude-fable-5-1, gpt-6-astra) are never assigned to a role by default. They are available only through explicit user election (e.g. --reasoning-model fable or --reasoning-model astra). See epic #2642.",
+    "claudeLongContext": "Claude Code documents sonnet and sonnet[1m] as separate selectors. AIWG deploys pinned model IDs (claude-sonnet-5 etc.) because a bare alias inherits a 1M-context parent and subagent dispatch then hits the usage-credit gate (#1442, #2563); opt into 1M with --coding-model sonnet[1m] or sonnet-1m."
   }
 }

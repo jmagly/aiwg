@@ -20,7 +20,7 @@
  *   `.agents/skills/` only and prune the stale legacy home dir on deploy.
  *
  * Special features:
- *   - Model replacement (opus/sonnet/haiku -> gpt-5.4/gpt-5.5/gpt-5.4-mini)
+ *   - Model replacement (opus/sonnet/haiku -> catalog codex roles (gpt-5.6-sol/terra/luna))
  *   - --as-agents-md aggregation option
  *   - Delegates commands to deploy-prompts-codex.mjs (deploys to ~/.codex/prompts/)
  *   - Delegates skills to deploy-skills-codex.mjs (deploys to .agents/skills/)

@@ -12,17 +12,24 @@ These models are fully supported and configured automatically when using AIWG wi
 
 | Model | AIWG Tier | Context | Tool Use | Status |
 |-------|-----------|---------|----------|--------|
-| claude-opus-4-6 | opus | 200K | Yes | Fully supported |
-| claude-sonnet-4-6 | sonnet | 200K | Yes | Fully supported |
+| claude-fable-5-1 | fable | 1M | Yes | Fully supported — user-elected only, never a default |
+| claude-opus-5 | opus | 1M | Yes | Fully supported |
+| claude-sonnet-5 | sonnet | 1M | Yes | Fully supported |
 | claude-haiku-4-5-20251001 | haiku | 200K | Yes | Fully supported |
+| claude-opus-4-6 | opus | 200K | Yes | Superseded — use claude-opus-5 |
+| claude-sonnet-4-6 | sonnet | 200K | Yes | Superseded — use claude-sonnet-5 |
 
 ### OpenAI
 
 | Model | AIWG Tier | Context | Tool Use | Status |
 |-------|-----------|---------|----------|--------|
-| gpt-5.4 | opus | 256K | Yes | Fully supported |
-| gpt-5.3-codex | sonnet | 256K | Yes | Fully supported |
-| gpt-5.1-codex-mini | haiku | 192K | Yes | Fully supported |
+| gpt-6-astra | opus | 1.05M (272K in Codex) | Yes | Fully supported — user-elected only, never a default |
+| gpt-5.6-sol | opus | 1.05M (272K in Codex) | Yes | Fully supported |
+| gpt-5.6-terra | sonnet | 1.05M (272K in Codex) | Yes | Fully supported |
+| gpt-5.6-luna | haiku | 1.05M (272K in Codex) | Yes | Fully supported |
+| gpt-5.4 | opus | 256K | Yes | Superseded — use gpt-5.6-sol |
+| gpt-5.3-codex | sonnet | 256K | Yes | Superseded — use gpt-5.6-terra |
+| gpt-5.1-codex-mini | haiku | 192K | Yes | Superseded — use gpt-5.6-luna |
 
 ### Google
 

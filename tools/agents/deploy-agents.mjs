@@ -618,7 +618,7 @@ Model Override Examples:
   aiwg use sdlc --reasoning opus --coding sonnet --efficiency haiku
 
   # Use a specific model ID for coding tier
-  aiwg use sdlc --provider factory --coding-model gpt-5.3-codex
+  aiwg use sdlc --provider factory --coding-model gpt-5.6-terra
 
   # Blanket with per-tier override (reasoning uses opus, others use sonnet)
   aiwg use sdlc --model sonnet --reasoning opus
@@ -736,8 +736,8 @@ async function loadProvider(providerName) {
  * If the value is a known shorthand (opus, sonnet, haiku, inherit), resolve it
  * through the provider's shorthand map. Otherwise treat it as a literal model ID.
  *
- * @param {string|null} value - CLI flag value (e.g., "opus" or "claude-opus-4-6")
- * @param {object} shorthandMap - Provider shorthand map (e.g., { opus: "claude-opus-4-6" })
+ * @param {string|null} value - CLI flag value (e.g., "opus" or "claude-opus-5")
+ * @param {object} shorthandMap - Provider shorthand map (e.g., { opus: "claude-opus-5" })
  * @param {object} modelsConfig - Full models config from loadModelConfig()
  * @param {string} provider - Provider name
  * @param {string} tier - Tier name: "reasoning", "coding", or "efficiency"

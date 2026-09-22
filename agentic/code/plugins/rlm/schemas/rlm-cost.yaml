@@ -67,10 +67,10 @@ $defs:
         type: string
         description: "Model used for this node"
         examples:
-          - "claude-sonnet-4.5"
-          - "gpt-5.3-codex"
-          - "codex-mini-latest"
-          - "claude-opus-4.6"
+          - "claude-sonnet-5"
+          - "gpt-5.6-terra"
+          - "gpt-5.6-luna"
+          - "claude-opus-5"
 
       provider:
         type: string
@@ -808,18 +808,19 @@ optimization_strategies:
 pricing_reference:
   note: "Pricing subject to change, use provider APIs for current rates"
   examples:
-    claude-opus-4.6:
-      input_per_1k: 0.015
-      output_per_1k: 0.075
-    claude-sonnet-4.5:
-      input_per_1k: 0.003
-      output_per_1k: 0.015
-    codex-mini-latest:
+    # List prices as of 2026-09-21 (USD per 1K tokens)
+    claude-opus-5:
+      input_per_1k: 0.005
+      output_per_1k: 0.025
+    claude-sonnet-5:
       input_per_1k: 0.002
-      output_per_1k: 0.006
-    gpt-5.3-codex:
-      input_per_1k: 0.01
-      output_per_1k: 0.03
+      output_per_1k: 0.010
+    gpt-5.6-luna:
+      input_per_1k: 0.0002
+      output_per_1k: 0.0012
+    gpt-5.6-terra:
+      input_per_1k: 0.002
+      output_per_1k: 0.012
 
 # Limits
 limits:

@@ -3,7 +3,7 @@ description: Format citations, back claims with evidence, and build citation net
 category: research-management
 argument-hint: <claim-text> [--style <format>] [--back-claim]
 allowed-tools: Read, Write, Grep, Glob
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Research Citation Command

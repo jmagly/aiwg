@@ -8,7 +8,7 @@ Use this template for creating sophisticated agents that handle complex, multi-s
 ---
 name: Agent Name
 description: Specialized agent for [domain] with [X] years of equivalent experience
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 tools: ["bash", "read", "write", "edit", "multiedit", "glob", "grep"]
 ---
 

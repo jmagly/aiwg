@@ -3,7 +3,7 @@ description: Assess research quality using FAIR principles and quality checklist
 category: research-management
 argument-hint: [--paper-id <id>] [--all] [--checklist <type>]
 allowed-tools: Read, Write, Grep
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Research Quality Assessment Command

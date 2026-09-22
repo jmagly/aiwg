@@ -52,7 +52,7 @@ Or create `.opencode/opencode.json` manually:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "anthropic/claude-sonnet-4-6",
+  "model": "anthropic/claude-sonnet-5",
   "mcp": {
     "aiwg": {
       "type": "local",
@@ -114,7 +114,7 @@ Configure via `.opencode/opencode.json`:
 
 ```json
 {
-  "model": "anthropic/claude-sonnet-4-6",
+  "model": "anthropic/claude-sonnet-5",
   "small_model": "anthropic/claude-haiku-4-5-20251001"
 }
 ```
@@ -128,7 +128,7 @@ Run `opencode models` to list available models.
 ## Agent Loop
 
 ```bash
-aiwg ralph "Fix all tests" --completion "npm test passes" --provider opencode --model anthropic/claude-sonnet-4-6
+aiwg ralph "Fix all tests" --completion "npm test passes" --provider opencode --model anthropic/claude-sonnet-5
 ```
 
 See [Al Guide](../ralph-guide.md) for full documentation.

@@ -379,7 +379,7 @@ describe('AgentGenerator', () => {
       expect(agent.path).toBe(path.join(tempDir, '.codex/agents/codex-agent.toml'));
       expect(agent.modelPolicy).toMatchObject({ role: 'efficiency', tier: 'economy' });
       expect(agent.content).toContain('name = "codex-agent"');
-      expect(agent.content).toContain('model = "gpt-5.4-mini"');
+      expect(agent.content).toContain('model = "gpt-5.6-luna"');
       expect(agent.content).toContain('model_reasoning_effort = "low"');
       expect(agent.content).toContain('Canonical Model Policy');
     });

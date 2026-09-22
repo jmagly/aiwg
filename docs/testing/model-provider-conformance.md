@@ -78,7 +78,7 @@ created with no-overwrite semantics.
 
 ```bash
 AIWG_MODEL_LIVE_SMOKE=1 \
-AIWG_MODEL_SMOKE_RESOLVED_MODEL=gpt-5.4-mini \
+AIWG_MODEL_SMOKE_RESOLVED_MODEL=gpt-5.6-luna \
 node tools/models/live-smoke.mjs \
   --provider codex \
   --budget-usd 0.05 \

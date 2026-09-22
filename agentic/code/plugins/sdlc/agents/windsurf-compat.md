@@ -166,17 +166,17 @@ Windsurf uses Claude models via API. The default model mappings are:
 
 | Role | Model |
 |------|-------|
-| Reasoning | claude-opus-4-6 |
-| Coding | claude-sonnet-4-6 |
-| Efficiency | claude-haiku-3-5 |
+| Reasoning | claude-opus-5 |
+| Coding | claude-sonnet-5 |
+| Efficiency | claude-haiku-4-5-20251001 |
 
 Override with CLI flags:
 
 ```bash
 aiwg use sdlc --provider windsurf \
-  --reasoning-model claude-opus-4-6 \
-  --coding-model claude-sonnet-4-6 \
-  --efficiency-model claude-haiku-3-5
+  --reasoning-model claude-opus-5 \
+  --coding-model claude-sonnet-5 \
+  --efficiency-model claude-haiku-4-5-20251001
 ```
 
 ## Limitations

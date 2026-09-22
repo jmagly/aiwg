@@ -14,7 +14,7 @@
  * - No --mcp-config flag
  * - No --append-system-prompt flag (inject into main prompt)
  * - No --max-budget-usd flag
- * - Model: gpt-5.4 (all aliases map here for CLI execution)
+ * - Model: generic aliases map to the GPT-5.6 tier ladder (sol / terra / luna)
  *
  * @implements Plan: Multi-Provider Support for External Ralph Loop
  */
@@ -24,15 +24,15 @@ import { ProviderAdapter, registerProvider } from './provider-adapter.mjs';
 /**
  * Model mapping from generic names to Codex-specific models.
  *
- * gpt-5.4 is the current flagship (priority 0, confirmed working).
- * All aliases map here for CLI execution since mini models may not be
- * available to all account types.
- * Users can override by passing a model ID directly (e.g., --model gpt-5.3-codex).
+ * Tier-equivalent mapping (observed in Codex model/list, 2026-09-21):
+ * premium = gpt-5.6-sol, standard = gpt-5.6-terra, economy = gpt-5.6-luna.
+ * The flagship gpt-6-astra is never selected by an alias; pass it explicitly
+ * (e.g., --model gpt-6-astra) when the user elects it.
  */
 const MODEL_MAP = {
-  'opus':   'gpt-5.4',
-  'sonnet': 'gpt-5.4',
-  'haiku':  'gpt-5.4',
+  'opus':   'gpt-5.6-sol',
+  'sonnet': 'gpt-5.6-terra',
+  'haiku':  'gpt-5.6-luna',
 };
 
 export class CodexAdapter extends ProviderAdapter {
@@ -156,10 +156,10 @@ export class CodexAdapter extends ProviderAdapter {
   /**
    * Map generic model names to Codex-specific models.
    *
-   * Uses the same mapping as tools/agents/providers/codex.mjs:
-   *   opus → gpt-5.3-codex
-   *   sonnet → codex-mini-latest
-   *   haiku → gpt-5-codex-mini
+   * Mirrors the catalog roles used by tools/agents/providers/codex.mjs:
+   *   opus → gpt-5.6-sol
+   *   sonnet → gpt-5.6-terra
+   *   haiku → gpt-5.6-luna
    *
    * @param {string} genericModel
    * @returns {string}

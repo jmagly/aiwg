@@ -22,9 +22,9 @@ Use this guide if you are:
 aiwg use sdlc
 
 # Deploy with explicit model overrides
-aiwg use sdlc --reasoning-model claude-opus-4-6 \
-              --coding-model claude-sonnet-4-6 \
-              --efficiency-model claude-haiku-3-5
+aiwg use sdlc --reasoning-model claude-opus-5 \
+              --coding-model claude-sonnet-5 \
+              --efficiency-model claude-haiku-4-5
 
 # Check what models are deployed
 aiwg use sdlc --dry-run
@@ -38,9 +38,9 @@ AIWG maps three tiers to Claude models. The canonical defaults come from `agenti
 
 | AIWG Tier | Claude Model | Use For | Context Window |
 |-----------|--------------|---------|----------------|
-| `opus` (reasoning) | claude-opus-4-6 | Architecture, security review, complex analysis | 200K tokens |
-| `sonnet` (coding) | claude-sonnet-4-6 | Code generation, debugging, implementation | 200K tokens |
-| `haiku` (efficiency) | claude-haiku-3-5 | File ops, summaries, simple edits | 200K tokens |
+| `opus` (reasoning) | claude-opus-5 | Architecture, security review, complex analysis | 200K tokens |
+| `sonnet` (coding) | claude-sonnet-5 | Code generation, debugging, implementation | 200K tokens |
+| `haiku` (efficiency) | claude-haiku-4-5 | File ops, summaries, simple edits | 200K tokens |
 
 ### Decision Tree: Which Model Tier to Assign an Agent
 
@@ -395,22 +395,22 @@ Override Claude model assignments in `models.json`:
 {
   "claude": {
     "reasoning": {
-      "model": "claude-opus-4-6",
+      "model": "claude-opus-5",
       "description": "Complex reasoning and architecture"
     },
     "coding": {
-      "model": "claude-sonnet-4-6",
+      "model": "claude-sonnet-5",
       "description": "Code generation and review"
     },
     "efficiency": {
-      "model": "claude-haiku-3-5",
+      "model": "claude-haiku-4-5",
       "description": "Quick tasks and file operations"
     }
   },
   "shorthand": {
-    "opus": "claude-opus-4-6",
-    "sonnet": "claude-sonnet-4-6",
-    "haiku": "claude-haiku-3-5"
+    "opus": "claude-opus-5",
+    "sonnet": "claude-sonnet-5",
+    "haiku": "claude-haiku-4-5"
   }
 }
 ```
@@ -424,21 +424,21 @@ Place this file at:
 ```yaml
 ---
 name: my-agent
-model: opus    # resolves to claude-opus-4-6
+model: opus    # resolves to claude-opus-5
 ---
 ```
 
 ```yaml
 ---
 name: my-agent
-model: sonnet  # resolves to claude-sonnet-4-6
+model: sonnet  # resolves to claude-sonnet-5
 ---
 ```
 
 ```yaml
 ---
 name: my-agent
-model: haiku   # resolves to claude-haiku-3-5
+model: haiku   # resolves to claude-haiku-4-5
 ---
 ```
 

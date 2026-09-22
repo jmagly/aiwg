@@ -7,8 +7,9 @@ import YAML from 'yaml';
 export const DEFAULT_SKILL_CEILING_BYTES = 24 * 1024;
 export const DEFAULT_AGENT_CEILING_BYTES = 16 * 1024;
 
-// Standard Claude Code Sonnet context window (claude-sonnet-4-6). The 1M window is a
-// premium tier gated behind usage credits; AIWG must fit the standard baseline.
+// Conservative standard-context baseline. Current Claude models advertise 1M
+// windows, but 1M dispatch can be gated behind usage credits on some plans, so
+// AIWG keeps fitting the 200K standard baseline.
 export const STANDARD_SONNET_BUDGET_TOKENS = 200000;
 // Warn before the hard ceiling so there is headroom for the base system prompt, tool
 // definitions, skill listings, and at least the opening turns of real work.

@@ -75,16 +75,16 @@ aiwg catalog list
 
 ### Example 2: Model details
 
-**User**: "Show me details for claude-sonnet-4-5"
+**User**: "Show me details for claude-sonnet-5"
 
-**Extraction**: Info subcommand, model-id = claude-sonnet-4-5
+**Extraction**: Info subcommand, model-id = claude-sonnet-5
 
 **Action**:
 ```bash
-aiwg catalog info claude-sonnet-4-5
+aiwg catalog info claude-sonnet-5
 ```
 
-**Response**: "claude-sonnet-4-5: Anthropic Claude Sonnet 4.5. Context: 200k tokens. Capabilities: tool use, vision, code, analysis. Recommended for: SDLC agents, code review, architecture design."
+**Response**: "claude-sonnet-5: Anthropic Claude Sonnet 5. Context: 1M tokens. Capabilities: tool use, vision, code, analysis. Recommended for: SDLC agents, code review, architecture design."
 
 ### Example 3: Capability search
 

@@ -292,7 +292,7 @@ ARGUMENTS:
 OPTIONS:
   -c, --completion <str>  Completion criteria (required)
   --max-iterations <n>    Maximum iterations (default: 5)
-  --model <model>         Claude model (default: claude-sonnet-4-6)
+  --model <model>         Claude model (default: claude-sonnet-5)
   --budget <usd>          Budget per iteration in USD (default: 5.0)
   --timeout <min>         Timeout per iteration in minutes (default: 60)
 

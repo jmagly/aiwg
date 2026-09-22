@@ -362,7 +362,7 @@ crossref:
 
 claude:
   # Key loaded from environment: ANTHROPIC_API_KEY
-  model: "claude-opus-4-5"
+  model: "claude-opus-5"
   rate_limit:
     requests_per_second: 1
   cache:

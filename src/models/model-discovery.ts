@@ -451,21 +451,31 @@ function isFresh(
   return Number.isFinite(age) && age >= 0 && age <= ttlMs;
 }
 
+/** Tier families by name, anchored on separators so `solution` or `lunar` do not match. */
+const FLAGSHIP_FAMILY = /(?:^|[/:._-])(?:fable|astra)(?:$|[/:._[-]|\d)/i;
+const PREMIUM_FAMILY = /(?:^|[/:._-])(?:opus|sol)(?:$|[/:._[-]|\d)/i;
+const STANDARD_FAMILY = /(?:^|[/:._-])(?:sonnet|terra)(?:$|[/:._[-]|\d)/i;
+
 export function selectRoleModels(models: DiscoveredModel[]): {
   reasoning?: DiscoveredModel;
   coding?: DiscoveredModel;
   efficiency?: DiscoveredModel;
 } {
-  const visible = models.filter(model => !model.hidden);
+  // Flagship families are user-elected only (epic #2642): discovery never
+  // assigns them to a role, even when the provider marks one as its default.
+  const visible = models.filter(model => !model.hidden && !FLAGSHIP_FAMILY.test(model.id));
   if (visible.length === 0) return {};
-  const coding = visible.find(model => model.isDefault)
+  const coding = visible.find(model => STANDARD_FAMILY.test(model.id))
+    ?? visible.find(model => model.isDefault && !PREMIUM_FAMILY.test(model.id))
+    ?? visible.find(model => model.isDefault)
     ?? visible.find(model => /(?:codex|code|sonnet|gpt)/i.test(model.id))
     ?? visible[0];
-  const efficiency = visible.find(model => /(?:mini|spark|haiku|light|flash)/i.test(model.id))
+  const efficiency = visible.find(model => /(?:mini|spark|haiku|light|flash|luna)/i.test(model.id))
     ?? [...visible].sort(
       (a, b) => (a.reasoningEfforts?.length ?? 0) - (b.reasoningEfforts?.length ?? 0),
     )[0];
-  const reasoningCandidates = visible.filter(model =>
+  const premium = visible.filter(model => PREMIUM_FAMILY.test(model.id));
+  const reasoningCandidates = premium.length > 0 ? premium : visible.filter(model =>
     /(?:opus|reason|ultra|max|pro(?:[-_/]|$))/i.test(model.id)
 );
 

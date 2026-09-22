@@ -14,7 +14,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  CODEX_ADAPTER_MODEL,
+  CODEX_ADAPTER_MODELS,
+  FLAGSHIP_MODELS,
   OPENCODE_ADAPTER_MODEL,
   FACTORY_ADAPTER_MODELS,
 } from '../../fixtures/models.js';
@@ -353,13 +354,13 @@ describe('CodexAdapter', () => {
   });
 
   describe('model mapping', () => {
-    it('maps all generic aliases to codex model', () => {
+    it('maps generic aliases to the tier-equivalent codex model', () => {
       const mappings = [
-        { input: 'opus',   expected: CODEX_ADAPTER_MODEL },
-        { input: 'sonnet', expected: CODEX_ADAPTER_MODEL },
-        { input: 'haiku',  expected: CODEX_ADAPTER_MODEL },
-        { input: 'OPUS',   expected: CODEX_ADAPTER_MODEL },
-        { input: 'Sonnet', expected: CODEX_ADAPTER_MODEL },
+        { input: 'opus',   expected: CODEX_ADAPTER_MODELS.opus },
+        { input: 'sonnet', expected: CODEX_ADAPTER_MODELS.sonnet },
+        { input: 'haiku',  expected: CODEX_ADAPTER_MODELS.haiku },
+        { input: 'OPUS',   expected: CODEX_ADAPTER_MODELS.opus },
+        { input: 'Sonnet', expected: CODEX_ADAPTER_MODELS.sonnet },
       ];
 
       for (const { input, expected } of mappings) {
@@ -367,8 +368,15 @@ describe('CodexAdapter', () => {
       }
     });
 
+    it('never maps an alias to the user-elected flagship', () => {
+      for (const alias of ['opus', 'sonnet', 'haiku']) {
+        expect(adapter.mapModel(alias)).not.toBe(FLAGSHIP_MODELS.openai);
+      }
+      expect(adapter.mapModel(FLAGSHIP_MODELS.openai)).toBe(FLAGSHIP_MODELS.openai);
+    });
+
     it('passes through unknown model names', () => {
-      const models = [CODEX_ADAPTER_MODEL, 'custom-model'];
+      const models = [CODEX_ADAPTER_MODELS.opus, 'custom-model'];
       for (const model of models) {
         expect(adapter.mapModel(model)).toBe(model);
       }
@@ -392,7 +400,7 @@ describe('CodexAdapter', () => {
         model: 'opus',
       });
       expect(args).toContain('--model');
-      expect(args).toContain(CODEX_ADAPTER_MODEL);
+      expect(args).toContain(CODEX_ADAPTER_MODELS.opus);
     });
 
     it('injects system prompt into main prompt', () => {
@@ -442,7 +450,7 @@ describe('CodexAdapter', () => {
         agent: 'ralph-output-analyzer',
       });
       expect(args).toContain('--model');
-      expect(args).toContain(CODEX_ADAPTER_MODEL);
+      expect(args).toContain(CODEX_ADAPTER_MODELS.sonnet);
       expect(args).not.toContain('--agent');
     });
   });

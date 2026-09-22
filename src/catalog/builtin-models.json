@@ -4,14 +4,246 @@
   "title": "AIWG Built-in Model Catalog",
   "description": "Core models shipped with AIWG, manually curated and verified",
   "models": {
-    "claude-opus-4-6": {
+    "claude-fable-5-1": {
       "provider": "anthropic",
-      "displayName": "Claude Opus 4.6",
-      "releaseDate": "2025-11-01",
+      "displayName": "Claude Fable 5.1",
+      "releaseDate": "2026-09-01",
       "status": "active",
       "deprecated": false,
       "deprecationDate": null,
       "successorModel": null,
+      "capabilities": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "vision": true,
+        "toolUse": true,
+        "streaming": true,
+        "reasoning": "excellent",
+        "coding": "excellent",
+        "speed": "fair"
+      },
+      "pricing": {
+        "inputPer1kTokens": 0.01,
+        "outputPer1kTokens": 0.05,
+        "currency": "USD",
+        "lastUpdated": "2026-09-21"
+      },
+      "aliases": ["fable", "claude-fable"],
+      "tags": ["flagship", "user-elected", "reasoning", "long-context"],
+      "source": "builtin",
+      "lastVerified": "2026-09-21"
+    },
+    "claude-opus-5": {
+      "provider": "anthropic",
+      "displayName": "Claude Opus 5",
+      "releaseDate": "2026-07-24",
+      "status": "active",
+      "deprecated": false,
+      "deprecationDate": null,
+      "successorModel": null,
+      "capabilities": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "vision": true,
+        "toolUse": true,
+        "streaming": true,
+        "reasoning": "excellent",
+        "coding": "excellent",
+        "speed": "fair"
+      },
+      "pricing": {
+        "inputPer1kTokens": 0.005,
+        "outputPer1kTokens": 0.025,
+        "currency": "USD",
+        "lastUpdated": "2026-09-21"
+      },
+      "aliases": ["opus", "opus-5", "claude-opus"],
+      "tags": ["premium", "reasoning", "long-context"],
+      "source": "builtin",
+      "lastVerified": "2026-09-21"
+    },
+    "claude-sonnet-5": {
+      "provider": "anthropic",
+      "displayName": "Claude Sonnet 5",
+      "releaseDate": "2026-06-29",
+      "status": "active",
+      "deprecated": false,
+      "deprecationDate": null,
+      "successorModel": null,
+      "capabilities": {
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "vision": true,
+        "toolUse": true,
+        "streaming": true,
+        "reasoning": "excellent",
+        "coding": "excellent",
+        "speed": "good"
+      },
+      "pricing": {
+        "inputPer1kTokens": 0.002,
+        "outputPer1kTokens": 0.01,
+        "currency": "USD",
+        "lastUpdated": "2026-09-21"
+      },
+      "aliases": ["sonnet", "sonnet-5", "claude-sonnet"],
+      "tags": ["standard", "coding", "balanced"],
+      "source": "builtin",
+      "lastVerified": "2026-09-21"
+    },
+    "claude-haiku-4-5": {
+      "provider": "anthropic",
+      "displayName": "Claude Haiku 4.5",
+      "releaseDate": "2025-10-15",
+      "status": "active",
+      "deprecated": false,
+      "deprecationDate": null,
+      "successorModel": null,
+      "capabilities": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "vision": true,
+        "toolUse": true,
+        "streaming": true,
+        "reasoning": "good",
+        "coding": "good",
+        "speed": "excellent"
+      },
+      "pricing": {
+        "inputPer1kTokens": 0.001,
+        "outputPer1kTokens": 0.005,
+        "currency": "USD",
+        "lastUpdated": "2026-09-21"
+      },
+      "aliases": ["haiku", "haiku-4.5", "claude-haiku", "claude-haiku-4-5-20251001"],
+      "tags": ["economy", "fast"],
+      "source": "builtin",
+      "lastVerified": "2026-09-21"
+    },
+    "gpt-6-astra": {
+      "provider": "openai",
+      "displayName": "GPT-6 Astra",
+      "releaseDate": "2026-09-04",
+      "status": "active",
+      "deprecated": false,
+      "deprecationDate": null,
+      "successorModel": null,
+      "capabilities": {
+        "contextWindow": 1050000,
+        "maxOutputTokens": 128000,
+        "vision": true,
+        "toolUse": true,
+        "streaming": true,
+        "reasoning": "excellent",
+        "coding": "excellent",
+        "speed": "fair"
+      },
+      "pricing": {
+        "inputPer1kTokens": 0.01,
+        "outputPer1kTokens": 0.05,
+        "currency": "USD",
+        "lastUpdated": "2026-09-21"
+      },
+      "aliases": ["astra", "gpt6-astra"],
+      "tags": ["flagship", "user-elected", "reasoning", "codex"],
+      "source": "builtin",
+      "lastVerified": "2026-09-21"
+    },
+    "gpt-5.6-sol": {
+      "provider": "openai",
+      "displayName": "GPT-5.6 Sol",
+      "releaseDate": "2026-07-09",
+      "status": "active",
+      "deprecated": false,
+      "deprecationDate": null,
+      "successorModel": null,
+      "capabilities": {
+        "contextWindow": 1050000,
+        "maxOutputTokens": 128000,
+        "vision": true,
+        "toolUse": true,
+        "streaming": true,
+        "reasoning": "excellent",
+        "coding": "excellent",
+        "speed": "good"
+      },
+      "pricing": {
+        "inputPer1kTokens": 0.004,
+        "outputPer1kTokens": 0.02,
+        "currency": "USD",
+        "lastUpdated": "2026-09-21"
+      },
+      "aliases": ["sol", "gpt5.6-sol"],
+      "tags": ["premium", "reasoning", "coding", "codex"],
+      "source": "builtin",
+      "lastVerified": "2026-09-21"
+    },
+    "gpt-5.6-terra": {
+      "provider": "openai",
+      "displayName": "GPT-5.6 Terra",
+      "releaseDate": "2026-07-09",
+      "status": "active",
+      "deprecated": false,
+      "deprecationDate": null,
+      "successorModel": null,
+      "capabilities": {
+        "contextWindow": 1050000,
+        "maxOutputTokens": 128000,
+        "vision": true,
+        "toolUse": true,
+        "streaming": true,
+        "reasoning": "excellent",
+        "coding": "excellent",
+        "speed": "good"
+      },
+      "pricing": {
+        "inputPer1kTokens": 0.002,
+        "outputPer1kTokens": 0.012,
+        "currency": "USD",
+        "lastUpdated": "2026-09-21"
+      },
+      "aliases": ["terra", "gpt5.6-terra"],
+      "tags": ["standard", "coding", "codex"],
+      "source": "builtin",
+      "lastVerified": "2026-09-21"
+    },
+    "gpt-5.6-luna": {
+      "provider": "openai",
+      "displayName": "GPT-5.6 Luna",
+      "releaseDate": "2026-07-09",
+      "status": "active",
+      "deprecated": false,
+      "deprecationDate": null,
+      "successorModel": null,
+      "capabilities": {
+        "contextWindow": 1050000,
+        "maxOutputTokens": 128000,
+        "vision": true,
+        "toolUse": true,
+        "streaming": true,
+        "reasoning": "good",
+        "coding": "good",
+        "speed": "excellent"
+      },
+      "pricing": {
+        "inputPer1kTokens": 0.0002,
+        "outputPer1kTokens": 0.0012,
+        "currency": "USD",
+        "lastUpdated": "2026-09-21"
+      },
+      "aliases": ["luna", "gpt5.6-luna"],
+      "tags": ["economy", "fast", "codex"],
+      "source": "builtin",
+      "lastVerified": "2026-09-21"
+    },
+    "claude-opus-4-6": {
+      "provider": "anthropic",
+      "displayName": "Claude Opus 4.6",
+      "releaseDate": "2025-11-01",
+      "status": "deprecated",
+      "deprecated": true,
+      "deprecationDate": null,
+      "successorModel": "claude-opus-5",
       "capabilities": {
         "contextWindow": 200000,
         "maxOutputTokens": 8192,
@@ -28,19 +260,19 @@
         "currency": "USD",
         "lastUpdated": "2025-12-01"
       },
-      "aliases": ["opus", "opus-4.6", "claude-opus"],
-      "tags": ["flagship", "reasoning", "long-context"],
+      "aliases": ["opus-4.6"],
+      "tags": ["reasoning", "long-context"],
       "source": "builtin",
-      "lastVerified": "2025-12-12"
+      "lastVerified": "2026-09-21"
     },
     "claude-sonnet-4-6": {
       "provider": "anthropic",
       "displayName": "Claude Sonnet 4.6",
       "releaseDate": "2025-09-29",
-      "status": "active",
-      "deprecated": false,
+      "status": "deprecated",
+      "deprecated": true,
       "deprecationDate": null,
-      "successorModel": null,
+      "successorModel": "claude-sonnet-5",
       "capabilities": {
         "contextWindow": 200000,
         "maxOutputTokens": 8192,
@@ -57,19 +289,19 @@
         "currency": "USD",
         "lastUpdated": "2025-12-01"
       },
-      "aliases": ["sonnet", "sonnet-4.6", "claude-sonnet"],
+      "aliases": ["sonnet-4.6"],
       "tags": ["balanced", "coding", "long-context"],
       "source": "builtin",
-      "lastVerified": "2025-12-12"
+      "lastVerified": "2026-09-21"
     },
     "claude-sonnet-4-20250514": {
       "provider": "anthropic",
       "displayName": "Claude Sonnet 4",
       "releaseDate": "2025-05-14",
-      "status": "active",
-      "deprecated": false,
+      "status": "deprecated",
+      "deprecated": true,
       "deprecationDate": null,
-      "successorModel": null,
+      "successorModel": "claude-sonnet-5",
       "capabilities": {
         "contextWindow": 200000,
         "maxOutputTokens": 8192,
@@ -89,16 +321,16 @@
       "aliases": ["sonnet-4"],
       "tags": ["coding", "long-context"],
       "source": "builtin",
-      "lastVerified": "2025-12-12"
+      "lastVerified": "2026-09-21"
     },
     "claude-haiku-3-5": {
       "provider": "anthropic",
       "displayName": "Claude Haiku 3.5",
       "releaseDate": "2024-11-01",
-      "status": "active",
-      "deprecated": false,
+      "status": "deprecated",
+      "deprecated": true,
       "deprecationDate": null,
-      "successorModel": null,
+      "successorModel": "claude-haiku-4-5",
       "capabilities": {
         "contextWindow": 200000,
         "maxOutputTokens": 8192,
@@ -115,10 +347,10 @@
         "currency": "USD",
         "lastUpdated": "2025-12-01"
       },
-      "aliases": ["haiku", "haiku-3.5", "claude-haiku"],
+      "aliases": ["haiku-3.5"],
       "tags": ["fast", "efficient", "long-context"],
       "source": "builtin",
-      "lastVerified": "2025-12-12"
+      "lastVerified": "2026-09-21"
     },
     "claude-3-opus-20240229": {
       "provider": "anthropic",
@@ -211,10 +443,10 @@
       "provider": "openai",
       "displayName": "GPT-5.3-Codex",
       "releaseDate": "2026-02-05",
-      "status": "active",
-      "deprecated": false,
+      "status": "deprecated",
+      "deprecated": true,
       "deprecationDate": null,
-      "successorModel": null,
+      "successorModel": "gpt-5.6-terra",
       "capabilities": {
         "contextWindow": 192000,
         "maxOutputTokens": 16384,
@@ -232,18 +464,18 @@
         "lastUpdated": "2026-02-06"
       },
       "aliases": ["gpt-5.3-codex", "gpt5.3-codex"],
-      "tags": ["flagship", "coding", "reasoning", "codex"],
+      "tags": ["coding", "reasoning", "codex"],
       "source": "builtin",
-      "lastVerified": "2026-02-06"
+      "lastVerified": "2026-09-21"
     },
     "gpt-5.4": {
       "provider": "openai",
       "displayName": "GPT-5.4",
       "releaseDate": "2026-03-01",
-      "status": "active",
-      "deprecated": false,
+      "status": "deprecated",
+      "deprecated": true,
       "deprecationDate": null,
-      "successorModel": null,
+      "successorModel": "gpt-5.6-terra",
       "capabilities": {
         "contextWindow": 256000,
         "maxOutputTokens": 16384,
@@ -261,18 +493,18 @@
         "lastUpdated": "2026-03-27"
       },
       "aliases": ["gpt5.4"],
-      "tags": ["flagship", "coding", "reasoning", "codex"],
+      "tags": ["coding", "reasoning", "codex"],
       "source": "builtin",
-      "lastVerified": "2026-03-27"
+      "lastVerified": "2026-09-21"
     },
     "gpt-5.1-codex-mini": {
       "provider": "openai",
       "displayName": "GPT-5.1-Codex-Mini",
       "releaseDate": "2026-02-01",
-      "status": "active",
-      "deprecated": false,
+      "status": "deprecated",
+      "deprecated": true,
       "deprecationDate": null,
-      "successorModel": null,
+      "successorModel": "gpt-5.6-luna",
       "capabilities": {
         "contextWindow": 192000,
         "maxOutputTokens": 16384,
@@ -292,7 +524,7 @@
       "aliases": ["gpt5.1-codex-mini"],
       "tags": ["budget", "coding", "efficient", "codex", "free-tier"],
       "source": "builtin",
-      "lastVerified": "2026-03-27"
+      "lastVerified": "2026-09-21"
     },
     "codex-mini-latest": {
       "provider": "openai",
@@ -301,7 +533,7 @@
       "status": "deprecated",
       "deprecated": true,
       "deprecationDate": "2026-03-27",
-      "successorModel": "gpt-5.1-codex-mini",
+      "successorModel": "gpt-5.6-luna",
       "capabilities": {
         "contextWindow": 192000,
         "maxOutputTokens": 16384,
@@ -321,7 +553,7 @@
       "aliases": ["codex-mini"],
       "tags": ["coding", "efficient", "codex", "deprecated"],
       "source": "builtin",
-      "lastVerified": "2026-03-27"
+      "lastVerified": "2026-09-21"
     },
     "gpt-5-codex-mini": {
       "provider": "openai",
@@ -330,7 +562,7 @@
       "status": "deprecated",
       "deprecated": true,
       "deprecationDate": "2026-03-27",
-      "successorModel": "gpt-5.1-codex-mini",
+      "successorModel": "gpt-5.6-luna",
       "capabilities": {
         "contextWindow": 192000,
         "maxOutputTokens": 16384,
@@ -350,7 +582,7 @@
       "aliases": ["gpt5-codex-mini"],
       "tags": ["budget", "coding", "efficient", "codex", "deprecated"],
       "source": "builtin",
-      "lastVerified": "2026-03-27"
+      "lastVerified": "2026-09-21"
     },
     "gpt-4-turbo": {
       "provider": "openai",
@@ -629,8 +861,8 @@
   },
   "metadata": {
     "version": "1.2.0",
-    "lastRefresh": "2026-03-23T00:00:00Z",
-    "modelCount": 19,
+    "lastRefresh": "2026-09-21T00:00:00Z",
+    "modelCount": 28,
     "providerCount": 5
   }
 }

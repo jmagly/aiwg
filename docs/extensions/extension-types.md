@@ -61,9 +61,9 @@ interface AgentMetadata {
 
 | Tier | When to Use | Example Models |
 |------|-------------|----------------|
-| **haiku** | Simple, repetitive tasks | claude-haiku-4 |
-| **sonnet** | Most tasks, balanced | claude-sonnet-4-5 |
-| **opus** | Complex reasoning, critical decisions | claude-opus-4-5 |
+| **haiku** | Simple, repetitive tasks | claude-haiku-4-5 |
+| **sonnet** | Most tasks, balanced | claude-sonnet-5 |
+| **opus** | Complex reasoning, critical decisions | claude-opus-5 |
 
 ### Example
 

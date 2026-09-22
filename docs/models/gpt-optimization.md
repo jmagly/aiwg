@@ -23,9 +23,9 @@ aiwg use sdlc --provider codex
 
 # Deploy with specific model overrides
 aiwg use sdlc --provider codex \
-  --reasoning-model gpt-5.3-codex \
-  --coding-model codex-mini-latest \
-  --efficiency-model gpt-5-codex-mini
+  --reasoning-model gpt-5.6-sol \
+  --coding-model gpt-5.6-terra \
+  --efficiency-model gpt-5.6-luna
 
 # Preview deployment without writing files
 aiwg use sdlc --provider codex --dry-run
@@ -42,9 +42,9 @@ AIWG's Codex provider maps the three standard tiers to OpenAI model identifiers 
 
 | AIWG Tier | OpenAI Model | Pricing | Best For |
 |-----------|--------------|---------|----------|
-| `opus` (reasoning) | gpt-5.3-codex | Premium | Complex analysis, architecture |
-| `sonnet` (coding) | codex-mini-latest | $1.50/$6 per 1M tokens | Code gen, debugging, CLI default |
-| `haiku` (efficiency) | gpt-5-codex-mini | 4x more usage quota | Quick tasks, summaries |
+| `opus` (reasoning) | gpt-5.6-sol | Premium | Complex analysis, architecture |
+| `sonnet` (coding) | gpt-5.6-terra | $2/$12 per 1M tokens | Code gen, debugging, CLI default |
+| `haiku` (efficiency) | gpt-5.6-luna | 4x more usage quota | Quick tasks, summaries |
 
 ### Model Mapping Logic
 
@@ -53,24 +53,24 @@ When AIWG deploys agents to Codex, it replaces the `model:` field in each agent'
 ```javascript
 // From tools/agents/providers/codex.mjs
 const gptModels = {
-  'opus':   'gpt-5.3-codex',
-  'sonnet': 'codex-mini-latest',
-  'haiku':  'gpt-5-codex-mini'
+  'opus':   'gpt-5.6-sol',
+  'sonnet': 'gpt-5.6-terra',
+  'haiku':  'gpt-5.6-luna'
 };
 ```
 
-An agent defined with `model: opus` in source becomes `model: gpt-5.3-codex` when deployed to `.codex/agents/`.
+An agent defined with `model: opus` in source becomes `model: gpt-5.6-sol` when deployed to `.codex/agents/`.
 
 ### Switching Models in Codex CLI
 
 ```bash
 # Mid-session model switch
-/model gpt-5.3-codex
+/model gpt-5.6-sol
 
 # Set default in config.toml
 # ~/.codex/config.toml
 [model]
-default = "codex-mini-latest"
+default = "gpt-5.6-terra"
 ```
 
 ---
@@ -164,7 +164,7 @@ Ensures the model returns valid JSON. Requires the word "JSON" in the system or 
 
 ```python
 response = client.chat.completions.create(
-    model="codex-mini-latest",
+    model="gpt-5.6-terra",
     response_format={"type": "json_object"},
     messages=[
         {
@@ -199,7 +199,7 @@ class SecurityReport(BaseModel):
     summary: str
 
 response = client.beta.chat.completions.parse(
-    model="gpt-5.3-codex",
+    model="gpt-5.6-sol",
     messages=[...],
     response_format=SecurityReport
 )
@@ -273,7 +273,7 @@ When given a specification, follow these steps:
 
 ### Prompt Caching
 
-`codex-mini-latest` supports prompt caching with a 75% discount on cached tokens. To maximize cache hits:
+`gpt-5.6-terra` supports prompt caching with a 75% discount on cached tokens. To maximize cache hits:
 
 - Keep system messages identical across requests
 - Place variable content (user input, artifacts) at the end of the prompt
@@ -291,9 +291,9 @@ messages = [
 
 | Model | Input Cost | Recommended Max Input |
 |-------|-----------|----------------------|
-| gpt-5.3-codex | Premium | 50K tokens (reserve budget for complex tasks) |
-| codex-mini-latest | $1.50/1M | 100K tokens (cost-effective for large inputs) |
-| gpt-5-codex-mini | Budget | 100K tokens (high volume tasks) |
+| gpt-5.6-sol | Premium | 50K tokens (reserve budget for complex tasks) |
+| gpt-5.6-terra | $2/1M | 100K tokens (cost-effective for large inputs) |
+| gpt-5.6-luna | Budget | 100K tokens (high volume tasks) |
 
 ### Reducing Repetition
 
@@ -326,15 +326,15 @@ AIWG can target any OpenAI-compatible endpoint by setting the base URL. This is 
 {
   "openai": {
     "reasoning": {
-      "model": "gpt-5.3-codex",
+      "model": "gpt-5.6-sol",
       "description": "Most capable reasoning"
     },
     "coding": {
-      "model": "codex-mini-latest",
+      "model": "gpt-5.6-terra",
       "description": "Balanced coding tasks"
     },
     "efficiency": {
-      "model": "gpt-5-codex-mini",
+      "model": "gpt-5.6-luna",
       "description": "Fast, high-volume tasks"
     }
   }
@@ -358,8 +358,8 @@ After deploying AIWG artifacts, configure the Codex CLI to use them:
 # ~/.codex/config.toml
 
 [model]
-default = "codex-mini-latest"
-reasoning = "gpt-5.3-codex"
+default = "gpt-5.6-terra"
+reasoning = "gpt-5.6-sol"
 
 [context]
 # AIWG agents load from .codex/agents/ automatically
@@ -393,13 +393,13 @@ Override the default model mapping in `models.json`:
 {
   "openai": {
     "reasoning": {
-      "model": "gpt-5.3-codex"
+      "model": "gpt-5.6-sol"
     },
     "coding": {
-      "model": "codex-mini-latest"
+      "model": "gpt-5.6-terra"
     },
     "efficiency": {
-      "model": "gpt-5-codex-mini"
+      "model": "gpt-5.6-luna"
     }
   }
 }
@@ -414,10 +414,10 @@ After running `aiwg use sdlc --provider codex`, check that model replacement wor
 ```bash
 # Check a deployed agent's model field
 head -5 .codex/agents/architecture-designer.md
-# Should show: model: gpt-5.3-codex (not model: opus)
+# Should show: model: gpt-5.6-sol (not model: opus)
 
 head -5 .codex/agents/software-implementer.md
-# Should show: model: codex-mini-latest (not model: sonnet)
+# Should show: model: gpt-5.6-terra (not model: sonnet)
 ```
 
 ---

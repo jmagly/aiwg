@@ -3,7 +3,7 @@ description: Audit and triage issue backlogs without starting implementation wor
 category: project-management
 argument-hint: "[--all-open] [--filter \"status:open label:bug\"] [--interactive] [--guidance \"text\"] [--provider gitea|github|local] [--dry-run] [--apply]"
 allowed-tools: Read, Bash, Grep, Glob
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Issue Audit

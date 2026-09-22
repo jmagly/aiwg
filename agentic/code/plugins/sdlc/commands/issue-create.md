@@ -3,7 +3,7 @@ description: Create a local issue under .aiwg/issues/
 category: project-management
 argument-hint: "--title \"...\" [--body \"...\"] [--body-file path] [--provider local]"
 allowed-tools: Bash, Read, Write
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Issue Create

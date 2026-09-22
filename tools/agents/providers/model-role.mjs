@@ -9,10 +9,13 @@
  * @implements #1801
  */
 
+// Families by provider tier. Flagship families (Claude Fable, OpenAI GPT-6
+// Astra) classify as reasoning: deployment never selects a flagship for a
+// role, but an explicitly elected flagship pin must still classify.
 const ROLE_PATTERNS = [
-  ['reasoning', /(?:^|[/:._-])opus(?:$|[/:._-]|\d)/i],
-  ['coding', /(?:^|[/:._-])sonnet(?:$|[/:._-]|\d)/i],
-  ['efficiency', /(?:^|[/:._-])haiku(?:$|[/:._-]|\d)/i],
+  ['reasoning', /(?:^|[/:._-])(?:opus|fable|sol|astra)(?:$|[/:._\[-]|\d)/i],
+  ['coding', /(?:^|[/:._-])(?:sonnet|terra)(?:$|[/:._\[-]|\d)/i],
+  ['efficiency', /(?:^|[/:._-])(?:haiku|luna)(?:$|[/:._\[-]|\d)/i],
 ];
 
 /**

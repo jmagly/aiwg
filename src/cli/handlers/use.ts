@@ -250,9 +250,9 @@ async function loadDeployModelsConfig(frameworkRoot: string): Promise<DeployMode
   }
   return {
     shorthand: {
-      opus: 'claude-opus-4-6',
-      sonnet: 'claude-sonnet-4-6',
-      haiku: 'claude-haiku-4-5-20251001',
+      opus: 'claude-opus-5',
+      sonnet: 'claude-sonnet-5',
+      haiku: 'claude-haiku-4-5',
       inherit: 'inherit',
     },
     claude_shorthand: { opus: 'opus', sonnet: 'sonnet', haiku: 'haiku', inherit: 'inherit' },

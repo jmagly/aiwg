@@ -3,7 +3,7 @@ description: Execute complete research workflow from discovery to export
 category: research-management
 argument-hint: <query> [--output-format <type>]
 allowed-tools: Bash, Read, Write, Grep, Glob
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Research Workflow Command

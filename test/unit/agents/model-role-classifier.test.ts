@@ -29,12 +29,25 @@ describe('classifyModelRole', () => {
     ['haiku', 'efficiency'],
     ['claude-haiku-4-5-20251001', 'efficiency'],
     ['anthropic/claude-haiku-4-5', 'efficiency'],
+    ['claude-opus-5', 'reasoning'],
+    ['opus[1m]', 'reasoning'],
+    ['claude-sonnet-5', 'coding'],
+    ['fable', 'reasoning'],
+    ['claude-fable-5-1', 'reasoning'],
+    ['gpt-6-astra', 'reasoning'],
+    ['gpt-5.6-sol', 'reasoning'],
+    ['gpt-5.6-terra', 'coding'],
+    ['gpt-5.6-luna', 'efficiency'],
   ])('classifies %s as %s', (model, role) => {
     expect(classifyModelRole(model)).toBe(role);
   });
 
   it('keeps explicit unknown identifiers unknown', () => {
     expect(classifyModelRole('vendor/new-model')).toBe('unknown');
+    expect(classifyModelRole('gpt-5.5')).toBe('unknown');
+    for (const nearMiss of ['console', 'solution', 'lunar-model', 'terraform']) {
+      expect(classifyModelRole(nearMiss)).toBe('unknown');
+    }
     expect(modelForRole('vendor/new-model', targetModels)).toBeNull();
   });
 
@@ -92,9 +105,9 @@ describe('shared deployment role classification', () => {
     });
 
     expect(new Set(deployedModels)).toEqual(new Set([
-      'gpt-5.4',
-      'gpt-5.5',
-      'gpt-5.4-mini',
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-5.6-luna',
     ]));
   });
 });

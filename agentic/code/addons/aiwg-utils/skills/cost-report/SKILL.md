@@ -78,7 +78,7 @@ For setup and security details, see `@$AIWG_ROOT/docs/guides/openrouter-fleet-co
    aiwg cost-report --json
 
    # Filter to specific model
-   aiwg cost-report --model claude-sonnet-4-5
+   aiwg cost-report --model claude-sonnet-5
 
    # Budget threshold check
    aiwg cost-report --budget 5.00

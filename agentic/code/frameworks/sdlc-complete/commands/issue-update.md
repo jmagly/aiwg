@@ -3,7 +3,7 @@ description: Update local issue metadata under .aiwg/issues/
 category: project-management
 argument-hint: "<issue-id> [--status open|closed] [--label name] [--provider local]"
 allowed-tools: Bash, Read, Write
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Issue Update

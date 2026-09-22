@@ -4,7 +4,7 @@
   "description": "Model recommendations for forensics agents by provider",
   "defaults": {
     "claude": "sonnet",
-    "openai": "gpt-5.3-codex",
+    "openai": "gpt-5.6-terra",
     "gemini": "gemini-2.5-pro"
   },
   "agents": {

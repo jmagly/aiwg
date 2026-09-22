@@ -627,7 +627,7 @@ curl "https://api.unpaywall.org/v2/10.1038/nature12373?email=your@email.com"
 **Request Schema**:
 ```typescript
 interface ClaudeRequest {
-  model: string;  // "claude-opus-4-6" or "claude-sonnet-4-6"
+  model: string;  // "claude-opus-5" or "claude-sonnet-5"
   max_tokens: number;
   messages: {
     role: "user" | "assistant";
@@ -664,7 +664,7 @@ curl -X POST https://api.anthropic.com/v1/messages \
   -H "anthropic-version: 2023-06-01" \
   -H "content-type: application/json" \
   -d '{
-    "model": "claude-sonnet-4-6",
+    "model": "claude-sonnet-5",
     "max_tokens": 2048,
     "messages": [{
       "role": "user",

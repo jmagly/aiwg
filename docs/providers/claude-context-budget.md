@@ -8,7 +8,7 @@ cover the cost of skill names and descriptions at startup. This note covers two
 further costs: the **aggregate startup context** Claude Code inlines on every
 session, and the **runtime cost** after a skill or subagent is invoked.
 
-The standard Claude Code Sonnet window (`claude-sonnet-4-6`) is **200,000
+The standard Claude Code Sonnet window (`claude-sonnet-5`) is **200,000
 tokens**. The 1M window is a premium tier gated behind usage credits. When the
 required context exceeds the standard window, Claude Code upgrades to the 1M
 tier; on accounts without 1M credits that upgrade is rejected
@@ -185,7 +185,7 @@ npm run validate:claude-context
 
 The harness runs the exact issue prompt in a disposable copy with remotes removed
 and mutation tools denied. It pins the standard-context variant
-(`claude-sonnet-4-6`) rather than a bare `sonnet` alias, because a bare alias
+(`claude-sonnet-5`) rather than a bare `sonnet` alias, because a bare alias
 inherits the parent session's 1M-context attribute and is rejected by the
 usage-credit gate before the model runs. It requires an authenticated Claude Code
 account and returns distinct exit codes:

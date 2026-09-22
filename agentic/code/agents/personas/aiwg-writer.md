@@ -8,7 +8,7 @@ triggers:
   - select a writing identity
   - soul for docs
   - persona
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 tools:
   - Read
   - Write

@@ -49,11 +49,11 @@ Models are defined in `models.json` files with the following priority:
 
   "claude": {
     "reasoning": {
-      "model": "claude-opus-4-7",
+      "model": "claude-opus-5",
       "description": "Best for complex reasoning, architecture design"
     },
     "coding": {
-      "model": "claude-sonnet-4-6",
+      "model": "claude-sonnet-5",
       "description": "Best for code generation, implementation"
     },
     "efficiency": {
@@ -87,8 +87,8 @@ Models are defined in `models.json` files with the following priority:
   },
 
   "shorthand": {
-    "opus": "claude-opus-4-7",
-    "sonnet": "claude-sonnet-4-6",
+    "opus": "claude-opus-5",
+    "sonnet": "claude-sonnet-5",
     "haiku": "claude-haiku-4-5",
     "inherit": "inherit"
   }
@@ -102,8 +102,8 @@ Claude-family identifiers consistently:
 
 | Canonical family | Role | Recognized examples |
 |---|---|---|
-| Opus | reasoning | `opus`, `claude-opus-4-7`, `anthropic/claude-opus-4-6` |
-| Sonnet | coding | `sonnet`, `claude-sonnet-4-6`, `anthropic/claude-sonnet-4-6` |
+| Opus | reasoning | `opus`, `claude-opus-5`, `anthropic/claude-opus-5` |
+| Sonnet | coding | `sonnet`, `claude-sonnet-5`, `anthropic/claude-sonnet-5` |
 | Haiku | efficiency | `haiku`, `claude-haiku-4-5`, `anthropic/claude-haiku-4-5` |
 
 An explicit identifier outside a recognized family remains `unknown`. Role
@@ -112,8 +112,8 @@ transforms preserve it instead of rewriting it as a coding model. Omitted model
 metadata retains the legacy coding default during deployment.
 
 Claude deployments compile bare aliases by default. A source agent that says
-`model: sonnet` deploys to `.claude/agents/` as `model: claude-sonnet-4-6` (the
-`claude.coding.model` tier in `models.json`; `opus` → `claude-opus-4-7`,
+`model: sonnet` deploys to `.claude/agents/` as `model: claude-sonnet-5` (the
+`claude.coding.model` tier in `models.json`; `opus` → `claude-opus-5`,
 `haiku` → `claude-haiku-4-5`). A bare alias would otherwise inherit the parent
 session's variant, and under a 1M-context parent every subagent dispatch then
 hits the usage-credit gate (#1442, #2563). Source frontmatter stays
@@ -228,9 +228,9 @@ Create `models.json` in your project root:
 ```json
 {
   "factory": {
-    "reasoning": { "model": "claude-sonnet-4-6" },
-    "coding": { "model": "claude-sonnet-4-6" },
-    "efficiency": { "model": "claude-sonnet-4-6" }
+    "reasoning": { "model": "claude-sonnet-5" },
+    "coding": { "model": "claude-sonnet-5" },
+    "efficiency": { "model": "claude-sonnet-5" }
   }
 }
 ```
@@ -241,7 +241,7 @@ Create `models.json` in your project root:
 {
   "factory": {
     "reasoning": { "model": "claude-opus-custom-finetuned" },
-    "coding": { "model": "claude-sonnet-4-6" },
+    "coding": { "model": "claude-sonnet-5" },
     "efficiency": { "model": "claude-haiku-4-5" }
   }
 }
@@ -271,13 +271,13 @@ mkdir -p ~/.config/aiwg
 cat > ~/.config/aiwg/models.json <<'EOF'
 {
   "factory": {
-    "reasoning": { "model": "claude-opus-4-7" },
-    "coding": { "model": "claude-sonnet-4-6" },
+    "reasoning": { "model": "claude-opus-5" },
+    "coding": { "model": "claude-sonnet-5" },
     "efficiency": { "model": "claude-haiku-4-5" }
   },
   "shorthand": {
-    "opus": "claude-opus-4-7",
-    "sonnet": "claude-sonnet-4-6",
+    "opus": "claude-opus-5",
+    "sonnet": "claude-sonnet-5",
     "haiku": "claude-haiku-4-5"
   }
 }

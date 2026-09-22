@@ -3,7 +3,7 @@ description: Package, version, and backup research artifacts following OAIS stan
 category: research-management
 argument-hint: [--version <tag>] [--format <type>] [--destination <path>]
 allowed-tools: Bash, Read, Write, Glob
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Research Archive Command

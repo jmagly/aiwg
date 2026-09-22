@@ -84,7 +84,7 @@ aiwg -deploy-agents --provider factory \
 ---
 name: agent-name
 description: Brief agent description
-model: claude-sonnet-4-6|claude-opus-4-7|claude-haiku-4-5  # Pin variant. Bare aliases inherit parent-context attributes — under a 1M-context parent (`claude-opus-4-7[1m]`), subagent dispatch hits the usage-credit gate. See aiwg #1442.
+model: claude-sonnet-5|claude-opus-5|claude-haiku-4-5  # Pin variant. Bare aliases inherit parent-context attributes — under a 1M-context parent (`claude-opus-5[1m]`), subagent dispatch hits the usage-credit gate. See aiwg #1442.
 tools: Read, Write, MultiEdit, Bash, WebFetch, Glob, Grep
 orchestration: true|false
 category: sdlc-setup|sdlc-orchestration|sdlc-management|...
@@ -97,7 +97,7 @@ category: sdlc-setup|sdlc-orchestration|sdlc-management|...
 
 ### Model Variant Pinning (CRITICAL)
 
-Always pin a specific model variant in agent/skill/command frontmatter. Bare aliases (`sonnet`, `opus`, `haiku`) are resolved by the parent platform session. When the parent runs on a 1M-context variant such as `claude-opus-4-7[1m]`, the alias resolution inherits 1M-context attributes and any subagent dispatch hits the credit-gated path:
+Always pin a specific model variant in agent/skill/command frontmatter. Bare aliases (`sonnet`, `opus`, `haiku`) are resolved by the parent platform session. When the parent runs on a 1M-context variant such as `opus[1m]`, the alias resolution inherits 1M-context attributes and any subagent dispatch hits the credit-gated path:
 
 ```
 API Error: Usage credits required for 1M context · run /usage-credits to turn them on, or /model to switch to standard context
@@ -107,8 +107,8 @@ Use the pinned 500K-context variants for AIWG agents:
 
 | Bare alias (forbidden) | Pinned variant (required) | Notes |
 |---|---|---|
-| `model: sonnet` | `model: claude-sonnet-4-6` | Default balanced workhorse |
-| `model: opus` | `model: claude-opus-4-7` | Complex reasoning (non-1M) |
+| `model: sonnet` | `model: claude-sonnet-5` | Default balanced workhorse |
+| `model: opus` | `model: claude-opus-5` | Complex reasoning (non-1M) |
 | `model: haiku` | `model: claude-haiku-4-5` | Fast/simple tasks |
 
 `aiwg doctor` flags any agent/skill/command frontmatter using a bare alias.

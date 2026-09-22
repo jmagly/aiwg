@@ -144,7 +144,7 @@ tools: Read, Write
 name = "agent-name"
 description = "Agent description"
 developer_instructions = "[Content]"
-model = "gpt-5.4-mini"
+model = "gpt-5.6-luna"
 model_reasoning_effort = "low"
 ```
 

@@ -10,7 +10,7 @@ description: Brief description of what this command does (keep under 80 characte
 category: category-name
 argument-hint: <expected-arguments>
 allowed-tools: Read, Write, Bash, Grep, Glob
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # [Command Name]
@@ -128,8 +128,8 @@ This command succeeds when:
 # variant, which under a 1M-context parent triggers the usage-credit gate
 # and blocks subagent dispatch. See aiwg #1442.
 model: claude-haiku-4-5      # For simple, fast operations
-model: claude-sonnet-4-6     # For balanced tasks (recommended default)
-model: claude-opus-4-7       # For complex reasoning tasks
+model: claude-sonnet-5     # For balanced tasks (recommended default)
+model: claude-opus-5       # For complex reasoning tasks
 
 # Tool selection based on needs
 allowed-tools: Read                    # Read-only commands

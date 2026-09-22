@@ -3,7 +3,7 @@ description: Rebuild the local issue index from canonical .aiwg/issues/items mar
 category: project-management
 argument-hint: "rebuild [--json] [--provider local]"
 allowed-tools: Bash, Read, Write
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Issue Index

@@ -27,7 +27,7 @@ describe('provider model registry', () => {
     const catalog = loadProviderModelCatalog();
     expect(catalog.version).toBe('1.0.0');
     expect(catalog.staleAfterDays).toBeGreaterThan(0);
-    expect(catalog.providers.codex.roles.coding.id).toBe('gpt-5.5');
+    expect(catalog.providers.codex.roles.coding.id).toBe('gpt-5.6-terra');
   });
 });
 describe('project/user model config validation', () => {
@@ -64,7 +64,7 @@ describe('provider-aware compilation', () => {
     const result = compileModelPolicy({ provider: 'codex', artifact: 'agent', policy });
     expect(result.outcome).toBe('native');
     expect(result.fields).toEqual({
-      model: 'gpt-5.4-mini',
+      model: 'gpt-5.6-luna',
       model_reasoning_effort: 'low',
     });
   });

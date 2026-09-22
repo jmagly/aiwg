@@ -12,7 +12,7 @@ The agent Markdown format in this repository is fully compatible with Factory AI
 ---
 name: architecture-designer
 description: Designs scalable, maintainable system architectures
-model: claude-opus-4-7
+model: claude-opus-5
 ---
 
 [System prompt...]
@@ -24,7 +24,7 @@ model: claude-opus-4-7
 ---
 name: Architecture Designer
 description: Designs scalable, maintainable system architectures and makes critical technical decisions for software projects
-model: claude-opus-4-6
+model: claude-opus-5
 tools: ["Read", "LS", "Grep", "Glob", "Edit", "Create", "Execute"]
 ---
 
@@ -78,9 +78,9 @@ Override model mappings if needed:
 
 ```bash
 aiwg -deploy-agents --provider factory --mode sdlc \
-  --reasoning-model claude-opus-4-6 \
-  --coding-model claude-sonnet-4-6 \
-  --efficiency-model claude-haiku-3-5
+  --reasoning-model claude-opus-5 \
+  --coding-model claude-sonnet-5 \
+  --efficiency-model claude-haiku-4-5
 ```
 
 ### Global (Personal) Deployment
@@ -143,7 +143,7 @@ Factory uses Anthropic's tool naming conventions. AIWG maps Claude Code tools to
 ---
 name: Architecture Designer
 description: Designs scalable, maintainable system architectures
-model: claude-opus-4-7
+model: claude-opus-5
 tools: Bash, Glob, Grep, MultiEdit, Read, WebFetch, Write
 ---
 ```
@@ -153,7 +153,7 @@ tools: Bash, Glob, Grep, MultiEdit, Read, WebFetch, Write
 ---
 name: Architecture Designer
 description: Designs scalable, maintainable system architectures
-model: claude-opus-4-6
+model: claude-opus-5
 tools: ["ApplyPatch", "Create", "Edit", "Execute", "FetchUrl", "Glob", "Grep", "MultiEdit", "Read", "Task", "TodoWrite", "WebSearch"]
 ---
 ```

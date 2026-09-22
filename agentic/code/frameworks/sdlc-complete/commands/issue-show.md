@@ -3,7 +3,7 @@ description: Show a local issue and its event thread under .aiwg/issues/
 category: project-management
 argument-hint: "<issue-id> [--comments last:10|all] [--json] [--provider local]"
 allowed-tools: Bash, Read
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Issue Show

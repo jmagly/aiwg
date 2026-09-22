@@ -91,7 +91,7 @@ ${loopState.completionCriteria}
 
 ### Configuration
 - Max Iterations: ${loopState.maxIterations}
-- Model: ${loopState.config?.model || 'claude-sonnet-4-6'}
+- Model: ${loopState.config?.model || 'claude-sonnet-5'}
 - Budget/Iteration: $${loopState.config?.budgetPerIteration || 5.0}
 
 ---

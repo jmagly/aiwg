@@ -104,8 +104,13 @@ $defs:
         type: string
         enum:
           - claude-haiku-4-5
+          - claude-sonnet-5
+          - claude-opus-5
           - claude-sonnet-4-6
           - claude-opus-4-6
+          - gpt-5.6-luna
+          - gpt-5.6-terra
+          - gpt-5.6-sol
           - gpt-4o
           - gpt-4o-mini
         description: "Model for this step"

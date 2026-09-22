@@ -11,15 +11,16 @@
 # Model Selection
 ################################################################################
 
-# Primary model for Codex sessions
-# Options: gpt-5.3-codex (most capable), codex-mini-latest (default, cost-effective),
-#          gpt-5-codex-mini (4x more usage)
-model = "codex-mini-latest"
+# Primary model for Codex sessions (cost-effective default: the cheapest capable tier)
+# Options: gpt-5.6-luna (economy), gpt-5.6-terra (standard, default),
+#          gpt-5.6-sol (premium). gpt-6-astra is the flagship: select it
+#          explicitly only for exceptional work.
+model = "gpt-5.6-terra"
 
-# Model for /review command (use most capable for thorough code review)
-review_model = "gpt-5.3-codex"
+# Model for /review command (premium tier for thorough code review)
+review_model = "gpt-5.6-sol"
 
-# Reasoning effort: minimal | low | medium | high | xhigh
+# Reasoning effort: low | medium | high | xhigh | max | ultra (support varies by model)
 model_reasoning_effort = "medium"
 
 ################################################################################
@@ -105,28 +106,28 @@ enabled = true
 
 # AIWG SDLC profile - full autonomy for development
 [profiles.aiwg-sdlc]
-model = "gpt-5.3-codex"
+model = "gpt-5.6-terra"
 model_reasoning_effort = "high"
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 
 # Cost-effective development profile
 [profiles.aiwg-dev]
-model = "codex-mini-latest"
+model = "gpt-5.6-luna"
 model_reasoning_effort = "medium"
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 
 # Read-only analysis profile
 [profiles.aiwg-readonly]
-model = "gpt-5-codex-mini"
+model = "gpt-5.6-luna"
 model_reasoning_effort = "medium"
 approval_policy = "on-request"
 sandbox_mode = "read-only"
 
 # Full autonomy profile (use with caution)
 [profiles.aiwg-auto]
-model = "gpt-5.3-codex"
+model = "gpt-5.6-terra"
 model_reasoning_effort = "high"
 approval_policy = "never"
 sandbox_mode = "workspace-write"

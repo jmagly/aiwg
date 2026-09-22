@@ -3,7 +3,7 @@ description: List local issues under .aiwg/issues/
 category: project-management
 argument-hint: "[--status open|closed] [--label name] [--limit N] [--json] [--provider local]"
 allowed-tools: Bash, Read
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Issue List

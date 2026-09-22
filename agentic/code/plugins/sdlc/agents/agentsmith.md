@@ -62,7 +62,7 @@ Create the agent markdown file with YAML frontmatter:
 ---
 name: Agent Name
 description: Brief description of agent purpose
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 memory: project
 tools: Read, Write, Glob, Grep
 category: {category}

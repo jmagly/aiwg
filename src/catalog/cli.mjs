@@ -266,7 +266,7 @@ Options (list):
 Examples:
   aiwg catalog list
   aiwg catalog list --provider anthropic
-  aiwg catalog info claude-opus-4-6
+  aiwg catalog info claude-opus-5
   aiwg catalog search opus`);
 }
 

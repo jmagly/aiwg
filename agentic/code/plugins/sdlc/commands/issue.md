@@ -3,7 +3,7 @@ description: Operate local file-system issues under .aiwg/issues/
 category: project-management
 argument-hint: "init|new|list|show|comment|close|index rebuild [options]"
 allowed-tools: Bash, Read, Write
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Issue

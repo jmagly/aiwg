@@ -7,7 +7,7 @@ triggers:
   - capability finder identity
   - select a finder persona
   - persona
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 tools:
   - Bash
   - Read

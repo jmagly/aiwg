@@ -192,9 +192,9 @@ Agent loops can target different CLI providers via `--provider`. Each provider m
 
 | AIWG Model | Claude | Codex |
 |------------|--------|-------|
-| `opus` | claude-opus-4-6 | gpt-5.3-codex |
-| `sonnet` | claude-sonnet-4-5 | codex-mini-latest |
-| `haiku` | claude-haiku-4-5 | gpt-5-codex-mini |
+| `opus` | claude-opus-5 | gpt-5.6-sol |
+| `sonnet` | claude-sonnet-5 | gpt-5.6-terra |
+| `haiku` | claude-haiku-4-5 | gpt-5.6-luna |
 
 ```bash
 # Run with Codex instead of Claude

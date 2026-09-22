@@ -247,7 +247,7 @@ Summary: Security and code quality checks performed. All critical issues address
 ```yaml
 review_metadata:
   reviewer: human-name
-  ai_assistant: claude-opus-4.6
+  ai_assistant: claude-opus-5
   session_url: https://claude.ai/session/abc123
   date: 2026-02-06
 ```

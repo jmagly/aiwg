@@ -24,7 +24,7 @@ describe('validate:claude-context', () => {
     expect(modelIndex).toBeGreaterThan(-1);
     // Bare aliases (sonnet/opus/haiku) inherit the parent 1M-context attribute and
     // hit the usage-credit gate on 1M accounts; the harness must pin the standard variant.
-    expect(args[modelIndex + 1]).toBe('claude-sonnet-4-6');
+    expect(args[modelIndex + 1]).toBe('claude-sonnet-5');
   });
 
   it('classifies missing Claude authentication', () => {

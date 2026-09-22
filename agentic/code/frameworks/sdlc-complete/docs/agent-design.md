@@ -385,7 +385,7 @@ Every agent should log:
 ---
 name: [Agent Name]
 description: [One sentence describing single responsibility]
-model: [claude-haiku-4-5|claude-sonnet-4-6|claude-opus-4-7]  # Pin variant; bare aliases inherit parent context. See #1442.
+model: [claude-haiku-4-5|claude-sonnet-5|claude-opus-5]  # Pin variant; bare aliases inherit parent context. See #1442.
 tools: [Minimal tool list, 0-3 preferred]
 ---
 

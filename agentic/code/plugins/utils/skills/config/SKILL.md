@@ -81,7 +81,7 @@ When triggered:
    | Key | Type | Description |
    |-----|------|-------------|
    | `defaultProvider` | string | Active provider (e.g., `claude-code`, `copilot`) |
-   | `defaultModel` | string | Model override (e.g., `claude-opus-4-5`) |
+   | `defaultModel` | string | Model override (e.g., `claude-opus-5`) |
    | `telemetry` | boolean | Usage telemetry opt-in |
    | `updateChannel` | string | `stable`, `next`, or `nightly` |
    | `configDir` | string | Custom config directory path |

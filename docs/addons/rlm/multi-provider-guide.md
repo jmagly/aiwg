@@ -26,14 +26,14 @@ Based on `agentic/code/frameworks/sdlc-complete/config/models.json`:
 
 | Provider | opus → | sonnet → | haiku → |
 |----------|--------|----------|---------|
-| **Claude** | claude-opus-4-6 | claude-sonnet-4-6 | claude-haiku-3-5 |
-| **OpenAI/Codex** | gpt-5.3-codex | codex-mini-latest | gpt-5-codex-mini |
-| **Factory** | claude-opus-4-6 | claude-sonnet-4-6 | claude-haiku-3-5 |
+| **Claude** | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5 |
+| **OpenAI/Codex** | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna |
+| **Factory** | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5 |
 | **Copilot** | gpt-4-turbo | gpt-4 | gpt-3.5-turbo |
 | **Cursor** | claude-opus-latest | claude-sonnet-latest | claude-haiku-latest |
 | **OpenCode** | provider-default | provider-default | provider-default |
 | **Warp** | claude-opus-latest | claude-sonnet-latest | claude-haiku-latest |
-| **Windsurf** | claude-opus-4-6 | claude-sonnet-4-6 | claude-haiku-3-5 |
+| **Windsurf** | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5-20251001 |
 
 ### Root Model vs Sub-Call Model Selection
 
@@ -147,7 +147,7 @@ claude -p -m "opus" -- aiwg rlm-query "Analyze auth module" --sub-model sonnet
 
 **Invocation**:
 ```bash
-codex -q "Analyze auth module" --model gpt-5.3-codex --sub-model codex-mini-latest
+codex -q "Analyze auth module" --model gpt-5.6-sol --sub-model gpt-5.6-terra
 ```
 
 **Model selection**:
@@ -155,9 +155,9 @@ codex -q "Analyze auth module" --model gpt-5.3-codex --sub-model codex-mini-late
 - Sub-calls: `--sub-model` flag
 
 **Output token limits**:
-- gpt-5.3-codex: 4K output tokens
-- codex-mini-latest: 4K output tokens
-- gpt-5-codex-mini: 4K output tokens
+- gpt-5.6-sol: 4K output tokens
+- gpt-5.6-terra: 4K output tokens
+- gpt-5.6-luna: 4K output tokens
 
 **Cost comparison** (Feb 2026):
 - gpt-5.3-codex: $15/1M input (same as Claude Opus)
@@ -188,7 +188,7 @@ gh copilot --model gpt-4-turbo --sub-model gpt-3.5-turbo
 
 **Invocation**:
 ```bash
-factory-ai --model claude-opus-4-6 --sub-model claude-sonnet-4-6
+factory-ai --model claude-opus-5 --sub-model claude-sonnet-5
 ```
 
 **Model selection**: Uses full Claude model identifiers.
@@ -227,7 +227,7 @@ warp-agent --model opus --sub-model sonnet
 
 **Invocation**:
 ```bash
-windsurf --model claude-opus-4-6 --sub-model claude-sonnet-4-6
+windsurf --model claude-opus-5 --sub-model claude-sonnet-5
 ```
 
 **Notes**: Windsurf uses Claude models via API (experimental support).
@@ -302,14 +302,14 @@ This applies limits regardless of model, preventing over-segmentation.
 export RLM_ROOT_PROVIDER=claude
 export RLM_ROOT_MODEL=opus
 export RLM_SUB_PROVIDER=openai
-export RLM_SUB_MODEL=codex-mini-latest
+export RLM_SUB_MODEL=gpt-5.6-terra
 
 # Execute RLM task
 aiwg rlm-query "Analyze 100 research papers" \
   --provider claude \
   --model opus \
   --sub-provider openai \
-  --sub-model codex-mini-latest
+  --sub-model gpt-5.6-terra
 ```
 
 **Root on Codex, Sub-calls on Claude**:
@@ -317,7 +317,7 @@ aiwg rlm-query "Analyze 100 research papers" \
 ```bash
 aiwg rlm-query "Generate API documentation" \
   --provider openai \
-  --model gpt-5.3-codex \
+  --model gpt-5.6-sol \
   --sub-provider claude \
   --sub-model sonnet
 ```
@@ -560,9 +560,9 @@ aiwg rlm-query "Analyze codebase" --sub-model haiku
 # Override for this session: OpenAI GPT-5.3 → Codex Mini
 
 export RLM_ROOT_PROVIDER=openai
-export RLM_ROOT_MODEL=gpt-5.3-codex
+export RLM_ROOT_MODEL=gpt-5.6-sol
 export RLM_SUB_PROVIDER=openai
-export RLM_SUB_MODEL=codex-mini-latest
+export RLM_SUB_MODEL=gpt-5.6-terra
 
 # Execute (uses environment overrides)
 aiwg rlm-query "Test task decomposition"
@@ -613,7 +613,7 @@ unset RLM_ROOT_PROVIDER RLM_ROOT_MODEL RLM_SUB_PROVIDER RLM_SUB_MODEL
 3. **Output token limit** (for detailed decomposition plan)
 4. **Cost** (secondary for root, only one call)
 
-**Recommendation**: Claude Opus or OpenAI GPT-5.3-Codex (both $15/1M input, excellent reasoning).
+**Recommendation**: Claude Opus or OpenAI gpt-5.6-sol ($5/1M and $4/1M input respectively, excellent reasoning).
 
 ### Choosing Sub-Call Provider/Model
 
@@ -623,7 +623,7 @@ unset RLM_ROOT_PROVIDER RLM_ROOT_MODEL RLM_SUB_PROVIDER RLM_SUB_MODEL
 3. **Quality** (must be adequate for sub-task)
 4. **API rate limits** (for parallel sub-calls)
 
-**Recommendation**: OpenAI codex-mini-latest ($1.50/1M input) for cost, Claude Sonnet ($3/1M input) for balance.
+**Recommendation**: OpenAI gpt-5.6-terra ($2/1M input) for cost, Claude Sonnet ($2/1M input) for balance.
 
 ### When to Use Mixed Providers
 
@@ -667,7 +667,7 @@ aiwg rlm-status --config
 unset RLM_SUB_MODEL RLM_SUB_PROVIDER
 
 # Or specify explicitly
-aiwg rlm-query "task" --sub-model codex-mini-latest
+aiwg rlm-query "task" --sub-model gpt-5.6-terra
 ```
 
 ### Issue: Output truncation on sub-agents
@@ -680,7 +680,7 @@ aiwg rlm-query "task" --sub-model codex-mini-latest
 
 ```bash
 # Before (OpenAI, 4K output limit)
-aiwg rlm-query "task" --sub-provider openai --sub-model codex-mini-latest
+aiwg rlm-query "task" --sub-provider openai --sub-model gpt-5.6-terra
 
 # After (Claude, 16K output limit)
 aiwg rlm-query "task" --sub-provider claude --sub-model haiku

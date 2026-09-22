@@ -205,7 +205,7 @@ examples:
       RETRY_EXTRACT:
         type: llm
         prompt: prompts/extract-retry.prompt.md
-        model: claude-sonnet-4-6
+        model: claude-sonnet-5
         max_tokens: 512
         description: "Retry extraction with stronger model and refined prompt"
         output_key: extracted

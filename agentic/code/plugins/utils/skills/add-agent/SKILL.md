@@ -89,7 +89,7 @@ The generated agent file requires population of these sections:
 ---
 name: <name>
 description: <one-sentence purpose>
-model: <claude-haiku-4-5|claude-sonnet-4-6|claude-opus-4-7>  # Pin specific variant; bare aliases (`sonnet`) inherit the parent session's 1M-context attributes and hit the usage-credit gate on subagent dispatch. See #1442.
+model: <claude-haiku-4-5|claude-sonnet-5|claude-opus-5>  # Pin specific variant; bare aliases (`sonnet`) inherit the parent session's 1M-context attributes and hit the usage-credit gate on subagent dispatch. See #1442.
 tools: <comma-separated tool list>
 category: <phase or domain>
 ---

@@ -8,7 +8,7 @@ triggers:
   - select an orchestration persona
   - persona
   - soul
-model: claude-opus-4-7
+model: claude-opus-5
 tools:
   - Task
   - Read

@@ -29,9 +29,9 @@ aiwg use sdlc
 
 # Override specific tiers for cost reduction
 aiwg use sdlc \
-  --reasoning-model claude-opus-4-6 \
-  --coding-model claude-sonnet-4-6 \
-  --efficiency-model claude-haiku-3-5
+  --reasoning-model claude-opus-5 \
+  --coding-model claude-sonnet-5 \
+  --efficiency-model claude-haiku-4-5
 
 # Preview without deploying
 aiwg use sdlc --dry-run
@@ -63,21 +63,21 @@ A cascade uses a fast, cheap model first and escalates to a more capable model o
 User request
     │
     ▼
-[Fast model: haiku/gpt-5-codex-mini]
+[Fast model: haiku/gpt-5.6-luna]
     │
     ├── Simple case detected → Return result directly
     │
     └── Complex case detected → Escalate
             │
             ▼
-        [Mid-tier: sonnet/codex-mini-latest]
+        [Mid-tier: sonnet/gpt-5.6-terra]
             │
             ├── Resolved → Return result
             │
             └── Requires deep reasoning → Escalate
                         │
                         ▼
-                [Premium: opus/gpt-5.3-codex]
+                [Premium: opus/gpt-5.6-sol]
                         │
                         └── Return final result
 ```
@@ -104,7 +104,7 @@ client = anthropic.Anthropic()
 def cascade_review(code: str) -> dict:
     # First pass: fast classification
     fast_response = client.messages.create(
-        model="claude-haiku-3-5",
+        model="claude-haiku-4-5",
         max_tokens=200,
         messages=[{
             "role": "user",
@@ -120,13 +120,13 @@ Code:
 
     if complexity == "simple":
         # Use haiku for the full review
-        model = "claude-haiku-3-5"
+        model = "claude-haiku-4-5"
     elif complexity == "medium":
         # Escalate to sonnet
-        model = "claude-sonnet-4-6"
+        model = "claude-sonnet-5"
     else:
         # Escalate to opus for complex cases
-        model = "claude-opus-4-6"
+        model = "claude-opus-5"
 
     review_response = client.messages.create(
         model=model,
@@ -208,7 +208,7 @@ def normalize_outputs(outputs: list[str]) -> str:
     combined = "\n\n---\n\n".join(outputs)
 
     return client.messages.create(
-        model="claude-haiku-3-5",  # Cheap normalization pass
+        model="claude-haiku-4-5",  # Cheap normalization pass
         messages=[{
             "role": "user",
             "content": f"""Merge these review outputs into a single report.
@@ -371,9 +371,9 @@ Orchestrator (Claude Code, opus)
     │
     ├── Batch extraction tasks → Ollama llama3.2:3b (local, haiku-tier)
     │
-    ├── Code review sub-agents → codex-mini-latest (Codex provider)
+    ├── Code review sub-agents → gpt-5.6-luna (Codex provider)
     │
-    └── Security review → claude-opus-4-6 (Claude provider)
+    └── Security review → claude-opus-5 (Claude provider)
 ```
 
 This requires deploying AIWG to multiple providers and configuring environment-based routing.
@@ -389,14 +389,14 @@ For teams using Claude Code exclusively:
 ```json
 {
   "claude": {
-    "reasoning": { "model": "claude-opus-4-6" },
-    "coding": { "model": "claude-sonnet-4-6" },
-    "efficiency": { "model": "claude-haiku-3-5" }
+    "reasoning": { "model": "claude-opus-5" },
+    "coding": { "model": "claude-sonnet-5" },
+    "efficiency": { "model": "claude-haiku-4-5" }
   },
   "shorthand": {
-    "opus": "claude-opus-4-6",
-    "sonnet": "claude-sonnet-4-6",
-    "haiku": "claude-haiku-3-5"
+    "opus": "claude-opus-5",
+    "sonnet": "claude-sonnet-5",
+    "haiku": "claude-haiku-4-5"
   }
 }
 ```
@@ -408,9 +408,9 @@ Routing efficiency tasks to local models, keeping reasoning on Claude:
 ```json
 {
   "claude": {
-    "reasoning": { "model": "claude-opus-4-6" },
-    "coding": { "model": "claude-sonnet-4-6" },
-    "efficiency": { "model": "claude-haiku-3-5" }
+    "reasoning": { "model": "claude-opus-5" },
+    "coding": { "model": "claude-sonnet-5" },
+    "efficiency": { "model": "claude-haiku-4-5" }
   },
   "openai": {
     "reasoning": { "model": "llama3.3:70b" },
@@ -448,14 +448,14 @@ Minimizing spend while keeping cloud convenience:
 ```json
 {
   "openai": {
-    "reasoning": { "model": "gpt-5.3-codex" },
-    "coding": { "model": "codex-mini-latest" },
-    "efficiency": { "model": "gpt-5-codex-mini" }
+    "reasoning": { "model": "gpt-5.6-terra" },
+    "coding": { "model": "gpt-5.6-luna" },
+    "efficiency": { "model": "gpt-5.6-luna" }
   },
   "shorthand": {
-    "opus": "gpt-5.3-codex",
-    "sonnet": "codex-mini-latest",
-    "haiku": "gpt-5-codex-mini"
+    "opus": "gpt-5.6-terra",
+    "sonnet": "gpt-5.6-luna",
+    "haiku": "gpt-5.6-luna"
   }
 }
 ```

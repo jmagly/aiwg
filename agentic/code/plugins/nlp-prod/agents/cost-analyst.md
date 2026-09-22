@@ -34,8 +34,8 @@ Fetch current pricing from Anthropic documentation if needed. Apply these defaul
 | Model | Tier | Relative cost | Quality |
 |-------|------|--------------|---------|
 | claude-haiku-4-5 | Fast | ~1x | Strong for structured extraction, classification |
-| claude-sonnet-4-6 | Balanced | ~5x | Complex reasoning, multi-step analysis |
-| claude-opus-4-6 | Reasoning | ~15x | Hardest tasks only |
+| claude-sonnet-5 | Balanced | ~2x | Complex reasoning, multi-step analysis |
+| claude-opus-5 | Reasoning | ~5x | Hardest tasks only |
 
 **Upgrade trigger**: Move up a tier only when eval pass rate on haiku is <80% for the specific task. Always verify via eval, not assumption.
 

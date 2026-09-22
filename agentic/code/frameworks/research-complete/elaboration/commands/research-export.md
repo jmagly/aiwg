@@ -3,7 +3,7 @@ description: Export research artifacts in multiple formats (BibTeX, Obsidian, Zo
 category: research-management
 argument-hint: <format> [--destination <path>]
 allowed-tools: Bash, Read, Write
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Research Export Command

@@ -167,14 +167,14 @@ function loadModelConfig(srcRoot) {
   // Fallback to hardcoded defaults
   return {
     windsurf: {
-      reasoning: { model: 'claude-opus-4-6' },
-      coding: { model: 'claude-sonnet-4-6' },
-      efficiency: { model: 'claude-haiku-3-5' }
+      reasoning: { model: 'claude-opus-5' },
+      coding: { model: 'claude-sonnet-5' },
+      efficiency: { model: 'claude-haiku-4-5' }
     },
     shorthand: {
-      opus: 'claude-opus-4-6',
-      sonnet: 'claude-sonnet-4-6',
-      haiku: 'claude-haiku-3-5'
+      opus: 'claude-opus-5',
+      sonnet: 'claude-sonnet-5',
+      haiku: 'claude-haiku-4-5'
     },
     _source: 'built-in defaults'
   };

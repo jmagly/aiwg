@@ -196,7 +196,7 @@ Each expert should produce:
 ```yaml
 name: consortium-coordinator
 description: Coordinates multi-agent consensus decisions
-model: claude-opus-4-7
+model: claude-opus-5
 tools:
   - Task
   - Read

@@ -3,7 +3,7 @@ description: Address selected issues via the address-issues skill (auto-detects 
 category: project-management
 argument-hint: "<issue-id...> [--all-open] [--limit N] [--guidance \"...\"]"
 allowed-tools: Bash, Read, Write, Edit
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Address Issues

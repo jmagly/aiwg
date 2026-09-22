@@ -178,12 +178,16 @@ describe('loadModelConfig', () => {
     const config = loadModelConfig(repoRoot);
     // A bare alias inherits a 1M-context parent and subagent dispatch then
     // hits the usage-credit gate (#1442); the defaults are pinned variants.
-    expect(config.claude.reasoning.model).toBe('claude-opus-4-7');
-    expect(config.claude.coding.model).toBe('claude-sonnet-4-6');
+    expect(config.claude.reasoning.model).toBe('claude-opus-5');
+    expect(config.claude.coding.model).toBe('claude-sonnet-5');
     expect(config.claude.efficiency.model).toBe('claude-haiku-4-5');
     expect(config.claude_shorthand.sonnet).toBe('sonnet');
     expect(config.claude_shorthand['sonnet-1m']).toBe('sonnet[1m]');
-    expect(config.shorthand.sonnet).toBe('claude-sonnet-4-6');
+    expect(config.shorthand.sonnet).toBe('claude-sonnet-5');
+    // Flagship is resolvable only by explicit election, never as a role default.
+    expect(config.shorthand.fable).toBe('claude-fable-5-1');
+    expect(Object.values(config.claude).map((role: { model: string }) => role.model))
+      .not.toContain('claude-fable-5-1');
   });
 
   it('should tag config with _source', () => {

@@ -4,7 +4,7 @@
   "title": "AIWG MMK Model Configuration",
   "description": "Default model mappings for AIWG Media Marketing Kit framework deployment. Users can customize these values for their specific needs.",
   "version": "1.0.0",
-  "lastUpdated": "2026-02-03",
+  "lastUpdated": "2026-09-21",
 
   "claude": {
     "reasoning": {
@@ -23,38 +23,38 @@
 
   "factory": {
     "reasoning": {
-      "model": "claude-opus-4-6",
+      "model": "claude-opus-5",
       "description": "Factory AI uses full Claude model identifiers"
     },
     "coding": {
-      "model": "claude-sonnet-4-6",
+      "model": "claude-sonnet-5",
       "description": "Factory AI uses full Claude model identifiers"
     },
     "efficiency": {
-      "model": "claude-haiku-3-5",
+      "model": "claude-haiku-4-5",
       "description": "Factory AI uses full Claude model identifiers"
     }
   },
 
   "openai": {
     "reasoning": {
-      "model": "gpt-5.4",
-      "description": "GPT-5.4 - Newest flagship for strategic planning (Mar 2026)"
+      "model": "gpt-5.6-sol",
+      "description": "GPT-5.6 Sol - Premium tier for strategic planning (GPT-6 Astra is flagship, user-elected only)"
     },
     "coding": {
-      "model": "gpt-5.3-codex",
-      "description": "GPT-5.3-Codex - Proven flagship for content generation"
+      "model": "gpt-5.6-terra",
+      "description": "GPT-5.6 Terra - Standard tier for content generation"
     },
     "efficiency": {
-      "model": "gpt-5.1-codex-mini",
-      "description": "GPT-5.1-Codex-Mini - Budget model for production tasks"
+      "model": "gpt-5.6-luna",
+      "description": "GPT-5.6 Luna - Economy tier for production tasks"
     }
   },
 
   "shorthand": {
-    "opus": "claude-opus-4-6",
-    "sonnet": "claude-sonnet-4-6",
-    "haiku": "claude-haiku-3-5",
+    "opus": "claude-opus-5",
+    "sonnet": "claude-sonnet-5",
+    "haiku": "claude-haiku-4-5",
     "inherit": "inherit"
   },
 

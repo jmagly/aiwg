@@ -4,7 +4,7 @@
   "title": "AIWG Model Configuration v2",
   "description": "Enhanced model configuration with tier system for AIWG SDLC framework",
   "version": "2.0.0",
-  "lastUpdated": "2025-12-12",
+  "lastUpdated": "2026-09-21",
 
   "defaults": {
     "tier": "standard",
@@ -40,7 +40,7 @@
       }
     },
     "max-quality": {
-      "description": "Best available models. Architecture, security, critical decisions.",
+      "description": "Flagship models (Fable/Astra class). User-elected only: never selected by default or by automatic escalation (epic #2642).",
       "costMultiplier": 10.0,
       "roleMapping": {
         "reasoning": "reasoning",
@@ -54,32 +54,32 @@
     "claude": {
       "models": {
         "reasoning": {
-          "default": "claude-opus-4-6",
-          "aliases": ["opus", "opus-4.5", "claude-opus"],
+          "default": "claude-opus-5",
+          "aliases": ["opus", "opus-5", "claude-opus"],
           "capabilities": ["long-context", "reasoning", "code-generation", "vision", "tool-use"],
-          "contextWindow": 200000,
-          "costPer1kTokens": { "input": 0.015, "output": 0.075 }
+          "contextWindow": 1000000,
+          "costPer1kTokens": { "input": 0.005, "output": 0.025 }
         },
         "coding": {
-          "default": "claude-sonnet-4-6",
-          "aliases": ["sonnet", "sonnet-4.5", "claude-sonnet"],
+          "default": "claude-sonnet-5",
+          "aliases": ["sonnet", "sonnet-5", "claude-sonnet"],
           "capabilities": ["code-generation", "reasoning", "vision", "tool-use"],
-          "contextWindow": 200000,
-          "costPer1kTokens": { "input": 0.003, "output": 0.015 }
+          "contextWindow": 1000000,
+          "costPer1kTokens": { "input": 0.002, "output": 0.010 }
         },
         "efficiency": {
-          "default": "claude-haiku-3-5",
-          "aliases": ["haiku", "haiku-3.5", "claude-haiku"],
+          "default": "claude-haiku-4-5",
+          "aliases": ["haiku", "haiku-4.5", "claude-haiku"],
           "capabilities": ["code-generation", "fast-response", "tool-use"],
           "contextWindow": 200000,
-          "costPer1kTokens": { "input": 0.00025, "output": 0.00125 }
+          "costPer1kTokens": { "input": 0.001, "output": 0.005 }
         }
       },
       "tierOverrides": {
         "max-quality": {
-          "reasoning": "claude-opus-4-6",
-          "coding": "claude-opus-4-6",
-          "efficiency": "claude-sonnet-4-6"
+          "reasoning": "claude-fable-5-1",
+          "coding": "claude-opus-5",
+          "efficiency": "claude-sonnet-5"
         }
       }
     },
@@ -87,34 +87,37 @@
     "openai": {
       "models": {
         "reasoning": {
-          "default": "gpt-5.4",
-          "aliases": ["gpt5.4", "openai-reasoning", "gpt-5.3-codex"],
+          "default": "gpt-5.6-sol",
+          "aliases": ["sol", "gpt5.6-sol", "openai-reasoning"],
           "capabilities": ["reasoning", "code-generation", "vision", "tool-use"],
-          "contextWindow": 272000
+          "contextWindow": 272000,
+          "costPer1kTokens": { "input": 0.004, "output": 0.020 }
         },
         "coding": {
-          "default": "gpt-5.5",
-          "aliases": ["codex", "openai-coding", "gpt5.5", "gpt5.3-codex"],
+          "default": "gpt-5.6-terra",
+          "aliases": ["terra", "codex", "openai-coding", "gpt5.6-terra"],
           "capabilities": ["code-generation", "reasoning", "tool-use"],
-          "contextWindow": 272000
+          "contextWindow": 272000,
+          "costPer1kTokens": { "input": 0.002, "output": 0.012 }
         },
         "efficiency": {
-          "default": "gpt-5.4-mini",
-          "aliases": ["gpt5.4-mini", "gpt5.1-codex-mini", "openai-fast", "codex-mini"],
+          "default": "gpt-5.6-luna",
+          "aliases": ["luna", "gpt5.6-luna", "openai-fast", "codex-mini"],
           "capabilities": ["fast-response", "code-generation"],
-          "contextWindow": 272000
+          "contextWindow": 272000,
+          "costPer1kTokens": { "input": 0.0002, "output": 0.0012 }
         }
       },
       "tierOverrides": {
         "max-quality": {
-          "reasoning": "gpt-5.4",
-          "coding": "gpt-5.4",
-          "efficiency": "gpt-5.5"
+          "reasoning": "gpt-6-astra",
+          "coding": "gpt-5.6-sol",
+          "efficiency": "gpt-5.6-terra"
         },
         "premium": {
-          "reasoning": "gpt-5.4",
-          "coding": "gpt-5.5",
-          "efficiency": "gpt-5.4-mini"
+          "reasoning": "gpt-5.6-sol",
+          "coding": "gpt-5.6-terra",
+          "efficiency": "gpt-5.6-luna"
         }
       }
     },
@@ -156,17 +159,17 @@
     "opencode": {
       "models": {
         "reasoning": {
-          "default": "anthropic:claude-sonnet-4-20250514",
+          "default": "anthropic/claude-opus-5",
           "aliases": ["opencode-reasoning"],
           "capabilities": ["reasoning", "code-generation"]
         },
         "coding": {
-          "default": "anthropic:claude-sonnet-4-20250514",
+          "default": "anthropic/claude-sonnet-5",
           "aliases": ["opencode-coding"],
           "capabilities": ["code-generation"]
         },
         "efficiency": {
-          "default": "anthropic:claude-haiku-3-5-20241022",
+          "default": "anthropic/claude-haiku-4-5",
           "aliases": ["opencode-fast"],
           "capabilities": ["fast-response"]
         }
@@ -284,12 +287,16 @@
   },
 
   "shorthand": {
-    "opus": "claude-opus-4-6",
-    "opus-4.1": "claude-opus-4-6",
-    "sonnet": "claude-sonnet-4-6",
+    "fable": "claude-fable-5-1",
+    "opus": "claude-opus-5",
+    "sonnet": "claude-sonnet-5",
     "sonnet-1m": "sonnet[1m]",
     "sonnet[1m]": "sonnet[1m]",
-    "haiku": "claude-haiku-3-5",
+    "haiku": "claude-haiku-4-5",
+    "astra": "gpt-6-astra",
+    "sol": "gpt-5.6-sol",
+    "terra": "gpt-5.6-terra",
+    "luna": "gpt-5.6-luna",
     "gpt5": "gpt-5",
     "gpt5.2": "gpt-5.2",
     "gpt4o": "gpt-4o",

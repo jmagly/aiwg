@@ -158,7 +158,7 @@ const server = new Server(
 async function executeDroid(prompt, options = {}) {
   const {
     autoLevel = 'medium',
-    model = 'claude-opus-4-6',
+    model = 'claude-sonnet-5',
     cwd = process.cwd(),
     timeout = 300000 // 5 minutes default
   } = options;
@@ -288,7 +288,7 @@ Autonomy levels:
             },
             model: {
               type: 'string',
-              default: 'claude-opus-4-6',
+              default: 'claude-sonnet-5',
               description: 'Model to use for Droid execution'
             },
             cwd: {

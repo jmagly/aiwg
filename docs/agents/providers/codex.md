@@ -20,10 +20,10 @@ OpenAI Codex is available across multiple interfaces:
 
 | Interface | Model Default | Best For |
 |-----------|---------------|----------|
-| **Codex CLI** | `gpt-5.3-codex` | Terminal-first development, automation |
-| **Codex App** (macOS) | `gpt-5.4` | Parallel agents, long-running tasks |
-| **Codex in Copilot** | `gpt-5.3-codex` | GitHub-integrated workflows |
-| **Codex API** | `gpt-5.3-codex` | Custom tooling, CI/CD integration |
+| **Codex CLI** | `gpt-5.6-terra` | Terminal-first development, automation |
+| **Codex App** (macOS) | `gpt-5.6-sol` | Parallel agents, long-running tasks |
+| **Codex in Copilot** | `gpt-5.6-terra` | GitHub-integrated workflows |
+| **Codex API** | `gpt-5.6-terra` | Custom tooling, CI/CD integration |
 
 ---
 
@@ -31,9 +31,9 @@ OpenAI Codex is available across multiple interfaces:
 
 | Model | Capability | Pricing | Notes |
 |-------|-----------|---------|-------|
-| **GPT-5.4** | Newest flagship | Premium tier | Priority 0, latest generation |
-| **GPT-5.3-Codex** | Proven flagship | Premium tier | Priority 0, combines Codex + GPT-5 stacks |
-| **GPT-5.1-Codex-Mini** | Budget | Free-tier compat | Listed, priority 12, cost-effective |
+| **GPT-5.6-Sol** | Newest flagship | Premium tier | Priority 0, latest generation |
+| **GPT-5.6-Terra** | Proven flagship | Premium tier | Priority 0, combines Codex + GPT-5 stacks |
+| **GPT-5.6-Luna** | Budget | Free-tier compat | Listed, priority 12, cost-effective |
 
 Switch models mid-session with `/model` or configure in `config.toml`.
 
@@ -190,17 +190,17 @@ cp $(npm root -g)/aiwg/agentic/code/frameworks/sdlc-complete/templates/codex/con
 
 ```toml
 # Model selection
-model = "gpt-5.3-codex"              # Default CLI model (proven flagship)
-review_model = "gpt-5.4"             # Most capable for /review
+model = "gpt-5.6-terra"              # Default CLI model (proven flagship)
+review_model = "gpt-5.6-sol"             # Most capable for /review
 
 # Profiles for different workflows
 [profiles.aiwg-sdlc]
-model = "gpt-5.4"
+model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
 approval_policy = "on-request"
 
 [profiles.aiwg-dev]
-model = "gpt-5.3-codex"
+model = "gpt-5.6-terra"
 model_reasoning_effort = "medium"
 ```
 
@@ -493,7 +493,7 @@ Manage CLI feature flags for experimental capabilities (e.g., `child_agents_md` 
 ### Model Switching
 
 ```text
-/model gpt-5.3-codex
+/model gpt-5.6-terra
 ```
 
 Switch models mid-session without restarting.
@@ -568,7 +568,7 @@ This is a separate capability from Codex consuming MCP tools (the sidecar patter
 codex exec --dangerously-bypass-approvals-and-sandbox "Perform AIWG security review"
 
 # With specific model
-codex exec --dangerously-bypass-approvals-and-sandbox --model gpt-5.3-codex "Fix failing tests"
+codex exec --dangerously-bypass-approvals-and-sandbox --model gpt-5.6-terra "Fix failing tests"
 ```
 
 ---
@@ -579,9 +579,9 @@ When AIWG deploys agents, model shorthands are mapped:
 
 | AIWG Shorthand | Codex Model | Use Case |
 |----------------|-------------|----------|
-| `opus` | `gpt-5.4` | Architecture, complex reasoning |
-| `sonnet` | `gpt-5.3-codex` | Code generation, implementation |
-| `haiku` | `gpt-5.1-codex-mini` | Quick tasks, file operations |
+| `opus` | `gpt-5.6-sol` | Architecture, complex reasoning |
+| `sonnet` | `gpt-5.6-terra` | Code generation, implementation |
+| `haiku` | `gpt-5.6-luna` | Quick tasks, file operations |
 
 ---
 
@@ -608,7 +608,7 @@ aiwg ralph-external "Migrate codebase to TypeScript" \
   --budget 5.0
 ```
 
-Model mapping: opus → gpt-5.4, sonnet → gpt-5.3-codex, haiku → gpt-5.1-codex-mini.
+Model mapping: opus → gpt-5.6-sol, sonnet → gpt-5.6-terra, haiku → gpt-5.6-luna.
 
 See [Al Guide](../ralph-guide.md) for full documentation.
 
@@ -636,9 +636,9 @@ Restart Codex after installing new skills.
 ```
 
 **Model not available?** Check your tier:
-- GPT-5.3-Codex requires Pro/Team plan
-- gpt-5.1-codex-mini available on all plans (including free tier)
-- GPT-5-Codex-Mini auto-offered at 90% usage
+- GPT-5.6-Terra requires Pro/Team plan
+- gpt-5.6-luna available on all plans (including free tier)
+- GPT-5.6-Luna auto-offered at 90% usage
 
 **Verify installation:**
 ```bash

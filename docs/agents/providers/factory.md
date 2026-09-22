@@ -148,7 +148,7 @@ Factory droids use Markdown + YAML frontmatter (same as AIWG agents):
 ---
 name: architecture-designer
 description: Designs scalable, maintainable system architectures
-model: claude-opus-4-6
+model: claude-opus-5
 reasoningEffort: high
 tools: ["Read", "LS", "Grep", "Glob", "Edit", "Create", "Execute", "Task", "TodoWrite"]
 ---
@@ -196,7 +196,7 @@ Factory supports per-droid model selection and reasoning effort:
 ```yaml
 ---
 name: deep-reviewer
-model: claude-opus-4-6
+model: claude-opus-5
 reasoningEffort: high
 tools: ["read-only"]
 ---

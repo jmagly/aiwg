@@ -3,7 +3,7 @@ description: Discover research papers via semantic search with automated gap ana
 category: research-management
 argument-hint: <query> [--preregister] [--citation-network] [--refine-from <session>] [--limit <count>]
 allowed-tools: Bash, Read, Write, Grep, Glob
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Research Discovery Command

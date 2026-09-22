@@ -37,12 +37,12 @@ function parseArgs(args) {
     objective: null,
     completionCriteria: null,
     maxIterations: 5,
-    // #1450 P0: explicit 500K-context variant. Was 'opus' — under a 1M-context
-    // parent (claude-opus-4-7[1m]) the bare alias inherits 1M attributes, and
-    // most Claude accounts (Pro, Team standard) lack 1M access. claude-sonnet-4-6
-    // is broadly available and dramatically cheaper for headless dispatch.
+    // #1450 P0: explicit pinned ID. Was 'opus' — under a 1M-context parent
+    // (opus[1m]) the bare alias inherits 1M attributes, and most Claude
+    // accounts (Pro, Team standard) lack 1M access. claude-sonnet-5 is the
+    // standard (cost-effective) tier and much cheaper for headless dispatch.
     // See also #1442 (skill frontmatter pinning) and agent-deployment rule.
-    model: 'claude-sonnet-4-6',
+    model: 'claude-sonnet-5',
     // #1450 P0: cache-creation cost alone for a fresh claude headless session
     // is ~$1.60 sonnet / ~$3.90 opus. $2.0 per-iter was smaller than the cache
     // creation itself, causing every mission to abort at iteration 1.
@@ -274,7 +274,7 @@ ARGUMENTS:
 OPTIONS:
   -c, --completion <str>  Completion criteria (required for new loop)
   --max-iterations <n>    Maximum external iterations (default: 5)
-  --model <model>         Claude model variant (default: claude-sonnet-4-6, 500K)
+  --model <model>         Claude model variant (default: claude-sonnet-5, pinned ID)
                           Bare aliases (sonnet/opus) inherit parent context;
                           pinning a specific variant is required for headless.
   --budget <usd>          Budget per iteration in USD (default: 5.0)

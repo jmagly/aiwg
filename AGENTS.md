@@ -27,3 +27,36 @@ skills, agents, rules, and commands across the installation.
 ---
 
 *See `AGENTS.override.md` for operator-authored additions.*
+
+---
+
+<!-- BEGIN AIWG-managed (auto-generated; edits between these markers are overwritten on redeploy) -->
+# AGENTS.md — Grok Build + AIWG
+
+This project uses AIWG with the experimental `grok-build` provider.
+
+## Discover AIWG capabilities
+
+```bash
+export PATH="$(npm prefix -g)/bin:$PATH"
+aiwg discover "<need>"
+aiwg show skill <name>
+```
+
+Grok Build loads this file (and nested `AGENTS.md` / `.grok/rules/*.md`)
+hierarchically from the repo root to the working directory; deeper files win on
+conflicts. Prefer explicit `aiwg discover` / `aiwg show` for the full framework
+corpus beyond the deployed kernel skills.
+
+## Native paths
+
+- Project kernel skills: `.grok/skills/` (standard skills stay index-driven unless `--copy-all`)
+- Startup / context: `AGENTS.md` and host-discovered `.grok/rules/*.md` (AIWG rule writer remains indexed)
+- Config only (not startup context): `.grok/config.toml`
+- User home: `$GROK_HOME` (default `~/.grok`) — skills under `$GROK_HOME/skills/`
+
+AIWG emits the qualified reasoning, coding, and efficiency model-worker agents under `.grok/agents/`.
+Other AIWG agents remain discoverable through `aiwg discover` and `aiwg show agent` until their native mappings are qualified.
+
+This bridge is distinct from Grok Bot (`grokbot` / `AIWG_GROKBOT_SKILLS_DIR`).
+<!-- END AIWG-managed -->

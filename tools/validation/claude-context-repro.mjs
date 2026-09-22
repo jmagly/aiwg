@@ -73,7 +73,7 @@ export function buildClaudeArgs(options = {}) {
     '-p',
     '--verbose',
     '--model',
-    options.model ?? 'claude-sonnet-4-6',
+    options.model ?? 'claude-sonnet-5',
     '--permission-mode',
     'plan',
     '--max-budget-usd',
@@ -199,7 +199,7 @@ Options:
   --workdir <path>        Disposable validation directory. Default: /tmp/aiwg-1672-claude-validation
   --prompt <text>         Repro prompt. Default: issue #1672 prompt.
   --claude-bin <path>     Claude Code binary. Default: claude
-  --model <model>         Claude model. Default: claude-sonnet-4-6 (pinned standard context).
+  --model <model>         Claude model. Default: claude-sonnet-5 (pinned standard context).
                           A bare alias like "sonnet" inherits the parent session's
                           1M-context attribute and is rejected by the usage-credit gate
                           on 1M accounts before the model runs; pin the standard variant.
@@ -218,7 +218,7 @@ export async function main(argv = process.argv.slice(2)) {
   let workdir = '/tmp/aiwg-1672-claude-validation';
   let prompt = DEFAULT_REPRO_PROMPT;
   let claudeBin = 'claude';
-  let model = 'claude-sonnet-4-6';
+  let model = 'claude-sonnet-5';
   let timeoutMs = 240000;
   let skipCopy = false;
 

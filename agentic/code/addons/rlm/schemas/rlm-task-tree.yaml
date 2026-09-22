@@ -424,8 +424,8 @@ $defs:
         type: string
         description: "Model to use for this task"
         examples:
-          - "claude-sonnet-4.5"
-          - "gpt-5.3-codex"
+          - "claude-sonnet-5"
+          - "gpt-5.6-terra"
 
       temperature:
         type: number

@@ -84,9 +84,9 @@ describe('model-aware copy output', () => {
     expect(standard).toContain('name: "voice-apply"');
 
     const wrappers = [
-      ['reasoning', 'gpt-5.4', 'high'],
-      ['coding', 'gpt-5.5', 'medium'],
-      ['efficiency', 'gpt-5.4-mini', 'low'],
+      ['reasoning', 'gpt-5.6-sol', 'high'],
+      ['coding', 'gpt-5.6-terra', 'medium'],
+      ['efficiency', 'gpt-5.6-luna', 'low'],
     ] as const;
     for (const [role, model, effort] of wrappers) {
       const output = await readFile(

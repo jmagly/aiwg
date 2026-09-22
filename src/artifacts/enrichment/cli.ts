@@ -205,7 +205,7 @@ function handleUsingRlm(args: string[]): void {
       inputs:            [{ artifactId: f, contentHash }],
       query:             ENRICHMENT_PROMPT,
       subPrompt:         ENRICHMENT_PROMPT,
-      model:             'claude-sonnet-4-6',
+      model:             'claude-sonnet-5',
       aggregateStrategy: 'json-merge',
     });
     plans.push({

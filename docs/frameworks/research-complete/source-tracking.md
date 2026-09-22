@@ -32,7 +32,7 @@ discovery:
   via: "x.com/@askalphaxiv"        # human-readable origin (account/URL/feed)
   curator-id: PROF-S-askalphaxiv   # link to curator profile; null if no curator
   harvest-batch: 2026-05-25-morning # optional: groups a harvesting session
-  harvested-by: claude-opus-4-7    # agent/human that performed the harvest
+  harvested-by: claude-opus-5    # agent/human that performed the harvest
 ```
 
 All fields except `date` and `surface` are optional.
