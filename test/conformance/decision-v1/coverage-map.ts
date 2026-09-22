@@ -15,6 +15,10 @@ const candidateByRange: Array<[number, number, string[]]> = [
 
 function candidates(id: string): string[] {
   const ordinal = Number(id.slice(1));
+  if (id === 'C08' || id === 'C09' || id === 'C10'
+    || id === 'TV03' || id === 'TV04' || id === 'TV05' || id === 'TV11') {
+    return ['test/conformance/decision-v1/acceptance-evidence.test.ts'];
+  }
   return candidateByRange.find(([start, end]) => ordinal >= start && ordinal <= end)?.[2] ?? [];
 }
 
@@ -22,5 +26,5 @@ function candidates(id: string): string[] {
 // only when a runner emits a separate evidence record with a digest.
 export const DECISION_CASE_COVERAGE: QualificationCase[] = [
   ...REQUIRED_BASELINE_CASE_IDS.map(id => ({ id, kind: 'baseline' as const, mandatory: true, candidateTests: candidates(id) })),
-  ...REQUIRED_VENDOR_CASE_IDS.map(id => ({ id, kind: 'vendor' as const, mandatory: true, candidateTests: [] })),
+  ...REQUIRED_VENDOR_CASE_IDS.map(id => ({ id, kind: 'vendor' as const, mandatory: true, candidateTests: candidates(id) })),
 ];

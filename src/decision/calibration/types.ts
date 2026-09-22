@@ -119,6 +119,31 @@ export interface PromotionEligibility {
   recordedAt: string;
 }
 
+/** Immutable, hash-chained evidence for registry-level alias movement. */
+export interface CalibrationGovernanceReceipt {
+  schemaVersion: 'decision-calibration-governance-receipt/v1';
+  receiptId: string;
+  sequence: number;
+  kind: 'promotion' | 'rollback';
+  alias: string;
+  from: { aliasRevision: number; identityDigest: CalibrationDigest };
+  to: { aliasRevision: number; identityDigest: CalibrationDigest };
+  action: 'promote' | 'rollback';
+  reviewedEvidence: {
+    evaluationIntegrityReport: { id: string; digest: CalibrationDigest };
+    calibrationArtifact: { id: string; digest: CalibrationDigest };
+    compatibilityRelation: { id: string; digest: CalibrationDigest } | null;
+  };
+  approvalReference: string;
+  eligibilityId: string | null;
+  reasons: string[];
+  recordedAt: string;
+  previousReceiptDigest: CalibrationDigest | null;
+  digest: CalibrationDigest;
+}
+
+export type CalibrationGovernanceReceiptDraft = Omit<CalibrationGovernanceReceipt, 'schemaVersion' | 'digest'>;
+
 export interface RawDecisionEvidence {
   probability: number | null;
   confidence: number | null;

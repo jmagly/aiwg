@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CalibrationRegistry,
+  MemoryDecisionReceiptStore,
   calibrationArtifactDigest,
   artifactPin,
   evaluateDecisionRuleset,
@@ -14,13 +15,14 @@ import {
   type DecisionBinding,
   type DecisionDefinition,
   type DecisionRuleset,
+  type DecisionTelemetrySpan,
 } from '../../../src/decision/index.js';
 
 const hash = (character: string) => `sha256:${character.repeat(64)}` as const;
 const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
 const policy = { unknown: 'defer', incompatible: 'fail', shadowRequired: 'shadow', unusableCalibration: 'require-approval' } as const;
 
-function setup(expiresAfterDays = 30) {
+function setup(expiresAfterDays = 30, options: { register?: boolean; approval?: CalibrationArtifact['approval']; totalSamples?: number; perSliceSamples?: number } = {}) {
   const decision = fixture<DecisionDefinition>('decision-category.json');
   decision.apiVersion = 'decision.aiwg.io/v1alpha2';
   const rawRuleset = fixture<DecisionRuleset>('ruleset.json');
@@ -52,15 +54,15 @@ function setup(expiresAfterDays = 30) {
     profile: { minimumTotalSamples: 100, minimumPerSliceSamples: 40, powerRule: null,
       confidenceInterval: { method: 'bootstrap-bca', level: 0.95 }, maximumCalibrationError: 0.08,
       maximumSelectiveRisk: 0.05, expiresAfterDays },
-    metrics: { totalSamples: 200, perSliceSamples: 80, calibrationError: 0.04, selectiveRisk: 0.02,
+    metrics: { totalSamples: options.totalSamples ?? 200, perSliceSamples: options.perSliceSamples ?? 80, calibrationError: 0.04, selectiveRisk: 0.02,
       confidenceIntervals: { ece: { lower: 0.02, upper: 0.06 } } },
     effectiveAt: '2026-09-01T00:00:00.000Z',
     limitations: ['Deterministic fixture only; not product-quality calibration evidence.'],
-    approval: { state: 'approved', reference: 'review-17' },
+    approval: options.approval ?? { state: 'approved', reference: 'review-17' },
   };
   const artifact: CalibrationArtifact = { ...payload, digest: calibrationArtifactDigest(payload) };
   const registry = new CalibrationRegistry();
-  registry.registerArtifact(artifact);
+  if (options.register !== false) registry.registerArtifact(artifact);
   registry.observeAlias('jev-latest', artifact.identity, '2026-09-01T00:00:00.000Z');
   return { decision, ruleset, binding, target, artifact, registry, identity };
 }
@@ -75,14 +77,17 @@ function observation(actualModel: string, calibrationRef: string): AdapterObserv
   };
 }
 
-async function run(config: ReturnType<typeof setup>, actualModel: string, at: string, invocationId: string) {
+async function run(config: ReturnType<typeof setup>, actualModel: string, at: string, invocationId: string,
+  receiptStore?: MemoryDecisionReceiptStore, spans?: DecisionTelemetrySpan[]) {
   const adapter: DecisionAdapter = { id: 'jev', version: config.target.adapterVersion,
     capabilities: async () => ({ answerKinds: ['choice'], features: ['choice', 'structured-entries'], maxOptions: 255,
       maxLevels: 10, confidenceProfiles: [], executable: true }),
     evaluate: vi.fn(async () => observation(actualModel, config.artifact.id)) };
   return evaluateDecisionRuleset({ ruleset: config.ruleset, binding: config.binding,
     definitions: { category: config.decision }, input: fixture('input.json'), runId: 'run-calibration', invocationId,
-    adapters: { jev: adapter }, now: () => Date.parse(at),
+    adapters: { jev: adapter }, now: () => Date.parse(at), receiptStore, receiptProjectId: 'calibration-fixtures',
+    ...(spans ? { telemetry: { hook: { emit: (span: DecisionTelemetrySpan) => { spans.push(span); } },
+      ids: { traceId: () => '1'.repeat(32), spanId: () => String(spans.length + 1).padStart(16, '0') } } } : {}),
     calibrationCompatibility: { registry: config.registry, policy, calibrationArtifactId: config.artifact.id,
       identityFor: ({ actualModel: served }) => config.identity(served) } });
 }
@@ -136,5 +141,38 @@ describe('runtime calibration compatibility', () => {
     expect(result.spec.evaluations.category?.spec.calibrationCompatibility?.state).toBe('exact');
     expect(result.spec.evaluations.category?.spec.uncertainty?.calibratedRisk).toBeUndefined();
     expect(result.spec.evaluations.category?.spec.acceptance?.reason).toBe('calibration-required');
+  });
+
+  it.each([
+    ['CAL-ABSENT-01', setup(30, { register: false }), ['calibration-missing']],
+    ['CAL-EXPIRED-01', setup(5), ['calibration-expired']],
+    ['CAL-UNAPPROVED-01', setup(30, { approval: { state: 'observed', reference: null } }), ['calibration-observed']],
+    ['CAL-LOW-SAMPLE-01', setup(30, { totalSamples: 20, perSliceSamples: 5 }), ['insufficient-total-samples', 'insufficient-slice-samples']],
+  ] as const)('%s preserves a receipt and telemetry evidence for deterministic non-action', async (testId, config, reasons) => {
+    const receipts = new MemoryDecisionReceiptStore();
+    const spans: DecisionTelemetrySpan[] = [];
+    const result = await run(config, 'jev-2026-09-01', '2026-09-10T00:00:00.000Z', testId, receipts, spans);
+    const evaluation = result.spec.evaluations.category!;
+    expect(evaluation.spec.calibrationCompatibility).toMatchObject({ action: 'require-approval', reasons: [...reasons] });
+    expect(evaluation.spec.acceptance).toMatchObject({ disposition: 'review', reason: 'calibration-required' });
+    expect(evaluation.spec.uncertainty?.calibratedRisk).toBeUndefined();
+
+    const receipt = await receipts.read(testId, 'calibration-fixtures');
+    expect(receipt).toMatchObject({ state: 'completed', result: { spec: { invocationId: testId } } });
+    expect(receipt?.result?.spec.evaluations.category?.spec.calibrationCompatibility).toMatchObject({
+      action: 'require-approval', reasons: [...reasons],
+    });
+    expect(mapDecisionResult(evaluation).attributes).toMatchObject({
+      'aiwg.acceptance.disposition': 'review',
+      'aiwg.acceptance.reason': 'calibration-required',
+      'aiwg.calibration.compatibility_action': 'require-approval',
+      'aiwg.calibration.reason_count': reasons.length,
+    });
+    const resultSpan = spans.find(span => span.name === 'decision.accept');
+    expect(resultSpan?.attributes).toMatchObject({
+      'aiwg.acceptance.disposition': 'review',
+      'aiwg.calibration.compatibility_action': 'require-approval',
+      'aiwg.calibration.reason_count': reasons.length,
+    });
   });
 });

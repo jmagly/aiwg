@@ -24,7 +24,10 @@ describe('decision qualification conformance foundation', () => {
 
   it('keeps candidate test paths separate from executable evidence', () => {
     expect(DECISION_CASE_COVERAGE.filter(item => item.kind === 'baseline').every(item => item.candidateTests.length > 0)).toBe(true);
-    expect(DECISION_CASE_COVERAGE.filter(item => item.kind === 'vendor').every(item => item.candidateTests.length === 0)).toBe(true);
+    expect(DECISION_CASE_COVERAGE.filter(item => ['TV03', 'TV04', 'TV05', 'TV11'].includes(item.id))
+      .every(item => item.candidateTests.includes('test/conformance/decision-v1/acceptance-evidence.test.ts'))).toBe(true);
+    expect(DECISION_CASE_COVERAGE.filter(item => item.kind === 'vendor'
+      && !['TV03', 'TV04', 'TV05', 'TV11'].includes(item.id)).every(item => item.candidateTests.length === 0)).toBe(true);
     const report = evaluateQualification(manifest());
     expect(report.decision).toBe('HOLD');
     expect(report.gates.find(gate => gate.id === 'G0')).toMatchObject({ status: 'fail' });

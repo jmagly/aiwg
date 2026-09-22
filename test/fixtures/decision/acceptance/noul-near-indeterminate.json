@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "decision-acceptance-receipt-golden/v1",
+  "primitive": "truth-probability",
+  "caseIds": ["C08", "TV04", "TV11"],
+  "raw": {
+    "value": 0.51,
+    "uncertainty": {
+      "source": "provider",
+      "profile": "typesafe-noul-v1",
+      "calibration": "uncalibrated",
+      "confidence": null,
+      "distribution": null,
+      "calibrationRef": null
+    }
+  },
+  "acceptance": {
+    "policyVersion": "1.0.0",
+    "uncertaintyProfile": "typesafe-noul-v1",
+    "disposition": "review",
+    "matchedRule": "near-indeterminate",
+    "reason": "matched",
+    "values": {
+      "yes-probability": {
+        "value": 0.51,
+        "normalizedBps": 5100,
+        "provenance": "provider-value",
+        "calibrationRef": null
+      }
+    }
+  }
+}

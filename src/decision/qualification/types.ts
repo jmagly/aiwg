@@ -7,6 +7,8 @@ export interface QualificationCase {
   kind: QualificationCaseKind;
   mandatory: boolean;
   candidateTests: string[];
+  /** Named master-test-plan evidence IDs implemented by this executable case. */
+  evidenceIds?: string[];
 }
 
 export interface QualificationEvidence {
@@ -15,6 +17,8 @@ export interface QualificationEvidence {
   outcome: EvidenceOutcome;
   artifact: string | null;
   digest: `sha256:${string}` | null;
+  /** Named master-test-plan IDs proven by the persisted runner artifact. */
+  testEvidenceIds?: string[];
 }
 
 export interface QualificationGateDefinition {
@@ -51,4 +55,26 @@ export interface QualificationReport {
   generatedAt: string;
   decision: 'PROMOTE' | 'HOLD' | 'ROLLBACK';
   gates: QualificationGateResult[];
+}
+
+export interface QualificationEvidenceSource {
+  path: string;
+  digest: `sha256:${string}`;
+}
+
+export interface QualificationEvidenceManifestEntry {
+  caseId: string;
+  testEvidenceIds: string[];
+  executable: boolean;
+  outcome: EvidenceOutcome;
+  artifact: QualificationEvidenceSource;
+  sourceGoldens: QualificationEvidenceSource[];
+}
+
+/** D11-compatible, machine-readable linkage from executed cases to immutable evidence. */
+export interface QualificationEvidenceManifest {
+  schemaVersion: 'decision-qualification-evidence-manifest/v1';
+  runId: string;
+  sourceCommit: string;
+  evidence: QualificationEvidenceManifestEntry[];
 }

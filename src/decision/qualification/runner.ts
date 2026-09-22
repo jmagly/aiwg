@@ -6,6 +6,7 @@ import type {
   EvidenceOutcome,
   QualificationCase,
   QualificationEvidence,
+  QualificationEvidenceManifest,
   QualificationReport,
   QualificationRunManifest,
 } from './types.js';
@@ -51,12 +52,15 @@ export interface ExecutedQualification {
   report: QualificationReport;
 }
 
+export type QualificationGoldenSources = Readonly<Record<string, readonly string[]>>;
+
 interface QualificationArtifact {
   schemaVersion: 'decision-qualification-artifact/v1';
   runId: string;
   caseId: string;
   outcome: EvidenceOutcome;
   durationMs: number;
+  testEvidenceIds: string[];
   details?: unknown;
   error?: string;
 }
@@ -130,6 +134,7 @@ async function writeArtifact(
     outcome: artifact.outcome,
     artifact: relative,
     digest: digest(bytes),
+    testEvidenceIds: [...artifact.testEvidenceIds],
   };
 }
 
@@ -140,13 +145,17 @@ async function executeCase(
   maxBytes: number,
 ): Promise<QualificationEvidence> {
   const started = Date.now();
+  const testEvidenceIds = [...(item.evidenceIds ?? [])];
+  if (testEvidenceIds.some(id => !/^(?:CAL|DRF)-[A-Z0-9][A-Z0-9._-]*$/.test(id))
+    || new Set(testEvidenceIds).size !== testEvidenceIds.length) throw new Error(`invalid named qualification evidence for ${item.id}`);
+  testEvidenceIds.sort();
   const executor = plan.executors[item.id];
   let result: QualificationExecutionResult = { outcome: 'fail' };
   let error: string | undefined;
   if (!executor) {
     return writeArtifact(plan.artifactRoot, plan.manifest.runId, {
       schemaVersion: 'decision-qualification-artifact/v1', runId: plan.manifest.runId,
-      caseId: item.id, outcome: 'skip', durationMs: 0, error: 'executor-not-registered',
+      caseId: item.id, outcome: 'skip', durationMs: 0, testEvidenceIds, error: 'executor-not-registered',
     }, maxBytes);
   }
   try {
@@ -158,7 +167,7 @@ async function executeCase(
   }
   return writeArtifact(plan.artifactRoot, plan.manifest.runId, {
     schemaVersion: 'decision-qualification-artifact/v1', runId: plan.manifest.runId,
-    caseId: item.id, outcome: result.outcome, durationMs: Math.max(0, Date.now() - started),
+    caseId: item.id, outcome: result.outcome, durationMs: Math.max(0, Date.now() - started), testEvidenceIds,
     ...(result.details === undefined ? {} : { details: result.details }), ...(error ? { error } : {}),
   }, maxBytes);
 }
@@ -201,6 +210,70 @@ function containedArtifactPath(root: string, relative: string): string | null {
   return candidate.startsWith(`${rootPath}${sep}`) ? candidate : null;
 }
 
+async function verifiedSource(root: string, relative: string): Promise<{ path: string; digest: `sha256:${string}` }> {
+  const path = containedArtifactPath(root, relative);
+  if (!path) throw new Error(`unsafe qualification evidence source: ${relative}`);
+  const stat = await lstat(path);
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`qualification evidence source is not a regular file: ${relative}`);
+  return { path: relative, digest: digest(await readFile(path)) };
+}
+
+/**
+ * Builds D11's evidence linkage only from runner-produced artifacts that still
+ * verify and checked-in source goldens that can be independently hashed.
+ */
+export async function createQualificationEvidenceManifest(
+  manifest: QualificationRunManifest,
+  artifactRoot: string,
+  sourceRoot: string,
+  sources: QualificationGoldenSources,
+): Promise<QualificationEvidenceManifest> {
+  const verification = await verifyQualificationArtifacts(manifest, artifactRoot);
+  const verified = new Map(verification.map(item => [item.caseId, item.verified]));
+  const evidence = await Promise.all(manifest.evidence.map(async item => {
+    if (!item.executable || !item.artifact || !item.digest || verified.get(item.caseId) !== true) {
+      throw new Error(`qualification evidence is not executable and verified: ${item.caseId}`);
+    }
+    const sourcePaths = sources[item.caseId];
+    if (!sourcePaths?.length) throw new Error(`qualification evidence has no source golden: ${item.caseId}`);
+    return {
+      caseId: item.caseId,
+      testEvidenceIds: [...(item.testEvidenceIds ?? [])],
+      executable: true,
+      outcome: item.outcome,
+      artifact: { path: item.artifact, digest: item.digest },
+      sourceGoldens: await Promise.all(sourcePaths.map(path => verifiedSource(sourceRoot, path))),
+    };
+  }));
+  return {
+    schemaVersion: 'decision-qualification-evidence-manifest/v1',
+    runId: manifest.runId,
+    sourceCommit: manifest.sourceCommit,
+    evidence,
+  };
+}
+
+/** Persists the evidence linkage beside the runner artifacts for CI/release collection. */
+export async function writeQualificationEvidenceManifest(
+  manifest: QualificationRunManifest,
+  artifactRoot: string,
+  sourceRoot: string,
+  sources: QualificationGoldenSources,
+): Promise<{ manifest: QualificationEvidenceManifest; artifact: string; digest: `sha256:${string}` }> {
+  const evidenceManifest = await createQualificationEvidenceManifest(manifest, artifactRoot, sourceRoot, sources);
+  const relative = `${safeSegment(manifest.runId, 'run id')}/evidence-manifest.json`;
+  const target = resolve(artifactRoot, relative);
+  const bytes = canonicalJson(evidenceManifest);
+  if (Buffer.byteLength(bytes) > DEFAULT_MAX_ARTIFACT_BYTES) {
+    throw new Error(`qualification evidence manifest exceeds ${DEFAULT_MAX_ARTIFACT_BYTES} bytes`);
+  }
+  await mkdir(dirname(target), { recursive: true });
+  const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(temporary, bytes, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+  await rename(temporary, target);
+  return { manifest: evidenceManifest, artifact: relative, digest: digest(bytes) };
+}
+
 /** Re-reads artifacts and verifies containment, file type, content, and exact SHA-256. */
 export async function verifyQualificationArtifacts(
   manifest: QualificationRunManifest,
@@ -220,7 +293,8 @@ export async function verifyQualificationArtifacts(
       if (digest(bytes) !== item.digest) return { caseId: item.caseId, verified: false, reason: 'digest-mismatch' } as const;
       const parsed = JSON.parse(bytes.toString('utf8')) as Partial<QualificationArtifact>;
       if (parsed.schemaVersion !== 'decision-qualification-artifact/v1' || parsed.runId !== manifest.runId
-        || parsed.caseId !== item.caseId || parsed.outcome !== item.outcome) {
+        || parsed.caseId !== item.caseId || parsed.outcome !== item.outcome
+        || JSON.stringify(parsed.testEvidenceIds) !== JSON.stringify(item.testEvidenceIds ?? [])) {
         return { caseId: item.caseId, verified: false, reason: 'invalid-artifact' } as const;
       }
       return { caseId: item.caseId, verified: true } as const;

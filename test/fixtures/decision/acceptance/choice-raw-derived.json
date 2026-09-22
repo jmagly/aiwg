@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "decision-acceptance-receipt-golden/v1",
+  "primitive": "choice",
+  "caseIds": ["C09", "C10", "TV05", "TV11"],
+  "raw": {
+    "value": "yes",
+    "uncertainty": {
+      "source": "provider",
+      "profile": "typesafe-choice-v1",
+      "calibration": "uncalibrated",
+      "confidence": 0.83,
+      "distribution": { "yes": 0.7, "no": 0.2, "none": 0.1 },
+      "calibrationRef": null
+    }
+  },
+  "acceptance": {
+    "policyVersion": "1.0.0",
+    "uncertaintyProfile": "typesafe-choice-v1",
+    "disposition": "act",
+    "matchedRule": "strong-choice",
+    "reason": "matched",
+    "values": {
+      "concentration": {
+        "value": 0.5399999999999999,
+        "normalizedBps": 5400,
+        "provenance": "derived",
+        "calibrationRef": null
+      },
+      "native-confidence": {
+        "value": 0.83,
+        "normalizedBps": 8300,
+        "provenance": "provider-confidence",
+        "calibrationRef": null
+      },
+      "selected-probability": {
+        "value": 0.7,
+        "normalizedBps": 7000,
+        "provenance": "provider-distribution",
+        "calibrationRef": null
+      },
+      "top-two-margin": {
+        "value": 0.49999999999999994,
+        "normalizedBps": 5000,
+        "provenance": "derived",
+        "calibrationRef": null
+      },
+      "entropy": {
+        "value": 0.7298466991620975,
+        "normalizedBps": 7298.466991620975,
+        "provenance": "derived",
+        "calibrationRef": null
+      }
+    }
+  }
+}

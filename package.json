@@ -62,6 +62,7 @@
     "smoke:deepseek-harness:live": "node tools/providers/deepseek-harness-live-smoke.mjs",
     "smoke:grokbot:live": "node tools/providers/grokbot-live-smoke.mjs",
     "smoke:decision:jev:live": "npm run build:cli && node tools/decision/jev-live-smoke.mjs",
+    "smoke:decision:patterns:offline": "npm run build:cli && node tools/decision/patterns-offline-smoke.mjs",
     "smoke:grok-build:live": "node tools/providers/grok-build-qualification.mjs smoke",
     "gate:grok-build": "node tools/providers/grok-build-qualification.mjs gate",
     "drift:grok-build": "node tools/providers/grok-build-qualification.mjs drift",

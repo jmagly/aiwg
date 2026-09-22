@@ -16,3 +16,17 @@ Compatibility decisions are included in `DecisionResult.spec.calibrationCompatib
 - Model discovery endpoints are observations, not compatibility authority. The immutable registry and reviewed relations are authoritative.
 - This layer records compatibility and enforces threshold eligibility. It does not run benchmark qualification or operational promotion, shadowing, drift response, or rollback workflows.
 
+## Promotion and rollback evidence
+
+`CalibrationGovernanceReceipt.v1` is the durable handoff between registry eligibility and the
+operational workflow owned by D17. Each receipt records the exact alias revisions and identity
+digests moved between, the reviewed evaluation-integrity report, calibration artifact, optional
+compatibility relation, approval, action, reasons, and time. The file store uses exclusive
+sequence publication, fsync, and a previous-receipt digest chain. Existing records are never
+rewritten; a sequence race, gap, changed payload, or broken chain fails closed. These receipts
+are evidence of an authorized registry transition, not permission for this package to execute
+deployment or routing changes.
+
+Qualification artifacts carry named `CAL-*` and `DRF-*` IDs from their case's `evidenceIds`.
+The verifier compares those IDs with the digest-protected artifact, preventing a manifest from
+claiming calibration or drift coverage that the runner did not persist.

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "decision-acceptance-receipt-golden/v1",
+  "primitive": "ordinal-score",
+  "caseIds": ["TV03"],
+  "raw": [
+    {
+      "value": 1.5,
+      "uncertainty": {
+        "source": "provider",
+        "profile": "typesafe-score-v1",
+        "calibration": "uncalibrated",
+        "confidence": 0.6,
+        "distribution": { "0": 0, "1": 0.5, "2": 0.5, "3": 0 },
+        "calibrationRef": null
+      }
+    },
+    {
+      "value": 1.5,
+      "uncertainty": {
+        "source": "provider",
+        "profile": "typesafe-score-v1",
+        "calibration": "uncalibrated",
+        "confidence": 0.6,
+        "distribution": { "0": 0.5, "1": 0, "2": 0, "3": 0.5 },
+        "calibrationRef": null
+      }
+    }
+  ],
+  "acceptance": [
+    {
+      "policyVersion": "1.0.0",
+      "uncertaintyProfile": "typesafe-score-v1",
+      "disposition": "act",
+      "matchedRule": "bounded-dispersion",
+      "reason": "matched",
+      "values": {
+        "concentration": { "value": 0.5, "normalizedBps": 5000, "provenance": "derived", "calibrationRef": null },
+        "native-confidence": { "value": 0.6, "normalizedBps": 6000, "provenance": "provider-confidence", "calibrationRef": null },
+        "expected-score": { "value": 1.5, "normalizedBps": 5000, "provenance": "derived", "calibrationRef": null },
+        "dispersion": { "value": 0.25, "normalizedBps": 277.77777778, "provenance": "derived", "calibrationRef": null }
+      }
+    },
+    {
+      "policyVersion": "1.0.0",
+      "uncertaintyProfile": "typesafe-score-v1",
+      "disposition": "review",
+      "matchedRule": null,
+      "reason": "default",
+      "values": {
+        "concentration": { "value": 0.5, "normalizedBps": 5000, "provenance": "derived", "calibrationRef": null },
+        "native-confidence": { "value": 0.6, "normalizedBps": 6000, "provenance": "provider-confidence", "calibrationRef": null },
+        "expected-score": { "value": 1.5, "normalizedBps": 5000, "provenance": "derived", "calibrationRef": null },
+        "dispersion": { "value": 2.25, "normalizedBps": 2500, "provenance": "derived", "calibrationRef": null }
+      }
+    }
+  ]
+}

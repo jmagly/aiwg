@@ -73,6 +73,23 @@ describe('decision qualification executable runner', () => {
     ]);
   });
 
+  it('links persisted qualification artifacts to named CAL and DRF master-plan evidence IDs', async () => {
+    const root = await artifactRoot();
+    const cases: QualificationCase[] = [
+      { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: ['test/unit/unrelated.test.ts'], evidenceIds: ['CAL-COMPAT-01', 'DRF-ALIAS-01'] },
+    ];
+    const run = await executeQualificationPlan({
+      manifest: manifest(cases), artifactRoot: root, executors: { TV01: () => ({ outcome: 'pass' }) },
+    });
+    expect(run.evidence[0]?.testEvidenceIds).toEqual(['CAL-COMPAT-01', 'DRF-ALIAS-01']);
+    const artifact = JSON.parse(await readFile(join(root, run.evidence[0]!.artifact!), 'utf8')) as Record<string, unknown>;
+    expect(artifact.testEvidenceIds).toEqual(['CAL-COMPAT-01', 'DRF-ALIAS-01']);
+    expect(await verifyQualificationArtifacts(run, root)).toEqual([{ caseId: 'TV01', verified: true }]);
+
+    run.evidence[0]!.testEvidenceIds = ['CAL-FORGED-01'];
+    expect(await verifyQualificationArtifacts(run, root)).toEqual([{ caseId: 'TV01', verified: false, reason: 'invalid-artifact' }]);
+  });
+
   it('fails promotion evaluation closed after artifact tampering', async () => {
     const root = await artifactRoot();
     const item: QualificationCase = { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] };

@@ -351,6 +351,22 @@
       "publication": { "public": true }
     },
     {
+      "logicalName": "decision.calibration-governance-receipt",
+      "id": "https://aiwg.io/schemas/decision/CalibrationGovernanceReceipt.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/CalibrationGovernanceReceipt.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [
+        { "id": "decision-calibration-registry", "boundary": "Append-only promotion and rollback evidence", "path": "src/decision/calibration/receipts.ts" }
+      ],
+      "publication": { "public": true }
+    },
+    {
       "logicalName": "decision.admission-evidence",
       "id": "https://aiwg.io/schemas/decision/DecisionAdmissionEvidence.v1.schema.json",
       "version": "1.0.0",
