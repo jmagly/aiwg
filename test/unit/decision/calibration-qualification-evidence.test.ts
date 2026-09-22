@@ -159,6 +159,14 @@ describe('D09 calibration qualification and retained evidence', () => {
     const { digest, ...artifactPayload } = retainedArtifact;
     expect(digest).toBe(calibrationArtifactDigest(artifactPayload));
     expect(() => new CalibrationRegistry().registerArtifact(retainedArtifact)).not.toThrow();
+    expect(rollout.immutableInputs).toMatchObject({
+      definitionDigest: retainedArtifact.identity.definitionDigest,
+      dataset: retainedArtifact.identity.dataset,
+      slice: retainedArtifact.identity.slice,
+      split: { id: retainedArtifact.splitProvenance.id, hash: retainedArtifact.splitProvenance.hash },
+      adapterVersion: retainedArtifact.identity.adapterVersion,
+      primitive: retainedArtifact.identity.primitive,
+    });
     expect(promotion.reviewedEvidence.calibrationArtifact).toEqual({ id: retainedArtifact.id, digest });
 
     const relation = JSON.parse(await readFile(rollout.compatibilityRelation, 'utf8'));
