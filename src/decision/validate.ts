@@ -199,6 +199,9 @@ export function validateBinding(binding: DecisionBinding, ruleset: DecisionRules
   }
   for (const [alias, evaluation] of Object.entries(binding.spec.evaluations)) {
     for (const target of evaluation.targets) {
+      if (target.acceptance.mode === 'primitive-policy' && binding.apiVersion !== DECISION_API_VERSION_STRUCTURED) {
+        throw new DecisionValidationError(`${alias} primitive-aware acceptance requires ${DECISION_API_VERSION_STRUCTURED}`);
+      }
       if (target.retry.maxDelayMs < target.retry.initialDelayMs) {
         throw new DecisionValidationError(`${alias} retry maxDelayMs must be >= initialDelayMs`);
       }

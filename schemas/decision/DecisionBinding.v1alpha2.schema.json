@@ -1,6 +1,59 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aiwg.io/schemas/decision/DecisionBinding.v1alpha2.schema.json",
+  "$defs": {
+    "acceptanceRoute": {
+      "type": "object",
+      "properties": {
+        "disposition": { "enum": ["act", "review", "reject", "fallback"] },
+        "fallbackTarget": { "type": "string", "minLength": 1 }
+      },
+      "required": ["disposition"],
+      "additionalProperties": false
+    },
+    "acceptanceCondition": {
+      "type": "object",
+      "properties": {
+        "metric": { "enum": ["yes-probability", "selected-probability", "native-confidence", "top-two-margin", "entropy", "concentration", "expected-score", "dispersion", "calibrated-risk"] },
+        "op": { "enum": ["lt", "lte", "gt", "gte", "between", "outside"] },
+        "thresholdBps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "minimumBps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "maximumBps": { "type": "integer", "minimum": 0, "maximum": 10000 }
+      },
+      "required": ["metric", "op"],
+      "additionalProperties": false
+    },
+    "primitiveAcceptance": {
+      "type": "object",
+      "properties": {
+        "mode": { "const": "primitive-policy" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "precedence": { "const": "first-match" },
+        "calibration": { "enum": ["advisory", "required"] },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "primitive": { "enum": ["choice", "ordinal-score", "truth-probability"] },
+              "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/acceptanceCondition" } },
+              "route": { "$ref": "#/$defs/acceptanceRoute" }
+            },
+            "required": ["id", "primitive", "all", "route"],
+            "additionalProperties": false
+          }
+        },
+        "defaultRoute": { "$ref": "#/$defs/acceptanceRoute" },
+        "missingEvidenceRoute": { "$ref": "#/$defs/acceptanceRoute" },
+        "invalidEvidenceRoute": { "$ref": "#/$defs/acceptanceRoute" },
+        "tieRoute": { "$ref": "#/$defs/acceptanceRoute" },
+        "requiredOptions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      },
+      "required": ["mode", "version", "precedence", "calibration", "rules", "defaultRoute", "missingEvidenceRoute", "invalidEvidenceRoute", "tieRoute"],
+      "additionalProperties": false
+    }
+  },
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -168,6 +221,9 @@
                             "minimumBps"
                           ],
                           "additionalProperties": false
+                        },
+                        {
+                          "$ref": "#/$defs/primitiveAcceptance"
                         }
                       ]
                     },

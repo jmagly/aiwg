@@ -1,6 +1,35 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aiwg.io/schemas/decision/DecisionResult.v1alpha2.schema.json",
+  "$defs": {
+    "acceptanceEvidence": {
+      "type": "object",
+      "properties": {
+        "policyVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "disposition": { "enum": ["act", "review", "reject", "fallback"] },
+        "matchedRule": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "fallbackTarget": { "type": "string", "minLength": 1 },
+        "reason": { "enum": ["matched", "default", "missing-evidence", "invalid-evidence", "tie", "calibration-required"] },
+        "values": {
+          "type": "object",
+          "propertyNames": { "enum": ["yes-probability", "selected-probability", "native-confidence", "top-two-margin", "entropy", "concentration", "expected-score", "dispersion", "calibrated-risk"] },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "number" },
+              "normalizedBps": { "type": "number", "minimum": 0, "maximum": 10000 },
+              "provenance": { "enum": ["provider-value", "provider-confidence", "provider-distribution", "derived", "calibrated"] },
+              "calibrationRef": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }
+            },
+            "required": ["value", "normalizedBps", "provenance", "calibrationRef"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["policyVersion", "disposition", "matchedRule", "reason", "values"],
+      "additionalProperties": false
+    }
+  },
   "type": "object",
   "properties": {
     "apiVersion": {
@@ -228,6 +257,15 @@
                       "type": "null"
                     }
                   ]
+                },
+                "calibratedRisk": {
+                  "type": "object",
+                  "properties": {
+                    "value": { "type": "number", "minimum": 0, "maximum": 1 },
+                    "calibrationRef": { "type": "string", "minLength": 1 }
+                  },
+                  "required": ["value", "calibrationRef"],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -244,6 +282,9 @@
               "type": "null"
             }
           ]
+        },
+        "acceptance": {
+          "$ref": "#/$defs/acceptanceEvidence"
         },
         "attempts": {
           "type": "array",

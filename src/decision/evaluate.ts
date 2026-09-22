@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { composeRuleset } from './compose.js';
+import { applyPrimitiveAcceptance, validatePrimitiveAcceptancePolicy } from './acceptance.js';
 import { DecisionPreDispatchError, decisionInvocationFingerprint, nextReceipt } from './receipts.js';
 import { admitEntry, EntryAdmissionError } from './entry.js';
 import { DECISION_API_VERSION, DECISION_API_VERSION_STRUCTURED } from './types.js';
@@ -60,6 +61,16 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
     validateBinding(request.binding, request.ruleset);
     validateAgainstSchema(request.ruleset.spec.inputSchema, request.input, 'ruleset input');
     resolved = resolveDefinitions(request);
+    for (const item of resolved) {
+      for (const target of request.binding.spec.evaluations[item.alias]!.targets) {
+        if (target.acceptance.mode === 'primitive-policy') {
+          if (request.binding.apiVersion !== DECISION_API_VERSION_STRUCTURED) {
+            throw new DecisionValidationError('primitive-aware acceptance requires decision.aiwg.io/v1alpha2');
+          }
+          validatePrimitiveAcceptancePolicy(target.acceptance, item.definition);
+        }
+      }
+    }
   } catch (error) {
     const reason = error instanceof EntryAdmissionError && admissionStage === 'input'
       ? 'invalid-input' : classifyValidationFailure(error);
@@ -416,6 +427,7 @@ function normalizeObservation(definition: DecisionDefinition, target: ExecutionT
   validateDecisionValue(definition, observation.value);
   if (observation.uncertainty?.distribution) validateDistribution(definition, observation.uncertainty.distribution);
   if (target.acceptance.mode === 'typed-value') return observation;
+  if (target.acceptance.mode === 'primitive-policy') return applyPrimitiveAcceptance(definition, target.acceptance, observation);
   if (!observation.uncertainty || observation.uncertainty.confidence === null) return observationFailure('missing-confidence', 'abstained', observation);
   if (observation.uncertainty.profile !== target.acceptance.profile) return observationFailure('confidence-profile-mismatch', 'abstained', observation);
   if (observation.uncertainty.confidence * 10_000 < target.acceptance.minimumBps) return observationFailure('low-confidence', 'abstained', observation);
@@ -430,7 +442,8 @@ function decisionResult(context: OneContext, observation: AdapterObservation, at
       decision: context.item.pin, ruleset: context.rulesetPin, binding: context.bindingPin,
       alias: context.item.alias, runId: context.request.runId, invocationId: context.request.invocationId,
       status: observation.status, ...(observation.status === 'success' ? { value: observation.value! } : {}),
-      reason: observation.reason, uncertainty: observation.uncertainty, attempts,
+      reason: observation.reason, uncertainty: observation.uncertainty,
+      ...(observation.acceptance ? { acceptance: observation.acceptance } : {}), attempts,
     },
   };
 }

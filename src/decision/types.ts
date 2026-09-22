@@ -79,6 +79,47 @@ export type DecisionFailureReason =
   | 'persistence-error' | 'replay-mismatch' | 'execution-uncertain'
   | 'no-match' | 'conflicting-outcomes' | 'evaluation-failed';
 
+export type AcceptanceDisposition = 'act' | 'review' | 'reject' | 'fallback';
+export type AcceptanceMetric =
+  | 'yes-probability' | 'selected-probability' | 'native-confidence'
+  | 'top-two-margin' | 'entropy' | 'concentration'
+  | 'expected-score' | 'dispersion' | 'calibrated-risk';
+
+export interface AcceptanceRoute {
+  disposition: AcceptanceDisposition;
+  /** Required for a declared fallback and otherwise prohibited by validation. */
+  fallbackTarget?: string;
+}
+
+export interface AcceptanceCondition {
+  metric: AcceptanceMetric;
+  op: 'lt' | 'lte' | 'gt' | 'gte' | 'between' | 'outside';
+  /** Probability-normalized basis points. Inclusive for `between`. */
+  thresholdBps?: number;
+  minimumBps?: number;
+  maximumBps?: number;
+}
+
+export interface PrimitiveAcceptancePolicy {
+  mode: 'primitive-policy';
+  version: string;
+  /** Ordered rules make overlapping gray bands explicit and deterministic. */
+  precedence: 'first-match';
+  calibration: 'advisory' | 'required';
+  rules: Array<{
+    id: string;
+    primitive: DecisionAnswer['kind'];
+    all: AcceptanceCondition[];
+    route: AcceptanceRoute;
+  }>;
+  defaultRoute: AcceptanceRoute;
+  missingEvidenceRoute: AcceptanceRoute;
+  invalidEvidenceRoute: AcceptanceRoute;
+  tieRoute: AcceptanceRoute;
+  /** Choice policies may require explicit `none`, `other`, or project-defined options. */
+  requiredOptions?: string[];
+}
+
 export interface ExecutionTarget {
   adapter: 'jev' | 'llm-subagent';
   adapterVersion: string;
@@ -88,7 +129,8 @@ export interface ExecutionTarget {
   requiredCapabilities: string[];
   acceptance:
     | { mode: 'typed-value' }
-    | { mode: 'confidence-threshold'; profile: string; minimumBps: number };
+    | { mode: 'confidence-threshold'; profile: string; minimumBps: number }
+    | PrimitiveAcceptancePolicy;
   timeoutMs: number;
   retry: { maxRetries: number; initialDelayMs: number; maxDelayMs: number };
 }
@@ -113,6 +155,22 @@ export interface DecisionUncertainty {
   confidence: number | null;
   distribution: Record<string, number> | null;
   calibrationRef: string | null;
+  /** Derived calibrated risk remains separate from raw provider uncertainty. */
+  calibratedRisk?: { value: number; calibrationRef: string };
+}
+
+export interface DecisionAcceptanceEvidence {
+  policyVersion: string;
+  disposition: AcceptanceDisposition;
+  matchedRule: string | null;
+  fallbackTarget?: string;
+  reason: 'matched' | 'default' | 'missing-evidence' | 'invalid-evidence' | 'tie' | 'calibration-required';
+  values: Partial<Record<AcceptanceMetric, {
+    value: number;
+    normalizedBps: number;
+    provenance: 'provider-value' | 'provider-confidence' | 'provider-distribution' | 'derived' | 'calibrated';
+    calibrationRef: string | null;
+  }>>;
 }
 
 export interface DecisionUsage {
@@ -159,6 +217,7 @@ export interface DecisionResult {
     value?: string | number;
     reason: DecisionFailureReason;
     uncertainty: DecisionUncertainty | null;
+    acceptance?: DecisionAcceptanceEvidence;
     attempts: DecisionAttempt[];
   };
 }
@@ -194,6 +253,7 @@ export interface AdapterObservation {
   reason: DecisionFailureReason;
   value?: string | number;
   uncertainty: DecisionUncertainty | null;
+  acceptance?: DecisionAcceptanceEvidence;
   actualModel: string | null;
   usage: DecisionUsage;
   requestId: string | null;
