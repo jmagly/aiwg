@@ -12,6 +12,7 @@ import {
 const roots: string[] = [];
 const hash = (value: string) => `sha256:${value.repeat(64)}` as const;
 const policy = { unknown: 'defer', incompatible: 'fail', shadowRequired: 'shadow', unusableCalibration: 'require-approval' } as const;
+const fileDigest = async (path: string) => `sha256:${createHash('sha256').update(await readFile(path)).digest('hex')}`;
 
 const identity: CalibrationIdentity = {
   provider: 'jev', backend: 'api', actualModel: 'jev-1.13.0', primitive: 'choice', definitionDigest: hash('a'), adapterVersion: 'prompt-v1',
@@ -79,7 +80,7 @@ describe('D09 calibration qualification and retained evidence', () => {
           ['expiry', artifact(), '2026-10-23T00:00:00.000Z', 'calibration-expired'],
           ['approval', artifact({ approval: { state: 'observed', reference: null } }), '2026-09-23T00:00:00.000Z', 'calibration-observed'],
           ['samples', artifact({ metrics: { totalSamples: 20, perSliceSamples: 5, calibrationError: 0.04,
-            selectiveRisk: 0.02, confidenceIntervals: {} } }), '2026-09-23T00:00:00.000Z', 'insufficient-total-samples'],
+            selectiveRisk: 0.02, confidenceIntervals: { ece: { lower: 0.02, upper: 0.06 } } } }), '2026-09-23T00:00:00.000Z', 'insufficient-total-samples'],
         ] as const) {
           const evidenceRegistry = new CalibrationRegistry(); evidenceRegistry.registerArtifact(altered);
           const decision = evidenceRegistry.resolve({ runId: name, requestedAlias: 'jev-latest', actualIdentity: identity,
@@ -142,5 +143,31 @@ describe('D09 calibration qualification and retained evidence', () => {
     expect(() => validateCalibrationGovernanceReceipt(rollback)).not.toThrow();
     expect(rollback.previousReceiptDigest).toBe(promotion.digest);
     expect([promotion.action, rollback.action]).toEqual(['promote', 'rollback']);
+
+    const manifest = JSON.parse(await readFile(rollout.qualificationManifest, 'utf8')) as any;
+    const retained = manifest.evidence.find((entry: any) => entry.caseId === 'TV10');
+    expect(retained).toMatchObject({ executable: true, outcome: 'pass' });
+    expect(retained.testEvidenceIds).toEqual(expect.arrayContaining(['CAL-EXACT-01', 'DRF-PROMOTE-01', 'DRF-ROLLBACK-01']));
+    expect(retained.artifact.digest).toBe(await fileDigest(retained.artifact.path));
+    for (const source of retained.sourceGoldens) expect(source.digest).toBe(await fileDigest(source.path));
+
+    const report = JSON.parse(await readFile(rollout.heldOutApproval.report.path, 'utf8'));
+    expect(report).toMatchObject({ runId: manifest.runId, decision: 'PROMOTE', reviewedCase: 'TV10' });
+    expect(rollout.heldOutApproval.report.digest).toBe(await fileDigest(rollout.heldOutApproval.report.path));
+
+    const retainedArtifact = JSON.parse(await readFile(rollout.calibrationArtifact, 'utf8')) as CalibrationArtifact;
+    const { digest, ...artifactPayload } = retainedArtifact;
+    expect(digest).toBe(calibrationArtifactDigest(artifactPayload));
+    expect(() => new CalibrationRegistry().registerArtifact(retainedArtifact)).not.toThrow();
+    expect(promotion.reviewedEvidence.calibrationArtifact).toEqual({ id: retainedArtifact.id, digest });
+
+    const relation = JSON.parse(await readFile(rollout.compatibilityRelation, 'utf8'));
+    const relationRegistry = new CalibrationRegistry();
+    expect(() => relationRegistry.registerRelation(relation)).not.toThrow();
+    expect(promotion.reviewedEvidence.compatibilityRelation).toEqual({ id: relation.id, digest: await fileDigest(rollout.compatibilityRelation) });
+    expect(promotion.reviewedEvidence.evaluationIntegrityReport.digest).toBe(await fileDigest(rollout.heldOutApproval.report.path));
+    expect(promotion.from.identityDigest).toBe(calibrationIdentityDigest(identity));
+    expect(promotion.to.identityDigest).toBe(calibrationIdentityDigest(retainedArtifact.identity));
   });
 });
+import { createHash } from 'node:crypto';

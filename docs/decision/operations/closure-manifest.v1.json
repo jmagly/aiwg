@@ -10,16 +10,45 @@
     "RUN-JEV-TELEMETRY-v1", "RUN-JEV-ROLLBACK-v1"
   ],
   "drills": [
-    { "id": "DRILL-CREDENTIAL-v1", "runbook": "RUN-JEV-CREDENTIAL-v1", "expectedContainment": "binding-disabled" },
-    { "id": "DRILL-RETRY-STORM-v1", "runbook": "RUN-JEV-OUTAGE-v1", "expectedContainment": "attempt-cap-reached" },
-    { "id": "DRILL-INCOMPATIBLE-ALIAS-v1", "runbook": "RUN-JEV-DRIFT-v1", "expectedContainment": "action-route-blocked" },
-    { "id": "DRILL-CACHE-TAMPER-v1", "runbook": "RUN-JEV-CACHE-v1", "expectedContainment": "namespace-quarantined" },
-    { "id": "DRILL-EGRESS-v1", "runbook": "RUN-JEV-EGRESS-v1", "expectedContainment": "request-denied" }
+    {
+      "id": "DRILL-CREDENTIAL-v1", "scenario": "credential-compromise", "runbook": "RUN-JEV-CREDENTIAL-v1",
+      "expectedContainment": "binding-disabled", "requiredEvidence": ["logical-credential-id", "binding-id", "access-audit-ref", "revocation-receipt"],
+      "expectedRecovery": "replacement-logical-credential-resolved", "exitVerification": ["synthetic-probe-passed", "revoked-credential-rejected"]
+    },
+    {
+      "id": "DRILL-RETRY-STORM-v1", "scenario": "provider-retry-storm", "runbook": "RUN-JEV-OUTAGE-v1",
+      "expectedContainment": "attempt-cap-reached", "requiredEvidence": ["request-id", "admission-receipt", "attempt-lineage", "deadline-bound"],
+      "expectedRecovery": "bounded-canary-completed", "exitVerification": ["retry-rate-below-threshold", "latency-below-threshold"]
+    },
+    {
+      "id": "DRILL-INCOMPATIBLE-ALIAS-v1", "scenario": "incompatible-alias", "runbook": "RUN-JEV-DRIFT-v1",
+      "expectedContainment": "action-route-blocked", "requiredEvidence": ["requested-model", "actual-model", "compatibility-result", "calibration-ref"],
+      "expectedRecovery": "approved-model-pin-restored", "exitVerification": ["compatibility-gate-passed", "calibration-gate-passed"]
+    },
+    {
+      "id": "DRILL-CACHE-TAMPER-v1", "scenario": "cache-tamper", "runbook": "RUN-JEV-CACHE-v1",
+      "expectedContainment": "namespace-quarantined", "requiredEvidence": ["namespace-id", "semantic-identity-digest", "integrity-result", "verification-log-ref"],
+      "expectedRecovery": "trusted-cache-rebuild-completed", "exitVerification": ["identity-check-passed", "negative-tamper-test-passed"]
+    },
+    {
+      "id": "DRILL-EGRESS-v1", "scenario": "data-egress", "runbook": "RUN-JEV-EGRESS-v1",
+      "expectedContainment": "request-denied", "requiredEvidence": ["binding-id", "destination-policy-ref", "projection-digest", "sanitized-canary-id"],
+      "expectedRecovery": "privacy-approved-boundary-restored", "exitVerification": ["projection-policy-passed", "synthetic-canary-contained"]
+    }
   ],
+  "requiredTestEvidence": ["PAT-DISCOVERY-001", "PAT-OFFLINE-001", "PAT-AUTHORITY-001", "PAT-DURABLE-001", "PAT-OPS-001"],
+  "retention": {
+    "releaseGate": "D11-G6",
+    "policy": "retain",
+    "testEvidence": ["PAT-DISCOVERY-001", "PAT-OFFLINE-001", "PAT-AUTHORITY-001", "PAT-DURABLE-001", "PAT-OPS-001"],
+    "artifacts": ["docs/decision/operations/closure-manifest.v1.json", "docs/decision/operations/README.md", "decision-pattern-operational-gate-report/v1"]
+  },
   "gates": {
     "offlinePackageSmoke": "npm run smoke:decision:patterns:offline",
     "typecheck": "npm run typecheck",
     "build": "npm run build:cli",
-    "schemaCatalog": "npm run schema:catalog:check"
+    "schemaCatalog": "npm run schema:catalog:check",
+    "markdownLint": "installed-package operational gate",
+    "operationalDrills": "node tools/decision/pattern-operational-gate.mjs"
   }
 }

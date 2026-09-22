@@ -80,7 +80,7 @@ describe('calibration compatibility registry', () => {
     const cases: Array<[string, Partial<Omit<CalibrationArtifact, 'digest'>>, string]> = [
       ['expired', {}, '2026-10-02T00:00:00.000Z'],
       ['unapproved', { approval: { state: 'observed', reference: null } }, '2026-09-10T00:00:00.000Z'],
-      ['insufficient', { metrics: { totalSamples: 10, perSliceSamples: 5, calibrationError: 0.04, selectiveRisk: 0.02, confidenceIntervals: {} } }, '2026-09-10T00:00:00.000Z'],
+      ['insufficient', { metrics: { totalSamples: 10, perSliceSamples: 5, calibrationError: 0.04, selectiveRisk: 0.02, confidenceIntervals: { ece: { lower: 0.02, upper: 0.06 } } } }, '2026-09-10T00:00:00.000Z'],
     ];
     for (const [name, overrides, at] of cases) {
       const registry = new CalibrationRegistry(); registry.registerArtifact(artifact(identity(), overrides));
@@ -119,5 +119,18 @@ describe('calibration compatibility registry', () => {
     const registry = new CalibrationRegistry(); const original = artifact(); registry.registerArtifact(original);
     expect(() => registry.registerArtifact({ ...original, limitations: ['changed after registration'] })).toThrow(CalibrationRegistryError);
     expect(() => registry.registerArtifact(artifact(identity(), { id: 'post-hoc', effectiveAt: '2026-09-03T00:00:00.000Z' }))).toThrow('preregistered');
+  });
+
+  it.each([
+    ['empty', {}],
+    ['reversed', { ece: { lower: 0.7, upper: 0.2 } }],
+    ['lower-out-of-range', { ece: { lower: -0.01, upper: 0.2 } }],
+    ['upper-out-of-range', { ece: { lower: 0.2, upper: 1.01 } }],
+  ])('rejects %s confidence intervals', (_name, confidenceIntervals) => {
+    const invalid = artifact(identity(), { metrics: {
+      totalSamples: 200, perSliceSamples: 80, calibrationError: 0.04, selectiveRisk: 0.02,
+      confidenceIntervals,
+    } });
+    expect(() => new CalibrationRegistry().registerArtifact(invalid)).toThrow(CalibrationRegistryError);
   });
 });

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "decision-calibration-artifact/v1",
+  "id": "calibration:jev-1.14.0:fixture",
+  "digest": "sha256:742be5f3ef6340baee11e29ad30c8dda947af18e767322f93243653d60d8dedd",
+  "identity": {
+    "provider": "jev",
+    "backend": "api",
+    "actualModel": "jev-1.14.0",
+    "primitive": "choice",
+    "definitionDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "adapterVersion": "prompt-v1",
+    "dataset": { "id": "workflow-held-out-v1", "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+    "slice": { "id": "high-risk", "hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" },
+    "calibrator": { "id": "isotonic", "version": "1", "parametersDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" }
+  },
+  "splitProvenance": {
+    "id": "split-v1",
+    "hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "holdoutAccessedAt": "2026-09-22T11:00:00.000Z"
+  },
+  "profile": {
+    "minimumTotalSamples": 100,
+    "minimumPerSliceSamples": 40,
+    "powerRule": null,
+    "confidenceInterval": { "method": "bootstrap-bca", "level": 0.95 },
+    "maximumCalibrationError": 0.08,
+    "maximumSelectiveRisk": 0.05,
+    "expiresAfterDays": 30
+  },
+  "metrics": {
+    "totalSamples": 200,
+    "perSliceSamples": 80,
+    "calibrationError": 0.04,
+    "selectiveRisk": 0.02,
+    "confidenceIntervals": {
+      "calibrationError": { "lower": 0.02, "upper": 0.06 },
+      "selectiveRisk": { "lower": 0.01, "upper": 0.04 }
+    }
+  },
+  "effectiveAt": "2026-09-22T00:00:00.000Z",
+  "limitations": [
+    "Synthetic fixture only; not product-quality evidence.",
+    "Observed intervals validate evidence plumbing and do not authorize production automation."
+  ],
+  "approval": { "state": "approved", "reference": "approval:fixture-review-17" }
+}

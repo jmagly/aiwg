@@ -176,6 +176,15 @@ function validateArtifact(artifact: CalibrationArtifact): void {
   if (profile.maximumCalibrationError < 0 || profile.maximumCalibrationError > 1 || profile.maximumSelectiveRisk < 0 || profile.maximumSelectiveRisk > 1) throw new CalibrationRegistryError('risk bounds must be in [0,1]');
   if (!(profile.expiresAfterDays > 0)) throw new CalibrationRegistryError('expiry rule must be positive');
   if (!Number.isInteger(artifact.metrics.totalSamples) || artifact.metrics.totalSamples < 0 || !Number.isInteger(artifact.metrics.perSliceSamples) || artifact.metrics.perSliceSamples < 0) throw new CalibrationRegistryError('sample observations must be non-negative integers');
+  const intervals = Object.entries(artifact.metrics.confidenceIntervals);
+  if (!intervals.length) throw new CalibrationRegistryError('at least one confidence interval is required');
+  for (const [name, interval] of intervals) {
+    nonEmpty(name, 'confidence interval name');
+    if (!Number.isFinite(interval.lower) || !Number.isFinite(interval.upper)
+      || interval.lower < 0 || interval.upper > 1 || interval.lower > interval.upper) {
+      throw new CalibrationRegistryError(`confidence interval '${name}' must have ordered finite bounds in [0,1]`);
+    }
+  }
   if (artifact.approval.state === 'approved' && !artifact.approval.reference) throw new CalibrationRegistryError('approved calibration requires an approval reference');
   if (artifact.splitProvenance.holdoutAccessedAt && validDate(artifact.splitProvenance.holdoutAccessedAt) < validDate(artifact.effectiveAt)) throw new CalibrationRegistryError('profile must be preregistered before holdout access');
 }

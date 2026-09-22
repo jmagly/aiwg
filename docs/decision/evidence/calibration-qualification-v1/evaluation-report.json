@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "decision-qualification-report/v1",
+  "runId": "calibration-cross-product-v1",
+  "generatedAt": "2026-09-22T12:00:00.000Z",
+  "decision": "PROMOTE",
+  "gates": [
+    {
+      "id": "G4",
+      "title": "Calibration compatibility and drift evidence",
+      "status": "pass",
+      "missing": [],
+      "failed": []
+    }
+  ],
+  "scope": "Synthetic fixture promotion into a shadow-only state; not production qualification.",
+  "reviewedCase": "TV10"
+}

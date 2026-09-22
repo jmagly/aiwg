@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "decision-qualification-artifact/v1",
+  "runId": "calibration-cross-product-v1",
+  "caseId": "TV10",
+  "outcome": "pass",
+  "durationMs": 0,
+  "testEvidenceIds": [
+    "CAL-ADAPTER-01",
+    "CAL-APPROVAL-01",
+    "CAL-BACKEND-01",
+    "CAL-CALIBRATOR-01",
+    "CAL-CALIBRATOR-ID-01",
+    "CAL-CALIBRATOR-VERSION-01",
+    "CAL-DATASET-01",
+    "CAL-DATASET-ID-01",
+    "CAL-DEFINITION-01",
+    "CAL-EXACT-01",
+    "CAL-EXPIRY-01",
+    "CAL-MODEL-01",
+    "CAL-PRIMITIVE-01",
+    "CAL-PROVENANCE-01",
+    "CAL-PROVIDER-01",
+    "CAL-RAW-DERIVED-01",
+    "CAL-SAMPLES-01",
+    "CAL-SLICE-01",
+    "CAL-SLICE-ID-01",
+    "DRF-ACTIVE-PIN-01",
+    "DRF-ALIAS-01",
+    "DRF-PROMOTE-01",
+    "DRF-RETIRE-01",
+    "DRF-ROLLBACK-01",
+    "DRF-SHADOW-01"
+  ],
+  "details": {
+    "requestedAlias": "jev-latest",
+    "actualModel": "jev-1.13.0",
+    "laterActualModel": "jev-1.14.0",
+    "dimensions": 13,
+    "qualificationScope": "fixture-only"
+  }
+}

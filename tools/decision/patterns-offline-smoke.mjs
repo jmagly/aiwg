@@ -6,6 +6,7 @@ import {
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'aiwg-decision-pattern-smoke-'));
@@ -93,6 +94,13 @@ try {
   for (const runbook of closure.runbooks ?? []) {
     if (!runbookDocument.includes(runbook)) fail(`packed runbook document is missing ${runbook}`);
   }
+  const operationalGateModule = await import(pathToFileURL(path.join(
+    installRoot, 'tools', 'decision', 'pattern-operational-gate.mjs',
+  )).href);
+  const operationalGate = operationalGateModule.runPatternOperationalGateFromRoot(installRoot);
+  if (operationalGate.status !== 'pass' || operationalGate.markdown?.status !== 'pass') {
+    fail('packed operational drill or Markdown gate did not pass');
+  }
 
   const probePath = path.join(consumerRoot, 'offline-pattern-probe.mjs');
   writeFileSync(probePath, probeSource(), { mode: 0o600 });
@@ -119,6 +127,7 @@ try {
     package: manifest.version,
     installRoot: '<temporary>/consumer/node_modules/aiwg',
     npmOffline: true,
+    operationalGate,
     ...evidence,
   }, null, 2));
 } finally {

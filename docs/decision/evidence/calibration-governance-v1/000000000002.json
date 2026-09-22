@@ -4,18 +4,18 @@
   "sequence": 2,
   "kind": "rollback",
   "alias": "jev-latest",
-  "from": { "aliasRevision": 2, "identityDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222" },
-  "to": { "aliasRevision": 1, "identityDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+  "from": { "aliasRevision": 2, "identityDigest": "sha256:6c5ac82962a1c1d1f7fcc74729ac277890b5bc914739bd94f6d6a9edda2f2b3d" },
+  "to": { "aliasRevision": 1, "identityDigest": "sha256:f89d8d6de821920bd66756b371be8694009d1a4741cafc8d6ec3d88d314aedaa" },
   "action": "rollback",
   "reviewedEvidence": {
-    "evaluationIntegrityReport": { "id": "qualification:calibration-cross-product-v1", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333" },
-    "calibrationArtifact": { "id": "calibration:jev-1.14.0:fixture", "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444" },
-    "compatibilityRelation": { "id": "compatibility:jev-1.13.0:jev-1.14.0:fixture", "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555" }
+    "evaluationIntegrityReport": { "id": "qualification:calibration-cross-product-v1", "digest": "sha256:2edad8334362d31866c430599db3c5bc5085fc3a8e1b8df1239828216e308b10" },
+    "calibrationArtifact": { "id": "calibration:jev-1.14.0:fixture", "digest": "sha256:742be5f3ef6340baee11e29ad30c8dda947af18e767322f93243653d60d8dedd" },
+    "compatibilityRelation": { "id": "compatibility:jev-1.13.0:jev-1.14.0:fixture", "digest": "sha256:ae276a8035b2ac1bbcb5fd1d221dc91d697ddc5dd87d73ed902ff32a7508f7cf" }
   },
   "approvalReference": "approval:fixture-rollback-18",
   "eligibilityId": null,
   "reasons": ["preregistered-fixture-drift-bound-breached"],
   "recordedAt": "2026-09-22T13:00:00.000Z",
-  "previousReceiptDigest": "sha256:58f51adfc331039fe0c27834183af9206442bfc7cd88c7ab1f0ec761db0769ed",
-  "digest": "sha256:7e2e20bcfdcee1e62ac2e4f8d05a83ca835792bd4e77b92e3dabbdd942e95eee"
+  "previousReceiptDigest": "sha256:ed131c8831194b34761e2bddb0e754d624dc6160cf3cc0792cc90247f523bef8",
+  "digest": "sha256:0ce34a2d1678378877e91857a135e119a23e47c0066cb3704dfaa12588fe9435"
 }

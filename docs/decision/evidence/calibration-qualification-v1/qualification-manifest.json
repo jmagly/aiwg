@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "decision-qualification-evidence-manifest/v1",
+  "runId": "calibration-cross-product-v1",
+  "sourceCommit": "9d42cc5f6135ae3cbdc29b8ca5eeb4631c4c015a",
+  "evidence": [
+    {
+      "caseId": "TV10",
+      "testEvidenceIds": [
+        "CAL-ADAPTER-01",
+        "CAL-APPROVAL-01",
+        "CAL-BACKEND-01",
+        "CAL-CALIBRATOR-01",
+        "CAL-CALIBRATOR-ID-01",
+        "CAL-CALIBRATOR-VERSION-01",
+        "CAL-DATASET-01",
+        "CAL-DATASET-ID-01",
+        "CAL-DEFINITION-01",
+        "CAL-EXACT-01",
+        "CAL-EXPIRY-01",
+        "CAL-MODEL-01",
+        "CAL-PRIMITIVE-01",
+        "CAL-PROVENANCE-01",
+        "CAL-PROVIDER-01",
+        "CAL-RAW-DERIVED-01",
+        "CAL-SAMPLES-01",
+        "CAL-SLICE-01",
+        "CAL-SLICE-ID-01",
+        "DRF-ACTIVE-PIN-01",
+        "DRF-ALIAS-01",
+        "DRF-PROMOTE-01",
+        "DRF-RETIRE-01",
+        "DRF-ROLLBACK-01",
+        "DRF-SHADOW-01"
+      ],
+      "executable": true,
+      "outcome": "pass",
+      "artifact": {
+        "path": "docs/decision/evidence/calibration-qualification-v1/TV10.json",
+        "digest": "sha256:6b750ad2fba18ba33b3739d8f2292b0aa5e9775c80e116dcfc566e6cd1c6cf12"
+      },
+      "sourceGoldens": [
+        {
+          "path": "test/fixtures/decision/calibration-compatibility-cross-product-v1.json",
+          "digest": "sha256:072dcd624aead5442cb36292825a00c6f3c3f59ed22cb1b767bc8b9896a1abb9"
+        },
+        {
+          "path": "docs/decision/evidence/calibration-qualification-v1/evaluation-report.json",
+          "digest": "sha256:2edad8334362d31866c430599db3c5bc5085fc3a8e1b8df1239828216e308b10"
+        },
+        {
+          "path": "docs/decision/evidence/calibration-qualification-v1/calibration-artifact.json",
+          "digest": "sha256:1d2985e4be59f48d040756b809aeee9c8cbe6079c77382e7684209cfc3271633"
+        },
+        {
+          "path": "docs/decision/evidence/calibration-qualification-v1/compatibility-relation.json",
+          "digest": "sha256:ae276a8035b2ac1bbcb5fd1d221dc91d697ddc5dd87d73ed902ff32a7508f7cf"
+        }
+      ]
+    }
+  ]
+}

@@ -36,7 +36,7 @@
       "properties": {
         "totalSamples": { "type": "integer", "minimum": 0 }, "perSliceSamples": { "type": "integer", "minimum": 0 },
         "calibrationError": { "type": "number", "minimum": 0 }, "selectiveRisk": { "type": "number", "minimum": 0 },
-        "confidenceIntervals": { "type": "object", "additionalProperties": { "$ref": "#/$defs/interval" } }
+        "confidenceIntervals": { "type": "object", "minProperties": 1, "additionalProperties": { "$ref": "#/$defs/interval" } }
       }
     },
     "effectiveAt": { "type": "string", "format": "date-time" },
@@ -63,6 +63,14 @@
         }
       }
     },
-    "interval": { "type": "object", "additionalProperties": false, "required": ["lower", "upper"], "properties": { "lower": { "type": "number" }, "upper": { "type": "number" } } }
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lower", "upper"],
+      "properties": {
+        "lower": { "type": "number", "minimum": 0, "maximum": 1 },
+        "upper": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
   }
 }

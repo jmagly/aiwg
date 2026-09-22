@@ -1,0 +1,10 @@
+{
+  "id": "compatibility:jev-1.13.0:jev-1.14.0:fixture",
+  "fromIdentityDigest": "sha256:f89d8d6de821920bd66756b371be8694009d1a4741cafc8d6ec3d88d314aedaa",
+  "toIdentityDigest": "sha256:6c5ac82962a1c1d1f7fcc74729ac277890b5bc914739bd94f6d6a9edda2f2b3d",
+  "state": "shadow-required",
+  "evidenceReference": "qualification:calibration-cross-product-v1",
+  "approvalReference": null,
+  "effectiveAt": "2026-09-22T12:00:00.000Z",
+  "expiresAt": "2026-10-22T12:00:00.000Z"
+}

@@ -22,9 +22,14 @@ backend with recorded/mock evidence under the same execution-mode label.
 
 ## Deterministic tabletop drills
 
-The package smoke checks the following sanitized scenarios and their expected
-containment: compromised credential → binding disabled; provider retry storm →
-attempt cap reached; incompatible alias → action route blocked; cache digest
-mismatch → namespace quarantined; egress canary → request denied. A drill passes
-only when the matching runbook ID, owner, evidence list, recovery step, and exit
-verification are present in the closure manifest.
+The package smoke executes the following sanitized scenarios and verifies their
+state transitions: compromised credential → binding disabled; provider retry
+storm → attempt cap reached; incompatible alias → action route blocked; cache
+digest mismatch → namespace quarantined; egress canary → request denied. A drill
+passes only when the matching runbook resolves and its containment, retained
+evidence, recovery step, and exit verification match the closure manifest. The
+result is a `decision-pattern-operational-gate-report/v1` report; it contains
+logical identifiers and references only, never credentials or incident payloads.
+
+The same installed-package gate lints the packaged decision Markdown and proves
+that the PAT evidence IDs are retained by the `D11-G6` release-gate manifest.

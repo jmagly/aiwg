@@ -1,5 +1,5 @@
 import { getDecisionPatternPack, decisionPatternPacks } from './catalog.js';
-import { resolveDecisionPatternArtifact } from './artifacts.js';
+import { resolveDecisionPatternArtifact, validateGovernedPatternArtifacts } from './artifacts.js';
 import Ajv2020 from 'ajv/dist/2020.js';
 import type { JsonValue } from '../types.js';
 import type { DecisionPatternId, DecisionPatternPack, LivePatternObservation, LivePatternPlan, LivePatternReceipt, LivePatternRequest, PatternFixture, PatternReceipt } from './types.js';
@@ -28,6 +28,7 @@ export function validateDecisionPattern(pack: DecisionPatternPack): string[] {
   if (!pack.failurePath || !pack.rollback || pack.limitations.length === 0) errors.push('missing-governance-guidance');
   if (pack.live && (pack.live.limits.maxCalls < 1 || pack.live.limits.maxTokens < 1 || pack.live.limits.maxCostUsd <= 0 || pack.live.limits.allowUnknownCost !== false || pack.live.limits.maxAttempts < 1 || pack.live.limits.deadlineMs < 1)) errors.push('invalid-live-limits');
   try {
+    validateGovernedPatternArtifacts(pack.id, pack.version);
     const inputSchema = resolveDecisionPatternArtifact(pack.artifacts.inputSchema).content;
     const outputSchema = resolveDecisionPatternArtifact(pack.artifacts.outputSchema).content;
     if (typeof inputSchema === 'string' || typeof outputSchema === 'string') throw new Error('schema artifact must be JSON');

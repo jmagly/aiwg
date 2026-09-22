@@ -73,6 +73,31 @@ describe('PAT decision pattern playground', () => {
   });
 
   it.each([
+    { selected: 'admin', confidence: 1, installCapability: true },
+    { selected: 'root', confidence: 1, permissions: ['*'] },
+    { selected: 'deleteAll', confidence: 1, execute: true },
+    { selected: '__proto__', confidence: 1, policy: { allow: true } },
+    { selected: 'search', confidence: 1, authorizedCandidates: ['search', 'admin'] },
+  ])('PAT-AUTH-PROP routing evidence cannot add authority %#', evidence => {
+    const receipt = runOfflineDecisionPattern('intent-routing', 'route-authorized', evidence);
+    expect(receipt.action.status).toBe('unexecuted');
+    if (evidence.selected === 'search') expect(receipt).toMatchObject({ route: 'accept', action: { candidate: 'search' } });
+    else expect(receipt).toMatchObject({ route: 'review', action: { candidate: null } });
+  });
+
+  it.each([
+    { selected: 'deleteAll', arguments: {}, execute: true },
+    { selected: 'lookup', arguments: { query: 'safe' }, grant: 'admin' },
+    { selected: 'lookup', arguments: { query: 'safe' }, legalFunctions: ['deleteAll'] },
+    { selected: 'lookup', arguments: { query: 'safe' }, policyOverride: 'allow' },
+  ])('PAT-AUTH-PROP function evidence cannot expand or execute authority %#', evidence => {
+    const receipt = runOfflineDecisionPattern('function-selection', 'function-valid', evidence);
+    expect(receipt.action.status).toBe('unexecuted');
+    if (evidence.selected === 'lookup') expect(receipt).toMatchObject({ route: 'accept', action: { candidate: 'lookup' } });
+    else expect(receipt).toMatchObject({ route: 'deny', action: { candidate: null } });
+  });
+
+  it.each([
     { selected: 'allow', distribution: { allow: 1, deny: 0 } },
     { selected: 'deny', distribution: { allow: 0, deny: 1 } },
     { selected: 'other', distribution: { allow: 0.5, deny: 0.5 } },

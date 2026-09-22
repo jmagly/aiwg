@@ -15,18 +15,18 @@
   "champion": {
     "state": "observed",
     "actualModel": "jev-1.13.0",
-    "identityDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "identityDigest": "sha256:f89d8d6de821920bd66756b371be8694009d1a4741cafc8d6ec3d88d314aedaa",
     "calibratedAutomationEnabled": false
   },
   "candidate": {
     "state": "shadow",
     "actualModel": "jev-1.14.0",
-    "identityDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "identityDigest": "sha256:6c5ac82962a1c1d1f7fcc74729ac277890b5bc914739bd94f6d6a9edda2f2b3d",
     "pairedAgainstChampion": true,
     "calibratedAutomationEnabled": false
   },
   "heldOutApproval": {
-    "report": { "id": "qualification:calibration-cross-product-v1", "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333" },
+    "report": { "id": "qualification:calibration-cross-product-v1", "path": "docs/decision/evidence/calibration-qualification-v1/evaluation-report.json", "digest": "sha256:2edad8334362d31866c430599db3c5bc5085fc3a8e1b8df1239828216e308b10" },
     "approvalReference": "approval:fixture-review-17",
     "holdoutAccessedAt": "2026-09-22T11:00:00.000Z",
     "decision": "approved-for-fixture-promotion"
@@ -43,5 +43,8 @@
     "Public-corpus contamination, selection bias, and future distribution shift remain unmeasured."
   ],
   "promotionReceipt": "docs/decision/evidence/calibration-governance-v1/000000000001.json",
-  "rollbackReceipt": "docs/decision/evidence/calibration-governance-v1/000000000002.json"
+  "rollbackReceipt": "docs/decision/evidence/calibration-governance-v1/000000000002.json",
+  "qualificationManifest": "docs/decision/evidence/calibration-qualification-v1/qualification-manifest.json",
+  "calibrationArtifact": "docs/decision/evidence/calibration-qualification-v1/calibration-artifact.json",
+  "compatibilityRelation": "docs/decision/evidence/calibration-qualification-v1/compatibility-relation.json"
 }
