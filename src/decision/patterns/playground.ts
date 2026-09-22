@@ -165,6 +165,7 @@ export async function runLiveDecisionPattern(
   });
   const observed = await Promise.race([executor(structuredClone(request), { ...pack.live.limits }), timeout]);
   const usedTokens = observed.usage.inputTokens + observed.usage.outputTokens;
+  if (!Number.isInteger(observed.calls) || observed.calls < 1 || observed.calls > plan.limits.maxCalls) throw new Error('Live decision pattern call limit exceeded');
   if (observed.attempts < 1 || observed.attempts > plan.limits.maxAttempts) throw new Error('Live decision pattern attempt limit exceeded');
   if (usedTokens > plan.limits.maxTokens) throw new Error('Live decision pattern token limit exceeded');
   if (observed.usage.costUsd === null || observed.usage.costUsd > plan.limits.maxCostUsd) throw new Error('Live decision pattern cost unavailable or limit exceeded');
@@ -172,7 +173,7 @@ export async function runLiveDecisionPattern(
   return {
     schema: 'decision-pattern-live-receipt/v1', pattern: { id, version: pack.version },
     executionMode: 'live', evidenceOrigin: 'live-synthetic', requestedModel: observed.requestedModel,
-    actualModel: observed.actualModel, attempts: observed.attempts, usage: { ...observed.usage },
+    actualModel: observed.actualModel, calls: observed.calls, attempts: observed.attempts, usage: { ...observed.usage },
     deadlineMs: plan.limits.deadlineMs, action: { status: 'unexecuted' }, output: structuredClone(observed.output),
   };
 }

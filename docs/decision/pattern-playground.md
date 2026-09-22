@@ -31,10 +31,12 @@ store, performs an authorized resume, then repeats resume and proves that the
 stored effect receipt is returned without a second executor call. The fixture is
 local-only and requires the caller to supply a disposable directory.
 
-Live execution is deliberately outside the playground runner. Call
-`planLiveDecisionPattern()` to obtain a non-executing readiness plan. It requires
+Live execution is available only through `runLiveDecisionPattern()` with a caller-supplied
+adapter, and is limited to explicitly synthetic probes. Call `planLiveDecisionPattern()`
+first to obtain a non-executing readiness plan. The runner requires
 explicit opt-in, approved synthetic egress, logical credential resolution, and
-the pack's fixed call, token, cost, attempt, and deadline limits. A missing
+the pack's fixed call, token, cost, attempt, and deadline limits; it rejects adapter
+observations that exceed any declared limit. A missing
 credential is a skip; the library never substitutes a mock and labels it live.
 
 These examples do not claim deterministic model behavior, universal accuracy or

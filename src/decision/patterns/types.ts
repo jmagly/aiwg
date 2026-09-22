@@ -97,6 +97,8 @@ export interface LivePatternObservation {
   requestedModel: string;
   actualModel: string;
   output: Record<string, JsonValue>;
+  /** Total provider calls made by the supplied adapter for this probe. */
+  calls: number;
   attempts: number;
   usage: { inputTokens: number; outputTokens: number; costUsd: number | null };
 }
@@ -108,6 +110,7 @@ export interface LivePatternReceipt {
   evidenceOrigin: 'live-synthetic';
   requestedModel: string;
   actualModel: string;
+  calls: number;
   attempts: number;
   usage: LivePatternObservation['usage'];
   deadlineMs: number;

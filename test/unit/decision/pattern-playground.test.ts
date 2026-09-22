@@ -101,8 +101,28 @@ describe('PAT decision pattern playground', () => {
     { selected: 'allow', distribution: { allow: 1, deny: 0 } },
     { selected: 'deny', distribution: { allow: 0, deny: 1 } },
     { selected: 'other', distribution: { allow: 0.5, deny: 0.5 } },
-  ])('keeps tool policy deny across recorded output %#', evidence => {
+  ])('PAT-AUTH-PROP keeps tool policy deny across recorded output %#', evidence => {
     expect(runOfflineDecisionPattern('tool-risk-preflight', 'tool-deny-conflict', evidence)).toMatchObject({
+      route: 'deny', reason: 'deterministic-policy-deny', action: { status: 'unexecuted', candidate: null },
+    });
+  });
+
+  it.each([
+    { selectedLocator: 'doc:admin', sourceDigest: `sha256:${'a'.repeat(64)}`, support: 'supported', provenanceVerified: true },
+    { selectedLocator: 'doc:1#p2', sourceDigest: `sha256:${'f'.repeat(64)}`, support: 'supported', grant: 'trusted' },
+    { selectedLocator: '__proto__', sourceDigest: `sha256:${'0'.repeat(64)}`, support: 'supported', execute: true },
+  ])('PAT-AUTH-PROP citation output cannot create provenance %#', evidence => {
+    expect(runOfflineDecisionPattern('citation-support', 'citation-valid', evidence)).toMatchObject({
+      route: 'review', action: { status: 'unexecuted', candidate: null },
+    });
+  });
+
+  it.each([
+    { allowProbability: 1 },
+    { allowProbability: 1, policyOverride: 'allow' },
+    { allowProbability: 1, grant: 'admin', execute: true },
+  ])('PAT-AUTH-PROP guardrail output cannot override deterministic denial %#', evidence => {
+    expect(runOfflineDecisionPattern('guardrails', undefined, evidence)).toMatchObject({
       route: 'deny', reason: 'deterministic-policy-deny', action: { status: 'unexecuted', candidate: null },
     });
   });
@@ -140,13 +160,16 @@ describe('PAT decision pattern playground', () => {
     const options = { explicitOptIn: true, credentialResolved: true, egressApproved: true };
     await expect(runLiveDecisionPattern('intent-routing', { synthetic: true, input: { text: 'synthetic' } }, options, async (_request, limits) => {
       expect(limits).toMatchObject({ maxCalls: 2, maxAttempts: 1, allowUnknownCost: false });
-      return { requestedModel: 'jev:test', actualModel: 'jev:test-2026-09', output: { selected: 'search' }, attempts: 1, usage: { inputTokens: 10, outputTokens: 2, costUsd: 0.001 } };
-    })).resolves.toMatchObject({ executionMode: 'live', evidenceOrigin: 'live-synthetic', actualModel: 'jev:test-2026-09', action: { status: 'unexecuted' } });
+      return { requestedModel: 'jev:test', actualModel: 'jev:test-2026-09', output: { selected: 'search' }, calls: 2, attempts: 1, usage: { inputTokens: 10, outputTokens: 2, costUsd: 0.001 } };
+    })).resolves.toMatchObject({ executionMode: 'live', evidenceOrigin: 'live-synthetic', actualModel: 'jev:test-2026-09', calls: 2, action: { status: 'unexecuted' } });
     await expect(runLiveDecisionPattern('intent-routing', { synthetic: true, input: {} }, options, async () => ({
-      requestedModel: 'jev:test', actualModel: 'jev:test', output: {}, attempts: 2, usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.001 },
+      requestedModel: 'jev:test', actualModel: 'jev:test', output: {}, calls: 3, attempts: 1, usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.001 },
+    }))).rejects.toThrow('call limit');
+    await expect(runLiveDecisionPattern('intent-routing', { synthetic: true, input: {} }, options, async () => ({
+      requestedModel: 'jev:test', actualModel: 'jev:test', output: {}, calls: 1, attempts: 2, usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.001 },
     }))).rejects.toThrow('attempt limit');
     await expect(runLiveDecisionPattern('intent-routing', { synthetic: true, input: {} }, options, async () => ({
-      requestedModel: 'jev:test', actualModel: 'jev:test', output: {}, attempts: 1, usage: { inputTokens: 1, outputTokens: 1, costUsd: null },
+      requestedModel: 'jev:test', actualModel: 'jev:test', output: {}, calls: 1, attempts: 1, usage: { inputTokens: 1, outputTokens: 1, costUsd: null },
     }))).rejects.toThrow('cost unavailable');
   });
 
