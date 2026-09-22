@@ -349,6 +349,54 @@
         { "id": "decision-calibration-registry", "boundary": "Pinned model compatibility decisions", "path": "src/decision/calibration/registry.ts" }
       ],
       "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.admission-evidence",
+      "id": "https://aiwg.io/schemas/decision/DecisionAdmissionEvidence.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionAdmissionEvidence.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [
+        { "id": "decision-scheduler", "boundary": "Metadata-only provider admission evidence", "path": "src/decision/admission.ts" }
+      ],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.batch-receipt",
+      "id": "https://aiwg.io/schemas/decision/BatchReceipt.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/BatchReceipt.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [
+        { "id": "decision-batch-receipts", "boundary": "Durable native-batch accounting and replay evidence", "path": "src/decision/batch-receipts/receipt.ts" }
+      ],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.telemetry-trace",
+      "id": "https://aiwg.io/schemas/decision/DecisionTelemetryTrace.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionTelemetryTrace.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [
+        { "id": "decision-telemetry", "boundary": "Redacted decision trace and lifecycle evidence", "path": "src/decision/telemetry/trace.ts" }
+      ],
+      "publication": { "public": true }
     }
   ]
 }

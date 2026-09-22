@@ -199,6 +199,68 @@ export interface DecisionAttempt {
   /** Remote execution and billing are uncertain after a dispatched cancellation or timeout. */
   remoteExecution?: 'unknown';
   batch?: DecisionBatchEvidence;
+  /** Bounded, metadata-only scheduler/admission evidence. Never contains inputs or principal IDs. */
+  admission?: DecisionAdmissionEvidence;
+}
+
+export type DecisionAdmissionReason =
+  | 'admitted' | 'disabled' | 'cancelled' | 'deadline-exceeded'
+  | 'concurrency' | 'requests-per-minute' | 'tokens-per-second'
+  | 'attempts' | 'batch-size' | 'cost' | 'unknown-cost'
+  | 'queue-full' | 'queue-timeout' | 'request-too-large' | 'too-many-items'
+  | 'retry-after' | 'circuit-open';
+
+export interface DecisionAdmissionEvidence {
+  decision: 'admit' | 'defer' | 'reject';
+  reason: DecisionAdmissionReason;
+  queueDelayMs: number;
+  active: number;
+  queued: number;
+  estimatedTokens: number | null;
+  estimatedCostUsd: number | null;
+  retryPressure: number;
+  breakerState: 'closed' | 'open' | 'half-open';
+  /** Bounded hint only; it is intentionally jittered by the controller. */
+  retryAfterMs?: number;
+}
+
+export interface DecisionAdmissionLimits {
+  concurrency: number;
+  requestsPerMinute?: number;
+  tokensPerSecond?: number;
+  maxAttempts?: number;
+  maxBatchSize?: number;
+  maxCostUsd?: number;
+  allowUnknownCost?: boolean;
+  maxQueueLength?: number;
+  maxQueueWaitMs?: number;
+  maxRequestBytes?: number;
+  maxItems?: number;
+  circuitBreaker?: { failureThreshold: number; openMs: number; halfOpenMaxCalls: number };
+}
+
+export interface DecisionAdmissionEstimate {
+  tokens?: number;
+  costUsd?: number | null;
+  requestBytes?: number;
+  items?: number;
+  attempts?: number;
+  batchSize?: number;
+}
+
+export interface DecisionSchedulerPolicy {
+  /** Conservative default: scheduling and admission are inert unless enabled. */
+  enabled: boolean;
+  /** Operator-pinned profile revision used for rollout and rollback. */
+  profileVersion: string;
+  callerConcurrency?: number;
+  graphConcurrency?: number;
+  workspace: { id: string; limits: DecisionAdmissionLimits };
+  /** Must be supplied from authenticated host context, never decision input/model output. */
+  principal: { id: string; limits: DecisionAdmissionLimits };
+  providers: Record<string, DecisionAdmissionLimits>;
+  estimate?: (alias: string, target: ExecutionTarget, input: unknown) => DecisionAdmissionEstimate;
+  onEvidence?: (alias: string, evidence: DecisionAdmissionEvidence) => void;
 }
 
 export type DecisionStatus = 'success' | 'abstained' | 'error' | 'unsupported' | 'cancelled';
@@ -273,6 +335,8 @@ export interface AdapterObservation {
   remoteExecution?: 'unknown';
   /** Transport hint used only by the dispatcher; never persisted as decision data. */
   retryAfterMs?: number;
+  /** Local scheduler evidence; adapters must not populate identity-bearing fields. */
+  admission?: DecisionAdmissionEvidence;
 }
 
 export interface DecisionAdapterRequest {
@@ -383,4 +447,5 @@ export interface DecisionEvaluationRequest {
   random?: () => number;
   delay?: (ms: number, signal: AbortSignal) => Promise<void>;
   batching?: DecisionBatchPolicy;
+  scheduler?: DecisionSchedulerPolicy;
 }

@@ -478,6 +478,9 @@
               "remoteExecution": {
                 "const": "unknown"
               },
+              "admission": {
+                "$ref": "DecisionAdmissionEvidence.v1.schema.json"
+              },
               "batch": {
                 "type": "object",
                 "properties": {

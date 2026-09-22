@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "decision-telemetry/v1",
+  "scenarios": [
+    { "id": "OBS-001", "name": "single-success", "spans": ["decision.workflow", "decision.validate", "decision.attempt", "decision.accept", "decision.persist"] },
+    { "id": "OBS-002", "name": "heterogeneous-batch", "spans": ["decision.workflow", "decision.batch.request", "decision.attempt", "decision.attempt", "decision.compose"] },
+    { "id": "OBS-003", "name": "retry-then-success", "spans": ["decision.workflow", "decision.attempt", "decision.attempt", "decision.accept"] },
+    { "id": "OBS-004", "name": "backend-fallback", "spans": ["decision.workflow", "decision.attempt", "decision.attempt", "decision.accept"] },
+    { "id": "OBS-005", "name": "invalid-output", "spans": ["decision.workflow", "decision.attempt", "decision.normalize", "decision.persist"] },
+    { "id": "OBS-006", "name": "caller-cancellation", "spans": ["decision.workflow", "decision.attempt", "decision.persist"] },
+    { "id": "OBS-007", "name": "execution-uncertainty", "spans": ["decision.workflow", "decision.attempt", "decision.persist"] },
+    { "id": "OBS-008", "name": "policy-review", "spans": ["decision.workflow", "decision.accept", "decision.review"] },
+    { "id": "OBS-009", "name": "cache-hit", "spans": ["decision.workflow", "decision.cache", "decision.persist"] },
+    { "id": "OBS-010", "name": "async-item", "spans": ["decision.workflow", "decision.job", "decision.persist"] },
+    { "id": "OBS-011", "name": "approved-action-link", "spans": ["decision.workflow", "decision.review", "decision.action"] },
+    { "id": "PRV-001", "name": "sanitized-incident-export", "spans": ["decision.workflow", "decision.attempt", "decision.persist"] }
+  ]
+}

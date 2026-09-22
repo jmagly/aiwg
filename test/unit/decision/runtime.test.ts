@@ -131,6 +131,60 @@ describe('normalized decision contracts', () => {
 });
 
 describe('shared evaluator', () => {
+  it('executes independently under the minimum ceiling and serializes results canonically', async () => {
+    const binding = fixture<DecisionBinding>('binding-jev.json');
+    binding.spec.concurrency = 4;
+    let active = 0;
+    let maximum = 0;
+    const completion: string[] = [];
+    const adapter: DecisionAdapter = {
+      id: 'jev', version: '1.0.0',
+      capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
+        features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
+        confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true }),
+      evaluate: async request => {
+        active += 1;
+        maximum = Math.max(maximum, active);
+        const delays: Record<string, number> = { category: 20, severity: 10, core_unavailable: 1 };
+        await new Promise(resolve => setTimeout(resolve, delays[request.alias] ?? 1));
+        active -= 1;
+        completion.push(request.alias);
+        return values(request.alias);
+      },
+    };
+    const sharedLimits = { concurrency: 3, maxQueueLength: 8, maxQueueWaitMs: 1_000 };
+    const result = await evaluateDecisionRuleset({
+      ruleset: fixture('ruleset.json'), binding, definitions: definitions(), input: fixture('input.json'),
+      runId: 'run', invocationId: 'concurrent', adapters: { jev: adapter },
+      scheduler: { enabled: true, profileVersion: 'offline-v1', callerConcurrency: 2, graphConcurrency: 3,
+        workspace: { id: 'workspace', limits: sharedLimits }, principal: { id: 'principal', limits: sharedLimits },
+        providers: { jev: sharedLimits } },
+    });
+    expect(maximum).toBe(2);
+    expect(completion[0]).not.toBe('category');
+    expect(Object.keys(result.spec.evaluations)).toEqual(['category', 'severity', 'core_unavailable']);
+    expect(result.spec.evaluations.category?.spec.attempts[0]?.admission).toMatchObject({ decision: 'admit', reason: 'admitted' });
+  });
+
+  it('preserves one global attempt budget under concurrent evaluation', async () => {
+    const binding = fixture<DecisionBinding>('binding-jev.json');
+    binding.spec.concurrency = 3;
+    binding.spec.maxAttempts = 2;
+    let calls = 0;
+    const adapter = new FixtureAdapter('jev', alias => { calls += 1; return values(alias); });
+    const sharedLimits = { concurrency: 3, maxQueueLength: 8, maxQueueWaitMs: 1_000 };
+    const result = await evaluateDecisionRuleset({
+      ruleset: fixture('ruleset.json'), binding, definitions: definitions(), input: fixture('input.json'),
+      runId: 'run', invocationId: 'attempt-budget', adapters: { jev: adapter },
+      scheduler: { enabled: true, profileVersion: 'offline-v1', callerConcurrency: 3,
+        workspace: { id: 'workspace', limits: sharedLimits }, principal: { id: 'principal', limits: sharedLimits },
+        providers: { jev: sharedLimits } },
+    });
+    expect(calls).toBe(2);
+    expect(Object.values(result.spec.evaluations).reduce((sum, evaluation) => sum + evaluation.spec.attempts.length, 0)).toBe(2);
+    expect(Object.values(result.spec.evaluations).some(evaluation => evaluation.spec.reason === 'budget-exhausted')).toBe(true);
+  });
+
   it('switches Jev and subagent backends by binding only', async () => {
     const common = {
       ruleset: fixture<DecisionRuleset>('ruleset.json'), definitions: definitions(), input: fixture('input.json'),

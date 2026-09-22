@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionAdmissionEvidence.v1.schema.json",
+  "type": "object",
+  "properties": {
+    "decision": { "enum": ["admit", "defer", "reject"] },
+    "reason": {
+      "enum": [
+        "admitted", "disabled", "cancelled", "deadline-exceeded", "concurrency",
+        "requests-per-minute", "tokens-per-second", "attempts", "batch-size", "cost",
+        "unknown-cost", "queue-full", "queue-timeout", "request-too-large", "too-many-items",
+        "retry-after", "circuit-open"
+      ]
+    },
+    "queueDelayMs": { "type": "number", "minimum": 0 },
+    "active": { "type": "integer", "minimum": 0 },
+    "queued": { "type": "integer", "minimum": 0 },
+    "estimatedTokens": { "type": ["integer", "null"], "minimum": 0 },
+    "estimatedCostUsd": { "type": ["number", "null"], "minimum": 0 },
+    "retryPressure": { "type": "integer", "minimum": 0 },
+    "breakerState": { "enum": ["closed", "open", "half-open"] },
+    "retryAfterMs": { "type": "integer", "minimum": 1, "maximum": 30000 }
+  },
+  "required": [
+    "decision", "reason", "queueDelayMs", "active", "queued", "estimatedTokens",
+    "estimatedCostUsd", "retryPressure", "breakerState"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,50 @@
+{
+  "schema": "decision-load-manifest/v1",
+  "version": "1.0.0",
+  "mode": "offline-fake-provider",
+  "profile": {
+    "bindingConcurrency": 8,
+    "callerConcurrency": 4,
+    "graphConcurrency": 6,
+    "principalConcurrency": 3,
+    "workspaceConcurrency": 4,
+    "providerConcurrency": 4,
+    "requestsPerMinute": 120,
+    "tokensPerSecond": 1000,
+    "maxAttemptsPerInvocation": 64,
+    "maxBatchSize": 16,
+    "maxCostUsdPerInvocation": 1,
+    "allowUnknownCost": false,
+    "maxQueueLength": 128,
+    "maxQueueWaitMs": 2000,
+    "maxRequestBytes": 262144,
+    "maxItems": 64
+  },
+  "arrivalModel": {
+    "kind": "seeded-bursty-poisson",
+    "seed": 2601,
+    "averageRequestsPerSecond": 20,
+    "spikeMultiplier": 4,
+    "spikeDurationSeconds": 10
+  },
+  "duration": {
+    "loadSeconds": 60,
+    "spikeSeconds": 30,
+    "soakSeconds": 900
+  },
+  "bounds": {
+    "maximumActiveCalls": 3,
+    "maximumQueuedCalls": 128,
+    "maximumResidentMemoryMiB": 256,
+    "maximumCpuPercentOneCore": 80,
+    "maximumEligibleLaneWaitMs": 2000,
+    "maximumRetryAmplificationRatio": 1.25,
+    "maximumCancellationLatencyMs": 100
+  },
+  "passFail": {
+    "allBoundsMustPass": true,
+    "deterministicResultOrder": true,
+    "crossPrincipalQueueStateDisclosure": false,
+    "liveServiceRequired": false
+  }
+}

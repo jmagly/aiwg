@@ -4,6 +4,8 @@ import { applyPrimitiveAcceptance, validatePrimitiveAcceptancePolicy } from './a
 import { DecisionPreDispatchError, decisionInvocationFingerprint, nextReceipt } from './receipts.js';
 import { admitEntry, EntryAdmissionError } from './entry.js';
 import { correlateAtomicBatch, decisionBatchQuestionId, planNativeDecisionBatches } from './batch.js';
+import { AdmissionError, DecisionAdmissionController } from './admission.js';
+import { runBoundedFair, SchedulerWaitError } from './scheduler.js';
 import { DECISION_API_VERSION, DECISION_API_VERSION_STRUCTURED } from './types.js';
 import type {
   AdapterObservation,
@@ -11,6 +13,7 @@ import type {
   DecisionAdapter,
   DecisionBatchEvidence,
   DecisionAttempt,
+  DecisionAdmissionEvidence,
   DecisionDefinition,
   DecisionEvaluationRequest,
   DecisionFailureReason,
@@ -37,6 +40,8 @@ const RETRIABLE = new Set<DecisionFailureReason>([
   'timeout', 'network-transient', 'rate-limited', 'overloaded', 'service-error',
 ]);
 
+const admissionControllers = new WeakMap<object, DecisionAdmissionController>();
+
 export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest): Promise<RulesetResult> {
   let rulesetPin: ArtifactPin;
   let bindingPin: ArtifactPin;
@@ -61,6 +66,7 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
     };
     base = resultBase(request, rulesetPin, bindingPin);
     validateBinding(request.binding, request.ruleset);
+    validateSchedulerPolicy(request);
     validateAgainstSchema(request.ruleset.spec.inputSchema, request.input, 'ruleset input');
     resolved = resolveDefinitions(request);
     for (const item of resolved) {
@@ -150,6 +156,7 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
   const totalAbort = AbortSignal.any([request.signal ?? new AbortController().signal, totalTimeout]);
   const evaluations: Record<string, DecisionResult> = structuredClone(receipt?.evaluations ?? {});
   let attemptsUsed = Object.values(evaluations).reduce((sum, result) => sum + result.spec.attempts.length, 0);
+  const attemptBudget = new AttemptBudget(request.binding.spec.maxAttempts, attemptsUsed);
 
   try {
   if (reconciled && receipt?.pending) {
@@ -162,10 +169,11 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
     catch { throw new RemoteUncertainError(); }
     if (observation.status !== 'success') throw new RemoteUncertainError();
     const context: OneContext = { request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
-      attemptsAvailable: request.binding.spec.maxAttempts, now, advance };
+      attemptBudget, now, advance };
     const attempts = [...pending.attempts, toAttempt(target, pending.ordinal, observation, 0)];
     evaluations[item.alias] = decisionResult(context, observation, attempts);
     attemptsUsed += attempts.length;
+    attemptBudget.consume(attempts.length);
     await advance('observation-received', { evaluations, pending: null });
   }
 
@@ -219,39 +227,38 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
         const evidence: DecisionBatchEvidence = { mode: 'native', groupId: plan.groupId, questionId: questionIds[index]! };
         const observation = observations.get(questionIds[index]!)!;
         const context: OneContext = { request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
-          attemptsAvailable: 1, now, advance };
+          attemptBudget, now, advance };
         evaluations[item.alias] = decisionResult(context, observation,
           [toAttempt(candidate.target, 1, observation, Math.max(0, now() - started), evidence)]);
       });
       attemptsUsed += plan.candidates.length;
+      attemptBudget.consume(plan.candidates.length);
     }
   }
-  for (const item of resolved) {
-    if (evaluations[item.alias]) continue;
-    if (totalAbort.aborted) {
-      const reason = request.signal?.aborted ? 'cancelled' : 'timeout';
-      evaluations[item.alias] = emptyDecisionResult(request, item, rulesetPin, bindingPin, reason === 'cancelled' ? 'cancelled' : 'error', reason);
-      continue;
+  const remainingItems = resolved.filter(item => !evaluations[item.alias]);
+  const concurrency = effectiveConcurrency(request);
+  const scheduled = await runBoundedFair(remainingItems.map(item => ({ value: item, lane: schedulerLane(request, item) })), concurrency,
+    async item => evaluateOne({ request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
+      attemptBudget, now, advance, batchEvidence: singleBatchEvidence(request, item.alias) }),
+    { signal: totalAbort, deadlineEpochMs: totalDeadline, now });
+  scheduled.forEach((execution, index) => {
+    const item = remainingItems[index]!;
+    if (execution instanceof SchedulerWaitError) {
+      const reason = execution.reason === 'cancelled' ? 'cancelled' : 'timeout';
+      evaluations[item.alias] = emptyDecisionResult(request, item, rulesetPin, bindingPin,
+        reason === 'cancelled' ? 'cancelled' : 'error', reason);
+    } else {
+      evaluations[item.alias] = execution;
     }
-    const execution = await evaluateOne({
-      request,
-      item,
-      rulesetPin,
-      bindingPin,
-      totalDeadline,
-      signal: totalAbort,
-      totalTimeout,
-      attemptsAvailable: request.binding.spec.maxAttempts - attemptsUsed,
-      now,
-      advance,
-      batchEvidence: singleBatchEvidence(request, item.alias),
-    });
-    attemptsUsed += execution.spec.attempts.length;
-    evaluations[item.alias] = execution;
-    await advance('observation-received', { evaluations, pending: null });
-  }
+  });
+  // Receipt v2 has one pending slot; concurrency is forced to one when durable
+  // ownership is enabled, so this update remains an atomic chronology.
+  if (request.receiptStore) await advance('observation-received', { evaluations, pending: null });
 
-  if (receipt?.state === 'execution-uncertain') return failureResult(base, 'execution-uncertain', evaluations);
+  if (receipt?.state === 'execution-uncertain') {
+    releaseAdmissionBudget(request);
+    return failureResult(base, 'execution-uncertain', evaluations);
+  }
 
   const orderedEvaluations = Object.fromEntries(resolved
     .filter(item => evaluations[item.alias])
@@ -281,12 +288,15 @@ export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest
 
   await advance('composed');
   await advance('completed', { result });
+  releaseAdmissionBudget(request);
   return result;
   } catch (error) {
     if (error instanceof RemoteUncertainError) {
       try { await advance('execution-uncertain'); } catch { return failureResult(base, 'persistence-error', evaluations); }
+      releaseAdmissionBudget(request);
       return failureResult(base, 'execution-uncertain', evaluations);
     }
+    releaseAdmissionBudget(request);
     return failureResult(base, 'persistence-error', evaluations);
   }
 }
@@ -302,7 +312,7 @@ interface OneContext {
   totalDeadline: number;
   signal: AbortSignal;
   totalTimeout: AbortSignal;
-  attemptsAvailable: number;
+  attemptBudget: AttemptBudget;
   now: () => number;
   advance: (state: DecisionReceipt['state'], extra?: Partial<Pick<DecisionReceipt, 'result' | 'remoteHandles' | 'evaluations' | 'pending'>>) => Promise<void>;
   batchEvidence?: DecisionBatchEvidence;
@@ -319,13 +329,14 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
       final = interruption(context);
       break;
     }
-    if (attempts.length >= context.attemptsAvailable) {
+    if (!context.attemptBudget.available) {
       final = observationFailure('budget-exhausted');
       break;
     }
     const adapter = context.request.adapters[target.adapter];
     const capabilityFailure = await checkCapabilities(adapter, target, context.item.definition);
     if (capabilityFailure) {
+      if (!context.attemptBudget.claim()) { final = observationFailure('budget-exhausted'); break; }
       final = capabilityFailure;
       attempts.push(toAttempt(target, attempts.length + 1, final, 0, context.batchEvidence));
     } else {
@@ -334,7 +345,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
           final = interruption(context);
           break;
         }
-        if (attempts.length >= context.attemptsAvailable) {
+        if (!context.attemptBudget.claim()) {
           final = observationFailure('budget-exhausted');
           break;
         }
@@ -400,6 +411,8 @@ async function invokeWithDeadline(
   const timeoutMs = Math.max(1, deadlineEpochMs - context.now());
   let timer: ReturnType<typeof setTimeout> | undefined;
   let removeAbortListener = (): void => undefined;
+  let admissionEvidence: DecisionAdmissionEvidence | undefined;
+  let releaseAdmission: ((outcome?: { success: boolean; retryAfterMs?: number }) => void) | undefined;
   const boundary = new Promise<AdapterObservation>(resolve => {
     timer = setTimeout(() => {
       controller.abort(new DOMException('Decision target timed out', 'TimeoutError'));
@@ -413,6 +426,34 @@ async function invokeWithDeadline(
     }
   });
   try {
+    if (context.request.scheduler?.enabled) {
+      const policy = context.request.scheduler;
+      const providerLimits = policy.providers[target.adapter];
+      if (!providerLimits) return observationFailure('overloaded');
+      let controller = admissionControllers.get(policy);
+      if (!controller) {
+        controller = new DecisionAdmissionController(admissionRequest => ({
+          principal: policy.principal.limits, workspace: policy.workspace.limits,
+          provider: policy.providers[admissionRequest.providerId] ?? providerLimits,
+        }), context.now);
+        admissionControllers.set(policy, controller);
+      }
+      try {
+        const lease = await controller.acquire({ budgetId: context.request.invocationId,
+          principalId: policy.principal.id, workspaceId: policy.workspace.id,
+          providerId: target.adapter, estimate: policy.estimate?.(context.item.alias, target, context.item.input) ?? { attempts: 1, batchSize: 1, items: 1 },
+          deadlineEpochMs, signal });
+        admissionEvidence = lease.evidence;
+        releaseAdmission = lease.release;
+        policy.onEvidence?.(context.item.alias, lease.evidence);
+      } catch (error) {
+        if (error instanceof AdmissionError) {
+          policy.onEvidence?.(context.item.alias, error.evidence);
+          return { ...observationFailure(admissionReason(error)), admission: error.evidence };
+        }
+        throw error;
+      }
+    }
     const observed = await Promise.race([
       adapter.evaluate({
         alias: context.item.alias,
@@ -434,8 +475,11 @@ async function invokeWithDeadline(
       }),
       boundary,
     ]);
-    return context.request.signal?.aborted ? observationFailure('cancelled', 'cancelled', observed, 'caller-cancelled') : observed;
+    const result = context.request.signal?.aborted ? observationFailure('cancelled', 'cancelled', observed, 'caller-cancelled') : observed;
+    releaseAdmission?.({ success: result.status === 'success', ...(result.retryAfterMs === undefined ? {} : { retryAfterMs: result.retryAfterMs }) });
+    return admissionEvidence ? { ...result, admission: admissionEvidence } : result;
   } finally {
+    releaseAdmission?.({ success: false });
     if (timer) clearTimeout(timer);
     removeAbortListener();
   }
@@ -522,7 +566,7 @@ function emptyDecisionResult(
   reason: DecisionFailureReason,
 ): DecisionResult {
   return decisionResult({ request, item, rulesetPin, bindingPin, totalDeadline: 0, signal: new AbortController().signal,
-    totalTimeout: new AbortController().signal, attemptsAvailable: 0, now: Date.now, advance: async () => undefined }, observationFailure(reason, status), []);
+    totalTimeout: new AbortController().signal, attemptBudget: new AttemptBudget(0), now: Date.now, advance: async () => undefined }, observationFailure(reason, status), []);
 }
 
 function resultBase(request: DecisionEvaluationRequest, ruleset: ArtifactPin, binding: ArtifactPin): RulesetResult {
@@ -581,7 +625,72 @@ function toAttempt(target: ExecutionTarget, ordinal: number, observation: Adapte
     ...(observation.termination ? { termination: observation.termination } : {}),
     ...(observation.remoteExecution ? { remoteExecution: observation.remoteExecution } : {}),
     ...(batch ? { batch } : {}),
+    ...(observation.admission ? { admission: observation.admission } : {}),
   };
+}
+
+class AttemptBudget {
+  private consumed: number;
+  constructor(private readonly maximum: number, used = 0) { this.consumed = used; }
+  get available(): boolean { return this.consumed < this.maximum; }
+  claim(): boolean { if (!this.available) return false; this.consumed += 1; return true; }
+  consume(count: number): void { this.consumed = Math.min(this.maximum, this.consumed + Math.max(0, count)); }
+}
+
+function effectiveConcurrency(request: DecisionEvaluationRequest): number {
+  const policy = request.scheduler;
+  // Receipt v2 serializes one pending dispatch. Do not weaken atomic ownership.
+  if (!policy?.enabled || request.receiptStore) return 1;
+  const ceilings = [request.binding.spec.concurrency, policy.callerConcurrency, policy.graphConcurrency,
+    policy.workspace.limits.concurrency, policy.principal.limits.concurrency,
+    ...Object.values(policy.providers).map(limits => limits.concurrency)]
+    .filter((value): value is number => value !== undefined && Number.isInteger(value) && value > 0);
+  return Math.max(1, Math.min(...ceilings));
+}
+
+function schedulerLane(request: DecisionEvaluationRequest, item: OneContext['item']): string {
+  const policy = request.scheduler;
+  if (!policy?.enabled) return 'serial';
+  const target = request.binding.spec.evaluations[item.alias]?.targets[0];
+  return `${target?.adapter ?? 'none'}\u0000${policy.workspace.id}\u0000${policy.principal.id}`;
+}
+
+function admissionReason(error: AdmissionError): DecisionFailureReason {
+  if (error.evidence.reason === 'cancelled') return 'cancelled';
+  if (error.evidence.reason === 'deadline-exceeded' || error.evidence.reason === 'queue-timeout') return 'timeout';
+  if (error.evidence.reason === 'requests-per-minute' || error.evidence.reason === 'tokens-per-second'
+    || error.evidence.reason === 'retry-after') return 'rate-limited';
+  if (error.evidence.reason === 'attempts' || error.evidence.reason === 'cost' || error.evidence.reason === 'unknown-cost') return 'budget-exhausted';
+  return 'overloaded';
+}
+
+function releaseAdmissionBudget(request: DecisionEvaluationRequest): void {
+  if (!request.scheduler?.enabled) return;
+  admissionControllers.get(request.scheduler)?.releaseBudget(request.invocationId);
+}
+
+function validateSchedulerPolicy(request: DecisionEvaluationRequest): void {
+  const policy = request.scheduler;
+  if (!policy) return;
+  if (!policy.profileVersion.trim() || !policy.workspace.id.trim() || !policy.principal.id.trim()) {
+    throw new DecisionValidationError('scheduler profile version and trusted scope identities are required');
+  }
+  const limits = [policy.workspace.limits, policy.principal.limits, ...Object.values(policy.providers)];
+  if (!Object.keys(policy.providers).length || limits.some(limit => !Number.isInteger(limit.concurrency) || limit.concurrency < 1)) {
+    throw new DecisionValidationError('scheduler concurrency ceilings must be positive integers');
+  }
+  for (const value of [policy.callerConcurrency, policy.graphConcurrency]) {
+    if (value !== undefined && (!Number.isInteger(value) || value < 1)) throw new DecisionValidationError('scheduler caller/graph ceilings must be positive integers');
+  }
+  for (const limit of limits) {
+    for (const value of [limit.requestsPerMinute, limit.tokensPerSecond, limit.maxAttempts, limit.maxBatchSize,
+      limit.maxQueueLength, limit.maxQueueWaitMs, limit.maxRequestBytes, limit.maxItems]) {
+      if (value !== undefined && (!Number.isFinite(value) || value < 0)) throw new DecisionValidationError('scheduler admission limits must be finite and non-negative');
+    }
+    if (limit.maxCostUsd !== undefined && (!Number.isFinite(limit.maxCostUsd) || limit.maxCostUsd < 0)) {
+      throw new DecisionValidationError('scheduler cost limit must be finite and non-negative');
+    }
+  }
 }
 
 function singleBatchEvidence(request: DecisionEvaluationRequest, alias: string): DecisionBatchEvidence | undefined {

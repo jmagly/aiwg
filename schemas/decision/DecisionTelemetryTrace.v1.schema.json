@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionTelemetryTrace.v1.schema.json",
+  "title": "AIWG Decision Telemetry Trace v1",
+  "type": "object",
+  "required": ["schemaVersion", "traceId", "spans"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "decision-telemetry/v1" },
+    "traceId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "spans": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/span" }
+    },
+    "tombstones": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/tombstone" }
+    }
+  },
+  "$defs": {
+    "attribute": { "oneOf": [
+      { "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }
+    ] },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/attribute" }
+    },
+    "context": {
+      "type": "object",
+      "required": ["traceId", "spanId", "traceFlags"],
+      "properties": {
+        "traceId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "spanId": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        "traceFlags": { "enum": ["00", "01"] },
+        "traceState": { "type": "string", "maxLength": 512 }
+      },
+      "additionalProperties": false
+    },
+    "link": {
+      "type": "object",
+      "required": ["traceId", "spanId", "relationship"],
+      "properties": {
+        "traceId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "spanId": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        "relationship": { "enum": ["batch", "review", "cache", "job", "action", "continuation", "evaluation"] },
+        "attributes": { "$ref": "#/$defs/attributes" }
+      },
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "required": ["name", "timeUnixMs", "attributes"],
+      "properties": {
+        "name": { "type": "string" },
+        "timeUnixMs": { "type": "number" },
+        "attributes": { "$ref": "#/$defs/attributes" }
+      },
+      "additionalProperties": false
+    },
+    "span": {
+      "type": "object",
+      "required": ["schemaVersion", "name", "context", "parentSpanId", "startTimeUnixMs", "endTimeUnixMs", "status", "attributes", "provenance", "links", "events"],
+      "properties": {
+        "schemaVersion": { "const": "decision-telemetry/v1" },
+        "name": { "type": "string", "pattern": "^decision\\." },
+        "context": { "$ref": "#/$defs/context" },
+        "parentSpanId": { "oneOf": [
+          { "type": "string", "pattern": "^[0-9a-f]{16}$" }, { "type": "null" }
+        ] },
+        "startTimeUnixMs": { "type": "number" },
+        "endTimeUnixMs": { "type": "number" },
+        "status": { "enum": ["unset", "ok", "error"] },
+        "attributes": { "$ref": "#/$defs/attributes" },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": { "enum": ["provider-fact", "client-derived", "estimate", "unknown"] }
+        },
+        "links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
+        "events": { "type": "array", "items": { "$ref": "#/$defs/event" } }
+      },
+      "additionalProperties": false
+    },
+    "tombstone": {
+      "type": "object",
+      "required": ["referenceType", "opaqueId", "deletedAtUnixMs", "reason"],
+      "properties": {
+        "referenceType": { "enum": ["trace", "debug-sidecar", "review", "job", "cache", "evaluation"] },
+        "opaqueId": { "type": "string" },
+        "deletedAtUnixMs": { "type": "number" },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

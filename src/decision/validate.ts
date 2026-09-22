@@ -55,6 +55,8 @@ function schemaRoot(): string {
 function getValidators(): Map<string, ValidateFunction> {
   if (validators) return validators;
   const ajv = new Ajv2020({ strict: false, allErrors: true, validateFormats: false });
+  const admissionSchema = JSON.parse(readFileSync(resolve(schemaRoot(), 'DecisionAdmissionEvidence.v1.schema.json'), 'utf8')) as JsonSchema;
+  ajv.addSchema(admissionSchema);
   validators = new Map();
   for (const [kind, filename] of Object.entries(schemaFiles) as Array<[DecisionKind, string]>) {
     const schema = JSON.parse(readFileSync(resolve(schemaRoot(), filename), 'utf8')) as JsonSchema;

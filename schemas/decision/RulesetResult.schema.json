@@ -577,6 +577,9 @@
                         },
                         "remoteExecution": {
                           "const": "unknown"
+                        },
+                        "admission": {
+                          "$ref": "DecisionAdmissionEvidence.v1.schema.json"
                         }
                       },
                       "required": [

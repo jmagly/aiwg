@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/BatchReceipt.v1.schema.json",
+  "title": "Decision Batch Receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "revision", "tenantId", "projectId", "batchId", "invocationId", "runId", "plan", "subjectHash", "stateHash", "executionEnvelope", "questionIds", "attempts", "answerReferences", "allocations", "status", "createdAtEpochMs", "updatedAtEpochMs", "terminalAtEpochMs"],
+  "properties": {
+    "schemaVersion": { "const": "decision-batch-receipt/v1" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "tenantId": { "$ref": "#/$defs/text" }, "projectId": { "$ref": "#/$defs/text" },
+    "batchId": { "$ref": "#/$defs/text" }, "invocationId": { "$ref": "#/$defs/text" }, "runId": { "$ref": "#/$defs/text" },
+    "plan": { "type": "object", "additionalProperties": false, "required": ["planDigest", "partitionId", "nativeBatchGroupId"], "properties": {
+      "planDigest": { "$ref": "#/$defs/hash" }, "partitionId": { "$ref": "#/$defs/text" },
+      "nativeBatchGroupId": { "type": ["string", "null"], "minLength": 1 }
+    } },
+    "subjectHash": { "$ref": "#/$defs/hash" }, "stateHash": { "$ref": "#/$defs/hash" },
+    "executionEnvelope": { "$ref": "#/$defs/text" },
+    "questionIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } },
+    "attempts": { "type": "array", "items": { "$ref": "#/$defs/attempt" } },
+    "answerReferences": { "type": "array", "items": { "$ref": "#/$defs/answer" } },
+    "allocations": { "type": "array", "items": { "$ref": "#/$defs/allocation" } },
+    "status": { "enum": ["acquired", "running", "completed", "failed", "execution-uncertain"] },
+    "createdAtEpochMs": { "$ref": "#/$defs/time" }, "updatedAtEpochMs": { "$ref": "#/$defs/time" },
+    "terminalAtEpochMs": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1 }, "time": { "type": "integer", "minimum": 0 },
+    "count": { "type": "integer", "minimum": 0 }, "nullableCount": { "oneOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "usage": { "type": "object", "additionalProperties": false, "required": ["inputTokens", "outputTokens"], "properties": { "inputTokens": { "$ref": "#/$defs/nullableCount" }, "outputTokens": { "$ref": "#/$defs/nullableCount" } } },
+    "cost": { "oneOf": [
+      { "type": "object", "additionalProperties": false, "required": ["kind", "currency", "amountMicros"], "properties": { "kind": { "const": "provider-authoritative" }, "currency": { "const": "USD" }, "amountMicros": { "$ref": "#/$defs/count" } } },
+      { "type": "object", "additionalProperties": false, "required": ["kind", "currency", "amountMicros", "priceCatalogId", "priceCatalogVersion", "effectiveAt"], "properties": { "kind": { "const": "client-derived" }, "currency": { "const": "USD" }, "amountMicros": { "$ref": "#/$defs/count" }, "priceCatalogId": { "$ref": "#/$defs/text" }, "priceCatalogVersion": { "$ref": "#/$defs/text" }, "effectiveAt": { "$ref": "#/$defs/text" } } },
+      { "type": "object", "additionalProperties": false, "required": ["kind", "currency", "upperBoundMicros", "boundPolicyId", "boundPolicyVersion"], "properties": { "kind": { "const": "bounded-unknown" }, "currency": { "const": "USD" }, "upperBoundMicros": { "$ref": "#/$defs/count" }, "boundPolicyId": { "$ref": "#/$defs/text" }, "boundPolicyVersion": { "$ref": "#/$defs/text" } } },
+      { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "const": "unknown" } } }
+    ] },
+    "attempt": { "type": "object", "additionalProperties": false, "required": ["ordinal", "adapterId", "adapterVersion", "requestedModel", "actualModel", "providerRequestId", "status", "dispatchedAtEpochMs", "completedAtEpochMs", "usage", "cost", "fallbackFromAttemptOrdinal"], "properties": {
+      "ordinal": { "type": "integer", "minimum": 1 }, "adapterId": { "$ref": "#/$defs/text" }, "adapterVersion": { "$ref": "#/$defs/text" }, "requestedModel": { "$ref": "#/$defs/text" },
+      "actualModel": { "type": ["string", "null"] }, "providerRequestId": { "type": ["string", "null"], "minLength": 1, "maxLength": 256, "pattern": "^[!-~]+$" },
+      "status": { "enum": ["not-sent", "failed", "succeeded", "execution-uncertain"] },
+      "dispatchedAtEpochMs": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }, "completedAtEpochMs": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] },
+      "usage": { "$ref": "#/$defs/usage" }, "cost": { "$ref": "#/$defs/cost" },
+      "fallbackFromAttemptOrdinal": { "type": ["integer", "null"], "minimum": 1 }
+    } },
+    "answer": { "type": "object", "additionalProperties": false, "required": ["questionId", "answerId", "resultId"], "properties": { "questionId": { "$ref": "#/$defs/text" }, "answerId": { "$ref": "#/$defs/text" }, "resultId": { "$ref": "#/$defs/text" } } },
+    "allocation": { "type": "object", "additionalProperties": false, "required": ["questionId", "kind", "algorithm", "algorithmVersion", "inputTokens", "outputTokens"], "properties": { "questionId": { "$ref": "#/$defs/text" }, "kind": { "const": "estimated" }, "algorithm": { "const": "largest-remainder-weighted" }, "algorithmVersion": { "const": "1" }, "inputTokens": { "$ref": "#/$defs/nullableCount" }, "outputTokens": { "$ref": "#/$defs/nullableCount" } } }
+  }
+}
