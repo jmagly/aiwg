@@ -58,6 +58,18 @@ describe('decision telemetry foundation', () => {
     expect(mapped.attributes['aiwg.usage.cost_provenance']).toBe('unknown');
   });
 
+  it('maps provider prefix facts without exporting semantic identity or handles', () => {
+    const mapped = mapDecisionAttempt({
+      ordinal: 1, adapter: 'jev', adapterVersion: '1', requestedModel: 'm', actualModel: 'm1', subagent: null,
+      status: 'success', reason: 'none', durationMs: 1, usage: { inputTokens: 10, outputTokens: 1, costUsd: null }, requestId: null,
+      providerPrefix: { schemaVersion: 'decision-provider-prefix-evidence/v1', identityDigest: `sha256:${'a'.repeat(64)}`,
+        status: 'hit', source: 'provider-report', cacheVersion: 'provider-v1', savedInputTokens: 8, expiresAtEpochMs: 1234 },
+    });
+    expect(mapped.attributes).toMatchObject({ 'aiwg.cache.layer': 'provider-prefix', 'aiwg.cache.result': 'hit',
+      'aiwg.cache.version': 'provider-v1', 'aiwg.cache.saved_tokens': 8 });
+    expect(JSON.stringify(mapped)).not.toContain('sha256:');
+  });
+
   it('records shared batch usage once and reconciles estimated allocations', () => {
     const builder = new DecisionTraceBuilder(deterministicIds(), () => 100);
     const root = builder.startSpan('decision.workflow');

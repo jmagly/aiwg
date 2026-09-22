@@ -11,6 +11,7 @@ import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch
 import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
 import type { CompatibilityDecision } from './calibration/types.js';
 import { prepareAdapterRequest } from './compile-cache/runtime.js';
+import { providerPrefixEvidence } from './compile-cache/prefix.js';
 import { emitRulesetRuntimeTrace } from './telemetry/runtime.js';
 import {
   assertContextPlanCurrent,
@@ -628,10 +629,26 @@ async function invokeWithDeadline(
           } catch { throw new ReceiptPersistenceError(); }
         },
       }, adapter, context.request.compileCache);
-    const observed = await Promise.race([
+    const observedWithTransportMetadata = await Promise.race([
       adapter.evaluate(preparedRequest),
       boundary,
     ]);
+    const { providerPrefixReport, ...observedWithoutPrefixReport } = observedWithTransportMetadata;
+    let observed: AdapterObservation = observedWithoutPrefixReport;
+    if (context.request.providerPrefix) {
+      try {
+        const identity = context.request.providerPrefix.identityFor({
+          request: preparedRequest,
+          adapter,
+          observation: observedWithTransportMetadata,
+        });
+        const evidence = providerPrefixEvidence(identity, providerPrefixReport ?? { kind: 'unreported' });
+        observed = { ...observed, providerPrefix: evidence };
+        context.request.providerPrefix.onEvidence?.({ alias: context.item.alias, evidence });
+      } catch {
+        // Provider cache metadata is observability-only and cannot alter decision semantics.
+      }
+    }
     const result = context.request.signal?.aborted ? observationFailure('cancelled', 'cancelled', observed, 'caller-cancelled') : observed;
     releaseAdmission?.({ success: result.status === 'success', ...(result.retryAfterMs === undefined ? {} : { retryAfterMs: result.retryAfterMs }) });
     return admissionEvidence ? { ...result, admission: admissionEvidence } : result;
@@ -836,6 +853,7 @@ function toAttempt(target: ExecutionTarget, ordinal: number, observation: Adapte
     ...(observation.remoteExecution ? { remoteExecution: observation.remoteExecution } : {}),
     ...(batch ? { batch } : {}),
     ...(observation.admission ? { admission: observation.admission } : {}),
+    ...(observation.providerPrefix ? { providerPrefix: observation.providerPrefix } : {}),
   };
 }
 

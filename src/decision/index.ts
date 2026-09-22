@@ -6,6 +6,7 @@ export * from './predicates.js';
 export * from './compose.js';
 export * from './acceptance.js';
 export * from './batch.js';
+export * from './batch-benchmark.js';
 export * from './scheduler.js';
 export * from './admission.js';
 export * from './batch-receipts/index.js';

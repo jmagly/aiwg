@@ -36,6 +36,15 @@ export function mapDecisionAttempt(attempt: DecisionAttempt): AttributeMapping {
     put(out, 'aiwg.batch.id', attempt.batch.groupId, 'client-derived');
     put(out, 'aiwg.batch.mode', attempt.batch.mode, 'client-derived');
   }
+  if (attempt.providerPrefix) {
+    put(out, 'aiwg.cache.layer', 'provider-prefix', 'client-derived');
+    put(out, 'aiwg.cache.result', attempt.providerPrefix.status, 'provider-fact');
+    put(out, 'aiwg.cache.source', attempt.providerPrefix.source, 'client-derived');
+    put(out, 'aiwg.cache.version', attempt.providerPrefix.cacheVersion === null
+      ? null : sanitizeOpaqueValue(attempt.providerPrefix.cacheVersion, 64), 'provider-fact');
+    put(out, 'aiwg.cache.saved_tokens', attempt.providerPrefix.savedInputTokens, 'provider-fact');
+    put(out, 'aiwg.cache.expires_at_ms', attempt.providerPrefix.expiresAtEpochMs, 'provider-fact');
+  }
   return out;
 }
 

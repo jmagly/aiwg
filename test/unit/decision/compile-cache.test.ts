@@ -49,6 +49,20 @@ describe('decision compile and provider-prefix cache', () => {
       .not.toBe(compileCacheKey(identity({ sourceArtifactDigests: [digest('b'), digest('a')] })));
   });
 
+  it('CCP-003 property suite preserves canonical object equivalence without semantic collisions', () => {
+    let seed = 0x2603;
+    const next = () => (seed = (seed * 1664525 + 1013904223) >>> 0);
+    const keys = new Set<string>();
+    for (let index = 0; index < 512; index += 1) {
+      const alpha = Boolean(next() & 1); const beta = String(next()); const numeric = next();
+      const left = identity({ featureFlags: { alpha, beta, numeric } });
+      const right = identity({ featureFlags: { numeric, beta, alpha } });
+      expect(compileCacheKey(left)).toBe(compileCacheKey(right));
+      keys.add(compileCacheKey(left));
+    }
+    expect(keys.size).toBe(512);
+  });
+
   it('CCP-004 single-flights concurrent cold requests', async () => {
     const cache = new MemoryCompileCache<string>(); let calls = 0; let release!: () => void;
     const blocked = new Promise<void>(resolve => { release = resolve; });
@@ -109,6 +123,7 @@ describe('decision compile and provider-prefix cache', () => {
       .toMatchObject({ status: 'hit', source: 'provider-report', savedInputTokens: 42 });
     expect(providerPrefixEvidence(prefix(), { kind: 'unsupported' }).status).toBe('unsupported');
     expect(providerPrefixEvidence(prefix(), { kind: 'bypass' }).status).toBe('bypass');
+    expect(providerPrefixEvidence(prefix(), { kind: 'reported', hit: true, cacheVersion: '', savedInputTokens: -1, expiresAtEpochMs: 1 }).status).toBe('unknown');
   });
 
   it('CCP-011 retains unknown provider economics in a pinned paired benchmark', () => {

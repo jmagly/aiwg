@@ -13,7 +13,10 @@ import type {
   CompileCacheIdentity,
   CompileCacheReadContext,
   CompileCacheResult,
+  ProviderPrefixEvidence,
+  ProviderPrefixIdentity,
 } from './compile-cache/types.js';
+import type { ProviderPrefixReport } from './compile-cache/prefix.js';
 import type { DecisionTelemetryContext, DecisionTelemetryHook } from './telemetry/types.js';
 import type { DecisionTelemetryIdSource } from './telemetry/context.js';
 
@@ -223,6 +226,8 @@ export interface DecisionAttempt {
   batch?: DecisionBatchEvidence;
   /** Bounded, metadata-only scheduler/admission evidence. Never contains inputs or principal IDs. */
   admission?: DecisionAdmissionEvidence;
+  /** Sanitized provider-authoritative prefix-cache evidence; never a raw cache handle. */
+  providerPrefix?: ProviderPrefixEvidence;
 }
 
 export type DecisionAdmissionReason =
@@ -367,6 +372,10 @@ export interface AdapterObservation {
   retryAfterMs?: number;
   /** Local scheduler evidence; adapters must not populate identity-bearing fields. */
   admission?: DecisionAdmissionEvidence;
+  /** Transport metadata reported by the provider. The evaluator validates and sanitizes it. */
+  providerPrefixReport?: ProviderPrefixReport;
+  /** Evaluator-derived, sanitized evidence persisted on the attempt. */
+  providerPrefix?: ProviderPrefixEvidence;
 }
 
 export interface DecisionAdapterRequest {
@@ -445,6 +454,17 @@ export interface DecisionCompileCachePolicy {
   /** Cache rejection can safely recompile; strict mode instead fails before dispatch. */
   failureMode?: 'recompile' | 'fail';
   onResult?: (input: { alias: string; outcome: CompileCacheResult<JsonValue>['outcome'] }) => void;
+}
+
+export interface DecisionProviderPrefixPolicy {
+  /** Constructs the complete protected semantic identity after the actual model is known. */
+  identityFor(input: {
+    request: DecisionAdapterRequest;
+    adapter: DecisionAdapter;
+    observation: AdapterObservation;
+  }): ProviderPrefixIdentity;
+  /** Receives sanitized evidence only; raw provider handles are never forwarded. */
+  onEvidence?: (input: { alias: string; evidence: ProviderPrefixEvidence }) => void;
 }
 
 export interface DecisionBatchEvaluationPolicy {
@@ -560,6 +580,8 @@ export interface DecisionEvaluationRequest {
   context?: DecisionContextPolicy;
   scheduler?: DecisionSchedulerPolicy;
   compileCache?: DecisionCompileCachePolicy;
+  /** Optional policy for consuming provider-reported prompt-prefix metadata. */
+  providerPrefix?: DecisionProviderPrefixPolicy;
   /** Optional metadata-only observability sink. Its failures never affect evaluation. */
   telemetry?: {
     hook: DecisionTelemetryHook;

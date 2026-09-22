@@ -440,6 +440,9 @@
               "admission": {
                 "$ref": "DecisionAdmissionEvidence.v1.schema.json"
               },
+              "providerPrefix": {
+                "$ref": "DecisionProviderPrefixEvidence.v1.schema.json"
+              },
               "batch": {
                 "type": "object",
                 "properties": {

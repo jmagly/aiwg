@@ -194,6 +194,34 @@ describe('native shared-state decision batching', () => {
     expect(result.spec.evaluations.core_unavailable!.spec.attempts[0]!.batch!.mode).toBe('native');
   });
 
+  it.each([
+    ['adapter', (candidate: ReturnType<typeof candidatesForMatrix>[number]) => {
+      candidate.adapter = { ...candidate.adapter, id: 'jev-alternate' };
+    }],
+    ['target', (candidate: ReturnType<typeof candidatesForMatrix>[number]) => {
+      candidate.target = { ...candidate.target, subagent: { id: 'worker', version: '2', digest: `sha256:${'d'.repeat(64)}` } };
+    }],
+    ['model', (candidate: ReturnType<typeof candidatesForMatrix>[number]) => {
+      candidate.target = { ...candidate.target, model: 'different-model' };
+    }],
+    ['credential', (candidate: ReturnType<typeof candidatesForMatrix>[number]) => {
+      candidate.target = { ...candidate.target, credentialRef: 'typesafe:jev/other' };
+    }],
+    ['egress', (_candidate: ReturnType<typeof candidatesForMatrix>[number], batchPolicy: ReturnType<typeof policy>) => {
+      batchPolicy.evaluations.category!.egressPolicy = 'different-egress-policy';
+    }],
+    ['deadline', (candidate: ReturnType<typeof candidatesForMatrix>[number]) => {
+      candidate.target = { ...candidate.target, timeoutMs: candidate.target.timeoutMs + 1 };
+    }],
+  ] as const)('AC3 isolates an incompatible %s envelope', async (_dimension, mutate) => {
+    const candidates = await candidatesForMatrix();
+    const batchPolicy = policy();
+    mutate(candidates[0]!, batchPolicy);
+    const plans = planNativeDecisionBatches(candidates, batchPolicy);
+    expect(plans).toHaveLength(1);
+    expect(plans[0]!.candidates.map(candidate => candidate.alias)).toEqual(['severity', 'core_unavailable']);
+  });
+
   it('orders independent batch groups by dependency stage and never combines stages', async () => {
     const adapter = new JevDecisionAdapter({ fetch: vi.fn() as unknown as typeof fetch });
     const capabilities = await adapter.capabilities();
@@ -341,3 +369,17 @@ describe('native shared-state decision batching', () => {
     expect(second.spec.status).not.toBe('completed');
   });
 });
+
+async function candidatesForMatrix() {
+  const adapter = new JevDecisionAdapter({ fetch: vi.fn() as unknown as typeof fetch });
+  const capabilities = await adapter.capabilities();
+  const binding = fixture<DecisionBinding>('binding-jev.json');
+  return ['category', 'severity', 'core_unavailable'].map(alias => ({
+    alias,
+    definition: definitions()[alias]!,
+    input: fixture('input.json'),
+    target: structuredClone(binding.spec.evaluations[alias]!.targets[0]!),
+    adapter: adapter as DecisionAdapter,
+    capabilities,
+  }));
+}
