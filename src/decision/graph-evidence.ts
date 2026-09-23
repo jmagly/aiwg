@@ -87,7 +87,7 @@ export function auditGraphEvidence(graph: DecisionGraph, plan: GraphPlan, observ
     const input: GraphEvidenceReceipt['stages'][number]['nodes'][number]['input'] = {};
     for (const edge of plan.edges.filter(e => e.to === id)) {
       const source = byId.get(edge.from);
-      if (!source || source.status !== 'ok' || !source.used || !Object.hasOwn(source.output, edge.source)) {
+      if (!source || source.status !== 'ok' || (!source.used && obs.used) || !Object.hasOwn(source.output, edge.source)) {
         outcome = 'incomplete-evidence'; continue;
       }
       input[edge.destination] = { sourceNode: edge.from, sourceResultDigest: digest(source.output), value: source.output[edge.source] };

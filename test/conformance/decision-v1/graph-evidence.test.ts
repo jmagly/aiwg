@@ -44,7 +44,7 @@ describe('DAG offline evidence audit (not a dispatcher)', () => {
     expect(() => auditGraphEvidence(graph, plan, obs)).toThrow(/undeclared/);
     obs[0]!.output = {};
     expect(auditGraphEvidence(graph, plan, obs).outcome).toBe('incomplete-evidence');
-    obs[0]!.output = { evidence: 'valid' }; obs[0]!.used = false;
+    obs[0]!.output = { evidence: 'valid' }; obs[0]!.used = false; obs[1]!.used = true;
     expect(auditGraphEvidence(graph, plan, obs).outcome).toBe('incomplete-evidence');
   });
   it('DAG-010 cancellation dominates budget and observation order', () => {

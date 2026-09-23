@@ -56,6 +56,8 @@ describe('DAG native batch and independent fan-out through Flow', () => {
     const receipt = finalizeDecisionGraphRun(fixture(), result.plan, result.report, result.records,
       [], undefined, result.native);
     expect(receipt.batches).toMatchObject([{ nodes: ['left', 'right'], executedNative: true }]);
+    expect(receipt.evidence.stages[1]!.nodes.find(n => n.id === 'right')!.used).toBe(false);
+    expect(receipt.evidence.totals).toMatchObject({ attempts: 3, tokens: 3, costMicros: 3 });
   });
   it('DAG-037 different subjects fan out without native batching', async () => {
     const graph = fixture(); graph.nodes[2]!.subject = 'different';

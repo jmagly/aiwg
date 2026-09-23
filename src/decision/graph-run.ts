@@ -88,13 +88,26 @@ export function finalizeDecisionGraphRun(graph: DecisionGraph, plan: GraphPlan, 
       Math.abs(report.realizedResources.costUsd - records.reduce((sum, item) => sum + item.response.usage.costUsd, 0)) > 1e-9) {
     throw new DecisionGraphError('missing Flow graph observation');
   }
-  const evidence = auditGraphEvidence(graph, plan, [...observed.values()], ceilings, unknownCostBoundMicros);
   const candidates = graph.terminals.filter(id => observed.get(id)?.status === 'ok');
   // Prefer the deepest completed terminal, with stable ID tie ordering.
   // An invoked fallback supersedes its verifier; a guarded-off fallback does not.
   const deepest = Math.max(-1, ...candidates.map(id => graph.nodes.find(n => n.id === id)!.stage));
   const terminal = candidates.length ? selectDecisionBeam(candidates.map(id =>
     ({ id, score: graph.nodes.find(n => n.id === id)!.stage === deepest ? 1 : 0 })), 1, 1)[0]!.id : null;
+  // Only the chosen terminal's transitive predecessors contributed to the
+  // selected evidence. Every speculative observation still retains its usage.
+  const used = new Set<string>();
+  if (terminal) {
+    const pending = [terminal];
+    while (pending.length) {
+      const id = pending.pop()!;
+      if (used.has(id)) continue;
+      used.add(id);
+      pending.push(...plan.edges.filter(edge => edge.to === id).map(edge => edge.from));
+    }
+  }
+  for (const obs of observed.values()) if (obs.status === 'ok') obs.used = used.has(obs.node);
+  const evidence = auditGraphEvidence(graph, plan, [...observed.values()], ceilings, unknownCostBoundMicros);
   let outcome = evidence.outcome;
   if (report.status === 'cancelled') outcome = 'cancelled';
   else if (report.status !== 'completed' && outcome === 'complete' &&
