@@ -44,6 +44,13 @@ describe('JOB offline contract (dispatch disabled)', () => {
     job.items[0]!.attempts = [{ id: 'attemptA', requestDigest: digest, outcome: 'execution-unknown' }];
     expect(() => validateDecisionJob(job)).toThrow(DecisionJobContractError);
   });
+  it('JOB-006 prevents an unstarted item from fabricating dispatch attempts', () => {
+    const before = fixture(); const after = fixture(); after.state = 'running'; after.items[0]!.state = 'running';
+    after.summary.queued = 0; after.summary.running = 1;
+    after.items[0]!.attempts.push({ id: 'first', requestDigest: digest, outcome: 'dispatched' },
+      { id: 'forged', requestDigest: digest, outcome: 'dispatched' });
+    expect(() => assertJobTransition(before, after)).toThrow(DecisionJobContractError);
+  });
   it('JOB-005 rejects unbounded, unexpected and model-authored fields', () => {
     const job = fixture(); job.budget.maxConcurrency = 0;
     expect(() => validateDecisionJob(job)).toThrow(DecisionJobContractError);

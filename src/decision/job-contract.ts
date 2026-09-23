@@ -5,7 +5,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { canonicalJson } from '../security/artifact-trust.js';
 import { admitEntry } from './entry.js';
 
-/** Contract validation only. No job store, provider dispatcher, or automatic action exists here. */
+/** Versioned offline contract. Provider dispatch is not enabled by the job layer. */
 export const ITEM_STATES = [
   'queued', 'running', 'succeeded', 'abstained', 'review', 'unsupported', 'retryable-failed',
   'permanent-failed', 'canceled', 'expired', 'execution-unknown',
@@ -40,7 +40,7 @@ const schema = JSON.parse(readFileSync(resolve(dir, 'DecisionJob.v1.schema.json'
 const check = new Ajv2020({ strict: false, allErrors: true }).compile(schema);
 const reject = (message: string): never => { throw new DecisionJobContractError(message); };
 const transitions: Record<JobState, readonly JobState[]> = {
-  validating: ['queued', 'failed', 'canceled'],
+  validating: ['queued', 'failed', 'canceled', 'expired'],
   queued: ['running', 'cancel-requested', 'expired', 'failed'],
   running: ['partially-completed', 'completed', 'cancel-requested', 'expired', 'failed'],
   'partially-completed': ['partially-completed', 'completed', 'cancel-requested', 'expired', 'failed'],
@@ -50,8 +50,8 @@ const transitions: Record<JobState, readonly JobState[]> = {
 const itemTransitions: Record<ItemState, readonly ItemState[]> = {
   queued: ['running', 'canceled', 'expired'],
   running: ['succeeded', 'abstained', 'review', 'unsupported', 'retryable-failed',
-    'permanent-failed', 'execution-unknown', 'expired'],
-  'retryable-failed': ['running', 'canceled', 'expired'],
+    'permanent-failed', 'execution-unknown', 'canceled', 'expired'],
+  'retryable-failed': ['queued', 'running', 'canceled', 'expired'],
   succeeded: [], abstained: [], review: [], unsupported: [], 'permanent-failed': [],
   canceled: [], expired: [], 'execution-unknown': [],
 };
@@ -90,16 +90,31 @@ export function assertJobTransition(before: DecisionJob, after: DecisionJob): vo
       !transitions[before.state].includes(after.state)) return reject('illegal job transition or changed identity');
   const next = new Map(after.items.map(item => [item.id, item]));
   if (next.size !== before.items.length || after.items.length !== before.items.length) return reject('job items changed');
-  for (const previous of before.items) {
-    const item = next.get(previous.id);
+  for (const [index, previous] of before.items.entries()) {
+    const item = after.items[index];
+    if (item?.id !== previous.id) return reject('job item order changed');
     if (!item || previous.fingerprint !== item.fingerprint || previous.subjectDigest !== item.subjectDigest ||
         previous.definitionDigest !== item.definitionDigest || previous.bindingDigest !== item.bindingDigest ||
         (previous.state !== item.state && !itemTransitions[previous.state].includes(item.state)) ||
-        item.attempts.length < previous.attempts.length ||
+        item.attempts.length < previous.attempts.length || item.attempts.length > previous.attempts.length + 1 ||
+        (item.attempts.length > previous.attempts.length &&
+          !(item.state === 'running' && ['queued', 'retryable-failed'].includes(previous.state) &&
+            item.attempts.at(-1)?.outcome === 'dispatched')) ||
         (['succeeded', 'abstained', 'review', 'unsupported', 'permanent-failed', 'canceled', 'expired', 'execution-unknown'].includes(previous.state) &&
           item.attempts.length !== previous.attempts.length) ||
+        (previous.state === 'running' && item.state === 'canceled' && previous.attempts.some(attempt => attempt.outcome === 'dispatched')) ||
         (previous.resultDigest !== undefined && item.resultDigest !== previous.resultDigest) ||
-        previous.attempts.some((attempt, index) => canonicalJson(attempt) !== canonicalJson(item.attempts[index])))
+        (previous.errorCode !== undefined && item.errorCode !== previous.errorCode) ||
+        (previous.state === item.state &&
+          (previous.resultDigest !== item.resultDigest || previous.errorCode !== item.errorCode)) ||
+        previous.attempts.some((attempt, index) => canonicalJson(attempt) !== canonicalJson(item.attempts[index]) &&
+          !(previous.state === 'running' && index === previous.attempts.length - 1 &&
+            attempt.outcome === 'dispatched' &&
+            (item.attempts[index]?.outcome === 'execution-unknown' && item.state === 'execution-unknown' ||
+             item.attempts[index]?.outcome === 'succeeded' && ['succeeded', 'abstained', 'review'].includes(item.state) && !!item.attempts[index]?.receiptDigest ||
+             item.attempts[index]?.outcome === 'failed' && ['retryable-failed', 'permanent-failed', 'unsupported'].includes(item.state)) &&
+            attempt.id === item.attempts[index]?.id && attempt.requestDigest === item.attempts[index]?.requestDigest &&
+            (item.attempts[index]?.outcome === 'execution-unknown' ? !item.attempts[index]?.receiptDigest : true))))
       return reject('illegal item transition, mutated pins or attempt history');
   }
 }
