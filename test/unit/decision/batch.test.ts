@@ -149,6 +149,23 @@ describe('native shared-state decision batching', () => {
     Object.values(result.spec.evaluations).forEach(validateDecisionDocument);
   });
 
+  it('CTX-RUNTIME records request-accurate usage when compatible batch is a subset of a context partition', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const runtime = contextRuntime();
+    runtime.profile.limits.aggregateTokens = 100;
+    runtime.profile.limits.stateAndLongestQuestionTokens = 100;
+    const batching = policy();
+    batching.evaluations.severity!.egressPolicy = 'another-egress-policy';
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batching, context: runtime });
+    expect(result.spec.context?.plan.partitions).toHaveLength(1);
+    const usage = result.spec.context?.actualUsage ?? [];
+    expect(usage).toHaveLength(2);
+    const pair = usage.find(item => item.questionIds.length === 2);
+    expect(pair?.estimatedInputTokens).toBe(3);
+    expect(pair?.questionIds).toEqual([decisionBatchQuestionId('category'), decisionBatchQuestionId('core_unavailable')].sort());
+    expect(usage.find(item => item.questionIds.length === 1)?.estimatedInputTokens).toBe(2);
+  });
+
   it('CTX-RUNTIME rejects stale plans before capability, credential, or transport access', async () => {
     const runtime = contextRuntime();
     runtime.plan = planDecisionContext(runtime.input, runtime.profile, runtime.estimator);

@@ -71,6 +71,19 @@ describe('decision context planning', () => {
       .toEqual(planDecisionContext(second, profile(), exactEstimator));
   });
 
+  it('CTX-PACK packs many short questions without crossing either limit across permutations', () => {
+    const request = input(1_000, Array.from({ length: 121 }, () => 750));
+    const original = planDecisionContext(request, profile(), exactEstimator);
+    expect(original.partitions.length).toBeGreaterThan(1);
+    expect(original.partitions.flatMap(p => p.questionIds).sort()).toEqual(request.questions.map(q => q.id).sort());
+    expect(original.partitions.every(p => p.estimate.aggregateTokens <= 64_000
+      && p.estimate.stateAndLongestQuestionTokens <= 32_000)).toBe(true);
+    for (let shift = 0; shift < request.questions.length; shift += 13) {
+      const shuffled = { ...request, questions: [...request.questions.slice(shift), ...request.questions.slice(0, shift)].reverse() };
+      expect(JSON.stringify(planDecisionContext(shuffled, profile(), exactEstimator))).toBe(JSON.stringify(original));
+    }
+  });
+
   it('preserves compatibility, subject, IDs, state and dependency execution order', () => {
     const request = input(100, [100, 100, 100]);
     request.questions[0].compatibilityKey = 'a';
@@ -126,6 +139,17 @@ describe('decision context planning', () => {
     const second = recordContextActualUsage(plan, plan.partitions[0].id, 425, 'q2');
     expect(first).toMatchObject({ questionIds: ['q1'], estimatedInputTokens: 310, actualInputTokens: 315 });
     expect(second).toMatchObject({ questionIds: ['q2'], estimatedInputTokens: 410, actualInputTokens: 425 });
+  });
+
+  it('records a proper subset of a partition using only dispatched question tokens', () => {
+    const plan = planDecisionContext(input(100, [200, 300, 400]), profile(), exactEstimator);
+    expect(recordContextActualUsage(plan, plan.partitions[0]!.id, 700, ['q3', 'q1']))
+      .toMatchObject({ questionIds: ['q1', 'q3'], estimatedInputTokens: 710,
+        actualInputTokens: 700, estimationErrorTokens: -10 });
+    expect(() => recordContextActualUsage(plan, plan.partitions[0]!.id, 100, ['q1', 'q1']))
+      .toThrowError(expect.objectContaining({ reason: 'invalid-input' }));
+    expect(() => recordContextActualUsage(plan, plan.partitions[0]!.id, 100, ['unplanned']))
+      .toThrowError(expect.objectContaining({ reason: 'invalid-input' }));
   });
 
   it('handles Unicode and deeply structured Choice/Score-like entries deterministically', () => {

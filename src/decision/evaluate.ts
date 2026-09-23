@@ -288,7 +288,7 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
         const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
           requests: preparedRequests });
         if (contextPlan && response.sharedUsage.inputTokens !== null) {
-          recordRuntimeContextUsage(contextPlan, questionIds[0]!, response.sharedUsage.inputTokens, contextUsage, 'partition');
+          recordRuntimeContextUsage(contextPlan, questionIds, response.sharedUsage.inputTokens, contextUsage);
         }
         observations = correlateAtomicBatch(questionIds,
           response.answers.map(answer => ({ questionId: answer.questionId, value: answer.observation })));
@@ -956,15 +956,14 @@ function contextPartitionedBatchPlans(
 
 function recordRuntimeContextUsage(
   plan: ContextPlan,
-  questionId: string,
+  questionIds: string | readonly string[],
   actualInputTokens: number,
   evidence: ContextActualUsageEvidence[],
-  scope: 'single' | 'partition' = 'single',
 ): void {
-  const partition = plan.partitions.find(candidate => candidate.questionIds.includes(questionId));
-  if (!partition) throw new ContextPlanError('invalid-input', `question '${questionId}' has no context partition`);
-  const recorded = recordContextActualUsage(plan, partition.id, actualInputTokens,
-    scope === 'single' ? questionId : undefined);
+  const ids = typeof questionIds === 'string' ? [questionIds] : questionIds;
+  const partition = plan.partitions.find(candidate => ids.every(id => candidate.questionIds.includes(id)));
+  if (!partition) throw new ContextPlanError('invalid-input', 'request questions have no common context partition');
+  const recorded = recordContextActualUsage(plan, partition.id, actualInputTokens, ids);
   const key = recorded.questionIds.join('\0');
   const index = evidence.findIndex(candidate => candidate.planDigest === plan.planDigest
     && candidate.partitionId === partition.id && candidate.questionIds.join('\0') === key);
