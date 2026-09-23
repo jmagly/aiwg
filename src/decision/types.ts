@@ -236,7 +236,7 @@ export type DecisionAdmissionReason =
   | 'admitted' | 'disabled' | 'cancelled' | 'deadline-exceeded'
   | 'concurrency' | 'requests-per-minute' | 'tokens-per-second'
   | 'attempts' | 'batch-size' | 'cost' | 'unknown-cost'
-  | 'queue-full' | 'queue-timeout' | 'request-too-large' | 'too-many-items'
+  | 'queue-full' | 'queue-timeout' | 'invalid-estimate' | 'request-too-large' | 'too-many-items'
   | 'retained-work' | 'unknown-retained-work'
   | 'retry-after' | 'circuit-open';
 

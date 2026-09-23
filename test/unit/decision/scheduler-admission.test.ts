@@ -255,6 +255,20 @@ describe('decision provider admission', () => {
     await expect(costs.acquire(request(new AbortController().signal, { costUsd: 0.06 }))).rejects.toMatchObject({ evidence: { reason: 'cost' } });
   });
 
+  it.each([
+    { tokens: -1 }, { tokens: NaN }, { tokens: Infinity }, { requestBytes: 1.5 },
+    { items: -1 }, { attempts: NaN }, { batchSize: Infinity }, { retainedWork: -1 },
+    { costUsd: -0.01 }, { costUsd: NaN }, { costUsd: Infinity },
+  ])('rejects malformed resource estimates before acquiring a permit: %j', async estimate => {
+    const guarded = limits({ maxCostUsd: 1 });
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    await expect(controller.acquire(request(new AbortController().signal, estimate)))
+      .rejects.toMatchObject({ retryable: false, evidence: { decision: 'reject', reason: 'invalid-estimate',
+        estimatedTokens: null, estimatedCostUsd: null, active: 0, queued: 0 } });
+    const safe = await controller.acquire(request(new AbortController().signal, { costUsd: 0.1, tokens: 1 }));
+    safe.release({ success: true });
+  });
+
   it('revalidates queued work against a tightened admission profile before dispatch', async () => {
     let current = limits({ maxRequestBytes: 1_000 });
     const controller = new DecisionAdmissionController(() => ({ principal: current, workspace: current, provider: current }));

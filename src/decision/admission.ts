@@ -96,6 +96,15 @@ export class DecisionAdmissionController {
     const estimate = request.estimate;
     if (request.signal.aborted) return this.error('cancelled', 'reject', request, false);
     if (this.now() >= request.deadlineEpochMs) return this.error('deadline-exceeded', 'reject', request, false);
+    for (const count of [estimate.tokens, estimate.requestBytes, estimate.items, estimate.attempts, estimate.batchSize, estimate.retainedWork]) {
+      if (count !== undefined && (!Number.isSafeInteger(count) || count < 0)) {
+        return this.error('invalid-estimate', 'reject', request, false);
+      }
+    }
+    if (estimate.costUsd !== undefined && estimate.costUsd !== null
+      && (!Number.isFinite(estimate.costUsd) || estimate.costUsd < 0)) {
+      return this.error('invalid-estimate', 'reject', request, false);
+    }
     for (const limit of all) {
       if (estimate.batchSize !== undefined && limit.maxBatchSize !== undefined && estimate.batchSize > limit.maxBatchSize) return this.error('batch-size', 'reject', request, false);
       if (estimate.requestBytes !== undefined && limit.maxRequestBytes !== undefined && estimate.requestBytes > limit.maxRequestBytes) return this.error('request-too-large', 'reject', request, false);
@@ -212,7 +221,7 @@ export class DecisionAdmissionController {
   private consume(map: Map<string, Bucket>, key: string, capacity: number | undefined, rate: number, amount: number): void { if (capacity === undefined) return; const bucket = this.refill(map, key, capacity, rate); bucket.value -= amount; }
   private refill(map: Map<string, Bucket>, key: string, capacity: number, rate: number): Bucket { const at = this.now(); let bucket = map.get(key); if (!bucket) { bucket = { value: capacity, updatedAt: at }; map.set(key, bucket); } else { bucket.value = Math.min(capacity, bucket.value + Math.max(0, at - bucket.updatedAt) * rate); bucket.updatedAt = at; } return bucket; }
   private remove(request: AdmissionRequest, reason: 'cancelled'): void { for (const queue of this.queues.values()) { const index = queue.findIndex(waiter => waiter.request === request); if (index >= 0) { const [waiter] = queue.splice(index, 1); waiter!.cleanup(); waiter!.reject(this.error(reason, 'reject', request, false)); break; } } this.pump(); }
-  private evidence(reason: DecisionAdmissionEvidence['reason'], decision: DecisionAdmissionEvidence['decision'], request: AdmissionRequest, queueDelayMs = 0, retryAfterMs?: number): DecisionAdmissionEvidence { const breaker = this.breaker(request.providerId); return { decision, reason, queueDelayMs: Math.max(0, queueDelayMs), active: this.activePrincipal.get(request.principalId) ?? 0, queued: this.queuedCount(candidate => candidate.principalId === request.principalId), estimatedTokens: request.estimate.tokens ?? null, estimatedCostUsd: request.estimate.costUsd ?? null, retryPressure: this.retryPressure, breakerState: breaker.state, ...(retryAfterMs === undefined ? {} : { retryAfterMs: this.jitterHint(retryAfterMs) }) }; }
+  private evidence(reason: DecisionAdmissionEvidence['reason'], decision: DecisionAdmissionEvidence['decision'], request: AdmissionRequest, queueDelayMs = 0, retryAfterMs?: number): DecisionAdmissionEvidence { const breaker = this.breaker(request.providerId); return { decision, reason, queueDelayMs: Math.max(0, queueDelayMs), active: this.activePrincipal.get(request.principalId) ?? 0, queued: this.queuedCount(candidate => candidate.principalId === request.principalId), estimatedTokens: Number.isSafeInteger(request.estimate.tokens) && request.estimate.tokens! >= 0 ? request.estimate.tokens! : null, estimatedCostUsd: request.estimate.costUsd != null && Number.isFinite(request.estimate.costUsd) && request.estimate.costUsd >= 0 ? request.estimate.costUsd : null, retryPressure: this.retryPressure, breakerState: breaker.state, ...(retryAfterMs === undefined ? {} : { retryAfterMs: this.jitterHint(retryAfterMs) }) }; }
   private error(reason: DecisionAdmissionEvidence['reason'], decision: 'defer' | 'reject', request: AdmissionRequest, retryable: boolean, retryAfterMs?: number): AdmissionError { return new AdmissionError(this.evidence(reason, decision, request, 0, retryAfterMs), retryable); }
   private jitterHint(value: number): number { return Math.max(1, Math.min(30_000, Math.round(value * 0.875))); }
   private schedulePump(delay: number): void { if (this.timer) return; this.timer = setTimeout(() => { this.timer = undefined; this.pump(); }, Math.max(1, Math.min(delay, 30_000))); }
