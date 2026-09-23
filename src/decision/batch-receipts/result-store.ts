@@ -54,12 +54,12 @@ export class FileBatchResultStore implements BatchResultStore {
   constructor(private readonly directory: string) {}
 
   async writeMany(receipt: DecisionBatchReceipt, observations: ReadonlyMap<string, AdapterObservation>): Promise<void> {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await this.ensurePrivateDirectory();
     for (const snapshot of snapshotsFor(receipt, observations)) await this.publish(snapshot);
   }
 
   async readMany(receipt: DecisionBatchReceipt): Promise<Map<string, AdapterObservation>> {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await this.ensurePrivateDirectory();
     const found = new Map<string, AdapterObservation>();
     const names = await readdir(this.directory);
     for (const reference of receipt.answerReferences) {
@@ -74,6 +74,14 @@ export class FileBatchResultStore implements BatchResultStore {
       found.set(reference.questionId, structuredClone(parsed.observation));
     }
     return found;
+  }
+
+  private async ensurePrivateDirectory(): Promise<void> {
+    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    const stat = await lstat(this.directory);
+    if (!stat.isDirectory() || (stat.mode & 0o077) !== 0) {
+      throw new BatchReceiptValidationError('Insecure batch result directory');
+    }
   }
 
   private async publish(snapshot: BatchResultSnapshot): Promise<void> {

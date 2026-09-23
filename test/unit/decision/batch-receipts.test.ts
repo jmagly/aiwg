@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -197,6 +197,41 @@ describe('decision batch receipts', () => {
     await expect(store.writeMany(receipt, withRequestId)).rejects.toThrow(/shared accounting/);
     await expect(store.writeMany(receipt, new Map([...observations].slice(0, 2))))
       .rejects.toThrow(/does not match receipt references/);
+  });
+
+  it('rejects insecure receipt directories and receipt files on replay', async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'batch-receipt-permissions-')); directories.push(parent);
+    const directory = join(parent, 'receipts');
+    const store = new FileBatchReceiptStore(directory);
+    const receipt = base();
+    await store.acquire(receipt);
+    const name = (await readdir(directory)).find(candidate => candidate.endsWith('.json'))!;
+    await chmod(join(directory, name), 0o644);
+    await expect(store.read(receipt.batchId, receipt.tenantId, receipt.projectId))
+      .rejects.toThrow(/Insecure batch receipt file/);
+    await chmod(join(directory, name), 0o600);
+    await chmod(directory, 0o755);
+    await expect(store.read(receipt.batchId, receipt.tenantId, receipt.projectId))
+      .rejects.toThrow(/Insecure batch receipt directory/);
+    await expect(store.acquire(receipt)).rejects.toThrow(/Insecure batch receipt directory/);
+    const link = join(parent, 'linked');
+    await symlink(directory, link);
+    await expect(new FileBatchReceiptStore(link).read(receipt.batchId, receipt.tenantId, receipt.projectId))
+      .rejects.toThrow(/Insecure batch receipt directory/);
+  });
+
+  it('rejects world-readable and symlinked result directories', async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'batch-result-directory-')); directories.push(parent);
+    const directory = join(parent, 'results');
+    const store = new FileBatchResultStore(directory);
+    const receipt = completed();
+    await store.readMany(receipt);
+    await chmod(directory, 0o755);
+    await expect(store.readMany(receipt)).rejects.toThrow(/Insecure batch result directory/);
+    await expect(store.writeMany(receipt, new Map())).rejects.toThrow(/Insecure batch result directory/);
+    const link = join(parent, 'linked');
+    await symlink(directory, link);
+    await expect(new FileBatchResultStore(link).readMany(receipt)).rejects.toThrow(/Insecure batch result directory/);
   });
 
   it('rejects world-readable result snapshots on replay', async () => {
