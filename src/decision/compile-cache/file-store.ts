@@ -81,15 +81,27 @@ export class FileCompileCache<T> {
   }
 
   async setLegalHold(identity: CompileCacheIdentity, context: CompileCacheReadContext, legalHold: boolean): Promise<void> {
-    const entry = await this.read(identity, context);
+    const entry = await this.readLifecycleEntry(identity, context);
     if (entry) await this.publish({ ...entry, legalHold });
   }
 
   async delete(identity: CompileCacheIdentity, context: CompileCacheReadContext): Promise<boolean> {
-    const entry = await this.read(identity, context);
+    // Deletion must work after tombstoning or expiry, but still authenticate the
+    // stored identity and integrity before revealing or removing anything.
+    const entry = await this.readLifecycleEntry(identity, context);
     if (!entry || entry.legalHold) return false;
     try { await unlink(this.path(entry.key)); return true; }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false; throw error; }
+  }
+
+  private async readLifecycleEntry(identity: CompileCacheIdentity, context: CompileCacheReadContext): Promise<CompileCacheEntry<T> | null> {
+    try {
+      return this.revalidate(JSON.parse(await readFile(this.path(compileCacheKey(identity)), 'utf8')) as CompileCacheEntry<T>,
+        identity, context, true);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw new CompileCacheRejectedError();
+    }
   }
 
   /** Export is explicit and scope-authorized; callers own encryption of backup media. */
@@ -99,6 +111,9 @@ export class FileCompileCache<T> {
 
   async restore(entry: CompileCacheEntry<T>, context: CompileCacheReadContext): Promise<void> {
     this.revalidate(entry, entry.identity, context, true);
+    // A backup cannot undo a live tombstone (or replace an existing immutable entry).
+    // Explicit authorized deletion must precede any restore at this key.
+    if (await this.readLifecycleEntry(entry.identity, context)) throw new CompileCacheRejectedError();
     await this.publish(structuredClone(entry));
   }
 

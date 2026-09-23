@@ -296,6 +296,61 @@ describe('decision compile and provider-prefix cache', () => {
     await expect(restarted.read(identity(), context(104))).rejects.toThrow('unavailable');
   });
 
+  it('CCP-008 enforces tombstone, hold, deletion and backup/restore across filesystem restarts', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-lifecycle-'));
+    const store = new FileCompileCache<string>(directory);
+    const filled = await store.getOrCompile(identity(), context(), 1_000, async () => 'artifact');
+    const backup = await store.backup(identity(), context(101));
+    expect(backup).toEqual(filled.entry);
+    await store.setLegalHold(identity(), context(102), true);
+    await store.tombstone(identity(), context(103));
+    const restarted = new FileCompileCache<string>(directory);
+    await expect(restarted.read(identity(), context(104))).rejects.toThrow('unavailable');
+    await expect(restarted.getOrCompile(identity(), context(104), 1_000, async () => 'forbidden'))
+      .rejects.toThrow('unavailable');
+    expect(await restarted.delete(identity(), context(104))).toBe(false);
+    await expect(restarted.restore(backup!, context(104))).rejects.toThrow('unavailable');
+    await expect(restarted.setLegalHold(identity(), context(104, { projectId: 'other' }), false))
+      .rejects.toThrow('unavailable');
+    await restarted.setLegalHold(identity(), context(105), false);
+    expect(await restarted.delete(identity(), context(106))).toBe(true);
+    expect(await restarted.read(identity(), context(107))).toBeNull();
+    await expect(restarted.restore(backup!, context(108, { authorize: () => false })))
+      .rejects.toThrow('unavailable');
+    await restarted.restore(backup!, context(108));
+    expect((await new FileCompileCache<string>(directory).read(identity(), context(109)))?.value).toBe('artifact');
+    await expect(restarted.restore({ ...backup!, value: 'tampered' }, context(110)))
+      .rejects.toThrow('unavailable');
+    expect(await restarted.delete(identity(), context(1_100))).toBe(true);
+  });
+
+  it('CCP-011 reports provider-qualified synthetic paired economics without inferring live savings', () => {
+    const pinned = prefix();
+    const changed = prefix({ apiRevision: 'v2' });
+    expect(providerPrefixKey(changed)).not.toBe(providerPrefixKey(pinned));
+    const fixture = [
+      { report: { kind: 'reported' as const, hit: false, cacheVersion: 'fixture-v1', savedInputTokens: 0, expiresAtEpochMs: 900 }, at: 800 },
+      { report: { kind: 'reported' as const, hit: true, cacheVersion: 'fixture-v1', savedInputTokens: 60, expiresAtEpochMs: 900 }, at: 801 },
+      { report: { kind: 'reported' as const, hit: true, cacheVersion: 'fixture-v1', savedInputTokens: 60, expiresAtEpochMs: 900 }, at: 900 },
+    ];
+    const samples: import('../../../src/decision/compile-cache/benchmark.js').CacheBenchmarkSample[] = [];
+    for (const { report, at } of fixture) {
+      const evidence = providerPrefixEvidence(pinned, report, at);
+      samples.push({ mode: 'cache-disabled', preparationLatencyMs: 10, inputTokens: 100,
+        cachedInputTokens: 0, costUsd: 0.01, memoryBytes: 0, storageBytes: 0, outcome: 'bypass', invalidated: false });
+      samples.push({ mode: 'cache-enabled', preparationLatencyMs: 10, inputTokens: 100,
+        cachedInputTokens: evidence.source === 'provider-report' ? evidence.savedInputTokens : null,
+        costUsd: null, memoryBytes: 0, storageBytes: 0, outcome: evidence.status === 'hit' ? 'hit' :
+          evidence.status === 'miss' ? 'miss' : 'unknown', invalidated: evidence.status === 'unknown' });
+    }
+    const report = cacheBenchmarkReport(providerPrefixKey(pinned), 1, 500,
+      pairedPreparationLatencyInterval([10, 10, 10], [10, 10, 10]), samples);
+    expect(report).toMatchObject({ measuredCalls: 6,
+      disabled: { averageInputTokens: 100, averageCostUsd: 0.01, hitRateBps: 0 },
+      enabled: { averageInputTokens: 100, averageCachedInputTokens: null, averageCostUsd: null,
+        hitRateBps: 3333, invalidationRateBps: 3333 } });
+  });
+
   it('CCP-008 preserves byte-equivalent compiled artifacts through disabled and cached runtime paths', async () => {
     let compilations = 0;
     const seen: string[] = [];
