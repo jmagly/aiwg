@@ -28,6 +28,35 @@ export class DecisionOtlpHttpSink implements DecisionTraceSink {
     const response = await this.transport(this.endpoint, { method: 'POST', redirect: 'manual', signal,
       headers: { 'content-type': 'application/json' }, body: payload });
     if (!response.ok) throw new Error(`OTLP exporter returned HTTP ${response.status}`);
+    if (!response.body) return;
+    // OTLP/HTTP may acknowledge a request while rejecting some spans. Never
+    // echo collector response text; it can contain arbitrary sensitive data.
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > 4096) throw new Error('OTLP response exceeds configured inspection bound');
+        chunks.push(value);
+      }
+    } finally { reader.releaseLock(); }
+    if (size === 0) return;
+    let body: unknown;
+    try { body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))); }
+    catch { throw new Error('OTLP collector returned an invalid response'); }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('OTLP collector returned an invalid response');
+    const partial = (body as Record<string, unknown>).partialSuccess;
+    if (partial === undefined) return;
+    if (!partial || typeof partial !== 'object' || Array.isArray(partial)) throw new Error('OTLP collector returned an invalid response');
+    const rejected = (partial as Record<string, unknown>).rejectedSpans;
+    if (rejected !== undefined && rejected !== 0 && rejected !== '0') {
+      // Unknown or non-zero values cannot be treated as a complete export.
+      throw new Error('OTLP collector partially rejected spans');
+    }
+    if ((partial as Record<string, unknown>).errorMessage) throw new Error('OTLP collector reported partial success');
   }
 }
 

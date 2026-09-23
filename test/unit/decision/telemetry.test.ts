@@ -194,6 +194,21 @@ describe('decision telemetry foundation', () => {
     expect(exporter.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'failed' })]));
   });
 
+  it('treats OTLP partial success and oversized responses as failures without echoing collector text', async () => {
+    const respond = (body: string) => vi.fn(async () => new Response(body, { status: 200,
+      headers: { 'content-type': 'application/json' } })) as typeof fetch;
+    const sink = (transport: typeof fetch) => new DecisionOtlpHttpSink({ endpoint: 'https://collector.example/v1/traces',
+      maxPayloadBytes: 16_384, fetch: transport });
+    const signal = new AbortController().signal;
+    await expect(sink(respond('{"partialSuccess":{"rejectedSpans":"1","errorMessage":"private-test-payload"}}'))
+      .export(trace(), signal)).rejects.toThrow('OTLP collector partially rejected spans');
+    await expect(sink(respond('{"partialSuccess":{"rejectedSpans":"unknown"}}'))
+      .export(trace(), signal)).rejects.toThrow('OTLP collector partially rejected spans');
+    await expect(sink(respond('x'.repeat(4097))).export(trace(), signal)).rejects.toThrow(/inspection bound/);
+    await expect(sink(respond('{"partialSuccess":{"rejectedSpans":"0"}}'))
+      .export(trace(), signal)).resolves.toBeUndefined();
+  });
+
   it('bounds an exporter that ignores cancellation', async () => {
     const exporter = new BoundedDecisionTraceExporter({ export: async () => new Promise<void>(() => undefined) }, { capacity: 1, timeoutMs: 5 });
     expect(exporter.offer(trace())).toBe(true);
