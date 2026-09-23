@@ -128,19 +128,24 @@ export class FileCompileCache<T> {
   private async lockOwnerAlive(path: string): Promise<boolean> {
     try {
       const owner = JSON.parse(await readFile(path, 'utf8')) as Partial<CompileCacheLockOwner>;
-      if (owner.version !== 1 || !Number.isSafeInteger(owner.pid) || owner.pid! < 1 || typeof owner.token !== 'string') return false;
+      if (owner.version !== 1 || !Number.isSafeInteger(owner.pid) || owner.pid! < 1 || typeof owner.token !== 'string') {
+        return this.lockRecordRecentlyCreated(path);
+      }
       try { process.kill(owner.pid!, 0); return true; }
       catch (error) { return (error as NodeJS.ErrnoException).code !== 'ESRCH'; }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return true;
-      try {
-        // A contender may observe the lock after exclusive creation but before
-        // its owner record is fully synced. Treat that short window as active;
-        // only reclaim malformed metadata after the bounded lock lifetime.
-        return Date.now() - (await stat(path)).mtimeMs < this.lockTimeoutMs;
-      } catch (statError) {
-        return (statError as NodeJS.ErrnoException).code === 'ENOENT';
-      }
+      return this.lockRecordRecentlyCreated(path);
+    }
+  }
+
+  private async lockRecordRecentlyCreated(path: string): Promise<boolean> {
+    try {
+      // Exclusive creation precedes the synced owner record. Both truncated and
+      // parseable-but-incomplete metadata must remain owned during that window.
+      return Date.now() - (await stat(path)).mtimeMs < Math.max(DEFAULT_LOCK_TIMEOUT_MS, this.lockTimeoutMs * 2);
+    } catch (error) {
+      return (error as NodeJS.ErrnoException).code === 'ENOENT';
     }
   }
 

@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -187,6 +187,21 @@ describe('decision compile and provider-prefix cache', () => {
     });
     expect(linked.manifest.evidence[0]).toMatchObject({ caseId: 'D30-CCP', executable: true, outcome: 'pass' });
     expect(linked.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it('CCP-004 does not steal a newly created lock with incomplete owner metadata', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-partial-lock-'));
+    const key = compileCacheKey(identity()).slice('sha256:'.length);
+    const path = join(directory, `${key}.lock`);
+    await writeFile(path, '{}');
+    const cache = new FileCompileCache<string>(directory, { lockPollMs: 1, lockTimeoutMs: 25 });
+    await expect(cache.getOrCompile(identity(), context(), 1_000, async () => 'should-not-run'))
+      .rejects.toThrow(CompileCacheRejectedError);
+    expect(await readFile(path, 'utf8')).toBe('{}');
+    const stale = new Date(Date.now() - 60_000);
+    await utimes(path, stale, stale);
+    await expect(cache.getOrCompile(identity(), context(), 1_000, async () => 'recovered'))
+      .resolves.toMatchObject({ outcome: 'miss', entry: { value: 'recovered' } });
   });
 
   it('CCP-004 reclaims a dead fill owner and never publishes a failed fill', async () => {
