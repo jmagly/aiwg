@@ -91,7 +91,11 @@ export class FileResultCacheStore implements ResultCacheStore {
   }
   async read(actor: ResultCacheActor, key: `sha256:${string}`): Promise<ResultCacheEntry | null> { authorize(actor, 'read'); return this.load(actor, key, 'read'); }
   async putIfAbsent(actor: ResultCacheActor, entry: ResultCacheEntry): Promise<ResultCacheEntry> {
-    authorize(actor, 'write', entry.scope); assertResultCacheEntry(entry); await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    authorize(actor, 'write', entry.scope); assertResultCacheEntry(entry);
+    // This store writes plaintext JSON. Refuse protected classes until the host
+    // provides a separately qualified encrypted storage implementation.
+    if (entry.sensitivity === 'confidential' || entry.sensitivity === 'restricted') throw new ResultCacheAccessDeniedError();
+    await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const path = this.path(actor, entry.keyDigest);
     if (await this.deleted(actor, entry.keyDigest)) throw new ResultCacheAccessDeniedError();
     const tmp = join(this.directory, `.cache-${randomUUID()}.tmp`); const handle = await open(tmp, 'wx', 0o600);
@@ -122,7 +126,9 @@ export class FileResultCacheStore implements ResultCacheStore {
   private async load(actor: ResultCacheActor, key: `sha256:${string}`, permission: ResultCacheActor['permissions'][number]): Promise<ResultCacheEntry | null> {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     if (await this.deleted(actor, key)) return null;
-    try { const entry = JSON.parse(await readFile(this.path(actor, key), 'utf8')) as ResultCacheEntry; authorize(actor, permission, entry.scope); assertResultCacheEntry(entry); if (entry.keyDigest !== key) throw new Error('Cache key substitution'); return entry; }
+    try { const entry = JSON.parse(await readFile(this.path(actor, key), 'utf8')) as ResultCacheEntry; authorize(actor, permission, entry.scope); assertResultCacheEntry(entry);
+      if (entry.sensitivity === 'confidential' || entry.sensitivity === 'restricted') throw new ResultCacheAccessDeniedError();
+      if (entry.keyDigest !== key) throw new Error('Cache key substitution'); return entry; }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
   }
   private async deleted(actor: ResultCacheActor, key: `sha256:${string}`): Promise<boolean> {

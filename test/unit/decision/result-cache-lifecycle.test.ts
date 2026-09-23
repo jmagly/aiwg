@@ -61,6 +61,14 @@ describe('file-backed result cache lifecycle', () => {
     await expect(cache.evaluate(request(202, 'e'), fill)).rejects.toThrow('denied');
   }));
 
+  it('refuses plaintext persistence of confidential and restricted results', async () => fixture(async (store, dir) => {
+    for (const sensitivity of ['confidential', 'restricted'] as const) {
+      await expect(new DecisionResultCache(store).evaluate({ ...request(100, sensitivity),
+        policy: { ...policy, sensitivity } }, async () => evidence())).rejects.toThrow('denied');
+    }
+    expect(await readdir(dir)).toEqual([]);
+  }));
+
   it('purges expired entries only in the authenticated workspace', async () => fixture(async store => {
     await new DecisionResultCache(store).evaluate(request(100, 'a'), async () => evidence());
     const other = { ...actor, workspaceId: 'other' };
