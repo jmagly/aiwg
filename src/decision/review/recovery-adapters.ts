@@ -1,0 +1,96 @@
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { link, mkdir, open, readFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { canonicalJson } from '../../security/artifact-trust.js';
+import type { SessionRepository } from '../../sessions/repository.js';
+import type { SessionEvent } from '../../sessions/contracts.js';
+import type { ReviewEffectReceipt } from './types.js';
+import type { ReviewSessionAudit, VerifiedReviewEffectLedger } from './recovery.js';
+
+/** Caller supplies an authorized, exact-workspace refresh; never discovers provider roots implicitly. */
+export class WorkspaceReviewSessionAudit implements ReviewSessionAudit {
+  private covered = new Set<string>();
+  constructor(private readonly repository: SessionRepository,
+    private readonly refresh: (workspaceId: string, previousSessionId: string) => Promise<void>,
+    private readonly locate: (event: SessionEvent) => { reviewId: string; effectId: string } | null) {}
+
+  async hydrate(workspaceId: string, previousSessionId: string) {
+    this.covered.delete(`${workspaceId}\0${previousSessionId}`);
+    await this.refresh(workspaceId, previousSessionId);
+    const session = this.repository.getSession(previousSessionId, workspaceId);
+    const coverage = this.repository.getCoverage(workspaceId);
+    // A complete workspace manifest AND the exact committed, non-tombstoned
+    // session are required. A global doctor() result is not session coverage.
+    const status = coverage.status === 'stale' ? 'stale' :
+      coverage.status === 'complete' && session && session.consistency === 'complete' ? 'covered' :
+        coverage.status === 'partial' || session ? 'partial' : 'unavailable';
+    if (status === 'covered') this.covered.add(`${workspaceId}\0${previousSessionId}`);
+    return { workspaceId, previousSessionId, coverage: status as 'covered' | 'partial' | 'stale' | 'unavailable' };
+  }
+
+  async findAttempt(query: { workspaceId: string; previousSessionId: string; reviewId: string; effectId: string }) {
+    if (!this.covered.has(`${query.workspaceId}\0${query.previousSessionId}`)) return null;
+    const matches = this.repository.listEvents(query.previousSessionId, query.workspaceId)
+      .filter(event => {
+        const marker = this.locate(event);
+        return marker?.reviewId === query.reviewId && marker.effectId === query.effectId;
+      });
+    // An ambiguous marker never attests a specific attempt. Transcript text is
+    // not a completion receipt; the independent executor ledger is mandatory.
+    return matches.length === 1 ? { workspaceId: query.workspaceId, sessionId: query.previousSessionId,
+      reviewId: query.reviewId, effectId: query.effectId } : null;
+  }
+}
+
+/** Executor-owned receipt journal. Keep its key separate from review-store and session-index keys. */
+export class FileVerifiedReviewEffectLedger implements VerifiedReviewEffectLedger {
+  constructor(private readonly directory: string, private readonly integrityKey: Uint8Array) {
+    if (integrityKey.length < 32) throw new Error('Executor ledger integrity key must be at least 32 bytes');
+  }
+  private path(query: { tenantId: string; projectId: string; reviewId: string; effectId: string }) {
+    const digest = createHash('sha256').update(canonicalJson(query)).digest('hex');
+    return join(this.directory, `${digest}.json`);
+  }
+  private mac(record: unknown) { return createHmac('sha256', this.integrityKey).update(canonicalJson(record)).digest('hex'); }
+
+  /** Only the effectful executor calls this after independently verifying completion. */
+  async recordCompleted(query: { tenantId: string; projectId: string; reviewId: string; effectId: string }, receipt: ReviewEffectReceipt): Promise<boolean> {
+    if (receipt.effectId !== query.effectId || !receipt.continuationId || !Number.isSafeInteger(receipt.proposalVersion) || receipt.proposalVersion < 1 ||
+        !Number.isSafeInteger(receipt.completedAtEpochMs) || receipt.completedAtEpochMs < 0) throw new Error('Invalid executor completion receipt');
+    const record = { query, receipt };
+    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    const destination = this.path(query);
+    const temporary = `${destination}.${randomUUID()}.tmp`;
+    const file = await open(temporary, 'wx', 0o600);
+    try { await file.writeFile(`${JSON.stringify({ record, mac: this.mac(record) })}\n`); await file.sync(); } finally { await file.close(); }
+    try {
+      await link(temporary, destination);
+      const dir = await open(this.directory, 'r'); try { await dir.sync(); } finally { await dir.close(); }
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+        const existing = await this.completedReceipt(query);
+        if (existing && canonicalJson(existing) === canonicalJson(receipt)) return false;
+        throw new Error('Conflicting executor completion receipt');
+      }
+      throw error;
+    } finally { await rm(temporary, { force: true }); }
+  }
+
+  async completedReceipt(query: { tenantId: string; projectId: string; reviewId: string; effectId: string }): Promise<ReviewEffectReceipt | null> {
+    let raw: string;
+    try { raw = await readFile(this.path(query), 'utf8'); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
+    try {
+      const envelope = JSON.parse(raw) as { record: { query: typeof query; receipt: ReviewEffectReceipt }; mac: string };
+      const expected = Buffer.from(this.mac(envelope.record), 'hex');
+      const actual = Buffer.from(envelope.mac ?? '', 'hex');
+      if (actual.length !== expected.length || !timingSafeEqual(actual, expected) ||
+          canonicalJson(envelope.record.query) !== canonicalJson(query) || envelope.record.receipt.effectId !== query.effectId ||
+          !envelope.record.receipt.continuationId || !Number.isSafeInteger(envelope.record.receipt.proposalVersion) ||
+          envelope.record.receipt.proposalVersion < 1 || !Number.isSafeInteger(envelope.record.receipt.completedAtEpochMs) ||
+          envelope.record.receipt.completedAtEpochMs < 0) throw new Error('Invalid executor ledger entry');
+      return structuredClone(envelope.record.receipt);
+    } catch { throw new Error('Invalid executor ledger entry'); }
+  }
+}
