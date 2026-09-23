@@ -90,7 +90,9 @@ export interface ResultCacheTelemetry {
   /** Opaque correlation only: never the semantic key, input, subject, or entry ID. */
   operationId: string;
   reason: string;
-  saved?: { inputTokens: number; outputTokens: number; latencyMs: number; costUsd: number };
+  /** Baseline from the original call; counterfactual provider savings are estimates, not realized usage. */
+  saved?: { inputTokens: number | null; outputTokens: number | null; latencyMs: number;
+    costUsd: number | null; estimated: true };
 }
 
 export interface ResultCacheCallerReceipt {
