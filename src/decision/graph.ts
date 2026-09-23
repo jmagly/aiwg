@@ -80,7 +80,10 @@ export function planDecisionGraph(value: unknown, resolvedPins: ReadonlySet<stri
   }
   for (const node of graph.nodes) {
     if (!reached.has(node.id) || (node.id !== graph.entry && (!node.input.length || node.input.some(name => !inputs.get(node.id)!.has(name)))) ||
-        (outgoing.get(node.id)!.length === 0) !== graph.terminals.includes(node.id)) return fail('ambiguous root, input, or terminal');
+        (outgoing.get(node.id)!.length === 0 ? !graph.terminals.includes(node.id) :
+          graph.terminals.includes(node.id) && graph.edges.some(edge => edge.from === node.id && !edge.when))) {
+      return fail('ambiguous root, input, or terminal');
+    }
   }
   const sortedNodes = [...graph.nodes].sort((a, b) => a.stage - b.stage || a.id.localeCompare(b.id));
   const edges = [...graph.edges].sort((a, b) => canonicalJson(a).localeCompare(canonicalJson(b)));
