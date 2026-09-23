@@ -65,8 +65,12 @@ describe('decision qualification executable runner', () => {
     ];
     const run = await executeQualificationPlan({
       manifest: manifest(cases), artifactRoot: root,
-      executors: { TV01: () => { throw new Error('observed mismatch'); } },
+      executors: { TV01: () => { throw new Error('private-test-payload'); } },
     });
+    const artifact = await readFile(join(root, run.evidence[0]!.artifact!), 'utf8');
+    expect(artifact).toContain('executor-failed');
+    expect(artifact).not.toContain('private-test-payload');
+    expect(JSON.stringify(run)).not.toContain('private-test-payload');
     expect(run.evidence.map(item => ({ id: item.caseId, executable: item.executable, outcome: item.outcome }))).toEqual([
       { id: 'TV01', executable: true, outcome: 'fail' },
       { id: 'TV02', executable: false, outcome: 'skip' },

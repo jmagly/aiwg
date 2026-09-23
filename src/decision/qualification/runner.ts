@@ -161,9 +161,11 @@ async function executeCase(
   try {
     result = await withTimeout(timeoutMs, signal => executor({ caseId: item.id, runId: plan.manifest.runId, signal }));
     if (result.outcome !== 'pass' && result.outcome !== 'fail') throw new Error('executor returned an invalid outcome');
-  } catch (caught) {
+  } catch {
     result = { outcome: 'fail' };
-    error = caught instanceof Error ? caught.message : 'executor failed with a non-error value';
+    // Executor exceptions can include private provider bodies or input state.
+    // Keep diagnostic text out of persistent artifacts and exported reports.
+    error = 'executor-failed';
   }
   return writeArtifact(plan.artifactRoot, plan.manifest.runId, {
     schemaVersion: 'decision-qualification-artifact/v1', runId: plan.manifest.runId,

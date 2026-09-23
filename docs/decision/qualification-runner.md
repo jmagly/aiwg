@@ -9,7 +9,10 @@ The runner accepts no evidence outcomes, digests, or evidence-flag booleans from
 It derives them from executions. Execution is bounded to 1–32 concurrent cases, per-operation
 timeouts of at most ten minutes, and artifacts of at most 4 MiB. Default bounds are four
 concurrent cases, 30 seconds, and 256 KiB. Missing executors produce non-executable `skip`
-evidence, while exceptions and timeouts produce executable failures.
+evidence, while exceptions and timeouts produce executable failures. Executor exception
+messages are never persisted: artifacts use the fixed `executor-failed` class. Callback
+`details` remain caller-supplied and are not safe for private state; a comprehensive
+canary scan of all result surfaces is still required before promotion.
 
 Artifacts use `decision-qualification-artifact/v1`, live below a validated run-id directory,
 and are written through a same-directory temporary file and atomic rename. Verification rejects
