@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateBinaryHeldout, freezeQualificationSplit, verifyQualificationSplits, type BinaryQualificationSample } from '../../../src/decision/qualification/quality.js';
+import { evaluateBinaryHeldout, evaluateOrdinalHeldout, evaluateRankingHeldout, freezeQualificationSplit, verifyQualificationSplits, type BinaryQualificationSample } from '../../../src/decision/qualification/quality.js';
 
 const splits = () => [
   freezeQualificationSplit('tuning', ['train-1']),
@@ -43,6 +43,32 @@ describe('held-out qualification metrics', () => {
     expect(result.overall.logLoss).toBeCloseTo((-Math.log(0.8) - Math.log(0.4)) / 2);
     expect(result.slices.risky?.selectiveRisk).toBeNull();
     expect(result.slices.safe?.brier).toBeCloseTo(0.04);
+  });
+
+  it('reports held-out ordinal error and refuses out-of-domain levels', () => {
+    const scores = [
+      { id: 'test-1', trueLevel: 0, predictedLevel: 1, levels: 3 },
+      { id: 'test-2', trueLevel: 2, predictedLevel: 2, levels: 3 },
+    ];
+    expect(evaluateOrdinalHeldout(splits(), scores)).toEqual({
+      sampleN: 2, exactRate: 0.5, meanAbsoluteError: 0.5, normalizedAbsoluteError: 0.25,
+    });
+    expect(() => evaluateOrdinalHeldout(splits(), [{ ...scores[0]!, predictedLevel: 3 }, scores[1]!])).toThrow('invalid');
+    expect(() => evaluateOrdinalHeldout(splits(), [scores[0]!, { ...scores[1]!, id: 'cal-1' }])).toThrow('membership');
+  });
+
+  it('scores ranking inversions and predicted ties as errors, with null for no comparable gold pairs', () => {
+    const rows = [
+      { id: 'test-1', gold: { a: 3, b: 2, c: 1 }, predicted: { a: 2, b: 3, c: 1 } },
+      { id: 'test-2', gold: { a: 1, b: 1 }, predicted: { a: 1, b: 0 } },
+    ];
+    expect(evaluateRankingHeldout(splits(), rows)).toEqual({ sampleN: 2, comparablePairs: 3, concordance: 2 / 3 });
+    expect(evaluateRankingHeldout(splits(), rows.map(row => ({ ...row, gold: { a: 1, b: 1 }, predicted: { a: 1, b: 1 } })))).toMatchObject({ comparablePairs: 0, concordance: null });
+    expect(evaluateRankingHeldout(splits(), [
+      { ...rows[0]!, predicted: { a: 1, b: 1, c: 0 } }, rows[1]!,
+    ]).concordance).toBe(2 / 3);
+    expect(() => evaluateRankingHeldout(splits(), [{ ...rows[0]!, predicted: { a: 1 } }, rows[1]!])).toThrow('option mismatch');
+    expect(() => evaluateRankingHeldout(splits(), [{ ...rows[0]!, predicted: { a: NaN, b: 1, c: 0 } }, rows[1]!])).toThrow('invalid');
   });
 
   it('rejects nonfinite and invalid samples instead of treating missing cost as zero', () => {

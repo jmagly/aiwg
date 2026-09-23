@@ -10,6 +10,7 @@ import {
 } from '../../../src/decision/qualification/runner.js';
 import { expectedQualificationCaseIds, REQUIRED_VENDOR_CASE_IDS } from '../../../src/decision/qualification/manifest.js';
 import { DECISION_RELEASE_GATES } from '../../../src/decision/qualification/gates.js';
+import { QUALIFICATION_PRIVACY_SURFACES } from '../../../src/decision/qualification/privacy.js';
 import type { QualificationCase, QualificationRunManifest } from '../../../src/decision/qualification/types.js';
 
 const roots: string[] = [];
@@ -141,6 +142,21 @@ describe('decision qualification executable runner', () => {
     await expect(executeQualificationPlan({ ...plan, privacyCanaries: [''] })).rejects.toThrow('privacy canaries must be nonempty');
   });
 
+  it('PRV-G2-01 prevents a positive callback from forging a privacy scan', async () => {
+    const root = await artifactRoot();
+    const cases: QualificationCase[] = [{ id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] }];
+    const plan = {
+      manifest: manifest(cases), artifactRoot: root,
+      executors: { TV01: () => ({ outcome: 'pass' as const }) },
+      evidenceChecks: { 'privacy-scan-clean': () => true },
+      privacyCanaries: ['canary@example.invalid'],
+    };
+    expect((await executeQualificationPlan(plan)).evidenceFlags['privacy-scan-clean']).toBe(false);
+    const captures = QUALIFICATION_PRIVACY_SURFACES.map(surface => ({ surface, content: '' }));
+    expect((await executeQualificationPlan({ ...plan, privacyCaptures: captures })).evidenceFlags['privacy-scan-clean']).toBe(true);
+    expect((await executeQualificationPlan({ ...plan, privacyCaptures: captures.slice(1) })).evidenceFlags['privacy-scan-clean']).toBe(false);
+  });
+
   it('links persisted qualification artifacts to named CAL and DRF master-plan evidence IDs', async () => {
     const root = await artifactRoot();
     const cases: QualificationCase[] = [
@@ -213,6 +229,8 @@ describe('decision qualification executable runner', () => {
 
     const result = await executeAndEvaluateQualification({
       manifest: manifest(cases), artifactRoot: root, executors, evidenceChecks, concurrency: 8,
+      privacyCanaries: ['canary@example.invalid'],
+      privacyCaptures: QUALIFICATION_PRIVACY_SURFACES.map(surface => ({ surface, content: '' })),
     });
     expect(result.verification).toHaveLength(67);
     expect(result.verification.every(item => item.verified)).toBe(true);

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, resolve, sep } from 'node:path';
 import { evaluateQualification } from './gates.js';
+import { scanQualificationPrivacy, type QualificationPrivacyCapture } from './privacy.js';
 import type {
   EvidenceOutcome,
   QualificationCase,
@@ -42,6 +43,8 @@ export interface QualificationExecutionPlan {
   sanitizeDetails?: (details: unknown, caseId: string) => unknown;
   /** Synthetic canaries never leave the process, including through selected public details. */
   privacyCanaries?: readonly string[];
+  /** Captured output surfaces; required for the G2 privacy flag. Empty observations must be explicit. */
+  privacyCaptures?: readonly QualificationPrivacyCapture[];
 }
 
 export interface ArtifactVerification {
@@ -237,7 +240,16 @@ export async function executeQualificationPlan(plan: QualificationExecutionPlan)
       return [name, false] as const;
     }
   });
-  return { ...plan.manifest, evidence, evidenceFlags: Object.fromEntries(flagValues) };
+  const evidenceFlags = Object.fromEntries(flagValues);
+  // Caller-provided positive flags cannot impersonate a complete privacy scan.
+  // Missing captures or canaries remain false, even if a callback returns true.
+  try {
+    evidenceFlags['privacy-scan-clean'] = plan.privacyCaptures && plan.privacyCanaries
+      ? scanQualificationPrivacy(plan.privacyCaptures, plan.privacyCanaries).clean : false;
+  } catch {
+    evidenceFlags['privacy-scan-clean'] = false;
+  }
+  return { ...plan.manifest, evidence, evidenceFlags };
 }
 
 function containedArtifactPath(root: string, relative: string): string | null {

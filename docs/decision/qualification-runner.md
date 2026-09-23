@@ -16,7 +16,13 @@ messages are never persisted: artifacts use the fixed `executor-failed` class. C
 Synthetic `privacyCanaries` also fail the case and suppress selected details if their
 serialized representation contains a canary (including escaped strings). These checks
 only protect runner artifacts; stdout/stderr, traces, receipts, snapshots, exports, and
-other result surfaces still require independent canary scans before promotion.
+other result surfaces require explicit capture and scanning before promotion. Supply
+`privacyCaptures` for all eight named surfaces (including empty observations) and
+nonempty `privacyCanaries`; the runner derives `privacy-scan-clean` from
+`scanQualificationPrivacy` and ignores any claimed positive flag from a callback.
+Absent or invalid captures fail G2 closed. Capturing streams and errors for the
+full execution lifetime is still the caller's responsibility; empty synthetic
+captures are not proof that a live workload is private.
 
 Artifacts use `decision-qualification-artifact/v1`, live below a validated run-id directory,
 and are written through a same-directory temporary file and atomic rename. Verification rejects
@@ -35,9 +41,18 @@ They reject overlapping/missing rows, invalid probabilities and negative resourc
 unknown cost stays unknown, and zero accepted samples have `null` selective risk.
 The report includes Brier/log loss, decile calibration error, Wilson error interval,
 coverage/review rate, nearest-rank latency quantiles, calls/retries/fallbacks and token/cost
-sums. This is **not** an ordinal/ranking evaluator or a calibration approval: sample-size,
-pre-registration, slice adequacy, policy thresholds, and independent held-out provenance
-still need qualification before G3 can pass.
+sums. `evaluateOrdinalHeldout` scores exact matches and normalized/absolute level error;
+`evaluateRankingHeldout` measures pairwise concordance, counting predicted ties as errors
+and reporting `null` when gold has no comparable pairs. These are not calibration
+approvals: sample-size, pre-registration, slice adequacy, policy thresholds, and independent
+held-out provenance still need qualification before G3 can pass.
+
+The initial checked-in fixture registry at
+`test/fixtures/decision/qualification-fixtures-v1.json` records author, date,
+permission, sanitization, origin, schema, expected outcome, trace links and
+SHA-256 for five repository-authored goldens. The conformance suite re-hashes
+all listed files; unlisted future fixtures must be added with their own
+provenance before being used as release evidence.
 
 The runner is adapter-neutral. TV01–TV25 can be registered as live, recorded, shadow, or offline
 executors under the manifest's selected mode. A missing live credential or provider is evidence

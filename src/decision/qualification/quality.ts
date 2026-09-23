@@ -101,6 +101,73 @@ export function evaluateBinaryHeldout(
   };
 }
 
+export interface OrdinalQualificationSample {
+  id: string;
+  trueLevel: number;
+  predictedLevel: number;
+  levels: number;
+}
+
+/** Mean absolute level error and exact match, scored on a frozen held-out split. */
+export function evaluateOrdinalHeldout(
+  splits: readonly QualificationSplit[], samples: readonly OrdinalQualificationSample[],
+): { sampleN: number; exactRate: number; meanAbsoluteError: number; normalizedAbsoluteError: number } {
+  verifyQualificationSplits(splits);
+  const testIds = splits.find(split => split.name === 'test')!.ids;
+  if (samples.length !== testIds.length || new Set(samples.map(s => s.id)).size !== samples.length
+    || samples.some(s => !testIds.includes(s.id))) throw new Error('held-out ordinal membership mismatch');
+  if (samples.some(s => !Number.isSafeInteger(s.levels) || s.levels < 2
+    || !Number.isSafeInteger(s.trueLevel) || !Number.isSafeInteger(s.predictedLevel)
+    || s.trueLevel < 0 || s.trueLevel >= s.levels || s.predictedLevel < 0 || s.predictedLevel >= s.levels)) {
+    throw new Error('invalid held-out ordinal sample');
+  }
+  return {
+    sampleN: samples.length,
+    exactRate: samples.filter(s => s.trueLevel === s.predictedLevel).length / samples.length,
+    meanAbsoluteError: samples.reduce((sum, s) => sum + Math.abs(s.trueLevel - s.predictedLevel), 0) / samples.length,
+    normalizedAbsoluteError: samples.reduce((sum, s) => sum + Math.abs(s.trueLevel - s.predictedLevel) / (s.levels - 1), 0) / samples.length,
+  };
+}
+
+export interface RankingQualificationSample {
+  id: string;
+  /** Higher score means preferred; scores must refer to the same stable option IDs. */
+  gold: Readonly<Record<string, number>>;
+  predicted: Readonly<Record<string, number>>;
+}
+
+/** Counts gold-comparable option pairs; ties in the prediction are errors, not wins. */
+export function evaluateRankingHeldout(
+  splits: readonly QualificationSplit[], samples: readonly RankingQualificationSample[],
+): { sampleN: number; comparablePairs: number; concordance: number | null } {
+  verifyQualificationSplits(splits);
+  const testIds = splits.find(split => split.name === 'test')!.ids;
+  if (samples.length !== testIds.length || new Set(samples.map(s => s.id)).size !== samples.length
+    || samples.some(s => !testIds.includes(s.id))) throw new Error('held-out ranking membership mismatch');
+  let pairs = 0;
+  let correct = 0;
+  for (const sample of samples) {
+    const options = Object.keys(sample.gold).sort();
+    if (options.length < 2 || options.length !== Object.keys(sample.predicted).length
+      || options.some(option => !Object.hasOwn(sample.predicted, option))) {
+      throw new Error('ranking option mismatch');
+    }
+    for (const option of options) {
+      if (!Number.isFinite(sample.gold[option]) || !Number.isFinite(sample.predicted[option])) {
+        throw new Error('invalid ranking score');
+      }
+    }
+    for (let i = 0; i < options.length; i++) for (let j = i + 1; j < options.length; j++) {
+      const goldDifference = sample.gold[options[i]!]! - sample.gold[options[j]!]!;
+      if (goldDifference === 0) continue;
+      pairs++;
+      const predictedDifference = sample.predicted[options[i]!]! - sample.predicted[options[j]!]!;
+      if (Math.sign(predictedDifference) === Math.sign(goldDifference)) correct++;
+    }
+  }
+  return { sampleN: samples.length, comparablePairs: pairs, concordance: pairs ? correct / pairs : null };
+}
+
 function scoreBinary(samples: readonly BinaryQualificationSample[]): BinarySliceMetrics {
   const n = samples.length;
   const errors = samples.filter(s => (s.probability >= 0.5 ? 1 : 0) !== s.label).length;
