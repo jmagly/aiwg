@@ -126,8 +126,10 @@ describe('decision compile and provider-prefix cache', () => {
 
   it('CCP-010 never infers prefix hits from absent reports', () => {
     expect(providerPrefixEvidence(prefix(), { kind: 'unreported' })).toMatchObject({ status: 'unknown', source: 'unreported', savedInputTokens: null });
-    expect(providerPrefixEvidence(prefix(), { kind: 'reported', hit: true, cacheVersion: 'v1', savedInputTokens: 42, expiresAtEpochMs: 900 }))
+    expect(providerPrefixEvidence(prefix(), { kind: 'reported', hit: true, cacheVersion: 'v1', savedInputTokens: 42, expiresAtEpochMs: 900 }, 800))
       .toMatchObject({ status: 'hit', source: 'provider-report', savedInputTokens: 42 });
+    expect(providerPrefixEvidence(prefix(), { kind: 'reported', hit: true, cacheVersion: 'v1', savedInputTokens: 42, expiresAtEpochMs: 900 }, 900))
+      .toMatchObject({ status: 'unknown', savedInputTokens: null });
     expect(providerPrefixEvidence(prefix(), { kind: 'unsupported' }).status).toBe('unsupported');
     expect(providerPrefixEvidence(prefix(), { kind: 'bypass' }).status).toBe('bypass');
     expect(providerPrefixEvidence(prefix(), { kind: 'reported', hit: true, cacheVersion: '', savedInputTokens: -1, expiresAtEpochMs: 1 }).status).toBe('unknown');

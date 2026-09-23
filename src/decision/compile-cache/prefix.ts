@@ -8,9 +8,12 @@ export type ProviderPrefixReport =
   | { kind: 'unreported' };
 
 /** Provider status is derived exclusively from an explicit report/capability declaration. */
-export function providerPrefixEvidence(identity: ProviderPrefixIdentity, report: ProviderPrefixReport): ProviderPrefixEvidence {
+export function providerPrefixEvidence(identity: ProviderPrefixIdentity, report: ProviderPrefixReport,
+  observedAtEpochMs = Date.now()): ProviderPrefixEvidence {
   const base = { schemaVersion: 'decision-provider-prefix-evidence/v1' as const, identityDigest: providerPrefixKey(identity) };
-  if (report.kind === 'reported' && validReportedEvidence(report)) return { ...base, status: report.hit ? 'hit' : 'miss', source: 'provider-report',
+  if (report.kind === 'reported' && validReportedEvidence(report)
+    && Number.isSafeInteger(observedAtEpochMs) && observedAtEpochMs >= 0
+    && (report.expiresAtEpochMs === null || report.expiresAtEpochMs > observedAtEpochMs)) return { ...base, status: report.hit ? 'hit' : 'miss', source: 'provider-report',
     cacheVersion: report.cacheVersion, savedInputTokens: report.savedInputTokens, expiresAtEpochMs: report.expiresAtEpochMs };
   if (report.kind === 'unsupported') return { ...base, status: 'unsupported', source: 'documented-unsupported', cacheVersion: null, savedInputTokens: null, expiresAtEpochMs: null };
   if (report.kind === 'bypass') return { ...base, status: 'bypass', source: 'policy-bypass', cacheVersion: null, savedInputTokens: null, expiresAtEpochMs: null };

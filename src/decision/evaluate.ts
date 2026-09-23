@@ -661,7 +661,7 @@ async function invokeWithDeadline(
           adapter,
           observation: observedWithTransportMetadata,
         });
-        const evidence = providerPrefixEvidence(identity, providerPrefixReport ?? { kind: 'unreported' });
+        const evidence = providerPrefixEvidence(identity, providerPrefixReport ?? { kind: 'unreported' }, context.now());
         observed = { ...observed, providerPrefix: evidence };
         context.request.providerPrefix.onEvidence?.({ alias: context.item.alias, evidence });
       } catch {
