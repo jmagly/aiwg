@@ -28,8 +28,9 @@ export class FileDecisionLifecycleStore implements DecisionLifecycleStore {
   }
 
   private valid(subject: string, reference?: DecisionLifecycleReference): void {
-    if (!OPAQUE.test(subject) || reference && (!DECISION_LIFECYCLE_SURFACES.includes(reference.surface)
-      || !OPAQUE.test(reference.opaqueId))) throw new Error('Lifecycle reference must be opaque');
+    if (typeof subject !== 'string' || !OPAQUE.test(subject) || reference &&
+      (!DECISION_LIFECYCLE_SURFACES.includes(reference.surface) || typeof reference.opaqueId !== 'string'
+        || !OPAQUE.test(reference.opaqueId))) throw new Error('Lifecycle reference must be opaque');
   }
 
   private async append(entry: Entry): Promise<void> {
@@ -45,10 +46,36 @@ export class FileDecisionLifecycleStore implements DecisionLifecycleStore {
     try {
       const text = await fd.readFile({ encoding: 'utf8' });
       const records = text.trim() ? text.trim().split('\n').map(line => JSON.parse(line) as Entry) : [];
-      if (records.some(entry => !entry || !['link', 'tombstone', 'hold', 'release'].includes(entry.kind))) throw new Error();
+      if (records.some(entry => !this.validEntry(entry))) throw new Error();
       return records;
     } catch { throw new Error('Lifecycle journal invalid'); }
     finally { await fd.close(); }
+  }
+
+  private validEntry(entry: Entry): boolean {
+    if (!entry || !['link', 'tombstone', 'hold', 'release'].includes(entry.kind)) return false;
+    try {
+      if (entry.kind === 'link') {
+        if (!entry.reference) return false;
+        this.valid(entry.subject, entry.reference);
+        return true;
+      }
+      if (entry.kind === 'tombstone') {
+        if (!entry.value?.reference) return false;
+        this.valid(entry.value.subject, entry.value.reference);
+        return Number.isSafeInteger(entry.value.deletedAt) && entry.value.deletedAt >= 0;
+      }
+      const hold = entry.kind === 'hold' ? entry.value : entry.hold;
+      this.valid(hold?.subject);
+      if (!hold.reason || !hold.authorizedBy || !Number.isSafeInteger(hold.expiresAt)
+        || !Array.isArray(hold.scope) || !hold.scope.length
+        || hold.scope.some(surface => !DECISION_LIFECYCLE_SURFACES.includes(surface))) return false;
+      if (entry.kind === 'release') {
+        return entry.subject === hold.subject && !!entry.actor && !!entry.reason
+          && Number.isSafeInteger(entry.at) && entry.at >= 0;
+      }
+      return true;
+    } catch { return false; }
   }
 
   async register(subject: string, reference: DecisionLifecycleReference): Promise<void> {
@@ -95,13 +122,16 @@ export class FileDecisionLifecycleStore implements DecisionLifecycleStore {
   }
 
   async recordHold(hold: DecisionLifecycleHold): Promise<void> {
-    this.valid(hold.subject);
+    if (!this.validEntry({ kind: 'hold', value: hold })) throw new Error('Lifecycle hold invalid');
     await this.append({ kind: 'hold', value: hold });
   }
 
   async releaseHold(hold: DecisionLifecycleHold, actor: string, reason: string, at: number): Promise<void> {
     this.valid(hold.subject);
-    if (!actor || !reason || !Number.isSafeInteger(at)) throw new Error('Lifecycle release invalid');
-    await this.append({ kind: 'release', subject: hold.subject, hold, actor, reason, at });
+    const release: Entry = { kind: 'release', subject: hold.subject, hold, actor, reason, at };
+    if (!this.validEntry(release) || !(await this.holds(hold.subject)).some(active => JSON.stringify(active) === JSON.stringify(hold))) {
+      throw new Error('Lifecycle release invalid');
+    }
+    await this.append(release);
   }
 }

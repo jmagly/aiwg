@@ -75,12 +75,30 @@ describe('local lifecycle journal integration', () => {
     expect((await store.tombstones('case-7')).map(t => t.reference.opaqueId)).toEqual([id]);
   }));
 
+  it('recovers a partial deletion by replay without making the restored body queryable', async () => withStore(async root => {
+    const eraser = vi.fn().mockRejectedValueOnce(new Error('synthetic-sensitive-canary'))
+      .mockResolvedValue(undefined);
+    const store = new FileDecisionLifecycleStore(root, { state: eraser });
+    const reference: DecisionLifecycleReference = { surface: 'state', opaqueId: 'case-record' };
+    await store.register('case-7', reference);
+    await expect(eraseDecisionSubject('case-7', policy(), store, 200)).rejects.toThrow('Decision lifecycle erasure failed');
+    const restarted = new FileDecisionLifecycleStore(root, { state: eraser });
+    expect(mayRestoreDecisionReference(reference, 150, 201, policy(), await restarted.tombstones('case-7'))).toBe(false);
+    await expect(eraseDecisionSubject('case-7', policy(), restarted, 202)).resolves.toHaveLength(1);
+    expect(eraser).toHaveBeenCalledTimes(2);
+    expect(await restarted.tombstones('case-7')).toHaveLength(2);
+  }));
+
   it('fails closed without a surface eraser and rejects malformed journal or unsafe IDs', async () => withStore(async root => {
     const store = new FileDecisionLifecycleStore(root, {});
     await store.register('case-7', { surface: 'debug-sidecar', opaqueId: 'opaque' });
     await expect(eraseDecisionSubject('case-7', policy(), store, 200)).rejects.toThrow(/erasure failed/);
     expect(await store.tombstones('case-7')).toHaveLength(1);
     await expect(store.register('case-7', { surface: 'state', opaqueId: '../private' })).rejects.toThrow(/opaque/);
+    await expect(store.releaseHold({ subject: 'case-7', reason: 'incident', scope: ['state'],
+      expiresAt: 300, authorizedBy: 'operator' }, 'operator', 'release', 201)).rejects.toThrow(/release invalid/);
+    await writeFile(join(root, 'lifecycle.jsonl'), '{"kind":"hold","value":{"subject":"case-7","scope":[]}}\n');
+    await expect(store.holds('case-7')).rejects.toThrow(/journal invalid/);
     await writeFile(join(root, 'lifecycle.jsonl'), '{"kind":"unknown"}\n');
     await expect(store.links('case-7')).rejects.toThrow(/journal invalid/);
     expect(await readdir(root)).toEqual(['lifecycle.jsonl']);
