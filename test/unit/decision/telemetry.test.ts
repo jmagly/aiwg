@@ -179,6 +179,18 @@ describe('decision telemetry foundation', () => {
       .toThrow(/HTTPS/);
   });
 
+  it.each([
+    'https://127.0.0.1/v1/traces',
+    'https://127.1/v1/traces',
+    'https://[::1]/v1/traces',
+    'https://169.254.1.1/v1/traces',
+    'https://localhost/v1/traces',
+    'https://collector.localhost/v1/traces',
+  ])('rejects an OTLP literal or local-only collector destination: %s', endpoint => {
+    expect(() => new DecisionOtlpHttpSink({ endpoint, maxPayloadBytes: 16_384 }))
+      .toThrow(/qualified DNS hostname/);
+  });
+
   it('bounds OTLP bytes and treats redirects as exporter failures', async () => {
     const transport = vi.fn(async () => new Response(null, { status: 302,
       headers: { location: 'https://other.example/v1/traces' } })) as typeof fetch;

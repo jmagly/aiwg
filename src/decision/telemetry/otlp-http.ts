@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { sanitizedTelemetryExport } from './redaction.js';
 import type { DecisionTelemetrySpan, DecisionTelemetryTrace, TelemetryAttribute } from './types.js';
 import type { DecisionTraceSink } from './exporter.js';
@@ -14,6 +15,12 @@ export class DecisionOtlpHttpSink implements DecisionTraceSink {
     const endpoint = new URL(options.endpoint);
     if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash
       || !endpoint.pathname.endsWith('/v1/traces')) throw new TypeError('OTLP endpoint must be credential-free HTTPS /v1/traces');
+    // DNS resolution and rebinding still require a separately qualified transport.
+    // Literal and local-only names cannot be mistaken for approved public collectors.
+    const host = endpoint.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    if (isIP(host) || host === 'localhost' || host.endsWith('.localhost')) {
+      throw new TypeError('OTLP collector requires a qualified DNS hostname');
+    }
     if (!Number.isSafeInteger(options.maxPayloadBytes) || options.maxPayloadBytes < 1) throw new TypeError('Invalid OTLP payload bound');
     this.endpoint = endpoint.href;
     this.maxPayloadBytes = options.maxPayloadBytes;
