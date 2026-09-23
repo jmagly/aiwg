@@ -60,6 +60,11 @@ projects 55 allowed states and denies 55 region mismatches with zero credential
 or transport calls. It reports elapsed time as observation, not as a portable
 SLA: one local run took 13 ms for the fixture loop. The test asserts stable
 projection digests and excluded adjacent canaries, not a timing threshold.
+The synthetic `security-surface-matrix.test.ts` scans a combined offline
+adapter request, projection evidence, trace, export, snapshot and audit fixture
+for unique excluded canaries; it also verifies denied locator errors and logs
+do not echo the locator. This does not substitute for a deployment-wide scan
+of real durable stores, network captures and external collector output.
 
 Provider default retention duration, geographic residency, encryption/key
 management and enterprise zero-data-retention status remain **unknown** without
