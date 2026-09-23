@@ -45,7 +45,10 @@ sums. `evaluateOrdinalHeldout` scores exact matches and normalized/absolute leve
 `evaluateRankingHeldout` measures pairwise concordance, counting predicted ties as errors
 and reporting `null` when gold has no comparable pairs. These are not calibration
 approvals: sample-size, pre-registration, slice adequacy, policy thresholds, and independent
-held-out provenance still need qualification before G3 can pass.
+held-out provenance still need qualification before G3 can pass. `measurePairedMovement`
+reports changed-output rate with a Wilson interval for matched control/perturbation
+or repeated-run IDs; it is not a correctness metric and does not prove that
+an injected answer was safe.
 
 The initial checked-in fixture registry at
 `test/fixtures/decision/qualification-fixtures-v1.json` records author, date,

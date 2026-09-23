@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateBinaryHeldout, evaluateOrdinalHeldout, evaluateRankingHeldout, freezeQualificationSplit, verifyQualificationSplits, type BinaryQualificationSample } from '../../../src/decision/qualification/quality.js';
+import { evaluateBinaryHeldout, evaluateOrdinalHeldout, evaluateRankingHeldout, freezeQualificationSplit, measurePairedMovement, verifyQualificationSplits, type BinaryQualificationSample } from '../../../src/decision/qualification/quality.js';
 
 const splits = () => [
   freezeQualificationSplit('tuning', ['train-1']),
@@ -69,6 +69,19 @@ describe('held-out qualification metrics', () => {
     ]).concordance).toBe(2 / 3);
     expect(() => evaluateRankingHeldout(splits(), [{ ...rows[0]!, predicted: { a: 1 } }, rows[1]!])).toThrow('option mismatch');
     expect(() => evaluateRankingHeldout(splits(), [{ ...rows[0]!, predicted: { a: NaN, b: 1, c: 0 } }, rows[1]!])).toThrow('invalid');
+  });
+
+  it('measures repeated-run movement and injection sensitivity on explicitly paired IDs', () => {
+    const pairs = [
+      { id: 'subject-1', control: 'review', observed: 'act' },
+      { id: 'subject-2', control: 'reject', observed: 'reject' },
+    ];
+    const report = measurePairedMovement(pairs);
+    expect(report).toMatchObject({ sampleN: 2, changedN: 1, changedRate: 0.5 });
+    expect(report.changedWilson95[0]).toBeGreaterThan(0);
+    expect(report.changedWilson95[1]).toBeLessThan(1);
+    expect(() => measurePairedMovement([pairs[0]!, pairs[0]!])).toThrow('unique');
+    expect(() => measurePairedMovement([])).toThrow('unique');
   });
 
   it('rejects nonfinite and invalid samples instead of treating missing cost as zero', () => {

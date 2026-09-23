@@ -168,17 +168,42 @@ export function evaluateRankingHeldout(
   return { sampleN: samples.length, comparablePairs: pairs, concordance: pairs ? correct / pairs : null };
 }
 
-function scoreBinary(samples: readonly BinaryQualificationSample[]): BinarySliceMetrics {
-  const n = samples.length;
-  const errors = samples.filter(s => (s.probability >= 0.5 ? 1 : 0) !== s.label).length;
-  const accepted = samples.filter(s => s.accepted);
-  const acceptedErrors = accepted.filter(s => (s.probability >= 0.5 ? 1 : 0) !== s.label).length;
-  // Wilson score interval (95% normal approximation). Never extrapolate to an empty slice.
+export interface PairedQualificationSample {
+  id: string;
+  control: string;
+  /** Same task after hostile-state perturbation or repeated invocation. */
+  observed: string;
+}
+
+/** Measures categorical movement without claiming that either output is correct. */
+export function measurePairedMovement(pairs: readonly PairedQualificationSample[]): {
+  sampleN: number; changedN: number; changedRate: number; changedWilson95: readonly [number, number];
+} {
+  if (!pairs.length || new Set(pairs.map(pair => pair.id)).size !== pairs.length
+    || pairs.some(pair => !pair.id.trim() || !pair.control.trim() || !pair.observed.trim())) {
+    throw new Error('paired qualification requires unique nonempty IDs and outcomes');
+  }
+  const changedN = pairs.filter(pair => pair.control !== pair.observed).length;
+  const [low, high] = wilson95(changedN, pairs.length);
+  return { sampleN: pairs.length, changedN, changedRate: changedN / pairs.length, changedWilson95: [low, high] };
+}
+
+function wilson95(errors: number, n: number): readonly [number, number] {
+  // 95% normal quantile; finite-sample Wilson interval for binomial events.
   const z = 1.959963984540054;
   const rate = errors / n;
   const denominator = 1 + z * z / n;
   const center = (rate + z * z / (2 * n)) / denominator;
   const margin = z * Math.sqrt(rate * (1 - rate) / n + z * z / (4 * n * n)) / denominator;
+  return [Math.max(0, center - margin), Math.min(1, center + margin)];
+}
+
+function scoreBinary(samples: readonly BinaryQualificationSample[]): BinarySliceMetrics {
+  const n = samples.length;
+  const errors = samples.filter(s => (s.probability >= 0.5 ? 1 : 0) !== s.label).length;
+  const accepted = samples.filter(s => s.accepted);
+  const acceptedErrors = accepted.filter(s => (s.probability >= 0.5 ? 1 : 0) !== s.label).length;
+  const rate = errors / n;
   const sorted = samples.map(s => s.latencyMs).sort((a, b) => a - b);
   const quantile = (q: number): number => sorted[Math.ceil(q * n) - 1]!;
   // Deciles are a reporting convention, not a calibrated decision threshold.
@@ -196,7 +221,7 @@ function scoreBinary(samples: readonly BinaryQualificationSample[]): BinarySlice
         - bucket.reduce((a, s) => a + s.label, 0) / bucket.length) : sum, 0),
     coverage: accepted.length / n, selectiveRisk: accepted.length ? acceptedErrors / accepted.length : null,
     reviewRate: (n - accepted.length) / n,
-    errorWilson95: [Math.max(0, center - margin), Math.min(1, center + margin)],
+    errorWilson95: wilson95(errors, n),
     latencyMs: { p50: quantile(0.5), p95: quantile(0.95), p99: quantile(0.99) },
     inputTokens: sumKnown('inputTokens'), outputTokens: sumKnown('outputTokens'), costUsd: sumKnown('costUsd'),
     calls: samples.reduce((sum, s) => sum + s.calls, 0),
