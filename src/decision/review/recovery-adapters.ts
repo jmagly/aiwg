@@ -8,6 +8,7 @@ import type { SessionDiscoveryManifest } from '../../sessions/workspace-discover
 import type { SessionEvent } from '../../sessions/contracts.js';
 import type { ReviewEffectReceipt } from './types.js';
 import type { ReviewSessionAudit, VerifiedReviewEffectLedger } from './recovery.js';
+import { assertReviewProjection, reviewDigest } from './validate.js';
 
 /** Caller supplies an authorized, exact-workspace refresh; never discovers provider roots implicitly. */
 export class WorkspaceReviewSessionAudit implements ReviewSessionAudit {
@@ -62,6 +63,39 @@ export function authorizedReviewCatalogRefresh(input: {
   };
 }
 
+/**
+ * Persist an executor-attested completion before returning to the review service.
+ * The external executor still owns idempotence for a crash before journal write;
+ * this wrapper never interprets absence from the journal as permission to replay
+ * a stale review continuation.
+ */
+export function journaledReviewExecutor(input: {
+  ledger: FileVerifiedReviewEffectLedger;
+  scope: { tenantId: string; projectId: string };
+  reviewId: string;
+  continuationId: string;
+  proposalVersion: number;
+  now: () => number;
+  executeEffect: (effectId: string, action: unknown) => Promise<unknown>;
+}) {
+  return async (effectId: string, action: unknown): Promise<unknown> => {
+    if (effectId !== reviewDigest({ reviewId: input.reviewId, continuationId: input.continuationId,
+      proposalVersion: input.proposalVersion })) throw new Error('Executor effect identity mismatch');
+    const query = { tenantId: input.scope.tenantId, projectId: input.scope.projectId, reviewId: input.reviewId, effectId };
+    const existing = await input.ledger.completedReceipt(query);
+    if (existing) {
+      if (existing.continuationId !== input.continuationId || existing.proposalVersion !== input.proposalVersion) {
+        throw new Error('Executor receipt identity mismatch');
+      }
+      return existing.result;
+    }
+    const result = await input.executeEffect(effectId, structuredClone(action));
+    await input.ledger.recordCompleted(query, { effectId, continuationId: input.continuationId,
+      proposalVersion: input.proposalVersion, completedAtEpochMs: input.now(), result });
+    return result;
+  };
+}
+
 /** Executor-owned receipt journal. Keep its key separate from review-store and session-index keys. */
 export class FileVerifiedReviewEffectLedger implements VerifiedReviewEffectLedger {
   constructor(private readonly directory: string, private readonly integrityKey: Uint8Array) {
@@ -82,6 +116,7 @@ export class FileVerifiedReviewEffectLedger implements VerifiedReviewEffectLedge
   async recordCompleted(query: { tenantId: string; projectId: string; reviewId: string; effectId: string }, receipt: ReviewEffectReceipt): Promise<boolean> {
     if (receipt.effectId !== query.effectId || !receipt.continuationId || !Number.isSafeInteger(receipt.proposalVersion) || receipt.proposalVersion < 1 ||
         !Number.isSafeInteger(receipt.completedAtEpochMs) || receipt.completedAtEpochMs < 0) throw new Error('Invalid executor completion receipt');
+    assertReviewProjection(receipt.result);
     const record = { query: this.scope(query), receipt };
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const destination = this.path(query);
@@ -115,6 +150,7 @@ export class FileVerifiedReviewEffectLedger implements VerifiedReviewEffectLedge
           !envelope.record.receipt.continuationId || !Number.isSafeInteger(envelope.record.receipt.proposalVersion) ||
           envelope.record.receipt.proposalVersion < 1 || !Number.isSafeInteger(envelope.record.receipt.completedAtEpochMs) ||
           envelope.record.receipt.completedAtEpochMs < 0) throw new Error('Invalid executor ledger entry');
+      assertReviewProjection(envelope.record.receipt.result);
       return structuredClone(envelope.record.receipt);
     } catch { throw new Error('Invalid executor ledger entry'); }
   }

@@ -14,15 +14,15 @@ const digestPattern = /^sha256:[a-f0-9]{64}$/;
 const restrictedKey = /(?:password|credential|api.?key|secret|private.?reasoning|provider.?body|raw.?state|vault.?locator)/i;
 const restrictedValue = /(?:vault:\/\/|\b(?:sk-(?:test-)?[a-z0-9_-]{12,}|ghp_[a-z0-9]{12,})\b)/i;
 /** Enforce reference-only default review payloads; do not echo rejected material. */
-function assertProjected(value: unknown): void {
+export function assertReviewProjection(value: unknown): void {
   if (typeof value === 'string') {
     if (restrictedValue.test(value)) throw new ReviewIntegrityError('Restricted review payload');
   } else if (Array.isArray(value)) {
-    value.forEach(assertProjected);
+    value.forEach(assertReviewProjection);
   } else if (value && typeof value === 'object') {
     for (const [key, child] of Object.entries(value)) {
       if (restrictedKey.test(key)) throw new ReviewIntegrityError('Restricted review payload');
-      assertProjected(child);
+      assertReviewProjection(child);
     }
   }
 }
@@ -46,15 +46,15 @@ export function validateReview(review: DecisionReview): void {
     || (review.lifecycle.tombstonedAtEpochMs !== undefined && !Number.isSafeInteger(review.lifecycle.tombstonedAtEpochMs)))) {
     throw new ReviewIntegrityError('Invalid review lifecycle');
   }
-  assertProjected(review.presentation);
+  assertReviewProjection(review.presentation);
   review.proposals.forEach((proposal, index) => {
-    assertProjected(proposal.action);
-    assertProjected(proposal.rationale);
+    assertReviewProjection(proposal.action);
+    assertReviewProjection(proposal.rationale);
     if (proposal.version !== index + 1 || proposal.actionDigest !== reviewDigest(proposal.action)) throw new ReviewIntegrityError('Invalid proposal lineage');
   });
-  review.decisions.forEach(decision => assertProjected(decision.rationale));
-  review.events.forEach(event => assertProjected(event.rationale));
-  if (review.effectReceipt) assertProjected(review.effectReceipt.result);
+  review.decisions.forEach(decision => assertReviewProjection(decision.rationale));
+  review.events.forEach(event => assertReviewProjection(event.rationale));
+  if (review.effectReceipt) assertReviewProjection(review.effectReceipt.result);
   review.events.forEach((event, index) => {
     if (event.sequence !== index + 1 || !legalEvents.has(event.type) || event.proposalVersion < 1 || event.proposalVersion > review.proposals.length) {
       throw new ReviewIntegrityError('Invalid event lineage');

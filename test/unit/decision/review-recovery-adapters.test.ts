@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileVerifiedReviewEffectLedger, WorkspaceReviewSessionAudit, auditedReviewReconciler, authorizedReviewCatalogRefresh } from '../../../src/decision/review/index.js';
+import { FileVerifiedReviewEffectLedger, WorkspaceReviewSessionAudit, auditedReviewReconciler, authorizedReviewCatalogRefresh, journaledReviewExecutor, reviewDigest } from '../../../src/decision/review/index.js';
 import type { SessionDiscoveryManifest } from '../../../src/sessions/workspace-discovery.js';
 import type { SessionRepository } from '../../../src/sessions/repository.js';
 
@@ -26,9 +26,26 @@ describe('executor-owned receipt journal', () => {
     expect(await ledger.completedReceipt({ ...query, actor: 'unexpected-runtime-property' } as typeof query)).toEqual(receipt);
     await expect(new FileVerifiedReviewEffectLedger(dir, Buffer.alloc(32, 8)).completedReceipt(query)).rejects.toThrow(/Invalid/);
   });
+  it('HITL-JOURNAL records before review completion and deduplicates known executor receipts', async () => {
+    const ledger = new FileVerifiedReviewEffectLedger(await directory(), key);
+    const executeEffect = vi.fn(async () => ({ delivered: true }));
+    const options = { ledger, scope: query, reviewId: query.reviewId, continuationId: receipt.continuationId,
+      proposalVersion: receipt.proposalVersion, now: () => 1000, executeEffect };
+    const execute = journaledReviewExecutor(options);
+    const effectId = reviewDigest({ reviewId: query.reviewId, continuationId: receipt.continuationId, proposalVersion: 1 });
+    expect(await execute(effectId, { kind: 'fixture' })).toEqual({ delivered: true });
+    expect(await execute(effectId, { kind: 'fixture' })).toEqual({ delivered: true });
+    expect(executeEffect).toHaveBeenCalledTimes(1);
+    const mismatch = journaledReviewExecutor({ ...options, proposalVersion: 2 });
+    await expect(mismatch(effectId, { kind: 'fixture' })).rejects.toThrow(/identity mismatch/);
+    expect(executeEffect).toHaveBeenCalledTimes(1);
+  });
+
   it('fails closed on tampered receipt and invalid identity', async () => {
     const dir = await directory(); const ledger = new FileVerifiedReviewEffectLedger(dir, key);
     await expect(ledger.recordCompleted(query, { ...receipt, effectId: 'other' })).rejects.toThrow(/Invalid/);
+    await expect(ledger.recordCompleted(query, { ...receipt, result: { password: 'synthetic-only' } }))
+      .rejects.toThrow(/Restricted review payload/);
     await ledger.recordCompleted(query, receipt);
     const path = join(dir, (await (await import('node:fs/promises')).readdir(dir)).find(name => name.endsWith('.json'))!);
     const envelope = JSON.parse(await readFile(path, 'utf8'));
