@@ -4,7 +4,7 @@ import {
 } from '../../audit/operator-decision.js';
 import { canonicalJson } from '../../security/artifact-trust.js';
 import type { DecisionReview, ReviewEvent } from './types.js';
-import { ReviewIntegrityError, reviewOperatorEventId } from './validate.js';
+import { ReviewIntegrityError, reviewOperatorEventId, validateReview } from './validate.js';
 
 /** #1567 record mapping: review event ID is the operator audit event ID, not a parallel identity. */
 export function reviewOperatorDecisionInput(review: DecisionReview, event: ReviewEvent,
@@ -36,6 +36,7 @@ export function reviewOperatorDecisionInput(review: DecisionReview, event: Revie
  */
 export async function replayReviewOperatorAudit(review: DecisionReview, store: JsonlOperatorDecisionStore,
   correlation: DecisionCorrelation, classification: DataClassification): Promise<OperatorDecisionRecord[]> {
+  validateReview(review);
   const prior = await store.read();
   if (!verifyDecisionChain(prior).ok) throw new ReviewIntegrityError('Operator audit chain is invalid');
   const matched: OperatorDecisionRecord[] = [];

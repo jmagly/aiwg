@@ -87,6 +87,8 @@ it('HITL-AUDIT-1567 replays approval, denial and escalation with the SAME event 
   const forged = structuredClone(reviews[0]!);
   forged.events.at(-1)!.operatorDecisionEventId = 'forged';
   expect(() => reviewOperatorDecisionInput(forged, forged.events.at(-1)!, correlation, 'confidential')).toThrow(ReviewIntegrityError);
+  await expect(replayReviewOperatorAudit(forged, audit, correlation, 'confidential')).rejects.toThrow(ReviewIntegrityError);
+  expect(await audit.read()).toHaveLength(4);
   await expect(replayReviewOperatorAudit(reviews[0]!, audit, { ...correlation, mission_id: 'other' }, 'confidential'))
     .rejects.toThrow(/Conflicting/);
 });
