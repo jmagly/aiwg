@@ -48,6 +48,24 @@ describe('decision compile and provider-prefix cache', () => {
     expect(variants.every(value => compileCacheKey(value) !== key)).toBe(true);
   });
 
+  it('CCP-002 changes in every pinned dimension miss and create independent immutable entries', async () => {
+    const cache = new MemoryCompileCache<string>();
+    const variants = [identity(), identity({ sourceArtifactDigests: [digest('b')] }),
+      identity({ compiler: { id: 'decision', version: '2' } }), identity({ runtimeVersion: 'node-24' }),
+      identity({ schemaVersion: 'decision-v2' }), identity({ canonicalizer: { id: 'rfc8785', version: '2' } }),
+      identity({ adapter: { id: 'jev', version: '2', promptVersion: 'p2' } }),
+      identity({ backendCapabilityMode: 'grammar' }),
+      identity({ modelPolicy: { requested: 'jev-2', compatibleActualModels: ['jev-2'] } }),
+      identity({ featureFlags: { strict: false } }), identity({ tenantId: 'other' }),
+      identity({ projectId: 'other' }), identity({ dataClass: 'restricted' })];
+    for (const [index, pins] of variants.entries()) {
+      const scope = context(100, { tenantId: pins.tenantId, projectId: pins.projectId });
+      expect((await cache.getOrCompile(pins, scope, 1_000, async () => `artifact-${index}`)).outcome).toBe('miss');
+      expect((await cache.getOrCompile(pins, scope, 1_000, async () => 'wrong')).entry.value).toBe(`artifact-${index}`);
+    }
+    expect(new Set(variants.map(compileCacheKey)).size).toBe(variants.length);
+  });
+
   it('CCP-003 canonical key is stable for promised object-key equivalence and changes semantic arrays', () => {
     const left = identity({ featureFlags: { alpha: true, beta: 'x' } });
     const right = identity({ featureFlags: { beta: 'x', alpha: true } });
@@ -185,6 +203,17 @@ describe('decision compile and provider-prefix cache', () => {
     expect(report.enabled.peakStorageBytes).toBeGreaterThan(0);
     expect(report.confidenceInterval).toMatch(/^95% paired bootstrap CI \[-?[\d.]+, -?[\d.]+\] ms$/);
     expect(() => pairedPreparationLatencyInterval([1], [1])).toThrow();
+  });
+
+  it('CCP-011 rejects unpaired and invalid benchmark measurements instead of reporting savings', () => {
+    const sample = { mode: 'cache-disabled' as const, preparationLatencyMs: 2, inputTokens: 100,
+      outputTokens: 10, cachedInputTokens: 0, costUsd: 0.01, memoryBytes: 0, storageBytes: 0,
+      outcome: 'bypass' as const, invalidated: false };
+    const enabled = { ...sample, mode: 'cache-enabled' as const, outcome: 'hit' as const };
+    expect(() => cacheBenchmarkReport(digest('e'), 0, 500, '95% CI', [sample, enabled])).not.toThrow();
+    expect(() => cacheBenchmarkReport(digest('e'), 0, 500, '95% CI', [sample, enabled, enabled])).toThrow('paired');
+    expect(() => cacheBenchmarkReport(digest('e'), 0, 500, '95% CI', [{ ...sample, costUsd: NaN }, enabled])).toThrow('paired');
+    expect(() => cacheBenchmarkReport(digest('e'), 0, 500, '95% CI', [{ ...sample, outputTokens: -1 }, enabled])).toThrow('paired');
   });
 
   it('CCP-004 coordinates cold fills across independent filesystem cache instances', async () => {
@@ -339,9 +368,9 @@ describe('decision compile and provider-prefix cache', () => {
     const samples: import('../../../src/decision/compile-cache/benchmark.js').CacheBenchmarkSample[] = [];
     for (const { report, at } of fixture) {
       const evidence = providerPrefixEvidence(pinned, report, at);
-      samples.push({ mode: 'cache-disabled', preparationLatencyMs: 10, inputTokens: 100,
+      samples.push({ mode: 'cache-disabled', preparationLatencyMs: 10, inputTokens: 100, outputTokens: 20,
         cachedInputTokens: 0, costUsd: 0.01, memoryBytes: 0, storageBytes: 0, outcome: 'bypass', invalidated: false });
-      samples.push({ mode: 'cache-enabled', preparationLatencyMs: 10, inputTokens: 100,
+      samples.push({ mode: 'cache-enabled', preparationLatencyMs: 10, inputTokens: 100, outputTokens: 20,
         cachedInputTokens: evidence.source === 'provider-report' ? evidence.savedInputTokens : null,
         costUsd: null, memoryBytes: 0, storageBytes: 0, outcome: evidence.status === 'hit' ? 'hit' :
           evidence.status === 'miss' ? 'miss' : 'unknown', invalidated: evidence.status === 'unknown' });
@@ -349,8 +378,8 @@ describe('decision compile and provider-prefix cache', () => {
     const report = cacheBenchmarkReport(providerPrefixKey(pinned), 1, 500,
       pairedPreparationLatencyInterval([10, 10, 10], [10, 10, 10]), samples);
     expect(report).toMatchObject({ measuredCalls: 6,
-      disabled: { averageInputTokens: 100, averageCostUsd: 0.01, hitRateBps: 0 },
-      enabled: { averageInputTokens: 100, averageCachedInputTokens: null, averageCostUsd: null,
+      disabled: { averageInputTokens: 100, averageTotalTaskTokens: 120, averageCostUsd: 0.01, hitRateBps: 0 },
+      enabled: { averageInputTokens: 100, averageTotalTaskTokens: 120, averageCachedInputTokens: null, averageCostUsd: null,
         hitRateBps: 3333, invalidationRateBps: 3333 } });
   });
 
