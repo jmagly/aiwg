@@ -31,7 +31,7 @@
     "pin": {
       "type": "object", "additionalProperties": false,
       "required": ["id", "version", "digest"],
-      "properties": { "id": { "$ref": "#/$defs/name" }, "version": { "$ref": "#/$defs/name" }, "digest": { "$ref": "#/$defs/digest" } }
+      "properties": { "id": { "$ref": "#/$defs/name" }, "version": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$" }, "digest": { "$ref": "#/$defs/digest" } }
     },
     "node": {
       "type": "object", "additionalProperties": false,
