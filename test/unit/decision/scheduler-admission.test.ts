@@ -406,6 +406,34 @@ describe('decision provider admission', () => {
     expect(calls).toBe(2);
   });
 
+  it('sheds many-small and few-huge requests without starving a separate authorized scope', async () => {
+    const principal = limits({ concurrency: 1, maxQueueLength: 8, maxRequestBytes: 64, tokensPerSecond: 4 });
+    const shared = limits({ concurrency: 2, maxQueueLength: 16 });
+    const controller = new DecisionAdmissionController(() => ({ principal, workspace: shared, provider: shared }));
+    const held = await controller.acquire({ ...request(), principalId: 'noisy', budgetId: 'held' });
+    const abort = new AbortController();
+    const small = Array.from({ length: 8 }, (_, index) => controller.acquire({
+      ...request(abort.signal), principalId: 'noisy', budgetId: `small-${index}`, estimate: { requestBytes: 1, tokens: 1 },
+    }));
+    const cancelled = small.map(pending => expect(pending).rejects.toMatchObject({ evidence: { reason: 'cancelled' } }));
+    for (let index = 0; index < 16; index += 1) {
+      await expect(controller.acquire({ ...request(), principalId: 'noisy', budgetId: `overflow-${index}` }))
+        .rejects.toMatchObject({ evidence: { reason: 'queue-full' } });
+    }
+    // A distinct principal still has its own quota and cannot see the noisy
+    // lane's queue count in the metadata returned on its permitted call.
+    const quiet = await controller.acquire({ ...request(), principalId: 'quiet', budgetId: 'quiet' });
+    expect(quiet.evidence).toMatchObject({ decision: 'admit', queued: 0 });
+    quiet.release({ success: true });
+    abort.abort();
+    await Promise.all(cancelled);
+    held.release({ success: true });
+    for (const estimate of [{ requestBytes: 65 }, { tokens: 5 }]) {
+      await expect(controller.acquire({ ...request(), principalId: 'noisy', budgetId: 'huge', estimate }))
+        .rejects.toMatchObject({ retryable: false, evidence: { decision: 'reject', queued: 0 } });
+    }
+  });
+
   it('bounds queues and emits only aggregate metadata', async () => {
     const guarded = limits({ maxQueueLength: 1 });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
