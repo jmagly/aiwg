@@ -119,7 +119,8 @@ export class DecisionReviewService {
     });
   }
 
-  async resume(scope: ReviewScope, id: string, token: string, execute: (effectId: string, action: unknown) => Promise<unknown>): Promise<ReviewEffectReceipt> {
+  async resume(scope: ReviewScope, id: string, token: string, execute: (effectId: string, action: unknown) => Promise<unknown>,
+    reconcile?: (effectId: string) => Promise<ReviewEffectReceipt | null>): Promise<ReviewEffectReceipt> {
     for (;;) {
       const review = await this.requireReview(scope, id);
       await this.allowed(scope, 'resume', review);
@@ -135,10 +136,17 @@ export class DecisionReviewService {
         const acquiredAt = review.events.at(-1)?.atEpochMs ?? review.updatedAtEpochMs;
         if (this.now() - acquiredAt < this.resumingLeaseMs) { await new Promise(resolve => setTimeout(resolve, this.pollIntervalMs)); continue; }
         const effectId = reviewDigest({ reviewId: id, continuationId: review.continuation.id, proposalVersion: proposal.version });
-        const recovered = this.append(review, 'resumed', scope.actor, 'stale continuation lease recovered', 'resuming', { effectId, recovered: true });
+        // A stale lease does not prove whether the remote effect ran. Replaying
+        // execute with the same ID cannot establish idempotence by itself.
+        if (!reconcile) throw new ReviewConflictError('Stale continuation requires effect reconciliation');
+        const receipt = await reconcile(effectId);
+        if (!receipt) throw new ReviewConflictError('Effect outcome remains unknown');
+        if (receipt.effectId !== effectId || receipt.continuationId !== review.continuation.id ||
+            receipt.proposalVersion !== proposal.version) throw new ReviewConflictError('Reconciliation receipt mismatch');
+        const recovered = this.append(review, 'resumed', scope.actor, 'stale continuation reconciled', 'resuming', { effectId, recovered: true });
         if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, recovered)) continue;
-        await this.emitTelemetry(recovered);
-        return this.executeAndFinish(scope, id, recovered, proposal.action, effectId, execute);
+        await this.finish(scope, id, recovered.revision, receipt);
+        return receipt;
       }
       if (review.status !== 'approved') throw new ReviewConflictError(`Review cannot resume from ${review.status}`);
       if (this.now() >= review.expiresAtEpochMs) throw new ReviewConflictError('Review expired before resume');
@@ -160,7 +168,9 @@ export class DecisionReviewService {
       return receipt;
     } catch (error) {
       const failed = this.append(resuming, 'execution-failed', scope.actor, 'executor failed', 'execution-failed');
-      failed.executionError = error instanceof Error ? error.message : String(error);
+      // Executors can return provider bodies, private state, or credentials in
+      // exception messages. Persist only a fixed failure class in the review.
+      failed.executionError = 'executor-failed';
       await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, resuming.revision, failed);
       throw error;
     }

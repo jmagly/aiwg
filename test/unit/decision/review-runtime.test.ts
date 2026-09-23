@@ -99,7 +99,7 @@ describe('durable decision review runtime', () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
-  it('recovers a stale resuming revision after a crash using the same effect id', async () => {
+  it('reconciles a stale continuation without executing a second remote effect', async () => {
     const time = { value: 1_000 }; const h = await harness(time);
     await h.service.create(scope(actor('alice', ['requester'])), input(time.value));
     const approved = await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approved');
@@ -112,10 +112,17 @@ describe('durable decision review runtime', () => {
     expect(await h.store.compareAndSwap('review-1', 'tenant-a', 'project-a', approved.revision, stranded)).toBe(true);
     time.value += 101;
     const restarted = new DecisionReviewService(new FileDecisionReviewStore(h.directory, new Uint8Array(32).fill(7)), h.authorization, () => time.value, { resumingLeaseMs: 100 });
-    const execute = vi.fn(async (id: string) => ({ id, recovered: true }));
-    const receipt = await restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute);
-    expect(receipt.effectId).toBe(effectId);
-    expect(execute).toHaveBeenCalledWith(effectId, { kind: 'notify', target: 'fixture' });
+    const execute = vi.fn(async () => 'must-not-run');
+    await expect(restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute))
+      .rejects.toThrow(/requires effect reconciliation/);
+    await expect(restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute, async () => null))
+      .rejects.toThrow(/remains unknown/);
+    expect(execute).not.toHaveBeenCalled();
+    const authoritative = { effectId, continuationId: approved.continuation.id, proposalVersion: 1,
+      completedAtEpochMs: time.value, result: { reconciled: true } };
+    const receipt = await restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute, async () => authoritative);
+    expect(receipt).toEqual(authoritative);
+    expect(execute).not.toHaveBeenCalled();
     const stored = await h.store.read('review-1', 'tenant-a', 'project-a');
     expect(stored?.events.at(-2)).toMatchObject({ type: 'resumed', data: { effectId, recovered: true } });
     expect(stored?.status).toBe('completed');
@@ -134,6 +141,19 @@ describe('durable decision review runtime', () => {
     await expect(restarted.resume(scope(actor('bob')), 'review-1', 'wrong', async () => 'no')).rejects.toBeInstanceOf(ReviewAccessError);
     eligible = false;
     await expect(restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', async () => 'no')).rejects.toBeInstanceOf(ReviewAccessError);
+  });
+
+  it('stores only a fixed executor error class, never a private exception message', async () => {
+    const h = await harness();
+    await h.service.create(scope(actor('alice', ['requester'])), input(1_000));
+    await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approved');
+    await expect(h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', async () => {
+      throw new Error('private-test-payload');
+    })).rejects.toThrow('private-test-payload');
+    const stored = await h.store.read('review-1', 'tenant-a', 'project-a');
+    expect(stored?.status).toBe('execution-failed');
+    expect(stored?.executionError).toBe('executor-failed');
+    expect(JSON.stringify(stored)).not.toContain('private-test-payload');
   });
 
   it('filters list/read/export without object enumeration and applies tombstone/legal hold lifecycle', async () => {
