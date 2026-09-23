@@ -13,6 +13,7 @@ export * from './job-runtime.js';
 export * from './job-worker.js';
 export * from './job-evaluate.js';
 export * from './job-accounting.js';
+export * from './job-scheduler.js';
 export * from './batch-benchmark.js';
 export * from './scheduler.js';
 export * from './admission.js';
