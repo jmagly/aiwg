@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto';
 import { validateDebugCapturePolicy } from './retention.js';
+import { validateDecisionLifecyclePolicy, type DecisionLifecyclePolicy } from '../lifecycle.js';
 import type { DecisionDebugCapturePolicy } from './types.js';
 
 export interface EncryptedDebugSidecar {
@@ -26,9 +27,16 @@ export class DecisionDebugSidecar {
     private readonly backend: DebugSidecarBackend,
     private readonly resolveKey: (reference: string) => Promise<Uint8Array>,
     private readonly authorize: (scope: string, operation: 'capture' | 'read' | 'delete') => Promise<boolean>,
+    lifecycle: DecisionLifecyclePolicy,
     private readonly clock: () => number = Date.now,
   ) {
     if (!validateDebugCapturePolicy(policy)) throw new Error('Debug capture authorization required');
+    validateDecisionLifecyclePolicy(lifecycle);
+    const rule = lifecycle.surfaces['debug-sidecar'];
+    if (rule.classification !== policy.classification || rule.retentionMs !== policy.ttlMs
+      || rule.deletion !== 'erase' || rule.export !== 'denied') {
+      throw new Error('Debug capture lifecycle policy mismatch');
+    }
   }
 
   async capture(scope: string, plaintext: Uint8Array): Promise<string> {

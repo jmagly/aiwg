@@ -1,11 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DecisionDebugSidecar, type DebugSidecarBackend, type EncryptedDebugSidecar } from '../../../src/decision/telemetry/debug-sidecar.js';
 import type { DecisionDebugCapturePolicy } from '../../../src/decision/telemetry/types.js';
+import { DECISION_LIFECYCLE_SURFACES, DECISION_LIFECYCLE_VERSION, type DecisionLifecyclePolicy } from '../../../src/decision/lifecycle.js';
 
 const policy = (): DecisionDebugCapturePolicy => ({ explicitlyAuthorized: true,
   encryption: { enabled: true, keyReference: 'logical-debug-key' },
   accessAudit: { enabled: true, sinkReference: 'logical-audit' }, classification: 'restricted',
   ttlMs: 100, deletionEnabled: true });
+
+function lifecycle(): DecisionLifecyclePolicy {
+  return { version: DECISION_LIFECYCLE_VERSION, surfaces: Object.fromEntries(DECISION_LIFECYCLE_SURFACES.map(surface => [surface, {
+    classification: 'restricted', accessScopes: ['approved'], retentionMs: 100, export: 'denied',
+    deletion: 'erase', backup: 'expire-with-primary',
+  }])) as DecisionLifecyclePolicy['surfaces'] };
+}
 
 function fixture() {
   const records = new Map<string, EncryptedDebugSidecar>();
@@ -20,7 +28,7 @@ function fixture() {
   const authorize = vi.fn(async (scope: string) => scope === 'approved');
   const resolveKey = vi.fn(async () => new Uint8Array(32).fill(7));
   let now = 1000;
-  const sidecar = new DecisionDebugSidecar(policy(), backend, resolveKey, authorize, () => now);
+  const sidecar = new DecisionDebugSidecar(policy(), backend, resolveKey, authorize, lifecycle(), () => now);
   return { sidecar, records, audit, authorize, resolveKey, advance: (time: number) => { now = time; } };
 }
 
@@ -97,13 +105,29 @@ describe('authorized encrypted debug sidecar', () => {
       { ...policy(), encryption: { enabled: true, keyReference: 'vault://private/key' } },
       { ...policy(), accessAudit: { enabled: true, sinkReference: 'Bearer canary' } },
       { ...policy(), classification: 'unknown' as 'restricted' },
-    ]) expect(() => new DecisionDebugSidecar(invalid, backend, f.resolveKey, f.authorize)).toThrow(/incomplete/);
+    ]) expect(() => new DecisionDebugSidecar(invalid, backend, f.resolveKey, f.authorize, lifecycle())).toThrow(/incomplete/);
+  });
+
+  it('denies debug capture when common lifecycle metadata conflicts or is missing', () => {
+    const f = fixture();
+    const backend: DebugSidecarBackend = { put: async () => {}, get: async () => null,
+      delete: async () => {}, listExpired: async () => [], audit: async () => {} };
+    for (const key of ['classification', 'retentionMs', 'deletion', 'export'] as const) {
+      const changed = lifecycle();
+      (changed.surfaces['debug-sidecar'] as unknown as Record<string, unknown>)[key] = key === 'retentionMs'
+        ? 200 : key === 'classification' ? 'public' : key === 'deletion' ? 'tombstone' : 'sanitized';
+      expect(() => new DecisionDebugSidecar(policy(), backend, f.resolveKey, f.authorize, changed))
+        .toThrow(/lifecycle policy mismatch/);
+    }
+    const incomplete = lifecycle(); incomplete.surfaces['debug-sidecar'].accessScopes = [];
+    expect(() => new DecisionDebugSidecar(policy(), backend, f.resolveKey, f.authorize, incomplete))
+      .toThrow(/lifecycle rule is incomplete/);
   });
 
   it('rejects incomplete capture policies', () => {
     const f = fixture();
     expect(() => new DecisionDebugSidecar({ ...policy(), encryption: { enabled: false, keyReference: 'x' } },
       { put: async () => {}, get: async () => null, delete: async () => {}, listExpired: async () => [], audit: async () => {} },
-      f.resolveKey, f.authorize)).toThrow(/incomplete/);
+      f.resolveKey, f.authorize, lifecycle())).toThrow(/incomplete/);
   });
 });

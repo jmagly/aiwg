@@ -55,6 +55,12 @@ hold and tombstone checks before deletion or restore.
 | Debug/retention | Optional host-only runtime `projection.debugCapture` receives only the minimized state and fails closed before credentials on capture failure. The debug sidecar encrypts with AES-256-GCM, audits access before capture/read/delete, denies unauthorized scope and expires ciphertext on access; telemetry tombstones references | Deploy an approved durable encrypted backend and audit sink, verify cascading erasure, out-of-band expiry and backup expiry |
 | Provider credentials | Resolver spy proves denied policies never call credentials | Exact authorized read and adjacent-secret denial in approved provider environment |
 
+A deterministic offline load fixture (`test/unit/decision/projection-benchmark.test.ts`)
+projects 55 allowed states and denies 55 region mismatches with zero credential
+or transport calls. It reports elapsed time as observation, not as a portable
+SLA: one local run took 13 ms for the fixture loop. The test asserts stable
+projection digests and excluded adjacent canaries, not a timing threshold.
+
 Provider default retention duration, geographic residency, encryption/key
 management and enterprise zero-data-retention status remain **unknown** without
 contractual deployment evidence. Neither a policy allowlist nor the offline
