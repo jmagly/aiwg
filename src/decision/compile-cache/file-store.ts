@@ -1,4 +1,4 @@
-import { mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, stat, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { canonicalJson } from '../../security/artifact-trust.js';
@@ -12,11 +12,26 @@ import type {
   Sha256,
 } from './types.js';
 
+interface CompileCacheLockOwner {
+  version: 1;
+  pid: number;
+  token: string;
+  createdAtEpochMs: number;
+}
+
+const DEFAULT_LOCK_POLL_MS = 25;
+const DEFAULT_LOCK_TIMEOUT_MS = 30_000;
+
 /** Durable, atomic filesystem cache. Files are named only by one-way key digests. */
 export class FileCompileCache<T> {
   private readonly fills = new Map<Sha256, Promise<CompileCacheEntry<T>>>();
+  private readonly lockPollMs: number;
+  private readonly lockTimeoutMs: number;
 
-  constructor(private readonly directory: string) {}
+  constructor(private readonly directory: string, options: { lockPollMs?: number; lockTimeoutMs?: number } = {}) {
+    this.lockPollMs = this.positiveInteger(options.lockPollMs ?? DEFAULT_LOCK_POLL_MS, 'lockPollMs');
+    this.lockTimeoutMs = this.positiveInteger(options.lockTimeoutMs ?? DEFAULT_LOCK_TIMEOUT_MS, 'lockTimeoutMs');
+  }
 
   async getOrCompile(identity: CompileCacheIdentity, context: CompileCacheReadContext, ttlMs: number,
     compile: () => Promise<T>, options: { bypass?: boolean } = {}): Promise<CompileCacheResult<T>> {
@@ -27,10 +42,14 @@ export class FileCompileCache<T> {
     if (existing) return { outcome: 'hit', key, entry: existing };
     const active = this.fills.get(key);
     if (active) return { outcome: 'hit', key, entry: this.revalidate(await active, identity, context) };
-    const fill = this.buildAndPublish(identity, key, context, ttlMs, compile);
-    this.fills.set(key, fill);
-    try { return { outcome: 'miss', key, entry: structuredClone(await fill) }; }
-    finally { this.fills.delete(key); }
+    const fill = this.buildWithFileLock(identity, key, context, ttlMs, compile);
+    const shared = fill.then(result => result.entry);
+    void shared.catch(() => undefined);
+    this.fills.set(key, shared);
+    try {
+      const result = await fill;
+      return { outcome: result.filled ? 'miss' : 'hit', key, entry: structuredClone(result.entry) };
+    } finally { this.fills.delete(key); }
   }
 
   async read(identity: CompileCacheIdentity, context: CompileCacheReadContext): Promise<CompileCacheEntry<T> | null> {
@@ -69,11 +88,75 @@ export class FileCompileCache<T> {
     await this.publish(structuredClone(entry));
   }
 
-  private async buildAndPublish(identity: CompileCacheIdentity, key: Sha256, context: CompileCacheReadContext,
-    ttlMs: number, compile: () => Promise<T>): Promise<CompileCacheEntry<T>> {
-    const entry = await this.build(identity, key, context, ttlMs, compile);
-    await this.publish(entry);
-    return entry;
+  private async buildWithFileLock(identity: CompileCacheIdentity, key: Sha256, context: CompileCacheReadContext,
+    ttlMs: number, compile: () => Promise<T>): Promise<{ entry: CompileCacheEntry<T>; filled: boolean }> {
+    const owner = await this.acquireFillLock(key);
+    try {
+      const existing = await this.read(identity, context);
+      if (existing) return { entry: existing, filled: false };
+      const entry = await this.build(identity, key, context, ttlMs, compile);
+      await this.publish(entry);
+      return { entry, filled: true };
+    } finally { await this.releaseFillLock(key, owner); }
+  }
+
+  private async acquireFillLock(key: Sha256): Promise<CompileCacheLockOwner> {
+    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    const owner: CompileCacheLockOwner = { version: 1, pid: process.pid, token: randomUUID(), createdAtEpochMs: Date.now() };
+    const path = this.lockPath(key);
+    const started = Date.now();
+    while (true) {
+      try {
+        const handle = await open(path, 'wx', 0o600);
+        try { await handle.writeFile(canonicalJson(owner), 'utf8'); await handle.sync(); }
+        finally { await handle.close(); }
+        return owner;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+        if (!await this.lockOwnerAlive(path)) {
+          await unlink(path).catch(unlinkError => {
+            if ((unlinkError as NodeJS.ErrnoException).code !== 'ENOENT') throw unlinkError;
+          });
+          continue;
+        }
+        if (Date.now() - started >= this.lockTimeoutMs) throw new CompileCacheRejectedError();
+        await new Promise(resolve => setTimeout(resolve, this.lockPollMs));
+      }
+    }
+  }
+
+  private async lockOwnerAlive(path: string): Promise<boolean> {
+    try {
+      const owner = JSON.parse(await readFile(path, 'utf8')) as Partial<CompileCacheLockOwner>;
+      if (owner.version !== 1 || !Number.isSafeInteger(owner.pid) || owner.pid! < 1 || typeof owner.token !== 'string') return false;
+      try { process.kill(owner.pid!, 0); return true; }
+      catch (error) { return (error as NodeJS.ErrnoException).code !== 'ESRCH'; }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return true;
+      try {
+        // A contender may observe the lock after exclusive creation but before
+        // its owner record is fully synced. Treat that short window as active;
+        // only reclaim malformed metadata after the bounded lock lifetime.
+        return Date.now() - (await stat(path)).mtimeMs < this.lockTimeoutMs;
+      } catch (statError) {
+        return (statError as NodeJS.ErrnoException).code === 'ENOENT';
+      }
+    }
+  }
+
+  private async releaseFillLock(key: Sha256, owner: CompileCacheLockOwner): Promise<void> {
+    const path = this.lockPath(key);
+    try {
+      const current = JSON.parse(await readFile(path, 'utf8')) as Partial<CompileCacheLockOwner>;
+      if (current.token === owner.token && current.pid === owner.pid) await unlink(path);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+
+  private positiveInteger(value: number, label: string): number {
+    if (!Number.isSafeInteger(value) || value < 1) throw new TypeError(`${label} must be a positive integer`);
+    return value;
   }
 
   private async build(identity: CompileCacheIdentity, key: Sha256, context: CompileCacheReadContext,
@@ -100,6 +183,7 @@ export class FileCompileCache<T> {
   }
 
   private path(key: Sha256): string { return join(this.directory, `${key.slice('sha256:'.length)}.json`); }
+  private lockPath(key: Sha256): string { return join(this.directory, `${key.slice('sha256:'.length)}.lock`); }
 
   private async publish(entry: CompileCacheEntry<T>): Promise<void> {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });

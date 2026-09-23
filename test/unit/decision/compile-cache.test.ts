@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -7,8 +9,12 @@ import {
   prepareAdapterRequest, providerPrefixEvidence,
   providerPrefixKey, type CompileCacheIdentity, type CompileCacheReadContext, type ProviderPrefixIdentity,
 } from '../../../src/decision/compile-cache/index.js';
+import {
+  executeQualificationPlan, verifyQualificationArtifacts, writeQualificationEvidenceManifest,
+} from '../../../src/decision/qualification/runner.js';
 import type { DecisionAdapter, DecisionAdapterRequest, DecisionDefinition, ExecutionTarget } from '../../../src/decision/types.js';
 
+const executeFile = promisify(execFile);
 const digest = (character: string) => `sha256:${character.repeat(64)}` as `sha256:${string}`;
 function identity(overrides: Partial<CompileCacheIdentity> = {}): CompileCacheIdentity {
   return { identityVersion: 'decision-compile-cache-identity/v1', layer: 'definition-compilation',
@@ -137,6 +143,66 @@ describe('decision compile and provider-prefix cache', () => {
       enabled: { averagePreparationLatencyMs: 2, averageCostUsd: null, averageCachedInputTokens: null, hitRateBps: 10_000 } });
   });
 
+  it('CCP-004 coordinates cold fills across independent filesystem cache instances', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-lock-'));
+    const first = new FileCompileCache<string>(directory, { lockPollMs: 1, lockTimeoutMs: 1_000 });
+    const second = new FileCompileCache<string>(directory, { lockPollMs: 1, lockTimeoutMs: 1_000 });
+    let calls = 0; let release!: () => void;
+    const blocked = new Promise<void>(resolve => { release = resolve; });
+    const compile = async () => { calls += 1; await blocked; return 'compiled-once'; };
+    const left = first.getOrCompile(identity(), context(), 1_000, compile);
+    const right = second.getOrCompile(identity(), context(), 1_000, compile);
+    await expect.poll(() => calls).toBe(1);
+    release();
+    const results = await Promise.all([left, right]);
+    expect(calls).toBe(1);
+    expect(results.map(result => result.outcome).sort()).toEqual(['hit', 'miss']);
+    expect(results.map(result => result.entry.value)).toEqual(['compiled-once', 'compiled-once']);
+  });
+
+  it('CCP-004 single-flights a cold fill across operating-system processes', async () => {
+    const evidence = await crossProcessFill();
+    expect(evidence.compilations).toBe(1);
+    expect(evidence.outcomes.sort()).toEqual(['hit', 'miss']);
+    expect(evidence.values).toEqual(['cross-process-compiled', 'cross-process-compiled']);
+  });
+
+  it('CCP-D11 emits verified cross-process locking qualification evidence', async () => {
+    const artifactRoot = await mkdtemp(join(tmpdir(), 'decision-compile-cache-qualification-'));
+    const run = await executeQualificationPlan({
+      artifactRoot,
+      manifest: { schemaVersion: 'decision-qualification-run/v1', mode: 'offline', runId: 'd30-compile-cache-v1',
+        generatedAt: '2026-09-23T00:00:00.000Z', sourceCommit: 'working-tree', dirty: true,
+        cases: [{ id: 'D30-CCP', kind: 'baseline', mandatory: true,
+          candidateTests: ['test/unit/decision/compile-cache.test.ts'] }] },
+      executors: { 'D30-CCP': async () => {
+        const evidence = await crossProcessFill();
+        return { outcome: evidence.compilations === 1 && evidence.outcomes.sort().join(',') === 'hit,miss'
+          ? 'pass' : 'fail', details: evidence };
+      } },
+    });
+    expect((await verifyQualificationArtifacts(run, artifactRoot))).toEqual([{ caseId: 'D30-CCP', verified: true }]);
+    const linked = await writeQualificationEvidenceManifest(run, artifactRoot, '.', {
+      'D30-CCP': ['src/decision/compile-cache/file-store.ts', 'test/fixtures/decision/compile-cache-worker.ts'],
+    });
+    expect(linked.manifest.evidence[0]).toMatchObject({ caseId: 'D30-CCP', executable: true, outcome: 'pass' });
+    expect(linked.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it('CCP-004 reclaims a dead fill owner and never publishes a failed fill', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-stale-lock-'));
+    const key = compileCacheKey(identity()).slice('sha256:'.length);
+    await writeFile(join(directory, `${key}.lock`), JSON.stringify({
+      version: 1, pid: 2_147_483_647, token: 'stale-owner', createdAtEpochMs: 1,
+    }));
+    const cache = new FileCompileCache<string>(directory, { lockPollMs: 1, lockTimeoutMs: 1_000 });
+    await expect(cache.getOrCompile(identity(), context(), 1_000, async () => { throw new Error('compiler-crash'); }))
+      .rejects.toThrow('compiler-crash');
+    await expect(cache.read(identity(), context())).resolves.toBeNull();
+    await expect(cache.getOrCompile(identity(), context(), 1_000, async () => 'recovered'))
+      .resolves.toMatchObject({ outcome: 'miss', entry: { value: 'recovered' } });
+  });
+
   it('CCP-008 persists isolated entries and enforces lifecycle integrity across store restarts', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-'));
     const first = new FileCompileCache<{ stable: boolean }>(directory);
@@ -176,6 +242,21 @@ describe('decision compile and provider-prefix cache', () => {
     expect(new Set(seen).size).toBe(1);
   });
 });
+
+async function crossProcessFill(): Promise<{ compilations: number; outcomes: string[]; values: string[] }> {
+  const root = await mkdtemp(join(tmpdir(), 'decision-compile-cache-processes-'));
+  const directory = join(root, 'cache');
+  const counter = join(root, 'compilations.log');
+  const worker = join(process.cwd(), 'test/fixtures/decision/compile-cache-worker.ts');
+  const executable = join(process.cwd(), 'node_modules/.bin/tsx');
+  const [left, right] = await Promise.all([
+    executeFile(executable, [worker, directory, counter, 'left']),
+    executeFile(executable, [worker, directory, counter, 'right']),
+  ]);
+  const results = [left.stdout, right.stdout].map(output => JSON.parse(output) as { outcome: string; value: string });
+  return { compilations: (await readFile(counter, 'utf8')).trim().split('\n').length,
+    outcomes: results.map(result => result.outcome), values: results.map(result => result.value) };
+}
 
 function compileDefinition(): DecisionDefinition {
   return { apiVersion: 'decision.aiwg.io/v1alpha1', kind: 'DecisionDefinition',
