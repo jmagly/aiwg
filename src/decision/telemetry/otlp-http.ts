@@ -37,8 +37,15 @@ export class DecisionOtlpHttpSink implements DecisionTraceSink {
     const payload = JSON.stringify({ resourceSpans: [{ scopeSpans: [{ scope: { name: 'aiwg.decision', version: '1' },
       spans: safe.spans.map(toOtlpSpan) }] }] });
     if (Buffer.byteLength(payload, 'utf8') > this.maxPayloadBytes) throw new Error('OTLP payload exceeds configured bound');
-    const response = await this.transport(this.endpoint, { method: 'POST', redirect: 'manual', signal,
-      headers: { 'content-type': 'application/json' }, body: payload });
+    let response: Response;
+    try {
+      response = await this.transport(this.endpoint, { method: 'POST', redirect: 'manual', signal,
+        headers: { 'content-type': 'application/json' }, body: payload });
+    } catch {
+      // DNS, TLS and injected transport errors may contain private hostnames,
+      // paths or payloads. Diagnostics must report failure without echoing them.
+      throw new Error('OTLP transport failed');
+    }
     if (!response.ok) throw new Error(`OTLP exporter returned HTTP ${response.status}`);
     if (!response.body) return;
     // OTLP/HTTP may acknowledge a request while rejecting some spans. Never
@@ -54,6 +61,9 @@ export class DecisionOtlpHttpSink implements DecisionTraceSink {
         if (size > 4096) throw new Error('OTLP response exceeds configured inspection bound');
         chunks.push(value);
       }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'OTLP response exceeds configured inspection bound') throw error;
+      throw new Error('OTLP response read failed');
     } finally { reader.releaseLock(); }
     if (size === 0) return;
     let body: unknown;

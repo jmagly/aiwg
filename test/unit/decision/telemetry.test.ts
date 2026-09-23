@@ -256,6 +256,18 @@ describe('decision telemetry foundation', () => {
       .export(trace(), signal)).resolves.toBeUndefined();
   });
 
+  it('keeps collector transport errors and malformed responses out of diagnostics', async () => {
+    const sink = new DecisionOtlpHttpSink({ endpoint: 'https://collector.example/v1/traces', maxPayloadBytes: 16_384,
+      fetch: vi.fn(async () => { throw new Error('SECRET-CANARY https://private.internal/key'); }) as typeof fetch });
+    const exporter = new BoundedDecisionTraceExporter(sink, { capacity: 1, timeoutMs: 100 });
+    expect(exporter.offer(trace())).toBe(true);
+    await exporter.shutdown();
+    expect(exporter.diagnostics).toEqual([expect.objectContaining({ type: 'failed', detail: 'OTLP transport failed' })]);
+    const empty = new DecisionOtlpHttpSink({ endpoint: 'https://collector.example/v1/traces', maxPayloadBytes: 16_384,
+      fetch: vi.fn(async () => new Response(null, { status: 204 })) as typeof fetch });
+    await expect(empty.export(trace(), new AbortController().signal)).resolves.toBeUndefined();
+  });
+
   it('bounds an exporter that ignores cancellation', async () => {
     const exporter = new BoundedDecisionTraceExporter({ export: async () => new Promise<void>(() => undefined) }, { capacity: 1, timeoutMs: 5 });
     expect(exporter.offer(trace())).toBe(true);
