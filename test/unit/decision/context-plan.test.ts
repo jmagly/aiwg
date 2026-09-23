@@ -144,6 +144,19 @@ describe('decision context planning', () => {
     expect(first.rawEstimate.allQuestionTokens).toBeGreaterThan(0);
   });
 
+  it.each([NaN, Infinity, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects invalid provider estimator token count %s before dispatch planning', tokens => {
+      const estimator: ContextTokenEstimator = { id: 'fixture', version: '1', estimate: () => ({ tokens, serializedBytes: 3 }) };
+      expect(() => planDecisionContext(input(1, [1]), profile(), estimator))
+        .toThrowError(expect.objectContaining({ reason: 'invalid-profile' }));
+    });
+
+  it('rejects invalid serialized-byte estimates even when the token count appears to fit', () => {
+    const estimator: ContextTokenEstimator = { id: 'fixture', version: '1', estimate: () => ({ tokens: 1, serializedBytes: NaN }) };
+    expect(() => planDecisionContext(input(1, [1]), profile(), estimator))
+      .toThrowError(expect.objectContaining({ reason: 'invalid-profile' }));
+  });
+
   it('requires the exact estimator identity qualified by the versioned profile', () => {
     expect(() => planDecisionContext(input(1, [1]), profile({ estimator: { id: 'other', version: '2' } }), exactEstimator))
       .toThrowError(expect.objectContaining({ reason: 'estimator-profile-mismatch' }));

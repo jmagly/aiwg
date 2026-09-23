@@ -141,7 +141,7 @@ export function planDecisionContext(
   validate(input, profile, estimator);
   const effectiveAggregateTokens = effectiveLimit(profile.limits.aggregateTokens, profile.safetyMarginBps);
   const effectiveLongestTokens = effectiveLimit(profile.limits.stateAndLongestQuestionTokens, profile.safetyMarginBps);
-  const state = estimator.estimate(input.authorizedState);
+  const state = checkedEstimate(estimator, input.authorizedState);
   if (state.tokens + profile.requestEnvelopeTokens > effectiveAggregateTokens
     || state.tokens + profile.requestEnvelopeTokens > effectiveLongestTokens) {
     throw new ContextPlanError('oversized-state', 'authorized state cannot fit the effective provider limits', {
@@ -151,7 +151,7 @@ export function planDecisionContext(
   }
 
   const sorted = [...input.questions].sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
-  const estimates = new Map(sorted.map(question => [question.id, estimator.estimate(question.entry)]));
+  const estimates = new Map(sorted.map(question => [question.id, checkedEstimate(estimator, question.entry)]));
   for (const question of sorted) {
     const tokens = estimates.get(question.id)!.tokens;
     if (state.tokens + tokens + profile.requestEnvelopeTokens > effectiveLongestTokens
@@ -331,6 +331,15 @@ function dependencyWaves(questions: ContextQuestion[]): ContextQuestion[][] {
   const waves: ContextQuestion[][] = [];
   for (const question of questions) (waves[depth(question.id)] ??= []).push(question);
   return waves;
+}
+
+function checkedEstimate(estimator: ContextTokenEstimator, value: ContextValue): ContextTokenEstimate {
+  const result = estimator.estimate(value);
+  if (!result || !Number.isSafeInteger(result.tokens) || result.tokens < 0
+    || !Number.isSafeInteger(result.serializedBytes) || result.serializedBytes < 0) {
+    throw new ContextPlanError('invalid-profile', 'estimator returned invalid token or byte counts');
+  }
+  return result;
 }
 
 function effectiveLimit(limit: number, marginBps: number): number {
