@@ -7,7 +7,7 @@ import { assertImmutable, ReviewIntegrityError, validateReview } from './validat
 
 export class FileDecisionReviewStore implements ReviewStore {
   constructor(private readonly directory: string, private readonly integrityKey: Uint8Array,
-    private readonly options: { fault?: (boundary: 'purge-marker-published') => void } = {}) {
+    private readonly options: { fault?: (boundary: 'review-before-publication' | 'review-after-publication' | 'purge-marker-published') => void } = {}) {
     if (integrityKey.length < 32) throw new Error('Review integrity key must be at least 32 bytes');
   }
   private prefix(id: string) { return createHash('sha256').update(id).digest('hex'); }
@@ -117,8 +117,10 @@ export class FileDecisionReviewStore implements ReviewStore {
     const file = await open(temporary, 'wx', 0o600);
     try { await file.writeFile(`${JSON.stringify({ review, mac: this.mac(review) })}\n`); await file.sync(); } finally { await file.close(); }
     try {
+      this.options.fault?.('review-before-publication');
       await link(temporary, destination);
       const dir = await open(this.directory, 'r'); try { await dir.sync(); } finally { await dir.close(); }
+      this.options.fault?.('review-after-publication');
       return true;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;

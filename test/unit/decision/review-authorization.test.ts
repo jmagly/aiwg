@@ -88,6 +88,16 @@ describe('pinned, authenticated review authorization', () => {
     expect((await h.store.read('review-a', 'tenant-a', 'project-a'))?.events.at(-1)?.type).toBe('canceled');
   });
 
+  it('HITL-PURGE authorizes idempotent post-retention retry without disclosing foreign scope', async () => {
+    const h = await fixture(1); await h.create('low', 1);
+    await h.act('ops', () => h.service().delete(scope('ops'), 'review-a', 'retention'));
+    h.setTime(31_000);
+    const first = await h.act('ops', () => h.service().purge(scope('ops'), 'review-a'));
+    expect(await h.act('ops', () => h.service().purge(scope('ops'), 'review-a'))).toEqual(first);
+    await expect(h.act('ops', () => h.service().purge(scope('ops', 'other'), 'review-a')))
+      .rejects.toBeInstanceOf(ReviewAccessError);
+  });
+
   it('HITL-SEPARATION denies an executor who authored the approval but permits an independent executor', async () => {
     const h = await fixture(1); await h.create('low', 1);
     await h.act('bob', () => h.service().decide(scope('bob'), 'review-a', 'approve', 'yes'));

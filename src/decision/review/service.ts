@@ -93,12 +93,18 @@ export class DecisionReviewService {
   async purge(scope: ReviewScope, id: string) {
     if (!this.store.purgeTombstoned) throw new ReviewConflictError('Physical review purge is unavailable');
     const review = await this.store.read(id, scope.tenantId, scope.projectId);
-    await this.allowed(scope, 'delete', review ?? undefined);
+    await this.allowed(scope, review ? 'delete' : 'purge', review ?? undefined);
     if (review && (review.status !== 'tombstoned' || review.lifecycle?.legalHold ||
       review.retentionUntilEpochMs === undefined || this.now() < review.retentionUntilEpochMs)) {
       throw new ReviewConflictError('Review retention or legal hold prohibits purge');
     }
-    return this.store.purgeTombstoned(id, scope.tenantId, scope.projectId);
+    try { return await this.store.purgeTombstoned(id, scope.tenantId, scope.projectId); }
+    catch (error) {
+      if (!review && error instanceof Error && /scope mismatch|requires an unheld tombstone/.test(error.message)) {
+        throw new ReviewAccessError('Review not found');
+      }
+      throw error;
+    }
   }
 
   private applyTombstone(scope: ReviewScope, id: string, rationale: string, operation: 'delete' | 'tombstone') { return this.mutate(scope, id, operation, review => {
@@ -110,8 +116,12 @@ export class DecisionReviewService {
 
   claim(scope: ReviewScope, id: string, rationale: string) { return this.mutate(scope, id, 'claim', review => {
     this.requireStatus(review, ['pending', 'claimed']);
+    if (review.status === 'claimed') {
+      if (review.events.at(-1)?.actor.id === scope.actor.id) return review;
+      throw new ReviewConflictError('Review already claimed');
+    }
     return this.append(review, 'claimed', scope.actor, rationale, 'claimed');
-  }); }
+  }, true); }
 
   async decide(scope: ReviewScope, id: string, decision: 'approve' | 'reject', rationale: string): Promise<DecisionReview> {
     return this.mutate(scope, id, 'decide', async review => {

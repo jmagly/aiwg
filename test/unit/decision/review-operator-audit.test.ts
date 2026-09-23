@@ -15,6 +15,31 @@ const actor = (id: string): ReviewScope => ({ tenantId: 'tenant-a', projectId: '
 const digest = `sha256:${'a'.repeat(64)}` as const;
 const correlation = { mission_id: 'mission-a', sandbox_session_id: 'session-a', trace_id: 'trace-a' };
 
+it('HITL-AUDIT-CONCURRENT serializes two final approvers into one valid #1567 chain', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'review-operator-concurrent-')); dirs.push(directory);
+  const audit = new JsonlOperatorDecisionStore(join(directory, 'audit.jsonl'));
+  const store = new FileDecisionReviewStore(join(directory, 'reviews'), new Uint8Array(32).fill(7));
+  const auth = { authorize: () => true, eligible: () => true, eligibleApproval: () => true, authorizeAction: () => true };
+  const service = new DecisionReviewService(store, auth, () => 1000, {
+    operatorAudit: { store: audit, correlation: () => correlation, classification: 'internal' },
+  });
+  await service.create(actor('requester'), { reviewId: 'review-a', sourceReceipt: { id: 'source', digest },
+    evidencePins: [], policyPins: [], reasonCodes: ['review'], riskTier: 'fixture', presentation: {}, action: { kind: 'fixture' },
+    rationale: 'review', expiresAtEpochMs: 9000, continuationId: 'continue', resumeToken: 'token', quorum: 2 });
+  await Promise.all([
+    service.decide(actor('bob'), 'review-a', 'approve', 'one'),
+    service.decide(actor('carol'), 'review-a', 'approve', 'two'),
+  ]);
+  const records = await audit.read();
+  const review = await store.read('review-a', 'tenant-a', 'project-a');
+  expect(review?.status).toBe('approved');
+  expect(verifyDecisionChain(records).ok).toBe(true);
+  expect(records.map(record => record.event_id)).toEqual(review?.events.filter(event => event.type === 'approved')
+    .map(event => event.operatorDecisionEventId));
+  await service.syncOperatorAudit(actor('audit'), 'review-a');
+  expect(await audit.read()).toHaveLength(2);
+});
+
 it('HITL-AUDIT-RECOVERY blocks an effect until a failed operator audit append is repaired', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'review-operator-recover-')); dirs.push(directory);
   const audit = new JsonlOperatorDecisionStore(join(directory, 'audit.jsonl'));

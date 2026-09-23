@@ -42,6 +42,20 @@ describe('durable decision review runtime', () => {
     expect(review?.events.map(event => event.type)).toEqual(['created', 'claimed']);
   });
 
+  it('HITL-CLAIM permits only one claimant and repeats by the winner without appending', async () => {
+    const h = await harness(); await h.service.create(scope(actor('alice', ['requester'])), input(1000));
+    const outcomes = await Promise.allSettled([
+      h.service.claim(scope(actor('bob')), 'review-1', 'claim'),
+      h.service.claim(scope(actor('carol')), 'review-1', 'claim'),
+    ]);
+    expect(outcomes.filter(outcome => outcome.status === 'fulfilled')).toHaveLength(1);
+    expect(outcomes.filter(outcome => outcome.status === 'rejected')).toHaveLength(1);
+    const review = await h.store.read('review-1', 'tenant-a', 'project-a');
+    const winner = review!.events.at(-1)!.actor.id;
+    expect((await h.service.claim(scope(actor(winner)), 'review-1', 'duplicate')).revision).toBe(2);
+    expect((await h.store.read('review-1', 'tenant-a', 'project-a'))?.events.map(event => event.type)).toEqual(['created', 'claimed']);
+  });
+
   it('uses CAS so concurrent final approvals create one ordered history', async () => {
     const h = await harness(); await h.service.create(scope(actor('alice', ['requester'])), input(1_000, { quorum: 2 }));
     await Promise.all([h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'one'), h.service.decide(scope(actor('carol')), 'review-1', 'approve', 'two')]);
@@ -314,6 +328,32 @@ describe('durable decision review runtime', () => {
     expect(stored?.status).toBe('execution-failed');
     expect(stored?.executionError).toBe('executor-failed');
     expect(JSON.stringify(stored)).not.toContain('private-test-payload');
+  });
+
+  it('HITL-PERSISTENCE faults before and after atomic publication recover without duplicate effects', async () => {
+    const h = await harness(); const key = new Uint8Array(32).fill(7);
+    const before = new DecisionReviewService(new FileDecisionReviewStore(h.directory, key, {
+      fault: boundary => { if (boundary === 'review-before-publication') throw new Error('before link'); },
+    }), h.authorization, () => 1000);
+    await expect(before.create(scope(actor('alice', ['requester'])), input(1000))).rejects.toThrow(/before link/);
+    expect(await h.store.read('review-1', 'tenant-a', 'project-a')).toBeNull();
+    let failAfter = true;
+    const afterStore = new FileDecisionReviewStore(h.directory, key, {
+      fault: boundary => { if (boundary === 'review-after-publication' && failAfter) throw new Error('after fsync'); },
+    });
+    const after = new DecisionReviewService(afterStore, h.authorization, () => 1000);
+    await expect(after.create(scope(actor('alice', ['requester'])), input(1000))).rejects.toThrow(/after fsync/);
+    expect((await h.store.read('review-1', 'tenant-a', 'project-a'))?.status).toBe('pending');
+    await expect(h.service.create(scope(actor('alice', ['requester'])), input(1000))).rejects.toThrow(/already exists/);
+    await expect(after.claim(scope(actor('bob')), 'review-1', 'first claim')).rejects.toThrow(/after fsync/);
+    failAfter = false;
+    expect((await after.claim(scope(actor('bob')), 'review-1', 'recovered claim')).revision).toBe(2);
+    await expect(after.claim(scope(actor('carol')), 'review-1', 'contend')).rejects.toBeInstanceOf(ReviewConflictError);
+    await after.decide(scope(actor('bob')), 'review-1', 'approve', 'yes');
+    const execute = vi.fn(async () => ({ delivered: true }));
+    const receipt = await h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', execute);
+    expect((await h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', execute))).toEqual(receipt);
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it('HITL-RETENTION keeps a signed ID marker while physically purging expired unheld payloads', async () => {

@@ -70,6 +70,7 @@ export class PinnedReviewAuthorization implements ReviewAuthorization {
     if (!review && operation === 'list') return this.hasRole(actor.roles, [
       ...this.policy.reviewerRoles, ...this.policy.auditorRoles, ...this.policy.operatorRoles,
     ]);
+    if (!review && operation === 'purge') return this.hasRole(actor.roles, this.policy.operatorRoles);
     if (!review) return false;
     switch (operation) {
       case 'create': return this.hasRole(actor.roles, this.policy.requesterRoles);
@@ -78,7 +79,7 @@ export class PinnedReviewAuthorization implements ReviewAuthorization {
       ]);
       case 'resume': return this.hasRole(actor.roles, this.policy.executorRoles);
       case 'claim': case 'decide': case 'edit': return this.hasRole(actor.roles, this.policy.reviewerRoles);
-      case 'escalate': case 'cancel': case 'legal-hold': case 'delete': case 'tombstone':
+      case 'escalate': case 'cancel': case 'legal-hold': case 'delete': case 'tombstone': case 'purge':
         return this.hasRole(actor.roles, this.policy.operatorRoles);
     }
   }
