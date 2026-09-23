@@ -115,6 +115,21 @@ describe('decision compile and provider-prefix cache', () => {
     expect(() => cache.read(identity(), context(101))).toThrow('entry unavailable');
   });
 
+  it('CCP-007 refreshes authenticated expired memory entries without resurrecting tombstones', async () => {
+    const cache = new MemoryCompileCache<string>();
+    let calls = 0;
+    const compile = async () => `artifact-${++calls}`;
+    await cache.getOrCompile(identity(), context(), 10, compile);
+    expect(() => cache.read(identity(), context(110))).toThrow('unavailable');
+    await expect(cache.getOrCompile(identity(), context(110, { authorize: () => false }), 10, compile))
+      .rejects.toThrow('unavailable');
+    expect((await cache.getOrCompile(identity(), context(110), 10, compile)).entry.value).toBe('artifact-2');
+    expect(calls).toBe(2);
+    cache.tombstone(identity(), context(111));
+    await expect(cache.getOrCompile(identity(), context(112), 10, compile)).rejects.toThrow('unavailable');
+    expect(calls).toBe(2);
+  });
+
   it('CCP-007 no-cache bypass is byte-equivalent but does not publish', async () => {
     const cache = new MemoryCompileCache<{ normalized: string }>();
     const compile = async () => ({ normalized: '{"stable":true}' });
