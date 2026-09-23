@@ -13,7 +13,9 @@ function fixture() {
   const backend: DebugSidecarBackend = {
     put: async record => { records.set(record.id, record); },
     get: async id => records.get(id) ?? null,
-    delete: async id => { records.delete(id); }, audit,
+    delete: async id => { records.delete(id); },
+    listExpired: async (scope, before) => [...records.values()].filter(record => record.scope === scope && record.expiresAt <= before),
+    audit,
   };
   const authorize = vi.fn(async (scope: string) => scope === 'approved');
   const resolveKey = vi.fn(async () => new Uint8Array(32).fill(7));
@@ -49,6 +51,19 @@ describe('authorized encrypted debug sidecar', () => {
     expect(f.audit).toHaveBeenLastCalledWith({ operation: 'expire', id, scope: 'approved' });
   });
 
+  it('sweeps expired ciphertext out of band without accessing or returning plaintext', async () => {
+    const f = fixture();
+    const id = await f.sidecar.capture('approved', Buffer.from('synthetic-debug-secret-canary'));
+    f.advance(1099);
+    expect(await f.sidecar.sweepExpired('approved')).toBe(0);
+    f.advance(1100);
+    expect(await f.sidecar.sweepExpired('approved')).toBe(1);
+    expect(f.records.size).toBe(0);
+    expect(f.audit).toHaveBeenLastCalledWith({ operation: 'expire', id, scope: 'approved' });
+    await expect(f.sidecar.sweepExpired('other')).rejects.toThrow('Debug expiry sweep denied');
+    expect(JSON.stringify(f.audit.mock.calls)).not.toContain('synthetic-debug-secret-canary');
+  });
+
   it('fails closed on authorization, audit, or integrity failure', async () => {
     const f = fixture();
     await expect(f.sidecar.capture('other', Buffer.from('canary'))).rejects.toThrow('denied');
@@ -66,7 +81,7 @@ describe('authorized encrypted debug sidecar', () => {
   it('refuses portable private locators and unknown classification', () => {
     const f = fixture();
     const backend: DebugSidecarBackend = { put: async () => {}, get: async () => null,
-      delete: async () => {}, audit: async () => {} };
+      delete: async () => {}, listExpired: async () => [], audit: async () => {} };
     for (const invalid of [
       { ...policy(), encryption: { enabled: true, keyReference: 'vault://private/key' } },
       { ...policy(), accessAudit: { enabled: true, sinkReference: 'Bearer canary' } },
@@ -77,7 +92,7 @@ describe('authorized encrypted debug sidecar', () => {
   it('rejects incomplete capture policies', () => {
     const f = fixture();
     expect(() => new DecisionDebugSidecar({ ...policy(), encryption: { enabled: false, keyReference: 'x' } },
-      { put: async () => {}, get: async () => null, delete: async () => {}, audit: async () => {} },
+      { put: async () => {}, get: async () => null, delete: async () => {}, listExpired: async () => [], audit: async () => {} },
       f.resolveKey, f.authorize)).toThrow(/incomplete/);
   });
 });

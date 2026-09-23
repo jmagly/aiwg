@@ -15,6 +15,7 @@ export interface DebugSidecarBackend {
   put(record: EncryptedDebugSidecar): Promise<void>;
   get(id: string): Promise<EncryptedDebugSidecar | null>;
   delete(id: string): Promise<void>;
+  listExpired(scope: string, before: number): Promise<EncryptedDebugSidecar[]>;
   audit(event: { operation: 'capture' | 'read' | 'delete' | 'expire'; id: string; scope: string }): Promise<void>;
 }
 
@@ -79,6 +80,25 @@ export class DecisionDebugSidecar {
     if (!record || record.scope !== scope) return;
     await this.audit('delete', id, scope);
     await this.erase(id);
+  }
+
+  /** Evict expired ciphertext even when nobody reads it. The backend must return
+   * only scoped records; each candidate is checked again before erasure. */
+  async sweepExpired(scope: string): Promise<number> {
+    if (!scope || !await this.authorize(scope, 'delete')) throw new Error('Debug expiry sweep denied');
+    const now = this.clock();
+    let records: EncryptedDebugSidecar[];
+    try { records = await this.backend.listExpired(scope, now); }
+    catch { throw new Error('Debug sidecar storage failed'); }
+    let deleted = 0;
+    for (const candidate of records) {
+      const record = await this.get(candidate.id);
+      if (!record || record.scope !== scope || now < record.expiresAt) continue;
+      await this.audit('expire', record.id, scope);
+      await this.erase(record.id);
+      deleted++;
+    }
+    return deleted;
   }
 
   private async get(id: string): Promise<EncryptedDebugSidecar | null> {

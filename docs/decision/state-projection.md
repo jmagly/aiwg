@@ -38,6 +38,12 @@ rejected category; they never echo the value. This scanner is not a general
 secret detector: opaque secrets without a recognizable marker require upstream
 classification and review.
 
+The common host-side lifecycle contract for state, receipts, telemetry, debug,
+cache, jobs, review, calibration/evaluation, exports and preprocessing lineage
+is documented in [data-lifecycle.md](./data-lifecycle.md). It requires per-surface
+classification/access/retention/export/deletion/backup controls and applies
+hold and tombstone checks before deletion or restore.
+
 ## Offline evidence and deployment limits
 
 | Boundary | Evidence | Remaining deployment requirement |
