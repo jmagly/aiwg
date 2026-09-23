@@ -29,6 +29,16 @@ structural report evaluator for compatibility; callers must not treat direct, ca
 manifests as release evidence. Release decisions use the combined executable pipeline or invoke
 artifact verification immediately before evaluation.
 
+`freezeQualificationSplit`, `verifyQualificationSplits`, and `evaluateBinaryHeldout` provide
+an offline binary-classification slice report over exactly the hashed held-out membership.
+They reject overlapping/missing rows, invalid probabilities and negative resource usage;
+unknown cost stays unknown, and zero accepted samples have `null` selective risk.
+The report includes Brier/log loss, decile calibration error, Wilson error interval,
+coverage/review rate, nearest-rank latency quantiles, calls/retries/fallbacks and token/cost
+sums. This is **not** an ordinal/ranking evaluator or a calibration approval: sample-size,
+pre-registration, slice adequacy, policy thresholds, and independent held-out provenance
+still need qualification before G3 can pass.
+
 The runner is adapter-neutral. TV01–TV25 can be registered as live, recorded, shadow, or offline
 executors under the manifest's selected mode. A missing live credential or provider is evidence
 absence/failure, never an inferred pass.
