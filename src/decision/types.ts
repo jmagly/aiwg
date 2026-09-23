@@ -516,6 +516,8 @@ export interface DecisionBatchReceiptPolicy {
   subjectHash: `sha256:${string}`;
   /** Optional reviewed catalog for deriving cost when the provider omits it. */
   priceCatalog?: PriceCatalogRecord;
+  /** Conservative per-attempt cost bound when neither provider cost nor a priced usage total exists. */
+  unknownCostBound?: { upperBoundMicros: number; policyId: string; policyVersion: string };
 }
 
 export interface DecisionContextEvidence {

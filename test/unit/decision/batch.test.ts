@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   evaluateDecisionRuleset,
+  artifactDigest,
   JevDecisionAdapter,
   validateDecisionDocument,
   type DecisionBinding,
@@ -20,6 +21,7 @@ import {
   FileBatchReceiptStore,
   FileBatchResultStore,
   batchAccountingTotals,
+  batchEnforcementCostMicros,
   decisionBatchQuestionId,
   planDecisionContext,
   planNativeDecisionBatches,
@@ -411,6 +413,106 @@ describe('native shared-state decision batching', () => {
       .not.toEqual(batched.spec.evaluations.category?.spec.uncertainty?.distribution);
     Object.values(batched.spec.evaluations).forEach(validateDecisionDocument);
     Object.values(singles.spec.evaluations).forEach(validateDecisionDocument);
+  });
+
+  it('REC-BATCH-003 persists failed and successful transport attempts with additive accounting', async () => {
+    const store = new MemoryBatchReceiptStore();
+    const resultStore = new MemoryBatchResultStore();
+    const fetchImpl = vi.fn(async (_url, options) => {
+      const body = JSON.parse(String(options?.body)) as Record<string, unknown>;
+      return fetchImpl.mock.calls.length === 1
+        ? new Response('unavailable', { status: 503, headers: { 'x-request-id': 'req_failed' } })
+        : new Response(JSON.stringify(validPayload(body)), { status: 200, headers: { 'x-request-id': 'req_success' } });
+    }) as typeof fetch;
+    const configured = request(fetchImpl);
+    configured.binding.spec.maxAttempts = 6;
+    for (const target of Object.values(configured.binding.spec.evaluations)) target.targets[0]!.retry.maxRetries = 1;
+    const settings = { ...configured, batchReceipts: { ...durableBatching(store, resultStore),
+      priceCatalog: { id: 'fixture', version: '2026-09-20', effectiveAt: '2026-09-20T00:00:00Z',
+        currency: 'USD' as const, inputMicrosPerMillionTokens: 42_000, outputMicrosPerMillionTokens: 0 },
+      unknownCostBound: { upperBoundMicros: 100, policyId: 'conservative', policyVersion: '1' } } };
+    const first = await evaluateDecisionRuleset(settings);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const id = Object.values(first.spec.evaluations)[0]!.spec.batchResult!.batchId;
+    const receipt = (await store.read(id, 'tenant', 'project'))!;
+    expect(receipt.attempts.map(attempt => [attempt.status, attempt.providerRequestId]))
+      .toEqual([['failed', 'req_failed'], ['succeeded', 'req_success']]);
+    expect(batchAccountingTotals(receipt).usage).toEqual({ inputTokens: null, outputTokens: null });
+    expect(receipt.allocations.every(allocation => allocation.inputTokens === null)).toBe(true);
+    expect(receipt.attempts.map(attempt => attempt.cost.kind)).toEqual(['bounded-unknown', 'client-derived']);
+    expect(batchEnforcementCostMicros(receipt)).toBe(100);
+    expect(Object.values(first.spec.evaluations).every(value => value.spec.attempts.length === 2)).toBe(true);
+    const replay = await evaluateDecisionRuleset(settings);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(Object.values(replay.spec.evaluations).map(value => value.spec.batchResult))
+      .toEqual(Object.values(first.spec.evaluations).map(value => value.spec.batchResult));
+  });
+
+  it('REC-BATCH-003 counts failed transport usage once before successful retry', async () => {
+    const store = new MemoryBatchReceiptStore();
+    const resultStore = new MemoryBatchResultStore();
+    const fetchImpl = vi.fn(async (_url, options) => new Response(
+      JSON.stringify(validPayload(JSON.parse(String(options?.body)) as Record<string, unknown>)),
+      { status: 200, headers: { 'x-request-id': `req_${fetchImpl.mock.calls.length}` } })) as typeof fetch;
+    const configured = request(fetchImpl);
+    configured.binding.spec.maxAttempts = 6;
+    for (const target of Object.values(configured.binding.spec.evaluations)) target.targets[0]!.retry.maxRetries = 1;
+    const original = configured.adapters.jev.evaluateMany.bind(configured.adapters.jev);
+    vi.spyOn(configured.adapters.jev, 'evaluateMany').mockImplementationOnce(async batch => {
+      const response = await original(batch);
+      return { ...response, answers: response.answers.map(answer => ({ ...answer,
+        observation: { ...answer.observation, status: 'error', reason: 'service-error', value: undefined },
+      })) };
+    });
+    const result = await evaluateDecisionRuleset({ ...configured, batchReceipts: durableBatching(store, resultStore) });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const receipt = (await store.read(Object.values(result.spec.evaluations)[0]!.spec.batchResult!.batchId,
+      'tenant', 'project'))!;
+    expect(receipt.attempts.map(value => value.status)).toEqual(['failed', 'succeeded']);
+    expect(receipt.attempts.map(value => value.providerRequestId)).toEqual(['req_1', 'req_2']);
+    expect(batchAccountingTotals(receipt).usage).toEqual({ inputTokens: 18, outputTokens: 6 });
+    expect(receipt.allocations.reduce((sum, value) => sum + value.inputTokens!, 0)).toBe(18);
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.attempts.length === 2)).toBe(true);
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.attempts.every(attempt =>
+      attempt.usage.inputTokens === null && attempt.requestId === null))).toBe(true);
+  });
+
+  it('BCH-001 persists separate provider totals for split partitions of one plan', async () => {
+    const context = contextRuntime(20);
+    const extraAlias = 'category_second';
+    context.input.questions.push({ id: decisionBatchQuestionId(extraAlias), subject: 'ticket:42', entry: { tokens: 20 } });
+    const contextPlan = planDecisionContext(context.input, context.profile, context.estimator);
+    expect(contextPlan.partitions.map(partition => partition.questionIds.length).sort()).toEqual([2, 2]);
+    const store = new MemoryBatchReceiptStore();
+    const resultStore = new MemoryBatchResultStore();
+    const calls: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_url, options) => {
+      const body = JSON.parse(String(options?.body)) as Record<string, unknown>;
+      calls.push(body);
+      return validResponse(body);
+    }) as typeof fetch;
+    const configured = request(fetchImpl);
+    configured.ruleset.spec.evaluations.push({ ...configured.ruleset.spec.evaluations[0]!, alias: extraAlias });
+    configured.binding.spec.ruleset.digest = artifactDigest(configured.ruleset);
+    configured.binding.spec.evaluations[extraAlias] = structuredClone(configured.binding.spec.evaluations.category!);
+    configured.binding.spec.maxAttempts = 4;
+    configured.definitions[extraAlias] = configured.definitions.category!;
+    configured.batching.evaluations[extraAlias] = structuredClone(configured.batching.evaluations.category!);
+    const settings = { ...configured, context, batchReceipts: { ...durableBatching(store, resultStore), contextPlan } };
+    const result = await evaluateDecisionRuleset(settings);
+    expect(calls).toHaveLength(2);
+    const references = Object.values(result.spec.evaluations).map(value => value.spec.batchResult!);
+    expect(references.every(Boolean)).toBe(true);
+    const batchIds = [...new Set(references.map(ref => ref.batchId))];
+    expect(batchIds).toHaveLength(2);
+    const receipts = await Promise.all(batchIds.map(id => store.read(id, 'tenant', 'project')));
+    expect(new Set(receipts.map(receipt => receipt!.plan.planDigest))).toEqual(new Set([contextPlan.planDigest]));
+    expect(new Set(receipts.map(receipt => receipt!.plan.partitionId)).size).toBe(2);
+    expect(receipts.map(receipt => receipt!.attempts[0]!.usage.inputTokens)).toEqual([9, 9]);
+    expect(receipts.reduce((sum, receipt) => sum + batchAccountingTotals(receipt!).usage.inputTokens!, 0)).toBe(18);
+    const replay = await evaluateDecisionRuleset(settings);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(Object.values(replay.spec.evaluations).map(value => value.spec.batchResult)).toEqual(references);
   });
 
   it('REC-BATCH runtime owns shared accounting once and emits reference-only result links', async () => {

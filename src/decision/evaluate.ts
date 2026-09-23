@@ -6,7 +6,8 @@ import { admitEntry, EntryAdmissionError } from './entry.js';
 import { correlateAtomicBatch, decisionBatchQuestionId, planNativeDecisionBatches } from './batch.js';
 import { AdmissionError, DecisionAdmissionController } from './admission.js';
 import { runBoundedFair, SchedulerWaitError } from './scheduler.js';
-import { allocateEstimatedUsage, deriveCost } from './batch-receipts/accounting.js';
+import { allocateEstimatedUsage, batchAccountingTotals, deriveCost } from './batch-receipts/accounting.js';
+import { validOpaqueRequestId } from './batch-receipts/validate.js';
 import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch-receipts/receipt.js';
 import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
 import type { CompatibilityDecision } from './calibration/types.js';
@@ -217,8 +218,7 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
     for (const item of resolved) {
       if (evaluations[item.alias]) continue;
       const configured = request.binding.spec.evaluations[item.alias];
-      const target = configured?.targets.length === 1 && configured.targets[0]?.retry.maxRetries === 0
-        ? configured.targets[0] : undefined;
+      const target = configured?.targets.length === 1 ? configured.targets[0] : undefined;
       const adapter = target ? request.adapters[target.adapter] : undefined;
       if (!target || !adapter) continue;
       const capabilityFailure = await checkCapabilities(adapter, target, item.definition);
@@ -235,6 +235,7 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
       let observations = new Map<string, AdapterObservation>();
       let durableReceipt: DecisionBatchReceipt | undefined;
       let batchReferences = new Map<string, ReturnType<typeof batchResultReference>>();
+      let dispatchCount = 0;
       try {
         const adapter = plan.candidates[0]!.adapter;
         const projectedCandidates = await Promise.all(plan.candidates.map(async candidate => ({
@@ -287,6 +288,8 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
             resolveCredential: request.resolveCredential ?? unauthorizedCredential,
             ...(projected.evidence ? { projectionEvidence: projected.evidence } : {}),
           }, adapter, request.compileCache)));
+        for (let retry = 0; retry <= (request.batchReceipts ? plan.candidates[0]!.target.retry.maxRetries : 0); retry++) {
+        dispatchCount++;
         const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
           requests: preparedRequests });
         if (contextPlan && response.sharedUsage.inputTokens !== null) {
@@ -306,21 +309,28 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
           const requestIds = uniqueNonNull(response.answers.map(answer => answer.observation.requestId));
           if (requestIds.length > 1) throw new Error('batch response contained multiple provider request IDs');
           const models = uniqueNonNull(response.answers.map(answer => answer.observation.actualModel));
+          const derivedCost = request.batchReceipts.priceCatalog
+            ? deriveCost(response.sharedUsage, request.batchReceipts.priceCatalog) : { kind: 'unknown' as const };
           const cost = providerCost(response.sharedUsage.costUsd)
-            ?? (request.batchReceipts.priceCatalog
-              ? deriveCost(response.sharedUsage, request.batchReceipts.priceCatalog) : { kind: 'unknown' as const });
+            ?? (derivedCost.kind !== 'unknown' ? derivedCost : request.batchReceipts.unknownCostBound
+              ? { kind: 'bounded-unknown' as const, currency: 'USD' as const,
+                upperBoundMicros: request.batchReceipts.unknownCostBound.upperBoundMicros,
+                boundPolicyId: request.batchReceipts.unknownCostBound.policyId,
+                boundPolicyVersion: request.batchReceipts.unknownCostBound.policyVersion }
+              : { kind: 'unknown' as const });
           const certainties = response.answers.map(answer => answer.observation.dispatchCertainty);
           const attemptStatus: BatchAttempt['status'] = certainties.some(value => value === 'unknown')
-            ? 'execution-uncertain' : certainties.every(value => value === 'not-sent') ? 'not-sent' : 'succeeded';
+            ? 'execution-uncertain' : certainties.every(value => value === 'not-sent') ? 'not-sent'
+              : [...observations.values()].every(value => value.status === 'success') ? 'succeeded' : 'failed';
           const attempt: BatchAttempt = {
             ordinal: durableReceipt.attempts.length + 1,
             adapterId: adapter.id,
             adapterVersion: adapter.version,
             requestedModel: plan.candidates[0]!.target.model,
             actualModel: models.length === 1 ? models[0]! : null,
-            providerRequestId: requestIds[0] ?? null,
+            providerRequestId: requestIds[0] && validOpaqueRequestId(requestIds[0]) ? requestIds[0] : null,
             status: attemptStatus,
-            dispatchedAtEpochMs: attemptStatus === 'not-sent' ? null : started,
+            dispatchedAtEpochMs: attemptStatus === 'not-sent' ? null : now(),
             completedAtEpochMs: now(),
             usage: { inputTokens: response.sharedUsage.inputTokens, outputTokens: response.sharedUsage.outputTokens },
             cost,
@@ -331,12 +341,24 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
             answerId: durableAnswerId(durableReceipt!.batchId, questionIds[index]!),
             resultId: `${request.invocationId}-${candidate.alias}`,
           }));
+          const canRetry = attemptStatus === 'failed' && retry < plan.candidates[0]!.target.retry.maxRetries
+            && [...observations.values()].every(value => RETRIABLE.has(value.reason))
+            && attemptsUsed + (dispatchCount + 1) * plan.candidates.length <= request.binding.spec.maxAttempts
+            && now() < deadline;
+          if (canRetry) {
+            const pending = nextBatchReceipt(durableReceipt, { status: 'running', updatedAtEpochMs: now(),
+              attempts: [...durableReceipt.attempts, attempt] });
+            if (!await request.batchReceipts.store.compareAndSwap(durableReceipt, pending)) throw new ReceiptPersistenceError();
+            durableReceipt = pending;
+            continue;
+          }
           const terminalStatus = attemptStatus === 'succeeded' ? 'completed'
-            : attemptStatus === 'not-sent' ? 'failed' : 'execution-uncertain';
+            : attemptStatus === 'execution-uncertain' ? 'execution-uncertain' : 'failed';
           const terminal = nextBatchReceipt(durableReceipt, { status: terminalStatus, updatedAtEpochMs: now(),
             attempts: [...durableReceipt.attempts, attempt],
             ...(terminalStatus === 'completed' ? { answerReferences,
-              allocations: allocateEstimatedUsage(questionIds, attempt.usage) } : {}) });
+              allocations: allocateEstimatedUsage(questionIds, batchAccountingTotals({ ...durableReceipt,
+                attempts: [...durableReceipt.attempts, attempt] }).usage) } : {}) });
           if (terminalStatus === 'completed') {
             // Publish values before committing the terminal receipt: a crash between these
             // writes leaves an uncertain receipt, never a successful but unreadable replay.
@@ -353,6 +375,8 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
           }
           else observations = resultOnlyBatchObservations(new Map(questionIds.map(questionId =>
             [questionId, observationFailure(terminalStatus === 'execution-uncertain' ? 'execution-uncertain' : 'service-error')])));
+        }
+        break;
         }
       } catch (error) {
         if (error instanceof ReplayedBatchReceipt || (error as Error).name === 'ReplayedBatchReceipt') {
@@ -389,13 +413,21 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
         const calibrationCompatibility = request.calibrationCompatibility && observation.status === 'success'
           ? normalizeObservationForRuntime({ request, item, target: candidate.target, observation, now }).calibrationCompatibility
           : undefined;
+        const historical = durableReceipt?.attempts.map(attempt => {
+          const failure = observationFailure(attempt.status === 'execution-uncertain'
+            ? 'execution-uncertain' : 'service-error');
+          const value = attempt.status === 'succeeded' ? observation : resultOnlyBatchObservations(
+            new Map([[questionIds[index]!, failure]])).get(questionIds[index]!)!;
+          return toAttempt(candidate.target, attempt.ordinal, value,
+            Math.max(0, (attempt.completedAtEpochMs ?? durableReceipt!.updatedAtEpochMs)
+              - (attempt.dispatchedAtEpochMs ?? durableReceipt!.createdAtEpochMs)), evidence);
+        });
         evaluations[item.alias] = decisionResult(context, observation,
-          [toAttempt(candidate.target, 1, observation, durableReceipt?.status === 'completed'
-            ? Math.max(0, durableReceipt.terminalAtEpochMs! - durableReceipt.createdAtEpochMs)
-            : Math.max(0, now() - started), evidence)], calibrationCompatibility);
+          historical?.length ? historical : [toAttempt(candidate.target, 1, observation, Math.max(0, now() - started), evidence)],
+          calibrationCompatibility);
       });
-      attemptsUsed += plan.candidates.length;
-      attemptBudget.consume(plan.candidates.length);
+      attemptsUsed += Math.max(1, dispatchCount) * plan.candidates.length;
+      attemptBudget.consume(Math.max(1, dispatchCount) * plan.candidates.length);
     }
   }
   const concurrency = effectiveConcurrency(request);
