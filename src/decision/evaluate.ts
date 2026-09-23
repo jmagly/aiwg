@@ -260,10 +260,11 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
           durableReceipt = acquired.receipt;
           if (!acquired.owner) {
             if (durableReceipt.status === 'completed') {
+              const replayed = await request.batchReceipts.resultStore?.readMany(durableReceipt);
+              if (!replayed || replayed.size !== questionIds.length) throw new RemoteUncertainError();
               batchReferences = new Map(questionIds.map(questionId =>
                 [questionId, batchResultReference(durableReceipt!, questionId)]));
-              observations = new Map(questionIds.map(questionId =>
-                [questionId, observationFailure('execution-uncertain')]));
+              observations = replayed;
               // The shared request already has an owner. Never dispatch it again.
               throw new ReplayedBatchReceipt();
             }
@@ -338,20 +339,19 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
             throw new ReceiptPersistenceError();
           }
           durableReceipt = terminal;
-          if (terminalStatus === 'completed') batchReferences = new Map(questionIds.map(questionId =>
-            [questionId, batchResultReference(terminal, questionId)]));
-          else observations = new Map(questionIds.map(questionId =>
-            [questionId, observationFailure(terminalStatus === 'execution-uncertain' ? 'execution-uncertain' : 'service-error')]));
-          // Shared request identity, usage, and cost live only on the receipt.
-          observations = new Map([...observations].map(([questionId, observation]) => {
-            const { requestIdSource: _requestIdSource, ...withoutRequestIdSource } = observation;
-            return [questionId, { ...withoutRequestIdSource,
-              usage: { inputTokens: null, outputTokens: null, costUsd: null }, requestId: null }];
-          }));
+          if (terminalStatus === 'completed') {
+            // Shared request identity, usage, and cost live only on the receipt and not in the governed value repository.
+            observations = resultOnlyBatchObservations(observations);
+            if (request.batchReceipts.resultStore) await request.batchReceipts.resultStore.writeMany(terminal, observations);
+            batchReferences = new Map(questionIds.map(questionId =>
+              [questionId, batchResultReference(terminal, questionId)]));
+          }
+          else observations = resultOnlyBatchObservations(new Map(questionIds.map(questionId =>
+            [questionId, observationFailure(terminalStatus === 'execution-uncertain' ? 'execution-uncertain' : 'service-error')])));
         }
       } catch (error) {
-        if (error instanceof ReplayedBatchReceipt) {
-          // References and a fail-closed result were prepared above.
+        if (error instanceof ReplayedBatchReceipt || (error as Error).name === 'ReplayedBatchReceipt') {
+          // References and reconstructed result observations were prepared above.
         } else if (durableReceipt && request.batchReceipts && durableReceipt.status === 'running') {
           const uncertain = nextBatchReceipt(durableReceipt, { status: 'execution-uncertain', updatedAtEpochMs: now(),
             attempts: [...durableReceipt.attempts, uncertainBatchAttempt(plan, started, now())] });
@@ -362,9 +362,17 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
         } else if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) {
           throw error;
         } else {
-        observations = new Map(questionIds.map(id => [id, observationFailure(
-          error instanceof DecisionProjectionError ? 'data-boundary-denied' : 'invalid-output',
-        )]));
+          const replayed = durableReceipt?.status === 'completed'
+            ? await request.batchReceipts?.resultStore?.readMany(durableReceipt) : undefined;
+          if (replayed && replayed.size === questionIds.length) {
+            batchReferences = new Map(questionIds.map(questionId =>
+              [questionId, batchResultReference(durableReceipt!, questionId)]));
+            observations = replayed;
+          } else {
+            observations = new Map(questionIds.map(id => [id, observationFailure(
+              error instanceof DecisionProjectionError ? 'data-boundary-denied' : 'invalid-output',
+            )]));
+          }
         }
       }
       plan.candidates.forEach((candidate, index) => {
@@ -463,7 +471,7 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
 
 class ReceiptPersistenceError extends Error {}
 class RemoteUncertainError extends Error {}
-class ReplayedBatchReceipt extends Error {}
+class ReplayedBatchReceipt extends Error { constructor() { super('replayed batch receipt'); this.name = 'ReplayedBatchReceipt'; } }
 
 interface OneContext {
   request: DecisionEvaluationRequest;
@@ -876,6 +884,14 @@ function observationFailure(
     requestId: inherit?.requestId ?? null,
     ...(termination ? { termination } : {}),
   };
+}
+
+function resultOnlyBatchObservations(observations: ReadonlyMap<string, AdapterObservation>): Map<string, AdapterObservation> {
+  return new Map([...observations].map(([questionId, observation]) => {
+    const { requestIdSource: _requestIdSource, ...withoutRequestIdSource } = observation;
+    return [questionId, { ...withoutRequestIdSource,
+      usage: { inputTokens: null, outputTokens: null, costUsd: null }, requestId: null }];
+  }));
 }
 
 function toAttempt(target: ExecutionTarget, ordinal: number, observation: AdapterObservation, durationMs: number,

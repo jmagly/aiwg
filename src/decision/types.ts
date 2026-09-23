@@ -6,6 +6,7 @@ import type {
   ContextTokenEstimator,
 } from './context-plan.js';
 import type { BatchResultReference } from './batch-receipts/receipt.js';
+import type { BatchResultStore } from './batch-receipts/result-store.js';
 import type { BatchReceiptStore, PriceCatalogRecord } from './batch-receipts/types.js';
 import type { CalibrationRegistry } from './calibration/registry.js';
 import type { CalibrationIdentity, CompatibilityDecision, CompatibilityPolicy } from './calibration/types.js';
@@ -507,6 +508,8 @@ export interface DecisionBatchPolicy {
 /** Durable ownership required before a native shared-state dispatch is attempted. */
 export interface DecisionBatchReceiptPolicy {
   store: BatchReceiptStore;
+  /** Governed value repository used to reconstruct completed batch results on replay. */
+  resultStore?: BatchResultStore;
   tenantId: string;
   projectId: string;
   contextPlan: ContextPlan;

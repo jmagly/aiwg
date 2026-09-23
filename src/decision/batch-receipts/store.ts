@@ -91,7 +91,7 @@ function assertSameIdentity(requested: DecisionBatchReceipt, existing: DecisionB
   const identity = (receipt: DecisionBatchReceipt) => ({ tenantId: receipt.tenantId, projectId: receipt.projectId,
     batchId: receipt.batchId, invocationId: receipt.invocationId, runId: receipt.runId, plan: receipt.plan,
     subjectHash: receipt.subjectHash, stateHash: receipt.stateHash, executionEnvelope: receipt.executionEnvelope,
-    questionIds: receipt.questionIds, createdAtEpochMs: receipt.createdAtEpochMs });
+    questionIds: receipt.questionIds });
   if (canonicalJson(identity(requested)) !== canonicalJson(identity(existing))) {
     throw new BatchReceiptConflictError('Batch ID already belongs to another immutable receipt identity');
   }

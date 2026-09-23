@@ -13,6 +13,7 @@ import {
   type DecisionProjectionPolicy,
   CanonicalJsonByteEstimator,
   MemoryBatchReceiptStore,
+  MemoryBatchResultStore,
   batchAccountingTotals,
   decisionBatchQuestionId,
   planDecisionContext,
@@ -42,7 +43,7 @@ function request(fetchImpl: typeof fetch, subjects?: Record<string, string>) {
   };
 }
 
-function durableBatching(store = new MemoryBatchReceiptStore()) {
+function durableBatching(store = new MemoryBatchReceiptStore(), resultStore?: MemoryBatchResultStore) {
   const questionIds = ['category', 'severity', 'core_unavailable'].map(decisionBatchQuestionId);
   const estimator = new CanonicalJsonByteEstimator();
   const contextPlan = planDecisionContext({ subject: 'ticket:42', authorizedState: fixture('input.json'),
@@ -50,7 +51,7 @@ function durableBatching(store = new MemoryBatchReceiptStore()) {
     questions: questionIds.map(id => ({ id, subject: 'ticket:42', entry: { question: id } })) },
   { id: 'jev', version: '1', estimator: { id: estimator.id, version: estimator.version },
     limits: { aggregateTokens: 100_000, stateAndLongestQuestionTokens: 100_000 }, safetyMarginBps: 0, requestEnvelopeTokens: 0 }, estimator);
-  return { store, tenantId: 'tenant', projectId: 'project', contextPlan,
+  return { store, ...(resultStore ? { resultStore } : {}), tenantId: 'tenant', projectId: 'project', contextPlan,
     subjectHash: `sha256:${'b'.repeat(64)}` as const };
 }
 
@@ -421,6 +422,34 @@ describe('native shared-state decision batching', () => {
     expect(receipt?.answerReferences).toHaveLength(3);
     expect(batchAccountingTotals(receipt!).usage).toEqual({ inputTokens: 9, outputTokens: 3 });
     Object.values(result.spec.evaluations).forEach(validateDecisionDocument);
+  });
+
+  it('reconstructs completed durable batch values from governed result repository without redispatch', async () => {
+    const store = new MemoryBatchReceiptStore();
+    const resultStore = new MemoryBatchResultStore();
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(
+      JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const configured = { ...request(fetchImpl), batchReceipts: durableBatching(store, resultStore) };
+    const first = await evaluateDecisionRuleset(configured);
+    const firstReference = Object.values(first.spec.evaluations)[0]?.spec.batchResult;
+    expect(firstReference).toBeTruthy();
+    const receipt = await store.read(firstReference!.batchId, 'tenant', 'project');
+    expect(receipt).toBeTruthy();
+    const stored = await resultStore.readMany(receipt!);
+    expect([...stored.values()].map(value => [value.status, value.reason])).toEqual([
+      ['success', 'none'], ['success', 'none'], ['success', 'none'],
+    ]);
+    const second = await evaluateDecisionRuleset(configured);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(Object.values(second.spec.evaluations).map(result => [result.spec.status, result.spec.reason])).toEqual([
+      ['success', 'none'], ['success', 'none'], ['success', 'none'],
+    ]);
+    expect(Object.fromEntries(Object.entries(second.spec.evaluations).map(([alias, result]) => [alias, result.spec.value])))
+      .toEqual(Object.fromEntries(Object.entries(first.spec.evaluations).map(([alias, result]) => [alias, result.spec.value])));
+    expect(Object.values(second.spec.evaluations).every(result => result.spec.batchResult)).toBe(true);
+    expect(Object.values(second.spec.evaluations).map(value => value.spec.attempts[0]!.usage))
+      .toEqual(Array(3).fill({ inputTokens: null, outputTokens: null, costUsd: null }));
   });
 
   it('concurrent acquisition dispatches a durable native batch at most once', async () => {
