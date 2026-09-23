@@ -65,7 +65,24 @@ describe('DAG Flow skill bridge', () => {
     expect(calls.sort()).toEqual(['extract', 'other', 'verify']);
     expect(report.realizedResources.tokens).toBe(3);
   });
-  it('DAG-015 rejects untrusted pins, skill IDs, and Flow-incompatible identities before dispatch', () => {
+  it('DAG-015 follows trusted conditional routes only for the declared boolean evidence', async () => {
+    const g = graph(); g.nodes[0]!.output.push('branch');
+    g.edges[0]!.when = { source: 'branch', equals: true };
+    const flow = decisionGraphToFlow(g, options);
+    expect(validateFlowGraph(flow, { catalogIds: new Set([skill]) }).valid).toBe(true);
+    const invoke = (branch: boolean) => executeFlowGraph(flow, {
+      validation: { catalogIds: new Set([skill]) },
+      invokeNode: async ({ node }: any) => ({ outputs: node.id === 'extract' ?
+        { result: { authorizeAction: true }, branch } : { decision: 'review' },
+        usage: { tokens: 1, costUsd: 0.000001, timeMs: 1 } }),
+    });
+    const [taken, discarded] = await Promise.all([invoke(true), invoke(false)]);
+    expect(taken.realizedResources.nodeRuns).toBe(2);
+    expect(discarded.realizedResources.nodeRuns).toBe(1);
+    expect(taken.output).toBe('review');
+    expect(discarded.output).toBeUndefined();
+  });
+  it('DAG-016 rejects untrusted pins, skill IDs, and Flow-incompatible identities before dispatch', () => {
     expect(() => decisionGraphToFlow(graph(), { ...options, resolvedPins: new Set() })).toThrow();
     expect(() => decisionGraphToFlow(graph(), { ...options, decisionSkillId: 'aiwg:skill:not-real' })).toThrow();
     const invalid = graph(); invalid.nodes[0]!.id = 'Upper'; invalid.entry = 'Upper'; invalid.edges[0]!.from = 'Upper';

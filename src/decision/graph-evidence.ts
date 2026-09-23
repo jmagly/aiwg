@@ -98,6 +98,18 @@ export function auditGraphEvidence(graph: DecisionGraph, plan: GraphPlan, observ
     return { id, status: obs.status, used: obs.used, input, resultDigest: digest(obs.output),
       attempts: obs.attempts, tokens: obs.tokens, costMicros, durationMs: obs.durationMs };
   }) }));
+  if (stages.some(stage => {
+    const stageLimit = graph.stageBudgets?.find(b => b.stage === stage.stage)?.limits;
+    if (!stageLimit) return false;
+    const spent = { attempts: 0, tokens: 0, costMicros: 0, durationMs: 0 };
+    for (const node of stage.nodes) {
+      spent.attempts += node.attempts; spent.tokens += node.tokens;
+      spent.costMicros += node.costMicros; spent.durationMs += node.durationMs;
+    }
+    return spent.attempts > stageLimit.attempts || spent.tokens > stageLimit.tokens ||
+      spent.costMicros > stageLimit.costMicros || spent.durationMs > stageLimit.deadlineMs ||
+      stage.nodes.length > stageLimit.fanOut;
+  })) outcome = 'budget-exhausted';
   if (totals.attempts > limits.attempts || totals.tokens > limits.tokens || totals.costMicros > limits.costMicros ||
     totals.durationMs > limits.deadlineMs || stages.length > limits.depth ||
     stages.some(stage => stage.nodes.length > limits.fanOut)) outcome = 'budget-exhausted';

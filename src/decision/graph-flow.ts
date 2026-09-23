@@ -21,6 +21,12 @@ export function decisionGraphToFlow(graph: DecisionGraph, options: {
       graph.id.length > 63 || graph.id.endsWith('-')) throw new DecisionGraphError('graph incompatible with Flow bindings');
   const ceilings = effectiveGraphCeilings(graph, ...(options.ceilings ?? []));
   const names = new Map(graph.nodes.map(n => [n.id, n]));
+  const guards = new Map<string, string>();
+  for (const edge of plan.edges) {
+    if (!edge.when) continue;
+    const name = `condition-${edge.from}-${edge.when.source}`;
+    guards.set(`${edge.from}.${edge.when.source}`, name);
+  }
   const nodes = plan.stages.flatMap(stage => stage.nodes.map(id => {
     const n = names.get(id)!;
     const incoming = plan.edges.filter(edge => edge.to === id);
@@ -38,7 +44,11 @@ export function decisionGraphToFlow(graph: DecisionGraph, options: {
         { name: 'binding-pin', schema: { type: 'object' }, value: n.binding },
         ...incoming.map(e => ({ name: e.destination, schema: { type: ['object', 'array', 'string', 'number', 'boolean', 'null'] }, from: `${e.from}.${e.source}` })),
       ],
-      outputs: n.output.map(name => ({ name, schema: { type: ['object', 'array', 'string', 'number', 'boolean', 'null'] } })),
+      outputs: n.output.map(name => {
+        const guard = guards.get(`${id}.${name}`);
+        return { name, schema: guard ? { type: 'boolean' } : { type: ['object', 'array', 'string', 'number', 'boolean', 'null'] },
+          ...(guard ? { state: guard } : {}) };
+      }),
       capabilities: [], permissions: [], sideEffectMode: 'none' as const,
       retry: { limit: 0, backoff: 'none' as const, on: ['failure' as const] },
     };
@@ -53,11 +63,17 @@ export function decisionGraphToFlow(graph: DecisionGraph, options: {
     metadata: { name: graph.id },
     spec: {
       entry: [graph.entry], candidates: [{ id: options.decisionSkillId, kind: 'skill' }],
-      state: { fields: [] }, permissions: [], capabilities: [],
+      state: { fields: [...guards.values()].sort().map(name => ({ name, schema: { type: 'boolean' }, reducer: 'replace' })) },
+      permissions: [], capabilities: [],
       ceilings: { activations: ceilings.attempts, tokens: ceilings.tokens,
         costUsd: ceilings.costMicros / 1_000_000, timeMs: ceilings.deadlineMs, concurrency: ceilings.concurrency },
       nodes, routes: [...new Set(plan.edges.map(e => `${e.from}:${e.to}`))].sort().map(pair => {
-        const [from, to] = pair.split(':'); return { from: from!, to: to! };
+        const [from, to] = pair.split(':');
+        const matches = plan.edges.filter(e => e.from === from && e.to === to);
+        const predicates = [...new Set(matches.map(e => e.when ? `${guards.get(`${e.from}.${e.when.source}`)} == ${e.when.equals}` : 'always'))];
+        if (predicates.length !== 1) throw new DecisionGraphError('conflicting guards on Flow route');
+        return { from: from!, to: to!, ...(predicates[0] === 'always' ? {} :
+          { when: { expression: `state.${predicates[0]}` } }) };
       }),
       joins: [], failure: { onNodeFailure: 'fail', maxFailures: 0 },
       output: { mode: 'final-only', from: `${options.terminal}.${terminalNode.output[0]}`,
