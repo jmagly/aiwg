@@ -1,8 +1,11 @@
 import { readFileSync } from 'node:fs';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { evaluateDecisionRuleset } from '../../../src/decision/evaluate.js';
 import { MemoryDecisionReceiptStore } from '../../../src/decision/receipts.js';
-import { DecisionResultCache, MemoryResultCacheStore, RESULT_CACHE_KEY_VERSION, digestCachedResult, digestResultCacheIdentity } from '../../../src/decision/result-cache/index.js';
+import { DecisionResultCache, FileResultCacheStore, MemoryResultCacheStore, RESULT_CACHE_KEY_VERSION, digestCachedResult, digestResultCacheIdentity, entryIntegrityDigest } from '../../../src/decision/result-cache/index.js';
 import { artifactPin } from '../../../src/decision/validate.js';
 import type { DecisionAdapter, DecisionBinding, DecisionDefinition, DecisionEvaluationRequest, DecisionRuleset } from '../../../src/decision/types.js';
 import type { DecisionTelemetrySpan } from '../../../src/decision/telemetry/types.js';
@@ -167,6 +170,24 @@ describe('experimental evaluator result-cache integration', () => {
     const identity = base.resultCache!.identityFor({ alias: 'category', definition: base.definitions.category!,
       target: base.binding.spec.evaluations.category!.targets[0]!, projectedInput: base.input as { message: string } });
     expect(await store.export(actor, digestResultCacheIdentity(identity))).toBeNull();
+  });
+
+  it('rejects a forged cached result even when an attacker recomputes the entry digest', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'result-cache-forged-source-'));
+    try {
+      const { base, adapter } = setup();
+      base.resultCache!.service = new DecisionResultCache(new FileResultCacheStore(dir));
+      await evaluateDecisionRuleset(base);
+      const file = join(dir, (await readdir(dir)).find(name => name.endsWith('.json'))!);
+      const entry = JSON.parse(await readFile(file, 'utf8'));
+      entry.evidence.result.spec.outcome = 'runtime-review';
+      entry.evidence.resultDigest = digestCachedResult(entry.evidence.result);
+      const { integrityDigest: _old, ...unsigned } = entry;
+      entry.integrityDigest = entryIntegrityDigest(unsigned);
+      await writeFile(file, JSON.stringify(entry));
+      await expect(evaluateDecisionRuleset({ ...base, invocationId: 'victim' })).rejects.toThrow('source receipt');
+      expect(vi.mocked(adapter.evaluate)).toHaveBeenCalledOnce();
+    } finally { await rm(dir, { recursive: true, force: true }); }
   });
 
   it('does not reuse an unverified source receipt even if the cache entry is present', async () => {
