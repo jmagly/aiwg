@@ -1,10 +1,22 @@
 import type { DecisionTelemetrySpan, TelemetryAttributes } from './types.js';
 
-const METRIC_DIMENSIONS = new Set([
-  'aiwg.decision.status', 'aiwg.decision.reason', 'aiwg.adapter.id', 'aiwg.adapter.version',
-  'gen_ai.request.model', 'gen_ai.response.model', 'aiwg.acceptance.disposition',
-  'aiwg.batch.mode', 'aiwg.cache.result', 'aiwg.review.status', 'aiwg.usage.cost_provenance',
-]);
+// Free-form adapter/model/version strings require an explicit deployment allowlist.
+// Merely bounding their length does not prevent a short user ID or body canary
+// from becoming a metric label.
+const DYNAMIC_DIMENSIONS = new Set(['aiwg.adapter.id', 'aiwg.adapter.version', 'gen_ai.request.model', 'gen_ai.response.model']);
+const FIXED_DIMENSIONS: Record<string, readonly string[]> = {
+  'aiwg.decision.status': ['success', 'abstained', 'error', 'unsupported', 'cancelled', 'completed', 'review', 'failed', 'succeeded', 'not-sent'],
+  'aiwg.decision.reason': ['none', 'invalid-input', 'invalid-definition', 'digest-mismatch', 'unauthorized',
+    'data-boundary-denied', 'unsupported-capability', 'executor-unavailable', 'invalid-output', 'low-confidence',
+    'missing-confidence', 'confidence-profile-mismatch', 'insufficient-information', 'timeout', 'network-transient',
+    'rate-limited', 'overloaded', 'service-error', 'authentication', 'invalid-request', 'budget-exhausted',
+    'cancelled', 'persistence-error', 'replay-mismatch', 'execution-uncertain', 'no-match', 'conflicting-outcomes', 'evaluation-failed'],
+  'aiwg.acceptance.disposition': ['act', 'review', 'reject', 'fallback'],
+  'aiwg.batch.mode': ['native', 'single', 'emulated'],
+  'aiwg.cache.result': ['hit', 'miss', 'stale', 'unknown'],
+  'aiwg.review.status': ['pending', 'approved', 'denied', 'escalated', 'expired'],
+  'aiwg.usage.cost_provenance': ['provider-fact', 'client-derived', 'estimate', 'unknown'],
+};
 
 export interface DecisionMetricPoint { name: string; value: number; dimensions: TelemetryAttributes }
 
@@ -61,14 +73,21 @@ export function recordDecisionSpanMetrics(span: DecisionTelemetrySpan, metrics: 
 
 export class BoundedDecisionMetrics {
   private readonly points: DecisionMetricPoint[] = [];
-  constructor(private readonly capacity = 1_000, private readonly maximumDimensionValues = 100) {
-    if (!Number.isSafeInteger(capacity) || capacity < 1 || !Number.isSafeInteger(maximumDimensionValues) || maximumDimensionValues < 1) throw new Error('Invalid metric bounds');
+  constructor(private readonly capacity = 1_000, private readonly maximumDimensionValues = 100,
+    private readonly trustedDimensionValues: Readonly<Record<string, readonly string[]>> = {}) {
+    if (!Number.isSafeInteger(capacity) || capacity < 1 || !Number.isSafeInteger(maximumDimensionValues) || maximumDimensionValues < 1
+      || Object.entries(trustedDimensionValues).some(([key, values]) => !DYNAMIC_DIMENSIONS.has(key)
+        || !Array.isArray(values) || values.length > capacity
+        || values.some(value => typeof value !== 'string' || value.length < 1 || value.length > 64))) {
+      throw new Error('Invalid metric bounds');
+    }
   }
 
   record(name: string, value: number, attributes: TelemetryAttributes): boolean {
     if (!METRIC_NAMES.has(name) || !Number.isFinite(value) || this.points.length >= this.capacity) return false;
-    const dimensions = Object.fromEntries(Object.entries(attributes).filter(([key, dimension]) => METRIC_DIMENSIONS.has(key)
-      && (typeof dimension === 'boolean' || typeof dimension === 'number' || typeof dimension === 'string' && dimension.length <= 64)));
+    const dimensions = Object.fromEntries(Object.entries(attributes).filter(([key, dimension]) => typeof dimension === 'string'
+      && (FIXED_DIMENSIONS[key]?.includes(dimension) === true
+        || DYNAMIC_DIMENSIONS.has(key) && this.trustedDimensionValues[key]?.includes(dimension) === true)));
     const signature = JSON.stringify(dimensions);
     const distinct = new Set(this.points.filter(point => point.name === name).map(point => JSON.stringify(point.dimensions)));
     if (!distinct.has(signature) && distinct.size >= this.maximumDimensionValues) return false;

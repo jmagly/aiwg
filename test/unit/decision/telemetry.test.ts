@@ -156,11 +156,22 @@ describe('decision telemetry foundation', () => {
   });
 
   it('enforces metric dimension allowlists and cardinality bounds', () => {
-    const metrics = new BoundedDecisionMetrics(10, 2);
+    const metrics = new BoundedDecisionMetrics(10, 2, { 'aiwg.adapter.id': ['jev', 'llm', 'third'] });
     expect(metrics.record('decision.duration', 1, { 'aiwg.run.id': 'unbounded-1', 'aiwg.adapter.id': 'jev' })).toBe(true);
     expect(metrics.record('decision.duration', 2, { 'aiwg.run.id': 'unbounded-2', 'aiwg.adapter.id': 'llm' })).toBe(true);
     expect(metrics.record('decision.duration', 3, { 'aiwg.adapter.id': 'third' })).toBe(false);
     expect(metrics.snapshot().every(point => !Object.hasOwn(point.dimensions, 'aiwg.run.id'))).toBe(true);
+    const untrusted = new BoundedDecisionMetrics();
+    expect(untrusted.record('decision.duration', 1, { 'gen_ai.request.model': 'PII-CANARY',
+      'aiwg.adapter.id': 'raw-user-id', 'aiwg.decision.reason': 'PII-CANARY' })).toBe(true);
+    expect(untrusted.snapshot()[0]?.dimensions).toEqual({});
+    const approved = new BoundedDecisionMetrics(10, 2, { 'gen_ai.request.model': ['approved-model'] });
+    approved.record('decision.duration', 1, { 'gen_ai.request.model': 'approved-model' });
+    approved.record('decision.duration', 1, { 'gen_ai.request.model': 'PII-CANARY' });
+    expect(approved.snapshot().map(point => point.dimensions)).toEqual([
+      { 'gen_ai.request.model': 'approved-model' }, {},
+    ]);
+    expect(() => new BoundedDecisionMetrics(10, 2, { 'aiwg.run.id': ['unsafe'] })).toThrow(/bounds/);
   });
 
   it('records only shared-request batch usage and fixed operational metric names', () => {

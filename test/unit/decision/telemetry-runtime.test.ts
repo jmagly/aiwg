@@ -126,7 +126,7 @@ describe('decision telemetry runtime golden traces', () => {
     const restored = restoreTelemetryTrace({ schemaVersion: 'decision-telemetry/v1', traceId: root.context.traceId, spans: [root] },
       { traceTtlMs: 1, debugSidecarTtlMs: 1, exportTtlMs: 1, linkedRecordTtlMs: 1, deletionEnabled: true, tombstonesEnabled: true, legalHold: false }, 10);
     expect({ remainingSpans: restored.spans.length, tombstoneReason: restored.tombstones?.at(-1)?.reason }).toEqual(golden.scenarios.deletion);
-    const metrics = new BoundedDecisionMetrics(10, 2);
+    const metrics = new BoundedDecisionMetrics(10, 2, { 'aiwg.adapter.id': ['a', 'b', 'c'] });
     const outcomes = [metrics.record('decision.duration', 1, { 'aiwg.adapter.id': 'a', 'aiwg.run.id': 'forbidden' }),
       metrics.record('decision.duration', 2, { 'aiwg.adapter.id': 'b' }), metrics.record('decision.duration', 3, { 'aiwg.adapter.id': 'c' })];
     expect({ acceptedPoints: outcomes.filter(Boolean).length, rejectedPoints: outcomes.filter(value => !value).length,
