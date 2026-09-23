@@ -70,7 +70,8 @@ export function auditGraphEvidence(graph: DecisionGraph, plan: GraphPlan, observ
     if (obs.costMicros === null && (!Number.isSafeInteger(unknownCostBoundMicros) || unknownCostBoundMicros! < 1)) throw new DecisionGraphError('unknown cost without bound');
     if (typeof obs.used !== 'boolean' || !['ok', 'abstained', 'error', 'unsupported', 'cancelled'].includes(obs.status)) throw new DecisionGraphError('invalid observation');
     const names = graph.nodes.find(n => n.id === obs.node)!.output;
-    if (Object.keys(obs.output).some(name => !names.includes(name))) throw new DecisionGraphError('undeclared observation output');
+    if (!obs.output || Array.isArray(obs.output) || typeof obs.output !== 'object' ||
+        Object.keys(obs.output).some(name => !names.includes(name))) throw new DecisionGraphError('undeclared observation output');
     byId.set(obs.node, obs);
   }
   const totals = { attempts: 0, tokens: 0, costMicros: 0, durationMs: 0 };
@@ -81,7 +82,7 @@ export function auditGraphEvidence(graph: DecisionGraph, plan: GraphPlan, observ
     const input: GraphEvidenceReceipt['stages'][number]['nodes'][number]['input'] = {};
     for (const edge of plan.edges.filter(e => e.to === id)) {
       const source = byId.get(edge.from);
-      if (!source || source.status !== 'ok' || !Object.hasOwn(source.output, edge.source)) {
+      if (!source || source.status !== 'ok' || !source.used || !Object.hasOwn(source.output, edge.source)) {
         outcome = 'incomplete-evidence'; continue;
       }
       input[edge.destination] = { sourceNode: edge.from, sourceResultDigest: digest(source.output), value: source.output[edge.source] };
