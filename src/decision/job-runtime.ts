@@ -4,7 +4,7 @@ import type { DecisionTelemetryHook } from './telemetry/types.js';
 import { JobConflictError, type JobScope, type JobSnapshot, type JobStore } from './job-store.js';
 
 /** Offline lifecycle only: no provider calls or action execution. Scope comes from trusted authentication. */
-type JobOperation = 'submit' | 'transition' | 'retry' | 'cancel' | 'reconcile' | 'expire' | 'delete';
+type JobOperation = 'submit' | 'transition' | 'retry' | 'cancel' | 'reconcile' | 'expire' | 'delete' | 'hold' | 'release-hold';
 export class DecisionJobRuntime {
   constructor(private readonly store: JobStore, private readonly now: () => number = Date.now,
     private readonly telemetry?: DecisionTelemetryHook) {}
@@ -47,7 +47,7 @@ export class DecisionJobRuntime {
   async advance(actor: JobScope, id: string, expected: JobSnapshot, next: DecisionJob, operation: JobOperation = 'transition'): Promise<JobSnapshot> {
     this.authorize(actor, expected.job.scope);
     if (expected.job.id !== id || this.now() >= expected.job.expiresAtEpochMs) throw new JobConflictError('Job expired or mismatched');
-    const proposed = { revision: expected.revision + 1, job: structuredClone(next), deleted: false };
+    const proposed = { revision: expected.revision + 1, job: structuredClone(next), deleted: false, legalHold: expected.legalHold ?? false };
     if (!await this.store.compareAndSwap(expected, proposed)) throw new JobConflictError('Concurrent job update');
     await this.trace(proposed, operation);
     return proposed;
@@ -109,15 +109,26 @@ export class DecisionJobRuntime {
       }
     });
     recount(next);
-    const proposed = { revision: previous.revision + 1, job: next, deleted: false };
+    const proposed = { revision: previous.revision + 1, job: next, deleted: false, legalHold: previous.legalHold ?? false };
     if (!await this.store.compareAndSwap(previous, proposed)) throw new JobConflictError('Concurrent job update');
     await this.trace(proposed, 'expire');
     return proposed;
   }
+  async setLegalHold(actor: JobScope, id: string, enabled: boolean): Promise<JobSnapshot | null> {
+    if (typeof enabled !== 'boolean') throw new JobConflictError('Invalid legal hold');
+    const previous = await this.poll(actor, id);
+    if (!previous) return null;
+    if (Boolean(previous.legalHold) === enabled) return previous;
+    const next = { ...previous, revision: previous.revision + 1, legalHold: enabled };
+    if (!await this.store.compareAndSwap(previous, next)) throw new JobConflictError('Concurrent job update');
+    await this.trace(next, enabled ? 'hold' : 'release-hold');
+    return next;
+  }
   async remove(actor: JobScope, id: string): Promise<boolean> {
     const previous = await this.poll(actor, id);
     if (!previous) return false;
-    const next = { ...previous, revision: previous.revision + 1, deleted: true };
+    if (previous.legalHold) throw new JobConflictError('Legal hold prohibits deletion');
+    const next = { ...previous, revision: previous.revision + 1, deleted: true, legalHold: false };
     if (!await this.store.compareAndSwap(previous, next)) throw new JobConflictError('Concurrent job update');
     await this.trace(next, 'delete');
     return true;

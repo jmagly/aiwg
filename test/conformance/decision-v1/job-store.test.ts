@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -42,6 +42,17 @@ describe('JOB durable offline lifecycle', () => {
     overflow.items = Array.from({ length: 1001 }, (_, index) => ({ ...structuredClone(jobs[0]!.items[0]!), id: `item${index}` })); recount(overflow);
     await expect(runtime.submit(overflow, scope)).rejects.toThrow();
     expect(await runtime.poll(other, 'job0')).toBeNull();
+  });
+  it('uses owner-only journal modes and rejects a corrupted revision instead of using stale state', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-jobs-integrity-'));
+    directories.push(directory);
+    const store = new FileJobStore(directory);
+    await store.acquire(fixture());
+    const [name] = (await readdir(directory)).filter(file => file.endsWith('.json'));
+    expect(name).toBeDefined();
+    expect((await stat(join(directory, name!))).mode & 0o777).toBe(0o600);
+    await writeFile(join(directory, name!), '{"invalid":true}');
+    await expect(store.read(scope, 'jobA')).rejects.toThrow();
   });
   it('acquires idempotently, rejects identity mismatch, and survives store re-instantiation', async () => {
     for (const store of await stores()) {
@@ -111,6 +122,26 @@ describe('JOB durable offline lifecycle', () => {
       const altered = structuredClone(existing.job); altered.state = 'queued';
       await expect(runtime.advance(actor, 'jobA', existing, altered)).rejects.toThrow(JobConflictError);
       expect((await runtime.poll(scope, 'jobA'))?.revision).toBe(1);
+    }
+  });
+  it('persists legal hold across restart and denies unauthorized hold, deletion and ID reuse', async () => {
+    for (const store of await stores()) {
+      const runtime = new DecisionJobRuntime(store, () => 20);
+      const submitted = await runtime.submit(fixture(), scope);
+      expect(await runtime.setLegalHold(other, 'jobA', true)).toBeNull();
+      const held = (await runtime.setLegalHold(scope, 'jobA', true))!;
+      expect(held.legalHold).toBe(true);
+      await expect(runtime.remove(scope, 'jobA')).rejects.toThrow(JobConflictError);
+      expect(await runtime.setLegalHold(scope, 'jobA', true)).toEqual(held);
+      if (store instanceof FileJobStore) {
+        const restarted = new DecisionJobRuntime(new FileJobStore(directories.at(-1)!), () => 20);
+        await expect(restarted.remove(scope, 'jobA')).rejects.toThrow(JobConflictError);
+        expect((await restarted.poll(scope, 'jobA'))?.legalHold).toBe(true);
+      }
+      await expect(runtime.advance(scope, 'jobA', submitted, { ...submitted.job, state: 'queued' })).rejects.toThrow(JobConflictError);
+      await runtime.setLegalHold(scope, 'jobA', false);
+      expect(await runtime.remove(scope, 'jobA')).toBe(true);
+      expect((await runtime.submit(fixture(), scope)).deleted).toBe(true);
     }
   });
   it('keeps requested order, paginates without mutation, rejects stale CAS and tombstones', async () => {

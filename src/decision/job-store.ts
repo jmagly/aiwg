@@ -5,7 +5,7 @@ import { canonicalJson } from '../security/artifact-trust.js';
 import { assertJobTransition, validateDecisionJob, type DecisionJob } from './job-contract.js';
 
 export type JobScope = DecisionJob['scope'];
-export interface JobSnapshot { revision: number; job: DecisionJob; deleted: boolean }
+export interface JobSnapshot { revision: number; job: DecisionJob; deleted: boolean; legalHold?: boolean }
 export class JobConflictError extends Error {}
 export interface JobStore {
   acquire(job: DecisionJob): Promise<{ owner: boolean; snapshot: JobSnapshot }>;
@@ -30,9 +30,13 @@ function assertIdentity(initial: DecisionJob, existing: DecisionJob): void {
     throw new JobConflictError('Job ID belongs to a different immutable request');
 }
 function validateNext(previous: JobSnapshot, next: JobSnapshot): void {
-  if (previous.deleted || next.revision !== previous.revision + 1 || (next.deleted && next.job.state !== previous.job.state))
+  if (previous.deleted || next.revision !== previous.revision + 1 || (next.legalHold !== undefined && typeof next.legalHold !== 'boolean') ||
+      (next.deleted && (previous.legalHold || next.legalHold || next.job.state !== previous.job.state)))
     throw new JobConflictError('Invalid job revision or tombstone');
-  if (next.deleted) {
+  if (Boolean(previous.legalHold) !== Boolean(next.legalHold)) {
+    if (next.deleted || canonicalJson(previous.job) !== canonicalJson(next.job))
+      throw new JobConflictError('Legal hold cannot change during job transition');
+  } else if (next.deleted) {
     if (canonicalJson(previous.job) !== canonicalJson(next.job)) throw new JobConflictError('Tombstone changed job');
   } else assertJobTransition(previous.job, next.job);
 }
@@ -45,7 +49,7 @@ export class MemoryJobStore implements JobStore {
     const id = key(job.scope, job.id);
     const existing = this.records.get(id);
     if (existing) { assertIdentity(job, existing.job); return { owner: false, snapshot: copy(existing) }; }
-    const snapshot = { revision: 1, job: structuredClone(job), deleted: false };
+    const snapshot = { revision: 1, job: structuredClone(job), deleted: false, legalHold: false };
     this.records.set(id, snapshot); return { owner: true, snapshot: copy(snapshot) };
   }
   async read(scope: JobScope, id: string): Promise<JobSnapshot | null> {
@@ -65,7 +69,7 @@ export class FileJobStore implements JobStore {
   constructor(private readonly directory: string) {}
   async acquire(job: DecisionJob): Promise<{ owner: boolean; snapshot: JobSnapshot }> {
     validateFirst(job);
-    const snapshot = { revision: 1, job: structuredClone(job), deleted: false };
+    const snapshot = { revision: 1, job: structuredClone(job), deleted: false, legalHold: false };
     if (await this.publish(snapshot)) return { owner: true, snapshot: copy(snapshot) };
     const existing = await this.read(job.scope, job.id);
     if (!existing) throw new JobConflictError('Job revision unavailable');
@@ -86,7 +90,7 @@ export class FileJobStore implements JobStore {
       if (snapshot.revision !== revision || key(snapshot.job.scope, snapshot.job.id) !== key(scope, id))
         throw new JobConflictError('Job scope substitution');
       if (previous) validateNext(previous, snapshot);
-      else { validateFirst(snapshot.job); if (snapshot.deleted) throw new JobConflictError('Invalid initial tombstone'); }
+      else { validateFirst(snapshot.job); if (snapshot.deleted || snapshot.legalHold) throw new JobConflictError('Invalid initial snapshot'); }
       previous = snapshot;
     }
     return previous ? copy(previous) : null;
