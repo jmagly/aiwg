@@ -4,7 +4,7 @@
 **Date:** 2026-09-22  
 **Parent:** [#223](https://github.com/jmagly/aiwg/issues/223)  
 **This issue:** [#224](https://github.com/jmagly/aiwg/issues/224)  
-**Children:** #225–#231 (registries, writer, context bridge, sessions, hooks/MCP, status/doctor/docs, Ralph adapter,
+**Children:** #225–#231 (registries, writer, context bridge, hooks/MCP, status/doctor/docs, Ralph adapter,
 stable promotion)  
 **Related:** #222 (sessions export-first), #232–#238 (session catalog, schemas, allowlists, smoke harness)
 
@@ -32,19 +32,40 @@ Claude/Codex skill-import compatibility is a bonus (`muse skills import --from c
 |---|---|
 | Canonical ID | `muse` |
 | Display name | Muse Code |
-| Aliases | **none** (no `muse-spark`, no bare `spark`, no `meta`) |
+| Aliases | **none** (no `muse-spark`, no `muse-code`, no bare `spark`, no `meta`) |
 | Initial status | `experimental` |
 
 `muse` does not collide with any music-product surface; no qualified alternative is needed. `muse-spark` is deliberately
 **not** a provider id: Muse Spark names the underlying model family, not the operator-facing coding-agent surface this
 provider deploys into. Bare `spark` and `meta` are likewise rejected as ambiguous (model family / vendor, respectively).
-`AIWG_PROVIDER=muse` always means Muse Code, the terminal/CI coding agent.
+`AIWG_PROVIDER=muse` always means Muse Code, the terminal/CI coding agent. `muse-code` is likewise rejected as a
+provider id or alias: it buys nothing over the canonical `muse` (unlike genuine shorthands such as `dsh` or `agy`)
+and would split `--provider` documentation across two spellings. Child issues must not introduce it without an ADR
+amendment.
+
+Detection stays fail-closed: the registry's `detection` block claims no `env` or `process` signals for `muse`
+until a distinctive one is evidenced — a bare `muse` process name collides with unrelated software and must not
+be treated as Muse Code evidence. The documented CLI executable name is `muse` (used by provider-inventory and
+the Ralph/smoke harnesses); that is a fact about the binary, not a detection claim.
+
+### Capability matrix posture
+
+Until product evidence lands, the matrix row claims only what is documented: `skills` native (project
+`.agents/skills` + XDG user root), `rules` via the `AGENTS.md` bridge, `mcp: true` (native `mcp_servers` in
+`~/.config/muse/settings.json`), `deploy_target: mixed`, `daemon_tier: unsupported`. `cron`, `tasks`,
+`behaviors`, `mission_control`, and `daemon` stay `false` (or `aiwg-mc` emulation where peers use it).
+In particular, subagent fan-out does not imply native `agent_teams` — the grok-build row documents that
+independent subagents are not team orchestration — so #225 must not set `agent_teams: true` without a
+documented team-orchestration contract. `hook_wiring` records `context_file: AGENTS.md` and project
+`hook_file: .muse/hooks.json`; `at_link_support` stays `false` pending evidence.
 
 ### Scope semantics
 
 1. **Project (default):** maintain canonical project context plus a discover-first `AGENTS.md` bridge (see Context below).
    Do **not** invent a project `.muse/skills/` tree or write foreign provider paths.
 2. **`--scope user`:** additive project + user mirror. User skill writes target the resolved XDG user root (see Skill roots).
+   PR2/#226 must add a `USER_SCOPE_PATHS.muse` entry resolving `$XDG_CONFIG_HOME/muse/skills` at deploy time —
+   without it, the `--scope user` gate rejects the provider outright.
 3. **`--global`:** existing AIWG no-project-deploy bootstrap (stage → user deploy → lightweight project context).
    **Not** identical to `--scope user`.
 
@@ -56,9 +77,11 @@ provider deploys into. Bare `spark` and `meta` are likewise rejected as ambiguou
 | User | `$XDG_CONFIG_HOME/muse/skills` (default XDG resolution: `~/.config/muse/skills` when `XDG_CONFIG_HOME` is unset) |
 
 The user root resolves at deploy time: honor a set, absolute `XDG_CONFIG_HOME`; otherwise fall back to `~/.config`.
-A `~/.agents/skills` mirror is permitted only as an explicitly documented, operator-opt-in policy — never as a silent
-default and never as a second source of truth alongside the XDG root. Until the mirror policy is documented (PR2/#226),
-deployers must not write outside the two roots above.
+Muse natively *reads* `~/.agents/skills` in addition to the XDG root, so AIWG must never *write* there silently:
+a second AIWG-owned copy would make Muse list every kernel skill twice (the Codex #766 regression). An
+operator-opt-in `~/.agents/skills` write policy is permitted only when explicitly documented — never as a silent
+default and never as a second AIWG source of truth alongside the XDG root. Until the mirror policy is documented
+(PR2/#226), deployers must not write outside the two roots above.
 
 ### Fail-closed path policy
 
@@ -70,7 +93,8 @@ Muse Code's user skill root above is the only sanctioned user home for this prov
 
 ### Context: discover-first `AGENTS.md`
 
-Muse Code natively prefers `AGENTS.md` over `CLAUDE.md` at each directory level. The provider therefore ships a
+Muse Code natively prefers `AGENTS.md` over `CLAUDE.md` at each directory level, and loads project `AGENTS.md`
+only after the workspace is explicitly trusted (first-run trust prompt). The provider therefore ships a
 discover-first `AGENTS.md` bridge as its primary context surface — no `CLAUDE.md` shim, no foreign-provider context file.
 Bridge text instructs agents to run `aiwg discover "<intent>"` then `aiwg show <type> <name>` before improvising, and
 stores artifact **references/summaries** in context — never full bodies. Full bridge content and regeneration land in
@@ -80,9 +104,13 @@ PR3/#227; this ADR locks only the surface choice (`AGENTS.md`, discover-first).
 
 Session catalog support is **export-first** until a native log root is evidenced on disk (#222):
 
-- The adapter ingests only explicit `muse export` / `/export trajectory` JSON documents supplied by the operator.
+- The adapter ingests only explicit `muse export` / `/export trajectory` JSON documents supplied by the operator,
+  gated on the document's `export_schema_version` major (currently `1`); unknown majors fail closed, as with
+  peer native-export adapters.
 - Auto-discovery must not scrape unauthorized homes; no `~/.muse` (or similar) root is assumed without product evidence.
 - A future evidence-gated `--muse-root` discover path (analogous to `--codex-root`) remains the route to native discovery.
+  The documented candidate native root is `$XDG_DATA_HOME/muse/sessions/YYYY/MM/DD/<session-id>/session.jsonl`
+  (default `~/.local/share/muse/sessions`); PR B of #222 verifies it on disk before any root is authorized.
 
 Session adapter implementation itself is out of scope here (Phase 4 / #222, catalog track #232).
 
