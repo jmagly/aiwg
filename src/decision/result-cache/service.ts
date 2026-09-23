@@ -20,13 +20,17 @@ export class DecisionResultCache {
     const key = digestResultCacheIdentity(request.identity); const existing = await this.store.read(request.actor, key);
     if (existing && reusable(existing, request, now)) {
       this.emit({ event: 'hit', operationId, reason: 'fresh-compatible-entry', saved: savings(existing.evidence) });
-      return { evidence: existing.evidence, receipt: receipt('cache-hit', request.callerInvocationId, existing, existing.evidence, now, false) };
+      return { evidence: structuredClone(existing.evidence), receipt: receipt('cache-hit', request.callerInvocationId, existing, existing.evidence, now, false) };
     }
     if (existing) { this.emit({ event: 'stale', operationId, reason: 'expired-or-policy-incompatible' }); await this.store.invalidate(request.actor, key, existing.entryId); }
     else this.emit({ event: 'miss', operationId, reason: 'no-entry' });
-    const flightKey = `${request.actor.tenantId}\0${request.actor.projectId}\0${request.actor.workspaceId}\0${key}`;
+    // A flight must never cross an authorization or freshness-policy boundary.
+    const flightKey = JSON.stringify([request.actor.tenantId, request.actor.projectId,
+      request.actor.workspaceId, request.actor.subjectId, [...request.actor.permissions].sort(),
+      key, request.policy.policyVersion, request.policy.sensitivity, request.policy.ttlMs,
+      request.policy.negative]);
     const pending = this.flights.get(flightKey);
-    if (pending) { this.emit({ event: 'single-flight', operationId, reason: 'joined' }); const completed = await pending; return { evidence: completed.evidence, receipt: receipt(completed.entry ? 'cache-hit' : 'cache-miss-fill', request.callerInvocationId, completed.entry, completed.evidence, now, false) }; }
+    if (pending) { this.emit({ event: 'single-flight', operationId, reason: 'joined' }); const completed = await pending; return { evidence: structuredClone(completed.evidence), receipt: receipt(completed.entry ? 'cache-hit' : 'cache-miss-fill', request.callerInvocationId, completed.entry, completed.evidence, now, false) }; }
     const promise = (async (): Promise<{ evidence: CachedResultEvidence; entry: ResultCacheEntry | null }> => {
       const evidence = await fill();
       const ttl = cacheableEvidence(evidence, request.policy) && modelEvidenceApproved(request.identity, evidence) ? (evidence.status === 'success' ? request.policy.ttlMs : request.policy.negative!.ttlMs) : 0;
@@ -38,7 +42,7 @@ export class DecisionResultCache {
     this.flights.set(flightKey, promise);
     try {
       const completed = await promise;
-      return { evidence: completed.evidence, receipt: receipt('cache-miss-fill', request.callerInvocationId, completed.entry, completed.evidence, now, true) };
+      return { evidence: structuredClone(completed.evidence), receipt: receipt('cache-miss-fill', request.callerInvocationId, completed.entry, completed.evidence, now, true) };
     } finally { this.flights.delete(flightKey); }
   }
   private async bypass(request: ResultCacheRequest, fill: ResultCacheFill, now: number, operationId: string, reason: string): Promise<ResultCacheOutcome> { this.emit({ event: 'bypass', operationId, reason }); const evidence = await fill(); return { evidence, receipt: receipt('bypass', request.callerInvocationId, null, evidence, now, true) }; }

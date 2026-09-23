@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { link, mkdir, open, readFile, rename, rm } from 'node:fs/promises';
+import { link, mkdir, open, readFile, rm, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../../security/artifact-trust.js';
 import { assertResultCacheEntry } from './integrity.js';
@@ -50,6 +50,6 @@ export class FileResultCacheStore implements ResultCacheStore {
     try { const entry = JSON.parse(await readFile(this.path(actor, key), 'utf8')) as ResultCacheEntry; authorize(actor, permission, entry.scope); assertResultCacheEntry(entry); if (entry.keyDigest !== key) throw new Error('Cache key substitution'); return entry; }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
   }
-  private async remove(actor: ResultCacheActor, key: `sha256:${string}`): Promise<boolean> { try { await rename(this.path(actor, key), `${this.path(actor, key)}.tombstone-${randomUUID()}`); return true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false; throw error; } }
+  private async remove(actor: ResultCacheActor, key: `sha256:${string}`): Promise<boolean> { try { await unlink(this.path(actor, key)); return true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false; throw error; } }
   private path(actor: ResultCacheActor, key: string): string { return join(this.directory, `${createHash('sha256').update(mapKey(actor, key)).digest('hex')}.json`); }
 }

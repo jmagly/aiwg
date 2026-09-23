@@ -27,6 +27,30 @@ describe('semantic decision result cache', () => {
   });
   it('treats expiry as stale and refreshes', async () => { const events: string[] = []; const fill = vi.fn(async () => evidence()); const cache = new DecisionResultCache(new MemoryResultCacheStore(), e => events.push(e.event)); const req = { actor, policy, identity: identity(), callerInvocationId: 'c' }; await cache.evaluate({ ...req, nowEpochMs: 1_000 }, fill); await cache.evaluate({ ...req, nowEpochMs: 2_001 }, fill); expect(fill).toHaveBeenCalledTimes(2); expect(events).toContain('stale'); });
   it('collapses concurrent cold fills and correlates both callers', async () => { let release!: () => void; const gate = new Promise<void>(r => { release = r; }); const fill = vi.fn(async () => { await gate; return evidence(); }); const events: string[] = []; const cache = new DecisionResultCache(new MemoryResultCacheStore(), e => events.push(e.event)); const a = cache.evaluate({ actor, policy, identity: identity(), callerInvocationId: 'a', nowEpochMs: 1_000 }, fill); const b = cache.evaluate({ actor, policy, identity: identity(), callerInvocationId: 'b', nowEpochMs: 1_000 }, fill); release(); const [one, two] = await Promise.all([a, b]); expect(fill).toHaveBeenCalledOnce(); expect([one.receipt.callerInvocationId, two.receipt.callerInvocationId]).toEqual(['a', 'b']); expect(events).toContain('single-flight'); });
+  it('does not join flights across different policy or actor authorization', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const fill = vi.fn(async () => { await gate; return evidence(); });
+    const cache = new DecisionResultCache(new MemoryResultCacheStore());
+    const first = cache.evaluate({ actor, policy, identity: identity(), callerInvocationId: 'a', nowEpochMs: 1_000 }, fill);
+    const second = cache.evaluate({ actor: { ...actor, subjectId: 'different' }, policy: { ...policy, policyVersion: 'new' }, identity: identity(), callerInvocationId: 'b', nowEpochMs: 1_000 }, fill);
+    release(); await Promise.all([first, second]);
+    expect(fill).toHaveBeenCalledTimes(2);
+  });
+  it('does not share mutable result objects between joined callers', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    let joined!: () => void;
+    const joinedFlight = new Promise<void>(resolve => { joined = resolve; });
+    const cache = new DecisionResultCache(new MemoryResultCacheStore(), event => { if (event.event === 'single-flight') joined(); });
+    const req = { actor, policy, identity: identity(), callerInvocationId: 'a', nowEpochMs: 1_000 };
+    const first = cache.evaluate(req, async () => { await gate; return evidence(); });
+    const second = cache.evaluate({ ...req, callerInvocationId: 'b' }, async () => { throw new Error('duplicate fill'); });
+    await joinedFlight; release(); const [one, two] = await Promise.all([first, second]);
+    expect(one.evidence).not.toBe(two.evidence);
+    (one.evidence!.result as { answer: string }).answer = 'tampered';
+    expect(two.evidence?.result).toEqual({ answer: 'yes' });
+  });
   it('does not publish a crashed or execution-uncertain fill', async () => { const store = new MemoryResultCacheStore(); const cache = new DecisionResultCache(store); await expect(cache.evaluate({ actor, policy, identity: identity(), callerInvocationId: 'c', nowEpochMs: 1_000 }, async () => { throw new Error('crash'); })).rejects.toThrow('crash'); expect(await store.read(actor, digestResultCacheIdentity(identity()))).toBeNull(); const unknown = evidence({ status: 'terminal-failure', failureReason: 'execution-uncertain' }); await cache.evaluate({ actor, policy, identity: identity(), callerInvocationId: 'c', nowEpochMs: 1_000 }, async () => unknown); expect(await store.read(actor, digestResultCacheIdentity(identity()))).toBeNull(); });
   it('only negative-caches configured deterministic invalid input', async () => { const store = new MemoryResultCacheStore(); const cache = new DecisionResultCache(store); const negativePolicy = { ...policy, negative: { enabled: true, ttlMs: 50, reasons: ['invalid-input' as const] } }; const fill = vi.fn(async () => evidence({ status: 'terminal-failure', failureReason: 'invalid-input' })); await cache.evaluate({ actor, policy: negativePolicy, identity: identity(), callerInvocationId: 'a', nowEpochMs: 1_000 }, fill); await cache.evaluate({ actor, policy: negativePolicy, identity: identity(), callerInvocationId: 'b', nowEpochMs: 1_010 }, fill); expect(fill).toHaveBeenCalledOnce(); });
   it('bypasses expired and unknown alias compatibility', async () => { const fill = vi.fn(async () => evidence()); const cache = new DecisionResultCache(new MemoryResultCacheStore()); const alias = identity({ modelCompatibility: { mode: 'alias', alias: 'latest', snapshotId: 's1', approvedActualModels: ['model-v1'], validUntilEpochMs: 999 } }); const out = await cache.evaluate({ actor, policy, identity: alias, callerInvocationId: 'c', nowEpochMs: 1_000 }, fill); expect(out.receipt.disposition).toBe('bypass'); });
