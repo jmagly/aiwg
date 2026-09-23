@@ -42,7 +42,7 @@ const reject = (message: string): never => { throw new DecisionJobContractError(
 const transitions: Record<JobState, readonly JobState[]> = {
   validating: ['queued', 'failed', 'canceled', 'expired'],
   queued: ['running', 'cancel-requested', 'expired', 'failed'],
-  running: ['partially-completed', 'completed', 'cancel-requested', 'expired', 'failed'],
+  running: ['running', 'partially-completed', 'completed', 'cancel-requested', 'expired', 'failed'],
   'partially-completed': ['partially-completed', 'completed', 'cancel-requested', 'expired', 'failed'],
   'cancel-requested': ['canceled', 'partially-completed', 'failed', 'expired'],
   completed: [], canceled: [], expired: [], failed: [],

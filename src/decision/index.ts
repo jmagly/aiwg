@@ -10,6 +10,7 @@ export * from './batch.js';
 export * from './job-contract.js';
 export * from './job-store.js';
 export * from './job-runtime.js';
+export * from './job-worker.js';
 export * from './batch-benchmark.js';
 export * from './scheduler.js';
 export * from './admission.js';
