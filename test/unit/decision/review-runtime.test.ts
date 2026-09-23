@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -153,6 +153,9 @@ describe('durable decision review runtime', () => {
     const changedExpiry = structuredClone(approved);
     changedExpiry.expiresAtEpochMs += 1000;
     expect(() => assertImmutable(created, changedExpiry)).toThrow(/expiresAtEpochMs/);
+    const changedRetention = structuredClone(approved);
+    changedRetention.retentionUntilEpochMs = 40_000;
+    expect(() => assertImmutable(created, changedRetention)).toThrow(/retentionUntilEpochMs/);
     const changedHistory = structuredClone(approved);
     changedHistory.decisions[0]!.rationale = 'forged';
     expect(() => validateReview(changedHistory)).toThrow(/Decision event mismatch/);
@@ -313,6 +316,57 @@ describe('durable decision review runtime', () => {
     expect(JSON.stringify(stored)).not.toContain('private-test-payload');
   });
 
+  it('HITL-RETENTION keeps a signed ID marker while physically purging expired unheld payloads', async () => {
+    const time = { value: 1000 }; const h = await harness(time);
+    await h.service.create(scope(actor('alice', ['requester'])), input(time.value, {
+      retentionUntilEpochMs: 11_000, presentation: { summary: 'synthetic-purge-canary' },
+    }));
+    const schema = JSON.parse(await readFile(new URL('../../../schemas/decision/DecisionReview.schema.json', import.meta.url), 'utf8'));
+    expect(new Ajv2020({ strict: false }).validate(schema, await h.store.read('review-1', 'tenant-a', 'project-a'))).toBe(true);
+    await h.service.tombstone(scope(actor('operator')), 'review-1', 'retention');
+    await expect(h.service.purge(scope(actor('operator')), 'review-1')).rejects.toThrow(/retention/);
+    expect((await readdir(h.directory)).filter(name => name.endsWith('.json'))).toHaveLength(2);
+    time.value = 11_000;
+    const marker = await h.service.purge(scope(actor('operator')), 'review-1');
+    expect(marker).toMatchObject({ lastRevision: 2, reviewIdDigest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/) });
+    const names = await readdir(h.directory);
+    expect(names).toHaveLength(1);
+    expect(names[0]).toMatch(/\.purged\.json$/);
+    expect(await readFile(`${h.directory}/${names[0]}`, 'utf8')).not.toContain('synthetic-purge-canary');
+    const restarted = new DecisionReviewService(new FileDecisionReviewStore(h.directory, new Uint8Array(32).fill(7)),
+      h.authorization, () => time.value);
+    expect(await restarted.read(scope(actor('auditor')), 'review-1')).toBeNull();
+    expect(await restarted.list(scope(actor('auditor')))).toEqual([]);
+    expect(await restarted.purge(scope(actor('operator')), 'review-1')).toEqual(marker);
+    await expect(restarted.create(scope(actor('alice', ['requester'])), input(time.value, { expiresAtEpochMs: 20_000 })))
+      .rejects.toThrow(/already exists/);
+    const path = `${h.directory}/${names[0]}`;
+    const tampered = JSON.parse(await readFile(path, 'utf8'));
+    tampered.receipt.lastRevision = 3;
+    await writeFile(path, JSON.stringify(tampered));
+    await expect(restarted.purge(scope(actor('operator')), 'review-1')).rejects.toThrow(/integrity/);
+  });
+
+  it('HITL-RETENTION-CRASH resumes physical erasure after a signed-marker boundary failure', async () => {
+    const time = { value: 1000 }; const h = await harness(time);
+    await h.service.create(scope(actor('alice', ['requester'])), input(time.value, {
+      retentionUntilEpochMs: 11_000, presentation: { summary: 'synthetic-erasure-canary' },
+    }));
+    await h.service.tombstone(scope(actor('operator')), 'review-1', 'retention');
+    time.value = 11_000;
+    const crashingStore = new FileDecisionReviewStore(h.directory, new Uint8Array(32).fill(7), {
+      fault: () => { throw new Error('synthetic crash after marker fsync'); },
+    });
+    const crashingService = new DecisionReviewService(crashingStore, h.authorization, () => time.value);
+    await expect(crashingService.purge(scope(actor('operator')), 'review-1')).rejects.toThrow(/synthetic crash/);
+    expect(await h.service.read(scope(actor('auditor')), 'review-1')).toBeNull();
+    expect((await readdir(h.directory)).filter(name => /\.r\d+\.json$/.test(name))).toHaveLength(2);
+    expect((await h.service.purge(scope(actor('operator')), 'review-1')).lastRevision).toBe(2);
+    const names = await readdir(h.directory);
+    expect(names).toHaveLength(1);
+    expect(await readFile(`${h.directory}/${names[0]}`, 'utf8')).not.toContain('synthetic-erasure-canary');
+  });
+
   it('filters list/read/export without object enumeration and applies tombstone/legal hold lifecycle', async () => {
     const hidden = new Set(['review-hidden']);
     const h = await harness({ value: 1_000 }, { authorize: (_scope, operation, review) => {
@@ -331,6 +385,7 @@ describe('durable decision review runtime', () => {
     await h.service.setLegalHold(scope(actor('operator')), 'review-1', false, 'case closed');
     const tombstone = await h.service.delete(scope(actor('operator')), 'review-1', 'retention elapsed');
     expect(tombstone).toMatchObject({ status: 'tombstoned', lifecycle: { legalHold: false, tombstoneReason: 'retention elapsed' } });
+    await expect(h.service.purge(scope(actor('operator')), 'review-1')).rejects.toThrow(/retention/);
     expect(await h.service.read(scope(actor('auditor')), 'review-1')).toBeNull();
     expect(await h.service.list(scope(actor('auditor')))).toEqual([]);
     expect((await h.service.list(scope(actor('auditor')), { includeTombstoned: true })).map(review => review.reviewId)).toEqual(['review-1']);

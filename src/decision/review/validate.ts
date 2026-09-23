@@ -10,6 +10,10 @@ export function reviewDigest(value: unknown): `sha256:${string}` {
   return `sha256:${createHash('sha256').update(canonicalJson(value)).digest('hex')}`;
 }
 
+export function reviewOperatorEventId(reviewId: string, sequence: number): string {
+  return reviewDigest({ reviewId, sequence, schema: 'operator-decision.aiwg.io/v1' });
+}
+
 const digestPattern = /^sha256:[a-f0-9]{64}$/;
 const restrictedKey = /(?:password|credential|api.?key|secret|private.?reasoning|provider.?body|raw.?state|vault.?locator)/i;
 const restrictedValue = /(?:vault:\/\/|\b(?:sk-(?:test-)?[a-z0-9_-]{12,}|ghp_[a-z0-9]{12,})\b)/i;
@@ -40,7 +44,9 @@ export function validateReview(review: DecisionReview): void {
     || !digestPattern.test(review.sourceReceipt.digest) || !digestPattern.test(review.continuation.tokenDigest)
     || !Number.isSafeInteger(review.quorum) || review.quorum < 1 || review.quorum > 16
     || !Number.isSafeInteger(review.createdAtEpochMs) || review.updatedAtEpochMs < review.createdAtEpochMs
-    || review.expiresAtEpochMs <= review.createdAtEpochMs || !Array.isArray(review.proposals) || !review.proposals.length
+    || review.expiresAtEpochMs <= review.createdAtEpochMs ||
+    (review.retentionUntilEpochMs !== undefined && (!Number.isSafeInteger(review.retentionUntilEpochMs) || review.retentionUntilEpochMs < review.expiresAtEpochMs)) ||
+    !Array.isArray(review.proposals) || !review.proposals.length
     || !Array.isArray(review.events) || !review.events.length) throw new ReviewIntegrityError('Invalid review envelope');
   if (review.lifecycle && (typeof review.lifecycle.legalHold !== 'boolean'
     || (review.lifecycle.tombstonedAtEpochMs !== undefined && !Number.isSafeInteger(review.lifecycle.tombstonedAtEpochMs)))) {
@@ -62,7 +68,8 @@ export function validateReview(review: DecisionReview): void {
   review.events.forEach(event => { assertReviewProjection(event.actor); assertReviewProjection(event.rationale); });
   if (review.effectReceipt) assertReviewProjection(review.effectReceipt.result);
   review.events.forEach((event, index) => {
-    if (event.sequence !== index + 1 || !legalEvents.has(event.type) || event.proposalVersion < 1 || event.proposalVersion > review.proposals.length) {
+    if (event.sequence !== index + 1 || !legalEvents.has(event.type) || event.proposalVersion < 1 || event.proposalVersion > review.proposals.length ||
+        (event.operatorDecisionEventId && event.operatorDecisionEventId !== reviewOperatorEventId(review.reviewId, event.sequence))) {
       throw new ReviewIntegrityError('Invalid event lineage');
     }
     if (index && event.atEpochMs < review.events[index - 1]!.atEpochMs) throw new ReviewIntegrityError('Event time reordered');
@@ -135,7 +142,7 @@ export function validateReview(review: DecisionReview): void {
 
 export function assertImmutable(previous: DecisionReview, next: DecisionReview): void {
   const fixed = ['reviewId', 'tenantId', 'projectId', 'requesterId', 'sourceReceipt', 'evidencePins', 'policyPins',
-    'reasonCodes', 'riskTier', 'presentation', 'createdAtEpochMs', 'expiresAtEpochMs', 'escalationAtEpochMs', 'quorum'] as const;
+    'reasonCodes', 'riskTier', 'presentation', 'createdAtEpochMs', 'expiresAtEpochMs', 'retentionUntilEpochMs', 'escalationAtEpochMs', 'quorum'] as const;
   for (const key of fixed) if (canonicalJson(previous[key] ?? null) !== canonicalJson(next[key] ?? null)) throw new ReviewIntegrityError(`Immutable review field changed: ${key}`);
   if (previous.continuation.id !== next.continuation.id ||
       (next.events.at(-1)?.type === 'edited') !== (previous.continuation.tokenDigest !== next.continuation.tokenDigest)) {

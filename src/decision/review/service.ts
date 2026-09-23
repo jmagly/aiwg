@@ -2,21 +2,25 @@ import type {
   CreateReviewInput, DecisionReview, ReviewActor, ReviewAuthorization, ReviewEffectReceipt,
   DecisionReviewServiceOptions, ReviewEventType, ReviewListOptions, ReviewScope, ReviewStore,
 } from './types.js';
-import { currentProposal, ReviewAccessError, ReviewConflictError, reviewDigest } from './validate.js';
+import { currentProposal, ReviewAccessError, ReviewConflictError, reviewDigest, reviewOperatorEventId } from './validate.js';
 
 /** Only an executor that can attest zero external effect may report definitive failure. */
 export class ReviewDefinitiveExecutionError extends Error {}
 import { DecisionTraceBuilder } from '../telemetry/trace.js';
 import { sanitizeOpaqueValue } from '../telemetry/redaction.js';
+import { replayReviewOperatorAudit } from './operator-audit.js';
 
 export class DecisionReviewService {
   private readonly resumingLeaseMs: number;
   private readonly pollIntervalMs: number;
   private readonly telemetry: DecisionReviewServiceOptions['telemetry'];
+  private readonly operatorAudit: DecisionReviewServiceOptions['operatorAudit'];
+  private auditQueue: Promise<void> = Promise.resolve();
   constructor(private readonly store: ReviewStore, private readonly authorization: ReviewAuthorization, private readonly now = () => Date.now(), options: DecisionReviewServiceOptions = {}) {
     this.resumingLeaseMs = options.resumingLeaseMs ?? 30_000;
     this.pollIntervalMs = options.pollIntervalMs ?? 10;
     this.telemetry = options.telemetry;
+    this.operatorAudit = options.operatorAudit;
     if (!Number.isSafeInteger(this.resumingLeaseMs) || this.resumingLeaseMs < 1) throw new Error('resumingLeaseMs must be a positive integer');
     if (!Number.isSafeInteger(this.pollIntervalMs) || this.pollIntervalMs < 1) throw new Error('pollIntervalMs must be a positive integer');
   }
@@ -32,11 +36,16 @@ export class DecisionReviewService {
       sourceReceipt: input.sourceReceipt, evidencePins: input.evidencePins, policyPins: input.policyPins,
       reasonCodes: input.reasonCodes, riskTier: input.riskTier, presentation: input.presentation,
       proposals: [proposal], decisions: [], status: 'pending', createdAtEpochMs: at, updatedAtEpochMs: at,
-      expiresAtEpochMs: input.expiresAtEpochMs, ...(input.escalationAtEpochMs === undefined ? {} : { escalationAtEpochMs: input.escalationAtEpochMs }),
+      expiresAtEpochMs: input.expiresAtEpochMs,
+      ...(input.retentionUntilEpochMs === undefined ? {} : { retentionUntilEpochMs: input.retentionUntilEpochMs }),
+      ...(input.escalationAtEpochMs === undefined ? {} : { escalationAtEpochMs: input.escalationAtEpochMs }),
       quorum: input.quorum ?? 1, continuation: { id: input.continuationId, tokenDigest: reviewDigest(input.resumeToken) },
-      events: [{ sequence: 1, type: 'created', atEpochMs: at, actor: scope.actor, proposalVersion: 1, rationale: input.rationale }],
+      events: [{ sequence: 1, type: 'created', atEpochMs: at, actor: scope.actor, proposalVersion: 1,
+        rationale: input.rationale, operatorDecisionEventId: reviewOperatorEventId(input.reviewId, 1) }],
     };
+    await this.allowed(scope, 'create', review);
     if (!await this.store.create(review)) throw new ReviewConflictError('Review ID already exists');
+    await this.auditReview(review);
     await this.emitTelemetry(review);
     return review;
   }
@@ -58,6 +67,13 @@ export class DecisionReviewService {
     return visible;
   }
 
+  /** Replay missing operator records after a crash before resuming a continuation. */
+  async syncOperatorAudit(scope: ReviewScope, id: string): Promise<void> {
+    const review = await this.requireReview(scope, id);
+    await this.allowed(scope, 'export', review);
+    await this.auditReview(review);
+  }
+
   async export(scope: ReviewScope, id: string): Promise<DecisionReview | null> {
     const review = await this.store.read(id, scope.tenantId, scope.projectId);
     if (!review || !await this.authorization.authorize(scope, 'export', review)) return null;
@@ -72,6 +88,18 @@ export class DecisionReviewService {
 
   delete(scope: ReviewScope, id: string, rationale: string) { return this.applyTombstone(scope, id, rationale, 'delete'); }
   tombstone(scope: ReviewScope, id: string, rationale: string) { return this.applyTombstone(scope, id, rationale, 'tombstone'); }
+
+  /** Cryptographic audit marker remains, but every historical plaintext revision is removed. */
+  async purge(scope: ReviewScope, id: string) {
+    if (!this.store.purgeTombstoned) throw new ReviewConflictError('Physical review purge is unavailable');
+    const review = await this.store.read(id, scope.tenantId, scope.projectId);
+    await this.allowed(scope, 'delete', review ?? undefined);
+    if (review && (review.status !== 'tombstoned' || review.lifecycle?.legalHold ||
+      review.retentionUntilEpochMs === undefined || this.now() < review.retentionUntilEpochMs)) {
+      throw new ReviewConflictError('Review retention or legal hold prohibits purge');
+    }
+    return this.store.purgeTombstoned(id, scope.tenantId, scope.projectId);
+  }
 
   private applyTombstone(scope: ReviewScope, id: string, rationale: string, operation: 'delete' | 'tombstone') { return this.mutate(scope, id, operation, review => {
     if (review.lifecycle?.legalHold) throw new ReviewConflictError('Review deletion prohibited by legal hold');
@@ -130,6 +158,7 @@ export class DecisionReviewService {
     for (;;) {
       const review = await this.requireReview(scope, id);
       await this.allowed(scope, 'resume', review);
+      await this.auditReview(review);
       if (review.continuation.tokenDigest !== reviewDigest(token)) throw new ReviewAccessError('Invalid resume token');
       if (review.effectReceipt) return review.effectReceipt;
       const proposal = currentProposal(review);
@@ -140,6 +169,7 @@ export class DecisionReviewService {
           !await this.authorization.eligible(scope, review, proposal) || !await this.authorization.authorizeAction(scope, review, proposal)) {
         const denied = this.append(review, 'authorization-denied', scope.actor, 'resume authorization denied', review.status);
         if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, denied)) continue;
+        await this.auditReview(denied);
         throw new ReviewAccessError('Authorization is no longer valid');
       }
       if (review.status === 'resuming') {
@@ -196,12 +226,14 @@ export class DecisionReviewService {
     if (review.revision !== revision || review.status !== 'resuming') throw new ReviewConflictError('Resume ownership was lost');
     const completed = this.append({ ...review, effectReceipt: receipt }, 'execution-completed', scope.actor, 'executor completed', 'completed', { effectId: receipt.effectId });
     if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, revision, completed)) throw new ReviewConflictError('Could not persist effect receipt');
+    await this.auditReview(completed);
   }
 
   private async mutate(scope: ReviewScope, id: string, operation: Parameters<ReviewAuthorization['authorize']>[1], build: (review: DecisionReview) => DecisionReview | Promise<DecisionReview>, allowNoop = false): Promise<DecisionReview> {
     for (;;) { const review = await this.requireReview(scope, id); await this.allowed(scope, operation, review); const next = await build(review);
       if (allowNoop && next === review) return review;
       if (await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, next)) {
+        await this.auditReview(next);
         await this.emitTelemetry(next);
         return next;
       } }
@@ -213,7 +245,18 @@ export class DecisionReviewService {
   private append(review: DecisionReview, type: ReviewEventType, actor: ReviewActor, rationale: string, status: DecisionReview['status'], data?: Record<string, unknown>): DecisionReview {
     const at = Math.max(this.now(), review.updatedAtEpochMs); const proposalVersion = currentProposal(review).version;
     return { ...structuredClone(review), revision: review.revision + 1, status, updatedAtEpochMs: at,
-      events: [...review.events, { sequence: review.events.length + 1, type, atEpochMs: at, actor, proposalVersion, rationale, ...(data ? { data } : {}) }] };
+      events: [...review.events, { sequence: review.events.length + 1, type, atEpochMs: at, actor, proposalVersion,
+        rationale, operatorDecisionEventId: reviewOperatorEventId(review.reviewId, review.events.length + 1), ...(data ? { data } : {}) }] };
+  }
+
+  private async auditReview(review: DecisionReview): Promise<void> {
+    if (!this.operatorAudit) return;
+    const audit = this.operatorAudit;
+    const next = this.auditQueue.then(async () => {
+      await replayReviewOperatorAudit(review, audit.store, audit.correlation(review), audit.classification);
+    });
+    this.auditQueue = next.catch(() => {});
+    await next;
   }
 
   private async emitTelemetry(review: DecisionReview, effectId?: string): Promise<void> {
