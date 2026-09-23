@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DecisionReviewService, FileDecisionReviewStore, ReviewAccessError, ReviewConflictError,
-  reviewDigest, type CreateReviewInput, type DecisionReview, type ReviewActor, type ReviewAuthorization, type ReviewScope,
+  auditedReviewReconciler, reviewDigest, type CreateReviewInput, type DecisionReview, type ReviewActor, type ReviewAuthorization, type ReviewScope,
 } from '../../../src/decision/review/index.js';
 
 const directories: string[] = [];
@@ -120,7 +120,20 @@ describe('durable decision review runtime', () => {
     expect(execute).not.toHaveBeenCalled();
     const authoritative = { effectId, continuationId: approved.continuation.id, proposalVersion: 1,
       completedAtEpochMs: time.value, result: { reconciled: true } };
-    const receipt = await restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute, async () => authoritative);
+    let coverage: 'partial' | 'covered' = 'partial';
+    const catalog = {
+      hydrate: vi.fn(async (workspaceId: string, previousSessionId: string) => ({ workspaceId, previousSessionId, coverage })),
+      findAttempt: vi.fn(async () => ({ workspaceId: '/workspace/aiwg', sessionId: 'prior-run', reviewId: 'review-1', effectId })),
+    };
+    const ledger = { completedReceipt: vi.fn(async () => authoritative) };
+    const reconcile = auditedReviewReconciler({ workspaceId: '/workspace/aiwg', previousSessionId: 'prior-run',
+      reviewId: 'review-1', scope: scope(actor('bob')), catalog, ledger });
+    await expect(restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute, reconcile))
+      .rejects.toThrow(/remains unknown/);
+    expect(catalog.findAttempt).not.toHaveBeenCalled();
+    expect(ledger.completedReceipt).not.toHaveBeenCalled();
+    coverage = 'covered';
+    const receipt = await restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute, reconcile);
     expect(receipt).toEqual(authoritative);
     expect(execute).not.toHaveBeenCalled();
     const stored = await h.store.read('review-1', 'tenant-a', 'project-a');
