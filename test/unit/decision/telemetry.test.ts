@@ -12,6 +12,7 @@ import {
   injectTraceContext,
   mapDecisionAttempt,
   recordBatchReceiptTrace,
+  recordDecisionSpanMetrics,
   restoreTelemetryTrace,
   sanitizedTelemetryExport,
   scanTelemetryCanaries,
@@ -145,6 +146,32 @@ describe('decision telemetry foundation', () => {
     expect(metrics.record('decision.duration', 2, { 'aiwg.run.id': 'unbounded-2', 'aiwg.adapter.id': 'llm' })).toBe(true);
     expect(metrics.record('decision.duration', 3, { 'aiwg.adapter.id': 'third' })).toBe(false);
     expect(metrics.snapshot().every(point => !Object.hasOwn(point.dimensions, 'aiwg.run.id'))).toBe(true);
+  });
+
+  it('records only shared-request batch usage and fixed operational metric names', () => {
+    const builder = new DecisionTraceBuilder(deterministicIds(), () => 100);
+    const root = builder.startSpan('decision.workflow');
+    const batch = builder.startSpan('decision.batch.request', { parent: root.context });
+    builder.recordBatchUsage(batch, 'batch-1', { inputTokens: 13, outputTokens: 5, costUsd: null });
+    const answer = builder.startSpan('decision.attempt', { parent: root.context, attributes: {
+      'aiwg.batch.id': 'batch-1', 'gen_ai.usage.input_tokens': 13, 'gen_ai.usage.output_tokens': 5,
+      'aiwg.run.id': 'private-run', 'aiwg.provider.request_id': 'private-provider',
+    } });
+    const metrics = new BoundedDecisionMetrics(20, 5);
+    for (const span of [root, batch, answer]) recordDecisionSpanMetrics(span, metrics);
+    expect(metrics.snapshot().filter(point => point.name === 'decision.input_tokens').map(point => point.value)).toEqual([13]);
+    expect(metrics.snapshot().filter(point => point.name === 'decision.output_tokens').map(point => point.value)).toEqual([5]);
+    expect(JSON.stringify(metrics.snapshot())).not.toMatch(/private-run|private-provider|batch-1/);
+    expect(metrics.record('decision.body-' + 'secret', 1, {})).toBe(false);
+    expect(metrics.record('decision.input_tokens', Number.NaN, {})).toBe(false);
+    const admit = builder.startSpan('decision.admit', { attributes: { 'aiwg.queue.delay_ms': 8 } });
+    const accept = builder.startSpan('decision.accept', { attributes: { 'aiwg.acceptance.disposition': 'act' } });
+    recordDecisionSpanMetrics(admit, metrics);
+    recordDecisionSpanMetrics(accept, metrics);
+    expect(metrics.snapshot()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'decision.queue_delay', value: 8 }),
+      expect.objectContaining({ name: 'decision.coverage', value: 1 }),
+    ]));
   });
 
   it('bounds exporter backpressure and records failures without throwing to callers', async () => {

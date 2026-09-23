@@ -608,6 +608,8 @@ export interface DecisionEvaluationRequest {
   /** Optional metadata-only observability sink. Its failures never affect evaluation. */
   telemetry?: {
     hook: DecisionTelemetryHook;
+    /** Optional bounded, allowlisted operational metrics; never an authorization signal. */
+    metrics?: import('./telemetry/metrics.js').BoundedDecisionMetrics;
     ids?: DecisionTelemetryIdSource;
     parent?: DecisionTelemetryContext;
   };

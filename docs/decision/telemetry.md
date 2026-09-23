@@ -36,7 +36,7 @@ Sensitive debug capture is disabled unless a policy is explicitly authorized and
 
 ## Metrics and exporter behavior
 
-Metrics cover throughput, delay, attempts, retries/fallbacks, failures, coverage/abstention/review, latency, cost, cache results, and drift inputs where metadata exists. Dimensions are allowlisted and bounded. Run, invocation, decision/question, provider-request, user, tenant, body-derived, and arbitrary error strings are prohibited dimensions.
+Metrics use fixed names and bounded dimensions. Supply `telemetry.metrics` with a `BoundedDecisionMetrics` instance to record workflow throughput/duration, attempt/retry/fallback/error counts, known request-level token/cost usage and review counts from evaluator spans. `recordDecisionSpanMetrics()` also accepts independently constructed batch/cache spans; shared batch usage is counted only on the request span, not linked answer attempts. Queue/admission delay, coverage/abstention and drift require separately supplied metadata and are not emitted automatically by the evaluator. Dimensions are allowlisted and bounded. Run, invocation, decision/question, provider-request, user, tenant, body-derived, and arbitrary error strings are prohibited dimensions.
 
 The bounded exporter has a fixed queue, deadline, and diagnostic ring. Full queues drop new telemetry; timeouts and failures are visible diagnostics. There is no telemetry retry loop and no path from telemetry to the decision result or an effect authorization. Durable receipt persistence retains its independent fail-closed semantics.
 
