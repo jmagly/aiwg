@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { planDecisionContext, type ContextTokenEstimator } from '../../../src/decision/context-plan.js';
 import {
-  FileBatchReceiptStore, MemoryBatchReceiptStore, allocateEstimatedUsage, batchAccountingTotals,
+  FileBatchReceiptStore, FileBatchResultStore, MemoryBatchReceiptStore, MemoryBatchResultStore, allocateEstimatedUsage, batchAccountingTotals,
   batchEnforcementCostMicros, batchResultReference, deriveCost, newBatchReceipt, nextBatchReceipt, sanitizedBatchReceiptExport,
   validateBatchReceipt, type BatchAttempt, type DecisionBatchReceipt, type BatchReceiptStore,
 } from '../../../src/decision/batch-receipts/index.js';
@@ -130,6 +130,7 @@ describe('decision batch receipts', () => {
     const acquisitions = await Promise.all([store.acquire(initial), store.acquire(structuredClone(initial))]);
     expect(acquisitions.map(result => result.owner).sort()).toEqual([false, true]);
     expect(acquisitions[0]!.receipt).toEqual(acquisitions[1]!.receipt);
+    expect((await store.acquire({ ...initial, createdAtEpochMs: 101, updatedAtEpochMs: 101 })).owner).toBe(false);
     const running = nextBatchReceipt(initial, { status: 'running', updatedAtEpochMs: 110 });
     const candidates = await Promise.all([store.compareAndSwap(initial, running), store.compareAndSwap(initial, running)]);
     expect(candidates.sort()).toEqual([false, true]);
@@ -145,6 +146,26 @@ describe('decision batch receipts', () => {
     const restarted = new FileBatchReceiptStore(directory);
     expect(await restarted.read(initial.batchId, initial.tenantId, initial.projectId)).toEqual(running);
     expect((await restarted.acquire(initial)).owner).toBe(false);
+  });
+
+  it.each([['memory', async () => new MemoryBatchResultStore()], ['file', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'batch-results-')); directories.push(directory);
+    return new FileBatchResultStore(directory);
+  }]] as const)('replays successful values and rejects conflicting publication in %s result store', async (_name, create) => {
+    const store = await create();
+    const receipt = completed();
+    const observations = new Map(receipt.questionIds.map(questionId => [questionId, {
+      status: 'success' as const, reason: 'none' as const, value: 'yes', uncertainty: null,
+      actualModel: 'jev-1', requestId: null, usage: { inputTokens: null, outputTokens: null, costUsd: null },
+    }]));
+    await store.writeMany(receipt, observations);
+    await store.writeMany(receipt, observations);
+    expect((await store.readMany(receipt)).size).toBe(3);
+    const changed = new Map(observations);
+    changed.set(receipt.questionIds[0]!, { ...observations.get(receipt.questionIds[0]!)!, value: 'no' });
+    await expect(store.writeMany(receipt, changed)).rejects.toThrow(/Conflicting batch result publication/);
+    expect((await store.readMany(receipt)).get(receipt.questionIds[0]!)?.value).toBe('yes');
+    expect((await store.readMany({ ...receipt, projectId: 'other-project' })).size).toBe(0);
   });
 
   it('fails closed when a replay reuses a batch ID for different immutable identity', async () => {

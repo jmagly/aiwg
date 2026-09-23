@@ -1,4 +1,7 @@
 import { readFileSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   evaluateDecisionRuleset,
@@ -14,6 +17,8 @@ import {
   CanonicalJsonByteEstimator,
   MemoryBatchReceiptStore,
   MemoryBatchResultStore,
+  FileBatchReceiptStore,
+  FileBatchResultStore,
   batchAccountingTotals,
   decisionBatchQuestionId,
   planDecisionContext,
@@ -43,7 +48,8 @@ function request(fetchImpl: typeof fetch, subjects?: Record<string, string>) {
   };
 }
 
-function durableBatching(store = new MemoryBatchReceiptStore(), resultStore?: MemoryBatchResultStore) {
+function durableBatching(store: MemoryBatchReceiptStore | FileBatchReceiptStore = new MemoryBatchReceiptStore(),
+  resultStore?: MemoryBatchResultStore | FileBatchResultStore) {
   const questionIds = ['category', 'severity', 'core_unavailable'].map(decisionBatchQuestionId);
   const estimator = new CanonicalJsonByteEstimator();
   const contextPlan = planDecisionContext({ subject: 'ticket:42', authorizedState: fixture('input.json'),
@@ -450,6 +456,26 @@ describe('native shared-state decision batching', () => {
     expect(Object.values(second.spec.evaluations).every(result => result.spec.batchResult)).toBe(true);
     expect(Object.values(second.spec.evaluations).map(value => value.spec.attempts[0]!.usage))
       .toEqual(Array(3).fill({ inputTokens: null, outputTokens: null, costUsd: null }));
+  });
+
+  it('reconstructs results after filesystem-store restart without a second provider call', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-batch-restart-'));
+    try {
+      const fetchImpl = vi.fn(async (_url, options) => validResponse(
+        JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+      const receiptDirectory = join(directory, 'receipts');
+      const resultDirectory = join(directory, 'results');
+      const first = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
+        new FileBatchReceiptStore(receiptDirectory), new FileBatchResultStore(resultDirectory)) });
+      const second = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
+        new FileBatchReceiptStore(receiptDirectory), new FileBatchResultStore(resultDirectory)) });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(Object.values(second.spec.evaluations).map(result => result.spec.value))
+        .toEqual(Object.values(first.spec.evaluations).map(result => result.spec.value));
+      expect(Object.values(second.spec.evaluations).every(result => result.spec.status === 'success')).toBe(true);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it('concurrent acquisition dispatches a durable native batch at most once', async () => {

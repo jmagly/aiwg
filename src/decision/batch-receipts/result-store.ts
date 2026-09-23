@@ -29,6 +29,12 @@ export class MemoryBatchResultStore implements BatchResultStore {
 
   async writeMany(receipt: DecisionBatchReceipt, observations: ReadonlyMap<string, AdapterObservation>): Promise<void> {
     const snapshots = snapshotsFor(receipt, observations);
+    for (const snapshot of snapshots) {
+      const existing = this.records.get(snapshotKey(snapshot));
+      if (existing && canonicalJson(existing) !== canonicalJson(snapshot)) {
+        throw new BatchReceiptValidationError('Conflicting batch result publication');
+      }
+    }
     for (const snapshot of snapshots) this.records.set(snapshotKey(snapshot), structuredClone(snapshot));
   }
 
@@ -74,7 +80,13 @@ export class FileBatchResultStore implements BatchResultStore {
     try { await handle.writeFile(`${canonicalJson(snapshot)}\n`, 'utf8'); await handle.sync(); }
     finally { await handle.close(); }
     try { await link(temporary, finalPath); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      const existing = JSON.parse(await readFile(finalPath, 'utf8')) as BatchResultSnapshot;
+      if (canonicalJson(existing) !== canonicalJson(snapshot)) {
+        throw new BatchReceiptValidationError('Conflicting batch result publication');
+      }
+    }
     finally { await rm(temporary, { force: true }); }
   }
 }
