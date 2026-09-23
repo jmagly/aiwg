@@ -67,8 +67,9 @@ export function validateDecisionJob(value: unknown): asserts value is DecisionJo
     ids.add(item.id); actual[item.state]++;
     if (item.attempts.length > job.budget.maxAttempts ||
         new Set(item.attempts.map(attempt => attempt.id)).size !== item.attempts.length) return reject('invalid item attempts');
-    if (item.state === 'succeeded' && (!item.resultDigest || !item.attempts.some(attempt => attempt.outcome === 'succeeded' && attempt.receiptDigest)))
-      return reject('successful item lacks validated receipt');
+    if (['succeeded', 'abstained', 'review'].includes(item.state) &&
+        (!item.resultDigest || !item.attempts.some(attempt => attempt.outcome === 'succeeded' && attempt.receiptDigest)))
+      return reject('result item lacks validated receipt');
     if (item.resultDigest && !['succeeded', 'abstained', 'review'].includes(item.state)) return reject('invalid item result');
     if (item.state === 'execution-unknown' && !item.attempts.some(attempt => attempt.outcome === 'execution-unknown')) return reject('unreconciled item missing attempt');
   }

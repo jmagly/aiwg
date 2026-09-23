@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { ITEM_STATES, type DecisionJob } from '../../../src/decision/job-contract.js';
 import { DecisionJobRuntime, recount } from '../../../src/decision/job-runtime.js';
 import { FileJobStore, JobConflictError, MemoryJobStore, type JobStore } from '../../../src/decision/job-store.js';
+import type { DecisionTelemetrySpan } from '../../../src/decision/telemetry/types.js';
 
 const digest = `sha256:${'a'.repeat(64)}` as const;
 const scope = { tenantId: 't', projectId: 'p', workspaceId: 'w', principalId: 'actor' };
@@ -58,6 +59,60 @@ describe('JOB durable offline lifecycle', () => {
       }
     }
   });
+  it('emits metadata-only D14 job spans for submit, cancellation, expiration, and deletion', async () => {
+    const spans: DecisionTelemetrySpan[] = [];
+    let now = 20;
+    const runtime = new DecisionJobRuntime(new MemoryJobStore(), () => now, { emit(span) { spans.push(span); } });
+    const submitted = await runtime.submit(fixture(), scope);
+    const queued = structuredClone(submitted.job); queued.state = 'queued';
+    await runtime.advance(scope, 'jobA', submitted, queued);
+    await runtime.cancel(scope, 'jobA');
+    now = 101;
+    await runtime.expire(scope, 'jobA');
+    await runtime.remove(scope, 'jobA');
+    expect(spans.map(span => [span.name, span.attributes['aiwg.job.operation'], span.attributes['aiwg.job.status']])).toEqual([
+      ['decision.job', 'submit', 'validating'], ['decision.job', 'transition', 'queued'],
+      ['decision.job', 'cancel', 'cancel-requested'],
+      ['decision.job', 'expire', 'expired'], ['decision.job', 'delete', 'expired'],
+    ]);
+    for (const span of spans) {
+      expect(span.status).toBe('ok');
+      expect(JSON.stringify(span)).not.toContain('principalId');
+      expect(JSON.stringify(span)).not.toContain('actor');
+      expect(JSON.stringify(span)).not.toContain('item0');
+    }
+  });
+  it('does not emit a secret or PII canary from scope or item identifiers', async () => {
+    const spans: DecisionTelemetrySpan[] = [];
+    const canary = 'CANARY_secret_2610';
+    const job = fixture(); job.scope = { ...scope, principalId: canary };
+    job.items[0]!.id = canary;
+    const runtime = new DecisionJobRuntime(new MemoryJobStore(), () => 20, { emit(span) { spans.push(span); } });
+    await runtime.submit(job, job.scope);
+    expect(spans).toHaveLength(1);
+    expect(JSON.stringify(spans)).not.toContain(canary);
+  });
+  it('isolates every object operation and survives concurrent conflicting acquisition', async () => {
+    for (const store of await stores()) {
+      const runtime = new DecisionJobRuntime(store, () => 20);
+      const changed = fixture(); changed.fingerprint = `sha256:${'b'.repeat(64)}`;
+      const settled = await Promise.allSettled([runtime.submit(fixture(), scope), runtime.submit(changed, scope)]);
+      expect(settled.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+      expect(settled.filter(result => result.status === 'rejected')).toHaveLength(1);
+      const actor = { ...scope, principalId: 'untrusted' };
+      expect(await runtime.poll(actor, 'jobA')).toBeNull();
+      expect(await runtime.items(actor, 'jobA')).toBeNull();
+      expect(await runtime.cancel(actor, 'jobA')).toBeNull();
+      expect(await runtime.retry(actor, 'jobA', 'item0')).toBeNull();
+      expect(await runtime.reconcile(actor, 'jobA')).toBeNull();
+      expect(await runtime.expire(actor, 'jobA')).toBeNull();
+      expect(await runtime.remove(actor, 'jobA')).toBe(false);
+      const existing = (await runtime.poll(scope, 'jobA'))!;
+      const altered = structuredClone(existing.job); altered.state = 'queued';
+      await expect(runtime.advance(actor, 'jobA', existing, altered)).rejects.toThrow(JobConflictError);
+      expect((await runtime.poll(scope, 'jobA'))?.revision).toBe(1);
+    }
+  });
   it('keeps requested order, paginates without mutation, rejects stale CAS and tombstones', async () => {
     for (const store of await stores()) {
       const runtime = new DecisionJobRuntime(store, () => 20);
@@ -101,7 +156,8 @@ describe('JOB durable offline lifecycle', () => {
   });
   it('reconciles restart ambiguity without losing earlier results or replaying a dispatch', async () => {
     for (const store of await stores()) {
-      const runtime = new DecisionJobRuntime(store, () => 20);
+      const spans: DecisionTelemetrySpan[] = [];
+      const runtime = new DecisionJobRuntime(store, () => 20, { emit(span) { spans.push(span); } });
       const first = await runtime.submit(fixture(), scope);
       const queued = structuredClone(first.job); queued.state = 'queued';
       const second = await runtime.advance(scope, 'jobA', first, queued);
@@ -110,17 +166,21 @@ describe('JOB durable offline lifecycle', () => {
       running.items[0]!.attempts.push({ id: 'attempt1', requestDigest: digest, outcome: 'dispatched' });
       recount(running);
       await runtime.advance(scope, 'jobA', second, running);
-      const recovered = await new DecisionJobRuntime(store, () => 20).reconcile(scope, 'jobA');
+      const recovered = await runtime.reconcile(scope, 'jobA');
       expect(recovered?.job.state).toBe('failed');
       expect(recovered?.job.items.map(item => item.state)).toEqual(['execution-unknown', 'canceled', 'canceled']);
       expect(recovered?.job.summary['execution-unknown']).toBe(1);
+      expect(spans.at(-1)?.attributes).toMatchObject({
+        'aiwg.job.operation': 'reconcile', 'aiwg.job.unknown_count': 1, 'aiwg.job.status': 'failed',
+      });
       expect(await runtime.reconcile(scope, 'jobA')).toEqual(recovered);
       await expect(runtime.retry(scope, 'jobA', 'item0')).rejects.toThrow(JobConflictError);
     }
   });
   it('requeues only eligible failures while preserving attempt lineage', async () => {
     for (const store of await stores()) {
-      const runtime = new DecisionJobRuntime(store, () => 20);
+      const spans: DecisionTelemetrySpan[] = [];
+      const runtime = new DecisionJobRuntime(store, () => 20, { emit(span) { spans.push(span); } });
       const first = await runtime.submit(fixture(), scope);
       const queued = structuredClone(first.job); queued.state = 'queued';
       const second = await runtime.advance(scope, 'jobA', first, queued);
@@ -135,6 +195,7 @@ describe('JOB durable offline lifecycle', () => {
       await runtime.advance(scope, 'jobA', third, failed);
       const retried = await runtime.retry(scope, 'jobA', 'item0');
       expect(retried?.job.items[0]).toMatchObject({ state: 'queued', attempts: [{ id: 'attempt1', outcome: 'failed' }] });
+      expect(spans.at(-1)?.attributes).toMatchObject({ 'aiwg.job.operation': 'retry', 'aiwg.job.status': 'partially-completed' });
       await expect(runtime.retry(scope, 'jobA', 'item0')).rejects.toThrow(JobConflictError);
       await expect(runtime.retry(scope, 'jobA', 'item1')).rejects.toThrow(JobConflictError);
       expect(await runtime.retry(other, 'jobA', 'item0')).toBeNull();

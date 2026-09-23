@@ -18,8 +18,10 @@ describe('JOB offline contract (dispatch disabled)', () => {
   it('JOB-002 rejects duplicate item IDs and unexplained success', () => {
     const job = fixture(); job.items.push({ ...job.items[0]! }); job.summary.queued = 2;
     expect(() => validateDecisionJob(job)).toThrow(DecisionJobContractError);
-    const success = fixture('succeeded');
-    expect(() => validateDecisionJob(success)).toThrow(DecisionJobContractError);
+    for (const state of ['succeeded', 'abstained', 'review'] as const) {
+      const result = fixture(state);
+      expect(() => validateDecisionJob(result)).toThrow(DecisionJobContractError);
+    }
   });
   it('JOB-003 forbids state skipping and pin, fingerprint, scope and attempt-history mutation', () => {
     const before = fixture(); const after = fixture(); after.state = 'running'; after.items[0]!.state = 'running';
@@ -42,6 +44,19 @@ describe('JOB offline contract (dispatch disabled)', () => {
   it('JOB-004 does not report in-flight uncertainty as clean cancellation', () => {
     const job = fixture('execution-unknown'); job.state = 'canceled';
     job.items[0]!.attempts = [{ id: 'attemptA', requestDigest: digest, outcome: 'execution-unknown' }];
+    expect(() => validateDecisionJob(job)).toThrow(DecisionJobContractError);
+  });
+  it('JOB-007 reconciles a mixed outcome without hiding terminal evidence', () => {
+    const job = fixture(); job.state = 'failed';
+    job.items = ITEM_STATES.filter(state => !['queued', 'running', 'retryable-failed'].includes(state)).map((state, index) => ({
+      ...structuredClone(job.items[0]!), id: `item${index}`, state,
+      attempts: state === 'execution-unknown' ? [{ id: 'ambiguous', requestDigest: digest, outcome: 'execution-unknown' }] :
+        ['succeeded', 'abstained', 'review'].includes(state) ? [{ id: `attempt${index}`, requestDigest: digest, receiptDigest: digest, outcome: 'succeeded' as const }] : [],
+      ...(['succeeded', 'abstained', 'review'].includes(state) ? { resultDigest: digest } : {}),
+    }));
+    job.summary = Object.fromEntries(ITEM_STATES.map(state => [state, job.items.filter(item => item.state === state).length])) as DecisionJob['summary'];
+    expect(() => validateDecisionJob(job)).not.toThrow();
+    job.summary['execution-unknown'] = 0;
     expect(() => validateDecisionJob(job)).toThrow(DecisionJobContractError);
   });
   it('JOB-006 prevents an unstarted item from fabricating dispatch attempts', () => {
