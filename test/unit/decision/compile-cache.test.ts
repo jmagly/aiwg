@@ -231,6 +231,15 @@ describe('decision compile and provider-prefix cache', () => {
     expect(() => cacheBenchmarkReport(digest('e'), 0, 500, '95% CI', [{ ...sample, outputTokens: -1 }, enabled])).toThrow('paired');
   });
 
+  it('CCP-005 never publishes a malformed filesystem fill and recovers on retry', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-malformed-'));
+    const store = new FileCompileCache<number>(directory);
+    await expect(store.getOrCompile(identity(), context(), 1_000, async () => Number.NaN))
+      .rejects.toThrow('non-finite');
+    expect(await store.read(identity(), context())).toBeNull();
+    expect((await store.getOrCompile(identity(), context(), 1_000, async () => 42)).entry.value).toBe(42);
+  });
+
   it('CCP-004 coordinates cold fills across independent filesystem cache instances', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-lock-'));
     const first = new FileCompileCache<string>(directory, { lockPollMs: 1, lockTimeoutMs: 1_000 });
