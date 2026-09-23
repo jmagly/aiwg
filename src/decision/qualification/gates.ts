@@ -6,6 +6,15 @@ import type {
 } from './types.js';
 import { expectedQualificationCaseIds, validateCaseInventory } from './manifest.js';
 
+// Negative evidence always overrides a positive suite result. A release reviewer
+// cannot waive these conditions by supplying passing evidence checks.
+const BLOCKING_FINDINGS: Readonly<Record<string, readonly string[]>> = {
+  G1: ['p0-correctness-failed', 'execution-uncertain'],
+  G2: ['privacy-denied'],
+  G3: ['calibration-data-missing'],
+  G6: ['p0-correctness-failed', 'execution-uncertain', 'privacy-denied', 'calibration-data-missing'],
+};
+
 export const DECISION_RELEASE_GATES: readonly QualificationGateDefinition[] = [
   { id: 'G0', title: 'contract and conformance', mandatory: true, requiredCaseIds: [], requiredEvidence: ['case-inventory-complete'] },
   { id: 'G1', title: 'runtime and adapter correctness', mandatory: true, requiredCaseIds: [], requiredEvidence: ['runtime-suite-complete'] },
@@ -38,6 +47,9 @@ function evaluateGate(definition: QualificationGateDefinition, manifest: Qualifi
   }
   for (const key of definition.requiredEvidence) {
     if (manifest.evidenceFlags[key] !== true) missing.push(`evidence:${key}`);
+  }
+  for (const key of BLOCKING_FINDINGS[definition.id] ?? []) {
+    if (manifest.evidenceFlags[key] === true) failed.push(`finding:${key}`);
   }
 
   // Mandatory gates never turn absent evidence into a skip/pass. Skip is reserved

@@ -77,6 +77,36 @@ describe('decision qualification executable runner', () => {
     ]);
   });
 
+  it('does not persist private callback details by default, including on failure', async () => {
+    const root = await artifactRoot();
+    const item: QualificationCase = { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] };
+    const marker = 'private-canary@example.invalid';
+    const run = await executeQualificationPlan({
+      manifest: manifest([item]), artifactRoot: root,
+      executors: { TV01: () => ({ outcome: 'fail', details: { trace: marker, nested: [marker] } }) },
+    });
+    const artifact = await readFile(join(root, run.evidence[0]!.artifact!), 'utf8');
+    expect(artifact).not.toContain(marker);
+    expect(artifact).not.toContain('details');
+    expect(JSON.stringify(run)).not.toContain(marker);
+    expect(await verifyQualificationArtifacts(run, root)).toEqual([{ caseId: 'TV01', verified: true }]);
+  });
+
+  it('fails closed when a public-details sanitizer throws without exporting its error', async () => {
+    const root = await artifactRoot();
+    const item: QualificationCase = { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] };
+    const marker = 'private-canary@example.invalid';
+    const run = await executeQualificationPlan({
+      manifest: manifest([item]), artifactRoot: root,
+      executors: { TV01: () => ({ outcome: 'pass', details: { trace: marker } }) },
+      sanitizeDetails: () => { throw new Error(marker); },
+    });
+    expect(run.evidence[0]).toMatchObject({ outcome: 'fail' });
+    const artifact = await readFile(join(root, run.evidence[0]!.artifact!), 'utf8');
+    expect(artifact).toContain('details-sanitization-failed');
+    expect(artifact).not.toContain(marker);
+  });
+
   it('links persisted qualification artifacts to named CAL and DRF master-plan evidence IDs', async () => {
     const root = await artifactRoot();
     const cases: QualificationCase[] = [
@@ -134,6 +164,7 @@ describe('decision qualification executable runner', () => {
     await expect(executeQualificationPlan({
       manifest: manifest([item]), artifactRoot: root, maxArtifactBytes: 256,
       executors: { TV01: () => ({ outcome: 'pass', details: 'x'.repeat(1_000) }) },
+      sanitizeDetails: details => details,
     })).rejects.toThrow('artifact exceeds 256 bytes');
   });
 

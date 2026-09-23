@@ -28,6 +28,24 @@ describe('decision qualification gate evaluator', () => {
     expect(report.decision).toBe('PROMOTE');
   });
 
+  it.each([
+    ['privacy-denied', 'G2'],
+    ['execution-uncertain', 'G1'],
+    ['calibration-data-missing', 'G3'],
+    ['p0-correctness-failed', 'G1'],
+  ])('does not waive %s with positive checks', (finding, affectedGate) => {
+    const cases = expectedQualificationCaseIds().map(id => ({ ...oneCase, id, kind: id.startsWith('TV') ? 'vendor' as const : 'baseline' as const }));
+    const evidence = cases.map(({ id }) => ({
+      caseId: id, executable: true, outcome: 'pass' as const, artifact: `${id}.json`, digest: `sha256:${'a'.repeat(64)}` as const,
+    }));
+    const evidenceFlags = Object.fromEntries(DECISION_RELEASE_GATES.flatMap(gate => gate.requiredEvidence).map(key => [key, true]));
+    evidenceFlags[finding] = true;
+    const report = evaluateQualification({ ...base, cases, evidence, evidenceFlags });
+    expect(report.decision).toBe('HOLD');
+    expect(report.gates.find(gate => gate.id === affectedGate)).toMatchObject({ status: 'fail', failed: [`finding:${finding}`] });
+    expect(report.gates.find(gate => gate.id === 'G6')?.failed).toContain(`finding:${finding}`);
+  });
+
   it('preserves deterministic sorted diagnostics', () => {
     const report = evaluateQualification({ ...base, cases: [
       { ...oneCase, id: 'C02' }, oneCase,

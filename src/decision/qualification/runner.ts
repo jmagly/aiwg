@@ -38,6 +38,8 @@ export interface QualificationExecutionPlan {
   timeoutMs?: number;
   concurrency?: number;
   maxArtifactBytes?: number;
+  /** Explicitly select public aggregate fields for persistence. Raw executor details are private by default. */
+  sanitizeDetails?: (details: unknown, caseId: string) => unknown;
 }
 
 export interface ArtifactVerification {
@@ -167,10 +169,20 @@ async function executeCase(
     // Keep diagnostic text out of persistent artifacts and exported reports.
     error = 'executor-failed';
   }
+  let publicDetails: unknown;
+  if (result.details !== undefined && plan.sanitizeDetails) {
+    try {
+      publicDetails = plan.sanitizeDetails(result.details, item.id);
+    } catch {
+      // A broken sanitizer cannot convert a private payload into release evidence.
+      result = { outcome: 'fail' };
+      error = 'details-sanitization-failed';
+    }
+  }
   return writeArtifact(plan.artifactRoot, plan.manifest.runId, {
     schemaVersion: 'decision-qualification-artifact/v1', runId: plan.manifest.runId,
     caseId: item.id, outcome: result.outcome, durationMs: Math.max(0, Date.now() - started), testEvidenceIds,
-    ...(result.details === undefined ? {} : { details: result.details }), ...(error ? { error } : {}),
+    ...(publicDetails === undefined ? {} : { details: publicDetails }), ...(error ? { error } : {}),
   }, maxBytes);
 }
 
