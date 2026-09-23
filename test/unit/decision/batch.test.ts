@@ -417,7 +417,7 @@ describe('native shared-state decision batching', () => {
     const store = new MemoryBatchReceiptStore();
     const fetchImpl = vi.fn(async (_url, options) => validResponse(
       JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
-    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(store) });
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(store, new MemoryBatchResultStore()) });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const references = Object.values(result.spec.evaluations).map(value => value.spec.batchResult);
     expect(references.every(Boolean)).toBe(true);
@@ -453,7 +453,10 @@ describe('native shared-state decision batching', () => {
     ]);
     expect(Object.fromEntries(Object.entries(second.spec.evaluations).map(([alias, result]) => [alias, result.spec.value])))
       .toEqual(Object.fromEntries(Object.entries(first.spec.evaluations).map(([alias, result]) => [alias, result.spec.value])));
-    expect(Object.values(second.spec.evaluations).every(result => result.spec.batchResult)).toBe(true);
+    expect(Object.values(second.spec.evaluations).map(result => result.spec.batchResult))
+      .toEqual(Object.values(first.spec.evaluations).map(result => result.spec.batchResult));
+    expect(Object.values(second.spec.evaluations).map(result => result.spec.attempts[0]!.durationMs))
+      .toEqual(Object.values(first.spec.evaluations).map(result => result.spec.attempts[0]!.durationMs));
     expect(Object.values(second.spec.evaluations).map(value => value.spec.attempts[0]!.usage))
       .toEqual(Array(3).fill({ inputTokens: null, outputTokens: null, costUsd: null }));
   });
@@ -486,7 +489,7 @@ describe('native shared-state decision batching', () => {
       await blocked;
       return validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>);
     }) as typeof fetch;
-    const configured = { ...request(fetchImpl), batchReceipts: durableBatching(store) };
+    const configured = { ...request(fetchImpl), batchReceipts: durableBatching(store, new MemoryBatchResultStore()) };
     const first = evaluateDecisionRuleset(configured);
     await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
     const second = evaluateDecisionRuleset(configured);
@@ -496,10 +499,31 @@ describe('native shared-state decision batching', () => {
     expect([owned, replay].some(value => Object.values(value.spec.evaluations).some(item => item.spec.batchResult))).toBe(true);
   });
 
+  it('never commits a completed receipt when value publication fails', async () => {
+    const store = new MemoryBatchReceiptStore();
+    const resultStore = new MemoryBatchResultStore();
+    vi.spyOn(resultStore, 'writeMany').mockRejectedValueOnce(new Error('disk unavailable'));
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(
+      JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const configured = { ...request(fetchImpl), batchReceipts: durableBatching(store, resultStore) };
+    const first = await evaluateDecisionRuleset(configured);
+    const second = await evaluateDecisionRuleset(configured);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(Object.values(first.spec.evaluations).every(result => result.spec.status !== 'success')).toBe(true);
+    expect(Object.values(second.spec.evaluations).every(result => !result.spec.batchResult)).toBe(true);
+  });
+
+  it('requires a governed result repository before durable batch dispatch', async () => {
+    const fetchImpl = vi.fn() as typeof fetch;
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching() });
+    expect(result.spec.reason).toBe('persistence-error');
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('persists uncertain transport before replay and never redispatches after a crash boundary', async () => {
     const store = new MemoryBatchReceiptStore();
     const fetchImpl = vi.fn(async () => { throw new Error('connection lost after dispatch'); }) as typeof fetch;
-    const configured = { ...request(fetchImpl), batchReceipts: durableBatching(store) };
+    const configured = { ...request(fetchImpl), batchReceipts: durableBatching(store, new MemoryBatchResultStore()) };
     const first = await evaluateDecisionRuleset(configured);
     const second = await evaluateDecisionRuleset(configured);
     expect(fetchImpl).toHaveBeenCalledTimes(1);

@@ -166,6 +166,15 @@ describe('decision batch receipts', () => {
     await expect(store.writeMany(receipt, changed)).rejects.toThrow(/Conflicting batch result publication/);
     expect((await store.readMany(receipt)).get(receipt.questionIds[0]!)?.value).toBe('yes');
     expect((await store.readMany({ ...receipt, projectId: 'other-project' })).size).toBe(0);
+    const withUsage = new Map(observations);
+    withUsage.set(receipt.questionIds[0]!, { ...observations.get(receipt.questionIds[0]!)!,
+      usage: { inputTokens: 10, outputTokens: null, costUsd: null } });
+    await expect(store.writeMany(receipt, withUsage)).rejects.toThrow(/shared accounting/);
+    const withRequestId = new Map(observations);
+    withRequestId.set(receipt.questionIds[0]!, { ...observations.get(receipt.questionIds[0]!)!, requestId: 'req_opaque' });
+    await expect(store.writeMany(receipt, withRequestId)).rejects.toThrow(/shared accounting/);
+    await expect(store.writeMany(receipt, new Map([...observations].slice(0, 2))))
+      .rejects.toThrow(/does not match receipt references/);
   });
 
   it('fails closed when a replay reuses a batch ID for different immutable identity', async () => {

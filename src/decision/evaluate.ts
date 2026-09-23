@@ -211,6 +211,8 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
   // Native batching may coexist with the invocation receipt only when a batch
   // receipt owns the shared dispatch and its accounting before transport begins.
   if ((!request.receiptStore || request.batchReceipts) && request.batching?.enabled) {
+    // A terminal receipt must never point at values that cannot be recovered on replay.
+    if (request.batchReceipts && !request.batchReceipts.resultStore) throw new ReceiptPersistenceError();
     const candidates = [];
     for (const item of resolved) {
       if (evaluations[item.alias]) continue;
@@ -335,14 +337,17 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
             attempts: [...durableReceipt.attempts, attempt],
             ...(terminalStatus === 'completed' ? { answerReferences,
               allocations: allocateEstimatedUsage(questionIds, attempt.usage) } : {}) });
+          if (terminalStatus === 'completed') {
+            // Publish values before committing the terminal receipt: a crash between these
+            // writes leaves an uncertain receipt, never a successful but unreadable replay.
+            observations = resultOnlyBatchObservations(observations);
+            await request.batchReceipts.resultStore!.writeMany(terminal, observations);
+          }
           if (!await request.batchReceipts.store.compareAndSwap(durableReceipt, terminal)) {
             throw new ReceiptPersistenceError();
           }
           durableReceipt = terminal;
           if (terminalStatus === 'completed') {
-            // Shared request identity, usage, and cost live only on the receipt and not in the governed value repository.
-            observations = resultOnlyBatchObservations(observations);
-            if (request.batchReceipts.resultStore) await request.batchReceipts.resultStore.writeMany(terminal, observations);
             batchReferences = new Map(questionIds.map(questionId =>
               [questionId, batchResultReference(terminal, questionId)]));
           }
@@ -385,7 +390,9 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
           ? normalizeObservationForRuntime({ request, item, target: candidate.target, observation, now }).calibrationCompatibility
           : undefined;
         evaluations[item.alias] = decisionResult(context, observation,
-          [toAttempt(candidate.target, 1, observation, Math.max(0, now() - started), evidence)], calibrationCompatibility);
+          [toAttempt(candidate.target, 1, observation, durableReceipt?.status === 'completed'
+            ? Math.max(0, durableReceipt.terminalAtEpochMs! - durableReceipt.createdAtEpochMs)
+            : Math.max(0, now() - started), evidence)], calibrationCompatibility);
       });
       attemptsUsed += plan.candidates.length;
       attemptBudget.consume(plan.candidates.length);
