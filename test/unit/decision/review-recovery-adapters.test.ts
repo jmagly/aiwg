@@ -69,8 +69,10 @@ describe('workspace-scoped production catalog reader', () => {
     const dir = await directory(); const ledger = new FileVerifiedReviewEffectLedger(dir, key);
     const refresh = vi.fn(async () => {});
     const event = { eventId: 'attempt-1', origin: 'tool-control', consistency: 'complete', marker: { reviewId: query.reviewId, effectId: query.effectId } };
-    const repository = { getSession: vi.fn(() => ({ consistency: 'complete' })),
-      getCoverage: vi.fn(() => ({ status: 'complete' })), listEvents: vi.fn(() => [event]) } as unknown as SessionRepository;
+    const repository = { getSession: vi.fn(() => ({ consistency: 'complete', sourceId: 'source-a', provider: 'codex' })),
+      getCoverage: vi.fn(() => ({ status: 'partial', manifestId: 'manifest-a' })),
+      getBatchImportRunForManifest: vi.fn(() => ({ status: 'partial', sources: [{ sourceId: 'source-a', provider: 'codex', status: 'committed' }] })),
+      listEvents: vi.fn(() => [event]) } as unknown as SessionRepository;
     const catalog = new WorkspaceReviewSessionAudit(repository, refresh, e => (e as typeof event).marker);
     const reconcile = auditedReviewReconciler({ workspaceId: '/workspace', previousSessionId: 'prior', reviewId: query.reviewId,
       scope: query, catalog, ledger });
@@ -80,9 +82,12 @@ describe('workspace-scoped production catalog reader', () => {
     expect(refresh).toHaveBeenCalledWith('/workspace', 'prior');
     expect(repository.getSession).toHaveBeenCalledWith('prior', '/workspace');
     expect(repository.listEvents).toHaveBeenCalledWith('prior', '/workspace');
-    vi.mocked(repository.getCoverage).mockReturnValue({ status: 'partial' } as ReturnType<SessionRepository['getCoverage']>);
+    vi.mocked(repository.getBatchImportRunForManifest).mockReturnValue({ status: 'partial', sources: [{ sourceId: 'source-a', provider: 'codex', status: 'rejected' }] } as ReturnType<SessionRepository['getBatchImportRunForManifest']>);
     expect(await reconcile(query.effectId)).toBeNull();
-    vi.mocked(repository.getCoverage).mockReturnValue({ status: 'complete' } as ReturnType<SessionRepository['getCoverage']>);
+    vi.mocked(repository.getBatchImportRunForManifest).mockReturnValue({ status: 'partial', sources: [{ sourceId: 'source-a', provider: 'codex', status: 'committed' }] } as ReturnType<SessionRepository['getBatchImportRunForManifest']>);
+    vi.mocked(repository.getCoverage).mockReturnValue({ status: 'stale', manifestId: 'manifest-a' } as ReturnType<SessionRepository['getCoverage']>);
+    expect(await reconcile(query.effectId)).toBeNull();
+    vi.mocked(repository.getCoverage).mockReturnValue({ status: 'partial', manifestId: 'manifest-a' } as ReturnType<SessionRepository['getCoverage']>);
     vi.mocked(repository.listEvents).mockReturnValue([{ ...event, origin: 'assistant-generated' }] as ReturnType<SessionRepository['listEvents']>);
     expect(await reconcile(query.effectId)).toBeNull();
     vi.mocked(repository.listEvents).mockReturnValue([event, event] as ReturnType<SessionRepository['listEvents']>);

@@ -17,24 +17,32 @@ export class WorkspaceReviewSessionAudit implements ReviewSessionAudit {
     private readonly refresh: (workspaceId: string, previousSessionId: string) => Promise<void>,
     private readonly locate: (event: SessionEvent) => { reviewId: string; effectId: string } | null) {}
 
+  private exactCoverage(workspaceId: string, previousSessionId: string): 'covered' | 'partial' | 'stale' | 'unavailable' {
+    const coverage = this.repository.getCoverage(workspaceId);
+    if (coverage.status === 'stale') return 'stale';
+    const session = this.repository.getSession(previousSessionId, workspaceId);
+    if (!session) return 'unavailable';
+    if (!coverage.manifestId || session.consistency === 'provisional') return 'partial';
+    const run = this.repository.getBatchImportRunForManifest(coverage.manifestId, workspaceId);
+    const source = run?.sources.find(item => item.sourceId === session.sourceId && item.provider === session.provider);
+    // Other providers may legitimately require a separate export. Global
+    // workspace coverage can be partial while this exact committed source is
+    // covered. No session from an uncommitted/rejected source is accepted.
+    return source && ['committed', 'previously-committed', 'duplicate'].includes(source.status) &&
+      ['complete', 'partial'].includes(run!.status) ? 'covered' : 'partial';
+  }
+
   async hydrate(workspaceId: string, previousSessionId: string) {
     this.covered.delete(`${workspaceId}\0${previousSessionId}`);
     await this.refresh(workspaceId, previousSessionId);
-    const session = this.repository.getSession(previousSessionId, workspaceId);
-    const coverage = this.repository.getCoverage(workspaceId);
-    // A complete workspace manifest AND the exact committed, non-tombstoned
-    // session are required. A global doctor() result is not session coverage.
-    const status = coverage.status === 'stale' ? 'stale' :
-      coverage.status === 'complete' && session && session.consistency === 'complete' ? 'covered' :
-        coverage.status === 'partial' || session ? 'partial' : 'unavailable';
+    const status = this.exactCoverage(workspaceId, previousSessionId);
     if (status === 'covered') this.covered.add(`${workspaceId}\0${previousSessionId}`);
-    return { workspaceId, previousSessionId, coverage: status as 'covered' | 'partial' | 'stale' | 'unavailable' };
+    return { workspaceId, previousSessionId, coverage: status };
   }
 
   async findAttempt(query: { workspaceId: string; previousSessionId: string; reviewId: string; effectId: string }) {
     if (!this.covered.has(`${query.workspaceId}\0${query.previousSessionId}`) ||
-        this.repository.getCoverage(query.workspaceId).status !== 'complete' ||
-        this.repository.getSession(query.previousSessionId, query.workspaceId)?.consistency !== 'complete') return null;
+        this.exactCoverage(query.workspaceId, query.previousSessionId) !== 'covered') return null;
     const matches = this.repository.listEvents(query.previousSessionId, query.workspaceId)
       .filter(event => {
         if (event.origin !== 'tool-control' || event.consistency !== 'complete') return false;
