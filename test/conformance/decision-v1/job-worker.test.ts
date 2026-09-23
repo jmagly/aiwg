@@ -53,6 +53,23 @@ describe('JOB fenced offline executor', () => {
     expect(final.job.summary.review).toBe(1);
     await expect(worker.run(scope, 'jobA', 'subjectA', async () => success)).rejects.toThrow(JobConflictError);
   });
+  it('retries a finalization CAS conflict without repeating an executor call', async () => {
+    class ConflictingStore extends MemoryJobStore {
+      failed = false;
+      override async compareAndSwap(previous: Parameters<MemoryJobStore['compareAndSwap']>[0],
+        next: Parameters<MemoryJobStore['compareAndSwap']>[1]): Promise<boolean> {
+        if (!this.failed && next.job.state === 'partially-completed') { this.failed = true; return false; }
+        return super.compareAndSwap(previous, next);
+      }
+    }
+    const store = new ConflictingStore();
+    const runtime = new DecisionJobRuntime(store, () => 20); await queued(runtime);
+    let calls = 0;
+    const result = await new OfflineJobWorker(runtime).run(scope, 'jobA', 'subjectA', async () => { calls++; return success; });
+    expect(store.failed).toBe(true);
+    expect(calls).toBe(1);
+    expect(result.job.items[0]?.state).toBe('succeeded');
+  });
   it('enforces the per-job concurrency ceiling before any executor call', async () => {
     const runtime = new DecisionJobRuntime(new MemoryJobStore(), () => 20);
     const initial = await runtime.submit({ ...fixture(), budget: { ...fixture().budget, maxConcurrency: 1 } }, scope);

@@ -53,30 +53,37 @@ export class OfflineJobWorker {
       if (onAbort) controller.signal.removeEventListener('abort', onAbort);
       this.active.delete(key);
     }
-    const latest = await this.runtime.poll(actor, jobId);
-    if (!latest) throw new JobConflictError('Job removed during execution');
-    const current = latest.job.items.find(candidate => candidate.id === itemId);
-    if (!current || current.state !== 'running' || current.attempts.at(-1)?.id !== scheduled.attempts.at(-1)?.id)
-      throw new JobConflictError('In-flight item changed during execution');
-    const updated = structuredClone(latest.job);
-    const target = updated.items.find(candidate => candidate.id === itemId)!;
-    const attempt = target.attempts.at(-1)!;
-    if (controller.signal.aborted || !outcome || !validOutcome(outcome)) {
-      target.state = 'execution-unknown'; attempt.outcome = 'execution-unknown';
-    } else {
-      target.state = outcome.state;
-      attempt.outcome = ['succeeded', 'abstained', 'review'].includes(outcome.state) ? 'succeeded' : 'failed';
-      if (outcome.receiptDigest) attempt.receiptDigest = outcome.receiptDigest;
-      if (outcome.resultDigest) target.resultDigest = outcome.resultDigest;
-      if (outcome.errorCode) target.errorCode = outcome.errorCode;
+    // Concurrent items may finish in the same tick. Retry only the local CAS, never the executor.
+    for (let retry = 0; retry < 5; retry++) {
+      const latest = await this.runtime.poll(actor, jobId);
+      if (!latest) throw new JobConflictError('Job removed during execution');
+      const current = latest.job.items.find(candidate => candidate.id === itemId);
+      if (!current || current.state !== 'running' || current.attempts.at(-1)?.id !== scheduled.attempts.at(-1)?.id)
+        throw new JobConflictError('In-flight item changed during execution');
+      const updated = structuredClone(latest.job);
+      const target = updated.items.find(candidate => candidate.id === itemId)!;
+      const attempt = target.attempts.at(-1)!;
+      if (controller.signal.aborted || !outcome || !validOutcome(outcome)) {
+        target.state = 'execution-unknown'; attempt.outcome = 'execution-unknown';
+      } else {
+        target.state = outcome.state;
+        attempt.outcome = ['succeeded', 'abstained', 'review'].includes(outcome.state) ? 'succeeded' : 'failed';
+        if (outcome.receiptDigest) attempt.receiptDigest = outcome.receiptDigest;
+        if (outcome.resultDigest) target.resultDigest = outcome.resultDigest;
+        if (outcome.errorCode) target.errorCode = outcome.errorCode;
+      }
+      recount(updated);
+      const outstanding = updated.summary.queued + updated.summary.running + updated.summary['retryable-failed'];
+      const unknown = updated.summary['execution-unknown'] > 0;
+      if (latest.job.state === 'cancel-requested') {
+        updated.state = unknown ? 'failed' : outstanding ? 'partially-completed' : 'canceled';
+      } else updated.state = outstanding ? 'partially-completed' : unknown ? 'failed' : 'completed';
+      try { return await this.runtime.advance(actor, jobId, latest, updated); }
+      catch (error) {
+        if (!(error instanceof JobConflictError) || error.message !== 'Concurrent job update') throw error;
+      }
     }
-    recount(updated);
-    const outstanding = updated.summary.queued + updated.summary.running + updated.summary['retryable-failed'];
-    const unknown = updated.summary['execution-unknown'] > 0;
-    if (latest.job.state === 'cancel-requested') {
-      updated.state = unknown ? 'failed' : outstanding ? 'partially-completed' : 'canceled';
-    } else updated.state = outstanding ? 'partially-completed' : unknown ? 'failed' : 'completed';
-    return this.runtime.advance(actor, jobId, latest, updated);
+    throw new JobConflictError('Concurrent job updates exhausted');
   }
 
   async cancel(actor: JobScope, jobId: string): Promise<JobSnapshot | null> {
