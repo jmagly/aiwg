@@ -322,6 +322,9 @@ describe('decision compile and provider-prefix cache', () => {
     await expect(restarted.restore({ ...backup!, value: 'tampered' }, context(110)))
       .rejects.toThrow('unavailable');
     expect(await restarted.delete(identity(), context(1_100))).toBe(true);
+    await expect(restarted.restore(backup!, context(1_100))).rejects.toThrow('unavailable');
+    await expect(restarted.restore({ ...backup!, tombstonedAtEpochMs: 104 }, context(110)))
+      .rejects.toThrow('unavailable');
   });
 
   it('CCP-011 reports provider-qualified synthetic paired economics without inferring live savings', () => {
