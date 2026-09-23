@@ -1,10 +1,11 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import Ajv2020 from 'ajv/dist/2020.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  DecisionReviewService, FileDecisionReviewStore, ReviewAccessError, ReviewConflictError,
-  auditedReviewReconciler, reviewDigest, type CreateReviewInput, type DecisionReview, type ReviewActor, type ReviewAuthorization, type ReviewScope,
+  DecisionReviewService, FileDecisionReviewStore, ReviewAccessError, ReviewConflictError, ReviewDefinitiveExecutionError,
+  auditedReviewReconciler, FileVerifiedReviewEffectLedger, reviewDigest, validateReview, assertImmutable, ReviewIntegrityError, type CreateReviewInput, type DecisionReview, type ReviewActor, type ReviewAuthorization, type ReviewScope,
 } from '../../../src/decision/review/index.js';
 
 const directories: string[] = [];
@@ -22,7 +23,9 @@ const input = (now: number, overrides: Partial<CreateReviewInput> = {}): CreateR
 async function harness(nowRef = { value: 1_000 }, authOverrides: Partial<ReviewAuthorization> = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'aiwg-review-')); directories.push(directory);
   const authorization: ReviewAuthorization = {
-    authorize: () => true, eligible: ({ actor: who }) => who.roles.includes('reviewer'), authorizeAction: () => true, ...authOverrides,
+    authorize: () => true, eligible: ({ actor: who }) => who.roles.includes('reviewer'),
+    eligibleApproval: (_scope, _review, _proposal, decision) => decision.reviewer.roles.includes('reviewer'),
+    authorizeAction: () => true, ...authOverrides,
   };
   const store = new FileDecisionReviewStore(directory, new Uint8Array(32).fill(7));
   return { directory, authorization, store, service: new DecisionReviewService(store, authorization, () => nowRef.value) };
@@ -65,8 +68,88 @@ describe('durable decision review runtime', () => {
     await expect(h.service.decide(scope(actor('alice', ['requester', 'reviewer'])), 'review-1', 'approve', 'self')).rejects.toBeInstanceOf(ReviewAccessError);
     await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approved'); allowAction = false;
     await expect(h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', async () => 'done')).rejects.toBeInstanceOf(ReviewAccessError);
+    const denied = await h.store.read('review-1', 'tenant-a', 'project-a');
+    expect(denied?.events.at(-1)?.type).toBe('authorization-denied');
+    const schema = JSON.parse(await readFile(new URL('../../../schemas/decision/DecisionReview.schema.json', import.meta.url), 'utf8'));
+    expect(new Ajv2020({ strict: false }).validate(schema, denied)).toBe(true);
+    expect(denied?.status).toBe('approved');
+    expect(denied?.events.some(event => event.type === 'approved')).toBe(true);
     allowAction = true; time.value = 20_000;
     await expect(h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', async () => 'done')).rejects.toBeInstanceOf(ReviewConflictError);
+  });
+
+  it('HITL-PRIVACY rejects restricted payloads before storage, including edit and receipt paths', async () => {
+    const h = await harness();
+    for (const changes of [
+      { presentation: { credential: 'synthetic-only' } },
+      { presentation: { summary: 'vault://synthetic/fixture' } },
+      { action: { privateReasoning: 'synthetic-only' } },
+      { rationale: 'sk-test-synthetic-canary-123456' },
+    ]) {
+      await expect(h.service.create(scope(actor('alice', ['requester'])), input(1000, changes)))
+        .rejects.toThrow('Restricted review payload');
+      expect(await h.store.read('review-1', 'tenant-a', 'project-a')).toBeNull();
+    }
+    await h.service.create(scope(actor('alice', ['requester'])), input(1000));
+    await expect(h.service.edit(scope(actor('bob')), 'review-1', { providerBody: 'synthetic-only' }, 'edit'))
+      .rejects.toThrow('Restricted review payload');
+    await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approved');
+    await expect(h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', async () => ({ apiKey: 'synthetic-only' })))
+      .rejects.toThrow('Restricted review payload');
+    const review = await h.store.read('review-1', 'tenant-a', 'project-a');
+    expect(review?.status).toBe('resuming');
+    expect(JSON.stringify(review)).not.toContain('synthetic-only');
+  });
+
+  it('HITL-REVOKE blocks execution after an approver loses authority and preserves the approval', async () => {
+    const time = { value: 1000 };
+    let bobActive = true;
+    const h = await harness(time, { eligibleApproval: (_scope, _review, _proposal, decision) => decision.reviewer.id !== 'bob' || bobActive });
+    await h.service.create(scope(actor('alice', ['requester'])), input(time.value));
+    await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'yes');
+    bobActive = false;
+    const execute = vi.fn(async () => 'done');
+    await expect(h.service.resume(scope(actor('carol')), 'review-1', 'secret-token', execute)).rejects.toBeInstanceOf(ReviewAccessError);
+    expect(execute).not.toHaveBeenCalled();
+    const review = await h.service.read(scope(actor('auditor')), 'review-1');
+    expect(review?.decisions).toHaveLength(1);
+    expect(review?.events.at(-1)?.type).toBe('authorization-denied');
+  });
+
+  it('HITL-LINEAGE rejects forged statuses, reordered approvals, preapproval dispatch and swapped receipts', async () => {
+    const h = await harness();
+    const created = await h.service.create(scope(actor('alice', ['requester'])), input(1_000));
+    const forged = structuredClone(created);
+    forged.status = 'approved';
+    expect(() => validateReview(forged)).toThrow(ReviewIntegrityError);
+    forged.status = 'resuming';
+    expect(() => validateReview(forged)).toThrow(ReviewIntegrityError);
+    const approved = await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'yes');
+    const schema = JSON.parse(await readFile(new URL('../../../schemas/decision/DecisionReview.schema.json', import.meta.url), 'utf8'));
+    const schemaValid = new Ajv2020({ strict: false }).compile(schema);
+    expect(schemaValid(approved), JSON.stringify(schemaValid.errors)).toBe(true);
+    const changedPins = structuredClone(approved);
+    changedPins.policyPins[0]!.digest = `sha256:${'b'.repeat(64)}`;
+    expect(() => assertImmutable(created, changedPins)).toThrow(/policyPins/);
+    const changedExpiry = structuredClone(approved);
+    changedExpiry.expiresAtEpochMs += 1000;
+    expect(() => assertImmutable(created, changedExpiry)).toThrow(/expiresAtEpochMs/);
+    const changedHistory = structuredClone(approved);
+    changedHistory.decisions[0]!.rationale = 'forged';
+    expect(() => validateReview(changedHistory)).toThrow(/Decision event mismatch/);
+    const swapped = structuredClone(approved);
+    swapped.decisions[0]!.reviewer.id = 'mallory';
+    expect(() => validateReview(swapped)).toThrow(/Decision event mismatch/);
+    const reordered = structuredClone(approved);
+    reordered.events[1]!.sequence = 1;
+    expect(() => validateReview(reordered)).toThrow(/event lineage/i);
+    const fakeReceipt = structuredClone(approved);
+    fakeReceipt.effectReceipt = { effectId: 'forged', continuationId: fakeReceipt.continuation.id,
+      proposalVersion: 1, completedAtEpochMs: 1000, result: 'forged' };
+    expect(() => validateReview(fakeReceipt)).toThrow(/Effect receipt/);
+    const forgedEvent = structuredClone(approved);
+    forgedEvent.events[1]!.type = 'execution-completed';
+    expect(() => validateReview(forgedEvent)).toThrow(ReviewIntegrityError);
   });
 
   it('enforces deterministic expiry, escalation, rejection, and cancellation transitions', async () => {
@@ -141,6 +224,33 @@ describe('durable decision review runtime', () => {
     expect(stored?.status).toBe('completed');
   });
 
+  it('HITL-RESTART reconciles a completed external effect from an authenticated journal after dispatch crash', async () => {
+    const time = { value: 1000 }; const h = await harness(time);
+    const ledgerDirectory = await mkdtemp(join(tmpdir(), 'aiwg-review-ledger-')); directories.push(ledgerDirectory);
+    const ledger = new FileVerifiedReviewEffectLedger(ledgerDirectory, new Uint8Array(32).fill(8));
+    await h.service.create(scope(actor('alice', ['requester'])), input(time.value));
+    await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approved');
+    const execute = vi.fn(async (effectId: string) => {
+      const receipt = { effectId, continuationId: 'continuation-1', proposalVersion: 1, completedAtEpochMs: time.value, result: 'delivered' };
+      await ledger.recordCompleted({ tenantId: 'tenant-a', projectId: 'project-a', reviewId: 'review-1', effectId }, receipt);
+      throw new Error('lost response after journal publication');
+    });
+    await expect(h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', execute)).rejects.toThrow(/lost response/);
+    time.value += 101;
+    const restarted = new DecisionReviewService(new FileDecisionReviewStore(h.directory, new Uint8Array(32).fill(7)), h.authorization,
+      () => time.value, { resumingLeaseMs: 100 });
+    const catalog = { hydrate: async (workspaceId: string, previousSessionId: string) => ({ workspaceId, previousSessionId, coverage: 'covered' as const }),
+      findAttempt: async (q: { workspaceId: string; previousSessionId: string; reviewId: string; effectId: string }) =>
+        ({ workspaceId: q.workspaceId, sessionId: q.previousSessionId, reviewId: q.reviewId, effectId: q.effectId }) };
+    const reconcile = auditedReviewReconciler({ workspaceId: '/workspace', previousSessionId: 'prior-session', reviewId: 'review-1',
+      scope: scope(actor('bob')), catalog, ledger: new FileVerifiedReviewEffectLedger(ledgerDirectory, new Uint8Array(32).fill(8)) });
+    const recovered = await restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute, reconcile);
+    expect(recovered.result).toBe('delivered');
+    expect((await restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute, reconcile))).toEqual(recovered);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect((await h.store.read('review-1', 'tenant-a', 'project-a'))?.status).toBe('completed');
+  });
+
   it('reauthorizes token, reviewer, and action before stale-resume recovery', async () => {
     const time = { value: 1_000 }; let eligible = true;
     const h = await harness(time, { eligible: () => eligible });
@@ -156,12 +266,27 @@ describe('durable decision review runtime', () => {
     await expect(restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', async () => 'no')).rejects.toBeInstanceOf(ReviewAccessError);
   });
 
-  it('stores only a fixed executor error class, never a private exception message', async () => {
+  it('HITL-UNKNOWN leaves ambiguous executor rejection open for reconciliation without persisting private errors', async () => {
+    const time = { value: 1000 }; const h = await harness(time);
+    await h.service.create(scope(actor('alice', ['requester'])), input(time.value));
+    await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approved');
+    const execute = vi.fn(async () => { throw new Error('private-test-payload'); });
+    await expect(h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', execute)).rejects.toThrow('private-test-payload');
+    const stored = await h.store.read('review-1', 'tenant-a', 'project-a');
+    expect(stored?.status).toBe('resuming');
+    expect(JSON.stringify(stored)).not.toContain('private-test-payload');
+    time.value += 101;
+    const restarted = new DecisionReviewService(h.store, h.authorization, () => time.value, { resumingLeaseMs: 100 });
+    await expect(restarted.resume(scope(actor('bob')), 'review-1', 'secret-token', execute)).rejects.toThrow(/requires effect reconciliation/);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('HITL-FAIL stores only a fixed error class for executor-attested definitive failures', async () => {
     const h = await harness();
     await h.service.create(scope(actor('alice', ['requester'])), input(1_000));
     await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approved');
     await expect(h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', async () => {
-      throw new Error('private-test-payload');
+      throw new ReviewDefinitiveExecutionError('private-test-payload');
     })).rejects.toThrow('private-test-payload');
     const stored = await h.store.read('review-1', 'tenant-a', 'project-a');
     expect(stored?.status).toBe('execution-failed');

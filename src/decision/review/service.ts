@@ -3,6 +3,9 @@ import type {
   DecisionReviewServiceOptions, ReviewEventType, ReviewListOptions, ReviewScope, ReviewStore,
 } from './types.js';
 import { currentProposal, ReviewAccessError, ReviewConflictError, reviewDigest } from './validate.js';
+
+/** Only an executor that can attest zero external effect may report definitive failure. */
+export class ReviewDefinitiveExecutionError extends Error {}
 import { DecisionTraceBuilder } from '../telemetry/trace.js';
 import { sanitizeOpaqueValue } from '../telemetry/redaction.js';
 
@@ -129,7 +132,11 @@ export class DecisionReviewService {
       const proposal = currentProposal(review);
       const approvals = review.decisions.filter(item => item.proposalVersion === proposal.version && item.decision === 'approve');
       if (approvals.length < review.quorum) throw new ReviewConflictError('Approval quorum is no longer satisfied');
-      if (!await this.authorization.eligible(scope, review, proposal) || !await this.authorization.authorizeAction(scope, review, proposal)) {
+      const currentApprovals = await Promise.all(approvals.map(decision => this.authorization.eligibleApproval(scope, review, proposal, decision)));
+      if (currentApprovals.filter(Boolean).length < review.quorum ||
+          !await this.authorization.eligible(scope, review, proposal) || !await this.authorization.authorizeAction(scope, review, proposal)) {
+        const denied = this.append(review, 'authorization-denied', scope.actor, 'resume authorization denied', review.status);
+        if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, denied)) continue;
         throw new ReviewAccessError('Authorization is no longer valid');
       }
       if (review.status === 'resuming') {
@@ -159,21 +166,26 @@ export class DecisionReviewService {
   }
 
   private async executeAndFinish(scope: ReviewScope, id: string, resuming: DecisionReview, action: unknown, effectId: string, execute: (effectId: string, action: unknown) => Promise<unknown>): Promise<ReviewEffectReceipt> {
+    let result: unknown;
     try {
-      const result = await execute(effectId, structuredClone(action));
-      const receipt: ReviewEffectReceipt = { effectId, continuationId: resuming.continuation.id, proposalVersion: currentProposal(resuming).version, completedAtEpochMs: this.now(), result };
-      await this.finish(scope, id, resuming.revision, receipt);
-      const completed = await this.store.read(id, scope.tenantId, scope.projectId);
-      if (completed) await this.emitTelemetry(completed, receipt.effectId);
-      return receipt;
+      result = await execute(effectId, structuredClone(action));
     } catch (error) {
-      const failed = this.append(resuming, 'execution-failed', scope.actor, 'executor failed', 'execution-failed');
-      // Executors can return provider bodies, private state, or credentials in
-      // exception messages. Persist only a fixed failure class in the review.
-      failed.executionError = 'executor-failed';
-      await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, resuming.revision, failed);
+      // An arbitrary rejection cannot prove that the remote effect did not run.
+      // Leave the lease in resuming for authoritative reconciliation after restart.
+      if (error instanceof ReviewDefinitiveExecutionError) {
+        const failed = this.append(resuming, 'execution-failed', scope.actor, 'executor failed', 'execution-failed');
+        failed.executionError = 'executor-failed';
+        await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, resuming.revision, failed);
+      }
       throw error;
     }
+    const receipt: ReviewEffectReceipt = { effectId, continuationId: resuming.continuation.id, proposalVersion: currentProposal(resuming).version, completedAtEpochMs: this.now(), result };
+    // If persistence fails, DO NOT claim the external effect failed. Reconcile
+    // from the executor-owned journal rather than dispatching it a second time.
+    await this.finish(scope, id, resuming.revision, receipt);
+    const completed = await this.store.read(id, scope.tenantId, scope.projectId);
+    if (completed) await this.emitTelemetry(completed, receipt.effectId);
+    return receipt;
   }
 
   private async finish(scope: ReviewScope, id: string, revision: number, receipt: ReviewEffectReceipt) {

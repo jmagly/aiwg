@@ -92,7 +92,7 @@ describe('decision telemetry runtime golden traces', () => {
   it('links durable review completion to the approved action span', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'aiwg-telemetry-review-')); directories.push(directory);
     const spans: DecisionTelemetrySpan[] = []; const now = { value: 1_000 };
-    const authorization = { authorize: () => true, eligible: () => true, authorizeAction: () => true };
+    const authorization = { authorize: () => true, eligible: () => true, eligibleApproval: () => true, authorizeAction: () => true };
     const service = new DecisionReviewService(new FileDecisionReviewStore(directory, new Uint8Array(32).fill(3)), authorization, () => now.value,
       { telemetry: { hook: { emit: span => { spans.push(span); } }, ids: deterministicIds() } });
     const digest = `sha256:${'a'.repeat(64)}` as const;

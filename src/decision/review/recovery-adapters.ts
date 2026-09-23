@@ -3,6 +3,8 @@ import { link, mkdir, open, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../../security/artifact-trust.js';
 import type { SessionRepository } from '../../sessions/repository.js';
+import { importDiscoveryManifest } from '../../sessions/batch-import.js';
+import type { SessionDiscoveryManifest } from '../../sessions/workspace-discovery.js';
 import type { SessionEvent } from '../../sessions/contracts.js';
 import type { ReviewEffectReceipt } from './types.js';
 import type { ReviewSessionAudit, VerifiedReviewEffectLedger } from './recovery.js';
@@ -29,9 +31,12 @@ export class WorkspaceReviewSessionAudit implements ReviewSessionAudit {
   }
 
   async findAttempt(query: { workspaceId: string; previousSessionId: string; reviewId: string; effectId: string }) {
-    if (!this.covered.has(`${query.workspaceId}\0${query.previousSessionId}`)) return null;
+    if (!this.covered.has(`${query.workspaceId}\0${query.previousSessionId}`) ||
+        this.repository.getCoverage(query.workspaceId).status !== 'complete' ||
+        this.repository.getSession(query.previousSessionId, query.workspaceId)?.consistency !== 'complete') return null;
     const matches = this.repository.listEvents(query.previousSessionId, query.workspaceId)
       .filter(event => {
+        if (event.origin !== 'tool-control' || event.consistency !== 'complete') return false;
         const marker = this.locate(event);
         return marker?.reviewId === query.reviewId && marker.effectId === query.effectId;
       });
@@ -42,13 +47,33 @@ export class WorkspaceReviewSessionAudit implements ReviewSessionAudit {
   }
 }
 
+/** Import only a previously reviewed manifest after fresh workspace/session authorization. */
+export function authorizedReviewCatalogRefresh(input: {
+  repository: SessionRepository;
+  manifest: SessionDiscoveryManifest;
+  authorize: (workspaceId: string, previousSessionId: string, manifest: SessionDiscoveryManifest) => boolean | Promise<boolean>;
+}) {
+  return async (workspaceId: string, previousSessionId: string): Promise<void> => {
+    if (workspaceId !== input.manifest.workspaceId || !previousSessionId ||
+        !await input.authorize(workspaceId, previousSessionId, input.manifest)) {
+      throw new Error('Review catalog refresh denied');
+    }
+    await importDiscoveryManifest({ manifest: input.manifest, repository: input.repository });
+  };
+}
+
 /** Executor-owned receipt journal. Keep its key separate from review-store and session-index keys. */
 export class FileVerifiedReviewEffectLedger implements VerifiedReviewEffectLedger {
   constructor(private readonly directory: string, private readonly integrityKey: Uint8Array) {
     if (integrityKey.length < 32) throw new Error('Executor ledger integrity key must be at least 32 bytes');
   }
+  private scope(query: { tenantId: string; projectId: string; reviewId: string; effectId: string }) {
+    const { tenantId, projectId, reviewId, effectId } = query;
+    if (![tenantId, projectId, reviewId, effectId].every(value => typeof value === 'string' && value.length > 0)) throw new Error('Invalid executor ledger scope');
+    return { tenantId, projectId, reviewId, effectId };
+  }
   private path(query: { tenantId: string; projectId: string; reviewId: string; effectId: string }) {
-    const digest = createHash('sha256').update(canonicalJson(query)).digest('hex');
+    const digest = createHash('sha256').update(canonicalJson(this.scope(query))).digest('hex');
     return join(this.directory, `${digest}.json`);
   }
   private mac(record: unknown) { return createHmac('sha256', this.integrityKey).update(canonicalJson(record)).digest('hex'); }
@@ -57,7 +82,7 @@ export class FileVerifiedReviewEffectLedger implements VerifiedReviewEffectLedge
   async recordCompleted(query: { tenantId: string; projectId: string; reviewId: string; effectId: string }, receipt: ReviewEffectReceipt): Promise<boolean> {
     if (receipt.effectId !== query.effectId || !receipt.continuationId || !Number.isSafeInteger(receipt.proposalVersion) || receipt.proposalVersion < 1 ||
         !Number.isSafeInteger(receipt.completedAtEpochMs) || receipt.completedAtEpochMs < 0) throw new Error('Invalid executor completion receipt');
-    const record = { query, receipt };
+    const record = { query: this.scope(query), receipt };
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const destination = this.path(query);
     const temporary = `${destination}.${randomUUID()}.tmp`;
@@ -86,7 +111,7 @@ export class FileVerifiedReviewEffectLedger implements VerifiedReviewEffectLedge
       const expected = Buffer.from(this.mac(envelope.record), 'hex');
       const actual = Buffer.from(envelope.mac ?? '', 'hex');
       if (actual.length !== expected.length || !timingSafeEqual(actual, expected) ||
-          canonicalJson(envelope.record.query) !== canonicalJson(query) || envelope.record.receipt.effectId !== query.effectId ||
+          canonicalJson(envelope.record.query) !== canonicalJson(this.scope(query)) || envelope.record.receipt.effectId !== query.effectId ||
           !envelope.record.receipt.continuationId || !Number.isSafeInteger(envelope.record.receipt.proposalVersion) ||
           envelope.record.receipt.proposalVersion < 1 || !Number.isSafeInteger(envelope.record.receipt.completedAtEpochMs) ||
           envelope.record.receipt.completedAtEpochMs < 0) throw new Error('Invalid executor ledger entry');

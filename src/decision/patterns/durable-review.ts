@@ -1,4 +1,5 @@
-import { DecisionReviewService, FileDecisionReviewStore } from '../review/index.js';
+import { DecisionReviewService, FileDecisionReviewStore, ReviewConflictError, type ReviewScope } from '../review/index.js';
+import { join } from 'node:path';
 
 export interface DurableReviewFixtureResult {
   schema: 'decision-pattern-durable-review-fixture/v1';
@@ -24,6 +25,7 @@ export async function runOfflineDurableReviewFixture(directory: string): Promise
   const authorization = {
     authorize: () => true,
     eligible: ({ actor }: { actor: { roles: string[] } }) => actor.roles.includes('reviewer'),
+    eligibleApproval: (_scope: unknown, _review: unknown, _proposal: unknown, decision: { reviewer: { roles: string[] } }) => decision.reviewer.roles.includes('reviewer'),
     authorizeAction: () => true,
   };
   const actor = { id: 'fixture-reviewer', roles: ['reviewer'], authorityContext: 'offline-fixture/v1' };
@@ -74,4 +76,50 @@ export async function runOfflineDurableReviewFixture(directory: string): Promise
     persistedRevision: persisted.revision, executorCalls: 1,
     duplicateResumeReturnedReceipt: true,
   };
+}
+
+/** Installed-package offline matrix: no network, credentials, or external executor. */
+export async function runOfflineReviewMatrixFixture(directory: string) {
+  if (!directory) throw new Error('A durable review fixture directory is required');
+  const key = new TextEncoder().encode('aiwg-offline-review-matrix-fixture-key-v1');
+  const store = () => new FileDecisionReviewStore(join(directory, 'matrix'), key);
+  const requester: ReviewScope = { tenantId: 'fixture-tenant', projectId: 'fixture-project',
+    actor: { id: 'requester', roles: ['requester'], authorityContext: 'fixture/v1' } };
+  const reviewer: ReviewScope = { ...requester, actor: { id: 'reviewer', roles: ['reviewer'], authorityContext: 'fixture/v1' } };
+  const auth = { authorize: () => true, eligible: () => true, eligibleApproval: () => true, authorizeAction: () => true };
+  let now = 1_000;
+  const service = () => new DecisionReviewService(store(), auth, () => now);
+  const digest = `sha256:${'1'.repeat(64)}` as const;
+  const create = (id: string, reasonCode: string, expiry = 9_000) => service().create(requester, {
+    reviewId: id, sourceReceipt: { id: `source-${id}`, digest }, evidencePins: [{ id: 'evidence', version: '1', digest }],
+    policyPins: [{ id: 'policy', version: '1', digest }], reasonCodes: [reasonCode], riskTier: 'fixture',
+    presentation: { summary: 'Projected synthetic evidence' }, action: { kind: 'fixture', value: 'original' },
+    rationale: 'Requires review', expiresAtEpochMs: expiry, continuationId: `continue-${id}`, resumeToken: `resume-${id}`,
+    escalationAtEpochMs: 1_500,
+  });
+  await create('low-confidence', 'low-confidence');
+  await create('policy-conflict', 'policy-conflict');
+  const claimed = await service().claim(reviewer, 'low-confidence', 'claim');
+  const rejected = await service().decide(reviewer, 'policy-conflict', 'reject', 'conflict');
+  await create('edited', 'manual-edit');
+  const edited = await service().edit(reviewer, 'edited', { kind: 'fixture', value: 'amended' }, 'amend');
+  await service().decide(reviewer, 'edited', 'approve', 'approve amendment');
+  let effects = 0;
+  const execute = async () => { effects += 1; return { delivered: true }; };
+  const completed = await service().resume(reviewer, 'edited', 'resume-edited', execute);
+  const duplicate = await service().resume(reviewer, 'edited', 'resume-edited', execute);
+  await create('expiry', 'deadline', 1_600);
+  await create('escalation', 'deadline');
+  now = 1_600;
+  const expired = await service().expireDue(reviewer, 'expiry');
+  const escalated = await service().escalate(reviewer, 'escalation', 'deadline');
+  let lateDenied = false;
+  try { await service().decide(reviewer, 'expiry', 'approve', 'too late'); }
+  catch (error) { if (!(error instanceof ReviewConflictError)) throw error; lateDenied = true; }
+  if (!lateDenied || effects !== 1 || completed.effectId !== duplicate.effectId) throw new Error('Offline review matrix failed');
+  return { schema: 'decision-review-offline-matrix/v1' as const, executionMode: 'offline-local' as const,
+    networkAllowed: false as const, credentialRequired: false as const, restarted: true as const,
+    claimed: claimed.status, rejected: rejected.status, editedVersion: edited.proposals.at(-1)!.version,
+    expired: expired.status, escalated: escalated.status, lateDenied, executorCalls: effects,
+    duplicateResumeReturnedReceipt: true as const };
 }

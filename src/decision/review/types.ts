@@ -7,7 +7,7 @@ export type ReviewStatus =
 export type ReviewEventType =
   | 'created' | 'claimed' | 'approved' | 'rejected' | 'edited' | 'expired'
   | 'escalated' | 'canceled' | 'resumed' | 'execution-completed' | 'execution-failed'
-  | 'legal-hold-placed' | 'legal-hold-released' | 'tombstoned';
+  | 'legal-hold-placed' | 'legal-hold-released' | 'tombstoned' | 'authorization-denied';
 
 export interface ReviewActor {
   id: string;
@@ -92,6 +92,8 @@ export interface ReviewAuthorization {
   authorize(scope: ReviewScope, operation: ReviewOperation, review?: DecisionReview): boolean | Promise<boolean>;
   eligible(scope: ReviewScope, review: DecisionReview, proposal: ReviewProposal): boolean | Promise<boolean>;
   authorizeAction(scope: ReviewScope, review: DecisionReview, proposal: ReviewProposal): boolean | Promise<boolean>;
+  /** Resolve each approval against current role/COI/quorum policy, never trust stored roles alone. */
+  eligibleApproval(scope: ReviewScope, review: DecisionReview, proposal: ReviewProposal, decision: ReviewDecision): boolean | Promise<boolean>;
 }
 
 export interface ReviewStore {
