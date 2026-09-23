@@ -15,7 +15,7 @@ Admission occurs before every adapter attempt. The controller applies, independe
 
 Malformed or negative host estimates fail closed as `invalid-estimate` before queue allocation or budget consumption; their values are not copied into admission evidence. Queued work is revalidated against the current host profile before dispatch, so a tightened policy rejects an item admitted to the queue under an older profile.
 
-Admission evidence counts other waiting requests in the principal lane, not the admitted request itself. The offline slow-client and profile-rollback regressions exercise queue expiry, capacity recovery, rejection of already queued work under tightened policy, and restoration for a new run. These fixtures are not measured live-provider qualification.
+Admission evidence counts other waiting requests in the principal lane, not the admitted request itself. The offline slow-client and profile-rollback regressions exercise queue expiry, capacity recovery, rejection of already queued work under tightened policy, and restoration for a new run. A real loopback HTTP slow-client test additionally holds an in-flight response, sheds queue overflow before network dispatch, and checks active permits while the slow response is released. These fixtures are not measured live-provider qualification.
 
 Queued cancellation rejects before an adapter call. Active cancellation uses the evaluator's composed caller, total-deadline, and target-deadline signal. Retry waits and fallback scheduling re-check that same signal and the single invocation attempt budget. Durable receipt v2 has one pending-dispatch slot, so receipt-backed execution deliberately stays at concurrency 1 until a later receipt schema can atomically represent multiple pending dispatches.
 

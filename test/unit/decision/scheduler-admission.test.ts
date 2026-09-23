@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -283,6 +284,57 @@ describe('decision provider admission', () => {
     expect(dispatched).toBe(false);
     const safe = await controller.acquire({ ...request(), budgetId: 'safe', estimate: { requestBytes: 10 } });
     safe.release({ success: true });
+  });
+
+  it('bounds real loopback slow-client traffic and sheds overflow without sending it', async () => {
+    let served = 0;
+    let finishFirst!: () => void;
+    let firstStarted!: () => void;
+    const firstHeld = new Promise<void>(resolve => { finishFirst = resolve; });
+    const handlerStarted = new Promise<void>(resolve => { firstStarted = resolve; });
+    const server = createServer(async (_incoming, response) => {
+      served += 1;
+      if (served === 1) { firstStarted(); await firstHeld; }
+      response.writeHead(200).end('ok');
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('loopback listener unavailable');
+    const guarded = limits({ concurrency: 1, maxQueueLength: 1, maxQueueWaitMs: 2_000 });
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    let active = 0;
+    let peak = 0;
+    const call = async (budgetId: string): Promise<string> => {
+      const lease = await controller.acquire({ ...request(), budgetId });
+      active += 1;
+      peak = Math.max(peak, active);
+      try {
+        const response = await fetch(`http://127.0.0.1:${address.port}/`);
+        return await response.text();
+      } finally {
+        active -= 1;
+        lease.release({ success: true });
+      }
+    };
+    try {
+      const first = call('loopback-first');
+      // Wait for the actual HTTP handler, not merely for admission.
+      await handlerStarted;
+      const second = call('loopback-second');
+      await expect(call('loopback-overflow')).rejects.toMatchObject({ evidence: { reason: 'queue-full' } });
+      expect(served).toBe(1);
+      finishFirst();
+      expect(await Promise.all([first, second])).toEqual(['ok', 'ok']);
+      expect(peak).toBe(1);
+      expect(served).toBe(2);
+    } finally {
+      finishFirst();
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
   });
 
   it('sheds slow-client backlog before dispatch and restores capacity after waiter expiry', async () => {
