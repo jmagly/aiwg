@@ -98,10 +98,13 @@ export class DecisionReviewService {
     });
   }
 
-  edit(scope: ReviewScope, id: string, action: unknown, rationale: string) { return this.mutate(scope, id, 'edit', review => {
+  edit(scope: ReviewScope, id: string, action: unknown, rationale: string, newResumeToken: string) { return this.mutate(scope, id, 'edit', async review => {
     this.requireActive(review); const at = this.now(); const version = currentProposal(review).version + 1;
-    const proposals = [...review.proposals, { version, action: structuredClone(action), actionDigest: reviewDigest(action), createdAtEpochMs: at, editor: scope.actor, rationale }];
-    return this.append({ ...review, proposals, decisions: review.decisions }, 'edited', scope.actor, rationale, 'pending');
+    if (!newResumeToken || reviewDigest(newResumeToken) === review.continuation.tokenDigest) throw new ReviewConflictError('Edited proposal requires a fresh resume token');
+    const proposal = { version, action: structuredClone(action), actionDigest: reviewDigest(action), createdAtEpochMs: at, editor: scope.actor, rationale };
+    if (!await this.authorization.authorizeAction(scope, review, proposal)) throw new ReviewAccessError('Edited action is not authorized');
+    return this.append({ ...review, continuation: { ...review.continuation, tokenDigest: reviewDigest(newResumeToken) },
+      proposals: [...review.proposals, proposal] }, 'edited', scope.actor, rationale, 'pending');
   }); }
 
   escalate(scope: ReviewScope, id: string, rationale: string) { return this.mutate(scope, id, 'escalate', review => {

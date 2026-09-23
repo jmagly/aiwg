@@ -53,12 +53,17 @@ describe('durable decision review runtime', () => {
   it('edits by appending a proposal version and requires a fresh approval', async () => {
     const h = await harness(); await h.service.create(scope(actor('alice', ['requester'])), input(1_000));
     await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approve v1');
-    await expect(h.service.edit(scope(actor('carol')), 'review-1', { kind: 'notify', target: 'changed' }, 'safer target')).rejects.toBeInstanceOf(ReviewConflictError);
+    await expect(h.service.edit(scope(actor('carol')), 'review-1', { kind: 'notify', target: 'changed' }, 'safer target', 'fresh-token')).rejects.toBeInstanceOf(ReviewConflictError);
     const h2 = await harness(); await h2.service.create(scope(actor('alice', ['requester'])), input(1_000));
-    const edited = await h2.service.edit(scope(actor('carol')), 'review-1', { kind: 'notify', target: 'changed' }, 'safer target');
+    const edited = await h2.service.edit(scope(actor('carol')), 'review-1', { kind: 'notify', target: 'changed' }, 'safer target', 'fresh-token');
     expect(edited).toMatchObject({ status: 'pending', proposals: [{ version: 1 }, { version: 2 }] });
     const approved = await h2.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approve v2');
     expect(approved.decisions.at(-1)?.proposalVersion).toBe(2);
+    const execute = vi.fn(async () => 'delivered');
+    await expect(h2.service.resume(scope(actor('bob')), 'review-1', 'secret-token', execute)).rejects.toBeInstanceOf(ReviewAccessError);
+    expect(execute).not.toHaveBeenCalled();
+    expect((await h2.service.resume(scope(actor('bob')), 'review-1', 'fresh-token', execute)).proposalVersion).toBe(2);
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it('revalidates expiry, eligibility, action authorization, and denies self approval', async () => {
@@ -78,6 +83,17 @@ describe('durable decision review runtime', () => {
     await expect(h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', async () => 'done')).rejects.toBeInstanceOf(ReviewConflictError);
   });
 
+  it('HITL-EDIT requires edited-action authorization before appending a proposal', async () => {
+    const h = await harness({ value: 1000 }, { authorizeAction: (_scope, _review, proposal) =>
+      (proposal.action as { target: string }).target !== 'restricted' });
+    await h.service.create(scope(actor('alice', ['requester'])), input(1000));
+    await expect(h.service.edit(scope(actor('bob')), 'review-1', { target: 'restricted' }, 'proposal', 'fresh-token'))
+      .rejects.toBeInstanceOf(ReviewAccessError);
+    const review = await h.store.read('review-1', 'tenant-a', 'project-a');
+    expect(review?.proposals).toHaveLength(1);
+    expect(review?.events.map(event => event.type)).toEqual(['created']);
+  });
+
   it('HITL-PRIVACY rejects restricted payloads before storage, including edit and receipt paths', async () => {
     const h = await harness();
     for (const changes of [
@@ -90,8 +106,11 @@ describe('durable decision review runtime', () => {
         .rejects.toThrow('Restricted review payload');
       expect(await h.store.read('review-1', 'tenant-a', 'project-a')).toBeNull();
     }
+    await expect(h.service.create(scope({ ...actor('sensitive', ['requester']), authorityContext: 'vault://synthetic/context' }), input(1000)))
+      .rejects.toThrow('Restricted review payload');
+    expect(await h.store.read('review-1', 'tenant-a', 'project-a')).toBeNull();
     await h.service.create(scope(actor('alice', ['requester'])), input(1000));
-    await expect(h.service.edit(scope(actor('bob')), 'review-1', { providerBody: 'synthetic-only' }, 'edit'))
+    await expect(h.service.edit(scope(actor('bob')), 'review-1', { providerBody: 'synthetic-only' }, 'edit', 'fresh-token'))
       .rejects.toThrow('Restricted review payload');
     await h.service.decide(scope(actor('bob')), 'review-1', 'approve', 'approved');
     await expect(h.service.resume(scope(actor('bob')), 'review-1', 'secret-token', async () => ({ apiKey: 'synthetic-only' })))

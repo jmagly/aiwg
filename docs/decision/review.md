@@ -1,6 +1,6 @@
 # Durable decision review
 
-`DecisionReview` is an append-only, project-scoped workflow record between probabilistic evidence and an effect. Evidence and policy pins are immutable. Editing an action creates a new proposal version and invalidates prior proposal approvals.
+`DecisionReview` is an append-only, project-scoped workflow record between probabilistic evidence and an effect. Evidence and policy pins are immutable. Editing an action requires authorization against the proposed action and a fresh resume token before appending a new proposal version; this invalidates prior proposal approvals and the old token. Resume rechecks action authorization again.
 
 The review service permits only explicit state-machine operations. Reviewer eligibility, current eligibility of every recorded approver (`eligibleApproval`), and action authorization are separate mandatory callbacks and are rechecked at resume time. Implementations must query live authority (roles, conflicts of interest, pinned policy) rather than trusting stored reviewer roles; a denied resume appends an authorization-denied event without erasing approval history. Approval records accountable human judgment; it does not establish model correctness, grant permission, or bypass current policy.
 

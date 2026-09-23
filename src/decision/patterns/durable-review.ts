@@ -102,12 +102,12 @@ export async function runOfflineReviewMatrixFixture(directory: string) {
   const claimed = await service().claim(reviewer, 'low-confidence', 'claim');
   const rejected = await service().decide(reviewer, 'policy-conflict', 'reject', 'conflict');
   await create('edited', 'manual-edit');
-  const edited = await service().edit(reviewer, 'edited', { kind: 'fixture', value: 'amended' }, 'amend');
+  const edited = await service().edit(reviewer, 'edited', { kind: 'fixture', value: 'amended' }, 'amend', 'resume-edited-v2');
   await service().decide(reviewer, 'edited', 'approve', 'approve amendment');
   let effects = 0;
   const execute = async () => { effects += 1; return { delivered: true }; };
-  const completed = await service().resume(reviewer, 'edited', 'resume-edited', execute);
-  const duplicate = await service().resume(reviewer, 'edited', 'resume-edited', execute);
+  const completed = await service().resume(reviewer, 'edited', 'resume-edited-v2', execute);
+  const duplicate = await service().resume(reviewer, 'edited', 'resume-edited-v2', execute);
   await create('expiry', 'deadline', 1_600);
   await create('escalation', 'deadline');
   now = 1_600;

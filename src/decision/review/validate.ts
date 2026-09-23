@@ -47,13 +47,19 @@ export function validateReview(review: DecisionReview): void {
     throw new ReviewIntegrityError('Invalid review lifecycle');
   }
   assertReviewProjection(review.presentation);
+  assertReviewProjection(review.reviewId);
+  assertReviewProjection(review.requesterId);
+  assertReviewProjection(review.sourceReceipt.id);
+  assertReviewProjection(review.evidencePins);
+  assertReviewProjection(review.policyPins);
   review.proposals.forEach((proposal, index) => {
+    assertReviewProjection(proposal.editor);
     assertReviewProjection(proposal.action);
     assertReviewProjection(proposal.rationale);
     if (proposal.version !== index + 1 || proposal.actionDigest !== reviewDigest(proposal.action)) throw new ReviewIntegrityError('Invalid proposal lineage');
   });
-  review.decisions.forEach(decision => assertReviewProjection(decision.rationale));
-  review.events.forEach(event => assertReviewProjection(event.rationale));
+  review.decisions.forEach(decision => { assertReviewProjection(decision.reviewer); assertReviewProjection(decision.rationale); });
+  review.events.forEach(event => { assertReviewProjection(event.actor); assertReviewProjection(event.rationale); });
   if (review.effectReceipt) assertReviewProjection(review.effectReceipt.result);
   review.events.forEach((event, index) => {
     if (event.sequence !== index + 1 || !legalEvents.has(event.type) || event.proposalVersion < 1 || event.proposalVersion > review.proposals.length) {
@@ -129,8 +135,12 @@ export function validateReview(review: DecisionReview): void {
 
 export function assertImmutable(previous: DecisionReview, next: DecisionReview): void {
   const fixed = ['reviewId', 'tenantId', 'projectId', 'requesterId', 'sourceReceipt', 'evidencePins', 'policyPins',
-    'reasonCodes', 'riskTier', 'presentation', 'createdAtEpochMs', 'expiresAtEpochMs', 'escalationAtEpochMs', 'quorum', 'continuation'] as const;
+    'reasonCodes', 'riskTier', 'presentation', 'createdAtEpochMs', 'expiresAtEpochMs', 'escalationAtEpochMs', 'quorum'] as const;
   for (const key of fixed) if (canonicalJson(previous[key] ?? null) !== canonicalJson(next[key] ?? null)) throw new ReviewIntegrityError(`Immutable review field changed: ${key}`);
+  if (previous.continuation.id !== next.continuation.id ||
+      (next.events.at(-1)?.type === 'edited') !== (previous.continuation.tokenDigest !== next.continuation.tokenDigest)) {
+    throw new ReviewIntegrityError('Continuation token must rotate only on proposal edit');
+  }
   if (previous.effectReceipt && canonicalJson(previous.effectReceipt) !== canonicalJson(next.effectReceipt ?? null)) {
     throw new ReviewIntegrityError('Completed effect receipt changed');
   }
