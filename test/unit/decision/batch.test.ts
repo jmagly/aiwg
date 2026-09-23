@@ -217,6 +217,26 @@ describe('native shared-state decision batching', () => {
     expect(Object.values(result.spec.evaluations).every(value => value.spec.reason === 'data-boundary-denied')).toBe(true);
   });
 
+  it('PROJ-DEBUG succeeds with a host capture sink without leaking ambient state', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const configured = request(fetchImpl);
+    configured.batching.enabled = false;
+    const captures: string[] = [];
+    const capture = vi.fn(async (_scope: string, data: Uint8Array) => {
+      captures.push(new TextDecoder().decode(data));
+      return 'opaque-debug-reference';
+    });
+    const result = await evaluateDecisionRuleset({ ...configured,
+      projection: { resolve: runtimeProjectionPolicy, debugCapture: { scope: 'case-7', capture } } });
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.status === 'success')).toBe(true);
+    expect(captures).toHaveLength(3);
+    expect(captures.every(value => JSON.stringify(JSON.parse(value)) === JSON.stringify({
+      excerpt: 'The documentation link on the settings page is broken. The application otherwise works.',
+    }))).toBe(true);
+    expect(JSON.stringify(result)).not.toContain('opaque-debug-reference');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
   it('PROJ-DEBUG denies a native batch when one projected capture fails', async () => {
     const fetchImpl = vi.fn() as unknown as typeof fetch;
     const credential = vi.fn(async () => new TextEncoder().encode('fixture-token'));
