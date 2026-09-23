@@ -195,6 +195,40 @@ describe('native shared-state decision batching', () => {
     expect(Object.values(result.spec.evaluations).every(item => item.spec.status === 'success')).toBe(true);
   });
 
+  it('PROJ-DEBUG captures only minimized state and denies capture failure before credentials', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const credential = vi.fn(async () => new TextEncoder().encode('fixture-token'));
+    const configured = request(fetchImpl);
+    configured.batching.enabled = false;
+    const captured: string[] = [];
+    const capture = vi.fn(async (_scope: string, bytes: Uint8Array) => {
+      captured.push(new TextDecoder().decode(bytes));
+      throw new Error('synthetic-debug-secret-canary');
+    });
+    const result = await evaluateDecisionRuleset({ ...configured, resolveCredential: credential,
+      projection: { resolve: runtimeProjectionPolicy, debugCapture: { scope: 'case-7', capture } } });
+    expect(capture).toHaveBeenCalled();
+    expect(captured.every(value => JSON.stringify(JSON.parse(value)) === JSON.stringify({
+      excerpt: 'The documentation link on the settings page is broken. The application otherwise works.',
+    }))).toBe(true);
+    expect(credential).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain('synthetic-debug-secret-canary');
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.reason === 'data-boundary-denied')).toBe(true);
+  });
+
+  it('PROJ-DEBUG denies a native batch when one projected capture fails', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const credential = vi.fn(async () => new TextEncoder().encode('fixture-token'));
+    const capture = vi.fn(async () => { throw new Error('synthetic-debug-secret-canary'); });
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), resolveCredential: credential,
+      projection: { resolve: runtimeProjectionPolicy, debugCapture: { scope: 'case-7', capture } } });
+    expect(capture).toHaveBeenCalled();
+    expect(credential).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain('synthetic-debug-secret-canary');
+  });
+
   it('PROJ-RUNTIME fails a native batch closed before credential lookup or transport', async () => {
     const fetchImpl = vi.fn() as unknown as typeof fetch;
     const credential = vi.fn(async () => new TextEncoder().encode('token'));

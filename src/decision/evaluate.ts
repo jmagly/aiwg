@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { canonicalJson } from '../security/artifact-trust.js';
 import { composeRuleset } from './compose.js';
 import { applyPrimitiveAcceptance, validatePrimitiveAcceptancePolicy } from './acceptance.js';
 import { DecisionPreDispatchError, decisionInvocationFingerprint, nextReceipt } from './receipts.js';
@@ -700,6 +701,15 @@ async function projectRuntimeInput(
   const projected = await projectDecisionState(input, policy, {
     incompleteContext: request.projection.incompleteContext,
   });
+  if (request.projection.debugCapture) {
+    const { scope, capture } = request.projection.debugCapture;
+    try {
+      await capture(scope, new TextEncoder().encode(canonicalJson(projected.state)));
+    } catch {
+      // Neither backend error text nor captured bytes belong in runtime results.
+      throw new DecisionProjectionError('data-boundary-denied', 'debug capture unavailable');
+    }
+  }
   request.projection.onEvidence?.({ alias, evidence: structuredClone(projected.evidence) });
   return { input: projected.state, evidence: projected.evidence };
 }

@@ -46,7 +46,7 @@ classification and review.
 | Trust/data class/lifecycle metadata | Runtime enum and missing-control denial | Approved classification and retention schedule per data class |
 | Hostile state | Direct override, fake authority/system, delimiter, label, flood and exfiltration fixtures remain untrusted values | Semantic decision-quality evaluation; typed output alone is not immunity |
 | Redirect/DNS | Jev transport denies redirects and unapproved final origin; rejects private DNS resolution before credentials | Deployment-specific DNS/network enforcement and allowed-origin review |
-| Debug/retention | Optional debug sidecar encrypts with AES-256-GCM, audits access before capture/read/delete, denies unauthorized scope and expires ciphertext on access; telemetry tombstones references | Deploy an approved durable encrypted backend and audit sink, verify cascading erasure, out-of-band expiry and backup expiry |
+| Debug/retention | Optional host-only runtime `projection.debugCapture` receives only the minimized state and fails closed before credentials on capture failure. The debug sidecar encrypts with AES-256-GCM, audits access before capture/read/delete, denies unauthorized scope and expires ciphertext on access; telemetry tombstones references | Deploy an approved durable encrypted backend and audit sink, verify cascading erasure, out-of-band expiry and backup expiry |
 | Provider credentials | Resolver spy proves denied policies never call credentials | Exact authorized read and adjacent-secret denial in approved provider environment |
 
 Provider default retention duration, geographic residency, encryption/key

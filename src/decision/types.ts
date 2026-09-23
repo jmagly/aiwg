@@ -420,6 +420,11 @@ export interface DecisionRuntimeProjectionPolicy {
   }): DecisionProjectionPolicy;
   incompleteContext?: boolean;
   onEvidence?: (input: { alias: string; evidence: DecisionProjectionEvidence }) => void;
+  /** Optional host-only encrypted debug sink. Receives ONLY projected state, never ambient input. */
+  debugCapture?: {
+    scope: string;
+    capture(scope: string, plaintext: Uint8Array): Promise<string>;
+  };
 }
 
 export interface DecisionAdapterCompileRequest {
