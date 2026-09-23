@@ -57,6 +57,10 @@ describe('decision telemetry foundation', () => {
     expect(mapped.attributes['aiwg.provider.request_id']).toBe('req42');
     expect(String(mapDecisionAttempt({ ...attempt, requestId: `request-${'x'.repeat(500)}` }).attributes['aiwg.provider.request_id']).length).toBe(128);
     expect(mapped.provenance['gen_ai.response.model']).toBe('unknown');
+    const served = sanitizedTelemetryExport({ ...trace(), spans: [{ ...trace().spans[0]!, attributes: {
+      'gen_ai.response.model': 'served-v2', 'http.response.status_code': 200, 'aiwg.response.body': 'private',
+    } }] });
+    expect(served.spans[0]?.attributes).toEqual({ 'gen_ai.response.model': 'served-v2', 'http.response.status_code': 200 });
     expect(mapped.attributes['gen_ai.usage.output_tokens']).toBeNull();
     expect(mapped.attributes['aiwg.usage.cost_provenance']).toBe('unknown');
   });
@@ -122,12 +126,16 @@ describe('decision telemetry foundation', () => {
       ...value.spans[0]!.attributes,
       prompt: 'do not export',
       'aiwg.provider.request_id': 'request-internal',
-      'safe.field': 'prefix PII-CANARY suffix',
+      'aiwg.safe.field': 'prefix PII-CANARY suffix',
+      'aiwg.PII-CANARY': 'body-derived-key',
+      'aiwg.unknown_freeform': 'safe value',
     };
     const sanitized = sanitizedTelemetryExport(value, { canaries: ['PII-CANARY'] });
     expect(JSON.stringify(sanitized)).not.toContain('do not export');
     expect(JSON.stringify(sanitized)).not.toContain('request-internal');
     expect(scanTelemetryCanaries(sanitized, ['PII-CANARY', 'SECRET-CANARY'])).toEqual([]);
+    expect(JSON.stringify(sanitized)).not.toContain('body-derived-key');
+    expect(JSON.stringify(sanitized)).not.toContain('aiwg.unknown_freeform');
   });
 
   it('strips untrusted tracestate, event names, and tombstone canaries from incident exports', () => {
