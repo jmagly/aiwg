@@ -242,6 +242,26 @@ describe('decision provider admission', () => {
     await expect(waiting).rejects.toMatchObject({ evidence: { reason: 'cancelled' } });
   });
 
+  it.each([
+    { policy: { tokensPerSecond: 4 }, estimate: { tokens: 5 }, reason: 'tokens-per-second' },
+    { policy: { requestsPerMinute: 0 }, estimate: {}, reason: 'requests-per-minute' },
+  ] as const)('rejects impossible $reason admission without retaining a waiter', async ({ policy, estimate, reason }) => {
+    const guarded = limits(policy);
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    await expect(controller.acquire(request(new AbortController().signal, estimate)))
+      .rejects.toMatchObject({ retryable: false, evidence: { decision: 'reject', reason, queued: 0 } });
+  });
+
+  it('rejects a queued token estimate when a tightened profile can never refill enough', async () => {
+    let current = limits({ concurrency: 1, tokensPerSecond: 20 });
+    const controller = new DecisionAdmissionController(() => ({ principal: current, workspace: current, provider: current }));
+    const held = await controller.acquire(request());
+    const pending = controller.acquire({ ...request(), budgetId: 'pending', estimate: { tokens: 10 } });
+    current = limits({ concurrency: 1, tokensPerSecond: 5 });
+    held.release({ success: true });
+    await expect(pending).rejects.toMatchObject({ retryable: false, evidence: { reason: 'tokens-per-second' } });
+  });
+
   it('enforces invocation-scoped attempt and cost budgets independently', async () => {
     const attemptLimits = limits({ maxAttempts: 1 });
     const attempts = new DecisionAdmissionController(() => ({ principal: attemptLimits, workspace: attemptLimits, provider: attemptLimits }));

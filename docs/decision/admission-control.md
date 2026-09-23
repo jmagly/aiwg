@@ -13,7 +13,7 @@ Admission occurs before every adapter attempt. The controller applies, independe
 - provider-wide `Retry-After` pauses; and
 - closed/open/half-open circuit-breaker transitions.
 
-Malformed or negative host estimates fail closed as `invalid-estimate` before queue allocation or budget consumption; their values are not copied into admission evidence. Queued work is revalidated against the current host profile before dispatch, so a tightened policy rejects an item admitted to the queue under an older profile.
+Malformed or negative host estimates fail closed as `invalid-estimate` before queue allocation or budget consumption; their values are not copied into admission evidence. Queued work is revalidated against the current host profile before dispatch, so a tightened policy rejects an item admitted to the queue under an older profile. Requests that cannot ever fit a token bucket (estimate above its per-second capacity) or a zero-request-per-minute bucket are permanently rejected rather than waiting indefinitely; temporary bucket depletion remains deferable.
 
 Admission evidence counts other waiting requests in the principal lane, not the admitted request itself. The offline slow-client and profile-rollback regressions exercise queue expiry, capacity recovery, rejection of already queued work under tightened policy, and restoration for a new run. A real loopback HTTP slow-client test additionally holds an in-flight response, sheds queue overflow before network dispatch, and checks active permits while the slow response is released. These fixtures are not measured live-provider qualification.
 
