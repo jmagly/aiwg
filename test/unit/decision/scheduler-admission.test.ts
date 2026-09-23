@@ -255,6 +255,22 @@ describe('decision provider admission', () => {
     await expect(costs.acquire(request(new AbortController().signal, { costUsd: 0.06 }))).rejects.toMatchObject({ evidence: { reason: 'cost' } });
   });
 
+  it('revalidates queued work against a tightened admission profile before dispatch', async () => {
+    let current = limits({ maxRequestBytes: 1_000 });
+    const controller = new DecisionAdmissionController(() => ({ principal: current, workspace: current, provider: current }));
+    const first = await controller.acquire(request());
+    const waiting = controller.acquire({ ...request(), budgetId: 'waiting', estimate: { requestBytes: 100 } });
+    let dispatched = false;
+    void waiting.then(() => { dispatched = true; }, () => undefined);
+    await Promise.resolve();
+    current = limits({ maxRequestBytes: 50 });
+    first.release({ success: true });
+    await expect(waiting).rejects.toMatchObject({ evidence: { reason: 'request-too-large' } });
+    expect(dispatched).toBe(false);
+    const safe = await controller.acquire({ ...request(), budgetId: 'safe', estimate: { requestBytes: 10 } });
+    safe.release({ success: true });
+  });
+
   it('bounds queues and emits only aggregate metadata', async () => {
     const guarded = limits({ maxQueueLength: 1 });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));

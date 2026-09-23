@@ -128,7 +128,9 @@ export class DecisionAdmissionController {
           progressed = true;
           continue;
         }
-        const admitted = this.tryAdmit(waiter);
+        // A profile may tighten while a client is queued. Recheck non-concurrency
+        // limits at dispatch, not only when the waiter first enters the queue.
+        const admitted = this.preflight(waiter.request) ?? this.tryAdmit(waiter);
         if (admitted instanceof AdmissionError) {
           if (!admitted.retryable) { queue.shift(); waiter.cleanup(); waiter.reject(admitted); progressed = true; }
           else nearest = Math.min(nearest, admitted.evidence.retryAfterMs ?? 25,
