@@ -21,6 +21,7 @@ import {
 } from '../../../src/decision/telemetry/index.js';
 import type { DecisionAttempt } from '../../../src/decision/types.js';
 import type { DecisionBatchReceipt } from '../../../src/decision/batch-receipts/index.js';
+import { isPublicCollectorAddress, resolvePublicCollectorAddress } from '../../../src/decision/telemetry/otlp-http.js';
 
 function deterministicIds(): DecisionTelemetryIdSource {
   let value = 1;
@@ -189,6 +190,40 @@ describe('decision telemetry foundation', () => {
   ])('rejects an OTLP literal or local-only collector destination: %s', endpoint => {
     expect(() => new DecisionOtlpHttpSink({ endpoint, maxPayloadBytes: 16_384 }))
       .toThrow(/qualified DNS hostname/);
+  });
+
+  it('rejects DNS rebinding and private, mapped, or mixed collector answers', async () => {
+    for (const address of ['127.0.0.1', '10.2.3.4', '169.254.169.254', '192.168.1.1',
+      '100.64.0.1', '198.51.100.2', '::1', 'fc00::1', 'fe80::1', '::ffff:8.8.8.8', '2001:db8::1']) {
+      expect(isPublicCollectorAddress(address), address).toBe(false);
+      await expect(resolvePublicCollectorAddress('collector.example', async () => [{ address, family: address.includes(':') ? 6 : 4 }]))
+        .rejects.toThrow(/non-public/);
+    }
+    expect(isPublicCollectorAddress('8.8.8.8')).toBe(true);
+    expect(isPublicCollectorAddress('2606:4700::1111')).toBe(true);
+    await expect(resolvePublicCollectorAddress('collector.example', async () => [
+      { address: '8.8.8.8', family: 4 }, { address: '127.0.0.1', family: 4 },
+    ])).rejects.toThrow(/non-public/);
+    await expect(resolvePublicCollectorAddress('collector.example', async () => [])).rejects.toThrow(/non-public/);
+    let n = 0;
+    const resolver = async () => [{ address: ++n === 1 ? '8.8.8.8' : '127.0.0.1', family: 4 }];
+    await expect(resolvePublicCollectorAddress('collector.example', resolver)).resolves.toMatchObject({ address: '8.8.8.8' });
+    await expect(resolvePublicCollectorAddress('collector.example', resolver)).rejects.toThrow(/non-public/);
+  });
+
+  it('bounds sustained exporter backpressure without retrying or changing receipts', async () => {
+    let release!: () => void;
+    const blocked = new Promise<void>(resolve => { release = resolve; });
+    let calls = 0;
+    const exporter = new BoundedDecisionTraceExporter({ export: async () => { calls++; await blocked; } },
+      { capacity: 3, timeoutMs: 1000, maximumDiagnostics: 5 });
+    const accepted = Array.from({ length: 1000 }, () => exporter.offer(trace())).filter(Boolean).length;
+    expect(accepted).toBe(4); // one in-flight, three queued
+    expect(exporter.diagnostics).toHaveLength(5);
+    expect(exporter.diagnostics.every(item => item.type === 'dropped')).toBe(true);
+    release();
+    await exporter.shutdown();
+    expect(calls).toBe(4);
   });
 
   it('bounds OTLP bytes and treats redirects as exporter failures', async () => {
