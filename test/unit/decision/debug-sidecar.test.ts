@@ -64,6 +64,17 @@ describe('authorized encrypted debug sidecar', () => {
     expect(JSON.stringify(f.audit.mock.calls)).not.toContain('synthetic-debug-secret-canary');
   });
 
+  it('rechecks scope and expiry against live records returned by an untrusted sweep index', async () => {
+    const f = fixture();
+    const first = await f.sidecar.capture('approved', Buffer.from('keep-until-expired'));
+    f.advance(1100);
+    const second = await f.sidecar.capture('approved', Buffer.from('still-live'));
+    f.records.get(second)!.scope = 'other';
+    expect(await f.sidecar.sweepExpired('approved')).toBe(1);
+    expect(f.records.has(first)).toBe(false);
+    expect(f.records.has(second)).toBe(true);
+  });
+
   it('fails closed on authorization, audit, or integrity failure', async () => {
     const f = fixture();
     await expect(f.sidecar.capture('other', Buffer.from('canary'))).rejects.toThrow('denied');
