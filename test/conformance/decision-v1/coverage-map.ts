@@ -18,6 +18,15 @@ function candidates(id: string): string[] {
   if (id.startsWith('C') && ordinal >= 1 && ordinal <= 7) {
     return ['test/conformance/decision-v1/core-vectors.test.ts'];
   }
+  if (id.startsWith('C') && ordinal >= 24 && ordinal <= 28) {
+    return ['test/conformance/decision-v1/state-vectors.test.ts'];
+  }
+  if (id.startsWith('C') && ordinal >= 19 && ordinal <= 23) {
+    return ['test/conformance/decision-v1/rule-vectors.test.ts'];
+  }
+  if (id.startsWith('C') && ordinal >= 11 && ordinal <= 18) {
+    return ['test/conformance/decision-v1/runtime-vectors.test.ts'];
+  }
   if (id === 'C08' || id === 'C09' || id === 'C10'
     || id === 'TV03' || id === 'TV04' || id === 'TV05' || id === 'TV11') {
     return ['test/conformance/decision-v1/acceptance-evidence.test.ts'];

@@ -24,6 +24,12 @@ describe('decision qualification conformance foundation', () => {
 
   it('keeps candidate test paths separate from executable evidence', () => {
     expect(DECISION_CASE_COVERAGE.filter(item => item.kind === 'baseline').every(item => item.candidateTests.length > 0)).toBe(true);
+    expect(DECISION_CASE_COVERAGE.filter(item => /^C(?:1[1-8])$/.test(item.id))
+      .every(item => item.candidateTests.includes('test/conformance/decision-v1/runtime-vectors.test.ts'))).toBe(true);
+    expect(DECISION_CASE_COVERAGE.filter(item => /^C(?:19|2[0-3])$/.test(item.id))
+      .every(item => item.candidateTests.includes('test/conformance/decision-v1/rule-vectors.test.ts'))).toBe(true);
+    expect(DECISION_CASE_COVERAGE.filter(item => /^C2[4-8]$/.test(item.id))
+      .every(item => item.candidateTests.includes('test/conformance/decision-v1/state-vectors.test.ts'))).toBe(true);
     expect(DECISION_CASE_COVERAGE.filter(item => ['TV03', 'TV04', 'TV05', 'TV11'].includes(item.id))
       .every(item => item.candidateTests.includes('test/conformance/decision-v1/acceptance-evidence.test.ts'))).toBe(true);
     expect(DECISION_CASE_COVERAGE.filter(item => item.kind === 'vendor'
