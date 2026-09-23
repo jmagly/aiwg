@@ -63,7 +63,9 @@ export async function accountDecisionJob(job: DecisionJob, receipts: DecisionRec
             if (owningItem) continue;
             const batch = await batches.read(ref.batchId, job.scope.tenantId, job.scope.projectId);
             if (!batch || batch.tenantId !== job.scope.tenantId || batch.projectId !== job.scope.projectId ||
-                batch.invocationId !== attempt.id || batch.status !== 'completed')
+                batch.invocationId !== attempt.id || batch.status !== 'completed' ||
+                batch.revision < ref.receiptRevision || !batch.questionIds.includes(ref.questionId) ||
+                !batch.answerReferences.some(answer => answer.questionId === ref.questionId && answer.answerId === ref.answerId))
               throw new JobConflictError('Native batch receipt unavailable or outside item invocation');
             seenBatches.set(ref.batchId, item.id);
             const owner = batchAccountingTotals(batch);

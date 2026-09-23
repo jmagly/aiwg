@@ -115,7 +115,8 @@ describe('JOB admission-controlled evaluator bridge', () => {
       tenantId: scope.tenantId, projectId: scope.projectId, batchId: 'shared', invocationId: attempt!.id, runId: 'run',
       plan: { planDigest: job.fingerprint, partitionId: 'partition', nativeBatchGroupId: 'shared' },
       subjectHash: job.items[0]!.subjectDigest, stateHash: job.items[0]!.subjectDigest,
-      executionEnvelope: 'fixture', questionIds: ['category', 'severity'], answerReferences: [], allocations: [],
+      executionEnvelope: 'fixture', questionIds: ['category', 'severity'],
+      answerReferences: ['category', 'severity'].map(questionId => ({ questionId, answerId: questionId, resultId: questionId })), allocations: [],
       attempts: [{ ordinal: 1, adapterId: 'jev', adapterVersion: '1', requestedModel: 'fixture', actualModel: 'fixture',
         providerRequestId: null, status: 'succeeded', dispatchedAtEpochMs: 10, completedAtEpochMs: 20,
         usage: { inputTokens: 7, outputTokens: 5 }, cost: { kind: 'provider-authoritative', currency: 'USD', amountMicros: 500 },
@@ -129,5 +130,12 @@ describe('JOB admission-controlled evaluator bridge', () => {
     expect(batchedTotals.inputTokens).toBe(8); // shared transport once + single evaluation
     expect(batchedTotals.outputTokens).toBe(6);
     expect(batchedTotals.knownCostMicros).toBe(1500);
+    const substituted = structuredClone(batched);
+    Object.values(substituted.result!.spec.evaluations)[0]!.spec.batchResult!.answerId = 'other-answer';
+    const substitutedJob = structuredClone(result.job);
+    substitutedJob.items[0]!.attempts[0]!.receiptDigest = artifactDigest(substituted);
+    await expect(accountDecisionJob(substitutedJob, new Proxy(receiptStore, {
+      get(target, property) { return property === 'read' ? async () => substituted : Reflect.get(target, property); },
+    }), batchReader)).rejects.toThrow('Native batch receipt unavailable');
   });
 });
