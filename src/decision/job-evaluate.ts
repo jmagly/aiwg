@@ -13,7 +13,7 @@ import { JobConflictError } from './job-store.js';
  */
 export function admittedJobItemExecutor(job: Readonly<DecisionJob>,
   requestFor: (item: Readonly<DecisionJobItem>, signal: AbortSignal) => DecisionEvaluationRequest): OfflineItemExecutor {
-  return async (item, signal): Promise<OfflineJobResult> => {
+  const execute: OfflineItemExecutor = async (item, signal): Promise<OfflineJobResult> => {
     const attempt = item.attempts.at(-1);
     if (!attempt || attempt.outcome !== 'dispatched') throw new JobConflictError('Missing durable dispatch fence');
     const request = requestFor(item, signal);
@@ -28,7 +28,22 @@ export function admittedJobItemExecutor(job: Readonly<DecisionJob>,
         scheduler.principal.limits.maxAttempts > job.budget.maxAttempts ||
         !scheduler.estimate || request.binding.spec.maxAttempts > job.budget.maxAttempts)
       throw new JobConflictError('Job evaluation requires authenticated bounded admission and durable receipts');
+    let plannedTokens = 0; let plannedCostMicros = 0;
     try {
+      for (const [alias, plan] of Object.entries(request.binding.spec.evaluations)) {
+        for (const target of plan.targets) {
+          const estimate = scheduler.estimate(alias, target, request.input);
+          if (!Number.isSafeInteger(estimate.tokens) || estimate.tokens! < 0 ||
+              !Number.isFinite(estimate.costUsd) || estimate.costUsd! < 0)
+            throw new JobConflictError('Unknown job estimate');
+          plannedTokens += estimate.tokens!;
+          plannedCostMicros += Math.ceil(estimate.costUsd! * 1_000_000);
+        }
+      }
+      if (!Number.isSafeInteger(plannedTokens) || !Number.isSafeInteger(plannedCostMicros) ||
+          attempt.reservedTokens === undefined || attempt.reservedCostMicros === undefined ||
+          plannedTokens > attempt.reservedTokens || plannedCostMicros > attempt.reservedCostMicros)
+        throw new JobConflictError('Item admission exceeds durable reservation');
       if (!item.rulesetDigest || artifactDigest(request.ruleset) !== item.rulesetDigest ||
           artifactDigest(request.input) !== item.subjectDigest ||
           artifactDigest(request.definitions) !== item.definitionDigest ||
@@ -47,4 +62,6 @@ export function admittedJobItemExecutor(job: Readonly<DecisionJob>,
       return { state: 'permanent-failed', errorCode: 'decision-failed' };
     throw new JobConflictError('Unsupported decision outcome');
   };
+  execute.requiresReservation = true;
+  return execute;
 }

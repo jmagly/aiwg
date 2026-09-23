@@ -70,6 +70,17 @@ describe('JOB fenced offline executor', () => {
     expect(calls).toBe(1);
     expect(result.job.items[0]?.state).toBe('succeeded');
   });
+  it('reserves aggregate budget across sibling items and prevents retry amplification', async () => {
+    const runtime = new DecisionJobRuntime(new MemoryJobStore(), () => 20);
+    await queued(runtime);
+    const worker = new OfflineJobWorker(runtime); let secondCalls = 0;
+    const first = await worker.run(scope, 'jobA', 'subjectA', async () => success, { tokens: 70, costMicros: 6000 });
+    expect(first.job.items[0]?.attempts[0]).toMatchObject({ reservedTokens: 70, reservedCostMicros: 6000 });
+    await expect(worker.run(scope, 'jobA', 'subjectB', async () => { secondCalls++; return success; },
+      { tokens: 40, costMicros: 5000 })).rejects.toThrow('Job budget reservation exceeded');
+    expect(secondCalls).toBe(0);
+    expect((await runtime.poll(scope, 'jobA'))?.job.items[1]?.attempts).toHaveLength(0);
+  });
   it('enforces the per-job concurrency ceiling before any executor call', async () => {
     const runtime = new DecisionJobRuntime(new MemoryJobStore(), () => 20);
     const initial = await runtime.submit({ ...fixture(), budget: { ...fixture().budget, maxConcurrency: 1 } }, scope);

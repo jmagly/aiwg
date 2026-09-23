@@ -11,14 +11,17 @@ export interface OfflineJobResult {
   resultDigest?: `sha256:${string}`;
   errorCode?: string;
 }
-export type OfflineItemExecutor = (item: Readonly<DecisionJobItem>, signal: AbortSignal) => Promise<OfflineJobResult>;
+export type OfflineItemExecutor = ((item: Readonly<DecisionJobItem>, signal: AbortSignal) => Promise<OfflineJobResult>) &
+  { requiresReservation?: boolean };
+export interface JobReservation { tokens: number; costMicros: number }
 
 export class OfflineJobWorker {
   private readonly active = new Map<string, AbortController>();
   constructor(private readonly runtime: DecisionJobRuntime) {}
 
   /** Persist a dispatch fence before invoking the fixture; ambiguous failures never replay. */
-  async run(actor: JobScope, jobId: string, itemId: string, executor: OfflineItemExecutor): Promise<JobSnapshot> {
+  async run(actor: JobScope, jobId: string, itemId: string, executor: OfflineItemExecutor,
+    reservation?: JobReservation): Promise<JobSnapshot> {
     const previous = await this.runtime.poll(actor, jobId);
     if (!previous) throw new JobConflictError('Job unavailable');
     const item = previous.job.items.find(candidate => candidate.id === itemId);
@@ -26,10 +29,23 @@ export class OfflineJobWorker {
         item.attempts.length >= previous.job.budget.maxAttempts ||
         previous.job.items.filter(candidate => candidate.state === 'running').length >= previous.job.budget.maxConcurrency)
       throw new JobConflictError('Item cannot be dispatched');
+    if (executor.requiresReservation && !reservation) throw new JobConflictError('Provider work requires budget reservation');
+    if (reservation) {
+      if (!Number.isSafeInteger(reservation.tokens) || reservation.tokens < 0 ||
+          !Number.isSafeInteger(reservation.costMicros) || reservation.costMicros < 0)
+        throw new JobConflictError('Invalid job budget reservation');
+      const attempts = previous.job.items.flatMap(candidate => candidate.attempts);
+      const spentTokens = attempts.reduce((sum, attempt) => sum + (attempt.reservedTokens ?? 0), 0);
+      const spentCost = attempts.reduce((sum, attempt) => sum + (attempt.reservedCostMicros ?? 0), 0);
+      if (spentTokens + reservation.tokens > previous.job.budget.maxTokens ||
+          spentCost + reservation.costMicros > previous.job.budget.maxCostMicros)
+        throw new JobConflictError('Job budget reservation exceeded');
+    }
     const next = structuredClone(previous.job);
     const scheduled = next.items.find(candidate => candidate.id === itemId)!;
     scheduled.state = 'running';
-    scheduled.attempts.push({ id: randomUUID(), requestDigest: item.fingerprint, outcome: 'dispatched' });
+    scheduled.attempts.push({ id: randomUUID(), requestDigest: item.fingerprint, outcome: 'dispatched',
+      ...(reservation ? { reservedTokens: reservation.tokens, reservedCostMicros: reservation.costMicros } : {}) });
     next.state = previous.job.state === 'queued' ? 'running' : previous.job.state;
     recount(next);
     const key = `${JSON.stringify(actor)}:${jobId}:${itemId}:${scheduled.attempts.at(-1)!.id}`;

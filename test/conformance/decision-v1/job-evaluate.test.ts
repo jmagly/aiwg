@@ -47,6 +47,21 @@ function setup() {
   return { job, adapter, receiptStore, requestFor };
 }
 describe('JOB admission-controlled evaluator bridge', () => {
+  it('reserves job token and monetary budgets atomically before any provider call', async () => {
+    const { job, adapter, requestFor } = setup();
+    const runtime = new DecisionJobRuntime(new MemoryJobStore());
+    const first = await runtime.submit(job, scope); const queued = structuredClone(first.job); queued.state = 'queued';
+    await runtime.advance(scope, job.id, first, queued);
+    const worker = new OfflineJobWorker(runtime); const executor = admittedJobItemExecutor(job, requestFor);
+    await expect(worker.run(scope, job.id, 'subject', executor)).rejects.toThrow('requires budget reservation');
+    await expect(worker.run(scope, job.id, 'subject', executor, { tokens: job.budget.maxTokens + 1, costMicros: 1 }))
+      .rejects.toThrow('Job budget reservation exceeded');
+    expect((await runtime.poll(scope, job.id))?.job.items[0]?.attempts).toHaveLength(0);
+    expect(adapter.evaluate).not.toHaveBeenCalled();
+    const fenced = await worker.run(scope, job.id, 'subject', executor, { tokens: 1, costMicros: 1 });
+    expect(fenced.job.items[0]?.state).toBe('execution-unknown');
+    expect(adapter.evaluate).not.toHaveBeenCalled();
+  });
   it('rejects unbound principal or digest before any adapter call', async () => {
     const { job, adapter, requestFor } = setup();
     const runtime = new DecisionJobRuntime(new MemoryJobStore());
@@ -55,7 +70,7 @@ describe('JOB admission-controlled evaluator bridge', () => {
     const worker = new OfflineJobWorker(runtime);
     const result = await worker.run(scope, job.id, 'subject', admittedJobItemExecutor(job, (item, signal) => ({
       ...requestFor(item, signal), scheduler: { ...requestFor(item, signal).scheduler, principal: { ...requestFor(item, signal).scheduler.principal, id: 'forged' } },
-    })));
+    })), { tokens: 10, costMicros: 10000 });
     expect(result.job.items[0]?.state).toBe('execution-unknown');
     expect(adapter.evaluate).not.toHaveBeenCalled();
   });
@@ -68,7 +83,8 @@ describe('JOB admission-controlled evaluator bridge', () => {
       const runtime = new DecisionJobRuntime(new MemoryJobStore());
       const first = await runtime.submit(job, scope); const queued = structuredClone(first.job); queued.state = 'queued';
       await runtime.advance(scope, job.id, first, queued);
-      const result = await new OfflineJobWorker(runtime).run(scope, job.id, 'subject', admittedJobItemExecutor(job, requestFor));
+      const result = await new OfflineJobWorker(runtime).run(scope, job.id, 'subject', admittedJobItemExecutor(job, requestFor),
+        { tokens: 10, costMicros: 10000 });
       expect(result.job.items[0]?.state).toBe('execution-unknown');
       expect(adapter.evaluate).not.toHaveBeenCalled();
     }
@@ -78,7 +94,8 @@ describe('JOB admission-controlled evaluator bridge', () => {
     const runtime = new DecisionJobRuntime(new MemoryJobStore());
     const first = await runtime.submit(job, scope); const queued = structuredClone(first.job); queued.state = 'queued';
     await runtime.advance(scope, job.id, first, queued);
-    const result = await new OfflineJobWorker(runtime).run(scope, job.id, 'subject', admittedJobItemExecutor(job, requestFor));
+    const result = await new OfflineJobWorker(runtime).run(scope, job.id, 'subject', admittedJobItemExecutor(job, requestFor),
+      { tokens: 10, costMicros: 10000 });
     const attempt = result.job.items[0]?.attempts[0];
     expect(attempt?.outcome).toBe('succeeded');
     expect(attempt?.receiptDigest).toMatch(/^sha256:[0-9a-f]{64}$/);

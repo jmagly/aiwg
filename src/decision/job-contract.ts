@@ -18,6 +18,7 @@ export interface DecisionJobItem {
   definitionDigest: `sha256:${string}`; bindingDigest: `sha256:${string}`; rulesetDigest?: `sha256:${string}`;
   state: ItemState;
   attempts: Array<{ id: string; requestDigest: `sha256:${string}`; receiptDigest?: `sha256:${string}`;
+    reservedTokens?: number; reservedCostMicros?: number;
     outcome: 'dispatched' | 'succeeded' | 'failed' | 'execution-unknown' }>;
   resultDigest?: `sha256:${string}`; errorCode?: string;
 }
@@ -61,6 +62,7 @@ export function validateDecisionJob(value: unknown): asserts value is DecisionJo
   const job = value as DecisionJob;
   if (job.expiresAtEpochMs <= job.createdAtEpochMs) return reject('invalid job expiry');
   const ids = new Set<string>();
+  let reservedTokens = 0; let reservedCostMicros = 0;
   const actual = Object.fromEntries(ITEM_STATES.map(state => [state, 0])) as Record<ItemState, number>;
   for (const item of job.items) {
     if (ids.has(item.id)) return reject('duplicate job item ID');
@@ -72,7 +74,16 @@ export function validateDecisionJob(value: unknown): asserts value is DecisionJo
       return reject('result item lacks validated receipt');
     if (item.resultDigest && !['succeeded', 'abstained', 'review'].includes(item.state)) return reject('invalid item result');
     if (item.state === 'execution-unknown' && !item.attempts.some(attempt => attempt.outcome === 'execution-unknown')) return reject('unreconciled item missing attempt');
+    for (const attempt of item.attempts) {
+      if ((attempt.reservedTokens === undefined) !== (attempt.reservedCostMicros === undefined))
+        return reject('incomplete job reservation');
+      reservedTokens += attempt.reservedTokens ?? 0;
+      reservedCostMicros += attempt.reservedCostMicros ?? 0;
+      if (!Number.isSafeInteger(reservedTokens) || !Number.isSafeInteger(reservedCostMicros)) return reject('job reservation overflow');
+    }
   }
+  if (reservedTokens > job.budget.maxTokens || reservedCostMicros > job.budget.maxCostMicros)
+    return reject('job budget reservation exceeded');
   if (Object.keys(job.summary).length !== ITEM_STATES.length ||
       ITEM_STATES.some(state => job.summary[state] !== actual[state])) return reject('job summary mismatch');
   if (['validating', 'queued'].includes(job.state) && (actual.running || actual.succeeded || actual['execution-unknown']))
@@ -116,6 +127,8 @@ export function assertJobTransition(before: DecisionJob, after: DecisionJob): vo
              item.attempts[index]?.outcome === 'succeeded' && ['succeeded', 'abstained', 'review'].includes(item.state) && !!item.attempts[index]?.receiptDigest ||
              item.attempts[index]?.outcome === 'failed' && ['retryable-failed', 'permanent-failed', 'unsupported'].includes(item.state)) &&
             attempt.id === item.attempts[index]?.id && attempt.requestDigest === item.attempts[index]?.requestDigest &&
+            attempt.reservedTokens === item.attempts[index]?.reservedTokens &&
+            attempt.reservedCostMicros === item.attempts[index]?.reservedCostMicros &&
             (item.attempts[index]?.outcome === 'execution-unknown' ? !item.attempts[index]?.receiptDigest : true))))
       return reject('illegal item transition, mutated pins or attempt history');
   }

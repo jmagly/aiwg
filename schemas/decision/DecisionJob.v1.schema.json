@@ -47,6 +47,8 @@
           "properties": {
             "id": { "$ref": "#/$defs/id" }, "requestDigest": { "$ref": "#/$defs/digest" },
             "receiptDigest": { "$ref": "#/$defs/digest" },
+            "reservedTokens": { "type": "integer", "minimum": 0, "maximum": 10000000 },
+            "reservedCostMicros": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
             "outcome": { "enum": ["dispatched", "succeeded", "failed", "execution-unknown"] }
           }
         } },
