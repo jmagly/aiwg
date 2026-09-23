@@ -6,7 +6,7 @@ import { DecisionGraphError, planDecisionGraph, type DecisionGraph, type GraphPl
 /** Offline evidence audit. This function never dispatches a graph or authorizes an action. */
 export interface GraphObservation {
   node: string;
-  status: 'ok' | 'abstained' | 'error' | 'unsupported' | 'cancelled';
+  status: 'ok' | 'abstained' | 'error' | 'unsupported' | 'cancelled' | 'skipped';
   output: Record<string, unknown>;
   attempts: number;
   tokens: number;
@@ -14,6 +14,7 @@ export interface GraphObservation {
   costMicros: number | null;
   durationMs: number;
   used: boolean;
+  flow?: { runId: string; nodeRunId: string; activationId: string; invocationKey: string };
 }
 export type GraphCeilings = Partial<DecisionGraph['budget']>;
 export interface GraphEvidenceReceipt {
@@ -25,6 +26,7 @@ export interface GraphEvidenceReceipt {
     id: string; status: GraphObservation['status']; used: boolean;
     input: Record<string, { sourceNode: string; sourceResultDigest: string; value: unknown }>;
     resultDigest: string; attempts: number; tokens: number; costMicros: number; durationMs: number;
+    flow?: GraphObservation['flow'];
   }> }>;
   totals: { attempts: number; tokens: number; costMicros: number; durationMs: number };
   outcome: 'complete' | 'abstained' | 'error' | 'unsupported' | 'cancelled' | 'incomplete-evidence' | 'budget-exhausted' | 'empty-shortlist';
@@ -68,10 +70,13 @@ export function auditGraphEvidence(graph: DecisionGraph, plan: GraphPlan, observ
     }
     if (obs.costMicros !== null && (!Number.isSafeInteger(obs.costMicros) || obs.costMicros < 0)) throw new DecisionGraphError('invalid cost');
     if (obs.costMicros === null && (!Number.isSafeInteger(unknownCostBoundMicros) || unknownCostBoundMicros! < 1)) throw new DecisionGraphError('unknown cost without bound');
-    if (typeof obs.used !== 'boolean' || !['ok', 'abstained', 'error', 'unsupported', 'cancelled'].includes(obs.status)) throw new DecisionGraphError('invalid observation');
+    if (typeof obs.used !== 'boolean' || !['ok', 'abstained', 'error', 'unsupported', 'cancelled', 'skipped'].includes(obs.status)) throw new DecisionGraphError('invalid observation');
     const names = graph.nodes.find(n => n.id === obs.node)!.output;
     if (!obs.output || Array.isArray(obs.output) || typeof obs.output !== 'object' ||
         Object.keys(obs.output).some(name => !names.includes(name))) throw new DecisionGraphError('undeclared observation output');
+    if (obs.status === 'skipped' && (obs.used || obs.attempts !== 0 || obs.tokens !== 0 || obs.costMicros !== 0 || obs.durationMs !== 0 || Object.keys(obs.output).length)) {
+      throw new DecisionGraphError('skipped node has resource usage');
+    }
     byId.set(obs.node, obs);
   }
   const totals = { attempts: 0, tokens: 0, costMicros: 0, durationMs: 0 };
@@ -88,15 +93,16 @@ export function auditGraphEvidence(graph: DecisionGraph, plan: GraphPlan, observ
       input[edge.destination] = { sourceNode: edge.from, sourceResultDigest: digest(source.output), value: source.output[edge.source] };
     }
     const node = graph.nodes.find(n => n.id === id)!;
-    if (node.input.some(key => !Object.hasOwn(input, key))) outcome = 'incomplete-evidence';
+    if (obs.status !== 'skipped' && node.input.some(key => !Object.hasOwn(input, key))) outcome = 'incomplete-evidence';
     const costMicros = obs.costMicros ?? unknownCostBoundMicros!;
     totals.attempts += obs.attempts; totals.tokens += obs.tokens; totals.costMicros += costMicros;
     totals.durationMs += obs.durationMs;
     if (![totals.attempts, totals.tokens, totals.costMicros, totals.durationMs].every(Number.isSafeInteger)) throw new DecisionGraphError('usage overflow');
     if (obs.status === 'cancelled') outcome = 'cancelled';
-    else if (outcome === 'complete' && obs.status !== 'ok') outcome = obs.status;
+    else if (outcome === 'complete' && obs.status !== 'ok' && obs.status !== 'skipped') outcome = obs.status;
     return { id, status: obs.status, used: obs.used, input, resultDigest: digest(obs.output),
-      attempts: obs.attempts, tokens: obs.tokens, costMicros, durationMs: obs.durationMs };
+      attempts: obs.attempts, tokens: obs.tokens, costMicros, durationMs: obs.durationMs,
+      ...(obs.flow ? { flow: obs.flow } : {}) };
   }) }));
   if (stages.some(stage => {
     const stageLimit = graph.stageBudgets?.find(b => b.stage === stage.stage)?.limits;

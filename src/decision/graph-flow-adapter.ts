@@ -23,6 +23,7 @@ export function admittedDecisionFlowAdapter(
   estimate: (request: GraphFlowRequest) => GraphFlowEstimate,
   invoke: (request: GraphFlowRequest) => Promise<GraphFlowResponse>,
   signal?: AbortSignal,
+  onObservation?: (observation: { request: GraphFlowRequest; response: GraphFlowResponse }) => void,
 ): (request: GraphFlowRequest) => Promise<GraphFlowResponse> {
   return async request => {
     if (signal?.aborted) { ledger.cancel(); throw new DecisionGraphError('graph cancelled'); }
@@ -44,6 +45,7 @@ export function admittedDecisionFlowAdapter(
       const micros = Math.ceil(response.usage.costUsd * 1_000_000);
       reservation({ attempts: response.attempts, tokens: response.usage.tokens, costMicros: micros });
       if (signal?.aborted) { ledger.cancel(); throw new DecisionGraphError('graph cancelled'); }
+      onObservation?.({ request, response });
       return response;
     } catch (error) {
       ledger.cancel();
