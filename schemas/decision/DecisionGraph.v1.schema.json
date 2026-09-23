@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionGraph.v1.schema.json",
+  "title": "Decision Graph v1 (offline contract; runtime disabled)",
+  "type": "object",
+  "required": ["schemaVersion", "id", "entry", "terminals", "nodes", "edges", "budget"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "decision-graph/v1" },
+    "id": { "$ref": "#/$defs/name" },
+    "entry": { "$ref": "#/$defs/name" },
+    "terminals": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "pattern": { "enum": ["custom", "shortlist-rerank", "taxonomy-beam", "extractor-verifier-fallback"] },
+    "nodes": { "type": "array", "minItems": 1, "maxItems": 128, "items": { "$ref": "#/$defs/node" } },
+    "edges": { "type": "array", "maxItems": 512, "items": { "$ref": "#/$defs/edge" } },
+    "budget": { "$ref": "#/$defs/budget" }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "pin": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "version", "digest"],
+      "properties": { "id": { "$ref": "#/$defs/name" }, "version": { "$ref": "#/$defs/name" }, "digest": { "$ref": "#/$defs/digest" } }
+    },
+    "node": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "stage", "subject", "target", "model", "egress", "stateDigest", "definition", "binding", "input", "output"],
+      "properties": {
+        "id": { "$ref": "#/$defs/name" }, "stage": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "subject": { "$ref": "#/$defs/name" }, "target": { "$ref": "#/$defs/name" },
+        "model": { "$ref": "#/$defs/name" }, "egress": { "$ref": "#/$defs/name" },
+        "stateDigest": { "$ref": "#/$defs/digest" },
+        "definition": { "$ref": "#/$defs/pin" }, "binding": { "$ref": "#/$defs/pin" },
+        "input": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+        "output": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/name" } }
+      }
+    },
+    "edge": {
+      "type": "object", "additionalProperties": false,
+      "required": ["from", "to", "source", "destination"],
+      "properties": {
+        "from": { "$ref": "#/$defs/name" }, "to": { "$ref": "#/$defs/name" },
+        "source": { "$ref": "#/$defs/name" }, "destination": { "$ref": "#/$defs/name" }
+      }
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["attempts", "deadlineMs", "tokens", "costMicros", "fanOut", "beamWidth", "depth", "concurrency"],
+      "properties": {
+        "attempts": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "deadlineMs": { "type": "integer", "minimum": 1, "maximum": 86400000 },
+        "tokens": { "type": "integer", "minimum": 1, "maximum": 10000000 },
+        "costMicros": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
+        "fanOut": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "beamWidth": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "depth": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "concurrency": { "type": "integer", "minimum": 1, "maximum": 128 }
+      }
+    }
+  }
+}

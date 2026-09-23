@@ -457,6 +457,20 @@
       "publication": { "public": true }
     },
     {
+      "logicalName": "decision.graph",
+      "id": "https://aiwg.io/schemas/decision/DecisionGraph.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionGraph.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-graph-planner", "boundary": "Offline dependent-stage contract", "path": "src/decision/graph.ts" }],
+      "publication": { "public": true }
+    },
+    {
       "logicalName": "decision.context-evidence",
       "id": "https://aiwg.io/schemas/decision/DecisionContextEvidence.v1.schema.json",
       "version": "1.0.0",
