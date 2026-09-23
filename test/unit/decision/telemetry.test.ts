@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   BoundedDecisionMetrics,
   BoundedDecisionTraceExporter,
+  DecisionOtlpHttpSink,
   createTelemetryContext,
   DecisionTraceBuilder,
   deleteTelemetryReference,
@@ -155,6 +156,42 @@ describe('decision telemetry foundation', () => {
     release();
     await exporter.shutdown();
     expect(exporter.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'dropped' })]));
+  });
+
+  it('exports metadata-only OTLP/HTTP JSON to a pinned HTTPS endpoint without redirects', async () => {
+    const transport = vi.fn(async () => new Response(null, { status: 200 })) as typeof fetch;
+    const sink = new DecisionOtlpHttpSink({ endpoint: 'https://collector.example/v1/traces', maxPayloadBytes: 16_384,
+      fetch: transport });
+    const value = trace();
+    value.spans[0]!.attributes = { 'aiwg.run.id': 'run-1', prompt: 'do-not-export',
+      'aiwg.provider.request_id': 'internal-request' };
+    await sink.export(value, new AbortController().signal);
+    expect(transport).toHaveBeenCalledOnce();
+    const [endpoint, options] = transport.mock.calls[0]!;
+    expect(endpoint).toBe('https://collector.example/v1/traces');
+    expect(options).toMatchObject({ method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json' } });
+    const payload = JSON.parse(String(options?.body)) as { resourceSpans: Array<{ scopeSpans: Array<{ spans: Array<{ attributes: unknown[] }> }> }> };
+    expect(payload.resourceSpans[0]?.scopeSpans[0]?.spans[0]?.attributes).toContainEqual({ key: 'aiwg.run.id', value: { stringValue: 'run-1' } });
+    expect(JSON.stringify(payload)).not.toMatch(/do-not-export|internal-request/);
+    expect(() => new DecisionOtlpHttpSink({ endpoint: 'http://collector.example/v1/traces', maxPayloadBytes: 1 }))
+      .toThrow(/HTTPS/);
+    expect(() => new DecisionOtlpHttpSink({ endpoint: 'https://user:password@collector.example/v1/traces', maxPayloadBytes: 1 }))
+      .toThrow(/HTTPS/);
+  });
+
+  it('bounds OTLP bytes and treats redirects as exporter failures', async () => {
+    const transport = vi.fn(async () => new Response(null, { status: 302,
+      headers: { location: 'https://other.example/v1/traces' } })) as typeof fetch;
+    const tiny = new DecisionOtlpHttpSink({ endpoint: 'https://collector.example/v1/traces', maxPayloadBytes: 1,
+      fetch: transport });
+    await expect(tiny.export(trace(), new AbortController().signal)).rejects.toThrow(/bound/);
+    expect(transport).not.toHaveBeenCalled();
+    const sink = new DecisionOtlpHttpSink({ endpoint: 'https://collector.example/v1/traces', maxPayloadBytes: 16_384,
+      fetch: transport });
+    const exporter = new BoundedDecisionTraceExporter(sink, { capacity: 1, timeoutMs: 100 });
+    expect(exporter.offer(trace())).toBe(true);
+    await exporter.shutdown();
+    expect(exporter.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'failed' })]));
   });
 
   it('bounds an exporter that ignores cancellation', async () => {

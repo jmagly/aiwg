@@ -40,6 +40,8 @@ Metrics cover throughput, delay, attempts, retries/fallbacks, failures, coverage
 
 The bounded exporter has a fixed queue, deadline, and diagnostic ring. Full queues drop new telemetry; timeouts and failures are visible diagnostics. There is no telemetry retry loop and no path from telemetry to the decision result or an effect authorization. Durable receipt persistence retains its independent fail-closed semantics.
 
+`DecisionOtlpHttpSink` is an opt-in OTLP/HTTP JSON transport for trusted telemetry traces. Supply an explicitly approved, credential-free HTTPS collector endpoint ending in `/v1/traces` and a positive request-byte limit; wire the sink into `BoundedDecisionTraceExporter`, whose deadline and queue capacity remain mandatory. It serializes sanitized spans, events, links, and typed attributes, never follows redirects, and reports transport failures through the exporter's bounded diagnostics. It does not discover collectors or read environment credentials. Collector deployment, private-address/DNS policy, partial-success handling, sustained backpressure, and incident runbook exercises still require qualification before enabling it outside a controlled test environment.
+
 ## Retention, deletion, and export
 
 Trace, debug sidecar, export, and linked review/job/cache/evaluation TTLs must be positive. Deletion is denied during legal hold. Otherwise links become explicit tombstones rather than broken or reused references. Backup/restore must reapply TTL and tombstone state before records become queryable.
