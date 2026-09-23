@@ -29,6 +29,12 @@ describe('DAG offline contract (execution disabled)', () => {
     expect(plan(graph).stages[1]).toMatchObject({ batches: [], fanOut: ['left', 'right'] });
     expect(() => plan(graph, new Set())).toThrow(DecisionGraphError);
   });
+  it('DAG-002b does not batch different resolved binding pins', () => {
+    const graph = fixture();
+    const other = { ...pin, digest: `sha256:${'c'.repeat(64)}` as const };
+    graph.nodes[2]!.binding = other;
+    expect(plan(graph, new Set([pin.digest, other.digest])).stages[1]).toMatchObject({ batches: [], fanOut: ['left', 'right'] });
+  });
   it('DAG-003 rejects cycles, cross-stage and dangling edges', () => {
     for (const change of [
       (g: DecisionGraph) => { g.edges.push({ from: 'left', to: 'root', source: 'result', destination: 'evidence' }); },

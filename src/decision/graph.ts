@@ -86,7 +86,8 @@ export function planDecisionGraph(value: unknown, resolvedPins: ReadonlySet<stri
     for (const node of stageNodes) {
       const projections = edges.filter(edge => edge.to === node.id)
         .map(edge => [edge.from, edge.source, edge.destination]);
-      const key = canonicalJson([node.subject, node.target, node.model, node.egress, node.stateDigest, projections]);
+      const key = canonicalJson([node.subject, node.target, node.model, node.egress, node.stateDigest,
+        node.definition.digest, node.binding.digest, projections]);
       const group = groups.get(key) ?? []; group.push(node.id); groups.set(key, group);
     }
     const batches = [...groups.values()].filter(group => group.length > 1);
