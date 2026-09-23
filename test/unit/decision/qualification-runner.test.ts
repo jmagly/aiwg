@@ -142,6 +142,21 @@ describe('decision qualification executable runner', () => {
     await expect(executeQualificationPlan({ ...plan, privacyCanaries: [''] })).rejects.toThrow('privacy canaries must be nonempty');
   });
 
+  it('LIVE-ABSENT-01 reports an explicit skip and never labels mock execution live', async () => {
+    const root = await artifactRoot();
+    const item: QualificationCase = { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] };
+    let calls = 0;
+    const run = await executeQualificationPlan({
+      manifest: { ...manifest([item]), mode: 'live' }, artifactRoot: root,
+      executors: { TV01: () => { calls++; return { outcome: 'pass' }; } },
+    });
+    expect(calls).toBe(0);
+    expect(run.evidence[0]).toMatchObject({ executable: false, outcome: 'skip' });
+    const artifact = await readFile(join(root, run.evidence[0]!.artifact!), 'utf8');
+    expect(artifact).toContain('live-evidence-unavailable');
+    expect((await evaluateExecutedQualification(run, root)).report.gates[0]?.missing).toContain('case:TV01');
+  });
+
   it('PRV-G2-01 prevents a positive callback from forging a privacy scan', async () => {
     const root = await artifactRoot();
     const cases: QualificationCase[] = [{ id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] }];

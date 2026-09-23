@@ -57,6 +57,22 @@ SHA-256 for five repository-authored goldens. The conformance suite re-hashes
 all listed files; unlisted future fixtures must be added with their own
 provenance before being used as release evidence.
 
-The runner is adapter-neutral. TV01–TV25 can be registered as live, recorded, shadow, or offline
-executors under the manifest's selected mode. A missing live credential or provider is evidence
-absence/failure, never an inferred pass.
+The generic runner accepts offline, recorded, and shadow executors under the manifest's
+selected mode, but does not authenticate their origins. For `live` it deliberately emits
+`live-evidence-unavailable` skips without invoking any generic callback: a mock response
+cannot be relabelled live. A separate bounded, provider-authenticated live evidence path
+is required before live conformance can qualify. Missing live credentials or a provider
+cannot be inferred as a pass.
+
+`buildQualificationReleaseRecord` accepts an independently verified runner result
+and the serialized #2037/#2048 eval-integrity fields. It binds commands,
+environment, source commit/dirty state, reviewer, resource budgets/actuals and
+SHA-256 pins for definition/ruleset/binding/adapter/models/policy/calibration/
+dataset/split/seed/price catalog. D30 compile/prefix-cache, D03 receipt replay,
+and D15 result-cache pins must be distinct. The record carries per-case evidence
+hashes, G0–G6 results, an integrity-gated `PROMOTE`/`HOLD`/`ROLLBACK` decision,
+and its own SHA-256; `qualificationReleaseSummary` produces a terse human view
+without private captures. It cannot upgrade an integrity HOLD/ROLLBACK or a
+compromised/dirty/unverified run. The caller must obtain integrity metadata from
+the actual protected artifact snapshot and trusted scoring workflow: synthetic
+unit metadata is not release evidence.

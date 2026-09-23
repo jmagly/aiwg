@@ -159,10 +159,13 @@ async function executeCase(
   const executor = plan.executors[item.id];
   let result: QualificationExecutionResult = { outcome: 'fail' };
   let error: string | undefined;
-  if (!executor) {
+  // A generic callback carries no authenticated provider or served-model proof.
+  // Never let an offline/mock executor manufacture an artifact labelled live.
+  if (!executor || plan.manifest.mode === 'live') {
     return writeArtifact(plan.artifactRoot, plan.manifest.runId, {
       schemaVersion: 'decision-qualification-artifact/v1', runId: plan.manifest.runId,
-      caseId: item.id, outcome: 'skip', durationMs: 0, testEvidenceIds, error: 'executor-not-registered',
+      caseId: item.id, outcome: 'skip', durationMs: 0, testEvidenceIds,
+      error: plan.manifest.mode === 'live' ? 'live-evidence-unavailable' : 'executor-not-registered',
     }, maxBytes);
   }
   try {
