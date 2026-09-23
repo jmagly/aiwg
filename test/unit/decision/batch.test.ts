@@ -477,6 +477,21 @@ describe('native shared-state decision batching', () => {
       attempt.usage.inputTokens === null && attempt.requestId === null))).toBe(true);
   });
 
+  it('blocks a retry when failed-attempt consumption exhausts the conservative cost ceiling', async () => {
+    const fetchImpl = vi.fn(async () => new Response('unavailable', { status: 503,
+      headers: { 'x-request-id': 'req_failure' } })) as typeof fetch;
+    const configured = request(fetchImpl);
+    configured.binding.spec.maxAttempts = 6;
+    for (const target of Object.values(configured.binding.spec.evaluations)) target.targets[0]!.retry.maxRetries = 1;
+    const store = new MemoryBatchReceiptStore();
+    const result = await evaluateDecisionRuleset({ ...configured, batchReceipts: {
+      ...durableBatching(store, new MemoryBatchResultStore()),
+      unknownCostBound: { upperBoundMicros: 100, policyId: 'limit', policyVersion: '1' }, maxCostMicros: 100 } });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.batchResult === undefined
+      && value.spec.attempts.length === 1 && value.spec.reason === 'service-error')).toBe(true);
+  });
+
   it('BCH-001 persists separate provider totals for split partitions of one plan', async () => {
     const context = contextRuntime(20);
     const extraAlias = 'category_second';
@@ -513,6 +528,33 @@ describe('native shared-state decision batching', () => {
     const replay = await evaluateDecisionRuleset(settings);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(Object.values(replay.spec.evaluations).map(value => value.spec.batchResult)).toEqual(references);
+  });
+
+  it('caps partition admission using receipt totals rather than per-answer estimates', async () => {
+    const context = contextRuntime(20);
+    const alias = 'category_second';
+    context.input.questions.push({ id: decisionBatchQuestionId(alias), subject: 'ticket:42', entry: { tokens: 20 } });
+    const contextPlan = planDecisionContext(context.input, context.profile, context.estimator);
+    const store = new MemoryBatchReceiptStore();
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(
+      JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const configured = request(fetchImpl);
+    configured.ruleset.spec.evaluations.push({ ...configured.ruleset.spec.evaluations[0]!, alias });
+    configured.binding.spec.ruleset.digest = artifactDigest(configured.ruleset);
+    configured.binding.spec.evaluations[alias] = structuredClone(configured.binding.spec.evaluations.category!);
+    configured.binding.spec.maxAttempts = 4;
+    configured.definitions[alias] = configured.definitions.category!;
+    configured.batching.evaluations[alias] = structuredClone(configured.batching.evaluations.category!);
+    const policy = { ...durableBatching(store, new MemoryBatchResultStore()), contextPlan,
+      unknownCostBound: { upperBoundMicros: 100, policyId: 'limit', policyVersion: '1' }, maxCostMicros: 100 };
+    const result = await evaluateDecisionRuleset({ ...configured, context, batchReceipts: policy });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(Object.values(result.spec.evaluations).filter(value => value.spec.reason === 'budget-exhausted')).toHaveLength(2);
+    expect(Object.values(result.spec.evaluations).filter(value => value.spec.batchResult)).toHaveLength(2);
+    const withoutBound = await evaluateDecisionRuleset({ ...configured, context,
+      batchReceipts: { ...policy, unknownCostBound: undefined } });
+    expect(withoutBound.spec.reason).toBe('budget-exhausted');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it('REC-BATCH runtime owns shared accounting once and emits reference-only result links', async () => {

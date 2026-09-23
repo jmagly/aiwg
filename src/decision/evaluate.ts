@@ -6,7 +6,7 @@ import { admitEntry, EntryAdmissionError } from './entry.js';
 import { correlateAtomicBatch, decisionBatchQuestionId, planNativeDecisionBatches } from './batch.js';
 import { AdmissionError, DecisionAdmissionController } from './admission.js';
 import { runBoundedFair, SchedulerWaitError } from './scheduler.js';
-import { allocateEstimatedUsage, batchAccountingTotals, deriveCost } from './batch-receipts/accounting.js';
+import { allocateEstimatedUsage, batchAccountingTotals, batchEnforcementCostMicros, deriveCost } from './batch-receipts/accounting.js';
 import { validOpaqueRequestId } from './batch-receipts/validate.js';
 import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch-receipts/receipt.js';
 import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
@@ -111,6 +111,15 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
     return failureResult(base, reason);
   }
   if (contextPlan) base = withRulesetContext(base, contextPlan, []);
+  const batchPolicy = request.batchReceipts;
+  if (batchPolicy?.unknownCostBound && (!Number.isSafeInteger(batchPolicy.unknownCostBound.upperBoundMicros)
+    || batchPolicy.unknownCostBound.upperBoundMicros < 0 || !batchPolicy.unknownCostBound.policyId
+    || !batchPolicy.unknownCostBound.policyVersion)) return failureResult(base, 'invalid-definition');
+  if (batchPolicy?.maxCostMicros !== undefined && (!Number.isSafeInteger(batchPolicy.maxCostMicros)
+    || batchPolicy.maxCostMicros < 0 || !batchPolicy.unknownCostBound
+    || batchPolicy.unknownCostBound.upperBoundMicros > batchPolicy.maxCostMicros)) {
+    return failureResult(base, 'budget-exhausted');
+  }
 
   const fingerprint = decisionInvocationFingerprint({
     invocationId: request.invocationId,
@@ -212,6 +221,7 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
   // Native batching may coexist with the invocation receipt only when a batch
   // receipt owns the shared dispatch and its accounting before transport begins.
   if ((!request.receiptStore || request.batchReceipts) && request.batching?.enabled) {
+    let batchCostSpent = 0;
     // A terminal receipt must never point at values that cannot be recovered on replay.
     if (request.batchReceipts && !request.batchReceipts.resultStore) throw new ReceiptPersistenceError();
     const candidates = [];
@@ -229,6 +239,16 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
     for (const plan of contextPartitionedBatchPlans(planNativeDecisionBatches(candidates, request.batching), contextPlan)) {
       if (plan.candidates.some(candidate => evaluations[candidate.alias])) continue;
       if (attemptsUsed + plan.candidates.length > request.binding.spec.maxAttempts) continue;
+      if (request.batchReceipts?.maxCostMicros !== undefined && batchCostSpent
+        + request.batchReceipts.unknownCostBound!.upperBoundMicros > request.batchReceipts.maxCostMicros) {
+        for (const candidate of plan.candidates) {
+          const item = resolved.find(value => value.alias === candidate.alias)!;
+          evaluations[item.alias] = decisionResult({ request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort,
+            totalTimeout, attemptBudget, now, advance, contextPlan, contextUsage },
+          observationFailure('budget-exhausted'), []);
+        }
+        continue;
+      }
       const started = now();
       const deadline = Math.min(totalDeadline, ...plan.candidates.map(candidate => started + candidate.target.timeoutMs));
       const questionIds = plan.candidates.map(candidate => decisionBatchQuestionId(candidate.alias));
@@ -344,6 +364,9 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
           const canRetry = attemptStatus === 'failed' && retry < plan.candidates[0]!.target.retry.maxRetries
             && [...observations.values()].every(value => RETRIABLE.has(value.reason))
             && attemptsUsed + (dispatchCount + 1) * plan.candidates.length <= request.binding.spec.maxAttempts
+            && (request.batchReceipts.maxCostMicros === undefined
+              || (batchEnforcementCostMicros({ ...durableReceipt, attempts: [...durableReceipt.attempts, attempt] }) ?? Infinity)
+                + request.batchReceipts.unknownCostBound!.upperBoundMicros <= request.batchReceipts.maxCostMicros)
             && now() < deadline;
           if (canRetry) {
             const pending = nextBatchReceipt(durableReceipt, { status: 'running', updatedAtEpochMs: now(),
@@ -426,6 +449,9 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
           historical?.length ? historical : [toAttempt(candidate.target, 1, observation, Math.max(0, now() - started), evidence)],
           calibrationCompatibility);
       });
+      if (durableReceipt?.status === 'completed' || durableReceipt?.status === 'failed') {
+        batchCostSpent += batchEnforcementCostMicros(durableReceipt) ?? Infinity;
+      }
       attemptsUsed += Math.max(1, dispatchCount) * plan.candidates.length;
       attemptBudget.consume(Math.max(1, dispatchCount) * plan.candidates.length);
     }

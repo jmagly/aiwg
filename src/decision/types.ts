@@ -518,6 +518,8 @@ export interface DecisionBatchReceiptPolicy {
   priceCatalog?: PriceCatalogRecord;
   /** Conservative per-attempt cost bound when neither provider cost nor a priced usage total exists. */
   unknownCostBound?: { upperBoundMicros: number; policyId: string; policyVersion: string };
+  /** Optional invocation-wide cap for durable native batches. Requires unknownCostBound. */
+  maxCostMicros?: number;
 }
 
 export interface DecisionContextEvidence {
