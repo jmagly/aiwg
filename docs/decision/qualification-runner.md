@@ -11,8 +11,12 @@ timeouts of at most ten minutes, and artifacts of at most 4 MiB. Default bounds 
 concurrent cases, 30 seconds, and 256 KiB. Missing executors produce non-executable `skip`
 evidence, while exceptions and timeouts produce executable failures. Executor exception
 messages are never persisted: artifacts use the fixed `executor-failed` class. Callback
-`details` remain caller-supplied and are not safe for private state; a comprehensive
-canary scan of all result surfaces is still required before promotion.
+`details` are dropped by default. Callers may select public aggregate fields with
+`sanitizeDetails`; a sanitizer exception fails the case without persisting its message.
+Synthetic `privacyCanaries` also fail the case and suppress selected details if their
+serialized representation contains a canary (including escaped strings). These checks
+only protect runner artifacts; stdout/stderr, traces, receipts, snapshots, exports, and
+other result surfaces still require independent canary scans before promotion.
 
 Artifacts use `decision-qualification-artifact/v1`, live below a validated run-id directory,
 and are written through a same-directory temporary file and atomic rename. Verification rejects

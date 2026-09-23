@@ -40,6 +40,8 @@ export interface QualificationExecutionPlan {
   maxArtifactBytes?: number;
   /** Explicitly select public aggregate fields for persistence. Raw executor details are private by default. */
   sanitizeDetails?: (details: unknown, caseId: string) => unknown;
+  /** Synthetic canaries never leave the process, including through selected public details. */
+  privacyCanaries?: readonly string[];
 }
 
 export interface ArtifactVerification {
@@ -176,6 +178,27 @@ async function executeCase(
     } catch {
       // A broken sanitizer cannot convert a private payload into release evidence.
       result = { outcome: 'fail' };
+      error = 'details-sanitization-failed';
+    }
+  }
+  // Check the serialized representation (not just string-valued leaves): JSON
+  // escaping must not let a canary bypass the privacy gate. Do not include the
+  // offending value or its index in the artifact or any thrown diagnostic.
+  const canaries = plan.privacyCanaries ?? [];
+  if (canaries.some(value => typeof value !== 'string' || value.length === 0)) {
+    throw new Error('privacy canaries must be nonempty strings');
+  }
+  if (publicDetails !== undefined && canaries.length) {
+    try {
+      const serialized = JSON.stringify(publicDetails);
+      if (canaries.some(value => serialized.includes(value) || serialized.includes(JSON.stringify(value).slice(1, -1)))) {
+        result = { outcome: 'fail' };
+        publicDetails = undefined;
+        error = 'privacy-canary-detected';
+      }
+    } catch {
+      result = { outcome: 'fail' };
+      publicDetails = undefined;
       error = 'details-sanitization-failed';
     }
   }

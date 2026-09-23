@@ -107,6 +107,40 @@ describe('decision qualification executable runner', () => {
     expect(artifact).not.toContain(marker);
   });
 
+  it('PRV-CANARY-01 rejects a canary in selected public details without persisting it', async () => {
+    const root = await artifactRoot();
+    const item: QualificationCase = { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] };
+    const marker = 'canary@example.invalid';
+    const run = await executeQualificationPlan({
+      manifest: manifest([item]), artifactRoot: root,
+      executors: { TV01: () => ({ outcome: 'pass', details: { nested: [marker] } }) },
+      sanitizeDetails: value => value,
+      privacyCanaries: [marker],
+    });
+    const artifact = await readFile(join(root, run.evidence[0]!.artifact!), 'utf8');
+    expect(run.evidence[0]?.outcome).toBe('fail');
+    expect(artifact).toContain('privacy-canary-detected');
+    expect(artifact).not.toContain(marker);
+    expect(JSON.stringify(run)).not.toContain(marker);
+    expect((await evaluateExecutedQualification(run, root)).report.decision).toBe('HOLD');
+  });
+
+  it('PRV-CANARY-02 detects escaped canaries and rejects malformed canary sets', async () => {
+    const root = await artifactRoot();
+    const item: QualificationCase = { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] };
+    const marker = 'private\nmarker';
+    const plan = {
+      manifest: manifest([item]), artifactRoot: root,
+      executors: { TV01: () => ({ outcome: 'pass' as const, details: { marker } }) },
+      sanitizeDetails: (value: unknown) => value,
+    };
+    const run = await executeQualificationPlan({ ...plan, privacyCanaries: [marker] });
+    expect(run.evidence[0]?.outcome).toBe('fail');
+    const artifact = await readFile(join(root, run.evidence[0]!.artifact!), 'utf8');
+    expect(artifact).not.toContain('private');
+    await expect(executeQualificationPlan({ ...plan, privacyCanaries: [''] })).rejects.toThrow('privacy canaries must be nonempty');
+  });
+
   it('links persisted qualification artifacts to named CAL and DRF master-plan evidence IDs', async () => {
     const root = await artifactRoot();
     const cases: QualificationCase[] = [
