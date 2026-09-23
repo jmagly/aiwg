@@ -457,6 +457,20 @@
       "publication": { "public": true }
     },
     {
+      "logicalName": "decision.job",
+      "id": "https://aiwg.io/schemas/decision/DecisionJob.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionJob.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-job-contract", "boundary": "Offline job and item lifecycle validation", "path": "src/decision/job-contract.ts" }],
+      "publication": { "public": true }
+    },
+    {
       "logicalName": "decision.graph",
       "id": "https://aiwg.io/schemas/decision/DecisionGraph.v1.schema.json",
       "version": "1.0.0",
