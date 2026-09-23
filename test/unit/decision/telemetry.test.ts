@@ -172,6 +172,11 @@ describe('decision telemetry foundation', () => {
       { 'gen_ai.request.model': 'approved-model' }, {},
     ]);
     expect(() => new BoundedDecisionMetrics(10, 2, { 'aiwg.run.id': ['unsafe'] })).toThrow(/bounds/);
+    const trusted = { 'gen_ai.request.model': ['approved-model'] };
+    const immutable = new BoundedDecisionMetrics(10, 2, trusted);
+    trusted['gen_ai.request.model'].push('PII-CANARY');
+    immutable.record('decision.duration', 1, { 'gen_ai.request.model': 'PII-CANARY' });
+    expect(immutable.snapshot()[0]?.dimensions).toEqual({});
   });
 
   it('records only shared-request batch usage and fixed operational metric names', () => {

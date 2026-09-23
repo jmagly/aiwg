@@ -73,21 +73,24 @@ export function recordDecisionSpanMetrics(span: DecisionTelemetrySpan, metrics: 
 
 export class BoundedDecisionMetrics {
   private readonly points: DecisionMetricPoint[] = [];
+  private readonly approvedDimensions: Readonly<Record<string, readonly string[]>>;
   constructor(private readonly capacity = 1_000, private readonly maximumDimensionValues = 100,
-    private readonly trustedDimensionValues: Readonly<Record<string, readonly string[]>> = {}) {
+    trustedDimensionValues: Readonly<Record<string, readonly string[]>> = {}) {
     if (!Number.isSafeInteger(capacity) || capacity < 1 || !Number.isSafeInteger(maximumDimensionValues) || maximumDimensionValues < 1
       || Object.entries(trustedDimensionValues).some(([key, values]) => !DYNAMIC_DIMENSIONS.has(key)
         || !Array.isArray(values) || values.length > capacity
         || values.some(value => typeof value !== 'string' || value.length < 1 || value.length > 64))) {
       throw new Error('Invalid metric bounds');
     }
+    this.approvedDimensions = Object.fromEntries(Object.entries(trustedDimensionValues)
+      .map(([key, values]) => [key, [...values]]));
   }
 
   record(name: string, value: number, attributes: TelemetryAttributes): boolean {
     if (!METRIC_NAMES.has(name) || !Number.isFinite(value) || this.points.length >= this.capacity) return false;
     const dimensions = Object.fromEntries(Object.entries(attributes).filter(([key, dimension]) => typeof dimension === 'string'
       && (FIXED_DIMENSIONS[key]?.includes(dimension) === true
-        || DYNAMIC_DIMENSIONS.has(key) && this.trustedDimensionValues[key]?.includes(dimension) === true)));
+        || DYNAMIC_DIMENSIONS.has(key) && this.approvedDimensions[key]?.includes(dimension) === true)));
     const signature = JSON.stringify(dimensions);
     const distinct = new Set(this.points.filter(point => point.name === name).map(point => JSON.stringify(point.dimensions)));
     if (!distinct.has(signature) && distinct.size >= this.maximumDimensionValues) return false;
