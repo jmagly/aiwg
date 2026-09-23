@@ -30,7 +30,27 @@ named as credential- or secret-derived hashes are rejected. Every projected data
 class must declare non-empty access scope plus retention, export, deletion, and
 backup behavior; missing metadata never receives a permissive default.
 
-This foundation covers deterministic projection and destination authorization.
-Encrypted debug capture, retention deletion/tombstones, legal hold, redirect-hop
-authorization, and adoption by every adapter call site remain separate controls
-and must not be inferred from a successful projection.
+Runtime validation rejects unknown trust and sensitivity values even when a
+caller bypasses TypeScript. The portable policy is scanned as a whole, including
+identity and destination fields, for bearer material, private keys, vault/secret
+locators, and credential-derived hashes. Validation errors describe only the
+rejected category; they never echo the value. This scanner is not a general
+secret detector: opaque secrets without a recognizable marker require upstream
+classification and review.
+
+## Offline evidence and deployment limits
+
+| Boundary | Evidence | Remaining deployment requirement |
+|---|---|---|
+| Provider/model/origin/region/purpose mismatch | Projection denial with zero credential/transport calls | Approved binding inventory and independent provider policy review |
+| Trust/data class/lifecycle metadata | Runtime enum and missing-control denial | Approved classification and retention schedule per data class |
+| Hostile state | Direct override, fake authority/system, delimiter, label, flood and exfiltration fixtures remain untrusted values | Semantic decision-quality evaluation; typed output alone is not immunity |
+| Redirect/DNS | Jev transport denies redirects and unapproved final origin; rejects private DNS resolution before credentials | Deployment-specific DNS/network enforcement and allowed-origin review |
+| Debug/retention | Telemetry validates explicit encryption/audit/TTL/deletion policy and tombstones references | Demonstrated encrypted store, audited access, cascading erasure and backup expiry |
+| Provider credentials | Resolver spy proves denied policies never call credentials | Exact authorized read and adjacent-secret denial in approved provider environment |
+
+Provider default retention duration, geographic residency, encryption/key
+management and enterprise zero-data-retention status remain **unknown** without
+contractual deployment evidence. Neither a policy allowlist nor the offline
+fixtures certify these provider properties. No production or automatic action
+is authorized by this evidence alone.

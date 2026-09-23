@@ -80,7 +80,7 @@ export async function projectDecisionState(
   let subject: string | undefined;
   for (const field of [...policy.fields].sort((a, b) => a.output.localeCompare(b.output))) {
     const resolved = resolveJsonPointer(input, field.pointer);
-    if (!resolved.found) throw new DecisionProjectionError('invalid-input', `projection field '${field.pointer}' is missing`);
+    if (!resolved.found) throw new DecisionProjectionError('invalid-input', 'required projection field is missing');
     state[field.output] = structuredClone(resolved.value);
     subject ??= field.subject;
     included.push({
@@ -128,6 +128,9 @@ export async function dispatchProjectedDecisionState<TCredential, TResult>(
 export function validateProjectionPolicy(policy: DecisionProjectionPolicy): void {
   rejectUnknownKeys(policy as unknown as Record<string, unknown>,
     ['version', 'provider', 'model', 'origin', 'region', 'purpose', 'allowIncompleteContext', 'fields'], 'projection policy');
+  // Scan the whole portable control object, not just individual field entries.
+  // Destination and identity strings are portable too and must never carry secrets.
+  rejectPortableSecretMaterial(policy as unknown as Record<string, unknown>, 'projection policy');
   if (!policy.version || !policy.provider || !policy.model || !policy.origin || !policy.region || !policy.purpose) {
     throw new DecisionProjectionError('invalid-policy', 'projection policy identity and destination fields are required');
   }
@@ -145,11 +148,11 @@ export function validateProjectionPolicy(policy: DecisionProjectionPolicy): void
       'pointer', 'output', 'source', 'subject', 'trust', 'sensitivity', 'purpose', 'retentionClass',
       'accessScopes', 'exportPolicy', 'deletionPolicy', 'backupPolicy', 'allowedProviders',
       'allowedModels', 'allowedOrigins', 'allowedRegions',
-    ], `projection field '${field.pointer || '<unknown>'}'`);
+    ], 'projection field');
     if (!field.pointer.startsWith('/') || !/^[A-Za-z][A-Za-z0-9_.-]*$/.test(field.output)) {
       throw new DecisionProjectionError('invalid-policy', 'projection fields require JSON pointers and portable output names');
     }
-    if (outputs.has(field.output)) throw new DecisionProjectionError('invalid-policy', `duplicate projection output '${field.output}'`);
+    if (outputs.has(field.output)) throw new DecisionProjectionError('invalid-policy', 'duplicate projection output');
     outputs.add(field.output);
     subject ??= field.subject;
     if (!field.subject || field.subject !== subject) {
@@ -159,16 +162,18 @@ export function validateProjectionPolicy(policy: DecisionProjectionPolicy): void
     if (field.purpose !== policy.purpose || !field.allowedProviders?.includes(policy.provider)
       || !field.allowedModels?.includes(policy.model) || !normalizedAllowedOrigins?.includes(normalizedOrigin.origin)
       || !field.allowedRegions?.includes(policy.region)) {
-      throw new DecisionProjectionError('data-boundary-denied', `field '${field.pointer}' is not authorized for the selected destination`);
+      throw new DecisionProjectionError('data-boundary-denied', 'projection field is not authorized for the selected destination');
     }
     if (!field.source || !field.retentionClass || !field.allowedProviders.length || !field.allowedModels.length
       || !field.allowedOrigins.length || !field.allowedRegions.length || !field.accessScopes?.length
+      || !['verified', 'untrusted'].includes(field.trust)
+      || !['public', 'internal', 'confidential', 'restricted'].includes(field.sensitivity)
       || !['denied', 'sanitized'].includes(field.exportPolicy)
       || !['erase', 'tombstone'].includes(field.deletionPolicy)
       || !['expire-with-primary', 'not-persisted'].includes(field.backupPolicy)) {
-      throw new DecisionProjectionError('invalid-policy', `field '${field.pointer}' lacks provenance or lifecycle metadata`);
+      throw new DecisionProjectionError('invalid-policy', 'projection field lacks provenance or lifecycle metadata');
     }
-    rejectPortableSecretMaterial(field as unknown as Record<string, unknown>, `projection field '${field.pointer}'`);
+    rejectPortableSecretMaterial(field as unknown as Record<string, unknown>, 'projection field');
   }
 }
 
@@ -185,7 +190,7 @@ function normalizeAuthorizedOrigin(origin: string): string {
 
 function rejectUnknownKeys(value: Record<string, unknown>, allowed: readonly string[], name: string): void {
   const unknown = Object.keys(value).filter(key => !allowed.includes(key));
-  if (unknown.length) throw new DecisionProjectionError('invalid-policy', `${name} contains unsupported control fields: ${unknown.sort().join(', ')}`);
+  if (unknown.length) throw new DecisionProjectionError('invalid-policy', `${name} contains unsupported control fields`);
 }
 
 function rejectPortableSecretMaterial(value: Record<string, unknown>, name: string): void {
@@ -193,7 +198,8 @@ function rejectPortableSecretMaterial(value: Record<string, unknown>, name: stri
   if (/bearer\s+[a-z0-9._~+/=-]+/i.test(serialized)
     || /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(serialized)
     || /(?:vault|secret):\/\//i.test(serialized)
-    || /"(?:secret|credential|token|api[_-]?key)[^"]*hash"\s*:/i.test(serialized)) {
+    || /"(?:secret|credential|token|api[_-]?key)[^"]*hash"\s*:/i.test(serialized)
+    || /"(?:secret|credential|token|api[_-]?key)(?:Ref|Value|Header)?"\s*:/i.test(serialized)) {
     throw new DecisionProjectionError('invalid-policy', `${name} contains forbidden credential or private-locator material`);
   }
 }
