@@ -201,6 +201,20 @@ describe('decision telemetry foundation', () => {
     expect(exporter.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'dropped' })]));
   });
 
+  it('bounds trace bytes and diagnostic memory under adversarial load without throwing', async () => {
+    const sink = { export: vi.fn(async () => undefined) };
+    const exporter = new BoundedDecisionTraceExporter(sink, { capacity: 2, timeoutMs: 100,
+      maximumTraceBytes: 512, maximumDiagnostics: 3 });
+    const oversized = trace();
+    oversized.spans = Array.from({ length: 1_000 }, () => oversized.spans[0]!);
+    for (let i = 0; i < 1_000; i++) expect(exporter.offer(oversized)).toBe(false);
+    expect(exporter.offer(null as unknown as DecisionTelemetryTrace)).toBe(false);
+    expect(exporter.diagnostics).toHaveLength(3);
+    expect(sink.export).not.toHaveBeenCalled();
+    expect(() => new BoundedDecisionTraceExporter(sink, { capacity: 1, timeoutMs: 1, maximumTraceBytes: 0 })).toThrow(/bounds/);
+    expect(() => new BoundedDecisionTraceExporter(sink, { capacity: 1, timeoutMs: 1, maximumDiagnostics: 0 })).toThrow(/bounds/);
+  });
+
   it('exports metadata-only OTLP/HTTP JSON to a pinned HTTPS endpoint without redirects', async () => {
     const transport = vi.fn(async () => new Response(null, { status: 200 })) as typeof fetch;
     const sink = new DecisionOtlpHttpSink({ endpoint: 'https://collector.example/v1/traces', maxPayloadBytes: 16_384,
