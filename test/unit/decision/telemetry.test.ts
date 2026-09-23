@@ -130,6 +130,21 @@ describe('decision telemetry foundation', () => {
     expect(scanTelemetryCanaries(sanitized, ['PII-CANARY', 'SECRET-CANARY'])).toEqual([]);
   });
 
+  it('strips untrusted tracestate, event names, and tombstone canaries from incident exports', () => {
+    const value = trace();
+    value.spans[0]!.context.traceState = 'vendor=PRIVATE-CANARY';
+    value.spans[0]!.events.push({ name: 'PRIVATE-CANARY response body', timeUnixMs: 100, attributes: {} });
+    value.spans[0]!.events.push({ name: 'retry.scheduled', timeUnixMs: 100,
+      attributes: { 'aiwg.retry.delay_ms': 1 } });
+    value.tombstones = [{ referenceType: 'review', opaqueId: 'PRIVATE-CANARY', deletedAtUnixMs: 100,
+      reason: 'PRIVATE-CANARY' }];
+    const exported = sanitizedTelemetryExport(value, { canaries: ['PRIVATE-CANARY'] });
+    expect(scanTelemetryCanaries(exported, ['PRIVATE-CANARY'])).toEqual([]);
+    expect(exported.spans[0]?.events.map(event => event.name)).toEqual(['retry.scheduled']);
+    expect(exported.spans[0]?.context.traceState).toBeUndefined();
+    expect(exported.tombstones?.[0]).toMatchObject({ opaqueId: 'redacted', reason: 'redacted' });
+  });
+
   it('requires a complete explicit debug capture policy', () => {
     expect(validateDebugCapturePolicy(undefined)).toBeNull();
     expect(() => validateDebugCapturePolicy({
