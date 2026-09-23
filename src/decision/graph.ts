@@ -104,7 +104,11 @@ export function planDecisionGraph(value: unknown, resolvedPins: ReadonlySet<stri
   if (stages.some((s, i) => s.stage !== i) || stages.length > graph.budget.depth || stages.some(s => s.nodes.length > graph.budget.fanOut) ||
       stages.some(s => s.batches.some(group => group.length > graph.budget.beamWidth))) return fail('graph budget exceeded');
   if (graph.stageBudgets && (new Set(graph.stageBudgets.map(item => item.stage)).size !== graph.stageBudgets.length ||
-      graph.stageBudgets.some(item => !stages.some(s => s.stage === item.stage)))) return fail('invalid stage budget');
+      graph.stageBudgets.some(item => {
+        const stage = stages.find(s => s.stage === item.stage);
+        return !stage || stage.nodes.length > item.limits.fanOut ||
+          stage.batches.some(group => group.length > item.limits.beamWidth) || stage.stage >= item.limits.depth;
+      }))) return fail('invalid stage budget');
   const canonicalGraph = { ...graph, ...(graph.stageBudgets ? { stageBudgets: [...graph.stageBudgets].sort((a, b) => a.stage - b.stage) } : {}),
     terminals: [...graph.terminals].sort(), nodes: sortedNodes.map(node => ({ ...node, input: [...node.input].sort(), output: [...node.output].sort() })), edges };
   const plan = { schemaVersion: 'decision-graph-plan/v1' as const, graphDigest: digest(canonicalGraph), stages, edges };

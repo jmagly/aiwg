@@ -22,7 +22,7 @@ export interface GraphRunReceipt {
   outcome: GraphEvidenceReceipt['outcome'];
   /** Candidate output is evidence, never an action authorization. */
   value: unknown | null;
-  batches: Array<{ stage: number; nodes: string[]; resultDigests: string[] }>;
+  batches: Array<{ stage: number; nodes: string[]; resultDigests: string[]; executedNative: boolean }>;
   attempts: Array<{ nodeId: string; nodeRunId: string; invocationKey: string; attempt: number; activation: number }>;
   receiptDigest: string;
 }
@@ -33,7 +33,8 @@ export interface GraphRunReceipt {
  */
 export function finalizeDecisionGraphRun(graph: DecisionGraph, plan: GraphPlan, report: GraphFlowReport,
   records: ReadonlyArray<{ request: GraphFlowRequest; response: GraphFlowResponse }>,
-  ceilings: GraphCeilings[] = [], unknownCostBoundMicros?: number): GraphRunReceipt {
+  ceilings: GraphCeilings[] = [], unknownCostBoundMicros?: number,
+  nativeBatches: ReadonlyArray<readonly string[]> = []): GraphRunReceipt {
   try { admitEntry({ graph, plan, ceilings, runId: report.runId, status: report.status,
     results: Object.fromEntries(Object.entries(report.results).map(([id, value]) => [id, value.outputs])),
     completed: report.checkpoint.completed, skipped: report.checkpoint.skipped,
@@ -41,6 +42,7 @@ export function finalizeDecisionGraphRun(graph: DecisionGraph, plan: GraphPlan, 
       ({ from: item.from ?? '', to: item.to ?? '', active: item.active === true })), 
     records: records.map(({ request, response }) => ({ node: request.node.id, runId: request.runId,
       outputs: response.outputs, attempts: response.attempts, usage: response.usage })),
+    nativeBatches: nativeBatches.map(group => [...group].sort()),
     ...(unknownCostBoundMicros === undefined ? {} : { unknownCostBoundMicros }) }); }
   catch { throw new DecisionGraphError('graph run admission denied'); }
   const observed = new Map<string, GraphObservation>();
@@ -100,8 +102,14 @@ export function finalizeDecisionGraphRun(graph: DecisionGraph, plan: GraphPlan, 
         report.checkpoint.completed.length + inactive.size === graph.nodes.length)) outcome = 'error';
   else if (outcome === 'complete' && !terminal) outcome = graph.pattern === 'shortlist-rerank' ? 'empty-shortlist' : 'incomplete-evidence';
   const value = outcome === 'complete' && terminal ? observed.get(terminal)!.output : null;
+  const declared = nativeBatches.map(group => canonicalJson([...group].sort()));
+  const permitted = new Set(plan.stages.flatMap(stage => stage.batches.map(group => canonicalJson(group))));
+  if (declared.length !== new Set(declared).size || declared.some(group => !permitted.has(group))) {
+    throw new DecisionGraphError('unrecognized native batch receipt');
+  }
   const batches = plan.stages.flatMap(stage => stage.batches.map(nodes => ({ stage: stage.stage, nodes,
-    resultDigests: nodes.map(id => evidence.stages[stage.stage]!.nodes.find(node => node.id === id)!.resultDigest) })));
+    resultDigests: nodes.map(id => evidence.stages[stage.stage]!.nodes.find(node => node.id === id)!.resultDigest),
+    executedNative: declared.includes(canonicalJson(nodes)) })));
   const attempts = report.trace.filter(event => event.type === 'node-started').map(event => {
     if (!event.nodeId || !event.nodeRunId || !event.invocationKey ||
         !Number.isSafeInteger(event.attempt) || !Number.isSafeInteger(event.activation)) {

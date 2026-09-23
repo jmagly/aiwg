@@ -28,8 +28,29 @@ export class GraphBudgetLedger {
     if (!Number.isFinite(this.started)) throw new DecisionGraphError('invalid clock');
   }
   cancel(): void { this.cancelled = true; }
-  reserve(stage: number, estimate: Usage): (actual: Usage) => void {
+  /** All-or-nothing synchronous batch claim; no remote call occurs before every
+   * member passes stage, graph and concurrency capacity checks. */
+  reserveBatch(stage: number, estimates: readonly Usage[]): Array<(actual: Usage) => void> {
+    if (!estimates.length || !estimates.every(e => fields.every(field => safe(e[field])) && e.attempts >= 1)) {
+      throw new DecisionGraphError('invalid graph batch estimate');
+    }
     const now = this.clock();
+    if (this.cancelled) throw new DecisionGraphError('graph cancelled');
+    if (!Number.isFinite(now) || now < this.started || now - this.started >= this.limits.deadlineMs ||
+        !this.plan.stages.some(s => s.stage === stage)) throw new DecisionGraphError('graph batch deadline or stage invalid');
+    const limit = this.graph.stageBudgets?.find(item => item.stage === stage)?.limits ?? this.limits;
+    if (now - (this.stageStarted.get(stage) ?? now) >= limit.deadlineMs) throw new DecisionGraphError('stage deadline exhausted');
+    const total = Object.fromEntries(fields.map(field => [field, estimates.reduce((sum, e) => sum + e[field], 0)])) as Usage;
+    const spent = this.stages.get(stage) ?? empty();
+    if (estimates.length + (this.active.get(stage) ?? 0) > Math.min(limit.concurrency, this.limits.concurrency) ||
+        fields.some(field => !safe(total[field]) || this.total[field] + total[field] > this.limits[field] ||
+          spent[field] + total[field] > limit[field])) throw new DecisionGraphError('graph batch budget exhausted');
+    return estimates.map(estimate => this.reserveAt(stage, estimate, now));
+  }
+  reserve(stage: number, estimate: Usage): (actual: Usage) => void {
+    return this.reserveAt(stage, estimate, this.clock());
+  }
+  private reserveAt(stage: number, estimate: Usage, now: number): (actual: Usage) => void {
     if (this.cancelled) throw new DecisionGraphError('graph cancelled');
     if (!Number.isFinite(now) || now < this.started || now - this.started >= this.limits.deadlineMs) {
       throw new DecisionGraphError('graph deadline exhausted');

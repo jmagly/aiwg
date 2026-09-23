@@ -19,17 +19,26 @@ export function shortlistRerankTemplate(base: TemplateBase & { shortlist: NodeCo
 /** Fixed, caller-authored taxonomy candidates fan out; no model may create new nodes. */
 export function taxonomyBeamTemplate(base: TemplateBase & {
   taxonomy: NodeConfig; branches: Array<{ id: string; config: NodeConfig }>; select: NodeConfig;
+  /** Opt-in guarded detail stage, one fixed child per declared branch. Selector runs locally. */
+  details?: NodeConfig;
 }): DecisionGraphTemplate {
   const ordered = [...base.branches].sort((a, b) => a.id.localeCompare(b.id));
+  if (base.details && base.select.target !== 'beam') throw new Error('guarded beam requires a deterministic selector target');
+  const terminals = base.details ? ordered.map(branch => `detail-${branch.id}`) : ['select'];
   return validated({ schemaVersion: 'decision-graph/v1', id: base.id, pattern: 'taxonomy-beam',
-    entry: 'taxonomy', terminals: ['select'], budget: base.budget,
+    entry: 'taxonomy', terminals, budget: base.budget,
     nodes: [
       { ...base.taxonomy, id: 'taxonomy', stage: 0, input: [], output: ['children'] },
       ...ordered.map(branch => ({ ...branch.config, id: branch.id, stage: 1, input: ['children'], output: ['score'] })),
-      { ...base.select, id: 'select', stage: 2, input: ordered.map(branch => branch.id), output: ['result'] },
+      { ...base.select, id: 'select', stage: 2, input: ordered.map(branch => branch.id),
+        output: ['result', ...(base.details ? ordered.map(branch => `chosen-${branch.id}`) : [])] },
+      ...(base.details ? ordered.map(branch => ({ ...base.details!, id: `detail-${branch.id}`,
+        stage: 3, input: ['seed'], output: ['result'] })) : []),
     ], edges: [
       ...ordered.map(branch => ({ from: 'taxonomy', to: branch.id, source: 'children', destination: 'children' })),
       ...ordered.map(branch => ({ from: branch.id, to: 'select', source: 'score', destination: branch.id })),
+      ...(base.details ? ordered.map(branch => ({ from: 'select', to: `detail-${branch.id}`,
+        source: 'result', destination: 'seed', when: { source: `chosen-${branch.id}`, equals: true } })) : []),
     ] }, base.resolvedPins);
 }
 /** A declared boolean from the verifier controls the ordinary-LLM fallback.
