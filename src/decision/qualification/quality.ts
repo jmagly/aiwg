@@ -54,12 +54,14 @@ export function freezeQualificationSplit(name: QualificationSplit['name'], ids: 
 }
 
 export function verifyQualificationSplits(splits: readonly QualificationSplit[]): void {
-  if (splits.length !== 3 || new Set(splits.map(split => split.name)).size !== 3) {
+  if (splits.length !== 3 || new Set(splits.map(split => split.name)).size !== 3
+    || splits.some(split => !['tuning', 'calibration', 'test'].includes(split.name))) {
     throw new Error('qualification requires tuning, calibration and test splits');
   }
   const all = new Set<string>();
   for (const split of splits) {
-    if (!split.ids.length || new Set(split.ids).size !== split.ids.length || split.digest !== digestIds(split.ids)) {
+    if (!split.ids.length || split.ids.some(id => typeof id !== 'string' || !id.trim())
+      || new Set(split.ids).size !== split.ids.length || split.digest !== digestIds(split.ids)) {
       throw new Error('qualification split digest or membership mismatch');
     }
     for (const id of split.ids) {
@@ -81,7 +83,8 @@ export function evaluateBinaryHeldout(
     throw new Error('held-out sample membership mismatch');
   }
   for (const sample of samples) {
-    if (!sample.slice.trim() || ![0, 1].includes(sample.label)
+    if (typeof sample.slice !== 'string' || !sample.slice.trim() || typeof sample.accepted !== 'boolean'
+      || ![0, 1].includes(sample.label)
       || !Number.isFinite(sample.probability) || sample.probability < 0 || sample.probability > 1
       || !Number.isFinite(sample.latencyMs) || sample.latencyMs < 0
       || [sample.calls, sample.retries, sample.fallbacks].some(n => !Number.isSafeInteger(n) || n < 0)

@@ -18,6 +18,9 @@ describe('held-out qualification metrics', () => {
     const altered = splits();
     altered[2] = { ...altered[2]!, ids: ['substituted'] };
     expect(() => verifyQualificationSplits(altered)).toThrow('digest');
+    expect(() => verifyQualificationSplits([
+      ...splits().slice(0, 2), { ...splits()[2]!, name: 'unknown' as 'test' },
+    ])).toThrow('requires tuning');
     const overlap = splits();
     overlap[1] = freezeQualificationSplit('calibration', ['train-1']);
     expect(() => verifyQualificationSplits(overlap)).toThrow('overlap');
@@ -44,7 +47,8 @@ describe('held-out qualification metrics', () => {
 
   it('rejects nonfinite and invalid samples instead of treating missing cost as zero', () => {
     for (const overrides of [{ probability: NaN }, { probability: 1.1 }, { latencyMs: -1 },
-      { costUsd: -0.01 }, { inputTokens: 1.5 }, { calls: -1 }, { slice: '' }]) {
+      { costUsd: -0.01 }, { inputTokens: 1.5 }, { calls: -1 }, { slice: '' },
+      { accepted: 'false' as unknown as boolean }]) {
       expect(() => evaluateBinaryHeldout(splits(), [sample('test-1', overrides), sample('test-2')])).toThrow('invalid');
     }
     const result = evaluateBinaryHeldout(splits(), [sample('test-1', { accepted: false }), sample('test-2', { accepted: false })]);
