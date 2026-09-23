@@ -1,11 +1,12 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
-import { mkdtemp, readFile, utimes, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   CompileCacheRejectedError, FileCompileCache, MemoryCompileCache, cacheBenchmarkReport, compileCacheKey,
+  pairedPreparationLatencyInterval,
   prepareAdapterRequest, providerPrefixEvidence,
   providerPrefixKey, type CompileCacheIdentity, type CompileCacheReadContext, type ProviderPrefixIdentity,
 } from '../../../src/decision/compile-cache/index.js';
@@ -143,6 +144,47 @@ describe('decision compile and provider-prefix cache', () => {
       enabled: { averagePreparationLatencyMs: 2, averageCostUsd: null, averageCachedInputTokens: null, hitRateBps: 10_000 } });
   });
 
+  it('CCP-011 executes paired offline compile runs with observed disk size and no invented provider economics', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-benchmark-'));
+    const store = new FileCompileCache<{ artifact: string }>(directory);
+    let compilations = 0;
+    const compile = async () => {
+      compilations++;
+      return { artifact: 'stable-compiled-bytes' };
+    };
+    const configuration = identity();
+    const ttlMs = 10_000;
+    for (let index = 0; index < 2; index++) {
+      await store.getOrCompile(configuration, context(100), ttlMs, compile, { bypass: true });
+      await store.getOrCompile(configuration, context(100), ttlMs, compile);
+    }
+    const samples: import('../../../src/decision/compile-cache/benchmark.js').CacheBenchmarkSample[] = [];
+    const durations: { disabled: number[]; enabled: number[] } = { disabled: [], enabled: [] };
+    for (let index = 0; index < 8; index++) {
+      for (const [mode, bypass] of [['cache-disabled', true], ['cache-enabled', false]] as const) {
+        const started = performance.now();
+        const result = await store.getOrCompile(configuration, context(101 + index), ttlMs, compile, { bypass });
+        const latency = Math.max(0, performance.now() - started);
+        durations[bypass ? 'disabled' : 'enabled'].push(latency);
+        const bytes = (await stat(join(directory, `${result.key.slice('sha256:'.length)}.json`))).size;
+        samples.push({ mode, preparationLatencyMs: latency, inputTokens: null, cachedInputTokens: null,
+          costUsd: null, memoryBytes: Buffer.byteLength(JSON.stringify(result.entry.value)), storageBytes: bytes,
+          outcome: result.outcome, invalidated: false });
+        expect(result.entry.value).toEqual({ artifact: 'stable-compiled-bytes' });
+      }
+    }
+    const report = cacheBenchmarkReport(compileCacheKey(configuration), 2, 500,
+      pairedPreparationLatencyInterval(durations.disabled, durations.enabled), samples);
+    expect(compilations).toBe(11);
+    expect(report).toMatchObject({ measuredCalls: 16,
+      disabled: { calls: 8, hitRateBps: 0, averageInputTokens: null, averageCostUsd: null },
+      enabled: { calls: 8, hitRateBps: 10_000, averageCachedInputTokens: null, averageCostUsd: null,
+        invalidationRateBps: 0 } });
+    expect(report.enabled.peakStorageBytes).toBeGreaterThan(0);
+    expect(report.confidenceInterval).toMatch(/^95% paired bootstrap CI \[-?[\d.]+, -?[\d.]+\] ms$/);
+    expect(() => pairedPreparationLatencyInterval([1], [1])).toThrow();
+  });
+
   it('CCP-004 coordinates cold fills across independent filesystem cache instances', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-lock-'));
     const first = new FileCompileCache<string>(directory, { lockPollMs: 1, lockTimeoutMs: 1_000 });
@@ -216,6 +258,27 @@ describe('decision compile and provider-prefix cache', () => {
     await expect(cache.read(identity(), context())).resolves.toBeNull();
     await expect(cache.getOrCompile(identity(), context(), 1_000, async () => 'recovered'))
       .resolves.toMatchObject({ outcome: 'miss', entry: { value: 'recovered' } });
+  });
+
+  it('CCP-007 refreshes only an authenticated expired filesystem entry, never stale evidence', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-expiry-'));
+    const store = new FileCompileCache<string>(directory);
+    let calls = 0;
+    const compile = async () => `artifact-${++calls}`;
+    expect((await store.getOrCompile(identity(), context(), 10, compile)).outcome).toBe('miss');
+    await expect(store.read(identity(), context(110))).rejects.toThrow(CompileCacheRejectedError);
+    await expect(store.getOrCompile(identity(), context(110, { projectId: 'other' }), 10, compile))
+      .rejects.toThrow(CompileCacheRejectedError);
+    expect(calls).toBe(1);
+    const refreshed = await store.getOrCompile(identity(), context(110), 10, compile);
+    expect(refreshed).toMatchObject({ outcome: 'miss', entry: { value: 'artifact-2', createdAtEpochMs: 110 } });
+    expect((await store.getOrCompile(identity(), context(111), 10, compile)).outcome).toBe('hit');
+    expect(calls).toBe(2);
+    const path = join(directory, `${refreshed.key.slice('sha256:'.length)}.json`);
+    await writeFile(path, (await readFile(path, 'utf8')).replace('artifact-2', 'tampered'));
+    await expect(store.getOrCompile(identity(), context(120), 10, compile))
+      .rejects.toThrow(CompileCacheRejectedError);
+    expect(calls).toBe(2);
   });
 
   it('CCP-008 persists isolated entries and enforces lifecycle integrity across store restarts', async () => {

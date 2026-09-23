@@ -38,7 +38,7 @@ export class FileCompileCache<T> {
     validateCompileIdentity(identity);
     const key = compileCacheKey(identity);
     if (options.bypass) return { outcome: 'bypass', key, entry: await this.build(identity, key, context, ttlMs, compile) };
-    const existing = await this.read(identity, context);
+    const existing = await this.readExisting(identity, context, true);
     if (existing) return { outcome: 'hit', key, entry: existing };
     const active = this.fills.get(key);
     if (active) return { outcome: 'hit', key, entry: this.revalidate(await active, identity, context) };
@@ -53,9 +53,23 @@ export class FileCompileCache<T> {
   }
 
   async read(identity: CompileCacheIdentity, context: CompileCacheReadContext): Promise<CompileCacheEntry<T> | null> {
+    return this.readExisting(identity, context, false);
+  }
+
+  private async readExisting(identity: CompileCacheIdentity, context: CompileCacheReadContext,
+    refreshExpired: boolean): Promise<CompileCacheEntry<T> | null> {
     const path = this.path(compileCacheKey(identity));
-    try { return this.revalidate(JSON.parse(await readFile(path, 'utf8')) as CompileCacheEntry<T>, identity, context); }
-    catch (error) {
+    try {
+      // Validate integrity, identity, scope and authorization before deciding
+      // whether an expired entry can be treated as a cache miss for a fill.
+      const entry = this.revalidate(JSON.parse(await readFile(path, 'utf8')) as CompileCacheEntry<T>, identity, context, true);
+      if (entry.tombstonedAtEpochMs !== null) throw new CompileCacheRejectedError();
+      if (context.nowEpochMs >= entry.expiresAtEpochMs) {
+        if (refreshExpired) return null;
+        throw new CompileCacheRejectedError();
+      }
+      return entry;
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw error instanceof CompileCacheRejectedError ? error : new CompileCacheRejectedError();
     }
@@ -92,7 +106,7 @@ export class FileCompileCache<T> {
     ttlMs: number, compile: () => Promise<T>): Promise<{ entry: CompileCacheEntry<T>; filled: boolean }> {
     const owner = await this.acquireFillLock(key);
     try {
-      const existing = await this.read(identity, context);
+      const existing = await this.readExisting(identity, context, true);
       if (existing) return { entry: existing, filled: false };
       const entry = await this.build(identity, key, context, ttlMs, compile);
       await this.publish(entry);
