@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareContextUsage, type ContextComparison } from '../../../src/decision/context-qualification.js';
+import { assertContextQualified, compareContextUsage, type ContextComparison } from '../../../src/decision/context-qualification.js';
 import { ContextPlanError, type ContextProviderProfile, type ContextTokenEstimator } from '../../../src/decision/context-plan.js';
 
 const estimator: ContextTokenEstimator = { id: 'fixture', version: '1', estimate: value => ({
@@ -25,14 +25,21 @@ describe('CTX qualification and TV-12 retained comparisons', () => {
       { caseId: 'b', estimatedInputTokens: 1000, errorTokens: 100, undercountBps: 910 },
     ]);
     expect(first.qualifiedForEnforcement).toBe(true);
+    expect(() => assertContextQualified(first, profile, estimator)).not.toThrow();
+    expect(() => assertContextQualified(first, { ...profile, version: 'next' }, estimator))
+      .toThrowError(expect.objectContaining({ reason: 'invalid-profile' }));
+    expect(() => assertContextQualified({ ...first, cases: first.cases.map(c => ({ ...c, source: 'synthetic' })) }, profile, estimator))
+      .toThrowError(expect.objectContaining({ reason: 'invalid-profile' }));
     expect(JSON.stringify(first)).not.toContain('authorizedState');
     expect(compareContextUsage([sample('b', 1100, 'provider')], { ...profile, version: 'next' }, estimator).profile.digest)
       .not.toBe(first.profile.digest);
   });
 
   it('never qualifies synthetic data or undercount larger than the reserved margin', () => {
-    expect(compareContextUsage([sample('a', 1100, 'synthetic')], profile, estimator))
-      .toMatchObject({ qualifiedForEnforcement: false, reason: 'synthetic-only' });
+    const synthetic = compareContextUsage([sample('a', 1100, 'synthetic')], profile, estimator);
+    expect(synthetic).toMatchObject({ qualifiedForEnforcement: false, reason: 'synthetic-only' });
+    expect(() => assertContextQualified(synthetic, profile, estimator))
+      .toThrowError(expect.objectContaining({ reason: 'invalid-profile' }));
     expect(compareContextUsage([sample('a', 1300, 'provider')], profile, estimator))
       .toMatchObject({ qualifiedForEnforcement: false, reason: 'undercount-exceeds-margin' });
   });

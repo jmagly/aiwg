@@ -5,6 +5,7 @@ import type {
   ContextProviderProfile,
   ContextTokenEstimator,
 } from './context-plan.js';
+import type { ContextQualification } from './context-qualification.js';
 import type { BatchResultReference } from './batch-receipts/receipt.js';
 import type { BatchResultStore } from './batch-receipts/result-store.js';
 import type { BatchReceiptStore, PriceCatalogRecord } from './batch-receipts/types.js';
@@ -530,6 +531,8 @@ export interface DecisionContextPolicy {
   estimator: ContextTokenEstimator;
   /** Optional caller-persisted plan. A stale plan fails closed instead of silently replanning. */
   plan?: ContextPlan;
+  /** Observe-only disables native batching; enforce requires a matching provider-backed qualification. */
+  rollout?: { mode: 'observe-only' } | { mode: 'enforce'; qualification: ContextQualification };
 }
 
 export interface DecisionBatchEvidence {

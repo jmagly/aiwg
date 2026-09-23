@@ -31,6 +31,27 @@ export interface ContextQualification {
 }
 
 /** Retains a body-free, immutable comparison. Reject split samples: usage is per request, not per group. */
+export function assertContextQualified(qualification: ContextQualification, profile: ContextProviderProfile,
+  estimator: ContextTokenEstimator): void {
+  const digest = `sha256:${createHash('sha256').update(canonicalJson(profile)).digest('hex')}`;
+  const cases = qualification?.cases;
+  if (qualification?.schemaVersion !== 'decision-context-qualification/v1'
+    || qualification.profile.digest !== digest || qualification.profile.id !== profile.id
+    || qualification.profile.version !== profile.version || qualification.estimator.id !== estimator.id
+    || qualification.estimator.version !== estimator.version || !qualification.qualifiedForEnforcement
+    || qualification.reason !== 'provider-comparisons-within-margin' || !Array.isArray(cases) || !cases.length
+    || new Set(cases.map(c => c.caseId)).size !== cases.length
+    || cases.some(c => c.source !== 'provider' || !Number.isSafeInteger(c.actualInputTokens)
+      || !Number.isSafeInteger(c.estimatedInputTokens) || c.actualInputTokens < 0 || c.estimatedInputTokens < 0
+      || c.errorTokens !== c.actualInputTokens - c.estimatedInputTokens
+      || c.undercountBps !== (c.actualInputTokens === 0 ? 0
+        : Math.max(0, Math.ceil(c.errorTokens * 10_000 / c.actualInputTokens))))
+    || qualification.worstUndercountBps !== Math.max(...cases.map(c => c.undercountBps))
+    || qualification.worstUndercountBps > profile.safetyMarginBps) {
+    throw new ContextPlanError('invalid-profile', 'context enforcement requires matching provider-backed qualification');
+  }
+}
+
 export function compareContextUsage(
   comparisons: readonly ContextComparison[], profile: ContextProviderProfile, estimator: ContextTokenEstimator,
 ): ContextQualification {

@@ -120,11 +120,13 @@ export class ContextPlanError extends Error {
 
 /** Conservative, deterministic fallback; it does not claim vendor-tokenizer equivalence. */
 export class CanonicalJsonByteEstimator implements ContextTokenEstimator {
-  readonly id = 'canonical-json-utf8-ceil';
+  readonly id: string;
   constructor(readonly version = '1.0.0', private readonly bytesPerToken = 3) {
-    if (!Number.isInteger(bytesPerToken) || bytesPerToken < 1) {
+    if (!Number.isSafeInteger(bytesPerToken) || bytesPerToken < 1) {
       throw new ContextPlanError('invalid-profile', 'bytesPerToken must be a positive integer');
     }
+    // A different byte/token ratio is a different estimator, even if its caller reuses a version.
+    this.id = bytesPerToken === 3 ? 'canonical-json-utf8-ceil' : `canonical-json-utf8-ceil-bpt${bytesPerToken}`;
   }
 
   estimate(value: ContextValue): ContextTokenEstimate {

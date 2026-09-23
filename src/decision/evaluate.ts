@@ -14,6 +14,7 @@ import { prepareAdapterRequest } from './compile-cache/runtime.js';
 import { providerPrefixEvidence } from './compile-cache/prefix.js';
 import { DecisionProjectionError, projectDecisionState, type DecisionProjectionEvidence } from './projection.js';
 import { emitRulesetRuntimeTrace } from './telemetry/runtime.js';
+import { assertContextQualified } from './context-qualification.js';
 import {
   assertContextPlanCurrent,
   ContextPlanError,
@@ -224,7 +225,8 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
       candidates.push({ alias: item.alias, definition: item.definition, input: item.input, target, adapter,
         capabilities: await adapter.capabilities() });
     }
-    for (const plan of contextPartitionedBatchPlans(planNativeDecisionBatches(candidates, request.batching), contextPlan)) {
+    for (const plan of request.context?.rollout?.mode === 'observe-only' ? []
+      : contextPartitionedBatchPlans(planNativeDecisionBatches(candidates, request.batching), contextPlan)) {
       if (plan.candidates.some(candidate => evaluations[candidate.alias])) continue;
       if (attemptsUsed + plan.candidates.length > request.binding.spec.maxAttempts) continue;
       const started = now();
@@ -931,6 +933,9 @@ function prepareContextPlan(
   }
   const plan = runtime.plan ?? planDecisionContext(runtime.input, runtime.profile, runtime.estimator);
   assertContextPlanCurrent(plan, runtime.input, runtime.profile, runtime.estimator);
+  if (runtime.rollout?.mode === 'enforce') {
+    assertContextQualified(runtime.rollout.qualification, runtime.profile, runtime.estimator);
+  }
   if (request.batchReceipts && request.batchReceipts.contextPlan.planDigest !== plan.planDigest) {
     throw new ContextPlanError('stale-plan', 'batch receipt context plan differs from runtime context plan');
   }

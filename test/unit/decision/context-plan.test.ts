@@ -181,6 +181,16 @@ describe('decision context planning', () => {
       .toThrowError(expect.objectContaining({ reason: 'invalid-profile' }));
   });
 
+  it('invalidates the qualified estimator when byte/token ratio changes under the same version', () => {
+    const first = new CanonicalJsonByteEstimator('1.0.0', 3);
+    const changed = new CanonicalJsonByteEstimator('1.0.0', 4);
+    const configured = profile({ estimator: { id: first.id, version: first.version } });
+    const plan = planDecisionContext(input(1, [1]), configured, first);
+    expect(first.id).not.toBe(changed.id);
+    expect(() => assertContextPlanCurrent(plan, input(1, [1]), configured, changed))
+      .toThrowError(expect.objectContaining({ reason: 'estimator-profile-mismatch' }));
+  });
+
   it('requires the exact estimator identity qualified by the versioned profile', () => {
     expect(() => planDecisionContext(input(1, [1]), profile({ estimator: { id: 'other', version: '2' } }), exactEstimator))
       .toThrowError(expect.objectContaining({ reason: 'estimator-profile-mismatch' }));
