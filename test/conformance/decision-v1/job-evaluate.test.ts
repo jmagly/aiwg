@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { admittedJobItemExecutor } from '../../../src/decision/job-evaluate.js';
+import { accountDecisionJob } from '../../../src/decision/job-accounting.js';
 import { artifactDigest } from '../../../src/decision/validate.js';
 import { ITEM_STATES, type DecisionJob } from '../../../src/decision/job-contract.js';
 import { DecisionJobRuntime, recount } from '../../../src/decision/job-runtime.js';
@@ -8,6 +9,7 @@ import { OfflineJobWorker } from '../../../src/decision/job-worker.js';
 import { MemoryJobStore } from '../../../src/decision/job-store.js';
 import { MemoryDecisionReceiptStore } from '../../../src/decision/receipts.js';
 import type { DecisionAdapter, DecisionBinding, DecisionDefinition, DecisionRuleset } from '../../../src/decision/types.js';
+import type { BatchReceiptStore, DecisionBatchReceipt } from '../../../src/decision/batch-receipts/types.js';
 const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
 const scope = { tenantId: 't', projectId: 'p', workspaceId: 'workspace', principalId: 'principal' };
 function setup() {
@@ -84,5 +86,48 @@ describe('JOB admission-controlled evaluator bridge', () => {
     expect((await receiptStore.read(attempt!.id, scope.projectId))?.state).toBe('completed');
     expect(result.job.state).toBe('completed');
     expect(adapter.evaluate).toHaveBeenCalled();
+    const accounting = await accountDecisionJob(result.job, receiptStore);
+    expect(accounting.items.subject?.complete).toBe(true);
+    expect(accounting.knownCostMicros).toBeGreaterThan(0);
+    expect(accounting.overCostBudget).toBe(false);
+    expect(accounting.overTokenBudget).toBe(false);
+    expect((await runtime.accounting(scope, job.id, receiptStore))?.knownCostMicros).toBe(accounting.knownCostMicros);
+    expect(await runtime.accounting({ ...scope, projectId: 'other' }, job.id, receiptStore)).toBeNull();
+    const unknownReceipt = structuredClone((await receiptStore.read(attempt!.id, scope.projectId))!);
+    const evaluation = Object.values(unknownReceipt.result!.spec.evaluations)[0]!;
+    evaluation.spec.attempts[0]!.usage.costUsd = null;
+    const unknownJob = structuredClone(result.job);
+    unknownJob.items[0]!.attempts[0]!.receiptDigest = artifactDigest(unknownReceipt);
+    const uncertain = await accountDecisionJob(unknownJob, new Proxy(receiptStore, {
+      get(target, property) { return property === 'read' ? async () => unknownReceipt : Reflect.get(target, property); },
+    }));
+    expect(uncertain.unknownCost).toBe(true);
+    expect(uncertain.overCostBudget).toBe(true);
+    const unavailable = structuredClone(result.job); delete unavailable.items[0]!.attempts[0]!.receiptDigest;
+    expect((await accountDecisionJob(unavailable, receiptStore)).complete).toBe(false);
+    const batched = structuredClone((await receiptStore.read(attempt!.id, scope.projectId))!);
+    for (const [alias, evaluation] of Object.entries(batched.result!.spec.evaluations).slice(0, 2)) {
+      evaluation.spec.attempts[0]!.batch = { mode: 'native', groupId: 'shared', questionId: alias };
+      evaluation.spec.batchResult = { schemaVersion: 'decision-batch-result-ref/v1', batchId: 'shared',
+        receiptRevision: 1, questionId: alias, answerId: alias };
+    }
+    const batch: DecisionBatchReceipt = { schemaVersion: 'decision-batch-receipt/v1', revision: 1,
+      tenantId: scope.tenantId, projectId: scope.projectId, batchId: 'shared', invocationId: attempt!.id, runId: 'run',
+      plan: { planDigest: job.fingerprint, partitionId: 'partition', nativeBatchGroupId: 'shared' },
+      subjectHash: job.items[0]!.subjectDigest, stateHash: job.items[0]!.subjectDigest,
+      executionEnvelope: 'fixture', questionIds: ['category', 'severity'], answerReferences: [], allocations: [],
+      attempts: [{ ordinal: 1, adapterId: 'jev', adapterVersion: '1', requestedModel: 'fixture', actualModel: 'fixture',
+        providerRequestId: null, status: 'succeeded', dispatchedAtEpochMs: 10, completedAtEpochMs: 20,
+        usage: { inputTokens: 7, outputTokens: 5 }, cost: { kind: 'provider-authoritative', currency: 'USD', amountMicros: 500 },
+        fallbackFromAttemptOrdinal: null }], status: 'completed', createdAtEpochMs: 10, updatedAtEpochMs: 20, terminalAtEpochMs: 20 };
+    const batchJob = structuredClone(result.job);
+    batchJob.items[0]!.attempts[0]!.receiptDigest = artifactDigest(batched);
+    const batchReader = { read: async () => batch } as unknown as BatchReceiptStore;
+    const batchedTotals = await accountDecisionJob(batchJob, new Proxy(receiptStore, {
+      get(target, property) { return property === 'read' ? async () => batched : Reflect.get(target, property); },
+    }), batchReader);
+    expect(batchedTotals.inputTokens).toBe(8); // shared transport once + single evaluation
+    expect(batchedTotals.outputTokens).toBe(6);
+    expect(batchedTotals.knownCostMicros).toBe(1500);
   });
 });

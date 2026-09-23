@@ -1,6 +1,9 @@
 import { ITEM_STATES, type DecisionJob, type DecisionJobItem } from './job-contract.js';
 import { DecisionTraceBuilder } from './telemetry/trace.js';
 import type { DecisionTelemetryHook } from './telemetry/types.js';
+import { accountDecisionJob, type JobAccountingReport } from './job-accounting.js';
+import type { DecisionReceiptStore } from './types.js';
+import type { BatchReceiptStore } from './batch-receipts/types.js';
 import { JobConflictError, type JobScope, type JobSnapshot, type JobStore } from './job-store.js';
 
 /** Offline lifecycle only: no provider calls or action execution. Scope comes from trusted authentication. */
@@ -37,6 +40,11 @@ export class DecisionJobRuntime {
   async poll(actor: JobScope, id: string): Promise<JobSnapshot | null> {
     const snapshot = await this.store.read(actor, id);
     return snapshot && !snapshot.deleted ? snapshot : null;
+  }
+  async accounting(actor: JobScope, id: string, receipts: DecisionReceiptStore,
+    batches?: BatchReceiptStore): Promise<JobAccountingReport | null> {
+    const snapshot = await this.poll(actor, id);
+    return snapshot ? accountDecisionJob(snapshot.job, receipts, batches) : null;
   }
   async items(actor: JobScope, id: string, offset = 0, limit = 100): Promise<DecisionJobItem[] | null> {
     if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100)
