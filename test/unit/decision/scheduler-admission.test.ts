@@ -285,6 +285,55 @@ describe('decision provider admission', () => {
     safe.release({ success: true });
   });
 
+  it('sheds slow-client backlog before dispatch and restores capacity after waiter expiry', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const guarded = limits({ concurrency: 1, maxQueueLength: 2, maxQueueWaitMs: 40 });
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    const held = await controller.acquire({ ...request(), deadlineEpochMs: 500 });
+    const slow = [1, 2].map(index => controller.acquire({ ...request(), budgetId: `slow-${index}`, deadlineEpochMs: 500 }));
+    const expired = slow.map(waiter => expect(waiter).rejects.toMatchObject({ evidence: { reason: 'queue-timeout' } }));
+    await expect(controller.acquire({ ...request(), budgetId: 'overflow', deadlineEpochMs: 500 }))
+      .rejects.toMatchObject({ evidence: { reason: 'queue-full', queued: 2 } });
+    await vi.advanceTimersByTimeAsync(40);
+    await Promise.all(expired);
+    held.release({ success: true });
+    const next = await controller.acquire({ ...request(), budgetId: 'after-expiry', deadlineEpochMs: 500 });
+    expect(next.evidence).toMatchObject({ decision: 'admit', queued: 0 });
+    next.release({ success: true });
+  });
+
+  it('rolls back a tightened profile at a run boundary without reviving rejected waiters', async () => {
+    const original = limits({ concurrency: 1, maxRequestBytes: 200 });
+    let current = original;
+    const controller = new DecisionAdmissionController(() => ({ principal: current, workspace: current, provider: current }));
+    const held = await controller.acquire(request());
+    const pending = controller.acquire({ ...request(), budgetId: 'old-run', estimate: { requestBytes: 100 } });
+    current = limits({ concurrency: 1, maxRequestBytes: 50 });
+    held.release({ success: true });
+    await expect(pending).rejects.toMatchObject({ evidence: { reason: 'request-too-large' } });
+    current = original;
+    const restored = await controller.acquire({ ...request(), budgetId: 'new-run', estimate: { requestBytes: 100 } });
+    expect(restored.evidence).toMatchObject({ decision: 'admit', reason: 'admitted' });
+    restored.release({ success: true });
+  });
+
+  it('bounds retry amplification when failures exhaust the invocation attempt budget', async () => {
+    const guarded = limits({ maxAttempts: 2 });
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    let calls = 0;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      try {
+        const lease = await controller.acquire(request());
+        calls += 1;
+        lease.release({ success: false });
+      } catch (error) {
+        expect(error).toMatchObject({ evidence: { reason: 'attempts' } });
+      }
+    }
+    expect(calls).toBe(2);
+  });
+
   it('bounds queues and emits only aggregate metadata', async () => {
     const guarded = limits({ maxQueueLength: 1 });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
