@@ -43,9 +43,11 @@ export class FileResultCacheStore implements ResultCacheStore {
     while (true) {
       try {
         const handle = await open(lock, 'wx', 0o600);
-        try { await handle.writeFile(JSON.stringify({ pid: process.pid, host: hostname() })); await handle.sync(); }
-        finally { await handle.close(); }
-        try { return await work(); } finally { await rm(lock, { force: true }); }
+        try {
+          try { await handle.writeFile(JSON.stringify({ pid: process.pid, host: hostname() })); await handle.sync(); }
+          finally { await handle.close(); }
+          return await work();
+        } finally { await rm(lock, { force: true }); }
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
         // Only reclaim a dead process on this host; an unreadable or remote lock
@@ -93,8 +95,10 @@ export class FileResultCacheStore implements ResultCacheStore {
     const path = this.path(actor, entry.keyDigest);
     if (await this.deleted(actor, entry.keyDigest)) throw new ResultCacheAccessDeniedError();
     const tmp = join(this.directory, `.cache-${randomUUID()}.tmp`); const handle = await open(tmp, 'wx', 0o600);
-    try { await handle.writeFile(`${canonicalJson(entry)}\n`); await handle.sync(); } finally { await handle.close(); }
-    try { await link(tmp, path); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; } finally { await rm(tmp, { force: true }); }
+    try {
+      try { await handle.writeFile(`${canonicalJson(entry)}\n`); await handle.sync(); } finally { await handle.close(); }
+      try { await link(tmp, path); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+    } finally { await rm(tmp, { force: true }); }
     if (await this.deleted(actor, entry.keyDigest)) {
       await rm(path, { force: true });
       throw new ResultCacheAccessDeniedError();
