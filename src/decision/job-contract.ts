@@ -15,7 +15,7 @@ export type JobState = 'validating' | 'queued' | 'running' | 'partially-complete
   'completed' | 'cancel-requested' | 'canceled' | 'expired' | 'failed';
 export interface DecisionJobItem {
   id: string; fingerprint: `sha256:${string}`; subjectDigest: `sha256:${string}`;
-  definitionDigest: `sha256:${string}`; bindingDigest: `sha256:${string}`;
+  definitionDigest: `sha256:${string}`; bindingDigest: `sha256:${string}`; rulesetDigest?: `sha256:${string}`;
   state: ItemState;
   attempts: Array<{ id: string; requestDigest: `sha256:${string}`; receiptDigest?: `sha256:${string}`;
     outcome: 'dispatched' | 'succeeded' | 'failed' | 'execution-unknown' }>;
@@ -96,6 +96,7 @@ export function assertJobTransition(before: DecisionJob, after: DecisionJob): vo
     if (item?.id !== previous.id) return reject('job item order changed');
     if (!item || previous.fingerprint !== item.fingerprint || previous.subjectDigest !== item.subjectDigest ||
         previous.definitionDigest !== item.definitionDigest || previous.bindingDigest !== item.bindingDigest ||
+        previous.rulesetDigest !== item.rulesetDigest ||
         (previous.state !== item.state && !itemTransitions[previous.state].includes(item.state)) ||
         item.attempts.length < previous.attempts.length || item.attempts.length > previous.attempts.length + 1 ||
         (item.attempts.length > previous.attempts.length &&

@@ -21,10 +21,12 @@ function validateFirst(job: DecisionJob): void {
 }
 function assertIdentity(initial: DecisionJob, existing: DecisionJob): void {
   if (initial.fingerprint !== existing.fingerprint ||
-      canonicalJson(initial.items.map(({ id, fingerprint, subjectDigest, definitionDigest, bindingDigest }) =>
-        ({ id, fingerprint, subjectDigest, definitionDigest, bindingDigest }))) !==
-      canonicalJson(existing.items.map(({ id, fingerprint, subjectDigest, definitionDigest, bindingDigest }) =>
-        ({ id, fingerprint, subjectDigest, definitionDigest, bindingDigest }))) ||
+      canonicalJson(initial.items.map(({ id, fingerprint, subjectDigest, definitionDigest, bindingDigest, rulesetDigest }) =>
+        ({ id, fingerprint, subjectDigest, definitionDigest, bindingDigest,
+          ...(rulesetDigest ? { rulesetDigest } : {}) }))) !==
+      canonicalJson(existing.items.map(({ id, fingerprint, subjectDigest, definitionDigest, bindingDigest, rulesetDigest }) =>
+        ({ id, fingerprint, subjectDigest, definitionDigest, bindingDigest,
+          ...(rulesetDigest ? { rulesetDigest } : {}) }))) ||
       canonicalJson(initial.budget) !== canonicalJson(existing.budget) ||
       initial.createdAtEpochMs !== existing.createdAtEpochMs || initial.expiresAtEpochMs !== existing.expiresAtEpochMs)
     throw new JobConflictError('Job ID belongs to a different immutable request');

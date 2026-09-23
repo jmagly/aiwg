@@ -39,6 +39,7 @@
         "id": { "$ref": "#/$defs/id" }, "fingerprint": { "$ref": "#/$defs/digest" },
         "subjectDigest": { "$ref": "#/$defs/digest" },
         "definitionDigest": { "$ref": "#/$defs/digest" }, "bindingDigest": { "$ref": "#/$defs/digest" },
+        "rulesetDigest": { "$ref": "#/$defs/digest" },
         "state": { "enum": ["queued", "running", "succeeded", "abstained", "review", "unsupported", "retryable-failed", "permanent-failed", "canceled", "expired", "execution-unknown"] },
         "attempts": { "type": "array", "maxItems": 1000, "items": {
           "type": "object", "additionalProperties": false,
