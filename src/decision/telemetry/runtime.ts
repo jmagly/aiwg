@@ -1,6 +1,7 @@
 import type { DecisionEvaluationRequest, RulesetResult } from '../types.js';
 import { mapDecisionAttempt, mapDecisionResult, mapRulesetResult } from './mapping.js';
 import { DecisionTraceBuilder } from './trace.js';
+import { recordDecisionSpanMetrics } from './metrics.js';
 import type { DecisionTelemetrySpan } from './types.js';
 
 /**
@@ -58,7 +59,11 @@ export async function emitRulesetRuntimeTrace(request: DecisionEvaluationRequest
       provenance: { 'aiwg.persistence.result': 'client-derived' } });
     builder.endSpan(persist, result.spec.reason === 'persistence-error' ? 'error' : 'ok');
     builder.endSpan(root, result.spec.status === 'error' || result.spec.status === 'cancelled' ? 'error' : 'ok');
-    await emitAll(telemetry.hook.emit.bind(telemetry.hook), builder.build().spans);
+    const spans = builder.build().spans;
+    if (telemetry.metrics) for (const span of spans) {
+      try { recordDecisionSpanMetrics(span, telemetry.metrics); } catch { /* metrics cannot change a decision */ }
+    }
+    await emitAll(telemetry.hook.emit.bind(telemetry.hook), spans);
   } catch {
     // Observability must never alter, reject, or mask the authoritative result.
   }

@@ -12,9 +12,13 @@ export class BoundedDecisionTraceExporter {
 
   constructor(
     private readonly sink: DecisionTraceSink,
-    private readonly options: { capacity: number; timeoutMs: number; maximumDiagnostics?: number; canaries?: readonly string[] },
+    private readonly options: { capacity: number; timeoutMs: number; maximumDiagnostics?: number; maximumTraceBytes?: number; canaries?: readonly string[] },
   ) {
-    if (!Number.isSafeInteger(options.capacity) || options.capacity < 1 || !Number.isSafeInteger(options.timeoutMs) || options.timeoutMs < 1) throw new Error('Invalid exporter bounds');
+    if (!Number.isSafeInteger(options.capacity) || options.capacity < 1 || !Number.isSafeInteger(options.timeoutMs) || options.timeoutMs < 1
+      || !Number.isSafeInteger(options.maximumTraceBytes ?? 65_536) || (options.maximumTraceBytes ?? 65_536) < 1
+      || !Number.isSafeInteger(options.maximumDiagnostics ?? 100) || (options.maximumDiagnostics ?? 100) < 1) {
+      throw new Error('Invalid exporter bounds');
+    }
   }
 
   /** Never awaits the sink and never changes a decision result. */
@@ -23,9 +27,20 @@ export class BoundedDecisionTraceExporter {
       this.record('dropped', this.stopped ? 'exporter stopped' : 'queue capacity reached');
       return false;
     }
-    this.queue.push(sanitizedTelemetryExport(trace, { canaries: this.options.canaries }));
-    this.drain();
-    return true;
+    try {
+      const sanitized = sanitizedTelemetryExport(trace, { canaries: this.options.canaries });
+      const encoded = JSON.stringify(sanitized);
+      if (Buffer.byteLength(encoded, 'utf8') > (this.options.maximumTraceBytes ?? 65_536)) {
+        this.record('dropped', 'trace exceeds configured byte bound');
+        return false;
+      }
+      this.queue.push(sanitized);
+      this.drain();
+      return true;
+    } catch {
+      this.record('dropped', 'invalid telemetry trace');
+      return false;
+    }
   }
 
   async shutdown(): Promise<void> {
