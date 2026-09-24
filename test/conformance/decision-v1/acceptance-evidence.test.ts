@@ -80,8 +80,8 @@ async function golden(path: string): Promise<Golden> {
 async function legacyThresholdReason(
   reason: 'low-confidence' | 'missing-confidence' | 'confidence-profile-mismatch',
 ): Promise<string | undefined> {
-  const rulesetRaw = JSON.parse(await readFile('examples/decision/ruleset.json', 'utf8')) as DecisionRuleset;
-  const definitionRaw = JSON.parse(await readFile('examples/decision/decision-category.json', 'utf8')) as DecisionDefinition;
+  const rulesetRaw = JSON.parse(await readFile('agentic/code/addons/decision-engine/examples/ruleset.json', 'utf8')) as DecisionRuleset;
+  const definitionRaw = JSON.parse(await readFile('agentic/code/addons/decision-engine/examples/decision-category.json', 'utf8')) as DecisionDefinition;
   const definition = { ...definitionRaw, apiVersion: DECISION_API_VERSION_STRUCTURED } as DecisionDefinition;
   const ruleset = {
     ...rulesetRaw, apiVersion: DECISION_API_VERSION_STRUCTURED,
@@ -91,7 +91,7 @@ async function legacyThresholdReason(
       rules: rulesetRaw.spec.rules.filter(rule => rule.id === 'docs'),
     },
   } as DecisionRuleset;
-  const bindingRaw = JSON.parse(await readFile('examples/decision/binding-jev.json', 'utf8')) as DecisionBinding;
+  const bindingRaw = JSON.parse(await readFile('agentic/code/addons/decision-engine/examples/binding-jev.json', 'utf8')) as DecisionBinding;
   const target = structuredClone(bindingRaw.spec.evaluations.category!.targets[0]!);
   target.acceptance = {
     mode: 'confidence-threshold',
@@ -118,7 +118,7 @@ async function legacyThresholdReason(
   };
   const result = await evaluateDecisionRuleset({
     ruleset, binding, definitions: { category: definition },
-    input: JSON.parse(await readFile('examples/decision/input.json', 'utf8')),
+    input: JSON.parse(await readFile('agentic/code/addons/decision-engine/examples/input.json', 'utf8')),
     runId: 'qualification', invocationId: `qualification-${reason}`, adapters: { [target.adapter]: adapter },
   });
   assert.equal(result.spec.evaluations.category?.spec.status, 'abstained');

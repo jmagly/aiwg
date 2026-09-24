@@ -24,7 +24,7 @@ import {
 
 const V1 = 'decision.aiwg.io/v1alpha1';
 const V2 = 'decision.aiwg.io/v1alpha2';
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 type Spec = Record<string, unknown> & { attempts: Array<Record<string, unknown>> };
 const specOf = (value: DecisionResult): Spec => value.spec as unknown as Spec;
 

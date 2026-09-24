@@ -334,6 +334,27 @@ function resolveFrameworkDir(framework: string): string | undefined {
  */
 export const USE_ALL_DISALLOW = new Set(['aiwg-dev']);
 
+/**
+ * Whether an addon's manifest keeps it out of bulk deploys (#2641).
+ *
+ * `devOnly` marks contributor tooling; `explicitInstall` marks an addon that is
+ * deployed only when named, such as `aiwg use decision-engine`. Both match
+ * `discoverAddons()` in tools/agents/providers/base.mjs, which applies the same
+ * rule to framework-mode deploys.
+ *
+ * `autoInstall: false` is deliberately NOT an exclusion signal: most addons
+ * declare it (and the extension manifest schema defaults to it), so honoring
+ * it would drop most addons from `all` for existing users.
+ */
+async function isExplicitOnlyAddon(addonDir: string): Promise<boolean> {
+  try {
+    const manifest = JSON.parse(await fs.readFile(path.join(addonDir, 'manifest.json'), 'utf8'));
+    return manifest?.devOnly === true || manifest?.explicitInstall === true;
+  } catch {
+    return false;
+  }
+}
+
 /** Full-framework setup requires the corpus omitted by the lightweight CLI. */
 async function bundledSetupPrerequisiteMessage(frameworkRoot: string): Promise<string | undefined> {
   let packageName: string | undefined;
@@ -364,14 +385,15 @@ async function bundledSetupPrerequisiteMessage(frameworkRoot: string): Promise<s
 }
 
 /**
- * Discover all addon names from the filesystem, minus the disallow list.
+ * Discover all addon names from the filesystem, minus the disallow list and
+ * addons whose manifest restricts them to explicit installs.
  */
 export async function getAllAddons(frameworkRoot: string): Promise<string[]> {
   const addonsDir = path.join(frameworkRoot, 'agentic/code/addons');
   const entries = await fs.readdir(addonsDir, { withFileTypes: true });
-  return entries
-    .filter(e => e.isDirectory() && !USE_ALL_DISALLOW.has(e.name))
-    .map(e => e.name);
+  const candidates = entries.filter(e => e.isDirectory() && !USE_ALL_DISALLOW.has(e.name));
+  const excluded = await Promise.all(candidates.map(e => isExplicitOnlyAddon(path.join(addonsDir, e.name))));
+  return candidates.filter((_, index) => !excluded[index]).map(e => e.name);
 }
 
 /**
@@ -422,7 +444,8 @@ export function extensionPath(frameworkRoot: string, name: string): string {
 /**
  * Check whether a given addon name exists on disk.
  * The USE_ALL_DISALLOW list does NOT block explicit single-addon installs —
- * contributors can still run `aiwg use aiwg-dev` directly.
+ * contributors can still run `aiwg use aiwg-dev`, and operators
+ * `aiwg use decision-engine` (an explicitInstall addon), directly.
  */
 /** Resolve canonical addon folder name from user-supplied alias. */
 function resolveAddonFolderName(name: string): string {

@@ -7,7 +7,7 @@ import { artifactPin, DecisionAdmissionController, executeQualificationPlan, Llm
   verifyQualificationArtifacts, type DecisionAdapterRequest, type DecisionBinding, type DecisionDefinition,
   type QualificationCaseExecutor } from '../../../src/decision/index.js';
 
-const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const ids = ['C35', 'C41'] as const;
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });

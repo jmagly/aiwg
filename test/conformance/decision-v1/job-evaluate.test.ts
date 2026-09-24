@@ -17,7 +17,7 @@ import { FileDecisionReceiptStore, MemoryDecisionReceiptStore } from '../../../s
 import type { DecisionReceiptStore } from '../../../src/decision/types.js';
 import type { DecisionAdapter, DecisionBinding, DecisionDefinition, DecisionRuleset } from '../../../src/decision/types.js';
 import type { BatchReceiptStore, DecisionBatchReceipt } from '../../../src/decision/batch-receipts/types.js';
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const scope = { tenantId: 't', projectId: 'p', workspaceId: 'workspace', principalId: 'principal' };
 function setup(persistedReceipts?: DecisionReceiptStore) {
   const ruleset = fixture<DecisionRuleset>('ruleset.json');

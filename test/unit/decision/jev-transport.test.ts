@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { JevCredentialError, JevDecisionAdapter, type DecisionAdapterRequest, type DecisionBinding, type DecisionDefinition } from '../../../src/decision/index.js';
 import { DecisionValidationError } from '../../../src/decision/validate.js';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const answer = {
   model: 'jev-1.13.0', answers: { category: { type: 'choice', choice: 'documentation', confidence: 0.9,
     probabilities: { documentation: 0.9, runtime: 0.1, other: 0 } } }, usage: { input_tokens: 1, output_tokens: 2 },

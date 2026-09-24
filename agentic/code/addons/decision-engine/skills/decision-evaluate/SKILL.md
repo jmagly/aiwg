@@ -33,3 +33,8 @@ only at adapter call time and never written to results.
 
 Set `AIWG_DECISION_ENABLED=1` explicitly. Existing workflows remain unchanged
 when the flag is absent.
+
+The deployed script loads the compiled runtime from the installed `aiwg`
+package through `scripts/runtime-root.mjs`: `AIWG_ROOT` when it names a built
+package, then a project `node_modules/aiwg`, then the `aiwg` executable on
+`PATH`.

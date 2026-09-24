@@ -19,7 +19,7 @@ import {
 
 const roots: string[] = [];
 const fixture = async <T>(name: string): Promise<T> => JSON.parse(
-  await readFile(join('examples/decision', name), 'utf8'),
+  await readFile(join('agentic/code/addons/decision-engine/examples', name), 'utf8'),
 ) as T;
 
 function response(body: Record<string, unknown>): Response {
@@ -123,7 +123,7 @@ describe('native batch qualification evidence', () => {
     expect(run.evidence.map(item => [item.caseId, item.outcome])).toEqual(caseIds.map(id => [id, 'pass']));
     expect((await verifyQualificationArtifacts(run, artifactRoot)).every(item => item.verified)).toBe(true);
     const linked = await writeQualificationEvidenceManifest(run, artifactRoot, '.', Object.fromEntries(
-      caseIds.map(id => [id, ['examples/decision/input.json', 'examples/decision/binding-jev.json']]),
+      caseIds.map(id => [id, ['agentic/code/addons/decision-engine/examples/input.json', 'agentic/code/addons/decision-engine/examples/binding-jev.json']]),
     ));
     expect(linked.manifest.evidence.map(item => item.caseId)).toEqual(caseIds);
     expect(linked.manifest.evidence.every(item => item.executable && item.outcome === 'pass'
