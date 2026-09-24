@@ -338,6 +338,22 @@
       ]
     },
     {
+      "id": "DEC-EXAMPLE-21",
+      "path": "examples/decision/result-category-batch.v1alpha2.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha2:DecisionResult",
+      "digest": "sha256:9afae9f4a55af74d62a5d37450a7a4dee2853e400e5f1d17dfb6e417714057ef",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
       "id": "DEC-EXAMPLE-14",
       "path": "examples/decision/result-category.json",
       "origin": "repository-authored",
@@ -395,6 +411,22 @@
       "sanitization": "synthetic; no personal inputs",
       "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionRuleset",
       "digest": "sha256:52c94f4873973c105e397f0ce7413ca0ef29da9b53f62d50d1103a4e48a0039d",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-22",
+      "path": "examples/decision/ruleset-result-batch.v1alpha2.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha2:RulesetResult",
+      "digest": "sha256:ea65ef575f1c729a79702f85896a30efb5007837d3cbb42d1b02e9915f06145c",
       "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
       "links": [
         "FR-014",
