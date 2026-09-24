@@ -49,6 +49,7 @@ import type {
 import {
   artifactPin,
   assertArtifactPin,
+  assertDecisionResultWriterVersion,
   DecisionValidationError,
   resolveJsonPointer,
   validateAgainstSchema,
@@ -175,6 +176,12 @@ function assertRuntimeCacheIdentity(identity: ResultCacheSemanticIdentity, reque
 }
 
 async function evaluateDecisionRulesetInternal(request: DecisionEvaluationRequest): Promise<RulesetResult> {
+  const result = await evaluateDecisionRulesetUngated(request);
+  assertDecisionResultWriterVersion(result);
+  return result;
+}
+
+async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest): Promise<RulesetResult> {
   let rulesetPin: ArtifactPin;
   let bindingPin: ArtifactPin;
   let base: RulesetResult = invalidResultBase(request);
@@ -1063,9 +1070,15 @@ function resultBase(request: DecisionEvaluationRequest, ruleset: ArtifactPin, bi
   };
 }
 
+/**
+ * Results that can carry D04/D07 batch provenance, D05 admission, D06 context or
+ * D30 provider-prefix evidence are written as v1alpha2 even from v1alpha1 inputs,
+ * so every nested result and receipt payload of one invocation shares one version.
+ */
 function resultVersion(request: DecisionEvaluationRequest): typeof DECISION_API_VERSION | typeof DECISION_API_VERSION_STRUCTURED {
   if (request.calibrationCompatibility || request.ruleset.apiVersion === DECISION_API_VERSION_STRUCTURED || request.binding.apiVersion === DECISION_API_VERSION_STRUCTURED
-    || Object.values(request.definitions).some(definition => definition.apiVersion === DECISION_API_VERSION_STRUCTURED)) {
+    || Object.values(request.definitions).some(definition => definition.apiVersion === DECISION_API_VERSION_STRUCTURED)
+    || request.batching || request.batchReceipts || request.scheduler?.enabled || request.providerPrefix || request.context) {
     return DECISION_API_VERSION_STRUCTURED;
   }
   return DECISION_API_VERSION;

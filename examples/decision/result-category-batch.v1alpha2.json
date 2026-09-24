@@ -1,0 +1,125 @@
+{
+  "apiVersion": "decision.aiwg.io/v1alpha2",
+  "kind": "DecisionResult",
+  "metadata": {
+    "id": "example-result-category-batch",
+    "version": "1.0.0",
+    "description": "example result category (v1alpha2 batch evidence)"
+  },
+  "spec": {
+    "decision": {
+      "id": "example-category",
+      "version": "1.0.0",
+      "digest": "sha256:161af95ce387331720fe1ded3a45cdf90f6d3feb32f24c74f0745714cd0d6b2e"
+    },
+    "ruleset": {
+      "id": "example-triage",
+      "version": "1.0.0",
+      "digest": "sha256:8619b985cd193f223caa35092e9ca44d4afc2e5fd7be53ae99277f8f55071b0c"
+    },
+    "binding": {
+      "id": "example-binding-jev",
+      "version": "1.0.0",
+      "digest": "sha256:88f28d679f0603fd61049f65d743018c88dead613534d83324c85719b9e18b1f"
+    },
+    "alias": "category",
+    "runId": "example-design-run",
+    "invocationId": "example-invocation",
+    "status": "success",
+    "value": "documentation",
+    "reason": "none",
+    "uncertainty": {
+      "source": "provider",
+      "profile": "typesafe-distribution-v1",
+      "calibration": "vendor-claimed",
+      "confidence": 0.99,
+      "distribution": {
+        "runtime": 0.01,
+        "documentation": 0.99,
+        "other": 0
+      },
+      "calibrationRef": null
+    },
+    "attempts": [
+      {
+        "ordinal": 1,
+        "adapter": "jev",
+        "adapterVersion": "1.0.0-design",
+        "requestedModel": "jev-latest",
+        "actualModel": "jev-1.13.0",
+        "subagent": null,
+        "status": "success",
+        "reason": "none",
+        "durationMs": 560,
+        "usage": {
+          "inputTokens": null,
+          "outputTokens": null,
+          "costUsd": null
+        },
+        "requestId": null,
+        "admission": {
+          "decision": "admit",
+          "reason": "admitted",
+          "queueDelayMs": 0,
+          "active": 1,
+          "queued": 0,
+          "estimatedTokens": 12,
+          "estimatedCostUsd": null,
+          "retryPressure": 0,
+          "breakerState": "closed"
+        },
+        "providerPrefix": {
+          "schemaVersion": "decision-provider-prefix-evidence/v1",
+          "identityDigest": "sha256:cc94d6ce6507b768d652fbe2003a7bdd1221b1f2b189e2f8edf5fc01339e1a45",
+          "status": "miss",
+          "source": "provider-report",
+          "cacheVersion": "v1",
+          "savedInputTokens": 0,
+          "expiresAtEpochMs": null
+        },
+        "batch": {
+          "mode": "native",
+          "groupId": "batch_2e6f6565aa4fe81664e59329",
+          "questionId": "q_edb2cd3b74c999af70f0b705"
+        }
+      }
+    ],
+    "batchResult": {
+      "schemaVersion": "decision-batch-result-ref/v1",
+      "batchId": "batch_2e6f6565aa4fe81664e59329",
+      "receiptRevision": 3,
+      "questionId": "q_edb2cd3b74c999af70f0b705",
+      "answerId": "a_79612b01c87c91bf00adbfdb"
+    },
+    "context": {
+      "plan": {
+        "schemaVersion": "decision-context-plan/v1",
+        "planDigest": "sha256:3ec979f6befd4060bb2182a6f24d1d06989da09abafda1717c355a00d33bf072",
+        "subject": "ticket:42",
+        "partitions": [
+          {
+            "id": "p1",
+            "wave": 0,
+            "questionIds": [
+              "q_edb2cd3b74c999af70f0b705",
+              "q_c98f54e5559a95688749d3ef",
+              "q_0a2abe49c67482f6e6f6a4e7"
+            ]
+          }
+        ]
+      },
+      "actualUsage": [
+        {
+          "schemaVersion": "decision-context-usage/v1",
+          "planDigest": "sha256:3ec979f6befd4060bb2182a6f24d1d06989da09abafda1717c355a00d33bf072",
+          "partitionId": "p1",
+          "questionIds": [
+            "q_edb2cd3b74c999af70f0b705"
+          ],
+          "estimatedInputTokens": 9,
+          "actualInputTokens": 9
+        }
+      ]
+    }
+  }
+}
