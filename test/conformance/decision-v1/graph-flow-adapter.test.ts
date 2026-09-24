@@ -13,7 +13,9 @@ const graph: DecisionGraph = { schemaVersion: 'decision-graph/v1', id: 'budget-h
   nodes: ['first', 'second'].map((id, stage) => ({ id, stage, subject: 'case', target: 'jev', model: 'm', egress: 'local',
     stateDigest: hash, definition: pin, binding: pin, input: stage ? ['previous'] : [], output: ['result'] })),
   edges: [{ from: 'first', to: 'second', source: 'result', destination: 'previous' }],
-  budget: { attempts: 2, deadlineMs: 50, tokens: 6, costMicros: 20, fanOut: 1, beamWidth: 1, depth: 2, concurrency: 1 } };
+  // This fixture tests reservation and correlation, not wall-clock expiry. CI
+  // contention can exceed 50 ms between Flow stages even with a synchronous adapter.
+  budget: { attempts: 2, deadlineMs: 5_000, tokens: 6, costMicros: 20, fanOut: 1, beamWidth: 1, depth: 2, concurrency: 1 } };
 const plan = planDecisionGraph(graph, new Set([pin.digest]));
 const flow = decisionGraphToFlow(graph, { resolvedPins: new Set([pin.digest]), decisionSkillId: skill, terminal: 'second' });
 const request: GraphFlowRequest = { node: { id: 'first', kind: 'skill', phase: 'stage-0', retry: { limit: 0 }, sideEffectMode: 'none' },
