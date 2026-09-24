@@ -15,7 +15,7 @@ This representation does not move exact computation, policy enforcement, or sema
 | D02 structured instruction or criterion | definition `spec.question`, option `description`, `levels`, `trueDescription` / `falseDescription` as JSON values | v1alpha2 | v1alpha1 strings remain readable; v1alpha2 stays read-only under rollback |
 | D04 native batch provenance | result `spec.attempts[].batch` | v1alpha2 | Reader must preserve batch grouping; never emit it as v1alpha1 |
 | D05 admission evidence | result `spec.attempts[].admission` | v1alpha2 | Reader must preserve admission decisions; never emit them as v1alpha1 |
-| D06 context evidence | DecisionResult `spec.context`, RulesetResult `spec.context` | v1alpha2 | Reader must preserve plan and usage provenance; never emit it as v1alpha1 |
+| D06 context evidence | DecisionResult `spec.context`, RulesetResult `spec.context` and `spec.contextFailure` | v1alpha2 | Reader must preserve plan and usage provenance; never emit it as v1alpha1 |
 | D07 native batch receipt references | result `spec.batchResult` | v1alpha2 | Reader must preserve batch provenance; never emit it as v1alpha1 |
 | D08 acceptance or uncertainty fields | binding `primitive-policy` acceptance, result `spec.acceptance`, `uncertainty.calibratedRisk` | v1alpha2 | Reader must preserve new field semantics; no v1alpha1 reinterpretation |
 | D09 calibration pins | result `spec.calibrationCompatibility` | v1alpha2 | Reader must preserve pin identity; no in-place rewrite |
