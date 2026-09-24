@@ -9,6 +9,7 @@ import { createOfflineDecisionJobService } from '../../../src/decision/job-servi
 import { ITEM_STATES, type DecisionJob } from '../../../src/decision/job-contract.js';
 import { recount } from '../../../src/decision/job-runtime.js';
 import { artifactDigest } from '../../../src/decision/validate.js';
+import { jobPolicy } from './fixtures/job-policy.js';
 const scope = { tenantId: 't', projectId: 'p', workspaceId: 'w', principalId: 'actor' };
 const digest = `sha256:${'a'.repeat(64)}` as const;
 const input = { protected: 'PII_HTTP_INPUT_2610' };
@@ -33,7 +34,7 @@ describe('JOB opt-in authenticated HTTP boundary', () => {
       tokens: 500, costMicros: 5000, calls: 4, jobs: 2 };
     const service = createOfflineDecisionJobService({ directory, handleKey: randomBytes(32),
       payloadKey: randomBytes(32), payloadMaxItemBytes: 1024, now: () => 20,
-      quota: { project: limits, principal: limits },
+      quota: { project: limits, principal: limits }, lifecyclePolicy: jobPolicy(1000, 'sanitized'),
       polls: { windowMs: 100, perPrincipal: 50, perProject: 50, maxLanes: 4 },
       scheduler: { concurrency: 1, maxQueuedItems: 2 },
       externallyDeleted: async (_actor, id) => erased.has(id), authorizeExport: async () => true });

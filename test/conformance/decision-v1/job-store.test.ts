@@ -87,6 +87,25 @@ describe('JOB durable offline lifecycle', () => {
     await writeFile(join(directory, name!), '{"invalid":true}');
     await expect(store.read(scope, 'jobA')).rejects.toThrow();
   });
+  it('coalesces only equivalent duplicate caller item IDs before acquisition with no dispatch', async () => {
+    for (const store of await stores()) {
+      const runtime = new DecisionJobRuntime(store, () => 20);
+      const repeated = fixture();
+      repeated.items.push(structuredClone(repeated.items[0]!)); recount(repeated);
+      const acquired = await runtime.submit(repeated, scope);
+      expect(acquired.job.items).toHaveLength(3);
+      expect(acquired.job.items.map(item => item.id)).toEqual(['item0', 'item1', 'item2']);
+      expect(acquired.job.summary.queued).toBe(3);
+      expect((await runtime.submit(repeated, scope)).revision).toBe(1);
+      expect((await runtime.submit(fixture(), scope)).revision).toBe(1);
+      const mismatched = structuredClone(repeated);
+      mismatched.items.at(-1)!.definitionDigest = `sha256:${'b'.repeat(64)}`;
+      await expect(runtime.submit(mismatched, scope)).rejects.toThrow('Duplicate item ID');
+      expect((await runtime.poll(scope, 'jobA'))?.revision).toBe(1);
+      if (store instanceof FileJobStore)
+        expect((await readdir(directories.at(-1)!)).filter(name => name.endsWith('.json'))).toHaveLength(1);
+    }
+  });
   it('acquires idempotently, rejects identity mismatch, and survives store re-instantiation', async () => {
     for (const store of await stores()) {
       const runtime = new DecisionJobRuntime(store, () => 20);

@@ -1,13 +1,13 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ITEM_STATES, type DecisionJob } from '../../../src/decision/job-contract.js';
 import { DecisionJobRuntime, recount } from '../../../src/decision/job-runtime.js';
-import { FileJobQuotaStore, type JobQuotaLimits } from '../../../src/decision/job-quota.js';
+import { FileJobQuotaStore, recoverStaleJobQuotaLock, type JobQuotaLimits } from '../../../src/decision/job-quota.js';
 const scope = { tenantId: 't', projectId: 'p', workspaceId: 'w', principalId: 'actor' };
 const digest = `sha256:${'a'.repeat(64)}` as const;
 const limits: JobQuotaLimits = { queued: 1, running: 1, retainedItems: 1, retainedBytes: 10000,
@@ -31,6 +31,25 @@ function fork(directory: string, id: string): Promise<{ code: number | null; out
   });
 }
 describe('JOB transactional local-filesystem quotas', () => {
+  it('recovers a dead-owner lock only after explicit host authorization; never steals a live lock', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'job-quota-recovery-'));
+    try {
+      const store = new FileJobQuotaStore(dir, { principal: limits, project: limits });
+      const lock = join(dir, '.quota-lock');
+      await mkdir(lock);
+      const live = `${process.pid}:${randomUUID()}`;
+      await writeFile(join(lock, 'owner'), `${live}\n`, { mode: 0o600 });
+      let approvals = 0;
+      expect(await recoverStaleJobQuotaLock(dir, async () => { approvals++; return true; })).toBe(false);
+      expect(approvals).toBe(0);
+      const dead = `99999999:${randomUUID()}`;
+      await writeFile(join(lock, 'owner'), `${dead}\n`);
+      expect(await recoverStaleJobQuotaLock(dir, async () => false)).toBe(false);
+      expect(await recoverStaleJobQuotaLock(dir, async owner => { approvals++; expect(owner.token).toBe(dead); return true; })).toBe(true);
+      expect(await store.acquire(job('recovered'))).toMatchObject({ owner: true });
+      expect(await recoverStaleJobQuotaLock(dir, async () => true)).toBe(false);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('serializes two real processes against the same project budget without accepting both', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'job-quota-forks-'));
     try {

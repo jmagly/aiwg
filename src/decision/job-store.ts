@@ -19,6 +19,26 @@ function validateFirst(job: DecisionJob): void {
   if (job.state !== 'validating' || job.items.some(item => item.state !== 'queued' || item.attempts.length))
     throw new JobConflictError('Initial job must be undispatched');
 }
+/** Collapse only identical, undispatched caller item IDs; never merge mismatched pins. */
+export function canonicalizeInitialJob(job: DecisionJob): DecisionJob {
+  if (!Array.isArray(job?.items)) { validateFirst(job); return job; }
+  const unique = new Map<string, DecisionJob['items'][number]>();
+  for (const item of job.items) {
+    const previous = unique.get(item?.id);
+    if (previous && canonicalJson(previous) !== canonicalJson(item))
+      throw new JobConflictError('Duplicate item ID belongs to different request');
+    if (!previous) unique.set(item?.id, item);
+  }
+  if (unique.size === job.items.length) { validateFirst(job); return job; }
+  if (job.state !== 'validating' || !job.summary || job.summary.queued !== job.items.length ||
+      Object.entries(job.summary).some(([state, count]) => state !== 'queued' && count !== 0))
+    throw new JobConflictError('Duplicate item summary mismatch');
+  const normalized = structuredClone(job);
+  normalized.items = [...unique.values()].map(item => structuredClone(item));
+  normalized.summary.queued = normalized.items.length;
+  validateFirst(normalized);
+  return normalized;
+}
 function assertIdentity(initial: DecisionJob, existing: DecisionJob): void {
   if (initial.fingerprint !== existing.fingerprint ||
       canonicalJson(initial.items.map(({ id, fingerprint, subjectDigest, definitionDigest, bindingDigest, rulesetDigest }) =>
@@ -47,7 +67,7 @@ const copy = (value: JobSnapshot): JobSnapshot => structuredClone(value);
 export class MemoryJobStore implements JobStore {
   private readonly records = new Map<string, JobSnapshot>();
   async acquire(job: DecisionJob): Promise<{ owner: boolean; snapshot: JobSnapshot }> {
-    validateFirst(job);
+    job = canonicalizeInitialJob(job);
     const id = key(job.scope, job.id);
     const existing = this.records.get(id);
     if (existing) { assertIdentity(job, existing.job); return { owner: false, snapshot: copy(existing) }; }
@@ -71,7 +91,7 @@ export class FileJobStore implements JobStore {
   constructor(private readonly directory: string,
     private readonly externallyDeleted?: (scope: JobScope, id: string) => Promise<boolean>) {}
   async acquire(job: DecisionJob): Promise<{ owner: boolean; snapshot: JobSnapshot }> {
-    validateFirst(job);
+    job = canonicalizeInitialJob(job);
     await this.ensureDirectory();
     if (await this.isDeleted(job.scope, job.id)) throw new JobConflictError('Job tombstoned');
     const snapshot = { revision: 1, job: structuredClone(job), deleted: false, legalHold: false };

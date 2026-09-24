@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { admittedJobItemExecutor } from '../../../src/decision/job-evaluate.js';
 import { createOfflineDecisionJobService } from '../../../src/decision/job-service.js';
+import { jobPolicy } from './fixtures/job-policy.js';
 import { accountDecisionJob } from '../../../src/decision/job-accounting.js';
 import { artifactDigest } from '../../../src/decision/validate.js';
 import { ITEM_STATES, type DecisionJob } from '../../../src/decision/job-contract.js';
@@ -62,7 +63,7 @@ describe('JOB admission-controlled evaluator bridge', () => {
       const limits = { queued: 1, running: 1, retainedItems: 1, retainedBytes: 100000,
         tokens: 10000, costMicros: 1000000, calls: 3, jobs: 1 };
       const config = { directory: join(root, 'jobs'), handleKey, payloadKey, payloadMaxItemBytes: 50000,
-        quota: { principal: limits, project: limits }, now: () => 20,
+        quota: { principal: limits, project: limits }, lifecyclePolicy: jobPolicy(100000000000000), now: () => 20,
         polls: { windowMs: 100, perPrincipal: 10, perProject: 10, maxLanes: 2 },
         scheduler: { concurrency: 1, maxQueuedItems: 1 },
         externallyDeleted: async () => false, authorizeExport: async () => false };

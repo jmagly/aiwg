@@ -12,11 +12,13 @@ export class DecisionJobGateway {
     private readonly capabilities?: {
       listSnapshots: () => Promise<JobSnapshot[]>;
       authorizeExport: (actor: JobScope, snapshot: JobSnapshot) => Promise<boolean>;
-    }) {
+    },
+    private readonly admitJob?: (job: DecisionJob) => void) {
     if (!Buffer.isBuffer(key) || key.length !== 32) throw new JobConflictError('Invalid job handle key');
     this.key = Buffer.from(key);
   }
   async submit(actor: JobScope, job: DecisionJob): Promise<{ handle: string; snapshot: JobSnapshot }> {
+    this.admitJob?.(job);
     const snapshot = await this.runtime.submit(job, actor);
     if (snapshot.deleted || this.now() >= snapshot.job.expiresAtEpochMs) throw new JobConflictError('Job unavailable');
     return { handle: this.seal(snapshot), snapshot };

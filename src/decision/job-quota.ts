@@ -1,8 +1,9 @@
 import { join } from 'node:path';
+import { lstat, mkdir, readFile, rm } from 'node:fs/promises';
 import { acquireDirectoryLock } from '../artifacts/prebuilt-build-lock.js';
 import { canonicalJson } from '../security/artifact-trust.js';
 import type { DecisionJob } from './job-contract.js';
-import { FileJobStore, JobConflictError, type JobScope, type JobSnapshot, type JobStore } from './job-store.js';
+import { canonicalizeInitialJob, FileJobStore, JobConflictError, type JobScope, type JobSnapshot, type JobStore } from './job-store.js';
 
 export interface JobQuotaLimits {
   queued: number; running: number; retainedItems: number; retainedBytes: number;
@@ -10,6 +11,41 @@ export interface JobQuotaLimits {
 }
 export interface JobQuotaPolicy { principal: JobQuotaLimits; project: JobQuotaLimits }
 const quantities = ['queued', 'running', 'retainedItems', 'retainedBytes', 'tokens', 'costMicros', 'calls', 'jobs'] as const;
+/** Explicit operator-gated local recovery; never steal a live or unverified lock. */
+export async function recoverStaleJobQuotaLock(directory: string,
+  authorize: (owner: { pid: number; token: string }) => Promise<boolean>): Promise<boolean> {
+  if (typeof authorize !== 'function') throw new JobConflictError('Job lock recovery requires authorization');
+  const root = await lstat(directory);
+  if (!root.isDirectory() || root.isSymbolicLink() || (root.mode & 0o077) !== 0)
+    throw new JobConflictError('Job storage root must be private');
+  const guard = join(directory, '.quota-recover');
+  try { await mkdir(guard, { mode: 0o700 }); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false; throw error; }
+  try {
+    const lock = join(directory, '.quota-lock');
+    let info;
+    try { info = await lstat(lock); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false; throw error; }
+    if (!info.isDirectory() || info.isSymbolicLink()) throw new JobConflictError('Invalid job lock');
+    const ownerFile = join(lock, 'owner');
+    const ownerInfo = await lstat(ownerFile);
+    if (!ownerInfo.isFile() || (ownerInfo.mode & 0o077) !== 0) throw new JobConflictError('Invalid job lock owner');
+    const token = (await readFile(ownerFile, 'utf8')).trim();
+    const match = /^([1-9][0-9]*):([0-9a-f-]{36})$/.exec(token);
+    if (!match || !Number.isSafeInteger(Number(match[1]))) throw new JobConflictError('Invalid job lock owner');
+    const pid = Number(match[1]);
+    const isDead = () => {
+      try { process.kill(pid, 0); return false; }
+      catch (error) { if ((error as NodeJS.ErrnoException).code === 'ESRCH') return true; throw error; }
+    };
+    if (!isDead()) return false;
+    let approved = false;
+    try { approved = await authorize({ pid, token }); } catch { /* deny recovery */ }
+    if (!approved || !isDead() || (await readFile(ownerFile, 'utf8')).trim() !== token) return false;
+    await rm(lock, { recursive: true });
+    return true;
+  } finally { await rm(guard, { recursive: true, force: true }); }
+}
 /** Same-host, local-filesystem transactional quota gate. All writers to the store must use this wrapper. */
 export class FileJobQuotaStore implements JobStore {
   private readonly journal: FileJobStore;
@@ -35,6 +71,7 @@ export class FileJobQuotaStore implements JobStore {
     await this.transaction(() => this.journal.purgeDeleted(scope, id));
   }
   async acquire(job: DecisionJob): Promise<{ owner: boolean; snapshot: JobSnapshot }> {
+    job = canonicalizeInitialJob(job);
     await this.journal.read(job.scope, job.id);
     return this.transaction(async () => {
       const existing = await this.journal.read(job.scope, job.id);

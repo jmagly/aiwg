@@ -13,6 +13,8 @@ import { OfflineJobWorker } from './job-worker.js';
 import { FileJobStore, JobConflictError, type JobScope, type JobSnapshot } from './job-store.js';
 import { canonicalJson } from '../security/artifact-trust.js';
 import type { DecisionTelemetryHook } from './telemetry/types.js';
+import { validateDecisionLifecyclePolicy, type DecisionLifecyclePolicy } from './lifecycle.js';
+import type { DecisionJob } from './job-contract.js';
 
 export interface OfflineDecisionJobServiceConfig {
   directory: string;
@@ -22,6 +24,7 @@ export interface OfflineDecisionJobServiceConfig {
   payloadMaxItemBytes: number;
   now?: () => number;
   quota: JobQuotaPolicy;
+  lifecyclePolicy: DecisionLifecyclePolicy;
   polls: { windowMs: number; perPrincipal: number; perProject: number; maxLanes: number };
   scheduler: { concurrency: number; maxQueuedItems: number };
   /** Independent D10 lifecycle authority; backed-up local markers are not sufficient. */
@@ -33,6 +36,10 @@ export interface OfflineDecisionJobServiceConfig {
 export function createOfflineDecisionJobService(config: OfflineDecisionJobServiceConfig) {
   if (typeof config.externallyDeleted !== 'function' || typeof config.authorizeExport !== 'function')
     throw new Error('Independent lifecycle and export authorization required');
+  validateDecisionLifecyclePolicy(config.lifecyclePolicy);
+  if (config.lifecyclePolicy.surfaces.job.backup !== 'expire-with-primary' ||
+      config.lifecyclePolicy.surfaces.job.deletion !== 'erase')
+    throw new JobConflictError('Persisted job requires erasure and backup expiry policy');
   const now = config.now ?? Date.now;
   let payloads!: FileJobPayloadStore;
   const store = new FileJobQuotaStore(config.directory, config.quota, config.externallyDeleted,
@@ -53,9 +60,30 @@ export function createOfflineDecisionJobService(config: OfflineDecisionJobServic
   const scheduler = new OfflineJobScheduler(worker, config.scheduler.concurrency, config.scheduler.maxQueuedItems);
   const polling = new FileJobPollLimiter(config.directory, config.polls.windowMs,
     config.polls.perPrincipal, config.polls.perProject, config.polls.maxLanes, now);
+  const admitJob = (job: DecisionJob) => {
+    const duration = job.expiresAtEpochMs - job.createdAtEpochMs;
+    if (!Number.isSafeInteger(duration) || duration <= 0 || duration > config.lifecyclePolicy.surfaces.job.retentionMs)
+      throw new JobConflictError('Job exceeds D10 retention policy');
+  };
   const gateway = new DecisionJobGateway(runtime, config.handleKey, now, actor => polling.check(actor), {
-    listSnapshots: () => store.listSnapshots(), authorizeExport: config.authorizeExport,
-  });
+    listSnapshots: () => store.listSnapshots(), authorizeExport: async (actor, snapshot) =>
+      config.lifecyclePolicy.surfaces.job.export === 'sanitized' && await config.authorizeExport(actor, snapshot),
+  }, admitJob);
+  /** Host maintenance: bound queued dwell by the pinned expiry even after a restart. */
+  const sweepExpired = async (): Promise<number> => {
+    let expired = 0;
+    for (const record of await store.listSnapshots()) {
+      if (record.deleted || now() < record.job.expiresAtEpochMs ||
+          ['expired', 'canceled', 'completed', 'failed'].includes(record.job.state)) continue;
+      try {
+        if ((await runtime.expire(record.job.scope, record.job.id))?.job.state === 'expired') expired++;
+      } catch (error) {
+        if (!(error instanceof JobConflictError) || error.message !== 'Concurrent job update') throw error;
+        // Another process owns the winning revision. Do not retry or dispatch here.
+      }
+    }
+    return expired;
+  };
   /** D10 eraser callback: publish D10 tombstone first, then call this; retries are safe after partial erasure. */
   const eraseJob = async (scope: JobScope, id: string): Promise<void> => {
     if (!await config.externallyDeleted(scope, id)) throw new JobConflictError('Independent job tombstone required');
@@ -104,5 +132,5 @@ export function createOfflineDecisionJobService(config: OfflineDecisionJobServic
     }
     return finished;
   };
-  return { gateway, runtime, worker, scheduler, payloads, eraseJob, runAdmittedItem, materializeResult };
+  return { gateway, runtime, worker, scheduler, payloads, eraseJob, sweepExpired, runAdmittedItem, materializeResult };
 }

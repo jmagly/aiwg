@@ -6,9 +6,9 @@ import { describe, expect, it } from 'vitest';
 import { ITEM_STATES, type DecisionJob } from '../../../src/decision/job-contract.js';
 import { createOfflineDecisionJobService } from '../../../src/decision/job-service.js';
 import { FileDecisionLifecycleStore } from '../../../src/decision/file-lifecycle-store.js';
-import { DECISION_LIFECYCLE_SURFACES, DECISION_LIFECYCLE_VERSION, eraseDecisionSubject,
-  mayRestoreDecisionReference, placeDecisionLifecycleHold, releaseDecisionLifecycleHold,
-  type DecisionLifecyclePolicy } from '../../../src/decision/lifecycle.js';
+import { eraseDecisionSubject, mayRestoreDecisionReference,
+  placeDecisionLifecycleHold, releaseDecisionLifecycleHold } from '../../../src/decision/lifecycle.js';
+import { jobPolicy } from './fixtures/job-policy.js';
 import { recount } from '../../../src/decision/job-runtime.js';
 import { artifactDigest } from '../../../src/decision/validate.js';
 import { canonicalJson } from '../../../src/security/artifact-trust.js';
@@ -29,28 +29,53 @@ function fixture(): DecisionJob {
   recount(job); return job;
 }
 describe('JOB offline host assembly', () => {
+  it('expires a dispatched job on host restart without replaying its attempt', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'job-service-sweep-'));
+    let now = 20;
+    try {
+      const service = createOfflineDecisionJobService({ directory, handleKey: randomBytes(32),
+        payloadKey: randomBytes(32), payloadMaxItemBytes: 512, now: () => now,
+        quota: { principal: limits, project: limits }, lifecyclePolicy: jobPolicy(1000),
+        polls: { windowMs: 100, perPrincipal: 5, perProject: 5, maxLanes: 2 },
+        scheduler: { concurrency: 1, maxQueuedItems: 2 },
+        externallyDeleted: async () => false, authorizeExport: async () => false });
+      const first = await service.runtime.submit(fixture(), scope);
+      const queued = structuredClone(first.job); queued.state = 'queued';
+      const admitted = await service.runtime.advance(scope, 'jobA', first, queued);
+      const running = structuredClone(admitted.job); running.state = 'running';
+      running.items[0]!.state = 'running';
+      running.items[0]!.attempts.push({ id: 'attempt1', requestDigest: digest, outcome: 'dispatched' });
+      recount(running);
+      await service.runtime.advance(scope, 'jobA', admitted, running);
+      now = 101;
+      expect(await service.sweepExpired()).toBe(1);
+      expect((await service.runtime.poll(scope, 'jobA'))?.job.items[0]?.state).toBe('execution-unknown');
+      expect(await service.sweepExpired()).toBe(0);
+      await expect(service.worker.run(scope, 'jobA', 'item0', async () => ({
+        state: 'succeeded', receiptDigest: digest, resultDigest: digest }))).rejects.toThrow();
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
   it('joins real D10 hold, erase, and backup-restore policy to encrypted job content', async () => {
     const root = await mkdtemp(join(tmpdir(), 'job-service-d10-'));
     try {
       const directory = join(root, 'data');
       const handleKey = randomBytes(32); const payloadKey = randomBytes(32);
       let lifecycle!: FileDecisionLifecycleStore;
+      const policy = jobPolicy(100, 'denied');
       const config = { directory, handleKey, payloadKey, payloadMaxItemBytes: 512, now: () => 20,
-        quota: { principal: limits, project: limits },
+        quota: { principal: limits, project: limits }, lifecyclePolicy: policy,
         polls: { windowMs: 100, perPrincipal: 20, perProject: 20, maxLanes: 2 },
         scheduler: { concurrency: 1, maxQueuedItems: 2 },
         externallyDeleted: async (_actor: typeof scope, id: string) =>
           (await lifecycle.tombstones('case7')).some(value => value.reference.surface === 'job' && value.reference.opaqueId === id),
-        authorizeExport: async () => false };
+        authorizeExport: async () => true };
       const service = createOfflineDecisionJobService(config);
       lifecycle = new FileDecisionLifecycleStore(join(root, 'lifecycle'), { job: id => service.eraseJob(scope, id) });
-      const policy: DecisionLifecyclePolicy = { version: DECISION_LIFECYCLE_VERSION,
-        surfaces: Object.fromEntries(DECISION_LIFECYCLE_SURFACES.map(surface => [surface, {
-          classification: 'restricted', accessScopes: ['case-worker'], retentionMs: 100,
-          export: 'denied', deletion: 'erase', backup: 'expire-with-primary',
-        }])) as DecisionLifecyclePolicy['surfaces'] };
       await lifecycle.register('case7', { surface: 'job', opaqueId: 'jobA' });
       const { handle } = await service.gateway.submit(scope, fixture());
+      expect(await service.gateway.export(scope, handle)).toBeNull();
+      const tooLong = fixture(); tooLong.id = 'oversized'; tooLong.expiresAtEpochMs = 111;
+      await expect(service.gateway.submit(scope, tooLong)).rejects.toThrow('D10 retention');
       await service.payloads.put(scope, 'jobA', 'item0', 'input', input);
       const hold = { subject: 'case7', reason: 'review', scope: ['job' as const], expiresAt: 90, authorizedBy: 'operator' };
       await placeDecisionLifecycleHold(hold, async () => true, lifecycle, 20);
@@ -84,7 +109,7 @@ describe('JOB offline host assembly', () => {
         tokens: 2000, costMicros: 20000, calls: 8, retainedBytes: cap };
       const service = createOfflineDecisionJobService({ directory, handleKey: randomBytes(32),
         payloadKey: randomBytes(32), payloadMaxItemBytes: valueBytes,
-        quota: { principal: byteLimits, project: byteLimits },
+        quota: { principal: byteLimits, project: byteLimits }, lifecyclePolicy: jobPolicy(1000),
         polls: { windowMs: 100, perPrincipal: 5, perProject: 5, maxLanes: 2 },
         scheduler: { concurrency: 1, maxQueuedItems: 2 },
         externallyDeleted: async () => false, authorizeExport: async () => false, now: () => 20 });
@@ -101,7 +126,7 @@ describe('JOB offline host assembly', () => {
       const handleKey = randomBytes(32); const payloadKey = randomBytes(32);
       const erased = new Set<string>(); const spans: string[] = [];
       const config = { directory, handleKey, payloadKey, payloadMaxItemBytes: 512, now: () => 20,
-        quota: { principal: limits, project: limits },
+        quota: { principal: limits, project: limits }, lifecyclePolicy: jobPolicy(1000),
         polls: { windowMs: 100, perPrincipal: 10, perProject: 10, maxLanes: 4 },
         scheduler: { concurrency: 1, maxQueuedItems: 2 },
         externallyDeleted: async (_scope: typeof scope, id: string) => erased.has(id),
