@@ -241,7 +241,7 @@ export type DecisionAdmissionReason =
   | 'attempts' | 'batch-size' | 'cost' | 'unknown-cost'
   | 'queue-full' | 'queue-timeout' | 'invalid-estimate' | 'request-too-large' | 'too-many-items'
   | 'retained-work' | 'unknown-retained-work'
-  | 'retry-after' | 'circuit-open';
+  | 'retry-after' | 'circuit-open' | 'unconfigured-provider';
 
 export interface DecisionAdmissionEvidence {
   decision: 'admit' | 'defer' | 'reject';

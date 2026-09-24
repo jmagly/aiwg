@@ -10,7 +10,7 @@
         "requests-per-minute", "tokens-per-second", "attempts", "batch-size", "cost",
         "unknown-cost", "queue-full", "queue-timeout", "invalid-estimate", "request-too-large", "too-many-items",
         "retained-work", "unknown-retained-work",
-        "retry-after", "circuit-open"
+        "retry-after", "circuit-open", "unconfigured-provider"
       ]
     },
     "queueDelayMs": { "type": "number", "minimum": 0 },
