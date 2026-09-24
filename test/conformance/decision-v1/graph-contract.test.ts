@@ -29,6 +29,12 @@ describe('DAG offline contract (execution disabled)', () => {
     expect(plan(graph).stages[1]).toMatchObject({ batches: [], fanOut: ['left', 'right'] });
     expect(() => plan(graph, new Set())).toThrow(DecisionGraphError);
   });
+  it('DAG-002b does not batch different resolved binding pins', () => {
+    const graph = fixture();
+    const other = { ...pin, digest: `sha256:${'c'.repeat(64)}` as const };
+    graph.nodes[2]!.binding = other;
+    expect(plan(graph, new Set([pin.digest, other.digest])).stages[1]).toMatchObject({ batches: [], fanOut: ['left', 'right'] });
+  });
   it('DAG-003 rejects cycles, cross-stage and dangling edges', () => {
     for (const change of [
       (g: DecisionGraph) => { g.edges.push({ from: 'left', to: 'root', source: 'result', destination: 'evidence' }); },
@@ -51,6 +57,23 @@ describe('DAG offline contract (execution disabled)', () => {
     graph.budget.fanOut = 3; graph.budget.tokens = 0;
     expect(() => plan(graph)).toThrow(DecisionGraphError);
     graph.budget.tokens = 1000; graph.budget.depth = 1;
+    expect(() => plan(graph)).toThrow(DecisionGraphError);
+  });
+  it('DAG-004b rejects undeclared conditional control outputs', () => {
+    const graph = fixture();
+    graph.edges[0]!.when = { source: 'modelPolicy', equals: true };
+    expect(() => plan(graph)).toThrow(DecisionGraphError);
+    graph.edges[0]!.when = { source: 'result', equals: true };
+    expect(plan(graph).edges[0]!.when).toEqual({ source: 'result', equals: true });
+  });
+  it('DAG-005b canonicalizes stage budgets and rejects duplicate stage limits', () => {
+    const graph = fixture();
+    graph.stageBudgets = [{ stage: 1, limits: { ...graph.budget, tokens: 5 } },
+      { stage: 0, limits: { ...graph.budget, tokens: 4 } }];
+    const first = plan(graph);
+    graph.stageBudgets.reverse();
+    expect(plan(graph)).toEqual(first);
+    graph.stageBudgets[0]!.stage = 1;
     expect(() => plan(graph)).toThrow(DecisionGraphError);
   });
   it('DAG-006 ignores model-authored graph instructions in evidence (no executable inputs)', () => {
