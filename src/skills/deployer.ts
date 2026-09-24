@@ -38,6 +38,10 @@ import type {
 import { validateAgentSkillContent } from './validator.js';
 import { resolveHermesHomePath } from '../providers/hermes-home.js';
 import {
+  museXdgSkillsDirRemediation,
+  resolveMuseXdgSkillsDir,
+} from '../providers/muse-paths.js';
+import {
   GROKBOT_SKILLS_DIR_ENV,
   grokbotMissingRootRemediation,
   resolveGrokbotSkillsDir,
@@ -205,6 +209,34 @@ function resolvePolicy(
         'uses the active HERMES_HOME skills surface with strict managed ownership markers',
       );
       break;
+    case 'muse': {
+      // #234: resolve the documented XDG user root at deploy time — never
+      // invent ~/.muse. An explicit homeDir (tests, operator override) keeps
+      // the project-scoped namespace default (<repo>/.agents/skills); bad
+      // XDG metadata fails closed instead of writing a bogus tree.
+      if (options.homeDir === undefined) {
+        const configured = resolveMuseXdgSkillsDir(process.env, os.homedir());
+        if (!configured) {
+          root = '';
+          status = 'unsupported';
+          supported = false;
+          reasons.push(museXdgSkillsDirRemediation(process.env, os.homedir()));
+          warnings.push(
+            'Agent Skills deploy for muse requires a valid absolute XDG_CONFIG_HOME; no filesystem root was invented',
+          );
+        } else {
+          root = configured;
+          reasons.push(
+            'uses the Muse XDG user skills root ($XDG_CONFIG_HOME/muse/skills, default ~/.config/muse/skills) with strict managed ownership markers',
+          );
+        }
+      } else {
+        reasons.push(
+          'uses the project .agents/skills surface shared with antigravity, codex, and deepseek-harness',
+        );
+      }
+      break;
+    }
     case 'openhuman':
       status = 'projected';
       reasons.push(
