@@ -71,7 +71,7 @@ export class FileJobPayloadStore {
         bytes: plain.length, project, principal, nonce: nonce.toString('base64url'),
         tag: cipher.getAuthTag().toString('base64url'), ciphertext: encrypted.toString('base64url') };
       const envelope: Envelope = { ...fields, mac: this.mac(fields) };
-      const temporary = join(this.directory, `.payload-${randomUUID()}.tmp`);
+      const temporary = join(this.directory, `.${hash([scope, jobId])}.payload-${randomUUID()}.tmp`);
       const handle = await open(temporary, 'wx', 0o600);
       try { await handle.writeFile(`${canonicalJson(envelope)}\n`); await handle.sync(); } finally { await handle.close(); }
       try {
@@ -130,7 +130,9 @@ export class FileJobPayloadStore {
       catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
       const prefix = `${hash([scope, jobId])}.`;
       for (const name of await readdir(this.directory))
-        if (name.startsWith(prefix) && /^[a-f0-9]{64}\.json$/.test(name.slice(prefix.length))) await rm(join(this.directory, name));
+        if ((name.startsWith(prefix) && /^[a-f0-9]{64}\.json$/.test(name.slice(prefix.length))) ||
+            (name.startsWith(`.${prefix}payload-`) && /^payload-[0-9a-f-]{36}\.tmp$/.test(name.slice(prefix.length + 1))))
+          await rm(join(this.directory, name));
       const directory = await open(this.directory, 'r');
       try { await directory.sync(); } finally { await directory.close(); }
     } finally { await release(); }

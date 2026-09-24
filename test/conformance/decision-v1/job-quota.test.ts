@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -49,6 +50,29 @@ describe('JOB transactional local-filesystem quotas', () => {
       expect(await store.acquire(job('recovered'))).toMatchObject({ owner: true });
       expect(await recoverStaleJobQuotaLock(dir, async () => true)).toBe(false);
     } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+  it('recovers a quota lock after its real owner process is killed without running unapproved work', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'job-quota-killed-owner-'));
+    const child = spawn(process.execPath, ['--input-type=module', '-e', `
+      import { mkdir, writeFile } from 'node:fs/promises';
+      import { join } from 'node:path';
+      import { randomUUID } from 'node:crypto';
+      const dir = process.argv[1];
+      await mkdir(join(dir, '.quota-lock'), { mode: 0o700 });
+      await writeFile(join(dir, '.quota-lock', 'owner'), process.pid + ':' + randomUUID() + '\\n', { mode: 0o600 });
+      process.stdout.write('locked\\n');
+      setInterval(() => {}, 1000);
+    `, dir], { stdio: ['ignore', 'pipe', 'pipe'] });
+    try {
+      await Promise.race([once(child.stdout!, 'data'), new Promise((_, reject) => setTimeout(() => reject(new Error('child lock timeout')), 3000))]);
+      expect(child.kill('SIGKILL')).toBe(true);
+      await once(child, 'exit');
+      let approvals = 0;
+      expect(await recoverStaleJobQuotaLock(dir, async owner => { approvals++; expect(owner.pid).toBe(child.pid); return true; })).toBe(true);
+      expect(approvals).toBe(1);
+      const store = new FileJobQuotaStore(dir, { principal: limits, project: limits });
+      expect((await store.acquire(job('after-crash'))).owner).toBe(true);
+    } finally { if (child.exitCode === null) child.kill('SIGKILL'); await rm(dir, { recursive: true, force: true }); }
   });
   it('serializes two real processes against the same project budget without accepting both', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'job-quota-forks-'));

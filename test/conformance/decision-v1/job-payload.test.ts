@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { copyFile, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -60,7 +60,10 @@ describe('JOB protected input and validated result persistence', () => {
       await copyFile(backup, join(root, 'payloads', inputFile));
       expect(await runtime.remove(scope, 'jobA')).toBe(true);
       erased = true;
+      const orphan = `.${inputFile.split('.')[0]}.payload-${randomUUID()}.tmp`;
+      await writeFile(join(root, 'payloads', orphan), 'abandoned-encrypted-body', { mode: 0o600 });
       await payloads.purgeDeleted(scope, 'jobA');
+      expect((await readdir(join(root, 'payloads')))).not.toContain(orphan);
       expect((await readdir(join(root, 'payloads'))).filter(name => name.endsWith('.json'))).toHaveLength(0);
       for (const name of (await readdir(join(root, 'payloads'))).filter(name => name.endsWith('.deleted')))
         await rm(join(root, 'payloads', name));

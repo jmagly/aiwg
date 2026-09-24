@@ -154,9 +154,10 @@ export class FileJobStore implements JobStore {
         try { await handle.sync(); } finally { await handle.close(); }
       } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
     }
-    const prefix = `${this.prefix(scope, id)}.r`;
+    const base = this.prefix(scope, id);
     for (const name of await readdir(this.directory)) {
-      if (name.startsWith(prefix) && /^r[1-9][0-9]*\.json$/.test(name.slice(prefix.length - 1)))
+      if ((name.startsWith(`${base}.r`) && /^r[1-9][0-9]*\.json$/.test(name.slice(base.length + 1))) ||
+          (name.startsWith(`.${base}.job-`) && /^job-[0-9a-f-]{36}\.tmp$/.test(name.slice(base.length + 2))))
         await rm(join(this.directory, name));
     }
     const directory = await open(this.directory, 'r');
@@ -181,12 +182,14 @@ export class FileJobStore implements JobStore {
   }
   private async publish(snapshot: JobSnapshot): Promise<boolean> {
     await this.ensureDirectory();
-    const destination = join(this.directory, `${this.prefix(snapshot.job.scope, snapshot.job.id)}.r${snapshot.revision}.json`);
-    const temporary = join(this.directory, `.job-${randomUUID()}.tmp`);
+    const prefix = this.prefix(snapshot.job.scope, snapshot.job.id);
+    const destination = join(this.directory, `${prefix}.r${snapshot.revision}.json`);
+    const temporary = join(this.directory, `.${prefix}.job-${randomUUID()}.tmp`);
     const handle = await open(temporary, 'wx', 0o600);
     try { await handle.writeFile(`${canonicalJson(snapshot)}\n`, 'utf8'); await handle.sync(); }
     finally { await handle.close(); }
     try {
+      if (await this.isDeleted(snapshot.job.scope, snapshot.job.id)) throw new JobConflictError('Job tombstoned');
       await link(temporary, destination);
       const directory = await open(this.directory, 'r');
       try { await directory.sync(); } finally { await directory.close(); }

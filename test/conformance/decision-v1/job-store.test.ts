@@ -1,4 +1,5 @@
 import { chmod, copyFile, mkdtemp, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -55,7 +56,10 @@ describe('JOB durable offline lifecycle', () => {
     expect(await runtime.remove(scope, 'jobA')).toBe(true);
     const revisions = (await readdir(directory)).filter(name => name.endsWith('.json'));
     for (const name of revisions) await copyFile(join(directory, name), join(backup, name));
+    const orphan = `.${revisions[0]!.split('.')[0]}.job-${randomUUID()}.tmp`;
+    await writeFile(join(directory, orphan), 'abandoned-private-revision', { mode: 0o600 });
     await store.purgeDeleted(scope, 'jobA');
+    expect((await readdir(directory))).not.toContain(orphan);
     expect((await readdir(directory)).filter(name => name.endsWith('.json'))).toHaveLength(0);
     expect((await readdir(directory)).filter(name => name.endsWith('.deleted'))).toHaveLength(1);
     for (const name of revisions) await copyFile(join(backup, name), join(directory, name));
