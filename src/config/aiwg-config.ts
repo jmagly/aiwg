@@ -881,6 +881,7 @@ export interface ResolvedParallelism {
  *     should tune. Conservative 10 default.
  *   - grokbot: desktop multi-agent; conservative 4 until native evidence.
 *   - grok-build: experimental; conservative 4 until Wave 2/3 evidence.
+ *   - muse: experimental; conservative 4 until Wave 2/3 evidence.
  *   - unknown: conservative 4 default.
  */
 export const PROVIDER_PARALLELISM_DEFAULTS: Record<string, ResolvedParallelism> = {
@@ -898,6 +899,8 @@ export const PROVIDER_PARALLELISM_DEFAULTS: Record<string, ResolvedParallelism> 
   // Desktop multi-agent; conservative until native concurrency evidence exists.
   grokbot:  { max_parallel_subagents: 4,  max_parallel_ralph_loops: 2, max_parallel_mc_missions: 4 },
   'grok-build': { max_parallel_subagents: 4, max_parallel_ralph_loops: 2, max_parallel_mc_missions: 4 },
+  // Muse Code is experimental; conservative until Wave 2/3 native concurrency evidence (#235).
+  muse:     { max_parallel_subagents: 4,  max_parallel_ralph_loops: 2, max_parallel_mc_missions: 4 },
   // Conservative defaults for remaining stable/experimental harnesses (#249).
   openhuman: { max_parallel_subagents: 4, max_parallel_ralph_loops: 2, max_parallel_mc_missions: 4 },
   omp:      { max_parallel_subagents: 4, max_parallel_ralph_loops: 2, max_parallel_mc_missions: 4 },
