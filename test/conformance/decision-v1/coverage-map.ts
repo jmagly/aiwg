@@ -41,6 +41,12 @@ function candidates(id: string): string[] {
     || id === 'TV03' || id === 'TV04' || id === 'TV05' || id === 'TV11') {
     return ['test/conformance/decision-v1/acceptance-evidence.test.ts'];
   }
+  // TV-12 (D06 context limits): offline CTX-* boundary, runtime and qualification-gate hints only.
+  // Live estimate-versus-actual comparisons are still required before this case can pass.
+  if (id === 'TV12') {
+    return ['test/unit/decision/context-plan.test.ts', 'test/unit/decision/context-qualification.test.ts',
+      'test/unit/decision/batch.test.ts'];
+  }
   return candidateByRange.find(([start, end]) => ordinal >= start && ordinal <= end)?.[2] ?? [];
 }
 

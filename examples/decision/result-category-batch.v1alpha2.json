@@ -95,16 +95,69 @@
       "plan": {
         "schemaVersion": "decision-context-plan/v1",
         "planDigest": "sha256:3ec979f6befd4060bb2182a6f24d1d06989da09abafda1717c355a00d33bf072",
+        "assumptionsDigest": "sha256:034f94618e383ce2a011521c79cc0f4709369bb1b89185642d8ef13fdb86b527",
+        "inputDigest": "sha256:d0dd34009077480da0bdcfacf5a625ca2149fa159c2f43140e0450b879658c58",
         "subject": "ticket:42",
+        "authorizationDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "incompleteContext": false,
+        "automaticActionAllowed": true,
+        "estimator": {
+          "id": "canonical-json-utf8-ceil",
+          "version": "1.0.0"
+        },
+        "providerProfile": {
+          "id": "jev",
+          "version": "fixture-2026-09-24",
+          "digest": "sha256:10810fba17bae4e53490ec9f2d9ad235e9d8e4dd6e95c51ebfffd0a96c47c84f"
+        },
+        "limits": {
+          "documentedAggregateTokens": 64000,
+          "documentedStateAndLongestQuestionTokens": 32000,
+          "safetyMarginBps": 2000,
+          "effectiveAggregateTokens": 51200,
+          "effectiveStateAndLongestQuestionTokens": 25600
+        },
+        "rawEstimate": {
+          "stateTokens": 0,
+          "allQuestionTokens": 27,
+          "longestQuestionTokens": 9,
+          "aggregateTokens": 27,
+          "stateAndLongestQuestionTokens": 9
+        },
         "partitions": [
           {
             "id": "p1",
             "wave": 0,
+            "compatibilityKey": "default",
+            "subject": "ticket:42",
+            "stateDigest": "sha256:e1fc62e15f5363e766f491c2dcfc3e42d2687d5e61eedfb63630e057f67defcd",
             "questionIds": [
               "q_edb2cd3b74c999af70f0b705",
               "q_c98f54e5559a95688749d3ef",
               "q_0a2abe49c67482f6e6f6a4e7"
-            ]
+            ],
+            "questionDigests": {
+              "q_edb2cd3b74c999af70f0b705": "sha256:0605ba82f7c93ed384f87dc9c0ea75efe8d96ee87c3e28acdae8b08e34db9059",
+              "q_c98f54e5559a95688749d3ef": "sha256:0cade55d134b11f4c054e4c102a3ef30040117f31d92e236731383f157ca4459",
+              "q_0a2abe49c67482f6e6f6a4e7": "sha256:498b1a206813b1ffd42bb3ddd843cf55b261cc4982bfc01b380883bf57606ac5"
+            },
+            "questionDependencies": {
+              "q_edb2cd3b74c999af70f0b705": [],
+              "q_c98f54e5559a95688749d3ef": [],
+              "q_0a2abe49c67482f6e6f6a4e7": []
+            },
+            "estimate": {
+              "stateTokens": 0,
+              "questionTokens": {
+                "q_edb2cd3b74c999af70f0b705": 9,
+                "q_c98f54e5559a95688749d3ef": 9,
+                "q_0a2abe49c67482f6e6f6a4e7": 9
+              },
+              "longestQuestionTokens": 9,
+              "aggregateTokens": 27,
+              "stateAndLongestQuestionTokens": 9
+            },
+            "reason": "fits-original-group"
           }
         ]
       },
@@ -117,7 +170,17 @@
             "q_edb2cd3b74c999af70f0b705"
           ],
           "estimatedInputTokens": 9,
-          "actualInputTokens": 9
+          "actualInputTokens": 9,
+          "estimator": {
+            "id": "canonical-json-utf8-ceil",
+            "version": "1.0.0"
+          },
+          "providerProfile": {
+            "id": "jev",
+            "version": "fixture-2026-09-24"
+          },
+          "estimationErrorTokens": 0,
+          "estimationErrorBps": 0
         }
       ]
     }

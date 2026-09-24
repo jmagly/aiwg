@@ -1,6 +1,7 @@
 import type {
   ContextActualUsageEvidence,
   ContextPlan,
+  ContextPlanFailureReason,
   ContextPlanInput,
   ContextProviderProfile,
   ContextTokenEstimator,
@@ -104,7 +105,11 @@ export type DecisionFailureReason =
   | 'rate-limited' | 'overloaded' | 'service-error' | 'authentication'
   | 'invalid-request' | 'budget-exhausted' | 'cancelled'
   | 'persistence-error' | 'replay-mismatch' | 'execution-uncertain'
-  | 'no-match' | 'conflicting-outcomes' | 'evaluation-failed';
+  | 'no-match' | 'conflicting-outcomes' | 'evaluation-failed'
+  /** D06: a supplied or batch-receipt context plan no longer matches current assumptions. */
+  | 'context-plan-stale'
+  /** D06: partitioned native batching lacks an explicit, qualified context rollout. */
+  | 'context-unqualified';
 
 export type AcceptanceDisposition = 'act' | 'review' | 'reject' | 'fallback';
 export type AcceptanceMetric =
@@ -346,6 +351,8 @@ export interface RulesetResult {
     cache?: ResultCacheCallerReceipt;
     /** Invocation-wide context plan plus immutable estimate-versus-actual evidence. */
     context?: DecisionContextEvidence;
+    /** Body-free D06 preflight diagnostic for a context-plan rejection. */
+    contextFailure?: DecisionContextFailure;
   };
 }
 
@@ -537,6 +544,15 @@ export interface DecisionContextEvidence {
   actualUsage: ContextActualUsageEvidence[];
 }
 
+/** Why context preflight rejected an invocation. Carries digests only, never state or question bodies. */
+export interface DecisionContextFailure {
+  schemaVersion: 'decision-context-failure/v1';
+  reason: ContextPlanFailureReason;
+  /** Stale plans: the supplied (or batch-receipt) plan digest and the digest replanning produced. */
+  plannedDigest?: `sha256:${string}`;
+  currentDigest?: `sha256:${string}`;
+}
+
 /** Explicit, qualified context preflight. It remains inert unless supplied. */
 export interface DecisionContextPolicy {
   input: ContextPlanInput;
@@ -544,7 +560,10 @@ export interface DecisionContextPolicy {
   estimator: ContextTokenEstimator;
   /** Optional caller-persisted plan. A stale plan fails closed instead of silently replanning. */
   plan?: ContextPlan;
-  /** Observe-only disables native batching; enforce requires a matching provider-backed qualification. */
+  /**
+   * Observe-only disables native batching; enforce requires a matching provider-backed qualification.
+   * Omitted fails closed (`context-unqualified`) when native batching is enabled; single calls still run.
+   */
   rollout?: { mode: 'observe-only' } | { mode: 'enforce'; qualification: ContextQualification };
 }
 

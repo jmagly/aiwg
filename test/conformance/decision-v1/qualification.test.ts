@@ -41,8 +41,11 @@ describe('decision qualification conformance foundation', () => {
     }
     expect(DECISION_CASE_COVERAGE.filter(item => ['TV03', 'TV04', 'TV05', 'TV11'].includes(item.id))
       .every(item => item.candidateTests.includes('test/conformance/decision-v1/acceptance-evidence.test.ts'))).toBe(true);
+    expect(DECISION_CASE_COVERAGE.find(item => item.id === 'TV12')?.candidateTests).toEqual([
+      'test/unit/decision/context-plan.test.ts', 'test/unit/decision/context-qualification.test.ts',
+      'test/unit/decision/batch.test.ts']);
     expect(DECISION_CASE_COVERAGE.filter(item => item.kind === 'vendor'
-      && !['TV03', 'TV04', 'TV05', 'TV11'].includes(item.id)).every(item => item.candidateTests.length === 0)).toBe(true);
+      && !['TV03', 'TV04', 'TV05', 'TV11', 'TV12'].includes(item.id)).every(item => item.candidateTests.length === 0)).toBe(true);
     const report = evaluateQualification(manifest());
     expect(report.decision).toBe('HOLD');
     expect(report.gates.find(gate => gate.id === 'G0')).toMatchObject({ status: 'fail' });

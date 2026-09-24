@@ -157,7 +157,9 @@
             "execution-uncertain",
             "no-match",
             "conflicting-outcomes",
-            "evaluation-failed"
+            "evaluation-failed",
+            "context-plan-stale",
+            "context-unqualified"
           ]
         },
         "outcome": {},
@@ -171,6 +173,29 @@
         },
         "context": {
           "$ref": "DecisionContextEvidence.v1.schema.json"
+        },
+        "contextFailure": {
+          "type": "object",
+          "description": "Body-free D06 context preflight rejection diagnostic.",
+          "properties": {
+            "schemaVersion": { "const": "decision-context-failure/v1" },
+            "reason": {
+              "enum": [
+                "invalid-input",
+                "invalid-profile",
+                "estimator-profile-mismatch",
+                "oversized-state",
+                "oversized-question",
+                "dependency-error",
+                "stale-plan",
+                "rollout-unqualified"
+              ]
+            },
+            "plannedDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "currentDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          },
+          "required": ["schemaVersion", "reason"],
+          "additionalProperties": false
         },
         "evaluations": {
           "type": "object",
