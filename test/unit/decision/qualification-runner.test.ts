@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   executeAndEvaluateQualification,
   evaluateExecutedQualification,
@@ -230,10 +230,23 @@ describe('decision qualification executable runner', () => {
   it('bounds execution time and artifact size', async () => {
     const root = await artifactRoot();
     const item: QualificationCase = { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] };
-    const timed = await executeQualificationPlan({
-      manifest: manifest([item]), artifactRoot: root, timeoutMs: 5,
-      executors: { TV01: async () => new Promise(resolve => setTimeout(() => resolve({ outcome: 'pass' }), 50)) },
-    });
+    // The executor never settles, so only the runner's own 5 ms deadline can
+    // produce the failure; fake timers fire that deadline without a real wait.
+    vi.useFakeTimers();
+    let timed: Awaited<ReturnType<typeof executeQualificationPlan>>;
+    try {
+      let invoked!: () => void;
+      const started = new Promise<void>(resolve => { invoked = resolve; });
+      const running = executeQualificationPlan({
+        manifest: manifest([item]), artifactRoot: root, timeoutMs: 5,
+        executors: { TV01: () => { invoked(); return new Promise<never>(() => {}); } },
+      });
+      await started;
+      await vi.advanceTimersByTimeAsync(5);
+      timed = await running;
+    } finally {
+      vi.useRealTimers();
+    }
     expect(timed.evidence[0]).toMatchObject({ executable: true, outcome: 'fail' });
     await expect(executeQualificationPlan({
       manifest: manifest([item]), artifactRoot: root, maxArtifactBytes: 256,

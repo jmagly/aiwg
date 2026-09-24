@@ -25,18 +25,24 @@ const request = (signal: AbortSignal = new AbortController().signal, estimate: A
 
 describe('bounded fair decision scheduler', () => {
   it('bounds active work while retaining canonical input order', async () => {
-    let active = 0;
-    let maximum = 0;
-    const work = [0, 1, 2, 3].map(value => ({ value, lane: value % 2 ? 'b' : 'a' }));
-    const running = runBoundedFair(work, 2, async value => {
-      active += 1;
-      maximum = Math.max(maximum, active);
-      await new Promise<void>(resolve => setTimeout(resolve, (4 - value) * 2));
-      active -= 1;
-      return `result-${value}`;
-    });
-    expect(await running).toEqual(['result-0', 'result-1', 'result-2', 'result-3']);
-    expect(maximum).toBe(2);
+    vi.useFakeTimers();
+    try {
+      let active = 0;
+      let maximum = 0;
+      const work = [0, 1, 2, 3].map(value => ({ value, lane: value % 2 ? 'b' : 'a' }));
+      const running = runBoundedFair(work, 2, async value => {
+        active += 1;
+        maximum = Math.max(maximum, active);
+        await new Promise<void>(resolve => setTimeout(resolve, (4 - value) * 2));
+        active -= 1;
+        return `result-${value}`;
+      });
+      await vi.runAllTimersAsync();
+      expect(await running).toEqual(['result-0', 'result-1', 'result-2', 'result-3']);
+      expect(maximum).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it.each([
@@ -83,15 +89,21 @@ describe('bounded fair decision scheduler', () => {
         state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
         return state % 7;
       });
-      const results = await runBoundedFair(inputs, 8, async (value, index) => {
+      const running = runBoundedFair(inputs, 8, async (value, index) => {
         await new Promise<void>(done => setTimeout(done, delays[index]));
         return { ordinal: value, stable: `result-${value}` };
       });
-      return JSON.stringify(results);
+      await vi.runAllTimersAsync();
+      return JSON.stringify(await running);
     };
 
-    const baseline = await execute(1);
-    for (const seed of [2, 17, 2_601, 0xffff_ffff]) expect(await execute(seed)).toBe(baseline);
+    vi.useFakeTimers();
+    try {
+      const baseline = await execute(1);
+      for (const seed of [2, 17, 2_601, 0xffff_ffff]) expect(await execute(seed)).toBe(baseline);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('round-robins an eligible quiet lane through a noisy neighbor backlog', async () => {

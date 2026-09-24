@@ -36,9 +36,10 @@ function fixture(pattern: DecisionGraph['pattern']): DecisionGraph {
 const options = { resolvedPins: new Set([pin.digest]), decisionSkillId: skill, terminal: 'rerank' };
 describe('DAG pattern fixtures and deterministic beam', () => {
   it('DAG-016 breaks equal scores by stable ID irrespective of insertion order', () => {
-    for (let i = 0; i < 25; i++) {
-      const items = [{ id: 'c', score: 0.7 }, { id: 'a', score: 0.7 }, { id: 'b', score: 0.7 }];
-      items.sort(() => Math.random() - 0.5);
+    // Exhaustive over every insertion order instead of sampling unseeded shuffles.
+    const orders = [['a', 'b', 'c'], ['a', 'c', 'b'], ['b', 'a', 'c'], ['b', 'c', 'a'], ['c', 'a', 'b'], ['c', 'b', 'a']];
+    for (const order of orders) {
+      const items = order.map(id => ({ id, score: 0.7 }));
       expect(selectDecisionBeam(items, 2, 2).map(x => x.id)).toEqual(['a', 'b']);
     }
     expect(() => selectDecisionBeam([{ id: 'a', score: NaN }], 1, 2)).toThrow();
