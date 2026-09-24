@@ -29,3 +29,42 @@ To explicitly upgrade a string-only definition, build the package and run
 The command refuses to overwrite an existing output, prints the old/new digests,
 and leaves ruleset pin updates to the author. Structured fields require
 `decision.aiwg.io/v1alpha2`; historical v1alpha1 artifacts remain readable.
+
+## Durable receipts
+
+Set `receiptDirectory` in the dispatcher request to keep durable,
+HMAC-protected invocation receipts. The directory is resolved relative to the
+request file. Receipts make a repeated `invocationId` replay the stored outcome;
+the same `invocationId` with different request content fails `replay-mismatch`.
+
+The integrity key comes from host configuration, never from the request or any
+portable artifact. Name a logical reference with `receiptIntegrityKeyRef` and
+map it to an operator-provided environment variable in `credentials`, the same
+way a Jev `credentialRef` is mapped:
+
+```json
+{
+  "receiptDirectory": ".decision-receipts",
+  "receiptIntegrityKeyRef": "decision-receipt-key",
+  "receiptIntegrityKeyEncoding": "hex",
+  "credentials": { "decision-receipt-key": "AIWG_DECISION_RECEIPT_KEY" }
+}
+```
+
+The variable holds at least 32 random bytes, encoded as `hex` (the default) or
+`base64` (for example `openssl rand -hex 32`). Keep it stable for the life of
+the receipt directory: receipts written under one key fail integrity checks
+under another.
+
+The dispatcher fails closed before evaluation and writes no receipt when the
+key is not usable. It exits with status 2 and prints one JSON line to stderr:
+
+| `error` | Cause |
+|---|---|
+| `receipt-integrity-key-missing` | No `receiptIntegrityKeyRef`, no `credentials` mapping for it, or the mapped variable is unset or empty |
+| `receipt-integrity-key-invalid` | Unknown encoding, a value that is not valid for the declared encoding, or fewer than 32 decoded bytes |
+
+Messages name the logical reference and the variable name only. The key value
+never appears in results, receipts, or diagnostics. The receipt key's logical
+reference is reserved: a binding that names it as a backend `credentialRef` is
+refused, so the key cannot be sent to a remote backend.

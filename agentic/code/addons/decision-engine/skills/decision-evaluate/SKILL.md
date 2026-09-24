@@ -25,7 +25,8 @@ executes the outcome.
 
 The request document is runtime configuration, not a portable decision
 artifact. It names `rulesetPath`, `bindingPath`, `definitionPaths`, `inputPath`,
-`runId`, `invocationId`, optional `receiptDirectory`, `credentials` mappings
+`runId`, `invocationId`, optional `receiptDirectory` (which requires
+`receiptIntegrityKeyRef`; see `docs/operations.md`), `credentials` mappings
 from logical reference to environment-variable name, and optional
 `adapterModules` for configured worker transports. Credential values are read
 only at adapter call time and never written to results.
