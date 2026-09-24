@@ -19,7 +19,25 @@ Admission evidence counts other waiting requests in the principal lane, not the 
 
 Queued cancellation rejects before an adapter call. Active cancellation uses the evaluator's composed caller, total-deadline, and target-deadline signal. Retry waits and fallback scheduling re-check that same signal and the single invocation attempt budget. Durable receipt v2 has one pending-dispatch slot, so receipt-backed execution deliberately stays at concurrency 1 until a later receipt schema can atomically represent multiple pending dispatches.
 
-Admission controllers are shared for calls that reuse the same scheduler policy object. Long-running hosts should therefore construct a qualified, versioned policy once per workspace/provider profile rather than accepting request-authored profiles.
+An admission rejection happens before any adapter call, so the attempt is recorded as not sent. With a durable receipt store the receipt reaches its normal terminal state, and the attempt keeps the typed reason and the admission evidence: request and token buckets map to `rate-limited`, attempt and cost budgets to `budget-exhausted`, deadline and queue expiry to `timeout`, and batch, queue-length, and missing-provider rejections to `overloaded`. A provider named by a binding target but absent from `providers` is rejected as `unconfigured-provider`. Only an attempt that really was dispatched and whose outcome is unknown is recorded as `execution-uncertain`.
+
+### Controller keying
+
+Admission state is keyed by trusted scope, not by the identity of the policy object. The evaluator keeps one controller per `workspace.id` in a process-wide registry. Inside it, concurrency, request and token buckets, attempt and cost budgets, queues, `Retry-After` pauses, and breakers are counted per principal, per workspace, and per provider lane. Structurally equal policies built for each request therefore share every ceiling, and principals with equal limits never share each other's quota. Provider ceilings apply within a workspace. Cross-workspace or cross-process provider coordination is out of scope for the in-process controller.
+
+The most recently registered `profileVersion` supplies a workspace's current limits, and queued work is revalidated against it before dispatch. A given `profileVersion` is immutable: a policy that reuses a revision already registered for the same workspace (or the same principal) with different limits fails closed as `invalid-definition` before any dispatch. Registering an earlier revision again is how a host rolls back.
+
+Migration from object-identity sharing:
+
+- Hosts that already reuse one policy object keep the same behavior.
+- Hosts that build a policy per request now get the shared ceilings they declared. Before, each such request received a fresh, unshared controller.
+- Every change to limits must publish a new `profileVersion`. Mutating a policy in place, or sending different limits under the same revision, is rejected.
+- `principal.id` and `workspace.id` must remain trusted host identities. Two tenants that reuse a workspace ID share its admission state.
+- An injected `now` clock is a test seam. Switching to a different clock function restarts the state of an idle workspace scope; a busy scope keeps its clock and counters.
+
+### Retry backoff
+
+In a scheduled run without a receipt store, a retry gives its evaluator scheduler permit back while it sleeps through backoff, and it regains a permit ahead of work that has not started. Another eligible lane can therefore dispatch during the delay, and active adapter calls still never exceed the ceiling. Serial runs and receipt-backed runs keep a strictly serial chronology, and their backoff continues to hold the single permit.
 
 ## Rollout
 
@@ -27,7 +45,7 @@ Admission controllers are shared for calls that reuse the same scheduler policy 
 2. Run the pinned offline load manifest below with fake adapters and fake time.
 3. Enable a shadow profile and compare queue, retry-amplification, and breaker evidence.
 4. Canary a bounded provider profile below its documented capacity.
-5. Roll back at a run boundary by restoring the previous policy object or setting `enabled: false`.
+5. Roll back at a run boundary by registering the previous `profileVersion` or setting `enabled: false`.
 
 No live provider qualification is required in CI, and no vendor ceiling is hard-coded.
 

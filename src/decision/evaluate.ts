@@ -5,8 +5,8 @@ import { applyPrimitiveAcceptance, validatePrimitiveAcceptancePolicy } from './a
 import { DecisionPreDispatchError, decisionInvocationFingerprint, nextReceipt } from './receipts.js';
 import { admitEntry, EntryAdmissionError } from './entry.js';
 import { correlateAtomicBatch, decisionBatchQuestionId, planNativeDecisionBatches } from './batch.js';
-import { AdmissionError, DecisionAdmissionController } from './admission.js';
-import { runBoundedFair, SchedulerWaitError } from './scheduler.js';
+import { AdmissionError, AdmissionProfileConflictError, decisionAdmissionRegistry } from './admission.js';
+import { runBoundedFair, SchedulerWaitError, type SchedulerSlot } from './scheduler.js';
 import { allocateEstimatedUsage, batchAccountingTotals, batchEnforcementCostMicros, deriveCost } from './batch-receipts/accounting.js';
 import { validOpaqueRequestId } from './batch-receipts/validate.js';
 import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch-receipts/receipt.js';
@@ -63,8 +63,6 @@ import {
 const RETRIABLE = new Set<DecisionFailureReason>([
   'timeout', 'network-transient', 'rate-limited', 'overloaded', 'service-error',
 ]);
-
-const admissionControllers = new WeakMap<object, DecisionAdmissionController>();
 
 export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest): Promise<RulesetResult> {
   const result = request.resultCache?.policy.enabled
@@ -612,8 +610,10 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
     : [remainingItems];
   for (const waveItems of waves) {
     const scheduled = await runBoundedFair(waveItems.map(item => ({ value: item, lane: schedulerLane(request, item) })), concurrency,
-      async item => evaluateOne({ request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
-        attemptBudget, now, advance, batchEvidence: singleBatchEvidence(request, item.alias), contextPlan, contextUsage }),
+      async (item, _index, slot) => evaluateOne({ request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
+        attemptBudget, now, advance, batchEvidence: singleBatchEvidence(request, item.alias), contextPlan, contextUsage,
+        // Receipt v2 keeps a strictly serial chronology, so only receipt-free scheduled runs yield during backoff.
+        ...(request.scheduler?.enabled && !request.receiptStore ? { suspend: slot.suspend } : {}) }),
       { signal: totalAbort, deadlineEpochMs: totalDeadline, now });
     scheduled.forEach((execution, index) => {
       const item = waveItems[index]!;
@@ -700,6 +700,8 @@ interface OneContext {
   batchResult?: ReturnType<typeof batchResultReference>;
   contextPlan?: ContextPlan;
   contextUsage?: ContextActualUsageEvidence[];
+  /** Releases the evaluator scheduler permit while a retry backs off. */
+  suspend?: SchedulerSlot['suspend'];
 }
 
 async function evaluateOne(context: OneContext): Promise<DecisionResult> {
@@ -777,7 +779,8 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
         if (context.signal.aborted || remaining <= delayMs) { final = interruption(context); break; }
         attempts[attempts.length - 1]!.retryDelayMs = delayMs;
         try {
-          await (context.request.delay ?? abortableDelay)(delayMs, context.signal);
+          const backoff = (): Promise<void> => (context.request.delay ?? abortableDelay)(delayMs, context.signal);
+          await (context.suspend ? context.suspend(backoff) : backoff());
         } catch {
           final = interruption(context);
           break;
@@ -823,16 +826,7 @@ async function invokeWithDeadline(
   try {
     if (context.request.scheduler?.enabled) {
       const policy = context.request.scheduler;
-      const providerLimits = policy.providers[target.adapter];
-      if (!providerLimits) return observationFailure('overloaded');
-      let controller = admissionControllers.get(policy);
-      if (!controller) {
-        controller = new DecisionAdmissionController(admissionRequest => ({
-          principal: policy.principal.limits, workspace: policy.workspace.limits,
-          provider: policy.providers[admissionRequest.providerId] ?? providerLimits,
-        }), context.now);
-        admissionControllers.set(policy, controller);
-      }
+      const controller = decisionAdmissionRegistry.controllerFor(policy, context.now);
       try {
         const lease = await controller.acquire({ budgetId: context.request.invocationId,
           principalId: policy.principal.id, workspaceId: policy.workspace.id,
@@ -844,7 +838,10 @@ async function invokeWithDeadline(
       } catch (error) {
         if (error instanceof AdmissionError) {
           policy.onEvidence?.(context.item.alias, error.evidence);
-          return { ...observationFailure(admissionReason(error)), admission: error.evidence };
+          // Nothing was sent. A target timeout that aborts a queued wait is a timeout, not a caller cancellation.
+          const failure = error.evidence.reason === 'cancelled' && !context.request.signal?.aborted
+            ? interruption(context) : observationFailure(admissionReason(error));
+          return { ...failure, dispatchCertainty: 'not-sent', admission: error.evidence };
         }
         throw error;
       }
@@ -1301,7 +1298,7 @@ function admissionReason(error: AdmissionError): DecisionFailureReason {
 
 function releaseAdmissionBudget(request: DecisionEvaluationRequest): void {
   if (!request.scheduler?.enabled) return;
-  admissionControllers.get(request.scheduler)?.releaseBudget(request.invocationId);
+  decisionAdmissionRegistry.controller(request.scheduler.workspace.id)?.releaseBudget(request.invocationId);
 }
 
 function validateSchedulerPolicy(request: DecisionEvaluationRequest): void {
@@ -1325,6 +1322,11 @@ function validateSchedulerPolicy(request: DecisionEvaluationRequest): void {
     if (limit.maxCostUsd !== undefined && (!Number.isFinite(limit.maxCostUsd) || limit.maxCostUsd < 0)) {
       throw new DecisionValidationError('scheduler cost limit must be finite and non-negative');
     }
+  }
+  if (!policy.enabled) return;
+  try { decisionAdmissionRegistry.register(policy, request.now ?? Date.now); } catch (error) {
+    if (error instanceof AdmissionProfileConflictError) throw new DecisionValidationError(error.message);
+    throw error;
   }
 }
 

@@ -1,4 +1,5 @@
-import type { DecisionAdmissionEstimate, DecisionAdmissionEvidence, DecisionAdmissionLimits } from './types.js';
+import { canonicalJson } from '../security/artifact-trust.js';
+import type { DecisionAdmissionEstimate, DecisionAdmissionEvidence, DecisionAdmissionLimits, DecisionSchedulerPolicy } from './types.js';
 
 export interface AdmissionRequest {
   /** Stable invocation/budget scope supplied by the trusted host. */
@@ -32,6 +33,12 @@ interface Waiter {
   cleanup: () => void;
 }
 
+export interface AdmissionScopeLimits {
+  principal: DecisionAdmissionLimits;
+  workspace: DecisionAdmissionLimits;
+  provider: DecisionAdmissionLimits;
+}
+
 /** Shared, in-process controller. Hosts may share one instance across invocations. */
 export class DecisionAdmissionController {
   private active = 0;
@@ -50,15 +57,22 @@ export class DecisionAdmissionController {
   private timer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
-    private readonly limits: (request: AdmissionRequest) => { principal: DecisionAdmissionLimits; workspace: DecisionAdmissionLimits; provider: DecisionAdmissionLimits },
+    /** Returns null when the trusted profile has no limits for the request's provider. */
+    private readonly limits: (request: AdmissionRequest) => AdmissionScopeLimits | null,
     private readonly now: () => number = Date.now,
   ) {}
+
+  /** True when no lease is active and no request is queued, optionally for one principal. */
+  idle(principalId?: string): boolean {
+    if (principalId === undefined) return this.active === 0 && this.queuedCount() === 0;
+    return !this.activePrincipal.get(principalId) && this.queuedCount(request => request.principalId === principalId) === 0;
+  }
 
   async acquire(request: AdmissionRequest): Promise<AdmissionLease> {
     const checked = this.preflight(request);
     if (checked) throw checked;
     const lane = `${request.providerId}\u0000${request.workspaceId}\u0000${request.principalId}`;
-    const limits = this.limits(request);
+    const limits = this.limits(request)!;
     const queueCounts = [this.queuedCount(candidate => candidate.principalId === request.principalId),
       this.queuedCount(candidate => candidate.workspaceId === request.workspaceId),
       this.queuedCount(candidate => candidate.providerId === request.providerId)];
@@ -92,9 +106,11 @@ export class DecisionAdmissionController {
   }
 
   private preflight(request: AdmissionRequest): AdmissionError | null {
-    const all = Object.values(this.limits(request));
+    const scoped = this.limits(request);
     const estimate = request.estimate;
     if (request.signal.aborted) return this.error('cancelled', 'reject', request, false);
+    if (!scoped) return this.error('unconfigured-provider', 'reject', request, false);
+    const all = Object.values(scoped);
     if (this.now() >= request.deadlineEpochMs) return this.error('deadline-exceeded', 'reject', request, false);
     for (const count of [estimate.tokens, estimate.requestBytes, estimate.items, estimate.attempts, estimate.batchSize, estimate.retainedWork]) {
       if (count !== undefined && (!Number.isSafeInteger(count) || count < 0)) {
@@ -129,7 +145,7 @@ export class DecisionAdmissionController {
         const queue = this.queues.get(lanes[position]!)!;
         const waiter = queue[0];
         if (!waiter) continue;
-        const waitLimit = Math.min(...Object.values(this.limits(waiter.request)).map(limit => limit.maxQueueWaitMs ?? Number.POSITIVE_INFINITY));
+        const waitLimit = Math.min(...Object.values(this.limits(waiter.request) ?? {}).map(limit => limit.maxQueueWaitMs ?? Number.POSITIVE_INFINITY));
         if (waiter.request.signal.aborted || this.now() >= waiter.request.deadlineEpochMs || this.now() - waiter.enqueuedAt >= waitLimit) {
           queue.shift();
           waiter.cleanup();
@@ -160,7 +176,7 @@ export class DecisionAdmissionController {
 
   private tryAdmit(waiter: Waiter): AdmissionLease | AdmissionError {
     const request = waiter.request;
-    const { principal, workspace, provider } = this.limits(request);
+    const { principal, workspace, provider } = this.limits(request)!;
     const limits = [principal, workspace, provider];
     const counts = [this.activePrincipal.get(request.principalId) ?? 0, this.activeWorkspace.get(request.workspaceId) ?? 0, this.activeProvider.get(request.providerId) ?? 0];
     if (limits.some((limit, index) => counts[index]! >= limit.concurrency)) return this.error('concurrency', 'defer', request, true, 10);
@@ -230,3 +246,111 @@ export class DecisionAdmissionController {
   private jitterHint(value: number): number { return Math.max(1, Math.min(30_000, Math.round(value * 0.875))); }
   private schedulePump(delay: number): void { if (this.timer) return; this.timer = setTimeout(() => { this.timer = undefined; this.pump(); }, Math.max(1, Math.min(delay, 30_000))); }
 }
+
+interface AdmissionScope {
+  controller: DecisionAdmissionController;
+  now: () => number;
+  profileVersion: string;
+  workspace: DecisionAdmissionLimits;
+  providers: Record<string, DecisionAdmissionLimits>;
+  principals: Map<string, DecisionAdmissionLimits>;
+  /** Content digests per (profile revision, scope), used to reject same-revision conflicts. */
+  revisions: Map<string, string>;
+}
+
+export class AdmissionProfileConflictError extends Error {
+  constructor() { super('scheduler profile revision conflicts with the registered revision'); }
+}
+
+const MAX_TRACKED_REVISIONS = 4096;
+const MAX_TRACKED_PRINCIPALS = 4096;
+
+/**
+ * Trusted-scope controller registry. Admission state is keyed by the host's
+ * workspace ID, not by the identity of the policy object, so structurally equal
+ * policies built per request share principal, workspace, and provider ceilings.
+ *
+ * The most recently registered `profileVersion` supplies the current limits for
+ * a workspace (queued work is revalidated against it). Registering different
+ * limits under a revision already seen for the same scope fails closed: a
+ * changed profile must carry a new `profileVersion`.
+ */
+export class DecisionAdmissionRegistry {
+  private readonly scopes = new Map<string, AdmissionScope>();
+
+  constructor(private readonly maxIdleScopes = 1024) {}
+
+  /** Record the policy as the workspace's current profile and return its controller. */
+  register(policy: DecisionSchedulerPolicy, now: () => number = Date.now): DecisionAdmissionController {
+    const scope = this.scopeFor(policy, now);
+    const workspaceDigest = canonicalJson({ workspace: policy.workspace.limits, providers: policy.providers });
+    const principalDigest = canonicalJson(policy.principal.limits);
+    const workspaceKey = `w\u0000${policy.profileVersion}`;
+    const principalKey = `p\u0000${policy.principal.id}\u0000${policy.profileVersion}`;
+    const knownWorkspace = scope.revisions.get(workspaceKey);
+    const knownPrincipal = scope.revisions.get(principalKey);
+    if ((knownWorkspace !== undefined && knownWorkspace !== workspaceDigest)
+      || (knownPrincipal !== undefined && knownPrincipal !== principalDigest)) throw new AdmissionProfileConflictError();
+    this.remember(scope.revisions, workspaceKey, workspaceDigest, MAX_TRACKED_REVISIONS);
+    this.remember(scope.revisions, principalKey, principalDigest, MAX_TRACKED_REVISIONS);
+    scope.profileVersion = policy.profileVersion;
+    scope.workspace = structuredClone(policy.workspace.limits);
+    scope.providers = structuredClone(policy.providers);
+    scope.principals.delete(policy.principal.id);
+    scope.principals.set(policy.principal.id, structuredClone(policy.principal.limits));
+    for (const principalId of scope.principals.keys()) {
+      if (scope.principals.size <= MAX_TRACKED_PRINCIPALS) break;
+      if (principalId !== policy.principal.id && scope.controller.idle(principalId)) scope.principals.delete(principalId);
+    }
+    return scope.controller;
+  }
+
+  /** The workspace's controller, registering the policy only when the scope is unknown. */
+  controllerFor(policy: DecisionSchedulerPolicy, now: () => number = Date.now): DecisionAdmissionController {
+    const scope = this.scopes.get(policy.workspace.id);
+    return scope?.principals.has(policy.principal.id) ? scope.controller : this.register(policy, now);
+  }
+
+  controller(workspaceId: string): DecisionAdmissionController | undefined {
+    return this.scopes.get(workspaceId)?.controller;
+  }
+
+  private scopeFor(policy: DecisionSchedulerPolicy, now: () => number): AdmissionScope {
+    let scope = this.scopes.get(policy.workspace.id);
+    if (!scope) {
+      const created: AdmissionScope = { controller: undefined as unknown as DecisionAdmissionController, now,
+        profileVersion: policy.profileVersion, workspace: policy.workspace.limits, providers: policy.providers,
+        principals: new Map(), revisions: new Map() };
+      created.controller = this.controllerOf(created);
+      this.scopes.set(policy.workspace.id, created);
+      for (const [workspaceId, candidate] of this.scopes) {
+        if (this.scopes.size <= this.maxIdleScopes) break;
+        if (candidate !== created && candidate.controller.idle()) this.scopes.delete(workspaceId);
+      }
+      scope = created;
+    } else if (scope.now !== now && scope.controller.idle()) {
+      // An injected clock is a test seam. Switching clocks restarts idle state;
+      // a busy scope keeps its clock so live counters are never discarded.
+      scope.now = now;
+      scope.controller = this.controllerOf(scope);
+    }
+    return scope;
+  }
+
+  private controllerOf(scope: AdmissionScope): DecisionAdmissionController {
+    return new DecisionAdmissionController(request => {
+      const principal = scope.principals.get(request.principalId);
+      const provider = scope.providers[request.providerId];
+      return principal && provider ? { principal, workspace: scope.workspace, provider } : null;
+    }, scope.now);
+  }
+
+  private remember(map: Map<string, string>, key: string, value: string, maximum: number): void {
+    map.delete(key);
+    map.set(key, value);
+    while (map.size > maximum) map.delete(map.keys().next().value!);
+  }
+}
+
+/** Process-wide registry used by the evaluator. */
+export const decisionAdmissionRegistry = new DecisionAdmissionRegistry();
