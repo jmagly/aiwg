@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { link, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
+import { link, lstat, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../../security/artifact-trust.js';
 import type { AdapterObservation } from '../types.js';
@@ -54,23 +54,34 @@ export class FileBatchResultStore implements BatchResultStore {
   constructor(private readonly directory: string) {}
 
   async writeMany(receipt: DecisionBatchReceipt, observations: ReadonlyMap<string, AdapterObservation>): Promise<void> {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await this.ensurePrivateDirectory();
     for (const snapshot of snapshotsFor(receipt, observations)) await this.publish(snapshot);
   }
 
   async readMany(receipt: DecisionBatchReceipt): Promise<Map<string, AdapterObservation>> {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await this.ensurePrivateDirectory();
     const found = new Map<string, AdapterObservation>();
     const names = await readdir(this.directory);
     for (const reference of receipt.answerReferences) {
       const prefix = filePrefix({ ...scope(receipt), questionId: reference.questionId, answerId: reference.answerId });
       const name = names.find(candidate => candidate === `${prefix}.json`);
       if (!name) return new Map();
-      const parsed = JSON.parse(await readFile(join(this.directory, name), 'utf8')) as BatchResultSnapshot;
+      const path = join(this.directory, name);
+      const stat = await lstat(path);
+      if (!stat.isFile() || (stat.mode & 0o077) !== 0) throw new BatchReceiptValidationError('Insecure batch result file');
+      const parsed = JSON.parse(await readFile(path, 'utf8')) as BatchResultSnapshot;
       validateSnapshotForReceipt(parsed, receipt);
       found.set(reference.questionId, structuredClone(parsed.observation));
     }
     return found;
+  }
+
+  private async ensurePrivateDirectory(): Promise<void> {
+    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    const stat = await lstat(this.directory);
+    if (!stat.isDirectory() || (stat.mode & 0o077) !== 0) {
+      throw new BatchReceiptValidationError('Insecure batch result directory');
+    }
   }
 
   private async publish(snapshot: BatchResultSnapshot): Promise<void> {
@@ -82,6 +93,8 @@ export class FileBatchResultStore implements BatchResultStore {
     try { await link(temporary, finalPath); }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      const stat = await lstat(finalPath);
+      if (!stat.isFile() || (stat.mode & 0o077) !== 0) throw new BatchReceiptValidationError('Insecure batch result file');
       const existing = JSON.parse(await readFile(finalPath, 'utf8')) as BatchResultSnapshot;
       if (canonicalJson(existing) !== canonicalJson(snapshot)) {
         throw new BatchReceiptValidationError('Conflicting batch result publication');
@@ -95,16 +108,21 @@ function snapshotsFor(receipt: DecisionBatchReceipt, observations: ReadonlyMap<s
   if (receipt.status !== 'completed' || receipt.terminalAtEpochMs === null) {
     throw new BatchReceiptValidationError('Batch results require a completed receipt');
   }
+  if (observations.size !== receipt.answerReferences.length) {
+    throw new BatchReceiptValidationError('Batch result set does not match receipt references');
+  }
   return receipt.answerReferences.map(reference => {
     const observation = observations.get(reference.questionId);
     if (!observation || observation.status !== 'success') {
       throw new BatchReceiptValidationError('Batch result store only accepts successful completed observations');
     }
-    return {
+    const snapshot: BatchResultSnapshot = {
       schemaVersion: 'decision-batch-result/v1', ...scope(receipt), receiptRevision: receipt.revision,
       questionId: reference.questionId, answerId: reference.answerId, resultId: reference.resultId,
       observation: structuredClone(observation), createdAtEpochMs: receipt.terminalAtEpochMs!,
     };
+    validateSnapshotForReceipt(snapshot, receipt);
+    return snapshot;
   });
 }
 
@@ -118,7 +136,12 @@ function validateSnapshotForReceipt(snapshot: BatchResultSnapshot, receipt: Deci
   if (!reference || reference.answerId !== snapshot.answerId || reference.resultId !== snapshot.resultId) {
     throw new BatchReceiptValidationError('Batch result reference mismatch');
   }
-  if (snapshot.observation.status !== 'success') throw new BatchReceiptValidationError('Batch result is not successful evidence');
+  if (snapshot.createdAtEpochMs !== receipt.terminalAtEpochMs || snapshot.observation.status !== 'success'
+    || snapshot.observation.requestId !== null || snapshot.observation.requestIdSource !== undefined
+    || snapshot.observation.usage?.inputTokens !== null || snapshot.observation.usage?.outputTokens !== null
+    || snapshot.observation.usage?.costUsd !== null) {
+    throw new BatchReceiptValidationError('Batch result must contain only successful value evidence, not shared accounting');
+  }
 }
 
 function scope(receipt: DecisionBatchReceipt): Pick<BatchResultSnapshot, 'tenantId' | 'projectId' | 'batchId'> {

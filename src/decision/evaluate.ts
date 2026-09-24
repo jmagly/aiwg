@@ -7,7 +7,8 @@ import { admitEntry, EntryAdmissionError } from './entry.js';
 import { correlateAtomicBatch, decisionBatchQuestionId, planNativeDecisionBatches } from './batch.js';
 import { AdmissionError, DecisionAdmissionController } from './admission.js';
 import { runBoundedFair, SchedulerWaitError } from './scheduler.js';
-import { allocateEstimatedUsage, deriveCost } from './batch-receipts/accounting.js';
+import { allocateEstimatedUsage, batchAccountingTotals, batchEnforcementCostMicros, deriveCost } from './batch-receipts/accounting.js';
+import { validOpaqueRequestId } from './batch-receipts/validate.js';
 import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch-receipts/receipt.js';
 import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
 import type { CompatibilityDecision } from './calibration/types.js';
@@ -218,6 +219,15 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
     return failureResult(base, reason);
   }
   if (contextPlan) base = withRulesetContext(base, contextPlan, []);
+  const batchPolicy = request.batchReceipts;
+  if (batchPolicy?.unknownCostBound && (!Number.isSafeInteger(batchPolicy.unknownCostBound.upperBoundMicros)
+    || batchPolicy.unknownCostBound.upperBoundMicros < 0 || !batchPolicy.unknownCostBound.policyId
+    || !batchPolicy.unknownCostBound.policyVersion)) return failureResult(base, 'invalid-definition');
+  if (batchPolicy?.maxCostMicros !== undefined && (!Number.isSafeInteger(batchPolicy.maxCostMicros)
+    || batchPolicy.maxCostMicros < 0 || !batchPolicy.unknownCostBound
+    || batchPolicy.unknownCostBound.upperBoundMicros > batchPolicy.maxCostMicros)) {
+    return failureResult(base, 'budget-exhausted');
+  }
 
   const fingerprint = decisionInvocationFingerprint({
     invocationId: request.invocationId,
@@ -319,35 +329,61 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
   // Native batching may coexist with the invocation receipt only when a batch
   // receipt owns the shared dispatch and its accounting before transport begins.
   if ((!request.receiptStore || request.batchReceipts) && request.batching?.enabled) {
+    let batchCostSpent = 0;
+    // A terminal receipt must never point at values that cannot be recovered on replay.
+    if (request.batchReceipts && !request.batchReceipts.resultStore) throw new ReceiptPersistenceError();
     const candidates = [];
     for (const item of resolved) {
       if (evaluations[item.alias]) continue;
       const configured = request.binding.spec.evaluations[item.alias];
-      const target = configured?.targets.length === 1 && configured.targets[0]?.retry.maxRetries === 0
+      const target = configured?.targets.length && configured.targets.length <= 2
+        && (configured.targets.length === 1 || request.batchReceipts)
+        && (!configured.targets[1] || configured.targets[1].adapter === configured.targets[0]?.adapter
+          && configured.targets[1].adapterVersion === configured.targets[0]?.adapterVersion)
         ? configured.targets[0] : undefined;
       const adapter = target ? request.adapters[target.adapter] : undefined;
       if (!target || !adapter) continue;
       const capabilityFailure = await checkCapabilities(adapter, target, item.definition);
-      if (capabilityFailure) continue;
+      if (capabilityFailure || configured!.targets[1] && await checkCapabilities(adapter, configured!.targets[1], item.definition)) continue;
       candidates.push({ alias: item.alias, definition: item.definition, input: item.input, target, adapter,
         capabilities: await adapter.capabilities() });
     }
     for (const plan of request.context?.rollout?.mode === 'observe-only' ? []
       : contextPartitionedBatchPlans(planNativeDecisionBatches(candidates, request.batching), contextPlan)) {
       if (plan.candidates.some(candidate => evaluations[candidate.alias])) continue;
+      const fallbackTargets = plan.candidates.map(candidate => request.binding.spec.evaluations[candidate.alias]!.targets[1]);
+      if (fallbackTargets.some(Boolean) && (fallbackTargets.some(target => !target)
+        || fallbackTargets.some(target => canonicalJson(batchTargetIdentity(target!))
+          !== canonicalJson(batchTargetIdentity(fallbackTargets[0]!))))) continue;
+      const fallbackTarget = fallbackTargets[0];
       if (attemptsUsed + plan.candidates.length > request.binding.spec.maxAttempts) continue;
+      if (request.batchReceipts?.maxCostMicros !== undefined && batchCostSpent
+        + request.batchReceipts.unknownCostBound!.upperBoundMicros > request.batchReceipts.maxCostMicros) {
+        for (const candidate of plan.candidates) {
+          const item = resolved.find(value => value.alias === candidate.alias)!;
+          evaluations[item.alias] = decisionResult({ request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort,
+            totalTimeout, attemptBudget, now, advance, contextPlan, contextUsage },
+          observationFailure('budget-exhausted'), []);
+        }
+        continue;
+      }
       const started = now();
       const deadline = Math.min(totalDeadline, ...plan.candidates.map(candidate => started + candidate.target.timeoutMs));
       const questionIds = plan.candidates.map(candidate => decisionBatchQuestionId(candidate.alias));
       let observations = new Map<string, AdapterObservation>();
       let durableReceipt: DecisionBatchReceipt | undefined;
       let batchReferences = new Map<string, ReturnType<typeof batchResultReference>>();
+      let dispatchCount = 0;
       try {
         const adapter = plan.candidates[0]!.adapter;
         const projectedCandidates = await Promise.all(plan.candidates.map(async candidate => ({
           candidate,
           projected: await projectRuntimeInput(request, candidate.alias, candidate.target, candidate.input),
         })));
+        // Both egress projections must be authorized before the first transport call.
+        const fallbackProjectedCandidates = fallbackTarget ? await Promise.all(plan.candidates.map(async candidate => ({
+          candidate, projected: await projectRuntimeInput(request, candidate.alias, fallbackTarget, candidate.input),
+        }))) : null;
         if (request.batchReceipts) {
           const partition = request.batchReceipts.contextPlan.partitions.find(candidate =>
             sameStringSet(candidate.questionIds, questionIds));
@@ -385,15 +421,22 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
           }
           durableReceipt = running;
         }
-        const preparedRequests = await Promise.all(projectedCandidates.map(({ candidate, projected }, index) =>
+        let fallbackActive = false;
+        for (let retry = 0; retry <= (request.batchReceipts
+          ? plan.candidates[0]!.target.retry.maxRetries + (fallbackTarget ? fallbackTarget.retry.maxRetries + 1 : 0) : 0); retry++) {
+        dispatchCount++;
+        const activeTarget = fallbackActive ? fallbackTarget! : plan.candidates[0]!.target;
+        const preparedRequests = await Promise.all((fallbackActive ? fallbackProjectedCandidates! : projectedCandidates)
+          .map(({ candidate, projected }, index) =>
           prepareAdapterRequest({
             alias: candidate.alias, questionId: questionIds[index], definition: structuredClone(candidate.definition),
-            input: structuredClone(projected.input), target: structuredClone(candidate.target),
+            input: structuredClone(projected.input), target: structuredClone(activeTarget),
             invocationId: `${request.invocationId}:${plan.groupId}`, deadlineEpochMs: deadline,
             signal: totalAbort, callerSignal: request.signal ?? new AbortController().signal, totalSignal: totalAbort,
             resolveCredential: request.resolveCredential ?? unauthorizedCredential,
             ...(projected.evidence ? { projectionEvidence: projected.evidence } : {}),
           }, adapter, request.compileCache)));
+        const dispatchedAt = now();
         const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
           requests: preparedRequests });
         if (contextPlan && response.sharedUsage.inputTokens !== null) {
@@ -405,7 +448,7 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
         const normalized = new Map<string, { observation: AdapterObservation; calibrationCompatibility?: CompatibilityDecision }>();
         plan.candidates.forEach((candidate, index) => {
           const item = resolved.find(value => value.alias === candidate.alias)!;
-          normalized.set(questionIds[index]!, normalizeObservationForRuntime({ request, item, target: candidate.target,
+          normalized.set(questionIds[index]!, normalizeObservationForRuntime({ request, item, target: activeTarget,
             observation: observations.get(questionIds[index]!)!, now }));
         });
         observations = new Map([...normalized].map(([id, value]) => [id, value.observation]));
@@ -413,50 +456,89 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
           const requestIds = uniqueNonNull(response.answers.map(answer => answer.observation.requestId));
           if (requestIds.length > 1) throw new Error('batch response contained multiple provider request IDs');
           const models = uniqueNonNull(response.answers.map(answer => answer.observation.actualModel));
+          const derivedCost = request.batchReceipts.priceCatalog
+            ? deriveCost(response.sharedUsage, request.batchReceipts.priceCatalog) : { kind: 'unknown' as const };
           const cost = providerCost(response.sharedUsage.costUsd)
-            ?? (request.batchReceipts.priceCatalog
-              ? deriveCost(response.sharedUsage, request.batchReceipts.priceCatalog) : { kind: 'unknown' as const });
+            ?? (derivedCost.kind !== 'unknown' ? derivedCost : request.batchReceipts.unknownCostBound
+              ? { kind: 'bounded-unknown' as const, currency: 'USD' as const,
+                upperBoundMicros: request.batchReceipts.unknownCostBound.upperBoundMicros,
+                boundPolicyId: request.batchReceipts.unknownCostBound.policyId,
+                boundPolicyVersion: request.batchReceipts.unknownCostBound.policyVersion }
+              : { kind: 'unknown' as const });
           const certainties = response.answers.map(answer => answer.observation.dispatchCertainty);
           const attemptStatus: BatchAttempt['status'] = certainties.some(value => value === 'unknown')
-            ? 'execution-uncertain' : certainties.every(value => value === 'not-sent') ? 'not-sent' : 'succeeded';
+            ? 'execution-uncertain' : certainties.every(value => value === 'not-sent') ? 'not-sent'
+              : [...observations.values()].every(value => value.status === 'success') ? 'succeeded' : 'failed';
           const attempt: BatchAttempt = {
             ordinal: durableReceipt.attempts.length + 1,
             adapterId: adapter.id,
             adapterVersion: adapter.version,
-            requestedModel: plan.candidates[0]!.target.model,
+            requestedModel: activeTarget.model,
             actualModel: models.length === 1 ? models[0]! : null,
-            providerRequestId: requestIds[0] ?? null,
+            providerRequestId: requestIds[0] && validOpaqueRequestId(requestIds[0]) ? requestIds[0] : null,
             status: attemptStatus,
-            dispatchedAtEpochMs: attemptStatus === 'not-sent' ? null : started,
+            dispatchedAtEpochMs: attemptStatus === 'not-sent' ? null : dispatchedAt,
             completedAtEpochMs: now(),
             usage: { inputTokens: response.sharedUsage.inputTokens, outputTokens: response.sharedUsage.outputTokens },
             cost,
-            fallbackFromAttemptOrdinal: null,
+            fallbackFromAttemptOrdinal: fallbackActive ? durableReceipt.attempts.at(-1)?.ordinal ?? null : null,
           };
           const answerReferences = plan.candidates.map((candidate, index) => ({
             questionId: questionIds[index]!,
             answerId: durableAnswerId(durableReceipt!.batchId, questionIds[index]!),
             resultId: `${request.invocationId}-${candidate.alias}`,
           }));
+          const retriable = attemptStatus === 'failed'
+            && [...observations.values()].every(value => RETRIABLE.has(value.reason));
+          const canRetry = retriable && (fallbackActive
+            ? retry - plan.candidates[0]!.target.retry.maxRetries - 1 < fallbackTarget!.retry.maxRetries
+            : retry < plan.candidates[0]!.target.retry.maxRetries)
+            && attemptsUsed + (dispatchCount + 1) * plan.candidates.length <= request.binding.spec.maxAttempts
+            && (request.batchReceipts.maxCostMicros === undefined
+              || (batchEnforcementCostMicros({ ...durableReceipt, attempts: [...durableReceipt.attempts, attempt] }) ?? Infinity)
+                + request.batchReceipts.unknownCostBound!.upperBoundMicros <= request.batchReceipts.maxCostMicros)
+            && now() < deadline;
+          const canFallback = attemptStatus === 'failed' && !canRetry && !fallbackActive && !!fallbackTarget
+            && [...observations.values()].every(value => plan.candidates.every(candidate =>
+              request.binding.spec.evaluations[candidate.alias]!.fallbackOn.includes(value.reason)))
+            && attemptsUsed + (dispatchCount + 1) * plan.candidates.length <= request.binding.spec.maxAttempts
+            && (request.batchReceipts.maxCostMicros === undefined
+              || (batchEnforcementCostMicros({ ...durableReceipt, attempts: [...durableReceipt.attempts, attempt] }) ?? Infinity)
+                + request.batchReceipts.unknownCostBound!.upperBoundMicros <= request.batchReceipts.maxCostMicros)
+            && now() < deadline;
+          if (canRetry || canFallback) {
+            const pending = nextBatchReceipt(durableReceipt, { status: 'running', updatedAtEpochMs: now(),
+              attempts: [...durableReceipt.attempts, attempt] });
+            if (!await request.batchReceipts.store.compareAndSwap(durableReceipt, pending)) throw new ReceiptPersistenceError();
+            durableReceipt = pending;
+            if (canFallback) fallbackActive = true;
+            continue;
+          }
           const terminalStatus = attemptStatus === 'succeeded' ? 'completed'
-            : attemptStatus === 'not-sent' ? 'failed' : 'execution-uncertain';
+            : attemptStatus === 'execution-uncertain' ? 'execution-uncertain' : 'failed';
           const terminal = nextBatchReceipt(durableReceipt, { status: terminalStatus, updatedAtEpochMs: now(),
             attempts: [...durableReceipt.attempts, attempt],
             ...(terminalStatus === 'completed' ? { answerReferences,
-              allocations: allocateEstimatedUsage(questionIds, attempt.usage) } : {}) });
+              allocations: allocateEstimatedUsage(questionIds, batchAccountingTotals({ ...durableReceipt,
+                attempts: [...durableReceipt.attempts, attempt] }).usage) } : {}) });
+          if (terminalStatus === 'completed') {
+            // Publish values before committing the terminal receipt: a crash between these
+            // writes leaves an uncertain receipt, never a successful but unreadable replay.
+            observations = resultOnlyBatchObservations(observations);
+            await request.batchReceipts.resultStore!.writeMany(terminal, observations);
+          }
           if (!await request.batchReceipts.store.compareAndSwap(durableReceipt, terminal)) {
             throw new ReceiptPersistenceError();
           }
           durableReceipt = terminal;
           if (terminalStatus === 'completed') {
-            // Shared request identity, usage, and cost live only on the receipt and not in the governed value repository.
-            observations = resultOnlyBatchObservations(observations);
-            if (request.batchReceipts.resultStore) await request.batchReceipts.resultStore.writeMany(terminal, observations);
             batchReferences = new Map(questionIds.map(questionId =>
               [questionId, batchResultReference(terminal, questionId)]));
           }
           else observations = resultOnlyBatchObservations(new Map(questionIds.map(questionId =>
             [questionId, observationFailure(terminalStatus === 'execution-uncertain' ? 'execution-uncertain' : 'service-error')])));
+        }
+        break;
         }
       } catch (error) {
         if (error instanceof ReplayedBatchReceipt || (error as Error).name === 'ReplayedBatchReceipt') {
@@ -491,13 +573,27 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
         const context: OneContext = { request, item, rulesetPin, bindingPin, totalDeadline, signal: totalAbort, totalTimeout,
           attemptBudget, now, advance, batchResult: batchReferences.get(questionIds[index]!), contextPlan, contextUsage };
         const calibrationCompatibility = request.calibrationCompatibility && observation.status === 'success'
-          ? normalizeObservationForRuntime({ request, item, target: candidate.target, observation, now }).calibrationCompatibility
+          ? normalizeObservationForRuntime({ request, item, target: durableReceipt?.attempts.at(-1)?.fallbackFromAttemptOrdinal
+            ? fallbackTarget! : candidate.target, observation, now }).calibrationCompatibility
           : undefined;
+        const historical = durableReceipt?.attempts.map(attempt => {
+          const failure = observationFailure(attempt.status === 'execution-uncertain'
+            ? 'execution-uncertain' : 'service-error');
+          const value = attempt.status === 'succeeded' ? observation : resultOnlyBatchObservations(
+            new Map([[questionIds[index]!, failure]])).get(questionIds[index]!)!;
+          return toAttempt({ ...candidate.target, model: attempt.requestedModel }, attempt.ordinal, value,
+            Math.max(0, (attempt.completedAtEpochMs ?? durableReceipt!.updatedAtEpochMs)
+              - (attempt.dispatchedAtEpochMs ?? durableReceipt!.createdAtEpochMs)), evidence);
+        });
         evaluations[item.alias] = decisionResult(context, observation,
-          [toAttempt(candidate.target, 1, observation, Math.max(0, now() - started), evidence)], calibrationCompatibility);
+          historical?.length ? historical : [toAttempt(candidate.target, 1, observation, Math.max(0, now() - started), evidence)],
+          calibrationCompatibility);
       });
-      attemptsUsed += plan.candidates.length;
-      attemptBudget.consume(plan.candidates.length);
+      if (durableReceipt?.status === 'completed' || durableReceipt?.status === 'failed') {
+        batchCostSpent += batchEnforcementCostMicros(durableReceipt) ?? Infinity;
+      }
+      attemptsUsed += Math.max(1, dispatchCount) * plan.candidates.length;
+      attemptBudget.consume(Math.max(1, dispatchCount) * plan.candidates.length);
     }
   }
   const concurrency = effectiveConcurrency(request);
@@ -1056,6 +1152,12 @@ function prepareContextPlan(
     throw new ContextPlanError('stale-plan', 'batch receipt context plan differs from runtime context plan');
   }
   return plan;
+}
+
+function batchTargetIdentity(target: ExecutionTarget): object {
+  return { adapter: target.adapter, adapterVersion: target.adapterVersion, model: target.model,
+    credentialRef: target.credentialRef ?? null, subagent: target.subagent ?? null,
+    timeoutMs: target.timeoutMs, retry: target.retry };
 }
 
 function contextPartitionedBatchPlans(

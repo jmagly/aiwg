@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { link, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
+import { link, lstat, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../../security/artifact-trust.js';
 import type { DecisionBatchReceipt, BatchReceiptAcquireResult, BatchReceiptStore } from './types.js';
@@ -36,7 +36,7 @@ export class FileBatchReceiptStore implements BatchReceiptStore {
   async acquire(initial: DecisionBatchReceipt): Promise<BatchReceiptAcquireResult> {
     validateBatchReceipt(initial);
     if (initial.revision !== 1 || initial.status !== 'acquired') throw new BatchReceiptValidationError('Initial receipt must be acquired revision 1');
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await this.ensurePrivateDirectory();
     const published = await this.publish(initial);
     if (published) return { owner: true, receipt: structuredClone(initial) };
     const existing = (await this.read(initial.batchId, initial.tenantId, initial.projectId))!;
@@ -44,7 +44,7 @@ export class FileBatchReceiptStore implements BatchReceiptStore {
   }
 
   async read(batchId: string, tenantId: string, projectId: string): Promise<DecisionBatchReceipt | null> {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await this.ensurePrivateDirectory();
     const prefix = filePrefix(batchId, tenantId, projectId);
     const revisions = (await readdir(this.directory)).flatMap(name => {
       const match = name.match(new RegExp(`^${prefix}\\.r([0-9]+)\\.json$`)); return match ? [Number(match[1])] : [];
@@ -53,7 +53,10 @@ export class FileBatchReceiptStore implements BatchReceiptStore {
     revisions.forEach((revision, index) => { if (revision !== index + 1) throw new BatchReceiptValidationError('Batch receipt revision gap'); });
     let previous: DecisionBatchReceipt | null = null;
     for (const revision of revisions) {
-      const parsed = JSON.parse(await readFile(join(this.directory, `${prefix}.r${revision}.json`), 'utf8')) as DecisionBatchReceipt;
+      const path = join(this.directory, `${prefix}.r${revision}.json`);
+      const stat = await lstat(path);
+      if (!stat.isFile() || (stat.mode & 0o077) !== 0) throw new BatchReceiptValidationError('Insecure batch receipt file');
+      const parsed = JSON.parse(await readFile(path, 'utf8')) as DecisionBatchReceipt;
       validateBatchReceipt(parsed);
       if (parsed.batchId !== batchId || parsed.tenantId !== tenantId || parsed.projectId !== projectId) {
         throw new BatchReceiptValidationError('Batch receipt scope substitution');
@@ -69,6 +72,14 @@ export class FileBatchReceiptStore implements BatchReceiptStore {
     const current = await this.read(previous.batchId, previous.tenantId, previous.projectId);
     if (!current || canonicalJson(current) !== canonicalJson(previous)) return false;
     return this.publish(next);
+  }
+
+  private async ensurePrivateDirectory(): Promise<void> {
+    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    const stat = await lstat(this.directory);
+    if (!stat.isDirectory() || (stat.mode & 0o077) !== 0) {
+      throw new BatchReceiptValidationError('Insecure batch receipt directory');
+    }
   }
 
   private async publish(receipt: DecisionBatchReceipt): Promise<boolean> {
