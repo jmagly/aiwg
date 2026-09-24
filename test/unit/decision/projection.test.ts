@@ -116,6 +116,23 @@ describe('decision state projection', () => {
     },
   );
 
+  it.each([
+    ['non-array fields', (value: DecisionProjectionPolicy) => { (value as unknown as Record<string, unknown>).fields = 'untrusted'; }],
+    ['non-object field', (value: DecisionProjectionPolicy) => { (value.fields as unknown[])[0] = null; }],
+    ['non-string pointer', (value: DecisionProjectionPolicy) => { (value.fields[0] as unknown as Record<string, unknown>).pointer = 1; }],
+    ['non-array scopes', (value: DecisionProjectionPolicy) => { (value.fields[0] as unknown as Record<string, unknown>).accessScopes = 'decision-runtime'; }],
+    ['empty scope element', (value: DecisionProjectionPolicy) => { value.fields[0]!.accessScopes = ['']; }],
+    ['non-string destination', (value: DecisionProjectionPolicy) => { (value.fields[0] as unknown as Record<string, unknown>).allowedProviders = [1]; }],
+  ] as const)('fails closed on malformed portable %s before credentials', async (_name, mutate) => {
+    const value = policy(); mutate(value);
+    const resolveCredential = vi.fn(async () => 'credential');
+    const dispatch = vi.fn(async () => undefined);
+    await expect(dispatchProjectedDecisionState({ report: 'x', evidence: 'y' }, value, { resolveCredential, dispatch }))
+      .rejects.toMatchObject({ reason: 'invalid-policy' });
+    expect(resolveCredential).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
   it('does not echo a missing field pointer from portable policy in errors', async () => {
     const value = policy(); value.fields[0]!.pointer = '/portable-secret-canary-missing';
     await expect(projectDecisionState({ evidence: 'x', report: 'y' }, value)).rejects.toMatchObject({
