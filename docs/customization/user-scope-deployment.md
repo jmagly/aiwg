@@ -86,6 +86,7 @@ explicit no-project-artifact contract.
 | Copilot | `~/.config/github-copilot/{agents,prompts,instructions}/` (harmless mirror; not auto-scanned) | **Non-applicable** — VS Code Copilot's user-scope customization is `settings.json` + Settings Sync, not filesystem discovery. See [#1160](https://git.integrolabs.net/roctinam/aiwg/issues/1160) |
 | Warp | `~/.warp/{agents,commands,rules}/` (harmless mirror; not auto-scanned) | **Non-applicable** — Warp's user-scope mechanism is Warp Drive (cloud-synced), not filesystem discovery. WARP.md aggregation is the project-scope path. See [#1162](https://git.integrolabs.net/roctinam/aiwg/issues/1162) |
 | Windsurf | `~/.windsurf/{agents,skills,workflows,rules}/` (harmless mirror; not auto-scanned) | **Non-applicable** — Windsurf's user-scope mechanism is Cascade Memories (in-app, agent-managed) + global rules in the settings UI, not filesystem discovery. See [#1163](https://git.integrolabs.net/roctinam/aiwg/issues/1163) |
+| Muse Code | `$XDG_CONFIG_HOME/muse/skills` (default `~/.config/muse/skills`); never `~/.muse`, never `~/.agents/skills` | **Verified** ([Muse Code docs](https://dev.meta.ai/docs/muse-code/)) — resolves at deploy time, fail-closed on bad `XDG_CONFIG_HOME` ([ADR](../architecture/adr-muse-provider-target.md)) |
 
 `aiwg use ... --scope user --provider <unknown>` errors fast rather
 than silently falling back to project scope.
