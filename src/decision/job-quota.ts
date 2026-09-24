@@ -16,7 +16,8 @@ export class FileJobQuotaStore implements JobStore {
   private readonly lockPath: string;
   private readonly limits: JobQuotaPolicy;
   constructor(directory: string, limits: JobQuotaPolicy,
-    externallyDeleted?: (scope: JobScope, id: string) => Promise<boolean>) {
+    externallyDeleted?: (scope: JobScope, id: string) => Promise<boolean>,
+    private readonly payloadBytes?: (scope: JobScope, tier: 'principal' | 'project') => Promise<number>) {
     this.journal = new FileJobStore(directory, externallyDeleted);
     this.lockPath = join(directory, '.quota-lock');
     this.limits = structuredClone(limits);
@@ -28,11 +29,16 @@ export class FileJobQuotaStore implements JobStore {
   read(scope: JobScope, id: string): Promise<JobSnapshot | null> { return this.journal.read(scope, id); }
   /** Host-only listing; the gateway filters and authenticates every returned object. */
   listSnapshots(): Promise<JobSnapshot[]> { return this.journal.listSnapshots(); }
+  /** Call only after the independent D10 tombstone and authorized deletion. */
+  async purgeDeleted(scope: JobScope, id: string): Promise<void> {
+    await this.journal.read(scope, id);
+    await this.transaction(() => this.journal.purgeDeleted(scope, id));
+  }
   async acquire(job: DecisionJob): Promise<{ owner: boolean; snapshot: JobSnapshot }> {
     await this.journal.read(job.scope, job.id);
     return this.transaction(async () => {
       const existing = await this.journal.read(job.scope, job.id);
-      if (!existing) this.check(await this.journal.listSnapshots(), { revision: 1, job, deleted: false });
+      if (!existing) await this.check(await this.journal.listSnapshots(), { revision: 1, job, deleted: false });
       return this.journal.acquire(job);
     });
   }
@@ -41,7 +47,7 @@ export class FileJobQuotaStore implements JobStore {
     return this.transaction(async () => {
       const current = await this.journal.read(previous.job.scope, previous.job.id);
       if (!current || canonicalJson(current) !== canonicalJson(previous)) return false;
-      this.check(await this.journal.listSnapshots(), next, previous);
+      await this.check(await this.journal.listSnapshots(), next, previous);
       return this.journal.compareAndSwap(previous, next);
     });
   }
@@ -50,16 +56,16 @@ export class FileJobQuotaStore implements JobStore {
     const release = await acquireDirectoryLock(this.lockPath, { timeoutMs: 5000, pollMs: 20 });
     try { return await fn(); } finally { await release(); }
   }
-  private check(records: JobSnapshot[], proposed: JobSnapshot, previous?: JobSnapshot): void {
+  private async check(records: JobSnapshot[], proposed: JobSnapshot, previous?: JobSnapshot): Promise<void> {
     const scope = proposed.job.scope;
     const effective = records.filter(record => !previous || canonicalJson(record.job.scope) !== canonicalJson(scope) || record.job.id !== proposed.job.id);
     effective.push(proposed);
-    const tiers: Array<[JobQuotaLimits, (job: DecisionJob) => boolean]> = [
-      [this.limits.project, job => job.scope.tenantId === scope.tenantId && job.scope.projectId === scope.projectId],
-      [this.limits.principal, job => job.scope.tenantId === scope.tenantId && job.scope.projectId === scope.projectId &&
+    const tiers: Array<['project' | 'principal', JobQuotaLimits, (job: DecisionJob) => boolean]> = [
+      ['project', this.limits.project, job => job.scope.tenantId === scope.tenantId && job.scope.projectId === scope.projectId],
+      ['principal', this.limits.principal, job => job.scope.tenantId === scope.tenantId && job.scope.projectId === scope.projectId &&
         job.scope.workspaceId === scope.workspaceId && job.scope.principalId === scope.principalId],
     ];
-    for (const [limits, belongs] of tiers) {
+    for (const [tier, limits, belongs] of tiers) {
       const totals = Object.fromEntries(quantities.map(quantity => [quantity, 0])) as Record<typeof quantities[number], number>;
       for (const record of effective) {
         if (record.deleted || !belongs(record.job)) continue;
@@ -73,6 +79,7 @@ export class FileJobQuotaStore implements JobStore {
         totals.costMicros += job.budget.maxCostMicros;
         totals.calls += job.items.length * job.budget.maxAttempts;
       }
+      if (this.payloadBytes) totals.retainedBytes += await this.payloadBytes(scope, tier);
       if (quantities.some(quantity => !Number.isSafeInteger(totals[quantity]) || totals[quantity] > limits[quantity]))
         throw new JobConflictError('Job capacity unavailable');
     }
