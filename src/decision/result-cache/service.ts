@@ -64,7 +64,8 @@ export class DecisionResultCache {
     } finally { this.flights.delete(flightKey); }
   }
   private async bypass(request: ResultCacheRequest, fill: ResultCacheFill, now: number, operationId: string, reason: string): Promise<ResultCacheOutcome> { this.emit({ event: 'bypass', operationId, reason }); const evidence = await fill(); return { evidence, receipt: receipt('bypass', request.callerInvocationId, null, evidence, now, true) }; }
-  private emit(event: ResultCacheTelemetry): void { this.telemetry(event); }
+  /** A failing telemetry sink must never alter, reject, or mask a cache decision. */
+  private emit(event: ResultCacheTelemetry): void { try { this.telemetry(event); } catch { /* isolated */ } }
 }
 
 function cacheable(policy: ResultCachePolicy): boolean { return policy.enabled && policy.sideEffectFree && policy.ttlMs > 0 && policy.scope === 'workspace' && policy.policyVersion.length > 0; }
