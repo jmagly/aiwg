@@ -317,6 +317,19 @@ describe('@aiwg/cli packaged web distribution', () => {
     expect(installedReadme).toContain('## Installation Troubleshooting');
   });
 
+  it('ships every decision schema needed by the public API and job contract', async () => {
+    const sourceRoot = path.join(PROJECT_ROOT, 'schemas', 'decision');
+    const schemas = (await listRelativeFiles(sourceRoot)).filter(relative => relative.endsWith('.json'));
+    const packedPaths = new Set(packMetadata.files.map(file => file.path));
+    expect(schemas).toContain('DecisionJob.v1.schema.json');
+    for (const relative of schemas) {
+      const packagePath = path.posix.join('schemas/decision', ...relative.split(path.sep));
+      expect(packedPaths.has(packagePath), `${packagePath} must ship in @aiwg/cli`).toBe(true);
+      expect(JSON.parse(await readFile(path.join(installRoot, packagePath), 'utf8')))
+        .toEqual(JSON.parse(await readFile(path.join(sourceRoot, relative), 'utf8')));
+    }
+  });
+
   it('ships every security schema and parses each installed copy', async () => {
     const sourceRoot = path.join(PROJECT_ROOT, 'schemas', 'security');
     const sourceSchemas = (await listRelativeFiles(sourceRoot))

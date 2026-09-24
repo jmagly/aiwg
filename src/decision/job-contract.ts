@@ -5,7 +5,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { canonicalJson } from '../security/artifact-trust.js';
 import { admitEntry } from './entry.js';
 
-/** Contract validation only. No job store, provider dispatcher, or automatic action exists here. */
+/** Versioned offline contract. Provider dispatch is not enabled by the job layer. */
 export const ITEM_STATES = [
   'queued', 'running', 'succeeded', 'abstained', 'review', 'unsupported', 'retryable-failed',
   'permanent-failed', 'canceled', 'expired', 'execution-unknown',
@@ -15,9 +15,10 @@ export type JobState = 'validating' | 'queued' | 'running' | 'partially-complete
   'completed' | 'cancel-requested' | 'canceled' | 'expired' | 'failed';
 export interface DecisionJobItem {
   id: string; fingerprint: `sha256:${string}`; subjectDigest: `sha256:${string}`;
-  definitionDigest: `sha256:${string}`; bindingDigest: `sha256:${string}`;
+  definitionDigest: `sha256:${string}`; bindingDigest: `sha256:${string}`; rulesetDigest?: `sha256:${string}`;
   state: ItemState;
   attempts: Array<{ id: string; requestDigest: `sha256:${string}`; receiptDigest?: `sha256:${string}`;
+    reservedTokens?: number; reservedCostMicros?: number;
     outcome: 'dispatched' | 'succeeded' | 'failed' | 'execution-unknown' }>;
   resultDigest?: `sha256:${string}`; errorCode?: string;
 }
@@ -40,9 +41,9 @@ const schema = JSON.parse(readFileSync(resolve(dir, 'DecisionJob.v1.schema.json'
 const check = new Ajv2020({ strict: false, allErrors: true }).compile(schema);
 const reject = (message: string): never => { throw new DecisionJobContractError(message); };
 const transitions: Record<JobState, readonly JobState[]> = {
-  validating: ['queued', 'failed', 'canceled'],
+  validating: ['queued', 'failed', 'canceled', 'expired'],
   queued: ['running', 'cancel-requested', 'expired', 'failed'],
-  running: ['partially-completed', 'completed', 'cancel-requested', 'expired', 'failed'],
+  running: ['running', 'partially-completed', 'completed', 'cancel-requested', 'expired', 'failed'],
   'partially-completed': ['partially-completed', 'completed', 'cancel-requested', 'expired', 'failed'],
   'cancel-requested': ['canceled', 'partially-completed', 'failed', 'expired'],
   completed: [], canceled: [], expired: [], failed: [],
@@ -50,8 +51,8 @@ const transitions: Record<JobState, readonly JobState[]> = {
 const itemTransitions: Record<ItemState, readonly ItemState[]> = {
   queued: ['running', 'canceled', 'expired'],
   running: ['succeeded', 'abstained', 'review', 'unsupported', 'retryable-failed',
-    'permanent-failed', 'execution-unknown', 'expired'],
-  'retryable-failed': ['running', 'canceled', 'expired'],
+    'permanent-failed', 'execution-unknown', 'canceled', 'expired'],
+  'retryable-failed': ['queued', 'running', 'canceled', 'expired'],
   succeeded: [], abstained: [], review: [], unsupported: [], 'permanent-failed': [],
   canceled: [], expired: [], 'execution-unknown': [],
 };
@@ -61,17 +62,28 @@ export function validateDecisionJob(value: unknown): asserts value is DecisionJo
   const job = value as DecisionJob;
   if (job.expiresAtEpochMs <= job.createdAtEpochMs) return reject('invalid job expiry');
   const ids = new Set<string>();
+  let reservedTokens = 0; let reservedCostMicros = 0;
   const actual = Object.fromEntries(ITEM_STATES.map(state => [state, 0])) as Record<ItemState, number>;
   for (const item of job.items) {
     if (ids.has(item.id)) return reject('duplicate job item ID');
     ids.add(item.id); actual[item.state]++;
     if (item.attempts.length > job.budget.maxAttempts ||
         new Set(item.attempts.map(attempt => attempt.id)).size !== item.attempts.length) return reject('invalid item attempts');
-    if (item.state === 'succeeded' && (!item.resultDigest || !item.attempts.some(attempt => attempt.outcome === 'succeeded' && attempt.receiptDigest)))
-      return reject('successful item lacks validated receipt');
+    if (['succeeded', 'abstained', 'review'].includes(item.state) &&
+        (!item.resultDigest || !item.attempts.some(attempt => attempt.outcome === 'succeeded' && attempt.receiptDigest)))
+      return reject('result item lacks validated receipt');
     if (item.resultDigest && !['succeeded', 'abstained', 'review'].includes(item.state)) return reject('invalid item result');
     if (item.state === 'execution-unknown' && !item.attempts.some(attempt => attempt.outcome === 'execution-unknown')) return reject('unreconciled item missing attempt');
+    for (const attempt of item.attempts) {
+      if ((attempt.reservedTokens === undefined) !== (attempt.reservedCostMicros === undefined))
+        return reject('incomplete job reservation');
+      reservedTokens += attempt.reservedTokens ?? 0;
+      reservedCostMicros += attempt.reservedCostMicros ?? 0;
+      if (!Number.isSafeInteger(reservedTokens) || !Number.isSafeInteger(reservedCostMicros)) return reject('job reservation overflow');
+    }
   }
+  if (reservedTokens > job.budget.maxTokens || reservedCostMicros > job.budget.maxCostMicros)
+    return reject('job budget reservation exceeded');
   if (Object.keys(job.summary).length !== ITEM_STATES.length ||
       ITEM_STATES.some(state => job.summary[state] !== actual[state])) return reject('job summary mismatch');
   if (['validating', 'queued'].includes(job.state) && (actual.running || actual.succeeded || actual['execution-unknown']))
@@ -90,16 +102,34 @@ export function assertJobTransition(before: DecisionJob, after: DecisionJob): vo
       !transitions[before.state].includes(after.state)) return reject('illegal job transition or changed identity');
   const next = new Map(after.items.map(item => [item.id, item]));
   if (next.size !== before.items.length || after.items.length !== before.items.length) return reject('job items changed');
-  for (const previous of before.items) {
-    const item = next.get(previous.id);
+  for (const [index, previous] of before.items.entries()) {
+    const item = after.items[index];
+    if (item?.id !== previous.id) return reject('job item order changed');
     if (!item || previous.fingerprint !== item.fingerprint || previous.subjectDigest !== item.subjectDigest ||
         previous.definitionDigest !== item.definitionDigest || previous.bindingDigest !== item.bindingDigest ||
+        previous.rulesetDigest !== item.rulesetDigest ||
         (previous.state !== item.state && !itemTransitions[previous.state].includes(item.state)) ||
-        item.attempts.length < previous.attempts.length ||
+        item.attempts.length < previous.attempts.length || item.attempts.length > previous.attempts.length + 1 ||
+        (item.attempts.length > previous.attempts.length &&
+          !(item.state === 'running' && ['queued', 'retryable-failed'].includes(previous.state) &&
+            item.attempts.at(-1)?.outcome === 'dispatched')) ||
         (['succeeded', 'abstained', 'review', 'unsupported', 'permanent-failed', 'canceled', 'expired', 'execution-unknown'].includes(previous.state) &&
           item.attempts.length !== previous.attempts.length) ||
+        (previous.state === 'running' && item.state === 'canceled' && previous.attempts.some(attempt => attempt.outcome === 'dispatched')) ||
         (previous.resultDigest !== undefined && item.resultDigest !== previous.resultDigest) ||
-        previous.attempts.some((attempt, index) => canonicalJson(attempt) !== canonicalJson(item.attempts[index])))
+        (previous.errorCode !== undefined && item.errorCode !== previous.errorCode) ||
+        (previous.state === item.state &&
+          (previous.resultDigest !== item.resultDigest || previous.errorCode !== item.errorCode)) ||
+        previous.attempts.some((attempt, index) => canonicalJson(attempt) !== canonicalJson(item.attempts[index]) &&
+          !(previous.state === 'running' && index === previous.attempts.length - 1 &&
+            attempt.outcome === 'dispatched' &&
+            (item.attempts[index]?.outcome === 'execution-unknown' && item.state === 'execution-unknown' ||
+             item.attempts[index]?.outcome === 'succeeded' && ['succeeded', 'abstained', 'review'].includes(item.state) && !!item.attempts[index]?.receiptDigest ||
+             item.attempts[index]?.outcome === 'failed' && ['retryable-failed', 'permanent-failed', 'unsupported'].includes(item.state)) &&
+            attempt.id === item.attempts[index]?.id && attempt.requestDigest === item.attempts[index]?.requestDigest &&
+            attempt.reservedTokens === item.attempts[index]?.reservedTokens &&
+            attempt.reservedCostMicros === item.attempts[index]?.reservedCostMicros &&
+            (item.attempts[index]?.outcome === 'execution-unknown' ? !item.attempts[index]?.receiptDigest : true))))
       return reject('illegal item transition, mutated pins or attempt history');
   }
 }

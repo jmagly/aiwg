@@ -39,6 +39,7 @@
         "id": { "$ref": "#/$defs/id" }, "fingerprint": { "$ref": "#/$defs/digest" },
         "subjectDigest": { "$ref": "#/$defs/digest" },
         "definitionDigest": { "$ref": "#/$defs/digest" }, "bindingDigest": { "$ref": "#/$defs/digest" },
+        "rulesetDigest": { "$ref": "#/$defs/digest" },
         "state": { "enum": ["queued", "running", "succeeded", "abstained", "review", "unsupported", "retryable-failed", "permanent-failed", "canceled", "expired", "execution-unknown"] },
         "attempts": { "type": "array", "maxItems": 1000, "items": {
           "type": "object", "additionalProperties": false,
@@ -46,6 +47,8 @@
           "properties": {
             "id": { "$ref": "#/$defs/id" }, "requestDigest": { "$ref": "#/$defs/digest" },
             "receiptDigest": { "$ref": "#/$defs/digest" },
+            "reservedTokens": { "type": "integer", "minimum": 0, "maximum": 10000000 },
+            "reservedCostMicros": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
             "outcome": { "enum": ["dispatched", "succeeded", "failed", "execution-unknown"] }
           }
         } },

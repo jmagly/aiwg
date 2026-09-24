@@ -18,7 +18,9 @@ const SAFE_ATTRIBUTE_KEYS = new Set(`
   aiwg.validation.outcome aiwg.persistence.result aiwg.cache.source aiwg.cache.layer
   aiwg.cache.result aiwg.cache.version aiwg.cache.saved_tokens aiwg.cache.expires_at_ms
   aiwg.batch.id aiwg.batch.mode aiwg.batch.plan_digest aiwg.batch.partition_id
-  aiwg.batch.item_count aiwg.batch.result_count aiwg.job.id aiwg.review.id
+  aiwg.batch.item_count aiwg.batch.result_count aiwg.job.id
+  aiwg.job.operation aiwg.job.status aiwg.job.revision aiwg.job.item_count aiwg.job.unknown_count
+  aiwg.review.id
   aiwg.review.status aiwg.review.event aiwg.review.revision aiwg.effect_receipt.id
   aiwg.provider.request_id aiwg.provider.request_id_source aiwg.remote.execution
   aiwg.usage.cost_usd aiwg.usage.cost_provenance aiwg.usage.scope aiwg.link.state

@@ -1,0 +1,25 @@
+{
+  "partial-retry-final": [
+    ["submit", "validating", 1, 0],
+    ["transition", "queued", 2, 0],
+    ["transition", "running", 3, 0],
+    ["transition", "partially-completed", 4, 0],
+    ["transition", "partially-completed", 5, 0],
+    ["transition", "partially-completed", 6, 0],
+    ["retry", "partially-completed", 7, 0],
+    ["transition", "partially-completed", 8, 0],
+    ["transition", "completed", 9, 0]
+  ],
+  "cancel-expire": [
+    ["submit", "validating", 1, 0],
+    ["transition", "queued", 2, 0],
+    ["cancel", "cancel-requested", 3, 0],
+    ["expire", "expired", 4, 0]
+  ],
+  "restart-reconcile": [
+    ["submit", "validating", 1, 0],
+    ["transition", "queued", 2, 0],
+    ["transition", "running", 3, 0],
+    ["reconcile", "failed", 4, 1]
+  ]
+}
