@@ -315,11 +315,37 @@ describe('rejectOpenClawProjectScope (#1156)', () => {
 });
 
 describe('USER_SCOPE_PATHS coverage', () => {
-  it('covers all 12 supported providers', () => {
-    const expected = ['claude', 'codex', 'pi', 'copilot', 'cursor', 'opencode', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'factory', 'grokbot'];
+  it('covers all 14 supported providers', () => {
+    const expected = ['claude', 'codex', 'pi', 'copilot', 'cursor', 'opencode', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'factory', 'grokbot', 'muse'];
     for (const p of expected) {
       expect(USER_SCOPE_PATHS[p], `${p} should have user-scope paths`).toBeDefined();
     }
+  });
+
+  it('resolves muse user skills to the documented XDG root (#226)', () => {
+    const saved = process.env.XDG_CONFIG_HOME;
+    delete process.env.XDG_CONFIG_HOME;
+    expect(USER_SCOPE_PATHS.muse).toEqual({
+      agents: '',
+      skills: path.join(homedir(), '.config', 'muse', 'skills'),
+      commands: '',
+      rules: '',
+      behaviors: '',
+    });
+    if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
+    else process.env.XDG_CONFIG_HOME = saved;
+  });
+
+  it('fails muse user skills closed on bad XDG metadata (#226)', () => {
+    const saved = process.env.XDG_CONFIG_HOME;
+    process.env.XDG_CONFIG_HOME = 'relative/config';
+    expect(USER_SCOPE_PATHS.muse.skills).toBe('');
+    process.env.XDG_CONFIG_HOME = path.join(path.sep, 'tmp', 'muse-xdg');
+    expect(USER_SCOPE_PATHS.muse.skills).toBe(
+      path.join(path.sep, 'tmp', 'muse-xdg', 'muse', 'skills'),
+    );
+    if (saved === undefined) delete process.env.XDG_CONFIG_HOME;
+    else process.env.XDG_CONFIG_HOME = saved;
   });
 
   it('routes Pi user resources through the default agent directory without duplicate skill roots', () => {
