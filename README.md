@@ -90,7 +90,7 @@ Agents and stewards setting up AIWG end-to-end should use the
 [![GitHub Stars](https://img.shields.io/github/stars/jmagly/aiwg?style=flat-square)](https://github.com/jmagly/aiwg/stargazers)
 [![Node Version](https://img.shields.io/badge/node-%E2%89%A520.0.0-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
-[![17 Providers](https://img.shields.io/badge/Providers-17-purple?style=flat-square)](#platform-support)
+[![18 Providers](https://img.shields.io/badge/Providers-18-purple?style=flat-square)](#platform-support)
 [![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/docs-aiwg-io)
 
 [![Built With AIWG](https://aiwg.io/assets/badges/built-with-aiwg-dark.png)](https://aiwg.io/badges)
@@ -164,7 +164,7 @@ guide](docs/troubleshooting/index.md) for the full recovery paths.
 
 AIWG gives your AI assistant reusable project context and specialist workflows. Its deployment layer connects those
 instructions to your provider: `aiwg use` copies markdown and YAML source files into the paths each provider reads, so
-one source of truth works across 17 named provider integrations. An eighteenth `generic` adapter emits portable files
+one source of truth works across 18 named provider integrations. A nineteenth `generic` adapter emits portable files
 for unrecognized or custom harnesses and is not counted as a named integration.
 
 Around that core, AIWG ships agent-facing utilities for work that benefits from additional structure: persistent
@@ -1603,6 +1603,7 @@ See [cross-platform overview](docs/integrations/cross-platform-overview.md) for 
 | Factory | `aiwg use all --provider factory` | Factory context | Agents and commands where supported | Provider behavior depends on the installed Factory environment. |
 | Grok Bot | `aiwg use all --provider grokbot` | `AGENTS.md` | Discover-first skills when `AIWG_GROKBOT_SKILLS_DIR` is set | Stable; not Cursor / not xAI Grok Build. See [Grok Bot reference](docs/agents/providers/grokbot.md). |
 | Grok Build | `aiwg use all --provider grok-build` | `AGENTS.md` + `.grok/rules/*.md` | `.grok/skills/` kernel; `$GROK_HOME` user skills | Experimental; distinct from `grokbot`. Agents/rules writers deferred #2577. |
+| Muse Code | `aiwg use all --provider muse` | `AGENTS.md` | `.agents/skills/` project; XDG user root at deploy time | Experimental; no aliases. Skill writers land in #226. |
 | Oh My Pi | `aiwg use all --provider omp` | `.omp/AGENTS.md` | Agents, prompts, rules, skills | Dedicated OMP quickstart: [Oh My Pi quickstart](docs/providers/omp.md). |
 | Pi Coding Agent | `aiwg use all --provider pi` | `AGENTS.md` | Agent Skills, prompt templates, trust-gated extension bridge | Experimental; see [Pi quickstart](docs/integrations/pi-quickstart.md). |
 | Antigravity | `aiwg use all --provider antigravity` | `AGENTS.md` and `.agents/` | Agents, skills, indexed commands, MCP config when enabled | See [Antigravity provider docs](docs/providers/antigravity.md). |

@@ -277,7 +277,7 @@ describe('Agent Skills import-to-provider round trip', () => {
   it('keeps the provider oracle explicit and aligned with all canonical IDs', () => {
     expect(providerOracle.providers.map((provider) => provider.id))
       .toEqual([...PROVIDER_IDS]);
-    expect(providerOracle.providers).toHaveLength(18);
+    expect(providerOracle.providers).toHaveLength(19);
   });
 
   it('preserves every managed source file as exact bytes without running scripts', () => {
@@ -320,7 +320,7 @@ describe('Agent Skills import-to-provider round trip', () => {
         provider: provider.id,
         path: expectedPath,
         projectionStatus: provider.status,
-        outcome: ['codex', 'deepseek-harness'].includes(provider.id)
+        outcome: ['codex', 'deepseek-harness', 'muse'].includes(provider.id)
           ? 'unchanged'
           : provider.outcome,
       });
