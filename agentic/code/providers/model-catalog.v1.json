@@ -298,6 +298,27 @@
       "sourceUrl": "https://github.com/jmagly/aiwg/blob/main/docs/architecture/adr-grokbot-provider-target.md",
       "verifiedAt": "2026-09-15"
     },
+    "muse": {
+      "roles": {
+        "reasoning": {
+          "id": "muse-spark-1.3",
+          "status": "unverified",
+          "observed": false
+        },
+        "coding": {
+          "id": "muse-spark-1.3",
+          "status": "unverified",
+          "observed": false
+        },
+        "efficiency": {
+          "id": "muse-spark-1.3",
+          "status": "unverified",
+          "observed": false
+        }
+      },
+      "sourceUrl": "https://dev.meta.ai/docs/models",
+      "verifiedAt": "2026-09-24"
+    },
     "hermes": {
       "roles": {
         "reasoning": {

@@ -67,6 +67,7 @@ export type Provider =
   | 'factory'
   | 'grokbot'
   | 'hermes'
+  | 'muse'
   | 'opencode'
   | 'openclaw'
   | 'openhuman'

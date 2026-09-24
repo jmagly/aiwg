@@ -228,6 +228,19 @@
       "sourceUrl": "https://github.com/jmagly/aiwg/blob/main/docs/architecture/adr-grokbot-provider-target.md",
       "verifiedAt": "2026-09-15"
     },
+    "muse": {
+      "agent": "unsupported",
+      "skill": "unsupported",
+      "globalChild": "informational",
+      "identifierSyntax": "No verified Muse Code native model pin surface",
+      "inheritance": "Documented Meta Muse Spark ids used as unverified informational pins only",
+      "invalidPinFallback": "Report unsupported; do not fabricate Meta/Muse model pins as AIWG-verified native",
+      "configTarget": "Muse Code has no verified AIWG-owned model config path",
+      "artifactFormat": "Informational only",
+      "verification": "Confirm steward models --route --provider muse emits unsupported/informational",
+      "sourceUrl": "https://github.com/jmagly/aiwg/blob/main/docs/architecture/adr-muse-provider-target.md",
+      "verifiedAt": "2026-09-24"
+    },
     "hermes": {
       "agent": "global-only",
       "skill": "unsupported",
