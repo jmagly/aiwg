@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "decision-result-cache-workload/v1",
+  "description": "Immutable synthetic decisions with two warm hits and one explicit TTL refresh",
+  "calls": [
+    { "invocationId": "source", "offsetMs": 0, "expected": "cache-miss-fill" },
+    { "invocationId": "warm-1", "offsetMs": 1, "expected": "cache-hit" },
+    { "invocationId": "refresh", "offsetMs": 60000, "expected": "cache-miss-fill" },
+    { "invocationId": "warm-2", "offsetMs": 60001, "expected": "cache-hit" }
+  ],
+  "expected": { "providerCalls": 2, "originalInputTokens": 24, "originalOutputTokens": 4, "counterfactualInputTokens": 48, "counterfactualOutputTokens": 8 }
+}
