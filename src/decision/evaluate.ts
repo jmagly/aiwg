@@ -453,7 +453,9 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
         const normalized = new Map<string, { observation: AdapterObservation; calibrationCompatibility?: CompatibilityDecision }>();
         plan.candidates.forEach((candidate, index) => {
           const item = resolved.find(value => value.alias === candidate.alias)!;
-          normalized.set(questionIds[index]!, normalizeObservationForRuntime({ request, item, target: activeTarget,
+          // Siblings share transport identity, not acceptance: each answer is judged by its own target's policy.
+          const ownTarget = fallbackActive ? request.binding.spec.evaluations[candidate.alias]!.targets[1]! : candidate.target;
+          normalized.set(questionIds[index]!, normalizeObservationForRuntime({ request, item, target: ownTarget,
             observation: observations.get(questionIds[index]!)!, now }));
         });
         observations = new Map([...normalized].map(([id, value]) => [id, value.observation]));
