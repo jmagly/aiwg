@@ -34,6 +34,13 @@ function evaluateGate(definition: QualificationGateDefinition, manifest: Qualifi
   const failed: string[] = [];
   if (definition.id === 'G0') {
     missing.push(...validateCaseInventory(manifest.cases).map(error => `inventory:${error}`));
+    const seen = new Set<string>();
+    const known = new Set(expectedQualificationCaseIds());
+    for (const item of manifest.evidence) {
+      if (seen.has(item.caseId)) failed.push(`duplicate-evidence:${item.caseId}`);
+      if (!known.has(item.caseId)) failed.push(`unknown-evidence:${item.caseId}`);
+      seen.add(item.caseId);
+    }
   }
 
   for (const caseId of requiredCases) {

@@ -1,4 +1,7 @@
-import { isIP } from 'node:net';
+import { lookup } from 'node:dns/promises';
+import { request } from 'node:https';
+import { BlockList, isIP } from 'node:net';
+import type { LookupAddress } from 'node:dns';
 import { sanitizedTelemetryExport } from './redaction.js';
 import type { DecisionTelemetrySpan, DecisionTelemetryTrace, TelemetryAttribute } from './types.js';
 import type { DecisionTraceSink } from './exporter.js';
@@ -24,7 +27,9 @@ export class DecisionOtlpHttpSink implements DecisionTraceSink {
     if (!Number.isSafeInteger(options.maxPayloadBytes) || options.maxPayloadBytes < 1) throw new TypeError('Invalid OTLP payload bound');
     this.endpoint = endpoint.href;
     this.maxPayloadBytes = options.maxPayloadBytes;
-    this.transport = options.fetch ?? fetch;
+    // Native HTTPS connects to the validated address, not a second DNS lookup.
+    // Injected transports are for controlled tests only; they do not enforce DNS policy.
+    this.transport = options.fetch ?? pinnedHttpsFetch;
   }
 
   async export(trace: DecisionTelemetryTrace, signal: AbortSignal): Promise<void> {
@@ -32,8 +37,15 @@ export class DecisionOtlpHttpSink implements DecisionTraceSink {
     const payload = JSON.stringify({ resourceSpans: [{ scopeSpans: [{ scope: { name: 'aiwg.decision', version: '1' },
       spans: safe.spans.map(toOtlpSpan) }] }] });
     if (Buffer.byteLength(payload, 'utf8') > this.maxPayloadBytes) throw new Error('OTLP payload exceeds configured bound');
-    const response = await this.transport(this.endpoint, { method: 'POST', redirect: 'manual', signal,
-      headers: { 'content-type': 'application/json' }, body: payload });
+    let response: Response;
+    try {
+      response = await this.transport(this.endpoint, { method: 'POST', redirect: 'manual', signal,
+        headers: { 'content-type': 'application/json' }, body: payload });
+    } catch {
+      // DNS, TLS and injected transport errors may contain private hostnames,
+      // paths or payloads. Diagnostics must report failure without echoing them.
+      throw new Error('OTLP transport failed');
+    }
     if (!response.ok) throw new Error(`OTLP exporter returned HTTP ${response.status}`);
     if (!response.body) return;
     // OTLP/HTTP may acknowledge a request while rejecting some spans. Never
@@ -49,6 +61,9 @@ export class DecisionOtlpHttpSink implements DecisionTraceSink {
         if (size > 4096) throw new Error('OTLP response exceeds configured inspection bound');
         chunks.push(value);
       }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'OTLP response exceeds configured inspection bound') throw error;
+      throw new Error('OTLP response read failed');
     } finally { reader.releaseLock(); }
     if (size === 0) return;
     let body: unknown;
@@ -65,6 +80,71 @@ export class DecisionOtlpHttpSink implements DecisionTraceSink {
     }
     if ((partial as Record<string, unknown>).errorMessage) throw new Error('OTLP collector reported partial success');
   }
+}
+
+// Reject non-global IPv4 space, including documentation, benchmarking and multicast.
+// IPv6 is allowlisted to global unicast; mapped IPv4 and local transition ranges fail closed.
+const forbiddenV4 = new BlockList();
+for (const [address, prefix] of [
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
+  ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24],
+  ['192.88.99.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
+  ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 4], ['240.0.0.0', 4],
+] as const) forbiddenV4.addSubnet(address, prefix);
+
+export function isPublicCollectorAddress(address: string): boolean {
+  if (isIP(address) === 4) return !forbiddenV4.check(address, 'ipv4');
+  // Exclude IPv4-mapped addresses and translation/tunneling ranges even if
+  // their embedded IPv4 address looks public.
+  if (isIP(address) === 6) return /^2[0-9a-f]{3}:/i.test(address)
+    && !/^2001:(?:0:|db8:)/i.test(address) && !/^2002:/i.test(address);
+  return false;
+}
+
+export async function resolvePublicCollectorAddress(host: string,
+  resolver: (host: string) => Promise<LookupAddress[]> = name => lookup(name, { all: true, verbatim: true }),
+): Promise<LookupAddress> {
+  const addresses = await resolver(host);
+  if (!addresses.length || addresses.some(({ address, family }) => isIP(address) !== family || !isPublicCollectorAddress(address))) {
+    throw new Error('OTLP collector DNS includes a non-public address');
+  }
+  return addresses[0]!;
+}
+
+function pinnedHttpsFetch(input: string | URL | Request, options?: RequestInit): Promise<Response> {
+  const endpoint = new URL(input instanceof Request ? input.url : input);
+  return new Promise((resolve, reject) => {
+    // Node's HTTPS request performs TLS verification against the original hostname.
+    // A fresh DNS resolution is validated for each connection; no connection pool
+    // survives to bypass this policy on subsequent exports.
+    const req = request(endpoint, {
+      method: 'POST', agent: false, headers: { 'content-type': 'application/json' },
+      lookup: (host, _opts, callback) => {
+        void resolvePublicCollectorAddress(host).then(
+          ({ address, family }) => callback(null, address, family),
+          error => callback(error as Error, '', 4),
+        );
+      },
+    }, response => {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      response.on('data', (chunk: Buffer) => {
+        size += chunk.length;
+        if (size > 4096) { req.destroy(new Error('OTLP response exceeds configured inspection bound')); return; }
+        chunks.push(chunk);
+      });
+      response.on('end', () => resolve(new Response(
+        [204, 205, 304].includes(response.statusCode ?? 0) ? null : Buffer.concat(chunks),
+        { status: response.statusCode ?? 502 },
+      )));
+      response.on('error', reject);
+    });
+    req.on('error', reject);
+    const signal = options?.signal;
+    if (signal?.aborted) { req.destroy(signal.reason); return; }
+    signal?.addEventListener('abort', () => req.destroy(new Error('OTLP export aborted')), { once: true });
+    req.end(options?.body as string);
+  });
 }
 
 function toOtlpAttribute(key: string, value: TelemetryAttribute): OtlpAttribute {

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, resolve, sep } from 'node:path';
 import { evaluateQualification } from './gates.js';
+import { scanQualificationPrivacy, type QualificationPrivacyCapture } from './privacy.js';
 import type {
   EvidenceOutcome,
   QualificationCase,
@@ -40,6 +41,10 @@ export interface QualificationExecutionPlan {
   maxArtifactBytes?: number;
   /** Explicitly select public aggregate fields for persistence. Raw executor details are private by default. */
   sanitizeDetails?: (details: unknown, caseId: string) => unknown;
+  /** Synthetic canaries never leave the process, including through selected public details. */
+  privacyCanaries?: readonly string[];
+  /** Captured output surfaces; required for the G2 privacy flag. Empty observations must be explicit. */
+  privacyCaptures?: readonly QualificationPrivacyCapture[];
 }
 
 export interface ArtifactVerification {
@@ -154,10 +159,13 @@ async function executeCase(
   const executor = plan.executors[item.id];
   let result: QualificationExecutionResult = { outcome: 'fail' };
   let error: string | undefined;
-  if (!executor) {
+  // A generic callback carries no authenticated provider or served-model proof.
+  // Never let an offline/mock executor manufacture an artifact labelled live.
+  if (!executor || plan.manifest.mode === 'live') {
     return writeArtifact(plan.artifactRoot, plan.manifest.runId, {
       schemaVersion: 'decision-qualification-artifact/v1', runId: plan.manifest.runId,
-      caseId: item.id, outcome: 'skip', durationMs: 0, testEvidenceIds, error: 'executor-not-registered',
+      caseId: item.id, outcome: 'skip', durationMs: 0, testEvidenceIds,
+      error: plan.manifest.mode === 'live' ? 'live-evidence-unavailable' : 'executor-not-registered',
     }, maxBytes);
   }
   try {
@@ -176,6 +184,27 @@ async function executeCase(
     } catch {
       // A broken sanitizer cannot convert a private payload into release evidence.
       result = { outcome: 'fail' };
+      error = 'details-sanitization-failed';
+    }
+  }
+  // Check the serialized representation (not just string-valued leaves): JSON
+  // escaping must not let a canary bypass the privacy gate. Do not include the
+  // offending value or its index in the artifact or any thrown diagnostic.
+  const canaries = plan.privacyCanaries ?? [];
+  if (canaries.some(value => typeof value !== 'string' || value.length === 0)) {
+    throw new Error('privacy canaries must be nonempty strings');
+  }
+  if (publicDetails !== undefined && canaries.length) {
+    try {
+      const serialized = JSON.stringify(publicDetails);
+      if (canaries.some(value => serialized.includes(value) || serialized.includes(JSON.stringify(value).slice(1, -1)))) {
+        result = { outcome: 'fail' };
+        publicDetails = undefined;
+        error = 'privacy-canary-detected';
+      }
+    } catch {
+      result = { outcome: 'fail' };
+      publicDetails = undefined;
       error = 'details-sanitization-failed';
     }
   }
@@ -214,7 +243,16 @@ export async function executeQualificationPlan(plan: QualificationExecutionPlan)
       return [name, false] as const;
     }
   });
-  return { ...plan.manifest, evidence, evidenceFlags: Object.fromEntries(flagValues) };
+  const evidenceFlags = Object.fromEntries(flagValues);
+  // Caller-provided positive flags cannot impersonate a complete privacy scan.
+  // Missing captures or canaries remain false, even if a callback returns true.
+  try {
+    evidenceFlags['privacy-scan-clean'] = plan.privacyCaptures && plan.privacyCanaries
+      ? scanQualificationPrivacy(plan.privacyCaptures, plan.privacyCanaries).clean : false;
+  } catch {
+    evidenceFlags['privacy-scan-clean'] = false;
+  }
+  return { ...plan.manifest, evidence, evidenceFlags };
 }
 
 function containedArtifactPath(root: string, relative: string): string | null {

@@ -18,11 +18,14 @@ export interface DecisionGraph {
     stateDigest: `sha256:${string}`;
     definition: GraphPin; binding: GraphPin; input: string[]; output: string[];
   }>;
-  edges: Array<{ from: string; to: string; source: string; destination: string }>;
+  edges: Array<{ from: string; to: string; source: string; destination: string;
+    /** Trusted control: observe a declared boolean output only; evidence cannot author edges. */
+    when?: { source: string; equals: boolean } }>;
   budget: {
     attempts: number; deadlineMs: number; tokens: number; costMicros: number;
     fanOut: number; beamWidth: number; depth: number; concurrency: number;
   };
+  stageBudgets?: Array<{ stage: number; limits: DecisionGraph['budget'] }>;
 }
 export interface GraphPin { id: string; version: string; digest: `sha256:${string}` }
 export interface GraphPlan {
@@ -62,7 +65,8 @@ export function planDecisionGraph(value: unknown, resolvedPins: ReadonlySet<stri
   for (const edge of graph.edges) {
     const from = nodes.get(edge.from); const to = nodes.get(edge.to);
     if (!from || !to || from.id === to.id || from.stage >= to.stage) return fail('invalid graph dependency or cycle');
-    if (!from.output.includes(edge.source) || !to.input.includes(edge.destination)) return fail('illegal evidence projection');
+    if (!from.output.includes(edge.source) || !to.input.includes(edge.destination) ||
+        (edge.when && !from.output.includes(edge.when.source))) return fail('illegal evidence projection');
     const key = canonicalJson(edge);
     if (edgeKeys.has(key) || inputs.get(to.id)!.has(edge.destination)) return fail('ambiguous evidence projection');
     edgeKeys.add(key);
@@ -76,7 +80,10 @@ export function planDecisionGraph(value: unknown, resolvedPins: ReadonlySet<stri
   }
   for (const node of graph.nodes) {
     if (!reached.has(node.id) || (node.id !== graph.entry && (!node.input.length || node.input.some(name => !inputs.get(node.id)!.has(name)))) ||
-        (outgoing.get(node.id)!.length === 0) !== graph.terminals.includes(node.id)) return fail('ambiguous root, input, or terminal');
+        (outgoing.get(node.id)!.length === 0 ? !graph.terminals.includes(node.id) :
+          graph.terminals.includes(node.id) && graph.edges.some(edge => edge.from === node.id && !edge.when))) {
+      return fail('ambiguous root, input, or terminal');
+    }
   }
   const sortedNodes = [...graph.nodes].sort((a, b) => a.stage - b.stage || a.id.localeCompare(b.id));
   const edges = [...graph.edges].sort((a, b) => canonicalJson(a).localeCompare(canonicalJson(b)));
@@ -86,7 +93,8 @@ export function planDecisionGraph(value: unknown, resolvedPins: ReadonlySet<stri
     for (const node of stageNodes) {
       const projections = edges.filter(edge => edge.to === node.id)
         .map(edge => [edge.from, edge.source, edge.destination]);
-      const key = canonicalJson([node.subject, node.target, node.model, node.egress, node.stateDigest, projections]);
+      const key = canonicalJson([node.subject, node.target, node.model, node.egress, node.stateDigest,
+        node.definition.digest, node.binding.digest, projections]);
       const group = groups.get(key) ?? []; group.push(node.id); groups.set(key, group);
     }
     const batches = [...groups.values()].filter(group => group.length > 1);
@@ -95,7 +103,14 @@ export function planDecisionGraph(value: unknown, resolvedPins: ReadonlySet<stri
   });
   if (stages.some((s, i) => s.stage !== i) || stages.length > graph.budget.depth || stages.some(s => s.nodes.length > graph.budget.fanOut) ||
       stages.some(s => s.batches.some(group => group.length > graph.budget.beamWidth))) return fail('graph budget exceeded');
-  const canonicalGraph = { ...graph, terminals: [...graph.terminals].sort(), nodes: sortedNodes.map(node => ({ ...node, input: [...node.input].sort(), output: [...node.output].sort() })), edges };
+  if (graph.stageBudgets && (new Set(graph.stageBudgets.map(item => item.stage)).size !== graph.stageBudgets.length ||
+      graph.stageBudgets.some(item => {
+        const stage = stages.find(s => s.stage === item.stage);
+        return !stage || stage.nodes.length > item.limits.fanOut ||
+          stage.batches.some(group => group.length > item.limits.beamWidth) || stage.stage >= item.limits.depth;
+      }))) return fail('invalid stage budget');
+  const canonicalGraph = { ...graph, ...(graph.stageBudgets ? { stageBudgets: [...graph.stageBudgets].sort((a, b) => a.stage - b.stage) } : {}),
+    terminals: [...graph.terminals].sort(), nodes: sortedNodes.map(node => ({ ...node, input: [...node.input].sort(), output: [...node.output].sort() })), edges };
   const plan = { schemaVersion: 'decision-graph-plan/v1' as const, graphDigest: digest(canonicalGraph), stages, edges };
   return { ...plan, planDigest: digest(plan) };
 }

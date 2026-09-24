@@ -38,6 +38,12 @@ rejected category; they never echo the value. This scanner is not a general
 secret detector: opaque secrets without a recognizable marker require upstream
 classification and review.
 
+The common host-side lifecycle contract for state, receipts, telemetry, debug,
+cache, jobs, review, calibration/evaluation, exports and preprocessing lineage
+is documented in [data-lifecycle.md](./data-lifecycle.md). It requires per-surface
+classification/access/retention/export/deletion/backup controls and applies
+hold and tombstone checks before deletion or restore.
+
 ## Offline evidence and deployment limits
 
 | Boundary | Evidence | Remaining deployment requirement |
@@ -46,8 +52,19 @@ classification and review.
 | Trust/data class/lifecycle metadata | Runtime enum and missing-control denial | Approved classification and retention schedule per data class |
 | Hostile state | Direct override, fake authority/system, delimiter, label, flood and exfiltration fixtures remain untrusted values | Semantic decision-quality evaluation; typed output alone is not immunity |
 | Redirect/DNS | Jev transport denies redirects and unapproved final origin; rejects private DNS resolution before credentials | Deployment-specific DNS/network enforcement and allowed-origin review |
-| Debug/retention | Telemetry validates explicit encryption/audit/TTL/deletion policy and tombstones references | Demonstrated encrypted store, audited access, cascading erasure and backup expiry |
+| Debug/retention | Optional host-only runtime `projection.debugCapture` receives only the minimized state and fails closed before credentials on capture failure. The debug sidecar encrypts with AES-256-GCM, audits access before capture/read/delete, denies unauthorized scope and expires ciphertext on access; telemetry tombstones references | Deploy an approved durable encrypted backend and audit sink, verify cascading erasure, out-of-band expiry and backup expiry |
 | Provider credentials | Resolver spy proves denied policies never call credentials | Exact authorized read and adjacent-secret denial in approved provider environment |
+
+A deterministic offline load fixture (`test/unit/decision/projection-benchmark.test.ts`)
+projects 55 allowed states and denies 55 region mismatches with zero credential
+or transport calls. It reports elapsed time as observation, not as a portable
+SLA: one local run took 13 ms for the fixture loop. The test asserts stable
+projection digests and excluded adjacent canaries, not a timing threshold.
+The synthetic `security-surface-matrix.test.ts` scans a combined offline
+adapter request, projection evidence, trace, export, snapshot and audit fixture
+for unique excluded canaries; it also verifies denied locator errors and logs
+do not echo the locator. This does not substitute for a deployment-wide scan
+of real durable stores, network captures and external collector output.
 
 Provider default retention duration, geographic residency, encryption/key
 management and enterprise zero-data-retention status remain **unknown** without

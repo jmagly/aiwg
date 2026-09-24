@@ -15,6 +15,8 @@ export * from './context-plan.js';
 export * from './context-qualification.js';
 export * from './calibration/index.js';
 export * from './projection.js';
+export * from './lifecycle.js';
+export * from './file-lifecycle-store.js';
 export * from './receipts.js';
 export * from './evaluate.js';
 export * from './export.js';

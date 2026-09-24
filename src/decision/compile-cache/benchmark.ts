@@ -2,6 +2,8 @@ export interface CacheBenchmarkSample {
   mode: 'cache-disabled' | 'cache-enabled';
   preparationLatencyMs: number;
   inputTokens: number | null;
+  /** Authoritative provider output tokens; absent means total task tokens are unknown. */
+  outputTokens?: number | null;
   cachedInputTokens: number | null;
   costUsd: number | null;
   memoryBytes: number;
@@ -23,8 +25,17 @@ export interface CacheBenchmarkReport {
 
 export function cacheBenchmarkReport(configurationDigest: `sha256:${string}`, warmupCalls: number,
   minimumBenefitTargetBps: number, confidenceInterval: string, samples: CacheBenchmarkSample[]): CacheBenchmarkReport {
-  if (!samples.some(value => value.mode === 'cache-disabled') || !samples.some(value => value.mode === 'cache-enabled')) {
-    throw new Error('paired cache benchmark requires enabled and disabled samples');
+  const disabledCount = samples.filter(value => value.mode === 'cache-disabled').length;
+  const enabledCount = samples.filter(value => value.mode === 'cache-enabled').length;
+  if (!disabledCount || disabledCount !== enabledCount || !Number.isSafeInteger(warmupCalls) || warmupCalls < 0 ||
+      !Number.isSafeInteger(minimumBenefitTargetBps) || minimumBenefitTargetBps < 0 || minimumBenefitTargetBps > 10_000 ||
+      samples.some(value => !Number.isFinite(value.preparationLatencyMs) || value.preparationLatencyMs < 0 ||
+        !Number.isSafeInteger(value.memoryBytes) || value.memoryBytes < 0 ||
+        !Number.isSafeInteger(value.storageBytes) || value.storageBytes < 0 ||
+        [value.inputTokens, value.outputTokens, value.cachedInputTokens].some(tokens =>
+          tokens != null && (!Number.isSafeInteger(tokens) || tokens < 0)) ||
+        (value.costUsd !== null && (!Number.isFinite(value.costUsd) || value.costUsd < 0)))) {
+    throw new Error('paired cache benchmark requires equal valid enabled and disabled samples');
   }
   return { schemaVersion: 'decision-cache-benchmark/v1', configurationDigest, warmupCalls,
     measuredCalls: samples.length, minimumBenefitTargetBps, confidenceInterval,
@@ -58,6 +69,8 @@ function summarize(samples: CacheBenchmarkSample[]) {
   const nullableAverage = (values: Array<number | null>) => values.some(value => value === null) ? null : average(values as number[]);
   return { calls: samples.length, averagePreparationLatencyMs: average(samples.map(value => value.preparationLatencyMs)),
     averageInputTokens: nullableAverage(samples.map(value => value.inputTokens)),
+    averageTotalTaskTokens: nullableAverage(samples.map(value =>
+      value.inputTokens === null || value.outputTokens == null ? null : value.inputTokens + value.outputTokens)),
     averageCachedInputTokens: nullableAverage(samples.map(value => value.cachedInputTokens)),
     averageCostUsd: nullableAverage(samples.map(value => value.costUsd)),
     peakMemoryBytes: Math.max(...samples.map(value => value.memoryBytes)),

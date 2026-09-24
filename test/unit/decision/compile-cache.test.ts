@@ -48,6 +48,24 @@ describe('decision compile and provider-prefix cache', () => {
     expect(variants.every(value => compileCacheKey(value) !== key)).toBe(true);
   });
 
+  it('CCP-002 changes in every pinned dimension miss and create independent immutable entries', async () => {
+    const cache = new MemoryCompileCache<string>();
+    const variants = [identity(), identity({ sourceArtifactDigests: [digest('b')] }),
+      identity({ compiler: { id: 'decision', version: '2' } }), identity({ runtimeVersion: 'node-24' }),
+      identity({ schemaVersion: 'decision-v2' }), identity({ canonicalizer: { id: 'rfc8785', version: '2' } }),
+      identity({ adapter: { id: 'jev', version: '2', promptVersion: 'p2' } }),
+      identity({ backendCapabilityMode: 'grammar' }),
+      identity({ modelPolicy: { requested: 'jev-2', compatibleActualModels: ['jev-2'] } }),
+      identity({ featureFlags: { strict: false } }), identity({ tenantId: 'other' }),
+      identity({ projectId: 'other' }), identity({ dataClass: 'restricted' })];
+    for (const [index, pins] of variants.entries()) {
+      const scope = context(100, { tenantId: pins.tenantId, projectId: pins.projectId });
+      expect((await cache.getOrCompile(pins, scope, 1_000, async () => `artifact-${index}`)).outcome).toBe('miss');
+      expect((await cache.getOrCompile(pins, scope, 1_000, async () => 'wrong')).entry.value).toBe(`artifact-${index}`);
+    }
+    expect(new Set(variants.map(compileCacheKey)).size).toBe(variants.length);
+  });
+
   it('CCP-003 canonical key is stable for promised object-key equivalence and changes semantic arrays', () => {
     const left = identity({ featureFlags: { alpha: true, beta: 'x' } });
     const right = identity({ featureFlags: { beta: 'x', alpha: true } });
@@ -95,6 +113,21 @@ describe('decision compile and provider-prefix cache', () => {
     expect(() => cache.read(identity(), context(101, { authorize: () => false }))).toThrow('entry unavailable');
     cache.restore({ ...filled.entry, value: { stable: false } });
     expect(() => cache.read(identity(), context(101))).toThrow('entry unavailable');
+  });
+
+  it('CCP-007 refreshes authenticated expired memory entries without resurrecting tombstones', async () => {
+    const cache = new MemoryCompileCache<string>();
+    let calls = 0;
+    const compile = async () => `artifact-${++calls}`;
+    await cache.getOrCompile(identity(), context(), 10, compile);
+    expect(() => cache.read(identity(), context(110))).toThrow('unavailable');
+    await expect(cache.getOrCompile(identity(), context(110, { authorize: () => false }), 10, compile))
+      .rejects.toThrow('unavailable');
+    expect((await cache.getOrCompile(identity(), context(110), 10, compile)).entry.value).toBe('artifact-2');
+    expect(calls).toBe(2);
+    cache.tombstone(identity(), context(111));
+    await expect(cache.getOrCompile(identity(), context(112), 10, compile)).rejects.toThrow('unavailable');
+    expect(calls).toBe(2);
   });
 
   it('CCP-007 no-cache bypass is byte-equivalent but does not publish', async () => {
@@ -185,6 +218,26 @@ describe('decision compile and provider-prefix cache', () => {
     expect(report.enabled.peakStorageBytes).toBeGreaterThan(0);
     expect(report.confidenceInterval).toMatch(/^95% paired bootstrap CI \[-?[\d.]+, -?[\d.]+\] ms$/);
     expect(() => pairedPreparationLatencyInterval([1], [1])).toThrow();
+  });
+
+  it('CCP-011 rejects unpaired and invalid benchmark measurements instead of reporting savings', () => {
+    const sample = { mode: 'cache-disabled' as const, preparationLatencyMs: 2, inputTokens: 100,
+      outputTokens: 10, cachedInputTokens: 0, costUsd: 0.01, memoryBytes: 0, storageBytes: 0,
+      outcome: 'bypass' as const, invalidated: false };
+    const enabled = { ...sample, mode: 'cache-enabled' as const, outcome: 'hit' as const };
+    expect(() => cacheBenchmarkReport(digest('e'), 0, 500, '95% CI', [sample, enabled])).not.toThrow();
+    expect(() => cacheBenchmarkReport(digest('e'), 0, 500, '95% CI', [sample, enabled, enabled])).toThrow('paired');
+    expect(() => cacheBenchmarkReport(digest('e'), 0, 500, '95% CI', [{ ...sample, costUsd: NaN }, enabled])).toThrow('paired');
+    expect(() => cacheBenchmarkReport(digest('e'), 0, 500, '95% CI', [{ ...sample, outputTokens: -1 }, enabled])).toThrow('paired');
+  });
+
+  it('CCP-005 never publishes a malformed filesystem fill and recovers on retry', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-malformed-'));
+    const store = new FileCompileCache<number>(directory);
+    await expect(store.getOrCompile(identity(), context(), 1_000, async () => Number.NaN))
+      .rejects.toThrow('non-finite');
+    expect(await store.read(identity(), context())).toBeNull();
+    expect((await store.getOrCompile(identity(), context(), 1_000, async () => 42)).entry.value).toBe(42);
   });
 
   it('CCP-004 coordinates cold fills across independent filesystem cache instances', async () => {
@@ -322,6 +375,9 @@ describe('decision compile and provider-prefix cache', () => {
     await expect(restarted.restore({ ...backup!, value: 'tampered' }, context(110)))
       .rejects.toThrow('unavailable');
     expect(await restarted.delete(identity(), context(1_100))).toBe(true);
+    await expect(restarted.restore(backup!, context(1_100))).rejects.toThrow('unavailable');
+    await expect(restarted.restore({ ...backup!, tombstonedAtEpochMs: 104 }, context(110)))
+      .rejects.toThrow('unavailable');
   });
 
   it('CCP-011 reports provider-qualified synthetic paired economics without inferring live savings', () => {
@@ -336,9 +392,9 @@ describe('decision compile and provider-prefix cache', () => {
     const samples: import('../../../src/decision/compile-cache/benchmark.js').CacheBenchmarkSample[] = [];
     for (const { report, at } of fixture) {
       const evidence = providerPrefixEvidence(pinned, report, at);
-      samples.push({ mode: 'cache-disabled', preparationLatencyMs: 10, inputTokens: 100,
+      samples.push({ mode: 'cache-disabled', preparationLatencyMs: 10, inputTokens: 100, outputTokens: 20,
         cachedInputTokens: 0, costUsd: 0.01, memoryBytes: 0, storageBytes: 0, outcome: 'bypass', invalidated: false });
-      samples.push({ mode: 'cache-enabled', preparationLatencyMs: 10, inputTokens: 100,
+      samples.push({ mode: 'cache-enabled', preparationLatencyMs: 10, inputTokens: 100, outputTokens: 20,
         cachedInputTokens: evidence.source === 'provider-report' ? evidence.savedInputTokens : null,
         costUsd: null, memoryBytes: 0, storageBytes: 0, outcome: evidence.status === 'hit' ? 'hit' :
           evidence.status === 'miss' ? 'miss' : 'unknown', invalidated: evidence.status === 'unknown' });
@@ -346,8 +402,8 @@ describe('decision compile and provider-prefix cache', () => {
     const report = cacheBenchmarkReport(providerPrefixKey(pinned), 1, 500,
       pairedPreparationLatencyInterval([10, 10, 10], [10, 10, 10]), samples);
     expect(report).toMatchObject({ measuredCalls: 6,
-      disabled: { averageInputTokens: 100, averageCostUsd: 0.01, hitRateBps: 0 },
-      enabled: { averageInputTokens: 100, averageCachedInputTokens: null, averageCostUsd: null,
+      disabled: { averageInputTokens: 100, averageTotalTaskTokens: 120, averageCostUsd: 0.01, hitRateBps: 0 },
+      enabled: { averageInputTokens: 100, averageTotalTaskTokens: 120, averageCachedInputTokens: null, averageCostUsd: null,
         hitRateBps: 3333, invalidationRateBps: 3333 } });
   });
 

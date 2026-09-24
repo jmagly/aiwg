@@ -1,4 +1,6 @@
 export * from './context.js';
+export * from './debug-sidecar.js';
+export * from './file-debug-backend.js';
 export * from './exporter.js';
 export * from './otlp-http.js';
 export * from './mapping.js';

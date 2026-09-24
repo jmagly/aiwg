@@ -4,7 +4,10 @@ export function validateDebugCapturePolicy(policy: DecisionDebugCapturePolicy | 
   if (!policy) return null;
   if (!policy.explicitlyAuthorized || !policy.encryption.enabled || !policy.encryption.keyReference
     || !policy.accessAudit.enabled || !policy.accessAudit.sinkReference || !policy.deletionEnabled
-    || !Number.isSafeInteger(policy.ttlMs) || policy.ttlMs <= 0) throw new Error('Sensitive debug capture policy is incomplete');
+    || !Number.isSafeInteger(policy.ttlMs) || policy.ttlMs <= 0
+    || !['confidential', 'restricted'].includes(policy.classification)
+    || !/^[a-zA-Z][a-zA-Z0-9_.-]*$/.test(policy.encryption.keyReference)
+    || !/^[a-zA-Z][a-zA-Z0-9_.-]*$/.test(policy.accessAudit.sinkReference)) throw new Error('Sensitive debug capture policy is incomplete');
   return structuredClone(policy);
 }
 
