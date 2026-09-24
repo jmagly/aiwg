@@ -36,9 +36,9 @@
     "virtualDurationMs": 90403
   },
   "resources": {
-    "heapUsedMiB": 103.1,
-    "residentMemoryMiB": 627.5,
-    "cpuPercentOneCore": 2.036,
+    "heapUsedMiB": 118.8,
+    "residentMemoryMiB": 628.8,
+    "cpuPercentOneCore": 2.331,
     "cpuSource": "thread"
   },
   "comparisons": [
@@ -57,13 +57,13 @@
     {
       "bound": "maximumHeapUsedMiB",
       "limit": 512,
-      "observed": 103.1,
+      "observed": 118.8,
       "pass": true
     },
     {
       "bound": "maximumCpuPercentOneCore",
       "limit": 80,
-      "observed": 2.036,
+      "observed": 2.331,
       "pass": true
     },
     {
@@ -92,5 +92,5 @@
     }
   ],
   "passed": true,
-  "digest": "sha256:336b62d8fcf615572e0f218d500954b5547299c3bd2580981d035bf8d652af9a"
+  "digest": "sha256:ebf24f57a63d2ea5db8e7fa187201dfd69e7938edec03b294c9eb94fe4f4e2a5"
 }
