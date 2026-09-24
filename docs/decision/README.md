@@ -28,6 +28,10 @@ Structured entry fields, version migration, and rollback rules are described in
 Jev request, retry, cancellation, and egress behavior is documented in the
 [transport contract](jev-transport.md).
 
+The [ensemble, champion/challenger and drift-response contracts](ensembles.md)
+define versioned D17 schemas and pure validators. Their runtime is experimental
+and not implemented.
+
 The [offline pattern playground](pattern-playground.md) provides discoverable,
 sanitized examples and a governed authoring checklist without requiring network
 access or a provider credential.
