@@ -22,19 +22,24 @@
  *     removed; unmanaged content is byte-identical across deploys.
  *   - `--dry-run` performs zero writes.
  *
- * Out of scope (later waves): discover-first AGENTS.md bridge (#227),
- * hooks/MCP settings mutation (#228).
+ * The discover-first AGENTS.md bridge ships in this wave (#227) via
+ * `createAgentsMd`, rendered from
+ * `agentic/code/frameworks/sdlc-complete/templates/muse/AGENTS.md.aiwg-template`
+ * into an AIWG-managed section (operator content outside the markers is
+ * preserved). Hooks/MCP settings mutation stays out of scope (#228).
  */
 
 import os from 'node:os';
 import path from 'node:path';
 import {
   collectFrameworkArtifacts,
+  createAgentsMdFromTemplate,
   deploySkillsWithKernelRouting,
   getAddonSkillDirs,
   normalizeDeploymentMode,
   pruneStaleAiwgSkills,
   computeAllKernelNames,
+  resolveAiwgRoot,
 } from './base.mjs';
 import {
   resolveMuseXdgSkillsDir,
@@ -46,7 +51,8 @@ export const aliases = []; // ADR: no aliases (no muse-spark, muse-code, spark, 
 
 // Project-relative paths. Skills deploy into the Muse-native project skills
 // root; agents/commands/rules have no file surface in this wave (indexed via
-// aiwg discover / aiwg show; the AGENTS.md bridge lands in #227).
+// aiwg discover / aiwg show). The discover-first AGENTS.md bridge renders in
+// this wave (#227) via createAgentsMd below.
 export const paths = {
   agents: '',
   commands: '',
@@ -183,14 +189,32 @@ export function getFileExtension() {
   return '.md';
 }
 
+/**
+ * Render the discover-first AGENTS.md bridge from the muse template (#227).
+ * The template section is wrapped in AIWG-managed markers; operator content
+ * outside the markers is preserved on redeploy, and the managed section is
+ * updated in place when the template changes.
+ */
+export function createAgentsMd(target, srcRoot, dryRun) {
+  const aiwgRoot = resolveAiwgRoot(srcRoot) || srcRoot;
+  createAgentsMdFromTemplate(target, aiwgRoot, 'muse/AGENTS.md.aiwg-template', dryRun);
+}
+
 export async function postDeploy(targetDir, opts = {}) {
+  if (
+    opts.createAgentsMd ||
+    (!opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly)
+  ) {
+    createAgentsMd(targetDir, opts.srcRoot, opts.dryRun);
+  }
   if (!opts.quiet) {
     const root = opts.scope === 'user'
       ? assertMuseUserSkillsDir(opts.env || process.env, opts.userHome || os.homedir())
       : path.join(targetDir, kernelSkillsPath);
     console.log(`\nMuse Code: skills deployed to ${root}`);
     console.log('  Rules/agents surface through `aiwg discover` / `aiwg show`; the discover-first');
-    console.log('  AGENTS.md bridge lands in #227. Hooks/MCP settings are out of scope for this wave.');
+    console.log('  AGENTS.md bridge is managed above. Hooks/MCP settings are out of scope for this wave.');
+    console.log('  Trust the workspace when prompted, then start a new Muse session to load the bridge.');
   }
 }
 
@@ -262,6 +286,7 @@ export default {
   deployRules,
   assertNotCursorTarget,
   assertMuseUserSkillsDir,
+  createAgentsMd,
   postDeploy,
   getFileExtension,
   deploy,

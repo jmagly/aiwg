@@ -1,0 +1,40 @@
+# AIWG × Muse Code
+
+This file is the **discover-first AIWG bridge** for Muse Code. Muse loads
+project `AGENTS.md` natively — but only after the workspace is explicitly
+trusted (first-run trust prompt). Until the workspace is trusted, this file
+does not load: trust the workspace when prompted, then start a new Muse
+session so the bridge is read. It does not claim Muse auto-loads any other
+AIWG path on its own.
+
+{{REMOTES_TOPOLOGY}}
+## Before improvising
+
+1. Run `aiwg discover "<what you need>"`.
+2. Run `aiwg show <type> <name>` for the full artifact body.
+3. Prefer indexed agents/skills/rules over guessing.
+
+Instruction order: this `AGENTS.md` first, then `WORKSPACE.md` for
+project/operator context, then `.aiwg/AIWG.md` (or project `AIWG.md`) for
+AIWG discovery and framework routing. Store artifact references and
+one-sentence summaries only — never paste full artifact bodies into
+context or memory.
+
+## Boundaries
+
+- AIWG artifacts live under the project `.aiwg/` tree and the AIWG index.
+- Muse-native skill roots are **deploy locations, not auto-loaded
+  context**: project `.agents/skills/`, plus the operator's
+  `$XDG_CONFIG_HOME/muse/skills` user root. AIWG never invents `~/.muse`,
+  never writes foreign provider paths (no `.cursor/`), and never silently
+  mirrors into `~/.agents/skills`.
+- No `CLAUDE.md` shim and no foreign-provider context file: this bridge is
+  the Muse context surface.
+- Project hooks (`.muse/hooks.json`) stay operator-owned in this wave;
+  unmanaged hooks are never silently installed.
+
+## After deploy or regenerate
+
+Trust the workspace again if prompted, then start a **new Muse session**
+to re-read this file. Changes are not picked up by reloading an IDE
+window.

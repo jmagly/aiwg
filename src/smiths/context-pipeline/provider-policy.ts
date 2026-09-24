@@ -72,3 +72,9 @@ export function shouldEmitAgentsMd(provider: Platform): boolean {
 export function shouldEmitClaudeMdHook(provider: Platform): boolean {
   return getProviderDefinition(provider)?.paths.contextFiles.claudeMdHook ?? false;
 }
+
+// The Muse discover-first bridge text lives in ./muse-bridge.js (kept
+// dependency-free so consumers like buildProviderBootstrapBlock do not pull
+// this module's evaluation side effects into every import graph). Re-export
+// it here so the provider-policy surface stays the canonical policy home.
+export { buildMuseBridgeText } from './muse-bridge.js';
