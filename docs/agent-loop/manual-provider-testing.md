@@ -20,7 +20,7 @@ authenticated.
 - Harness script: `tools/ralph-external/manual-provider-test.sh`
 - Loop entry point: `tools/ralph-external/index.mjs`
 - Runtime providers: `claude`, `codex`, `opencode`, `factory`, `pi`, `omp`,
-  `deepseek-harness` (registered in `tools/ralph-external/lib/*-adapter.mjs`)
+  `deepseek-harness`, `muse` (registered in `tools/ralph-external/lib/*-adapter.mjs`)
 - Pi runs headless as `--provider pi` (`pi --mode json --no-approve`, Node
   22.19+ preflight, qualified-version preflight, `--model`/`--thinking`/`--tools`
   propagation, stdin closed, cancellation by bounded TERM/KILL). It never loads
@@ -37,6 +37,16 @@ authenticated.
   `test/unit/sessions/pi-adapter.test.ts`) green in CI. Required for stable:
   the above plus a passing `npm run smoke:pi:live` against the pinned Pi
   version recorded per release.
+- **Muse status: experimental (optional, #230).** Headless `muse exec --json`
+  with resume via `--session-id` and transcripts via `muse export`; contract
+  tests in `test/unit/ralph/muse-adapter.test.mjs` (`npm run test:node`) run
+  against the recorded fixture stub only — no live Meta auth in CI. Disable
+  with `AIWG_MUSE_RALPH_ENABLED=0` (does not affect `aiwg use --provider
+  muse`). Live runs need an authenticated `muse` CLI; Linux runners need
+  bubblewrap + unprivileged user namespaces for muse's default OS sandbox.
+  Never pass `--yolo` (disables approval *and* sandboxing). The `--json`
+  envelope schema is unevidenced, so settlement is read from exit codes, not
+  parsed events. See [the muse Ralph adapter reference](../providers/muse-ralph-exec.md).
 - The `stub` provider is UAT-only (registered by the test fixture, not the runtime)
 - Each run executes in an isolated scratch workspace (`mktemp -d` by default), so
   the loop's `.aiwg/ralph-external/` output never touches the AIWG repo.
@@ -102,7 +112,7 @@ Expected: all tests pass (includes the resume, stop-semantics, unknown-budget, s
 
 ## Troubleshooting
 
-- **`Unknown provider '<name>'`** — the provider CLI adapter isn't registered; valid runtime providers are `claude`, `codex`, `opencode`, `factory`, `pi`, `omp`, `deepseek-harness`. `stub` is UAT-only.
+- **`Unknown provider '<name>'`** — the provider CLI adapter isn't registered; valid runtime providers are `claude`, `codex`, `opencode`, `factory`, `pi`, `omp`, `deepseek-harness`, `muse` (unless `AIWG_MUSE_RALPH_ENABLED=0`). `stub` is UAT-only.
 - **Pi adapter reports unavailable** — the Pi adapter preflights Node 22.19+
   and a `pi` executable (`AIWG_PI_BIN` overrides the binary). Fix the runtime
   first; see [the Pi provider reference](../agents/providers/pi.md) for direct
