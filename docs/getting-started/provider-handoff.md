@@ -32,6 +32,7 @@ If more than one provider is present, add the tool name to the first sentence.
 | Devin Desktop | Project root | Provider compatibility paths | “Verify the deployed project context.” |
 | Hermes | Workspace attached to the project | Hermes context and `AGENTS.md` | “Verify project state and recommend one next action.” |
 | Grok Bot | Workspace attached to the project | Grok Bot context and `AGENTS.md` | “Verify project state and recommend one next action.” |
+| Muse Code | Project root | `AGENTS.md` and `.agents/skills/` (trust the workspace, then start a new session) | “Verify the Muse handoff and choose one route.” |
 | OpenClaw | Project root or OpenClaw workspace | OpenClaw skill and rule paths | “Verify the deployed project and find one capability.” |
 | OpenHuman | Workspace attached to the project | OpenHuman user and project context | “Verify the AIWG context available here.” |
 | Oh My Pi | OMP session in the project root | `.omp/`, `.agents/skills/`, and `.omp/AGENTS.md` | “Verify native OMP agents, context, and one AIWG capability.” |
