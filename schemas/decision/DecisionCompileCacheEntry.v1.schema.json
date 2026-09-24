@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionCompileCacheEntry.v1.schema.json",
+  "title": "AIWG Decision Compile Cache Entry v1",
+  "description": "Live definition- or adapter-compilation artifact. It is never a decision result; a tombstoned or deleted key holds DecisionCompileCacheTombstone.v1 instead.",
+  "type": "object",
+  "required": ["schemaVersion", "key", "identity", "value", "valueDigest", "createdAtEpochMs", "expiresAtEpochMs", "legalHold"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "decision-compile-cache-entry/v1" },
+    "key": { "$ref": "#/$defs/digest" },
+    "identity": { "$ref": "DecisionCompileCacheIdentity.v1.schema.json" },
+    "value": { "description": "Compiled artifact (any JSON value)." },
+    "valueDigest": { "$ref": "#/$defs/digest" },
+    "createdAtEpochMs": { "type": "integer", "minimum": 0 },
+    "expiresAtEpochMs": { "type": "integer", "minimum": 0 },
+    "legalHold": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/hold" }] }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "hold": {
+      "type": "object",
+      "required": ["subject", "reason", "scope", "expiresAt", "authorizedBy"],
+      "additionalProperties": false,
+      "properties": {
+        "subject": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 },
+        "scope": { "type": "array", "minItems": 1, "contains": { "const": "cache" },
+          "items": { "enum": ["state", "receipt", "trace", "debug-sidecar", "cache", "job", "review", "calibration", "evaluation", "export", "preprocessing-lineage"] } },
+        "expiresAt": { "type": "integer", "minimum": 0 },
+        "authorizedBy": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

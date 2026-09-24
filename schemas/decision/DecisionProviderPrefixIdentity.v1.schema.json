@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionProviderPrefixIdentity.v1.schema.json",
+  "title": "AIWG Decision Provider Prefix Identity v1",
+  "description": "Protected semantic identity of a provider prompt prefix. Only its digest appears in evidence and telemetry.",
+  "type": "object",
+  "required": ["schemaVersion", "orderedPrefixDigest", "provider", "backend", "requestedModel", "actualModel", "apiRevision", "policy", "tenantId", "workspaceId", "dataClass", "region", "egressPolicyDigest"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "decision-provider-prefix-identity/v1" },
+    "orderedPrefixDigest": { "$ref": "#/$defs/digest" },
+    "provider": { "type": "string", "minLength": 1 },
+    "backend": { "type": "string", "minLength": 1 },
+    "requestedModel": { "type": "string", "minLength": 1 },
+    "actualModel": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "apiRevision": { "type": "string", "minLength": 1 },
+    "policy": {
+      "type": "object",
+      "required": ["id", "version", "ttlMs"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "ttlMs": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tenantId": { "type": "string", "minLength": 1 },
+    "workspaceId": { "type": "string", "minLength": 1 },
+    "dataClass": { "type": "string", "minLength": 1 },
+    "region": { "type": "string", "minLength": 1 },
+    "egressPolicyDigest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

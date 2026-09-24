@@ -153,7 +153,7 @@ async function executeCase(
 ): Promise<QualificationEvidence> {
   const started = Date.now();
   const testEvidenceIds = [...(item.evidenceIds ?? [])];
-  if (testEvidenceIds.some(id => !/^(?:CAL|DRF)-[A-Z0-9][A-Z0-9._-]*$/.test(id))
+  if (testEvidenceIds.some(id => !/^(?:CAL|DRF|CCP)-[A-Z0-9][A-Z0-9._-]*$/.test(id))
     || new Set(testEvidenceIds).size !== testEvidenceIds.length) throw new Error(`invalid named qualification evidence for ${item.id}`);
   testEvidenceIds.sort();
   const executor = plan.executors[item.id];

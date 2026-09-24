@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "decision-cache-benchmark-plan/v1",
+  "id": "d30-ccp-jev-local-compile-v1",
+  "preregisteredAt": "2026-09-24",
+  "question": "Does a verified filesystem compile-cache hit prepare the Jev adapter request faster than recompiling it locally?",
+  "adapter": { "id": "jev", "version": "1.0.0", "compiledFormat": "jev-question/v1" },
+  "definition": "examples/decision/decision-category.json",
+  "store": "FileCompileCache (local filesystem, same process)",
+  "warmupCalls": 20,
+  "measuredPairs": 200,
+  "pairOrder": "alternating cache-disabled then cache-enabled",
+  "metric": "preparation-latency",
+  "minimumBenefitTargetBps": 1000,
+  "confidenceInterval": "95% deterministic paired bootstrap, 233 iterations",
+  "providerEconomics": "unknown: no provider request is made, so provider tokens, cached tokens and cost are null",
+  "limitations": [
+    "Offline, single host, single process; not a production latency claim.",
+    "Jev compiles locally by serializing the question, so the compile being avoided is cheap.",
+    "Provider-prefix reuse and provider-qualified economics are out of scope here and tracked in #2683."
+  ]
+}
