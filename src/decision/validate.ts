@@ -147,12 +147,50 @@ function deepFreeze(value: unknown): void {
   Object.freeze(value);
 }
 
+/**
+ * Compiled caller-schema validators, keyed by the sha256 of the schema's
+ * canonical JSON, so equal content shares a validator and different content
+ * never does. Each miss compiles a detached clone in a fresh Ajv instance, so
+ * later mutation of the caller's object or another schema's `$id` cannot leak
+ * into a cached entry. Bounded LRU; failed compiles are never cached.
+ */
+const SCHEMA_CACHE_LIMIT = 256;
+const strictSchemaDigests = new Map<string, true>();
+const permissiveValidators = new Map<string, ValidateFunction>();
+
+function schemaDigest(schema: JsonSchema): string | null {
+  try { return createHash('sha256').update(canonicalJson(schema)).digest('hex'); }
+  catch { return null; } // Not canonical JSON (for example an undefined member): compile uncached.
+}
+
+/** Only a cacheable (canonical JSON) schema needs a private copy. */
+function detached(schema: JsonSchema, digest: string | null): JsonSchema {
+  return digest === null ? schema : structuredClone(schema);
+}
+
+function cached<T>(cache: Map<string, T>, digest: string | null, build: () => T): T {
+  if (digest !== null) {
+    const hit = cache.get(digest);
+    if (hit !== undefined) {
+      cache.delete(digest);
+      cache.set(digest, hit);
+      return hit;
+    }
+  }
+  const value = build();
+  if (digest !== null) {
+    cache.set(digest, value);
+    if (cache.size > SCHEMA_CACHE_LIMIT) cache.delete(cache.keys().next().value!);
+  }
+  return value;
+}
+
 export function validateAgainstSchema(schema: JsonSchema, value: unknown, label: string): void {
-  assertLocalSchema(schema, label);
-  const ajv = new Ajv2020({ strict: false, allErrors: true, validateFormats: false });
+  const digest = assertLocalSchema(schema, label);
   let validate: ValidateFunction;
   try {
-    validate = ajv.compile(schema);
+    validate = cached(permissiveValidators, digest, () =>
+      new Ajv2020({ strict: false, allErrors: true, validateFormats: false }).compile(detached(schema, digest)));
   } catch (error) {
     throw new DecisionValidationError(`${label} is not a supported local draft 2020-12 schema: ${errorMessage(error)}`);
   }
@@ -270,7 +308,7 @@ export function validateDistribution(definition: DecisionDefinition, distributio
   }
 }
 
-function assertLocalSchema(schema: JsonSchema, label: string): void {
+function assertLocalSchema(schema: JsonSchema, label: string): string | null {
   const visit = (value: unknown, stack: Set<unknown>, depth: number): void => {
     if (depth > 64) throw new DecisionValidationError(`${label} exceeds maximum schema depth`);
     if (!value || typeof value !== 'object') return;
@@ -286,12 +324,18 @@ function assertLocalSchema(schema: JsonSchema, label: string): void {
     stack.delete(value);
   };
   visit(schema, new Set(), 0);
+  // The structural walk above runs on every call; only the strict compile is cached.
+  const digest = schemaDigest(schema);
   try {
-    new Ajv2020({ strictSchema: true, strictTypes: false, strictTuples: false,
-      strictRequired: false, validateFormats: false }).compile(schema);
+    cached(strictSchemaDigests, digest, () => {
+      new Ajv2020({ strictSchema: true, strictTypes: false, strictTuples: false,
+        strictRequired: false, validateFormats: false }).compile(detached(schema, digest));
+      return true as const;
+    });
   } catch (error) {
     throw new DecisionValidationError(`${label} uses an unsupported schema construct: ${errorMessage(error)}`);
   }
+  return digest;
 }
 
 function assertPredicateAliases(predicate: DecisionPredicate, aliases: Set<string>): void {
