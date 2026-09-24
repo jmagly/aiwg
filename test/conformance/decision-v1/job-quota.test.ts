@@ -1,0 +1,72 @@
+import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { ITEM_STATES, type DecisionJob } from '../../../src/decision/job-contract.js';
+import { DecisionJobRuntime, recount } from '../../../src/decision/job-runtime.js';
+import { FileJobQuotaStore, type JobQuotaLimits } from '../../../src/decision/job-quota.js';
+const scope = { tenantId: 't', projectId: 'p', workspaceId: 'w', principalId: 'actor' };
+const digest = `sha256:${'a'.repeat(64)}` as const;
+const limits: JobQuotaLimits = { queued: 1, running: 1, retainedItems: 1, retainedBytes: 10000,
+  tokens: 100, costMicros: 1000, calls: 2, jobs: 1 };
+function job(id: string, actor = scope): DecisionJob {
+  const value: DecisionJob = { schemaVersion: 'decision-job/v1', id, scope: actor, fingerprint: digest, state: 'validating',
+    createdAtEpochMs: 10, expiresAtEpochMs: 100, budget: { maxAttempts: 2, maxTokens: 100, maxCostMicros: 1000, maxConcurrency: 1 },
+    items: [{ id: 'item0', fingerprint: digest, subjectDigest: digest, definitionDigest: digest, bindingDigest: digest,
+      state: 'queued', attempts: [] }],
+    summary: Object.fromEntries(ITEM_STATES.map(state => [state, 0])) as DecisionJob['summary'] };
+  recount(value); return value;
+}
+const child = fileURLToPath(new URL('./fixtures/job-quota-child.mjs', import.meta.url));
+function fork(directory: string, id: string): Promise<{ code: number | null; output: string }> {
+  return new Promise((resolve, reject) => {
+    const process = spawn(globalThis.process.execPath, ['--import', 'tsx', child, directory, id],
+      { cwd: fileURLToPath(new URL('../../../', import.meta.url)) });
+    let output = ''; process.stdout.on('data', chunk => { output += String(chunk); });
+    process.stderr.on('data', chunk => { output += String(chunk); });
+    process.on('error', reject); process.on('close', code => resolve({ code, output }));
+  });
+}
+describe('JOB transactional local-filesystem quotas', () => {
+  it('serializes two real processes against the same project budget without accepting both', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'job-quota-forks-'));
+    try {
+      const [a, b] = await Promise.all([fork(dir, 'job-a'), fork(dir, 'job-b')]);
+      expect([a.code, b.code].sort()).toEqual([0, 2]);
+      expect([a.output.trim(), b.output.trim()].sort()).toEqual(['accepted', 'denied']);
+      expect((await readdir(dir)).filter(name => name.endsWith('.r1.json'))).toHaveLength(1);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  }, 20000);
+  it('enforces per-project and principal capacity on transitions and releases after deletion', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'job-quota-policy-'));
+    try {
+      const policy = { principal: limits, project: { ...limits, jobs: 2, retainedItems: 2, queued: 2,
+        running: 2, retainedBytes: 20000, tokens: 200, costMicros: 2000, calls: 4 } };
+      const first = new DecisionJobRuntime(new FileJobQuotaStore(dir, policy), () => 20);
+      const other = new DecisionJobRuntime(new FileJobQuotaStore(dir, policy), () => 20);
+      await first.submit(job('a'), scope);
+      await expect(other.submit(job('b'), scope)).rejects.toThrow('capacity');
+      const neighbor = { ...scope, principalId: 'neighbor' };
+      await other.submit(job('b', neighbor), neighbor);
+      await expect(first.submit(job('c', { ...scope, principalId: 'third' }), { ...scope, principalId: 'third' })).rejects.toThrow('capacity');
+      const snapshot = (await first.poll(scope, 'a'))!;
+      const running = structuredClone(snapshot.job); running.state = 'running';
+      running.items[0]!.state = 'running';
+      running.items[0]!.attempts.push({ id: randomUUID(), requestDigest: digest, outcome: 'dispatched' }); recount(running);
+      const constrained = new DecisionJobRuntime(new FileJobQuotaStore(dir, {
+        principal: { ...limits, running: 0 }, project: policy.project,
+      }), () => 20);
+      // Start from an admitted queued state; a stricter running quota must reject dispatch.
+      const queued = structuredClone(snapshot.job); queued.state = 'queued';
+      const admitted = await first.advance(scope, 'a', snapshot, queued);
+      await expect(constrained.advance(scope, 'a', admitted, running)).rejects.toThrow('capacity');
+      expect((await first.poll(scope, 'a'))?.revision).toBe(2);
+      expect(await first.remove(scope, 'a')).toBe(true);
+      await other.submit(job('c'), scope);
+      expect((await readdir(dir)).filter(name => name.endsWith('.r1.json'))).toHaveLength(3);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+});

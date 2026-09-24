@@ -1,8 +1,11 @@
+import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { OfflineJobScheduler } from '../../../src/decision/job-scheduler.js';
 import { OfflineJobWorker } from '../../../src/decision/job-worker.js';
 import { DecisionJobRuntime, recount } from '../../../src/decision/job-runtime.js';
-import { MemoryJobStore, JobConflictError } from '../../../src/decision/job-store.js';
+import { FileJobStore, MemoryJobStore, JobConflictError } from '../../../src/decision/job-store.js';
 import { ITEM_STATES, type DecisionJob } from '../../../src/decision/job-contract.js';
 import { SchedulerWaitError } from '../../../src/decision/scheduler.js';
 const digest = `sha256:${'a'.repeat(64)}` as const;
@@ -50,6 +53,35 @@ describe('JOB bounded offline queue', () => {
     await expect(duplicate.run([item, item])).rejects.toThrow('Duplicate scheduled job item');
     expect(calls).toBe(0);
   });
+  it('soaks two lanes through a restartable journal with bounded queue and byte fixtures', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'decision-job-soak-'));
+    try {
+      const first = actor; const second = { ...actor, principalId: 'b' };
+      const order: string[] = [];
+      for (let round = 0; round < 2; round++) {
+        const runtime = new DecisionJobRuntime(new FileJobStore(dir), () => 2);
+        await submit(runtime, job(`lane-a-${round}`, first, 8));
+        await submit(runtime, job(`lane-b-${round}`, second, 8));
+        const work = [first, second].flatMap((scope, lane) =>
+          Array.from({ length: 8 }, (_, index) => ({ actor: scope, jobId: `lane-${lane ? 'b' : 'a'}-${round}`,
+            itemId: `item${index}`, executor: async () => {
+              order.push(`${round}:${lane}:${index}`);
+              return { state: 'succeeded' as const, receiptDigest: digest, resultDigest: digest };
+            } })));
+        const result = await new OfflineJobScheduler(new OfflineJobWorker(runtime), 1, 16).run(work);
+        expect(result).toHaveLength(16);
+        expect(result.every(entry => !(entry instanceof SchedulerWaitError))).toBe(true);
+        expect((await new DecisionJobRuntime(new FileJobStore(dir), () => 2).poll(first, `lane-a-${round}`))?.job.summary.succeeded).toBe(8);
+        expect((await new DecisionJobRuntime(new FileJobStore(dir), () => 2).poll(second, `lane-b-${round}`))?.job.summary.succeeded).toBe(8);
+      }
+      expect(order.slice(0, 4)).toEqual(['0:0:0', '0:1:0', '0:0:1', '0:1:1']);
+      expect(order.slice(16, 20)).toEqual(['1:0:0', '1:1:0', '1:0:1', '1:1:1']);
+      const files = (await readdir(dir)).filter(name => name.endsWith('.json'));
+      expect(files.length).toBeLessThanOrEqual(100);
+      const bytes = (await Promise.all(files.map(name => stat(join(dir, name))))).reduce((sum, file) => sum + file.size, 0);
+      expect(bytes).toBeLessThan(4 * 1024 * 1024);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  }, 30000);
   it('cancels queued items before the worker and never counts them as clean success', async () => {
     const runtime = new DecisionJobRuntime(new MemoryJobStore(), () => 2);
     await submit(runtime, job('many', actor, 2));

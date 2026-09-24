@@ -107,6 +107,20 @@ export class FileJobStore implements JobStore {
     if (!current || canonicalJson(current) !== canonicalJson(previous)) return false;
     return this.publish(next);
   }
+  /** Host-only quota scan. Validate every live journal; corrupted records fail admission closed. */
+  async listSnapshots(): Promise<JobSnapshot[]> {
+    await this.ensureDirectory();
+    const snapshots: JobSnapshot[] = [];
+    for (const name of await readdir(this.directory)) {
+      if (!/^[a-f0-9]{64}\.r1\.json$/.test(name)) continue;
+      const first = JSON.parse(await readFile(join(this.directory, name), 'utf8')) as JobSnapshot;
+      if (name !== `${this.prefix(first.job.scope, first.job.id)}.r1.json`)
+        throw new JobConflictError('Job scope substitution');
+      const current = await this.read(first.job.scope, first.job.id);
+      if (current) snapshots.push(current);
+    }
+    return snapshots;
+  }
   /** Host-only D10 eraser: call after lifecycle tombstone and authorized job deletion. */
   async purgeDeleted(scope: JobScope, id: string): Promise<void> {
     const record = await this.read(scope, id);
