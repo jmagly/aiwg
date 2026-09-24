@@ -11,6 +11,7 @@ import {
   runOfflineDecisionPattern,
   resolveDecisionPatternArtifact,
   runOfflineDurableReviewFixture,
+  runOfflineReviewMatrixFixture,
   validateDecisionPattern,
 } from '../../../src/decision/patterns/index.js';
 
@@ -171,6 +172,17 @@ describe('PAT decision pattern playground', () => {
     await expect(runLiveDecisionPattern('intent-routing', { synthetic: true, input: {} }, options, async () => ({
       requestedModel: 'jev:test', actualModel: 'jev:test', output: {}, calls: 1, attempts: 1, usage: { inputTokens: 1, outputTokens: 1, costUsd: null },
     }))).rejects.toThrow('cost unavailable');
+  });
+
+  it('PAT-REVIEW-MATRIX exercises low-confidence, policy conflict, edit, reject, expiry, escalation and replay', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'aiwg-pattern-review-matrix-'));
+    fixtureDirectories.push(directory);
+    await expect(runOfflineReviewMatrixFixture(directory)).resolves.toEqual({
+      schema: 'decision-review-offline-matrix/v1', executionMode: 'offline-local', networkAllowed: false,
+      credentialRequired: false, restarted: true, claimed: 'claimed', rejected: 'rejected', editedVersion: 2,
+      expired: 'expired', escalated: 'escalated', lateDenied: true, executorCalls: 1,
+      duplicateResumeReturnedReceipt: true,
+    });
   });
 
   it('PAT-DURABLE-001 uses the real offline store across restart and resumes idempotently', async () => {

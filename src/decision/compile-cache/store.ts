@@ -17,7 +17,15 @@ export class MemoryCompileCache<T> {
     const key = compileCacheKey(identity);
     if (options.bypass) return { outcome: 'bypass', key, entry: await this.build(identity, key, context, ttlMs, compile) };
     const existing = this.entries.get(key);
-    if (existing) return { outcome: 'hit', key, entry: this.revalidate(existing, identity, context) };
+    if (existing) {
+      // Authenticate the old entry before allowing an expiry refresh. A
+      // tombstone or tamper is never silently converted into a cache miss.
+      this.revalidate(existing, identity, context, true);
+      if (existing.tombstonedAtEpochMs !== null) throw new CompileCacheRejectedError();
+      if (context.nowEpochMs < existing.expiresAtEpochMs) {
+        return { outcome: 'hit', key, entry: this.revalidate(existing, identity, context) };
+      }
+    }
     const active = this.fills.get(key);
     if (active) return { outcome: 'hit', key, entry: this.revalidate(await active, identity, context) };
     const fill = this.build(identity, key, context, ttlMs, compile);
@@ -72,11 +80,13 @@ export class MemoryCompileCache<T> {
       expiresAtEpochMs: context.nowEpochMs + ttlMs, tombstonedAtEpochMs: null, legalHold: false };
   }
 
-  private revalidate(entry: CompileCacheEntry<T>, identity: CompileCacheIdentity, context: CompileCacheReadContext): CompileCacheEntry<T> {
-    const valid = entry.key === compileCacheKey(entry.identity) && entry.key === compileCacheKey(identity)
+  private revalidate(entry: CompileCacheEntry<T>, identity: CompileCacheIdentity, context: CompileCacheReadContext,
+    allowInactive = false): CompileCacheEntry<T> {
+    const valid = entry.schemaVersion === 'decision-compile-cache-entry/v1'
+      && entry.key === compileCacheKey(entry.identity) && entry.key === compileCacheKey(identity)
       && canonicalJson(entry.identity) === canonicalJson(identity) && entry.valueDigest === sha256(entry.value)
       && entry.identity.tenantId === context.tenantId && entry.identity.projectId === context.projectId
-      && context.authorize(entry.identity) && entry.tombstonedAtEpochMs === null && context.nowEpochMs < entry.expiresAtEpochMs;
+      && context.authorize(entry.identity) && (allowInactive || (entry.tombstonedAtEpochMs === null && context.nowEpochMs < entry.expiresAtEpochMs));
     if (!valid) throw new CompileCacheRejectedError();
     return structuredClone(entry);
   }

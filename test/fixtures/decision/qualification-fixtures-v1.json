@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "decision-qualification-fixtures/v1",
+  "fixtures": [
+    {
+      "id": "DEC-CONFORMANCE-01", "path": "test/fixtures/decision/conformance.json",
+      "origin": "repository-authored", "author": "Joseph Magly", "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)", "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "1.0.0", "digest": "sha256:1621d2dea1de87ef7a9991bb864a0bf0e65bf58670ca523e342a942044ee1858",
+      "expectedOutcome": "fixture defines C01-C42 expectations", "links": ["FR-014", "JEV-16"]
+    },
+    {
+      "id": "DEC-CALIBRATION-01", "path": "test/fixtures/decision/calibration-compatibility-cross-product-v1.json",
+      "origin": "repository-authored", "author": "roctinam", "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)", "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-calibration-cross-product/v1", "digest": "sha256:072dcd624aead5442cb36292825a00c6f3c3f59ed22cb1b767bc8b9896a1abb9",
+      "expectedOutcome": "incompatible pins invalidate calibration", "links": ["FR-033", "JEV-16"]
+    },
+    {
+      "id": "DEC-CHOICE-01", "path": "test/fixtures/decision/acceptance/choice-raw-derived.json",
+      "origin": "repository-authored", "author": "roctinam", "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)", "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-acceptance-receipt-golden/v1", "digest": "sha256:90e119bc423991bc4680c70d9ecdc26bf7756c5f000012b4201b6df8c470835a",
+      "expectedOutcome": "choice raw and derived acceptance", "links": ["FR-014", "JEV-16"]
+    },
+    {
+      "id": "DEC-NOUL-01", "path": "test/fixtures/decision/acceptance/noul-near-indeterminate.json",
+      "origin": "repository-authored", "author": "roctinam", "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)", "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-acceptance-receipt-golden/v1", "digest": "sha256:182876a3d4d60db5579fa10ea920630a845dc29cf7c56c3cee154fe3a84dbaa2",
+      "expectedOutcome": "near-indeterminate truth acceptance", "links": ["FR-014", "JEV-16"]
+    },
+    {
+      "id": "DEC-SCORE-01", "path": "test/fixtures/decision/acceptance/score-equal-mean-dispersions.json",
+      "origin": "repository-authored", "author": "roctinam", "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)", "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-acceptance-receipt-golden/v1", "digest": "sha256:063c3f041c5d87ac05d948c5cec5cf075261bc649a2e971aeef29635d034019a",
+      "expectedOutcome": "equal means with distinct dispersion", "links": ["FR-014", "JEV-16"]
+    }
+  ]
+}

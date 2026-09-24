@@ -13,7 +13,17 @@
     "pattern": { "enum": ["custom", "shortlist-rerank", "taxonomy-beam", "extractor-verifier-fallback"] },
     "nodes": { "type": "array", "minItems": 1, "maxItems": 128, "items": { "$ref": "#/$defs/node" } },
     "edges": { "type": "array", "maxItems": 512, "items": { "$ref": "#/$defs/edge" } },
-    "budget": { "$ref": "#/$defs/budget" }
+    "budget": { "$ref": "#/$defs/budget" },
+    "stageBudgets": {
+      "type": "array", "maxItems": 128,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["stage", "limits"],
+        "properties": {
+          "stage": { "type": "integer", "minimum": 0, "maximum": 127 },
+          "limits": { "$ref": "#/$defs/budget" }
+        }
+      }
+    }
   },
   "$defs": {
     "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$" },
@@ -21,7 +31,7 @@
     "pin": {
       "type": "object", "additionalProperties": false,
       "required": ["id", "version", "digest"],
-      "properties": { "id": { "$ref": "#/$defs/name" }, "version": { "$ref": "#/$defs/name" }, "digest": { "$ref": "#/$defs/digest" } }
+      "properties": { "id": { "$ref": "#/$defs/name" }, "version": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$" }, "digest": { "$ref": "#/$defs/digest" } }
     },
     "node": {
       "type": "object", "additionalProperties": false,
@@ -41,7 +51,12 @@
       "required": ["from", "to", "source", "destination"],
       "properties": {
         "from": { "$ref": "#/$defs/name" }, "to": { "$ref": "#/$defs/name" },
-        "source": { "$ref": "#/$defs/name" }, "destination": { "$ref": "#/$defs/name" }
+        "source": { "$ref": "#/$defs/name" }, "destination": { "$ref": "#/$defs/name" },
+        "when": {
+          "type": "object", "additionalProperties": false,
+          "required": ["source", "equals"],
+          "properties": { "source": { "$ref": "#/$defs/name" }, "equals": { "type": "boolean" } }
+        }
       }
     },
     "budget": {

@@ -12,6 +12,7 @@ import {
   injectTraceContext,
   mapDecisionAttempt,
   recordBatchReceiptTrace,
+  recordDecisionSpanMetrics,
   restoreTelemetryTrace,
   sanitizedTelemetryExport,
   scanTelemetryCanaries,
@@ -21,6 +22,7 @@ import {
 } from '../../../src/decision/telemetry/index.js';
 import type { DecisionAttempt } from '../../../src/decision/types.js';
 import type { DecisionBatchReceipt } from '../../../src/decision/batch-receipts/index.js';
+import { isPublicCollectorAddress, resolvePublicCollectorAddress } from '../../../src/decision/telemetry/otlp-http.js';
 
 function deterministicIds(): DecisionTelemetryIdSource {
   let value = 1;
@@ -55,6 +57,10 @@ describe('decision telemetry foundation', () => {
     expect(mapped.attributes['aiwg.provider.request_id']).toBe('req42');
     expect(String(mapDecisionAttempt({ ...attempt, requestId: `request-${'x'.repeat(500)}` }).attributes['aiwg.provider.request_id']).length).toBe(128);
     expect(mapped.provenance['gen_ai.response.model']).toBe('unknown');
+    const served = sanitizedTelemetryExport({ ...trace(), spans: [{ ...trace().spans[0]!, attributes: {
+      'gen_ai.response.model': 'served-v2', 'http.response.status_code': 200, 'aiwg.response.body': 'private',
+    } }] });
+    expect(served.spans[0]?.attributes).toEqual({ 'gen_ai.response.model': 'served-v2', 'http.response.status_code': 200 });
     expect(mapped.attributes['gen_ai.usage.output_tokens']).toBeNull();
     expect(mapped.attributes['aiwg.usage.cost_provenance']).toBe('unknown');
   });
@@ -120,12 +126,31 @@ describe('decision telemetry foundation', () => {
       ...value.spans[0]!.attributes,
       prompt: 'do not export',
       'aiwg.provider.request_id': 'request-internal',
-      'safe.field': 'prefix PII-CANARY suffix',
+      'aiwg.safe.field': 'prefix PII-CANARY suffix',
+      'aiwg.PII-CANARY': 'body-derived-key',
+      'aiwg.unknown_freeform': 'safe value',
     };
     const sanitized = sanitizedTelemetryExport(value, { canaries: ['PII-CANARY'] });
     expect(JSON.stringify(sanitized)).not.toContain('do not export');
     expect(JSON.stringify(sanitized)).not.toContain('request-internal');
     expect(scanTelemetryCanaries(sanitized, ['PII-CANARY', 'SECRET-CANARY'])).toEqual([]);
+    expect(JSON.stringify(sanitized)).not.toContain('body-derived-key');
+    expect(JSON.stringify(sanitized)).not.toContain('aiwg.unknown_freeform');
+  });
+
+  it('strips untrusted tracestate, event names, and tombstone canaries from incident exports', () => {
+    const value = trace();
+    value.spans[0]!.context.traceState = 'vendor=PRIVATE-CANARY';
+    value.spans[0]!.events.push({ name: 'PRIVATE-CANARY response body', timeUnixMs: 100, attributes: {} });
+    value.spans[0]!.events.push({ name: 'retry.scheduled', timeUnixMs: 100,
+      attributes: { 'aiwg.retry.delay_ms': 1 } });
+    value.tombstones = [{ referenceType: 'review', opaqueId: 'PRIVATE-CANARY', deletedAtUnixMs: 100,
+      reason: 'PRIVATE-CANARY' }];
+    const exported = sanitizedTelemetryExport(value, { canaries: ['PRIVATE-CANARY'] });
+    expect(scanTelemetryCanaries(exported, ['PRIVATE-CANARY'])).toEqual([]);
+    expect(exported.spans[0]?.events.map(event => event.name)).toEqual(['retry.scheduled']);
+    expect(exported.spans[0]?.context.traceState).toBeUndefined();
+    expect(exported.tombstones?.[0]).toMatchObject({ opaqueId: 'redacted', reason: 'redacted' });
   });
 
   it('requires a complete explicit debug capture policy', () => {
@@ -139,11 +164,53 @@ describe('decision telemetry foundation', () => {
   });
 
   it('enforces metric dimension allowlists and cardinality bounds', () => {
-    const metrics = new BoundedDecisionMetrics(10, 2);
+    const metrics = new BoundedDecisionMetrics(10, 2, { 'aiwg.adapter.id': ['jev', 'llm', 'third'] });
     expect(metrics.record('decision.duration', 1, { 'aiwg.run.id': 'unbounded-1', 'aiwg.adapter.id': 'jev' })).toBe(true);
     expect(metrics.record('decision.duration', 2, { 'aiwg.run.id': 'unbounded-2', 'aiwg.adapter.id': 'llm' })).toBe(true);
     expect(metrics.record('decision.duration', 3, { 'aiwg.adapter.id': 'third' })).toBe(false);
     expect(metrics.snapshot().every(point => !Object.hasOwn(point.dimensions, 'aiwg.run.id'))).toBe(true);
+    const untrusted = new BoundedDecisionMetrics();
+    expect(untrusted.record('decision.duration', 1, { 'gen_ai.request.model': 'PII-CANARY',
+      'aiwg.adapter.id': 'raw-user-id', 'aiwg.decision.reason': 'PII-CANARY' })).toBe(true);
+    expect(untrusted.snapshot()[0]?.dimensions).toEqual({});
+    const approved = new BoundedDecisionMetrics(10, 2, { 'gen_ai.request.model': ['approved-model'] });
+    approved.record('decision.duration', 1, { 'gen_ai.request.model': 'approved-model' });
+    approved.record('decision.duration', 1, { 'gen_ai.request.model': 'PII-CANARY' });
+    expect(approved.snapshot().map(point => point.dimensions)).toEqual([
+      { 'gen_ai.request.model': 'approved-model' }, {},
+    ]);
+    expect(() => new BoundedDecisionMetrics(10, 2, { 'aiwg.run.id': ['unsafe'] })).toThrow(/bounds/);
+    const trusted = { 'gen_ai.request.model': ['approved-model'] };
+    const immutable = new BoundedDecisionMetrics(10, 2, trusted);
+    trusted['gen_ai.request.model'].push('PII-CANARY');
+    immutable.record('decision.duration', 1, { 'gen_ai.request.model': 'PII-CANARY' });
+    expect(immutable.snapshot()[0]?.dimensions).toEqual({});
+  });
+
+  it('records only shared-request batch usage and fixed operational metric names', () => {
+    const builder = new DecisionTraceBuilder(deterministicIds(), () => 100);
+    const root = builder.startSpan('decision.workflow');
+    const batch = builder.startSpan('decision.batch.request', { parent: root.context });
+    builder.recordBatchUsage(batch, 'batch-1', { inputTokens: 13, outputTokens: 5, costUsd: null });
+    const answer = builder.startSpan('decision.attempt', { parent: root.context, attributes: {
+      'aiwg.batch.id': 'batch-1', 'gen_ai.usage.input_tokens': 13, 'gen_ai.usage.output_tokens': 5,
+      'aiwg.run.id': 'private-run', 'aiwg.provider.request_id': 'private-provider',
+    } });
+    const metrics = new BoundedDecisionMetrics(20, 5);
+    for (const span of [root, batch, answer]) recordDecisionSpanMetrics(span, metrics);
+    expect(metrics.snapshot().filter(point => point.name === 'decision.input_tokens').map(point => point.value)).toEqual([13]);
+    expect(metrics.snapshot().filter(point => point.name === 'decision.output_tokens').map(point => point.value)).toEqual([5]);
+    expect(JSON.stringify(metrics.snapshot())).not.toMatch(/private-run|private-provider|batch-1/);
+    expect(metrics.record('decision.body-' + 'secret', 1, {})).toBe(false);
+    expect(metrics.record('decision.input_tokens', Number.NaN, {})).toBe(false);
+    const admit = builder.startSpan('decision.admit', { attributes: { 'aiwg.queue.delay_ms': 8 } });
+    const accept = builder.startSpan('decision.accept', { attributes: { 'aiwg.acceptance.disposition': 'act' } });
+    recordDecisionSpanMetrics(admit, metrics);
+    recordDecisionSpanMetrics(accept, metrics);
+    expect(metrics.snapshot()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'decision.queue_delay', value: 8 }),
+      expect.objectContaining({ name: 'decision.coverage', value: 1 }),
+    ]));
   });
 
   it('bounds exporter backpressure and records failures without throwing to callers', async () => {
@@ -156,6 +223,20 @@ describe('decision telemetry foundation', () => {
     release();
     await exporter.shutdown();
     expect(exporter.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'dropped' })]));
+  });
+
+  it('bounds trace bytes and diagnostic memory under adversarial load without throwing', async () => {
+    const sink = { export: vi.fn(async () => undefined) };
+    const exporter = new BoundedDecisionTraceExporter(sink, { capacity: 2, timeoutMs: 100,
+      maximumTraceBytes: 512, maximumDiagnostics: 3 });
+    const oversized = trace();
+    oversized.spans = Array.from({ length: 1_000 }, () => oversized.spans[0]!);
+    for (let i = 0; i < 1_000; i++) expect(exporter.offer(oversized)).toBe(false);
+    expect(exporter.offer(null as unknown as DecisionTelemetryTrace)).toBe(false);
+    expect(exporter.diagnostics).toHaveLength(3);
+    expect(sink.export).not.toHaveBeenCalled();
+    expect(() => new BoundedDecisionTraceExporter(sink, { capacity: 1, timeoutMs: 1, maximumTraceBytes: 0 })).toThrow(/bounds/);
+    expect(() => new BoundedDecisionTraceExporter(sink, { capacity: 1, timeoutMs: 1, maximumDiagnostics: 0 })).toThrow(/bounds/);
   });
 
   it('exports metadata-only OTLP/HTTP JSON to a pinned HTTPS endpoint without redirects', async () => {
@@ -191,6 +272,40 @@ describe('decision telemetry foundation', () => {
       .toThrow(/qualified DNS hostname/);
   });
 
+  it('rejects DNS rebinding and private, mapped, or mixed collector answers', async () => {
+    for (const address of ['127.0.0.1', '10.2.3.4', '169.254.169.254', '192.168.1.1',
+      '100.64.0.1', '198.51.100.2', '::1', 'fc00::1', 'fe80::1', '::ffff:8.8.8.8', '2001:db8::1']) {
+      expect(isPublicCollectorAddress(address), address).toBe(false);
+      await expect(resolvePublicCollectorAddress('collector.example', async () => [{ address, family: address.includes(':') ? 6 : 4 }]))
+        .rejects.toThrow(/non-public/);
+    }
+    expect(isPublicCollectorAddress('8.8.8.8')).toBe(true);
+    expect(isPublicCollectorAddress('2606:4700::1111')).toBe(true);
+    await expect(resolvePublicCollectorAddress('collector.example', async () => [
+      { address: '8.8.8.8', family: 4 }, { address: '127.0.0.1', family: 4 },
+    ])).rejects.toThrow(/non-public/);
+    await expect(resolvePublicCollectorAddress('collector.example', async () => [])).rejects.toThrow(/non-public/);
+    let n = 0;
+    const resolver = async () => [{ address: ++n === 1 ? '8.8.8.8' : '127.0.0.1', family: 4 }];
+    await expect(resolvePublicCollectorAddress('collector.example', resolver)).resolves.toMatchObject({ address: '8.8.8.8' });
+    await expect(resolvePublicCollectorAddress('collector.example', resolver)).rejects.toThrow(/non-public/);
+  });
+
+  it('bounds sustained exporter backpressure without retrying or changing receipts', async () => {
+    let release!: () => void;
+    const blocked = new Promise<void>(resolve => { release = resolve; });
+    let calls = 0;
+    const exporter = new BoundedDecisionTraceExporter({ export: async () => { calls++; await blocked; } },
+      { capacity: 3, timeoutMs: 1000, maximumDiagnostics: 5 });
+    const accepted = Array.from({ length: 1000 }, () => exporter.offer(trace())).filter(Boolean).length;
+    expect(accepted).toBe(4); // one in-flight, three queued
+    expect(exporter.diagnostics).toHaveLength(5);
+    expect(exporter.diagnostics.every(item => item.type === 'dropped')).toBe(true);
+    release();
+    await exporter.shutdown();
+    expect(calls).toBe(4);
+  });
+
   it('bounds OTLP bytes and treats redirects as exporter failures', async () => {
     const transport = vi.fn(async () => new Response(null, { status: 302,
       headers: { location: 'https://other.example/v1/traces' } })) as typeof fetch;
@@ -219,6 +334,18 @@ describe('decision telemetry foundation', () => {
     await expect(sink(respond('x'.repeat(4097))).export(trace(), signal)).rejects.toThrow(/inspection bound/);
     await expect(sink(respond('{"partialSuccess":{"rejectedSpans":"0"}}'))
       .export(trace(), signal)).resolves.toBeUndefined();
+  });
+
+  it('keeps collector transport errors and malformed responses out of diagnostics', async () => {
+    const sink = new DecisionOtlpHttpSink({ endpoint: 'https://collector.example/v1/traces', maxPayloadBytes: 16_384,
+      fetch: vi.fn(async () => { throw new Error('SECRET-CANARY https://private.internal/key'); }) as typeof fetch });
+    const exporter = new BoundedDecisionTraceExporter(sink, { capacity: 1, timeoutMs: 100 });
+    expect(exporter.offer(trace())).toBe(true);
+    await exporter.shutdown();
+    expect(exporter.diagnostics).toEqual([expect.objectContaining({ type: 'failed', detail: 'OTLP transport failed' })]);
+    const empty = new DecisionOtlpHttpSink({ endpoint: 'https://collector.example/v1/traces', maxPayloadBytes: 16_384,
+      fetch: vi.fn(async () => new Response(null, { status: 204 })) as typeof fetch });
+    await expect(empty.export(trace(), new AbortController().signal)).resolves.toBeUndefined();
   });
 
   it('bounds an exporter that ignores cancellation', async () => {

@@ -1,7 +1,7 @@
 import type { ArtifactPin, DecisionFailureReason, JsonValue } from '../types.js';
 
 export const RESULT_CACHE_SCHEMA_VERSION = 'decision-result-cache/v1' as const;
-export const RESULT_CACHE_KEY_VERSION = 'decision-semantic-key/v1' as const;
+export const RESULT_CACHE_KEY_VERSION = 'decision-semantic-key/v2' as const;
 
 export interface ResultCacheScope { tenantId: string; projectId: string; workspaceId: string }
 
@@ -35,6 +35,8 @@ export interface ResultCacheSemanticIdentity {
   promptDigest: `sha256:${string}`;
   acceptancePolicyDigest: `sha256:${string}`;
   calibrationDigest: `sha256:${string}`;
+  /** Pinned host policy that affects dispatch, admission, and acceptance. */
+  runtimePolicyDigest: `sha256:${string}`;
   backend: string;
   requestedModel: string;
   modelCompatibility: ModelCompatibilityPolicy;
@@ -82,6 +84,8 @@ export interface ResultCacheStore {
   invalidate(actor: ResultCacheActor, keyDigest: `sha256:${string}`, expectedEntryId?: string): Promise<boolean>;
   delete(actor: ResultCacheActor, keyDigest: `sha256:${string}`): Promise<boolean>;
   export(actor: ResultCacheActor, keyDigest: `sha256:${string}`): Promise<ResultCacheEntry | null>;
+  /** Optional cross-process coordination: serialize read/check/fill/publication for one scoped key. */
+  withKeyLock?<T>(actor: ResultCacheActor, keyDigest: `sha256:${string}`, work: () => Promise<T>): Promise<T>;
 }
 
 export type ResultCacheEvent = 'hit' | 'miss' | 'bypass' | 'stale' | 'invalidation' | 'single-flight';

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -241,6 +242,26 @@ describe('decision provider admission', () => {
     await expect(waiting).rejects.toMatchObject({ evidence: { reason: 'cancelled' } });
   });
 
+  it.each([
+    { policy: { tokensPerSecond: 4 }, estimate: { tokens: 5 }, reason: 'tokens-per-second' },
+    { policy: { requestsPerMinute: 0 }, estimate: {}, reason: 'requests-per-minute' },
+  ] as const)('rejects impossible $reason admission without retaining a waiter', async ({ policy, estimate, reason }) => {
+    const guarded = limits(policy);
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    await expect(controller.acquire(request(new AbortController().signal, estimate)))
+      .rejects.toMatchObject({ retryable: false, evidence: { decision: 'reject', reason, queued: 0 } });
+  });
+
+  it('rejects a queued token estimate when a tightened profile can never refill enough', async () => {
+    let current = limits({ concurrency: 1, tokensPerSecond: 20 });
+    const controller = new DecisionAdmissionController(() => ({ principal: current, workspace: current, provider: current }));
+    const held = await controller.acquire(request());
+    const pending = controller.acquire({ ...request(), budgetId: 'pending', estimate: { tokens: 10 } });
+    current = limits({ concurrency: 1, tokensPerSecond: 5 });
+    held.release({ success: true });
+    await expect(pending).rejects.toMatchObject({ retryable: false, evidence: { reason: 'tokens-per-second' } });
+  });
+
   it('enforces invocation-scoped attempt and cost budgets independently', async () => {
     const attemptLimits = limits({ maxAttempts: 1 });
     const attempts = new DecisionAdmissionController(() => ({ principal: attemptLimits, workspace: attemptLimits, provider: attemptLimits }));
@@ -283,6 +304,57 @@ describe('decision provider admission', () => {
     expect(dispatched).toBe(false);
     const safe = await controller.acquire({ ...request(), budgetId: 'safe', estimate: { requestBytes: 10 } });
     safe.release({ success: true });
+  });
+
+  it('bounds real loopback slow-client traffic and sheds overflow without sending it', async () => {
+    let served = 0;
+    let finishFirst!: () => void;
+    let firstStarted!: () => void;
+    const firstHeld = new Promise<void>(resolve => { finishFirst = resolve; });
+    const handlerStarted = new Promise<void>(resolve => { firstStarted = resolve; });
+    const server = createServer(async (_incoming, response) => {
+      served += 1;
+      if (served === 1) { firstStarted(); await firstHeld; }
+      response.writeHead(200).end('ok');
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('loopback listener unavailable');
+    const guarded = limits({ concurrency: 1, maxQueueLength: 1, maxQueueWaitMs: 2_000 });
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    let active = 0;
+    let peak = 0;
+    const call = async (budgetId: string): Promise<string> => {
+      const lease = await controller.acquire({ ...request(), budgetId });
+      active += 1;
+      peak = Math.max(peak, active);
+      try {
+        const response = await fetch(`http://127.0.0.1:${address.port}/`);
+        return await response.text();
+      } finally {
+        active -= 1;
+        lease.release({ success: true });
+      }
+    };
+    try {
+      const first = call('loopback-first');
+      // Wait for the actual HTTP handler, not merely for admission.
+      await handlerStarted;
+      const second = call('loopback-second');
+      await expect(call('loopback-overflow')).rejects.toMatchObject({ evidence: { reason: 'queue-full' } });
+      expect(served).toBe(1);
+      finishFirst();
+      expect(await Promise.all([first, second])).toEqual(['ok', 'ok']);
+      expect(peak).toBe(1);
+      expect(served).toBe(2);
+    } finally {
+      finishFirst();
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
   });
 
   it('sheds slow-client backlog before dispatch and restores capacity after waiter expiry', async () => {
@@ -332,6 +404,34 @@ describe('decision provider admission', () => {
       }
     }
     expect(calls).toBe(2);
+  });
+
+  it('sheds many-small and few-huge requests without starving a separate authorized scope', async () => {
+    const principal = limits({ concurrency: 1, maxQueueLength: 8, maxRequestBytes: 64, tokensPerSecond: 4 });
+    const shared = limits({ concurrency: 2, maxQueueLength: 16 });
+    const controller = new DecisionAdmissionController(() => ({ principal, workspace: shared, provider: shared }));
+    const held = await controller.acquire({ ...request(), principalId: 'noisy', budgetId: 'held' });
+    const abort = new AbortController();
+    const small = Array.from({ length: 8 }, (_, index) => controller.acquire({
+      ...request(abort.signal), principalId: 'noisy', budgetId: `small-${index}`, estimate: { requestBytes: 1, tokens: 1 },
+    }));
+    const cancelled = small.map(pending => expect(pending).rejects.toMatchObject({ evidence: { reason: 'cancelled' } }));
+    for (let index = 0; index < 16; index += 1) {
+      await expect(controller.acquire({ ...request(), principalId: 'noisy', budgetId: `overflow-${index}` }))
+        .rejects.toMatchObject({ evidence: { reason: 'queue-full' } });
+    }
+    // A distinct principal still has its own quota and cannot see the noisy
+    // lane's queue count in the metadata returned on its permitted call.
+    const quiet = await controller.acquire({ ...request(), principalId: 'quiet', budgetId: 'quiet' });
+    expect(quiet.evidence).toMatchObject({ decision: 'admit', queued: 0 });
+    quiet.release({ success: true });
+    abort.abort();
+    await Promise.all(cancelled);
+    held.release({ success: true });
+    for (const estimate of [{ requestBytes: 65 }, { tokens: 5 }]) {
+      await expect(controller.acquire({ ...request(), principalId: 'noisy', budgetId: 'huge', estimate }))
+        .rejects.toMatchObject({ retryable: false, evidence: { decision: 'reject', queued: 0 } });
+    }
   });
 
   it('bounds queues and emits only aggregate metadata', async () => {

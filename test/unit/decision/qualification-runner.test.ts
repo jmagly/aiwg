@@ -10,6 +10,7 @@ import {
 } from '../../../src/decision/qualification/runner.js';
 import { expectedQualificationCaseIds, REQUIRED_VENDOR_CASE_IDS } from '../../../src/decision/qualification/manifest.js';
 import { DECISION_RELEASE_GATES } from '../../../src/decision/qualification/gates.js';
+import { QUALIFICATION_PRIVACY_SURFACES } from '../../../src/decision/qualification/privacy.js';
 import type { QualificationCase, QualificationRunManifest } from '../../../src/decision/qualification/types.js';
 
 const roots: string[] = [];
@@ -107,6 +108,70 @@ describe('decision qualification executable runner', () => {
     expect(artifact).not.toContain(marker);
   });
 
+  it('PRV-CANARY-01 rejects a canary in selected public details without persisting it', async () => {
+    const root = await artifactRoot();
+    const item: QualificationCase = { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] };
+    const marker = 'canary@example.invalid';
+    const run = await executeQualificationPlan({
+      manifest: manifest([item]), artifactRoot: root,
+      executors: { TV01: () => ({ outcome: 'pass', details: { nested: [marker] } }) },
+      sanitizeDetails: value => value,
+      privacyCanaries: [marker],
+    });
+    const artifact = await readFile(join(root, run.evidence[0]!.artifact!), 'utf8');
+    expect(run.evidence[0]?.outcome).toBe('fail');
+    expect(artifact).toContain('privacy-canary-detected');
+    expect(artifact).not.toContain(marker);
+    expect(JSON.stringify(run)).not.toContain(marker);
+    expect((await evaluateExecutedQualification(run, root)).report.decision).toBe('HOLD');
+  });
+
+  it('PRV-CANARY-02 detects escaped canaries and rejects malformed canary sets', async () => {
+    const root = await artifactRoot();
+    const item: QualificationCase = { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] };
+    const marker = 'private\nmarker';
+    const plan = {
+      manifest: manifest([item]), artifactRoot: root,
+      executors: { TV01: () => ({ outcome: 'pass' as const, details: { marker } }) },
+      sanitizeDetails: (value: unknown) => value,
+    };
+    const run = await executeQualificationPlan({ ...plan, privacyCanaries: [marker] });
+    expect(run.evidence[0]?.outcome).toBe('fail');
+    const artifact = await readFile(join(root, run.evidence[0]!.artifact!), 'utf8');
+    expect(artifact).not.toContain('private');
+    await expect(executeQualificationPlan({ ...plan, privacyCanaries: [''] })).rejects.toThrow('privacy canaries must be nonempty');
+  });
+
+  it('LIVE-ABSENT-01 reports an explicit skip and never labels mock execution live', async () => {
+    const root = await artifactRoot();
+    const item: QualificationCase = { id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] };
+    let calls = 0;
+    const run = await executeQualificationPlan({
+      manifest: { ...manifest([item]), mode: 'live' }, artifactRoot: root,
+      executors: { TV01: () => { calls++; return { outcome: 'pass' }; } },
+    });
+    expect(calls).toBe(0);
+    expect(run.evidence[0]).toMatchObject({ executable: false, outcome: 'skip' });
+    const artifact = await readFile(join(root, run.evidence[0]!.artifact!), 'utf8');
+    expect(artifact).toContain('live-evidence-unavailable');
+    expect((await evaluateExecutedQualification(run, root)).report.gates[0]?.missing).toContain('case:TV01');
+  });
+
+  it('PRV-G2-01 prevents a positive callback from forging a privacy scan', async () => {
+    const root = await artifactRoot();
+    const cases: QualificationCase[] = [{ id: 'TV01', kind: 'vendor', mandatory: true, candidateTests: [] }];
+    const plan = {
+      manifest: manifest(cases), artifactRoot: root,
+      executors: { TV01: () => ({ outcome: 'pass' as const }) },
+      evidenceChecks: { 'privacy-scan-clean': () => true },
+      privacyCanaries: ['canary@example.invalid'],
+    };
+    expect((await executeQualificationPlan(plan)).evidenceFlags['privacy-scan-clean']).toBe(false);
+    const captures = QUALIFICATION_PRIVACY_SURFACES.map(surface => ({ surface, content: '' }));
+    expect((await executeQualificationPlan({ ...plan, privacyCaptures: captures })).evidenceFlags['privacy-scan-clean']).toBe(true);
+    expect((await executeQualificationPlan({ ...plan, privacyCaptures: captures.slice(1) })).evidenceFlags['privacy-scan-clean']).toBe(false);
+  });
+
   it('links persisted qualification artifacts to named CAL and DRF master-plan evidence IDs', async () => {
     const root = await artifactRoot();
     const cases: QualificationCase[] = [
@@ -179,6 +244,8 @@ describe('decision qualification executable runner', () => {
 
     const result = await executeAndEvaluateQualification({
       manifest: manifest(cases), artifactRoot: root, executors, evidenceChecks, concurrency: 8,
+      privacyCanaries: ['canary@example.invalid'],
+      privacyCaptures: QUALIFICATION_PRIVACY_SURFACES.map(surface => ({ surface, content: '' })),
     });
     expect(result.verification).toHaveLength(67);
     expect(result.verification.every(item => item.verified)).toBe(true);

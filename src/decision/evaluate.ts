@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { canonicalJson } from '../security/artifact-trust.js';
 import { composeRuleset } from './compose.js';
 import { applyPrimitiveAcceptance, validatePrimitiveAcceptancePolicy } from './acceptance.js';
 import { DecisionPreDispatchError, decisionInvocationFingerprint, nextReceipt } from './receipts.js';
@@ -14,6 +15,8 @@ import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.
 import type { CompatibilityDecision } from './calibration/types.js';
 import { prepareAdapterRequest } from './compile-cache/runtime.js';
 import { providerPrefixEvidence } from './compile-cache/prefix.js';
+import { digestCachedResult, RESULT_CACHE_KEY_VERSION } from './result-cache/index.js';
+import type { CachedResultEvidence, ResultCacheSemanticIdentity } from './result-cache/index.js';
 import { DecisionProjectionError, projectDecisionState, type DecisionProjectionEvidence } from './projection.js';
 import { emitRulesetRuntimeTrace } from './telemetry/runtime.js';
 import {
@@ -39,6 +42,7 @@ import type {
   DecisionResult,
   DecisionReceipt,
   DecisionStatus,
+  JsonValue,
   ExecutionTarget,
   RulesetResult,
 } from './types.js';
@@ -62,9 +66,112 @@ const RETRIABLE = new Set<DecisionFailureReason>([
 const admissionControllers = new WeakMap<object, DecisionAdmissionController>();
 
 export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest): Promise<RulesetResult> {
-  const result = await evaluateDecisionRulesetInternal(request);
+  const result = request.resultCache?.policy.enabled
+    ? await evaluateWithResultCache(request) : await evaluateDecisionRulesetInternal(request);
   await emitRulesetRuntimeTrace(request, result);
   return result;
+}
+
+/** A cache hit is a historical result accompanied by a NEW caller receipt, not a fresh adapter attempt. */
+async function evaluateWithResultCache(request: DecisionEvaluationRequest): Promise<RulesetResult> {
+  const config = request.resultCache!;
+  if (!config.policy.sideEffectFree || !request.receiptStore || !request.calibrationPin || !request.policyPin
+    || !config.recordCallerReceipt) {
+    throw new Error('Result cache requires side-effect-free policy, durable receipts, policy and calibration pins');
+  }
+  // Exact invocation replay wins over semantic reuse, including fingerprint mismatch protection.
+  const projectId = request.receiptProjectId ?? 'default';
+  if (projectId !== config.actor.projectId) throw new Error('Cache actor and receipt project must match');
+  if (await request.receiptStore.read(request.invocationId, projectId)) return evaluateDecisionRulesetInternal(request);
+  // The experimental integration is deliberately narrower than the cache service: no
+  // batching, fallback, retries or context-dependent scheduling that can vary per caller.
+  if (request.ruleset.spec.evaluations.length !== 1 || request.batching?.enabled || request.context || request.scheduler?.enabled) {
+    throw new Error('Result cache supports only a single unbatched, unscheduled evaluation');
+  }
+  const snapshot = { ...request, ruleset: structuredClone(request.ruleset), binding: structuredClone(request.binding),
+    definitions: structuredClone(request.definitions), input: structuredClone(request.input) };
+  admitEntry(snapshot.input);
+  validateRuleset(snapshot.ruleset);
+  validateBinding(snapshot.binding, snapshot.ruleset);
+  validateAgainstSchema(snapshot.ruleset.spec.inputSchema, snapshot.input, 'ruleset input');
+  const [item] = resolveDefinitions(snapshot);
+  const targets = snapshot.binding.spec.evaluations[item.alias]?.targets;
+  if (!targets || targets.length !== 1 || targets[0]!.retry.maxRetries !== 0) {
+    throw new Error('Result cache requires one target without retry or fallback');
+  }
+  const target = targets[0]!;
+  const projected = await projectRuntimeInput(snapshot, item.alias, target, item.input);
+  // The key normalizes Unicode. The adapter must receive that same normalized
+  // representation or two byte-distinct prompts could alias to one cache entry.
+  assertNormalizedCacheInput(projected.input);
+  const identity = config.identityFor({ alias: item.alias, definition: structuredClone(item.definition),
+    target: structuredClone(target), projectedInput: structuredClone(projected.input) as JsonValue });
+  assertRuntimeCacheIdentity(identity, snapshot, item.pin, target, projected.input);
+  const alias = identity.modelCompatibility.mode === 'alias' ? identity.modelCompatibility : null;
+  if (alias && !config.verifyAliasSnapshot) throw new Error('Alias cache requires a registry compatibility verifier');
+  const approved = alias ? await config.verifyAliasSnapshot!(structuredClone(alias)) : true;
+  const outcome = await config.service.evaluate({ actor: config.actor,
+    policy: approved ? config.policy : { ...config.policy, enabled: false }, identity,
+    callerInvocationId: snapshot.invocationId, nowEpochMs: snapshot.now?.() }, async (): Promise<CachedResultEvidence> => {
+    const original = await evaluateDecisionRulesetInternal(snapshot);
+    const attempt = original.spec.evaluations[item.alias]?.spec.attempts[0];
+    const receipt = await snapshot.receiptStore!.read(snapshot.invocationId, projectId);
+    // Never publish an incomplete or uncertain receipt, even if an adapter returned a value.
+    const successful = original.spec.status === 'completed' && original.spec.evaluations[item.alias]?.spec.status === 'success'
+      && original.spec.evaluations[item.alias]?.spec.attempts.length === 1 && attempt?.actualModel
+      && attempt.remoteExecution !== 'unknown' && receipt?.state === 'completed';
+    return { result: original as unknown as JsonValue, resultDigest: digestCachedResult(original),
+      sourceInvocationId: snapshot.invocationId, sourceReceiptId: snapshot.invocationId,
+      evaluatedAtEpochMs: receipt?.completedAtEpochMs ?? snapshot.now?.() ?? Date.now(),
+      actualModel: attempt?.actualModel ?? '', uncertainty: (original.spec.evaluations[item.alias]?.spec.uncertainty ?? null) as unknown as JsonValue,
+      calibrationStatus: original.spec.evaluations[item.alias]?.spec.calibrationCompatibility ? 'compatible' : 'pinned',
+      durationMs: attempt?.durationMs ?? 0, usage: attempt?.usage ?? { inputTokens: null, outputTokens: null, costUsd: null },
+      status: successful ? 'success' : 'terminal-failure', failureReason: successful ? 'none' : original.spec.reason };
+  });
+  if (outcome.receipt.disposition === 'cache-hit') {
+    const source = await snapshot.receiptStore!.read(outcome.receipt.sourceInvocationId!, projectId);
+    if (source?.state !== 'completed' || !source.result
+      || digestCachedResult(source.result) !== digestCachedResult(outcome.evidence!.result)
+      || source.completedAtEpochMs !== outcome.receipt.originalEvaluatedAtEpochMs) {
+      throw new Error('Cached source receipt could not be verified');
+    }
+  }
+  await config.recordCallerReceipt!(structuredClone(outcome.receipt));
+  const historical = structuredClone(outcome.evidence!.result) as unknown as RulesetResult;
+  return { ...historical, spec: { ...historical.spec, cache: outcome.receipt } };
+}
+
+function assertNormalizedCacheInput(value: unknown): void {
+  if (typeof value === 'string' && value !== value.normalize('NFC')) throw new Error('Cache input must be NFC-normalized before dispatch');
+  if (Array.isArray(value)) value.forEach(assertNormalizedCacheInput);
+  else if (value !== null && typeof value === 'object') {
+    for (const [key, entry] of Object.entries(value)) {
+      if (key !== key.normalize('NFC')) throw new Error('Cache input keys must be NFC-normalized before dispatch');
+      assertNormalizedCacheInput(entry);
+    }
+  }
+}
+
+function assertRuntimeCacheIdentity(identity: ResultCacheSemanticIdentity, request: DecisionEvaluationRequest,
+  definition: ArtifactPin, target: ExecutionTarget, projected: unknown): void {
+  const sha = (value: unknown): value is `sha256:${string}` => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
+  const pinMatches = (left: ArtifactPin, right: ArtifactPin) => digestCachedResult(left) === digestCachedResult(right);
+  if (identity.keyVersion !== RESULT_CACHE_KEY_VERSION || !pinMatches(identity.definition, definition)
+    || !pinMatches(identity.ruleset, artifactPin(request.ruleset))
+    || !pinMatches(identity.binding, artifactPin(request.binding))
+    || identity.adapter.id !== target.adapter || identity.adapter.version !== target.adapterVersion
+    || identity.requestedModel !== target.model || identity.primitive !== Object.values(request.definitions).find(value => value.metadata.id === definition.id)?.spec.answer.kind
+    || identity.acceptancePolicyDigest !== digestCachedResult(target.acceptance)
+    || identity.calibrationDigest !== request.calibrationPin?.digest
+    || identity.runtimePolicyDigest !== request.policyPin?.digest
+    || digestCachedResult(identity.projectedInput) !== digestCachedResult(projected)
+    || ![identity.promptDigest, identity.subjectIdentityDigest, identity.projectionPolicyDigest,
+      identity.egressPolicyDigest].every(sha)
+    || !identity.backend || !identity.capabilityMode
+    || (identity.modelCompatibility.mode === 'pinned' && identity.modelCompatibility.actualModel !== target.model)
+    || (identity.modelCompatibility.mode === 'alias' && identity.modelCompatibility.alias !== target.model)) {
+    throw new Error('Invalid semantic result-cache identity');
+  }
 }
 
 async function evaluateDecisionRulesetInternal(request: DecisionEvaluationRequest): Promise<RulesetResult> {
@@ -797,6 +904,15 @@ async function projectRuntimeInput(
   const projected = await projectDecisionState(input, policy, {
     incompleteContext: request.projection.incompleteContext,
   });
+  if (request.projection.debugCapture) {
+    const { scope, capture } = request.projection.debugCapture;
+    try {
+      await capture(scope, new TextEncoder().encode(canonicalJson(projected.state)));
+    } catch {
+      // Neither backend error text nor captured bytes belong in runtime results.
+      throw new DecisionProjectionError('data-boundary-denied', 'debug capture unavailable');
+    }
+  }
   request.projection.onEvidence?.({ alias, evidence: structuredClone(projected.evidence) });
   return { input: projected.state, evidence: projected.evidence };
 }
