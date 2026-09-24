@@ -35,6 +35,18 @@ export class DecisionTraceBuilder {
     return span;
   }
 
+  /** Merge allowlisted metadata into a recorded span; unknown or protected keys are dropped. */
+  annotate(span: DecisionTelemetrySpan, attributes: TelemetryAttributes, provenance: Record<string, TelemetryProvenance> = {}): void {
+    const safe = sanitizeAttributes(attributes);
+    Object.assign(span.attributes, safe);
+    for (const [key, value] of Object.entries(provenance)) if (Object.hasOwn(safe, key)) span.provenance[key] = value;
+  }
+
+  /** Spans that were started but not yet ended, in start order. */
+  openSpans(): DecisionTelemetrySpan[] {
+    return this.spans.filter(span => span.status === 'unset');
+  }
+
   endSpan(span: DecisionTelemetrySpan, status: DecisionTelemetrySpan['status'] = 'ok', endTimeUnixMs = this.now()): void {
     span.endTimeUnixMs = Math.max(span.startTimeUnixMs, endTimeUnixMs);
     span.status = status;
@@ -80,39 +92,48 @@ export class DecisionTraceBuilder {
  * Emit transport-attempt spans from the durable accounting authority. Each
  * consumed provider attempt owns its usage exactly once, including failed
  * retry/fallback attempts. Per-answer allocations remain off these spans.
+ *
+ * `started` holds live `decision.batch.request` spans keyed by attempt ordinal.
+ * The evaluator opens them before dispatch, so the propagated `traceparent`
+ * and the live start time belong to the span that later receives the receipt's
+ * accounting. Attempts without a live span are reconstructed from the receipt.
  */
 export function recordBatchReceiptTrace(
   builder: DecisionTraceBuilder,
   receipt: DecisionBatchReceipt,
   parent: DecisionTelemetryContext,
+  started: ReadonlyMap<number, DecisionTelemetrySpan> = new Map(),
 ): DecisionTelemetrySpan[] {
   const spans: DecisionTelemetrySpan[] = [];
   for (const attempt of receipt.attempts) {
-    if (attempt.status === 'not-sent') continue;
+    const live = started.get(attempt.ordinal);
+    if (attempt.status === 'not-sent') {
+      // Nothing crossed the transport, so no usage belongs to this span.
+      if (live) {
+        builder.annotate(live, { 'aiwg.decision.status': attempt.status }, { 'aiwg.decision.status': 'client-derived' });
+        builder.endSpan(live, 'error', attempt.completedAtEpochMs ?? receipt.updatedAtEpochMs);
+      }
+      continue;
+    }
     const cost = batchCost(attempt.cost);
-    const span = builder.startSpan('decision.batch.request', {
-      parent,
-      startTimeUnixMs: attempt.dispatchedAtEpochMs ?? receipt.createdAtEpochMs,
-      attributes: {
-        'aiwg.batch.id': receipt.batchId,
-        'aiwg.batch.plan_digest': receipt.plan.planDigest,
-        'aiwg.batch.partition_id': receipt.plan.partitionId,
-        'aiwg.batch.item_count': receipt.questionIds.length,
-        'aiwg.batch.result_count': receipt.answerReferences.length,
-        'aiwg.attempt.ordinal': attempt.ordinal,
-        'aiwg.adapter.id': attempt.adapterId,
-        'aiwg.adapter.version': attempt.adapterVersion,
-        'gen_ai.request.model': attempt.requestedModel,
-        'aiwg.decision.status': attempt.status,
-      },
-      provenance: {
-        'aiwg.batch.id': 'client-derived', 'aiwg.batch.plan_digest': 'client-derived',
-        'aiwg.batch.partition_id': 'client-derived', 'aiwg.batch.item_count': 'client-derived',
-        'aiwg.batch.result_count': 'client-derived', 'aiwg.attempt.ordinal': 'client-derived',
-        'aiwg.adapter.id': 'client-derived', 'aiwg.adapter.version': 'client-derived',
-        'gen_ai.request.model': 'client-derived', 'aiwg.decision.status': 'client-derived',
-      },
+    const attributes: TelemetryAttributes = {
+      'aiwg.batch.id': receipt.batchId,
+      'aiwg.batch.plan_digest': receipt.plan.planDigest,
+      'aiwg.batch.partition_id': receipt.plan.partitionId,
+      'aiwg.batch.item_count': receipt.questionIds.length,
+      'aiwg.batch.result_count': receipt.answerReferences.length,
+      'aiwg.attempt.ordinal': attempt.ordinal,
+      'aiwg.adapter.id': attempt.adapterId,
+      'aiwg.adapter.version': attempt.adapterVersion,
+      'gen_ai.request.model': attempt.requestedModel,
+      'aiwg.decision.status': attempt.status,
+      'aiwg.route.fallback': attempt.fallbackFromAttemptOrdinal !== null,
+    };
+    const provenance = Object.fromEntries(Object.keys(attributes).map(key => [key, 'client-derived' as const]));
+    const span = live ?? builder.startSpan('decision.batch.request', {
+      parent, startTimeUnixMs: attempt.dispatchedAtEpochMs ?? receipt.createdAtEpochMs,
     });
+    builder.annotate(span, attributes, provenance);
     builder.recordBatchUsage(span, receipt.batchId, {
       inputTokens: attempt.usage.inputTokens,
       outputTokens: attempt.usage.outputTokens,

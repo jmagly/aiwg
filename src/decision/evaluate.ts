@@ -17,7 +17,7 @@ import { providerPrefixEvidence } from './compile-cache/prefix.js';
 import { digestCachedResult, RESULT_CACHE_KEY_VERSION } from './result-cache/index.js';
 import type { CachedResultEvidence, ResultCacheSemanticIdentity } from './result-cache/index.js';
 import { DecisionProjectionError, projectDecisionState, type DecisionProjectionEvidence } from './projection.js';
-import { emitRulesetRuntimeTrace } from './telemetry/runtime.js';
+import { DecisionRuntimeTrace, runtimeTraceOf, type DecisionRuntimeSpan } from './telemetry/runtime.js';
 import { assertContextQualified } from './context-qualification.js';
 import {
   assertContextPlanCurrent,
@@ -42,6 +42,7 @@ import type {
   DecisionResult,
   DecisionReceipt,
   DecisionStatus,
+  DecisionTransportTraceContext,
   JsonValue,
   ExecutionTarget,
   RulesetResult,
@@ -65,9 +66,11 @@ const RETRIABLE = new Set<DecisionFailureReason>([
 ]);
 
 export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest): Promise<RulesetResult> {
-  const result = request.resultCache?.policy.enabled
-    ? await evaluateWithResultCache(request) : await evaluateDecisionRulesetInternal(request);
-  await emitRulesetRuntimeTrace(request, result);
+  // Telemetry hooks below record live spans through runtimeTraceOf(request); none can change the result.
+  const { request: traced, trace } = DecisionRuntimeTrace.begin(request);
+  const result = traced.resultCache?.policy.enabled
+    ? await evaluateWithResultCache(traced) : await evaluateDecisionRulesetInternal(traced);
+  await trace?.finish(result);
   return result;
 }
 
@@ -224,6 +227,7 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
     return failureResult(base, reason);
   }
   if (contextPlan) base = withRulesetContext(base, contextPlan, []);
+  runtimeTraceOf(request)?.validated(false);
   const batchPolicy = request.batchReceipts;
   if (batchPolicy?.unknownCostBound && (!Number.isSafeInteger(batchPolicy.unknownCostBound.upperBoundMicros)
     || batchPolicy.unknownCostBound.upperBoundMicros < 0 || !batchPolicy.unknownCostBound.policyId
@@ -379,6 +383,7 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
       let durableReceipt: DecisionBatchReceipt | undefined;
       let batchReferences = new Map<string, ReturnType<typeof batchResultReference>>();
       let dispatchCount = 0;
+      const batchSpans: DecisionRuntimeSpan[] = [];
       try {
         const adapter = plan.candidates[0]!.adapter;
         const projectedCandidates = await Promise.all(plan.candidates.map(async candidate => ({
@@ -405,6 +410,7 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
             subjectHash: request.batchReceipts.subjectHash,
             executionEnvelope: plan.candidates[0]!.capabilities.batch!.executionEnvelope,
             nowEpochMs: started,
+            traceParent: runtimeTraceOf(request)?.traceParent,
           });
           const acquired = await request.batchReceipts.store.acquire(initial);
           durableReceipt = acquired.receipt;
@@ -442,8 +448,12 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
             ...(projected.evidence ? { projectionEvidence: projected.evidence } : {}),
           }, adapter, request.compileCache)));
         const dispatchedAt = now();
+        const batchSpan = runtimeTraceOf(request)?.startBatch(plan.candidates.map(candidate => candidate.alias), plan.groupId,
+          durableReceipt ? durableReceipt.attempts.length + 1 : dispatchCount);
+        if (batchSpan) batchSpans.push(batchSpan);
         const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
-          requests: preparedRequests });
+          requests: preparedRequests, ...(batchSpan ? { traceContext: batchSpan.traceContext } : {}) });
+        if (batchSpan) batchSpan.response = response;
         if (contextPlan && response.sharedUsage.inputTokens !== null) {
           recordRuntimeContextUsage(contextPlan, questionIds, response.sharedUsage.inputTokens, contextUsage);
         }
@@ -571,6 +581,7 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
           }
         }
       }
+      runtimeTraceOf(request)?.finishBatch(batchSpans, durableReceipt);
       plan.candidates.forEach((candidate, index) => {
         const item = resolved.find(value => value.alias === candidate.alias)!;
         const evidence: DecisionBatchEvidence = { mode: 'native', groupId: plan.groupId, questionId: questionIds[index]! };
@@ -709,6 +720,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
   const attempts: DecisionAttempt[] = [];
   let final: AdapterObservation = observationFailure('budget-exhausted');
   let calibrationCompatibility: CompatibilityDecision | undefined;
+  const trace = runtimeTraceOf(context.request);
 
   for (let targetIndex = 0; targetIndex < evaluation.targets.length; targetIndex += 1) {
     const target = evaluation.targets[targetIndex]!;
@@ -726,6 +738,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
       if (!context.attemptBudget.claim()) { final = observationFailure('budget-exhausted'); break; }
       final = capabilityFailure;
       attempts.push(toAttempt(target, attempts.length + 1, final, 0, context.batchEvidence));
+      trace?.endAttempt(trace.startAttempt(context.item.alias, target, attempts.length, targetIndex > 0), attempts.at(-1)!);
     } else {
       for (let retry = 0; retry <= target.retry.maxRetries; retry += 1) {
         if (context.signal.aborted || context.now() >= context.totalDeadline) {
@@ -737,12 +750,14 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
           break;
         }
         const started = context.now();
+        const span = trace?.startAttempt(context.item.alias, target, attempts.length + 1, targetIndex > 0);
         const attemptDeadline = Math.min(context.totalDeadline, started + target.timeoutMs);
         try {
           const projected = await projectRuntimeInput(context.request, context.item.alias, target, context.item.input);
           await context.advance('dispatched', { pending: { alias: context.item.alias, targetIndex, ordinal: attempts.length + 1, attempts } });
           try {
-            final = await invokeWithDeadline(context, adapter!, target, attemptDeadline, attempts.length + 1, projected);
+            final = await invokeWithDeadline(context, adapter!, target, attemptDeadline, attempts.length + 1, projected,
+              span?.traceContext);
           } catch (error) {
             if (context.request.receiptStore && !(error instanceof DecisionPreDispatchError)) throw new RemoteUncertainError();
             await context.advance('observation-received');
@@ -767,6 +782,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
             : error instanceof DecisionValidationError ? 'invalid-output' : 'service-error');
         }
         attempts.push(toAttempt(target, attempts.length + 1, final, Math.max(0, context.now() - started), context.batchEvidence));
+        trace?.endAttempt(span, attempts.at(-1)!);
         if (final.status === 'success') break;
         if (!RETRIABLE.has(final.reason) || retry === target.retry.maxRetries) break;
         const remaining = Math.max(0, context.totalDeadline - context.now());
@@ -778,6 +794,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
         const delayMs = Math.min(remaining, target.retry.maxDelayMs, Math.max(0, jittered));
         if (context.signal.aborted || remaining <= delayMs) { final = interruption(context); break; }
         attempts[attempts.length - 1]!.retryDelayMs = delayMs;
+        trace?.retryScheduled(span, delayMs);
         try {
           const backoff = (): Promise<void> => (context.request.delay ?? abortableDelay)(delayMs, context.signal);
           await (context.suspend ? context.suspend(backoff) : backoff());
@@ -803,6 +820,7 @@ async function invokeWithDeadline(
   deadlineEpochMs: number,
   ordinal: number,
   projected: { input: unknown; evidence?: DecisionProjectionEvidence },
+  traceContext?: DecisionTransportTraceContext,
 ): Promise<AdapterObservation> {
   const controller = new AbortController();
   const signal = AbortSignal.any([context.signal, controller.signal]);
@@ -858,6 +876,7 @@ async function invokeWithDeadline(
         totalSignal: context.signal,
         resolveCredential: context.request.resolveCredential ?? unauthorizedCredential,
         ...(projected.evidence ? { projectionEvidence: projected.evidence } : {}),
+        ...(traceContext ? { traceContext } : {}),
         onRemoteHandle: async handle => {
           try {
             const previous = await context.request.receiptStore?.read(context.request.invocationId, context.request.receiptProjectId ?? 'default');
@@ -1030,7 +1049,7 @@ function retainPinnedCalibratedRisk(observation: AdapterObservation, pin: Compat
 
 function decisionResult(context: OneContext, observation: AdapterObservation, attempts: DecisionAttempt[],
   calibrationCompatibility?: CompatibilityDecision): DecisionResult {
-  return {
+  const result: DecisionResult = {
     apiVersion: resultVersion(context.request), kind: 'DecisionResult',
     metadata: { id: `${context.request.invocationId}-${context.item.alias}`, version: '1.0.0', description: `Decision result for ${context.item.alias}` },
     spec: {
@@ -1045,6 +1064,8 @@ function decisionResult(context: OneContext, observation: AdapterObservation, at
         context.contextUsage ?? [], decisionBatchQuestionId(context.item.alias)) } : {}),
     },
   };
+  runtimeTraceOf(context.request)?.decided(result);
+  return result;
 }
 
 function emptyDecisionResult(

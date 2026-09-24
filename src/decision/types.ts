@@ -415,6 +415,16 @@ export interface DecisionAdapterRequest {
   compiledArtifact?: JsonValue;
   /** Metadata-only evidence that host-authorized projection preceded dispatch. */
   projectionEvidence?: DecisionProjectionEvidence;
+  /**
+   * W3C trace context of the evaluator's live attempt span. Adapters may forward
+   * `traceparent` to their transport; it never carries provider request identity.
+   */
+  traceContext?: DecisionTransportTraceContext;
+}
+
+/** Only `traceparent` crosses a provider boundary; vendor `tracestate` stays local. */
+export interface DecisionTransportTraceContext {
+  traceparent: string;
 }
 
 export interface DecisionRuntimeProjectionPolicy {
@@ -440,6 +450,8 @@ export interface DecisionAdapterCompileRequest {
 export interface DecisionAdapterBatchRequest {
   requests: DecisionAdapterRequest[];
   decisionSubject: string;
+  /** Trace context of the shared `decision.batch.request` span. */
+  traceContext?: DecisionTransportTraceContext;
 }
 
 export interface DecisionAdapterBatchObservation {

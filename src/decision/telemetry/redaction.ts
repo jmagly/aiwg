@@ -20,7 +20,7 @@ const SAFE_ATTRIBUTE_KEYS = new Set(`
   aiwg.batch.id aiwg.batch.mode aiwg.batch.plan_digest aiwg.batch.partition_id
   aiwg.batch.item_count aiwg.batch.result_count aiwg.job.id
   aiwg.job.operation aiwg.job.status aiwg.job.revision aiwg.job.item_count aiwg.job.unknown_count
-  aiwg.review.id
+  aiwg.review.id aiwg.operator_decision.event_id
   aiwg.review.status aiwg.review.event aiwg.review.revision aiwg.effect_receipt.id
   aiwg.provider.request_id aiwg.provider.request_id_source aiwg.remote.execution
   aiwg.usage.cost_usd aiwg.usage.cost_provenance aiwg.usage.scope aiwg.link.state
@@ -31,6 +31,9 @@ const SAFE_ATTRIBUTE_KEYS = new Set(`
 for (const prefix of ['aiwg.definition', 'aiwg.policy', 'aiwg.calibration']) {
   for (const suffix of ['id', 'version', 'digest']) SAFE_ATTRIBUTE_KEYS.add(`${prefix}.${suffix}`);
 }
+// Schema-declared keys whose names merely resemble protected terms. `aiwg.link.state`
+// carries the fixed deleted/orphaned marker, which an export must never lose.
+const PROTECTED_KEY_EXEMPT = new Set(['gen_ai.response.model', 'http.response.status_code', 'aiwg.link.state']);
 export const DEFAULT_ATTRIBUTE_VALUE_LIMIT = 256;
 
 export function sanitizeOpaqueValue(value: string, maximum = DEFAULT_ATTRIBUTE_VALUE_LIMIT): string {
@@ -44,7 +47,7 @@ export function sanitizeAttributes(
   const output: TelemetryAttributes = {};
   for (const [key, original] of Object.entries(attributes)) {
     if (!SAFE_ATTRIBUTE_KEYS.has(key)
-      || (PROTECTED_KEY.test(key) && key !== 'gen_ai.response.model' && key !== 'http.response.status_code')
+      || (PROTECTED_KEY.test(key) && !PROTECTED_KEY_EXEMPT.has(key))
       || (options.publicExport && key === 'aiwg.provider.request_id')
       || options.canaries?.some(canary => canary && key.toLowerCase().includes(canary.toLowerCase()))) continue;
     let value: TelemetryAttribute = original;
