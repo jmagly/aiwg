@@ -29,6 +29,7 @@ or command interface so it can connect AIWG to the current project.
 | `aiwg.agent-reference.provider.factory` | Factory | [Operational reference](factory.md) |
 | `aiwg.agent-reference.provider.grokbot` | Grok Bot | [Operational reference](grokbot.md) |
 | `aiwg.agent-reference.provider.hermes` | Hermes | [Operational reference](hermes.md) |
+| `aiwg.agent-reference.provider.muse` | Muse Code | [Operational reference](muse.md) |
 | `aiwg.agent-reference.provider.openclaw` | OpenClaw | [Operational reference](openclaw.md) |
 | `aiwg.agent-reference.provider.opencode` | OpenCode | [Operational reference](opencode.md) |
 | `aiwg.agent-reference.provider.openhuman` | OpenHuman | [Operational reference](openhuman.md) |
