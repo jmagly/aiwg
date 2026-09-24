@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionEnsembleIntegrityReport.v1.schema.json",
+  "title": "Decision Ensemble Integrity Report",
+  "description": "D17 extension of the #2037/#2048 eval-integrity report. It carries the upstream integrity fields unchanged and may only keep or tighten the upstream PROMOTE/HOLD/ROLLBACK decision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "subject", "integrity", "pairedDeltas", "findings", "upstreamDecision", "decision", "digest"],
+  "properties": {
+    "schemaVersion": { "const": "decision-ensemble-integrity-report/v1" },
+    "subject": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "id", "digest", "eligibilityId"],
+      "properties": {
+        "kind": { "const": "champion-challenger" },
+        "id": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" },
+        "eligibilityId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "integrity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sample_n", "uncertainty", "paired_baseline", "integrity_mode", "fresh_workspace_required", "fresh_workspace_verified", "integrity_state", "trusted_score_source", "compromise_labels", "weak_signal_reason", "release_gate"],
+      "properties": {
+        "sample_n": { "type": "integer", "minimum": 0 },
+        "uncertainty": {},
+        "paired_baseline": {},
+        "integrity_mode": { "type": "string", "minLength": 1 },
+        "fresh_workspace_required": { "type": "boolean" },
+        "fresh_workspace_verified": { "type": "boolean" },
+        "integrity_state": { "type": "string", "minLength": 1 },
+        "trusted_score_source": { "type": "string", "minLength": 1 },
+        "compromise_labels": { "type": "array", "items": { "type": "string" } },
+        "weak_signal_reason": { "type": ["string", "null"] },
+        "release_gate": {
+          "type": "object", "additionalProperties": false, "required": ["decision", "reasons"],
+          "properties": { "decision": { "$ref": "#/$defs/gateDecision" }, "reasons": { "type": "array", "items": { "type": "string" } } }
+        }
+      }
+    },
+    "pairedDeltas": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["metric", "delta", "pairs", "comparison", "bound", "minimumPairs", "passed"],
+        "properties": {
+          "metric": { "enum": ["quality", "calibration", "risk-coverage", "abstention", "latency", "tokens", "cost", "slice"] },
+          "delta": { "type": ["number", "null"] },
+          "pairs": { "type": "integer", "minimum": 0 },
+          "comparison": { "enum": ["delta-at-least", "delta-at-most"] },
+          "bound": { "type": "number" },
+          "minimumPairs": { "type": "integer", "minimum": 1 },
+          "passed": { "type": "boolean" }
+        }
+      }
+    },
+    "findings": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "upstreamDecision": { "$ref": "#/$defs/gateDecision" },
+    "decision": { "$ref": "#/$defs/gateDecision" },
+    "digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "gateDecision": { "enum": ["PROMOTE", "HOLD", "ROLLBACK"] }
+  }
+}

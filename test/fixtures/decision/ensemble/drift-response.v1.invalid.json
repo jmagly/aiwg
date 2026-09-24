@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "decision-drift-response-anti-fixtures/v1",
+  "provenance": {
+    "origin": "repository-authored",
+    "permission": "MIT (repository LICENSE)",
+    "sanitization": "synthetic; no personal inputs",
+    "note": "Contract fixture only. Values exercise validation and deterministic plumbing; they are not quality, calibration or drift-threshold evidence."
+  },
+  "cases": [
+    {
+      "id": "rule-without-response",
+      "base": "triage-drift-response",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/rules/1/response"
+        }
+      ]
+    },
+    {
+      "id": "unknown-response",
+      "base": "triage-drift-response",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/rules/1/response",
+          "value": "ignore"
+        }
+      ]
+    },
+    {
+      "id": "alias-drift-with-threshold",
+      "base": "triage-drift-response",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/rules/0/thresholdBps",
+          "value": 100
+        }
+      ]
+    },
+    {
+      "id": "distribution-rule-without-threshold",
+      "base": "triage-drift-response",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/rules/1/thresholdBps",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "label-source-with-distribution-metric",
+      "base": "triage-drift-response",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/rules/3/metric",
+          "value": "jensen-shannon-v1"
+        }
+      ]
+    },
+    {
+      "id": "missing-insufficient-samples-response",
+      "base": "triage-drift-response",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/insufficientSamplesResponse"
+        }
+      ]
+    },
+    {
+      "id": "missing-threshold-version",
+      "base": "triage-drift-response",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/thresholds/version"
+        }
+      ]
+    },
+    {
+      "id": "alias-drift-without-response",
+      "base": "triage-drift-response",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/rules/0"
+        }
+      ],
+      "expect": "alias-drift events have no configured response"
+    },
+    {
+      "id": "ambiguous-drift-responses",
+      "base": "triage-drift-response",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/rules/-",
+          "value": {
+            "id": "output-js-duplicate",
+            "source": "output-distribution",
+            "metric": "jensen-shannon-v1",
+            "thresholdBps": 1500,
+            "response": "alert"
+          }
+        }
+      ],
+      "expect": "more than one configured response"
+    },
+    {
+      "id": "threshold-changed-without-registration",
+      "base": "triage-drift-response",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/rules/1/thresholdBps",
+          "value": 9000
+        }
+      ],
+      "expect": "registered thresholds digest"
+    },
+    {
+      "id": "minimum-samples-exceed-window",
+      "base": "triage-drift-response",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/window/minimumSamples",
+          "value": 600
+        }
+      ],
+      "expect": "exceed the observation window"
+    }
+  ]
+}

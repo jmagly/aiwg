@@ -1,0 +1,400 @@
+{
+  "schemaVersion": "decision-ensemble-policy-anti-fixtures/v1",
+  "provenance": {
+    "origin": "repository-authored",
+    "permission": "MIT (repository LICENSE)",
+    "sanitization": "synthetic; no personal inputs",
+    "note": "Contract fixture only. Values exercise validation and deterministic plumbing; they are not quality, calibration or drift-threshold evidence."
+  },
+  "cases": [
+    {
+      "id": "missing-member-binding-pin",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/members/0/binding"
+        }
+      ]
+    },
+    {
+      "id": "missing-model-version-pin",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/members/0/model/pinnedVersion"
+        }
+      ]
+    },
+    {
+      "id": "missing-adapter-pin",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/members/1/adapter"
+        }
+      ]
+    },
+    {
+      "id": "missing-ceilings",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/ceilings"
+        }
+      ]
+    },
+    {
+      "id": "missing-fallback-depth-ceiling",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/ceilings/fallbackDepth"
+        }
+      ]
+    },
+    {
+      "id": "missing-unknown-cost-rule",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/ceilings/unknownCost"
+        }
+      ]
+    },
+    {
+      "id": "unknown-aggregation-version",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/aggregation/algorithm",
+          "value": "majority-v2"
+        }
+      ]
+    },
+    {
+      "id": "unknown-disagreement-version",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/disagreement/metric",
+          "value": "vote-share-v9"
+        }
+      ]
+    },
+    {
+      "id": "choice-without-options",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/options"
+        }
+      ]
+    },
+    {
+      "id": "choice-with-score-levels",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/levels",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "id": "member-ceiling-above-v1-maximum",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/ceilings/members",
+          "value": 64
+        }
+      ]
+    },
+    {
+      "id": "enforced-runtime-mode",
+      "base": "triage-choice-ensemble",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/mode",
+          "value": "enforced"
+        }
+      ]
+    },
+    {
+      "id": "primitive-mismatch",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/members/1/primitive",
+          "value": "ordinal-score"
+        }
+      ],
+      "expect": "primitive mismatch"
+    },
+    {
+      "id": "aggregation-incompatible-with-primitive",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/aggregation/algorithm",
+          "value": "score-median-v1"
+        }
+      ],
+      "expect": "aggregation score-median-v1 is not defined for choice"
+    },
+    {
+      "id": "disagreement-incompatible-with-primitive",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/disagreement/metric",
+          "value": "score-dispersion-v1"
+        }
+      ],
+      "expect": "disagreement score-dispersion-v1 is not defined for choice"
+    },
+    {
+      "id": "member-definition-pin-mismatch",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/members/2/definition/digest",
+          "value": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        }
+      ],
+      "expect": "definition pin mismatch"
+    },
+    {
+      "id": "member-missing-capability",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/members/1/capabilities",
+          "value": []
+        }
+      ],
+      "expect": "lacks required capability choice"
+    },
+    {
+      "id": "incompatible-uncertainty-profile",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/members/1/uncertaintyProfile",
+          "value": "unknown-profile-v1"
+        }
+      ],
+      "expect": "is not compatible"
+    },
+    {
+      "id": "mixed-uncertainty-for-mean-probability",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/aggregation/algorithm",
+          "value": "mean-probability-v1"
+        }
+      ],
+      "expect": "cannot combine different uncertainty semantics"
+    },
+    {
+      "id": "required-calibration-missing",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/calibration/requirement",
+          "value": "required"
+        }
+      ],
+      "expect": "requires a pinned calibration artifact"
+    },
+    {
+      "id": "duplicate-member-identity",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/members/2/model/pinnedVersion",
+          "value": "jev-2026-09-01"
+        },
+        {
+          "op": "replace",
+          "path": "/members/2/binding/digest",
+          "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "expect": "independence is not established"
+    },
+    {
+      "id": "unapproved-prompt-adapter-member",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/members/1/memberType",
+          "value": "prompt-adapter"
+        }
+      ],
+      "expect": "requires explicit approval"
+    },
+    {
+      "id": "attempt-demand-exceeds-ceiling",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/ceilings/attempts",
+          "value": 4
+        }
+      ],
+      "expect": "attempts demand 6 exceeds ceiling 4"
+    },
+    {
+      "id": "deadline-demand-exceeds-ceiling",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/ceilings/deadlineMs",
+          "value": 15000
+        }
+      ],
+      "expect": "deadlineMs demand 20000 exceeds ceiling 15000"
+    },
+    {
+      "id": "token-demand-exceeds-ceiling",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/ceilings/tokens",
+          "value": 5000
+        }
+      ],
+      "expect": "tokens demand 6000 exceeds ceiling 5000"
+    },
+    {
+      "id": "cost-demand-exceeds-ceiling",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/ceilings/costMicros",
+          "value": 5999
+        }
+      ],
+      "expect": "costMicros demand 6000 exceeds ceiling 5999"
+    },
+    {
+      "id": "member-count-exceeds-ceiling",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/ceilings/members",
+          "value": 2
+        }
+      ],
+      "expect": "members demand 3 exceeds ceiling 2"
+    },
+    {
+      "id": "fallback-depth-exceeds-ceiling",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/ceilings/fallbackDepth",
+          "value": 0
+        }
+      ],
+      "expect": "fallbackDepth demand 1 exceeds ceiling 0"
+    },
+    {
+      "id": "unknown-cost-without-bound",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/members/0/estimate/costMicrosPerAttempt",
+          "value": null
+        }
+      ],
+      "expect": "unknown cost"
+    },
+    {
+      "id": "attempts-do-not-cover-fallback",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/members/0/estimate/attemptsPerSample",
+          "value": 1
+        }
+      ],
+      "expect": "does not cover its fallback depth"
+    },
+    {
+      "id": "minimum-members-exceeds-samples",
+      "base": "triage-choice-ensemble",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/acceptance/minimumSuccessfulMembers",
+          "value": 4
+        }
+      ],
+      "expect": "minimum successful members exceeds planned samples"
+    }
+  ]
+}

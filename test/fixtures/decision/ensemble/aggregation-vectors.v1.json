@@ -1,0 +1,1089 @@
+{
+  "schemaVersion": "decision-ensemble-aggregation-vectors/v1",
+  "provenance": {
+    "origin": "repository-authored",
+    "permission": "MIT (repository LICENSE)",
+    "sanitization": "synthetic; no personal inputs",
+    "note": "Contract fixture only. Values exercise validation and deterministic plumbing; they are not quality, calibration or drift-threshold evidence."
+  },
+  "cases": [
+    {
+      "id": "ENS-CHOICE-01",
+      "title": "majority accepts a two-of-three plurality",
+      "policy": "triage-choice-ensemble",
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "llm-b",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+          "value": "deny",
+          "distribution": null,
+          "uncertaintyProfile": "llm-self-report-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": "approve",
+        "reason": "aggregated",
+        "tie": false,
+        "algorithm": {
+          "id": "majority-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 3333,
+        "warnings": [
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-CHOICE-02",
+      "title": "stable tie takes the lowest canonical option",
+      "policy": "triage-choice-ensemble",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/disagreement/thresholdBps",
+          "value": 5000
+        }
+      ],
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000004",
+          "value": "deny",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "llm-b",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000005",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "llm-self-report-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "failed",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000006",
+          "value": null,
+          "distribution": null,
+          "uncertaintyProfile": null
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": "approve",
+        "reason": "aggregated",
+        "tie": true,
+        "algorithm": {
+          "id": "majority-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 5000,
+        "warnings": [
+          "member-failures-present",
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-CHOICE-03",
+      "title": "tie defers when the tie rule is defer",
+      "policy": "triage-choice-ensemble",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/disagreement/thresholdBps",
+          "value": 5000
+        },
+        {
+          "op": "replace",
+          "path": "/aggregation/tieRule",
+          "value": "defer"
+        }
+      ],
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000007",
+          "value": "deny",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "llm-b",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000008",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "llm-self-report-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "failed",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000009",
+          "value": null,
+          "distribution": null,
+          "uncertaintyProfile": null
+        }
+      ],
+      "expected": {
+        "disposition": "defer",
+        "value": null,
+        "reason": "tie",
+        "tie": true,
+        "algorithm": {
+          "id": "majority-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 5000,
+        "warnings": [
+          "member-failures-present",
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-CHOICE-04",
+      "title": "three-way conflict defers on disagreement",
+      "policy": "triage-choice-ensemble",
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000000a",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "llm-b",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000000b",
+          "value": "deny",
+          "distribution": null,
+          "uncertaintyProfile": "llm-self-report-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000000c",
+          "value": "escalate",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "defer",
+        "value": null,
+        "reason": "disagreement-exceeded",
+        "tie": true,
+        "algorithm": {
+          "id": "majority-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 6667,
+        "warnings": [
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-CHOICE-05",
+      "title": "too few successful members defers",
+      "policy": "triage-choice-ensemble",
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000000d",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "llm-b",
+          "sampleIndex": 0,
+          "status": "abstained",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000000e",
+          "value": null,
+          "distribution": null,
+          "uncertaintyProfile": null
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "failed",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000000f",
+          "value": null,
+          "distribution": null,
+          "uncertaintyProfile": null
+        }
+      ],
+      "expected": {
+        "disposition": "defer",
+        "value": null,
+        "reason": "insufficient-members",
+        "tie": false,
+        "algorithm": {
+          "id": "majority-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 0,
+        "warnings": [
+          "member-failures-present"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-CHOICE-06",
+      "title": "normalized vote entropy",
+      "policy": "triage-choice-ensemble",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/disagreement/metric",
+          "value": "normalized-entropy-v1"
+        },
+        {
+          "op": "replace",
+          "path": "/disagreement/thresholdBps",
+          "value": 7000
+        }
+      ],
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000010",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "llm-b",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000011",
+          "value": "deny",
+          "distribution": null,
+          "uncertaintyProfile": "llm-self-report-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000012",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": "approve",
+        "reason": "aggregated",
+        "tie": false,
+        "algorithm": {
+          "id": "majority-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 5794,
+        "warnings": [
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-CHOICE-07",
+      "title": "mean distribution with Jensen-Shannon disagreement",
+      "policy": "triage-choice-ensemble",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/aggregation/algorithm",
+          "value": "mean-probability-v1"
+        },
+        {
+          "op": "replace",
+          "path": "/disagreement/metric",
+          "value": "jensen-shannon-v1"
+        },
+        {
+          "op": "replace",
+          "path": "/disagreement/thresholdBps",
+          "value": 1000
+        },
+        {
+          "op": "replace",
+          "path": "/members/1/uncertaintyProfile",
+          "value": "typesafe-distribution-v1"
+        }
+      ],
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000013",
+          "value": "approve",
+          "distribution": {
+            "approve": 0.7,
+            "deny": 0.2,
+            "escalate": 0.1
+          },
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "llm-b",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000014",
+          "value": "approve",
+          "distribution": {
+            "approve": 0.6,
+            "deny": 0.3,
+            "escalate": 0.1
+          },
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000015",
+          "value": "approve",
+          "distribution": {
+            "approve": 0.8,
+            "deny": 0.1,
+            "escalate": 0.1
+          },
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": "approve",
+        "reason": "aggregated",
+        "tie": false,
+        "algorithm": {
+          "id": "mean-probability-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 202,
+        "warnings": [
+          "high-agreement-not-correctness",
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-CHOICE-08",
+      "title": "unanimous independent models warn that agreement is not correctness",
+      "policy": "triage-choice-ensemble",
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000016",
+          "value": "escalate",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "llm-b",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000017",
+          "value": "escalate",
+          "distribution": null,
+          "uncertaintyProfile": "llm-self-report-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000018",
+          "value": "escalate",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": "escalate",
+        "reason": "aggregated",
+        "tie": false,
+        "algorithm": {
+          "id": "majority-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 0,
+        "warnings": [
+          "high-agreement-not-correctness",
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-NOUL-01",
+      "title": "mean probability accepts close members",
+      "policy": "eligibility-noul-ensemble",
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000019",
+          "value": 0.9,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000001a",
+          "value": 0.85,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        },
+        {
+          "memberId": "jev-eu",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000001b",
+          "value": 0.8,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": 0.85,
+        "reason": "aggregated",
+        "tie": false,
+        "algorithm": {
+          "id": "mean-probability-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 96,
+        "warnings": [
+          "high-agreement-not-correctness",
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-NOUL-02",
+      "title": "probability conflict routes to review",
+      "policy": "eligibility-noul-ensemble",
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000001c",
+          "value": 0.95,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000001d",
+          "value": 0.1,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        },
+        {
+          "memberId": "jev-eu",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000001e",
+          "value": 0.9,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "review",
+        "value": null,
+        "reason": "disagreement-exceeded",
+        "tie": false,
+        "algorithm": {
+          "id": "mean-probability-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 5259,
+        "warnings": [
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-NOUL-03",
+      "title": "majority vote at p >= 0.5",
+      "policy": "eligibility-noul-ensemble",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/aggregation/algorithm",
+          "value": "majority-v1"
+        },
+        {
+          "op": "replace",
+          "path": "/disagreement/metric",
+          "value": "vote-share-v1"
+        },
+        {
+          "op": "replace",
+          "path": "/disagreement/thresholdBps",
+          "value": 3400
+        }
+      ],
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000001f",
+          "value": 0.7,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000020",
+          "value": 0.4,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        },
+        {
+          "memberId": "jev-eu",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000021",
+          "value": 0.6,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": "true",
+        "reason": "aggregated",
+        "tie": false,
+        "algorithm": {
+          "id": "majority-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 3333,
+        "warnings": [
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-NOUL-04",
+      "title": "stable Noul vote tie takes false",
+      "policy": "eligibility-noul-ensemble",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/aggregation/algorithm",
+          "value": "majority-v1"
+        },
+        {
+          "op": "replace",
+          "path": "/disagreement/metric",
+          "value": "vote-share-v1"
+        },
+        {
+          "op": "replace",
+          "path": "/disagreement/thresholdBps",
+          "value": 5000
+        }
+      ],
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000022",
+          "value": 0.7,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000023",
+          "value": 0.3,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        },
+        {
+          "memberId": "jev-eu",
+          "sampleIndex": 0,
+          "status": "failed",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000024",
+          "value": null,
+          "distribution": null,
+          "uncertaintyProfile": null
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": "false",
+        "reason": "aggregated",
+        "tie": true,
+        "algorithm": {
+          "id": "majority-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 5000,
+        "warnings": [
+          "member-failures-present",
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-NOUL-05",
+      "title": "one success is insufficient",
+      "policy": "eligibility-noul-ensemble",
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000025",
+          "value": 0.7,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-truth-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "failed",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000026",
+          "value": null,
+          "distribution": null,
+          "uncertaintyProfile": null
+        },
+        {
+          "memberId": "jev-eu",
+          "sampleIndex": 0,
+          "status": "failed",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000027",
+          "value": null,
+          "distribution": null,
+          "uncertaintyProfile": null
+        }
+      ],
+      "expected": {
+        "disposition": "defer",
+        "value": null,
+        "reason": "insufficient-members",
+        "tie": false,
+        "algorithm": {
+          "id": "mean-probability-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 0,
+        "warnings": [
+          "member-failures-present",
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-SCORE-01",
+      "title": "mean score retains dispersion",
+      "policy": "severity-score-ensemble",
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000028",
+          "value": 3,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000029",
+          "value": 3.5,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        },
+        {
+          "memberId": "jev-eu",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000002a",
+          "value": 4,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": 3.5,
+        "reason": "aggregated",
+        "tie": false,
+        "algorithm": {
+          "id": "score-distribution-mean-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 2041,
+        "warnings": [],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-SCORE-02",
+      "title": "dispersed scores defer",
+      "policy": "severity-score-ensemble",
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000002b",
+          "value": 0,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000002c",
+          "value": 2,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        },
+        {
+          "memberId": "jev-eu",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000002d",
+          "value": 4,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "defer",
+        "value": null,
+        "reason": "disagreement-exceeded",
+        "tie": false,
+        "algorithm": {
+          "id": "score-distribution-mean-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 8165,
+        "warnings": [],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-SCORE-03",
+      "title": "median score",
+      "policy": "severity-score-ensemble",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/aggregation/algorithm",
+          "value": "score-median-v1"
+        }
+      ],
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000002e",
+          "value": 2,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000002f",
+          "value": 3,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        },
+        {
+          "memberId": "jev-eu",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000030",
+          "value": 2,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": 2,
+        "reason": "aggregated",
+        "tie": false,
+        "algorithm": {
+          "id": "score-median-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 2357,
+        "warnings": [],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-SCORE-04",
+      "title": "even median tie takes the lower middle value",
+      "policy": "severity-score-ensemble",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/aggregation/algorithm",
+          "value": "score-median-v1"
+        }
+      ],
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000031",
+          "value": 3,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000032",
+          "value": 2,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        },
+        {
+          "memberId": "jev-eu",
+          "sampleIndex": 0,
+          "status": "failed",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000033",
+          "value": null,
+          "distribution": null,
+          "uncertaintyProfile": null
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": 2,
+        "reason": "aggregated",
+        "tie": true,
+        "algorithm": {
+          "id": "score-median-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 2500,
+        "warnings": [
+          "member-failures-present"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-SCORE-05",
+      "title": "even median tie reviews when the tie rule is review",
+      "policy": "severity-score-ensemble",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/aggregation/algorithm",
+          "value": "score-median-v1"
+        },
+        {
+          "op": "replace",
+          "path": "/aggregation/tieRule",
+          "value": "review"
+        }
+      ],
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000034",
+          "value": 3,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        },
+        {
+          "memberId": "jev-c",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000035",
+          "value": 2,
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-score-v1"
+        },
+        {
+          "memberId": "jev-eu",
+          "sampleIndex": 0,
+          "status": "failed",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000036",
+          "value": null,
+          "distribution": null,
+          "uncertaintyProfile": null
+        }
+      ],
+      "expected": {
+        "disposition": "review",
+        "value": null,
+        "reason": "tie",
+        "tie": true,
+        "algorithm": {
+          "id": "score-median-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 2500,
+        "warnings": [
+          "member-failures-present"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    },
+    {
+      "id": "ENS-SHARED-01",
+      "title": "shared systematic error: five agreeing samples of one model are all wrong",
+      "policy": "triage-self-consistency",
+      "groundTruth": "deny",
+      "results": [
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 0,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000037",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 1,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000038",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 2,
+          "status": "succeeded",
+          "resultDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000039",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 3,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000003a",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        },
+        {
+          "memberId": "jev-a",
+          "sampleIndex": 4,
+          "status": "succeeded",
+          "resultDigest": "sha256:000000000000000000000000000000000000000000000000000000000000003b",
+          "value": "approve",
+          "distribution": null,
+          "uncertaintyProfile": "typesafe-distribution-v1"
+        }
+      ],
+      "expected": {
+        "disposition": "accept",
+        "value": "approve",
+        "reason": "aggregated",
+        "tie": false,
+        "algorithm": {
+          "id": "majority-v1",
+          "version": "v1"
+        },
+        "disagreementBps": 0,
+        "warnings": [
+          "high-agreement-not-correctness",
+          "shared-systematic-error-risk",
+          "uncalibrated-members"
+        ],
+        "correctnessGate": "not-satisfied"
+      }
+    }
+  ]
+}

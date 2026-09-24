@@ -1,0 +1,645 @@
+{
+  "schemaVersion": "decision-ensemble-policy-fixtures/v1",
+  "provenance": {
+    "origin": "repository-authored",
+    "permission": "MIT (repository LICENSE)",
+    "sanitization": "synthetic; no personal inputs",
+    "note": "Contract fixture only. Values exercise validation and deterministic plumbing; they are not quality, calibration or drift-threshold evidence."
+  },
+  "records": [
+    {
+      "schemaVersion": "decision-ensemble-policy/v1",
+      "id": "triage-choice-ensemble",
+      "version": "1.0.0",
+      "mode": "offline-shadow",
+      "riskTiers": [
+        "high"
+      ],
+      "definition": {
+        "id": "triage",
+        "version": "1.0.0",
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "primitive": "choice",
+      "options": [
+        "approve",
+        "deny",
+        "escalate"
+      ],
+      "compatibleUncertaintyProfiles": [
+        "typesafe-distribution-v1",
+        "llm-self-report-v1"
+      ],
+      "requiredCapabilities": [
+        "choice"
+      ],
+      "members": [
+        {
+          "id": "jev-a",
+          "memberType": "model-version",
+          "definition": {
+            "id": "triage",
+            "version": "1.0.0",
+            "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "binding": {
+            "id": "jev-a-binding",
+            "version": "1.0.0",
+            "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "adapter": {
+            "id": "jev",
+            "version": "1.0.0"
+          },
+          "model": {
+            "provider": "jev",
+            "backend": "api",
+            "requested": "jev-latest",
+            "pinnedVersion": "jev-2026-09-01"
+          },
+          "primitive": "choice",
+          "uncertaintyProfile": "typesafe-distribution-v1",
+          "requiredCapabilities": [],
+          "capabilities": [
+            "choice"
+          ],
+          "calibration": {
+            "artifactId": "cal-jev-a",
+            "artifactDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          },
+          "samples": 1,
+          "fallbackDepth": 1,
+          "estimate": {
+            "attemptsPerSample": 2,
+            "tokensPerAttempt": 1000,
+            "costMicrosPerAttempt": 1000,
+            "deadlineMsPerAttempt": 10000
+          },
+          "approvalReference": null
+        },
+        {
+          "id": "llm-b",
+          "memberType": "provider-backend",
+          "definition": {
+            "id": "triage",
+            "version": "1.0.0",
+            "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "binding": {
+            "id": "llm-b-binding",
+            "version": "1.0.0",
+            "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          "adapter": {
+            "id": "llm-subagent",
+            "version": "1.0.0"
+          },
+          "model": {
+            "provider": "example-llm",
+            "backend": "subagent",
+            "requested": "example-large",
+            "pinnedVersion": "example-2026-08"
+          },
+          "primitive": "choice",
+          "uncertaintyProfile": "llm-self-report-v1",
+          "requiredCapabilities": [],
+          "capabilities": [
+            "choice"
+          ],
+          "calibration": null,
+          "samples": 1,
+          "fallbackDepth": 0,
+          "estimate": {
+            "attemptsPerSample": 2,
+            "tokensPerAttempt": 1000,
+            "costMicrosPerAttempt": 1000,
+            "deadlineMsPerAttempt": 10000
+          },
+          "approvalReference": null
+        },
+        {
+          "id": "jev-c",
+          "memberType": "model-version",
+          "definition": {
+            "id": "triage",
+            "version": "1.0.0",
+            "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "binding": {
+            "id": "jev-c-binding",
+            "version": "1.0.0",
+            "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          "adapter": {
+            "id": "jev",
+            "version": "1.0.0"
+          },
+          "model": {
+            "provider": "jev",
+            "backend": "api",
+            "requested": "jev-previous",
+            "pinnedVersion": "jev-2026-07-15"
+          },
+          "primitive": "choice",
+          "uncertaintyProfile": "typesafe-distribution-v1",
+          "requiredCapabilities": [],
+          "capabilities": [
+            "choice"
+          ],
+          "calibration": null,
+          "samples": 1,
+          "fallbackDepth": 0,
+          "estimate": {
+            "attemptsPerSample": 2,
+            "tokensPerAttempt": 1000,
+            "costMicrosPerAttempt": 1000,
+            "deadlineMsPerAttempt": 10000
+          },
+          "approvalReference": null
+        }
+      ],
+      "aggregation": {
+        "algorithm": "majority-v1",
+        "tieRule": "lowest-canonical-value"
+      },
+      "disagreement": {
+        "metric": "vote-share-v1",
+        "thresholdBps": 3400,
+        "onExceeded": "defer"
+      },
+      "acceptance": {
+        "minimumSuccessfulMembers": 2,
+        "onInsufficientMembers": "defer",
+        "highAgreementWarningBps": 1000
+      },
+      "calibration": {
+        "requirement": "advisory"
+      },
+      "ceilings": {
+        "members": 3,
+        "attempts": 9,
+        "deadlineMs": 60000,
+        "tokens": 30000,
+        "costMicros": 30000,
+        "unknownCost": {
+          "rule": "reject"
+        },
+        "concurrency": 3,
+        "fallbackDepth": 1
+      }
+    },
+    {
+      "schemaVersion": "decision-ensemble-policy/v1",
+      "id": "eligibility-noul-ensemble",
+      "version": "1.0.0",
+      "mode": "offline-shadow",
+      "riskTiers": [
+        "medium",
+        "high"
+      ],
+      "definition": {
+        "id": "eligibility",
+        "version": "2.1.0",
+        "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "primitive": "truth-probability",
+      "compatibleUncertaintyProfiles": [
+        "typesafe-truth-v1"
+      ],
+      "requiredCapabilities": [
+        "truth-probability"
+      ],
+      "members": [
+        {
+          "id": "jev-a",
+          "memberType": "model-version",
+          "definition": {
+            "id": "eligibility",
+            "version": "2.1.0",
+            "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          },
+          "binding": {
+            "id": "jev-a-binding",
+            "version": "1.0.0",
+            "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "adapter": {
+            "id": "jev",
+            "version": "1.0.0"
+          },
+          "model": {
+            "provider": "jev",
+            "backend": "api",
+            "requested": "jev-latest",
+            "pinnedVersion": "jev-2026-09-01"
+          },
+          "primitive": "truth-probability",
+          "uncertaintyProfile": "typesafe-truth-v1",
+          "requiredCapabilities": [],
+          "capabilities": [
+            "truth-probability"
+          ],
+          "calibration": null,
+          "samples": 1,
+          "fallbackDepth": 0,
+          "estimate": {
+            "attemptsPerSample": 2,
+            "tokensPerAttempt": 1000,
+            "costMicrosPerAttempt": 1000,
+            "deadlineMsPerAttempt": 10000
+          },
+          "approvalReference": null
+        },
+        {
+          "id": "jev-c",
+          "memberType": "model-version",
+          "definition": {
+            "id": "eligibility",
+            "version": "2.1.0",
+            "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          },
+          "binding": {
+            "id": "jev-c-binding",
+            "version": "1.0.0",
+            "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          "adapter": {
+            "id": "jev",
+            "version": "1.0.0"
+          },
+          "model": {
+            "provider": "jev",
+            "backend": "api",
+            "requested": "jev-previous",
+            "pinnedVersion": "jev-2026-07-15"
+          },
+          "primitive": "truth-probability",
+          "uncertaintyProfile": "typesafe-truth-v1",
+          "requiredCapabilities": [],
+          "capabilities": [
+            "truth-probability"
+          ],
+          "calibration": null,
+          "samples": 1,
+          "fallbackDepth": 0,
+          "estimate": {
+            "attemptsPerSample": 2,
+            "tokensPerAttempt": 1000,
+            "costMicrosPerAttempt": 1000,
+            "deadlineMsPerAttempt": 10000
+          },
+          "approvalReference": null
+        },
+        {
+          "id": "jev-eu",
+          "memberType": "provider-backend",
+          "definition": {
+            "id": "eligibility",
+            "version": "2.1.0",
+            "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+          },
+          "binding": {
+            "id": "jev-eu-binding",
+            "version": "1.0.0",
+            "digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+          },
+          "adapter": {
+            "id": "jev",
+            "version": "1.0.0"
+          },
+          "model": {
+            "provider": "jev",
+            "backend": "eu-api",
+            "requested": "jev-latest",
+            "pinnedVersion": "jev-2026-09-01"
+          },
+          "primitive": "truth-probability",
+          "uncertaintyProfile": "typesafe-truth-v1",
+          "requiredCapabilities": [],
+          "capabilities": [
+            "truth-probability"
+          ],
+          "calibration": null,
+          "samples": 1,
+          "fallbackDepth": 0,
+          "estimate": {
+            "attemptsPerSample": 2,
+            "tokensPerAttempt": 1000,
+            "costMicrosPerAttempt": null,
+            "deadlineMsPerAttempt": 10000
+          },
+          "approvalReference": null
+        }
+      ],
+      "aggregation": {
+        "algorithm": "mean-probability-v1",
+        "tieRule": "lowest-canonical-value"
+      },
+      "disagreement": {
+        "metric": "jensen-shannon-v1",
+        "thresholdBps": 2000,
+        "onExceeded": "review"
+      },
+      "acceptance": {
+        "minimumSuccessfulMembers": 2,
+        "onInsufficientMembers": "defer",
+        "highAgreementWarningBps": 500
+      },
+      "calibration": {
+        "requirement": "advisory"
+      },
+      "ceilings": {
+        "members": 3,
+        "attempts": 6,
+        "deadlineMs": 30000,
+        "tokens": 6000,
+        "costMicros": 8000,
+        "unknownCost": {
+          "rule": "reserve-bound",
+          "boundMicrosPerAttempt": 1500
+        },
+        "concurrency": 3,
+        "fallbackDepth": 0
+      }
+    },
+    {
+      "schemaVersion": "decision-ensemble-policy/v1",
+      "id": "severity-score-ensemble",
+      "version": "1.0.0",
+      "mode": "advisory",
+      "riskTiers": [
+        "medium"
+      ],
+      "definition": {
+        "id": "severity",
+        "version": "1.0.0",
+        "digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "primitive": "ordinal-score",
+      "levels": 5,
+      "compatibleUncertaintyProfiles": [
+        "typesafe-score-v1"
+      ],
+      "requiredCapabilities": [
+        "ordinal-score"
+      ],
+      "members": [
+        {
+          "id": "jev-a",
+          "memberType": "model-version",
+          "definition": {
+            "id": "severity",
+            "version": "1.0.0",
+            "digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+          },
+          "binding": {
+            "id": "jev-a-binding",
+            "version": "1.0.0",
+            "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "adapter": {
+            "id": "jev",
+            "version": "1.0.0"
+          },
+          "model": {
+            "provider": "jev",
+            "backend": "api",
+            "requested": "jev-latest",
+            "pinnedVersion": "jev-2026-09-01"
+          },
+          "primitive": "ordinal-score",
+          "uncertaintyProfile": "typesafe-score-v1",
+          "requiredCapabilities": [],
+          "capabilities": [
+            "ordinal-score"
+          ],
+          "calibration": {
+            "artifactId": "cal-score-jev-a",
+            "artifactDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "samples": 1,
+          "fallbackDepth": 0,
+          "estimate": {
+            "attemptsPerSample": 2,
+            "tokensPerAttempt": 1000,
+            "costMicrosPerAttempt": 1000,
+            "deadlineMsPerAttempt": 10000
+          },
+          "approvalReference": null
+        },
+        {
+          "id": "jev-c",
+          "memberType": "model-version",
+          "definition": {
+            "id": "severity",
+            "version": "1.0.0",
+            "digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+          },
+          "binding": {
+            "id": "jev-c-binding",
+            "version": "1.0.0",
+            "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          "adapter": {
+            "id": "jev",
+            "version": "1.0.0"
+          },
+          "model": {
+            "provider": "jev",
+            "backend": "api",
+            "requested": "jev-previous",
+            "pinnedVersion": "jev-2026-07-15"
+          },
+          "primitive": "ordinal-score",
+          "uncertaintyProfile": "typesafe-score-v1",
+          "requiredCapabilities": [],
+          "capabilities": [
+            "ordinal-score"
+          ],
+          "calibration": {
+            "artifactId": "cal-score-jev-c",
+            "artifactDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "samples": 1,
+          "fallbackDepth": 0,
+          "estimate": {
+            "attemptsPerSample": 2,
+            "tokensPerAttempt": 1000,
+            "costMicrosPerAttempt": 1000,
+            "deadlineMsPerAttempt": 10000
+          },
+          "approvalReference": null
+        },
+        {
+          "id": "jev-eu",
+          "memberType": "provider-backend",
+          "definition": {
+            "id": "severity",
+            "version": "1.0.0",
+            "digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+          },
+          "binding": {
+            "id": "jev-eu-binding",
+            "version": "1.0.0",
+            "digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+          },
+          "adapter": {
+            "id": "jev",
+            "version": "1.0.0"
+          },
+          "model": {
+            "provider": "jev",
+            "backend": "eu-api",
+            "requested": "jev-latest",
+            "pinnedVersion": "jev-2026-09-01"
+          },
+          "primitive": "ordinal-score",
+          "uncertaintyProfile": "typesafe-score-v1",
+          "requiredCapabilities": [],
+          "capabilities": [
+            "ordinal-score"
+          ],
+          "calibration": {
+            "artifactId": "cal-score-jev-eu",
+            "artifactDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "samples": 1,
+          "fallbackDepth": 0,
+          "estimate": {
+            "attemptsPerSample": 2,
+            "tokensPerAttempt": 1000,
+            "costMicrosPerAttempt": 1000,
+            "deadlineMsPerAttempt": 10000
+          },
+          "approvalReference": null
+        }
+      ],
+      "aggregation": {
+        "algorithm": "score-distribution-mean-v1",
+        "tieRule": "lowest-canonical-value"
+      },
+      "disagreement": {
+        "metric": "score-dispersion-v1",
+        "thresholdBps": 2500,
+        "onExceeded": "defer"
+      },
+      "acceptance": {
+        "minimumSuccessfulMembers": 2,
+        "onInsufficientMembers": "defer",
+        "highAgreementWarningBps": 500
+      },
+      "calibration": {
+        "requirement": "required"
+      },
+      "ceilings": {
+        "members": 3,
+        "attempts": 6,
+        "deadlineMs": 30000,
+        "tokens": 6000,
+        "costMicros": 6000,
+        "unknownCost": {
+          "rule": "reject"
+        },
+        "concurrency": 3,
+        "fallbackDepth": 0
+      }
+    },
+    {
+      "schemaVersion": "decision-ensemble-policy/v1",
+      "id": "triage-self-consistency",
+      "version": "1.0.0",
+      "mode": "offline-shadow",
+      "riskTiers": [
+        "low"
+      ],
+      "definition": {
+        "id": "triage",
+        "version": "1.0.0",
+        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "primitive": "choice",
+      "options": [
+        "approve",
+        "deny",
+        "escalate"
+      ],
+      "compatibleUncertaintyProfiles": [
+        "typesafe-distribution-v1"
+      ],
+      "requiredCapabilities": [
+        "choice"
+      ],
+      "members": [
+        {
+          "id": "jev-a",
+          "memberType": "repeated-sample",
+          "definition": {
+            "id": "triage",
+            "version": "1.0.0",
+            "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "binding": {
+            "id": "jev-a-binding",
+            "version": "1.0.0",
+            "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "adapter": {
+            "id": "jev",
+            "version": "1.0.0"
+          },
+          "model": {
+            "provider": "jev",
+            "backend": "api",
+            "requested": "jev-latest",
+            "pinnedVersion": "jev-2026-09-01"
+          },
+          "primitive": "choice",
+          "uncertaintyProfile": "typesafe-distribution-v1",
+          "requiredCapabilities": [],
+          "capabilities": [
+            "choice"
+          ],
+          "calibration": null,
+          "samples": 5,
+          "fallbackDepth": 0,
+          "estimate": {
+            "attemptsPerSample": 1,
+            "tokensPerAttempt": 1000,
+            "costMicrosPerAttempt": 1000,
+            "deadlineMsPerAttempt": 10000
+          },
+          "approvalReference": null
+        }
+      ],
+      "aggregation": {
+        "algorithm": "majority-v1",
+        "tieRule": "lowest-canonical-value"
+      },
+      "disagreement": {
+        "metric": "vote-share-v1",
+        "thresholdBps": 3400,
+        "onExceeded": "defer"
+      },
+      "acceptance": {
+        "minimumSuccessfulMembers": 3,
+        "onInsufficientMembers": "defer",
+        "highAgreementWarningBps": 1000
+      },
+      "calibration": {
+        "requirement": "advisory"
+      },
+      "ceilings": {
+        "members": 1,
+        "attempts": 10,
+        "deadlineMs": 30000,
+        "tokens": 10000,
+        "costMicros": 10000,
+        "unknownCost": {
+          "rule": "reject"
+        },
+        "concurrency": 5,
+        "fallbackDepth": 0
+      }
+    }
+  ]
+}

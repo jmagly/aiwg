@@ -1,0 +1,189 @@
+{
+  "schemaVersion": "decision-champion-challenger-anti-fixtures/v1",
+  "provenance": {
+    "origin": "repository-authored",
+    "permission": "MIT (repository LICENSE)",
+    "sanitization": "synthetic; no personal inputs",
+    "note": "Contract fixture only. Values exercise validation and deterministic plumbing; they are not quality, calibration or drift-threshold evidence."
+  },
+  "cases": [
+    {
+      "id": "promotion-without-rollback-target",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/rollbackTarget"
+        }
+      ]
+    },
+    {
+      "id": "promotion-without-eligibility",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/eligibilityId"
+        }
+      ]
+    },
+    {
+      "id": "promotion-without-integrity-report",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/evaluationIntegrityReport"
+        }
+      ]
+    },
+    {
+      "id": "promotion-without-approval",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/approval"
+        }
+      ]
+    },
+    {
+      "id": "missing-champion-identity-pin",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/champion/identityDigest"
+        }
+      ]
+    },
+    {
+      "id": "missing-challenger-binding-pin",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/challenger/binding"
+        }
+      ]
+    },
+    {
+      "id": "missing-input-set-digest",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/inputSet/digest"
+        }
+      ]
+    },
+    {
+      "id": "incomplete-paired-metric-set",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/pairedMetrics/7"
+        }
+      ]
+    },
+    {
+      "id": "challenger-claims-alias-revision",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "schema",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/challenger/aliasRevision",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "rollback-target-not-champion",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/rollbackTarget/aliasRevision",
+          "value": 2
+        }
+      ],
+      "expect": "exact pinned champion revision"
+    },
+    {
+      "id": "challenger-equals-champion",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/challenger/identityDigest",
+          "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ],
+      "expect": "must differ from the champion"
+    },
+    {
+      "id": "thresholds-changed-after-preregistration",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/pairedMetrics/0/bound",
+          "value": -0.5
+        }
+      ],
+      "expect": "preregistered digest"
+    },
+    {
+      "id": "duplicate-paired-metric",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/pairedMetrics/7/metric",
+          "value": "quality"
+        }
+      ],
+      "expect": "must appear exactly once"
+    },
+    {
+      "id": "thresholds-registered-after-holdout-access",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/preregistration/holdoutAccessedAt",
+          "value": "2026-08-31T00:00:00.000Z"
+        }
+      ],
+      "expect": "before held-out access"
+    },
+    {
+      "id": "input-set-below-minimum-pairs",
+      "base": "triage-champion-challenger-2026-09",
+      "layer": "semantic",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/inputSet/itemCount",
+          "value": 10
+        }
+      ],
+      "expect": "smaller than the preregistered minimum pairs"
+    }
+  ]
+}

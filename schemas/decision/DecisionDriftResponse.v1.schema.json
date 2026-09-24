@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionDriftResponse.v1.schema.json",
+  "title": "Decision Drift Response",
+  "description": "D17 contract mapping each declared drift signal to exactly one configured safe response. Consumes D09 AliasDriftEvent records; this schema does not execute responses.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "version", "alias", "thresholds", "window", "rules", "insufficientSamplesResponse"],
+  "properties": {
+    "schemaVersion": { "const": "decision-drift-response/v1" },
+    "id": { "$ref": "#/$defs/name" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "alias": { "$ref": "#/$defs/name" },
+    "thresholds": {
+      "type": "object", "additionalProperties": false, "required": ["version", "digest", "registeredAt"],
+      "properties": {
+        "version": { "$ref": "#/$defs/name" },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "registeredAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "window": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "size", "minimumSamples"],
+      "properties": {
+        "kind": { "enum": ["observations", "duration-ms"] },
+        "size": { "type": "integer", "minimum": 1 },
+        "minimumSamples": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "rules": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/rule" } },
+    "insufficientSamplesResponse": { "$ref": "#/$defs/response" }
+  },
+  "$defs": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$" },
+    "response": { "enum": ["alert", "reduce-coverage", "route-to-review", "disable-challenger", "restore-champion", "require-recertification"] },
+    "rule": {
+      "type": "object", "additionalProperties": false, "required": ["id", "source", "metric", "thresholdBps", "response"],
+      "properties": {
+        "id": { "$ref": "#/$defs/name" },
+        "source": { "enum": ["alias-drift", "output-distribution", "label-drift"] },
+        "metric": { "enum": ["identity-change", "jensen-shannon-v1", "population-stability-index-v1", "label-error-rate-delta-v1", "calibration-error-delta-v1"] },
+        "thresholdBps": { "type": ["integer", "null"], "minimum": 0, "maximum": 1000000 },
+        "response": { "$ref": "#/$defs/response" }
+      },
+      "allOf": [
+        { "if": { "properties": { "source": { "const": "alias-drift" } } },
+          "then": { "properties": { "metric": { "const": "identity-change" }, "thresholdBps": { "type": "null" } } } },
+        { "if": { "properties": { "source": { "const": "output-distribution" } } },
+          "then": { "properties": { "metric": { "enum": ["jensen-shannon-v1", "population-stability-index-v1"] }, "thresholdBps": { "type": "integer" } } } },
+        { "if": { "properties": { "source": { "const": "label-drift" } } },
+          "then": { "properties": { "metric": { "enum": ["label-error-rate-delta-v1", "calibration-error-delta-v1"] }, "thresholdBps": { "type": "integer" } } } }
+      ]
+    }
+  }
+}

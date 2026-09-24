@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionEnsembleAggregate.v1.schema.json",
+  "title": "Decision Ensemble Aggregate",
+  "description": "Derived D17 aggregate over recorded member results. Agreement is a stability signal: this record has no calibrated or correctness value and its correctness gate is never satisfied by agreement alone.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "policy", "primitive", "algorithm", "semantics", "provenance", "members", "counts", "outcome", "statistics", "disagreement", "warnings", "correctnessGate", "digest"],
+  "properties": {
+    "schemaVersion": { "const": "decision-ensemble-aggregate/v1" },
+    "policy": {
+      "type": "object", "additionalProperties": false, "required": ["id", "version", "digest"],
+      "properties": { "id": { "type": "string", "minLength": 1 }, "version": { "type": "string", "minLength": 1 }, "digest": { "$ref": "#/$defs/digest" } }
+    },
+    "primitive": { "enum": ["choice", "truth-probability", "ordinal-score"] },
+    "algorithm": { "$ref": "#/$defs/versionedId" },
+    "semantics": { "const": "stability-signal-not-correctness" },
+    "provenance": { "const": "derived" },
+    "members": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["memberId", "sampleIndex", "status", "resultDigest", "value"],
+        "properties": {
+          "memberId": { "type": "string", "minLength": 1 },
+          "sampleIndex": { "type": "integer", "minimum": 0 },
+          "status": { "enum": ["succeeded", "failed", "abstained"] },
+          "resultDigest": { "$ref": "#/$defs/digest" },
+          "value": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "null" }] }
+        }
+      }
+    },
+    "counts": {
+      "type": "object", "additionalProperties": false, "required": ["declared", "succeeded", "failed", "abstained"],
+      "properties": {
+        "declared": { "type": "integer", "minimum": 1 }, "succeeded": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 }, "abstained": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "outcome": {
+      "type": "object", "additionalProperties": false, "required": ["disposition", "value", "reason", "tie", "tieRule"],
+      "properties": {
+        "disposition": { "enum": ["accept", "defer", "review"] },
+        "value": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "null" }] },
+        "reason": { "enum": ["aggregated", "tie", "disagreement-exceeded", "insufficient-members"] },
+        "tie": { "type": "boolean" },
+        "tieRule": { "enum": ["lowest-canonical-value", "defer", "review", null] }
+      }
+    },
+    "statistics": {
+      "type": "object", "additionalProperties": false, "required": ["votes", "meanProbability", "meanDistribution", "meanScore", "medianScore", "dispersion"],
+      "properties": {
+        "votes": { "anyOf": [{ "type": "null" }, { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }] },
+        "meanProbability": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "meanDistribution": { "anyOf": [{ "type": "null" }, { "type": "object", "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 } }] },
+        "meanScore": { "type": ["number", "null"], "minimum": 0 },
+        "medianScore": { "type": ["number", "null"], "minimum": 0 },
+        "dispersion": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "disagreement": {
+      "type": "object", "additionalProperties": false, "required": ["metric", "valueBps", "thresholdBps", "exceeded"],
+      "properties": {
+        "metric": { "$ref": "#/$defs/versionedId" },
+        "valueBps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "thresholdBps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "exceeded": { "type": "boolean" }
+      }
+    },
+    "warnings": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "correctnessGate": {
+      "type": "object", "additionalProperties": false, "required": ["status", "reason"],
+      "properties": {
+        "status": { "const": "not-satisfied" },
+        "reason": { "const": "agreement-is-not-correctness-evidence" }
+      }
+    },
+    "digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "versionedId": {
+      "type": "object", "additionalProperties": false, "required": ["id", "version"],
+      "properties": { "id": { "type": "string", "pattern": "^[a-z0-9-]+-v[0-9]+$" }, "version": { "type": "string", "pattern": "^v[0-9]+$" } }
+    }
+  }
+}

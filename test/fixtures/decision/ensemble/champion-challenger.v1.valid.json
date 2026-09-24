@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "decision-champion-challenger-fixtures/v1",
+  "provenance": {
+    "origin": "repository-authored",
+    "permission": "MIT (repository LICENSE)",
+    "sanitization": "synthetic; no personal inputs",
+    "note": "Contract fixture only. Values exercise validation and deterministic plumbing; they are not quality, calibration or drift-threshold evidence."
+  },
+  "records": [
+    {
+      "schemaVersion": "decision-champion-challenger/v1",
+      "id": "triage-champion-challenger-2026-09",
+      "alias": "jev-latest",
+      "champion": {
+        "aliasRevision": 1,
+        "identityDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "actualModel": "jev-2026-07-15",
+        "binding": {
+          "id": "triage-binding",
+          "version": "1.0.0",
+          "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "adapter": {
+          "id": "jev",
+          "version": "1.0.0"
+        },
+        "calibration": {
+          "artifactId": "cal-champion",
+          "artifactDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "ensemblePolicy": null
+      },
+      "challenger": {
+        "identityDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "actualModel": "jev-2026-09-01",
+        "binding": {
+          "id": "triage-binding",
+          "version": "1.1.0",
+          "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "adapter": {
+          "id": "jev",
+          "version": "1.0.0"
+        },
+        "calibration": {
+          "artifactId": "cal-challenger",
+          "artifactDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "ensemblePolicy": {
+          "id": "triage-choice-ensemble",
+          "version": "1.0.0",
+          "digest": "sha256:d9ceca5930506b05f74aa323ce4af296874b4ec81602f0b745888e8c3cf27c29"
+        }
+      },
+      "inputSet": {
+        "id": "triage-shadow-2026-09",
+        "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "itemCount": 400,
+        "frozenAt": "2026-09-02T00:00:00.000Z",
+        "purpose": "shadow"
+      },
+      "pairedMetrics": [
+        {
+          "metric": "quality",
+          "comparison": "delta-at-least",
+          "bound": -0.01,
+          "minimumPairs": 300
+        },
+        {
+          "metric": "calibration",
+          "comparison": "delta-at-most",
+          "bound": 0.01,
+          "minimumPairs": 300
+        },
+        {
+          "metric": "risk-coverage",
+          "comparison": "delta-at-least",
+          "bound": 0,
+          "minimumPairs": 300
+        },
+        {
+          "metric": "abstention",
+          "comparison": "delta-at-most",
+          "bound": 0.02,
+          "minimumPairs": 300
+        },
+        {
+          "metric": "latency",
+          "comparison": "delta-at-most",
+          "bound": 250,
+          "minimumPairs": 300
+        },
+        {
+          "metric": "tokens",
+          "comparison": "delta-at-most",
+          "bound": 200,
+          "minimumPairs": 300
+        },
+        {
+          "metric": "cost",
+          "comparison": "delta-at-most",
+          "bound": 100,
+          "minimumPairs": 300
+        },
+        {
+          "metric": "slice",
+          "comparison": "delta-at-least",
+          "bound": -0.02,
+          "minimumPairs": 100
+        }
+      ],
+      "preregistration": {
+        "thresholdsDigest": "sha256:c5ba8d0f7ad6a901e57e790d5d1e51f70af89936815b74cebea0e821da0d67ee",
+        "registeredAt": "2026-09-01T00:00:00.000Z",
+        "holdoutAccessedAt": "2026-09-03T00:00:00.000Z"
+      },
+      "eligibilityId": "elig-jev-2026-09-01",
+      "evaluationIntegrityReport": {
+        "id": "eval-integrity-triage-2026-09",
+        "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "approval": {
+        "reference": "review-2679",
+        "approvedAt": "2026-09-05T00:00:00.000Z"
+      },
+      "rollbackTarget": {
+        "aliasRevision": 1,
+        "identityDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    }
+  ]
+}

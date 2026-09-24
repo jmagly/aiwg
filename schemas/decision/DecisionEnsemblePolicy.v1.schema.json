@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionEnsemblePolicy.v1.schema.json",
+  "title": "Decision Ensemble Policy",
+  "description": "D17 contract for a bounded, versioned ensemble over pinned decision members. Contract only: this schema does not enable ensemble dispatch.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "version", "mode", "riskTiers", "definition", "primitive", "compatibleUncertaintyProfiles", "requiredCapabilities", "members", "aggregation", "disagreement", "acceptance", "calibration", "ceilings"],
+  "properties": {
+    "schemaVersion": { "const": "decision-ensemble-policy/v1" },
+    "id": { "$ref": "#/$defs/name" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "mode": { "enum": ["disabled", "offline-shadow", "advisory"] },
+    "riskTiers": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "definition": { "$ref": "#/$defs/pin" },
+    "primitive": { "$ref": "#/$defs/primitive" },
+    "options": { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "levels": { "type": "integer", "minimum": 2, "maximum": 100 },
+    "compatibleUncertaintyProfiles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "requiredCapabilities": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "members": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "$ref": "#/$defs/member" } },
+    "aggregation": {
+      "type": "object", "additionalProperties": false, "required": ["algorithm", "tieRule"],
+      "properties": {
+        "algorithm": { "enum": ["majority-v1", "mean-probability-v1", "score-distribution-mean-v1", "score-median-v1"] },
+        "tieRule": { "enum": ["lowest-canonical-value", "defer", "review"] }
+      }
+    },
+    "disagreement": {
+      "type": "object", "additionalProperties": false, "required": ["metric", "thresholdBps", "onExceeded"],
+      "properties": {
+        "metric": { "enum": ["vote-share-v1", "normalized-entropy-v1", "jensen-shannon-v1", "score-dispersion-v1"] },
+        "thresholdBps": { "$ref": "#/$defs/bps" },
+        "onExceeded": { "$ref": "#/$defs/deferRoute" }
+      }
+    },
+    "acceptance": {
+      "type": "object", "additionalProperties": false, "required": ["minimumSuccessfulMembers", "onInsufficientMembers", "highAgreementWarningBps"],
+      "properties": {
+        "minimumSuccessfulMembers": { "type": "integer", "minimum": 1 },
+        "onInsufficientMembers": { "$ref": "#/$defs/deferRoute" },
+        "highAgreementWarningBps": { "$ref": "#/$defs/bps" }
+      }
+    },
+    "calibration": {
+      "type": "object", "additionalProperties": false, "required": ["requirement"],
+      "properties": { "requirement": { "enum": ["advisory", "required"] } }
+    },
+    "ceilings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["members", "attempts", "deadlineMs", "tokens", "costMicros", "unknownCost", "concurrency", "fallbackDepth"],
+      "properties": {
+        "members": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "attempts": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "deadlineMs": { "type": "integer", "minimum": 1, "maximum": 3600000 },
+        "tokens": { "type": "integer", "minimum": 1 },
+        "costMicros": { "type": "integer", "minimum": 1 },
+        "unknownCost": {
+          "oneOf": [
+            { "type": "object", "additionalProperties": false, "required": ["rule"], "properties": { "rule": { "const": "reject" } } },
+            { "type": "object", "additionalProperties": false, "required": ["rule", "boundMicrosPerAttempt"],
+              "properties": { "rule": { "const": "reserve-bound" }, "boundMicrosPerAttempt": { "type": "integer", "minimum": 1 } } }
+          ]
+        },
+        "concurrency": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "fallbackDepth": { "type": "integer", "minimum": 0, "maximum": 3 }
+      }
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "primitive": { "const": "choice" } } }, "then": { "required": ["options"], "properties": { "options": true, "levels": false } } },
+    { "if": { "properties": { "primitive": { "const": "ordinal-score" } } }, "then": { "required": ["levels"], "properties": { "levels": true, "options": false } } },
+    { "if": { "properties": { "primitive": { "const": "truth-probability" } } }, "then": { "properties": { "options": false, "levels": false } } }
+  ],
+  "$defs": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "primitive": { "enum": ["choice", "truth-probability", "ordinal-score"] },
+    "deferRoute": { "enum": ["defer", "review"] },
+    "pin": {
+      "type": "object", "additionalProperties": false, "required": ["id", "version", "digest"],
+      "properties": { "id": { "$ref": "#/$defs/name" }, "version": { "type": "string", "minLength": 1 }, "digest": { "$ref": "#/$defs/digest" } }
+    },
+    "member": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "memberType", "definition", "binding", "adapter", "model", "primitive", "uncertaintyProfile", "requiredCapabilities", "capabilities", "calibration", "samples", "fallbackDepth", "estimate", "approvalReference"],
+      "properties": {
+        "id": { "$ref": "#/$defs/name" },
+        "memberType": { "enum": ["model-version", "provider-backend", "repeated-sample", "prompt-adapter"] },
+        "definition": { "$ref": "#/$defs/pin" },
+        "binding": { "$ref": "#/$defs/pin" },
+        "adapter": {
+          "type": "object", "additionalProperties": false, "required": ["id", "version"],
+          "properties": { "id": { "$ref": "#/$defs/name" }, "version": { "type": "string", "minLength": 1 } }
+        },
+        "model": {
+          "type": "object", "additionalProperties": false, "required": ["provider", "backend", "requested", "pinnedVersion"],
+          "properties": {
+            "provider": { "$ref": "#/$defs/name" }, "backend": { "$ref": "#/$defs/name" },
+            "requested": { "$ref": "#/$defs/name" }, "pinnedVersion": { "$ref": "#/$defs/name" }
+          }
+        },
+        "primitive": { "$ref": "#/$defs/primitive" },
+        "uncertaintyProfile": { "$ref": "#/$defs/name" },
+        "requiredCapabilities": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+        "capabilities": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+        "calibration": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "object", "additionalProperties": false, "required": ["artifactId", "artifactDigest"],
+              "properties": { "artifactId": { "$ref": "#/$defs/name" }, "artifactDigest": { "$ref": "#/$defs/digest" } } }
+          ]
+        },
+        "samples": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "fallbackDepth": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "estimate": {
+          "type": "object", "additionalProperties": false, "required": ["attemptsPerSample", "tokensPerAttempt", "costMicrosPerAttempt", "deadlineMsPerAttempt"],
+          "properties": {
+            "attemptsPerSample": { "type": "integer", "minimum": 1 },
+            "tokensPerAttempt": { "type": "integer", "minimum": 0 },
+            "costMicrosPerAttempt": { "type": ["integer", "null"], "minimum": 0 },
+            "deadlineMsPerAttempt": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "approvalReference": { "type": ["string", "null"], "minLength": 1 }
+      }
+    }
+  }
+}
