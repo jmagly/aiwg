@@ -762,6 +762,7 @@ aiwg use all --provider hermes         # Hermes
 aiwg use all --provider openhuman      # OpenHuman
 aiwg use all --provider pi             # Pi Coding Agent
 aiwg use all --provider omp            # Oh My Pi
+aiwg use all --provider muse           # Muse Code (experimental)
 ```
 
 `all` means the complete deployable end-user surface. It intentionally omits

@@ -260,7 +260,7 @@ aiwg doctor [--provider <name>] [--all-providers] [--project-local] [--quiet]
 
 **Flags:**
 
-- `--provider <name>` — Inspect a specific provider's deployment paths (claude, codex, copilot, cursor, factory, grokbot, hermes, opencode, openclaw, openhuman, omp, pi, warp, or devin). Defaults to auto-detect across deployed providers.
+- `--provider <name>` — Inspect a specific provider's deployment paths (claude, codex, copilot, cursor, factory, grokbot, hermes, muse, opencode, openclaw, openhuman, omp, pi, warp, or devin). Defaults to auto-detect across deployed providers.
 - `--all-providers` — Enumerate every supported provider, including ones with nothing deployed.
 - `--project-local` — Show only the project-local artifacts section. Exit code reflects only project-local findings.
 - `--quiet` — Suppress informational subsections (counts, shadows). Show only failures.
@@ -560,7 +560,7 @@ aiwg use <framework|addon>
 
 **Options:**
 
-- `--provider <name>` - Target platform (claude, copilot, factory, cursor, devin, warp, codex, opencode, grokbot, hermes, openclaw, openhuman, pi, local)
+- `--provider <name>` - Target platform (claude, copilot, factory, cursor, devin, warp, codex, opencode, grokbot, hermes, muse, openclaw, openhuman, pi, local)
 - `--scope user` / `--user` - Additively deploy to the project and mirror the
   artifacts into the provider's user-level discovery paths.
 - `--global` - Install framework and kernel assets into provider user-level
@@ -749,6 +749,7 @@ reload are shown with `--verbose`.
 | Google Antigravity CLI (experimental) | `antigravity` (`agy`) | `.agents/agents/`, `.agents/skills/`, project `AGENTS.md`; global skills unsupported | — |
 | Oh My Pi (experimental) | `omp` (`oh-my-pi`) | `.omp/agents/`, `.omp/prompts/`, `.omp/rules/`, `.agents/skills/`, `.omp/AGENTS.md` | Explicit extension bridge |
 | Pi Coding Agent (experimental) | `pi` | `.agents/skills/`, `.pi/prompts/`, `.pi/.aiwg/skills/`, `.pi/extensions/aiwg-bridge.ts`, project `AGENTS.md` | Trust-gated extension bridge (tool policy only) |
+| Muse Code (experimental) | `muse` | `$XDG_CONFIG_HOME/muse/skills/` (default `~/.config/muse/skills`), project `.agents/skills/`, `AGENTS.md` (discover-first; workspace trust required) | — |
 | Claude Code    | `claude`        | `.claude/agents/`, `.claude/commands/`, `.claude/skills/`, `.claude/rules/`                                           | —         |
 | GitHub Copilot | `copilot`       | `.github/agents/`, `.github/copilot-rules/`, `.github/skills/`                                                        | —         |
 | Factory AI     | `factory`       | `.factory/droids/`, `.factory/commands/`, `.factory/skills/`, `.factory/rules/`                                       | —         |
@@ -775,6 +776,13 @@ On first run after the commands-to-skills migration, `aiwg use` detects an exist
 - **Warp**: Agents and commands also aggregated into `WARP.md` for single-file context loading
 - **OpenHuman**: Kernel skills and rule bodies are user-global; the default deploy emits no markdown persona copies. Project context is rendered into `AGENTS.md`, and curated native TOML agents are opt-in with `--harness-agents`.
 - **Hermes**: Not a spawnable CLI — access via `ollama run hermes3` or MCP sidecar; deploy sets up skills and a lean AGENTS.md
+- **Muse Code**: Experimental; user-scope skills resolve from
+  `$XDG_CONFIG_HOME/muse/skills/` (default `~/.config/muse/skills`) at deploy
+  time, failing closed on bad XDG metadata. Project skills deploy to
+  `.agents/skills/`. Context loads discover-first from `AGENTS.md` only after
+  the workspace is trusted — trust the workspace when prompted, then start a
+  new Muse session (no Cursor-style window reload applies). See the
+  [Muse Code operational reference](../agents/providers/muse.md).
 - **OpenClaw**: Only provider with behaviors support (`~/.openclaw/behaviors/`); all artifacts deploy to home directory
 - **Local/Ollama**: Uses Claude Code path layout; specify `--coding-model ollama/<model>` to route coding tasks to the local model
 
@@ -5777,6 +5785,9 @@ aiwg use sdlc --provider hermes
 
 # OpenClaw (includes behaviors in ~/.openclaw/behaviors/)
 aiwg use sdlc --provider openclaw
+
+# Muse Code (experimental — discover-first AGENTS.md; user skills via $XDG_CONFIG_HOME/muse/skills)
+aiwg use sdlc --provider muse
 
 # Local / Ollama  (Claude Code paths, route coding tasks to local model)
 aiwg use sdlc --provider local --coding-model ollama/qwen3.5:9b
