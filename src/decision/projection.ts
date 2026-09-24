@@ -126,14 +126,19 @@ export async function dispatchProjectedDecisionState<TCredential, TResult>(
 }
 
 export function validateProjectionPolicy(policy: DecisionProjectionPolicy): void {
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
+    throw new DecisionProjectionError('invalid-policy', 'projection policy must be an object');
+  }
   rejectUnknownKeys(policy as unknown as Record<string, unknown>,
     ['version', 'provider', 'model', 'origin', 'region', 'purpose', 'allowIncompleteContext', 'fields'], 'projection policy');
+  if (![policy.version, policy.provider, policy.model, policy.origin, policy.region, policy.purpose]
+    .every(value => typeof value === 'string' && value.trim().length > 0)
+    || typeof policy.allowIncompleteContext !== 'boolean' || !Array.isArray(policy.fields)) {
+    throw new DecisionProjectionError('invalid-policy', 'projection policy identity and fields are invalid');
+  }
   // Scan the whole portable control object, not just individual field entries.
   // Destination and identity strings are portable too and must never carry secrets.
   rejectPortableSecretMaterial(policy as unknown as Record<string, unknown>, 'projection policy');
-  if (!policy.version || !policy.provider || !policy.model || !policy.origin || !policy.region || !policy.purpose) {
-    throw new DecisionProjectionError('invalid-policy', 'projection policy identity and destination fields are required');
-  }
   let normalizedOrigin: URL;
   try { normalizedOrigin = new URL(policy.origin); }
   catch { throw new DecisionProjectionError('invalid-policy', 'projection origin must be an absolute HTTPS URL'); }
@@ -144,12 +149,16 @@ export function validateProjectionPolicy(policy: DecisionProjectionPolicy): void
   const outputs = new Set<string>();
   let subject: string | undefined;
   for (const field of policy.fields) {
+    if (!field || typeof field !== 'object' || Array.isArray(field)) {
+      throw new DecisionProjectionError('invalid-policy', 'projection field must be an object');
+    }
     rejectUnknownKeys(field as unknown as Record<string, unknown>, [
       'pointer', 'output', 'source', 'subject', 'trust', 'sensitivity', 'purpose', 'retentionClass',
       'accessScopes', 'exportPolicy', 'deletionPolicy', 'backupPolicy', 'allowedProviders',
       'allowedModels', 'allowedOrigins', 'allowedRegions',
     ], 'projection field');
-    if (!field.pointer.startsWith('/') || !/^[A-Za-z][A-Za-z0-9_.-]*$/.test(field.output)) {
+    if (typeof field.pointer !== 'string' || !field.pointer.startsWith('/')
+      || typeof field.output !== 'string' || !/^[A-Za-z][A-Za-z0-9_.-]*$/.test(field.output)) {
       throw new DecisionProjectionError('invalid-policy', 'projection fields require JSON pointers and portable output names');
     }
     if (outputs.has(field.output)) throw new DecisionProjectionError('invalid-policy', 'duplicate projection output');
@@ -158,7 +167,14 @@ export function validateProjectionPolicy(policy: DecisionProjectionPolicy): void
     if (!field.subject || field.subject !== subject) {
       throw new DecisionProjectionError('invalid-policy', 'one projection may contain exactly one stable subject');
     }
-    const normalizedAllowedOrigins = field.allowedOrigins?.map(origin => normalizeAuthorizedOrigin(origin));
+    if (![field.source, field.subject, field.purpose, field.retentionClass]
+      .every(value => typeof value === 'string' && value.trim().length > 0)
+      || ![field.accessScopes, field.allowedProviders, field.allowedModels, field.allowedOrigins, field.allowedRegions]
+        .every(value => Array.isArray(value) && value.length > 0
+          && value.every(item => typeof item === 'string' && item.trim().length > 0))) {
+      throw new DecisionProjectionError('invalid-policy', 'projection field lacks provenance or lifecycle metadata');
+    }
+    const normalizedAllowedOrigins = field.allowedOrigins.map(origin => normalizeAuthorizedOrigin(origin));
     if (field.purpose !== policy.purpose || !field.allowedProviders?.includes(policy.provider)
       || !field.allowedModels?.includes(policy.model) || !normalizedAllowedOrigins?.includes(normalizedOrigin.origin)
       || !field.allowedRegions?.includes(policy.region)) {
