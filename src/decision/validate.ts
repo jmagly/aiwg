@@ -127,6 +127,73 @@ export function assertDecisionWriterVersion(value: unknown, semantic: DecisionCh
   }
 }
 
+/**
+ * Result evidence that exists only in the v1alpha2 DecisionResult and RulesetResult
+ * schemas, with the contract addition that owns each field. v1alpha1 results never
+ * carry these fields; writers must label any result that does as v1alpha2.
+ */
+export const DECISION_RESULT_V1ALPHA2_FIELDS = [
+  { field: 'batchResult', scope: 'decision', owner: 'D07', semantic: 'batch-receipt' },
+  { field: 'batch', scope: 'attempt', owner: 'D04', semantic: 'batch-provenance' },
+  { field: 'admission', scope: 'attempt', owner: 'D05', semantic: 'admission-evidence' },
+  { field: 'context', scope: 'decision', owner: 'D06', semantic: 'context-evidence' },
+  { field: 'context', scope: 'ruleset', owner: 'D06', semantic: 'context-evidence' },
+  { field: 'providerPrefix', scope: 'attempt', owner: 'D30', semantic: 'provider-prefix-evidence' },
+  { field: 'acceptance', scope: 'decision', owner: 'D08', semantic: 'acceptance-uncertainty' },
+  { field: 'calibrationCompatibility', scope: 'decision', owner: 'D09', semantic: 'calibration-pin' },
+] as const;
+
+/** JSON paths of every v1alpha2-only field present in a DecisionResult or RulesetResult. */
+export function decisionResultV1Alpha2Fields(value: unknown): string[] {
+  const found: string[] = [];
+  const spec = (document: unknown): Record<string, unknown> | undefined => {
+    const inner = document && typeof document === 'object' ? (document as { spec?: unknown }).spec : undefined;
+    return inner && typeof inner === 'object' && !Array.isArray(inner) ? inner as Record<string, unknown> : undefined;
+  };
+  const visitDecision = (document: unknown, path: string): void => {
+    const decision = spec(document);
+    if (!decision) return;
+    for (const entry of DECISION_RESULT_V1ALPHA2_FIELDS) {
+      if (entry.scope === 'decision' && Object.hasOwn(decision, entry.field)) found.push(`${path}.spec.${entry.field}`);
+    }
+    if (!Array.isArray(decision.attempts)) return;
+    decision.attempts.forEach((attempt, index) => {
+      if (!attempt || typeof attempt !== 'object') return;
+      for (const entry of DECISION_RESULT_V1ALPHA2_FIELDS) {
+        if (entry.scope === 'attempt' && Object.hasOwn(attempt, entry.field)) found.push(`${path}.spec.attempts[${index}].${entry.field}`);
+      }
+    });
+  };
+  const kind = value && typeof value === 'object' ? (value as { kind?: unknown }).kind : undefined;
+  if (kind === 'DecisionResult') visitDecision(value, '$');
+  if (kind === 'RulesetResult') {
+    const ruleset = spec(value);
+    if (ruleset && Object.hasOwn(ruleset, 'context')) found.push('$.spec.context');
+    const evaluations = ruleset?.evaluations;
+    if (evaluations && typeof evaluations === 'object' && !Array.isArray(evaluations)) {
+      for (const [alias, evaluation] of Object.entries(evaluations)) visitDecision(evaluation, `$.spec.evaluations.${alias}`);
+    }
+  }
+  return found;
+}
+
+/**
+ * Writer gate for every runtime DecisionResult/RulesetResult writer, including
+ * invocation receipt payloads. A result that carries v1alpha2-only evidence must be
+ * labelled v1alpha2; a v1alpha1 label on such a result is rejected before validation.
+ */
+export function assertDecisionResultWriterVersion(value: unknown): asserts value is DecisionResult | RulesetResult {
+  const kind = value && typeof value === 'object' ? (value as { kind?: unknown }).kind : undefined;
+  if (kind !== 'DecisionResult' && kind !== 'RulesetResult') {
+    throw new DecisionValidationError('Result writer accepts only DecisionResult or RulesetResult documents');
+  }
+  const fields = decisionResultV1Alpha2Fields(value);
+  if (fields.length && (value as { apiVersion?: unknown }).apiVersion !== DECISION_API_VERSION_STRUCTURED) {
+    throw new DecisionValidationError(`${kind} carrying ${fields.join(', ')} requires ${DECISION_API_VERSION_STRUCTURED}`);
+  }
+  validateDecisionDocument(value);
+}
+
 /** A rollback reader may inspect v1alpha2, but cannot execute or rewrite it. */
 export function readDecisionDocumentForRollback(value: unknown, mode: 'read-only' | 'execute'): {
   document: Readonly<DecisionDefinition | DecisionRuleset | DecisionBinding | DecisionResult | RulesetResult>;

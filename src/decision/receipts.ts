@@ -3,6 +3,7 @@ import { link, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../security/artifact-trust.js';
 import type { ArtifactPin, DecisionReceipt, DecisionReceiptState, DecisionReceiptStore } from './types.js';
+import { assertDecisionResultWriterVersion } from './validate.js';
 
 export function decisionInvocationFingerprint(input: {
   invocationId: string;
@@ -61,6 +62,11 @@ export function validateReceipt(receipt: DecisionReceipt, invocationId: string, 
 
 export function nextReceipt(previous: DecisionReceipt, state: DecisionReceiptState, extra: Partial<Pick<DecisionReceipt, 'result' | 'remoteHandles' | 'evaluations' | 'pending' | 'updatedAtEpochMs' | 'completedAtEpochMs'>> = {}): DecisionReceipt {
   if (!allowed[previous.state].includes(state)) throw new DecisionReceiptIntegrityError('Illegal receipt transition');
+  // Receipt payloads are result writers: newly written results pass the v1alpha2 writer gate.
+  if (extra.result !== undefined) assertDecisionResultWriterVersion(extra.result);
+  for (const [alias, result] of Object.entries(extra.evaluations ?? {})) {
+    if (!Object.hasOwn(previous.evaluations, alias)) assertDecisionResultWriterVersion(result);
+  }
   const updatedAtEpochMs = Math.max(previous.updatedAtEpochMs, extra.updatedAtEpochMs ?? Date.now());
   const next = { ...structuredClone(previous), ...structuredClone(extra), state, revision: previous.revision + 1,
     updatedAtEpochMs, ...(state === 'completed' ? { completedAtEpochMs: extra.completedAtEpochMs ?? updatedAtEpochMs } : {}) };

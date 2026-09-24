@@ -150,6 +150,9 @@ describe('native shared-state decision batching', () => {
     expect(result.spec.context?.actualUsage.every(item => item.actualInputTokens === 9)).toBe(true);
     expect(Object.values(result.spec.evaluations).every(item => item.spec.context?.plan.planDigest === result.spec.context?.plan.planDigest)).toBe(true);
     Object.values(result.spec.evaluations).forEach(validateDecisionDocument);
+    // D06 context evidence from v1alpha1 inputs is written only as v1alpha2.
+    expect(result.apiVersion).toBe('decision.aiwg.io/v1alpha2');
+    validateDecisionDocument(result);
   });
 
   it('CTX-RUNTIME records request-accurate usage when compatible batch is a subset of a context partition', async () => {
@@ -711,6 +714,10 @@ describe('native shared-state decision batching', () => {
     expect(receipt?.answerReferences).toHaveLength(3);
     expect(batchAccountingTotals(receipt!).usage).toEqual({ inputTokens: 9, outputTokens: 3 });
     Object.values(result.spec.evaluations).forEach(validateDecisionDocument);
+    // D07 batch receipt references from v1alpha1 inputs are written only as v1alpha2.
+    expect(result.apiVersion).toBe('decision.aiwg.io/v1alpha2');
+    expect(Object.values(result.spec.evaluations).every(value => value.apiVersion === 'decision.aiwg.io/v1alpha2')).toBe(true);
+    validateDecisionDocument(result);
   });
 
   it('contains malformed high-cardinality transport request IDs in the batch receipt', async () => {
