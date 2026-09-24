@@ -1292,7 +1292,8 @@ function admissionReason(error: AdmissionError): DecisionFailureReason {
   if (error.evidence.reason === 'deadline-exceeded' || error.evidence.reason === 'queue-timeout') return 'timeout';
   if (error.evidence.reason === 'requests-per-minute' || error.evidence.reason === 'tokens-per-second'
     || error.evidence.reason === 'retry-after') return 'rate-limited';
-  if (error.evidence.reason === 'attempts' || error.evidence.reason === 'cost' || error.evidence.reason === 'unknown-cost') return 'budget-exhausted';
+  if (error.evidence.reason === 'attempts' || error.evidence.reason === 'cost' || error.evidence.reason === 'unknown-cost'
+    || error.evidence.reason === 'tokens' || error.evidence.reason === 'unknown-tokens') return 'budget-exhausted';
   return 'overloaded';
 }
 
@@ -1316,7 +1317,7 @@ function validateSchedulerPolicy(request: DecisionEvaluationRequest): void {
   }
   for (const limit of limits) {
     for (const value of [limit.requestsPerMinute, limit.tokensPerSecond, limit.maxAttempts, limit.maxBatchSize,
-      limit.maxQueueLength, limit.maxQueueWaitMs, limit.maxRequestBytes, limit.maxItems, limit.maxRetainedWork]) {
+      limit.maxQueueLength, limit.maxQueueWaitMs, limit.maxRequestBytes, limit.maxItems, limit.maxRetainedWork, limit.maxTokens]) {
       if (value !== undefined && (!Number.isFinite(value) || value < 0)) throw new DecisionValidationError('scheduler admission limits must be finite and non-negative');
     }
     if (limit.maxCostUsd !== undefined && (!Number.isFinite(limit.maxCostUsd) || limit.maxCostUsd < 0)) {

@@ -238,7 +238,7 @@ export interface DecisionAttempt {
 export type DecisionAdmissionReason =
   | 'admitted' | 'disabled' | 'cancelled' | 'deadline-exceeded'
   | 'concurrency' | 'requests-per-minute' | 'tokens-per-second'
-  | 'attempts' | 'batch-size' | 'cost' | 'unknown-cost'
+  | 'attempts' | 'batch-size' | 'cost' | 'unknown-cost' | 'tokens' | 'unknown-tokens'
   | 'queue-full' | 'queue-timeout' | 'invalid-estimate' | 'request-too-large' | 'too-many-items'
   | 'retained-work' | 'unknown-retained-work'
   | 'retry-after' | 'circuit-open' | 'unconfigured-provider';
@@ -265,6 +265,8 @@ export interface DecisionAdmissionLimits {
   maxBatchSize?: number;
   maxCostUsd?: number;
   allowUnknownCost?: boolean;
+  /** Invocation-scoped cumulative estimated-token reservation; requires a token estimate per dispatch. */
+  maxTokens?: number;
   maxQueueLength?: number;
   maxQueueWaitMs?: number;
   maxRequestBytes?: number;
