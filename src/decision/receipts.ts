@@ -2,6 +2,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto
 import { link, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../security/artifact-trust.js';
+import { assertNoPortableSecretMaterial } from './portable-secrets.js';
 import type { ArtifactPin, DecisionReceipt, DecisionReceiptState, DecisionReceiptStore } from './types.js';
 import { assertDecisionResultWriterVersion } from './validate.js';
 
@@ -58,6 +59,16 @@ export function validateReceipt(receipt: DecisionReceipt, invocationId: string, 
     || (receipt.state !== 'completed' && receipt.result !== undefined)) {
     throw new DecisionReceiptIntegrityError('Invalid decision receipt');
   }
+  assertReceiptPortable(receipt);
+}
+
+/** Receipts are portable artifacts: handles and payloads must never carry secret material. */
+function assertReceiptPortable(receipt: DecisionReceipt): void {
+  const reject = (message: string): Error => new DecisionReceiptIntegrityError(message);
+  receipt.remoteHandles.forEach(handle => assertNoPortableSecretMaterial(handle, 'Decision receipt remote handle', reject));
+  assertNoPortableSecretMaterial(receipt.evaluations, 'Decision receipt evaluations', reject);
+  assertNoPortableSecretMaterial(receipt.pending, 'Decision receipt pending evaluation', reject);
+  if (receipt.result !== undefined) assertNoPortableSecretMaterial(receipt.result, 'Decision receipt result', reject);
 }
 
 export function nextReceipt(previous: DecisionReceipt, state: DecisionReceiptState, extra: Partial<Pick<DecisionReceipt, 'result' | 'remoteHandles' | 'evaluations' | 'pending' | 'updatedAtEpochMs' | 'completedAtEpochMs'>> = {}): DecisionReceipt {
