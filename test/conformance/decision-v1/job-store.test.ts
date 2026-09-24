@@ -1,4 +1,4 @@
-import { copyFile, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdtemp, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -63,6 +63,18 @@ describe('JOB durable offline lifecycle', () => {
     await expect(new FileJobStore(directory).acquire(fixture())).rejects.toThrow('Job tombstoned');
     await store.purgeDeleted(scope, 'jobA');
     expect((await readdir(directory)).filter(name => name.endsWith('.json'))).toHaveLength(0);
+  });
+  it('fails closed on a shared or symlinked storage directory', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'decision-jobs-root-'));
+    directories.push(root);
+    const alias = join(root, 'alias');
+    const privateDir = await mkdtemp(join(root, 'real-'));
+    await symlink(privateDir, alias);
+    await expect(new FileJobStore(alias).acquire(fixture())).rejects.toThrow('private');
+    await chmod(privateDir, 0o755);
+    await expect(new FileJobStore(privateDir).acquire(fixture())).rejects.toThrow('private');
+    await chmod(privateDir, 0o700);
+    expect(await new FileJobStore(privateDir).acquire(fixture())).toMatchObject({ owner: true });
   });
   it('uses owner-only journal modes and rejects a corrupted revision instead of using stale state', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-jobs-integrity-'));

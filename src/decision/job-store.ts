@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { access, link, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
+import { access, link, lstat, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../security/artifact-trust.js';
 import { assertJobTransition, validateDecisionJob, type DecisionJob } from './job-contract.js';
@@ -72,6 +72,7 @@ export class FileJobStore implements JobStore {
     private readonly externallyDeleted?: (scope: JobScope, id: string) => Promise<boolean>) {}
   async acquire(job: DecisionJob): Promise<{ owner: boolean; snapshot: JobSnapshot }> {
     validateFirst(job);
+    await this.ensureDirectory();
     if (await this.isDeleted(job.scope, job.id)) throw new JobConflictError('Job tombstoned');
     const snapshot = { revision: 1, job: structuredClone(job), deleted: false, legalHold: false };
     if (await this.publish(snapshot)) return { owner: true, snapshot: copy(snapshot) };
@@ -81,7 +82,7 @@ export class FileJobStore implements JobStore {
     return { owner: false, snapshot: existing };
   }
   async read(scope: JobScope, id: string): Promise<JobSnapshot | null> {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await this.ensureDirectory();
     if (await this.isDeleted(scope, id)) return null;
     const prefix = this.prefix(scope, id);
     const revisions = (await readdir(this.directory)).flatMap(name => {
@@ -112,7 +113,7 @@ export class FileJobStore implements JobStore {
     if (record && (!record.deleted || record.legalHold)) throw new JobConflictError('Job not eligible for erasure');
     if (!record && !await this.hasMarker(scope, id) && !await this.externallyDeleted?.(scope, id))
       throw new JobConflictError('Job tombstone required before erasure');
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await this.ensureDirectory();
     if (!await this.hasMarker(scope, id)) {
       try {
         const handle = await open(this.marker(scope, id), 'wx', 0o600);
@@ -127,6 +128,12 @@ export class FileJobStore implements JobStore {
     const directory = await open(this.directory, 'r');
     try { await directory.sync(); } finally { await directory.close(); }
   }
+  private async ensureDirectory(): Promise<void> {
+    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    const info = await lstat(this.directory);
+    if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o077) !== 0)
+      throw new JobConflictError('Job storage root must be private');
+  }
   private marker(scope: JobScope, id: string): string { return join(this.directory, `${this.prefix(scope, id)}.deleted`); }
   private async isDeleted(scope: JobScope, id: string): Promise<boolean> {
     return await this.hasMarker(scope, id) || Boolean(await this.externallyDeleted?.(scope, id));
@@ -139,7 +146,7 @@ export class FileJobStore implements JobStore {
     return createHash('sha256').update(key(scope, id)).digest('hex');
   }
   private async publish(snapshot: JobSnapshot): Promise<boolean> {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await this.ensureDirectory();
     const destination = join(this.directory, `${this.prefix(snapshot.job.scope, snapshot.job.id)}.r${snapshot.revision}.json`);
     const temporary = join(this.directory, `.job-${randomUUID()}.tmp`);
     const handle = await open(temporary, 'wx', 0o600);
