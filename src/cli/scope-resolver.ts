@@ -16,6 +16,7 @@ import * as path from 'node:path';
 import { resolveHermesHome, resolveHermesHomePath } from '../providers/hermes-home.js';
 import { resolveGrokbotSkillsDir } from '../providers/grokbot-paths.js';
 import { resolveGrokHome } from '../providers/grok-build-paths.js';
+import { resolveMuseXdgSkillsDir } from '../providers/muse-paths.js';
 
 export const hermesHome = resolveHermesHome;
 
@@ -240,6 +241,21 @@ export const USER_SCOPE_PATHS: Record<string, { agents: string; skills: string; 
     return {
       agents: '',
       skills: home ? path.join(home, 'skills') : '',
+      commands: '',
+      rules: '',
+      behaviors: '',
+    };
+  },
+  get muse() {
+    // #226 — Muse XDG user skills root resolves at deploy time (fail-closed).
+    // Bad XDG metadata yields '' so the --scope user mirror skips the skills
+    // lane rather than inventing ~/.muse or writing ~/.agents/skills
+    // (the cross-provider canonical is a READ surface for Muse, never an
+    // AIWG write target — see adr-muse-provider-target.md).
+    const skills = resolveMuseXdgSkillsDir() || '';
+    return {
+      agents: '',
+      skills,
       commands: '',
       rules: '',
       behaviors: '',

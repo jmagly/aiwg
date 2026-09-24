@@ -3722,6 +3722,17 @@ export class UseHandler implements CommandHandler {
           };
         }
       }
+      if (provider === 'muse') {
+        // #226 — fail closed: never let --scope user proceed with unusable
+        // XDG metadata (the mirror would silently land nothing at user scope).
+        const { resolveMuseXdgSkillsDir, museXdgSkillsDirRemediation } = await import('../../providers/muse-paths.js');
+        if (!resolveMuseXdgSkillsDir()) {
+          return {
+            exitCode: 1,
+            message: museXdgSkillsDirRemediation(),
+          };
+        }
+      }
     }
 
     // Pre-deployment collision check (skip in dry-run — nothing is written)
