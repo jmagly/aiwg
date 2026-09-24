@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
-import { mkdtemp, readFile, stat, utimes, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -14,6 +14,10 @@ import {
   executeQualificationPlan, verifyQualificationArtifacts, writeQualificationEvidenceManifest,
 } from '../../../src/decision/qualification/runner.js';
 import type { DecisionAdapter, DecisionAdapterRequest, DecisionDefinition, ExecutionTarget } from '../../../src/decision/types.js';
+import {
+  DECISION_LIFECYCLE_SURFACES, DECISION_LIFECYCLE_VERSION, type DecisionLifecycleHold, type DecisionLifecyclePolicy,
+  type DecisionLifecycleRule, type DecisionLifecycleTombstone,
+} from '../../../src/decision/lifecycle.js';
 
 const executeFile = promisify(execFile);
 const digest = (character: string) => `sha256:${character.repeat(64)}` as `sha256:${string}`;
@@ -27,10 +31,19 @@ function identity(overrides: Partial<CompileCacheIdentity> = {}): CompileCacheId
 }
 const context = (nowEpochMs = 100, overrides: Partial<CompileCacheReadContext> = {}): CompileCacheReadContext =>
   ({ tenantId: 'tenant', projectId: 'project', nowEpochMs, authorize: () => true, ...overrides });
+function lifecyclePolicy(cache: Partial<DecisionLifecycleRule> = {}): DecisionLifecyclePolicy {
+  const rule: DecisionLifecycleRule = { classification: 'internal', accessScopes: ['decision-runtime'], retentionMs: 100_000,
+    export: 'denied', deletion: 'tombstone', backup: 'expire-with-primary' };
+  return { version: DECISION_LIFECYCLE_VERSION, surfaces: Object.fromEntries(DECISION_LIFECYCLE_SURFACES.map(surface =>
+    [surface, surface === 'cache' ? { ...rule, ...cache } : rule])) as DecisionLifecyclePolicy['surfaces'] };
+}
+const lifecycle = (cache: Partial<DecisionLifecycleRule> = {}) => ({ lifecyclePolicy: lifecyclePolicy(cache) });
+const hold = (expiresAt = 10_000, overrides: Partial<DecisionLifecycleHold> = {}): DecisionLifecycleHold =>
+  ({ subject: 'case-1', reason: 'litigation', scope: ['cache'], expiresAt, authorizedBy: 'records-officer', ...overrides });
 
 describe('decision compile and provider-prefix cache', () => {
   it('CCP-001 fills once and verifies subsequent hits', async () => {
-    const cache = new MemoryCompileCache<{ request: string }>(); let calls = 0;
+    const cache = new MemoryCompileCache<{ request: string }>(lifecycle()); let calls = 0;
     const first = await cache.getOrCompile(identity(), context(), 1_000, async () => ({ request: `stable-${++calls}` }));
     const second = await cache.getOrCompile(identity(), context(101), 1_000, async () => ({ request: `wrong-${++calls}` }));
     expect([first.outcome, second.outcome, calls]).toEqual(['miss', 'hit', 1]);
@@ -49,7 +62,7 @@ describe('decision compile and provider-prefix cache', () => {
   });
 
   it('CCP-002 changes in every pinned dimension miss and create independent immutable entries', async () => {
-    const cache = new MemoryCompileCache<string>();
+    const cache = new MemoryCompileCache<string>(lifecycle());
     const variants = [identity(), identity({ sourceArtifactDigests: [digest('b')] }),
       identity({ compiler: { id: 'decision', version: '2' } }), identity({ runtimeVersion: 'node-24' }),
       identity({ schemaVersion: 'decision-v2' }), identity({ canonicalizer: { id: 'rfc8785', version: '2' } }),
@@ -89,7 +102,7 @@ describe('decision compile and provider-prefix cache', () => {
   });
 
   it('CCP-004 single-flights concurrent cold requests', async () => {
-    const cache = new MemoryCompileCache<string>(); let calls = 0; let release!: () => void;
+    const cache = new MemoryCompileCache<string>(lifecycle()); let calls = 0; let release!: () => void;
     const blocked = new Promise<void>(resolve => { release = resolve; });
     const compile = async () => { calls++; await blocked; return 'compiled'; };
     const first = cache.getOrCompile(identity(), context(), 1_000, compile);
@@ -99,24 +112,25 @@ describe('decision compile and provider-prefix cache', () => {
   });
 
   it('CCP-005 failed fills never publish a successful entry', async () => {
-    const cache = new MemoryCompileCache<string>();
+    const cache = new MemoryCompileCache<string>(lifecycle());
     await expect(cache.getOrCompile(identity(), context(), 1_000, async () => { throw new Error('crash'); })).rejects.toThrow('crash');
     expect(cache.read(identity(), context())).toBeNull();
     await expect(cache.getOrCompile(identity(), context(), 1_000, async () => 'recovered')).resolves.toMatchObject({ outcome: 'miss' });
   });
 
   it('CCP-006 rejects expiry, project substitution, authorization failure, and tampering identically', async () => {
-    const cache = new MemoryCompileCache<{ stable: boolean }>();
+    const cache = new MemoryCompileCache<{ stable: boolean }>(lifecycle());
     const filled = await cache.getOrCompile(identity(), context(), 10, async () => ({ stable: true }));
     expect(() => cache.read(identity(), context(110))).toThrow(CompileCacheRejectedError);
-    expect(() => cache.read(identity(), context(101, { projectId: 'other' }))).toThrow('entry unavailable');
-    expect(() => cache.read(identity(), context(101, { authorize: () => false }))).toThrow('entry unavailable');
-    cache.restore({ ...filled.entry, value: { stable: false } });
-    expect(() => cache.read(identity(), context(101))).toThrow('entry unavailable');
+    expect(cache.read(identity(), context(101, { projectId: 'other' }))).toBeNull();
+    expect(cache.read(identity(), context(101, { authorize: () => false }))).toBeNull();
+    expect(() => cache.restore({ ...filled.entry, value: { stable: false } }, context(101))).toThrow('entry unavailable');
+    expect(() => cache.restore({ ...filled.entry, schemaVersion: 'decision-compile-cache-entry/v0' as never }, context(101)))
+      .toThrow('entry unavailable');
   });
 
   it('CCP-007 refreshes authenticated expired memory entries without resurrecting tombstones', async () => {
-    const cache = new MemoryCompileCache<string>();
+    const cache = new MemoryCompileCache<string>(lifecycle());
     let calls = 0;
     const compile = async () => `artifact-${++calls}`;
     await cache.getOrCompile(identity(), context(), 10, compile);
@@ -131,7 +145,7 @@ describe('decision compile and provider-prefix cache', () => {
   });
 
   it('CCP-007 no-cache bypass is byte-equivalent but does not publish', async () => {
-    const cache = new MemoryCompileCache<{ normalized: string }>();
+    const cache = new MemoryCompileCache<{ normalized: string }>(lifecycle());
     const compile = async () => ({ normalized: '{"stable":true}' });
     const bypass = await cache.getOrCompile(identity(), context(), 1_000, compile, { bypass: true });
     expect(bypass.outcome).toBe('bypass'); expect(cache.read(identity(), context())).toBeNull();
@@ -140,13 +154,37 @@ describe('decision compile and provider-prefix cache', () => {
   });
 
   it('CCP-008 applies tombstone, legal hold, deletion, and restore integrity', async () => {
-    const cache = new MemoryCompileCache<string>();
+    const cache = new MemoryCompileCache<string>(lifecycle());
     const filled = await cache.getOrCompile(identity(), context(), 1_000, async () => 'compiled');
-    cache.setLegalHold(identity(), context(101), true); expect(cache.delete(identity(), context(102))).toBe(false);
-    cache.setLegalHold(identity(), context(103), false); cache.tombstone(identity(), context(104));
-    expect(() => cache.read(identity(), context(105))).toThrow('entry unavailable');
-    expect(cache.delete(identity(), context(106))).toBe(true);
-    cache.restore(filled.entry); expect(cache.read(identity(), context(107))?.value).toBe('compiled');
+    const backup = cache.backup(identity(), context(101))!;
+    expect(() => cache.setLegalHold(identity(), context(101), hold(10_000, { scope: ['job'] }))).toThrow('hold denied');
+    expect(() => cache.setLegalHold(identity(), context(101), hold(50))).toThrow('hold denied');
+    cache.setLegalHold(identity(), context(101), hold(150));
+    expect(cache.delete(identity(), context(102))).toBe(false);
+    expect(cache.tombstone(identity(), context(102))).toBe(false);
+    expect(cache.read(identity(), context(103))?.legalHold).toMatchObject({ reason: 'litigation', scope: ['cache'] });
+    // An expired D10 hold no longer blocks deletion.
+    expect(cache.delete(identity(), context(150))).toBe(true);
+    expect(() => cache.read(identity(), context(151))).toThrow('entry unavailable');
+    expect(cache.delete(identity(), context(152))).toBe(false);
+    expect(() => cache.restore(backup, context(153))).toThrow('entry unavailable');
+    expect(() => cache.restore(filled.entry, context(153))).toThrow('entry unavailable');
+    await expect(cache.getOrCompile(identity(), context(154), 1_000, async () => 'refilled')).rejects.toThrow('unavailable');
+  });
+
+  it('CCP-008 restores only within the cache retention rule and refuses backups the rule does not persist', async () => {
+    const cache = new MemoryCompileCache<string>(lifecycle({ retentionMs: 500 }));
+    await expect(cache.getOrCompile(identity(), context(), 501, async () => 'too-long')).rejects.toThrow('unavailable');
+    const filled = await cache.getOrCompile(identity(), context(), 500, async () => 'compiled');
+    const empty = new MemoryCompileCache<string>(lifecycle({ retentionMs: 500 }));
+    empty.restore(filled.entry, context(200));
+    expect(empty.read(identity(), context(201))?.value).toBe('compiled');
+    const unpersisted = new MemoryCompileCache<string>(lifecycle({ backup: 'not-persisted' }));
+    await unpersisted.getOrCompile(identity(), context(), 1_000, async () => 'compiled');
+    expect(() => unpersisted.backup(identity(), context(101))).toThrow('unavailable');
+    expect(() => unpersisted.backup(identity({ projectId: 'absent' }), context(101))).toThrow('unavailable');
+    expect(() => new MemoryCompileCache<string>({ lifecyclePolicy: { version: DECISION_LIFECYCLE_VERSION } as DecisionLifecyclePolicy }))
+      .toThrow('incomplete');
   });
 
   it('CCP-009 prefix identity pins policy, backend, revision, model, scope, region, and egress', () => {
@@ -181,7 +219,7 @@ describe('decision compile and provider-prefix cache', () => {
 
   it('CCP-011 executes paired offline compile runs with observed disk size and no invented provider economics', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-benchmark-'));
-    const store = new FileCompileCache<{ artifact: string }>(directory);
+    const store = new FileCompileCache<{ artifact: string }>(directory, lifecycle());
     let compilations = 0;
     const compile = async () => {
       compilations++;
@@ -233,7 +271,7 @@ describe('decision compile and provider-prefix cache', () => {
 
   it('CCP-005 never publishes a malformed filesystem fill and recovers on retry', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-malformed-'));
-    const store = new FileCompileCache<number>(directory);
+    const store = new FileCompileCache<number>(directory, lifecycle());
     await expect(store.getOrCompile(identity(), context(), 1_000, async () => Number.NaN))
       .rejects.toThrow('non-finite');
     expect(await store.read(identity(), context())).toBeNull();
@@ -242,8 +280,8 @@ describe('decision compile and provider-prefix cache', () => {
 
   it('CCP-004 coordinates cold fills across independent filesystem cache instances', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-lock-'));
-    const first = new FileCompileCache<string>(directory, { lockPollMs: 1, lockTimeoutMs: 1_000 });
-    const second = new FileCompileCache<string>(directory, { lockPollMs: 1, lockTimeoutMs: 1_000 });
+    const first = new FileCompileCache<string>(directory, { ...lifecycle(), lockPollMs: 1, lockTimeoutMs: 1_000 });
+    const second = new FileCompileCache<string>(directory, { ...lifecycle(), lockPollMs: 1, lockTimeoutMs: 1_000 });
     let calls = 0; let release!: () => void;
     const blocked = new Promise<void>(resolve => { release = resolve; });
     const compile = async () => { calls += 1; await blocked; return 'compiled-once'; };
@@ -291,7 +329,7 @@ describe('decision compile and provider-prefix cache', () => {
     const key = compileCacheKey(identity()).slice('sha256:'.length);
     const path = join(directory, `${key}.lock`);
     await writeFile(path, '{}');
-    const cache = new FileCompileCache<string>(directory, { lockPollMs: 1, lockTimeoutMs: 25 });
+    const cache = new FileCompileCache<string>(directory, { ...lifecycle(), lockPollMs: 1, lockTimeoutMs: 25 });
     await expect(cache.getOrCompile(identity(), context(), 1_000, async () => 'should-not-run'))
       .rejects.toThrow(CompileCacheRejectedError);
     expect(await readFile(path, 'utf8')).toBe('{}');
@@ -307,7 +345,7 @@ describe('decision compile and provider-prefix cache', () => {
     await writeFile(join(directory, `${key}.lock`), JSON.stringify({
       version: 1, pid: 2_147_483_647, token: 'stale-owner', createdAtEpochMs: 1,
     }));
-    const cache = new FileCompileCache<string>(directory, { lockPollMs: 1, lockTimeoutMs: 1_000 });
+    const cache = new FileCompileCache<string>(directory, { ...lifecycle(), lockPollMs: 1, lockTimeoutMs: 1_000 });
     await expect(cache.getOrCompile(identity(), context(), 1_000, async () => { throw new Error('compiler-crash'); }))
       .rejects.toThrow('compiler-crash');
     await expect(cache.read(identity(), context())).resolves.toBeNull();
@@ -317,7 +355,7 @@ describe('decision compile and provider-prefix cache', () => {
 
   it('CCP-007 refreshes only an authenticated expired filesystem entry, never stale evidence', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-expiry-'));
-    const store = new FileCompileCache<string>(directory);
+    const store = new FileCompileCache<string>(directory, lifecycle());
     let calls = 0;
     const compile = async () => `artifact-${++calls}`;
     expect((await store.getOrCompile(identity(), context(), 10, compile)).outcome).toBe('miss');
@@ -338,12 +376,12 @@ describe('decision compile and provider-prefix cache', () => {
 
   it('CCP-008 persists isolated entries and enforces lifecycle integrity across store restarts', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-'));
-    const first = new FileCompileCache<{ stable: boolean }>(directory);
+    const first = new FileCompileCache<{ stable: boolean }>(directory, lifecycle());
     const filled = await first.getOrCompile(identity(), context(), 1_000, async () => ({ stable: true }));
-    const restarted = new FileCompileCache<{ stable: boolean }>(directory);
+    const restarted = new FileCompileCache<{ stable: boolean }>(directory, lifecycle());
     expect((await restarted.read(identity(), context(101)))?.value).toEqual({ stable: true });
     expect(await restarted.backup(identity(), context(102))).toMatchObject({ key: filled.key });
-    await expect(restarted.read(identity(), context(103, { projectId: 'other' }))).rejects.toThrow('unavailable');
+    await expect(restarted.read(identity(), context(103, { projectId: 'other' }))).resolves.toBeNull();
     const path = join(directory, `${filled.key.slice('sha256:'.length)}.json`);
     await writeFile(path, (await readFile(path, 'utf8')).replace('true', 'false'));
     await expect(restarted.read(identity(), context(104))).rejects.toThrow('unavailable');
@@ -351,33 +389,112 @@ describe('decision compile and provider-prefix cache', () => {
 
   it('CCP-008 enforces tombstone, hold, deletion and backup/restore across filesystem restarts', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-lifecycle-'));
-    const store = new FileCompileCache<string>(directory);
+    const store = new FileCompileCache<string>(directory, lifecycle());
     const filled = await store.getOrCompile(identity(), context(), 1_000, async () => 'artifact');
     const backup = await store.backup(identity(), context(101));
     expect(backup).toEqual(filled.entry);
-    await store.setLegalHold(identity(), context(102), true);
-    await store.tombstone(identity(), context(103));
-    const restarted = new FileCompileCache<string>(directory);
-    await expect(restarted.read(identity(), context(104))).rejects.toThrow('unavailable');
-    await expect(restarted.getOrCompile(identity(), context(104), 1_000, async () => 'forbidden'))
-      .rejects.toThrow('unavailable');
+    await store.setLegalHold(identity(), context(102), hold(10_000));
+    const restarted = new FileCompileCache<string>(directory, lifecycle());
+    expect(await restarted.tombstone(identity(), context(103))).toBe(false);
     expect(await restarted.delete(identity(), context(104))).toBe(false);
+    expect((await restarted.read(identity(), context(104)))?.value).toBe('artifact');
     await expect(restarted.restore(backup!, context(104))).rejects.toThrow('unavailable');
-    await expect(restarted.setLegalHold(identity(), context(104, { projectId: 'other' }), false))
-      .rejects.toThrow('unavailable');
-    await restarted.setLegalHold(identity(), context(105), false);
+    await restarted.setLegalHold(identity(), context(105), null);
     expect(await restarted.delete(identity(), context(106))).toBe(true);
-    expect(await restarted.read(identity(), context(107))).toBeNull();
-    await expect(restarted.restore(backup!, context(108, { authorize: () => false })))
+    await expect(restarted.read(identity(), context(107))).rejects.toThrow('unavailable');
+    await expect(restarted.getOrCompile(identity(), context(107), 1_000, async () => 'forbidden'))
       .rejects.toThrow('unavailable');
-    await restarted.restore(backup!, context(108));
-    expect((await new FileCompileCache<string>(directory).read(identity(), context(109)))?.value).toBe('artifact');
-    await expect(restarted.restore({ ...backup!, value: 'tampered' }, context(110)))
+    expect(await restarted.delete(identity(), context(107))).toBe(false);
+    // The persistent tombstone refuses every earlier backup, including an untouched one.
+    await expect(restarted.restore(backup!, context(108))).rejects.toThrow('unavailable');
+    await expect(new FileCompileCache<string>(directory, lifecycle()).restore(filled.entry, context(108)))
       .rejects.toThrow('unavailable');
-    expect(await restarted.delete(identity(), context(1_100))).toBe(true);
-    await expect(restarted.restore(backup!, context(1_100))).rejects.toThrow('unavailable');
-    await expect(restarted.restore({ ...backup!, tombstonedAtEpochMs: 104 }, context(110)))
-      .rejects.toThrow('unavailable');
+    await expect(restarted.restore({ ...backup!, value: 'tampered' }, context(110))).rejects.toThrow('unavailable');
+    await expect(restarted.restore(backup!, context(108, { authorize: () => false }))).rejects.toThrow('unavailable');
+  });
+
+  it('CCP-008 tombstones erase the value and every identifier from disk', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-erasure-'));
+    const store = new FileCompileCache<{ body: string }>(directory, lifecycle());
+    const canary = 'synthetic-compile-cache-canary-2674';
+    const pins = identity({ featureFlags: { marker: 'identity-canary-2674' } });
+    const filled = await store.getOrCompile(pins, context(), 1_000, async () => ({ body: canary }));
+    const path = join(directory, `${filled.key.slice('sha256:'.length)}.json`);
+    expect(await readFile(path, 'utf8')).toContain(canary);
+    expect(await store.tombstone(pins, context(101))).toBe(true);
+    const bytes = await readFile(path, 'utf8');
+    for (const secret of [canary, 'identity-canary-2674', filled.entry.valueDigest, 'tenant', 'project']) {
+      expect(bytes).not.toContain(secret);
+    }
+    expect(JSON.parse(bytes)).toEqual({ schemaVersion: 'decision-compile-cache-tombstone/v1', key: filled.key,
+      tombstone: { subject: filled.key.slice(7), reference: { surface: 'cache', opaqueId: filled.key.slice(7) }, deletedAt: 101 } });
+    const names = await readdir(directory);
+    for (const name of names) expect(await readFile(join(directory, name), 'utf8')).not.toContain(canary);
+
+    const memory = new MemoryCompileCache<{ body: string }>(lifecycle());
+    const memoryEntry = await memory.getOrCompile(pins, context(), 1_000, async () => ({ body: canary }));
+    expect(memory.tombstone(pins, context(101))).toBe(true);
+    expect(JSON.stringify((memory as unknown as { records: Map<string, unknown> }).records.get(memoryEntry.key)))
+      .not.toContain(canary);
+  });
+
+  it('CCP-008 consults an independent D10 tombstone journal before restoring', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-compile-cache-journal-'));
+    const journaled: DecisionLifecycleTombstone[] = [];
+    const lifecycleJournal = {
+      tombstone: async (value: DecisionLifecycleTombstone) => { journaled.push(value); },
+      tombstones: async (subject: string) => journaled.filter(value => value.subject === subject),
+    };
+    const store = new FileCompileCache<string>(directory, { ...lifecycle(), lifecycleJournal });
+    const filled = await store.getOrCompile(identity(), context(), 1_000, async () => 'artifact');
+    expect(await store.delete(identity(), context(101))).toBe(true);
+    expect(journaled).toHaveLength(1);
+    // Even if the local tombstone is lost (for example a directory restored from media), the journal refuses the backup.
+    const restoredMedia = await mkdtemp(join(tmpdir(), 'decision-compile-cache-journal-media-'));
+    const fresh = new FileCompileCache<string>(restoredMedia, { ...lifecycle(), lifecycleJournal });
+    await expect(fresh.restore(filled.entry, context(102))).rejects.toThrow('unavailable');
+    const unjournaled = new FileCompileCache<string>(restoredMedia, lifecycle());
+    await unjournaled.restore(filled.entry, context(102));
+    expect((await unjournaled.read(identity(), context(103)))?.value).toBe('artifact');
+  });
+
+  it('CCP-005 out-of-scope and unauthorized lifecycle calls are indistinguishable from absent entries', async () => {
+    const denied = [
+      ['cross-project', context(101, { projectId: 'other' })],
+      ['cross-tenant', context(101, { tenantId: 'other' })],
+      ['unauthorized', context(101, { authorize: () => false })],
+      ['authorizer-throws', context(101, { authorize: () => { throw new Error('policy offline'); } })],
+    ] as const;
+    const outcome = async (run: () => unknown) => {
+      try { return { value: await run() }; }
+      catch (error) { return { error: `${(error as Error).name}:${(error as Error).message}` }; }
+    };
+    const fileStore = async () => new FileCompileCache<string>(await mkdtemp(join(tmpdir(), 'decision-compile-cache-oracle-')), lifecycle());
+    for (const [storeName, make] of [['memory', async () => new MemoryCompileCache<string>(lifecycle())], ['file', fileStore]] as const) {
+      const present = await make();
+      await present.getOrCompile(identity(), context(), 1_000, async () => 'present');
+      const absent = await make();
+      const operations = {
+        read: (cache: typeof present, scope: CompileCacheReadContext) => cache.read(identity(), scope),
+        delete: (cache: typeof present, scope: CompileCacheReadContext) => cache.delete(identity(), scope),
+        tombstone: (cache: typeof present, scope: CompileCacheReadContext) => cache.tombstone(identity(), scope),
+        setLegalHold: (cache: typeof present, scope: CompileCacheReadContext) => cache.setLegalHold(identity(), scope, hold()),
+        backup: (cache: typeof present, scope: CompileCacheReadContext) => cache.backup(identity(), scope),
+        getOrCompile: (cache: typeof present, scope: CompileCacheReadContext) =>
+          cache.getOrCompile(identity(), scope, 1_000, async () => 'forbidden').then(result => result.outcome),
+      };
+      for (const [operation, run] of Object.entries(operations)) {
+        const absentOutcome = await outcome(() => run(absent, context(101)));
+        for (const [label, scope] of denied) {
+          const existing = await outcome(() => run(present, scope));
+          const missing = await outcome(() => run(absent, scope));
+          expect(existing, `${storeName} ${operation} ${label}`).toEqual(missing);
+          if (operation !== 'getOrCompile') expect(existing, `${storeName} ${operation} ${label} vs absent`).toEqual(absentOutcome);
+        }
+      }
+      // Denied calls never altered the present entry.
+      expect((await present.read(identity(), context(102)))?.value).toBe('present');
+    }
   });
 
   it('CCP-011 reports provider-qualified synthetic paired economics without inferring live savings', () => {
@@ -423,7 +540,7 @@ describe('decision compile and provider-prefix cache', () => {
     };
     adapter.compile = async value => { compilations += 1; return { bytes: JSON.stringify(value) }; };
     const request = compileRequest(definition, target);
-    const store = new MemoryCompileCache();
+    const store = new MemoryCompileCache(lifecycle());
     const common = { ttlMs: 1_000, store, context: context(), identityFor: () => identity() };
     const bypass = await prepareAdapterRequest(request, adapter, { enabled: false, ...common });
     const miss = await prepareAdapterRequest(request, adapter, { enabled: true, ...common });

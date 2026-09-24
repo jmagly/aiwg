@@ -1,93 +1,116 @@
-import { canonicalJson } from '../../security/artifact-trust.js';
-import { compileCacheKey, sha256, validateCompileIdentity } from './identity.js';
-import type { CompileCacheEntry, CompileCacheIdentity, CompileCacheReadContext, CompileCacheResult, Sha256 } from './types.js';
+import type { DecisionLifecycleHold, DecisionLifecyclePolicy, DecisionLifecycleRule } from '../lifecycle.js';
+import { compileCacheKey, validateCompileIdentity } from './identity.js';
+import {
+  activeCompileCacheHold, buildCompileCacheEntry, compileCacheLifecycleRule, compileCacheScopeAllowed,
+  compileCacheTombstoneRecord, CompileCacheRejectedError, mayRestoreCompileCacheEntry, revalidateCompileCacheEntry,
+  validateCompileCacheHold,
+} from './records.js';
+import type {
+  CompileCacheEntry, CompileCacheIdentity, CompileCacheLifecycleOptions, CompileCacheReadContext, CompileCacheResult,
+  CompileCacheTombstoneRecord, Sha256,
+} from './types.js';
 
-export class CompileCacheRejectedError extends Error {
-  constructor() { super('compile cache entry unavailable'); this.name = 'CompileCacheRejectedError'; }
-}
+export { CompileCacheRejectedError } from './records.js';
 
-/** In-memory reference store. Entries are immutable and concurrent fills share one promise. */
+type StoredRecord<T> = CompileCacheEntry<T> | CompileCacheTombstoneRecord;
+const isTombstone = <T>(record: StoredRecord<T>): record is CompileCacheTombstoneRecord =>
+  record.schemaVersion === 'decision-compile-cache-tombstone/v1';
+
+/**
+ * In-memory reference store. Entries are immutable and concurrent fills share one promise.
+ * Out-of-scope or unauthorized lifecycle calls return the same result as an absent key.
+ */
 export class MemoryCompileCache<T> {
-  private readonly entries = new Map<Sha256, CompileCacheEntry<T>>();
+  private readonly records = new Map<Sha256, StoredRecord<T>>();
   private readonly fills = new Map<Sha256, Promise<CompileCacheEntry<T>>>();
+  private readonly policy: DecisionLifecyclePolicy;
+  private readonly rule: DecisionLifecycleRule;
+
+  constructor(options: CompileCacheLifecycleOptions) {
+    this.rule = compileCacheLifecycleRule(options.lifecyclePolicy);
+    this.policy = structuredClone(options.lifecyclePolicy);
+  }
 
   async getOrCompile(identity: CompileCacheIdentity, context: CompileCacheReadContext, ttlMs: number,
     compile: () => Promise<T>, options: { bypass?: boolean } = {}): Promise<CompileCacheResult<T>> {
     validateCompileIdentity(identity);
     const key = compileCacheKey(identity);
-    if (options.bypass) return { outcome: 'bypass', key, entry: await this.build(identity, key, context, ttlMs, compile) };
-    const existing = this.entries.get(key);
+    if (!compileCacheScopeAllowed(identity, context)) throw new CompileCacheRejectedError();
+    if (options.bypass) return { outcome: 'bypass', key, entry: await buildCompileCacheEntry(identity, key, context, ttlMs, this.rule, compile) };
+    const existing = this.records.get(key);
     if (existing) {
       // Authenticate the old entry before allowing an expiry refresh. A
       // tombstone or tamper is never silently converted into a cache miss.
-      this.revalidate(existing, identity, context, true);
-      if (existing.tombstonedAtEpochMs !== null) throw new CompileCacheRejectedError();
+      if (isTombstone(existing)) throw new CompileCacheRejectedError();
+      revalidateCompileCacheEntry(existing, identity, context, true);
       if (context.nowEpochMs < existing.expiresAtEpochMs) {
-        return { outcome: 'hit', key, entry: this.revalidate(existing, identity, context) };
+        return { outcome: 'hit', key, entry: revalidateCompileCacheEntry(existing, identity, context) };
       }
     }
     const active = this.fills.get(key);
-    if (active) return { outcome: 'hit', key, entry: this.revalidate(await active, identity, context) };
-    const fill = this.build(identity, key, context, ttlMs, compile);
+    if (active) return { outcome: 'hit', key, entry: revalidateCompileCacheEntry(await active, identity, context) };
+    const fill = buildCompileCacheEntry(identity, key, context, ttlMs, this.rule, compile);
     this.fills.set(key, fill);
     try {
       const entry = await fill;
-      this.entries.set(key, entry);
+      if (this.records.get(key) && isTombstone(this.records.get(key)!)) throw new CompileCacheRejectedError();
+      this.records.set(key, entry);
       return { outcome: 'miss', key, entry: structuredClone(entry) };
     } finally { this.fills.delete(key); }
   }
 
   read(identity: CompileCacheIdentity, context: CompileCacheReadContext): CompileCacheEntry<T> | null {
-    const entry = this.entries.get(compileCacheKey(identity));
-    return entry ? this.revalidate(entry, identity, context) : null;
+    const record = this.lookup(identity, context);
+    if (!record) return null;
+    if (isTombstone(record)) throw new CompileCacheRejectedError();
+    return revalidateCompileCacheEntry(record, identity, context);
   }
 
-  tombstone(identity: CompileCacheIdentity, context: CompileCacheReadContext): void {
-    const key = compileCacheKey(identity); const entry = this.entries.get(key);
-    if (!entry) return;
-    this.revalidate(entry, identity, context);
-    this.entries.set(key, { ...entry, tombstonedAtEpochMs: context.nowEpochMs });
+  /** Erase the body and leave a persistent tombstone; the key never fills or restores again. */
+  tombstone(identity: CompileCacheIdentity, context: CompileCacheReadContext): boolean {
+    return this.retire(identity, context);
   }
 
+  /** D10 deletion: same body-free tombstone as `tombstone`; false when absent, held or already erased. */
   delete(identity: CompileCacheIdentity, context: CompileCacheReadContext): boolean {
-    const key = compileCacheKey(identity); const entry = this.entries.get(key);
-    if (!entry) return false;
-    if (entry.identity.tenantId !== context.tenantId || entry.identity.projectId !== context.projectId || !context.authorize(entry.identity)) {
-      throw new CompileCacheRejectedError();
-    }
-    if (entry.legalHold) return false;
-    return this.entries.delete(key);
+    return this.retire(identity, context);
   }
 
-  setLegalHold(identity: CompileCacheIdentity, context: CompileCacheReadContext, legalHold: boolean): void {
-    const key = compileCacheKey(identity); const entry = this.entries.get(key);
-    if (!entry) return;
-    this.revalidate(entry, identity, context);
-    this.entries.set(key, { ...entry, legalHold });
+  /** Place (or with `null`, release) a D10 hold scoped to the `cache` surface. */
+  setLegalHold(identity: CompileCacheIdentity, context: CompileCacheReadContext, hold: DecisionLifecycleHold | null): void {
+    const record = this.lookup(identity, context);
+    if (!record) return;
+    if (isTombstone(record)) throw new CompileCacheRejectedError();
+    const entry = revalidateCompileCacheEntry(record, identity, context, true);
+    this.records.set(entry.key, { ...entry, legalHold: hold === null ? null : validateCompileCacheHold(hold, context.nowEpochMs) });
   }
 
-  /** Test/restore hook: integrity remains checked on every subsequent read. */
-  restore(entry: CompileCacheEntry<T>): void { this.entries.set(entry.key, structuredClone(entry)); }
-
-  private async build(identity: CompileCacheIdentity, key: Sha256, context: CompileCacheReadContext, ttlMs: number,
-    compile: () => Promise<T>): Promise<CompileCacheEntry<T>> {
-    if (ttlMs <= 0 || !Number.isSafeInteger(ttlMs) || !context.authorize(identity)
-      || identity.tenantId !== context.tenantId || identity.projectId !== context.projectId) throw new CompileCacheRejectedError();
-    const value = await compile();
-    if (value === undefined || canonicalJson(value) === undefined) throw new Error('compiler returned malformed output');
-    return { schemaVersion: 'decision-compile-cache-entry/v1', key, identity: structuredClone(identity),
-      value: structuredClone(value), valueDigest: sha256(value), createdAtEpochMs: context.nowEpochMs,
-      expiresAtEpochMs: context.nowEpochMs + ttlMs, tombstonedAtEpochMs: null, legalHold: false };
+  /** Export an authorized live entry when the lifecycle rule persists backups. */
+  backup(identity: CompileCacheIdentity, context: CompileCacheReadContext): CompileCacheEntry<T> | null {
+    if (this.rule.backup === 'not-persisted') throw new CompileCacheRejectedError();
+    return this.read(identity, context);
   }
 
-  private revalidate(entry: CompileCacheEntry<T>, identity: CompileCacheIdentity, context: CompileCacheReadContext,
-    allowInactive = false): CompileCacheEntry<T> {
-    const valid = entry.schemaVersion === 'decision-compile-cache-entry/v1'
-      && entry.key === compileCacheKey(entry.identity) && entry.key === compileCacheKey(identity)
-      && canonicalJson(entry.identity) === canonicalJson(identity) && entry.valueDigest === sha256(entry.value)
-      && entry.identity.tenantId === context.tenantId && entry.identity.projectId === context.projectId
-      && context.authorize(entry.identity) && (allowInactive || (entry.tombstonedAtEpochMs === null && context.nowEpochMs < entry.expiresAtEpochMs));
-    if (!valid) throw new CompileCacheRejectedError();
-    return structuredClone(entry);
+  /** Import a backup only while live, in retention, and never over a tombstone or live entry. */
+  restore(entry: CompileCacheEntry<T>, context: CompileCacheReadContext): void {
+    const restored = revalidateCompileCacheEntry(entry, entry.identity, context);
+    const existing = this.records.get(restored.key);
+    if ((existing && !isTombstone(existing)) || !mayRestoreCompileCacheEntry(restored, context.nowEpochMs, this.policy,
+      existing ? [existing.tombstone] : [])) throw new CompileCacheRejectedError();
+    this.records.set(restored.key, restored);
+  }
+
+  private lookup(identity: CompileCacheIdentity, context: CompileCacheReadContext): StoredRecord<T> | null {
+    if (!compileCacheScopeAllowed(identity, context)) return null;
+    return this.records.get(compileCacheKey(identity)) ?? null;
+  }
+
+  private retire(identity: CompileCacheIdentity, context: CompileCacheReadContext): boolean {
+    const record = this.lookup(identity, context);
+    if (!record || isTombstone(record)) return false;
+    const entry = revalidateCompileCacheEntry(record, identity, context, true);
+    if (activeCompileCacheHold(entry, context.nowEpochMs)) return false;
+    this.records.set(entry.key, compileCacheTombstoneRecord(entry.key, context.nowEpochMs));
+    return true;
   }
 }
