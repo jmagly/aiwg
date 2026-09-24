@@ -26,6 +26,8 @@ export class FileJobQuotaStore implements JobStore {
     }
   }
   read(scope: JobScope, id: string): Promise<JobSnapshot | null> { return this.journal.read(scope, id); }
+  /** Host-only listing; the gateway filters and authenticates every returned object. */
+  listSnapshots(): Promise<JobSnapshot[]> { return this.journal.listSnapshots(); }
   async acquire(job: DecisionJob): Promise<{ owner: boolean; snapshot: JobSnapshot }> {
     await this.journal.read(job.scope, job.id);
     return this.transaction(async () => {

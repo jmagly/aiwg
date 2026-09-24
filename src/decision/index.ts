@@ -17,6 +17,7 @@ export * from './job-scheduler.js';
 export * from './job-gateway.js';
 export * from './job-quota.js';
 export * from './job-poll-limiter.js';
+export * from './job-service.js';
 export * from './batch-benchmark.js';
 export * from './scheduler.js';
 export * from './admission.js';
