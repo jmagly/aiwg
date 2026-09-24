@@ -48,7 +48,7 @@ describe('decision qualification gate evaluator', () => {
     const unproven = evaluateQualification({ ...base, cases, evidence, gateArtifacts, evidenceFlags: allFlags() });
     expect(unproven.gates.find(gate => gate.id === 'G6')?.missing).toEqual(['evidence:evidence-hashes-verified']);
     const noDrift = evaluateQualification({ ...base, cases, gateArtifacts, evidenceFlags: allFlags(),
-      evidence: evidence.map(item => ({ ...item, testEvidenceIds: [] })) }, undefined, { artifactsVerified: true });
+      evidence: evidence.map(item => item.caseId === 'TV10' ? { ...item, testEvidenceIds: [] } : item) }, undefined, { artifactsVerified: true });
     expect(noDrift.gates.find(gate => gate.id === 'G4')?.missing).toEqual(['evidence:drift-suite-complete']);
   });
 

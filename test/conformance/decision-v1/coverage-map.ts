@@ -24,6 +24,8 @@ const suiteById: Readonly<Record<string, string>> = {
   TV04: `${CONFORMANCE}/acceptance-evidence.test.ts`, TV05: `${CONFORMANCE}/acceptance-evidence.test.ts`,
   TV08: `${CONFORMANCE}/batch-evidence.test.ts`, TV10: 'test/unit/decision/calibration-qualification-evidence.test.ts',
   TV11: `${CONFORMANCE}/acceptance-evidence.test.ts`, TV22: `${CONFORMANCE}/batch-evidence.test.ts`,
+  ...Object.fromEntries(['TV02', 'TV06', 'TV07', 'TV09', 'TV12', 'TV13', 'TV14', 'TV15', 'TV16', 'TV17', 'TV18', 'TV19',
+    'TV20', 'TV21', 'TV23', 'TV24', 'TV25'].map(id => [id, `${CONFORMANCE}/vendor-vectors.test.ts`])),
 };
 
 /** Parses `C01`..`C42` and `TV01`..`TV25`; anything else has no ordinal. */

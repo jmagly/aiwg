@@ -16,11 +16,17 @@ import type { QualificationCase, QualificationEvidence } from '../../../src/deci
  */
 const hash = (value: string) => `sha256:${value.repeat(64)}` as const;
 
-/** All 67 cases, with the named DRF evidence the drift suite requires attached to TV10. */
+/** All 67 cases, with each suite's required named evidence attached to that suite's first case. */
 export function syntheticCases(): QualificationCase[] {
+  const named = new Map<string, Set<string>>();
+  for (const suite of Object.values(DECISION_GATE_SUITES)) {
+    const ids = named.get(suite.caseIds[0]!) ?? new Set<string>();
+    for (const id of suite.evidenceIds ?? []) ids.add(id);
+    named.set(suite.caseIds[0]!, ids);
+  }
   return expectedQualificationCaseIds().map(id => ({
     id, kind: id.startsWith('TV') ? 'vendor' as const : 'baseline' as const, mandatory: true, candidateTests: [],
-    ...(id === 'TV10' ? { evidenceIds: [...DECISION_GATE_SUITES['drift-suite-complete']!.evidenceIds!] } : {}),
+    ...(named.get(id)?.size ? { evidenceIds: [...named.get(id)!].sort() } : {}),
   }));
 }
 

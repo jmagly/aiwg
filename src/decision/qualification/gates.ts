@@ -17,7 +17,7 @@ const BLOCKING_FINDINGS: Readonly<Record<string, readonly string[]>> = {
 };
 
 export const DECISION_RELEASE_GATES: readonly QualificationGateDefinition[] = [
-  { id: 'G0', title: 'contract and conformance', mandatory: true, requiredCaseIds: [], requiredEvidence: ['case-inventory-complete'] },
+  { id: 'G0', title: 'contract and conformance', mandatory: true, requiredCaseIds: [], requiredEvidence: ['case-inventory-complete', 'contract-suite-complete'] },
   { id: 'G1', title: 'runtime and adapter correctness', mandatory: true, requiredCaseIds: [], requiredEvidence: ['runtime-suite-complete'] },
   { id: 'G2', title: 'privacy and security', mandatory: true, requiredCaseIds: [], requiredEvidence: ['privacy-scan-clean', 'security-suite-complete'] },
   { id: 'G3', title: 'calibration and held-out quality', mandatory: true, requiredCaseIds: [], requiredEvidence: ['immutable-splits', 'calibration-qualified'] },

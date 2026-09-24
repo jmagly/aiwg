@@ -67,6 +67,52 @@ executor does not pass with a verified digest. Unit tests in
 `test/unit/decision/qualification-runner.test.ts` use trivial callbacks to exercise runner
 mechanics only; they are not vector evidence.
 
+The aggregate test also runs a full-lifetime privacy scan. `captureQualificationLifetime` records
+stdout, stderr (stream writes and console output) and any thrown error for the whole run.
+The test adds the other surfaces from real outputs:
+
+- telemetry spans (trace);
+- a `FileDecisionReceiptStore` directory (receipt);
+- a `decisionResultForExport` copy (export);
+- every runner artifact (snapshot);
+- the evidence manifest (test report).
+
+It scans all eight surfaces for the credential values handed to adapters. It then derives
+`privacy-scan-clean` through `withQualificationPrivacyScan`, so the flag still comes from the
+scanner. The capture is process-wide and does not see child processes. Run the
+qualification alone and collect child-process output separately.
+
+With every vector registered, the aggregate run passes G0, G1, G2 and G4 from recorded evidence.
+G3, G5 and G6 fail because held-out data, a load result and a reviewer decision are live inputs
+tracked in #2684. The test builds a release record that must be `HOLD`.
+
+### Vendor vectors and named suites
+
+`test/fixtures/decision/vendor-vectors-v1.json` defines TV01–TV25. Each entry has a basis in the
+#2604 research text, the assumption it implements, any recorded synthetic exchanges, and the
+exact expected normalized outcome or failure class. `vectors/vendor.ts` executes TV02, TV06,
+TV07, TV09, TV12–TV21 and TV23–TV25 from that catalog. TV12 is limited offline to the context
+planner limits and the retained-comparison gate.
+
+Named suites travel as evidence IDs on the case that runs them. Each gate suite requires its IDs
+on passing evidence:
+
+| Suite | Where it runs | Gate |
+|---|---|---|
+| `CON-*` contract conformance | inside C36 | G0 |
+| `BCH-INVALID-ANSWER-01`, `CTX-*` | TV02, TV12 | G1 |
+| `SEC-ADV-*` override, false-authority, delimiter and fake-system slices; `SEC-EGRESS-01`, `SEC-RESPONSE-01`, `SEC-REQUEST-ID-01` | TV25, TV21, TV24, TV19 | G2 |
+| `RTY-*`, `CAN-*`, `CNC-*` | TV13–TV17 | G4 |
+| `DRF-OUTPUT-01`, `DRF-POPULATION-01`, `DRF-LABEL-01`, `DRF-INSUFFICIENT-01` | TV20 | G4 |
+
+`measureCategoricalDrift` reports total variation and a smoothed population stability index
+against preregistered bounds. `measureLabelStability` reports repeated-run label movement and
+calls it stable or drifting only when the whole 95% Wilson interval is on one side of the bound.
+Both return `insufficient-evidence` rather than `stable` for small samples. The M01–M11 amendments
+are linked to the G2 and G4 suites through `DECISION_GATE_SUITES[*].amendments`, and
+`amendment-traceability.test.ts` checks that link against
+`docs/decision/qualification-traceability.md`.
+
 Artifacts use `decision-qualification-artifact/v1`, live below a validated run-id directory,
 and are written through a same-directory temporary file and atomic rename. Verification rejects
 absolute paths, traversal, symbolic links, non-files, oversized content, digest mismatches, and
@@ -99,12 +145,15 @@ reports changed-output rate with a Wilson interval for matched control/perturbat
 or repeated-run IDs; it is not a correctness metric and does not prove that
 an injected answer was safe.
 
-The initial checked-in fixture registry at
-`test/fixtures/decision/qualification-fixtures-v1.json` records author, date,
-permission, sanitization, origin, schema, expected outcome, trace links and
-SHA-256 for five repository-authored goldens. The conformance suite re-hashes
-all listed files; unlisted future fixtures must be added with their own
-provenance before being used as release evidence.
+The fixture registry at `test/fixtures/decision/qualification-fixtures-v1.json`
+records author, date, permission, sanitization, origin, schema, expected outcome,
+trace links and SHA-256 for every file under `test/fixtures/decision/`,
+`examples/decision/` and `docs/decision/evidence/`.
+`fixture-provenance.test.ts` re-hashes each entry. It fails on any
+file that is not in the registry and on any entry whose file no longer exists. It also checks that
+every source a registered vector binds as evidence is in the registry. Entries whose inputs are
+reconstructed carry an `assumptions` list. The vendor vector catalog is one of them: the
+source vendor research document is not in the repository.
 
 The generic runner accepts offline, recorded, and shadow executors under the manifest's
 selected mode, but does not authenticate their origins. For `live` it deliberately emits
@@ -128,3 +177,11 @@ forces HOLD. It cannot upgrade an integrity HOLD/ROLLBACK or a
 compromised/dirty/unverified run. The caller must obtain integrity metadata from
 the actual protected artifact snapshot and trusted scoring workflow: synthetic
 unit metadata is not release evidence.
+
+The record also serializes the AC8 held-out metrics (`metrics`: overall and per-slice metrics,
+repeated-run stability, injection sensitivity) and the protected-artifact snapshot digest
+(`integritySnapshot`). Promotion requires both. When `cacheLayers` is supplied,
+`deriveCacheLayerPins` derives the `compilePrefixCache`, `receiptReplay` and `resultCache` pins.
+Each pin is the digest of a verified evidence manifest from its own run: D30 compile/prefix
+reuse, D03 receipt replay and D15 result caching. A supplied pin that disagrees with its
+evidence is rejected, and the three layers must come from different runs.

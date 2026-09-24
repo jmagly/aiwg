@@ -12,26 +12,41 @@ import type { QualificationGateArtifactRef, QualificationRunManifest } from './t
  * evaluator recomputes them from the manifest.
  */
 export interface QualificationSuiteDefinition {
-  gate: 'G1' | 'G2' | 'G4';
+  gate: 'G0' | 'G1' | 'G2' | 'G4';
   caseIds: readonly string[];
   /** Named master-test-plan evidence IDs that must appear on passing evidence. */
   evidenceIds?: readonly string[];
+  /**
+   * Security/operations amendments (M01-M11) whose suites this gate covers.
+   * test/fixtures/decision/amendment-traceability-v1.json must assign each to the same gate.
+   */
+  amendments?: readonly string[];
 }
 
 const range = (prefix: string, from: number, to: number): string[] =>
   Array.from({ length: to - from + 1 }, (_, index) => `${prefix}${String(from + index).padStart(2, '0')}`);
 
 export const DECISION_GATE_SUITES: Readonly<Record<string, QualificationSuiteDefinition>> = {
+  'contract-suite-complete': { gate: 'G0', caseIds: ['C36'], evidenceIds: [
+    'CON-SCHEMA-01', 'CON-REJECT-01', 'CON-PIN-01', 'CON-VERSION-01', 'CON-CONVERT-01', 'CON-RESULT-01',
+  ] },
   'runtime-suite-complete': { gate: 'G1', caseIds: [
     ...range('C', 1, 12), ...range('C', 19, 23), 'C25', 'C26', 'C31', 'C35', 'C40', 'C41',
-    'TV01', 'TV03', 'TV04', 'TV05', 'TV08', 'TV11', 'TV22',
-  ] },
-  'security-suite-complete': { gate: 'G2', caseIds: ['C29', 'C30', 'C32', 'C34', 'C36', 'C39'] },
+    'TV01', 'TV02', 'TV03', 'TV04', 'TV05', 'TV06', 'TV07', 'TV08', 'TV09', 'TV11', 'TV12', 'TV18', 'TV22', 'TV23',
+  ], evidenceIds: ['BCH-INVALID-ANSWER-01', 'CTX-64K-01', 'CTX-32K-01', 'CTX-QUALIFY-01'] },
+  'security-suite-complete': { gate: 'G2', caseIds: [
+    'C29', 'C30', 'C32', 'C34', 'C36', 'C39', 'TV19', 'TV21', 'TV24', 'TV25',
+  ], evidenceIds: ['SEC-ADV-OVERRIDE-01', 'SEC-ADV-AUTHORITY-01', 'SEC-ADV-DELIMITER-01', 'SEC-ADV-FAKE-SYSTEM-01',
+    'SEC-EGRESS-01', 'SEC-RESPONSE-01', 'SEC-REQUEST-ID-01'],
+  amendments: ['M01', 'M02', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09'] },
   'fault-suite-complete': { gate: 'G4', caseIds: [
-    ...range('C', 13, 18), 'C24', 'C27', 'C28', 'C33', 'C37', 'C38', 'C42',
-  ] },
-  'drift-suite-complete': { gate: 'G4', caseIds: ['TV10'], evidenceIds: [
+    ...range('C', 13, 18), 'C24', 'C27', 'C28', 'C33', 'C37', 'C38', 'C42', 'TV13', 'TV14', 'TV15', 'TV16', 'TV17',
+  ], evidenceIds: ['RTY-STATUS-01', 'RTY-HEADER-01', 'RTY-DEADLINE-01', 'CAN-CALLER-01', 'CAN-DISPATCHED-01',
+    'CNC-ORDER-01', 'CNC-FAIR-01', 'CNC-QUEUE-01', 'CNC-CANCEL-01', 'CNC-RETRY-OWNER-01'],
+  amendments: ['M03', 'M10', 'M11'] },
+  'drift-suite-complete': { gate: 'G4', caseIds: ['TV10', 'TV20'], evidenceIds: [
     'DRF-ALIAS-01', 'DRF-SHADOW-01', 'DRF-ACTIVE-PIN-01', 'DRF-PROMOTE-01', 'DRF-ROLLBACK-01', 'DRF-RETIRE-01',
+    'DRF-OUTPUT-01', 'DRF-POPULATION-01', 'DRF-LABEL-01', 'DRF-INSUFFICIENT-01',
   ] },
 };
 
