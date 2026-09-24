@@ -378,7 +378,7 @@ const scenarios: Record<string, Observe> = {
     const authorization = { authorize: () => true, eligible: () => true, eligibleApproval: () => true, authorizeAction: () => true };
     const service = new DecisionReviewService(new FileDecisionReviewStore(join(directory, 'reviews'), new Uint8Array(32).fill(3)),
       authorization, () => 1_000, {
-        operatorAudit: { store: audit, correlation: () => ({ mission_id: 'mission-golden' }), classification: 'internal' },
+        operatorAudit: { store: audit, correlation: () => ({ flow_id: 'flow-golden' }), classification: 'internal' },
         telemetry: { hook: { emit: span => { spans.push(span); } }, ids: ids('5'), parent: reviewSpan.context } });
     const scope = (id: string) => ({ tenantId: 'tenant', projectId: 'project', actor: { id, roles: ['reviewer'], authorityContext: 'policy/v1' } });
     const create = (reviewId: string) => service.create(scope('requester'), { reviewId, sourceReceipt: { id: 'receipt', digest: `sha256:${'a'.repeat(64)}` },
