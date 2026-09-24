@@ -18,6 +18,16 @@ function candidates(id: string): string[] {
   if (id.startsWith('C') && ordinal >= 1 && ordinal <= 7) {
     return ['test/conformance/decision-v1/core-vectors.test.ts'];
   }
+  if (['C29', 'C30', 'C32', 'C34', 'C36', 'C39'].includes(id)) {
+    return ['test/conformance/decision-v1/security-vectors.test.ts'];
+  }
+  if (['C35', 'C41'].includes(id)) {
+    return ['test/conformance/decision-v1/operational-vectors.test.ts'];
+  }
+  if (id === 'C40') return ['test/conformance/decision-v1/rule-vectors.test.ts'];
+  if (['C37', 'C38', 'C42'].includes(id)) {
+    return ['test/conformance/decision-v1/state-vectors.test.ts'];
+  }
   if (id.startsWith('C') && ordinal >= 24 && ordinal <= 28) {
     return ['test/conformance/decision-v1/state-vectors.test.ts'];
   }

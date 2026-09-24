@@ -33,7 +33,7 @@ async function base(receiptStore: DecisionReceiptStore, invocationId: string) {
     definitions: await definitions(), input: await fixture('input.json'), runId: 'state-vectors', invocationId,
     adapters: { jev: worker }, receiptStore };
 }
-const ids = ['C24', 'C25', 'C26', 'C27', 'C28'] as const;
+const ids = ['C24', 'C25', 'C26', 'C27', 'C28', 'C37', 'C38', 'C42'] as const;
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); calls = 0; });
 
@@ -104,9 +104,48 @@ const executors: Record<(typeof ids)[number], QualificationCaseExecutor> = {
     assert.equal(result.spec.reason, 'persistence-error'); assert.equal(result.spec.outcome, undefined);
     return { outcome: 'pass' };
   },
+  C37: async () => {
+    const request = await base(new MemoryDecisionReceiptStore(), 'changed-input');
+    assert.equal((await evaluateDecisionRuleset(request)).spec.status, 'completed');
+    const before = calls;
+    const mismatch = await evaluateDecisionRuleset({ ...request, input: { message: 'changed' } });
+    assert.equal(mismatch.spec.reason, 'replay-mismatch'); assert.equal(calls, before);
+    return { outcome: 'pass' };
+  },
+  C38: async () => {
+    const request = await base(new MemoryDecisionReceiptStore(), 'changed-binding');
+    assert.equal((await evaluateDecisionRuleset(request)).spec.status, 'completed');
+    const before = calls;
+    const binding = structuredClone(request.binding);
+    binding.metadata.version = '1.0.1';
+    const mismatch = await evaluateDecisionRuleset({ ...request, binding });
+    assert.equal(mismatch.spec.reason, 'replay-mismatch'); assert.equal(calls, before);
+    return { outcome: 'pass' };
+  },
+  C42: async () => {
+    const store = new MemoryDecisionReceiptStore();
+    const request = await base(store, 'uncertain-restart');
+    const interrupted: DecisionReceiptStore = {
+      read: store.read.bind(store), acquire: store.acquire.bind(store), waitForTerminal: store.waitForTerminal.bind(store),
+      compareAndSwap: async (id, project, revision, next) => {
+        const saved = await store.compareAndSwap(id, project, revision, next);
+        if (next.state === 'dispatched') throw new Error('synthetic crash');
+        return saved;
+      },
+    };
+    assert.equal((await evaluateDecisionRuleset({ ...request, receiptStore: interrupted })).spec.reason, 'persistence-error');
+    const restarted: DecisionReceiptStore = {
+      read: store.read.bind(store), acquire: store.acquire.bind(store), compareAndSwap: store.compareAndSwap.bind(store),
+      waitForTerminal: async () => { throw new Error('owner unavailable'); },
+    };
+    const before = calls;
+    const result = await evaluateDecisionRuleset({ ...request, receiptStore: restarted });
+    assert.equal(result.spec.reason, 'execution-uncertain'); assert.equal(calls, before);
+    return { outcome: 'pass' };
+  },
 };
 
-describe('C24-C28 executable offline state vectors', () => {
+describe('C24-C28/C37-C38/C42 executable offline state vectors', () => {
   it('asserts cancellation, worker terminal contract and receipt replay/persistence outcomes', async () => {
     const root = await mkdtemp(join(tmpdir(), 'decision-state-vectors-')); roots.push(root);
     const run = await executeQualificationPlan({ artifactRoot: root, executors, concurrency: 1,

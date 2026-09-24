@@ -5,11 +5,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { composeRuleset, evaluatePredicate, executeQualificationPlan, verifyQualificationArtifacts,
   type DecisionRuleset, type QualificationCaseExecutor } from '../../../src/decision/index.js';
+import { DecisionValidationError } from '../../../src/decision/validate.js';
 
 const fixture = async (name: string): Promise<DecisionRuleset> =>
   JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as DecisionRuleset;
 const always = { op: 'exists', left: { source: 'input', pointer: '' } } as const;
-const CASE_IDS = ['C19', 'C20', 'C21', 'C22', 'C23'] as const;
+const CASE_IDS = ['C19', 'C20', 'C21', 'C22', 'C23', 'C40'] as const;
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 
@@ -69,9 +70,19 @@ const executors: Record<(typeof CASE_IDS)[number], QualificationCaseExecutor> = 
     assert.equal(result.outcome, 'manual-review');
     return { outcome: 'pass' };
   },
+  C40: async () => {
+    const rules = await fixture('ruleset-collect.json');
+    rules.spec.rules = [
+      { id: 'a', priority: 100, when: always, outcome: 'docs-review' },
+      { id: 'b', priority: 50, when: always, outcome: 'runtime-review' },
+    ];
+    rules.spec.outputSchema = { ...rules.spec.outputSchema, maxItems: 1 };
+    assert.throws(() => composeRuleset(rules, {}, {}), DecisionValidationError);
+    return { outcome: 'pass' };
+  },
 };
 
-describe('C19-C23 executable offline rule vectors', () => {
+describe('C19-C23/C40 executable offline rule vectors', () => {
   it('asserts conflict, default, collect ordering and unknown predicates before writing evidence', async () => {
     const root = await mkdtemp(join(tmpdir(), 'decision-rule-vectors-'));
     roots.push(root);
