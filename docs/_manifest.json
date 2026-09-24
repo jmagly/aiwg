@@ -72,6 +72,7 @@
     "integrations/grokbot-native-surfaces-evidence",
     "integrations/grokbot-linux-puw",
     "migration/grokbot-from-cursor-workaround",
+    "integrations/muse-quickstart",
     "integrations/hermes-quickstart",
     "integrations/openhuman-quickstart",
     "integrations/openclaw-quickstart",
@@ -785,6 +786,13 @@
       "title": "Grok Bot Native Surfaces Evidence",
       "summary": "Evidence and automation gates for optional Grok Bot native integrations",
       "file": "integrations/grokbot-native-surfaces-evidence.md",
+      "parent": "integrations"
+    },
+    {
+      "id": "integrations/muse-quickstart",
+      "title": "Muse Code",
+      "summary": "Connect AIWG to Muse Code (experimental, trust-workspace flow)",
+      "file": "integrations/muse-quickstart.md",
       "parent": "integrations"
     },
     {
