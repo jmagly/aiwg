@@ -255,6 +255,13 @@ export interface DecisionAdmissionEvidence {
   breakerState: 'closed' | 'open' | 'half-open';
   /** Bounded hint only; it is intentionally jittered by the controller. */
   retryAfterMs?: number;
+  /** Breaker transitions caused by admitting or releasing this attempt, in order. */
+  breakerTransitions?: DecisionBreakerTransition[];
+}
+
+export interface DecisionBreakerTransition {
+  from: 'closed' | 'open' | 'half-open';
+  to: 'closed' | 'open' | 'half-open';
 }
 
 export interface DecisionAdmissionLimits {
@@ -272,6 +279,16 @@ export interface DecisionAdmissionLimits {
   /** Maximum work units the host may retain for this request. */
   maxRetainedWork?: number;
   circuitBreaker?: { failureThreshold: number; openMs: number; halfOpenMaxCalls: number };
+  /**
+   * Principal limits only: workspace and provider permits held back for this
+   * principal. Other principals cannot take them while they are unused.
+   */
+  reservedConcurrency?: number;
+  /**
+   * Workspace or provider limits only: the fraction (0, 1] of this pool's
+   * concurrency and queue length that one principal may hold.
+   */
+  maxPrincipalShare?: number;
 }
 
 export interface DecisionAdmissionEstimate {

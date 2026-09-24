@@ -1,0 +1,96 @@
+{
+  "schema": "decision-load-result/v1",
+  "manifest": {
+    "schema": "decision-load-manifest/v2",
+    "version": "2.0.0",
+    "digest": "sha256:416a41466dc58063f45b5e5e9a7ad78b011cf6d3be50b081bab6e47c76a28a0c"
+  },
+  "mode": "offline-fake-provider",
+  "target": "evaluator",
+  "window": {
+    "seconds": 90
+  },
+  "environment": {
+    "node": "v24.12.0",
+    "platform": "linux",
+    "arch": "x64"
+  },
+  "observations": {
+    "arrivals": 2378,
+    "attempts": 2928,
+    "completed": 1998,
+    "failed": 0,
+    "shed": 361,
+    "cancelled": 19,
+    "shedReasons": {
+      "queue-full": 230,
+      "queue-timeout": 131
+    },
+    "maximumActiveCalls": 4,
+    "maximumQueuedCalls": 127,
+    "maximumEligibleLaneWaitMs": 1999,
+    "retryAmplificationRatio": 1.231287,
+    "maximumCancellationLatencyMs": 0,
+    "quietPrincipalAdmissionRatio": 0.966632,
+    "noisyPrincipalAdmissionRatio": 0.768147,
+    "virtualDurationMs": 90403
+  },
+  "resources": {
+    "heapUsedMiB": 103.1,
+    "residentMemoryMiB": 627.5,
+    "cpuPercentOneCore": 2.036,
+    "cpuSource": "thread"
+  },
+  "comparisons": [
+    {
+      "bound": "maximumActiveCalls",
+      "limit": 4,
+      "observed": 4,
+      "pass": true
+    },
+    {
+      "bound": "maximumQueuedCalls",
+      "limit": 128,
+      "observed": 127,
+      "pass": true
+    },
+    {
+      "bound": "maximumHeapUsedMiB",
+      "limit": 512,
+      "observed": 103.1,
+      "pass": true
+    },
+    {
+      "bound": "maximumCpuPercentOneCore",
+      "limit": 80,
+      "observed": 2.036,
+      "pass": true
+    },
+    {
+      "bound": "maximumEligibleLaneWaitMs",
+      "limit": 2000,
+      "observed": 1999,
+      "pass": true
+    },
+    {
+      "bound": "maximumRetryAmplificationRatio",
+      "limit": 1.25,
+      "observed": 1.231287,
+      "pass": true
+    },
+    {
+      "bound": "maximumCancellationLatencyMs",
+      "limit": 100,
+      "observed": 0,
+      "pass": true
+    },
+    {
+      "bound": "minimumQuietPrincipalAdmissionRatio",
+      "limit": 0.95,
+      "observed": 0.966632,
+      "pass": true
+    }
+  ],
+  "passed": true,
+  "digest": "sha256:336b62d8fcf615572e0f218d500954b5547299c3bd2580981d035bf8d652af9a"
+}

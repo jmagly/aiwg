@@ -1,5 +1,5 @@
 import type { DecisionEvaluationRequest, RulesetResult } from '../types.js';
-import { mapDecisionAttempt, mapDecisionResult, mapRulesetResult } from './mapping.js';
+import { mapAdmissionEvidence, mapDecisionAttempt, mapDecisionResult, mapRulesetResult } from './mapping.js';
 import { DecisionTraceBuilder } from './trace.js';
 import { recordDecisionSpanMetrics } from './metrics.js';
 import type { DecisionTelemetrySpan } from './types.js';
@@ -44,6 +44,18 @@ export async function emitRulesetRuntimeTrace(request: DecisionEvaluationRequest
 
     for (const evaluation of Object.values(result.spec.evaluations)) {
       for (const attempt of evaluation.spec.attempts) {
+        if (attempt.admission) {
+          const admission = mapAdmissionEvidence(attempt.admission);
+          const admit = builder.startSpan('decision.admit', { parent: root.context,
+            attributes: { ...admission.attributes, 'aiwg.adapter.id': attempt.adapter },
+            provenance: { ...admission.provenance, 'aiwg.adapter.id': 'client-derived' } });
+          for (const change of attempt.admission.breakerTransitions ?? []) {
+            admit.events.push({ name: 'breaker.transition', timeUnixMs: now(),
+              attributes: { 'aiwg.breaker.from': change.from, 'aiwg.breaker.to': change.to } });
+          }
+          builder.endSpan(admit, attempt.admission.decision === 'admit' ? 'ok'
+            : attempt.admission.decision === 'reject' ? 'error' : 'unset');
+        }
         const attemptMapping = mapDecisionAttempt(attempt);
         const span = builder.startSpan('decision.attempt', { parent: root.context,
           attributes: attemptMapping.attributes, provenance: attemptMapping.provenance });
