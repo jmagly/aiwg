@@ -31,6 +31,10 @@ const SAFE_ATTRIBUTE_KEYS = new Set(`
 for (const prefix of ['aiwg.definition', 'aiwg.policy', 'aiwg.calibration']) {
   for (const suffix of ['id', 'version', 'digest']) SAFE_ATTRIBUTE_KEYS.add(`${prefix}.${suffix}`);
 }
+// Declared keys whose names match PROTECTED_KEY but carry only fixed metadata.
+// `aiwg.link.state` is the deletion tombstone marker; dropping it would turn an
+// explicit tombstone into an unexplained link in exports.
+const PROTECTED_KEY_EXEMPTIONS = new Set(['gen_ai.response.model', 'http.response.status_code', 'aiwg.link.state']);
 export const DEFAULT_ATTRIBUTE_VALUE_LIMIT = 256;
 
 export function sanitizeOpaqueValue(value: string, maximum = DEFAULT_ATTRIBUTE_VALUE_LIMIT): string {
@@ -44,7 +48,7 @@ export function sanitizeAttributes(
   const output: TelemetryAttributes = {};
   for (const [key, original] of Object.entries(attributes)) {
     if (!SAFE_ATTRIBUTE_KEYS.has(key)
-      || (PROTECTED_KEY.test(key) && key !== 'gen_ai.response.model' && key !== 'http.response.status_code')
+      || (PROTECTED_KEY.test(key) && !PROTECTED_KEY_EXEMPTIONS.has(key))
       || (options.publicExport && key === 'aiwg.provider.request_id')
       || options.canaries?.some(canary => canary && key.toLowerCase().includes(canary.toLowerCase()))) continue;
     let value: TelemetryAttribute = original;

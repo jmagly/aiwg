@@ -1,3 +1,5 @@
+import { DECISION_LIFECYCLE_VERSION, validateDecisionLifecyclePolicy, type DecisionLifecycleHold,
+  type DecisionLifecyclePolicy, type DecisionLifecycleSurface } from '../lifecycle.js';
 import type { DecisionDebugCapturePolicy, DecisionRetentionPolicy, DecisionTelemetryTombstone, DecisionTelemetryTrace } from './types.js';
 
 export function validateDebugCapturePolicy(policy: DecisionDebugCapturePolicy | undefined): DecisionDebugCapturePolicy | null {
@@ -9,6 +11,41 @@ export function validateDebugCapturePolicy(policy: DecisionDebugCapturePolicy | 
     || !/^[a-zA-Z][a-zA-Z0-9_.-]*$/.test(policy.encryption.keyReference)
     || !/^[a-zA-Z][a-zA-Z0-9_.-]*$/.test(policy.accessAudit.sinkReference)) throw new Error('Sensitive debug capture policy is incomplete');
   return structuredClone(policy);
+}
+
+/** Lifecycle surfaces whose content telemetry retains or links to. */
+export const TELEMETRY_LIFECYCLE_SURFACES: readonly DecisionLifecycleSurface[] = [
+  'trace', 'debug-sidecar', 'export', 'review', 'job', 'cache', 'evaluation',
+];
+
+/**
+ * Derive telemetry retention from the common `decision-lifecycle/v1` policy (M09).
+ * TTLs come from the lifecycle surfaces; linked records use the shortest linked-surface TTL.
+ * Legal hold is true only while an authorized lifecycle hold for a telemetry surface is active.
+ */
+export function telemetryRetentionFromLifecyclePolicy(
+  policy: DecisionLifecyclePolicy,
+  holds: ReadonlyArray<DecisionLifecycleHold> = [],
+  now = Date.now(),
+): DecisionRetentionPolicy {
+  validateDecisionLifecyclePolicy(policy);
+  if (!Number.isSafeInteger(now) || now < 0 || !Array.isArray(holds as unknown)) throw new Error('Invalid telemetry retention policy');
+  const surfaces = policy.surfaces;
+  const legalHold = holds.some(hold => Number.isSafeInteger(hold?.expiresAt) && hold.expiresAt > now
+    && Array.isArray(hold.scope as unknown) && hold.scope.some(surface => TELEMETRY_LIFECYCLE_SURFACES.includes(surface)));
+  const retention: DecisionRetentionPolicy = {
+    traceTtlMs: surfaces.trace.retentionMs,
+    debugSidecarTtlMs: surfaces['debug-sidecar'].retentionMs,
+    exportTtlMs: surfaces.export.retentionMs,
+    linkedRecordTtlMs: Math.min(surfaces.review.retentionMs, surfaces.job.retentionMs,
+      surfaces.cache.retentionMs, surfaces.evaluation.retentionMs),
+    deletionEnabled: true,
+    tombstonesEnabled: true,
+    legalHold,
+    lifecycleVersion: DECISION_LIFECYCLE_VERSION,
+  };
+  validateRetentionPolicy(retention);
+  return retention;
 }
 
 export function validateRetentionPolicy(policy: DecisionRetentionPolicy): void {

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionProjectionPolicy.v1.schema.json",
+  "title": "AIWG Decision Projection Policy v1",
+  "description": "Trusted host control data selecting the only state fields an adapter may receive. Runtime validation (validateProjectionPolicy) additionally enforces destination authorization, one stable subject, unique outputs and secret-material rejection.",
+  "type": "object",
+  "required": ["version", "provider", "model", "origin", "region", "purpose", "allowIncompleteContext", "fields"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "$ref": "#/$defs/nonEmpty" },
+    "provider": { "$ref": "#/$defs/nonEmpty" },
+    "model": { "$ref": "#/$defs/nonEmpty" },
+    "origin": { "$ref": "#/$defs/httpsUri" },
+    "region": { "$ref": "#/$defs/nonEmpty" },
+    "purpose": { "$ref": "#/$defs/nonEmpty" },
+    "allowIncompleteContext": { "type": "boolean" },
+    "maxSensitivity": { "$ref": "#/$defs/sensitivity" },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/field" }
+    }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "httpsUri": { "type": "string", "format": "uri", "pattern": "^https://[^/@\\s]+(?:/.*)?$" },
+    "nonEmptyList": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/nonEmpty" }
+    },
+    "sensitivity": { "enum": ["public", "internal", "confidential", "restricted"] },
+    "field": {
+      "type": "object",
+      "required": [
+        "pointer", "output", "source", "subject", "trust", "sensitivity", "purpose", "retentionClass",
+        "accessScopes", "exportPolicy", "deletionPolicy", "backupPolicy", "allowedProviders",
+        "allowedModels", "allowedOrigins", "allowedRegions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "pointer": { "type": "string", "pattern": "^/" },
+        "output": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$" },
+        "source": { "$ref": "#/$defs/nonEmpty" },
+        "subject": { "$ref": "#/$defs/nonEmpty" },
+        "trust": { "enum": ["verified", "untrusted"] },
+        "sensitivity": { "$ref": "#/$defs/sensitivity" },
+        "purpose": { "$ref": "#/$defs/nonEmpty" },
+        "retentionClass": { "$ref": "#/$defs/nonEmpty" },
+        "accessScopes": { "$ref": "#/$defs/nonEmptyList" },
+        "exportPolicy": { "enum": ["denied", "sanitized"] },
+        "deletionPolicy": { "enum": ["erase", "tombstone"] },
+        "backupPolicy": { "enum": ["expire-with-primary", "not-persisted"] },
+        "allowedProviders": { "$ref": "#/$defs/nonEmptyList" },
+        "allowedModels": { "$ref": "#/$defs/nonEmptyList" },
+        "allowedOrigins": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/httpsUri" }
+        },
+        "allowedRegions": { "$ref": "#/$defs/nonEmptyList" }
+      }
+    }
+  }
+}
