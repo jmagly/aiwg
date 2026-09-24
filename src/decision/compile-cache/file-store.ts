@@ -110,7 +110,9 @@ export class FileCompileCache<T> {
   }
 
   async restore(entry: CompileCacheEntry<T>, context: CompileCacheReadContext): Promise<void> {
-    this.revalidate(entry, entry.identity, context, true);
+    // Restored backups must still be live at the point of import; old copies
+    // cannot resurrect deleted/tombstoned or expired compiler artifacts.
+    this.revalidate(entry, entry.identity, context);
     // A backup cannot undo a live tombstone (or replace an existing immutable entry).
     // Explicit authorized deletion must precede any restore at this key.
     if (await this.readLifecycleEntry(entry.identity, context)) throw new CompileCacheRejectedError();
