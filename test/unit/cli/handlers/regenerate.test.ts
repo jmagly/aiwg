@@ -141,6 +141,28 @@ describe('regenerateHandler', () => {
     expect(readFileSync(join(tmpDir, 'CLAUDE.md'), 'utf8')).toBe('# Team Claude Notes\n\nPreserve this file.\n');
   });
 
+  it('regenerates the muse AGENTS.md bridge deterministically with trust-gated guidance (#227)', async () => {
+    const { regenerateHandler } = await import('../../../../src/cli/handlers/regenerate.js');
+    writeConfig(tmpDir, ['muse']);
+
+    const first = await regenerateHandler.execute(makeCtx(tmpDir, ['--provider', 'muse']));
+    expect(first.exitCode).toBe(0);
+
+    const agentsMd = join(tmpDir, 'AGENTS.md');
+    const firstContent = readFileSync(agentsMd, 'utf8');
+    expect(firstContent).toContain('first-run trust prompt');
+    expect(firstContent).toContain('this AGENTS.md first');
+    expect(firstContent).toContain('`aiwg discover "<intent>"`');
+    expect(firstContent).toContain('`aiwg show <type> <name>`');
+    expect(firstContent).not.toContain('Cursor');
+    expect(firstContent).not.toContain('CLAUDE.md');
+
+    // Second run is byte-identical: no timestamps or randomness in generated sections.
+    const second = await regenerateHandler.execute(makeCtx(tmpDir, ['--provider', 'muse']));
+    expect(second.exitCode).toBe(0);
+    expect(readFileSync(agentsMd, 'utf8')).toBe(firstContent);
+  });
+
   it('regenerates Copilot instructions as a provider-facing twin', async () => {
     const { regenerateHandler } = await import('../../../../src/cli/handlers/regenerate.js');
     writeConfig(tmpDir, ['copilot']);

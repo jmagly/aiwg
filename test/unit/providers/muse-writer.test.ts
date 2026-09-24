@@ -27,6 +27,8 @@ import {
   deploySkills,
   assertNotCursorTarget,
   assertMuseUserSkillsDir,
+  createAgentsMd,
+  postDeploy,
 } from '../../../tools/agents/providers/muse.mjs';
 
 const HOME = path.join(path.sep, 'home', 'fixture');
@@ -272,5 +274,91 @@ describe('muse deploySkills (#226)', () => {
     expect(fs.existsSync(path.join(operatorDir, '.aiwg-managed'))).toBe(false);
     // AIWG's own skill still landed.
     expect(fs.existsSync(path.join(skillsRoot, 'kernel-fixture', 'SKILL.md'))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Discover-first AGENTS.md bridge (#227)
+// ---------------------------------------------------------------------------
+
+describe('muse AGENTS.md bridge (#227)', () => {
+  const repoRoot = path.resolve(__dirname, '..', '..', '..');
+  const MANAGED_BEGIN = '<!-- BEGIN AIWG-managed';
+  const MANAGED_END = '<!-- END AIWG-managed -->';
+
+  function agentsMd(target: string): string {
+    return fs.readFileSync(path.join(target, 'AGENTS.md'), 'utf8');
+  }
+
+  it('dry-run performs zero writes', () => {
+    const target = path.join(tmpRoot, 'project');
+    fs.mkdirSync(target, { recursive: true });
+    createAgentsMd(target, repoRoot, true);
+    expect(fs.existsSync(path.join(target, 'AGENTS.md'))).toBe(false);
+  });
+
+  it('creates a discover-first bridge with trust-gated guidance', () => {
+    const target = path.join(tmpRoot, 'project');
+    fs.mkdirSync(target, { recursive: true });
+    createAgentsMd(target, repoRoot, false);
+    const content = agentsMd(target);
+    expect(content).toContain(MANAGED_BEGIN);
+    expect(content).toContain(MANAGED_END);
+    expect(content).toContain('first-run trust prompt');
+    expect(content).toContain('aiwg discover');
+    expect(content).toContain('aiwg show');
+    // No template tokens leak through.
+    expect(content).not.toContain('{{');
+    // No false surfaces: no CLAUDE.md shim (mentioned only as an exclusion),
+    // no invented homes (named only as refusals), and the explicit
+    // never-target-.cursor boundary.
+    expect(content).toContain('No `CLAUDE.md` shim');
+    expect(content).toContain('never invents `~/.muse`');
+    expect(content).toContain('never writes foreign provider paths (no `.cursor/`)');
+    // Muse-accurate reload guidance, never IDE-reload copy.
+    expect(content).toContain('new Muse session');
+    expect(content).not.toContain('Cursor');
+  });
+
+  it('is a no-op when the managed section is already current', () => {
+    const target = path.join(tmpRoot, 'project');
+    fs.mkdirSync(target, { recursive: true });
+    createAgentsMd(target, repoRoot, false);
+    const first = agentsMd(target);
+    createAgentsMd(target, repoRoot, false);
+    expect(agentsMd(target)).toBe(first);
+  });
+
+  it('preserves operator content outside markers and updates the managed section in place', () => {
+    const target = path.join(tmpRoot, 'project');
+    const operatorContent = '# Operator Notes\n\nDo not touch this file section.\n';
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, 'AGENTS.md'), operatorContent, 'utf8');
+
+    createAgentsMd(target, repoRoot, false);
+    const created = agentsMd(target);
+    expect(created.startsWith(operatorContent)).toBe(true);
+    expect(created).toContain(MANAGED_BEGIN);
+
+    // Drift inside the managed section is repaired without touching operator content.
+    const drifted = created.replace('first-run trust prompt', 'first-run trust promp');
+    expect(drifted).not.toBe(created);
+    fs.writeFileSync(path.join(target, 'AGENTS.md'), drifted, 'utf8');
+
+    createAgentsMd(target, repoRoot, false);
+    const refreshed = agentsMd(target);
+    expect(refreshed).toBe(created);
+    expect(refreshed.startsWith(operatorContent)).toBe(true);
+  });
+
+  it('postDeploy creates the bridge on a full deploy but not on skills-only', () => {
+    const full = path.join(tmpRoot, 'full');
+    fs.mkdirSync(full, { recursive: true });
+    postDeploy(full, { quiet: true, srcRoot: repoRoot, dryRun: false });
+    expect(fs.existsSync(path.join(full, 'AGENTS.md'))).toBe(true);
+
+    const skillsOnly = path.join(tmpRoot, 'skills-only');
+    postDeploy(skillsOnly, { quiet: true, srcRoot: repoRoot, dryRun: false, skillsOnly: true });
+    expect(fs.existsSync(path.join(skillsOnly, 'AGENTS.md'))).toBe(false);
   });
 });
