@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { link, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
+import { access, link, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../security/artifact-trust.js';
 import { assertJobTransition, validateDecisionJob, type DecisionJob } from './job-contract.js';
@@ -68,9 +68,11 @@ export class MemoryJobStore implements JobStore {
 
 /** Append-only, immutable revision journal. Link publication is atomic across processes on one local filesystem. */
 export class FileJobStore implements JobStore {
-  constructor(private readonly directory: string) {}
+  constructor(private readonly directory: string,
+    private readonly externallyDeleted?: (scope: JobScope, id: string) => Promise<boolean>) {}
   async acquire(job: DecisionJob): Promise<{ owner: boolean; snapshot: JobSnapshot }> {
     validateFirst(job);
+    if (await this.isDeleted(job.scope, job.id)) throw new JobConflictError('Job tombstoned');
     const snapshot = { revision: 1, job: structuredClone(job), deleted: false, legalHold: false };
     if (await this.publish(snapshot)) return { owner: true, snapshot: copy(snapshot) };
     const existing = await this.read(job.scope, job.id);
@@ -80,6 +82,7 @@ export class FileJobStore implements JobStore {
   }
   async read(scope: JobScope, id: string): Promise<JobSnapshot | null> {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    if (await this.isDeleted(scope, id)) return null;
     const prefix = this.prefix(scope, id);
     const revisions = (await readdir(this.directory)).flatMap(name => {
       const match = name.match(new RegExp(`^${prefix}\\.r([0-9]+)\\.json$`));
@@ -102,6 +105,35 @@ export class FileJobStore implements JobStore {
     const current = await this.read(previous.job.scope, previous.job.id);
     if (!current || canonicalJson(current) !== canonicalJson(previous)) return false;
     return this.publish(next);
+  }
+  /** Host-only D10 eraser: call after lifecycle tombstone and authorized job deletion. */
+  async purgeDeleted(scope: JobScope, id: string): Promise<void> {
+    const record = await this.read(scope, id);
+    if (record && (!record.deleted || record.legalHold)) throw new JobConflictError('Job not eligible for erasure');
+    if (!record && !await this.hasMarker(scope, id) && !await this.externallyDeleted?.(scope, id))
+      throw new JobConflictError('Job tombstone required before erasure');
+    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    if (!await this.hasMarker(scope, id)) {
+      try {
+        const handle = await open(this.marker(scope, id), 'wx', 0o600);
+        try { await handle.sync(); } finally { await handle.close(); }
+      } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+    }
+    const prefix = `${this.prefix(scope, id)}.r`;
+    for (const name of await readdir(this.directory)) {
+      if (name.startsWith(prefix) && /^r[1-9][0-9]*\.json$/.test(name.slice(prefix.length - 1)))
+        await rm(join(this.directory, name));
+    }
+    const directory = await open(this.directory, 'r');
+    try { await directory.sync(); } finally { await directory.close(); }
+  }
+  private marker(scope: JobScope, id: string): string { return join(this.directory, `${this.prefix(scope, id)}.deleted`); }
+  private async isDeleted(scope: JobScope, id: string): Promise<boolean> {
+    return await this.hasMarker(scope, id) || Boolean(await this.externallyDeleted?.(scope, id));
+  }
+  private async hasMarker(scope: JobScope, id: string): Promise<boolean> {
+    try { await access(this.marker(scope, id)); return true; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false; throw error; }
   }
   private prefix(scope: JobScope, id: string): string {
     return createHash('sha256').update(key(scope, id)).digest('hex');

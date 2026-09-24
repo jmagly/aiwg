@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -42,6 +42,27 @@ describe('JOB durable offline lifecycle', () => {
     overflow.items = Array.from({ length: 1001 }, (_, index) => ({ ...structuredClone(jobs[0]!.items[0]!), id: `item${index}` })); recount(overflow);
     await expect(runtime.submit(overflow, scope)).rejects.toThrow();
     expect(await runtime.poll(other, 'job0')).toBeNull();
+  });
+  it('purges deleted journal revisions and refuses same-directory backup resurrection', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-jobs-erase-'));
+    const backup = await mkdtemp(join(tmpdir(), 'decision-jobs-backup-'));
+    directories.push(directory, backup);
+    const store = new FileJobStore(directory);
+    const runtime = new DecisionJobRuntime(store, () => 20);
+    await runtime.submit(fixture(), scope);
+    await expect(store.purgeDeleted(scope, 'jobA')).rejects.toThrow(JobConflictError);
+    await expect(store.purgeDeleted(other, 'jobA')).rejects.toThrow(JobConflictError);
+    expect(await runtime.remove(scope, 'jobA')).toBe(true);
+    const revisions = (await readdir(directory)).filter(name => name.endsWith('.json'));
+    for (const name of revisions) await copyFile(join(directory, name), join(backup, name));
+    await store.purgeDeleted(scope, 'jobA');
+    expect((await readdir(directory)).filter(name => name.endsWith('.json'))).toHaveLength(0);
+    expect((await readdir(directory)).filter(name => name.endsWith('.deleted'))).toHaveLength(1);
+    for (const name of revisions) await copyFile(join(backup, name), join(directory, name));
+    expect(await new FileJobStore(directory).read(scope, 'jobA')).toBeNull();
+    await expect(new FileJobStore(directory).acquire(fixture())).rejects.toThrow('Job tombstoned');
+    await store.purgeDeleted(scope, 'jobA');
+    expect((await readdir(directory)).filter(name => name.endsWith('.json'))).toHaveLength(0);
   });
   it('uses owner-only journal modes and rejects a corrupted revision instead of using stale state', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-jobs-integrity-'));
