@@ -13,6 +13,15 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   drift check, and stable-promotion gate. The adapter remains experimental
   until released-binary evidence is complete; Grok Build remains distinct
   from Grok Bot and Grok web Build.
+- Durable decision batch receipt and result stores now seal every receipt
+  revision and result snapshot with a required HMAC-SHA256 integrity key,
+  encrypt result values at rest with AES-256-GCM bound to tenant, project,
+  batch, question, answer and revision, and bind both stores to the
+  `decision-lifecycle/v1` receipt rule: retention expiry, D10 erasure with
+  body-free tombstones and result cascade, hold-aware sweeps, and restore that
+  refuses erased or expired content. `FileBatchReceiptStore` and
+  `FileBatchResultStore` constructors now require these options, and unkeyed
+  stores are refused until an explicit, authorized `migrateLegacy` (#2672).
 
 ### Changed
 
@@ -25,6 +34,7 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   `assertDecisionResultWriterVersion` gate. Consumers that enable `batching`,
   `batchReceipts`, `scheduler`, `providerPrefix`, or `context` must accept
   v1alpha2 results. Released v1alpha1 results still validate unchanged (#2671).
+
 ## [2026.9.20] - 2026-09-21 - "Stable channels and exact-source evidence"
 
 ### Changed
