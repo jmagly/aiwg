@@ -25,6 +25,9 @@ export interface QualificationReleaseInputs {
   actuals: Readonly<Record<string, number>>;
   reviewer: string | null;
   integrity: QualificationIntegrityMetadata;
+  /** Separately anchored, frozen held-out evaluation; absent or failed evidence blocks promotion. */
+  benchmark?: { planDigest: `sha256:${string}`; trustedPlanDigest: `sha256:${string}`;
+    decision: 'pass' | 'fail' | 'insufficient-evidence'; sampleN: number; minimumN: number };
 }
 
 export interface QualificationReleaseRecord {
@@ -41,6 +44,7 @@ export interface QualificationReleaseRecord {
   suites: { caseId: string; outcome: string; evidenceHash: string | null; verified: boolean }[];
   gates: ExecutedQualification['report']['gates'];
   integrity: QualificationIntegrityMetadata;
+  benchmark: QualificationReleaseInputs['benchmark'] | null;
   decision: 'PROMOTE' | 'HOLD' | 'ROLLBACK';
   digest: `sha256:${string}`;
 }
@@ -82,7 +86,13 @@ export function buildQualificationReleaseRecord(
     && input.integrity.trusted_score_source !== 'local-unverified'
     && input.integrity.compromise_labels.length === 0
     && input.integrity.sample_n > 0 && input.integrity.uncertainty !== null;
-  const complete = withinBudgets && integrityVerified && !manifest.dirty && input.reviewer !== null && input.reviewer.trim().length > 0
+  const benchmark = input.benchmark;
+  const benchmarkVerified = benchmark !== undefined && benchmark.decision === 'pass'
+    && /^sha256:[0-9a-f]{64}$/.test(benchmark.planDigest)
+    && benchmark.planDigest === benchmark.trustedPlanDigest
+    && Number.isSafeInteger(benchmark.sampleN) && Number.isSafeInteger(benchmark.minimumN)
+    && benchmark.minimumN > 0 && benchmark.sampleN >= benchmark.minimumN;
+  const complete = withinBudgets && integrityVerified && benchmarkVerified && !manifest.dirty && input.reviewer !== null && input.reviewer.trim().length > 0
     && suites.length === manifest.cases.length && suites.every(item => item.outcome === 'pass' && item.verified)
     && report.gates.length === 7 && report.gates.every(gate => gate.status === 'pass')
     && report.decision === 'PROMOTE';
@@ -97,7 +107,7 @@ export function buildQualificationReleaseRecord(
     budgets: Object.fromEntries(Object.entries(input.budgets).sort(([a], [b]) => a.localeCompare(b))),
     actuals: Object.fromEntries(Object.entries(input.actuals).sort(([a], [b]) => a.localeCompare(b))),
     reviewer: input.reviewer, suites, gates: [...report.gates].sort((a, b) => a.id.localeCompare(b.id)),
-    integrity: input.integrity, decision,
+    integrity: input.integrity, benchmark: benchmark ?? null, decision,
   };
   return { ...fields, digest: `sha256:${createHash('sha256').update(JSON.stringify(fields)).digest('hex')}` };
 }

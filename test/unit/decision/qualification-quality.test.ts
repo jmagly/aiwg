@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateBinaryHeldout, evaluateOrdinalHeldout, evaluateRankingHeldout, freezeQualificationSplit, measurePairedMovement, verifyQualificationSplits, type BinaryQualificationSample } from '../../../src/decision/qualification/quality.js';
+import { evaluateBinaryHeldout, evaluateOrdinalHeldout, evaluatePreregisteredBinaryBenchmark, evaluateRankingHeldout, freezeBinaryBenchmarkPlan, freezeQualificationSplit, measurePairedMovement, verifyQualificationSplits, type BinaryQualificationSample } from '../../../src/decision/qualification/quality.js';
 
 const splits = () => [
   freezeQualificationSplit('tuning', ['train-1']),
@@ -12,6 +12,32 @@ const sample = (id: string, overrides: Partial<BinaryQualificationSample> = {}):
 });
 
 describe('held-out qualification metrics', () => {
+  it('binds preregistered limits and labels to an independently anchored digest before held-out scoring', () => {
+    const labels = ['train-1', 'cal-1', 'test-1', 'test-2'].map(id => ({ id, label: 1 as const, slice: 'a' }));
+    const limits = { minimumOverallN: 2, minimumSliceN: 1, maximumSelectiveRisk: 0.1,
+      maximumReviewRate: 0.5, maximumBrier: 0.2 };
+    const plan = freezeBinaryBenchmarkPlan(splits(), labels, limits);
+    const rows = [sample('test-1'), sample('test-2')];
+    expect(evaluatePreregisteredBinaryBenchmark(plan, plan.digest, labels, rows).decision).toBe('pass');
+    expect(() => evaluatePreregisteredBinaryBenchmark(plan, plan.digest, labels.map(row =>
+      row.id === 'test-2' ? { ...row, label: 0 as const } : row), rows)).toThrow('mismatch');
+    expect(() => evaluatePreregisteredBinaryBenchmark(plan, plan.digest, labels,
+      [rows[0]!, sample('test-2', { slice: 'altered' })])).toThrow('slice mismatch');
+    expect(() => evaluatePreregisteredBinaryBenchmark({ ...plan, maximumSelectiveRisk: 1 }, plan.digest, labels, rows))
+      .toThrow('preregistration');
+    expect(() => evaluatePreregisteredBinaryBenchmark(plan, `sha256:${'0'.repeat(64)}`, labels, rows))
+      .toThrow('preregistration');
+    const noAccept = rows.map(row => ({ ...row, accepted: false }));
+    expect(evaluatePreregisteredBinaryBenchmark(plan, plan.digest, labels, noAccept).decision).toBe('fail');
+    const insufficient = freezeBinaryBenchmarkPlan(splits(), labels, { ...limits, minimumOverallN: 3,
+      maximumReviewRate: 1 });
+    expect(evaluatePreregisteredBinaryBenchmark(insufficient, insufficient.digest, labels, rows).decision)
+      .toBe('insufficient-evidence');
+    const wrong = rows.map(row => ({ ...row, probability: 0.2 }));
+    expect(evaluatePreregisteredBinaryBenchmark(plan, plan.digest, labels, wrong)).toMatchObject({
+      decision: 'fail', reasons: expect.arrayContaining(['selective-risk']),
+    });
+  });
   it('checks immutable, disjoint split membership and forbids missing held-out rows', () => {
     expect(() => verifyQualificationSplits(splits())).not.toThrow();
     expect(() => freezeQualificationSplit('test', ['a', 'a'])).toThrow('unique');

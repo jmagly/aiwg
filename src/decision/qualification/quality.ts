@@ -7,6 +7,79 @@ export interface QualificationSplit {
   digest: `sha256:${string}`;
 }
 
+export interface FrozenBinaryBenchmarkPlan {
+  schemaVersion: 'decision-binary-benchmark-plan/v1';
+  splits: readonly QualificationSplit[];
+  /** Hash of sorted (id, label, slice) triples across all splits, before any held-out predictions. */
+  datasetDigest: `sha256:${string}`;
+  minimumOverallN: number;
+  minimumSliceN: number;
+  maximumSelectiveRisk: number;
+  maximumReviewRate: number;
+  maximumBrier: number;
+  digest: `sha256:${string}`;
+}
+
+export interface BinaryBenchmarkLabel { id: string; label: 0 | 1; slice: string }
+
+const sha256 = (value: unknown): `sha256:${string}` =>
+  `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
+
+/** Freeze thresholds and all three label sets before acquiring test predictions. */
+export function freezeBinaryBenchmarkPlan(
+  splits: readonly QualificationSplit[], labels: readonly BinaryBenchmarkLabel[],
+  limits: Pick<FrozenBinaryBenchmarkPlan, 'minimumOverallN' | 'minimumSliceN' | 'maximumSelectiveRisk' | 'maximumReviewRate' | 'maximumBrier'>,
+): FrozenBinaryBenchmarkPlan {
+  verifyQualificationSplits(splits);
+  const ids = splits.flatMap(split => split.ids).sort();
+  if (labels.length !== ids.length || new Set(labels.map(label => label.id)).size !== ids.length
+    || labels.some(label => !ids.includes(label.id) || ![0, 1].includes(label.label) || !label.slice?.trim())
+    || !Number.isSafeInteger(limits.minimumOverallN) || limits.minimumOverallN < 1
+    || !Number.isSafeInteger(limits.minimumSliceN) || limits.minimumSliceN < 1
+    || [limits.maximumSelectiveRisk, limits.maximumReviewRate, limits.maximumBrier]
+      .some(value => !Number.isFinite(value) || value < 0 || value > 1)) {
+    throw new Error('invalid preregistered benchmark plan');
+  }
+  const fields = {
+    schemaVersion: 'decision-binary-benchmark-plan/v1' as const,
+    splits: ['tuning', 'calibration', 'test'].map(name => splits.find(split => split.name === name)!),
+    datasetDigest: sha256([...labels].sort((a, b) => a.id.localeCompare(b.id))),
+    ...limits,
+  };
+  return { ...fields, digest: sha256(fields) };
+}
+
+/** A separately anchored digest is required: a caller-created plan cannot attest its own preregistration. */
+export function evaluatePreregisteredBinaryBenchmark(
+  plan: FrozenBinaryBenchmarkPlan, trustedPlanDigest: `sha256:${string}`,
+  labels: readonly BinaryBenchmarkLabel[], samples: readonly BinaryQualificationSample[],
+): { decision: 'pass' | 'fail' | 'insufficient-evidence'; reasons: string[]; metrics: ReturnType<typeof evaluateBinaryHeldout> } {
+  const { digest, ...fields } = plan;
+  if (digest !== trustedPlanDigest || digest !== sha256(fields)
+    || freezeBinaryBenchmarkPlan(plan.splits, labels, {
+      minimumOverallN: plan.minimumOverallN, minimumSliceN: plan.minimumSliceN,
+      maximumSelectiveRisk: plan.maximumSelectiveRisk, maximumReviewRate: plan.maximumReviewRate,
+      maximumBrier: plan.maximumBrier,
+    }).digest !== digest) throw new Error('benchmark preregistration or dataset mismatch');
+  const testLabels = new Map(labels.filter(label => plan.splits.find(split => split.name === 'test')!.ids.includes(label.id))
+    .map(label => [label.id, label]));
+  if (samples.some(sample => sample.label !== testLabels.get(sample.id)?.label || sample.slice !== testLabels.get(sample.id)?.slice)) {
+    throw new Error('held-out label or slice mismatch');
+  }
+  const metrics = evaluateBinaryHeldout(plan.splits, samples);
+  const insufficient = metrics.overall.sampleN < plan.minimumOverallN
+    || Object.values(metrics.slices).some(slice => slice.sampleN < plan.minimumSliceN || slice.selectiveRisk === null);
+  const reasons: string[] = [];
+  if (insufficient) reasons.push('insufficient-heldout-evidence');
+  if (metrics.overall.selectiveRisk === null) reasons.push('zero-accepted-samples');
+  if (metrics.overall.selectiveRisk !== null && metrics.overall.selectiveRisk > plan.maximumSelectiveRisk) reasons.push('selective-risk');
+  if (metrics.overall.reviewRate > plan.maximumReviewRate) reasons.push('review-rate');
+  if (metrics.overall.brier > plan.maximumBrier) reasons.push('brier');
+  const exceeded = reasons.some(reason => reason === 'selective-risk' || reason === 'review-rate' || reason === 'brier');
+  return { decision: exceeded ? 'fail' : insufficient || metrics.overall.selectiveRisk === null ? 'insufficient-evidence'
+    : 'pass', reasons, metrics };
+}
+
 export interface BinaryQualificationSample {
   id: string;
   slice: string;

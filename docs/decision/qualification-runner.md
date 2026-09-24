@@ -41,7 +41,13 @@ They reject overlapping/missing rows, invalid probabilities and negative resourc
 unknown cost stays unknown, and zero accepted samples have `null` selective risk.
 The report includes Brier/log loss, decile calibration error, Wilson error interval,
 coverage/review rate, nearest-rank latency quantiles, calls/retries/fallbacks and token/cost
-sums. `evaluateOrdinalHeldout` scores exact matches and normalized/absolute level error;
+sums. `freezeBinaryBenchmarkPlan` hashes all tuning/calibration/test label and slice
+memberships together with preregistered minimum sample counts and maximum selective
+risk, review rate and Brier bounds. `evaluatePreregisteredBinaryBenchmark` requires a
+**separately anchored** trusted plan digest and rejects label/slice drift before held-out
+scoring; too few held-out rows or no accepted samples cannot pass. The digest must be
+published by a trusted reviewer before test labels/predictions are available; passing a
+self-created plan digest is not independent preregistration or representative evidence. `evaluateOrdinalHeldout` scores exact matches and normalized/absolute level error;
 `evaluateRankingHeldout` measures pairwise concordance, counting predicted ties as errors
 and reporting `null` when gold has no comparable pairs. These are not calibration
 approvals: sample-size, pre-registration, slice adequacy, policy thresholds, and independent
@@ -72,7 +78,10 @@ dataset/split/seed/price catalog. D30 compile/prefix-cache, D03 receipt replay,
 and D15 result-cache pins must be distinct. The record carries per-case evidence
 hashes, G0–G6 results, an integrity-gated `PROMOTE`/`HOLD`/`ROLLBACK` decision,
 and its own SHA-256; `qualificationReleaseSummary` produces a terse human view
-without private captures. It cannot upgrade an integrity HOLD/ROLLBACK or a
+without private captures. Promotion additionally requires a passing held-out
+benchmark with a matching externally anchored plan digest and preregistered
+minimum sample count; missing, mismatched or insufficient benchmark evidence
+forces HOLD. It cannot upgrade an integrity HOLD/ROLLBACK or a
 compromised/dirty/unverified run. The caller must obtain integrity metadata from
 the actual protected artifact snapshot and trusted scoring workflow: synthetic
 unit metadata is not release evidence.
