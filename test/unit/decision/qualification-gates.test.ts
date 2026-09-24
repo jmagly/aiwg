@@ -1,13 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { DECISION_RELEASE_GATES, evaluateQualification } from '../../../src/decision/qualification/gates.js';
-import { expectedQualificationCaseIds } from '../../../src/decision/qualification/manifest.js';
+import { GATE_ARTIFACT_SCHEMAS } from '../../../src/decision/qualification/gate-evidence.js';
 import type { QualificationCase, QualificationRunManifest } from '../../../src/decision/qualification/types.js';
+import { syntheticCases } from './qualification-gate-fixtures.js';
 
 const oneCase: QualificationCase = { id: 'C01', kind: 'baseline', mandatory: true, candidateTests: [] };
 const base: QualificationRunManifest = {
   schemaVersion: 'decision-qualification-run/v1', mode: 'offline', runId: 'unit', generatedAt: '2026-09-22T00:00:00.000Z',
   sourceCommit: 'abc', dirty: false, cases: [oneCase], evidence: [], evidenceFlags: {},
 };
+const allFlags = () => Object.fromEntries(DECISION_RELEASE_GATES.flatMap(gate => gate.requiredEvidence).map(key => [key, true]));
+const gateArtifacts = Object.fromEntries(Object.entries(GATE_ARTIFACT_SCHEMAS).map(([flag, schemaVersion]) => [flag,
+  { artifact: `unit/gates/${flag}.json`, digest: `sha256:${'b'.repeat(64)}` as const, schemaVersion }]));
+function complete() {
+  const cases = syntheticCases();
+  const evidence = cases.map(({ id, evidenceIds }) => ({
+    caseId: id, executable: true, outcome: 'pass' as const, artifact: `${id}.json`, digest: `sha256:${'a'.repeat(64)}` as const,
+    testEvidenceIds: [...(evidenceIds ?? [])],
+  }));
+  return { cases, evidence };
+}
 
 describe('decision qualification gate evaluator', () => {
   it('requires a real artifact and digest for an executable passing case', () => {
@@ -18,14 +30,26 @@ describe('decision qualification gate evaluator', () => {
   });
 
   it('promotes only when every mandatory gate has complete passing evidence', () => {
-    const evidenceFlags = Object.fromEntries(DECISION_RELEASE_GATES.flatMap(gate => gate.requiredEvidence).map(key => [key, true]));
-    const cases = expectedQualificationCaseIds().map(id => ({ ...oneCase, id, kind: id.startsWith('TV') ? 'vendor' as const : 'baseline' as const }));
-    const evidence = cases.map(({ id }) => ({
-      caseId: id, executable: true, outcome: 'pass' as const, artifact: `${id}.json`, digest: `sha256:${'a'.repeat(64)}` as const,
-    }));
-    const report = evaluateQualification({ ...base, cases, evidenceFlags, evidence });
+    const { cases, evidence } = complete();
+    const report = evaluateQualification({ ...base, cases, evidenceFlags: { 'privacy-scan-clean': true }, evidence, gateArtifacts },
+      undefined, { artifactsVerified: true });
     expect(report.gates.every(gate => gate.status === 'pass')).toBe(true);
     expect(report.decision).toBe('PROMOTE');
+  });
+
+  it('GATE-DERIVED-03 ignores caller-set derived flags and requires recorded suites, artifacts and a verification proof', () => {
+    const report = evaluateQualification({ ...base, evidenceFlags: allFlags() });
+    for (const gate of report.gates) expect(gate.status).toBe('fail');
+    expect(report.gates.find(gate => gate.id === 'G1')?.missing).toEqual(['evidence:runtime-suite-complete']);
+    expect(report.gates.find(gate => gate.id === 'G2')?.missing).toEqual(['evidence:security-suite-complete']);
+    expect(report.gates.find(gate => gate.id === 'G4')?.missing).toEqual(['evidence:drift-suite-complete', 'evidence:fault-suite-complete']);
+    expect(report.gates.find(gate => gate.id === 'G5')?.missing).toEqual(['evidence:load-manifest-qualified']);
+    const { cases, evidence } = complete();
+    const unproven = evaluateQualification({ ...base, cases, evidence, gateArtifacts, evidenceFlags: allFlags() });
+    expect(unproven.gates.find(gate => gate.id === 'G6')?.missing).toEqual(['evidence:evidence-hashes-verified']);
+    const noDrift = evaluateQualification({ ...base, cases, gateArtifacts, evidenceFlags: allFlags(),
+      evidence: evidence.map(item => ({ ...item, testEvidenceIds: [] })) }, undefined, { artifactsVerified: true });
+    expect(noDrift.gates.find(gate => gate.id === 'G4')?.missing).toEqual(['evidence:drift-suite-complete']);
   });
 
   it.each([
@@ -34,25 +58,18 @@ describe('decision qualification gate evaluator', () => {
     ['calibration-data-missing', 'G3'],
     ['p0-correctness-failed', 'G1'],
   ])('does not waive %s with positive checks', (finding, affectedGate) => {
-    const cases = expectedQualificationCaseIds().map(id => ({ ...oneCase, id, kind: id.startsWith('TV') ? 'vendor' as const : 'baseline' as const }));
-    const evidence = cases.map(({ id }) => ({
-      caseId: id, executable: true, outcome: 'pass' as const, artifact: `${id}.json`, digest: `sha256:${'a'.repeat(64)}` as const,
-    }));
-    const evidenceFlags = Object.fromEntries(DECISION_RELEASE_GATES.flatMap(gate => gate.requiredEvidence).map(key => [key, true]));
+    const { cases, evidence } = complete();
+    const evidenceFlags = allFlags();
     evidenceFlags[finding] = true;
-    const report = evaluateQualification({ ...base, cases, evidence, evidenceFlags });
+    const report = evaluateQualification({ ...base, cases, evidence, evidenceFlags, gateArtifacts }, undefined, { artifactsVerified: true });
     expect(report.decision).toBe('HOLD');
     expect(report.gates.find(gate => gate.id === affectedGate)).toMatchObject({ status: 'fail', failed: [`finding:${finding}`] });
     expect(report.gates.find(gate => gate.id === 'G6')?.failed).toContain(`finding:${finding}`);
   });
 
   it('rejects duplicate and invented evidence even if the last duplicate passes', () => {
-    const cases = expectedQualificationCaseIds().map(id => ({ ...oneCase, id, kind: id.startsWith('TV') ? 'vendor' as const : 'baseline' as const }));
-    const evidence = cases.map(({ id }) => ({
-      caseId: id, executable: true, outcome: 'pass' as const, artifact: `${id}.json`, digest: `sha256:${'a'.repeat(64)}` as const,
-    }));
-    const evidenceFlags = Object.fromEntries(DECISION_RELEASE_GATES.flatMap(gate => gate.requiredEvidence).map(key => [key, true]));
-    const report = evaluateQualification({ ...base, cases, evidenceFlags, evidence: [
+    const { cases, evidence } = complete();
+    const report = evaluateQualification({ ...base, cases, evidenceFlags: allFlags(), gateArtifacts, evidence: [
       { ...evidence[0]!, outcome: 'fail' }, ...evidence, { ...evidence[0]!, caseId: 'C99' },
     ] });
     expect(report.decision).toBe('HOLD');

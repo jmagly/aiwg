@@ -5,6 +5,7 @@ import type {
   QualificationRunManifest,
 } from './types.js';
 import { expectedQualificationCaseIds, validateCaseInventory } from './manifest.js';
+import { deriveGateEvidence, DERIVED_GATE_EVIDENCE, type QualificationEvidenceProof } from './gate-evidence.js';
 
 // Negative evidence always overrides a positive suite result. A release reviewer
 // cannot waive these conditions by supplying passing evidence checks.
@@ -25,7 +26,11 @@ export const DECISION_RELEASE_GATES: readonly QualificationGateDefinition[] = [
   { id: 'G6', title: 'release evidence and review', mandatory: true, requiredCaseIds: [], requiredEvidence: ['evidence-hashes-verified', 'review-decision-recorded'] },
 ] as const;
 
-function evaluateGate(definition: QualificationGateDefinition, manifest: QualificationRunManifest): QualificationGateResult {
+function evaluateGate(
+  definition: QualificationGateDefinition,
+  manifest: QualificationRunManifest,
+  derived: Readonly<Record<string, boolean>>,
+): QualificationGateResult {
   const evidenceByCase = new Map(manifest.evidence.map(item => [item.caseId, item]));
   const requiredCases = definition.id === 'G0'
     ? expectedQualificationCaseIds()
@@ -52,8 +57,12 @@ function evaluateGate(definition: QualificationGateDefinition, manifest: Qualifi
       failed.push(`case:${caseId}:${evidence.outcome}`);
     }
   }
+  // Derived names are recomputed from recorded evidence; a caller-set flag of
+  // the same name is ignored rather than trusted.
+  const derivedNames = new Set(DERIVED_GATE_EVIDENCE);
   for (const key of definition.requiredEvidence) {
-    if (manifest.evidenceFlags[key] !== true) missing.push(`evidence:${key}`);
+    const value = derivedNames.has(key) ? derived[key] : manifest.evidenceFlags[key];
+    if (value !== true) missing.push(`evidence:${key}`);
   }
   for (const key of BLOCKING_FINDINGS[definition.id] ?? []) {
     if (manifest.evidenceFlags[key] === true) failed.push(`finding:${key}`);
@@ -65,11 +74,18 @@ function evaluateGate(definition: QualificationGateDefinition, manifest: Qualifi
   return { id: definition.id, title: definition.title, status, missing: missing.sort(), failed: failed.sort() };
 }
 
+/**
+ * Structural evaluator. Suite, inventory and artifact-backed flags are derived
+ * from the manifest; `evidence-hashes-verified` is only true when the
+ * executable pipeline passes a proof after re-reading every artifact.
+ */
 export function evaluateQualification(
   manifest: QualificationRunManifest,
   definitions: readonly QualificationGateDefinition[] = DECISION_RELEASE_GATES,
+  proof: QualificationEvidenceProof = {},
 ): QualificationReport {
-  const gates = definitions.map(definition => evaluateGate(definition, manifest));
+  const derived = deriveGateEvidence(manifest, proof);
+  const gates = definitions.map(definition => evaluateGate(definition, manifest, derived));
   const mandatoryFailed = gates.some((gate, index) => definitions[index]?.mandatory && gate.status !== 'pass');
   return {
     schemaVersion: 'decision-qualification-report/v1',

@@ -33,6 +33,8 @@ export function stableManifestDigest(manifest: QualificationRunManifest): `sha25
     cases: [...manifest.cases].sort((a, b) => a.id.localeCompare(b.id)),
     evidence: [...manifest.evidence].sort((a, b) => a.caseId.localeCompare(b.caseId)),
     evidenceFlags: Object.fromEntries(Object.entries(manifest.evidenceFlags).sort(([a], [b]) => a.localeCompare(b))),
+    ...(manifest.gateArtifacts ? { gateArtifacts: Object.fromEntries(Object.entries(manifest.gateArtifacts)
+      .sort(([a], [b]) => a.localeCompare(b))) } : {}),
   });
   return `sha256:${createHash('sha256').update(canonical).digest('hex')}`;
 }

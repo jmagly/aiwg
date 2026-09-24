@@ -24,6 +24,49 @@ Absent or invalid captures fail G2 closed. Capturing streams and errors for the
 full execution lifetime is still the caller's responsibility; empty synthetic
 captures are not proof that a live workload is private.
 
+## Gate evidence: derived flags and backing artifacts
+
+No G0–G6 evidence flag is taken from a caller. `evidenceChecks` callbacks named after any
+flag in `DERIVED_GATE_EVIDENCE` are never invoked, and `evaluateQualification` recomputes
+those flags from the manifest even when a caller-assembled manifest sets them. Callbacks
+remain available for auxiliary flags and for the blocking findings listed below, which can
+only make a gate fail.
+
+| Gate | Flag | How it is derived | Backing evidence |
+|---|---|---|---|
+| G0 | `case-inventory-complete` | `validateCaseInventory` over the run's cases; the G0 gate separately requires a passing, digest-bound artifact for every C01–C42 and TV01–TV25 case | case inventory and case artifacts |
+| G1 | `runtime-suite-complete` | every case in `DECISION_GATE_SUITES['runtime-suite-complete']` passed | case artifacts |
+| G2 | `security-suite-complete` | every case in the security suite (C29, C30, C32, C34, C36, C39) passed | case artifacts |
+| G2 | `privacy-scan-clean` | `scanQualificationPrivacy` over all eight captured surfaces | runner privacy scan |
+| G3 | `immutable-splits` | a `decision-binary-benchmark-plan/v1` whose digest recomputes and whose splits pass `verifyQualificationSplits` | split plan artifact |
+| G3 | `calibration-qualified` | an approved `decision-calibration-artifact/v1` whose digest recomputes, whose `splitProvenance.hash` is the accepted split-plan digest, that is in effect at `generatedAt`, and whose metrics meet its own profile | calibration artifact |
+| G4 | `fault-suite-complete` | every retry, fallback, cancellation and receipt case (C13–C18, C24, C27, C28, C33, C37, C38, C42) passed | case artifacts |
+| G4 | `drift-suite-complete` | TV10 passed and its artifact names every `DRF-*` ID in the drift suite | case artifacts |
+| G5 | `load-manifest-qualified` | a `decision-load-result/v1` that embeds its load manifest, whose `manifestDigest` is the canonical digest of that manifest, and whose observations are within every bound | load result record |
+| G6 | `evidence-hashes-verified` | set only by `evaluateExecutedQualification` after every case and gate artifact re-verifies on disk | verification pass |
+| G6 | `review-decision-recorded` | a `decision-qualification-review/v1` with `decision: approve` for the same run ID and source commit and the run's `qualificationOutcomesDigest` | reviewer decision record |
+
+Pass the artifact-backed sources as `gateArtifacts` (a file path per flag). The runner
+validates each against the run, copies it to `<runId>/gates/<flag>.json` and pins its
+SHA-256 in `manifest.gateArtifacts`. An invalid or absent artifact leaves the flag false.
+`verifyQualificationGateArtifacts` re-reads and re-validates the copies, and
+`evaluateExecutedQualification` drops any that fail, so tampering after the run fails both
+the owning gate and G6. `qualificationOutcomesDigest` covers case IDs, outcomes and named
+evidence but not artifact digests, so a reviewer can sign the outcome set before the final run.
+
+Blocking findings (`p0-correctness-failed`, `execution-uncertain`, `privacy-denied`,
+`calibration-data-missing`) still fail G1, G2, G3 and G6 when a check reports them.
+
+## Aggregate run
+
+`test/conformance/decision-v1/qualification-aggregate.test.ts` registers every executable
+vector module from `test/conformance/decision-v1/vectors/registry.ts` in one run over all 67
+cases. It fails when a case with a coverage hint has no registered executor, when an
+executor is defined in the decision test trees outside the registry, or when a registered
+executor does not pass with a verified digest. Unit tests in
+`test/unit/decision/qualification-runner.test.ts` use trivial callbacks to exercise runner
+mechanics only; they are not vector evidence.
+
 Artifacts use `decision-qualification-artifact/v1`, live below a validated run-id directory,
 and are written through a same-directory temporary file and atomic rename. Verification rejects
 absolute paths, traversal, symbolic links, non-files, oversized content, digest mismatches, and

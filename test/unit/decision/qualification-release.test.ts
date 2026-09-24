@@ -2,12 +2,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DECISION_RELEASE_GATES } from '../../../src/decision/qualification/gates.js';
-import { expectedQualificationCaseIds } from '../../../src/decision/qualification/manifest.js';
 import { QUALIFICATION_PRIVACY_SURFACES } from '../../../src/decision/qualification/privacy.js';
 import { buildQualificationReleaseRecord, qualificationReleaseSummary } from '../../../src/decision/qualification/release.js';
 import { executeAndEvaluateQualification } from '../../../src/decision/qualification/runner.js';
 import { buildIntegrityMetadata } from '../../../tools/eval/src/integrity.js';
+import { syntheticCases, writeGateArtifacts } from './qualification-gate-fixtures.js';
 
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
@@ -18,17 +17,15 @@ const pins = Object.fromEntries([
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'decision-release-'));
-  roots.push(root);
-  const cases = expectedQualificationCaseIds().map(id => ({ id, kind: id.startsWith('TV') ? 'vendor' as const : 'baseline' as const,
-    mandatory: true, candidateTests: [] }));
-  const flags = Object.fromEntries(DECISION_RELEASE_GATES.flatMap(gate => gate.requiredEvidence)
-    .map(name => [name, () => true]));
+  const sources = await mkdtemp(join(tmpdir(), 'decision-release-gates-'));
+  roots.push(root, sources);
+  const cases = syntheticCases();
+  const manifest = { schemaVersion: 'decision-qualification-run/v1' as const, mode: 'offline' as const, runId: 'synthetic-release',
+    generatedAt: '2026-09-23T00:00:00.000Z', sourceCommit: 'a'.repeat(40), dirty: false, cases };
   return executeAndEvaluateQualification({
-    artifactRoot: root,
-    manifest: { schemaVersion: 'decision-qualification-run/v1', mode: 'offline', runId: 'synthetic-release',
-      generatedAt: '2026-09-23T00:00:00.000Z', sourceCommit: 'a'.repeat(40), dirty: false, cases },
+    artifactRoot: root, manifest, gateArtifacts: await writeGateArtifacts(sources, manifest),
     executors: Object.fromEntries(cases.map(item => [item.id, () => ({ outcome: 'pass' as const })])),
-    evidenceChecks: flags, privacyCanaries: ['synthetic-marker@example.invalid'],
+    privacyCanaries: ['synthetic-marker@example.invalid'],
     privacyCaptures: QUALIFICATION_PRIVACY_SURFACES.map(surface => ({ surface, content: '' })),
   });
 }

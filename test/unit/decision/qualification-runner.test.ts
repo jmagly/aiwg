@@ -8,10 +8,13 @@ import {
   executeQualificationPlan,
   verifyQualificationArtifacts,
 } from '../../../src/decision/qualification/runner.js';
-import { expectedQualificationCaseIds, REQUIRED_VENDOR_CASE_IDS } from '../../../src/decision/qualification/manifest.js';
-import { DECISION_RELEASE_GATES } from '../../../src/decision/qualification/gates.js';
+import { REQUIRED_VENDOR_CASE_IDS } from '../../../src/decision/qualification/manifest.js';
+import { DERIVED_GATE_EVIDENCE } from '../../../src/decision/qualification/gate-evidence.js';
 import { QUALIFICATION_PRIVACY_SURFACES } from '../../../src/decision/qualification/privacy.js';
 import type { QualificationCase, QualificationRunManifest } from '../../../src/decision/qualification/types.js';
+import {
+  syntheticCalibration, syntheticCases, syntheticLoadResult, syntheticReview, syntheticSplitPlan, writeGateArtifacts,
+} from './qualification-gate-fixtures.js';
 
 const roots: string[] = [];
 const generatedAt = '2026-09-22T00:00:00.000Z';
@@ -33,8 +36,11 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })));
 });
 
+// Runner mechanics only. These trivial callbacks are not vector evidence: the
+// executable TV/C vectors live in test/conformance/decision-v1/vectors and run
+// together in qualification-aggregate.test.ts.
 describe('decision qualification executable runner', () => {
-  it('executes all TV01-TV25 vectors and emits independently verifiable artifacts', async () => {
+  it('RUNNER-MECHANICS-01 invokes every registered callback once and emits independently verifiable artifacts', async () => {
     const root = await artifactRoot();
     const cases = REQUIRED_VENDOR_CASE_IDS.map(id => ({ id, kind: 'vendor' as const, mandatory: true, candidateTests: [] }));
     const seen: string[] = [];
@@ -44,13 +50,16 @@ describe('decision qualification executable runner', () => {
     }]));
     const run = await executeQualificationPlan({
       manifest: manifest(cases), artifactRoot: root, executors, concurrency: 3,
-      evidenceChecks: { 'runtime-suite-complete': () => true, 'privacy-scan-clean': () => false },
+      evidenceChecks: { 'runtime-suite-complete': () => true, 'privacy-scan-clean': () => false, 'operator-note': () => true },
     });
 
     expect(seen.sort()).toEqual([...REQUIRED_VENDOR_CASE_IDS]);
     expect(run.evidence).toHaveLength(25);
     expect(run.evidence.every(item => item.executable && item.outcome === 'pass')).toBe(true);
-    expect(run.evidenceFlags).toEqual({ 'privacy-scan-clean': false, 'runtime-suite-complete': true });
+    // A callback cannot set a derived gate flag; only auxiliary flags pass through.
+    expect(run.evidenceFlags['runtime-suite-complete']).toBe(false);
+    expect(run.evidenceFlags['privacy-scan-clean']).toBe(false);
+    expect(run.evidenceFlags['operator-note']).toBe(true);
     expect(await verifyQualificationArtifacts(run, root)).toEqual(
       REQUIRED_VENDOR_CASE_IDS.map(caseId => ({ caseId, verified: true })),
     );
@@ -233,23 +242,100 @@ describe('decision qualification executable runner', () => {
     })).rejects.toThrow('artifact exceeds 256 bytes');
   });
 
-  it('promotes through the combined pipeline only after all executions, checks, and hashes pass', async () => {
+  it('promotes through the combined pipeline only after all executions, derived suites, gate artifacts, and hashes pass', async () => {
     const root = await artifactRoot();
-    const cases = expectedQualificationCaseIds().map(id => ({
-      id, kind: id.startsWith('TV') ? 'vendor' as const : 'baseline' as const, mandatory: true, candidateTests: [],
-    }));
+    const cases = syntheticCases();
     const executors = Object.fromEntries(cases.map(({ id }) => [id, () => ({ outcome: 'pass' as const })]));
-    const requiredFlags = [...new Set(DECISION_RELEASE_GATES.flatMap(gate => gate.requiredEvidence))];
-    const evidenceChecks = Object.fromEntries(requiredFlags.map(name => [name, () => true]));
+    const gateArtifacts = await writeGateArtifacts(await artifactRoot(), manifest(cases));
 
     const result = await executeAndEvaluateQualification({
-      manifest: manifest(cases), artifactRoot: root, executors, evidenceChecks, concurrency: 8,
+      manifest: manifest(cases), artifactRoot: root, executors, gateArtifacts, concurrency: 8,
       privacyCanaries: ['canary@example.invalid'],
       privacyCaptures: QUALIFICATION_PRIVACY_SURFACES.map(surface => ({ surface, content: '' })),
     });
     expect(result.verification).toHaveLength(67);
     expect(result.verification.every(item => item.verified)).toBe(true);
+    expect(result.gateVerification.map(item => [item.flag, item.verified])).toEqual([
+      ['immutable-splits', true], ['calibration-qualified', true], ['load-manifest-qualified', true], ['review-decision-recorded', true],
+    ]);
     expect(result.report.gates.every(gate => gate.status === 'pass')).toBe(true);
     expect(result.report.decision).toBe('PROMOTE');
+  });
+
+  it('GATE-DERIVED-01 ignores positive callbacks for every derived flag and never invokes them', async () => {
+    const root = await artifactRoot();
+    const cases = syntheticCases();
+    let invoked = 0;
+    const evidenceChecks = Object.fromEntries(DERIVED_GATE_EVIDENCE.map(name => [name, () => { invoked++; return true; }]));
+    const result = await executeAndEvaluateQualification({
+      manifest: manifest(cases), artifactRoot: root, evidenceChecks,
+      executors: Object.fromEntries(cases.filter(item => item.id !== 'C31').map(({ id }) => [id, () => ({ outcome: 'pass' as const })])),
+    });
+    expect(invoked).toBe(0);
+    const gate = (id: string) => result.report.gates.find(item => item.id === id)!;
+    // G0 inventory is computed; G1 needs its recorded suite; G3/G5/G6 need artifacts.
+    expect(gate('G0').missing).toContain('case:C31');
+    expect(gate('G1')).toMatchObject({ status: 'fail', missing: ['evidence:runtime-suite-complete'] });
+    expect(gate('G2').missing).toEqual(['evidence:privacy-scan-clean']);
+    expect(gate('G3').missing).toEqual(['evidence:calibration-qualified', 'evidence:immutable-splits']);
+    expect(gate('G4').missing).toEqual([]);
+    expect(gate('G5').missing).toEqual(['evidence:load-manifest-qualified']);
+    expect(gate('G6').missing).toEqual(['evidence:review-decision-recorded']);
+    expect(result.report.decision).toBe('HOLD');
+  });
+
+  it('GATE-DERIVED-02 fails suites whose recorded case evidence failed, even with a positive callback', async () => {
+    const root = await artifactRoot();
+    const cases = syntheticCases();
+    const failing = new Set(['C29', 'C13', 'TV10']);
+    const result = await executeAndEvaluateQualification({
+      manifest: manifest(cases), artifactRoot: root,
+      evidenceChecks: { 'security-suite-complete': () => true, 'fault-suite-complete': () => true, 'drift-suite-complete': () => true },
+      executors: Object.fromEntries(cases.map(({ id }) => [id, () => ({ outcome: failing.has(id) ? 'fail' as const : 'pass' as const })])),
+    });
+    const missing = (id: string) => result.report.gates.find(item => item.id === id)!.missing;
+    expect(missing('G2')).toContain('evidence:security-suite-complete');
+    expect(missing('G4')).toEqual(['evidence:drift-suite-complete', 'evidence:fault-suite-complete']);
+    expect(missing('G1')).toEqual([]);
+  });
+
+  it('GATE-ARTIFACT-01 rejects invalid, unbound, or tampered gate artifacts', async () => {
+    const cases = syntheticCases();
+    const executors = Object.fromEntries(cases.map(({ id }) => [id, () => ({ outcome: 'pass' as const })]));
+    const sources = await artifactRoot();
+    const plan = (root: string, gateArtifacts: Awaited<ReturnType<typeof writeGateArtifacts>>) => ({
+      manifest: manifest(cases), artifactRoot: root, executors, gateArtifacts,
+      privacyCanaries: ['canary@example.invalid'],
+      privacyCaptures: QUALIFICATION_PRIVACY_SURFACES.map(surface => ({ surface, content: '' })),
+    });
+    const valid = await writeGateArtifacts(sources, manifest(cases));
+
+    // A review signed for other outcomes or rejecting the run, an over-bound load result, calibration
+    // bound to a different split plan, or a split plan whose digest no longer matches is not evidence.
+    const variants: Array<[string, string, unknown]> = [
+      ['review-decision-recorded', 'G6', syntheticReview({ ...manifest(cases), runId: 'other-run' })],
+      ['review-decision-recorded', 'G6', syntheticReview(manifest(cases), { decision: 'reject' })],
+      ['load-manifest-qualified', 'G5', syntheticLoadResult({ maximumActiveCalls: 4, maximumQueuedCalls: 1, maximumRetryAmplificationRatio: 1 })],
+      ['calibration-qualified', 'G3', syntheticCalibration(`sha256:${'f'.repeat(64)}`)],
+      ['immutable-splits', 'G3', { ...syntheticSplitPlan(), minimumOverallN: 1 }],
+    ];
+    for (const [flag, gateId, value] of variants) {
+      const path = join(sources, `${flag}.invalid.json`);
+      await writeFile(path, JSON.stringify(value));
+      const result = await executeAndEvaluateQualification(plan(await artifactRoot(), { ...valid, [flag]: path }));
+      expect(result.manifest.gateArtifacts?.[flag]).toBeUndefined();
+      expect(result.report.gates.find(item => item.id === gateId)!.missing).toContain(`evidence:${flag}`);
+      expect(result.report.decision).toBe('HOLD');
+    }
+
+    const root = await artifactRoot();
+    const run = await executeQualificationPlan(plan(root, valid));
+    expect((await evaluateExecutedQualification(run, root)).report.decision).toBe('PROMOTE');
+    await writeFile(join(root, run.gateArtifacts!['load-manifest-qualified']!.artifact), '{"tampered":true}\n');
+    const tampered = await evaluateExecutedQualification(run, root);
+    expect(tampered.gateVerification.find(item => item.flag === 'load-manifest-qualified')).toMatchObject({ verified: false, reason: 'digest-mismatch' });
+    expect(tampered.report.gates.find(item => item.id === 'G5')!.missing).toEqual(['evidence:load-manifest-qualified']);
+    expect(tampered.report.gates.find(item => item.id === 'G6')!.missing).toEqual(['evidence:evidence-hashes-verified']);
+    expect(tampered.report.decision).toBe('HOLD');
   });
 });

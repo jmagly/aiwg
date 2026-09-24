@@ -39,6 +39,15 @@ export interface QualificationRunManifest {
   cases: QualificationCase[];
   evidence: QualificationEvidence[];
   evidenceFlags: Record<string, boolean>;
+  /** Runner-copied, digest-pinned artifacts that back G3/G5/G6 evidence flags. */
+  gateArtifacts?: Record<string, QualificationGateArtifactRef>;
+}
+
+export interface QualificationGateArtifactRef {
+  /** Path relative to the artifact root, below the run directory. */
+  artifact: string;
+  digest: `sha256:${string}`;
+  schemaVersion: string;
 }
 
 export interface QualificationGateResult {
