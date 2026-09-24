@@ -81,6 +81,13 @@ const PROVIDERS = Object.freeze({
   grokbot: {
     bridges: ['AGENTS.md'],
   },
+  // Muse Code: discover-first AGENTS.md bridge + project skill root. Never
+  // invent ~/.muse or ~/.agents/skills. .muse/ holds hooks that run outside
+  // Muse's sandbox, so it is audited via hook ownership, not session context.
+  muse: {
+    skills: ['.agents/skills'],
+    bridges: ['AGENTS.md'],
+  },
 });
 
 const SHARED_CONTEXT = Object.freeze([

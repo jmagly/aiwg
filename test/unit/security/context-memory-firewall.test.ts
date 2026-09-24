@@ -225,4 +225,46 @@ describe('context/memory firewall', () => {
     }
   });
 
+  it('accepts muse bridge + project skill root without inventing home skill trees (#229)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-context-firewall-muse-'));
+    try {
+      await write(root, 'AGENTS.md', '# Muse Code bridge');
+      await write(root, 'AIWG.md', '# AIWG');
+      await mkdir(join(root, '.agents', 'skills', 'aiwg-regenerate'), { recursive: true });
+      await write(root, '.agents/skills/aiwg-regenerate/SKILL.md', '# AIWG Regenerate');
+      const result = await scanContextMemoryFirewall({
+        rootDir: root,
+        packageRoot: root,
+        providers: ['muse'],
+        contentScan: false,
+      });
+      expect(() => result).not.toThrow();
+      const paths = result.records.map((record) => record.path);
+      expect(paths).toEqual(expect.arrayContaining([
+        'AGENTS.md',
+        'AIWG.md',
+        '.agents/skills/aiwg-regenerate/SKILL.md',
+      ]));
+      // Fail-closed path policy: never ~/.muse, never ~/.agents/skills.
+      expect(paths.every((entry) => !entry.includes('.muse') && !entry.includes('~'))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not throw Unknown provider for muse (#229)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-context-firewall-muse-unknown-'));
+    try {
+      await write(root, 'AGENTS.md', '# bridge');
+      await expect(scanContextMemoryFirewall({
+        rootDir: root,
+        packageRoot: root,
+        providers: ['muse'],
+        contentScan: false,
+      })).resolves.toBeTruthy();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
 });
