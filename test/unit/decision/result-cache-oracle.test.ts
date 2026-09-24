@@ -69,6 +69,25 @@ describe('result-cache existence and timing oracles across scopes', () => {
     expect((await store.read(victim, present))?.entryId).toBe('entry-victim');
   }));
 
+  it('AC15: rejects unauthorized invalidate, export and delete on both Memory and File stores without side effects', async () => {
+    const covered: string[] = [];
+    await stores(async (store, kind) => {
+      await store.putIfAbsent(victim, entry(victim, present));
+      for (const permission of ['invalidate', 'export', 'delete'] as const) {
+        const lacking: ResultCacheActor = { ...victim, subjectId: 'intruder', permissions: ALL.filter(value => value !== permission) };
+        for (const key of [present, absent]) {
+          await expect(operations(store, lacking, key)[permission](), `${kind} ${permission}`).rejects.toBeInstanceOf(ResultCacheAccessDeniedError);
+        }
+        // A caller holding the permission but in another scope cannot reach the victim entry either.
+        const scoped = await observe(operations(store, foreign, present)[permission]);
+        expect(scoped, `${kind} ${permission}`).toBe(permission === 'export' ? 'ok:null' : 'ok:false');
+        expect((await store.read(victim, present))?.entryId, `${kind} ${permission}`).toBe('entry-victim');
+        covered.push(`${kind}:${permission}`);
+      }
+    });
+    expect(covered).toEqual(['memory:invalidate', 'memory:export', 'memory:delete', 'file:invalidate', 'file:export', 'file:delete']);
+  });
+
   it('never reads victim storage during a foreign lookup, so corrupt or unreadable entries cannot leak existence', async () => {
     const memory = new MemoryResultCacheStore();
     await memory.putIfAbsent(victim, entry(victim, present));

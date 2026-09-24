@@ -8,6 +8,9 @@ import { MemoryDecisionReceiptStore } from '../../../src/decision/receipts.js';
 import { DecisionResultCache, FileResultCacheStore, MemoryResultCacheStore, RESULT_CACHE_KEY_VERSION, digestCachedResult, digestResultCacheIdentity, entryIntegrityDigest } from '../../../src/decision/result-cache/index.js';
 import { artifactPin, assertDecisionResultWriterVersion, validateDecisionDocument } from '../../../src/decision/validate.js';
 import { BoundedDecisionMetrics } from '../../../src/decision/telemetry/metrics.js';
+import { CalibrationRegistry, calibrationIdentityDigest } from '../../../src/decision/calibration/registry.js';
+import type { CalibrationIdentity } from '../../../src/decision/calibration/types.js';
+import type { ModelCompatibilityPolicy } from '../../../src/decision/result-cache/index.js';
 import type { DecisionAdapter, DecisionBinding, DecisionDefinition, DecisionEvaluationRequest, DecisionRuleset } from '../../../src/decision/types.js';
 import type { DecisionTelemetrySpan } from '../../../src/decision/telemetry/types.js';
 
@@ -248,6 +251,60 @@ describe('experimental evaluator result-cache integration', () => {
     expect(points.filter(point => point.name === 'decision.throughput')).toHaveLength(2);
     expect(points.filter(point => point.name === 'decision.input_tokens')).toHaveLength(before);
     expect(points.filter(point => point.name === 'decision.attempts')).toHaveLength(1);
+  });
+
+  it('reuses only a stable alias from the real CalibrationRegistry and misses or bypasses after promotion, rollback or retirement', async () => {
+    const { base, adapter, target } = setup();
+    const registry = new CalibrationRegistry();
+    const alias = target.model;
+    const calibrationIdentity = (actualModel: string): CalibrationIdentity => ({ provider: 'jev', backend: 'fixture', actualModel,
+      primitive: 'choice', definitionDigest: sha('a'), adapterVersion: target.adapterVersion, dataset: { id: 'workflow', hash: sha('b') },
+      slice: { id: 'all', hash: sha('c') }, calibrator: { id: 'isotonic', version: '1', parametersDigest: sha('d') } });
+    const head = () => registry.aliasHistory(alias).at(-1)!;
+    // The registry, not the adapter, decides which actual model the alias serves.
+    const originalEvaluate = adapter.evaluate;
+    adapter.evaluate = vi.fn(async input => ({ ...await originalEvaluate(input), actualModel: head().actualModel }));
+    const initial = registry.observeAlias(alias, calibrationIdentity('jev-2026-09-01'), '2026-09-01T00:00:00.000Z');
+    const validUntilEpochMs = Date.now() + 100_000;
+    const snapshot = (): Extract<ModelCompatibilityPolicy, { mode: 'alias' }> => {
+      const current = head();
+      return { mode: 'alias', alias, snapshotId: `${alias}@${current.revision}:${current.actualIdentityDigest}`,
+        approvedActualModels: current.kind === 'retired' ? [] : [current.actualModel], validUntilEpochMs };
+    };
+    // Two-stage decision: the identity carries a registry snapshot, and every lookup re-checks it against the live head.
+    const verifyAliasSnapshot = vi.fn(async (value: Extract<ModelCompatibilityPolicy, { mode: 'alias' }>) => {
+      const current = head();
+      return current.kind !== 'retired' && value.snapshotId === `${alias}@${current.revision}:${current.actualIdentityDigest}`
+        && value.approvedActualModels.includes(current.actualModel);
+    });
+    const pinIdentity = base.resultCache!.identityFor;
+    const withSnapshot = (take: () => ReturnType<typeof snapshot>) => ({ ...base.resultCache!, verifyAliasSnapshot,
+      identityFor: (context: Parameters<typeof pinIdentity>[0]) => ({ ...pinIdentity(context), modelCompatibility: take() }) });
+    const live = withSnapshot(snapshot);
+    const run = async (invocationId: string, cache = live) => (await evaluateDecisionRuleset({ ...base, invocationId, resultCache: cache })).spec.cache?.disposition;
+
+    expect(await run('fill')).toBe('cache-miss-fill');
+    expect(await run('stable')).toBe('cache-hit');
+    expect(vi.mocked(adapter.evaluate)).toHaveBeenCalledTimes(1);
+    const stale = snapshot();
+    const eligibility = registry.recordPromotionEligibility({ id: 'promotion-1', alias,
+      candidateIdentityDigest: calibrationIdentityDigest(calibrationIdentity('jev-next')), candidateActualModel: 'jev-next',
+      evaluationIntegrityReport: { id: 'eval-1', digest: sha('9') }, approvalReference: 'approval-1',
+      rollbackTarget: { aliasRevision: initial.revision, identityDigest: initial.actualIdentityDigest }, eligible: true, reasons: [],
+      recordedAt: '2026-09-10T00:00:00.000Z' });
+    registry.promoteAlias(eligibility.id, '2026-09-11T00:00:00.000Z');
+    // A host still holding the pre-promotion snapshot is refused by the live re-check.
+    expect(await run('stale-after-promotion', withSnapshot(() => stale))).toBe('bypass');
+    // A fresh snapshot names the new revision, so it is a different key: miss, then reuse.
+    expect(await run('promoted')).toBe('cache-miss-fill');
+    expect(await run('promoted-stable')).toBe('cache-hit');
+    registry.rollbackAlias(alias, initial.revision, 'approval-2', '2026-09-12T00:00:00.000Z');
+    // Rolling back to the original model is a new registry revision; the old entry is not resurrected.
+    expect(await run('rolled-back')).toBe('cache-miss-fill');
+    registry.retireAlias(alias, 'approval-3', '2026-09-13T00:00:00.000Z');
+    expect(await run('retired')).toBe('bypass');
+    expect(vi.mocked(adapter.evaluate)).toHaveBeenCalledTimes(5);
+    expect(registry.aliasHistory(alias).map(event => event.kind)).toEqual(['observed', 'promoted', 'rolled-back', 'retired']);
   });
 
   it('does not reuse an unverified source receipt even if the cache entry is present', async () => {
