@@ -6,7 +6,7 @@ import { planDecisionContext, type ContextTokenEstimator } from '../../../src/de
 import {
   FileBatchReceiptStore, FileBatchResultStore, MemoryBatchReceiptStore, MemoryBatchResultStore, allocateEstimatedUsage, batchAccountingTotals,
   batchEnforcementCostMicros, batchResultReference, deriveCost, newBatchReceipt, nextBatchReceipt, sanitizedBatchReceiptExport,
-  validateBatchReceipt, type BatchAttempt, type DecisionBatchReceipt, type BatchReceiptStore,
+  validateBatchReceipt, validateBatchReceiptTransition, type BatchAttempt, type DecisionBatchReceipt, type BatchReceiptStore,
 } from '../../../src/decision/batch-receipts/index.js';
 
 const hash = (character: string) => `sha256:${character.repeat(64)}` as `sha256:${string}`;
@@ -45,6 +45,19 @@ function completed(receipt = base(), attempts = [attempt()]): DecisionBatchRecei
 }
 
 describe('decision batch receipts', () => {
+  it('keeps an optional W3C traceparent immutable and rejects malformed values', () => {
+    const traceParent = `00-${'1'.repeat(32)}-${'2'.repeat(16)}-01`;
+    const traced: DecisionBatchReceipt = { ...base(), traceParent };
+    expect(() => validateBatchReceipt(traced)).not.toThrow();
+    expect(nextBatchReceipt(traced, { status: 'running', updatedAtEpochMs: 110 }).traceParent).toBe(traceParent);
+    for (const invalid of ['not-a-traceparent', `00-${'0'.repeat(32)}-${'2'.repeat(16)}-01`, ` ${traceParent}`]) {
+      expect(() => validateBatchReceipt({ ...base(), traceParent: invalid })).toThrow();
+    }
+    const running = nextBatchReceipt(traced, { status: 'running', updatedAtEpochMs: 110 });
+    const forged = { ...running, revision: running.revision + 1, traceParent: `00-${'3'.repeat(32)}-${'2'.repeat(16)}-01` };
+    expect(() => validateBatchReceiptTransition(running, forged)).toThrow(/traceParent/);
+  });
+
   it('REC-BATCH-001 owns one request total and exposes three reference-only answer links', () => {
     const receipt = completed();
     expect(receipt.attempts).toHaveLength(1);
