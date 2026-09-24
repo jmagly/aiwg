@@ -62,6 +62,7 @@ Tell the agent which tool you are using:
 | OpenClaw | “Connect AIWG to this OpenClaw workspace.” |
 | Hermes | “Connect AIWG to this Hermes workspace.” |
 | Grok Bot | “Connect AIWG to this Grok Bot workspace.” |
+| Muse Code | “Connect AIWG to this Muse Code workspace.” |
 | OpenHuman | “Connect AIWG to this OpenHuman workspace.” |
 | Oh My Pi | “Connect AIWG to this Oh My Pi project.” |
 | Pi Coding Agent (pi.dev) | “Connect AIWG to this Pi Coding Agent project.” |
