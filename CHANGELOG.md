@@ -21,7 +21,10 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   body-free tombstones and result cascade, hold-aware sweeps, and restore that
   refuses erased or expired content. `FileBatchReceiptStore` and
   `FileBatchResultStore` constructors now require these options, and unkeyed
-  stores are refused until an explicit, authorized `migrateLegacy` (#2672).
+  stores are refused until an explicit, authorized `migrateLegacy`. Replay of
+  an erased or expired durable batch never re-dispatches and reports the new
+  v1alpha2-only reason `batch-record-unavailable`; tampered or unmigrated state
+  reports `persistence-error` (#2672).
 
 ### Changed
 

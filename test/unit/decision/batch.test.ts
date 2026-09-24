@@ -802,7 +802,7 @@ describe('native shared-state decision batching', () => {
     }
   });
 
-  it('never re-dispatches after an erased receipt cascades to its results and reports persistence-error', async () => {
+  it('never re-dispatches after an erased receipt cascades to its results and reports batch-record-unavailable', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-batch-erase-'));
     try {
       const fetchImpl = vi.fn(async (_url, options) => validResponse(
@@ -819,7 +819,19 @@ describe('native shared-state decision batching', () => {
         ...keyedFileStores(receiptDirectory, resultDirectory)) });
       expect(fetchImpl).toHaveBeenCalledTimes(1);
       expect(Object.values(replay.spec.evaluations).map(result => [result.spec.status, result.spec.reason]))
-        .toEqual(Array(3).fill(['error', 'persistence-error']));
+        .toEqual(Array(3).fill(['error', 'batch-record-unavailable']));
+      expect(replay.apiVersion).toBe('decision.aiwg.io/v1alpha2');
+      // The dedicated reason is v1alpha2-only: stripped of v1alpha2 evidence, the same result
+      // validates as v1alpha1 only with a released reason.
+      const legacy = structuredClone(Object.values(replay.spec.evaluations)[0]!) as unknown as {
+        apiVersion: string; spec: Record<string, unknown> & { reason: string; attempts: Array<Record<string, unknown>> } };
+      legacy.apiVersion = 'decision.aiwg.io/v1alpha1';
+      for (const field of ['batchResult', 'context']) delete legacy.spec[field];
+      for (const attempt of legacy.spec.attempts) for (const field of ['batch', 'admission', 'providerPrefix']) delete attempt[field];
+      expect(() => validateDecisionDocument(legacy)).toThrow();
+      legacy.spec.reason = 'persistence-error';
+      legacy.spec.attempts.forEach(attempt => { attempt.reason = 'persistence-error'; });
+      expect(() => validateDecisionDocument(legacy)).not.toThrow();
       expect(Object.values(replay.spec.evaluations).every(result => !result.spec.batchResult)).toBe(true);
     } finally {
       await rm(directory, { recursive: true, force: true });

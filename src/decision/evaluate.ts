@@ -559,8 +559,10 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
         } else if (error instanceof BatchRecordUnavailableError || error instanceof BatchStoreIntegrityError
           || error instanceof BatchStoreMigrationRequiredError) {
           // Erased, expired, tampered or unmigrated durable state is never re-dispatched and never
-          // falls back to another read of stored values.
-          observations = new Map(questionIds.map(id => [id, observationFailure('persistence-error')]));
+          // falls back to another read of stored values. Only lifecycle unavailability gets the
+          // dedicated reason; integrity and migration failures stay persistence-error.
+          const reason = error instanceof BatchRecordUnavailableError ? 'batch-record-unavailable' : 'persistence-error';
+          observations = new Map(questionIds.map(id => [id, observationFailure(reason)]));
         } else if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) {
           throw error;
         } else {

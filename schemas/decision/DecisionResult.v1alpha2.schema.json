@@ -192,6 +192,7 @@
             "persistence-error",
             "replay-mismatch",
             "execution-uncertain",
+            "batch-record-unavailable",
             "no-match",
             "conflicting-outcomes",
             "evaluation-failed"
@@ -385,6 +386,7 @@
                   "persistence-error",
                   "replay-mismatch",
                   "execution-uncertain",
+                  "batch-record-unavailable",
                   "no-match",
                   "conflicting-outcomes",
                   "evaluation-failed"
