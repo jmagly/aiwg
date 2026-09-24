@@ -461,6 +461,25 @@ describe('decision telemetry executed golden traces', () => {
     }
   });
 
+  it('stores the workflow traceparent in the invocation receipt and links a replay back to it', async () => {
+    const spans: DecisionTelemetrySpan[] = []; const receiptStore = new MemoryDecisionReceiptStore();
+    const evaluate = vi.fn(async (input: DecisionAdapterRequest) => success(input.alias));
+    const request = { ...base(spans, { jev: adapter('jev', evaluate) }, () => 1_000), receiptStore };
+    const original = await evaluateDecisionRuleset(request);
+    const root = spans[0]!;
+    const receipt = (await receiptStore.read('golden', 'default'))!;
+    expect(extractTraceContext({ traceparent: receipt.traceParent })).toMatchObject({
+      traceId: root.context.traceId, spanId: root.context.spanId });
+    const replaySpans: DecisionTelemetrySpan[] = [];
+    const replay = await evaluateDecisionRuleset({ ...request, telemetry: { hook: { emit: span => { replaySpans.push(span); } }, ids: ids('8') } });
+    expect(replay).toEqual(original);
+    expect(evaluate).toHaveBeenCalledTimes(3);
+    expect(replaySpans[0]!.context.traceId).not.toBe(root.context.traceId);
+    expect(replaySpans[0]!.links).toEqual([{ traceId: root.context.traceId, spanId: root.context.spanId, relationship: 'continuation' }]);
+    expect(replaySpans.some(span => span.name === 'decision.attempt')).toBe(false);
+    assertTraceInvariants(replaySpans);
+  });
+
   for (const scenario of golden.scenarios) {
     it(`${scenario.id} ${scenario.name}`, async () => {
       const observed = await scenarios[scenario.id]!();

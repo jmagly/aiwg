@@ -583,11 +583,22 @@ export interface DecisionReceipt {
   remoteHandles: string[];
   evaluations: Record<string, DecisionResult>;
   pending: { alias: string; targetIndex: number; ordinal: number; attempts: DecisionAttempt[] } | null;
+  /**
+   * Immutable W3C `traceparent` of the workflow span that acquired this receipt.
+   * Covered by the store's integrity MAC; a replay links to it instead of inventing a new identity.
+   */
+  traceParent?: string;
+}
+
+export interface DecisionReceiptAcquireOptions {
+  /** Recorded only when this call creates the receipt; ignored when one already exists. */
+  traceParent?: string;
 }
 
 export interface DecisionReceiptStore {
   read(invocationId: string, projectId?: string): Promise<DecisionReceipt | null>;
-  acquire(invocationId: string, projectId: string, fingerprint: string): Promise<{ owner: boolean; receipt: DecisionReceipt }>;
+  acquire(invocationId: string, projectId: string, fingerprint: string,
+    options?: DecisionReceiptAcquireOptions): Promise<{ owner: boolean; receipt: DecisionReceipt }>;
   compareAndSwap(invocationId: string, projectId: string, expectedRevision: number, next: DecisionReceipt): Promise<boolean>;
   waitForTerminal(invocationId: string, projectId: string, fingerprint: string, signal?: AbortSignal): Promise<DecisionReceipt>;
 }

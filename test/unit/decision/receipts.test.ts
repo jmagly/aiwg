@@ -129,6 +129,37 @@ describe('REC-ATOMIC store conformance', () => {
     await expect(store.read('id', 'project')).rejects.toThrow(/integrity/);
   });
 
+  it('records an immutable, MAC-covered traceParent at acquisition only', async () => {
+    const traceParent = `00-${'1'.repeat(32)}-${'2'.repeat(16)}-01`;
+    const fingerprint = `sha256:${'a'.repeat(64)}`;
+    for (const store of await stores()) {
+      const { receipt } = await store.acquire('traced', 'project', fingerprint, { traceParent });
+      expect(receipt.traceParent).toBe(traceParent);
+      // A second acquisition cannot rewrite the origin.
+      const again = await store.acquire('traced', 'project', fingerprint, { traceParent: `00-${'3'.repeat(32)}-${'2'.repeat(16)}-01` });
+      expect(again).toMatchObject({ owner: false, receipt: { traceParent } });
+      const dispatched = nextReceipt(receipt, 'dispatched');
+      expect(dispatched.traceParent).toBe(traceParent);
+      await expect(store.compareAndSwap('traced', 'project', 1, { ...dispatched, traceParent: `00-${'4'.repeat(32)}-${'2'.repeat(16)}-01` }))
+        .rejects.toThrow(/outside legal transition/);
+      const { traceParent: _removed, ...stripped } = dispatched;
+      await expect(store.compareAndSwap('traced', 'project', 1, stripped)).rejects.toThrow(/outside legal transition/);
+      expect(await store.compareAndSwap('traced', 'project', 1, dispatched)).toBe(true);
+    }
+    const [memory] = await stores();
+    await expect(memory!.acquire('bad', 'project', fingerprint, { traceParent: 'not-a-traceparent' })).rejects.toThrow(/Invalid decision receipt/);
+  });
+
+  it('rejects a durable record whose traceParent was modified after signing', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-receipt-trace-tamper-'));
+    temp.push(directory);
+    const store = new FileDecisionReceiptStore(directory, { integrityKey: randomBytes(32) });
+    await store.acquire('id', 'project', `sha256:${'a'.repeat(64)}`, { traceParent: `00-${'1'.repeat(32)}-${'2'.repeat(16)}-01` });
+    const path = join(directory, (await readdir(directory)).find(file => file.endsWith('.json'))!);
+    await writeFile(path, (await readFile(path, 'utf8')).replace('1'.repeat(32), '5'.repeat(32)));
+    await expect(store.read('id', 'project')).rejects.toThrow(/integrity/);
+  });
+
   it('rejects a valid record substituted at another invocation filename', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'decision-receipt-index-'));
     temp.push(directory);

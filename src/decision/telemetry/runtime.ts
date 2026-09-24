@@ -4,7 +4,8 @@ import { extractTraceContext, transportTraceContext } from './context.js';
 import { mapDecisionAttempt, mapDecisionResult, mapRulesetResult, type AttributeMapping } from './mapping.js';
 import { DecisionTraceBuilder, recordBatchReceiptTrace } from './trace.js';
 import { recordDecisionSpanMetrics } from './metrics.js';
-import type { DecisionTelemetryLink, DecisionTelemetrySpan } from './types.js';
+import { sanitizeAttributes } from './redaction.js';
+import type { DecisionTelemetryLink, DecisionTelemetrySpan, TelemetryAttributes } from './types.js';
 
 type RuntimeTelemetry = NonNullable<DecisionEvaluationRequest['telemetry']>;
 
@@ -119,9 +120,7 @@ export class DecisionRuntimeTrace {
   finishBatch(handles: readonly DecisionRuntimeSpan[], receipt: DecisionBatchReceipt | undefined): void {
     this.guard(() => {
       if (receipt && handles.length === 0) {
-        const origin = receipt.traceParent ? extractTraceContext({ traceparent: receipt.traceParent }) : null;
-        if (origin && (origin.traceId !== this.root.context.traceId || origin.spanId !== this.root.context.spanId)) this.root.links.push({ traceId: origin.traceId,
-          spanId: origin.spanId, relationship: 'batch', attributes: { 'aiwg.batch.id': receipt.batchId } });
+        this.linkOrigin(receipt.traceParent, 'batch', { 'aiwg.batch.id': receipt.batchId });
         return;
       }
       if (receipt) {
@@ -139,6 +138,17 @@ export class DecisionRuntimeTrace {
           { accountingKey: handle.span.context.spanId });
         this.builder.endSpan(handle.span, answers.every(answer => answer.status === 'success') ? 'ok' : 'error');
       }
+    });
+  }
+
+  /** Link the workflow to the trace that created a durable receipt this invocation is replaying. */
+  linkOrigin(traceParent: string | undefined, relationship: DecisionTelemetryLink['relationship'], attributes: TelemetryAttributes): void {
+    this.guard(() => {
+      const origin = traceParent ? extractTraceContext({ traceparent: traceParent }) : null;
+      if (!origin || (origin.traceId === this.root.context.traceId && origin.spanId === this.root.context.spanId)
+        || this.root.links.some(link => link.traceId === origin.traceId && link.spanId === origin.spanId)) return;
+      this.root.links.push({ traceId: origin.traceId, spanId: origin.spanId, relationship,
+        ...(Object.keys(attributes).length ? { attributes: sanitizeAttributes(attributes) } : {}) });
     });
   }
 

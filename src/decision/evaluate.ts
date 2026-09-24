@@ -252,8 +252,11 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
   const projectId = request.receiptProjectId ?? 'default';
   if (request.receiptStore) {
     try {
-      const acquisition = await request.receiptStore.acquire(request.invocationId, projectId, fingerprint);
+      const traceParent = runtimeTraceOf(request)?.traceParent;
+      const acquisition = await request.receiptStore.acquire(request.invocationId, projectId, fingerprint,
+        traceParent ? { traceParent } : {});
       if (!acquisition.owner) {
+        runtimeTraceOf(request)?.linkOrigin(acquisition.receipt.traceParent, 'continuation', {});
         if (acquisition.receipt.fingerprint !== fingerprint) return failureResult(base, 'replay-mismatch');
         if (acquisition.receipt.state === 'completed') return structuredClone(acquisition.receipt.result!);
         if (acquisition.receipt.state === 'failed' || acquisition.receipt.state === 'execution-uncertain') return failureResult(base, 'execution-uncertain');

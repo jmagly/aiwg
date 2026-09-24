@@ -13,6 +13,7 @@ The evaluator records spans live. `evaluateDecisionRuleset()` opens `decision.wo
 Propagation crosses these boundaries:
 
 - **Adapter and transport.** `DecisionAdapterRequest.traceContext` carries the live attempt span's `traceparent`; `DecisionAdapterBatchRequest.traceContext` carries the batch request span's. The Jev adapter forwards a well-formed `traceparent` header and drops anything else. Vendor `tracestate` never crosses a provider boundary.
+- **Durable invocation receipt.** When telemetry is enabled, the D03 invocation receipt records the workflow span's `traceparent` as the optional `traceParent` field at acquisition. The field is immutable across transitions, is validated as W3C `traceparent`, and is covered by `FileDecisionReceiptStore`'s HMAC. An invocation that replays an existing receipt links its workflow span to that origin (`relationship: continuation`).
 - **Durable batch receipt.** A batch receipt created with telemetry enabled stores the workflow span's `traceparent` as the immutable `traceParent` field. A later invocation that replays the receipt dispatches nothing and links its workflow span back to that origin (`relationship: batch`).
 - **Async job item.** A host continues a job item by passing the dispatching `decision.job` span context as `telemetry.parent`; the item's workflow becomes its child.
 - **Review continuation.** `DecisionReviewService` spans use the configured `telemetry.parent` (normally the originating workflow or its `decision.review` span).
