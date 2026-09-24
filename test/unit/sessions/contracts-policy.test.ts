@@ -19,10 +19,10 @@ import {
 } from '../../../src/sessions/index.js';
 
 describe('session contracts', () => {
-  it('asserts exactly 15 canonical provider IDs with documented compatibility aliases', () => {
+  it('asserts exactly 17 canonical provider IDs with documented compatibility aliases', () => {
     expect(SESSION_PROVIDER_IDS).toEqual([
       'claude', 'codex', 'copilot', 'cursor', 'factory', 'hermes',
-      'opencode', 'openclaw', 'openhuman', 'grokbot', 'pi', 'omp', 'deepseek-harness', 'warp', 'devin-desktop', 'generic',
+      'opencode', 'openclaw', 'openhuman', 'grokbot', 'pi', 'omp', 'deepseek-harness', 'warp', 'devin-desktop', 'muse', 'generic',
     ]);
     expect(assertSessionProviderId('windsurf')).toBe('devin-desktop');
     expect(assertSessionProviderId('dsh')).toBe('deepseek-harness');

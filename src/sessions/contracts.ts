@@ -3,10 +3,10 @@ import { z } from 'zod';
 export const SESSION_CONTRACT_VERSION = '1.0.0' as const;
 export const SESSION_PROVIDER_IDS = [
   'claude', 'codex', 'copilot', 'cursor', 'factory', 'hermes',
-  'opencode', 'openclaw', 'openhuman', 'grokbot', 'pi', 'omp', 'deepseek-harness', 'warp', 'devin-desktop', 'generic',
+  'opencode', 'openclaw', 'openhuman', 'grokbot', 'pi', 'omp', 'deepseek-harness', 'warp', 'devin-desktop', 'muse', 'generic',
 ] as const satisfies readonly [
   string, string, string, string, string, string,
-  string, string, string, string, string, string, string, string, string, string,
+  string, string, string, string, string, string, string, string, string, string, string,
 ];
 
 export const SessionProviderIdSchema = z.enum(SESSION_PROVIDER_IDS);

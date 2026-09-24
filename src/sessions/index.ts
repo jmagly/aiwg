@@ -39,4 +39,5 @@ export * from './adapters/deepseek-harness.js';
 export * from './adapters/warp.js';
 export * from './adapters/windsurf.js';
 
+export * from './adapters/muse.js';
 export * from './adapters/omp.js';

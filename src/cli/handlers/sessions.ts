@@ -27,6 +27,8 @@ import {
   OpenHumanSessionAdapter,
   GROKBOT_ADAPTER_VERSION,
   GrokbotSessionAdapter,
+  MUSE_ADAPTER_VERSION,
+  MuseSessionAdapter,
   PI_ADAPTER_VERSION,
   PiSessionAdapter,
   DEEPSEEK_HARNESS_ADAPTER_VERSION,
@@ -813,7 +815,7 @@ async function importSource(
   if (provider !== 'generic' && provider !== 'claude' && provider !== 'codex'
     && provider !== 'copilot' && provider !== 'cursor' && provider !== 'factory'
     && provider !== 'hermes' && provider !== 'opencode' && provider !== 'openclaw'
-    && provider !== 'openhuman' && provider !== 'grokbot' && provider !== 'pi' && provider !== 'omp' && provider !== 'deepseek-harness' && provider !== 'warp' && provider !== 'devin-desktop') {
+    && provider !== 'openhuman' && provider !== 'grokbot' && provider !== 'muse' && provider !== 'pi' && provider !== 'omp' && provider !== 'deepseek-harness' && provider !== 'warp' && provider !== 'devin-desktop') {
     throw new CliError('UNSUPPORTED_OPERATION', `session import is not implemented for ${provider}`, EXIT.unsupported);
   }
   const sourceId = requiredValue(args, '--source-id');
@@ -830,6 +832,7 @@ async function importSource(
   const isOpenClaw = provider === 'openclaw';
   const isOpenHuman = provider === 'openhuman';
   const isGrokbot = provider === 'grokbot';
+  const isMuse = provider === 'muse';
   const isPi = provider === 'pi';
   const isOmp = provider === 'omp';
   const isDsh = provider === 'deepseek-harness';
@@ -855,6 +858,8 @@ async function importSource(
                     ? new OpenHumanSessionAdapter()
                     : isGrokbot
                       ? new GrokbotSessionAdapter()
+                      : isMuse
+                        ? new MuseSessionAdapter()
                       : isPi
                         ? new PiSessionAdapter()
                     : isWarp
@@ -882,6 +887,8 @@ async function importSource(
                     ? 'openhuman-enriched-jsonl'
                     : isGrokbot
                       ? 'manual-export'
+                      : isMuse
+                        ? 'manual-export'
                       : isPi
                         ? 'pi-session-v3-jsonl'
                     : isWarp
@@ -916,6 +923,8 @@ async function importSource(
                       ? 'schema-1-session-raw-enriched'
                       : isGrokbot
                         ? 'manual-interchange'
+                        : isMuse
+                          ? 'muse-export-trajectory-v1'
                         : isWarp
                           ? 'manual-lossy-markdown-export'
                         : isDevinDesktop
@@ -942,13 +951,15 @@ async function importSource(
                       ? OPENHUMAN_ADAPTER_VERSION
                       : isGrokbot
                         ? GROKBOT_ADAPTER_VERSION
+                        : isMuse
+                          ? MUSE_ADAPTER_VERSION
                         : isWarp
                           ? WARP_ADAPTER_VERSION
                         : isDevinDesktop
                           ? DEVIN_DESKTOP_ADAPTER_VERSION
                           : GENERIC_ADAPTER_VERSION,
     sourceSchemaVersion: probe.sourceSchemaVersion,
-    disposition: isWarp || isGrokbot
+    disposition: isWarp || isGrokbot || isMuse
       ? 'manual-only'
       : isClaude || isCodex || isCopilot || isCursor || isFactory || isHermes
         || isOpenCode || isOpenClaw || isOpenHuman || isDevinDesktop || isOmp || isDsh || isPi
@@ -975,6 +986,8 @@ async function importSource(
                       ? { 'native.openhuman': {} }
                       : isGrokbot
                         ? { 'native.grokbot': {} }
+                        : isMuse
+                          ? { 'native.muse': {} }
                         : isWarp
                           ? { 'native.warp': {} }
                         : isDevinDesktop
@@ -1606,6 +1619,20 @@ function providerDisposition(provider: SessionProviderId): Record<string, unknow
         adapterVersion: GROKBOT_ADAPTER_VERSION,
         verifiedAt: '2026-09-15',
         documentation: 'docs/providers/grokbot-sessions.md',
+      },
+    };
+  }
+  if (provider === 'muse') {
+    return {
+      provider, disposition: 'manual-only', operationalState: 'available',
+      supportedOperations: ['inspect', 'stream'],
+      acquisitionModes: ['manual-export'],
+      reasonCode: 'MANUAL_SOURCE_SELECTION_REQUIRED',
+      remediation: 'Run `muse export` and explicitly select the trajectory JSON; Muse Code auto-discover is unsupported until a native session root is evidenced on disk.',
+      evidence: {
+        adapterVersion: MUSE_ADAPTER_VERSION,
+        verifiedAt: '2026-09-24',
+        documentation: 'docs/providers/muse-sessions.md',
       },
     };
   }
