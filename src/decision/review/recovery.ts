@@ -35,7 +35,8 @@ export function auditedReviewReconciler(input: {
     const attempt = await input.catalog.findAttempt({ workspaceId: input.workspaceId, previousSessionId: input.previousSessionId, reviewId: input.reviewId, effectId });
     if (!attempt || attempt.workspaceId !== input.workspaceId || attempt.sessionId !== input.previousSessionId ||
         attempt.reviewId !== input.reviewId || attempt.effectId !== effectId) return null;
-    const receipt = await input.ledger.completedReceipt({ ...input.scope, reviewId: input.reviewId, effectId });
+    const receipt = await input.ledger.completedReceipt({ tenantId: input.scope.tenantId, projectId: input.scope.projectId,
+      reviewId: input.reviewId, effectId });
     if (!receipt || receipt.effectId !== effectId || !Number.isSafeInteger(receipt.completedAtEpochMs) || receipt.completedAtEpochMs < 0) return null;
     return receipt;
   };

@@ -1751,6 +1751,16 @@
       "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
     },
     {
+      "path": "test/unit/decision/review-operator-audit.test.ts",
+      "owner": "test/unit",
+      "role": "fixture-or-test",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [],
+      "serialization": "typescript/javascript",
+      "migrationAction": "retain",
+      "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
+    },
+    {
       "path": "test/unit/mc-bridge/dispatch-client.test.ts",
       "owner": "test/unit",
       "role": "fixture-or-test",
