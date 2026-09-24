@@ -30,8 +30,29 @@ context or memory.
   mirrors into `~/.agents/skills`.
 - No `CLAUDE.md` shim and no foreign-provider context file: this bridge is
   the Muse context surface.
-- Project hooks (`.muse/hooks.json`) stay operator-owned in this wave;
-  unmanaged hooks are never silently installed.
+
+## Hooks and MCP
+
+> **Hooks run outside the agent sandbox.** Muse executes hook commands as
+> plain shell processes on the operator's machine — not inside the agent's
+> sandbox. Project hooks additionally run only after the operator trusts the
+> project folder. Review `.muse/hooks.json` before trusting a workspace.
+
+- `aiwg use --provider muse` installs one AIWG-managed `SessionStart` hook
+  into `.muse/hooks.json`: a read-only `aiwg sync --dry-run --quiet`
+  context refresh at session start. Unmanaged hooks are never silently
+  installed; every managed hook ships with a stated reason and a removal
+  path (see `tools/agents/providers/muse-hooks.mjs`).
+- Opt out with `aiwg use --provider muse --no-hooks`. To remove an installed
+  managed hook, delete its matcher group from `.muse/hooks.json` (the group
+  whose command is `aiwg sync --dry-run --quiet`).
+- MCP is **opt-in only**: `aiwg use --provider muse --mcp` merges the AIWG
+  MCP server (`aiwg mcp serve` over stdio, `mode: optional`) into the
+  `mcp_servers` block of the operator's `$XDG_CONFIG_HOME/muse/settings.json`
+  (default `~/.config/muse/settings.json`). A default deploy never touches
+  MCP or user settings. stdio servers inherit the operator environment —
+  pass `MUSE_SESSION_ID` through at runtime rather than hardcoding a
+  session id into `env`.
 
 ## After deploy or regenerate
 
