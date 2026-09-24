@@ -4,5 +4,7 @@ export * from './gates.js';
 export * from './gate-evidence.js';
 export * from './runner.js';
 export * from './quality.js';
+export * from './drift.js';
 export * from './privacy.js';
+export * from './capture.js';
 export * from './release.js';

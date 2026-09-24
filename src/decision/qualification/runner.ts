@@ -94,6 +94,9 @@ interface QualificationArtifact {
   error?: string;
 }
 
+/** Named master-test-plan suites plus the M01-M11 amendment IDs. */
+export const QUALIFICATION_EVIDENCE_ID = /^(?:CON|POL|BCH|CTX|CNC|CAN|RTY|REC|SEC|PRV|CAL|DRF|M(?:0[1-9]|1[01]))-[A-Z0-9][A-Z0-9._-]*$/;
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_ARTIFACT_BYTES = 256 * 1024;
 const DEFAULT_CONCURRENCY = 4;
@@ -175,7 +178,7 @@ async function executeCase(
 ): Promise<QualificationEvidence> {
   const started = Date.now();
   const testEvidenceIds = [...(item.evidenceIds ?? [])];
-  if (testEvidenceIds.some(id => !/^(?:CAL|DRF)-[A-Z0-9][A-Z0-9._-]*$/.test(id))
+  if (testEvidenceIds.some(id => !QUALIFICATION_EVIDENCE_ID.test(id))
     || new Set(testEvidenceIds).size !== testEvidenceIds.length) throw new Error(`invalid named qualification evidence for ${item.id}`);
   testEvidenceIds.sort();
   const executor = plan.executors[item.id];
@@ -361,6 +364,21 @@ export async function verifyQualificationGateArtifacts(
     results.push({ flag, verified: true });
   }
   return results;
+}
+
+/**
+ * Derives `privacy-scan-clean` for an executed run from surfaces captured
+ * around the whole run (see `captureQualificationLifetime`). The value comes
+ * from the scanner, as with `privacyCaptures`; it is never taken from the caller.
+ */
+export function withQualificationPrivacyScan(
+  manifest: QualificationRunManifest,
+  captures: readonly QualificationPrivacyCapture[],
+  canaries: readonly string[],
+): QualificationRunManifest {
+  let clean = false;
+  try { clean = scanQualificationPrivacy(captures, canaries).clean; } catch { clean = false; }
+  return { ...manifest, evidenceFlags: { ...manifest.evidenceFlags, 'privacy-scan-clean': clean } };
 }
 
 function containedArtifactPath(root: string, relative: string): string | null {
