@@ -124,4 +124,63 @@ describe('Muse Code session adapter', () => {
     await expect(adapter.inspect(selected('valid-v1.json', 'muse-fixture-v1', 'cursor-composer')))
       .rejects.toMatchObject({ code: 'UNSUPPORTED_OPERATION' });
   });
+
+  describe('live multi-stream evidence (Muse Code 1.3.0)', () => {
+    const parentId = '01a0d42e-4285-73b2-8145-c30f949c5bf8';
+    const spawnId = '01a0d42f-2708-7550-9956-91434f3e3898';
+    const childId = '01a0d42f-2711-73a2-a03c-757fa74b98fc';
+
+    it('inspects a real-shaped multi-stream export', async () => {
+      const source = selected('multistream-v1.json', 'muse-fixture-multistream');
+      await expect(adapter.inspect(source)).resolves.toEqual({
+        sourceSchemaVersion: '1.0.0',
+        consistency: 'complete',
+        operationalState: 'available',
+      });
+    });
+
+    it('attributes each record by its own envelope.stream.id and skips gap markers', async () => {
+      const events = await collect(adapter.stream(selected('multistream-v1.json', 'muse-fixture-multistream')));
+      // 5 raw events, 1 gap marker with "envelope": null -> 4 provider records.
+      expect(events).toHaveLength(4);
+      expect(events.map((event) => event.nativeEventId))
+        .toEqual(['muse-seq-0', 'muse-seq-1', 'muse-seq-3', 'muse-seq-4']);
+      for (const event of events) {
+        expect(event.nativeSessionId).toBe(parentId);
+        if (event.nativeEventId !== 'muse-seq-4') {
+          expect(event.extensions?.['native.muse']).toMatchObject({
+            streamKind: 'session',
+            streamId: parentId,
+          });
+        }
+      }
+      // The record with no stream block falls back to sessions[0].session_id.
+      const fallback = events[3];
+      expect(fallback.kind).toBe('tool_batch.effect.started');
+      expect(fallback.nativeSessionId).toBe(parentId);
+      expect(fallback.extensions?.['native.muse']).not.toHaveProperty('streamId');
+      expect(fallback.extensions?.['native.muse']).not.toHaveProperty('streamKind');
+    });
+
+    it('keeps the spawn handle and the child session id distinct', async () => {
+      const events = await collect(adapter.stream(selected('multistream-v1.json', 'muse-fixture-multistream')));
+      const bound = events.find((event) => event.kind === 'subagent.control.child_session_bound');
+      expect(bound).toBeDefined();
+      const native = bound!.extensions?.['native.muse'] as Record<string, unknown>;
+      // CRITICAL: subagent_id (spawn handle) != child_session_id (child session/dir identity).
+      expect(native.subagentId).toBe(spawnId);
+      expect(native.childSessionId).toBe(childId);
+      expect(native.subagentId).not.toBe(native.childSessionId);
+      // Spawn context is joined by the spawn handle, not the child id.
+      expect(native).toMatchObject({ spawnAgentPath: 'main/create-a-txt/1', spawnRole: 'file-creator-A' });
+
+      const attested = events.find((event) => event.kind === 'subagent.control.start_attested');
+      expect(attested).toBeDefined();
+      expect((attested!.extensions?.['native.muse'] as Record<string, unknown>)).toMatchObject({
+        subagentId: spawnId,
+        subagentSessionId: childId,
+        spawnRole: 'file-creator-A',
+      });
+    });
+  });
 });

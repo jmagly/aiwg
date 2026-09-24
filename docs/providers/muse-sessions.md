@@ -35,12 +35,13 @@ does not invent fields the docs don't show:
   / `session_build` (`display` strings), `session_terminated_abnormally`
   (boolean), per-stream `sessions` summaries (`session_id`, `turn_count`,
   `step_count`, `session_end`), ordered `events`, and `diagnostics` counters.
-- Each event is an envelope `{sequence, recorded_at, record_type, durability,
-  payload_type, payload}`; the effective event kind is
-  `payload.event.kind`, falling back to `payload_type` (a stream fact such as
-  `approval_wait.effect.started`).
-- All events in one document are attributed to the first stream summary
-  (`sessions[0].session_id`), matching the single-session export contract.
+- Each record event carries an envelope `{sequence, id, causation_id, stream,
+  recorded_at, record_type, durability, payload_type, payload}`; the effective
+  event kind is `payload.event.kind`, falling back to `payload_type` (a stream
+  fact such as `approval_wait.effect.started`). Events are attributed to
+  their own `envelope.stream.id`, falling back to `sessions[0].session_id`
+  only when the stream block is absent. Gap markers carry `"envelope": null`
+  and are skipped.
 
 ## Preserved provenance
 
@@ -60,6 +61,40 @@ A trajectory whose log recorded no orderly `session.end`
 (`session_terminated_abnormally: true`) inspects as `provisional`; an
 orderly export inspects as `complete`.
 
+## Multi-stream behavior (live evidence)
+
+Verified 2026-09-24 against a real `muse export` from Muse Code 1.3.0
+(`exporter_version`/`session_build` display `Muse Code 1.3.0 (3c572bc734)`),
+a parent session that spawned three parallel subagents (567 events: 552
+record + 14 gap + 1 retained_frame):
+
+- The document carries exactly one `sessions[]` summary per exported parent
+  session. Subagents appear only inside `sessions[0].accepted_spawns[]` as
+  spawn handles (`subagent_id`, `agent_path`, `role`, `parent_session_id`),
+  never as extra `sessions[]` entries.
+- Every merged record event carries its own `envelope.stream.id` (always the
+  parent session id in the probe), so the importer attributes per event from
+  the envelope and only falls back to `sessions[0].session_id` when the
+  stream block is absent.
+- Subagent tool runs are NOT merged into the parent export. Only
+  `subagent.control.*` records (spawn/attest/bound/result) are merged; the
+  child work lives in `subagent/<child_session_id>/session.jsonl` under its
+  own stream id.
+- `subagent_id` is the spawn handle; `child_session_id` (from
+  `subagent.control.child_session_bound`) and `subagent_session_id` (from
+  `start_attested`) are the child session identity, naming the nested log
+  directories. They are distinct values and must never be conflated. The
+  adapter preserves both, plus `source_session_id`, under
+  `extensions["native.muse"]`.
+- Gap markers carry `"envelope": null`; the adapter skips them and never
+  fabricates records for them.
+
+To import a subagent's work, export its nested log separately
+(`muse export --session <parent-log-dir>/subagent/<child_session_id>/session.jsonl`)
+and import it as its own manual-export stream. Automatic nested-log
+ingestion is future work; nested sessions are joined via
+`child_session_bound`.
+
 ## Evidence gaps
 
 The Meta recipe documents a candidate native log path of
@@ -68,9 +103,7 @@ The Meta recipe documents a candidate native log path of
 verified on disk by AIWG, so no discover path and no `~/.muse` (or similar)
 root is assumed. A future evidence-gated `--muse-root` discover path,
 analogous to `--codex-root`, remains the route to native discovery (#222
-PR B). A multi-stream export's later streams have no documented per-event
-session association yet; events are attributed to the first stream summary
-until product evidence says otherwise.
+PR B).
 
 ## Tested contract
 
@@ -83,6 +116,10 @@ AIWG adapter contract: `1.0.0`. Synthetic fixtures cover:
 - rejection of non-`manual-export` locator classes
 - discover unsupported without filesystem probes
 - cursor-based resume across streamed events
+- live multi-stream shape (`multistream-v1.json`, replicating the real
+  1.3.0 export) — per-event `envelope.stream.id` attribution, null-envelope
+  gap markers skipped, spawn handle vs. child session id kept distinct
 
-No live Muse Code sessions, log files, or credentials were used: fixtures
-are synthetic records of the documented trajectory shape only.
+Synthetic fixtures are records of the documented trajectory shape; the
+multi-stream rules above were verified against a real Muse Code 1.3.0
+export. No credentials were used.
