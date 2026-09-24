@@ -28,6 +28,7 @@
     "bin/",
     "agentic/code/providers/",
     "schemas/security/",
+    "schemas/decision/",
     "schemas/dataset/",
     "dist/src/",
     "!dist/**/*.d.ts",

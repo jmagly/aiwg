@@ -50,6 +50,7 @@ export async function buildCliPackage({ outputDir = defaultOutputDir } = {}) {
     path.join(repoRoot, 'dist', 'src', 'api', 'index.d.ts'),
     path.join(repoRoot, 'dist', 'src', 'resources', 'index.js'),
     path.join(repoRoot, 'dist', 'src', 'resources', 'index.d.ts'),
+    path.join(repoRoot, 'schemas', 'decision', 'DecisionJob.v1.schema.json'),
     path.join(repoRoot, 'schemas', 'dataset', 'dataset-contracts.v1.schema.json'),
     path.join(repoRoot, 'schemas', 'dataset', 'dataset-schema-governance.v1.schema.json'),
     path.join(repoRoot, 'schemas', 'dataset', 'run-ledger.v1.schema.json'),
@@ -89,6 +90,11 @@ export async function buildCliPackage({ outputDir = defaultOutputDir } = {}) {
   await cp(
     path.join(repoRoot, 'schemas', 'security'),
     path.join(outputDir, 'schemas', 'security'),
+    { recursive: true },
+  );
+  await cp(
+    path.join(repoRoot, 'schemas', 'decision'),
+    path.join(outputDir, 'schemas', 'decision'),
     { recursive: true },
   );
   await cp(
