@@ -24,6 +24,7 @@ import {
   batchEnforcementCostMicros,
   decisionBatchQuestionId,
   planDecisionContext,
+  compareContextUsage,
   planNativeDecisionBatches,
 } from '../../../src/decision/index.js';
 
@@ -149,6 +150,42 @@ describe('native shared-state decision batching', () => {
     expect(result.spec.context?.actualUsage.every(item => item.actualInputTokens === 9)).toBe(true);
     expect(Object.values(result.spec.evaluations).every(item => item.spec.context?.plan.planDigest === result.spec.context?.plan.planDigest)).toBe(true);
     Object.values(result.spec.evaluations).forEach(validateDecisionDocument);
+  });
+
+  it('CTX-RUNTIME records request-accurate usage when compatible batch is a subset of a context partition', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const runtime = contextRuntime();
+    runtime.profile.limits.aggregateTokens = 100;
+    runtime.profile.limits.stateAndLongestQuestionTokens = 100;
+    const batching = policy();
+    batching.evaluations.severity!.egressPolicy = 'another-egress-policy';
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batching, context: runtime });
+    expect(result.spec.context?.plan.partitions).toHaveLength(1);
+    const usage = result.spec.context?.actualUsage ?? [];
+    expect(usage).toHaveLength(2);
+    const pair = usage.find(item => item.questionIds.length === 2);
+    expect(pair?.estimatedInputTokens).toBe(3);
+    expect(pair?.questionIds).toEqual([decisionBatchQuestionId('category'), decisionBatchQuestionId('core_unavailable')].sort());
+    expect(usage.find(item => item.questionIds.length === 1)?.estimatedInputTokens).toBe(2);
+  });
+
+  it('CTX-ROLLOUT observes only single calls and blocks unqualified enforcement before credentials', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const runtime = contextRuntime();
+    runtime.profile.limits.aggregateTokens = 100;
+    runtime.profile.limits.stateAndLongestQuestionTokens = 100;
+    runtime.rollout = { mode: 'observe-only' };
+    const observed = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime });
+    expect(observed.spec.context?.actualUsage).toHaveLength(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    const credential = vi.fn(async () => new TextEncoder().encode('token'));
+    const qualification = compareContextUsage([{ caseId: 'offline', input: runtime.input,
+      actualInputTokens: 3, source: 'synthetic', usageRef: 'fixture:offline' }], runtime.profile, runtime.estimator);
+    runtime.rollout = { mode: 'enforce', qualification };
+    const rejected = await evaluateDecisionRuleset({ ...request(fetchImpl), resolveCredential: credential, context: runtime });
+    expect(rejected.spec.reason).toBe('invalid-input');
+    expect(credential).not.toHaveBeenCalled();
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
   it('CTX-RUNTIME rejects stale plans before capability, credential, or transport access', async () => {

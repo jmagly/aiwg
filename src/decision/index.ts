@@ -12,6 +12,7 @@ export * from './scheduler.js';
 export * from './admission.js';
 export * from './batch-receipts/index.js';
 export * from './context-plan.js';
+export * from './context-qualification.js';
 export * from './calibration/index.js';
 export * from './projection.js';
 export * from './lifecycle.js';

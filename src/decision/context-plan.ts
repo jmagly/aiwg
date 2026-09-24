@@ -120,11 +120,13 @@ export class ContextPlanError extends Error {
 
 /** Conservative, deterministic fallback; it does not claim vendor-tokenizer equivalence. */
 export class CanonicalJsonByteEstimator implements ContextTokenEstimator {
-  readonly id = 'canonical-json-utf8-ceil';
+  readonly id: string;
   constructor(readonly version = '1.0.0', private readonly bytesPerToken = 3) {
-    if (!Number.isInteger(bytesPerToken) || bytesPerToken < 1) {
+    if (!Number.isSafeInteger(bytesPerToken) || bytesPerToken < 1) {
       throw new ContextPlanError('invalid-profile', 'bytesPerToken must be a positive integer');
     }
+    // A different byte/token ratio is a different estimator, even if its caller reuses a version.
+    this.id = bytesPerToken === 3 ? 'canonical-json-utf8-ceil' : `canonical-json-utf8-ceil-bpt${bytesPerToken}`;
   }
 
   estimate(value: ContextValue): ContextTokenEstimate {
@@ -258,23 +260,25 @@ export function recordContextActualUsage(
   plan: ContextPlan,
   partitionId: string,
   actualInputTokens: number,
-  questionId?: string,
+  questionId?: string | readonly string[],
 ): ContextActualUsageEvidence {
   const partition = plan.partitions.find(candidate => candidate.id === partitionId);
   if (!partition) throw new ContextPlanError('invalid-input', `unknown context partition '${partitionId}'`);
   if (!Number.isSafeInteger(actualInputTokens) || actualInputTokens < 0) {
     throw new ContextPlanError('invalid-input', 'actualInputTokens must be a non-negative safe integer');
   }
-  if (questionId !== undefined && !partition.questionIds.includes(questionId)) {
-    throw new ContextPlanError('invalid-input', `question '${questionId}' does not belong to context partition '${partitionId}'`);
+  const questionIds = questionId === undefined ? [...partition.questionIds]
+    : typeof questionId === 'string' ? [questionId] : [...questionId];
+  if (!questionIds.length || new Set(questionIds).size !== questionIds.length
+    || questionIds.some(id => !partition.questionIds.includes(id))) {
+    throw new ContextPlanError('invalid-input', 'usage questions must be unique members of the context partition');
   }
-  const questionIds = questionId === undefined ? [...partition.questionIds] : [questionId];
-  const estimatedInputTokens = questionId === undefined
-    ? partition.estimate.aggregateTokens
-    : partition.estimate.aggregateTokens
-      - Object.entries(partition.estimate.questionTokens)
-        .filter(([id]) => id !== questionId)
-        .reduce((sum, [, tokens]) => sum + tokens, 0);
+  questionIds.sort();
+  const selected = new Set(questionIds);
+  const estimatedInputTokens = partition.estimate.aggregateTokens
+    - Object.entries(partition.estimate.questionTokens)
+      .filter(([id]) => !selected.has(id))
+      .reduce((sum, [, tokens]) => sum + tokens, 0);
   const estimationErrorTokens = actualInputTokens - estimatedInputTokens;
   return {
     schemaVersion: 'decision-context-usage/v1', planDigest: plan.planDigest, partitionId, questionIds,
