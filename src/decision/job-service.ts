@@ -1,4 +1,9 @@
 import { DecisionJobGateway } from './job-gateway.js';
+import { admittedJobItemExecutor } from './job-evaluate.js';
+import { artifactDigest } from './validate.js';
+import type { DecisionEvaluationRequest, DecisionReceiptStore } from './types.js';
+import type { DecisionJobItem } from './job-contract.js';
+import type { JobReservation, OfflineItemExecutor } from './job-worker.js';
 import { FileJobPollLimiter } from './job-poll-limiter.js';
 import { FileJobPayloadStore } from './job-payload-store.js';
 import { FileJobQuotaStore, type JobQuotaPolicy } from './job-quota.js';
@@ -59,5 +64,45 @@ export function createOfflineDecisionJobService(config: OfflineDecisionJobServic
     await payloads.purgeDeleted(scope, id);
     await store.purgeDeleted(scope, id);
   };
-  return { gateway, runtime, worker, scheduler, payloads, eraseJob };
+  /** Recover a completed result from its durable D03 receipt, never by replaying the provider. */
+  const materializeResult = async (actor: JobScope, id: string, itemId: string, receipts: DecisionReceiptStore): Promise<boolean> => {
+    const snapshot = await runtime.poll(actor, id);
+    const item = snapshot?.job.items.find(entry => entry.id === itemId);
+    const attempt = item?.attempts.at(-1);
+    if (!snapshot || !item || !['succeeded', 'review', 'abstained'].includes(item.state) ||
+        !item.resultDigest || !attempt?.receiptDigest || attempt.outcome !== 'succeeded')
+      throw new JobConflictError('Validated job result unavailable');
+    const receipt = await receipts.read(attempt.id, actor.projectId);
+    if (!receipt || receipt.state !== 'completed' || !receipt.result ||
+        artifactDigest(receipt) !== attempt.receiptDigest || artifactDigest(receipt.result) !== item.resultDigest)
+      throw new JobConflictError('Validated job receipt unavailable');
+    await payloads.put(actor, id, itemId, 'result', receipt.result);
+    return true;
+  };
+  /** Dispatches only the already admitted synchronous evaluator using protected pinned input. */
+  const runAdmittedItem = async (actor: JobScope, id: string, itemId: string,
+    requestFor: (item: Readonly<DecisionJobItem>, input: unknown, signal: AbortSignal) => DecisionEvaluationRequest,
+    reservation: JobReservation): Promise<JobSnapshot> => {
+    const snapshot = await runtime.poll(actor, id);
+    if (!snapshot) throw new JobConflictError('Job unavailable');
+    let receipts: DecisionReceiptStore | undefined;
+    const execute: OfflineItemExecutor = async (item, signal) => {
+      const input = await payloads.get(actor, id, item.id, 'input');
+      if (input === null) throw new JobConflictError('Protected job input unavailable');
+      return admittedJobItemExecutor(snapshot.job, (candidate, active) => {
+        const request = requestFor(candidate, input, active);
+        receipts = request.receiptStore;
+        return request;
+      })(item, signal);
+    };
+    execute.requiresReservation = true;
+    const finished = await worker.run(actor, id, itemId, execute, reservation);
+    const item = finished.job.items.find(candidate => candidate.id === itemId);
+    if (item && ['succeeded', 'review', 'abstained'].includes(item.state)) {
+      if (!receipts) throw new JobConflictError('Durable decision receipts required');
+      await materializeResult(actor, id, itemId, receipts);
+    }
+    return finished;
+  };
+  return { gateway, runtime, worker, scheduler, payloads, eraseJob, runAdmittedItem, materializeResult };
 }

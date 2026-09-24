@@ -1,18 +1,24 @@
 import { readFileSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { admittedJobItemExecutor } from '../../../src/decision/job-evaluate.js';
+import { createOfflineDecisionJobService } from '../../../src/decision/job-service.js';
 import { accountDecisionJob } from '../../../src/decision/job-accounting.js';
 import { artifactDigest } from '../../../src/decision/validate.js';
 import { ITEM_STATES, type DecisionJob } from '../../../src/decision/job-contract.js';
 import { DecisionJobRuntime, recount } from '../../../src/decision/job-runtime.js';
 import { OfflineJobWorker } from '../../../src/decision/job-worker.js';
 import { MemoryJobStore } from '../../../src/decision/job-store.js';
-import { MemoryDecisionReceiptStore } from '../../../src/decision/receipts.js';
+import { FileDecisionReceiptStore, MemoryDecisionReceiptStore } from '../../../src/decision/receipts.js';
+import type { DecisionReceiptStore } from '../../../src/decision/types.js';
 import type { DecisionAdapter, DecisionBinding, DecisionDefinition, DecisionRuleset } from '../../../src/decision/types.js';
 import type { BatchReceiptStore, DecisionBatchReceipt } from '../../../src/decision/batch-receipts/types.js';
 const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
 const scope = { tenantId: 't', projectId: 'p', workspaceId: 'workspace', principalId: 'principal' };
-function setup() {
+function setup(persistedReceipts?: DecisionReceiptStore) {
   const ruleset = fixture<DecisionRuleset>('ruleset.json');
   const binding = fixture<DecisionBinding>('binding-jev.json');
   const definitions = { category: fixture<DecisionDefinition>('decision-category.json'),
@@ -35,7 +41,7 @@ function setup() {
       calibration: 'vendor-claimed' as const, confidence: 0.9, distribution: null, calibrationRef: null },
     actualModel: 'fixture', usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.001 }, requestId: 'fixture',
   })) };
-  const receiptStore = new MemoryDecisionReceiptStore();
+  const receiptStore = persistedReceipts ?? new MemoryDecisionReceiptStore();
   const limits = { concurrency: 2, maxAttempts: 3, allowUnknownCost: false, maxCostUsd: 1, maxQueueLength: 5 };
   const requestFor = (item: DecisionJob['items'][number], signal: AbortSignal) => ({
     ruleset, binding, definitions, input, runId: 'run', invocationId: item.attempts.at(-1)!.id,
@@ -47,6 +53,40 @@ function setup() {
   return { job, adapter, receiptStore, requestFor };
 }
 describe('JOB admission-controlled evaluator bridge', () => {
+  it('loads pinned protected input and materializes validated D03 results without provider replay after restart', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'job-admitted-protected-'));
+    try {
+      const receiptStore = new FileDecisionReceiptStore(join(root, 'receipts'), { integrityKey: randomBytes(32) });
+      const { job, adapter, requestFor } = setup(receiptStore);
+      const handleKey = randomBytes(32); const payloadKey = randomBytes(32);
+      const limits = { queued: 1, running: 1, retainedItems: 1, retainedBytes: 100000,
+        tokens: 10000, costMicros: 1000000, calls: 3, jobs: 1 };
+      const config = { directory: join(root, 'jobs'), handleKey, payloadKey, payloadMaxItemBytes: 50000,
+        quota: { principal: limits, project: limits }, now: () => 20,
+        polls: { windowMs: 100, perPrincipal: 10, perProject: 10, maxLanes: 2 },
+        scheduler: { concurrency: 1, maxQueuedItems: 1 },
+        externallyDeleted: async () => false, authorizeExport: async () => false };
+      const service = createOfflineDecisionJobService(config);
+      const initial = await service.gateway.submit(scope, job);
+      const protectedInput = fixture('input.json');
+      await service.payloads.put(scope, job.id, 'subject', 'input', protectedInput);
+      const queued = structuredClone(initial.snapshot.job); queued.state = 'queued';
+      await service.runtime.advance(scope, job.id, initial.snapshot, queued);
+      const finished = await service.runAdmittedItem(scope, job.id, 'subject',
+        (item, input, signal) => ({ ...requestFor(item, signal), input }), { tokens: 10, costMicros: 10000 });
+      expect(finished.job.state).toBe('completed');
+      expect(adapter.evaluate).toHaveBeenCalled();
+      const attempt = finished.job.items[0]!.attempts[0]!;
+      const receipt = await receiptStore.read(attempt.id, scope.projectId);
+      expect(await service.payloads.get(scope, job.id, 'subject', 'result')).toEqual(receipt?.result);
+      const calls = (adapter.evaluate as ReturnType<typeof vi.fn>).mock.calls.length;
+      const restarted = createOfflineDecisionJobService(config);
+      expect(await restarted.materializeResult(scope, job.id, 'subject', receiptStore)).toBe(true);
+      expect((adapter.evaluate as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(calls);
+      await expect(restarted.materializeResult({ ...scope, projectId: 'other' }, job.id, 'subject', receiptStore))
+        .rejects.toThrow('unavailable');
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   it('reserves job token and monetary budgets atomically before any provider call', async () => {
     const { job, adapter, requestFor } = setup();
     const runtime = new DecisionJobRuntime(new MemoryJobStore());
