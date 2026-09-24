@@ -16,8 +16,10 @@ export class DecisionJobRuntime {
     if (!this.telemetry) return;
     try {
       const builder = new DecisionTraceBuilder(undefined, this.now);
+      const safeOperation = (['submit', 'transition', 'retry', 'cancel', 'reconcile', 'expire', 'delete', 'hold', 'release-hold'] as const)
+        .includes(operation) ? operation : 'transition';
       const span = builder.startSpan('decision.job', { attributes: {
-        'aiwg.job.operation': operation, 'aiwg.job.status': snapshot.job.state,
+        'aiwg.job.operation': safeOperation, 'aiwg.job.status': snapshot.job.state,
         'aiwg.job.revision': snapshot.revision, 'aiwg.job.item_count': snapshot.job.items.length,
         'aiwg.job.unknown_count': snapshot.job.summary['execution-unknown'],
       }, provenance: {
