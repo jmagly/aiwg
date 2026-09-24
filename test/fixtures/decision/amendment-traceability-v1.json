@@ -1,0 +1,287 @@
+{
+  "schemaVersion": "decision-amendment-traceability/v1",
+  "issue": "#2604",
+  "gates": {
+    "G2": "security and privacy amendments",
+    "G4": "operational, resilience, and release-evidence amendments"
+  },
+  "riskTitleSource": "Derived from the citing child issues; the scored risk register is not in the repository.",
+  "amendments": [
+    {
+      "id": "M01",
+      "title": "Endpoint normalization, redirect/DNS/private-address policy, authorization-header non-forwarding, bounded response parsing",
+      "gate": "G2",
+      "issues": ["#2593", "#2597"],
+      "status": "offline-covered",
+      "evidence": [
+        { "testId": "SEC-DNS:", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "SEC-DNS-PRIVATE", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "SEC-ORIGIN-REDIRECT", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "SEC-REDIRECT-LOOP", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "SEC-HOST-MISMATCH", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "SEC-RESPONSE-BOUNDS", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "SEC-RESPONSE-PARSE-TIME", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "SEC-DNS-PIN", "file": "test/unit/decision/jev-pinned-transport.test.ts" },
+        { "testId": "SEC-COMPRESSED-BOUND", "file": "test/unit/decision/jev-pinned-transport.test.ts" },
+        { "testId": "rejects DNS rebinding and private, mapped, or mixed collector answers", "file": "test/unit/decision/telemetry.test.ts" },
+        { "testId": "rejects mixed subjects and credential-bearing origins", "file": "test/unit/decision/projection.test.ts" }
+      ]
+    },
+    {
+      "id": "M02",
+      "title": "Opaque request-ID validation, export redaction, metric-cardinality exclusion",
+      "gate": "G2",
+      "issues": ["#2593", "#2602", "#2605"],
+      "status": "offline-covered",
+      "evidence": [
+        { "testId": "ADP-REQID-INJECTION", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "ADP-REQID-BODY", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "contains malformed high-cardinality transport request IDs in the batch receipt", "file": "test/unit/decision/batch.test.ts" },
+        { "testId": "redacts protected content, provider IDs, and injected canaries from public export", "file": "test/unit/decision/telemetry.test.ts" },
+        { "testId": "enforces metric dimension allowlists and cardinality bounds", "file": "test/unit/decision/telemetry.test.ts" },
+        { "testId": "goldens deletion and metric cardinality enforcement", "file": "test/unit/decision/telemetry-runtime.test.ts" },
+        { "testId": "records bounded runtime metrics without copying invocation or provider identities", "file": "test/unit/decision/telemetry-runtime.test.ts" }
+      ]
+    },
+    {
+      "id": "M03",
+      "title": "Per-principal/project quotas, bounded queues and pre-admission work, noisy-neighbor isolation, load shedding",
+      "gate": "G4",
+      "issues": ["#2594", "#2601", "#2610"],
+      "status": "offline-covered",
+      "evidence": [
+        { "testId": "round-robins an eligible quiet lane through a noisy neighbor backlog", "file": "test/unit/decision/scheduler-admission.test.ts" },
+        { "testId": "admits a quiet principal after at most one noisy-neighbor continuation", "file": "test/unit/decision/scheduler-admission.test.ts" },
+        { "testId": "sheds many-small and few-huge requests without starving a separate authorized scope", "file": "test/unit/decision/scheduler-admission.test.ts" },
+        { "testId": "bounds real loopback slow-client traffic and sheds overflow without sending it", "file": "test/unit/decision/scheduler-admission.test.ts" },
+        { "testId": "bounds queues and emits only aggregate metadata", "file": "test/unit/decision/scheduler-admission.test.ts" },
+        { "testId": "enforces per-project and principal capacity on transitions and releases after deletion", "file": "test/conformance/decision-v1/job-quota.test.ts" },
+        { "testId": "shares scoped rate limits across restarted instances and bounds ledger cardinality", "file": "test/conformance/decision-v1/job-poll-limiter.test.ts" }
+      ]
+    },
+    {
+      "id": "M04",
+      "title": "Receipt/cache tamper detection, alias-safe cache lookup, cross-project read denial",
+      "gate": "G2",
+      "issues": ["#2595", "#2609"],
+      "status": "offline-covered",
+      "evidence": [
+        { "testId": "rejects modified durable records before reuse", "file": "test/unit/decision/receipts.test.ts" },
+        { "testId": "rejects a valid record substituted at another invocation filename", "file": "test/unit/decision/receipts.test.ts" },
+        { "testId": "detects modified stored bytes in the real filesystem store", "file": "test/unit/decision/result-cache.test.ts" },
+        { "testId": "bypasses expired and unknown alias compatibility", "file": "test/unit/decision/result-cache.test.ts" },
+        { "testId": "prevents cross-workspace access and exposes the same denial", "file": "test/unit/decision/result-cache.test.ts" },
+        { "testId": "rejects scope substitution even when an attacker recomputes the unkeyed digest", "file": "test/unit/decision/result-cache-lifecycle.test.ts" },
+        { "testId": "CCP-006", "file": "test/unit/decision/compile-cache.test.ts" }
+      ]
+    },
+    {
+      "id": "M05",
+      "title": "Object-level authorization and non-enumerability for review, job, and item operations",
+      "gate": "G2",
+      "issues": ["#2606", "#2610", "#2614"],
+      "status": "offline-covered",
+      "evidence": [
+        { "testId": "M05-ENUM-JOB-01", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
+        { "testId": "M05-ENUM-JOB-02", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
+        { "testId": "M05-ENUM-ITEM-01", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
+        { "testId": "M05-ENUM-ITEM-02", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
+        { "testId": "M05-ENUM-REVIEW-01", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
+        { "testId": "M05-ENUM-REVIEW-02", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
+        { "testId": "binds opaque randomized handles to authenticated scope", "file": "test/conformance/decision-v1/job-gateway.test.ts" },
+        { "testId": "HITL-POLICY", "file": "test/unit/decision/review-authorization.test.ts" },
+        { "testId": "rejects cross-project lookup without disclosing the object", "file": "test/unit/decision/review-runtime.test.ts" }
+      ]
+    },
+    {
+      "id": "M06",
+      "title": "Reviewer eligibility, separation of duty and quorum, revocation, execution-time reauthorization",
+      "gate": "G2",
+      "issues": ["#2606"],
+      "status": "offline-covered",
+      "evidence": [
+        { "testId": "HITL-POLICY", "file": "test/unit/decision/review-authorization.test.ts" },
+        { "testId": "HITL-QUORUM", "file": "test/unit/decision/review-authorization.test.ts" },
+        { "testId": "HITL-SEPARATION", "file": "test/unit/decision/review-authorization.test.ts" },
+        { "testId": "HITL-REVALIDATE", "file": "test/unit/decision/review-authorization.test.ts" },
+        { "testId": "HITL-REVOKE", "file": "test/unit/decision/review-runtime.test.ts" }
+      ]
+    },
+    {
+      "id": "M07",
+      "title": "DMN/OPA parser-bomb, XXE/external-resource, source-authenticity, and size/time bounds",
+      "gate": "G2",
+      "issues": ["#2612"],
+      "status": "offline-covered",
+      "notes": "No DMN/OPA/XML importer exists yet; the suite bounds the existing JSON/YAML decision admission path and must be extended when #2612 adds an importer.",
+      "evidence": [
+        { "testId": "M07-BOMB-01", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-BOMB-02", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-BOMB-03", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-XXE-01", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-XXE-02", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-XXE-03", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-AUTH-01", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-AUTH-02", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-BOUND-01", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-BOUND-02", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" }
+      ]
+    },
+    {
+      "id": "M08",
+      "title": "Live research egress and sensitivity-probing limits for D20/D22/D23",
+      "gate": "G2",
+      "issues": ["#2613", "#2615", "#2616"],
+      "status": "offline-guard-live-pending",
+      "liveTracking": ["#2684"],
+      "notes": "D20/D22/D23 are not built. Offline guards prove unapproved destinations are denied before credentials or dispatch and that the qualification runner never labels mock execution live; live egress and probing limits are tracked in #2684.",
+      "evidence": [
+        { "testId": "makes zero credential and dispatch calls when destination authorization fails", "file": "test/unit/decision/projection.test.ts" },
+        { "testId": "SEC-DNS-PRIVATE", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "SEC-ORIGIN-REDIRECT", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "LIVE-ABSENT-01", "file": "test/unit/decision/qualification-runner.test.ts" }
+      ]
+    },
+    {
+      "id": "M09",
+      "title": "Lifecycle deletion, tombstone, legal-hold, and backup behavior",
+      "gate": "G2",
+      "issues": ["#2597", "#2605", "#2609", "#2610", "#2613", "#2614", "#2615", "#2616", "#2617"],
+      "status": "offline-covered",
+      "evidence": [
+        { "testId": "tombstones every linked surface before erasure and denies backup resurrection", "file": "test/unit/decision/lifecycle.test.ts" },
+        { "testId": "requires authorized scoped hold and blocks deletion until release or expiry", "file": "test/unit/decision/lifecycle.test.ts" },
+        { "testId": "cascades all eleven surfaces across restart; tombstones block restored backups", "file": "test/unit/decision/file-lifecycle-store.test.ts" },
+        { "testId": "recovers a partial deletion by replay without making the restored body queryable", "file": "test/unit/decision/file-lifecycle-store.test.ts" },
+        { "testId": "rejects restored backup content after deletion, including legal hold audit mode", "file": "test/unit/decision/result-cache-lifecycle.test.ts" },
+        { "testId": "tombstones deletions and rejects them under legal hold", "file": "test/unit/decision/telemetry.test.ts" },
+        { "testId": "HITL-RETENTION", "file": "test/unit/decision/review-runtime.test.ts" },
+        { "testId": "joins real D10 hold, erase, and backup-restore policy to encrypted job content", "file": "test/conformance/decision-v1/job-service.test.ts" }
+      ]
+    },
+    {
+      "id": "M10",
+      "title": "Machine-validated threat-preflight and runbook evidence",
+      "gate": "G4",
+      "issues": ["#2605", "#2607"],
+      "status": "offline-covered",
+      "evidence": [
+        { "testId": "M10-PREFLIGHT-01", "file": "test/unit/decision/amendment-m10-preflight.test.ts" },
+        { "testId": "M10-PREFLIGHT-02", "file": "test/unit/decision/amendment-m10-preflight.test.ts" },
+        { "testId": "M10-PREFLIGHT-03", "file": "test/unit/decision/amendment-m10-preflight.test.ts" },
+        { "testId": "M10-RUNBOOK-01", "file": "test/unit/decision/amendment-m10-preflight.test.ts" },
+        { "testId": "M10-RUNBOOK-02", "file": "test/unit/decision/amendment-m10-preflight.test.ts" },
+        { "testId": "M10-RUNBOOK-03", "file": "test/unit/decision/amendment-m10-preflight.test.ts" },
+        { "testId": "PAT-OPS-001", "file": "test/unit/decision/pattern-operational-gate.test.ts" }
+      ]
+    },
+    {
+      "id": "M11",
+      "title": "Traceability to every new scored risk R-23 through R-30",
+      "gate": "G4",
+      "issues": ["#2604"],
+      "status": "offline-covered",
+      "evidence": [
+        { "testId": "M11-TRACE-01", "file": "test/unit/decision/amendment-traceability.test.ts" },
+        { "testId": "M11-TRACE-02", "file": "test/unit/decision/amendment-traceability.test.ts" },
+        { "testId": "M11-TRACE-03", "file": "test/unit/decision/amendment-traceability.test.ts" },
+        { "testId": "M11-TRACE-04", "file": "test/unit/decision/amendment-traceability.test.ts" },
+        { "testId": "M11-TRACE-05", "file": "test/unit/decision/amendment-traceability.test.ts" }
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "R-23",
+      "description": "Provider egress and transport trust: projected state, credentials, or retries reach an unapproved or rebound destination.",
+      "issues": ["#2593", "#2597"],
+      "amendments": ["M01", "M02", "M08", "M09"],
+      "evidence": [
+        { "testId": "SEC-DNS-PRIVATE", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "SEC-ORIGIN-REDIRECT", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "makes zero credential and dispatch calls when destination authorization fails", "file": "test/unit/decision/projection.test.ts" }
+      ]
+    },
+    {
+      "id": "R-24",
+      "description": "Integrity and isolation of durable decision state: receipts, caches, jobs, reviews, and exports can be tampered with, replayed, exhausted, or read across scopes.",
+      "issues": ["#2595", "#2601", "#2603", "#2606", "#2609", "#2610", "#2614"],
+      "amendments": ["M03", "M04", "M05", "M06", "M09"],
+      "evidence": [
+        { "testId": "acquires one owner and rejects stale CAS in both stores", "file": "test/unit/decision/receipts.test.ts" },
+        { "testId": "CCP-006", "file": "test/unit/decision/compile-cache.test.ts" },
+        { "testId": "detects modified stored bytes in the real filesystem store", "file": "test/unit/decision/result-cache.test.ts" },
+        { "testId": "M05-ENUM-JOB-01", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
+        { "testId": "sheds many-small and few-huge requests without starving a separate authorized scope", "file": "test/unit/decision/scheduler-admission.test.ts" }
+      ]
+    },
+    {
+      "id": "R-25",
+      "description": "Human-review authority bypass: self-approval, ineligible or revoked reviewers, or stale authorization at execution time.",
+      "issues": ["#2606", "#2622"],
+      "amendments": ["M05", "M06"],
+      "evidence": [
+        { "testId": "HITL-QUORUM", "file": "test/unit/decision/review-authorization.test.ts" },
+        { "testId": "HITL-SEPARATION", "file": "test/unit/decision/review-authorization.test.ts" },
+        { "testId": "HITL-REVOKE", "file": "test/unit/decision/review-runtime.test.ts" },
+        { "testId": "M05-ENUM-REVIEW-01", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" }
+      ]
+    },
+    {
+      "id": "R-26",
+      "description": "Identifier and usage leakage through receipts, cache keys, traces, and metrics, including unbounded metric cardinality.",
+      "issues": ["#2593", "#2602", "#2603", "#2605"],
+      "amendments": ["M01", "M02", "M10"],
+      "evidence": [
+        { "testId": "ADP-REQID-INJECTION", "file": "test/unit/decision/jev-transport.test.ts" },
+        { "testId": "enforces metric dimension allowlists and cardinality bounds", "file": "test/unit/decision/telemetry.test.ts" },
+        { "testId": "contains malformed high-cardinality transport request IDs in the batch receipt", "file": "test/unit/decision/batch.test.ts" },
+        { "testId": "CCP-009", "file": "test/unit/decision/compile-cache.test.ts" }
+      ]
+    },
+    {
+      "id": "R-27",
+      "description": "Unsafe import of external decision formats (DMN/OPA): parser bombs, XML external entities, unauthenticated sources, and unbounded work.",
+      "issues": ["#2612"],
+      "amendments": ["M07"],
+      "evidence": [
+        { "testId": "M07-BOMB-01", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-XXE-01", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-AUTH-01", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
+        { "testId": "M07-BOUND-01", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" }
+      ]
+    },
+    {
+      "id": "R-28",
+      "description": "Calibration and model drift or unqualified promotion across the calibration registry, ensembles, champion-challenger rollout, and pilots.",
+      "issues": ["#2600", "#2611", "#2613", "#2615", "#2618", "#2619", "#2620", "#2621"],
+      "amendments": ["M08", "M09"],
+      "evidence": [
+        { "testId": "emits drift before reuse and pins an active run across alias changes", "file": "test/unit/decision/calibration-registry.test.ts" },
+        { "testId": "detects alias drift and removes calibrated evidence from an unknown model", "file": "test/unit/decision/calibration-runtime.test.ts" },
+        { "testId": "LIVE-ABSENT-01", "file": "test/unit/decision/qualification-runner.test.ts" }
+      ]
+    },
+    {
+      "id": "R-29",
+      "description": "Retention and privacy of stored decision artifacts: deletion, tombstones, legal hold, and backup resurrection across every persisted surface.",
+      "issues": ["#2597", "#2603", "#2605", "#2606", "#2609", "#2610", "#2614", "#2617", "#2619", "#2622"],
+      "amendments": ["M09"],
+      "evidence": [
+        { "testId": "cascades all eleven surfaces across restart; tombstones block restored backups", "file": "test/unit/decision/file-lifecycle-store.test.ts" },
+        { "testId": "tombstones every linked surface before erasure and denies backup resurrection", "file": "test/unit/decision/lifecycle.test.ts" },
+        { "testId": "HITL-RETENTION", "file": "test/unit/decision/review-runtime.test.ts" }
+      ]
+    },
+    {
+      "id": "R-30",
+      "description": "Sensitivity probing through counterfactual analysis: repeated perturbations infer protected thresholds or inputs.",
+      "issues": ["#2616"],
+      "amendments": ["M08", "M09"],
+      "evidence": [
+        { "testId": "makes zero credential and dispatch calls when destination authorization fails", "file": "test/unit/decision/projection.test.ts" },
+        { "testId": "LIVE-ABSENT-01", "file": "test/unit/decision/qualification-runner.test.ts" }
+      ]
+    }
+  ]
+}
