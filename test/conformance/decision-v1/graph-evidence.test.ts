@@ -57,7 +57,7 @@ describe('DAG offline evidence audit (not a dispatcher)', () => {
     const stagePlan = planDecisionGraph(withStage, new Set([pin.digest]));
     expect(auditGraphEvidence(withStage, stagePlan, observations()).outcome).toBe('budget-exhausted');
   });
-  it('DAG-012 rejects altered topology and missing observations before receipt emission', () => {
+  it('DAG-041 rejects altered topology and missing observations before receipt emission', () => {
     const forged = structuredClone(plan);
     forged.stages[1]!.nodes = ['extract'];
     expect(() => auditGraphEvidence(graph, forged, observations())).toThrow(/mismatch/);

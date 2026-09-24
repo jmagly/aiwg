@@ -82,7 +82,7 @@ describe('DAG Flow skill bridge', () => {
     expect(taken.output).toBe('review');
     expect(discarded.output).toBeUndefined();
   });
-  it('DAG-016 rejects untrusted pins, skill IDs, and Flow-incompatible identities before dispatch', () => {
+  it('DAG-042 rejects untrusted pins, skill IDs, and Flow-incompatible identities before dispatch', () => {
     expect(() => decisionGraphToFlow(graph(), { ...options, resolvedPins: new Set() })).toThrow();
     expect(() => decisionGraphToFlow(graph(), { ...options, decisionSkillId: 'aiwg:skill:not-real' })).toThrow();
     const invalid = graph(); invalid.nodes[0]!.id = 'Upper'; invalid.entry = 'Upper'; invalid.edges[0]!.from = 'Upper';
