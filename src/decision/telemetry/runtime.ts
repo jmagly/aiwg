@@ -1,6 +1,7 @@
 import type { DecisionEvaluationRequest, RulesetResult } from '../types.js';
 import { mapDecisionAttempt, mapDecisionResult, mapRulesetResult } from './mapping.js';
 import { DecisionTraceBuilder } from './trace.js';
+import { recordDecisionSpanMetrics } from './metrics.js';
 import type { DecisionTelemetrySpan } from './types.js';
 
 /**
@@ -19,6 +20,23 @@ export async function emitRulesetRuntimeTrace(request: DecisionEvaluationRequest
       attributes: mapped.attributes,
       provenance: mapped.provenance,
     });
+    if (result.spec.cache?.disposition === 'cache-hit') {
+      // Historical attempts are evidence, not attempts by this caller. Emitting
+      // their provider usage again would double-count tokens and fabricate work.
+      root.attributes['aiwg.invocation.id'] = result.spec.cache.callerInvocationId;
+      root.attributes['aiwg.cache.layer'] = 'result';
+      root.attributes['aiwg.cache.result'] = 'hit';
+      root.provenance['aiwg.invocation.id'] = 'client-derived';
+      root.provenance['aiwg.cache.layer'] = 'client-derived';
+      root.provenance['aiwg.cache.result'] = 'client-derived';
+      const hit = builder.startSpan('decision.cache', { parent: root.context,
+        attributes: { 'aiwg.cache.layer': 'result', 'aiwg.cache.result': 'hit' },
+        provenance: { 'aiwg.cache.layer': 'client-derived', 'aiwg.cache.result': 'client-derived' } });
+      builder.endSpan(hit, 'ok');
+      builder.endSpan(root, 'ok');
+      await emitAll(telemetry.hook.emit.bind(telemetry.hook), builder.build().spans);
+      return;
+    }
     const validate = builder.startSpan('decision.validate', { parent: root.context,
       attributes: { 'aiwg.validation.outcome': result.spec.reason === 'invalid-input' || result.spec.reason === 'invalid-definition' ? 'rejected' : 'accepted' },
       provenance: { 'aiwg.validation.outcome': 'client-derived' } });
@@ -58,7 +76,11 @@ export async function emitRulesetRuntimeTrace(request: DecisionEvaluationRequest
       provenance: { 'aiwg.persistence.result': 'client-derived' } });
     builder.endSpan(persist, result.spec.reason === 'persistence-error' ? 'error' : 'ok');
     builder.endSpan(root, result.spec.status === 'error' || result.spec.status === 'cancelled' ? 'error' : 'ok');
-    await emitAll(telemetry.hook.emit.bind(telemetry.hook), builder.build().spans);
+    const spans = builder.build().spans;
+    if (telemetry.metrics) for (const span of spans) {
+      try { recordDecisionSpanMetrics(span, telemetry.metrics); } catch { /* metrics cannot change a decision */ }
+    }
+    await emitAll(telemetry.hook.emit.bind(telemetry.hook), spans);
   } catch {
     // Observability must never alter, reject, or mask the authoritative result.
   }

@@ -28,13 +28,13 @@ const success = (alias: string): AdapterObservation => ({
   actualModel: 'fixture-model', usage: { inputTokens: 1, outputTokens: 1, costUsd: null }, requestId: 'request-safe',
 });
 
-function request(adapter: DecisionAdapter, spans: DecisionTelemetrySpan[], signal?: AbortSignal) {
+function request(adapter: DecisionAdapter, spans: DecisionTelemetrySpan[], signal?: AbortSignal, metrics?: BoundedDecisionMetrics) {
   return {
     ruleset: fixture<DecisionRuleset>('ruleset.json'), binding: fixture<DecisionBinding>('binding-jev.json'),
     definitions: definitions(), input: fixture('input.json'), runId: 'run', invocationId: 'telemetry-runtime',
     adapters: { jev: adapter }, resolveCredential: async () => new Uint8Array([1]), signal,
     now: () => 100, random: () => 0.5, delay: async () => undefined,
-    telemetry: { hook: { emit: (span: DecisionTelemetrySpan) => { spans.push(span); } }, ids: deterministicIds() },
+    telemetry: { hook: { emit: (span: DecisionTelemetrySpan) => { spans.push(span); } }, ids: deterministicIds(), metrics },
   };
 }
 
@@ -71,6 +71,16 @@ describe('decision telemetry runtime golden traces', () => {
     expect(observed).toEqual(golden.scenarios['retry-then-success']);
   });
 
+  it('records bounded runtime metrics without copying invocation or provider identities', async () => {
+    const spans: DecisionTelemetrySpan[] = [];
+    const metrics = new BoundedDecisionMetrics();
+    const result = await evaluateDecisionRuleset(request(adapter(async input => success(input.alias)), spans, undefined, metrics));
+    expect(result.spec.status).toBe('completed');
+    expect(metrics.snapshot().filter(point => point.name === 'decision.throughput')).toHaveLength(1);
+    expect(metrics.snapshot().filter(point => point.name === 'decision.input_tokens').length).toBeGreaterThan(0);
+    expect(JSON.stringify(metrics.snapshot())).not.toMatch(/telemetry-runtime|request-safe/);
+  });
+
   it('emits a terminal cancellation trace even when no adapter dispatch begins', async () => {
     const spans: DecisionTelemetrySpan[] = []; const controller = new AbortController(); controller.abort();
     const result = await evaluateDecisionRuleset(request(adapter(async input => success(input.alias)), spans, controller.signal));
@@ -92,7 +102,7 @@ describe('decision telemetry runtime golden traces', () => {
   it('links durable review completion to the approved action span', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'aiwg-telemetry-review-')); directories.push(directory);
     const spans: DecisionTelemetrySpan[] = []; const now = { value: 1_000 };
-    const authorization = { authorize: () => true, eligible: () => true, authorizeAction: () => true };
+    const authorization = { authorize: () => true, eligible: () => true, eligibleApproval: () => true, authorizeAction: () => true };
     const service = new DecisionReviewService(new FileDecisionReviewStore(directory, new Uint8Array(32).fill(3)), authorization, () => now.value,
       { telemetry: { hook: { emit: span => { spans.push(span); } }, ids: deterministicIds() } });
     const digest = `sha256:${'a'.repeat(64)}` as const;
@@ -116,7 +126,7 @@ describe('decision telemetry runtime golden traces', () => {
     const restored = restoreTelemetryTrace({ schemaVersion: 'decision-telemetry/v1', traceId: root.context.traceId, spans: [root] },
       { traceTtlMs: 1, debugSidecarTtlMs: 1, exportTtlMs: 1, linkedRecordTtlMs: 1, deletionEnabled: true, tombstonesEnabled: true, legalHold: false }, 10);
     expect({ remainingSpans: restored.spans.length, tombstoneReason: restored.tombstones?.at(-1)?.reason }).toEqual(golden.scenarios.deletion);
-    const metrics = new BoundedDecisionMetrics(10, 2);
+    const metrics = new BoundedDecisionMetrics(10, 2, { 'aiwg.adapter.id': ['a', 'b', 'c'] });
     const outcomes = [metrics.record('decision.duration', 1, { 'aiwg.adapter.id': 'a', 'aiwg.run.id': 'forbidden' }),
       metrics.record('decision.duration', 2, { 'aiwg.adapter.id': 'b' }), metrics.record('decision.duration', 3, { 'aiwg.adapter.id': 'c' })];
     expect({ acceptedPoints: outcomes.filter(Boolean).length, rejectedPoints: outcomes.filter(value => !value).length,

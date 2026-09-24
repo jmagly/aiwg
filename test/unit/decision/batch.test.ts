@@ -22,6 +22,7 @@ import {
   batchAccountingTotals,
   decisionBatchQuestionId,
   planDecisionContext,
+  compareContextUsage,
   planNativeDecisionBatches,
 } from '../../../src/decision/index.js';
 
@@ -149,6 +150,42 @@ describe('native shared-state decision batching', () => {
     Object.values(result.spec.evaluations).forEach(validateDecisionDocument);
   });
 
+  it('CTX-RUNTIME records request-accurate usage when compatible batch is a subset of a context partition', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const runtime = contextRuntime();
+    runtime.profile.limits.aggregateTokens = 100;
+    runtime.profile.limits.stateAndLongestQuestionTokens = 100;
+    const batching = policy();
+    batching.evaluations.severity!.egressPolicy = 'another-egress-policy';
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batching, context: runtime });
+    expect(result.spec.context?.plan.partitions).toHaveLength(1);
+    const usage = result.spec.context?.actualUsage ?? [];
+    expect(usage).toHaveLength(2);
+    const pair = usage.find(item => item.questionIds.length === 2);
+    expect(pair?.estimatedInputTokens).toBe(3);
+    expect(pair?.questionIds).toEqual([decisionBatchQuestionId('category'), decisionBatchQuestionId('core_unavailable')].sort());
+    expect(usage.find(item => item.questionIds.length === 1)?.estimatedInputTokens).toBe(2);
+  });
+
+  it('CTX-ROLLOUT observes only single calls and blocks unqualified enforcement before credentials', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const runtime = contextRuntime();
+    runtime.profile.limits.aggregateTokens = 100;
+    runtime.profile.limits.stateAndLongestQuestionTokens = 100;
+    runtime.rollout = { mode: 'observe-only' };
+    const observed = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime });
+    expect(observed.spec.context?.actualUsage).toHaveLength(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    const credential = vi.fn(async () => new TextEncoder().encode('token'));
+    const qualification = compareContextUsage([{ caseId: 'offline', input: runtime.input,
+      actualInputTokens: 3, source: 'synthetic', usageRef: 'fixture:offline' }], runtime.profile, runtime.estimator);
+    runtime.rollout = { mode: 'enforce', qualification };
+    const rejected = await evaluateDecisionRuleset({ ...request(fetchImpl), resolveCredential: credential, context: runtime });
+    expect(rejected.spec.reason).toBe('invalid-input');
+    expect(credential).not.toHaveBeenCalled();
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
   it('CTX-RUNTIME rejects stale plans before capability, credential, or transport access', async () => {
     const runtime = contextRuntime();
     runtime.plan = planDecisionContext(runtime.input, runtime.profile, runtime.estimator);
@@ -193,6 +230,60 @@ describe('native shared-state decision batching', () => {
     expect(evidence).toHaveBeenCalledTimes(3);
     expect(JSON.stringify(evidence.mock.calls)).not.toContain('The documentation link');
     expect(Object.values(result.spec.evaluations).every(item => item.spec.status === 'success')).toBe(true);
+  });
+
+  it('PROJ-DEBUG captures only minimized state and denies capture failure before credentials', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const credential = vi.fn(async () => new TextEncoder().encode('fixture-token'));
+    const configured = request(fetchImpl);
+    configured.batching.enabled = false;
+    const captured: string[] = [];
+    const capture = vi.fn(async (_scope: string, bytes: Uint8Array) => {
+      captured.push(new TextDecoder().decode(bytes));
+      throw new Error('synthetic-debug-secret-canary');
+    });
+    const result = await evaluateDecisionRuleset({ ...configured, resolveCredential: credential,
+      projection: { resolve: runtimeProjectionPolicy, debugCapture: { scope: 'case-7', capture } } });
+    expect(capture).toHaveBeenCalled();
+    expect(captured.every(value => JSON.stringify(JSON.parse(value)) === JSON.stringify({
+      excerpt: 'The documentation link on the settings page is broken. The application otherwise works.',
+    }))).toBe(true);
+    expect(credential).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain('synthetic-debug-secret-canary');
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.reason === 'data-boundary-denied')).toBe(true);
+  });
+
+  it('PROJ-DEBUG succeeds with a host capture sink without leaking ambient state', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const configured = request(fetchImpl);
+    configured.batching.enabled = false;
+    const captures: string[] = [];
+    const capture = vi.fn(async (_scope: string, data: Uint8Array) => {
+      captures.push(new TextDecoder().decode(data));
+      return 'opaque-debug-reference';
+    });
+    const result = await evaluateDecisionRuleset({ ...configured,
+      projection: { resolve: runtimeProjectionPolicy, debugCapture: { scope: 'case-7', capture } } });
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.status === 'success')).toBe(true);
+    expect(captures).toHaveLength(3);
+    expect(captures.every(value => JSON.stringify(JSON.parse(value)) === JSON.stringify({
+      excerpt: 'The documentation link on the settings page is broken. The application otherwise works.',
+    }))).toBe(true);
+    expect(JSON.stringify(result)).not.toContain('opaque-debug-reference');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('PROJ-DEBUG denies a native batch when one projected capture fails', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const credential = vi.fn(async () => new TextEncoder().encode('fixture-token'));
+    const capture = vi.fn(async () => { throw new Error('synthetic-debug-secret-canary'); });
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), resolveCredential: credential,
+      projection: { resolve: runtimeProjectionPolicy, debugCapture: { scope: 'case-7', capture } } });
+    expect(capture).toHaveBeenCalled();
+    expect(credential).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain('synthetic-debug-secret-canary');
   });
 
   it('PROJ-RUNTIME fails a native batch closed before credential lookup or transport', async () => {

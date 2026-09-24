@@ -7,7 +7,7 @@ export type ReviewStatus =
 export type ReviewEventType =
   | 'created' | 'claimed' | 'approved' | 'rejected' | 'edited' | 'expired'
   | 'escalated' | 'canceled' | 'resumed' | 'execution-completed' | 'execution-failed'
-  | 'legal-hold-placed' | 'legal-hold-released' | 'tombstoned';
+  | 'legal-hold-placed' | 'legal-hold-released' | 'tombstoned' | 'authorization-denied';
 
 export interface ReviewActor {
   id: string;
@@ -39,6 +39,8 @@ export interface ReviewEvent {
   actor: ReviewActor;
   proposalVersion: number;
   rationale: string;
+  /** Same ID used in #1567 operator-decision audit; not a second audit identity. */
+  operatorDecisionEventId?: string;
   data?: Record<string, unknown>;
 }
 
@@ -72,6 +74,8 @@ export interface DecisionReview {
   createdAtEpochMs: number;
   updatedAtEpochMs: number;
   expiresAtEpochMs: number;
+  /** Explicit pinned retention deadline; absent disables physical purge. */
+  retentionUntilEpochMs?: number;
   escalationAtEpochMs?: number;
   quorum: number;
   continuation: { id: string; tokenDigest: `sha256:${string}` };
@@ -86,12 +90,14 @@ export interface DecisionReview {
 
 export interface ReviewScope { tenantId: string; projectId: string; actor: ReviewActor }
 
-export type ReviewOperation = 'create' | 'read' | 'list' | 'export' | 'claim' | 'decide' | 'edit' | 'escalate' | 'cancel' | 'resume' | 'legal-hold' | 'delete' | 'tombstone';
+export type ReviewOperation = 'create' | 'read' | 'list' | 'export' | 'claim' | 'decide' | 'edit' | 'escalate' | 'cancel' | 'resume' | 'legal-hold' | 'delete' | 'tombstone' | 'purge';
 
 export interface ReviewAuthorization {
   authorize(scope: ReviewScope, operation: ReviewOperation, review?: DecisionReview): boolean | Promise<boolean>;
   eligible(scope: ReviewScope, review: DecisionReview, proposal: ReviewProposal): boolean | Promise<boolean>;
   authorizeAction(scope: ReviewScope, review: DecisionReview, proposal: ReviewProposal): boolean | Promise<boolean>;
+  /** Resolve each approval against current role/COI/quorum policy, never trust stored roles alone. */
+  eligibleApproval(scope: ReviewScope, review: DecisionReview, proposal: ReviewProposal, decision: ReviewDecision): boolean | Promise<boolean>;
 }
 
 export interface ReviewStore {
@@ -99,11 +105,27 @@ export interface ReviewStore {
   create(review: DecisionReview): Promise<boolean>;
   compareAndSwap(reviewId: string, tenantId: string, projectId: string, expectedRevision: number, next: DecisionReview): Promise<boolean>;
   list(tenantId: string, projectId: string): Promise<DecisionReview[]>;
+  /** Optional terminal payload erasure; implementations preserve a signed non-reusable ID marker. */
+  purgeTombstoned?(reviewId: string, tenantId: string, projectId: string): Promise<ReviewPurgeReceipt>;
+}
+
+export interface ReviewPurgeReceipt {
+  reviewIdDigest: `sha256:${string}`;
+  tenantDigest: `sha256:${string}`;
+  projectDigest: `sha256:${string}`;
+  lastRevision: number;
+  finalReviewMac: string;
 }
 
 export interface ReviewListOptions { includeTombstoned?: boolean }
 export interface DecisionReviewServiceOptions {
   resumingLeaseMs?: number;
+  /** Single-writer #1567 audit journal; missing records are reconciled before any effect. */
+  operatorAudit?: {
+    store: import('../../audit/operator-decision.js').JsonlOperatorDecisionStore;
+    correlation: (review: DecisionReview) => import('../../audit/operator-decision.js').DecisionCorrelation;
+    classification: import('../../audit/operator-decision.js').DataClassification;
+  };
   pollIntervalMs?: number;
   /** Optional metadata-only sink; exporter failures never affect review state. */
   telemetry?: {
@@ -124,6 +146,7 @@ export interface CreateReviewInput {
   action: unknown;
   rationale: string;
   expiresAtEpochMs: number;
+  retentionUntilEpochMs?: number;
   escalationAtEpochMs?: number;
   quorum?: number;
   continuationId: string;

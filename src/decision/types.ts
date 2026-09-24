@@ -5,6 +5,7 @@ import type {
   ContextProviderProfile,
   ContextTokenEstimator,
 } from './context-plan.js';
+import type { ContextQualification } from './context-qualification.js';
 import type { BatchResultReference } from './batch-receipts/receipt.js';
 import type { BatchResultStore } from './batch-receipts/result-store.js';
 import type { BatchReceiptStore, PriceCatalogRecord } from './batch-receipts/types.js';
@@ -21,6 +22,8 @@ import type { ProviderPrefixReport } from './compile-cache/prefix.js';
 import type { DecisionTelemetryContext, DecisionTelemetryHook } from './telemetry/types.js';
 import type { DecisionTelemetryIdSource } from './telemetry/context.js';
 import type { DecisionProjectionEvidence, DecisionProjectionPolicy } from './projection.js';
+import type { DecisionResultCache, ResultCacheActor, ResultCacheCallerReceipt,
+  ResultCachePolicy, ResultCacheSemanticIdentity } from './result-cache/index.js';
 
 export const DECISION_API_VERSION = 'decision.aiwg.io/v1alpha1' as const;
 export const DECISION_API_VERSION_STRUCTURED = 'decision.aiwg.io/v1alpha2' as const;
@@ -339,6 +342,8 @@ export interface RulesetResult {
     outcome?: JsonValue;
     matchedRules: string[];
     evaluations: Record<string, DecisionResult>;
+    /** Caller-level cache receipt. Historical evaluation attempts in a hit belong to the source. */
+    cache?: ResultCacheCallerReceipt;
     /** Invocation-wide context plan plus immutable estimate-versus-actual evidence. */
     context?: DecisionContextEvidence;
   };
@@ -420,6 +425,11 @@ export interface DecisionRuntimeProjectionPolicy {
   }): DecisionProjectionPolicy;
   incompleteContext?: boolean;
   onEvidence?: (input: { alias: string; evidence: DecisionProjectionEvidence }) => void;
+  /** Optional host-only encrypted debug sink. Receives ONLY projected state, never ambient input. */
+  debugCapture?: {
+    scope: string;
+    capture(scope: string, plaintext: Uint8Array): Promise<string>;
+  };
 }
 
 export interface DecisionAdapterCompileRequest {
@@ -530,6 +540,8 @@ export interface DecisionContextPolicy {
   estimator: ContextTokenEstimator;
   /** Optional caller-persisted plan. A stale plan fails closed instead of silently replanning. */
   plan?: ContextPlan;
+  /** Observe-only disables native batching; enforce requires a matching provider-backed qualification. */
+  rollout?: { mode: 'observe-only' } | { mode: 'enforce'; qualification: ContextQualification };
 }
 
 export interface DecisionBatchEvidence {
@@ -601,6 +613,21 @@ export interface DecisionEvaluationRequest {
   context?: DecisionContextPolicy;
   scheduler?: DecisionSchedulerPolicy;
   compileCache?: DecisionCompileCachePolicy;
+  /** Experimental, explicit host-owned semantic reuse. Omitted means no result cache lookup. */
+  resultCache?: {
+    service: DecisionResultCache;
+    actor: ResultCacheActor;
+    policy: ResultCachePolicy;
+    /** Must supply all semantic pins from trusted host state, not from the model or input. */
+    identityFor: (context: {
+      alias: string; definition: DecisionDefinition; target: ExecutionTarget;
+      projectedInput: JsonValue;
+    }) => ResultCacheSemanticIdentity;
+    /** Registry-backed two-stage check on EVERY alias lookup. False bypasses reuse. */
+    verifyAliasSnapshot?: (snapshot: Extract<ResultCacheSemanticIdentity['modelCompatibility'], { mode: 'alias' }>) => Promise<boolean>;
+    /** Persist a separate caller-level receipt before releasing the result to the caller. */
+    recordCallerReceipt?: (receipt: ResultCacheCallerReceipt) => Promise<void>;
+  };
   /** Optional policy for consuming provider-reported prompt-prefix metadata. */
   providerPrefix?: DecisionProviderPrefixPolicy;
   /** Optional trusted host-side state projection boundary. */
@@ -608,6 +635,8 @@ export interface DecisionEvaluationRequest {
   /** Optional metadata-only observability sink. Its failures never affect evaluation. */
   telemetry?: {
     hook: DecisionTelemetryHook;
+    /** Optional bounded, allowlisted operational metrics; never an authorization signal. */
+    metrics?: import('./telemetry/metrics.js').BoundedDecisionMetrics;
     ids?: DecisionTelemetryIdSource;
     parent?: DecisionTelemetryContext;
   };

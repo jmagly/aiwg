@@ -34,9 +34,14 @@ describe('decision state projection', () => {
     ['origin', (value: DecisionProjectionPolicy) => { value.origin = 'https://other.example'; }],
     ['region', (value: DecisionProjectionPolicy) => { value.region = 'eu'; }],
     ['purpose', (value: DecisionProjectionPolicy) => { value.purpose = 'training'; }],
-  ])('denies an unauthorized %s before projection', async (_name, mutate) => {
+  ])('denies an unauthorized %s before credentials or transport', async (_name, mutate) => {
     const value = policy(); mutate(value);
-    await expect(projectDecisionState({ report: 'x', evidence: 'y' }, value)).rejects.toMatchObject({ reason: 'data-boundary-denied' });
+    const resolveCredential = vi.fn(async () => 'credential');
+    const dispatch = vi.fn(async () => undefined);
+    await expect(dispatchProjectedDecisionState({ report: 'x', evidence: 'y' }, value, { resolveCredential, dispatch }))
+      .rejects.toMatchObject({ reason: 'data-boundary-denied' });
+    expect(resolveCredential).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
   });
 
   it('fails closed for incomplete material context', async () => {
