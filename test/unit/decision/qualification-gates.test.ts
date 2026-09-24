@@ -46,6 +46,19 @@ describe('decision qualification gate evaluator', () => {
     expect(report.gates.find(gate => gate.id === 'G6')?.failed).toContain(`finding:${finding}`);
   });
 
+  it('rejects duplicate and invented evidence even if the last duplicate passes', () => {
+    const cases = expectedQualificationCaseIds().map(id => ({ ...oneCase, id, kind: id.startsWith('TV') ? 'vendor' as const : 'baseline' as const }));
+    const evidence = cases.map(({ id }) => ({
+      caseId: id, executable: true, outcome: 'pass' as const, artifact: `${id}.json`, digest: `sha256:${'a'.repeat(64)}` as const,
+    }));
+    const evidenceFlags = Object.fromEntries(DECISION_RELEASE_GATES.flatMap(gate => gate.requiredEvidence).map(key => [key, true]));
+    const report = evaluateQualification({ ...base, cases, evidenceFlags, evidence: [
+      { ...evidence[0]!, outcome: 'fail' }, ...evidence, { ...evidence[0]!, caseId: 'C99' },
+    ] });
+    expect(report.decision).toBe('HOLD');
+    expect(report.gates[0]).toMatchObject({ status: 'fail', failed: ['duplicate-evidence:C01', 'unknown-evidence:C99'] });
+  });
+
   it('preserves deterministic sorted diagnostics', () => {
     const report = evaluateQualification({ ...base, cases: [
       { ...oneCase, id: 'C02' }, oneCase,
