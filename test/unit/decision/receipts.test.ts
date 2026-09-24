@@ -566,7 +566,21 @@ describe('SEC-PORTABLE shared secret-material detector', () => {
 
 describe('PRV-EGRESS-RECEIPT portable decision receipts', () => {
   const fingerprint = `sha256:${'a'.repeat(64)}`;
-  const evaluation = (extra: Record<string, unknown>) => ({ a: { spec: { alias: 'a', invocationId: 'egress', ...extra } } }) as never;
+  // Schema-valid result documents (the writer gate validates them); the secret rides in a free-form string or outcome.
+  const evaluation = (value: unknown) => {
+    const document = JSON.parse(readFileSync('examples/decision/result-category.json', 'utf8'));
+    document.spec.alias = 'a';
+    document.spec.invocationId = 'egress';
+    document.spec.value = typeof value === 'string' ? value : JSON.stringify(value);
+    return { a: document } as never;
+  };
+  const rulesetResult = (outcome: unknown) => {
+    const document = JSON.parse(readFileSync('examples/decision/ruleset-result.json', 'utf8'));
+    document.spec.invocationId = 'egress';
+    document.spec.evaluations = {};
+    document.spec.outcome = outcome;
+    return document as never;
+  };
 
   it('PRV-EGRESS-RECEIPT-01 rejects secret material in remote handles without echoing it', async () => {
     const { receipt } = await new MemoryDecisionReceiptStore().acquire('egress', 'project', fingerprint);
@@ -584,16 +598,18 @@ describe('PRV-EGRESS-RECEIPT portable decision receipts', () => {
     const { receipt } = await new MemoryDecisionReceiptStore().acquire('egress', 'project', fingerprint);
     const dispatched = nextReceipt(receipt, 'dispatched');
     for (const [label, value] of secretFixtures) {
-      expect(() => nextReceipt(dispatched, 'observation-received', { evaluations: evaluation({ value }) }), label)
+      expect(() => nextReceipt(dispatched, 'observation-received', { evaluations: evaluation(value) }), label)
         .toThrow(DecisionReceiptIntegrityError);
       expect(() => nextReceipt(dispatched, 'observation-received', {
         pending: { alias: 'a', targetIndex: 0, ordinal: 1, attempts: [{ detail: value }] } as never,
       }), label).toThrow(DecisionReceiptIntegrityError);
     }
     const composed = nextReceipt(nextReceipt(dispatched, 'observation-received'), 'composed');
-    expect(() => nextReceipt(composed, 'completed', {
-      result: { spec: { invocationId: 'egress', status: 'completed', note: `Bearer ${canary}` } } as never,
-    })).toThrow(/forbidden credential or private-locator material/);
+    for (const [label, value] of secretFixtures) {
+      expect(() => nextReceipt(composed, 'completed', { result: rulesetResult(value) }), label)
+        .toThrow(/forbidden credential or private-locator material/);
+    }
+    expect(() => nextReceipt(composed, 'completed', { result: rulesetResult('docs-review') })).not.toThrow();
   });
 
   it('PRV-EGRESS-RECEIPT-03 stores never persist a receipt carrying secret material', async () => {
@@ -616,7 +632,7 @@ describe('PRV-EGRESS-RECEIPT portable decision receipts', () => {
     const { receipt } = await new MemoryDecisionReceiptStore().acquire('egress', 'project', fingerprint);
     const known = nextReceipt(nextReceipt(receipt, 'dispatched'), 'remote-handle-known', { remoteHandles: ['jev:job/0f3c-7a1e'] });
     const observed = nextReceipt(known, 'observation-received', {
-      evaluations: evaluation({ credentialRef: 'typesafe.jev.playground', usage: { inputTokens: 3 } }),
+      evaluations: evaluation('typesafe.jev.playground'),
     });
     expect(observed.remoteHandles).toEqual(['jev:job/0f3c-7a1e']);
   });

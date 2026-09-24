@@ -784,16 +784,15 @@
       "additionalProperties": false,
       "allOf": [
         {
+          "$comment": "An incomplete-context downgrade (D06/D10) is review with reason insufficient-information and no outcome.",
           "if": {
-            "properties": {
-              "status": {
-                "enum": [
-                  "completed",
-                  "defaulted",
-                  "review"
-                ]
+            "anyOf": [
+              { "properties": { "status": { "enum": ["completed", "defaulted"] } } },
+              {
+                "properties": { "status": { "const": "review" } },
+                "not": { "properties": { "reason": { "const": "insufficient-information" } }, "required": ["reason"] }
               }
-            }
+            ]
           },
           "then": {
             "properties": {

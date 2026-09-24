@@ -1132,7 +1132,9 @@ function resultBase(request: DecisionEvaluationRequest, ruleset: ArtifactPin, bi
  * so every nested result and receipt payload of one invocation shares one version.
  */
 function resultVersion(request: DecisionEvaluationRequest): typeof DECISION_API_VERSION | typeof DECISION_API_VERSION_STRUCTURED {
+  // The projection opt-out record and an incomplete-projection downgrade are v1alpha2-only semantics.
   if (request.calibrationCompatibility || isUnprojectedLocalOptOut(request.projection)
+    || request.projection && !isUnprojectedLocalOptOut(request.projection) && request.projection.incompleteContext === true
     || request.ruleset.apiVersion === DECISION_API_VERSION_STRUCTURED || request.binding.apiVersion === DECISION_API_VERSION_STRUCTURED
     || Object.values(request.definitions).some(definition => definition.apiVersion === DECISION_API_VERSION_STRUCTURED)
     || request.batching || request.batchReceipts || request.scheduler?.enabled || request.providerPrefix || request.context) {

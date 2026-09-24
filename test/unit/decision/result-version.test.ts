@@ -139,7 +139,7 @@ describe('decision evaluator result version', () => {
     capabilities: async () => ({
       answerKinds: ['choice', 'ordinal-score', 'truth-probability'] as const,
       features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true,
+      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const },
     }),
     evaluate: async request => request.alias === 'category' ? success('documentation')
       : request.alias === 'severity' ? success(0.25) : success(0.05, 'typesafe-truth-v1'),
