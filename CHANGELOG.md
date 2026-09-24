@@ -13,6 +13,18 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   drift check, and stable-promotion gate. The adapter remains experimental
   until released-binary evidence is complete; Grok Build remains distinct
   from Grok Bot and Grok web Build.
+
+### Changed
+
+- Decision results that carry native-batch provenance (`attempts[].batch`,
+  `batchResult`), admission, context, or provider-prefix evidence are now
+  written as `decision.aiwg.io/v1alpha2`, including when the ruleset, binding,
+  and definitions are v1alpha1. The v1alpha1 `DecisionResult` and
+  `RulesetResult` schemas match the 2026.9.20 release again and reject these
+  fields. Every evaluator result and invocation receipt payload passes the
+  `assertDecisionResultWriterVersion` gate. Consumers that enable `batching`,
+  `batchReceipts`, `scheduler`, `providerPrefix`, or `context` must accept
+  v1alpha2 results. Released v1alpha1 results still validate unchanged (#2671).
 ## [2026.9.20] - 2026-09-21 - "Stable channels and exact-source evidence"
 
 ### Changed
