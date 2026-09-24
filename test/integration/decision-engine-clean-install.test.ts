@@ -1,15 +1,20 @@
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { acquireDirectoryLock } from '../../src/artifacts/prebuilt-build-lock.js';
 
 // Clean-install evidence for the decision-engine addon (#2641): pack the
-// repository, install the tarball into an empty project with npm offline, deploy
+// repository, unpack the tarball as an empty project's node_modules/aiwg, deploy
 // the addon from the installed package, and run the deployed dispatcher on the
 // shipped fixture request. Requires `npm run build` (the packaging lane builds first).
+//
+// Only the packed files are under test. Third-party dependencies resolve from
+// the repository's locked install (linked one level above the project), so the
+// test needs no registry or npm cache: an offline `npm install` of the tarball
+// fails in CI because `npm ci` does not cache every packument npm resolves.
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const SKILL = path.join('.claude', '.aiwg', 'skills', 'decision-evaluate');
@@ -64,8 +69,6 @@ describe('decision-engine clean install from the packed tarball', () => {
 
     const cleanEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
       !key.toLowerCase().startsWith('npm_config_') && key !== 'AIWG_ROOT' && key !== 'NODE_OPTIONS'));
-    const cache = run(NPM, ['config', 'get', 'cache'], { cwd: ROOT, env: cleanEnv, timeout: 30_000 });
-    expect(cache.status, cache.stderr).toBe(0);
 
     const releasePackLock = await acquireDirectoryLock(path.join(ROOT, 'prebuilt', 'fortemi-core', '.framework-build.lock'));
     let pack: SpawnSyncReturns<string>;
@@ -77,12 +80,13 @@ describe('decision-engine clean install from the packed tarball', () => {
     ok(pack);
     const tarball = path.join(tempRoot, (JSON.parse(pack.stdout) as Array<{ filename: string }>)[0]!.filename);
 
-    // Offline: the repository install already populated npm's cache.
-    ok(run(NPM, [
-      'install', '--offline', '--ignore-scripts', '--omit=optional', '--no-audit', '--no-fund',
-      '--package-lock=false', '--cache', cache.stdout.trim(), tarball,
-    ], { cwd: consumer, env: { ...cleanEnv, HOME: home, NPM_CONFIG_OFFLINE: 'true' }, timeout: 300_000 }));
+    const unpacked = path.join(tempRoot, 'unpacked');
+    await mkdir(unpacked, { recursive: true });
+    ok(run('tar', ['-xzf', tarball, '-C', unpacked], { cwd: tempRoot, env: cleanEnv }));
+    await mkdir(path.join(consumer, 'node_modules'), { recursive: true });
     installRoot = path.join(consumer, 'node_modules', 'aiwg');
+    await rename(path.join(unpacked, 'package'), installRoot);
+    await symlink(path.join(ROOT, 'node_modules'), path.join(tempRoot, 'node_modules'), 'junction');
   }, 600_000);
 
   afterAll(async () => {
