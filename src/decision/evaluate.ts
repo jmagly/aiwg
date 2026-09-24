@@ -17,6 +17,7 @@ import { digestCachedResult, RESULT_CACHE_KEY_VERSION } from './result-cache/ind
 import type { CachedResultEvidence, ResultCacheSemanticIdentity } from './result-cache/index.js';
 import { DecisionProjectionError, projectDecisionState, type DecisionProjectionEvidence } from './projection.js';
 import { emitRulesetRuntimeTrace } from './telemetry/runtime.js';
+import { assertContextQualified } from './context-qualification.js';
 import {
   assertContextPlanCurrent,
   ContextPlanError,
@@ -331,7 +332,8 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
       candidates.push({ alias: item.alias, definition: item.definition, input: item.input, target, adapter,
         capabilities: await adapter.capabilities() });
     }
-    for (const plan of contextPartitionedBatchPlans(planNativeDecisionBatches(candidates, request.batching), contextPlan)) {
+    for (const plan of request.context?.rollout?.mode === 'observe-only' ? []
+      : contextPartitionedBatchPlans(planNativeDecisionBatches(candidates, request.batching), contextPlan)) {
       if (plan.candidates.some(candidate => evaluations[candidate.alias])) continue;
       if (attemptsUsed + plan.candidates.length > request.binding.spec.maxAttempts) continue;
       const started = now();
@@ -395,7 +397,7 @@ async function evaluateDecisionRulesetInternal(request: DecisionEvaluationReques
         const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
           requests: preparedRequests });
         if (contextPlan && response.sharedUsage.inputTokens !== null) {
-          recordRuntimeContextUsage(contextPlan, questionIds[0]!, response.sharedUsage.inputTokens, contextUsage, 'partition');
+          recordRuntimeContextUsage(contextPlan, questionIds, response.sharedUsage.inputTokens, contextUsage);
         }
         observations = correlateAtomicBatch(questionIds,
           response.answers.map(answer => ({ questionId: answer.questionId, value: answer.observation })));
@@ -1047,6 +1049,9 @@ function prepareContextPlan(
   }
   const plan = runtime.plan ?? planDecisionContext(runtime.input, runtime.profile, runtime.estimator);
   assertContextPlanCurrent(plan, runtime.input, runtime.profile, runtime.estimator);
+  if (runtime.rollout?.mode === 'enforce') {
+    assertContextQualified(runtime.rollout.qualification, runtime.profile, runtime.estimator);
+  }
   if (request.batchReceipts && request.batchReceipts.contextPlan.planDigest !== plan.planDigest) {
     throw new ContextPlanError('stale-plan', 'batch receipt context plan differs from runtime context plan');
   }
@@ -1072,15 +1077,14 @@ function contextPartitionedBatchPlans(
 
 function recordRuntimeContextUsage(
   plan: ContextPlan,
-  questionId: string,
+  questionIds: string | readonly string[],
   actualInputTokens: number,
   evidence: ContextActualUsageEvidence[],
-  scope: 'single' | 'partition' = 'single',
 ): void {
-  const partition = plan.partitions.find(candidate => candidate.questionIds.includes(questionId));
-  if (!partition) throw new ContextPlanError('invalid-input', `question '${questionId}' has no context partition`);
-  const recorded = recordContextActualUsage(plan, partition.id, actualInputTokens,
-    scope === 'single' ? questionId : undefined);
+  const ids = typeof questionIds === 'string' ? [questionIds] : questionIds;
+  const partition = plan.partitions.find(candidate => ids.every(id => candidate.questionIds.includes(id)));
+  if (!partition) throw new ContextPlanError('invalid-input', 'request questions have no common context partition');
+  const recorded = recordContextActualUsage(plan, partition.id, actualInputTokens, ids);
   const key = recorded.questionIds.join('\0');
   const index = evidence.findIndex(candidate => candidate.planDigest === plan.planDigest
     && candidate.partitionId === partition.id && candidate.questionIds.join('\0') === key);
