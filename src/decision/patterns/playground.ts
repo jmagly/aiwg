@@ -329,7 +329,8 @@ export async function runLiveDecisionPattern(
   let reservedCostUsd = 0;
   const countedFetch = (async (url: string | URL | Request, init?: RequestInit) => { calls += 1; return transport.fetch(url, init); }) as typeof fetch;
   const scheduler: DecisionSchedulerPolicy = {
-    enabled: true, profileVersion: `pattern.${id}@${pack.version}.live`,
+    // Admission profiles are registered process-wide per workspace; a revision names exactly one set of limits.
+    enabled: true, profileVersion: `pattern.${id}@${pack.version}.live.${createHash('sha256').update(canonicalJson(limits as unknown as JsonValue)).digest('hex').slice(0, 16)}`,
     workspace: { id: 'pattern-playground', limits: { concurrency: 1 } },
     principal: { id: 'pattern-playground-operator', limits: { concurrency: 1 } },
     providers: { jev: { concurrency: 1, maxAttempts: limits.maxCalls, maxTokens: limits.maxTokens, maxCostUsd: limits.maxCostUsd, allowUnknownCost: false } },
