@@ -59,6 +59,36 @@ describe('JOB object gateway', () => {
       await expect(fresh.submit(scope, fixture())).rejects.toThrow('Job unavailable');
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
+  it('authorizes list cursors and exports, rejects scope substitution and stale pages', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'decision-gateway-list-'));
+    try {
+      const key = randomBytes(32); const store = new FileJobStore(dir);
+      const runtime = new DecisionJobRuntime(store, () => 20);
+      const gateway = new DecisionJobGateway(runtime, key, () => 20, undefined, {
+        listSnapshots: () => store.listSnapshots(),
+        authorizeExport: async (actor, snapshot) => actor.principalId === 'actor' && snapshot.job.id === 'a',
+      });
+      const a = fixture(); a.id = 'a';
+      const b = fixture(); b.id = 'b';
+      const other = fixture(); other.id = 'x'; other.scope = { ...scope, projectId: 'other' };
+      const first = await gateway.submit(scope, a);
+      await gateway.submit(scope, b);
+      await gateway.submit(other.scope, other);
+      const page = (await gateway.list(scope, undefined, 1))!;
+      expect(page.handles).toHaveLength(1);
+      expect((await gateway.poll(scope, page.handles[0]!))?.job.id).toBe('a');
+      expect(page.next).toMatch(/^dc1_/);
+      expect(await gateway.poll(scope, page.next!)).toBeNull();
+      expect(await gateway.list(other.scope, page.next!, 1)).toBeNull();
+      expect((await gateway.list(scope, page.next!, 1))?.handles).toHaveLength(1);
+      expect((await gateway.export(scope, first.handle))?.job.id).toBe('a');
+      expect(await gateway.export(other.scope, first.handle)).toBeNull();
+      expect(await gateway.export(scope, (await gateway.list(scope, page.next!, 1))!.handles[0]!)).toBeNull();
+      await gateway.remove(scope, first.handle);
+      expect(await gateway.list(scope, page.next!, 1)).toBeNull();
+      expect((await gateway.list(other.scope))?.handles).toHaveLength(1);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   it('requires a strong injected host key, not a model-supplied value', () => {
     expect(() => new DecisionJobGateway(new DecisionJobRuntime(new FileJobStore('/unused')), Buffer.alloc(16))).toThrow('key');
   });
