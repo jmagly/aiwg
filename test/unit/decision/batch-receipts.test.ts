@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -64,6 +64,19 @@ describe('decision batch receipts', () => {
     expect(values.reduce((sum, value) => sum + value.outputTokens!, 0)).toBe(2);
   });
 
+  it('REC-BATCH-002 reconciles weighted allocations across deterministic edge-case fixtures', () => {
+    for (let count = 1; count <= 13; count++) {
+      const ids = Array.from({ length: count }, (_, index) => `question-${index}`);
+      const weights = Object.fromEntries(ids.map((id, index) => [id, index + 1]));
+      for (const total of [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 1_000_000]) {
+        const allocation = allocateEstimatedUsage(ids, { inputTokens: total, outputTokens: total + 1 }, weights);
+        expect(allocation.reduce((sum, value) => sum + value.inputTokens!, 0)).toBe(total);
+        expect(allocation.reduce((sum, value) => sum + value.outputTokens!, 0)).toBe(total + 1);
+        expect(allocateEstimatedUsage(ids, { inputTokens: total, outputTokens: total + 1 }, weights)).toEqual(allocation);
+      }
+    }
+  });
+
   it('REC-BATCH-003 retains retry and fallback consumption without overwriting failed attempts', () => {
     const attempts = [attempt({ status: 'failed', usage: { inputTokens: 8, outputTokens: 0 },
       cost: { kind: 'bounded-unknown', currency: 'USD', upperBoundMicros: 8, boundPolicyId: 'budget', boundPolicyVersion: '1' } }),
@@ -114,6 +127,15 @@ describe('decision batch receipts', () => {
     expect(JSON.stringify(exported)).not.toContain('req_opaque');
     expect(exported.attempts[0]!.providerRequestIdHash).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(exported).not.toHaveProperty('rawState'); expect(exported).not.toHaveProperty('responseBody');
+    const poisoned = structuredClone(receipt);
+    Object.assign(poisoned.plan, { privateReasoning: 'SECRET_DO_NOT_EXPORT' });
+    Object.assign(poisoned.attempts[0]!, { privateReasoning: 'SECRET_DO_NOT_EXPORT' });
+    Object.assign(poisoned.attempts[0]!.usage, { responseBody: 'SECRET_DO_NOT_EXPORT' });
+    Object.assign(poisoned.attempts[0]!.cost, { credentials: 'SECRET_DO_NOT_EXPORT' });
+    Object.assign(poisoned.answerReferences[0]!, { rawState: 'SECRET_DO_NOT_EXPORT' });
+    Object.assign(poisoned.allocations[0]!, { privateReasoning: 'SECRET_DO_NOT_EXPORT' });
+    expect(JSON.stringify(sanitizedBatchReceiptExport(poisoned, 'deployment-salt-1')))
+      .not.toContain('SECRET_DO_NOT_EXPORT');
     const malformed = structuredClone(receipt); malformed.attempts[0]!.providerRequestId = 'x'.repeat(257);
     expect(() => validateBatchReceipt(malformed)).toThrow(/Invalid batch receipt/);
     const altered = { ...receipt, allocations: allocateEstimatedUsage(receipt.questionIds, { inputTokens: 999, outputTokens: 999 }) };
@@ -166,6 +188,65 @@ describe('decision batch receipts', () => {
     await expect(store.writeMany(receipt, changed)).rejects.toThrow(/Conflicting batch result publication/);
     expect((await store.readMany(receipt)).get(receipt.questionIds[0]!)?.value).toBe('yes');
     expect((await store.readMany({ ...receipt, projectId: 'other-project' })).size).toBe(0);
+    const withUsage = new Map(observations);
+    withUsage.set(receipt.questionIds[0]!, { ...observations.get(receipt.questionIds[0]!)!,
+      usage: { inputTokens: 10, outputTokens: null, costUsd: null } });
+    await expect(store.writeMany(receipt, withUsage)).rejects.toThrow(/shared accounting/);
+    const withRequestId = new Map(observations);
+    withRequestId.set(receipt.questionIds[0]!, { ...observations.get(receipt.questionIds[0]!)!, requestId: 'req_opaque' });
+    await expect(store.writeMany(receipt, withRequestId)).rejects.toThrow(/shared accounting/);
+    await expect(store.writeMany(receipt, new Map([...observations].slice(0, 2))))
+      .rejects.toThrow(/does not match receipt references/);
+  });
+
+  it('rejects insecure receipt directories and receipt files on replay', async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'batch-receipt-permissions-')); directories.push(parent);
+    const directory = join(parent, 'receipts');
+    const store = new FileBatchReceiptStore(directory);
+    const receipt = base();
+    await store.acquire(receipt);
+    const name = (await readdir(directory)).find(candidate => candidate.endsWith('.json'))!;
+    await chmod(join(directory, name), 0o644);
+    await expect(store.read(receipt.batchId, receipt.tenantId, receipt.projectId))
+      .rejects.toThrow(/Insecure batch receipt file/);
+    await chmod(join(directory, name), 0o600);
+    await chmod(directory, 0o755);
+    await expect(store.read(receipt.batchId, receipt.tenantId, receipt.projectId))
+      .rejects.toThrow(/Insecure batch receipt directory/);
+    await expect(store.acquire(receipt)).rejects.toThrow(/Insecure batch receipt directory/);
+    const link = join(parent, 'linked');
+    await symlink(directory, link);
+    await expect(new FileBatchReceiptStore(link).read(receipt.batchId, receipt.tenantId, receipt.projectId))
+      .rejects.toThrow(/Insecure batch receipt directory/);
+  });
+
+  it('rejects world-readable and symlinked result directories', async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'batch-result-directory-')); directories.push(parent);
+    const directory = join(parent, 'results');
+    const store = new FileBatchResultStore(directory);
+    const receipt = completed();
+    await store.readMany(receipt);
+    await chmod(directory, 0o755);
+    await expect(store.readMany(receipt)).rejects.toThrow(/Insecure batch result directory/);
+    await expect(store.writeMany(receipt, new Map())).rejects.toThrow(/Insecure batch result directory/);
+    const link = join(parent, 'linked');
+    await symlink(directory, link);
+    await expect(new FileBatchResultStore(link).readMany(receipt)).rejects.toThrow(/Insecure batch result directory/);
+  });
+
+  it('rejects world-readable result snapshots on replay', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'batch-result-permissions-')); directories.push(directory);
+    const store = new FileBatchResultStore(directory);
+    const receipt = completed();
+    const observations = new Map(receipt.questionIds.map(questionId => [questionId, {
+      status: 'success' as const, reason: 'none' as const, value: 'yes', uncertainty: null,
+      actualModel: 'jev-1', requestId: null, usage: { inputTokens: null, outputTokens: null, costUsd: null },
+    }]));
+    await store.writeMany(receipt, observations);
+    const name = (await readdir(directory)).find(candidate => candidate.endsWith('.json'))!;
+    await chmod(join(directory, name), 0o644);
+    await expect(store.readMany(receipt)).rejects.toThrow(/Insecure batch result file/);
+    await expect(store.writeMany(receipt, observations)).rejects.toThrow(/Insecure batch result file/);
   });
 
   it('fails closed when a replay reuses a batch ID for different immutable identity', async () => {
