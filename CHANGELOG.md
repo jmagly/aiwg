@@ -25,6 +25,14 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   `assertDecisionResultWriterVersion` gate. Consumers that enable `batching`,
   `batchReceipts`, `scheduler`, `providerPrefix`, or `context` must accept
   v1alpha2 results. Released v1alpha1 results still validate unchanged (#2671).
+- The semantic result cache's `spec.cache` caller receipt is now defined in
+  the v1alpha2 `RulesetResult` schema and treated as a v1alpha2-only field, so
+  a cache-enabled evaluation always writes a v1alpha2 result. Cache events feed
+  the D14 metric pipeline through `resultCacheMetricsSink`, including `bypass`
+  and `single-flight`. `FileResultCacheStore` can be bound to the shared D10
+  lifecycle policy for retention, export, and cascading source-receipt
+  deletion. The result-cache doc adds a key construction security review
+  (#2609).
 ## [2026.9.20] - 2026-09-21 - "Stable channels and exact-source evidence"
 
 ### Changed

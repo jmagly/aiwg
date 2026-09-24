@@ -88,6 +88,25 @@ describe('decision result version ownership', () => {
     expect(() => assertDecisionResultWriterVersion(fixture('ruleset.json'))).toThrow(/accepts only DecisionResult or RulesetResult/);
   });
 
+  it('treats the D15 result-cache caller receipt as a v1alpha2-only RulesetResult field', () => {
+    expect(DECISION_RESULT_V1ALPHA2_FIELDS.filter(entry => entry.scope === 'ruleset').map(entry => entry.field).sort()).toEqual(['cache', 'context']);
+    const cache = { disposition: 'cache-hit', callerInvocationId: 'caller', sourceInvocationId: 'source', sourceReceiptId: 'source',
+      originalEvaluatedAtEpochMs: 10, cacheEntryId: 'entry', createdAtEpochMs: 20, providerAttempted: false };
+    const legacy = fixture<RulesetResult>('ruleset-result.json');
+    (legacy.spec as unknown as Record<string, unknown>).cache = structuredClone(cache);
+    expect(decisionResultV1Alpha2Fields(legacy)).toEqual(['$.spec.cache']);
+    expect(() => validateDecisionDocument(legacy)).toThrow(DecisionValidationError);
+    expect(() => assertDecisionResultWriterVersion(legacy)).toThrow(new RegExp(`\\$\\.spec\\.cache requires ${V2}`));
+    const current = fixture<RulesetResult>('ruleset-result-batch.v1alpha2.json');
+    (current.spec as unknown as Record<string, unknown>).cache = structuredClone(cache);
+    assertDecisionResultWriterVersion(current);
+    for (const invalid of [{ ...cache, providerAttempted: true }, { ...cache, cacheEntryId: null },
+      { ...cache, disposition: 'bypass', providerAttempted: false }, { ...cache, operationId: 'extra' }]) {
+      (current.spec as unknown as Record<string, unknown>).cache = invalid;
+      expect(() => validateDecisionDocument(current), JSON.stringify(invalid)).toThrow(DecisionValidationError);
+    }
+  });
+
   it('refuses a v1alpha1-labelled D07 result at the invocation receipt writer', async () => {
     const store = new MemoryDecisionReceiptStore();
     let receipt = (await store.acquire('gate', 'project', `sha256:${'a'.repeat(64)}`)).receipt;

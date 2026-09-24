@@ -6,7 +6,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { evaluateDecisionRuleset } from '../../../src/decision/evaluate.js';
 import { MemoryDecisionReceiptStore } from '../../../src/decision/receipts.js';
 import { DecisionResultCache, FileResultCacheStore, MemoryResultCacheStore, RESULT_CACHE_KEY_VERSION, digestCachedResult, digestResultCacheIdentity, entryIntegrityDigest } from '../../../src/decision/result-cache/index.js';
-import { artifactPin } from '../../../src/decision/validate.js';
+import { artifactPin, assertDecisionResultWriterVersion, validateDecisionDocument } from '../../../src/decision/validate.js';
+import { BoundedDecisionMetrics } from '../../../src/decision/telemetry/metrics.js';
 import type { DecisionAdapter, DecisionBinding, DecisionDefinition, DecisionEvaluationRequest, DecisionRuleset } from '../../../src/decision/types.js';
 import type { DecisionTelemetrySpan } from '../../../src/decision/telemetry/types.js';
 
@@ -188,6 +189,65 @@ describe('experimental evaluator result-cache integration', () => {
       await expect(evaluateDecisionRuleset({ ...base, invocationId: 'victim' })).rejects.toThrow('source receipt');
       expect(vi.mocked(adapter.evaluate)).toHaveBeenCalledOnce();
     } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
+  it('labels every cache disposition v1alpha2 so spec.cache validates against the result schema', async () => {
+    const { base } = setup();
+    const fill = await evaluateDecisionRuleset(base);
+    const hit = await evaluateDecisionRuleset({ ...base, invocationId: 'hit' });
+    const bypass = await evaluateDecisionRuleset({ ...base, invocationId: 'bypass', resultCache: { ...base.resultCache!,
+      identityFor: context => ({ ...base.resultCache!.identityFor(context), modelCompatibility: { mode: 'alias' as const,
+        alias: context.target.model, snapshotId: 'registry', approvedActualModels: [context.target.model], validUntilEpochMs: Date.now() + 10_000 } }),
+      verifyAliasSnapshot: async () => false } });
+    expect([fill, hit, bypass].map(result => result.spec.cache?.disposition)).toEqual(['cache-miss-fill', 'cache-hit', 'bypass']);
+    for (const result of [fill, hit, bypass]) {
+      expect(result.apiVersion).toBe('decision.aiwg.io/v1alpha2');
+      expect(Object.values(result.spec.evaluations).every(value => value.apiVersion === result.apiVersion)).toBe(true);
+      validateDecisionDocument(result);
+      assertDecisionResultWriterVersion(result);
+    }
+    // The schema binds the hit invariants, not just the shape.
+    const forged = structuredClone(hit);
+    forged.spec.cache!.providerAttempted = true;
+    expect(() => validateDecisionDocument(forged)).toThrow();
+  });
+
+  it('refuses to release a legacy v1alpha1 historical entry with a v1alpha2-only caller receipt', async () => {
+    const { base, target, callerReceipts, adapter } = setup();
+    const { resultCache: _cache, ...plain } = base;
+    const legacy = await evaluateDecisionRuleset(plain);
+    expect(legacy.apiVersion).toBe('decision.aiwg.io/v1alpha1');
+    const source = (await base.receiptStore!.read('source', 'project'))!;
+    const identity = base.resultCache!.identityFor({ alias: 'category', definition: base.definitions.category!,
+      target: base.binding.spec.evaluations.category!.targets[0]!, projectedInput: base.input as { message: string } });
+    const key = digestResultCacheIdentity(identity);
+    const unsigned = { schemaVersion: 'decision-result-cache/v1' as const, revision: 1 as const, entryId: 'legacy-entry',
+      scope: { tenantId: actor.tenantId, projectId: actor.projectId, workspaceId: actor.workspaceId }, keyDigest: key, identityDigest: key,
+      policyVersion: policy.policyVersion, sensitivity: policy.sensitivity, createdAtEpochMs: source.completedAtEpochMs!,
+      expiresAtEpochMs: Date.now() + 60_000, evidence: { result: source.result as never, resultDigest: digestCachedResult(source.result),
+        sourceInvocationId: 'source', sourceReceiptId: 'source', evaluatedAtEpochMs: source.completedAtEpochMs!, actualModel: target.model,
+        uncertainty: null, calibrationStatus: 'pinned', durationMs: 1, usage: { inputTokens: null, outputTokens: null, costUsd: null },
+        status: 'success' as const, failureReason: 'none' as const } };
+    const fresh = new MemoryResultCacheStore();
+    await fresh.putIfAbsent(actor, { ...unsigned, integrityDigest: entryIntegrityDigest(unsigned) });
+    base.resultCache!.service = new DecisionResultCache(fresh);
+    await expect(evaluateDecisionRuleset({ ...base, invocationId: 'caller' })).rejects.toThrow(/\$\.spec\.cache requires decision\.aiwg\.io\/v1alpha2/);
+    expect(callerReceipts).toEqual([]);
+    expect(vi.mocked(adapter.evaluate)).toHaveBeenCalledOnce();
+  });
+
+  it('records hit throughput in D14 metrics without recounting historical provider usage', async () => {
+    const { base } = setup();
+    const metrics = new BoundedDecisionMetrics();
+    const traced = { ...base, telemetry: { hook: { emit: () => {} }, metrics } };
+    await evaluateDecisionRuleset(traced);
+    const before = metrics.snapshot().filter(point => point.name === 'decision.input_tokens').length;
+    expect(before).toBe(1);
+    await evaluateDecisionRuleset({ ...traced, invocationId: 'hit-metrics' });
+    const points = metrics.snapshot();
+    expect(points.filter(point => point.name === 'decision.throughput')).toHaveLength(2);
+    expect(points.filter(point => point.name === 'decision.input_tokens')).toHaveLength(before);
+    expect(points.filter(point => point.name === 'decision.attempts')).toHaveLength(1);
   });
 
   it('does not reuse an unverified source receipt even if the cache entry is present', async () => {
