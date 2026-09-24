@@ -61,6 +61,7 @@
     "smoke:antigravity:live": "node tools/providers/antigravity-live-smoke.mjs",
     "smoke:deepseek-harness:live": "node tools/providers/deepseek-harness-live-smoke.mjs",
     "smoke:grokbot:live": "node tools/providers/grokbot-live-smoke.mjs",
+    "smoke:muse:live": "node tools/providers/muse-live-smoke.mjs",
     "smoke:decision:jev:live": "npm run build:cli && node tools/decision/jev-live-smoke.mjs",
     "validate-metadata": "aiwg validate-metadata",
     "package-plugins": "node tools/plugin/package-plugins.mjs --all",
