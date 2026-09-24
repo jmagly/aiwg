@@ -73,6 +73,8 @@ async function pairedBenchmark(repetitions = 3): Promise<{
               { decisionSubject: 'ticket:42', independent: true, egressPolicy: 'jev-public-v1', hostPolicy: 'host-policy-v1' }])) }
           : { enabled: false, evaluations: {} },
         resolveCredential: async () => new TextEncoder().encode('offline-fixture'),
+        // Offline fake transport: explicit host opt-out of projection (#2678).
+        projection: { mode: 'unprojected-local' },
       });
       samples.push({ mode, providerCalls, inputTokens, outputTokens,
         latencyMs: Math.max(0, performance.now() - started) });

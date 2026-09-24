@@ -11,6 +11,14 @@ AIWG_DECISION_ENABLED=1 node \
   --request examples/decision/dispatcher-request-llm.json
 ```
 
+`dispatcher-request-jev.json` runs the same ruleset through the Jev binding.
+It names `projection-policy-jev.json`, which projects only `/message` as
+untrusted internal state for `jev-latest` at `https://api.typesafe.ai`. Replace
+`operator-declared-region` in both files with your recorded deployment region
+before a live run; the evaluator denies an undeclared or `unknown` region, and
+the dispatcher refuses the Jev adapter without a projection policy. The LLM
+fixture adapter declares `egress: { mode: 'none' }`, so it needs no policy.
+
 The Jev and LLM bindings pin the same `ruleset.json` and definitions. A backend
 swap changes only `bindingPath` (and runtime credential/worker configuration),
 not the ruleset, decisions, input, or outcome consumer.

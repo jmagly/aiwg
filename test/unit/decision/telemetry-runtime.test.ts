@@ -47,7 +47,7 @@ function adapter(evaluate: DecisionAdapter['evaluate']): DecisionAdapter {
   return { id: 'jev', version: '1.0.0', evaluate,
     capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
       features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true }) };
+      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const } }) };
 }
 
 describe('decision telemetry runtime golden traces', () => {

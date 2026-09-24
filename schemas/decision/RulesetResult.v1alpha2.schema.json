@@ -172,6 +172,16 @@
         "context": {
           "$ref": "DecisionContextEvidence.v1.schema.json"
         },
+        "projection": {
+          "description": "Present only when the host explicitly dispatched unprojected input (D10 opt-out).",
+          "type": "object",
+          "properties": {
+            "mode": { "const": "unprojected-local" },
+            "authority": { "const": "host" }
+          },
+          "required": ["mode", "authority"],
+          "additionalProperties": false
+        },
         "evaluations": {
           "type": "object",
           "additionalProperties": {

@@ -254,7 +254,7 @@ describe('primitive-aware acceptance', () => {
       spec: { ...bindingRaw.spec, ruleset: artifactPin(ruleset), evaluations: { category: { targets: [target], fallbackOn: [] } } } };
     const observed = observation('yes', { yes: 0.7, no: 0.2, none: 0.1 }, 0.8);
     const adapter: DecisionAdapter = { id: 'jev', version: target.adapterVersion,
-      capabilities: async () => ({ answerKinds: ['choice'], features: ['structured-entries'], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true }),
+      capabilities: async () => ({ answerKinds: ['choice'], features: ['structured-entries'], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true, egress: { mode: 'none' as const } }),
       evaluate: vi.fn(async () => observed) };
     const receiptStore = new MemoryDecisionReceiptStore();
     const request = { ruleset, binding, definitions: { category: decision },

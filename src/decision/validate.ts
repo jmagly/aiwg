@@ -141,6 +141,7 @@ export const DECISION_RESULT_V1ALPHA2_FIELDS = [
   { field: 'providerPrefix', scope: 'attempt', owner: 'D30', semantic: 'provider-prefix-evidence' },
   { field: 'acceptance', scope: 'decision', owner: 'D08', semantic: 'acceptance-uncertainty' },
   { field: 'calibrationCompatibility', scope: 'decision', owner: 'D09', semantic: 'calibration-pin' },
+  { field: 'projection', scope: 'ruleset', owner: 'D10', semantic: 'projection-opt-out' },
 ] as const;
 
 /** JSON paths of every v1alpha2-only field present in a DecisionResult or RulesetResult. */
@@ -168,7 +169,9 @@ export function decisionResultV1Alpha2Fields(value: unknown): string[] {
   if (kind === 'DecisionResult') visitDecision(value, '$');
   if (kind === 'RulesetResult') {
     const ruleset = spec(value);
-    if (ruleset && Object.hasOwn(ruleset, 'context')) found.push('$.spec.context');
+    for (const entry of DECISION_RESULT_V1ALPHA2_FIELDS) {
+      if (entry.scope === 'ruleset' && ruleset && Object.hasOwn(ruleset, entry.field)) found.push(`$.spec.${entry.field}`);
+    }
     const evaluations = ruleset?.evaluations;
     if (evaluations && typeof evaluations === 'object' && !Array.isArray(evaluations)) {
       for (const [alias, evaluation] of Object.entries(evaluations)) visitDecision(evaluation, `$.spec.evaluations.${alias}`);

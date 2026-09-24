@@ -346,8 +346,24 @@ export interface RulesetResult {
     cache?: ResultCacheCallerReceipt;
     /** Invocation-wide context plan plus immutable estimate-versus-actual evidence. */
     context?: DecisionContextEvidence;
+    /** Present only when the host explicitly dispatched unprojected input (v1alpha2). */
+    projection?: DecisionProjectionOptOutRecord;
   };
 }
+
+/** Result and receipt record of a host-only projection opt-out. Never derived from input. */
+export interface DecisionProjectionOptOutRecord {
+  mode: 'unprojected-local';
+  authority: 'host';
+}
+
+/**
+ * Adapter egress declaration. Omitted means network-capable with an unknown
+ * destination, so unprojected dispatch and every projection policy are denied.
+ */
+export type DecisionAdapterEgress =
+  | { mode: 'none' }
+  | { mode: 'network'; origin: string | null; region: string | null };
 
 export interface AdapterCapabilities {
   answerKinds: DecisionAnswer['kind'][];
@@ -363,6 +379,8 @@ export interface AdapterCapabilities {
     /** Opaque adapter/configuration identity for host and transport policy. */
     executionEnvelope: string;
   };
+  /** Trusted adapter configuration; see DecisionAdapterEgress. */
+  egress?: DecisionAdapterEgress;
 }
 
 export interface AdapterObservation {
@@ -430,6 +448,11 @@ export interface DecisionRuntimeProjectionPolicy {
     scope: string;
     capture(scope: string, plaintext: Uint8Array): Promise<string>;
   };
+}
+
+/** Explicit host-only opt-out for local and test harnesses. Portable artifacts cannot express it. */
+export interface DecisionUnprojectedLocalOptOut {
+  mode: 'unprojected-local';
 }
 
 export interface DecisionAdapterCompileRequest {
@@ -634,8 +657,14 @@ export interface DecisionEvaluationRequest {
   };
   /** Optional policy for consuming provider-reported prompt-prefix metadata. */
   providerPrefix?: DecisionProviderPrefixPolicy;
-  /** Optional trusted host-side state projection boundary. */
-  projection?: DecisionRuntimeProjectionPolicy;
+  /**
+   * Trusted host-side state projection boundary. Required for any adapter that
+   * does not declare `egress: { mode: 'none' }`; omitting it denies dispatch as
+   * `data-boundary-denied` before credential resolution or transport. The
+   * host-only `{ mode: 'unprojected-local' }` opt-out sends authorized input
+   * unprojected and is recorded in the result and receipt.
+   */
+  projection?: DecisionRuntimeProjectionPolicy | DecisionUnprojectedLocalOptOut;
   /** Optional metadata-only observability sink. Its failures never affect evaluation. */
   telemetry?: {
     hook: DecisionTelemetryHook;

@@ -16,7 +16,9 @@ import { prepareAdapterRequest } from './compile-cache/runtime.js';
 import { providerPrefixEvidence } from './compile-cache/prefix.js';
 import { digestCachedResult, RESULT_CACHE_KEY_VERSION } from './result-cache/index.js';
 import type { CachedResultEvidence, ResultCacheSemanticIdentity } from './result-cache/index.js';
-import { DecisionProjectionError, projectDecisionState, type DecisionProjectionEvidence } from './projection.js';
+import {
+  DecisionProjectionError, normalizeProjectionOrigin, projectDecisionState, type DecisionProjectionEvidence,
+} from './projection.js';
 import { emitRulesetRuntimeTrace } from './telemetry/runtime.js';
 import { assertContextQualified } from './context-qualification.js';
 import {
@@ -42,6 +44,7 @@ import type {
   DecisionResult,
   DecisionReceipt,
   DecisionStatus,
+  DecisionUnprojectedLocalOptOut,
   JsonValue,
   ExecutionTarget,
   RulesetResult,
@@ -99,7 +102,7 @@ async function evaluateWithResultCache(request: DecisionEvaluationRequest): Prom
     throw new Error('Result cache requires one target without retry or fallback');
   }
   const target = targets[0]!;
-  const projected = await projectRuntimeInput(snapshot, item.alias, target, item.input);
+  const projected = await projectRuntimeInput(snapshot, item.alias, target, item.input, snapshot.adapters[target.adapter]);
   // The key normalizes Unicode. The adapter must receive that same normalized
   // representation or two byte-distinct prompts could alias to one cache entry.
   assertNormalizedCacheInput(projected.input);
@@ -193,6 +196,7 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
     admissionStage = 'input';
     admitEntry(request.input);
     admissionStage = 'artifact';
+    validateEgressBoundaryConfiguration(request);
     validateRuleset(request.ruleset);
     rulesetPin = artifactPin(request.ruleset);
     bindingPin = artifactPin(request.binding);
@@ -383,11 +387,11 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
         const adapter = plan.candidates[0]!.adapter;
         const projectedCandidates = await Promise.all(plan.candidates.map(async candidate => ({
           candidate,
-          projected: await projectRuntimeInput(request, candidate.alias, candidate.target, candidate.input),
+          projected: await projectRuntimeInput(request, candidate.alias, candidate.target, candidate.input, adapter),
         })));
         // Both egress projections must be authorized before the first transport call.
         const fallbackProjectedCandidates = fallbackTarget ? await Promise.all(plan.candidates.map(async candidate => ({
-          candidate, projected: await projectRuntimeInput(request, candidate.alias, fallbackTarget, candidate.input),
+          candidate, projected: await projectRuntimeInput(request, candidate.alias, fallbackTarget, candidate.input, adapter),
         }))) : null;
         if (request.batchReceipts) {
           const partition = request.batchReceipts.contextPlan.partitions.find(candidate =>
@@ -661,7 +665,9 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
     }
   }
 
-  if (contextPlan && !contextPlan.automaticActionAllowed && (result.spec.status === 'completed' || result.spec.status === 'defaulted')) {
+  // Either incomplete-context signal (context plan or projection evidence) prohibits automatic action.
+  if ((contextPlan && !contextPlan.automaticActionAllowed || projectionBlockedAutomaticAction.has(request))
+    && (result.spec.status === 'completed' || result.spec.status === 'defaulted')) {
     const { outcome: _outcome, ...withoutOutcome } = result.spec;
     result = { ...result, spec: { ...withoutOutcome, status: 'review', reason: 'insufficient-information' } };
   }
@@ -739,7 +745,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
         const started = context.now();
         const attemptDeadline = Math.min(context.totalDeadline, started + target.timeoutMs);
         try {
-          const projected = await projectRuntimeInput(context.request, context.item.alias, target, context.item.input);
+          const projected = await projectRuntimeInput(context.request, context.item.alias, target, context.item.input, adapter);
           await context.advance('dispatched', { pending: { alias: context.item.alias, targetIndex, ordinal: attempts.length + 1, attempts } });
           try {
             final = await invokeWithDeadline(context, adapter!, target, attemptDeadline, attempts.length + 1, projected);
@@ -895,22 +901,74 @@ async function invokeWithDeadline(
   }
 }
 
+/** Requests whose projection evidence prohibited automatic action (allowed incomplete context). */
+const projectionBlockedAutomaticAction = new WeakSet<DecisionEvaluationRequest>();
+
+function isUnprojectedLocalOptOut(
+  projection: DecisionEvaluationRequest['projection'],
+): projection is DecisionUnprojectedLocalOptOut {
+  return !!projection && (projection as DecisionUnprojectedLocalOptOut).mode === 'unprojected-local';
+}
+
+/**
+ * The projection field is host code, never portable data: it must be either a
+ * resolver-backed policy or the exact opt-out object. Anything else (including a
+ * JSON-shaped policy lifted from input or definitions) is rejected before dispatch.
+ */
+function validateEgressBoundaryConfiguration(request: DecisionEvaluationRequest): void {
+  const projection = request.projection as unknown;
+  if (projection === undefined) return;
+  if (!projection || typeof projection !== 'object' || Array.isArray(projection)) {
+    throw new DecisionValidationError('unsupported egress boundary configuration');
+  }
+  const record = projection as Record<string, unknown>;
+  if ('mode' in record) {
+    if (record.mode !== 'unprojected-local' || Object.keys(record).length !== 1) {
+      throw new DecisionValidationError('unsupported egress boundary configuration');
+    }
+    return;
+  }
+  if (typeof record.resolve !== 'function') throw new DecisionValidationError('unsupported egress boundary configuration');
+}
+
 async function projectRuntimeInput(
   request: DecisionEvaluationRequest,
   alias: string,
   target: ExecutionTarget,
   input: unknown,
+  adapter: DecisionAdapter | undefined,
 ): Promise<{ input: unknown; evidence?: DecisionProjectionEvidence }> {
-  if (!request.projection) return { input };
-  const policy = request.projection.resolve({ alias, target: structuredClone(target) });
+  // Read the adapter's egress declaration at dispatch time, not from planning,
+  // so a destination change after planning is still bound before credentials.
+  const egress = adapter ? (await adapter.capabilities()).egress : undefined;
+  const projection = request.projection;
+  if (!projection || isUnprojectedLocalOptOut(projection)) {
+    // Safe default: unprojected input may reach only a no-egress adapter, unless
+    // the host explicitly opted out (recorded in the result and receipt).
+    if (projection || egress?.mode === 'none') return { input };
+    throw new DecisionProjectionError('data-boundary-denied', 'network-capable dispatch requires a projection policy');
+  }
+  const policy = projection.resolve({ alias, target: structuredClone(target) });
   if (policy.provider !== target.adapter || policy.model !== target.model) {
     throw new DecisionProjectionError('data-boundary-denied', 'projection destination does not match execution target');
   }
+  if (egress?.mode !== 'none') {
+    // Bind the policy's declared destination to the adapter's effective transport.
+    // An adapter that cannot name its origin or region is an unknown destination.
+    if (egress?.mode !== 'network' || !egress.origin || typeof policy.origin !== 'string'
+      || normalizeProjectionOrigin(policy.origin) !== normalizeProjectionOrigin(egress.origin)) {
+      throw new DecisionProjectionError('data-boundary-denied', 'projection origin does not match the adapter endpoint');
+    }
+    if (!egress.region || policy.region !== egress.region) {
+      throw new DecisionProjectionError('data-boundary-denied', 'projection region does not match the adapter deployment');
+    }
+  }
   const projected = await projectDecisionState(input, policy, {
-    incompleteContext: request.projection.incompleteContext,
+    incompleteContext: projection.incompleteContext,
   });
-  if (request.projection.debugCapture) {
-    const { scope, capture } = request.projection.debugCapture;
+  if (!projected.evidence.automaticActionAllowed) projectionBlockedAutomaticAction.add(request);
+  if (projection.debugCapture) {
+    const { scope, capture } = projection.debugCapture;
     try {
       await capture(scope, new TextEncoder().encode(canonicalJson(projected.state)));
     } catch {
@@ -918,7 +976,7 @@ async function projectRuntimeInput(
       throw new DecisionProjectionError('data-boundary-denied', 'debug capture unavailable');
     }
   }
-  request.projection.onEvidence?.({ alias, evidence: structuredClone(projected.evidence) });
+  projection.onEvidence?.({ alias, evidence: structuredClone(projected.evidence) });
   return { input: projected.state, evidence: projected.evidence };
 }
 
@@ -1063,7 +1121,8 @@ function resultBase(request: DecisionEvaluationRequest, ruleset: ArtifactPin, bi
   return {
     apiVersion: resultVersion(request), kind: 'RulesetResult',
     metadata: { id: request.invocationId, version: '1.0.0', description: `Ruleset result for ${request.ruleset.metadata.id}` },
-    spec: { ruleset, binding, runId: request.runId, invocationId: request.invocationId, status: 'error', reason: 'evaluation-failed', matchedRules: [], evaluations: {} },
+    spec: { ruleset, binding, runId: request.runId, invocationId: request.invocationId, status: 'error', reason: 'evaluation-failed', matchedRules: [], evaluations: {},
+      ...(isUnprojectedLocalOptOut(request.projection) ? { projection: { mode: 'unprojected-local', authority: 'host' } } : {}) },
   };
 }
 
@@ -1073,7 +1132,8 @@ function resultBase(request: DecisionEvaluationRequest, ruleset: ArtifactPin, bi
  * so every nested result and receipt payload of one invocation shares one version.
  */
 function resultVersion(request: DecisionEvaluationRequest): typeof DECISION_API_VERSION | typeof DECISION_API_VERSION_STRUCTURED {
-  if (request.calibrationCompatibility || request.ruleset.apiVersion === DECISION_API_VERSION_STRUCTURED || request.binding.apiVersion === DECISION_API_VERSION_STRUCTURED
+  if (request.calibrationCompatibility || isUnprojectedLocalOptOut(request.projection)
+    || request.ruleset.apiVersion === DECISION_API_VERSION_STRUCTURED || request.binding.apiVersion === DECISION_API_VERSION_STRUCTURED
     || Object.values(request.definitions).some(definition => definition.apiVersion === DECISION_API_VERSION_STRUCTURED)
     || request.batching || request.batchReceipts || request.scheduler?.enabled || request.providerPrefix || request.context) {
     return DECISION_API_VERSION_STRUCTURED;

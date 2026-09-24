@@ -15,6 +15,7 @@ import {
   type AdapterObservation,
   type DecisionContextPolicy,
   type DecisionProjectionPolicy,
+  type DecisionEvaluationRequest,
   CanonicalJsonByteEstimator,
   MemoryBatchReceiptStore,
   MemoryBatchResultStore,
@@ -46,8 +47,10 @@ function request(fetchImpl: typeof fetch, subjects?: Record<string, string>) {
   return {
     ruleset: fixture<DecisionRuleset>('ruleset.json'), binding: fixture<DecisionBinding>('binding-jev.json'),
     definitions: definitions(), input: fixture('input.json'), runId: 'run', invocationId: 'batch-run',
-    adapters: { jev: new JevDecisionAdapter({ fetch: fetchImpl }) }, batching: policy(subjects),
+    adapters: { jev: new JevDecisionAdapter({ fetch: fetchImpl, region: 'us' }) }, batching: policy(subjects),
     resolveCredential: async () => new TextEncoder().encode('token'),
+    // Offline fake transport opts out explicitly; PROJ-* cases replace this with a policy.
+    projection: { mode: 'unprojected-local' } as NonNullable<DecisionEvaluationRequest['projection']>,
   };
 }
 
@@ -229,9 +232,9 @@ describe('native shared-state decision batching', () => {
       projection: { resolve: runtimeProjectionPolicy, onEvidence: evidence } });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(credential).toHaveBeenCalledTimes(3);
-    expect(bodies.every(body => JSON.stringify(body.state) === JSON.stringify({
+    expect(bodies.every(body => JSON.stringify(body.state) === JSON.stringify({ verified: {}, untrusted: {
       excerpt: 'The documentation link on the settings page is broken. The application otherwise works.',
-    }))).toBe(true);
+    } }))).toBe(true);
     expect(evidence).toHaveBeenCalledTimes(3);
     expect(JSON.stringify(evidence.mock.calls)).not.toContain('The documentation link');
     expect(Object.values(result.spec.evaluations).every(item => item.spec.status === 'success')).toBe(true);
@@ -445,7 +448,7 @@ describe('native shared-state decision batching', () => {
     const adapter: DecisionAdapter = {
       id: 'jev', version: '1.0.0',
       capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
-        features: [], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true }),
+        features: [], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true, egress: { mode: 'none' as const } }),
       evaluate: vi.fn(async value => observe(value.alias)),
     };
     const base = request(vi.fn() as unknown as typeof fetch);
@@ -617,6 +620,37 @@ describe('native shared-state decision batching', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(credential).not.toHaveBeenCalled();
     expect(Object.values(result.spec.evaluations).every(value => value.spec.reason === 'data-boundary-denied')).toBe(true);
+  });
+
+  it('PRV-EGRESS-FALLBACK denies native batch with fallback preflight when no projection policy is supplied', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const credential = vi.fn(async () => new TextEncoder().encode('token'));
+    const configured = request(fetchImpl);
+    configured.binding.spec.maxAttempts = 6;
+    for (const evaluation of Object.values(configured.binding.spec.evaluations)) {
+      evaluation.targets.push({ ...structuredClone(evaluation.targets[0]!), model: 'jev-fallback' });
+      evaluation.fallbackOn.push('service-error');
+    }
+    const { projection: _optOut, ...withoutProjection } = configured;
+    const result = await evaluateDecisionRuleset({ ...withoutProjection, resolveCredential: credential,
+      batchReceipts: durableBatching(new MemoryBatchReceiptStore(), new MemoryBatchResultStore()) });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(credential).not.toHaveBeenCalled();
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.reason === 'data-boundary-denied')).toBe(true);
+  });
+
+  it('AC6-CTX downgrades a completed native-batch result to review when the context plan is incomplete', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const complete = await evaluateDecisionRuleset({ ...request(fetchImpl), context: contextRuntime() });
+    expect(complete.spec).toMatchObject({ status: 'completed', outcome: 'docs-review' });
+    const runtime = contextRuntime();
+    runtime.input.incompleteContext = true;
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), invocationId: 'batch-run-incomplete', context: runtime });
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.status === 'success')).toBe(true);
+    expect(result.spec.status).toBe('review');
+    expect(result.spec.reason).toBe('insufficient-information');
+    expect(result.spec).not.toHaveProperty('outcome');
+    expect(result.spec.context?.plan.automaticActionAllowed).toBe(false);
   });
 
   it('blocks a retry when failed-attempt consumption exhausts the conservative cost ceiling', async () => {
