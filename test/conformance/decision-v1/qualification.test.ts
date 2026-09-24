@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { evaluateQualification } from '../../../src/decision/qualification/gates.js';
 import { expectedQualificationCaseIds, stableManifestDigest, validateCaseInventory } from '../../../src/decision/qualification/manifest.js';
 import type { QualificationEvidence, QualificationRunManifest } from '../../../src/decision/qualification/types.js';
-import { DECISION_CASE_COVERAGE } from './coverage-map.js';
+import { candidates, caseOrdinal, DECISION_CASE_COVERAGE } from './coverage-map.js';
 
 const generatedAt = '2026-09-22T00:00:00.000Z';
 const evidence = (caseId: string): QualificationEvidence => ({
@@ -41,13 +41,25 @@ describe('decision qualification conformance foundation', () => {
     }
     expect(DECISION_CASE_COVERAGE.filter(item => ['TV03', 'TV04', 'TV05', 'TV11'].includes(item.id))
       .every(item => item.candidateTests.includes('test/conformance/decision-v1/acceptance-evidence.test.ts'))).toBe(true);
-    expect(DECISION_CASE_COVERAGE.filter(item => item.kind === 'vendor'
-      && !['TV03', 'TV04', 'TV05', 'TV11'].includes(item.id)).every(item => item.candidateTests.length === 0)).toBe(true);
+    // Executor linkage (every hinted case has a registered executor that ran) is
+    // enforced by qualification-aggregate.test.ts, not by these hints.
     const report = evaluateQualification(manifest());
     expect(report.decision).toBe('HOLD');
     expect(report.gates.find(gate => gate.id === 'G0')).toMatchObject({ status: 'fail' });
     expect(report.gates.find(gate => gate.id === 'G0')?.missing).toContain('case:C01');
     expect(report.gates.find(gate => gate.id === 'G0')?.missing).toContain('case:TV25');
+  });
+
+  it('parses TV and C ordinals and maps every TV that has an executor in the repository', () => {
+    expect(caseOrdinal('TV01')).toEqual({ prefix: 'TV', ordinal: 1 });
+    expect(caseOrdinal('C42')).toEqual({ prefix: 'C', ordinal: 42 });
+    expect(caseOrdinal('V01')).toBeNull();
+    expect(caseOrdinal('TV1')).toBeNull();
+    for (const id of ['TV01', 'TV08', 'TV22']) expect(candidates(id)).toEqual(['test/conformance/decision-v1/batch-evidence.test.ts']);
+    expect(candidates('TV10')).toEqual(['test/unit/decision/calibration-qualification-evidence.test.ts']);
+    for (const id of ['C31', 'C33']) expect(candidates(id)).toEqual(['test/conformance/decision-v1/boundary-vectors.test.ts']);
+    expect(candidates('C99')).toEqual([]);
+    expect(candidates('bogus')).toEqual([]);
   });
 
   it('fails every mandatory gate closed when evidence is absent', () => {
