@@ -970,6 +970,10 @@ async function runDoctor() {
       } catch {
         check(`${label} Agents`, 'info', `No agents deployed at ${agentsPathRel}`);
       }
+    } else if (provName === 'muse' && (providerArg || allProviders)) {
+      // Muse Code has no file-based agent surface by design: agents, commands,
+      // and rules stay indexed and are reached via `aiwg discover` / `aiwg show`.
+      check(`${label} Agents`, 'info', 'No native agent surface — agents are indexed; use `aiwg discover` / `aiwg show`');
     } else if (providerArg || allProviders) {
       // User explicitly asked about this provider — be explicit when missing.
       check(`${label} Agents`, 'info', `No agents deployed (run: aiwg use sdlc --provider ${provName})`);
@@ -1090,7 +1094,7 @@ async function runDoctor() {
   if (!noBudgetCheck) {
     try {
       const supported = providersToCheck.filter((name) =>
-        ['antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'opencode', 'pi', 'omp', 'warp', 'windsurf', 'hermes', 'openhuman', 'grokbot'].includes(name),
+        ['antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'opencode', 'pi', 'omp', 'warp', 'windsurf', 'hermes', 'openhuman', 'grokbot', 'muse'].includes(name),
       );
       const firewall = await scanContextMemoryFirewall({
         rootDir: process.cwd(),
