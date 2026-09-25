@@ -22,6 +22,8 @@
 
 The optional encrypted debug-sidecar constructor requires this entire policy and refuses a debug rule whose classification, TTL, export or deletion semantics disagree with the capture authorization. A sidecar cannot silently select a weaker lifecycle rule. `FileDebugSidecarBackend` provides a local private-directory implementation: ciphertext-only 0600 files, metadata-only 0600 audit log, no-follow reads, atomic no-replace publishing, expiry sweep and restart-time TTL checks. The encryption key is supplied only by a host callback, never written by this backend. Tests restart the service and prove expired ciphertext cannot be disclosed. Deployments still need independently controlled key access, backups, audit forwarding, filesystem access review and a scheduled sweep.
 
+The durable batch receipt and result stores bind the `receipt` rule in the same way. `FileBatchReceiptStore.erase` is the `receipt` surface eraser. It cascades to the batch's encrypted result snapshots, leaves only body-free tombstones, and refuses re-acquisition, so an erased batch is never re-dispatched. See [batch-receipts.md](batch-receipts.md#integrity-encryption-and-lifecycle).
+
 Holds require a subject, authorized actor, reason, surface scope and finite expiry. Placement persists the approved hold in the host store; release requires a separately authorized actor/reason and is recorded by the store. An active hold blocks deletion of linked in-scope surfaces; it does not grant access to held content. Expired holds do not block erasure. Real stores must enforce these constraints transactionally and audit administrative operations. A returned in-memory policy object alone is not proof that a deployment's cache, backup or export service obeys them.
 
 ## Evidence limits

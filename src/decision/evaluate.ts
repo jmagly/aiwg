@@ -11,6 +11,7 @@ import { allocateEstimatedUsage, batchAccountingTotals, batchEnforcementCostMicr
 import { validOpaqueRequestId } from './batch-receipts/validate.js';
 import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch-receipts/receipt.js';
 import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
+import { BatchRecordUnavailableError, BatchStoreIntegrityError, BatchStoreMigrationRequiredError } from './batch-receipts/protection.js';
 import type { CompatibilityDecision } from './calibration/types.js';
 import { prepareAdapterRequest } from './compile-cache/runtime.js';
 import { providerPrefixEvidence } from './compile-cache/prefix.js';
@@ -555,6 +556,13 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
             throw new ReceiptPersistenceError();
           }
           observations = new Map(questionIds.map(id => [id, observationFailure('execution-uncertain')]));
+        } else if (error instanceof BatchRecordUnavailableError || error instanceof BatchStoreIntegrityError
+          || error instanceof BatchStoreMigrationRequiredError) {
+          // Erased, expired, tampered or unmigrated durable state is never re-dispatched and never
+          // falls back to another read of stored values. Only lifecycle unavailability gets the
+          // dedicated reason; integrity and migration failures stay persistence-error.
+          const reason = error instanceof BatchRecordUnavailableError ? 'batch-record-unavailable' : 'persistence-error';
+          observations = new Map(questionIds.map(id => [id, observationFailure(reason)]));
         } else if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) {
           throw error;
         } else {

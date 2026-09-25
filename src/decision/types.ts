@@ -103,7 +103,7 @@ export type DecisionFailureReason =
   | 'insufficient-information' | 'timeout' | 'network-transient'
   | 'rate-limited' | 'overloaded' | 'service-error' | 'authentication'
   | 'invalid-request' | 'budget-exhausted' | 'cancelled'
-  | 'persistence-error' | 'replay-mismatch' | 'execution-uncertain'
+  | 'persistence-error' | 'replay-mismatch' | 'execution-uncertain' | 'batch-record-unavailable'
   | 'no-match' | 'conflicting-outcomes' | 'evaluation-failed';
 
 export type AcceptanceDisposition = 'act' | 'review' | 'reject' | 'fallback';
