@@ -153,13 +153,22 @@ describe('shared evaluator', () => {
       },
     };
     const sharedLimits = { concurrency: 3, maxQueueLength: 8, maxQueueWaitMs: 1_000 };
-    const result = await evaluateDecisionRuleset({
-      ruleset: fixture('ruleset.json'), binding, definitions: definitions(), input: fixture('input.json'),
-      runId: 'run', invocationId: 'concurrent', adapters: { jev: adapter },
-      scheduler: { enabled: true, profileVersion: 'offline-v1', callerConcurrency: 2, graphConcurrency: 3,
-        workspace: { id: 'workspace', limits: sharedLimits }, principal: { id: 'principal', limits: sharedLimits },
-        providers: { jev: sharedLimits } },
-    });
+    vi.useFakeTimers();
+    let result: Awaited<ReturnType<typeof evaluateDecisionRuleset>>;
+    try {
+      const running = evaluateDecisionRuleset({
+        ruleset: fixture('ruleset.json'), binding, definitions: definitions(), input: fixture('input.json'),
+        runId: 'run', invocationId: 'concurrent', adapters: { jev: adapter },
+        scheduler: { enabled: true, profileVersion: 'offline-v1', callerConcurrency: 2, graphConcurrency: 3,
+          workspace: { id: 'workspace', limits: sharedLimits }, principal: { id: 'principal', limits: sharedLimits },
+          providers: { jev: sharedLimits } },
+      });
+      // Advance past the longest adapter delay only; binding timeouts stay pending and are cleared.
+      await vi.advanceTimersByTimeAsync(25);
+      result = await running;
+    } finally {
+      vi.useRealTimers();
+    }
     expect(maximum).toBe(2);
     expect(completion[0]).not.toBe('category');
     expect(Object.keys(result.spec.evaluations)).toEqual(['category', 'severity', 'core_unavailable']);

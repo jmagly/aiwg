@@ -2,39 +2,830 @@
   "schemaVersion": "decision-qualification-fixtures/v1",
   "fixtures": [
     {
-      "id": "DEC-CONFORMANCE-01", "path": "test/fixtures/decision/conformance.json",
-      "origin": "repository-authored", "author": "Joseph Magly", "date": "2026-09-20",
-      "permission": "MIT (repository LICENSE)", "sanitization": "synthetic; no personal inputs",
-      "schemaVersion": "1.0.0", "digest": "sha256:1621d2dea1de87ef7a9991bb864a0bf0e65bf58670ca523e342a942044ee1858",
-      "expectedOutcome": "fixture defines C01-C42 expectations", "links": ["FR-014", "JEV-16"]
+      "id": "DEC-EVIDENCE-01",
+      "path": "docs/decision/evidence/calibration-governance-v1/000000000001.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-calibration-governance-receipt/v1",
+      "digest": "sha256:ec82822b0824a1fe090de2068ccfaf6e28df1b2293b4788e00e8f84186855f3d",
+      "expectedOutcome": "retained calibration governance/qualification evidence re-hashed by TV10",
+      "links": [
+        "FR-033",
+        "JEV-16"
+      ]
     },
     {
-      "id": "DEC-CALIBRATION-01", "path": "test/fixtures/decision/calibration-compatibility-cross-product-v1.json",
-      "origin": "repository-authored", "author": "roctinam", "date": "2026-09-22",
-      "permission": "MIT (repository LICENSE)", "sanitization": "synthetic; no personal inputs",
-      "schemaVersion": "decision-calibration-cross-product/v1", "digest": "sha256:072dcd624aead5442cb36292825a00c6f3c3f59ed22cb1b767bc8b9896a1abb9",
-      "expectedOutcome": "incompatible pins invalidate calibration", "links": ["FR-033", "JEV-16"]
+      "id": "DEC-EVIDENCE-02",
+      "path": "docs/decision/evidence/calibration-governance-v1/000000000002.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-calibration-governance-receipt/v1",
+      "digest": "sha256:fe5956f9d2f8993d2983fa90ccdcb99a6a1b6849718cafaeb313eea0c25786ad",
+      "expectedOutcome": "retained calibration governance/qualification evidence re-hashed by TV10",
+      "links": [
+        "FR-033",
+        "JEV-16"
+      ]
     },
     {
-      "id": "DEC-CHOICE-01", "path": "test/fixtures/decision/acceptance/choice-raw-derived.json",
-      "origin": "repository-authored", "author": "roctinam", "date": "2026-09-22",
-      "permission": "MIT (repository LICENSE)", "sanitization": "synthetic; no personal inputs",
-      "schemaVersion": "decision-acceptance-receipt-golden/v1", "digest": "sha256:90e119bc423991bc4680c70d9ecdc26bf7756c5f000012b4201b6df8c470835a",
-      "expectedOutcome": "choice raw and derived acceptance", "links": ["FR-014", "JEV-16"]
+      "id": "DEC-EVIDENCE-03",
+      "path": "docs/decision/evidence/calibration-qualification-v1/TV10.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:6b750ad2fba18ba33b3739d8f2292b0aa5e9775c80e116dcfc566e6cd1c6cf12",
+      "expectedOutcome": "retained calibration governance/qualification evidence re-hashed by TV10",
+      "links": [
+        "FR-033",
+        "JEV-16"
+      ]
     },
     {
-      "id": "DEC-NOUL-01", "path": "test/fixtures/decision/acceptance/noul-near-indeterminate.json",
-      "origin": "repository-authored", "author": "roctinam", "date": "2026-09-22",
-      "permission": "MIT (repository LICENSE)", "sanitization": "synthetic; no personal inputs",
-      "schemaVersion": "decision-acceptance-receipt-golden/v1", "digest": "sha256:182876a3d4d60db5579fa10ea920630a845dc29cf7c56c3cee154fe3a84dbaa2",
-      "expectedOutcome": "near-indeterminate truth acceptance", "links": ["FR-014", "JEV-16"]
+      "id": "DEC-EVIDENCE-04",
+      "path": "docs/decision/evidence/calibration-qualification-v1/calibration-artifact.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-calibration-artifact/v1",
+      "digest": "sha256:1d2985e4be59f48d040756b809aeee9c8cbe6079c77382e7684209cfc3271633",
+      "expectedOutcome": "retained calibration governance/qualification evidence re-hashed by TV10",
+      "links": [
+        "FR-033",
+        "JEV-16"
+      ]
     },
     {
-      "id": "DEC-SCORE-01", "path": "test/fixtures/decision/acceptance/score-equal-mean-dispersions.json",
-      "origin": "repository-authored", "author": "roctinam", "date": "2026-09-22",
-      "permission": "MIT (repository LICENSE)", "sanitization": "synthetic; no personal inputs",
-      "schemaVersion": "decision-acceptance-receipt-golden/v1", "digest": "sha256:063c3f041c5d87ac05d948c5cec5cf075261bc649a2e971aeef29635d034019a",
-      "expectedOutcome": "equal means with distinct dispersion", "links": ["FR-014", "JEV-16"]
+      "id": "DEC-EVIDENCE-05",
+      "path": "docs/decision/evidence/calibration-qualification-v1/compatibility-relation.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:ae276a8035b2ac1bbcb5fd1d221dc91d697ddc5dd87d73ed902ff32a7508f7cf",
+      "expectedOutcome": "retained calibration governance/qualification evidence re-hashed by TV10",
+      "links": [
+        "FR-033",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-06",
+      "path": "docs/decision/evidence/calibration-qualification-v1/evaluation-report.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-report/v1",
+      "digest": "sha256:2edad8334362d31866c430599db3c5bc5085fc3a8e1b8df1239828216e308b10",
+      "expectedOutcome": "retained calibration governance/qualification evidence re-hashed by TV10",
+      "links": [
+        "FR-033",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-07",
+      "path": "docs/decision/evidence/calibration-qualification-v1/qualification-manifest.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-evidence-manifest/v1",
+      "digest": "sha256:9c038b60437905795dc5b4ff25740796e83261bfebe72a8dbd2f4db3a2e647a3",
+      "expectedOutcome": "retained calibration governance/qualification evidence re-hashed by TV10",
+      "links": [
+        "FR-033",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-08",
+      "path": "docs/decision/evidence/calibration-rollout-v1.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-calibration-rollout/v1",
+      "digest": "sha256:fae6a75443f65ab1bacbfcb06bdb5375591ee13f24fa02a9a3c909564aa83932",
+      "expectedOutcome": "retained calibration governance/qualification evidence re-hashed by TV10",
+      "links": [
+        "FR-033",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-01",
+      "path": "examples/decision/binding-fallback.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionBinding",
+      "digest": "sha256:469c1f089f33c0d3002869926e9b91d145a8af731681337a0f3b08ad1318b97d",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-02",
+      "path": "examples/decision/binding-jev.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionBinding",
+      "digest": "sha256:00478f1cfeac89a25efd1256b3f8a671de824daa98827b538cff68ebea30ae1e",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-03",
+      "path": "examples/decision/binding-llm-subagent.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionBinding",
+      "digest": "sha256:1865524f5d3d909d2ce25e2c44db697fec3efdeaa38f4fd43f84007383585a06",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-04",
+      "path": "examples/decision/decision-category.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionDefinition",
+      "digest": "sha256:b6aa1b1858690caad8d87c274e84cc9ac408d89ea0da5884b7299c470ff01007",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-05",
+      "path": "examples/decision/decision-core_unavailable.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionDefinition",
+      "digest": "sha256:83073e03a1abeeb68369701dac5ad78ced8df66719a8a651a78527eb6f5471c7",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-06",
+      "path": "examples/decision/decision-severity.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionDefinition",
+      "digest": "sha256:948d57330a8a731ccfd815971040324fa2a1c01a038df26f02f89e6cee3bef02",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-07",
+      "path": "examples/decision/dispatcher-request-llm.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:1c10f02db91c7a7ab891005b832a0f29130f022d139be24595277a4d4826e8be",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-08",
+      "path": "examples/decision/fixture-llm-adapter.mjs",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "source-module",
+      "digest": "sha256:c69ae3b68b89c4c46733dc23d932fcffa242c809680069a19a57a9e7b1c0b3fe",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-09",
+      "path": "examples/decision/input.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:00d18c4c8039317986cced8df1de11b4565f008feefac2c828d811ddeb6b1d19",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-10",
+      "path": "examples/decision/llm-result-category.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionResult",
+      "digest": "sha256:4ccf039b5960615672d64ff85688255fb81ee45b26a18550d70886997d4365da",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-11",
+      "path": "examples/decision/llm-result-core_unavailable.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionResult",
+      "digest": "sha256:6fe385145b5e8ca8410d422722824b8ace197bcb6f18563c9a324c50bdaa69f0",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-12",
+      "path": "examples/decision/llm-result-severity.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionResult",
+      "digest": "sha256:71c241e96bf07a2360dadf9d9a3931f42bd8b2acf2244444019a50be6a70ba10",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-13",
+      "path": "examples/decision/llm-ruleset-result.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:RulesetResult",
+      "digest": "sha256:81a674fbc32ae9df8b3e3bdf4cfd1dc478f8fa1e9eeb1a25eb906a606d767ba8",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-21",
+      "path": "examples/decision/result-category-batch.v1alpha2.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha2:DecisionResult",
+      "digest": "sha256:9afae9f4a55af74d62a5d37450a7a4dee2853e400e5f1d17dfb6e417714057ef",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-14",
+      "path": "examples/decision/result-category.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionResult",
+      "digest": "sha256:a713801a83640d3dc79e450f76eb12ed043e498c69af321be49db1b26f97d9c4",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-15",
+      "path": "examples/decision/result-core_unavailable.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionResult",
+      "digest": "sha256:0ee61b3acb57b2bc903477fe5df08c9f8ac3034b9f810750b53ec88b11629497",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-16",
+      "path": "examples/decision/result-severity.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionResult",
+      "digest": "sha256:87fd7b27220e3cd1cc63f00ac6735855e0341e81c14ea896302e027e5d4221f3",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-17",
+      "path": "examples/decision/ruleset-collect.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionRuleset",
+      "digest": "sha256:52c94f4873973c105e397f0ce7413ca0ef29da9b53f62d50d1103a4e48a0039d",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-22",
+      "path": "examples/decision/ruleset-result-batch.v1alpha2.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha2:RulesetResult",
+      "digest": "sha256:ea65ef575f1c729a79702f85896a30efb5007837d3cbb42d1b02e9915f06145c",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-18",
+      "path": "examples/decision/ruleset-result.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:RulesetResult",
+      "digest": "sha256:7c3910d1ae4b17d6e3482673a11f79d928d9d81f8c0c1d13315dfbb77d04b64d",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-19",
+      "path": "examples/decision/ruleset.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision.aiwg.io/v1alpha1:DecisionRuleset",
+      "digest": "sha256:ae8200d42b107d0a9959795588d28e799c90f46e00c4f460658bd45e476e09c0",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-20",
+      "path": "examples/decision/worker-fixture.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:20d9f77343b130a42573ce3137ac1f3785413bc4b85adb0650554fc3964db4fa",
+      "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-CHOICE-01",
+      "path": "test/fixtures/decision/acceptance/choice-raw-derived.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-acceptance-receipt-golden/v1",
+      "digest": "sha256:90e119bc423991bc4680c70d9ecdc26bf7756c5f000012b4201b6df8c470835a",
+      "expectedOutcome": "choice raw and derived acceptance",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-NOUL-01",
+      "path": "test/fixtures/decision/acceptance/noul-near-indeterminate.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-acceptance-receipt-golden/v1",
+      "digest": "sha256:182876a3d4d60db5579fa10ea920630a845dc29cf7c56c3cee154fe3a84dbaa2",
+      "expectedOutcome": "near-indeterminate truth acceptance",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-RELEASE-01",
+      "path": "test/fixtures/decision/acceptance/release/d08-acceptance-v1/C08.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:5f05a636aee9dce4ae5b6ddc6872b16a27762b5cc1b31d07132e80f0275f7da8",
+      "expectedOutcome": "checkpointed D08 acceptance release artifact; digests re-verified",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-RELEASE-02",
+      "path": "test/fixtures/decision/acceptance/release/d08-acceptance-v1/C09.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:d70fd027cea465a9a41075d3b563d633e080218fc276825dc1045149399a7629",
+      "expectedOutcome": "checkpointed D08 acceptance release artifact; digests re-verified",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-RELEASE-03",
+      "path": "test/fixtures/decision/acceptance/release/d08-acceptance-v1/C10.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:fc0786991b0be4ea20b039ffc09b9f1afa9b2d4107cd3731b43eaa31bcd8a974",
+      "expectedOutcome": "checkpointed D08 acceptance release artifact; digests re-verified",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-RELEASE-04",
+      "path": "test/fixtures/decision/acceptance/release/d08-acceptance-v1/TV03.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:2873b289d25fb8e875f92c031134623cb5148c27ac2425f326b7ac1943092f90",
+      "expectedOutcome": "checkpointed D08 acceptance release artifact; digests re-verified",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-RELEASE-05",
+      "path": "test/fixtures/decision/acceptance/release/d08-acceptance-v1/TV04.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:f6cd447bf4c0ef57f830a11a110612ceda378bdca0c5263c8e97dad2735d8ad1",
+      "expectedOutcome": "checkpointed D08 acceptance release artifact; digests re-verified",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-RELEASE-06",
+      "path": "test/fixtures/decision/acceptance/release/d08-acceptance-v1/TV05.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:34c79c1f32db702c34ca64558877e77c4bcb7cb4e414c3c18ff6788e0a314a8f",
+      "expectedOutcome": "checkpointed D08 acceptance release artifact; digests re-verified",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-RELEASE-07",
+      "path": "test/fixtures/decision/acceptance/release/d08-acceptance-v1/TV11.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:a2264014ca125e7566cb7981b9f407e879dc700e624b97a78e83754714959ac3",
+      "expectedOutcome": "checkpointed D08 acceptance release artifact; digests re-verified",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-RELEASE-08",
+      "path": "test/fixtures/decision/acceptance/release/evidence-manifest.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-evidence-manifest/v1",
+      "digest": "sha256:937550fd7905afbc6c167aa7e88136dab37da6b460532cfec7a94a1eee076a50",
+      "expectedOutcome": "checkpointed D08 acceptance release artifact; digests re-verified",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-SCORE-01",
+      "path": "test/fixtures/decision/acceptance/score-equal-mean-dispersions.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-acceptance-receipt-golden/v1",
+      "digest": "sha256:063c3f041c5d87ac05d948c5cec5cf075261bc649a2e971aeef29635d034019a",
+      "expectedOutcome": "equal means with distinct dispersion",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-TRACE-01",
+      "path": "test/fixtures/decision/amendment-traceability-v1.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-amendment-traceability/v1",
+      "digest": "sha256:0dd6e84f73352004477f60b7a7e140a71fc895909a524eaddb399ef1471b3e39",
+      "expectedOutcome": "M01-M11 and R-23..R-30 traceability to executable test IDs",
+      "links": [
+        "NFR-008",
+        "JEV-16",
+        "#2604"
+      ],
+      "assumptions": [
+        "Risk titles R-23..R-30 are derived from the citing child issues; the risk register is not in the repository."
+      ]
+    },
+    {
+      "id": "DEC-CALIBRATION-01",
+      "path": "test/fixtures/decision/calibration-compatibility-cross-product-v1.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-calibration-cross-product/v1",
+      "digest": "sha256:072dcd624aead5442cb36292825a00c6f3c3f59ed22cb1b767bc8b9896a1abb9",
+      "expectedOutcome": "incompatible pins invalidate calibration",
+      "links": [
+        "FR-033",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-WORKER-01",
+      "path": "test/fixtures/decision/compile-cache-worker.ts",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-23",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "source-module",
+      "digest": "sha256:c7653b69510ee7d5138d99292e5d922e742b579b1a85258505a64b425a2fa402",
+      "expectedOutcome": "child-process worker used by cross-process race and cache tests",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-CONFORMANCE-01",
+      "path": "test/fixtures/decision/conformance.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-20",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "1.0.0",
+      "digest": "sha256:1621d2dea1de87ef7a9991bb864a0bf0e65bf58670ca523e342a942044ee1858",
+      "expectedOutcome": "fixture defines C01-C42 expectations",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-WORKER-02",
+      "path": "test/fixtures/decision/receipt-process.mjs",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-21",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "source-module",
+      "digest": "sha256:11c6f761de2f9cb626ba639c655eddad5ec7b268e3287a6313369892ef111247",
+      "expectedOutcome": "child-process worker used by cross-process race and cache tests",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-WORKER-03",
+      "path": "test/fixtures/decision/result-cache-worker.ts",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-23",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "source-module",
+      "digest": "sha256:ab0baed48f96bd81f91944efd16beb418fc06ddae341d2c9aade996fdfbfa860",
+      "expectedOutcome": "child-process worker used by cross-process race and cache tests",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-CACHE-01",
+      "path": "test/fixtures/decision/result-cache-workload.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-23",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-result-cache-workload/v1",
+      "digest": "sha256:1cd5c1a05a0ec0c19962d0a3024e960c5763863758e074a3c291de308193143c",
+      "expectedOutcome": "result-cache workload fixture",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-TELEMETRY-01",
+      "path": "test/fixtures/decision/telemetry-golden-v1.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-telemetry/v1",
+      "digest": "sha256:b37ac197fd5220863cd93c05893f844176744b4708d5cc90adb56a2b031ac276",
+      "expectedOutcome": "redacted telemetry golden spans",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-TELEMETRY-02",
+      "path": "test/fixtures/decision/telemetry-runtime-golden-v1.json",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-09-22",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-telemetry/v1",
+      "digest": "sha256:28419793ccf92527cc1c0193a4f7c1f5ed9d09d730d720280eb303aa473e817b",
+      "expectedOutcome": "redacted telemetry golden spans",
+      "links": [
+        "FR-014",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-VENDOR-01",
+      "path": "test/fixtures/decision/vendor-vectors-v1.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-vendor-vectors/v1",
+      "digest": "sha256:8c2c41e7278bef62496c2bd57119b0c6597028454178fd40f12aa96c7dd3d0f4",
+      "expectedOutcome": "TV01-TV25 definitions, recorded synthetic exchanges and expected normalized outcomes",
+      "links": [
+        "FR-014",
+        "JEV-16",
+        "#2604"
+      ],
+      "assumptions": [
+        "research-vendor-docs.md (the vendor TV-01..TV-25 source) is not in the repository; each vector definition is reconstructed from the #2604 research basis, the child-issue traceability tables and the existing executors.",
+        "Each vector records its own assumption; recorded exchanges are fabricated offline fixtures, not provider captures.",
+        "TV12 is limited offline to the retained-comparison gate; provider usage receipts are tracked in #2684."
+      ]
     }
   ]
 }

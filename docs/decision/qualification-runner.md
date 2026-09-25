@@ -24,6 +24,95 @@ Absent or invalid captures fail G2 closed. Capturing streams and errors for the
 full execution lifetime is still the caller's responsibility; empty synthetic
 captures are not proof that a live workload is private.
 
+## Gate evidence: derived flags and backing artifacts
+
+No G0–G6 evidence flag is taken from a caller. `evidenceChecks` callbacks named after any
+flag in `DERIVED_GATE_EVIDENCE` are never invoked, and `evaluateQualification` recomputes
+those flags from the manifest even when a caller-assembled manifest sets them. Callbacks
+remain available for auxiliary flags and for the blocking findings listed below, which can
+only make a gate fail.
+
+| Gate | Flag | How it is derived | Backing evidence |
+|---|---|---|---|
+| G0 | `case-inventory-complete` | `validateCaseInventory` over the run's cases; the G0 gate separately requires a passing, digest-bound artifact for every C01–C42 and TV01–TV25 case | case inventory and case artifacts |
+| G1 | `runtime-suite-complete` | every case in `DECISION_GATE_SUITES['runtime-suite-complete']` passed | case artifacts |
+| G2 | `security-suite-complete` | every case in the security suite (C29, C30, C32, C34, C36, C39) passed | case artifacts |
+| G2 | `privacy-scan-clean` | `scanQualificationPrivacy` over all eight captured surfaces | runner privacy scan |
+| G3 | `immutable-splits` | a `decision-binary-benchmark-plan/v1` whose digest recomputes and whose splits pass `verifyQualificationSplits` | split plan artifact |
+| G3 | `calibration-qualified` | an approved `decision-calibration-artifact/v1` whose digest recomputes, whose `splitProvenance.hash` is the accepted split-plan digest, that is in effect at `generatedAt`, and whose metrics meet its own profile | calibration artifact |
+| G4 | `fault-suite-complete` | every retry, fallback, cancellation and receipt case (C13–C18, C24, C27, C28, C33, C37, C38, C42) passed | case artifacts |
+| G4 | `drift-suite-complete` | TV10 passed and its artifact names every `DRF-*` ID in the drift suite | case artifacts |
+| G5 | `load-manifest-qualified` | a `decision-load-result/v1` that embeds its load manifest, whose `manifestDigest` is the canonical digest of that manifest, and whose observations are within every bound | load result record |
+| G6 | `evidence-hashes-verified` | set only by `evaluateExecutedQualification` after every case and gate artifact re-verifies on disk | verification pass |
+| G6 | `review-decision-recorded` | a `decision-qualification-review/v1` with `decision: approve` for the same run ID and source commit and the run's `qualificationOutcomesDigest` | reviewer decision record |
+
+Pass the artifact-backed sources as `gateArtifacts` (a file path per flag). The runner
+validates each against the run, copies it to `<runId>/gates/<flag>.json` and pins its
+SHA-256 in `manifest.gateArtifacts`. An invalid or absent artifact leaves the flag false.
+`verifyQualificationGateArtifacts` re-reads and re-validates the copies, and
+`evaluateExecutedQualification` drops any that fail, so tampering after the run fails both
+the owning gate and G6. `qualificationOutcomesDigest` covers case IDs, outcomes and named
+evidence but not artifact digests, so a reviewer can sign the outcome set before the final run.
+
+Blocking findings (`p0-correctness-failed`, `execution-uncertain`, `privacy-denied`,
+`calibration-data-missing`) still fail G1, G2, G3 and G6 when a check reports them.
+
+## Aggregate run
+
+`test/conformance/decision-v1/qualification-aggregate.test.ts` registers every executable
+vector module from `test/conformance/decision-v1/vectors/registry.ts` in one run over all 67
+cases. It fails when a case with a coverage hint has no registered executor, when an
+executor is defined in the decision test trees outside the registry, or when a registered
+executor does not pass with a verified digest. Unit tests in
+`test/unit/decision/qualification-runner.test.ts` use trivial callbacks to exercise runner
+mechanics only; they are not vector evidence.
+
+The aggregate test also runs a full-lifetime privacy scan. `captureQualificationLifetime` records
+stdout, stderr (stream writes and console output) and any thrown error for the whole run.
+The test adds the other surfaces from real outputs:
+
+- telemetry spans (trace);
+- a `FileDecisionReceiptStore` directory (receipt);
+- a `decisionResultForExport` copy (export);
+- every runner artifact (snapshot);
+- the evidence manifest (test report).
+
+It scans all eight surfaces for the credential values handed to adapters. It then derives
+`privacy-scan-clean` through `withQualificationPrivacyScan`, so the flag still comes from the
+scanner. The capture is process-wide and does not see child processes. Run the
+qualification alone and collect child-process output separately.
+
+With every vector registered, the aggregate run passes G0, G1, G2 and G4 from recorded evidence.
+G3, G5 and G6 fail because held-out data, a load result and a reviewer decision are live inputs
+tracked in #2684. The test builds a release record that must be `HOLD`.
+
+### Vendor vectors and named suites
+
+`test/fixtures/decision/vendor-vectors-v1.json` defines TV01–TV25. Each entry has a basis in the
+#2604 research text, the assumption it implements, any recorded synthetic exchanges, and the
+exact expected normalized outcome or failure class. `vectors/vendor.ts` executes TV02, TV06,
+TV07, TV09, TV12–TV21 and TV23–TV25 from that catalog. TV12 is limited offline to the context
+planner limits and the retained-comparison gate.
+
+Named suites travel as evidence IDs on the case that runs them. Each gate suite requires its IDs
+on passing evidence:
+
+| Suite | Where it runs | Gate |
+|---|---|---|
+| `CON-*` contract conformance | inside C36 | G0 |
+| `BCH-INVALID-ANSWER-01`, `CTX-*` | TV02, TV12 | G1 |
+| `SEC-ADV-*` override, false-authority, delimiter and fake-system slices; `SEC-EGRESS-01`, `SEC-RESPONSE-01`, `SEC-REQUEST-ID-01` | TV25, TV21, TV24, TV19 | G2 |
+| `RTY-*`, `CAN-*`, `CNC-*` | TV13–TV17 | G4 |
+| `DRF-OUTPUT-01`, `DRF-POPULATION-01`, `DRF-LABEL-01`, `DRF-INSUFFICIENT-01` | TV20 | G4 |
+
+`measureCategoricalDrift` reports total variation and a smoothed population stability index
+against preregistered bounds. `measureLabelStability` reports repeated-run label movement and
+calls it stable or drifting only when the whole 95% Wilson interval is on one side of the bound.
+Both return `insufficient-evidence` rather than `stable` for small samples. The M01–M11 amendments
+are linked to the G2 and G4 suites through `DECISION_GATE_SUITES[*].amendments`, and
+`amendment-traceability.test.ts` checks that link against
+`docs/decision/qualification-traceability.md`.
+
 Artifacts use `decision-qualification-artifact/v1`, live below a validated run-id directory,
 and are written through a same-directory temporary file and atomic rename. Verification rejects
 absolute paths, traversal, symbolic links, non-files, oversized content, digest mismatches, and
@@ -56,12 +145,15 @@ reports changed-output rate with a Wilson interval for matched control/perturbat
 or repeated-run IDs; it is not a correctness metric and does not prove that
 an injected answer was safe.
 
-The initial checked-in fixture registry at
-`test/fixtures/decision/qualification-fixtures-v1.json` records author, date,
-permission, sanitization, origin, schema, expected outcome, trace links and
-SHA-256 for five repository-authored goldens. The conformance suite re-hashes
-all listed files; unlisted future fixtures must be added with their own
-provenance before being used as release evidence.
+The fixture registry at `test/fixtures/decision/qualification-fixtures-v1.json`
+records author, date, permission, sanitization, origin, schema, expected outcome,
+trace links and SHA-256 for every file under `test/fixtures/decision/`,
+`examples/decision/` and `docs/decision/evidence/`.
+`fixture-provenance.test.ts` re-hashes each entry. It fails on any
+file that is not in the registry and on any entry whose file no longer exists. It also checks that
+every source a registered vector binds as evidence is in the registry. Entries whose inputs are
+reconstructed carry an `assumptions` list. The vendor vector catalog is one of them: the
+source vendor research document is not in the repository.
 
 The generic runner accepts offline, recorded, and shadow executors under the manifest's
 selected mode, but does not authenticate their origins. For `live` it deliberately emits
@@ -85,3 +177,11 @@ forces HOLD. It cannot upgrade an integrity HOLD/ROLLBACK or a
 compromised/dirty/unverified run. The caller must obtain integrity metadata from
 the actual protected artifact snapshot and trusted scoring workflow: synthetic
 unit metadata is not release evidence.
+
+The record also serializes the AC8 held-out metrics (`metrics`: overall and per-slice metrics,
+repeated-run stability, injection sensitivity) and the protected-artifact snapshot digest
+(`integritySnapshot`). Promotion requires both. When `cacheLayers` is supplied,
+`deriveCacheLayerPins` derives the `compilePrefixCache`, `receiptReplay` and `resultCache` pins.
+Each pin is the digest of a verified evidence manifest from its own run: D30 compile/prefix
+reuse, D03 receipt replay and D15 result caching. A supplied pin that disagrees with its
+evidence is rejected, and the three layers must come from different runs.
