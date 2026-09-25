@@ -22,6 +22,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import type { AiwgFortemiIndexExport } from '../artifacts/browser-export.js';
+import { createCanonicalSigner } from '../security/signing.js';
 import {
   MARKETPLACE_ENVELOPE_SCHEMA,
   MARKETPLACE_LOCK_SCHEMA,
@@ -90,7 +91,20 @@ function stable(value: unknown): unknown {
   return value;
 }
 
-/** RFC-8785-style deterministic JSON for the JSON-native protocol values. */
+/**
+ * RFC-8785-style deterministic JSON for the JSON-native protocol values.
+ *
+ * For JSON-native values (no `undefined`, no non-finite numbers, no `toJSON`,
+ * no array-index keys such as "9" or "10") this is byte-identical to the
+ * RFC 8785 `artifact-trust.canonicalJson`: both sort keys by UTF-16 code unit
+ * and serialize scalars with `JSON.stringify`. It is kept because existing
+ * marketplace signatures depend on its handling of the other values:
+ * `undefined` object members are dropped, `undefined` array entries and
+ * non-finite numbers become `null` (RFC 8785 throws), and array-index keys are
+ * emitted first in numeric order because the sorted object is rebuilt.
+ * test/unit/security/canonical-json-parity.test.ts pins the parity and the
+ * differences.
+ */
 export function canonicalJson(value: unknown): string {
   return JSON.stringify(stable(value));
 }
@@ -456,14 +470,13 @@ export function envelopeSigningPayload(envelope: MarketplaceProvenanceEnvelope):
   return payload;
 }
 
-function publicKeyDer(key: string | KeyObject): Buffer {
-  const object = typeof key === 'string'
-    ? createPublicKey(key)
-    : key.type === 'public' ? key : createPublicKey(key);
-  if (object.asymmetricKeyType !== 'ed25519') throw new Error('Marketplace signing keys must use Ed25519');
-  return object.export({ format: 'der', type: 'spki' }) as Buffer;
-}
-
+// Marketplace signatures are made over this module's `canonicalJson`, which is
+// kept (see its comment) so existing envelopes and receipts verify unchanged.
+// The helpers themselves live in src/security/signing.ts.
+const marketplaceSigner = createCanonicalSigner({
+  canonicalize: canonicalJson,
+  keyTypeErrorMessage: 'Marketplace signing keys must use Ed25519',
+});
 function publicKeyFromBase64(value: string): KeyObject {
   return createPublicKey({ key: Buffer.from(value, 'base64'), format: 'der', type: 'spki' });
 }
@@ -473,37 +486,18 @@ export function signCanonicalDocument(
   privateKeyPem: string,
   options: { keyId?: string; signedAt?: string; publicKeyPem?: string } = {},
 ): MarketplaceEnvelopeSignature {
-  const privateKey = createPrivateKey(privateKeyPem);
-  if (privateKey.asymmetricKeyType !== 'ed25519') throw new Error('Marketplace signing keys must use Ed25519');
-  const publicKey = options.publicKeyPem ? createPublicKey(options.publicKeyPem) : createPublicKey(privateKey);
-  const payload = canonicalJson(document);
-  return {
-    keyId: options.keyId ?? signingKeyId(publicKey),
-    algorithm: 'ed25519',
-    publicKey: publicKeyDer(publicKey).toString('base64'),
-    signedAt: options.signedAt ?? new Date().toISOString(),
-    payloadSha256: sha256(payload),
-    signature: cryptoSign(null, Buffer.from(payload), privateKey).toString('base64'),
-  };
+  return marketplaceSigner.signCanonicalDocument(document, privateKeyPem, options);
 }
 
 export function verifyCanonicalSignature(
   document: Record<string, unknown>,
   signature: MarketplaceEnvelopeSignature,
 ): boolean {
-  const payload = canonicalJson(document);
-  return signature.algorithm === 'ed25519'
-    && signature.payloadSha256 === sha256(payload)
-    && cryptoVerify(
-      null,
-      Buffer.from(payload),
-      publicKeyFromBase64(signature.publicKey),
-      Buffer.from(signature.signature, 'base64'),
-    );
+  return marketplaceSigner.verifyCanonicalSignature(document, signature);
 }
 
 export function signingKeyId(publicKey: string | KeyObject): string {
-  return `ed25519:${sha256(publicKeyDer(publicKey)).slice(0, 32)}`;
+  return marketplaceSigner.signingKeyId(publicKey);
 }
 
 export function signProvenanceEnvelope(

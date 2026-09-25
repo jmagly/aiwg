@@ -1,11 +1,11 @@
 import {
   createPrivateKey,
   createPublicKey,
-  sign as signBytes,
   type KeyObject,
 } from 'node:crypto';
 
-import { canonicalJson, dssePae, publicKeyFingerprint, sha256 } from './artifact-trust.js';
+import { canonicalJson, sha256 } from './artifact-trust.js';
+import { signDsseEnvelope } from './signing.js';
 
 export const ARTIFACT_ATTESTATION_MEDIA_TYPE = 'application/vnd.aiwg.artifact-attestation.v1+json';
 export const ARTIFACT_PROVENANCE_PREDICATE_TYPE = 'https://aiwg.io/attestations/artifact-provenance/v1';
@@ -176,14 +176,9 @@ export function createArtifactAttestation(options: CreateArtifactAttestationOpti
   const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
   const statement = createArtifactProvenanceStatement(options);
   const payload = Buffer.from(canonicalJson(statement), 'utf8');
-  const signature = signBytes(null, dssePae(DSSE_IN_TOTO_PAYLOAD_TYPE, payload), privateKey);
   return {
     mediaType: ARTIFACT_ATTESTATION_MEDIA_TYPE,
-    envelope: {
-      payloadType: DSSE_IN_TOTO_PAYLOAD_TYPE,
-      payload: payload.toString('base64'),
-      signatures: [{ keyid: publicKeyFingerprint(publicKeyPem), sig: signature.toString('base64') }],
-    },
+    envelope: signDsseEnvelope(DSSE_IN_TOTO_PAYLOAD_TYPE, payload, privateKey),
     verificationMaterial: {
       kind: 'public-key',
       algorithm: 'ed25519',

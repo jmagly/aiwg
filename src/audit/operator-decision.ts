@@ -247,6 +247,16 @@ function hashRecord(value: unknown): string {
   return `sha256:${createHash('sha256').update(canonicalJson(value)).digest('hex')}`;
 }
 
+/**
+ * Deterministic JSON for decision hashes. This is deliberately NOT the RFC 8785
+ * canonicalizer (`security/artifact-trust.canonicalJson`): keys are ordered with
+ * `localeCompare` rather than by UTF-16 code unit, and `undefined` members are
+ * dropped. The two agree when no sibling keys differ in case or punctuation
+ * order, but not in general (for example `{"B","_c","a"}` orders as
+ * `_c,a,B` here and `B,_c,a` under RFC 8785). Existing record_hash and
+ * context_digest values in stored decision chains depend on this ordering, so
+ * it is kept; test/unit/security/canonical-json-parity.test.ts pins it.
+ */
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') {
