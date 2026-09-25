@@ -7,6 +7,12 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+The Jev decision platform entries below cover the work merged after
+v2026.9.20. The decision runtime ships disabled by default and stays
+experimental where noted. Several entries close offline gaps only; the live
+qualification each one still needs is tracked in the follow-up issues named
+in the entry.
+
 ### Changed
 
 - **Breaking (decision runtime):** state projection is now mandatory for
@@ -26,41 +32,6 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   partition as `{ verified, untrusted }`. The `decision-evaluate` dispatcher
   accepts `projectionPolicyPath` and `adapterOptions.jev`, and refuses
   network-capable adapters without a policy (#2678, #2597).
-
-### Added
-
-- Decision D10 offline evidence: secret-material rejection for decision
-  receipts, batch receipts and result-cache entries; projection-policy and
-  `decision-lifecycle/v1` JSON schemas; subject-level lifecycle backup/restore
-  and cross-surface tombstone resolution; telemetry retention derived from the
-  common lifecycle policy; a real-evaluation stdout/stderr and activity-record
-  privacy capture harness; a projection policy matrix; and the D10
-  threat-control mapping (#2597).
-
-- Live decision telemetry now records the D05 `decision.admit` span as the
-  admission happens (lease-scoped, with breaker transitions inside the span)
-  and a metadata-only D10 `decision.project` span for each applied projection
-  step or denial (#2601, #2678, #2605).
-
-- Four-platform Grok Build qualification contract, live smoke receipt, upstream
-  drift check, and stable-promotion gate. The adapter remains experimental
-  until released-binary evidence is complete; Grok Build remains distinct
-  from Grok Bot and Grok web Build.
-- Durable decision batch receipt and result stores now seal every receipt
-  revision and result snapshot with a required HMAC-SHA256 integrity key,
-  encrypt result values at rest with AES-256-GCM bound to tenant, project,
-  batch, question, answer and revision, and bind both stores to the
-  `decision-lifecycle/v1` receipt rule: retention expiry, D10 erasure with
-  body-free tombstones and result cascade, hold-aware sweeps, and restore that
-  refuses erased or expired content. `FileBatchReceiptStore` and
-  `FileBatchResultStore` constructors now require these options, and unkeyed
-  stores are refused until an explicit, authorized `migrateLegacy`. Replay of
-  an erased or expired durable batch never re-dispatches and reports the new
-  v1alpha2-only reason `batch-record-unavailable`; tampered or unmigrated state
-  reports `persistence-error` (#2672).
-
-### Changed
-
 - Decision results that carry native-batch provenance (`attempts[].batch`,
   `batchResult`), admission, context, or provider-prefix evidence are now
   written as `decision.aiwg.io/v1alpha2`, including when the ruleset, binding,
@@ -69,7 +40,8 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   fields. Every evaluator result and invocation receipt payload passes the
   `assertDecisionResultWriterVersion` gate. Consumers that enable `batching`,
   `batchReceipts`, `scheduler`, `providerPrefix`, or `context` must accept
-  v1alpha2 results. Released v1alpha1 results still validate unchanged (#2671).
+  v1alpha2 results. Released v1alpha1 results still validate unchanged. This
+  resolves the D07 writer-version follow-up (#2671).
 - The semantic result cache's `spec.cache` caller receipt is now defined in
   the v1alpha2 `RulesetResult` schema and treated as a v1alpha2-only field, so
   a cache-enabled evaluation always writes a v1alpha2 result. Cache events feed
@@ -77,7 +49,9 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   and `single-flight`. `FileResultCacheStore` can be bound to the shared D10
   lifecycle policy for retention, export, and cascading source-receipt
   deletion. The result-cache doc adds a key construction security review
-  (#2609).
+  (#2609). Remaining limits: there is no encrypted store for confidential or
+  restricted classes, no distributed lease or fencing, no shadow
+  qualification, and storage file names are still unkeyed hashes (#2687).
 - D06 context planning now fails closed by default: `context` combined with
   native batching and no `context.rollout` returns `context-unqualified`
   before capability, credential or transport access instead of running
@@ -91,6 +65,197 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   downgrades to `review` / `insufficient-information` with no outcome, which
   the v1alpha2 RulesetResult schema accepts (#2678).
   `assertContextQualified` throws `rollout-unqualified` (#2599).
+- D05 admission rejections are recorded as `dispatchCertainty: 'not-sent'`
+  with the typed reason and admission evidence, so durable receipts end
+  `completed` instead of `execution-uncertain` for work that was never
+  dispatched. A dispatched attempt with an unknown outcome still ends
+  `execution-uncertain`. Admission controllers are now keyed by trusted
+  `workspace.id` through `DecisionAdmissionRegistry` rather than by scheduler
+  policy object identity; reusing a profile revision with different limits
+  fails closed as `invalid-definition`, and an unconfigured provider is
+  rejected as `unconfigured-provider`. Retry backoff releases the evaluator
+  scheduler permit in receipt-free runs, and a queued target timeout reports
+  `timeout` rather than `cancelled` (#2670).
+
+### Added
+
+- D05 admission control offline gaps: reserved per-principal concurrency and
+  `maxPrincipalShare` caps on shared workspace and provider pools, token-bucket
+  fairness for large requests, breaker transitions recorded in admission
+  evidence and a bounded history, a profile-change audit trail, the admission
+  storm runbook with an executable drill, and load manifest v2 with an offline
+  fake-time harness and digest-bound result records. Live burst, spike and
+  soak runs, shadow and canary rollback, and a qualified load manifest are
+  tracked in #2682 (#2601).
+- D10 offline evidence: secret-material rejection for decision receipts, batch
+  receipts and result-cache entries; projection-policy and
+  `decision-lifecycle/v1` JSON schemas; subject-level lifecycle backup/restore
+  and cross-surface tombstone resolution; telemetry retention derived from the
+  common lifecycle policy; a real-evaluation stdout/stderr and activity-record
+  privacy capture harness; a projection policy matrix; and the D10
+  threat-control mapping (#2597).
+- D14 live decision telemetry: the evaluator records spans while it runs
+  instead of rebuilding them from the finished result, and W3C trace context
+  crosses the adapter and transport, durable invocation receipt (which records
+  an immutable `traceparent` and links replays), durable batch receipt, async
+  job and review boundaries. Review and action spans join the #1567 operator
+  audit chain. Live telemetry also records the D05 `decision.admit` span as
+  the admission happens (lease-scoped, with breaker transitions inside the
+  span) and a metadata-only D10 `decision.project` span for each applied
+  projection step or denial (#2601, #2678). All 11 required golden scenarios
+  run against the real runtimes, plus sanitized incident export and orphaned
+  link goldens. Live collector qualification and the telemetry-loss, egress,
+  credential and incident drills are tracked in #2685 (#2605).
+- Four-platform Grok Build qualification contract, live smoke receipt, upstream
+  drift check, and stable-promotion gate. The adapter remains experimental
+  until released-binary evidence is complete; Grok Build remains distinct
+  from Grok Bot and Grok web Build.
+- D04 native shared-state batching for compatible Jev evaluations. Independent
+  questions that share the same decision subject, projected state, stage,
+  adapter, target, egress policy, host policy and deadline can be sent as one
+  native provider request, with stable opaque question IDs; any missing,
+  extra, duplicate or wrong-primitive answer invalidates every sibling in that
+  request. Native batching is side-effect-free and disabled unless the caller
+  supplies an enabled `batching` policy. An evaluator-level native-versus-single
+  benchmark provides digest-verified TV01, TV08 and TV22 evidence (#2598).
+- D07 batch receipts and shared accounting: the `decision-batch-receipt/v1`
+  record owns each shared provider request's identity, append-only attempt
+  chronology, usage and cost, and evaluation results link to it rather than
+  copying shared totals. Usage is counted once per attempt, unknown cost stays
+  `unknown` (or `bounded-unknown` under a reviewed bound), a configured
+  `batchReceipts.maxCostMicros` fails closed before dispatch, and per-answer
+  allocations are reporting-only. Durable replay persists governed result
+  values, reconciles retries and split partitions, and rejects insecure
+  persistence directories. The two closure follow-ups are resolved in this
+  release: the writer-version gate (#2671, under Changed) and store integrity,
+  encryption and lifecycle (#2672, below) (#2602).
+- Durable decision batch receipt and result stores now seal every receipt
+  revision and result snapshot with a required HMAC-SHA256 integrity key,
+  encrypt result values at rest with AES-256-GCM bound to tenant, project,
+  batch, question, answer and revision, and bind both stores to the
+  `decision-lifecycle/v1` receipt rule: retention expiry, D10 erasure with
+  body-free tombstones and result cascade, hold-aware sweeps, and restore that
+  refuses erased or expired content. `FileBatchReceiptStore` and
+  `FileBatchResultStore` constructors now require these options, and unkeyed
+  stores are refused until an explicit, authorized `migrateLegacy`. Replay of
+  an erased or expired durable batch never re-dispatches and reports the new
+  v1alpha2-only reason `batch-record-unavailable`; tampered or unmigrated state
+  reports `persistence-error` (#2672). The in-memory batch stores remain
+  unkeyed test fixtures, legal holds rely on the host hold authority, and
+  migration is a host API rather than a CLI command.
+- D08 primitive-aware acceptance policies keep provider values,
+  distributions, native confidence, derived statistics and calibrated risk
+  separate, compare in exact basis points, and route explicitly; quantized
+  probabilities and ties require declared review behavior. Shadow replay
+  against stored observations and promotion records are use-case scoped and
+  marked `actionAuthorization: not-authorized`. An acceptance result is
+  evidence, not action authorization (#2596).
+- D09 calibration registry and model-version compatibility: immutable
+  calibration artifacts keyed by the full evidence-producing identity, and
+  compatibility relations as the only way to reuse an artifact for another
+  identity. With a `calibrationCompatibility` binding, the evaluator pins a
+  compatibility decision per invocation and alias after the adapter reports
+  its actual model; a non-allow decision removes only the derived calibrated
+  risk, and the decision is recorded in `spec.calibrationCompatibility`.
+  Calibration is a population estimate, not a correctness guarantee (#2600).
+- D17 ensemble, champion/challenger and drift-response contracts:
+  experimental `DecisionEnsemblePolicy.v1`, `DecisionChampionChallenger.v1`,
+  `DecisionDriftResponse.v1`, `DecisionEnsembleAggregate.v1` and
+  `DecisionEnsembleIntegrityReport.v1` schemas, pure validators, a
+  deterministic reference aggregation library, and fixtures. Aggregates are
+  labelled a stability signal, not correctness, and integrity reports can only
+  keep or tighten `PROMOTE`/`HOLD`/`ROLLBACK`. There is no runtime
+  orchestration yet; execution, shadow routing and drift response remain on
+  #2611 (#2679).
+- D18 runnable Jev pattern packs and an offline-first playground, shipped in
+  the `aiwg/decision` API and the `decision-engine` addon's
+  `decision-playground` skill. Each fixture now runs through the production
+  `evaluateDecisionRuleset` with the pack's governed definitions, ruleset and
+  offline binding over a recorded-replay Jev transport, and live caps are
+  enforced before dispatch through scheduler admission (resolving #2673). The
+  `dependent-two-stage` pack stays `unavailable` until the D12 graph runtime
+  qualifies, live probes dispatch questions individually, provider-reported
+  overruns after a call route to review rather than being prevented, and
+  durable review remains experimental for production use (#2607).
+- D12 dependent decision DAGs: `decision-evaluate` skill resolution through
+  the capability catalog and a Flow invoker that passes only projected
+  evidence, approval stages behind Flow `gate` nodes, explicit `abstained` and
+  `unsupported` outcomes, seeded graph property tests, a paired offline
+  benchmark and unique DAG IDs. The runtime stays experimental; live benchmark
+  and G5/G6 qualification are tracked in #2686 (#2608).
+- D30 compile and prefix cache offline gaps: Jev and LLM-subagent adapter
+  compile, five cache schemas, pinned provider-prefix compatibility records,
+  metadata-only cache telemetry, an identity mutation and property suite,
+  evaluator parity tests, and CCP qualification evidence retained at an exact
+  commit. The measured G5 benchmark misses its target, so the compile cache
+  stays host opt-in and disabled for Jev; provider prefix-cache reporting and
+  live economics are tracked in #2683 (#2603).
+- D16 asynchronous jobs: killed-child crash fixtures at the submit, queue,
+  cancel and finalization write boundaries prove restart reconciliation
+  without replaying an executor. Live and deployment qualification is tracked
+  in #2688 (#2610).
+- D11 conformance harness: TV01–TV25 vendor vector definitions checked in with
+  recorded synthetic inputs, and all 25 execute offline; `CON-*`, expanded
+  `CNC-*`, real `DRF-*` drift and adversarial injection suites; M05, M07, M10
+  and M11 amendment suites linked into the G2/G4 gates; fixture provenance for
+  every decision fixture, example and retained evidence file with a
+  completeness test; a full-lifetime privacy capture over the aggregate run;
+  and gate flags derived from recorded evidence rather than caller-supplied
+  booleans, with every TV executor mapped (#2675). M05 now also asserts that
+  the review existence oracles stay closed, the aggregate release record is
+  retained at an exact commit under `docs/decision/evidence/` with a
+  fixture-provenance entry, and the two tests that wait on real child
+  processes are documented as legitimately process-based. DMN/OPA import
+  (M07, #2612) and live research egress (M08) are out of scope. Held-out
+  datasets, live Jev conformance and reviewer decisions are tracked in #2684
+  (#2604).
+- D13 durable human review and idempotent resume:
+  `runOfflineReviewAuthorizationFixture` runs eleven unauthorized attempts
+  against the real file store under a non-permissive
+  `PinnedReviewAuthorization` and proves zero unauthorized effects. The
+  packaging CI lane runs it with the durable and matrix fixtures from the packed
+  tarball, and so does the offline pattern smoke. `openSensitiveView` is an
+  access-audited, retention-bounded sensitive view: it is disabled unless the
+  pinned policy lists `sensitiveViewRoles`, it appends a
+  `sensitive-view-accessed` event before it reads host-held material, and it
+  never persists that material. An optional D10 lifecycle binding caps review
+  retention by the shared `review` rule, hides reviews past retention, applies
+  the rule's export setting, and lets `eraseDecisionSubject` tombstone or purge
+  reviews through opaque references, so an erased approval never executes.
+  Cross-process tests race claim and resume across four processes and SIGKILL
+  children at store publication seams and inside the executor. The docs state
+  that human approval is not model correctness, and that downstream
+  authorization and outcome verification stay mandatory. The review runtime
+  remains experimental. Production executor-side completion receipts stay
+  behind the pluggable `reconcile` and ledger interfaces. The production
+  authority, importer, executor ledger and live crash matrix are tracked in
+  #2677 (#2606).
+- The `decision-engine` addon is installable and usable from the npm package:
+  install is documented, bulk deploys (`aiwg use all`, framework deploys) no
+  longer include it, the examples ship in the addon, and the deployed
+  dispatcher finds its runtime from a deployed skill copy, covered by a
+  clean-install test (#2641).
+
+### Fixed
+
+- The packaged `decision-evaluate` dispatcher crashed with a `TypeError` for
+  any request with `receiptDirectory`, because it built the receipt store
+  without an integrity key. It now takes the key from host configuration
+  (`receiptIntegrityKeyRef`, optional `receiptIntegrityKeyEncoding`) and fails
+  closed with `receipt-integrity-key-missing` or `receipt-integrity-key-invalid`
+  before evaluation. The key's logical reference cannot be used as a backend
+  credential (#2639).
+- Decision schema validation compiled every caller schema on every call. Compiled
+  validators are now cached by canonical digest in bounded LRU caches, cutting
+  a warm ruleset evaluation from about 100 ms to about 2.4 ms and removing the
+  receipt barrier race test timeout under CPU contention (#2660).
+- Cross-scope existence oracles in the D30 compile cache and the D13 review
+  store are closed. Missing, out-of-scope and unauthorized reviews raise the
+  same `ReviewAccessError('Review not found')`, and each tenant and project
+  keeps reviews in its own keyed directory, so review IDs are unique per scope
+  and flat-layout revision files are not migrated. The compile cache is bound
+  to `decision-lifecycle/v1` with body-free tombstones and no restore after
+  delete (#2674).
 
 ## [2026.9.20] - 2026-09-21 - "Stable channels and exact-source evidence"
 
@@ -146,6 +311,29 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   integration guidance.
 - Provider-neutral bot handoff and build verification guides, plus Grok Build
   CI setup and Grok Bot product guidance.
+
+### Omitted from the 2026.9.19 notes
+
+These decision changes shipped in v2026.9.19 but were folded into the
+baseline entry above when the release was published. They are recorded here
+after the fact; the release and its date are unchanged.
+
+- The Jev transport follows the official SDK request, retry and cancellation
+  semantics: normalized request IDs, retry hints, HTTP status classification
+  and credential failures, with bounded response and origin handling and
+  preserved transport provenance. Custom Jev origins fail closed unless
+  approved, approved origins are pinned to vetted DNS addresses over isolated
+  sockets, and JSON parsing is bounded (#2593).
+- Structured `decision.aiwg.io/v1alpha2` instruction and criteria entries:
+  bounded portable JSON values are admitted and validated before
+  canonicalization and mapped to the Jev and LLM-subagent adapters, with
+  v1alpha2 schemas for every decision artifact kind, dual v1alpha1/v1alpha2
+  readers, explicit conversion, and OPS-008 writer and rollback gates. Unsafe
+  YAML, empty instructions and proxy or accessor arrays are rejected (#2594).
+- Invocation receipts are acquired and persisted atomically before remote
+  execution, as immutable HMAC-protected revisions published without locks.
+  Ambiguous receipt retries are rejected, live locks are guarded, and replay
+  and crash integrity are covered by tests (#2595).
 
 ## [2026.9.18] - 2026-09-21 - "Dataset conformance binds prior stable evidence"
 
