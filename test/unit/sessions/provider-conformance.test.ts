@@ -14,6 +14,7 @@ import {
   GrokbotSessionAdapter,
   HermesSessionAdapter,
   DeepSeekHarnessSessionAdapter,
+  MuseSessionAdapter,
   OpenClawSessionAdapter,
   OpenCodeSessionAdapter,
   OpenHumanSessionAdapter,
@@ -54,7 +55,7 @@ const matrixPath = resolve(root,
   'docs/planning/session-intelligence/provider-conformance-matrix.json');
 const matrix = JSON.parse(readFileSync(matrixPath, 'utf8')) as Matrix;
 
-describe('seventeen-provider session release conformance', () => {
+describe('eighteen-provider session release conformance', () => {
   it.each(matrix.providers)('$provider matrix claims match the executable adapter contract', (entry) => {
     const adapter = adapterFor(entry.provider);
     expect(adapter.provider).toBe(entry.provider);
@@ -122,14 +123,14 @@ describe('seventeen-provider session release conformance', () => {
 
   it('maps every canonical provider exactly once to issue, status, operations, fixtures, tests, and docs', () => {
     expect(matrix.contractVersion).toBe('1.0.0');
-    expect(matrix.canonicalProviderCount).toBe(17);
+    expect(matrix.canonicalProviderCount).toBe(18);
     expect(matrix.providers.map((entry) => entry.provider)).toEqual(SESSION_PROVIDER_IDS);
-    expect(new Set(matrix.providers.map((entry) => entry.provider)).size).toBe(17);
-    expect(new Set(matrix.providers.map((entry) => entry.issue)).size).toBe(17);
+    expect(new Set(matrix.providers.map((entry) => entry.provider)).size).toBe(18);
+    expect(new Set(matrix.providers.map((entry) => entry.issue)).size).toBe(18);
 
     for (const entry of matrix.providers) {
-      expect(entry.issue === 215 || entry.issue >= 1910).toBe(true);
-      expect(entry.issue <= 1921 || [215, 2152, 2165, 2253, 2578].includes(entry.issue)).toBe(true);
+      expect(entry.issue === 215 || entry.issue === 232 || entry.issue >= 1910).toBe(true);
+      expect(entry.issue <= 1921 || [215, 232, 2152, 2165, 2253, 2578].includes(entry.issue)).toBe(true);
       expect(entry.operations).toContain('inspect');
       expect(entry.operations).toContain('stream');
       for (const path of [entry.fixtures, entry.tests, entry.documentation]) {
@@ -194,6 +195,7 @@ function adapterFor(provider: string): SessionSourceAdapter {
     grokbot: () => new GrokbotSessionAdapter(),
     'grok-build': () => new GrokBuildSessionAdapter(),
     hermes: () => new HermesSessionAdapter(),
+    muse: () => new MuseSessionAdapter(),
     openclaw: () => new OpenClawSessionAdapter(),
     opencode: () => new OpenCodeSessionAdapter(),
     openhuman: () => new OpenHumanSessionAdapter(),

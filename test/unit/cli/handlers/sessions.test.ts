@@ -119,6 +119,13 @@ describe('sessions CLI contracts', () => {
         acquisitionModes: ['manual-export'],
         reasonCode: 'MANUAL_SOURCE_SELECTION_REQUIRED',
       });
+    expect(output.data.providers.find((item: any) => item.provider === 'muse'))
+      .toMatchObject({
+        disposition: 'manual-only',
+        supportedOperations: ['inspect', 'stream'],
+        acquisitionModes: ['manual-export'],
+        reasonCode: 'MANUAL_SOURCE_SELECTION_REQUIRED',
+      });
     expect(output.data.providers.find((item: any) => item.provider === 'pi'))
       .toMatchObject({ disposition: 'implemented', supportedOperations: ['discover', 'inspect', 'stream'], acquisitionModes: ['jsonl'] });
     expect(output.data.providers.find((item: any) => item.provider === 'warp'))
@@ -461,6 +468,32 @@ describe('sessions CLI contracts', () => {
           disposition: 'manual-only',
           consistency: 'complete',
           extensions: { 'native.grokbot': {} },
+        },
+        wouldInspect: true,
+        wouldPersist: false,
+      },
+    });
+  });
+
+  it('previews a Muse Code export trajectory import without UNSUPPORTED_OPERATION', async () => {
+    const fixture = resolve('test/fixtures/sessions/muse/valid-v1.json');
+    const result = await sessionsHandler.execute(context([
+      'import', fixture, '--provider', 'muse', '--source-id', 'muse-fixture-v1',
+      '--workspace', 'workspace-fixture', '--dry-run', '--json',
+    ]));
+    expect(result.exitCode).toBe(0);
+    expect(jsonOutput(log)).toMatchObject({
+      status: 'preview',
+      data: {
+        source: {
+          provider: 'muse',
+          providerProfile: 'muse-export-trajectory-v1',
+          locatorClass: 'manual-export',
+          adapterVersion: '1.0.0',
+          sourceSchemaVersion: '1.0.0',
+          disposition: 'manual-only',
+          consistency: 'complete',
+          extensions: { 'native.muse': {} },
         },
         wouldInspect: true,
         wouldPersist: false,
