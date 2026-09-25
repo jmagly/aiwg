@@ -55,7 +55,7 @@ aiwg doctor            # workspace health snapshot (helpful)
 ```
 
 And — also required — the **provider** (the AIWG harness you were running): one
-of `claude-code`, `codex`, `copilot`, `cursor`, `factory`, `hermes`, `opencode`,
+of `claude-code`, `codex`, `copilot`, `cursor`, `factory`, `hermes`, `muse`, `opencode`,
 `openclaw`, `grokbot`, `openhuman`, `omp`, `pi`, `warp`, or `windsurf`.
 
 > **Why these three (AIWG version + OS + provider) are non-negotiable:**
