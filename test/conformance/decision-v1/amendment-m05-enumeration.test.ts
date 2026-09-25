@@ -228,6 +228,8 @@ const reviewProbes = (service: DecisionReviewService, scope: ReviewScope): Array
   ['tombstone', id => service.tombstone(scope, id, 'probe')], ['audit-sync', id => service.syncOperatorAudit(scope, id)],
   ['resume', id => service.resume(scope, id, 'synthetic-resume-token', async () => 'effect')],
   ['expire', id => service.expireDue(scope, id)], ['purge', id => service.purge(scope, id)],
+  ['sensitive-view', id => service.openSensitiveView(scope, id, { purpose: 'probe', ttlMs: 10 },
+    { read: async () => { throw new Error('M05 probe reached the sensitive view source'); } })],
 ];
 
 describe('M05 review non-enumerability', () => {

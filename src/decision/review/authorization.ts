@@ -11,6 +11,11 @@ export interface PinnedReviewPolicy {
   executorRoles: string[];
   auditorRoles: string[];
   operatorRoles: string[];
+  /**
+   * Roles that may open an access-audited sensitive view. Absent means no role
+   * may, so sensitive views stay disabled unless the pinned policy grants them.
+   */
+  sensitiveViewRoles?: string[];
   minimumQuorumByRisk: Record<string, number>;
   /** Immutable governed retention window per risk tier; pins erase eligibility. */
   retentionWindowMsByRisk: Record<string, number>;
@@ -39,6 +44,8 @@ export class PinnedReviewAuthorization implements ReviewAuthorization {
     if (!policy.id || !policy.version || !policy.tenantId || !policy.projectId ||
       Object.values(policy.minimumQuorumByRisk).some(value => !Number.isSafeInteger(value) || value < 1 || value > 16) ||
       !policy.retentionWindowMsByRisk ||
+      (policy.sensitiveViewRoles !== undefined && (!Array.isArray(policy.sensitiveViewRoles) ||
+        policy.sensitiveViewRoles.some(role => typeof role !== 'string' || !role))) ||
       Object.values(policy.retentionWindowMsByRisk).some(value => !Number.isSafeInteger(value) || value < 1)) {
       throw new Error('Invalid pinned review policy');
     }
@@ -78,6 +85,7 @@ export class PinnedReviewAuthorization implements ReviewAuthorization {
         ...this.policy.reviewerRoles, ...this.policy.auditorRoles, ...this.policy.operatorRoles,
       ]);
       case 'resume': return this.hasRole(actor.roles, this.policy.executorRoles);
+      case 'sensitive-view': return this.hasRole(actor.roles, this.policy.sensitiveViewRoles ?? []);
       case 'claim': case 'decide': case 'edit': return this.hasRole(actor.roles, this.policy.reviewerRoles);
       case 'escalate': case 'cancel': case 'legal-hold': case 'delete': case 'tombstone': case 'purge':
         return this.hasRole(actor.roles, this.policy.operatorRoles);

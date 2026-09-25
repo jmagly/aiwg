@@ -1,8 +1,10 @@
 import type {
   CreateReviewInput, DecisionReview, ReviewActor, ReviewAuthorization, ReviewEffectReceipt,
   DecisionReviewServiceOptions, ReviewEventType, ReviewListOptions, ReviewScope, ReviewStore,
+  ReviewSensitiveView, ReviewSensitiveViewRequest, ReviewSensitiveViewSource,
 } from './types.js';
-import { currentProposal, ReviewAccessError, ReviewConflictError, reviewDigest, reviewOperatorEventId } from './validate.js';
+import { assertReviewProjection, currentProposal, ReviewAccessError, ReviewConflictError, reviewDigest, reviewOperatorEventId } from './validate.js';
+import { validateDecisionLifecyclePolicy, type DecisionLifecycleReference, type DecisionLifecycleRule } from '../lifecycle.js';
 
 /** Only an executor that can attest zero external effect may report definitive failure. */
 export class ReviewDefinitiveExecutionError extends Error {}
@@ -19,12 +21,15 @@ export class DecisionReviewService {
   private readonly pollIntervalMs: number;
   private readonly telemetry: DecisionReviewServiceOptions['telemetry'];
   private readonly operatorAudit: DecisionReviewServiceOptions['operatorAudit'];
+  private readonly lifecycleRule: DecisionLifecycleRule | null;
   private auditQueue: Promise<void> = Promise.resolve();
   constructor(private readonly store: ReviewStore, private readonly authorization: ReviewAuthorization, private readonly now = () => Date.now(), options: DecisionReviewServiceOptions = {}) {
     this.resumingLeaseMs = options.resumingLeaseMs ?? 30_000;
     this.pollIntervalMs = options.pollIntervalMs ?? 10;
     this.telemetry = options.telemetry;
     this.operatorAudit = options.operatorAudit;
+    if (options.lifecycle) validateDecisionLifecyclePolicy(options.lifecycle.policy);
+    this.lifecycleRule = options.lifecycle ? structuredClone(options.lifecycle.policy.surfaces.review) : null;
     if (!Number.isSafeInteger(this.resumingLeaseMs) || this.resumingLeaseMs < 1) throw new Error('resumingLeaseMs must be a positive integer');
     if (!Number.isSafeInteger(this.pollIntervalMs) || this.pollIntervalMs < 1) throw new Error('pollIntervalMs must be a positive integer');
   }
@@ -33,6 +38,15 @@ export class DecisionReviewService {
     await this.allowed(scope, 'create');
     const at = this.now();
     if (input.expiresAtEpochMs <= at) throw new ReviewConflictError('Review expiry must be in the future');
+    let retentionUntilEpochMs = input.retentionUntilEpochMs;
+    if (this.lifecycleRule) {
+      // The shared D10 review rule is the retention ceiling; absent a pin, it is the deadline.
+      const ceiling = at + this.lifecycleRule.retentionMs;
+      retentionUntilEpochMs ??= ceiling;
+      if (retentionUntilEpochMs > ceiling || input.expiresAtEpochMs > retentionUntilEpochMs) {
+        throw new ReviewConflictError('Review retention exceeds the D10 review lifecycle rule');
+      }
+    }
     const proposal = { version: 1, action: structuredClone(input.action), actionDigest: reviewDigest(input.action), createdAtEpochMs: at, editor: scope.actor, rationale: input.rationale } as const;
     const review: DecisionReview = {
       apiVersion: 'decision.aiwg.io/v1alpha1', kind: 'DecisionReview', schema: 'decision-review/v1', revision: 1,
@@ -41,7 +55,7 @@ export class DecisionReviewService {
       reasonCodes: input.reasonCodes, riskTier: input.riskTier, presentation: input.presentation,
       proposals: [proposal], decisions: [], status: 'pending', createdAtEpochMs: at, updatedAtEpochMs: at,
       expiresAtEpochMs: input.expiresAtEpochMs,
-      ...(input.retentionUntilEpochMs === undefined ? {} : { retentionUntilEpochMs: input.retentionUntilEpochMs }),
+      ...(retentionUntilEpochMs === undefined ? {} : { retentionUntilEpochMs }),
       ...(input.escalationAtEpochMs === undefined ? {} : { escalationAtEpochMs: input.escalationAtEpochMs }),
       quorum: input.quorum ?? 1, continuation: { id: input.continuationId, tokenDigest: reviewDigest(input.resumeToken) },
       events: [{ sequence: 1, type: 'created', atEpochMs: at, actor: scope.actor, proposalVersion: 1,
@@ -57,7 +71,7 @@ export class DecisionReviewService {
   async read(scope: ReviewScope, reviewId: string): Promise<DecisionReview | null> {
     const review = await this.store.read(reviewId, scope.tenantId, scope.projectId);
     if (!review || !await this.authorization.authorize(scope, 'read', review)) return null;
-    return review.status === 'tombstoned' ? null : review;
+    return review.status === 'tombstoned' || this.pastRetention(review) ? null : review;
   }
 
   async list(scope: ReviewScope, options: ReviewListOptions = {}): Promise<DecisionReview[]> {
@@ -65,7 +79,8 @@ export class DecisionReviewService {
     const reviews = await this.store.list(scope.tenantId, scope.projectId);
     const visible: DecisionReview[] = [];
     for (const review of reviews) {
-      if ((!options.includeTombstoned && review.status === 'tombstoned') || !await this.authorization.authorize(scope, 'read', review)) continue;
+      if ((!options.includeTombstoned && review.status === 'tombstoned') || this.pastRetention(review) ||
+        !await this.authorization.authorize(scope, 'read', review)) continue;
       visible.push(review);
     }
     return visible;
@@ -80,7 +95,85 @@ export class DecisionReviewService {
   async export(scope: ReviewScope, id: string): Promise<DecisionReview | null> {
     const review = await this.store.read(id, scope.tenantId, scope.projectId);
     if (!review || !await this.authorization.authorize(scope, 'export', review)) return null;
+    // A D10 rule that denies export, or a review past retention, reads like an absent one.
+    if (this.lifecycleRule?.export === 'denied' || this.pastRetention(review)) return null;
     return structuredClone(review);
+  }
+
+  /**
+   * Access-audited, retention-bounded view of host-held sensitive material. The
+   * access is appended to the review journal (`sensitive-view-accessed`) before
+   * the host source is read, so an unaudited read cannot happen. The content is
+   * never persisted in the review, its events or telemetry. The granted lifetime
+   * never exceeds the review's retention deadline. Missing, out-of-scope,
+   * tombstoned, expired-retention and unauthorized reviews all fail as
+   * `ReviewAccessError("Review not found")`.
+   */
+  async openSensitiveView(scope: ReviewScope, id: string, request: ReviewSensitiveViewRequest,
+    source: ReviewSensitiveViewSource): Promise<ReviewSensitiveView | null> {
+    if (!request || typeof request.purpose !== 'string' || !request.purpose.trim() ||
+      !Number.isSafeInteger(request.ttlMs) || request.ttlMs < 1 || typeof source?.read !== 'function') {
+      throw new ReviewConflictError('Invalid sensitive view request');
+    }
+    assertReviewProjection(request.purpose);
+    let grant: { at: number; expires: number } | undefined;
+    const audited = await this.mutate(scope, id, 'sensitive-view', review => {
+      const deadline = this.retentionDeadline(review);
+      const at = this.now();
+      if (review.status === 'tombstoned' || (deadline !== undefined && at >= deadline)) throw this.unavailable();
+      if (deadline === undefined) throw new ReviewConflictError('Sensitive view requires a pinned retention deadline');
+      grant = { at, expires: Math.min(at + request.ttlMs, deadline) };
+      return this.append(review, 'sensitive-view-accessed', scope.actor, request.purpose, review.status,
+        { viewExpiresAtEpochMs: grant.expires });
+    });
+    const content = await source.read({ tenantId: audited.tenantId, projectId: audited.projectId, reviewId: audited.reviewId,
+      sourceReceipt: structuredClone(audited.sourceReceipt), evidencePins: structuredClone(audited.evidencePins) });
+    if (content === null || content === undefined) return null;
+    return { reviewId: audited.reviewId, purpose: request.purpose, content, grantedAtEpochMs: grant!.at,
+      expiresAtEpochMs: grant!.expires, auditEventSequence: audited.events.length };
+  }
+
+  /** Opaque D10 reference for a review; the host keeps the reverse index, never model-visible state. */
+  lifecycleReference(review: Pick<DecisionReview, 'tenantId' | 'projectId' | 'reviewId'>): DecisionLifecycleReference {
+    return { surface: 'review', opaqueId: reviewDigest({ schema: 'decision-review-lifecycle/v1',
+      tenantId: review.tenantId, projectId: review.projectId, reviewId: review.reviewId }) };
+  }
+
+  /** D10 `links` support: references for the reviews created from one source receipt that the caller may delete. */
+  async lifecycleReferences(scope: ReviewScope, sourceReceiptId: string): Promise<DecisionLifecycleReference[]> {
+    this.requireLifecycle();
+    if (!await this.authorization.authorize(scope, 'list')) return [];
+    const references: DecisionLifecycleReference[] = [];
+    for (const review of await this.store.list(scope.tenantId, scope.projectId)) {
+      if (review.sourceReceipt.id === sourceReceiptId && await this.authorization.authorize(scope, 'delete', review)) {
+        references.push(this.lifecycleReference(review));
+      }
+    }
+    return references;
+  }
+
+  /**
+   * D10 `erase` support for `eraseDecisionSubject`. Appends a tombstone under
+   * delete authority (refused under legal hold) and, when the D10 review rule
+   * says `erase`, physically purges the revisions. Erasure never converts an
+   * unavailable review into approval: a tombstoned or purged review cannot resume.
+   */
+  async eraseLifecycleReference(scope: ReviewScope, reference: DecisionLifecycleReference): Promise<boolean> {
+    const rule = this.requireLifecycle();
+    if (reference?.surface !== 'review' || !reference.opaqueId) throw new ReviewConflictError('Review lifecycle reference invalid');
+    const review = (await this.store.list(scope.tenantId, scope.projectId))
+      .find(item => this.lifecycleReference(item).opaqueId === reference.opaqueId);
+    if (!review) {
+      // Only an operator may learn that a reference is already erased.
+      if (!await this.authorization.authorize(scope, 'purge')) throw this.unavailable();
+      return false;
+    }
+    await this.applyTombstone(scope, review.reviewId, 'D10 lifecycle erasure', 'delete');
+    if (rule.deletion === 'erase') {
+      if (!this.store.purgeTombstoned) throw new ReviewConflictError('Physical review purge is unavailable');
+      await this.store.purgeTombstoned(review.reviewId, scope.tenantId, scope.projectId);
+    }
+    return true;
   }
 
   setLegalHold(scope: ReviewScope, id: string, legalHold: boolean, rationale: string) { return this.mutate(scope, id, 'legal-hold', review => {
@@ -260,6 +353,21 @@ export class DecisionReviewService {
     return review;
   }
   private unavailable() { return new ReviewAccessError('Review not found'); }
+  private requireLifecycle(): DecisionLifecycleRule {
+    if (!this.lifecycleRule) throw new ReviewConflictError('Review service has no D10 lifecycle binding');
+    return this.lifecycleRule;
+  }
+  /** Effective deadline: the review's pin, capped by the D10 review rule when bound. */
+  private retentionDeadline(review: DecisionReview): number | undefined {
+    const ceiling = this.lifecycleRule ? review.createdAtEpochMs + this.lifecycleRule.retentionMs : undefined;
+    if (review.retentionUntilEpochMs === undefined) return ceiling;
+    return ceiling === undefined ? review.retentionUntilEpochMs : Math.min(ceiling, review.retentionUntilEpochMs);
+  }
+  private pastRetention(review: DecisionReview): boolean {
+    if (!this.lifecycleRule) return false;
+    const deadline = this.retentionDeadline(review);
+    return deadline !== undefined && this.now() >= deadline;
+  }
   private async allowed(scope: ReviewScope, operation: Parameters<ReviewAuthorization['authorize']>[1], review?: DecisionReview) { if (!await this.authorization.authorize(scope, operation, review)) throw new ReviewAccessError('Review access denied'); }
   private requireActive(review: DecisionReview) { this.requireStatus(review, ['pending', 'claimed']); if (this.now() >= review.expiresAtEpochMs) throw new ReviewConflictError('Review is expired'); }
   private requireStatus(review: DecisionReview, states: DecisionReview['status'][]) { if (!states.includes(review.status)) throw new ReviewConflictError(`Illegal transition from ${review.status}`); }
