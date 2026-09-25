@@ -196,6 +196,7 @@ const SKILLS_ONLY_PROVIDERS = new Set([
   'cursor',
   'grokbot',
   'hermes',
+  'muse', // #236: skills deploy natively; no command translation (indexed-only agents/commands/rules)
   'openhuman',
   'pi',
   'omp',
