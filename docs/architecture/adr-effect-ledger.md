@@ -6,10 +6,10 @@
 - Origin: #2677 owner question (D13 production completion lookup)
 - Decision owners: AIWG maintainers
 - Contract: [Effect ledger v1](../contracts/effect-ledger.v1.md)
-- Inputs: [research brief](effect-ledger/effect-ledger-research.md) and
-  [reuse and integration assessment](effect-ledger/effect-ledger-assessment.md)
+- Inputs: [research brief](https://github.com/jmagly/aiwg/blob/main/docs/architecture/effect-ledger/effect-ledger-research.md) and
+  [reuse and integration assessment](https://github.com/jmagly/aiwg/blob/main/docs/architecture/effect-ledger/effect-ledger-assessment.md)
 - Related: [cross-asset attestation envelope](adr-cross-asset-attestation-envelope.md)
-  (#2068), [operator-decision audit](../contracts/operator-decision-audit.v1.md)
+  (#2068), [operator-decision audit](https://github.com/jmagly/aiwg/blob/main/docs/contracts/operator-decision-audit.v1.md)
   (#1567), D13 review (#2606), D16 jobs (#2610), D10 lifecycle (#2597)
 
 ## Context
