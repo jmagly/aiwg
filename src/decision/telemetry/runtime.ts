@@ -34,7 +34,13 @@ export async function emitRulesetRuntimeTrace(request: DecisionEvaluationRequest
         provenance: { 'aiwg.cache.layer': 'client-derived', 'aiwg.cache.result': 'client-derived' } });
       builder.endSpan(hit, 'ok');
       builder.endSpan(root, 'ok');
-      await emitAll(telemetry.hook.emit.bind(telemetry.hook), builder.build().spans);
+      const spans = builder.build().spans;
+      // Throughput and duration only: the hit carries no attempt spans, so no usage is
+      // recounted, and the result-layer cache count comes from the D15 service sink.
+      if (telemetry.metrics) for (const span of spans) {
+        try { recordDecisionSpanMetrics(span, telemetry.metrics); } catch { /* metrics cannot change a decision */ }
+      }
+      await emitAll(telemetry.hook.emit.bind(telemetry.hook), spans);
       return;
     }
     const validate = builder.startSpan('decision.validate', { parent: root.context,
