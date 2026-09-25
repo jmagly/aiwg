@@ -5,7 +5,7 @@ import { applyPrimitiveAcceptance, validatePrimitiveAcceptancePolicy } from './a
 import { DecisionPreDispatchError, decisionInvocationFingerprint, nextReceipt } from './receipts.js';
 import { admitEntry, EntryAdmissionError } from './entry.js';
 import { correlateAtomicBatch, decisionBatchQuestionId, planNativeDecisionBatches } from './batch.js';
-import { AdmissionError, AdmissionProfileConflictError, decisionAdmissionRegistry } from './admission.js';
+import { AdmissionError, AdmissionProfileError, decisionAdmissionRegistry } from './admission.js';
 import { runBoundedFair, SchedulerWaitError, type SchedulerSlot } from './scheduler.js';
 import { allocateEstimatedUsage, batchAccountingTotals, batchEnforcementCostMicros, deriveCost } from './batch-receipts/accounting.js';
 import { validOpaqueRequestId } from './batch-receipts/validate.js';
@@ -1325,7 +1325,7 @@ function validateSchedulerPolicy(request: DecisionEvaluationRequest): void {
   }
   if (!policy.enabled) return;
   try { decisionAdmissionRegistry.register(policy, request.now ?? Date.now); } catch (error) {
-    if (error instanceof AdmissionProfileConflictError) throw new DecisionValidationError(error.message);
+    if (error instanceof AdmissionProfileError) throw new DecisionValidationError(error.message);
     throw error;
   }
 }

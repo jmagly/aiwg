@@ -1,0 +1,149 @@
+{
+  "schema": "decision-load-manifest/v2",
+  "version": "2.0.0",
+  "mode": "offline-fake-provider",
+  "profileVersion": "load-offline-v2",
+  "workspace": {
+    "concurrency": 4,
+    "requestsPerMinute": 2400,
+    "tokensPerSecond": 20000,
+    "maxCostUsd": 1,
+    "maxRetainedWork": 16,
+    "maxQueueLength": 128,
+    "maxQueueWaitMs": 2000,
+    "maxPrincipalShare": 0.5
+  },
+  "providers": {
+    "jev": {
+      "concurrency": 3,
+      "requestsPerMinute": 1800,
+      "tokensPerSecond": 12000,
+      "maxCostUsd": 1,
+      "maxRetainedWork": 16,
+      "maxQueueLength": 96,
+      "maxQueueWaitMs": 2000,
+      "maxPrincipalShare": 0.75,
+      "circuitBreaker": { "failureThreshold": 5, "openMs": 1000, "halfOpenMaxCalls": 1 }
+    },
+    "llm-subagent": {
+      "concurrency": 3,
+      "requestsPerMinute": 1800,
+      "tokensPerSecond": 12000,
+      "maxCostUsd": 1,
+      "maxRetainedWork": 16,
+      "maxQueueLength": 96,
+      "maxQueueWaitMs": 2000,
+      "maxPrincipalShare": 0.75,
+      "circuitBreaker": { "failureThreshold": 5, "openMs": 1000, "halfOpenMaxCalls": 1 }
+    }
+  },
+  "principals": [
+    {
+      "id": "noisy",
+      "class": "noisy",
+      "weight": 0.6,
+      "limits": {
+        "concurrency": 8,
+        "requestsPerMinute": 6000,
+        "tokensPerSecond": 50000,
+        "maxCostUsd": 1,
+        "maxRetainedWork": 8,
+        "maxQueueLength": 128,
+        "maxQueueWaitMs": 2000
+      }
+    },
+    {
+      "id": "quiet-reserved",
+      "class": "quiet",
+      "weight": 0.1,
+      "limits": {
+        "concurrency": 2,
+        "reservedConcurrency": 1,
+        "requestsPerMinute": 600,
+        "tokensPerSecond": 8000,
+        "maxCostUsd": 1,
+        "maxRetainedWork": 4,
+        "maxQueueLength": 32,
+        "maxQueueWaitMs": 2000
+      }
+    },
+    {
+      "id": "quiet-a",
+      "class": "quiet",
+      "weight": 0.1,
+      "limits": {
+        "concurrency": 2,
+        "requestsPerMinute": 600,
+        "tokensPerSecond": 8000,
+        "maxCostUsd": 1,
+        "maxRetainedWork": 4,
+        "maxQueueLength": 32,
+        "maxQueueWaitMs": 2000
+      }
+    },
+    {
+      "id": "quiet-b",
+      "class": "quiet",
+      "weight": 0.1,
+      "limits": {
+        "concurrency": 2,
+        "requestsPerMinute": 600,
+        "tokensPerSecond": 8000,
+        "maxCostUsd": 1,
+        "maxRetainedWork": 4,
+        "maxQueueLength": 32,
+        "maxQueueWaitMs": 2000
+      }
+    },
+    {
+      "id": "quiet-c",
+      "class": "quiet",
+      "weight": 0.1,
+      "limits": {
+        "concurrency": 2,
+        "requestsPerMinute": 600,
+        "tokensPerSecond": 8000,
+        "maxCostUsd": 1,
+        "maxRetainedWork": 4,
+        "maxQueueLength": 32,
+        "maxQueueWaitMs": 2000
+      }
+    }
+  ],
+  "arrivalModel": {
+    "kind": "seeded-bursty-poisson",
+    "seed": 2601,
+    "averageRequestsPerSecond": 20,
+    "spikeMultiplier": 4,
+    "spikeDurationSeconds": 10,
+    "smallTokens": 200,
+    "hugeTokens": 6000,
+    "hugeTokenShare": 0.02,
+    "serviceTimeMs": { "minimum": 40, "maximum": 160 },
+    "retryableFailureRate": 0.05,
+    "maxRetries": 1,
+    "retryBackoffMs": 250,
+    "cancellationRate": 0.01,
+    "cancelAfterMs": 50
+  },
+  "duration": {
+    "loadSeconds": 60,
+    "spikeSeconds": 30,
+    "soakSeconds": 900,
+    "evaluatorSampleSeconds": 90
+  },
+  "bounds": {
+    "maximumActiveCalls": 4,
+    "maximumQueuedCalls": 128,
+    "maximumHeapUsedMiB": 512,
+    "maximumCpuPercentOneCore": 80,
+    "maximumEligibleLaneWaitMs": 2000,
+    "maximumRetryAmplificationRatio": 1.25,
+    "maximumCancellationLatencyMs": 100,
+    "minimumQuietPrincipalAdmissionRatio": 0.95
+  },
+  "passFail": {
+    "allBoundsMustPass": true,
+    "liveServiceRequired": false
+  }
+}

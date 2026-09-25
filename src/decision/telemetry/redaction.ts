@@ -2,7 +2,7 @@ import type { DecisionTelemetrySpan, DecisionTelemetryTrace, TelemetryAttribute,
 
 const PROTECTED_KEY = /(?:state|question|prompt|response|answer(?:\.body)?|authorization|api[_-]?key|credential|vault|secret|reasoning|cookie|token(?!s?$))/i;
 const CONTROL = /[\u0000-\u001f\u007f]/g;
-const SAFE_EVENT_NAMES = new Set(['retry.scheduled', 'attempt.terminated']);
+const SAFE_EVENT_NAMES = new Set(['retry.scheduled', 'attempt.terminated', 'breaker.transition']);
 // Only schema-declared metadata may cross the telemetry boundary. A syntactically
 // plausible custom key can still carry body text or PII in its value.
 const SAFE_ATTRIBUTE_KEYS = new Set(`
@@ -25,6 +25,9 @@ const SAFE_ATTRIBUTE_KEYS = new Set(`
   aiwg.provider.request_id aiwg.provider.request_id_source aiwg.remote.execution
   aiwg.usage.cost_usd aiwg.usage.cost_provenance aiwg.usage.scope aiwg.link.state
   aiwg.link.tombstone aiwg.queue.delay_ms aiwg.drift.value
+  aiwg.admission.decision aiwg.admission.reason aiwg.admission.estimated_tokens aiwg.admission.estimated_cost_usd
+  aiwg.admission.retry_after_ms aiwg.queue.active aiwg.queue.queued aiwg.retry.pressure
+  aiwg.breaker.status aiwg.breaker.from aiwg.breaker.to
   gen_ai.request.model gen_ai.response.model gen_ai.usage.input_tokens
   gen_ai.usage.output_tokens http.response.status_code
 `.trim().split(/\s+/));

@@ -16,6 +16,12 @@ const FIXED_DIMENSIONS: Record<string, readonly string[]> = {
   'aiwg.cache.result': ['hit', 'miss', 'stale', 'unknown'],
   'aiwg.review.status': ['pending', 'approved', 'denied', 'escalated', 'expired'],
   'aiwg.usage.cost_provenance': ['provider-fact', 'client-derived', 'estimate', 'unknown'],
+  'aiwg.admission.decision': ['admit', 'defer', 'reject'],
+  'aiwg.admission.reason': ['admitted', 'disabled', 'cancelled', 'deadline-exceeded', 'concurrency', 'requests-per-minute',
+    'tokens-per-second', 'attempts', 'batch-size', 'cost', 'unknown-cost', 'queue-full', 'queue-timeout', 'invalid-estimate',
+    'request-too-large', 'too-many-items', 'retained-work', 'unknown-retained-work', 'retry-after', 'circuit-open',
+    'unconfigured-provider'],
+  'aiwg.breaker.status': ['closed', 'open', 'half-open'],
 };
 
 export interface DecisionMetricPoint { name: string; value: number; dimensions: TelemetryAttributes }
@@ -26,6 +32,7 @@ const METRIC_NAMES = new Set([
   'decision.fallbacks', 'decision.errors', 'decision.queue_delay', 'decision.coverage',
   'decision.abstention', 'decision.review', 'decision.cost_usd',
   'decision.input_tokens', 'decision.output_tokens', 'decision.cache', 'decision.drift',
+  'decision.admission', 'decision.throttles', 'decision.breaker_transitions',
 ]);
 
 /** Record operational metrics without using result IDs or answer-level batch usage. */
@@ -58,8 +65,11 @@ export function recordDecisionSpanMetrics(span: DecisionTelemetrySpan, metrics: 
   if (span.name === 'decision.review') record('decision.review', 1);
   if (span.name === 'decision.cache') record('decision.cache', 1);
   if (span.name === 'decision.admit') {
+    record('decision.admission', 1);
+    if (attributes['aiwg.admission.decision'] !== 'admit') record('decision.throttles', 1);
     const delay = attributes['aiwg.queue.delay_ms'];
     if (typeof delay === 'number' && Number.isFinite(delay) && delay >= 0) record('decision.queue_delay', delay);
+    for (const event of span.events) if (event.name === 'breaker.transition') record('decision.breaker_transitions', 1);
   }
   if (span.name === 'decision.accept') {
     const disposition = attributes['aiwg.acceptance.disposition'];
