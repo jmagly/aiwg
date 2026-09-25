@@ -765,7 +765,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
         const span = trace?.startAttempt(context.item.alias, target, attempts.length + 1, targetIndex > 0);
         const attemptDeadline = Math.min(context.totalDeadline, started + target.timeoutMs);
         try {
-          const projected = await projectRuntimeInput(context.request, context.item.alias, target, context.item.input, adapter);
+          const projected = await projectRuntimeInput(context.request, context.item.alias, target, context.item.input, adapter, span);
           await context.advance('dispatched', { pending: { alias: context.item.alias, targetIndex, ordinal: attempts.length + 1, attempts } });
           try {
             final = await invokeWithDeadline(context, adapter!, target, attemptDeadline, attempts.length + 1, projected,
@@ -857,16 +857,23 @@ async function invokeWithDeadline(
     if (context.request.scheduler?.enabled) {
       const policy = context.request.scheduler;
       const controller = decisionAdmissionRegistry.controllerFor(policy, context.now);
+      const admissionStarted = context.now();
+      const trace = runtimeTraceOf(context.request);
       try {
         const lease = await controller.acquire({ budgetId: context.request.invocationId,
           principalId: policy.principal.id, workspaceId: policy.workspace.id,
           providerId: target.adapter, estimate: policy.estimate?.(context.item.alias, target, context.item.input) ?? { attempts: 1, batchSize: 1, items: 1 },
           deadlineEpochMs, signal });
         admissionEvidence = lease.evidence;
-        releaseAdmission = lease.release;
+        const admitSpan = trace?.startAdmission(context.item.alias, target.adapter, admissionStarted, lease.evidence);
+        releaseAdmission = outcome => {
+          lease.release(outcome);
+          trace?.endAdmission(admitSpan, lease.evidence);
+        };
         policy.onEvidence?.(context.item.alias, lease.evidence);
       } catch (error) {
         if (error instanceof AdmissionError) {
+          trace?.startAdmission(context.item.alias, target.adapter, admissionStarted, error.evidence);
           policy.onEvidence?.(context.item.alias, error.evidence);
           // Nothing was sent. A target timeout that aborts a queued wait is a timeout, not a caller cancellation.
           const failure = error.evidence.reason === 'cancelled' && !context.request.signal?.aborted
@@ -956,7 +963,34 @@ function validateEgressBoundaryConfiguration(request: DecisionEvaluationRequest)
   if (typeof record.resolve !== 'function') throw new DecisionValidationError('unsupported egress boundary configuration');
 }
 
+/** Project one dispatch input and record a metadata-only `decision.project` span for it. */
 async function projectRuntimeInput(
+  request: DecisionEvaluationRequest,
+  alias: string,
+  target: ExecutionTarget,
+  input: unknown,
+  adapter: DecisionAdapter | undefined,
+  parentSpan?: DecisionRuntimeSpan,
+): Promise<{ input: unknown; evidence?: DecisionProjectionEvidence }> {
+  const trace = runtimeTraceOf(request);
+  const started = (request.now ?? Date.now)();
+  const mode = !request.projection ? 'none' as const
+    : isUnprojectedLocalOptOut(request.projection) ? 'unprojected-local' as const : 'policy' as const;
+  try {
+    const projected = await projectRuntimeInputUntraced(request, alias, target, input, adapter);
+    // A no-egress passthrough with no projection configured applied no D10 boundary: no span.
+    if (mode !== 'none') trace?.projected(alias, parentSpan, started, { mode, outcome: 'allowed', ...(projected.evidence ? {
+      fieldCount: projected.evidence.included.length, incompleteContext: projected.evidence.incompleteContext,
+      automaticActionAllowed: projected.evidence.automaticActionAllowed } : {}) });
+    return projected;
+  } catch (error) {
+    trace?.projected(alias, parentSpan, started, { mode, outcome: 'denied',
+      ...(error instanceof DecisionProjectionError ? { reason: error.reason } : {}) });
+    throw error;
+  }
+}
+
+async function projectRuntimeInputUntraced(
   request: DecisionEvaluationRequest,
   alias: string,
   target: ExecutionTarget,

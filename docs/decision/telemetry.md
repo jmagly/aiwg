@@ -10,6 +10,8 @@ AIWG trace and span IDs are random W3C IDs. Provider request IDs are bounded opa
 
 The evaluator records spans live. `evaluateDecisionRuleset()` opens `decision.workflow` before validation, opens each `decision.attempt` before dispatch and closes it when the adapter observation arrives, and opens `decision.batch.request` before a shared native-batch transport call. `normalize` and `accept` are recorded when each evaluation result is produced; `compose`, `review` and `persist` are recorded with the terminal result. Spans are buffered in start order and flushed once, after the result is final, so an exporter never observes a partial trace. An attempt whose outcome is never observed (for example an execution-uncertain dispatch) is closed with status `error` and the workflow's terminal reason rather than being dropped. A result-cache hit records only `decision.workflow` and `decision.cache`: historical attempts are not replayed as new work.
 
+Two boundary steps are also recorded live. `decision.project` records one D10 projection step when a boundary applied: a projection policy, the host `unprojected-local` opt-out, or a denial. It is a child of its `decision.attempt` span on the single-call path and of the workflow for native-batch and result-cache preflight. It carries only the mode, the outcome, the typed denial reason, the included field count and the incomplete-context flags. It never carries projected state, field pointers, or the projected digest. A no-egress passthrough with no projection configured applies no boundary and records no span. `decision.admit` records one D05 scheduler admission decision as a workflow child (see [admission-control.md](admission-control.md)). It opens when admission is requested. A rejection or deferral closes it at once. A granted lease closes it on release, so breaker transitions caused by that attempt appear as `breaker.transition` events inside the span.
+
 Propagation crosses these boundaries:
 
 - **Adapter and transport.** `DecisionAdapterRequest.traceContext` carries the live attempt span's `traceparent`; `DecisionAdapterBatchRequest.traceContext` carries the batch request span's. The Jev adapter forwards a well-formed `traceparent` header and drops anything else. Vendor `tracestate` never crosses a provider boundary.
@@ -38,6 +40,9 @@ Propagation crosses these boundaries:
 | `aiwg.review.id/status/event/revision` | client-derived | Durable review lifecycle |
 | `aiwg.operator_decision.event_id` | client-derived | #1567 operator-audit event ID on review spans for approval, denial, escalation and authorization denial, and on the action span for the approval that authorized it |
 | `aiwg.link.state`, `aiwg.link.tombstone` | client-derived | `deleted` or `orphaned` link marker and its tombstone reference |
+| `aiwg.projection.mode/outcome/reason` | client-derived | D10 projection step: `policy`, `unprojected-local` or `none`; `allowed` or `denied`; typed denial reason |
+| `aiwg.projection.field_count`, `aiwg.projection.incomplete_context`, `aiwg.projection.automatic_action_allowed` | client-derived | Projection evidence summary; never state, pointers or digests |
+| `aiwg.admission.*`, `aiwg.queue.*`, `aiwg.breaker.*` | client-derived or estimate | D05 admission decision, queue and breaker metadata on `decision.admit` |
 
 Unknown values remain `null`; they are never rewritten to zero. Derived cost must name its catalog version. Per-answer allocation is optional, marked `estimate`, names its allocation method/version, and must reconcile exactly. Shared provider usage is recorded once on `decision.batch.request`, while answer spans link to it.
 

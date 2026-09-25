@@ -28,6 +28,8 @@ const SAFE_ATTRIBUTE_KEYS = new Set(`
   aiwg.admission.decision aiwg.admission.reason aiwg.admission.estimated_tokens aiwg.admission.estimated_cost_usd
   aiwg.admission.retry_after_ms aiwg.queue.active aiwg.queue.queued aiwg.retry.pressure
   aiwg.breaker.status aiwg.breaker.from aiwg.breaker.to
+  aiwg.projection.mode aiwg.projection.outcome aiwg.projection.reason aiwg.projection.field_count
+  aiwg.projection.incomplete_context aiwg.projection.automatic_action_allowed
   gen_ai.request.model gen_ai.response.model gen_ai.usage.input_tokens
   gen_ai.usage.output_tokens http.response.status_code
 `.trim().split(/\s+/));

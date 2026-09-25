@@ -17,6 +17,7 @@ import {
   type DecisionEvaluationRequest,
   type DecisionProjectionPolicy,
   type DecisionRuleset,
+  type DecisionTelemetrySpan,
 } from '../../../src/decision/index.js';
 
 // D10 / #2678: the evaluator's egress boundary fails closed. These cases cover the
@@ -314,6 +315,9 @@ describe('D10 incomplete context cannot route to automatic action (#2678, #2597 
     expect(result.spec.status).toBe('review');
     expect(result.spec.reason).toBe('insufficient-information');
     expect(result.spec).not.toHaveProperty('outcome');
+    // The strict v1alpha2 schema accepts exactly this review/insufficient-information pair without an outcome.
+    expect(result.apiVersion).toBe('decision.aiwg.io/v1alpha2');
+    expect(() => validateDecisionDocument(result)).not.toThrow();
   });
 
   it('AC6-PROJ still denies incomplete context when the policy does not allow it', async () => {
@@ -324,6 +328,48 @@ describe('D10 incomplete context cannot route to automatic action (#2678, #2597 
     expect(reasons(result).every(reason => reason === 'data-boundary-denied')).toBe(true);
     expect(adapter.evaluate).not.toHaveBeenCalled();
     expect(resolveCredential).not.toHaveBeenCalled();
+  });
+});
+
+describe('D10 projection telemetry (#2605 D14 live spans)', () => {
+  const telemetry = (spans: DecisionTelemetrySpan[]) => {
+    let span = 1;
+    return { hook: { emit: (value: DecisionTelemetrySpan) => { spans.push(value); } },
+      ids: { traceId: () => 'a'.repeat(32), spanId: () => (span++).toString(16).padStart(16, '0') } };
+  };
+
+  it('TEL-PROJ-01 records a metadata-only decision.project span under each attempt for an applied policy', async () => {
+    const spans: DecisionTelemetrySpan[] = [];
+    const adapter = new DeclaredEgressAdapter(() => ({ mode: 'network', origin: 'https://api.typesafe.ai', region: 'us' }));
+    const result = await evaluateDecisionRuleset(baseRequest(adapter, {
+      projection: { resolve: () => projectionPolicy() }, telemetry: telemetry(spans) }).request);
+    expect(result.spec.status).toBe('completed');
+    const projected = spans.filter(span => span.name === 'decision.project');
+    expect(projected).toHaveLength(3);
+    const attempts = new Map(spans.filter(span => span.name === 'decision.attempt').map(span => [span.context.spanId, span]));
+    for (const span of projected) {
+      expect(span.status).toBe('ok');
+      expect(attempts.has(span.parentSpanId ?? '')).toBe(true);
+      expect(span.attributes).toMatchObject({ 'aiwg.projection.mode': 'policy', 'aiwg.projection.outcome': 'allowed',
+        'aiwg.projection.field_count': 1, 'aiwg.projection.incomplete_context': false,
+        'aiwg.projection.automatic_action_allowed': true });
+    }
+    expect(JSON.stringify(spans)).not.toContain('documentation link');
+  });
+
+  it('TEL-PROJ-02 records the safe-default denial and no span for a no-egress passthrough', async () => {
+    const denied: DecisionTelemetrySpan[] = [];
+    await evaluateDecisionRuleset(baseRequest(new DeclaredEgressAdapter(() => undefined), { telemetry: telemetry(denied) }).request);
+    const deniedSpans = denied.filter(span => span.name === 'decision.project');
+    expect(deniedSpans).toHaveLength(3);
+    expect(deniedSpans.every(span => span.status === 'error' && span.attributes['aiwg.projection.mode'] === 'none'
+      && span.attributes['aiwg.projection.outcome'] === 'denied'
+      && span.attributes['aiwg.projection.reason'] === 'data-boundary-denied')).toBe(true);
+
+    const passthrough: DecisionTelemetrySpan[] = [];
+    await evaluateDecisionRuleset(baseRequest(new DeclaredEgressAdapter(() => ({ mode: 'none' })),
+      { telemetry: telemetry(passthrough) }).request);
+    expect(passthrough.some(span => span.name === 'decision.project')).toBe(false);
   });
 });
 

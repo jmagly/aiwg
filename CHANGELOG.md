@@ -37,6 +37,11 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   privacy capture harness; a projection policy matrix; and the D10
   threat-control mapping (#2597).
 
+- Live decision telemetry now records the D05 `decision.admit` span as the
+  admission happens (lease-scoped, with breaker transitions inside the span)
+  and a metadata-only D10 `decision.project` span for each applied projection
+  step or denial (#2601, #2678, #2605).
+
 - Four-platform Grok Build qualification contract, live smoke receipt, upstream
   drift check, and stable-promotion gate. The adapter remains experimental
   until released-binary evidence is complete; Grok Build remains distinct

@@ -1,13 +1,29 @@
-import type { DecisionAdapterBatchObservation, DecisionAttempt, DecisionEvaluationRequest, DecisionResult, ExecutionTarget, RulesetResult } from '../types.js';
+import type {
+  DecisionAdapterBatchObservation, DecisionAdmissionEvidence, DecisionAttempt, DecisionEvaluationRequest, DecisionResult,
+  ExecutionTarget, RulesetResult,
+} from '../types.js';
 import type { DecisionBatchReceipt } from '../batch-receipts/types.js';
 import { extractTraceContext, transportTraceContext } from './context.js';
-import { mapDecisionAttempt, mapDecisionResult, mapRulesetResult, type AttributeMapping } from './mapping.js';
+import { mapAdmissionEvidence, mapDecisionAttempt, mapDecisionResult, mapRulesetResult, type AttributeMapping } from './mapping.js';
 import { DecisionTraceBuilder, recordBatchReceiptTrace } from './trace.js';
 import { recordDecisionSpanMetrics } from './metrics.js';
 import { sanitizeAttributes } from './redaction.js';
 import type { DecisionTelemetryLink, DecisionTelemetrySpan, TelemetryAttributes } from './types.js';
 
 type RuntimeTelemetry = NonNullable<DecisionEvaluationRequest['telemetry']>;
+
+/** One open `decision.admit` span; closed exactly once. */
+export interface DecisionAdmissionSpan { readonly span: DecisionTelemetrySpan; closed: boolean }
+
+/** Metadata-only outcome of one D10 projection step; never the projected state or its digest. */
+export interface DecisionProjectionSpanOutcome {
+  mode: 'policy' | 'unprojected-local' | 'none';
+  outcome: 'allowed' | 'denied';
+  reason?: 'invalid-policy' | 'data-boundary-denied' | 'invalid-input';
+  fieldCount?: number;
+  incompleteContext?: boolean;
+  automaticActionAllowed?: boolean;
+}
 
 /** One live span plus the only context an adapter may forward to its transport. */
 export interface DecisionRuntimeSpan {
@@ -87,6 +103,54 @@ export class DecisionRuntimeTrace {
       if (attempt.termination) handle.span.events.push({ name: 'attempt.terminated', timeUnixMs: this.now(),
         attributes: { 'aiwg.attempt.termination': attempt.termination } });
       this.builder.endSpan(handle.span, attempt.status === 'success' ? 'ok' : 'error');
+    });
+  }
+
+  /**
+   * Open the live D05 `decision.admit` span for one admission decision. A granted
+   * lease stays open until release, so breaker transitions caused by the attempt
+   * land inside the span; a rejection or deferral closes it at once. Evidence is
+   * metadata-only by contract: principal and workspace IDs never reach the span.
+   */
+  startAdmission(alias: string, adapterId: string, startedAtMs: number, evidence: DecisionAdmissionEvidence): DecisionAdmissionSpan | undefined {
+    const handle = this.guard(() => {
+      const mapped = mapAdmissionEvidence(evidence);
+      return { closed: false, span: this.builder.startSpan('decision.admit', { parent: this.root.context, startTimeUnixMs: startedAtMs,
+        attributes: { ...mapped.attributes, 'aiwg.decision.alias': alias, 'aiwg.adapter.id': adapterId },
+        provenance: { ...mapped.provenance, 'aiwg.decision.alias': 'client-derived', 'aiwg.adapter.id': 'client-derived' } }) };
+    });
+    if (evidence.decision !== 'admit') this.endAdmission(handle, evidence);
+    return handle;
+  }
+
+  /** Close an admission span once; later calls are ignored. */
+  endAdmission(handle: DecisionAdmissionSpan | undefined, evidence: DecisionAdmissionEvidence): void {
+    this.guard(() => {
+      if (!handle || handle.closed) return;
+      handle.closed = true;
+      for (const change of evidence.breakerTransitions ?? []) {
+        handle.span.events.push({ name: 'breaker.transition', timeUnixMs: this.now(),
+          attributes: { 'aiwg.breaker.from': change.from, 'aiwg.breaker.to': change.to } });
+      }
+      this.builder.endSpan(handle.span, evidence.decision === 'admit' ? 'ok' : evidence.decision === 'reject' ? 'error' : 'unset');
+    });
+  }
+
+  /** Record one D10 projection step, under its attempt span when there is one. */
+  projected(alias: string, parent: DecisionRuntimeSpan | undefined, startedAtMs: number, result: DecisionProjectionSpanOutcome): void {
+    this.guard(() => {
+      const attributes: TelemetryAttributes = { 'aiwg.decision.alias': alias, 'aiwg.projection.mode': result.mode,
+        'aiwg.projection.outcome': result.outcome };
+      if (result.reason) attributes['aiwg.projection.reason'] = result.reason;
+      if (result.fieldCount !== undefined) attributes['aiwg.projection.field_count'] = result.fieldCount;
+      if (result.incompleteContext !== undefined) attributes['aiwg.projection.incomplete_context'] = result.incompleteContext;
+      if (result.automaticActionAllowed !== undefined) {
+        attributes['aiwg.projection.automatic_action_allowed'] = result.automaticActionAllowed;
+      }
+      const span = this.builder.startSpan('decision.project', { parent: (parent?.span ?? this.root).context,
+        startTimeUnixMs: startedAtMs, attributes,
+        provenance: Object.fromEntries(Object.keys(attributes).map(key => [key, 'client-derived' as const])) });
+      this.builder.endSpan(span, result.outcome === 'allowed' ? 'ok' : 'error');
     });
   }
 
