@@ -88,6 +88,8 @@
         { "testId": "M05-ENUM-ITEM-02", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
         { "testId": "M05-ENUM-REVIEW-01", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
         { "testId": "M05-ENUM-REVIEW-02", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
+        { "testId": "M05-ENUM-REVIEW-03", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
+        { "testId": "M05-ENUM-REVIEW-04", "file": "test/conformance/decision-v1/amendment-m05-enumeration.test.ts" },
         { "testId": "binds opaque randomized handles to authenticated scope", "file": "test/conformance/decision-v1/job-gateway.test.ts" },
         { "testId": "HITL-POLICY", "file": "test/unit/decision/review-authorization.test.ts" },
         { "testId": "rejects cross-project lookup without disclosing the object", "file": "test/unit/decision/review-runtime.test.ts" }
@@ -113,7 +115,7 @@
       "gate": "G2",
       "issues": ["#2612"],
       "status": "offline-covered",
-      "notes": "No DMN/OPA/XML importer exists yet; the suite bounds the existing JSON/YAML decision admission path and must be extended when #2612 adds an importer.",
+      "notes": "No DMN/OPA/XML importer exists yet; the suite bounds the existing JSON/YAML decision admission path and must be extended when #2612 adds an importer. DMN/OPA import is optional #2612 work and is out of scope for #2604 closure.",
       "evidence": [
         { "testId": "M07-BOMB-01", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
         { "testId": "M07-BOMB-02", "file": "test/unit/decision/amendment-m07-import-bounds.test.ts" },
@@ -134,7 +136,7 @@
       "issues": ["#2613", "#2615", "#2616"],
       "status": "offline-guard-live-pending",
       "liveTracking": ["#2684"],
-      "notes": "D20/D22/D23 are not built. Offline guards prove unapproved destinations are denied before credentials or dispatch and that the qualification runner never labels mock execution live; live egress and probing limits are tracked in #2684.",
+      "notes": "D20/D22/D23 are not built. Offline guards prove unapproved destinations are denied before credentials or dispatch and that the qualification runner never labels mock execution live; live egress and probing limits are tracked in #2684 and are out of scope for #2604 closure.",
       "evidence": [
         { "testId": "makes zero credential and dispatch calls when destination authorization fails", "file": "test/unit/decision/projection.test.ts" },
         { "testId": "SEC-DNS-PRIVATE", "file": "test/unit/decision/jev-transport.test.ts" },

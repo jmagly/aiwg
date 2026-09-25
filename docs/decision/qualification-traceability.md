@@ -27,7 +27,7 @@ Status values:
 | M02 | Opaque request-ID validation, export redaction, metric-cardinality exclusion | G2 | #2593, #2602, #2605 | offline-covered | `ADP-REQID-INJECTION`, `ADP-REQID-BODY`, batch malformed request IDs, telemetry redaction and cardinality bounds |
 | M03 | Per-principal/project quotas, bounded queues and pre-admission work, noisy-neighbor isolation, load shedding | G4 | #2594, #2601, #2610 | offline-covered | scheduler-admission noisy-neighbor, shedding and queue bounds; job quota and poll-limiter conformance |
 | M04 | Receipt/cache tamper detection, alias-safe cache lookup, cross-project read denial | G2 | #2595, #2609 | offline-covered | receipt tamper and substitution, result-cache tamper/alias/cross-workspace, result-cache scope substitution, `CCP-006` |
-| M05 | Object-level authorization and non-enumerability for review, job, and item operations | G2 | #2606, #2610, #2614 | offline-covered | `M05-ENUM-JOB-01`, `M05-ENUM-JOB-02`, `M05-ENUM-ITEM-01`, `M05-ENUM-ITEM-02`, `M05-ENUM-REVIEW-01`, `M05-ENUM-REVIEW-02`, job gateway handle binding, `HITL-POLICY`, review cross-project lookup |
+| M05 | Object-level authorization and non-enumerability for review, job, and item operations | G2 | #2606, #2610, #2614 | offline-covered | `M05-ENUM-JOB-01`, `M05-ENUM-JOB-02`, `M05-ENUM-ITEM-01`, `M05-ENUM-ITEM-02`, `M05-ENUM-REVIEW-01`, `M05-ENUM-REVIEW-02`, `M05-ENUM-REVIEW-03`, `M05-ENUM-REVIEW-04`, job gateway handle binding, `HITL-POLICY`, review cross-project lookup |
 | M06 | Reviewer eligibility, separation of duty and quorum, revocation, execution-time reauthorization | G2 | #2606 | offline-covered | `HITL-POLICY`, `HITL-QUORUM`, `HITL-SEPARATION`, `HITL-REVALIDATE`, `HITL-REVOKE` |
 | M07 | DMN/OPA parser-bomb, XXE/external-resource, source-authenticity, and size/time bounds | G2 | #2612 | offline-covered | `M07-BOMB-01..03`, `M07-XXE-01..03`, `M07-AUTH-01..02`, `M07-BOUND-01..02` |
 | M08 | Live research egress and sensitivity-probing limits for D20/D22/D23 | G2 | #2613, #2615, #2616 | offline-guard-live-pending | projection destination denial, `SEC-DNS-PRIVATE`, `SEC-ORIGIN-REDIRECT`, `LIVE-ABSENT-01`; live part tracked in #2684 |
@@ -41,12 +41,22 @@ existing JSON/YAML decision admission path (`parseDecisionJson`,
 `validateDecisionDocument`, artifact pins). DMN/XML and Rego text is rejected
 as non-JSON, or parsed by YAML as an inert string that document validation
 refuses, so no XML entity is resolved. The suite must be extended when #2612
-adds an importer.
+adds an importer. DMN/OPA import itself is optional #2612 work and is out of
+scope for #2604 closure.
 
 M08 note: D20, D22, and D23 are not built. The offline guards show that an
 unapproved destination is denied before credential resolution or dispatch and
 that the qualification runner never labels mock execution as live. Live egress
-and sensitivity-probing limits are tracked in #2684.
+and sensitivity-probing limits are tracked in #2684 and are out of scope for
+#2604 closure.
+
+M05 note: `M05-ENUM-REVIEW-03` and `M05-ENUM-REVIEW-04` are regression tests
+for the two review existence oracles fixed in #2674. The first proves that the
+same review ID in two projects is two isolated objects, with no "already
+exists" collision and no cross-scope listing. The second proves that a
+same-project caller without authority gets the absent-review outcome
+(`Review not found`, `null` or an empty list) for every operation, never a
+distinct "access denied".
 
 ## Risks
 

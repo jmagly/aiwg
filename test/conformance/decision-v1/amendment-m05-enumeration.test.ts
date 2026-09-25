@@ -186,35 +186,49 @@ const policy: PinnedReviewPolicy = {
   separateRequesterReviewer: true, separateEditorReviewer: true, separateReviewerExecutor: true,
 };
 const roles = new Map([['alice', ['requester']], ['bob', ['reviewer']], ['audit', ['auditor']], ['ops', ['operator']],
-  ['mallory', ['requester', 'reviewer', 'executor', 'auditor', 'operator']]]);
+  ['mallory', ['requester', 'reviewer', 'executor', 'auditor', 'operator']],
+  ['retired', ['reviewer', 'executor', 'auditor', 'operator']]]);
 const reviewScope = (id: string, projectId = 'project-a'): ReviewScope => ({ tenantId: 'tenant-a', projectId,
   actor: { id, roles: ['stale-role-from-client'], authorityContext: 'identity/v1' } });
-async function reviews() {
-  const directory = await mkdtemp(join(tmpdir(), 'm05-review-'));
-  cleanups.push(() => rm(directory, { recursive: true, force: true }));
+async function reviews(options: { directory?: string; projectId?: string; inactive?: string[] } = {}) {
+  const directory = options.directory ?? await mkdtemp(join(tmpdir(), 'm05-review-'));
+  if (!options.directory) cleanups.push(() => rm(directory, { recursive: true, force: true }));
+  const projectId = options.projectId ?? 'project-a';
+  const projectPolicy = { ...policy, projectId };
   let principal = 'alice'; let policyDigest: `sha256:${string}` | null = null; let now = 1000;
   const authority: LiveReviewAuthority = {
     authenticate: async candidate => candidate.actor.id === principal && candidate.actor.authorityContext === 'identity/v1',
     resolve: async (_tenant, _project, id) => roles.has(id)
-      ? { roles: roles.get(id)!, active: true, compromised: false, conflictsWith: [], authorityContext: 'identity/v1' } : null,
+      ? { roles: roles.get(id)!, active: !options.inactive?.includes(id), compromised: false, conflictsWith: [], authorityContext: 'identity/v1' } : null,
     currentPolicyDigest: async () => policyDigest,
   };
-  const authorization = new PinnedReviewAuthorization(policy, authority, async () => true);
+  const authorization = new PinnedReviewAuthorization(projectPolicy, authority, async () => true);
   policyDigest = authorization.policyDigest;
   const store = new FileDecisionReviewStore(directory, new Uint8Array(32).fill(7));
   const service = new DecisionReviewService(store, authorization, () => now);
-  const create = (reviewId: string) => service.create(reviewScope('alice'), {
+  const create = (reviewId: string) => service.create(reviewScope('alice', projectId), {
     reviewId, sourceReceipt: { id: 'receipt-a', digest }, evidencePins: [],
-    policyPins: [{ id: policy.id, version: policy.version, digest: authorization.policyDigest }],
+    policyPins: [{ id: projectPolicy.id, version: projectPolicy.version, digest: authorization.policyDigest }],
     reasonCodes: ['uncertain'], riskTier: 'low', presentation: { summary: 'synthetic' },
     action: { kind: 'fixture' }, rationale: 'review required', expiresAtEpochMs: 20_000, retentionUntilEpochMs: 31_000,
     continuationId: `continuation-${reviewId}`, resumeToken: 'synthetic-resume-token', quorum: 1,
   });
   const act = async <T>(id: string, fn: () => Promise<T>): Promise<T> => { principal = id; return fn(); };
-  return { service, store, create, act, setTime: (value: number) => { now = value; } };
+  return { service, store, directory, projectId, create, act, setTime: (value: number) => { now = value; } };
 }
 const outcomeOf = (promise: Promise<unknown>) => promise.then(
   value => ({ ok: true, value }), (error: Error) => ({ ok: false, name: error.constructor.name, message: error.message }));
+/** Every object-level review operation, bound to one caller scope. */
+const reviewProbes = (service: DecisionReviewService, scope: ReviewScope): Array<[string, (id: string) => Promise<unknown>]> => [
+  ['read', id => service.read(scope, id)], ['export', id => service.export(scope, id)],
+  ['claim', id => service.claim(scope, id, 'probe')], ['decide', id => service.decide(scope, id, 'approve', 'probe')],
+  ['cancel', id => service.cancel(scope, id, 'probe')], ['escalate', id => service.escalate(scope, id, 'probe')],
+  ['edit', id => service.edit(scope, id, { kind: 'other' }, 'probe', 'fresh-token')],
+  ['legal-hold', id => service.setLegalHold(scope, id, true, 'probe')], ['delete', id => service.delete(scope, id, 'probe')],
+  ['tombstone', id => service.tombstone(scope, id, 'probe')], ['audit-sync', id => service.syncOperatorAudit(scope, id)],
+  ['resume', id => service.resume(scope, id, 'synthetic-resume-token', async () => 'effect')],
+  ['expire', id => service.expireDue(scope, id)], ['purge', id => service.purge(scope, id)],
+];
 
 describe('M05 review non-enumerability', () => {
   it('M05-ENUM-REVIEW-01 foreign-project read/list/export/mutations match a nonexistent review', async () => {
@@ -261,5 +275,70 @@ describe('M05 review non-enumerability', () => {
     expect(real).toMatchObject({ ok: false, name: 'ReviewAccessError' });
     expect(absent).toEqual(real);
     expect((await h.store.read('review-a', 'tenant-a', 'project-a'))?.status).toBe('tombstoned');
+  });
+
+  // #2674 regression: the store was keyed by review ID alone, so reusing an ID in another
+  // project collided ('Review ID already exists') and listing parsed every scope's files.
+  it('M05-ENUM-REVIEW-03 the same review ID in two projects is two isolated objects with no collision oracle', async () => {
+    const a = await reviews();
+    const b = await reviews({ directory: a.directory, projectId: 'project-b' });
+    expect(a.store.scopeDirectory('tenant-a', 'project-a')).not.toBe(b.store.scopeDirectory('tenant-a', 'project-b'));
+    const created = await a.act('alice', () => a.create('shared-id'));
+    expect(created.projectId).toBe('project-a');
+    // Creating the same ID in another project succeeds instead of disclosing the first object.
+    const reused = await b.act('alice', () => b.create('shared-id'));
+    expect(reused).toMatchObject({ reviewId: 'shared-id', projectId: 'project-b', revision: 1 });
+    // A second create in the same project is still a conflict, so the check above is not vacuous.
+    await expect(a.act('alice', () => a.create('shared-id'))).rejects.toThrow('Review ID already exists');
+    expect((await a.act('audit', () => a.service.read(reviewScope('audit', 'project-a'), 'shared-id')))?.projectId).toBe('project-a');
+    expect((await b.act('audit', () => b.service.read(reviewScope('audit', 'project-b'), 'shared-id')))?.projectId).toBe('project-b');
+    // A mutation in one project leaves the other project's object untouched.
+    expect((await b.act('bob', () => b.service.claim(reviewScope('bob', 'project-b'), 'shared-id', 'claim'))).revision).toBe(2);
+    await b.act('ops', () => b.service.tombstone(reviewScope('ops', 'project-b'), 'shared-id', 'retention'));
+    const untouched = await a.store.read('shared-id', 'tenant-a', 'project-a');
+    expect(untouched).toMatchObject({ projectId: 'project-a', revision: 1, status: 'pending' });
+    expect(await a.act('audit', () => a.service.read(reviewScope('audit', 'project-a'), 'shared-id'))).not.toBeNull();
+    // Each scope lists only its own object.
+    expect((await a.store.list('tenant-a', 'project-a')).map(item => [item.projectId, item.status])).toEqual([['project-a', 'pending']]);
+    expect((await b.store.list('tenant-a', 'project-b')).map(item => [item.projectId, item.status])).toEqual([['project-b', 'tombstoned']]);
+    expect(await a.store.list('tenant-a', 'project-c')).toEqual([]);
+    expect((await a.act('audit', () => a.service.list(reviewScope('audit', 'project-a')))).map(item => item.projectId)).toEqual(['project-a']);
+    // A third project probing the reused ID sees exactly what it sees for an absent ID.
+    const c = await reviews({ directory: a.directory, projectId: 'project-c' });
+    for (const [name, probe] of reviewProbes(c.service, reviewScope('mallory', 'project-c'))) {
+      const real = await c.act('mallory', () => outcomeOf(probe('shared-id')));
+      expect(await c.act('mallory', () => outcomeOf(probe('absent-id'))), name).toEqual(real);
+      expect(JSON.stringify(real), name).not.toMatch(/project-a|project-b|synthetic/);
+    }
+    expect(await a.store.read('shared-id', 'tenant-a', 'project-a')).toEqual(untouched);
+  });
+
+  // #2674 regression: an existing review denied to a same-project caller raised
+  // 'Review access denied' while an absent one raised 'Review not found'.
+  it('M05-ENUM-REVIEW-04 same-project callers without authority get the absent-review outcome for every operation', async () => {
+    const h = await reviews({ inactive: ['retired'] });
+    const before = { alice: await h.act('alice', () => h.service.list(reviewScope('alice'))) };
+    await h.act('alice', () => h.create('review-a'));
+    const stored = await h.store.read('review-a', 'tenant-a', 'project-a');
+    // alice is the requester (no reviewer/auditor/operator role), 'nobody' is unknown to
+    // the identity authority, and 'retired' holds every role but is inactive.
+    for (const principal of ['alice', 'nobody', 'retired']) {
+      const scope = reviewScope(principal);
+      expect(await h.act(principal, () => h.service.list(scope)), principal).toEqual([]);
+      for (const [name, probe] of reviewProbes(h.service, scope)) {
+        const real = await h.act(principal, () => outcomeOf(probe('review-a')));
+        const absent = await h.act(principal, () => outcomeOf(probe('review-absent')));
+        expect(real, `${principal} ${name}`).toEqual(absent);
+        expect(real, `${principal} ${name}`).toEqual(real.ok ? { ok: true, value: null }
+          : { ok: false, name: 'ReviewAccessError', message: 'Review not found' });
+        expect(JSON.stringify(real)).not.toMatch(/access denied|synthetic|review-a/i);
+      }
+    }
+    expect(before.alice).toEqual([]);
+    // No denied probe changed the review: same revision, same single creation event.
+    expect(await h.store.read('review-a', 'tenant-a', 'project-a')).toEqual(stored);
+    expect(stored).toMatchObject({ revision: 1, status: 'pending' });
+    // The authorized reviewer still sees it, so the denials above are not an absent object.
+    expect(await h.act('audit', () => h.service.read(reviewScope('audit'), 'review-a'))).not.toBeNull();
   });
 });

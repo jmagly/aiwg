@@ -666,7 +666,7 @@
       "permission": "MIT (repository LICENSE)",
       "sanitization": "synthetic; no personal inputs",
       "schemaVersion": "decision-amendment-traceability/v1",
-      "digest": "sha256:0dd6e84f73352004477f60b7a7e140a71fc895909a524eaddb399ef1471b3e39",
+      "digest": "sha256:a6e427c54181eb205d2307498bc16078bebcc4958f7fe9dea1114c9aa8fb70af",
       "expectedOutcome": "M01-M11 and R-23..R-30 traceability to executable test IDs",
       "links": [
         "NFR-008",
@@ -1176,6 +1176,86 @@
       "expectedOutcome": "valid D17 ensemble policy accepted by its schema and validator",
       "links": [
         "#2679",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-19",
+      "path": "docs/decision/evidence/d11-aggregate-release-v1/release-record.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-release/v1",
+      "digest": "sha256:32de4eb5a6ddf17f52f58cfe138e5c1143f4a187e52983cf0efb57d26e4b8aca",
+      "expectedOutcome": "D11 exact-commit aggregate release record: 67 verified passing cases, G0/G1/G2/G4 pass, HOLD on live G3/G5/G6 inputs",
+      "links": [
+        "#2604",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-20",
+      "path": "docs/decision/evidence/d11-aggregate-release-v1/evidence-manifest.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-evidence-manifest/v1",
+      "digest": "sha256:0d5f130a58aed6a72d5a8890ef965cdf5a4750c806ab9e81caac0d4d02d0e698",
+      "expectedOutcome": "D11 aggregate evidence manifest whose artifact digests match the release record per-case hashes",
+      "links": [
+        "#2604",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-21",
+      "path": "docs/decision/evidence/d11-aggregate-release-v1/cache-compilePrefixCache.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-evidence-manifest/v1",
+      "digest": "sha256:496338f3741b59e70a2589dc56071e17216158ef3eeb69c9be520907de812db9",
+      "expectedOutcome": "D30 compile/prefix cache layer evidence manifest whose digest is the release compilePrefixCache pin",
+      "links": [
+        "#2604",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-22",
+      "path": "docs/decision/evidence/d11-aggregate-release-v1/cache-receiptReplay.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-evidence-manifest/v1",
+      "digest": "sha256:e205cf80005f1eb4c378a0218d652785a58978850aff4ea066dc914ed20c5ee5",
+      "expectedOutcome": "D03 receipt replay layer evidence manifest whose digest is the release receiptReplay pin",
+      "links": [
+        "#2604",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-23",
+      "path": "docs/decision/evidence/d11-aggregate-release-v1/cache-resultCache.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-evidence-manifest/v1",
+      "digest": "sha256:8f8cd44f9b3ec94b0330bc489d380b0d9ece6d1496653a3ce5e2374b5394e14f",
+      "expectedOutcome": "D15 result cache layer evidence manifest whose digest is the release resultCache pin",
+      "links": [
+        "#2604",
         "JEV-16"
       ]
     }
