@@ -110,3 +110,42 @@ uses `--no-approve`, validates discovery, RPC controls, strict JSONL, and
 never writes the credential. Pi's current flags are documented in the
 [upstream coding-agent README](https://github.com/earendil-works/pi/tree/main/packages/coding-agent#cli-reference)
 (last verified 2026-09-04).
+
+### Muse Code live smoke (evidence-gated)
+
+Unlike the Pi/OpenRouter harness, the Muse smoke performs no model
+inference: Muse is a CLI (`muse` / `muse exec`), so the harness exercises
+the real AIWG deploy/doctor/status surface against the ADR-verified Muse
+roots. Default CI never runs it. First verify the zero-cost gate:
+
+```bash
+node tools/providers/muse-live-smoke.mjs --check
+```
+
+A live run requires a built CLI, the explicit gate, and a real `muse`
+executable on `PATH`:
+
+```bash
+npm run build:cli
+AIWG_MUSE_LIVE_SMOKE=1 npm run smoke:muse:live
+```
+
+When the gate is unset, or when `muse` is absent from `PATH`, the harness
+skips cleanly (exit 0) with a clear message instead of failing. When
+enabled it runs, inside an isolated sandbox with `HOME` and
+`XDG_CONFIG_HOME` redirected into a temp dir:
+
+- `use all --provider muse --dry-run` and a real project deploy into
+  `<project>/.agents/skills` (dry-run performs zero writes)
+- `use all --provider muse --scope user` dry-run and deploy into
+  `$XDG_CONFIG_HOME/muse/skills`
+- `doctor --provider muse` and `status --probe --provider muse`
+- an optional, non-destructive `muse --version` probe (evidence only)
+
+After every run it audits the sandbox for forbidden writes and fails on
+any `.cursor/` tree, an invented `~/.muse` home, a `~/.agents` tree, or
+`$XDG_CONFIG_HOME` content outside `muse/skills`. The report contains only
+booleans, counts, and the CLI version string; no credentials or model
+output are involved. See
+[adr-muse-provider-target.md](../architecture/adr-muse-provider-target.md)
+for the locked roots.
