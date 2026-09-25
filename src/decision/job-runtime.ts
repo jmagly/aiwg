@@ -1,10 +1,39 @@
-import { ITEM_STATES, type DecisionJob, type DecisionJobItem } from './job-contract.js';
+import { ITEM_STATES, validateDecisionJob, type DecisionJob, type DecisionJobItem } from './job-contract.js';
 import { DecisionTraceBuilder } from './telemetry/trace.js';
 import type { DecisionTelemetryHook } from './telemetry/types.js';
 import { accountDecisionJob, type JobAccountingReport } from './job-accounting.js';
 import type { DecisionReceiptStore } from './types.js';
 import type { BatchReceiptStore } from './batch-receipts/types.js';
 import { JobConflictError, type JobScope, type JobSnapshot, type JobStore } from './job-store.js';
+
+/**
+ * D16 opt-in resolver (#2722). Given an `execution-unknown` item and its
+ * latest attempt, it may return a verified resolution. It must only read:
+ * it never dispatches or replays the provider. Returning anything but a
+ * `digest-match` resolution leaves the item `execution-unknown`.
+ */
+export interface ExecutionUnknownResolution {
+  state: 'succeeded' | 'abstained' | 'review';
+  effectId: string;
+  reason: 'digest-match';
+  receiptDigest: `sha256:${string}`;
+  resultDigest: `sha256:${string}`;
+}
+export type ExecutionUnknownResolver = (input: {
+  job: Readonly<DecisionJob>; item: Readonly<DecisionJobItem>; attempt: Readonly<DecisionJobItem['attempts'][number]>;
+}) => Promise<ExecutionUnknownResolution | null>;
+export interface JobReconcileOptions {
+  /** Off by default. When set, `execution-unknown` items are offered to the resolver after reconciliation. */
+  resolveUnknown?: ExecutionUnknownResolver;
+}
+const DIGEST = /^sha256:[a-f0-9]{64}$/;
+const EFFECT_ID = /^eff1_[a-z2-7]{51}[aq]$/;
+function acceptedResolution(value: ExecutionUnknownResolution | null | undefined): value is ExecutionUnknownResolution {
+  return !!value && value.reason === 'digest-match' && ['succeeded', 'abstained', 'review'].includes(value.state) &&
+    typeof value.receiptDigest === 'string' && DIGEST.test(value.receiptDigest) &&
+    typeof value.resultDigest === 'string' && DIGEST.test(value.resultDigest) &&
+    typeof value.effectId === 'string' && EFFECT_ID.test(value.effectId);
+}
 
 /** Offline lifecycle only: no provider calls or action execution. Scope comes from trusted authentication. */
 type JobOperation = 'submit' | 'transition' | 'retry' | 'cancel' | 'reconcile' | 'expire' | 'delete' | 'hold' | 'release-hold';
@@ -85,8 +114,52 @@ export class DecisionJobRuntime {
     recount(next);
     return this.advance(actor, id, previous, next, 'cancel');
   }
-  /** Explicit offline restart reconciliation. Never re-dispatch an attempt whose transport may have started. */
-  async reconcile(actor: JobScope, id: string): Promise<JobSnapshot | null> {
+  /**
+   * Explicit offline restart reconciliation. Never re-dispatch an attempt whose transport may have started.
+   * With `resolveUnknown` (opt-in, D16), the reconciled `execution-unknown` items are then offered to the
+   * resolver; without it the result is exactly the default reconciliation.
+   */
+  async reconcile(actor: JobScope, id: string, options: JobReconcileOptions = {}): Promise<JobSnapshot | null> {
+    const reconciled = await this.reconcileDispatches(actor, id);
+    if (!reconciled || !options.resolveUnknown) return reconciled;
+    return this.resolveUnknown(actor, id, options.resolveUnknown);
+  }
+  /**
+   * D16 opt-in resolver (#2722): promote `execution-unknown` items whose resolver returns a verified
+   * `digest-match` resolution, through the one gated contract transition out of `execution-unknown`.
+   * The job state is kept; absent, unknown, `state-match` or a failing resolver leave the item as it is.
+   * Never dispatches.
+   */
+  async resolveUnknown(actor: JobScope, id: string, resolver: ExecutionUnknownResolver): Promise<JobSnapshot | null> {
+    const previous = await this.poll(actor, id);
+    if (!previous) return null;
+    this.authorize(actor, previous.job.scope);
+    const next = structuredClone(previous.job);
+    let resolved = 0;
+    for (const item of next.items) {
+      const attempt = item.attempts.at(-1);
+      if (item.state !== 'execution-unknown' || !attempt || attempt.outcome !== 'execution-unknown') continue;
+      let resolution: ExecutionUnknownResolution | null = null;
+      try {
+        resolution = await resolver({ job: structuredClone(previous.job), item: structuredClone(item), attempt: structuredClone(attempt) });
+      } catch { resolution = null; }
+      if (!acceptedResolution(resolution)) continue;
+      attempt.outcome = 'succeeded';
+      attempt.receiptDigest = resolution.receiptDigest;
+      attempt.resolution = { method: 'effect-ledger', effectId: resolution.effectId, reason: 'digest-match', receiptDigest: resolution.receiptDigest };
+      item.state = resolution.state;
+      item.resultDigest = resolution.resultDigest;
+      resolved++;
+    }
+    if (!resolved) return previous;
+    recount(next);
+    validateDecisionJob(next);
+    const proposed = { revision: previous.revision + 1, job: next, deleted: false, legalHold: previous.legalHold ?? false };
+    if (!await this.store.compareAndSwap(previous, proposed)) throw new JobConflictError('Concurrent job update');
+    await this.trace(proposed, 'reconcile');
+    return proposed;
+  }
+  private async reconcileDispatches(actor: JobScope, id: string): Promise<JobSnapshot | null> {
     const previous = await this.poll(actor, id);
     if (!previous) return null;
     if (!['running', 'partially-completed', 'cancel-requested'].includes(previous.job.state)) return previous;

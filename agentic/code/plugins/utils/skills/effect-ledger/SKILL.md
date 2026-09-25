@@ -18,9 +18,12 @@ an operator decision authorizes, the ledger proves.
 - "record an effect" → `aiwg effect record`
 - "sign an effect" → `aiwg effect record` (signed intent and completed)
 - "reconcile effect" → `aiwg effect reconcile`
-- "did this PR merge" → `aiwg effect reconcile --kind tracker.pr.merged`
+- "did this PR merge" → `aiwg effect reconcile --kind tracker.pr.merged`, or
+  `aiwg effect probe --kind tracker.pr.merged --target gitea:owner/repo#34`
+  when no merge intent was recorded (read-only, writes nothing)
 - "did we already post this comment" → `aiwg effect lookup` before posting
-- "verify the effect ledger" → `aiwg effect verify`
+- "verify the effect ledger" → `aiwg effect verify` (add
+  `--with-decisions <audit.jsonl>` to check #1567 operator-decision links)
 - "the effect ledger lock is stuck" → `aiwg effect recover-lock` (operator only)
 
 ## When to record
@@ -58,7 +61,12 @@ decision receipts. Do not record read-only queries.
    record each time. For "did this PR merge", once the merge intent is
    recorded: `aiwg effect reconcile --kind tracker.pr.merged --target gitea:owner/repo#34`.
    Reconciling an effect with no recorded intent is a usage error (exit 2);
-   record the intent first with `aiwg effect intent` or `aiwg effect record`.
+   record the intent first with `aiwg effect intent` or `aiwg effect record`,
+   or use `aiwg effect probe <identity>` for an ad-hoc check that records
+   nothing (same exit codes 0, 3 and 4).
+6. **Link the authorizing decision** when an operator approved the effect:
+   `--link operatorDecisionEventId=sha256:<hex>` (and
+   `operatorDecisionRecordHash`) on `intent` or `record`.
 
 ## Exit codes
 

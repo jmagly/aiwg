@@ -99,3 +99,11 @@ export {
 } from './lock-recovery.js';
 export { assertDigestOnly, containsRestrictedMaterial } from './redaction.js';
 export { EFFECT_SCHEMA_IDS, effectSchemaErrors, isEffectSchemaValid, type EffectSchemaName } from './schema.js';
+export {
+  decisionLinkOf,
+  verifyDecisionLinks,
+  type DecisionEventRef,
+  type DecisionLinkFailure,
+  type DecisionLinkFailureReason,
+  type DecisionLinkVerification,
+} from './decision-links.js';

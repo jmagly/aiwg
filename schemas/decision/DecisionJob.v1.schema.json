@@ -49,7 +49,18 @@
             "receiptDigest": { "$ref": "#/$defs/digest" },
             "reservedTokens": { "type": "integer", "minimum": 0, "maximum": 10000000 },
             "reservedCostMicros": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
-            "outcome": { "enum": ["dispatched", "succeeded", "failed", "execution-unknown"] }
+            "outcome": { "enum": ["dispatched", "succeeded", "failed", "execution-unknown"] },
+            "resolution": {
+              "description": "D16 opt-in resolution of an execution-unknown attempt through a verified effect (digest-match only).",
+              "type": "object", "additionalProperties": false,
+              "required": ["method", "effectId", "reason", "receiptDigest"],
+              "properties": {
+                "method": { "const": "effect-ledger" },
+                "effectId": { "type": "string", "pattern": "^eff1_[a-z2-7]{51}[aq]$" },
+                "reason": { "const": "digest-match" },
+                "receiptDigest": { "$ref": "#/$defs/digest" }
+              }
+            }
           }
         } },
         "resultDigest": { "$ref": "#/$defs/digest" },

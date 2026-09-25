@@ -10,11 +10,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DecisionReviewService, FileDecisionReviewStore, FileVerifiedReviewEffectLedger, LedgerReviewEffectJournal, ReviewConflictError,
-  auditedReviewReconciler, journaledReviewExecutor, ledgerReviewReconciler, openReviewEffectLedger, reviewDigest, reviewEffectId,
+  auditedReviewReconciler, journaledReviewExecutor, ledgerReviewReconciler, openReviewEffectLedger, reviewApprovalLinks, reviewDigest, reviewEffectId,
+  reviewOperatorDecisionInput, reviewOperatorEventId, JsonlOperatorDecisionStore,
   validateReview, type ReviewAuthorization, type ReviewScope, type ReviewSessionAudit, type ReviewStore,
 } from '../../../src/decision/review/index.js';
 import {
-  createBuiltinVerifierRegistry, effectId, lookupEffect, memoryCheckpointSink, payloadDigest, runVerifier, staticKeyProvider,
+  createBuiltinVerifierRegistry, effectId, lookupEffect, memoryCheckpointSink, payloadDigest, runVerifier, staticKeyProvider, verifyDecisionLinks,
   type EffectVerifierObservation, type EffectVerifierRequest,
 } from '../../../src/effects/index.js';
 import { testKey, testKeySeedHex } from '../effects/helpers.js';
@@ -368,5 +369,25 @@ describe('LedgerReviewEffectJournal construction', () => {
     const { openEffectLedger } = await import('../../../src/effects/index.js');
     const delivery = openEffectLedger({ projectDir: ctx.dir, scope: { tenant: 'tenant-e', project: 'project-e', subsystem: 'delivery' }, writer: 'w' });
     expect(() => new LedgerReviewEffectJournal(delivery)).toThrow(/review subsystem/);
+  });
+});
+
+describe('#1567 operator-decision links (#2722)', () => {
+  it('REV-EFF-LINK-01 the intent links the approval event ID, which verifies against the replayed operator audit', async () => {
+    const ctx = await setup(); await approved(ctx, 'r-link');
+    const review = (await ctx.store.read('r-link', tenant.tenantId, tenant.projectId))!;
+    const approval = review.events.find(event => event.type === 'approved')!;
+    const audit = new JsonlOperatorDecisionStore(join(ctx.dir, 'operator-decisions.jsonl'));
+    const record = await audit.append(reviewOperatorDecisionInput(review, approval, { issue_id: 'r-link' }, 'internal')!);
+    const links = reviewApprovalLinks(review, 1, record.record_hash);
+    expect(links).toEqual({ operatorDecisionEventId: reviewOperatorEventId('r-link', approval.sequence), operatorDecisionRecordHash: record.record_hash });
+    expect(record.event_id).toBe(links.operatorDecisionEventId);
+    const execute = journaledReviewExecutor({ ledger: ctx.journal, scope: tenant, reviewId: 'r-link', continuationId: 'r-link-continuation',
+      proposalVersion: 1, now: () => 7_000, links, executeEffect: async id => { ctx.probe.performed.push(id); return { delivered: true }; } });
+    await ctx.service.resume(actor('executor', 'executor'), 'r-link', 'r-link-token', execute);
+    const verified = await verifyDecisionLinks(ctx.journal.ledger, await audit.read());
+    expect(verified).toMatchObject({ ok: true, linked: 1, events: 1 });
+    expect(await verifyDecisionLinks(ctx.journal.ledger, [])).toMatchObject({ ok: false, failures: [{ reason: 'decision-event-missing' }] });
+    expect(reviewApprovalLinks(review, 2)).toEqual({});
   });
 });

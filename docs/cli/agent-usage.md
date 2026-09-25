@@ -207,6 +207,9 @@ aiwg effect record --kind tracker.comment --target gitea:org/repo#12 \
 
 # Did this PR merge? Needs a recorded merge intent. 0 present, 3 absent, 4 unknown (stop)
 aiwg effect reconcile --kind tracker.pr.merged --target gitea:org/repo#34
+
+# Ad-hoc check with no intent: runs the verifier, writes nothing, same exit codes
+aiwg effect probe --kind tracker.pr.merged --target gitea:org/repo#34
 ```
 
 Exit codes: 0 present or recorded, 1 internal, 2 usage, 3 absent, 4 unknown,

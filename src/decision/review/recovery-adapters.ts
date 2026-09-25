@@ -73,6 +73,12 @@ export function authorizedReviewCatalogRefresh(input: {
   };
 }
 
+/** #1567 correlation for an effect record: the operator decision event (and its record hash) that authorized it. */
+export interface ReviewEffectLinks {
+  operatorDecisionEventId?: string;
+  operatorDecisionRecordHash?: string;
+}
+
 /** The D13 effect identity: `reviewDigest({reviewId, continuationId, proposalVersion})` within a tenant and project. */
 export interface ReviewEffectIdentity {
   tenantId: string;
@@ -90,8 +96,11 @@ export interface ReviewEffectIdentity {
 export interface ReviewEffectJournal extends VerifiedReviewEffectLedger {
   /** Record completion after the effect. The ledger adapter records `completed` only on a `present` verification. */
   recordCompleted(query: ReviewEffectQuery, receipt: ReviewEffectReceipt): Promise<boolean>;
-  /** Append a signed intent before the effect. `pending`: an earlier intent has no outcome. */
-  recordIntent?(identity: ReviewEffectIdentity, actionDigest: string): Promise<'recorded' | 'pending'>;
+  /**
+   * Append a signed intent before the effect. `pending`: an earlier intent has no outcome.
+   * `links` carries the #1567 operator decision that authorized the effect.
+   */
+  recordIntent?(identity: ReviewEffectIdentity, actionDigest: string, links?: ReviewEffectLinks): Promise<'recorded' | 'pending'>;
   /** Reconcile through the kind verifier without replaying the effect. */
   reconcileReceipt?(query: ReviewEffectQuery, options?: ReviewEffectReconcileOptions): Promise<ReviewEffectVerification>;
 }
@@ -121,6 +130,8 @@ export function journaledReviewExecutor(input: {
    * so a complete `absent` may be replayed under the same ID. Off by default.
    */
   idempotentTarget?: boolean;
+  /** #1567 links recorded with the intent, e.g. `reviewApprovalLinks(review, proposalVersion)`. */
+  links?: ReviewEffectLinks;
 }) {
   return async (effectId: string, action: unknown): Promise<unknown> => {
     if (effectId !== reviewDigest({ reviewId: input.reviewId, continuationId: input.continuationId,
@@ -137,7 +148,7 @@ export function journaledReviewExecutor(input: {
     if (input.ledger.recordIntent) {
       const identity = { tenantId: query.tenantId, projectId: query.projectId, reviewId: input.reviewId,
         continuationId: input.continuationId, proposalVersion: input.proposalVersion };
-      const state = await input.ledger.recordIntent(identity, reviewDigest(action));
+      const state = await input.ledger.recordIntent(identity, reviewDigest(action), input.links);
       if (state === 'pending') {
         const settled: ReviewEffectVerification = input.ledger.reconcileReceipt
           ? await input.ledger.reconcileReceipt(query, { identity: { continuationId: input.continuationId, proposalVersion: input.proposalVersion } })

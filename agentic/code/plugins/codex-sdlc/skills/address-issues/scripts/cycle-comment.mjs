@@ -14,6 +14,7 @@ export const REQUIRED_SECTIONS = Object.freeze([
 const ALLOWED_STATUSES = new Set(['Progress', 'Blocked', 'Review Needed', 'Escalation']);
 const PLACEHOLDER = /\{\{|\}\}|\[(?:specific|what|none,|completed tasks|remaining tasks)/i;
 const TEMPLATE_URL = new URL('../../../templates/issue-comments/al-cycle.md', import.meta.url);
+const EFFECT_ID = /^eff1_[a-z2-7]{51}[aq]$/;
 
 function nonEmpty(value, fallback = 'None.') {
   if (Array.isArray(value)) return value.filter(Boolean).join('\n') || fallback;
@@ -51,6 +52,11 @@ export function renderCycleComment(input) {
     rendered = rendered.replaceAll(`{{${name}}}`, () => value);
   }
   if (/\{\{[^}]+\}\}/.test(rendered)) throw new Error('canonical template contains an unresolved field');
+  if (input.effectId !== undefined) {
+    // The effect-ledger marker lets `aiwg effect record|reconcile --kind tracker.comment` find this exact comment.
+    if (typeof input.effectId !== 'string' || !EFFECT_ID.test(input.effectId)) throw new Error('effectId must be an aiwg effect ID');
+    rendered += `\n\n<!-- aiwg-effect: ${input.effectId} -->`;
+  }
   return rendered;
 }
 

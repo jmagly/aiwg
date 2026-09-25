@@ -116,6 +116,20 @@ in the entry.
     verification, and the `decision.review.continuation` verifier reads the
     review store. Legacy HMAC receipts import as `completed` records (#2721,
     answers #2677).
+  - D16, skills and #1567: an opt-in resolver out of `execution-unknown`.
+    The job worker can record a `decision.receipt` effect before it writes
+    the job record, and `reconcile(..., { resolveUnknown })` promotes an item
+    only on a `digest-match` verification through one gated contract
+    transition (`attempts[].resolution`); `state-match`, `absent` and
+    `unknown` never resolve, nothing is re-dispatched, and the default
+    reconciliation is unchanged. `aiwg effect probe` runs a verifier without
+    writing records (for "did this PR merge"). address-issues records its
+    cycle comment with the `aiwg-effect` marker and confirms merges with
+    `reconcile` or `probe`; issue-close guards its closing comment with
+    `lookup` and records the comment and the closure. Effect records link the
+    authorizing operator decision (`reviewApprovalLinks`), and
+    `aiwg effect verify --with-decisions` checks the decision chain and every
+    linked event (#2722, #1567).
 - D05 admission control offline gaps: reserved per-principal concurrency and
   `maxPrincipalShare` caps on shared workspace and provider pools, token-bucket
   fairness for large requests, breaker transitions recorded in admission

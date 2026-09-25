@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { JsonlOperatorDecisionStore } from '../../../../src/audit/operator-decision.js';
 import { MemorySecretStore, type SecretStore } from '../../../../src/auth/credential-store.js';
 import { createEffectHandler, effectUsage, EFFECT_SUBCOMMANDS, type EffectCliDeps } from '../../../../src/cli/handlers/effect.js';
 import { reviewDigest } from '../../../../src/decision/review/validate.js';
@@ -513,5 +514,133 @@ describe('aiwg effect output', () => {
     const help = await createEffectHandler().help!({ args: [], rawArgs: ['effect'], cwd: env.project, frameworkRoot: process.cwd() });
     for (const sub of EFFECT_SUBCOMMANDS) expect(help.message).toContain(`aiwg effect ${sub}`);
     expect(help.message).toBe(effectUsage());
+  });
+});
+
+/** Tracker config and a counting fake Gitea for the #2722 adoption flows. Offline only. */
+function trackerProject(target: Env): void {
+  const config = JSON.parse(readFileSync(join(target.project, '.aiwg', 'aiwg.config'), 'utf8'));
+  config.remotes = { primary: 'origin', issue_tracker: 'origin', issue_provider: 'gitea', tracker_actor: { login: 'maintainer' } };
+  writeFileSync(join(target.project, '.aiwg', 'aiwg.config'), JSON.stringify(config));
+  execFileSync('git', ['-C', target.project, 'remote', 'add', 'origin', 'https://git.example.test/owner/repo.git'], { timeout: 20_000, stdio: 'ignore' });
+}
+
+function fakeGitea(state: { comments: Array<{ id: number; body: string; author: string }>; pr?: { state: string; merged: boolean } }) {
+  const requests: string[] = [];
+  const fetchImpl = (async (input: string) => {
+    const url = new URL(String(input));
+    requests.push(`${url.pathname}${url.search}`);
+    const reply = (value: unknown, headers: Record<string, string> = {}) =>
+      new Response(JSON.stringify(value), { status: 200, headers: { 'content-type': 'application/json', ...headers } });
+    if (url.pathname === '/api/v1/repos/owner/repo/issues/12/comments') {
+      const items = state.comments.map(comment => ({ id: comment.id, body: comment.body, created_at: '2026-09-25T10:00:00.000Z', user: { login: comment.author } }));
+      return reply(items, { 'x-total-count': String(items.length) });
+    }
+    if (url.pathname === '/api/v1/repos/owner/repo/pulls/12') {
+      const pr = state.pr ?? { state: 'open', merged: false };
+      return reply({ number: 12, state: pr.state, merged: pr.merged, merged_at: pr.merged ? '2026-09-25T10:00:00.000Z' : null,
+        merge_commit_sha: pr.merged ? 'a'.repeat(40) : null, base: { ref: 'main' }, head: { sha: 'b'.repeat(40) } });
+    }
+    return new Response('{}', { status: 404 });
+  }) as unknown as typeof fetch;
+  return { requests, fetchImpl };
+}
+
+describe('aiwg effect probe (#2722)', () => {
+  it('EFF-CLI-24 probe runs the verifier with exit 0, 3 or 4 and writes no records', async () => {
+    trackerProject(env);
+    const forge = fakeGitea({ comments: [], pr: { state: 'closed', merged: true } });
+    const extra = { env: { AIWG_GITEA_TOKEN: 'test-token-value' }, tracker: { fetchImpl: forge.fetchImpl } };
+    const merged = await env.run(['probe', '--kind', 'tracker.pr.merged', '--target', 'gitea:owner/repo#12'], extra);
+    expect(merged.exitCode).toBe(0);
+    expect(merged.json).toMatchObject({ schema: 'aiwg.effect.probe.v1', recorded: false, verification: { result: 'present', reason: 'state-match' } });
+    const open = fakeGitea({ comments: [], pr: { state: 'open', merged: false } });
+    const pending = await env.run(['probe', '--kind', 'tracker.pr.merged', '--target', 'gitea:owner/repo#12'], { ...extra, tracker: { fetchImpl: open.fetchImpl } });
+    expect(pending.exitCode).toBe(3);
+    expect(pending.json.verification).toMatchObject({ result: 'absent' });
+    const blocked = await env.run(['probe', '--kind', 'tracker.pr.merged', '--target', 'gitea:owner/repo#12'], { env: {}, tracker: { fetchImpl: forge.fetchImpl } });
+    expect(blocked.exitCode).toBe(4);
+    expect(blocked.json.verification).toMatchObject({ result: 'unknown', reason: 'tracker-blocked' });
+    // A marker probe by explicit effect ID, as a skill checks for its own cycle comment.
+    const effectId = (await env.run(['id', '--kind', 'tracker.comment', '--target', 'gitea:owner/repo#12', '--issue', '12', '--action', 'cycle', '--cycle', '1'])).json.effectId;
+    const marked = fakeGitea({ comments: [{ id: 1, author: 'maintainer', body: `Cycle 1\n<!-- aiwg-effect: ${effectId} -->` }] });
+    const found = await env.run(['probe', '--kind', 'tracker.comment', '--target', 'gitea:owner/repo#12', '--effect-id', effectId], { ...extra, tracker: { fetchImpl: marked.fetchImpl } });
+    expect(found.exitCode).toBe(0);
+    expect(found.json.verification.reason).toBe('marker-match');
+    expect((await env.run(['probe', '--kind', 'tracker.comment', '--target', 'gitea:owner/repo#12', '--effect-id', 'eff1_bad'])).exitCode).toBe(2);
+    // Only the keyring from `keys init` exists: probe wrote no segment, index or lock.
+    expect(files(env.artifacts).map(file => file.slice(env.ledgerDir().length + 1)).sort()).toEqual(['index.key', 'keyring.json']);
+    expect(forge.requests.every(path => path.startsWith('/api/v1/repos/owner/repo/'))).toBe(true);
+    expect(env.outputs.join('\n')).not.toContain('test-token-value');
+  });
+
+  it('EFF-CLI-25 re-entry after a crash between posting and recording finds the marker comment and never posts twice', async () => {
+    trackerProject(env);
+    const identity = ['--kind', 'tracker.comment', '--target', 'gitea:owner/repo#12', '--issue', '12', '--action', 'cycle', '--cycle', '3'];
+    const state = { comments: [] as Array<{ id: number; body: string; author: string }> };
+    const forge = fakeGitea(state);
+    const extra = { env: { AIWG_GITEA_TOKEN: 'test-token-value' }, tracker: { fetchImpl: forge.fetchImpl, minAbsentAgeMs: 0 } };
+    let posts = 0;
+    /** The skill's Phase 2 Step 2 cycle-comment flow. */
+    const postCycleComment = async (crashBeforeRecord: boolean) => {
+      const effectId = (await env.run(['id', ...identity])).json.effectId as string;
+      const body = `## AL CYCLE #3\n\n<!-- aiwg-effect: ${effectId} -->\n`;
+      const bodyFile = join(env.root, 'cycle.md');
+      writeFileSync(bodyFile, body);
+      const known = await env.run(['lookup', ...identity], extra);
+      if (known.exitCode === 0) return 'already-recorded';
+      if (known.exitCode === 4) {
+        const settled = await env.run(['reconcile', ...identity], extra);
+        if (settled.exitCode === 0) return 'reconciled-present';
+        if (settled.exitCode === 4) return 'blocked';
+      }
+      expect((await env.run(['intent', ...identity, '--payload-file', bodyFile], extra)).exitCode).toBe(0);
+      posts += 1;
+      state.comments.push({ id: posts, author: 'maintainer', body });
+      if (crashBeforeRecord) return 'crashed';
+      const recorded = await env.run(['record', ...identity, '--payload-file', bodyFile, '--verify'], extra);
+      expect(recorded.exitCode).toBe(0);
+      return 'posted';
+    };
+    expect(await postCycleComment(true)).toBe('crashed');
+    expect(await postCycleComment(false)).toBe('reconciled-present');
+    expect(await postCycleComment(false)).toBe('already-recorded');
+    expect(posts).toBe(1);
+    expect(state.comments).toHaveLength(1);
+  });
+});
+
+describe('aiwg effect verify --with-decisions (#1567, #2722)', () => {
+  it('EFF-CLI-26 linked operator-decision events verify; a missing event or a broken chain exits 6', async () => {
+    const audit = join(env.root, 'operator-decisions.jsonl');
+    const store = new JsonlOperatorDecisionStore(audit);
+    const decision = await store.append({
+      kind: 'approval', outcome: 'approved', actor: { id: 'operator', type: 'human', authentication: 'session' },
+      reason: 'Approved the merge', context: { pr: 12 }, classification: 'internal', correlation: { pull_request_id: '12' },
+      event_id: payloadDigest('operator-decision-1'),
+    });
+    const link = ['--link', `operatorDecisionEventId=${decision.event_id}`, '--link', `operatorDecisionRecordHash=${decision.record_hash}`];
+    expect((await env.run(['intent', '--kind', 'file.digest', '--target', 'file:README.md', '--payload-digest', payloadDigest('a'), ...link])).exitCode).toBe(0);
+    const ok = await env.run(['verify', '--with-decisions', audit]);
+    expect(ok.exitCode).toBe(0);
+    expect(ok.json.decisions).toMatchObject({ records: 1, chain: 'intact', linked: 1, events: 1 });
+
+    expect((await env.run(['intent', '--kind', 'file.digest', '--target', 'file:OTHER.md', '--payload-digest', payloadDigest('b'),
+      '--link', `operatorDecisionEventId=${payloadDigest('missing-event')}`])).exitCode).toBe(0);
+    const missing = await env.run(['verify', '--with-decisions', audit]);
+    expect(missing.exitCode).toBe(6);
+    expect(missing.json.failures).toEqual(expect.arrayContaining([expect.objectContaining({ reason: 'decision-event-missing', operatorDecisionEventId: payloadDigest('missing-event') })]));
+
+    writeFileSync(audit, readFileSync(audit, 'utf8').replace('Approved the merge', 'Approved something else'));
+    const broken = await env.run(['verify', '--with-decisions', audit]);
+    expect(broken.exitCode).toBe(6);
+    expect(broken.json.decisions.chain).toBe('broken');
+    expect(broken.json.failures).toEqual(expect.arrayContaining([expect.objectContaining({ reason: 'decision-chain-broken' })]));
+    expect((await env.run(['verify', '--with-decisions', join(env.root, 'absent.jsonl')])).json.decisions).toMatchObject({ records: 0 });
+    // Operator links are digest references; a random UUID event ID is a usage error, not a record.
+    const uuid = await env.run(['intent', '--kind', 'file.digest', '--target', 'file:UUID.md', '--payload-digest', payloadDigest('c'),
+      '--link', 'operatorDecisionEventId=0d9f2c1e-8a44-4f0b-9f5e-3c0d7b1a2e11']);
+    expect(uuid.exitCode).toBe(2);
+    expect(uuid.json.error.reason).toBe('invalid-link');
   });
 });

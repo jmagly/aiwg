@@ -1,6 +1,6 @@
 # Effect Ledger v1
 
-Status: contract accepted; core library in `src/effects/` (#2717); verifier framework and built-in verifiers in `src/effects/verifiers/` (#2718); tracker verifiers (#2719); `aiwg effect` CLI in `src/cli/handlers/effect.ts` (#2720); adoption (#2721 onward)
+Status: contract accepted; core library in `src/effects/` (#2717); verifier framework and built-in verifiers in `src/effects/verifiers/` (#2718); tracker verifiers (#2719); `aiwg effect` CLI in `src/cli/handlers/effect.ts` (#2720); D13 adoption (#2721); D16 resolver, skill adoption and #1567 links (#2722)
 Issue: AIWG #2715 (epic #2714)
 Decision: [ADR: AIWG effect ledger](../architecture/adr-effect-ledger.md)
 Predicate type: `https://aiwg.io/attestations/effect/v1`
@@ -491,12 +491,16 @@ names the rule (for example `decision-lifecycle/v1#receipt`).
 
 ## CLI and exit codes
 
-`aiwg effect id | intent | record | lookup | reconcile | verify | checkpoint |
-kinds | keys`, plus the operator command `recover-lock` (see "Stale lock
-recovery"). `record` performs intent, verify and completed in one command: it
-appends the intent, runs the kind's verifier, and appends `completed` for
-`present` or `reconciled` for `absent` and `unknown`. `record --unverified`
-appends the intent only. Output is JSON by default (`--format text` for
+`aiwg effect id | intent | record | lookup | reconcile | probe | verify |
+checkpoint | kinds | keys`, plus the operator command `recover-lock` (see
+"Stale lock recovery"). `record` performs intent, verify and completed in one
+command: it appends the intent, runs the kind's verifier, and appends
+`completed` for `present` or `reconciled` for `absent` and `unknown`.
+`record --unverified` appends the intent only. `probe` is read-only: it runs
+the kind's verifier once, writes no records, needs no ledger key, and exits
+0, 3 or 4 like `reconcile`. `verify --with-decisions <audit.jsonl>` also
+verifies the #1567 decision chain and every operator-decision link (see
+"Composition"). Output is JSON by default (`--format text` for
 people), and every JSON document carries a `schema` member
 (`aiwg.effect.<command>.v1`, or `aiwg.effect.error.v1` for a failure with its
 `code`, `reason` and fixed message). The command reference is
@@ -519,7 +523,7 @@ only.
 | `3` | absent | `reconcile`: the verifier reported `absent`. `lookup`: the ledger has no record for the ID, or its latest outcome is `failed` or a `reconciled` `absent` |
 | `4` | unknown | The verifier reported `unknown`, or `lookup` found an intent with no outcome |
 | `5` | conflict | Same effect ID with a different payload digest |
-| `6` | integrity failure | A signature, key window, chain link, record hash, checkpoint or scope check failed |
+| `6` | integrity failure | A signature, key window, chain link, record hash, checkpoint or scope check failed, or (`verify --with-decisions`) the decision chain is broken or a linked decision event is missing |
 | `7` | artifact root unavailable | The configured artifact root cannot be written or read; no fallback |
 <!-- effect-exit-codes:end -->
 
@@ -571,14 +575,29 @@ recovery, modelled on the D16 quota-lock recovery
 ## Composition
 
 - #1567 operator decisions authorize effects. Records link to them through
-  `links.operatorDecisionEventId` and `links.operatorDecisionRecordHash`
-  (D13 IDs come from `reviewOperatorEventId`).
+  `links.operatorDecisionEventId` and `links.operatorDecisionRecordHash`, both
+  `sha256:` digests (D13 IDs come from `reviewOperatorEventId`;
+  `reviewApprovalLinks(review, proposalVersion)` builds the links for a review
+  continuation, and `journaledReviewExecutor({links})` records them with the
+  intent). `verifyDecisionLinks` and `aiwg effect verify --with-decisions`
+  check the decision chain and that every linked event exists, with a
+  matching record hash when one is linked. There is no write coupling: the
+  ledger never writes the decision store and the decision store never reads
+  the ledger.
 - D13 review (#2606) adopts the ledger through a `VerifiedReviewEffectLedger`
   adapter using `d13.review/v1` (#2721): a signed `intent` before the effect,
   `completed` only on a `present` verification, and a ledger-backed
   `reconcile(effectId)` for stale leases.
 - D16 jobs (#2610) may resolve `execution-unknown` only through a verified
-  effect whose digest matches the attempt's receipt digest.
+  effect whose digest matches the attempt's receipt digest (#2722). The
+  worker records a `decision.receipt` effect (target
+  `decision:job/<jobId>/<itemId>`, context the job scope and `attemptId`,
+  payload digest the D03 receipt digest) before it writes the job record. The
+  opt-in resolver re-runs the verifier with that digest as `expected.digest`
+  and promotes the item only on `present` / `digest-match`; `state-match`,
+  `absent` and `unknown` leave it `execution-unknown`. The promotion is the
+  one gated `DecisionJob` transition out of `execution-unknown` and records
+  `attempts[].resolution`.
 - OpenTelemetry `trace_id`, `span_id` and `gen_ai.tool.call.id` are correlation
   links, never evidence.
 

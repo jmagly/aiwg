@@ -4867,7 +4867,8 @@ aiwg effect intent     <identity> <payload> [--link key=value]...
 aiwg effect record     <identity> <payload> [--unverified] [expectations] [--link key=value]...
 aiwg effect lookup     <effect-id> | <identity>
 aiwg effect reconcile  <effect-id> | <identity> [expectations] [--link key=value]...
-aiwg effect verify     [--trusted-keyid <keyid>]...
+aiwg effect probe      <identity> [--effect-id <id>] [--since <iso>] [expectations]
+aiwg effect verify     [--trusted-keyid <keyid>]... [--with-decisions <audit.jsonl>]
 aiwg effect checkpoint
 aiwg effect kinds
 aiwg effect keys       list | init | rotate [--reason scheduled|custody-change|compromise]
@@ -4881,7 +4882,8 @@ aiwg effect recover-lock [--lock <name> --authorize]
 | `record` | Intent, verify and completed in one command: appends the intent, runs the kind's verifier and appends `completed` when the target shows the effect. An `absent` or `unknown` result is appended as `reconciled`. `--unverified` records the intent only |
 | `lookup` | Reports everything recorded for an effect ID, merged across writers |
 | `reconcile` | Asks the kind's verifier again and appends a `reconciled` record. A `present` result also records `completed` |
-| `verify` | Checks the keyring, every signature and key window, the hash chain, the index and the latest checkpoint |
+| `probe` | Read-only: runs the kind's verifier once and writes no records, with the same exit codes (0 present, 3 absent, 4 unknown). Use it for ad-hoc checks such as "did this PR merge". `--effect-id` probes for a specific marker ID; `--since` stands in for the intent time |
+| `verify` | Checks the keyring, every signature and key window, the hash chain, the index and the latest checkpoint. `--with-decisions <audit.jsonl>` also verifies the #1567 operator-decision chain and that every linked `operatorDecisionEventId` (and `operatorDecisionRecordHash`) exists in it; a broken chain or a missing event exits 6 |
 | `checkpoint` | Signs a checkpoint over every writer's segment head and publishes it to the independent sink (a git ref by default) |
 | `kinds` | Lists every kind the verifier registry holds, with its version and whether it can report `absent` |
 | `keys` | `list` shows key IDs and public keys only. `init` provisions the ledger key in the host secret service and writes the genesis keyring. `rotate` stages a successor key, signs the rotation with both keys and promotes the successor |
@@ -4899,6 +4901,12 @@ payloads are never recorded or printed.
 
 **Expectations.** `--expect-digest`, `--expect-object`, `--signed`,
 `--timeout-ms` and `--verifier-version` are passed to the verifier.
+
+**Links.** `--link operatorDecisionEventId=sha256:<hex>` and
+`--link operatorDecisionRecordHash=sha256:<hex>` bind a record to the #1567
+operator decision that authorized it (D13 event IDs come from
+`reviewOperatorEventId`); `traceId`, `spanId` and `toolCallId` are correlation
+links. Links are references, never evidence.
 
 **Tracker kinds.** `tracker.comment`, `tracker.issue.closed` and
 `tracker.pr.merged` take a target `gitea:owner/repo#N` or

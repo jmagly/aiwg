@@ -44,8 +44,9 @@ import { readWriterSegment } from '../../effects/reader.js';
 import type { CheckpointSink } from '../../effects/checkpoint-sinks.js';
 import type { ReviewEffectReceipt, ReviewStore } from './types.js';
 import type { ReviewEffectQuery, ReviewEffectReconcileOptions, ReviewEffectVerification } from './recovery.js';
-import type { FileVerifiedReviewEffectLedger, ReviewEffectIdentity, ReviewEffectJournal } from './recovery-adapters.js';
-import { assertReviewProjection, reviewDigest } from './validate.js';
+import type { FileVerifiedReviewEffectLedger, ReviewEffectIdentity, ReviewEffectJournal, ReviewEffectLinks } from './recovery-adapters.js';
+import type { DecisionReview } from './types.js';
+import { assertReviewProjection, reviewDigest, reviewOperatorEventId } from './validate.js';
 
 export const REVIEW_EFFECT_KIND = 'decision.review.continuation' as const;
 export const REVIEW_EFFECT_DERIVATION = 'd13.review/v1' as const;
@@ -74,6 +75,21 @@ export function reviewEffectId(identity: ReviewEffectIdentity): string {
   const intent = reviewEffectIntent(identity);
   return deriveEffectId({ scope: { tenant: identity.tenantId, project: identity.projectId, subsystem: 'review' },
     kind: intent.kind, target: intent.target, context: intent.context }, REVIEW_EFFECT_DERIVATION);
+}
+
+/**
+ * #1567 links for a review continuation: the operator decision event of the
+ * approval of `proposalVersion` (its ID is `reviewOperatorEventId`), plus its
+ * audit `record_hash` when the caller has it. Empty when no approval exists.
+ */
+export function reviewApprovalLinks(review: Pick<DecisionReview, 'reviewId' | 'events'>, proposalVersion: number,
+  operatorDecisionRecordHash?: string): ReviewEffectLinks {
+  const approval = [...review.events].reverse().find(event => event.type === 'approved' && event.proposalVersion === proposalVersion);
+  if (!approval) return {};
+  return {
+    operatorDecisionEventId: approval.operatorDecisionEventId ?? reviewOperatorEventId(review.reviewId, approval.sequence),
+    ...(operatorDecisionRecordHash ? { operatorDecisionRecordHash } : {}),
+  };
 }
 
 /** Ed25519 key ID the first 32 bytes of `material` would produce as a ledger seed. */
@@ -190,11 +206,11 @@ export class LedgerReviewEffectJournal implements ReviewEffectJournal {
   }
 
   /** Append the signed intent before the effect. `pending`: an earlier intent has no outcome yet. */
-  async recordIntent(identity: ReviewEffectIdentity, actionDigest: string): Promise<'recorded' | 'pending'> {
+  async recordIntent(identity: ReviewEffectIdentity, actionDigest: string, links?: ReviewEffectLinks): Promise<'recorded' | 'pending'> {
     if (!this.inScope(identity)) throw new Error('Invalid executor ledger scope');
     await this.assertIndependentKey();
     const intent = reviewEffectIntent(identity);
-    const receipt = await recordIntent(this.ledger, { ...intent, payloadDigest: actionDigest });
+    const receipt = await recordIntent(this.ledger, { ...intent, payloadDigest: actionDigest, ...(links ? { links } : {}) });
     if (receipt.effectId !== reviewDigest({ reviewId: identity.reviewId, continuationId: identity.continuationId,
       proposalVersion: identity.proposalVersion })) throw invalidEntry();
     return receipt.idempotent ? 'pending' : 'recorded';

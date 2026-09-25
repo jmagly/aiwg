@@ -14,10 +14,19 @@ export interface OfflineJobResult {
 export type OfflineItemExecutor = ((item: Readonly<DecisionJobItem>, signal: AbortSignal) => Promise<OfflineJobResult>) &
   { requiresReservation?: boolean };
 export interface JobReservation { tokens: number; costMicros: number }
+/**
+ * Optional D16 effect recording (#2722): called once an admitted item has a validated D03 receipt,
+ * before the job record is updated, so a crash between the two leaves a verifiable effect behind.
+ * It records digests only and must never dispatch. Failures are ignored: the job record stays authoritative.
+ */
+export interface JobItemEffectRecorder {
+  recordReceipt(input: { scope: JobScope; jobId: string; itemId: string; attemptId: string;
+    requestDigest: `sha256:${string}`; receiptDigest: `sha256:${string}` }): Promise<void>;
+}
 
 export class OfflineJobWorker {
   private readonly active = new Map<string, AbortController>();
-  constructor(private readonly runtime: DecisionJobRuntime) {}
+  constructor(private readonly runtime: DecisionJobRuntime, private readonly effects?: JobItemEffectRecorder) {}
 
   /** Persist a dispatch fence before invoking the fixture; ambiguous failures never replay. */
   async run(actor: JobScope, jobId: string, itemId: string, executor: OfflineItemExecutor,
@@ -68,6 +77,14 @@ export class OfflineJobWorker {
     finally {
       if (onAbort) controller.signal.removeEventListener('abort', onAbort);
       this.active.delete(key);
+    }
+    const fenced = scheduled.attempts.at(-1)!;
+    if (this.effects && outcome && !controller.signal.aborted && validOutcome(outcome) && outcome.receiptDigest &&
+        ['succeeded', 'abstained', 'review'].includes(outcome.state)) {
+      try {
+        await this.effects.recordReceipt({ scope: structuredClone(previous.job.scope), jobId, itemId, attemptId: fenced.id,
+          requestDigest: fenced.requestDigest, receiptDigest: outcome.receiptDigest });
+      } catch { /* Recovery evidence only; the job record below stays authoritative. */ }
     }
     // Concurrent items may finish in the same tick. Retry only the local CAS, never the executor.
     for (let retry = 0; retry < 5; retry++) {

@@ -20,6 +20,7 @@ invariants:
   - human comments on issue threads are never ignored; all feedback incorporated next cycle
   - open questions remain tracker-filterable through the `question` label until answered to satisfaction
   - status comment posted to issue thread after every cycle without exception
+  - a cycle comment is recorded in the effect ledger with its aiwg-effect marker, so re-entry after a crash never posts it twice
   - never exceeds --max-cycles without posting an escalation comment first
 commandHint:
   argumentHint: <issue_numbers...> [--filter "status:open label:bug"] [--all-open] [--max-cycles N] [--provider gitea|github] [--interactive] [--guidance "text"] [--branch-per-issue]
@@ -217,11 +218,26 @@ node "$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/skills/address-issues/scr
 ```
 
 The input JSON supplies `cycle`, `status`, `actions`, `checklist`, `blockers`,
-`openQuestions`, and `nextSteps`. Missing sections, empty sections, and template
+`openQuestions`, `nextSteps` and `effectId` (the renderer appends it as the
+`<!-- aiwg-effect: <id> -->` marker). Missing sections, empty sections, and template
 placeholders fail validation; do not post or silently downgrade the comment.
 When `delivery.issue_comment_on_cycle` is `false`, skip both rendering and the
 tracker write intentionally. Native-goal resumes after authorization or human
 feedback use this same renderer and validator without exception.
+
+**Record the cycle comment in the effect ledger (#2722)** so a crash never
+posts it twice. The target is the issue on the configured tracker
+(`gitea:<owner>/<repo>#<N>` or `github:<owner>/<repo>#<N>`):
+
+```bash
+EFFECT=(--kind tracker.comment --target "gitea:<owner>/<repo>#<N>" --issue <N> --action cycle --cycle <cycle>)
+aiwg effect id "${EFFECT[@]}" --format text    # the "effectId" in cycle.json
+aiwg effect lookup "${EFFECT[@]}"              # 0: already posted, skip; 3: continue; 4: reconcile
+aiwg effect reconcile "${EFFECT[@]}"           # after lookup 4: 0 skip, 3 continue, 4 blocker (no post)
+aiwg effect intent "${EFFECT[@]}" --payload-file cycle-comment.md
+# post cycle-comment.md, then verify the marker comment by the pinned tracker actor:
+aiwg effect record "${EFFECT[@]}" --payload-file cycle-comment.md --verify
+```
 
 Post the validated canonical markdown comment to the issue thread:
 
@@ -302,7 +318,8 @@ A recurring failure mode: cycle 3 recommends closure with a 24-hour objection wi
 
 **Steps**:
 
-1. **Confirm merge state** — for `pr-required` projects, query the PR's `merged_at` timestamp via the resolved primary remote. If the PR is open, post a Cycle status comment naming the open PR and exit Phase 3.5; the next cycle picks it up.
+1. **Confirm merge state** — for `pr-required` projects, use the effect ledger (#2722). Before merging, record `aiwg effect intent --kind tracker.pr.merged --target "gitea:<owner>/<repo>#<PR>" --issue <N> --action merge --payload-digest sha256:<head-commit-digest>`; here run `aiwg effect reconcile --kind tracker.pr.merged` with the same identity, or `aiwg effect probe --kind tracker.pr.merged --target "gitea:<owner>/<repo>#<PR>"` (writes nothing) when no intent exists.
+   Exit `0`: merged; continue. Exit `3`: open or closed unmerged; post a Cycle status comment naming the open PR and exit Phase 3.5 for the next cycle. Exit `4`: the tracker could not be read; post a blocker and stop, never assuming the merge.
 2. **Re-run verification** — execute the verification commands the earlier cycles relied on (grep for the regression pattern, run the fix's tests, check that the changed file is on disk in `default_branch`). Use the same commands recorded in earlier cycle comments so the evidence chain is reproducible.
 3. **Branch on the result**:
    - **Verification passes** — delegate to the `issue-close` skill (`aiwg show skill issue-close`) which already implements `verify_before_close: true` semantics, posts a comprehensive closing comment with on-disk evidence, links the resolving commit/PR, and closes the issue.
@@ -396,6 +413,7 @@ Uses `gh` CLI for equivalent operations:
 | `issue-comment` | Post cycle status comments |
 | `issue-close` | Close resolved issues |
 | `issue-sync` | Link commits to issues |
+| `aiwg effect` | Effect ledger: `id`, `lookup`, `intent` and `record --kind tracker.comment` make the Phase 2 cycle comment idempotent; `intent`/`reconcile --kind tracker.pr.merged` (or `probe`) confirm the merge in Phase 3.5 |
 | `mcp__gitea__*` | Gitea API access |
 
 ## Safety and Guardrails

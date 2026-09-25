@@ -56,6 +56,7 @@ import {
   rotateKey,
   runVerifier,
   staticKeyProvider,
+  verifyDecisionLinks,
   verifyLedger,
   writeCheckpoint,
   type CheckpointSink,
@@ -74,6 +75,7 @@ import {
   type TrackerVerifierOptions,
 } from '../../effects/index.js';
 import { parseLedgerPrivateKey } from '../../effects/keys.js';
+import { JsonlOperatorDecisionStore, verifyDecisionChain, type OperatorDecisionRecord } from '../../audit/operator-decision.js';
 import { readConfig, readGitRemoteUrls } from '../../tracker/project-inputs.js';
 import type { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 
@@ -81,7 +83,7 @@ import type { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 // Usage
 // ---------------------------------------------------------------------------
 
-export const EFFECT_SUBCOMMANDS = ['id', 'intent', 'record', 'lookup', 'reconcile', 'verify', 'checkpoint', 'kinds', 'keys', 'recover-lock'] as const;
+export const EFFECT_SUBCOMMANDS = ['id', 'intent', 'record', 'lookup', 'reconcile', 'probe', 'verify', 'checkpoint', 'kinds', 'keys', 'recover-lock'] as const;
 type Subcommand = typeof EFFECT_SUBCOMMANDS[number];
 
 export function effectUsage(): string {
@@ -94,7 +96,8 @@ export function effectUsage(): string {
     '  aiwg effect record     <identity> <payload> [--unverified] [expectations] [--link k=v]',
     '  aiwg effect lookup     <effect-id> | <identity>',
     '  aiwg effect reconcile  <effect-id> | <identity> [expectations] [--link k=v]',
-    '  aiwg effect verify     [--trusted-keyid <keyid>]...',
+    '  aiwg effect probe      <identity> [--effect-id <id>] [--since <iso>] [expectations]',
+    '  aiwg effect verify     [--trusted-keyid <keyid>]... [--with-decisions <audit.jsonl>]',
     '  aiwg effect checkpoint',
     '  aiwg effect kinds',
     '  aiwg effect keys       list | init | rotate [--reason scheduled|custody-change|compromise]',
@@ -118,6 +121,10 @@ export function effectUsage(): string {
     '  --project-dir <dir>   --format json|text (default json)',
     '',
     'record performs intent, verify and completed in one command.',
+    'probe runs the kind verifier once and writes no records (ad-hoc checks such',
+    'as "did this PR merge"); it has the same exit codes 0, 3 and 4.',
+    'verify --with-decisions also checks the #1567 operator-decision chain and that',
+    'every linked operatorDecisionEventId (and record hash) exists in it.',
     'recover-lock removes a stale ledger lock only with --authorize, refuses live,',
     'reused or unverifiable owners, and records the recovery in the ledger.',
     '',
@@ -146,7 +153,8 @@ const ALLOWED: Record<Subcommand, Set<string>> = {
   record: new Set([...COMMON, ...IDENTITY, ...PAYLOAD, ...EXPECT, 'link', 'unverified', 'verify']),
   lookup: new Set([...COMMON, ...IDENTITY]),
   reconcile: new Set([...COMMON, ...IDENTITY, ...EXPECT, 'link']),
-  verify: new Set([...COMMON, 'trusted-keyid']),
+  probe: new Set([...COMMON, ...IDENTITY, ...PAYLOAD, ...EXPECT, 'effect-id', 'since']),
+  verify: new Set([...COMMON, 'trusted-keyid', 'with-decisions']),
   checkpoint: new Set(COMMON),
   kinds: new Set(COMMON),
   keys: new Set([...COMMON, 'reason']),
@@ -154,6 +162,13 @@ const ALLOWED: Record<Subcommand, Set<string>> = {
 };
 
 const LINK_NAMES = new Set(['operatorDecisionEventId', 'operatorDecisionRecordHash', 'traceId', 'spanId', 'toolCallId']);
+/** Link forms from the record schema: #1567 references are sha256 digests (D13 event IDs come from `reviewOperatorEventId`). */
+const LINK_PATTERNS: Record<string, RegExp> = {
+  operatorDecisionEventId: /^sha256:[a-f0-9]{64}$/,
+  operatorDecisionRecordHash: /^sha256:[a-f0-9]{64}$/,
+  traceId: /^[a-f0-9]{32}$/,
+  spanId: /^[a-f0-9]{16}$/,
+};
 
 interface ParsedArgs {
   positionals: string[];
@@ -327,7 +342,7 @@ function openLedger(session: Session, registry?: EffectVerifierRegistry): Effect
 /**
  * The one place the CLI builds its verifier registry: the built-ins, lock
  * recovery, the tracker verifiers (#2719) and any injected extensions.
- * `kinds`, `record` and `reconcile` all use it, so `kinds` lists
+ * `kinds`, `record`, `reconcile` and `probe` all use it, so `kinds` lists
  * exactly what the registry contains. Tracker authority is resolved lazily at
  * verification time, so a project without tracker configuration still lists
  * the tracker kinds and answers `unknown` / `tracker-blocked`.
@@ -483,6 +498,7 @@ function linksFrom(parsed: ParsedArgs): EffectLinks {
     const [key, value] = keyValue(entry, 'link');
     if (!LINK_NAMES.has(key)) throw usage(`Unknown link name ${key}`, 'invalid-link');
     if (!value || value.length > 256 || /\s/.test(value)) throw usage('Link values are non-empty references without whitespace', 'invalid-link');
+    if (LINK_PATTERNS[key] && !LINK_PATTERNS[key].test(value)) throw usage(`Link ${key} has the wrong form`, 'invalid-link');
     links[key] = value;
   }
   return links as EffectLinks;
@@ -642,13 +658,82 @@ async function runReconcile(session: Session, parsed: ParsedArgs): Promise<Rende
   };
 }
 
+/** The empty-payload digest a probe passes when no payload is given. */
+const EMPTY_PAYLOAD_DIGEST = payloadDigest(new Uint8Array(0));
+
+/**
+ * `probe`: run the kind's verifier once and write nothing. It never opens the
+ * ledger, so it needs no key and no artifact root. The effect ID is
+ * `--effect-id` (for example the ID a tracker marker carries) or derived from
+ * the identity; `--since` stands in for the intent time (default: the epoch,
+ * so no consistency-lag window applies).
+ */
+async function runProbe(session: Session, parsed: ParsedArgs): Promise<Rendered> {
+  if (parsed.positionals.length) throw usage('aiwg effect probe takes identity flags only', 'unexpected-argument');
+  const identity = identityFrom(parsed, session.scope);
+  const explicit = one(parsed, 'effect-id');
+  if (explicit !== undefined && !isValidEffectId(explicit)) throw usage('Malformed effect ID', 'malformed-effect-id');
+  const id = explicit ?? idFor(identity, session.scope);
+  const since = one(parsed, 'since');
+  if (since !== undefined && !Number.isFinite(Date.parse(since))) throw usage('--since must be an ISO 8601 time', 'invalid-since');
+  const hasPayload = parsed.values.has('payload-file') || parsed.values.has('payload-digest');
+  const digest = hasPayload ? await payloadFrom(parsed) : EMPTY_PAYLOAD_DIGEST;
+  const { expected, timeoutMs, verifierVersion } = expectationsFrom(parsed);
+  const registry = await sessionRegistry(session);
+  const run = await runVerifier(registry.get(identity.kind), {
+    effectId: id, scope: structuredClone(session.scope), kind: identity.kind, target: identity.target,
+    context: structuredClone(identity.context), payloadDigest: digest,
+    intentRecordedAt: new Date(since === undefined ? 0 : Date.parse(since)).toISOString(), expected,
+  }, { ...(timeoutMs ? { timeoutMs } : {}), ...(verifierVersion ? { verifierVersion } : {}) });
+  const now = session.deps.clock ? session.deps.clock() : Date.now();
+  const verification: EffectVerification = { verifier: run.verifier, ...run.observation, checkedAt: new Date(now).toISOString() };
+  const exitCode = verification.result === 'present' ? EFFECT_EXIT_CODES.ok
+    : verification.result === 'absent' ? EFFECT_EXIT_CODES.absent : EFFECT_EXIT_CODES.unknown;
+  return {
+    output: {
+      schema: 'aiwg.effect.probe.v1', exitCode, effectId: id, kind: identity.kind, target: identity.target, recorded: false,
+      verification, ...(run.evidence ? { evidence: run.evidence } : {}),
+    },
+    text: `${verification.result} ${id} (${verification.reason}; not recorded)`,
+  };
+}
+
+async function readDecisionAudit(path: string): Promise<OperatorDecisionRecord[]> {
+  try { return await new JsonlOperatorDecisionStore(path).read(); }
+  catch { throw usage('--with-decisions could not be read as an operator-decision JSONL file', 'decisions-unreadable'); }
+}
+
 async function runVerify(session: Session, parsed: ParsedArgs): Promise<Rendered> {
   const trusted = parsed.values.get('trusted-keyid');
-  const result = await verifyLedger(openLedger(session), trusted ? { trustedKeyids: trusted } : {});
-  const text = result.ok
-    ? `ledger intact: ${result.records} records, ${result.writers.length} writers${result.checkpoint ? `, checkpoint ${result.checkpoint.sequence}` : ''}`
-    : `ledger integrity failure: ${result.failures.map(failure => failure.reason).join(', ')}`;
-  return { output: { schema: 'aiwg.effect.verify.v1', ...result }, text };
+  const decisionsPath = one(parsed, 'with-decisions');
+  const ledger = openLedger(session);
+  const result = await verifyLedger(ledger, trusted ? { trustedKeyids: trusted } : {});
+  let decisions: Record<string, unknown> | undefined;
+  let ok = result.ok;
+  const failures: Array<{ reason: string }> = [...result.failures];
+  if (decisionsPath !== undefined) {
+    const records = await readDecisionAudit(resolve(session.projectDir, decisionsPath));
+    const chain = verifyDecisionChain(records);
+    const links = await verifyDecisionLinks(ledger, records);
+    const chainFailure = { reason: 'decision-chain-broken', index: chain.index ?? null };
+    if (!chain.ok) failures.push(chainFailure);
+    failures.push(...links.failures);
+    ok = ok && chain.ok && links.ok;
+    decisions = {
+      records: records.length, chain: chain.ok ? 'intact' : 'broken', ...(chain.ok ? {} : { chainFailureIndex: chain.index }),
+      linked: links.linked, events: links.events,
+    };
+  }
+  const text = ok
+    ? `ledger intact: ${result.records} records, ${result.writers.length} writers${result.checkpoint ? `, checkpoint ${result.checkpoint.sequence}` : ''}${decisions ? `, ${decisions.linked} decision links` : ''}`
+    : `ledger integrity failure: ${failures.map(failure => failure.reason).join(', ')}`;
+  return {
+    output: {
+      schema: 'aiwg.effect.verify.v1', ...result, ok, exitCode: ok ? EFFECT_EXIT_CODES.ok : EFFECT_EXIT_CODES.integrity, failures,
+      ...(decisions ? { decisions } : {}),
+    },
+    text,
+  };
 }
 
 async function runCheckpoint(session: Session): Promise<Rendered> {
@@ -820,6 +905,7 @@ async function execute(ctx: HandlerContext, deps: EffectCliDeps): Promise<Handle
       case 'record': rendered = await runRecord(session, parsed); break;
       case 'lookup': rendered = await runLookup(session, parsed); break;
       case 'reconcile': rendered = await runReconcile(session, parsed); break;
+      case 'probe': rendered = await runProbe(session, parsed); break;
       case 'verify': rendered = await runVerify(session, parsed); break;
       case 'checkpoint': rendered = await runCheckpoint(session); break;
       case 'kinds': rendered = await runKinds(session); break;
