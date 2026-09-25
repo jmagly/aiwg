@@ -72,6 +72,13 @@ export const PROVIDER_DISCOVERY_DECISIONS: Record<string, ProviderDiscoveryDecis
     reason: 'hermes model is interactive; the optional API server /v1/models endpoint requires a separately running service and represents that service rather than local CLI entitlement.',
     documentation: 'https://hermes-agent.nousresearch.com/docs/reference/cli-commands',
   },
+  muse: {
+    provider: 'muse',
+    status: 'unsupported',
+    interface: null,
+    reason: 'Muse Code is a terminal/CI coding agent with no verified non-interactive model-list command; AIWG does not invent Meta Model API enumeration as Muse Code entitlement.',
+    documentation: 'https://github.com/jmagly/aiwg/blob/main/docs/architecture/adr-muse-provider-target.md',
+  },
   opencode: {
     provider: 'opencode',
     status: 'native',

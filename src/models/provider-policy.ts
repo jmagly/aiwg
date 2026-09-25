@@ -28,7 +28,7 @@ const catalogData = requireModelResource('model-catalog.v1.json');
 
 const ProviderSchema = z.enum([
   'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'grokbot', 'grok-build', 'hermes',
-  'opencode', 'openclaw', 'openhuman', 'omp', 'pi', 'warp', 'windsurf',
+  'muse', 'opencode', 'openclaw', 'openhuman', 'omp', 'pi', 'warp', 'windsurf',
 ]);
 const OutcomeSchema = z.enum([
   'native', 'compiled', 'inherited', 'global-only', 'informational', 'unsupported',
