@@ -357,7 +357,7 @@ core `tracker.*` kinds the same way.
 | `git.tag` | `1.0.0` | `git-tag:<name>` | yes |
 | `file.digest` | `1.0.0` | `file:<path>@sha256:<hex>` | yes |
 | `decision.receipt` | `1.0.0` | `decision:invocation/<invocationId>`, `decision:batch/<batchId>`, `decision:job/<jobId>/<itemId>` | yes |
-| `decision.review.continuation` | `0.1.0` | `review:<tenant>/<project>/<reviewId>` | no (placeholder) |
+| `decision.review.continuation` | `1.0.0` | `review:<tenant>/<project>/<reviewId>` | yes |
 
 A built-in whose repository, root or store is not configured on the host
 answers `unknown` / `container-unreadable`. The pinned outcomes are:
@@ -403,9 +403,21 @@ answers `unknown` / `container-unreadable`. The pinned outcomes are:
   integrity failure, an I/O failure or a D10-deleted job is `unknown` /
   `container-unreadable`; an access denial is `unknown` / `auth-denied`. D16
   resolves `execution-unknown` only on `digest-match`.
-- **`decision.review.continuation`.** A placeholder that always answers
-  `unknown` / `verifier-missing` until #2721 supplies the review-store
-  verifier, so D13 keeps failing closed.
+- **`decision.review.continuation`.** Reads the D13 review store (#2721). The
+  context must be exactly the `d13.review/v1` identity and the effect ID must
+  equal its derivation; otherwise `unknown` / `malformed-response`. A persisted
+  receipt with this effect ID is `present` / `state-match`, or `digest-match`
+  when it equals `expected.digest`; a different digest, a receipt for another
+  effect ID or a different continuation ID is `unknown` / `evidence-conflict`.
+  A missing review, a continuation never dispatched under this effect ID, or a
+  definitive `execution-failed` is `absent`. A tombstoned review or an
+  unreadable store is `unknown` / `container-unreadable`. While the review
+  holds the dispatched continuation without a receipt, the verifier asks the
+  host's `execution` probe at the effect's own target; with no probe it is
+  `unknown` / `consistency-lag`. A D13 executor never replays on `absent` by
+  itself. Legacy HMAC receipts are imported as `completed` records verified by
+  a one-shot importer of the same kind at version `0.2.0` (evidence
+  `method: legacy-hmac`).
 
 ## Retention and tombstones
 
@@ -467,7 +479,9 @@ When several conditions apply, the precedence is 2, 7, 6, 5, then the outcome.
   `links.operatorDecisionEventId` and `links.operatorDecisionRecordHash`
   (D13 IDs come from `reviewOperatorEventId`).
 - D13 review (#2606) adopts the ledger through a `VerifiedReviewEffectLedger`
-  adapter using `d13.review/v1`.
+  adapter using `d13.review/v1` (#2721): a signed `intent` before the effect,
+  `completed` only on a `present` verification, and a ledger-backed
+  `reconcile(effectId)` for stale leases.
 - D16 jobs (#2610) may resolve `execution-unknown` only through a verified
   effect whose digest matches the attempt's receipt digest.
 - OpenTelemetry `trace_id`, `span_id` and `gen_ai.tool.call.id` are correlation
@@ -489,7 +503,12 @@ When several conditions apply, the precedence is 2, 7, 6, 5, then the outcome.
   idempotence, the multi-process first-writer race, the tamper matrix,
   rotation, tombstones, the fail-closed artifact root and the canary scan.
 - Verifiers: `test/unit/effects/verifiers.test.ts` covers the registry, the
-  table-driven error mapping, `file.digest`, `decision.receipt`, the review
-  placeholder, the crash-window harness and append-only reconcile history;
+  table-driven error mapping, `file.digest`, `decision.receipt`, the
+  unconfigured review verifier, the crash-window harness and append-only reconcile history;
   `test/unit/effects/verifiers-git.test.ts` covers the `git.commit` and
   `git.tag` matrix, including signature status, over temporary repositories.
+- D13 adoption: `test/unit/decision/review-effect-ledger.test.ts` covers the
+  review verifier, intent before execution, the reconciler fallback, the legacy
+  HMAC migration, key independence and reviews persisted before the ledger;
+  `test/conformance/decision-v1/review-effect-crash.test.ts` is the
+  killed-process crash matrix.

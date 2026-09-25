@@ -1258,6 +1258,150 @@
         "#2604",
         "JEV-16"
       ]
+    },
+    {
+      "id": "DEC-REVIEW-01",
+      "path": "test/fixtures/decision/review-effect-v1/store/a53a12d4c1bf9c4d57eda94511d4c627534a63bcfb02ee080193e120c87b363e/3c99bc83303ad01b767751e0628349dfa75a6abd554ae14befd2c16e574c35a1.r1.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-25",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:118872de6ac3d50cad281147c242ae7874a986fd63f72da37006c3488069bbf9",
+      "expectedOutcome": "D13 review store revision r1 of legacy-resuming (review left resuming by a crash before any executor journal), persisted before the effect ledger; still validates and resumes under its original d13.review/v1 effect ID",
+      "links": [
+        "#2721",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-REVIEW-02",
+      "path": "test/fixtures/decision/review-effect-v1/store/a53a12d4c1bf9c4d57eda94511d4c627534a63bcfb02ee080193e120c87b363e/3c99bc83303ad01b767751e0628349dfa75a6abd554ae14befd2c16e574c35a1.r2.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-25",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:810c1813c5cb9cb57c50b5e35cf6d6fd43052f707ae68869c8894cd1721fc4a8",
+      "expectedOutcome": "D13 review store revision r2 of legacy-resuming (review left resuming by a crash before any executor journal), persisted before the effect ledger; still validates and resumes under its original d13.review/v1 effect ID",
+      "links": [
+        "#2721",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-REVIEW-03",
+      "path": "test/fixtures/decision/review-effect-v1/store/a53a12d4c1bf9c4d57eda94511d4c627534a63bcfb02ee080193e120c87b363e/3c99bc83303ad01b767751e0628349dfa75a6abd554ae14befd2c16e574c35a1.r3.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-25",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:2aeeaaa9bbb6aeb0c43ea66feddf9b779237a9d8c900143d323648880e23012d",
+      "expectedOutcome": "D13 review store revision r3 of legacy-resuming (review left resuming by a crash before any executor journal), persisted before the effect ledger; still validates and resumes under its original d13.review/v1 effect ID",
+      "links": [
+        "#2721",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-REVIEW-04",
+      "path": "test/fixtures/decision/review-effect-v1/store/a53a12d4c1bf9c4d57eda94511d4c627534a63bcfb02ee080193e120c87b363e/d2ce32713f89908b458ac781a57bd5115c0e3c1dbd19318f8ee15035ca42256c.r1.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-25",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:bca5d37ff0d00c205e15e3aa68fe27b93de1f9c65480c6a8c78fae31946b040f",
+      "expectedOutcome": "D13 review store revision r1 of legacy-approved (approved review never dispatched), persisted before the effect ledger; still validates and resumes under its original d13.review/v1 effect ID",
+      "links": [
+        "#2721",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-REVIEW-05",
+      "path": "test/fixtures/decision/review-effect-v1/store/a53a12d4c1bf9c4d57eda94511d4c627534a63bcfb02ee080193e120c87b363e/d2ce32713f89908b458ac781a57bd5115c0e3c1dbd19318f8ee15035ca42256c.r2.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-25",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:bbd92b8df59fc5cc6e022c6f86b78901bf4d941014aa8ab23a3bd43c0957f614",
+      "expectedOutcome": "D13 review store revision r2 of legacy-approved (approved review never dispatched), persisted before the effect ledger; still validates and resumes under its original d13.review/v1 effect ID",
+      "links": [
+        "#2721",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-REVIEW-06",
+      "path": "test/fixtures/decision/review-effect-v1/store/a53a12d4c1bf9c4d57eda94511d4c627534a63bcfb02ee080193e120c87b363e/e746f878189800254e4036e9fb5bac639bd610a6e968f91c544e24fac6a9a1e5.r1.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-25",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:db3f4cb9c305ea7058445db422ade604e3a94270aa68c972b5dd336783fe6ef2",
+      "expectedOutcome": "D13 review store revision r1 of legacy-completed (completed review with its effect receipt), persisted before the effect ledger; still validates and resumes under its original d13.review/v1 effect ID",
+      "links": [
+        "#2721",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-REVIEW-07",
+      "path": "test/fixtures/decision/review-effect-v1/store/a53a12d4c1bf9c4d57eda94511d4c627534a63bcfb02ee080193e120c87b363e/e746f878189800254e4036e9fb5bac639bd610a6e968f91c544e24fac6a9a1e5.r2.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-25",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:a500b2f2a9c126d6926bfdb333a8441539ed8f85b1edfc4e4d62bb62fcbff70d",
+      "expectedOutcome": "D13 review store revision r2 of legacy-completed (completed review with its effect receipt), persisted before the effect ledger; still validates and resumes under its original d13.review/v1 effect ID",
+      "links": [
+        "#2721",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-REVIEW-08",
+      "path": "test/fixtures/decision/review-effect-v1/store/a53a12d4c1bf9c4d57eda94511d4c627534a63bcfb02ee080193e120c87b363e/e746f878189800254e4036e9fb5bac639bd610a6e968f91c544e24fac6a9a1e5.r3.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-25",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:a387aa3c098540643753e9b9425182598fa6914ad1686610b94566feddf0dbd5",
+      "expectedOutcome": "D13 review store revision r3 of legacy-completed (completed review with its effect receipt), persisted before the effect ledger; still validates and resumes under its original d13.review/v1 effect ID",
+      "links": [
+        "#2721",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-REVIEW-09",
+      "path": "test/fixtures/decision/review-effect-v1/store/a53a12d4c1bf9c4d57eda94511d4c627534a63bcfb02ee080193e120c87b363e/e746f878189800254e4036e9fb5bac639bd610a6e968f91c544e24fac6a9a1e5.r4.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-25",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:f1234efd32714df9412a8a870c17a3f405345b3068da6d12973e249538c3458f",
+      "expectedOutcome": "D13 review store revision r4 of legacy-completed (completed review with its effect receipt), persisted before the effect ledger; still validates and resumes under its original d13.review/v1 effect ID",
+      "links": [
+        "#2721",
+        "JEV-16"
+      ]
     }
   ]
 }

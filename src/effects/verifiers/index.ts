@@ -52,9 +52,10 @@
  */
 
 import { createVerifierRegistry } from './registry.js';
-import { decisionReceiptVerifier, reviewContinuationPlaceholderVerifier, type DecisionReceiptVerifierOptions } from './decision.js';
+import { decisionReceiptVerifier, type DecisionReceiptVerifierOptions } from './decision.js';
 import { FILE_DIGEST_VERIFIER_VERSION, fileDigestVerifier, type FileDigestVerifierOptions } from './file.js';
 import { GIT_VERIFIER_VERSION, gitCommitVerifier, gitTagVerifier, type GitVerifierOptions } from './git.js';
+import { REVIEW_CONTINUATION_VERIFIER_VERSION, reviewContinuationVerifier, type ReviewContinuationVerifierOptions } from './review.js';
 import { EffectVerifierError, type EffectVerifier, type EffectVerifierRegistry } from './types.js';
 
 export * from './types.js';
@@ -83,6 +84,12 @@ export {
   reviewContinuationPlaceholderVerifier,
   type DecisionReceiptVerifierOptions,
 } from './decision.js';
+export {
+  REVIEW_CONTINUATION_VERIFIER_VERSION,
+  reviewContinuationTarget,
+  reviewContinuationVerifier,
+  type ReviewContinuationVerifierOptions,
+} from './review.js';
 
 export interface BuiltinVerifierOptions {
   /** `git.commit` and `git.tag`. Without it both answer `unknown` / `container-unreadable`. */
@@ -91,6 +98,8 @@ export interface BuiltinVerifierOptions {
   file?: FileDigestVerifierOptions;
   /** `decision.receipt`. Stores that are not supplied answer `unknown` / `container-unreadable`. */
   decision?: DecisionReceiptVerifierOptions;
+  /** `decision.review.continuation`. Without it the verifier answers `unknown` / `container-unreadable`. */
+  review?: ReviewContinuationVerifierOptions;
 }
 
 /** Stand-in for a built-in whose container is not configured on this host. */
@@ -103,7 +112,7 @@ function unconfigured(kind: string, version: string): EffectVerifier {
 
 /**
  * The five built-in verifiers: `git.commit`, `git.tag`, `file.digest`,
- * `decision.receipt` and the `decision.review.continuation` placeholder.
+ * `decision.receipt` and `decision.review.continuation`.
  */
 export function createBuiltinVerifiers(options: BuiltinVerifierOptions = {}): EffectVerifier[] {
   return [
@@ -111,7 +120,7 @@ export function createBuiltinVerifiers(options: BuiltinVerifierOptions = {}): Ef
     options.git ? gitTagVerifier(options.git) : unconfigured('git.tag', GIT_VERIFIER_VERSION),
     options.file ? fileDigestVerifier(options.file) : unconfigured('file.digest', FILE_DIGEST_VERIFIER_VERSION),
     decisionReceiptVerifier(options.decision ?? {}),
-    reviewContinuationPlaceholderVerifier(),
+    options.review ? reviewContinuationVerifier(options.review) : unconfigured('decision.review.continuation', REVIEW_CONTINUATION_VERIFIER_VERSION),
   ];
 }
 
