@@ -26,7 +26,10 @@
  * `createAgentsMd`, rendered from
  * `agentic/code/frameworks/sdlc-complete/templates/muse/AGENTS.md.aiwg-template`
  * into an AIWG-managed section (operator content outside the markers is
- * preserved). Hooks/MCP settings mutation stays out of scope (#228).
+ * preserved). Hooks/MCP settings land in wave 5 (#228) via muse-hooks.mjs:
+ * managed project hooks merge additively into `.muse/hooks.json` (default
+ * on, `--no-hooks` opts out), and the optional MCP settings profile enriches
+ * user `mcp_servers` only with the explicit `--mcp` flag.
  */
 
 import os from 'node:os';
@@ -45,6 +48,7 @@ import {
   resolveMuseXdgSkillsDir,
   museXdgSkillsDirRemediation,
 } from './muse-paths.mjs';
+import { deployMuseHooks, deployMuseMcp } from './muse-hooks.mjs';
 
 export const name = 'muse';
 export const aliases = []; // ADR: no aliases (no muse-spark, muse-code, spark, meta)
@@ -201,19 +205,42 @@ export function createAgentsMd(target, srcRoot, dryRun) {
 }
 
 export async function postDeploy(targetDir, opts = {}) {
-  if (
-    opts.createAgentsMd ||
-    (!opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly)
-  ) {
+  const fullDeploy = !opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly;
+  if (opts.createAgentsMd || fullDeploy) {
     createAgentsMd(targetDir, opts.srcRoot, opts.dryRun);
   }
+
+  // #228 — managed project hooks (.muse/hooks.json). Default on, mirroring
+  // the Claude provider's autoInstall policy; the operator opts out with
+  // --no-hooks (opts.hooks === false). Project-scoped only: at user scope
+  // there is no project hooks.json to manage.
+  if (fullDeploy && opts.hooks !== false && opts.scope !== 'user') {
+    deployMuseHooks(targetDir, opts);
+  }
+
+  // #228 — optional MCP settings profile. Explicit opt-in only (--mcp);
+  // default `aiwg use --provider muse` never touches user settings.
+  if (fullDeploy && opts.mcp === true) {
+    deployMuseMcp(opts);
+  }
+
   if (!opts.quiet) {
     const root = opts.scope === 'user'
       ? assertMuseUserSkillsDir(opts.env || process.env, opts.userHome || os.homedir())
       : path.join(targetDir, kernelSkillsPath);
     console.log(`\nMuse Code: skills deployed to ${root}`);
     console.log('  Rules/agents surface through `aiwg discover` / `aiwg show`; the discover-first');
-    console.log('  AGENTS.md bridge is managed above. Hooks/MCP settings are out of scope for this wave.');
+    console.log('  AGENTS.md bridge is managed above.');
+    if (opts.hooks === false) {
+      console.log('  Hooks skipped (--no-hooks).');
+    } else if (opts.scope !== 'user') {
+      console.log('  Managed hooks merged into .muse/hooks.json (--no-hooks to skip).');
+    }
+    if (opts.mcp === true) {
+      console.log('  MCP profile merged into user settings mcp_servers (--mcp).');
+    } else {
+      console.log('  MCP profile not installed (opt in with --mcp).');
+    }
     console.log('  Trust the workspace when prompted, then start a new Muse session to load the bridge.');
   }
 }
