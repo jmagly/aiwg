@@ -18,16 +18,18 @@ import {
 import { checkpointDigest } from '../../../src/effects/verify.js';
 import { comment, harness, scope, testKey, type Harness } from './helpers.js';
 
+const GIT_TIMEOUT_MS = 30_000;
+
 let h: Harness;
 beforeEach(() => {
   h = harness();
-  execFileSync('git', ['init', '-q', h.dir]);
+  execFileSync('git', ['init', '-q', h.dir], { timeout: GIT_TIMEOUT_MS });
 });
 afterEach(() => h.cleanup());
 
 const REF = 'refs/aiwg/effects/delivery/checkpoint';
 const gitLedger = (writer = 'writer-a') => openEffectLedger({ projectDir: h.dir, scope, writer, keyProvider: staticKeyProvider(testKey('a')), clock: h.clock.read });
-const refBlob = () => JSON.parse(execFileSync('git', ['-C', h.dir, 'cat-file', 'blob', REF], { encoding: 'utf8' })) as EffectCheckpoint;
+const refBlob = () => JSON.parse(execFileSync('git', ['-C', h.dir, 'cat-file', 'blob', REF], { encoding: 'utf8', timeout: GIT_TIMEOUT_MS })) as EffectCheckpoint;
 const root = () => join(h.dir, '.aiwg', 'effects', 'delivery');
 
 describe('checkpoints', () => {
@@ -71,7 +73,7 @@ describe('checkpoints', () => {
     writeFileSync(segment, `${lines[1]}\n${lines[0]}\n`);
     await expect(writeCheckpoint(ledger)).rejects.toMatchObject({ code: 'integrity', exitCode: 6 });
     writeFileSync(segment, `${lines.join('\n')}\n`);
-    execFileSync('git', ['-C', h.dir, 'update-ref', '-d', REF]);
+    execFileSync('git', ['-C', h.dir, 'update-ref', '-d', REF], { timeout: GIT_TIMEOUT_MS });
     expect((await verifyLedger(ledger)).failures).toContainEqual({ reason: 'checkpoint-sink-missing' });
   });
 
@@ -86,8 +88,8 @@ describe('checkpoints', () => {
       runner: async (args, stdin) => {
         calls += 1;
         // Simulate another host moving the ref between the read and the compare-and-swap.
-        if (args[0] === 'update-ref') execFileSync('git', ['-C', h.dir, 'update-ref', REF, execFileSync('git', ['-C', h.dir, 'hash-object', '-w', '--stdin'], { input: 'other\n', encoding: 'utf8' }).trim()]);
-        try { return { stdout: execFileSync('git', ['-C', h.dir, ...args], { input: stdin ?? '', encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }), exitCode: 0 }; }
+        if (args[0] === 'update-ref') execFileSync('git', ['-C', h.dir, 'update-ref', REF, execFileSync('git', ['-C', h.dir, 'hash-object', '-w', '--stdin'], { input: 'other\n', encoding: 'utf8', timeout: GIT_TIMEOUT_MS }).trim()], { timeout: GIT_TIMEOUT_MS });
+        try { return { stdout: execFileSync('git', ['-C', h.dir, ...args], { input: stdin ?? '', encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], timeout: GIT_TIMEOUT_MS }), exitCode: 0 }; }
         catch (error) { return { stdout: '', exitCode: (error as { status?: number }).status ?? 1 }; }
       },
     });
