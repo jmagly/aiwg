@@ -1,4 +1,4 @@
-import type { ArtifactPin, DecisionAttempt, DecisionResult, RulesetResult } from '../types.js';
+import type { ArtifactPin, DecisionAdmissionEvidence, DecisionAttempt, DecisionResult, RulesetResult } from '../types.js';
 import type { CacheTelemetry } from '../compile-cache/types.js';
 import { sanitizeOpaqueValue } from './redaction.js';
 import type { TelemetryAttributes, TelemetryProvenance } from './types.js';
@@ -65,6 +65,22 @@ export function mapCacheTelemetry(telemetry: CacheTelemetry): AttributeMapping {
   put(out, 'aiwg.cache.preparation_ms', telemetry.preparationLatencyMs, 'client-derived');
   put(out, 'aiwg.cache.expires_at_ms', telemetry.expiresAtEpochMs, reported ? 'provider-fact' : 'client-derived');
   put(out, 'aiwg.cache.invalidation_reason', telemetry.invalidationReason, 'client-derived');
+  return out;
+}
+
+/** Admission evidence is metadata-only by contract; no principal or workspace ID reaches a span. */
+export function mapAdmissionEvidence(evidence: DecisionAdmissionEvidence): AttributeMapping {
+  const out: AttributeMapping = { attributes: {}, provenance: {} };
+  put(out, 'aiwg.admission.decision', evidence.decision, 'client-derived');
+  put(out, 'aiwg.admission.reason', evidence.reason, 'client-derived');
+  put(out, 'aiwg.queue.delay_ms', evidence.queueDelayMs, 'client-derived');
+  put(out, 'aiwg.queue.active', evidence.active, 'client-derived');
+  put(out, 'aiwg.queue.queued', evidence.queued, 'client-derived');
+  put(out, 'aiwg.admission.estimated_tokens', evidence.estimatedTokens, 'estimate');
+  put(out, 'aiwg.admission.estimated_cost_usd', evidence.estimatedCostUsd, 'estimate');
+  put(out, 'aiwg.retry.pressure', evidence.retryPressure, 'client-derived');
+  put(out, 'aiwg.breaker.status', evidence.breakerState, 'client-derived');
+  if (evidence.retryAfterMs !== undefined) put(out, 'aiwg.admission.retry_after_ms', evidence.retryAfterMs, 'client-derived');
   return out;
 }
 

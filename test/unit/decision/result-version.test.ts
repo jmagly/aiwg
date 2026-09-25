@@ -78,6 +78,12 @@ describe('decision result version ownership', () => {
       fixture<RulesetResult>('ruleset-result-batch.v1alpha2.json').spec.context);
     expect(() => validateDecisionDocument(composed)).toThrow(DecisionValidationError);
     expect(() => assertDecisionResultWriterVersion(composed)).toThrow(/\$\.spec\.context requires/);
+    const rejected = fixture<RulesetResult>('ruleset-result.json');
+    Object.assign(rejected.spec, { status: 'error', reason: 'context-plan-stale', matchedRules: [], evaluations: {},
+      contextFailure: { schemaVersion: 'decision-context-failure/v1', reason: 'stale-plan' } });
+    delete (rejected.spec as { outcome?: unknown }).outcome;
+    expect(() => assertDecisionResultWriterVersion(rejected)).toThrow(/\$\.spec\.contextFailure requires/);
+    expect(() => assertDecisionResultWriterVersion({ ...rejected, apiVersion: V2 })).not.toThrow();
     const nested = fixture<RulesetResult>('ruleset-result.json');
     nested.spec.evaluations.category = decisionAntiFixtures().find(item => item.field === 'batchResult')!.document;
     expect(() => validateDecisionDocument(nested)).toThrow(DecisionValidationError);
@@ -158,7 +164,7 @@ describe('decision evaluator result version', () => {
     capabilities: async () => ({
       answerKinds: ['choice', 'ordinal-score', 'truth-probability'] as const,
       features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true,
+      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const },
     }),
     evaluate: async request => request.alias === 'category' ? success('documentation')
       : request.alias === 'severity' ? success(0.25) : success(0.05, 'typesafe-truth-v1'),

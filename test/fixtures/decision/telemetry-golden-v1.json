@@ -1,17 +1,331 @@
 {
   "schemaVersion": "decision-telemetry/v1",
   "scenarios": [
-    { "id": "OBS-001", "name": "single-success", "spans": ["decision.workflow", "decision.validate", "decision.attempt", "decision.accept", "decision.persist"] },
-    { "id": "OBS-002", "name": "heterogeneous-batch", "spans": ["decision.workflow", "decision.batch.request", "decision.attempt", "decision.attempt", "decision.compose"] },
-    { "id": "OBS-003", "name": "retry-then-success", "spans": ["decision.workflow", "decision.attempt", "decision.attempt", "decision.accept"] },
-    { "id": "OBS-004", "name": "backend-fallback", "spans": ["decision.workflow", "decision.attempt", "decision.attempt", "decision.accept"] },
-    { "id": "OBS-005", "name": "invalid-output", "spans": ["decision.workflow", "decision.attempt", "decision.normalize", "decision.persist"] },
-    { "id": "OBS-006", "name": "caller-cancellation", "spans": ["decision.workflow", "decision.attempt", "decision.persist"] },
-    { "id": "OBS-007", "name": "execution-uncertainty", "spans": ["decision.workflow", "decision.attempt", "decision.persist"] },
-    { "id": "OBS-008", "name": "policy-review", "spans": ["decision.workflow", "decision.accept", "decision.review"] },
-    { "id": "OBS-009", "name": "cache-hit", "spans": ["decision.workflow", "decision.cache", "decision.persist"] },
-    { "id": "OBS-010", "name": "async-item", "spans": ["decision.workflow", "decision.job", "decision.persist"] },
-    { "id": "OBS-011", "name": "approved-action-link", "spans": ["decision.workflow", "decision.review", "decision.action"] },
-    { "id": "PRV-001", "name": "sanitized-incident-export", "spans": ["decision.workflow", "decision.attempt", "decision.persist"] }
+    {
+      "id": "OBS-001",
+      "name": "single-success",
+      "expected": {
+        "status": "completed",
+        "spans": [
+          "decision.workflow:ok decision.reason=none",
+          "decision.validate:ok validation.outcome=accepted",
+          "decision.attempt:ok decision.alias=category decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=category decision.reason=none",
+          "decision.accept:ok decision.alias=category decision.reason=none",
+          "decision.attempt:ok decision.alias=severity decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=severity decision.reason=none",
+          "decision.accept:ok decision.alias=severity decision.reason=none",
+          "decision.attempt:ok decision.alias=core_unavailable decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.accept:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.compose:ok decision.reason=none",
+          "decision.persist:ok"
+        ],
+        "attemptDurationsMs": [
+          10,
+          10,
+          10
+        ],
+        "adapterReceivedOwnAttemptSpan": true,
+        "tracestateForwarded": false
+      }
+    },
+    {
+      "id": "OBS-002",
+      "name": "heterogeneous-batch",
+      "expected": {
+        "status": "completed",
+        "spans": [
+          "decision.workflow:ok decision.reason=none",
+          "decision.validate:ok validation.outcome=accepted",
+          "decision.project:ok decision.alias=category",
+          "decision.project:ok decision.alias=severity",
+          "decision.project:ok decision.alias=core_unavailable",
+          "decision.batch.request:ok adapter.id=jev route.fallback=false usage.scope=shared-request",
+          "decision.attempt:ok decision.alias=category decision.reason=none adapter.id=jev usage.scope=batch-answer",
+          "decision.normalize:ok decision.alias=category decision.reason=none",
+          "decision.accept:ok decision.alias=category decision.reason=none",
+          "decision.attempt:ok decision.alias=severity decision.reason=none adapter.id=jev usage.scope=batch-answer",
+          "decision.normalize:ok decision.alias=severity decision.reason=none",
+          "decision.accept:ok decision.alias=severity decision.reason=none",
+          "decision.attempt:ok decision.alias=core_unavailable decision.reason=none adapter.id=jev usage.scope=batch-answer",
+          "decision.normalize:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.accept:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.compose:ok decision.reason=none",
+          "decision.persist:ok"
+        ],
+        "transportCalls": 1,
+        "sharedUsage": [
+          [
+            9,
+            3,
+            "shared-request",
+            "provider-fact"
+          ]
+        ],
+        "answersLinkedToRequest": true,
+        "answersCarryUsage": false,
+        "transportTraceparentIsRequestSpan": true,
+        "transportTracestate": false,
+        "receiptTraceparentIsWorkflow": true,
+        "replay": {
+          "spans": [
+            "decision.workflow:ok decision.reason=none",
+            "decision.validate:ok validation.outcome=accepted",
+            "decision.project:ok decision.alias=category",
+            "decision.project:ok decision.alias=severity",
+            "decision.project:ok decision.alias=core_unavailable",
+            "decision.normalize:ok decision.alias=category decision.reason=none",
+            "decision.accept:ok decision.alias=category decision.reason=none",
+            "decision.normalize:ok decision.alias=severity decision.reason=none",
+            "decision.accept:ok decision.alias=severity decision.reason=none",
+            "decision.normalize:ok decision.alias=core_unavailable decision.reason=none",
+            "decision.accept:ok decision.alias=core_unavailable decision.reason=none",
+            "decision.compose:ok decision.reason=none",
+            "decision.persist:ok"
+          ],
+          "transportCalls": 1,
+          "linkedToOriginalWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "OBS-003",
+      "name": "retry-then-success",
+      "expected": {
+        "status": "completed",
+        "spans": [
+          "decision.workflow:ok decision.reason=none",
+          "decision.validate:ok validation.outcome=accepted",
+          "decision.attempt:error decision.alias=category decision.reason=network-transient adapter.id=jev route.fallback=false",
+          "decision.attempt:ok decision.alias=category decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=category decision.reason=none",
+          "decision.accept:ok decision.alias=category decision.reason=none",
+          "decision.attempt:ok decision.alias=severity decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=severity decision.reason=none",
+          "decision.accept:ok decision.alias=severity decision.reason=none",
+          "decision.attempt:ok decision.alias=core_unavailable decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.accept:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.compose:ok decision.reason=none",
+          "decision.persist:ok"
+        ],
+        "retryEvents": 1,
+        "retryStartsAfterBackoff": true
+      }
+    },
+    {
+      "id": "OBS-004",
+      "name": "backend-fallback",
+      "expected": {
+        "status": "completed",
+        "spans": [
+          "decision.workflow:ok decision.reason=none",
+          "decision.validate:ok validation.outcome=accepted",
+          "decision.attempt:error decision.alias=category decision.reason=service-error adapter.id=jev route.fallback=false",
+          "decision.attempt:ok decision.alias=category decision.reason=none adapter.id=llm-subagent route.fallback=true",
+          "decision.normalize:ok decision.alias=category decision.reason=none",
+          "decision.accept:ok decision.alias=category decision.reason=none",
+          "decision.attempt:ok decision.alias=severity decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=severity decision.reason=none",
+          "decision.accept:ok decision.alias=severity decision.reason=none",
+          "decision.attempt:ok decision.alias=core_unavailable decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.accept:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.compose:ok decision.reason=none",
+          "decision.persist:ok"
+        ]
+      }
+    },
+    {
+      "id": "OBS-005",
+      "name": "invalid-output",
+      "expected": {
+        "status": "review",
+        "reason": "evaluation-failed",
+        "spans": [
+          "decision.workflow:ok decision.reason=evaluation-failed",
+          "decision.validate:ok validation.outcome=accepted",
+          "decision.attempt:error decision.alias=category decision.reason=invalid-output adapter.id=jev route.fallback=false",
+          "decision.normalize:error decision.alias=category decision.reason=invalid-output",
+          "decision.accept:error decision.alias=category decision.reason=invalid-output",
+          "decision.attempt:ok decision.alias=severity decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=severity decision.reason=none",
+          "decision.accept:ok decision.alias=severity decision.reason=none",
+          "decision.attempt:ok decision.alias=core_unavailable decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.accept:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.compose:ok decision.reason=evaluation-failed",
+          "decision.review:ok decision.reason=evaluation-failed",
+          "decision.persist:ok"
+        ]
+      }
+    },
+    {
+      "id": "OBS-006",
+      "name": "caller-cancellation",
+      "expected": {
+        "status": "cancelled",
+        "spans": [
+          "decision.workflow:error decision.reason=cancelled",
+          "decision.validate:ok validation.outcome=accepted",
+          "decision.attempt:error decision.alias=category decision.reason=cancelled adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=category decision.reason=cancelled",
+          "decision.accept:error decision.alias=category decision.reason=cancelled",
+          "decision.normalize:ok decision.alias=severity decision.reason=cancelled",
+          "decision.accept:error decision.alias=severity decision.reason=cancelled",
+          "decision.normalize:ok decision.alias=core_unavailable decision.reason=cancelled",
+          "decision.accept:error decision.alias=core_unavailable decision.reason=cancelled",
+          "decision.compose:error decision.reason=cancelled",
+          "decision.persist:ok"
+        ],
+        "terminations": [
+          "caller-cancelled"
+        ]
+      }
+    },
+    {
+      "id": "OBS-007",
+      "name": "execution-uncertainty",
+      "expected": {
+        "status": "error",
+        "reason": "execution-uncertain",
+        "spans": [
+          "decision.workflow:error decision.reason=execution-uncertain",
+          "decision.validate:ok validation.outcome=accepted",
+          "decision.attempt:error decision.alias=category decision.reason=execution-uncertain adapter.id=jev route.fallback=false",
+          "decision.attempt:error decision.alias=severity decision.reason=execution-uncertain adapter.id=jev route.fallback=false",
+          "decision.compose:error decision.reason=execution-uncertain",
+          "decision.persist:ok"
+        ],
+        "receiptState": "execution-uncertain"
+      }
+    },
+    {
+      "id": "OBS-008",
+      "name": "policy-review",
+      "expected": {
+        "status": "review",
+        "spans": [
+          "decision.workflow:ok decision.reason=evaluation-failed",
+          "decision.validate:ok validation.outcome=accepted",
+          "decision.attempt:error decision.alias=category decision.reason=low-confidence adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=category decision.reason=low-confidence acceptance.disposition=review",
+          "decision.accept:ok decision.alias=category decision.reason=low-confidence acceptance.disposition=review",
+          "decision.compose:ok decision.reason=evaluation-failed",
+          "decision.review:ok decision.reason=evaluation-failed",
+          "decision.persist:ok"
+        ]
+      }
+    },
+    {
+      "id": "OBS-009",
+      "name": "cache-hit",
+      "expected": {
+        "disposition": "cache-hit",
+        "fill": [
+          "decision.workflow:ok decision.reason=none",
+          "decision.validate:ok validation.outcome=accepted",
+          "decision.attempt:ok decision.alias=category decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.normalize:ok decision.alias=category decision.reason=none",
+          "decision.accept:ok decision.alias=category decision.reason=none",
+          "decision.compose:ok decision.reason=none",
+          "decision.persist:ok"
+        ],
+        "spans": [
+          "decision.workflow:ok decision.reason=none cache.result=hit",
+          "decision.cache:ok cache.result=hit"
+        ],
+        "providerCalls": 1,
+        "rootInvocation": "caller",
+        "replayedUsage": false
+      }
+    },
+    {
+      "id": "OBS-010",
+      "name": "async-item",
+      "expected": {
+        "itemState": "succeeded",
+        "jobOperations": [
+          "submit:validating",
+          "transition:queued",
+          "transition:running",
+          "transition:completed"
+        ],
+        "spans": [
+          "decision.workflow:ok decision.reason=none",
+          "decision.validate:ok validation.outcome=accepted",
+          "decision.attempt:ok decision.alias=category decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.admit:ok decision.alias=category adapter.id=jev",
+          "decision.normalize:ok decision.alias=category decision.reason=none",
+          "decision.accept:ok decision.alias=category decision.reason=none",
+          "decision.attempt:ok decision.alias=severity decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.admit:ok decision.alias=severity adapter.id=jev",
+          "decision.normalize:ok decision.alias=severity decision.reason=none",
+          "decision.accept:ok decision.alias=severity decision.reason=none",
+          "decision.attempt:ok decision.alias=core_unavailable decision.reason=none adapter.id=jev route.fallback=false",
+          "decision.admit:ok decision.alias=core_unavailable adapter.id=jev",
+          "decision.normalize:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.accept:ok decision.alias=core_unavailable decision.reason=none",
+          "decision.compose:ok decision.reason=none",
+          "decision.persist:ok"
+        ],
+        "workflowParentIsJobDispatch": true
+      }
+    },
+    {
+      "id": "OBS-011",
+      "name": "approved-action-link",
+      "expected": {
+        "spans": [
+          "decision.review:ok review=created",
+          "decision.review:ok review=created",
+          "decision.review:ok review=created",
+          "decision.review:ok review=approved",
+          "decision.review:ok review=rejected",
+          "decision.review:ok review=escalated",
+          "decision.review:ok review=resumed",
+          "decision.review:ok review=execution-completed",
+          "decision.action:ok review=-"
+        ],
+        "auditChainValid": true,
+        "auditOutcomes": [
+          "approved",
+          "denied",
+          "escalated"
+        ],
+        "everyAuditRecordHasOneSpan": true,
+        "auditTraceIsOtelTrace": true,
+        "actionCitesApprovalEvent": true,
+        "actionLinkedToReview": true
+      }
+    },
+    {
+      "id": "PRV-001",
+      "name": "sanitized-incident-export",
+      "expected": {
+        "internalSpansWithRequestId": 3,
+        "exportedSpans": 13,
+        "leaked": [],
+        "exportedTracestate": false,
+        "exportedUnknownEvents": false
+      }
+    },
+    {
+      "id": "PRV-002",
+      "name": "orphaned-links",
+      "expected": {
+        "links": [
+          "review:orphaned",
+          "continuation:live",
+          "evaluation:live"
+        ],
+        "tombstones": [
+          "review:orphaned link"
+        ],
+        "idempotent": true,
+        "exportKeepsTombstone": "orphaned"
+      }
+    }
   ]
 }

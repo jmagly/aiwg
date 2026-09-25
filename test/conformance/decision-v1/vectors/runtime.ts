@@ -21,7 +21,7 @@ const values = (alias: string) => success(alias === 'category' ? 'documentation'
 function adapter(observe: (alias: string) => AdapterObservation, id: 'jev' | 'llm-subagent' = 'jev'): DecisionAdapter {
   return { id, version: '1.0.0', capabilities: async () => ({
     answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['choice', 'ordinal-score', 'truth-probability'],
-    maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true,
+    maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const },
   }), evaluate: async request => observe(request.alias) };
 }
 async function evaluate(
@@ -38,7 +38,7 @@ export const executors: Record<(typeof CASE_IDS)[number], QualificationCaseExecu
   C11: async () => {
     const a = adapter(values); let calls = 0;
     a.capabilities = async () => ({ answerKinds: ['ordinal-score'], features: ['ordinal-score'],
-      maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1'], executable: true });
+      maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1'], executable: true, egress: { mode: 'none' as const } });
     a.evaluate = async request => { if (request.alias === 'category') calls++; return values(request.alias); };
     const result = await evaluate(await fixture('binding-jev.json'), { jev: a }, 'unsupported');
     assert.equal(result.spec.evaluations.category?.spec.reason, 'unsupported-capability');

@@ -11,6 +11,16 @@ to an operator-provided environment-variable name. Production deployments
 should provide that variable through their scoped secret reader. Logs and
 receipts contain neither the value nor its private locator.
 
+State projection is mandatory for network egress. Configure
+`projectionPolicyPath` in the dispatcher request and declare the deployment
+region in `adapterOptions.jev.region`; the dispatcher refuses network-capable
+adapters without a policy, and the evaluator denies a policy whose origin or
+region does not match the adapter. The region is the operator's recorded
+deployment attribute. It is not enforced by the transport and does not certify
+provider residency. Egress denials follow `RUN-JEV-EGRESS-v1` in
+`docs/decision/operations/README.md`. The live smoke additionally requires
+`AIWG_DECISION_JEV_REGION` and runs through the same projection boundary.
+
 An LLM binding pins a subagent. The runtime adapter module must resolve that
 exact pin and execute a bounded, tool-free structured-output task. A plan-only
 route, missing terminal event, prose wrapper, or schema-invalid object fails

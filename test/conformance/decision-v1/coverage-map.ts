@@ -28,6 +28,16 @@ const suiteById: Readonly<Record<string, string>> = {
     'TV20', 'TV21', 'TV23', 'TV24', 'TV25'].map(id => [id, `${CONFORMANCE}/vendor-vectors.test.ts`])),
 };
 
+/**
+ * Extra discovery hints beyond the executor suite. TV-12 (D06 context limits)
+ * also has offline CTX-* boundary, runtime and qualification-gate unit tests;
+ * live estimate-versus-actual comparisons are still required before it can pass.
+ */
+const additionalHintsById: Readonly<Record<string, readonly string[]>> = {
+  TV12: ['test/unit/decision/context-plan.test.ts', 'test/unit/decision/context-qualification.test.ts',
+    'test/unit/decision/batch.test.ts'],
+};
+
 /** Parses `C01`..`C42` and `TV01`..`TV25`; anything else has no ordinal. */
 export function caseOrdinal(id: string): { prefix: 'C' | 'TV'; ordinal: number } | null {
   const match = /^(C|TV)(\d{2})$/.exec(id);
@@ -36,7 +46,7 @@ export function caseOrdinal(id: string): { prefix: 'C' | 'TV'; ordinal: number }
 
 /** Candidate suite paths for a case. An empty list means no executor exists in the repository yet. */
 export function candidates(id: string): string[] {
-  if (suiteById[id]) return [suiteById[id]!];
+  if (suiteById[id]) return [suiteById[id]!, ...(additionalHintsById[id] ?? [])];
   const parsed = caseOrdinal(id);
   if (!parsed) return [];
   const match = suiteByRange.find(([prefix, from, to]) => prefix === parsed.prefix && parsed.ordinal >= from && parsed.ordinal <= to);

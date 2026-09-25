@@ -13,8 +13,8 @@ import {
   BatchRecordUnavailableError, BatchStoreIntegrityError, BatchStoreMigrationRequiredError,
   FileBatchReceiptStore, FileBatchResultStore, MemoryBatchReceiptStore, MemoryBatchResultStore, allocateEstimatedUsage, batchAccountingTotals,
   batchEnforcementCostMicros, batchResultReference, deriveCost, macFor, newBatchReceipt, nextBatchReceipt, sanitizedBatchReceiptExport,
-  validateBatchReceipt, type BatchAttempt, type DecisionBatchReceipt, type BatchReceiptStore, type FileBatchReceiptStoreOptions,
-  type FileBatchResultStoreOptions,
+  BatchReceiptValidationError, assertBatchReceiptPortable, validateBatchReceipt, validateBatchReceiptTransition, type BatchAttempt,
+  type DecisionBatchReceipt, type BatchReceiptStore, type FileBatchReceiptStoreOptions, type FileBatchResultStoreOptions,
 } from '../../../src/decision/batch-receipts/index.js';
 import type { AdapterObservation } from '../../../src/decision/types.js';
 
@@ -70,6 +70,19 @@ function completed(receipt = base(), attempts = [attempt()]): DecisionBatchRecei
 }
 
 describe('decision batch receipts', () => {
+  it('keeps an optional W3C traceparent immutable and rejects malformed values', () => {
+    const traceParent = `00-${'1'.repeat(32)}-${'2'.repeat(16)}-01`;
+    const traced: DecisionBatchReceipt = { ...base(), traceParent };
+    expect(() => validateBatchReceipt(traced)).not.toThrow();
+    expect(nextBatchReceipt(traced, { status: 'running', updatedAtEpochMs: 110 }).traceParent).toBe(traceParent);
+    for (const invalid of ['not-a-traceparent', `00-${'0'.repeat(32)}-${'2'.repeat(16)}-01`, ` ${traceParent}`]) {
+      expect(() => validateBatchReceipt({ ...base(), traceParent: invalid })).toThrow();
+    }
+    const running = nextBatchReceipt(traced, { status: 'running', updatedAtEpochMs: 110 });
+    const forged = { ...running, revision: running.revision + 1, traceParent: `00-${'3'.repeat(32)}-${'2'.repeat(16)}-01` };
+    expect(() => validateBatchReceiptTransition(running, forged)).toThrow(/traceParent/);
+  });
+
   it('REC-BATCH-001 owns one request total and exposes three reference-only answer links', () => {
     const receipt = completed();
     expect(receipt.attempts).toHaveLength(1);
@@ -613,4 +626,41 @@ describe('batch store integrity, encryption and lifecycle (#2672)', () => {
     await receipts.erase(receipts.lifecycleReference(done.batchId, done.tenantId, done.projectId).opaqueId);
     expect(await run('read')).toEqual({ status: null, values: {} });
   }, 30_000);
+});
+
+describe('PRV-EGRESS-RECEIPT portable batch receipts', () => {
+  // Assembled at runtime so no literal secret-shaped string lives in the source tree.
+  const canary = 'CANARY' + 'k3Zp'.repeat(6);
+  const fixtures: Array<[string, string]> = [
+    ['bearer value', `Bearer ${canary}`],
+    ['PEM private key', `-----BEGIN RSA ${'PRIVATE'} KEY-----${canary}`],
+    ['vault locator', `secret://decision/${canary}`],
+  ];
+
+  it('PRV-EGRESS-RECEIPT-B01 rejects secret material in provider request ids and execution envelopes', () => {
+    const running = nextBatchReceipt(base(), { status: 'running', updatedAtEpochMs: 110 });
+    // Opaque request ids are printable ASCII without spaces, so this locator passes shape validation
+    // and is rejected only by the portability guard.
+    const locator = `vault://kv/${canary}`;
+    expect(() => validateBatchReceipt({ ...running, attempts: [attempt({ providerRequestId: locator })] })).not.toThrow();
+    let caught: unknown;
+    try { nextBatchReceipt(running, { status: 'running', updatedAtEpochMs: 115, attempts: [attempt({ providerRequestId: locator })] }); }
+    catch (error) { caught = error; }
+    expect(caught).toBeInstanceOf(BatchReceiptValidationError);
+    expect((caught as Error).message).toMatch(/forbidden credential or private-locator material/);
+    expect((caught as Error).message).not.toContain(canary);
+    for (const [label, value] of fixtures) {
+      expect(() => assertBatchReceiptPortable({ ...running, executionEnvelope: value }), label).toThrow(BatchReceiptValidationError);
+    }
+  });
+
+  it('PRV-EGRESS-RECEIPT-B02 rejects secret-derived hash keys', () => {
+    const receipt = base();
+    expect(() => assertBatchReceiptPortable({ ...receipt, plan: { ...receipt.plan, credentialHash: `sha256:${canary}` } as never }))
+      .toThrow(/forbidden credential or private-locator material/);
+  });
+
+  it('PRV-EGRESS-RECEIPT-B03 benign control: completed receipts with opaque ids pass', () => {
+    expect(() => assertBatchReceiptPortable(completed())).not.toThrow();
+  });
 });

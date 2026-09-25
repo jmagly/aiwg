@@ -13,6 +13,8 @@ import type {
 } from '../types.js';
 import { DecisionValidationError, validateDecisionValue, validateDistribution } from '../validate.js';
 import { canonicalJson } from '../../security/artifact-trust.js';
+import { partitionProjectedState } from '../projection.js';
+import { isTraceparent } from '../telemetry/context.js';
 import { runInNewContext } from 'node:vm';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
@@ -32,6 +34,12 @@ interface JevAdapterOptions {
   /** Fake pinned transport seam for offline tests. Production uses Node HTTPS. */
   pinnedFetch?: (url: URL, init: RequestInit, pin: PinnedAddress) => Promise<Response>;
   now?: () => number;
+  /**
+   * Host-declared deployment region. Jev exposes no region control, so this is a
+   * declared attribute without transport enforcement. Omitted means unknown, and
+   * the evaluator then denies every projection policy for this adapter.
+   */
+  region?: string;
 }
 
 interface PinnedAddress { address: string; family: 4 }
@@ -60,6 +68,7 @@ export class JevDecisionAdapter implements DecisionAdapter {
   private readonly resolveAddresses: (hostname: string) => Promise<readonly string[]>;
   private readonly pinnedFetch: NonNullable<JevAdapterOptions['pinnedFetch']>;
   private readonly now: () => number;
+  private readonly region: string | null;
 
   constructor(options: JevAdapterOptions = {}) {
     this.endpoint = options.endpoint ?? JEV_ENDPOINT;
@@ -68,6 +77,7 @@ export class JevDecisionAdapter implements DecisionAdapter {
     this.resolveAddresses = options.resolveAddresses ?? systemResolveAddresses;
     this.pinnedFetch = options.pinnedFetch ?? pinnedHttpsFetch;
     this.now = options.now ?? Date.now;
+    this.region = options.region?.trim() ? options.region : null;
   }
 
   async capabilities(): Promise<AdapterCapabilities> {
@@ -79,6 +89,8 @@ export class JevDecisionAdapter implements DecisionAdapter {
       confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'],
       executable: true,
       batch: { native: true, atomic: true, executionEnvelope: new URL(this.endpoint).origin },
+      // The effective request origin; the evaluator binds projection policy to it.
+      egress: { mode: 'network', origin: new URL(this.endpoint).origin, region: this.region },
     };
   }
 
@@ -120,7 +132,7 @@ export class JevDecisionAdapter implements DecisionAdapter {
     const signal = AbortSignal.any([request.signal, deadline]);
     let body: string;
     try {
-      body = JSON.stringify({ state: request.input, model: request.target.model,
+      body = JSON.stringify({ state: jevState(request), model: request.target.model,
         questions: { [request.questionId ?? request.alias]: jevQuestion(request) } });
     } catch { return failure('invalid-request', { dispatchCertainty: 'not-sent' }); }
     if (request.signal.aborted) return externalInterruption(request, 'not-sent');
@@ -128,7 +140,7 @@ export class JevDecisionAdapter implements DecisionAdapter {
     try {
       const init: RequestInit = {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...traceHeaders(request.traceContext) },
         body,
         signal,
         redirect: 'error',
@@ -243,13 +255,13 @@ export class JevDecisionAdapter implements DecisionAdapter {
     const signal = AbortSignal.any([request.signal, deadline]);
     let body: string;
     try {
-      body = JSON.stringify({ state: request.input, model: request.target.model,
+      body = JSON.stringify({ state: jevState(request), model: request.target.model,
         questions: Object.fromEntries(requests.map(candidate => [candidate.questionId!, jevQuestion(candidate)])) });
     } catch { return batchFailure(requests, failure('invalid-request', { dispatchCertainty: 'not-sent' })); }
     let response: Response;
     try {
-      const init: RequestInit = { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-        body, signal, redirect: 'error' };
+      const init: RequestInit = { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json',
+        ...traceHeaders(batch.traceContext) }, body, signal, redirect: 'error' };
       response = pin ? await this.pinnedFetch(new URL(this.endpoint), init, pin) : await this.fetchImpl(this.endpoint, init);
     } catch (error) {
       const observation = request.signal.aborted ? externalInterruption(request, 'unknown')
@@ -478,6 +490,11 @@ function mapStatus(status: number): DecisionFailureReason {
   return 'invalid-request';
 }
 
+/** Forward only a well-formed W3C traceparent; anything else is dropped, never echoed. */
+function traceHeaders(context: DecisionAdapterRequest['traceContext']): Record<string, string> {
+  return isTraceparent(context?.traceparent) ? { traceparent: context!.traceparent } : {};
+}
+
 function parseRetryAfter(headers: Headers, now: number): number | null {
   const milliseconds = headers.get('retry-after-ms');
   if (milliseconds !== null && /^\d+(?:\.\d+)?$/.test(milliseconds.trim())) {
@@ -657,4 +674,12 @@ async function pinnedHttpsFetch(url: URL, init: RequestInit, pin: PinnedAddress)
     outgoing.on('close', () => init.signal?.removeEventListener('abort', onAbort));
     outgoing.end(init.body as string);
   });
+}
+
+/**
+ * Projected state keeps its host-declared trust partition in the provider body:
+ * verified evidence and untrusted content travel under separate keys.
+ */
+function jevState(request: DecisionAdapterRequest): unknown {
+  return request.projectionEvidence ? partitionProjectedState(request.input, request.projectionEvidence) : request.input;
 }

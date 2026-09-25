@@ -48,7 +48,7 @@ export function assertContextQualified(qualification: ContextQualification, prof
         : Math.max(0, Math.ceil(c.errorTokens * 10_000 / c.actualInputTokens))))
     || qualification.worstUndercountBps !== Math.max(...cases.map(c => c.undercountBps))
     || qualification.worstUndercountBps > profile.safetyMarginBps) {
-    throw new ContextPlanError('invalid-profile', 'context enforcement requires matching provider-backed qualification');
+    throw new ContextPlanError('rollout-unqualified', 'context enforcement requires matching provider-backed qualification');
   }
 }
 

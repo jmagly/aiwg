@@ -35,7 +35,7 @@ function setup(persistedReceipts?: DecisionReceiptStore) {
   const adapter: DecisionAdapter = { id: 'jev', version: '1.0.0', capabilities: async () => ({
     answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
     features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-    confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true,
+    confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const },
   }), evaluate: vi.fn(async ({ alias }) => ({ status: 'success' as const, reason: 'none' as const,
     value: alias === 'category' ? 'documentation' : alias === 'severity' ? 0.25 : 0.05,
     uncertainty: { source: 'provider' as const, profile: alias === 'core_unavailable' ? 'typesafe-truth-v1' : 'typesafe-distribution-v1',

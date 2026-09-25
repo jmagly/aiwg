@@ -2,7 +2,7 @@ import type { DecisionTelemetrySpan, DecisionTelemetryTrace, TelemetryAttribute,
 
 const PROTECTED_KEY = /(?:state|question|prompt|response|answer(?:\.body)?|authorization|api[_-]?key|credential|vault|secret|reasoning|cookie|token(?!s?$))/i;
 const CONTROL = /[\u0000-\u001f\u007f]/g;
-const SAFE_EVENT_NAMES = new Set(['retry.scheduled', 'attempt.terminated']);
+const SAFE_EVENT_NAMES = new Set(['retry.scheduled', 'attempt.terminated', 'breaker.transition']);
 // Only schema-declared metadata may cross the telemetry boundary. A syntactically
 // plausible custom key can still carry body text or PII in its value.
 const SAFE_ATTRIBUTE_KEYS = new Set(`
@@ -21,17 +21,26 @@ const SAFE_ATTRIBUTE_KEYS = new Set(`
   aiwg.batch.id aiwg.batch.mode aiwg.batch.plan_digest aiwg.batch.partition_id
   aiwg.batch.item_count aiwg.batch.result_count aiwg.job.id
   aiwg.job.operation aiwg.job.status aiwg.job.revision aiwg.job.item_count aiwg.job.unknown_count
-  aiwg.review.id
+  aiwg.review.id aiwg.operator_decision.event_id
   aiwg.review.status aiwg.review.event aiwg.review.revision aiwg.effect_receipt.id
   aiwg.provider.request_id aiwg.provider.request_id_source aiwg.remote.execution
   aiwg.usage.cost_usd aiwg.usage.cost_provenance aiwg.usage.scope aiwg.link.state
   aiwg.link.tombstone aiwg.queue.delay_ms aiwg.drift.value
+  aiwg.admission.decision aiwg.admission.reason aiwg.admission.estimated_tokens aiwg.admission.estimated_cost_usd
+  aiwg.admission.retry_after_ms aiwg.queue.active aiwg.queue.queued aiwg.retry.pressure
+  aiwg.breaker.status aiwg.breaker.from aiwg.breaker.to
+  aiwg.projection.mode aiwg.projection.outcome aiwg.projection.reason aiwg.projection.field_count
+  aiwg.projection.incomplete_context aiwg.projection.automatic_action_allowed
   gen_ai.request.model gen_ai.response.model gen_ai.usage.input_tokens
   gen_ai.usage.output_tokens http.response.status_code
 `.trim().split(/\s+/));
 for (const prefix of ['aiwg.definition', 'aiwg.policy', 'aiwg.calibration']) {
   for (const suffix of ['id', 'version', 'digest']) SAFE_ATTRIBUTE_KEYS.add(`${prefix}.${suffix}`);
 }
+// Declared keys whose names match PROTECTED_KEY but carry only fixed metadata.
+// `aiwg.link.state` is the deletion tombstone marker; dropping it would turn an
+// explicit tombstone into an unexplained link in exports.
+const PROTECTED_KEY_EXEMPTIONS = new Set(['gen_ai.response.model', 'http.response.status_code', 'aiwg.link.state']);
 export const DEFAULT_ATTRIBUTE_VALUE_LIMIT = 256;
 
 export function sanitizeOpaqueValue(value: string, maximum = DEFAULT_ATTRIBUTE_VALUE_LIMIT): string {
@@ -45,7 +54,7 @@ export function sanitizeAttributes(
   const output: TelemetryAttributes = {};
   for (const [key, original] of Object.entries(attributes)) {
     if (!SAFE_ATTRIBUTE_KEYS.has(key)
-      || (PROTECTED_KEY.test(key) && key !== 'gen_ai.response.model' && key !== 'http.response.status_code')
+      || (PROTECTED_KEY.test(key) && !PROTECTED_KEY_EXEMPTIONS.has(key))
       || (options.publicExport && key === 'aiwg.provider.request_id')
       || options.canaries?.some(canary => canary && key.toLowerCase().includes(canary.toLowerCase()))) continue;
     let value: TelemetryAttribute = original;

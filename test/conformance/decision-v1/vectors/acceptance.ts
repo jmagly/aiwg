@@ -90,7 +90,7 @@ async function legacyThresholdReason(
     id: target.adapter, version: target.adapterVersion,
     capabilities: async () => ({
       answerKinds: ['choice'], features: ['structured-entries'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1'], executable: true,
+      confidenceProfiles: ['typesafe-distribution-v1'], executable: true, egress: { mode: 'none' as const },
     }),
     evaluate: async () => ({
       status: 'success', reason: 'none', value: 'documentation', actualModel: 'qualification-fixture', requestId: null,

@@ -1,4 +1,5 @@
 import { canonicalJson } from '../../security/artifact-trust.js';
+import { isTraceparent } from '../telemetry/context.js';
 import type { BatchAttempt, DecisionBatchReceipt } from './types.js';
 
 const HASH = /^sha256:[0-9a-f]{64}$/;
@@ -26,7 +27,8 @@ export function validateBatchReceipt(receipt: DecisionBatchReceipt): void {
     || !Number.isSafeInteger(receipt.updatedAtEpochMs) || receipt.updatedAtEpochMs < receipt.createdAtEpochMs
     || (TERMINAL.has(receipt.status) !== (receipt.terminalAtEpochMs !== null))
     || (receipt.terminalAtEpochMs !== null && (!Number.isSafeInteger(receipt.terminalAtEpochMs)
-      || receipt.terminalAtEpochMs < receipt.createdAtEpochMs))) fail();
+      || receipt.terminalAtEpochMs < receipt.createdAtEpochMs))
+    || (receipt.traceParent !== undefined && !isTraceparent(receipt.traceParent))) fail();
   receipt.attempts.forEach((attempt, index) => validateAttempt(attempt, index + 1));
   const answers = new Set<string>(); const referencedQuestions = new Set<string>(); const results = new Set<string>();
   for (const ref of receipt.answerReferences) {
@@ -67,6 +69,7 @@ export function validateBatchReceiptTransition(previous: DecisionBatchReceipt, n
   for (const key of immutable) if (canonicalJson(previous[key]) !== canonicalJson(next[key])) {
     throw new BatchReceiptValidationError(`Immutable batch receipt field changed: ${key}`);
   }
+  if (previous.traceParent !== next.traceParent) throw new BatchReceiptValidationError('Immutable batch receipt field changed: traceParent');
   if (next.attempts.length < previous.attempts.length
     || previous.attempts.some((attempt, index) => canonicalJson(attempt) !== canonicalJson(next.attempts[index]))) {
     throw new BatchReceiptValidationError('Batch attempt chronology is append-only');

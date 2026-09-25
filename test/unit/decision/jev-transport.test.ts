@@ -34,6 +34,18 @@ describe('Jev transport contract', () => {
     expect(result.requestIdSource).toBe(source);
   });
 
+  it('forwards only a well-formed W3C traceparent to the transport', async () => {
+    const traceparent = `00-${'a'.repeat(32)}-${'b'.repeat(16)}-01`;
+    const seen: Array<Record<string, string>> = [];
+    const adapter = new JevDecisionAdapter({ fetch: async (_url, init) => { seen.push(init!.headers as Record<string, string>); return reply(); } });
+    await adapter.evaluate(request({ traceContext: { traceparent } }));
+    await adapter.evaluate(request({ traceContext: { traceparent: `${traceparent}\r\nx-injected: 1` } }));
+    await adapter.evaluate(request({ traceContext: { traceparent: `00-${'0'.repeat(32)}-${'b'.repeat(16)}-01` } }));
+    await adapter.evaluate(request());
+    expect(seen.map(headers => headers.traceparent ?? null)).toEqual([traceparent, null, null, null]);
+    expect(seen.some(headers => Object.hasOwn(headers, 'tracestate') || Object.hasOwn(headers, 'x-injected'))).toBe(false);
+  });
+
   it.each([408, 429, 529, 500, 503, 401, 403, 404, 422])('RTY-STATUS-%i: classifies HTTP with status and request ID', async status => {
     const adapter = new JevDecisionAdapter({ fetch: async () => reply(status, { 'x-typesafe-request-id': 'error-id' }) });
     const result = await adapter.evaluate(request());
@@ -249,7 +261,7 @@ function evaluationFixture(observe: () => AdapterObservation, extra: Record<stri
   const adapter: DecisionAdapter = {
     id: 'jev', version: '1.0.0',
     capabilities: async () => ({ answerKinds: ['choice'], features: ['typed-output'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1'], executable: true }),
+      confidenceProfiles: ['typesafe-distribution-v1'], executable: true, egress: { mode: 'none' as const } }),
     evaluate: async () => observe(),
   };
   return { ruleset, binding, definitions: { category: fixture<DecisionDefinition>('decision-category.json') },

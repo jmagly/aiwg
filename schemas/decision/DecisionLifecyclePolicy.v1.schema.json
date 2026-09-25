@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionLifecyclePolicy.v1.schema.json",
+  "title": "AIWG Decision Lifecycle Policy v1",
+  "description": "Trusted host lifecycle controls (decision-lifecycle/v1). Every surface must declare classification, access scope, retention, export, deletion and backup handling; omissions are rejected rather than defaulted. Mirrors validateDecisionLifecyclePolicy.",
+  "type": "object",
+  "required": ["version", "surfaces"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": "decision-lifecycle/v1" },
+    "surfaces": {
+      "type": "object",
+      "required": [
+        "state", "receipt", "trace", "debug-sidecar", "cache", "job", "review",
+        "calibration", "evaluation", "export", "preprocessing-lineage"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "state": { "$ref": "#/$defs/rule" },
+        "receipt": { "$ref": "#/$defs/rule" },
+        "trace": { "$ref": "#/$defs/rule" },
+        "debug-sidecar": { "$ref": "#/$defs/rule" },
+        "cache": { "$ref": "#/$defs/rule" },
+        "job": { "$ref": "#/$defs/rule" },
+        "review": { "$ref": "#/$defs/rule" },
+        "calibration": { "$ref": "#/$defs/rule" },
+        "evaluation": { "$ref": "#/$defs/rule" },
+        "export": { "$ref": "#/$defs/rule" },
+        "preprocessing-lineage": { "$ref": "#/$defs/rule" }
+      }
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "required": ["classification", "accessScopes", "retentionMs", "export", "deletion", "backup"],
+      "additionalProperties": false,
+      "properties": {
+        "classification": { "enum": ["public", "internal", "confidential", "restricted"] },
+        "accessScopes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "retentionMs": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "export": { "enum": ["denied", "sanitized"] },
+        "deletion": { "enum": ["erase", "tombstone"] },
+        "backup": { "enum": ["not-persisted", "expire-with-primary"] }
+      }
+    }
+  }
+}

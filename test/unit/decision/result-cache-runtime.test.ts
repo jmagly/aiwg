@@ -28,7 +28,7 @@ function setup() {
   const definition = fixture<DecisionDefinition>('decision-category.json');
   const target = binding.spec.evaluations.category!.targets[0]!;
   const adapter: DecisionAdapter = { id: 'jev', version: '1.0.0',
-    capabilities: async () => ({ answerKinds: ['choice'], features: ['choice'], maxOptions: null, maxLevels: null, confidenceProfiles: [], executable: true }),
+    capabilities: async () => ({ answerKinds: ['choice'], features: ['choice'], maxOptions: null, maxLevels: null, confidenceProfiles: [], executable: true, egress: { mode: 'none' as const } }),
     evaluate: vi.fn(async () => ({ status: 'success' as const, reason: 'none' as const, value: 'documentation', uncertainty: null,
       actualModel: target.model, usage: { inputTokens: 12, outputTokens: 2, costUsd: 0.01 }, requestId: 'remote' })) };
   const receiptStore = new MemoryDecisionReceiptStore();

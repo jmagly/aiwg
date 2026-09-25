@@ -4,6 +4,8 @@ import { LlmSubagentDecisionAdapter } from 'aiwg/decision';
 const worker = JSON.parse(await readFile(new URL('./worker-fixture.json', import.meta.url), 'utf8'));
 
 export default new LlmSubagentDecisionAdapter({
+  // Deterministic in-process worker: no state leaves the host.
+  egress: { mode: 'none' },
   resolveWorker: async () => worker,
   runWorker: async request => {
     const prompt = JSON.parse(request.prompt);

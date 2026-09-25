@@ -1,6 +1,7 @@
 import type {
   ContextActualUsageEvidence,
   ContextPlan,
+  ContextPlanFailureReason,
   ContextPlanInput,
   ContextProviderProfile,
   ContextTokenEstimator,
@@ -105,7 +106,11 @@ export type DecisionFailureReason =
   | 'rate-limited' | 'overloaded' | 'service-error' | 'authentication'
   | 'invalid-request' | 'budget-exhausted' | 'cancelled'
   | 'persistence-error' | 'replay-mismatch' | 'execution-uncertain' | 'batch-record-unavailable'
-  | 'no-match' | 'conflicting-outcomes' | 'evaluation-failed';
+  | 'no-match' | 'conflicting-outcomes' | 'evaluation-failed'
+  /** D06: a supplied or batch-receipt context plan no longer matches current assumptions. */
+  | 'context-plan-stale'
+  /** D06: partitioned native batching lacks an explicit, qualified context rollout. */
+  | 'context-unqualified';
 
 export type AcceptanceDisposition = 'act' | 'review' | 'reject' | 'fallback';
 export type AcceptanceMetric =
@@ -256,6 +261,13 @@ export interface DecisionAdmissionEvidence {
   breakerState: 'closed' | 'open' | 'half-open';
   /** Bounded hint only; it is intentionally jittered by the controller. */
   retryAfterMs?: number;
+  /** Breaker transitions caused by admitting or releasing this attempt, in order. */
+  breakerTransitions?: DecisionBreakerTransition[];
+}
+
+export interface DecisionBreakerTransition {
+  from: 'closed' | 'open' | 'half-open';
+  to: 'closed' | 'open' | 'half-open';
 }
 
 export interface DecisionAdmissionLimits {
@@ -273,6 +285,16 @@ export interface DecisionAdmissionLimits {
   /** Maximum work units the host may retain for this request. */
   maxRetainedWork?: number;
   circuitBreaker?: { failureThreshold: number; openMs: number; halfOpenMaxCalls: number };
+  /**
+   * Principal limits only: workspace and provider permits held back for this
+   * principal. Other principals cannot take them while they are unused.
+   */
+  reservedConcurrency?: number;
+  /**
+   * Workspace or provider limits only: the fraction (0, 1] of this pool's
+   * concurrency and queue length that one principal may hold.
+   */
+  maxPrincipalShare?: number;
 }
 
 export interface DecisionAdmissionEstimate {
@@ -347,8 +369,26 @@ export interface RulesetResult {
     cache?: ResultCacheCallerReceipt;
     /** Invocation-wide context plan plus immutable estimate-versus-actual evidence. */
     context?: DecisionContextEvidence;
+    /** Present only when the host explicitly dispatched unprojected input (v1alpha2). */
+    projection?: DecisionProjectionOptOutRecord;
+    /** Body-free D06 preflight diagnostic for a context-plan rejection. */
+    contextFailure?: DecisionContextFailure;
   };
 }
+
+/** Result and receipt record of a host-only projection opt-out. Never derived from input. */
+export interface DecisionProjectionOptOutRecord {
+  mode: 'unprojected-local';
+  authority: 'host';
+}
+
+/**
+ * Adapter egress declaration. Omitted means network-capable with an unknown
+ * destination, so unprojected dispatch and every projection policy are denied.
+ */
+export type DecisionAdapterEgress =
+  | { mode: 'none' }
+  | { mode: 'network'; origin: string | null; region: string | null };
 
 export interface AdapterCapabilities {
   answerKinds: DecisionAnswer['kind'][];
@@ -364,6 +404,8 @@ export interface AdapterCapabilities {
     /** Opaque adapter/configuration identity for host and transport policy. */
     executionEnvelope: string;
   };
+  /** Trusted adapter configuration; see DecisionAdapterEgress. */
+  egress?: DecisionAdapterEgress;
 }
 
 export interface AdapterObservation {
@@ -416,6 +458,16 @@ export interface DecisionAdapterRequest {
   compiledArtifact?: JsonValue;
   /** Metadata-only evidence that host-authorized projection preceded dispatch. */
   projectionEvidence?: DecisionProjectionEvidence;
+  /**
+   * W3C trace context of the evaluator's live attempt span. Adapters may forward
+   * `traceparent` to their transport; it never carries provider request identity.
+   */
+  traceContext?: DecisionTransportTraceContext;
+}
+
+/** Only `traceparent` crosses a provider boundary; vendor `tracestate` stays local. */
+export interface DecisionTransportTraceContext {
+  traceparent: string;
 }
 
 export interface DecisionRuntimeProjectionPolicy {
@@ -433,6 +485,11 @@ export interface DecisionRuntimeProjectionPolicy {
   };
 }
 
+/** Explicit host-only opt-out for local and test harnesses. Portable artifacts cannot express it. */
+export interface DecisionUnprojectedLocalOptOut {
+  mode: 'unprojected-local';
+}
+
 export interface DecisionAdapterCompileRequest {
   definition: DecisionDefinition;
   target: ExecutionTarget;
@@ -441,6 +498,8 @@ export interface DecisionAdapterCompileRequest {
 export interface DecisionAdapterBatchRequest {
   requests: DecisionAdapterRequest[];
   decisionSubject: string;
+  /** Trace context of the shared `decision.batch.request` span. */
+  traceContext?: DecisionTransportTraceContext;
 }
 
 export interface DecisionAdapterBatchObservation {
@@ -540,6 +599,15 @@ export interface DecisionContextEvidence {
   actualUsage: ContextActualUsageEvidence[];
 }
 
+/** Why context preflight rejected an invocation. Carries digests only, never state or question bodies. */
+export interface DecisionContextFailure {
+  schemaVersion: 'decision-context-failure/v1';
+  reason: ContextPlanFailureReason;
+  /** Stale plans: the supplied (or batch-receipt) plan digest and the digest replanning produced. */
+  plannedDigest?: `sha256:${string}`;
+  currentDigest?: `sha256:${string}`;
+}
+
 /** Explicit, qualified context preflight. It remains inert unless supplied. */
 export interface DecisionContextPolicy {
   input: ContextPlanInput;
@@ -547,7 +615,10 @@ export interface DecisionContextPolicy {
   estimator: ContextTokenEstimator;
   /** Optional caller-persisted plan. A stale plan fails closed instead of silently replanning. */
   plan?: ContextPlan;
-  /** Observe-only disables native batching; enforce requires a matching provider-backed qualification. */
+  /**
+   * Observe-only disables native batching; enforce requires a matching provider-backed qualification.
+   * Omitted fails closed (`context-unqualified`) when native batching is enabled; single calls still run.
+   */
   rollout?: { mode: 'observe-only' } | { mode: 'enforce'; qualification: ContextQualification };
 }
 
@@ -574,11 +645,22 @@ export interface DecisionReceipt {
   remoteHandles: string[];
   evaluations: Record<string, DecisionResult>;
   pending: { alias: string; targetIndex: number; ordinal: number; attempts: DecisionAttempt[] } | null;
+  /**
+   * Immutable W3C `traceparent` of the workflow span that acquired this receipt.
+   * Covered by the store's integrity MAC; a replay links to it instead of inventing a new identity.
+   */
+  traceParent?: string;
+}
+
+export interface DecisionReceiptAcquireOptions {
+  /** Recorded only when this call creates the receipt; ignored when one already exists. */
+  traceParent?: string;
 }
 
 export interface DecisionReceiptStore {
   read(invocationId: string, projectId?: string): Promise<DecisionReceipt | null>;
-  acquire(invocationId: string, projectId: string, fingerprint: string): Promise<{ owner: boolean; receipt: DecisionReceipt }>;
+  acquire(invocationId: string, projectId: string, fingerprint: string,
+    options?: DecisionReceiptAcquireOptions): Promise<{ owner: boolean; receipt: DecisionReceipt }>;
   compareAndSwap(invocationId: string, projectId: string, expectedRevision: number, next: DecisionReceipt): Promise<boolean>;
   waitForTerminal(invocationId: string, projectId: string, fingerprint: string, signal?: AbortSignal): Promise<DecisionReceipt>;
 }
@@ -637,8 +719,14 @@ export interface DecisionEvaluationRequest {
   };
   /** Optional policy for consuming provider-reported prompt-prefix metadata. */
   providerPrefix?: DecisionProviderPrefixPolicy;
-  /** Optional trusted host-side state projection boundary. */
-  projection?: DecisionRuntimeProjectionPolicy;
+  /**
+   * Trusted host-side state projection boundary. Required for any adapter that
+   * does not declare `egress: { mode: 'none' }`; omitting it denies dispatch as
+   * `data-boundary-denied` before credential resolution or transport. The
+   * host-only `{ mode: 'unprojected-local' }` opt-out sends authorized input
+   * unprojected and is recorded in the result and receipt.
+   */
+  projection?: DecisionRuntimeProjectionPolicy | DecisionUnprojectedLocalOptOut;
   /** Optional metadata-only observability sink. Its failures never affect evaluation. */
   telemetry?: {
     hook: DecisionTelemetryHook;

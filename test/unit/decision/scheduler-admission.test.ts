@@ -24,7 +24,7 @@ const request = (signal: AbortSignal = new AbortController().signal, estimate: A
 });
 
 describe('bounded fair decision scheduler', () => {
-  it('bounds active work while retaining canonical input order', async () => {
+  it('CNC-SCHED-001 bounds active work while retaining canonical input order', async () => {
     vi.useFakeTimers();
     try {
       let active = 0;
@@ -50,7 +50,7 @@ describe('bounded fair decision scheduler', () => {
     { label: '2', items: 2, expectedMaximum: 2 },
     { label: 'N', items: 4, expectedMaximum: 4 },
     { label: 'N+1', items: 5, expectedMaximum: 4 },
-  ])('enforces the 1/2/N/N+1 concurrency boundary at $label', async ({ items, expectedMaximum }) => {
+  ])('CNC-SCHED-002 enforces the 1/2/N/N+1 concurrency boundary at $label', async ({ items, expectedMaximum }) => {
     const ceiling = 4;
     let active = 0;
     let maximum = 0;
@@ -81,7 +81,7 @@ describe('bounded fair decision scheduler', () => {
     expect(maximum).toBe(expectedMaximum);
   });
 
-  it('is byte-identical in canonical input order across randomized completion orders', async () => {
+  it('CNC-SCHED-003 is byte-identical in canonical input order across randomized completion orders', async () => {
     const inputs = Array.from({ length: 64 }, (_, value) => ({ value, lane: `lane-${value % 7}` }));
     const execute = async (seed: number): Promise<string> => {
       let state = seed >>> 0;
@@ -106,7 +106,7 @@ describe('bounded fair decision scheduler', () => {
     }
   });
 
-  it('round-robins an eligible quiet lane through a noisy neighbor backlog', async () => {
+  it('CNC-SCHED-004 round-robins an eligible quiet lane through a noisy neighbor backlog', async () => {
     const starts: string[] = [];
     const work = [
       ...Array.from({ length: 32 }, (_, value) => ({ value: `noisy-${value}`, lane: 'noisy' })),
@@ -122,7 +122,7 @@ describe('bounded fair decision scheduler', () => {
     expect(results).toEqual(work.map(item => item.value));
   });
 
-  it('keeps the preregistered load spike and synthetic soak within active and fairness bounds', async () => {
+  it('CNC-SCHED-005 keeps the preregistered load spike and synthetic soak within active and fairness bounds', async () => {
     const manifestPath = resolve(process.cwd(), 'docs/decision/load-manifest.v1.json');
     const manifestBytes = readFileSync(manifestPath);
     expect(createHash('sha256').update(manifestBytes).digest('hex'))
@@ -163,7 +163,7 @@ describe('bounded fair decision scheduler', () => {
 
 describe('decision provider admission', () => {
   afterEach(() => vi.useRealTimers());
-  it('enforces admission permits at 1/2/N/N+1 without over-admitting the queued request', async () => {
+  it('CNC-ADMIT-001 enforces admission permits at 1/2/N/N+1 without over-admitting the queued request', async () => {
     const guarded = limits({ concurrency: 4 });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
     const leases = [];
@@ -185,7 +185,7 @@ describe('decision provider admission', () => {
     leases.slice(1).forEach(lease => lease.release({ success: true }));
   });
 
-  it('admits a quiet principal after at most one noisy-neighbor continuation', async () => {
+  it('CNC-ADMIT-002 admits a quiet principal after at most one noisy-neighbor continuation', async () => {
     const principal = limits({ concurrency: 1, maxQueueLength: 64 });
     const workspace = limits({ concurrency: 1, maxQueueLength: 64 });
     const provider = limits({ concurrency: 1, maxQueueLength: 64 });
@@ -203,7 +203,7 @@ describe('decision provider admission', () => {
     expect(order.indexOf('quiet')).toBeLessThanOrEqual(1);
   });
 
-  it('cancels a queued caller without consuming a provider permit', async () => {
+  it('CNC-ADMIT-003 cancels a queued caller without consuming a provider permit', async () => {
     const shared = limits();
     const controller = new DecisionAdmissionController(() => ({ principal: shared, workspace: shared, provider: shared }));
     const first = await controller.acquire(request());
@@ -217,7 +217,7 @@ describe('decision provider admission', () => {
     next.release({ success: true });
   });
 
-  it('rejects unknown cost and oversized batches with typed independent reasons', async () => {
+  it('CNC-ADMIT-004 rejects unknown cost and oversized batches with typed independent reasons', async () => {
     const guarded = limits({ maxCostUsd: 1, allowUnknownCost: false, maxBatchSize: 2 });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
     await expect(controller.acquire(request(new AbortController().signal, { costUsd: null }))).rejects.toMatchObject({ evidence: { reason: 'unknown-cost' } });
@@ -229,7 +229,7 @@ describe('decision provider admission', () => {
     { limits: { maxItems: 2 }, estimate: { items: 3 }, reason: 'too-many-items' },
     { limits: { maxRetainedWork: 2 }, estimate: {}, reason: 'unknown-retained-work' },
     { limits: { maxRetainedWork: 2 }, estimate: { retainedWork: 3 }, reason: 'retained-work' },
-  ] as const)('rejects $reason independently before queueing', async ({ limits: overrides, estimate, reason }) => {
+  ] as const)('CNC-ADMIT-005 rejects $reason independently before queueing', async ({ limits: overrides, estimate, reason }) => {
     const guarded = limits(overrides);
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
     await expect(controller.acquire(request(new AbortController().signal, estimate)))
@@ -239,7 +239,7 @@ describe('decision provider admission', () => {
   it.each([
     { limits: { requestsPerMinute: 1 }, estimate: {}, reason: 'requests-per-minute' },
     { limits: { tokensPerSecond: 1 }, estimate: { tokens: 1 }, reason: 'tokens-per-second' },
-  ] as const)('defers $reason independently after its bucket is consumed', async ({ limits: overrides, estimate, reason }) => {
+  ] as const)('CNC-ADMIT-006 defers $reason independently after its bucket is consumed', async ({ limits: overrides, estimate, reason }) => {
     const guarded = limits(overrides);
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
     const first = await controller.acquire(request(new AbortController().signal, estimate));
@@ -257,14 +257,14 @@ describe('decision provider admission', () => {
   it.each([
     { policy: { tokensPerSecond: 4 }, estimate: { tokens: 5 }, reason: 'tokens-per-second' },
     { policy: { requestsPerMinute: 0 }, estimate: {}, reason: 'requests-per-minute' },
-  ] as const)('rejects impossible $reason admission without retaining a waiter', async ({ policy, estimate, reason }) => {
+  ] as const)('CNC-ADMIT-007 rejects impossible $reason admission without retaining a waiter', async ({ policy, estimate, reason }) => {
     const guarded = limits(policy);
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
     await expect(controller.acquire(request(new AbortController().signal, estimate)))
       .rejects.toMatchObject({ retryable: false, evidence: { decision: 'reject', reason, queued: 0 } });
   });
 
-  it('rejects a queued token estimate when a tightened profile can never refill enough', async () => {
+  it('CNC-ADMIT-008 rejects a queued token estimate when a tightened profile can never refill enough', async () => {
     let current = limits({ concurrency: 1, tokensPerSecond: 20 });
     const controller = new DecisionAdmissionController(() => ({ principal: current, workspace: current, provider: current }));
     const held = await controller.acquire(request());
@@ -274,7 +274,7 @@ describe('decision provider admission', () => {
     await expect(pending).rejects.toMatchObject({ retryable: false, evidence: { reason: 'tokens-per-second' } });
   });
 
-  it('enforces invocation-scoped attempt and cost budgets independently', async () => {
+  it('CNC-ADMIT-009 enforces invocation-scoped attempt and cost budgets independently', async () => {
     const attemptLimits = limits({ maxAttempts: 1 });
     const attempts = new DecisionAdmissionController(() => ({ principal: attemptLimits, workspace: attemptLimits, provider: attemptLimits }));
     const first = await attempts.acquire(request(new AbortController().signal, { attempts: 1 }));
@@ -292,7 +292,7 @@ describe('decision provider admission', () => {
     { tokens: -1 }, { tokens: NaN }, { tokens: Infinity }, { requestBytes: 1.5 },
     { items: -1 }, { attempts: NaN }, { batchSize: Infinity }, { retainedWork: -1 },
     { costUsd: -0.01 }, { costUsd: NaN }, { costUsd: Infinity },
-  ])('rejects malformed resource estimates before acquiring a permit: %j', async estimate => {
+  ])('CNC-ADMIT-010 rejects malformed resource estimates before acquiring a permit: %j', async estimate => {
     const guarded = limits({ maxCostUsd: 1 });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
     await expect(controller.acquire(request(new AbortController().signal, estimate)))
@@ -302,7 +302,7 @@ describe('decision provider admission', () => {
     safe.release({ success: true });
   });
 
-  it('revalidates queued work against a tightened admission profile before dispatch', async () => {
+  it('CNC-ADMIT-011 revalidates queued work against a tightened admission profile before dispatch', async () => {
     let current = limits({ maxRequestBytes: 1_000 });
     const controller = new DecisionAdmissionController(() => ({ principal: current, workspace: current, provider: current }));
     const first = await controller.acquire(request());
@@ -318,7 +318,7 @@ describe('decision provider admission', () => {
     safe.release({ success: true });
   });
 
-  it('bounds real loopback slow-client traffic and sheds overflow without sending it', async () => {
+  it('CNC-ADMIT-012 bounds real loopback slow-client traffic and sheds overflow without sending it', async () => {
     let served = 0;
     let finishFirst!: () => void;
     let firstStarted!: () => void;
@@ -369,7 +369,7 @@ describe('decision provider admission', () => {
     }
   });
 
-  it('sheds slow-client backlog before dispatch and restores capacity after waiter expiry', async () => {
+  it('CNC-ADMIT-013 sheds slow-client backlog before dispatch and restores capacity after waiter expiry', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     const guarded = limits({ concurrency: 1, maxQueueLength: 2, maxQueueWaitMs: 40 });
@@ -387,7 +387,7 @@ describe('decision provider admission', () => {
     next.release({ success: true });
   });
 
-  it('rolls back a tightened profile at a run boundary without reviving rejected waiters', async () => {
+  it('CNC-ADMIT-014 rolls back a tightened profile at a run boundary without reviving rejected waiters', async () => {
     const original = limits({ concurrency: 1, maxRequestBytes: 200 });
     let current = original;
     const controller = new DecisionAdmissionController(() => ({ principal: current, workspace: current, provider: current }));
@@ -402,7 +402,7 @@ describe('decision provider admission', () => {
     restored.release({ success: true });
   });
 
-  it('bounds retry amplification when failures exhaust the invocation attempt budget', async () => {
+  it('CNC-ADMIT-015 bounds retry amplification when failures exhaust the invocation attempt budget', async () => {
     const guarded = limits({ maxAttempts: 2 });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
     let calls = 0;
@@ -418,7 +418,7 @@ describe('decision provider admission', () => {
     expect(calls).toBe(2);
   });
 
-  it('sheds many-small and few-huge requests without starving a separate authorized scope', async () => {
+  it('CNC-ADMIT-016 sheds many-small and few-huge requests without starving a separate authorized scope', async () => {
     const principal = limits({ concurrency: 1, maxQueueLength: 8, maxRequestBytes: 64, tokensPerSecond: 4 });
     const shared = limits({ concurrency: 2, maxQueueLength: 16 });
     const controller = new DecisionAdmissionController(() => ({ principal, workspace: shared, provider: shared }));
@@ -446,7 +446,7 @@ describe('decision provider admission', () => {
     }
   });
 
-  it('bounds queues and emits only aggregate metadata', async () => {
+  it('CNC-ADMIT-017 bounds queues and emits only aggregate metadata', async () => {
     const guarded = limits({ maxQueueLength: 1 });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
     const first = await controller.acquire(request());
@@ -459,7 +459,7 @@ describe('decision provider admission', () => {
     first.release({ success: true });
   });
 
-  it('coordinates Retry-After per provider without blocking unrelated providers', async () => {
+  it('CNC-ADMIT-018 coordinates Retry-After per provider without blocking unrelated providers', async () => {
     const shared = limits({ concurrency: 2 });
     const controller = new DecisionAdmissionController(() => ({ principal: shared, workspace: shared, provider: shared }));
     controller.coordinateRetryAfter('jev', 100);
@@ -472,7 +472,7 @@ describe('decision provider admission', () => {
     await expect(paused).rejects.toMatchObject({ evidence: { reason: 'cancelled' } });
   });
 
-  it('resumes a provider lane after Retry-After and wakes at an earlier deadline', async () => {
+  it('CNC-ADMIT-019 resumes a provider lane after Retry-After and wakes at an earlier deadline', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     const shared = limits({ concurrency: 2, maxQueueWaitMs: 1_000 });
@@ -495,7 +495,7 @@ describe('decision provider admission', () => {
     await expiredAssertion;
   });
 
-  it('caps half-open probes and reopens the breaker when the probe fails', async () => {
+  it('CNC-ADMIT-020 caps half-open probes and reopens the breaker when the probe fails', async () => {
     let now = 0;
     const guarded = limits({ circuitBreaker: { failureThreshold: 1, openMs: 100, halfOpenMaxCalls: 1 } });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }), () => now);
@@ -518,7 +518,7 @@ describe('decision provider admission', () => {
     await expect(follower).rejects.toMatchObject({ evidence: { reason: 'cancelled' } });
   });
 
-  it('moves a failed provider through open and half-open back to closed', async () => {
+  it('CNC-ADMIT-021 moves a failed provider through open and half-open back to closed', async () => {
     let now = 0;
     const guarded = limits({ circuitBreaker: { failureThreshold: 1, openMs: 100, halfOpenMaxCalls: 1 } });
     const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }), () => now);

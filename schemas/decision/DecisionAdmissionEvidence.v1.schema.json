@@ -20,7 +20,20 @@
     "estimatedCostUsd": { "type": ["number", "null"], "minimum": 0 },
     "retryPressure": { "type": "integer", "minimum": 0 },
     "breakerState": { "enum": ["closed", "open", "half-open"] },
-    "retryAfterMs": { "type": "integer", "minimum": 1, "maximum": 30000 }
+    "retryAfterMs": { "type": "integer", "minimum": 1, "maximum": 30000 },
+    "breakerTransitions": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": { "enum": ["closed", "open", "half-open"] },
+          "to": { "enum": ["closed", "open", "half-open"] }
+        },
+        "required": ["from", "to"],
+        "additionalProperties": false
+      }
+    }
   },
   "required": [
     "decision", "reason", "queueDelayMs", "active", "queued", "estimatedTokens",

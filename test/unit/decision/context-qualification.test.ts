@@ -27,9 +27,9 @@ describe('CTX qualification and TV-12 retained comparisons', () => {
     expect(first.qualifiedForEnforcement).toBe(true);
     expect(() => assertContextQualified(first, profile, estimator)).not.toThrow();
     expect(() => assertContextQualified(first, { ...profile, version: 'next' }, estimator))
-      .toThrowError(expect.objectContaining({ reason: 'invalid-profile' }));
+      .toThrowError(expect.objectContaining({ reason: 'rollout-unqualified' }));
     expect(() => assertContextQualified({ ...first, cases: first.cases.map(c => ({ ...c, source: 'synthetic' })) }, profile, estimator))
-      .toThrowError(expect.objectContaining({ reason: 'invalid-profile' }));
+      .toThrowError(expect.objectContaining({ reason: 'rollout-unqualified' }));
     expect(JSON.stringify(first)).not.toContain('authorizedState');
     expect(compareContextUsage([sample('b', 1100, 'provider')], { ...profile, version: 'next' }, estimator).profile.digest)
       .not.toBe(first.profile.digest);
@@ -39,7 +39,7 @@ describe('CTX qualification and TV-12 retained comparisons', () => {
     const synthetic = compareContextUsage([sample('a', 1100, 'synthetic')], profile, estimator);
     expect(synthetic).toMatchObject({ qualifiedForEnforcement: false, reason: 'synthetic-only' });
     expect(() => assertContextQualified(synthetic, profile, estimator))
-      .toThrowError(expect.objectContaining({ reason: 'invalid-profile' }));
+      .toThrowError(expect.objectContaining({ reason: 'rollout-unqualified' }));
     expect(compareContextUsage([sample('a', 1300, 'provider')], profile, estimator))
       .toMatchObject({ qualifiedForEnforcement: false, reason: 'undercount-exceeds-margin' });
   });

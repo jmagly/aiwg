@@ -9,6 +9,10 @@ export class ReviewDefinitiveExecutionError extends Error {}
 import { DecisionTraceBuilder } from '../telemetry/trace.js';
 import { sanitizeOpaqueValue } from '../telemetry/redaction.js';
 import { replayReviewOperatorAudit } from './operator-audit.js';
+import type { DecisionCorrelation } from '../../audit/operator-decision.js';
+
+/** Review events that map to a #1567 operator decision record. */
+const OPERATOR_DECISION_EVENTS = new Set<ReviewEventType>(['approved', 'rejected', 'escalated', 'authorization-denied']);
 
 export class DecisionReviewService {
   private readonly resumingLeaseMs: number;
@@ -179,6 +183,7 @@ export class DecisionReviewService {
         const denied = this.append(review, 'authorization-denied', scope.actor, 'resume authorization denied', review.status);
         if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, denied)) continue;
         await this.auditReview(denied);
+        await this.emitTelemetry(denied);
         throw new ReviewAccessError('Authorization is no longer valid');
       }
       if (review.status === 'resuming') {
@@ -269,35 +274,54 @@ export class DecisionReviewService {
     if (!this.operatorAudit) return;
     const audit = this.operatorAudit;
     const next = this.auditQueue.then(async () => {
-      await replayReviewOperatorAudit(review, audit.store, audit.correlation(review), audit.classification);
+      await replayReviewOperatorAudit(review, audit.store, this.auditCorrelation(review), audit.classification);
     });
     this.auditQueue = next.catch(() => {});
     await next;
+  }
+
+  /**
+   * The #1567 record and the review span must share one trace identity. When the
+   * host supplies a telemetry parent and no explicit trace ID, bind the audit
+   * correlation to that W3C trace instead of keeping a parallel identifier.
+   */
+  private auditCorrelation(review: DecisionReview): DecisionCorrelation {
+    const correlation = this.operatorAudit!.correlation(review);
+    const parent = this.telemetry?.parent;
+    return parent && correlation.trace_id === undefined ? { ...correlation, trace_id: parent.traceId } : correlation;
   }
 
   private async emitTelemetry(review: DecisionReview, effectId?: string): Promise<void> {
     if (!this.telemetry) return;
     try {
       const builder = new DecisionTraceBuilder(this.telemetry.ids, this.now);
+      const last = review.events.at(-1);
+      // Only operator decisions have a #1567 record; other events carry no audit ID.
+      const operatorEvent = last && OPERATOR_DECISION_EVENTS.has(last.type) ? last.operatorDecisionEventId : undefined;
+      const approval = review.events.filter(event => event.type === 'approved').at(-1)?.operatorDecisionEventId;
       const root = builder.startSpan('decision.review', {
         ...(this.telemetry.parent ? { parent: this.telemetry.parent } : {}),
         attributes: {
           'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128),
           'aiwg.review.status': review.status,
           'aiwg.review.revision': review.revision,
-          'aiwg.review.event': review.events.at(-1)?.type ?? 'unknown',
+          'aiwg.review.event': last?.type ?? 'unknown',
+          ...(operatorEvent ? { 'aiwg.operator_decision.event_id': sanitizeOpaqueValue(operatorEvent, 128) } : {}),
         },
         provenance: {
           'aiwg.review.id': 'client-derived', 'aiwg.review.status': 'client-derived',
           'aiwg.review.revision': 'client-derived', 'aiwg.review.event': 'client-derived',
+          'aiwg.operator_decision.event_id': 'client-derived',
         },
       });
       builder.endSpan(root, review.status === 'execution-failed' ? 'error' : 'ok');
       if (effectId) {
         const action = builder.startSpan('decision.action', { parent: root.context,
           links: [{ ...root.context, relationship: 'review', attributes: { 'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128) } }],
-          attributes: { 'aiwg.effect_receipt.id': sanitizeOpaqueValue(effectId, 128), 'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128) },
-          provenance: { 'aiwg.effect_receipt.id': 'client-derived', 'aiwg.review.id': 'client-derived' } });
+          attributes: { 'aiwg.effect_receipt.id': sanitizeOpaqueValue(effectId, 128), 'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128),
+            ...(approval ? { 'aiwg.operator_decision.event_id': sanitizeOpaqueValue(approval, 128) } : {}) },
+          provenance: { 'aiwg.effect_receipt.id': 'client-derived', 'aiwg.review.id': 'client-derived',
+            'aiwg.operator_decision.event_id': 'client-derived' } });
         builder.endSpan(action, review.status === 'completed' ? 'ok' : 'error');
       }
       for (const span of builder.build().spans) {

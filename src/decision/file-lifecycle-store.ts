@@ -2,7 +2,7 @@ import { constants } from 'node:fs';
 import { lstat, mkdir, open } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DECISION_LIFECYCLE_SURFACES, type DecisionLifecycleHold, type DecisionLifecycleReference,
-  type DecisionLifecycleStore, type DecisionLifecycleSurface, type DecisionLifecycleTombstone } from './lifecycle.js';
+  type DecisionLifecycleReferenceState, type DecisionLifecycleStore, type DecisionLifecycleSurface, type DecisionLifecycleTombstone } from './lifecycle.js';
 
 const OPAQUE = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 type Entry =
@@ -98,6 +98,20 @@ export class FileDecisionLifecycleStore implements DecisionLifecycleStore {
   async tombstones(subject: string): Promise<DecisionLifecycleTombstone[]> {
     this.valid(subject);
     return (await this.entries()).flatMap(entry => entry.kind === 'tombstone' && entry.value.subject === subject ? [entry.value] : []);
+  }
+
+  /**
+   * Resolve a cross-surface reference held by any record. A reference whose target was erased
+   * resolves to an explicit tombstone (without the erased subject) rather than a dangling link.
+   */
+  async resolveReference(reference: DecisionLifecycleReference): Promise<DecisionLifecycleReferenceState> {
+    this.valid('opaque-subject', reference);
+    const same = (value: DecisionLifecycleReference) => value.surface === reference.surface && value.opaqueId === reference.opaqueId;
+    const records = await this.entries();
+    const deleted = records.find((entry): entry is Extract<Entry, { kind: 'tombstone' }> => entry.kind === 'tombstone' && same(entry.value.reference));
+    if (deleted) return { state: 'tombstoned', reference: { ...reference }, deletedAt: deleted.value.deletedAt };
+    return records.some(entry => entry.kind === 'link' && same(entry.reference))
+      ? { state: 'linked', reference: { ...reference } } : { state: 'unknown', reference: { ...reference } };
   }
 
   async erase(reference: DecisionLifecycleReference): Promise<void> {

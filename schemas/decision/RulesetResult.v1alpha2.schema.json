@@ -192,7 +192,9 @@
             "batch-record-unavailable",
             "no-match",
             "conflicting-outcomes",
-            "evaluation-failed"
+            "evaluation-failed",
+            "context-plan-stale",
+            "context-unqualified"
           ]
         },
         "outcome": {},
@@ -209,6 +211,39 @@
         },
         "cache": {
           "$ref": "#/$defs/resultCacheCallerReceipt"
+        },
+        "projection": {
+          "description": "Present only when the host explicitly dispatched unprojected input (D10 opt-out).",
+          "type": "object",
+          "properties": {
+            "mode": { "const": "unprojected-local" },
+            "authority": { "const": "host" }
+          },
+          "required": ["mode", "authority"],
+          "additionalProperties": false
+        },
+        "contextFailure": {
+          "type": "object",
+          "description": "Body-free D06 context preflight rejection diagnostic.",
+          "properties": {
+            "schemaVersion": { "const": "decision-context-failure/v1" },
+            "reason": {
+              "enum": [
+                "invalid-input",
+                "invalid-profile",
+                "estimator-profile-mismatch",
+                "oversized-state",
+                "oversized-question",
+                "dependency-error",
+                "stale-plan",
+                "rollout-unqualified"
+              ]
+            },
+            "plannedDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "currentDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          },
+          "required": ["schemaVersion", "reason"],
+          "additionalProperties": false
         },
         "evaluations": {
           "type": "object",
@@ -814,16 +849,15 @@
       "additionalProperties": false,
       "allOf": [
         {
+          "$comment": "An incomplete-context downgrade (D06/D10) is review with reason insufficient-information and no outcome.",
           "if": {
-            "properties": {
-              "status": {
-                "enum": [
-                  "completed",
-                  "defaulted",
-                  "review"
-                ]
+            "anyOf": [
+              { "properties": { "status": { "enum": ["completed", "defaulted"] } } },
+              {
+                "properties": { "status": { "const": "review" } },
+                "not": { "properties": { "reason": { "const": "insufficient-information" } }, "required": ["reason"] }
               }
-            }
+            ]
           },
           "then": {
             "properties": {

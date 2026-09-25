@@ -11,7 +11,8 @@ const FIXED_DIMENSIONS: Record<string, readonly string[]> = {
     'data-boundary-denied', 'unsupported-capability', 'executor-unavailable', 'invalid-output', 'low-confidence',
     'missing-confidence', 'confidence-profile-mismatch', 'insufficient-information', 'timeout', 'network-transient',
     'rate-limited', 'overloaded', 'service-error', 'authentication', 'invalid-request', 'budget-exhausted',
-    'cancelled', 'persistence-error', 'replay-mismatch', 'execution-uncertain', 'batch-record-unavailable', 'no-match', 'conflicting-outcomes', 'evaluation-failed'],
+    'cancelled', 'persistence-error', 'replay-mismatch', 'execution-uncertain', 'batch-record-unavailable', 'no-match', 'conflicting-outcomes', 'evaluation-failed',
+    'context-plan-stale', 'context-unqualified'],
   'aiwg.acceptance.disposition': ['act', 'review', 'reject', 'fallback'],
   'aiwg.batch.mode': ['native', 'single', 'emulated'],
   // Compile-layer (D30) and result-layer (D15) cache layers share one bounded vocabulary.
@@ -23,6 +24,12 @@ const FIXED_DIMENSIONS: Record<string, readonly string[]> = {
     'documented-unsupported', 'policy-bypass', 'unreported'],
   'aiwg.review.status': ['pending', 'approved', 'denied', 'escalated', 'expired'],
   'aiwg.usage.cost_provenance': ['provider-fact', 'client-derived', 'estimate', 'unknown'],
+  'aiwg.admission.decision': ['admit', 'defer', 'reject'],
+  'aiwg.admission.reason': ['admitted', 'disabled', 'cancelled', 'deadline-exceeded', 'concurrency', 'requests-per-minute',
+    'tokens-per-second', 'attempts', 'batch-size', 'cost', 'unknown-cost', 'queue-full', 'queue-timeout', 'invalid-estimate',
+    'request-too-large', 'too-many-items', 'retained-work', 'unknown-retained-work', 'retry-after', 'circuit-open',
+    'unconfigured-provider'],
+  'aiwg.breaker.status': ['closed', 'open', 'half-open'],
 };
 
 export interface DecisionMetricPoint { name: string; value: number; dimensions: TelemetryAttributes }
@@ -35,6 +42,7 @@ const METRIC_NAMES = new Set([
   'decision.input_tokens', 'decision.output_tokens', 'decision.cache', 'decision.drift',
   'decision.cache_saved_input_tokens', 'decision.cache_saved_output_tokens',
   'decision.cache_saved_latency_ms', 'decision.cache_saved_cost_usd',
+  'decision.admission', 'decision.throttles', 'decision.breaker_transitions',
 ]);
 
 /** Record operational metrics without using result IDs or answer-level batch usage. */
@@ -68,8 +76,11 @@ export function recordDecisionSpanMetrics(span: DecisionTelemetrySpan, metrics: 
   // Result-layer cache events are counted once, from the D15 service sink below.
   if (span.name === 'decision.cache' && attributes['aiwg.cache.layer'] !== 'result') record('decision.cache', 1);
   if (span.name === 'decision.admit') {
+    record('decision.admission', 1);
+    if (attributes['aiwg.admission.decision'] !== 'admit') record('decision.throttles', 1);
     const delay = attributes['aiwg.queue.delay_ms'];
     if (typeof delay === 'number' && Number.isFinite(delay) && delay >= 0) record('decision.queue_delay', delay);
+    for (const event of span.events) if (event.name === 'breaker.transition') record('decision.breaker_transitions', 1);
   }
   if (span.name === 'decision.accept') {
     const disposition = attributes['aiwg.acceptance.disposition'];

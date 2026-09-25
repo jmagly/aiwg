@@ -37,6 +37,15 @@ export function injectTraceContext(context: DecisionTelemetryContext): Record<st
   };
 }
 
+/** Provider-bound propagation: `traceparent` only, never vendor `tracestate`. */
+export function transportTraceContext(context: DecisionTelemetryContext): { traceparent: string } {
+  return { traceparent: injectTraceContext(context).traceparent! };
+}
+
+export function isTraceparent(value: unknown): value is string {
+  return typeof value === 'string' && extractTraceContext({ traceparent: value }) !== null && value === value.trim().toLowerCase();
+}
+
 export function extractTraceContext(headers: Record<string, string | undefined>): DecisionTelemetryContext | null {
   const match = TRACEPARENT.exec(headers.traceparent?.trim().toLowerCase() ?? '');
   if (!match || !validNonZero(match[1]!) || !validNonZero(match[2]!)) return null;

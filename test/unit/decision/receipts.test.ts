@@ -4,7 +4,8 @@ import { copyFile, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/pro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DecisionPreDispatchError, FileDecisionReceiptStore, MemoryDecisionReceiptStore, decisionInvocationFingerprint, nextReceipt } from '../../../src/decision/receipts.js';
+import { containsPortableSecretMaterial } from '../../../src/decision/portable-secrets.js';
+import { DecisionPreDispatchError, DecisionReceiptIntegrityError, FileDecisionReceiptStore, MemoryDecisionReceiptStore, decisionInvocationFingerprint, nextReceipt } from '../../../src/decision/receipts.js';
 import { evaluateDecisionRuleset } from '../../../src/decision/evaluate.js';
 import { artifactPin } from '../../../src/decision/validate.js';
 import type { AdapterObservation, DecisionAdapter, DecisionBinding, DecisionDefinition, DecisionRuleset, DecisionReceiptStore, RulesetResult } from '../../../src/decision/types.js';
@@ -28,7 +29,7 @@ function request(store: DecisionReceiptStore, adapter: DecisionAdapter, invocati
 function adapter(gate?: Promise<void>): DecisionAdapter {
   return {
     id: 'jev', version: '1.0.0',
-    capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true }),
+    capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const } }),
     evaluate: vi.fn(async ({ alias }) => {
       await gate;
       const observation: AdapterObservation = { status: 'success', reason: 'none', value: alias === 'category' ? 'documentation' : alias === 'severity' ? 0.25 : 0.05,
@@ -126,6 +127,37 @@ describe('REC-ATOMIC store conformance', () => {
     const path = join(directory, name);
     const body = (await readFile(path, 'utf8')).replace('acquired', 'completed');
     await writeFile(path, body);
+    await expect(store.read('id', 'project')).rejects.toThrow(/integrity/);
+  });
+
+  it('records an immutable, MAC-covered traceParent at acquisition only', async () => {
+    const traceParent = `00-${'1'.repeat(32)}-${'2'.repeat(16)}-01`;
+    const fingerprint = `sha256:${'a'.repeat(64)}`;
+    for (const store of await stores()) {
+      const { receipt } = await store.acquire('traced', 'project', fingerprint, { traceParent });
+      expect(receipt.traceParent).toBe(traceParent);
+      // A second acquisition cannot rewrite the origin.
+      const again = await store.acquire('traced', 'project', fingerprint, { traceParent: `00-${'3'.repeat(32)}-${'2'.repeat(16)}-01` });
+      expect(again).toMatchObject({ owner: false, receipt: { traceParent } });
+      const dispatched = nextReceipt(receipt, 'dispatched');
+      expect(dispatched.traceParent).toBe(traceParent);
+      await expect(store.compareAndSwap('traced', 'project', 1, { ...dispatched, traceParent: `00-${'4'.repeat(32)}-${'2'.repeat(16)}-01` }))
+        .rejects.toThrow(/outside legal transition/);
+      const { traceParent: _removed, ...stripped } = dispatched;
+      await expect(store.compareAndSwap('traced', 'project', 1, stripped)).rejects.toThrow(/outside legal transition/);
+      expect(await store.compareAndSwap('traced', 'project', 1, dispatched)).toBe(true);
+    }
+    const [memory] = await stores();
+    await expect(memory!.acquire('bad', 'project', fingerprint, { traceParent: 'not-a-traceparent' })).rejects.toThrow(/Invalid decision receipt/);
+  });
+
+  it('rejects a durable record whose traceParent was modified after signing', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-receipt-trace-tamper-'));
+    temp.push(directory);
+    const store = new FileDecisionReceiptStore(directory, { integrityKey: randomBytes(32) });
+    await store.acquire('id', 'project', `sha256:${'a'.repeat(64)}`, { traceParent: `00-${'1'.repeat(32)}-${'2'.repeat(16)}-01` });
+    const path = join(directory, (await readdir(directory)).find(file => file.endsWith('.json'))!);
+    await writeFile(path, (await readFile(path, 'utf8')).replace('1'.repeat(32), '5'.repeat(32)));
     await expect(store.read('id', 'project')).rejects.toThrow(/integrity/);
   });
 
@@ -534,5 +566,105 @@ describe('REC-ATOMIC store conformance', () => {
     expect((await reopen().read(invocationId, 'project'))?.acquiredAtEpochMs).toBe(current.acquiredAtEpochMs);
     expect((await reopen().read(invocationId, 'project'))?.completedAtEpochMs).toBe(completed.completedAtEpochMs);
     expect(() => nextReceipt(completed, 'dispatched')).toThrow(/Illegal receipt transition/);
+  });
+});
+
+// Canaries are assembled at runtime so no literal secret-shaped string lives in the source tree.
+const canary = 'CANARY' + 'x9Q7'.repeat(6);
+const secretFixtures: Array<[string, unknown]> = [
+  ['bearer value', `Bearer ${canary}`],
+  ['PEM private key', `-----BEGIN ${'PRIVATE'} KEY-----\n${canary}\n-----END ${'PRIVATE'} KEY-----`],
+  ['vault locator', `vault://kv/decision/${canary}`],
+  ['Vault KV-v2 path', `secret/data/decision/${canary}`],
+  ['secret-derived hash key', { tokenSha256Hash: `sha256:${canary}` }],
+  ['embedded API key value', { apiKeyValue: canary }],
+];
+
+describe('SEC-PORTABLE shared secret-material detector', () => {
+  it('SEC-PORTABLE-01 detects each forbidden fixture', () => {
+    for (const [label, value] of secretFixtures) expect(containsPortableSecretMaterial({ nested: [value] }), label).toBe(true);
+    expect(containsPortableSecretMaterial(`-----BEGIN ENCRYPTED ${'PRIVATE'} KEY-----`)).toBe(true);
+  });
+
+  it('SEC-PORTABLE-02 benign control: logical refs, token counts, and prose pass', () => {
+    expect(containsPortableSecretMaterial({
+      credentialRef: 'typesafe.jev.playground', usage: { inputTokens: 1, outputTokens: 2 },
+      rationale: 'the bearer of the message was a reviewer', handle: 'jev:job/abc-123',
+      digest: `sha256:${'a'.repeat(64)}`, maxTokens: 2048, secretary: 'ok', path: 'docs/secret/data.md',
+    })).toBe(false);
+  });
+});
+
+describe('PRV-EGRESS-RECEIPT portable decision receipts', () => {
+  const fingerprint = `sha256:${'a'.repeat(64)}`;
+  // Schema-valid result documents (the writer gate validates them); the secret rides in a free-form string or outcome.
+  const evaluation = (value: unknown) => {
+    const document = JSON.parse(readFileSync('examples/decision/result-category.json', 'utf8'));
+    document.spec.alias = 'a';
+    document.spec.invocationId = 'egress';
+    document.spec.value = typeof value === 'string' ? value : JSON.stringify(value);
+    return { a: document } as never;
+  };
+  const rulesetResult = (outcome: unknown) => {
+    const document = JSON.parse(readFileSync('examples/decision/ruleset-result.json', 'utf8'));
+    document.spec.invocationId = 'egress';
+    document.spec.evaluations = {};
+    document.spec.outcome = outcome;
+    return document as never;
+  };
+
+  it('PRV-EGRESS-RECEIPT-01 rejects secret material in remote handles without echoing it', async () => {
+    const { receipt } = await new MemoryDecisionReceiptStore().acquire('egress', 'project', fingerprint);
+    const dispatched = nextReceipt(receipt, 'dispatched');
+    for (const [label, value] of secretFixtures) {
+      const handle = typeof value === 'string' ? value : JSON.stringify(value);
+      let caught: unknown;
+      try { nextReceipt(dispatched, 'remote-handle-known', { remoteHandles: [handle] }); } catch (error) { caught = error; }
+      expect(caught, label).toBeInstanceOf(DecisionReceiptIntegrityError);
+      expect((caught as Error).message).not.toContain(canary);
+    }
+  });
+
+  it('PRV-EGRESS-RECEIPT-02 rejects secret material in evaluations, pending attempts, and results', async () => {
+    const { receipt } = await new MemoryDecisionReceiptStore().acquire('egress', 'project', fingerprint);
+    const dispatched = nextReceipt(receipt, 'dispatched');
+    for (const [label, value] of secretFixtures) {
+      expect(() => nextReceipt(dispatched, 'observation-received', { evaluations: evaluation(value) }), label)
+        .toThrow(DecisionReceiptIntegrityError);
+      expect(() => nextReceipt(dispatched, 'observation-received', {
+        pending: { alias: 'a', targetIndex: 0, ordinal: 1, attempts: [{ detail: value }] } as never,
+      }), label).toThrow(DecisionReceiptIntegrityError);
+    }
+    const composed = nextReceipt(nextReceipt(dispatched, 'observation-received'), 'composed');
+    for (const [label, value] of secretFixtures) {
+      expect(() => nextReceipt(composed, 'completed', { result: rulesetResult(value) }), label)
+        .toThrow(/forbidden credential or private-locator material/);
+    }
+    expect(() => nextReceipt(composed, 'completed', { result: rulesetResult('docs-review') })).not.toThrow();
+  });
+
+  it('PRV-EGRESS-RECEIPT-03 stores never persist a receipt carrying secret material', async () => {
+    for (const store of await stores()) {
+      const { receipt } = await store.acquire('egress', 'project', fingerprint);
+      const dispatched = nextReceipt(receipt, 'dispatched');
+      expect(await store.compareAndSwap('egress', 'project', 1, dispatched)).toBe(true);
+      const forged = { ...structuredClone(dispatched), state: 'remote-handle-known' as const, revision: 3,
+        remoteHandles: [`vault://kv/${canary}`] };
+      const failure = await store.compareAndSwap('egress', 'project', 2, forged).catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(DecisionReceiptIntegrityError);
+      expect((failure as Error).message).not.toContain(canary);
+      const current = await store.read('egress', 'project');
+      expect(current?.revision).toBe(2);
+      expect(JSON.stringify(current)).not.toContain(canary);
+    }
+  });
+
+  it('PRV-EGRESS-RECEIPT-04 benign control: opaque handles and logical credential refs are accepted', async () => {
+    const { receipt } = await new MemoryDecisionReceiptStore().acquire('egress', 'project', fingerprint);
+    const known = nextReceipt(nextReceipt(receipt, 'dispatched'), 'remote-handle-known', { remoteHandles: ['jev:job/0f3c-7a1e'] });
+    const observed = nextReceipt(known, 'observation-received', {
+      evaluations: evaluation('typesafe.jev.playground'),
+    });
+    expect(observed.remoteHandles).toEqual(['jev:job/0f3c-7a1e']);
   });
 });

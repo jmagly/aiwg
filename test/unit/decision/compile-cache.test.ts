@@ -532,7 +532,7 @@ describe('decision compile and provider-prefix cache', () => {
     const adapter: DecisionAdapter = {
       id: 'jev', version: '1',
       capabilities: async () => ({ answerKinds: ['choice'], features: [], maxOptions: 10, maxLevels: null,
-        confidenceProfiles: [], executable: true }),
+        confidenceProfiles: [], executable: true, egress: { mode: 'none' as const } }),
       compile: async value => ({ bytes: JSON.stringify(value) }),
       evaluate: async request => { compilations += 0; seen.push(JSON.stringify(request.compiledArtifact));
         return { status: 'success', reason: 'none', value: 'yes', uncertainty: null, actualModel: 'm',

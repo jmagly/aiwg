@@ -138,3 +138,55 @@ export function mayRestoreDecisionReference(
   return !tombstones.some(value => value.reference.surface === reference.surface && value.reference.opaqueId === reference.opaqueId)
     && now - createdAt < policy.surfaces[reference.surface].retentionMs;
 }
+
+/** Host-resolved state of a cross-surface reference. A deleted target is an explicit tombstone, never a dangling link. */
+export type DecisionLifecycleReferenceState =
+  | { state: 'linked'; reference: DecisionLifecycleReference }
+  | { state: 'tombstoned'; reference: DecisionLifecycleReference; deletedAt: number }
+  | { state: 'unknown'; reference: DecisionLifecycleReference };
+
+/** One backed-up surface record. The body stays in the host's surface backup; only the opaque reference is listed here. */
+export interface DecisionLifecycleBackupEntry {
+  subject: string;
+  reference: DecisionLifecycleReference;
+  createdAt: number;
+}
+
+export type DecisionLifecycleRestoreRefusal = 'invalid' | 'tombstoned' | 'expired' | 'not-persisted' | 'restore-unavailable';
+
+export interface DecisionLifecycleRestoreReport {
+  restored: DecisionLifecycleBackupEntry[];
+  refused: Array<{ entry: DecisionLifecycleBackupEntry; reason: DecisionLifecycleRestoreRefusal }>;
+}
+
+/**
+ * Subject-level restore across lifecycle surfaces. Each entry is checked against tombstones,
+ * the surface backup rule and primary retention before its host restore handler runs, so a
+ * backup taken before erasure cannot make erased or expired content queryable again.
+ */
+export async function restoreDecisionSubjectBackup(
+  backup: ReadonlyArray<DecisionLifecycleBackupEntry>, policy: DecisionLifecyclePolicy,
+  tombstones: ReadonlyArray<DecisionLifecycleTombstone>,
+  restore: Partial<Record<DecisionLifecycleSurface, (opaqueId: string) => Promise<void>>>, now: number,
+): Promise<DecisionLifecycleRestoreReport> {
+  validateDecisionLifecyclePolicy(policy);
+  if (!Array.isArray(backup as unknown) || !Number.isSafeInteger(now) || now < 0) throw new Error('Decision lifecycle restore denied');
+  const report: DecisionLifecycleRestoreReport = { restored: [], refused: [] };
+  for (const entry of backup) {
+    const reference = entry?.reference;
+    let reason: DecisionLifecycleRestoreRefusal | null = null;
+    if (!entry?.subject || !reference?.opaqueId || !DECISION_LIFECYCLE_SURFACES.includes(reference.surface)
+      || !Number.isSafeInteger(entry.createdAt) || entry.createdAt > now) reason = 'invalid';
+    else if (tombstones.some(value => value.reference.surface === reference.surface
+      && value.reference.opaqueId === reference.opaqueId)) reason = 'tombstoned';
+    else if (policy.surfaces[reference.surface].backup === 'not-persisted') reason = 'not-persisted';
+    else if (!mayRestoreDecisionReference(reference, entry.createdAt, now, policy, tombstones)) reason = 'expired';
+    else if (!restore[reference.surface]) reason = 'restore-unavailable';
+    const copy = structuredClone(entry);
+    if (reason) { report.refused.push({ entry: copy, reason }); continue; }
+    try { await restore[reference.surface]!(reference.opaqueId); }
+    catch { throw new Error('Decision lifecycle restore failed'); }
+    report.restored.push(copy);
+  }
+  return report;
+}

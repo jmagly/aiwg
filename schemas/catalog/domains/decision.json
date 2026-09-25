@@ -669,6 +669,34 @@
         { "kind": "validator", "path": "src/decision/ensemble/contract.ts", "generated": false }
       ],
       "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.projection-policy",
+      "id": "https://aiwg.io/schemas/decision/DecisionProjectionPolicy.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionProjectionPolicy.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-projection", "boundary": "Host-owned state projection and egress policy", "path": "src/decision/projection.ts" }],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.lifecycle-policy",
+      "id": "https://aiwg.io/schemas/decision/DecisionLifecyclePolicy.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionLifecyclePolicy.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-lifecycle", "boundary": "Common host lifecycle controls for every decision surface", "path": "src/decision/lifecycle.ts" }],
+      "publication": { "public": true }
     }
   ]
 }

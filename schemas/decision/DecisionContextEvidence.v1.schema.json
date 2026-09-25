@@ -2,39 +2,135 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aiwg.io/schemas/decision/DecisionContextEvidence.v1.schema.json",
   "title": "Decision Context Evidence v1",
+  "description": "Body-free D06 context plan and estimate-versus-actual usage. Only identifiers, digests and token counts are permitted; authorized state and question bodies are excluded by construction.",
   "type": "object",
   "properties": {
-    "plan": {
-      "type": "object",
-      "required": ["schemaVersion", "planDigest", "subject", "partitions"],
-      "properties": {
-        "schemaVersion": { "const": "decision-context-plan/v1" },
-        "planDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-        "subject": { "type": "string", "minLength": 1 },
-        "partitions": { "type": "array", "minItems": 1 }
-      }
-    },
-    "actualUsage": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["schemaVersion", "planDigest", "partitionId", "questionIds", "estimatedInputTokens", "actualInputTokens"],
-        "properties": {
-          "schemaVersion": { "const": "decision-context-usage/v1" },
-          "planDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-          "partitionId": { "type": "string", "minLength": 1 },
-          "questionIds": {
-            "type": "array",
-            "minItems": 1,
-            "uniqueItems": true,
-            "items": { "type": "string", "minLength": 1 }
-          },
-          "estimatedInputTokens": { "type": "integer", "minimum": 0 },
-          "actualInputTokens": { "type": "integer", "minimum": 0 }
-        }
-      }
-    }
+    "plan": { "$ref": "#/$defs/plan" },
+    "actualUsage": { "type": "array", "items": { "$ref": "#/$defs/usage" } }
   },
   "required": ["plan", "actualUsage"],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "tokens": { "type": "integer", "minimum": 0 },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      },
+      "required": ["id", "version"],
+      "additionalProperties": false
+    },
+    "questionIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "plan": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "const": "decision-context-plan/v1" },
+        "planDigest": { "$ref": "#/$defs/digest" },
+        "assumptionsDigest": { "$ref": "#/$defs/digest" },
+        "inputDigest": { "$ref": "#/$defs/digest" },
+        "subject": { "type": "string", "minLength": 1 },
+        "authorizationDigest": { "$ref": "#/$defs/digest" },
+        "incompleteContext": { "type": "boolean" },
+        "automaticActionAllowed": { "type": "boolean" },
+        "estimator": { "$ref": "#/$defs/identity" },
+        "providerProfile": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "version": { "type": "string", "minLength": 1 },
+            "digest": { "$ref": "#/$defs/digest" }
+          },
+          "required": ["id", "version", "digest"],
+          "additionalProperties": false
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "documentedAggregateTokens": { "type": "integer", "minimum": 1 },
+            "documentedStateAndLongestQuestionTokens": { "type": "integer", "minimum": 1 },
+            "safetyMarginBps": { "type": "integer", "minimum": 0, "maximum": 9999 },
+            "effectiveAggregateTokens": { "$ref": "#/$defs/tokens" },
+            "effectiveStateAndLongestQuestionTokens": { "$ref": "#/$defs/tokens" }
+          },
+          "required": ["documentedAggregateTokens", "documentedStateAndLongestQuestionTokens", "safetyMarginBps",
+            "effectiveAggregateTokens", "effectiveStateAndLongestQuestionTokens"],
+          "additionalProperties": false
+        },
+        "rawEstimate": {
+          "type": "object",
+          "properties": {
+            "stateTokens": { "$ref": "#/$defs/tokens" },
+            "allQuestionTokens": { "$ref": "#/$defs/tokens" },
+            "longestQuestionTokens": { "$ref": "#/$defs/tokens" },
+            "aggregateTokens": { "$ref": "#/$defs/tokens" },
+            "stateAndLongestQuestionTokens": { "$ref": "#/$defs/tokens" }
+          },
+          "required": ["stateTokens", "allQuestionTokens", "longestQuestionTokens", "aggregateTokens",
+            "stateAndLongestQuestionTokens"],
+          "additionalProperties": false
+        },
+        "partitions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/partition" } }
+      },
+      "required": ["schemaVersion", "planDigest", "assumptionsDigest", "inputDigest", "subject", "authorizationDigest",
+        "incompleteContext", "automaticActionAllowed", "estimator", "providerProfile", "limits", "rawEstimate", "partitions"],
+      "additionalProperties": false
+    },
+    "partition": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "wave": { "type": "integer", "minimum": 0 },
+        "compatibilityKey": { "type": "string", "minLength": 1 },
+        "subject": { "type": "string", "minLength": 1 },
+        "stateDigest": { "$ref": "#/$defs/digest" },
+        "questionIds": { "$ref": "#/$defs/questionIds" },
+        "questionDigests": { "type": "object", "minProperties": 1, "additionalProperties": { "$ref": "#/$defs/digest" } },
+        "questionDependencies": {
+          "type": "object",
+          "additionalProperties": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        },
+        "estimate": {
+          "type": "object",
+          "properties": {
+            "stateTokens": { "$ref": "#/$defs/tokens" },
+            "questionTokens": { "type": "object", "minProperties": 1, "additionalProperties": { "$ref": "#/$defs/tokens" } },
+            "longestQuestionTokens": { "$ref": "#/$defs/tokens" },
+            "aggregateTokens": { "$ref": "#/$defs/tokens" },
+            "stateAndLongestQuestionTokens": { "$ref": "#/$defs/tokens" }
+          },
+          "required": ["stateTokens", "questionTokens", "longestQuestionTokens", "aggregateTokens", "stateAndLongestQuestionTokens"],
+          "additionalProperties": false
+        },
+        "reason": { "enum": ["fits-original-group", "aggregate-limit-partition", "dependency-wave"] }
+      },
+      "required": ["id", "wave", "compatibilityKey", "subject", "stateDigest", "questionIds", "questionDigests",
+        "questionDependencies", "estimate", "reason"],
+      "additionalProperties": false
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "const": "decision-context-usage/v1" },
+        "planDigest": { "$ref": "#/$defs/digest" },
+        "partitionId": { "type": "string", "minLength": 1 },
+        "questionIds": { "$ref": "#/$defs/questionIds" },
+        "estimator": { "$ref": "#/$defs/identity" },
+        "providerProfile": { "$ref": "#/$defs/identity" },
+        "estimatedInputTokens": { "$ref": "#/$defs/tokens" },
+        "actualInputTokens": { "$ref": "#/$defs/tokens" },
+        "estimationErrorTokens": { "type": "integer" },
+        "estimationErrorBps": { "type": ["integer", "null"] }
+      },
+      "required": ["schemaVersion", "planDigest", "partitionId", "questionIds", "estimator", "providerProfile",
+        "estimatedInputTokens", "actualInputTokens", "estimationErrorTokens", "estimationErrorBps"],
+      "additionalProperties": false
+    }
+  }
 }
