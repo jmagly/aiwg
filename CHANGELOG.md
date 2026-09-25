@@ -79,6 +79,21 @@ in the entry.
 
 ### Added
 
+- Effect ledger foundation (experimental, library only). The v1 contract,
+  ADR, `schemas/effects/*` and golden fixtures pin effect IDs (`eff1_…`, plus
+  the `d13.review/v1` adapter derivation equal to D13's `reviewDigest`), DSSE
+  in-toto records, the keyring, checkpoints and exit codes (#2715). Shared
+  primitives move to `src/storage/protected-files.ts` and
+  `src/security/signing.ts`, and the credential store takes a configurable
+  service and account (#2716). The new `src/effects` library, exported from the
+  package API, records intents and outcomes in per-writer hash-chained
+  segments signed by a dedicated Ed25519 ledger key from the host secret
+  service, with first-writer-wins index files, payload-digest conflicts,
+  signed key rotation, signed checkpoints published to a git ref, D10
+  tombstones and `verifyLedger`. Storage resolves through the artifact store
+  and fails closed when an external root is unavailable. Verifiers, the
+  `aiwg effect` CLI and D13, D16 and skill adoption follow in #2718–#2722
+  (#2717, #2714).
 - D05 admission control offline gaps: reserved per-principal concurrency and
   `maxPrincipalShare` caps on shared workspace and provider pools, token-bucket
   fairness for large requests, breaker transitions recorded in admission

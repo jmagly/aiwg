@@ -1,6 +1,6 @@
 # Effect Ledger v1
 
-Status: contract accepted; runtime pending (#2714 children E3 onward)
+Status: contract accepted; core library in `src/effects/` (#2717); verifiers, CLI and adoption pending (#2718 onward)
 Issue: AIWG #2715 (epic #2714)
 Decision: [ADR: AIWG effect ledger](../architecture/adr-effect-ledger.md)
 Predicate type: `https://aiwg.io/attestations/effect/v1`
@@ -229,6 +229,14 @@ effects/<subsystem>/
   keyring.json                       EffectKeyring.v1
 ```
 
+The reference implementation also keeps `index.key` (the per-ledger key for
+index file names), `locks/` (same-host directory locks) and
+`segments/<writer-id>.pending` (a signed line whose index claim won but whose
+append has not completed; the writer finishes or discards it under its lock).
+None of them is part of the verified record set. It also writes a second
+exclusive-create index file per effect ID for the terminal outcome, so the
+first `completed` or `failed` wins across writers.
+
 - Writer IDs match `^[a-z0-9][a-z0-9-]{0,63}$`. Only one process appends to a
   segment, under a directory lock. Readers merge segments by `(recordedAt,
   writer, seq)`.
@@ -340,3 +348,8 @@ When several conditions apply, the precedence is 2, 7, 6, 5, then the outcome.
   every positive and negative fixture, recomputes each vector, verifies every
   fixture signature, chain and checkpoint, scans fixtures for restricted
   material, and checks this exit-code table against the ADR.
+- Runtime: `src/effects/` (exported through the package API) implements this
+  contract. `test/conformance/effects-v1/effect-ledger-runtime.test.ts` uses the
+  fixtures as golden vectors for the library, and `test/unit/effects/` covers
+  idempotence, the multi-process first-writer race, the tamper matrix,
+  rotation, tombstones, the fail-closed artifact root and the canary scan.

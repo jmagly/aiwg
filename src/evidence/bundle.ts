@@ -6,6 +6,8 @@ import path from 'node:path';
 
 const SCHEMA_VERSION = 'aiwg.evidence.bundle/v1';
 const RESTRICTED_KEY = /(?:^|_)(?:content|terminal|prompt|environment|env|credential|secret|password|authorization|bearer|token|private_key|certificate|restricted_(?:url|uri|link))(?:$|_)/i;
+/** Restricted evidence member names; the effect ledger digest-only guard applies the same pattern. */
+export const EVIDENCE_RESTRICTED_KEY: RegExp = RESTRICTED_KEY;
 const ALLOWED_POLICY_KEYS = new Set(['restricted_content_grants']);
 const EVIDENCE_ROLES = new Set<EvidenceRole>(['activity-export', 'report', 'source', 'eval-config', 'provenance']);
 
