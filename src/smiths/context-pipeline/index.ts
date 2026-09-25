@@ -39,6 +39,7 @@ export {
   shouldEmitAiwgMd,
   shouldEmitAgentsMd,
   shouldEmitClaudeMdHook,
+  buildMuseBridgeText,
   type AgentsMdProvider,
 } from './provider-policy.js';
 export { generateAiwgMd } from './aiwg-md.js';
