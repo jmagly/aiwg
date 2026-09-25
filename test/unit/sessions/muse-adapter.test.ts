@@ -70,6 +70,24 @@ describe('Muse Code session adapter', () => {
     });
   });
 
+  it('imports a real Muse Code 1.4.0 export (epoch-microsecond timestamps, retained frames)', async () => {
+    // Scrubbed from a live `muse export --redacted` on 2026-09-25: integer
+    // recorded_at, null causation ids, and a leading retained_frame marker
+    // whose envelope is a transaction frame rather than a record.
+    const source = selected('live-1.4.0-v1.json', 'muse-live-1.4.0');
+    await expect(adapter.inspect(source)).resolves.toMatchObject({ consistency: 'complete' });
+    const events = await collect(adapter.stream(source));
+    expect(events).toHaveLength(11);
+    expect(events.every((event) => event.nativeSessionId === '00000000-0000-4000-8000-000000000001')).toBe(true);
+    expect(events[0]).toMatchObject({ kind: 'runtime.session.metadata', sequence: 1 });
+    expect(events[0].occurredAt).toBe(new Date(Math.floor(1790349213957005 / 1000)).toISOString());
+    const model = events.find((event) => event.kind === 'run.model.configured');
+    expect(model?.extensions['native.muse']).toMatchObject({
+      exporterVersion: 'Muse Code 1.4.0 (04f5eb2e6e)',
+      redaction: 'redacted',
+    });
+  });
+
   it('preserves approval, tool, and model-lifecycle events with provenance', async () => {
     const events = await collect(adapter.stream(selected('valid-v1.json', 'muse-fixture-v1')));
     const byKind = new Map(events.map((event) => [event.kind, event]));

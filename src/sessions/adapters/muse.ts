@@ -85,11 +85,12 @@ const MuseStreamSchema = z.object({
 const MuseEnvelopeSchema = z.object({
   sequence: z.number().int().nonnegative(),
   id: z.string().optional(),
-  causation_id: z.string().optional(),
+  causation_id: z.string().nullish(),
   schema_version: z.union([z.number(), z.string()]).optional(),
   payload_schema_version: z.union([z.number(), z.string()]).optional(),
   stream: MuseStreamSchema.optional(),
-  recorded_at: z.string().optional(),
+  // Muse Code 1.4.0 exports epoch microseconds; RFC 3339 strings stay valid.
+  recorded_at: z.union([z.string(), z.number().int().nonnegative()]).optional(),
   record_type: z.string().optional(),
   durability: z.string().optional(),
   payload_type: z.string().optional(),
@@ -98,12 +99,24 @@ const MuseEnvelopeSchema = z.object({
   }).passthrough().optional(),
 }).passthrough();
 
-const MuseExportEventSchema = z.object({
-  kind: z.string().min(1),
-  // Gap/retained-frame markers carry `"envelope": null`; they are audit
-  // metadata, never fabricatable into provider records.
-  envelope: MuseEnvelopeSchema.nullish(),
+/**
+ * Record events carry a record envelope, validated strictly. Every other
+ * event kind is an audit marker: `gap` carries `"envelope": null`, and
+ * `retained_frame` (Muse Code 1.4.0) carries a transaction frame
+ * (`children`, `transaction_id`, `content_sha256`) instead of a record.
+ * Markers are never fabricated into provider records.
+ */
+const MuseRecordEventSchema = z.object({
+  kind: z.literal('record'),
+  envelope: MuseEnvelopeSchema,
 }).passthrough();
+
+const MuseMarkerEventSchema = z.object({
+  kind: z.string().min(1).refine((kind) => kind !== 'record'),
+  envelope: z.record(z.string(), z.unknown()).nullish(),
+}).passthrough();
+
+const MuseExportEventSchema = z.union([MuseRecordEventSchema, MuseMarkerEventSchema]);
 
 const MuseAcceptedSpawnSchema = z.object({
   subagent_id: z.string().optional(),
@@ -146,6 +159,11 @@ const MuseTrajectorySchema = z.object({
 
 type MuseTrajectory = z.infer<typeof MuseTrajectorySchema>;
 type MuseExportEvent = z.infer<typeof MuseExportEventSchema>;
+type MuseRecordEvent = z.infer<typeof MuseRecordEventSchema>;
+
+function isRecordEvent(event: MuseExportEvent): event is MuseRecordEvent {
+  return event.kind === 'record';
+}
 type MuseEnvelope = z.infer<typeof MuseEnvelopeSchema>;
 
 export class MuseSessionAdapter implements SessionSourceAdapter {
@@ -160,9 +178,10 @@ export class MuseSessionAdapter implements SessionSourceAdapter {
   async *discover(_scope: AuthorizedScope): AsyncIterable<SourceDescriptor> {
     throw new SessionContractError(
       'UNSUPPORTED_OPERATION',
-      'Muse Code session auto-discover is unsupported until a verified native locator exists; '
-        + 'select an explicit `muse export` trajectory file. AIWG does not scrape home '
-        + 'directories or invent session roots for this provider.',
+      'Muse Code session auto-discover is unsupported: the native log under '
+        + '$XDG_DATA_HOME/muse/sessions uses an internal format. Run `muse export --session '
+        + '<id-or-session.jsonl>` and select that trajectory file. AIWG does not scrape home '
+        + 'directories for this provider.',
     );
   }
 
@@ -192,11 +211,10 @@ export class MuseSessionAdapter implements SessionSourceAdapter {
       const position = index;
       index += 1;
       if (position < start) continue;
-      const envelope = event.envelope;
       // Gap/retained-frame markers carry no record payload: skip them, never
       // fabricate a ProviderRecord for one.
-      if (envelope == null) continue;
-      yield this.toProviderRecord(trajectory, bytesRead, envelope, spawns, event, position);
+      if (!isRecordEvent(event)) continue;
+      yield this.toProviderRecord(trajectory, bytesRead, event.envelope, spawns, event, position);
     }
   }
 
@@ -304,7 +322,7 @@ export class MuseSessionAdapter implements SessionSourceAdapter {
     if (source.locatorClass !== MUSE_LOCATOR_CLASS) {
       throw new SessionContractError(
         'UNSUPPORTED_OPERATION',
-        `Muse Code supports only locatorClass "${MUSE_LOCATOR_CLASS}" until a native session root is evidenced `
+        `Muse Code supports only locatorClass "${MUSE_LOCATOR_CLASS}" because its native log format is internal `
           + `(got "${source.locatorClass}"). Select an explicit \`muse export\` trajectory file.`,
       );
     }
@@ -318,8 +336,8 @@ export class MuseSessionAdapter implements SessionSourceAdapter {
  * envelope, so fall back to the marker kind (e.g. `gap`).
  */
 function eventKindOf(event: MuseExportEvent): string {
+  if (!isRecordEvent(event)) return event.kind;
   const envelope = event.envelope;
-  if (envelope == null) return event.kind;
   const payload = envelope.payload;
   const eventKind = payload?.event?.kind;
   if (typeof eventKind === 'string' && eventKind.length > 0) return eventKind;
@@ -422,7 +440,12 @@ function objectField(payload: Record<string, unknown>, key: string): Record<stri
     : null;
 }
 
-function occurredAtOf(recordedAt: string | undefined): string | null {
+function occurredAtOf(recordedAt: string | number | undefined): string | null {
+  if (typeof recordedAt === 'number') {
+    // Epoch microseconds (Muse Code 1.4.0 export and native log).
+    const date = new Date(Math.floor(recordedAt / 1000));
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
   if (!recordedAt) return null;
   return Rfc3339Schema.safeParse(recordedAt).success ? recordedAt : null;
 }

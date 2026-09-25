@@ -223,17 +223,26 @@ export const AIWG_MANAGED_HOOKS = [
     event: 'SessionStart',
     // Muse matcher groups take ONLY `hooks` + optional `matcher`; no
     // in-band AIWG tags (they would break the group).
+    //
+    // Muse Code 1.4.0 parses hook stdout as hook output: empty output, plain
+    // text, and `{"hookSpecificOutput": ...}` are accepted, but any other
+    // JSON key fails the hook ("unsupported `deploymentFailures` in output of
+    // SessionStart hook output"). `aiwg refresh --quiet` prints its JSON
+    // report, so stdout is discarded; the exit status still records a failed
+    // drift check in Muse's hook log. `--provider muse` is required because
+    // provider detection is fail-closed for muse and would resolve `claude`.
+    // Hook commands run through a shell, so the redirect is honored.
     group: {
       matcher: '*',
-      hooks: [{ type: 'command', command: 'aiwg refresh --dry-run --quiet', timeout: 60 }],
+      hooks: [{ type: 'command', command: 'aiwg refresh --dry-run --quiet --provider muse > /dev/null', timeout: 60 }],
     },
     reason:
-      'Session-start context refresh. Runs a read-only `aiwg refresh --dry-run` so the ' +
-      'session begins from current AIWG framework state. Dry-run by construction: ' +
-      'it reports drift and never mutates the repo.',
+      'Session-start drift check. Runs a read-only `aiwg refresh --dry-run --provider muse` ' +
+      'and records its exit status in the Muse hook log. Dry-run by construction: it ' +
+      'never mutates the repo, and its report is not injected into the session.',
     removal:
       'Delete this matcher group from `.muse/hooks.json` (the one whose command is ' +
-      '`aiwg refresh --dry-run --quiet`), or run `aiwg use --provider muse --no-hooks` ' +
+      '`aiwg refresh --dry-run --quiet --provider muse > /dev/null`), or run `aiwg use --provider muse --no-hooks` ' +
       'to stop AIWG managing hooks for this project.',
   },
 ];

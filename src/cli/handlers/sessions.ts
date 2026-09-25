@@ -1686,7 +1686,7 @@ function providerDisposition(provider: SessionProviderId): Record<string, unknow
       supportedOperations: ['inspect', 'stream'],
       acquisitionModes: ['manual-export'],
       reasonCode: 'MANUAL_SOURCE_SELECTION_REQUIRED',
-      remediation: 'Run `muse export` and explicitly select the trajectory JSON; Muse Code auto-discover is unsupported until a native session root is evidenced on disk.',
+      remediation: 'Run `muse export --session <id-or-session.jsonl>` and explicitly select the trajectory JSON; sessions live under $XDG_DATA_HOME/muse/sessions, but that native log format is internal, so auto-discover is unsupported.',
       evidence: {
         adapterVersion: MUSE_ADAPTER_VERSION,
         verifiedAt: '2026-09-24',

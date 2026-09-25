@@ -42,13 +42,14 @@ context or memory.
 > project folder. Review `.muse/hooks.json` before trusting a workspace.
 
 - `aiwg use --provider muse` installs one AIWG-managed `SessionStart` hook
-  into `.muse/hooks.json`: a read-only `aiwg refresh --dry-run --quiet`
-  context refresh at session start. Unmanaged hooks are never silently
+  into `.muse/hooks.json`: a read-only drift check
+  (`aiwg refresh --dry-run --quiet --provider muse > /dev/null`) at session
+  start. Its exit status is recorded in the Muse hook log. Unmanaged hooks are never silently
   installed; every managed hook ships with a stated reason and a removal
   path (see `tools/agents/providers/muse-hooks.mjs`).
 - Opt out with `aiwg use --provider muse --no-hooks`. To remove an installed
   managed hook, delete its matcher group from `.muse/hooks.json` (the group
-  whose command is `aiwg refresh --dry-run --quiet`).
+  whose command starts with `aiwg refresh --dry-run`).
 - MCP is **opt-in only**: `aiwg use --provider muse --mcp` merges the AIWG
   MCP server (`aiwg mcp serve` over stdio, `mode: optional`) into the
   `mcp_servers` block of the operator's `$XDG_CONFIG_HOME/muse/settings.json`

@@ -35,6 +35,12 @@ siblings of `muse/skills` under the XDG config home, and never silently mirrors
 into `~/.agents/skills` (Muse also reads that root — a second AIWG-owned copy
 would list every kernel skill twice, the Codex #766 regression).
 
+Muse Code 1.4.0 also loads **foreign personal skills** from `~/.claude/skills`
+and `~/.codex/skills` as user-scope skills. If you deploy AIWG to Claude Code
+or Codex at user scope as well, those copies show up in Muse too. Pass
+`--no-foreign-personal-context` to `muse`, or skip the other user-scope
+deploys, to keep one copy.
+
 ## Quick start (project)
 
 Install Muse Code, then from the project root:
@@ -81,12 +87,25 @@ via `aiwg discover` / `aiwg show`.
 
 ## Sessions
 
-Session support is **export-first** until a native log root is evidenced on
-disk: the adapter ingests only explicit `muse export` / `/export trajectory`
-JSON documents supplied by the operator, gated on the document's
-`export_schema_version` major. Auto-discovery never scrapes unauthorized
-homes; no `~/.muse` root is assumed. See the ADR "Sessions: export-first"
-section. Details: [Muse sessions](../../providers/muse-sessions.md).
+Muse keeps one directory per session under
+`$XDG_DATA_HOME/muse/sessions/YYYY/MM/DD/<session-id>/` (default
+`~/.local/share/muse/sessions`), with the event log in `session.jsonl` and
+CLI diagnostics in `cli-*.log`. That log format is internal, so session
+import is **export-first**: run `muse export --session <id-or-session.jsonl>`
+and pass the exported JSON to `aiwg sessions import`. No `~/.muse` root
+exists or is assumed. Details: [Muse sessions](../../providers/muse-sessions.md).
+
+## Models
+
+Model ids come from Muse's Meta provider catalog. On Muse Code 1.4.0 that is
+`muse-spark-1.3` (current), `muse-spark-1.3-contributor` (catalog default),
+`muse-spark-1.2`, and `muse-spark-1.2-contributor`, each with a 1,007,997-token
+context window and 128,000-token output limit. Select one with
+`muse exec --model <id>` or the `model` key in
+`$XDG_CONFIG_HOME/muse/settings.json`; AIWG never writes that key. Reasoning
+effort tiers for 1.3 are `minimal`, `low`, `medium`, `high`, `xhigh`, and
+`max`. Muse records the model each run used as `run.model.configured` in the
+session log.
 
 ## Hooks and MCP
 
@@ -95,15 +114,18 @@ operator's machine, and project hooks run only after the folder is trusted.
 Review `.muse/hooks.json` before trusting a workspace.
 
 - `aiwg use --provider muse` installs one AIWG-managed `SessionStart` hook
-  into `.muse/hooks.json`: a read-only `aiwg refresh --dry-run --quiet`
-  context refresh. Operator hook groups are preserved, the managed group is
+  into `.muse/hooks.json`: a read-only drift check
+  (`aiwg refresh --dry-run --quiet --provider muse > /dev/null`). Muse parses
+  hook stdout as structured hook output and rejects unknown JSON keys, so the
+  report is discarded and the exit status is what Muse records. Operator hook groups are preserved, the managed group is
   tracked in `.muse/.aiwg-hooks.json`, and a hand-edited `hooks.json` is
   backed up before it is rewritten. Unmanaged hooks are never installed.
 - Opt out with `aiwg use --provider muse --no-hooks`, or delete the matcher
-  group whose command is `aiwg refresh --dry-run --quiet`.
+  group whose command starts with `aiwg refresh --dry-run`.
 - MCP is opt-in only: `aiwg use --provider muse --mcp` merges the AIWG MCP
   server into `mcp_servers` in `$XDG_CONFIG_HOME/muse/settings.json`
-  (default `~/.config/muse/settings.json`), with a backup of the existing
+  (default `~/.config/muse/settings.json`). Muse 1.4.0 starts it and exposes
+  its tools as `mcp__aiwg__*`. The merge keeps a backup of the existing
   file. A default deploy never touches user settings.
 
 ## Workspace trust

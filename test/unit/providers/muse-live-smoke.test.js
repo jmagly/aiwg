@@ -155,11 +155,22 @@ describe('muse opt-in live smoke (#237)', () => {
               mkdirSync(join(cwd, '.agents', 'skills'), { recursive: true });
             }
           }
+          if (!args.includes('--dry-run') && !args.includes('--scope') && args[0] === 'use') {
+            mkdirSync(join(cwd, '.agents', 'skills', 'aiwg-doctor'), { recursive: true });
+          }
           return { status: 0, stdout: 'deployed to .agents/skills', stderr: '' };
         },
+        runMuse: () => ({
+          status: 0,
+          // Muse Code 1.4.0 reports project skill paths relative to the workspace.
+          stdout: JSON.stringify({ skills: [{ id: 'aiwg-doctor', path: '.agents/skills/aiwg-doctor/SKILL.md', diagnostics: [] }] }),
+          stderr: '',
+        }),
       },
     );
     expect(report.status).toBe('passed');
+    expect(report.checks.museLoadsSkills).toBe(true);
+    expect(report.checks.museSkillCount).toEqual({ deployed: 1, loaded: 1 });
     expect(report.reason).toBe('LIVE_CHECKS_PASSED');
     expect(report.checks.dryRun).toBe(true);
     expect(report.checks.deploy).toBe(true);
@@ -170,6 +181,27 @@ describe('muse opt-in live smoke (#237)', () => {
     expect(report.checks.forbiddenWrites).toEqual([]);
     expect(report.checks.cliVersion).toBe('muse 0.0.0-test');
     expect(existsSync(project)).toBe(false);
+  });
+
+  it('fails when Muse does not load a deployed skill', () => {
+    const report = runLiveSmoke(
+      {},
+      { [LIVE_GATE]: '1' },
+      {
+        probeCli: cliPresent,
+        runAiwg: (args, cwd, env) => {
+          if (!args.includes('--dry-run')) {
+            if (args.includes('--scope')) mkdirSync(join(env.XDG_CONFIG_HOME, 'muse', 'skills'), { recursive: true });
+            else mkdirSync(join(cwd, '.agents', 'skills', 'aiwg-doctor'), { recursive: true });
+          }
+          return { status: 0, stdout: 'deployed to .agents/skills', stderr: '' };
+        },
+        runMuse: () => ({ status: 0, stdout: JSON.stringify({ skills: [] }), stderr: '' }),
+      },
+    );
+    expect(report.status).toBe('failed');
+    expect(report.reason).toBe('MUSE_SKILLS_NOT_LOADED');
+    expect(report.checks.museSkillCount).toEqual({ deployed: 1, loaded: 0 });
   });
 });
 

@@ -32,17 +32,20 @@ function scratch(prefix) { const dir = mkdtempSync(join(tmpdir(), prefix)); retu
 test('Muse adapter builds a sub-command-first exec argv with the prompt positional last', () => {
   const adapter = new MuseAdapter();
   assert.deepEqual(adapter.buildSessionArgs({ prompt: 'do the task' }),
-    ['exec', '--json', 'do the task'],
+    ['exec', '--json', '--', 'do the task'],
     'flags are parsed by `exec`, never by the `muse` root — argv must start with exec');
+  assert.deepEqual(adapter.buildSessionArgs({ prompt: '--looks-like-a-flag' }),
+    ['exec', '--json', '--', '--looks-like-a-flag'],
+    'muse exits 2 on a leading-dash prompt unless `--` ends option parsing (verified on 1.4.0)');
 });
 
 test('Muse adapter resumes via --session-id and passes through documented run controls', () => {
   const adapter = new MuseAdapter();
   assert.deepEqual(
-    adapter.buildSessionArgs({ prompt: 'continue', sessionId: 'uuid-1', model: 'muse-spark-1.2',
+    adapter.buildSessionArgs({ prompt: 'continue', sessionId: 'uuid-1', model: 'muse-spark-1.3',
       reasoningEffort: 'medium', maxTurns: 10, approvalMode: 'never' }),
-    ['exec', '--json', '--session-id', 'uuid-1', '--model', 'muse-spark-1.2',
-      '--reasoning-effort', 'medium', '--max-model-steps', '10', '--approval-mode', 'never', 'continue']);
+    ['exec', '--json', '--session-id', 'uuid-1', '--model', 'muse-spark-1.3',
+      '--reasoning-effort', 'medium', '--max-model-steps', '10', '--approval-mode', 'never', '--', 'continue']);
   assert.deepEqual(
     adapter.buildSessionArgs({ prompt: 'unused', promptFile: '/tmp/task.txt' }),
     ['exec', '--json', '--prompt-file', '/tmp/task.txt'],
@@ -55,14 +58,14 @@ test('Muse adapter warns on unsupported options and never emits unevidenced flag
   try {
     const args = adapter.buildSessionArgs({ prompt: 'p', budget: 5, systemPrompt: 'sys',
       agent: 'analyst', mcpConfig: { servers: {} } });
-    assert.deepEqual(args, ['exec', '--json', 'p'], 'unsupported options never reach the CLI');
+    assert.deepEqual(args, ['exec', '--json', '--', 'p'], 'unsupported options never reach the CLI');
     assert.deepEqual(warnings.map(message => message.match(/Warning: (.+?) not supported/)[1]),
       ['Budget control', 'System prompt', 'Agent mode', 'MCP configuration']);
   } finally { console.warn = warn; }
   const args = adapter.buildSessionArgs({ prompt: 'p', maxTurns: 3 });
   assert.ok(!args.includes('--max-turns'), 'muse has no --max-turns; the cap is --max-model-steps');
   assert.ok(!args.includes('--yolo'), 'no approval posture is defaulted (#230 out of scope)');
-  assert.deepEqual(adapter.buildAnalysisArgs({ prompt: 'analyze' }), ['exec', 'analyze'],
+  assert.deepEqual(adapter.buildAnalysisArgs({ prompt: 'analyze' }), ['exec', '--', 'analyze'],
     'analysis wants reply text, so --json is not requested');
 });
 
@@ -84,7 +87,7 @@ test('Muse adapter reports the documented capability set', () => {
   });
   assert.equal(adapter.getAbortInput(), null, 'no evidenced stdin command channel, so no abort frame');
   assert.deepEqual(adapter.getEnvOverrides(), { CI: 'true', NO_COLOR: '1' });
-  assert.equal(adapter.mapModel('muse-spark-1.2'), 'muse-spark-1.2', 'Muse ids pass through');
+  assert.equal(adapter.mapModel('muse-spark-1.3'), 'muse-spark-1.3', 'Muse ids pass through');
   assert.equal(adapter.mapModel('claude-sonnet-5'), null, 'other-provider names are dropped');
   assert.equal(adapter.mapModel('sonnet'), null, 'generic Ralph names are dropped');
   assert.ok(!adapter.buildSessionArgs({ prompt: 'p', model: 'claude-sonnet-5' }).includes('--model'),
@@ -94,15 +97,35 @@ test('Muse adapter reports the documented capability set', () => {
   assert.equal(withEnv({ AIWG_MUSE_BIN: '/opt/muse/bin/muse' }, () => adapter.getBinary()), '/opt/muse/bin/muse');
 });
 
-test('Muse adapter validates JSONL framing and leaves settlement indeterminate', () => {
+test('Muse adapter parses the verified --json envelope into text and settlement', () => {
   const adapter = new MuseAdapter();
-  const stream = '{"stub":"muse-exec","event":"run_started"}\n{"stub":"muse-exec","event":"run_terminal"}\n';
-  const parsed = adapter.parseOutput(stream);
-  assert.equal(parsed.events.length, 2);
-  assert.equal(parsed.settled, null, 'the --json envelope schema is unevidenced; settlement comes from exit codes');
-  assert.ok(!('text' in parsed), 'no text is extracted from an unevidenced envelope');
-  assert.equal(adapter.parseOutput(`${stream}not json\n`), null, 'a malformed line rejects the whole stream');
-  assert.equal(adapter.parseOutput(`${stream}\r\n`).events.length, 2, 'CRLF-terminated records are tolerated');
+  const record = (payloadType, payload, sequence) => JSON.stringify({ schema_version: 1, id: `r${sequence}`,
+    stream: { kind: 'session', id: 's' }, sequence, recorded_at: 1790349213894901, record_type: 'event',
+    durability: 'durable', causation_id: null, payload_type: payloadType, payload_schema_version: 1, payload });
+  const completed = [
+    record('run.lifecycle.started', { kind: 'run_started' }, 1),
+    record('run.output.delta', { kind: 'run_output_delta', text: 'AIWG-' }, 2),
+    record('run.output.delta', { kind: 'run_output_delta', text: 'MUSE-OK' }, 3),
+    record('run.terminal.completed', { kind: 'run_terminal', terminal: 'completed', reason: null, text: 'AIWG-MUSE-OK' }, 4),
+  ].join('\n') + '\n';
+  const parsed = adapter.parseOutput(completed);
+  assert.equal(parsed.events.length, 4);
+  assert.equal(parsed.text, 'AIWG-MUSE-OK', 'the terminal record carries the final answer');
+  assert.equal(parsed.settled, true);
+  assert.equal(parsed.terminal, 'completed');
+
+  const failed = record('run.terminal.failed', { kind: 'run_terminal', terminal: 'failed',
+    reason: 'model `x` does not exist or you lack access', text: '' }, 1) + '\n';
+  assert.deepEqual(
+    (({ text, settled, terminal, reason }) => ({ text, settled, terminal, reason }))(adapter.parseOutput(failed)),
+    { text: null, settled: false, terminal: 'failed', reason: 'model `x` does not exist or you lack access' });
+
+  const deltasOnly = record('run.output.delta', { kind: 'run_output_delta', text: 'partial' }, 1) + '\n';
+  assert.equal(adapter.parseOutput(deltasOnly).text, 'partial', 'streamed deltas are the fallback text');
+  assert.equal(adapter.parseOutput(deltasOnly).settled, null, 'no terminal record means settlement is unknown');
+
+  assert.equal(adapter.parseOutput(`${completed}not json\n`), null, 'a malformed line rejects the whole stream');
+  assert.equal(adapter.parseOutput(completed.replaceAll('\n', '\r\n')).events.length, 4, 'CRLF-terminated records are tolerated');
   assert.equal(adapter.parseOutput(''), null);
   assert.equal(adapter.parseOutput('plain text\n'), null, 'non-JSONL output is never accepted as events');
 });
@@ -157,15 +180,18 @@ test('launcher drives the offline stub with exactly the adapter-built argv', asy
     const result = await withEnv(
       { AIWG_MUSE_BIN: stub, AIWG_MUSE_STUB_SCENARIO: undefined, AIWG_MUSE_STUB_RECEIPT: receipt, CI: undefined, NO_COLOR: undefined },
       () => launcher.launch({ prompt: 'bounded fixture task', sessionId: 'aiwg-fixture-session',
-        resumeSession: 'muse-job-1', workingDir: dir, stdoutPath: join(dir, 'stdout.log'), stderrPath: join(dir, 'stderr.log') }));
+        workingDir: dir, stdoutPath: join(dir, 'stdout.log'), stderrPath: join(dir, 'stderr.log') }));
     assert.equal(result.exitCode, 0, 'the documented 0 exit means the turn completed');
-    // Only a real muse resume id is forwarded; AIWG's tracking id never is.
-    assert.deepEqual(started.args.slice(0, 4), ['exec', '--json', '--session-id', 'muse-job-1']);
+    // --session-id pins the new session's id; re-passing it continues that
+    // session (verified on Muse Code 1.4.0).
+    assert.deepEqual(started.args.slice(0, 4), ['exec', '--json', '--session-id', 'aiwg-fixture-session']);
     const observed = JSON.parse(readFileSync(receipt, 'utf8'));
     assert.deepEqual(observed.argv, started.args, 'the child received exactly the adapter-built argv');
     assert.deepEqual(observed.env, { CI: 'true', NO_COLOR: '1' }, 'headless env overrides reach the child');
     const parsed = adapter.parseOutput(readFileSync(join(dir, 'stdout.log'), 'utf8'));
-    assert.equal(parsed.events.length, 2, 'fixture JSONL events validate as framing');
+    assert.equal(parsed.events.length, 2);
+    assert.equal(parsed.text, 'fixture answer');
+    assert.equal(parsed.settled, true);
     assert.equal(launcher.currentProcess, null);
   } finally { cleanup(); }
 });
@@ -194,7 +220,7 @@ test('muse export produces the transcript path offline via the adapter-built arg
     const child = withEnv({ AIWG_MUSE_BIN: stub },
       () => spawnSync(process.execPath, [stub, ...argv], { encoding: 'utf8', timeout: 30_000 }));
     assert.equal(child.status, 0);
-    assert.equal(child.stdout.trim(), out, 'stdout carries the absolute path written, per Meta docs');
+    assert.equal(child.stdout.trim(), `wrote session export to ${out}`, 'with --out, muse reports the file written');
     assert.ok(existsSync(out), 'the export document is written without network or auth');
     const document = JSON.parse(readFileSync(out, 'utf8'));
     assert.equal(document.export_schema_version, 1, 'the documented export schema version');

@@ -189,7 +189,7 @@ export class SessionLauncher extends EventEmitter {
         ? this.providerAdapter.buildSessionArgs({
             prompt: options.prompt,
             // AIWG's tracking UUID is not an OMP native session to resume.
-            sessionId: ['omp', 'muse'].includes(this.providerAdapter.getName()) ? options.resumeSession : options.sessionId,
+            sessionId: this.providerAdapter.getName() === 'omp' ? options.resumeSession : options.sessionId,
             model: options.model,
             budget: options.budget,
             maxTurns: options.maxTurns,
