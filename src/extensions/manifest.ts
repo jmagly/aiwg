@@ -156,6 +156,7 @@ export const ProviderConfigSchema = z.object({
     'factory',
     'grokbot',
     'hermes',
+    'muse',
     'opencode',
     'openclaw',
     'openhuman',
