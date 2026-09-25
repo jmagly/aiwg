@@ -82,6 +82,21 @@ const { auditProjectArtifactHealth } = await importImpl(
 // getFrameworkRoot() resolves correctly for npm global installs, edge, and dev channels.
 const AIWG_ROOT = process.env.AIWG_ROOT || await getFrameworkRoot();
 
+// Installation identity drift, when present, is published by bin/aiwg.mjs for
+// read-only commands that keep running against a stale canonical install
+// (#270). The provider inventory below is read from AIWG_ROOT, so an
+// "unknown provider" under drift means the install predates the provider —
+// not that the provider is unregistered. Parse once so per-check messages
+// can name the drift instead of implying a registry defect.
+let installationDrift = null;
+try {
+  installationDrift = process.env.AIWG_INSTALLATION_DRIFT
+    ? JSON.parse(process.env.AIWG_INSTALLATION_DRIFT)
+    : null;
+} catch {
+  installationDrift = null;
+}
+
 const checks = [];
 
 // ---- Provider awareness (#1057) ----------------------------------------
@@ -872,7 +887,13 @@ async function runDoctor() {
     const provider = await loadProvider(provName);
     const label = PROVIDER_LABELS[provName] || provName;
     if (!provider || !provider.paths) {
-      check(`${label} Agents`, 'warn', `Unknown provider: ${provName}`);
+      // #270: under installation identity drift the provider inventory comes
+      // from the stale canonical install, so name the drift instead of
+      // reporting a bare "Unknown provider" that reads as a registry defect.
+      const driftNote = installationDrift
+        ? ' (installation identity drift: provider inventory read from stale canonical install; run `aiwg installation adopt` to repair)'
+        : '';
+      check(`${label} Agents`, 'warn', `Unknown provider: ${provName}${driftNote}`);
       continue;
     }
 
