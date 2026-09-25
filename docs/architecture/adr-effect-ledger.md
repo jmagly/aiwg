@@ -1,6 +1,6 @@
 # ADR: AIWG effect ledger
 
-- Status: Accepted (contract, schemas and the `src/effects` core library committed; verifiers, CLI and adoption pending #2718 onward)
+- Status: Accepted (contract, schemas, the `src/effects` core library, the verifier framework (#2718) and the `aiwg effect` CLI (#2720) committed; tracker verifiers and adoption pending #2719 onward)
 - Date: 2026-09-24
 - Issue: [#2715](https://git.integrolabs.net/roctinam/aiwg/issues/2715) (epic [#2714](https://git.integrolabs.net/roctinam/aiwg/issues/2714))
 - Origin: #2677 owner question (D13 production completion lookup)

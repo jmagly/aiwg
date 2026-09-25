@@ -135,6 +135,8 @@ function displayHelp(): void {
   helpGroup('EVIDENCE', [
     ['evidence export --output <dir>', 'Package portable activity, report, source, eval, and provenance evidence'],
     ['evidence verify <bundle>', 'Verify every member hash and the bundle checkpoint'],
+    ['effect record|lookup|reconcile', 'Record, look up or reconcile a side effect in the signed effect ledger'],
+    ['effect verify|checkpoint|keys', 'Verify the effect ledger, checkpoint it, or manage its signing key'],
   ]);
 
   helpGroup('SCAFFOLDING', [

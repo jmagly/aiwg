@@ -552,6 +552,30 @@ export async function lookupEffect(ledger: EffectLedger, id: string): Promise<Ef
   return { ...base, status: 'reconciled', result, exitCode: EXIT_FOR_RESULT[result] };
 }
 
+/**
+ * Create the genesis keyring for the loaded signing key when the ledger has
+ * none, and return the keyring. Fails when the loaded key is not the active key.
+ * Used by `aiwg effect keys init`; ordinary writes create it on first use.
+ */
+export async function initLedgerKeyring(ledger: EffectLedger): Promise<EffectKeyring> {
+  const { paths } = await prepareWrite(ledger);
+  const key = await ledger.signingKey();
+  return withLedgerLock(paths, 'keyring', ledger.lockTimeoutMs, async () => {
+    const at = ledger.now();
+    const keyring = await ensureKeyring(ledger, paths, key, at);
+    assertSigningKeyActive(keyring, key, ledger.now());
+    return keyring;
+  });
+}
+
+/** The stored keyring (public keys only), or null when the ledger has none. Never needs a signing key. */
+export async function readLedgerKeyring(ledger: EffectLedger): Promise<EffectKeyring | null> {
+  const stored = await readKeyring(ledger.paths());
+  if (stored === null) return null;
+  assertKeyring(stored, ledger.scope);
+  return stored;
+}
+
 export interface RotateKeyOptions {
   effectiveAt?: string;
   reason?: EffectKeyRotationBody['reason'];

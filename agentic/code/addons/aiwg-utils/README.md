@@ -123,6 +123,18 @@ aiwg -reset-workspace --reinitialize  # Create fresh structure
 aiwg -reset-workspace --force --reinit  # Quick reset
 ```
 
+Record and reconcile side effects in the signed effect ledger (see the
+`effect-ledger` skill):
+
+```bash
+aiwg effect record --kind tracker.comment --target gitea:owner/repo#12 \
+  --issue 12 --action cycle-comment --cycle 1 --payload-file comment.md
+aiwg effect lookup --kind tracker.comment --target gitea:owner/repo#12 --issue 12 --action cycle-comment --cycle 1
+aiwg effect reconcile <effect-id>      # 0 present, 3 absent, 4 unknown
+aiwg effect verify                     # 0 intact, 6 integrity failure
+aiwg effect keys list                  # key IDs and public keys only
+```
+
 ## Preservation Strategy
 
 The regenerate commands preserve content that cannot be re-derived from the codebase:

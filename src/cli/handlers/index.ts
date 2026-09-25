@@ -108,6 +108,7 @@ import { refreshHandler } from './refresh.js';
 import { regenerateHandler, regenerateHandlers } from './regenerate.js';
 import { workspaceContextHandler, workspaceContextHandlers } from './workspace-context.js';
 import { artifactsHandler, artifactsHandlers } from './artifacts.js';
+import { effectHandler, effectHandlers } from './effect.js';
 import { mcHandler, mcHandlers } from './mc.js';
 import { missionHandlers } from './mission.js';
 import { sdlcAccelerateHandler } from './sdlc-accelerate.js';
@@ -214,6 +215,7 @@ export {
   versionsHandler,
   indexHandler,
   artifactsHandler,
+  effectHandler,
   corpusHandler,
   discoverHandler,
   showHandler,
@@ -331,6 +333,7 @@ export {
   regenerateHandlers,
   workspaceContextHandlers,
   artifactsHandlers,
+  effectHandlers,
   daemonHandlers,
   sandboxHandlers,
   repoAccessHandlers,
@@ -397,6 +400,7 @@ export const allHandlers: CommandHandler[] = [
   versionsHandler,
   indexHandler,
   artifactsHandler,
+  effectHandler,
   corpusHandler,
   discoverHandler,
   showHandler,

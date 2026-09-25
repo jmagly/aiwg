@@ -80,6 +80,7 @@ contains access or refresh tokens.
 - [Documentation Commands](#documentation-commands)
 - [SDLC Orchestration Commands](#sdlc-orchestration-commands)
 - [Index Commands](#index-commands)
+- [Effect Ledger Commands](#effect-ledger-commands)
 - [Configuration Commands](#configuration-commands)
 - [Agentic Tools (RLM)](#agentic-tools-rlm)
 - [Addon Commands](#addon-commands)
@@ -4846,6 +4847,107 @@ aiwg index migrate-legacy --all --json
 
 If `metadata.json` is missing, unreadable, or has an incompatible schema
 version, the command reports `needs-rebuild` instead of silently falling back.
+
+---
+
+## Effect Ledger Commands
+
+The effect ledger is a signed proof and deduplication index for side effects:
+tracker comments, PR merges, issue closes, git commits and tags, files and
+decision receipts. It proves what AIWG recorded and what a verifier observed.
+It never authorizes or replays an effect. The
+[effect ledger contract](../contracts/effect-ledger.v1.md) pins the record
+format, the verifier rules and the exit codes.
+
+### effect
+
+```bash
+aiwg effect id         <identity>
+aiwg effect intent     <identity> <payload> [--link key=value]...
+aiwg effect record     <identity> <payload> [--unverified] [expectations] [--link key=value]...
+aiwg effect lookup     <effect-id> | <identity>
+aiwg effect reconcile  <effect-id> | <identity> [expectations] [--link key=value]...
+aiwg effect verify     [--trusted-keyid <keyid>]...
+aiwg effect checkpoint
+aiwg effect kinds
+aiwg effect keys       list | init | rotate [--reason scheduled|custody-change|compromise]
+aiwg effect recover-lock [--lock <name> --authorize]
+```
+
+| Subcommand | What it does |
+|---|---|
+| `id` | Prints the effect ID for an identity without writing anything. With `--format text` it prints the bare ID |
+| `intent` | Appends a signed `intent` record before the effect |
+| `record` | Intent, verify and completed in one command: appends the intent, runs the kind's verifier and appends `completed` when the target shows the effect. An `absent` or `unknown` result is appended as `reconciled`. `--unverified` records the intent only |
+| `lookup` | Reports everything recorded for an effect ID, merged across writers |
+| `reconcile` | Asks the kind's verifier again and appends a `reconciled` record. A `present` result also records `completed` |
+| `verify` | Checks the keyring, every signature and key window, the hash chain, the index and the latest checkpoint |
+| `checkpoint` | Signs a checkpoint over every writer's segment head and publishes it to the independent sink (a git ref by default) |
+| `kinds` | Lists every kind the verifier registry holds, with its version and whether it can report `absent` |
+| `keys` | `list` shows key IDs and public keys only. `init` provisions the ledger key in the host secret service and writes the genesis keyring. `rotate` stages a successor key, signs the rotation with both keys and promotes the successor |
+| `recover-lock` | Without `--lock`, inspects the ledger locks. With `--lock <name> --authorize`, removes a stale lock left by a dead writer and records the recovery in the ledger |
+
+**Identity.** `--kind <kind> --target <scheme:ref>` plus context members from
+`--context '<json>'`, repeated `--ctx key=value`, or the tracker shortcuts
+`--issue <n> --action <name> --cycle <n>`. A D13 review continuation uses
+`--review <id> --continuation <id> --proposal-version <n>`, which selects the
+`d13.review/v1` derivation and the `review` subsystem.
+
+**Payload.** `--payload-file <path>` digests the exact bytes the effect sends
+(`-` reads stdin), or `--payload-digest sha256:<hex>` gives the digest. Raw
+payloads are never recorded or printed.
+
+**Expectations.** `--expect-digest`, `--expect-object`, `--signed`,
+`--timeout-ms` and `--verifier-version` are passed to the verifier.
+
+**Common options.** `--subsystem review|job|delivery|custom` (default
+`delivery`), `--project-dir <dir>`, and `--format json|text`. Output is JSON by
+default, and every JSON document has a `schema` member (for example
+`aiwg.effect.record.v1` or `aiwg.effect.error.v1`).
+
+**Host configuration.** Scope and key custody come from the `effects` block of
+`aiwg.config`, never from command arguments:
+
+```json
+{
+  "effects": {
+    "tenant": "local",
+    "project": "owner/repo",
+    "writer": "cli",
+    "keyProvider": { "type": "credential-store", "service": "effects.aiwg.io" }
+  }
+}
+```
+
+The ledger key lives in the host secret service under the account
+`ledger/<tenant>/<project>/<subsystem>` unless `keyProvider.account` overrides
+it. `"type": "file"` with a `path` selects an explicit mode-0600 file fallback
+for hosts without a secret service. The private key is never printed.
+
+**Stale lock recovery.** A crashed writer can leave a lock under
+`effects/<subsystem>/locks/`. Later writers wait and then fail rather than take
+it. `aiwg effect recover-lock --lock <name> --authorize` removes such a lock
+only when its owner process is dead. It refuses a live owner and a PID that a
+newer process has reused (exit 5), and an owner it cannot verify (exit 4). It
+records the recovery as a signed `x.aiwg.ledger-lock-recovery` effect. Run it
+only with the operator's approval.
+
+**Exit codes.**
+
+| Code | Meaning |
+|---|---|
+| `0` | Present or recorded, including an idempotent replay (`"idempotent":true`) or an intact ledger |
+| `1` | Internal error, including a missing ledger key or a lock timeout |
+| `2` | Usage error: invalid arguments, unknown subcommand, malformed effect ID or unknown kind |
+| `3` | Absent: the verifier reported `absent`, or `lookup` found no record (or a `failed` outcome) |
+| `4` | Unknown: the verifier reported `unknown`, or `lookup` found an intent with no outcome |
+| `5` | Conflict: the same effect ID with a different payload digest |
+| `6` | Integrity failure: a signature, key window, chain link, record hash, checkpoint or scope check failed |
+| `7` | Artifact root unavailable: nothing was written and there is no local fallback |
+
+**Capabilities:** cli, effects, idempotency, verification, signing, provenance
+**Platforms:** All
+**Tools:** Read, Bash
 
 ---
 
