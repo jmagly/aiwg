@@ -87,6 +87,18 @@ function contextRuntime(questionTokens = 1): DecisionContextPolicy {
   };
 }
 
+/**
+ * Offline stand-in for a reviewed provider qualification. The gate cannot authenticate a caller-declared
+ * `source: provider`, so this exercises enforce-mode wiring only; it is not TV-12 evidence.
+ */
+function qualified(runtime: DecisionContextPolicy): DecisionContextPolicy {
+  const input = { ...runtime.input, questions: [runtime.input.questions[0]!] };
+  const estimate = planDecisionContext(input, runtime.profile, runtime.estimator).partitions[0]!.estimate.aggregateTokens;
+  runtime.rollout = { mode: 'enforce', qualification: compareContextUsage([{ caseId: 'declared-provider-fixture', input,
+    actualInputTokens: estimate, source: 'provider', usageRef: 'fixture:declared-provider' }], runtime.profile, runtime.estimator) };
+  return runtime;
+}
+
 function runtimeProjectionPolicy(): DecisionProjectionPolicy {
   return {
     version: '1.0.0', provider: 'jev', model: 'jev-latest', origin: 'https://api.typesafe.ai', region: 'us',
@@ -145,7 +157,7 @@ describe('native shared-state decision batching', () => {
       bodies.push(body);
       return validResponse(body);
     }) as typeof fetch;
-    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: contextRuntime(20) });
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: qualified(contextRuntime(20)) });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(bodies.map(body => Object.keys(body.questions as object).length).sort()).toEqual([1, 2]);
     expect(result.spec.context?.plan.partitions.map(partition => partition.questionIds.length)).toEqual([2, 1]);
@@ -165,7 +177,7 @@ describe('native shared-state decision batching', () => {
     runtime.profile.limits.stateAndLongestQuestionTokens = 100;
     const batching = policy();
     batching.evaluations.severity!.egressPolicy = 'another-egress-policy';
-    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batching, context: runtime });
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batching, context: qualified(runtime) });
     expect(result.spec.context?.plan.partitions).toHaveLength(1);
     const usage = result.spec.context?.actualUsage ?? [];
     expect(usage).toHaveLength(2);
@@ -189,9 +201,35 @@ describe('native shared-state decision batching', () => {
       actualInputTokens: 3, source: 'synthetic', usageRef: 'fixture:offline' }], runtime.profile, runtime.estimator);
     runtime.rollout = { mode: 'enforce', qualification };
     const rejected = await evaluateDecisionRuleset({ ...request(fetchImpl), resolveCredential: credential, context: runtime });
-    expect(rejected.spec.reason).toBe('invalid-input');
+    expect(rejected.spec.reason).toBe('context-unqualified');
+    expect(rejected.spec.contextFailure).toEqual({ schemaVersion: 'decision-context-failure/v1', reason: 'rollout-unqualified' });
     expect(credential).not.toHaveBeenCalled();
     expect(fetchImpl).toHaveBeenCalledTimes(3);
+    validateDecisionDocument(rejected);
+  });
+
+  it('CTX-ROLLOUT fails partitioned native batching closed when no rollout mode is set', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const adapter = new JevDecisionAdapter({ fetch: fetchImpl });
+    const capabilities = vi.spyOn(adapter, 'capabilities');
+    const credential = vi.fn(async () => new TextEncoder().encode('token'));
+    const runtime = contextRuntime(20);
+    expect(runtime.rollout).toBeUndefined();
+    const rejected = await evaluateDecisionRuleset({ ...request(fetchImpl), adapters: { jev: adapter },
+      resolveCredential: credential, context: runtime });
+    expect(rejected.spec).toMatchObject({ status: 'error', reason: 'context-unqualified', evaluations: {} });
+    expect(rejected.spec.contextFailure).toEqual({ schemaVersion: 'decision-context-failure/v1', reason: 'rollout-unqualified' });
+    expect(capabilities).not.toHaveBeenCalled();
+    expect(credential).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    validateDecisionDocument(rejected);
+    // Without native batching the omitted rollout still runs individually preflighted calls.
+    const single = request(fetchImpl);
+    single.batching.enabled = false;
+    const individual = await evaluateDecisionRuleset({ ...single, context: contextRuntime(20) });
+    expect(individual.spec.reason).not.toBe('context-unqualified');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(individual.spec.context?.actualUsage).toHaveLength(3);
   });
 
   it('CTX-RUNTIME rejects stale plans before capability, credential, or transport access', async () => {
@@ -203,9 +241,14 @@ describe('native shared-state decision batching', () => {
     const credential = vi.fn(async () => new TextEncoder().encode('token'));
     const result = await evaluateDecisionRuleset({ ...request(vi.fn() as unknown as typeof fetch),
       adapters: { jev: adapter }, resolveCredential: credential, context: runtime });
-    expect(result.spec.reason).toBe('invalid-input');
+    const current = planDecisionContext(runtime.input, runtime.profile, runtime.estimator);
+    expect(result.spec.reason).toBe('context-plan-stale');
+    expect(result.spec.contextFailure).toEqual({ schemaVersion: 'decision-context-failure/v1', reason: 'stale-plan',
+      plannedDigest: runtime.plan!.planDigest, currentDigest: current.planDigest });
+    expect(current.planDigest).not.toBe(runtime.plan!.planDigest);
     expect(capabilities).not.toHaveBeenCalled();
     expect(credential).not.toHaveBeenCalled();
+    validateDecisionDocument(result);
   });
 
   it('CTX-RUNTIME rejects mixed subjects before transport access', async () => {
@@ -215,6 +258,73 @@ describe('native shared-state decision batching', () => {
     const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime });
     expect(result.spec.reason).toBe('invalid-input');
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['oversized-state', (runtime: DecisionContextPolicy) => { runtime.input.authorizedState = { tokens: 46 }; }],
+    ['oversized-question', (runtime: DecisionContextPolicy) => { runtime.input.questions[1]!.entry = { tokens: 45 }; }],
+  ] as const)('CTX-RUNTIME rejects %s before capability, credential, or transport access without truncation',
+    async (reason, oversize) => {
+      const fetchImpl = vi.fn() as unknown as typeof fetch;
+      const adapter = new JevDecisionAdapter({ fetch: fetchImpl });
+      const capabilities = vi.spyOn(adapter, 'capabilities');
+      const evaluate = vi.spyOn(adapter, 'evaluate');
+      const credential = vi.fn(async () => new TextEncoder().encode('token'));
+      const runtime = qualified(contextRuntime());
+      oversize(runtime);
+      const result = await evaluateDecisionRuleset({ ...request(fetchImpl), adapters: { jev: adapter },
+        resolveCredential: credential, context: runtime });
+      expect(result.spec).toMatchObject({ status: 'error', reason: 'invalid-input', evaluations: {} });
+      expect(result.spec.contextFailure).toEqual({ schemaVersion: 'decision-context-failure/v1', reason });
+      expect(result.spec.context).toBeUndefined();
+      expect(capabilities).toHaveBeenCalledTimes(0);
+      expect(evaluate).toHaveBeenCalledTimes(0);
+      expect(credential).toHaveBeenCalledTimes(0);
+      expect(fetchImpl).toHaveBeenCalledTimes(0);
+      validateDecisionDocument(result);
+    });
+
+  it('CTX-RUNTIME converts incomplete context from automatic action to the review outcome', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const runtime = (incompleteContext: boolean): DecisionContextPolicy => {
+      const configured = contextRuntime();
+      configured.profile.limits.aggregateTokens = 100;
+      configured.profile.limits.stateAndLongestQuestionTokens = 100;
+      configured.input.incompleteContext = incompleteContext;
+      return qualified(configured);
+    };
+    const baseline = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime(false) });
+    expect(['completed', 'defaulted']).toContain(baseline.spec.status);
+    const failureOutcome = fixture<DecisionRuleset>('ruleset.json').spec.failureOutcome;
+    expect(baseline.spec.outcome).not.toEqual(failureOutcome);
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime(true) });
+    expect(result.spec).toMatchObject({ status: 'review', reason: 'insufficient-information', outcome: failureOutcome });
+    expect(result.spec.context?.plan).toMatchObject({ incompleteContext: true, automaticActionAllowed: false });
+    validateDecisionDocument(result);
+  });
+
+  it('CTX-RUNTIME keeps state and question bodies out of result and batch receipt evidence', async () => {
+    const stateSentinel = 'STATE-BODY-SENTINEL-7d1f';
+    const questionSentinel = 'QUESTION-BODY-SENTINEL-93ac';
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const runtime = contextRuntime(20);
+    runtime.input.authorizedState = { tokens: 1, note: stateSentinel };
+    runtime.input.questions.forEach(question => { question.entry = { tokens: 20, prompt: `${questionSentinel} ${question.id}` }; });
+    qualified(runtime);
+    const store = new MemoryBatchReceiptStore();
+    const contextPlan = planDecisionContext(runtime.input, runtime.profile, runtime.estimator);
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime,
+      batchReceipts: { ...durableBatching(store, new MemoryBatchResultStore()), contextPlan } });
+    expect(result.spec.context?.plan.planDigest).toBe(contextPlan.planDigest);
+    const batchIds = [...new Set(Object.values(result.spec.evaluations).map(value => value.spec.batchResult?.batchId)
+      .filter((id): id is string => Boolean(id)))];
+    expect(batchIds.length).toBeGreaterThan(0);
+    const receipts = await Promise.all(batchIds.map(id => store.read(id, 'tenant', 'project')));
+    for (const evidence of [JSON.stringify(result), JSON.stringify(receipts)]) {
+      expect(evidence).not.toContain(stateSentinel);
+      expect(evidence).not.toContain(questionSentinel);
+    }
+    validateDecisionDocument(result);
   });
 
   it('PROJ-RUNTIME projects trusted host state before credential lookup for single requests', async () => {
@@ -689,7 +799,7 @@ describe('native shared-state decision batching', () => {
     configured.binding.spec.maxAttempts = 4;
     configured.definitions[extraAlias] = configured.definitions.category!;
     configured.batching.evaluations[extraAlias] = structuredClone(configured.batching.evaluations.category!);
-    const settings = { ...configured, context, batchReceipts: { ...durableBatching(store, resultStore), contextPlan } };
+    const settings = { ...configured, context: qualified(context), batchReceipts: { ...durableBatching(store, resultStore), contextPlan } };
     const result = await evaluateDecisionRuleset(settings);
     expect(calls).toHaveLength(2);
     const references = Object.values(result.spec.evaluations).map(value => value.spec.batchResult!);
@@ -723,7 +833,7 @@ describe('native shared-state decision batching', () => {
     configured.batching.evaluations[alias] = structuredClone(configured.batching.evaluations.category!);
     const policy = { ...durableBatching(store, new MemoryBatchResultStore()), contextPlan,
       unknownCostBound: { upperBoundMicros: 100, policyId: 'limit', policyVersion: '1' }, maxCostMicros: 100 };
-    const result = await evaluateDecisionRuleset({ ...configured, context, batchReceipts: policy });
+    const result = await evaluateDecisionRuleset({ ...configured, context: qualified(context), batchReceipts: policy });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(Object.values(result.spec.evaluations).filter(value => value.spec.reason === 'budget-exhausted')).toHaveLength(2);
     expect(Object.values(result.spec.evaluations).filter(value => value.spec.batchResult)).toHaveLength(2);

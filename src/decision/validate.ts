@@ -138,6 +138,7 @@ export const DECISION_RESULT_V1ALPHA2_FIELDS = [
   { field: 'admission', scope: 'attempt', owner: 'D05', semantic: 'admission-evidence' },
   { field: 'context', scope: 'decision', owner: 'D06', semantic: 'context-evidence' },
   { field: 'context', scope: 'ruleset', owner: 'D06', semantic: 'context-evidence' },
+  { field: 'contextFailure', scope: 'ruleset', owner: 'D06', semantic: 'context-evidence' },
   { field: 'providerPrefix', scope: 'attempt', owner: 'D30', semantic: 'provider-prefix-evidence' },
   { field: 'acceptance', scope: 'decision', owner: 'D08', semantic: 'acceptance-uncertainty' },
   { field: 'calibrationCompatibility', scope: 'decision', owner: 'D09', semantic: 'calibration-pin' },

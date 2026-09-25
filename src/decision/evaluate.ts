@@ -36,6 +36,7 @@ import type {
   DecisionAdapter,
   DecisionBatchEvidence,
   DecisionContextEvidence,
+  DecisionContextFailure,
   DecisionAttempt,
   DecisionAdmissionEvidence,
   DecisionDefinition,
@@ -225,7 +226,9 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
   } catch (error) {
     const reason = error instanceof EntryAdmissionError && admissionStage === 'input'
       ? 'invalid-input' : classifyValidationFailure(error);
-    return failureResult(base, reason);
+    const failed = failureResult(base, reason);
+    return error instanceof ContextPlanError && request.context
+      ? { ...failed, spec: { ...failed.spec, contextFailure: contextFailureEvidence(error) } } : failed;
   }
   if (contextPlan) base = withRulesetContext(base, contextPlan, []);
   const batchPolicy = request.batchReceipts;
@@ -1219,9 +1222,15 @@ function prepareContextPlan(
   assertContextPlanCurrent(plan, runtime.input, runtime.profile, runtime.estimator);
   if (runtime.rollout?.mode === 'enforce') {
     assertContextQualified(runtime.rollout.qualification, runtime.profile, runtime.estimator);
+  } else if (!runtime.rollout && (request.batching?.enabled || request.batchReceipts)) {
+    // D06 default: partitioned native batches stay closed until a rollout mode is chosen explicitly.
+    throw new ContextPlanError('rollout-unqualified',
+      'native batching with context planning requires rollout observe-only or a qualified enforce mode');
   }
   if (request.batchReceipts && request.batchReceipts.contextPlan.planDigest !== plan.planDigest) {
-    throw new ContextPlanError('stale-plan', 'batch receipt context plan differs from runtime context plan');
+    throw new ContextPlanError('stale-plan', 'batch receipt context plan differs from runtime context plan', {
+      plannedDigest: request.batchReceipts.contextPlan.planDigest, currentDigest: plan.planDigest,
+    });
   }
   return plan;
 }
@@ -1264,6 +1273,15 @@ function recordRuntimeContextUsage(
     && candidate.partitionId === partition.id && candidate.questionIds.join('\0') === key);
   if (index < 0) evidence.push(recorded);
   else evidence[index] = recorded;
+}
+
+function contextFailureEvidence(error: ContextPlanError): DecisionContextFailure {
+  const digestDetail = (value: unknown): `sha256:${string}` | undefined =>
+    typeof value === 'string' && /^sha256:[0-9a-f]{64}$/.test(value) ? value as `sha256:${string}` : undefined;
+  const plannedDigest = digestDetail(error.details.plannedDigest);
+  const currentDigest = digestDetail(error.details.currentDigest);
+  return { schemaVersion: 'decision-context-failure/v1', reason: error.reason,
+    ...(plannedDigest ? { plannedDigest } : {}), ...(currentDigest ? { currentDigest } : {}) };
 }
 
 function decisionContextEvidence(
@@ -1408,7 +1426,10 @@ function singleBatchEvidence(request: DecisionEvaluationRequest, alias: string):
 }
 
 function classifyValidationFailure(error: unknown): DecisionFailureReason {
-  if (error instanceof ContextPlanError) return 'invalid-input';
+  if (error instanceof ContextPlanError) {
+    return error.reason === 'stale-plan' ? 'context-plan-stale'
+      : error.reason === 'rollout-unqualified' ? 'context-unqualified' : 'invalid-input';
+  }
   if (!(error instanceof DecisionValidationError)) return 'invalid-definition';
   if (/digest/.test(error.message)) return 'digest-mismatch';
   if (/input|projection/.test(error.message)) return 'invalid-input';
