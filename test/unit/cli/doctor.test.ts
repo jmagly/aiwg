@@ -628,6 +628,14 @@ describe('tools/cli/doctor.mjs — context/memory firewall (#2040)', () => {
     expect(content).toContain('firewall.trust.quarantined');
     expect(content).toContain("record.reviewStatus === 'changed-review-required'");
   });
+
+  it('scans Muse Code through the firewall without an unknown-provider hole (#229)', () => {
+    // The doctor-side provider filter must admit muse, and the firewall
+    // PROVIDERS table must know its layout — otherwise `aiwg doctor
+    // --provider muse` degrades to `scan failed: Unknown provider 'muse'`.
+    expect(content).toMatch(/'grokbot', 'muse'\]/);
+    expect(content).toMatch(/provName === 'muse' && \(providerArg \|\| allProviders\)/);
+  });
 });
 
 // ── User registry override + shared parallelism defaults (#246 / #249) ──

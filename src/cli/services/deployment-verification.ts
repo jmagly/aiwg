@@ -161,6 +161,11 @@ const RESTART_NOTICES: Readonly<Record<string, ReloadNotice>> = {
     action: 'Restart the Grok Build session so it reloads .grok skills and AGENTS.md.',
     reason: 'Grok Build reload semantics are not yet verified for live refresh; treat deploys as restart-required.',
   },
+  muse: {
+    policy: 'restart-required',
+    action: 'Trust this workspace when prompted, then start a new Muse session (or re-read skills) so Muse loads the deployed AGENTS.md bridge and skills.',
+    reason: 'Muse Code loads project AGENTS.md only after the workspace is explicitly trusted, and reads its skill registry when a session starts. Reloading an IDE window does not apply here.',
+  },
   factory: {
     policy: 'restart-required',
     action: 'Restart the Factory droid runtime so it reloads deployed droids.',

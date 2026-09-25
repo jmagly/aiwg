@@ -29,7 +29,7 @@ complete supported setup unless project policy selects a narrower scope.
 | Factory AI | `aiwg use sdlc --provider factory` | AGENTS.md |
 | Grok Bot | `aiwg use sdlc --provider grokbot` | AGENTS.md |
 | [Grok Build](grok-build-ci.md) | `aiwg use sdlc --provider grok-build` | AGENTS.md |
-| [Muse Code](../architecture/adr-muse-provider-target.md) | `aiwg use sdlc --provider muse` | AGENTS.md |
+| [Muse Code](muse-quickstart.md) | `aiwg use sdlc --provider muse` | AGENTS.md |
 | Hermes | `aiwg use sdlc --provider hermes` | AGENTS.md |
 | OpenCode | `aiwg use sdlc --provider opencode` | AGENTS.md |
 | OpenClaw | `aiwg use sdlc --provider openclaw` | AGENTS.md |

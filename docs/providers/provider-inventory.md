@@ -16,7 +16,7 @@ AIWG has **18 named provider integrations**. The source-of-truth registry is
 | `grokbot` | [Grok Bot](../integrations/grokbot-quickstart.md) | Stable | Mixed project/user (skills fail-closed until `AIWG_GROKBOT_SKILLS_DIR`) |
 | `grok-build` | [Grok Build](../architecture/adr-grokbot-provider-target.md) | Experimental | Mixed project/user (`$GROK_HOME`; kernel skills + AGENTS.md; agents/rules indexed until #2577) |
 | `hermes` | Hermes | Stable | Mixed project/user |
-| `muse` | Muse Code | Experimental | Mixed project/user (`.agents/skills/` project; user root resolves `$XDG_CONFIG_HOME/muse/skills` at deploy time; skill writers land in #226) |
+| `muse` | Muse Code | Experimental | Mixed project/user (`.agents/skills/` project; user root resolves `$XDG_CONFIG_HOME/muse/skills` at deploy time) |
 | `opencode` | OpenCode | Stable | Project |
 | `openclaw` | OpenClaw | Stable | User |
 | `openhuman` | OpenHuman | Experimental | Mixed project/user |

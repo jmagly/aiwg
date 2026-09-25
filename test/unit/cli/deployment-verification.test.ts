@@ -198,6 +198,28 @@ describe.sequential('deployment verification contract (#2069)', () => {
     expect(codex.reloadPolicy).toBe('live-refresh');
   });
 
+  it('tells Muse Code operators to trust the workspace and start a new session (#229)', async () => {
+    const fixture = await readyCodexFixture();
+    const dryRun = buildDryRunUseResult({
+      projectRoot: fixture.projectRoot,
+      frameworkRoot: fixture.frameworkRoot,
+      providers: ['muse'],
+      scope: 'project',
+      requestedBundles: ['all'],
+    });
+    const muse = dryRun.providers.find((item) => item.provider === 'muse');
+
+    expect(muse?.reloadPolicy).toBe('restart-required');
+    expect(muse?.restartRequired).toBe(true);
+    expect(muse?.restartAction).toMatch(/Trust this workspace/i);
+    expect(muse?.restartAction).toMatch(/new Muse session/i);
+    expect(muse?.restartReason).toMatch(/explicitly trusted/);
+    // Never Cursor wording: the cursor-overload anti-pattern from the ADR.
+    expect(muse?.restartAction).not.toMatch(/cursor/i);
+    expect(muse?.restartReason).not.toMatch(/cursor/i);
+    expect(muse?.reloadFallback).toBeNull();
+  });
+
   it('fails closed for missing artifacts, stale indexes, context loss, and invalid registry state', async () => {
     const missingArtifacts = await readyCodexFixture();
     await rm(path.join(missingArtifacts.projectRoot, '.codex'), { recursive: true, force: true });

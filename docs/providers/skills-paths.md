@@ -15,6 +15,7 @@ Paths are verified from platform source code where available, or from official d
 - OpenClaw (confirmed from `src/agents/skills/workspace.ts`)
 - Warp Terminal (also scans alongside `.warp/skills/`)
 - GitHub Copilot / VS Code (also scans alongside `.github/skills/`)
+- Muse Code (project skills root; AIWG's canonical deploy target for `muse`)
 
 Deploying to `.agents/skills/` is the most portable option if you need a single directory that works across providers.
 
@@ -184,6 +185,22 @@ Deploying to `.agents/skills/` is the most portable option if you need a single 
 Fail-closed until `AIWG_GROKBOT_SKILLS_DIR` is set. Never deploys to `.cursor/`.
 See `docs/architecture/adr-grokbot-provider-target.md`.
 
+### Muse Code
+
+| Scope | Path | Source | Notes |
+|-------|------|--------|-------|
+| Project | `.agents/skills/` | Official docs | **Primary (use this)** — AIWG kernel deploys here |
+| Project | `.agents/.aiwg/skills/` | AIWG-managed mirror | Standard tier, only with `--copy-all` |
+| User-global | `$XDG_CONFIG_HOME/muse/skills/` (default `~/.config/muse/skills`) | Official docs | Resolved at deploy time; fail-closed on bad XDG metadata |
+| User-global | `~/.agents/skills/` | Official docs | Muse reads it; AIWG **never writes here** |
+
+- Source: https://dev.meta.ai/docs/muse-code/ (docs only)
+- Muse natively reads project `.agents/skills/` plus the XDG user root. AIWG
+  must never write to `~/.agents/skills` silently: a second AIWG-owned copy
+  would make Muse list every kernel skill twice (the Codex #766 regression).
+- AIWG never invents `~/.muse`, siblings of `muse/skills` under the XDG
+  config home, or foreign provider paths (no `.cursor/`).
+
 
 ## Distribution Mechanism by Provider
 
@@ -202,6 +219,7 @@ Not all providers have a native plugin marketplace. The table below distinguishe
 | **OpenClaw** | File-deploy adapter | `aiwg use sdlc --provider openclaw` |
 | **Hermes** | File-deploy adapter; managed Agent Skills target | `aiwg use sdlc --provider hermes`; `aiwg skills deploy <name> --target hermes` |
 | **Grok Bot** | File-deploy adapter; fail-closed user skill root | `aiwg use sdlc --provider grokbot`; set `AIWG_GROKBOT_SKILLS_DIR` for user-scope |
+| **Muse Code** | File-deploy adapter | `aiwg use sdlc --provider muse` |
 
 **Marketplace vs. file-deploy distinction:**
 
@@ -223,6 +241,7 @@ Not all providers have a native plugin marketplace. The table below distinguishe
 | warp | `.warp/skills/` | `.warp/skills/` (also `.agents/skills/`) | Partial |
 | windsurf | `.windsurf/skills/` | `.windsurf/skills/` | Unverified |
 | openclaw | `~/.openclaw/skills/` | `~/.openclaw/skills/` | Yes |
+| muse | `.agents/skills/` | `.agents/skills/` | Yes (user root `$XDG_CONFIG_HOME/muse/skills`; never `~/.agents/skills`) |
 
 ---
 
