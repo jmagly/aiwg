@@ -94,6 +94,18 @@ in the entry.
   and fails closed when an external root is unavailable. Verifiers, the
   `aiwg effect` CLI and D13, D16 and skill adoption follow in #2718–#2722
   (#2717, #2714).
+- `aiwg effect` CLI (experimental): `id`, `intent`, `record`, `lookup`,
+  `reconcile`, `verify`, `checkpoint`, `kinds` and `keys`, with JSON output and
+  the contract exit codes (0 present or recorded, 3 absent, 4 unknown, 5
+  conflict, 6 integrity failure, 7 artifact root unavailable). `record` writes
+  the signed intent, runs the verifier and appends `completed` in one call.
+  `keys init|rotate|list` keep the ledger key in the host secret service and
+  print key IDs and public keys only. `recover-lock --lock <name> --authorize`
+  removes a stale ledger lock left by a dead writer, refuses live, reused and
+  unverifiable owners, and records the recovery in the ledger. Scope and key
+  custody come from the `effects` block of `aiwg.config`. The aiwg-utils
+  `effect-ledger` skill and quickref phrases ("record an effect", "reconcile
+  effect", "did this PR merge", "sign an effect") route agents to it (#2720).
 - D05 admission control offline gaps: reserved per-principal concurrency and
   `maxPrincipalShare` caps on shared workspace and provider pools, token-bucket
   fairness for large requests, breaker transitions recorded in admission

@@ -1544,6 +1544,34 @@ export const artifactsCommand: Extension = {
   } satisfies SkillMetadata,
 };
 
+export const effectCommand: Extension = {
+  id: 'effect',
+  type: 'skill',
+  name: 'Effect Ledger',
+  description: 'Record, look up, reconcile and verify side effects in the signed effect ledger',
+  version: '1.0.0',
+  capabilities: ['cli', 'effects', 'idempotency', 'verification', 'signing', 'provenance'],
+  keywords: ['effect', 'aiwg effect', 'effect ledger', 'record an effect', 'sign an effect', 'reconcile effect', 'did this PR merge', 'idempotent side effect', 'effect id', 'stale ledger lock'],
+  category: 'utility',
+  platforms: {
+    claude: 'full',
+    generic: 'full',
+  },
+  deployment: {
+    pathTemplate: '.{platform}/commands/{id}.md',
+    core: true,
+  },
+  metadata: {
+    type: 'skill',
+    triggerPhrases: ['record an effect', 'sign an effect', 'reconcile effect', 'did this PR merge', 'effect ledger', 'idempotent side effect', 'look up an effect', 'verify the effect ledger'],
+    commandHint: {
+      template: 'utility',
+      argumentHint: 'id|intent|record|lookup|reconcile|verify|checkpoint|kinds|keys|recover-lock [options]',
+      allowedTools: ['Read', 'Bash'],
+    },
+  } satisfies SkillMetadata,
+};
+
 // Research-corpus tools — radar/freshness subsystem (#1498)
 export const corpusCommand: Extension = {
   id: 'corpus',
@@ -3983,6 +4011,7 @@ export const commandDefinitions: Extension[] = [
   // Index + Discovery
   indexCommand,
   artifactsCommand,
+  effectCommand,
   corpusCommand,
   researchQueryCommand,
   discoverCommand,

@@ -179,6 +179,10 @@ aiwg discover "mention report"                 # → mention-report
 aiwg discover "activity log"                   # → activity-log
 aiwg discover "create provenance record"       # → provenance-create
 aiwg discover "auto provenance"                # → auto-provenance
+aiwg discover "record an effect"               # → effect-ledger (aiwg effect record)
+aiwg discover "sign an effect"                 # → effect-ledger (signed intent + completed)
+aiwg discover "reconcile effect"               # → effect-ledger (aiwg effect reconcile)
+aiwg discover "did this PR merge"              # → effect-ledger (reconcile tracker.pr.merged)
 ```
 
 ### Steward & policy

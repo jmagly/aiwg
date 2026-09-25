@@ -45,7 +45,9 @@ export { activeKey, keyValidAt, keyringDigest, keyringFailure } from './keyring.
 export {
   EffectLedger,
   effectOutputJson,
+  initLedgerKeyring,
   lookupEffect,
+  readLedgerKeyring,
   openEffectLedger,
   reconcileEffect,
   recordIntent,
@@ -81,5 +83,19 @@ export {
   type VerifyLedgerOptions,
 } from './verify.js';
 export { EFFECT_RETENTION_POLICY, purgeEffect, type PurgeEffectOptions, type PurgeEffectResult } from './lifecycle.js';
+export {
+  LEDGER_LOCK_NAME_PATTERN,
+  LOCK_RECOVERY_KIND,
+  LOCK_RECOVERY_VERIFIER_VERSION,
+  inspectLedgerLock,
+  inspectLedgerLocks,
+  ledgerLockRecoveryVerifier,
+  lockRecoveryTarget,
+  recoverStaleLedgerLock,
+  type LedgerLockInspection,
+  type LedgerLockOwnerState,
+  type LockRecoveryOptions,
+  type LockRecoveryResult,
+} from './lock-recovery.js';
 export { assertDigestOnly, containsRestrictedMaterial } from './redaction.js';
 export { EFFECT_SCHEMA_IDS, effectSchemaErrors, isEffectSchemaValid, type EffectSchemaName } from './schema.js';

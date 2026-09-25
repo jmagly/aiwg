@@ -1,6 +1,6 @@
 # Effect Ledger v1
 
-Status: contract accepted; core library in `src/effects/` (#2717); verifier framework and built-in verifiers in `src/effects/verifiers/` (#2718); tracker verifiers (#2719); CLI and adoption pending (#2720 onward)
+Status: contract accepted; core library in `src/effects/` (#2717); verifier framework and built-in verifiers in `src/effects/verifiers/` (#2718); tracker verifiers (#2719); `aiwg effect` CLI in `src/cli/handlers/effect.ts` (#2720); adoption (#2721 onward)
 Issue: AIWG #2715 (epic #2714)
 Decision: [ADR: AIWG effect ledger](../architecture/adr-effect-ledger.md)
 Predicate type: `https://aiwg.io/attestations/effect/v1`
@@ -480,8 +480,23 @@ names the rule (for example `decision-lifecycle/v1#receipt`).
 ## CLI and exit codes
 
 `aiwg effect id | intent | record | lookup | reconcile | verify | checkpoint |
-kinds | keys`. `record` performs intent, verify and completed in one command.
-Output is JSON by default.
+kinds | keys`, plus the operator command `recover-lock` (see "Stale lock
+recovery"). `record` performs intent, verify and completed in one command: it
+appends the intent, runs the kind's verifier, and appends `completed` for
+`present` or `reconciled` for `absent` and `unknown`. `record --unverified`
+appends the intent only. Output is JSON by default (`--format text` for
+people), and every JSON document carries a `schema` member
+(`aiwg.effect.<command>.v1`, or `aiwg.effect.error.v1` for a failure with its
+`code`, `reason` and fixed message). The command reference is
+[`docs/cli/reference.md`](../cli/reference.md#effect).
+
+Scope `tenant` and `project`, the segment writer ID and the key provider come
+from the `effects` block of `aiwg.config`, never from command arguments. The
+default key provider is the host secret service (`effects.aiwg.io`, account
+`ledger/<tenant>/<project>/<subsystem>`); `keys init` provisions the key there
+and `keys rotate` stages the successor under a separate entry until the
+rotation is written, then promotes it. Output shows key IDs and public keys
+only.
 
 <!-- effect-exit-codes:begin -->
 | Code | Outcome | Meaning |
@@ -496,9 +511,37 @@ Output is JSON by default.
 | `7` | artifact root unavailable | The configured artifact root cannot be written or read; no fallback |
 <!-- effect-exit-codes:end -->
 
+`recover-lock` uses the same codes: `0` recovered and recorded, `2` missing
+`--authorize` or an invalid lock name, `3` no such lock is held, `4` the owner
+cannot be verified, `5` the owner is live, its PID was reused, or another
+recovery is in progress.
+
 Exit codes 20–29 belong to `aiwg verify` (`ARTIFACT_VERIFICATION_EXIT_CODES`,
 `src/security/artifact-verifier.ts`) and are never emitted by `aiwg effect`.
 When several conditions apply, the precedence is 2, 7, 6, 5, then the outcome.
+
+## Stale lock recovery
+
+Ledger locks are same-host directory locks under `locks/<name>.lock` (`name` is
+`writer-<writer-id>`, `checkpoint` or `keyring`) whose `owner` file holds the
+owner's PID and a random token. A writer never steals a lock: it waits and then
+fails. A lock left by a crashed writer is removed only by an explicit operator
+recovery, modelled on the D16 quota-lock recovery
+(`recoverStaleJobQuotaLock`):
+
+- The owner MUST be dead (`ESRCH`). A live owner is refused. On Linux, a live
+  PID whose process started after the owner file was written is a reused PID
+  and is refused. A malformed or unreadable owner file, or a PID that cannot be
+  signalled (`EPERM`), is unverifiable and refused.
+- The recovery needs an explicit authorization (`--authorize`) that approves
+  the inspected owner. A guard directory serializes concurrent recoveries.
+- The recovery appends a signed intent of kind `x.aiwg.ledger-lock-recovery`
+  (target `x-aiwg:effects/<subsystem>/locks/<name>`, context `{lock, ownerPid,
+  ownerDigest}` where `ownerDigest` is the SHA-256 of the owner file value),
+  re-checks that the same dead owner still holds the lock, removes it, and
+  appends `completed` once the lock-state verifier reports `present`. A
+  recovery of the CLI's own writer lock appends under the `lock-recovery`
+  writer.
 
 ## Security boundary
 
@@ -549,3 +592,10 @@ When several conditions apply, the precedence is 2, 7, 6, 5, then the outcome.
   against mocked Gitea and GitHub responses: the tri-state tables, pagination,
   the access-gap table, authority (no mirror traffic), the access order and a
   canary scan of records, errors and output.
+- CLI: `test/unit/cli/handlers/effect.test.ts` runs every subcommand against a
+  temporary project and artifact root (exit codes, idempotence, conflict,
+  tamper, fail-closed root, key custody, lock recovery and the output canary);
+  `test/integration/effect-cli.test.ts` runs the built CLI;
+  `test/integration/effect-ledger-discovery.test.ts` checks discovery; and
+  `test/unit/docs/effect-cli-docs.test.ts` keeps the help, reference and man
+  page in step with the exit codes.
