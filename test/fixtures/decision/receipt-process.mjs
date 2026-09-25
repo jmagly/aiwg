@@ -18,7 +18,7 @@ process.stdin.once('data', async () => {
       if (result.receipt.state !== targetState) {
         const { nextReceipt } = await import('../../../src/decision/receipts.ts');
         let existing = result.receipt;
-        const final = JSON.parse(readFileSync('examples/decision/ruleset-result.json', 'utf8'));
+        const final = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/ruleset-result.json', 'utf8'));
         final.spec.invocationId = invocationId;
         const path = targetState === 'failed' || targetState === 'execution-uncertain'
           ? [targetState]

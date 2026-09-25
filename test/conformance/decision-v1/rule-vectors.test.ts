@@ -8,7 +8,7 @@ import { composeRuleset, evaluatePredicate, executeQualificationPlan, verifyQual
 import { DecisionValidationError } from '../../../src/decision/validate.js';
 
 const fixture = async (name: string): Promise<DecisionRuleset> =>
-  JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as DecisionRuleset;
+  JSON.parse(await readFile(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as DecisionRuleset;
 const always = { op: 'exists', left: { source: 'input', pointer: '' } } as const;
 const CASE_IDS = ['C19', 'C20', 'C21', 'C22', 'C23', 'C40'] as const;
 const roots: string[] = [];

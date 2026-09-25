@@ -2,6 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { resolveDecisionRuntime } from './runtime-root.mjs';
 
 const args = process.argv.slice(2);
 const requestIndex = args.indexOf('--request');
@@ -14,8 +15,10 @@ if (process.env.AIWG_DECISION_ENABLED !== '1') {
   process.exit(2);
 }
 
-const packageRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../../../');
-const runtime = await import(pathToFileURL(path.join(packageRoot, 'dist/src/decision/index.js')).href);
+let runtimePath;
+try { runtimePath = resolveDecisionRuntime(import.meta.url); }
+catch (error) { console.error(error.message); process.exit(2); }
+const runtime = await import(pathToFileURL(runtimePath).href);
 const requestPath = path.resolve(args[requestIndex + 1]);
 const config = runtime.parseDecisionJson(await readFile(requestPath, 'utf8'));
 const base = path.dirname(requestPath);

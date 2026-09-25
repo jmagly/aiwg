@@ -12,11 +12,14 @@ if (!process.env.AIWG_DECISION_JEV_API_KEY) {
   process.exit(2);
 }
 
-const root = process.cwd();
+// Resolve from this script, not the working directory, so the smoke also runs
+// from an installed package where the examples ship inside the addon.
+const root = path.resolve(import.meta.dirname, '../..');
+const examples = path.join(root, 'agentic/code/addons/decision-engine/examples');
 const runtime = await import(pathToFileURL(path.join(root, 'dist/src/decision/index.js')).href);
-const definition = JSON.parse(await readFile(path.join(root, 'examples/decision/decision-category.json'), 'utf8'));
-const binding = JSON.parse(await readFile(path.join(root, 'examples/decision/binding-jev.json'), 'utf8'));
-const input = JSON.parse(await readFile(path.join(root, 'examples/decision/input.json'), 'utf8'));
+const definition = JSON.parse(await readFile(path.join(examples, 'decision-category.json'), 'utf8'));
+const binding = JSON.parse(await readFile(path.join(examples, 'binding-jev.json'), 'utf8'));
+const input = JSON.parse(await readFile(path.join(examples, 'input.json'), 'utf8'));
 const observation = await new runtime.JevDecisionAdapter().evaluate({
   alias: 'category', definition, input,
   target: binding.spec.evaluations.category.targets[0],

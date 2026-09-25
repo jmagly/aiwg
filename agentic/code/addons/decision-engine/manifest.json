@@ -6,6 +6,7 @@
   "description": "Normalized rulesets and decisions with interchangeable Jev and LLM-subagent execution bindings.",
   "core": false,
   "autoInstall": false,
+  "explicitInstall": true,
   "author": "AIWG Contributors",
   "license": "MIT",
   "repository": "https://github.com/jmagly/aiwg",

@@ -10,7 +10,7 @@ import { artifactPin } from '../../../src/decision/validate.js';
 import type { AdapterObservation, DecisionAdapter, DecisionBinding, DecisionDefinition, DecisionRuleset, DecisionReceiptStore, RulesetResult } from '../../../src/decision/types.js';
 import { readFileSync } from 'node:fs';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const temp: string[] = [];
 afterEach(async () => { await Promise.all(temp.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
 async function stores(): Promise<DecisionReceiptStore[]> {
