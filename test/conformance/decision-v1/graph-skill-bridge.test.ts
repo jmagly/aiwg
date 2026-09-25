@@ -24,7 +24,7 @@ const { executeFlowGraph, validateFlowGraph } = {
 // contract. The #2127 graph profile projects onto this same FlowGraph substrate, so each
 // case below reproduces one of its conformance cases through the decision bridge.
 const root = resolve(import.meta.dirname, '../../..');
-const examples = join(root, 'examples/decision');
+const examples = join(root, 'agentic/code/addons/decision-engine/examples');
 const built = existsSync(join(root, 'dist/src/decision/index.js'));
 const load = <T>(name: string): T => JSON.parse(readFileSync(join(examples, name), 'utf8')) as T;
 const binding = load<DecisionBinding>('binding-llm-subagent.json');
