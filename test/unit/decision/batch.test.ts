@@ -284,7 +284,7 @@ describe('native shared-state decision batching', () => {
       validateDecisionDocument(result);
     });
 
-  it('CTX-RUNTIME converts incomplete context from automatic action to the review outcome', async () => {
+  it('CTX-RUNTIME converts incomplete context from automatic action to review with no outcome', async () => {
     const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
     const runtime = (incompleteContext: boolean): DecisionContextPolicy => {
       const configured = contextRuntime();
@@ -295,10 +295,11 @@ describe('native shared-state decision batching', () => {
     };
     const baseline = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime(false) });
     expect(['completed', 'defaulted']).toContain(baseline.spec.status);
-    const failureOutcome = fixture<DecisionRuleset>('ruleset.json').spec.failureOutcome;
-    expect(baseline.spec.outcome).not.toEqual(failureOutcome);
+    expect(baseline.spec).toHaveProperty('outcome');
     const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime(true) });
-    expect(result.spec).toMatchObject({ status: 'review', reason: 'insufficient-information', outcome: failureOutcome });
+    // #2678: the downgrade removes the automatic outcome instead of substituting the ruleset failureOutcome.
+    expect(result.spec).toMatchObject({ status: 'review', reason: 'insufficient-information' });
+    expect(result.spec).not.toHaveProperty('outcome');
     expect(result.spec.context?.plan).toMatchObject({ incompleteContext: true, automaticActionAllowed: false });
     validateDecisionDocument(result);
   });
@@ -751,9 +752,10 @@ describe('native shared-state decision batching', () => {
 
   it('AC6-CTX downgrades a completed native-batch result to review when the context plan is incomplete', async () => {
     const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
-    const complete = await evaluateDecisionRuleset({ ...request(fetchImpl), context: contextRuntime() });
+    // Native batching with a context plan needs an explicit rollout mode (#2599 fail-closed default).
+    const complete = await evaluateDecisionRuleset({ ...request(fetchImpl), context: qualified(contextRuntime()) });
     expect(complete.spec).toMatchObject({ status: 'completed', outcome: 'docs-review' });
-    const runtime = contextRuntime();
+    const runtime = qualified(contextRuntime());
     runtime.input.incompleteContext = true;
     const result = await evaluateDecisionRuleset({ ...request(fetchImpl), invocationId: 'batch-run-incomplete', context: runtime });
     expect(Object.values(result.spec.evaluations).every(value => value.spec.status === 'success')).toBe(true);

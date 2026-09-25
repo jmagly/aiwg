@@ -65,7 +65,7 @@ function evaluatorDriver(): { driver: DecisionLoadDriver; sample: () => { active
     const adapter: DecisionAdapter = {
       id: arrival.providerId as 'jev' | 'llm-subagent', version: '1.0.0',
       capabilities: async () => ({ answerKinds: ['choice'], features: ['choice'], maxOptions: 255, maxLevels: 10,
-        confidenceProfiles: ['typesafe-distribution-v1'], executable: true }),
+        confidenceProfiles: ['typesafe-distribution-v1'], executable: true, egress: { mode: 'none' as const } }),
       evaluate: async request => {
         const first = calls++ === 0;
         await context.dispatch(arrival.serviceMs, request.signal);

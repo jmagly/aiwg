@@ -54,7 +54,7 @@ function adapter(id: string, evaluate: DecisionAdapter['evaluate']): DecisionAda
   return { id, version: '1.0.0', evaluate,
     capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
       features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true }) };
+      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const } }) };
 }
 
 /** A clock advanced only by adapter work, so live span durations are observable. */
@@ -155,7 +155,7 @@ function structuredRuleset(route: 'act' | 'review') {
     uncertainty: { source: 'provider', profile: 'fixture', calibration: 'uncalibrated', confidence: 0.8,
       distribution: { yes: 0.7, no: 0.2, none: 0.1 }, calibrationRef: null } }));
   structured.capabilities = async () => ({ answerKinds: ['choice'], features: ['structured-entries'], maxOptions: 255,
-    maxLevels: 10, confidenceProfiles: [], executable: true });
+    maxLevels: 10, confidenceProfiles: [], executable: true, egress: { mode: 'none' as const } });
   return { ruleset, binding, definitions: { category: decision }, adapter: structured };
 }
 
@@ -234,6 +234,8 @@ const scenarios: Record<string, Observe> = {
     const batchReceipts = batchContext();
     const request: DecisionEvaluationRequest = { ...base(spans, { jev: new JevDecisionAdapter({ fetch: fetchImpl }) }, Date.now),
       now: undefined, invocationId: 'golden-batch', batchReceipts,
+      // Offline fake Jev transport: explicit D10 host opt-out, recorded in the result.
+      projection: { mode: 'unprojected-local' },
       batching: { enabled: true, evaluations: Object.fromEntries(['category', 'severity', 'core_unavailable'].map(alias => [alias,
         { decisionSubject: 'ticket:42', independent: true, egressPolicy: 'jev-public-v1', hostPolicy: 'host-policy-v1' }])) } };
     const result = await evaluateDecisionRuleset(request);

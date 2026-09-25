@@ -63,7 +63,8 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   planned and current plan digests for stale plans.
   `DecisionContextEvidence.v1` now requires estimator, profile, limit, margin
   and estimation-error fields and closes every object. Incomplete context
-  now yields the ruleset `failureOutcome` on review, so the result validates.
+  downgrades to `review` / `insufficient-information` with no outcome, which
+  the v1alpha2 RulesetResult schema accepts (#2678).
   `assertContextQualified` throws `rollout-unqualified` (#2599).
 ## [2026.9.20] - 2026-09-21 - "Stable channels and exact-source evidence"
 
