@@ -600,8 +600,11 @@ being falsely described as pinned.
 - `--ci-hooks-enabled` - Also deploy CI workflow files to `.github/workflows/` and/or `.gitea/workflows/` (opt-in; detects forge from `.git/config`). Review deployed files before committing.
 - `--harness-agents <list>` - OpenHuman only: emit selected native `spawn_subagent` TOML agents with a comma-separated list (for example `test-engineer,security-auditor`). Without this flag, OpenHuman deploys kernel skills/rules only.
 - `--no-harness-agents` - OpenHuman only: explicitly skip native TOML harness agents and deploy only kernel skills/rules.
-- `--no-hooks` - Muse provider: skip the AIWG-managed project hooks (`.muse/hooks.json`; installed by default). Other providers ignore it.
-- `--mcp` - Muse provider only: opt in to the AIWG MCP settings profile, merging the `aiwg` stdio server (`aiwg mcp serve`, `mode: optional`) into the `mcp_servers` block of the operator's Muse user settings (`$XDG_CONFIG_HOME/muse/settings.json`). A default `aiwg use --provider muse` never touches MCP or user settings.
+- `--no-hooks` - Muse provider: skip the AIWG-managed project hooks (`.muse/hooks.json`; installed by default).
+  Other providers ignore it.
+- `--mcp` - Muse provider only: opt in to the AIWG MCP settings profile, merging the `aiwg` stdio server
+  (`aiwg mcp serve`, `mode: optional`) into the `mcp_servers` block of the operator's Muse user settings
+  (`$XDG_CONFIG_HOME/muse/settings.json`). A default `aiwg use --provider muse` never touches MCP or user settings.
 - `--skip-commands-migration` - Skip deleting the legacy commands directory (warns about duplicate entries in the command palette)
 - `--profile <name>` - Select a topology profile for addons that declare multiple page templates (e.g., `llm-wiki` ships `book-companion | personal | research-deep-dive | business-team | generic`). Without the flag, an interactive prompt appears on TTY. The selection is written to `.aiwg/<namespace>/config.json` so subsequent skill invocations pick the right template.
 
@@ -755,7 +758,7 @@ reload are shown with `--verbose`.
 | Google Antigravity CLI (experimental) | `antigravity` (`agy`) | `.agents/agents/`, `.agents/skills/`, project `AGENTS.md`; global skills unsupported | — |
 | Oh My Pi (experimental) | `omp` (`oh-my-pi`) | `.omp/agents/`, `.omp/prompts/`, `.omp/rules/`, `.agents/skills/`, `.omp/AGENTS.md` | Explicit extension bridge |
 | Pi Coding Agent (experimental) | `pi` | `.agents/skills/`, `.pi/prompts/`, `.pi/.aiwg/skills/`, `.pi/extensions/aiwg-bridge.ts`, project `AGENTS.md` | Trust-gated extension bridge (tool policy only) |
-| Muse Code (experimental) | `muse` | `$XDG_CONFIG_HOME/muse/skills/` (default `~/.config/muse/skills`), project `.agents/skills/`, `AGENTS.md` (discover-first; workspace trust required) | — |
+| Muse Code (experimental) | `muse` | project `.agents/skills/`, `AGENTS.md` (discover-first; workspace trust required); `$XDG_CONFIG_HOME/muse/skills/` with `--scope user` | — |
 | Claude Code    | `claude`        | `.claude/agents/`, `.claude/commands/`, `.claude/skills/`, `.claude/rules/`                                           | —         |
 | GitHub Copilot | `copilot`       | `.github/agents/`, `.github/copilot-rules/`, `.github/skills/`                                                        | —         |
 | Factory AI     | `factory`       | `.factory/droids/`, `.factory/commands/`, `.factory/skills/`, `.factory/rules/`                                       | —         |

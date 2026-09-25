@@ -77,7 +77,9 @@ export function findMuseCli(env = process.env, spawn = spawnSync) {
     timeout: 15_000,
     maxBuffer: 16_384,
   });
-  if (result.error && (result.error.code === 'ENOENT' || result.error.code === 'EACCES')) {
+  if (result.error || result.status !== 0) {
+    // Missing, unrunnable, timed out, or an unrelated `muse` binary that
+    // rejects --version: none of these is evidence of Muse Code.
     return { found: false, version: null };
   }
   const version = String(result.stdout || '').split('\n')[0].trim().slice(0, 120) || null;
@@ -192,12 +194,17 @@ export function runLiveSmoke(options = {}, baseEnv = process.env, dependencies =
 
     // Sandbox the operator home so the XDG user root resolves inside the
     // temp dir; the real home is never touched.
-    const env = {
-      ...baseEnv,
+    // Every XDG root points into the sandbox and operator AIWG_* overrides
+    // are dropped, so no write can land outside the audited temp dir.
+    const env = Object.fromEntries(Object.entries(baseEnv).filter(([key]) => !key.startsWith('AIWG_')));
+    Object.assign(env, {
       HOME: home,
       XDG_CONFIG_HOME: xdgConfig,
+      XDG_DATA_HOME: join(sandbox, 'xdg-data'),
+      XDG_STATE_HOME: join(sandbox, 'xdg-state'),
+      XDG_CACHE_HOME: join(sandbox, 'xdg-cache'),
       NO_COLOR: '1',
-    };
+    });
 
     const dry = run(['use', 'all', '--provider', 'muse', '--dry-run'], project, env);
     report.checks.dryRun = dry.status === 0

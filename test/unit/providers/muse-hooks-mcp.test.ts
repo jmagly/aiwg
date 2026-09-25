@@ -113,7 +113,7 @@ describe('mergeManagedHooks (#228)', () => {
     const { doc, changed, plan } = mergeManagedHooks({ hooks: {} }, { version: 1, hooks: [] });
     expect(changed).toBe(true);
     expect(doc.hooks.SessionStart).toHaveLength(1);
-    expect(doc.hooks.SessionStart[0].hooks[0].command).toBe('aiwg sync --dry-run --quiet');
+    expect(doc.hooks.SessionStart[0].hooks[0].command).toBe('aiwg refresh --dry-run --quiet');
     expect(plan.join('\n')).toContain('aiwg-session-start');
   });
 
@@ -146,7 +146,7 @@ describe('mergeManagedHooks (#228)', () => {
   it('repairs a drifted managed group recorded in the sidecar', () => {
     const drifted = {
       matcher: '*',
-      hooks: [{ type: 'command', command: 'aiwg sync --dry-run --quiet --extra-flag', timeout: 60 }],
+      hooks: [{ type: 'command', command: 'aiwg refresh --dry-run --quiet', timeout: 5 }],
     };
     const sidecar = {
       version: 1,
@@ -156,6 +156,15 @@ describe('mergeManagedHooks (#228)', () => {
     expect(changed).toBe(true);
     expect(doc.hooks.SessionStart).toEqual([AIWG_MANAGED_HOOKS[0].group]);
     expect(plan.join('\n')).toMatch(/repair/);
+  });
+
+  it('never claims an operator aiwg hook that shares only the command head', () => {
+    const operatorGroup = {
+      matcher: '*',
+      hooks: [{ type: 'command', command: 'aiwg refresh --provider muse' }],
+    };
+    const { doc } = mergeManagedHooks({ hooks: { SessionStart: [operatorGroup] } }, { version: 1, hooks: [] });
+    expect(doc.hooks.SessionStart).toEqual([operatorGroup, AIWG_MANAGED_HOOKS[0].group]);
   });
 
   it('prunes a previously-managed hook that left the set', () => {
@@ -199,7 +208,7 @@ describe('deployMuseHooks (#228)', () => {
     const first = deployMuseHooks(target, { quiet: true });
     expect(first.wrote).toBe(true);
     const doc = readJson(hooksPath(target));
-    expect(doc.hooks.SessionStart[0].hooks[0].command).toBe('aiwg sync --dry-run --quiet');
+    expect(doc.hooks.SessionStart[0].hooks[0].command).toBe('aiwg refresh --dry-run --quiet');
     const sidecar = readJson(sidecarPath(target));
     expect(sidecar.hooks.map((h: { id: string }) => h.id)).toContain('aiwg-session-start');
 
@@ -227,6 +236,46 @@ describe('deployMuseHooks (#228)', () => {
     const result = deployMuseHooks(target, { quiet: true });
     expect(result.wrote).toBe(true);
     expect(readJson(hooksPath(target)).hooks.SessionStart).toHaveLength(1);
+  });
+
+  it('keeps comment-like text inside JSON strings intact', () => {
+    const target = path.join(tmpRoot, 'project');
+    const operatorGroup = {
+      matcher: 'src/**/*.ts',
+      hooks: [{ type: 'command', command: 'curl -s https://hooks.example.com/notify' }],
+    };
+    writeHooks(target, `// operator note\n${JSON.stringify({ hooks: { PostToolUse: [operatorGroup] } }, null, 2)}\n`);
+    const result = deployMuseHooks(target, { quiet: true });
+    expect(result.wrote).toBe(true);
+    expect(readJson(hooksPath(target)).hooks.PostToolUse).toEqual([operatorGroup]);
+  });
+
+  it('backs up a hand-edited hooks.json before rewriting it', () => {
+    const target = path.join(tmpRoot, 'project');
+    const original = '// keep me\n{ "hooks": {} }\n';
+    writeHooks(target, original);
+    deployMuseHooks(target, { quiet: true });
+    const backups = fs.readdirSync(path.dirname(hooksPath(target))).filter((f) => f.includes('.aiwg-backup-'));
+    expect(backups).toHaveLength(1);
+    expect(fs.readFileSync(path.join(path.dirname(hooksPath(target)), backups[0]), 'utf8')).toBe(original);
+  });
+
+  it('does not back up a hooks.json that is already canonical JSON', () => {
+    const target = path.join(tmpRoot, 'project');
+    writeHooks(target, JSON.stringify({ hooks: {} }, null, 2) + '\n');
+    deployMuseHooks(target, { quiet: true });
+    const backups = fs.readdirSync(path.dirname(hooksPath(target))).filter((f) => f.includes('.aiwg-backup-'));
+    expect(backups).toHaveLength(0);
+  });
+
+  it('refuses to write through a symlinked .muse directory', () => {
+    const target = path.join(tmpRoot, 'project');
+    const elsewhere = path.join(tmpRoot, 'elsewhere');
+    fs.mkdirSync(target, { recursive: true });
+    fs.mkdirSync(elsewhere, { recursive: true });
+    fs.symlinkSync(elsewhere, path.join(target, '.muse'));
+    expect(() => deployMuseHooks(target, { quiet: true })).toThrow(/is a symlink/);
+    expect(fs.readdirSync(elsewhere)).toEqual([]);
   });
 
   it('fails closed on unparseable hooks.json with zero writes', () => {
@@ -507,6 +556,17 @@ describe('muse writer hooks/MCP wiring (#228)', () => {
     postDeploy(target, { quiet: true, srcRoot: repoRoot, dryRun: false });
     expect(fs.existsSync(hooksPath(target))).toBe(true);
     expect(readJson(hooksPath(target)).hooks.SessionStart).toHaveLength(1);
+  });
+
+  it('postDeploy refuses to write AGENTS.md through a symlink', async () => {
+    const target = path.join(tmpRoot, 'symlinked-agents');
+    const outside = path.join(tmpRoot, 'outside.md');
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(outside, 'operator file\n', 'utf8');
+    fs.symlinkSync(outside, path.join(target, 'AGENTS.md'));
+    await expect(postDeploy(target, { quiet: true, srcRoot: repoRoot, dryRun: false }))
+      .rejects.toThrow(/unsafe Muse AGENTS.md/);
+    expect(fs.readFileSync(outside, 'utf8')).toBe('operator file\n');
   });
 
   it('postDeploy skips hooks with hooks: false (--no-hooks)', () => {

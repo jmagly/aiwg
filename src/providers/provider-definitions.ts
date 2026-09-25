@@ -412,7 +412,7 @@ const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
   },
   // #225: Muse Code prefers AGENTS.md over CLAUDE.md at each directory level;
   // project AGENTS.md loads only after the workspace is explicitly trusted
-  // (first-run trust prompt). Discover-first bridge content lands in #227.
+  // (first-run trust prompt). AIWG deploys a discover-first AGENTS.md bridge.
   muse: {
     startupFiles: ['AGENTS.md'],
     precedence: ['provider/system', 'project AGENTS.md once the workspace is trusted', 'explicit aiwg discover/show'],
@@ -964,8 +964,8 @@ const BUILT_IN_SEEDS: BuiltInSeed[] = [
     paths: {
       deployTarget: 'mixed',
       artifacts: {
-        // Wave 1 (#225) registers identity only; skill writers land in #226
-        // and hooks in #228, so non-skill artifacts stay null.
+        // Skills are written natively; agents, commands, and rules stay
+        // indexed (aiwg discover/show) behind the AGENTS.md bridge.
         agents: null,
         commands: null,
         skills: '.agents/skills',

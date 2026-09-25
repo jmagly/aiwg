@@ -71,7 +71,7 @@ describe('muse provider registration (#225)', () => {
     expect(muse?.paths.deployTarget).toBe('mixed');
     expect(muse?.paths.kernelSkills).toBe('.agents/skills');
     expect(muse?.paths.artifacts.skills).toBe('.agents/skills');
-    // Wave 1 registers identity only; other writers land in #226/#228.
+    // Only skills are written natively; other artifacts stay indexed.
     expect(muse?.paths.artifacts.agents).toBeNull();
     expect(muse?.paths.artifacts.commands).toBeNull();
     expect(muse?.paths.artifacts.rules).toBeNull();

@@ -491,8 +491,8 @@ providers:
     status: experimental
     # Meta's terminal/CI coding agent (Muse Spark-powered). Explicitly not a
     # model-API surface: Glimmer/Image/Voice are out of scope.
-    # Wave 1 (#225): registry + matrix identity only. Skill writers #226,
-    # discover-first AGENTS.md bridge #227, hooks/MCP #228.
+    # Skill writer (.agents/skills + XDG user root), discover-first AGENTS.md
+    # bridge, managed .muse/hooks.json, and opt-in MCP settings profile.
     # ADR: docs/architecture/adr-muse-provider-target.md · epic #223.
     daemon_tier: unsupported
     daemon_pty_adapter: false
@@ -505,7 +505,7 @@ providers:
       # ~/.agents/skills (#226).
       skills: .agents/skills/
       skills_cross_agent: null
-      rules: "Indexed: aiwg show rule + AGENTS.md discover-first bridge (bridge content #227)"
+      rules: "Indexed: aiwg show rule + AGENTS.md discover-first bridge"
       behaviors: null
     native_features:
       cron: false

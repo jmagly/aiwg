@@ -1,5 +1,8 @@
 # AIWG × Muse Code
 
+Read and follow `WORKSPACE.md` first. Then read `AIWG.md` for AIWG discovery,
+quick references, and framework routing.
+
 This file is the **discover-first AIWG bridge** for Muse Code. Muse loads
 project `AGENTS.md` natively — but only after the workspace is explicitly
 trusted (first-run trust prompt). Until the workspace is trusted, this file
@@ -14,9 +17,9 @@ AIWG path on its own.
 2. Run `aiwg show <type> <name>` for the full artifact body.
 3. Prefer indexed agents/skills/rules over guessing.
 
-Instruction order: this `AGENTS.md` first, then `WORKSPACE.md` for
-project/operator context, then `.aiwg/AIWG.md` (or project `AIWG.md`) for
-AIWG discovery and framework routing. Store artifact references and
+Instruction order: this `AGENTS.md`, then `WORKSPACE.md` for
+project/operator context, then `AIWG.md` for AIWG discovery and framework
+routing. Store artifact references and
 one-sentence summaries only — never paste full artifact bodies into
 context or memory.
 
@@ -39,13 +42,13 @@ context or memory.
 > project folder. Review `.muse/hooks.json` before trusting a workspace.
 
 - `aiwg use --provider muse` installs one AIWG-managed `SessionStart` hook
-  into `.muse/hooks.json`: a read-only `aiwg sync --dry-run --quiet`
+  into `.muse/hooks.json`: a read-only `aiwg refresh --dry-run --quiet`
   context refresh at session start. Unmanaged hooks are never silently
   installed; every managed hook ships with a stated reason and a removal
   path (see `tools/agents/providers/muse-hooks.mjs`).
 - Opt out with `aiwg use --provider muse --no-hooks`. To remove an installed
   managed hook, delete its matcher group from `.muse/hooks.json` (the group
-  whose command is `aiwg sync --dry-run --quiet`).
+  whose command is `aiwg refresh --dry-run --quiet`).
 - MCP is **opt-in only**: `aiwg use --provider muse --mcp` merges the AIWG
   MCP server (`aiwg mcp serve` over stdio, `mode: optional`) into the
   `mcp_servers` block of the operator's `$XDG_CONFIG_HOME/muse/settings.json`

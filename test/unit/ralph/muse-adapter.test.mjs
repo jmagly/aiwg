@@ -62,7 +62,8 @@ test('Muse adapter warns on unsupported options and never emits unevidenced flag
   const args = adapter.buildSessionArgs({ prompt: 'p', maxTurns: 3 });
   assert.ok(!args.includes('--max-turns'), 'muse has no --max-turns; the cap is --max-model-steps');
   assert.ok(!args.includes('--yolo'), 'no approval posture is defaulted (#230 out of scope)');
-  assert.deepEqual(adapter.buildAnalysisArgs({ prompt: 'analyze' }), adapter.buildSessionArgs({ prompt: 'analyze' }));
+  assert.deepEqual(adapter.buildAnalysisArgs({ prompt: 'analyze' }), ['exec', 'analyze'],
+    'analysis wants reply text, so --json is not requested');
 });
 
 test('Muse adapter builds the muse export transcript path', () => {
@@ -83,7 +84,11 @@ test('Muse adapter reports the documented capability set', () => {
   });
   assert.equal(adapter.getAbortInput(), null, 'no evidenced stdin command channel, so no abort frame');
   assert.deepEqual(adapter.getEnvOverrides(), { CI: 'true', NO_COLOR: '1' });
-  assert.equal(adapter.mapModel('anything/goes'), 'anything/goes', 'the CLI enumerates no model ids');
+  assert.equal(adapter.mapModel('muse-spark-1.2'), 'muse-spark-1.2', 'Muse ids pass through');
+  assert.equal(adapter.mapModel('claude-sonnet-5'), null, 'other-provider names are dropped');
+  assert.equal(adapter.mapModel('sonnet'), null, 'generic Ralph names are dropped');
+  assert.ok(!adapter.buildSessionArgs({ prompt: 'p', model: 'claude-sonnet-5' }).includes('--model'),
+    'no --model flag when the name is not a Muse id');
   assert.equal(adapter.getName(), 'muse');
   assert.equal(withEnv({ AIWG_MUSE_BIN: undefined }, () => adapter.getBinary()), 'muse');
   assert.equal(withEnv({ AIWG_MUSE_BIN: '/opt/muse/bin/muse' }, () => adapter.getBinary()), '/opt/muse/bin/muse');
@@ -127,7 +132,7 @@ process.stdout.write(JSON.stringify({ providers: listProviders().sort(), muse })
 `;
   const runProbe = extraEnv => {
     const child = spawnSync(process.execPath, ['--input-type=module', '-e', probe],
-      { encoding: 'utf8', env: { ...process.env, ...extraEnv } });
+      { encoding: 'utf8', env: { ...process.env, ...extraEnv }, timeout: 30_000 });
     assert.equal(child.status, 0, `probe failed: ${child.stderr}`);
     return JSON.parse(child.stdout);
   };
@@ -152,9 +157,10 @@ test('launcher drives the offline stub with exactly the adapter-built argv', asy
     const result = await withEnv(
       { AIWG_MUSE_BIN: stub, AIWG_MUSE_STUB_SCENARIO: undefined, AIWG_MUSE_STUB_RECEIPT: receipt, CI: undefined, NO_COLOR: undefined },
       () => launcher.launch({ prompt: 'bounded fixture task', sessionId: 'aiwg-fixture-session',
-        workingDir: dir, stdoutPath: join(dir, 'stdout.log'), stderrPath: join(dir, 'stderr.log') }));
+        resumeSession: 'muse-job-1', workingDir: dir, stdoutPath: join(dir, 'stdout.log'), stderrPath: join(dir, 'stderr.log') }));
     assert.equal(result.exitCode, 0, 'the documented 0 exit means the turn completed');
-    assert.deepEqual(started.args.slice(0, 3), ['exec', '--json', '--session-id']);
+    // Only a real muse resume id is forwarded; AIWG's tracking id never is.
+    assert.deepEqual(started.args.slice(0, 4), ['exec', '--json', '--session-id', 'muse-job-1']);
     const observed = JSON.parse(readFileSync(receipt, 'utf8'));
     assert.deepEqual(observed.argv, started.args, 'the child received exactly the adapter-built argv');
     assert.deepEqual(observed.env, { CI: 'true', NO_COLOR: '1' }, 'headless env overrides reach the child');
@@ -186,7 +192,7 @@ test('muse export produces the transcript path offline via the adapter-built arg
     const out = join(dir, 'run.json');
     const argv = adapter.buildExportArgs({ sessionId: 'uuid-9', out });
     const child = withEnv({ AIWG_MUSE_BIN: stub },
-      () => spawnSync(process.execPath, [stub, ...argv], { encoding: 'utf8' }));
+      () => spawnSync(process.execPath, [stub, ...argv], { encoding: 'utf8', timeout: 30_000 }));
     assert.equal(child.status, 0);
     assert.equal(child.stdout.trim(), out, 'stdout carries the absolute path written, per Meta docs');
     assert.ok(existsSync(out), 'the export document is written without network or auth');

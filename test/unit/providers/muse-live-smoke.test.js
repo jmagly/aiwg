@@ -81,8 +81,12 @@ describe('muse opt-in live smoke (#237)', () => {
       return { error, stdout: '', stderr: '' };
     })).toEqual({ found: false, version: null });
 
-    expect(findMuseCli({}, () => ({ stdout: 'muse 1.2.3\n', stderr: '' })))
+    expect(findMuseCli({}, () => ({ status: 0, stdout: 'muse 1.2.3\n', stderr: '' })))
       .toEqual({ found: true, version: 'muse 1.2.3' });
+
+    // An unrelated `muse` binary that rejects --version is not Muse Code.
+    expect(findMuseCli({}, () => ({ status: 2, stdout: '', stderr: 'unknown flag' })))
+      .toEqual({ found: false, version: null });
   });
 
   it('findForbiddenWrites flags .cursor trees, invented homes, and XDG siblings', () => {
@@ -171,7 +175,7 @@ describe('muse opt-in live smoke (#237)', () => {
 
 describe('muse live smoke entrypoint', () => {
   function runScript(args, env) {
-    return spawnSync(process.execPath, [script, ...args], { env, encoding: 'utf8' });
+    return spawnSync(process.execPath, [script, ...args], { env, encoding: 'utf8', timeout: 60_000 });
   }
 
   function envWithoutGate() {

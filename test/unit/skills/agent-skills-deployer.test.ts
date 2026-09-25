@@ -526,10 +526,11 @@ describe('muse Agent Skills XDG resolution (#234)', () => {
     process.env.XDG_CONFIG_HOME = xdgConfig;
     await importActive(name);
 
-    // No homeDir: user-scope resolution (mirrors the HERMES_HOME pattern).
+    // Explicit user scope resolves the XDG root (mirrors the HERMES_HOME pattern).
     const result = deployImportedAgentSkill(name, {
       projectDir,
       target: 'muse',
+      scope: 'user',
       dryRun: false,
     });
 
@@ -551,6 +552,7 @@ describe('muse Agent Skills XDG resolution (#234)', () => {
     const result = deployImportedAgentSkill(name, {
       projectDir,
       target: 'muse',
+      scope: 'user',
       dryRun: false,
     });
 
@@ -570,6 +572,7 @@ describe('muse Agent Skills XDG resolution (#234)', () => {
       const result = deployImportedAgentSkill(name, {
         projectDir,
         target: 'muse',
+        scope: 'user',
         dryRun: false,
       });
 
@@ -588,13 +591,24 @@ describe('muse Agent Skills XDG resolution (#234)', () => {
     const name = 'muse-project-skill';
     await importActive(name);
 
-    // Explicit homeDir keeps the project-scoped namespace default,
-    // shared with antigravity/codex/deepseek-harness.
+    // The default scope is the project namespace shared with
+    // antigravity/codex/deepseek-harness, with or without a homeDir.
     const result = deployImportedAgentSkill(name, deployOptions('muse'));
 
     expect(result.outcome).toBe('deployed');
     expect(result.path).toBe(path.join(projectDir, '.agents', 'skills', name));
     expect(fs.existsSync(path.join(result.path, 'SKILL.md'))).toBe(true);
+  });
+
+  it('defaults to the project root without a homeDir so Muse never lists a skill twice', async () => {
+    const name = 'muse-default-scope-skill';
+    process.env.XDG_CONFIG_HOME = path.join(root, 'xdg-default-scope');
+    await importActive(name);
+
+    const result = deployImportedAgentSkill(name, { projectDir, target: 'muse', dryRun: true });
+
+    expect(result.path).toBe(path.join(projectDir, '.agents', 'skills', name));
+    expect(fs.existsSync(path.join(root, 'xdg-default-scope'))).toBe(false);
   });
 
   it('uninstalls user-scope skills from the XDG root', async () => {
@@ -606,6 +620,7 @@ describe('muse Agent Skills XDG resolution (#234)', () => {
     const deployed = deployImportedAgentSkill(name, {
       projectDir,
       target: 'muse',
+      scope: 'user',
       dryRun: false,
     });
     expect(deployed.outcome).toBe('deployed');
@@ -613,6 +628,7 @@ describe('muse Agent Skills XDG resolution (#234)', () => {
     const removed = uninstallImportedAgentSkill(name, {
       projectDir,
       target: 'muse',
+      scope: 'user',
       dryRun: false,
     });
     expect(removed.outcome).toBe('removed');
@@ -642,7 +658,7 @@ describe('skills deploy CLI muse targets (#234)', () => {
     }
   }
 
-  it('--target muse plans under the XDG user root, never cursor or invented .muse trees', async () => {
+  it('--target muse plans under the project .agents/skills root, never cursor or invented .muse trees', async () => {
     const name = 'cli-muse-xdg-skill';
     const xdgConfig = path.join(root, 'cli-xdg');
     process.env.XDG_CONFIG_HOME = xdgConfig;
@@ -653,7 +669,8 @@ describe('skills deploy CLI muse targets (#234)', () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({ provider: 'muse', outcome: 'planned' });
-    expect(results[0].path).toBe(path.join(xdgConfig, 'muse', 'skills', name));
+    expect(results[0].path).toBe(path.join(projectDir, '.agents', 'skills', name));
+    expect(results[0].path.startsWith(xdgConfig)).toBe(false);
     expect(results[0].path).not.toContain('.cursor');
     expect(results[0].path).not.toContain('.muse');
   });
@@ -683,7 +700,10 @@ describe('skills deploy CLI muse targets (#234)', () => {
       expect(item.path.startsWith(path.join(homeDir, '.claude'))).toBe(false);
       expect(item.path.startsWith(path.join(homeDir, '.codex'))).toBe(false);
     }
+    // Muse shares the project .agents/skills projection; nothing lands in
+    // its XDG user root, which Muse would read as a second copy.
     const museResult = results.find((item) => item.provider === 'muse');
-    expect(museResult?.path).toBe(path.join(xdgConfig, 'muse', 'skills', name));
+    expect(museResult?.path).toBe(path.join(projectDir, '.agents', 'skills', name));
+    expect(results.some((item) => item.path.startsWith(xdgConfig))).toBe(false);
   });
 });

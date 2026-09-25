@@ -60,14 +60,32 @@ import { resolveMuseXdgSkillsDir, museXdgSkillsDirRemediation } from './muse-pat
 // ---------------------------------------------------------------------------
 
 /**
- * Strip JSON comments (JSONC) before parsing, mirroring the base.mjs peer
- * helper used by the Factory settings.json flow. Comments are *read*
- * tolerance only: merged files are written back as canonical JSON.
+ * Strip JSON comments (JSONC) before parsing. Comments are *read* tolerance
+ * only: merged files are written back as canonical JSON. The scanner tracks
+ * string literals so `//` in a URL or `/*` in a glob matcher is preserved.
  */
 function stripJsonComments(jsonc) {
-  return String(jsonc)
-    .replace(/\/\/.*$/gm, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '');
+  const text = String(jsonc);
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '"') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== '"') j += text[j] === '\\' ? 2 : 1;
+      out += text.slice(i, j + 1);
+      i = j + 1;
+    } else if (ch === '/' && text[i + 1] === '/') {
+      while (i < text.length && text[i] !== '\n') i++;
+    } else if (ch === '/' && text[i + 1] === '*') {
+      const end = text.indexOf('*/', i + 2);
+      i = end === -1 ? text.length : end + 2;
+    } else {
+      out += ch;
+      i++;
+    }
+  }
+  return out;
 }
 
 /**
@@ -207,15 +225,15 @@ export const AIWG_MANAGED_HOOKS = [
     // in-band AIWG tags (they would break the group).
     group: {
       matcher: '*',
-      hooks: [{ type: 'command', command: 'aiwg sync --dry-run --quiet', timeout: 60 }],
+      hooks: [{ type: 'command', command: 'aiwg refresh --dry-run --quiet', timeout: 60 }],
     },
     reason:
-      'Session-start context refresh. Runs a read-only `aiwg sync --dry-run` so the ' +
+      'Session-start context refresh. Runs a read-only `aiwg refresh --dry-run` so the ' +
       'session begins from current AIWG framework state. Dry-run by construction: ' +
       'it reports drift and never mutates the repo.',
     removal:
       'Delete this matcher group from `.muse/hooks.json` (the one whose command is ' +
-      '`aiwg sync --dry-run --quiet`), or run `aiwg use --provider muse --no-hooks` ' +
+      '`aiwg refresh --dry-run --quiet`), or run `aiwg use --provider muse --no-hooks` ' +
       'to stop AIWG managing hooks for this project.',
   },
 ];
@@ -228,23 +246,22 @@ function managedGroupsById() {
 }
 
 /**
- * Stable identity for a matcher group: the event, the matcher, and the head
- * (first two tokens) of the first hook command.
+ * Stable identity for a matcher group: the event, the matcher, and the full
+ * (whitespace-normalized) first hook command.
  *
  * Full-payload equality cannot survive an operator hand-edit, and Muse
  * forbids in-band AIWG tags on matcher groups (unexpected keys break the
- * group). The identity key survives benign drift (timeouts, flags) so a
- * drifted managed group is repaired rather than duplicated. If the operator
- * changes the matcher or the invoked command, the group no longer matches
- * and is treated as operator-owned — AIWG installs a fresh canonical group
- * alongside it, and the plan says so.
+ * group). The identity key survives benign drift (timeouts, hook type) so a
+ * drifted managed group is repaired rather than duplicated. The whole command
+ * is part of the key so an operator's own `aiwg ...` hook with a different
+ * command is never claimed as managed: it stays operator-owned, and AIWG
+ * installs its canonical group alongside it.
  */
 function groupIdentity(event, group) {
   const matcher = (group && group.matcher) || '';
   const first = group && Array.isArray(group.hooks) && group.hooks[0];
-  const command = (first && first.command) || '';
-  const head = String(command).trim().split(/\s+/).slice(0, 2).join(' ');
-  return `${event}\n${matcher}\n${head}`;
+  const command = String((first && first.command) || '').trim().split(/\s+/).join(' ');
+  return `${event}\n${matcher}\n${command}`;
 }
 
 /**
@@ -266,6 +283,37 @@ function managedIdentities(byId, recorded) {
 // ---------------------------------------------------------------------------
 // Hooks: merge + deploy + prune
 // ---------------------------------------------------------------------------
+
+/**
+ * Refuse to write through a symlinked `.muse` directory: a cloned repo could
+ * point it anywhere on disk.
+ */
+function assertMuseDirNotSymlink(museDir) {
+  let stat;
+  try {
+    stat = fs.lstatSync(museDir);
+  } catch {
+    return;
+  }
+  if (stat.isSymbolicLink()) {
+    const error = new Error(
+      `Refusing to write Muse hooks: ${museDir} is a symlink. Replace it with a real directory, then re-run. Nothing was written.`,
+    );
+    error.code = 'MUSE_HOOKS_SYMLINK';
+    throw error;
+  }
+}
+
+/**
+ * The merged document is written as canonical JSON, which drops comments and
+ * operator formatting. Keep a timestamped copy whenever that would lose bytes.
+ */
+function backupIfHandEdited(filePath, doc, raw, existed) {
+  if (!existed || raw === canonicalJson(doc)) return null;
+  const backupPath = `${filePath}.aiwg-backup-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  fs.copyFileSync(filePath, backupPath);
+  return backupPath;
+}
 
 function readHooksDoc(hooksPath) {
   if (!fs.existsSync(hooksPath)) return { doc: { hooks: {} }, raw: null, existed: false };
@@ -418,10 +466,13 @@ export function deployMuseHooks(targetDir, opts = {}) {
     return { hooksPath, changed: false, plan: [], wrote: false };
   }
 
+  assertMuseDirNotSymlink(path.dirname(hooksPath));
   fs.mkdirSync(path.dirname(hooksPath), { recursive: true });
+  const backupPath = backupIfHandEdited(hooksPath, existingDoc, existingRaw, existed);
   atomicWrite(hooksPath, afterText);
   atomicWrite(sidecarPath, canonicalJson(buildHooksSidecar()));
   log(`Muse hooks: merged ${plan.length} managed change(s) into ${hooksPath}`);
+  if (backupPath) log(`  backup (comments/formatting not preserved): ${backupPath}`);
   for (const step of plan) log(`  ${step}`);
   log('  Operator hook entries preserved; managed entries tracked in .muse/.aiwg-hooks.json.');
   return { hooksPath, changed: true, plan, wrote: true };
@@ -472,8 +523,11 @@ export function pruneMuseHooks(targetDir, opts = {}) {
     log(`Muse hooks: no AIWG-managed groups found in ${hooksPath}; nothing to prune.`);
     return { hooksPath, pruned: 0, wrote: false };
   }
+  assertMuseDirNotSymlink(path.dirname(hooksPath));
+  const backupPath = backupIfHandEdited(hooksPath, existingDoc, existingRaw, true);
   atomicWrite(hooksPath, canonicalJson(merged));
   if (fs.existsSync(sidecarPath)) fs.unlinkSync(sidecarPath);
+  if (backupPath) log(`  backup (comments/formatting not preserved): ${backupPath}`);
   log(`Muse hooks: pruned ${pruned} AIWG-managed group(s) from ${hooksPath}; sidecar removed.`);
   return { hooksPath, pruned, wrote: true };
 }

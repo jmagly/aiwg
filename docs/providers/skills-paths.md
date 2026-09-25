@@ -188,13 +188,13 @@ See `docs/architecture/adr-grokbot-provider-target.md`.
 ### Muse Code
 
 | Scope | Path | Source | Notes |
-|-------|------|--------|-------|
+| ----- | ---- | ------ | ----- |
 | Project | `.agents/skills/` | Official docs | **Primary (use this)** — AIWG kernel deploys here |
 | Project | `.agents/.aiwg/skills/` | AIWG-managed mirror | Standard tier, only with `--copy-all` |
 | User-global | `$XDG_CONFIG_HOME/muse/skills/` (default `~/.config/muse/skills`) | Official docs | Resolved at deploy time; fail-closed on bad XDG metadata |
 | User-global | `~/.agents/skills/` | Official docs | Muse reads it; AIWG **never writes here** |
 
-- Source: https://dev.meta.ai/docs/muse-code/ (docs only)
+- Source: <https://dev.meta.ai/docs/muse-code/> (docs only)
 - Muse natively reads project `.agents/skills/` plus the XDG user root. AIWG
   must never write to `~/.agents/skills` silently: a second AIWG-owned copy
   would make Muse list every kernel skill twice (the Codex #766 regression).

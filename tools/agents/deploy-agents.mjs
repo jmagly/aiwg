@@ -664,7 +664,7 @@ Providers (all deploy agents, commands, skills, and rules):
               Paths: .windsurf/agents/, .windsurf/workflows/, .windsurf/skills/, .windsurf/rules/
   grokbot   - Grok Bot (AGENTS.md bridge; skills only with AIWG_GROKBOT_SKILLS_DIR)
   grok-build - Grok Build (experimental; .grok paths + $GROK_HOME; no bare grok alias)
-  muse      - Muse Code (experimental; AGENTS.md bridge; writers land in #226/#228; no aliases)
+  muse      - Muse Code (experimental; AGENTS.md bridge; .agents/skills + XDG user root; managed hooks, opt-in --mcp; no aliases)
   hermes    - Hermes Agent (MCP-based integration)
               Skills: $HERMES_HOME/skills/ (user-global; defaults to ~/.hermes/skills/) | Agents: AGENTS.md
               Commands/Rules: served via MCP, not file-deployed

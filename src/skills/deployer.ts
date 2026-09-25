@@ -210,17 +210,20 @@ function resolvePolicy(
       );
       break;
     case 'muse': {
-      // #234: resolve the documented XDG user root at deploy time — never
-      // invent ~/.muse. An explicit homeDir (tests, operator override) keeps
-      // the project-scoped namespace default (<repo>/.agents/skills); bad
-      // XDG metadata fails closed instead of writing a bogus tree.
-      if (options.homeDir === undefined) {
-        const configured = resolveMuseXdgSkillsDir(process.env, os.homedir());
+      // ADR scope rule 1: the default projection is the project
+      // <repo>/.agents/skills surface shared with antigravity, codex, and
+      // deepseek-harness. Muse reads both that root and its XDG user root,
+      // so writing the user root by default would list a skill twice.
+      // #234: an explicit user scope resolves the documented XDG root at
+      // deploy time — never ~/.muse — and bad XDG metadata fails closed.
+      if (options.scope === 'user') {
+        const home = resolvedHome(options);
+        const configured = resolveMuseXdgSkillsDir(process.env, home);
         if (!configured) {
           root = '';
           status = 'unsupported';
           supported = false;
-          reasons.push(museXdgSkillsDirRemediation(process.env, os.homedir()));
+          reasons.push(museXdgSkillsDirRemediation(process.env, home));
           warnings.push(
             'Agent Skills deploy for muse requires a valid absolute XDG_CONFIG_HOME; no filesystem root was invented',
           );

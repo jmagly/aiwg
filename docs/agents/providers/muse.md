@@ -10,8 +10,10 @@ stable_id: aiwg.agent-reference.provider.muse
 > `muse-spark`, `muse-code`, `spark`, and `meta` are all deliberately rejected
 > as provider ids. Decision record:
 > [`docs/architecture/adr-muse-provider-target.md`](../../architecture/adr-muse-provider-target.md).
-
-> **First time using AIWG?** Begin with [Install, Connect, and Verify](https://docs.aiwg.io/pages/getting-started--install-connect-verify.html). This guide assumes AIWG is already installed.
+>
+> **First time using AIWG?** Begin with
+> [Install, Connect, and Verify](https://docs.aiwg.io/pages/getting-started--install-connect-verify.html).
+> This guide assumes AIWG is already installed.
 
 Deploy AIWG into **Muse Code** (Meta's terminal/CI coding agent built on Muse
 Spark). This provider is **not** Cursor IDE: Muse fleets must use `--provider
@@ -21,7 +23,7 @@ Muse deploys into paths Muse does not load and prints foreign reload guidance.
 ## Architecture
 
 | Artifact | Where it lands | Notes |
-|----------|----------------|-------|
+| -------- | -------------- | ----- |
 | Context bridge | `<project>/AGENTS.md` + `WORKSPACE.md` + `.aiwg/AIWG.md` | Discover-first; loads only after the workspace is trusted |
 | Agents / commands / rules | AIWG index | `aiwg discover` / `aiwg show` — no native file surface in this wave |
 | Skills (kernel, project) | `<project>/.agents/skills/` | Canonical project deployment root |
@@ -84,15 +86,25 @@ disk: the adapter ingests only explicit `muse export` / `/export trajectory`
 JSON documents supplied by the operator, gated on the document's
 `export_schema_version` major. Auto-discovery never scrapes unauthorized
 homes; no `~/.muse` root is assumed. See the ADR "Sessions: export-first"
-section. Native catalog work is tracked separately (#232).
+section. Details: [Muse sessions](../../providers/muse-sessions.md).
 
 ## Hooks and MCP
 
-Managed project hooks (`.muse/hooks.json`) and MCP settings stay
-**operator-owned** in this wave; unmanaged hooks are never silently installed.
-Hooks execute outside Muse's sandbox, so every managed hook ships with a
-stated reason and a removal path. Full writer profiles are tracked separately
-(#228); this reference covers the status/doctor/docs posture only.
+Hooks execute outside Muse's sandbox, as plain shell processes on the
+operator's machine, and project hooks run only after the folder is trusted.
+Review `.muse/hooks.json` before trusting a workspace.
+
+- `aiwg use --provider muse` installs one AIWG-managed `SessionStart` hook
+  into `.muse/hooks.json`: a read-only `aiwg refresh --dry-run --quiet`
+  context refresh. Operator hook groups are preserved, the managed group is
+  tracked in `.muse/.aiwg-hooks.json`, and a hand-edited `hooks.json` is
+  backed up before it is rewritten. Unmanaged hooks are never installed.
+- Opt out with `aiwg use --provider muse --no-hooks`, or delete the matcher
+  group whose command is `aiwg refresh --dry-run --quiet`.
+- MCP is opt-in only: `aiwg use --provider muse --mcp` merges the AIWG MCP
+  server into `mcp_servers` in `$XDG_CONFIG_HOME/muse/settings.json`
+  (default `~/.config/muse/settings.json`), with a backup of the existing
+  file. A default deploy never touches user settings.
 
 ## Workspace trust
 

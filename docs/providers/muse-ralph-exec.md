@@ -71,10 +71,10 @@ on Linux, seatbelt on macOS) that is **on by default**. Consequences for CI:
   opts in via the `approvalMode` session option.
 - **No live Meta auth in CI.** All adapter tests run against the recorded
   fixture stub (`test/fixtures/providers/muse/muse-stub.mjs`,
-  `AIWG_MUSE_BIN=<stub>`); there is no live smoke lane for muse. A future
-  evidence-gated live smoke (`npm run smoke:muse:live`) would require an
-  authenticated `muse` install and an operator-run sandbox — it must never
-  become a required CI job.
+  `AIWG_MUSE_BIN=<stub>`). The opt-in, evidence-gated live smoke
+  (`npm run smoke:muse:live` with `AIWG_MUSE_LIVE_SMOKE=1`) needs an
+  authenticated `muse` install and runs in a sandbox; it must never become a
+  required CI job.
 
 ## Files
 

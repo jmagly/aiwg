@@ -22,16 +22,16 @@
  *     removed; unmanaged content is byte-identical across deploys.
  *   - `--dry-run` performs zero writes.
  *
- * The discover-first AGENTS.md bridge ships in this wave (#227) via
- * `createAgentsMd`, rendered from
+ * The discover-first AGENTS.md bridge is written by `createAgentsMd`, rendered from
  * `agentic/code/frameworks/sdlc-complete/templates/muse/AGENTS.md.aiwg-template`
  * into an AIWG-managed section (operator content outside the markers is
- * preserved). Hooks/MCP settings land in wave 5 (#228) via muse-hooks.mjs:
+ * preserved). Hooks/MCP settings are handled by muse-hooks.mjs:
  * managed project hooks merge additively into `.muse/hooks.json` (default
  * on, `--no-hooks` opts out), and the optional MCP settings profile enriches
  * user `mcp_servers` only with the explicit `--mcp` flag.
  */
 
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -55,8 +55,8 @@ export const aliases = []; // ADR: no aliases (no muse-spark, muse-code, spark, 
 
 // Project-relative paths. Skills deploy into the Muse-native project skills
 // root; agents/commands/rules have no file surface in this wave (indexed via
-// aiwg discover / aiwg show). The discover-first AGENTS.md bridge renders in
-// this wave (#227) via createAgentsMd below.
+// aiwg discover / aiwg show). The discover-first AGENTS.md bridge renders
+// via createAgentsMd below.
 export const paths = {
   agents: '',
   commands: '',
@@ -200,8 +200,24 @@ export function getFileExtension() {
  * updated in place when the template changes.
  */
 export function createAgentsMd(target, srcRoot, dryRun) {
+  assertSafeAgentsMd(target);
   const aiwgRoot = resolveAiwgRoot(srcRoot) || srcRoot;
   createAgentsMdFromTemplate(target, aiwgRoot, 'muse/AGENTS.md.aiwg-template', dryRun);
+}
+
+/** Refuse to write AGENTS.md through a symlink or onto a non-file. */
+function assertSafeAgentsMd(target) {
+  const dest = path.join(target, 'AGENTS.md');
+  let stat;
+  try {
+    stat = fs.lstatSync(dest);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error(`Refusing unsafe Muse AGENTS.md target: ${dest}`);
+  }
 }
 
 export async function postDeploy(targetDir, opts = {}) {

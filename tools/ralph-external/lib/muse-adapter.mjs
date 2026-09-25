@@ -109,15 +109,16 @@ export class MuseAdapter extends ProviderAdapter {
    * }} options
    * @returns {string[]}
    */
-  buildSessionArgs(options) {
+  buildSessionArgs(options, { json = true } = {}) {
     // Sub-command-first: options are parsed by `exec`, never by the root.
-    const args = ['exec', '--json'];
+    const args = json ? ['exec', '--json'] : ['exec'];
 
     // Session pin / headless resume (evidenced).
     if (options.sessionId) args.push('--session-id', options.sessionId);
 
     // Model and reasoning depth (evidenced, common to both surfaces).
-    if (options.model) args.push('--model', this.mapModel(options.model));
+    const model = options.model ? this.mapModel(options.model) : null;
+    if (model) args.push('--model', model);
     if (options.reasoningEffort) args.push('--reasoning-effort', options.reasoningEffort);
 
     // Step cap (evidenced, headless-only). The capability is `maxTurns`;
@@ -144,13 +145,14 @@ export class MuseAdapter extends ProviderAdapter {
 
   /**
    * Build argv for short analysis calls (spawnSync). Same headless surface
-   * as sessions; the prompt stays positional-last.
+   * as sessions, but without `--json`: analysis consumers parse the reply
+   * text, and `parseOutput()` extracts no text from JSONL events.
    *
    * @param {import('./provider-adapter.mjs').AnalysisArgs} options
    * @returns {string[]}
    */
   buildAnalysisArgs(options) {
-    return this.buildSessionArgs(options);
+    return this.buildSessionArgs(options, { json: false });
   }
 
   /**
@@ -174,13 +176,15 @@ export class MuseAdapter extends ProviderAdapter {
 
   /**
    * The CLI accepts `--model <id>` but enumerates no ids; the documented
-   * default is `muse-spark-1.2`. Generic names pass through unchanged.
+   * default is `muse-spark-1.2`. Only Muse ids pass through. Generic or
+   * other-provider names (Ralph defaults to Claude names) map to null so no
+   * `--model` flag is emitted and muse uses its configured default.
    *
    * @param {string} genericModel
-   * @returns {string}
+   * @returns {string|null}
    */
   mapModel(genericModel) {
-    return genericModel;
+    return /^muse-/i.test(genericModel) ? genericModel : null;
   }
 
   getEnvOverrides() {

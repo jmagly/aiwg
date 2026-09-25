@@ -156,6 +156,11 @@ export interface AgentSkillDeploymentOptions {
   target: string;
   homeDir?: string;
   dryRun?: boolean;
+  /**
+   * Projection scope for providers with distinct project and user roots
+   * (muse). Defaults to the provider's skill namespace (project for muse).
+   */
+  scope?: 'project' | 'user';
 }
 
 export type AgentSkillDeploymentOutcome =
