@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/effects/EffectCheckpoint.v1.schema.json",
+  "title": "AIWG effect ledger checkpoint v1",
+  "description": "Signed checkpoint over every writer segment head in one ledger scope. The root is sha256 over RFC 8785 canonical JSON of the writers array. Signatures cover the DSSE PAE of the checkpoint without its signatures member. See docs/contracts/effect-ledger.v1.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "scope", "sequence", "createdAt", "writers", "root",
+    "keyringDigest", "previousCheckpoint", "signatures"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "aiwg.effect.checkpoint.v1" },
+    "scope": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/scope" },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "createdAt": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/timestamp" },
+    "writers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["writer", "segment", "count", "headHash"],
+        "properties": {
+          "writer": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/writerId" },
+          "segment": { "type": "string", "pattern": "^segments/[a-z0-9][a-z0-9-]{0,63}\\.jsonl$" },
+          "count": { "type": "integer", "minimum": 1 },
+          "headHash": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/sha256Digest" }
+        }
+      }
+    },
+    "root": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/sha256Digest" },
+    "keyringDigest": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/sha256Digest" },
+    "previousCheckpoint": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/sha256Digest" }
+      ]
+    },
+    "signatures": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/signature" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "sequence": { "const": 0 } } },
+      "then": { "properties": { "previousCheckpoint": { "type": "null" } } },
+      "else": { "properties": { "previousCheckpoint": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/sha256Digest" } } }
+    }
+  ]
+}

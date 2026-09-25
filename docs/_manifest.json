@@ -51,6 +51,8 @@
     "security/supply-chain-hardening",
     "research/asset-authenticity-and-provenance",
     "architecture/adr-cross-asset-attestation-envelope",
+    "architecture/adr-effect-ledger",
+    "contracts/effect-ledger.v1",
     "install/web-backed-resources",
     "install/non-interactive",
     "quickstart",
@@ -1134,6 +1136,20 @@
       "title": "Cross-Asset Attestation Decision",
       "summary": "DSSE and in-toto architecture decision for common AIWG artifact verification",
       "file": "architecture/adr-cross-asset-attestation-envelope.md",
+      "parent": "reference"
+    },
+    {
+      "id": "architecture/adr-effect-ledger",
+      "title": "Effect Ledger Decision",
+      "summary": "Signed proof and deduplication index for agent side effects, reconciled through target verifiers",
+      "file": "architecture/adr-effect-ledger.md",
+      "parent": "reference"
+    },
+    {
+      "id": "contracts/effect-ledger.v1",
+      "title": "Effect Ledger Contract v1",
+      "summary": "Effect IDs, DSSE records, keyring, checkpoints, tri-state verifiers and exit codes",
+      "file": "contracts/effect-ledger.v1.md",
       "parent": "reference"
     },
     {

@@ -1,0 +1,37 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "aiwg-effect:eff1_z6wbijaaa2nn5jfwvqnvmlmteyxuyw2uv7nyslqmhvyqfwg3re6q",
+      "digest": {
+        "sha256": "e29ffd62e9bc8b684289fa5edeca09adae12e37a57b8cf5c7882022624d79316"
+      }
+    }
+  ],
+  "predicateType": "https://aiwg.io/attestations/effect/v1",
+  "predicate": {
+    "schemaVersion": "aiwg.effect.record.v1",
+    "effectId": "eff1_z6wbijaaa2nn5jfwvqnvmlmteyxuyw2uv7nyslqmhvyqfwg3re6q",
+    "idDerivation": "aiwg.effect/v1",
+    "scope": {
+      "tenant": "local",
+      "project": "example/repo",
+      "subsystem": "delivery"
+    },
+    "kind": "file.digest",
+    "phase": "tombstone",
+    "payloadDigest": "sha256:13550350a8681c84c861aac2e5b440161c2b33a3e4f302ac680ca5b686de48de",
+    "writer": "writer-b",
+    "seq": 1,
+    "prev": "sha256:ffbf4aec702876772cee798e424e3a0eb8cf63567990713a9c1820c196de3520",
+    "recordedAt": "2026-09-10T09:00:02Z",
+    "links": {},
+    "tombstone": {
+      "originalRecordHash": "sha256:8f60e17f7e8b23e680940eda0844fb5fd902be5cce139c2372075c6a98ba98c4",
+      "originalKeyid": "sha256:dd6153e4edaf946f368c9087f70fa1ea7f7bfe5021f424045d76695ab22e3edc",
+      "originalPhase": "completed",
+      "purgedAt": "2026-09-22T00:00:00Z",
+      "retentionPolicy": "decision-lifecycle/v1#receipt"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "review:local/example/repo/review-0001",
+      "digest": {
+        "sha256": "ddbaac5cfedeecd2e43070a981fddf131c6173316f469b9f9335dbd41a510326"
+      }
+    }
+  ],
+  "predicateType": "https://aiwg.io/attestations/effect/v1",
+  "predicate": {
+    "schemaVersion": "aiwg.effect.record.v1",
+    "effectId": "sha256:5551ee55dc383886cfd4f2cb48de753904e6a70e0584925799380d1eb0ad3716",
+    "idDerivation": "d13.review/v1",
+    "scope": {
+      "tenant": "local",
+      "project": "example/repo",
+      "subsystem": "review"
+    },
+    "kind": "decision.review.continuation",
+    "target": "review:local/example/repo/review-0001",
+    "context": {
+      "reviewId": "review-0001",
+      "continuationId": "continuation-0001",
+      "proposalVersion": 1
+    },
+    "phase": "intent",
+    "payloadDigest": "sha256:60acdabc6f029ada43401d1edef9efce33fd0c9c4fe1914b08b7da14dad9d9f2",
+    "writer": "writer-r",
+    "seq": 0,
+    "prev": null,
+    "recordedAt": "2026-09-20T13:00:00Z",
+    "links": {
+      "operatorDecisionEventId": "sha256:fe565c86fdb51341e05e63f0b8ce7b69c21d466adaf0794bb1f0febf3417f4b6"
+    }
+  }
+}

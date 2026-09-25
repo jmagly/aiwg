@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "aiwg.effect.checkpoint.v1",
+  "scope": {
+    "tenant": "local",
+    "project": "example/repo",
+    "subsystem": "delivery"
+  },
+  "sequence": 0,
+  "createdAt": "2026-09-22T00:05:00Z",
+  "writers": [
+    {
+      "writer": "writer-a",
+      "segment": "segments/writer-a.jsonl",
+      "count": 2,
+      "headHash": "sha256:6d38bab4d46370c11b355281746e8f238b82f19620b2f6cd405f1794594d2ac3"
+    },
+    {
+      "writer": "writer-b",
+      "segment": "segments/writer-b.jsonl",
+      "count": 2,
+      "headHash": "sha256:8f60e17f7e8b23e680940eda0844fb5fd902be5cce139c2372075c6a98ba98c4"
+    }
+  ],
+  "root": "sha256:ff282bbff02df5a313ce2ec01f78faf55d290bfdb6060986b0c1a894f5c8c324",
+  "keyringDigest": "sha256:91a9c92e8f9f231e10da44abcd518c2e7978da48e2c55307a24b5e4b3770dd87",
+  "previousCheckpoint": null,
+  "signatures": [
+    {
+      "keyid": "sha256:db578d84b84013bc191b754a3c7e59bd437693bbc5dec6b0998a7159e434d774",
+      "sig": "IycC4ihTIGHGPvulJV6/NfJJcfWxAgYRhjOSLM3UpWMvOw204P9EGqsfW1rtG68Ao2ZhWeO882CXeSw0EAYADw=="
+    }
+  ]
+}
