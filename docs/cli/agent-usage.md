@@ -190,6 +190,32 @@ aiwg issue sync conflicts PROJECT-0001 --snapshot-file gitea-1463.json --out con
 aiwg issue sync map-comments PROJECT-0001 --map-file comment-map.json
 ```
 
+### effect
+
+Record and sign a side effect in one call, and check it before repeating it.
+`record` appends the signed intent, runs the kind's verifier and appends
+`completed` when the target shows the effect. Output is JSON with a `schema`
+member; the exit code is the result.
+
+```bash
+# Before posting: exit 0 means it is already done, 4 means an earlier attempt needs reconcile
+aiwg effect lookup --kind tracker.comment --target gitea:org/repo#12 --issue 12 --action cycle-comment --cycle 1
+
+# After posting (the comment body carries <!-- aiwg-effect: <effect-id> -->)
+aiwg effect record --kind tracker.comment --target gitea:org/repo#12 \
+  --issue 12 --action cycle-comment --cycle 1 --payload-file comment.md
+
+# Did this PR merge? Needs a recorded merge intent. 0 present, 3 absent, 4 unknown (stop)
+aiwg effect reconcile --kind tracker.pr.merged --target gitea:org/repo#34
+
+# Ad-hoc check with no intent: runs the verifier, writes nothing, same exit codes
+aiwg effect probe --kind tracker.pr.merged --target gitea:org/repo#34
+```
+
+Exit codes: 0 present or recorded, 1 internal, 2 usage, 3 absent, 4 unknown,
+5 conflict, 6 integrity failure, 7 artifact root unavailable. See the
+[`effect` reference](reference.md#effect).
+
 ### list
 
 List installed frameworks and addons.

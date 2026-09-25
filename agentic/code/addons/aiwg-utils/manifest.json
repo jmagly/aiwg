@@ -132,6 +132,7 @@
     "aiwg-regenerate-opencode",
     "aiwg-regenerate-codex",
     "activity-log",
+    "effect-ledger",
     "customize-setup",
     "customize-rebuild",
     "customize-status",

@@ -6,6 +6,16 @@ import type { DecisionJob, DecisionJobItem } from './job-contract.js';
 import type { OfflineItemExecutor, OfflineJobResult } from './job-worker.js';
 import { JobConflictError } from './job-store.js';
 
+/** Job item state for a completed D03 decision result; `null` for an unsupported status. */
+export function decisionResultJobState(result: { spec?: { status?: unknown } } | null | undefined):
+  'succeeded' | 'review' | 'permanent-failed' | null {
+  const status = result?.spec?.status;
+  if (status === 'review') return 'review';
+  if (status === 'completed' || status === 'defaulted') return 'succeeded';
+  if (status === 'error' || status === 'cancelled') return 'permanent-failed';
+  return null;
+}
+
 /**
  * Host-only bridge to the synchronous evaluator. Never pass model-authored scope or adapters.
  * Each job item receives an independent invocation/receipt; native same-state batches remain
@@ -55,11 +65,9 @@ export function admittedJobItemExecutor(job: Readonly<DecisionJob>,
       throw new JobConflictError('Unvalidated or incomplete decision receipt');
     const receiptDigest = artifactDigest(receipt);
     const resultDigest = artifactDigest(result);
-    if (result.spec.status === 'review') return { state: 'review', receiptDigest, resultDigest };
-    if (result.spec.status === 'completed' || result.spec.status === 'defaulted')
-      return { state: 'succeeded', receiptDigest, resultDigest };
-    if (result.spec.status === 'error' || result.spec.status === 'cancelled')
-      return { state: 'permanent-failed', errorCode: 'decision-failed' };
+    const state = decisionResultJobState(result);
+    if (state === 'review' || state === 'succeeded') return { state, receiptDigest, resultDigest };
+    if (state === 'permanent-failed') return { state, errorCode: 'decision-failed' };
     throw new JobConflictError('Unsupported decision outcome');
   };
   execute.requiresReservation = true;

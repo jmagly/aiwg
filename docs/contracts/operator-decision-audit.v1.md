@@ -87,6 +87,16 @@ referenced immutable runtime artifacts.
   conflicts/replays, and runtime evidence.
 - Cockpit may project and export these records, but cannot mint approval or
   override authority.
+- The [effect ledger](./effect-ledger.v1.md) (#2714) records the effects these
+  decisions authorize. An effect record carries
+  `links.operatorDecisionEventId` (this record's `event_id`) and optionally
+  `links.operatorDecisionRecordHash` (its `record_hash`); both are `sha256:`
+  digests, so D13 review event IDs (`reviewOperatorEventId`) link directly,
+  while a random UUID `event_id` cannot be linked. `aiwg effect verify
+  --with-decisions <audit.jsonl>` verifies this chain with
+  `verifyDecisionChain` and checks that every linked event exists with the
+  linked record hash; a broken chain or a missing event exits 6. The link is
+  read-only in both directions: neither store writes the other.
 
 Implementation evidence is in `src/audit/operator-decision.ts` and
 `test/unit/audit/operator-decision.test.ts`. Runtime evidence fields align with

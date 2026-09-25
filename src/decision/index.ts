@@ -20,6 +20,7 @@ export * from './job-poll-limiter.js';
 export * from './job-service.js';
 export * from './job-payload-store.js';
 export * from './job-http.js';
+export * from './job-effects.js';
 export * from './batch-benchmark.js';
 export * from './scheduler.js';
 export * from './admission.js';

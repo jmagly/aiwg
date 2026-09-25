@@ -44,9 +44,10 @@ export {
 export { activeKey, keyValidAt, keyringDigest, keyringFailure } from './keyring.js';
 export {
   EffectLedger,
-  createVerifierRegistry,
   effectOutputJson,
+  initLedgerKeyring,
   lookupEffect,
+  readLedgerKeyring,
   openEffectLedger,
   reconcileEffect,
   recordIntent,
@@ -57,16 +58,14 @@ export {
   type EffectLookupStatus,
   type EffectReceipt,
   type EffectRecordSummary,
-  type EffectVerifier,
-  type EffectVerifierObservation,
-  type EffectVerifierRegistry,
-  type EffectVerifierRequest,
   type OpenEffectLedgerOptions,
+  type ReconcileOptions,
   type ReconcileOutcome,
   type RecordIntentInput,
   type RecordOutcomeInput,
   type RotateKeyOptions,
 } from './ledger.js';
+export * from './verifiers/index.js';
 export {
   gitRefCheckpointSink,
   memoryCheckpointSink,
@@ -84,5 +83,27 @@ export {
   type VerifyLedgerOptions,
 } from './verify.js';
 export { EFFECT_RETENTION_POLICY, purgeEffect, type PurgeEffectOptions, type PurgeEffectResult } from './lifecycle.js';
+export {
+  LEDGER_LOCK_NAME_PATTERN,
+  LOCK_RECOVERY_KIND,
+  LOCK_RECOVERY_VERIFIER_VERSION,
+  inspectLedgerLock,
+  inspectLedgerLocks,
+  ledgerLockRecoveryVerifier,
+  lockRecoveryTarget,
+  recoverStaleLedgerLock,
+  type LedgerLockInspection,
+  type LedgerLockOwnerState,
+  type LockRecoveryOptions,
+  type LockRecoveryResult,
+} from './lock-recovery.js';
 export { assertDigestOnly, containsRestrictedMaterial } from './redaction.js';
 export { EFFECT_SCHEMA_IDS, effectSchemaErrors, isEffectSchemaValid, type EffectSchemaName } from './schema.js';
+export {
+  decisionLinkOf,
+  verifyDecisionLinks,
+  type DecisionEventRef,
+  type DecisionLinkFailure,
+  type DecisionLinkFailureReason,
+  type DecisionLinkVerification,
+} from './decision-links.js';

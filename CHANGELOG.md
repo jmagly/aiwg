@@ -91,9 +91,45 @@ in the entry.
   service, with first-writer-wins index files, payload-digest conflicts,
   signed key rotation, signed checkpoints published to a git ref, D10
   tombstones and `verifyLedger`. Storage resolves through the artifact store
-  and fails closed when an external root is unavailable. Verifiers, the
-  `aiwg effect` CLI and D13, D16 and skill adoption follow in #2718–#2722
-  (#2717, #2714).
+  and fails closed when an external root is unavailable (#2717, #2714).
+- Effect ledger verifiers, CLI and adoption (experimental).
+  - Verifiers: a tri-state (`present`, `absent`, `unknown`) verifier framework
+    with the built-in `git.commit`, `git.tag`, `file.digest` and
+    `decision.receipt` verifiers (#2718), and `tracker.comment`,
+    `tracker.issue.closed` and `tracker.pr.merged` for Gitea and GitHub. The
+    tracker verifiers resolve the tracker from the project config and git
+    remotes, never contact mirrors, follow the tracker access order and answer
+    `absent` only after a complete, authenticated read (#2719).
+  - CLI: `aiwg effect` with `id`, `intent`, `record`, `lookup`, `reconcile`,
+    `verify`, `checkpoint`, `kinds`, `keys` and `recover-lock`, JSON output and
+    the contract exit codes (0 present or recorded, 3 absent, 4 unknown, 5
+    conflict, 6 integrity failure, 7 artifact root unavailable). `record`
+    writes the signed intent, runs the verifier and appends `completed` in one
+    call. `kinds` lists the git, file, decision, review-continuation and tracker
+    kinds. The ledger key stays in the host secret service, and only key IDs
+    and public keys are printed. `recover-lock --authorize` removes a stale
+    ledger lock left by a dead writer and records the recovery. Scope and key
+    custody come from the `effects` block of `aiwg.config`. The aiwg-utils
+    `effect-ledger` skill and quickref phrases route agents to it (#2720).
+  - D13 review adoption: `LedgerReviewEffectJournal` records a signed intent
+    before a review continuation and `completed` only on a `present`
+    verification, and the `decision.review.continuation` verifier reads the
+    review store. Legacy HMAC receipts import as `completed` records (#2721,
+    answers #2677).
+  - D16, skills and #1567: an opt-in resolver out of `execution-unknown`.
+    The job worker can record a `decision.receipt` effect before it writes
+    the job record, and `reconcile(..., { resolveUnknown })` promotes an item
+    only on a `digest-match` verification through one gated contract
+    transition (`attempts[].resolution`); `state-match`, `absent` and
+    `unknown` never resolve, nothing is re-dispatched, and the default
+    reconciliation is unchanged. `aiwg effect probe` runs a verifier without
+    writing records (for "did this PR merge"). address-issues records its
+    cycle comment with the `aiwg-effect` marker and confirms merges with
+    `reconcile` or `probe`; issue-close guards its closing comment with
+    `lookup` and records the comment and the closure. Effect records link the
+    authorizing operator decision (`reviewApprovalLinks`), and
+    `aiwg effect verify --with-decisions` checks the decision chain and every
+    linked event (#2722, #1567).
 - D05 admission control offline gaps: reserved per-principal concurrency and
   `maxPrincipalShare` caps on shared workspace and provider pools, token-bucket
   fairness for large requests, breaker transitions recorded in admission

@@ -8,15 +8,13 @@
 
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { readAiwgConfig, type AiwgConfig } from '../../config/aiwg-config.js';
 import {
   projectAiwgPath,
   projectControlPath,
   resolveProjectAiwgDir,
 } from '../../config/project-artifacts.js';
 import { renderTrackerProtocol, resolveTrackerAuthority } from '../../tracker/capability-protocol.js';
+import { readConfig, readGitRemoteUrls } from '../../tracker/project-inputs.js';
 import {
   buildExternalLinksSection,
   replaceOrAppendExternalLinksBlock,
@@ -25,36 +23,9 @@ import {
 export const FINALIZATION_START = '<!-- aiwg-context-finalization:START -->';
 export const FINALIZATION_END = '<!-- aiwg-context-finalization:END -->';
 const AIWG_SIGNATURE_COMMENT = '<!-- aiwg-managed -->';
-const execFileAsync = promisify(execFile);
 
 function formatList(values: readonly string[]): string {
   return values.length > 0 ? values.join(', ') : 'none recorded';
-}
-
-async function readConfig(projectPath: string): Promise<AiwgConfig | null> {
-  try {
-    return await readAiwgConfig(projectPath);
-  } catch {
-    return null;
-  }
-}
-
-async function readGitRemoteUrls(projectPath: string): Promise<Record<string, string>> {
-  try {
-    const { stdout } = await execFileAsync('git', ['-C', projectPath, 'remote', '-v'], {
-      maxBuffer: 1024 * 1024,
-    });
-    const urls: Record<string, string> = {};
-    for (const line of stdout.split(/\r?\n/)) {
-      const match = line.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/);
-      if (!match) continue;
-      const [, name, url, direction] = match;
-      if (direction === 'fetch' || !urls[name]) urls[name] = url;
-    }
-    return urls;
-  } catch {
-    return {};
-  }
 }
 
 function displayProjectPath(projectPath: string, targetPath: string): string {

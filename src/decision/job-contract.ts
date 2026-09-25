@@ -13,13 +13,22 @@ export const ITEM_STATES = [
 export type ItemState = typeof ITEM_STATES[number];
 export type JobState = 'validating' | 'queued' | 'running' | 'partially-completed' |
   'completed' | 'cancel-requested' | 'canceled' | 'expired' | 'failed';
+/**
+ * D16 resolution of an `execution-unknown` attempt (#2722): a verified effect
+ * whose D03 receipt digest matched the ledger's recorded digest. Only
+ * `digest-match` is accepted; the receipt digest must equal the attempt's.
+ */
+export interface DecisionJobAttemptResolution {
+  method: 'effect-ledger'; effectId: string; reason: 'digest-match'; receiptDigest: `sha256:${string}`;
+}
 export interface DecisionJobItem {
   id: string; fingerprint: `sha256:${string}`; subjectDigest: `sha256:${string}`;
   definitionDigest: `sha256:${string}`; bindingDigest: `sha256:${string}`; rulesetDigest?: `sha256:${string}`;
   state: ItemState;
   attempts: Array<{ id: string; requestDigest: `sha256:${string}`; receiptDigest?: `sha256:${string}`;
     reservedTokens?: number; reservedCostMicros?: number;
-    outcome: 'dispatched' | 'succeeded' | 'failed' | 'execution-unknown' }>;
+    outcome: 'dispatched' | 'succeeded' | 'failed' | 'execution-unknown';
+    resolution?: DecisionJobAttemptResolution }>;
   resultDigest?: `sha256:${string}`; errorCode?: string;
 }
 export interface DecisionJob {
@@ -56,6 +65,36 @@ const itemTransitions: Record<ItemState, readonly ItemState[]> = {
   succeeded: [], abstained: [], review: [], unsupported: [], 'permanent-failed': [],
   canceled: [], expired: [], 'execution-unknown': [],
 };
+const RESULT_STATES: readonly ItemState[] = ['succeeded', 'abstained', 'review'];
+type Attempt = DecisionJobItem['attempts'][number];
+function validResolution(attempt: Attempt): boolean {
+  const resolution = attempt.resolution;
+  return !resolution || (resolution.method === 'effect-ledger' && resolution.reason === 'digest-match' &&
+    attempt.outcome === 'succeeded' && !!attempt.receiptDigest && resolution.receiptDigest === attempt.receiptDigest);
+}
+/**
+ * The one gated transition out of `execution-unknown` (D16 opt-in resolver,
+ * #2722): the latest attempt moves from `execution-unknown` to `succeeded`
+ * with a receipt digest bound by a `digest-match` resolution, the item gains
+ * its result digest, and nothing else changes.
+ */
+export function isExecutionUnknownResolution(previous: DecisionJobItem, item: DecisionJobItem): boolean {
+  const before = previous.attempts.at(-1);
+  const after = item.attempts.at(-1);
+  if (previous.state !== 'execution-unknown' || !RESULT_STATES.includes(item.state) || !before || !after ||
+      item.attempts.length !== previous.attempts.length || before.outcome !== 'execution-unknown' ||
+      before.receiptDigest !== undefined || before.resolution !== undefined ||
+      previous.resultDigest !== undefined || !item.resultDigest || item.errorCode !== previous.errorCode) return false;
+  if (previous.attempts.slice(0, -1).some((attempt, index) => canonicalJson(attempt) !== canonicalJson(item.attempts[index])))
+    return false;
+  const { receiptDigest, resolution, outcome, ...rest } = after;
+  const { outcome: _previousOutcome, ...previousRest } = before;
+  return outcome === 'succeeded' && !!receiptDigest && !!resolution && validResolution(after) &&
+    canonicalJson(rest) === canonicalJson(previousRest);
+}
+function sameItem(previous: DecisionJobItem, item: DecisionJobItem | undefined): boolean {
+  return !!item && canonicalJson(previous) === canonicalJson(item);
+}
 export function validateDecisionJob(value: unknown): asserts value is DecisionJob {
   try { admitEntry(value); } catch { return reject('job admission denied'); }
   if (!check(value)) return reject('invalid decision job schema');
@@ -80,6 +119,7 @@ export function validateDecisionJob(value: unknown): asserts value is DecisionJo
       reservedTokens += attempt.reservedTokens ?? 0;
       reservedCostMicros += attempt.reservedCostMicros ?? 0;
       if (!Number.isSafeInteger(reservedTokens) || !Number.isSafeInteger(reservedCostMicros)) return reject('job reservation overflow');
+      if (!validResolution(attempt)) return reject('unbound execution-unknown resolution');
     }
   }
   if (reservedTokens > job.budget.maxTokens || reservedCostMicros > job.budget.maxCostMicros)
@@ -93,13 +133,26 @@ export function validateDecisionJob(value: unknown): asserts value is DecisionJo
   if (job.state === 'completed' && (actual.running || actual.queued || actual['retryable-failed'] || actual['execution-unknown']))
     return reject('completed job conceals unfinished items');
 }
+/** A same-state job revision whose only changes are gated `execution-unknown` resolutions. */
+function resolutionOnly(before: DecisionJob, after: DecisionJob): boolean {
+  if (before.state !== after.state || before.items.length !== after.items.length) return false;
+  let resolved = 0;
+  for (const [index, previous] of before.items.entries()) {
+    const item = after.items[index];
+    if (!item || item.id !== previous.id) return false;
+    if (isExecutionUnknownResolution(previous, item)) resolved++;
+    else if (!sameItem(previous, item)) return false;
+  }
+  return resolved > 0;
+}
 export function assertJobTransition(before: DecisionJob, after: DecisionJob): void {
   validateDecisionJob(before); validateDecisionJob(after);
   if (before.id !== after.id || before.fingerprint !== after.fingerprint ||
       canonicalJson(before.scope) !== canonicalJson(after.scope) ||
       before.createdAtEpochMs !== after.createdAtEpochMs || before.expiresAtEpochMs !== after.expiresAtEpochMs ||
       canonicalJson(before.budget) !== canonicalJson(after.budget) ||
-      !transitions[before.state].includes(after.state)) return reject('illegal job transition or changed identity');
+      !(transitions[before.state].includes(after.state) || resolutionOnly(before, after)))
+    return reject('illegal job transition or changed identity');
   const next = new Map(after.items.map(item => [item.id, item]));
   if (next.size !== before.items.length || after.items.length !== before.items.length) return reject('job items changed');
   for (const [index, previous] of before.items.entries()) {
@@ -107,8 +160,9 @@ export function assertJobTransition(before: DecisionJob, after: DecisionJob): vo
     if (item?.id !== previous.id) return reject('job item order changed');
     if (!item || previous.fingerprint !== item.fingerprint || previous.subjectDigest !== item.subjectDigest ||
         previous.definitionDigest !== item.definitionDigest || previous.bindingDigest !== item.bindingDigest ||
-        previous.rulesetDigest !== item.rulesetDigest ||
-        (previous.state !== item.state && !itemTransitions[previous.state].includes(item.state)) ||
+        previous.rulesetDigest !== item.rulesetDigest) return reject('illegal item transition, mutated pins or attempt history');
+    if (isExecutionUnknownResolution(previous, item)) continue;
+    if ((previous.state !== item.state && !itemTransitions[previous.state].includes(item.state)) ||
         item.attempts.length < previous.attempts.length || item.attempts.length > previous.attempts.length + 1 ||
         (item.attempts.length > previous.attempts.length &&
           !(item.state === 'running' && ['queued', 'retryable-failed'].includes(previous.state) &&

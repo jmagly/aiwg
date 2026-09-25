@@ -46,6 +46,47 @@ recorded in the local AIWG activity log. AIWG observes spend; OpenRouter
 enforces key limits and caps.
 .br
 Use B--key key_refR for a single referenced key without a fleet file.
+.TP
+.B effect id \fIidentity\fR
+Print the effect ID for an identity (\-\-kind, \-\-target, context flags, or
+\-\-review, \-\-continuation and \-\-proposal\-version for a D13 review).
+.TP
+.B effect intent \fIidentity\fR \fIpayload\fR
+Append a signed intent record before the effect. The payload is given as
+\-\-payload\-file or \-\-payload\-digest and is recorded as a digest only.
+.TP
+.B effect record \fIidentity\fR \fIpayload\fR [--unverified]
+Record and sign an effect in one command: intent, verify and completed.
+Repeating it with the same payload returns the existing receipt.
+.TP
+.B effect lookup \fIeffect-id\fR|\fIidentity\fR
+Report everything recorded for an effect ID.
+.TP
+.B effect reconcile \fIeffect-id\fR|\fIidentity\fR
+Ask the kind's verifier again and append a reconciled record.
+.TP
+.B effect probe \fIidentity\fR [--effect-id \fIid\fR]
+Run the kind's verifier once and write no records. Exit 0 present, 3 absent,
+4 unknown. Use it for ad-hoc checks such as whether a PR merged.
+.TP
+.B effect verify [--with-decisions \fIaudit.jsonl\fR]
+Verify the effect ledger: signatures, key windows, hash chain, index and checkpoint.
+With --with-decisions, also verify the operator-decision chain and that every
+linked operator decision event exists in it.
+.TP
+.B effect checkpoint
+Sign a checkpoint and publish it to the independent sink.
+.TP
+.B effect kinds
+List every effect kind the verifier registry holds.
+.TP
+.B effect keys list|init|rotate
+Show ledger key IDs and public keys, provision the key in the host secret
+service, or rotate it. The private key is never printed.
+.TP
+.B effect recover-lock [--lock \fIname\fR --authorize]
+Inspect ledger locks, or remove a stale lock left by a dead writer and record
+the recovery. Live, reused and unverifiable owners are refused.
 .SH OPTIONS
 .TP
 .B \-version, \-V
@@ -121,6 +162,33 @@ Success.
 .TP
 .B 1
 General error.
+.PP
+.B aiwg effect
+uses these exit codes:
+.TP
+.B 0
+Present or recorded, including an idempotent replay, or an intact ledger.
+.TP
+.B 1
+Internal error.
+.TP
+.B 2
+Usage error.
+.TP
+.B 3
+Absent.
+.TP
+.B 4
+Unknown.
+.TP
+.B 5
+Conflict: the same effect ID with a different payload digest, or a lock held by a live owner.
+.TP
+.B 6
+Integrity failure.
+.TP
+.B 7
+Artifact root unavailable; nothing was written.
 .SH BUGS
 Report bugs at https://github.com/jmagly/aiwg/issues
 .SH AUTHOR
