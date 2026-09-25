@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "decision-drift-response-fixtures/v1",
+  "provenance": {
+    "origin": "repository-authored",
+    "permission": "MIT (repository LICENSE)",
+    "sanitization": "synthetic; no personal inputs",
+    "note": "Contract fixture only. Values exercise validation and deterministic plumbing; they are not quality, calibration or drift-threshold evidence."
+  },
+  "records": [
+    {
+      "schemaVersion": "decision-drift-response/v1",
+      "id": "triage-drift-response",
+      "version": "1.0.0",
+      "alias": "jev-latest",
+      "thresholds": {
+        "version": "triage-drift-thresholds-2026-09",
+        "digest": "sha256:4436137c652d6296e98efb520647d18d126c8543ca0b5d3a55ef609ebd8faf3e",
+        "registeredAt": "2026-09-01T00:00:00.000Z"
+      },
+      "window": {
+        "kind": "observations",
+        "size": 500,
+        "minimumSamples": 200
+      },
+      "rules": [
+        {
+          "id": "alias-moved",
+          "source": "alias-drift",
+          "metric": "identity-change",
+          "thresholdBps": null,
+          "response": "require-recertification"
+        },
+        {
+          "id": "output-js",
+          "source": "output-distribution",
+          "metric": "jensen-shannon-v1",
+          "thresholdBps": 1500,
+          "response": "route-to-review"
+        },
+        {
+          "id": "output-psi",
+          "source": "output-distribution",
+          "metric": "population-stability-index-v1",
+          "thresholdBps": 2500,
+          "response": "reduce-coverage"
+        },
+        {
+          "id": "label-error",
+          "source": "label-drift",
+          "metric": "label-error-rate-delta-v1",
+          "thresholdBps": 300,
+          "response": "restore-champion"
+        },
+        {
+          "id": "calibration-error",
+          "source": "label-drift",
+          "metric": "calibration-error-delta-v1",
+          "thresholdBps": 200,
+          "response": "disable-challenger"
+        }
+      ],
+      "insufficientSamplesResponse": "alert"
+    }
+  ]
+}

@@ -14,7 +14,7 @@ Compatibility decisions are included in `DecisionResult.spec.calibrationCompatib
 - The deterministic fixtures exercise plumbing only. They are not product-quality evidence and must not be used to select production thresholds.
 - Production use requires representative held-out workflow data, preregistered total and per-slice sample or power rules, confidence intervals, selective-risk and calibration bounds, explicit approval, and expiry.
 - Model discovery endpoints are observations, not compatibility authority. The immutable registry and reviewed relations are authoritative.
-- This layer records compatibility and enforces threshold eligibility. It does not run benchmark qualification or operational promotion, shadowing, drift response, or rollback workflows.
+- This layer records compatibility and enforces threshold eligibility. It does not run benchmark qualification or operational promotion, shadowing, drift response, or rollback workflows. The D17 contracts that consume its eligibility, rollback and drift records are described in [ensembles and drift response](ensembles.md); their runtime is not implemented.
 
 ## Promotion and rollback evidence
 

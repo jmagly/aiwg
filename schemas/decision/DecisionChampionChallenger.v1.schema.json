@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionChampionChallenger.v1.schema.json",
+  "title": "Decision Champion Challenger",
+  "description": "D17 contract pairing a pinned champion with a challenger over one immutable input set. Promotion consumes the D09 calibration registry eligibility record; this schema does not move aliases or route traffic.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "alias", "champion", "challenger", "inputSet", "pairedMetrics", "preregistration", "eligibilityId", "evaluationIntegrityReport", "approval", "rollbackTarget"],
+  "properties": {
+    "schemaVersion": { "const": "decision-champion-challenger/v1" },
+    "id": { "$ref": "#/$defs/name" },
+    "alias": { "$ref": "#/$defs/name" },
+    "champion": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/rolePin" }],
+      "required": ["aliasRevision"],
+      "properties": { "aliasRevision": { "type": "integer", "minimum": 1 } },
+      "unevaluatedProperties": false
+    },
+    "challenger": {
+      "type": "object",
+      "allOf": [{ "$ref": "#/$defs/rolePin" }],
+      "unevaluatedProperties": false
+    },
+    "inputSet": {
+      "type": "object", "additionalProperties": false, "required": ["id", "digest", "itemCount", "frozenAt", "purpose"],
+      "properties": {
+        "id": { "$ref": "#/$defs/name" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "itemCount": { "type": "integer", "minimum": 1 },
+        "frozenAt": { "type": "string", "format": "date-time" },
+        "purpose": { "enum": ["shadow", "held-out"] }
+      }
+    },
+    "pairedMetrics": {
+      "type": "array", "minItems": 8, "maxItems": 8,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["metric", "comparison", "bound", "minimumPairs"],
+        "properties": {
+          "metric": { "enum": ["quality", "calibration", "risk-coverage", "abstention", "latency", "tokens", "cost", "slice"] },
+          "comparison": { "enum": ["delta-at-least", "delta-at-most"] },
+          "bound": { "type": "number" },
+          "minimumPairs": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "preregistration": {
+      "type": "object", "additionalProperties": false, "required": ["thresholdsDigest", "registeredAt", "holdoutAccessedAt"],
+      "properties": {
+        "thresholdsDigest": { "$ref": "#/$defs/digest" },
+        "registeredAt": { "type": "string", "format": "date-time" },
+        "holdoutAccessedAt": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "eligibilityId": { "$ref": "#/$defs/name" },
+    "evaluationIntegrityReport": { "$ref": "#/$defs/artifactPin" },
+    "approval": {
+      "type": "object", "additionalProperties": false, "required": ["reference", "approvedAt"],
+      "properties": { "reference": { "type": "string", "minLength": 1 }, "approvedAt": { "type": "string", "format": "date-time" } }
+    },
+    "rollbackTarget": { "$ref": "#/$defs/aliasPin" }
+  },
+  "$defs": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "pin": {
+      "type": "object", "additionalProperties": false, "required": ["id", "version", "digest"],
+      "properties": { "id": { "$ref": "#/$defs/name" }, "version": { "type": "string", "minLength": 1 }, "digest": { "$ref": "#/$defs/digest" } }
+    },
+    "artifactPin": {
+      "type": "object", "additionalProperties": false, "required": ["id", "digest"],
+      "properties": { "id": { "type": "string", "minLength": 1 }, "digest": { "$ref": "#/$defs/digest" } }
+    },
+    "aliasPin": {
+      "type": "object", "additionalProperties": false, "required": ["aliasRevision", "identityDigest"],
+      "properties": { "aliasRevision": { "type": "integer", "minimum": 1 }, "identityDigest": { "$ref": "#/$defs/digest" } }
+    },
+    "rolePin": {
+      "type": "object",
+      "required": ["identityDigest", "actualModel", "binding", "adapter", "calibration", "ensemblePolicy"],
+      "properties": {
+        "identityDigest": { "$ref": "#/$defs/digest" },
+        "actualModel": { "$ref": "#/$defs/name" },
+        "binding": { "$ref": "#/$defs/pin" },
+        "adapter": {
+          "type": "object", "additionalProperties": false, "required": ["id", "version"],
+          "properties": { "id": { "$ref": "#/$defs/name" }, "version": { "type": "string", "minLength": 1 } }
+        },
+        "calibration": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "object", "additionalProperties": false, "required": ["artifactId", "artifactDigest"],
+              "properties": { "artifactId": { "$ref": "#/$defs/name" }, "artifactDigest": { "$ref": "#/$defs/digest" } } }
+          ]
+        },
+        "ensemblePolicy": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/pin" }] }
+      }
+    }
+  }
+}

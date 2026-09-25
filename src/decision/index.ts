@@ -41,3 +41,4 @@ export * from './telemetry/index.js';
 export * from './patterns/index.js';
 export * from './compile-cache/index.js';
 export * from './result-cache/index.js';
+export * from './ensemble/index.js';

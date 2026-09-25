@@ -1,0 +1,232 @@
+{
+  "schemaVersion": "decision-drift-response-table/v1",
+  "provenance": {
+    "origin": "repository-authored",
+    "permission": "MIT (repository LICENSE)",
+    "sanitization": "synthetic; no personal inputs",
+    "note": "Contract fixture only. Values exercise validation and deterministic plumbing; they are not quality, calibration or drift-threshold evidence."
+  },
+  "policy": "triage-drift-response",
+  "rows": [
+    {
+      "id": "DRF-T01",
+      "signal": {
+        "source": "alias-drift",
+        "event": {
+          "id": "jev-latest:drift:2",
+          "alias": "jev-latest",
+          "previousIdentityDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "observedIdentityDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "previousActualModel": "jev-2026-07-15",
+          "observedActualModel": "jev-2026-09-01",
+          "detectedAt": "2026-09-10T00:00:00.000Z"
+        }
+      },
+      "expected": {
+        "state": "breached",
+        "response": "require-recertification",
+        "ruleId": "alias-moved",
+        "evidence": "identity-change"
+      }
+    },
+    {
+      "id": "DRF-T02",
+      "signal": {
+        "id": "js-high",
+        "alias": "jev-latest",
+        "source": "output-distribution",
+        "metric": "jensen-shannon-v1",
+        "valueBps": 2000,
+        "sampleN": 300,
+        "thresholdsVersion": "triage-drift-thresholds-2026-09",
+        "observedAt": "2026-09-10T00:00:00.000Z"
+      },
+      "expected": {
+        "state": "breached",
+        "response": "route-to-review",
+        "ruleId": "output-js",
+        "evidence": "unlabeled-distribution-warning"
+      }
+    },
+    {
+      "id": "DRF-T03",
+      "signal": {
+        "id": "js-low",
+        "alias": "jev-latest",
+        "source": "output-distribution",
+        "metric": "jensen-shannon-v1",
+        "valueBps": 1000,
+        "sampleN": 300,
+        "thresholdsVersion": "triage-drift-thresholds-2026-09",
+        "observedAt": "2026-09-10T00:00:00.000Z"
+      },
+      "expected": {
+        "state": "within-threshold",
+        "response": null,
+        "ruleId": "output-js",
+        "evidence": "unlabeled-distribution-warning"
+      }
+    },
+    {
+      "id": "DRF-T04",
+      "signal": {
+        "id": "js-boundary",
+        "alias": "jev-latest",
+        "source": "output-distribution",
+        "metric": "jensen-shannon-v1",
+        "valueBps": 1500,
+        "sampleN": 300,
+        "thresholdsVersion": "triage-drift-thresholds-2026-09",
+        "observedAt": "2026-09-10T00:00:00.000Z"
+      },
+      "expected": {
+        "state": "within-threshold",
+        "response": null,
+        "ruleId": "output-js",
+        "evidence": "unlabeled-distribution-warning"
+      }
+    },
+    {
+      "id": "DRF-T05",
+      "signal": {
+        "id": "psi-high",
+        "alias": "jev-latest",
+        "source": "output-distribution",
+        "metric": "population-stability-index-v1",
+        "valueBps": 3000,
+        "sampleN": 300,
+        "thresholdsVersion": "triage-drift-thresholds-2026-09",
+        "observedAt": "2026-09-10T00:00:00.000Z"
+      },
+      "expected": {
+        "state": "breached",
+        "response": "reduce-coverage",
+        "ruleId": "output-psi",
+        "evidence": "unlabeled-distribution-warning"
+      }
+    },
+    {
+      "id": "DRF-T06",
+      "signal": {
+        "id": "label-error-high",
+        "alias": "jev-latest",
+        "source": "label-drift",
+        "metric": "label-error-rate-delta-v1",
+        "valueBps": 400,
+        "sampleN": 250,
+        "thresholdsVersion": "triage-drift-thresholds-2026-09",
+        "observedAt": "2026-09-10T00:00:00.000Z"
+      },
+      "expected": {
+        "state": "breached",
+        "response": "restore-champion",
+        "ruleId": "label-error",
+        "evidence": "labeled-quality"
+      }
+    },
+    {
+      "id": "DRF-T07",
+      "signal": {
+        "id": "calibration-high",
+        "alias": "jev-latest",
+        "source": "label-drift",
+        "metric": "calibration-error-delta-v1",
+        "valueBps": 250,
+        "sampleN": 250,
+        "thresholdsVersion": "triage-drift-thresholds-2026-09",
+        "observedAt": "2026-09-10T00:00:00.000Z"
+      },
+      "expected": {
+        "state": "breached",
+        "response": "disable-challenger",
+        "ruleId": "calibration-error",
+        "evidence": "labeled-quality"
+      }
+    },
+    {
+      "id": "DRF-T08",
+      "signal": {
+        "id": "label-error-thin",
+        "alias": "jev-latest",
+        "source": "label-drift",
+        "metric": "label-error-rate-delta-v1",
+        "valueBps": 900,
+        "sampleN": 50,
+        "thresholdsVersion": "triage-drift-thresholds-2026-09",
+        "observedAt": "2026-09-10T00:00:00.000Z"
+      },
+      "expected": {
+        "state": "insufficient-samples",
+        "response": "alert",
+        "ruleId": "label-error",
+        "evidence": "labeled-quality"
+      }
+    },
+    {
+      "id": "DRF-T09",
+      "signal": {
+        "id": "stale-thresholds",
+        "alias": "jev-latest",
+        "source": "label-drift",
+        "metric": "label-error-rate-delta-v1",
+        "valueBps": 400,
+        "sampleN": 250,
+        "thresholdsVersion": "triage-drift-thresholds-2026-06",
+        "observedAt": "2026-09-10T00:00:00.000Z"
+      },
+      "expected": {
+        "error": "different threshold version"
+      }
+    },
+    {
+      "id": "DRF-T10",
+      "signal": {
+        "id": "other-alias",
+        "alias": "jev-other",
+        "source": "output-distribution",
+        "metric": "jensen-shannon-v1",
+        "valueBps": 2000,
+        "sampleN": 300,
+        "thresholdsVersion": "triage-drift-thresholds-2026-09",
+        "observedAt": "2026-09-10T00:00:00.000Z"
+      },
+      "expected": {
+        "error": "alias does not match"
+      }
+    },
+    {
+      "id": "DRF-T11",
+      "signal": {
+        "id": "unconfigured",
+        "alias": "jev-latest",
+        "source": "output-distribution",
+        "metric": "label-error-rate-delta-v1",
+        "valueBps": 2000,
+        "sampleN": 300,
+        "thresholdsVersion": "triage-drift-thresholds-2026-09",
+        "observedAt": "2026-09-10T00:00:00.000Z"
+      },
+      "expected": {
+        "error": "no configured response"
+      }
+    },
+    {
+      "id": "DRF-T12",
+      "signal": {
+        "source": "alias-drift",
+        "event": {
+          "id": "jev-latest:drift:2",
+          "alias": "jev-latest",
+          "previousIdentityDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "observedIdentityDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "previousActualModel": "jev-2026-07-15",
+          "observedActualModel": "jev-2026-09-01",
+          "detectedAt": "2026-09-10T00:00:00.000Z"
+        }
+      },
+      "expected": {
+        "error": "two different pinned identities"
+      }
+    }
+  ]
+}

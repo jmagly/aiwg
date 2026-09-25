@@ -497,6 +497,108 @@
       "compatibility": { "mode": "backward" },
       "consumers": [{ "id": "decision-evaluator", "boundary": "Body-free context plan and actual usage evidence", "path": "src/decision/evaluate.ts" }],
       "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.ensemble-policy",
+      "id": "https://aiwg.io/schemas/decision/DecisionEnsemblePolicy.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionEnsemblePolicy.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-ensemble-contract", "boundary": "D17 bounded ensemble policy; contract only, runtime disabled", "path": "src/decision/ensemble/contract.ts" }],
+      "fixtures": {
+        "valid": ["test/fixtures/decision/ensemble/ensemble-policy.v1.valid.json"],
+        "invalid": ["test/fixtures/decision/ensemble/ensemble-policy.v1.invalid.json"]
+      },
+      "projections": [
+        { "kind": "types", "path": "src/decision/ensemble/types.ts", "generated": false },
+        { "kind": "validator", "path": "src/decision/ensemble/contract.ts", "generated": false }
+      ],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.champion-challenger",
+      "id": "https://aiwg.io/schemas/decision/DecisionChampionChallenger.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionChampionChallenger.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-ensemble-contract", "boundary": "D17 champion/challenger pins over D09 eligibility; no alias movement", "path": "src/decision/ensemble/contract.ts" }],
+      "fixtures": {
+        "valid": ["test/fixtures/decision/ensemble/champion-challenger.v1.valid.json"],
+        "invalid": ["test/fixtures/decision/ensemble/champion-challenger.v1.invalid.json"]
+      },
+      "projections": [
+        { "kind": "types", "path": "src/decision/ensemble/types.ts", "generated": false },
+        { "kind": "validator", "path": "src/decision/ensemble/contract.ts", "generated": false }
+      ],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.drift-response",
+      "id": "https://aiwg.io/schemas/decision/DecisionDriftResponse.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionDriftResponse.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-ensemble-contract", "boundary": "D17 drift signal to configured response map; responses are not executed", "path": "src/decision/ensemble/contract.ts" }],
+      "fixtures": {
+        "valid": ["test/fixtures/decision/ensemble/drift-response.v1.valid.json"],
+        "invalid": ["test/fixtures/decision/ensemble/drift-response.v1.invalid.json"]
+      },
+      "projections": [
+        { "kind": "types", "path": "src/decision/ensemble/types.ts", "generated": false },
+        { "kind": "validator", "path": "src/decision/ensemble/contract.ts", "generated": false }
+      ],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.ensemble-aggregate",
+      "id": "https://aiwg.io/schemas/decision/DecisionEnsembleAggregate.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionEnsembleAggregate.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-ensemble-contract", "boundary": "Derived agreement evidence; never a calibrated correctness claim", "path": "src/decision/ensemble/contract.ts" }],
+      "projections": [
+        { "kind": "types", "path": "src/decision/ensemble/types.ts", "generated": false },
+        { "kind": "validator", "path": "src/decision/ensemble/contract.ts", "generated": false }
+      ],
+      "publication": { "public": true }
+    },
+    {
+      "logicalName": "decision.ensemble-integrity-report",
+      "id": "https://aiwg.io/schemas/decision/DecisionEnsembleIntegrityReport.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": { "id": "decision-engine" },
+      "authority": { "kind": "canonical", "path": "schemas/decision/DecisionEnsembleIntegrityReport.v1.schema.json" },
+      "compatibility": { "mode": "backward" },
+      "consumers": [{ "id": "decision-ensemble-contract", "boundary": "#2037/#2048 eval-integrity extension that cannot upgrade HOLD or ROLLBACK", "path": "src/decision/ensemble/contract.ts" }],
+      "projections": [
+        { "kind": "types", "path": "src/decision/ensemble/types.ts", "generated": false },
+        { "kind": "validator", "path": "src/decision/ensemble/contract.ts", "generated": false }
+      ],
+      "publication": { "public": true }
     }
   ]
 }
