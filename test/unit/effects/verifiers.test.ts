@@ -1,6 +1,6 @@
 /**
  * Effect verifier framework (#2718): registry, tri-state enforcement, error
- * mapping, file.digest, decision.receipt, the review placeholder, the
+ * mapping, file.digest, decision.receipt, the unconfigured review verifier, the
  * crash-window harness and append-only reconcile history. Offline only.
  */
 import { randomBytes } from 'node:crypto';
@@ -56,7 +56,7 @@ describe('verifier registry', () => {
   it('EFF-VER-01 listKinds reports each built-in kind with its version and absent capability', () => {
     expect(createBuiltinVerifierRegistry().listKinds()).toEqual([
       { kind: 'decision.receipt', version: '1.0.0', canReportAbsent: true },
-      { kind: 'decision.review.continuation', version: '0.1.0', canReportAbsent: false },
+      { kind: 'decision.review.continuation', version: '1.0.0', canReportAbsent: true },
       { kind: 'file.digest', version: '1.0.0', canReportAbsent: true },
       { kind: 'git.commit', version: '1.0.0', canReportAbsent: true },
       { kind: 'git.tag', version: '1.0.0', canReportAbsent: true },
@@ -232,11 +232,12 @@ describe('decision.receipt', () => {
     expect((await check(job(null), 'decision:job/job-1')).observation).toMatchObject({ result: 'unknown', reason: 'malformed-response' });
   });
 
-  it('EFF-VER-DEC-03 the review continuation placeholder is always unknown and can never report absent', async () => {
+  it('EFF-VER-DEC-03 the review continuation verifier without a review store is unknown/container-unreadable', async () => {
+    // The #2718 placeholder is replaced by the review-store verifier (#2721); see test/unit/decision/review-effect-ledger.test.ts.
     const registry = createBuiltinVerifierRegistry();
     const verifier = registry.get('decision.review.continuation')!;
-    expect(verifier.canReportAbsent).toBe(false);
-    expect((await runVerifier(verifier, request('decision.review.continuation', 'review:local/example/repo/r-1'))).observation).toEqual({ result: 'unknown', reason: 'verifier-missing', complete: false });
+    expect(verifier.version).toBe('1.0.0');
+    expect((await runVerifier(verifier, request('decision.review.continuation', 'review:local/example/repo/r-1'))).observation).toEqual({ result: 'unknown', reason: 'container-unreadable', complete: false });
   });
 });
 

@@ -1,6 +1,6 @@
 /**
  * Built-in `decision.receipt` verifier over the D03 receipt stores and D16 job
- * items, and the `decision.review.continuation` placeholder (#2721).
+ * items. The `decision.review.continuation` verifier lives in `./review.ts`.
  *
  * Target forms (`decision:<receipt-id>`):
  *
@@ -157,9 +157,9 @@ export function decisionReceiptVerifier(options: DecisionReceiptVerifierOptions 
 }
 
 /**
- * `decision.review.continuation` placeholder. It always returns `unknown` /
- * `verifier-missing` and can never report `absent`, so D13 continues to fail
- * closed until #2721 supplies the review-store verifier.
+ * @deprecated Replaced by `reviewContinuationVerifier` (#2721) and no longer a
+ * built-in. It always returns `unknown` / `verifier-missing` and can never
+ * report `absent`; kept only so existing imports keep compiling.
  */
 export function reviewContinuationPlaceholderVerifier(): EffectVerifier {
   return {

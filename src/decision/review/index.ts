@@ -5,6 +5,7 @@ export * from './service.js';
 export * from './migrate.js';
 export * from './recovery.js';
 export * from './recovery-adapters.js';
+export * from './effect-ledger-adapter.js';
 export * from './authorization.js';
 export * from './operator-audit.js';
 export { JsonlOperatorDecisionStore, verifyDecisionChain } from '../../audit/operator-decision.js';
