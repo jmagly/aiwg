@@ -18,7 +18,7 @@
   },
   "agents": [],
   "commands": [],
-  "skills": ["decision-evaluate"],
+  "skills": ["decision-evaluate", "decision-playground"],
   "dependencies": {
     "required": ["aiwg-utils", "composition-engine"],
     "optional": []

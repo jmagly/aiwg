@@ -48,6 +48,7 @@ export class DecisionAdmissionController {
   private readonly requestBuckets = new Map<string, Bucket>();
   private readonly tokenBuckets = new Map<string, Bucket>();
   private readonly costSpent = new Map<string, number>();
+  private readonly tokensReserved = new Map<string, number>();
   private readonly attempts = new Map<string, number>();
   private readonly breakers = new Map<string, Breaker>();
   private readonly providerPausedUntil = new Map<string, number>();
@@ -103,6 +104,7 @@ export class DecisionAdmissionController {
     const prefix = `${budgetId}:`;
     for (const key of this.attempts.keys()) if (key.startsWith(prefix)) this.attempts.delete(key);
     for (const key of this.costSpent.keys()) if (key.startsWith(prefix)) this.costSpent.delete(key);
+    for (const key of this.tokensReserved.keys()) if (key.startsWith(prefix)) this.tokensReserved.delete(key);
   }
 
   private preflight(request: AdmissionRequest): AdmissionError | null {
@@ -128,6 +130,7 @@ export class DecisionAdmissionController {
       if (limit.maxRetainedWork !== undefined && estimate.retainedWork === undefined) return this.error('unknown-retained-work', 'reject', request, false);
       if (estimate.retainedWork !== undefined && limit.maxRetainedWork !== undefined && estimate.retainedWork > limit.maxRetainedWork) return this.error('retained-work', 'reject', request, false);
       if (estimate.costUsd == null && limit.maxCostUsd !== undefined && !limit.allowUnknownCost) return this.error('unknown-cost', 'reject', request, false);
+      if (estimate.tokens === undefined && limit.maxTokens !== undefined) return this.error('unknown-tokens', 'reject', request, false);
     }
     return null;
   }
@@ -195,6 +198,7 @@ export class DecisionAdmissionController {
       const budgetKey = `${request.budgetId}:${key}`;
       if (limit.maxAttempts !== undefined && (this.attempts.get(budgetKey) ?? 0) + (request.estimate.attempts ?? 1) > limit.maxAttempts) return this.error('attempts', 'reject', request, false);
       if (limit.maxCostUsd !== undefined && request.estimate.costUsd != null && (this.costSpent.get(budgetKey) ?? 0) + request.estimate.costUsd > limit.maxCostUsd) return this.error('cost', 'reject', request, false);
+      if (limit.maxTokens !== undefined && (this.tokensReserved.get(budgetKey) ?? 0) + (request.estimate.tokens ?? 0) > limit.maxTokens) return this.error('tokens', 'reject', request, false);
       // A bucket can never refill beyond its capacity. Fail permanently rather
       // than retaining an impossible waiter until its deadline or queue timeout.
       if (limit.requestsPerMinute === 0) return this.error('requests-per-minute', 'reject', request, false);
@@ -208,6 +212,7 @@ export class DecisionAdmissionController {
       const budgetKey = `${request.budgetId}:${key}`;
       this.attempts.set(budgetKey, (this.attempts.get(budgetKey) ?? 0) + (request.estimate.attempts ?? 1));
       if (request.estimate.costUsd != null) this.costSpent.set(budgetKey, (this.costSpent.get(budgetKey) ?? 0) + request.estimate.costUsd);
+      if (request.estimate.tokens !== undefined) this.tokensReserved.set(budgetKey, (this.tokensReserved.get(budgetKey) ?? 0) + request.estimate.tokens);
     });
     this.active += 1;
     this.increment(this.activePrincipal, request.principalId);

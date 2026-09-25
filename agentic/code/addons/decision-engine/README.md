@@ -23,5 +23,10 @@ Runnable offline examples ship with the addon in [`examples/`](examples/README.m
 They are included in the npm package at
 `node_modules/aiwg/agentic/code/addons/decision-engine/examples/`.
 
+The `decision-playground` skill lists the installed decision pattern packs and
+runs their offline recorded fixtures through the same evaluator, with no
+credential or network access. See
+[the pattern playground guide](../../../../docs/decision/pattern-playground.md).
+
 See [the operator guide](docs/operations.md) and the repository-level
 [decision specification](../../../../docs/decision/specification.md).
