@@ -272,6 +272,8 @@ describe('D30 compile/prefix cache offline closure', () => {
         definitions: definitions(), input: fixture('input.json'), runId: 'run', invocationId: 'ccp-parity',
         adapters: { jev: new JevDecisionAdapter({ fetch: jev.fetch }) },
         resolveCredential: async () => new TextEncoder().encode('synthetic-token'),
+        // Offline fake transport: explicit host opt-out of projection (D10).
+        projection: { mode: 'unprojected-local' },
         ...(compileCache ? { compileCache } : {}),
       });
       return { result, bodies: jev.bodies };

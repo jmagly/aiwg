@@ -53,7 +53,7 @@ export const contractChecks: Readonly<Record<(typeof CONTRACT_EVIDENCE_IDS)[numb
     let calls = 0;
     const adapter: DecisionAdapter = { id: 'jev', version: '1.0.0', capabilities: async () => ({
       answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['choice', 'ordinal-score', 'truth-probability'],
-      maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true,
+      maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const },
     }), evaluate: async () => { calls += 1; throw new Error('must not dispatch'); } };
     const result = await evaluateDecisionRuleset({ ruleset, binding,
       definitions: { category: changed, severity: await read(`${EXAMPLES}/decision-severity.json`),
@@ -92,7 +92,7 @@ export const contractChecks: Readonly<Record<(typeof CONTRACT_EVIDENCE_IDS)[numb
         calibration: 'vendor-claimed', confidence: 0.9, distribution: null, calibrationRef: null } });
     const adapter: DecisionAdapter = { id: 'jev', version: '1.0.0', capabilities: async () => ({
       answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['choice', 'ordinal-score', 'truth-probability'],
-      maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true,
+      maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const },
     }), evaluate: async request => observation(request.alias) };
     const result = await evaluateDecisionRuleset({ ruleset: await read(`${EXAMPLES}/ruleset.json`),
       binding: await read(`${EXAMPLES}/binding-jev.json`), definitions: { category: await read(`${EXAMPLES}/decision-category.json`),

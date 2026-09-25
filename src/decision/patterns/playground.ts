@@ -114,6 +114,8 @@ export async function runOfflineDecisionPattern(id: DecisionPatternId, fixtureId
     ruleset: artifacts.ruleset, binding: artifacts.offlineBinding, definitions: artifacts.definitions, input,
     runId: `pattern-${id}`, invocationId: `pattern-${id}-${selected.id}`,
     adapters: { jev: new JevDecisionAdapter({ fetch: transport.fetch }) }, resolveCredential: resolveOfflineRecordedCredential,
+    // Recorded replay never leaves the process, so the host opts out of projection explicitly (D10).
+    projection: { mode: 'unprojected-local' },
   };
   let batchStore: MemoryBatchReceiptStore | undefined;
   if (batchSubject !== undefined) {
@@ -346,8 +348,10 @@ export async function runLiveDecisionPattern(
   const result = await evaluateDecisionRuleset({
     ruleset: artifacts.ruleset, binding, definitions: artifacts.definitions, input: structuredClone(request.input),
     runId: `pattern-${id}-live`, invocationId: `pattern-${id}-live-${createHash('sha256').update(canonicalJson(request.input as JsonValue)).digest('hex').slice(0, 16)}-${Date.now()}`,
-    adapters: { jev: new JevDecisionAdapter({ fetch: countedFetch }) }, resolveCredential: transport.resolveCredential,
+    adapters: { jev: new JevDecisionAdapter({ fetch: countedFetch, ...(transport.region ? { region: transport.region } : {}) }) },
+    resolveCredential: transport.resolveCredential,
     scheduler, ...(transport.signal ? { signal: transport.signal } : {}),
+    ...(transport.projection ? { projection: transport.projection } : {}),
   });
   const attempts = Object.values(result.spec.evaluations).flatMap(evaluation => evaluation.spec.attempts);
   const sum = (key: 'inputTokens' | 'outputTokens') => attempts.some(attempt => attempt.usage[key] !== null)

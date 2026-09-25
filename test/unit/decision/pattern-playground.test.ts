@@ -301,10 +301,23 @@ describe('PAT decision pattern playground', () => {
       return { fetch, started, aborted };
     }
 
-    it('runs through the evaluator and retains the actual model identity', async () => {
+    // The fake transport never leaves the process, so the host opts out of projection.
+    const localProjection = { mode: 'unprojected-local' } as const;
+
+    it('PAT-LIVE-PROJECTION denies dispatch without a host projection boundary', async () => {
       const transport = fakeTransport();
       const receipt = await runLiveDecisionPattern('intent-routing', { synthetic: true, input: { authorizedCandidates: ['search'] } }, options,
         { fetch: transport.fetch, resolveCredential: credential, estimate: () => ({ tokens: 100, costUsd: 0.001 }), model: 'jev:test' });
+      expect(transport.fetch).not.toHaveBeenCalled();
+      expect(receipt.calls).toBe(0);
+      expect(receipt.result.spec.evaluations.route?.spec.reason).toBe('data-boundary-denied');
+      expect(receipt.route).not.toBe('accept');
+    });
+
+    it('runs through the evaluator and retains the actual model identity', async () => {
+      const transport = fakeTransport();
+      const receipt = await runLiveDecisionPattern('intent-routing', { synthetic: true, input: { authorizedCandidates: ['search'] } }, options,
+        { fetch: transport.fetch, resolveCredential: credential, estimate: () => ({ tokens: 100, costUsd: 0.001 }), model: 'jev:test', projection: localProjection });
       expect(evaluateSpy).toHaveBeenCalledTimes(1);
       expect(receipt).toMatchObject({ schema: 'decision-pattern-live-receipt/v2', executionMode: 'live', evidenceOrigin: 'live-synthetic',
         requestedModel: 'jev:test', actualModel: 'jev:test-2026-09', calls: 1, route: 'accept', action: { status: 'unexecuted' },
@@ -315,7 +328,7 @@ describe('PAT decision pattern playground', () => {
     it('never starts the call that would exceed a limit of N calls', async () => {
       const transport = fakeTransport();
       const receipt = await runLiveDecisionPattern('rag-screen', { synthetic: true, input: { sourceLocator: 'doc:synthetic' } }, { ...options, limits: { maxCalls: 1 } },
-        { fetch: transport.fetch, resolveCredential: credential, estimate: () => ({ tokens: 100, costUsd: 0.001 }), model: 'jev:test' });
+        { fetch: transport.fetch, resolveCredential: credential, estimate: () => ({ tokens: 100, costUsd: 0.001 }), model: 'jev:test', projection: localProjection });
       expect(transport.fetch).toHaveBeenCalledTimes(1);
       expect(receipt.calls).toBe(1);
       expect(receipt.admission.filter(entry => entry.decision === 'reject').map(entry => entry.reason)).toEqual(['attempts', 'attempts']);
@@ -330,7 +343,7 @@ describe('PAT decision pattern playground', () => {
     ] as const)('reserves %s before dispatch', async (_label, limits, estimate, expectedCalls, reason) => {
       const transport = fakeTransport();
       const receipt = await runLiveDecisionPattern('rag-screen', { synthetic: true, input: { sourceLocator: 'doc:synthetic' } }, { ...options, limits },
-        { fetch: transport.fetch, resolveCredential: credential, estimate, model: 'jev:test' });
+        { fetch: transport.fetch, resolveCredential: credential, estimate, model: 'jev:test', projection: localProjection });
       expect(transport.fetch).toHaveBeenCalledTimes(expectedCalls);
       expect(receipt.calls).toBe(expectedCalls);
       expect(receipt.admission.some(entry => entry.decision === 'reject' && entry.reason === reason)).toBe(true);
@@ -340,7 +353,7 @@ describe('PAT decision pattern playground', () => {
     it('aborts the in-flight transport through its signal at the deadline', async () => {
       const transport = fakeTransport('hang');
       const receipt = await runLiveDecisionPattern('intent-routing', { synthetic: true, input: { authorizedCandidates: ['search'] } }, { ...options, limits: { deadlineMs: 50 } },
-        { fetch: transport.fetch, resolveCredential: credential, estimate: () => ({ tokens: 10, costUsd: 0.001 }), model: 'jev:test' });
+        { fetch: transport.fetch, resolveCredential: credential, estimate: () => ({ tokens: 10, costUsd: 0.001 }), model: 'jev:test', projection: localProjection });
       expect(transport.started).toHaveLength(1);
       expect(transport.aborted).toEqual([true]);
       expect(receipt.result.spec.evaluations.route?.spec.reason).toBe('timeout');
@@ -348,7 +361,7 @@ describe('PAT decision pattern playground', () => {
     });
 
     it('rejects loosened limits, missing models and non-synthetic input', async () => {
-      const transport = { fetch: fakeTransport().fetch, resolveCredential: credential, estimate: () => ({ tokens: 1, costUsd: 0.001 }), model: 'jev:test' };
+      const transport = { fetch: fakeTransport().fetch, resolveCredential: credential, estimate: () => ({ tokens: 1, costUsd: 0.001 }), model: 'jev:test', projection: localProjection };
       await expect(runLiveDecisionPattern('intent-routing', { synthetic: true, input: {} }, { ...options, limits: { maxCalls: 5 } }, transport)).rejects.toThrow('only be tightened');
       await expect(runLiveDecisionPattern('intent-routing', { synthetic: true, input: {} }, options, { ...transport, model: ' ' })).rejects.toThrow('explicit requested model');
       await expect(runLiveDecisionPattern('intent-routing', { synthetic: false as true, input: {} }, options, transport)).rejects.toThrow('synthetic');

@@ -55,7 +55,7 @@ const values = (alias: string): AdapterObservation => ({
 function adapter(observe: (alias: string) => AdapterObservation, calls: string[]): DecisionAdapter {
   return { id: 'jev', version: '1.0.0', capabilities: async () => ({
     answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['choice', 'ordinal-score', 'truth-probability'],
-    maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true,
+    maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const },
   }), evaluate: async request => { calls.push(request.alias); return observe(request.alias); } };
 }
 const semantics = (result: RulesetResult) => ({

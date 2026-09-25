@@ -91,7 +91,9 @@ async function evaluate(work: Workload, fake: ReturnType<typeof transport>, invo
   overrides: Partial<DecisionEvaluationRequest> = {}, adapter?: JevDecisionAdapter): Promise<RulesetResult> {
   return evaluateDecisionRuleset({ ...work, runId: 'vendor-vectors', invocationId,
     adapters: { jev: adapter ?? new JevDecisionAdapter({ fetch: fake.fetchImpl }) },
-    resolveCredential: fake.resolveCredential, delay: async () => undefined, random: () => 0.5, ...overrides });
+    resolveCredential: fake.resolveCredential, delay: async () => undefined, random: () => 0.5,
+    // Offline fake transport: explicit host opt-out of projection (D10).
+    projection: { mode: 'unprojected-local' }, ...overrides });
 }
 const sameSubject = (subject: (alias: string) => string) => ({ enabled: true, evaluations: Object.fromEntries(
   ['category', 'severity', 'core_unavailable'].map(alias => [alias,

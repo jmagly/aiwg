@@ -1,4 +1,4 @@
-import type { AcceptanceDisposition, DecisionAcceptanceEvidence, DecisionAnswer, DecisionFailureReason, DecisionStatus, DecisionUsage, JsonValue, RulesetResult } from '../types.js';
+import type { AcceptanceDisposition, DecisionAcceptanceEvidence, DecisionAnswer, DecisionEvaluationRequest, DecisionFailureReason, DecisionStatus, DecisionUsage, JsonValue, RulesetResult } from '../types.js';
 
 export const DECISION_PATTERN_PACK_VERSION = 'decision-pattern-pack/v1' as const;
 
@@ -156,6 +156,13 @@ export interface LivePatternTransport {
   model: string;
   /** Optional caller cancellation. */
   signal?: AbortSignal;
+  /**
+   * Host-owned D10 projection boundary for the Jev dispatch. Required: omitting it
+   * denies dispatch as `data-boundary-denied` before credential or transport access.
+   */
+  projection?: DecisionEvaluationRequest['projection'];
+  /** Host-declared Jev deployment region that a projection policy is bound to. */
+  region?: string;
 }
 
 export interface LivePatternReceipt {

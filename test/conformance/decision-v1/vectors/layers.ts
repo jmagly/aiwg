@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  DecisionResultCache, evaluateDecisionRuleset, MemoryCompileCache, MemoryDecisionReceiptStore, MemoryResultCacheStore,
+  DECISION_LIFECYCLE_SURFACES, DECISION_LIFECYCLE_VERSION, DecisionResultCache, evaluateDecisionRuleset, MemoryCompileCache,
+  MemoryDecisionReceiptStore, MemoryResultCacheStore, type DecisionLifecyclePolicy,
   RESULT_CACHE_KEY_VERSION, type AdapterObservation, type CompileCacheIdentity, type DecisionAdapter, type DecisionBinding,
   type DecisionDefinition, type DecisionRuleset, type QualificationCaseExecutor, type QualificationReleaseInputs,
   type ResultCacheSemanticIdentity,
@@ -31,7 +32,12 @@ export const executors: Record<string, QualificationCaseExecutor> = {
       modelPolicy: { requested, compatibleActualModels: [`${requested}.0`] }, featureFlags: { strict: true },
       tenantId: 'tenant', projectId: 'project', dataClass: 'internal' });
     const context = (nowEpochMs: number) => ({ tenantId: 'tenant', projectId: 'project', nowEpochMs, authorize: () => true });
-    const cache = new MemoryCompileCache<string>();
+    // The D10 lifecycle policy is required; it bounds retention and export of compiled entries.
+    const lifecyclePolicy: DecisionLifecyclePolicy = { version: DECISION_LIFECYCLE_VERSION,
+      surfaces: Object.fromEntries(DECISION_LIFECYCLE_SURFACES.map(surface => [surface, { classification: 'internal',
+        accessScopes: ['decision-runtime'], retentionMs: 100_000, export: 'denied', deletion: 'tombstone',
+        backup: 'expire-with-primary' }])) as DecisionLifecyclePolicy['surfaces'] };
+    const cache = new MemoryCompileCache<string>({ lifecyclePolicy });
     let compilations = 0;
     const compile = async () => `compiled-${++compilations}`;
     const outcomes = [(await cache.getOrCompile(identity(), context(100), 1_000, compile)).outcome,
@@ -46,7 +52,7 @@ export const executors: Record<string, QualificationCaseExecutor> = {
     let calls = 0;
     const adapter: DecisionAdapter = { id: 'jev', version: '1.0.0', capabilities: async () => ({
       answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['choice', 'ordinal-score', 'truth-probability'],
-      maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true,
+      maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const },
     }), evaluate: async (request): Promise<AdapterObservation> => { calls += 1; return { status: 'success', reason: 'none',
       value: request.alias === 'category' ? 'documentation' : request.alias === 'severity' ? 0.25 : 0.05, actualModel: 'fixture',
       requestId: null, usage: { inputTokens: 1, outputTokens: 1, costUsd: null },
