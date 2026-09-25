@@ -76,7 +76,9 @@ documented team-orchestration contract. `hook_wiring` records `context_file: AGE
 | Project | `<repo>/.agents/skills` |
 | User | `$XDG_CONFIG_HOME/muse/skills` (default XDG resolution: `~/.config/muse/skills` when `XDG_CONFIG_HOME` is unset) |
 
-The user root resolves at deploy time: honor a set, absolute `XDG_CONFIG_HOME`; otherwise fall back to `~/.config`.
+The user root resolves at deploy time: honor a set, absolute `XDG_CONFIG_HOME` (a leading `~/` is expanded); when it is
+unset or empty, fall back to `~/.config`. A set value that is relative, bare `~`, or the filesystem root is rejected
+rather than ignored (fail closed, see below), so a misconfigured environment never deploys to a guessed location.
 Muse natively *reads* `~/.agents/skills` in addition to the XDG root, so AIWG must never *write* there silently:
 a second AIWG-owned copy would make Muse list every kernel skill twice (the Codex #766 regression). An
 operator-opt-in `~/.agents/skills` write policy is permitted only when explicitly documented — never as a silent
@@ -102,7 +104,7 @@ PR3/#227; this ADR locks only the surface choice (`AGENTS.md`, discover-first).
 
 ### Sessions: export-first
 
-Session catalog support is **export-first** until a native log root is evidenced on disk (#222):
+Session catalog support is **export-first** until an evidence-gated native discover path exists (#222):
 
 - The adapter ingests only explicit `muse export` / `/export trajectory` JSON documents supplied by the operator,
   gated on the document's `export_schema_version` major (currently `1`); unknown majors fail closed, as with
@@ -110,7 +112,9 @@ Session catalog support is **export-first** until a native log root is evidenced
 - Auto-discovery must not scrape unauthorized homes; no `~/.muse` (or similar) root is assumed without product evidence.
 - A future evidence-gated `--muse-root` discover path (analogous to `--codex-root`) remains the route to native discovery.
   The documented candidate native root is `$XDG_DATA_HOME/muse/sessions/YYYY/MM/DD/<session-id>/session.jsonl`
-  (default `~/.local/share/muse/sessions`); PR B of #222 verifies it on disk before any root is authorized.
+  (default `~/.local/share/muse/sessions`). It was verified on disk against Muse Code 1.4.0 on 2026-09-25 (see
+  `docs/providers/muse-sessions.md`), but its line format is internal, so import stays export-first until PR B of #222
+  adds an evidence-gated discover path over it.
 
 Session adapter implementation itself is out of scope here (Phase 4 / #222, catalog track #232).
 

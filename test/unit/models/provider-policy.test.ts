@@ -18,7 +18,7 @@ describe('provider model registry', () => {
     ]);
     for (const capability of Object.values(registry.providers)) {
       expect(capability.sourceUrl).toMatch(/^https:\/\//);
-      expect(capability.verifiedAt).toMatch(/^2026-(?:07-20|09-04|09-05|09-15|09-21|09-24)$/);
+      expect(capability.verifiedAt).toMatch(/^2026-(?:07-20|09-04|09-05|09-15|09-21|09-24|09-25)$/);
       expect(capability.identifierSyntax).not.toBe('');
       expect(capability.verification).not.toBe('');
     }

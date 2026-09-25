@@ -200,6 +200,9 @@ See `docs/architecture/adr-grokbot-provider-target.md`.
   would make Muse list every kernel skill twice (the Codex #766 regression).
 - AIWG never invents `~/.muse`, siblings of `muse/skills` under the XDG
   config home, or foreign provider paths (no `.cursor/`).
+- Muse Code 1.4.0 also reads `~/.claude/skills` and `~/.codex/skills` as
+  foreign personal skills (disable with `--no-foreign-personal-context`), so
+  user-scope AIWG deploys for Claude Code or Codex are visible in Muse too.
 
 
 ## Distribution Mechanism by Provider

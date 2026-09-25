@@ -4,8 +4,9 @@ Optional / post-experimental Ralph-external provider adapter for Muse Code
 (`#230`, parent `#223`). It drives Meta's documented headless surface —
 `muse exec` — for the external agent loop (`tools/ralph-external/index.mjs
 --provider muse`), with session resume (`--session-id`) and the
-transcript/export path (`muse export`). Adapter plus recorded fixtures only;
-no live Meta auth anywhere in CI.
+transcript/export path (`muse export`). CI runs recorded fixtures only, with
+no live Meta auth; the contract below was verified by hand against an
+installed Muse Code 1.4.0 on 2026-09-25.
 
 ## Status
 
@@ -18,8 +19,7 @@ the adapter never affects `aiwg use --provider muse`.
 
 Per `docs/architecture/adr-muse-provider-target.md` ("Headless Ralph"), this
 adapter is optional and post-experimental: it does not block the experimental
-cut (`#225`–`#229`) or stable promotion (`#231`), and no `muse exec` contract
-is assumed until evidenced against the installed CLI surface.
+cut (`#225`–`#229`) or stable promotion (`#231`).
 
 ## Evidenced flags (Meta docs, dev.meta.ai/docs/muse-code/)
 
@@ -27,32 +27,45 @@ is assumed until evidenced against the installed CLI surface.
 | --- | --- |
 | `muse exec [OPTIONS] [PROMPT]` | Headless entrypoint; "takes one prompt, runs it to completion, and exits" ([extending](https://dev.meta.ai/docs/muse-code/extending)). Prompt is positional and must come last; options are parsed by `exec`, not the `muse` root, so adapter argv always starts with `exec`. |
 | `--json` | "Emit JSONL events"; headless-only ([extending](https://dev.meta.ai/docs/muse-code/extending), [configuration](https://dev.meta.ai/docs/muse-code/configuration)). |
-| `--session-id <uuid>` | "To continue an interrupted job non-interactively, use `exec` with the session id" ([extending](https://dev.meta.ai/docs/muse-code/extending)). There is no headless resume flag; re-passing the id continues the session. `muse resume` is interactive-only. |
+| `--session-id <uuid>` | "To continue an interrupted job non-interactively, use `exec` with the session id" ([extending](https://dev.meta.ai/docs/muse-code/extending)). Verified on 1.4.0: a new id pins the new session's id (the native log lands in `$XDG_DATA_HOME/muse/sessions/YYYY/MM/DD/<uuid>/`), and re-passing it continues that session with its context. `muse resume` is interactive-only. |
 | `--prompt-file <path>` | Headless-only ([configuration](https://dev.meta.ai/docs/muse-code/configuration)). |
 | `--max-model-steps <n>` | Headless-only, "cap the run" ([configuration](https://dev.meta.ai/docs/muse-code/configuration)). The adapter maps the `maxTurns` capability to this flag; it never emits `--max-turns`, which `muse` would reject with exit code 2. |
-| `--model <id>`, `--reasoning-effort <level>` | Common to both launch surfaces ([configuration](https://dev.meta.ai/docs/muse-code/configuration)). The CLI enumerates no model ids; the documented default is `muse-spark-1.2`, so `mapModel()` passes names through. |
+| `--model <id>`, `--reasoning-effort <level>` | Common to both launch surfaces ([configuration](https://dev.meta.ai/docs/muse-code/configuration)). Ids come from the Meta provider catalog; on 1.4.0 that is `muse-spark-1.3` (current), `muse-spark-1.3-contributor` (catalog default), `muse-spark-1.2`, and `muse-spark-1.2-contributor`. `mapModel()` passes `muse-*` ids through and drops any other name, so Ralph's Claude defaults never reach `muse`. An unknown id exits 1 with `run.terminal.failed`. |
 | `--approval-mode <mode>` | Common to both; "`muse exec` accepts both approval flags" ([configuration](https://dev.meta.ai/docs/muse-code/configuration)). **Opt-in only** — the adapter sets no approval posture by default. |
 | `muse export --session <uuid> --out <path>` | Offline, byte-deterministic transcript projection; "never modifies the log" ([audit-agent-sessions](https://dev.meta.ai/docs/cookbook/audit-agent-sessions)). `--last` and `--redacted` are also documented there. |
-| Exit codes `0` / `1` / `2` / `130` / `143` | 0 = turn completes, 1 = fails or is cancelled (including a `--max-model-steps` limit), 2 = usage error, 130/143 on SIGINT/SIGTERM ([extending](https://dev.meta.ai/docs/muse-code/extending)). |
+| Exit codes `0` / `1` / `2` / `130` / `143` | 0 = turn completes, 1 = fails or is cancelled (including a `--max-model-steps` limit), 2 = usage error, 130/143 on SIGINT/SIGTERM ([extending](https://dev.meta.ai/docs/muse-code/extending)). 0, 1, and 2 verified on 1.4.0. |
+| `--` before the prompt | Verified on 1.4.0: a prompt that starts with `-` fails with `unknown option` (exit 2) unless `--` ends option parsing, so the adapter always emits `-- <prompt>`. |
 
-## Assumed nowhere (fail-closed)
+## `--json` event envelope (verified on 1.4.0)
 
-- **The `muse exec --json` JSONL envelope schema.** `parseOutput()` validates
-  JSONL framing only and reports settlement as indeterminate (`settled: null`);
-  no text is extracted from the unevidenced envelope. The loop treats the
-  documented exit codes as the completion signal until the envelope is
-  evidenced against an installed CLI.
-- **A native session-log root.** Per the ADR fail-closed path policy the
-  adapter assumes no `$XDG_DATA_HOME/muse/sessions` root, so
-  `getTranscriptPath()` returns `null`. Transcripts are produced through the
-  adapter's `buildExportArgs()` (`muse export`); the session-catalog track
-  ingests only operator-supplied export documents
-  (`src/sessions/adapters/muse.ts`, `#232`).
+Each line is one record: `{schema_version, id, stream: {kind, id}, sequence,
+recorded_at, record_type, durability, causation_id, payload_type,
+payload_schema_version, payload}` — the same envelope as the native session
+log. `recorded_at` is epoch microseconds. The records `parseOutput()` reads:
+
+| `payload_type` | Payload fields used |
+| --- | --- |
+| `run.output.delta` | `text` (streamed answer text) |
+| `run.terminal.completed` / `run.terminal.failed` | `terminal`, final `text`, `reason` (failure message) |
+
+`parseOutput()` returns `{events, text, settled, terminal, reason}`: `settled`
+is `true` only for `completed`, `false` for any other terminal state, and
+`null` when the stream ends without a terminal record. Analysis calls run in
+plain mode (no `--json`), where stdout is only the final answer text.
+
+## Not assumed
+
+- **Native transcript paths.** The native log root is evidenced
+  (`$XDG_DATA_HOME/muse/sessions/YYYY/MM/DD/<session-id>/session.jsonl`), but
+  its line format is internal (retained transaction frames, omission
+  markers), so `getTranscriptPath()` returns `null`. Transcripts come from
+  `buildExportArgs()` (`muse export`), and the session catalog ingests only
+  export documents (`src/sessions/adapters/muse.ts`, `#232`).
 - **A pinned CLI version.** Unlike pi (`PI_SUPPORTED_VERSIONS`),
   `isAvailable()` checks only that `muse --version` exits 0 — no
   qualified-version list exists yet.
-- **Third-party-only flags** (`--resume-id`, `--user-input-auto-resolve`,
-  …) are not emitted. `--yolo` is never emitted either (`#230` out of scope);
+- **Other flags** such as `--user-input-auto-resolve` or
+  `--no-foreign-personal-context` are not emitted. `--yolo` is never emitted either (`#230` out of scope);
   it disables approval **and** sandboxing (see below).
 
 ## CI sandbox / bubblewrap requirements
@@ -95,5 +108,5 @@ on Linux, seatbelt on macOS) that is **on by default**. Consequences for CI:
 - [x] Only documented flags are emitted; anything unevidenced is marked as
       such above and in the adapter header.
 - [x] CI sandbox/bubblewrap requirements are called out above.
-- [ ] Live envelope schema still unevidenced — needs an installed `muse` CLI
-      and operator review (future work, not CI).
+- [x] `--json` envelope, exit codes, `--session-id` semantics, `--`, and
+      model ids verified against an installed Muse Code 1.4.0 (2026-09-25).

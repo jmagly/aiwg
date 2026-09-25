@@ -1,0 +1,389 @@
+{
+  "diagnostics": {
+    "duplicate_records": 0,
+    "gaps": 0,
+    "omitted_live_only": 0,
+    "unknown_payload_kinds": 0,
+    "unparseable_lines": 0
+  },
+  "events": [
+    {
+      "derived": {
+        "decoded": true
+      },
+      "envelope": {
+        "children": [
+          {
+            "child_index": 0,
+            "record_json": "{\"schema_version\":1,\"payload_type\":\"runtime.session.permission_format_declared\"}"
+          }
+        ],
+        "content_sha256": "sha256:cbd3c3646ba3a4e5e7134a9c66de5e97789a54936c38ceaa82a3a7733bdbf76a",
+        "frame_schema_version": 1,
+        "outer_log_ordinal": 1,
+        "retained_frame": "session_permission_transaction",
+        "transaction_id": "e2cbe796-5426-4f13-8822-9167ca8ee520"
+      },
+      "kind": "retained_frame",
+      "outer_log_ordinal": 1
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 3,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 0
+      },
+      "envelope": {
+        "causation_id": null,
+        "durability": "durable",
+        "id": "86fd2037-3b28-4a38-a0ba-c6267b29329b",
+        "payload": {
+          "kind": "metadata"
+        },
+        "payload_schema_version": 1,
+        "payload_type": "runtime.session.metadata",
+        "record_type": "event",
+        "recorded_at": 1790349213957005,
+        "schema_version": 1,
+        "sequence": 3,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349213957005
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 4,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 0
+      },
+      "envelope": {
+        "causation_id": null,
+        "durability": "durable",
+        "id": "08c8100e-8752-4dcb-baf0-d27f475cb10c",
+        "payload": {
+          "kind": "route_facts"
+        },
+        "payload_schema_version": 2,
+        "payload_type": "runtime.session.route_facts",
+        "record_type": "event",
+        "recorded_at": 1790349213957043,
+        "schema_version": 1,
+        "sequence": 4,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349213957043
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 5,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 0
+      },
+      "envelope": {
+        "causation_id": null,
+        "durability": "durable",
+        "id": "05267cec-65e3-4f9e-b33f-8b73db100a8f",
+        "payload": {
+          "kind": "workspace_branch"
+        },
+        "payload_schema_version": 1,
+        "payload_type": "session.workspace_branch.observed",
+        "record_type": "event",
+        "recorded_at": 1790349213974166,
+        "schema_version": 1,
+        "sequence": 5,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349213974166
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 6,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 0
+      },
+      "envelope": {
+        "causation_id": null,
+        "durability": "durable",
+        "id": "7a56d300-0d92-4614-a093-2f74cd3a5190",
+        "payload": {
+          "kind": "session_opened"
+        },
+        "payload_schema_version": 1,
+        "payload_type": "session.opened.observed",
+        "record_type": "event",
+        "recorded_at": 1790349213974746,
+        "schema_version": 1,
+        "sequence": 6,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349213974746
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 7,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 0
+      },
+      "envelope": {
+        "causation_id": null,
+        "durability": "durable",
+        "id": "660598c0-c577-57a7-82f8-46d5d8df2826",
+        "payload": {
+          "kind": "agent_tree_initialized"
+        },
+        "payload_schema_version": 2,
+        "payload_type": "runtime.session",
+        "record_type": "event",
+        "recorded_at": 1790349213975306,
+        "schema_version": 1,
+        "sequence": 7,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349213975306
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 8,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 0
+      },
+      "envelope": {
+        "causation_id": "a7b53e7c-1790-4061-a290-455baf60a51e",
+        "durability": "durable",
+        "id": "c4209379-837e-4fa9-9a5b-60fcee56cb10",
+        "payload": {
+          "kind": "run_model",
+          "record": {
+            "command_id": "a7b53e7c-1790-4061-a290-455baf60a51e",
+            "display_label": "muse-spark-1.3",
+            "model_id": "muse-spark-1.3",
+            "profile_id": "tbh",
+            "provider_id": "meta",
+            "run_stream": {
+              "id": "a7b53e7c-1790-4061-a290-455baf60a51e",
+              "kind": "run"
+            },
+            "source": "startup"
+          }
+        },
+        "payload_schema_version": 1,
+        "payload_type": "run.model.configured",
+        "record_type": "event",
+        "recorded_at": 1790349213999811,
+        "schema_version": 1,
+        "sequence": 8,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349213999811
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 9,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 0
+      },
+      "envelope": {
+        "causation_id": "a7b53e7c-1790-4061-a290-455baf60a51e",
+        "durability": "durable",
+        "id": "88cb5c6c-6b55-478c-8b8f-0210afb15d28",
+        "payload": {
+          "kind": "retained_runtime_fact"
+        },
+        "payload_schema_version": 1,
+        "payload_type": "runtime.retained_fact",
+        "record_type": "event",
+        "recorded_at": 1790349213999812,
+        "schema_version": 1,
+        "sequence": 9,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349213999812
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 10,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 0
+      },
+      "envelope": {
+        "causation_id": "a7b53e7c-1790-4061-a290-455baf60a51e",
+        "durability": "durable",
+        "id": "60101eb7-4c6f-4c79-a71e-d8872bd51246",
+        "payload": {
+          "kind": "workspace_branch"
+        },
+        "payload_schema_version": 1,
+        "payload_type": "session.workspace_branch.observed",
+        "record_type": "event",
+        "recorded_at": 1790349213999813,
+        "schema_version": 1,
+        "sequence": 10,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349213999813
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 11,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 0
+      },
+      "envelope": {
+        "causation_id": "a7b53e7c-1790-4061-a290-455baf60a51e",
+        "durability": "durable",
+        "id": "3a321dd1-1792-4492-adb7-acb5d84eed11",
+        "payload": {},
+        "payload_schema_version": 1,
+        "payload_type": "runtime.user_intent.accepted",
+        "record_type": "event",
+        "recorded_at": 1790349213999814,
+        "schema_version": 1,
+        "sequence": 11,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349213999814
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 144,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 2
+      },
+      "envelope": {
+        "causation_id": null,
+        "durability": "durable",
+        "id": "a41abdef-8d00-4ce0-9ade-bee97d8de665",
+        "payload": {
+          "kind": "run"
+        },
+        "payload_schema_version": 1,
+        "payload_type": "runtime.session",
+        "record_type": "event",
+        "recorded_at": 1790349265380771,
+        "schema_version": 1,
+        "sequence": 144,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349265380771
+    },
+    {
+      "derived": {
+        "decoded": true,
+        "session_id": "00000000-0000-4000-8000-000000000001",
+        "step_id": 145,
+        "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+        "turn_count": 2
+      },
+      "envelope": {
+        "causation_id": null,
+        "durability": "durable",
+        "id": "5cabee95-abdb-4094-95b0-4f77cbd435bf",
+        "payload": {
+          "kind": "session_end"
+        },
+        "payload_schema_version": 1,
+        "payload_type": "session.end",
+        "record_type": "event",
+        "recorded_at": 1790349265396318,
+        "schema_version": 1,
+        "sequence": 145,
+        "stream": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "kind": "session"
+        }
+      },
+      "kind": "record",
+      "recorded_at": 1790349265396318
+    }
+  ],
+  "export_schema_version": 1,
+  "exporter_version": {
+    "display": "Muse Code 1.4.0 (04f5eb2e6e)",
+    "semver": "1.4.0",
+    "sha": "04f5eb2e6e"
+  },
+  "redaction": "redacted",
+  "session_build": {
+    "display": "Muse Code 1.4.0 (04f5eb2e6e)",
+    "semver": "1.4.0",
+    "sha": "04f5eb2e6e"
+  },
+  "session_terminated_abnormally": false,
+  "sessions": [
+    {
+      "accepted_spawns": [],
+      "is_copied_context": false,
+      "root_session_id": "00000000-0000-4000-8000-000000000001",
+      "saw_history_gap": false,
+      "session_end": {
+        "exit_reason": "clean",
+        "uptime_ms": 16605
+      },
+      "session_id": "00000000-0000-4000-8000-000000000001",
+      "step_count": 145,
+      "trajectory_id": "trajectory_00000000-0000-4000-8000-000000000001",
+      "turn_count": 2
+    }
+  ]
+}

@@ -4,9 +4,10 @@ AIWG registers `muse` as a **manual-export** session provider. The adapter
 ingests only explicit `muse export` trajectory JSON documents supplied by the
 operator, gated on the document's `export_schema_version` major (currently
 `1`); unknown majors fail closed with `UNKNOWN_SCHEMA_MAJOR`, as with peer
-native-export adapters. Auto-discovery is unsupported until a verified native
-session root is evidenced on disk; AIWG does not scrape home directories or
-invent session roots for this provider.
+native-export adapters. The native log root is verified on disk (see
+[Native log root](#native-log-root-verified-2026-09-25)), but its line format is
+internal, so auto-discovery stays unsupported: AIWG does not scrape home
+directories for this provider. Locate a session there, then export it.
 
 ## How to import
 
@@ -42,6 +43,11 @@ does not invent fields the docs don't show:
   their own `envelope.stream.id`, falling back to `sessions[0].session_id`
   only when the stream block is absent. Gap markers carry `"envelope": null`
   and are skipped.
+- Muse Code 1.4.0 writes `recorded_at` as epoch microseconds (converted to
+  RFC 3339 on import) and `causation_id` as a string or `null`. Its
+  `retained_frame` events carry a transaction frame (`children`,
+  `transaction_id`, `content_sha256`) instead of a record envelope; like gap
+  markers, they are skipped.
 
 ## Preserved provenance
 
@@ -95,15 +101,38 @@ and import it as its own manual-export stream. Automatic nested-log
 ingestion is future work; nested sessions are joined via
 `child_session_bound`.
 
-## Evidence gaps
+## Native log root (verified 2026-09-25)
 
-The Meta recipe documents a candidate native log path of
-`$XDG_DATA_HOME/muse/sessions/YYYY/MM/DD/<session-id>/session.jsonl`
-(default `~/.local/share/muse/sessions`), but no native root has been
-verified on disk by AIWG, so no discover path and no `~/.muse` (or similar)
-root is assumed. A future evidence-gated `--muse-root` discover path,
-analogous to `--codex-root`, remains the route to native discovery (#222
-PR B).
+Verified on disk against an installed Muse Code 1.4.0. Each session is a
+directory:
+
+```text
+$XDG_DATA_HOME/muse/sessions/YYYY/MM/DD/<session-id>/   (default ~/.local/share/muse/sessions)
+  session.jsonl                  durable event log
+  cli-<uuid>.log                 CLI diagnostics (hooks, MCP, rules, skills loading)
+  tool-outputs/                  spilled tool output
+  session.peer-history.sqlite3   cross-session message history
+  cron.db                        scheduled tasks
+  approval-review/
+  subagent/<child_session_id>/session.jsonl   (when subagents ran)
+```
+
+`muse exec --session-id <uuid>` pins the directory name. A session index
+lives at `$XDG_DATA_HOME/muse/session-index.db`. `session.jsonl` mixes three
+line shapes: record envelopes (the same envelope `muse export` and
+`muse exec --json` emit), omission markers (`omitted_record`,
+`retained_marker: "omitted_live_only"`) for ephemeral records that were not
+persisted, and retained transaction frames whose children are
+JSON-encoded record strings. Because that format is internal, AIWG imports
+the documented export instead:
+
+```bash
+muse export --session ~/.local/share/muse/sessions/2026/09/25/<session-id>/session.jsonl --out trajectory.json
+```
+
+No `~/.muse` (or similar) root exists or is assumed. An evidence-gated
+`--muse-root` discover path, analogous to `--codex-root`, remains future work
+(#222 PR B).
 
 ## Tested contract
 
@@ -119,6 +148,9 @@ AIWG adapter contract: `1.0.0`. Synthetic fixtures cover:
 - live multi-stream shape (`multistream-v1.json`, replicating the real
   1.3.0 export) — per-event `envelope.stream.id` attribution, null-envelope
   gap markers skipped, spawn handle vs. child session id kept distinct
+- real Muse Code 1.4.0 export (`live-1.4.0-v1.json`, scrubbed from a
+  `muse export --redacted` of a live run) — epoch-microsecond timestamps,
+  null causation ids, and a retained transaction frame that is skipped
 
 Synthetic fixtures are records of the documented trajectory shape; the
 multi-stream rules above were verified against a real Muse Code 1.3.0

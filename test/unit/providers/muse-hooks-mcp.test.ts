@@ -113,7 +113,7 @@ describe('mergeManagedHooks (#228)', () => {
     const { doc, changed, plan } = mergeManagedHooks({ hooks: {} }, { version: 1, hooks: [] });
     expect(changed).toBe(true);
     expect(doc.hooks.SessionStart).toHaveLength(1);
-    expect(doc.hooks.SessionStart[0].hooks[0].command).toBe('aiwg refresh --dry-run --quiet');
+    expect(doc.hooks.SessionStart[0].hooks[0].command).toBe('aiwg refresh --dry-run --quiet --provider muse > /dev/null');
     expect(plan.join('\n')).toContain('aiwg-session-start');
   });
 
@@ -146,7 +146,7 @@ describe('mergeManagedHooks (#228)', () => {
   it('repairs a drifted managed group recorded in the sidecar', () => {
     const drifted = {
       matcher: '*',
-      hooks: [{ type: 'command', command: 'aiwg refresh --dry-run --quiet', timeout: 5 }],
+      hooks: [{ type: 'command', command: 'aiwg refresh --dry-run --quiet --provider muse > /dev/null', timeout: 5 }],
     };
     const sidecar = {
       version: 1,
@@ -165,6 +165,25 @@ describe('mergeManagedHooks (#228)', () => {
     };
     const { doc } = mergeManagedHooks({ hooks: { SessionStart: [operatorGroup] } }, { version: 1, hooks: [] });
     expect(doc.hooks.SessionStart).toEqual([operatorGroup, AIWG_MANAGED_HOOKS[0].group]);
+  });
+
+  it('upgrades a sidecar-recorded older managed command in place', () => {
+    // Earlier builds installed `aiwg refresh --dry-run --quiet`, whose JSON
+    // report Muse Code rejects as hook output; the sidecar lets the merge
+    // replace it rather than keep it as an operator group.
+    const older = { matcher: '*', hooks: [{ type: 'command', command: 'aiwg refresh --dry-run --quiet', timeout: 60 }] };
+    const sidecar = { version: 1, hooks: [{ id: 'aiwg-session-start', event: 'SessionStart', group: older }] };
+    const { doc, changed } = mergeManagedHooks({ hooks: { SessionStart: [older] } }, sidecar);
+    expect(changed).toBe(true);
+    expect(doc.hooks.SessionStart).toEqual([AIWG_MANAGED_HOOKS[0].group]);
+  });
+
+  it('keeps hook stdout empty so Muse accepts the hook output', () => {
+    // Muse Code 1.4.0 fails a SessionStart hook whose stdout is JSON with
+    // unknown keys; the managed command must discard the refresh report.
+    const command = AIWG_MANAGED_HOOKS[0].group.hooks[0].command;
+    expect(command).toMatch(/--provider muse/);
+    expect(command).toMatch(/> \/dev\/null$/);
   });
 
   it('prunes a previously-managed hook that left the set', () => {
@@ -208,7 +227,7 @@ describe('deployMuseHooks (#228)', () => {
     const first = deployMuseHooks(target, { quiet: true });
     expect(first.wrote).toBe(true);
     const doc = readJson(hooksPath(target));
-    expect(doc.hooks.SessionStart[0].hooks[0].command).toBe('aiwg refresh --dry-run --quiet');
+    expect(doc.hooks.SessionStart[0].hooks[0].command).toBe('aiwg refresh --dry-run --quiet --provider muse > /dev/null');
     const sidecar = readJson(sidecarPath(target));
     expect(sidecar.hooks.map((h: { id: string }) => h.id)).toContain('aiwg-session-start');
 

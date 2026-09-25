@@ -58,7 +58,7 @@ export function checkContract(env = process.env) {
     requiredGate: `${LIVE_GATE}=1`,
     requiresCli: `${MUSE_BIN} on PATH`,
     skillRoots: VERIFIED_ROOTS,
-    modes: ['dry-run-deploy', 'deploy', 'user-scope-deploy', 'doctor', 'status', 'cli-probe'],
+    modes: ['dry-run-deploy', 'deploy', 'user-scope-deploy', 'doctor', 'status', 'cli-probe', 'muse-skills-list'],
     neverWrites: NEVER_WRITES,
   };
 }
@@ -84,6 +84,42 @@ export function findMuseCli(env = process.env, spawn = spawnSync) {
   }
   const version = String(result.stdout || '').split('\n')[0].trim().slice(0, 120) || null;
   return { found: true, version };
+}
+
+/**
+ * Run the real `muse` CLI. Used only for offline commands (`skills list`),
+ * which make no model call.
+ */
+function runMuse(args, cwd, env) {
+  return spawnSync(MUSE_BIN, args, {
+    cwd,
+    env,
+    encoding: 'utf8',
+    timeout: 120_000,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+}
+
+/**
+ * True when Muse's own `skills list` reports every skill AIWG deployed to the
+ * project `.agents/skills` root, each without diagnostics.
+ */
+export function museLoadsDeployedSkills(listing, project) {
+  const deployedRoot = join(project, '.agents', 'skills');
+  const deployed = existsSync(deployedRoot)
+    ? readdirSync(deployedRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+    : [];
+  const skills = Array.isArray(listing?.skills) ? listing.skills : [];
+  // Muse reports project skill paths relative to the workspace.
+  const loaded = new Map(skills
+    .filter((skill) => typeof skill?.path === 'string'
+      && resolve(project, skill.path).startsWith(`${deployedRoot}/`))
+    .map((skill) => [skill.id, skill]));
+  const ok = deployed.length > 0 && deployed.every((name) => {
+    const skill = loaded.get(name);
+    return skill && (!Array.isArray(skill.diagnostics) || skill.diagnostics.length === 0);
+  });
+  return { ok, deployed: deployed.length, loaded: loaded.size };
 }
 
 function runAiwg(args, cwd, env) {
@@ -140,6 +176,7 @@ export function runLiveSmoke(options = {}, baseEnv = process.env, dependencies =
   const checkOnly = Boolean(options.check);
   const probeCli = dependencies.probeCli || findMuseCli;
   const run = dependencies.runAiwg || runAiwg;
+  const muse = dependencies.runMuse || runMuse;
   const auditWrites = dependencies.findForbiddenWrites || findForbiddenWrites;
   const cli = probeCli(baseEnv);
   const contract = checkContract(baseEnv);
@@ -270,6 +307,30 @@ export function runLiveSmoke(options = {}, baseEnv = process.env, dependencies =
     if (violations.length > 0) {
       report.status = 'failed';
       report.reason = 'FORBIDDEN_PATH_WRITE';
+      return report;
+    }
+
+    // Muse itself must load what AIWG deployed. `skills list` is offline (no
+    // model call); Muse's own state goes to separate sandbox dirs so the write
+    // audit above stays about AIWG.
+    const museEnv = {
+      ...env,
+      XDG_CONFIG_HOME: join(sandbox, 'muse-config'),
+      XDG_DATA_HOME: join(sandbox, 'muse-data'),
+    };
+    const listing = muse(
+      ['skills', 'list', '--source', 'project', '--workspace', project, '--trust-workspace', '--json'],
+      project,
+      museEnv,
+    );
+    let parsed = null;
+    try { parsed = JSON.parse(listing.stdout || ''); } catch { /* reported below */ }
+    const loadCheck = listing.status === 0 ? museLoadsDeployedSkills(parsed, project) : { ok: false, deployed: 0, loaded: 0 };
+    report.checks.museLoadsSkills = loadCheck.ok;
+    report.checks.museSkillCount = { deployed: loadCheck.deployed, loaded: loadCheck.loaded };
+    if (!loadCheck.ok) {
+      report.status = 'failed';
+      report.reason = 'MUSE_SKILLS_NOT_LOADED';
       return report;
     }
 

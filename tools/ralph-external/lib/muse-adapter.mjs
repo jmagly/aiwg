@@ -45,15 +45,28 @@
  *     `--yolo`. See docs/providers/muse-ralph-exec.md for the CI sandbox
  *     (bubblewrap/user-namespace) requirements this implies.
  *
- * NOT evidenced (assumed nowhere in this adapter):
- *   - The `muse exec --json` JSONL envelope schema. `parseOutput()` therefore
- *     validates JSONL framing only and reports settlement as indeterminate;
- *     the launcher treats the documented exit codes as the completion signal
- *     until the envelope is evidenced against an installed CLI.
- *   - A native session-log root. Per the ADR fail-closed path policy the
- *     adapter assumes no `$XDG_DATA_HOME/muse/sessions` root, so
- *     `getTranscriptPath()` returns null; transcripts are produced via
- *     `buildExportArgs()` (`muse export`).
+ * Verified against an installed Muse Code 1.4.0 (2026-09-25):
+ *   - `--json` emits one record envelope per line: `{schema_version, id,
+ *     stream, sequence, recorded_at, record_type, durability, causation_id,
+ *     payload_type, payload_schema_version, payload}` — the same envelope as
+ *     the native session log. `run.output.delta` carries streamed `text`;
+ *     the run ends with `run.terminal.<state>` whose payload carries
+ *     `terminal` (`completed`/`failed`), the final `text`, and a `reason`
+ *     on failure. `parseOutput()` reads exactly those fields.
+ *   - Exit codes 0 (completed), 1 (run failed, e.g. an unknown model:
+ *     "model `x` does not exist or you lack access"), 2 (usage error).
+ *   - `--session-id <uuid>` pins the new session's id (the native log lands
+ *     in `$XDG_DATA_HOME/muse/sessions/YYYY/MM/DD/<uuid>/`), and re-passing
+ *     the same id continues that session with its context.
+ *   - A prompt starting with `-` is parsed as an option (exit 2) unless it
+ *     follows `--`, so the positional prompt is always preceded by `--`.
+ *   - Plain mode (no `--json`) prints only the final answer text on stdout.
+ *
+ * Not assumed:
+ *   - Transcript paths. The native log root is evidenced, but its layout is
+ *     internal (retained frames, omission markers), so `getTranscriptPath()`
+ *     returns null and transcripts come from `muse export`, the documented
+ *     projection.
  *   - A pinned CLI version. Unlike pi, no qualified-version list exists yet;
  *     `isAvailable()` checks only that `muse --version` exits 0.
  *
@@ -136,8 +149,9 @@ export class MuseAdapter extends ProviderAdapter {
     if (options.promptFile) {
       args.push('--prompt-file', options.promptFile);
     } else {
-      // The prompt itself (positional, must be last).
-      args.push(options.prompt);
+      // The prompt itself (positional, must be last). `--` stops option
+      // parsing so a prompt that starts with `-` is not read as a flag.
+      args.push('--', options.prompt);
     }
 
     return args;
@@ -175,8 +189,10 @@ export class MuseAdapter extends ProviderAdapter {
   }
 
   /**
-   * The CLI accepts `--model <id>` but enumerates no ids; the documented
-   * default is `muse-spark-1.2`. Only Muse ids pass through. Generic or
+   * The CLI accepts `--model <id>` with a Meta provider catalog id
+   * (observed: `muse-spark-1.3`, the current model, plus
+   * `muse-spark-1.3-contributor`, `muse-spark-1.2`, and
+   * `muse-spark-1.2-contributor`). Only Muse ids pass through. Generic or
    * other-provider names (Ralph defaults to Claude names) map to null so no
    * `--model` flag is emitted and muse uses its configured default.
    *
@@ -208,14 +224,15 @@ export class MuseAdapter extends ProviderAdapter {
   }
 
   /**
-   * Validate JSONL framing only. The `muse exec --json` envelope schema is
-   * NOT evidenced against an installed CLI, so settlement cannot be derived
-   * from events: `settled` is always null (indeterminate) and no `text` is
-   * extracted. Consumers fall back to raw stdout and the documented exit
-   * codes. One malformed line rejects the whole stream (fail closed).
+   * Parse `muse exec --json` output. Returns the events, the final answer
+   * text, and settlement from the `run.terminal.<state>` record: `settled`
+   * is true only for `completed`, false for any other terminal state, and
+   * null when the stream ended without a terminal record. One malformed
+   * line rejects the whole stream (fail closed).
    *
    * @param {string} stdout
-   * @returns {{ events: object[], settled: null } | null}
+   * @returns {{ events: object[], text: string|null, settled: boolean|null,
+   *   terminal: string|null, reason: string|null } | null}
    */
   parseOutput(stdout) {
     const events = [];
@@ -228,7 +245,24 @@ export class MuseAdapter extends ProviderAdapter {
         return null;
       }
     }
-    return events.length ? { events, settled: null } : null;
+    if (!events.length) return null;
+    let deltas = '';
+    let terminal = null;
+    for (const event of events) {
+      const type = typeof event?.payload_type === 'string' ? event.payload_type : '';
+      const payload = event?.payload ?? {};
+      if (type === 'run.output.delta' && typeof payload.text === 'string') deltas += payload.text;
+      if (type.startsWith('run.terminal.')) terminal = payload;
+    }
+    const state = typeof terminal?.terminal === 'string' ? terminal.terminal : null;
+    const finalText = typeof terminal?.text === 'string' && terminal.text ? terminal.text : deltas;
+    return {
+      events,
+      text: finalText || null,
+      settled: state === null ? null : state === 'completed',
+      terminal: state,
+      reason: typeof terminal?.reason === 'string' ? terminal.reason : null,
+    };
   }
 }
 

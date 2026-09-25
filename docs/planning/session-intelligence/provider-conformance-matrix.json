@@ -431,7 +431,7 @@
           "UNKNOWN_SCHEMA_MAJOR"
         ],
         "exceptions": {
-          "discovery": "export-first until a native session root is evidenced on disk; no home-directory scrape and no invented ~/.muse root"
+          "discovery": "export-first: the native root $XDG_DATA_HOME/muse/sessions is verified but its log format is internal; no home-directory scrape and no invented ~/.muse root"
         }
       }
     },

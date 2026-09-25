@@ -92,8 +92,15 @@ in the entry.
   - an optional `muse exec` Ralph adapter;
   - an opt-in, evidence-gated live smoke (`npm run smoke:muse:live`).
 
-  None of this is qualified against a live Muse install yet. Delivered from
-  GitHub PRs #257–#269 (jmagly/aiwg#225–#238).
+  Delivered from GitHub PRs #257–#269 (jmagly/aiwg#225–#238). Verified
+  against an installed Muse Code 1.4.0 on 2026-09-25:
+  - Muse loads the deployed skills, the `AGENTS.md` bridge (trusted
+    workspaces only), the managed hook, and the `--mcp` server
+    (`mcp__aiwg__*` tools).
+  - `muse exec` behaves as the Ralph adapter expects: the `--json`
+    envelope, exit codes, `--session-id` create-or-continue, and `--`.
+  - Session logs live in `$XDG_DATA_HOME/muse/sessions`.
+  - `muse-spark-1.3` is observed in real runs.
 
 - Effect ledger foundation (experimental, library only). The v1 contract,
   ADR, `schemas/effects/*` and golden fixtures pin effect IDs (`eff1_…`, plus
@@ -305,6 +312,23 @@ in the entry.
 
 ### Fixed
 
+- Muse Code integration fixes found by live testing against Muse Code 1.4.0:
+  - The managed `SessionStart` hook failed inside Muse. Muse rejects the JSON
+    report `aiwg refresh --quiet` prints as hook output, and provider
+    detection resolved `claude`. The hook now runs
+    `aiwg refresh --dry-run --quiet --provider muse > /dev/null`, and existing
+    managed hooks are upgraded in place.
+  - `aiwg sessions import` rejected real 1.4.0 exports. It now accepts
+    epoch-microsecond timestamps and null causation ids, skips retained
+    transaction frames, and has a fixture scrubbed from a real export.
+  - Ralph `muse exec` adapter:
+    - `parseOutput()` reads the verified `run.terminal.*` record for the answer
+      text and settlement.
+    - The prompt follows `--`, so a leading `-` no longer exits 2.
+    - AIWG's session id is passed as `--session-id` again, which pins or
+      continues the Muse session.
+  - The model catalog marks `muse-spark-1.3` active and observed.
+  - `npm run smoke:muse:live` now checks that Muse loads every deployed skill.
 - The packaged `decision-evaluate` dispatcher crashed with a `TypeError` for
   any request with `receiptDirectory`, because it built the receipt store
   without an integrity key. It now takes the key from host configuration

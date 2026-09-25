@@ -271,14 +271,22 @@
       "agent": "unsupported",
       "skill": "unsupported",
       "globalChild": "informational",
-      "identifierSyntax": "No verified Muse Code native model pin surface",
-      "inheritance": "Documented Meta Muse Spark ids used as unverified informational pins only",
-      "invalidPinFallback": "Report unsupported; do not fabricate Meta/Muse model pins as AIWG-verified native",
-      "configTarget": "Muse Code has no verified AIWG-owned model config path",
-      "artifactFormat": "Informational only",
-      "verification": "Confirm steward models --route --provider muse emits unsupported/informational",
+      "identifierSyntax": "Meta provider catalog model_id (Muse Code 1.4.0: muse-spark-1.3 current, muse-spark-1.3-contributor default, muse-spark-1.2, muse-spark-1.2-contributor), passed as muse exec --model",
+      "inheritance": "The session model comes from --model, else settings.json `model`, else the provider catalog default; per-agent and per-skill pins are not verified",
+      "invalidPinFallback": "muse exits 1 with run.terminal.failed (\"model `<id>` does not exist or you lack access\"); never falls back to another model",
+      "configTarget": "$XDG_CONFIG_HOME/muse/settings.json `model` (read-only; AIWG never writes it)",
+      "artifactFormat": "Meta provider model id (session-level only)",
+      "verification": "muse exec --json --model <id> emits run.model.configured with model_id; observed muse-spark-1.3 and muse-spark-1.3-contributor in native session logs on Muse Code 1.4.0",
       "sourceUrl": "https://github.com/jmagly/aiwg/blob/main/docs/architecture/adr-muse-provider-target.md",
-      "verifiedAt": "2026-09-24"
+      "verifiedAt": "2026-09-25",
+      "effortValues": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
     }
   }
 }
