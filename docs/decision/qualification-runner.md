@@ -86,6 +86,39 @@ With every vector registered, the aggregate run passes G0, G1, G2 and G4 from re
 G3, G5 and G6 fail because held-out data, a load result and a reviewer decision are live inputs
 tracked in #2684. The test builds a release record that must be `HOLD`.
 
+### Retained exact-commit release record
+
+`docs/decision/evidence/d11-aggregate-release-v1/` retains the aggregate release record from one
+offline run at commit `e37fdd5ba056f9cd797e1681f349c49a325c943b`. The run used a `git archive`
+export of that commit, so the source tree was clean (`dirty: false`). The directory holds:
+
+- `release-record.json`, the `decision-qualification-release/v1` record;
+- `evidence-manifest.json`, the evidence manifest for the main run;
+- `cache-compilePrefixCache.json`, `cache-receiptReplay.json` and `cache-resultCache.json`, the
+  three cache-layer manifests. Each one's SHA-256 is the matching release pin.
+
+`test/conformance/decision-v1/qualification-release-evidence.test.ts` (`D11-REL-01` to
+`D11-REL-04`) re-verifies the record's own digest, commit and clean state, and its
+regeneration command. It also checks all 67 cases as verified passes and the gate statuses: G0,
+G1, G2 and G4 pass, and G3, G5 and G6 fail on the #2684 live inputs, so the decision is `HOLD`.
+Finally it checks that the per-case hashes match the evidence manifest and that the cache pins
+match their manifests. Every file is in the fixture provenance registry. To regenerate, export a
+clean commit, set `AIWG_D11_RELEASE_OUT` and `AIWG_D11_SOURCE_COMMIT`, and run that test file.
+The pipeline itself is in `test/conformance/decision-v1/aggregate-release.ts`.
+
+### Wall-clock exemptions (AC5)
+
+Default tests use fake clocks and barriers. Two tests keep a real wall-clock wait because they
+wait for another operating-system process:
+
+- `job-crash-process.test.ts` polls until a spawned child has synced its dispatch fence, then
+  sends it `SIGKILL`.
+- `job-quota.test.ts` waits for a spawned child to publish its lock, then sends it `SIGKILL`.
+
+The child's progress is not driven by the test's clock, so a fake timer cannot advance it. The
+timers only bound a hung child and never decide an outcome. Both tests are legitimately
+process-based and stay as they are.
+
 ### Vendor vectors and named suites
 
 `test/fixtures/decision/vendor-vectors-v1.json` defines TV01–TV25. Each entry has a basis in the

@@ -34,6 +34,9 @@ describe('JOB real cross-process crash fence', () => {
         { cwd: fileURLToPath(new URL('../../../', import.meta.url)), stdio: 'pipe' });
       let error = '';
       child.stderr?.on('data', data => { error += String(data); });
+      // AC5 exemption (#2604): this polls a real child process until it syncs the
+      // dispatch fence to disk. The child's progress is not driven by this process's
+      // clock, so fake timers cannot advance it; the wall-clock deadline only bounds a hang.
       const deadline = Date.now() + 15000;
       while (true) {
         try { await access(marker); break; }

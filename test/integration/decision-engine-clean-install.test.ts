@@ -134,6 +134,38 @@ describe('decision-engine clean install from the packed tarball', () => {
     expect(JSON.parse(receipt.stdout)).toMatchObject({ executionMode: 'offline-recorded' });
   }, 180_000);
 
+  // D18/G6 (#2606 AC18): the installed package runs the real file-store review
+  // fixtures with network primitives disabled, and a non-permissive pinned
+  // authorization produces zero unauthorized effects.
+  it('runs the installed durable-review G6 fixtures with zero unauthorized effects', async () => {
+    const state = path.join(tempRoot, 'review-g6-state');
+    await mkdir(state, { recursive: true });
+    const probe = path.join(consumer, 'review-g6-probe.mjs');
+    await writeFile(probe, [
+      "import net from 'node:net'; import tls from 'node:tls'; import http from 'node:http'; import https from 'node:https';",
+      "import dns from 'node:dns'; import dgram from 'node:dgram'; import http2 from 'node:http2'; import { pathToFileURL } from 'node:url';",
+      "let attempts = 0; const deny = () => { attempts += 1; throw new Error('review G6 probe forbids network access'); };",
+      'net.connect = deny; net.createConnection = deny; tls.connect = deny; http.request = deny; http.get = deny;',
+      'https.request = deny; https.get = deny; dns.lookup = deny; dns.resolve = deny; dns.promises.lookup = deny;',
+      'dns.promises.resolve = deny; dgram.createSocket = deny; http2.connect = deny; globalThis.fetch = deny;',
+      'const [entry, directory] = process.argv.slice(2);',
+      'const api = await import(pathToFileURL(entry).href);',
+      'const durable = await api.runOfflineDurableReviewFixture(directory);',
+      'const matrix = await api.runOfflineReviewMatrixFixture(directory);',
+      'const authorization = await api.runOfflineReviewAuthorizationFixture(directory);',
+      'process.stdout.write(JSON.stringify({ durable, matrix, authorization, attempts }));',
+    ].join('\n'), { mode: 0o600 });
+    const entry = path.join(installRoot, 'dist', 'src', 'decision', 'index.js');
+    const result = ok(run(process.execPath, [probe, entry, state], { cwd: consumer, env: isolatedEnv(), timeout: 120_000 }));
+    const evidence = JSON.parse(result.stdout);
+    expect(evidence.attempts).toBe(0);
+    expect(evidence.durable).toMatchObject({ store: 'file-decision-review-store', restarted: true, executorCalls: 1 });
+    expect(evidence.matrix).toMatchObject({ executorCalls: 1, lateDenied: true, duplicateResumeReturnedReceipt: true });
+    expect(evidence.authorization).toMatchObject({ authorization: 'pinned-review-authorization', restarted: true,
+      unauthorizedEffects: 0, authorizedEffects: 1, authorizationDeniedEvents: 2, duplicateResumeReturnedReceipt: true });
+    expect(evidence.authorization.deniedAttempts).toHaveLength(11);
+  }, 180_000);
+
   it('resolves the runtime through AIWG_ROOT when the script is outside any install', async () => {
     const detached = path.join(tempRoot, 'detached');
     await cp(path.join(consumer, SKILL), detached, { recursive: true });

@@ -297,6 +297,7 @@ for (const pack of api.decisionPatternPacks) {
   }
 }
 
+let reviewEvidence;
 await mkdir(fixtureRoot, { recursive: true });
 try {
   const durable = await api.runOfflineDurableReviewFixture(fixtureRoot);
@@ -304,6 +305,17 @@ try {
   assert.equal(durable.credentialRequired, false);
   assert.equal(durable.executorCalls, 1);
   assert.equal(durable.duplicateResumeReturnedReceipt, true);
+  const matrix = await api.runOfflineReviewMatrixFixture(fixtureRoot);
+  assert.equal(matrix.executorCalls, 1);
+  assert.equal(matrix.lateDenied, true);
+  // G6: a non-permissive pinned authorization must yield zero unauthorized effects.
+  const authorization = await api.runOfflineReviewAuthorizationFixture(fixtureRoot);
+  assert.equal(authorization.authorization, 'pinned-review-authorization');
+  assert.equal(authorization.unauthorizedEffects, 0);
+  assert.equal(authorization.authorizedEffects, 1);
+  assert.ok(authorization.deniedAttempts.length > 0);
+  reviewEvidence = { matrix: 'pass', unauthorizedEffects: authorization.unauthorizedEffects,
+    deniedAttempts: authorization.deniedAttempts.length };
 } finally {
   await rm(fixtureRoot, { recursive: true, force: true });
 }
@@ -321,6 +333,7 @@ process.stdout.write(JSON.stringify({
   runtimeFixtures,
   artifacts,
   durableReview: 'pass',
+  review: reviewEvidence,
   networkAttempts,
   credentialVariables,
 }));

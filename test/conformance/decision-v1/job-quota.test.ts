@@ -64,6 +64,9 @@ describe('JOB transactional local-filesystem quotas', () => {
       setInterval(() => {}, 1000);
     `, dir], { stdio: ['ignore', 'pipe', 'pipe'] });
     try {
+      // AC5 exemption (#2604): wait for a real child process to publish its lock before
+      // SIGKILL. The event comes from another process, so fake timers cannot stand in for
+      // it; the wall-clock timer only bounds a hung child and never decides the outcome.
       await Promise.race([once(child.stdout!, 'data'), new Promise((_, reject) => setTimeout(() => reject(new Error('child lock timeout')), 3000))]);
       expect(child.kill('SIGKILL')).toBe(true);
       await once(child, 'exit');

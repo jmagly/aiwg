@@ -30,7 +30,7 @@ export function assertReviewProjection(value: unknown): void {
     }
   }
 }
-const legalEvents = new Set<ReviewEventType>(['created', 'claimed', 'approved', 'rejected', 'edited', 'expired', 'escalated', 'canceled', 'resumed', 'execution-completed', 'execution-failed', 'legal-hold-placed', 'legal-hold-released', 'tombstoned', 'authorization-denied']);
+const legalEvents = new Set<ReviewEventType>(['created', 'claimed', 'approved', 'rejected', 'edited', 'expired', 'escalated', 'canceled', 'resumed', 'execution-completed', 'execution-failed', 'legal-hold-placed', 'legal-hold-released', 'tombstoned', 'authorization-denied', 'sensitive-view-accessed']);
 
 export function currentProposal(review: DecisionReview): ReviewProposal {
   const proposal = review.proposals.at(-1);
@@ -125,6 +125,10 @@ export function validateReview(review: DecisionReview): void {
           legalHold = event.type === 'legal-hold-placed'; break;
         case 'authorization-denied':
           if (state !== 'approved' && state !== 'resuming') throw new ReviewIntegrityError('Illegal authorization denial');
+          break;
+        case 'sensitive-view-accessed':
+          // Audit-only event: it never changes review state and is illegal after tombstoning.
+          if (state === 'tombstoned') throw new ReviewIntegrityError('Illegal sensitive view');
           break;
         default: throw new ReviewIntegrityError('Unexpected review event');
       }

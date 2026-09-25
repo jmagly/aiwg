@@ -22,6 +22,7 @@ const {
   runOfflineDecisionPattern,
   resolveDecisionPatternArtifact,
   runOfflineDurableReviewFixture,
+  runOfflineReviewAuthorizationFixture,
   runOfflineReviewMatrixFixture,
   validateDecisionPattern,
 } = await import('../../../src/decision/patterns/index.js');
@@ -377,6 +378,19 @@ describe('PAT decision pattern playground', () => {
       credentialRequired: false, restarted: true, claimed: 'claimed', rejected: 'rejected', editedVersion: 2,
       expired: 'expired', escalated: 'escalated', lateDenied: true, executorCalls: 1,
       duplicateResumeReturnedReceipt: true,
+    });
+  });
+
+  it('PAT-REVIEW-AUTHZ-001 non-permissive pinned authorization produces zero unauthorized effects', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'aiwg-pattern-review-authz-'));
+    fixtureDirectories.push(directory);
+    await expect(runOfflineReviewAuthorizationFixture(directory)).resolves.toEqual({
+      schema: 'decision-review-offline-authorization/v1', executionMode: 'offline-local', networkAllowed: false,
+      credentialRequired: false, authorization: 'pinned-review-authorization', restarted: true,
+      deniedAttempts: ['resume-before-approval', 'self-approval', 'unauthenticated-reviewer', 'requester-claim',
+        'reviewer-as-executor', 'foreign-project-executor', 'unknown-principal', 'stale-resume-token',
+        'action-authorization-revoked', 'policy-replaced', 'reviewer-role-revoked'],
+      unauthorizedEffects: 0, authorizedEffects: 1, authorizationDeniedEvents: 2, duplicateResumeReturnedReceipt: true,
     });
   });
 

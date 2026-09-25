@@ -7,7 +7,8 @@ export type ReviewStatus =
 export type ReviewEventType =
   | 'created' | 'claimed' | 'approved' | 'rejected' | 'edited' | 'expired'
   | 'escalated' | 'canceled' | 'resumed' | 'execution-completed' | 'execution-failed'
-  | 'legal-hold-placed' | 'legal-hold-released' | 'tombstoned' | 'authorization-denied';
+  | 'legal-hold-placed' | 'legal-hold-released' | 'tombstoned' | 'authorization-denied'
+  | 'sensitive-view-accessed';
 
 export interface ReviewActor {
   id: string;
@@ -90,7 +91,7 @@ export interface DecisionReview {
 
 export interface ReviewScope { tenantId: string; projectId: string; actor: ReviewActor }
 
-export type ReviewOperation = 'create' | 'read' | 'list' | 'export' | 'claim' | 'decide' | 'edit' | 'escalate' | 'cancel' | 'resume' | 'legal-hold' | 'delete' | 'tombstone' | 'purge';
+export type ReviewOperation = 'create' | 'read' | 'list' | 'export' | 'claim' | 'decide' | 'edit' | 'escalate' | 'cancel' | 'resume' | 'legal-hold' | 'delete' | 'tombstone' | 'purge' | 'sensitive-view';
 
 export interface ReviewAuthorization {
   authorize(scope: ReviewScope, operation: ReviewOperation, review?: DecisionReview): boolean | Promise<boolean>;
@@ -127,6 +128,13 @@ export interface DecisionReviewServiceOptions {
     classification: import('../../audit/operator-decision.js').DataClassification;
   };
   pollIntervalMs?: number;
+  /**
+   * Binds review retention, export and erasure to the shared D10 `review` lifecycle
+   * surface. The rule caps each review's retention deadline, denies export when the
+   * rule does, hides reviews past retention, and lets `eraseDecisionSubject` cascade
+   * through opaque review references.
+   */
+  lifecycle?: { policy: import('../lifecycle.js').DecisionLifecyclePolicy };
   /** Optional metadata-only sink; exporter failures never affect review state. */
   telemetry?: {
     hook: import('../telemetry/types.js').DecisionTelemetryHook;
@@ -151,4 +159,32 @@ export interface CreateReviewInput {
   quorum?: number;
   continuationId: string;
   resumeToken: string;
+}
+
+/**
+ * Host-owned source of sensitive review material (for example the unprojected
+ * evidence behind a presentation). The review store never holds this content;
+ * the service reads it only after authorizing and durably auditing the access.
+ */
+export interface ReviewSensitiveViewSource {
+  read(reference: { tenantId: string; projectId: string; reviewId: string;
+    sourceReceipt: DecisionReview['sourceReceipt']; evidencePins: DecisionReview['evidencePins'] }): Promise<unknown | null>;
+}
+
+export interface ReviewSensitiveViewRequest {
+  /** Recorded in the review journal; must be a projection-safe justification. */
+  purpose: string;
+  /** Requested view lifetime. The granted lifetime never exceeds review retention. */
+  ttlMs: number;
+}
+
+export interface ReviewSensitiveView {
+  reviewId: string;
+  purpose: string;
+  content: unknown;
+  grantedAtEpochMs: number;
+  /** min(grant + ttl, review retention deadline, D10 review retention). Callers discard content afterwards. */
+  expiresAtEpochMs: number;
+  /** Sequence of the durable `sensitive-view-accessed` event that audits this access. */
+  auditEventSequence: number;
 }

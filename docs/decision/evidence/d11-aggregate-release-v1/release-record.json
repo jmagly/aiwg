@@ -1,0 +1,554 @@
+{
+  "schemaVersion": "decision-qualification-release/v1",
+  "runId": "d11-aggregate-release-v1",
+  "sourceCommit": "e37fdd5ba056f9cd797e1681f349c49a325c943b",
+  "dirty": false,
+  "environment": "offline-aggregate node-24",
+  "commands": [
+    "AIWG_D11_RELEASE_OUT=docs/decision/evidence/d11-aggregate-release-v1 AIWG_D11_SOURCE_COMMIT=<sha> npx vitest run --config config/vitest.config.js test/conformance/decision-v1/qualification-release-evidence.test.ts"
+  ],
+  "pins": {
+    "adapter": "sha256:ca84ec4164e70bb4c9f85f4fc30f14701376a656977aa62ecfeaa6c3e7ddc95d",
+    "binding": "sha256:88f28d679f0603fd61049f65d743018c88dead613534d83324c85719b9e18b1f",
+    "calibration": "sha256:072dcd624aead5442cb36292825a00c6f3c3f59ed22cb1b767bc8b9896a1abb9",
+    "compilePrefixCache": "sha256:496338f3741b59e70a2589dc56071e17216158ef3eeb69c9be520907de812db9",
+    "dataset": "sha256:8c2c41e7278bef62496c2bd57119b0c6597028454178fd40f12aa96c7dd3d0f4",
+    "definition": "sha256:161af95ce387331720fe1ded3a45cdf90f6d3feb32f24c74f0745714cd0d6b2e",
+    "policy": "sha256:2e5083ee85efd590928164eb57e0affc029a2034f8851d3cce51ca6e99e571b1",
+    "priceCatalog": "sha256:9ae4ffa25bc0b0364913ae4ce3ca7eba566660474e61f76f2c21f709635bf771",
+    "receiptReplay": "sha256:e205cf80005f1eb4c378a0218d652785a58978850aff4ea066dc914ed20c5ee5",
+    "requestedModel": "sha256:eeabb6e45b8d5ec1ab9a43a3a99bda3db851ee33c4de1f50581e0e49e6da95ba",
+    "resultCache": "sha256:8f8cd44f9b3ec94b0330bc489d380b0d9ece6d1496653a3ce5e2374b5394e14f",
+    "ruleset": "sha256:8619b985cd193f223caa35092e9ca44d4afc2e5fd7be53ae99277f8f55071b0c",
+    "seed": "sha256:0cdcb609c8caf2fae8a10027826bcf4a3ec38874bb9ac4b16df36624f2b8c523",
+    "servedModel": "sha256:a6175512d1e7fe1664a936d870ba3d4f6a42af7347c1cea4c5ef7de6e7bc5ef2",
+    "split": "sha256:113c1c76c55aacd75331a7941d67d43b5324b8ca8662464f2497bccc57598baf"
+  },
+  "budgets": {
+    "providerCalls": 0
+  },
+  "actuals": {
+    "providerCalls": 0
+  },
+  "reviewer": null,
+  "suites": [
+    {
+      "caseId": "C01",
+      "outcome": "pass",
+      "evidenceHash": "sha256:515078a7f550d83fa69c9c6af65f40abcba379c1c8978188f5bbb02dc0a7c3d6",
+      "verified": true
+    },
+    {
+      "caseId": "C02",
+      "outcome": "pass",
+      "evidenceHash": "sha256:7e2c53f08ee56d23404b59984a9c1c74580d9ed9461ba534bdeae5150f357e58",
+      "verified": true
+    },
+    {
+      "caseId": "C03",
+      "outcome": "pass",
+      "evidenceHash": "sha256:8c69483d26e2450432de0fc61666d5504ca4976f83ea413ad7a5ee8d04a15cba",
+      "verified": true
+    },
+    {
+      "caseId": "C04",
+      "outcome": "pass",
+      "evidenceHash": "sha256:ea9d6cea47f86b12866471b5b3a34aea296e13fa86ef4a0f182d7dbf8ca52ea6",
+      "verified": true
+    },
+    {
+      "caseId": "C05",
+      "outcome": "pass",
+      "evidenceHash": "sha256:45f27b1841c240694933a6d1d9293baa05457d0eadab83dcb75a94cbd9a8535e",
+      "verified": true
+    },
+    {
+      "caseId": "C06",
+      "outcome": "pass",
+      "evidenceHash": "sha256:6f36e9f2fc7bbf01ca9cfd7e6e492b9fc44ff94adbec1ea0e48f7bd826289ccc",
+      "verified": true
+    },
+    {
+      "caseId": "C07",
+      "outcome": "pass",
+      "evidenceHash": "sha256:be93127abc25b4c14f571f9de8d8bf949c26b2f33a5acf23d1453fc7194d08da",
+      "verified": true
+    },
+    {
+      "caseId": "C08",
+      "outcome": "pass",
+      "evidenceHash": "sha256:bb2d7da276a48b7d1f4089cfa3c1c374d2cc4f31004732968be8a118bbdc9c9d",
+      "verified": true
+    },
+    {
+      "caseId": "C09",
+      "outcome": "pass",
+      "evidenceHash": "sha256:1aea3d6677f8632d1f2cd1dcde2914203c38cc698c019effad5b2887c6a8639c",
+      "verified": true
+    },
+    {
+      "caseId": "C10",
+      "outcome": "pass",
+      "evidenceHash": "sha256:4de3dc4ede98521b47cae2c3bbe4b2721c31cd54a5f9ca0f12f34a04b8c3056c",
+      "verified": true
+    },
+    {
+      "caseId": "C11",
+      "outcome": "pass",
+      "evidenceHash": "sha256:2f13ca9caee6e7d52a3abb6a6361c9b6416fda5ce86722aed5cb398a827b7ba0",
+      "verified": true
+    },
+    {
+      "caseId": "C12",
+      "outcome": "pass",
+      "evidenceHash": "sha256:4a5fa89e4f08738ea019306d5a5e23d0f882c8a59d7dbbf08bec927e7b40b6a3",
+      "verified": true
+    },
+    {
+      "caseId": "C13",
+      "outcome": "pass",
+      "evidenceHash": "sha256:0768717ab1745b6adf7524f289bd4a7b91082a819a531aab4e182b783eb001cb",
+      "verified": true
+    },
+    {
+      "caseId": "C14",
+      "outcome": "pass",
+      "evidenceHash": "sha256:df13b33d46d01d9e01098ffc9669ae5482810402dd53b7bca390ea7527538f1d",
+      "verified": true
+    },
+    {
+      "caseId": "C15",
+      "outcome": "pass",
+      "evidenceHash": "sha256:38aea1c3d083960a52911eb2c5176f46b157e590cf7f941ef1f67dbff867c844",
+      "verified": true
+    },
+    {
+      "caseId": "C16",
+      "outcome": "pass",
+      "evidenceHash": "sha256:018caa3f874b7eb430c21539844ae4dcc5b1d8e4bec16df991dc3f2f20b1e612",
+      "verified": true
+    },
+    {
+      "caseId": "C17",
+      "outcome": "pass",
+      "evidenceHash": "sha256:7d483ddbb23bde8ded47410a843a3b0385d16f28a1304f3cbf44a849f0e2e577",
+      "verified": true
+    },
+    {
+      "caseId": "C18",
+      "outcome": "pass",
+      "evidenceHash": "sha256:6e5f8ca26363c02d45191939ee35c463df7cfc3ed31b6a2b6a40c2109a7496c5",
+      "verified": true
+    },
+    {
+      "caseId": "C19",
+      "outcome": "pass",
+      "evidenceHash": "sha256:0dc9acac82754f9e731944385e3729a3bf99910b13a5a7e4c7ee59ca0afd8805",
+      "verified": true
+    },
+    {
+      "caseId": "C20",
+      "outcome": "pass",
+      "evidenceHash": "sha256:dc4fa56aacf767326da8a766cd349f63dd38d0874f94882029e3a5299cb1d84e",
+      "verified": true
+    },
+    {
+      "caseId": "C21",
+      "outcome": "pass",
+      "evidenceHash": "sha256:8be4b6df31cb01c7a01c2b7ed59fd482cd93699d13694f1c1ea200298800c428",
+      "verified": true
+    },
+    {
+      "caseId": "C22",
+      "outcome": "pass",
+      "evidenceHash": "sha256:28f7a78d6f15e6b2e32265e1347d0f8ffdb91d5307a5c0e46f18ff9104b7328a",
+      "verified": true
+    },
+    {
+      "caseId": "C23",
+      "outcome": "pass",
+      "evidenceHash": "sha256:e90e0937bf18542bf68da1024f68c3baf5c5758bad66bb13c92dfb30295b9ec7",
+      "verified": true
+    },
+    {
+      "caseId": "C24",
+      "outcome": "pass",
+      "evidenceHash": "sha256:6720fcc62d0ffc75c384a17016ba8116ada13146cccf1a73e83618072db77e4d",
+      "verified": true
+    },
+    {
+      "caseId": "C25",
+      "outcome": "pass",
+      "evidenceHash": "sha256:811c1d4b0b76cfaf75e9d001304889d6179daa86e8663f52ead03eeab1c84866",
+      "verified": true
+    },
+    {
+      "caseId": "C26",
+      "outcome": "pass",
+      "evidenceHash": "sha256:df845654433dbc73bef78c7bd2ea74430648e4944257b190830ccfdae3e5b10d",
+      "verified": true
+    },
+    {
+      "caseId": "C27",
+      "outcome": "pass",
+      "evidenceHash": "sha256:b6b468635ac7b427b6a80aedcfa462f1569d674a86d0138b0a5cec534a6f92c3",
+      "verified": true
+    },
+    {
+      "caseId": "C28",
+      "outcome": "pass",
+      "evidenceHash": "sha256:8b51d6ded6b93a37cfb70d08487badaf98c4679f9533bd64ddadde6b83a402a6",
+      "verified": true
+    },
+    {
+      "caseId": "C29",
+      "outcome": "pass",
+      "evidenceHash": "sha256:a85acb34bdbb3a16a5673c242873e2d46c1273e7b5604f13ab37789d4b9ab4c8",
+      "verified": true
+    },
+    {
+      "caseId": "C30",
+      "outcome": "pass",
+      "evidenceHash": "sha256:db9acc023e639cab807c99629a452271ff4dbba97c300fa6fd603a703eaf9d7c",
+      "verified": true
+    },
+    {
+      "caseId": "C31",
+      "outcome": "pass",
+      "evidenceHash": "sha256:c6208496e836664d7cc4b6627cb4d6d2c1f63a92923485f41ee58360742017a4",
+      "verified": true
+    },
+    {
+      "caseId": "C32",
+      "outcome": "pass",
+      "evidenceHash": "sha256:15d3f0f4251c9be80efdf04de42b9575c2b7ac4704ede56eaee2d47c2e023a92",
+      "verified": true
+    },
+    {
+      "caseId": "C33",
+      "outcome": "pass",
+      "evidenceHash": "sha256:68ec9508eedb7a9bbea1b56d6ec1b155cc98ba42e34904f63f90a28a5d6701ac",
+      "verified": true
+    },
+    {
+      "caseId": "C34",
+      "outcome": "pass",
+      "evidenceHash": "sha256:f574393ba971b9060a8effd14577d09c187e0ebae21427f456d9c090e50030d3",
+      "verified": true
+    },
+    {
+      "caseId": "C35",
+      "outcome": "pass",
+      "evidenceHash": "sha256:aaa5fa97f52df9f68c5c2a7ff5dce19f58d515081a624c3a0a07298ef832506f",
+      "verified": true
+    },
+    {
+      "caseId": "C36",
+      "outcome": "pass",
+      "evidenceHash": "sha256:2f51fe942457dab19c310423b69b819c040db614282deb19a9b5ee0597555c39",
+      "verified": true
+    },
+    {
+      "caseId": "C37",
+      "outcome": "pass",
+      "evidenceHash": "sha256:c528836c88724e7590f29f7954de456883a4ffc21eb0bececa64e097a59c9195",
+      "verified": true
+    },
+    {
+      "caseId": "C38",
+      "outcome": "pass",
+      "evidenceHash": "sha256:ddea3e930e6cee1514ab90670ec85fa8b1fab4b4820a99a8dd88f56e4d02d03d",
+      "verified": true
+    },
+    {
+      "caseId": "C39",
+      "outcome": "pass",
+      "evidenceHash": "sha256:baa90a374df09428c07e02b4fd01d44138963abb39c7452a65e270f262238725",
+      "verified": true
+    },
+    {
+      "caseId": "C40",
+      "outcome": "pass",
+      "evidenceHash": "sha256:1f44b1603aa46134ef39907831f462f239438d91173aa0edd8118686e9970bd5",
+      "verified": true
+    },
+    {
+      "caseId": "C41",
+      "outcome": "pass",
+      "evidenceHash": "sha256:3b16d18bceca417f8d3736f2b6611fc1c5621eec699ff263a7a274331cc320db",
+      "verified": true
+    },
+    {
+      "caseId": "C42",
+      "outcome": "pass",
+      "evidenceHash": "sha256:77a13cc2e5718733b72bd39276921fa7341830836787315acb10f44b3af16c6f",
+      "verified": true
+    },
+    {
+      "caseId": "TV01",
+      "outcome": "pass",
+      "evidenceHash": "sha256:f396b784b3b1a72eee1ea4a9e7d5868d41f9b8ced85f50b128d5659a36dee082",
+      "verified": true
+    },
+    {
+      "caseId": "TV02",
+      "outcome": "pass",
+      "evidenceHash": "sha256:9e4524c869c1cc8325e6f05b660ed6b43fe9fc5959aac5e4019536e6fa725827",
+      "verified": true
+    },
+    {
+      "caseId": "TV03",
+      "outcome": "pass",
+      "evidenceHash": "sha256:47fd8df6d7bbadddf189ac2a60678c2a1edf84b68771d554cb74ffc458a09e38",
+      "verified": true
+    },
+    {
+      "caseId": "TV04",
+      "outcome": "pass",
+      "evidenceHash": "sha256:e91bcb846eb329915fee17eb6ec851fb404bb3cb4dfc707e52fdaf04b6d127cf",
+      "verified": true
+    },
+    {
+      "caseId": "TV05",
+      "outcome": "pass",
+      "evidenceHash": "sha256:7ffb3e7b5bef05c3d598d74739a2687b40288271853e855263832c2e106d9001",
+      "verified": true
+    },
+    {
+      "caseId": "TV06",
+      "outcome": "pass",
+      "evidenceHash": "sha256:afb617a4a6edd174d8c2f93ed6cc640d4f66717b2eb81a3eb48425897bacc6a7",
+      "verified": true
+    },
+    {
+      "caseId": "TV07",
+      "outcome": "pass",
+      "evidenceHash": "sha256:1b8e35517923a410681f898d081b5fd8b4dde0d6d6842a58fc005c72648126ac",
+      "verified": true
+    },
+    {
+      "caseId": "TV08",
+      "outcome": "pass",
+      "evidenceHash": "sha256:259d9d0f3e0c7ddd6b925f83ddbd2bb5d3be0f4074e8cbc3a6825dddde49ab61",
+      "verified": true
+    },
+    {
+      "caseId": "TV09",
+      "outcome": "pass",
+      "evidenceHash": "sha256:8e9384c636fe9807849cb3dc2aedfd3bd98d876f57641aaebe05df173bfdfc82",
+      "verified": true
+    },
+    {
+      "caseId": "TV10",
+      "outcome": "pass",
+      "evidenceHash": "sha256:4fabbc4c83f584a3daea7cf6c6eb763736fb7860313f667323422afafd51c7f5",
+      "verified": true
+    },
+    {
+      "caseId": "TV11",
+      "outcome": "pass",
+      "evidenceHash": "sha256:6129e1d8f1945cdcc97475735d781cb765e88d163d8a0417762d90ec584481db",
+      "verified": true
+    },
+    {
+      "caseId": "TV12",
+      "outcome": "pass",
+      "evidenceHash": "sha256:ca6b268caac3c16439daf44c6c7c229afe52cecf6ece16f4646f70b7c505c269",
+      "verified": true
+    },
+    {
+      "caseId": "TV13",
+      "outcome": "pass",
+      "evidenceHash": "sha256:db14ae54782bfc2f36ec9b80e60e8f9e3c41545cd37aeddc4d44228af878bab0",
+      "verified": true
+    },
+    {
+      "caseId": "TV14",
+      "outcome": "pass",
+      "evidenceHash": "sha256:ecfd754f0187771314afa23b2a2bc82f90b378b4a32d97afcc04419879fe2073",
+      "verified": true
+    },
+    {
+      "caseId": "TV15",
+      "outcome": "pass",
+      "evidenceHash": "sha256:f083e708cdd3d4943fd59f73a930dc40b3b5f5d5d3fc50d0f0e0c91e6c7224d3",
+      "verified": true
+    },
+    {
+      "caseId": "TV16",
+      "outcome": "pass",
+      "evidenceHash": "sha256:1c350d60b2af9583ca56a3b61f2c55c87ebbb6527e8e0d42217dbe22dbcf1d69",
+      "verified": true
+    },
+    {
+      "caseId": "TV17",
+      "outcome": "pass",
+      "evidenceHash": "sha256:29afa2efd19db90aee61f4539ba76a8dea32b92fa7e6fa23d6b41814ae622e16",
+      "verified": true
+    },
+    {
+      "caseId": "TV18",
+      "outcome": "pass",
+      "evidenceHash": "sha256:ec59c5ba25c2024943ca0737fa93a95497354a02a0c2566be04e986c82ed31d1",
+      "verified": true
+    },
+    {
+      "caseId": "TV19",
+      "outcome": "pass",
+      "evidenceHash": "sha256:5dfd50dd62b784a2705d77fea9981fbf8b34fc65449c0d4b0016ee034df542e6",
+      "verified": true
+    },
+    {
+      "caseId": "TV20",
+      "outcome": "pass",
+      "evidenceHash": "sha256:180dd7e4a6c0c7cc39d13af3656e4fd1525020f712072b7eaf25e80c5f1fd87b",
+      "verified": true
+    },
+    {
+      "caseId": "TV21",
+      "outcome": "pass",
+      "evidenceHash": "sha256:5a1cd395eedbcb159e07878dae65a6618ac1fdfa0f77de6ca21cf01bc7f9a0f4",
+      "verified": true
+    },
+    {
+      "caseId": "TV22",
+      "outcome": "pass",
+      "evidenceHash": "sha256:9a33c828317b4212628b62b2762c3c50c86a1ff0a3c0d7984269668a08e791a7",
+      "verified": true
+    },
+    {
+      "caseId": "TV23",
+      "outcome": "pass",
+      "evidenceHash": "sha256:0c2abf5f4b0117184736a80c26dcafdb7c1789141bddd4cad4f221499467a668",
+      "verified": true
+    },
+    {
+      "caseId": "TV24",
+      "outcome": "pass",
+      "evidenceHash": "sha256:d34eb8e3d89613729c9733599edbf901e8db324d52002ac788042a2e04694338",
+      "verified": true
+    },
+    {
+      "caseId": "TV25",
+      "outcome": "pass",
+      "evidenceHash": "sha256:6c109fc72859707cbc48e9b241b5cc410a569e6d924a7d504d792b651e1ba8da",
+      "verified": true
+    }
+  ],
+  "gates": [
+    {
+      "id": "G0",
+      "title": "contract and conformance",
+      "status": "pass",
+      "missing": [],
+      "failed": []
+    },
+    {
+      "id": "G1",
+      "title": "runtime and adapter correctness",
+      "status": "pass",
+      "missing": [],
+      "failed": []
+    },
+    {
+      "id": "G2",
+      "title": "privacy and security",
+      "status": "pass",
+      "missing": [],
+      "failed": []
+    },
+    {
+      "id": "G3",
+      "title": "calibration and held-out quality",
+      "status": "fail",
+      "missing": [
+        "evidence:calibration-qualified",
+        "evidence:immutable-splits"
+      ],
+      "failed": []
+    },
+    {
+      "id": "G4",
+      "title": "operational resilience",
+      "status": "pass",
+      "missing": [],
+      "failed": []
+    },
+    {
+      "id": "G5",
+      "title": "performance and resource bounds",
+      "status": "fail",
+      "missing": [
+        "evidence:load-manifest-qualified"
+      ],
+      "failed": []
+    },
+    {
+      "id": "G6",
+      "title": "release evidence and review",
+      "status": "fail",
+      "missing": [
+        "evidence:review-decision-recorded"
+      ],
+      "failed": []
+    }
+  ],
+  "integrity": {
+    "sample_n": 67,
+    "uncertainty": {
+      "method": "wilson-95",
+      "confidence": 0.95,
+      "estimate": 1,
+      "lower_bound": 0.9457738606086981,
+      "upper_bound": 0.9999999999999998
+    },
+    "paired_baseline": null,
+    "integrity_mode": "standard",
+    "fresh_workspace_required": false,
+    "fresh_workspace_verified": false,
+    "integrity_state": "not-assessed",
+    "trusted_score_source": "local-unverified",
+    "compromise_labels": [],
+    "weak_signal_reason": "strict integrity mode was not requested; scores are smoke diagnostics",
+    "release_gate": {
+      "decision": "HOLD",
+      "reasons": [
+        "integrity state is not-assessed, not verified"
+      ],
+      "thresholds": {
+        "promote_score": 80,
+        "rollback_score": 50,
+        "minimum_sample_n": 5,
+        "minimum_interval_lower_bound": 0.5
+      }
+    }
+  },
+  "benchmark": null,
+  "metrics": null,
+  "integritySnapshot": null,
+  "cacheLayers": {
+    "compilePrefixCache": {
+      "runId": "d30-compile-prefix-cache",
+      "digest": "sha256:496338f3741b59e70a2589dc56071e17216158ef3eeb69c9be520907de812db9",
+      "caseIds": [
+        "D30-CCP"
+      ]
+    },
+    "receiptReplay": {
+      "runId": "d03-receipt-replay",
+      "digest": "sha256:e205cf80005f1eb4c378a0218d652785a58978850aff4ea066dc914ed20c5ee5",
+      "caseIds": [
+        "D03-REPLAY"
+      ]
+    },
+    "resultCache": {
+      "runId": "d15-result-cache",
+      "digest": "sha256:8f8cd44f9b3ec94b0330bc489d380b0d9ece6d1496653a3ce5e2374b5394e14f",
+      "caseIds": [
+        "D15-RESULT-CACHE"
+      ]
+    }
+  },
+  "decision": "HOLD",
+  "digest": "sha256:dd8f18a20c08a051743b910522161a714a6989698b3c626a386e43fef085172e"
+}

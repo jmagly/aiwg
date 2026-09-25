@@ -98,6 +98,10 @@ The durable-review pack additionally exports
 store, performs an authorized resume, then repeats resume and proves that the
 stored effect receipt is returned without a second executor call. The fixture is
 local-only and requires the caller to supply a disposable directory.
+`runOfflineReviewMatrixFixture(directory)` and
+`runOfflineReviewAuthorizationFixture(directory)` cover the review matrix and a
+non-permissive pinned authorization with zero unauthorized effects. See
+[Durable decision review](review.md#offline-acceptance-and-load-fixture).
 
 ## Live variant
 
