@@ -24,7 +24,7 @@ import {
 // safe default, the host-only opt-out, endpoint and region binding, and the
 // projection incomplete-context flag through the real evaluator.
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const MESSAGE = 'The documentation link on the settings page is broken. The application otherwise works.';
 
 function definitions(): Record<string, DecisionDefinition> {

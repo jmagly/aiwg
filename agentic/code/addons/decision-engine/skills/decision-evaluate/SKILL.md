@@ -39,7 +39,12 @@ before any credential or transport use and exits `2`. Only adapters that declare
 policy. `adapterOptions.jev` sets the Jev `endpoint`, `allowedOrigins` and the
 operator-declared deployment `region`; the policy origin and region must match
 them. There is no dispatcher setting that sends unprojected state to a network
-adapter. See `examples/decision/dispatcher-request-jev.json`.
+adapter. See `agentic/code/addons/decision-engine/examples/dispatcher-request-jev.json`.
 
 Set `AIWG_DECISION_ENABLED=1` explicitly. Existing workflows remain unchanged
 when the flag is absent.
+
+The deployed script loads the compiled runtime from the installed `aiwg`
+package through `scripts/runtime-root.mjs`: `AIWG_ROOT` when it names a built
+package, then a project `node_modules/aiwg`, then the `aiwg` executable on
+`PATH`.

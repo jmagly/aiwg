@@ -88,12 +88,14 @@ export function auditGraphEvidence(graph: DecisionGraph, plan: GraphPlan, observ
     for (const edge of plan.edges.filter(e => e.to === id)) {
       const source = byId.get(edge.from);
       if (!source || source.status !== 'ok' || (!source.used && obs.used) || !Object.hasOwn(source.output, edge.source)) {
-        outcome = 'incomplete-evidence'; continue;
+        // Keep the earliest explicit cause (for example an abstained predecessor).
+        if (outcome === 'complete') outcome = 'incomplete-evidence';
+        continue;
       }
       input[edge.destination] = { sourceNode: edge.from, sourceResultDigest: digest(source.output), value: source.output[edge.source] };
     }
     const node = graph.nodes.find(n => n.id === id)!;
-    if (obs.status !== 'skipped' && node.input.some(key => !Object.hasOwn(input, key))) outcome = 'incomplete-evidence';
+    if (outcome === 'complete' && obs.status !== 'skipped' && node.input.some(key => !Object.hasOwn(input, key))) outcome = 'incomplete-evidence';
     const costMicros = obs.costMicros ?? unknownCostBoundMicros!;
     totals.attempts += obs.attempts; totals.tokens += obs.tokens; totals.costMicros += costMicros;
     totals.durationMs += obs.durationMs;

@@ -26,7 +26,7 @@ import { runDecisionEvaluate } from '../../../agentic/code/addons/decision-engin
 // response fields and resolver errors are scanned on every surface produced by a
 // real evaluation, including bytes actually written to stdout and stderr.
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 
 const CANARIES = {
   includedState: 'synthetic-included-state-canary',
@@ -143,11 +143,11 @@ describe('D10 real-evaluation privacy capture harness (#2597 AC7)', () => {
         // Dispatcher path through the source-import seam, writing to the real process streams.
         const requestPath = join(directory, 'request.json');
         await writeFile(requestPath, JSON.stringify({
-          rulesetPath: resolve('examples/decision/ruleset.json'), bindingPath: resolve('examples/decision/binding-jev.json'),
+          rulesetPath: resolve('agentic/code/addons/decision-engine/examples/ruleset.json'), bindingPath: resolve('agentic/code/addons/decision-engine/examples/binding-jev.json'),
           definitionPaths: ['decision-category.json', 'decision-severity.json', 'decision-core_unavailable.json']
-            .map(name => resolve('examples/decision', name)),
-          inputPath: resolve('examples/decision/input.json'), runId: 'capture-dispatch', invocationId: 'capture-dispatch',
-          projectionPolicyPath: resolve('examples/decision/projection-policy-jev.json'),
+            .map(name => resolve('agentic/code/addons/decision-engine/examples', name)),
+          inputPath: resolve('agentic/code/addons/decision-engine/examples/input.json'), runId: 'capture-dispatch', invocationId: 'capture-dispatch',
+          projectionPolicyPath: resolve('agentic/code/addons/decision-engine/examples/projection-policy-jev.json'),
           credentials: { 'typesafe-api': 'AIWG_TEST_CAPTURE_TOKEN' },
           adapterModules: { jev: resolve('test/fixtures/decision/dispatcher-fake-jev.mjs') },
         }));

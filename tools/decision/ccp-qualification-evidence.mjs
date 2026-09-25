@@ -89,8 +89,10 @@ try {
 } finally { await rm(scratch, { recursive: true, force: true }); }
 
 async function runBenchmark(plan) {
-  const definition = JSON.parse(await readFile(plan.definition, 'utf8'));
-  const binding = JSON.parse(await readFile('examples/decision/binding-jev.json', 'utf8'));
+  // The retained plan records the pre-move path; the examples now ship inside the addon.
+  const definitionPath = plan.definition.replace(/^examples\/decision\//, 'agentic/code/addons/decision-engine/examples/');
+  const definition = JSON.parse(await readFile(definitionPath, 'utf8'));
+  const binding = JSON.parse(await readFile('agentic/code/addons/decision-engine/examples/binding-jev.json', 'utf8'));
   const target = binding.spec.evaluations.category.targets[0];
   const adapter = new JevDecisionAdapter({ fetch: async () => { throw new Error('offline benchmark never dispatches'); } });
   const rule = { classification: 'internal', accessScopes: ['decision-runtime'], retentionMs: 3_600_000, export: 'denied',

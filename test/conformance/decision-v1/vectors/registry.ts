@@ -25,7 +25,7 @@ export interface RegisteredVectorSuite {
   evidenceIds?: () => Promise<Readonly<Record<string, readonly string[]>>>;
 }
 
-const EXAMPLES = ['examples/decision/ruleset.json', 'examples/decision/binding-jev.json', 'examples/decision/input.json'];
+const EXAMPLES = ['agentic/code/addons/decision-engine/examples/ruleset.json', 'agentic/code/addons/decision-engine/examples/binding-jev.json', 'agentic/code/addons/decision-engine/examples/input.json'];
 
 /** Runs named suite checks after a case executor passes; either failing fails the case. */
 function withNamedChecks(executor: QualificationCaseExecutor, checks: () => Promise<void>): QualificationCaseExecutor {
@@ -42,7 +42,7 @@ export const QUALIFICATION_VECTOR_SUITES: readonly RegisteredVectorSuite[] = [
   { suite: `${CONFORMANCE}/acceptance-evidence.test.ts`, module: `${VECTORS}/acceptance.ts`, executors: acceptance.executors,
     sources: [...Object.values(acceptance.GOLDENS), ...EXAMPLES] },
   { suite: `${CONFORMANCE}/runtime-vectors.test.ts`, module: `${VECTORS}/runtime.ts`, executors: runtime.executors,
-    sources: [...EXAMPLES, 'examples/decision/binding-fallback.json'] },
+    sources: [...EXAMPLES, 'agentic/code/addons/decision-engine/examples/binding-fallback.json'] },
   { suite: `${CONFORMANCE}/rule-vectors.test.ts`, module: `${VECTORS}/rule.ts`, executors: rule.executors, sources: EXAMPLES },
   { suite: `${CONFORMANCE}/state-vectors.test.ts`, module: `${VECTORS}/state.ts`, executors: state.executors, sources: EXAMPLES },
   // C36 (contract validation) also carries the CON-* contract-conformance suite for G0.

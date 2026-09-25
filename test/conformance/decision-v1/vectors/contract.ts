@@ -14,7 +14,7 @@ import {
 export const CONTRACT_EVIDENCE_IDS = ['CON-SCHEMA-01', 'CON-REJECT-01', 'CON-PIN-01', 'CON-VERSION-01',
   'CON-CONVERT-01', 'CON-RESULT-01'] as const;
 
-const EXAMPLES = 'examples/decision';
+const EXAMPLES = 'agentic/code/addons/decision-engine/examples';
 const read = async <T>(path: string): Promise<T> => JSON.parse(await readFile(path, 'utf8')) as T;
 const rejects = (value: unknown): boolean => { try { validateDecisionDocument(value); return false; } catch { return true; } };
 

@@ -7,7 +7,7 @@ import * as runtime from '../../../src/decision/index.js';
 import { runDecisionEvaluate } from '../../../agentic/code/addons/decision-engine/skills/decision-evaluate/scripts/decision-evaluate-core.mjs';
 import { observed } from '../../fixtures/decision/dispatcher-fake-jev.mjs';
 
-const examples = resolve('examples/decision');
+const examples = resolve('agentic/code/addons/decision-engine/examples');
 const fakeJev = resolve('test/fixtures/decision/dispatcher-fake-jev.mjs');
 
 function sink() {

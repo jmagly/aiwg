@@ -141,7 +141,7 @@ describe('D10 projection policy matrix (#2597 AC2)', () => {
 });
 
 // Evaluator-level cells: projection presence x adapter destination x policy destination.
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 
 class MatrixAdapter implements DecisionAdapter {
   readonly id = 'jev';

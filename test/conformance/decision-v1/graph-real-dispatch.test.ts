@@ -11,7 +11,7 @@ import { finalizeDecisionGraphRun } from '../../../src/decision/graph-run.js';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { executeFlowGraph } = require('../../../agentic/code/addons/composition-engine/lib/runtime.mjs');
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const ruleset = fixture<DecisionRuleset>('ruleset.json');
 const binding = fixture<DecisionBinding>('binding-jev.json');
 const definitions: Record<string, DecisionDefinition> = {

@@ -627,6 +627,11 @@ deployed alone: running it after `aiwg use sdlc` does not remove the SDLC agent
 surface. In a project whose only recorded deployment is the bulk install itself,
 it still clears flat artifacts left by the pre-kernel bulk default.
 
+Bulk deploys skip addons whose manifest sets `"devOnly": true` (`aiwg-dev`) or
+`"explicitInstall": true` (`decision-engine`). These are deployed only when
+named, for example `aiwg use decision-engine`. `autoInstall: false` is not an
+exclusion: most addons declare it and are still part of `aiwg use all`.
+
 **Capabilities:** cli, framework, deployment, addon
 **Platforms:** All
 **Tools:** Read, Write, Bash, Glob
@@ -646,7 +651,7 @@ aiwg use sdlc --provider copilot
 # Deploy marketing framework
 aiwg use marketing
 
-# Deploy all frameworks and addons (auto-discovers all addons in agentic/code/addons/ except those marked devOnly)
+# Deploy all frameworks and addons (auto-discovers all addons in agentic/code/addons/ except those marked devOnly or explicitInstall)
 aiwg use all
 
 # Deploy RLM addon (recursive context decomposition)

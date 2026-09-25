@@ -10,7 +10,7 @@ import {
 } from '../../../src/decision/index.js';
 import { parseDecisionDoc } from '../../../src/artifacts/index-builder.js';
 
-const old = (): DecisionDefinition => JSON.parse(readFileSync('examples/decision/decision-category.json', 'utf8')) as DecisionDefinition;
+const old = (): DecisionDefinition => JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/decision-category.json', 'utf8')) as DecisionDefinition;
 const structured = (): DecisionDefinition => {
   const value = convertDecisionDefinitionV1Alpha1(old()).definition;
   value.spec.question = { task: 'classify', context: ['plain', null, { weight: 1, active: true }] };
@@ -114,7 +114,7 @@ describe('decision structured entry contract', () => {
       return new Response(JSON.stringify({ answers: { category: { type: 'choice', choice: 'documentation', probabilities: { documentation: 1, runtime: 0, other: 0 }, confidence: 1 } }, model: 'fixture' }), { status: 200 });
     }) as typeof fetch });
     const observation = await adapter.evaluate(request(definition));
-    const result = JSON.parse(readFileSync('examples/decision/result-category.json', 'utf8')) as DecisionResult;
+    const result = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/result-category.json', 'utf8')) as DecisionResult;
     result.spec.uncertainty = observation.uncertainty;
     expect(() => validateDecisionDocument(result)).not.toThrow();
     const question = (body?.questions as Record<string, Record<string, unknown>>).category;
@@ -189,7 +189,7 @@ describe('decision structured entry contract', () => {
     const oldVersion = structured(); oldVersion.apiVersion = 'decision.aiwg.io/v1alpha1';
     expect(() => validateDecisionDocument(oldVersion)).toThrow();
     for (const [file, kind] of [['ruleset.json', 'DecisionRuleset'], ['binding-jev.json', 'DecisionBinding']] as const) {
-      const oldDoc = JSON.parse(readFileSync(`examples/decision/${file}`, 'utf8')) as { apiVersion: string; kind: string; spec: Record<string, unknown> };
+      const oldDoc = JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${file}`, 'utf8')) as { apiVersion: string; kind: string; spec: Record<string, unknown> };
       validateDecisionDocument(oldDoc);
       oldDoc.apiVersion = 'decision.aiwg.io/v1alpha2';
       validateDecisionDocument(oldDoc);
@@ -200,11 +200,11 @@ describe('decision structured entry contract', () => {
   });
 
   it('pre-admits malformed rulesets before digesting or dispatching', async () => {
-    const ruleset = JSON.parse(readFileSync('examples/decision/ruleset.json', 'utf8')) as DecisionRuleset;
+    const ruleset = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/ruleset.json', 'utf8')) as DecisionRuleset;
     (ruleset.spec as Record<string, unknown>).poison = ruleset;
     const adapter = { id: 'jev', version: '1.0.0', capabilities: vi.fn(), evaluate: vi.fn() } as unknown as DecisionAdapter;
     const result = await evaluateDecisionRuleset({
-      ruleset, binding: JSON.parse(readFileSync('examples/decision/binding-jev.json', 'utf8')) as DecisionBinding,
+      ruleset, binding: JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/binding-jev.json', 'utf8')) as DecisionBinding,
       definitions: {}, input: { message: 'hello' }, runId: 'run', invocationId: 'bad-ruleset', adapters: { jev: adapter },
     });
     expect(result.spec.reason).toBe('invalid-definition');
@@ -215,8 +215,8 @@ describe('decision structured entry contract', () => {
     const input: Record<string, unknown> = { message: 'hello' }; input.self = input;
     const adapter = { id: 'jev', version: '1.0.0', capabilities: vi.fn(), evaluate: vi.fn() } as unknown as DecisionAdapter;
     const result = await evaluateDecisionRuleset({
-      ruleset: JSON.parse(readFileSync('examples/decision/ruleset.json', 'utf8')) as DecisionRuleset,
-      binding: JSON.parse(readFileSync('examples/decision/binding-jev.json', 'utf8')) as DecisionBinding,
+      ruleset: JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/ruleset.json', 'utf8')) as DecisionRuleset,
+      binding: JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/binding-jev.json', 'utf8')) as DecisionBinding,
       definitions: {}, input, runId: 'run', invocationId: 'bad-input', adapters: { jev: adapter },
     });
     expect(result.spec.reason).toBe('invalid-input');
@@ -225,12 +225,12 @@ describe('decision structured entry contract', () => {
 
   it('requires structured-entry capability and emits v1alpha2 provenance', async () => {
     const definition = structured();
-    const ruleset = JSON.parse(readFileSync('examples/decision/ruleset.json', 'utf8')) as DecisionRuleset;
+    const ruleset = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/ruleset.json', 'utf8')) as DecisionRuleset;
     ruleset.spec.evaluations[0]!.decision = artifactPin(definition);
-    const binding = JSON.parse(readFileSync('examples/decision/binding-jev.json', 'utf8')) as DecisionBinding;
+    const binding = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/binding-jev.json', 'utf8')) as DecisionBinding;
     binding.spec.ruleset = artifactPin(ruleset);
-    const plain = JSON.parse(readFileSync('examples/decision/decision-severity.json', 'utf8')) as DecisionDefinition;
-    const core = JSON.parse(readFileSync('examples/decision/decision-core_unavailable.json', 'utf8')) as DecisionDefinition;
+    const plain = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/decision-severity.json', 'utf8')) as DecisionDefinition;
+    const core = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/decision-core_unavailable.json', 'utf8')) as DecisionDefinition;
     const adapter: DecisionAdapter = {
       id: 'jev', version: '1.0.0',
       capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['typed-output'], maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1'], executable: true, egress: { mode: 'none' as const } }),
@@ -239,7 +239,7 @@ describe('decision structured entry contract', () => {
     const store = new MemoryDecisionReceiptStore();
     const result = await evaluateDecisionRuleset({
       ruleset, binding, definitions: { category: definition, severity: plain, core },
-      input: JSON.parse(readFileSync('examples/decision/input.json', 'utf8')),
+      input: JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/input.json', 'utf8')),
       runId: 'run', invocationId: 'structured-run', adapters: { jev: adapter }, receiptStore: store,
     });
     expect(result.apiVersion).toBe('decision.aiwg.io/v1alpha2');
@@ -255,11 +255,11 @@ describe('decision structured entry contract', () => {
   it('keeps planned state, instructions, and target controls isolated from adapter mutation', async () => {
     const definition = structured();
     const originalQuestion = structuredClone(definition.spec.question);
-    const ruleset = JSON.parse(readFileSync('examples/decision/ruleset.json', 'utf8')) as DecisionRuleset;
+    const ruleset = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/ruleset.json', 'utf8')) as DecisionRuleset;
     ruleset.spec.evaluations[0]!.decision = artifactPin(definition);
-    const binding = JSON.parse(readFileSync('examples/decision/binding-jev.json', 'utf8')) as DecisionBinding;
+    const binding = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/binding-jev.json', 'utf8')) as DecisionBinding;
     binding.spec.ruleset = artifactPin(ruleset);
-    const input = JSON.parse(readFileSync('examples/decision/input.json', 'utf8')) as { message: string };
+    const input = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/input.json', 'utf8')) as { message: string };
     const originalInput = structuredClone(input);
     const adapter: DecisionAdapter = {
       id: 'jev', version: '1.0.0',
@@ -274,8 +274,8 @@ describe('decision structured entry contract', () => {
     };
     const result = await evaluateDecisionRuleset({
       ruleset, binding, definitions: { category: definition,
-        severity: JSON.parse(readFileSync('examples/decision/decision-severity.json', 'utf8')) as DecisionDefinition,
-        core: JSON.parse(readFileSync('examples/decision/decision-core_unavailable.json', 'utf8')) as DecisionDefinition },
+        severity: JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/decision-severity.json', 'utf8')) as DecisionDefinition,
+        core: JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/decision-core_unavailable.json', 'utf8')) as DecisionDefinition },
       input, runId: 'run', invocationId: 'mutation-test', adapters: { jev: adapter },
     });
     expect(definition.spec.question).toEqual(originalQuestion);
@@ -287,18 +287,18 @@ describe('decision structured entry contract', () => {
 
   it.each(['jev', 'llm-subagent'] as const)('executes nested v1alpha2 definitions through %s with pinned receipts', async backend => {
     const category = structured();
-    const severity = convertDecisionDefinitionV1Alpha1(JSON.parse(readFileSync('examples/decision/decision-severity.json', 'utf8')) as DecisionDefinition).definition;
+    const severity = convertDecisionDefinitionV1Alpha1(JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/decision-severity.json', 'utf8')) as DecisionDefinition).definition;
     if (severity.spec.answer.kind === 'ordinal-score') severity.spec.answer.levels = [{ label: 'cosmetic' }, ['workaround', null], 'unavailable'];
-    const core = convertDecisionDefinitionV1Alpha1(JSON.parse(readFileSync('examples/decision/decision-core_unavailable.json', 'utf8')) as DecisionDefinition).definition;
+    const core = convertDecisionDefinitionV1Alpha1(JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/decision-core_unavailable.json', 'utf8')) as DecisionDefinition).definition;
     if (core.spec.answer.kind === 'truth-probability') { core.spec.answer.trueDescription = { meaning: 'down' }; core.spec.answer.falseDescription = null; }
-    const ruleset = JSON.parse(readFileSync('examples/decision/ruleset.json', 'utf8')) as DecisionRuleset;
+    const ruleset = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/ruleset.json', 'utf8')) as DecisionRuleset;
     for (const [alias, definition] of [['category', category], ['severity', severity], ['core_unavailable', core]] as const) {
       ruleset.spec.evaluations.find(item => item.alias === alias)!.decision = artifactPin(definition);
     }
-    const binding = JSON.parse(readFileSync(`examples/decision/binding-${backend === 'jev' ? 'jev' : 'llm-subagent'}.json`, 'utf8')) as DecisionBinding;
+    const binding = JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/binding-${backend === 'jev' ? 'jev' : 'llm-subagent'}.json`, 'utf8')) as DecisionBinding;
     binding.spec.ruleset = artifactPin(ruleset);
     const seen: Record<string, unknown>[] = [];
-    const worker = JSON.parse(readFileSync('examples/decision/worker-fixture.json', 'utf8')) as { metadata: { id: string; version: string } };
+    const worker = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/worker-fixture.json', 'utf8')) as { metadata: { id: string; version: string } };
     if (backend === 'llm-subagent') {
       for (const evaluation of Object.values(binding.spec.evaluations)) evaluation.targets[0]!.subagent = artifactPin(worker);
     }
@@ -331,7 +331,7 @@ describe('decision structured entry contract', () => {
     const store = new MemoryDecisionReceiptStore();
     const result = await evaluateDecisionRuleset({
       ruleset, binding, definitions: { category, severity, core },
-      input: JSON.parse(readFileSync('examples/decision/input.json', 'utf8')),
+      input: JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/input.json', 'utf8')),
       runId: 'structured-run', invocationId: `structured-${backend}`, adapters, receiptStore: store,
       resolveCredential: async () => new TextEncoder().encode('fixture-token'),
       projection: { mode: 'unprojected-local' },

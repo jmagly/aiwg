@@ -40,7 +40,7 @@ describe('native batch qualification evidence', () => {
     expect(manifest.evidence.map(item => [item.caseId, item.outcome])).toEqual(CASE_IDS.map(id => [id, 'pass']));
     expect((await verifyQualificationArtifacts(manifest, artifactRoot)).every(item => item.verified)).toBe(true);
     const linked = await writeQualificationEvidenceManifest(manifest, artifactRoot, '.', Object.fromEntries(
-      CASE_IDS.map(id => [id, ['examples/decision/input.json', 'examples/decision/binding-jev.json']]),
+      CASE_IDS.map(id => [id, ['agentic/code/addons/decision-engine/examples/input.json', 'agentic/code/addons/decision-engine/examples/binding-jev.json']]),
     ));
     expect(linked.manifest.evidence.map(item => item.caseId)).toEqual(CASE_IDS);
     expect(linked.manifest.evidence.every(item => item.executable && item.outcome === 'pass'

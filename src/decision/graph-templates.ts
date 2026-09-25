@@ -7,14 +7,18 @@ export interface DecisionGraphTemplate { graph: DecisionGraph; plan: GraphPlan }
 function validated(graph: DecisionGraph, pins: ReadonlySet<string>): DecisionGraphTemplate {
   return { graph, plan: planDecisionGraph(graph, pins) };
 }
-/** Entry obtains an explicit shortlist; only its declared candidates reach reranking. */
+/** Entry obtains an explicit shortlist; only its declared candidates reach reranking.
+ * The host projector must set `has-candidates` from the shortlist it projects: when it
+ * is false, reranking never runs and the graph outcome is `empty-shortlist`.
+ */
 export function shortlistRerankTemplate(base: TemplateBase & { shortlist: NodeConfig; rerank: NodeConfig }): DecisionGraphTemplate {
   return validated({ schemaVersion: 'decision-graph/v1', id: base.id, pattern: 'shortlist-rerank',
     entry: 'shortlist', terminals: ['rerank'], budget: base.budget,
     nodes: [
-      { ...base.shortlist, id: 'shortlist', stage: 0, input: [], output: ['candidates'] },
+      { ...base.shortlist, id: 'shortlist', stage: 0, input: [], output: ['candidates', 'has-candidates'] },
       { ...base.rerank, id: 'rerank', stage: 1, input: ['candidates'], output: ['result'] },
-    ], edges: [{ from: 'shortlist', to: 'rerank', source: 'candidates', destination: 'candidates' }] }, base.resolvedPins);
+    ], edges: [{ from: 'shortlist', to: 'rerank', source: 'candidates', destination: 'candidates',
+      when: { source: 'has-candidates', equals: true } }] }, base.resolvedPins);
 }
 /** Fixed, caller-authored taxonomy candidates fan out; no model may create new nodes. */
 export function taxonomyBeamTemplate(base: TemplateBase & {

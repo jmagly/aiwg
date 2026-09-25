@@ -39,7 +39,7 @@ export const vendorCatalog = (): Promise<VendorVector[]> => (catalog ??= readFil
   .then(text => (JSON.parse(text) as { vectors: VendorVector[] }).vectors));
 const vector = async (id: CaseId): Promise<VendorVector> => (await vendorCatalog()).find(item => item.id === id)!;
 
-const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 async function workload() {
   return { ruleset: await fixture<DecisionRuleset>('ruleset.json'), binding: await fixture<DecisionBinding>('binding-jev.json'),
     definitions: { category: await fixture<DecisionDefinition>('decision-category.json'),

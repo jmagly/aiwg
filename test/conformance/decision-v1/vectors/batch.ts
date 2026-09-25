@@ -10,7 +10,7 @@ import {
 export const CASE_IDS = ['TV01', 'TV08', 'TV22'] as const;
 
 const fixture = async <T>(name: string): Promise<T> => JSON.parse(
-  await readFile(join('examples/decision', name), 'utf8'),
+  await readFile(join('agentic/code/addons/decision-engine/examples', name), 'utf8'),
 ) as T;
 
 /** Workload inputs that a mutation test may perturb to prove the executors derive their outcome. */

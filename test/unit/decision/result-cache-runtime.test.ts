@@ -14,7 +14,7 @@ import type { ModelCompatibilityPolicy } from '../../../src/decision/result-cach
 import type { DecisionAdapter, DecisionBinding, DecisionDefinition, DecisionEvaluationRequest, DecisionRuleset } from '../../../src/decision/types.js';
 import type { DecisionTelemetrySpan } from '../../../src/decision/telemetry/types.js';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const sha = (c: string) => `sha256:${c.repeat(64)}` as const;
 const actor = { tenantId: 'tenant', projectId: 'project', workspaceId: 'workspace', subjectId: 'caller', permissions: ['read', 'write', 'invalidate', 'export', 'delete'] as Array<'read' | 'write' | 'invalidate' | 'export' | 'delete'> };
 const policy = { enabled: true, sideEffectFree: true, policyVersion: 'cache-policy-v1', ttlMs: 10_000, scope: 'workspace' as const, sensitivity: 'internal' as const };
@@ -143,9 +143,9 @@ describe('experimental evaluator result-cache integration', () => {
 
   it('measures synthetic stable replay savings and TTL refresh without counting hits as provider usage', async () => {
     const { base, adapter } = setup();
-    const workload = fixture<{ calls: Array<{ invocationId: string; offsetMs: number; expected: string }>;
+    const workload = JSON.parse(readFileSync('test/fixtures/decision/result-cache-workload.json', 'utf8')) as { calls: Array<{ invocationId: string; offsetMs: number; expected: string }>;
       expected: { providerCalls: number; originalInputTokens: number; originalOutputTokens: number;
-        counterfactualInputTokens: number; counterfactualOutputTokens: number } }>('../../test/fixtures/decision/result-cache-workload.json');
+        counterfactualInputTokens: number; counterfactualOutputTokens: number } };
     const epoch = Date.now();
     const results = [];
     for (const call of workload.calls) {

@@ -229,6 +229,25 @@ describe('getAllAddons()', () => {
     }
   });
 
+  it('excludes addons whose manifest sets explicitInstall or devOnly (#2641)', async () => {
+    const addonsDir = await createFakeAddonTree(tmpDir, ['aiwg-utils', 'opt-in', 'contributor', 'plain']);
+    await writeFile(path.join(addonsDir, 'opt-in', 'manifest.json'), JSON.stringify({ explicitInstall: true, autoInstall: false }));
+    await writeFile(path.join(addonsDir, 'contributor', 'manifest.json'), JSON.stringify({ devOnly: true }));
+    await writeFile(path.join(addonsDir, 'plain', 'manifest.json'), JSON.stringify({ autoInstall: false }));
+    await writeFile(path.join(addonsDir, 'aiwg-utils', 'manifest.json'), '{ not json');
+    const addons = await getAllAddons(tmpDir);
+    expect(addons.sort()).toEqual(['aiwg-utils', 'plain']);
+  });
+
+  it('keeps deploying autoInstall:false addons from the real tree except explicit-install ones (#2641)', async () => {
+    const root = path.resolve(import.meta.dirname, '../../../..');
+    const addons = await getAllAddons(root);
+    expect(addons).not.toContain('decision-engine');
+    expect(addons).not.toContain('aiwg-dev');
+    // Both declare autoInstall:false and must stay part of `aiwg use all`.
+    expect(addons).toEqual(expect.arrayContaining(['composition-engine', 'testing-quality']));
+  });
+
   it('returns an empty array when no addons exist', async () => {
     await mkdir(path.join(tmpDir, 'agentic', 'code', 'addons'), { recursive: true });
     const addons = await getAllAddons(tmpDir);

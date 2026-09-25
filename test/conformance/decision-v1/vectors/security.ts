@@ -6,7 +6,7 @@ import {
   type DecisionDefinition, type DecisionRuleset, type QualificationCaseExecutor,
 } from '../../../../src/decision/index.js';
 
-const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const definitions = async () => ({ category: await fixture<DecisionDefinition>('decision-category.json'),
   severity: await fixture<DecisionDefinition>('decision-severity.json'), core: await fixture<DecisionDefinition>('decision-core_unavailable.json') });
 export const ids = ['C29', 'C30', 'C32', 'C34', 'C36', 'C39'] as const;

@@ -122,6 +122,21 @@ try {
   if (evidence.status !== 'pass' || evidence.networkAttempts !== 0 || evidence.credentialVariables !== 0) {
     fail('offline installed-package probe returned invalid evidence', probe);
   }
+
+  // The discoverable entry point is the decision-engine `decision-playground` skill.
+  // Run it from the installed package with every network primitive disabled.
+  const playgroundScript = path.join(installRoot, 'agentic', 'code', 'addons', 'decision-engine', 'skills', 'decision-playground', 'scripts', 'decision-playground.mjs');
+  if (!existsSync(playgroundScript)) fail('packed install is missing the decision-playground entry point');
+  const guardPath = path.join(consumerRoot, 'network-guard.mjs');
+  writeFileSync(guardPath, networkGuardSource(), { mode: 0o600 });
+  const entryEnvironment = { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, HOME: commandEnvironment.HOME, USERPROFILE: commandEnvironment.USERPROFILE };
+  const listed = JSON.parse(run(process.execPath, ['--import', pathToFileURL(guardPath).href, playgroundScript, 'list'], { cwd: consumerRoot, env: entryEnvironment, timeout: 120_000 }).stdout);
+  const ranAll = JSON.parse(run(process.execPath, ['--import', pathToFileURL(guardPath).href, playgroundScript, 'run-all'], { cwd: consumerRoot, env: entryEnvironment, timeout: 300_000 }).stdout);
+  if (listed.length !== evidence.patterns || ranAll.failed !== 0 || ranAll.fixtures !== evidence.fixtures
+    || ranAll.results.some(result => result.fixture && result.evaluator !== 'evaluateDecisionRuleset' && result.evaluator !== 'rejected-before-dispatch')) {
+    fail('installed decision-playground entry point returned invalid evidence');
+  }
+  evidence.entryPoint = { skill: 'decision-playground', listed: listed.length, fixtures: ranAll.fixtures, failed: ranAll.failed };
   console.log(JSON.stringify({
     gate: 'decision-patterns-offline-package',
     package: manifest.version,
@@ -165,6 +180,33 @@ function parsePackJson(output) {
 function fail(message, result = {}) {
   const diagnostics = [result.stdout, result.stderr].filter(Boolean).join('\n');
   throw new Error(diagnostics ? `${message}\n${diagnostics}` : message);
+}
+
+function networkGuardSource() {
+  return String.raw`
+import dgram from 'node:dgram';
+import dns from 'node:dns';
+import http from 'node:http';
+import http2 from 'node:http2';
+import https from 'node:https';
+import net from 'node:net';
+import tls from 'node:tls';
+const rejectNetwork = () => { throw new Error('decision playground smoke forbids network access'); };
+net.connect = rejectNetwork;
+net.createConnection = rejectNetwork;
+tls.connect = rejectNetwork;
+http.request = rejectNetwork;
+http.get = rejectNetwork;
+https.request = rejectNetwork;
+https.get = rejectNetwork;
+dns.lookup = rejectNetwork;
+dns.resolve = rejectNetwork;
+dns.promises.lookup = rejectNetwork;
+dns.promises.resolve = rejectNetwork;
+dgram.createSocket = rejectNetwork;
+http2.connect = rejectNetwork;
+globalThis.fetch = rejectNetwork;
+`;
 }
 
 function probeSource() {
@@ -214,6 +256,7 @@ assert.equal(listed.length, api.decisionPatternPacks.length);
 assert.ok(listed.length > 0);
 
 let fixtures = 0;
+let runtimeFixtures = 0;
 let artifacts = 0;
 for (const pack of api.decisionPatternPacks) {
   assert.deepEqual(api.validateDecisionPattern(pack), []);
@@ -228,16 +271,25 @@ for (const pack of api.decisionPatternPacks) {
     }
   }
   if (pack.status === 'unavailable') {
-    assert.throws(() => api.runOfflineDecisionPattern(pack.id), /unavailable/);
+    await assert.rejects(() => api.runOfflineDecisionPattern(pack.id), /unavailable/);
     continue;
   }
   assert.ok(pack.fixtures.length > 0, pack.id + ' has no offline fixture');
   for (const fixture of pack.fixtures) {
-    const receipt = api.runOfflineDecisionPattern(pack.id, fixture.id);
+    const receipt = await api.runOfflineDecisionPattern(pack.id, fixture.id);
     assert.equal(receipt.executionMode, 'offline-recorded');
     assert.equal(receipt.evidenceOrigin, 'sanitized-recorded-fixture');
-    assert.equal(receipt.attempts, 0);
     assert.equal(receipt.actualModel, null);
+    assert.equal(receipt.runtime.evaluator, 'evaluateDecisionRuleset');
+    assert.equal(receipt.runtime.transport, 'recorded-replay');
+    if (receipt.result) {
+      // Every dispatched fixture wraps the production RulesetResult.
+      assert.equal(receipt.result.kind, 'RulesetResult');
+      assert.ok(receipt.runtime.transportCalls > 0, pack.id + '/' + fixture.id + ' made no recorded transport call');
+      runtimeFixtures += 1;
+    } else {
+      assert.equal(receipt.runtime.transportCalls, 0);
+    }
     assert.equal(receipt.action.status, 'unexecuted');
     assert.equal(receipt.route, fixture.expected.route);
     assert.equal(receipt.reason, fixture.expected.reason);
@@ -266,6 +318,7 @@ process.stdout.write(JSON.stringify({
   entry: 'node_modules/aiwg/dist/src/decision/index.js',
   patterns: listed.length,
   fixtures,
+  runtimeFixtures,
   artifacts,
   durableReview: 'pass',
   networkAttempts,

@@ -2269,6 +2269,9 @@ export function discoverAddons(srcRoot) {
 
     // Skip addons marked devOnly — they are contributor tools, not end-user deployables
     if (manifest.devOnly === true) continue;
+    // explicitInstall addons deploy only when named (`aiwg use <addon>`), never
+    // as part of a framework or `all` bulk deploy (#2641).
+    if (manifest.explicitInstall === true) continue;
 
     addons.push({
       name: entry.name,

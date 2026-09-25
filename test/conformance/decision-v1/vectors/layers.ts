@@ -14,12 +14,12 @@ import {
  */
 export const CACHE_LAYERS = {
   compilePrefixCache: { runId: 'd30-compile-prefix-cache', caseId: 'D30-CCP', sources: ['src/decision/compile-cache/store.ts'] },
-  receiptReplay: { runId: 'd03-receipt-replay', caseId: 'D03-REPLAY', sources: ['src/decision/receipts.ts', 'examples/decision/input.json'] },
+  receiptReplay: { runId: 'd03-receipt-replay', caseId: 'D03-REPLAY', sources: ['src/decision/receipts.ts', 'agentic/code/addons/decision-engine/examples/input.json'] },
   resultCache: { runId: 'd15-result-cache', caseId: 'D15-RESULT-CACHE', sources: ['src/decision/result-cache/service.ts'] },
 } as const satisfies Record<keyof NonNullable<QualificationReleaseInputs['cacheLayers']>, { runId: string; caseId: string; sources: string[] }>;
 
 const digest = (c: string) => `sha256:${c.repeat(64)}` as const;
-const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 
 export const executors: Record<string, QualificationCaseExecutor> = {
   // D30: a compiled definition is reused only for an identical identity.

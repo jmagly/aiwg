@@ -12,7 +12,7 @@ import type { DecisionBinding, DecisionDefinition, DecisionRuleset } from '../..
 // M07 (#2612): no DMN/OPA/XML importer exists yet. These tests bound the only
 // admission path that exists offline: authored JSON/YAML decision documents.
 const ROOT = path.resolve(import.meta.dirname, '../../..');
-const example = <T>(name: string): T => JSON.parse(readFileSync(path.join(ROOT, 'examples/decision', name), 'utf8')) as T;
+const example = <T>(name: string): T => JSON.parse(readFileSync(path.join(ROOT, 'agentic/code/addons/decision-engine/examples', name), 'utf8')) as T;
 const reason = (fn: () => unknown): string => {
   try { fn(); } catch (error) {
     if (error instanceof EntryAdmissionError) return error.reasonCode;

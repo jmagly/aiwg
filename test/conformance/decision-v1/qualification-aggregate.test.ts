@@ -60,7 +60,7 @@ async function sourceFilesAll(dir: string): Promise<string[]> {
   return (await Promise.all(entries.map(entry => entry.isDirectory() ? sourceFilesAll(join(dir, entry.name))
     : Promise.resolve([join(dir, entry.name)])))).flat();
 }
-const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 
 /** A telemetry-, receipt- and export-producing evaluation whose credential is a canary. */
 async function privacyProbe(receipts: string, spans: DecisionTelemetrySpan[]) {

@@ -17,9 +17,12 @@ if (!process.env.AIWG_DECISION_JEV_REGION) {
   process.exit(2);
 }
 
-const root = process.cwd();
+// Resolve from this script, not the working directory, so the smoke also runs
+// from an installed package where the examples ship inside the addon.
+const root = path.resolve(import.meta.dirname, '../..');
+const examples = path.join(root, 'agentic/code/addons/decision-engine/examples');
 const runtime = await import(pathToFileURL(path.join(root, 'dist/src/decision/index.js')).href);
-const load = async name => JSON.parse(await readFile(path.join(root, 'examples/decision', name), 'utf8'));
+const load = async name => JSON.parse(await readFile(path.join(examples, name), 'utf8'));
 const definition = await load('decision-category.json');
 const input = await load('input.json');
 const region = process.env.AIWG_DECISION_JEV_REGION;

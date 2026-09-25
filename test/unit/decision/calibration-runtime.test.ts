@@ -19,7 +19,7 @@ import {
 } from '../../../src/decision/index.js';
 
 const hash = (character: string) => `sha256:${character.repeat(64)}` as const;
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const policy = { unknown: 'defer', incompatible: 'fail', shadowRequired: 'shadow', unusableCalibration: 'require-approval' } as const;
 
 function setup(expiresAfterDays = 30, options: { register?: boolean; approval?: CalibrationArtifact['approval']; totalSamples?: number; perSliceSamples?: number } = {}) {

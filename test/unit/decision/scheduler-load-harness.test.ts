@@ -33,7 +33,7 @@ const MANIFEST_DIGEST = 'sha256:416a41466dc58063f45b5e5e9a7ad78b011cf6d3be50b081
 const WRITE_EVIDENCE = process.env.AIWG_DECISION_LOAD_EVIDENCE === 'write';
 const manifestBytes = readFileSync(MANIFEST_PATH);
 const manifest = JSON.parse(manifestBytes.toString('utf8')) as DecisionLoadManifestV2;
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const fakeClock = (): DecisionLoadClock => ({ now: () => Date.now(), advance: async ms => { await vi.advanceTimersByTimeAsync(ms); } });
 
 const observed = (alias: string): AdapterObservation => ({

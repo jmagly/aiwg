@@ -190,8 +190,8 @@ describe('decision context planning', () => {
     }
     expect(readFileSync('docs/decision/specification.md', 'utf8')).toContain('Choice 255 options, Score 2–10 levels');
     expect(readFileSync('docs/decision/context-planning.md', 'utf8')).toContain('255-option Choice and 10-level Score');
-    const category = JSON.parse(readFileSync('examples/decision/decision-category.json', 'utf8')) as DecisionDefinition;
-    const severity = JSON.parse(readFileSync('examples/decision/decision-severity.json', 'utf8')) as DecisionDefinition;
+    const category = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/decision-category.json', 'utf8')) as DecisionDefinition;
+    const severity = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/decision-severity.json', 'utf8')) as DecisionDefinition;
     const withOptions = (count: number) => ({ ...category, spec: { ...category.spec, answer: { kind: 'choice' as const,
       options: Array.from({ length: count }, (_, i) => ({ id: `o${i}`, description: `選択肢 ${i}` })) } } });
     const withLevels = (count: number) => ({ ...severity, spec: { ...severity.spec, answer: { kind: 'ordinal-score' as const,

@@ -31,7 +31,7 @@ async function workspace(overrides: Record<string, unknown>): Promise<string> {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'aiwg-decision-receipts-'));
   directories.push(directory);
   const local = path.join(directory, 'request');
-  await cp(path.join(root, 'examples/decision'), local, { recursive: true });
+  await cp(path.join(root, 'agentic/code/addons/decision-engine/examples'), local, { recursive: true });
   // Outside the package tree the bare `aiwg/decision` specifier cannot resolve,
   // so point the fixture adapter at the compiled runtime directly.
   const adapter = path.join(local, 'fixture-llm-adapter.mjs');

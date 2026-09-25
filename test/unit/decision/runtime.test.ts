@@ -22,7 +22,7 @@ import {
 } from '../../../src/decision/index.js';
 import { parseDecisionDoc } from '../../../src/artifacts/index-builder.js';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const definitions = (): Record<string, DecisionDefinition> => ({
   category: fixture('decision-category.json'),
   severity: fixture('decision-severity.json'),
@@ -90,7 +90,7 @@ describe('normalized decision contracts', () => {
   });
 
   it('classifies authored decision artifacts for discovery', () => {
-    const source = readFileSync('examples/decision/decision-category.json', 'utf8');
+    const source = readFileSync('agentic/code/addons/decision-engine/examples/decision-category.json', 'utf8');
     expect(parseDecisionDoc(source, 'decisions/category.json')).toMatchObject({
       type: 'decision-definition', kind: 'DecisionDefinition', name: 'example-category',
     });

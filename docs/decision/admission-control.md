@@ -9,6 +9,7 @@ Admission occurs before every adapter attempt. The controller applies, independe
 - concurrent-call limits;
 - token-bucket request/minute and token/second limits;
 - invocation-scoped attempt and monetary budgets, including fail-closed unknown-cost policy;
+- an optional invocation-scoped cumulative token reservation (`maxTokens`), which rejects a dispatch without a token estimate as `unknown-tokens` and a dispatch that would exceed the reservation as `tokens`;
 - batch, request-byte, item, retained-work, waiter, queue-length, and queue-dwell bounds;
 - provider-wide `Retry-After` pauses; and
 - closed/open/half-open circuit-breaker transitions.

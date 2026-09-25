@@ -34,7 +34,7 @@ import {
 } from '../../../src/decision/index.js';
 import { canonicalJson } from '../../../src/security/artifact-trust.js';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const definitions = (): Record<string, DecisionDefinition> => ({
   category: fixture('decision-category.json'), severity: fixture('decision-severity.json'),
   core: fixture('decision-core_unavailable.json'),

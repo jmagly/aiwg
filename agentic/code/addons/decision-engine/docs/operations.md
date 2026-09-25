@@ -5,6 +5,43 @@ addon, author immutable definitions/rulesets/bindings under an authorized
 artifact root, and invoke `decision-evaluate` with runtime configuration kept
 outside those portable artifacts.
 
+## Install
+
+Deploy the addon by name to each provider that should see the skill:
+
+```bash
+aiwg use decision-engine --provider claude
+```
+
+`aiwg use all` does not include the addon, with or without `--copy-all`, and
+neither do framework deploys such as `aiwg use sdlc`. The manifest's
+`"explicitInstall": true` keeps it out of every bulk deploy. A copy deployed
+earlier by a bulk deploy is left in place.
+
+The deployed `decision-evaluate` script loads the compiled runtime from the
+installed `aiwg` package, not from the project. It checks these locations in
+order: `AIWG_ROOT` when it names a built package, an `aiwg` in a
+`node_modules` directory above the script or the working directory, and then
+the `aiwg` executable on `PATH`. If none is found, it exits with status 2 and
+says how to fix it.
+
+## Examples
+
+The addon ships an offline example set in `examples/`. It includes a ruleset,
+definitions, Jev and LLM-subagent bindings, and a deterministic fixture worker.
+From an installed package:
+
+```bash
+AIWG_DECISION_ENABLED=1 node \
+  .claude/.aiwg/skills/decision-evaluate/scripts/decision-evaluate.mjs \
+  --request node_modules/aiwg/agentic/code/addons/decision-engine/examples/dispatcher-request-llm.json
+```
+
+Use the deployed script path for your provider. For a global install, the
+examples are under `$(npm root -g)/aiwg/agentic/code/addons/decision-engine/examples/`.
+
+## Backends and evaluation
+
 Jev uses `https://api.typesafe.ai/v1/systemone` with bearer authentication. A
 binding stores only a logical `credentialRef`; the dispatcher request maps it
 to an operator-provided environment-variable name. Production deployments

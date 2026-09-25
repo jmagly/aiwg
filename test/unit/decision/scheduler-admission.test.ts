@@ -224,6 +224,21 @@ describe('decision provider admission', () => {
     await expect(controller.acquire(request(new AbortController().signal, { costUsd: 0.1, batchSize: 3 }))).rejects.toMatchObject({ evidence: { reason: 'batch-size' } });
   });
 
+  it('reserves a cumulative invocation token budget and rejects unknown token estimates', async () => {
+    const guarded = limits({ maxTokens: 150 });
+    const controller = new DecisionAdmissionController(() => ({ principal: guarded, workspace: guarded, provider: guarded }));
+    await expect(controller.acquire(request(new AbortController().signal, {}))).rejects.toMatchObject({ retryable: false, evidence: { reason: 'unknown-tokens' } });
+    const first = await controller.acquire(request(new AbortController().signal, { tokens: 100 }));
+    first.release({ success: true });
+    await expect(controller.acquire(request(new AbortController().signal, { tokens: 60 }))).rejects.toMatchObject({ retryable: false, evidence: { decision: 'reject', reason: 'tokens' } });
+    const fits = await controller.acquire(request(new AbortController().signal, { tokens: 50 }));
+    fits.release({ success: true });
+    controller.releaseBudget('invocation');
+    const renewed = await controller.acquire(request(new AbortController().signal, { tokens: 100 }));
+    expect(renewed.evidence).toMatchObject({ decision: 'admit', estimatedTokens: 100 });
+    renewed.release({ success: true });
+  });
+
   it.each([
     { limits: { maxRequestBytes: 8 }, estimate: { requestBytes: 9 }, reason: 'request-too-large' },
     { limits: { maxItems: 2 }, estimate: { items: 3 }, reason: 'too-many-items' },

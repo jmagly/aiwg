@@ -11,7 +11,7 @@ import { artifactPin } from '../../../src/decision/validate.js';
 import type { AdapterObservation, DecisionAdapter, DecisionBinding, DecisionDefinition, DecisionRuleset, DecisionReceiptStore, RulesetResult } from '../../../src/decision/types.js';
 import { readFileSync } from 'node:fs';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const temp: string[] = [];
 afterEach(async () => { await Promise.all(temp.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
 async function stores(): Promise<DecisionReceiptStore[]> {
@@ -599,14 +599,14 @@ describe('PRV-EGRESS-RECEIPT portable decision receipts', () => {
   const fingerprint = `sha256:${'a'.repeat(64)}`;
   // Schema-valid result documents (the writer gate validates them); the secret rides in a free-form string or outcome.
   const evaluation = (value: unknown) => {
-    const document = JSON.parse(readFileSync('examples/decision/result-category.json', 'utf8'));
+    const document = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/result-category.json', 'utf8'));
     document.spec.alias = 'a';
     document.spec.invocationId = 'egress';
     document.spec.value = typeof value === 'string' ? value : JSON.stringify(value);
     return { a: document } as never;
   };
   const rulesetResult = (outcome: unknown) => {
-    const document = JSON.parse(readFileSync('examples/decision/ruleset-result.json', 'utf8'));
+    const document = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/ruleset-result.json', 'utf8'));
     document.spec.invocationId = 'egress';
     document.spec.evaluations = {};
     document.spec.outcome = outcome;

@@ -29,7 +29,7 @@ import { artifactDigest } from '../../../src/decision/validate.js';
 const golden = JSON.parse(readFileSync('test/fixtures/decision/telemetry-golden-v1.json', 'utf8')) as {
   schemaVersion: string; scenarios: Array<{ id: string; name: string; expected: Record<string, unknown> }>;
 };
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const CANARY = 'CANARY-BODY-7731';
 const directories: string[] = [];
 afterEach(async () => Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true }))));

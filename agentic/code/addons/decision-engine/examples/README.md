@@ -4,12 +4,20 @@
 `LlmSubagentDecisionAdapter` against a deterministic terminal worker fixture.
 It is offline conformance evidence, not a live provider claim:
 
+From a source checkout:
+
 ```bash
 npm run build:cli
 AIWG_DECISION_ENABLED=1 node \
   agentic/code/addons/decision-engine/skills/decision-evaluate/scripts/decision-evaluate.mjs \
-  --request examples/decision/dispatcher-request-llm.json
+  --request agentic/code/addons/decision-engine/examples/dispatcher-request-llm.json
 ```
+
+From an installed package, after `aiwg use decision-engine`, run the deployed
+script (for example `.claude/.aiwg/skills/decision-evaluate/scripts/decision-evaluate.mjs`)
+with `--request node_modules/aiwg/agentic/code/addons/decision-engine/examples/dispatcher-request-llm.json`.
+Relative paths in the request resolve against the request file, so the examples
+run in place without copying.
 
 `dispatcher-request-jev.json` runs the same ruleset through the Jev binding.
 It names `projection-policy-jev.json`, which projects only `/message` as

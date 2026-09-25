@@ -194,7 +194,7 @@ describe('circuit-breaker thresholds and transition telemetry (CNC-ADMIT-BREAKER
 });
 
 describe('admission telemetry (CNC-ADMIT-TELEMETRY)', () => {
-  const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+  const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
   const success = (alias: string): AdapterObservation => ({
     status: 'success', reason: 'none', value: alias === 'category' ? 'documentation' : alias === 'severity' ? 0.25 : 0.05,
     uncertainty: { source: 'provider', profile: alias === 'core_unavailable' ? 'typesafe-truth-v1' : 'typesafe-distribution-v1',

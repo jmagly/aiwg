@@ -5,7 +5,7 @@ import {
   type QualificationCaseExecutor,
 } from '../../../../src/decision/index.js';
 
-const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 export const CASE_IDS = ['C01', 'C02', 'C03', 'C04', 'C05', 'C06', 'C07'] as const;
 
 async function evaluate(definitionFile: string, response: unknown) {

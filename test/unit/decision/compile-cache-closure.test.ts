@@ -18,7 +18,7 @@ import {
   DECISION_LIFECYCLE_SURFACES, DECISION_LIFECYCLE_VERSION, type DecisionLifecyclePolicy,
 } from '../../../src/decision/lifecycle.js';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const digest = (character: string) => `sha256:${character.repeat(64)}` as `sha256:${string}`;
 const definitions = (): Record<string, DecisionDefinition> => ({
   category: fixture('decision-category.json'), severity: fixture('decision-severity.json'), core: fixture('decision-core_unavailable.json'),
