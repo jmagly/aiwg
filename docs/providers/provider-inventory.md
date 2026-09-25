@@ -1,6 +1,6 @@
 # Provider Inventory
 
-AIWG has **17 named provider integrations**. The source-of-truth registry is
+AIWG has **18 named provider integrations**. The source-of-truth registry is
 `src/providers/provider-definitions.ts`; capability details are maintained in
 `agentic/code/providers/capability-matrix.yaml`.
 
@@ -16,6 +16,7 @@ AIWG has **17 named provider integrations**. The source-of-truth registry is
 | `grokbot` | [Grok Bot](../integrations/grokbot-quickstart.md) | Stable | Mixed project/user (skills fail-closed until `AIWG_GROKBOT_SKILLS_DIR`) |
 | `grok-build` | [Grok Build](../architecture/adr-grokbot-provider-target.md) | Experimental | Mixed project/user (`$GROK_HOME`; kernel skills + AGENTS.md; agents/rules indexed until #2577) |
 | `hermes` | Hermes | Stable | Mixed project/user |
+| `muse` | Muse Code | Experimental | Mixed project/user (`.agents/skills/` project; user root resolves `$XDG_CONFIG_HOME/muse/skills` at deploy time; skill writers land in #226) |
 | `opencode` | OpenCode | Stable | Project |
 | `openclaw` | OpenClaw | Stable | User |
 | `openhuman` | OpenHuman | Experimental | Mixed project/user |
@@ -32,9 +33,10 @@ the separate LLM/API vendor category.
 The `pi` provider targets Pi Coding Agent, the minimal agent harness published
 at [pi.dev](https://pi.dev/); it remains one provider identity.
 `devin` is an alias for `windsurf`, not an additional provider. Bare `grok` is deliberately not an AIWG provider alias because it names the xAI model/API category; use `grokbot` for Grok Bot and `grok-build` for the xAI Grok Build CLI/TUI.
+`muse` is the only AIWG provider id for Muse Code; no aliases are registered (see `docs/architecture/adr-muse-provider-target.md`).
 
 The `generic`
-adapter is an eighteenth registry entry used to emit portable files for custom
+adapter is a nineteenth registry entry used to emit portable files for custom
 or unknown harnesses; it is deliberately excluded from the named-integration
 count. Product interfaces, model APIs, MCP servers, and aliases are likewise
 not counted as separate provider integrations.

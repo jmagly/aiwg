@@ -171,6 +171,7 @@ const ProviderDefinitionSchema = z.object({
     'grokbot',
     'grok-build',
     'hermes',
+    'muse',
     'opencode',
     'openclaw',
     'openhuman',
@@ -298,6 +299,7 @@ export const PROVIDER_IDS: readonly Platform[] = [
   'grokbot',
   'grok-build',
   'hermes',
+  'muse',
   'opencode',
   'openclaw',
   'openhuman',
@@ -407,6 +409,20 @@ const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
     loadMode: 'prose-directive', includeSyntax: null, configRegistration: null,
     bootstrapTargets: ['.hermes.md', 'AGENTS.md'], maxContextBytes: null, recommendedMaxLines: 30, nestedContext: false, support: 'degraded',
     verification: { method: 'AIWG Hermes adapter contract; on-demand artifact-read required', source: 'agentic/code/providers/capability-matrix.yaml', lastVerified: VERIFIED_ON },
+  },
+  // #225: Muse Code prefers AGENTS.md over CLAUDE.md at each directory level;
+  // project AGENTS.md loads only after the workspace is explicitly trusted
+  // (first-run trust prompt). Discover-first bridge content lands in #227.
+  muse: {
+    startupFiles: ['AGENTS.md'],
+    precedence: ['provider/system', 'project AGENTS.md once the workspace is trusted', 'explicit aiwg discover/show'],
+    loadMode: 'prose-directive', includeSyntax: null, configRegistration: null,
+    bootstrapTargets: ['AGENTS.md'], maxContextBytes: null, recommendedMaxLines: null, nestedContext: false, support: 'supported',
+    verification: {
+      method: 'ADR-locked surfaces; discover-first AGENTS.md bridge per official Muse Code docs (trust-gated load)',
+      source: 'docs/architecture/adr-muse-provider-target.md',
+      lastVerified: '2026-09-24',
+    },
   },
   opencode: {
     startupFiles: ['AGENTS.md', 'CLAUDE.md', 'opencode.json#instructions'], precedence: ['provider/system', 'nearest AGENTS.md', 'CLAUDE compatibility', 'registered instructions'],
@@ -926,6 +942,72 @@ const BUILT_IN_SEEDS: BuiltInSeed[] = [
       ruleFormat: 'agents-md-section',
     },
     matrixRef: 'hermes',
+  },
+  {
+    id: 'muse',
+    displayName: 'Muse Code',
+    // #225: ADR fixes the canonical id as `muse` with no aliases.
+    aliases: [],
+    status: 'experimental',
+    builtIn: true,
+    surfaces: {
+      primary: 'muse',
+      compatibility: [],
+      precedence: ['AGENTS.md', '.agents/skills/'],
+      related: [],
+    },
+    // Fail-closed: no env or process signals. A bare `muse` process name collides
+    // with unrelated software, so it is not evidence of Muse Code. The `muse`
+    // CLI binary name is a documented fact, not a detection claim
+    // (docs/architecture/adr-muse-provider-target.md).
+    detection: { env: [], process: [], capabilityId: 'muse' },
+    paths: {
+      deployTarget: 'mixed',
+      artifacts: {
+        // Wave 1 (#225) registers identity only; skill writers land in #226
+        // and hooks in #228, so non-skill artifacts stay null.
+        agents: null,
+        commands: null,
+        skills: '.agents/skills',
+        rules: null,
+        behaviors: null,
+      },
+      kernelSkills: '.agents/skills',
+      contextDiscovery: {
+        agents: null,
+        skills: '.agents/skills',
+        rules: null,
+        behaviors: null,
+      },
+      configFile: null,
+      contextFiles: { aiwgMd: true, agentsMd: true, claudeMdHook: false, hookFile: null, contextFile: 'AGENTS.md' },
+    },
+    smithPaths: {
+      agents: null,
+      commands: null,
+      skills: '.agents/skills',
+      rules: null,
+      fileExtension: '.md',
+      configFile: null,
+      aggregated: false,
+    },
+    // Project skill root only. The user root resolves at deploy time from
+    // XDG_CONFIG_HOME (default ~/.config/muse/skills when unset); never write
+    // ~/.muse or silently mirror into ~/.agents/skills (#226).
+    skillNamespace: {
+      deploymentGroup: 'deep-recursion',
+      pathType: 'project',
+      skillsBaseDir: '.agents/skills',
+      subdirLayout: true,
+    },
+    adapters: {
+      agentFormat: 'agents-md',
+      hookBridge: null,
+      mcpInjection: null,
+      contextAggregation: 'agents-md',
+      ruleFormat: 'agents-md-section',
+    },
+    matrixRef: 'muse',
   },
   {
     id: 'opencode',

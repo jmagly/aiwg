@@ -109,6 +109,7 @@ const PROVIDER_LABELS = {
   omp: 'Oh My Pi',
   hermes:   'Hermes',
   grokbot:  'Grok Bot',
+  muse:     'Muse Code',
 };
 
 // Quick-detect dirs (agents-only) — used when no --provider flag is given.

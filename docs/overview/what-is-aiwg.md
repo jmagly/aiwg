@@ -63,8 +63,8 @@ process. You can use a focused workflow without adopting every phase of a framew
 
 ## Provider support
 
-AIWG has **17 named provider integrations**: Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub Copilot,
-Cursor, DeepSeek Harness, Factory AI, Grok Bot, Grok Build, Hermes, OpenCode, OpenClaw, OpenHuman, Oh My Pi, Pi Coding Agent, Warp Terminal,
+AIWG has **18 named provider integrations**: Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub Copilot,
+Cursor, DeepSeek Harness, Factory AI, Grok Bot, Grok Build, Muse Code, Hermes, OpenCode, OpenClaw, OpenHuman, Oh My Pi, Pi Coding Agent, Warp Terminal,
 and Devin Desktop. The separate `generic` adapter provides portable files for custom harnesses.
 
 The [provider inventory](../providers/provider-inventory.md) tracks integration status and deployment scope. The

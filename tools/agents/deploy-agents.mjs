@@ -20,7 +20,7 @@
  *   --rules-only             Deploy only rules (skip agents)
  *   --dry-run                Show what would be deployed without writing
  *   --force                  Overwrite existing files
- *   --provider <name>        Target provider: antigravity (agy), claude (default), openai, codex, cursor, opencode, copilot, factory, grokbot, grok-build, pi, omp, deepseek-harness (dsh), warp, devin, hermes, openhuman, or openclaw
+ *   --provider <name>        Target provider: antigravity (agy), claude (default), openai, codex, cursor, opencode, copilot, factory, grokbot, grok-build, muse, pi, omp, deepseek-harness (dsh), warp, devin, hermes, openhuman, or openclaw
  *   --model <name>            Override model for all tiers (blanket)
  *   --reasoning-model <name> Override model for reasoning tasks
  *   --coding-model <name>    Override model for coding tasks
@@ -123,7 +123,7 @@ const PROVIDER_ALIASES = {
   'dsh': 'deepseek-harness',
 };
 
-const AVAILABLE_PROVIDERS = ['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'pi', 'omp', 'deepseek-harness', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build'];
+const AVAILABLE_PROVIDERS = ['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'pi', 'omp', 'deepseek-harness', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse'];
 
 const UNSUPPORTED_PROVIDER_HINTS = {
   'devin-cli': [
@@ -653,6 +653,7 @@ Providers (all deploy agents, commands, skills, and rules):
               Paths: .windsurf/agents/, .windsurf/workflows/, .windsurf/skills/, .windsurf/rules/
   grokbot   - Grok Bot (AGENTS.md bridge; skills only with AIWG_GROKBOT_SKILLS_DIR)
   grok-build - Grok Build (experimental; .grok paths + $GROK_HOME; no bare grok alias)
+  muse      - Muse Code (experimental; AGENTS.md bridge; writers land in #226/#228; no aliases)
   hermes    - Hermes Agent (MCP-based integration)
               Skills: $HERMES_HOME/skills/ (user-global; defaults to ~/.hermes/skills/) | Agents: AGENTS.md
               Commands/Rules: served via MCP, not file-deployed

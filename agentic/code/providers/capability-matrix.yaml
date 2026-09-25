@@ -486,6 +486,51 @@ providers:
     deploy_target: mixed
     aggregated_output: true
 
+  muse:
+    display_name: Muse Code
+    status: experimental
+    # Meta's terminal/CI coding agent (Muse Spark-powered). Explicitly not a
+    # model-API surface: Glimmer/Image/Voice are out of scope.
+    # Wave 1 (#225): registry + matrix identity only. Skill writers #226,
+    # discover-first AGENTS.md bridge #227, hooks/MCP #228.
+    # ADR: docs/architecture/adr-muse-provider-target.md · epic #223.
+    daemon_tier: unsupported
+    daemon_pty_adapter: false
+    artifact_paths:
+      agents: "Indexed: aiwg discover / aiwg show agent (native writer deferred)"
+      commands: null
+      # Project root is fixed; the user root resolves at deploy time from
+      # XDG_CONFIG_HOME (default ~/.config/muse/skills when unset). Never
+      # advertise ~/.muse as a skill root, and never silently mirror into
+      # ~/.agents/skills (#226).
+      skills: .agents/skills/
+      skills_cross_agent: null
+      rules: "Indexed: aiwg show rule + AGENTS.md discover-first bridge (bridge content #227)"
+      behaviors: null
+    native_features:
+      cron: false
+      agent_teams: false
+      tasks: false
+      mcp: true
+      behaviors: false
+      mission_control: false
+      daemon: false
+    emulation:
+      cron: null
+      agent_teams: null
+      tasks: aiwg-mc
+      mcp: null
+      behaviors: aiwg-mc
+      mission_control: aiwg-mc
+      daemon: null
+    hook_wiring:
+      at_link_support: false
+      hook_file: .muse/hooks.json
+      fallback: full-inject
+      context_file: AGENTS.md
+    deploy_target: mixed
+    aggregated_output: false
+
   openclaw:
     display_name: OpenClaw
     status: stable

@@ -33,7 +33,7 @@ export const AGENTS_MD_PROVIDERS: ReadonlySet<Platform> = new Set(
     .map((definition) => definition.id),
 );
 
-export type AgentsMdProvider = Platform & ('antigravity' | 'codex' | 'copilot' | 'cursor' | 'windsurf' | 'hermes' | 'grokbot' | 'grok-build' | 'pi' | 'omp' | 'warp' | 'factory' | 'opencode');
+export type AgentsMdProvider = Platform & ('antigravity' | 'codex' | 'copilot' | 'cursor' | 'windsurf' | 'hermes' | 'grokbot' | 'grok-build' | 'muse' | 'pi' | 'omp' | 'warp' | 'factory' | 'opencode');
 
 /**
  * Whether the context-pipeline has ANY work to do for this provider.

@@ -121,6 +121,15 @@
       "resources": "exact"
     },
     {
+      "id": "muse",
+      "location": "project",
+      "root": ".agents/skills",
+      "status": "native",
+      "outcome": "deployed",
+      "validator": "pass",
+      "resources": "exact"
+    },
+    {
       "id": "opencode",
       "location": "project",
       "root": ".opencode/skill",
