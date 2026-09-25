@@ -793,7 +793,7 @@ On first run after the commands-to-skills migration, `aiwg use` detects an exist
   `.agents/skills/`. Context loads discover-first from `AGENTS.md` only after
   the workspace is trusted — trust the workspace when prompted, then start a
   new Muse session (no Cursor-style window reload applies). See the
-  [Muse Code operational reference](../agents/providers/muse.md).
+  [Muse Code operational reference](https://github.com/jmagly/aiwg/blob/main/docs/agents/providers/muse.md).
 - **OpenClaw**: Only provider with behaviors support (`~/.openclaw/behaviors/`); all artifacts deploy to home directory
 - **Local/Ollama**: Uses Claude Code path layout; specify `--coding-model ollama/<model>` to route coding tasks to the local model
 

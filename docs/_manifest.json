@@ -109,6 +109,7 @@
     "configuration/aiwg-config",
     "architecture/adr-deepseek-harness-runtime",
     "architecture/adr-grokbot-provider-target",
+    "architecture/adr-muse-provider-target",
     "architecture/adr-artifact-output-destinations",
     "context-tier-model",
     "context-engineering-contract",
@@ -1081,6 +1082,13 @@
       "title": "ADR: Grok Bot provider target",
       "summary": "Runtime, lifecycle, credential, and session-import decisions for the experimental provider",
       "file": "architecture/adr-grokbot-provider-target.md",
+      "parent": "reference"
+    },
+    {
+      "id": "architecture/adr-muse-provider-target",
+      "title": "ADR: Muse Code provider target",
+      "summary": "Provider id, skill roots, scope, hooks, MCP, and export-first session decisions for the experimental provider",
+      "file": "architecture/adr-muse-provider-target.md",
       "parent": "reference"
     },
     {
