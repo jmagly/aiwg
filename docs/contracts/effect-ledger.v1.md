@@ -1,6 +1,6 @@
 # Effect Ledger v1
 
-Status: contract accepted; core library in `src/effects/` (#2717); verifier framework and built-in verifiers in `src/effects/verifiers/` (#2718); tracker verifiers, CLI and adoption pending (#2719 onward)
+Status: contract accepted; core library in `src/effects/` (#2717); verifier framework and built-in verifiers in `src/effects/verifiers/` (#2718); tracker verifiers (#2719); CLI and adoption pending (#2720 onward)
 Issue: AIWG #2715 (epic #2714)
 Decision: [ADR: AIWG effect ledger](../architecture/adr-effect-ledger.md)
 Predicate type: `https://aiwg.io/attestations/effect/v1`
@@ -407,6 +407,58 @@ answers `unknown` / `container-unreadable`. The pinned outcomes are:
   `unknown` / `verifier-missing` until #2721 supplies the review-store
   verifier, so D13 keeps failing closed.
 
+### Tracker verifiers
+
+`createTrackerVerifiers({config, remoteUrls, ...})` returns the three core
+tracker verifiers, registered as extensions of the built-in registry. Each is
+version `1.0.0` with `canReportAbsent: true`, and each takes a target
+`gitea:owner/repo#N` or `github:owner/repo#N`.
+
+| Kind | Present | Absent |
+|---|---|---|
+| `tracker.comment` | A comment by the pinned tracker actor carries `<!-- aiwg-effect: <effectId> -->` (`marker-match`, or `digest-match` when its body digest equals `expected.digest`, `context.digest` or the `payloadDigest`) | Every comment page read, no match |
+| `tracker.issue.closed` | The issue state is `closed` (`state-match`) | The issue state is `open` |
+| `tracker.pr.merged` | The PR is merged, and its merge commit equals `expected.object` or `context.object` when one is pinned (`marker-match` when the merge commit has an `Effect-Id:` trailer equal to the effect ID, else `state-match`) | The PR is open or closed unmerged, or it was merged as a different commit than the pinned one (evidence `mergeCommitMatch: false`) |
+
+- **Authority.** `resolveTrackerAuthority` over the project config and the git
+  remote URLs selects the tracker. A target on the internal tracker's forge
+  uses the `issue_tracker` remote and `tracker_actor`; a target on the customer
+  tracker's forge uses `customer_issue_tracker` and `customer_tracker_actor`.
+  Any other forge, or a repository other than the selected remote's, is
+  `unknown` / `tracker-blocked` and sends no request. The API base is derived
+  from the selected remote URL (`https://<host>/api/v1` for Gitea,
+  `https://api.github.com` or `https://<host>/api/v3` for GitHub); no host is
+  assumed and secondary remotes are never contacted.
+- **Access order.** `chooseTrackerAccess` over the paths a CLI process has:
+  the tracker HTTP API with credentials from the existing tracker token path
+  (`AIWG_GITEA_TOKEN`/`GITEA_TOKEN`, `AIWG_GITHUB_TOKEN`/`GITHUB_TOKEN`), then
+  the forge CLI (`gh api --include`, GitHub only; Gitea has no CLI with a raw
+  read API). MCP/app tools are never offered. A blocker is `unknown` /
+  `tracker-blocked`. Reads are GET-only; access material is never part of
+  evidence, records, errors or output.
+- **Exact and heuristic matches.** A marker by any author other than the pinned
+  actor, by a `forbid_actors` login, or when no actor is pinned, is `unknown` /
+  `evidence-conflict`, never `present`. A pinned-actor comment without the
+  marker created within `heuristicWindowMs` of the intent (off by default) is
+  `present` / `heuristic-match` with evidence `confidence: heuristic`, never
+  `absent`.
+- **Absent.** Only after an authenticated, complete read: every comment page,
+  proven by `x-total-count`, `x-hasmore` or `Link rel="next"`, or an
+  authoritative issue or PR state. An intent younger than `minAbsentAgeMs`
+  (default 60 s) is `unknown` / `consistency-lag` instead.
+
+| Condition | Reason |
+|---|---|
+| HTTP 401 or 403, or `gh` exit 4 | `auth-denied` |
+| HTTP 429, or 403 with `x-ratelimit-remaining: 0` or `retry-after` | `rate-limited` |
+| HTTP 404 or 410 on the repository, issue or PR | `container-unreadable` |
+| HTTP 5xx or another unexpected status | `server-error` |
+| Connection failure | `network-error` |
+| Framework timeout | `timeout` |
+| A full page without pagination headers, totals that disagree, a short chain, or more than `maxPages` (default 100) pages | `paging-incomplete` |
+| A body over 2 MB (`maxResponseBytes`), invalid JSON or an unexpected shape | `malformed-response` |
+| No usable access path, or a target outside the tracker authority | `tracker-blocked` |
+
 ## Retention and tombstones
 
 Retention follows D10 (`decision-lifecycle/v1`). Ledger records bind the
@@ -493,3 +545,7 @@ When several conditions apply, the precedence is 2, 7, 6, 5, then the outcome.
   placeholder, the crash-window harness and append-only reconcile history;
   `test/unit/effects/verifiers-git.test.ts` covers the `git.commit` and
   `git.tag` matrix, including signature status, over temporary repositories.
+  `test/unit/effects/verifiers-tracker.test.ts` covers the tracker verifiers
+  against mocked Gitea and GitHub responses: the tri-state tables, pagination,
+  the access-gap table, authority (no mirror traffic), the access order and a
+  canary scan of records, errors and output.
