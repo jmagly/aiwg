@@ -1,0 +1,187 @@
+{
+  "$schema": "../domain-manifest.v1.schema.json",
+  "schemaVersion": "1",
+  "domain": "effects",
+  "owner": {
+    "id": "aiwg-maintainers"
+  },
+  "policy": {
+    "strict": true,
+    "remoteReferences": "deny",
+    "compatibility": "backward",
+    "requireFixtures": true
+  },
+  "artifacts": [
+    {
+      "logicalName": "effects.record",
+      "id": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": {
+        "id": "aiwg-maintainers"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "schemas/effects/EffectRecord.v1.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "consumers": [
+        {
+          "id": "effect-ledger-contract",
+          "boundary": "Signed effect ledger segment lines and effect predicate statements",
+          "path": "test/conformance/effects-v1/effect-ledger-contract.test.ts"
+        }
+      ],
+      "fixtures": {
+        "valid": [
+          "test/fixtures/effects/valid/record.segment-a-0.intent.json",
+          "test/fixtures/effects/valid/record.segment-a-1.completed.json",
+          "test/fixtures/effects/valid/record.segment-b-0.tombstone.json",
+          "test/fixtures/effects/valid/record.segment-b-1.tombstone.json",
+          "test/fixtures/effects/valid/record.statement.completed.json",
+          "test/fixtures/effects/valid/record.statement.d13-intent.json",
+          "test/fixtures/effects/valid/record.statement.failed.json",
+          "test/fixtures/effects/valid/record.statement.intent.json",
+          "test/fixtures/effects/valid/record.statement.reconciled.json",
+          "test/fixtures/effects/valid/record.statement.tombstone.json"
+        ],
+        "invalid": [
+          "test/fixtures/effects/invalid/record.segment-line.missing-keyid.json",
+          "test/fixtures/effects/invalid/record.statement.completed-without-present.json",
+          "test/fixtures/effects/invalid/record.statement.d13-derivation-mismatch.json",
+          "test/fixtures/effects/invalid/record.statement.malformed-effect-id-padded.json",
+          "test/fixtures/effects/invalid/record.statement.malformed-effect-id-trailing-bits.json",
+          "test/fixtures/effects/invalid/record.statement.malformed-effect-id-uppercase.json",
+          "test/fixtures/effects/invalid/record.statement.raw-body.json",
+          "test/fixtures/effects/invalid/record.statement.tombstone-with-target.json",
+          "test/fixtures/effects/invalid/record.statement.unknown-kind.json",
+          "test/fixtures/effects/invalid/record.statement.unknown-phase.json"
+        ]
+      },
+      "publication": {
+        "public": true
+      }
+    },
+    {
+      "logicalName": "effects.checkpoint",
+      "id": "https://aiwg.io/schemas/effects/EffectCheckpoint.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": {
+        "id": "aiwg-maintainers"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "schemas/effects/EffectCheckpoint.v1.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "consumers": [
+        {
+          "id": "effect-ledger-contract",
+          "boundary": "Signed per-scope segment-head checkpoints",
+          "path": "test/conformance/effects-v1/effect-ledger-contract.test.ts"
+        }
+      ],
+      "fixtures": {
+        "valid": [
+          "test/fixtures/effects/valid/checkpoint.initial.json"
+        ],
+        "invalid": [
+          "test/fixtures/effects/invalid/checkpoint.missing-root.json"
+        ]
+      },
+      "publication": {
+        "public": true
+      }
+    },
+    {
+      "logicalName": "effects.keyring",
+      "id": "https://aiwg.io/schemas/effects/EffectKeyring.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": {
+        "id": "aiwg-maintainers"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "schemas/effects/EffectKeyring.v1.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "consumers": [
+        {
+          "id": "effect-ledger-contract",
+          "boundary": "Public ledger keys, validity windows and signed rotations",
+          "path": "test/conformance/effects-v1/effect-ledger-contract.test.ts"
+        }
+      ],
+      "fixtures": {
+        "valid": [
+          "test/fixtures/effects/valid/keyring.rotated.json"
+        ],
+        "invalid": [
+          "test/fixtures/effects/invalid/keyring.rotation-not-signed-by-prior.json"
+        ]
+      },
+      "publication": {
+        "public": true
+      }
+    },
+    {
+      "logicalName": "effects.verifier-result",
+      "id": "https://aiwg.io/schemas/effects/EffectVerifierResult.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": {
+        "id": "aiwg-maintainers"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "schemas/effects/EffectVerifierResult.v1.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "consumers": [
+        {
+          "id": "effect-ledger-contract",
+          "boundary": "Tri-state per-kind verifier results and exit codes",
+          "path": "test/conformance/effects-v1/effect-ledger-contract.test.ts"
+        }
+      ],
+      "fixtures": {
+        "valid": [
+          "test/fixtures/effects/valid/verifier-result.absent.json",
+          "test/fixtures/effects/valid/verifier-result.present.json",
+          "test/fixtures/effects/valid/verifier-result.unknown.json"
+        ],
+        "invalid": [
+          "test/fixtures/effects/invalid/verifier-result.absent-cannot-report-absent.json",
+          "test/fixtures/effects/invalid/verifier-result.absent-incomplete.json",
+          "test/fixtures/effects/invalid/verifier-result.exit-code-mismatch.json",
+          "test/fixtures/effects/invalid/verifier-result.heuristic-absent.json"
+        ]
+      },
+      "publication": {
+        "public": true
+      }
+    }
+  ]
+}

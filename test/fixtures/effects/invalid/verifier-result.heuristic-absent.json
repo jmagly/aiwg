@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "aiwg.effect.verifier-result.v1",
+  "effectId": "eff1_ugitdykctocxth3ygipmnwlori4ns6b2t4k4phviz3wi7t77eila",
+  "kind": "git.tag",
+  "verification": {
+    "verifier": {
+      "kind": "git.tag",
+      "version": "1.0.0",
+      "canReportAbsent": true
+    },
+    "result": "absent",
+    "reason": "heuristic-match",
+    "complete": true,
+    "checkedAt": "2026-09-20T12:00:01Z"
+  },
+  "exitCode": 3
+}

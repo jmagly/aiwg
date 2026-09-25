@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "aiwg.effect.keyring.v1",
+  "scope": {
+    "tenant": "local",
+    "project": "example/repo",
+    "subsystem": "delivery"
+  },
+  "keys": [
+    {
+      "keyid": "sha256:dd6153e4edaf946f368c9087f70fa1ea7f7bfe5021f424045d76695ab22e3edc",
+      "algorithm": "ed25519",
+      "publicKey": "MCowBQYDK2VwAyEAPekiDRsLAzTbAW0tL0SPvwUpY6Z9rBM9qdtvGQMaM7w=",
+      "validFrom": "2026-01-01T00:00:00Z",
+      "validUntil": "2026-09-15T00:00:00Z",
+      "status": "retired"
+    },
+    {
+      "keyid": "sha256:db578d84b84013bc191b754a3c7e59bd437693bbc5dec6b0998a7159e434d774",
+      "algorithm": "ed25519",
+      "publicKey": "MCowBQYDK2VwAyEAb15nZke+8U3+VdSGRXLvW8uyFUE+Y9Zq9ghdM5cedT8=",
+      "validFrom": "2026-09-15T00:00:00Z",
+      "status": "active"
+    }
+  ],
+  "rotations": [
+    {
+      "schemaVersion": "aiwg.effect.key-rotation.v1",
+      "sequence": 1,
+      "from": "sha256:dd6153e4edaf946f368c9087f70fa1ea7f7bfe5021f424045d76695ab22e3edc",
+      "to": "sha256:db578d84b84013bc191b754a3c7e59bd437693bbc5dec6b0998a7159e434d774",
+      "effectiveAt": "2026-09-15T00:00:00Z",
+      "reason": "scheduled",
+      "signatures": [
+        {
+          "role": "prior",
+          "keyid": "sha256:dd6153e4edaf946f368c9087f70fa1ea7f7bfe5021f424045d76695ab22e3edc",
+          "sig": "pMaYwy26DaXvTISY49P4m4ExIPJophNruA/kck15Zjg44jJT3QYfZFD0wms1ETzFtKrbklLEjtMXHX/4t21ICw=="
+        },
+        {
+          "role": "successor",
+          "keyid": "sha256:db578d84b84013bc191b754a3c7e59bd437693bbc5dec6b0998a7159e434d774",
+          "sig": "XUNW5q9+j1iGU1/5zQB1db3An9zG2IY5Km5T1NkKhkYWX3I/BT7IGZuI78I3O/RPTLuHdpBNB+Ww1c1ffDr5AQ=="
+        }
+      ]
+    }
+  ]
+}

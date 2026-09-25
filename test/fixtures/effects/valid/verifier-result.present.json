@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "aiwg.effect.verifier-result.v1",
+  "effectId": "eff1_lzgoo46k7z6573pfkz3p5m5mrgqq2greaypilujif3veztq3vwaa",
+  "kind": "tracker.comment",
+  "verification": {
+    "verifier": {
+      "kind": "tracker.comment",
+      "version": "1.0.0",
+      "canReportAbsent": true
+    },
+    "result": "present",
+    "reason": "marker-match",
+    "complete": true,
+    "checkedAt": "2026-09-20T10:00:04Z",
+    "evidenceDigest": "sha256:870d1849c7160ba42c22889daa7d089e6b6bea2013ad4b1d291a047099168dd4"
+  },
+  "exitCode": 0
+}

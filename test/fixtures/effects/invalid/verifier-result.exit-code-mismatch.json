@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "aiwg.effect.verifier-result.v1",
+  "effectId": "eff1_s4lwrwoj6wwvg5lui36jyma53ehz22slkoxd7qnlxani2eyy7txq",
+  "kind": "tracker.pr.merged",
+  "verification": {
+    "verifier": {
+      "kind": "tracker.pr.merged",
+      "version": "1.0.0",
+      "canReportAbsent": true
+    },
+    "result": "unknown",
+    "reason": "rate-limited",
+    "complete": false,
+    "checkedAt": "2026-09-20T10:59:59Z"
+  },
+  "exitCode": 3
+}

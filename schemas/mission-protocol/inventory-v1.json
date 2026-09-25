@@ -1857,6 +1857,16 @@
       "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
     },
     {
+      "path": "test/unit/security/canonical-json-parity.test.ts",
+      "owner": "test/unit",
+      "role": "fixture-or-test",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [],
+      "serialization": "typescript/javascript",
+      "migrationAction": "retain",
+      "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
+    },
+    {
       "path": "test/unit/serve/a2a-terminal-observer.test.ts",
       "owner": "test/unit",
       "role": "fixture-or-test",
