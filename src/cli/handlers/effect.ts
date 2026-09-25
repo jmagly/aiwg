@@ -34,6 +34,7 @@ import {
   activeKey,
   containsRestrictedMaterial,
   createBuiltinVerifierRegistry,
+  createTrackerVerifiers,
   credentialStoreKeyProvider,
   effectId as deriveEffectId,
   effectOutputJson,
@@ -70,8 +71,10 @@ import {
   type EffectVerifierExpectation,
   type EffectVerifierRegistry,
   type LedgerKeyProvider,
+  type TrackerVerifierOptions,
 } from '../../effects/index.js';
 import { parseLedgerPrivateKey } from '../../effects/keys.js';
+import { readConfig, readGitRemoteUrls } from '../../tracker/project-inputs.js';
 import type { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -238,8 +241,13 @@ export interface EffectCliDeps {
   sink?: CheckpointSink;
   clock?: () => number;
   env?: NodeJS.ProcessEnv;
-  /** Extra verifiers registered after the built-ins (for example tracker verifiers). */
+  /**
+   * Extra verifiers registered after the built-ins. An extension whose kind is
+   * a tracker kind replaces the configured tracker verifier of that kind.
+   */
   verifiers?: EffectVerifier[];
+  /** Overrides for the tracker verifiers (transport, clock, config and remotes). */
+  tracker?: Partial<TrackerVerifierOptions>;
   lockTimeoutMs?: number;
 }
 
@@ -318,20 +326,47 @@ function openLedger(session: Session, registry?: EffectVerifierRegistry): Effect
 
 /**
  * The one place the CLI builds its verifier registry: the built-ins, lock
- * recovery, and any injected extensions. `kinds`, `record` and `reconcile`
- * all use it, so `kinds` lists exactly what the registry contains.
+ * recovery, the tracker verifiers (#2719) and any injected extensions.
+ * `kinds`, `record` and `reconcile` all use it, so `kinds` lists
+ * exactly what the registry contains. Tracker authority is resolved lazily at
+ * verification time, so a project without tracker configuration still lists
+ * the tracker kinds and answers `unknown` / `tracker-blocked`.
  */
-export function buildCliVerifierRegistry(projectRoot: string, extensions: EffectVerifier[] = []): EffectVerifierRegistry {
+export function buildCliVerifierRegistry(
+  projectRoot: string,
+  extensions: EffectVerifier[] = [],
+  tracker: TrackerVerifierOptions = { config: null, remoteUrls: {} },
+): EffectVerifierRegistry {
+  const injected = new Set(extensions.map(verifier => verifier.kind));
   const hostVerifiers: EffectVerifier[] = [
     ledgerLockRecoveryVerifier({ projectDir: projectRoot }),
-    // EXTENSION POINT (#2719): add the tracker verifiers here, for example
-    //   ...createTrackerVerifiers(trackerVerifierOptions(projectRoot)),
-    // built from the project config (readConfig) and remote URLs (readGitRemoteUrls).
+    ...createTrackerVerifiers(tracker).filter(verifier => !injected.has(verifier.kind)),
   ];
   return createBuiltinVerifierRegistry(
     { git: { repoDir: projectRoot }, file: { root: projectRoot } },
     [...hostVerifiers, ...extensions],
   );
+}
+
+/**
+ * Tracker verifier options for the CLI: the project config (`readConfig`) and
+ * the git remote URLs (`readGitRemoteUrls`), with `overrides` applied last.
+ */
+export async function cliTrackerOptions(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv,
+  overrides: Partial<TrackerVerifierOptions> = {},
+): Promise<TrackerVerifierOptions> {
+  const [config, remoteUrls] = await Promise.all([
+    'config' in overrides ? Promise.resolve(overrides.config ?? null) : readConfig(projectRoot),
+    overrides.remoteUrls ? Promise.resolve(overrides.remoteUrls) : readGitRemoteUrls(projectRoot),
+  ]);
+  return { ...overrides, config, remoteUrls, env: overrides.env ?? env };
+}
+
+async function sessionRegistry(session: Session): Promise<EffectVerifierRegistry> {
+  const tracker = await cliTrackerOptions(session.projectDir, session.env, session.deps.tracker);
+  return buildCliVerifierRegistry(session.projectDir, session.deps.verifiers, tracker);
 }
 
 // ---------------------------------------------------------------------------
@@ -543,7 +578,7 @@ async function runRecord(session: Session, parsed: ParsedArgs): Promise<Rendered
   const digest = await payloadFrom(parsed);
   const links = linksFrom(parsed);
   const { expected, timeoutMs, verifierVersion } = expectationsFrom(parsed);
-  const registry = buildCliVerifierRegistry(session.projectDir, session.deps.verifiers);
+  const registry = await sessionRegistry(session);
   const ledger = openLedger(session, registry);
   const intent = await recordIntent(ledger, { kind: identity.kind, target: identity.target, context: identity.context, payloadDigest: digest, derivation: identity.derivation, links });
   const base = { schema: 'aiwg.effect.record.v1', effectId: intent.effectId, intent };
@@ -593,7 +628,7 @@ async function runReconcile(session: Session, parsed: ParsedArgs): Promise<Rende
   const id = effectIdFrom(parsed, session.scope);
   const { expected, timeoutMs, verifierVersion } = expectationsFrom(parsed);
   const links = linksFrom(parsed);
-  const registry = buildCliVerifierRegistry(session.projectDir, session.deps.verifiers);
+  const registry = await sessionRegistry(session);
   const outcome = await reconcileEffect(openLedger(session, registry), id, {
     verifiers: registry, expected, links, ...(timeoutMs ? { timeoutMs } : {}), ...(verifierVersion ? { verifierVersion } : {}),
   });
@@ -628,7 +663,7 @@ async function runCheckpoint(session: Session): Promise<Rendered> {
 }
 
 async function runKinds(session: Session): Promise<Rendered> {
-  const registry = buildCliVerifierRegistry(session.projectDir, session.deps.verifiers);
+  const registry = await sessionRegistry(session);
   const kinds = registry.listKinds();
   const registered = new Set(kinds.map(kind => kind.kind));
   const unverified = CORE_EFFECT_KINDS.filter(kind => !registered.has(kind));

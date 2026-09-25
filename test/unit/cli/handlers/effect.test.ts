@@ -328,9 +328,37 @@ describe('aiwg effect keys and kinds', () => {
     const result = await env.run(['kinds'], { verifiers: [extension] });
     expect(result.exitCode).toBe(0);
     const kinds = result.json.kinds.map((entry: any) => entry.kind);
-    expect(kinds).toEqual(expect.arrayContaining(['git.commit', 'git.tag', 'file.digest', 'decision.receipt', 'decision.review.continuation', 'x.aiwg.ledger-lock-recovery', 'x.example.notify']));
+    expect(kinds).toEqual(expect.arrayContaining([
+      'git.commit', 'git.tag', 'file.digest', 'decision.receipt', 'decision.review.continuation',
+      'tracker.comment', 'tracker.issue.closed', 'tracker.pr.merged', 'x.aiwg.ledger-lock-recovery', 'x.example.notify',
+    ]));
+    expect(result.json.unverifiedCoreKinds).toEqual([]);
     expect(result.json.kinds.find((entry: any) => entry.kind === 'x.example.notify')).toEqual({ kind: 'x.example.notify', version: '2.1.0', canReportAbsent: false });
     expect(result.json.coreKinds).toContain('tracker.pr.merged');
+  });
+
+  it('EFF-CLI-17b the tracker verifiers come from the project config and git remotes', async () => {
+    const config = JSON.parse(readFileSync(join(env.project, '.aiwg', 'aiwg.config'), 'utf8'));
+    config.remotes = { primary: 'origin', issue_tracker: 'origin', issue_provider: 'gitea', tracker_actor: { login: 'maintainer' } };
+    writeFileSync(join(env.project, '.aiwg', 'aiwg.config'), JSON.stringify(config));
+    execFileSync('git', ['-C', env.project, 'remote', 'add', 'origin', 'https://git.example.test/owner/repo.git'], { timeout: 20_000, stdio: 'ignore' });
+    const requests: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      requests.push(String(url));
+      return new Response(JSON.stringify({ number: 7, state: 'closed' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as unknown as typeof fetch;
+    const closed = await env.run(['record', '--kind', 'tracker.issue.closed', '--target', 'gitea:owner/repo#7', '--issue', '7', '--action', 'close', '--payload-digest', payloadDigest('close')],
+      { env: { AIWG_GITEA_TOKEN: 'test-token-value' }, tracker: { fetchImpl } });
+    expect(closed.exitCode).toBe(0);
+    expect(closed.json.verification).toMatchObject({ result: 'present', reason: 'state-match' });
+    expect(requests).toEqual(['https://git.example.test/api/v1/repos/owner/repo/issues/7']);
+    // A repository that is not the configured tracker remote is never contacted.
+    const other = await env.run(['record', '--kind', 'tracker.issue.closed', '--target', 'gitea:elsewhere/repo#7', '--payload-digest', payloadDigest('close')],
+      { env: { AIWG_GITEA_TOKEN: 'test-token-value' }, tracker: { fetchImpl } });
+    expect(other.exitCode).toBe(4);
+    expect(other.json.verification).toMatchObject({ result: 'unknown', reason: 'tracker-blocked' });
+    expect(requests).toHaveLength(1);
+    expect(env.outputs.join('\n')).not.toContain('test-token-value');
   });
 });
 

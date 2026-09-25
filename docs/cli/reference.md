@@ -4900,6 +4900,16 @@ payloads are never recorded or printed.
 **Expectations.** `--expect-digest`, `--expect-object`, `--signed`,
 `--timeout-ms` and `--verifier-version` are passed to the verifier.
 
+**Tracker kinds.** `tracker.comment`, `tracker.issue.closed` and
+`tracker.pr.merged` take a target `gitea:owner/repo#N` or
+`github:owner/repo#N`. The tracker comes from the `remotes` block of
+`aiwg.config` and the repository's remote URLs; a target on any other forge or
+repository is `unknown` / `tracker-blocked` and sends no request. Reads use the
+tracker HTTP API with `AIWG_GITEA_TOKEN`/`GITEA_TOKEN` or
+`AIWG_GITHUB_TOKEN`/`GITHUB_TOKEN`, then `gh` for GitHub. A comment matches
+exactly when it carries `<!-- aiwg-effect: <effect-id> -->` and was written by
+the pinned `tracker_actor`.
+
 **Common options.** `--subsystem review|job|delivery|custom` (default
 `delivery`), `--project-dir <dir>`, and `--format json|text`. Output is JSON by
 default, and every JSON document has a `schema` member (for example
