@@ -44,7 +44,9 @@ The bounded exporter has a fixed queue, deadline, diagnostic ring and per-trace 
 
 ## Retention, deletion, and export
 
-Trace, debug sidecar, export, and linked review/job/cache/evaluation TTLs must be positive. Deletion is denied during legal hold. Otherwise links become explicit tombstones rather than broken or reused references. Backup/restore must reapply TTL and tombstone state before records become queryable.
+Trace, debug sidecar, export, and linked review/job/cache/evaluation TTLs must be positive. Deletion is denied during legal hold. Otherwise links become explicit tombstones (`aiwg.link.state = deleted`, `aiwg.link.tombstone = <opaque id>`) rather than broken or reused references; the marker is retained by sanitized export. Backup/restore must reapply TTL and tombstone state before records become queryable.
+
+Derive the retention policy from the common `decision-lifecycle/v1` policy with `telemetryRetentionFromLifecyclePolicy(policy, holds, now)` (see [data-lifecycle.md](data-lifecycle.md)). Legal hold then comes from active, authorized lifecycle holds on telemetry surfaces instead of a hand-set flag. The standalone `DecisionRetentionPolicy` shape with a boolean `legalHold` still works but is deprecated.
 
 Use `sanitizedTelemetryExport()` and run `scanTelemetryCanaries()` before disclosure. Example queries:
 

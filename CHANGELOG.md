@@ -7,7 +7,35 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (decision runtime):** state projection is now mandatory for
+  network egress. `evaluateDecisionRuleset` denies dispatch to any adapter that
+  does not declare `capabilities().egress = { mode: 'none' }` when no
+  `projection` policy is supplied, returning `data-boundary-denied` before
+  credential resolution or transport on single, native-batch and fallback
+  paths. Integrations that evaluated Jev or other network adapters without a
+  projection policy must add one, or (local and test harnesses only) pass the
+  host-only opt-out `projection: { mode: 'unprojected-local' }`, which is
+  recorded as `spec.projection` in the v1alpha2 result and receipt. Projection
+  origin and region are now bound to the adapter's declared destination
+  (`JevDecisionAdapter` gains a `region` option; an undeclared or `unknown`
+  region is denied), `restricted` fields need an explicit `maxSensitivity`
+  ceiling, and incomplete projected context downgrades results to `review`. The
+  Jev request `state` and the subagent prompt input now carry the trust
+  partition as `{ verified, untrusted }`. The `decision-evaluate` dispatcher
+  accepts `projectionPolicyPath` and `adapterOptions.jev`, and refuses
+  network-capable adapters without a policy (#2678, #2597).
+
 ### Added
+
+- Decision D10 offline evidence: secret-material rejection for decision
+  receipts, batch receipts and result-cache entries; projection-policy and
+  `decision-lifecycle/v1` JSON schemas; subject-level lifecycle backup/restore
+  and cross-surface tombstone resolution; telemetry retention derived from the
+  common lifecycle policy; a real-evaluation stdout/stderr and activity-record
+  privacy capture harness; a projection policy matrix; and the D10
+  threat-control mapping (#2597).
 
 - Four-platform Grok Build qualification contract, live smoke receipt, upstream
   drift check, and stable-promotion gate. The adapter remains experimental

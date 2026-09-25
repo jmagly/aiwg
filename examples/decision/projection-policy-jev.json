@@ -1,0 +1,39 @@
+{
+  "version": "1.0.0",
+  "provider": "jev",
+  "model": "jev-latest",
+  "origin": "https://api.typesafe.ai",
+  "region": "operator-declared-region",
+  "purpose": "issue-triage",
+  "allowIncompleteContext": false,
+  "fields": [
+    {
+      "pointer": "/message",
+      "output": "message",
+      "source": "issue-reporter",
+      "subject": "example-ticket",
+      "trust": "untrusted",
+      "sensitivity": "internal",
+      "purpose": "issue-triage",
+      "retentionClass": "ephemeral",
+      "accessScopes": [
+        "decision-runtime"
+      ],
+      "exportPolicy": "sanitized",
+      "deletionPolicy": "erase",
+      "backupPolicy": "not-persisted",
+      "allowedProviders": [
+        "jev"
+      ],
+      "allowedModels": [
+        "jev-latest"
+      ],
+      "allowedOrigins": [
+        "https://api.typesafe.ai"
+      ],
+      "allowedRegions": [
+        "operator-declared-region"
+      ]
+    }
+  ]
+}

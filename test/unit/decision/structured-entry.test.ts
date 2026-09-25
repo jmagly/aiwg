@@ -233,7 +233,7 @@ describe('decision structured entry contract', () => {
     const core = JSON.parse(readFileSync('examples/decision/decision-core_unavailable.json', 'utf8')) as DecisionDefinition;
     const adapter: DecisionAdapter = {
       id: 'jev', version: '1.0.0',
-      capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['typed-output'], maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1'], executable: true }),
+      capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['typed-output'], maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1'], executable: true, egress: { mode: 'none' as const } }),
       evaluate: vi.fn(async () => ({ status: 'success', reason: 'none', value: 'documentation', uncertainty: null, actualModel: 'fixture', usage: { inputTokens: null, outputTokens: null, costUsd: null }, requestId: null })),
     };
     const store = new MemoryDecisionReceiptStore();
@@ -263,7 +263,7 @@ describe('decision structured entry contract', () => {
     const originalInput = structuredClone(input);
     const adapter: DecisionAdapter = {
       id: 'jev', version: '1.0.0',
-      capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['structured-entries'], maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1'], executable: true }),
+      capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['structured-entries'], maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1'], executable: true, egress: { mode: 'none' as const } }),
       evaluate: async req => {
         req.definition.spec.question = { state: 'override', model: 'override', questions: 'override' };
         (req.input as { message: string }).message = 'changed';
@@ -334,6 +334,7 @@ describe('decision structured entry contract', () => {
       input: JSON.parse(readFileSync('examples/decision/input.json', 'utf8')),
       runId: 'structured-run', invocationId: `structured-${backend}`, adapters, receiptStore: store,
       resolveCredential: async () => new TextEncoder().encode('fixture-token'),
+      projection: { mode: 'unprojected-local' },
     });
     expect(result.apiVersion).toBe('decision.aiwg.io/v1alpha2');
     expect(result.spec.evaluations.category?.spec.status).toBe('success');

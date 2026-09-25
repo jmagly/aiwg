@@ -249,7 +249,7 @@ function evaluationFixture(observe: () => AdapterObservation, extra: Record<stri
   const adapter: DecisionAdapter = {
     id: 'jev', version: '1.0.0',
     capabilities: async () => ({ answerKinds: ['choice'], features: ['typed-output'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1'], executable: true }),
+      confidenceProfiles: ['typesafe-distribution-v1'], executable: true, egress: { mode: 'none' as const } }),
     evaluate: async () => observe(),
   };
   return { ruleset, binding, definitions: { category: fixture<DecisionDefinition>('decision-category.json') },

@@ -1,4 +1,5 @@
 import { canonicalJson } from '../../security/artifact-trust.js';
+import { assertNoPortableSecretMaterial } from '../portable-secrets.js';
 import { resultCacheSha256 } from './key.js';
 import type { ResultCacheEntry } from './types.js';
 
@@ -17,4 +18,6 @@ export function assertResultCacheEntry(entry: ResultCacheEntry): void {
   if (entry.evidence.durationMs < 0) throw new ResultCacheIntegrityError('Invalid original duration');
   if (entry.evidence.status === 'success' && entry.evidence.failureReason !== 'none') throw new ResultCacheIntegrityError('Successful evidence has a failure reason');
   if (entry.evidence.status === 'terminal-failure' && entry.evidence.failureReason !== 'invalid-input') throw new ResultCacheIntegrityError('Unsafe negative cache entry');
+  // Cache entries are portable (export/replay); never admit or serve secret material.
+  assertNoPortableSecretMaterial(entry, 'Cache entry', message => new ResultCacheIntegrityError(message));
 }

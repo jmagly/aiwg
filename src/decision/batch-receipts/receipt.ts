@@ -1,6 +1,7 @@
 import type { ContextPartition, ContextPlan } from '../context-plan.js';
 import type { DecisionBatchReceipt, BatchReceiptStatus } from './types.js';
-import { validateBatchReceipt, validateBatchReceiptTransition } from './validate.js';
+import { assertNoPortableSecretMaterial } from '../portable-secrets.js';
+import { BatchReceiptValidationError, validateBatchReceipt, validateBatchReceiptTransition } from './validate.js';
 
 export interface NewBatchReceiptInput {
   tenantId: string; projectId: string; batchId: string; invocationId: string; runId: string;
@@ -25,7 +26,7 @@ export function newBatchReceipt(input: NewBatchReceiptInput): DecisionBatchRecei
     attempts: [], answerReferences: [], allocations: [], status: 'acquired',
     createdAtEpochMs: input.nowEpochMs, updatedAtEpochMs: input.nowEpochMs, terminalAtEpochMs: null,
   };
-  validateBatchReceipt(receipt); return receipt;
+  validateBatchReceipt(receipt); assertBatchReceiptPortable(receipt); return receipt;
 }
 
 export function nextBatchReceipt(previous: DecisionBatchReceipt, update: {
@@ -38,7 +39,12 @@ export function nextBatchReceipt(previous: DecisionBatchReceipt, update: {
   const terminal = update.status === 'completed' || update.status === 'failed' || update.status === 'execution-uncertain';
   const next: DecisionBatchReceipt = { ...structuredClone(previous), ...structuredClone(update),
     revision: previous.revision + 1, terminalAtEpochMs: terminal ? update.updatedAtEpochMs : null };
-  validateBatchReceiptTransition(previous, next); return next;
+  validateBatchReceiptTransition(previous, next); assertBatchReceiptPortable(next); return next;
+}
+
+/** Batch receipts are portable artifacts: reject embedded keys, bearer values, private locators, and secret hashes. */
+export function assertBatchReceiptPortable(receipt: DecisionBatchReceipt): void {
+  assertNoPortableSecretMaterial(receipt, 'Batch receipt', message => new BatchReceiptValidationError(message));
 }
 
 /** Reference embedded by future DecisionResult writers; intentionally has no usage/cost fields. */

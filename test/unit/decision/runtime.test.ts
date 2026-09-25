@@ -42,7 +42,7 @@ class FixtureAdapter implements DecisionAdapter {
     return {
       answerKinds: ['choice', 'ordinal-score', 'truth-probability'] as const,
       features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1', 'llm-self-report-v1'], executable: true,
+      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1', 'llm-self-report-v1'], executable: true, egress: { mode: 'none' as const },
     };
   }
   async evaluate(request: Parameters<DecisionAdapter['evaluate']>[0]) { return this.observe(request.alias); }
@@ -141,7 +141,7 @@ describe('shared evaluator', () => {
       id: 'jev', version: '1.0.0',
       capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
         features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-        confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true }),
+        confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const } }),
       evaluate: async request => {
         active += 1;
         maximum = Math.max(maximum, active);
@@ -235,7 +235,7 @@ describe('shared evaluator', () => {
     adapter.capabilities = async () => ({
       answerKinds: ['ordinal-score'] as const,
       features: ['ordinal-score'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1'], executable: true,
+      confidenceProfiles: ['typesafe-distribution-v1'], executable: true, egress: { mode: 'none' as const },
     });
     adapter.evaluate = vi.fn(adapter.evaluate.bind(adapter));
     const result = await evaluateDecisionRuleset({
