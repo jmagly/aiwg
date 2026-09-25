@@ -12,6 +12,21 @@
 import { spawn, spawnSync } from 'child_process';
 
 /**
+ * Whether the optional muse exec Ralph adapter is registered.
+ * Enabled by default; set `AIWG_MUSE_RALPH_ENABLED` to `0`, `false`, `no`,
+ * or `off` to disable the adapter without affecting
+ * `aiwg use --provider muse` (the deploy/writer path lives in `src/` and
+ * never consults this registry). See
+ * `tools/ralph-external/lib/muse-adapter.mjs` (#230).
+ *
+ * @returns {boolean}
+ */
+export function isMuseRalphEnabled() {
+  const raw = String(process.env.AIWG_MUSE_RALPH_ENABLED ?? '').trim().toLowerCase();
+  return !['0', 'false', 'no', 'off'].includes(raw);
+}
+
+/**
  * @typedef {Object} ProviderCapabilities
  * @property {boolean} streamJson - Supports --output-format stream-json
  * @property {boolean} sessionResume - Supports --session-id for resumption
@@ -288,6 +303,13 @@ async function registerBuiltinProviders() {
   try {
     await import('./deepseek-harness-adapter.mjs');
   } catch { /* ignore if not found */ }
+  // #230: optional / post-experimental. Disabled via AIWG_MUSE_RALPH_ENABLED=0
+  // without affecting `aiwg use --provider muse`.
+  if (isMuseRalphEnabled()) {
+    try {
+      await import('./muse-adapter.mjs');
+    } catch { /* ignore if not found */ }
+  }
 }
 
 // Run registration — store promise so callers can await it
