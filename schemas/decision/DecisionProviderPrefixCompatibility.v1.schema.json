@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionProviderPrefixCompatibility.v1.schema.json",
+  "title": "AIWG Decision Provider Prefix Compatibility Record v1",
+  "description": "Pinned permission to reuse a provider prefix across one exact identity change. Scope, data class, region, egress, provider and prefix bytes can never be permitted to change.",
+  "type": "object",
+  "required": ["schemaVersion", "fromIdentityDigest", "toIdentityDigest", "permits", "aliasSnapshot", "approvedBy", "expiresAtEpochMs"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "decision-provider-prefix-compatibility/v1" },
+    "fromIdentityDigest": { "$ref": "#/$defs/digest" },
+    "toIdentityDigest": { "$ref": "#/$defs/digest" },
+    "permits": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "enum": ["requestedModel", "actualModel", "apiRevision", "backend", "policy"] }
+    },
+    "aliasSnapshot": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["alias", "snapshotId", "approvedActualModels", "validUntilEpochMs"],
+          "additionalProperties": false,
+          "properties": {
+            "alias": { "type": "string", "minLength": 1 },
+            "snapshotId": { "type": "string", "minLength": 1 },
+            "approvedActualModels": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "validUntilEpochMs": { "type": "integer", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "approvedBy": { "type": "string", "minLength": 1 },
+    "expiresAtEpochMs": { "type": "integer", "minimum": 0 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "permits": { "type": "array", "contains": { "enum": ["requestedModel", "actualModel"] } } } },
+      "then": { "properties": { "aliasSnapshot": { "type": "object" } } }
+    }
+  ],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

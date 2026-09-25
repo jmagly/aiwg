@@ -17,6 +17,7 @@ const SAFE_ATTRIBUTE_KEYS = new Set(`
   aiwg.calibration.reason_count aiwg.route.reason aiwg.route.fallback aiwg.primitive.count
   aiwg.validation.outcome aiwg.persistence.result aiwg.cache.source aiwg.cache.layer
   aiwg.cache.result aiwg.cache.version aiwg.cache.saved_tokens aiwg.cache.expires_at_ms
+  aiwg.cache.reason aiwg.cache.preparation_ms aiwg.cache.invalidation_reason
   aiwg.batch.id aiwg.batch.mode aiwg.batch.plan_digest aiwg.batch.partition_id
   aiwg.batch.item_count aiwg.batch.result_count aiwg.job.id
   aiwg.job.operation aiwg.job.status aiwg.job.revision aiwg.job.item_count aiwg.job.unknown_count

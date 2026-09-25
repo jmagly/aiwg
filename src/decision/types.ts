@@ -12,6 +12,7 @@ import type { BatchReceiptStore, PriceCatalogRecord } from './batch-receipts/typ
 import type { CalibrationRegistry } from './calibration/registry.js';
 import type { CalibrationIdentity, CompatibilityDecision, CompatibilityPolicy } from './calibration/types.js';
 import type {
+  CacheTelemetry,
   CompileCacheIdentity,
   CompileCacheReadContext,
   CompileCacheResult,
@@ -483,6 +484,8 @@ export interface DecisionCompileCachePolicy {
   /** Cache rejection can safely recompile; strict mode instead fails before dispatch. */
   failureMode?: 'recompile' | 'fail';
   onResult?: (input: { alias: string; outcome: CompileCacheResult<JsonValue>['outcome'] }) => void;
+  /** Metadata-only compile-layer telemetry for `mapCacheTelemetry`; carries no alias, key or identity. */
+  onTelemetry?: (telemetry: CacheTelemetry) => void;
 }
 
 export interface DecisionProviderPrefixPolicy {

@@ -43,6 +43,27 @@ export function cacheBenchmarkReport(configurationDigest: `sha256:${string}`, wa
     enabled: summarize(samples.filter(value => value.mode === 'cache-enabled')) };
 }
 
+export interface CacheBenchmarkTargetResult {
+  metric: 'preparation-latency';
+  targetBps: number;
+  /** Relative latency reduction of enabled over disabled; null when the baseline cannot support a ratio. */
+  observedBenefitBps: number | null;
+  outcome: 'pass' | 'fail' | 'unknown';
+}
+
+/**
+ * Enforce the preregistered minimum benefit as a pass/fail result. Only
+ * measured preparation latency is judged; unknown provider economics never
+ * contribute to a pass.
+ */
+export function evaluateCacheBenchmarkTarget(report: CacheBenchmarkReport): CacheBenchmarkTargetResult {
+  const baseline = report.disabled.averagePreparationLatencyMs;
+  const observedBenefitBps = baseline > 0
+    ? Math.round((baseline - report.enabled.averagePreparationLatencyMs) * 10_000 / baseline) : null;
+  return { metric: 'preparation-latency', targetBps: report.minimumBenefitTargetBps, observedBenefitBps,
+    outcome: observedBenefitBps === null ? 'unknown' : observedBenefitBps >= report.minimumBenefitTargetBps ? 'pass' : 'fail' };
+}
+
 /** Deterministic paired bootstrap interval; positive differences favor enabled caching. */
 export function pairedPreparationLatencyInterval(disabled: readonly number[], enabled: readonly number[],
   iterations = 233): string {

@@ -3,10 +3,13 @@ import type {
   AdapterObservation,
   DecisionAdapterBatchObservation,
   DecisionAdapterBatchRequest,
+  DecisionAdapterCompileRequest,
   DecisionAdapterRequest,
   DecisionAdapter,
+  DecisionDefinition,
   DecisionFailureReason,
   DecisionUsage,
+  JsonValue,
 } from '../types.js';
 import { DecisionValidationError, validateDecisionValue, validateDistribution } from '../validate.js';
 import { canonicalJson } from '../../security/artifact-trust.js';
@@ -79,6 +82,15 @@ export class JevDecisionAdapter implements DecisionAdapter {
     };
   }
 
+  /**
+   * Local compilation of the stable question payload. Jev exposes no
+   * server-side compile or prompt-prefix API, so this only prepares the
+   * request bytes the evaluator would otherwise rebuild on every call.
+   */
+  async compile(request: DecisionAdapterCompileRequest): Promise<JsonValue> {
+    return compileJevQuestion(request.definition);
+  }
+
   async evaluate(request: DecisionAdapterRequest): Promise<AdapterObservation> {
     if (request.signal.aborted) return externalInterruption(request, 'not-sent');
     if (this.now() >= request.deadlineEpochMs) return failure('timeout', { termination: 'target-timeout', dispatchCertainty: 'not-sent' });
@@ -109,7 +121,7 @@ export class JevDecisionAdapter implements DecisionAdapter {
     let body: string;
     try {
       body = JSON.stringify({ state: request.input, model: request.target.model,
-        questions: { [request.questionId ?? request.alias]: toJevQuestion(request) } });
+        questions: { [request.questionId ?? request.alias]: jevQuestion(request) } });
     } catch { return failure('invalid-request', { dispatchCertainty: 'not-sent' }); }
     if (request.signal.aborted) return externalInterruption(request, 'not-sent');
     let response: Response;
@@ -232,7 +244,7 @@ export class JevDecisionAdapter implements DecisionAdapter {
     let body: string;
     try {
       body = JSON.stringify({ state: request.input, model: request.target.model,
-        questions: Object.fromEntries(requests.map(candidate => [candidate.questionId!, toJevQuestion(candidate)])) });
+        questions: Object.fromEntries(requests.map(candidate => [candidate.questionId!, jevQuestion(candidate)])) });
     } catch { return batchFailure(requests, failure('invalid-request', { dispatchCertainty: 'not-sent' })); }
     let response: Response;
     try {
@@ -296,21 +308,43 @@ async function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T
   finally { signal.removeEventListener('abort', onAbort); }
 }
 
-function toJevQuestion(request: DecisionAdapterRequest): Record<string, unknown> {
-  const { answer } = request.definition.spec;
+export const JEV_COMPILED_QUESTION_FORMAT = 'jev-question/v1';
+
+/**
+ * The question is kept as JSON text so its key order, and therefore the
+ * request bytes, survive canonical cache storage unchanged.
+ */
+export function compileJevQuestion(definition: DecisionDefinition): { format: typeof JEV_COMPILED_QUESTION_FORMAT; question: string } {
+  return { format: JEV_COMPILED_QUESTION_FORMAT, question: JSON.stringify(toJevQuestion(definition)) };
+}
+
+/** Cached and uncached calls both decode a compiled artifact; a malformed one fails before dispatch. */
+function jevQuestion(request: DecisionAdapterRequest): Record<string, unknown> {
+  const artifact = (request.compiledArtifact ?? compileJevQuestion(request.definition)) as Record<string, unknown> | null;
+  if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact) || Object.keys(artifact).length !== 2
+    || artifact.format !== JEV_COMPILED_QUESTION_FORMAT || typeof artifact.question !== 'string') {
+    throw new Error('invalid compiled Jev question');
+  }
+  const question = JSON.parse(artifact.question) as unknown;
+  if (!question || typeof question !== 'object' || Array.isArray(question)) throw new Error('invalid compiled Jev question');
+  return question as Record<string, unknown>;
+}
+
+function toJevQuestion(definition: DecisionDefinition): Record<string, unknown> {
+  const { answer } = definition.spec;
   if (answer.kind === 'choice') {
     return {
       type: 'choice',
-      instructions: request.definition.spec.question,
+      instructions: definition.spec.question,
       criteria: Object.fromEntries(answer.options.map(option => [option.id, option.description])),
     };
   }
   if (answer.kind === 'ordinal-score') {
-    return { type: 'score', instructions: request.definition.spec.question, criteria: answer.levels };
+    return { type: 'score', instructions: definition.spec.question, criteria: answer.levels };
   }
   return {
     type: 'noul',
-    instructions: request.definition.spec.question,
+    instructions: definition.spec.question,
     criteria: { true: answer.trueDescription, false: answer.falseDescription },
   };
 }

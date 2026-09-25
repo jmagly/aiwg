@@ -13,7 +13,10 @@ const FIXED_DIMENSIONS: Record<string, readonly string[]> = {
     'cancelled', 'persistence-error', 'replay-mismatch', 'execution-uncertain', 'batch-record-unavailable', 'no-match', 'conflicting-outcomes', 'evaluation-failed'],
   'aiwg.acceptance.disposition': ['act', 'review', 'reject', 'fallback'],
   'aiwg.batch.mode': ['native', 'single', 'emulated'],
-  'aiwg.cache.result': ['hit', 'miss', 'stale', 'unknown'],
+  'aiwg.cache.result': ['hit', 'miss', 'stale', 'unknown', 'bypass', 'rejected', 'unsupported'],
+  'aiwg.cache.layer': ['definition-compilation', 'adapter-compilation', 'provider-prefix', 'invocation-replay', 'semantic-result'],
+  'aiwg.cache.reason': ['verified-hit', 'cold-fill', 'cache-disabled', 'store-rejected', 'provider-report',
+    'documented-unsupported', 'policy-bypass', 'unreported'],
   'aiwg.review.status': ['pending', 'approved', 'denied', 'escalated', 'expired'],
   'aiwg.usage.cost_provenance': ['provider-fact', 'client-derived', 'estimate', 'unknown'],
 };

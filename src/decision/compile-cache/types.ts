@@ -99,14 +99,58 @@ export interface ProviderPrefixEvidence {
   expiresAtEpochMs: number | null;
 }
 
+/** Bounded reason codes; never a key, alias, identifier or error message. */
+export type CacheTelemetryReason =
+  | 'verified-hit' | 'cold-fill' | 'cache-disabled' | 'store-rejected' | 'provider-report'
+  | 'documented-unsupported' | 'policy-bypass' | 'unreported';
+
+export type CacheInvalidationReason = 'revalidation-failed' | null;
+
+/** Metadata-only cache telemetry record; `version` is a bounded compiler or provider cache version. */
 export interface CacheTelemetry {
   schemaVersion: 'decision-cache-telemetry/v1';
   layer: DecisionCacheLayer;
   outcome: CompileCacheOutcome | ProviderPrefixStatus;
-  reason: string;
+  reason: CacheTelemetryReason;
   version: string | null;
   savedTokens: number | null;
   preparationLatencyMs: number;
   expiresAtEpochMs: number | null;
-  invalidationReason: string | null;
+  invalidationReason: CacheInvalidationReason;
+}
+
+/** Prefix-identity dimensions a pinned compatibility record may allow to differ. */
+export type ProviderPrefixCompatibleDimension = 'requestedModel' | 'actualModel' | 'apiRevision' | 'backend' | 'policy';
+
+/** D09-style alias snapshot that pins which actual models an alias move may resolve to. */
+export interface ProviderPrefixAliasSnapshot {
+  alias: string;
+  snapshotId: string;
+  approvedActualModels: string[];
+  validUntilEpochMs: number;
+}
+
+/**
+ * Explicit, pinned permission to reuse a provider prefix across one exact
+ * identity change. Without a matching record, any change invalidates reuse.
+ */
+export interface ProviderPrefixCompatibilityRecord {
+  schemaVersion: 'decision-provider-prefix-compatibility/v1';
+  fromIdentityDigest: Sha256;
+  toIdentityDigest: Sha256;
+  permits: ProviderPrefixCompatibleDimension[];
+  /** Required whenever the record permits `requestedModel` or `actualModel`. */
+  aliasSnapshot: ProviderPrefixAliasSnapshot | null;
+  approvedBy: string;
+  expiresAtEpochMs: number;
+}
+
+export type ProviderPrefixReuseReason =
+  | 'identical' | 'pinned-compatibility' | 'ttl-expired' | 'identity-changed' | 'non-transferable-dimension'
+  | 'record-expired' | 'record-mismatch' | 'alias-snapshot-unverified';
+
+export interface ProviderPrefixReuseDecision {
+  reusable: boolean;
+  reason: ProviderPrefixReuseReason;
+  changedDimensions: string[];
 }

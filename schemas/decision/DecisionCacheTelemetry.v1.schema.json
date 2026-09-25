@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionCacheTelemetry.v1.schema.json",
+  "title": "AIWG Decision Cache Telemetry v1",
+  "description": "Metadata-only cache record for all five layers. It carries no cache key, alias, identity, prompt, schema body, credential or provider handle.",
+  "type": "object",
+  "required": ["schemaVersion", "layer", "outcome", "reason", "version", "savedTokens", "preparationLatencyMs", "expiresAtEpochMs", "invalidationReason"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "decision-cache-telemetry/v1" },
+    "layer": { "enum": ["definition-compilation", "adapter-compilation", "provider-prefix", "invocation-replay", "semantic-result"] },
+    "outcome": { "enum": ["hit", "miss", "bypass", "rejected", "unsupported", "unknown"] },
+    "reason": { "enum": ["verified-hit", "cold-fill", "cache-disabled", "store-rejected", "provider-report", "documented-unsupported", "policy-bypass", "unreported"] },
+    "version": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 64 }, { "type": "null" }] },
+    "savedTokens": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+    "preparationLatencyMs": { "type": "number", "minimum": 0 },
+    "expiresAtEpochMs": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+    "invalidationReason": { "enum": ["revalidation-failed", null] }
+  }
+}
