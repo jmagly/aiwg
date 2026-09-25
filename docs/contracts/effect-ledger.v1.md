@@ -1,6 +1,6 @@
 # Effect Ledger v1
 
-Status: contract accepted; core library in `src/effects/` (#2717); verifiers, CLI and adoption pending (#2718 onward)
+Status: contract accepted; core library in `src/effects/` (#2717); verifier framework and built-in verifiers in `src/effects/verifiers/` (#2718); tracker verifiers, CLI and adoption pending (#2719 onward)
 Issue: AIWG #2715 (epic #2714)
 Decision: [ADR: AIWG effect ledger](../architecture/adr-effect-ledger.md)
 Predicate type: `https://aiwg.io/attestations/effect/v1`
@@ -271,6 +271,141 @@ member of records) is:
 Verifiers use read-only credentials and the project tracker access order. A
 `chooseTrackerAccess` blocker maps to `unknown` / `tracker-blocked`. Each
 reconcile appends a new `reconciled` record; earlier records are never mutated.
+A `present` result also records `completed` when no outcome is recorded yet
+(the first outcome wins; an existing `failed` is left as it is).
+
+### Verifier interface
+
+The interface lives in `src/effects/verifiers/types.ts` and is exported
+through `src/effects` and the package API. Additions MUST be optional members.
+
+```ts
+interface EffectVerifier {
+  readonly kind: string;             // core kind or x.<vendor>.<name>
+  readonly version: string;          // semver MAJOR.MINOR.PATCH
+  readonly canReportAbsent: boolean;
+  verify(request: EffectVerifierRequest): Promise<EffectVerifierObservation>;
+}
+
+interface EffectVerifierRequest {
+  effectId: string; scope: EffectScope; kind: string; target: string;
+  context: EffectContext; payloadDigest: string; intentRecordedAt: string;
+  expected: EffectVerifierExpectation;   // {} when nothing is pinned
+  signal: AbortSignal;                   // aborted at the framework timeout
+}
+
+interface EffectVerifierExpectation { digest?: string; object?: string; signed?: boolean }
+
+interface EffectVerifierObservation {
+  result: 'present' | 'absent' | 'unknown';
+  reason: string;                        // a code from the table above
+  complete: boolean;
+  evidenceDigest?: string;               // sha256:<hex>
+  evidence?: Record<string, string | number | boolean | null>;
+}
+
+interface EffectVerifierRegistry {
+  get(kind: string): EffectVerifier | undefined;
+  kinds(): string[];
+  listKinds(): VerifierRef[];            // {kind, version, canReportAbsent}
+}
+
+class EffectVerifierError extends Error { readonly reason: UnknownReason }
+```
+
+- `expected` carries caller expectations that are not identity: digests and
+  references only. Built-in verifiers read each member from `expected` first
+  and fall back to a context member of the same name.
+- `evidence` is digest-and-reference-only (it passes the digest-only scan). The
+  framework sets `evidenceDigest` to `sha256:` over `canonicalJson(evidence)`
+  and returns `evidence` to the caller; only the digest is recorded.
+- The framework (`runVerifier`, used by `reconcileEffect`) enforces the
+  tri-state rules and never throws. Each of these gives `unknown`:
+
+  | Condition | Reason |
+  |---|---|
+  | No verifier for the kind | `verifier-missing` |
+  | The verifier's kind differs from the intent's, or `verifierVersion` is pinned and differs | `verifier-version-mismatch` |
+  | `absent` from a verifier with `canReportAbsent: false` | `verifier-cannot-report-absent` |
+  | `absent` with `complete: false` | `paging-incomplete` |
+  | Timeout (default 30 s; the request signal aborts and a late answer is ignored) | `timeout` |
+  | `EffectVerifierError(reason)` thrown | that reason |
+  | Any other throw | `server-error` |
+  | A reason that does not belong to the result, a non-object answer, invalid or restricted evidence, or evidence that disagrees with `evidenceDigest` | `malformed-response` |
+
+- `reconcileEffect(ledger, id, {verifiers?, expected?, timeoutMs?,
+  verifierVersion?, links?})` returns `{result, receipt, completed, evidence?}`:
+  the `EffectVerifierResult.v1`, the `reconciled` receipt, the `completed`
+  receipt (or `null`) and the unrecorded evidence.
+- `createBuiltinVerifierRegistry(options, extensions)` registers the built-ins
+  and any extension verifiers. One verifier per kind; a duplicate is refused.
+
+#### Extension kinds
+
+A vendor verifier uses an extension kind `x.<vendor>.<name>` (the kind pattern
+above) and targets in the `x-<vendor>:<ref>` scheme, implements the same
+interface, and is passed in `extensions` or to `createVerifierRegistry`. It is
+subject to every framework rule. It cannot shadow a registered kind, and adding
+a core kind remains a contract revision. Tracker verifiers (#2719) register the
+core `tracker.*` kinds the same way.
+
+### Built-in verifiers
+
+| Kind | Version | Target | `canReportAbsent` |
+|---|---|---|---|
+| `git.commit` | `1.0.0` | `git:<sha>` (full 40 or 64 hex) | yes |
+| `git.tag` | `1.0.0` | `git-tag:<name>` | yes |
+| `file.digest` | `1.0.0` | `file:<path>@sha256:<hex>` | yes |
+| `decision.receipt` | `1.0.0` | `decision:invocation/<invocationId>`, `decision:batch/<batchId>`, `decision:job/<jobId>/<itemId>` | yes |
+| `decision.review.continuation` | `0.1.0` | `review:<tenant>/<project>/<reviewId>` | no (placeholder) |
+
+A built-in whose repository, root or store is not configured on the host
+answers `unknown` / `container-unreadable`. The pinned outcomes are:
+
+- **`git.commit`.** Present commit: `present` / `state-match`, or
+  `marker-match` when the commit has an `Effect-Id:` trailer equal to the
+  effect ID. Missing from a complete repository: `absent`. Missing from a
+  shallow or partial clone: `unknown` / `paging-incomplete`. A missing
+  repository or a git binary that fails or cannot start: `unknown` /
+  `container-unreadable`. A target that is not a full object ID: `unknown` /
+  `malformed-response`.
+- **`git.tag`.** Present tag: `present` / `state-match`. Missing tag: `absent`.
+  A tag that exists but whose peeled object differs from `object`: `unknown` /
+  `evidence-conflict`, never `absent`, because a replay would collide with the
+  existing name.
+- **Signature status (`signed: true`).** Checked with `git verify-commit` or
+  `git verify-tag`, as `tools/ci/verify-signed-tag.sh` does. The evidence
+  carries `signature`: `good`, `unsigned`, `bad`, `unverifiable`, `expired`,
+  `revoked`, or `unchecked` when no signature was required. Only `good` can be
+  `present`. `unverifiable` (no trusted key or allowed signer) is `unknown` /
+  `container-unreadable`; every other non-good status, including an unsigned
+  commit and a lightweight tag, is `unknown` / `evidence-conflict`. There is no
+  `present-unsigned` result.
+- **`file.digest`.** The path is resolved under the configured root and
+  realpath-contained. Matching digest: `present` / `digest-match`. Different
+  digest, or a missing file whose nearest existing ancestor is contained:
+  `absent`. A lexical or symlink escape from the root, or an unreadable root:
+  `unknown` / `container-unreadable`. A non-regular file: `unknown` /
+  `evidence-conflict`.
+- **`decision.receipt`.** D03 invocation receipts are read from the
+  `DecisionReceiptStore` (`projectId`), batch receipts from the
+  `BatchReceiptStore` (`tenantId`, `projectId`), and D16 job items from the
+  `JobStore` (`tenantId`, `projectId`, `workspaceId`, `principalId`) followed
+  by the D03 receipt of the item's latest attempt. Scope members come from the
+  context, then from the verifier options. A `completed` receipt is `present` /
+  `digest-match` when its `artifactDigest` equals the expected digest (the
+  attempt's `receiptDigest` for a job item, else `expected.digest`, else
+  `context.receiptDigest`), and `present` / `state-match` when no digest is
+  pinned. A different digest or a `context.fingerprint` mismatch is `unknown` /
+  `evidence-conflict`. A missing receipt, job, item or attempt in a readable
+  store, or a `failed` receipt, is `absent`. A non-terminal or
+  `execution-uncertain` receipt is `unknown` / `consistency-lag`. A MAC or
+  integrity failure, an I/O failure or a D10-deleted job is `unknown` /
+  `container-unreadable`; an access denial is `unknown` / `auth-denied`. D16
+  resolves `execution-unknown` only on `digest-match`.
+- **`decision.review.continuation`.** A placeholder that always answers
+  `unknown` / `verifier-missing` until #2721 supplies the review-store
+  verifier, so D13 keeps failing closed.
 
 ## Retention and tombstones
 
@@ -353,3 +488,8 @@ When several conditions apply, the precedence is 2, 7, 6, 5, then the outcome.
   fixtures as golden vectors for the library, and `test/unit/effects/` covers
   idempotence, the multi-process first-writer race, the tamper matrix,
   rotation, tombstones, the fail-closed artifact root and the canary scan.
+- Verifiers: `test/unit/effects/verifiers.test.ts` covers the registry, the
+  table-driven error mapping, `file.digest`, `decision.receipt`, the review
+  placeholder, the crash-window harness and append-only reconcile history;
+  `test/unit/effects/verifiers-git.test.ts` covers the `git.commit` and
+  `git.tag` matrix, including signature status, over temporary repositories.

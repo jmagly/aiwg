@@ -44,7 +44,6 @@ export {
 export { activeKey, keyValidAt, keyringDigest, keyringFailure } from './keyring.js';
 export {
   EffectLedger,
-  createVerifierRegistry,
   effectOutputJson,
   lookupEffect,
   openEffectLedger,
@@ -57,16 +56,14 @@ export {
   type EffectLookupStatus,
   type EffectReceipt,
   type EffectRecordSummary,
-  type EffectVerifier,
-  type EffectVerifierObservation,
-  type EffectVerifierRegistry,
-  type EffectVerifierRequest,
   type OpenEffectLedgerOptions,
+  type ReconcileOptions,
   type ReconcileOutcome,
   type RecordIntentInput,
   type RecordOutcomeInput,
   type RotateKeyOptions,
 } from './ledger.js';
+export * from './verifiers/index.js';
 export {
   gitRefCheckpointSink,
   memoryCheckpointSink,

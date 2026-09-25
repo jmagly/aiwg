@@ -45,12 +45,11 @@ import {
   type LedgerPaths,
 } from './store.js';
 import { publishExclusive } from '../storage/protected-files.js';
+import { createVerifierRegistry, runVerifier, type RunVerifierOptions } from './verifiers/registry.js';
+import type { EffectVerifierEvidence, EffectVerifierExpectation, EffectVerifierRegistry } from './verifiers/types.js';
 import {
-  ABSENT_REASONS,
   INDEX_SCHEMA_VERSION,
-  PRESENT_REASONS,
   RECORD_SCHEMA_VERSION,
-  UNKNOWN_REASONS,
   VERIFIER_RESULT_SCHEMA_VERSION,
   type EffectContext,
   type EffectFailure,
@@ -65,53 +64,20 @@ import {
   type EffectTombstone,
   type EffectVerification,
   type EffectVerifierResult,
-  type UnknownReason,
   type VerificationResult,
 } from './types.js';
 
 // ---------------------------------------------------------------------------
-// Verifier port (concrete verifiers arrive with #2718 and #2719)
+// Verifier interface (src/effects/verifiers; re-exported for compatibility)
 // ---------------------------------------------------------------------------
 
-export interface EffectVerifierRequest {
-  effectId: string;
-  scope: EffectScope;
-  kind: string;
-  target: string;
-  context: EffectContext;
-  payloadDigest: string;
-  intentRecordedAt: string;
-}
-
-export interface EffectVerifierObservation {
-  result: VerificationResult;
-  reason: string;
-  complete: boolean;
-  evidenceDigest?: string;
-}
-
-export interface EffectVerifier {
-  readonly kind: string;
-  readonly version: string;
-  readonly canReportAbsent: boolean;
-  verify(request: EffectVerifierRequest): Promise<EffectVerifierObservation>;
-}
-
-export interface EffectVerifierRegistry {
-  get(kind: string): EffectVerifier | undefined;
-  kinds(): string[];
-}
-
-/** A registry keyed by kind. The default registry is empty: every reconcile is `unknown`. */
-export function createVerifierRegistry(verifiers: EffectVerifier[] = []): EffectVerifierRegistry {
-  const byKind = new Map<string, EffectVerifier>();
-  for (const verifier of verifiers) {
-    if (byKind.has(verifier.kind)) throw usageError('Only one verifier may be registered per kind', 'duplicate-verifier');
-    if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(verifier.version)) throw usageError('Verifier version must be semver', 'invalid-verifier');
-    byKind.set(verifier.kind, verifier);
-  }
-  return { get: kind => byKind.get(kind), kinds: () => [...byKind.keys()].sort() };
-}
+export { createVerifierRegistry } from './verifiers/registry.js';
+export type {
+  EffectVerifier,
+  EffectVerifierObservation,
+  EffectVerifierRegistry,
+  EffectVerifierRequest,
+} from './verifiers/types.js';
 
 // ---------------------------------------------------------------------------
 // Ledger handle
@@ -472,73 +438,59 @@ export async function recordReconciled(ledger: EffectLedger, id: string, verific
 
 const EXIT_FOR_RESULT: Record<VerificationResult, 0 | 3 | 4> = { present: 0, absent: 3, unknown: 4 };
 
-function unknownObservation(reason: UnknownReason): EffectVerifierObservation {
-  return { result: 'unknown', reason, complete: false };
-}
-
-/** Enforce the tri-state rules: `absent` needs a capable verifier and a complete query. */
-function normalizeObservation(verifier: EffectVerifier, observation: unknown): EffectVerifierObservation {
-  const value = observation as EffectVerifierObservation;
-  if (!value || typeof value !== 'object' || typeof value.complete !== 'boolean'
-    || (value.evidenceDigest !== undefined && !/^sha256:[a-f0-9]{64}$/.test(value.evidenceDigest))) return unknownObservation('malformed-response');
-  const evidence = value.evidenceDigest ? { evidenceDigest: value.evidenceDigest } : {};
-  if (value.result === 'present') {
-    return (PRESENT_REASONS as readonly string[]).includes(value.reason)
-      ? { result: 'present', reason: value.reason, complete: value.complete, ...evidence }
-      : unknownObservation('malformed-response');
-  }
-  if (value.result === 'absent') {
-    if (!verifier.canReportAbsent) return unknownObservation('verifier-cannot-report-absent');
-    if (!value.complete) return unknownObservation('paging-incomplete');
-    if (!(ABSENT_REASONS as readonly string[]).includes(value.reason)) return unknownObservation('malformed-response');
-    return { result: 'absent', reason: value.reason, complete: true, ...evidence };
-  }
-  if (value.result === 'unknown') {
-    return (UNKNOWN_REASONS as readonly string[]).includes(value.reason)
-      ? { result: 'unknown', reason: value.reason, complete: value.complete, ...evidence }
-      : unknownObservation('malformed-response');
-  }
-  return unknownObservation('malformed-response');
+export interface ReconcileOptions extends RunVerifierOptions {
+  /** Defaults to the ledger's registry. */
+  verifiers?: EffectVerifierRegistry;
+  links?: EffectLinks;
+  /** Caller expectations passed to the verifier (digests and references only). */
+  expected?: EffectVerifierExpectation;
 }
 
 export interface ReconcileOutcome {
   result: EffectVerifierResult;
+  /** The appended `reconciled` record. */
   receipt: EffectReceipt;
+  /**
+   * For `present`: the `completed` outcome (appended now, or the existing one
+   * when it was already recorded). `null` when the result is not `present` or
+   * a different outcome (`failed`) is already recorded.
+   */
+  completed: EffectReceipt | null;
+  /** The verifier's structured evidence behind `evidenceDigest`. Never written to the ledger. */
+  evidence?: EffectVerifierEvidence;
 }
 
 /**
- * Reconcile one effect through its kind's verifier and append a `reconciled`
- * record. With no registered verifier the result is `unknown` /
- * `verifier-missing`. The ledger never replays the effect.
+ * Reconcile one effect through its kind's verifier. Every call appends one
+ * signed `reconciled` record; a `present` result also records `completed`
+ * (first outcome wins). Earlier records are never mutated and the effect is
+ * never replayed. With no registered verifier the result is `unknown` /
+ * `verifier-missing`.
  */
-export async function reconcileEffect(ledger: EffectLedger, id: string, options: { verifiers?: EffectVerifierRegistry; links?: EffectLinks } = {}): Promise<ReconcileOutcome> {
+export async function reconcileEffect(ledger: EffectLedger, id: string, options: ReconcileOptions = {}): Promise<ReconcileOutcome> {
   const { intent, entry } = await requireIntent(ledger, id);
   const registry = options.verifiers ?? ledger.verifiers;
-  const verifier = registry.get(intent.kind);
-  let ref = { kind: intent.kind, version: '0.0.0', canReportAbsent: false };
-  let observation: EffectVerifierObservation;
-  if (!verifier) {
-    observation = unknownObservation('verifier-missing');
-  } else {
-    ref = { kind: intent.kind, version: verifier.version, canReportAbsent: verifier.canReportAbsent };
-    if (verifier.kind !== intent.kind) observation = unknownObservation('verifier-version-mismatch');
-    else {
-      try {
-        observation = normalizeObservation(verifier, await verifier.verify({
-          effectId: intent.effectId, scope: structuredClone(intent.scope), kind: intent.kind, target: intent.target!,
-          context: structuredClone(intent.context!), payloadDigest: entry.payloadDigest, intentRecordedAt: intent.recordedAt,
-        }));
-      } catch { observation = unknownObservation('server-error'); }
-    }
-  }
-  const verification: EffectVerification = { verifier: ref, ...observation, checkedAt: ledger.now() };
+  const run = await runVerifier(registry.get(intent.kind), {
+    effectId: intent.effectId, scope: structuredClone(intent.scope), kind: intent.kind, target: intent.target!,
+    context: structuredClone(intent.context!), payloadDigest: entry.payloadDigest, intentRecordedAt: intent.recordedAt,
+    expected: structuredClone(options.expected ?? {}),
+  }, options);
+  const verification: EffectVerification = { verifier: run.verifier, ...run.observation, checkedAt: ledger.now() };
   const receipt = await recordReconciled(ledger, id, verification, options.links);
   const result: EffectVerifierResult = {
     schemaVersion: VERIFIER_RESULT_SCHEMA_VERSION, effectId: intent.effectId, kind: intent.kind,
     verification, exitCode: EXIT_FOR_RESULT[verification.result],
   };
   assertEffectSchema('verifierResult', result);
-  return { result, receipt: { ...receipt, exitCode: result.exitCode } };
+  let completed: EffectReceipt | null = null;
+  if (verification.result === 'present') {
+    try {
+      completed = await recordOutcome(ledger, id, { phase: 'completed', payloadDigest: entry.payloadDigest, verification, links: options.links });
+    } catch (error) {
+      if (!(error instanceof EffectLedgerError) || error.reason !== 'outcome-conflict') throw error;
+    }
+  }
+  return { result, receipt: { ...receipt, exitCode: result.exitCode }, completed, ...(run.evidence ? { evidence: run.evidence } : {}) };
 }
 
 function summarize(decoded: DecodedLine): EffectRecordSummary {
