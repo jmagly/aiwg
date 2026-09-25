@@ -1,0 +1,40 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "gitea:example/repo#12",
+      "digest": {
+        "sha256": "7590a144a6974cc1e24513010edcfdb88ea290da9f8d69f7ec6436c87f63281f"
+      }
+    }
+  ],
+  "predicateType": "https://aiwg.io/attestations/effect/v1",
+  "predicate": {
+    "schemaVersion": "aiwg.effect.record.v1",
+    "effectId": "eff1_lzgoo46k7z6573pfkz3p5m5mrgqq2greaypilujif3veztq3vwaa",
+    "idDerivation": "aiwg.effect/v1",
+    "scope": {
+      "tenant": "local",
+      "project": "example/repo",
+      "subsystem": "delivery"
+    },
+    "kind": "shell.exec",
+    "target": "gitea:example/repo#12",
+    "context": {
+      "issue": 12,
+      "action": "cycle-comment",
+      "cycle": 1
+    },
+    "phase": "intent",
+    "payloadDigest": "sha256:990119a3a8fe3225e9ef2731e3a2fa6351d9734fd410ca14a08dd5d7aa576ff0",
+    "writer": "writer-a",
+    "seq": 0,
+    "prev": null,
+    "recordedAt": "2026-09-20T10:00:00Z",
+    "links": {
+      "toolCallId": "toolu-fixture-0001",
+      "traceId": "eafe895eb8119e6e5d06463590b2ef81",
+      "spanId": "37a0025aa1f2e29f"
+    }
+  }
+}

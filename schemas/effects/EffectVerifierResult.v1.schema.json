@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/effects/EffectVerifierResult.v1.schema.json",
+  "title": "AIWG effect verifier result v1",
+  "description": "Tri-state result of one per-kind verifier query against the target system, as emitted by aiwg effect reconcile. The exit code is bound to the result. See docs/contracts/effect-ledger.v1.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "effectId", "kind", "verification", "exitCode"],
+  "properties": {
+    "schemaVersion": { "const": "aiwg.effect.verifier-result.v1" },
+    "effectId": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/effectId" },
+    "kind": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/kind" },
+    "verification": { "$ref": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json#/$defs/verification" },
+    "exitCode": { "enum": [0, 3, 4] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "verification": { "type": "object", "properties": { "result": { "const": "present" } } } } },
+      "then": { "properties": { "exitCode": { "const": 0 } } }
+    },
+    {
+      "if": { "properties": { "verification": { "type": "object", "properties": { "result": { "const": "absent" } } } } },
+      "then": { "properties": { "exitCode": { "const": 3 } } }
+    },
+    {
+      "if": { "properties": { "verification": { "type": "object", "properties": { "result": { "const": "unknown" } } } } },
+      "then": { "properties": { "exitCode": { "const": 4 } } }
+    }
+  ]
+}

@@ -1,0 +1,412 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json",
+  "title": "AIWG effect ledger record v1",
+  "description": "An effect ledger segment line (a DSSE envelope plus its record hash) or the in-toto Statement v1 it signs, with predicate type https://aiwg.io/attestations/effect/v1. Records are digest-only. See docs/contracts/effect-ledger.v1.md.",
+  "oneOf": [
+    { "$ref": "#/$defs/segmentLine" },
+    { "$ref": "#/$defs/statement" }
+  ],
+  "$defs": {
+    "sha256Digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "effectIdV1": {
+      "description": "eff1_ + unpadded lowercase RFC 4648 base32 of a SHA-256 digest (52 characters; the final character carries one bit, so it is a or q).",
+      "type": "string",
+      "pattern": "^eff1_[a-z2-7]{51}[aq]$"
+    },
+    "effectIdD13Review": {
+      "description": "d13.review/v1: reviewDigest({reviewId, continuationId, proposalVersion}), that is sha256: + lowercase hex.",
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "effectId": {
+      "type": "string",
+      "anyOf": [
+        { "$ref": "#/$defs/effectIdV1" },
+        { "$ref": "#/$defs/effectIdD13Review" }
+      ]
+    },
+    "idDerivation": {
+      "enum": ["aiwg.effect/v1", "d13.review/v1"]
+    },
+    "keyid": {
+      "description": "sha256: + lowercase hex SHA-256 of the DER SubjectPublicKeyInfo of the Ed25519 public key.",
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "ed25519Signature": {
+      "description": "Standard padded base64 of a 64-byte Ed25519 signature.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{86}==$"
+    },
+    "ed25519PublicKey": {
+      "description": "Standard padded base64 of the 44-byte DER SubjectPublicKeyInfo of an Ed25519 public key.",
+      "type": "string",
+      "pattern": "^MCowBQYDK2VwAyEA[A-Za-z0-9+/]{43}=$"
+    },
+    "base64": {
+      "type": "string",
+      "minLength": 4,
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,255}$"
+    },
+    "writerId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant", "project", "subsystem"],
+      "properties": {
+        "tenant": { "$ref": "#/$defs/identifier" },
+        "project": { "$ref": "#/$defs/identifier" },
+        "subsystem": { "enum": ["review", "job", "delivery", "custom"] }
+      }
+    },
+    "builtInKind": {
+      "enum": [
+        "git.commit",
+        "git.tag",
+        "file.digest",
+        "decision.receipt",
+        "decision.review.continuation",
+        "tracker.comment",
+        "tracker.issue.closed",
+        "tracker.pr.merged"
+      ]
+    },
+    "extensionKind": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^x\\.[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)+$"
+    },
+    "kind": {
+      "type": "string",
+      "anyOf": [
+        { "$ref": "#/$defs/builtInKind" },
+        { "$ref": "#/$defs/extensionKind" }
+      ]
+    },
+    "target": {
+      "description": "Target reference. The scheme is pinned; raw bodies and vault locators are never targets.",
+      "type": "string",
+      "maxLength": 1024,
+      "pattern": "^(?:gitea|github|git|git-tag|file|release|decision|review|x-[a-z0-9-]+):[^\\s]+$"
+    },
+    "context": {
+      "description": "Caller causal identity. Flat scalar values only; attempt, time, actor and host are excluded.",
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$" },
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string", "maxLength": 256 },
+          { "type": "integer" },
+          { "type": "boolean" }
+        ]
+      }
+    },
+    "phase": {
+      "enum": ["intent", "completed", "failed", "reconciled", "tombstone"]
+    },
+    "verifierRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "version", "canReportAbsent"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/kind" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "canReportAbsent": { "type": "boolean" }
+      }
+    },
+    "presentReason": {
+      "enum": ["marker-match", "state-match", "digest-match", "heuristic-match"]
+    },
+    "absentReason": {
+      "enum": ["complete-query-no-match"]
+    },
+    "unknownReason": {
+      "enum": [
+        "verifier-missing",
+        "verifier-version-mismatch",
+        "verifier-cannot-report-absent",
+        "network-error",
+        "timeout",
+        "auth-denied",
+        "rate-limited",
+        "server-error",
+        "container-unreadable",
+        "paging-incomplete",
+        "consistency-lag",
+        "tracker-blocked",
+        "malformed-response",
+        "evidence-conflict"
+      ]
+    },
+    "verification": {
+      "description": "Tri-state verifier outcome. absent requires a verifier that can report absent and a complete query; heuristics may only yield present.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verifier", "result", "reason", "complete", "checkedAt"],
+      "properties": {
+        "verifier": { "$ref": "#/$defs/verifierRef" },
+        "result": { "enum": ["present", "absent", "unknown"] },
+        "reason": { "type": "string" },
+        "complete": { "type": "boolean" },
+        "checkedAt": { "$ref": "#/$defs/timestamp" },
+        "evidenceDigest": { "$ref": "#/$defs/sha256Digest" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "result": { "const": "present" } } },
+          "then": { "properties": { "reason": { "$ref": "#/$defs/presentReason" } } }
+        },
+        {
+          "if": { "properties": { "result": { "const": "absent" } } },
+          "then": {
+            "properties": {
+              "reason": { "$ref": "#/$defs/absentReason" },
+              "complete": { "const": true },
+              "verifier": {
+                "type": "object",
+                "properties": { "canReportAbsent": { "const": true } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "result": { "const": "unknown" } } },
+          "then": { "properties": { "reason": { "$ref": "#/$defs/unknownReason" } } }
+        }
+      ]
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": { "enum": ["target-rejected", "precondition-failed", "cancelled-before-dispatch"] },
+        "evidenceDigest": { "$ref": "#/$defs/sha256Digest" }
+      }
+    },
+    "tombstone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["originalRecordHash", "originalKeyid", "originalPhase", "purgedAt", "retentionPolicy"],
+      "properties": {
+        "originalRecordHash": { "$ref": "#/$defs/sha256Digest" },
+        "originalKeyid": { "$ref": "#/$defs/keyid" },
+        "originalPhase": { "enum": ["intent", "completed", "failed", "reconciled"] },
+        "purgedAt": { "$ref": "#/$defs/timestamp" },
+        "retentionPolicy": { "type": "string", "pattern": "^decision-lifecycle/v1#[a-z-]+$" }
+      }
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operatorDecisionEventId": { "$ref": "#/$defs/sha256Digest" },
+        "operatorDecisionRecordHash": { "$ref": "#/$defs/sha256Digest" },
+        "traceId": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+        "spanId": { "type": "string", "pattern": "^[a-f0-9]{16}$" },
+        "toolCallId": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion", "effectId", "idDerivation", "scope", "kind", "phase",
+        "payloadDigest", "writer", "seq", "prev", "recordedAt", "links"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "aiwg.effect.record.v1" },
+        "effectId": { "$ref": "#/$defs/effectId" },
+        "idDerivation": { "$ref": "#/$defs/idDerivation" },
+        "scope": { "$ref": "#/$defs/scope" },
+        "kind": { "$ref": "#/$defs/kind" },
+        "target": { "$ref": "#/$defs/target" },
+        "context": { "$ref": "#/$defs/context" },
+        "phase": { "$ref": "#/$defs/phase" },
+        "payloadDigest": { "$ref": "#/$defs/sha256Digest" },
+        "writer": { "$ref": "#/$defs/writerId" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "prev": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/sha256Digest" }
+          ]
+        },
+        "recordedAt": { "$ref": "#/$defs/timestamp" },
+        "verification": { "$ref": "#/$defs/verification" },
+        "failure": { "$ref": "#/$defs/failure" },
+        "tombstone": { "$ref": "#/$defs/tombstone" },
+        "links": { "$ref": "#/$defs/links" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "idDerivation": { "const": "d13.review/v1" } } },
+          "then": {
+            "properties": {
+              "effectId": { "$ref": "#/$defs/effectIdD13Review" },
+              "kind": { "const": "decision.review.continuation" },
+              "scope": {
+                "type": "object",
+                "properties": { "subsystem": { "const": "review" } }
+              },
+              "context": {
+                "type": "object",
+                "required": ["reviewId", "continuationId", "proposalVersion"],
+                "maxProperties": 3,
+                "properties": {
+                  "reviewId": { "type": "string", "minLength": 1 },
+                  "continuationId": { "type": "string", "minLength": 1 },
+                  "proposalVersion": { "type": "integer", "minimum": 1 }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": { "effectId": { "$ref": "#/$defs/effectIdV1" } }
+          }
+        },
+        {
+          "if": { "properties": { "phase": { "const": "tombstone" } } },
+          "then": {
+            "required": ["tombstone"],
+            "properties": { "tombstone": true, "target": false, "context": false, "verification": false, "failure": false }
+          },
+          "else": {
+            "required": ["target", "context"],
+            "properties": { "target": true, "context": true, "tombstone": false }
+          }
+        },
+        {
+          "if": { "properties": { "phase": { "const": "intent" } } },
+          "then": {
+            "properties": { "verification": false, "failure": false }
+          }
+        },
+        {
+          "if": { "properties": { "phase": { "const": "completed" } } },
+          "then": {
+            "required": ["verification"],
+            "properties": {
+              "failure": false,
+              "verification": {
+                "type": "object",
+                "properties": { "result": { "const": "present" } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "phase": { "const": "reconciled" } } },
+          "then": {
+            "required": ["verification"],
+            "properties": { "verification": true, "failure": false }
+          }
+        },
+        {
+          "if": { "properties": { "phase": { "const": "failed" } } },
+          "then": {
+            "required": ["failure"],
+            "properties": { "failure": true, "verification": false }
+          }
+        },
+        {
+          "if": { "properties": { "seq": { "const": 0 } } },
+          "then": { "properties": { "prev": { "type": "null" } } },
+          "else": { "properties": { "prev": { "$ref": "#/$defs/sha256Digest" } } }
+        }
+      ]
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "digest"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "digest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256"],
+          "properties": {
+            "sha256": { "$ref": "#/$defs/sha256Hex" }
+          }
+        }
+      }
+    },
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["_type", "subject", "predicateType", "predicate"],
+      "properties": {
+        "_type": { "const": "https://in-toto.io/Statement/v1" },
+        "subject": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/subject" }
+        },
+        "predicateType": { "const": "https://aiwg.io/attestations/effect/v1" },
+        "predicate": { "$ref": "#/$defs/predicate" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["keyid", "sig"],
+      "properties": {
+        "keyid": { "$ref": "#/$defs/keyid" },
+        "sig": { "$ref": "#/$defs/ed25519Signature" }
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["payloadType", "payload", "signatures"],
+      "properties": {
+        "payloadType": { "const": "application/vnd.in-toto+json" },
+        "payload": {
+          "$ref": "#/$defs/base64",
+          "contentEncoding": "base64",
+          "contentMediaType": "application/vnd.in-toto+json"
+        },
+        "signatures": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/signature" }
+        }
+      }
+    },
+    "segmentLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "writer", "seq", "recordHash", "envelope"],
+      "properties": {
+        "schemaVersion": { "const": "aiwg.effect.segment-line.v1" },
+        "writer": { "$ref": "#/$defs/writerId" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "recordHash": { "$ref": "#/$defs/sha256Digest" },
+        "envelope": { "$ref": "#/$defs/envelope" }
+      }
+    }
+  }
+}

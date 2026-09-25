@@ -1,0 +1,45 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "gitea:example/repo#34",
+      "digest": {
+        "sha256": "3c64e796b8eec554b4f597c297ba6e7fd3450d448d37bebe68ce392c6d79dd8b"
+      }
+    }
+  ],
+  "predicateType": "https://aiwg.io/attestations/effect/v1",
+  "predicate": {
+    "schemaVersion": "aiwg.effect.record.v1",
+    "effectId": "eff1_s4lwrwoj6wwvg5lui36jyma53ehz22slkoxd7qnlxani2eyy7txq",
+    "idDerivation": "aiwg.effect/v1",
+    "scope": {
+      "tenant": "local",
+      "project": "example/repo",
+      "subsystem": "delivery"
+    },
+    "kind": "tracker.pr.merged",
+    "target": "gitea:example/repo#34",
+    "context": {},
+    "phase": "reconciled",
+    "payloadDigest": "sha256:44b65fc2eb396fc5a292cc1321b60290dd6d13880c4c9f74d3bb93cfcc725dde",
+    "writer": "writer-a",
+    "seq": 3,
+    "prev": "sha256:0027f671754fc848f18d8ffce82d4e3d82b1b1b1dfcbccbecfd464329895cbd3",
+    "recordedAt": "2026-09-20T11:00:00Z",
+    "verification": {
+      "verifier": {
+        "kind": "tracker.pr.merged",
+        "version": "1.0.0",
+        "canReportAbsent": true
+      },
+      "result": "unknown",
+      "reason": "rate-limited",
+      "complete": false,
+      "checkedAt": "2026-09-20T10:59:59Z"
+    },
+    "links": {
+      "operatorDecisionEventId": "sha256:4a25ebdad8df28461f51a1849ac423e1209ef78efbce2a915ae392c8198a8fe9"
+    }
+  }
+}

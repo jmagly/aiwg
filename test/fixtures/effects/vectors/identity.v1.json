@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "aiwg.effect.identity-vectors.v1",
+  "canonicalizer": "src/security/artifact-trust.ts#canonicalJson",
+  "effectIds": [
+    {
+      "name": "tracker-comment-cycle",
+      "derivation": "aiwg.effect/v1",
+      "input": {
+        "v": 1,
+        "scope": {
+          "tenant": "local",
+          "project": "example/repo",
+          "subsystem": "delivery"
+        },
+        "kind": "tracker.comment",
+        "target": "gitea:example/repo#12",
+        "context": {
+          "issue": 12,
+          "action": "cycle-comment",
+          "cycle": 1
+        }
+      },
+      "canonical": "{\"context\":{\"action\":\"cycle-comment\",\"cycle\":1,\"issue\":12},\"kind\":\"tracker.comment\",\"scope\":{\"project\":\"example/repo\",\"subsystem\":\"delivery\",\"tenant\":\"local\"},\"target\":\"gitea:example/repo#12\",\"v\":1}",
+      "sha256": "5e4ce773cafe7ddfede55676feb3ac89a10d1a24061e85d1282eea4cce1bad80",
+      "expected": "eff1_lzgoo46k7z6573pfkz3p5m5mrgqq2greaypilujif3veztq3vwaa"
+    },
+    {
+      "name": "tracker-pr-merged",
+      "derivation": "aiwg.effect/v1",
+      "input": {
+        "v": 1,
+        "scope": {
+          "tenant": "local",
+          "project": "example/repo",
+          "subsystem": "delivery"
+        },
+        "kind": "tracker.pr.merged",
+        "target": "gitea:example/repo#34",
+        "context": {}
+      },
+      "canonical": "{\"context\":{},\"kind\":\"tracker.pr.merged\",\"scope\":{\"project\":\"example/repo\",\"subsystem\":\"delivery\",\"tenant\":\"local\"},\"target\":\"gitea:example/repo#34\",\"v\":1}",
+      "sha256": "971768d9c9f5ad53757446fc9c301dd90f9d6a4b53ae3fc1abb81a8d1318fcef",
+      "expected": "eff1_s4lwrwoj6wwvg5lui36jyma53ehz22slkoxd7qnlxani2eyy7txq"
+    },
+    {
+      "name": "git-tag",
+      "derivation": "aiwg.effect/v1",
+      "input": {
+        "v": 1,
+        "scope": {
+          "tenant": "local",
+          "project": "example/repo",
+          "subsystem": "delivery"
+        },
+        "kind": "git.tag",
+        "target": "git-tag:v1.0.0",
+        "context": {}
+      },
+      "canonical": "{\"context\":{},\"kind\":\"git.tag\",\"scope\":{\"project\":\"example/repo\",\"subsystem\":\"delivery\",\"tenant\":\"local\"},\"target\":\"git-tag:v1.0.0\",\"v\":1}",
+      "sha256": "a19131e1429b85799f78321ec6d96e8a38d9783a9f15c79ea8ceec8fcfff2216",
+      "expected": "eff1_ugitdykctocxth3ygipmnwlori4ns6b2t4k4phviz3wi7t77eila"
+    },
+    {
+      "name": "file-digest",
+      "derivation": "aiwg.effect/v1",
+      "input": {
+        "v": 1,
+        "scope": {
+          "tenant": "local",
+          "project": "example/repo",
+          "subsystem": "delivery"
+        },
+        "kind": "file.digest",
+        "target": "file:docs/example.md@sha256:13550350a8681c84c861aac2e5b440161c2b33a3e4f302ac680ca5b686de48de",
+        "context": {}
+      },
+      "canonical": "{\"context\":{},\"kind\":\"file.digest\",\"scope\":{\"project\":\"example/repo\",\"subsystem\":\"delivery\",\"tenant\":\"local\"},\"target\":\"file:docs/example.md@sha256:13550350a8681c84c861aac2e5b440161c2b33a3e4f302ac680ca5b686de48de\",\"v\":1}",
+      "sha256": "cfac142400069adea4b6ac1b562d93262f4c5b54afdb892e0c3d7102d8db893d",
+      "expected": "eff1_z6wbijaaa2nn5jfwvqnvmlmteyxuyw2uv7nyslqmhvyqfwg3re6q"
+    },
+    {
+      "name": "key-order-and-unicode",
+      "derivation": "aiwg.effect/v1",
+      "input": {
+        "v": 1,
+        "scope": {
+          "tenant": "local",
+          "project": "example/repo",
+          "subsystem": "custom"
+        },
+        "kind": "x.example.notify",
+        "target": "x-example:channel/general",
+        "context": {
+          "beta": 2,
+          "alpha": true,
+          "Zeta": "café"
+        }
+      },
+      "canonical": "{\"context\":{\"Zeta\":\"café\",\"alpha\":true,\"beta\":2},\"kind\":\"x.example.notify\",\"scope\":{\"project\":\"example/repo\",\"subsystem\":\"custom\",\"tenant\":\"local\"},\"target\":\"x-example:channel/general\",\"v\":1}",
+      "sha256": "ae8db4599ec7f35293d8ec16fc64d491eed754744072416b0bd4fba26ab364cd",
+      "expected": "eff1_v2g3iwm6y7zvfe6y5qlpyzgushxnovduibzec2yl2t52e2vtmtgq"
+    }
+  ],
+  "d13ReviewIds": [
+    {
+      "name": "review-proposal-1",
+      "derivation": "d13.review/v1",
+      "input": {
+        "reviewId": "review-0001",
+        "continuationId": "continuation-0001",
+        "proposalVersion": 1
+      },
+      "canonical": "{\"continuationId\":\"continuation-0001\",\"proposalVersion\":1,\"reviewId\":\"review-0001\"}",
+      "expected": "sha256:5551ee55dc383886cfd4f2cb48de753904e6a70e0584925799380d1eb0ad3716"
+    },
+    {
+      "name": "review-proposal-2",
+      "derivation": "d13.review/v1",
+      "input": {
+        "reviewId": "review-0001",
+        "continuationId": "continuation-0001",
+        "proposalVersion": 2
+      },
+      "canonical": "{\"continuationId\":\"continuation-0001\",\"proposalVersion\":2,\"reviewId\":\"review-0001\"}",
+      "expected": "sha256:244e6cd955791842234794fd8d80034a2359973a6bc80012a5ec45063027a822"
+    }
+  ]
+}

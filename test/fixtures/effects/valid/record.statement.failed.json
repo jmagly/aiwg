@@ -1,0 +1,36 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "git-tag:v1.0.0",
+      "digest": {
+        "sha256": "de99d74b090372eaecccd74f896ad7c854873a4492132e204722f85d75daaa19"
+      }
+    }
+  ],
+  "predicateType": "https://aiwg.io/attestations/effect/v1",
+  "predicate": {
+    "schemaVersion": "aiwg.effect.record.v1",
+    "effectId": "eff1_ugitdykctocxth3ygipmnwlori4ns6b2t4k4phviz3wi7t77eila",
+    "idDerivation": "aiwg.effect/v1",
+    "scope": {
+      "tenant": "local",
+      "project": "example/repo",
+      "subsystem": "delivery"
+    },
+    "kind": "git.tag",
+    "target": "git-tag:v1.0.0",
+    "context": {},
+    "phase": "failed",
+    "payloadDigest": "sha256:a2bfcac4d7024c909fec9425c80562842d56ebc34e260a380dcaa5162fa22cdc",
+    "writer": "writer-c",
+    "seq": 1,
+    "prev": "sha256:2e3dc816ed57ee98b523177b16490555a5345c937671914494e753426693d652",
+    "recordedAt": "2026-09-20T12:00:00Z",
+    "failure": {
+      "reason": "target-rejected",
+      "evidenceDigest": "sha256:71c093f0737ad74e8aa9ef956bfd128f04334c67cc76e87f9d968edfcbb898de"
+    },
+    "links": {}
+  }
+}

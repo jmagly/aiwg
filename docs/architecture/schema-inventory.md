@@ -37,3 +37,15 @@ and the consuming validation suite. These schemas ship under
 these authorities instead of creating independent copies. The
 [network analysis ADR](network-analysis.md) defines the compatibility boundary
 and the separate construction gate.
+
+The `effects` catalog domain registers the experimental v1 effect ledger
+authorities under `schemas/effects/`: `EffectRecord` (the
+`https://aiwg.io/attestations/effect/v1` predicate statement and the signed
+segment line), `EffectCheckpoint`, `EffectKeyring` and `EffectVerifierResult`.
+The domain requires fixtures. Its positive and negative fixtures live under
+`test/fixtures/effects/`, and
+`test/conformance/effects-v1/effect-ledger-contract.test.ts` validates them.
+Cross-field rules that JSON Schema cannot express (effect-ID recomputation,
+signatures, key windows, chain links, checkpoint roots) are pinned by the
+[effect ledger v1 contract](../contracts/effect-ledger.v1.md) and checked by
+that test. The [effect ledger ADR](adr-effect-ledger.md) records the decision.
