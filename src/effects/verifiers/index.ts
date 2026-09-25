@@ -34,7 +34,7 @@
  * ```ts
  * const registry = createBuiltinVerifierRegistry(
  *   { git: { repoDir }, file: { root }, decision: { receipts, jobs } },
- *   [trackerCommentVerifier(...), myVendorVerifier],   // extensions
+ *   [...createTrackerVerifiers({ config, remoteUrls }), myVendorVerifier],   // extensions
  * );
  * await reconcileEffect(ledger, id, { verifiers: registry, expected: { signed: true } });
  * ```
@@ -83,6 +83,21 @@ export {
   reviewContinuationPlaceholderVerifier,
   type DecisionReceiptVerifierOptions,
 } from './decision.js';
+
+export {
+  DEFAULT_MAX_COMMENT_PAGES,
+  DEFAULT_MIN_ABSENT_AGE_MS,
+  TRACKER_VERIFIER_VERSION,
+  createTrackerVerifiers,
+  parseEffectIdTrailers,
+  parseEffectMarkers,
+  renderEffectMarker,
+  trackerCommentVerifier,
+  trackerIssueClosedVerifier,
+  trackerPrMergedVerifier,
+  type TrackerCliOptions,
+  type TrackerVerifierOptions,
+} from './tracker.js';
 
 export interface BuiltinVerifierOptions {
   /** `git.commit` and `git.tag`. Without it both answer `unknown` / `container-unreadable`. */

@@ -139,4 +139,16 @@ describe('read-only forge PR adapters', () => {
     expect(result.nextAction.gate).toBe('manual-review-required');
     expect(http.seen.some(line => line.includes('/contents/FIFA/fc-market/docs/HANDOFF.md'))).toBe(true);
   });
+
+  it('reports PR merge state and ignores a GitHub test-merge SHA before merge (#2719)', async () => {
+    const mergeSha = 'e'.repeat(40);
+    for (const [provider, merged] of [['github', false], ['github', true], ['gitea', true], ['gitea', false]] as const) {
+      const fetchImpl = async () => json({ state: merged ? 'closed' : 'open', merged, merged_at: merged ? '2026-09-24T00:00:00Z' : null,
+        merge_commit_sha: merged || provider === 'github' ? mergeSha : null, base: { ref: 'main', sha: fixture.base } });
+      const adapter = createForgePrAdapter({ provider, apiBaseUrl: 'https://forge.example.test/api/v1', token: 'x',
+        fetchImpl, canonicalBase: { source: 'trusted-base' } });
+      expect(await adapter.getPullState(identity)).toEqual({ state: merged ? 'closed' : 'open', merged,
+        mergedAt: merged ? '2026-09-24T00:00:00Z' : null, mergeCommitSha: merged ? mergeSha : null, base: { ref: 'main', sha: fixture.base } });
+    }
+  });
 });

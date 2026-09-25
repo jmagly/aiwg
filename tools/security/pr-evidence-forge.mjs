@@ -85,6 +85,16 @@ export function createForgePrAdapter({ provider, apiBaseUrl, token, fetchImpl = 
       return { head, base: pr.base?.sha, title: pr.title ?? '', body: currentBody,
         canonicalBase, expected: { files: pr.changed_files, comments: pr.comments, commits: pr.commits } };
     },
+    /** Merge state of the PR. `mergeCommitSha` is set only once merged (GitHub reports a test merge before). */
+    async getPullState(identity) {
+      const prefix = repoPath(identity);
+      const { json } = await request(`${prefix}/pulls/${identity.number}`);
+      const pr = json();
+      if (!['open', 'closed'].includes(pr.state) || typeof pr.merged !== 'boolean') throw new Error('Invalid pull request state');
+      const mergeSha = typeof pr.merge_commit_sha === 'string' && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(pr.merge_commit_sha) ? pr.merge_commit_sha : null;
+      return { state: pr.state, merged: pr.merged, mergedAt: pr.merged_at ?? null,
+        mergeCommitSha: pr.merged ? mergeSha : null, base: { ref: pr.base?.ref ?? null, sha: pr.base?.sha ?? null } };
+    },
     async list(kind, identity, page, pageSize) {
       const prefix = repoPath(identity);
       if (kind === 'bodyHistory') {
