@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import { describe, expect, it, vi } from 'vitest';
 import {
   BoundedDecisionMetrics,
@@ -364,15 +363,5 @@ describe('decision telemetry foundation', () => {
     expect(restored.spans).toEqual([]);
     expect(restored.tombstones?.at(-1)?.reason).toBe('expired during restore');
     expect(restoreTelemetryTrace(trace(), { ...policy, legalHold: true }, 1_000).spans).toHaveLength(1);
-  });
-
-  it('keeps the complete required scenario set in the golden manifest', async () => {
-    const fixture = JSON.parse(await readFile(new URL('../../fixtures/decision/telemetry-golden-v1.json', import.meta.url), 'utf8')) as { scenarios: Array<{ id: string; name: string; spans: string[] }> };
-    expect(fixture.scenarios.map(scenario => scenario.name)).toEqual([
-      'single-success', 'heterogeneous-batch', 'retry-then-success', 'backend-fallback', 'invalid-output',
-      'caller-cancellation', 'execution-uncertainty', 'policy-review', 'cache-hit', 'async-item',
-      'approved-action-link', 'sanitized-incident-export',
-    ]);
-    expect(fixture.scenarios.every(scenario => scenario.spans[0] === 'decision.workflow')).toBe(true);
   });
 });

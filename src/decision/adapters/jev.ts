@@ -11,6 +11,7 @@ import type {
 import { DecisionValidationError, validateDecisionValue, validateDistribution } from '../validate.js';
 import { canonicalJson } from '../../security/artifact-trust.js';
 import { partitionProjectedState } from '../projection.js';
+import { isTraceparent } from '../telemetry/context.js';
 import { runInNewContext } from 'node:vm';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
@@ -127,7 +128,7 @@ export class JevDecisionAdapter implements DecisionAdapter {
     try {
       const init: RequestInit = {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...traceHeaders(request.traceContext) },
         body,
         signal,
         redirect: 'error',
@@ -247,8 +248,8 @@ export class JevDecisionAdapter implements DecisionAdapter {
     } catch { return batchFailure(requests, failure('invalid-request', { dispatchCertainty: 'not-sent' })); }
     let response: Response;
     try {
-      const init: RequestInit = { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-        body, signal, redirect: 'error' };
+      const init: RequestInit = { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json',
+        ...traceHeaders(batch.traceContext) }, body, signal, redirect: 'error' };
       response = pin ? await this.pinnedFetch(new URL(this.endpoint), init, pin) : await this.fetchImpl(this.endpoint, init);
     } catch (error) {
       const observation = request.signal.aborted ? externalInterruption(request, 'unknown')
@@ -453,6 +454,11 @@ function mapStatus(status: number): DecisionFailureReason {
   if (status === 529) return 'overloaded';
   if (status >= 500) return 'service-error';
   return 'invalid-request';
+}
+
+/** Forward only a well-formed W3C traceparent; anything else is dropped, never echoed. */
+function traceHeaders(context: DecisionAdapterRequest['traceContext']): Record<string, string> {
+  return isTraceparent(context?.traceparent) ? { traceparent: context!.traceparent } : {};
 }
 
 function parseRetryAfter(headers: Headers, now: number): number | null {

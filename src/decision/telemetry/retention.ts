@@ -1,6 +1,6 @@
 import { DECISION_LIFECYCLE_VERSION, validateDecisionLifecyclePolicy, type DecisionLifecycleHold,
   type DecisionLifecyclePolicy, type DecisionLifecycleSurface } from '../lifecycle.js';
-import type { DecisionDebugCapturePolicy, DecisionRetentionPolicy, DecisionTelemetryTombstone, DecisionTelemetryTrace } from './types.js';
+import type { DecisionDebugCapturePolicy, DecisionRetentionPolicy, DecisionTelemetryLink, DecisionTelemetryTombstone, DecisionTelemetryTrace } from './types.js';
 
 export function validateDebugCapturePolicy(policy: DecisionDebugCapturePolicy | undefined): DecisionDebugCapturePolicy | null {
   if (!policy) return null;
@@ -92,4 +92,38 @@ export function restoreTelemetryTrace(
       referenceType: 'trace', opaqueId: trace.traceId, deletedAtUnixMs: now, reason: 'expired during restore',
     }],
   };
+}
+
+const ORPHAN_REFERENCE: Partial<Record<DecisionTelemetryLink['relationship'], DecisionTelemetryTombstone['referenceType']>> = {
+  review: 'review', job: 'job', cache: 'cache', evaluation: 'evaluation',
+};
+
+/**
+ * Tombstone links whose target span can no longer be resolved, for example after
+ * the linked trace expired, was deleted, or was never exported. An orphan becomes
+ * an explicit `orphaned` link state plus a tombstone, never a dangling reference
+ * that a later record could silently reuse. Targets inside the same trace resolve
+ * locally; `resolves` answers for every other target.
+ */
+export function tombstoneOrphanedLinks(
+  trace: DecisionTelemetryTrace,
+  resolves: (link: DecisionTelemetryLink) => boolean,
+  now = Date.now(),
+): DecisionTelemetryTrace {
+  const local = new Set(trace.spans.map(span => `${span.context.traceId}:${span.context.spanId}`));
+  const tombstones = structuredClone(trace.tombstones ?? []);
+  const spans = structuredClone(trace.spans).map(span => ({
+    ...span,
+    links: span.links.map(link => {
+      const state = link.attributes?.['aiwg.link.state'];
+      const opaqueId = `${link.traceId}:${link.spanId}`;
+      if (state === 'deleted' || state === 'orphaned' || local.has(opaqueId) || resolves(link)) return link;
+      if (!tombstones.some(tombstone => tombstone.opaqueId === opaqueId)) {
+        tombstones.push({ referenceType: ORPHAN_REFERENCE[link.relationship] ?? 'trace', opaqueId,
+          deletedAtUnixMs: now, reason: 'orphaned link' });
+      }
+      return { ...link, attributes: { 'aiwg.link.state': 'orphaned', 'aiwg.link.tombstone': opaqueId } };
+    }),
+  }));
+  return { ...trace, spans, tombstones };
 }

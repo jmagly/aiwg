@@ -7,6 +7,8 @@ export interface NewBatchReceiptInput {
   tenantId: string; projectId: string; batchId: string; invocationId: string; runId: string;
   contextPlan: ContextPlan; partition: ContextPartition; nativeBatchGroupId?: string | null;
   subjectHash: `sha256:${string}`; executionEnvelope: string; nowEpochMs: number;
+  /** Optional W3C traceparent of the creating workflow span. */
+  traceParent?: string;
 }
 
 /** Integration hook for D04 native groups and D06 deterministic context partitions. */
@@ -25,6 +27,7 @@ export function newBatchReceipt(input: NewBatchReceiptInput): DecisionBatchRecei
     executionEnvelope: input.executionEnvelope, questionIds: [...input.partition.questionIds],
     attempts: [], answerReferences: [], allocations: [], status: 'acquired',
     createdAtEpochMs: input.nowEpochMs, updatedAtEpochMs: input.nowEpochMs, terminalAtEpochMs: null,
+    ...(input.traceParent !== undefined ? { traceParent: input.traceParent } : {}),
   };
   validateBatchReceipt(receipt); assertBatchReceiptPortable(receipt); return receipt;
 }

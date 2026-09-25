@@ -68,6 +68,11 @@ export interface DecisionBatchReceipt {
   createdAtEpochMs: number;
   updatedAtEpochMs: number;
   terminalAtEpochMs: number | null;
+  /**
+   * Immutable W3C `traceparent` of the workflow span that created this receipt.
+   * A later replay links to it instead of inventing a parallel trace identity.
+   */
+  traceParent?: string;
 }
 
 export interface BatchReceiptAcquireResult {

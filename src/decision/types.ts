@@ -457,6 +457,16 @@ export interface DecisionAdapterRequest {
   compiledArtifact?: JsonValue;
   /** Metadata-only evidence that host-authorized projection preceded dispatch. */
   projectionEvidence?: DecisionProjectionEvidence;
+  /**
+   * W3C trace context of the evaluator's live attempt span. Adapters may forward
+   * `traceparent` to their transport; it never carries provider request identity.
+   */
+  traceContext?: DecisionTransportTraceContext;
+}
+
+/** Only `traceparent` crosses a provider boundary; vendor `tracestate` stays local. */
+export interface DecisionTransportTraceContext {
+  traceparent: string;
 }
 
 export interface DecisionRuntimeProjectionPolicy {
@@ -487,6 +497,8 @@ export interface DecisionAdapterCompileRequest {
 export interface DecisionAdapterBatchRequest {
   requests: DecisionAdapterRequest[];
   decisionSubject: string;
+  /** Trace context of the shared `decision.batch.request` span. */
+  traceContext?: DecisionTransportTraceContext;
 }
 
 export interface DecisionAdapterBatchObservation {
@@ -630,11 +642,22 @@ export interface DecisionReceipt {
   remoteHandles: string[];
   evaluations: Record<string, DecisionResult>;
   pending: { alias: string; targetIndex: number; ordinal: number; attempts: DecisionAttempt[] } | null;
+  /**
+   * Immutable W3C `traceparent` of the workflow span that acquired this receipt.
+   * Covered by the store's integrity MAC; a replay links to it instead of inventing a new identity.
+   */
+  traceParent?: string;
+}
+
+export interface DecisionReceiptAcquireOptions {
+  /** Recorded only when this call creates the receipt; ignored when one already exists. */
+  traceParent?: string;
 }
 
 export interface DecisionReceiptStore {
   read(invocationId: string, projectId?: string): Promise<DecisionReceipt | null>;
-  acquire(invocationId: string, projectId: string, fingerprint: string): Promise<{ owner: boolean; receipt: DecisionReceipt }>;
+  acquire(invocationId: string, projectId: string, fingerprint: string,
+    options?: DecisionReceiptAcquireOptions): Promise<{ owner: boolean; receipt: DecisionReceipt }>;
   compareAndSwap(invocationId: string, projectId: string, expectedRevision: number, next: DecisionReceipt): Promise<boolean>;
   waitForTerminal(invocationId: string, projectId: string, fingerprint: string, signal?: AbortSignal): Promise<DecisionReceipt>;
 }
