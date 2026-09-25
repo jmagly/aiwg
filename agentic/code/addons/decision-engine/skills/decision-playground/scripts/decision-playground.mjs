@@ -2,8 +2,8 @@
 // Offline decision pattern playground. Lists the installed pattern packs and runs
 // their recorded fixtures through the production decision evaluator. It never
 // resolves a credential, contacts a network endpoint, or executes an action.
-import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { resolveDecisionRuntime } from './runtime-root.mjs';
 
 const USAGE = `Usage: decision-playground <command> [options]
 
@@ -27,8 +27,10 @@ if (!command || command === '--help' || command === '-h') {
   process.exit(command ? 0 : 2);
 }
 
-const packageRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../../../');
-const runtime = await import(pathToFileURL(path.join(packageRoot, 'dist/src/decision/index.js')).href);
+let runtimePath;
+try { runtimePath = resolveDecisionRuntime(import.meta.url); }
+catch (error) { process.stderr.write(`${error.message}\n`); process.exit(2); }
+const runtime = await import(pathToFileURL(runtimePath).href);
 const write = value => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 const packFor = id => {
   if (!id || !runtime.decisionPatternPacks.some(pack => pack.id === id)) {

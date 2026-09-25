@@ -26,6 +26,13 @@ describe('decision-playground skill registration', () => {
     expect(manifest.skills).toContain('decision-playground');
     expect(readFileSync(path.join(addon, 'skills/decision-playground/SKILL.md'), 'utf8')).toMatch(/entrypoint: scripts\/decision-playground\.mjs/);
   });
+
+  it('locates the runtime with the same resolver as decision-evaluate', () => {
+    // Each skill is deployed on its own, so the playground carries its own copy.
+    const locator = (skill: string) => readFileSync(path.join(addon, 'skills', skill, 'scripts/runtime-root.mjs'), 'utf8');
+    expect(locator('decision-playground')).toBe(locator('decision-evaluate'));
+    expect(readFileSync(script, 'utf8')).toContain("from './runtime-root.mjs'");
+  });
 });
 
 describe.skipIf(!built)('decision-playground entry point (#2673)', () => {

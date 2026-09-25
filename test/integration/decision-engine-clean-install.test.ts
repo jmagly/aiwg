@@ -18,6 +18,7 @@ import { acquireDirectoryLock } from '../../src/artifacts/prebuilt-build-lock.js
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const SKILL = path.join('.claude', '.aiwg', 'skills', 'decision-evaluate');
+const PLAYGROUND = path.join('.claude', '.aiwg', 'skills', 'decision-playground');
 const EXAMPLES = path.join('node_modules', 'aiwg', 'agentic', 'code', 'addons', 'decision-engine', 'examples');
 
 let tempRoot = '';
@@ -122,6 +123,16 @@ describe('decision-engine clean install from the packed tarball', () => {
     expect(outcome.spec.status).toBe('completed');
     expect(outcome.spec.ruleset.id).toBe('example-triage');
   }, 600_000);
+
+  it('runs the deployed decision-playground against the installed runtime', () => {
+    const script = path.join(consumer, PLAYGROUND, 'scripts', 'decision-playground.mjs');
+    expect(existsSync(path.join(consumer, PLAYGROUND, 'scripts', 'runtime-root.mjs'))).toBe(true);
+    const listed = ok(run(process.execPath, [script, 'list'], { cwd: consumer, env: isolatedEnv(), timeout: 120_000 }));
+    expect((JSON.parse(listed.stdout) as unknown[]).length).toBeGreaterThan(0);
+    const receipt = ok(run(process.execPath, [script, 'run', 'guardrails', '--fixture', 'guardrail-noul-midpoint', '--summary'],
+      { cwd: consumer, env: isolatedEnv(), timeout: 120_000 }));
+    expect(JSON.parse(receipt.stdout)).toMatchObject({ executionMode: 'offline-recorded' });
+  }, 180_000);
 
   it('resolves the runtime through AIWG_ROOT when the script is outside any install', async () => {
     const detached = path.join(tempRoot, 'detached');
