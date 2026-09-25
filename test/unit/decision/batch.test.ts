@@ -1,5 +1,6 @@
+import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -26,7 +27,11 @@ import {
   planDecisionContext,
   compareContextUsage,
   planNativeDecisionBatches,
+  DECISION_LIFECYCLE_SURFACES,
+  DECISION_LIFECYCLE_VERSION,
+  type DecisionLifecyclePolicy,
 } from '../../../src/decision/index.js';
+import { canonicalJson } from '../../../src/security/artifact-trust.js';
 
 const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
 const definitions = (): Record<string, DecisionDefinition> => ({
@@ -49,6 +54,18 @@ function request(fetchImpl: typeof fetch, subjects?: Record<string, string>) {
     adapters: { jev: new JevDecisionAdapter({ fetch: fetchImpl }) }, batching: policy(subjects),
     resolveCredential: async () => new TextEncoder().encode('token'),
   };
+}
+
+const batchIntegrityKey = randomBytes(32);
+const batchEncryptionKey = randomBytes(32);
+const batchLifecycle = (): DecisionLifecyclePolicy => ({ version: DECISION_LIFECYCLE_VERSION,
+  surfaces: Object.fromEntries(DECISION_LIFECYCLE_SURFACES.map(surface => [surface, { classification: 'restricted',
+    accessScopes: ['batch-owner'], retentionMs: 86_400_000, export: 'denied', deletion: 'tombstone',
+    backup: 'expire-with-primary' }])) as DecisionLifecyclePolicy['surfaces'] });
+function keyedFileStores(receiptDirectory: string, resultDirectory: string): [FileBatchReceiptStore, FileBatchResultStore] {
+  const results = new FileBatchResultStore(resultDirectory, { integrityKey: batchIntegrityKey, lifecycle: batchLifecycle(),
+    encryptionKeyReference: 'batch-results-2026', resolveEncryptionKey: async () => Buffer.from(batchEncryptionKey) });
+  return [new FileBatchReceiptStore(receiptDirectory, { integrityKey: batchIntegrityKey, lifecycle: batchLifecycle(), results }), results];
 }
 
 function durableBatching(store: MemoryBatchReceiptStore | FileBatchReceiptStore = new MemoryBatchReceiptStore(),
@@ -773,13 +790,72 @@ describe('native shared-state decision batching', () => {
       const receiptDirectory = join(directory, 'receipts');
       const resultDirectory = join(directory, 'results');
       const first = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
-        new FileBatchReceiptStore(receiptDirectory), new FileBatchResultStore(resultDirectory)) });
+        ...keyedFileStores(receiptDirectory, resultDirectory)) });
       const second = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
-        new FileBatchReceiptStore(receiptDirectory), new FileBatchResultStore(resultDirectory)) });
+        ...keyedFileStores(receiptDirectory, resultDirectory)) });
       expect(fetchImpl).toHaveBeenCalledTimes(1);
       expect(Object.values(second.spec.evaluations).map(result => result.spec.value))
         .toEqual(Object.values(first.spec.evaluations).map(result => result.spec.value));
       expect(Object.values(second.spec.evaluations).every(result => result.spec.status === 'success')).toBe(true);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('never re-dispatches after an erased receipt cascades to its results and reports batch-record-unavailable', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-batch-erase-'));
+    try {
+      const fetchImpl = vi.fn(async (_url, options) => validResponse(
+        JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+      const receiptDirectory = join(directory, 'receipts');
+      const resultDirectory = join(directory, 'results');
+      const [receipts, results] = keyedFileStores(receiptDirectory, resultDirectory);
+      const first = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(receipts, results) });
+      const reference = Object.values(first.spec.evaluations)[0]!.spec.batchResult!;
+      await receipts.erase(receipts.lifecycleReference(reference.batchId, 'tenant', 'project').opaqueId);
+      expect((await readdir(resultDirectory)).filter(name => name.endsWith('.sealed.json'))).toEqual([]);
+      expect((await readdir(receiptDirectory)).filter(name => name.endsWith('.sealed.json'))).toEqual([]);
+      const replay = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
+        ...keyedFileStores(receiptDirectory, resultDirectory)) });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(Object.values(replay.spec.evaluations).map(result => [result.spec.status, result.spec.reason]))
+        .toEqual(Array(3).fill(['error', 'batch-record-unavailable']));
+      expect(replay.apiVersion).toBe('decision.aiwg.io/v1alpha2');
+      // The dedicated reason is v1alpha2-only: stripped of v1alpha2 evidence, the same result
+      // validates as v1alpha1 only with a released reason.
+      const legacy = structuredClone(Object.values(replay.spec.evaluations)[0]!) as unknown as {
+        apiVersion: string; spec: Record<string, unknown> & { reason: string; attempts: Array<Record<string, unknown>> } };
+      legacy.apiVersion = 'decision.aiwg.io/v1alpha1';
+      for (const field of ['batchResult', 'context']) delete legacy.spec[field];
+      for (const attempt of legacy.spec.attempts) for (const field of ['batch', 'admission', 'providerPrefix']) delete attempt[field];
+      expect(() => validateDecisionDocument(legacy)).toThrow();
+      legacy.spec.reason = 'persistence-error';
+      legacy.spec.attempts.forEach(attempt => { attempt.reason = 'persistence-error'; });
+      expect(() => validateDecisionDocument(legacy)).not.toThrow();
+      expect(Object.values(replay.spec.evaluations).every(result => !result.spec.batchResult)).toBe(true);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('never serves a stale value when a sealed result snapshot is tampered with', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-batch-tamper-'));
+    try {
+      const fetchImpl = vi.fn(async (_url, options) => validResponse(
+        JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+      const receiptDirectory = join(directory, 'receipts');
+      const resultDirectory = join(directory, 'results');
+      await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
+        ...keyedFileStores(receiptDirectory, resultDirectory)) });
+      const target = join(resultDirectory, (await readdir(resultDirectory)).find(name => name.endsWith('.sealed.json'))!);
+      const envelope = JSON.parse(await readFile(target, 'utf8')) as { tag: string };
+      envelope.tag = Buffer.alloc(16).toString('base64url');
+      await writeFile(target, `${canonicalJson(envelope)}\n`);
+      const replay = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
+        ...keyedFileStores(receiptDirectory, resultDirectory)) });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(Object.values(replay.spec.evaluations).map(result => result.spec.reason)).toEqual(Array(3).fill('persistence-error'));
+      expect(Object.values(replay.spec.evaluations).every(result => result.spec.value === undefined)).toBe(true);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

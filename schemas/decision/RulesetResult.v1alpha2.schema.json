@@ -29,6 +29,40 @@
       },
       "required": ["policyVersion", "uncertaintyProfile", "disposition", "matchedRule", "reason", "values"],
       "additionalProperties": false
+    },
+    "resultCacheCallerReceipt": {
+      "description": "D15 caller-level result-cache receipt. Historical evaluation attempts in a hit belong to the source invocation.",
+      "type": "object",
+      "properties": {
+        "disposition": { "enum": ["cache-hit", "cache-miss-fill", "bypass"] },
+        "callerInvocationId": { "type": "string", "minLength": 1 },
+        "sourceInvocationId": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "sourceReceiptId": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "originalEvaluatedAtEpochMs": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "cacheEntryId": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "createdAtEpochMs": { "type": "integer", "minimum": 0 },
+        "providerAttempted": { "type": "boolean" }
+      },
+      "required": ["disposition", "callerInvocationId", "sourceInvocationId", "sourceReceiptId", "originalEvaluatedAtEpochMs", "cacheEntryId", "createdAtEpochMs", "providerAttempted"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "disposition": { "const": "cache-hit" } } },
+          "then": {
+            "properties": {
+              "providerAttempted": { "const": false },
+              "sourceInvocationId": { "type": "string" },
+              "sourceReceiptId": { "type": "string" },
+              "originalEvaluatedAtEpochMs": { "type": "integer" },
+              "cacheEntryId": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "disposition": { "const": "bypass" } } },
+          "then": { "properties": { "providerAttempted": { "const": true }, "cacheEntryId": { "type": "null" } } }
+        }
+      ]
     }
   },
   "type": "object",
@@ -155,6 +189,7 @@
             "persistence-error",
             "replay-mismatch",
             "execution-uncertain",
+            "batch-record-unavailable",
             "no-match",
             "conflicting-outcomes",
             "evaluation-failed"
@@ -171,6 +206,9 @@
         },
         "context": {
           "$ref": "DecisionContextEvidence.v1.schema.json"
+        },
+        "cache": {
+          "$ref": "#/$defs/resultCacheCallerReceipt"
         },
         "evaluations": {
           "type": "object",
@@ -336,6 +374,7 @@
                       "persistence-error",
                       "replay-mismatch",
                       "execution-uncertain",
+                      "batch-record-unavailable",
                       "no-match",
                       "conflicting-outcomes",
                       "evaluation-failed"
@@ -529,6 +568,7 @@
                             "persistence-error",
                             "replay-mismatch",
                             "execution-uncertain",
+                            "batch-record-unavailable",
                             "no-match",
                             "conflicting-outcomes",
                             "evaluation-failed"

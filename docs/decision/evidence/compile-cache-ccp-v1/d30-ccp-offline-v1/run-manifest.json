@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "decision-qualification-run/v1",
+  "mode": "offline",
+  "runId": "d30-ccp-offline-v1",
+  "generatedAt": "2026-09-24T21:36:54.169Z",
+  "sourceCommit": "4128887ad14c2af8324fbbc9265ad1d536266b86",
+  "dirty": false,
+  "cases": [
+    {
+      "id": "D30-CCP-G0",
+      "kind": "baseline",
+      "mandatory": true,
+      "candidateTests": [
+        "test/unit/decision/compile-cache.test.ts",
+        "test/unit/decision/compile-cache-closure.test.ts"
+      ],
+      "evidenceIds": [
+        "CCP-002",
+        "CCP-003",
+        "CCP-009",
+        "CCP-SCHEMA"
+      ]
+    },
+    {
+      "id": "D30-CCP-G1",
+      "kind": "baseline",
+      "mandatory": true,
+      "candidateTests": [
+        "test/unit/decision/compile-cache.test.ts",
+        "test/unit/decision/compile-cache-closure.test.ts"
+      ],
+      "evidenceIds": [
+        "CCP-001",
+        "CCP-004",
+        "CCP-007",
+        "CCP-012",
+        "CCP-013",
+        "CCP-014"
+      ]
+    },
+    {
+      "id": "D30-CCP-G2",
+      "kind": "baseline",
+      "mandatory": true,
+      "candidateTests": [
+        "test/unit/decision/compile-cache.test.ts",
+        "test/unit/decision/compile-cache-closure.test.ts"
+      ],
+      "evidenceIds": [
+        "CCP-005",
+        "CCP-006",
+        "CCP-008",
+        "CCP-010",
+        "CCP-015"
+      ]
+    },
+    {
+      "id": "D30-CCP-G5",
+      "kind": "baseline",
+      "mandatory": true,
+      "candidateTests": [
+        "test/unit/decision/compile-cache.test.ts",
+        "test/unit/decision/compile-cache-closure.test.ts"
+      ],
+      "evidenceIds": [
+        "CCP-011"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "caseId": "D30-CCP-G0",
+      "executable": true,
+      "outcome": "pass",
+      "artifact": "d30-ccp-offline-v1/D30-CCP-G0.json",
+      "digest": "sha256:7cb8abbc1043bb375ee4798a37c419c514cd571ce6eb2ec777ea28cef5d3929e",
+      "testEvidenceIds": [
+        "CCP-002",
+        "CCP-003",
+        "CCP-009",
+        "CCP-SCHEMA"
+      ]
+    },
+    {
+      "caseId": "D30-CCP-G1",
+      "executable": true,
+      "outcome": "pass",
+      "artifact": "d30-ccp-offline-v1/D30-CCP-G1.json",
+      "digest": "sha256:274bbc674384a55c369839e179395aa6e587446e15091168afdd7270093332bf",
+      "testEvidenceIds": [
+        "CCP-001",
+        "CCP-004",
+        "CCP-007",
+        "CCP-012",
+        "CCP-013",
+        "CCP-014"
+      ]
+    },
+    {
+      "caseId": "D30-CCP-G2",
+      "executable": true,
+      "outcome": "pass",
+      "artifact": "d30-ccp-offline-v1/D30-CCP-G2.json",
+      "digest": "sha256:c710c3b8e8ce02793d2d586aad82bd5d59f6f6842f678cfd3075978f59212d18",
+      "testEvidenceIds": [
+        "CCP-005",
+        "CCP-006",
+        "CCP-008",
+        "CCP-010",
+        "CCP-015"
+      ]
+    },
+    {
+      "caseId": "D30-CCP-G5",
+      "executable": true,
+      "outcome": "fail",
+      "artifact": "d30-ccp-offline-v1/D30-CCP-G5.json",
+      "digest": "sha256:5afbc26aaaaf846158fb67cfc60853de0cb186d64716687cd039da4ec85836e2",
+      "testEvidenceIds": [
+        "CCP-011"
+      ]
+    }
+  ],
+  "evidenceFlags": {
+    "privacy-scan-clean": false
+  }
+}

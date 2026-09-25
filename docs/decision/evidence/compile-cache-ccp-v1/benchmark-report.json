@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "decision-cache-benchmark-result/v1",
+  "planId": "d30-ccp-jev-local-compile-v1",
+  "sourceCommit": "4128887ad14c2af8324fbbc9265ad1d536266b86",
+  "environment": {
+    "node": "v24.12.0",
+    "platform": "linux",
+    "arch": "x64"
+  },
+  "report": {
+    "schemaVersion": "decision-cache-benchmark/v1",
+    "configurationDigest": "sha256:3db5127179f6eb83e5e65d7ef7ef37913e608aad1869900db513a4c9cfabdb93",
+    "warmupCalls": 20,
+    "measuredCalls": 400,
+    "minimumBenefitTargetBps": 1000,
+    "confidenceInterval": "95% paired bootstrap CI [-0.148, -0.127] ms",
+    "disabled": {
+      "calls": 200,
+      "averagePreparationLatencyMs": 0.02103023499998926,
+      "averageInputTokens": null,
+      "averageTotalTaskTokens": null,
+      "averageCachedInputTokens": null,
+      "averageCostUsd": null,
+      "peakMemoryBytes": 283,
+      "peakStorageBytes": 0,
+      "hitRateBps": 0,
+      "invalidationRateBps": 0
+    },
+    "enabled": {
+      "calls": 200,
+      "averagePreparationLatencyMs": 0.15853089000000295,
+      "averageInputTokens": null,
+      "averageTotalTaskTokens": null,
+      "averageCachedInputTokens": null,
+      "averageCostUsd": null,
+      "peakMemoryBytes": 283,
+      "peakStorageBytes": 1232,
+      "hitRateBps": 10000,
+      "invalidationRateBps": 0
+    }
+  },
+  "target": {
+    "metric": "preparation-latency",
+    "targetBps": 1000,
+    "observedBenefitBps": -65382,
+    "outcome": "fail"
+  },
+  "productionLatencyQualification": false
+}

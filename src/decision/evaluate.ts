@@ -11,6 +11,7 @@ import { allocateEstimatedUsage, batchAccountingTotals, batchEnforcementCostMicr
 import { validOpaqueRequestId } from './batch-receipts/validate.js';
 import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch-receipts/receipt.js';
 import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
+import { BatchRecordUnavailableError, BatchStoreIntegrityError, BatchStoreMigrationRequiredError } from './batch-receipts/protection.js';
 import type { CompatibilityDecision } from './calibration/types.js';
 import { prepareAdapterRequest } from './compile-cache/runtime.js';
 import { providerPrefixEvidence } from './compile-cache/prefix.js';
@@ -135,9 +136,13 @@ async function evaluateWithResultCache(request: DecisionEvaluationRequest): Prom
       throw new Error('Cached source receipt could not be verified');
     }
   }
-  await config.recordCallerReceipt!(structuredClone(outcome.receipt));
   const historical = structuredClone(outcome.evidence!.result) as unknown as RulesetResult;
-  return { ...historical, spec: { ...historical.spec, cache: outcome.receipt } };
+  const released: RulesetResult = { ...historical, spec: { ...historical.spec, cache: structuredClone(outcome.receipt) } };
+  // `spec.cache` is D15 evidence defined only by the v1alpha2 schema. A historical
+  // v1alpha1 entry cannot carry it, so it is refused before the caller receipt is persisted.
+  assertDecisionResultWriterVersion(released);
+  await config.recordCallerReceipt!(structuredClone(outcome.receipt));
+  return released;
 }
 
 function assertNormalizedCacheInput(value: unknown): void {
@@ -555,6 +560,13 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
             throw new ReceiptPersistenceError();
           }
           observations = new Map(questionIds.map(id => [id, observationFailure('execution-uncertain')]));
+        } else if (error instanceof BatchRecordUnavailableError || error instanceof BatchStoreIntegrityError
+          || error instanceof BatchStoreMigrationRequiredError) {
+          // Erased, expired, tampered or unmigrated durable state is never re-dispatched and never
+          // falls back to another read of stored values. Only lifecycle unavailability gets the
+          // dedicated reason; integrity and migration failures stay persistence-error.
+          const reason = error instanceof BatchRecordUnavailableError ? 'batch-record-unavailable' : 'persistence-error';
+          observations = new Map(questionIds.map(id => [id, observationFailure(reason)]));
         } else if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) {
           throw error;
         } else {
@@ -1068,14 +1080,15 @@ function resultBase(request: DecisionEvaluationRequest, ruleset: ArtifactPin, bi
 }
 
 /**
- * Results that can carry D04/D07 batch provenance, D05 admission, D06 context or
- * D30 provider-prefix evidence are written as v1alpha2 even from v1alpha1 inputs,
+ * Results that can carry D04/D07 batch provenance, D05 admission, D06 context,
+ * D15 result-cache receipts or D30 provider-prefix evidence are written as v1alpha2 even from v1alpha1 inputs,
  * so every nested result and receipt payload of one invocation shares one version.
  */
 function resultVersion(request: DecisionEvaluationRequest): typeof DECISION_API_VERSION | typeof DECISION_API_VERSION_STRUCTURED {
   if (request.calibrationCompatibility || request.ruleset.apiVersion === DECISION_API_VERSION_STRUCTURED || request.binding.apiVersion === DECISION_API_VERSION_STRUCTURED
     || Object.values(request.definitions).some(definition => definition.apiVersion === DECISION_API_VERSION_STRUCTURED)
-    || request.batching || request.batchReceipts || request.scheduler?.enabled || request.providerPrefix || request.context) {
+    || request.batching || request.batchReceipts || request.scheduler?.enabled || request.providerPrefix || request.context
+    || request.resultCache?.policy.enabled) {
     return DECISION_API_VERSION_STRUCTURED;
   }
   return DECISION_API_VERSION;

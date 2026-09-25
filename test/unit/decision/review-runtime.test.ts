@@ -365,14 +365,14 @@ describe('durable decision review runtime', () => {
     expect(new Ajv2020({ strict: false }).validate(schema, await h.store.read('review-1', 'tenant-a', 'project-a'))).toBe(true);
     await h.service.tombstone(scope(actor('operator')), 'review-1', 'retention');
     await expect(h.service.purge(scope(actor('operator')), 'review-1')).rejects.toThrow(/retention/);
-    expect((await readdir(h.directory)).filter(name => name.endsWith('.json'))).toHaveLength(2);
+    expect((await readdir(h.store.scopeDirectory('tenant-a', 'project-a'))).filter(name => name.endsWith('.json'))).toHaveLength(2);
     time.value = 11_000;
     const marker = await h.service.purge(scope(actor('operator')), 'review-1');
     expect(marker).toMatchObject({ lastRevision: 2, reviewIdDigest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/) });
-    const names = await readdir(h.directory);
+    const names = await readdir(h.store.scopeDirectory('tenant-a', 'project-a'));
     expect(names).toHaveLength(1);
     expect(names[0]).toMatch(/\.purged\.json$/);
-    expect(await readFile(`${h.directory}/${names[0]}`, 'utf8')).not.toContain('synthetic-purge-canary');
+    expect(await readFile(join(h.store.scopeDirectory('tenant-a', 'project-a'), names[0]!), 'utf8')).not.toContain('synthetic-purge-canary');
     const restarted = new DecisionReviewService(new FileDecisionReviewStore(h.directory, new Uint8Array(32).fill(7)),
       h.authorization, () => time.value);
     expect(await restarted.read(scope(actor('auditor')), 'review-1')).toBeNull();
@@ -380,7 +380,7 @@ describe('durable decision review runtime', () => {
     expect(await restarted.purge(scope(actor('operator')), 'review-1')).toEqual(marker);
     await expect(restarted.create(scope(actor('alice', ['requester'])), input(time.value, { expiresAtEpochMs: 20_000 })))
       .rejects.toThrow(/already exists/);
-    const path = `${h.directory}/${names[0]}`;
+    const path = join(h.store.scopeDirectory('tenant-a', 'project-a'), names[0]!);
     const tampered = JSON.parse(await readFile(path, 'utf8'));
     tampered.receipt.lastRevision = 3;
     await writeFile(path, JSON.stringify(tampered));
@@ -400,11 +400,11 @@ describe('durable decision review runtime', () => {
     const crashingService = new DecisionReviewService(crashingStore, h.authorization, () => time.value);
     await expect(crashingService.purge(scope(actor('operator')), 'review-1')).rejects.toThrow(/synthetic crash/);
     expect(await h.service.read(scope(actor('auditor')), 'review-1')).toBeNull();
-    expect((await readdir(h.directory)).filter(name => /\.r\d+\.json$/.test(name))).toHaveLength(2);
+    expect((await readdir(h.store.scopeDirectory('tenant-a', 'project-a'))).filter(name => /\.r\d+\.json$/.test(name))).toHaveLength(2);
     expect((await h.service.purge(scope(actor('operator')), 'review-1')).lastRevision).toBe(2);
-    const names = await readdir(h.directory);
+    const names = await readdir(h.store.scopeDirectory('tenant-a', 'project-a'));
     expect(names).toHaveLength(1);
-    expect(await readFile(`${h.directory}/${names[0]}`, 'utf8')).not.toContain('synthetic-erasure-canary');
+    expect(await readFile(join(h.store.scopeDirectory('tenant-a', 'project-a'), names[0]!), 'utf8')).not.toContain('synthetic-erasure-canary');
   });
 
   it('filters list/read/export without object enumeration and applies tombstone/legal hold lifecycle', async () => {
@@ -437,5 +437,51 @@ describe('durable decision review runtime', () => {
     const h = await harness(); await h.service.create(scope(actor('alice', ['requester'])), input(1_000));
     const foreign = { tenantId: 'tenant-a', projectId: 'project-b', actor: actor('mallory') };
     expect(await h.service.read(foreign, 'review-1')).toBeNull();
+  });
+
+  it('HITL-ORACLE gives unauthorized-existing, cross-project and missing reviews one identical error', async () => {
+    const h = await harness({ value: 1_000 }, { authorize: (target, operation) => operation === 'create' || target.actor.id !== 'mallory' });
+    await h.service.create(scope(actor('alice', ['requester'])), input(1_000));
+    const denied = scope(actor('mallory'));
+    const foreign: ReviewScope = { tenantId: 'tenant-b', projectId: 'project-a', actor: actor('bob') };
+    const allowed = scope(actor('bob'));
+    const operations: Record<string, (target: ReviewScope, id: string) => Promise<unknown>> = {
+      claim: (target, id) => h.service.claim(target, id, 'claim'),
+      approve: (target, id) => h.service.decide(target, id, 'approve', 'approve'),
+      reject: (target, id) => h.service.decide(target, id, 'reject', 'reject'),
+      edit: (target, id) => h.service.edit(target, id, { kind: 'notify' }, 'edit', 'fresh-token'),
+      cancel: (target, id) => h.service.cancel(target, id, 'cancel'),
+      resume: (target, id) => h.service.resume(target, id, 'secret-token', async () => 'effect'),
+      delete: (target, id) => h.service.delete(target, id, 'delete'),
+      purge: (target, id) => h.service.purge(target, id),
+    };
+    const outcome = async (run: () => Promise<unknown>) => {
+      try { await run(); return 'resolved'; }
+      catch (error) { return `${(error as Error).constructor.name}:${(error as Error).message}`; }
+    };
+    for (const [name, run] of Object.entries(operations)) {
+      const results = [await outcome(() => run(denied, 'review-1')), await outcome(() => run(foreign, 'review-1')),
+        await outcome(() => run(denied, 'review-missing')), await outcome(() => run(allowed, 'review-missing'))];
+      expect(new Set(results), name).toEqual(new Set(['ReviewAccessError:Review not found']));
+    }
+    const review = await h.store.read('review-1', 'tenant-a', 'project-a');
+    expect(review?.events.map(event => event.type)).toEqual(['created']);
+  });
+
+  it('HITL-SCOPE lists one tenant without opening review files of another tenant', async () => {
+    const h = await harness();
+    await h.service.create(scope(actor('alice', ['requester'])), input(1_000));
+    const other: ReviewScope = { tenantId: 'tenant-b', projectId: 'project-a', actor: actor('alice', ['requester']) };
+    await h.service.create(other, input(1_000, { reviewId: 'review-1', presentation: { summary: 'tenant-b-canary' } }));
+    const own = h.store.scopeDirectory('tenant-a', 'project-a');
+    const foreign = h.store.scopeDirectory('tenant-b', 'project-a');
+    expect(own).not.toBe(foreign);
+    expect((await readdir(h.directory)).sort()).toEqual([own, foreign].map(path => path.slice(h.directory.length + 1)).sort());
+    for (const name of await readdir(own)) expect(await readFile(join(own, name), 'utf8')).not.toContain('tenant-b-canary');
+    // Unparseable foreign files would fail any list that opened them.
+    for (const name of await readdir(foreign)) await writeFile(join(foreign, name), 'not json');
+    await writeFile(join(foreign, `${'f'.repeat(64)}.r1.json`), 'not json');
+    expect((await h.service.list(scope(actor('auditor')))).map(review => [review.tenantId, review.reviewId])).toEqual([['tenant-a', 'review-1']]);
+    await expect(h.service.list({ ...other, actor: actor('auditor') })).rejects.toThrow();
   });
 });

@@ -12,6 +12,7 @@ import type { BatchReceiptStore, PriceCatalogRecord } from './batch-receipts/typ
 import type { CalibrationRegistry } from './calibration/registry.js';
 import type { CalibrationIdentity, CompatibilityDecision, CompatibilityPolicy } from './calibration/types.js';
 import type {
+  CacheTelemetry,
   CompileCacheIdentity,
   CompileCacheReadContext,
   CompileCacheResult,
@@ -103,7 +104,7 @@ export type DecisionFailureReason =
   | 'insufficient-information' | 'timeout' | 'network-transient'
   | 'rate-limited' | 'overloaded' | 'service-error' | 'authentication'
   | 'invalid-request' | 'budget-exhausted' | 'cancelled'
-  | 'persistence-error' | 'replay-mismatch' | 'execution-uncertain'
+  | 'persistence-error' | 'replay-mismatch' | 'execution-uncertain' | 'batch-record-unavailable'
   | 'no-match' | 'conflicting-outcomes' | 'evaluation-failed';
 
 export type AcceptanceDisposition = 'act' | 'review' | 'reject' | 'fallback';
@@ -483,6 +484,8 @@ export interface DecisionCompileCachePolicy {
   /** Cache rejection can safely recompile; strict mode instead fails before dispatch. */
   failureMode?: 'recompile' | 'fail';
   onResult?: (input: { alias: string; outcome: CompileCacheResult<JsonValue>['outcome'] }) => void;
+  /** Metadata-only compile-layer telemetry for `mapCacheTelemetry`; carries no alias, key or identity. */
+  onTelemetry?: (telemetry: CacheTelemetry) => void;
 }
 
 export interface DecisionProviderPrefixPolicy {
