@@ -56,7 +56,7 @@ describe('DAG Flow run receipt', () => {
     expect(receipt.outcome).toBe('error');
     expect(receipt.value).toBeNull();
   });
-  it('DAG-031 selects the other declared terminal, not an absent Flow public output', async () => {
+  it('DAG-044 selects the other declared terminal, not an absent Flow public output', async () => {
     const { report, records } = await run(false);
     const receipt = finalizeDecisionGraphRun(graph, plan, report, records);
     expect(receipt.outcome).toBe('complete');

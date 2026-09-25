@@ -52,7 +52,8 @@ export function decisionGraphParallelDispatch(graph: DecisionGraph, plan: GraphP
         const values = ids.map(id => correlated.get(id)!);
         values.forEach((value, index) => {
           const bound = estimates[index]!;
-          if (!value || !value.usage || !Number.isSafeInteger(value.attempts) || value.attempts < 1 ||
+          // An abstention inside an atomic batch fails the whole batch closed.
+          if (!value || !value.usage || (value.status ?? 'ok') !== 'ok' || !Number.isSafeInteger(value.attempts) || value.attempts < 1 ||
               !Number.isSafeInteger(value.usage.tokens) || value.usage.tokens < 0 ||
               !Number.isFinite(value.usage.costUsd) || value.usage.costUsd < 0 ||
               !Number.isSafeInteger(value.usage.timeMs) || value.usage.timeMs < 0 ||
