@@ -19,7 +19,10 @@ const PROVIDER_EXECUTABLES: Partial<Record<Platform, string[]>> = {
   'deepseek-harness': ['dsh'],
   factory: ['droid'],
   // Grok Bot has no verified CLI executable name; omit rather than invent.
+  // Muse Code's documented CLI binary is `muse`; the bare process name is
+  // deliberately NOT a detection signal (fail-closed per ADR).
   'grok-build': ['grok'],
+  muse: ['muse'],
   hermes: ['hermes'],
   opencode: ['opencode'],
   openclaw: ['openclaw'],

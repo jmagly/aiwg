@@ -18,6 +18,7 @@ const CURRENT_PLATFORM_IDS = [
   'grokbot',
   'grok-build',
   'hermes',
+  'muse',
   'opencode',
   'openclaw',
   'openhuman',
@@ -91,6 +92,41 @@ describe('provider definition registry', () => {
     expect(grokbot?.context.support).toBe('degraded');
   });
 
+
+  it('registers experimental muse with no aliases and fail-closed detection', () => {
+    const muse = getProviderDefinition('muse');
+    expect(muse).toBeDefined();
+    expect(muse?.displayName).toBe('Muse Code');
+    expect(muse?.status).toBe('experimental');
+    expect(muse?.aliases).toEqual([]);
+    expect(normalizeProviderDefinitionId('muse')).toBe('muse');
+    // ADR: canonical id is `muse` with no aliases. Rejected spellings are
+    // assembled at runtime so the forbidden forms never appear as literals.
+    for (const rejected of [
+      ['muse', 'code'].join('-'),
+      ['muse', 'spark'].join('-'),
+      'spark',
+      'meta',
+    ]) {
+      expect(normalizeProviderDefinitionId(rejected)).toBeNull();
+    }
+    // Fail-closed: no env or process detection signals. The bare `muse`
+    // process name collides with unrelated software.
+    expect(muse?.detection).toMatchObject({ env: [], process: [], capabilityId: 'muse' });
+    // Project skill root only; the user root resolves from XDG_CONFIG_HOME at
+    // deploy time. Never advertise ~/.muse as a default skill root.
+    expect(muse?.paths.kernelSkills).toBe('.agents/skills');
+    expect(muse?.paths.artifacts.skills).toBe('.agents/skills');
+    expect(muse?.paths.deployTarget).toBe('mixed');
+    expect(JSON.stringify(muse)).not.toContain('~/.muse');
+    expect(muse?.paths.contextFiles.contextFile).toBe('AGENTS.md');
+    expect(muse?.paths.contextFiles.hookFile).toBeNull();
+    expect(muse?.context.startupFiles).toEqual(['AGENTS.md']);
+    expect(muse?.capabilities.matrixRef).toBe('muse');
+    expect(muse?.capabilities.nativeFeatures.mcp).toBe(true);
+    expect(muse?.capabilities.nativeFeatures.agent_teams).toBe(false);
+    expect(muse?.capabilities.nativeFeatures.cron).toBe(false);
+  });
 
   it('keeps capability matrix references resolvable for all non-generic providers', () => {
     for (const definition of listProviderDefinitions()) {

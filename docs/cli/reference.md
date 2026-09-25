@@ -261,7 +261,7 @@ aiwg doctor [--provider <name>] [--all-providers] [--project-local] [--quiet]
 
 **Flags:**
 
-- `--provider <name>` — Inspect a specific provider's deployment paths (claude, codex, copilot, cursor, factory, grokbot, grok-build, hermes, opencode, openclaw, openhuman, omp, pi, warp, or devin). Defaults to auto-detect across deployed providers.
+- `--provider <name>` — Inspect a specific provider's deployment paths (claude, codex, copilot, cursor, factory, grokbot, grok-build, hermes, muse, opencode, openclaw, openhuman, omp, pi, warp, or devin). Defaults to auto-detect across deployed providers.
 - `--all-providers` — Enumerate every supported provider, including ones with nothing deployed.
 - `--project-local` — Show only the project-local artifacts section. Exit code reflects only project-local findings.
 - `--quiet` — Suppress informational subsections (counts, shadows). Show only failures.
@@ -561,7 +561,7 @@ aiwg use <framework|addon>
 
 **Options:**
 
-- `--provider <name>` - Target platform (claude, copilot, factory, cursor, devin, warp, codex, opencode, grokbot, grok-build, hermes, openclaw, openhuman, pi, local)
+- `--provider <name>` - Target platform (claude, copilot, factory, cursor, devin, warp, codex, opencode, grokbot, grok-build, hermes, muse, openclaw, openhuman, pi, local)
 - `--scope user` / `--user` - Additively deploy to the project and mirror the
   artifacts into the provider's user-level discovery paths.
 - `--global` - Install framework and kernel assets into provider user-level
@@ -600,6 +600,11 @@ being falsely described as pinned.
 - `--ci-hooks-enabled` - Also deploy CI workflow files to `.github/workflows/` and/or `.gitea/workflows/` (opt-in; detects forge from `.git/config`). Review deployed files before committing.
 - `--harness-agents <list>` - OpenHuman only: emit selected native `spawn_subagent` TOML agents with a comma-separated list (for example `test-engineer,security-auditor`). Without this flag, OpenHuman deploys kernel skills/rules only.
 - `--no-harness-agents` - OpenHuman only: explicitly skip native TOML harness agents and deploy only kernel skills/rules.
+- `--no-hooks` - Muse provider: skip the AIWG-managed project hooks (`.muse/hooks.json`; installed by default).
+  Other providers ignore it.
+- `--mcp` - Muse provider only: opt in to the AIWG MCP settings profile, merging the `aiwg` stdio server
+  (`aiwg mcp serve`, `mode: optional`) into the `mcp_servers` block of the operator's Muse user settings
+  (`$XDG_CONFIG_HOME/muse/settings.json`). A default `aiwg use --provider muse` never touches MCP or user settings.
 - `--skip-commands-migration` - Skip deleting the legacy commands directory (warns about duplicate entries in the command palette)
 - `--profile <name>` - Select a topology profile for addons that declare multiple page templates (e.g., `llm-wiki` ships `book-companion | personal | research-deep-dive | business-team | generic`). Without the flag, an interactive prompt appears on TTY. The selection is written to `.aiwg/<namespace>/config.json` so subsequent skill invocations pick the right template.
 
@@ -753,6 +758,7 @@ reload are shown with `--verbose`.
 | Google Antigravity CLI (experimental) | `antigravity` (`agy`) | `.agents/agents/`, `.agents/skills/`, project `AGENTS.md`; global skills unsupported | — |
 | Oh My Pi (experimental) | `omp` (`oh-my-pi`) | `.omp/agents/`, `.omp/prompts/`, `.omp/rules/`, `.agents/skills/`, `.omp/AGENTS.md` | Explicit extension bridge |
 | Pi Coding Agent (experimental) | `pi` | `.agents/skills/`, `.pi/prompts/`, `.pi/.aiwg/skills/`, `.pi/extensions/aiwg-bridge.ts`, project `AGENTS.md` | Trust-gated extension bridge (tool policy only) |
+| Muse Code (experimental) | `muse` | project `.agents/skills/`, `AGENTS.md` (discover-first; workspace trust required); `$XDG_CONFIG_HOME/muse/skills/` with `--scope user` | — |
 | Claude Code    | `claude`        | `.claude/agents/`, `.claude/commands/`, `.claude/skills/`, `.claude/rules/`                                           | —         |
 | GitHub Copilot | `copilot`       | `.github/agents/`, `.github/copilot-rules/`, `.github/skills/`                                                        | —         |
 | Factory AI     | `factory`       | `.factory/droids/`, `.factory/commands/`, `.factory/skills/`, `.factory/rules/`                                       | —         |
@@ -781,6 +787,13 @@ On first run after the commands-to-skills migration, `aiwg use` detects an exist
 - **Warp**: Agents and commands also aggregated into `WARP.md` for single-file context loading
 - **OpenHuman**: Kernel skills and rule bodies are user-global; the default deploy emits no markdown persona copies. Project context is rendered into `AGENTS.md`, and curated native TOML agents are opt-in with `--harness-agents`.
 - **Hermes**: Not a spawnable CLI — access via `ollama run hermes3` or MCP sidecar; deploy sets up skills and a lean AGENTS.md
+- **Muse Code**: Experimental; user-scope skills resolve from
+  `$XDG_CONFIG_HOME/muse/skills/` (default `~/.config/muse/skills`) at deploy
+  time, failing closed on bad XDG metadata. Project skills deploy to
+  `.agents/skills/`. Context loads discover-first from `AGENTS.md` only after
+  the workspace is trusted — trust the workspace when prompted, then start a
+  new Muse session (no Cursor-style window reload applies). See the
+  [Muse Code operational reference](https://github.com/jmagly/aiwg/blob/main/docs/agents/providers/muse.md).
 - **OpenClaw**: Only provider with behaviors support (`~/.openclaw/behaviors/`); all artifacts deploy to home directory
 - **Local/Ollama**: Uses Claude Code path layout; specify `--coding-model ollama/<model>` to route coding tasks to the local model
 
@@ -4212,7 +4225,7 @@ and the
 
 ### Best-practice usage guidance
 
-Discovery is the operator surface that makes the **kernel + on-demand model** work across all 17 named provider integrations (Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub Copilot, Cursor, DeepSeek Harness, Factory AI, Grok Bot, Grok Build, Hermes, OpenCode, OpenClaw, OpenHuman, Pi Coding Agent from pi.dev, Oh My Pi, Warp Terminal, and Devin Desktop). Each provider deploys a small kernel set on its supported skill surface; everything else is reached via `aiwg discover`.
+Discovery is the operator surface that makes the **kernel + on-demand model** work across all 18 named provider integrations (Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub Copilot, Cursor, DeepSeek Harness, Factory AI, Grok Bot, Grok Build, Muse Code, Hermes, OpenCode, OpenClaw, OpenHuman, Pi Coding Agent from pi.dev, Oh My Pi, Warp Terminal, and Devin Desktop). Each provider deploys a small kernel set on its supported skill surface; everything else is reached via `aiwg discover`.
 
 **Lead with discovery, not with memory.** When a user describes a capability, query first:
 
@@ -5902,6 +5915,9 @@ aiwg use sdlc --provider hermes
 
 # OpenClaw (includes behaviors in ~/.openclaw/behaviors/)
 aiwg use sdlc --provider openclaw
+
+# Muse Code (experimental — discover-first AGENTS.md; user skills via $XDG_CONFIG_HOME/muse/skills)
+aiwg use sdlc --provider muse
 
 # Local / Ollama  (Claude Code paths, route coding tasks to local model)
 aiwg use sdlc --provider local --coding-model ollama/qwen3.5:9b

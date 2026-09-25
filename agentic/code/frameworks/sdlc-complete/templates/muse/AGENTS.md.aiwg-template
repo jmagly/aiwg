@@ -1,0 +1,64 @@
+# AIWG × Muse Code
+
+Read and follow `WORKSPACE.md` first. Then read `AIWG.md` for AIWG discovery,
+quick references, and framework routing.
+
+This file is the **discover-first AIWG bridge** for Muse Code. Muse loads
+project `AGENTS.md` natively — but only after the workspace is explicitly
+trusted (first-run trust prompt). Until the workspace is trusted, this file
+does not load: trust the workspace when prompted, then start a new Muse
+session so the bridge is read. It does not claim Muse auto-loads any other
+AIWG path on its own.
+
+{{REMOTES_TOPOLOGY}}
+## Before improvising
+
+1. Run `aiwg discover "<what you need>"`.
+2. Run `aiwg show <type> <name>` for the full artifact body.
+3. Prefer indexed agents/skills/rules over guessing.
+
+Instruction order: this `AGENTS.md`, then `WORKSPACE.md` for
+project/operator context, then `AIWG.md` for AIWG discovery and framework
+routing. Store artifact references and
+one-sentence summaries only — never paste full artifact bodies into
+context or memory.
+
+## Boundaries
+
+- AIWG artifacts live under the project `.aiwg/` tree and the AIWG index.
+- Muse-native skill roots are **deploy locations, not auto-loaded
+  context**: project `.agents/skills/`, plus the operator's
+  `$XDG_CONFIG_HOME/muse/skills` user root. AIWG never invents `~/.muse`,
+  never writes foreign provider paths (no `.cursor/`), and never silently
+  mirrors into `~/.agents/skills`.
+- No `CLAUDE.md` shim and no foreign-provider context file: this bridge is
+  the Muse context surface.
+
+## Hooks and MCP
+
+> **Hooks run outside the agent sandbox.** Muse executes hook commands as
+> plain shell processes on the operator's machine — not inside the agent's
+> sandbox. Project hooks additionally run only after the operator trusts the
+> project folder. Review `.muse/hooks.json` before trusting a workspace.
+
+- `aiwg use --provider muse` installs one AIWG-managed `SessionStart` hook
+  into `.muse/hooks.json`: a read-only `aiwg refresh --dry-run --quiet`
+  context refresh at session start. Unmanaged hooks are never silently
+  installed; every managed hook ships with a stated reason and a removal
+  path (see `tools/agents/providers/muse-hooks.mjs`).
+- Opt out with `aiwg use --provider muse --no-hooks`. To remove an installed
+  managed hook, delete its matcher group from `.muse/hooks.json` (the group
+  whose command is `aiwg refresh --dry-run --quiet`).
+- MCP is **opt-in only**: `aiwg use --provider muse --mcp` merges the AIWG
+  MCP server (`aiwg mcp serve` over stdio, `mode: optional`) into the
+  `mcp_servers` block of the operator's `$XDG_CONFIG_HOME/muse/settings.json`
+  (default `~/.config/muse/settings.json`). A default deploy never touches
+  MCP or user settings. stdio servers inherit the operator environment —
+  pass `MUSE_SESSION_ID` through at runtime rather than hardcoding a
+  session id into `env`.
+
+## After deploy or regenerate
+
+Trust the workspace again if prompted, then start a **new Muse session**
+to re-read this file. Changes are not picked up by reloading an IDE
+window.

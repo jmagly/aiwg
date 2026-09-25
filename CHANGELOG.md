@@ -79,6 +79,22 @@ in the entry.
 
 ### Added
 
+- Experimental Muse Code provider (`--provider muse`, no aliases), per
+  `docs/architecture/adr-muse-provider-target.md`. It adds registry and
+  capability-matrix entries, model catalog rows marked unverified, and a
+  skill writer. Skills deploy to project `.agents/skills`, and to
+  `$XDG_CONFIG_HOME/muse/skills` only with `--scope user`. Other additions:
+  - a discover-first `AGENTS.md` bridge that needs workspace trust;
+  - one managed `SessionStart` hook in `.muse/hooks.json`, preserving
+    operator hooks and with a `--no-hooks` opt-out;
+  - an opt-in `--mcp` settings profile;
+  - export-first session import;
+  - an optional `muse exec` Ralph adapter;
+  - an opt-in, evidence-gated live smoke (`npm run smoke:muse:live`).
+
+  None of this is qualified against a live Muse install yet. Delivered from
+  GitHub PRs #257–#269 (jmagly/aiwg#225–#238).
+
 - Effect ledger foundation (experimental, library only). The v1 contract,
   ADR, `schemas/effects/*` and golden fixtures pin effect IDs (`eff1_…`, plus
   the `d13.review/v1` adapter derivation equal to D13's `reviewDigest`), DSSE

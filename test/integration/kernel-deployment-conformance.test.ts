@@ -34,6 +34,10 @@ const PROVIDERS = [
   { id: 'openclaw', root: (_project: string, home: string) => join(home, '.openclaw/skills/aiwg'), standardRoot: (_project: string, home: string) => join(home, '.openclaw/.aiwg/skills') },
   { id: 'openhuman', root: (_project: string, home: string) => join(home, '.openhuman/skills'), standardRoot: (_project: string, home: string) => join(home, '.openhuman/.aiwg/skills') },
   { id: 'pi', root: (project: string) => join(project, '.agents/skills'), standardRoot: (project: string) => join(project, '.pi/.aiwg/skills') },
+  // #236: Muse Code — project skills live at the Muse-native `.agents/skills`
+  // root (ADR skill roots table); the opt-in standard tier mirrors to
+  // `.agents/.aiwg/skills` (project scope only, never the user XDG root).
+  { id: 'muse', root: (project: string) => join(project, '.agents/skills'), standardRoot: (project: string) => join(project, '.agents/.aiwg/skills') },
 ] as const;
 
 function skillDirs(parent: string): string[] {
@@ -282,7 +286,10 @@ describe('kernel deployment conformance', () => {
 
   it('matches the command mirror policy for every deployable provider', () => {
     const commandProviders = ['factory', 'opencode', 'warp', 'windsurf', 'copilot', 'codex', 'openclaw'];
-    const nativeOnlyProviders = ['claude', 'cursor', 'grokbot', 'hermes', 'openhuman', 'pi'];
+    // #236: muse deploys skills natively (no command translation; writers land
+    // agents/commands/rules as indexed-only), so it mirrors the native-only
+    // peers (hermes/openhuman/grokbot).
+    const nativeOnlyProviders = ['claude', 'cursor', 'grokbot', 'hermes', 'openhuman', 'pi', 'muse'];
     expect(PROVIDERS.map(provider => provider.id).sort()).toEqual(
       [...commandProviders, ...nativeOnlyProviders].sort(),
     );
@@ -339,3 +346,79 @@ describe('grokbot fail-closed kernel deploy (#219)', () => {
   });
 });
 
+
+describe('muse XDG user-scope kernel deploy (#236)', () => {
+  const museEntry = PROVIDERS.find(provider => provider.id === 'muse')!;
+
+  function museUserScopeDryRun(
+    label: string,
+    env: NodeJS.ProcessEnv,
+  ): { exitCode: number; output: string; project: string; home: string } {
+    const project = join(TEST_ROOT, `muse-userscope-${label}`);
+    const home = join(TEST_ROOT, `muse-userscope-${label}-home`);
+    mkdirSync(project, { recursive: true });
+    mkdirSync(home, { recursive: true });
+    let exitCode = 0;
+    let output = '';
+    try {
+      output = execFileSync(
+        'node',
+        [join(REPO_ROOT, 'bin/aiwg.mjs'), 'use', 'all', '--provider', 'muse', '--scope', 'user', '--dry-run'],
+        { cwd: project, env, encoding: 'utf8', timeout: 120_000 },
+      );
+    } catch (error) {
+      const err = error as { status?: number; stdout?: string; stderr?: string };
+      exitCode = err.status ?? 1;
+      output = `${err.stdout ?? ''}${err.stderr ?? ''}`;
+    }
+    return { exitCode, output, project, home };
+  }
+
+  it('fails closed on unusable XDG_CONFIG_HOME instead of inventing ~/.muse', () => {
+    const { exitCode, output, project, home } = museUserScopeDryRun('bad-xdg', {
+      ...process.env,
+      HOME: join(TEST_ROOT, 'muse-userscope-bad-xdg-home'),
+      USERPROFILE: join(TEST_ROOT, 'muse-userscope-bad-xdg-home'),
+      XDG_CONFIG_HOME: 'relative/path',
+    });
+    expect(exitCode).not.toBe(0);
+    expect(output).toMatch(/XDG_CONFIG_HOME/);
+    // Fail-closed: no invented ~/.muse tree, no foreign .cursor/ tree.
+    expect(existsSync(join(home, '.muse'))).toBe(false);
+    expect(existsSync(join(home, '.config', 'muse'))).toBe(false);
+    expect(existsSync(join(project, '.cursor'))).toBe(false);
+  });
+
+  it('passes the user-scope gate with a documented XDG root and invents no ~/.muse tree', () => {
+    const xdg = join(TEST_ROOT, 'muse-userscope-xdg');
+    mkdirSync(xdg, { recursive: true });
+    const { exitCode, project, home } = museUserScopeDryRun('xdg', {
+      ...process.env,
+      HOME: join(TEST_ROOT, 'muse-userscope-xdg-home'),
+      USERPROFILE: join(TEST_ROOT, 'muse-userscope-xdg-home'),
+      XDG_CONFIG_HOME: xdg,
+    });
+    expect(exitCode).toBe(0);
+    // Documented user root only — nothing invented under the fake home.
+    expect(existsSync(join(home, '.muse'))).toBe(false);
+    expect(existsSync(join(home, '.agents', 'skills'))).toBe(false);
+    expect(existsSync(join(project, '.cursor'))).toBe(false);
+  });
+
+  it('pins the documented user skill roots ($XDG_CONFIG_HOME/muse/skills, ~/.config/muse/skills default)', async () => {
+    const { resolveMuseXdgSkillsDir } = await import('../../src/providers/muse-paths.js');
+    const xdg = join(TEST_ROOT, 'muse-xdg-roots');
+    const home = join(TEST_ROOT, 'muse-xdg-roots-home');
+    expect(resolveMuseXdgSkillsDir({ XDG_CONFIG_HOME: xdg }, home)).toBe(join(xdg, 'muse', 'skills'));
+    expect(resolveMuseXdgSkillsDir({}, home)).toBe(join(home, '.config', 'muse', 'skills'));
+    // Project scope never resolves a home-dir tree from the namespace default.
+    expect(museEntry.root('project', 'home')).toBe(join('project', '.agents/skills'));
+  });
+
+  it('never writes a .cursor or ~/.muse tree on project deploy', () => {
+    const { project, home } = deploy('muse', { suffix: 'no-cursor' });
+    expect(existsSync(join(project, '.cursor'))).toBe(false);
+    expect(existsSync(join(home, '.muse'))).toBe(false);
+    expect(existsSync(join(museEntry.root(project, home), 'aiwg-issue', 'SKILL.md'))).toBe(true);
+  });
+});

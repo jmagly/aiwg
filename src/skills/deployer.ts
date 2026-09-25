@@ -38,6 +38,10 @@ import type {
 import { validateAgentSkillContent } from './validator.js';
 import { resolveHermesHomePath } from '../providers/hermes-home.js';
 import {
+  museXdgSkillsDirRemediation,
+  resolveMuseXdgSkillsDir,
+} from '../providers/muse-paths.js';
+import {
   GROKBOT_SKILLS_DIR_ENV,
   grokbotMissingRootRemediation,
   resolveGrokbotSkillsDir,
@@ -205,6 +209,37 @@ function resolvePolicy(
         'uses the active HERMES_HOME skills surface with strict managed ownership markers',
       );
       break;
+    case 'muse': {
+      // ADR scope rule 1: the default projection is the project
+      // <repo>/.agents/skills surface shared with antigravity, codex, and
+      // deepseek-harness. Muse reads both that root and its XDG user root,
+      // so writing the user root by default would list a skill twice.
+      // #234: an explicit user scope resolves the documented XDG root at
+      // deploy time — never ~/.muse — and bad XDG metadata fails closed.
+      if (options.scope === 'user') {
+        const home = resolvedHome(options);
+        const configured = resolveMuseXdgSkillsDir(process.env, home);
+        if (!configured) {
+          root = '';
+          status = 'unsupported';
+          supported = false;
+          reasons.push(museXdgSkillsDirRemediation(process.env, home));
+          warnings.push(
+            'Agent Skills deploy for muse requires a valid absolute XDG_CONFIG_HOME; no filesystem root was invented',
+          );
+        } else {
+          root = configured;
+          reasons.push(
+            'uses the Muse XDG user skills root ($XDG_CONFIG_HOME/muse/skills, default ~/.config/muse/skills) with strict managed ownership markers',
+          );
+        }
+      } else {
+        reasons.push(
+          'uses the project .agents/skills surface shared with antigravity, codex, and deepseek-harness',
+        );
+      }
+      break;
+    }
     case 'openhuman':
       status = 'projected';
       reasons.push(
@@ -477,16 +512,16 @@ function readDeploymentSidecar(
 }
 
 /**
- * Codex, Antigravity, and DeepSeek Harness intentionally consume the same
- * portable project skill surface. A projection written for any member is
- * managed ownership for the others when the desired payload is otherwise
- * byte-identical.
+ * Codex, Antigravity, DeepSeek Harness, and Muse intentionally consume the
+ * same portable project skill surface (<repo>/.agents/skills). A projection
+ * written for any member is managed ownership for the others when the
+ * desired payload is otherwise byte-identical.
  */
 function providersShareProjectionSurface(
   actual: Platform,
   expected: Platform,
 ): boolean {
-  const shared = new Set<Platform>(['antigravity', 'codex', 'deepseek-harness']);
+  const shared = new Set<Platform>(['antigravity', 'codex', 'deepseek-harness', 'muse']);
   return actual === expected || (shared.has(actual) && shared.has(expected));
 }
 

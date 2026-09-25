@@ -18,6 +18,7 @@ import {
   listProviderDefinitions,
   type ProviderContextContract,
 } from '../../providers/provider-definitions.js';
+import { buildMuseBridgeText } from './muse-bridge.js';
 import { readAiwgConfig } from '../../config/aiwg-config.js';
 import {
   projectAiwgPath,
@@ -620,7 +621,12 @@ export function buildProviderBootstrapBlock(provider: Platform | string): string
     '"Precedence" for the capability-versus-directive distinction.',
   ];
 
-  const loading = contract.loadMode === 'native-include'
+  // #227: Muse gets its own discover-first bridge text — Muse-native
+  // instruction order (this AGENTS.md first, then WORKSPACE.md, then AIWG.md)
+  // plus the trust-gated load caveat — instead of the generic prose-directive.
+  const loading = provider === 'muse'
+    ? [buildMuseBridgeText()]
+    : contract.loadMode === 'native-include'
     ? [
         'Load the canonical project context first, then the generated AIWG framework context:',
         '',

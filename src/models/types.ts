@@ -68,6 +68,7 @@ export type Provider =
   | 'grokbot'
   | 'grok-build'
   | 'hermes'
+  | 'muse'
   | 'opencode'
   | 'openclaw'
   | 'openhuman'

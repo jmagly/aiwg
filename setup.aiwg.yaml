@@ -33,6 +33,7 @@ spec:
         - factory
         - grokbot
         - hermes
+        - muse
         - openclaw
         - opencode
         - openhuman

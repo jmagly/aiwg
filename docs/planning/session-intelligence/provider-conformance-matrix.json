@@ -1,6 +1,6 @@
 {
   "contractVersion": "1.0.0",
-  "canonicalProviderCount": 17,
+  "canonicalProviderCount": 18,
   "providers": [
     {
       "provider": "claude",
@@ -406,6 +406,32 @@
         ],
         "exceptions": {
           "discovery": "explicit opt-in transcript hook output only"
+        }
+      }
+    },
+    {
+      "provider": "muse",
+      "issue": 232,
+      "status": "manual-only",
+      "operations": [
+        "inspect",
+        "stream"
+      ],
+      "fixtures": "test/fixtures/sessions/muse",
+      "tests": "test/unit/sessions/muse-adapter.test.ts",
+      "documentation": "docs/providers/muse-sessions.md",
+      "conformance": {
+        "locatorClass": "manual-export",
+        "malformed": [
+          "malformed.json",
+          "MALFORMED_SOURCE"
+        ],
+        "schemaEvolution": [
+          "unknown-major.json",
+          "UNKNOWN_SCHEMA_MAJOR"
+        ],
+        "exceptions": {
+          "discovery": "export-first until a native session root is evidenced on disk; no home-directory scrape and no invented ~/.muse root"
         }
       }
     },

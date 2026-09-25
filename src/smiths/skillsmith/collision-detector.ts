@@ -75,6 +75,7 @@ const PLATFORM_BUILTINS: Record<string, string[]> = {
   'warp': ['help', 'settings'],
   'hermes': [],
   'grokbot': [],
+  'muse': [],
   'openclaw': [],
   'openhuman': [],
   'factory': [],

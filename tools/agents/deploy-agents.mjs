@@ -20,7 +20,7 @@
  *   --rules-only             Deploy only rules (skip agents)
  *   --dry-run                Show what would be deployed without writing
  *   --force                  Overwrite existing files
- *   --provider <name>        Target provider: antigravity (agy), claude (default), openai, codex, cursor, opencode, copilot, factory, grokbot, grok-build, pi, omp, deepseek-harness (dsh), warp, devin, hermes, openhuman, or openclaw
+ *   --provider <name>        Target provider: antigravity (agy), claude (default), openai, codex, cursor, opencode, copilot, factory, grokbot, grok-build, muse, pi, omp, deepseek-harness (dsh), warp, devin, hermes, openhuman, or openclaw
  *   --model <name>            Override model for all tiers (blanket)
  *   --reasoning-model <name> Override model for reasoning tasks
  *   --coding-model <name>    Override model for coding tasks
@@ -123,7 +123,7 @@ const PROVIDER_ALIASES = {
   'dsh': 'deepseek-harness',
 };
 
-const AVAILABLE_PROVIDERS = ['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'pi', 'omp', 'deepseek-harness', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build'];
+const AVAILABLE_PROVIDERS = ['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'pi', 'omp', 'deepseek-harness', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse'];
 
 const UNSUPPORTED_PROVIDER_HINTS = {
   'devin-cli': [
@@ -512,7 +512,9 @@ function parseArgs() {
     // stale copies of packaged ones.
     deploySource: null,           // Managed-marker source; defaults to 'bundled'
     listingBudget: false,         // Honor the provider startup-listing cap despite --copy-all (#2561)
-    deployVersion: null           // Managed-marker version; defaults to srcRoot package.json
+    deployVersion: null,          // Managed-marker version; defaults to srcRoot package.json
+    mcp: false,                   // #228: opt-in MCP settings profile (Muse provider)
+    hooks: true,                  // #228: managed project hooks (Muse provider); --no-hooks opts out
   };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -549,6 +551,10 @@ function parseArgs() {
     // Structural opt-out: skip the migration without claiming the operator declined it (#2541).
     else if (a === '--no-commands-warning') cfg.warnOnSkippedCommandsMigration = false;
     else if (a === '--copy-all' || a === '--copy-standard-skills') cfg.copyStandardSkills = true;
+    // #228: Muse provider — explicit opt-in MCP settings profile, and the
+    // managed-hooks opt-out (default on, mirroring the Claude autoInstall policy).
+    else if (a === '--mcp') cfg.mcp = true;
+    else if (a === '--no-hooks') cfg.hooks = false;
     else if (a === '--deploy-source' && args[i + 1]) cfg.deploySource = String(args[++i]);
     else if (a === '--listing-budget') cfg.listingBudget = true;
     else if (a === '--deploy-version' && args[i + 1]) cfg.deployVersion = String(args[++i]);
@@ -591,6 +597,11 @@ Options:
   --filter-role <role>     Only deploy agents of role: reasoning|coding|efficiency
   --save                   Save model config to project models.json
   --save-user              Save model config to ~/.config/aiwg/models.json
+  --mcp                    Muse provider: opt in to the AIWG MCP settings profile
+                           (merges the aiwg stdio server into user settings
+                           mcp_servers; default off)
+  --no-hooks               Muse provider: skip managed project hooks
+                           (.muse/hooks.json; installed by default)
   --as-agents-md               Aggregate to single AGENTS.md (Codex)
   --create-agents-md           Create/update AGENTS.md template
   --skip-commands-migration    Skip deleting the commands directory before skills deployment
@@ -653,6 +664,7 @@ Providers (all deploy agents, commands, skills, and rules):
               Paths: .windsurf/agents/, .windsurf/workflows/, .windsurf/skills/, .windsurf/rules/
   grokbot   - Grok Bot (AGENTS.md bridge; skills only with AIWG_GROKBOT_SKILLS_DIR)
   grok-build - Grok Build (experimental; .grok paths + $GROK_HOME; no bare grok alias)
+  muse      - Muse Code (experimental; AGENTS.md bridge; .agents/skills + XDG user root; managed hooks, opt-in --mcp; no aliases)
   hermes    - Hermes Agent (MCP-based integration)
               Skills: $HERMES_HOME/skills/ (user-global; defaults to ~/.hermes/skills/) | Agents: AGENTS.md
               Commands/Rules: served via MCP, not file-deployed
@@ -1024,6 +1036,9 @@ export async function main() {
     // Replaces the legacy AIWG_COPY_STANDARD_SKILLS env var (removed rc.30).
     // Default (#1217) is no-copy + index-driven discovery.
     copyStandardSkills: cfg.copyStandardSkills === true,
+    // #228: Muse provider hooks/MCP profile surface.
+    mcp: cfg.mcp === true,
+    hooks: cfg.hooks !== false,
     listingBudget: cfg.listingBudget === true,
     deployVersion: cfg.deployVersion || getDeployVersion(srcRoot),
     deploySource: cfg.deploySource || 'bundled',

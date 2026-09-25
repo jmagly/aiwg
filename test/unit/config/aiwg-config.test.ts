@@ -103,6 +103,14 @@ describe('aiwg-config', () => {
       expect(cfg.parallelism!.rationale).toMatch(/codex/);
     });
 
+    it('uses conservative experimental defaults for muse (#235)', () => {
+      const cfg = emptyConfig(['muse']);
+      expect(cfg.parallelism!.max_parallel_subagents).toBe(4);
+      expect(cfg.parallelism!.max_parallel_ralph_loops).toBe(2);
+      expect(cfg.parallelism!.max_parallel_mc_missions).toBe(4);
+      expect(cfg.parallelism!.rationale).toMatch(/muse/);
+    });
+
     it('falls back to conservative defaults for an unknown primary provider', () => {
       const cfg = emptyConfig(['mystery-llm']);
       expect(cfg.parallelism!.max_parallel_subagents).toBe(4);
