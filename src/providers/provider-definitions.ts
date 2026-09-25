@@ -991,9 +991,15 @@ const BUILT_IN_SEEDS: BuiltInSeed[] = [
       configFile: null,
       aggregated: false,
     },
-    // Project skill root only. The user root resolves at deploy time from
-    // XDG_CONFIG_HOME (default ~/.config/muse/skills when unset); never write
-    // ~/.muse or silently mirror into ~/.agents/skills (#226).
+    // Project skill root only: the namespace default resolves to
+    // <repo>/.agents/skills — a project tree, never a home-dir tree — so the
+    // deployer cannot invent ~/.muse, ~/.config/muse siblings outside
+    // muse/skills, or ~/.agents/skills from this metadata alone. The XDG
+    // user root ($XDG_CONFIG_HOME/muse/skills, default ~/.config/muse/skills)
+    // is not a static namespace default; it resolves dynamically at deploy
+    // time via resolveMuseXdgSkillsDir (src/providers/muse-paths.ts, #234),
+    // which fails closed on bad XDG metadata. Never write ~/.muse or
+    // silently mirror into ~/.agents/skills (#226).
     skillNamespace: {
       deploymentGroup: 'deep-recursion',
       pathType: 'project',

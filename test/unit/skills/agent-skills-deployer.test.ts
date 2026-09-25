@@ -19,6 +19,7 @@ const IMPORTED_AT = '2026-07-26T12:00:00.000Z';
 const AIWG_VERSION = 'test-version';
 const ORIGINAL_HERMES_HOME = process.env.HERMES_HOME;
 const ORIGINAL_GROKBOT_SKILLS_DIR = process.env.AIWG_GROKBOT_SKILLS_DIR;
+const ORIGINAL_XDG_CONFIG_HOME = process.env.XDG_CONFIG_HOME;
 
 let root: string;
 let projectDir: string;
@@ -110,6 +111,8 @@ afterEach(() => {
   else process.env.HERMES_HOME = ORIGINAL_HERMES_HOME;
   if (ORIGINAL_GROKBOT_SKILLS_DIR === undefined) delete process.env.AIWG_GROKBOT_SKILLS_DIR;
   else process.env.AIWG_GROKBOT_SKILLS_DIR = ORIGINAL_GROKBOT_SKILLS_DIR;
+  if (ORIGINAL_XDG_CONFIG_HOME === undefined) delete process.env.XDG_CONFIG_HOME;
+  else process.env.XDG_CONFIG_HOME = ORIGINAL_XDG_CONFIG_HOME;
   vi.restoreAllMocks();
   fs.rmSync(root, { recursive: true, force: true });
 });
@@ -513,5 +516,174 @@ describe('grokbot Agent Skills fail-closed deploy (#212)', () => {
     expect(result.outcome).toBe('blocked');
     expect(fs.existsSync(path.join(projectDir, 'relative-skills'))).toBe(false);
     expect(fs.existsSync(path.join(homeDir, 'relative-skills'))).toBe(false);
+  });
+});
+
+describe('muse Agent Skills XDG resolution (#234)', () => {
+  it('deploys user-scope skills under $XDG_CONFIG_HOME/muse/skills', async () => {
+    const name = 'muse-xdg-skill';
+    const xdgConfig = path.join(root, 'xdg-config');
+    process.env.XDG_CONFIG_HOME = xdgConfig;
+    await importActive(name);
+
+    // No homeDir: user-scope resolution (mirrors the HERMES_HOME pattern).
+    const result = deployImportedAgentSkill(name, {
+      projectDir,
+      target: 'muse',
+      dryRun: false,
+    });
+
+    expect(result.outcome).toBe('deployed');
+    expect(result.projectionStatus).toBe('native');
+    expect(result.path).toBe(path.join(xdgConfig, 'muse', 'skills', name));
+    expect(fs.existsSync(path.join(result.path, 'SKILL.md'))).toBe(true);
+    expect(result.reasons.join(' ')).toMatch(/XDG/);
+    expect(fs.existsSync(path.join(homeDir, '.muse'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, '.cursor'))).toBe(false);
+  });
+
+  it('falls back to ~/.config/muse/skills when XDG_CONFIG_HOME is unset', async () => {
+    delete process.env.XDG_CONFIG_HOME;
+    vi.spyOn(os, 'homedir').mockReturnValue(homeDir);
+    const name = 'muse-xdg-default-skill';
+    await importActive(name);
+
+    const result = deployImportedAgentSkill(name, {
+      projectDir,
+      target: 'muse',
+      dryRun: false,
+    });
+
+    expect(result.outcome).toBe('deployed');
+    expect(result.path).toBe(path.join(homeDir, '.config', 'muse', 'skills', name));
+    expect(fs.existsSync(path.join(result.path, 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(homeDir, '.muse'))).toBe(false);
+  });
+
+  it('fails closed on bad XDG_CONFIG_HOME metadata without inventing a home tree', async () => {
+    vi.spyOn(os, 'homedir').mockReturnValue(homeDir);
+    for (const bad of ['relative/config', '~']) {
+      process.env.XDG_CONFIG_HOME = bad;
+      const name = `muse-xdg-bad-${bad === '~' ? 'tilde' : 'relative'}`;
+      await importActive(name);
+
+      const result = deployImportedAgentSkill(name, {
+        projectDir,
+        target: 'muse',
+        dryRun: false,
+      });
+
+      expect(result.outcome).toBe('blocked');
+      expect(result.projectionStatus).toBe('unsupported');
+      expect(result.reasons.join(' ')).toMatch(/XDG_CONFIG_HOME/);
+      expect(result.warnings.join(' ')).toMatch(/no filesystem root was invented/);
+    }
+    expect(fs.existsSync(path.join(homeDir, '.muse'))).toBe(false);
+    expect(fs.existsSync(path.join(homeDir, '.config', 'muse'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, 'relative'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, '.cursor'))).toBe(false);
+  });
+
+  it('keeps project-scope deploys on <repo>/.agents/skills', async () => {
+    const name = 'muse-project-skill';
+    await importActive(name);
+
+    // Explicit homeDir keeps the project-scoped namespace default,
+    // shared with antigravity/codex/deepseek-harness.
+    const result = deployImportedAgentSkill(name, deployOptions('muse'));
+
+    expect(result.outcome).toBe('deployed');
+    expect(result.path).toBe(path.join(projectDir, '.agents', 'skills', name));
+    expect(fs.existsSync(path.join(result.path, 'SKILL.md'))).toBe(true);
+  });
+
+  it('uninstalls user-scope skills from the XDG root', async () => {
+    const name = 'muse-xdg-uninstall-skill';
+    const xdgConfig = path.join(root, 'xdg-uninstall');
+    process.env.XDG_CONFIG_HOME = xdgConfig;
+    await importActive(name);
+
+    const deployed = deployImportedAgentSkill(name, {
+      projectDir,
+      target: 'muse',
+      dryRun: false,
+    });
+    expect(deployed.outcome).toBe('deployed');
+
+    const removed = uninstallImportedAgentSkill(name, {
+      projectDir,
+      target: 'muse',
+      dryRun: false,
+    });
+    expect(removed.outcome).toBe('removed');
+    expect(removed.path).toBe(path.join(xdgConfig, 'muse', 'skills', name));
+    expect(fs.existsSync(path.join(xdgConfig, 'muse', 'skills', name))).toBe(false);
+  });
+});
+
+describe('skills deploy CLI muse targets (#234)', () => {
+  interface CliResult {
+    provider: string;
+    outcome: string;
+    path: string;
+  }
+
+  async function deployJson(args: string[]): Promise<CliResult[]> {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.spyOn(process, 'cwd').mockReturnValue(projectDir);
+    const savedExitCode = process.exitCode;
+    try {
+      await skillsMain(args);
+      const jsonText = log.mock.calls.at(-1)?.[0] as string;
+      const output = JSON.parse(jsonText) as { results: CliResult[] };
+      return output.results;
+    } finally {
+      process.exitCode = savedExitCode;
+    }
+  }
+
+  it('--target muse plans under the XDG user root, never cursor or invented .muse trees', async () => {
+    const name = 'cli-muse-xdg-skill';
+    const xdgConfig = path.join(root, 'cli-xdg');
+    process.env.XDG_CONFIG_HOME = xdgConfig;
+    vi.spyOn(os, 'homedir').mockReturnValue(homeDir);
+    await importActive(name);
+
+    const results = await deployJson(['deploy', name, '--target', 'muse', '--dry-run', '--json']);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ provider: 'muse', outcome: 'planned' });
+    expect(results[0].path).toBe(path.join(xdgConfig, 'muse', 'skills', name));
+    expect(results[0].path).not.toContain('.cursor');
+    expect(results[0].path).not.toContain('.muse');
+  });
+
+  it('--target all never plans cursor or invented .muse skill trees', async () => {
+    const name = 'cli-all-targets-skill';
+    const xdgConfig = path.join(root, 'cli-all-xdg');
+    process.env.XDG_CONFIG_HOME = xdgConfig;
+    vi.spyOn(os, 'homedir').mockReturnValue(homeDir);
+    await importActive(name);
+
+    const results = await deployJson(['deploy', name, '--target', 'all', '--dry-run', '--json']);
+
+    expect(results.length).toBeGreaterThan(0);
+    for (const item of results) {
+      // No provider may write an invented ~/.muse tree.
+      expect(item.path.startsWith(path.join(homeDir, '.muse'))).toBe(false);
+      // Only the cursor provider itself may target a .cursor tree; muse
+      // (and every other provider) must not leak into it.
+      if (item.provider !== 'cursor') {
+        expect(item.path).not.toContain(`${path.sep}.cursor${path.sep}`);
+      }
+      // Acceptance: this deployer path must never write home-rooted
+      // .claude/skills or .codex/skills trees (project-scoped
+      // <project>/.claude/skills is the cursor provider's legitimate native
+      // surface, asserted elsewhere).
+      expect(item.path.startsWith(path.join(homeDir, '.claude'))).toBe(false);
+      expect(item.path.startsWith(path.join(homeDir, '.codex'))).toBe(false);
+    }
+    const museResult = results.find((item) => item.provider === 'muse');
+    expect(museResult?.path).toBe(path.join(xdgConfig, 'muse', 'skills', name));
   });
 });

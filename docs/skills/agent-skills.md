@@ -332,7 +332,7 @@ validated Agent Skills name.
 | `grokbot` | `$AIWG_GROKBOT_SKILLS_DIR/<name>` | `native` | exact | Uses only the explicitly configured absolute skill root; unset or invalid roots fail closed |
 | `grok-build` | `<project>/.grok/skills/<name>` | `native` | exact | Experimental project-local native recursive bundle; distinct from Grok Bot and the xAI model/API category |
 | `hermes` | `~/.hermes/skills/<name>` | `native` | exact | User-global recursive bundle with managed ownership sidecars |
-| `muse` | `<project>/.agents/skills/<name>` | `native` | exact | Experimental project-local native recursive bundle; shares the `.agents/skills` surface with antigravity/codex/deepseek-harness |
+| `muse` | `<project>/.agents/skills/<name>` | `native` | exact | Experimental project-local native recursive bundle; shares the `.agents/skills` project surface with antigravity/codex/deepseek-harness; user-scope resolution uses `$XDG_CONFIG_HOME/muse/skills` (default `~/.config/muse/skills`), fails closed on bad XDG metadata, and never writes `~/.muse` |
 | `opencode` | `<project>/.opencode/skill/<name>` | `native` | exact | Recursive native bundle |
 | `openclaw` | `~/.openclaw/skills/<name>` | `native` | exact | Global recursive native bundle |
 | `openhuman` | `~/.openhuman/skills/<name>` | `projected` | exact | Verified global one-level skill layout |
