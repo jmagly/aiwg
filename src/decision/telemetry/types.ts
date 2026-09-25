@@ -73,6 +73,10 @@ export interface DecisionDebugCapturePolicy {
   deletionEnabled: boolean;
 }
 
+/**
+ * Evaluated telemetry retention controls. Prefer deriving this from the common
+ * `decision-lifecycle/v1` policy with `telemetryRetentionFromLifecyclePolicy()`.
+ */
 export interface DecisionRetentionPolicy {
   traceTtlMs: number;
   debugSidecarTtlMs: number;
@@ -80,5 +84,11 @@ export interface DecisionRetentionPolicy {
   linkedRecordTtlMs: number;
   deletionEnabled: boolean;
   tombstonesEnabled: boolean;
+  /**
+   * @deprecated Hand-set boolean kept for backward compatibility. Derive it from authorized
+   * `DecisionLifecycleHold` records via `telemetryRetentionFromLifecyclePolicy()` instead.
+   */
   legalHold: boolean;
+  /** Present when derived from the common lifecycle policy. */
+  lifecycleVersion?: 'decision-lifecycle/v1';
 }

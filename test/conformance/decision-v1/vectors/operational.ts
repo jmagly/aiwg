@@ -5,7 +5,7 @@ import {
   type DecisionBinding, type DecisionDefinition, type QualificationCaseExecutor,
 } from '../../../../src/decision/index.js';
 
-const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 export const ids = ['C35', 'C41'] as const;
 export const executors: Record<(typeof ids)[number], QualificationCaseExecutor> = {
   C35: async () => {

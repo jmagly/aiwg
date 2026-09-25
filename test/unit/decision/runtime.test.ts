@@ -22,7 +22,7 @@ import {
 } from '../../../src/decision/index.js';
 import { parseDecisionDoc } from '../../../src/artifacts/index-builder.js';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const definitions = (): Record<string, DecisionDefinition> => ({
   category: fixture('decision-category.json'),
   severity: fixture('decision-severity.json'),
@@ -42,7 +42,7 @@ class FixtureAdapter implements DecisionAdapter {
     return {
       answerKinds: ['choice', 'ordinal-score', 'truth-probability'] as const,
       features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1', 'llm-self-report-v1'], executable: true,
+      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1', 'llm-self-report-v1'], executable: true, egress: { mode: 'none' as const },
     };
   }
   async evaluate(request: Parameters<DecisionAdapter['evaluate']>[0]) { return this.observe(request.alias); }
@@ -90,7 +90,7 @@ describe('normalized decision contracts', () => {
   });
 
   it('classifies authored decision artifacts for discovery', () => {
-    const source = readFileSync('examples/decision/decision-category.json', 'utf8');
+    const source = readFileSync('agentic/code/addons/decision-engine/examples/decision-category.json', 'utf8');
     expect(parseDecisionDoc(source, 'decisions/category.json')).toMatchObject({
       type: 'decision-definition', kind: 'DecisionDefinition', name: 'example-category',
     });
@@ -141,7 +141,7 @@ describe('shared evaluator', () => {
       id: 'jev', version: '1.0.0',
       capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
         features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-        confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true }),
+        confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const } }),
       evaluate: async request => {
         active += 1;
         maximum = Math.max(maximum, active);
@@ -244,7 +244,7 @@ describe('shared evaluator', () => {
     adapter.capabilities = async () => ({
       answerKinds: ['ordinal-score'] as const,
       features: ['ordinal-score'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1'], executable: true,
+      confidenceProfiles: ['typesafe-distribution-v1'], executable: true, egress: { mode: 'none' as const },
     });
     adapter.evaluate = vi.fn(adapter.evaluate.bind(adapter));
     const result = await evaluateDecisionRuleset({

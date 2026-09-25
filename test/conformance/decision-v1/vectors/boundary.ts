@@ -20,7 +20,7 @@ export const CASE_IDS = ['C31', 'C33'] as const;
 
 const run = promisify(execFile);
 const DISPATCHER = 'agentic/code/addons/decision-engine/skills/decision-evaluate/scripts/decision-evaluate.mjs';
-const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const definitions = async (): Promise<Record<string, DecisionDefinition>> => ({
   category: await fixture('decision-category.json'), severity: await fixture('decision-severity.json'),
   core: await fixture('decision-core_unavailable.json'),
@@ -55,7 +55,7 @@ const values = (alias: string): AdapterObservation => ({
 function adapter(observe: (alias: string) => AdapterObservation, calls: string[]): DecisionAdapter {
   return { id: 'jev', version: '1.0.0', capabilities: async () => ({
     answerKinds: ['choice', 'ordinal-score', 'truth-probability'], features: ['choice', 'ordinal-score', 'truth-probability'],
-    maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true,
+    maxOptions: 255, maxLevels: 10, confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const },
   }), evaluate: async request => { calls.push(request.alias); return observe(request.alias); } };
 }
 const semantics = (result: RulesetResult) => ({

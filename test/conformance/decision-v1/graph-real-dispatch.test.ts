@@ -11,7 +11,7 @@ import { finalizeDecisionGraphRun } from '../../../src/decision/graph-run.js';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { executeFlowGraph } = require('../../../agentic/code/addons/composition-engine/lib/runtime.mjs');
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const ruleset = fixture<DecisionRuleset>('ruleset.json');
 const binding = fixture<DecisionBinding>('binding-jev.json');
 const definitions: Record<string, DecisionDefinition> = {
@@ -37,7 +37,7 @@ describe('actual ruleset dispatcher through existing Flow skill bridge', () => {
     const adapter: DecisionAdapter = { id: 'jev', version: '1.0.0',
       capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
         features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-        confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true }),
+        confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const } }),
       evaluate: async request => {
         adapterCalls++;
         return { status: 'success', reason: 'none', value: request.alias === 'category' ? 'documentation' : 0.25,

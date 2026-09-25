@@ -8,7 +8,7 @@ import {
   evaluateDecisionRuleset, evaluateExecutedQualification, executeQualificationPlan, FileDecisionReceiptStore, JevDecisionAdapter,
   QUALIFICATION_CACHE_LAYERS, qualificationReleaseSummary, scanQualificationPrivacy, withQualificationPrivacyScan,
   writeQualificationEvidenceManifest, type DecisionBinding, type DecisionDefinition, type DecisionRuleset,
-  type DecisionTelemetrySpan, type QualificationCacheLayerEvidence, type QualificationPrivacyCapture,
+  type DecisionProjectionPolicy, type DecisionTelemetrySpan, type QualificationCacheLayerEvidence, type QualificationPrivacyCapture,
 } from '../../../src/decision/index.js';
 import { buildIntegrityMetadata } from '../../../tools/eval/src/integrity.js';
 import { DECISION_CASE_COVERAGE } from './coverage-map.js';
@@ -60,10 +60,11 @@ async function sourceFilesAll(dir: string): Promise<string[]> {
   return (await Promise.all(entries.map(entry => entry.isDirectory() ? sourceFilesAll(join(dir, entry.name))
     : Promise.resolve([join(dir, entry.name)])))).flat();
 }
-const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 
 /** A telemetry-, receipt- and export-producing evaluation whose credential is a canary. */
-async function privacyProbe(receipts: string, spans: DecisionTelemetrySpan[]) {
+async function privacyProbe(receipts: string, spans: DecisionTelemetrySpan[], activity: unknown[]) {
+  const policy = await fixture<DecisionProjectionPolicy>('projection-policy-jev.json');
   const answers = (body: Record<string, any>) => Object.fromEntries(Object.entries(body.questions as Record<string, any>).map(([id, q]) => [id,
     q.type === 'choice' ? { type: 'choice', choice: 'documentation', confidence: 0.9, probabilities: { documentation: 1, runtime: 0, other: 0 } }
       : q.type === 'score' ? { type: 'score', score: 0, confidence: 0.8, probabilities: Object.fromEntries((q.criteria as unknown[]).map((_, i) => [i, i ? 0 : 1])),
@@ -72,11 +73,13 @@ async function privacyProbe(receipts: string, spans: DecisionTelemetrySpan[]) {
     binding: await fixture<DecisionBinding>('binding-jev.json'), definitions: { category: await fixture<DecisionDefinition>('decision-category.json'),
       severity: await fixture<DecisionDefinition>('decision-severity.json'), core: await fixture<DecisionDefinition>('decision-core_unavailable.json') },
     input: await fixture('input.json'), runId: 'privacy-probe', invocationId: 'privacy-probe',
-    adapters: { jev: new JevDecisionAdapter({ fetch: async (_url, init) => new Response(JSON.stringify({ model: 'jev-fixture',
+    adapters: { jev: new JevDecisionAdapter({ region: policy.region, fetch: async (_url, init) => new Response(JSON.stringify({ model: 'jev-fixture',
       usage: { input_tokens: 1, output_tokens: 1 }, answers: answers(JSON.parse(String(init?.body))) }),
     { headers: { 'x-typesafe-request-id': 'req_probe_1' } }) }) },
     resolveCredential: async () => new TextEncoder().encode('aggregate-canary-credential'),
     receiptStore: new FileDecisionReceiptStore(receipts, { integrityKey: new Uint8Array(32).fill(7) }),
+    // Projection evidence is host-visible activity, so it is scanned as the activity-record surface.
+    projection: { resolve: () => structuredClone(policy), onEvidence: value => { activity.push(structuredClone(value)); } },
     telemetry: { hook: { emit: span => { spans.push(span); } } } });
   return decisionResultForExport(result);
 }
@@ -157,13 +160,14 @@ describe('D11 aggregate qualification run', () => {
     const cases = DECISION_CASE_COVERAGE.map(item => registry.evidenceIds[item.id]
       ? { ...item, evidenceIds: [...registry.evidenceIds[item.id]!] } : item);
     const spans: DecisionTelemetrySpan[] = [];
+    const activity: unknown[] = [];
     const captured = await captureQualificationLifetime(async () => {
       const run = await executeQualificationPlan({
         artifactRoot: root, executors: registry.executors, concurrency: 1, timeoutMs: 60_000,
         manifest: { schemaVersion: 'decision-qualification-run/v1', mode: 'offline', runId: 'd11-aggregate-release',
           generatedAt: '2026-09-24T00:00:00.000Z', sourceCommit: 'working-tree', dirty: true, cases },
       });
-      const exported = await privacyProbe(receipts, spans);
+      const exported = await privacyProbe(receipts, spans, activity);
       const linked = await writeQualificationEvidenceManifest(run, root, process.cwd(), Object.fromEntries(
         Object.entries(registry.suiteByCase).map(([caseId, suite]) => [caseId, [suite.suite, suite.module, ...suite.sources]])));
       return { run, exported, linked };
@@ -171,12 +175,14 @@ describe('D11 aggregate qualification run', () => {
     expect(captured.threw).toBe(false);
     const { run, exported, linked } = captured.result!;
     expect(spans.length).toBeGreaterThan(0);
+    expect(activity.length).toBeGreaterThan(0);
     const captures: QualificationPrivacyCapture[] = [...captured.captures,
       { surface: 'trace', content: JSON.stringify(spans) },
       { surface: 'receipt', content: await filesUnder(receipts) },
       { surface: 'export', content: JSON.stringify(exported) },
       { surface: 'snapshot', content: await filesUnder(root) },
-      { surface: 'test-report', content: JSON.stringify(linked.manifest) }];
+      { surface: 'test-report', content: JSON.stringify(linked.manifest) },
+      { surface: 'activity-record', content: JSON.stringify(activity) }];
     expect(scanQualificationPrivacy(captures, CANARIES)).toEqual({ clean: true, missing: [], affected: [] });
     const scanned = withQualificationPrivacyScan(run, captures, CANARIES);
     const evaluated = await evaluateExecutedQualification(scanned, root);

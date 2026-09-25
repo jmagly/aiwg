@@ -131,7 +131,7 @@
     },
     {
       "id": "DEC-EXAMPLE-01",
-      "path": "examples/decision/binding-fallback.json",
+      "path": "agentic/code/addons/decision-engine/examples/binding-fallback.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -147,7 +147,7 @@
     },
     {
       "id": "DEC-EXAMPLE-02",
-      "path": "examples/decision/binding-jev.json",
+      "path": "agentic/code/addons/decision-engine/examples/binding-jev.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -163,7 +163,7 @@
     },
     {
       "id": "DEC-EXAMPLE-03",
-      "path": "examples/decision/binding-llm-subagent.json",
+      "path": "agentic/code/addons/decision-engine/examples/binding-llm-subagent.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -179,7 +179,7 @@
     },
     {
       "id": "DEC-EXAMPLE-04",
-      "path": "examples/decision/decision-category.json",
+      "path": "agentic/code/addons/decision-engine/examples/decision-category.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -195,7 +195,7 @@
     },
     {
       "id": "DEC-EXAMPLE-05",
-      "path": "examples/decision/decision-core_unavailable.json",
+      "path": "agentic/code/addons/decision-engine/examples/decision-core_unavailable.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -211,7 +211,7 @@
     },
     {
       "id": "DEC-EXAMPLE-06",
-      "path": "examples/decision/decision-severity.json",
+      "path": "agentic/code/addons/decision-engine/examples/decision-severity.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -227,7 +227,7 @@
     },
     {
       "id": "DEC-EXAMPLE-07",
-      "path": "examples/decision/dispatcher-request-llm.json",
+      "path": "agentic/code/addons/decision-engine/examples/dispatcher-request-llm.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -243,14 +243,14 @@
     },
     {
       "id": "DEC-EXAMPLE-08",
-      "path": "examples/decision/fixture-llm-adapter.mjs",
+      "path": "agentic/code/addons/decision-engine/examples/fixture-llm-adapter.mjs",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
       "permission": "MIT (repository LICENSE)",
       "sanitization": "synthetic; no personal inputs",
       "schemaVersion": "source-module",
-      "digest": "sha256:c69ae3b68b89c4c46733dc23d932fcffa242c809680069a19a57a9e7b1c0b3fe",
+      "digest": "sha256:e3a0b5c649212629529d37dab327d67d9f01aeeb89817a9739bfc8d45a0f2120",
       "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
       "links": [
         "FR-014",
@@ -259,7 +259,7 @@
     },
     {
       "id": "DEC-EXAMPLE-09",
-      "path": "examples/decision/input.json",
+      "path": "agentic/code/addons/decision-engine/examples/input.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -275,7 +275,7 @@
     },
     {
       "id": "DEC-EXAMPLE-10",
-      "path": "examples/decision/llm-result-category.json",
+      "path": "agentic/code/addons/decision-engine/examples/llm-result-category.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -291,7 +291,7 @@
     },
     {
       "id": "DEC-EXAMPLE-11",
-      "path": "examples/decision/llm-result-core_unavailable.json",
+      "path": "agentic/code/addons/decision-engine/examples/llm-result-core_unavailable.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -307,7 +307,7 @@
     },
     {
       "id": "DEC-EXAMPLE-12",
-      "path": "examples/decision/llm-result-severity.json",
+      "path": "agentic/code/addons/decision-engine/examples/llm-result-severity.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -323,7 +323,7 @@
     },
     {
       "id": "DEC-EXAMPLE-13",
-      "path": "examples/decision/llm-ruleset-result.json",
+      "path": "agentic/code/addons/decision-engine/examples/llm-ruleset-result.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -339,14 +339,14 @@
     },
     {
       "id": "DEC-EXAMPLE-21",
-      "path": "examples/decision/result-category-batch.v1alpha2.json",
+      "path": "agentic/code/addons/decision-engine/examples/result-category-batch.v1alpha2.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-24",
       "permission": "MIT (repository LICENSE)",
       "sanitization": "synthetic; no personal inputs",
       "schemaVersion": "decision.aiwg.io/v1alpha2:DecisionResult",
-      "digest": "sha256:9afae9f4a55af74d62a5d37450a7a4dee2853e400e5f1d17dfb6e417714057ef",
+      "digest": "sha256:c912f02acca996da7bb10754d84e14960a7b4024066b461d0584d696c687cd60",
       "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
       "links": [
         "FR-014",
@@ -355,7 +355,7 @@
     },
     {
       "id": "DEC-EXAMPLE-14",
-      "path": "examples/decision/result-category.json",
+      "path": "agentic/code/addons/decision-engine/examples/result-category.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -371,7 +371,7 @@
     },
     {
       "id": "DEC-EXAMPLE-15",
-      "path": "examples/decision/result-core_unavailable.json",
+      "path": "agentic/code/addons/decision-engine/examples/result-core_unavailable.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -387,7 +387,7 @@
     },
     {
       "id": "DEC-EXAMPLE-16",
-      "path": "examples/decision/result-severity.json",
+      "path": "agentic/code/addons/decision-engine/examples/result-severity.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -403,7 +403,7 @@
     },
     {
       "id": "DEC-EXAMPLE-17",
-      "path": "examples/decision/ruleset-collect.json",
+      "path": "agentic/code/addons/decision-engine/examples/ruleset-collect.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -419,14 +419,14 @@
     },
     {
       "id": "DEC-EXAMPLE-22",
-      "path": "examples/decision/ruleset-result-batch.v1alpha2.json",
+      "path": "agentic/code/addons/decision-engine/examples/ruleset-result-batch.v1alpha2.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-24",
       "permission": "MIT (repository LICENSE)",
       "sanitization": "synthetic; no personal inputs",
       "schemaVersion": "decision.aiwg.io/v1alpha2:RulesetResult",
-      "digest": "sha256:ea65ef575f1c729a79702f85896a30efb5007837d3cbb42d1b02e9915f06145c",
+      "digest": "sha256:f2c417cfed3f5c41c3bb2ab068756adba2f03c8af10b97b3722d25d26e6c5db2",
       "expectedOutcome": "decision example document or input used by C/TV vectors; validates against its schema where versioned",
       "links": [
         "FR-014",
@@ -435,7 +435,7 @@
     },
     {
       "id": "DEC-EXAMPLE-18",
-      "path": "examples/decision/ruleset-result.json",
+      "path": "agentic/code/addons/decision-engine/examples/ruleset-result.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -451,7 +451,7 @@
     },
     {
       "id": "DEC-EXAMPLE-19",
-      "path": "examples/decision/ruleset.json",
+      "path": "agentic/code/addons/decision-engine/examples/ruleset.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -467,7 +467,7 @@
     },
     {
       "id": "DEC-EXAMPLE-20",
-      "path": "examples/decision/worker-fixture.json",
+      "path": "agentic/code/addons/decision-engine/examples/worker-fixture.json",
       "origin": "repository-authored",
       "author": "Joseph Magly",
       "date": "2026-09-20",
@@ -702,7 +702,7 @@
       "permission": "MIT (repository LICENSE)",
       "sanitization": "synthetic; no personal inputs",
       "schemaVersion": "source-module",
-      "digest": "sha256:c7653b69510ee7d5138d99292e5d922e742b579b1a85258505a64b425a2fa402",
+      "digest": "sha256:7219bb4dfab849866aad7f2a7e37eff7401e180a3ce33667da3470140f4d7cec",
       "expectedOutcome": "child-process worker used by cross-process race and cache tests",
       "links": [
         "FR-014",
@@ -734,7 +734,7 @@
       "permission": "MIT (repository LICENSE)",
       "sanitization": "synthetic; no personal inputs",
       "schemaVersion": "source-module",
-      "digest": "sha256:11c6f761de2f9cb626ba639c655eddad5ec7b268e3287a6313369892ef111247",
+      "digest": "sha256:670c1cfa9dfb92b199c8cb698a7ef36277c66b1ce94d6e398e633389339a38be",
       "expectedOutcome": "child-process worker used by cross-process race and cache tests",
       "links": [
         "FR-014",
@@ -782,7 +782,7 @@
       "permission": "MIT (repository LICENSE)",
       "sanitization": "synthetic; no personal inputs",
       "schemaVersion": "decision-telemetry/v1",
-      "digest": "sha256:b37ac197fd5220863cd93c05893f844176744b4708d5cc90adb56a2b031ac276",
+      "digest": "sha256:9f47d09fddfc378dfb8cf2bdbe18ee1ec6b2a676b3481dcd769e3fb577469ffb",
       "expectedOutcome": "redacted telemetry golden spans",
       "links": [
         "FR-014",
@@ -825,6 +825,358 @@
         "research-vendor-docs.md (the vendor TV-01..TV-25 source) is not in the repository; each vector definition is reconstructed from the #2604 research basis, the child-issue traceability tables and the existing executors.",
         "Each vector records its own assumption; recorded exchanges are fabricated offline fixtures, not provider captures.",
         "TV12 is limited offline to the retained-comparison gate; provider usage receipts are tracked in #2684."
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-23",
+      "path": "agentic/code/addons/decision-engine/examples/dispatcher-request-jev.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:7f67dc8b49e9b6b1e741ad877ee0d16d3d9934cc479692a870e4ae44ed62de82",
+      "expectedOutcome": "Jev dispatcher request that names the D10 projection policy; refused without it",
+      "links": [
+        "#2678",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EXAMPLE-24",
+      "path": "agentic/code/addons/decision-engine/examples/projection-policy-jev.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:189f66607b86dbfe8e2451499c52602a1975ff0468c41e4339c5fbc858556a95",
+      "expectedOutcome": "D10 projection policy that projects only /message as untrusted internal state for the Jev example",
+      "links": [
+        "#2678",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-09",
+      "path": "docs/decision/evidence/compile-cache-ccp-v1/benchmark-plan.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-cache-benchmark-plan/v1",
+      "digest": "sha256:608043bfba5147b60e7be8319c1d33473249985e9c4e24c69ea5459948ee3034",
+      "expectedOutcome": "preregistered D30 cache benchmark plan re-read by CCP-011",
+      "links": [
+        "#2603",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-10",
+      "path": "docs/decision/evidence/compile-cache-ccp-v1/benchmark-report.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-cache-benchmark-result/v1",
+      "digest": "sha256:fc1930b57096f681ced601ea4d03a93b3ac481b2ddb807e7e0626c38ea18df1e",
+      "expectedOutcome": "retained D30 offline cache benchmark report; the minimum benefit target is recomputed by CCP-011",
+      "links": [
+        "#2603",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-11",
+      "path": "docs/decision/evidence/compile-cache-ccp-v1/d30-ccp-offline-v1/D30-CCP-G0.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:7cb8abbc1043bb375ee4798a37c419c514cd571ce6eb2ec777ea28cef5d3929e",
+      "expectedOutcome": "retained D30 G0 case evidence verified by CCP-D11",
+      "links": [
+        "#2603",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-12",
+      "path": "docs/decision/evidence/compile-cache-ccp-v1/d30-ccp-offline-v1/D30-CCP-G1.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:274bbc674384a55c369839e179395aa6e587446e15091168afdd7270093332bf",
+      "expectedOutcome": "retained D30 G1 case evidence verified by CCP-D11",
+      "links": [
+        "#2603",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-13",
+      "path": "docs/decision/evidence/compile-cache-ccp-v1/d30-ccp-offline-v1/D30-CCP-G2.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:c710c3b8e8ce02793d2d586aad82bd5d59f6f6842f678cfd3075978f59212d18",
+      "expectedOutcome": "retained D30 G2 case evidence verified by CCP-D11",
+      "links": [
+        "#2603",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-14",
+      "path": "docs/decision/evidence/compile-cache-ccp-v1/d30-ccp-offline-v1/D30-CCP-G5.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-artifact/v1",
+      "digest": "sha256:5afbc26aaaaf846158fb67cfc60853de0cb186d64716687cd039da4ec85836e2",
+      "expectedOutcome": "retained D30 G5 benchmark-gate evidence verified by CCP-D11 and CCP-011",
+      "links": [
+        "#2603",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-15",
+      "path": "docs/decision/evidence/compile-cache-ccp-v1/d30-ccp-offline-v1/evidence-manifest.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-evidence-manifest/v1",
+      "digest": "sha256:085e9684867edb93f4438fff02b3899c578478208c2d9bdfdf01efd92fed0e29",
+      "expectedOutcome": "D30 evidence manifest whose artifact digests match the run manifest",
+      "links": [
+        "#2603",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-16",
+      "path": "docs/decision/evidence/compile-cache-ccp-v1/d30-ccp-offline-v1/run-manifest.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-qualification-run/v1",
+      "digest": "sha256:c9e4b40b4b2b7e163fe22aacc4c9d308476f34a019b051a7c3b5f4c7f9bf5fdb",
+      "expectedOutcome": "D30 offline qualification run at an exact clean commit; artifacts re-verified by CCP-D11",
+      "links": [
+        "#2603",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-17",
+      "path": "docs/decision/evidence/load-offline-v2/admission-controller.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-load-result/v1",
+      "digest": "sha256:404af46e6ecabc5bf2484e748e904c94c59280a8a949c41b5a4019aba551f955",
+      "expectedOutcome": "retained D05 offline admission-controller load evidence re-verified by the scheduler load harness",
+      "links": [
+        "#2601",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-EVIDENCE-18",
+      "path": "docs/decision/evidence/load-offline-v2/evaluator.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-load-result/v1",
+      "digest": "sha256:ee73565883b43a119c4e616a8bafa13ccbaf1db5fa24504dca3c7160dc114c2b",
+      "expectedOutcome": "retained D05 offline evaluator load evidence re-verified by the scheduler load harness",
+      "links": [
+        "#2601",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-WORKER-04",
+      "path": "test/fixtures/decision/batch-store-process.mjs",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "source-module",
+      "digest": "sha256:5f6ef3bb766d004fd6d6236e029f80ba4fa78e27e66662591a4de704537d7c98",
+      "expectedOutcome": "child-process worker for the BCH-005 two-process sealed batch store replay and erase test",
+      "links": [
+        "#2672",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-WORKER-05",
+      "path": "test/fixtures/decision/dispatcher-fake-jev.mjs",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "source-module",
+      "digest": "sha256:be6e22a167ba63c893bcbca56cd7c077465d35974eee01e25e76dc89f38d3539",
+      "expectedOutcome": "offline fake Jev adapter module loaded by the dispatcher projection and egress capture tests",
+      "links": [
+        "#2678",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-ENSEMBLE-01",
+      "path": "test/fixtures/decision/ensemble/aggregation-vectors.v1.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-ensemble-aggregation-vectors/v1",
+      "digest": "sha256:1a44e8a51daae55ac41896bcc41c7929642bbc03fd8d260659012f2909b6bb92",
+      "expectedOutcome": "D17 ensemble aggregation vectors; agreement evidence only, never a calibrated correctness claim",
+      "links": [
+        "#2679",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-ENSEMBLE-02",
+      "path": "test/fixtures/decision/ensemble/champion-challenger.v1.invalid.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-champion-challenger-anti-fixtures/v1",
+      "digest": "sha256:2f744adb54493834bd9f65e8b32094e619b3415a8e38dacce6919bb413c08150",
+      "expectedOutcome": "invalid D17 champion/challenger document rejected by its schema and validator",
+      "links": [
+        "#2679",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-ENSEMBLE-03",
+      "path": "test/fixtures/decision/ensemble/champion-challenger.v1.valid.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-champion-challenger-fixtures/v1",
+      "digest": "sha256:87a907cbfc5a77d3b0b0c0ca9574efa1005c5552f94855dd6ffb61130e91cc7c",
+      "expectedOutcome": "valid D17 champion/challenger document accepted by its schema and validator",
+      "links": [
+        "#2679",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-ENSEMBLE-04",
+      "path": "test/fixtures/decision/ensemble/drift-response-table.v1.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-drift-response-table/v1",
+      "digest": "sha256:8b6241740e18994c1af6bd17f9226346afa6fa58b6f13cc25cc6704d7977c008",
+      "expectedOutcome": "D17 drift signal to configured response table; responses are not executed",
+      "links": [
+        "#2679",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-ENSEMBLE-05",
+      "path": "test/fixtures/decision/ensemble/drift-response.v1.invalid.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-drift-response-anti-fixtures/v1",
+      "digest": "sha256:ca7ff97eff640d96f1bb5a30d64f230ca0e304e866e156ddc61d1a6436e6552f",
+      "expectedOutcome": "invalid D17 drift-response document rejected by its schema and validator",
+      "links": [
+        "#2679",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-ENSEMBLE-06",
+      "path": "test/fixtures/decision/ensemble/drift-response.v1.valid.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-drift-response-fixtures/v1",
+      "digest": "sha256:fe0e5ed8e592976bcd1e9942fb3042628ddf0889d5a54c53cdc5ef65512a4326",
+      "expectedOutcome": "valid D17 drift-response document accepted by its schema and validator",
+      "links": [
+        "#2679",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-ENSEMBLE-07",
+      "path": "test/fixtures/decision/ensemble/ensemble-policy.v1.invalid.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-ensemble-policy-anti-fixtures/v1",
+      "digest": "sha256:8066cd381b97c39e17edd03774defe532e1b963805eef0f356750d699f237de8",
+      "expectedOutcome": "invalid D17 ensemble policy rejected by its schema and validator",
+      "links": [
+        "#2679",
+        "JEV-16"
+      ]
+    },
+    {
+      "id": "DEC-ENSEMBLE-08",
+      "path": "test/fixtures/decision/ensemble/ensemble-policy.v1.valid.json",
+      "origin": "repository-authored",
+      "author": "Joseph Magly",
+      "date": "2026-09-24",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "decision-ensemble-policy-fixtures/v1",
+      "digest": "sha256:2449017caecd014fa63639b57f0014b2463ac303c4dedd3df60f2e35a04e8a7c",
+      "expectedOutcome": "valid D17 ensemble policy accepted by its schema and validator",
+      "links": [
+        "#2679",
+        "JEV-16"
       ]
     }
   ]

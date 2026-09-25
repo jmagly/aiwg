@@ -10,7 +10,7 @@ import {
 export const CASE_IDS = ['TV01', 'TV08', 'TV22'] as const;
 
 const fixture = async <T>(name: string): Promise<T> => JSON.parse(
-  await readFile(join('examples/decision', name), 'utf8'),
+  await readFile(join('agentic/code/addons/decision-engine/examples', name), 'utf8'),
 ) as T;
 
 /** Workload inputs that a mutation test may perturb to prove the executors derive their outcome. */
@@ -84,6 +84,8 @@ export async function pairedBenchmark(inputs: BatchBenchmarkInputs = DEFAULT_BAT
               { decisionSubject: 'ticket:42', independent: true, egressPolicy: 'jev-public-v1', hostPolicy: 'host-policy-v1' }])) }
           : { enabled: false, evaluations: {} },
         resolveCredential: async () => new TextEncoder().encode('offline-fixture'),
+        // Offline fake transport: explicit host opt-out of projection (#2678).
+        projection: { mode: 'unprojected-local' },
       });
       samples.push({ mode, providerCalls, inputTokens, outputTokens,
         latencyMs: Math.max(0, performance.now() - started) });

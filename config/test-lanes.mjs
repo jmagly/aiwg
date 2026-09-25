@@ -7,6 +7,7 @@ export const packagingFiles = [
   'test/integration/global-install-native-policy.test.ts',
   'test/integration/tarball-allowlist-packaging.test.ts',
   'test/integration/dataset-contract-packaging.test.ts',
+  'test/integration/decision-engine-clean-install.test.ts',
 ];
 export const artifactIndexFiles = [
   'test/integration/artifacts/dependency-graph.test.ts',

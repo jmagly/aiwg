@@ -1,0 +1,21 @@
+{
+  "rulesetPath": "ruleset.json",
+  "bindingPath": "binding-jev.json",
+  "definitionPaths": [
+    "decision-category.json",
+    "decision-severity.json",
+    "decision-core_unavailable.json"
+  ],
+  "inputPath": "input.json",
+  "runId": "example-backend-swap",
+  "invocationId": "example-backend-swap-jev",
+  "projectionPolicyPath": "projection-policy-jev.json",
+  "adapterOptions": {
+    "jev": {
+      "region": "operator-declared-region"
+    }
+  },
+  "credentials": {
+    "typesafe-api": "AIWG_DECISION_JEV_API_KEY"
+  }
+}

@@ -29,6 +29,40 @@
       },
       "required": ["policyVersion", "uncertaintyProfile", "disposition", "matchedRule", "reason", "values"],
       "additionalProperties": false
+    },
+    "resultCacheCallerReceipt": {
+      "description": "D15 caller-level result-cache receipt. Historical evaluation attempts in a hit belong to the source invocation.",
+      "type": "object",
+      "properties": {
+        "disposition": { "enum": ["cache-hit", "cache-miss-fill", "bypass"] },
+        "callerInvocationId": { "type": "string", "minLength": 1 },
+        "sourceInvocationId": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "sourceReceiptId": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "originalEvaluatedAtEpochMs": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "cacheEntryId": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "createdAtEpochMs": { "type": "integer", "minimum": 0 },
+        "providerAttempted": { "type": "boolean" }
+      },
+      "required": ["disposition", "callerInvocationId", "sourceInvocationId", "sourceReceiptId", "originalEvaluatedAtEpochMs", "cacheEntryId", "createdAtEpochMs", "providerAttempted"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "disposition": { "const": "cache-hit" } } },
+          "then": {
+            "properties": {
+              "providerAttempted": { "const": false },
+              "sourceInvocationId": { "type": "string" },
+              "sourceReceiptId": { "type": "string" },
+              "originalEvaluatedAtEpochMs": { "type": "integer" },
+              "cacheEntryId": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "disposition": { "const": "bypass" } } },
+          "then": { "properties": { "providerAttempted": { "const": true }, "cacheEntryId": { "type": "null" } } }
+        }
+      ]
     }
   },
   "type": "object",
@@ -155,9 +189,12 @@
             "persistence-error",
             "replay-mismatch",
             "execution-uncertain",
+            "batch-record-unavailable",
             "no-match",
             "conflicting-outcomes",
-            "evaluation-failed"
+            "evaluation-failed",
+            "context-plan-stale",
+            "context-unqualified"
           ]
         },
         "outcome": {},
@@ -171,6 +208,42 @@
         },
         "context": {
           "$ref": "DecisionContextEvidence.v1.schema.json"
+        },
+        "cache": {
+          "$ref": "#/$defs/resultCacheCallerReceipt"
+        },
+        "projection": {
+          "description": "Present only when the host explicitly dispatched unprojected input (D10 opt-out).",
+          "type": "object",
+          "properties": {
+            "mode": { "const": "unprojected-local" },
+            "authority": { "const": "host" }
+          },
+          "required": ["mode", "authority"],
+          "additionalProperties": false
+        },
+        "contextFailure": {
+          "type": "object",
+          "description": "Body-free D06 context preflight rejection diagnostic.",
+          "properties": {
+            "schemaVersion": { "const": "decision-context-failure/v1" },
+            "reason": {
+              "enum": [
+                "invalid-input",
+                "invalid-profile",
+                "estimator-profile-mismatch",
+                "oversized-state",
+                "oversized-question",
+                "dependency-error",
+                "stale-plan",
+                "rollout-unqualified"
+              ]
+            },
+            "plannedDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "currentDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          },
+          "required": ["schemaVersion", "reason"],
+          "additionalProperties": false
         },
         "evaluations": {
           "type": "object",
@@ -336,6 +409,7 @@
                       "persistence-error",
                       "replay-mismatch",
                       "execution-uncertain",
+                      "batch-record-unavailable",
                       "no-match",
                       "conflicting-outcomes",
                       "evaluation-failed"
@@ -529,6 +603,7 @@
                             "persistence-error",
                             "replay-mismatch",
                             "execution-uncertain",
+                            "batch-record-unavailable",
                             "no-match",
                             "conflicting-outcomes",
                             "evaluation-failed"
@@ -774,16 +849,15 @@
       "additionalProperties": false,
       "allOf": [
         {
+          "$comment": "An incomplete-context downgrade (D06/D10) is review with reason insufficient-information and no outcome.",
           "if": {
-            "properties": {
-              "status": {
-                "enum": [
-                  "completed",
-                  "defaulted",
-                  "review"
-                ]
+            "anyOf": [
+              { "properties": { "status": { "enum": ["completed", "defaulted"] } } },
+              {
+                "properties": { "status": { "const": "review" } },
+                "not": { "properties": { "reason": { "const": "insufficient-information" } }, "required": ["reason"] }
               }
-            }
+            ]
           },
           "then": {
             "properties": {

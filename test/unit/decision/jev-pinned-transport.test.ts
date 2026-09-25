@@ -32,7 +32,7 @@ vi.mock('node:https', async () => {
 import { request as httpsRequest } from 'node:https';
 import { JevDecisionAdapter, type DecisionBinding, type DecisionDefinition } from '../../../src/decision/index.js';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 
 describe('pinned HTTPS transport', () => {
   it('SEC-DNS-PIN: connects only to the vetted address while TLS verifies the approved hostname', async () => {

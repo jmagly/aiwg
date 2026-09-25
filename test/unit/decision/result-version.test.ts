@@ -24,7 +24,7 @@ import {
 
 const V1 = 'decision.aiwg.io/v1alpha1';
 const V2 = 'decision.aiwg.io/v1alpha2';
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 type Spec = Record<string, unknown> & { attempts: Array<Record<string, unknown>> };
 const specOf = (value: DecisionResult): Spec => value.spec as unknown as Spec;
 
@@ -78,6 +78,12 @@ describe('decision result version ownership', () => {
       fixture<RulesetResult>('ruleset-result-batch.v1alpha2.json').spec.context);
     expect(() => validateDecisionDocument(composed)).toThrow(DecisionValidationError);
     expect(() => assertDecisionResultWriterVersion(composed)).toThrow(/\$\.spec\.context requires/);
+    const rejected = fixture<RulesetResult>('ruleset-result.json');
+    Object.assign(rejected.spec, { status: 'error', reason: 'context-plan-stale', matchedRules: [], evaluations: {},
+      contextFailure: { schemaVersion: 'decision-context-failure/v1', reason: 'stale-plan' } });
+    delete (rejected.spec as { outcome?: unknown }).outcome;
+    expect(() => assertDecisionResultWriterVersion(rejected)).toThrow(/\$\.spec\.contextFailure requires/);
+    expect(() => assertDecisionResultWriterVersion({ ...rejected, apiVersion: V2 })).not.toThrow();
     const nested = fixture<RulesetResult>('ruleset-result.json');
     nested.spec.evaluations.category = decisionAntiFixtures().find(item => item.field === 'batchResult')!.document;
     expect(() => validateDecisionDocument(nested)).toThrow(DecisionValidationError);
@@ -86,6 +92,25 @@ describe('decision result version ownership', () => {
     mixed.spec.evaluations.category!.apiVersion = V1 as typeof mixed.apiVersion;
     expect(() => assertDecisionResultWriterVersion(mixed)).toThrow(DecisionValidationError);
     expect(() => assertDecisionResultWriterVersion(fixture('ruleset.json'))).toThrow(/accepts only DecisionResult or RulesetResult/);
+  });
+
+  it('treats the D15 result-cache caller receipt as a v1alpha2-only RulesetResult field', () => {
+    expect(DECISION_RESULT_V1ALPHA2_FIELDS.filter(entry => entry.scope === 'ruleset').map(entry => entry.field).sort()).toEqual(['cache', 'context', 'contextFailure', 'projection']);
+    const cache = { disposition: 'cache-hit', callerInvocationId: 'caller', sourceInvocationId: 'source', sourceReceiptId: 'source',
+      originalEvaluatedAtEpochMs: 10, cacheEntryId: 'entry', createdAtEpochMs: 20, providerAttempted: false };
+    const legacy = fixture<RulesetResult>('ruleset-result.json');
+    (legacy.spec as unknown as Record<string, unknown>).cache = structuredClone(cache);
+    expect(decisionResultV1Alpha2Fields(legacy)).toEqual(['$.spec.cache']);
+    expect(() => validateDecisionDocument(legacy)).toThrow(DecisionValidationError);
+    expect(() => assertDecisionResultWriterVersion(legacy)).toThrow(new RegExp(`\\$\\.spec\\.cache requires ${V2}`));
+    const current = fixture<RulesetResult>('ruleset-result-batch.v1alpha2.json');
+    (current.spec as unknown as Record<string, unknown>).cache = structuredClone(cache);
+    assertDecisionResultWriterVersion(current);
+    for (const invalid of [{ ...cache, providerAttempted: true }, { ...cache, cacheEntryId: null },
+      { ...cache, disposition: 'bypass', providerAttempted: false }, { ...cache, operationId: 'extra' }]) {
+      (current.spec as unknown as Record<string, unknown>).cache = invalid;
+      expect(() => validateDecisionDocument(current), JSON.stringify(invalid)).toThrow(DecisionValidationError);
+    }
   });
 
   it('refuses a v1alpha1-labelled D07 result at the invocation receipt writer', async () => {
@@ -139,7 +164,7 @@ describe('decision evaluator result version', () => {
     capabilities: async () => ({
       answerKinds: ['choice', 'ordinal-score', 'truth-probability'] as const,
       features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true,
+      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const },
     }),
     evaluate: async request => request.alias === 'category' ? success('documentation')
       : request.alias === 'severity' ? success(0.25) : success(0.05, 'typesafe-truth-v1'),

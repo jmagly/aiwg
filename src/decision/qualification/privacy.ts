@@ -1,6 +1,8 @@
 /** Qualification canary scan of sanitized text captures. Never put the canary value in diagnostics. */
 export const QUALIFICATION_PRIVACY_SURFACES = [
   'stdout', 'stderr', 'test-report', 'trace', 'receipt', 'snapshot', 'export', 'thrown-error',
+  // Host-visible runtime activity: evidence callbacks, admission/prefix evidence and audit records.
+  'activity-record',
 ] as const;
 export type QualificationPrivacySurface = typeof QUALIFICATION_PRIVACY_SURFACES[number];
 

@@ -5,3 +5,4 @@ export * from './receipt.js';
 export * from './store.js';
 export * from './result-store.js';
 export * from './export.js';
+export * from './protection.js';

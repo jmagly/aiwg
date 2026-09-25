@@ -9,6 +9,10 @@ export class ReviewDefinitiveExecutionError extends Error {}
 import { DecisionTraceBuilder } from '../telemetry/trace.js';
 import { sanitizeOpaqueValue } from '../telemetry/redaction.js';
 import { replayReviewOperatorAudit } from './operator-audit.js';
+import type { DecisionCorrelation } from '../../audit/operator-decision.js';
+
+/** Review events that map to a #1567 operator decision record. */
+const OPERATOR_DECISION_EVENTS = new Set<ReviewEventType>(['approved', 'rejected', 'escalated', 'authorization-denied']);
 
 export class DecisionReviewService {
   private readonly resumingLeaseMs: number;
@@ -69,8 +73,7 @@ export class DecisionReviewService {
 
   /** Replay missing operator records after a crash before resuming a continuation. */
   async syncOperatorAudit(scope: ReviewScope, id: string): Promise<void> {
-    const review = await this.requireReview(scope, id);
-    await this.allowed(scope, 'export', review);
+    const review = await this.requireAuthorizedReview(scope, id, 'export');
     await this.auditReview(review);
   }
 
@@ -93,7 +96,8 @@ export class DecisionReviewService {
   async purge(scope: ReviewScope, id: string) {
     if (!this.store.purgeTombstoned) throw new ReviewConflictError('Physical review purge is unavailable');
     const review = await this.store.read(id, scope.tenantId, scope.projectId);
-    await this.allowed(scope, review ? 'delete' : 'purge', review ?? undefined);
+    // A denied existing review and an absent one fail identically.
+    if (!await this.authorization.authorize(scope, review ? 'delete' : 'purge', review ?? undefined)) throw this.unavailable();
     if (review && (review.status !== 'tombstoned' || review.lifecycle?.legalHold ||
       review.retentionUntilEpochMs === undefined || this.now() < review.retentionUntilEpochMs)) {
       throw new ReviewConflictError('Review retention or legal hold prohibits purge');
@@ -101,7 +105,7 @@ export class DecisionReviewService {
     try { return await this.store.purgeTombstoned(id, scope.tenantId, scope.projectId); }
     catch (error) {
       if (!review && error instanceof Error && /scope mismatch|requires an unheld tombstone/.test(error.message)) {
-        throw new ReviewAccessError('Review not found');
+        throw this.unavailable();
       }
       throw error;
     }
@@ -166,8 +170,7 @@ export class DecisionReviewService {
   async resume(scope: ReviewScope, id: string, token: string, execute: (effectId: string, action: unknown) => Promise<unknown>,
     reconcile?: (effectId: string) => Promise<ReviewEffectReceipt | null>): Promise<ReviewEffectReceipt> {
     for (;;) {
-      const review = await this.requireReview(scope, id);
-      await this.allowed(scope, 'resume', review);
+      const review = await this.requireAuthorizedReview(scope, id, 'resume');
       await this.auditReview(review);
       if (review.continuation.tokenDigest !== reviewDigest(token)) throw new ReviewAccessError('Invalid resume token');
       if (review.effectReceipt) return review.effectReceipt;
@@ -180,6 +183,7 @@ export class DecisionReviewService {
         const denied = this.append(review, 'authorization-denied', scope.actor, 'resume authorization denied', review.status);
         if (!await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, denied)) continue;
         await this.auditReview(denied);
+        await this.emitTelemetry(denied);
         throw new ReviewAccessError('Authorization is no longer valid');
       }
       if (review.status === 'resuming') {
@@ -240,7 +244,7 @@ export class DecisionReviewService {
   }
 
   private async mutate(scope: ReviewScope, id: string, operation: Parameters<ReviewAuthorization['authorize']>[1], build: (review: DecisionReview) => DecisionReview | Promise<DecisionReview>, allowNoop = false): Promise<DecisionReview> {
-    for (;;) { const review = await this.requireReview(scope, id); await this.allowed(scope, operation, review); const next = await build(review);
+    for (;;) { const review = await this.requireAuthorizedReview(scope, id, operation); const next = await build(review);
       if (allowNoop && next === review) return review;
       if (await this.store.compareAndSwap(id, scope.tenantId, scope.projectId, review.revision, next)) {
         await this.auditReview(next);
@@ -248,7 +252,14 @@ export class DecisionReviewService {
         return next;
       } }
   }
-  private async requireReview(scope: ReviewScope, id: string) { const review = await this.store.read(id, scope.tenantId, scope.projectId); if (!review) throw new ReviewAccessError('Review not found'); return review; }
+  private async requireReview(scope: ReviewScope, id: string) { const review = await this.store.read(id, scope.tenantId, scope.projectId); if (!review) throw this.unavailable(); return review; }
+  /** Missing, out-of-scope and unauthorized reviews share one error so callers cannot probe existence. */
+  private async requireAuthorizedReview(scope: ReviewScope, id: string, operation: Parameters<ReviewAuthorization['authorize']>[1]) {
+    const review = await this.store.read(id, scope.tenantId, scope.projectId);
+    if (!review || !await this.authorization.authorize(scope, operation, review)) throw this.unavailable();
+    return review;
+  }
+  private unavailable() { return new ReviewAccessError('Review not found'); }
   private async allowed(scope: ReviewScope, operation: Parameters<ReviewAuthorization['authorize']>[1], review?: DecisionReview) { if (!await this.authorization.authorize(scope, operation, review)) throw new ReviewAccessError('Review access denied'); }
   private requireActive(review: DecisionReview) { this.requireStatus(review, ['pending', 'claimed']); if (this.now() >= review.expiresAtEpochMs) throw new ReviewConflictError('Review is expired'); }
   private requireStatus(review: DecisionReview, states: DecisionReview['status'][]) { if (!states.includes(review.status)) throw new ReviewConflictError(`Illegal transition from ${review.status}`); }
@@ -263,35 +274,54 @@ export class DecisionReviewService {
     if (!this.operatorAudit) return;
     const audit = this.operatorAudit;
     const next = this.auditQueue.then(async () => {
-      await replayReviewOperatorAudit(review, audit.store, audit.correlation(review), audit.classification);
+      await replayReviewOperatorAudit(review, audit.store, this.auditCorrelation(review), audit.classification);
     });
     this.auditQueue = next.catch(() => {});
     await next;
+  }
+
+  /**
+   * The #1567 record and the review span must share one trace identity. When the
+   * host supplies a telemetry parent and no explicit trace ID, bind the audit
+   * correlation to that W3C trace instead of keeping a parallel identifier.
+   */
+  private auditCorrelation(review: DecisionReview): DecisionCorrelation {
+    const correlation = this.operatorAudit!.correlation(review);
+    const parent = this.telemetry?.parent;
+    return parent && correlation.trace_id === undefined ? { ...correlation, trace_id: parent.traceId } : correlation;
   }
 
   private async emitTelemetry(review: DecisionReview, effectId?: string): Promise<void> {
     if (!this.telemetry) return;
     try {
       const builder = new DecisionTraceBuilder(this.telemetry.ids, this.now);
+      const last = review.events.at(-1);
+      // Only operator decisions have a #1567 record; other events carry no audit ID.
+      const operatorEvent = last && OPERATOR_DECISION_EVENTS.has(last.type) ? last.operatorDecisionEventId : undefined;
+      const approval = review.events.filter(event => event.type === 'approved').at(-1)?.operatorDecisionEventId;
       const root = builder.startSpan('decision.review', {
         ...(this.telemetry.parent ? { parent: this.telemetry.parent } : {}),
         attributes: {
           'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128),
           'aiwg.review.status': review.status,
           'aiwg.review.revision': review.revision,
-          'aiwg.review.event': review.events.at(-1)?.type ?? 'unknown',
+          'aiwg.review.event': last?.type ?? 'unknown',
+          ...(operatorEvent ? { 'aiwg.operator_decision.event_id': sanitizeOpaqueValue(operatorEvent, 128) } : {}),
         },
         provenance: {
           'aiwg.review.id': 'client-derived', 'aiwg.review.status': 'client-derived',
           'aiwg.review.revision': 'client-derived', 'aiwg.review.event': 'client-derived',
+          'aiwg.operator_decision.event_id': 'client-derived',
         },
       });
       builder.endSpan(root, review.status === 'execution-failed' ? 'error' : 'ok');
       if (effectId) {
         const action = builder.startSpan('decision.action', { parent: root.context,
           links: [{ ...root.context, relationship: 'review', attributes: { 'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128) } }],
-          attributes: { 'aiwg.effect_receipt.id': sanitizeOpaqueValue(effectId, 128), 'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128) },
-          provenance: { 'aiwg.effect_receipt.id': 'client-derived', 'aiwg.review.id': 'client-derived' } });
+          attributes: { 'aiwg.effect_receipt.id': sanitizeOpaqueValue(effectId, 128), 'aiwg.review.id': sanitizeOpaqueValue(review.reviewId, 128),
+            ...(approval ? { 'aiwg.operator_decision.event_id': sanitizeOpaqueValue(approval, 128) } : {}) },
+          provenance: { 'aiwg.effect_receipt.id': 'client-derived', 'aiwg.review.id': 'client-derived',
+            'aiwg.operator_decision.event_id': 'client-derived' } });
         builder.endSpan(action, review.status === 'completed' ? 'ok' : 'error');
       }
       for (const span of builder.build().spans) {

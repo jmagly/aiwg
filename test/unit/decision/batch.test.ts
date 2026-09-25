@@ -1,5 +1,6 @@
+import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -15,6 +16,7 @@ import {
   type AdapterObservation,
   type DecisionContextPolicy,
   type DecisionProjectionPolicy,
+  type DecisionEvaluationRequest,
   CanonicalJsonByteEstimator,
   MemoryBatchReceiptStore,
   MemoryBatchResultStore,
@@ -26,9 +28,13 @@ import {
   planDecisionContext,
   compareContextUsage,
   planNativeDecisionBatches,
+  DECISION_LIFECYCLE_SURFACES,
+  DECISION_LIFECYCLE_VERSION,
+  type DecisionLifecyclePolicy,
 } from '../../../src/decision/index.js';
+import { canonicalJson } from '../../../src/security/artifact-trust.js';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const definitions = (): Record<string, DecisionDefinition> => ({
   category: fixture('decision-category.json'), severity: fixture('decision-severity.json'),
   core: fixture('decision-core_unavailable.json'),
@@ -46,9 +52,23 @@ function request(fetchImpl: typeof fetch, subjects?: Record<string, string>) {
   return {
     ruleset: fixture<DecisionRuleset>('ruleset.json'), binding: fixture<DecisionBinding>('binding-jev.json'),
     definitions: definitions(), input: fixture('input.json'), runId: 'run', invocationId: 'batch-run',
-    adapters: { jev: new JevDecisionAdapter({ fetch: fetchImpl }) }, batching: policy(subjects),
+    adapters: { jev: new JevDecisionAdapter({ fetch: fetchImpl, region: 'us' }) }, batching: policy(subjects),
     resolveCredential: async () => new TextEncoder().encode('token'),
+    // Offline fake transport opts out explicitly; PROJ-* cases replace this with a policy.
+    projection: { mode: 'unprojected-local' } as NonNullable<DecisionEvaluationRequest['projection']>,
   };
+}
+
+const batchIntegrityKey = randomBytes(32);
+const batchEncryptionKey = randomBytes(32);
+const batchLifecycle = (): DecisionLifecyclePolicy => ({ version: DECISION_LIFECYCLE_VERSION,
+  surfaces: Object.fromEntries(DECISION_LIFECYCLE_SURFACES.map(surface => [surface, { classification: 'restricted',
+    accessScopes: ['batch-owner'], retentionMs: 86_400_000, export: 'denied', deletion: 'tombstone',
+    backup: 'expire-with-primary' }])) as DecisionLifecyclePolicy['surfaces'] });
+function keyedFileStores(receiptDirectory: string, resultDirectory: string): [FileBatchReceiptStore, FileBatchResultStore] {
+  const results = new FileBatchResultStore(resultDirectory, { integrityKey: batchIntegrityKey, lifecycle: batchLifecycle(),
+    encryptionKeyReference: 'batch-results-2026', resolveEncryptionKey: async () => Buffer.from(batchEncryptionKey) });
+  return [new FileBatchReceiptStore(receiptDirectory, { integrityKey: batchIntegrityKey, lifecycle: batchLifecycle(), results }), results];
 }
 
 function durableBatching(store: MemoryBatchReceiptStore | FileBatchReceiptStore = new MemoryBatchReceiptStore(),
@@ -82,6 +102,18 @@ function contextRuntime(questionTokens = 1): DecisionContextPolicy {
       limits: { aggregateTokens: 45, stateAndLongestQuestionTokens: 45 }, safetyMarginBps: 0, requestEnvelopeTokens: 0 },
     estimator,
   };
+}
+
+/**
+ * Offline stand-in for a reviewed provider qualification. The gate cannot authenticate a caller-declared
+ * `source: provider`, so this exercises enforce-mode wiring only; it is not TV-12 evidence.
+ */
+function qualified(runtime: DecisionContextPolicy): DecisionContextPolicy {
+  const input = { ...runtime.input, questions: [runtime.input.questions[0]!] };
+  const estimate = planDecisionContext(input, runtime.profile, runtime.estimator).partitions[0]!.estimate.aggregateTokens;
+  runtime.rollout = { mode: 'enforce', qualification: compareContextUsage([{ caseId: 'declared-provider-fixture', input,
+    actualInputTokens: estimate, source: 'provider', usageRef: 'fixture:declared-provider' }], runtime.profile, runtime.estimator) };
+  return runtime;
 }
 
 function runtimeProjectionPolicy(): DecisionProjectionPolicy {
@@ -142,7 +174,7 @@ describe('native shared-state decision batching', () => {
       bodies.push(body);
       return validResponse(body);
     }) as typeof fetch;
-    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: contextRuntime(20) });
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: qualified(contextRuntime(20)) });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(bodies.map(body => Object.keys(body.questions as object).length).sort()).toEqual([1, 2]);
     expect(result.spec.context?.plan.partitions.map(partition => partition.questionIds.length)).toEqual([2, 1]);
@@ -162,7 +194,7 @@ describe('native shared-state decision batching', () => {
     runtime.profile.limits.stateAndLongestQuestionTokens = 100;
     const batching = policy();
     batching.evaluations.severity!.egressPolicy = 'another-egress-policy';
-    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batching, context: runtime });
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), batching, context: qualified(runtime) });
     expect(result.spec.context?.plan.partitions).toHaveLength(1);
     const usage = result.spec.context?.actualUsage ?? [];
     expect(usage).toHaveLength(2);
@@ -186,9 +218,35 @@ describe('native shared-state decision batching', () => {
       actualInputTokens: 3, source: 'synthetic', usageRef: 'fixture:offline' }], runtime.profile, runtime.estimator);
     runtime.rollout = { mode: 'enforce', qualification };
     const rejected = await evaluateDecisionRuleset({ ...request(fetchImpl), resolveCredential: credential, context: runtime });
-    expect(rejected.spec.reason).toBe('invalid-input');
+    expect(rejected.spec.reason).toBe('context-unqualified');
+    expect(rejected.spec.contextFailure).toEqual({ schemaVersion: 'decision-context-failure/v1', reason: 'rollout-unqualified' });
     expect(credential).not.toHaveBeenCalled();
     expect(fetchImpl).toHaveBeenCalledTimes(3);
+    validateDecisionDocument(rejected);
+  });
+
+  it('CTX-ROLLOUT fails partitioned native batching closed when no rollout mode is set', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const adapter = new JevDecisionAdapter({ fetch: fetchImpl });
+    const capabilities = vi.spyOn(adapter, 'capabilities');
+    const credential = vi.fn(async () => new TextEncoder().encode('token'));
+    const runtime = contextRuntime(20);
+    expect(runtime.rollout).toBeUndefined();
+    const rejected = await evaluateDecisionRuleset({ ...request(fetchImpl), adapters: { jev: adapter },
+      resolveCredential: credential, context: runtime });
+    expect(rejected.spec).toMatchObject({ status: 'error', reason: 'context-unqualified', evaluations: {} });
+    expect(rejected.spec.contextFailure).toEqual({ schemaVersion: 'decision-context-failure/v1', reason: 'rollout-unqualified' });
+    expect(capabilities).not.toHaveBeenCalled();
+    expect(credential).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    validateDecisionDocument(rejected);
+    // Without native batching the omitted rollout still runs individually preflighted calls.
+    const single = request(fetchImpl);
+    single.batching.enabled = false;
+    const individual = await evaluateDecisionRuleset({ ...single, context: contextRuntime(20) });
+    expect(individual.spec.reason).not.toBe('context-unqualified');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(individual.spec.context?.actualUsage).toHaveLength(3);
   });
 
   it('CTX-RUNTIME rejects stale plans before capability, credential, or transport access', async () => {
@@ -200,9 +258,14 @@ describe('native shared-state decision batching', () => {
     const credential = vi.fn(async () => new TextEncoder().encode('token'));
     const result = await evaluateDecisionRuleset({ ...request(vi.fn() as unknown as typeof fetch),
       adapters: { jev: adapter }, resolveCredential: credential, context: runtime });
-    expect(result.spec.reason).toBe('invalid-input');
+    const current = planDecisionContext(runtime.input, runtime.profile, runtime.estimator);
+    expect(result.spec.reason).toBe('context-plan-stale');
+    expect(result.spec.contextFailure).toEqual({ schemaVersion: 'decision-context-failure/v1', reason: 'stale-plan',
+      plannedDigest: runtime.plan!.planDigest, currentDigest: current.planDigest });
+    expect(current.planDigest).not.toBe(runtime.plan!.planDigest);
     expect(capabilities).not.toHaveBeenCalled();
     expect(credential).not.toHaveBeenCalled();
+    validateDecisionDocument(result);
   });
 
   it('CTX-RUNTIME rejects mixed subjects before transport access', async () => {
@@ -212,6 +275,74 @@ describe('native shared-state decision batching', () => {
     const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime });
     expect(result.spec.reason).toBe('invalid-input');
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['oversized-state', (runtime: DecisionContextPolicy) => { runtime.input.authorizedState = { tokens: 46 }; }],
+    ['oversized-question', (runtime: DecisionContextPolicy) => { runtime.input.questions[1]!.entry = { tokens: 45 }; }],
+  ] as const)('CTX-RUNTIME rejects %s before capability, credential, or transport access without truncation',
+    async (reason, oversize) => {
+      const fetchImpl = vi.fn() as unknown as typeof fetch;
+      const adapter = new JevDecisionAdapter({ fetch: fetchImpl });
+      const capabilities = vi.spyOn(adapter, 'capabilities');
+      const evaluate = vi.spyOn(adapter, 'evaluate');
+      const credential = vi.fn(async () => new TextEncoder().encode('token'));
+      const runtime = qualified(contextRuntime());
+      oversize(runtime);
+      const result = await evaluateDecisionRuleset({ ...request(fetchImpl), adapters: { jev: adapter },
+        resolveCredential: credential, context: runtime });
+      expect(result.spec).toMatchObject({ status: 'error', reason: 'invalid-input', evaluations: {} });
+      expect(result.spec.contextFailure).toEqual({ schemaVersion: 'decision-context-failure/v1', reason });
+      expect(result.spec.context).toBeUndefined();
+      expect(capabilities).toHaveBeenCalledTimes(0);
+      expect(evaluate).toHaveBeenCalledTimes(0);
+      expect(credential).toHaveBeenCalledTimes(0);
+      expect(fetchImpl).toHaveBeenCalledTimes(0);
+      validateDecisionDocument(result);
+    });
+
+  it('CTX-RUNTIME converts incomplete context from automatic action to review with no outcome', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const runtime = (incompleteContext: boolean): DecisionContextPolicy => {
+      const configured = contextRuntime();
+      configured.profile.limits.aggregateTokens = 100;
+      configured.profile.limits.stateAndLongestQuestionTokens = 100;
+      configured.input.incompleteContext = incompleteContext;
+      return qualified(configured);
+    };
+    const baseline = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime(false) });
+    expect(['completed', 'defaulted']).toContain(baseline.spec.status);
+    expect(baseline.spec).toHaveProperty('outcome');
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime(true) });
+    // #2678: the downgrade removes the automatic outcome instead of substituting the ruleset failureOutcome.
+    expect(result.spec).toMatchObject({ status: 'review', reason: 'insufficient-information' });
+    expect(result.spec).not.toHaveProperty('outcome');
+    expect(result.spec.context?.plan).toMatchObject({ incompleteContext: true, automaticActionAllowed: false });
+    validateDecisionDocument(result);
+  });
+
+  it('CTX-RUNTIME keeps state and question bodies out of result and batch receipt evidence', async () => {
+    const stateSentinel = 'STATE-BODY-SENTINEL-7d1f';
+    const questionSentinel = 'QUESTION-BODY-SENTINEL-93ac';
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    const runtime = contextRuntime(20);
+    runtime.input.authorizedState = { tokens: 1, note: stateSentinel };
+    runtime.input.questions.forEach(question => { question.entry = { tokens: 20, prompt: `${questionSentinel} ${question.id}` }; });
+    qualified(runtime);
+    const store = new MemoryBatchReceiptStore();
+    const contextPlan = planDecisionContext(runtime.input, runtime.profile, runtime.estimator);
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), context: runtime,
+      batchReceipts: { ...durableBatching(store, new MemoryBatchResultStore()), contextPlan } });
+    expect(result.spec.context?.plan.planDigest).toBe(contextPlan.planDigest);
+    const batchIds = [...new Set(Object.values(result.spec.evaluations).map(value => value.spec.batchResult?.batchId)
+      .filter((id): id is string => Boolean(id)))];
+    expect(batchIds.length).toBeGreaterThan(0);
+    const receipts = await Promise.all(batchIds.map(id => store.read(id, 'tenant', 'project')));
+    for (const evidence of [JSON.stringify(result), JSON.stringify(receipts)]) {
+      expect(evidence).not.toContain(stateSentinel);
+      expect(evidence).not.toContain(questionSentinel);
+    }
+    validateDecisionDocument(result);
   });
 
   it('PROJ-RUNTIME projects trusted host state before credential lookup for single requests', async () => {
@@ -229,9 +360,9 @@ describe('native shared-state decision batching', () => {
       projection: { resolve: runtimeProjectionPolicy, onEvidence: evidence } });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(credential).toHaveBeenCalledTimes(3);
-    expect(bodies.every(body => JSON.stringify(body.state) === JSON.stringify({
+    expect(bodies.every(body => JSON.stringify(body.state) === JSON.stringify({ verified: {}, untrusted: {
       excerpt: 'The documentation link on the settings page is broken. The application otherwise works.',
-    }))).toBe(true);
+    } }))).toBe(true);
     expect(evidence).toHaveBeenCalledTimes(3);
     expect(JSON.stringify(evidence.mock.calls)).not.toContain('The documentation link');
     expect(Object.values(result.spec.evaluations).every(item => item.spec.status === 'success')).toBe(true);
@@ -445,7 +576,7 @@ describe('native shared-state decision batching', () => {
     const adapter: DecisionAdapter = {
       id: 'jev', version: '1.0.0',
       capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
-        features: [], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true }),
+        features: [], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true, egress: { mode: 'none' as const } }),
       evaluate: vi.fn(async value => observe(value.alias)),
     };
     const base = request(vi.fn() as unknown as typeof fetch);
@@ -619,6 +750,38 @@ describe('native shared-state decision batching', () => {
     expect(Object.values(result.spec.evaluations).every(value => value.spec.reason === 'data-boundary-denied')).toBe(true);
   });
 
+  it('PRV-EGRESS-FALLBACK denies native batch with fallback preflight when no projection policy is supplied', async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const credential = vi.fn(async () => new TextEncoder().encode('token'));
+    const configured = request(fetchImpl);
+    configured.binding.spec.maxAttempts = 6;
+    for (const evaluation of Object.values(configured.binding.spec.evaluations)) {
+      evaluation.targets.push({ ...structuredClone(evaluation.targets[0]!), model: 'jev-fallback' });
+      evaluation.fallbackOn.push('service-error');
+    }
+    const { projection: _optOut, ...withoutProjection } = configured;
+    const result = await evaluateDecisionRuleset({ ...withoutProjection, resolveCredential: credential,
+      batchReceipts: durableBatching(new MemoryBatchReceiptStore(), new MemoryBatchResultStore()) });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(credential).not.toHaveBeenCalled();
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.reason === 'data-boundary-denied')).toBe(true);
+  });
+
+  it('AC6-CTX downgrades a completed native-batch result to review when the context plan is incomplete', async () => {
+    const fetchImpl = vi.fn(async (_url, options) => validResponse(JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+    // Native batching with a context plan needs an explicit rollout mode (#2599 fail-closed default).
+    const complete = await evaluateDecisionRuleset({ ...request(fetchImpl), context: qualified(contextRuntime()) });
+    expect(complete.spec).toMatchObject({ status: 'completed', outcome: 'docs-review' });
+    const runtime = qualified(contextRuntime());
+    runtime.input.incompleteContext = true;
+    const result = await evaluateDecisionRuleset({ ...request(fetchImpl), invocationId: 'batch-run-incomplete', context: runtime });
+    expect(Object.values(result.spec.evaluations).every(value => value.spec.status === 'success')).toBe(true);
+    expect(result.spec.status).toBe('review');
+    expect(result.spec.reason).toBe('insufficient-information');
+    expect(result.spec).not.toHaveProperty('outcome');
+    expect(result.spec.context?.plan.automaticActionAllowed).toBe(false);
+  });
+
   it('blocks a retry when failed-attempt consumption exhausts the conservative cost ceiling', async () => {
     const fetchImpl = vi.fn(async () => new Response('unavailable', { status: 503,
       headers: { 'x-request-id': 'req_failure' } })) as typeof fetch;
@@ -655,7 +818,7 @@ describe('native shared-state decision batching', () => {
     configured.binding.spec.maxAttempts = 4;
     configured.definitions[extraAlias] = configured.definitions.category!;
     configured.batching.evaluations[extraAlias] = structuredClone(configured.batching.evaluations.category!);
-    const settings = { ...configured, context, batchReceipts: { ...durableBatching(store, resultStore), contextPlan } };
+    const settings = { ...configured, context: qualified(context), batchReceipts: { ...durableBatching(store, resultStore), contextPlan } };
     const result = await evaluateDecisionRuleset(settings);
     expect(calls).toHaveLength(2);
     const references = Object.values(result.spec.evaluations).map(value => value.spec.batchResult!);
@@ -689,7 +852,7 @@ describe('native shared-state decision batching', () => {
     configured.batching.evaluations[alias] = structuredClone(configured.batching.evaluations.category!);
     const policy = { ...durableBatching(store, new MemoryBatchResultStore()), contextPlan,
       unknownCostBound: { upperBoundMicros: 100, policyId: 'limit', policyVersion: '1' }, maxCostMicros: 100 };
-    const result = await evaluateDecisionRuleset({ ...configured, context, batchReceipts: policy });
+    const result = await evaluateDecisionRuleset({ ...configured, context: qualified(context), batchReceipts: policy });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(Object.values(result.spec.evaluations).filter(value => value.spec.reason === 'budget-exhausted')).toHaveLength(2);
     expect(Object.values(result.spec.evaluations).filter(value => value.spec.batchResult)).toHaveLength(2);
@@ -773,13 +936,72 @@ describe('native shared-state decision batching', () => {
       const receiptDirectory = join(directory, 'receipts');
       const resultDirectory = join(directory, 'results');
       const first = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
-        new FileBatchReceiptStore(receiptDirectory), new FileBatchResultStore(resultDirectory)) });
+        ...keyedFileStores(receiptDirectory, resultDirectory)) });
       const second = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
-        new FileBatchReceiptStore(receiptDirectory), new FileBatchResultStore(resultDirectory)) });
+        ...keyedFileStores(receiptDirectory, resultDirectory)) });
       expect(fetchImpl).toHaveBeenCalledTimes(1);
       expect(Object.values(second.spec.evaluations).map(result => result.spec.value))
         .toEqual(Object.values(first.spec.evaluations).map(result => result.spec.value));
       expect(Object.values(second.spec.evaluations).every(result => result.spec.status === 'success')).toBe(true);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('never re-dispatches after an erased receipt cascades to its results and reports batch-record-unavailable', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-batch-erase-'));
+    try {
+      const fetchImpl = vi.fn(async (_url, options) => validResponse(
+        JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+      const receiptDirectory = join(directory, 'receipts');
+      const resultDirectory = join(directory, 'results');
+      const [receipts, results] = keyedFileStores(receiptDirectory, resultDirectory);
+      const first = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(receipts, results) });
+      const reference = Object.values(first.spec.evaluations)[0]!.spec.batchResult!;
+      await receipts.erase(receipts.lifecycleReference(reference.batchId, 'tenant', 'project').opaqueId);
+      expect((await readdir(resultDirectory)).filter(name => name.endsWith('.sealed.json'))).toEqual([]);
+      expect((await readdir(receiptDirectory)).filter(name => name.endsWith('.sealed.json'))).toEqual([]);
+      const replay = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
+        ...keyedFileStores(receiptDirectory, resultDirectory)) });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(Object.values(replay.spec.evaluations).map(result => [result.spec.status, result.spec.reason]))
+        .toEqual(Array(3).fill(['error', 'batch-record-unavailable']));
+      expect(replay.apiVersion).toBe('decision.aiwg.io/v1alpha2');
+      // The dedicated reason is v1alpha2-only: stripped of v1alpha2 evidence, the same result
+      // validates as v1alpha1 only with a released reason.
+      const legacy = structuredClone(Object.values(replay.spec.evaluations)[0]!) as unknown as {
+        apiVersion: string; spec: Record<string, unknown> & { reason: string; attempts: Array<Record<string, unknown>> } };
+      legacy.apiVersion = 'decision.aiwg.io/v1alpha1';
+      for (const field of ['batchResult', 'context']) delete legacy.spec[field];
+      for (const attempt of legacy.spec.attempts) for (const field of ['batch', 'admission', 'providerPrefix']) delete attempt[field];
+      expect(() => validateDecisionDocument(legacy)).toThrow();
+      legacy.spec.reason = 'persistence-error';
+      legacy.spec.attempts.forEach(attempt => { attempt.reason = 'persistence-error'; });
+      expect(() => validateDecisionDocument(legacy)).not.toThrow();
+      expect(Object.values(replay.spec.evaluations).every(result => !result.spec.batchResult)).toBe(true);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('never serves a stale value when a sealed result snapshot is tampered with', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'decision-batch-tamper-'));
+    try {
+      const fetchImpl = vi.fn(async (_url, options) => validResponse(
+        JSON.parse(String(options?.body)) as Record<string, unknown>)) as typeof fetch;
+      const receiptDirectory = join(directory, 'receipts');
+      const resultDirectory = join(directory, 'results');
+      await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
+        ...keyedFileStores(receiptDirectory, resultDirectory)) });
+      const target = join(resultDirectory, (await readdir(resultDirectory)).find(name => name.endsWith('.sealed.json'))!);
+      const envelope = JSON.parse(await readFile(target, 'utf8')) as { tag: string };
+      envelope.tag = Buffer.alloc(16).toString('base64url');
+      await writeFile(target, `${canonicalJson(envelope)}\n`);
+      const replay = await evaluateDecisionRuleset({ ...request(fetchImpl), batchReceipts: durableBatching(
+        ...keyedFileStores(receiptDirectory, resultDirectory)) });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(Object.values(replay.spec.evaluations).map(result => result.spec.reason)).toEqual(Array(3).fill('persistence-error'));
+      expect(Object.values(replay.spec.evaluations).every(result => result.spec.value === undefined)).toBe(true);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

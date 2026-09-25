@@ -41,6 +41,9 @@ describe('decision qualification conformance foundation', () => {
     }
     expect(DECISION_CASE_COVERAGE.filter(item => ['TV03', 'TV04', 'TV05', 'TV11'].includes(item.id))
       .every(item => item.candidateTests.includes('test/conformance/decision-v1/acceptance-evidence.test.ts'))).toBe(true);
+    expect(DECISION_CASE_COVERAGE.find(item => item.id === 'TV12')?.candidateTests).toEqual([
+      'test/conformance/decision-v1/vendor-vectors.test.ts', 'test/unit/decision/context-plan.test.ts',
+      'test/unit/decision/context-qualification.test.ts', 'test/unit/decision/batch.test.ts']);
     // Executor linkage (every hinted case has a registered executor that ran) is
     // enforced by qualification-aggregate.test.ts, not by these hints.
     const report = evaluateQualification(manifest());

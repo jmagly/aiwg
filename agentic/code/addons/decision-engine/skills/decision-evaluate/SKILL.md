@@ -31,5 +31,20 @@ from logical reference to environment-variable name, and optional
 `adapterModules` for configured worker transports. Credential values are read
 only at adapter call time and never written to results.
 
+Network-capable adapters (including the packaged Jev adapter) require
+`projectionPolicyPath`: a trusted projection policy file, or an array of
+policies selected by exact adapter and model. Without it the dispatcher refuses
+before any credential or transport use and exits `2`. Only adapters that declare
+`egress: { mode: 'none' }` (for example the offline fixture worker) run without a
+policy. `adapterOptions.jev` sets the Jev `endpoint`, `allowedOrigins` and the
+operator-declared deployment `region`; the policy origin and region must match
+them. There is no dispatcher setting that sends unprojected state to a network
+adapter. See `agentic/code/addons/decision-engine/examples/dispatcher-request-jev.json`.
+
 Set `AIWG_DECISION_ENABLED=1` explicitly. Existing workflows remain unchanged
 when the flag is absent.
+
+The deployed script loads the compiled runtime from the installed `aiwg`
+package through `scripts/runtime-root.mjs`: `AIWG_ROOT` when it names a built
+package, then a project `node_modules/aiwg`, then the `aiwg` executable on
+`PATH`.

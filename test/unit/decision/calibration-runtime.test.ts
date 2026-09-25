@@ -19,7 +19,7 @@ import {
 } from '../../../src/decision/index.js';
 
 const hash = (character: string) => `sha256:${character.repeat(64)}` as const;
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const policy = { unknown: 'defer', incompatible: 'fail', shadowRequired: 'shadow', unusableCalibration: 'require-approval' } as const;
 
 function setup(expiresAfterDays = 30, options: { register?: boolean; approval?: CalibrationArtifact['approval']; totalSamples?: number; perSliceSamples?: number } = {}) {
@@ -81,7 +81,7 @@ async function run(config: ReturnType<typeof setup>, actualModel: string, at: st
   receiptStore?: MemoryDecisionReceiptStore, spans?: DecisionTelemetrySpan[]) {
   const adapter: DecisionAdapter = { id: 'jev', version: config.target.adapterVersion,
     capabilities: async () => ({ answerKinds: ['choice'], features: ['choice', 'structured-entries'], maxOptions: 255,
-      maxLevels: 10, confidenceProfiles: [], executable: true }),
+      maxLevels: 10, confidenceProfiles: [], executable: true, egress: { mode: 'none' as const } }),
     evaluate: vi.fn(async () => observation(actualModel, config.artifact.id)) };
   return evaluateDecisionRuleset({ ruleset: config.ruleset, binding: config.binding,
     definitions: { category: config.decision }, input: fixture('input.json'), runId: 'run-calibration', invocationId,
@@ -132,7 +132,7 @@ describe('runtime calibration compatibility', () => {
     const adapter = config.binding.spec.evaluations.category!.targets[0]!;
     const identityFor = ({ actualModel }: { actualModel: string }) => config.identity(actualModel);
     const provider: DecisionAdapter = { id: 'jev', version: adapter.adapterVersion,
-      capabilities: async () => ({ answerKinds: ['choice'], features: ['choice', 'structured-entries'], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true }),
+      capabilities: async () => ({ answerKinds: ['choice'], features: ['choice', 'structured-entries'], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true, egress: { mode: 'none' as const } }),
       evaluate: vi.fn(async () => observation('jev-2026-09-01', 'calibration-not-registered')) };
     const result = await evaluateDecisionRuleset({ ruleset: config.ruleset, binding: config.binding,
       definitions: { category: config.decision }, input: fixture('input.json'), runId: 'run-calibration', invocationId: 'bad-reference',

@@ -95,7 +95,7 @@ interface QualificationArtifact {
 }
 
 /** Named master-test-plan suites plus the M01-M11 amendment IDs. */
-export const QUALIFICATION_EVIDENCE_ID = /^(?:CON|POL|BCH|CTX|CNC|CAN|RTY|REC|SEC|PRV|CAL|DRF|M(?:0[1-9]|1[01]))-[A-Z0-9][A-Z0-9._-]*$/;
+export const QUALIFICATION_EVIDENCE_ID = /^(?:CON|POL|BCH|CTX|CNC|CAN|RTY|REC|SEC|PRV|CAL|DRF|CCP|M(?:0[1-9]|1[01]))-[A-Z0-9][A-Z0-9._-]*$/;
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_ARTIFACT_BYTES = 256 * 1024;

@@ -2,8 +2,8 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { DecisionResultCache, FileResultCacheStore, MemoryResultCacheStore, RESULT_CACHE_KEY_VERSION, ResultCacheAccessDeniedError, digestResultCacheIdentity } from '../../../src/decision/result-cache/index.js';
-import type { CachedResultEvidence, ResultCacheActor, ResultCachePolicy, ResultCacheSemanticIdentity } from '../../../src/decision/result-cache/index.js';
+import { DecisionResultCache, FileResultCacheStore, MemoryResultCacheStore, RESULT_CACHE_KEY_VERSION, ResultCacheAccessDeniedError, ResultCacheIntegrityError, digestCachedResult, digestResultCacheIdentity, entryIntegrityDigest } from '../../../src/decision/result-cache/index.js';
+import type { CachedResultEvidence, ResultCacheActor, ResultCacheEntry, ResultCachePolicy, ResultCacheSemanticIdentity } from '../../../src/decision/result-cache/index.js';
 
 const digest = (c: string) => `sha256:${c.repeat(64)}` as const;
 const actor: ResultCacheActor = { tenantId: 't1', projectId: 'p1', workspaceId: 'w1', subjectId: 'user', permissions: ['read', 'write', 'invalidate', 'export', 'delete'] };
@@ -89,4 +89,53 @@ describe('semantic decision result cache', () => {
   it('prevents cross-workspace access and exposes the same denial', async () => { const store = new MemoryResultCacheStore(); await expect(store.read({ ...actor, workspaceId: 'other', permissions: [] }, digest('a'))).rejects.toBeInstanceOf(ResultCacheAccessDeniedError); await expect(store.read({ ...actor, permissions: [] }, digest('a'))).rejects.toBeInstanceOf(ResultCacheAccessDeniedError); });
   it('detects modified stored bytes in the real filesystem store', async () => { const dir = await mkdtemp(join(tmpdir(), 'decision-cache-')); const store = new FileResultCacheStore(dir); const cache = new DecisionResultCache(store); await cache.evaluate({ actor, policy, identity: identity(), callerInvocationId: 'c', nowEpochMs: 1_000 }, async () => evidence()); const files = (await import('node:fs/promises')).readdir(dir); const name = (await files)[0]!; const path = join(dir, name); const raw = await readFile(path, 'utf8'); await writeFile(path, raw.replace('model-v1', 'model-v2')); await expect(store.read(actor, digestResultCacheIdentity(identity()))).rejects.toThrow('integrity'); });
   it('keeps telemetry free of semantic key and identity material', async () => { const events: unknown[] = []; const cache = new DecisionResultCache(new MemoryResultCacheStore(), e => events.push(e)); await cache.evaluate({ actor, policy, identity: identity(), callerInvocationId: 'c', nowEpochMs: 1_000, operationId: 'op' }, async () => evidence()); const serialized = JSON.stringify(events); expect(serialized).not.toContain(digestResultCacheIdentity(identity())); expect(serialized).not.toContain('source-i'); expect(serialized).toContain('op'); });
+});
+
+describe('PRV-EGRESS-RECEIPT portable result-cache entries', () => {
+  // Assembled at runtime so no literal secret-shaped string lives in the source tree.
+  const canary = 'CANARY' + 'm4Tw'.repeat(6);
+  const fixtures: Array<[string, Record<string, unknown>]> = [
+    ['bearer value', { answer: `Bearer ${canary}` }],
+    ['PEM private key', { answer: `-----BEGIN EC ${'PRIVATE'} KEY-----${canary}` }],
+    ['vault locator', { answer: 'yes', source: `vault://kv/${canary}` }],
+    ['secret-derived hash key', { answer: 'yes', secretHash: `sha256:${canary}` }],
+  ];
+
+  it('PRV-EGRESS-RECEIPT-C01 refuses to admit a filled entry carrying secret material', async () => {
+    for (const [label, result] of fixtures) {
+      const dir = await mkdtemp(join(tmpdir(), 'decision-cache-secret-'));
+      for (const store of [new MemoryResultCacheStore(), new FileResultCacheStore(dir)]) {
+        const cache = new DecisionResultCache(store);
+        const failure = await cache.evaluate({ actor, policy, identity: identity(), callerInvocationId: 'c', nowEpochMs: 1_000 },
+          async () => evidence({ result })).catch((error: unknown) => error);
+        expect(failure, label).toBeInstanceOf(ResultCacheIntegrityError);
+        expect((failure as Error).message).not.toContain(canary);
+        expect(await store.read(actor, digestResultCacheIdentity(identity()))).toBeNull();
+      }
+      const files = await (await import('node:fs/promises')).readdir(dir);
+      expect(files.filter(name => name.endsWith('.json')), label).toEqual([]);
+    }
+  });
+
+  it('PRV-EGRESS-RECEIPT-C02 rejects a correctly digested stored entry carrying secret material', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'decision-cache-secret-'));
+    const store = new FileResultCacheStore(dir);
+    await new DecisionResultCache(store).evaluate({ actor, policy, identity: identity(), callerInvocationId: 'c', nowEpochMs: 1_000 }, async () => evidence());
+    const name = (await (await import('node:fs/promises')).readdir(dir)).find(file => file.endsWith('.json'))!;
+    const stored = JSON.parse(await readFile(join(dir, name), 'utf8')) as ResultCacheEntry;
+    const result = { answer: 'yes', apiKeyValue: canary };
+    const { integrityDigest: _ignored, ...unsigned } = { ...stored, evidence: { ...stored.evidence, result, resultDigest: digestCachedResult(result) } };
+    await writeFile(join(dir, name), JSON.stringify({ ...unsigned, integrityDigest: entryIntegrityDigest(unsigned) }));
+    const failure = await store.read(actor, digestResultCacheIdentity(identity())).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(ResultCacheIntegrityError);
+    expect((failure as Error).message).not.toContain(canary);
+  });
+
+  it('PRV-EGRESS-RECEIPT-C03 benign control: ordinary results and token usage are cached', async () => {
+    const store = new MemoryResultCacheStore();
+    const out = await new DecisionResultCache(store).evaluate({ actor, policy, identity: identity(), callerInvocationId: 'c', nowEpochMs: 1_000 },
+      async () => evidence({ result: { answer: 'the bearer of the note', credentialRef: 'typesafe.jev.playground' } }));
+    expect(out.receipt.disposition).toBe('cache-miss-fill');
+    expect(await store.read(actor, digestResultCacheIdentity(identity()))).not.toBeNull();
+  });
 });

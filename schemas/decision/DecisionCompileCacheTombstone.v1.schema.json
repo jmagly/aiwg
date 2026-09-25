@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/decision/DecisionCompileCacheTombstone.v1.schema.json",
+  "title": "AIWG Decision Compile Cache Tombstone v1",
+  "description": "Body-free record left at a compile-cache key by tombstone or deletion. It carries no value, value digest or identity, and it blocks refill and backup restore.",
+  "type": "object",
+  "required": ["schemaVersion", "key", "tombstone"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "decision-compile-cache-tombstone/v1" },
+    "key": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "tombstone": {
+      "type": "object",
+      "required": ["subject", "reference", "deletedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "subject": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "reference": {
+          "type": "object",
+          "required": ["surface", "opaqueId"],
+          "additionalProperties": false,
+          "properties": {
+            "surface": { "const": "cache" },
+            "opaqueId": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        },
+        "deletedAt": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -10,7 +10,7 @@ import {
   type DecisionDefinition, type DecisionRuleset, type DecisionTelemetrySpan,
 } from '../../../src/decision/index.js';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const golden = JSON.parse(readFileSync('test/fixtures/decision/telemetry-runtime-golden-v1.json', 'utf8')) as {
   scenarios: Record<string, Record<string, unknown>>;
 };
@@ -47,7 +47,7 @@ function adapter(evaluate: DecisionAdapter['evaluate']): DecisionAdapter {
   return { id: 'jev', version: '1.0.0', evaluate,
     capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
       features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true }) };
+      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const } }) };
 }
 
 describe('decision telemetry runtime golden traces', () => {

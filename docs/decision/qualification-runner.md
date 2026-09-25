@@ -148,7 +148,7 @@ an injected answer was safe.
 The fixture registry at `test/fixtures/decision/qualification-fixtures-v1.json`
 records author, date, permission, sanitization, origin, schema, expected outcome,
 trace links and SHA-256 for every file under `test/fixtures/decision/`,
-`examples/decision/` and `docs/decision/evidence/`.
+`agentic/code/addons/decision-engine/examples/` and `docs/decision/evidence/`.
 `fixture-provenance.test.ts` re-hashes each entry. It fails on any
 file that is not in the registry and on any entry whose file no longer exists. It also checks that
 every source a registered vector binds as evidence is in the registry. Entries whose inputs are

@@ -46,7 +46,7 @@ describe('DAG pre-dispatch reservation with fake clock', () => {
     // Both reservations exist before dispatch even if a later clock read expires.
     expect(() => ledger.reserve(0, { attempts: 1, tokens: 1, costMicros: 1 })).toThrow();
   });
-  it('DAG-022 rejects invalid estimates and untrusted plan changes before dispatch', () => {
+  it('DAG-043 rejects invalid estimates and untrusted plan changes before dispatch', () => {
     const ledger = new GraphBudgetLedger(graph, plan, [], () => 0);
     expect(() => ledger.reserve(0, { attempts: 1, tokens: -1, costMicros: 1 })).toThrow(/estimate/);
     expect(() => new GraphBudgetLedger(graph, { ...plan, edges: [] })).toThrow(/mismatch/);

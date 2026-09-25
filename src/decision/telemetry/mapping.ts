@@ -1,4 +1,5 @@
-import type { ArtifactPin, DecisionAttempt, DecisionResult, RulesetResult } from '../types.js';
+import type { ArtifactPin, DecisionAdmissionEvidence, DecisionAttempt, DecisionResult, RulesetResult } from '../types.js';
+import type { CacheTelemetry } from '../compile-cache/types.js';
 import { sanitizeOpaqueValue } from './redaction.js';
 import type { TelemetryAttributes, TelemetryProvenance } from './types.js';
 
@@ -45,6 +46,41 @@ export function mapDecisionAttempt(attempt: DecisionAttempt): AttributeMapping {
     put(out, 'aiwg.cache.saved_tokens', attempt.providerPrefix.savedInputTokens, 'provider-fact');
     put(out, 'aiwg.cache.expires_at_ms', attempt.providerPrefix.expiresAtEpochMs, 'provider-fact');
   }
+  return out;
+}
+
+/**
+ * Maps any cache layer's metadata-only record. Every value is a fixed enum,
+ * a number or a bounded version string; keys, aliases and identities never appear.
+ */
+export function mapCacheTelemetry(telemetry: CacheTelemetry): AttributeMapping {
+  const out: AttributeMapping = { attributes: {}, provenance: {} };
+  const reported = telemetry.layer === 'provider-prefix' && telemetry.reason === 'provider-report';
+  put(out, 'aiwg.cache.layer', telemetry.layer, 'client-derived');
+  put(out, 'aiwg.cache.result', telemetry.outcome, reported ? 'provider-fact' : 'client-derived');
+  put(out, 'aiwg.cache.reason', telemetry.reason, 'client-derived');
+  put(out, 'aiwg.cache.version', telemetry.version === null ? null : sanitizeOpaqueValue(telemetry.version, 64),
+    reported ? 'provider-fact' : 'client-derived');
+  put(out, 'aiwg.cache.saved_tokens', telemetry.savedTokens, 'provider-fact');
+  put(out, 'aiwg.cache.preparation_ms', telemetry.preparationLatencyMs, 'client-derived');
+  put(out, 'aiwg.cache.expires_at_ms', telemetry.expiresAtEpochMs, reported ? 'provider-fact' : 'client-derived');
+  put(out, 'aiwg.cache.invalidation_reason', telemetry.invalidationReason, 'client-derived');
+  return out;
+}
+
+/** Admission evidence is metadata-only by contract; no principal or workspace ID reaches a span. */
+export function mapAdmissionEvidence(evidence: DecisionAdmissionEvidence): AttributeMapping {
+  const out: AttributeMapping = { attributes: {}, provenance: {} };
+  put(out, 'aiwg.admission.decision', evidence.decision, 'client-derived');
+  put(out, 'aiwg.admission.reason', evidence.reason, 'client-derived');
+  put(out, 'aiwg.queue.delay_ms', evidence.queueDelayMs, 'client-derived');
+  put(out, 'aiwg.queue.active', evidence.active, 'client-derived');
+  put(out, 'aiwg.queue.queued', evidence.queued, 'client-derived');
+  put(out, 'aiwg.admission.estimated_tokens', evidence.estimatedTokens, 'estimate');
+  put(out, 'aiwg.admission.estimated_cost_usd', evidence.estimatedCostUsd, 'estimate');
+  put(out, 'aiwg.retry.pressure', evidence.retryPressure, 'client-derived');
+  put(out, 'aiwg.breaker.status', evidence.breakerState, 'client-derived');
+  if (evidence.retryAfterMs !== undefined) put(out, 'aiwg.admission.retry_after_ms', evidence.retryAfterMs, 'client-derived');
   return out;
 }
 

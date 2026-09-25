@@ -5,19 +5,22 @@ import { applyPrimitiveAcceptance, validatePrimitiveAcceptancePolicy } from './a
 import { DecisionPreDispatchError, decisionInvocationFingerprint, nextReceipt } from './receipts.js';
 import { admitEntry, EntryAdmissionError } from './entry.js';
 import { correlateAtomicBatch, decisionBatchQuestionId, planNativeDecisionBatches } from './batch.js';
-import { AdmissionError, AdmissionProfileConflictError, decisionAdmissionRegistry } from './admission.js';
+import { AdmissionError, AdmissionProfileError, decisionAdmissionRegistry } from './admission.js';
 import { runBoundedFair, SchedulerWaitError, type SchedulerSlot } from './scheduler.js';
 import { allocateEstimatedUsage, batchAccountingTotals, batchEnforcementCostMicros, deriveCost } from './batch-receipts/accounting.js';
 import { validOpaqueRequestId } from './batch-receipts/validate.js';
 import { batchResultReference, newBatchReceipt, nextBatchReceipt } from './batch-receipts/receipt.js';
 import type { BatchAttempt, DecisionBatchReceipt } from './batch-receipts/types.js';
+import { BatchRecordUnavailableError, BatchStoreIntegrityError, BatchStoreMigrationRequiredError } from './batch-receipts/protection.js';
 import type { CompatibilityDecision } from './calibration/types.js';
 import { prepareAdapterRequest } from './compile-cache/runtime.js';
 import { providerPrefixEvidence } from './compile-cache/prefix.js';
 import { digestCachedResult, RESULT_CACHE_KEY_VERSION } from './result-cache/index.js';
 import type { CachedResultEvidence, ResultCacheSemanticIdentity } from './result-cache/index.js';
-import { DecisionProjectionError, projectDecisionState, type DecisionProjectionEvidence } from './projection.js';
-import { emitRulesetRuntimeTrace } from './telemetry/runtime.js';
+import {
+  DecisionProjectionError, normalizeProjectionOrigin, projectDecisionState, type DecisionProjectionEvidence,
+} from './projection.js';
+import { DecisionRuntimeTrace, runtimeTraceOf, type DecisionRuntimeSpan } from './telemetry/runtime.js';
 import { assertContextQualified } from './context-qualification.js';
 import {
   assertContextPlanCurrent,
@@ -34,6 +37,7 @@ import type {
   DecisionAdapter,
   DecisionBatchEvidence,
   DecisionContextEvidence,
+  DecisionContextFailure,
   DecisionAttempt,
   DecisionAdmissionEvidence,
   DecisionDefinition,
@@ -42,6 +46,8 @@ import type {
   DecisionResult,
   DecisionReceipt,
   DecisionStatus,
+  DecisionUnprojectedLocalOptOut,
+  DecisionTransportTraceContext,
   JsonValue,
   ExecutionTarget,
   RulesetResult,
@@ -65,9 +71,11 @@ const RETRIABLE = new Set<DecisionFailureReason>([
 ]);
 
 export async function evaluateDecisionRuleset(request: DecisionEvaluationRequest): Promise<RulesetResult> {
-  const result = request.resultCache?.policy.enabled
-    ? await evaluateWithResultCache(request) : await evaluateDecisionRulesetInternal(request);
-  await emitRulesetRuntimeTrace(request, result);
+  // Telemetry hooks below record live spans through runtimeTraceOf(request); none can change the result.
+  const { request: traced, trace } = DecisionRuntimeTrace.begin(request);
+  const result = traced.resultCache?.policy.enabled
+    ? await evaluateWithResultCache(traced) : await evaluateDecisionRulesetInternal(traced);
+  await trace?.finish(result);
   return result;
 }
 
@@ -99,7 +107,7 @@ async function evaluateWithResultCache(request: DecisionEvaluationRequest): Prom
     throw new Error('Result cache requires one target without retry or fallback');
   }
   const target = targets[0]!;
-  const projected = await projectRuntimeInput(snapshot, item.alias, target, item.input);
+  const projected = await projectRuntimeInput(snapshot, item.alias, target, item.input, snapshot.adapters[target.adapter]);
   // The key normalizes Unicode. The adapter must receive that same normalized
   // representation or two byte-distinct prompts could alias to one cache entry.
   assertNormalizedCacheInput(projected.input);
@@ -135,9 +143,13 @@ async function evaluateWithResultCache(request: DecisionEvaluationRequest): Prom
       throw new Error('Cached source receipt could not be verified');
     }
   }
-  await config.recordCallerReceipt!(structuredClone(outcome.receipt));
   const historical = structuredClone(outcome.evidence!.result) as unknown as RulesetResult;
-  return { ...historical, spec: { ...historical.spec, cache: outcome.receipt } };
+  const released: RulesetResult = { ...historical, spec: { ...historical.spec, cache: structuredClone(outcome.receipt) } };
+  // `spec.cache` is D15 evidence defined only by the v1alpha2 schema. A historical
+  // v1alpha1 entry cannot carry it, so it is refused before the caller receipt is persisted.
+  assertDecisionResultWriterVersion(released);
+  await config.recordCallerReceipt!(structuredClone(outcome.receipt));
+  return released;
 }
 
 function assertNormalizedCacheInput(value: unknown): void {
@@ -193,6 +205,7 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
     admissionStage = 'input';
     admitEntry(request.input);
     admissionStage = 'artifact';
+    validateEgressBoundaryConfiguration(request);
     validateRuleset(request.ruleset);
     rulesetPin = artifactPin(request.ruleset);
     bindingPin = artifactPin(request.binding);
@@ -221,9 +234,12 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
   } catch (error) {
     const reason = error instanceof EntryAdmissionError && admissionStage === 'input'
       ? 'invalid-input' : classifyValidationFailure(error);
-    return failureResult(base, reason);
+    const failed = failureResult(base, reason);
+    return error instanceof ContextPlanError && request.context
+      ? { ...failed, spec: { ...failed.spec, contextFailure: contextFailureEvidence(error) } } : failed;
   }
   if (contextPlan) base = withRulesetContext(base, contextPlan, []);
+  runtimeTraceOf(request)?.validated(false);
   const batchPolicy = request.batchReceipts;
   if (batchPolicy?.unknownCostBound && (!Number.isSafeInteger(batchPolicy.unknownCostBound.upperBoundMicros)
     || batchPolicy.unknownCostBound.upperBoundMicros < 0 || !batchPolicy.unknownCostBound.policyId
@@ -248,8 +264,11 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
   const projectId = request.receiptProjectId ?? 'default';
   if (request.receiptStore) {
     try {
-      const acquisition = await request.receiptStore.acquire(request.invocationId, projectId, fingerprint);
+      const traceParent = runtimeTraceOf(request)?.traceParent;
+      const acquisition = await request.receiptStore.acquire(request.invocationId, projectId, fingerprint,
+        traceParent ? { traceParent } : {});
       if (!acquisition.owner) {
+        runtimeTraceOf(request)?.linkOrigin(acquisition.receipt.traceParent, 'continuation', {});
         if (acquisition.receipt.fingerprint !== fingerprint) return failureResult(base, 'replay-mismatch');
         if (acquisition.receipt.state === 'completed') return structuredClone(acquisition.receipt.result!);
         if (acquisition.receipt.state === 'failed' || acquisition.receipt.state === 'execution-uncertain') return failureResult(base, 'execution-uncertain');
@@ -379,15 +398,16 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
       let durableReceipt: DecisionBatchReceipt | undefined;
       let batchReferences = new Map<string, ReturnType<typeof batchResultReference>>();
       let dispatchCount = 0;
+      const batchSpans: DecisionRuntimeSpan[] = [];
       try {
         const adapter = plan.candidates[0]!.adapter;
         const projectedCandidates = await Promise.all(plan.candidates.map(async candidate => ({
           candidate,
-          projected: await projectRuntimeInput(request, candidate.alias, candidate.target, candidate.input),
+          projected: await projectRuntimeInput(request, candidate.alias, candidate.target, candidate.input, adapter),
         })));
         // Both egress projections must be authorized before the first transport call.
         const fallbackProjectedCandidates = fallbackTarget ? await Promise.all(plan.candidates.map(async candidate => ({
-          candidate, projected: await projectRuntimeInput(request, candidate.alias, fallbackTarget, candidate.input),
+          candidate, projected: await projectRuntimeInput(request, candidate.alias, fallbackTarget, candidate.input, adapter),
         }))) : null;
         if (request.batchReceipts) {
           const partition = request.batchReceipts.contextPlan.partitions.find(candidate =>
@@ -405,6 +425,7 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
             subjectHash: request.batchReceipts.subjectHash,
             executionEnvelope: plan.candidates[0]!.capabilities.batch!.executionEnvelope,
             nowEpochMs: started,
+            traceParent: runtimeTraceOf(request)?.traceParent,
           });
           const acquired = await request.batchReceipts.store.acquire(initial);
           durableReceipt = acquired.receipt;
@@ -442,8 +463,12 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
             ...(projected.evidence ? { projectionEvidence: projected.evidence } : {}),
           }, adapter, request.compileCache)));
         const dispatchedAt = now();
+        const batchSpan = runtimeTraceOf(request)?.startBatch(plan.candidates.map(candidate => candidate.alias), plan.groupId,
+          durableReceipt ? durableReceipt.attempts.length + 1 : dispatchCount);
+        if (batchSpan) batchSpans.push(batchSpan);
         const response = await adapter.evaluateMany!({ decisionSubject: plan.decisionSubject,
-          requests: preparedRequests });
+          requests: preparedRequests, ...(batchSpan ? { traceContext: batchSpan.traceContext } : {}) });
+        if (batchSpan) batchSpan.response = response;
         if (contextPlan && response.sharedUsage.inputTokens !== null) {
           recordRuntimeContextUsage(contextPlan, questionIds, response.sharedUsage.inputTokens, contextUsage);
         }
@@ -453,7 +478,9 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
         const normalized = new Map<string, { observation: AdapterObservation; calibrationCompatibility?: CompatibilityDecision }>();
         plan.candidates.forEach((candidate, index) => {
           const item = resolved.find(value => value.alias === candidate.alias)!;
-          normalized.set(questionIds[index]!, normalizeObservationForRuntime({ request, item, target: activeTarget,
+          // Siblings share transport identity, not acceptance: each answer is judged by its own target's policy.
+          const ownTarget = fallbackActive ? request.binding.spec.evaluations[candidate.alias]!.targets[1]! : candidate.target;
+          normalized.set(questionIds[index]!, normalizeObservationForRuntime({ request, item, target: ownTarget,
             observation: observations.get(questionIds[index]!)!, now }));
         });
         observations = new Map([...normalized].map(([id, value]) => [id, value.observation]));
@@ -555,6 +582,13 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
             throw new ReceiptPersistenceError();
           }
           observations = new Map(questionIds.map(id => [id, observationFailure('execution-uncertain')]));
+        } else if (error instanceof BatchRecordUnavailableError || error instanceof BatchStoreIntegrityError
+          || error instanceof BatchStoreMigrationRequiredError) {
+          // Erased, expired, tampered or unmigrated durable state is never re-dispatched and never
+          // falls back to another read of stored values. Only lifecycle unavailability gets the
+          // dedicated reason; integrity and migration failures stay persistence-error.
+          const reason = error instanceof BatchRecordUnavailableError ? 'batch-record-unavailable' : 'persistence-error';
+          observations = new Map(questionIds.map(id => [id, observationFailure(reason)]));
         } else if (error instanceof ReceiptPersistenceError || error instanceof RemoteUncertainError) {
           throw error;
         } else {
@@ -571,6 +605,7 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
           }
         }
       }
+      runtimeTraceOf(request)?.finishBatch(batchSpans, durableReceipt);
       plan.candidates.forEach((candidate, index) => {
         const item = resolved.find(value => value.alias === candidate.alias)!;
         const evidence: DecisionBatchEvidence = { mode: 'native', groupId: plan.groupId, questionId: questionIds[index]! };
@@ -661,7 +696,9 @@ async function evaluateDecisionRulesetUngated(request: DecisionEvaluationRequest
     }
   }
 
-  if (contextPlan && !contextPlan.automaticActionAllowed && (result.spec.status === 'completed' || result.spec.status === 'defaulted')) {
+  // Either incomplete-context signal (context plan or projection evidence) prohibits automatic action.
+  if ((contextPlan && !contextPlan.automaticActionAllowed || projectionBlockedAutomaticAction.has(request))
+    && (result.spec.status === 'completed' || result.spec.status === 'defaulted')) {
     const { outcome: _outcome, ...withoutOutcome } = result.spec;
     result = { ...result, spec: { ...withoutOutcome, status: 'review', reason: 'insufficient-information' } };
   }
@@ -709,6 +746,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
   const attempts: DecisionAttempt[] = [];
   let final: AdapterObservation = observationFailure('budget-exhausted');
   let calibrationCompatibility: CompatibilityDecision | undefined;
+  const trace = runtimeTraceOf(context.request);
 
   for (let targetIndex = 0; targetIndex < evaluation.targets.length; targetIndex += 1) {
     const target = evaluation.targets[targetIndex]!;
@@ -726,6 +764,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
       if (!context.attemptBudget.claim()) { final = observationFailure('budget-exhausted'); break; }
       final = capabilityFailure;
       attempts.push(toAttempt(target, attempts.length + 1, final, 0, context.batchEvidence));
+      trace?.endAttempt(trace.startAttempt(context.item.alias, target, attempts.length, targetIndex > 0), attempts.at(-1)!);
     } else {
       for (let retry = 0; retry <= target.retry.maxRetries; retry += 1) {
         if (context.signal.aborted || context.now() >= context.totalDeadline) {
@@ -737,12 +776,14 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
           break;
         }
         const started = context.now();
+        const span = trace?.startAttempt(context.item.alias, target, attempts.length + 1, targetIndex > 0);
         const attemptDeadline = Math.min(context.totalDeadline, started + target.timeoutMs);
         try {
-          const projected = await projectRuntimeInput(context.request, context.item.alias, target, context.item.input);
+          const projected = await projectRuntimeInput(context.request, context.item.alias, target, context.item.input, adapter, span);
           await context.advance('dispatched', { pending: { alias: context.item.alias, targetIndex, ordinal: attempts.length + 1, attempts } });
           try {
-            final = await invokeWithDeadline(context, adapter!, target, attemptDeadline, attempts.length + 1, projected);
+            final = await invokeWithDeadline(context, adapter!, target, attemptDeadline, attempts.length + 1, projected,
+              span?.traceContext);
           } catch (error) {
             if (context.request.receiptStore && !(error instanceof DecisionPreDispatchError)) throw new RemoteUncertainError();
             await context.advance('observation-received');
@@ -767,6 +808,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
             : error instanceof DecisionValidationError ? 'invalid-output' : 'service-error');
         }
         attempts.push(toAttempt(target, attempts.length + 1, final, Math.max(0, context.now() - started), context.batchEvidence));
+        trace?.endAttempt(span, attempts.at(-1)!);
         if (final.status === 'success') break;
         if (!RETRIABLE.has(final.reason) || retry === target.retry.maxRetries) break;
         const remaining = Math.max(0, context.totalDeadline - context.now());
@@ -778,6 +820,7 @@ async function evaluateOne(context: OneContext): Promise<DecisionResult> {
         const delayMs = Math.min(remaining, target.retry.maxDelayMs, Math.max(0, jittered));
         if (context.signal.aborted || remaining <= delayMs) { final = interruption(context); break; }
         attempts[attempts.length - 1]!.retryDelayMs = delayMs;
+        trace?.retryScheduled(span, delayMs);
         try {
           const backoff = (): Promise<void> => (context.request.delay ?? abortableDelay)(delayMs, context.signal);
           await (context.suspend ? context.suspend(backoff) : backoff());
@@ -803,6 +846,7 @@ async function invokeWithDeadline(
   deadlineEpochMs: number,
   ordinal: number,
   projected: { input: unknown; evidence?: DecisionProjectionEvidence },
+  traceContext?: DecisionTransportTraceContext,
 ): Promise<AdapterObservation> {
   const controller = new AbortController();
   const signal = AbortSignal.any([context.signal, controller.signal]);
@@ -827,16 +871,23 @@ async function invokeWithDeadline(
     if (context.request.scheduler?.enabled) {
       const policy = context.request.scheduler;
       const controller = decisionAdmissionRegistry.controllerFor(policy, context.now);
+      const admissionStarted = context.now();
+      const trace = runtimeTraceOf(context.request);
       try {
         const lease = await controller.acquire({ budgetId: context.request.invocationId,
           principalId: policy.principal.id, workspaceId: policy.workspace.id,
           providerId: target.adapter, estimate: policy.estimate?.(context.item.alias, target, context.item.input) ?? { attempts: 1, batchSize: 1, items: 1 },
           deadlineEpochMs, signal });
         admissionEvidence = lease.evidence;
-        releaseAdmission = lease.release;
+        const admitSpan = trace?.startAdmission(context.item.alias, target.adapter, admissionStarted, lease.evidence);
+        releaseAdmission = outcome => {
+          lease.release(outcome);
+          trace?.endAdmission(admitSpan, lease.evidence);
+        };
         policy.onEvidence?.(context.item.alias, lease.evidence);
       } catch (error) {
         if (error instanceof AdmissionError) {
+          trace?.startAdmission(context.item.alias, target.adapter, admissionStarted, error.evidence);
           policy.onEvidence?.(context.item.alias, error.evidence);
           // Nothing was sent. A target timeout that aborts a queued wait is a timeout, not a caller cancellation.
           const failure = error.evidence.reason === 'cancelled' && !context.request.signal?.aborted
@@ -858,6 +909,7 @@ async function invokeWithDeadline(
         totalSignal: context.signal,
         resolveCredential: context.request.resolveCredential ?? unauthorizedCredential,
         ...(projected.evidence ? { projectionEvidence: projected.evidence } : {}),
+        ...(traceContext ? { traceContext } : {}),
         onRemoteHandle: async handle => {
           try {
             const previous = await context.request.receiptStore?.read(context.request.invocationId, context.request.receiptProjectId ?? 'default');
@@ -895,22 +947,101 @@ async function invokeWithDeadline(
   }
 }
 
+/** Requests whose projection evidence prohibited automatic action (allowed incomplete context). */
+const projectionBlockedAutomaticAction = new WeakSet<DecisionEvaluationRequest>();
+
+function isUnprojectedLocalOptOut(
+  projection: DecisionEvaluationRequest['projection'],
+): projection is DecisionUnprojectedLocalOptOut {
+  return !!projection && (projection as DecisionUnprojectedLocalOptOut).mode === 'unprojected-local';
+}
+
+/**
+ * The projection field is host code, never portable data: it must be either a
+ * resolver-backed policy or the exact opt-out object. Anything else (including a
+ * JSON-shaped policy lifted from input or definitions) is rejected before dispatch.
+ */
+function validateEgressBoundaryConfiguration(request: DecisionEvaluationRequest): void {
+  const projection = request.projection as unknown;
+  if (projection === undefined) return;
+  if (!projection || typeof projection !== 'object' || Array.isArray(projection)) {
+    throw new DecisionValidationError('unsupported egress boundary configuration');
+  }
+  const record = projection as Record<string, unknown>;
+  if ('mode' in record) {
+    if (record.mode !== 'unprojected-local' || Object.keys(record).length !== 1) {
+      throw new DecisionValidationError('unsupported egress boundary configuration');
+    }
+    return;
+  }
+  if (typeof record.resolve !== 'function') throw new DecisionValidationError('unsupported egress boundary configuration');
+}
+
+/** Project one dispatch input and record a metadata-only `decision.project` span for it. */
 async function projectRuntimeInput(
   request: DecisionEvaluationRequest,
   alias: string,
   target: ExecutionTarget,
   input: unknown,
+  adapter: DecisionAdapter | undefined,
+  parentSpan?: DecisionRuntimeSpan,
 ): Promise<{ input: unknown; evidence?: DecisionProjectionEvidence }> {
-  if (!request.projection) return { input };
-  const policy = request.projection.resolve({ alias, target: structuredClone(target) });
+  const trace = runtimeTraceOf(request);
+  const started = (request.now ?? Date.now)();
+  const mode = !request.projection ? 'none' as const
+    : isUnprojectedLocalOptOut(request.projection) ? 'unprojected-local' as const : 'policy' as const;
+  try {
+    const projected = await projectRuntimeInputUntraced(request, alias, target, input, adapter);
+    // A no-egress passthrough with no projection configured applied no D10 boundary: no span.
+    if (mode !== 'none') trace?.projected(alias, parentSpan, started, { mode, outcome: 'allowed', ...(projected.evidence ? {
+      fieldCount: projected.evidence.included.length, incompleteContext: projected.evidence.incompleteContext,
+      automaticActionAllowed: projected.evidence.automaticActionAllowed } : {}) });
+    return projected;
+  } catch (error) {
+    trace?.projected(alias, parentSpan, started, { mode, outcome: 'denied',
+      ...(error instanceof DecisionProjectionError ? { reason: error.reason } : {}) });
+    throw error;
+  }
+}
+
+async function projectRuntimeInputUntraced(
+  request: DecisionEvaluationRequest,
+  alias: string,
+  target: ExecutionTarget,
+  input: unknown,
+  adapter: DecisionAdapter | undefined,
+): Promise<{ input: unknown; evidence?: DecisionProjectionEvidence }> {
+  // Read the adapter's egress declaration at dispatch time, not from planning,
+  // so a destination change after planning is still bound before credentials.
+  const egress = adapter ? (await adapter.capabilities()).egress : undefined;
+  const projection = request.projection;
+  if (!projection || isUnprojectedLocalOptOut(projection)) {
+    // Safe default: unprojected input may reach only a no-egress adapter, unless
+    // the host explicitly opted out (recorded in the result and receipt).
+    if (projection || egress?.mode === 'none') return { input };
+    throw new DecisionProjectionError('data-boundary-denied', 'network-capable dispatch requires a projection policy');
+  }
+  const policy = projection.resolve({ alias, target: structuredClone(target) });
   if (policy.provider !== target.adapter || policy.model !== target.model) {
     throw new DecisionProjectionError('data-boundary-denied', 'projection destination does not match execution target');
   }
+  if (egress?.mode !== 'none') {
+    // Bind the policy's declared destination to the adapter's effective transport.
+    // An adapter that cannot name its origin or region is an unknown destination.
+    if (egress?.mode !== 'network' || !egress.origin || typeof policy.origin !== 'string'
+      || normalizeProjectionOrigin(policy.origin) !== normalizeProjectionOrigin(egress.origin)) {
+      throw new DecisionProjectionError('data-boundary-denied', 'projection origin does not match the adapter endpoint');
+    }
+    if (!egress.region || policy.region !== egress.region) {
+      throw new DecisionProjectionError('data-boundary-denied', 'projection region does not match the adapter deployment');
+    }
+  }
   const projected = await projectDecisionState(input, policy, {
-    incompleteContext: request.projection.incompleteContext,
+    incompleteContext: projection.incompleteContext,
   });
-  if (request.projection.debugCapture) {
-    const { scope, capture } = request.projection.debugCapture;
+  if (!projected.evidence.automaticActionAllowed) projectionBlockedAutomaticAction.add(request);
+  if (projection.debugCapture) {
+    const { scope, capture } = projection.debugCapture;
     try {
       await capture(scope, new TextEncoder().encode(canonicalJson(projected.state)));
     } catch {
@@ -918,7 +1049,7 @@ async function projectRuntimeInput(
       throw new DecisionProjectionError('data-boundary-denied', 'debug capture unavailable');
     }
   }
-  request.projection.onEvidence?.({ alias, evidence: structuredClone(projected.evidence) });
+  projection.onEvidence?.({ alias, evidence: structuredClone(projected.evidence) });
   return { input: projected.state, evidence: projected.evidence };
 }
 
@@ -1030,7 +1161,7 @@ function retainPinnedCalibratedRisk(observation: AdapterObservation, pin: Compat
 
 function decisionResult(context: OneContext, observation: AdapterObservation, attempts: DecisionAttempt[],
   calibrationCompatibility?: CompatibilityDecision): DecisionResult {
-  return {
+  const result: DecisionResult = {
     apiVersion: resultVersion(context.request), kind: 'DecisionResult',
     metadata: { id: `${context.request.invocationId}-${context.item.alias}`, version: '1.0.0', description: `Decision result for ${context.item.alias}` },
     spec: {
@@ -1045,6 +1176,8 @@ function decisionResult(context: OneContext, observation: AdapterObservation, at
         context.contextUsage ?? [], decisionBatchQuestionId(context.item.alias)) } : {}),
     },
   };
+  runtimeTraceOf(context.request)?.decided(result);
+  return result;
 }
 
 function emptyDecisionResult(
@@ -1063,19 +1196,24 @@ function resultBase(request: DecisionEvaluationRequest, ruleset: ArtifactPin, bi
   return {
     apiVersion: resultVersion(request), kind: 'RulesetResult',
     metadata: { id: request.invocationId, version: '1.0.0', description: `Ruleset result for ${request.ruleset.metadata.id}` },
-    spec: { ruleset, binding, runId: request.runId, invocationId: request.invocationId, status: 'error', reason: 'evaluation-failed', matchedRules: [], evaluations: {} },
+    spec: { ruleset, binding, runId: request.runId, invocationId: request.invocationId, status: 'error', reason: 'evaluation-failed', matchedRules: [], evaluations: {},
+      ...(isUnprojectedLocalOptOut(request.projection) ? { projection: { mode: 'unprojected-local', authority: 'host' } } : {}) },
   };
 }
 
 /**
- * Results that can carry D04/D07 batch provenance, D05 admission, D06 context or
- * D30 provider-prefix evidence are written as v1alpha2 even from v1alpha1 inputs,
+ * Results that can carry D04/D07 batch provenance, D05 admission, D06 context,
+ * D15 result-cache receipts or D30 provider-prefix evidence are written as v1alpha2 even from v1alpha1 inputs,
  * so every nested result and receipt payload of one invocation shares one version.
  */
 function resultVersion(request: DecisionEvaluationRequest): typeof DECISION_API_VERSION | typeof DECISION_API_VERSION_STRUCTURED {
-  if (request.calibrationCompatibility || request.ruleset.apiVersion === DECISION_API_VERSION_STRUCTURED || request.binding.apiVersion === DECISION_API_VERSION_STRUCTURED
+  // The projection opt-out record and an incomplete-projection downgrade are v1alpha2-only semantics.
+  if (request.calibrationCompatibility || isUnprojectedLocalOptOut(request.projection)
+    || request.projection && !isUnprojectedLocalOptOut(request.projection) && request.projection.incompleteContext === true
+    || request.ruleset.apiVersion === DECISION_API_VERSION_STRUCTURED || request.binding.apiVersion === DECISION_API_VERSION_STRUCTURED
     || Object.values(request.definitions).some(definition => definition.apiVersion === DECISION_API_VERSION_STRUCTURED)
-    || request.batching || request.batchReceipts || request.scheduler?.enabled || request.providerPrefix || request.context) {
+    || request.batching || request.batchReceipts || request.scheduler?.enabled || request.providerPrefix || request.context
+    || request.resultCache?.policy.enabled) {
     return DECISION_API_VERSION_STRUCTURED;
   }
   return DECISION_API_VERSION;
@@ -1157,9 +1295,15 @@ function prepareContextPlan(
   assertContextPlanCurrent(plan, runtime.input, runtime.profile, runtime.estimator);
   if (runtime.rollout?.mode === 'enforce') {
     assertContextQualified(runtime.rollout.qualification, runtime.profile, runtime.estimator);
+  } else if (!runtime.rollout && (request.batching?.enabled || request.batchReceipts)) {
+    // D06 default: partitioned native batches stay closed until a rollout mode is chosen explicitly.
+    throw new ContextPlanError('rollout-unqualified',
+      'native batching with context planning requires rollout observe-only or a qualified enforce mode');
   }
   if (request.batchReceipts && request.batchReceipts.contextPlan.planDigest !== plan.planDigest) {
-    throw new ContextPlanError('stale-plan', 'batch receipt context plan differs from runtime context plan');
+    throw new ContextPlanError('stale-plan', 'batch receipt context plan differs from runtime context plan', {
+      plannedDigest: request.batchReceipts.contextPlan.planDigest, currentDigest: plan.planDigest,
+    });
   }
   return plan;
 }
@@ -1202,6 +1346,15 @@ function recordRuntimeContextUsage(
     && candidate.partitionId === partition.id && candidate.questionIds.join('\0') === key);
   if (index < 0) evidence.push(recorded);
   else evidence[index] = recorded;
+}
+
+function contextFailureEvidence(error: ContextPlanError): DecisionContextFailure {
+  const digestDetail = (value: unknown): `sha256:${string}` | undefined =>
+    typeof value === 'string' && /^sha256:[0-9a-f]{64}$/.test(value) ? value as `sha256:${string}` : undefined;
+  const plannedDigest = digestDetail(error.details.plannedDigest);
+  const currentDigest = digestDetail(error.details.currentDigest);
+  return { schemaVersion: 'decision-context-failure/v1', reason: error.reason,
+    ...(plannedDigest ? { plannedDigest } : {}), ...(currentDigest ? { currentDigest } : {}) };
 }
 
 function decisionContextEvidence(
@@ -1292,7 +1445,8 @@ function admissionReason(error: AdmissionError): DecisionFailureReason {
   if (error.evidence.reason === 'deadline-exceeded' || error.evidence.reason === 'queue-timeout') return 'timeout';
   if (error.evidence.reason === 'requests-per-minute' || error.evidence.reason === 'tokens-per-second'
     || error.evidence.reason === 'retry-after') return 'rate-limited';
-  if (error.evidence.reason === 'attempts' || error.evidence.reason === 'cost' || error.evidence.reason === 'unknown-cost') return 'budget-exhausted';
+  if (error.evidence.reason === 'attempts' || error.evidence.reason === 'cost' || error.evidence.reason === 'unknown-cost'
+    || error.evidence.reason === 'tokens' || error.evidence.reason === 'unknown-tokens') return 'budget-exhausted';
   return 'overloaded';
 }
 
@@ -1316,7 +1470,7 @@ function validateSchedulerPolicy(request: DecisionEvaluationRequest): void {
   }
   for (const limit of limits) {
     for (const value of [limit.requestsPerMinute, limit.tokensPerSecond, limit.maxAttempts, limit.maxBatchSize,
-      limit.maxQueueLength, limit.maxQueueWaitMs, limit.maxRequestBytes, limit.maxItems, limit.maxRetainedWork]) {
+      limit.maxQueueLength, limit.maxQueueWaitMs, limit.maxRequestBytes, limit.maxItems, limit.maxRetainedWork, limit.maxTokens]) {
       if (value !== undefined && (!Number.isFinite(value) || value < 0)) throw new DecisionValidationError('scheduler admission limits must be finite and non-negative');
     }
     if (limit.maxCostUsd !== undefined && (!Number.isFinite(limit.maxCostUsd) || limit.maxCostUsd < 0)) {
@@ -1325,7 +1479,7 @@ function validateSchedulerPolicy(request: DecisionEvaluationRequest): void {
   }
   if (!policy.enabled) return;
   try { decisionAdmissionRegistry.register(policy, request.now ?? Date.now); } catch (error) {
-    if (error instanceof AdmissionProfileConflictError) throw new DecisionValidationError(error.message);
+    if (error instanceof AdmissionProfileError) throw new DecisionValidationError(error.message);
     throw error;
   }
 }
@@ -1346,7 +1500,10 @@ function singleBatchEvidence(request: DecisionEvaluationRequest, alias: string):
 }
 
 function classifyValidationFailure(error: unknown): DecisionFailureReason {
-  if (error instanceof ContextPlanError) return 'invalid-input';
+  if (error instanceof ContextPlanError) {
+    return error.reason === 'stale-plan' ? 'context-plan-stale'
+      : error.reason === 'rollout-unqualified' ? 'context-unqualified' : 'invalid-input';
+  }
   if (!(error instanceof DecisionValidationError)) return 'invalid-definition';
   if (/digest/.test(error.message)) return 'digest-mismatch';
   if (/input|projection/.test(error.message)) return 'invalid-input';

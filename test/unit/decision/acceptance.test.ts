@@ -242,23 +242,23 @@ describe('primitive-aware acceptance', () => {
   });
 
   it('POL-ACCEPT-RECEIPT persists evidence while preserving the raw distribution', async () => {
-    const raw = JSON.parse(readFileSync('examples/decision/ruleset.json', 'utf8')) as DecisionRuleset;
+    const raw = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/ruleset.json', 'utf8')) as DecisionRuleset;
     const ruleset = { ...raw, apiVersion: DECISION_API_VERSION_STRUCTURED,
       spec: { ...raw.spec, evaluations: raw.spec.evaluations.filter(item => item.alias === 'category'), rules: raw.spec.rules.filter(rule => rule.id === 'docs') } };
     const decision = definition('choice'); decision.metadata.id = ruleset.spec.evaluations[0]!.decision.id;
     ruleset.spec.evaluations[0]!.decision = artifactPin(decision);
-    const bindingRaw = JSON.parse(readFileSync('examples/decision/binding-jev.json', 'utf8')) as DecisionBinding;
+    const bindingRaw = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/binding-jev.json', 'utf8')) as DecisionBinding;
     const target = bindingRaw.spec.evaluations.category!.targets[0]!;
     target.acceptance = policy({ defaultRoute: route('act') });
     const binding: DecisionBinding = { ...bindingRaw, apiVersion: DECISION_API_VERSION_STRUCTURED,
       spec: { ...bindingRaw.spec, ruleset: artifactPin(ruleset), evaluations: { category: { targets: [target], fallbackOn: [] } } } };
     const observed = observation('yes', { yes: 0.7, no: 0.2, none: 0.1 }, 0.8);
     const adapter: DecisionAdapter = { id: 'jev', version: target.adapterVersion,
-      capabilities: async () => ({ answerKinds: ['choice'], features: ['structured-entries'], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true }),
+      capabilities: async () => ({ answerKinds: ['choice'], features: ['structured-entries'], maxOptions: 255, maxLevels: 10, confidenceProfiles: [], executable: true, egress: { mode: 'none' as const } }),
       evaluate: vi.fn(async () => observed) };
     const receiptStore = new MemoryDecisionReceiptStore();
     const request = { ruleset, binding, definitions: { category: decision },
-      input: JSON.parse(readFileSync('examples/decision/input.json', 'utf8')),
+      input: JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/input.json', 'utf8')),
       runId: 'run', invocationId: 'primitive-receipt', adapters: { jev: adapter }, receiptStore };
     const result = await evaluateDecisionRuleset(request);
     expect(result.spec.evaluations.category?.spec.acceptance).toMatchObject({ disposition: 'act', policyVersion: '1.0.0' });
@@ -270,7 +270,7 @@ describe('primitive-aware acceptance', () => {
   });
 
   it('POL-ACCEPT-COMPAT does not admit primitive policy into v1alpha1', () => {
-    const binding = JSON.parse(readFileSync('examples/decision/binding-jev.json', 'utf8')) as DecisionBinding;
+    const binding = JSON.parse(readFileSync('agentic/code/addons/decision-engine/examples/binding-jev.json', 'utf8')) as DecisionBinding;
     binding.spec.evaluations.category!.targets[0]!.acceptance = policy();
     expect(() => validateDecisionDocument(binding)).toThrow(DecisionValidationError);
   });

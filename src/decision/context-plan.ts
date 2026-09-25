@@ -109,7 +109,9 @@ export interface ContextActualUsageEvidence {
 
 export type ContextPlanFailureReason =
   | 'invalid-input' | 'invalid-profile' | 'estimator-profile-mismatch'
-  | 'oversized-state' | 'oversized-question' | 'dependency-error' | 'stale-plan';
+  | 'oversized-state' | 'oversized-question' | 'dependency-error' | 'stale-plan'
+  /** Partitioned native batching was requested without a qualified rollout (D06 fail-closed default). */
+  | 'rollout-unqualified';
 
 export class ContextPlanError extends Error {
   constructor(readonly reason: ContextPlanFailureReason, message: string, readonly details: Readonly<Record<string, unknown>> = {}) {

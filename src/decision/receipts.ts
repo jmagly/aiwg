@@ -2,8 +2,10 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto
 import { link, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../security/artifact-trust.js';
-import type { ArtifactPin, DecisionReceipt, DecisionReceiptState, DecisionReceiptStore } from './types.js';
+import { assertNoPortableSecretMaterial } from './portable-secrets.js';
+import type { ArtifactPin, DecisionReceipt, DecisionReceiptAcquireOptions, DecisionReceiptState, DecisionReceiptStore } from './types.js';
 import { assertDecisionResultWriterVersion } from './validate.js';
+import { isTraceparent } from './telemetry/context.js';
 
 export function decisionInvocationFingerprint(input: {
   invocationId: string;
@@ -55,9 +57,20 @@ export function validateReceipt(receipt: DecisionReceipt, invocationId: string, 
       || !Array.isArray(receipt.pending.attempts)))
     || (receipt.state === 'completed' && (!receipt.result || receipt.result.spec.invocationId !== invocationId
       || receipt.result.spec.status === 'error' && receipt.result.spec.reason === 'execution-uncertain'))
-    || (receipt.state !== 'completed' && receipt.result !== undefined)) {
+    || (receipt.state !== 'completed' && receipt.result !== undefined)
+    || (receipt.traceParent !== undefined && !isTraceparent(receipt.traceParent))) {
     throw new DecisionReceiptIntegrityError('Invalid decision receipt');
   }
+  assertReceiptPortable(receipt);
+}
+
+/** Receipts are portable artifacts: handles and payloads must never carry secret material. */
+function assertReceiptPortable(receipt: DecisionReceipt): void {
+  const reject = (message: string): Error => new DecisionReceiptIntegrityError(message);
+  receipt.remoteHandles.forEach(handle => assertNoPortableSecretMaterial(handle, 'Decision receipt remote handle', reject));
+  assertNoPortableSecretMaterial(receipt.evaluations, 'Decision receipt evaluations', reject);
+  assertNoPortableSecretMaterial(receipt.pending, 'Decision receipt pending evaluation', reject);
+  if (receipt.result !== undefined) assertNoPortableSecretMaterial(receipt.result, 'Decision receipt result', reject);
 }
 
 export function nextReceipt(previous: DecisionReceipt, state: DecisionReceiptState, extra: Partial<Pick<DecisionReceipt, 'result' | 'remoteHandles' | 'evaluations' | 'pending' | 'updatedAtEpochMs' | 'completedAtEpochMs'>> = {}): DecisionReceipt {
@@ -80,10 +93,12 @@ export function nextReceipt(previous: DecisionReceipt, state: DecisionReceiptSta
   return next;
 }
 
-function initial(invocationId: string, projectId: string, fingerprint: string): DecisionReceipt {
+function initial(invocationId: string, projectId: string, fingerprint: string, options: DecisionReceiptAcquireOptions = {}): DecisionReceipt {
   const acquiredAtEpochMs = Date.now();
+  // traceParent is fixed at acquisition: nextReceipt() copies it and transitions cannot supply it.
   const receipt: DecisionReceipt = { schema: 'decision-receipt/v2', revision: 1, acquiredAtEpochMs, updatedAtEpochMs: acquiredAtEpochMs,
-    projectId, invocationId, fingerprint, state: 'acquired', remoteHandles: [], evaluations: {}, pending: null };
+    projectId, invocationId, fingerprint, state: 'acquired', remoteHandles: [], evaluations: {}, pending: null,
+    ...(options.traceParent !== undefined ? { traceParent: options.traceParent } : {}) };
   validateReceipt(receipt, invocationId, projectId);
   return receipt;
 }
@@ -110,14 +125,15 @@ export class MemoryDecisionReceiptStore implements DecisionReceiptStore {
     validateReceipt(receipt, invocationId, projectId);
     return structuredClone(receipt);
   }
-  async acquire(invocationId: string, projectId: string, fingerprint: string): Promise<{ owner: boolean; receipt: DecisionReceipt }> {
+  async acquire(invocationId: string, projectId: string, fingerprint: string,
+    options: DecisionReceiptAcquireOptions = {}): Promise<{ owner: boolean; receipt: DecisionReceipt }> {
     await this.check(projectId);
     const existing = this.receipts.get(invocationId);
     if (existing) {
       validateReceipt(existing, invocationId, projectId);
       return { owner: false, receipt: structuredClone(existing) };
     }
-    const receipt = initial(invocationId, projectId, fingerprint);
+    const receipt = initial(invocationId, projectId, fingerprint, options);
     this.receipts.set(invocationId, receipt);
     return { owner: true, receipt: structuredClone(receipt) };
   }
@@ -203,11 +219,12 @@ export class FileDecisionReceiptStore implements DecisionReceiptStore {
     }
     return structuredClone(previous);
   }
-  async acquire(invocationId: string, projectId: string, fingerprint: string): Promise<{ owner: boolean; receipt: DecisionReceipt }> {
+  async acquire(invocationId: string, projectId: string, fingerprint: string,
+    options: DecisionReceiptAcquireOptions = {}): Promise<{ owner: boolean; receipt: DecisionReceipt }> {
     await this.check(projectId);
     const existing = await this.read(invocationId, projectId);
     if (existing) return { owner: false, receipt: existing };
-    const receipt = initial(invocationId, projectId, fingerprint);
+    const receipt = initial(invocationId, projectId, fingerprint, options);
     if (await this.persist(invocationId, receipt)) return { owner: true, receipt };
     const winner = await this.read(invocationId, projectId);
     if (!winner) throw new DecisionReceiptIntegrityError('Missing winning receipt');

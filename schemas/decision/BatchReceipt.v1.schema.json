@@ -22,7 +22,8 @@
     "allocations": { "type": "array", "items": { "$ref": "#/$defs/allocation" } },
     "status": { "enum": ["acquired", "running", "completed", "failed", "execution-uncertain"] },
     "createdAtEpochMs": { "$ref": "#/$defs/time" }, "updatedAtEpochMs": { "$ref": "#/$defs/time" },
-    "terminalAtEpochMs": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] }
+    "terminalAtEpochMs": { "oneOf": [{ "$ref": "#/$defs/time" }, { "type": "null" }] },
+    "traceParent": { "type": "string", "pattern": "^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$" }
   },
   "$defs": {
     "text": { "type": "string", "minLength": 1 }, "time": { "type": "integer", "minimum": 0 },

@@ -21,7 +21,7 @@ import {
   type DecisionSchedulerPolicy,
 } from '../../../src/decision/index.js';
 
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(`examples/decision/${name}`, 'utf8')) as T;
+const fixture = <T>(name: string): T => JSON.parse(readFileSync(`agentic/code/addons/decision-engine/examples/${name}`, 'utf8')) as T;
 const definitions = (): Record<string, DecisionDefinition> => ({
   category: fixture('decision-category.json'),
   severity: fixture('decision-severity.json'),
@@ -41,7 +41,7 @@ function adapter(id: 'jev' | 'llm-subagent', evaluate: (alias: string) => Promis
     id, version: '1.0.0', calls,
     capabilities: async () => ({ answerKinds: ['choice', 'ordinal-score', 'truth-probability'],
       features: ['choice', 'ordinal-score', 'truth-probability'], maxOptions: 255, maxLevels: 10,
-      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true }),
+      confidenceProfiles: ['typesafe-distribution-v1', 'typesafe-truth-v1'], executable: true, egress: { mode: 'none' as const } }),
     evaluate: async request => { calls.push(request.alias); return await evaluate(request.alias); },
   };
 }
@@ -111,7 +111,7 @@ const rejections: RejectionCase[] = [
 
 describe('admission rejections with durable receipts (#2670)', () => {
   describe.each(stores)('$label receipt store', ({ label: storeLabel, create }) => {
-    it.each(rejections)('records $label as a not-sent terminal outcome', async ({ label, evidence, reason, scheduler }) => {
+    it.each(rejections)('CNC-ADMIT-RECEIPT-001 records $label as a not-sent terminal outcome', async ({ label, evidence, reason, scheduler }) => {
       const { store, cleanup } = await create();
       try {
         // The deadline case moves the injected clock past the attempt deadline for
@@ -141,7 +141,7 @@ describe('admission rejections with durable receipts (#2670)', () => {
       }
     });
 
-    it('still records a dispatched attempt with an unknown outcome as execution-uncertain', async () => {
+    it('CNC-ADMIT-RECEIPT-002 still records a dispatched attempt with an unknown outcome as execution-uncertain', async () => {
       const { store, cleanup } = await create();
       try {
         const jev = adapter('jev', () => ({ ...observe('category'), status: 'error', reason: 'service-error', value: undefined }));
@@ -171,7 +171,7 @@ describe('trusted-scope admission keying (#2670)', () => {
     { label: 'principal', principals: ['same', 'same'], limits: { principalLimits: base({ concurrency: 1 }) } },
     { label: 'workspace', principals: ['first', 'second'], limits: { workspaceLimits: base({ concurrency: 1 }) } },
     { label: 'provider', principals: ['first', 'second'], limits: { providers: { jev: base({ concurrency: 1 }) } } },
-  ])('enforces the $label ceiling across structurally equal but distinct policy objects', async ({ label, principals, limits }) => {
+  ])('CNC-ADMIT-SCOPE-001 enforces the $label ceiling across structurally equal but distinct policy objects', async ({ label, principals, limits }) => {
     const tracker = { active: 0, maximum: 0 };
     const jev = adapter('jev', held(tracker));
     const [first, second] = principals.map(principal => policy(`keying-${label}`, { principal, ...limits }));
@@ -186,7 +186,7 @@ describe('trusted-scope admission keying (#2670)', () => {
     for (const result of results) expect(result.spec.status).toBe('completed');
   });
 
-  it('does not let one principal consume another principal\'s equal quota', async () => {
+  it('CNC-ADMIT-SCOPE-002 does not let one principal consume another principal\'s equal quota', async () => {
     const trackers = { first: { active: 0, maximum: 0 }, second: { active: 0, maximum: 0 } };
     const total = { active: 0, maximum: 0 };
     const counted = (own: { active: number; maximum: number }) => async (alias: string) => {
@@ -213,7 +213,7 @@ describe('trusted-scope admission keying (#2670)', () => {
     expect(exhausted.spec.evaluations.category?.spec.attempts[0]?.admission?.reason).toBe('queue-timeout');
   });
 
-  it('reports a target timeout during a queued wait as a timeout, not a caller cancellation', async () => {
+  it('CNC-ADMIT-RECEIPT-003 reports a target timeout during a queued wait as a timeout, not a caller cancellation', async () => {
     let release!: () => void;
     const holding = new Promise<void>(done => { release = done; });
     const busy = adapter('jev', async alias => { await holding; return observe(alias); });
@@ -235,7 +235,7 @@ describe('trusted-scope admission keying (#2670)', () => {
     if (attempt.admission?.reason === 'cancelled') expect(attempt.termination).toBe('target-timeout');
   });
 
-  it('fails closed when one profile revision is registered with different limits', async () => {
+  it('CNC-ADMIT-SCOPE-003 fails closed when one profile revision is registered with different limits', async () => {
     const jev = adapter('jev', observe);
     await evaluateDecisionRuleset(request('revision-a', policy('revision', { workspaceLimits: base({ concurrency: 2 }) }), { jev }));
     const conflicting = await evaluateDecisionRuleset(request('revision-b',
@@ -251,7 +251,7 @@ describe('trusted-scope admission keying (#2670)', () => {
 describe('retry backoff releases the scheduler permit (#2670)', () => {
   afterEach(() => { vi.useRealTimers(); });
 
-  it('starts another lane while a retry sleeps under fake time at concurrency 1', async () => {
+  it('CNC-SCHED-BACKOFF-001 starts another lane while a retry sleeps under fake time at concurrency 1', async () => {
     vi.useFakeTimers();
     const starts: string[] = [];
     let active = 0;
@@ -281,7 +281,7 @@ describe('retry backoff releases the scheduler permit (#2670)', () => {
     expect(maximum).toBe(1);
   });
 
-  it('resumes suspended work ahead of unstarted work', async () => {
+  it('CNC-SCHED-BACKOFF-002 resumes suspended work ahead of unstarted work', async () => {
     vi.useFakeTimers();
     const starts: string[] = [];
     const running = runBoundedFair([{ value: 'retrying', lane: 'a' }, { value: 'held', lane: 'b' }, { value: 'queued', lane: 'c' }], 1,
@@ -300,7 +300,7 @@ describe('retry backoff releases the scheduler permit (#2670)', () => {
     expect(starts).toEqual(['retrying', 'held', 'retrying#2', 'queued']);
   });
 
-  it('lets the evaluator dispatch a different lane while a retry backs off', async () => {
+  it('CNC-SCHED-BACKOFF-003 lets the evaluator dispatch a different lane while a retry backs off', async () => {
     const binding = fixture<DecisionBinding>('binding-jev.json');
     binding.spec.maxAttempts = 4;
     binding.spec.evaluations.category!.targets[0]!.retry.maxRetries = 1;

@@ -13,8 +13,9 @@ interface FixtureRecord {
 
 const manifestPath = 'test/fixtures/decision/qualification-fixtures-v1.json';
 // Every file under these roots is a vector input, golden or retained evidence and must be manifested.
-const FIXTURE_ROOTS = ['test/fixtures/decision', 'examples/decision', 'docs/decision/evidence'];
-const UNMANIFESTED = new Set([manifestPath, 'examples/decision/README.md']);
+const EXAMPLES_ROOT = 'agentic/code/addons/decision-engine/examples';
+const FIXTURE_ROOTS = ['test/fixtures/decision', EXAMPLES_ROOT, 'docs/decision/evidence'];
+const UNMANIFESTED = new Set([manifestPath, `${EXAMPLES_ROOT}/README.md`]);
 
 async function filesUnder(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -41,7 +42,7 @@ describe('decision qualification fixture provenance', () => {
     expect(new Set(manifest.fixtures.map(item => item.path)).size).toBe(manifest.fixtures.length);
     for (const item of manifest.fixtures) {
       expect(item.id).toMatch(/^DEC-[A-Z]+-[0-9]{2}$/);
-      expect(item.path).toMatch(/^(?:test\/fixtures\/decision|examples\/decision|docs\/decision\/evidence)\/[A-Za-z0-9_/.-]+\.(?:json|ts|mjs)$/);
+      expect(item.path).toMatch(/^(?:test\/fixtures\/decision|agentic\/code\/addons\/decision-engine\/examples|docs\/decision\/evidence)\/[A-Za-z0-9_/.-]+\.(?:json|ts|mjs)$/);
       expect(item.origin).toBe('repository-authored');
       expect(item.author.length).toBeGreaterThan(0);
       expect(item.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);

@@ -8,3 +8,4 @@ export * from './drift.js';
 export * from './privacy.js';
 export * from './capture.js';
 export * from './release.js';
+export * from './load.js';

@@ -31,8 +31,17 @@ export interface DecisionProjectionPolicy {
   region: string;
   purpose: string;
   allowIncompleteContext: boolean;
+  /**
+   * Highest data class this destination may receive. Defaults to
+   * `confidential`: `restricted` fields need an explicit ceiling.
+   */
+  maxSensitivity?: DecisionSensitivity;
   fields: DecisionProjectionField[];
 }
+
+/** Ordered data classes; a field above the policy ceiling is denied egress. */
+export const DECISION_SENSITIVITY_ORDER: readonly DecisionSensitivity[] = ['public', 'internal', 'confidential', 'restricted'];
+const DEFAULT_MAX_SENSITIVITY: DecisionSensitivity = 'confidential';
 
 export interface DecisionProjectionEvidence {
   policyVersion: string;
@@ -130,7 +139,8 @@ export function validateProjectionPolicy(policy: DecisionProjectionPolicy): void
     throw new DecisionProjectionError('invalid-policy', 'projection policy must be an object');
   }
   rejectUnknownKeys(policy as unknown as Record<string, unknown>,
-    ['version', 'provider', 'model', 'origin', 'region', 'purpose', 'allowIncompleteContext', 'fields'], 'projection policy');
+    ['version', 'provider', 'model', 'origin', 'region', 'purpose', 'allowIncompleteContext', 'maxSensitivity', 'fields'],
+    'projection policy');
   if (![policy.version, policy.provider, policy.model, policy.origin, policy.region, policy.purpose]
     .every(value => typeof value === 'string' && value.trim().length > 0)
     || typeof policy.allowIncompleteContext !== 'boolean' || !Array.isArray(policy.fields)) {
@@ -145,6 +155,14 @@ export function validateProjectionPolicy(policy: DecisionProjectionPolicy): void
   if (normalizedOrigin.protocol !== 'https:' || normalizedOrigin.username || normalizedOrigin.password) {
     throw new DecisionProjectionError('invalid-policy', 'projection origin must be credential-free HTTPS');
   }
+  if (policy.maxSensitivity !== undefined && !DECISION_SENSITIVITY_ORDER.includes(policy.maxSensitivity)) {
+    throw new DecisionProjectionError('invalid-policy', 'projection sensitivity ceiling is invalid');
+  }
+  // Region is a host-declared deployment attribute; an unknown region is never authorized.
+  if (policy.region.trim().toLowerCase() === 'unknown') {
+    throw new DecisionProjectionError('data-boundary-denied', 'projection region is unknown');
+  }
+  const ceiling = DECISION_SENSITIVITY_ORDER.indexOf(policy.maxSensitivity ?? DEFAULT_MAX_SENSITIVITY);
   if (!policy.fields.length) throw new DecisionProjectionError('invalid-policy', 'projection policy must allow at least one field');
   const outputs = new Set<string>();
   let subject: string | undefined;
@@ -189,8 +207,41 @@ export function validateProjectionPolicy(policy: DecisionProjectionPolicy): void
       || !['expire-with-primary', 'not-persisted'].includes(field.backupPolicy)) {
       throw new DecisionProjectionError('invalid-policy', 'projection field lacks provenance or lifecycle metadata');
     }
+    // Data-class rules: a field above the destination ceiling never egresses, and
+    // restricted material may not be exported or outlive its primary record.
+    if (DECISION_SENSITIVITY_ORDER.indexOf(field.sensitivity) > ceiling) {
+      throw new DecisionProjectionError('data-boundary-denied', 'projection field exceeds the destination sensitivity ceiling');
+    }
+    if (field.sensitivity === 'restricted' && (field.exportPolicy !== 'denied' || field.backupPolicy !== 'not-persisted')) {
+      throw new DecisionProjectionError('invalid-policy', 'restricted projection fields must deny export and persistence');
+    }
     rejectPortableSecretMaterial(field as unknown as Record<string, unknown>, 'projection field');
   }
+}
+
+/**
+ * Partitions projected state by host-declared trust so adapters can keep
+ * verified evidence structurally separate from untrusted content. Delimiters
+ * are not relied on: the partition is a distinct object key.
+ */
+export function partitionProjectedState(
+  state: unknown,
+  evidence: Pick<DecisionProjectionEvidence, 'included'>,
+): { verified: Record<string, unknown>; untrusted: Record<string, unknown> } {
+  const verified: Record<string, unknown> = {};
+  const untrusted: Record<string, unknown> = {};
+  const values = state && typeof state === 'object' && !Array.isArray(state) ? state as Record<string, unknown> : {};
+  for (const field of evidence.included) {
+    if (!Object.hasOwn(values, field.output)) continue;
+    (field.trust === 'verified' ? verified : untrusted)[field.output] = values[field.output];
+  }
+  return { verified, untrusted };
+}
+
+/** Normalizes a projection or adapter origin for exact endpoint binding. */
+export function normalizeProjectionOrigin(origin: string): string {
+  try { return new URL(origin).origin; }
+  catch { throw new DecisionProjectionError('invalid-policy', 'projection origin must be an absolute HTTPS URL'); }
 }
 
 function normalizeAuthorizedOrigin(origin: string): string {
