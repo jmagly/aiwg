@@ -42,12 +42,37 @@ function parseCredentials(raw: string): AuthCredentials {
   return value as AuthCredentials;
 }
 
-const SERVICE = "releases.aiwg.io";
-const ACCOUNT = "aiwg-cli";
+export const DEFAULT_CREDENTIAL_SERVICE = "releases.aiwg.io";
+export const DEFAULT_CREDENTIAL_ACCOUNT = "aiwg-cli";
+
+/** Native secret-store coordinates. Defaults to the AIWG release credential entry. */
+export interface CredentialStoreIdentity { service?: string; account?: string }
+
+function resolveIdentity(identity: CredentialStoreIdentity = {}): { service: string; account: string } {
+  const service = identity.service ?? DEFAULT_CREDENTIAL_SERVICE;
+  const account = identity.account ?? DEFAULT_CREDENTIAL_ACCOUNT;
+  for (const [label, value] of [["service", service], ["account", account]] as const) {
+    // Values reach native helpers as argv entries or PowerShell string literals; refuse
+    // empty values and control characters rather than depend on each helper's parsing.
+    if (typeof value !== "string" || !value || value.length > 256 || /[\u0000-\u001f\u007f]/.test(value)) {
+      throw new Error(`credential store ${label} must be a non-empty string without control characters`);
+    }
+  }
+  return { service, account };
+}
+
+/** Quote a value as a PowerShell single-quoted string literal. */
+function powershellLiteral(value: string): string {
+  return `'${value.replace(/['\u2018\u2019\u201a\u201b]/g, "$&$&")}'`;
+}
 
 abstract class NativeCredentialStore implements CredentialStore {
   abstract readonly metadata: CredentialMetadata;
-  constructor(protected readonly run: CommandRunner = defaultCommandRunner) {}
+  protected readonly service: string;
+  protected readonly account: string;
+  constructor(protected readonly run: CommandRunner = defaultCommandRunner, identity: CredentialStoreIdentity = {}) {
+    ({ service: this.service, account: this.account } = resolveIdentity(identity));
+  }
   abstract load(): Promise<AuthCredentials | null>;
   abstract save(credentials: AuthCredentials): Promise<void>;
   abstract delete(): Promise<void>;
@@ -55,41 +80,44 @@ abstract class NativeCredentialStore implements CredentialStore {
 }
 
 export class MacOsKeychainStore extends NativeCredentialStore {
-  readonly metadata = { provider: "macos-keychain", location: `Keychain:${SERVICE}/${ACCOUNT}` } as const;
+  readonly metadata = { provider: "macos-keychain", location: `Keychain:${this.service}/${this.account}` } as const;
   async load() {
-    const result = await this.run("security", ["find-generic-password", "-a", ACCOUNT, "-s", SERVICE, "-w"]);
+    const result = await this.run("security", ["find-generic-password", "-a", this.account, "-s", this.service, "-w"]);
     return result.exitCode === 44 ? null : result.exitCode === 0 ? this.parse(result.stdout) : Promise.reject(new Error("macOS Keychain read failed"));
   }
   async save(credentials: AuthCredentials) {
-    const result = await this.run("security", ["add-generic-password", "-U", "-a", ACCOUNT, "-s", SERVICE, "-w"], JSON.stringify(credentials));
+    const result = await this.run("security", ["add-generic-password", "-U", "-a", this.account, "-s", this.service, "-w"], JSON.stringify(credentials));
     if (result.exitCode !== 0) throw new Error("macOS Keychain write failed");
   }
-  async delete() { await this.run("security", ["delete-generic-password", "-a", ACCOUNT, "-s", SERVICE]); }
+  async delete() { await this.run("security", ["delete-generic-password", "-a", this.account, "-s", this.service]); }
 }
 
 export class LinuxSecretServiceStore extends NativeCredentialStore {
-  readonly metadata = { provider: "linux-secret-service", location: `SecretService:${SERVICE}/${ACCOUNT}` } as const;
+  readonly metadata = { provider: "linux-secret-service", location: `SecretService:${this.service}/${this.account}` } as const;
   async load() {
-    const result = await this.run("secret-tool", ["lookup", "service", SERVICE, "account", ACCOUNT]);
+    const result = await this.run("secret-tool", ["lookup", "service", this.service, "account", this.account]);
     return result.exitCode === 1 ? null : result.exitCode === 0 ? this.parse(result.stdout) : Promise.reject(new Error("Linux Secret Service read failed"));
   }
   async save(credentials: AuthCredentials) {
-    const result = await this.run("secret-tool", ["store", `--label=AIWG ${SERVICE}`, "service", SERVICE, "account", ACCOUNT], JSON.stringify(credentials));
+    const result = await this.run("secret-tool", ["store", `--label=AIWG ${this.service}`, "service", this.service, "account", this.account], JSON.stringify(credentials));
     if (result.exitCode !== 0) throw new Error("Linux Secret Service write failed");
   }
-  async delete() { await this.run("secret-tool", ["clear", "service", SERVICE, "account", ACCOUNT]); }
+  async delete() { await this.run("secret-tool", ["clear", "service", this.service, "account", this.account]); }
 }
 
-const WINDOWS_READ = "$v=New-Object Windows.Security.Credentials.PasswordVault;try{$c=$v.Retrieve('releases.aiwg.io','aiwg-cli');$c.RetrievePassword();[Console]::Out.Write($c.Password)}catch{exit 1}";
-const WINDOWS_WRITE = "$s=[Console]::In.ReadToEnd();$v=New-Object Windows.Security.Credentials.PasswordVault;$v.Add((New-Object Windows.Security.Credentials.PasswordCredential('releases.aiwg.io','aiwg-cli',$s)))";
-const WINDOWS_DELETE = "$v=New-Object Windows.Security.Credentials.PasswordVault;try{$c=$v.Retrieve('releases.aiwg.io','aiwg-cli');$v.Remove($c)}catch{}";
+// Scripts are built from the store identity; the default identity yields the exact
+// scripts used before the identity became configurable.
+const windowsRead = (target: string) => `$v=New-Object Windows.Security.Credentials.PasswordVault;try{$c=$v.Retrieve(${target});$c.RetrievePassword();[Console]::Out.Write($c.Password)}catch{exit 1}`;
+const windowsWrite = (target: string) => `$s=[Console]::In.ReadToEnd();$v=New-Object Windows.Security.Credentials.PasswordVault;$v.Add((New-Object Windows.Security.Credentials.PasswordCredential(${target},$s)))`;
+const windowsDelete = (target: string) => `$v=New-Object Windows.Security.Credentials.PasswordVault;try{$c=$v.Retrieve(${target});$v.Remove($c)}catch{}`;
 
 export class WindowsCredentialManagerStore extends NativeCredentialStore {
-  readonly metadata = { provider: "windows-credential-manager", location: `CredentialManager:${SERVICE}/${ACCOUNT}` } as const;
+  readonly metadata = { provider: "windows-credential-manager", location: `CredentialManager:${this.service}/${this.account}` } as const;
+  private get target() { return `${powershellLiteral(this.service)},${powershellLiteral(this.account)}`; }
   private execute(script: string, stdin = "") { return this.run("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], stdin); }
-  async load() { const result = await this.execute(WINDOWS_READ); return result.exitCode === 1 ? null : result.exitCode === 0 ? this.parse(result.stdout) : Promise.reject(new Error("Windows Credential Manager read failed")); }
-  async save(credentials: AuthCredentials) { if ((await this.execute(WINDOWS_WRITE, JSON.stringify(credentials))).exitCode !== 0) throw new Error("Windows Credential Manager write failed"); }
-  async delete() { await this.execute(WINDOWS_DELETE); }
+  async load() { const result = await this.execute(windowsRead(this.target)); return result.exitCode === 1 ? null : result.exitCode === 0 ? this.parse(result.stdout) : Promise.reject(new Error("Windows Credential Manager read failed")); }
+  async save(credentials: AuthCredentials) { if ((await this.execute(windowsWrite(this.target), JSON.stringify(credentials))).exitCode !== 0) throw new Error("Windows Credential Manager write failed"); }
+  async delete() { await this.execute(windowsDelete(this.target)); }
 }
 
 export class FileCredentialStore implements CredentialStore {
@@ -134,11 +162,12 @@ export function defaultCredentialFile(): string {
   return path.join(root, "aiwg", "credentials", "resource-auth.json");
 }
 
-export function createCredentialStore(options: { platform?: NodeJS.Platform; useFile?: boolean; allowFile?: boolean; pathname?: string; runner?: CommandRunner } = {}): CredentialStore {
+export function createCredentialStore(options: { platform?: NodeJS.Platform; useFile?: boolean; allowFile?: boolean; pathname?: string; runner?: CommandRunner } & CredentialStoreIdentity = {}): CredentialStore {
   if (options.useFile) return new FileCredentialStore(options.pathname || defaultCredentialFile(), options.allowFile === true);
   const platform = options.platform || process.platform;
-  if (platform === "darwin") return new MacOsKeychainStore(options.runner);
-  if (platform === "win32") return new WindowsCredentialManagerStore(options.runner);
-  if (platform === "linux") return new LinuxSecretServiceStore(options.runner);
+  const identity = { service: options.service, account: options.account };
+  if (platform === "darwin") return new MacOsKeychainStore(options.runner, identity);
+  if (platform === "win32") return new WindowsCredentialManagerStore(options.runner, identity);
+  if (platform === "linux") return new LinuxSecretServiceStore(options.runner, identity);
   throw new Error("no native credential store is available; explicitly opt in to the mode-0600 file fallback");
 }
