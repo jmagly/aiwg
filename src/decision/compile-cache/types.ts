@@ -1,3 +1,5 @@
+import type { DecisionLifecycleHold, DecisionLifecyclePolicy, DecisionLifecycleTombstone } from '../lifecycle.js';
+
 export type Sha256 = `sha256:${string}`;
 
 export type DecisionCacheLayer =
@@ -29,8 +31,29 @@ export interface CompileCacheEntry<T> {
   valueDigest: Sha256;
   createdAtEpochMs: number;
   expiresAtEpochMs: number;
-  tombstonedAtEpochMs: number | null;
-  legalHold: boolean;
+  /** D10 hold; an unexpired hold blocks tombstone and deletion. */
+  legalHold: DecisionLifecycleHold | null;
+}
+
+/**
+ * Body-free record left at a key by tombstone or deletion. It keeps no identity,
+ * value or value digest, and it blocks later fills and backup restores.
+ */
+export interface CompileCacheTombstoneRecord {
+  schemaVersion: 'decision-compile-cache-tombstone/v1';
+  key: Sha256;
+  tombstone: DecisionLifecycleTombstone;
+}
+
+/** Independent D10 tombstone journal, such as `FileDecisionLifecycleStore`. */
+export interface CompileCacheLifecycleJournal {
+  tombstone(value: DecisionLifecycleTombstone): Promise<void>;
+  tombstones(subject: string): Promise<DecisionLifecycleTombstone[]>;
+}
+
+export interface CompileCacheLifecycleOptions {
+  /** Retention, backup and hold rules come from the policy's `cache` surface. */
+  lifecyclePolicy: DecisionLifecyclePolicy;
 }
 
 export interface CompileCacheReadContext {
