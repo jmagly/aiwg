@@ -206,10 +206,25 @@ export class McpServerRegistry {
 // Provider injection logic
 // ============================================
 
-function buildServerConfig(server, provider) {
+export function buildServerConfig(server, provider) {
   const mcpDefinition = getMcpInjectionDefinition(provider);
 
   switch (mcpDefinition?.serverConfigFormat) {
+    case 'claude-code': {
+      if (server.type === 'stdio') {
+        return {
+          command: server.command,
+          args: server.args || [],
+          ...(server.env ? { env: server.env } : {}),
+        };
+      }
+      // Claude Code skips a url entry that has no type.
+      return {
+        type: server.type,
+        url: server.url,
+        ...(server.headers ? { headers: server.headers } : {}),
+      };
+    }
     case 'antigravity': {
       if (server.type === 'stdio') {
         return { command: server.command, args: server.args || [], ...(server.env ? { env: server.env } : {}) };

@@ -7,6 +7,14 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Fixed
+
+- `aiwg mcp inject --provider claude` and `aiwg mcp install claude` now write project MCP servers to
+  `.mcp.json`. They previously wrote `mcpServers` into `.claude/settings.local.json`, which Claude Code
+  does not read, so injected servers never loaded. `--scope user` writes `~/.claude.json`. HTTP and SSE
+  entries now carry `type`, without which Claude Code skips a `url` entry. `--ephemeral` output now uses
+  each provider's own entry shape instead of a generic one.
+
 ## [2026.10.0] - 2026-10-02 - "Muse Code stable, gates and decision studies"
 
 ### Changed

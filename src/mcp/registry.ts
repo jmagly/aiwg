@@ -268,7 +268,7 @@ export class McpServerRegistry {
 /**
  * Build the MCP config block for a single server in a given provider's format.
  */
-function buildServerConfig(
+export function buildServerConfig(
   server: McpServerDefinition,
   provider: InjectProvider,
 ): Record<string, unknown> {
@@ -288,8 +288,9 @@ function buildServerConfig(
           ...(server.env ? { env: server.env } : {}),
         };
       }
-      // http/sse
+      // Claude Code skips a url entry that has no type.
       return {
+        type: server.type,
         url: server.url,
         ...(server.headers ? { headers: server.headers } : {}),
       };
@@ -418,6 +419,9 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     return resolve(homeDir, '.gemini/config/mcp_config.json');
   }
+  if ((provider === 'claude-code' || provider === 'claude') && options.scope === 'user') {
+    return resolve(process.env.HOME || process.env.USERPROFILE || '', '.claude.json');
+  }
   if ((provider === 'omp' || provider === 'oh-my-pi') && options.scope !== undefined && !['user', 'project'].includes(options.scope)) throw new Error('OMP MCP scope must be user or project');
   if ((provider === 'omp' || provider === 'oh-my-pi') && options.scope === 'user') return resolve(resolveOmpPaths().agentDir, 'mcp.json');
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
@@ -427,8 +431,8 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
     agy: resolve(projectDir, '.agents/mcp_config.json'),
     omp: resolve(projectDir, '.omp/mcp.json'),
     'oh-my-pi': resolve(projectDir, '.omp/mcp.json'),
-    'claude-code': resolve(projectDir, '.claude/settings.local.json'),
-    claude: resolve(projectDir, '.claude/settings.local.json'),
+    'claude-code': resolve(projectDir, '.mcp.json'),
+    claude: resolve(projectDir, '.mcp.json'),
     cursor: resolve(projectDir, '.cursor/mcp.json'),
     factory: resolve(homeDir, '.factory/mcp.json'),
     codex: resolve(homeDir, '.codex/config.toml'),

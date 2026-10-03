@@ -77,7 +77,12 @@ These prompts are auto-integrated and available in compatible tools.
 
 `aiwg mcp install claude` configures **Claude Code** — the CLI and Claude
 Desktop's Code tab, which share project configuration. After running it, the
-config is placed at `.claude/settings.local.json` in the project directory.
+config is placed at `.mcp.json` in the project directory, which is where Claude
+Code reads project-scoped MCP servers. `aiwg mcp inject --provider claude
+--scope user` writes the top-level `mcpServers` of `~/.claude.json` instead.
+Claude Code does not read `mcpServers` from `.claude/settings.json` or
+`.claude/settings.local.json`; entries that earlier AIWG releases wrote there
+were never loaded and can be deleted.
 
 This is distinct from the Claude Desktop **chat app** (the Cowork surface),
 which reads MCP servers from its own `claude_desktop_config.json`

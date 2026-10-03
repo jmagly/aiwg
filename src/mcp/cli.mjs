@@ -12,6 +12,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import {
   McpServerRegistry,
+  buildServerConfig,
   injectServers,
   SUPPORTED_PROVIDERS,
   getProviderConfigPath,
@@ -101,7 +102,7 @@ async function generateConfig(target, projectDir = '.') {
 
   const configs = {
     claude: {
-      path: path.join(projectDir, '.claude/settings.local.json'),
+      path: path.join(projectDir, '.mcp.json'),
       content: {
         mcpServers: {
           aiwg: {
@@ -752,16 +753,7 @@ async function handleInject(args) {
           console.log(`  Use "aiwg session --provider codex --profile ${profileName}" instead.`);
           continue;
         }
-        const cfg = {};
-        if (server.type === 'stdio') {
-          cfg.command = server.command;
-          cfg.args = server.args || [];
-          if (server.env) cfg.env = server.env;
-        } else {
-          cfg.url = server.url;
-          if (server.headers) cfg.headers = server.headers;
-        }
-        mcpBlock[server.name] = cfg;
+        mcpBlock[server.name] = buildServerConfig(server, p);
       }
 
       if (Object.keys(mcpBlock).length === 0) continue;
@@ -1152,7 +1144,7 @@ export async function main(args = process.argv.slice(2)) {
         console.log(`[DRY RUN] Would generate MCP config for: ${target}`);
         console.log(`[DRY RUN] Target directory: ${projectDir}`);
         const configPaths = {
-          claude: '.claude/settings.local.json',
+          claude: '.mcp.json',
           cursor: '.cursor/mcp.json',
           factory: (projectDir === '.' || projectDir === 'global')
             ? path.join(homeDir, '.factory/mcp.json')

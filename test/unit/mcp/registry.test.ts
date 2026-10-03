@@ -23,7 +23,7 @@ vi.mock("path", async importOriginal => {
       // Redirect only the home-scoped adapters exercised by this owner.
       // Do not change HOME or production provider metadata.
       if (filesystemBoundary.root && parts.length === 2 &&
-          [".factory/mcp.json", ".codex/config.toml", ".codeium/windsurf/mcp_config.json", ".warp/mcp.json"].includes(parts[1])) {
+          [".claude.json", ".factory/mcp.json", ".codex/config.toml", ".codeium/windsurf/mcp_config.json", ".warp/mcp.json"].includes(parts[1])) {
         return actual.resolve(filesystemBoundary.root, "provider-home", parts[1]);
       }
       return actual.resolve(...parts);
@@ -404,8 +404,8 @@ describe("injectServers", () => {
   });
 
   const jsonAdapters = [
-    { provider: "claude-code", location: "project", file: ".claude/settings.local.json", shape: "plain" },
-    { provider: "claude", location: "project", file: ".claude/settings.local.json", shape: "plain" },
+    { provider: "claude-code", location: "project", file: ".mcp.json", shape: "claude" },
+    { provider: "claude", location: "project", file: ".mcp.json", shape: "claude" },
     { provider: "cursor", location: "project", file: ".cursor/mcp.json", shape: "plain" },
     { provider: "factory", location: "home", file: ".factory/mcp.json", shape: "factory" },
     { provider: "opencode", location: "project", file: "opencode.json", shape: "opencode" },
@@ -435,14 +435,14 @@ describe("injectServers", () => {
       provider, configPath, serversInjected: ["fortemi"], alreadyPresent: [],
     });
     const entry = {
-      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : {}),
+      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
       [shape === "antigravity" ? "serverUrl" : "url"]: "https://memory.internal/mcp",
     };
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({ preferences: { keep: true }, [key]: { fortemi: entry } });
   });
 
   it.each([
-    { provider: "claude-code", file: ".claude/settings.local.json", key: "mcpServers" },
+    { provider: "claude-code", file: ".mcp.json", key: "mcpServers" },
     { provider: "opencode", file: "opencode.json", key: "mcp" },
     { provider: "antigravity", file: ".agents/mcp_config.json", key: "mcpServers" },
   ].flatMap(adapter => [
@@ -521,7 +521,7 @@ describe("injectServers", () => {
     const result = await inject(registry, provider, { projectDir, servers: ["fortemi"] });
     const keepsExisting = shape === "antigravity";
     const replacement = {
-      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : {}),
+      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
       url: "https://memory.internal/mcp",
     };
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({
@@ -557,7 +557,7 @@ describe("injectServers", () => {
     await writeFile(configPath, JSON.stringify(prior));
     const result = await inject(registry, provider, { projectDir, servers: ["fortemi"] });
     const entry = {
-      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : {}),
+      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
       [shape === "antigravity" ? "serverUrl" : "url"]: "https://memory.internal/mcp",
     };
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({
@@ -588,7 +588,7 @@ describe("injectServers", () => {
     const result = await inject(registry, provider, { projectDir, servers: ["matrix"] });
     const configPath = join(location === "home" ? join(tempDir, "provider-home") : projectDir, file);
     const entry = {
-      ...(shape === "factory" ? { type, disabled: false } : shape === "opencode" ? { type: "remote" } : {}),
+      ...(shape === "factory" ? { type, disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type } : {}),
       [shape === "antigravity" ? "serverUrl" : "url"]: "https://synthetic.example/mcp",
       headers: { "X-Synthetic": "keep" },
     };
@@ -605,7 +605,7 @@ describe("injectServers", () => {
     const local = shape === "opencode" ? { type: "local", command: ["synthetic-command"] }
       : { ...(shape === "factory" ? { type: "stdio", disabled: false } : {}), command: "synthetic-command", args: [] };
     const remote = {
-      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : {}),
+      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
       [shape === "antigravity" ? "serverUrl" : "url"]: "https://synthetic.example/mcp",
     };
     expect(result).toEqual({ provider, configPath, serversInjected: ["local", "remote"], alreadyPresent: [] });
@@ -634,7 +634,7 @@ describe("injectServers", () => {
     });
 
     expect(result.serversInjected).toContain("fortemi");
-    const configPath = join(projectDir, ".claude/settings.local.json");
+    const configPath = join(projectDir, ".mcp.json");
     const written = JSON.parse(await readFile(configPath, "utf-8"));
     expect(written.mcpServers.fortemi.url).toBe("https://memory.internal/mcp");
   });
@@ -661,7 +661,7 @@ describe("injectServers", () => {
 
   it("should preserve existing provider config", async () => {
     // Write existing config first
-    const configDir = join(projectDir, ".claude");
+    const configDir = projectDir;
     const prior = {
       preferences: { theme: "dark", nested: { retain: ["one", "two"] } },
       enabled: false,
@@ -671,7 +671,7 @@ describe("injectServers", () => {
     };
     await mkdir(configDir, { recursive: true });
     await writeFile(
-      join(configDir, "settings.local.json"),
+      join(configDir, ".mcp.json"),
       JSON.stringify(prior),
     );
 
@@ -682,8 +682,8 @@ describe("injectServers", () => {
       ...prior,
       mcpServers: {
         ...prior.mcpServers,
-        fortemi: { url: "https://memory.internal/mcp" },
-        gitea: { url: "https://mcp-gitea.internal/mcp" },
+        fortemi: { type: "http", url: "https://memory.internal/mcp" },
+        gitea: { type: "http", url: "https://mcp-gitea.internal/mcp" },
       },
     });
     expect(result.serversInjected).toEqual(["fortemi", "gitea"]);
@@ -700,6 +700,33 @@ describe("injectServers", () => {
     expect(result.serversInjected).toHaveLength(2);
     // Config file should NOT exist after dry run
     await expect(readFile(result.configPath, "utf-8")).rejects.toThrow();
+  });
+
+  describe.each([
+    { implementation: "TypeScript", inject: injectServers },
+    { implementation: "runtime", inject: injectRuntimeServers as typeof injectServers },
+  ])("$implementation Claude Code targets", ({ inject }) => {
+    it("writes project servers to .mcp.json, never .claude/settings.local.json", async () => {
+      const result = await inject(registry, "claude-code", { projectDir, servers: ["fortemi"] });
+      expect(result.configPath).toBe(join(projectDir, ".mcp.json"));
+      expect(existsSync(join(projectDir, ".claude", "settings.local.json"))).toBe(false);
+      expect(JSON.parse(await readFile(result.configPath, "utf-8"))).toEqual({
+        mcpServers: { fortemi: { type: "http", url: "https://memory.internal/mcp" } },
+      });
+    });
+
+    it("writes user-scope servers to the top-level mcpServers of ~/.claude.json and keeps Claude's own state", async () => {
+      const userConfig = join(tempDir, "provider-home", ".claude.json");
+      const prior = { numStartups: 7, projects: { "/somewhere": { mcpServers: { local: { command: "keep" } } } }, mcpServers: { unrelated: { command: "keep" } } };
+      await mkdir(dirname(userConfig), { recursive: true });
+      await writeFile(userConfig, JSON.stringify(prior));
+      const result = await inject(registry, "claude-code", { projectDir, scope: "user", servers: ["gitea"] });
+      expect(result.configPath).toBe(userConfig);
+      expect(JSON.parse(await readFile(userConfig, "utf-8"))).toEqual({
+        ...prior,
+        mcpServers: { ...prior.mcpServers, gitea: { type: "http", url: "https://mcp-gitea.internal/mcp" } },
+      });
+    });
   });
 
   describe.each([
@@ -727,7 +754,8 @@ describe("injectServers", () => {
     if (existing) expect(await readFile(configPath, "utf-8")).toBe(original);
     else {
       expect(existsSync(configPath)).toBe(false);
-      expect(existsSync(dirname(configPath))).toBe(false);
+      // Claude Code's project file sits in the project root, which already exists.
+      if (dirname(configPath) !== projectDir) expect(existsSync(dirname(configPath))).toBe(false);
     }
     expect(await readFile(registry.getPath(), "utf-8")).toBe(registryBefore);
     expect(await registry.load()).toEqual(JSON.parse(registryBefore));
@@ -958,8 +986,9 @@ describe("injectServers", () => {
 describe("getProviderConfigPath", () => {
   it("should return correct paths for each provider", () => {
     expect(getProviderConfigPath("claude-code", "/project")).toContain(
-      ".claude/settings.local.json",
+      ".mcp.json",
     );
+    expect(getProviderConfigPath("claude-code", "/project")).not.toContain("settings.local.json");
     expect(getProviderConfigPath("cursor", "/project")).toContain(
       ".cursor/mcp.json",
     );
