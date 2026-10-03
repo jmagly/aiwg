@@ -12,11 +12,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import {
   McpServerRegistry,
+  buildServerConfig,
   injectServers,
   SUPPORTED_PROVIDERS,
   getProviderConfigPath,
 } from './registry.mjs';
 import { McpProfileRegistry } from './profiles.mjs';
+import { assertCredentialPolicy, CREDENTIAL_POLICIES, resolveCredentialPolicy } from './credentials.mjs';
 import { getMcpInjectionDefinition } from '../providers/provider-definitions.mjs';
 import { manageOmpMcp } from './omp-config.mjs';
 import { unmanageGrokBuildMcp } from './grok-build-config.mjs';
@@ -42,6 +44,8 @@ Usage:
   aiwg mcp inject [opts]       Inject servers into provider configs
   aiwg mcp uninject [opts]     Remove unchanged AIWG-owned OMP server entries
   aiwg mcp profile <sub>       Manage MCP profiles (named server subsets)
+  aiwg mcp credential-policy [literal|references|none]
+                               Show or set the registry's default credential policy
 
 Server Options (for add/update):
   --url <url>          Server URL (for http/sse types)
@@ -52,6 +56,8 @@ Server Options (for add/update):
   --headers <K=V,...>  HTTP headers (comma-separated K=V pairs)
   --header-env <K=ENV,...>
                        Resolve HTTP header values from environment variables
+  --env-from <K=ENV,...>
+                       Resolve stdio server variables from environment variables
   --description <text> Optional description
 
 Inject Options:
@@ -60,6 +66,10 @@ Inject Options:
   --all                Inject into all previously configured providers
   --servers <a,b,...>  Only inject specific servers (comma-separated names)
   --dry-run            Show what would change without writing
+  --strict-credentials Refuse servers with literal env/headers values; render
+                       only --header-env/--env-from references
+  --no-credentials     Refuse servers with any credential-bearing field,
+                       references included
 
 Serve Options:
   --transport <type>   Transport type: stdio (default), http
@@ -70,6 +80,8 @@ Examples:
   aiwg mcp add fortemi --url https://memory.s9.internal/mcp --type http
   aiwg mcp add fortemi-enterprise --url https://memory.example.internal/mcp --type http \
     --header-env Authorization=AIWG_FORTEMI_TOKEN
+  aiwg mcp add github --type stdio --command github-mcp-server \
+    --env-from GITHUB_PERSONAL_ACCESS_TOKEN=GITHUB_TOKEN
   aiwg mcp add gitea --url https://mcp-gitea.integrolabs.net/mcp
   aiwg mcp add mytools --type stdio --command npx --args mcp-server-mytools
 
@@ -101,7 +113,7 @@ async function generateConfig(target, projectDir = '.') {
 
   const configs = {
     claude: {
-      path: path.join(projectDir, '.claude/settings.local.json'),
+      path: path.join(projectDir, '.mcp.json'),
       content: {
         mcpServers: {
           aiwg: {
@@ -510,6 +522,7 @@ async function handleAdd(args) {
   const envStr = parseFlag(args, '--env');
   const headersStr = parseFlag(args, '--headers');
   const headerEnvStr = parseFlag(args, '--header-env');
+  const envFromStr = parseFlag(args, '--env-from');
   const description = parseFlag(args, '--description');
 
   if (type === 'stdio' && !command) {
@@ -531,6 +544,7 @@ async function handleAdd(args) {
     env: parseKVPairs(envStr),
     headers: parseKVPairs(headersStr),
     headerEnv: parseKVPairs(headerEnvStr),
+    envFrom: parseKVPairs(envFromStr),
     description,
   });
 
@@ -578,6 +592,7 @@ async function handleUpdate(args) {
   const envStr = parseFlag(args, '--env');
   const headersStr = parseFlag(args, '--headers');
   const headerEnvStr = parseFlag(args, '--header-env');
+  const envFromStr = parseFlag(args, '--env-from');
   const description = parseFlag(args, '--description');
 
   if (url !== undefined) updates.url = url;
@@ -587,6 +602,7 @@ async function handleUpdate(args) {
   if (envStr !== undefined) updates.env = parseKVPairs(envStr);
   if (headersStr !== undefined) updates.headers = parseKVPairs(headersStr);
   if (headerEnvStr !== undefined) updates.headerEnv = parseKVPairs(headerEnvStr);
+  if (envFromStr !== undefined) updates.envFrom = parseKVPairs(envFromStr);
   if (description !== undefined) updates.description = description;
 
   if (Object.keys(updates).length === 0) {
@@ -627,6 +643,10 @@ async function handleList() {
       const refs = Object.entries(server.headerEnv).map(([header, envName]) => `${header}←${envName}`);
       console.log(`    Credential refs: ${refs.join(', ')}`);
     }
+    if (server.envFrom) {
+      const refs = Object.entries(server.envFrom).map(([key, envName]) => `${key}←${envName}`);
+      console.log(`    Env refs: ${refs.join(', ')}`);
+    }
     if (server.description) console.log(`    Description: ${server.description}`);
     if (server.injectedProviders && server.injectedProviders.length > 0) {
       console.log(`    Injected into: ${server.injectedProviders.join(', ')}`);
@@ -660,6 +680,12 @@ async function handleInject(args) {
   const profileName = parseFlag(args, '--profile');
   const ephemeral = args.includes('--ephemeral');
   const outPath = parseFlag(args, '--out');
+  const strictCredentials = args.includes('--strict-credentials');
+  const noCredentials = args.includes('--no-credentials');
+  if (strictCredentials && noCredentials) {
+    console.error('Error: --strict-credentials and --no-credentials are mutually exclusive.');
+    process.exit(1);
+  }
 
   if (!provider && !injectAll) {
     console.error('Usage: aiwg mcp inject --provider <name> [--profile <p>] [--ephemeral] [--servers a,b] [--dry-run]');
@@ -669,6 +695,10 @@ async function handleInject(args) {
   }
 
   const registry = new McpServerRegistry();
+  const credentialPolicy = resolveCredentialPolicy({
+    flag: noCredentials ? 'none' : strictCredentials ? 'references' : undefined,
+    registryPolicy: await registry.getCredentialPolicy(),
+  });
 
   // Resolve server filter: --profile takes precedence over --servers
   let serverFilter;
@@ -740,6 +770,7 @@ async function handleInject(args) {
         console.error(`  ${p}: no servers to write`);
         continue;
       }
+      assertCredentialPolicy(servers, credentialPolicy);
 
       // Build ephemeral config in provider's format
       const mcpDefinition = getMcpInjectionDefinition(p);
@@ -752,16 +783,7 @@ async function handleInject(args) {
           console.log(`  Use "aiwg session --provider codex --profile ${profileName}" instead.`);
           continue;
         }
-        const cfg = {};
-        if (server.type === 'stdio') {
-          cfg.command = server.command;
-          cfg.args = server.args || [];
-          if (server.env) cfg.env = server.env;
-        } else {
-          cfg.url = server.url;
-          if (server.headers) cfg.headers = server.headers;
-        }
-        mcpBlock[server.name] = cfg;
+        mcpBlock[server.name] = buildServerConfig(server, p);
       }
 
       if (Object.keys(mcpBlock).length === 0) continue;
@@ -789,6 +811,7 @@ async function handleInject(args) {
       projectDir,
       dryRun,
       scope,
+      credentialPolicy,
     });
 
     if (result.error) {
@@ -1152,7 +1175,7 @@ export async function main(args = process.argv.slice(2)) {
         console.log(`[DRY RUN] Would generate MCP config for: ${target}`);
         console.log(`[DRY RUN] Target directory: ${projectDir}`);
         const configPaths = {
-          claude: '.claude/settings.local.json',
+          claude: '.mcp.json',
           cursor: '.cursor/mcp.json',
           factory: (projectDir === '.' || projectDir === 'global')
             ? path.join(homeDir, '.factory/mcp.json')
@@ -1226,6 +1249,22 @@ export async function main(args = process.argv.slice(2)) {
     case 'profile':
       await handleProfile(subArgs);
       break;
+
+    case 'credential-policy': {
+      const registry = new McpServerRegistry();
+      const value = subArgs.find(a => !a.startsWith('--'));
+      if (!value) {
+        console.log(await registry.getCredentialPolicy() || 'literal');
+        break;
+      }
+      if (!CREDENTIAL_POLICIES.includes(value)) {
+        console.error(`Unknown credential policy "${value}". Use one of: ${CREDENTIAL_POLICIES.join(', ')}`);
+        process.exit(1);
+      }
+      await registry.setCredentialPolicy(value);
+      console.log(`Credential policy: ${value}`);
+      break;
+    }
 
     case '--help':
     case '-h':

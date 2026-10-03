@@ -7,6 +7,28 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Added
+
+- `aiwg mcp inject` renders `--header-env` references in each harness's own syntax, and a new
+  `--env-from NAME=VAR` does the same for stdio server variables. Previously only OMP and Grok Build
+  rendered references; Claude Code, Cursor, Windsurf, Factory and opencode dropped them, and Codex
+  dropped env and headers entirely. Antigravity and Warp refuse references because neither documents
+  interpolation.
+- Credential policy: `--strict-credentials` refuses literal `env`/`headers` values, `--no-credentials`
+  refuses any credential-bearing field. Also settable with `AIWG_MCP_CREDENTIAL_POLICY` or
+  `aiwg mcp credential-policy`.
+
+### Fixed
+
+- opencode local servers now receive their variables as `environment`, the key opencode reads, instead
+  of `env`.
+
+- `aiwg mcp inject --provider claude` and `aiwg mcp install claude` now write project MCP servers to
+  `.mcp.json`. They previously wrote `mcpServers` into `.claude/settings.local.json`, which Claude Code
+  does not read, so injected servers never loaded. `--scope user` writes `~/.claude.json`. HTTP and SSE
+  entries now carry `type`, without which Claude Code skips a `url` entry. `--ephemeral` output now uses
+  each provider's own entry shape instead of a generic one.
+
 ## [2026.10.0] - 2026-10-02 - "Muse Code stable, gates and decision studies"
 
 ### Changed

@@ -74,6 +74,13 @@ export function ompServerConfig(server) {
       config.headers[header] = '${' + variable + '}';
     }
   }
+  if (server.envFrom) {
+    config.env = { ...config.env };
+    for (const [key, variable] of Object.entries(server.envFrom)) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(variable)) throw new Error('Invalid MCP env-from environment reference');
+      config.env[key] = '${' + variable + '}';
+    }
+  }
   return config;
 }
 

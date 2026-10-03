@@ -429,7 +429,10 @@ export const sessionHandler: CommandHandler = {
           const registry = new McpServerRegistry();
           const resolvedServers = await profiles.resolveServers(profile, registry) as import('../../mcp/registry.js').McpServerDefinition[];
           await ensureRuntimeHome(profile);
-          await writeProfileConfig(profile, resolvedServers);
+          const { resolveCredentialPolicy } = await import('../../mcp/credentials.mjs');
+          await writeProfileConfig(profile, resolvedServers, {
+            credentialPolicy: resolveCredentialPolicy({ registryPolicy: await registry.getCredentialPolicy() }),
+          });
           console.log(`  Runtime home ready. Profile servers: ${resolvedServers.map((s) => s.name).join(', ') || '(none)'}`);
           mcpInjected = true;
         } catch (err) {

@@ -352,8 +352,9 @@ describe('provider output characterization for registry migration', () => {
     expect(getMcpInjectionDefinition('opencode')?.serversKey).toBe('mcp');
     expect(getProviderConfigPath('agy', projectDir)).toBe(resolve(projectDir, '.agents/mcp_config.json'));
     expect(getProviderConfigPath('antigravity', projectDir, { scope: 'user' })).toBe(resolve(homeDir, '.gemini/config/mcp_config.json'));
-    expect(getProviderConfigPath('claude-code', projectDir)).toBe(resolve(projectDir, '.claude/settings.local.json'));
-    expect(getProviderConfigPath('claude', projectDir)).toBe(resolve(projectDir, '.claude/settings.local.json'));
+    expect(getProviderConfigPath('claude-code', projectDir)).toBe(resolve(projectDir, '.mcp.json'));
+    expect(getProviderConfigPath('claude', projectDir)).toBe(resolve(projectDir, '.mcp.json'));
+    expect(getProviderConfigPath('claude-code', projectDir, { scope: 'user' })).toBe(resolve(homeDir, '.claude.json'));
     expect(getProviderConfigPath('cursor', projectDir)).toBe(resolve(projectDir, '.cursor/mcp.json'));
     expect(getProviderConfigPath('factory', projectDir)).toBe(resolve(homeDir, '.factory/mcp.json'));
     expect(getProviderConfigPath('codex', projectDir)).toBe(resolve(homeDir, '.codex/config.toml'));

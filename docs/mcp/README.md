@@ -77,7 +77,12 @@ These prompts are auto-integrated and available in compatible tools.
 
 `aiwg mcp install claude` configures **Claude Code** — the CLI and Claude
 Desktop's Code tab, which share project configuration. After running it, the
-config is placed at `.claude/settings.local.json` in the project directory.
+config is placed at `.mcp.json` in the project directory, which is where Claude
+Code reads project-scoped MCP servers. `aiwg mcp inject --provider claude
+--scope user` writes the top-level `mcpServers` of `~/.claude.json` instead.
+Claude Code does not read `mcpServers` from `.claude/settings.json` or
+`.claude/settings.local.json`; entries that earlier AIWG releases wrote there
+were never loaded and can be deleted.
 
 This is distinct from the Claude Desktop **chat app** (the Cowork surface),
 which reads MCP servers from its own `claude_desktop_config.json`
@@ -106,6 +111,40 @@ If automatic installation doesn't work, add this to your MCP config:
   }
 }
 ```
+
+## Credentials in Injected Servers
+
+A registry entry can carry a credential as a literal value (`--env`, `--headers`) or as a reference to an
+environment variable (`--header-env HEADER=VAR`, `--env-from NAME=VAR`). A reference writes only the
+variable name; the harness reads the value when it starts the server. Each harness spells a reference
+differently:
+
+| Harness | `--header-env` / `--env-from` renders as |
+| --- | --- |
+| Claude Code | `${VAR}` |
+| Cursor, Windsurf | `${env:VAR}` |
+| Factory | `${VAR}` |
+| opencode | `{env:VAR}` |
+| OMP, Grok Build | `${VAR}` |
+| Codex | `env_http_headers = { HEADER = "VAR" }` and `env_vars = ["VAR"]` |
+| Antigravity, Warp | refused: neither documents interpolation in its MCP config |
+
+Codex forwards a variable only under its own name, so `--env-from` for Codex must map `VAR=VAR`.
+Claude Code reads `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `NPM_TOKEN` as empty in a remote
+server's URL and headers, so do not reference those.
+
+The credential policy decides what `aiwg mcp inject` will render:
+
+| Policy | Flag | Renders |
+| --- | --- | --- |
+| `literal` (default) | none | everything |
+| `references` | `--strict-credentials` | references only; refuses literal `env`/`headers`, URL userinfo, OAuth client secrets |
+| `none` | `--no-credentials` | refuses every credential-bearing field, references included |
+
+A refusal names each server and field, exits non-zero and writes nothing, including in `--ephemeral`
+mode. Precedence is the flag, then `AIWG_MCP_CREDENTIAL_POLICY`, then the registry default set with
+`aiwg mcp credential-policy <policy>`. `aiwg session --provider codex --profile <p>` applies the same
+policy to the profile's runtime config.
 
 ## Technical Details
 

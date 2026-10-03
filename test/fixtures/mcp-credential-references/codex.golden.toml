@@ -1,0 +1,14 @@
+[mcp_servers.github]
+command = "github-mcp-server"
+args = ["stdio"]
+env = { LOG_LEVEL = "info" }
+env_vars = ["GITHUB_TOKEN"]
+startup_timeout_sec = 10.0
+tool_timeout_sec = 60.0
+
+[mcp_servers.tracker]
+url = "https://tracker.example/mcp"
+http_headers = { X-Org = "acme" }
+env_http_headers = { Authorization = "TRACKER_AUTHORIZATION" }
+startup_timeout_sec = 10.0
+tool_timeout_sec = 60.0

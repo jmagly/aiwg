@@ -1,0 +1,19 @@
+{
+  "github": {
+    "command": "github-mcp-server",
+    "args": [
+      "stdio"
+    ],
+    "env": {
+      "LOG_LEVEL": "info",
+      "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
+    }
+  },
+  "tracker": {
+    "url": "https://tracker.example/mcp",
+    "headers": {
+      "X-Org": "acme",
+      "Authorization": "${env:TRACKER_AUTHORIZATION}"
+    }
+  }
+}

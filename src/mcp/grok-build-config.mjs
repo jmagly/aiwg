@@ -28,7 +28,11 @@ export function renderGrokMcpServer(server) {
     if (!server.command) throw new Error(`Grok MCP stdio server "${server.name}" requires command`);
     lines.push(`command = ${string(server.command)}`);
     if (server.args?.length) lines.push(`args = [${server.args.map(string).join(', ')}]`);
-    if (server.env && Object.keys(server.env).length) lines.push(`env = ${inline(server.env)}`);
+    const env = { ...(server.env || {}) };
+    for (const [key, envName] of Object.entries(server.envFrom || {})) {
+      env[key] = `\${${envName}}`;
+    }
+    if (Object.keys(env).length) lines.push(`env = ${inline(env)}`);
   } else {
     if (!server.url) throw new Error(`Grok MCP HTTP server "${server.name}" requires url`);
     lines.push(`url = ${string(server.url)}`);
