@@ -10,6 +10,7 @@
  * @implements #889
  */
 
+import { isLowerLayerEntry, loadLayered, resolveProfileExtends, resolveConfigLayers, writeLayerData } from './config-layers.mjs';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { resolve } from 'path';
 import { homedir } from 'os';
@@ -95,8 +96,12 @@ export class McpProfileRegistry {
   #configDir;
   #cache = null;
 
+  #layers;
+  #layering = null;
+
   constructor(configDirOverride) {
-    this.#configDir = resolveConfigDir(configDirOverride);
+    this.#layers = resolveConfigLayers(configDirOverride);
+    this.#configDir = this.#layers ? this.#layers[this.#layers.length - 1] : resolveConfigDir(configDirOverride);
   }
 
   getPath() {
@@ -105,6 +110,13 @@ export class McpProfileRegistry {
 
   async load() {
     if (this.#cache) return this.#cache;
+
+    if (this.#layers) {
+      const layered = await loadLayered(this.#layers, PROFILES_FILENAME, 'profiles', DEFAULT_DATA);
+      this.#cache = layered.data;
+      this.#layering = layered.layering;
+      return this.#cache;
+    }
 
     const filePath = this.getPath();
     try {
@@ -127,7 +139,7 @@ export class McpProfileRegistry {
     await mkdir(this.#configDir, { recursive: true });
     await writeFile(
       this.getPath(),
-      JSON.stringify(this.#cache, null, 2) + '\n',
+      JSON.stringify(this.#layering ? writeLayerData(this.#cache, 'profiles', this.#layering) : this.#cache, null, 2) + '\n',
       'utf-8',
     );
   }
@@ -180,10 +192,12 @@ export class McpProfileRegistry {
     }
 
     await this.#validateServers(profile.servers ?? [], serverRegistry);
+    if (profile.extends?.length) resolveProfileExtends(profile.name, { ...data.profiles, [profile.name]: profile });
 
     data.profiles[profile.name] = {
       name: profile.name,
       description: profile.description,
+      ...(profile.extends ? { extends: profile.extends } : {}),
       servers: profile.servers ?? [],
       providerOverrides: profile.providerOverrides ?? {},
       createdAt: new Date().toISOString(),
@@ -197,6 +211,16 @@ export class McpProfileRegistry {
   async get(name) {
     const data = await this.load();
     return data.profiles[name];
+  }
+
+  /**
+   * Return a profile with its `extends` chain applied across all configuration
+   * layers. Use get() for the profile exactly as stored.
+   */
+  async resolve(name) {
+    const data = await this.load();
+    if (!data.profiles[name]) return undefined;
+    return resolveProfileExtends(name, data.profiles);
   }
 
   /** List all profiles */
@@ -244,6 +268,9 @@ export class McpProfileRegistry {
     if (!data.profiles[name]) {
       throw new Error(`Profile "${name}" not found.`);
     }
+    if (this.#layering && isLowerLayerEntry(this.#layering, name)) {
+      throw new Error(`Profile "${name}" is defined in a lower configuration layer; remove it there.`);
+    }
     delete data.profiles[name];
     await this.save();
   }
@@ -253,7 +280,7 @@ export class McpProfileRegistry {
    * If the profile contains '__all__', expand to all servers in serverRegistry.
    */
   async resolveServers(name, serverRegistry) {
-    const profile = await this.get(name);
+    const profile = await this.resolve(name);
     if (!profile) {
       throw new Error(`Profile "${name}" not found.`);
     }
@@ -305,6 +332,7 @@ export class McpProfileRegistry {
         data.profiles[name] = {
           name,
           description: profile.description,
+          ...(profile.extends ? { extends: profile.extends } : {}),
           servers: profile.servers ?? [],
           providerOverrides: profile.providerOverrides ?? {},
           createdAt: new Date().toISOString(),

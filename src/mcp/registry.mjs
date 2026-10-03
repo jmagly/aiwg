@@ -1,3 +1,4 @@
+import { isLowerLayerEntry, loadLayered, resolveConfigLayers, writeLayerData } from './config-layers.mjs';
 import { manageOmpMcp } from './omp-config.mjs';
 import { manageGrokBuildMcp } from './grok-build-config.mjs';
 import { replaceServer } from './toml-editor.mjs';
@@ -79,8 +80,12 @@ export class McpServerRegistry {
   #configDir;
   #cache = null;
 
+  #layers;
+  #layering = null;
+
   constructor(configDirOverride) {
-    this.#configDir = resolveConfigDir(configDirOverride);
+    this.#layers = resolveConfigLayers(configDirOverride);
+    this.#configDir = this.#layers ? this.#layers[this.#layers.length - 1] : resolveConfigDir(configDirOverride);
   }
 
   getPath() {
@@ -89,6 +94,13 @@ export class McpServerRegistry {
 
   async load() {
     if (this.#cache) return this.#cache;
+
+    if (this.#layers) {
+      const layered = await loadLayered(this.#layers, REGISTRY_FILENAME, 'servers', DEFAULT_REGISTRY);
+      this.#cache = layered.data;
+      this.#layering = layered.layering;
+      return this.#cache;
+    }
 
     const filePath = this.getPath();
     try {
@@ -110,7 +122,7 @@ export class McpServerRegistry {
     if (!this.#cache) return;
     await mkdir(this.#configDir, { recursive: true });
     const filePath = this.getPath();
-    await writeFile(filePath, JSON.stringify(this.#cache, null, 2) + '\n', 'utf-8');
+    await writeFile(filePath, JSON.stringify(this.#layering ? writeLayerData(this.#cache, 'servers', this.#layering) : this.#cache, null, 2) + '\n', 'utf-8');
   }
 
   async add(def) {
@@ -138,6 +150,9 @@ export class McpServerRegistry {
       throw new Error(`Server "${name}" not found.`);
     }
 
+    if (this.#layering && isLowerLayerEntry(this.#layering, name)) {
+      throw new Error(`Server "${name}" is defined in a lower configuration layer; remove it there.`);
+    }
     delete data.servers[name];
     await this.save();
   }
@@ -206,10 +221,25 @@ export class McpServerRegistry {
 // Provider injection logic
 // ============================================
 
-function buildServerConfig(server, provider) {
+export function buildServerConfig(server, provider) {
   const mcpDefinition = getMcpInjectionDefinition(provider);
 
   switch (mcpDefinition?.serverConfigFormat) {
+    case 'claude-code': {
+      if (server.type === 'stdio') {
+        return {
+          command: server.command,
+          args: server.args || [],
+          ...(server.env ? { env: server.env } : {}),
+        };
+      }
+      // Claude Code skips a url entry that has no type.
+      return {
+        type: server.type,
+        url: server.url,
+        ...(server.headers ? { headers: server.headers } : {}),
+      };
+    }
     case 'antigravity': {
       if (server.type === 'stdio') {
         return { command: server.command, args: server.args || [], ...(server.env ? { env: server.env } : {}) };

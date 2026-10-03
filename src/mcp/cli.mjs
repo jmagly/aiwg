@@ -12,6 +12,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import {
   McpServerRegistry,
+  buildServerConfig,
   injectServers,
   SUPPORTED_PROVIDERS,
   getProviderConfigPath,
@@ -101,7 +102,7 @@ async function generateConfig(target, projectDir = '.') {
 
   const configs = {
     claude: {
-      path: path.join(projectDir, '.claude/settings.local.json'),
+      path: path.join(projectDir, '.mcp.json'),
       content: {
         mcpServers: {
           aiwg: {
@@ -674,7 +675,7 @@ async function handleInject(args) {
   let serverFilter;
   if (profileName) {
     const profiles = new McpProfileRegistry();
-    const profile = await profiles.get(profileName);
+    const profile = await profiles.resolve(profileName);
     if (!profile) {
       const all = await profiles.list();
       console.error(`Profile "${profileName}" not found.`);
@@ -752,16 +753,7 @@ async function handleInject(args) {
           console.log(`  Use "aiwg session --provider codex --profile ${profileName}" instead.`);
           continue;
         }
-        const cfg = {};
-        if (server.type === 'stdio') {
-          cfg.command = server.command;
-          cfg.args = server.args || [];
-          if (server.env) cfg.env = server.env;
-        } else {
-          cfg.url = server.url;
-          if (server.headers) cfg.headers = server.headers;
-        }
-        mcpBlock[server.name] = cfg;
+        mcpBlock[server.name] = buildServerConfig(server, p);
       }
 
       if (Object.keys(mcpBlock).length === 0) continue;
@@ -825,7 +817,7 @@ function printProfileUsage() {
 aiwg mcp profile — MCP server profiles (named server subsets)
 
 Usage:
-  aiwg mcp profile add <name> --servers a,b,c [--description "..."]
+  aiwg mcp profile add <name> --servers a,b,c [--extends base,...] [--description "..."]
   aiwg mcp profile list
   aiwg mcp profile show <name>
   aiwg mcp profile edit <name> [--add-server x] [--remove-server y] [--description "..."]
@@ -839,6 +831,14 @@ Profiles let you define named subsets of your registered MCP servers:
   aiwg mcp profile show dev
   aiwg mcp inject --provider claude --profile dev --ephemeral
   aiwg session --provider claude --profile dev
+
+Layered configuration (organisation base, identity overlay):
+  AIWG_CONFIG_LAYERS=/etc/aiwg/org:/home/me/.aiwg/acme aiwg mcp inject \
+    --provider claude --profile acme-dev --ephemeral --out /tmp/acme.json
+  Directories are listed lowest precedence first (path delimiter separated).
+  A server or profile in a later layer replaces one of the same name in an
+  earlier layer. Writes go to the last layer. --extends lets a profile inherit
+  another profile's servers and tool filters from any layer.
 
 Preset profiles (minimal, dev, ops, research, incident, full):
   aiwg mcp profile init-presets
@@ -858,8 +858,10 @@ async function handleProfileAdd(args) {
 
   const serversStr = parseFlag(args, '--servers');
   const description = parseFlag(args, '--description');
+  const extendsStr = parseFlag(args, '--extends');
+  const bases = extendsStr ? extendsStr.split(',').map(s => s.trim()).filter(Boolean) : undefined;
 
-  if (!serversStr && name !== 'minimal') {
+  if (!serversStr && !bases && name !== 'minimal') {
     console.error('Warning: no --servers specified. Profile will start empty.');
   }
 
@@ -868,7 +870,7 @@ async function handleProfileAdd(args) {
   const profiles = new McpProfileRegistry();
   const registry = new McpServerRegistry();
 
-  await profiles.add({ name, description, servers }, registry);
+  await profiles.add({ name, description, servers, ...(bases ? { extends: bases } : {}) }, registry);
 
   console.log(`Profile added: ${name}`);
   if (description) console.log(`  Description: ${description}`);
@@ -924,6 +926,11 @@ async function handleProfileShow(args) {
 
   console.log(`Profile: ${profile.name}`);
   if (profile.description) console.log(`Description: ${profile.description}`);
+  if (profile.extends?.length) {
+    console.log(`Extends: ${profile.extends.join(', ')}`);
+    const resolved = await profiles.resolve(name);
+    console.log(`Resolved servers: ${resolved.servers.join(', ') || '(none)'}`);
+  }
   console.log(`\nServers (${profile.servers.length}):`);
 
   if (profile.servers.length === 0) {
@@ -1152,7 +1159,7 @@ export async function main(args = process.argv.slice(2)) {
         console.log(`[DRY RUN] Would generate MCP config for: ${target}`);
         console.log(`[DRY RUN] Target directory: ${projectDir}`);
         const configPaths = {
-          claude: '.claude/settings.local.json',
+          claude: '.mcp.json',
           cursor: '.cursor/mcp.json',
           factory: (projectDir === '.' || projectDir === 'global')
             ? path.join(homeDir, '.factory/mcp.json')

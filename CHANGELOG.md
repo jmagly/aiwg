@@ -7,6 +7,21 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Added
+
+- `AIWG_CONFIG_LAYERS` reads MCP servers and profiles from several configuration directories, lowest
+  precedence first, so an organisation base and a per-identity overlay can be kept apart. Writes go to
+  the last directory only. Profiles gain `extends` (`aiwg mcp profile add --extends`), resolved across
+  layers by `aiwg mcp inject --profile`, including `--ephemeral`.
+
+### Fixed
+
+- `aiwg mcp inject --provider claude` and `aiwg mcp install claude` now write project MCP servers to
+  `.mcp.json`. They previously wrote `mcpServers` into `.claude/settings.local.json`, which Claude Code
+  does not read, so injected servers never loaded. `--scope user` writes `~/.claude.json`. HTTP and SSE
+  entries now carry `type`, without which Claude Code skips a `url` entry. `--ephemeral` output now uses
+  each provider's own entry shape instead of a generic one.
+
 ## [2026.10.0] - 2026-10-02 - "Muse Code stable, gates and decision studies"
 
 ### Changed

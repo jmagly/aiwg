@@ -77,7 +77,12 @@ These prompts are auto-integrated and available in compatible tools.
 
 `aiwg mcp install claude` configures **Claude Code** — the CLI and Claude
 Desktop's Code tab, which share project configuration. After running it, the
-config is placed at `.claude/settings.local.json` in the project directory.
+config is placed at `.mcp.json` in the project directory, which is where Claude
+Code reads project-scoped MCP servers. `aiwg mcp inject --provider claude
+--scope user` writes the top-level `mcpServers` of `~/.claude.json` instead.
+Claude Code does not read `mcpServers` from `.claude/settings.json` or
+`.claude/settings.local.json`; entries that earlier AIWG releases wrote there
+were never loaded and can be deleted.
 
 This is distinct from the Claude Desktop **chat app** (the Cowork surface),
 which reads MCP servers from its own `claude_desktop_config.json`
@@ -106,6 +111,32 @@ If automatic installation doesn't work, add this to your MCP config:
   }
 }
 ```
+
+## Layered Configuration
+
+`AIWG_CONFIG_LAYERS` lists configuration directories, lowest precedence first, separated by the
+platform path delimiter (`:` on Linux and macOS, `;` on Windows). Each directory may hold
+`mcp-servers.json` and `mcp-profiles.json`. Use it to keep an organisation's servers and profiles in
+one directory and a person's overlay for that organisation in another:
+
+```bash
+export AIWG_CONFIG_LAYERS=/etc/aiwg/acme:$HOME/.aiwg/acme-identity
+aiwg mcp profile add acme-dev --extends acme-base --servers tracker
+aiwg mcp inject --provider claude --profile acme-dev --ephemeral --out /tmp/acme-dev.json
+```
+
+| Rule | Behaviour |
+| --- | --- |
+| Precedence | A server or profile in a later layer replaces the entry of the same name in an earlier one, whole |
+| Writes | `add`, `update`, `profile add/edit` and injection records go to the last layer only |
+| Lower-layer entries | Updating one copies it into the last layer; removing one is refused |
+| `extends` | A profile inherits the servers of each base profile (base first), from any layer |
+| Tool filters under `extends` | `toolDeny` accumulates along the chain; `toolAllow` comes from the most-derived profile that sets it |
+| Set | `AIWG_CONFIG` is ignored for MCP servers and profiles |
+| Unset | `AIWG_CONFIG` or `~/.aiwg` is the single directory, as before |
+
+Injection records (`injectedProviders`, used by `inject --all`) for a server defined in a lower layer
+are not persisted, so that the last layer holds no copy of an unchanged organisation entry.
 
 ## Technical Details
 

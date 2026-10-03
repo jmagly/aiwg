@@ -1,3 +1,4 @@
+import { isLowerLayerEntry, loadLayered, resolveConfigLayers, writeLayerData } from './config-layers.mjs';
 import { manageOmpMcp } from './omp-config.mjs';
 import { manageGrokBuildMcp } from './grok-build-config.mjs';
 import { replaceServer } from './toml-editor.mjs';
@@ -127,8 +128,13 @@ export class McpServerRegistry {
   private readonly configDir: string;
   private cache: McpRegistryData | null = null;
 
+  /** Configuration layers, lowest precedence first; null for a single directory */
+  private readonly layers: string[] | null;
+  private layering: { lower: Map<string, string>; own: Set<string> } | null = null;
+
   constructor(configDirOverride?: string) {
-    this.configDir = resolveConfigDir(configDirOverride);
+    this.layers = resolveConfigLayers(configDirOverride);
+    this.configDir = this.layers ? this.layers[this.layers.length - 1] : resolveConfigDir(configDirOverride);
   }
 
   /** Get the registry file path */
@@ -139,6 +145,13 @@ export class McpServerRegistry {
   /** Load the registry from disk */
   async load(): Promise<McpRegistryData> {
     if (this.cache) return this.cache;
+
+    if (this.layers) {
+      const layered = await loadLayered(this.layers, REGISTRY_FILENAME, 'servers', DEFAULT_REGISTRY);
+      this.cache = layered.data;
+      this.layering = layered.layering;
+      return this.cache!;
+    }
 
     const filePath = this.getPath();
     try {
@@ -161,7 +174,7 @@ export class McpServerRegistry {
     if (!this.cache) return;
     await mkdir(this.configDir, { recursive: true });
     const filePath = this.getPath();
-    await writeFile(filePath, JSON.stringify(this.cache, null, 2) + '\n', 'utf-8');
+    await writeFile(filePath, JSON.stringify(this.layering ? writeLayerData(this.cache, 'servers', this.layering) : this.cache, null, 2) + '\n', 'utf-8');
   }
 
   /** Add a new MCP server definition */
@@ -191,6 +204,9 @@ export class McpServerRegistry {
       throw new Error(`Server "${name}" not found.`);
     }
 
+    if (this.layering && isLowerLayerEntry(this.layering, name)) {
+      throw new Error(`Server "${name}" is defined in a lower configuration layer; remove it there.`);
+    }
     delete data.servers[name];
     await this.save();
   }
@@ -268,7 +284,7 @@ export class McpServerRegistry {
 /**
  * Build the MCP config block for a single server in a given provider's format.
  */
-function buildServerConfig(
+export function buildServerConfig(
   server: McpServerDefinition,
   provider: InjectProvider,
 ): Record<string, unknown> {
@@ -288,8 +304,9 @@ function buildServerConfig(
           ...(server.env ? { env: server.env } : {}),
         };
       }
-      // http/sse
+      // Claude Code skips a url entry that has no type.
       return {
+        type: server.type,
         url: server.url,
         ...(server.headers ? { headers: server.headers } : {}),
       };
@@ -418,6 +435,9 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     return resolve(homeDir, '.gemini/config/mcp_config.json');
   }
+  if ((provider === 'claude-code' || provider === 'claude') && options.scope === 'user') {
+    return resolve(process.env.HOME || process.env.USERPROFILE || '', '.claude.json');
+  }
   if ((provider === 'omp' || provider === 'oh-my-pi') && options.scope !== undefined && !['user', 'project'].includes(options.scope)) throw new Error('OMP MCP scope must be user or project');
   if ((provider === 'omp' || provider === 'oh-my-pi') && options.scope === 'user') return resolve(resolveOmpPaths().agentDir, 'mcp.json');
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
@@ -427,8 +447,8 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
     agy: resolve(projectDir, '.agents/mcp_config.json'),
     omp: resolve(projectDir, '.omp/mcp.json'),
     'oh-my-pi': resolve(projectDir, '.omp/mcp.json'),
-    'claude-code': resolve(projectDir, '.claude/settings.local.json'),
-    claude: resolve(projectDir, '.claude/settings.local.json'),
+    'claude-code': resolve(projectDir, '.mcp.json'),
+    claude: resolve(projectDir, '.mcp.json'),
     cursor: resolve(projectDir, '.cursor/mcp.json'),
     factory: resolve(homeDir, '.factory/mcp.json'),
     codex: resolve(homeDir, '.codex/config.toml'),
