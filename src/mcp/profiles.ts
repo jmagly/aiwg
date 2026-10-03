@@ -49,6 +49,10 @@ export interface ProfileEditChanges {
   description?: string;
   addServers?: string[];
   removeServers?: string[];
+  /** Tool patterns to add, keyed by provider ('*' for every provider) */
+  providerOverrides?: Record<string, McpProfileProviderOverride>;
+  /** Provider key whose tool filters are removed */
+  clearToolFilters?: string;
 }
 
 // ─────────────────────────────────────────────
@@ -239,6 +243,24 @@ export class McpProfileRegistry {
       current.servers = current.servers.filter(
         (s) => !(changes.removeServers ?? []).includes(s),
       );
+    }
+
+    if (changes.clearToolFilters) {
+      const overrides = { ...(current.providerOverrides ?? {}) };
+      delete overrides[changes.clearToolFilters];
+      current.providerOverrides = overrides;
+    }
+
+    for (const [provider, override] of Object.entries(changes.providerOverrides ?? {})) {
+      const overrides = { ...(current.providerOverrides ?? {}) };
+      const previous = overrides[provider] ?? {};
+      const merge = (before: string[] | undefined, added: string[] | undefined) => (added ? [...new Set([...(before ?? []), ...added])] : before);
+      overrides[provider] = {
+        ...previous,
+        ...(override.toolDeny ? { toolDeny: merge(previous.toolDeny, override.toolDeny) } : {}),
+        ...(override.toolAllow ? { toolAllow: merge(previous.toolAllow, override.toolAllow) } : {}),
+      };
+      current.providerOverrides = overrides;
     }
 
     current.updatedAt = new Date().toISOString();

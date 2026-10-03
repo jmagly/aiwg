@@ -1,0 +1,6 @@
+{
+  "files": {
+    "project/opencode.json": "{\n  \"mcp\": {\n    \"tracker\": {\n      \"type\": \"remote\",\n      \"url\": \"https://tracker.example/mcp\"\n    },\n    \"files\": {\n      \"type\": \"local\",\n      \"command\": [\n        \"files-mcp\"\n      ]\n    }\n  },\n  \"tools\": {\n    \"tracker_*\": false,\n    \"tracker_list_issues\": true,\n    \"tracker_get_*\": true,\n    \"tracker_delete_issue\": false,\n    \"tracker_admin_*\": false,\n    \"files_*\": false\n  }\n}\n"
+  },
+  "warnings": []
+}

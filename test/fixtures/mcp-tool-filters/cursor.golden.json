@@ -1,0 +1,8 @@
+{
+  "files": {
+    "project/.cursor/mcp.json": "{\n  \"mcpServers\": {\n    \"tracker\": {\n      \"url\": \"https://tracker.example/mcp\"\n    },\n    \"files\": {\n      \"command\": \"files-mcp\",\n      \"args\": []\n    }\n  }\n}\n"
+  },
+  "warnings": [
+    "cursor: tool filters are not rendered; cursor documents no per-tool filter in its MCP config."
+  ]
+}

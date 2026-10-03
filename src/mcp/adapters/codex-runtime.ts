@@ -21,6 +21,7 @@ import { homedir } from 'os';
 import { existsSync } from 'fs';
 import { spawnSync, type SpawnSyncReturns } from 'child_process';
 import type { McpServerDefinition } from '../registry.js';
+import { planToolFilters, type ToolFilters } from '../tool-filters.mjs';
 
 // ─────────────────────────────────────────────
 // Types
@@ -120,7 +121,11 @@ export async function ensureRuntimeHome(
 export async function writeProfileConfig(
   profile: string,
   servers: McpServerDefinition[],
-): Promise<void> {
+  options: { toolFilters?: ToolFilters } = {},
+): Promise<string[]> {
+  const toolPlan = options.toolFilters
+    ? planToolFilters('codex', servers.map((server) => server.name), options.toolFilters)
+    : null;
   const rtHome = runtimeHomePath(profile);
   await mkdir(rtHome, { recursive: true });
 
@@ -162,6 +167,7 @@ export async function writeProfileConfig(
     }
     lines.push(`startup_timeout_sec = 10.0`);
     lines.push(`tool_timeout_sec = 60.0`);
+    lines.push(...(toolPlan?.tomlLines[server.name] ?? []));
     mcpSections.push(lines.join('\n'));
   }
 
@@ -171,6 +177,7 @@ export async function writeProfileConfig(
     '\n';
 
   await writeFile(runtimeConfigPath(profile), configContent, 'utf-8');
+  return toolPlan?.warnings ?? [];
 }
 
 /**

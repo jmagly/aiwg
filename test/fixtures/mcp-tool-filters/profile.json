@@ -1,0 +1,18 @@
+{
+  "name": "triage",
+  "servers": ["tracker", "files"],
+  "providerOverrides": {
+    "*": {
+      "toolDeny": ["tracker__delete_issue", "tracker__admin_*", "files__*"]
+    },
+    "codex": {
+      "toolAllow": ["tracker__list_issues", "tracker__get_issue", "tracker__delete_issue"]
+    },
+    "claude": {
+      "toolAllow": ["tracker__list_issues"]
+    },
+    "opencode": {
+      "toolAllow": ["tracker__list_issues", "tracker__get_*"]
+    }
+  }
+}

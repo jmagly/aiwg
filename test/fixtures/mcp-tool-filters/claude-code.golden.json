@@ -1,0 +1,9 @@
+{
+  "files": {
+    "project/.claude/settings.local.json": "{\n  \"permissions\": {\n    \"deny\": [\n      \"mcp__tracker__delete_issue\",\n      \"mcp__tracker__admin_*\",\n      \"mcp__files\"\n    ],\n    \"allow\": [\n      \"mcp__tracker__list_issues\"\n    ]\n  }\n}\n",
+    "project/.mcp.json": "{\n  \"mcpServers\": {\n    \"tracker\": {\n      \"type\": \"http\",\n      \"url\": \"https://tracker.example/mcp\"\n    },\n    \"files\": {\n      \"command\": \"files-mcp\",\n      \"args\": []\n    }\n  }\n}\n"
+  },
+  "warnings": [
+    "claude-code: toolAllow renders as permissions.allow, which pre-approves those tools; Claude Code has no MCP tool allowlist, so tools outside it stay available behind a permission prompt."
+  ]
+}

@@ -429,7 +429,11 @@ export const sessionHandler: CommandHandler = {
           const registry = new McpServerRegistry();
           const resolvedServers = await profiles.resolveServers(profile, registry) as import('../../mcp/registry.js').McpServerDefinition[];
           await ensureRuntimeHome(profile);
-          await writeProfileConfig(profile, resolvedServers);
+          const { resolveToolFilters } = await import('../../mcp/tool-filters.mjs');
+          const warnings = await writeProfileConfig(profile, resolvedServers, {
+            toolFilters: resolveToolFilters(await profiles.get(profile), 'codex'),
+          });
+          for (const warning of warnings) console.warn(`  WARN  codex: ${warning}`);
           console.log(`  Runtime home ready. Profile servers: ${resolvedServers.map((s) => s.name).join(', ') || '(none)'}`);
           mcpInjected = true;
         } catch (err) {
