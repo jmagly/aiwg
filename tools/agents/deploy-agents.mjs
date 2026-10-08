@@ -11,6 +11,8 @@
  * Options:
  *   --source <path>          Source directory (defaults to repo root)
  *   --target <path>          Target directory (defaults to cwd)
+ *   --scope <user|project>   Deployment scope (default: project)
+ *   --user                  Shorthand for --scope user
  *   --mode <type>            Deployment mode: general, sdlc, marketing (alias: mmk), media-curator, research, both, or all (default)
  *   --deploy-commands        Deploy commands in addition to agents
  *   --deploy-skills          Deploy skills in addition to agents
@@ -472,10 +474,10 @@ function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explicitSource
 // Argument Parsing
 // ============================================================================
 
-function parseArgs() {
-  const args = process.argv.slice(2);
+export function parseArgs(args = process.argv.slice(2)) {
   const cfg = {
     source: null,
+    userScope: false,
     target: process.cwd(),
     mode: 'all',  // 'general', 'sdlc', 'marketing', 'media-curator', 'research', 'both' (legacy), or 'all'
     dryRun: false,
@@ -521,6 +523,14 @@ function parseArgs() {
     if (a === '--source' && args[i + 1]) cfg.source = path.resolve(args[++i]);
     else if (a === '--target' && args[i + 1]) cfg.target = path.resolve(args[++i]);
     else if (a === '--mode' && args[i + 1]) cfg.mode = String(args[++i]).toLowerCase();
+    else if (a === '--scope') {
+      const scope = args[++i];
+      if (scope !== 'user' && scope !== 'project') {
+        throw new Error(`--scope expected 'user' or 'project', got '${scope ?? '(missing)'}'`);
+      }
+      cfg.userScope = scope === 'user';
+    }
+    else if (a === '--user') cfg.userScope = true;
     else if (a === '--dry-run') cfg.dryRun = true;
     else if (a === '--force') cfg.force = true;
     else if ((a === '--provider' || a === '--platform') && args[i + 1]) cfg.provider = String(args[++i]).toLowerCase();
@@ -577,6 +587,8 @@ Usage:
 Options:
   --source <path>          Source directory (defaults to repo root)
   --target <path>          Target directory (defaults to cwd)
+  --scope <user|project>   Deployment scope (default: project)
+  --user                  Shorthand for --scope user
   --mode <type>            Deployment mode: general, sdlc, marketing (alias: mmk), media-curator, research, both, or all (default)
   --deploy-commands        Deploy commands in addition to agents
   --deploy-skills          Deploy skills in addition to agents
@@ -1000,6 +1012,7 @@ export async function main() {
   const opts = {
     srcRoot,
     target: cfg.target,
+    ...(cfg.userScope ? { userScope: true } : {}),
     mode: cfg.mode,
     // Provider aliases are selectors, not artifact identities. Passing the
     // canonical id keeps generated frontmatter byte-identical for devin,

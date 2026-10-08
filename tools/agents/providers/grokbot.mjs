@@ -127,21 +127,18 @@ export function deployRules() {
 }
 
 /**
- * Deploy skills only when AIWG_GROKBOT_SKILLS_DIR is configured.
+ * Deploy skills only at user scope with AIWG_GROKBOT_SKILLS_DIR configured.
  * Kernel → configured root; standard → index/discovery unless --copy-all
  * (then `<root>/.aiwg/skills`).
  */
 export function deploySkills(skillDirs, targetDir, opts = {}) {
-  const root = resolveGrokbotSkillsDir(opts.env || process.env);
-  if (!root) {
+  if (opts.userScope !== true && opts.scope !== 'user') {
     if (!opts.quiet) {
-      console.log(
-        `\n  Grok Bot: skipping native skill copy (${SKILLS_DIR_ENV} unset). ` +
-          'Skills remain available via aiwg discover / aiwg show.',
-      );
+      console.log('\n  Grok Bot: project bridge only; native skills require --scope user.');
     }
     return 0;
   }
+  const root = assertUserScopeConfigured(opts);
 
   if (root.includes(`${path.sep}.cursor${path.sep}`) || root.endsWith(`${path.sep}.cursor`) || root.includes('/.cursor/') || root.endsWith('/.cursor')) {
     throw new Error(
@@ -178,14 +175,14 @@ export async function postDeploy(targetDir, opts = {}) {
   }
   if (!opts.quiet) {
     const root = resolveGrokbotSkillsDir(opts.env || process.env);
-    if (root) {
+    if (root && (opts.userScope === true || opts.scope === 'user')) {
       console.log(
         'Grok Bot: after deploy, start a new agent chat or re-read skills. ' +
           'Live refresh is not claimed until product behavior is verified.',
       );
     } else {
       console.log(
-        `Grok Bot: project bridge only. Set ${SKILLS_DIR_ENV} for user-scope skill deploy.`,
+        `Grok Bot: project bridge only. Use --scope user with ${SKILLS_DIR_ENV} for native skills.`,
       );
     }
   }
@@ -197,7 +194,7 @@ export function getFileExtension() {
 
 /**
  * Assert user-scope is allowed. Called when the orchestrator is mirroring
- * to user scope or when opts.scope === 'user'.
+ * to user scope or when opts.userScope === true / opts.scope === 'user'.
  */
 export function assertUserScopeConfigured(opts = {}) {
   const root = resolveGrokbotSkillsDir(opts.env || process.env);
@@ -227,7 +224,9 @@ export async function deploy(opts = {}) {
     console.log(`Mode: ${mode}`);
     const root = resolveGrokbotSkillsDir(opts.env || process.env);
     console.log(
-      `Skills root: ${root || `(unset — set ${SKILLS_DIR_ENV} for user-scope writes)`}`,
+      (opts.userScope === true || scope === 'user')
+        ? `User skills root: ${root || `(unset — set ${SKILLS_DIR_ENV})`}`
+        : 'Skills: project bridge only (no native skill writes)',
     );
     if (opts.dryRun) console.log('Dry-run: no filesystem mutations');
   }

@@ -102,7 +102,7 @@ function codexListingStats(root: string): { count: number; totalChars: number } 
 
 function deploy(
   provider: string,
-  options: { copyAll?: boolean; dryRun?: boolean; suffix?: string } = {},
+  options: { copyAll?: boolean; dryRun?: boolean; suffix?: string; projectScope?: boolean } = {},
 ): { project: string; home: string } {
   const suffix = options.suffix ? `-${options.suffix}` : '';
   const project = join(TEST_ROOT, `${provider}${suffix}-project`);
@@ -118,6 +118,8 @@ function deploy(
     '--quiet',
     ...(options.copyAll ? ['--copy-all'] : []),
     ...(options.dryRun ? ['--dry-run'] : []),
+    // #284: the Grok Bot skill root is user scope only.
+    ...(provider === 'grokbot' && !options.projectScope ? ['--scope', 'user'] : []),
   ], { timeout: 60_000,
     cwd: REPO_ROOT,
     // #2119: pin HERMES_HOME to the fake home too. Without this, a HERMES_HOME
@@ -316,6 +318,12 @@ describe('kernel deployment conformance', () => {
 });
 
 describe('grokbot fail-closed kernel deploy (#219)', () => {
+  it('project-scope deploy leaves a configured AIWG_GROKBOT_SKILLS_DIR untouched (#284)', () => {
+    const { project, home } = deploy('grokbot', { suffix: 'project-scope', projectScope: true });
+    expect(existsSync(join(home, 'configured-grokbot-skills'))).toBe(false);
+    expect(skillDirs(project)).toEqual([]);
+  });
+
   it('does not invent ~/grokbot-skills when AIWG_GROKBOT_SKILLS_DIR is unset', () => {
     const project = join(TEST_ROOT, 'grokbot-unset');
     const home = join(TEST_ROOT, 'grokbot-unset-home');

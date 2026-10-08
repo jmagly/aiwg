@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   collectModelOverrideDeployArgs,
   collectUseModelDeployArgs,
+  collectUseScopeDeployArgs,
   resolveUseWrapperModelExpectations,
 } from '../../../../src/cli/handlers/use.js';
 
@@ -52,5 +53,16 @@ describe('use model option parity', () => {
       coding: 'catalog-efficiency',
       efficiency: 'catalog-efficiency',
     });
+  });
+});
+
+describe('use scope deploy arguments', () => {
+  it.each([['--scope', 'user'], ['--user']])('normalizes user scope %j', (...args) => {
+    expect(collectUseScopeDeployArgs(args)).toEqual(['--scope', 'user']);
+  });
+
+  it('keeps project deploys at project scope', () => {
+    expect(collectUseScopeDeployArgs([])).toEqual([]);
+    expect(collectUseScopeDeployArgs(['--scope', 'project'])).toEqual([]);
   });
 });
