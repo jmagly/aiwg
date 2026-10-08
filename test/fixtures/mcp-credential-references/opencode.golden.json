@@ -1,0 +1,21 @@
+{
+  "github": {
+    "type": "local",
+    "command": [
+      "github-mcp-server",
+      "stdio"
+    ],
+    "environment": {
+      "LOG_LEVEL": "info",
+      "GITHUB_TOKEN": "{env:GITHUB_TOKEN}"
+    }
+  },
+  "tracker": {
+    "type": "remote",
+    "url": "https://tracker.example/mcp",
+    "headers": {
+      "X-Org": "acme",
+      "Authorization": "{env:TRACKER_AUTHORIZATION}"
+    }
+  }
+}

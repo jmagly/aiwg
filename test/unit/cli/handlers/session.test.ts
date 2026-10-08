@@ -11,6 +11,7 @@ import type { HandlerContext } from '../../../../src/cli/handlers/types.js';
 
 const {
   mockSpawnSync,
+  mockExistsSync,
   mockForceUpdateCheck,
   mockUpdateInstallation,
   mockReadAiwgConfig,
@@ -19,8 +20,15 @@ const {
   mockIsSpawnableProvider,
   mockGetFrameworkRoot,
   mockUseExecute,
+  mockResolveServers,
+  mockGetProfile,
+  mockCredentialPolicy,
+  mockEnsureRuntimeHome,
+  mockWriteProfileConfig,
+  mockLaunchWithProfile,
 } = vi.hoisted(() => ({
   mockSpawnSync: vi.fn(),
+  mockExistsSync: vi.fn(),
   mockForceUpdateCheck: vi.fn().mockResolvedValue(undefined),
   mockUpdateInstallation: vi.fn().mockResolvedValue({ status: 'updated' }),
   mockReadAiwgConfig: vi.fn().mockResolvedValue(null),
@@ -33,11 +41,37 @@ const {
   mockIsSpawnableProvider: vi.fn().mockReturnValue(true),
   mockGetFrameworkRoot: vi.fn().mockResolvedValue('/mock/framework/root'),
   mockUseExecute: vi.fn().mockResolvedValue({ exitCode: 0 }),
+  mockResolveServers: vi.fn(),
+  mockGetProfile: vi.fn(),
+  mockCredentialPolicy: vi.fn(),
+  mockEnsureRuntimeHome: vi.fn(),
+  mockWriteProfileConfig: vi.fn(),
+  mockLaunchWithProfile: vi.fn(),
+}));
+
+vi.mock('../../../../src/mcp/profiles.js', () => ({
+  McpProfileRegistry: class { resolveServers = mockResolveServers; get = mockGetProfile; },
+}));
+vi.mock('../../../../src/mcp/registry.js', () => ({
+  McpServerRegistry: class { getCredentialPolicy = mockCredentialPolicy; },
+}));
+vi.mock('../../../../src/mcp/adapters/codex-runtime.js', () => ({
+  ensureRuntimeHome: mockEnsureRuntimeHome,
+  writeProfileConfig: mockWriteProfileConfig,
+  launchWithProfile: mockLaunchWithProfile,
 }));
 
 vi.mock('child_process', () => ({
   spawnSync: mockSpawnSync,
 }));
+
+vi.mock('node:fs', async importOriginal => {
+  const original = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...original,
+    existsSync: (path: import('node:fs').PathLike) => mockExistsSync(path) ?? original.existsSync(path),
+  };
+});
 
 vi.mock('../../../../src/update/checker.mjs', () => ({
   forceUpdateCheck: mockForceUpdateCheck,
@@ -50,7 +84,7 @@ vi.mock('../../../../src/update/service.mjs', () => ({
 vi.mock('../../../../src/config/aiwg-config.js', () => ({
   readAiwgConfig: mockReadAiwgConfig,
   getDeploymentSummary: mockGetDeploymentSummary,
-  VALID_PROVIDERS: ['claude', 'codex', 'cursor', 'windsurf', 'copilot', 'opencode', 'factory', 'warp', 'openclaw', 'hermes'],
+  VALID_PROVIDERS: ['claude', 'codex', 'openai', 'cursor', 'windsurf', 'copilot', 'opencode', 'factory', 'warp', 'openclaw', 'hermes'],
 }));
 
 vi.mock('../../../../src/cli/agent-spawn.js', () => ({
@@ -97,6 +131,195 @@ function setupHappyPath(): void {
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
+
+describe('sessionHandler Claude profile permissions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappyPath();
+    mockReadAiwgConfig.mockResolvedValue(null);
+    mockGetProviderConfig.mockReturnValue({ name: 'Claude Code', binary: 'claude', guidanceMessage: null });
+    mockIsSpawnableProvider.mockReturnValue(true);
+    mockResolveServers.mockResolvedValue([{ name: 'git', type: 'stdio', command: 'git-mcp' }]);
+    mockGetProfile.mockResolvedValue({ providerOverrides: { claude: { toolDeny: ['git__delete'] } } });
+    mockExistsSync.mockReturnValue(undefined);
+  });
+
+  it('launches with the generated MCP config and permission settings sidecar', async () => {
+    mockExistsSync.mockImplementation(path => String(path).includes('aiwg-mcp-') ? true : undefined);
+    mockSpawnSync.mockImplementation((_command, args) => {
+      if (args?.includes('inject')) {
+        const outputPath = args[args.indexOf('--out') + 1];
+        return { status: 0, stdout: `  Tool permissions: ${outputPath.replace(/\.json$/, '.settings.json')}\n` };
+      }
+      return { status: 0 };
+    });
+    const result = await sessionHandler.execute(makeCtx(['--provider', 'claude', '--profile', 'safe', '--no-repair']));
+    expect(result.exitCode).toBe(0);
+    const injection = mockSpawnSync.mock.calls.find(([, args]) => args?.includes('inject'));
+    const outputPath = injection![1][injection![1].indexOf('--out') + 1];
+    expect(mockSpawnSync).toHaveBeenCalledWith('claude', [
+      '--mcp-config', outputPath,
+      '--settings', outputPath.replace(/\.json$/, '.settings.json'),
+    ], expect.any(Object));
+  });
+
+  it('uses the settings path reported by injection even when it differs from the MCP filename', async () => {
+    mockExistsSync.mockImplementation(path => path === '/generated/actual-permissions.json' ? true : undefined);
+    mockSpawnSync.mockImplementation((_command, args) => ({
+      status: 0,
+      stdout: args?.includes('inject') ? '  Tool permissions: /generated/actual-permissions.json\n' : '',
+    }));
+    const result = await sessionHandler.execute(makeCtx(['--profile', 'safe', '--no-repair']));
+    expect(result.exitCode).toBe(0);
+    expect(mockSpawnSync).toHaveBeenCalledWith('claude', [
+      '--mcp-config', expect.any(String), '--settings', '/generated/actual-permissions.json',
+    ], expect.any(Object));
+  });
+
+  it.each([undefined, '  Tool permissions: /missing/settings.json\n'])(
+    'refuses launch when expected permission settings are missing (stdout: %s)', async stdout => {
+      mockSpawnSync.mockImplementation((_command, args) => ({
+        status: 0, stdout: args?.includes('inject') ? stdout : '',
+      }));
+      const refusal = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        const result = await sessionHandler.execute(makeCtx(['--profile', 'safe', '--no-repair']));
+        expect(result.exitCode).toBe(1);
+        expect(refusal).toHaveBeenCalledWith(expect.stringContaining('permission settings were not generated'));
+        expect(mockSpawnSync.mock.calls.some(([command]) => command === 'claude')).toBe(false);
+      } finally {
+        refusal.mockRestore();
+      }
+    },
+  );
+
+  it('omits missing reported settings when the plan does not expect permission rules', async () => {
+    mockGetProfile.mockResolvedValue({});
+    mockSpawnSync.mockImplementation((_command, args) => ({
+      status: 0, stdout: args?.includes('inject') ? '  Tool permissions: /missing/settings.json\n' : '',
+    }));
+    const result = await sessionHandler.execute(makeCtx(['--profile', 'unfiltered', '--no-repair']));
+    expect(result.exitCode).toBe(0);
+    const launch = mockSpawnSync.mock.calls.find(([command]) => command === 'claude');
+    expect(launch![1]).toEqual(['--mcp-config', expect.any(String)]);
+  });
+
+  it('omits --settings when the profile has no Claude permission rules', async () => {
+    mockGetProfile.mockResolvedValue({});
+    await sessionHandler.execute(makeCtx(['--profile', 'unfiltered', '--no-repair']));
+    const launch = mockSpawnSync.mock.calls.find(([command]) => command === 'claude');
+    expect(launch![1]).toEqual(['--mcp-config', expect.any(String)]);
+  });
+
+  it.each([false, true])('refuses Claude toolAllow before %s persistent injection or launch', async persist => {
+    mockGetProfile.mockResolvedValue({ providerOverrides: { claude: { toolAllow: ['git__list'] } } });
+    const refusal = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const args = ['--profile', 'restricted', '--no-repair'];
+      if (persist) args.push('--persist');
+      const result = await sessionHandler.execute(makeCtx(args));
+      expect(result.exitCode).toBe(1);
+      expect(refusal.mock.calls.flat().join(' ')).toContain('git__list');
+      expect(mockSpawnSync.mock.calls.some(([, spawnArgs]) => spawnArgs?.includes('inject'))).toBe(false);
+      expect(mockSpawnSync.mock.calls.some(([command]) => command === 'claude')).toBe(false);
+    } finally {
+      refusal.mockRestore();
+    }
+  });
+
+  it.each([false, true])('refuses Claude launch if %s persistent profile injection fails', async persist => {
+    mockSpawnSync.mockImplementation((_command, args) => ({ status: args?.includes('inject') ? 1 : 0 }));
+    const args = ['--profile', 'safe', '--no-repair'];
+    if (persist) args.push('--persist');
+    const result = await sessionHandler.execute(makeCtx(args));
+    expect(result.exitCode).toBe(1);
+    expect(mockSpawnSync.mock.calls.some(([command]) => command === 'claude')).toBe(false);
+  });
+
+  it('launches persistent Claude profiles using their persistent settings', async () => {
+    const result = await sessionHandler.execute(makeCtx(['--profile', 'safe', '--persist', '--no-repair']));
+    expect(result.exitCode).toBe(0);
+    expect(mockSpawnSync).toHaveBeenCalledWith('claude', [], expect.any(Object));
+    const injection = mockSpawnSync.mock.calls.find(([, args]) => args?.includes('inject'));
+    expect(injection![1]).not.toContain('--ephemeral');
+  });
+});
+
+describe('sessionHandler Codex profile credential policy', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappyPath();
+    mockGetProviderConfig.mockReturnValue({ name: 'Codex', binary: 'codex', guidanceMessage: null });
+    mockIsSpawnableProvider.mockReturnValue(true);
+    mockGetDeploymentSummary.mockReturnValue({ agents: 1, commands: 1, skills: 1, rules: 1 });
+    mockCredentialPolicy.mockResolvedValue('references');
+    mockResolveServers.mockResolvedValue([{ name: 'leaky', type: 'http', url: 'https://example.test/mcp', headers: { Authorization: 'session-secret' } }]);
+    mockEnsureRuntimeHome.mockResolvedValue('/existing/runtime/with/old/config.toml');
+    mockGetProfile.mockResolvedValue({ providerOverrides: { codex: {
+      toolAllow: ['safe__list'], toolDeny: ['safe__delete'],
+    } } });
+    mockWriteProfileConfig.mockResolvedValue([]);
+    mockLaunchWithProfile.mockReturnValue({ status: 0 });
+  });
+
+  it.each(['codex', 'openai'])('refuses %s before setup or launch, even with an existing runtime', async provider => {
+    const refusal = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const result = await sessionHandler.execute(makeCtx(['--provider', provider, '--profile', 'test', '--no-repair']));
+    expect(result.exitCode).toBe(1);
+    expect(refusal).toHaveBeenCalledWith(expect.stringContaining('Refusing to render MCP servers'));
+    expect(refusal.mock.calls.flat().join(' ')).not.toContain('session-secret');
+    expect(mockEnsureRuntimeHome).not.toHaveBeenCalled();
+    expect(mockWriteProfileConfig).not.toHaveBeenCalled();
+    expect(mockLaunchWithProfile).not.toHaveBeenCalled();
+    expect(mockSpawnSync.mock.calls.some(([command]) => command === 'codex')).toBe(false);
+  });
+
+  it('sets up and launches an allowed profile with tool filters', async () => {
+    mockResolveServers.mockResolvedValue([{ name: 'safe', type: 'stdio', command: 'safe' }]);
+    const result = await sessionHandler.execute(makeCtx(['--provider', 'codex', '--profile', 'test', '--no-repair']));
+    expect(result.exitCode).toBe(0);
+    expect(mockEnsureRuntimeHome).toHaveBeenCalledWith('test');
+    expect(mockGetProfile).toHaveBeenCalledWith('test');
+    expect(mockWriteProfileConfig).toHaveBeenCalledWith('test', expect.any(Array), {
+      credentialPolicy: 'references',
+      toolFilters: { allow: ['safe__list'], deny: ['safe__delete'] },
+    });
+    expect(mockLaunchWithProfile).toHaveBeenCalledWith('test');
+  });
+
+  it.each(['codex', 'openai'].flatMap(provider =>
+    ['lookup', 'home', 'write'].map(stage => ({ provider, stage }))))(
+    'refuses $provider launch after a $stage setup failure', async ({ provider, stage }) => {
+      mockResolveServers.mockResolvedValue([{ name: 'safe', type: 'stdio', command: 'safe' }]);
+      const failure = new Error('runtime setup failed');
+      if (stage === 'lookup') mockResolveServers.mockRejectedValue(failure);
+      if (stage === 'home') mockEnsureRuntimeHome.mockRejectedValue(failure);
+      if (stage === 'write') mockWriteProfileConfig.mockRejectedValue(failure);
+      const result = await sessionHandler.execute(makeCtx(['--provider', provider, '--profile', 'test', '--no-repair']));
+      expect(result.exitCode).toBe(1);
+      expect(mockLaunchWithProfile).not.toHaveBeenCalled();
+      expect(mockSpawnSync.mock.calls.some(([command]) => command === 'codex')).toBe(false);
+    });
+
+  it.each(['codex', 'openai'])('checks policy for persistent %s profiles before injection or launch', async provider => {
+    const result = await sessionHandler.execute(makeCtx(['--provider', provider, '--profile', 'test', '--persist', '--no-repair']));
+    expect(result.exitCode).toBe(1);
+    expect(mockLaunchWithProfile).not.toHaveBeenCalled();
+    expect(mockSpawnSync.mock.calls.some(([, args]) => args?.includes('inject'))).toBe(false);
+  });
+
+  it.each([0, 1])('persistent Codex injection with status %s never reuses a runtime config', async status => {
+    mockResolveServers.mockResolvedValue([{ name: 'safe', type: 'stdio', command: 'safe' }]);
+    mockSpawnSync.mockImplementation((_command, args) => ({ status: args?.includes('inject') ? status : 0 }));
+    const result = await sessionHandler.execute(makeCtx(['--provider', 'codex', '--profile', 'test', '--persist', '--no-repair']));
+    expect(result.exitCode).toBe(status);
+    expect(mockLaunchWithProfile).not.toHaveBeenCalled();
+    expect(mockEnsureRuntimeHome).not.toHaveBeenCalled();
+    expect(mockWriteProfileConfig).not.toHaveBeenCalled();
+    expect(mockSpawnSync.mock.calls.some(([command]) => command === 'codex')).toBe(status === 0);
+  });
+
+});
 
 describe('sessionHandler metadata', () => {
   it('has correct id, category, and description', () => {

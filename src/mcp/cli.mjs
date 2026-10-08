@@ -7,16 +7,27 @@
  */
 
 import { startServer, createServer } from './server.mjs';
+import { assertConfigDestination, assertConfigObject, assertProjectCredentials, isUserMcpScope, writeConfigAtomic, writeConfigTransaction } from './config-file.mjs';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import {
   McpServerRegistry,
+  buildServerConfig,
   injectServers,
   SUPPORTED_PROVIDERS,
   getProviderConfigPath,
 } from './registry.mjs';
 import { McpProfileRegistry } from './profiles.mjs';
+import {
+  applyJsonToolFilterPlan,
+  hasToolFilters,
+  planToolFilters,
+  prepareClaudePermissions,
+  resolveToolFilters,
+} from './tool-filters.mjs';
+import { assertCredentialPolicy, CREDENTIAL_POLICIES, resolveCredentialPolicy } from './credentials.mjs';
 import { getMcpInjectionDefinition } from '../providers/provider-definitions.mjs';
 import { manageOmpMcp } from './omp-config.mjs';
 import { unmanageGrokBuildMcp } from './grok-build-config.mjs';
@@ -42,6 +53,8 @@ Usage:
   aiwg mcp inject [opts]       Inject servers into provider configs
   aiwg mcp uninject [opts]     Remove unchanged AIWG-owned OMP server entries
   aiwg mcp profile <sub>       Manage MCP profiles (named server subsets)
+  aiwg mcp credential-policy [literal|references|none]
+                               Show or set the registry's default credential policy
 
 Server Options (for add/update):
   --url <url>          Server URL (for http/sse types)
@@ -52,6 +65,8 @@ Server Options (for add/update):
   --headers <K=V,...>  HTTP headers (comma-separated K=V pairs)
   --header-env <K=ENV,...>
                        Resolve HTTP header values from environment variables
+  --env-from <K=ENV,...>
+                       Resolve stdio server variables from environment variables
   --description <text> Optional description
 
 Inject Options:
@@ -60,6 +75,10 @@ Inject Options:
   --all                Inject into all previously configured providers
   --servers <a,b,...>  Only inject specific servers (comma-separated names)
   --dry-run            Show what would change without writing
+  --strict-credentials Refuse servers with literal env/headers values; render
+                       only --header-env/--env-from references
+  --no-credentials     Refuse servers with any credential-bearing field,
+                       references included
 
 Serve Options:
   --transport <type>   Transport type: stdio (default), http
@@ -70,6 +89,8 @@ Examples:
   aiwg mcp add fortemi --url https://memory.s9.internal/mcp --type http
   aiwg mcp add fortemi-enterprise --url https://memory.example.internal/mcp --type http \
     --header-env Authorization=AIWG_FORTEMI_TOKEN
+  aiwg mcp add github --type stdio --command github-mcp-server \
+    --env-from GITHUB_PERSONAL_ACCESS_TOKEN=GITHUB_TOKEN
   aiwg mcp add gitea --url https://mcp-gitea.integrolabs.net/mcp
   aiwg mcp add mytools --type stdio --command npx --args mcp-server-mytools
 
@@ -96,20 +117,20 @@ Examples:
 /**
  * Generate MCP client configuration
  */
-async function generateConfig(target, projectDir = '.') {
+async function generateConfig(target, projectDir = '.', scope = 'project') {
   const homeDir = process.env.HOME || process.env.USERPROFILE;
 
   const configs = {
     claude: {
-      path: path.join(projectDir, '.claude/settings.local.json'),
+      path: scope === 'user' ? path.join(homeDir, '.claude.json') : path.join(projectDir, '.mcp.json'),
+      userScope: scope === 'user',
       content: {
         mcpServers: {
           aiwg: {
             command: 'aiwg',
             args: ['mcp', 'serve'],
-            env: {
-              AIWG_ROOT: process.env.AIWG_ROOT || '~/.local/share/ai-writing-guide'
-            }
+            ...(scope === 'user' && process.env.AIWG_ROOT
+              ? { env: { AIWG_ROOT: process.env.AIWG_ROOT } } : {})
           }
         }
       }
@@ -133,6 +154,7 @@ async function generateConfig(target, projectDir = '.') {
       })
     },
     factory: {
+      userScope: projectDir === '.' || projectDir === 'global',
       // Factory stores MCP config at user level in ~/.factory/mcp.json
       // or project level in .factory/mcp.json
       path: projectDir === '.' || projectDir === 'global'
@@ -158,7 +180,8 @@ async function generateConfig(target, projectDir = '.') {
     },
     codex: {
       // Codex stores config in ~/.codex/config.toml (TOML format)
-      path: path.join(homeDir, '.codex/config.toml'),
+      path: path.resolve(process.env.CODEX_HOME || path.join(homeDir, '.codex'), 'config.toml'),
+      userScope: true,
       // We generate TOML snippet to append, not JSON
       content: null,
       toml: `
@@ -185,8 +208,8 @@ enabled_tools = [
         let existing = '';
         try {
           existing = await fs.readFile(configPath, 'utf-8');
-        } catch {
-          // File doesn't exist
+        } catch (error) {
+          if (error.code !== 'ENOENT') throw error;
         }
 
         // Check if AIWG MCP already configured
@@ -198,8 +221,7 @@ enabled_tools = [
         // Append TOML config
         const updated = existing.trimEnd() + '\n' + tomlContent.trim() + '\n';
 
-        await fs.mkdir(path.dirname(configPath), { recursive: true });
-        await fs.writeFile(configPath, updated);
+        await writeConfigAtomic(configPath, updated, { userScope: true });
         console.log(`MCP configuration appended to: ${configPath}`);
         console.log(`\nTo use AIWG MCP server with Codex:`);
         console.log(`  1. Restart Codex CLI`);
@@ -209,12 +231,14 @@ enabled_tools = [
     },
     openai: {
       // Alias for codex
-      path: path.join(homeDir, '.codex/config.toml'),
+      path: path.resolve(process.env.CODEX_HOME || path.join(homeDir, '.codex'), 'config.toml'),
+      userScope: true,
       alias: 'codex'
     },
     windsurf: {
       // Windsurf stores MCP config at ~/.codeium/windsurf/mcp_config.json
       path: path.join(homeDir, '.codeium/windsurf/mcp_config.json'),
+      userScope: true,
       content: {
         mcpServers: {
           aiwg: {
@@ -312,17 +336,21 @@ enabled_tools = [
 
         // Find existing config
         for (const loc of locations) {
+          await assertConfigDestination(loc, projectRoot);
           try {
             const rawContent = await fs.readFile(loc, 'utf-8');
-            // Strip JSONC comments for parsing
-            const jsonContent = rawContent
-              .replace(/\/\/.*$/gm, '')
-              .replace(/\/\*[\s\S]*?\*\//g, '');
+            // Strip JSONC comments while preserving strings such as URLs.
+            const jsonContent = rawContent.replace(
+              /"(?:\\.|[^"\\])*"|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g,
+              match => match.startsWith('"') ? match : ' ',
+            );
             existing = JSON.parse(jsonContent);
+            assertConfigObject(existing, 'mcp');
             targetPath = loc;
             break;
-          } catch {
-            // Continue to next location
+          } catch (error) {
+            if (error instanceof SyntaxError) throw new Error(`Refusing to overwrite malformed MCP config ${loc}: invalid JSON`);
+            if (error.code !== 'ENOENT') throw error;
           }
         }
 
@@ -335,8 +363,7 @@ enabled_tools = [
         // Merge configuration
         const merged = mergeFunc(existing, content);
 
-        await fs.mkdir(path.dirname(targetPath), { recursive: true });
-        await fs.writeFile(targetPath, JSON.stringify(merged, null, 2));
+        await writeConfigAtomic(targetPath, JSON.stringify(merged, null, 2), { userScope, projectRoot });
         console.log(`MCP configuration written to: ${targetPath}`);
         console.log(`\nTo use AIWG MCP server with OpenCode:`);
         console.log(`  1. Restart OpenCode`);
@@ -358,21 +385,29 @@ enabled_tools = [
     config = configs[config.alias];
   }
 
+  const userScope = Boolean(config.userScope || scope === 'user');
+  const projectRoot = userScope ? undefined : target === 'opencode' && projectDir === 'global' ? process.cwd() : projectDir;
+  if (config.path) await assertConfigDestination(config.path, projectRoot);
+
   // Handle custom handler (for TOML configs like Codex, or OpenCode JSON)
   if (config.handler) {
     return await config.handler(config.path, config.toml, config.content, config.merge);
   }
-
-  // Ensure directory exists
-  await fs.mkdir(path.dirname(config.path), { recursive: true });
 
   // Check if file exists and merge
   let existing = {};
   try {
     const content = await fs.readFile(config.path, 'utf-8');
     existing = JSON.parse(content);
-  } catch {
-    // File doesn't exist, start fresh
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error(`Refusing to overwrite malformed MCP config ${config.path}: invalid JSON`);
+    if (error.code !== 'ENOENT') throw error;
+  }
+
+  assertConfigObject(existing, Object.keys(config.content)[0]);
+
+  if (target === 'claude' && scope !== 'user') {
+    assertProjectCredentials(Object.entries(config.content.mcpServers).map(([name, server]) => ({ name, ...server })), config.path);
   }
 
   // Merge configuration using custom merge function if available
@@ -387,7 +422,7 @@ enabled_tools = [
         }
       };
 
-  await fs.writeFile(config.path, JSON.stringify(merged, null, 2));
+  await writeConfigAtomic(config.path, JSON.stringify(merged, null, 2), { userScope, projectRoot });
   console.log(`MCP configuration written to: ${config.path}`);
   console.log(`\nTo use AIWG MCP server with ${target}:`);
   console.log(`  1. Restart ${target}`);
@@ -477,6 +512,16 @@ function parseFlag(args, flag) {
   return args[idx + 1];
 }
 
+/** Skip option values when locating a server name, regardless of flag order. */
+function serverName(args) {
+  const valueFlags = new Set(['--type', '--url', '--command', '--args', '--env',
+    '--headers', '--header-env', '--env-from', '--description']);
+  for (let i = 0; i < args.length; i++) {
+    if (valueFlags.has(args[i])) { i++; continue; }
+    if (!args[i].startsWith('--')) return args[i];
+  }
+}
+
 /**
  * Parse comma-separated key=value pairs into an object
  */
@@ -495,8 +540,7 @@ function parseKVPairs(str) {
  * Handle `aiwg mcp add <name> [opts]`
  */
 async function handleAdd(args) {
-  const positional = args.filter(a => !a.startsWith('--'));
-  const name = positional[0];
+  const name = serverName(args);
 
   if (!name) {
     console.error('Usage: aiwg mcp add <name> --url <url> [--type http|stdio|sse] [--command <cmd>] [--args <a,b>]');
@@ -510,6 +554,7 @@ async function handleAdd(args) {
   const envStr = parseFlag(args, '--env');
   const headersStr = parseFlag(args, '--headers');
   const headerEnvStr = parseFlag(args, '--header-env');
+  const envFromStr = parseFlag(args, '--env-from');
   const description = parseFlag(args, '--description');
 
   if (type === 'stdio' && !command) {
@@ -531,13 +576,17 @@ async function handleAdd(args) {
     env: parseKVPairs(envStr),
     headers: parseKVPairs(headersStr),
     headerEnv: parseKVPairs(headerEnvStr),
+    envFrom: parseKVPairs(envFromStr),
     description,
   });
 
   console.log(`Added MCP server: ${name}`);
-  if (url) console.log(`  URL: ${url}`);
+  if (url) console.log(`  URL: ${redactUrlUserinfo(url)}`);
   if (command) console.log(`  Command: ${command}`);
   console.log(`  Type: ${type}`);
+  for (const [key, values] of [['env', parseKVPairs(envStr)], ['headers', parseKVPairs(headersStr)]]) {
+    if (values) console.log(`  ${key}: ${Object.keys(values).join(', ')}`);
+  }
   console.log(`\nUse "aiwg mcp inject --provider <name>" to inject into a provider config.`);
 }
 
@@ -562,8 +611,7 @@ async function handleRemove(args) {
  * Handle `aiwg mcp update <name> [opts]`
  */
 async function handleUpdate(args) {
-  const positional = args.filter(a => !a.startsWith('--'));
-  const name = positional[0];
+  const name = serverName(args);
 
   if (!name) {
     console.error('Usage: aiwg mcp update <name> --url <url> [--type <type>] ...');
@@ -578,6 +626,7 @@ async function handleUpdate(args) {
   const envStr = parseFlag(args, '--env');
   const headersStr = parseFlag(args, '--headers');
   const headerEnvStr = parseFlag(args, '--header-env');
+  const envFromStr = parseFlag(args, '--env-from');
   const description = parseFlag(args, '--description');
 
   if (url !== undefined) updates.url = url;
@@ -587,6 +636,7 @@ async function handleUpdate(args) {
   if (envStr !== undefined) updates.env = parseKVPairs(envStr);
   if (headersStr !== undefined) updates.headers = parseKVPairs(headersStr);
   if (headerEnvStr !== undefined) updates.headerEnv = parseKVPairs(headerEnvStr);
+  if (envFromStr !== undefined) updates.envFrom = parseKVPairs(envFromStr);
   if (description !== undefined) updates.description = description;
 
   if (Object.keys(updates).length === 0) {
@@ -598,9 +648,30 @@ async function handleUpdate(args) {
   await registry.update(name, updates);
   console.log(`Updated MCP server: ${name}`);
   for (const [key, value] of Object.entries(updates)) {
-    console.log(`  ${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`);
+    const display = key === 'url' ? redactUrlUserinfo(value)
+      : ['env', 'headers', 'headerEnv', 'envFrom'].includes(key) ? Object.keys(value || {}).join(', ')
+      : typeof value === 'object' ? JSON.stringify(value) : value;
+    console.log(`  ${key}: ${display}`);
   }
   console.log(`\nRe-run "aiwg mcp inject --all" to propagate changes to provider configs.`);
+}
+
+function redactUrlUserinfo(value) {
+  try {
+    const url = new URL(value);
+    if (url.username || url.password) {
+      url.username = '***';
+      url.password = '';
+      return url.toString();
+    }
+  } catch {
+    // Malformed hosts may still carry credentials in the authority.
+    return value.replace(/^(\s*[A-Za-z][A-Za-z0-9+.-]*:\/\/)([^/?#]*)/, (_, scheme, authority) => {
+      const at = authority.lastIndexOf('@');
+      return scheme + (at < 0 ? authority : '***@' + authority.slice(at + 1));
+    });
+  }
+  return value;
 }
 
 /**
@@ -621,11 +692,15 @@ async function handleList() {
   for (const server of servers) {
     console.log(`  ${server.name}`);
     console.log(`    Type: ${server.type}`);
-    if (server.url) console.log(`    URL: ${server.url}`);
+    if (server.url) console.log(`    URL: ${redactUrlUserinfo(server.url)}`);
     if (server.command) console.log(`    Command: ${server.command}${server.args ? ' ' + server.args.join(' ') : ''}`);
     if (server.headerEnv) {
       const refs = Object.entries(server.headerEnv).map(([header, envName]) => `${header}←${envName}`);
       console.log(`    Credential refs: ${refs.join(', ')}`);
+    }
+    if (server.envFrom) {
+      const refs = Object.entries(server.envFrom).map(([key, envName]) => `${key}←${envName}`);
+      console.log(`    Env refs: ${refs.join(', ')}`);
     }
     if (server.description) console.log(`    Description: ${server.description}`);
     if (server.injectedProviders && server.injectedProviders.length > 0) {
@@ -660,6 +735,12 @@ async function handleInject(args) {
   const profileName = parseFlag(args, '--profile');
   const ephemeral = args.includes('--ephemeral');
   const outPath = parseFlag(args, '--out');
+  const strictCredentials = args.includes('--strict-credentials');
+  const noCredentials = args.includes('--no-credentials');
+  if (strictCredentials && noCredentials) {
+    console.error('Error: --strict-credentials and --no-credentials are mutually exclusive.');
+    process.exit(1);
+  }
 
   if (!provider && !injectAll) {
     console.error('Usage: aiwg mcp inject --provider <name> [--profile <p>] [--ephemeral] [--servers a,b] [--dry-run]');
@@ -669,12 +750,17 @@ async function handleInject(args) {
   }
 
   const registry = new McpServerRegistry();
+  const credentialPolicy = resolveCredentialPolicy({
+    flag: noCredentials ? 'none' : strictCredentials ? 'references' : undefined,
+    registryPolicy: await registry.getCredentialPolicy(),
+  });
 
   // Resolve server filter: --profile takes precedence over --servers
   let serverFilter;
+  let profile;
   if (profileName) {
     const profiles = new McpProfileRegistry();
-    const profile = await profiles.get(profileName);
+    profile = await profiles.get(profileName);
     if (!profile) {
       const all = await profiles.list();
       console.error(`Profile "${profileName}" not found.`);
@@ -707,6 +793,17 @@ async function handleInject(args) {
     providers = [normalized];
   }
 
+  if (injectAll && !ephemeral) {
+    const selected = (await registry.list()).filter(server => !serverFilter || serverFilter.includes(server.name));
+    for (const p of providers) {
+      const configPath = getProviderConfigPath(p, projectDir, { scope });
+      await assertConfigDestination(configPath, isUserMcpScope(p, scope) ? undefined : projectDir);
+      if ((p === 'claude' || p === 'claude-code') && scope !== 'user') {
+        assertProjectCredentials(selected, configPath);
+      }
+    }
+  }
+
   if (ephemeral) {
     for (const p of providers) {
       const mcpDefinition = getMcpInjectionDefinition(p);
@@ -723,23 +820,27 @@ async function handleInject(args) {
 
   let totalInjected = 0;
 
+  const printWarnings = (warnings = []) => {
+    for (const warning of warnings) console.error(`  WARNING ${warning}`);
+  };
+
   for (const p of providers) {
+    const toolFilters = profile ? resolveToolFilters(profile, p) : undefined;
     if (ephemeral) {
       // Generate a standalone ephemeral config file
-      const targetPath = outPath ?? path.join(
-        process.env.TMPDIR || '/tmp',
-        `aiwg-mcp-${profileName ?? 'custom'}-${p}-${Date.now()}.json`,
-      );
-
       const allServers = await registry.list();
       const servers = serverFilter
         ? allServers.filter(s => serverFilter.includes(s.name))
         : allServers;
+      const toolPlan = hasToolFilters(toolFilters)
+        ? planToolFilters(p, servers.map(server => server.name), toolFilters)
+        : null;
 
       if (servers.length === 0) {
         console.error(`  ${p}: no servers to write`);
         continue;
       }
+      assertCredentialPolicy(servers, credentialPolicy);
 
       // Build ephemeral config in provider's format
       const mcpDefinition = getMcpInjectionDefinition(p);
@@ -752,32 +853,52 @@ async function handleInject(args) {
           console.log(`  Use "aiwg session --provider codex --profile ${profileName}" instead.`);
           continue;
         }
-        const cfg = {};
-        if (server.type === 'stdio') {
-          cfg.command = server.command;
-          cfg.args = server.args || [];
-          if (server.env) cfg.env = server.env;
-        } else {
-          cfg.url = server.url;
-          if (server.headers) cfg.headers = server.headers;
-        }
-        mcpBlock[server.name] = cfg;
+        mcpBlock[server.name] = buildServerConfig(server, p);
       }
 
       if (Object.keys(mcpBlock).length === 0) continue;
 
       const config = { [mcpKey]: mcpBlock };
+      if (toolPlan) applyJsonToolFilterPlan(config, mcpKey, toolPlan);
+      const tempDir = outPath || dryRun
+        ? undefined
+        : await fs.mkdtemp(path.join(os.tmpdir(), 'aiwg-mcp-'));
+      const targetPath = outPath ?? path.join(
+        tempDir ?? path.join(os.tmpdir(), 'aiwg-mcp-<random>'),
+        `${profileName ?? 'custom'}-${p}.json`,
+      );
+
+      // Claude Code reads permission rules from settings, not from --mcp-config.
+      const settingsPath = toolPlan?.claudePermissions ? targetPath.replace(/(\.json)?$/, '.settings.json') : null;
+      // Explicit --out paths may be outside the project. Check every parent from
+      // the filesystem root so neither destination can traverse a symlink.
+      const outputRoot = path.parse(path.resolve(targetPath)).root;
+      await assertConfigDestination(targetPath, outputRoot);
+      const preparedPermissions = settingsPath
+        ? await prepareClaudePermissions(settingsPath, toolPlan.claudePermissions, {
+          projectRoot: outputRoot,
+          userScope: true,
+          managedDir: path.dirname(registry.getPath()),
+          sidecar: true,
+          mcpPath: targetPath,
+        })
+        : null;
 
       if (!dryRun) {
-        await fs.mkdir(path.dirname(targetPath), { recursive: true });
-        await fs.writeFile(targetPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+        await writeConfigTransaction([
+          { file: targetPath, content: JSON.stringify(config, null, 2) + '\n',
+            options: { userScope: true, projectRoot: outputRoot } },
+          ...(preparedPermissions?.writes || []),
+        ]);
       }
 
       const prefix = dryRun ? '[DRY RUN] ' : '';
       console.log(`${prefix}${p}: ${targetPath}`);
       console.log(`  ${prefix}Servers: ${Object.keys(mcpBlock).join(', ')}`);
+      if (settingsPath) console.log(`  ${prefix}Tool permissions: ${settingsPath}`);
+      printWarnings([...(toolPlan?.warnings || []), ...(preparedPermissions?.warnings || [])]);
       if (!dryRun && (p === 'claude-code' || p === 'claude')) {
-        console.log(`  Launch with: claude --mcp-config ${targetPath}`);
+        console.log(`  Launch with: claude --mcp-config ${targetPath}${settingsPath ? ` --settings ${settingsPath}` : ''}`);
       }
       totalInjected += Object.keys(mcpBlock).length;
       continue;
@@ -789,6 +910,8 @@ async function handleInject(args) {
       projectDir,
       dryRun,
       scope,
+      ...(hasToolFilters(toolFilters) ? { toolFilters } : {}),
+      credentialPolicy,
     });
 
     if (result.error) {
@@ -806,6 +929,8 @@ async function handleInject(args) {
     if (result.alreadyPresent.length > 0) {
       console.log(`  ${prefix}Updated in place: ${result.alreadyPresent.join(', ')}`);
     }
+    if (result.settingsPath) console.log(`  ${prefix}Tool permissions: ${result.settingsPath}`);
+    printWarnings(result.warnings);
   }
 
   if (!dryRun && totalInjected > 0 && !ephemeral) {
@@ -826,9 +951,12 @@ aiwg mcp profile — MCP server profiles (named server subsets)
 
 Usage:
   aiwg mcp profile add <name> --servers a,b,c [--description "..."]
+                          [--provider <p|*>] [--tool-deny s__t,...] [--tool-allow s__t,...]
   aiwg mcp profile list
   aiwg mcp profile show <name>
   aiwg mcp profile edit <name> [--add-server x] [--remove-server y] [--description "..."]
+                          [--provider <p|*>] [--tool-deny s__t,...] [--tool-allow s__t,...]
+                          [--clear-tool-filters]
   aiwg mcp profile remove <name>
   aiwg mcp profile import <file>
   aiwg mcp profile export <name> [--out <file>]
@@ -840,9 +968,32 @@ Profiles let you define named subsets of your registered MCP servers:
   aiwg mcp inject --provider claude --profile dev --ephemeral
   aiwg session --provider claude --profile dev
 
+Tool filters name tools as <server>__<tool>; <tool> may contain *. --provider
+defaults to *, which applies to every provider. inject renders them into each
+provider's own setting and warns about any filter the provider cannot express:
+  aiwg mcp profile edit dev --tool-deny git-gitea__delete_repo
+  aiwg mcp profile edit dev --provider codex --tool-allow git-gitea__list_repos
+
 Preset profiles (minimal, dev, ops, research, incident, full):
   aiwg mcp profile init-presets
 `);
+}
+
+/**
+ * Parse --provider / --tool-deny / --tool-allow into a providerOverrides map.
+ */
+function parseToolFilterFlags(args) {
+  const deny = parseFlag(args, '--tool-deny');
+  const allow = parseFlag(args, '--tool-allow');
+  if (!deny && !allow) return undefined;
+  const split = value => value.split(',').map(s => s.trim()).filter(Boolean);
+  const provider = parseFlag(args, '--provider') || '*';
+  return {
+    [provider]: {
+      ...(deny ? { toolDeny: split(deny) } : {}),
+      ...(allow ? { toolAllow: split(allow) } : {}),
+    },
+  };
 }
 
 /**
@@ -864,11 +1015,12 @@ async function handleProfileAdd(args) {
   }
 
   const servers = serversStr ? serversStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const providerOverrides = parseToolFilterFlags(args);
 
   const profiles = new McpProfileRegistry();
   const registry = new McpServerRegistry();
 
-  await profiles.add({ name, description, servers }, registry);
+  await profiles.add({ name, description, servers, ...(providerOverrides ? { providerOverrides } : {}) }, registry);
 
   console.log(`Profile added: ${name}`);
   if (description) console.log(`  Description: ${description}`);
@@ -938,7 +1090,7 @@ async function handleProfileShow(args) {
       if (server) {
         const detail = server.type === 'stdio'
           ? `stdio  ${server.command}${server.args ? ' ' + server.args.join(' ') : ''}`
-          : `${server.type}  ${server.url}`;
+          : `${server.type}  ${redactUrlUserinfo(server.url)}`;
         console.log(`  ${serverName.padEnd(24)} ${detail}`);
         if (server.description) console.log(`  ${''.padEnd(24)} ${server.description}`);
       } else {
@@ -975,14 +1127,18 @@ async function handleProfileEdit(args) {
   const removeServer = parseFlag(args, '--remove-server');
   const description = parseFlag(args, '--description');
 
+  const providerOverrides = parseToolFilterFlags(args);
+  const clearToolFilters = args.includes('--clear-tool-filters');
   const changes = {
     description,
     addServers: addServer ? addServer.split(',').map(s => s.trim()) : undefined,
     removeServers: removeServer ? removeServer.split(',').map(s => s.trim()) : undefined,
+    providerOverrides,
+    clearToolFilters: clearToolFilters ? (parseFlag(args, '--provider') || '*') : undefined,
   };
 
-  if (!description && !addServer && !removeServer) {
-    console.error('No changes specified. Use --add-server, --remove-server, or --description.');
+  if (!description && !addServer && !removeServer && !providerOverrides && !clearToolFilters) {
+    console.error('No changes specified. Use --add-server, --remove-server, --description, --tool-deny, --tool-allow or --clear-tool-filters.');
     process.exit(1);
   }
 
@@ -1137,14 +1293,17 @@ export async function main(args = process.argv.slice(2)) {
         if (!['project', 'user'].includes(scope)) throw new Error('Scope must be project or user');
         const projectDir = parseFlag(args, '--project') || (args[2] && !args[2].startsWith('--') ? args[2] : '.');
         const configPath = getProviderConfigPath('omp', projectDir, { scope });
-        const result = await manageOmpMcp(configPath, [{ name: 'aiwg', type: 'stdio', command: 'aiwg', args: ['mcp', 'serve'] }], { dryRun: args.includes('--dry-run') });
+        await assertConfigDestination(configPath, scope === 'user' ? undefined : projectDir);
+        const result = await manageOmpMcp(configPath, [{ name: 'aiwg', type: 'stdio', command: 'aiwg', args: ['mcp', 'serve'] }], { dryRun: args.includes('--dry-run'), userScope: scope === 'user', projectRoot: scope === 'user' ? undefined : projectDir });
         console.log(JSON.stringify(result, null, 2));
         break;
       }
       // Parse install arguments (skip flags)
-      const installArgs = args.slice(1).filter(a => !a.startsWith('--'));
+      const scope = parseFlag(args, '--scope') || 'project';
+      if (!['project', 'user'].includes(scope)) throw new Error('Scope must be project or user');
+      const installArgs = args.slice(1).filter((a, index, rest) => !a.startsWith('--') && !['--scope', '--project'].includes(rest[index - 1]));
       const target = installArgs[0] || 'claude';
-      const projectDir = installArgs[1] || '.';
+      const projectDir = parseFlag(args, '--project') || installArgs[1] || '.';
 
       // Check for --dry-run flag
       if (args.includes('--dry-run')) {
@@ -1152,13 +1311,13 @@ export async function main(args = process.argv.slice(2)) {
         console.log(`[DRY RUN] Would generate MCP config for: ${target}`);
         console.log(`[DRY RUN] Target directory: ${projectDir}`);
         const configPaths = {
-          claude: '.claude/settings.local.json',
+          claude: scope === 'user' ? path.join(homeDir, '.claude.json') : path.join(projectDir, '.mcp.json'),
           cursor: '.cursor/mcp.json',
           factory: (projectDir === '.' || projectDir === 'global')
             ? path.join(homeDir, '.factory/mcp.json')
             : path.join(projectDir, '.factory/mcp.json'),
-          codex: path.join(homeDir, '.codex/config.toml'),
-          openai: path.join(homeDir, '.codex/config.toml'),
+          codex: path.resolve(process.env.CODEX_HOME || path.join(homeDir, '.codex'), 'config.toml'),
+          openai: path.resolve(process.env.CODEX_HOME || path.join(homeDir, '.codex'), 'config.toml'),
           vscode: '.vscode/mcp.json',
           copilot: '.vscode/mcp.json',
           opencode: (projectDir === '.' || projectDir === 'global')
@@ -1171,7 +1330,7 @@ export async function main(args = process.argv.slice(2)) {
         break;
       }
 
-      await generateConfig(target, projectDir);
+      if (!await generateConfig(target, projectDir, scope)) process.exitCode = 1;
       break;
     }
 
@@ -1226,6 +1385,22 @@ export async function main(args = process.argv.slice(2)) {
     case 'profile':
       await handleProfile(subArgs);
       break;
+
+    case 'credential-policy': {
+      const registry = new McpServerRegistry();
+      const value = subArgs.find(a => !a.startsWith('--'));
+      if (!value) {
+        console.log(await registry.getCredentialPolicy() || 'literal');
+        break;
+      }
+      if (!CREDENTIAL_POLICIES.includes(value)) {
+        console.error(`Unknown credential policy "${value}". Use one of: ${CREDENTIAL_POLICIES.join(', ')}`);
+        process.exit(1);
+      }
+      await registry.setCredentialPolicy(value);
+      console.log(`Credential policy: ${value}`);
+      break;
+    }
 
     case '--help':
     case '-h':

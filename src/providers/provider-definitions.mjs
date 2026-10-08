@@ -26,9 +26,9 @@ const MCP_INJECTION_DEFINITIONS = [
       providerId: 'claude-code',
       includeInSupportedProviders: true,
       configFormat: 'json',
-      serverConfigFormat: 'standard',
+      serverConfigFormat: 'claude-code',
       serversKey: 'mcpServers',
-      configPath: { scope: 'project', path: '.claude/settings.local.json' },
+      configPath: { scope: 'project', path: '.mcp.json' },
       supportsEphemeral: true,
     },
   },
@@ -178,9 +178,16 @@ export function listMcpInjectProviderIds() {
 }
 
 export function resolveMcpConfigPath(provider, projectDir = '.', options = {}) {
+  if (normalizeRuntimeProviderId(provider) === 'codex' && process.env.CODEX_HOME) {
+    return resolve(process.env.CODEX_HOME, 'config.toml');
+  }
   if (normalizeRuntimeProviderId(provider) === 'antigravity' && options.scope === 'user') {
     const home = process.env.HOME || process.env.USERPROFILE || homedir();
     return resolve(home, '.gemini/config/mcp_config.json');
+  }
+  if (normalizeRuntimeProviderId(provider) === 'claude-code' && options.scope === 'user') {
+    const home = process.env.HOME || process.env.USERPROFILE || homedir();
+    return resolve(home, '.claude.json');
   }
   if (normalizeRuntimeProviderId(provider) === 'omp' && options.scope === 'user') {
     return resolve(resolveOmpPaths(options).agentDir, 'mcp.json');

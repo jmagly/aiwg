@@ -113,7 +113,7 @@ export async function translateForCodex(
     return result;
   }
 
-  const configPath = path.join(homedir(), '.codex', 'config.toml');
+  const configPath = path.join(process.env.CODEX_HOME || path.join(homedir(), '.codex'), 'config.toml');
   const block = renderCodexHookToml(source);
 
   if (block.trim().length === 0) {

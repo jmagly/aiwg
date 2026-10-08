@@ -1,0 +1,4 @@
+[
+  { "name": "tracker", "type": "http", "url": "https://tracker.example/mcp" },
+  { "name": "files", "type": "stdio", "command": "files-mcp" }
+]

@@ -1,0 +1,8 @@
+{
+  "files": {
+    "home/.factory/mcp.json": "{\n  \"mcpServers\": {\n    \"tracker\": {\n      \"type\": \"http\",\n      \"url\": \"https://tracker.example/mcp\",\n      \"disabled\": false,\n      \"disabledTools\": [\n        \"delete_issue\"\n      ]\n    },\n    \"files\": {\n      \"type\": \"stdio\",\n      \"command\": \"files-mcp\",\n      \"args\": [],\n      \"disabled\": true\n    }\n  }\n}\n"
+  },
+  "warnings": [
+    "factory: toolDeny \"tracker__admin_*\" is a glob; disabledTools takes exact names, so it is not rendered."
+  ]
+}

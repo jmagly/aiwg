@@ -232,6 +232,24 @@ export class McpProfileRegistry {
       );
     }
 
+    if (changes.clearToolFilters) {
+      const overrides = { ...(current.providerOverrides ?? {}) };
+      delete overrides[changes.clearToolFilters];
+      current.providerOverrides = overrides;
+    }
+
+    for (const [provider, override] of Object.entries(changes.providerOverrides ?? {})) {
+      const overrides = { ...(current.providerOverrides ?? {}) };
+      const previous = overrides[provider] ?? {};
+      const merge = (before, added) => (added ? [...new Set([...(before ?? []), ...added])] : before);
+      overrides[provider] = {
+        ...previous,
+        ...(override.toolDeny ? { toolDeny: merge(previous.toolDeny, override.toolDeny) } : {}),
+        ...(override.toolAllow ? { toolAllow: merge(previous.toolAllow, override.toolAllow) } : {}),
+      };
+      current.providerOverrides = overrides;
+    }
+
     current.updatedAt = new Date().toISOString();
     data.profiles[name] = current;
     await this.save();

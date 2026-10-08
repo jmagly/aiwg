@@ -1734,8 +1734,8 @@ aiwg mcp install <client>
 **Actions:**
 
 - Generates client-specific config
-- Adds to `.claude/settings.local.json` (Claude Code — CLI and Desktop Code tab; see [MCP README](../mcp/README.md#claude-code))
-- Adds to `.cursor/config.json` (Cursor)
+- Adds to `.mcp.json` (Claude Code — CLI and Desktop Code tab; see [MCP README](../mcp/README.md#claude-code))
+- Adds to `.cursor/mcp.json` (Cursor)
 - Shows manual steps if auto-install fails
 
 **Example:**
