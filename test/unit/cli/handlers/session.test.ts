@@ -19,6 +19,11 @@ const {
   mockIsSpawnableProvider,
   mockGetFrameworkRoot,
   mockUseExecute,
+  mockResolveServers,
+  mockCredentialPolicy,
+  mockEnsureRuntimeHome,
+  mockWriteProfileConfig,
+  mockLaunchWithProfile,
 } = vi.hoisted(() => ({
   mockSpawnSync: vi.fn(),
   mockForceUpdateCheck: vi.fn().mockResolvedValue(undefined),
@@ -33,6 +38,23 @@ const {
   mockIsSpawnableProvider: vi.fn().mockReturnValue(true),
   mockGetFrameworkRoot: vi.fn().mockResolvedValue('/mock/framework/root'),
   mockUseExecute: vi.fn().mockResolvedValue({ exitCode: 0 }),
+  mockResolveServers: vi.fn(),
+  mockCredentialPolicy: vi.fn(),
+  mockEnsureRuntimeHome: vi.fn(),
+  mockWriteProfileConfig: vi.fn(),
+  mockLaunchWithProfile: vi.fn(),
+}));
+
+vi.mock('../../../../src/mcp/profiles.js', () => ({
+  McpProfileRegistry: class { resolveServers = mockResolveServers; },
+}));
+vi.mock('../../../../src/mcp/registry.js', () => ({
+  McpServerRegistry: class { getCredentialPolicy = mockCredentialPolicy; },
+}));
+vi.mock('../../../../src/mcp/adapters/codex-runtime.js', () => ({
+  ensureRuntimeHome: mockEnsureRuntimeHome,
+  writeProfileConfig: mockWriteProfileConfig,
+  launchWithProfile: mockLaunchWithProfile,
 }));
 
 vi.mock('child_process', () => ({
@@ -50,7 +72,7 @@ vi.mock('../../../../src/update/service.mjs', () => ({
 vi.mock('../../../../src/config/aiwg-config.js', () => ({
   readAiwgConfig: mockReadAiwgConfig,
   getDeploymentSummary: mockGetDeploymentSummary,
-  VALID_PROVIDERS: ['claude', 'codex', 'cursor', 'windsurf', 'copilot', 'opencode', 'factory', 'warp', 'openclaw', 'hermes'],
+  VALID_PROVIDERS: ['claude', 'codex', 'openai', 'cursor', 'windsurf', 'copilot', 'opencode', 'factory', 'warp', 'openclaw', 'hermes'],
 }));
 
 vi.mock('../../../../src/cli/agent-spawn.js', () => ({
@@ -97,6 +119,75 @@ function setupHappyPath(): void {
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
+
+describe('sessionHandler Codex profile credential policy', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappyPath();
+    mockGetProviderConfig.mockReturnValue({ name: 'Codex', binary: 'codex', guidanceMessage: null });
+    mockIsSpawnableProvider.mockReturnValue(true);
+    mockGetDeploymentSummary.mockReturnValue({ agents: 1, commands: 1, skills: 1, rules: 1 });
+    mockCredentialPolicy.mockResolvedValue('references');
+    mockResolveServers.mockResolvedValue([{ name: 'leaky', type: 'http', url: 'https://example.test/mcp', headers: { Authorization: 'session-secret' } }]);
+    mockEnsureRuntimeHome.mockResolvedValue('/existing/runtime/with/old/config.toml');
+    mockWriteProfileConfig.mockResolvedValue(undefined);
+    mockLaunchWithProfile.mockReturnValue({ status: 0 });
+  });
+
+  it.each(['codex', 'openai'])('refuses %s before setup or launch, even with an existing runtime', async provider => {
+    const refusal = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const result = await sessionHandler.execute(makeCtx(['--provider', provider, '--profile', 'test', '--no-repair']));
+    expect(result.exitCode).toBe(1);
+    expect(refusal).toHaveBeenCalledWith(expect.stringContaining('Refusing to render MCP servers'));
+    expect(refusal.mock.calls.flat().join(' ')).not.toContain('session-secret');
+    expect(mockEnsureRuntimeHome).not.toHaveBeenCalled();
+    expect(mockWriteProfileConfig).not.toHaveBeenCalled();
+    expect(mockLaunchWithProfile).not.toHaveBeenCalled();
+    expect(mockSpawnSync.mock.calls.some(([command]) => command === 'codex')).toBe(false);
+  });
+
+  it('sets up and launches an allowed profile', async () => {
+    mockResolveServers.mockResolvedValue([{ name: 'safe', type: 'stdio', command: 'safe' }]);
+    const result = await sessionHandler.execute(makeCtx(['--provider', 'codex', '--profile', 'test', '--no-repair']));
+    expect(result.exitCode).toBe(0);
+    expect(mockEnsureRuntimeHome).toHaveBeenCalledWith('test');
+    expect(mockWriteProfileConfig).toHaveBeenCalledWith('test', expect.any(Array), { credentialPolicy: 'references' });
+    expect(mockLaunchWithProfile).toHaveBeenCalledWith('test');
+  });
+
+  it.each(['codex', 'openai'].flatMap(provider =>
+    ['lookup', 'home', 'write'].map(stage => ({ provider, stage }))))(
+    'refuses $provider launch after a $stage setup failure', async ({ provider, stage }) => {
+      mockResolveServers.mockResolvedValue([{ name: 'safe', type: 'stdio', command: 'safe' }]);
+      const failure = new Error('runtime setup failed');
+      if (stage === 'lookup') mockResolveServers.mockRejectedValue(failure);
+      if (stage === 'home') mockEnsureRuntimeHome.mockRejectedValue(failure);
+      if (stage === 'write') mockWriteProfileConfig.mockRejectedValue(failure);
+      const result = await sessionHandler.execute(makeCtx(['--provider', provider, '--profile', 'test', '--no-repair']));
+      expect(result.exitCode).toBe(1);
+      expect(mockLaunchWithProfile).not.toHaveBeenCalled();
+      expect(mockSpawnSync.mock.calls.some(([command]) => command === 'codex')).toBe(false);
+    });
+
+  it.each(['codex', 'openai'])('checks policy for persistent %s profiles before injection or launch', async provider => {
+    const result = await sessionHandler.execute(makeCtx(['--provider', provider, '--profile', 'test', '--persist', '--no-repair']));
+    expect(result.exitCode).toBe(1);
+    expect(mockLaunchWithProfile).not.toHaveBeenCalled();
+    expect(mockSpawnSync.mock.calls.some(([, args]) => args?.includes('inject'))).toBe(false);
+  });
+
+  it.each([0, 1])('persistent Codex injection with status %s never reuses a runtime config', async status => {
+    mockResolveServers.mockResolvedValue([{ name: 'safe', type: 'stdio', command: 'safe' }]);
+    mockSpawnSync.mockImplementation((_command, args) => ({ status: args?.includes('inject') ? status : 0 }));
+    const result = await sessionHandler.execute(makeCtx(['--provider', 'codex', '--profile', 'test', '--persist', '--no-repair']));
+    expect(result.exitCode).toBe(status);
+    expect(mockLaunchWithProfile).not.toHaveBeenCalled();
+    expect(mockEnsureRuntimeHome).not.toHaveBeenCalled();
+    expect(mockWriteProfileConfig).not.toHaveBeenCalled();
+    expect(mockSpawnSync.mock.calls.some(([command]) => command === 'codex')).toBe(status === 0);
+  });
+
+});
 
 describe('sessionHandler metadata', () => {
   it('has correct id, category, and description', () => {

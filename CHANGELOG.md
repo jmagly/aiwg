@@ -7,6 +7,42 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Added
+
+- `aiwg mcp inject` renders `--header-env` references in each harness's own syntax, and a new
+  `--env-from NAME=VAR` does the same for stdio server variables. Previously only OMP and Grok Build
+  rendered references; Claude Code, Cursor, Windsurf, Factory and opencode dropped them, and Codex
+  dropped env and headers entirely. Antigravity and Warp refuse references because neither documents
+  interpolation.
+- Credential policy: `--strict-credentials` refuses literal `env`/`headers` values, `--no-credentials`
+  refuses any credential-bearing field. Also settable with `AIWG_MCP_CREDENTIAL_POLICY` or
+  `aiwg mcp credential-policy`.
+
+### Fixed
+
+- Codex profile sessions stop before runtime setup or launch on credential-policy refusal.
+  Runtime configs remove the entire global `mcp_servers` subtree, including inline, dotted,
+  quoted, and array-table forms, and refuse malformed base TOML. Runtime homes use `0700`;
+  runtime and persistent Codex configs use private atomic writes and reject symlink targets.
+  `aiwg mcp add` and `update` redact URL userinfo and show env/header key names only.
+- opencode local servers now receive their variables as `environment`, the key opencode reads, instead
+  of `env`.
+- `aiwg mcp inject --provider claude` and `aiwg mcp install claude` now write project MCP servers to
+  `.mcp.json`. They previously wrote `mcpServers` into `.claude/settings.local.json`, which Claude Code
+  does not read, so injected servers never loaded. `--scope user` writes `~/.claude.json`. HTTP and SSE
+  entries now carry `type`, without which Claude Code skips a `url` entry. `--ephemeral` output now uses
+  each provider's own entry shape instead of a generic one.
+  Project-scope Claude injection and installation refuse literal env/header values and URL userinfo,
+  naming only servers and keys and suggesting `--scope user` because `.mcp.json` is meant to be committed.
+  Claude installation omits project `env`; user installation includes `AIWG_ROOT` only when set.
+  MCP config writes reject symlink destinations and project symlink parents below the project root.
+  JSON installation refuses malformed JSON, non-object roots, and non-object server maps.
+  Atomic replacement cleans up temporary files even if closing fails, preserves existing project modes,
+  applies umask to new project files, and sets user configs to `0600`, including existing files.
+  User-scope Claude paths fall back to the OS home directory when `HOME` and `USERPROFILE` are unset.
+- Ephemeral and Codex runtime-home MCP configs use 0600 permissions; default ephemeral files use a private temp
+  directory, and `aiwg mcp list` redacts URL userinfo.
+
 ## [2026.10.1] - 2026-10-05 - "Turnkey Jev decision offload"
 
 ### Added

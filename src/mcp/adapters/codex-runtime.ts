@@ -15,12 +15,15 @@
  * @implements #892
  */
 
-import { readFile, writeFile, mkdir, symlink, access, readdir } from 'fs/promises';
+import { readFile, mkdir, symlink, access, readdir, chmod } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import { existsSync } from 'fs';
 import { spawnSync, type SpawnSyncReturns } from 'child_process';
-import type { McpServerDefinition } from '../registry.js';
+import { buildServerToml, type McpServerDefinition } from '../registry.js';
+import { assertCredentialPolicy, type McpCredentialPolicy } from '../credentials.mjs';
+import { assertConfigDestination, writeConfigAtomic } from '../config-file.mjs';
+import { stripMcpServers } from '../toml-strip-mcp.mjs';
 
 // ─────────────────────────────────────────────
 // Types
@@ -61,6 +64,9 @@ function runtimeHomesDir(): string {
 }
 
 function runtimeHomePath(profile: string): string {
+  if (!/^[a-z0-9-]+$/.test(profile)) {
+    throw new Error('Invalid profile name. Names must match [a-z0-9-]+.');
+  }
   return join(runtimeHomesDir(), profile);
 }
 
@@ -72,6 +78,16 @@ function runtimeConfigPath(profile: string): string {
 // Runtime home management
 // ─────────────────────────────────────────────
 
+async function ensurePrivateRuntimeHome(profile: string): Promise<string> {
+  const rtHome = runtimeHomePath(profile);
+  // The global .codex home may be managed by a dotfile symlink. Refuse
+  // symlinks below it, including roles-runtime, the profile, and config.
+  await assertConfigDestination(runtimeConfigPath(profile), codexHome());
+  await mkdir(rtHome, { recursive: true, mode: 0o700 });
+  await chmod(rtHome, 0o700);
+  return rtHome;
+}
+
 /**
  * Ensure the runtime home directory exists for a profile.
  * Creates the directory and sets up shared-state symlinks.
@@ -81,9 +97,7 @@ export async function ensureRuntimeHome(
   profile: string,
   policy: SharedStatePolicy = DEFAULT_SHARED_STATE,
 ): Promise<string> {
-  const rtHome = runtimeHomePath(profile);
-
-  await mkdir(rtHome, { recursive: true });
+  const rtHome = await ensurePrivateRuntimeHome(profile);
 
   const globalHome = codexHome();
 
@@ -114,63 +128,39 @@ export async function ensureRuntimeHome(
 
 /**
  * Write a profile-scoped config.toml into the runtime home.
- * Strips all [mcp_servers.*] blocks from any existing global config.toml
+ * Strips the entire mcp_servers subtree from any existing global config.toml
  * and writes only the profile's servers.
  */
 export async function writeProfileConfig(
   profile: string,
   servers: McpServerDefinition[],
+  options: { credentialPolicy?: McpCredentialPolicy } = {},
 ): Promise<void> {
-  const rtHome = runtimeHomePath(profile);
-  await mkdir(rtHome, { recursive: true });
+  assertCredentialPolicy(servers, options.credentialPolicy);
+  await ensurePrivateRuntimeHome(profile);
 
   // Load global config.toml as base (strip existing mcp_servers blocks)
   let baseConfig = '';
   const globalConfigPath = join(codexHome(), 'config.toml');
   try {
     const raw = await readFile(globalConfigPath, 'utf-8');
-    // Remove all [mcp_servers.*] sections and their content
-    baseConfig = raw
-      .replace(/\[mcp_servers\.[^\]]+\][\s\S]*?(?=\n\[|\s*$)/g, '')
-      .trimEnd();
-  } catch {
-    // No global config — start empty
+    baseConfig = stripMcpServers(raw).trimEnd();
+  } catch (error) {
+    // Only a missing global config permits an empty base. Classification and
+    // read errors must never silently copy or replace a previous config.
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
 
   // Build profile-specific [mcp_servers.*] TOML sections
-  const mcpSections: string[] = [];
-  for (const server of servers) {
-    const lines: string[] = [`[mcp_servers.${server.name}]`];
-    if (server.type === 'stdio') {
-      lines.push(`command = "${server.command}"`);
-      if (server.args && server.args.length > 0) {
-        const argsStr = server.args.map((a) => `"${a}"`).join(', ');
-        lines.push(`args = [${argsStr}]`);
-      }
-      if (server.env) {
-        for (const [k, v] of Object.entries(server.env)) {
-          lines.push(`env.${k} = "${v}"`);
-        }
-      }
-    } else {
-      lines.push(`url = "${server.url}"`);
-      if (server.headers) {
-        for (const [k, v] of Object.entries(server.headers)) {
-          lines.push(`headers.${k} = "${v}"`);
-        }
-      }
-    }
-    lines.push(`startup_timeout_sec = 10.0`);
-    lines.push(`tool_timeout_sec = 60.0`);
-    mcpSections.push(lines.join('\n'));
-  }
+  const mcpSections = servers.map((server) => buildServerToml(server));
 
   const configContent =
     (baseConfig ? baseConfig + '\n\n' : '') +
     mcpSections.join('\n\n') +
     '\n';
 
-  await writeFile(runtimeConfigPath(profile), configContent, 'utf-8');
+  const configPath = runtimeConfigPath(profile);
+  await writeConfigAtomic(configPath, configContent, { userScope: true, projectRoot: codexHome() });
 }
 
 /**

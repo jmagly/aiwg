@@ -76,8 +76,23 @@ These prompts are auto-integrated and available in compatible tools.
 ### Claude Code
 
 `aiwg mcp install claude` configures **Claude Code** — the CLI and Claude
-Desktop's Code tab, which share project configuration. After running it, the
-config is placed at `.claude/settings.local.json` in the project directory.
+Desktop's Code tab — using project-scoped `.mcp.json`. The generated `aiwg`
+entry has no `env` block and inherits the user's environment. With `--scope
+user`, install writes `AIWG_ROOT` only when it is set in the environment.
+`aiwg mcp inject --provider claude --scope user` (or `aiwg mcp install claude
+--scope user`) writes the top-level `mcpServers` of private `~/.claude.json`.
+User config writes always set mode `0600`, including existing files.
+Project-scope inject and install refuse non-empty literal `env` or `headers`
+and URL userinfo, reporting only server and key names; use `--scope user`
+for those values because `.mcp.json` is meant to be committed.
+Config writes reject symlink destinations; project writes also reject symlink
+parents below the project directory. JSON installation refuses malformed JSON,
+non-object roots, and non-object server maps without changing the file.
+Writes use atomic replacement, preserve existing project file permissions,
+and apply the process umask to new project files.
+Claude Code does not read `mcpServers` from `.claude/settings.json` or
+`.claude/settings.local.json`; entries that earlier AIWG releases wrote there
+were never loaded and can be deleted.
 
 This is distinct from the Claude Desktop **chat app** (the Cowork surface),
 which reads MCP servers from its own `claude_desktop_config.json`
@@ -106,6 +121,56 @@ If automatic installation doesn't work, add this to your MCP config:
   }
 }
 ```
+
+## Credentials in Injected Servers
+
+A registry entry can carry a credential as a literal value (`--env`, `--headers`) or as a reference to an
+environment variable (`--header-env HEADER=VAR`, `--env-from NAME=VAR`). A reference writes only the
+variable name; the harness reads the value when it starts the server. Each harness spells a reference
+differently:
+
+| Harness | `--header-env` / `--env-from` renders as |
+| --- | --- |
+| Claude Code | `${VAR}` |
+| Cursor, Windsurf | `${env:VAR}` |
+| Factory | `${VAR}` |
+| opencode | `{env:VAR}` |
+| OMP, Grok Build | `${VAR}` |
+| Codex | `env_http_headers = { HEADER = "VAR" }` and `env_vars = ["VAR"]` |
+| Antigravity, Warp | refused: neither documents interpolation in its MCP config |
+
+Codex forwards a variable only under its own name, so `--env-from` for Codex must map `VAR=VAR`.
+Claude Code reads `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `NPM_TOKEN` as empty in a remote
+server's URL and headers, so do not reference those.
+
+The credential policy decides what `aiwg mcp inject` will render:
+
+| Policy | Flag | Renders |
+| --- | --- | --- |
+| `literal` (default) | none | everything |
+| `references` | `--strict-credentials` | references only; refuses literal `env`/`headers`, URL userinfo, OAuth client secrets |
+| `none` | `--no-credentials` | refuses every credential-bearing field, references included |
+
+A refusal names each server and field, exits non-zero and writes nothing, including in `--ephemeral`
+mode. Precedence is the flag, then `AIWG_MCP_CREDENTIAL_POLICY`, then the registry default set with
+`aiwg mcp credential-policy <policy>`. `aiwg session --provider codex --profile <p>` applies the same
+policy before setup and launch. Any setup failure prevents launch and reuse of an existing runtime
+config. With `--persist`, successful injection launches against the default Codex home.
+
+Persistent injection applies credential policy to the selected registry servers. Unrelated entries
+already in the provider config are preserved, including their credentials. Use `--ephemeral` or a
+Codex profile runtime home to render a standalone server set under a restrictive policy.
+The profile config removes the entire global `mcp_servers` subtree, including inline and quoted
+forms, and refuses malformed base TOML instead of copying it.
+
+Ephemeral and Codex runtime-home configs are written owner-only (0600). Codex runtime homes use
+0700; runtime and persistent Codex config writes are atomic and refuse symlink targets.
+A symlinked global `~/.codex` home is supported; `roles-runtime`, profile directories, and
+runtime config files beneath it must be real directories/files. Runtime profile names must match
+`[a-z0-9-]+`.
+`aiwg mcp add` and `update` show env/header key names only and redact URL userinfo.
+Persistent project files such as
+`.mcp.json` should hold credential references rather than literal secrets.
 
 ## Technical Details
 

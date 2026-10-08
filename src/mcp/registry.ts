@@ -1,7 +1,9 @@
+import { assertConfigDestination, assertProjectCredentials, isUserMcpScope, writeConfigAtomic } from './config-file.mjs';
 import { manageOmpMcp } from './omp-config.mjs';
 import { manageGrokBuildMcp } from './grok-build-config.mjs';
 import { replaceServer } from './toml-editor.mjs';
 import { resolveOmpPaths } from '../providers/omp-paths.mjs';
+import { assertCredentialPolicy, renderCredentialMaps, validateEnvReferenceName, type McpCredentialPolicy } from './credentials.mjs';
 /**
  * MCP Server Registry
  *
@@ -14,6 +16,7 @@ import { resolveOmpPaths } from '../providers/omp-paths.mjs';
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname, resolve } from 'path';
+import { homedir } from 'os';
 import { resolveConfigDir } from '../config/user-config.js';
 import { getProviderDefinition } from '../providers/provider-definitions.js';
 
@@ -51,6 +54,12 @@ export interface McpServerDefinition {
    * consuming client at connection time.
    */
   headerEnv?: Record<string, string>;
+  /**
+   * Server-environment-to-environment-variable references for stdio servers.
+   * Maps the variable the server sees to the variable the client reads; only
+   * names are persisted.
+   */
+  envFrom?: Record<string, string>;
   /** OMP native transport and authentication options (placeholders remain unresolved). */
   cwd?: string;
   /** SDK/plugin policies; native OMP mcp.json injection rejects these instead of silently dropping them. */
@@ -79,6 +88,8 @@ export interface McpServerDefinition {
 export interface McpRegistryData {
   apiVersion: string;
   kind: string;
+  /** Default credential policy for rendering; see credentials.mjs. */
+  credentialPolicy?: McpCredentialPolicy;
   servers: Record<string, McpServerDefinition>;
 }
 
@@ -114,11 +125,17 @@ const DEFAULT_REGISTRY: McpRegistryData = {
 
 const ENV_REFERENCE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-function validateCredentialReferences(def: Pick<McpServerDefinition, 'headerEnv'>): void {
+function validateCredentialReferences(def: Pick<McpServerDefinition, 'headerEnv' | 'envFrom'>): void {
   for (const [header, envName] of Object.entries(def.headerEnv ?? {})) {
     if (!header.trim()) throw new Error('MCP header-env header name must not be empty');
     if (!ENV_REFERENCE_NAME.test(envName)) {
       throw new Error(`Invalid MCP header environment variable reference "${envName}"`);
+    }
+  }
+  for (const [key, envName] of Object.entries(def.envFrom ?? {})) {
+    if (!ENV_REFERENCE_NAME.test(key)) throw new Error(`Invalid MCP env-from variable name "${key}"`);
+    if (!ENV_REFERENCE_NAME.test(envName)) {
+      throw new Error(`Invalid MCP env-from environment variable reference "${envName}"`);
     }
   }
 }
@@ -255,6 +272,18 @@ export class McpServerRegistry {
     return [...providers];
   }
 
+  /** Registry-wide default credential policy, if one is set */
+  async getCredentialPolicy(): Promise<McpCredentialPolicy | undefined> {
+    const data = await this.load();
+    return data.credentialPolicy;
+  }
+
+  async setCredentialPolicy(policy: McpCredentialPolicy): Promise<void> {
+    const data = await this.load();
+    data.credentialPolicy = policy;
+    await this.save();
+  }
+
   /** Clear the in-memory cache */
   clearCache(): void {
     this.cache = null;
@@ -268,30 +297,34 @@ export class McpServerRegistry {
 /**
  * Build the MCP config block for a single server in a given provider's format.
  */
-function buildServerConfig(
+export function buildServerConfig(
   server: McpServerDefinition,
   provider: InjectProvider,
 ): Record<string, unknown> {
   const adapter = getProviderDefinition(provider)?.adapters.mcpInjection as McpInjectionAdapter | undefined;
+  const { env, headers } = adapter && adapter !== 'codex'
+    ? renderCredentialMaps(server, adapter)
+    : { env: server.env, headers: server.headers };
   switch (adapter) {
     case 'antigravity': {
       if (server.type === 'stdio') {
-        return { command: server.command, args: server.args || [], ...(server.env ? { env: server.env } : {}) };
+        return { command: server.command, args: server.args || [], ...(env ? { env } : {}) };
       }
-      return { serverUrl: server.url, ...(server.headers ? { headers: server.headers } : {}) };
+      return { serverUrl: server.url, ...(headers ? { headers } : {}) };
     }
     case 'claude-code': {
       if (server.type === 'stdio') {
         return {
           command: server.command,
           args: server.args || [],
-          ...(server.env ? { env: server.env } : {}),
+          ...(env ? { env } : {}),
         };
       }
-      // http/sse
+      // Claude Code skips a url entry that has no type.
       return {
+        type: server.type,
         url: server.url,
-        ...(server.headers ? { headers: server.headers } : {}),
+        ...(headers ? { headers } : {}),
       };
     }
 
@@ -300,12 +333,12 @@ function buildServerConfig(
         return {
           command: server.command,
           args: server.args || [],
-          ...(server.env ? { env: server.env } : {}),
+          ...(env ? { env } : {}),
         };
       }
       return {
         url: server.url,
-        ...(server.headers ? { headers: server.headers } : {}),
+        ...(headers ? { headers } : {}),
       };
     }
 
@@ -316,14 +349,14 @@ function buildServerConfig(
           command: server.command,
           args: server.args || [],
           disabled: false,
-          ...(server.env ? { env: server.env } : {}),
+          ...(env ? { env } : {}),
         };
       }
       return {
         type: server.type,
         url: server.url,
         disabled: false,
-        ...(server.headers ? { headers: server.headers } : {}),
+        ...(headers ? { headers } : {}),
       };
     }
 
@@ -332,13 +365,14 @@ function buildServerConfig(
         return {
           type: 'local',
           command: [server.command, ...(server.args || [])],
-          ...(server.env ? { env: server.env } : {}),
+          // opencode names a local server's variables `environment`.
+          ...(env ? { environment: env } : {}),
         };
       }
       return {
         type: 'remote',
         url: server.url,
-        ...(server.headers ? { headers: server.headers } : {}),
+        ...(headers ? { headers } : {}),
       };
     }
 
@@ -348,12 +382,12 @@ function buildServerConfig(
         return {
           command: server.command,
           args: server.args || [],
-          ...(server.env ? { env: server.env } : {}),
+          ...(env ? { env } : {}),
         };
       }
       return {
         url: server.url,
-        ...(server.headers ? { headers: server.headers } : {}),
+        ...(headers ? { headers } : {}),
       };
     }
 
@@ -382,7 +416,11 @@ function tomlKey(value: unknown): string {
   return typeof value === 'string' && /^[A-Za-z0-9_-]+$/.test(value) ? value : tomlString(value);
 }
 
-function buildServerToml(server: McpServerDefinition): string {
+function tomlInlineTable(values: Record<string, string>): string {
+  return `{ ${Object.entries(values).map(([name, value]) => `${tomlKey(name)} = ${tomlString(value)}`).join(', ')} }`;
+}
+
+export function buildServerToml(server: McpServerDefinition): string {
   const lines: string[] = [];
   lines.push(`[mcp_servers.${tomlKey(server.name)}]`);
 
@@ -392,8 +430,21 @@ function buildServerToml(server: McpServerDefinition): string {
       const argsStr = server.args.map(a => tomlString(a)).join(', ');
       lines.push(`args = [${argsStr}]`);
     }
+    if (server.env && Object.keys(server.env).length > 0) lines.push(`env = ${tomlInlineTable(server.env)}`);
+    // Codex forwards a variable only under its own name (env_vars).
+    const forwarded = Object.entries(server.envFrom ?? {});
+    for (const [key, name] of forwarded) {
+      validateEnvReferenceName(name);
+      if (key !== name) {
+        throw new Error(`MCP server "${server.name}": Codex forwards environment variables under their own name only; env-from ${key}=${name} cannot be rendered. Use ${name}=${name}.`);
+      }
+    }
+    if (forwarded.length > 0) lines.push(`env_vars = [${forwarded.map(([name]) => tomlString(name)).join(', ')}]`);
   } else {
     lines.push(`url = ${tomlString(server.url)}`);
+    if (server.headers && Object.keys(server.headers).length > 0) lines.push(`http_headers = ${tomlInlineTable(server.headers)}`);
+    for (const name of Object.values(server.headerEnv ?? {})) validateEnvReferenceName(name);
+    if (server.headerEnv && Object.keys(server.headerEnv).length > 0) lines.push(`env_http_headers = ${tomlInlineTable(server.headerEnv)}`);
   }
 
   lines.push(`startup_timeout_sec = 10.0`);
@@ -418,6 +469,9 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     return resolve(homeDir, '.gemini/config/mcp_config.json');
   }
+  if ((provider === 'claude-code' || provider === 'claude') && options.scope === 'user') {
+    return resolve(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude.json');
+  }
   if ((provider === 'omp' || provider === 'oh-my-pi') && options.scope !== undefined && !['user', 'project'].includes(options.scope)) throw new Error('OMP MCP scope must be user or project');
   if ((provider === 'omp' || provider === 'oh-my-pi') && options.scope === 'user') return resolve(resolveOmpPaths().agentDir, 'mcp.json');
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
@@ -427,8 +481,8 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
     agy: resolve(projectDir, '.agents/mcp_config.json'),
     omp: resolve(projectDir, '.omp/mcp.json'),
     'oh-my-pi': resolve(projectDir, '.omp/mcp.json'),
-    'claude-code': resolve(projectDir, '.claude/settings.local.json'),
-    claude: resolve(projectDir, '.claude/settings.local.json'),
+    'claude-code': resolve(projectDir, '.mcp.json'),
+    claude: resolve(projectDir, '.mcp.json'),
     cursor: resolve(projectDir, '.cursor/mcp.json'),
     factory: resolve(homeDir, '.factory/mcp.json'),
     codex: resolve(homeDir, '.codex/config.toml'),
@@ -458,6 +512,7 @@ export async function injectServers(
     servers?: string[];
     projectDir?: string;
     dryRun?: boolean;
+    credentialPolicy?: McpCredentialPolicy;
   } = {},
 ): Promise<InjectResult> {
   const { servers: serverFilter, projectDir = '.', dryRun = false } = options;
@@ -480,9 +535,17 @@ export async function injectServers(
     return result;
   }
 
+  assertCredentialPolicy(allServers, options.credentialPolicy);
+
+  const userScope = isUserMcpScope(provider, options.scope);
+  const projectRoot = userScope ? undefined : projectDir;
+  await assertConfigDestination(configPath, projectRoot);
+  if ((provider === 'claude-code' || provider === 'claude') && options.scope !== 'user') {
+    assertProjectCredentials(allServers, configPath);
+  }
   if (provider === 'omp' || provider === 'oh-my-pi') {
     try {
-      const managed = await manageOmpMcp(configPath, allServers, { dryRun });
+      const managed = await manageOmpMcp(configPath, allServers, { dryRun, userScope, projectRoot });
       if (!dryRun) for (const server of allServers) await registry.recordInjection(server.name, 'omp');
       return { ...result, ...managed };
     } catch (error) {
@@ -494,6 +557,7 @@ export async function injectServers(
     try {
       const managed = await manageGrokBuildMcp(configPath, allServers, {
         dryRun,
+        userScope,
         root: options.scope === 'user' ? dirname(dirname(configPath)) : resolve(projectDir),
       });
       if (!dryRun && !managed.error) for (const server of allServers) await registry.recordInjection(server.name, 'grok-build');
@@ -505,11 +569,11 @@ export async function injectServers(
 
   // Handle TOML-based providers (Codex/OpenAI) separately
   if (provider === 'codex' || provider === 'openai') {
-    return injectToml(registry, allServers, configPath, provider, dryRun, result);
+    return injectToml(registry, allServers, configPath, provider, dryRun, result, userScope, projectRoot);
   }
 
   // JSON-based providers
-  return injectJson(registry, allServers, configPath, provider, dryRun, result);
+  return injectJson(registry, allServers, configPath, provider, dryRun, result, userScope, projectRoot);
 }
 
 async function injectJson(
@@ -519,6 +583,8 @@ async function injectJson(
   provider: InjectProvider,
   dryRun: boolean,
   result: InjectResult,
+  userScope: boolean,
+  projectRoot?: string,
 ): Promise<InjectResult> {
   // Load existing config
   let existing: Record<string, unknown> = {};
@@ -560,8 +626,7 @@ async function injectJson(
   const merged = { ...existing, [mcpKey]: newServers };
 
   if (!dryRun) {
-    await mkdir(resolve(configPath, '..'), { recursive: true });
-    await writeFile(configPath, JSON.stringify(merged, null, 2) + '\n', 'utf-8');
+    await writeConfigAtomic(configPath, JSON.stringify(merged, null, 2) + '\n', { userScope, projectRoot });
 
     // Record injection in registry
     for (const server of servers) {
@@ -580,6 +645,8 @@ async function injectToml(
   provider: InjectProvider,
   dryRun: boolean,
   result: InjectResult,
+  userScope: boolean,
+  projectRoot?: string,
 ): Promise<InjectResult> {
   let existing = '';
   try {
@@ -596,8 +663,7 @@ async function injectToml(
   }
 
   if (!dryRun) {
-    await mkdir(resolve(configPath, '..'), { recursive: true });
-    await writeFile(configPath, existing, 'utf-8');
+    await writeConfigAtomic(configPath, existing, { userScope, projectRoot });
 
     for (const server of servers) {
       await registry.recordInjection(server.name, provider);

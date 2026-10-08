@@ -269,6 +269,9 @@ function injectMcpProfile(
       { stdio: 'inherit', cwd },
     );
     if (result.status !== 0) {
+      if (provider === 'codex' || provider === 'openai') {
+        throw new Error('Codex profile injection failed; refusing to launch.');
+      }
       console.warn('  WARN  Profile inject failed — continuing without profile.');
     }
     return null; // persistent mode, no ephemeral path
@@ -418,23 +421,37 @@ export const sessionHandler: CommandHandler = {
     if (profile) {
       // Profile-aware injection (#891) — ephemeral by default
 
-      // For codex: set up the runtime home and write profile config (#892)
-      if ((provider === 'codex' || provider === 'openai') && !persist) {
+      // Codex profiles must pass policy and setup before any launch (#892)
+      if (provider === 'codex' || provider === 'openai') {
         try {
-          console.log(`\n  Setting up Codex runtime home for profile "${profile}"...`);
+          console.log(`\n  Setting up Codex ${persist ? 'persistent config' : 'runtime home'} for profile "${profile}"...`);
           // Import server list for this profile
           const { McpProfileRegistry } = await import('../../mcp/profiles.js');
           const { McpServerRegistry } = await import('../../mcp/registry.js');
           const profiles = new McpProfileRegistry();
           const registry = new McpServerRegistry();
           const resolvedServers = await profiles.resolveServers(profile, registry) as import('../../mcp/registry.js').McpServerDefinition[];
-          await ensureRuntimeHome(profile);
-          await writeProfileConfig(profile, resolvedServers);
-          console.log(`  Runtime home ready. Profile servers: ${resolvedServers.map((s) => s.name).join(', ') || '(none)'}`);
+          const { assertCredentialPolicy, resolveCredentialPolicy } = await import('../../mcp/credentials.mjs');
+          const registryPolicy = await registry.getCredentialPolicy();
+          let credentialPolicy;
+          try {
+            credentialPolicy = resolveCredentialPolicy({ registryPolicy });
+            assertCredentialPolicy(resolvedServers, credentialPolicy);
+          } catch (err) {
+            console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+            return { exitCode: 1 };
+          }
+          if (persist) {
+            injectMcpProfile(provider, profile, cwd, true);
+          } else {
+            await ensureRuntimeHome(profile);
+            await writeProfileConfig(profile, resolvedServers, { credentialPolicy });
+            console.log(`  Runtime home ready. Profile servers: ${resolvedServers.map((s) => s.name).join(', ') || '(none)'}`);
+          }
           mcpInjected = true;
         } catch (err) {
           console.warn(`  WARN  Codex runtime home setup failed: ${err instanceof Error ? err.message : String(err)}`);
-          console.warn('  Falling back to standard launch.');
+          return { exitCode: 1 };
         }
       } else {
         mcpConfigPath = injectMcpProfile(provider, profile, cwd, persist);
@@ -445,6 +462,7 @@ export const sessionHandler: CommandHandler = {
     }
 
     // ── Step 5: Launch ────────────────────────────────────────────
-    return launchProvider(provider, mcpInjected, mcpConfigPath, profile);
+    return launchProvider(provider, mcpInjected, mcpConfigPath,
+      persist && (provider === 'codex' || provider === 'openai') ? null : profile);
   },
 };
