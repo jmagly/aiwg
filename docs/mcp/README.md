@@ -76,8 +76,23 @@ These prompts are auto-integrated and available in compatible tools.
 ### Claude Code
 
 `aiwg mcp install claude` configures **Claude Code** — the CLI and Claude
-Desktop's Code tab, which share project configuration. After running it, the
-config is placed at `.claude/settings.local.json` in the project directory.
+Desktop's Code tab — using project-scoped `.mcp.json`. The generated `aiwg`
+entry has no `env` block and inherits the user's environment. With `--scope
+user`, install writes `AIWG_ROOT` only when it is set in the environment.
+`aiwg mcp inject --provider claude --scope user` (or `aiwg mcp install claude
+--scope user`) writes the top-level `mcpServers` of private `~/.claude.json`.
+User config writes always set mode `0600`, including existing files.
+Project-scope inject and install refuse non-empty literal `env` or `headers`
+and URL userinfo, reporting only server and key names; use `--scope user`
+for those values because `.mcp.json` is meant to be committed.
+Config writes reject symlink destinations; project writes also reject symlink
+parents below the project directory. JSON installation refuses malformed JSON,
+non-object roots, and non-object server maps without changing the file.
+Writes use atomic replacement, preserve existing project file permissions,
+and apply the process umask to new project files.
+Claude Code does not read `mcpServers` from `.claude/settings.json` or
+`.claude/settings.local.json`; entries that earlier AIWG releases wrote there
+were never loaded and can be deleted.
 
 This is distinct from the Claude Desktop **chat app** (the Cowork surface),
 which reads MCP servers from its own `claude_desktop_config.json`

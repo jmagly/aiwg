@@ -7,6 +7,22 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Fixed
+
+- `aiwg mcp inject --provider claude` and `aiwg mcp install claude` now write project MCP servers to
+  `.mcp.json`. They previously wrote `mcpServers` into `.claude/settings.local.json`, which Claude Code
+  does not read, so injected servers never loaded. `--scope user` writes `~/.claude.json`. HTTP and SSE
+  entries now carry `type`, without which Claude Code skips a `url` entry. `--ephemeral` output now uses
+  each provider's own entry shape instead of a generic one.
+  Project-scope Claude injection and installation refuse literal env/header values and URL userinfo,
+  naming only servers and keys and suggesting `--scope user` because `.mcp.json` is meant to be committed.
+  Claude installation omits project `env`; user installation includes `AIWG_ROOT` only when set.
+  MCP config writes reject symlink destinations and project symlink parents below the project root.
+  JSON installation refuses malformed JSON, non-object roots, and non-object server maps.
+  Atomic replacement cleans up temporary files even if closing fails, preserves existing project modes,
+  applies umask to new project files, and sets user configs to `0600`, including existing files.
+  User-scope Claude paths fall back to the OS home directory when `HOME` and `USERPROFILE` are unset.
+
 ## [2026.10.1] - 2026-10-05 - "Turnkey Jev decision offload"
 
 ### Added

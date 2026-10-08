@@ -47,7 +47,7 @@ Claude Code (host)
 aiwg mcp install claude
 ```
 
-This creates or merges into `.claude/settings.local.json`:
+This creates or merges into `.mcp.json` in the project root:
 
 ```json
 {
@@ -150,7 +150,8 @@ Claude Code calls `template-render` to generate the document and `artifact-write
 ## Troubleshooting
 
 **AIWG tools not visible in Claude Code:**
-- Check `.claude/settings.local.json` has the `mcpServers.aiwg` entry
+- Check `.mcp.json` has the `mcpServers.aiwg` entry
+- Check that you approved the project server (`claude mcp list` shows its state)
 - Verify `aiwg mcp serve` runs successfully standalone: `aiwg mcp info`
 - Restart Claude Code after config changes
 

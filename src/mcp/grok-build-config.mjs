@@ -1,5 +1,6 @@
+import { writeConfigAtomic } from './config-file.mjs';
 import { constants } from 'node:fs';
-import { access, lstat, mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, lstat, readFile } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { replaceServer } from './toml-editor.mjs';
@@ -94,14 +95,14 @@ export function removeGrokMcpServers(text, names) {
   return { text: output, removed };
 }
 
-async function assertSafeTarget(configPath, root) {
+async function assertSafeTarget(configPath, root, userScope) {
   const absolute = resolve(configPath);
   const base = resolve(root);
   const rel = relative(base, absolute);
   if (!rel || rel.startsWith('..') || rel.startsWith('/') || rel.includes('\0')) {
     throw new Error('Grok MCP config path must be a file beneath the selected configuration root');
   }
-  for (let current = dirname(absolute); current !== base; current = dirname(current)) {
+  for (let current = dirname(absolute); !userScope && current !== base; current = dirname(current)) {
     try {
       if ((await lstat(current)).isSymbolicLink()) throw new Error('Refusing Grok MCP path through a symbolic link');
     } catch (error) {
@@ -116,40 +117,29 @@ async function assertSafeTarget(configPath, root) {
   }
 }
 
-async function atomicWrite(file, content) {
-  await mkdir(dirname(file), { recursive: true });
-  const temp = `${file}.aiwg-${process.pid}-${Date.now()}.tmp`;
-  try {
-    const handle = await open(temp, 'wx', 0o600);
-    await handle.writeFile(content, 'utf8');
-    await handle.sync();
-    await handle.close();
-    await rename(temp, file);
-  } catch (error) {
-    await rm(temp, { force: true });
-    throw error;
-  }
+async function atomicWrite(file, content, options) {
+  await writeConfigAtomic(file, content, options);
 }
 
 export async function manageGrokBuildMcp(configPath, servers, options = {}) {
   const root = options.root || dirname(dirname(configPath));
   if (options.blockedByPolicy) return { configPath, state: 'blocked-by-policy', serversInjected: [], alreadyPresent: [], error: options.blockedByPolicy };
-  await assertSafeTarget(configPath, root);
+  await assertSafeTarget(configPath, root, options.userScope);
   let before = '';
   try { before = await readFile(configPath, 'utf8'); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
   const alreadyPresent = servers.filter(server => managedRange(before, server.name)).map(server => server.name);
   const after = mergeGrokMcpServers(before, servers);
-  if (!options.dryRun && after !== before) await atomicWrite(configPath, after);
+  if (!options.dryRun && after !== before) await atomicWrite(configPath, after, { userScope: options.userScope ?? true, projectRoot: options.userScope ? undefined : root });
   return { configPath, state: options.disabled ? 'disabled' : 'configured', serversInjected: servers.map(server => server.name), alreadyPresent };
 }
 
 export async function unmanageGrokBuildMcp(configPath, names, options = {}) {
   const root = options.root || dirname(dirname(configPath));
-  await assertSafeTarget(configPath, root);
+  await assertSafeTarget(configPath, root, options.userScope);
   let before;
   try { before = await readFile(configPath, 'utf8'); } catch (error) { if (error?.code === 'ENOENT') return { configPath, state: 'absent', removed: [] }; throw error; }
   const result = removeGrokMcpServers(before, names);
-  if (!options.dryRun && result.text !== before) await atomicWrite(configPath, result.text);
+  if (!options.dryRun && result.text !== before) await atomicWrite(configPath, result.text, { userScope: options.userScope ?? true, projectRoot: options.userScope ? undefined : root });
   return { configPath, state: result.removed.length ? 'configured' : 'absent', removed: result.removed };
 }
 

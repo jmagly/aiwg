@@ -1,3 +1,4 @@
+import { assertConfigDestination, assertProjectCredentials, isUserMcpScope, writeConfigAtomic } from './config-file.mjs';
 import { manageOmpMcp } from './omp-config.mjs';
 import { manageGrokBuildMcp } from './grok-build-config.mjs';
 import { replaceServer } from './toml-editor.mjs';
@@ -14,6 +15,7 @@ import { resolveOmpPaths } from '../providers/omp-paths.mjs';
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname, resolve } from 'path';
+import { homedir } from 'os';
 import { resolveConfigDir } from '../config/user-config.js';
 import { getProviderDefinition } from '../providers/provider-definitions.js';
 
@@ -268,7 +270,7 @@ export class McpServerRegistry {
 /**
  * Build the MCP config block for a single server in a given provider's format.
  */
-function buildServerConfig(
+export function buildServerConfig(
   server: McpServerDefinition,
   provider: InjectProvider,
 ): Record<string, unknown> {
@@ -288,8 +290,9 @@ function buildServerConfig(
           ...(server.env ? { env: server.env } : {}),
         };
       }
-      // http/sse
+      // Claude Code skips a url entry that has no type.
       return {
+        type: server.type,
         url: server.url,
         ...(server.headers ? { headers: server.headers } : {}),
       };
@@ -418,6 +421,9 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     return resolve(homeDir, '.gemini/config/mcp_config.json');
   }
+  if ((provider === 'claude-code' || provider === 'claude') && options.scope === 'user') {
+    return resolve(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude.json');
+  }
   if ((provider === 'omp' || provider === 'oh-my-pi') && options.scope !== undefined && !['user', 'project'].includes(options.scope)) throw new Error('OMP MCP scope must be user or project');
   if ((provider === 'omp' || provider === 'oh-my-pi') && options.scope === 'user') return resolve(resolveOmpPaths().agentDir, 'mcp.json');
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
@@ -427,8 +433,8 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
     agy: resolve(projectDir, '.agents/mcp_config.json'),
     omp: resolve(projectDir, '.omp/mcp.json'),
     'oh-my-pi': resolve(projectDir, '.omp/mcp.json'),
-    'claude-code': resolve(projectDir, '.claude/settings.local.json'),
-    claude: resolve(projectDir, '.claude/settings.local.json'),
+    'claude-code': resolve(projectDir, '.mcp.json'),
+    claude: resolve(projectDir, '.mcp.json'),
     cursor: resolve(projectDir, '.cursor/mcp.json'),
     factory: resolve(homeDir, '.factory/mcp.json'),
     codex: resolve(homeDir, '.codex/config.toml'),
@@ -480,9 +486,15 @@ export async function injectServers(
     return result;
   }
 
+  const userScope = isUserMcpScope(provider, options.scope);
+  const projectRoot = userScope ? undefined : projectDir;
+  await assertConfigDestination(configPath, projectRoot);
+  if ((provider === 'claude-code' || provider === 'claude') && options.scope !== 'user') {
+    assertProjectCredentials(allServers, configPath);
+  }
   if (provider === 'omp' || provider === 'oh-my-pi') {
     try {
-      const managed = await manageOmpMcp(configPath, allServers, { dryRun });
+      const managed = await manageOmpMcp(configPath, allServers, { dryRun, userScope, projectRoot });
       if (!dryRun) for (const server of allServers) await registry.recordInjection(server.name, 'omp');
       return { ...result, ...managed };
     } catch (error) {
@@ -494,6 +506,7 @@ export async function injectServers(
     try {
       const managed = await manageGrokBuildMcp(configPath, allServers, {
         dryRun,
+        userScope,
         root: options.scope === 'user' ? dirname(dirname(configPath)) : resolve(projectDir),
       });
       if (!dryRun && !managed.error) for (const server of allServers) await registry.recordInjection(server.name, 'grok-build');
@@ -505,11 +518,11 @@ export async function injectServers(
 
   // Handle TOML-based providers (Codex/OpenAI) separately
   if (provider === 'codex' || provider === 'openai') {
-    return injectToml(registry, allServers, configPath, provider, dryRun, result);
+    return injectToml(registry, allServers, configPath, provider, dryRun, result, userScope, projectRoot);
   }
 
   // JSON-based providers
-  return injectJson(registry, allServers, configPath, provider, dryRun, result);
+  return injectJson(registry, allServers, configPath, provider, dryRun, result, userScope, projectRoot);
 }
 
 async function injectJson(
@@ -519,6 +532,8 @@ async function injectJson(
   provider: InjectProvider,
   dryRun: boolean,
   result: InjectResult,
+  userScope: boolean,
+  projectRoot?: string,
 ): Promise<InjectResult> {
   // Load existing config
   let existing: Record<string, unknown> = {};
@@ -560,8 +575,7 @@ async function injectJson(
   const merged = { ...existing, [mcpKey]: newServers };
 
   if (!dryRun) {
-    await mkdir(resolve(configPath, '..'), { recursive: true });
-    await writeFile(configPath, JSON.stringify(merged, null, 2) + '\n', 'utf-8');
+    await writeConfigAtomic(configPath, JSON.stringify(merged, null, 2) + '\n', { userScope, projectRoot });
 
     // Record injection in registry
     for (const server of servers) {
@@ -580,6 +594,8 @@ async function injectToml(
   provider: InjectProvider,
   dryRun: boolean,
   result: InjectResult,
+  userScope: boolean,
+  projectRoot?: string,
 ): Promise<InjectResult> {
   let existing = '';
   try {
@@ -596,8 +612,7 @@ async function injectToml(
   }
 
   if (!dryRun) {
-    await mkdir(resolve(configPath, '..'), { recursive: true });
-    await writeFile(configPath, existing, 'utf-8');
+    await writeConfigAtomic(configPath, existing, { userScope, projectRoot });
 
     for (const server of servers) {
       await registry.recordInjection(server.name, provider);
