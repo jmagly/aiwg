@@ -12,6 +12,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 
 import { main } from '../../../src/config/cli.js';
+import { EXIT_CODES } from '../../../src/cli/errors.js';
 
 function makeTmpDir(): string {
   const dir = join(tmpdir(), `aiwg-getset-project-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
@@ -108,6 +109,40 @@ describe('aiwg config get|set --project (#1006)', () => {
   });
 
   describe('set --project', () => {
+    it('sets providers from a comma-separated list, trimming and dropping empty entries', async () => {
+      await main(['set', '--project', 'providers', ' codex, , grokbot ', '--target', tmp]);
+      expect(readConfig(tmp)).toMatchObject({ providers: ['codex', 'grokbot'] });
+    });
+
+    it('sets providers from a JSON array of strings', async () => {
+      await main(['set', '--project', 'providers', '["codex", "grokbot"]', '--target', tmp]);
+      expect(readConfig(tmp)).toMatchObject({ providers: ['codex', 'grokbot'] });
+    });
+
+    it.each([
+      ['malformed JSON', '["codex",'],
+      ['non-string entries', '["codex", 1]'],
+    ])('rejects a providers JSON array with %s', async (_label, raw) => {
+      await expect(main([
+        'set', '--project', 'providers', raw, '--target', tmp,
+      ])).rejects.toMatchObject({
+        code: 'ERR_INVALID_VALUE',
+        exitCode: EXIT_CODES.USAGE,
+        message: expect.stringContaining('JSON array of strings'),
+        hint: expect.stringContaining('aiwg config set --project providers'),
+      });
+      expect(existsSync(join(tmp, '.aiwg', 'aiwg.config'))).toBe(false);
+    });
+
+    it('continues to set existing string-array fields from comma-separated lists', async () => {
+      await main([
+        'set', '--project', 'remotes.tracker_actor.forbid_actors', ' roctibot, , automation ', '--target', tmp,
+      ]);
+      expect(readConfig(tmp)).toMatchObject({
+        remotes: { tracker_actor: { forbid_actors: ['roctibot', 'automation'] } },
+      });
+    });
+
     it('creates a new config when none exists, with the dotted path applied', async () => {
       await main(['set', '--project', 'delivery.mode', 'pr-required', '--target', tmp]);
       const cfg = readConfig(tmp);

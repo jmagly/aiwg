@@ -205,6 +205,7 @@ const BOOLEAN_FIELDS = new Set([
 ]);
 
 const STRING_ARRAY_FIELDS = new Set([
+  'providers',
   'remotes.tracker_actor.forbid_actors',
   'remotes.customer_tracker_actor.forbid_actors',
   'command_log.scopes',
@@ -304,10 +305,23 @@ async function projectConfigSet(key: string, raw: string, args: string[]): Promi
   }
 
   if (STRING_ARRAY_FIELDS.has(key)) {
-    value = raw
-      .split(',')
-      .map(item => item.trim())
-      .filter(Boolean);
+    let items: unknown = raw.split(',');
+    if (raw.trimStart().startsWith('[')) {
+      try {
+        items = JSON.parse(raw);
+      } catch {
+        items = undefined;
+      }
+      if (!Array.isArray(items) || items.some(item => typeof item !== 'string')) {
+        throw new AiwgError({
+          code: 'ERR_INVALID_VALUE',
+          message: `${key} must be a comma-separated list or a JSON array of strings`,
+          hint: `Try: aiwg config set --project ${key} '["a","b"]' (or a,b)`,
+          exitCode: EXIT_CODES.USAGE,
+        });
+      }
+    }
+    value = (items as string[]).map(item => item.trim()).filter(Boolean);
     if (key === 'command_log.scopes' || key === 'telemetry.skill_usage.scopes') {
       const invalid = (value as string[]).filter(item => item !== 'project' && item !== 'global');
       if (invalid.length > 0) {
