@@ -214,6 +214,13 @@ const MODEL_OVERRIDE_VALUE_FLAGS = new Set([
   '--model', '--reasoning-model', '--coding-model', '--efficiency-model', '--model-tier',
 ]);
 const MODEL_DEPLOY_BOOLEAN_FLAGS = new Set(['--save', '--save-user']);
+
+/** Forward explicit user scope to every provider deploy subprocess. */
+export function collectUseScopeDeployArgs(args: string[]): string[] {
+  const scope = detectScope(args);
+  return scope === 'user' || args.includes('--user') ? ['--scope', 'user'] : [];
+}
+
 export function collectUseModelDeployArgs(args: string[]): string[] {
   const forwarded: string[] = [];
   for (let i = 0; i < args.length; i++) {
@@ -1518,6 +1525,7 @@ async function deployOneProjectLocalBundle(opts: {
       '--deploy-version', projectLocalDeployVersion(bundle),
       ...modelArgs,
     ];
+    args.push(...collectUseScopeDeployArgs(ctx.args));
     if (dryRun) args.push('--dry-run');
     if (verbose) args.push('--verbose');
     if (quiet && !verbose) args.push('--quiet');
@@ -2374,6 +2382,7 @@ async function deploySourceDirectory(opts: {
     '--target', opts.target,
     ...opts.modelArgs,
   ];
+  args.push(...collectUseScopeDeployArgs(opts.ctx.args));
   if (opts.dryRun) args.push('--dry-run');
   if (opts.verbose) args.push('--verbose');
   if (opts.force) args.push('--force');
@@ -3338,6 +3347,7 @@ export class UseHandler implements CommandHandler {
 
       const runner = createScriptRunner(frameworkRoot);
       const addonBaseArgs = ['--deploy-commands', '--deploy-skills', '--deploy-rules'];
+      if (addonScope === 'user') addonBaseArgs.push('--scope', 'user');
       // An explicitly selected upstream addon must be self-contained in the
       // project. Unlike a full framework deploy, its standard skills cannot be
       // left index-only: the user asked to install this specific bundle and
@@ -3632,6 +3642,7 @@ export class UseHandler implements CommandHandler {
         );
       }
     }
+    if (scope === 'user' && !deployArgs.includes('--scope')) deployArgs.push('--scope', 'user');
     const filteredArgs = deployArgs.filter(
       a => a !== '--no-utils' && a !== '--no-project-local' && a !== '--ci-hooks-enabled' && a !== '--force' && a !== '--skip-conflicts' && a !== '--no-harness-agents'
     );
@@ -3818,6 +3829,7 @@ export class UseHandler implements CommandHandler {
 
     // Build common args for addon deployments (inherit provider and target)
     const addonBaseArgs = ['--deploy-commands', '--deploy-skills', '--deploy-rules'];
+    if (scope === 'user') addonBaseArgs.push('--scope', 'user');
     if (bulkKernelOnly) addonBaseArgs.push('--kernel-only');
     addonBaseArgs.push(...modelDeployArgs);
     if (provider) addonBaseArgs.push('--provider', provider);

@@ -15,6 +15,7 @@ const ARTIFACT_ENV_KEYS = [
   'AIWG_PROJECT_ARTIFACTS_PATH',
   'AIWG_PROJECT_AIWG_DIR',
   PROJECT_LOCAL_SEARCH_PATHS_ENV,
+  'AIWG_GROKBOT_SKILLS_DIR',
 ] as const;
 
 let originalEnv: Partial<Record<typeof ARTIFACT_ENV_KEYS[number], string | undefined>> = {};
@@ -114,6 +115,28 @@ describe('aiwg use project-local provider bundles (#1717)', () => {
     expect(result.exitCode).toBe(0);
     expect(state.run).toHaveBeenCalledWith('tools/agents/deploy-agents.mjs', expect.arrayContaining(['--provider', 'windsurf']), {});
     if (selector !== 'windsurf') expect(state.run.mock.calls[0][1]).not.toContain(selector);
+  });
+
+  it.each([
+    { framework: 'all', flags: ['--scope', 'user'] },
+    { framework: 'all', flags: ['--user'] },
+    { framework: 'agent-loop', flags: ['--scope', 'user'] },
+    { framework: 'agent-loop', flags: ['--user'] },
+  ])('forwards user scope to every Grokbot deploy for $framework $flags', async ({ framework, flags }) => {
+    process.env.AIWG_GROKBOT_SKILLS_DIR = join(projectDir, 'user-skills');
+    for (const [kind, id] of [['addons', 'agent-loop'], ['extensions', 'test-extension']]) {
+      const dir = join(frameworkRoot, 'agentic', 'code', kind, id);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'manifest.json'), JSON.stringify({ id, type: 'addon', name: id, version: '1.0.0' }));
+    }
+    const args = [framework, '--provider', 'grokbot', '--target', projectDir, '--dry-run', '--no-project-local', ...flags];
+    const result = await useHandler.execute({ cwd: projectDir, frameworkRoot, rawArgs: ['use', ...args], args });
+    expect(result.exitCode).toBe(0);
+    const calls = state.run.mock.calls.filter(([script]) => script === 'tools/agents/deploy-agents.mjs');
+    expect(calls.length).toBeGreaterThanOrEqual(framework === 'all' ? 3 : 1);
+    for (const [, deployArgs] of calls) {
+      expect(deployArgs[deployArgs.indexOf('--scope') + 1]).toBe('user');
+    }
   });
 
   it('rejects Devin CLI without conflating it with Devin Desktop', async () => {

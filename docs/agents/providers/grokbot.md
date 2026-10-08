@@ -20,8 +20,8 @@ Deploy AIWG into **Grok Bot** (multi-agent desktop assistant). This provider is
 |----------|----------------|-------|
 | Context bridge | `<project>/AGENTS.md` + `WORKSPACE.md` + `.aiwg/AIWG.md` | Discover-first; explicit-read guidance |
 | Agents / commands / rules | AIWG index | `aiwg discover` / `aiwg show` — no native CreateAgent claim |
-| Skills (kernel) | `$AIWG_GROKBOT_SKILLS_DIR/` when configured | Fail-closed without the env override |
-| Skills (standard) | Index/discovery; optional `$AIWG_GROKBOT_SKILLS_DIR/.aiwg/skills` with `--copy-all` | Preserves operator-owned skills |
+| Skills (kernel) | `$AIWG_GROKBOT_SKILLS_DIR/` on `--scope user` / `--global` deploys | Project-scope deploys never write it; fail-closed without the env override |
+| Skills (standard) | Index/discovery; optional `$AIWG_GROKBOT_SKILLS_DIR/.aiwg/skills` with `--copy-all` at user scope | Preserves operator-owned skills |
 | Routines / connectors / teammates / memory / local machine | Grok-owned | Optional AIWG adapters evidence-gated ([#209](https://github.com/jmagly/aiwg/issues/209); [catalog](../../integrations/grokbot-native-surfaces-evidence.md)) |
 
 AIWG never writes `.cursor/**` for this provider and never invents `~/.grokbot`.
