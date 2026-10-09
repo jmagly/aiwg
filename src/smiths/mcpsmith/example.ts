@@ -114,7 +114,7 @@ async function main() {
   console.log(`  node ${generatedServer.files.server}`);
   console.log();
   console.log('  To register with Claude Code:');
-  console.log('  Add to .claude/settings.local.json:');
+  console.log('  Add to .mcp.json:');
   console.log('  {');
   console.log('    "mcpServers": {');
   console.log('      "git": {');

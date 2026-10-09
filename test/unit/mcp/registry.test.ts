@@ -8,13 +8,13 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mkdtemp, rm, readFile, writeFile, mkdir, readdir, open, unlink, rename } from "fs/promises";
+import { mkdtemp, rm, readFile, writeFile, mkdir, readdir, open, unlink, rename, symlink, lstat, stat, chmod } from "fs/promises";
 import { existsSync } from "fs";
-import { tmpdir } from "os";
-import { join, dirname } from "path";
+import { tmpdir, homedir } from "os";
+import { join, dirname, resolve } from "path";
 import { createHash } from "node:crypto";
 
-const filesystemBoundary = vi.hoisted(() => ({ root: "", failReadPath: "", mutations: [] as string[] }));
+const filesystemBoundary = vi.hoisted(() => ({ root: "", failReadPath: "", failRenamePath: "", mutations: [] as string[] }));
 vi.mock("path", async importOriginal => {
   const actual = await importOriginal<typeof import("path")>();
   return {
@@ -23,7 +23,7 @@ vi.mock("path", async importOriginal => {
       // Redirect only the home-scoped adapters exercised by this owner.
       // Do not change HOME or production provider metadata.
       if (filesystemBoundary.root && parts.length === 2 &&
-          [".factory/mcp.json", ".codex/config.toml", ".codeium/windsurf/mcp_config.json", ".warp/mcp.json"].includes(parts[1])) {
+          [".claude.json", ".factory/mcp.json", ".codex/config.toml", ".codeium/windsurf/mcp_config.json", ".warp/mcp.json"].includes(parts[1])) {
         return actual.resolve(filesystemBoundary.root, "provider-home", parts[1]);
       }
       return actual.resolve(...parts);
@@ -54,7 +54,7 @@ vi.mock("node:fs/promises", async importOriginal => {
     mkdir: (...args: Parameters<typeof actual.mkdir>) => { check(args[0]); filesystemBoundary.mutations.push("mkdir"); return actual.mkdir(...args); },
     open: (...args: Parameters<typeof actual.open>) => { check(args[0]); filesystemBoundary.mutations.push("open"); return actual.open(...args); },
     unlink: (...args: Parameters<typeof actual.unlink>) => { check(args[0]); filesystemBoundary.mutations.push("unlink"); return actual.unlink(...args); },
-    rename: (...args: Parameters<typeof actual.rename>) => { check(args[0]); check(args[1]); filesystemBoundary.mutations.push("rename"); return actual.rename(...args); },
+    rename: (...args: Parameters<typeof actual.rename>) => { check(args[0]); check(args[1]); filesystemBoundary.mutations.push("rename"); if (String(args[1]) === filesystemBoundary.failRenamePath) throw Object.assign(new Error("synthetic replacement refusal"), { code: "EACCES" }); return actual.rename(...args); },
   };
 });
 
@@ -64,7 +64,7 @@ import {
   getProviderConfigPath,
   SUPPORTED_PROVIDERS,
 } from "../../../src/mcp/registry.js";
-import { injectServers as injectRuntimeServers, McpServerRegistry as RuntimeMcpServerRegistry } from "../../../src/mcp/registry.mjs";
+import { getProviderConfigPath as getRuntimeConfigPath, injectServers as injectRuntimeServers, McpServerRegistry as RuntimeMcpServerRegistry } from "../../../src/mcp/registry.mjs";
 
 type RegistryContract = Pick<McpServerRegistry, keyof McpServerRegistry>;
 const registryImplementations: { implementation: string; create: (directory: string) => RegistryContract }[] = [
@@ -72,6 +72,8 @@ const registryImplementations: { implementation: string; create: (directory: str
   // Exercise the common public API, not either implementation's private fields.
   { implementation: "runtime", create: directory => new RuntimeMcpServerRegistry(directory) as RegistryContract },
 ];
+beforeEach(() => vi.stubEnv("CODEX_HOME", ""));
+afterEach(() => vi.unstubAllEnvs());
 describe.each(registryImplementations)("$implementation McpServerRegistry", ({ create }) => {
   let tempDir: string;
   let registry: RegistryContract;
@@ -403,9 +405,48 @@ describe("injectServers", () => {
     filesystemBoundary.root = "";
   });
 
+  it.each([
+    { implementation: 'TypeScript', inject: injectServers },
+    { implementation: 'runtime', inject: injectRuntimeServers as typeof injectServers },
+  ].flatMap(implementation => ['codex', 'cursor'].map(provider => ({ ...implementation, provider }))))(
+    '$implementation $provider applies policy to selected servers and preserves unrelated operator entries', async ({ inject, provider }) => {
+      const configPath = getProviderConfigPath(provider as Parameters<typeof inject>[1], projectDir);
+      await mkdir(dirname(configPath), { recursive: true });
+      const oldServer = { url: 'https://old.example/mcp', headers: { Authorization: 'Bearer old-secret' } };
+      const original = provider === 'codex'
+        ? '[mcp_servers.old]\nurl = "https://old.example/mcp"\nhttp_headers = { Authorization = "Bearer old-secret" }\n'
+        : JSON.stringify({ mcpServers: { old: oldServer } });
+      await writeFile(configPath, original);
+      const result = await inject(registry, provider as Parameters<typeof inject>[1], { projectDir, servers: ['fortemi'], credentialPolicy: 'none' });
+      expect(result.error).toBeUndefined();
+      const written = await readFile(configPath, 'utf-8');
+      expect(written).toContain('Bearer old-secret');
+      expect(written).toContain('fortemi');
+      if (provider === 'cursor') expect(JSON.parse(written).mcpServers.old).toEqual(oldServer);
+      else expect(written).toContain(original.trimEnd());
+    });
+
+  it.each([
+    { implementation: 'TypeScript', inject: injectServers },
+    { implementation: 'runtime', inject: injectRuntimeServers as typeof injectServers },
+  ].flatMap(implementation => ['url', 'auth'].map(field => ({ ...implementation, field }))))(
+    '$implementation refuses userinfo in $field before persistent writes', async ({ inject, field }) => {
+      const provider = field === 'auth' ? 'omp' : 'codex';
+      await registry.add({ name: 'leaky', type: 'http', url: field === 'url'
+        ? 'https://user:policy-canary@bad host/mcp' : 'https://example.test/mcp',
+        ...(field === 'auth' ? { auth: { type: 'oauth', tokenUrl: 'https://client:policy-canary@idp.example/token' } } : {}),
+      });
+      const before = await readFile(registry.getPath(), 'utf-8');
+      filesystemBoundary.mutations.length = 0;
+      await expect(inject(registry, provider, { projectDir, servers: ['leaky'], credentialPolicy: 'references' }))
+        .rejects.toThrow(/userinfo/);
+      expect(filesystemBoundary.mutations).toEqual([]);
+      expect(await readFile(registry.getPath(), 'utf-8')).toBe(before);
+    });
+
   const jsonAdapters = [
-    { provider: "claude-code", location: "project", file: ".claude/settings.local.json", shape: "plain" },
-    { provider: "claude", location: "project", file: ".claude/settings.local.json", shape: "plain" },
+    { provider: "claude-code", location: "project", file: ".mcp.json", shape: "claude" },
+    { provider: "claude", location: "project", file: ".mcp.json", shape: "claude" },
     { provider: "cursor", location: "project", file: ".cursor/mcp.json", shape: "plain" },
     { provider: "factory", location: "home", file: ".factory/mcp.json", shape: "factory" },
     { provider: "opencode", location: "project", file: "opencode.json", shape: "opencode" },
@@ -421,6 +462,214 @@ describe("injectServers", () => {
   ])("$implementation JSON adapters", ({ inject, create, claudeRecord }) => {
   beforeEach(() => { registry = create(tempDir); });
 
+  const safeDestinations = [
+    ...jsonAdapters.map(adapter => ({ provider: adapter.provider, scope: "project" as const })),
+    ...["claude", "claude-code", "antigravity", "agy", "omp", "oh-my-pi", "grok-build"].map(provider => ({ provider, scope: "user" as const })),
+    ...["codex", "openai", "omp", "oh-my-pi", "grok-build"].map(provider => ({ provider, scope: "project" as const })),
+  ];
+
+  it.each(safeDestinations)("refuses symlink destination for $provider at $scope scope without writes", async ({ provider, scope }) => {
+    vi.stubEnv("HOME", join(tempDir, "provider-home"));
+    vi.stubEnv("PI_CODING_AGENT_DIR", join(tempDir, "provider-home", ".omp", "agent"));
+    vi.stubEnv("GROK_HOME", join(tempDir, "provider-home", ".grok"));
+    try {
+      const configPath = getProviderConfigPath(provider as Parameters<typeof inject>[1], projectDir, { scope });
+      const target = join(tempDir, "outside-project.json");
+      const original = '{ "mcpServers": {}, "keep": true }\n';
+      await mkdir(dirname(configPath), { recursive: true });
+      await writeFile(target, original);
+      await symlink(target, configPath);
+      const before = await readFile(registry.getPath(), "utf-8");
+      filesystemBoundary.mutations = [];
+      await expect(inject(registry, provider as Parameters<typeof inject>[1], { projectDir, scope })).rejects.toThrow(`Refusing to write MCP config ${configPath}: destination is a symlink`);
+      expect(filesystemBoundary.mutations).toEqual([]);
+      expect((await lstat(configPath)).isSymbolicLink()).toBe(true);
+      expect(await readFile(target, "utf-8")).toBe(original);
+      expect(await readFile(registry.getPath(), "utf-8")).toBe(before);
+    } finally {
+      vi.unstubAllEnvs();
+      filesystemBoundary.mutations = [];
+    }
+  });
+
+  it.each(["cursor", "antigravity", "agy", "omp", "oh-my-pi", "grok-build"] as const)(
+    "refuses project symlink parents for $0 before any writes", async provider => {
+      const configPath = getProviderConfigPath(provider, projectDir);
+      const outside = join(tempDir, "outside");
+      await mkdir(outside);
+      await symlink(outside, dirname(configPath));
+      const before = await readFile(registry.getPath(), "utf-8");
+      filesystemBoundary.mutations = [];
+      await expect(inject(registry, provider, { projectDir })).rejects.toThrow(/parent directory is a symlink/);
+      expect(filesystemBoundary.mutations).toEqual([]);
+      expect(await readdir(outside)).toEqual([]);
+      expect(await readFile(registry.getPath(), "utf-8")).toBe(before);
+    },
+  );
+
+  it.each(["claude", "antigravity", "omp", "grok-build", "factory", "codex", "windsurf", "warp"] as const)(
+    "allows user parent symlinks for %s", async provider => {
+      vi.stubEnv("HOME", join(tempDir, "provider-home"));
+      vi.stubEnv("PI_CODING_AGENT_DIR", join(tempDir, "provider-home", ".omp", "agent"));
+      vi.stubEnv("GROK_HOME", join(tempDir, "provider-home", ".grok"));
+      try {
+        const configPath = getProviderConfigPath(provider, projectDir, { scope: "user" });
+        const outside = join(tempDir, "outside");
+        await mkdir(outside);
+        await mkdir(dirname(dirname(configPath)), { recursive: true });
+        await symlink(outside, dirname(configPath));
+        const result = await inject(registry, provider, { projectDir, scope: "user", servers: ["fortemi"] });
+        expect(result.error).toBeUndefined();
+        expect((await stat(configPath)).mode & 0o777).toBe(0o600);
+      } finally { vi.unstubAllEnvs(); }
+    },
+  );
+
+  it.each(["cursor", "omp", "grok-build"] as const)("accepts a symlinked project root for %s", async provider => {
+    const alias = join(tempDir, "project-alias");
+    await symlink(projectDir, alias);
+    const result = await inject(registry, provider, { projectDir: alias, servers: ["fortemi"] });
+    expect(result.error).toBeUndefined();
+    expect(await readFile(result.configPath, "utf-8")).toContain("fortemi");
+  });
+
+  it.each(["claude", "claude-code"] as const)("refuses URL userinfo for %s without revealing credentials or writing", async provider => {
+    const configPath = join(projectDir, ".mcp.json");
+    const original = '{ "mcpServers": {} }\n';
+    await writeFile(configPath, original);
+    await registry.add({ name: "secret-url", type: "http", url: "https://example.test/mcp" });
+    for (const url of ["https://canary-user@example.test/mcp", "https://:canary-pass@example.test/mcp", "https://canary-user:canary-pass@example.test/mcp"]) {
+      await registry.update("secret-url", { url });
+      const before = await readFile(registry.getPath(), "utf-8");
+      filesystemBoundary.mutations = [];
+      let message = "";
+      try { await inject(registry, provider, { projectDir }); } catch (error) { message = (error as Error).message; }
+      expect(message).toContain("secret-url has URL userinfo");
+      expect(message).not.toContain("canary");
+      expect(message).not.toContain(url);
+      expect(filesystemBoundary.mutations).toEqual([]);
+      expect(await readFile(configPath, "utf-8")).toBe(original);
+      expect(await readFile(registry.getPath(), "utf-8")).toBe(before);
+    }
+  });
+
+  it.each((["claude", "claude-code"] as const).flatMap(provider => [false, true].map(existing => ({ provider, existing }))))("refuses selected literal credentials for $provider (existing=$existing) without exposing values or writing metadata", async ({ provider, existing }) => {
+    await registry.add({ name: "local", type: "stdio", command: "synthetic-command", env: { API_TOKEN: "canary-env-123" } });
+    await registry.add({ name: "remote", type: "http", url: "https://synthetic.example/mcp", headers: { Authorization: "canary-header-456" } });
+    const configPath = join(projectDir, ".mcp.json");
+    const original = '{ "mcpServers": {}, "preference": "keep" }\n';
+    if (existing) await writeFile(configPath, original);
+    const before = await readFile(registry.getPath(), "utf-8");
+    filesystemBoundary.mutations = [];
+    let message = "";
+    try { await inject(registry, provider, { projectDir }); }
+    catch (error) { message = (error as Error).message; }
+    expect(message).toContain("local has literal env/header values (API_TOKEN)");
+    expect(message).toContain("remote has literal env/header values (Authorization)");
+    expect(message).toContain("--scope user");
+    expect(message).not.toContain("canary-env-123");
+    expect(message).not.toContain("canary-header-456");
+    expect(filesystemBoundary.mutations).toEqual([]);
+    if (existing) expect(await readFile(configPath, "utf-8")).toBe(original);
+    else expect(existsSync(configPath)).toBe(false);
+    expect(await readFile(registry.getPath(), "utf-8")).toBe(before);
+    await inject(registry, provider, { projectDir, servers: ["fortemi"] });
+    expect(JSON.parse(await readFile(join(projectDir, ".mcp.json"), "utf-8")).mcpServers).toHaveProperty("fortemi");
+  });
+
+  it("leaves the original bytes, mode and registry unchanged if atomic replacement fails", async () => {
+    const configPath = join(projectDir, ".mcp.json");
+    const original = '{ "mcpServers": {}, "preference": "keep" }\n';
+    await writeFile(configPath, original);
+    await chmod(configPath, 0o640);
+    const before = await readFile(registry.getPath(), "utf-8");
+    filesystemBoundary.failRenamePath = configPath;
+    try {
+      await expect(inject(registry, "claude", { projectDir })).rejects.toThrow("synthetic replacement refusal");
+    } finally {
+      filesystemBoundary.failRenamePath = "";
+    }
+    expect(await readFile(configPath, "utf-8")).toBe(original);
+    expect((await stat(configPath)).mode & 0o777).toBe(0o640);
+    expect(await readdir(projectDir)).toEqual([".mcp.json"]);
+    expect(await readFile(registry.getPath(), "utf-8")).toBe(before);
+  });
+
+  it.each(["claude", "claude-code"] as const)("allows credential references in project %s under strict policy", async provider => {
+    await registry.add({ name: "local-ref", type: "stdio", command: "synthetic-command", envFrom: { TOKEN: "CLIENT_TOKEN" } });
+    await registry.add({ name: "remote-ref", type: "http", url: "https://synthetic.example/mcp", headerEnv: { Authorization: "CLIENT_AUTH" } });
+    const result = await inject(registry, provider, { projectDir, credentialPolicy: "references", servers: ["local-ref", "remote-ref"] });
+    expect(result.error).toBeUndefined();
+    expect(JSON.parse(await readFile(result.configPath, "utf-8")).mcpServers).toEqual({
+      "local-ref": { command: "synthetic-command", args: [], env: { TOKEN: "${CLIENT_TOKEN}" } },
+      "remote-ref": { type: "http", url: "https://synthetic.example/mcp", headers: { Authorization: "${CLIENT_AUTH}" } },
+    });
+  });
+
+  it.each(["references", "none"] as const)("enforces %s credential policy before persistent writes", async credentialPolicy => {
+    await registry.add(credentialPolicy === "references"
+      ? { name: "credential", type: "http", url: "https://synthetic.example/mcp", headers: { Authorization: "canary-policy-value" } }
+      : { name: "credential", type: "stdio", command: "synthetic-command", envFrom: { TOKEN: "CLIENT_TOKEN" } });
+    const before = await readFile(registry.getPath(), "utf-8");
+    filesystemBoundary.mutations = [];
+    await expect(inject(registry, "cursor", { projectDir, credentialPolicy })).rejects.toThrow("Refusing to render MCP servers with credentials");
+    expect(filesystemBoundary.mutations).toEqual([]);
+    expect(existsSync(join(projectDir, ".cursor"))).toBe(false);
+    expect(await readFile(registry.getPath(), "utf-8")).toBe(before);
+  });
+
+  it("accepts empty env and headers at project scope", async () => {
+    await registry.add({ name: "empty", type: "stdio", command: "synthetic-command", env: {}, headers: {} });
+    await inject(registry, "claude", { projectDir, servers: ["empty"] });
+    expect(JSON.parse(await readFile(join(projectDir, ".mcp.json"), "utf-8")).mcpServers.empty.env).toEqual({});
+  });
+
+  it("allows literal credentials at user scope in a newly private ~/.claude.json", async () => {
+    await registry.add({ name: "local", type: "stdio", command: "synthetic-command", env: { API_TOKEN: "canary-env-123" } });
+    await registry.add({ name: "remote", type: "http", url: "https://synthetic.example/mcp", headers: { Authorization: "canary-header-456" } });
+    const result = await inject(registry, "claude", { projectDir, scope: "user", servers: ["local", "remote"] });
+    const data = JSON.parse(await readFile(result.configPath, "utf-8"));
+    expect(data.mcpServers.local.env).toEqual({ API_TOKEN: "canary-env-123" });
+    expect(data.mcpServers.remote.headers).toEqual({ Authorization: "canary-header-456" });
+    expect((await stat(result.configPath)).mode & 0o777).toBe(0o600);
+    expect(existsSync(join(projectDir, ".mcp.json"))).toBe(false);
+  });
+
+  it.each(safeDestinations)("enforces scope permissions with atomic replacement for $provider at $scope scope", async ({ provider, scope }) => {
+    vi.stubEnv("HOME", join(tempDir, "provider-home"));
+    vi.stubEnv("PI_CODING_AGENT_DIR", join(tempDir, "provider-home", ".omp", "agent"));
+    vi.stubEnv("GROK_HOME", join(tempDir, "provider-home", ".grok"));
+    try {
+      const configPath = getProviderConfigPath(provider as Parameters<typeof inject>[1], projectDir, { scope });
+      const toml = ["codex", "openai", "grok-build"].includes(provider);
+      await mkdir(dirname(configPath), { recursive: true });
+      await writeFile(configPath, toml ? 'preference = "keep"\n' : '{ "preference": "keep" }\n');
+      await chmod(configPath, 0o644);
+      const before = await stat(configPath);
+      await inject(registry, provider as Parameters<typeof inject>[1], { projectDir, scope, servers: ["fortemi"] });
+      const after = await stat(configPath);
+      expect(after.mode & 0o777).toBe(scope === "user" || ["factory", "codex", "openai", "windsurf", "warp"].includes(provider) ? 0o600 : 0o644);
+      expect(after.ino).not.toBe(before.ino);
+      expect(await readFile(configPath, "utf-8")).toContain("keep");
+      expect((await readdir(dirname(configPath))).some(file => file.endsWith(".tmp"))).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it.each(safeDestinations.filter(({ provider, scope }) => scope === "user" || ["factory", "codex", "openai", "windsurf", "warp"].includes(provider)))("creates a private user config for $provider at $scope scope", async ({ provider, scope }) => {
+    vi.stubEnv("HOME", join(tempDir, "provider-home"));
+    vi.stubEnv("PI_CODING_AGENT_DIR", join(tempDir, "provider-home", ".omp", "agent"));
+    vi.stubEnv("GROK_HOME", join(tempDir, "provider-home", ".grok"));
+    try {
+      const result = await inject(registry, provider as Parameters<typeof inject>[1], { projectDir, scope, servers: ["fortemi"] });
+      expect(result.error).toBeUndefined();
+      expect((await stat(result.configPath)).mode & 0o777).toBe(0o600);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   // Characterization only: alias bookkeeping differs between implementations.
   // Do not interpret these expectations as resolving the canonical-ID contract.
   const recordedProvider = (provider: string) => provider === "agy" ? "antigravity"
@@ -435,14 +684,14 @@ describe("injectServers", () => {
       provider, configPath, serversInjected: ["fortemi"], alreadyPresent: [],
     });
     const entry = {
-      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : {}),
+      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
       [shape === "antigravity" ? "serverUrl" : "url"]: "https://memory.internal/mcp",
     };
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({ preferences: { keep: true }, [key]: { fortemi: entry } });
   });
 
   it.each([
-    { provider: "claude-code", file: ".claude/settings.local.json", key: "mcpServers" },
+    { provider: "claude-code", file: ".mcp.json", key: "mcpServers" },
     { provider: "opencode", file: "opencode.json", key: "mcp" },
     { provider: "antigravity", file: ".agents/mcp_config.json", key: "mcpServers" },
   ].flatMap(adapter => [
@@ -521,7 +770,7 @@ describe("injectServers", () => {
     const result = await inject(registry, provider, { projectDir, servers: ["fortemi"] });
     const keepsExisting = shape === "antigravity";
     const replacement = {
-      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : {}),
+      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
       url: "https://memory.internal/mcp",
     };
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({
@@ -557,7 +806,7 @@ describe("injectServers", () => {
     await writeFile(configPath, JSON.stringify(prior));
     const result = await inject(registry, provider, { projectDir, servers: ["fortemi"] });
     const entry = {
-      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : {}),
+      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
       [shape === "antigravity" ? "serverUrl" : "url"]: "https://memory.internal/mcp",
     };
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({
@@ -570,12 +819,12 @@ describe("injectServers", () => {
   });
 
   it.each(jsonAdapters)("writes exact stdio mapping for $provider", async ({ provider, location, file, shape }) => {
-    await registry.add({ name: "matrix", type: "stdio", command: "synthetic-command", args: ["--literal", "space value"], env: { SYNTHETIC_SETTING: "keep" } });
+    await registry.add({ name: "matrix", type: "stdio", command: "synthetic-command", args: ["--literal", "space value"], ...(shape === "claude" ? {} : { env: { SYNTHETIC_SETTING: "keep" } }) });
     const result = await inject(registry, provider, { projectDir, servers: ["matrix"] });
     const configPath = join(location === "home" ? join(tempDir, "provider-home") : projectDir, file);
     const entry = shape === "opencode"
-      ? { type: "local", command: ["synthetic-command", "--literal", "space value"], env: { SYNTHETIC_SETTING: "keep" } }
-      : { ...(shape === "factory" ? { type: "stdio", disabled: false } : {}), command: "synthetic-command", args: ["--literal", "space value"], env: { SYNTHETIC_SETTING: "keep" } };
+      ? { type: "local", command: ["synthetic-command", "--literal", "space value"], environment: { SYNTHETIC_SETTING: "keep" } }
+      : { ...(shape === "factory" ? { type: "stdio", disabled: false } : {}), command: "synthetic-command", args: ["--literal", "space value"], ...(shape === "claude" ? {} : { env: { SYNTHETIC_SETTING: "keep" } }) };
     expect(result).toEqual({ provider, configPath, serversInjected: ["matrix"], alreadyPresent: [] });
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({ [shape === "opencode" ? "mcp" : "mcpServers"]: { matrix: entry } });
     const fresh = create(tempDir);
@@ -584,13 +833,13 @@ describe("injectServers", () => {
   });
 
   it.each(jsonAdapters.flatMap(adapter => (["http", "sse"] as const).map(type => ({ ...adapter, type }))))("writes exact $type mapping for $provider", async ({ provider, location, file, shape, type }) => {
-    await registry.add({ name: "matrix", type, url: "https://synthetic.example/mcp", headers: { "X-Synthetic": "keep" } });
+    await registry.add({ name: "matrix", type, url: "https://synthetic.example/mcp", ...(shape === "claude" ? {} : { headers: { "X-Synthetic": "keep" } }) });
     const result = await inject(registry, provider, { projectDir, servers: ["matrix"] });
     const configPath = join(location === "home" ? join(tempDir, "provider-home") : projectDir, file);
     const entry = {
-      ...(shape === "factory" ? { type, disabled: false } : shape === "opencode" ? { type: "remote" } : {}),
+      ...(shape === "factory" ? { type, disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type } : {}),
       [shape === "antigravity" ? "serverUrl" : "url"]: "https://synthetic.example/mcp",
-      headers: { "X-Synthetic": "keep" },
+      ...(shape === "claude" ? {} : { headers: { "X-Synthetic": "keep" } }),
     };
     expect(result).toEqual({ provider, configPath, serversInjected: ["matrix"], alreadyPresent: [] });
     expect(JSON.parse(await readFile(configPath, "utf-8"))).toEqual({ [shape === "opencode" ? "mcp" : "mcpServers"]: { matrix: entry } });
@@ -605,7 +854,7 @@ describe("injectServers", () => {
     const local = shape === "opencode" ? { type: "local", command: ["synthetic-command"] }
       : { ...(shape === "factory" ? { type: "stdio", disabled: false } : {}), command: "synthetic-command", args: [] };
     const remote = {
-      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : {}),
+      ...(shape === "factory" ? { type: "http", disabled: false } : shape === "opencode" ? { type: "remote" } : shape === "claude" ? { type: "http" } : {}),
       [shape === "antigravity" ? "serverUrl" : "url"]: "https://synthetic.example/mcp",
     };
     expect(result).toEqual({ provider, configPath, serversInjected: ["local", "remote"], alreadyPresent: [] });
@@ -634,7 +883,7 @@ describe("injectServers", () => {
     });
 
     expect(result.serversInjected).toContain("fortemi");
-    const configPath = join(projectDir, ".claude/settings.local.json");
+    const configPath = join(projectDir, ".mcp.json");
     const written = JSON.parse(await readFile(configPath, "utf-8"));
     expect(written.mcpServers.fortemi.url).toBe("https://memory.internal/mcp");
   });
@@ -661,7 +910,7 @@ describe("injectServers", () => {
 
   it("should preserve existing provider config", async () => {
     // Write existing config first
-    const configDir = join(projectDir, ".claude");
+    const configDir = projectDir;
     const prior = {
       preferences: { theme: "dark", nested: { retain: ["one", "two"] } },
       enabled: false,
@@ -671,7 +920,7 @@ describe("injectServers", () => {
     };
     await mkdir(configDir, { recursive: true });
     await writeFile(
-      join(configDir, "settings.local.json"),
+      join(configDir, ".mcp.json"),
       JSON.stringify(prior),
     );
 
@@ -682,8 +931,8 @@ describe("injectServers", () => {
       ...prior,
       mcpServers: {
         ...prior.mcpServers,
-        fortemi: { url: "https://memory.internal/mcp" },
-        gitea: { url: "https://mcp-gitea.internal/mcp" },
+        fortemi: { type: "http", url: "https://memory.internal/mcp" },
+        gitea: { type: "http", url: "https://mcp-gitea.internal/mcp" },
       },
     });
     expect(result.serversInjected).toEqual(["fortemi", "gitea"]);
@@ -700,6 +949,33 @@ describe("injectServers", () => {
     expect(result.serversInjected).toHaveLength(2);
     // Config file should NOT exist after dry run
     await expect(readFile(result.configPath, "utf-8")).rejects.toThrow();
+  });
+
+  describe.each([
+    { implementation: "TypeScript", inject: injectServers },
+    { implementation: "runtime", inject: injectRuntimeServers as typeof injectServers },
+  ])("$implementation Claude Code targets", ({ inject }) => {
+    it("writes project servers to .mcp.json, never .claude/settings.local.json", async () => {
+      const result = await inject(registry, "claude-code", { projectDir, servers: ["fortemi"] });
+      expect(result.configPath).toBe(join(projectDir, ".mcp.json"));
+      expect(existsSync(join(projectDir, ".claude", "settings.local.json"))).toBe(false);
+      expect(JSON.parse(await readFile(result.configPath, "utf-8"))).toEqual({
+        mcpServers: { fortemi: { type: "http", url: "https://memory.internal/mcp" } },
+      });
+    });
+
+    it("writes user-scope servers to the top-level mcpServers of ~/.claude.json and keeps Claude's own state", async () => {
+      const userConfig = join(tempDir, "provider-home", ".claude.json");
+      const prior = { numStartups: 7, projects: { "/somewhere": { mcpServers: { local: { command: "keep" } } } }, mcpServers: { unrelated: { command: "keep" } } };
+      await mkdir(dirname(userConfig), { recursive: true });
+      await writeFile(userConfig, JSON.stringify(prior));
+      const result = await inject(registry, "claude-code", { projectDir, scope: "user", servers: ["gitea"] });
+      expect(result.configPath).toBe(userConfig);
+      expect(JSON.parse(await readFile(userConfig, "utf-8"))).toEqual({
+        ...prior,
+        mcpServers: { ...prior.mcpServers, gitea: { type: "http", url: "https://mcp-gitea.internal/mcp" } },
+      });
+    });
   });
 
   describe.each([
@@ -727,7 +1003,8 @@ describe("injectServers", () => {
     if (existing) expect(await readFile(configPath, "utf-8")).toBe(original);
     else {
       expect(existsSync(configPath)).toBe(false);
-      expect(existsSync(dirname(configPath))).toBe(false);
+      // Claude Code's project file sits in the project root, which already exists.
+      if (dirname(configPath) !== projectDir) expect(existsSync(dirname(configPath))).toBe(false);
     }
     expect(await readFile(registry.getPath(), "utf-8")).toBe(registryBefore);
     expect(await registry.load()).toEqual(JSON.parse(registryBefore));
@@ -956,10 +1233,21 @@ describe("injectServers", () => {
 });
 
 describe("getProviderConfigPath", () => {
+  it.each(["claude", "claude-code"] as const)("uses os.homedir for %s user scope when HOME and USERPROFILE are absent", provider => {
+    vi.stubEnv("HOME", undefined);
+    vi.stubEnv("USERPROFILE", undefined);
+    try {
+      const expected = resolve(homedir(), ".claude.json");
+      expect(getProviderConfigPath(provider, ".", { scope: "user" })).toBe(expected);
+      expect(getRuntimeConfigPath(provider, ".", { scope: "user" })).toBe(expected);
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   it("should return correct paths for each provider", () => {
     expect(getProviderConfigPath("claude-code", "/project")).toContain(
-      ".claude/settings.local.json",
+      ".mcp.json",
     );
+    expect(getProviderConfigPath("claude-code", "/project")).not.toContain("settings.local.json");
     expect(getProviderConfigPath("cursor", "/project")).toContain(
       ".cursor/mcp.json",
     );

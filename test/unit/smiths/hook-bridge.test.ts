@@ -6,10 +6,14 @@
  * and outside this test suite.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+vi.mock('node:os', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:os')>();
+  return { ...actual, homedir: vi.fn(() => actual.tmpdir()) };
+});
 import {
   substituteEnvVars,
   generateShimBash,
@@ -42,11 +46,14 @@ const SAMPLE_HOOK: HookSource = {
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'aiwg-hook-bridge-'));
   homeOverride = await fs.mkdtemp(path.join(os.tmpdir(), 'aiwg-hook-bridge-home-'));
-  process.env.HOME = homeOverride;
-  process.env.USERPROFILE = homeOverride;
+  vi.stubEnv('HOME', homeOverride);
+  vi.stubEnv('USERPROFILE', homeOverride);
+  vi.stubEnv('CODEX_HOME', path.join(homeOverride, '.codex'));
+  vi.mocked(os.homedir).mockReturnValue(homeOverride);
 });
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await fs.rm(tmpDir, { recursive: true, force: true });
   await fs.rm(homeOverride, { recursive: true, force: true });
 });
@@ -151,15 +158,11 @@ describe('injectCodexHookBlock', () => {
 });
 
 describe('translateForCodex', () => {
-  // Note: tests assert structural shape rather than absolute paths because
-  // os.homedir() may be cached or locked in CI containers (act runtime
-  // doesn't always honor process.env.HOME mutation).
-
   it('writes config.toml with AIWG hook block', async () => {
     const r = await translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir });
     expect(r.skipped).toBe(false);
     expect(r.emittedPaths.length).toBeGreaterThan(0);
-    expect(r.emittedPaths[0]).toMatch(/\.codex[\\/]+config\.toml$/);
+    expect(r.emittedPaths[0]).toBe(path.join(homeOverride, '.codex/config.toml'));
     const content = await fs.readFile(r.emittedPaths[0], 'utf8');
     expect(content).toContain('[[hooks.before_tool]]');
   });
@@ -180,48 +183,25 @@ describe('translateForCodex', () => {
   });
 
   it('backs up pre-existing config that has no AIWG signature', async () => {
-    // Skip the test when the actual ~/.codex/config.toml already exists with
-    // an AIWG marker — the test relies on writing fresh operator content
-    // which would clobber a real operator file.
-    const { homedir } = await import('node:os');
-    const realCodexDir = path.join(homedir(), '.codex');
-    const realConfig = path.join(realCodexDir, 'config.toml');
-    let prior: string | null = null;
-    try {
-      prior = await fs.readFile(realConfig, 'utf8');
-      // If real config has AIWG marker, the test won't trigger the backup
-      // branch because hasAiwgMarker() short-circuits. Skip in that case.
-      if (prior.includes('# >>> AIWG-managed hooks')) {
-        expect(true).toBe(true);
-        return;
-      }
-    } catch {
-      // No real config — proceed.
-    }
+    const codexDir = path.join(homeOverride, '.codex');
+    const configPath = path.join(codexDir, 'config.toml');
+    const original = '# fake operator content for test\n';
+    await fs.mkdir(codexDir, { recursive: true });
+    await fs.writeFile(configPath, original, 'utf8');
+    const r = await translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir });
+    expect(r.warnings.some((w) => w.includes('Backed up'))).toBe(true);
+    const backups = (await fs.readdir(codexDir)).filter(entry => entry.startsWith('config.toml.bak.'));
+    expect(backups).toHaveLength(1);
+    expect(await fs.readFile(path.join(codexDir, backups[0]), 'utf8')).toBe(original);
+    expect(await fs.readFile(configPath, 'utf8')).toContain(original);
+  });
 
-    // Write a fake operator config under the actual homedir so the
-    // translator detects it.
-    await fs.mkdir(realCodexDir, { recursive: true });
-    await fs.writeFile(realConfig, '# fake operator content for test\n', 'utf8');
-
-    try {
-      const r = await translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir });
-      expect(r.warnings.some((w) => w.includes('Backed up'))).toBe(true);
-    } finally {
-      // Restore prior state.
-      if (prior !== null) {
-        await fs.writeFile(realConfig, prior, 'utf8');
-      } else {
-        // Remove the fake operator file and any backup we created.
-        try { await fs.unlink(realConfig); } catch { /* */ }
-        const entries = await fs.readdir(realCodexDir).catch(() => [] as string[]);
-        for (const entry of entries) {
-          if (entry.startsWith('config.toml.bak.')) {
-            try { await fs.unlink(path.join(realCodexDir, entry)); } catch { /* */ }
-          }
-        }
-      }
-    }
+  it('honors CODEX_HOME without writing the default home config', async () => {
+    const codexDir = path.join(tmpDir, 'custom-codex-home');
+    vi.stubEnv('CODEX_HOME', codexDir);
+    const r = await translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir });
+    expect(r.emittedPaths).toEqual([path.join(codexDir, 'config.toml')]);
+    expect(await fs.readdir(homeOverride)).toEqual([]);
   });
 });
 
@@ -255,10 +235,8 @@ describe('translateForHermes', () => {
     const r = await translateForHermes(SAMPLE_HOOK, { projectPath: tmpDir });
     expect(r.skipped).toBe(false);
     expect(r.emittedPaths.length).toBeGreaterThan(0);
-    // Assert structural shape rather than absolute path (os.homedir is
-    // CI-runtime-dependent; see translateForCodex notes).
     const pluginPath = r.emittedPaths[0];
-    expect(pluginPath).toMatch(/[\\/]\.hermes[\\/]+plugins[\\/]+no-attribution\.py$/);
+    expect(pluginPath).toBe(path.join(homeOverride, '.hermes/plugins/no-attribution.py'));
     const content = await fs.readFile(pluginPath, 'utf8');
     expect(content).toContain('from hermes.plugin import register_hook');
     expect(content).toContain('AIWG_ID = "no-attribution"');

@@ -1,0 +1,8 @@
+{
+  "files": {
+    "home/.codex/config.toml": "\n\n[mcp_servers.tracker]\nurl = \"https://tracker.example/mcp\"\nstartup_timeout_sec = 10.0\ntool_timeout_sec = 60.0\nenabled_tools = [\"list_issues\", \"get_issue\", \"delete_issue\"]\ndisabled_tools = [\"delete_issue\"]\n\n[mcp_servers.files]\ncommand = \"files-mcp\"\nstartup_timeout_sec = 10.0\ntool_timeout_sec = 60.0\nenabled = false\n"
+  },
+  "warnings": [
+    "codex: toolDeny \"tracker__admin_*\" is a glob; Codex matches tool names exactly, so it is not rendered."
+  ]
+}

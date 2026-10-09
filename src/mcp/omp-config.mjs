@@ -1,22 +1,12 @@
-import { readFile, writeFile, mkdir, rename, lstat, unlink, open } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { createHash, randomUUID } from 'node:crypto';
+import { assertConfigDestination, writeConfigAtomic } from './config-file.mjs';
+import { readFile, mkdir, lstat, unlink, open } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { createHash } from 'node:crypto';
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-async function rejectSymlinkPath(file) {
-  let current = resolve(file);
-  for (;;) {
-    try {
-      if ((await lstat(current)).isSymbolicLink()) throw new Error('OMP MCP configuration path cannot traverse a symbolic link');
-    } catch (error) { if (error.code !== 'ENOENT') throw error; }
-    const parent = dirname(current);
-    if (parent === current) return;
-    current = parent;
-  }
-}
-async function readObject(file) {
-  await rejectSymlinkPath(file);
+async function readObject(file, projectRoot) {
+  await assertConfigDestination(file, projectRoot);
   try {
     if ((await lstat(file)).isSymbolicLink()) throw new Error('OMP MCP configuration cannot be a symbolic link');
     const data = JSON.parse(await readFile(file, 'utf8'));
@@ -28,13 +18,8 @@ async function readObject(file) {
     throw error;
   }
 }
-async function atomic(file, data) {
-  await mkdir(dirname(file), { recursive: true });
-  const temporary = `${file}.${randomUUID()}.tmp`;
-  try {
-    await writeFile(temporary, JSON.stringify(data, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
-    await rename(temporary, file);
-  } finally { await unlink(temporary).catch(() => {}); }
+async function atomic(file, data, options) {
+  await writeConfigAtomic(file, JSON.stringify(data, null, 2) + '\n', options);
 }
 
 export function ompServerConfig(server) {
@@ -74,14 +59,21 @@ export function ompServerConfig(server) {
       config.headers[header] = '${' + variable + '}';
     }
   }
+  if (server.envFrom) {
+    config.env = { ...config.env };
+    for (const [key, variable] of Object.entries(server.envFrom)) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(variable)) throw new Error('Invalid MCP env-from environment reference');
+      config.env[key] = '${' + variable + '}';
+    }
+  }
   return config;
 }
 
 /** Hash-only receipt: never saves an extra copy of operator configuration. */
-async function manageLockedOmpMcp(configPath, servers, { dryRun = false, remove = [] } = {}) {
+async function manageLockedOmpMcp(configPath, servers, { dryRun = false, remove = [], userScope = true, projectRoot } = {}) {
   const receiptPath = `${configPath}.aiwg-ownership.json`;
-  const existing = await readObject(configPath);
-  const receipt = await readObject(receiptPath);
+  const existing = await readObject(configPath, projectRoot);
+  const receipt = await readObject(receiptPath, projectRoot);
   if (receipt.servers !== undefined && (!record(receipt.servers) || receipt.schema !== 'aiwg.omp-mcp-ownership.v1')) throw new Error('Invalid OMP MCP ownership receipt');
   if (existing.mcpServers !== undefined && !record(existing.mcpServers)) throw new Error('Invalid OMP mcpServers object');
   const next = { ...(existing.mcpServers || {}) };
@@ -105,10 +97,10 @@ async function manageLockedOmpMcp(configPath, servers, { dryRun = false, remove 
     if (owned[name]) { delete next[name]; delete owned[name]; result.removed.push(name); }
   }
   if (!dryRun) {
-    if (hash(await readObject(configPath)) !== hash(existing) || hash(await readObject(receiptPath)) !== hash(receipt)) throw new Error('OMP MCP configuration changed during injection; retry after reviewing the operator edit');
+    if (hash(await readObject(configPath, projectRoot)) !== hash(existing) || hash(await readObject(receiptPath, projectRoot)) !== hash(receipt)) throw new Error('OMP MCP configuration changed during injection; retry after reviewing the operator edit');
     // If interrupted between writes, a retry fails closed on the hash mismatch.
-    await atomic(configPath, { ...existing, mcpServers: next });
-    await atomic(receiptPath, { schema: 'aiwg.omp-mcp-ownership.v1', servers: owned });
+    await atomic(configPath, { ...existing, mcpServers: next }, { userScope, projectRoot });
+    await atomic(receiptPath, { schema: 'aiwg.omp-mcp-ownership.v1', servers: owned }, { userScope: true, projectRoot });
   }
   return result;
 }
@@ -116,9 +108,9 @@ async function manageLockedOmpMcp(configPath, servers, { dryRun = false, remove 
 /** Serialize AIWG writers; operator edits detected before committing a replacement. */
 export async function manageOmpMcp(configPath, servers, options = {}) {
   if (options.dryRun) return manageLockedOmpMcp(configPath, servers, options);
-  await rejectSymlinkPath(configPath);
+  await assertConfigDestination(configPath, options.projectRoot);
   const lockPath = `${configPath}.aiwg-lock`;
-  await rejectSymlinkPath(lockPath);
+  await assertConfigDestination(lockPath, options.projectRoot);
   await mkdir(dirname(configPath), { recursive: true });
   let lock;
   try { lock = await open(lockPath, 'wx', 0o600); }

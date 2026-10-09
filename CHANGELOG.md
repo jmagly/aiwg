@@ -7,6 +7,93 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Added
+
+- `AIWG_CONFIG_LAYERS` reads MCP servers and profiles from several configuration directories, lowest
+  precedence first, so an organisation base and a per-identity overlay can be kept apart. Writes go to
+  the last directory only. Profiles gain `extends` (`aiwg mcp profile add --extends`), resolved across
+  layers by `aiwg mcp inject --profile`, including `--ephemeral`.
+- MCP profile tool filters (`providerOverrides.toolDeny` / `toolAllow`) are now rendered by
+  `aiwg mcp inject --profile`. They were stored and printed by `aiwg mcp profile show` but never
+  written to any provider config. Claude Code receives permission rules, Codex
+  `disabled_tools`/`enabled_tools`, opencode its `tools` map, and Factory, Windsurf and Antigravity
+  `disabledTools`. A filter a provider cannot express is printed as a warning. `aiwg mcp profile add`
+  and `edit` accept `--tool-deny`, `--tool-allow`, `--provider` and `--clear-tool-filters`.
+- Claude profile sessions now launch with both `--mcp-config` and the permission sidecar via `--settings`.
+- Claude `toolAllow` is refused with the offending patterns: allow rules pre-approve tools and cannot
+  express a restrict-only allowlist or carve exceptions out of deny rules. `toolDeny` remains supported.
+  Maintainers can remove these entries or scope allowlists to supported providers.
+- Persistent Claude injection tracks added deny rules outside Claude settings, removes obsolete managed
+  rules on profile switches or `--clear-tool-filters` plus re-injection, and preserves user rules.
+- Claude settings reject symlinks and unrelated sidecar collisions, validate before MCP writes or receipts,
+  and use private modes for new project settings, user settings and ephemeral sidecars.
+- Filters now apply to preserved Antigravity servers; opencode rules retain last-match precedence over
+  existing wildcards on reinjection.
+- `aiwg mcp inject` renders `--header-env` references in each harness's own syntax, and a new
+  `--env-from NAME=VAR` does the same for stdio server variables. Previously only OMP and Grok Build
+  rendered references; Claude Code, Cursor, Windsurf, Factory and opencode dropped them, and Codex
+  dropped env and headers entirely. Antigravity and Warp refuse references because neither documents
+  interpolation.
+- Credential policy: `--strict-credentials` refuses literal `env`/`headers` values, `--no-credentials`
+  refuses any credential-bearing field. Also settable with `AIWG_MCP_CREDENTIAL_POLICY` or
+  `aiwg mcp credential-policy`.
+
+### Fixed
+
+- Layered MCP writes reject overlapping realpath targets and symlinked files or directories below the config root,
+  use atomic replacement, and refresh server/profile ownership after each successful save.
+- Profile imports validate the complete layered `extends` graph before writing, naming cycles and missing bases.
+- Layered credential policy uses the strictest value (`literal` < `references` < `none`) as a floor.
+  Higher layers, environment and rendering flags can only tighten it; relaxations warn and are ignored.
+  CLI policy-setting commands refuse values below the lower-layer floor. Maintainers can adjust that floor.
+  Inherited settings stay out of identity writes, including injection records, while format fields remain.
+- Credential rendering flags and environment values now only tighten even a single registry's policy,
+  changing #280 behavior. Relaxation warnings occur once per process per attempted value, and exported
+  `injectServers` enforces the stored floor even with an omitted or weaker policy option. Invalid present
+  policy values throw with the layer path; an empty environment string is treated as unset.
+- Explicit policy saves preserve the requested value, including one equal to the lower floor. Unrelated
+  saves preserve policy ownership and drop stale weaker overlay policies with a warning.
+- Empty profiles inject zero servers in persistent mode. Removing a profile extended by remaining profiles
+  is refused with dependent names. Copy-up removal immediately restores lower entries on the same instance,
+  and refused mutations leave cached data unchanged. Config directory aliases and symlinked ancestors work;
+  missing layer paths use filesystem-aware case comparisons to prevent overlap.
+- Regression coverage verifies inherited tool denies and credential references in Codex runtime configs
+  and Claude injection, with TypeScript and runtime registries exercising the same layered behaviour.
+
+- Claude profile settings preserve uncertain deny-rule ownership after manual edits, with a deny-array
+  digest, tracked preservation and actionable warnings. Ownership follows realpath parent aliases;
+  invalid records explain how to reset tracking. New project settings use `0600` and retain existing modes.
+- MCP, Claude settings and ownership writes preflight their destinations and roll back earlier files
+  on a reported write failure. Sessions consume the reported sidecar path and refuse missing settings.
+- Direct Claude permission APIs refuse allowlists; preserved Antigravity filters reject non-array values.
+  OpenCode emits deny keys before allow keys while keeping identical allow/deny keys denied.
+  Codex warns when a per-server allowlist leaves other servers unrestricted.
+- Codex config resolution honors `CODEX_HOME`, including installation and isolated profile launch/login.
+  Persistent-rendering and hook-bridge tests isolate home resolution to protect the operator's real config.
+  Codex hook translation also honors `CODEX_HOME`.
+- Codex profile sessions stop before runtime setup or launch on credential-policy refusal.
+  Runtime configs remove the entire global `mcp_servers` subtree, including inline, dotted,
+  quoted, and array-table forms, and refuse malformed base TOML. Runtime homes use `0700`;
+  runtime and persistent Codex configs use private atomic writes and reject symlink targets.
+  `aiwg mcp add` and `update` redact URL userinfo and show env/header key names only.
+- opencode local servers now receive their variables as `environment`, the key opencode reads, instead
+  of `env`.
+- `aiwg mcp inject --provider claude` and `aiwg mcp install claude` now write project MCP servers to
+  `.mcp.json`. They previously wrote `mcpServers` into `.claude/settings.local.json`, which Claude Code
+  does not read, so injected servers never loaded. `--scope user` writes `~/.claude.json`. HTTP and SSE
+  entries now carry `type`, without which Claude Code skips a `url` entry. `--ephemeral` output now uses
+  each provider's own entry shape instead of a generic one.
+  Project-scope Claude injection and installation refuse literal env/header values and URL userinfo,
+  naming only servers and keys and suggesting `--scope user` because `.mcp.json` is meant to be committed.
+  Claude installation omits project `env`; user installation includes `AIWG_ROOT` only when set.
+  MCP config writes reject symlink destinations and project symlink parents below the project root.
+  JSON installation refuses malformed JSON, non-object roots, and non-object server maps.
+  Atomic replacement cleans up temporary files even if closing fails, preserves existing project modes,
+  applies umask to new project files, and sets user configs to `0600`, including existing files.
+  User-scope Claude paths fall back to the OS home directory when `HOME` and `USERPROFILE` are unset.
+- Ephemeral and Codex runtime-home MCP configs use 0600 permissions; default ephemeral files use a private temp
+  directory, and `aiwg mcp list` redacts URL userinfo.
+
 ## [2026.10.1] - 2026-10-05 - "Turnkey Jev decision offload"
 
 ### Added

@@ -10,7 +10,9 @@
  * @implements #889
  */
 
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { resolveCredentialPolicy, type McpCredentialPolicy } from './credentials.mjs';
+import { type Layering, isLowerLayerEntry, loadLayered, resolveProfileExtends, resolveConfigLayers, saveLayerData } from './config-layers.mjs';
+import { readFile, writeFile } from 'fs/promises';
 import { resolve } from 'path';
 import { resolveConfigDir } from '../config/user-config.js';
 import { McpServerRegistry, McpServerDefinition } from './registry.js';
@@ -31,6 +33,8 @@ export interface McpProfile {
   description?: string;
   /** Server names referenced from the server registry. '__all__' expands to all servers. */
   servers: string[];
+  /** Profiles whose servers and tool filters this profile inherits, base first */
+  extends?: string[];
   /** Per-provider tool allow/deny overrides */
   providerOverrides?: Record<string, McpProfileProviderOverride>;
   /** ISO timestamp */
@@ -40,6 +44,7 @@ export interface McpProfile {
 }
 
 export interface McpProfileRegistryData {
+  credentialPolicy?: McpCredentialPolicy;
   apiVersion: string;
   kind: string;
   profiles: Record<string, McpProfile>;
@@ -49,6 +54,10 @@ export interface ProfileEditChanges {
   description?: string;
   addServers?: string[];
   removeServers?: string[];
+  /** Tool patterns to add, keyed by provider ('*' for every provider) */
+  providerOverrides?: Record<string, McpProfileProviderOverride>;
+  /** Provider key whose tool filters are removed */
+  clearToolFilters?: string;
 }
 
 // ─────────────────────────────────────────────
@@ -113,8 +122,13 @@ export class McpProfileRegistry {
   private readonly configDir: string;
   private cache: McpProfileRegistryData | null = null;
 
+  /** Configuration layers, lowest precedence first; null for a single directory */
+  private readonly layers: string[] | null;
+  private layering: Layering | null = null;
+
   constructor(configDirOverride?: string) {
-    this.configDir = resolveConfigDir(configDirOverride);
+    this.layers = resolveConfigLayers(configDirOverride);
+    this.configDir = this.layers ? this.layers[this.layers.length - 1] : resolveConfigDir(configDirOverride);
   }
 
   getPath(): string {
@@ -123,6 +137,13 @@ export class McpProfileRegistry {
 
   async load(): Promise<McpProfileRegistryData> {
     if (this.cache) return this.cache;
+
+    if (this.layers) {
+      const layered = await loadLayered(this.layers, PROFILES_FILENAME, 'profiles', DEFAULT_DATA);
+      this.cache = layered.data;
+      this.layering = layered.layering;
+      return this.cache!;
+    }
 
     const filePath = this.getPath();
     try {
@@ -137,17 +158,24 @@ export class McpProfileRegistry {
       this.cache = { ...DEFAULT_DATA, profiles: {} };
     }
 
+    try {
+      resolveCredentialPolicy({ registryPolicy: this.cache.credentialPolicy, env: {} });
+    } catch (error) {
+      this.cache = null;
+      throw new Error(`Invalid MCP credential policy in ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
     return this.cache;
   }
 
-  async save(): Promise<void> {
-    if (!this.cache) return;
-    await mkdir(this.configDir, { recursive: true });
-    await writeFile(
-      this.getPath(),
-      JSON.stringify(this.cache, null, 2) + '\n',
-      'utf-8',
-    );
+  async save(data: McpProfileRegistryData | null = this.cache): Promise<void> {
+    if (!data) return;
+    await saveLayerData(this.getPath(), data, 'profiles', this.layers, this.layering);
+    this.cache = data;
+    if (this.layers) {
+      this.clearCache();
+      await this.load();
+    }
   }
 
   private validateName(name: string): void {
@@ -184,7 +212,7 @@ export class McpProfileRegistry {
 
   async add(profile: McpProfile, serverRegistry?: McpServerRegistry): Promise<void> {
     this.validateName(profile.name);
-    const data = await this.load();
+    const data = structuredClone(await this.load());
 
     if (data.profiles[profile.name]) {
       throw new Error(
@@ -193,6 +221,7 @@ export class McpProfileRegistry {
     }
 
     await this.validateServers(profile.servers ?? [], serverRegistry);
+    if (profile.extends?.length) resolveProfileExtends(profile.name, { ...data.profiles, [profile.name]: profile });
 
     data.profiles[profile.name] = {
       ...profile,
@@ -202,12 +231,22 @@ export class McpProfileRegistry {
       updatedAt: new Date().toISOString(),
     };
 
-    await this.save();
+    await this.save(data);
   }
 
   async get(name: string): Promise<McpProfile | undefined> {
     const data = await this.load();
     return data.profiles[name];
+  }
+
+  /**
+   * Return a profile with its `extends` chain applied across all configuration
+   * layers. Use get() for the profile exactly as stored.
+   */
+  async resolve(name: string): Promise<McpProfile | undefined> {
+    const data = await this.load();
+    if (!data.profiles[name]) return undefined;
+    return resolveProfileExtends(name, data.profiles);
   }
 
   async list(): Promise<McpProfile[]> {
@@ -220,7 +259,7 @@ export class McpProfileRegistry {
     changes: ProfileEditChanges,
     serverRegistry?: McpServerRegistry,
   ): Promise<McpProfile> {
-    const data = await this.load();
+    const data = structuredClone(await this.load());
     const existing = data.profiles[name];
     if (!existing) throw new Error(`Profile "${name}" not found.`);
 
@@ -241,24 +280,51 @@ export class McpProfileRegistry {
       );
     }
 
+    if (changes.clearToolFilters) {
+      const overrides = { ...(current.providerOverrides ?? {}) };
+      delete overrides[changes.clearToolFilters];
+      current.providerOverrides = overrides;
+    }
+
+    for (const [provider, override] of Object.entries(changes.providerOverrides ?? {})) {
+      const overrides = { ...(current.providerOverrides ?? {}) };
+      const previous = overrides[provider] ?? {};
+      const merge = (before: string[] | undefined, added: string[] | undefined) => (added ? [...new Set([...(before ?? []), ...added])] : before);
+      overrides[provider] = {
+        ...previous,
+        ...(override.toolDeny ? { toolDeny: merge(previous.toolDeny, override.toolDeny) } : {}),
+        ...(override.toolAllow ? { toolAllow: merge(previous.toolAllow, override.toolAllow) } : {}),
+      };
+      current.providerOverrides = overrides;
+    }
+
     current.updatedAt = new Date().toISOString();
     data.profiles[name] = current;
-    await this.save();
+    await this.save(data);
     return data.profiles[name];
   }
 
   async remove(name: string): Promise<void> {
-    const data = await this.load();
+    const data = structuredClone(await this.load());
     if (!data.profiles[name]) throw new Error(`Profile "${name}" not found.`);
+    if (this.layering && isLowerLayerEntry(this.layering, name)) {
+      throw new Error(`Profile "${name}" is defined in a lower configuration layer; remove it there.`);
+    }
+    const dependents = Object.entries(data.profiles)
+      .filter(([other, profile]) => other !== name && profile.extends?.includes(name))
+      .map(([other]) => other);
+    if (dependents.length) {
+      throw new Error(`Cannot remove profile "${name}": extended by ${dependents.join(', ')}.`);
+    }
     delete data.profiles[name];
-    await this.save();
+    await this.save(data);
   }
 
   async resolveServers(
     name: string,
     serverRegistry?: McpServerRegistry,
   ): Promise<McpServerDefinition[] | string[]> {
-    const profile = await this.get(name);
+    const profile = await this.resolve(name);
     if (!profile) throw new Error(`Profile "${name}" not found.`);
 
     if (profile.servers.includes('__all__') && serverRegistry) {
@@ -278,12 +344,17 @@ export class McpProfileRegistry {
   async importFrom(filePath: string): Promise<{ added: number; updated: number }> {
     const content = await readFile(filePath, 'utf-8');
     const imported = JSON.parse(content) as { profiles?: Record<string, McpProfile> };
-    const data = await this.load();
+    const data = structuredClone(await this.load());
 
     let added = 0;
     let updated = 0;
 
-    const profiles = imported.profiles ?? {};
+    const profiles = imported.profiles ?? (
+      typeof imported === 'object' && !Array.isArray(imported)
+        ? imported as Record<string, McpProfile>
+        : {}
+    );
+    const candidate = { ...data.profiles };
 
     for (const [name, profile] of Object.entries(profiles)) {
       try {
@@ -291,18 +362,19 @@ export class McpProfileRegistry {
       } catch {
         continue;
       }
-      if (data.profiles[name]) {
-        data.profiles[name] = {
-          ...data.profiles[name],
+      if (candidate[name]) {
+        candidate[name] = {
+          ...candidate[name],
           ...profile,
           name,
           updatedAt: new Date().toISOString(),
         };
         updated++;
       } else {
-        data.profiles[name] = {
+        candidate[name] = {
           name,
           description: profile.description,
+          ...(profile.extends ? { extends: profile.extends } : {}),
           servers: profile.servers ?? [],
           providerOverrides: profile.providerOverrides ?? {},
           createdAt: new Date().toISOString(),
@@ -312,7 +384,9 @@ export class McpProfileRegistry {
       }
     }
 
-    await this.save();
+    for (const name of Object.keys(candidate)) resolveProfileExtends(name, candidate);
+    data.profiles = candidate;
+    await this.save(data);
     return { added, updated };
   }
 
@@ -335,7 +409,7 @@ export class McpProfileRegistry {
   }
 
   async initPresets(): Promise<{ added: number; total: number }> {
-    const data = await this.load();
+    const data = structuredClone(await this.load());
     let added = 0;
 
     for (const [name, preset] of Object.entries(PRESET_PROFILES)) {
@@ -350,7 +424,7 @@ export class McpProfileRegistry {
       }
     }
 
-    await this.save();
+    await this.save(data);
     return { added, total: Object.keys(PRESET_PROFILES).length };
   }
 

@@ -94,6 +94,7 @@ function runAiwg(args: string[], cwd = TEST_PROJECT_DIR): string {
     ...process.env,
     HOME: TEST_HOME_DIR,
     USERPROFILE: TEST_HOME_DIR,
+    CODEX_HOME: TEST_CODEX_DIR,
   };
 
   // Use bin/aiwg.mjs which properly awaits async operations
@@ -113,6 +114,7 @@ function runScript(scriptPath: string, args: string[] = []): string {
     ...process.env,
     HOME: TEST_HOME_DIR,
     USERPROFILE: TEST_HOME_DIR,
+    CODEX_HOME: TEST_CODEX_DIR,
   };
 
   return execFileSync(process.execPath, [path.join(REPO_ROOT, scriptPath), ...args], { timeout: 60_000,
