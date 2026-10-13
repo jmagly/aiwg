@@ -16,6 +16,7 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import fs from 'fs/promises';
+import { constants } from 'node:fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { registerWriterProfileResources } from './tools/writer-profiles.mjs';
@@ -32,6 +33,260 @@ const FRAMEWORKS = {
   'sdlc-complete': path.join(AIWG_ROOT, 'agentic/code/frameworks/sdlc-complete'),
   'media-marketing-kit': path.join(AIWG_ROOT, 'agentic/code/frameworks/media-marketing-kit')
 };
+
+function assertArtifactContained(root, target) {
+  const relative = path.relative(root, target);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error('Artifact path must stay beneath the artifact root');
+  }
+}
+
+async function resolveArtifactRoot(projectRoot, write) {
+  const configured = await resolveProjectAiwgDir(projectRoot);
+  try {
+    return await fs.realpath(configured);
+  } catch (error) {
+    if (!write || error.code !== 'ENOENT') throw error;
+    // Only bootstrap the local default. An unavailable configured store or
+    // dangling root alias must fail closed, without a local fallback.
+    if (configured !== path.resolve(projectRoot, '.aiwg')) throw error;
+    const existing = await fs.lstat(configured).catch(missing => {
+      if (missing.code !== 'ENOENT') throw missing;
+    });
+    if (existing) throw error;
+    const project = await fs.realpath(projectRoot);
+    let parent;
+    let verified = false;
+    try {
+      let entry = path.join(project, '.aiwg');
+      if (process.platform === 'linux' && constants.O_DIRECTORY && constants.O_NOFOLLOW) {
+        parent = await fs.open(project, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+        if (await fs.realpath(`/proc/self/fd/${parent.fd}`) !== project) {
+          throw new Error('Project root changed during artifact creation');
+        }
+        entry = `/proc/self/fd/${parent.fd}/.aiwg`;
+      }
+      try {
+        await fs.mkdir(entry);
+      } catch (mkdirError) {
+        if (mkdirError.code !== 'EEXIST') throw mkdirError;
+      }
+      const info = await fs.lstat(entry);
+      if (info.isSymbolicLink() || !info.isDirectory()) throw new Error('Artifact root changed during creation');
+      const root = await fs.realpath(entry);
+      if (root !== path.join(project, '.aiwg')) throw new Error('Artifact root changed during creation');
+      verified = true;
+      return root;
+    } finally {
+      if (parent) {
+        const [closed] = await Promise.allSettled([parent.close()]);
+        if (verified && closed.status === 'rejected') throw closed.reason;
+      }
+    }
+  }
+}
+
+/** Resolve existing aliases before creating anything; dangling symlinks fail closed. */
+async function resolveArtifactPath(projectRoot, artifactPath, { write = false } = {}) {
+  if (!artifactPath || path.isAbsolute(artifactPath) || path.win32.isAbsolute(artifactPath)
+    || /^[A-Za-z]:/.test(artifactPath)
+    || (process.platform === 'win32' && artifactPath.split(/[\\/]/).some(part => /[. ]$/.test(part) || part.includes(':')))
+    || artifactPath.split(/[\\/]/).includes('..')) {
+    throw new Error('Artifact path must be relative and contain no .. segments');
+  }
+  const root = await resolveArtifactRoot(projectRoot, write);
+  const target = path.resolve(root, artifactPath);
+  assertArtifactContained(root, target);
+  let ancestor = path.dirname(target);
+  const missing = [];
+  while (true) {
+    try {
+      // lstat distinguishes a missing directory from a dangling symlink.
+      await fs.lstat(ancestor);
+      break;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      missing.unshift(path.basename(ancestor));
+      ancestor = path.dirname(ancestor);
+    }
+  }
+  const realAncestor = await fs.realpath(ancestor);
+  if (realAncestor !== root) assertArtifactContained(root, realAncestor);
+  const fullPath = path.resolve(realAncestor, ...missing, path.basename(target));
+  assertArtifactContained(root, fullPath);
+  let info;
+  try {
+    info = await fs.lstat(fullPath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  if (info) {
+    if (write && info.isSymbolicLink()) throw new Error('Refusing to write through an artifact symlink');
+    const realTarget = await fs.realpath(fullPath);
+    assertArtifactContained(root, realTarget);
+    if (!write) return { root, fullPath: realTarget };
+  }
+  return { root, fullPath };
+}
+
+/**
+ * Node has no openat. Linux procfs descriptor paths anchor each lookup to an
+ * opened directory, so replacing a parent name cannot redirect open/mkdir.
+ * Other platforms use checked path components and post-open identity/containment
+ * verification, with O_NOFOLLOW where available and no truncation before checks.
+ * That portable fallback has a residual race: a concurrent parent replacement
+ * can redirect mkdir/open (including creation outside the root) between checks,
+ * or change the path between lstat and realpath. It cannot anchor those lookups.
+ * A same-user actor can still rename an opened directory out of the root after
+ * verification (or introduce hard links); this is not a hostile-user sandbox.
+ */
+async function openArtifact(projectRoot, artifactPath, { write = false } = {}) {
+  const { root, fullPath } = await resolveArtifactPath(projectRoot, artifactPath, { write });
+  if (process.platform !== 'linux' || !constants.O_NOFOLLOW || !constants.O_DIRECTORY) {
+    return openArtifactPortable(root, fullPath, { write });
+  }
+  const directories = [];
+  let file;
+  let verified = false;
+  const descriptorPath = handle => `/proc/self/fd/${handle.fd}`;
+  async function verify(handle, { rootHandle = false, directory = false } = {}) {
+    const actual = await fs.realpath(descriptorPath(handle));
+    if (rootHandle) {
+      if (actual !== root) throw new Error('Artifact root changed during access');
+    } else {
+      assertArtifactContained(root, actual);
+    }
+    const [opened, current] = await Promise.all([handle.stat(), fs.lstat(actual)]);
+    if (opened.dev !== current.dev || opened.ino !== current.ino
+      || (directory ? !opened.isDirectory() : !opened.isFile())) {
+      throw new Error('Artifact changed during access or is not a regular file/directory');
+    }
+    return actual;
+  }
+  try {
+    let parent = await fs.open(root, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+    directories.push(parent);
+    await verify(parent, { rootHandle: true, directory: true });
+    const components = path.relative(root, fullPath).split(path.sep);
+    const name = components.pop();
+    for (const component of components) {
+      const entry = path.join(descriptorPath(parent), component);
+      let child;
+      try {
+        child = await fs.open(entry, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+      } catch (error) {
+        if (!write || error.code !== 'ENOENT') throw error;
+        await verify(parent, { rootHandle: directories.length === 1, directory: true });
+        try {
+          // One component only: never follow a replaced parent via mkdir -p.
+          await fs.mkdir(entry);
+        } catch (mkdirError) {
+          if (mkdirError.code !== 'EEXIST') throw mkdirError;
+        }
+        child = await fs.open(entry, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+      }
+      directories.push(child);
+      await verify(child, { directory: true });
+      parent = child;
+    }
+    await verify(parent, { rootHandle: directories.length === 1, directory: true });
+    // Do not truncate until the opened file has passed descriptor verification.
+    file = await fs.open(path.join(descriptorPath(parent), name),
+      (write ? constants.O_WRONLY | constants.O_CREAT : constants.O_RDONLY)
+      | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const actual = await verify(file);
+    verified = true;
+    return { handle: file, fullPath: actual };
+  } finally {
+    const closed = await Promise.allSettled(directories.map(handle => handle.close()));
+    const failure = closed.find(result => result.status === 'rejected');
+    if (file && (!verified || failure)) await Promise.allSettled([file.close()]);
+    // Preserve the access error on failure; on success retain ownership until
+    // directory cleanup succeeds, so a cleanup error cannot leak the file.
+    if (verified && failure) throw failure.reason;
+  }
+}
+
+async function openArtifactPortable(root, fullPath, { write }) {
+  async function verifyDirectory(directory) {
+    const info = await fs.lstat(directory);
+    if (info.isSymbolicLink() || !info.isDirectory()) {
+      throw new Error('Artifact directory changed or is a symlink');
+    }
+    const actual = await fs.realpath(directory);
+    if (directory === root) {
+      if (actual !== root) throw new Error('Artifact root changed during access');
+    } else {
+      assertArtifactContained(root, actual);
+    }
+  }
+  let parent = root;
+  await verifyDirectory(parent);
+  const components = path.relative(root, fullPath).split(path.sep);
+  components.pop();
+  for (const component of components) {
+    const entry = path.join(parent, component);
+    try {
+      await fs.lstat(entry);
+    } catch (error) {
+      if (!write || error.code !== 'ENOENT') throw error;
+      await verifyDirectory(parent);
+      try {
+        // Create one component, then check even if another actor created it.
+        await fs.mkdir(entry);
+      } catch (mkdirError) {
+        if (mkdirError.code !== 'EEXIST') throw mkdirError;
+      }
+    }
+    await verifyDirectory(entry);
+    parent = entry;
+  }
+  await verifyDirectory(parent);
+  const flags = (write ? constants.O_WRONLY : constants.O_RDONLY)
+    | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0);
+  let handle;
+  let created = false;
+  try {
+    handle = await fs.open(fullPath, flags);
+  } catch (error) {
+    if (!write || error.code !== 'ENOENT') throw error;
+    await verifyDirectory(parent);
+    // lstat rejects dangling final symlinks even without O_NOFOLLOW; O_EXCL
+    // prevents following a final symlink inserted after this check.
+    try {
+      await fs.lstat(fullPath);
+      throw new Error('Artifact appeared during creation');
+    } catch (missing) {
+      if (missing.code !== 'ENOENT') throw missing;
+    }
+    handle = await fs.open(fullPath, flags | constants.O_CREAT | constants.O_EXCL);
+    created = true;
+  }
+  try {
+    await verifyDirectory(parent);
+    const [opened, current] = await Promise.all([handle.stat(), fs.lstat(fullPath)]);
+    if (!opened.isFile() || current.isSymbolicLink()
+      || opened.dev !== current.dev || opened.ino !== current.ino) {
+      throw new Error('Artifact changed during access or is not a regular file');
+    }
+    const actual = await fs.realpath(fullPath);
+    assertArtifactContained(root, actual);
+    return { handle, fullPath: actual };
+  } catch (error) {
+    if (created) {
+      // Best effort only: portable Node has no inode-conditional unlink. Refuse
+      // a detected replacement, and keep the original verification error.
+      try {
+        const [opened, current] = await Promise.all([handle.stat(), fs.lstat(fullPath)]);
+        if (!current.isSymbolicLink() && opened.dev === current.dev && opened.ino === current.ino) {
+          await fs.unlink(fullPath);
+        }
+      } catch { /* Path moved or cleanup unavailable; see portable race above. */ }
+    }
+    await Promise.allSettled([handle.close()]);
+    throw error;
+  }
+}
 
 /**
  * Create and configure the AIWG MCP Server
@@ -102,8 +357,13 @@ export async function createServer() {
     try {
       // Auto-find project root if not specified
       const projectRoot = project_dir || await findProjectRoot();
-      const fullPath = path.join(await resolveProjectAiwgDir(projectRoot), artifactPath);
-      const content = await fs.readFile(fullPath, 'utf-8');
+      const { handle } = await openArtifact(projectRoot, artifactPath);
+      let content;
+      try {
+        content = await handle.readFile('utf-8');
+      } finally {
+        await handle.close();
+      }
       return {
         content: [{
           type: 'text',
@@ -134,14 +394,13 @@ export async function createServer() {
     try {
       // Auto-find project root if not specified
       const projectRoot = project_dir || await findProjectRoot();
-      const fullPath = path.join(await resolveProjectAiwgDir(projectRoot), artifactPath);
-      const dir = path.dirname(fullPath);
-
-      // Ensure directory exists
-      await fs.mkdir(dir, { recursive: true });
-
-      // Write file
-      await fs.writeFile(fullPath, content, 'utf-8');
+      const { handle, fullPath } = await openArtifact(projectRoot, artifactPath, { write: true });
+      try {
+        await handle.truncate(0);
+        await handle.writeFile(content, 'utf-8');
+      } finally {
+        await handle.close();
+      }
 
       return {
         content: [{

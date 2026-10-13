@@ -188,12 +188,51 @@ export function urlCarriesUserinfo(url) {
   }
 }
 
+// Match credential words, including common prefixed and camel-case forms
+// (access_token, apiKey, X-Amz-Signature), without treating every query as auth.
+const CREDENTIAL_QUERY_NAME = /(?:^|[-_.])(?:api[-_]?key|access[-_]?key|private[-_]?key|signing[-_]?key|encryption[-_]?key|secret[-_]?key|api[-_]?token|access[-_]?token|auth[-_]?token|session[-_]?id|client[-_]?secret|token|secret|password|passwd|pwd|passcode|auth|authorization|signature|jwt|bearer|credential|credentials)(?:$|[-_.])/i;
+// Generic key/sig are credential-like only as whole bracket components, not
+// arbitrary suffixes such as sort_key, cache-key, or sort_sig.
+const CREDENTIAL_QUERY_EXACT_NAME = /^(?:key|sig)$/i;
+
+/** Credential-like query keys with non-empty values, decoded like URL queries. */
+export function credentialLikeQueryParams(url, { includeReferences = false } = {}) {
+  if (typeof url !== 'string') return [];
+  // Parse the query independently: a malformed host must not hide credentials.
+  // WHATWG URL consumers strip ASCII tabs/newlines before interpreting keys.
+  const beforeFragment = url.replace(/[\t\r\n]/g, '').split('#', 1)[0];
+  const query = beforeFragment.indexOf('?');
+  if (query < 0) return [];
+  return credentialLikeParams(beforeFragment.slice(query + 1), includeReferences);
+}
+
+/** Fragments are not sent over HTTP, but assignments can store shareable secrets. */
+export function credentialLikeFragmentParams(url, { includeReferences = false } = {}) {
+  if (typeof url !== 'string') return [];
+  const clean = url.replace(/[\t\r\n]/g, '');
+  const fragment = clean.indexOf('#');
+  if (fragment < 0) return [];
+  const text = clean.slice(fragment + 1);
+  // Cover OAuth fragments and route fragments such as #/callback?token=... .
+  return credentialLikeParams(text.slice(text.indexOf('?') + 1), includeReferences);
+}
+
+function credentialLikeParams(text, includeReferences) {
+  const params = new URLSearchParams(text);
+  return [...new Set([...params].filter(([key, value]) => {
+    const components = key.replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+      .toLowerCase().replace(/[._\s-]+/g, '-').split(/[\[\]]/);
+    return components.some(part => CREDENTIAL_QUERY_NAME.test(part) || CREDENTIAL_QUERY_EXACT_NAME.test(part)) && value !== ''
+      && (includeReferences || !isCredentialReferenceValue(value));
+  }).map(([key]) => key))];
+}
+
 /**
  * List the fields of a server that the policy forbids.
  *
  *   literal     nothing is forbidden
  *   references  literal env/headers values, literal auth argument values, URL
- *               userinfo, and literal auth/oauth secrets are forbidden;
+ *               userinfo/query/fragment credentials, and literal auth/oauth secrets are forbidden;
  *               header-env/env-from are allowed
  *   none        every credential-bearing field is forbidden, references included
  */
@@ -204,9 +243,17 @@ export function credentialPolicyViolations(server, policy) {
   if (hasEntries(server.headers)) violations.push('headers');
   if (credentialLikeArgs(server.args).length > 0) violations.push('args');
   if (urlCarriesUserinfo(server.url)) violations.push('url userinfo');
+  if (credentialLikeQueryParams(server.url, { includeReferences: policy === 'none' }).length) violations.push('url query credentials');
+  if (credentialLikeFragmentParams(server.url, { includeReferences: policy === 'none' }).length) violations.push('url fragment credentials');
   for (const field of ['auth', 'oauth']) {
     for (const key of ['tokenUrl', 'redirectUri', 'resource']) {
       if (urlCarriesUserinfo(server[field]?.[key])) violations.push(`${field}.${key} userinfo`);
+      if (credentialLikeQueryParams(server[field]?.[key], { includeReferences: policy === 'none' }).length) {
+        violations.push(`${field}.${key} query credentials`);
+      }
+      if (credentialLikeFragmentParams(server[field]?.[key], { includeReferences: policy === 'none' }).length) {
+        violations.push(`${field}.${key} fragment credentials`);
+      }
     }
   }
   if (server.auth?.clientSecret) violations.push('auth.clientSecret');

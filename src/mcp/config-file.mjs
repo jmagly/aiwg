@@ -1,4 +1,4 @@
-import { urlCarriesUserinfo, credentialLikeArgs, isCredentialReferenceValue } from './credentials.mjs';
+import { urlCarriesUserinfo, credentialLikeArgs, credentialLikeQueryParams, credentialLikeFragmentParams, isCredentialReferenceValue } from './credentials.mjs';
 import { access, lstat, mkdir, open, readFile, realpath, rename, unlink } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { constants } from 'node:fs';
@@ -146,6 +146,8 @@ export function assertProjectCredentials(servers, configPath, remedy) {
     }
     // OMP persists auth/oauth beside env/headers, so the same refusal covers
     // any secret-bearing value there; `type` alone selects a flow, not a secret.
+    // This deliberately includes all URL fields (tokenUrl/redirectUri/resource),
+    // so OAuth query and fragment credentials cannot bypass project protection.
     for (const field of ['auth', 'oauth']) {
       const section = server[field];
       if (section !== undefined && section !== null) {
@@ -158,6 +160,8 @@ export function assertProjectCredentials(servers, configPath, remedy) {
       }
     }
     if (urlCarriesUserinfo(server.url)) reasons.push(`${server.name} has URL userinfo`);
+    if (credentialLikeQueryParams(server.url).length) reasons.push(`${server.name} has URL query credentials`);
+    if (credentialLikeFragmentParams(server.url).length) reasons.push(`${server.name} has URL fragment credentials`);
     // A flag like --token=... or --password <value> almost always carries the secret
     // in argv, visible to every process listing on the host; the same literal-credential
     // refusal that applies to env/headers applies here for a shareable project file.

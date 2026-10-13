@@ -1162,7 +1162,7 @@ async function handleProfileShow(args) {
       const server = await registry.get(serverName);
       if (server) {
         const detail = server.type === 'stdio'
-          ? `stdio  ${server.command}${server.args ? ' ' + server.args.join(' ') : ''}`
+          ? `stdio  ${server.command}${server.args ? ' ' + redactCredentialArgs(server.args).join(' ') : ''}`
           : `${server.type}  ${redactUrlUserinfo(server.url)}`;
         console.log(`  ${serverName.padEnd(24)} ${detail}`);
         if (server.description) console.log(`  ${''.padEnd(24)} ${server.description}`);
