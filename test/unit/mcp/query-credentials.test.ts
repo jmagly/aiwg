@@ -34,6 +34,20 @@ afterEach(async () => {
 });
 
 describe('credential-like URL queries', () => {
+  it.each(['options[api_key][service_name]', 'credentials.token.name'])('refuses and redacts credential ancestors in %s', key => {
+    const url = `https://host/?${key}=${secret}`;
+    const server = { name: 'nested', url };
+    expect(credentialLikeQueryParams(url)).toEqual([key]);
+    for (const policy of ['references', 'none'] as const) {
+      expect(credentialPolicyViolations(server, policy)).toEqual(['url query credentials']);
+      expect(() => assertCredentialPolicy([server], policy)).toThrow(/query credentials/);
+    }
+    expect(() => assertProjectCredentials([server], join(project, '.mcp.json'))).toThrow(/URL query credentials/);
+    expect(redactCredentialText(url)).toBe(`https://host/?${key}=***`);
+    expect(redactCredentialArgs([url])).toEqual([`https://host/?${key}=***`]);
+    expect(redactCredentialRecord(server)).toEqual({ name: 'nested', url: `https://host/?${key}=***` });
+  });
+
   it.each(['private_key', 'signing.key', 'encryption-key', 'privatekey', 'clientsecret', 'secretkey', 'apitoken', 'pwd', 'passcode', 'session_id', 'sessionid', 'API_TOKEN', 'options[privateKey]', 'token', 'token[]', 'auth[token]', 'options[token][]', 'options[key]', 'options[sig]', 'options.key', 'options.sig', 'options.nested.key', 'options.nested.sig', '%74oken%5B%5D', 'options%5Btoken%5D', 'key', 'secret', 'password', 'passwd', 'auth', 'authorization', 'signature', 'sig', 'jwt', 'bearer', 'api_key', 'apikey', 'apiKey', 'access_key', 'accessKey', 'access_token', 'clientSecret', 'X-Amz-Signature', 'X-Amz-Credential', '%74oken'])('refuses %s in project writes and restrictive policies without echoing the secret', key => {
     const server = { name: 'query', url: `https://example.test/mcp?view=full&${key}=${secret}` };
     expect(credentialLikeQueryParams(server.url)).toHaveLength(1);
@@ -180,7 +194,7 @@ it('profile show redacts split/equal credential args, URL userinfo and query val
   const output = log.mock.calls.map(args => args.join(' ')).join('\n');
   expect(output).not.toContain('SYNTHETIC-');
   expect(output).toContain('--token *** --api-key=*** --verbose --secret-file /tmp/secret-file');
-  expect(output).toContain('token=***&view=***');
+  expect(output).toContain('token=***&view=full');
 });
 
 it.each(['--strict-credentials', '--no-credentials'])('CLI injection %s refuses query credentials without logging them or creating project files', async flag => {
@@ -274,6 +288,32 @@ it.each([
     expect(redactCredentialText(url)).toBe(`https://example.test/${route}access_token=***&view=full`);
     expect(JSON.stringify(redactCredentialRecord(server))).not.toContain(secret);
   }
+});
+
+it.each([
+  ['TOKEN_FILE=/run/secrets/api-token'],
+  ['SECRET_NAME=production-service'],
+  ['-H', 'X-Auth-Mode: anonymous'],
+  ['https://host/?sort.key=name'],
+  ['API_TOKEN_PATH=/run/secrets/token'],
+  ['--header=X-Authorization-Type: anonymous'],
+  ['https://host/?options.tokenFile=/run/secrets/token'],
+  ['https://host/#options.secretName=production-service'],
+].map(args => ({ args })))('preserves nonsecret location and mode settings $args in refusal and display', ({ args }) => {
+  const server = { name: 'nonsecret', args };
+  expect(credentialLikeArgs(args)).toEqual([]);
+  expect(redactCredentialArgs(args)).toEqual(args);
+  for (const arg of args) expect(redactCredentialText(arg)).toBe(arg);
+  expect(redactCredentialRecord(server)).toEqual(server);
+  for (const policy of ['references', 'none'] as const) expect(credentialPolicyViolations(server, policy)).toEqual([]);
+  expect(() => assertProjectCredentials([server], join(project, '.mcp.json'))).not.toThrow();
+});
+
+it('preserves nonsecret URL query values in refusal and display', () => {
+  const server = { name: 'sort', url: 'https://host/?sort.key=name&options.tokenFile=/run/secrets/token' };
+  expect(credentialLikeQueryParams(server.url)).toEqual([]);
+  expect(redactCredentialRecord(server)).toEqual(server);
+  expect(() => assertProjectCredentials([server], join(project, '.mcp.json'))).not.toThrow();
 });
 
 it.each(credentialArgs.map((args, index) => ({ args, index })))('uses the same refusal and redaction scanner for argv case $index', ({ args }) => {

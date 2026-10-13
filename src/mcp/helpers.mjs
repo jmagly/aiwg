@@ -150,8 +150,8 @@ function parseProjectArtifactLocation(contents) {
   return null;
 }
 
-// Containment-sensitive artifact I/O disables pointers and supplies a snapshot
-// of the server-start environment. Other helpers retain location-pointer support.
+// MCP artifact I/O resolves pointers and environment configuration when each
+// project is first trusted, then pins the resulting store.
 export async function resolveProjectAiwgDir(projectDir, { allowLocationPointer = true, env = process.env } = {}) {
   for (const key of ARTIFACT_PATH_ENV_ALIASES) {
     const value = env[key];

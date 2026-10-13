@@ -18,6 +18,36 @@ let outside: string;
 let server: Awaited<ReturnType<typeof createServer>>;
 let client: Client;
 
+async function checkFailedPrivateOverwrite(call: (tool: string, path: string) => ReturnType<Client['callTool']>) {
+  expect((await call('artifact-write', 'private')).isError).toBeUndefined();
+  const target = join(artifacts, 'private');
+  await fs.writeFile(target, 'original');
+  await fs.chmod(target, 0o600);
+  const open = fs.open.bind(fs);
+  const spy = vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
+    const handle = await open(file, flags, mode);
+    if (Number(flags) & constants.O_CREAT) {
+      const writeFile = handle.writeFile.bind(handle);
+      vi.spyOn(handle, 'writeFile').mockImplementation(async () => {
+        await writeFile('private partial content');
+        expect((await handle.stat()).mode & 0o177).toBe(0);
+        throw Object.assign(new Error('partial write failed'), { code: 'ENOSPC' });
+      });
+    }
+    return handle;
+  });
+  expect((await call('artifact-write', 'private')).isError).toBe(true);
+  expect(await fs.readFile(target, 'utf8')).toBe('original');
+  const temporary = (await fs.readdir(artifacts)).filter(name => name.startsWith('.aiwg-write-'));
+  expect(temporary).toHaveLength(1);
+  expect(await fs.readFile(join(artifacts, temporary[0]), 'utf8')).toBe('private partial content');
+  expect((await fs.stat(join(artifacts, temporary[0]))).mode & 0o177).toBe(0);
+  spy.mockRestore();
+  expect((await call('artifact-write', 'private')).isError).toBeUndefined();
+  expect(await fs.readFile(target, 'utf8')).toBe('replacement');
+  expect((await fs.stat(target)).mode & 0o777).toBe(0o600);
+}
+
 describe.skipIf(!linuxDescriptors)('descriptor artifact access', () => {
   beforeEach(async () => {
     root = await fs.mkdtemp(join(tmpdir(), 'aiwg-artifact-containment-'));
@@ -167,6 +197,112 @@ describe.skipIf(!linuxDescriptors)('descriptor artifact access', () => {
     expect(await fs.readFile(join(outside, 'secret'), 'utf8')).toBe('outside content');
   });
 
+  it('refuses a directory installed after the default was pinned as missing', async () => {
+    await fs.rm(artifacts, { recursive: true });
+    await restart();
+    await fs.mkdir(artifacts);
+    expect((await call('artifact-write', 'file')).isError).toBe(true);
+    expect(await fs.readdir(artifacts)).toEqual([]);
+  });
+
+  it('creates a missing default exclusively and checks the created directory handle', async () => {
+    await fs.rm(artifacts, { recursive: true });
+    await restart();
+    const mkdir = vi.spyOn(fs, 'mkdir');
+    const open = vi.spyOn(fs, 'open');
+    expect((await call('artifact-write', 'file')).isError).toBeUndefined();
+    expect(mkdir.mock.calls).toEqual([[expect.stringMatching(/\/\.aiwg$/)]]);
+    expect(open.mock.calls.some(([entry]) => /\/\.aiwg$/.test(String(entry)) && String(entry).startsWith('/proc/self/fd/'))).toBe(true);
+  });
+
+  it('uses an attached external store without creating a local artifact directory', async () => {
+    await fs.rm(artifacts, { recursive: true });
+    const store = join(root, 'attached');
+    await fs.mkdir(store);
+    await fs.writeFile(join(project, '.aiwg-location'), '../attached\n');
+    await restart();
+    expect((await call('artifact-write', 'nested/file')).isError).toBeUndefined();
+    expect(await fs.readFile(join(store, 'nested/file'), 'utf8')).toBe('replacement');
+    expect((await call('artifact-read', 'nested/file')).content).toEqual([{ type: 'text', text: 'replacement' }]);
+    await expect(fs.lstat(artifacts)).rejects.toMatchObject({ code: 'ENOENT' });
+    await fs.writeFile(join(project, '.aiwg-location'), outside);
+    expect((await call('artifact-read', 'nested/file')).content).toEqual([{ type: 'text', text: 'replacement' }]);
+  });
+
+  it('resolves another project pointer on first use and pins it', async () => {
+    const other = join(root, 'other');
+    const store = join(root, 'attached');
+    await fs.mkdir(other);
+    await fs.mkdir(store);
+    await fs.writeFile(join(other, '.aiwg-location'), '../attached');
+    const request = () => client.callTool({ name: 'artifact-write', arguments: { path: 'file', content: 'replacement', project_dir: other } });
+    expect((await request()).isError).toBeUndefined();
+    await fs.writeFile(join(other, '.aiwg-location'), outside);
+    expect((await request()).isError).toBeUndefined();
+    expect(await fs.readFile(join(store, 'file'), 'utf8')).toBe('replacement');
+    await expect(fs.lstat(join(other, '.aiwg'))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await fs.readdir(outside)).toEqual(['secret']);
+  });
+
+  it.each(['AIWG_ARTIFACTS_PATH', 'AIWG_PROJECT_ARTIFACTS_PATH', 'AIWG_PROJECT_AIWG_DIR'])('applies %s to another project selected via project_dir', async key => {
+    const other = join(root, 'other');
+    const store = join(other, 'store');
+    await fs.mkdir(store, { recursive: true });
+    await fs.mkdir(join(project, 'store'));
+    vi.stubEnv(key, 'store');
+    await restart();
+    expect((await client.callTool({ name: 'artifact-write', arguments: { path: 'file', project_dir: other, content: 'replacement' } })).isError).toBeUndefined();
+    vi.stubEnv(key, outside);
+    expect((await client.callTool({ name: 'artifact-read', arguments: { path: 'file', project_dir: other } })).content).toEqual([{ type: 'text', text: 'replacement' }]);
+    expect(await fs.readFile(join(store, 'file'), 'utf8')).toBe('replacement');
+    await expect(fs.lstat(join(other, '.aiwg'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it.each(['.aiwg-location', './.AIWG-LOCATION', 'nested/.aiwg-location', '.aiwg-location.', '.aiwg-location ', '.aiwg-location:stream'])('refuses writing pointer alias %s', async name => {
+    expect((await call('artifact-write', name)).isError).toBe(true);
+    expect(await fs.readdir(artifacts)).toEqual([]);
+  });
+
+  it('keeps partial private overwrites private and preserves the final mode', async () => {
+    await checkFailedPrivateOverwrite(call);
+  });
+
+  it.each([0o644, 0o755])('preserves mode %s when overwriting an artifact', async mode => {
+    await fs.writeFile(join(artifacts, 'file'), 'original');
+    await fs.chmod(join(artifacts, 'file'), mode);
+    expect((await call('artifact-write', 'file')).isError).toBeUndefined();
+    expect((await fs.stat(join(artifacts, 'file'))).mode & 0o777).toBe(mode);
+  });
+
+  it('uses the parent default mode for new files', async () => {
+    expect((await call('artifact-write', 'file')).isError).toBeUndefined();
+    expect((await fs.stat(join(artifacts, 'file'))).mode & 0o777).toBe(0o666 & ~process.umask());
+  });
+
+  it.each(['logs/2026-10-13T12:34:56Z.md', 'trailing.', 'trailing '])('accepts valid POSIX name %s', async name => {
+    expect((await call('artifact-write', name)).isError).toBeUndefined();
+    expect((await call('artifact-read', name)).content).toEqual([{ type: 'text', text: 'replacement' }]);
+  });
+
+  it.each(['symlink', 'directory'])('refuses another project replaced with a %s after first use', async replacement => {
+    const other = join(root, 'other');
+    const store = join(root, 'other-store');
+    await fs.mkdir(other);
+    await fs.mkdir(store);
+    await fs.symlink(store, join(other, '.aiwg'), 'dir');
+    const request = (tool: string) => client.callTool({ name: tool, arguments: { path: 'file', project_dir: other, content: 'replacement' } });
+    expect((await request('artifact-write')).isError).toBeUndefined();
+    await fs.rename(other, join(root, 'held-project'));
+    if (replacement === 'symlink') await fs.symlink(project, other, 'dir');
+    else {
+      await fs.mkdir(other);
+      await fs.symlink(store, join(other, '.aiwg'), 'dir');
+    }
+    for (const tool of ['artifact-read', 'artifact-write']) expect((await request(tool)).isError).toBe(true);
+    expect(await fs.readFile(join(store, 'file'), 'utf8')).toBe('replacement');
+    expect(await fs.readdir(artifacts)).toEqual([]);
+  });
+
   it('does not create an unavailable configured external root', async () => {
     const missing = join(root, 'missing-store');
     vi.stubEnv('AIWG_ARTIFACTS_PATH', missing);
@@ -176,7 +312,10 @@ describe.skipIf(!linuxDescriptors)('descriptor artifact access', () => {
     expect(await fs.readdir(artifacts)).toEqual([]);
   });
 
-  it('rejects normalized aliases and alternate data streams', async () => {
+  it('rejects Windows normalized aliases and alternate data streams', async () => {
+    vi.stubGlobal('process', new Proxy(process, {
+      get: (target, key) => key === 'platform' ? 'win32' : Reflect.get(target, key),
+    }));
     for (const path of ['new./file', 'new /file', 'file:secret', 'C:file', '\\outside\\secret']) {
       expect((await call('artifact-write', path)).isError).toBe(true);
     }
@@ -367,7 +506,7 @@ describe.skipIf(!linuxDescriptors)('descriptor artifact access', () => {
   it('accepts standalone dot components while rejecting parent segments and streams', async () => {
     expect((await call('artifact-write', './requirements/./file.md')).isError).toBeUndefined();
     expect((await call('artifact-read', './requirements/file.md')).content).toEqual([{ type: 'text', text: 'replacement' }]);
-    for (const name of ['requirements/../file.md', './file.md:stream', 'requirements./file.md']) {
+    for (const name of ['requirements/../file.md', 'C:file.md', '..\\file.md']) {
       expect((await call('artifact-read', name)).isError).toBe(true);
     }
   });
@@ -375,7 +514,7 @@ describe.skipIf(!linuxDescriptors)('descriptor artifact access', () => {
   it('does not let writable location pointers select another artifact root', async () => {
     expect((await client.callTool({ name: 'artifact-write', arguments: {
       path: '.aiwg-location', content: outside, project_dir: project,
-    } })).isError).toBeUndefined();
+    } })).isError).toBe(true);
     await fs.writeFile(join(project, '.aiwg-location'), outside);
     await fs.writeFile(join(artifacts, 'secret'), 'inside');
     expect((await call('artifact-read', 'secret')).content).toEqual([{ type: 'text', text: 'inside' }]);
@@ -444,39 +583,67 @@ describe.skipIf(!linuxDescriptors)('descriptor artifact access', () => {
 
 });
 
-// Unsupported platforms must refuse before any pathname open/mkdir/cleanup.
-describe('artifact access without rooted operations', () => {
-  it.each(['darwin', 'win32'])('fails closed on %s without creating outside files or directories', async platform => {
-    root = await fs.mkdtemp(join(tmpdir(), 'aiwg-artifact-unsupported-'));
+describe.each(['darwin', 'win32'])('static artifact access on %s', platform => {
+  beforeEach(async () => {
+    root = await fs.mkdtemp(join(tmpdir(), 'aiwg-artifact-static-'));
     project = join(root, 'project');
+    artifacts = join(project, '.aiwg');
+    outside = join(root, 'outside');
     await fs.mkdir(project);
+    await fs.mkdir(outside);
+    await fs.writeFile(join(outside, 'file'), 'outside content');
+    for (const key of ['AIWG_ARTIFACTS_PATH', 'AIWG_PROJECT_ARTIFACTS_PATH', 'AIWG_PROJECT_AIWG_DIR', 'AIWG_MCP_TOOLSETS']) vi.stubEnv(key, '');
+    vi.spyOn(process, 'cwd').mockReturnValue(project);
     vi.stubGlobal('process', new Proxy(process, {
       get: (target, key) => key === 'platform' ? platform : Reflect.get(target, key),
     }));
-    const unsupported = await createServer();
-    const requester = new Client({ name: 'unsupported-regression', version: '1.0.0' });
+    server = await createServer();
+    client = new Client({ name: 'static-regression', version: '1.0.0' });
     const [ct, st] = InMemoryTransport.createLinkedPair();
-    await unsupported.connect(st);
-    await requester.connect(ct);
-    const mkdir = vi.spyOn(fs, 'mkdir');
-    const open = vi.spyOn(fs, 'open');
-    const unlink = vi.spyOn(fs, 'unlink');
-    try {
-      for (const tool of ['artifact-read', 'artifact-write']) {
-        const result = await requester.callTool({ name: tool, arguments: { path: './new/deep/file', project_dir: project, content: 'replacement' } });
-        expect(result.isError).toBe(true);
-        expect(result.content).toEqual([{ type: 'text', text: expect.stringContaining('refusing unanchored I/O') }]);
-      }
-      expect(mkdir).not.toHaveBeenCalled();
-      expect(open).not.toHaveBeenCalled();
-      expect(unlink).not.toHaveBeenCalled();
-      expect(await fs.readdir(project)).toEqual([]);
-    } finally {
-      await requester.close();
-      await unsupported.close();
-      vi.restoreAllMocks();
-      vi.unstubAllGlobals();
-      await fs.rm(root, { recursive: true, force: true });
-    }
+    await server.connect(st);
+    await client.connect(ct);
   });
+  afterEach(async () => {
+    await client?.close();
+    await server?.close();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  function call(tool: string, path: string) {
+    return client.callTool({ name: tool, arguments: { path, content: 'replacement' } });
+  }
+  it('accepts standalone dots and ordinary nested reads/writes in a fresh project', async () => {
+    expect((await call('artifact-write', './requirements/./file.md')).isError).toBeUndefined();
+    if (posix) expect((await fs.stat(join(artifacts, 'requirements/file.md'))).mode & 0o777).toBe(0o666 & ~process.umask());
+    expect((await call('artifact-read', './requirements/file.md')).content).toEqual([{ type: 'text', text: 'replacement' }]);
+    await fs.chmod(join(artifacts, 'requirements/file.md'), 0o755);
+    expect((await call('artifact-write', 'requirements/file.md')).isError).toBeUndefined();
+    if (posix) expect((await fs.stat(join(artifacts, 'requirements/file.md'))).mode & 0o777).toBe(0o755);
+  });
+  it.skipIf(!posix)('keeps partial private overwrites private and preserves the final mode', async () => {
+    await checkFailedPrivateOverwrite(call);
+  });
+  it('rejects traversal, contained and escaping symlink components and hard-linked reads', async () => {
+    expect((await call('artifact-write', 'file')).isError).toBeUndefined();
+    await fs.symlink(artifacts, join(artifacts, 'contained'), 'dir');
+    await fs.symlink(outside, join(artifacts, 'escape'), 'dir');
+    await fs.symlink(join(artifacts, 'file'), join(artifacts, 'alias'));
+    await fs.link(join(outside, 'file'), join(artifacts, 'linked'));
+    for (const tool of ['artifact-read', 'artifact-write']) {
+      for (const name of ['../outside/file', '..\\outside\\file', 'C:file', 'contained/file', 'escape/new/deep/file', 'alias']) {
+        expect((await call(tool, name)).isError).toBe(true);
+      }
+    }
+    expect((await call('artifact-read', 'linked')).isError).toBe(true);
+    expect((await call('artifact-write', 'linked')).isError).toBeUndefined();
+    expect(await fs.readFile(join(outside, 'file'), 'utf8')).toBe('outside content');
+    expect((await fs.stat(join(artifacts, 'linked'))).nlink).toBe(1);
+  });
+  if (platform === 'win32') {
+    it.each(['logs/2026-10-13T12:34:56Z.md', 'trailing.', 'trailing ', 'CON', 'nul.txt', 'LPT1.md', 'bad?name', 'file:stream'])('rejects Windows filename %s', async name => {
+      expect((await call('artifact-write', name)).isError).toBe(true);
+    });
+  }
 });

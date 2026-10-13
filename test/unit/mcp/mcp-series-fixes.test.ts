@@ -555,7 +555,7 @@ describe("8. list/update output redaction", () => {
     const output = runCli(["list"]);
     expect(output).toContain("--token ***");
     expect(output).toContain("token=***");
-    expect(output).toContain("mode=***");
+    expect(output).toContain("mode=fast");
     expect(output).toContain("***@synthetic.example");
     expect(output).not.toContain("SYNTHETIC-ARG-TOKEN");
     expect(output).not.toContain("SYNTHETIC-URL-PW");

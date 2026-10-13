@@ -42,50 +42,47 @@ function assertArtifactContained(root, target) {
   }
 }
 
-function requireRootedArtifactAccess() {
-  if (process.platform !== 'linux' || !constants.O_NOFOLLOW || !constants.O_DIRECTORY) {
-    throw new Error('Secure artifact access requires Linux directory descriptors and procfs; refusing unanchored I/O');
-  }
+function rootedArtifactAccess() {
+  return process.platform === 'linux' && constants.O_NOFOLLOW && constants.O_DIRECTORY;
 }
 
-async function resolveArtifactRoot(configured, projectRoot, write) {
+/** A root pinned as missing must be created by us, never adopted later. */
+async function createArtifactRoot(store) {
+  let parent;
+  let directory;
+  let verified = false;
   try {
-    return await fs.realpath(configured);
-  } catch (error) {
-    if (!write || error.code !== 'ENOENT') throw error;
-    // Only bootstrap the local default. An unavailable configured store or
-    // dangling root alias must fail closed, without a local fallback.
-    if (configured !== path.resolve(projectRoot, '.aiwg')) throw error;
-    const existing = await fs.lstat(configured).catch(missing => {
-      if (missing.code !== 'ENOENT') throw missing;
-    });
-    if (existing) throw error;
-    const project = await fs.realpath(projectRoot);
-    let parent;
-    let verified = false;
-    try {
-      parent = await fs.open(project, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
-      if (await fs.realpath(`/proc/self/fd/${parent.fd}`) !== project) {
+    let entry = store.configured;
+    if (rootedArtifactAccess()) {
+      parent = await fs.open(store.projectRoot, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+      if (await fs.realpath(`/proc/self/fd/${parent.fd}`) !== store.projectRoot) {
         throw new Error('Project root changed during artifact creation');
       }
-      const entry = `/proc/self/fd/${parent.fd}/.aiwg`;
-      try {
-        await fs.mkdir(entry);
-      } catch (mkdirError) {
-        if (mkdirError.code !== 'EEXIST') throw mkdirError;
-      }
-      const info = await fs.lstat(entry);
-      if (info.isSymbolicLink() || !info.isDirectory()) throw new Error('Artifact root changed during creation');
-      const root = await fs.realpath(entry);
-      if (root !== path.join(project, '.aiwg')) throw new Error('Artifact root changed during creation');
-      verified = true;
-      return root;
-    } finally {
-      if (parent) {
-        const [closed] = await Promise.allSettled([parent.close()]);
-        if (verified && closed.status === 'rejected') throw closed.reason;
-      }
+      entry = `/proc/self/fd/${parent.fd}/.aiwg`;
     }
+    // EEXIST is a refusal, including a symlink or directory installed since pinning.
+    await fs.mkdir(entry);
+    const created = await fs.lstat(entry);
+    if (created.isSymbolicLink() || !created.isDirectory()) throw new Error('Artifact root changed during creation');
+    // Windows cannot open directory handles through fs.open; its fallback
+    // uses static identity checks, as do the subsequent artifact operations.
+    if (process.platform !== 'win32') {
+      directory = await fs.open(entry, constants.O_RDONLY | (constants.O_DIRECTORY || 0) | (constants.O_NOFOLLOW || 0));
+    }
+    const opened = directory ? await directory.stat() : await fs.stat(entry);
+    const current = await fs.lstat(entry);
+    if (current.isSymbolicLink() || !opened.isDirectory()
+      || opened.dev !== created.dev || opened.ino !== created.ino
+      || opened.dev !== current.dev || opened.ino !== current.ino
+      || await fs.realpath(store.configured) !== store.root) {
+      throw new Error('Artifact root changed during creation');
+    }
+    store.identity = opened;
+    verified = true;
+  } finally {
+    const closed = await Promise.allSettled([...(directory ? [directory.close()] : []), ...(parent ? [parent.close()] : [])]);
+    const failure = closed.find(result => result.status === 'rejected');
+    if (verified && failure) throw failure.reason;
   }
 }
 
@@ -134,19 +131,7 @@ async function pinnedArtifactRoot(store, write) {
     if (!write) throw new Error('Default artifact root has not been created');
     // Serialize first-write initialization so concurrent requests share one
     // identity. Creation still rejects symlinks and uses a project descriptor.
-    store.initialization ||= (async () => {
-      const configuredInfo = await fs.lstat(store.configured).catch(missing => {
-        if (missing.code !== 'ENOENT') throw missing;
-      });
-      if (configuredInfo?.isSymbolicLink()) {
-        throw new Error('Artifact root must not be a symbolic link');
-      }
-      const root = await resolveArtifactRoot(store.configured, store.projectRoot, true);
-      if (root !== store.root || (await fs.lstat(store.configured)).isSymbolicLink()) {
-        throw new Error('Artifact root changed during creation');
-      }
-      store.identity = await fs.stat(root);
-    })();
+    store.initialization ||= createArtifactRoot(store);
     await store.initialization;
   }
   await verifyArtifactRoot(store);
@@ -157,13 +142,28 @@ async function pinnedArtifactRoot(store, write) {
 async function resolveArtifactPath(store, artifactPath, { write = false } = {}) {
   if (!artifactPath || path.isAbsolute(artifactPath) || path.win32.isAbsolute(artifactPath)
     || /^[A-Za-z]:/.test(artifactPath)
-    || artifactPath.split(/[\\/]/).some(part => part.includes(':') || (part !== '.' && /[. ]$/.test(part)))
+    || (process.platform === 'win32' && artifactPath.split(/[\\/]/).some(part => part !== '.'
+      && (/[<>:"|?*\x00-\x1f]/.test(part) || /[. ]$/.test(part)
+        || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part))))
     || artifactPath.split(/[\\/]/).includes('..')) {
     throw new Error('Artifact path must be relative and contain no .. segments');
+  }
+  if (write && artifactPath.split(/[\\/]/).some(part => /^\.aiwg-location[. ]*(?::.*)?$/i.test(part))) {
+    throw new Error('Refusing to write an artifact location pointer');
   }
   const root = await pinnedArtifactRoot(store, write);
   const target = path.resolve(root, artifactPath);
   assertArtifactContained(root, target);
+  if (!rootedArtifactAccess()) {
+    let componentPath = root;
+    for (const component of path.relative(root, target).split(path.sep)) {
+      componentPath = path.join(componentPath, component);
+      const info = await fs.lstat(componentPath).catch(error => {
+        if (error.code !== 'ENOENT') throw error;
+      });
+      if (info?.isSymbolicLink()) throw new Error('Refusing artifact symlink component');
+    }
+  }
   let ancestor = path.dirname(target);
   const missing = [];
   while (true) {
@@ -198,13 +198,13 @@ async function resolveArtifactPath(store, artifactPath, { write = false } = {}) 
 
 /**
  * Linux procfs descriptor paths anchor each lookup to an opened directory.
- * Fail closed without them. Writes replace the destination using a fresh inode;
+ * Other platforms use static containment checks. Writes use a fresh inode;
  * failed verification closes handles without unsafe pathname cleanup.
  * Concurrent same-user relocation after verification is not a sandbox boundary.
  */
 async function openArtifact(store, artifactPath, { write = false } = {}) {
-  requireRootedArtifactAccess();
   const { root, fullPath } = await resolveArtifactPath(store, artifactPath, { write });
+  if (!rootedArtifactAccess()) return openStaticArtifact(store, root, fullPath, { write });
   const directories = [];
   let file;
   let transferred = false;
@@ -272,8 +272,10 @@ async function openArtifact(store, artifactPath, { write = false } = {}) {
       if (info && (info.isSymbolicLink() || !info.isFile())) {
         throw new Error('Refusing to replace an artifact symlink or nonregular file');
       }
+      return info;
     }
-    if (write) await verifyDestination();
+    const targetInfo = write ? await verifyDestination() : undefined;
+    const finalMode = targetInfo ? targetInfo.mode & 0o7777 : 0o666 & ~process.umask();
     const entry = write ? path.join(descriptorPath(parent), `.aiwg-write-${randomUUID()}.tmp`) : destination;
     file = await fs.open(entry,
       (write ? constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL : constants.O_RDONLY)
@@ -289,11 +291,58 @@ async function openArtifact(store, artifactPath, { write = false } = {}) {
         await verify(file, { entry });
         await verify(parent, parentOptions);
         await verifyDestination();
+        await file.chmod(finalMode);
         await fs.rename(entry, destination);
       },
     };
   } finally {
     if (!transferred) await Promise.allSettled([close()]);
+  }
+}
+
+/** Static checks for platforms without Linux descriptor paths. */
+async function openStaticArtifact(store, root, fullPath, { write }) {
+  // Inspect the lexical path as well as the resolved path: contained aliases
+  // must not hide symlink components on this fallback.
+  async function check(target, { allowMissing = false } = {}) {
+    const relative = path.relative(root, target);
+    assertArtifactContained(root, target);
+    let current = root;
+    for (const component of relative.split(path.sep)) {
+      current = path.join(current, component);
+      const info = await fs.lstat(current).catch(error => {
+        if (!allowMissing || error.code !== 'ENOENT') throw error;
+      });
+      if (!info) continue;
+      if (info.isSymbolicLink()) throw new Error('Refusing artifact symlink component');
+      assertArtifactContained(root, await fs.realpath(current));
+    }
+  }
+  await check(fullPath, { allowMissing: write });
+  if (write) await fs.mkdir(path.dirname(fullPath), { recursive: true });
+  const target = await fs.lstat(fullPath).catch(error => {
+    if (!write || error.code !== 'ENOENT') throw error;
+  });
+  if (target && (!target.isFile() || target.isSymbolicLink())) throw new Error('Artifact must be a regular file');
+  if (!write && target.nlink > 1) throw new Error('Refusing multiply-linked artifact file');
+  const entry = write ? path.join(path.dirname(fullPath), `.aiwg-write-${randomUUID()}.tmp`) : fullPath;
+  const finalMode = target ? target.mode & 0o7777 : 0o666 & ~process.umask();
+  const handle = await fs.open(entry, write ? constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL : constants.O_RDONLY, 0o600);
+  try {
+    const opened = await handle.stat();
+    if (!opened.isFile() || opened.nlink > 1) throw new Error('Refusing nonregular or multiply-linked artifact file');
+    return {
+      handle, fullPath, close: () => handle.close(),
+      async commit() {
+        await verifyArtifactRoot(store);
+        await check(fullPath, { allowMissing: true });
+        await handle.chmod(finalMode);
+        await fs.rename(entry, fullPath);
+      },
+    };
+  } catch (error) {
+    await handle.close().catch(() => {});
+    throw error;
   }
 }
 
@@ -354,29 +403,46 @@ export async function createServer() {
   }
   await registerOptInToolsets(server, requested, { projectRoot });
 
-  // Bind defaults to process state at startup. Artifact bytes (including a
-  // caller-selected .aiwg-location) never choose the containment root.
+  // Resolve operator configuration once per trusted project, then pin it.
+  const artifactEnv = { ...process.env };
   const trustedProjectRoot = await fs.realpath(projectRoot || process.cwd());
-  const trustedArtifactRoot = await resolveProjectAiwgDir(trustedProjectRoot, {
-    allowLocationPointer: false, env: { ...process.env },
-  });
+  const trustedArtifactRoot = await resolveProjectAiwgDir(trustedProjectRoot, { env: artifactEnv });
   const startupStore = await pinArtifactRoot(trustedArtifactRoot, trustedProjectRoot);
   const trustedStore = startupStore.root;
-  const stores = new Map([[trustedProjectRoot, Promise.resolve(startupStore)]]);
-  async function artifactRoots(explicit) {
-    const project = explicit ? await fs.realpath(path.resolve(trustedProjectRoot, explicit)) : trustedProjectRoot;
-    if (!(await fs.stat(project)).isDirectory()) throw new Error('project_dir must be a real directory');
-    if (project !== trustedProjectRoot) {
-      const inStore = path.relative(trustedStore, project);
-      if (project.split(path.sep).includes('.aiwg') || !inStore
+  const projects = new Map();
+  async function trustProject(requested, store) {
+    const canonical = await fs.realpath(requested);
+    const identity = await fs.stat(requested);
+    if (!identity.isDirectory()) throw new Error('project_dir must be a real directory');
+    if (canonical !== trustedProjectRoot) {
+      const inStore = path.relative(trustedStore, canonical);
+      if (canonical.split(path.sep).includes('.aiwg') || !inStore
         || (inStore !== '..' && !inStore.startsWith(`..${path.sep}`) && !path.isAbsolute(inStore))) {
         throw new Error('project_dir must not select a project inside an artifact store');
       }
     }
-    // Caller-selected projects cannot be known at startup. Pin each on first
-    // selection and retain that identity for the lifetime of this server.
-    if (!stores.has(project)) stores.set(project, pinArtifactRoot(path.join(project, '.aiwg'), project));
-    return stores.get(project);
+    const configured = store ? undefined : await resolveProjectAiwgDir(canonical, { env: { ...process.env } });
+    return { canonical, identity, store: store || await pinArtifactRoot(configured, canonical) };
+  }
+  const startupProject = Promise.resolve(await trustProject(trustedProjectRoot, startupStore));
+  projects.set(trustedProjectRoot, startupProject);
+  const canonicalProjects = new Map([[trustedProjectRoot, startupProject]]);
+  async function artifactRoots(explicit) {
+    const requested = explicit ? path.resolve(trustedProjectRoot, explicit) : trustedProjectRoot;
+    // Key by the supplied project path, so a replacement cannot acquire fresh trust.
+    if (!projects.has(requested)) {
+      const canonical = await fs.realpath(requested);
+      if (!canonicalProjects.has(canonical)) canonicalProjects.set(canonical, trustProject(requested));
+      projects.set(requested, canonicalProjects.get(canonical));
+    }
+    const pinned = await projects.get(requested);
+    const canonical = await fs.realpath(requested);
+    const current = await fs.stat(requested);
+    if (canonical !== pinned.canonical || !current.isDirectory()
+      || current.dev !== pinned.identity.dev || current.ino !== pinned.identity.ino) {
+      throw new Error('Project root changed since it was pinned');
+    }
+    return pinned.store;
   }
 
   // Tool: artifact-read
@@ -385,7 +451,7 @@ export async function createServer() {
     description: 'Read artifact from .aiwg/ directory',
     inputSchema: {
       path: z.string().describe('Path relative to .aiwg/ (e.g., "requirements/UC-001.md")'),
-      project_dir: z.string().optional().describe('Real project directory outside artifact trees (defaults to server-start project; location pointers ignored)')
+      project_dir: z.string().optional().describe('Real project directory outside artifact trees (defaults to server-start project; artifact store pinned on first use)')
     }
   }, async ({ path: artifactPath, project_dir }) => {
     try {
@@ -424,7 +490,7 @@ export async function createServer() {
     inputSchema: {
       path: z.string().describe('Path relative to .aiwg/'),
       content: z.string().describe('Artifact content'),
-      project_dir: z.string().optional().describe('Real project directory outside artifact trees (defaults to server-start project; location pointers ignored)')
+      project_dir: z.string().optional().describe('Real project directory outside artifact trees (defaults to server-start project; artifact store pinned on first use)')
     }
   }, async ({ path: artifactPath, content, project_dir }) => {
     try {

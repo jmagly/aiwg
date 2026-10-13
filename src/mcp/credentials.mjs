@@ -106,10 +106,14 @@ const CREDENTIAL_QUERY_NAME = /(?:^|[-_.])(?:api[-_]?key|access[-_]?key|private[
 
 function credentialName(key) {
   const normalized = key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+  const parts = normalized.split(/[.\[\]]/).filter(Boolean);
   // Dot and bracket nesting are structural; underscores/hyphens are word
   // separators, so sort_key/cache-key stay ordinary parameter names.
-  return normalized.split(/[.\[\]]/).some(part =>
-    /^(?:key|sig)$/.test(part) || CREDENTIAL_QUERY_NAME.test(part.replace(/[_\s]+/g, '-')));
+  return parts.some((part, index) =>
+    // Location and mode suffixes exclude only this part, not credential ancestors.
+    !/(?:^|[-_])(?:file|path|dir|directory|name|mode|type|location|url|uri)$/.test(part)
+    && ((/^(?:key|sig)$/.test(part) && !parts.slice(0, index).some(parent => /^(?:sort|order|cache)$/.test(parent)))
+      || CREDENTIAL_QUERY_NAME.test(part.replace(/[_\s]+/g, '-'))));
 }
 
 function literalValue(value, includeReferences) {
@@ -224,8 +228,7 @@ function redactSpans(value, hits) {
 export function redactCredentialText(value) {
   if (typeof value !== 'string') return value;
   const hits = scanCredentialText(value);
-  // Keep historical display behavior of masking all URL query values too.
-  return redactSpans(value, hits.filter(hit => hit.credential || hit.kind === 'query'));
+  return redactSpans(value, hits.filter(hit => hit.credential));
 }
 
 function credentialArgHits(args, options = {}) {
