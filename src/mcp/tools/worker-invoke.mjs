@@ -53,11 +53,9 @@
  *      directory up on every exit path including `uncertain` ones. This
  *      design calls `planDirectWorkerLaunch`/`resolveWorkerInvocation`
  *      in-process instead of through a relay subprocess, so there is no
- *      scratch directory created per run at all — the leak surface is
- *      removed rather than cleaned up after the fact. The only filesystem
- *      paths this module ever creates are the caller's own `workdir` and
- *      `final_output` locations, which it never deletes (they are the
- *      conductor's, not the bridge's).
+ *      scratch plan directory. Shell stdin framing uses a private runtime
+ *      file, removed on refusal or confirmed termination. Unused
+ *      final_output reservations are also removed on pre-launch refusal.
  * ---------------------------------------------------------------------------
  *
  * Fix pass (.aiwg/working/s1-scratch/fix-2892-r1.md, round 1 — two
@@ -162,7 +160,7 @@
 import { z } from 'zod';
 import { createHash, randomUUID } from 'node:crypto';
 import {
-  realpath, readlink as fsReadlink, open as fsOpen,
+  realpath, readlink as fsReadlink, open as fsOpen, lstat, unlink,
 } from 'node:fs/promises';
 import { existsSync, readFileSync, constants as fsConstants } from 'node:fs';
 import { execFile } from 'node:child_process';
@@ -170,6 +168,8 @@ import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { mcpError, mcpJson } from '../helpers.mjs';
+import { buildShellStopControl, waitForUnitTermination } from './worker-shell-control.mjs';
+import { launchPreparedShellWorker, sweepWorkerStdin } from './worker-stdin-runtime.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -217,8 +217,8 @@ export const MAX_MCP_SERVER_QUEUE_DEPTH = 32;
  * `memoryMaxGb` ceiling even for an attached (`--pipe --wait`) launch — the
  * MCP worker SERVER process is a separate resource-confined unit from the
  * conductor, and no project-level config currently supplies a per-worker
- * ceiling for it (the same gap exists, unexercised, on the shell transport's
- * launch path). Operator-overridable via `registerWorkerInvokeToolset`'s
+ * ceiling for it. Shell workers use this fallback in systemd mode only.
+ * Operator-overridable via `registerWorkerInvokeToolset`'s
  * `mcpWorkerMemoryMaxGb` option; this is the fallback. */
 export const DEFAULT_MCP_WORKER_MEMORY_MAX_GB = 2;
 /** #2892 B3: a worker's `workdir` may never be the conductor-managed control
@@ -403,8 +403,8 @@ function assertWithinWorkdir(workdirCanonical, candidateCanonical) {
  * there. The worker's own later `O_TRUNC` write reuses this same inode. */
 async function reserveFinalOutput(finalOutputPath) {
   const handle = await fsOpen(finalOutputPath,
-    fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | fsConstants.O_NOFOLLOW);
-  await handle.close();
+    fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY | fsConstants.O_NOFOLLOW, 0o600);
+  try { return await handle.stat(); } finally { await handle.close(); }
 }
 
 /** Defense in depth, on top of the hard root check above: when the project
@@ -602,56 +602,9 @@ function describeGateFailures(failures) {
   return `worker dispatch gate blocked: ${failures.map(f => `${f.signal} (${f.reason})`).join('; ')}`;
 }
 
-async function defaultLaunchShellWorker(invocation, { allowDegraded, config, name, live, readers, thresholdOverlay }) {
-  const { planDirectWorkerLaunch } = await loadRalphExternal('session-launcher.mjs');
-  // `live`/`readers`/`thresholdOverlay` are the dispatch gate's own
-  // test-only passthroughs (see `planDirectWorkerLaunch`'s doc comment);
-  // production registration never sets `options.gateInputs` (see
-  // `registerWorkerInvokeToolset`), so these are always undefined there and
-  // `checkWorkerDispatch` samples the real host.
-  const launch = await planDirectWorkerLaunch({ invocation, config, allowDegraded, name, live, readers, thresholdOverlay });
-  if (!launch.launched && launch.diagnostic === undefined) {
-    return { ...launch, diagnostic: describeGateFailures(launch.failures) };
-  }
-  return launch;
-}
-
-/** Poll an already-launched systemd-unit worker to termination, bounded by
- * `deadlineMs`. Degraded-mode launches instead hand back a live `child`
- * (ChildProcess); callers await its `close`/`error` events directly and
- * never reach this poller. */
-async function waitForUnitTermination(unit, deadlineMs, { pollIntervalMs = 2000, sleep = ms => new Promise(r => setTimeout(r, ms)), clock = () => Date.now() } = {}) {
-  const { getWorkerIsolationStatus } = await loadRalphExternal('lib/worker-isolation.mjs');
-  const deadline = clock() + deadlineMs;
-  while (clock() < deadline) {
-    let status;
-    try { status = getWorkerIsolationStatus(unit); } catch { return { termination: 'uncertain', exitCode: null }; }
-    if (!status.active) {
-      return { termination: 'confirmed', exitCode: status.result === 'success' ? 0 : status.execMainStatus || 1 };
-    }
-    await sleep(pollIntervalMs);
-  }
-  return { termination: 'uncertain', exitCode: null, timedOut: true };
-}
-
-/** #2892 M2: actually stop a shell-transport worker on an explicit cancel,
- * rather than only recording that cancellation was requested. Best-effort —
- * failures are reported as `false` (not delivered), never thrown. */
-function buildShellStopControl(launch) {
-  return {
-    stop: async () => {
-      if (launch.mode === 'systemd-unit' && launch.unit) {
-        try {
-          const { stopWorkerUnit } = await loadRalphExternal('lib/worker-isolation.mjs');
-          return !!stopWorkerUnit(launch.unit).ok;
-        } catch { return false; }
-      }
-      if (launch.child) {
-        try { launch.child.kill('SIGTERM'); return true; } catch { return false; }
-      }
-      return false;
-    },
-  };
+async function defaultLaunchShellWorker(invocation, { memoryMaxGb = DEFAULT_MCP_WORKER_MEMORY_MAX_GB, ...options }) {
+  return launchPreparedShellWorker(invocation, { ...options, memoryMaxGb },
+    { loadRalphExternal, readBoundedFile, importImpl, describeGateFailures });
 }
 
 // ===========================================================================
@@ -1093,6 +1046,7 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
     return;
   }
   const servedRootReal = await resolveServedProjectRoot(options.projectRoot);
+  await sweepWorkerStdin(options.stdinRuntimeRoot);
   // Pinned once, here, at registration — never re-resolved per request, and
   // never re-derived from `process.cwd()` (#2892 B1).
   const servedRoot = async () => servedRootReal;
@@ -1149,6 +1103,25 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
     if (existing) throw new Error('Worker request_id was already used; mint a fresh request_id instead of replaying');
     const entry = registry.create({ requestId: input.request_id, transport: input.transport, status: 'running', termination: 'running' });
     let request;
+    let outputReservation;
+    let mayHaveLaunched = false;
+    let reservationCleanup;
+    const cleanupReservation = () => reservationCleanup ??= (async () => {
+      if (!outputReservation) return;
+      try {
+        const current = await lstat(request.final_output);
+        // Best effort: the pathname can change between lstat and unlink.
+        if (current.dev === outputReservation.dev && current.ino === outputReservation.ino && current.size === 0) {
+          await unlink(request.final_output);
+        }
+      } catch (error) {
+        if (error.code !== 'ENOENT') console.error('[worker-invoke] output reservation cleanup failed');
+      }
+    })();
+    const markTerminal = async update => {
+      if (!mayHaveLaunched) await cleanupReservation();
+      return registry.markTerminal(entry.invocationId, update);
+    };
     try {
       request = await validatedRequest(input);
     } catch (error) {
@@ -1162,16 +1135,16 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
     }
     try {
       try {
-        await reserveFinalOutput(request.final_output);
+        outputReservation = await reserveFinalOutput(request.final_output);
       } catch {
-        return registry.markTerminal(entry.invocationId, { status: 'blocked', termination: 'confirmed', diagnostics: ['final_output already exists or is not reservable as a fresh plain file'] });
+        return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: ['final_output already exists or is not reservable as a fresh plain file'] });
       }
       const root = await servedRoot();
       const { snapshot, drivers } = await loadWorkerInputsImpl(root);
       const { resolveWorkerInvocation } = await loadServeWorkerInvocation();
       const plan = await resolveWorkerInvocation(snapshot, request, drivers, now().toISOString());
       if (plan.invocation?.readiness !== 'launchable') {
-        return registry.markTerminal(entry.invocationId, { status: 'blocked', termination: 'confirmed', diagnostics: plan.diagnostics ?? [] });
+        return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: plan.diagnostics ?? [] });
       }
       const invocation = plan.invocation;
       // F4 (fix-2892-r2, formerly part of M5): per operator decision, the
@@ -1193,7 +1166,7 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
         try {
           briefBytes = await readBoundedFile(request.brief, 262144, root);
         } catch {
-          return registry.markTerminal(entry.invocationId, { status: 'blocked', termination: 'confirmed', diagnostics: ['OG_BRIEF_UNREADABLE'] });
+          return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: ['OG_BRIEF_UNREADABLE'] });
         }
         try {
           const { assertValidWorkerPayload } = await loadMissionProtocol();
@@ -1204,7 +1177,7 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
           // diagnostic below. A duplicate-key/planted-marker probe showed
           // this exact kind of path can otherwise reflect attacker/worker-
           // controlled input text straight back out to the caller.
-          return registry.markTerminal(entry.invocationId, { status: 'blocked', termination: 'confirmed', diagnostics: [typeof error?.code === 'string' ? error.code : 'OG_BRIEF_NOT_STRUCTURED'] });
+          return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: [typeof error?.code === 'string' ? error.code : 'OG_BRIEF_NOT_STRUCTURED'] });
         }
         mcpBriefDigest = `sha256:${createHash('sha256').update(briefBytes).digest('hex')}`;
       }
@@ -1212,25 +1185,40 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
       let observation;
       let rawOutput;
       if (invocation.transport === 'shell') {
-        const launch = await launchShellWorkerImpl(invocation, { allowDegraded, config: snapshot.config, name: `mcp-${entry.invocationId.slice(0, 8)}`, ...gateInputs });
+        mayHaveLaunched = true;
+        const launch = await launchShellWorkerImpl(invocation, { allowDegraded, config: snapshot.config,
+          name: `mcp-${entry.invocationId.slice(0, 8)}`, memoryMaxGb: options.shellWorkerMemoryMaxGb,
+          driver: drivers[invocation.selected.cli], servedRoot: root, stdinRuntimeRoot: options.stdinRuntimeRoot, ...gateInputs });
         registry.update(entry.invocationId, { isolationMode: launch.mode ?? null });
-        if (!launch.launched) {
-          return registry.markTerminal(entry.invocationId, { status: 'blocked', termination: 'confirmed', diagnostics: [launch.diagnostic ?? 'worker launch was refused'] });
+        if (!launch.launched && !launch.launchAttempted) {
+          mayHaveLaunched = false;
+          return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: [launch.diagnostic ?? 'worker launch was refused'] });
         }
         // M2: a live stop handle for the duration of this call, so an
         // explicit `cancel` can actually stop the isolated unit / kill the
         // child, not just record that cancellation was requested.
-        registry.update(entry.invocationId, { control: buildShellStopControl(launch) });
-        let outcome;
-        if (launch.mode === 'systemd-unit') outcome = await waitForUnitImpl(launch.unit, deadlineMs);
-        else {
-          outcome = await new Promise(resolve => {
-            launch.child.once('close', code => resolve({ termination: 'confirmed', exitCode: code }));
-            launch.child.once('error', () => resolve({ termination: 'uncertain', exitCode: null }));
-            setTimeout(() => { try { launch.child.kill('SIGTERM'); } catch { /* already gone */ } resolve({ termination: 'uncertain', exitCode: null, timedOut: true }); }, deadlineMs);
-          });
+        const control = buildShellStopControl(launch, {
+          waitForUnit: waitForUnitImpl,
+          stopUnit: options.stopWorkerUnit,
+          killUnit: options.killWorkerUnit,
+          graceMs: options.shellStopGraceMs ?? (invocation.health?.terminateGraceSeconds ?? 1) * 1000,
+          onConfirmed: async () => {
+            if (!launch.launched) await cleanupReservation();
+            await Promise.resolve().then(() => launch.cleanup?.()).catch(() => {});
+            const live = registry.get(entry.invocationId);
+            if (live?.terminalAt !== null) return;
+            if (live.status === 'uncertain') {
+              registry.markTerminal(entry.invocationId, { control: null, termination: 'confirmed',
+                status: live.cancelRequested ? 'cancelled' : 'failed' });
+            } else registry.update(entry.invocationId, { control: null, termination: 'confirmed' });
+          },
+        });
+        if (registry.get(entry.invocationId)?.termination !== 'confirmed') {
+          registry.update(entry.invocationId, { control });
         }
-        registry.update(entry.invocationId, { control: null });
+        // Honor a cancel that arrived while the launcher was still pending.
+        if (registry.get(entry.invocationId)?.cancelRequested) await control.stop();
+        const outcome = launch.launched ? await control.wait(deadlineMs) : await control.stopAndConfirm();
         observation = { transport: 'shell', status: outcome.termination === 'confirmed' && outcome.exitCode === 0 ? 'completed' : 'failed', termination: outcome.termination, exitCode: outcome.exitCode };
         if (outcome.termination !== 'confirmed') {
           // M2: stays LIVE — capacity is held until a stop is proven or the
@@ -1238,17 +1226,31 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
           // unconfirmed-termination timeout.
           return registry.update(entry.invocationId, { status: 'uncertain', termination: 'uncertain', diagnostics: ['worker termination could not be confirmed before the deadline'] });
         }
+        await Promise.resolve().then(() => launch.cleanup?.()).catch(() => {
+          console.error('[worker-invoke] stdin cleanup failed after confirmed termination');
+        });
+        if (!launch.launched) {
+          mayHaveLaunched = false;
+          return markTerminal({ control: null, status: 'failed', termination: 'confirmed',
+            diagnostics: [launch.diagnostic ?? 'worker launch failed; termination confirmed'] });
+        }
+        if (outcome.timedOut || outcome.stopped) {
+          return registry.markTerminal(entry.invocationId, { control: null, termination: 'confirmed',
+            status: registry.get(entry.invocationId)?.cancelRequested ? 'cancelled' : 'failed',
+            diagnostics: [outcome.timedOut ? 'worker deadline exceeded; termination confirmed' : 'worker stopped; termination confirmed'] });
+        }
         try { rawOutput = await readBoundedFile(invocation.finalPath, invocation.maxOutputBytes, root); } catch {
           return registry.markTerminal(entry.invocationId, { status: 'failed', termination: 'confirmed', diagnostics: ['worker final output was not written'] });
         }
       } else {
         const { mcpRegistry, qualification } = drivers[invocation.selected.cli];
         const mcpServer = await mcpRegistry.get(invocation.mcp.serverRef);
-        if (!mcpServer) return registry.markTerminal(entry.invocationId, { status: 'blocked', termination: 'confirmed', diagnostics: ['worker MCP server is not registered'] });
+        if (!mcpServer) return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: ['worker MCP server is not registered'] });
         // F5: pin the qualified server's definition digest NOW, at
         // admission, so a queued launch can detect a registry edit that
         // happened while it was waiting (see `serverDefinitionDigest`).
         const qualifiedServerDigest = serverDefinitionDigest(mcpServer);
+        mayHaveLaunched = true;
         const result = await callMcpWorkerImpl(invocation.mcp, mcpServer, {
           sessionIsolation: invocation.mcp.sessionIsolation, mcpRegistry, allowDegraded, config: snapshot.config,
           // #2892 (CI fix): the resolved invocation's own worktree
@@ -1306,20 +1308,18 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
         result: assembled?.result ?? { claims },
       });
     } catch (error) {
-      // #2892 F2 (fix-2892-r2, formerly part of M2): a thrown error from
-      // anywhere in the launch/observe/parse pipeline (e.g. the MCP
-      // transport itself throwing rather than resolving to a `result.outcome`
-      // the `else` branch above already handles) used to call `markTerminal`
-      // here — freeing the capacity reservation with ZERO stop proof, the
-      // exact hole M2 closed for the timeout/disconnect paths. `update`
-      // keeps the entry LIVE (reservation held) for the same reason as
-      // every other uncertain-termination path in this function.
+      if (error.workerNotLaunched) mayHaveLaunched = false;
+      if (!mayHaveLaunched) {
+        return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: [error.message] });
+      }
+      if (registry.get(entry.invocationId)?.termination === 'confirmed') {
+        return registry.markTerminal(entry.invocationId, { control: null,
+          status: registry.get(entry.invocationId)?.cancelRequested ? 'cancelled' : 'failed',
+          termination: 'confirmed', diagnostics: [error.message] });
+      }
+      // An exception after launch is not proof that a worker stopped.
       return registry.update(entry.invocationId, { status: 'uncertain', termination: 'uncertain', diagnostics: [error.message] });
     }
-    // No `finally`-cleanup block: see the module doc's defect-5 note — this
-    // bridge never creates a scratch/plan directory in the first place
-    // (it calls the launcher in-process rather than through a relay
-    // subprocess), so there is nothing left behind on any exit path.
   }
 
   async function tryAssembleDirectResult({ request, invocation, observation, claims, root, briefDigest, requireStructuredBrief }) {

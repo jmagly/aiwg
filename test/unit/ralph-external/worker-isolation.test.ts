@@ -500,6 +500,28 @@ it('preserves literal environment references in prepared argv', () => {
 });
 
 describe('degraded-mode output/fd hygiene (#2888 fix round 2)', () => {
+  it.skipIf(process.platform !== 'linux').each(['stdout', 'stderr', 'spawn'])('closes every descriptor when %s fails before launch', failure => {
+    const root = tmpWorktree();
+    const stdinPath = path.join(root, 'stdin');
+    writeFileSync(stdinPath, 'brief');
+    const spawnAsync = vi.fn(() => { throw new Error('spawn refused'); });
+    const onSpawnAttempt = vi.fn();
+    for (let i = 0; i < 10; i++) {
+      expect(() => launchIsolatedWorker({ command: '/bin/true', memoryMaxGb: 1,
+        gate: { enabled: true, ok: true, failures: [] }, allowDegraded: true,
+        isolation: { mode: 'degraded', reason: 'synthetic' }, stdinPath,
+        stdoutPath: failure === 'stdout' ? root : path.join(root, 'stdout'),
+        stderrPath: failure === 'stderr' ? root : path.join(root, 'stderr'), spawnAsync, onSpawnAttempt,
+      })).toThrow();
+      const ownedFds = readdirSync('/proc/self/fd').filter(fd => {
+        try { return readlinkSync(`/proc/self/fd/${fd}`).startsWith(root); } catch { return false; }
+      });
+      expect(ownedFds).toEqual([]);
+    }
+    expect(spawnAsync).toHaveBeenCalledTimes(failure === 'spawn' ? 10 : 0);
+    expect(onSpawnAttempt).not.toHaveBeenCalled(); // synchronous spawn throws have no process handle
+  });
+
   it('truncates a pre-existing output file instead of appending to it', async () => {
     const root = tmpWorktree();
     const stdoutPath = path.join(root, 'worker.stdout');

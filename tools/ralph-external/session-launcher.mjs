@@ -1675,6 +1675,7 @@ export function planDirectWorkerLaunch({
   proposeUnit,
   kind,
   attached = false,
+  ownedGroup = false, onSpawnAttempt,
   // #2892: forwarded only when explicitly given, so every existing caller
   // (which omits it) keeps #2895's own `attached` default (`stdin: 'closed'`
   // -> stdio[0] 'ignore') unchanged. An MCP stdio worker passes `'open'` to
@@ -1693,7 +1694,7 @@ export function planDirectWorkerLaunch({
   });
   if (!gate.ok) return { launched: false, blocked: true, failures: gate.failures ?? [], gate };
   return launchIsolatedWorker({ name, memoryMaxGb, command, args, cwd, logFile, stdinPath, stdoutPath, stderrPath,
-    gate, config, allowDegraded, attached,
+    gate, config, allowDegraded, attached, ownedGroup, onSpawnAttempt,
     ...(envNames !== undefined ? { envNames } : {}), ...(env !== undefined ? { env } : {}),
     ...(isolation !== undefined ? { isolation } : {}), ...(spawn !== undefined ? { spawn } : {}),
     ...(spawnAsync !== undefined ? { spawnAsync } : {}), ...(proposeUnit !== undefined ? { proposeUnit } : {}),

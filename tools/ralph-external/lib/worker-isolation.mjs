@@ -317,6 +317,7 @@ export function launchIsolatedWorker({
   proposeUnit = proposeWorkerUnitName,
   stdin = 'closed',
   ownedGroup = false,
+  onSpawnAttempt,
   runDir,
 } = {}) {
   const resolvedGate = gate === 'disabled' && !config?.parallelism?.worker_dispatch
@@ -378,6 +379,7 @@ export function launchIsolatedWorker({
         ...(runDir ? ['--run-dir', runDir, '--invocation-id', name] : []), '--', command, ...args];
       child = spawnAsync(process.execPath, launchArgs, { cwd, stdio: [stdin === 'closed' ? 'ignore' : 'pipe', 'pipe', 'pipe'],
         env: allowedEnv, ...(ownedGroup ? { detached: true } : {}) });
+      onSpawnAttempt?.({ mode: 'degraded', child, pid: child.pid });
     } else {
       // Opening the brief/output files ourselves (rather than letting the
       // worker inherit a stream) is what lets a degraded launch still honor a
@@ -386,16 +388,20 @@ export function launchIsolatedWorker({
       // 'w' truncates a pre-existing file at open time (matching the #2887
       // shell renderer's `>`/`2>` contract); the previous 'a' silently kept
       // appending onto a stale file across repeated degraded launches.
-      const stdinFd = stdinPath !== undefined ? openSync(stdinPath, 'r') : 'ignore';
-      const stdoutFd = stdoutPath !== undefined ? openSync(stdoutPath, 'w') : 'pipe';
-      const stderrFd = stderrPath !== undefined ? openSync(stderrPath, 'w') : 'pipe';
-      child = spawnAsync(command, args, { cwd, env: allowedEnv, stdio: [stdinFd, stdoutFd, stderrFd], detached: ownedGroup });
-      // Node dup()s a numeric stdio fd into the child and never closes the
-      // parent's own copy; the child's duplicated fd keeps working after this
-      // call returns (verified empirically), so closing here is what the
-      // previous code was missing — every launch otherwise leaked up to three
-      // fds in the long-running conductor process.
-      for (const fd of [stdinFd, stdoutFd, stderrFd]) if (typeof fd === 'number') closeSync(fd);
+      const fds = [];
+      try {
+        const stdinFd = stdinPath !== undefined ? openSync(stdinPath, 'r') : 'ignore';
+        fds.push(stdinFd);
+        const stdoutFd = stdoutPath !== undefined ? openSync(stdoutPath, 'w') : 'pipe';
+        fds.push(stdoutFd);
+        const stderrFd = stderrPath !== undefined ? openSync(stderrPath, 'w') : 'pipe';
+        fds.push(stderrFd);
+        child = spawnAsync(command, args, { cwd, env: allowedEnv, stdio: [stdinFd, stdoutFd, stderrFd], detached: ownedGroup });
+        onSpawnAttempt?.({ mode: 'degraded', child, pid: child.pid });
+      } finally {
+        // Node duplicates numeric stdio fds; close our copies on every path.
+        for (const fd of fds) if (typeof fd === 'number') closeSync(fd);
+      }
     }
     const outcome = {
       launched: Number.isInteger(child.pid) && child.pid > 0,
@@ -446,6 +452,7 @@ export function launchIsolatedWorker({
     // `envNames`/`env` (never from this spawn env), so this merge only
     // widens what systemd-run's CLIENT can import from, never what the
     // worker receives.
+    onSpawnAttempt?.({ mode: 'systemd-unit', unit });
     const child = spawnAsync(argv[0], argv.slice(1), { cwd,
       env: Object.fromEntries(Object.entries({ ...process.env, ...env })
         .filter(([variable]) => !transportBootstrapVariables.includes(variable))),
@@ -454,6 +461,7 @@ export function launchIsolatedWorker({
     child.once('error', error => { outcome.launched = false; outcome.error = error.message; });
     return outcome;
   }
+  onSpawnAttempt?.({ mode: 'systemd-unit', unit });
   const child = spawn(argv[0], argv.slice(1), { encoding: 'utf8', timeout: 30000 });
   if (child.error || child.status !== 0) {
     const stderr = String(child.stderr ?? '').trim();

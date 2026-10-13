@@ -10,9 +10,10 @@
  * @source @src/mcp/tools/worker-invoke.mjs
  */
 import { createHash } from 'node:crypto';
+import { spawn as nodeSpawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { readFileSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -228,7 +229,8 @@ describe('production registration path pins the served root at registration time
       // against the stubbed `process.cwd()` (what a lazy resolution at first
       // request would have used) — resolution proceeds all the way to the
       // injected stop point instead of failing on path containment.
-      expect(body.status).toBe('uncertain');
+      expect(body.status).toBe('blocked');
+      expect(body.termination).toBe('confirmed');
       expect(body.diagnostics).toContain('stop-before-real-project-load');
     } finally {
       cwdSpy.mockRestore();
@@ -402,13 +404,14 @@ describe('cancellation and uncertain-run capacity (#2892 M2)', () => {
     const work = path.join(root, 'work'); await mkdir(work);
     await writeFile(path.join(root, 'brief.md'), 'hello');
     const f = buildFixture(root, 'shell');
+    f.snapshot.config.parallelism!.health = { hardTimeoutSeconds: 1 };
     const tools = new Map<string, any>();
     const registry = createInvocationRegistry({ maxActive: 1 });
     await registerWorkerInvokeToolset({ registerTool(name: string, config: any, handler: any) { tools.set(name, { config, handler }); } }, {
       projectRoot: root, registry, workerWorktreesRoot: work,
       loadWorkerInputs: async () => ({ snapshot: f.snapshot, drivers: f.drivers }),
       launchShellWorker: async () => ({ launched: true, mode: 'degraded', child: fakeNeverClosingChild() }),
-      now: () => new Date(f.now),
+      shellStopGraceMs: 20, now: () => new Date(f.now),
     });
     const call = tools.get('worker-invoke').handler;
     const result = await call({
@@ -519,6 +522,7 @@ describe('cancellation and uncertain-run capacity (#2892 M2)', () => {
     const registry = createInvocationRegistry();
     let killed = false;
     const child: any = new EventEmitter();
+    child.pid = 123456;
     child.kill = () => { killed = true; return true; };
     await registerWorkerInvokeToolset({ registerTool(name: string, config: any, handler: any) { tools.set(name, { config, handler }); } }, {
       projectRoot: root, registry, workerWorktreesRoot: work,
@@ -559,6 +563,7 @@ describe('cancellation and uncertain-run capacity (#2892 M2)', () => {
     const tools = new Map<string, any>();
     const registry = createInvocationRegistry();
     const child: any = new EventEmitter();
+    child.pid = 123456;
     child.kill = () => true;
     let releaseLaunch: () => void = () => {};
     let launchCalled = false;
@@ -724,6 +729,7 @@ describe('no scratch directory is created, even on an uncertain run (#2892 defec
     await mkdir(work);
     await writeFile(path.join(root, 'brief.md'), 'hello');
     const f = buildFixture(root, 'shell');
+    f.snapshot.config.parallelism!.health = { hardTimeoutSeconds: 1 };
     const tools = new Map<string, any>();
     await registerWorkerInvokeToolset({ registerTool(name: string, config: any, handler: any) { tools.set(name, { config, handler }); } }, {
       projectRoot: root, workerWorktreesRoot: work,
@@ -733,7 +739,7 @@ describe('no scratch directory is created, even on an uncertain run (#2892 defec
         { launched: true, mode: 'degraded', child: fakeNeverClosingChild() }
       ),
       waitForUnitTermination: async () => ({ termination: 'uncertain', exitCode: null }),
-      now: () => new Date(f.now),
+      shellStopGraceMs: 20, now: () => new Date(f.now),
     });
     const call = tools.get('worker-invoke').handler;
     const { readdir } = await import('node:fs/promises');
@@ -754,11 +760,10 @@ describe('no scratch directory is created, even on an uncertain run (#2892 defec
   }, 10000);
 });
 
-/** Emits 'error' almost immediately rather than truly hanging to the
- * resolved wall-clock deadline (minutes) — this test only needs to observe
- * the uncertain-termination path quickly, not actually wait out a timeout. */
+/** A pid-bearing child whose observation fails and whose close is unknown. */
 function fakeNeverClosingChild() {
   const child: any = new EventEmitter();
+  child.pid = 123456;
   child.kill = () => true;
   setImmediate(() => child.emit('error', new Error('synthetic: worker process unobservable')));
   return child;
@@ -1187,6 +1192,11 @@ describe('mcp transport requires a structured WorkerDirectBrief (#2892 F4)', () 
     const body = JSON.parse(result.content[0].text);
     expect(body.status, JSON.stringify(body)).toBe('blocked');
     expect(body.diagnostics).toEqual(['OG_BRIEF_NOT_STRUCTURED']);
+    await expect(stat(finalOutput)).rejects.toMatchObject({ code: 'ENOENT' });
+    const retry = JSON.parse((await call({ operation: 'run', request_id: 'f4-plaintext-retry',
+      role: 'coding', task: 'implementation', group: 'workers', brief: briefPath, workdir: work,
+      final_output: finalOutput, transport: 'mcp' })).content[0].text);
+    expect(retry.diagnostics).toEqual(['OG_BRIEF_NOT_STRUCTURED']);
     await expect(readFile(recordPath, 'utf8')).rejects.toThrow(); // tools/call (the launch) was never reached
   });
 
@@ -1410,5 +1420,482 @@ describe('serialized per-server MCP queue — requalified before each launch, no
       await withServerQueue(`fixture-server-idle-${i}`, async () => 'done');
     }
     expect(__testOnlyMcpServerQueueCount()).toBe(0);
+  });
+});
+
+// Regression coverage for shell deadlines, stop proof, and pre-launch reservations.
+describe('shell worker termination and launch preparation', () => {
+  async function harness(options: Record<string, unknown> = {}) {
+    const root = await tempRoot();
+    const work = path.join(root, 'work');
+    await mkdir(work);
+    const brief = path.join(root, 'brief.md');
+    await writeFile(brief, 'private worker brief');
+    const f = buildFixture(root, 'shell');
+    f.snapshot.config.parallelism!.health = { hardTimeoutSeconds: 1 };
+    const registry = createInvocationRegistry({ maxActive: 1 });
+    const tools = await captureTool(undefined, {
+      projectRoot: root, workerWorktreesRoot: work, registry,
+      loadWorkerInputs: async () => ({ snapshot: f.snapshot, drivers: f.drivers }),
+      now: () => new Date(f.now), shellStopGraceMs: 20, stdinRuntimeRoot: path.join(root, 'runtime'), ...options,
+    });
+    const call = tools.get('worker-invoke').handler;
+    const input = { operation: 'run', request_id: 'regression', role: 'coding', task: 'implementation',
+      group: 'workers', brief, workdir: work, final_output: path.join(work, 'final.json'), transport: 'shell' };
+    const run = async () => JSON.parse((await call(input)).content[0].text);
+    return { root, work, f, registry, call, input, run };
+  }
+
+  it('stops a systemd unit on deadline and releases capacity only after confirmed termination', async () => {
+    let stopped = false;
+    let h: Awaited<ReturnType<typeof harness>>;
+    const stop = vi.fn(async () => {
+      expect(h.registry.canStart()).toBe(false);
+      expect(h.registry.values()[0].control).not.toBeNull();
+      stopped = true;
+      return { ok: true };
+    });
+    const kill = vi.fn();
+    h = await harness({
+      launchShellWorker: async () => ({ launched: true, mode: 'systemd-unit', unit: 'test.service' }),
+      waitForUnitTermination: async () => stopped ? { termination: 'confirmed', exitCode: 0 }
+        : { termination: 'uncertain', exitCode: null, timedOut: true },
+      stopWorkerUnit: stop, killWorkerUnit: kill,
+    });
+    const result = await h.run();
+    expect(stop).toHaveBeenCalledWith('test.service', expect.objectContaining({ signal: expect.any(AbortSignal), timeout: expect.any(Number) }));
+    expect(kill).not.toHaveBeenCalled();
+    expect(result.status).toBe('failed'); // even an exit-zero deadline is a failure
+    expect(result.termination).toBe('confirmed');
+    expect(h.registry.canStart()).toBe(true);
+    expect(h.registry.values()[0].control).toBeNull();
+  });
+
+  it('escalates an active unit to SIGKILL and requires stop proof', async () => {
+    let killed = false;
+    const stop = vi.fn(async () => ({ ok: true }));
+    const kill = vi.fn(async () => { killed = true; return { ok: true }; });
+    const h = await harness({
+      launchShellWorker: async () => ({ launched: true, mode: 'systemd-unit', unit: 'test.service' }),
+      waitForUnitTermination: async () => killed ? { termination: 'confirmed', exitCode: 137 }
+        : { termination: 'uncertain', exitCode: null, timedOut: true },
+      stopWorkerUnit: stop, killWorkerUnit: kill,
+    });
+    expect((await h.run()).termination).toBe('confirmed');
+    expect(stop).toHaveBeenCalledOnce();
+    expect(kill).toHaveBeenCalledWith('test.service', expect.objectContaining({ signal: expect.any(AbortSignal), timeout: expect.any(Number) }));
+    expect(h.registry.canStart()).toBe(true);
+  });
+
+  it.each(['unavailable', 'throws', 'stalled'])('stops independently when unit observation %s', async failure => {
+    let stopped = false;
+    const stop = vi.fn(async () => { stopped = true; return { ok: true }; });
+    const h = await harness({
+      launchShellWorker: async () => ({ launched: true, mode: 'systemd-unit', unit: 'test.service' }),
+      waitForUnitTermination: async () => {
+        if (stopped) return { termination: 'confirmed', exitCode: 0 };
+        if (failure === 'throws') throw new Error('manager unavailable');
+        if (failure === 'stalled') return new Promise(() => {});
+        return { termination: 'uncertain', exitCode: null }; // no timedOut flag
+      },
+      stopWorkerUnit: stop, killWorkerUnit: vi.fn(),
+    });
+    const result = await h.run();
+    expect(stop).toHaveBeenCalledOnce();
+    expect(result.status).toBe('failed');
+    expect(result.termination).toBe('confirmed');
+    expect(h.registry.canStart()).toBe(true);
+  });
+
+  it('automatically releases an uncertain unit after late stop proof', async () => {
+    let confirmed = false;
+    const cleanup = vi.fn(async () => {});
+    const stop = vi.fn(async () => ({ ok: true }));
+    const kill = vi.fn(async () => ({ ok: true }));
+    let observations = 0;
+    const observe = vi.fn(async () => {
+      // A single stalled background probe must not prevent later checks.
+      if (++observations === 4) return new Promise(() => {});
+      return confirmed ? { termination: 'confirmed', exitCode: 1 } : { termination: 'uncertain', exitCode: null };
+    });
+    const h = await harness({
+      launchShellWorker: async () => ({ launched: true, mode: 'systemd-unit', unit: 'test.service', cleanup }),
+      waitForUnitTermination: observe, stopWorkerUnit: stop, killWorkerUnit: kill,
+    });
+    const result = await h.run();
+    expect(result.status).toBe('uncertain');
+    expect(h.registry.canStart()).toBe(false);
+    await waitFor(() => observations >= 4);
+    confirmed = true;
+    await waitFor(() => h.registry.canStart());
+    expect(h.registry.get(result.invocationId)).toMatchObject({ status: 'failed', termination: 'confirmed', control: null });
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(stop).toHaveBeenCalledOnce();
+    expect(kill).toHaveBeenCalledOnce();
+    const completedObservations = observe.mock.calls.length;
+    await new Promise(resolve => setTimeout(resolve, 300));
+    expect(observe).toHaveBeenCalledTimes(completedObservations);
+  });
+
+  it('finishes a cancelled unit even while the initial status query is stalled', async () => {
+    let stopped = false;
+    const h = await harness({
+      launchShellWorker: async () => ({ launched: true, mode: 'systemd-unit', unit: 'test.service' }),
+      waitForUnitTermination: async () => stopped ? { termination: 'confirmed', exitCode: 0 } : new Promise(() => {}),
+      stopWorkerUnit: async () => { stopped = true; return { ok: true }; }, killWorkerUnit: vi.fn(),
+    });
+    const pending = h.run();
+    await waitFor(() => h.registry.values()[0]?.control != null);
+    const entry = h.registry.values()[0];
+    await h.call({ operation: 'cancel', invocation_id: entry.invocationId });
+    const result = await pending;
+    expect(result).toMatchObject({ status: 'cancelled', termination: 'confirmed' });
+    expect(h.registry.canStart()).toBe(true);
+  });
+
+  it.skipIf(process.platform === 'win32')('rechecks descendants after their degraded leader closed and both stop attempts were uncertain', async () => {
+    const child: any = new EventEmitter();
+    child.pid = 987654321;
+    let gone = false;
+    const kill = vi.spyOn(process, 'kill').mockImplementation(((pid: number) => {
+      if (gone) throw Object.assign(new Error('gone'), { code: 'ESRCH' });
+      return true;
+    }) as typeof process.kill);
+    const h = await harness({ launchShellWorker: async () => ({ launched: true, mode: 'degraded', child, ownedGroup: true }) });
+    try {
+      const pending = h.run();
+      await waitFor(() => h.registry.values()[0]?.control != null);
+      child.emit('close', 0);
+      child.emit('error', new Error('leader closed; descendants remain'));
+      const result = await pending;
+      expect(result.status).toBe('uncertain');
+      expect(h.registry.canStart()).toBe(false);
+      expect(kill.mock.calls.every(call => call[0] === -child.pid)).toBe(true);
+      expect(kill.mock.calls.some(call => call[1] === 'SIGKILL')).toBe(true);
+      gone = true;
+      await waitFor(() => h.registry.canStart());
+      expect(h.registry.get(result.invocationId).termination).toBe('confirmed');
+      expect(child.listenerCount('close')).toBe(0);
+      expect(child.listenerCount('error')).toBe(0);
+    } finally { gone = true; kill.mockRestore(); }
+  });
+
+  it('retains control after an unconfirmed timeout so a later cancel can stop the unit', async () => {
+    let confirmed = false;
+    const stop = vi.fn(async () => ({ ok: true }));
+    const h = await harness({
+      launchShellWorker: async () => ({ launched: true, mode: 'systemd-unit', unit: 'test.service' }),
+      waitForUnitTermination: async () => confirmed ? { termination: 'confirmed', exitCode: 1 }
+        : { termination: 'uncertain', exitCode: null, timedOut: true },
+      stopWorkerUnit: stop, killWorkerUnit: async () => ({ ok: true }),
+    });
+    const result = await h.run();
+    expect(result.status).toBe('uncertain');
+    expect(h.registry.canStart()).toBe(false); // successful signal delivery alone is insufficient
+    expect(h.registry.get(result.invocationId).control).not.toBeNull();
+    confirmed = true;
+    const cancel = JSON.parse((await h.call({ operation: 'cancel', invocation_id: result.invocationId })).content[0].text);
+    expect(cancel.cancelDelivered).toBe(true);
+    await waitFor(() => h.registry.canStart());
+    expect(stop).toHaveBeenCalledTimes(2);
+    expect(h.registry.get(result.invocationId).status).toBe('cancelled');
+    expect(h.registry.get(result.invocationId).termination).toBe('confirmed');
+    expect(h.registry.get(result.invocationId).control).toBeNull();
+  });
+
+  it.each(['deadline', 'cancel'])('escalates a degraded worker on %s, then releases its slot on close', async trigger => {
+    const child: any = new EventEmitter();
+    child.pid = 123456;
+    child.kill = vi.fn((signal: string) => {
+      if (signal === 'SIGKILL') setImmediate(() => child.emit('close', null));
+      return true;
+    });
+    const h = await harness({ launchShellWorker: async () => ({ launched: true, mode: 'degraded', child }) });
+    const pending = h.run();
+    await waitFor(() => h.registry.values()[0]?.control != null);
+    if (trigger === 'cancel') {
+      await h.call({ operation: 'cancel', invocation_id: h.registry.values()[0].invocationId });
+      expect(h.registry.canStart()).toBe(false);
+    }
+    const result = await pending;
+    expect(child.kill.mock.calls.map((c: any[]) => c[0])).toEqual(['SIGTERM', 'SIGKILL']);
+    expect(result.status).toBe(trigger === 'cancel' ? 'cancelled' : 'failed');
+    expect(result.termination).toBe('confirmed');
+    expect(h.registry.canStart()).toBe(true);
+    expect(child.listenerCount('close')).toBe(0);
+    expect(child.listenerCount('error')).toBe(0);
+  });
+
+  it.each(['close', 'error'])('clears the degraded deadline timer on %s', async event => {
+    const child: any = new EventEmitter();
+    child.pid = 123456;
+    child.kill = vi.fn(() => false);
+    const h = await harness({ launchShellWorker: async () => ({ launched: true, mode: 'degraded', child }) });
+    const setTimer = vi.spyOn(globalThis, 'setTimeout');
+    const clearTimer = vi.spyOn(globalThis, 'clearTimeout');
+    try {
+      const pending = h.run();
+      await waitFor(() => h.registry.values()[0]?.control != null);
+      const timerIndex = setTimer.mock.calls.findIndex(c => c[1] === 1000);
+      expect(timerIndex).toBeGreaterThanOrEqual(0);
+      child.emit(event, event === 'error' ? new Error('lost observation') : 0);
+      if (event === 'error') expect(child.kill).not.toHaveBeenCalled();
+      const result = await pending;
+      expect(clearTimer).toHaveBeenCalledWith(setTimer.mock.results[timerIndex].value);
+      expect(child.kill.mock.calls.map((c: any[]) => c[0])).toEqual(event === 'error' ? ['SIGTERM', 'SIGKILL'] : []);
+      if (event === 'error') {
+        expect(result.status).toBe('uncertain');
+        expect(h.registry.canStart()).toBe(false);
+        const cancel = JSON.parse((await h.call({ operation: 'cancel', invocation_id: result.invocationId })).content[0].text);
+        expect(cancel.cancelDelivered).toBe(false);
+        child.emit('close', null);
+        await waitFor(() => h.registry.canStart());
+        expect(h.registry.get(result.invocationId).status).toBe('cancelled');
+      }
+    } finally { setTimer.mockRestore(); clearTimer.mockRestore(); }
+  });
+
+  it('releases capacity and removes the reserved output after a proven pre-launch exception', async () => {
+    const h = await harness({ loadWorkerInputs: async () => { throw new Error('qualification unavailable'); } });
+    for (const requestId of ['first', 'retry']) {
+      h.input.request_id = requestId;
+      const result = await h.run();
+      expect(result.status).toBe('blocked');
+      expect(result.termination).toBe('confirmed');
+      expect(result.diagnostics).toEqual(['qualification unavailable']);
+      expect(h.registry.canStart()).toBe(true);
+      await expect(stat(h.input.final_output)).rejects.toMatchObject({ code: 'ENOENT' });
+    }
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('keeps the blocked result when reservation cleanup is denied', async () => {
+    let h: Awaited<ReturnType<typeof harness>>;
+    h = await harness({ loadWorkerInputs: async () => {
+      await chmod(h.work, 0);
+      throw new Error('qualification unavailable');
+    } });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(await h.run()).toMatchObject({ status: 'blocked', termination: 'confirmed', diagnostics: ['qualification unavailable'] });
+      expect(log).toHaveBeenCalledWith('[worker-invoke] output reservation cleanup failed');
+      expect(h.registry.canStart()).toBe(true);
+    } finally { await chmod(h.work, 0o700); log.mockRestore(); }
+  });
+
+  it.skipIf(process.platform === 'win32')('creates a private output and removes it on launch refusal, permitting a retry', async () => {
+    const launch = vi.fn(async (invocation: any) => {
+      expect((await stat(invocation.finalPath)).mode & 0o777).toBe(0o600);
+      return { launched: false, diagnostic: 'gate refusal' };
+    });
+    const h = await harness({ launchShellWorker: launch });
+    for (const requestId of ['first', 'retry']) {
+      h.input.request_id = requestId;
+      expect((await h.run()).diagnostics).toEqual(['gate refusal']);
+      await expect(stat(h.input.final_output)).rejects.toMatchObject({ code: 'ENOENT' });
+    }
+    expect(launch).toHaveBeenCalledTimes(2);
+  });
+
+  it('removes output on qualification refusal without ever launching', async () => {
+    const launch = vi.fn();
+    const h = await harness({ launchShellWorker: launch });
+    delete h.f.drivers.codex;
+    expect((await h.run()).status).toBe('blocked');
+    expect(h.registry.canStart()).toBe(true);
+    expect(launch).not.toHaveBeenCalled();
+    await expect(stat(h.input.final_output)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  async function installJsonWorker(h: Awaited<ReturnType<typeof harness>>) {
+    const script = path.join(h.root, 'worker.mjs');
+    await writeFile(script, `import { readFileSync, writeFileSync, readlinkSync } from 'node:fs';
+const params = JSON.parse(readFileSync(0, 'utf8'));
+writeFileSync(process.argv[2], JSON.stringify({ type: 'result', result: { version: 1, status: 'completed',
+summary: JSON.stringify({ params, stdinPath: process.platform === 'linux' ? readlinkSync('/proc/self/fd/0') : null }), claims: [], artifacts: [], checks: [], limitations: [] } }) + '\\n');`);
+    h.f.drivers.codex.buildInvocation = async (input: any) => ({
+      argv: [process.execPath, script, input.finalPath], stdin: 'brief-json', envNames: [],
+    });
+  }
+
+  it.skipIf(process.platform !== 'linux')('uses the production degraded launcher with conductor-framed brief-json stdin', async () => {
+    const h = await harness({ allowDegraded: true,
+      gateInputs: { live: HEALTHY_GATE_LIVE, isolation: { mode: 'degraded', reason: 'test' } } });
+    await installJsonWorker(h);
+    const result = await h.run();
+    expect(result.status, JSON.stringify(result)).toBe('completed');
+    expect(result.termination).toBe('confirmed');
+    const frame = JSON.parse(result.result.claims.summary);
+    expect(frame.params).toEqual({ message: 'private worker brief', model_override: 'synthetic/a%b', cwd: h.work });
+    expect((await stat(h.input.final_output)).mode & 0o777).toBe(0o600);
+    expect(frame.stdinPath.startsWith(h.work + path.sep)).toBe(false);
+    await expect(stat(frame.stdinPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readdir(path.join(h.root, 'runtime'))).toEqual([]);
+    expect(h.registry.canStart()).toBe(true);
+  });
+
+  it.skipIf(process.platform === 'win32').each(['deadline', 'cancel'])('stops a real production degraded process group on %s', async trigger => {
+    let child: ReturnType<typeof nodeSpawn> | undefined;
+    const h = await harness({ allowDegraded: true, shellStopGraceMs: 150,
+      gateInputs: { live: HEALTHY_GATE_LIVE, isolation: { mode: 'degraded', reason: 'test' },
+        spawnAsync: (...args: Parameters<typeof nodeSpawn>) => { child = nodeSpawn(...args); return child; } } });
+    const marker = path.join(h.root, 'started');
+    const script = path.join(h.root, 'stubborn.mjs');
+    await writeFile(script, `import { writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+process.on('SIGTERM', () => {});
+const grandchild = spawn(process.execPath, ['-e', 'setInterval(() => {}, 20)'], { stdio: 'ignore' });
+grandchild.once('spawn', () => writeFileSync(process.argv[2], String(grandchild.pid)));
+setInterval(() => {}, 20);`);
+    h.f.drivers.codex.buildInvocation = async () => ({
+      argv: [process.execPath, script, marker], stdin: 'closed', envNames: [],
+    });
+    try {
+      const pending = h.run();
+      await waitFor(() => !!child && (() => { try { return Number(readFileSync(marker, 'utf8')) > 0; } catch { return false; } })());
+      if (trigger === 'cancel') await h.call({ operation: 'cancel', invocation_id: h.registry.values()[0].invocationId });
+      const result = await pending;
+      const grandchildPid = Number(await readFile(marker, 'utf8'));
+      expect(() => process.kill(grandchildPid, 0)).toThrow(expect.objectContaining({ code: 'ESRCH' }));
+      expect(child!.spawnargs[1]).toBe(script);
+      expect(child!.signalCode).toBe('SIGKILL');
+      expect(result.status).toBe(trigger === 'cancel' ? 'cancelled' : 'failed');
+      expect(result.termination).toBe('confirmed');
+      expect(h.registry.canStart()).toBe(true);
+    } finally {
+      if (child?.pid && child.exitCode === null && child.signalCode === null) {
+        try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already stopped */ }
+      }
+    }
+  });
+
+  it('supplies a memory ceiling and private framed stdin to the production systemd launcher', async () => {
+    let stdinPath = '';
+    let h: Awaited<ReturnType<typeof harness>>;
+    const spawn = vi.fn((command: string, args: string[]) => {
+      if (command === 'systemd-run') {
+        expect(args).toContain('MemoryMax=2G');
+        const property = args.find(arg => arg.startsWith('StandardInputFile='))!;
+        stdinPath = property.slice('StandardInputFile='.length);
+        const frame = JSON.parse(readFileSync(stdinPath, 'utf8'));
+        expect(frame).toEqual({ message: 'private worker brief', model_override: 'synthetic/a%b', cwd: h.work });
+        expect(args.join(' ')).not.toContain('private worker brief');
+        expect(readFileSync(stdinPath).length).toBeGreaterThan(0);
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      return { status: 0, stdout: args.includes('show-environment') ? '' : '123\n', stderr: '' };
+    });
+    h = await harness({ gateInputs: { live: HEALTHY_GATE_LIVE, isolation: { mode: 'systemd-unit' }, spawn },
+      waitForUnitTermination: async () => ({ termination: 'confirmed', exitCode: 0 }) });
+    await installJsonWorker(h);
+    const result = await h.run();
+    expect(result.termination).toBe('confirmed');
+    expect(spawn.mock.calls.some(c => c[0] === 'systemd-run')).toBe(true);
+    await expect(stat(stdinPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(h.registry.canStart()).toBe(true);
+  });
+
+  it.each(['nonzero', 'timeout', 'throws'])('retains framed stdin and output after an attempted systemd launch %s until stopped', async failure => {
+    let stdinPath = '';
+    let unit = '';
+    let confirmed = false;
+    let h: Awaited<ReturnType<typeof harness>>;
+    const spawn = vi.fn((binary: string, args: string[]) => {
+      if (binary !== 'systemd-run') return { status: 0, stdout: '', stderr: '' };
+      stdinPath = args.find(arg => arg.startsWith('StandardInputFile='))!.slice('StandardInputFile='.length);
+      unit = args.find(arg => arg.startsWith('--unit='))!.slice('--unit='.length);
+      if (failure === 'throws') throw new Error('client failed after unit acceptance');
+      return { status: 1, error: failure === 'timeout' ? new Error('ETIMEDOUT') : undefined, stderr: 'client failed' };
+    });
+    const stop = vi.fn(async (name: string) => {
+      expect(name).toBe(unit);
+      expect(h.registry.canStart()).toBe(false);
+      expect(existsSync(stdinPath)).toBe(true);
+      expect(existsSync(h.input.final_output)).toBe(true);
+      return { ok: true };
+    });
+    const kill = vi.fn(async () => ({ ok: true }));
+    h = await harness({ gateInputs: { live: HEALTHY_GATE_LIVE, isolation: { mode: 'systemd-unit' }, spawn },
+      waitForUnitTermination: async () => confirmed ? { termination: 'confirmed', exitCode: 1 }
+        : { termination: 'uncertain', exitCode: null }, stopWorkerUnit: stop, killWorkerUnit: kill });
+    await installJsonWorker(h);
+    const result = await h.run();
+    expect(result.status).toBe('uncertain');
+    expect(stop).toHaveBeenCalledOnce();
+    expect(kill).toHaveBeenCalledWith(unit, expect.objectContaining({ signal: expect.any(AbortSignal), timeout: expect.any(Number) }));
+    expect(h.registry.canStart()).toBe(false);
+    expect(existsSync(stdinPath)).toBe(true);
+    expect(existsSync(h.input.final_output)).toBe(true);
+    confirmed = true;
+    await waitFor(() => h.registry.canStart() && !existsSync(stdinPath) && !existsSync(h.input.final_output));
+    expect(h.registry.get(result.invocationId)).toMatchObject({ status: 'failed', termination: 'confirmed', control: null });
+  });
+
+  it.each(['throws', 'ENOENT'])('releases every pre-launch resource on degraded spawn %s', async failure => {
+    const spawnAsync = vi.fn((...args: Parameters<typeof nodeSpawn>) => {
+      if (failure === 'throws') throw new Error('synchronous spawn refused');
+      return nodeSpawn(...args);
+    });
+    const h = await harness({ allowDegraded: true,
+      gateInputs: { live: HEALTHY_GATE_LIVE, isolation: { mode: 'degraded', reason: 'test' }, spawnAsync } });
+    h.f.drivers.codex.buildInvocation = async () => ({
+      argv: [path.join(h.root, 'missing-executable')], stdin: 'brief-json', envNames: [],
+    });
+    for (const requestId of ['first', 'retry']) {
+      h.input.request_id = requestId;
+      const result = await h.run();
+      expect(result).toMatchObject({ status: 'blocked', termination: 'confirmed' });
+      expect(h.registry.canStart()).toBe(true);
+      expect(h.registry.get(result.invocationId).control).toBeUndefined();
+      await expect(stat(h.input.final_output)).rejects.toMatchObject({ code: 'ENOENT' });
+      expect(await readdir(path.join(h.root, 'runtime'))).toEqual([]);
+    }
+    expect(spawnAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a successful run successful when post-close cleanup throws', async () => {
+    const cleanup = vi.fn(async () => { throw new Error('cleanup unavailable'); });
+    const h = await harness({ launchShellWorker: async (invocation: any) => {
+      await writeFile(invocation.finalPath, JSON.stringify({ type: 'result', result: { version: 1,
+        status: 'completed', summary: 'done', claims: [], artifacts: [], checks: [], limitations: [] } }) + '\n');
+      return { launched: true, mode: 'degraded', child: closingChild(0), cleanup };
+    } });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(await h.run()).toMatchObject({ status: 'completed', termination: 'confirmed' });
+      expect(h.registry.canStart()).toBe(true);
+      expect(cleanup).toHaveBeenCalled();
+    } finally { log.mockRestore(); }
+  });
+
+  it('releases capacity when the production launcher cannot open output before spawning', async () => {
+    const spawnAsync = vi.fn();
+    const h = await harness({ allowDegraded: true,
+      gateInputs: { live: HEALTHY_GATE_LIVE, isolation: { mode: 'degraded', reason: 'test' }, spawnAsync } });
+    h.f.drivers.codex.buildInvocation = async () => ({
+      argv: [process.execPath, path.join(h.root, 'unused.mjs')], stdin: 'closed', envNames: [],
+    });
+    const blockedOutput = `${h.input.final_output}.stdout`;
+    await mkdir(blockedOutput);
+    const result = await h.run();
+    expect(result.status).toBe('blocked');
+    expect(result.termination).toBe('confirmed');
+    expect(spawnAsync).not.toHaveBeenCalled();
+    expect(h.registry.canStart()).toBe(true);
+    await expect(stat(h.input.final_output)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect((await stat(blockedOutput)).isDirectory()).toBe(true);
+  });
+
+  it('releases the reservation when production stdin preparation fails before spawn', async () => {
+    const spawnAsync = vi.fn();
+    const h = await harness({ shellWorkerMemoryMaxGb: 0, allowDegraded: true,
+      gateInputs: { live: HEALTHY_GATE_LIVE, isolation: { mode: 'degraded', reason: 'test' }, spawnAsync } });
+    await installJsonWorker(h);
+    const result = await h.run();
+    expect(result.status).toBe('blocked');
+    expect(result.termination).toBe('confirmed');
+    expect(result.diagnostics.join(' ')).toMatch(/positive memoryMaxGb/);
+    expect(spawnAsync).not.toHaveBeenCalled();
+    expect(h.registry.canStart()).toBe(true);
+    await expect(stat(h.input.final_output)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });
