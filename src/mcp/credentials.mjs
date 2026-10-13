@@ -98,133 +98,200 @@ export function isCredentialReferenceValue(value) {
   return typeof value === 'string' && CREDENTIAL_REFERENCE_VALUE.test(value);
 }
 
-// A `-flag` or `--flag` whose name itself names a credential kind (one or two
-// leading dashes, matching the full word - never a single-letter alias); the
-// value, in the next argv element or after `=`, is almost always the literal
-// secret. This is a name-shape heuristic: positional `KEY=value` forms (no
-// leading dash at all) are not detected, short aliases (`-p secret`) are not
-// detected because `p` never matches the full-word list below, and flags
-// that name a secret location rather than a secret (`--token-file`,
-// `--password-stdin`, `--secret-name`) are excluded. A finding additionally
-// requires a non-empty, non-reference value: bare flags, empty values and
-// `${VAR}`/`${env:VAR}`/`{env:VAR}` references are not findings.
+// One scanner supplies both policy findings and display replacements. Spans
+// retain offsets into the original text so malformed URLs and encoded keys
+// cannot disappear during URL normalization.
 const CREDENTIAL_ARG_NAME = /^(api[-_]?key|access[-_]?key|access[-_]?token|auth[-_]?token|client[-_]?secret|secret|password|passwd|token)$/i;
-const SECRET_LOCATION_SUFFIX = /-(file|files|path|dir|stdin|name|names)$/i;
+const CREDENTIAL_QUERY_NAME = /(?:^|[-_.])(?:api[-_]?key|access[-_]?key|private[-_]?key|signing[-_]?key|encryption[-_]?key|secret[-_]?key|api[-_]?token|access[-_]?token|auth[-_]?token|session[-_]?id|client[-_]?secret|token|secret|password|passwd|pwd|passcode|auth|authorization|signature|jwt|bearer|credential|credentials)(?:$|[-_.])/i;
 
-/** The credential kind named by a `-flag` or `--flag`, or null when not credential-like. */
-function credentialFlagName(flag) {
-  if (typeof flag !== 'string') return null;
-  const dashes = flag.startsWith('--') ? 2 : flag.startsWith('-') ? 1 : 0;
-  if (!dashes) return null;
-  const name = flag.slice(dashes);
-  if (!CREDENTIAL_ARG_NAME.test(name)) return null;
-  if (SECRET_LOCATION_SUFFIX.test(name)) return null;
-  return name;
+function credentialName(key) {
+  const normalized = key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+  // Dot and bracket nesting are structural; underscores/hyphens are word
+  // separators, so sort_key/cache-key stay ordinary parameter names.
+  return normalized.split(/[.\[\]]/).some(part =>
+    /^(?:key|sig)$/.test(part) || CREDENTIAL_QUERY_NAME.test(part.replace(/[_\s]+/g, '-')));
 }
 
-/**
- * Scan argv for credential-bearing flags. Each hit is the flag index and the
- * number of argv elements it occupies: 1 for `--flag=value`, 2 for
- * `--flag value`.
- */
-function credentialArgHits(args) {
+function literalValue(value, includeReferences) {
+  return value !== '' && (includeReferences || !isCredentialReferenceValue(value));
+}
+
+function scanCredentialText(value, { includeReferences = false } = {}) {
+  if (typeof value !== 'string') return [];
   const hits = [];
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index];
-    if (typeof arg !== 'string') continue;
-    const equals = arg.indexOf('=');
-    if (equals >= 0) {
-      if (!credentialFlagName(arg.slice(0, equals))) continue;
-      const value = arg.slice(equals + 1);
-      if (value !== '' && !isCredentialReferenceValue(value)) hits.push({ index, length: 1 });
-      continue;
+  // Authority-only userinfo, including URLs embedded in --url=... argv.
+  for (const match of value.matchAll(/[A-Za-z][A-Za-z0-9+.-]*:\/\/([^/?#]*)/g)) {
+    const at = match[1].lastIndexOf('@');
+    if (at >= 0) {
+      const start = match.index + match[0].length - match[1].length;
+      hits.push({ start, end: start + at, kind: 'userinfo', credential: true });
     }
-    if (!credentialFlagName(arg)) continue;
-    const next = args[index + 1];
-    // The next token is this flag's value unless it is itself a long `--flag`
-    // with no embedded value form - a bare flag, not this flag's value. A
-    // value that happens to start with a single dash (`-SYNTHETIC`) is still
-    // a value, not another flag, so it is not exempted here.
-    const nextIsBareFlag = typeof next === 'string' && next.startsWith('--');
-    if (typeof next === 'string' && next !== '' && !nextIsBareFlag && !isCredentialReferenceValue(next)) {
-      hits.push({ index, length: 2 });
+  }
+  // WHATWG URL parsing accepts special-scheme authorities with one/no slash
+  // or backslashes. Use its userinfo decision, retaining original-text offsets
+  // for redaction. The raw scan above still covers malformed hosts.
+  const offsets = [];
+  let normalized = '';
+  for (let index = 0; index < value.length; index++) {
+    if (/[\t\r\n]/.test(value[index])) continue;
+    offsets.push(index);
+    normalized += value[index];
+  }
+  for (const match of normalized.matchAll(/[A-Za-z][A-Za-z0-9+.-]*:/g)) {
+    try {
+      const candidate = normalized.slice(match.index);
+      const parsed = new URL(candidate);
+      if (!parsed.username && !parsed.password) continue;
+      const authority = /^[A-Za-z][A-Za-z0-9+.-]*:[/\\]*([^/\\?#]*)/.exec(candidate);
+      const at = authority?.[1].lastIndexOf('@') ?? -1;
+      if (at < 0) continue;
+      const start = match.index + authority[0].length - authority[1].length;
+      hits.push({ start: offsets[start], end: offsets[start + at], kind: 'userinfo', credential: true });
+    } catch { /* Malformed URLs are handled by the raw scanner. */ }
+  }
+  const hash = value.indexOf('#');
+  const query = value.indexOf('?');
+  const regions = [];
+  if (query >= 0 && (hash < 0 || query < hash)) regions.push({ start: query + 1, end: hash < 0 ? value.length : hash, kind: 'query' });
+  if (hash >= 0) regions.push({ start: hash + 1, end: value.length, kind: 'fragment' });
+  for (const region of regions) {
+    // Scan both sides of '?' in a fragment: #token=secret?view=full and
+    // #/callback?token=secret must both retain the secret assignment.
+    const text = value.slice(region.start, region.end);
+    for (const match of text.matchAll(region.kind === 'fragment' ? /[^&?]+/g : /[^&]+/g)) {
+      const equals = match[0].indexOf('=');
+      if (equals < 0) continue;
+      const start = region.start + match.index + equals + 1;
+      // '?' can start fragment routing, but it is also part of an assignment
+      // value. Classify the entire value before deciding whether to redact it.
+      const nextPair = value.indexOf('&', start);
+      const valueEnd = region.kind === 'fragment'
+        ? (nextPair < 0 ? region.end : nextPair)
+        : region.start + match.index + match[0].length;
+      const assignment = match[0].slice(0, equals + 1) + value.slice(start, valueEnd);
+      const [[key, decoded]] = new URLSearchParams(assignment.replace(/[\t\r\n]/g, ''));
+      const credential = credentialName(key) && literalValue(decoded, includeReferences);
+      // A credential value may itself contain '?'. Redact the whole value
+      // through the next '&', including any fragment routing suffix.
+      const end = region.kind === 'fragment' && credential
+        ? valueEnd
+        : region.start + match.index + match[0].length;
+      hits.push({ start, end, kind: region.kind, key, credential });
+    }
+  }
+  const header = /^\s*([^:]+):\s*(.*)$/.exec(value);
+  if (header && credentialName(header[1])) {
+    const content = header[2];
+    const credential = content.replace(/^(?:Bearer|Basic)\s+/i, '');
+    if (literalValue(credential, includeReferences)) {
+      hits.push({ start: value.length - content.length, end: value.length, kind: 'header', credential: true });
+    }
+  }
+  const assignment = /^(?:--header=|-H=?)?([A-Za-z_][A-Za-z0-9_.-]*)=(.*)$/s.exec(value);
+  if (assignment && credentialName(assignment[1]) && literalValue(assignment[2], includeReferences)) {
+    hits.push({ start: value.length - assignment[2].length, end: value.length, kind: 'assignment', credential: true });
+  }
+  // curl accepts both --header=Authorization: ... and -HAuthorization: ... .
+  const inlineHeader = /^(?:--header=|-H=?)(.+:.+)$/s.exec(value);
+  if (inlineHeader) {
+    const offset = value.length - inlineHeader[1].length;
+    for (const hit of scanCredentialText(inlineHeader[1], { includeReferences })) {
+      hits.push({ ...hit, start: offset + hit.start, end: offset + hit.end });
     }
   }
   return hits;
 }
 
-/** List the `args` entries that carry a literal credential value. */
-export function credentialLikeArgs(args) {
-  if (!Array.isArray(args)) return [];
-  return credentialArgHits(args).map(({ index, length }) =>
-    length === 1 ? args[index] : `${args[index]} ${args[index + 1]}`);
+function redactSpans(value, hits) {
+  if (typeof value !== 'string') return value;
+  const sorted = hits.filter(hit => hit.end > hit.start).sort((a, b) => a.start - b.start);
+  const spans = [];
+  for (const hit of sorted) {
+    const previous = spans.at(-1);
+    if (previous && hit.start <= previous.end) previous.end = Math.max(previous.end, hit.end);
+    else spans.push({ start: hit.start, end: hit.end });
+  }
+  let result = '';
+  let end = 0;
+  for (const span of spans) {
+    result += value.slice(end, span.start) + '***';
+    end = span.end;
+  }
+  return result + value.slice(end);
 }
 
-/** Copy argv with every detected literal credential value replaced by `***`. */
-export function redactCredentialArgs(args) {
-  if (!Array.isArray(args)) return args;
-  const redacted = [...args];
-  for (const { index, length } of credentialArgHits(args)) {
-    if (length === 1) {
-      const equals = String(args[index]).indexOf('=');
-      redacted[index] = `${String(args[index]).slice(0, equals)}=***`;
+/** Redact URL, fragment, header, and assignment credentials in display text. */
+export function redactCredentialText(value) {
+  if (typeof value !== 'string') return value;
+  const hits = scanCredentialText(value);
+  // Keep historical display behavior of masking all URL query values too.
+  return redactSpans(value, hits.filter(hit => hit.credential || hit.kind === 'query'));
+}
+
+function credentialArgHits(args, options = {}) {
+  const hits = [];
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (typeof arg !== 'string') continue;
+    for (const hit of scanCredentialText(arg, options)) {
+      if (hit.credential) hits.push({ ...hit, index, length: 1 });
+    }
+    const flag = /^--?([^=]+)(?:=(.*))?$/s.exec(arg);
+    if (!flag || !CREDENTIAL_ARG_NAME.test(flag[1])) continue;
+    if (flag[2] !== undefined) {
+      if (literalValue(flag[2], options.includeReferences)) {
+        hits.push({ index, length: 1, start: arg.indexOf('=') + 1, end: arg.length });
+      }
     } else {
-      redacted[index + 1] = '***';
+      const next = args[index + 1];
+      if (typeof next === 'string' && !next.startsWith('--') && literalValue(next, options.includeReferences)) {
+        hits.push({ index, length: 2, start: 0, end: next.length });
+      }
     }
   }
-  return redacted;
+  return hits;
+}
+
+export function credentialLikeArgs(args, options = {}) {
+  if (!Array.isArray(args)) return [];
+  return [...new Set(credentialArgHits(args, options).map(({ index, length }) =>
+    length === 1 ? args[index] : `${args[index]} ${args[index + 1]}`))];
+}
+
+export function redactCredentialArgs(args) {
+  if (!Array.isArray(args)) return args;
+  const byIndex = new Map();
+  for (const hit of credentialArgHits(args)) {
+    const index = hit.index + hit.length - 1;
+    if (!byIndex.has(index)) byIndex.set(index, []);
+    byIndex.get(index).push(hit);
+  }
+  return args.map((arg, index) => redactSpans(arg, byIndex.get(index) || []));
 }
 
 export function urlCarriesUserinfo(url) {
-  if (typeof url !== 'string') return false;
-  try {
-    const parsed = new URL(url);
-    return parsed.username !== '' || parsed.password !== '';
-  } catch {
-    // Invalid hosts must not conceal userinfo from policy checks. Restrict
-    // the fallback to the authority so an @ in a path is not a credential.
-    const authority = /^[A-Za-z][A-Za-z0-9+.-]*:\/\/([^/?#]*)/.exec(url.trim())?.[1];
-    return authority?.includes('@') ?? false;
+  return scanCredentialText(url).some(hit => hit.kind === 'userinfo' && hit.credential);
+}
+
+export function credentialLikeQueryParams(url, options = {}) {
+  return [...new Set(scanCredentialText(url, options).filter(hit => hit.kind === 'query' && hit.credential).map(hit => hit.key))];
+}
+
+export function credentialLikeFragmentParams(url, options = {}) {
+  return [...new Set(scanCredentialText(url, options).filter(hit => hit.kind === 'fragment' && hit.credential).map(hit => hit.key))];
+}
+
+/** Recursively redact display records, including JSON output and literal maps. */
+export function redactCredentialRecord(value, field) {
+  if (field === 'args') return redactCredentialArgs(value);
+  if (Array.isArray(value)) return value.map(item => redactCredentialRecord(item));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key,
+      ['env', 'headers'].includes(field) || key === 'clientSecret'
+        ? (item === '' || isCredentialReferenceValue(item) ? item : '***')
+        : redactCredentialRecord(item, key)]));
   }
-}
-
-// Match credential words, including common prefixed and camel-case forms
-// (access_token, apiKey, X-Amz-Signature), without treating every query as auth.
-const CREDENTIAL_QUERY_NAME = /(?:^|[-_.])(?:api[-_]?key|access[-_]?key|private[-_]?key|signing[-_]?key|encryption[-_]?key|secret[-_]?key|api[-_]?token|access[-_]?token|auth[-_]?token|session[-_]?id|client[-_]?secret|token|secret|password|passwd|pwd|passcode|auth|authorization|signature|jwt|bearer|credential|credentials)(?:$|[-_.])/i;
-// Generic key/sig are credential-like only as whole bracket components, not
-// arbitrary suffixes such as sort_key, cache-key, or sort_sig.
-const CREDENTIAL_QUERY_EXACT_NAME = /^(?:key|sig)$/i;
-
-/** Credential-like query keys with non-empty values, decoded like URL queries. */
-export function credentialLikeQueryParams(url, { includeReferences = false } = {}) {
-  if (typeof url !== 'string') return [];
-  // Parse the query independently: a malformed host must not hide credentials.
-  // WHATWG URL consumers strip ASCII tabs/newlines before interpreting keys.
-  const beforeFragment = url.replace(/[\t\r\n]/g, '').split('#', 1)[0];
-  const query = beforeFragment.indexOf('?');
-  if (query < 0) return [];
-  return credentialLikeParams(beforeFragment.slice(query + 1), includeReferences);
-}
-
-/** Fragments are not sent over HTTP, but assignments can store shareable secrets. */
-export function credentialLikeFragmentParams(url, { includeReferences = false } = {}) {
-  if (typeof url !== 'string') return [];
-  const clean = url.replace(/[\t\r\n]/g, '');
-  const fragment = clean.indexOf('#');
-  if (fragment < 0) return [];
-  const text = clean.slice(fragment + 1);
-  // Cover OAuth fragments and route fragments such as #/callback?token=... .
-  return credentialLikeParams(text.slice(text.indexOf('?') + 1), includeReferences);
-}
-
-function credentialLikeParams(text, includeReferences) {
-  const params = new URLSearchParams(text);
-  return [...new Set([...params].filter(([key, value]) => {
-    const components = key.replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-      .toLowerCase().replace(/[._\s-]+/g, '-').split(/[\[\]]/);
-    return components.some(part => CREDENTIAL_QUERY_NAME.test(part) || CREDENTIAL_QUERY_EXACT_NAME.test(part)) && value !== ''
-      && (includeReferences || !isCredentialReferenceValue(value));
-  }).map(([key]) => key))];
+  return redactCredentialText(value);
 }
 
 /**
@@ -241,7 +308,7 @@ export function credentialPolicyViolations(server, policy) {
   const violations = [];
   if (hasEntries(server.env)) violations.push('env');
   if (hasEntries(server.headers)) violations.push('headers');
-  if (credentialLikeArgs(server.args).length > 0) violations.push('args');
+  if (credentialLikeArgs(server.args, { includeReferences: policy === 'none' }).length > 0) violations.push('args');
   if (urlCarriesUserinfo(server.url)) violations.push('url userinfo');
   if (credentialLikeQueryParams(server.url, { includeReferences: policy === 'none' }).length) violations.push('url query credentials');
   if (credentialLikeFragmentParams(server.url, { includeReferences: policy === 'none' }).length) violations.push('url fragment credentials');

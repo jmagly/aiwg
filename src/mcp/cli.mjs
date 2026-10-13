@@ -7,7 +7,7 @@
  */
 
 import { startServer, createServer } from './server.mjs';
-import { assertConfigDestination, assertConfigObject, assertProjectCredentials, classifyMcpDestination, projectCredentialRemedy, writeConfigAtomic, writeConfigTransaction } from './config-file.mjs';
+import { assertConfigDestination, assertConfigObject, assertProjectCredentials, isPathInsideDir, classifyMcpDestination, projectCredentialRemedy, writeConfigAtomic, writeConfigTransaction } from './config-file.mjs';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -27,7 +27,7 @@ import {
   prepareClaudePermissions,
   resolveToolFilters,
 } from './tool-filters.mjs';
-import { assertCredentialPolicy, CREDENTIAL_POLICIES, installPolicyCheckedServer, redactCredentialArgs, resolveCredentialPolicy } from './credentials.mjs';
+import { assertCredentialPolicy, CREDENTIAL_POLICIES, installPolicyCheckedServer, redactCredentialArgs, redactCredentialText, redactCredentialRecord, resolveCredentialPolicy } from './credentials.mjs';
 import { getMcpInjectionDefinition } from '../providers/provider-definitions.mjs';
 import { manageOmpMcp } from './omp-config.mjs';
 import { unmanageGrokBuildMcp } from './grok-build-config.mjs';
@@ -614,7 +614,7 @@ async function handleAdd(args) {
 
   console.log(`Added MCP server: ${name}`);
   if (url) console.log(`  URL: ${redactUrlUserinfo(url)}`);
-  if (command) console.log(`  Command: ${command}`);
+  if (command) console.log(`  Command: ${redactCredentialText(command)}`);
   console.log(`  Type: ${type}`);
   for (const [key, values] of [['env', parseKVPairs(envStr)], ['headers', parseKVPairs(headersStr)]]) {
     if (values) console.log(`  ${key}: ${Object.keys(values).join(', ')}`);
@@ -683,50 +683,21 @@ async function handleUpdate(args) {
     const display = key === 'url' ? redactUrlUserinfo(value)
       : key === 'args' ? JSON.stringify(redactCredentialArgs(value))
       : ['env', 'headers', 'headerEnv', 'envFrom'].includes(key) ? Object.keys(value || {}).join(', ')
-      : typeof value === 'object' ? JSON.stringify(value) : value;
+      : typeof value === 'object' ? JSON.stringify(redactCredentialRecord(value)) : redactCredentialText(value);
     console.log(`  ${key}: ${display}`);
   }
   console.log(`\nRe-run "aiwg mcp inject --all" to propagate changes to provider configs.`);
 }
 
-/** Mask every URL query value, keeping keys so the shape stays debuggable. */
-function redactUrlQuery(value) {
-  if (typeof value !== 'string') return value;
-  const query = value.indexOf('?');
-  if (query < 0) return value;
-  const end = value.indexOf('#', query);
-  const tail = end < 0 ? '' : value.slice(end);
-  const redacted = value.slice(query + 1, end < 0 ? value.length : end).split('&').map(pair => {
-    const equals = pair.indexOf('=');
-    return equals < 0 ? pair : `${pair.slice(0, equals)}=***`;
-  }).join('&');
-  return `${value.slice(0, query + 1)}${redacted}${tail}`;
-}
-
-function redactUrlUserinfo(value) {
-  try {
-    const url = new URL(value);
-    if (url.username || url.password) {
-      url.username = '***';
-      url.password = '';
-      return redactUrlQuery(url.toString());
-    }
-  } catch {
-    // Malformed hosts may still carry credentials in the authority.
-    return redactUrlQuery(value.replace(/^(\s*[A-Za-z][A-Za-z0-9+.-]*:\/\/)([^/?#]*)/, (_, scheme, authority) => {
-      const at = authority.lastIndexOf('@');
-      return scheme + (at < 0 ? authority : '***@' + authority.slice(at + 1));
-    }));
-  }
-  return redactUrlQuery(value);
-}
+// Refusal and all display paths share the scanner in credentials.mjs.
+const redactUrlUserinfo = redactCredentialText;
 
 /**
  * Handle `aiwg mcp list` (managed servers from registry)
  */
 async function handleList() {
   const registry = new McpServerRegistry();
-  const servers = await registry.list();
+  const servers = redactCredentialRecord(await registry.list());
 
   if (servers.length === 0) {
     console.log('No MCP servers registered.');
@@ -749,7 +720,7 @@ async function handleList() {
       const refs = Object.entries(server.envFrom).map(([key, envName]) => `${key}←${envName}`);
       console.log(`    Env refs: ${refs.join(', ')}`);
     }
-    if (server.description) console.log(`    Description: ${server.description}`);
+    if (server.description) console.log(`    Description: ${redactCredentialText(server.description)}`);
     if (server.injectedProviders && server.injectedProviders.length > 0) {
       console.log(`    Injected into: ${server.injectedProviders.join(', ')}`);
     }
@@ -926,6 +897,13 @@ async function handleInject(args) {
       // the filesystem root so neither destination can traverse a symlink.
       const outputRoot = path.parse(path.resolve(targetPath)).root;
       await assertConfigDestination(targetPath, outputRoot);
+      const realProject = await fs.realpath(path.resolve(projectDir)).catch(error => {
+        if (error.code !== 'ENOENT') throw error;
+        return path.resolve(projectDir);
+      });
+      if (isPathInsideDir(targetPath, projectDir) || isPathInsideDir(targetPath, realProject)) {
+        assertProjectCredentials(servers, targetPath, projectCredentialRemedy(p, projectDir));
+      }
       const preparedPermissions = settingsPath
         ? await prepareClaudePermissions(settingsPath, toolPlan.claudePermissions, {
           projectRoot: outputRoot,
@@ -1005,7 +983,7 @@ Usage:
   aiwg mcp profile add <name> --servers a,b,c [--extends base,...] [--description "..."]
                           [--provider <p|*>] [--tool-deny s__t,...] [--tool-allow s__t,...]
   aiwg mcp profile list
-  aiwg mcp profile show <name>
+  aiwg mcp profile show <name> [--json]
   aiwg mcp profile edit <name> [--add-server x] [--remove-server y] [--description "..."]
                           [--provider <p|*>] [--tool-deny s__t,...] [--tool-allow s__t,...]
                           [--clear-tool-filters]
@@ -1101,7 +1079,7 @@ async function handleProfileAdd(args) {
  */
 async function handleProfileList() {
   const profiles = new McpProfileRegistry();
-  const all = await profiles.list();
+  const all = redactCredentialRecord(await profiles.list());
 
   if (all.length === 0) {
     console.log('No profiles defined.');
@@ -1131,7 +1109,7 @@ async function handleProfileShow(args) {
   }
 
   const profiles = new McpProfileRegistry();
-  const profile = await profiles.get(name);
+  const profile = redactCredentialRecord(await profiles.get(name));
 
   if (!profile) {
     const all = await profiles.list();
@@ -1140,6 +1118,11 @@ async function handleProfileShow(args) {
       console.error(`Available profiles: ${all.map(p => p.name).join(', ')}`);
     }
     process.exit(1);
+  }
+
+  if (args.includes('--json')) {
+    console.log(JSON.stringify(redactCredentialRecord(profile), null, 2));
+    return;
   }
 
   console.log(`Profile: ${profile.name}`);
@@ -1159,7 +1142,7 @@ async function handleProfileShow(args) {
     // Resolve server configs
     const registry = new McpServerRegistry();
     for (const serverName of profile.servers) {
-      const server = await registry.get(serverName);
+      const server = redactCredentialRecord(await registry.get(serverName));
       if (server) {
         const detail = server.type === 'stdio'
           ? `stdio  ${server.command}${server.args ? ' ' + redactCredentialArgs(server.args).join(' ') : ''}`

@@ -18,7 +18,7 @@ export function urlCarriesUserinfo(url?: string): boolean;
 export function credentialLikeQueryParams(url?: string, options?: { includeReferences?: boolean }): string[];
 export function credentialLikeFragmentParams(url?: string, options?: { includeReferences?: boolean }): string[];
 export function isCredentialReferenceValue(value: unknown): boolean;
-export function credentialLikeArgs(args?: string[]): string[];
+export function credentialLikeArgs(args?: string[], options?: { includeReferences?: boolean }): string[];
 export function redactCredentialArgs(args?: string[]): string[] | undefined;
 export function validateEnvReferenceName(name: string): void;
 export function renderCredentialMaps(
@@ -46,3 +46,6 @@ export function resetCredentialPolicyWarnings(): void;
 
 export const INSTALL_POLICY_EXEMPT_ENV: Readonly<Record<string, readonly string[]>>;
 export function installPolicyCheckedServer(name: string, server: CredentialBearingServer): CredentialBearingServer;
+
+export function redactCredentialText(value: string): string;
+export function redactCredentialRecord<T>(value: T): T;

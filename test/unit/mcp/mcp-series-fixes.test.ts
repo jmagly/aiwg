@@ -279,12 +279,12 @@ describe("4. value-aware credential argument detection", () => {
     expect(credentialLikeArgs(["--token={env:VAULT_TOKEN}"])).toEqual([]);
   });
 
-  it("ignores secret locations, short flags and positional KEY=value forms", () => {
+  it("ignores secret locations and short flags but detects credential assignments", () => {
     expect(credentialLikeArgs(["--token-file", "path"])).toEqual([]);
     expect(credentialLikeArgs(["--password-stdin"])).toEqual([]);
     expect(credentialLikeArgs(["--secret-name", "VAULT_TOKEN"])).toEqual([]);
     expect(credentialLikeArgs(["-p", "SYNTHETIC-PW"])).toEqual([]);
-    expect(credentialLikeArgs(["API_KEY=SYNTHETIC-KEY"])).toEqual([]);
+    expect(credentialLikeArgs(["API_KEY=SYNTHETIC-KEY"])).toEqual(["API_KEY=SYNTHETIC-KEY"]);
   });
 
   it("restores single-dash long names and leading-hyphen values detected by the parent commit", () => {

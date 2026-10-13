@@ -166,7 +166,8 @@ export function assertProjectCredentials(servers, configPath, remedy) {
     // in argv, visible to every process listing on the host; the same literal-credential
     // refusal that applies to env/headers applies here for a shareable project file.
     // Name only the flag, never the "--flag=value" form's value half.
-    const argFlags = credentialLikeArgs(server.args).map(arg => arg.split('=')[0].split(' ')[0]);
+    const argFlags = credentialLikeArgs(server.args).map(arg =>
+      /^--?[A-Za-z][A-Za-z0-9_-]*(?=[ =]|$)/.exec(arg)?.[0] || '[redacted]');
     if (argFlags.length) reasons.push(`${server.name} has credential-like args (${argFlags.join(', ')})`);
     return reasons;
   });

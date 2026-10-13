@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, sep } from 'node:path';
+import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../../../src/mcp/server.mjs';
@@ -18,8 +18,7 @@ let outside: string;
 let server: Awaited<ReturnType<typeof createServer>>;
 let client: Client;
 
-// The portable lane exercises its algorithm on the host filesystem, not OS emulation.
-describe.each(['native', 'portable'])('%s artifact access', access => {
+describe.skipIf(!linuxDescriptors)('descriptor artifact access', () => {
   beforeEach(async () => {
     root = await fs.mkdtemp(join(tmpdir(), 'aiwg-artifact-containment-'));
     project = join(root, 'project');
@@ -32,11 +31,7 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
     for (const key of ['AIWG_ARTIFACTS_PATH', 'AIWG_PROJECT_ARTIFACTS_PATH', 'AIWG_PROJECT_AIWG_DIR', 'AIWG_MCP_TOOLSETS']) {
       vi.stubEnv(key, '');
     }
-    if (access === 'portable' && linuxDescriptors) {
-      vi.stubGlobal('process', new Proxy(process, {
-        get: (target, key) => key === 'platform' ? 'darwin' : Reflect.get(target, key),
-      }));
-    }
+    vi.spyOn(process, 'cwd').mockReturnValue(project);
     server = await createServer();
     client = new Client({ name: 'artifact-regression', version: '1.0.0' });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -52,6 +47,16 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
     await server?.close();
     await fs.rm(root, { recursive: true, force: true });
   });
+
+  async function restart() {
+    await client.close();
+    await server.close();
+    server = await createServer();
+    client = new Client({ name: 'artifact-regression', version: '1.0.0' });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+  }
 
   function call(tool: string, path: string) {
     return client.callTool({ name: tool, arguments: { path, project_dir: project, content: 'replacement' } });
@@ -105,37 +110,84 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
 
   it('creates the default artifact root on the first fresh-project write', async () => {
     await fs.rm(artifacts, { recursive: true });
+    await restart();
     expect((await call('artifact-write', 'new/deep/file')).isError).toBeUndefined();
     expect(await fs.readFile(join(artifacts, 'new/deep/file'), 'utf8')).toBe('replacement');
   });
 
+  it.each(['local', 'external'])('rejects a %s root alias retargeted between requests', async location => {
+    const store = join(root, 'store');
+    await fs.mkdir(store);
+    const alias = location === 'local' ? artifacts : join(root, 'store-alias');
+    if (location === 'local') await fs.rm(artifacts, { recursive: true });
+    else vi.stubEnv('AIWG_ARTIFACTS_PATH', alias);
+    await fs.symlink(store, alias, 'dir');
+    await restart();
+    expect((await call('artifact-write', 'secret')).isError).toBeUndefined();
+    expect((await call('artifact-read', 'secret')).content).toEqual([{ type: 'text', text: 'replacement' }]);
+    await fs.unlink(alias);
+    await fs.symlink(outside, alias, 'dir');
+    const open = vi.spyOn(fs, 'open');
+    const mkdir = vi.spyOn(fs, 'mkdir');
+    for (const tool of ['artifact-read', 'artifact-write']) {
+      const result = await call(tool, 'secret');
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{ type: 'text', text: expect.stringContaining('root changed since it was pinned') }]);
+      expect((await call(tool, 'new/deep/file')).isError).toBe(true);
+    }
+    expect(open).not.toHaveBeenCalled();
+    expect(mkdir).not.toHaveBeenCalled();
+    expect(await fs.readFile(join(store, 'secret'), 'utf8')).toBe('replacement');
+    expect(await fs.readFile(join(outside, 'secret'), 'utf8')).toBe('outside content');
+    expect(await fs.readdir(outside)).toEqual(['secret']);
+  });
+
+  it('pins root identity at startup before the first request, even at the same canonical path', async () => {
+    await fs.rename(artifacts, join(root, 'original-store'));
+    await fs.mkdir(artifacts);
+    await fs.writeFile(join(artifacts, 'secret'), 'replacement store');
+    for (const tool of ['artifact-read', 'artifact-write']) {
+      expect((await call(tool, 'secret')).isError).toBe(true);
+    }
+    expect(await fs.readFile(join(artifacts, 'secret'), 'utf8')).toBe('replacement store');
+    expect(await fs.readdir(join(root, 'original-store'))).toEqual([]);
+  });
+
+  it('does not recreate an existing root removed after startup', async () => {
+    await fs.rm(artifacts, { recursive: true });
+    expect((await call('artifact-write', 'new/deep/file')).isError).toBe(true);
+    await expect(fs.lstat(artifacts)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('rejects a symlink substituted for a missing default before its first write', async () => {
+    await fs.rm(artifacts, { recursive: true });
+    await restart();
+    await fs.symlink(outside, artifacts, 'dir');
+    expect((await call('artifact-write', 'secret')).isError).toBe(true);
+    expect(await fs.readFile(join(outside, 'secret'), 'utf8')).toBe('outside content');
+  });
+
   it('does not create an unavailable configured external root', async () => {
     const missing = join(root, 'missing-store');
-    await fs.writeFile(join(project, '.aiwg-location'), missing);
+    vi.stubEnv('AIWG_ARTIFACTS_PATH', missing);
+    await restart();
     expect((await call('artifact-write', 'file')).isError).toBe(true);
     await expect(fs.lstat(missing)).rejects.toMatchObject({ code: 'ENOENT' });
     expect(await fs.readdir(artifacts)).toEqual([]);
   });
 
-  it.skipIf(hostPlatform !== 'win32')('rejects native Windows normalized names and alternate data streams', async () => {
+  it('rejects normalized aliases and alternate data streams', async () => {
     for (const path of ['new./file', 'new /file', 'file:secret', 'C:file', '\\outside\\secret']) {
       expect((await call('artifact-write', path)).isError).toBe(true);
     }
     expect(await fs.readdir(artifacts)).toEqual([]);
   });
 
-  it.skipIf(hostPlatform !== 'win32')('keeps native Windows case aliases contained', async () => {
-    await fs.mkdir(join(artifacts, 'MixedCase'));
-    await fs.writeFile(join(artifacts, 'MixedCase/file'), 'inside content');
-    expect((await call('artifact-read', 'MIXEDCASE/FILE')).content).toEqual([{ type: 'text', text: 'inside content' }]);
-    expect((await call('artifact-write', 'mixedcase/FILE')).isError).toBeUndefined();
-    expect(await fs.readFile(join(artifacts, 'MixedCase/file'), 'utf8')).toBe('replacement');
-  });
-
   it.skipIf(!posix)('does not create a dangling artifact-root alias target', async () => {
     await fs.rm(artifacts, { recursive: true });
     const missing = join(root, 'missing-store');
     await fs.symlink(missing, artifacts);
+    await restart();
     expect((await call('artifact-write', 'new/file')).isError).toBe(true);
     await expect(fs.lstat(missing)).rejects.toMatchObject({ code: 'ENOENT' });
     expect((await fs.lstat(artifacts)).isSymbolicLink()).toBe(true);
@@ -149,11 +201,11 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
     expect(await fs.readFile(join(artifacts, 'original'), 'utf8')).toBe('original');
   });
 
-  it.skipIf(!posix || !constants.O_NOFOLLOW)('uses O_NOFOLLOW if the final write component becomes a symlink before open', async () => {
+  it.skipIf(!posix || !constants.O_NOFOLLOW)('exclusive temporary creation refuses a symlink inserted before open', async () => {
     const open = fs.open.bind(fs);
     vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
       expect(Number(flags) & constants.O_NOFOLLOW).toBe(constants.O_NOFOLLOW);
-      if (String(file).endsWith('/raced')) await fs.symlink(join(outside, 'secret'), String(file));
+      if (Number(flags) & constants.O_CREAT) await fs.symlink(join(outside, 'secret'), String(file));
       return open(file, flags, mode);
     });
     expect((await call('artifact-write', 'raced')).isError).toBe(true);
@@ -161,7 +213,7 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
   });
 
   describe('parent swaps during descriptor-based artifact access', () => {
-    it.skipIf(access === 'portable' || !linuxDescriptors).each(['verification', 'directory cleanup'])('closes every handle and preserves the %s error', async failure => {
+    it.skipIf(!linuxDescriptors).each(['verification', 'directory cleanup'])('closes every handle and preserves the %s error', async failure => {
       await fs.mkdir(join(artifacts, 'parent'));
       await fs.writeFile(join(artifacts, 'parent/file'), 'preserved');
       const open = fs.open.bind(fs);
@@ -173,11 +225,11 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
         vi.spyOn(handle, 'close').mockImplementation(async () => {
           await close();
           closed.push(name);
-          if (name === artifacts || (failure === 'verification' && name.endsWith('/file'))) {
+          if (name === artifacts || (failure === 'verification' && name.endsWith('.tmp'))) {
             throw new Error('directory cleanup failed');
           }
         });
-        if (failure === 'verification' && name.endsWith('/file')) {
+        if (failure === 'verification' && name.endsWith('.tmp')) {
           vi.spyOn(handle, 'stat').mockRejectedValue(new Error('verification failed'));
         }
         return handle;
@@ -186,10 +238,10 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
       expect(result.isError).toBe(true);
       expect(result.content).toEqual([{ type: 'text', text: `Error writing artifact: ${failure} failed` }]);
       expect(closed).toHaveLength(3);
-      expect(await fs.readFile(join(artifacts, 'parent/file'), 'utf8')).toBe('preserved');
+      expect(await fs.readFile(join(artifacts, 'parent/file'), 'utf8')).toBe(failure === 'verification' ? 'preserved' : 'replacement');
     });
 
-    it.skipIf(access === 'portable' || !linuxDescriptors).each(['artifact-read', 'artifact-write'])('%s rejects a parent swapped before its directory open', async tool => {
+    it.skipIf(!linuxDescriptors).each(['artifact-read', 'artifact-write'])('%s rejects a parent swapped before its directory open', async tool => {
       await fs.mkdir(join(artifacts, 'parent'));
       await fs.writeFile(join(artifacts, 'parent/secret'), 'inside content');
       const open = fs.open.bind(fs);
@@ -208,13 +260,13 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
       expect(await fs.readFile(join(artifacts, 'held/secret'), 'utf8')).toBe('inside content');
     });
 
-    it.skipIf(access === 'portable' || !linuxDescriptors).each(['artifact-read', 'artifact-write'])('%s remains anchored when its parent is swapped immediately before file open', async tool => {
+    it.skipIf(!linuxDescriptors).each(['artifact-read', 'artifact-write'])('%s remains anchored when its parent is swapped immediately before file open', async tool => {
       await fs.mkdir(join(artifacts, 'parent'));
       await fs.writeFile(join(artifacts, 'parent/secret'), 'inside content');
       const open = fs.open.bind(fs);
       let swapped = false;
       vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
-        if (!swapped && String(file).endsWith('/secret')) {
+        if (!swapped && (String(file).endsWith('/secret') || (Number(flags) & constants.O_CREAT))) {
           swapped = true;
           if (tool === 'artifact-write') expect(Number(flags) & constants.O_TRUNC).toBe(0);
           await fs.rename(join(artifacts, 'parent'), join(artifacts, 'held'));
@@ -230,7 +282,7 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
       expect(await fs.readFile(join(artifacts, 'held/secret'), 'utf8')).toBe(tool === 'artifact-read' ? 'inside content' : 'replacement');
     });
 
-    it.skipIf(access === 'portable' || !linuxDescriptors)('anchors mkdir to the opened parent when its name is replaced with an outside symlink', async () => {
+    it.skipIf(!linuxDescriptors)('anchors mkdir to the opened parent when its name is replaced with an outside symlink', async () => {
       await fs.mkdir(join(artifacts, 'parent'));
       const mkdir = fs.mkdir.bind(fs);
       let swapped = false;
@@ -249,7 +301,7 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
       expect(await fs.readFile(join(artifacts, 'held/new/deep/file'), 'utf8')).toBe('replacement');
     });
 
-    it.skipIf(access === 'portable' || !linuxDescriptors)('rejects an outside symlink inserted for a missing component immediately before mkdir', async () => {
+    it.skipIf(!linuxDescriptors)('rejects an outside symlink inserted for a missing component immediately before mkdir', async () => {
       await fs.mkdir(join(artifacts, 'parent'));
       const mkdir = fs.mkdir.bind(fs);
       let inserted = false;
@@ -266,14 +318,14 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
       expect(await fs.readFile(join(outside, 'secret'), 'utf8')).toBe('outside content');
     });
 
-    it.skipIf(access === 'portable' || !linuxDescriptors)('verifies an opened file before truncating or reading after a parent is moved outside', async () => {
+    it.skipIf(!linuxDescriptors)('verifies an opened file before replacing or reading after a parent is moved outside', async () => {
       for (const tool of ['artifact-read', 'artifact-write']) {
         await fs.mkdir(join(artifacts, tool));
         await fs.writeFile(join(artifacts, tool, 'file'), 'preserved');
         const open = fs.open.bind(fs);
         const spy = vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
           const handle = await open(file, flags, mode);
-          if (String(file).endsWith('/file')) {
+          if (String(file).endsWith('/file') || (Number(flags) & constants.O_CREAT)) {
             await fs.rename(join(artifacts, tool), join(outside, tool));
             await fs.symlink(outside, join(artifacts, tool));
           }
@@ -285,14 +337,16 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
       }
     });
 
-    it.skipIf(access === 'portable' || !linuxDescriptors)('fails closed before creating anything when descriptor paths are unavailable', async () => {
+    it.skipIf(!linuxDescriptors).each([false, true])('fails closed with unavailable descriptor paths (missing root=%s)', async missingRoot => {
+      if (missingRoot) await fs.rm(artifacts, { recursive: true });
       const realpath = fs.realpath.bind(fs);
       vi.spyOn(fs, 'realpath').mockImplementation(async file => {
         if (String(file).startsWith('/proc/self/fd/')) throw Object.assign(new Error('procfs unavailable'), { code: 'ENOENT' });
         return realpath(file);
       });
       expect((await call('artifact-write', 'new/deep/file')).isError).toBe(true);
-      expect(await fs.readdir(artifacts)).toEqual([]);
+      if (missingRoot) await expect(fs.lstat(artifacts)).rejects.toMatchObject({ code: 'ENOENT' });
+      else expect(await fs.readdir(artifacts)).toEqual([]);
       expect(await fs.readdir(outside)).toEqual(['secret']);
     });
   });
@@ -302,139 +356,127 @@ describe.each(['native', 'portable'])('%s artifact access', access => {
     const alias = join(root, 'store-alias');
     await fs.mkdir(store);
     await fs.symlink(store, alias, hostPlatform === 'win32' ? 'junction' : 'dir');
-    await fs.writeFile(join(project, '.aiwg-location'), alias);
+    vi.stubEnv('AIWG_ARTIFACTS_PATH', alias);
+    await restart();
     expect((await call('artifact-write', 'nested/file')).isError).toBeUndefined();
     expect(await fs.readFile(join(store, 'nested/file'), 'utf8')).toBe('replacement');
     expect((await call('artifact-read', 'nested/file')).isError).toBeUndefined();
     expect(await fs.readdir(artifacts)).toEqual([]);
   });
 
-  describe.skipIf(access !== 'portable')('portable post-open verification', () => {
-    it('rejects missing descendants after a mkdir parent swap, with an empty-directory residual', async () => {
-      await fs.mkdir(join(artifacts, 'parent'));
-      const mkdir = fs.mkdir.bind(fs);
-      let swapped = false;
-      vi.spyOn(fs, 'mkdir').mockImplementation(async (dir, options) => {
-        if (!swapped && String(dir) === join(artifacts, 'parent/new')) {
-          swapped = true;
-          await fs.rename(join(artifacts, 'parent'), join(artifacts, 'held'));
-          await fs.symlink(outside, join(artifacts, 'parent'), hostPlatform === 'win32' ? 'junction' : 'dir');
-        }
-        return mkdir(dir, options as never);
-      });
-      expect((await call('artifact-write', 'parent/new/deep/file')).isError).toBe(true);
-      expect(swapped).toBe(true);
-      // Portable mkdir cannot anchor its parent. Reject before descendants;
-      // directory deletion would itself race and is deliberately not attempted.
-      expect(await fs.readdir(join(outside, 'new'))).toEqual([]);
-      expect(await fs.readdir(outside)).toEqual(['new', 'secret']);
-    });
-
-    it('rechecks a swapped parent before creating a missing file', async () => {
-      await fs.mkdir(join(artifacts, 'parent'));
-      const open = fs.open.bind(fs);
-      let swapped = false;
-      vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
-        if (!swapped && String(file) === join(artifacts, 'parent/new')) {
-          swapped = true;
-          expect(Number(flags) & constants.O_CREAT).toBe(0);
-          await fs.rename(join(artifacts, 'parent'), join(artifacts, 'held'));
-          await fs.symlink(outside, join(artifacts, 'parent'), hostPlatform === 'win32' ? 'junction' : 'dir');
-        }
-        return open(file, flags, mode);
-      });
-      expect((await call('artifact-write', 'parent/new')).isError).toBe(true);
-      expect(swapped).toBe(true);
-      expect(await fs.readdir(outside)).toEqual(['secret']);
-    });
-
-    it('removes its own empty file after a parent swap during exclusive creation', async () => {
-      await fs.mkdir(join(artifacts, 'parent'));
-      const open = fs.open.bind(fs);
-      let created = false;
-      vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
-        if (Number(flags) & constants.O_CREAT) {
-          created = true;
-          expect(Number(flags) & constants.O_EXCL).toBe(constants.O_EXCL);
-          await fs.rename(join(artifacts, 'parent'), join(artifacts, 'held'));
-          await fs.symlink(outside, join(artifacts, 'parent'), hostPlatform === 'win32' ? 'junction' : 'dir');
-        }
-        return open(file, flags, mode);
-      });
-      expect((await call('artifact-write', 'parent/new')).isError).toBe(true);
-      expect(created).toBe(true);
-      expect(await fs.readdir(outside)).toEqual(['secret']);
-    });
-
-    it('preserves a replacement when verification fails after creation', async () => {
-      const open = fs.open.bind(fs);
-      vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
-        const handle = await open(file, flags, mode);
-        if (Number(flags) & constants.O_CREAT) {
-          await fs.rename(String(file), join(artifacts, 'held'));
-          await fs.writeFile(String(file), 'replacement inode');
-        }
-        return handle;
-      });
-      expect((await call('artifact-write', 'new')).isError).toBe(true);
-      expect(await fs.readFile(join(artifacts, 'new'), 'utf8')).toBe('replacement inode');
-      expect(await fs.readFile(join(artifacts, 'held'), 'utf8')).toBe('');
-    });
-
-    it.skipIf(!posix)('exclusive creation rejects a dangling symlink without O_NOFOLLOW', async () => {
-      const open = fs.open.bind(fs);
-      let inserted = false;
-      vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
-        if (Number(flags) & constants.O_CREAT) {
-          inserted = true;
-          await fs.symlink(join(outside, 'missing'), String(file));
-        }
-        return open(file, Number(flags) & ~(constants.O_NOFOLLOW || 0), mode);
-      });
-      expect((await call('artifact-write', 'new')).isError).toBe(true);
-      expect(inserted).toBe(true);
-      expect(await fs.readdir(outside)).toEqual(['secret']);
-    });
-
-    it.each(['artifact-read', 'artifact-write'])('%s rejects a replaced file identity before accessing content', async tool => {
-      await fs.writeFile(join(artifacts, 'file'), 'preserved content');
-      const open = fs.open.bind(fs);
-      vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
-        if (tool === 'artifact-write') expect(Number(flags) & constants.O_TRUNC).toBe(0);
-        const handle = await open(file, flags, mode);
-        await fs.rename(join(artifacts, 'file'), join(artifacts, 'held'));
-        await fs.writeFile(join(artifacts, 'file'), 'different inode');
-        return handle;
-      });
-      expect((await call(tool, 'file')).isError).toBe(true);
-      expect(await fs.readFile(join(artifacts, 'held'), 'utf8')).toBe('preserved content');
-      expect(await fs.readFile(join(artifacts, 'file'), 'utf8')).toBe('different inode');
-    });
-
-    it.each(['artifact-read', 'artifact-write'])('%s rejects an outside parent swap before file open', async tool => {
-      await fs.mkdir(join(artifacts, 'parent'));
-      await fs.writeFile(join(artifacts, 'parent/secret'), 'inside content');
-      const open = fs.open.bind(fs);
-      vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
-        if (tool === 'artifact-write') expect(Number(flags) & constants.O_TRUNC).toBe(0);
-        await fs.rename(join(artifacts, 'parent'), join(artifacts, 'held'));
-        await fs.symlink(outside, join(artifacts, 'parent'), hostPlatform === 'win32' ? 'junction' : 'dir');
-        return open(file, flags, mode);
-      });
-      expect((await call(tool, 'parent/secret')).isError).toBe(true);
-      expect(await fs.readFile(join(outside, 'secret'), 'utf8')).toBe('outside content');
-    });
-
-    it('checks a newly created directory with lstat before creating descendants', async () => {
-      const mkdir = fs.mkdir.bind(fs);
-      vi.spyOn(fs, 'mkdir').mockImplementation(async (dir, options) => {
-        expect(options).toBeUndefined();
-        if (String(dir).endsWith(`${sep}new`)) await fs.symlink(outside, String(dir), hostPlatform === 'win32' ? 'junction' : 'dir');
-        return mkdir(dir, options as never);
-      });
-      expect((await call('artifact-write', 'new/deep/file')).isError).toBe(true);
-      expect(await fs.readdir(outside)).toEqual(['secret']);
-    });
+  it('accepts standalone dot components while rejecting parent segments and streams', async () => {
+    expect((await call('artifact-write', './requirements/./file.md')).isError).toBeUndefined();
+    expect((await call('artifact-read', './requirements/file.md')).content).toEqual([{ type: 'text', text: 'replacement' }]);
+    for (const name of ['requirements/../file.md', './file.md:stream', 'requirements./file.md']) {
+      expect((await call('artifact-read', name)).isError).toBe(true);
+    }
   });
 
+  it('does not let writable location pointers select another artifact root', async () => {
+    expect((await client.callTool({ name: 'artifact-write', arguments: {
+      path: '.aiwg-location', content: outside, project_dir: project,
+    } })).isError).toBeUndefined();
+    await fs.writeFile(join(project, '.aiwg-location'), outside);
+    await fs.writeFile(join(artifacts, 'secret'), 'inside');
+    expect((await call('artifact-read', 'secret')).content).toEqual([{ type: 'text', text: 'inside' }]);
+    for (const tool of ['artifact-read', 'artifact-write']) {
+      expect((await client.callTool({ name: tool, arguments: {
+        path: 'secret', project_dir: artifacts, content: 'replacement',
+      } })).isError).toBe(true);
+    }
+    expect(await fs.readFile(join(outside, 'secret'), 'utf8')).toBe('outside content');
+  });
+
+  it('binds the default project and environment store at server start', async () => {
+    await fs.writeFile(join(artifacts, 'file'), 'bound project');
+    vi.spyOn(process, 'cwd').mockReturnValue(outside);
+    vi.stubEnv('AIWG_ARTIFACTS_PATH', outside);
+    expect((await client.callTool({ name: 'artifact-read', arguments: { path: 'file' } })).content)
+      .toEqual([{ type: 'text', text: 'bound project' }]);
+  });
+
+  it('rejects hard-linked reads and replaces writes without changing the outside inode', async () => {
+    await fs.link(join(outside, 'secret'), join(artifacts, 'linked'));
+    expect((await call('artifact-read', 'linked')).isError).toBe(true);
+    expect((await call('artifact-write', 'linked')).isError).toBeUndefined();
+    expect(await fs.readFile(join(outside, 'secret'), 'utf8')).toBe('outside content');
+    expect(await fs.readFile(join(artifacts, 'linked'), 'utf8')).toBe('replacement');
+    expect((await fs.stat(join(artifacts, 'linked'))).nlink).toBe(1);
+  });
+
+  it('atomic replacement preserves an outside hard link inserted just before rename', async () => {
+    await fs.writeFile(join(artifacts, 'file'), 'old artifact');
+    const rename = fs.rename.bind(fs);
+    let replaced = false;
+    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+      if (String(from).endsWith('.tmp')) {
+        replaced = true;
+        await fs.unlink(join(artifacts, 'file'));
+        await fs.link(join(outside, 'secret'), join(artifacts, 'file'));
+      }
+      return rename(from, to);
+    });
+    expect((await call('artifact-write', 'file')).isError).toBeUndefined();
+    expect(replaced).toBe(true);
+    expect(await fs.readFile(join(outside, 'secret'), 'utf8')).toBe('outside content');
+    expect(await fs.readFile(join(artifacts, 'file'), 'utf8')).toBe('replacement');
+  });
+
+  it('never unlinks a pathname after exclusive-create verification fails', async () => {
+    const open = fs.open.bind(fs);
+    let temporary = '';
+    vi.spyOn(fs, 'open').mockImplementation(async (file, flags, mode) => {
+      const handle = await open(file, flags, mode);
+      if (Number(flags) & constants.O_CREAT) {
+        expect(Number(flags) & constants.O_EXCL).toBe(constants.O_EXCL);
+        temporary = String(file);
+        await fs.rename(temporary, join(artifacts, 'held'));
+        await fs.writeFile(temporary, 'replacement inode');
+      }
+      return handle;
+    });
+    const unlink = vi.spyOn(fs, 'unlink');
+    expect((await call('artifact-write', 'new')).isError).toBe(true);
+    expect(unlink).not.toHaveBeenCalled();
+    expect(await fs.readFile(join(artifacts, temporary.split('/').pop()!), 'utf8')).toBe('replacement inode');
+    expect(await fs.readFile(join(artifacts, 'held'), 'utf8')).toBe('');
+  });
+
+});
+
+// Unsupported platforms must refuse before any pathname open/mkdir/cleanup.
+describe('artifact access without rooted operations', () => {
+  it.each(['darwin', 'win32'])('fails closed on %s without creating outside files or directories', async platform => {
+    root = await fs.mkdtemp(join(tmpdir(), 'aiwg-artifact-unsupported-'));
+    project = join(root, 'project');
+    await fs.mkdir(project);
+    vi.stubGlobal('process', new Proxy(process, {
+      get: (target, key) => key === 'platform' ? platform : Reflect.get(target, key),
+    }));
+    const unsupported = await createServer();
+    const requester = new Client({ name: 'unsupported-regression', version: '1.0.0' });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    await unsupported.connect(st);
+    await requester.connect(ct);
+    const mkdir = vi.spyOn(fs, 'mkdir');
+    const open = vi.spyOn(fs, 'open');
+    const unlink = vi.spyOn(fs, 'unlink');
+    try {
+      for (const tool of ['artifact-read', 'artifact-write']) {
+        const result = await requester.callTool({ name: tool, arguments: { path: './new/deep/file', project_dir: project, content: 'replacement' } });
+        expect(result.isError).toBe(true);
+        expect(result.content).toEqual([{ type: 'text', text: expect.stringContaining('refusing unanchored I/O') }]);
+      }
+      expect(mkdir).not.toHaveBeenCalled();
+      expect(open).not.toHaveBeenCalled();
+      expect(unlink).not.toHaveBeenCalled();
+      expect(await fs.readdir(project)).toEqual([]);
+    } finally {
+      await requester.close();
+      await unsupported.close();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
 });
