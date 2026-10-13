@@ -47,8 +47,8 @@
  * Given that split, this module's `runConfinedCheck` enforces EVERY
  * required capability (write confinement, home-read protection, and network
  * isolation — not write confinement alone) and reports every capability it
- * could not additionally enforce — most importantly, that reads of paths
- * outside the worktree are visible to the check on this host — as an
+ * could not additionally enforce — most importantly, that readable paths
+ * outside the worktree and home/tmp trees remain visible — as an
  * explicit, structured `degraded` list on every result. A launch requests
  * EXACTLY the systemd properties this host's live probe just proved
  * (`buildVerificationExtraProperties`): `ProtectHome=`, `PrivateTmp=`, and
@@ -86,6 +86,7 @@ import {
   detectWorkerIsolation,
   resolveManagerEnvNames,
 } from './worker-isolation.mjs';
+import { buildSystemdClientEnv, resolveSystemdRun } from './systemd-client.mjs';
 
 let cachedCapabilities;
 
@@ -126,7 +127,7 @@ export function missingRequiredCapabilities(capabilities) {
 }
 
 function runProbeUnit({ spawn, argv }) {
-  return spawn(argv[0], argv.slice(1), { encoding: 'utf8', timeout: 20000 });
+  return spawn(resolveSystemdRun(), argv.slice(1), { encoding: 'utf8', timeout: 20000, env: buildSystemdClientEnv({ envNames: [] }) });
 }
 
 function fullyDegradedResult(reason) {
@@ -335,17 +336,9 @@ export function probeVerificationIsolationCapabilities({ spawn = spawnSync, forc
     try { rmSync(tmpMarkerPath, { force: true }); } catch { /* best effort cleanup of the leaked marker */ }
   }
 
-  // Arbitrary-path read isolation (InaccessiblePaths=/TemporaryFileSystem=)
-  // needs the same denied privilege; it is marked degraded whenever the
-  // other mount-creating properties above are degraded on this host, since
-  // all of them share the identical AppArmor denial. There is no
-  // unprivileged alternative probe for this one that is not itself a false
-  // negative on a host where it really is enforced, so it is tied to the
-  // other mount-creating probes rather than independently re-measured.
-  const arbitraryPathReadIsolation = (homeReadIsolation === 'enforced' && tmpIsolation === 'enforced') ? 'enforced' : 'degraded';
-  if (arbitraryPathReadIsolation === 'degraded') {
-    degraded.push({ capability: 'arbitraryPathReadIsolation', reason: 'mount-creating confinement (ProtectHome/PrivateTmp/InaccessiblePaths/TemporaryFileSystem) is degraded on this host; reads of paths outside the worktree, the output directory, and $HOME are not hidden from checks' });
-  }
+  // ProtectHome/PrivateTmp hide their trees; ReadOnlyPaths=/ leaves other reads visible.
+  const arbitraryPathReadIsolation = 'degraded';
+  degraded.push({ capability: 'arbitraryPathReadIsolation', reason: 'the verification profile does not confine reads to the worktree and output directory: ProtectHome/PrivateTmp hide only home and temporary paths, and ReadOnlyPaths=/ prevents writes but leaves other readable host paths accessible' });
 
   // B1: writeConfinement is positively demonstrated from OUTSIDE, after
   // the unit exits, on BOTH sides: the allow-listed scratch write must be
@@ -492,11 +485,12 @@ export function runConfinedCheck({
     return { ...result, isolation };
   }
 
-  let managerEnvNames;
+  let managerEnvNames, systemdRun;
   try {
     managerEnvNames = resolveManagerEnvNames({ spawn });
+    systemdRun = resolveSystemdRun();
   } catch (error) {
-    return { status: null, stdout: '', stderr: '', error: { code: 'ISOLATION_UNAVAILABLE', message: `unable to resolve the user manager's environment: ${error.message}` }, isolation };
+    return { status: null, stdout: '', stderr: '', error: { code: 'ISOLATION_UNAVAILABLE', message: `unable to resolve the user manager's environment or trusted systemd-run client: ${error.message}` }, isolation };
   }
 
   const unit = `aiwg-verify-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -505,6 +499,6 @@ export function runConfinedCheck({
     unit, memoryMax: '2G', command, args, cwd, env, envNames, managerEnvNames,
     kind: 'unit', extraProperties, pipe: true, wait: true,
   });
-  const result = spawn(argv[0], argv.slice(1), { encoding: 'utf8', timeout: timeoutMs });
+  const result = spawn(systemdRun, argv.slice(1), { encoding: 'utf8', timeout: timeoutMs, env: buildSystemdClientEnv({ env, envNames }) });
   return { ...result, isolation };
 }

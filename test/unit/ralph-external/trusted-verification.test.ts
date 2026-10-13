@@ -271,7 +271,8 @@ describe('M1 residual: an allowlisted interpreter given a worktree-path argument
   const enforcedCapabilities = {
     mode: 'systemd-unit', writeConfinement: 'enforced', homeReadIsolation: 'enforced',
     networkIsolation: 'enforced', tmpIsolation: 'enforced', noNewPrivileges: 'enforced',
-    tmpWriteConfinement: 'enforced', arbitraryPathReadIsolation: 'enforced', degraded: [],
+    tmpWriteConfinement: 'enforced', arbitraryPathReadIsolation: 'degraded',
+    degraded: [{ capability: 'arbitraryPathReadIsolation', reason: 'other host paths remain readable' }],
   };
 
   it('refuses /usr/bin/node <worktree-script> when confinement is degraded and no explicit opt-in was given', () => {
@@ -294,7 +295,7 @@ describe('M1 residual: an allowlisted interpreter given a worktree-path argument
     })).not.toThrow();
   });
 
-  it('allows the same combination when confinement is fully enforced (no opt-in needed)', () => {
+  it('allows the same combination when required capabilities are enforced despite degraded arbitrary reads (no opt-in needed)', () => {
     const worktree = tmpWorktree();
     const script = path.join(worktree, 'worker-script.js');
     writeFileSync(script, 'console.log("hi");\n');

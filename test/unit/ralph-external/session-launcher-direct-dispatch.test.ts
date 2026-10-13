@@ -3,14 +3,28 @@
  *
  * @source @tools/ralph-external/session-launcher.mjs planDirectWorkerLaunch
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 // @ts-ignore - ESM import
 import { planDirectWorkerLaunch } from '../../../tools/ralph-external/session-launcher.mjs';
+
+import path from 'node:path';
+import { rmSync } from 'node:fs';
+import { systemdClientFixture } from '../../fixtures/systemd-client.js';
+
+let clientFixture: ReturnType<typeof systemdClientFixture>;
+beforeEach(() => {
+  clientFixture = systemdClientFixture();
+  vi.stubEnv('PATH', clientFixture.root);
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+  rmSync(clientFixture.root, { recursive: true, force: true });
+});
 
 const dispatchOnConfig = { parallelism: { worker_dispatch: true } };
 const okLive = { supported: true, availMemGb: 64, loadRatio: 0.01, memPsiAvg10: 0, memPsiAvg60: 0, workers: 0, freeDiskGb: 64 };
 const hotLive = { supported: true, availMemGb: 1, loadRatio: 2.5, memPsiAvg10: 50, memPsiAvg60: 50, workers: 20, freeDiskGb: 0.5 };
-const okSpawn = (binary: string) => (binary === 'systemd-run'
+const okSpawn = (binary: string) => (path.basename(binary) === 'systemd-run'
   ? { status: 0, stdout: 'systemd 255\n', error: null }
   : { status: 0, stdout: '255\n', error: null });
 
@@ -36,7 +50,7 @@ describe('planDirectWorkerLaunch gate-then-launch (T-OG-16, FR-OG-107/108)', () 
       isolation: { mode: 'systemd-unit', reason: 'fake' }, proposeUnit: () => 'aiwg-worker-legacy-1',
       spawn: ((binary: string, argv: string[]) => {
         spawnCalls += 1;
-        if (binary === 'systemctl') return { status: 0, stdout: '4242\n', stderr: '', error: null };
+        if (path.basename(binary) === 'systemctl') return { status: 0, stdout: '4242\n', stderr: '', error: null };
         return { status: 0, stdout: '', stderr: '', error: null };
       }) as never,
     });
@@ -56,13 +70,13 @@ describe('planDirectWorkerLaunch gate-then-launch (T-OG-16, FR-OG-107/108)', () 
       isolation: { mode: 'systemd-unit', reason: 'fake' }, proposeUnit: () => 'aiwg-worker-demo-7',
       spawn: ((binary: string, argv: string[]) => {
         calls.push([binary, ...argv]);
-        if (binary === 'systemctl') return { status: 0, stdout: '4242\n', stderr: '', error: null };
+        if (path.basename(binary) === 'systemctl') return { status: 0, stdout: '4242\n', stderr: '', error: null };
         return { status: 0, stdout: '', stderr: '', error: null };
       }) as never,
     });
     expect(outcome).toMatchObject({ launched: true, mode: 'systemd-unit', unit: 'aiwg-worker-demo-7', pid: 4242 });
     expect((outcome as any).gate).toMatchObject({ enabled: true, ok: true });
-    const launchCall = calls.find(call => call[0] === 'systemd-run')!;
+    const launchCall = calls.find(call => call[0] === clientFixture.binary)!;
     expect(launchCall).toContain('MemoryMax=4G');
     expect(launchCall).toContain('MemorySwapMax=0');
   });

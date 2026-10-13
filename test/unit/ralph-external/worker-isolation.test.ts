@@ -1,7 +1,11 @@
-import { describe, expect, it, afterEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync, readdirSync, readlinkSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { spawnSync as realSpawnSync, spawn as realSpawn } from 'node:child_process';
+import { once } from 'node:events';
+import { systemdClientFixture } from '../../fixtures/systemd-client.js';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { buildSystemdClientEnv, resolveSystemdClient } from '../../../tools/ralph-external/lib/systemd-client.mjs';
 import * as workerIsolation from '../../../tools/ralph-external/lib/worker-isolation.mjs';
 import {
   buildWorkerIsolationArgs,
@@ -13,7 +17,10 @@ import {
 
 const ENV = { PATH: '/usr/bin:/bin', HOME: '/home/conductor' };
 const roots: string[] = [];
-afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
+afterEach(() => {
+  vi.unstubAllEnvs();
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
 function tmpWorktree() {
   const root = mkdtempSync(path.join(tmpdir(), 'aiwg-worker-isolation-'));
   roots.push(root);
@@ -36,6 +43,7 @@ describe('worker isolation argument construction (FR-OG-108)', () => {
       '--unit=aiwg-worker-demo-123',
       '--setenv=PATH',
       '--setenv=HOME',
+      '-p', 'UnsetEnvironment=XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS SYSTEMD_BUS_ADDRESS',
       '-p', 'StandardInput=null',
       '-p', 'MemoryMax=4G',
       '-p', 'MemorySwapMax=0',
@@ -60,12 +68,8 @@ describe('worker isolation argument construction (FR-OG-108)', () => {
     const unitArgv = buildWorkerIsolationArgs({
       unit: 'aiwg-worker-demo-9', memoryMaxGb: 1, command: '/bin/true', env: ENV, managerEnvNames,
     });
-    // XDG_RUNTIME_DIR is deliberately NOT unset even though it is neither
-    // allowlisted nor a secret: unsetting it was verified (live systemd-run
-    // --user) to make the launched unit's own /proc/<pid>/environ EACCES
-    // even to the same-UID conductor that started it.
-    expect(unitArgv).toContain('UnsetEnvironment=LANG SSH_AUTH_SOCK');
-    expect(unitArgv.join(' ')).not.toMatch(/UnsetEnvironment=[^-]*XDG_RUNTIME_DIR/);
+    // Connection coordinates belong only to the conductor's clients.
+    expect(unitArgv).toContain('UnsetEnvironment=LANG XDG_RUNTIME_DIR SSH_AUTH_SOCK DBUS_SESSION_BUS_ADDRESS SYSTEMD_BUS_ADDRESS');
     // The same manager-env snapshot against a scope launch has no unset
     // property at all: `--scope` ignores UnsetEnvironment (verified against
     // a live systemd-run --user --scope), so emitting it there would be a
@@ -118,6 +122,7 @@ describe('worker isolation argument construction (FR-OG-108)', () => {
       '-p', 'UnsetEnvironment=NODE_OPTIONS NODE_PATH LD_PRELOAD LD_LIBRARY_PATH LD_AUDIT LD_DEBUG LD_DEBUG_OUTPUT',
       '--unit=aiwg-worker-mcp-9',
       '--setenv=PATH', '--setenv=HOME',
+      '-p', 'UnsetEnvironment=XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS SYSTEMD_BUS_ADDRESS',
       '-p', 'MemoryMax=1G',
       '-p', 'MemorySwapMax=0',
       '--', '/usr/bin/node', 'server.js',
@@ -132,11 +137,11 @@ describe('worker isolation argument construction (FR-OG-108)', () => {
     expect(() => buildWorkerIsolationArgs({ ...base, logFile: '/tmp/log' })).toThrow(/attached/);
   });
 
-  it('rejects an allowlisted name that would alter the trusted transport bootstrap', () => {
-    expect(() => buildWorkerIsolationArgs({
-      unit: 'aiwg-worker-mcp-9', memoryMaxGb: 1, command: '/usr/bin/node', env: { NODE_OPTIONS: '--inspect' },
-      envNames: ['NODE_OPTIONS'], attached: true,
-    })).toThrow(/trusted transport bootstrap/);
+  it.for(['unit', 'scope', 'attached'])('refuses loader/client controls before launching %s', mode => {
+    for (const name of ['LD_PRELOAD', 'LD_FUTURE_CONTROL', 'DYLD_INSERT_LIBRARIES', 'GLIBC_TUNABLES', 'NODE_OPTIONS', 'NODE_PATH']) {
+      expect(() => buildWorkerIsolationArgs({ unit: 'test', memoryMaxGb: 1, command: '/bin/true',
+        kind: mode === 'scope' ? 'scope' : 'unit', attached: mode === 'attached', envNames: [name], env: { [name]: 'synthetic' } })).toThrow(/trusted transport bootstrap/);
+    }
   });
 
   it('derives unit-safe names', () => {
@@ -146,24 +151,45 @@ describe('worker isolation argument construction (FR-OG-108)', () => {
 });
 
 describe('worker isolation detection', () => {
+  beforeEach(() => { const fixture = systemdClientFixture(); roots.push(fixture.root); vi.stubEnv('PATH', fixture.root); });
   const okSpawn = (binary: string) => {
-    if (binary === 'systemd-run') return { status: 0, stdout: 'systemd 255\n', error: null };
+    if (path.basename(binary) === 'systemd-run') return { status: 0, stdout: 'systemd 255\n', error: null };
     return { status: 0, stdout: '255\n', error: null };
   };
 
-  it('reports systemd-unit when the user manager is reachable', () => {
+  it.skipIf(process.platform !== 'linux')('reports systemd-unit when the user manager is reachable', () => {
     expect(detectWorkerIsolation({ spawn: okSpawn }).mode).toBe('systemd-unit');
   });
 
-  it('reports degraded without a systemd-run binary', () => {
+  it.skipIf(process.platform !== 'linux')('uses absolute clients and conductor-only discovery/control environments', () => {
+    vi.stubEnv('XDG_RUNTIME_DIR', '/conductor/runtime'); vi.stubEnv('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/conductor/bus');
+    vi.stubEnv('SYSTEMD_BUS_ADDRESS', 'unix:path=/conductor/systemd-bus'); vi.stubEnv('NODE_OPTIONS', '--require=/synthetic/bootstrap');
+    vi.stubEnv('AIWG_UNLISTED_SECRET', 'conductor-secret');
+    const calls: string[] = [];
+    const spawn = ((binary: string, args: string[], options: any) => {
+      expect(binary).toBe(resolveSystemdClient(args.includes('--version') ? 'systemd-run' : 'systemctl'));
+      expect(options.env).toMatchObject({ XDG_RUNTIME_DIR: '/conductor/runtime', DBUS_SESSION_BUS_ADDRESS: 'unix:path=/conductor/bus', SYSTEMD_BUS_ADDRESS: 'unix:path=/conductor/systemd-bus' });
+      expect(options.env).not.toHaveProperty('NODE_OPTIONS'); expect(options.env).not.toHaveProperty('AIWG_UNLISTED_SECRET');
+      calls.push(args.join(' '));
+      return { status: 0, stdout: args.includes('ControlGroup') ? '/synthetic/group\n' : args.includes('ActiveState') ? 'ActiveState=active\nResult=success\nExecMainStatus=0\nMemoryMax=1024\n' : 'Version=259\n' };
+    }) as never;
+    expect(detectWorkerIsolation({ spawn }).mode).toBe('systemd-unit');
+    workerIsolation.resolveManagerEnvNames({ spawn });
+    workerIsolation.getWorkerIsolationStatus('test', { spawn });
+    expect(workerIsolation.readUnitControlGroup('test', { spawn })).toBe('/synthetic/group');
+    expect(stopWorkerUnit('test', { spawn }).ok).toBe(true);
+    expect(calls).toHaveLength(6);
+  });
+
+  it.skipIf(process.platform !== 'linux')('reports degraded without a systemd-run binary', () => {
     const missing = detectWorkerIsolation({ spawn: () => { throw new Error('spawn ENOENT'); } });
     expect(missing.mode).toBe('degraded');
     expect(missing.reason).toContain('systemd-run is unavailable');
   });
 
-  it('reports degraded when the user manager is unreachable', () => {
+  it.skipIf(process.platform !== 'linux')('reports degraded when the user manager is unreachable', () => {
     const noManager = detectWorkerIsolation({
-      spawn: (binary: string) => (binary === 'systemd-run'
+      spawn: (binary: string) => (path.basename(binary) === 'systemd-run'
         ? { status: 0, stdout: 'systemd 255\n', error: null }
         : { status: 1, stdout: '', error: null }),
     });
@@ -185,10 +211,72 @@ describe('worker isolation detection', () => {
 });
 
 describe('launchIsolatedWorker gate-then-launch', () => {
+  let trustedBinary: string;
+  beforeEach(() => {
+    const fixture = systemdClientFixture();
+    roots.push(fixture.root);
+    trustedBinary = fixture.binary;
+    vi.stubEnv('PATH', fixture.root);
+  });
   const passingGate = { enabled: true, ok: true, failures: [] };
   // Synthetic user-manager environment: these tests must not depend on the
   // host having a systemd user manager (CI containers have none).
   const managerSpawn = (() => ({ status: 0, stdout: 'LANG=C.UTF-8\nNODE_OPTIONS=--synthetic\nLD_PRELOAD=/synthetic.so\n', stderr: '' })) as never;
+
+  it.skipIf(process.platform === 'win32').for(['unit', 'scope', 'missing-path'])('uses the conductor executable with real spawn resolution for %s', (kind, ctx) => {
+    const callerRoot = tmpWorktree();
+    const callerBinary = path.join(callerRoot, 'systemd-run');
+    writeFileSync(callerBinary, `#!/bin/sh\nprintf 'CALLER_EXECUTABLE_RAN\\n'\n`, { mode: 0o700 });
+    const callerPath = kind === 'missing-path' ? path.join(callerRoot, 'missing') : callerRoot;
+    let clientResult: ReturnType<typeof realSpawnSync>;
+    const outcome = launchIsolatedWorker({ command: '/bin/true', memoryMaxGb: 1, gate: passingGate,
+      isolation: { mode: 'systemd-unit', reason: 'fixture' }, kind: kind === 'scope' ? 'scope' : 'unit',
+      env: { PATH: callerPath, AIWG_ISOLATION_TOKEN: 'caller-token' }, envNames: ['PATH', 'AIWG_ISOLATION_TOKEN'],
+      spawn: ((binary: string, args: string[], options: any) => {
+        if (path.basename(binary) === 'systemctl') return { status: 0, stdout: '', stderr: '', error: null };
+        clientResult = realSpawnSync(binary, args, options);
+        return clientResult;
+      }) as never,
+    });
+    if (clientResult!.error?.code === 'EPERM') { ctx.skip('sandbox denies real executable spawn'); return; }
+    expect(clientResult!.error).toBeUndefined();
+    expect(outcome.launched).toBe(true);
+    const output = JSON.parse(String(clientResult!.stdout));
+    expect(output).toMatchObject({ source: 'conductor', env: { PATH: callerPath, AIWG_ISOLATION_TOKEN: 'caller-token' } });
+    expect(output.args).toContain('--setenv=PATH');
+    expect(output.args.join(' ')).not.toContain('caller-token');
+  });
+
+  it.skipIf(process.platform === 'win32')('uses the conductor executable for a real asynchronous attached launch', async ctx => {
+    const preflight = realSpawnSync(trustedBinary, [], { encoding: 'utf8' });
+    if (preflight.error?.code === 'EPERM') { ctx.skip('sandbox denies real executable spawn'); return; }
+    expect(preflight.error).toBeUndefined();
+    const callerRoot = tmpWorktree();
+    writeFileSync(path.join(callerRoot, 'systemd-run'), `#!/bin/sh\nprintf 'CALLER_EXECUTABLE_RAN\\n'\n`, { mode: 0o700 });
+    const outcome = launchIsolatedWorker({ command: '/bin/true', memoryMaxGb: 1, gate: passingGate, attached: true,
+      isolation: { mode: 'systemd-unit', reason: 'fixture' },
+      env: { PATH: callerRoot, AIWG_ISOLATION_TOKEN: 'caller-token' }, envNames: ['PATH', 'AIWG_ISOLATION_TOKEN'],
+      spawn: managerSpawn, spawnAsync: realSpawn,
+    });
+    expect(outcome.launched).toBe(true);
+    let stdout = '';
+    outcome.child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+    expect(await once(outcome.child, 'close')).toEqual([0, null]);
+    expect(JSON.parse(stdout)).toMatchObject({ source: 'conductor', env: { PATH: callerRoot, AIWG_ISOLATION_TOKEN: 'caller-token' } });
+  });
+
+  it('refuses launch when no trusted executable exists, even if the caller PATH has one', () => {
+    const callerPath = path.dirname(trustedBinary);
+    vi.stubEnv('PATH', tmpWorktree());
+    const asyncSpawn = vi.fn();
+    const outcome = launchIsolatedWorker({ command: '/bin/true', memoryMaxGb: 1, gate: passingGate, attached: true,
+      isolation: { mode: 'systemd-unit', reason: 'fixture' }, env: { PATH: callerPath },
+      spawn: managerSpawn, spawnAsync: asyncSpawn,
+    });
+    expect(outcome.launched).toBe(false);
+    expect(outcome.diagnostic).toContain("systemctl is unavailable on the conductor's absolute PATH");
+    expect(asyncSpawn).not.toHaveBeenCalled();
+  });
 
   it('attaches separate pipes and passes only environment names in systemd argv', () => {
     let binary: string | undefined;
@@ -202,7 +290,7 @@ describe('launchIsolatedWorker gate-then-launch', () => {
       spawnAsync: ((command: string, args: string[], opts: any) => { binary = command; argv = args; options = opts; return child; }) as never,
     });
     expect(outcome).toMatchObject({ mode: 'systemd-unit', child, launched: true });
-    expect(binary).toBe('systemd-run');
+    expect(binary).toBe(trustedBinary);
     expect(argv).toContain('--wait');
     expect(argv).toContain('--pipe');
     expect(argv).toContain('KillMode=control-group');
@@ -285,19 +373,70 @@ describe('launchIsolatedWorker gate-then-launch', () => {
       proposeUnit: () => 'aiwg-worker-demo-9',
       spawn: ((binary: string, argv: string[]) => {
         calls.push([binary, ...argv]);
-        if (binary === 'systemctl' && argv.includes('show-environment')) return { status: 0, stdout: 'PATH=/x\nLANG=en_US.UTF-8\n', stderr: '', error: null };
-        if (binary === 'systemctl') return { status: 0, stdout: '4242\n', stderr: '', error: null };
+        if (path.basename(binary) === 'systemctl' && argv.includes('show-environment')) return { status: 0, stdout: 'PATH=/x\nLANG=en_US.UTF-8\n', stderr: '', error: null };
+        if (path.basename(binary) === 'systemctl') return { status: 0, stdout: '4242\n', stderr: '', error: null };
         return { status: 0, stdout: '', stderr: '', error: null };
       }) as never,
     });
     expect(outcome).toMatchObject({ launched: true, mode: 'systemd-unit', unit: 'aiwg-worker-demo-9', pid: 4242 });
-    const launchCall = calls.find(call => call[0] === 'systemd-run')!;
-    expect(launchCall.slice(0, 4)).toEqual(['systemd-run', '--user', '--expand-environment=no', '--unit=aiwg-worker-demo-9']);
+    const launchCall = calls.find(call => call[0] === trustedBinary)!;
+    expect(launchCall.slice(0, 4)).toEqual([trustedBinary, '--user', '--expand-environment=no', '--unit=aiwg-worker-demo-9']);
     expect(launchCall).toContain('MemoryMax=4G');
     expect(launchCall).toContain('MemorySwapMax=0');
     // LANG was reported by the simulated manager environment and is not
     // allowlisted: it must be explicitly unset, not silently inherited.
     expect(launchCall.join(' ')).toContain('UnsetEnvironment=LANG');
+  });
+
+  it.each(['unit', 'scope', 'attached'])('imports caller values into the %s client without unrelated secrets or values in argv', kind => {
+    const cwd = tmpWorktree();
+    vi.stubEnv('AIWG_ISOLATION_TOKEN', 'conductor-token');
+    vi.stubEnv('AIWG_OMITTED_TOKEN', 'conductor-only-token');
+    vi.stubEnv('AIWG_UNLISTED_SECRET', 'conductor-secret');
+    vi.stubEnv('XDG_RUNTIME_DIR', '/run/user/synthetic');
+    vi.stubEnv('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/synthetic/conductor-bus');
+    vi.stubEnv('SYSTEMD_BUS_ADDRESS', 'unix:path=/synthetic/conductor-systemd-bus');
+    vi.stubEnv('NODE_OPTIONS', '--require=/synthetic/bootstrap');
+    let clientEnv: NodeJS.ProcessEnv | undefined;
+    let launchArgs: string[] = [];
+    const outcome = launchIsolatedWorker({
+      command: '/bin/true', cwd, memoryMaxGb: 1, gate: passingGate,
+      kind: kind === 'scope' ? 'scope' : 'unit', attached: kind === 'attached',
+      isolation: { mode: 'systemd-unit', reason: 'fake' },
+      envNames: ['PATH', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'SYSTEMD_BUS_ADDRESS', 'AIWG_ISOLATION_TOKEN', 'AIWG_CALLER_ONLY', 'AIWG_OMITTED_TOKEN'],
+      env: { PATH: '/synthetic/bin', XDG_RUNTIME_DIR: '/run/user/caller',
+        DBUS_SESSION_BUS_ADDRESS: 'unix:path=/synthetic/caller-bus', SYSTEMD_BUS_ADDRESS: 'unix:path=/synthetic/caller-systemd-bus',
+        AIWG_ISOLATION_TOKEN: 'caller-token', AIWG_CALLER_ONLY: 'caller-only-token', AIWG_UNLISTED_SECRET: 'caller-secret' },
+      spawn: ((binary: string, argv: string[], options: any) => {
+        if (binary === trustedBinary) { clientEnv = options.env; launchArgs = argv; }
+        else expect(options.env ?? process.env).toMatchObject({ XDG_RUNTIME_DIR: '/run/user/synthetic',
+          DBUS_SESSION_BUS_ADDRESS: 'unix:path=/synthetic/conductor-bus', SYSTEMD_BUS_ADDRESS: 'unix:path=/synthetic/conductor-systemd-bus' });
+        return { status: 0, stdout: argv.includes('show-environment')
+          ? 'CONDUCTOR_MANAGER_ONLY=synthetic\n' : '', stderr: '', error: null };
+      }) as never,
+      spawnAsync: ((binary: string, argv: string[], options: any) => {
+        expect(binary).toBe(trustedBinary); clientEnv = options.env; launchArgs = argv;
+        return { pid: 4242, once: () => {} };
+      }) as never,
+    });
+    expect(outcome.launched).toBe(true);
+    expect(clientEnv).toMatchObject({ PATH: '/synthetic/bin', XDG_RUNTIME_DIR: '/run/user/synthetic',
+      DBUS_SESSION_BUS_ADDRESS: 'unix:path=/synthetic/conductor-bus',
+      SYSTEMD_BUS_ADDRESS: 'unix:path=/synthetic/conductor-systemd-bus',
+      AIWG_ISOLATION_TOKEN: 'caller-token', AIWG_CALLER_ONLY: 'caller-only-token' });
+    for (const name of ['AIWG_UNLISTED_SECRET', 'AIWG_OMITTED_TOKEN', 'NODE_OPTIONS']) {
+      expect(clientEnv).not.toHaveProperty(name);
+      expect(launchArgs).not.toContain(`--setenv=${name}`);
+    }
+    for (const name of ['XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'SYSTEMD_BUS_ADDRESS']) expect(launchArgs).not.toContain(`--setenv=${name}`);
+    if (kind === 'scope' || kind === 'attached') {
+      const names = JSON.parse(launchArgs[launchArgs.indexOf('--worker-environment') + 1]);
+      for (const name of ['XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'SYSTEMD_BUS_ADDRESS']) expect(names).not.toContain(name);
+    }
+    expect(launchArgs).toContain('--setenv=AIWG_ISOLATION_TOKEN');
+    expect(launchArgs).toContain('--setenv=AIWG_CALLER_ONLY');
+    if (kind !== 'scope') expect(launchArgs).toContain('UnsetEnvironment=CONDUCTOR_MANAGER_ONLY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS SYSTEMD_BUS_ADDRESS');
+    expect(launchArgs.join(' ')).not.toMatch(/caller-token|caller-only-token|conductor-token|caller-secret/);
   });
 
   it('refuses to launch when the manager environment cannot be determined, rather than guessing at isolation', () => {
@@ -317,7 +456,7 @@ describe('launchIsolatedWorker gate-then-launch', () => {
       gate: passingGate,
       isolation: { mode: 'systemd-unit', reason: 'fake' },
       spawn: ((binary: string, argv: string[]) => {
-        if (binary === 'systemctl' && argv.includes('show-environment')) return { status: 0, stdout: '', stderr: '', error: null };
+        if (path.basename(binary) === 'systemctl' && argv.includes('show-environment')) return { status: 0, stdout: '', stderr: '', error: null };
         return { status: 1, stdout: '', stderr: 'Failed to connect', error: null };
       }) as never,
     });
@@ -442,7 +581,7 @@ describe('launchIsolatedWorker gate-then-launch', () => {
       proposeUnit: () => 'aiwg-worker-mcp-demo-9',
       spawn: ((binary: string, argv: string[]) => {
         syncCalls.push([binary, ...argv]);
-        if (binary === 'systemctl' && argv.includes('show-environment')) return { status: 0, stdout: '', stderr: '', error: null };
+        if (path.basename(binary) === 'systemctl' && argv.includes('show-environment')) return { status: 0, stdout: '', stderr: '', error: null };
         throw new Error('attached mode must never call the synchronous spawn for the launch itself');
       }) as never,
       spawnAsync: ((binary: string, argv: string[], opts: any) => {
@@ -452,7 +591,7 @@ describe('launchIsolatedWorker gate-then-launch', () => {
       }) as never,
     });
     expect(outcome).toMatchObject({ launched: true, mode: 'systemd-unit', unit: 'aiwg-worker-mcp-demo-9' });
-    expect(asyncArgv![0]).toBe('systemd-run');
+    expect(asyncArgv![0]).toBe(trustedBinary);
     expect(asyncArgv).toEqual(expect.arrayContaining(['--wait', '--pipe', '--quiet',
       '-p', 'KillMode=control-group', '-p', 'ExitType=cgroup', '-p', 'UMask=0077',
       '--unit=aiwg-worker-mcp-demo-9', '-p', 'MemoryMax=1G']));
@@ -464,17 +603,18 @@ describe('launchIsolatedWorker gate-then-launch', () => {
     expect(asyncOptions.stdio).toEqual(['ignore', 'pipe', 'pipe']); // stdin defaults to 'closed' here (not overridden)
     // Only the manager-environment query used the synchronous spawn; the
     // launch itself never did.
-    expect(syncCalls.every(call => call[0] === 'systemctl')).toBe(true);
+    expect(syncCalls.every(call => path.basename(call[0]) === 'systemctl')).toBe(true);
   });
 });
 
 describe('stopWorkerUnit (#2892 M2)', () => {
+  beforeEach(() => { const fixture = systemdClientFixture(); roots.push(fixture.root); vi.stubEnv('PATH', fixture.root); });
   it('requests systemctl --user stop and reports success', () => {
     const calls: string[][] = [];
     const result = stopWorkerUnit('aiwg-worker-demo-9', {
       spawn: ((binary: string, argv: string[]) => { calls.push([binary, ...argv]); return { status: 0, stdout: '', stderr: '', error: null }; }) as never,
     });
-    expect(calls).toEqual([['systemctl', '--user', 'stop', 'aiwg-worker-demo-9']]);
+    expect(calls).toEqual([[resolveSystemdClient('systemctl'), '--user', 'stop', 'aiwg-worker-demo-9']]);
     expect(result).toMatchObject({ ok: true });
   });
 
@@ -579,6 +719,7 @@ it('refuses missing gates and disabled gates when dispatch is on', () => {
 });
 
 it('reports retained systemd OOM result, status and ceiling', () => {
+  const fixture = systemdClientFixture(); roots.push(fixture.root); vi.stubEnv('PATH', fixture.root);
   const status = workerIsolation.getWorkerIsolationStatus('aiwg-worker-test', { spawn: (() => ({
     status: 0, stdout: 'ActiveState=failed\nResult=oom-kill\nExecMainStatus=9\nMemoryMax=67108864\n',
   })) as never });
@@ -626,69 +767,48 @@ describe('worker isolation live systemd-run', () => {
     }
   }, 30000);
 
-  // Proves the item-1 fix (secret-in-argv + non-exact unit environment)
-  // against a real systemd-run --user launch, not a mock.
-  it('isolates the unit environment to exactly the allowlisted names, with no secret in /proc/<pid>/environ or in any observed systemd-run argv', async ctx => {
-    if (detectWorkerIsolation().mode !== 'systemd-unit') { ctx.skip(); return; }
-    const { spawnSync } = await import('node:child_process');
+  it.skipIf(process.platform !== 'linux')('prints the real unit environment with caller precedence and no conductor/manager secrets or connections', async ctx => {
+    if (detectWorkerIsolation().mode !== 'systemd-unit') { ctx.skip('no reachable user manager'); return; }
+    const root = tmpWorktree();
     const unit = `aiwg-worker-env-probe-${process.pid}-${Date.now()}`;
-    const secret = `synthetic-env-probe-secret-${process.pid}-${Date.now()}`;
-    process.env.AIWG_ENV_PROBE_SECRET = secret;
-    const observedArgv: string[][] = [];
+    const suffix = `${process.pid}_${Date.now()}`;
+    const managerSecret = `AIWG_MANAGER_SECRET_${suffix}`;
+    const callerName = `AIWG_CALLER_VALUE_${suffix}`;
+    const conductorSecret = `AIWG_CONDUCTOR_SECRET_${suffix}`;
+    const logFile = path.join(root, 'environment.json');
+    const systemctl = resolveSystemdClient('systemctl');
+    const controlEnv = buildSystemdClientEnv({ envNames: [] });
+    const control = (args: string[]) => realSpawnSync(systemctl, ['--user', ...args], { env: controlEnv, encoding: 'utf8', timeout: 10000 });
+    vi.stubEnv(conductorSecret, 'synthetic-conductor-secret');
+    vi.stubEnv(callerName, 'conductor-value');
     try {
-      const outcome = launchIsolatedWorker({
-        memoryMaxGb: 64 / 1024, command: '/bin/sleep', args: ['5'],
-        envNames: ['PATH', 'HOME'],
-        cwd: '/tmp', gate: { enabled: true, ok: true, failures: [] },
-        isolation: { mode: 'systemd-unit', reason: 'live probe' }, proposeUnit: () => unit,
-        spawn: ((binary: string, argv: string[], opts?: any) => {
-          const result = spawnSync(binary, argv, { encoding: 'utf8', ...opts, timeout: opts?.timeout ?? 10000 });
-          if (binary === 'systemd-run') observedArgv.push([binary, ...argv]);
-          return result;
-        }) as never,
-      }) as { launched: boolean; mode: string; unit: string; pid?: number };
-      expect(outcome).toMatchObject({ launched: true, mode: 'systemd-unit', unit });
-      expect(Number.isInteger(outcome.pid) && outcome.pid! > 0).toBe(true);
-      // The exact systemd-run argv the conductor issued, captured here rather
-      // than merely asserted via buildWorkerIsolationArgs in isolation, is
-      // the "visible in /proc/*/cmdline" surface the finding described.
-      expect(observedArgv.length).toBe(1);
-      for (const token of observedArgv[0]) {
-        expect(token).not.toContain(secret);
-        expect(token).not.toMatch(/^--setenv=.+=/);
-      }
-      // This host's /proc/<pid>/environ access for a same-UID systemd --user
-      // unit was observed to be transiently EACCES for up to ~1s after the
-      // unit starts (kernel.yama.ptrace_scope=1; the unit's cgroup/session
-      // registration with logind appears to still be settling), then
-      // succeed — not related to this fix's allowlist/UnsetEnvironment
-      // logic (reproduced identically with no UnsetEnvironment at all).
-      // Poll rather than asserting on the first read.
-      let environRaw: string | undefined;
-      const readDeadline = Date.now() + 3000;
-      while (environRaw === undefined && Date.now() < readDeadline) {
-        try { environRaw = readFileSync(`/proc/${outcome.pid}/environ`).toString('latin1'); }
-        catch { await new Promise(resolve => setTimeout(resolve, 100)); }
-      }
-      expect(environRaw).toBeDefined();
-      const names = environRaw!.split('\0').filter(Boolean).map(entry => entry.slice(0, entry.indexOf('=')));
-      // XDG_RUNTIME_DIR is the one deliberate exception (see
-      // buildWorkerIsolationArgs' doc comment): everything else here is
-      // either allowlisted or a name systemd itself always injects.
-      const systemdInjected = ['XDG_RUNTIME_DIR', 'MANAGERPID', 'MANAGERPIDFDID', 'INVOCATION_ID', 'SYSTEMD_EXEC_PID', 'MEMORY_PRESSURE_WATCH', 'MEMORY_PRESSURE_WRITE', 'JOURNAL_STREAM'];
-      for (const name of names) expect(['PATH', 'HOME', ...systemdInjected]).toContain(name);
-      expect(environRaw!).not.toContain(secret);
-      expect(environRaw!).not.toContain('AIWG_ENV_PROBE_SECRET');
+      expect(control(['set-environment', `${managerSecret}=synthetic-manager-secret`, `${callerName}=manager-value`]).status).toBe(0);
+      const callerValue = 'caller-only literal $HOME';
+      const outcome = launchIsolatedWorker({ command: process.execPath,
+        args: ['-e', 'console.log(JSON.stringify(process.env))'], memoryMaxGb: 0.25,
+        cwd: root, logFile, gate: { enabled: true, ok: true, failures: [] }, proposeUnit: () => unit,
+        env: { PATH: process.env.PATH, HOME: root, [callerName]: callerValue,
+          XDG_RUNTIME_DIR: '/caller/runtime', DBUS_SESSION_BUS_ADDRESS: 'unix:path=/caller/bus', SYSTEMD_BUS_ADDRESS: 'unix:path=/caller/systemd-bus' },
+        envNames: ['PATH', 'HOME', callerName, 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'SYSTEMD_BUS_ADDRESS'],
+      });
+      expect(outcome.launched).toBe(true);
+      const deadline = Date.now() + 10000;
+      while (workerIsolation.getWorkerIsolationStatus(unit).active && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
+      expect(workerIsolation.getWorkerIsolationStatus(unit)).toMatchObject({ active: false, result: 'success', execMainStatus: 0 });
+      const inside = JSON.parse(readFileSync(logFile, 'utf8'));
+      expect(inside[callerName]).toBe(callerValue);
+      expect(inside.HOME).toBe(root);
+      for (const name of [managerSecret, conductorSecret, 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'SYSTEMD_BUS_ADDRESS']) expect(inside).not.toHaveProperty(name);
     } finally {
-      delete process.env.AIWG_ENV_PROBE_SECRET;
-      spawnSync('systemctl', ['--user', 'stop', unit], { timeout: 10000 });
-      spawnSync('systemctl', ['--user', 'reset-failed', unit], { timeout: 10000 });
+      control(['stop', unit]); control(['reset-failed', unit]);
+      control(['unset-environment', managerSecret, callerName]);
     }
   }, 20000);
 });
 
 
 it('fails status queries explicitly instead of manufacturing a successful outcome', () => {
+  const fixture = systemdClientFixture(); roots.push(fixture.root); vi.stubEnv('PATH', fixture.root);
   expect(() => workerIsolation.getWorkerIsolationStatus('aiwg-worker-test', { spawn: (() => ({ status: 1, stderr: 'manager unavailable' })) as never })).toThrow(/unavailable/);
   expect(() => workerIsolation.getWorkerIsolationStatus('aiwg-worker-test', { spawn: (() => ({ status: 0, stdout: '' })) as never })).toThrow(/missing systemd properties/);
 });

@@ -265,6 +265,12 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Security
 
+- Systemd clients use canonical executables from the conductor PATH and conductor-only
+  connections; PATH directories and symlink targets must remain trusted.
+- Worker and verification launches import allowlisted caller values without exposing them
+  in argv, strip connection variables from workers, and reject loader/bootstrap controls.
+- Verification reports arbitrary-path reads as degraded even when home/tmp isolation works;
+  the required write, home-read, and network capability gates remain unchanged.
 - **Runtime MCP dependency floor** - the root package and the `droid-bridge`
   addon/plugin now require `@modelcontextprotocol/sdk@^1.30.0` resolved to
   current patch releases, closing `GHSA-6qxp-vccf-f47h` and raising the

@@ -36,14 +36,10 @@ import { constants, openSync, closeSync, writeFileSync, fsyncSync, renameSync, l
 import path from 'node:path';
 import { sampleWorkerIdentity, createWorkerIdentityCapture } from '../process-monitor.mjs';
 import { checkWorkerDispatch } from '../../scripts/resource-preflight.mjs';
+import { buildSystemdClientEnv, resolveSystemdClient, resolveSystemdRun, CONNECTION_NAMES, unitEnvironmentNames, isClientControlVariable } from './systemd-client.mjs';
 
 const UNIT_SAFE = /[^A-Za-z0-9:_.@-]/g;
 const transportBootstrapVariables = ['NODE_OPTIONS', 'NODE_PATH', 'LD_PRELOAD', 'LD_LIBRARY_PATH', 'LD_AUDIT', 'LD_DEBUG', 'LD_DEBUG_OUTPUT'];
-
-// Never unset these from a unit's environment even when the manager reports
-// them and they are not allowlisted; see buildWorkerIsolationArgs' doc
-// comment for why XDG_RUNTIME_DIR specifically must survive.
-const UNAVOIDABLE_UNIT_ENV_NAMES = ['XDG_RUNTIME_DIR'];
 
 /** Derive a unit-safe `aiwg-worker-<name>-<epoch>` unit name. */
 export function proposeWorkerUnitName(name, nowSeconds = Math.floor(Date.now() / 1000)) {
@@ -62,13 +58,13 @@ function assertAbsolute(label, value) {
  * `{ spawn }` is injectable so tests never touch the real user manager.
  * Returns `{ mode: 'systemd-unit' | 'degraded', reason, detail? }`.
  */
-export function detectWorkerIsolation({ spawn = spawnSync, env = process.env } = {}) {
+export function detectWorkerIsolation({ spawn = spawnSync } = {}) {
   if (process.platform !== 'linux') {
     return { mode: 'degraded', reason: `systemd user isolation requires Linux (this host: ${process.platform})` };
   }
   let runner;
   try {
-    runner = spawn('systemd-run', ['--version'], { encoding: 'utf8', timeout: 10000 });
+    runner = spawn(resolveSystemdRun(), ['--version'], { encoding: 'utf8', timeout: 10000, env: buildSystemdClientEnv({ envNames: [] }) });
   } catch (error) {
     return { mode: 'degraded', reason: `systemd-run is unavailable: ${error.message}` };
   }
@@ -77,7 +73,7 @@ export function detectWorkerIsolation({ spawn = spawnSync, env = process.env } =
   }
   let manager;
   try {
-    manager = spawn('systemctl', ['--user', 'show', '-p', 'Version', '--value'], { encoding: 'utf8', timeout: 10000, env });
+    manager = spawn(resolveSystemdClient('systemctl'), ['--user', 'show', '-p', 'Version', '--value'], { encoding: 'utf8', timeout: 10000, env: buildSystemdClientEnv({ envNames: [] }) });
   } catch (error) {
     return { mode: 'degraded', reason: `systemd user manager is unreachable: ${error.message}` };
   }
@@ -104,23 +100,10 @@ export function detectWorkerIsolation({ spawn = spawnSync, env = process.env } =
  * unit (`systemctl --user show-environment`: LANG, XDG_*, SSH_AUTH_SOCK,
  * etc. on an interactive manager), so `managerEnvNames` — the caller's own
  * live snapshot of that list — drives a single `-p UnsetEnvironment=...`
- * removing every manager-injected name that is not on the allowlist, except
- * `XDG_RUNTIME_DIR` (`UNAVOIDABLE_UNIT_ENV_NAMES`): unsetting it is harmless
- * to secrecy (it is just `/run/user/<uid>`, not a secret) but was verified
- * empirically to make the launched unit's own `/proc/<pid>/environ`
- * unreadable (EACCES) even to the same-UID conductor that just started
- * it — on this host with `kernel.yama.ptrace_scope=1`, removing it strips
- * the unit of whatever ties it to the login session that would otherwise
- * grant that read. Carrying it through is the "systemd's minimal unit
- * variables if unavoidable" carve-out. The result is a unit environment
- * containing exactly the allowlisted names, `XDG_RUNTIME_DIR`, and whatever
- * few variables systemd itself always injects into a unit (`INVOCATION_ID`,
- * `MANAGERPID`, `MEMORY_PRESSURE_WATCH`, ...) — never a secret, never an
- * unrelated inherited variable. `kind: 'scope'` is exempt:
- * `--scope` execs directly as a child of the `systemd-run` client itself
- * (confirmed empirically — it inherits that process's environment wholesale,
- * ignoring `UnsetEnvironment`), so this guarantee applies only to `kind:
- * 'unit'`, not `'scope'`.
+ * removing every manager-injected name that is not on the allowlist, plus
+ * all client-only connection names. Bootstrap controls are refused.
+ * Scopes ignore UnsetEnvironment, so launchIsolatedWorker strips connection
+ * names with the private wrapper used for attached units.
  *
  * `attached: true` (#2892 B2 / #2895) is `kind: 'unit'` plus `--wait --pipe
  * --quiet`: systemd-run itself stays attached for the lifetime of the unit,
@@ -220,8 +203,7 @@ export function buildWorkerIsolationArgs({
   // it, so --quiet is mandatory whenever both --pipe and --wait are used.
   if (pipe && wait && !attached) argv.push('--quiet');
   const requestedNames = [];
-  for (const name of envNames) {
-    if (attached && transportBootstrapVariables.includes(name)) throw new Error('Worker environment cannot alter trusted transport bootstrap');
+  for (const name of unitEnvironmentNames(envNames)) {
     const value = env?.[name];
     if (value === undefined) continue;
     if (typeof value !== 'string' || value.includes('\0')) throw new Error(`Worker isolation environment value for ${name} is not a NUL-free string`);
@@ -229,7 +211,7 @@ export function buildWorkerIsolationArgs({
     argv.push(`--setenv=${name}`);
   }
   if (kind === 'unit') {
-    const toUnset = managerEnvNames.filter(name => !requestedNames.includes(name) && !UNAVOIDABLE_UNIT_ENV_NAMES.includes(name));
+    const toUnset = [...new Set([...managerEnvNames, ...CONNECTION_NAMES])].filter(name => !requestedNames.includes(name));
     if (toUnset.length > 0) argv.push('-p', `UnsetEnvironment=${toUnset.join(' ')}`);
   }
   // stdin is /dev/null unless a brief file is given; attached (supervised)
@@ -265,7 +247,7 @@ export function buildWorkerIsolationArgs({
  * the exact same security-relevant query instead of re-deriving it.
  */
 export function resolveManagerEnvNames({ spawn = spawnSync } = {}) {
-  const shown = spawn('systemctl', ['--user', 'show-environment'], { encoding: 'utf8', timeout: 10000 });
+  const shown = spawn(resolveSystemdClient('systemctl'), ['--user', 'show-environment'], { encoding: 'utf8', timeout: 10000, env: buildSystemdClientEnv({ envNames: [] }) });
   if (shown.error || shown.status !== 0) throw new Error(shown.error?.message ?? (String(shown.stderr ?? '').trim() || `exit ${shown.status}`));
   return String(shown.stdout ?? '').split('\n').map(line => line.slice(0, line.indexOf('='))).filter(Boolean);
 }
@@ -369,7 +351,7 @@ export function launchIsolatedWorker({
     // whether the wrapper is ALSO given `--run-dir`/`--invocation-id` to
     // write those record files; it never toggles whether the wrapper runs
     // at all.
-    if (attached && envNames.some(variable => transportBootstrapVariables.includes(variable))) {
+    if (attached && envNames.some(isClientControlVariable)) {
       throw new Error('Worker environment cannot alter trusted transport bootstrap');
     }
     let child;
@@ -415,46 +397,36 @@ export function launchIsolatedWorker({
   // either omit `UnsetEnvironment` (silently falling back to the padded,
   // non-exact environment this fix exists to remove) or guess — both are
   // refused in favor of an explicit failure.
-  let managerEnvNames;
+  let managerEnvNames, systemdRun;
   try {
     managerEnvNames = resolveManagerEnvNames({ spawn });
+    systemdRun = resolveSystemdRun();
   } catch (error) {
     return {
       launched: false,
       mode: 'systemd-unit',
-      diagnostic: `unable to determine the user manager's inherited environment (required to isolate the worker's environment exactly): ${error.message}`,
+      diagnostic: `unable to determine the user manager's inherited environment or resolve the trusted systemd-run client (required to isolate the worker's environment exactly): ${error.message}`,
       gate: resolvedGate,
     };
   }
   const unit = proposeUnit(name);
-  // A private host-owned transport wrapper strips the manager's environment
+  // A private host-owned wrapper strips manager/client connection variables
   // before spawning the real worker. Environment values never enter argv.
-  const isolatedCommand = attached ? process.execPath : command;
-  const isolatedArgs = attached ? [fileURLToPath(import.meta.url), '--worker-environment', JSON.stringify(envNames),
+  const wrapped = attached || kind === 'scope';
+  const isolatedCommand = wrapped ? process.execPath : command;
+  const isolatedArgs = wrapped ? [fileURLToPath(import.meta.url), '--worker-environment', JSON.stringify(unitEnvironmentNames(envNames)),
     ...(runDir ? ['--run-dir', runDir, '--invocation-id', name] : []), '--', command, ...args] : args;
   const argv = buildWorkerIsolationArgs({ unit, memoryMaxGb, command: isolatedCommand, args: isolatedArgs,
     cwd, logFile, stdinPath, stdoutPath, stderrPath, env, envNames, managerEnvNames, kind, attached });
   if (attached) {
-    // The spawned transport wrapper's OWN process env is `{...process.env,
-    // ...env}` (minus bootstrap vars) so systemd-run's bare `--setenv=NAME`
-    // (see buildWorkerIsolationArgs' doc comment) can import allowlisted
-    // values that live only in a caller-supplied `env` map (e.g. an MCP
-    // worker server's own registered credentials) and not in the
-    // conductor's own `process.env` — `process.env` is spread first so
-    // systemd-run can still reach its D-Bus user session. The wrapper
-    // itself then builds the REAL worker's environment purely from
-    // `envNames`/`env` (never from this spawn env), so this merge only
-    // widens what systemd-run's CLIENT can import from, never what the
-    // worker receives.
-    const child = spawnAsync(argv[0], argv.slice(1), { cwd,
-      env: Object.fromEntries(Object.entries({ ...process.env, ...env })
-        .filter(([variable]) => !transportBootstrapVariables.includes(variable))),
+    const child = spawnAsync(systemdRun, argv.slice(1), { cwd,
+      env: buildSystemdClientEnv({ env, envNames }),
       stdio: [stdin === 'closed' ? 'ignore' : 'pipe', 'pipe', 'pipe'], detached: ownedGroup });
     const outcome = { launched: Number.isInteger(child.pid) && child.pid > 0, mode: 'systemd-unit', unit, child, gate: resolvedGate };
     child.once('error', error => { outcome.launched = false; outcome.error = error.message; });
     return outcome;
   }
-  const child = spawn(argv[0], argv.slice(1), { encoding: 'utf8', timeout: 30000 });
+  const child = spawn(systemdRun, argv.slice(1), { encoding: 'utf8', timeout: 30000, env: buildSystemdClientEnv({ env, envNames }) });
   if (child.error || child.status !== 0) {
     const stderr = String(child.stderr ?? '').trim();
     return {
@@ -467,7 +439,7 @@ export function launchIsolatedWorker({
   }
   let pid;
   try {
-    const shown = spawn('systemctl', ['--user', 'show', '-p', 'MainPID', '--value', unit], { encoding: 'utf8', timeout: 10000 });
+    const shown = spawn(resolveSystemdClient('systemctl'), ['--user', 'show', '-p', 'MainPID', '--value', unit], { encoding: 'utf8', timeout: 10000, env: buildSystemdClientEnv({ envNames: [] }) });
     const parsed = Number(String(shown.stdout ?? '').trim());
     if (Number.isInteger(parsed) && parsed > 0) pid = parsed;
   } catch {
@@ -484,8 +456,8 @@ export function getWorkerIsolationStatus(unit, { spawn = spawnSync } = {}) {
   if (typeof unit !== 'string' || !/^[A-Za-z0-9:_.@-]+$/.test(unit)) {
     throw new Error('Worker isolation requires a unit-safe unit name');
   }
-  const shown = spawn('systemctl', ['--user', 'show', unit, '-p', 'ActiveState',
-    '-p', 'Result', '-p', 'ExecMainStatus', '-p', 'ExecMainCode', '-p', 'MainPID', '-p', 'MemoryMax'], { encoding: 'utf8', timeout: 10000 });
+  const shown = spawn(resolveSystemdClient('systemctl'), ['--user', 'show', unit, '-p', 'ActiveState',
+    '-p', 'Result', '-p', 'ExecMainStatus', '-p', 'ExecMainCode', '-p', 'MainPID', '-p', 'MemoryMax'], { encoding: 'utf8', timeout: 10000, env: buildSystemdClientEnv({ envNames: [] }) });
   if (shown.error || shown.status !== 0) {
     throw new Error(`worker status unavailable: ${shown.error?.message ?? String(shown.stderr ?? '').trim()}`);
   }
@@ -523,7 +495,7 @@ export function stopWorkerUnit(unit, { spawn = spawnSync } = {}) {
   if (typeof unit !== 'string' || !/^[A-Za-z0-9:_.@-]+$/.test(unit)) {
     throw new Error('Worker isolation requires a unit-safe unit name');
   }
-  const result = spawn('systemctl', ['--user', 'stop', unit], { encoding: 'utf8', timeout: 10000 });
+  const result = spawn(resolveSystemdClient('systemctl'), ['--user', 'stop', unit], { encoding: 'utf8', timeout: 10000, env: buildSystemdClientEnv({ envNames: [] }) });
   return { ok: !result.error && result.status === 0,
     diagnostic: result.error ? result.error.message : String(result.stderr ?? '').trim() || null };
 }
@@ -540,7 +512,7 @@ export function stopWorkerUnit(unit, { spawn = spawnSync } = {}) {
 export function readUnitControlGroup(unit, { spawn = spawnSync } = {}) {
   if (typeof unit !== 'string' || !/^[A-Za-z0-9:_.@-]+$/.test(unit)) return null;
   try {
-    const shown = spawn('systemctl', ['--user', 'show', unit, '-p', 'ControlGroup', '--value'], { encoding: 'utf8', timeout: 10000 });
+    const shown = spawn(resolveSystemdClient('systemctl'), ['--user', 'show', unit, '-p', 'ControlGroup', '--value'], { encoding: 'utf8', timeout: 10000, env: buildSystemdClientEnv({ envNames: [] }) });
     if (shown.error || shown.status !== 0) return null;
     const value = String(shown.stdout ?? '').trim();
     return value || null;
