@@ -265,6 +265,12 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Security
 
+- Cap MCP worker frames at 10 MiB; stop owned workers on overflow and release
+  invocation capacity, retaining uncertain termination for degraded containment.
+- Require regular artifacts up to 10 MiB and hash in bounded chunks with size
+  rechecks; cap tree hashing at 10 MiB/file, 100 MiB, 10,000 entries and depth 128.
+- Bound unit stop/status timeouts; filesystem reads remain subject to host I/O.
+
 - **Runtime MCP dependency floor** - the root package and the `droid-bridge`
   addon/plugin now require `@modelcontextprotocol/sdk@^1.30.0` resolved to
   current patch releases, closing `GHSA-6qxp-vccf-f47h` and raising the

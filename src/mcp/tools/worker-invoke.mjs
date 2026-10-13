@@ -221,6 +221,8 @@ export const MAX_MCP_SERVER_QUEUE_DEPTH = 32;
  * launch path). Operator-overridable via `registerWorkerInvokeToolset`'s
  * `mcpWorkerMemoryMaxGb` option; this is the fallback. */
 export const DEFAULT_MCP_WORKER_MEMORY_MAX_GB = 2;
+/** Raw per-frame budget, including malformed/unterminated frames. */
+export const MAX_MCP_FRAME_BYTES = 10 * 1024 * 1024;
 /** #2892 B3: a worker's `workdir` may never be the conductor-managed control
  * plane or VCS metadata directory, even as a strict subdirectory name. */
 const RESERVED_WORKDIR_NAMES = new Set(['.git', '.aiwg']);
@@ -681,9 +683,12 @@ function buildShellStopControl(launch) {
  * already resource-confined, already running with exactly its allowlisted
  * environment.
  */
-class ChildProcessTransport {
-  constructor(child) {
+export class ChildProcessTransport {
+  constructor(child, { terminate = () => child.kill('SIGKILL') } = {}) {
     this._child = child;
+    this._terminate = terminate;
+    this._failure = undefined;
+    this._closed = false;
     this.onmessage = undefined;
     this.onerror = undefined;
     this.onclose = undefined;
@@ -721,7 +726,23 @@ class ChildProcessTransport {
     this._messageSchema = JSONRPCMessageSchema;
     const child = this._child;
     child.stdout?.on('data', chunk => {
+      if (this._failure || this._closed) return;
       try {
+        // Check each frame BEFORE concatenation or UTF-8 decoding.
+        let offset = 0;
+        let frameBytes = this._buffer?.length ?? 0;
+        while (offset < chunk.length) {
+          const newline = chunk.indexOf(10, offset);
+          const end = newline === -1 ? chunk.length : newline;
+          frameBytes += end - offset;
+          if (frameBytes > MAX_MCP_FRAME_BYTES) {
+            this._overflow('OG_WORKER_MCP_FRAME_TOO_LARGE');
+            return;
+          }
+          if (newline === -1) break;
+          frameBytes = 0;
+          offset = newline + 1;
+        }
         this._buffer = this._buffer ? Buffer.concat([this._buffer, chunk]) : chunk;
         this._drain();
       } catch (error) { this.onerror?.(error); }
@@ -731,8 +752,32 @@ class ChildProcessTransport {
     // The attached child's stderr is never consumed elsewhere; drain it so a
     // chatty worker cannot block on a full pipe buffer.
     child.stderr?.resume();
-    child.once('close', () => this.onclose?.());
+    child.once('close', () => this._notifyClose());
     child.once('error', error => this.onerror?.(error));
+  }
+
+  _notifyClose() {
+    if (this._closed) return;
+    this._closed = true;
+    this._buffer = undefined;
+    this._rawResponses.clear();
+    this.onclose?.();
+  }
+
+  _overflow(code) {
+    if (this._failure) return;
+    this._failure = Object.assign(new Error(code), { code });
+    this._buffer = undefined;
+    this._rawResponses.clear();
+    // Start stopping before pipe closure can exit the leader; onclose rejects
+    // pending SDK requests immediately while termination proof is awaited.
+    try {
+      this._termination = Promise.resolve(this._terminate()).then(result =>
+        ['confirmed', 'uncertain'].includes(result?.termination) ? result : { termination: 'uncertain', diagnostic: 'OG_WORKER_MCP_STOP_UNCONFIRMED' }).catch(() => ({ termination: 'uncertain', diagnostic: 'OG_WORKER_MCP_STOP_FAILED' }));
+    } catch { this._termination = Promise.resolve({ termination: 'uncertain', diagnostic: 'OG_WORKER_MCP_STOP_FAILED' }); }
+    this._child.stdout?.destroy();
+    this._child.stdin?.destroy();
+    try { this.onerror?.(this._failure); } finally { this._notifyClose(); }
   }
 
   // Reimplements the SDK's own `ReadBuffer`'s newline-delimited framing
@@ -748,6 +793,7 @@ class ChildProcessTransport {
       const line = this._buffer.toString('utf8', 0, index).replace(/\r$/, '');
       this._buffer = this._buffer.subarray(index + 1);
       this._handleLine(line);
+      if (this._buffer?.length === 0) this._buffer = undefined;
     }
   }
 
@@ -771,6 +817,8 @@ class ChildProcessTransport {
   }
 
   async send(message) {
+    if (this._failure) throw this._failure;
+    if (this._closed) throw new Error('worker MCP transport is closed');
     // #2892 F2: a JSON-RPC REQUEST (never a notification or response) is the
     // only message shape with both `method` and `id` — track the most
     // recently sent one's id so an in-flight `stop()`/error-path cancel can
@@ -935,6 +983,10 @@ async function defaultCallMcpWorker(mcpBinding, server, options = {}) {
         return { outcome: 'blocked', diagnostic: 'worker MCP server definition changed since qualification; resolve again' };
       }
     }
+    // Resolve fallible dependencies and construct the client before spawning.
+    const { stopOverflowWorker } = await loadRalphExternal('lib/worker-overflow.mjs');
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+    const client = new Client({ name: 'aiwg-mcp-worker-invoke', version: '1.0.0' }, { capabilities: {} });
     // B2: gate + launch the MCP worker SERVER process through the same
     // pipeline a shell worker uses — never a bare SDK StdioClientTransport.
     const launch = await defaultLaunchMcpWorkerProcess(server, { allowDegraded, config, name, cwd, live, readers, thresholdOverlay, ...(memoryMaxGb !== undefined ? { memoryMaxGb } : {}) });
@@ -942,12 +994,10 @@ async function defaultCallMcpWorker(mcpBinding, server, options = {}) {
       return { outcome: 'blocked', diagnostic: launch.diagnostic ?? 'worker MCP process launch was refused' };
     }
     const child = launch.child;
-    const transport = new ChildProcessTransport(child);
-    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
-    const client = new Client({ name: 'aiwg-mcp-worker-invoke', version: '1.0.0' }, { capabilities: {} });
+    const transport = new ChildProcessTransport(child, { terminate: () => stopOverflowWorker(launch) });
     let disconnected = false;
     transport.onclose = () => { disconnected = true; };
-    registerControl?.({
+    const control = {
       stop: async () => {
         try {
           // F2: the ACTUAL in-flight JSON-RPC request id (captured at the
@@ -960,8 +1010,9 @@ async function defaultCallMcpWorker(mcpBinding, server, options = {}) {
           try { child.kill('SIGTERM'); return true; } catch { return false; }
         }
       },
-    });
+    };
     try {
+      registerControl?.(control);
       await client.connect(transport);
       // M3: refuse before any brief is sent if the live tool schema has
       // drifted from what was qualified. Compared CANONICALLY (sorted
@@ -1013,10 +1064,13 @@ async function defaultCallMcpWorker(mcpBinding, server, options = {}) {
     } catch (error) {
       const isTimeout = error?.code === -32001 || /timeout/i.test(String(error?.message ?? ''));
       try { await client.notification({ method: 'notifications/cancelled', params: { requestId: transport.lastRequestId, reason: isTimeout ? 'timeout' : 'error' } }); } catch { /* delivery only, never stop proof */ }
-      return { outcome: disconnected ? 'disconnected' : isTimeout ? 'timeout' : 'error', error };
+      const termination = transport._failure ? await transport._termination : await stopOverflowWorker(launch);
+      return { outcome: disconnected ? 'disconnected' : isTimeout ? 'timeout' : 'error', error: transport._failure ?? error,
+        ...(transport._failure ? { termination: termination?.termination ?? 'uncertain',
+          diagnostic: [transport._failure.code, termination?.diagnostic].filter(Boolean).join('; ') } : {}) };
     } finally {
-      registerControl?.(null);
-      try { await client.close(); } catch { /* already closed */ }
+      try { registerControl?.(null); }
+      finally { try { await client.close(); } catch { /* already closed */ } }
     }
   };
   return sessionIsolation === 'per-call' ? run() : withServerQueue(mcpBinding.serverRef, run);
@@ -1265,6 +1319,11 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
           return registry.markTerminal(entry.invocationId, { status: 'blocked', termination: 'confirmed', diagnostics: [result.diagnostic ?? 'worker MCP launch was refused'] });
         }
         if (result.outcome !== 'responded') {
+          // Overflow releases capacity after the stop attempt, preserving uncertainty.
+          if (result.diagnostic?.includes('OG_WORKER_MCP_FRAME_TOO_LARGE')) {
+            return registry.markTerminal(entry.invocationId, { status: result.termination === 'confirmed' ? 'failed' : 'uncertain',
+              termination: result.termination ?? 'uncertain', diagnostics: [result.diagnostic] });
+          }
           // M2: stays LIVE for the same reason as the shell timeout path above.
           return registry.update(entry.invocationId, { status: 'uncertain', termination: 'uncertain', diagnostics: [`worker ${result.outcome}; cancellation delivered, not confirmed stopped`] });
         }

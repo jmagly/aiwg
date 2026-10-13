@@ -480,12 +480,12 @@ export function launchIsolatedWorker({
  * Read retained service state after launch/exit without reaping or mutation.
  * `memoryMax` is bytes. Query failures throw rather than reporting success.
  */
-export function getWorkerIsolationStatus(unit, { spawn = spawnSync } = {}) {
+export function getWorkerIsolationStatus(unit, { spawn = spawnSync, timeoutMs = 10000 } = {}) {
   if (typeof unit !== 'string' || !/^[A-Za-z0-9:_.@-]+$/.test(unit)) {
     throw new Error('Worker isolation requires a unit-safe unit name');
   }
   const shown = spawn('systemctl', ['--user', 'show', unit, '-p', 'ActiveState',
-    '-p', 'Result', '-p', 'ExecMainStatus', '-p', 'ExecMainCode', '-p', 'MainPID', '-p', 'MemoryMax'], { encoding: 'utf8', timeout: 10000 });
+    '-p', 'Result', '-p', 'ExecMainStatus', '-p', 'ExecMainCode', '-p', 'MainPID', '-p', 'MemoryMax'], { encoding: 'utf8', timeout: timeoutMs });
   if (shown.error || shown.status !== 0) {
     throw new Error(`worker status unavailable: ${shown.error?.message ?? String(shown.stderr ?? '').trim()}`);
   }
@@ -519,11 +519,11 @@ export function getWorkerIsolationStatus(unit, { spawn = spawnSync } = {}) {
  * on an already-stopped/unknown unit — `systemctl --user stop` on a unit
  * that no longer exists is not an error worth surfacing to the caller.
  */
-export function stopWorkerUnit(unit, { spawn = spawnSync } = {}) {
+export function stopWorkerUnit(unit, { spawn = spawnSync, timeoutMs = 10000 } = {}) {
   if (typeof unit !== 'string' || !/^[A-Za-z0-9:_.@-]+$/.test(unit)) {
     throw new Error('Worker isolation requires a unit-safe unit name');
   }
-  const result = spawn('systemctl', ['--user', 'stop', unit], { encoding: 'utf8', timeout: 10000 });
+  const result = spawn('systemctl', ['--user', 'stop', unit], { encoding: 'utf8', timeout: timeoutMs });
   return { ok: !result.error && result.status === 0,
     diagnostic: result.error ? result.error.message : String(result.stderr ?? '').trim() || null };
 }

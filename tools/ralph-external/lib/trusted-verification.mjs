@@ -33,7 +33,7 @@
 import { createHash } from 'node:crypto';
 import {
   closeSync, constants as fsConstants, fstatSync, lstatSync, openSync,
-  readFileSync, readSync, readdirSync, readlinkSync, realpathSync,
+  readFileSync, readSync, opendirSync, readlinkSync, realpathSync,
 } from 'node:fs';
 import path from 'node:path';
 import { missingRequiredCapabilities, probeVerificationIsolationCapabilities, runConfinedCheck } from './verification-isolation.mjs';
@@ -94,6 +94,14 @@ const SCRIPT_TRIGGERING_ARGS = new Set([
 // `GITHUB_TOKEN`/`OPENBAO_...` would forward it straight into worker-
 // controlled check code. This is a name-pattern guard, not a value scan.
 const SECRET_LOOKING_ENV_NAME = /TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL/i;
+
+// Conductor-owned budget, independent of worker-reported metadata.
+export const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024;
+const ARTIFACT_HASH_CHUNK_BYTES = 64 * 1024;
+export const MAX_TREE_FILE_BYTES = 10 * 1024 * 1024;
+export const MAX_TREE_BYTES = 100 * 1024 * 1024;
+export const MAX_TREE_ENTRIES = 10000;
+const MAX_TREE_DEPTH = 128;
 
 /**
  * Refuse any check definition that would end up executing a script a
@@ -291,7 +299,7 @@ export function openPinnedWithinWorktree(worktreeRootReal, targetPath, { directo
   } catch (error) {
     throw new WorktreeEscapeError(`cannot resolve real path for worktree-escape check: ${literal}: ${error.message}`);
   }
-  const flags = fsConstants.O_NOFOLLOW | fsConstants.O_RDONLY | (directory ? fsConstants.O_DIRECTORY : 0);
+  const flags = fsConstants.O_NOFOLLOW | fsConstants.O_NONBLOCK | fsConstants.O_RDONLY | (directory ? fsConstants.O_DIRECTORY : 0);
   let fd;
   try {
     fd = openSync(resolved, flags);
@@ -400,8 +408,8 @@ export function assertWithinWorktree(worktreeRootReal, targetPath) {
 }
 
 /**
- * The artifact being verified gets one extra denial `assertWithinWorktree`
- * does not apply generally (m1): a multiply-linked regular file. A
+ * An artifact must be a bounded regular file with exactly one hard link.
+ * These requirements do not apply to general path/cwd resolution (m1). A
  * freshly checked-out or worker-written artifact is expected to have
  * exactly one hard link; more than one is treated as an escape attempt (a
  * worker-planted hardlink aliasing a file outside the worktree, or a
@@ -410,22 +418,25 @@ export function assertWithinWorktree(worktreeRootReal, targetPath) {
  */
 export function pinArtifact(worktreeRootReal, artifactPath) {
   const pinned = openPinnedWithinWorktree(worktreeRootReal, artifactPath, { directory: false });
-  if (pinned.stat.isFile() && pinned.stat.nlink > 1) {
+  try {
+    if (!pinned.stat.isFile()) {
+      throw new WorktreeEscapeError(`verified artifact must be a regular file: ${pinned.realPath}`);
+    }
+    if (pinned.stat.nlink > 1) {
+      throw new WorktreeEscapeError(`refusing a multiply-linked artifact: ${pinned.realPath} (nlink=${pinned.stat.nlink}; the verified artifact is expected to have exactly one hard link)`);
+    }
+    assertArtifactSize(pinned.stat.size);
+    return pinned;
+  } catch (error) {
     closeSync(pinned.fd);
-    throw new WorktreeEscapeError(`refusing a multiply-linked artifact: ${pinned.realPath} (nlink=${pinned.stat.nlink}; the verified artifact is expected to have exactly one hard link)`);
+    throw error;
   }
-  return pinned;
 }
 
-function readAllFromFd(fd, size) {
-  const buffer = Buffer.alloc(size);
-  let offset = 0;
-  while (offset < size) {
-    const read = readSync(fd, buffer, offset, size - offset, offset);
-    if (read <= 0) break;
-    offset += read;
+function assertArtifactSize(size) {
+  if (!Number.isSafeInteger(size) || size < 0 || size > MAX_ARTIFACT_BYTES) {
+    throw new WorktreeEscapeError(`artifact exceeds maximum size of ${MAX_ARTIFACT_BYTES} bytes (reported size: ${size})`);
   }
-  return buffer.subarray(0, offset);
 }
 
 function digestOf(bytes) {
@@ -434,8 +445,25 @@ function digestOf(bytes) {
 
 /** Digest the artifact pinned at `pinned.fd` (read via the fd, never by re-opening the path). */
 function digestArtifactFd(pinned) {
-  const bytes = readAllFromFd(pinned.fd, pinned.stat.size);
-  return digestOf(bytes);
+  const size = pinned.stat.size;
+  assertArtifactSize(size);
+  const current = fstatSync(pinned.fd);
+  assertArtifactSize(current.size);
+  if (current.size !== size) throw new WorktreeEscapeError('artifact size changed before hashing');
+  const hash = createHash('sha256');
+  const buffer = Buffer.alloc(ARTIFACT_HASH_CHUNK_BYTES);
+  let offset = 0;
+  while (offset < size) {
+    const read = readSync(pinned.fd, buffer, 0, Math.min(buffer.length, size - offset), offset);
+    if (read === 0) throw new WorktreeEscapeError('artifact truncated during hashing');
+    hash.update(buffer.subarray(0, read));
+    offset += read;
+  }
+  // Check EOF without following an indefinitely growing file.
+  if (readSync(pinned.fd, buffer, 0, 1, offset) !== 0 || fstatSync(pinned.fd).size !== size) {
+    throw new WorktreeEscapeError('artifact size changed during hashing');
+  }
+  return `sha256:${hash.digest('hex')}`;
 }
 
 // M3 (round 2, CRITICAL): the previous implementation ran `git add -A` /
@@ -451,16 +479,18 @@ function digestArtifactFd(pinned) {
 // git at all: a deterministic, content-addressed walk of the real
 // filesystem, opened by file descriptor at every step.
 function digestFileContentsFd(fd, size) {
+  if (fstatSync(fd).size !== size) throw new TreeDigestError('tree file size changed before hashing');
   const hash = createHash('sha256');
-  const chunkSize = Math.min(size, 1 << 20) || (1 << 16);
-  const buffer = Buffer.alloc(chunkSize);
+  const buffer = Buffer.alloc(ARTIFACT_HASH_CHUNK_BYTES);
   let offset = 0;
   while (offset < size) {
-    const toRead = Math.min(buffer.length, size - offset);
-    const read = readSync(fd, buffer, 0, toRead, offset);
-    if (read <= 0) break;
+    const read = readSync(fd, buffer, 0, Math.min(buffer.length, size - offset), offset);
+    if (read === 0) throw new TreeDigestError('tree file truncated during hashing');
     hash.update(buffer.subarray(0, read));
     offset += read;
+  }
+  if (readSync(fd, buffer, 0, 1, offset) !== 0 || fstatSync(fd).size !== size) {
+    throw new TreeDigestError('tree file size changed during hashing');
   }
   return hash.digest('hex');
 }
@@ -476,7 +506,7 @@ function digestFileContentsFd(fd, size) {
  * opened this way.
  */
 function openChildNoFollow(dirFd, name, { directory = false } = {}) {
-  const flags = fsConstants.O_NOFOLLOW | fsConstants.O_RDONLY | (directory ? fsConstants.O_DIRECTORY : 0);
+  const flags = fsConstants.O_NOFOLLOW | fsConstants.O_NONBLOCK | fsConstants.O_RDONLY | (directory ? fsConstants.O_DIRECTORY : 0);
   return openSync(`/proc/self/fd/${dirFd}/${name}`, flags);
 }
 
@@ -484,11 +514,18 @@ function statChildOfDirFd(dirFd, name) {
   return lstatSync(`/proc/self/fd/${dirFd}/${name}`);
 }
 
-function listDirFd(dirFd) {
-  // Listing through /proc/self/fd/<fd> (not the original path string used
-  // to open it) so a rename/replace of that original path after opening
-  // cannot change what gets listed.
-  return readdirSync(`/proc/self/fd/${dirFd}`, { withFileTypes: true });
+function listDirFd(dirFd, budget) {
+  // Enforce the entry budget before allocating the whole directory listing.
+  const directory = opendirSync(`/proc/self/fd/${dirFd}`);
+  const names = [];
+  try {
+    let entry;
+    while ((entry = directory.readSync()) !== null) {
+      if (++budget.entries > MAX_TREE_ENTRIES) throw new TreeDigestError('tree entry budget exceeded');
+      names.push(entry.name);
+    }
+  } finally { directory.closeSync(); }
+  return names.sort();
 }
 
 const TREE_DIGEST_EXCLUDED_ENTRIES = new Set(['.git']);
@@ -503,8 +540,9 @@ const TREE_DIGEST_EXCLUDED_ENTRIES = new Set(['.git']);
  * symlink to secret content outside the worktree contributes only its own
  * target string to the digest, never that content.
  */
-function walkDirectoryFd(dirFd, relPrefix, entries) {
-  const names = listDirFd(dirFd).map(dirent => dirent.name).sort();
+function walkDirectoryFd(dirFd, relPrefix, entries, budget, depth = 0) {
+  if (depth > MAX_TREE_DEPTH) throw new TreeDigestError('tree depth budget exceeded');
+  const names = listDirFd(dirFd, budget);
   for (const name of names) {
     if (relPrefix === '' && TREE_DIGEST_EXCLUDED_ENTRIES.has(name)) {
       entries.push({ relPath: name, type: 'excluded' });
@@ -534,7 +572,7 @@ function walkDirectoryFd(dirFd, relPrefix, entries) {
       }
       try {
         entries.push({ relPath, type: 'dir', mode: stat.mode & 0o777 });
-        walkDirectoryFd(childFd, relPath, entries);
+        walkDirectoryFd(childFd, relPath, entries, budget, depth + 1);
       } finally {
         closeSync(childFd);
       }
@@ -546,8 +584,18 @@ function walkDirectoryFd(dirFd, relPrefix, entries) {
         throw new TreeDigestError(`cannot open file ${relPath}: ${error.message}`);
       }
       try {
-        const contentHash = digestFileContentsFd(childFd, stat.size);
-        entries.push({ relPath, type: 'file', mode: stat.mode & 0o777, size: stat.size, contentHash });
+        const openedStat = fstatSync(childFd);
+        if (!openedStat.isFile()) throw new TreeDigestError(`file ${relPath} changed to a non-regular file before hashing`);
+        if (openedStat.dev !== stat.dev || openedStat.ino !== stat.ino) {
+          throw new TreeDigestError(`file ${relPath} identity changed before hashing`);
+        }
+        if (!Number.isSafeInteger(openedStat.size) || openedStat.size < 0 || openedStat.size > MAX_TREE_FILE_BYTES) {
+          throw new TreeDigestError(`tree file ${relPath} exceeds maximum size of ${MAX_TREE_FILE_BYTES} bytes`);
+        }
+        budget.bytes += openedStat.size;
+        if (budget.bytes > MAX_TREE_BYTES) throw new TreeDigestError('tree byte budget exceeded');
+        const contentHash = digestFileContentsFd(childFd, openedStat.size);
+        entries.push({ relPath, type: 'file', mode: openedStat.mode & 0o777, size: openedStat.size, contentHash });
       } finally {
         closeSync(childFd);
       }
@@ -581,7 +629,7 @@ export function computeWorktreeTreeDigest(worktreeRootReal) {
   }
   const entries = [];
   try {
-    walkDirectoryFd(rootFd, '', entries);
+    walkDirectoryFd(rootFd, '', entries, { entries: 0, bytes: 0 });
   } finally {
     closeSync(rootFd);
   }
@@ -842,8 +890,14 @@ function verifyWorkerArtifactPinned({ worktreeRootReal, artifactPath, checks, al
   } catch (error) {
     return rejected(verifierId, runnerRef, [`artifact path escape check failed: ${error.message}`], 'validating the artifact path');
   }
-  const preDigest = digestArtifactFd(preCheckArtifact);
-  closeSync(preCheckArtifact.fd);
+  let preDigest;
+  try {
+    preDigest = digestArtifactFd(preCheckArtifact);
+  } catch (error) {
+    return rejected(verifierId, runnerRef, [`artifact digest failed: ${error.message}`], 'hashing the artifact');
+  } finally {
+    closeSync(preCheckArtifact.fd);
+  }
 
   // M3: a tree-digest FAILURE must reject, never be silently treated as "we
   // don't know, so assume unchanged" — fail closed before any check runs.
@@ -935,8 +989,14 @@ function verifyWorkerArtifactPinned({ worktreeRootReal, artifactPath, checks, al
   } catch (error) {
     return rejected(verifierId, runnerRef, [`artifact path escape check failed after checks ran: ${error.message}`, ...allDegraded], 're-validating the artifact path after checks');
   }
-  const postDigest = digestArtifactFd(postCheckArtifact);
-  closeSync(postCheckArtifact.fd);
+  let postDigest;
+  try {
+    postDigest = digestArtifactFd(postCheckArtifact);
+  } catch (error) {
+    return rejected(verifierId, runnerRef, [`artifact digest failed after checks ran: ${error.message}`, ...allDegraded], 'hashing the artifact after checks');
+  } finally {
+    closeSync(postCheckArtifact.fd);
+  }
   if (postDigest !== preDigest) {
     return rejected(verifierId, runnerRef, [`artifact changed during verification (pre: ${preDigest}, post: ${postDigest})`, ...allDegraded], 'comparing pre- and post-check artifact digests');
   }

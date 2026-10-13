@@ -478,6 +478,13 @@ describe('stopWorkerUnit (#2892 M2)', () => {
     expect(result).toMatchObject({ ok: true });
   });
 
+  it('passes a caller deadline budget to both stop and status subprocesses', () => {
+    const spawn = vi.fn(() => ({ status: 0, stdout: 'ActiveState=inactive\nResult=success\nExecMainStatus=0\nMemoryMax=67108864\n', stderr: '' }));
+    stopWorkerUnit('aiwg-worker-demo-9', { spawn: spawn as never, timeoutMs: 17 });
+    workerIsolation.getWorkerIsolationStatus('aiwg-worker-demo-9', { spawn: spawn as never, timeoutMs: 11 });
+    expect(spawn.mock.calls.map(call => (call as unknown as [string, string[], { timeout: number }])[2].timeout)).toEqual([17, 11]);
+  });
+
   it('reports failure without throwing when the unit is already gone', () => {
     const result = stopWorkerUnit('aiwg-worker-demo-9', {
       spawn: (() => ({ status: 1, stdout: '', stderr: 'Unit not loaded.', error: null })) as never,

@@ -10,6 +10,7 @@
  * @source @src/mcp/tools/worker-invoke.mjs
  */
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
@@ -30,6 +31,7 @@ const {
   createInvocationRegistry, resolveServerAllowDegraded, resolveServedProjectRoot,
   registerWorkerInvokeToolset: registerProductionToolset,
   WORKERS_TOOLSET_NAME, withServerQueue, __testOnlyMcpServerQueueCount,
+  ChildProcessTransport, MAX_MCP_FRAME_BYTES,
 } = workerInvoke as any;
 
 /** A fixed, generous `readLiveHostResources()`-shaped sample (see
@@ -58,6 +60,9 @@ function registerWorkerInvokeToolset(server: any, options: Record<string, unknow
 
 const digest = (v: unknown) => `sha256:${createHash('sha256').update(JSON.stringify(v)).digest('hex')}`;
 const roots: string[] = [];
+// Some sandbox hosts refuse native child stdio pipes (EPERM). Framing unit
+// tests still run there; the supervised-process check needs actual pipes.
+const supportsCapturedWorkerStdio = spawnSync(process.execPath, ['-e', 'process.stdout.write("ok")'], { encoding: 'utf8' }).stdout === 'ok';
 afterEach(async () => { vi.unstubAllEnvs(); for (const r of roots.splice(0)) await rm(r, { recursive: true, force: true }); });
 
 async function tempRoot() {
@@ -65,6 +70,128 @@ async function tempRoot() {
   roots.push(root);
   return root;
 }
+
+async function transportFixture({ start = true, terminate }: { start?: boolean; terminate?: () => unknown } = {}) {
+  const child: any = new EventEmitter();
+  child.stdout = Object.assign(new EventEmitter(), { destroy: vi.fn() });
+  child.stdin = Object.assign(new EventEmitter(), { destroy: vi.fn(), write: vi.fn(() => true) });
+  child.stderr = { resume: vi.fn() };
+  child.kill = vi.fn(() => true);
+  const transport = new ChildProcessTransport(child, terminate ? { terminate } : {});
+  transport.onerror = vi.fn();
+  transport.onclose = vi.fn();
+  transport.onmessage = vi.fn();
+  if (start) await transport.start();
+  return { child, transport, emit: (chunk: Buffer) => child.stdout.emit('data', chunk) };
+}
+
+describe('worker MCP stdout byte budgets', () => {
+  it('rejects a split unterminated frame before concatenating the overflow bytes', async () => {
+    const { child, transport, emit } = await transportFixture();
+    emit(Buffer.alloc(MAX_MCP_FRAME_BYTES, 120));
+    expect(transport._buffer.length).toBe(MAX_MCP_FRAME_BYTES);
+    const concat = vi.spyOn(Buffer, 'concat');
+    try {
+      emit(Buffer.from('x'));
+      expect(concat).not.toHaveBeenCalled();
+    } finally { concat.mockRestore(); }
+    expect(transport.onerror).toHaveBeenCalledWith(expect.objectContaining({ code: 'OG_WORKER_MCP_FRAME_TOO_LARGE' }));
+    expect(child.kill).toHaveBeenCalledWith('SIGKILL');
+    expect(child.stdout.destroy).toHaveBeenCalled();
+    expect(transport._buffer).toBeUndefined();
+    expect(transport._rawResponses.size).toBe(0);
+    emit(Buffer.from('still writing\n'));
+    child.emit('close');
+    expect(transport.onerror).toHaveBeenCalledTimes(1);
+    expect(transport.onclose).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an oversized newline-terminated frame in one chunk before parsing it', async () => {
+    const { child, transport, emit } = await transportFixture();
+    emit(Buffer.from(`${'x'.repeat(MAX_MCP_FRAME_BYTES + 1)}\n`));
+    expect(transport.onerror).toHaveBeenCalledWith(expect.objectContaining({ code: 'OG_WORKER_MCP_FRAME_TOO_LARGE' }));
+    expect(transport.onmessage).not.toHaveBeenCalled();
+    expect(child.kill).toHaveBeenCalledWith('SIGKILL');
+    expect(transport._buffer).toBeUndefined();
+  });
+
+  it('counts UTF-8 bytes, including a split multibyte character', async () => {
+    const { transport, emit } = await transportFixture();
+    const bytes = Buffer.from('é'.repeat(MAX_MCP_FRAME_BYTES / 2 + 1));
+    emit(bytes.subarray(0, MAX_MCP_FRAME_BYTES - 1));
+    emit(bytes.subarray(MAX_MCP_FRAME_BYTES - 1));
+    expect(transport.onerror).toHaveBeenCalledWith(expect.objectContaining({ code: 'OG_WORKER_MCP_FRAME_TOO_LARGE' }));
+  });
+
+  it('accepts exact-limit frames and drains multiple frames across chunk boundaries', async () => {
+    const { transport, emit } = await transportFixture();
+    const message = Buffer.from(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/test' }));
+    const frame = Buffer.alloc(MAX_MCP_FRAME_BYTES, 32);
+    message.copy(frame);
+    emit(frame.subarray(0, 15));
+    emit(Buffer.concat([frame.subarray(15), Buffer.from('\n'), message.subarray(0, 10)]));
+    emit(Buffer.concat([message.subarray(10), Buffer.from('\r\n'), message, Buffer.from('\n')]));
+    expect(transport.onerror).not.toHaveBeenCalled();
+    expect(transport.onmessage).toHaveBeenCalledTimes(3);
+    expect(transport._buffer).toBeUndefined();
+  });
+
+  it('accepts more than 20 MiB of individually bounded frames on a long-lived transport', async () => {
+    const { child, transport, emit } = await transportFixture();
+    const frame = Buffer.alloc(2048, 32);
+    Buffer.from('{"jsonrpc":"2.0","method":"notifications/test"}').copy(frame);
+    frame[frame.length - 1] = 10;
+    const count = 21 * 1024 * 1024 / frame.length;
+    for (let i = 0; i < count; i++) emit(frame);
+    expect(transport.onerror).not.toHaveBeenCalled();
+    expect(transport._buffer).toBeUndefined();
+    expect(child.kill).not.toHaveBeenCalled();
+    expect(transport.onmessage).toHaveBeenCalledTimes(count);
+  });
+
+  it('applies the frame bound to malformed data after earlier malformed frames', async () => {
+    const { transport, emit } = await transportFixture();
+    const frame = Buffer.alloc(1024 * 1024, 120);
+    frame[frame.length - 1] = 10;
+    for (let i = 0; i < 21; i++) emit(frame);
+    expect(transport._failure).toBeUndefined();
+    emit(Buffer.alloc(MAX_MCP_FRAME_BYTES + 1, 120));
+    expect(transport._failure.code).toBe('OG_WORKER_MCP_FRAME_TOO_LARGE');
+  });
+
+  it.each([true, false, undefined])('normalizes a terminator returning %s to uncertain evidence', async result => {
+    const { transport, emit } = await transportFixture({ terminate: () => result });
+    emit(Buffer.alloc(MAX_MCP_FRAME_BYTES + 1, 120));
+    expect(await transport._termination).toEqual({ termination: 'uncertain', diagnostic: 'OG_WORKER_MCP_STOP_UNCONFIRMED' });
+  });
+
+  it.each(['throw', 'reject'])('preserves a %s from the stop authority as unconfirmed termination', async failure => {
+    const terminate = () => {
+      if (failure === 'throw') throw new Error('stop refused');
+      return Promise.reject(new Error('stop refused'));
+    };
+    const { transport, emit } = await transportFixture({ terminate });
+    emit(Buffer.alloc(MAX_MCP_FRAME_BYTES + 1, 120));
+    expect(await transport._termination).toEqual({ termination: 'uncertain', diagnostic: 'OG_WORKER_MCP_STOP_FAILED' });
+    expect(transport._failure.code).toBe('OG_WORKER_MCP_FRAME_TOO_LARGE');
+  });
+
+  it('rejects a pending SDK request immediately and invokes the worker stop authority', async () => {
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+    const terminate = vi.fn(async () => {});
+    const { transport, emit, child } = await transportFixture({ start: false, terminate });
+    const client = new Client({ name: 'frame-budget-test', version: '1' }, { capabilities: {} });
+    const connected = client.connect(transport);
+    const rejected = expect(connected).rejects.toThrow(/Connection closed/);
+    await waitFor(() => transport.lastRequestId !== null);
+    emit(Buffer.alloc(MAX_MCP_FRAME_BYTES + 1, 120));
+    await rejected;
+    expect(transport._failure.code).toBe('OG_WORKER_MCP_FRAME_TOO_LARGE');
+    expect(terminate).toHaveBeenCalledTimes(1);
+    expect(child.kill).not.toHaveBeenCalled();
+    await client.close();
+  });
+});
 
 function captureTool(server: any, options: Record<string, unknown> = {}) {
   const tools = new Map<string, any>();
@@ -454,7 +581,7 @@ describe('cancellation and uncertain-run capacity (#2892 M2)', () => {
   // JSON-RPC request id (captured at the transport layer), never a
   // caller-supplied value with no relationship to the wire protocol
   // (`mcpBinding.requestId` was never even populated — always `null`).
-  it('cancel sends notifications/cancelled with the ACTUAL in-flight request id, never null (#2892 F2)', async () => {
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('cancel sends notifications/cancelled with the ACTUAL in-flight request id, never null (#2892 F2)', async () => {
     const root = await tempRoot();
     const work = path.join(root, 'work'); await mkdir(work, { recursive: true });
     const briefPath = path.join(root, 'brief.md');
@@ -995,7 +1122,127 @@ describe('mcp transport against the real fake stdio worker (T-OG-17)', () => {
       brief: briefPath, workdir: work, final_output: finalOutput, transport: 'mcp', ...extra });
   }
 
-  it('success scenario: completed, confirmed termination', async () => {
+  it.each(['overflow-load', 'client-constructor'])('does not launch when pre-launch setup fails (%s)', async failure => {
+    const root = await tempRoot();
+    const launch = vi.fn(() => ({ launched: false, diagnostic: 'unexpected launch' }));
+    vi.doMock('../../../tools/ralph-external/session-launcher.mjs', async () => ({
+      ...await vi.importActual('../../../tools/ralph-external/session-launcher.mjs'), planDirectWorkerLaunch: launch,
+    }));
+    if (failure === 'overflow-load') {
+      vi.doMock('../../../tools/ralph-external/lib/worker-overflow.mjs', () => { throw new Error('overflow module unavailable'); });
+    } else {
+      vi.doMock('@modelcontextprotocol/sdk/client/index.js', () => ({
+        Client: class { constructor() { throw new Error('client construction failed'); } },
+      }));
+    }
+    try {
+      const body = JSON.parse((await invoke(root, '')).content[0].text);
+      expect(body.status).toBe('uncertain');
+      expect(body.diagnostics.join('; ')).toMatch(failure === 'overflow-load' ? /mocking a module|overflow module unavailable/ : /client construction failed/);
+      expect(launch).not.toHaveBeenCalled();
+    } finally {
+      vi.doUnmock('../../../tools/ralph-external/session-launcher.mjs');
+      vi.doUnmock('../../../tools/ralph-external/lib/worker-overflow.mjs');
+      vi.doUnmock('@modelcontextprotocol/sdk/client/index.js');
+    }
+  });
+
+  it('stops a launch if registering its control throws before connecting', async () => {
+    const root = await tempRoot();
+    const child = Object.assign(new EventEmitter(), { kill: vi.fn(), stdin: { destroy: vi.fn() }, stdout: { destroy: vi.fn() } });
+    const launched = { launched: true, mode: 'degraded', child };
+    const stop = vi.fn(async () => ({ termination: 'uncertain' }));
+    const close = vi.fn(async () => {});
+    const connect = vi.fn();
+    vi.doMock('../../../tools/ralph-external/session-launcher.mjs', async () => ({
+      ...await vi.importActual('../../../tools/ralph-external/session-launcher.mjs'), planDirectWorkerLaunch: () => launched,
+    }));
+    vi.doMock('../../../tools/ralph-external/lib/worker-overflow.mjs', () => ({ stopOverflowWorker: stop }));
+    vi.doMock('@modelcontextprotocol/sdk/client/index.js', () => ({
+      Client: class { close = close; connect = connect; async notification() {} },
+    }));
+    const registry = createInvocationRegistry();
+    const update = registry.update;
+    registry.update = (id: string, patch: any) => {
+      if (patch.control) throw new Error('control registration failed');
+      return update(id, patch);
+    };
+    try {
+      const body = JSON.parse((await invoke(root, '', {}, { registry })).content[0].text);
+      expect(body.status).toBe('uncertain');
+      expect(stop).toHaveBeenCalledWith(launched);
+      expect(connect).not.toHaveBeenCalled();
+      expect(close).toHaveBeenCalled();
+    } finally {
+      vi.doUnmock('../../../tools/ralph-external/session-launcher.mjs');
+      vi.doUnmock('../../../tools/ralph-external/lib/worker-overflow.mjs');
+      vi.doUnmock('@modelcontextprotocol/sdk/client/index.js');
+    }
+  });
+
+  it.skipIf(process.platform !== 'linux' || !supportsCapturedWorkerStdio)('releases capacity with unconfirmed termination after repeated degraded overflows', async () => {
+    const root = await tempRoot();
+    const script = path.join(root, 'hostile-worker.mjs');
+    const pidPath = path.join(root, 'worker.pid');
+    await writeFile(script, `import { writeFileSync } from 'node:fs';
+writeFileSync(process.argv[2], String(process.pid));
+process.on('SIGTERM', () => {});
+process.stdout.write(Buffer.alloc(12 * 1024 * 1024, 120));
+setInterval(() => {}, 1000);
+`);
+    const f = mcpFixture(root, path.join(root, 'unused-config.json'));
+    f.drivers.codex.mcpRegistry = {
+      get: async () => ({ name: 'fixture-server', type: 'stdio' as const, command: process.execPath, args: [script, pidPath] }),
+    };
+    const registry = createInvocationRegistry();
+    for (let i = 0; i < 6; i++) {
+      let pid: number | undefined;
+      try {
+        const result = await invoke(root, '', {}, { registry, loadWorkerInputs: async () => ({ snapshot: f.snapshot, drivers: f.drivers }) });
+        pid = Number(await readFile(pidPath, 'utf8'));
+        const body = JSON.parse(result.content[0].text);
+        expect(body.status).toBe('uncertain');
+        expect(body.termination).toBe('uncertain');
+        expect(body.diagnostics.join('; ')).toContain('OG_WORKER_MCP_FRAME_TOO_LARGE');
+        expect(registry.values().filter((entry: any) => entry.terminalAt === null)).toHaveLength(0);
+        // SIGKILL delivery precedes process exit and reaping.
+        await vi.waitFor(() => {
+          expect(() => process.kill(pid!, 0)).toThrow(expect.objectContaining({ code: 'ESRCH' }));
+        }, { timeout: 2000, interval: 25 });
+        await rm(path.join(root, 'work', 'final.json'), { force: true });
+      } finally {
+        pid ??= Number(await readFile(pidPath, 'utf8').catch(() => '0'));
+        if (pid > 0) { try { process.kill(pid, 'SIGKILL'); } catch { /* already reaped */ } }
+      }
+    }
+  }, 30000);
+
+  it.each(['confirmed', 'uncertain'])('awaits %s overflow evidence and frees the same registry capacity repeatedly', async termination => {
+    const root = await tempRoot();
+    const registry = createInvocationRegistry({ maxActive: 4 });
+    for (let i = 0; i < 6; i++) {
+      let confirm!: (value: any) => void;
+      let stopStarted = false;
+      const proof = new Promise(resolve => { confirm = resolve; });
+      const run = invoke(root, '', {}, { registry, callMcpWorker: async () => {
+        const { transport, emit } = await transportFixture({ terminate: () => { stopStarted = true; return proof; } });
+        emit(Buffer.alloc(MAX_MCP_FRAME_BYTES + 1, 120));
+        const evidence = await transport._termination;
+        return { outcome: 'disconnected', ...evidence, diagnostic: [transport._failure.code, evidence.diagnostic].filter(Boolean).join('; ') };
+      } });
+      await waitFor(() => stopStarted);
+      expect(registry.values().filter((entry: any) => entry.terminalAt === null)).toHaveLength(1);
+      confirm({ termination, ...(termination === 'uncertain' ? { diagnostic: 'OG_WORKER_MCP_STOP_FAILED' } : {}) });
+      const body = JSON.parse((await run).content[0].text);
+      expect(body.status, JSON.stringify(body)).toBe(termination === 'confirmed' ? 'failed' : 'uncertain');
+      expect(body.termination).toBe(termination);
+      if (termination === 'uncertain') expect(body.diagnostics.join('; ')).toContain('OG_WORKER_MCP_STOP_FAILED');
+      expect(registry.values().filter((entry: any) => entry.terminalAt === null)).toHaveLength(0);
+      await rm(path.join(root, 'work', 'final.json'), { force: true });
+    }
+  });
+
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('success scenario: completed, confirmed termination', async () => {
     const root = await tempRoot();
     const config = path.join(root, 'fixture-config.json');
     await writeFile(config, JSON.stringify({ recordPath: path.join(root, 'record.jsonl'), scenario: 'success' }));
@@ -1005,7 +1252,7 @@ describe('mcp transport against the real fake stdio worker (T-OG-17)', () => {
     expect(body.termination).toBe('confirmed');
   }, 20000);
 
-  it('isError scenario: failed, confirmed termination (never parsed as success)', async () => {
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('isError scenario: failed, confirmed termination (never parsed as success)', async () => {
     const root = await tempRoot();
     const config = path.join(root, 'fixture-config.json');
     await writeFile(config, JSON.stringify({ recordPath: path.join(root, 'record.jsonl'), scenario: 'isError' }));
@@ -1015,7 +1262,7 @@ describe('mcp transport against the real fake stdio worker (T-OG-17)', () => {
     expect(body.termination).toBe('confirmed');
   }, 20000);
 
-  it('disconnect scenario: uncertain, never a blind replay', async () => {
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('disconnect scenario: uncertain, never a blind replay', async () => {
     const root = await tempRoot();
     const config = path.join(root, 'fixture-config.json');
     await writeFile(config, JSON.stringify({ recordPath: path.join(root, 'record.jsonl'), scenario: 'disconnect' }));
@@ -1025,7 +1272,7 @@ describe('mcp transport against the real fake stdio worker (T-OG-17)', () => {
     expect(body.termination).toBe('uncertain');
   }, 20000);
 
-  it('truncation scenario: never accepted as completed (SDK refuses the malformed response before this bridge ever parses it)', async () => {
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('truncation scenario: never accepted as completed (SDK refuses the malformed response before this bridge ever parses it)', async () => {
     const root = await tempRoot();
     const config = path.join(root, 'fixture-config.json');
     await writeFile(config, JSON.stringify({ recordPath: path.join(root, 'record.jsonl'), scenario: 'truncation' }));
@@ -1043,7 +1290,7 @@ describe('mcp transport against the real fake stdio worker (T-OG-17)', () => {
     expect(body.status).not.toBe('completed');
   }, 20000);
 
-  it('two concurrent tasks against distinct workspaces share no model/workspace/output state', async () => {
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('two concurrent tasks against distinct workspaces share no model/workspace/output state', async () => {
     const rootA = await tempRoot();
     const rootB = await tempRoot();
     const configA = path.join(rootA, 'fixture-config.json');
@@ -1063,7 +1310,7 @@ describe('mcp transport against the real fake stdio worker (T-OG-17)', () => {
   // StdioClientTransport, which always merges its own `getDefaultEnvironment()`
   // (HOME/LOGNAME/PATH/SHELL/TERM/USER from the CONDUCTOR's own `process.env`)
   // into whatever `env` is supplied, silently widening the qualified allowlist.
-  it('the spawned MCP worker process receives exactly the allowlisted environment, never the conductor\'s own inherited env', async () => {
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('the spawned MCP worker process receives exactly the allowlisted environment, never the conductor\'s own inherited env', async () => {
     const root = await tempRoot();
     const config = path.join(root, 'fixture-config.json');
     const recordPath = path.join(root, 'record.jsonl');
@@ -1085,7 +1332,7 @@ describe('mcp transport against the real fake stdio worker (T-OG-17)', () => {
   // #2892 M3: a live tools/list schema-digest mismatch refuses before any
   // brief is sent — the fixture's own 'schema-change' scenario changes the
   // advertised digest without ever reaching tools/call.
-  it('refuses before any brief is sent when the live tool schema has drifted from the qualified pin', async () => {
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('refuses before any brief is sent when the live tool schema has drifted from the qualified pin', async () => {
     const root = await tempRoot();
     const config = path.join(root, 'fixture-config.json');
     const recordPath = path.join(root, 'record.jsonl');
@@ -1106,7 +1353,7 @@ describe('mcp transport against the real fake stdio worker (T-OG-17)', () => {
   // zod-parsed object, so the drift was invisible and the brief was sent.
   // The fixture's 'schema-proto-drift' scenario advertises exactly that
   // drift; comparing against the RAW wire JSON must still catch it.
-  it('refuses a __proto__-only schema variant that the SDK\'s own zod parsing would silently erase (#2892 F3)', async () => {
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('refuses a __proto__-only schema variant that the SDK\'s own zod parsing would silently erase (#2892 F3)', async () => {
     const root = await tempRoot();
     const config = path.join(root, 'fixture-config.json');
     const recordPath = path.join(root, 'record.jsonl');
@@ -1121,7 +1368,7 @@ describe('mcp transport against the real fake stdio worker (T-OG-17)', () => {
   // #2892 F3: a qualified descriptor that records an output schema is
   // never satisfied by a worker that stops advertising one at all — missing
   // must refuse exactly like a digest mismatch, not be silently skipped.
-  it('refuses when the live tool stops advertising an output schema the qualified descriptor requires (#2892 F3)', async () => {
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('refuses when the live tool stops advertising an output schema the qualified descriptor requires (#2892 F3)', async () => {
     const root = await tempRoot();
     const config = path.join(root, 'fixture-config.json');
     const recordPath = path.join(root, 'record.jsonl');
@@ -1265,7 +1512,7 @@ describe('mcp transport requires a structured WorkerDirectBrief (#2892 F4)', () 
 // server share no model/workspace/output state.
 // ---------------------------------------------------------------------------
 describe('serialized per-server MCP queue — requalified before each launch, no crossover (#2892 D2/D3)', () => {
-  it('two tasks on the SAME registered serialized server both complete independently, with the qualification rechecked before each launch', async () => {
+  it.skipIf(!supportsCapturedWorkerStdio || process.platform !== 'linux')('two tasks on the SAME registered serialized server both complete independently, with the qualification rechecked before each launch', async () => {
     const root = await tempRoot();
     const workA = path.join(root, 'work-a'); await mkdir(workA, { recursive: true });
     const workB = path.join(root, 'work-b'); await mkdir(workB, { recursive: true });

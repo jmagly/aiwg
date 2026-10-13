@@ -120,7 +120,8 @@ export function sampleWorkerGroup(pgid) {
       if (!identity) {
         try {
           const stat = readFileSync(`/proc/${entry}/stat`, 'utf8');
-          if (Number(stat.slice(stat.lastIndexOf(')') + 2).split(/\s+/)[2]) === pgid) return null;
+          const fields = stat.slice(stat.lastIndexOf(')') + 2).split(/\s+/);
+          if (Number(fields[2]) === pgid && fields[0] !== 'Z') return null;
         } catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ESRCH') return null; }
       } else if (identity.pgid === pgid && identity.state !== 'Z') members.push(identity);
     }
