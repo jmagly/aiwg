@@ -349,7 +349,7 @@ describe('cockpit Bridge — control surface', () => {
       expect(res.status).toBe(503);
       const body = await res.json();
       expect(body).toMatchObject({ error: 'executor_trust_required' });
-      expect(body.message).toMatch(/sandbox mTLS is required/);
+      expect(body.message).toBe('Bridge request failed.');
       expect(body.recovery).toMatch(/Configure sandbox CA provider|Plaintext local development/);
     } finally {
       gated.close();
@@ -403,7 +403,7 @@ describe('cockpit Bridge — control surface', () => {
       await expect(fetchJsonFirst([
         { target: `${root}/slow`, method: 'POST' },
         { target: `${root}/second`, method: 'POST' },
-      ], { timeoutMs: 5 })).rejects.toThrow(/timeout after 5ms/);
+      ], { timeoutMs: 5, executorUrl: root })).rejects.toThrow(/timeout after 5ms/);
       expect(secondHit).toBe(false);
     } finally {
       upstream.close();
@@ -665,7 +665,7 @@ describe('cockpit Bridge — protected executor identity', () => {
         return send(200, { sessions: [{
           id: 'protected-session',
           instance_id: 'protected-host',
-          attach_url: `ws://127.0.0.1:${upstream.address().port}/agents/protected-host/sessions/protected-session/attach`,
+          attach_url: `ws://localhost:${upstream.address().port}/agents/protected-host/sessions/protected-session/attach`,
         }] });
       }
       return send(404, { error: 'not_found' });
@@ -710,7 +710,7 @@ describe('cockpit Bridge — protected executor identity', () => {
     headers: { ...(options.headers || {}), authorization: `Bearer ${protectedToken}` },
   });
 
-  it('keeps the executor bearer in the Bridge for REST and PTY requests', async () => {
+  it('keeps the executor bearer in the Bridge and proxies a loopback alias to its configured PTY origin', async () => {
     const inventory = await protectedFetch('/api/inventory');
     expect(inventory.status).toBe(200);
     expect(await inventory.json()).toMatchObject({ count: 1, instances: [expect.objectContaining({ id: 'protected-host' })] });
@@ -1106,7 +1106,7 @@ describe('cockpit Bridge — executor without running/approvals admin surface (#
     fleetMode = 'malformed';
     const malformed = await uf('/api/missions');
     expect(malformed.status).toBe(502);
-    expect((await malformed.json()).message).toMatch(/invalid fleet inventory envelope/);
+    expect((await malformed.json()).message).toBe('Bridge request failed.');
     fleetMode = 'missing';
   });
 });

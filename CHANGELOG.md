@@ -335,6 +335,8 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Fixed
 
+- Harden Cockpit bridge HTML and role rendering against XSS, restrict outbound targets to the configured executor origin and agent paths without redirects, and keep unexpected error details in redacted server logs (#3099).
+
 - `aiwg doctor --probe-workers` now has machine-readable output, a visible empty state, and
   strict flags (#3066): `--probe-workers --json` prints exactly one JSON document on stdout (one
   record per CLI with `cli`, `installed`, `version`, `inRange`, `ready`, `reason`, plus top-level

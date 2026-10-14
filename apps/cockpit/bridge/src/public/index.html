@@ -152,7 +152,8 @@
 
     const meta = document.getElementById('meta');
     const fmt = (id) => (id && id.length > 12) ? id.slice(0, 8) + '…' : id;
-    const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    // Shared by text and quoted attribute contexts; escape both quote types.
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     // Exchange a one-time URL-fragment nonce for an HttpOnly session. The
     // fragment is removed before any control-surface request is made.
     let CSRF = '';
@@ -220,10 +221,10 @@
         let costLine = '';
         try {
           const c = await (await api('/api/cost')).json();
-          costLine = `<p class="hint">Spend across stacks: <strong>$${c.total.usd.toFixed(2)}</strong> · ${(c.total.input_tokens + c.total.output_tokens).toLocaleString()} tokens</p>`;
+          costLine = `<p class="hint">Spend across stacks: <strong>$${esc(c.total.usd.toFixed(2))}</strong> · ${esc((c.total.input_tokens + c.total.output_tokens).toLocaleString())} tokens</p>`;
         } catch { /* cost optional */ }
         if (!r.running.length) { view.innerHTML = costLine + '<p class="empty">Nothing running.</p>'; return; }
-        view.innerHTML = costLine + `<table><caption>Running across all stacks — ${r.count} task(s)</caption>
+        view.innerHTML = costLine + `<table><caption>Running across all stacks — ${esc(r.count)} task(s)</caption>
           <thead><tr><th scope="col">Instance</th><th scope="col">Task</th><th scope="col">State</th><th scope="col">Tenant</th><th scope="col">Control</th></tr></thead>
           <tbody>${r.running.map((t) => `<tr>
             <td><code title="${esc(t.instance_id)}">${esc(fmt(t.instance_id))}</code></td>
@@ -252,8 +253,15 @@
     const decode = (b64) => { try { return atob(b64); } catch { return b64; } };
     function write(text) { terminal.textContent += text; terminal.scrollTop = terminal.scrollHeight; }
     function setRole(r) {
+      r = ['controller', 'observer'].includes(r) ? r : null;
       role = r;
-      roleBadge.innerHTML = r ? `<span class="badge ${r}">${r}</span>` : '';
+      roleBadge.replaceChildren();
+      if (r) {
+        const badge = document.createElement('span');
+        badge.setAttribute('class', `badge ${r}`);
+        badge.textContent = r;
+        roleBadge.append(badge);
+      }
       const driving = r === 'controller';
       cmd.disabled = !driving; btn.send.disabled = !driving;
       cmd.placeholder = driving ? 'Type to drive the session…' : 'Observing — input is read-only';
@@ -275,13 +283,33 @@
       try {
         const r = await (await api('/api/sessions?instance=' + encodeURIComponent(inst))).json();
         if (!r.sessions.length) { selSession.innerHTML = '<option value="">— no sessions —</option>'; return; }
-        selSession.innerHTML = r.sessions.map((s) => `<option value="${esc(s.attach_url)}">${esc(s.id)} · seq ${s.seq} · ${s.members} viewer(s)</option>`).join('');
-      } catch (e) { selSession.innerHTML = `<option value="">${esc(e.message)}</option>`; }
+        selSession.replaceChildren(...r.sessions.map((s) => {
+          const option = document.createElement('option');
+          option.value = validatedAttachUrl(s.attach_url);
+          option.textContent = `${s.id} · seq ${s.seq} · ${s.members} viewer(s)`;
+          return option;
+        }));
+      } catch (e) {
+        const option = document.createElement('option');
+        option.value = ''; option.textContent = e.message;
+        selSession.replaceChildren(option);
+      }
     }
     selInstance.addEventListener('change', loadSessions);
 
+    function validatedAttachUrl(value) {
+      const url = new URL(value);
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      if (url.protocol !== protocol || url.host !== location.host || url.username || url.password || url.search || url.hash ||
+          !/^\/api\/pty\/agents\/[^/]+\/sessions\/[^/]+\/attach\/[^/]+$/.test(url.pathname)) {
+        throw new Error('Invalid session attach URL.');
+      }
+      return url.href;
+    }
+
     function attach(replay) {
-      attachUrl = selSession.value;
+      try { attachUrl = selSession.value ? validatedAttachUrl(selSession.value) : ''; }
+      catch (e) { write(`\n[${e.message}]\n`); return; }
       if (!attachUrl) return;
       const url = replay ? attachUrl + '?replay_from=' + lastSeq : attachUrl;
       if (replay) terminal.textContent = '';

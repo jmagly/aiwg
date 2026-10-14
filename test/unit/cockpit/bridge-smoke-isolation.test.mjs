@@ -304,7 +304,7 @@ describe('Cockpit smoke isolation and ownership', () => {
         ]);
         const unexpected = await a.f('/api/capabilities?q=unexpected&limit=4');
         assert.equal(unexpected.status, 502);
-        assert.match((await unexpected.json()).message, /Unexpected smoke CLI command/);
+        assert.equal((await unexpected.json()).message, 'Bridge request failed.');
         await assert.rejects(createSmokeCliFixture()(['mc', 'run', 'forbidden']), /Unexpected smoke CLI command/);
       });
     });
