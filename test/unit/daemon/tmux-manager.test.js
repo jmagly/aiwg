@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 
 vi.mock('node:child_process');
 
-import { execSync, spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { TmuxManager, formatStatusDashboard } from '../../../tools/daemon/tmux-manager.mjs';
 
 describe('TmuxManager', () => {
@@ -11,7 +11,7 @@ describe('TmuxManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    execSync.mockImplementation(() => '');
+    execFileSync.mockImplementation(() => '');
     tmux = new TmuxManager();
   });
 
@@ -53,18 +53,18 @@ describe('TmuxManager', () => {
 
   describe('isTmuxAvailable', () => {
     it('should return true when tmux is available', () => {
-      execSync.mockImplementation((cmd) => {
-        if (cmd === 'tmux -V') return 'tmux 3.3a';
+      execFileSync.mockImplementation((_file, cmd) => {
+        if (cmd[0] === '-V') return 'tmux 3.3a';
         return '';
       });
 
       expect(tmux.isTmuxAvailable()).toBe(true);
-      expect(execSync).toHaveBeenCalledWith('tmux -V', { stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
+      expect(execFileSync).toHaveBeenCalledWith('tmux', ['-V'], { stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
     });
 
     it('should return false when tmux is not available', () => {
-      execSync.mockImplementation((cmd) => {
-        if (cmd === 'tmux -V') throw new Error('not found');
+      execFileSync.mockImplementation((_file, cmd) => {
+        if (cmd[0] === '-V') throw new Error('not found');
         return '';
       });
 
@@ -74,20 +74,20 @@ describe('TmuxManager', () => {
 
   describe('sessionExists', () => {
     it('should return true when session exists', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
 
       expect(tmux.sessionExists()).toBe(true);
-      expect(execSync).toHaveBeenCalledWith(
-        'tmux has-session -t aiwg-daemon 2>/dev/null',
+      expect(execFileSync).toHaveBeenCalledWith(
+        'tmux', ['has-session', '-t', 'aiwg-daemon'],
         { stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
 
     it('should return false when session does not exist', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) throw new Error('no session');
         return '';
       });
@@ -97,15 +97,15 @@ describe('TmuxManager', () => {
 
     it('should use custom session name in check', () => {
       const customTmux = new TmuxManager({ sessionName: 'custom' });
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
 
       customTmux.sessionExists();
 
-      expect(execSync).toHaveBeenCalledWith(
-        'tmux has-session -t custom 2>/dev/null',
+      expect(execFileSync).toHaveBeenCalledWith(
+        'tmux', ['has-session', '-t', 'custom'],
         { stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
@@ -114,8 +114,8 @@ describe('TmuxManager', () => {
   describe('createSession', () => {
     beforeEach(() => {
       // Mock: tmux available, session does NOT exist
-      execSync.mockImplementation((cmd) => {
-        if (cmd === 'tmux -V') return 'tmux 3.3a';
+      execFileSync.mockImplementation((_file, cmd) => {
+        if (cmd[0] === '-V') return 'tmux 3.3a';
         if (cmd.includes('has-session')) throw new Error('no session');
         return '';
       });
@@ -125,34 +125,32 @@ describe('TmuxManager', () => {
       tmux.createSession();
 
       // isTmuxAvailable (tmux -V) + sessionExists (has-session) + new-session + split-window + select-pane = 5 calls
-      expect(execSync).toHaveBeenCalledTimes(5);
+      expect(execFileSync).toHaveBeenCalledTimes(5);
 
-      const calls = execSync.mock.calls;
+      const calls = execFileSync.mock.calls;
       // Call 0: tmux -V (isTmuxAvailable)
-      expect(calls[0][0]).toBe('tmux -V');
+      expect(calls[0][1]).toEqual(['-V']);
       // Call 1: has-session (sessionExists)
-      expect(calls[1][0]).toContain('has-session');
+      expect(calls[1][1]).toEqual(['has-session', '-t', 'aiwg-daemon']);
       // Call 2: new-session
-      expect(calls[2][0]).toContain('tmux new-session -d -s aiwg-daemon');
-      expect(calls[2][0]).toContain('Chat pane ready');
-      expect(calls[2][1]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
+      expect(calls[2][1]).toEqual(['new-session', '-d', '-s', 'aiwg-daemon', '-x', '200', '-y', '50', 'echo "Chat pane ready"']);
+      expect(calls[2][2]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
       // Call 3: split-window with 30% status pane
-      expect(calls[3][0]).toContain('tmux split-window -t aiwg-daemon -v -p 30');
-      expect(calls[3][0]).toContain('Status pane ready');
-      expect(calls[3][1]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
+      expect(calls[3][1]).toEqual(['split-window', '-t', 'aiwg-daemon', '-v', '-p', '30', 'echo "Status pane ready"']);
+      expect(calls[3][2]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
       // Call 4: select-pane
-      expect(calls[4][0]).toBe('tmux select-pane -t aiwg-daemon:0.0');
+      expect(calls[4][1]).toEqual(['select-pane', '-t', 'aiwg-daemon:0.0']);
     });
 
     it('should select chat pane as active after creation', () => {
       tmux.createSession();
 
-      const selectCall = execSync.mock.calls.find(call =>
-        call[0].includes('select-pane')
+      const selectCall = execFileSync.mock.calls.find(call =>
+        call[1].includes('select-pane')
       );
 
       expect(selectCall).toBeDefined();
-      expect(selectCall[0]).toBe('tmux select-pane -t aiwg-daemon:0.0');
+      expect(selectCall[1]).toEqual(['select-pane', '-t', 'aiwg-daemon:0.0']);
     });
 
     it('should emit session:created event and return true', () => {
@@ -166,8 +164,8 @@ describe('TmuxManager', () => {
     });
 
     it('should throw when session already exists', () => {
-      execSync.mockImplementation((cmd) => {
-        if (cmd === 'tmux -V') return 'tmux 3.3a';
+      execFileSync.mockImplementation((_file, cmd) => {
+        if (cmd[0] === '-V') return 'tmux 3.3a';
         if (cmd.includes('has-session')) return ''; // Session exists
         return '';
       });
@@ -178,8 +176,8 @@ describe('TmuxManager', () => {
     });
 
     it('should throw when tmux is not available', () => {
-      execSync.mockImplementation((cmd) => {
-        if (cmd === 'tmux -V') throw new Error('not found');
+      execFileSync.mockImplementation((_file, cmd) => {
+        if (cmd[0] === '-V') throw new Error('not found');
         if (cmd.includes('has-session')) throw new Error('no session');
         return '';
       });
@@ -192,43 +190,43 @@ describe('TmuxManager', () => {
     it('should use custom chatCommand when provided', () => {
       tmux.createSession({ chatCommand: 'custom-command --arg' });
 
-      const newSessionCall = execSync.mock.calls.find(call =>
-        call[0].includes('new-session')
+      const newSessionCall = execFileSync.mock.calls.find(call =>
+        call[1].includes('new-session')
       );
 
-      expect(newSessionCall[0]).toContain('custom-command --arg');
+      expect(newSessionCall[1]).toEqual(['new-session', '-d', '-s', 'aiwg-daemon', '-x', '200', '-y', '50', 'custom-command --arg']);
     });
 
     it('should use custom statusCommand when provided', () => {
       tmux.createSession({ statusCommand: 'custom-status --watch' });
 
-      const splitCall = execSync.mock.calls.find(call =>
-        call[0].includes('split-window')
+      const splitCall = execFileSync.mock.calls.find(call =>
+        call[1].includes('split-window')
       );
 
-      expect(splitCall[0]).toContain('custom-status --watch');
+      expect(splitCall[1]).toEqual(['split-window', '-t', 'aiwg-daemon', '-v', '-p', '30', 'custom-status --watch']);
     });
 
     it('should respect custom chatPaneRatio', () => {
       const customTmux = new TmuxManager({ chatPaneRatio: 80 });
-      execSync.mockImplementation((cmd) => {
-        if (cmd === 'tmux -V') return 'tmux 3.3a';
+      execFileSync.mockImplementation((_file, cmd) => {
+        if (cmd[0] === '-V') return 'tmux 3.3a';
         if (cmd.includes('has-session')) throw new Error('no session');
         return '';
       });
 
       customTmux.createSession();
 
-      const splitCall = execSync.mock.calls.find(call =>
-        call[0].includes('split-window')
+      const splitCall = execFileSync.mock.calls.find(call =>
+        call[1].includes('split-window')
       );
 
-      expect(splitCall[0]).toContain('-p 20'); // 100 - 80 = 20
+      expect(splitCall[1]).toEqual(['split-window', '-t', 'aiwg-daemon', '-v', '-p', '20', 'echo "Status pane ready"']); // 100 - 80 = 20
     });
 
-    it('should throw wrapped error when execSync fails during creation', () => {
-      execSync.mockImplementation((cmd) => {
-        if (cmd === 'tmux -V') return 'tmux 3.3a';
+    it('should throw wrapped error when execFileSync fails during creation', () => {
+      execFileSync.mockImplementation((_file, cmd) => {
+        if (cmd[0] === '-V') return 'tmux 3.3a';
         if (cmd.includes('has-session')) throw new Error('no session');
         if (cmd.includes('new-session')) throw new Error('creation failed');
         return '';
@@ -240,7 +238,7 @@ describe('TmuxManager', () => {
 
   describe('attach', () => {
     it('should spawn tmux attach-session command and return promise', async () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -262,7 +260,7 @@ describe('TmuxManager', () => {
     });
 
     it('should pass readonly flag when requested', async () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -283,7 +281,7 @@ describe('TmuxManager', () => {
     });
 
     it('should not pass readonly flag when false', async () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -301,7 +299,7 @@ describe('TmuxManager', () => {
     });
 
     it('should throw when session does not exist', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) throw new Error('no session');
         return '';
       });
@@ -312,7 +310,7 @@ describe('TmuxManager', () => {
     });
 
     it('should resolve on exit code 0', async () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -327,7 +325,7 @@ describe('TmuxManager', () => {
     });
 
     it('should reject on non-zero exit code', async () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -342,7 +340,7 @@ describe('TmuxManager', () => {
     });
 
     it('should reject on spawn error', async () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -359,7 +357,7 @@ describe('TmuxManager', () => {
 
   describe('sendToPane', () => {
     beforeEach(() => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -368,30 +366,35 @@ describe('TmuxManager', () => {
     it('should send text to specified pane with Enter', () => {
       tmux.sendToPane(0, 'test command');
 
-      const sendCall = execSync.mock.calls.find(c => c[0].includes('send-keys'));
-      expect(sendCall[0]).toBe('tmux send-keys -t aiwg-daemon:0.0 "test command" Enter');
-      expect(sendCall[1]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
+      const sendCall = execFileSync.mock.calls.find(c => c[1].includes('send-keys'));
+      expect(execFileSync.mock.calls.filter(c => c[1][0] === 'send-keys').map(c => c[1])).toEqual([
+        ['send-keys', '-t', 'aiwg-daemon:0.0', '-l', '--', 'test command'],
+        ['send-keys', '-t', 'aiwg-daemon:0.0', 'Enter'],
+      ]);
+      expect(sendCall[2]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
     });
 
     it('should send text without Enter when specified', () => {
       tmux.sendToPane(1, 'partial text', false);
 
-      const sendCall = execSync.mock.calls.find(c => c[0].includes('send-keys'));
-      expect(sendCall[0]).toBe('tmux send-keys -t aiwg-daemon:0.1 "partial text"');
-      expect(sendCall[1]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
+      const sendCall = execFileSync.mock.calls.find(c => c[1].includes('send-keys'));
+      expect(execFileSync.mock.calls.filter(c => c[1][0] === 'send-keys').map(c => c[1])).toEqual([
+        ['send-keys', '-t', 'aiwg-daemon:0.1', '-l', '--', 'partial text'],
+      ]);
+      expect(sendCall[2]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
     });
 
-    it('should escape double quotes in text', () => {
+    it('should preserve double quotes in text', () => {
       tmux.sendToPane(0, 'text with "quotes"');
 
-      const sendCall = execSync.mock.calls.find(c =>
-        c[0].includes('send-keys') && c[0].includes('text with')
+      const sendCall = execFileSync.mock.calls.find(c =>
+        c[1].includes('send-keys') && c[1].includes('text with "quotes"')
       );
-      expect(sendCall[0]).toContain('text with \\"quotes\\"');
+      expect(sendCall[1]).toContain('text with "quotes"');
     });
 
     it('should throw when session does not exist', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) throw new Error('no session');
         return '';
       });
@@ -402,7 +405,7 @@ describe('TmuxManager', () => {
     });
 
     it('should throw wrapped error when send-keys fails', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         if (cmd.includes('send-keys')) throw new Error('send failed');
         return '';
@@ -416,22 +419,22 @@ describe('TmuxManager', () => {
 
       for (const pane of paneIndices) {
         vi.clearAllMocks();
-        execSync.mockImplementation((cmd) => {
+        execFileSync.mockImplementation((_file, cmd) => {
           if (cmd.includes('has-session')) return '';
           return '';
         });
 
         tmux.sendToPane(pane, 'test');
 
-        const sendCall = execSync.mock.calls.find(c => c[0].includes('send-keys'));
-        expect(sendCall[0]).toContain(`:0.${pane}`);
+        const sendCall = execFileSync.mock.calls.find(c => c[1].includes('send-keys'));
+        expect(sendCall[1]).toEqual(['send-keys', '-t', `aiwg-daemon:0.${pane}`, '-l', '--', 'test']);
       }
     });
   });
 
   describe('updateStatusPane', () => {
     beforeEach(() => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -440,30 +443,32 @@ describe('TmuxManager', () => {
     it('should send C-c and C-l then content lines to status pane', () => {
       tmux.updateStatusPane('Line 1\nLine 2');
 
-      const calls = execSync.mock.calls.filter(c =>
-        c[0].includes('send-keys') && c[0].includes(':0.1')
+      const calls = execFileSync.mock.calls.filter(c =>
+        c[1].includes('send-keys') && c[1].includes('aiwg-daemon:0.1')
       );
 
-      // Should have: C-c, C-l, "Line 1" Enter, "Line 2" Enter
-      expect(calls.length).toBeGreaterThanOrEqual(4);
-      expect(calls[0][0]).toContain('C-c');
-      expect(calls[1][0]).toContain('C-l');
-      expect(calls[2][0]).toContain('"Line 1" Enter');
-      expect(calls[3][0]).toContain('"Line 2" Enter');
+      // Literal lines and Enter are separate commands.
+      expect(calls).toHaveLength(6);
+      expect(calls[0][1]).toEqual(['send-keys', '-t', 'aiwg-daemon:0.1', 'C-c']);
+      expect(calls[1][1]).toEqual(['send-keys', '-t', 'aiwg-daemon:0.1', 'C-l']);
+      expect(calls[2][1]).toEqual(['send-keys', '-t', 'aiwg-daemon:0.1', '-l', '--', 'Line 1']);
+      expect(calls[3][1]).toEqual(['send-keys', '-t', 'aiwg-daemon:0.1', 'Enter']);
+      expect(calls[4][1]).toEqual(['send-keys', '-t', 'aiwg-daemon:0.1', '-l', '--', 'Line 2']);
+      expect(calls[5][1]).toEqual(['send-keys', '-t', 'aiwg-daemon:0.1', 'Enter']);
     });
 
     it('should send single line content', () => {
       tmux.updateStatusPane('Status: Running');
 
-      const contentCall = execSync.mock.calls.find(c =>
-        c[0].includes('send-keys') && c[0].includes('Status: Running')
+      const contentCall = execFileSync.mock.calls.find(c =>
+        c[1].includes('send-keys') && c[1].includes('Status: Running')
       );
       expect(contentCall).toBeDefined();
-      expect(contentCall[0]).toContain('aiwg-daemon:0.1');
+      expect(contentCall[1]).toEqual(['send-keys', '-t', 'aiwg-daemon:0.1', '-l', '--', 'Status: Running']);
     });
 
     it('should return silently when session does not exist', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) throw new Error('no session');
         return '';
       });
@@ -472,13 +477,13 @@ describe('TmuxManager', () => {
       expect(() => tmux.updateStatusPane('test')).not.toThrow();
 
       // Should not have called send-keys
-      const sendCalls = execSync.mock.calls.filter(c => c[0].includes('send-keys'));
+      const sendCalls = execFileSync.mock.calls.filter(c => c[1].includes('send-keys'));
       expect(sendCalls).toHaveLength(0);
     });
 
     it('should silently catch errors during update', () => {
       let callCount = 0;
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         callCount++;
         if (callCount > 1) throw new Error('send failed');
@@ -492,7 +497,7 @@ describe('TmuxManager', () => {
   describe('startStatusRefresh', () => {
     beforeEach(() => {
       vi.useFakeTimers();
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -530,8 +535,8 @@ describe('TmuxManager', () => {
       tmux.startStatusRefresh(statusFn);
       vi.advanceTimersByTime(5000);
 
-      const contentCall = execSync.mock.calls.find(c =>
-        c[0].includes('send-keys') && c[0].includes('Current Status')
+      const contentCall = execFileSync.mock.calls.find(c =>
+        c[1].includes('send-keys') && c[1].includes('Current Status')
       );
       expect(contentCall).toBeDefined();
     });
@@ -581,7 +586,7 @@ describe('TmuxManager', () => {
 
     it('should ignore errors from updateStatusPane', () => {
       const statusFn = vi.fn(() => 'Status');
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         if (cmd.includes('send-keys')) throw new Error('Update error');
         return '';
@@ -596,7 +601,7 @@ describe('TmuxManager', () => {
 
     it('should not update when session does not exist', () => {
       const statusFn = vi.fn(() => 'Status');
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) throw new Error('no session');
         return '';
       });
@@ -606,7 +611,7 @@ describe('TmuxManager', () => {
 
       // statusFn gets called, but updateStatusPane returns early
       expect(statusFn).toHaveBeenCalledTimes(1);
-      const sendCalls = execSync.mock.calls.filter(c => c[0].includes('send-keys'));
+      const sendCalls = execFileSync.mock.calls.filter(c => c[1].includes('send-keys'));
       expect(sendCalls).toHaveLength(0);
     });
   });
@@ -647,21 +652,21 @@ describe('TmuxManager', () => {
 
   describe('killSession', () => {
     it('should kill existing session', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
 
       tmux.killSession();
 
-      expect(execSync).toHaveBeenCalledWith(
-        'tmux kill-session -t aiwg-daemon',
+      expect(execFileSync).toHaveBeenCalledWith(
+        'tmux', ['kill-session', '-t', 'aiwg-daemon'],
         { stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
 
     it('should emit session:killed event', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -676,7 +681,7 @@ describe('TmuxManager', () => {
 
     it('should stop status refresh before killing', () => {
       vi.useFakeTimers();
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         return '';
       });
@@ -693,7 +698,7 @@ describe('TmuxManager', () => {
     });
 
     it('should return silently when session does not exist', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) throw new Error('no session');
         return '';
       });
@@ -703,7 +708,7 @@ describe('TmuxManager', () => {
     });
 
     it('should throw when kill command fails', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         if (cmd.includes('kill-session')) throw new Error('kill failed');
         return '';
@@ -715,7 +720,7 @@ describe('TmuxManager', () => {
 
   describe('listSessions', () => {
     it('should return array of session objects', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('list-sessions')) {
           return 'session1:2:0\nsession2:1:1\naiwg-daemon:3:0\n';
         }
@@ -730,14 +735,14 @@ describe('TmuxManager', () => {
         { name: 'aiwg-daemon', windows: 3, attached: false },
       ]);
 
-      expect(execSync).toHaveBeenCalledWith(
-        'tmux list-sessions -F "#{session_name}:#{session_windows}:#{session_attached}"',
+      expect(execFileSync).toHaveBeenCalledWith(
+        'tmux', ['list-sessions', '-F', '#{session_name}:#{session_windows}:#{session_attached}'],
         { stdio: 'pipe', encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
 
     it('should filter out empty lines', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('list-sessions')) {
           return 'session1:1:0\n\nsession2:2:1\n\n';
         }
@@ -753,7 +758,7 @@ describe('TmuxManager', () => {
     });
 
     it('should return empty array when no sessions exist', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('list-sessions')) {
           throw new Error('no server running');
         }
@@ -766,7 +771,7 @@ describe('TmuxManager', () => {
     });
 
     it('should return empty array on any error', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('list-sessions')) {
           throw new Error('tmux error');
         }
@@ -781,7 +786,7 @@ describe('TmuxManager', () => {
 
   describe('getPaneInfo', () => {
     it('should return array of pane info objects', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         if (cmd.includes('list-panes')) {
           return '0:120x40:1\n1:120x10:0\n';
@@ -798,7 +803,7 @@ describe('TmuxManager', () => {
     });
 
     it('should parse dimensions correctly', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         if (cmd.includes('list-panes')) {
           return '0:200x50:1\n';
@@ -813,7 +818,7 @@ describe('TmuxManager', () => {
     });
 
     it('should parse active status correctly', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         if (cmd.includes('list-panes')) {
           return '0:100x30:0\n1:100x20:1\n';
@@ -828,7 +833,7 @@ describe('TmuxManager', () => {
     });
 
     it('should return null when session does not exist', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) throw new Error('no session');
         return '';
       });
@@ -839,7 +844,7 @@ describe('TmuxManager', () => {
     });
 
     it('should return null on error', () => {
-      execSync.mockImplementation((cmd) => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         if (cmd.includes('list-panes')) throw new Error('pane error');
         return '';
@@ -850,8 +855,8 @@ describe('TmuxManager', () => {
       expect(panes).toBe(null);
     });
 
-    it('should call execSync with correct session name', () => {
-      execSync.mockImplementation((cmd) => {
+    it('should call execFileSync with correct session name', () => {
+      execFileSync.mockImplementation((_file, cmd) => {
         if (cmd.includes('has-session')) return '';
         if (cmd.includes('list-panes')) return '0:100x30:1\n';
         return '';
@@ -859,30 +864,10 @@ describe('TmuxManager', () => {
 
       tmux.getPaneInfo();
 
-      const listPanesCall = execSync.mock.calls.find(c =>
-        c[0].includes('list-panes')
+      const listPanesCall = execFileSync.mock.calls.find(c =>
+        c[1].includes('list-panes')
       );
-      expect(listPanesCall[0]).toContain('-t aiwg-daemon');
-    });
-  });
-
-  describe('_escapeShell', () => {
-    it('should escape single quotes', () => {
-      expect(tmux._escapeShell("it's a test")).toBe("it'\\''s a test");
-    });
-
-    it('should not modify strings without single quotes', () => {
-      expect(tmux._escapeShell('no quotes')).toBe('no quotes');
-    });
-  });
-
-  describe('_escapeForTmux', () => {
-    it('should wrap text in double quotes', () => {
-      expect(tmux._escapeForTmux('hello')).toBe('"hello"');
-    });
-
-    it('should escape double quotes in text', () => {
-      expect(tmux._escapeForTmux('say "hi"')).toBe('"say \\"hi\\""');
+      expect(listPanesCall[1]).toEqual(['list-panes', '-t', 'aiwg-daemon', '-F', '#{pane_index}:#{pane_width}x#{pane_height}:#{pane_active}']);
     });
   });
 

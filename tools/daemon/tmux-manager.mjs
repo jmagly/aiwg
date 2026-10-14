@@ -13,7 +13,7 @@ import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { importImpl } from '../_resolve-impl.mjs';
 
-const { boundedExecSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
+const { boundedExecFileSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
 
 export class TmuxManager extends EventEmitter {
   constructor(options = {}) {
@@ -30,7 +30,7 @@ export class TmuxManager extends EventEmitter {
    */
   isTmuxAvailable() {
     try {
-      boundedExecSync('tmux -V', 'quick', { stdio: 'pipe' });
+      boundedExecFileSync('tmux', ['-V'], 'quick', { stdio: 'pipe' });
       return true;
     } catch {
       return false;
@@ -42,7 +42,7 @@ export class TmuxManager extends EventEmitter {
    */
   sessionExists() {
     try {
-      boundedExecSync(`tmux has-session -t ${this.sessionName} 2>/dev/null`, 'quick', { stdio: 'pipe' });
+      boundedExecFileSync('tmux', ['has-session', '-t', this.sessionName], 'quick', { stdio: 'pipe' });
       return true;
     } catch {
       return false;
@@ -52,8 +52,9 @@ export class TmuxManager extends EventEmitter {
   /**
    * Create a new tmux session with 2-pane layout
    * @param {object} options - Creation options
-   * @param {string} options.chatCommand - Command for the chat pane
-   * @param {string} options.statusCommand - Command for the status pane
+   * tmux executes these trusted, operator-supplied commands through its shell.
+   * @param {string} options.chatCommand - Shell command for the chat pane
+   * @param {string} options.statusCommand - Shell command for the status pane
    */
   createSession(options = {}) {
     if (!this.isTmuxAvailable()) {
@@ -69,22 +70,22 @@ export class TmuxManager extends EventEmitter {
 
     try {
       // Create session in detached mode with the chat command
-      boundedExecSync(
-        `tmux new-session -d -s ${this.sessionName} -x 200 -y 50 '${this._escapeShell(chatCommand)}'`,
+      boundedExecFileSync(
+        'tmux', ['new-session', '-d', '-s', this.sessionName, '-x', '200', '-y', '50', chatCommand],
         'quick',
         { stdio: 'pipe' }
       );
 
       // Split horizontally for status pane (bottom)
       const statusPercent = 100 - this.chatPaneRatio;
-      boundedExecSync(
-        `tmux split-window -t ${this.sessionName} -v -p ${statusPercent} '${this._escapeShell(statusCommand)}'`,
+      boundedExecFileSync(
+        'tmux', ['split-window', '-t', this.sessionName, '-v', '-p', String(statusPercent), statusCommand],
         'quick',
         { stdio: 'pipe' }
       );
 
       // Select the top pane (chat) as active
-      boundedExecSync(`tmux select-pane -t ${this.sessionName}:0.0`, 'quick', { stdio: 'pipe' });
+      boundedExecFileSync('tmux', ['select-pane', '-t', `${this.sessionName}:0.0`], 'quick', { stdio: 'pipe' });
 
       this.emit('session:created', { sessionName: this.sessionName });
       return true;
@@ -101,8 +102,6 @@ export class TmuxManager extends EventEmitter {
     if (!this.sessionExists()) {
       throw new Error(`Session "${this.sessionName}" does not exist. Use createSession() first.`);
     }
-
-    const readonlyFlag = readonly ? ' -r' : '';
 
     // Use spawn to attach interactively
     const proc = spawn('tmux', ['attach-session', '-t', this.sessionName, ...(readonly ? ['-r'] : [])], {
@@ -136,14 +135,14 @@ export class TmuxManager extends EventEmitter {
     }
 
     const target = `${this.sessionName}:0.${pane}`;
-    const enterSuffix = enter ? ' Enter' : '';
 
     try {
-      boundedExecSync(
-        `tmux send-keys -t ${target} ${this._escapeForTmux(text)}${enterSuffix}`,
+      boundedExecFileSync(
+        'tmux', ['send-keys', '-t', target, '-l', '--', text],
         'quick',
         { stdio: 'pipe' }
       );
+      if (enter) boundedExecFileSync('tmux', ['send-keys', '-t', target, 'Enter'], 'quick', { stdio: 'pipe' });
     } catch (err) {
       throw new Error(`Failed to send to pane ${pane}: ${err.message}`);
     }
@@ -159,17 +158,18 @@ export class TmuxManager extends EventEmitter {
     const target = `${this.sessionName}:0.1`;
     try {
       // Clear pane and write new content
-      boundedExecSync(`tmux send-keys -t ${target} C-c`, 'quick', { stdio: 'pipe' });
-      boundedExecSync(`tmux send-keys -t ${target} C-l`, 'quick', { stdio: 'pipe' });
+      boundedExecFileSync('tmux', ['send-keys', '-t', target, 'C-c'], 'quick', { stdio: 'pipe' });
+      boundedExecFileSync('tmux', ['send-keys', '-t', target, 'C-l'], 'quick', { stdio: 'pipe' });
 
       // Write each line
       const lines = content.split('\n');
       for (const line of lines) {
-        boundedExecSync(
-          `tmux send-keys -t ${target} ${this._escapeForTmux(line)} Enter`,
+        boundedExecFileSync(
+          'tmux', ['send-keys', '-t', target, '-l', '--', line],
           'quick',
           { stdio: 'pipe' }
         );
+        boundedExecFileSync('tmux', ['send-keys', '-t', target, 'Enter'], 'quick', { stdio: 'pipe' });
       }
     } catch {
       // Status update failure is non-critical
@@ -212,7 +212,7 @@ export class TmuxManager extends EventEmitter {
     if (!this.sessionExists()) return;
 
     try {
-      boundedExecSync(`tmux kill-session -t ${this.sessionName}`, 'quick', { stdio: 'pipe' });
+      boundedExecFileSync('tmux', ['kill-session', '-t', this.sessionName], 'quick', { stdio: 'pipe' });
       this.emit('session:killed', { sessionName: this.sessionName });
     } catch (err) {
       throw new Error(`Failed to kill session: ${err.message}`);
@@ -224,7 +224,7 @@ export class TmuxManager extends EventEmitter {
    */
   listSessions() {
     try {
-      const output = boundedExecSync('tmux list-sessions -F "#{session_name}:#{session_windows}:#{session_attached}"', 'quick', {
+      const output = boundedExecFileSync('tmux', ['list-sessions', '-F', '#{session_name}:#{session_windows}:#{session_attached}'], 'quick', {
         stdio: 'pipe',
         encoding: 'utf8',
       });
@@ -249,8 +249,8 @@ export class TmuxManager extends EventEmitter {
     if (!this.sessionExists()) return null;
 
     try {
-      const output = boundedExecSync(
-        `tmux list-panes -t ${this.sessionName} -F "#{pane_index}:#{pane_width}x#{pane_height}:#{pane_active}"`,
+      const output = boundedExecFileSync(
+        'tmux', ['list-panes', '-t', this.sessionName, '-F', '#{pane_index}:#{pane_width}x#{pane_height}:#{pane_active}'],
         'quick',
         { stdio: 'pipe', encoding: 'utf8' }
       );
@@ -272,17 +272,6 @@ export class TmuxManager extends EventEmitter {
     } catch {
       return null;
     }
-  }
-
-  // --- Private helpers ---
-
-  _escapeShell(str) {
-    return str.replace(/'/g, "'\\''");
-  }
-
-  _escapeForTmux(str) {
-    // Wrap in quotes for tmux send-keys
-    return `"${str.replace(/"/g, '\\"')}"`;
   }
 }
 

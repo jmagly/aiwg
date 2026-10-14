@@ -59,8 +59,38 @@ describe('resolveAdapter (#1507)', () => {
     expect(() => resolveAdapter({ provider: 'command' })).toThrow(/requires --command/);
     expect(resolveAdapter({ provider: 'command', command: 'x {image} {out}' }).name).toBe('command');
   });
+  it('quotes image, prompt and output paths literally in shell templates (141)', () => {
+    const marker = join(root, 'pwned');
+    const backtickMarker = join(root, 'backtick-pwned');
+    // A slash-free relative marker lets the payload appear in a directory name.
+    // The command intentionally starts in root so an unsafe substitution touches it.
+    const dir = join(root, "images {prompt_file} {out} $(touch pwned) `touch backtick-pwned` 'single' \\ \"double\"");
+    mkdirSync(dir);
+    const image = join(dir, 'page-001.png');
+    writeFileSync(image, 'literal image');
+    const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
+    const adapter = resolveAdapter({ provider: 'command', command:
+      `cd ${quote(root)} && cat {image} {prompt_file} > {out}` });
+    const result = adapter.transcribe(image, '# Page 1\nPrompt', { root, page: 1, timeoutSec: 10 });
+    expect(result).toEqual({ ok: true, text: 'literal image# Page 1\nPrompt' });
+    expect(existsSync(marker)).toBe(false);
+    expect(existsSync(backtickMarker)).toBe(false);
+    expect(existsSync(join(dir, '.vision-prompt-1.txt'))).toBe(false);
+    expect(existsSync(join(dir, '.vision-out-1.txt'))).toBe(false);
+  });
   it('rejects an unknown provider', () => {
     expect(() => resolveAdapter({ provider: 'bogus' })).toThrow(/unknown vision provider/);
+  });
+  it.each(['"{image}"', "$'{image}'", "'{prompt_file}'", '`{out}`', '\\{image}'])('rejects unsafe placeholder context %s (141)', (placeholder) => {
+    const dir = join(root, '$(touch pwned)');
+    mkdirSync(dir);
+    const image = join(dir, 'page-001.png');
+    writeFileSync(image, 'PNG');
+    expect(() => {
+      const adapter = resolveAdapter({ provider: 'command', command: `cd "${root}" && cat ${placeholder}` });
+      adapter.transcribe(image, '# Page 1', { root, page: 1, timeoutSec: 10 });
+    }).toThrow(/placeholders must/);
+    expect(existsSync(join(root, 'pwned'))).toBe(false);
   });
 });
 

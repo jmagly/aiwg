@@ -9,30 +9,32 @@
  * graceful error handling in the contributor workflow.
  */
 
-import { boundedExecSync } from '../../../src/process/bounded-child-process.mjs';
+import { boundedSpawnSync } from '../../../src/process/bounded-child-process.mjs';
 
 /**
  * Execute gh command and return structured result
- * @param {string} command - The gh command to execute
+ * @param {string[]} args - Arguments to pass to gh
  * @param {Object} options - Execution options
  * @returns {Object} { success: boolean, stdout: string, stderr: string, error: Error|null }
  */
-function execGh(command, options = {}) {
+function execGh(args, options = {}) {
   try {
+    if (args[0] === 'pr' && ['view', 'comment'].includes(args[1]) && !/^\d+$/.test(args[2])) {
+      throw new Error('PR number must contain only digits');
+    }
     const tier = options.tier ?? 'network';
-    const stdout = boundedExecSync(command, tier, {
+    const result = boundedSpawnSync('gh', args, tier, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
       ...options
     });
-    return { success: true, stdout: stdout.trim(), stderr: '', error: null };
-  } catch (err) {
-    return {
-      success: false,
-      stdout: err.stdout?.toString() || '',
-      stderr: err.stderr?.toString() || err.message,
-      error: err
-    };
+    const stdout = result.stdout?.toString().trim() || '';
+    const stderr = result.stderr?.toString().trim() || '';
+    const success = result.status === 0 && !result.error;
+    const error = success ? null : (result.error || new Error(stderr || `gh exited with code ${result.status}`));
+    return { success, stdout, stderr: stderr || error?.message || '', error };
+  } catch (error) {
+    return { success: false, stdout: error.stdout?.toString() || '', stderr: error.stderr?.toString() || error.message, error };
   }
 }
 
@@ -41,7 +43,7 @@ function execGh(command, options = {}) {
  * @returns {Object} { authenticated: boolean, username: string|null, error: string|null }
  */
 export function checkGhAuth() {
-  const result = execGh('gh auth status 2>&1');
+  const result = execGh(['auth', 'status']);
 
   if (!result.success) {
     return {
@@ -91,6 +93,9 @@ export function getUsername() {
  * @returns {Object} { success: boolean, fork: string|null, alreadyExists: boolean, error: string|null }
  */
 export function forkRepo(upstream) {
+  if (typeof upstream !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.][A-Za-z0-9_.-]*$/.test(upstream)) {
+    return { success: false, fork: null, alreadyExists: false, error: 'Repository must be in owner/repo format' };
+  }
   const authCheck = checkGhAuth();
   if (!authCheck.authenticated) {
     return {
@@ -102,7 +107,7 @@ export function forkRepo(upstream) {
   }
 
   // Check if fork already exists
-  const checkResult = execGh(`gh repo view ${authCheck.username}/${upstream.split('/')[1]} 2>&1`);
+  const checkResult = execGh(['repo', 'view', `${authCheck.username}/${upstream.split('/')[1]}`]);
   if (checkResult.success) {
     return {
       success: true,
@@ -113,7 +118,7 @@ export function forkRepo(upstream) {
   }
 
   // Create fork
-  const forkResult = execGh(`gh repo fork ${upstream} --remote=false`);
+  const forkResult = execGh(['repo', 'fork', upstream, '--remote=false']);
   if (!forkResult.success) {
     return {
       success: false,
@@ -150,17 +155,12 @@ export function createPR(title, body, labels = [], draft = false) {
     };
   }
 
-  let command = `gh pr create --title "${title.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}"`;
+  const args = ['pr', 'create', '--title', title, '--body', body];
 
-  if (draft) {
-    command += ' --draft';
-  }
+  if (draft) args.push('--draft');
+  if (labels.length > 0) args.push('--label', labels.join(','));
 
-  if (labels.length > 0) {
-    command += ` --label "${labels.join(',')}"`;
-  }
-
-  const result = execGh(command);
+  const result = execGh(args);
   if (!result.success) {
     return {
       success: false,
@@ -198,7 +198,7 @@ export function getPRStatus(prNumber) {
     };
   }
 
-  const result = execGh(`gh pr view ${prNumber} --json state,title,statusCheckRollup,reviews,comments`);
+  const result = execGh(['pr', 'view', String(prNumber), '--json', 'state,title,statusCheckRollup,reviews,comments']);
   if (!result.success) {
     return {
       success: false,
@@ -238,7 +238,7 @@ export function commentOnPR(prNumber, comment) {
     };
   }
 
-  const result = execGh(`gh pr comment ${prNumber} --body "${comment.replace(/"/g, '\\"')}"`);
+  const result = execGh(['pr', 'comment', String(prNumber), '--body', comment]);
   if (!result.success) {
     return {
       success: false,
@@ -268,7 +268,7 @@ export function checkPRExists(upstream) {
     };
   }
 
-  const result = execGh(`gh pr list --repo ${upstream} --author ${authCheck.username} --json number,title,state,headRefName`);
+  const result = execGh(['pr', 'list', '--repo', upstream, '--author', authCheck.username, '--json', 'number,title,state,headRefName']);
   if (!result.success) {
     return {
       success: false,
@@ -303,7 +303,7 @@ export function checkPRExists(upstream) {
  * @returns {Object} { success: boolean, limit: number|null, remaining: number|null, reset: string|null, error: string|null }
  */
 export function checkRateLimit() {
-  const result = execGh('gh api rate_limit');
+  const result = execGh(['api', 'rate_limit']);
   if (!result.success) {
     return {
       success: false,
@@ -351,7 +351,7 @@ export function getPRReviews(prNumber) {
     };
   }
 
-  const result = execGh(`gh pr view ${prNumber} --json reviews`);
+  const result = execGh(['pr', 'view', String(prNumber), '--json', 'reviews']);
   if (!result.success) {
     return {
       success: false,
@@ -392,7 +392,7 @@ export function getPRReviewComments(prNumber) {
   }
 
   // Use GitHub API to get review comments
-  const result = execGh(`gh api repos/{owner}/{repo}/pulls/${prNumber}/comments`);
+  const result = execGh(['api', `repos/{owner}/{repo}/pulls/${prNumber}/comments`]);
   if (!result.success) {
     return {
       success: false,

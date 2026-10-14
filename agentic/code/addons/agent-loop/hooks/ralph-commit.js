@@ -16,7 +16,7 @@
  * - RALPH_VERBOSE: Enable verbose logging to stderr
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -46,7 +46,7 @@ function readLoopState() {
  */
 function hasChanges() {
   try {
-    const status = execSync('git status --porcelain', { encoding: 'utf8' });
+    const status = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' });
     return status.trim().length > 0;
   } catch {
     return false;
@@ -58,7 +58,7 @@ function hasChanges() {
  */
 function getChangedFiles() {
   try {
-    const status = execSync('git status --porcelain', { encoding: 'utf8' });
+    const status = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' });
     return status.trim().split('\n').filter(Boolean).map(line => line.slice(3));
   } catch {
     return [];
@@ -95,11 +95,11 @@ function commitIteration(state, summary) {
 
   try {
     // Stage all changes
-    execSync('git add -A', { stdio: 'pipe' });
+    execFileSync('git', ['add', '-A'], { stdio: 'pipe' });
 
     // Commit with message
     const fullMessage = `${message}\n${body}`;
-    execSync(`git commit -m "${fullMessage.replace(/"/g, '\\"')}"`, { stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', fullMessage], { stdio: 'pipe' });
 
     if (VERBOSE) {
       console.error(`[RALPH-COMMIT] Committed iteration ${iteration}: ${changedFiles.length} files`);

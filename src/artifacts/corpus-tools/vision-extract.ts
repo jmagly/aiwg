@@ -56,6 +56,22 @@ export function buildPrompt(page: number, title?: string): string {
   ].join('\n');
 }
 
+/** Paths enter the shell through env expansion, never as shell source. */
+function visionCommand(template: string): string {
+  let quote = '';
+  return template.replace(/\\?\{(image|prompt_file|out)\}|\\[\s\S]|["'`]/g, (token, name: string | undefined) => {
+    if (name) {
+      if (quote) throw new Error('Vision command placeholders must be outside shell quotes');
+      if (token.startsWith('\\')) throw new Error('Vision command placeholders must not be escaped');
+      return `"$VISION_${name.toUpperCase()}"`;
+    }
+    if (token.startsWith('\\')) return token;
+    if (!quote) quote = token;
+    else if (quote === token) quote = '';
+    return token;
+  });
+}
+
 // ── Adapters ─────────────────────────────────────────────────────────────────
 
 const codexAdapter: VisionAdapter = {
@@ -95,9 +111,11 @@ const codexAdapter: VisionAdapter = {
  *   {image}        absolute image path
  *   {prompt_file}  path to a file containing the prompt
  *   {out}          path the command must write the transcription to
- * e.g.  claude -p "$(cat {prompt_file})" --image {image} > {out}
+ * Placeholders must be unquoted; they expand as quoted environment variables.
+ * e.g.  vision-cli --prompt-file {prompt_file} --image {image} > {out}
  */
 function commandAdapter(template: string): VisionAdapter {
+  const cmd = visionCommand(template);
   return {
     name: 'command',
     transcribe(imagePath, prompt, ctx) {
@@ -105,13 +123,12 @@ function commandAdapter(template: string): VisionAdapter {
       const promptFile = path.join(dir, `.vision-prompt-${ctx.page}.txt`);
       const out = path.join(dir, `.vision-out-${ctx.page}.txt`);
       fs.writeFileSync(promptFile, prompt);
-      const cmd = template
-        .replaceAll('{image}', JSON.stringify(imagePath))
-        .replaceAll('{prompt_file}', JSON.stringify(promptFile))
-        .replaceAll('{out}', JSON.stringify(out));
       try {
         // Same caller-controlled-timeout clamp as the codex adapter above.
-        const r = spawnSync('sh', ['-c', cmd], { timeout: positiveTimeoutMs(ctx.timeoutSec * 1000, 240_000), encoding: 'utf8' });
+        const r = spawnSync('sh', ['-c', cmd], {
+          timeout: positiveTimeoutMs(ctx.timeoutSec * 1000, 240_000), encoding: 'utf8',
+          env: { ...process.env, VISION_IMAGE: imagePath, VISION_PROMPT_FILE: promptFile, VISION_OUT: out },
+        });
         let text: string | undefined;
         if (fs.existsSync(out)) text = fs.readFileSync(out, 'utf8');
         else if (r.status === 0 && r.stdout) text = r.stdout; // command wrote to stdout

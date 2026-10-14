@@ -335,6 +335,9 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Fixed
 
+- Prevent shell injection in Ralph auto-commits, tmux text delivery, contributor GitHub commands,
+  and local path commands by passing argv; pass vision command-template paths through environment variables (#3093).
+
 - `aiwg doctor --probe-workers` now has machine-readable output, a visible empty state, and
   strict flags (#3066): `--probe-workers --json` prints exactly one JSON document on stdout (one
   record per CLI with `cli`, `installed`, `version`, `inRange`, `ready`, `reason`, plus top-level

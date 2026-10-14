@@ -282,6 +282,9 @@ export async function getFrameworkRoot(options = {}) {
  */
 export async function switchToEdge() {
   const config = await loadConfig();
+  if (typeof config.edgePath !== 'string' || !path.isAbsolute(config.edgePath)) {
+    throw new Error('Edge installation path must be absolute');
+  }
 
   console.log('Switching to edge channel (bleeding edge from main branch)...');
   console.log('');
@@ -321,7 +324,7 @@ export async function switchToEdge() {
     await fs.mkdir(path.dirname(config.edgePath), { recursive: true });
     try {
       // Cloning the full repository; long tier (#3062).
-      boundedExecSync(`git clone --branch main ${REPO_URL} "${config.edgePath}"`, 'long', { stdio: 'inherit' });
+      boundedExecFileSync('git', ['clone', '--branch', 'main', '--', REPO_URL, config.edgePath], 'long', { stdio: 'inherit' });
       // Exclude dogfooding artifacts from edge clones — users want framework source only
       try {
         boundedExecSync('git sparse-checkout init --cone', 'quick', { cwd: config.edgePath, stdio: 'pipe' });

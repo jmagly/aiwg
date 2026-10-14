@@ -16,7 +16,7 @@ import { createHash } from 'crypto';
 import { createRequire } from 'module';
 import { importImpl } from '../../_resolve-impl.mjs';
 
-const { boundedExecSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
+const { boundedExecFileSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
 
 // Use graceful-fs to prevent EMFILE crashes on systems with low ulimit.
 // graceful-fs queues open() calls when FD pressure is detected and retries
@@ -1813,7 +1813,7 @@ export function buildRemotesTopologyBlock(targetDir) {
 
   function getUrl(remote) {
     try {
-      return boundedExecSync(`git -C ${JSON.stringify(targetDir)} remote get-url ${JSON.stringify(remote)}`, 'quick', {
+      return boundedExecFileSync('git', ['-C', targetDir, 'remote', 'get-url', remote], 'quick', {
         stdio: ['ignore', 'pipe', 'ignore'],
         encoding: 'utf8',
       }).trim();
