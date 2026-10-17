@@ -256,7 +256,7 @@ describe("aiwg mcp credential display", () => {
 
 describe("aiwg mcp install claude", () => {
   it.each([undefined, "configured-root"])("default project install succeeds without env (AIWG_ROOT=%s)", aiwgRoot => {
-    const result = runCliWithOutput(["install", "claude"], aiwgRoot ? { AIWG_ROOT: aiwgRoot } : {});
+    const result = runCliWithOutput(["install", "claude-code"], aiwgRoot ? { AIWG_ROOT: aiwgRoot } : {});
     expect(result.status).toBe(0);
     expect(JSON.parse(readFileSync(join(projectDir, ".mcp.json"), "utf-8"))).toEqual({
       mcpServers: { aiwg: { command: "aiwg", args: ["mcp", "serve"] } },
@@ -264,7 +264,7 @@ describe("aiwg mcp install claude", () => {
   });
 
   it.each([undefined, "configured-root"])("writes private user config with env only when AIWG_ROOT is set (%s)", aiwgRoot => {
-    const result = runCliWithOutput(["install", "claude", "--scope", "user"], aiwgRoot ? { AIWG_ROOT: aiwgRoot } : {});
+    const result = runCliWithOutput(["install", "claude-code", "--scope", "user"], aiwgRoot ? { AIWG_ROOT: aiwgRoot } : {});
     expect(result.status).toBe(0);
     const destination = join(homeDir, ".claude.json");
     expect(JSON.parse(readFileSync(destination, "utf-8")).mcpServers.aiwg).toEqual({
@@ -278,14 +278,14 @@ describe("aiwg mcp install claude", () => {
     const destination = join(projectDir, ".mcp.json");
     const damaged = '{ "mcpServers": { damaged config\n';
     writeFileSync(destination, damaged);
-    const result = runCliWithOutput(["install", "claude", projectDir]);
+    const result = runCliWithOutput(["install", "claude-code", projectDir]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(`Refusing to overwrite malformed MCP config ${destination}: invalid JSON`);
     expect(readFileSync(destination, "utf-8")).toBe(damaged);
   });
 
   it.each(["references", "none"])("succeeds under %s policy: AIWG_ROOT is a named exemption, not an unexamined bypass", policy => {
-    const result = runCliWithOutput(["install", "claude", "--scope", "user"], {
+    const result = runCliWithOutput(["install", "claude-code", "--scope", "user"], {
       AIWG_ROOT: "configured-root", AIWG_MCP_CREDENTIAL_POLICY: policy,
     });
     expect(result.status).toBe(0);
@@ -296,7 +296,7 @@ describe("aiwg mcp install claude", () => {
   });
 
   it.each(["references", "none"])("still succeeds without AIWG_ROOT under %s policy (no literal present at all)", policy => {
-    const result = runCliWithOutput(["install", "claude"], { AIWG_MCP_CREDENTIAL_POLICY: policy });
+    const result = runCliWithOutput(["install", "claude-code"], { AIWG_MCP_CREDENTIAL_POLICY: policy });
     expect(result.status).toBe(0);
     expect(JSON.parse(readFileSync(join(projectDir, ".mcp.json"), "utf-8"))).toEqual({
       mcpServers: { aiwg: { command: "aiwg", args: ["mcp", "serve"] } },
@@ -305,8 +305,8 @@ describe("aiwg mcp install claude", () => {
 });
 
 const installDestinations = [
-  { target: "claude", file: ".mcp.json" },
-  { target: "claude", file: ".claude.json", home: true, args: ["--scope", "user"] },
+  { target: "claude-code", file: ".mcp.json" },
+  { target: "claude-code", file: ".claude.json", home: true, args: ["--scope", "user"] },
   { target: "cursor", file: ".cursor/mcp.json" },
   { target: "factory", file: ".factory/mcp.json" },
   { target: "factory", file: ".factory/mcp.json", home: true },
@@ -449,7 +449,7 @@ describe("MCP config write safety", () => {
     writeFileSync(destination, JSON.stringify({ preferences: { keep: true }, mcpServers: { existing: { command: "keep" } } }));
     chmodSync(destination, 0o644);
     const before = statSync(destination);
-    const args = command === "inject" ? ["inject", "--provider", "claude"] : ["install", "claude"];
+    const args = command === "inject" ? ["inject", "--provider", "claude"] : ["install", "claude-code"];
     runCli([...args, "--scope", "user"]);
     const after = statSync(destination);
     expect(after.mode & 0o777).toBe(0o600);
@@ -458,8 +458,61 @@ describe("MCP config write safety", () => {
     expect(readdirSync(homeDir)).toEqual([".claude.json"]);
   });
 
-  it.each(installDestinations.filter(destination => destination.home && destination.target !== "claude"))("creates private install config for $target", ({ target, file }) => {
+  it.each(installDestinations.filter(destination => destination.home && destination.target !== "claude-code"))("creates private install config for $target", ({ target, file }) => {
     runCli(["install", target]);
     expect(statSync(join(homeDir, file)).mode & 0o777).toBe(0o600);
+  });
+});
+
+
+describe("Claude install target contracts (#2624, #2625)", () => {
+  it.each(["claude-desktop", "claude-code"])("merges %s and migrates only the legacy AIWG stanza", target => {
+    const desktop = join(homeDir, process.platform === "darwin" ? "Library/Application Support" : process.platform === "win32" ? "AppData/Roaming" : ".config", "Claude/claude_desktop_config.json");
+    const destination = target === "claude-code" ? join(projectDir, ".mcp.json") : desktop;
+    mkdirSync(dirname(destination), { recursive: true });
+    writeFileSync(destination, JSON.stringify({ preferences: { keep: true }, mcpServers: { other: { command: "keep" } } }));
+    const legacy = join(projectDir, ".claude/settings.local.json");
+    mkdirSync(dirname(legacy), { recursive: true });
+    writeFileSync(legacy, JSON.stringify({ permissions: { allow: ["keep"] }, mcpServers: { aiwg: { command: "aiwg", args: ["mcp", "serve"], env: { AIWG_ROOT: "old" } }, other: { command: "keep" } } }));
+    expect(runCliWithOutput(["install", target, "--dry-run"]).stdout).toContain(destination.replace(projectDir + "/", ""));
+    expect(JSON.parse(readFileSync(legacy, "utf8")).mcpServers.aiwg).toBeDefined();
+    expect(runCliWithOutput(["install", target]).status).toBe(0);
+    const config = JSON.parse(readFileSync(destination, "utf8"));
+    expect(config.preferences).toEqual({ keep: true });
+    expect(config.mcpServers).toEqual({ other: { command: "keep" }, aiwg: { command: "aiwg", args: ["mcp", "serve"] } });
+    expect(JSON.parse(readFileSync(legacy, "utf8"))).toEqual({ permissions: { allow: ["keep"] }, mcpServers: { other: { command: "keep" } } });
+  });
+
+  it.each([{}, { CLAUDECODE: "1" }, { CLAUDE_CODE_ENTRYPOINT: "desktop" }])("warns and resolves deprecated alias for %j", env => {
+    const result = runCliWithOutput(["install", "claude", "--dry-run"], env);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain("Deprecated");
+    expect(result.stdout).toContain(Object.keys(env).length ? ".mcp.json" : "claude_desktop_config.json");
+    expect(readdirSync(homeDir)).toEqual([]);
+    expect(readdirSync(projectDir)).toEqual([]);
+  });
+
+  it("keeps the alias user-scope behavior", () => {
+    const result = runCliWithOutput(["install", "claude", "--scope", "user"]);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain("claude-code");
+    expect(JSON.parse(readFileSync(join(homeDir, ".claude.json"), "utf8")).mcpServers.aiwg).toBeDefined();
+  });
+
+  it.each(["custom", "malformed", "symlink", "sole"])("handles %s legacy config safely", kind => {
+    const legacy = join(projectDir, ".claude/settings.local.json");
+    mkdirSync(dirname(legacy), { recursive: true });
+    const original = kind === "malformed" ? "{" : JSON.stringify({ mcpServers: { aiwg: { command: kind === "custom" ? "custom" : "aiwg", args: ["mcp", "serve"] } }, permissions: { allow: [] } });
+    if (kind === "symlink") {
+      writeFileSync(join(root, "outside.json"), original);
+      symlinkSync(join(root, "outside.json"), legacy);
+    } else writeFileSync(legacy, original);
+    const result = runCliWithOutput(["install", "claude-code"]);
+    if (["malformed", "symlink"].includes(kind)) {
+      expect(result.status).toBe(1);
+      expect(existsSync(join(projectDir, ".mcp.json"))).toBe(false);
+    } else expect(result.status).toBe(0);
+    if (kind === "sole") expect(JSON.parse(readFileSync(legacy, "utf8"))).toEqual({ permissions: { allow: [] } });
+    else expect(readFileSync(legacy, "utf8")).toBe(original);
   });
 });
