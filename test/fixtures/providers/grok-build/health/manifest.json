@@ -3,7 +3,7 @@
   "provider": "grok-build",
   "synthetic": true,
   "cliVersion": "1.0.50",
-  "grammarEvidence": "docs/providers/grok-build-cli-evidence.md#4-output-formats",
+  "grammarEvidence": "docs/providers/grok-build-cli-evidence.md#4---output-format-values-and-the-two-distinct-event-shapes",
   "qualification": "synthetic-only; no account or live timing qualification",
   "framing": "jsonl",
   "fixture": "stream.ndjson",

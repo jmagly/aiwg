@@ -191,14 +191,20 @@ Event-type table (verbatim):
 
 **Legacy transport alignment (#2994):** `src/providers/grok-build-headless.ts`,
 the shared `grok-build` health observer and the native smoke now interpret this
-same ACP vocabulary. JSON mode validates the single result object's
-`stopReason`; streaming mode requires `end_turn` on `end`, latches failed tool
-calls and errors, and rejects events after a terminal event. The unsupported
+same ACP vocabulary. JSON mode requires the single result object's `text`
+string and validates its `stopReason`; streaming mode requires `end_turn` on
+`end`, latches failed tool calls and errors, and rejects events after a terminal
+event. Headless and smoke reject unknown or legacy `message`/`result` frames
+even before a successful `end`; smoke uses the existing shared health observer
+to recognize ACP events. The unsupported
 `--no-auto-update` flag was removed from legacy headless/smoke argv. Their
 synthetic fixtures under `test/fixtures/providers/grok-build/health/` mirror
 these documented events. The merged direct adapter and its approved module
 digest remain unchanged. This alignment is documentation-backed only: no live
 capture or account/timing qualification was performed for #2994.
+The live-capture acceptance item remains open: help/bundled documentation and
+synthetic replay do not establish live stream compatibility. No prompt/model
+call is authorized in this repair session.
 
 ## 5. Authentication
 

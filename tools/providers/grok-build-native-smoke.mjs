@@ -57,6 +57,8 @@ let stderrBytes = 0;
 const acceptEvent = event => {
   const observation = observeProviderHealthEvent('grok-build', event, { kind: 'stdout' }, {});
   events++;
+  // Unknown/legacy frames must not be repaired by a later clean ACP end.
+  if (!observation) errorEvent = true;
   if (terminal) errorEvent = true; // ACP end must be last.
   if (observation?.kind === 'terminal') {
     terminal = true;

@@ -1,5 +1,6 @@
 /** Synthetic ACP and bounded replay vectors for #2994/#2965. */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { GrokBuildAdapter } from '../../../tools/ralph-external/lib/grok-build-adapter.mjs';
 import { createWorkerHealthObserver, observeProviderHealthEvent, PROGRESS_CHURN_LIMITS } from '../../../tools/ralph-external/lib/worker-health.mjs';
 
@@ -14,6 +15,18 @@ function fixture() {
 
 describe('legacy Grok observer ACP grammar', () => {
   const direct = new GrokBuildAdapter();
+  it('replays the documented ACP fixture through the shared observer with chunked framing', () => {
+    const base = new URL('../../fixtures/providers/grok-build/health/', import.meta.url);
+    const wire = readFileSync(new URL('stream.ndjson', base));
+    const manifest = JSON.parse(readFileSync(new URL('manifest.json', base), 'utf8'));
+    const observer = createWorkerHealthObserver({ provider: 'grok-build', health: { ...health, handshake: 'process-only' } });
+    observer.processStarted({ pid: 123, startTicks: '1', executable: '/synthetic/grok' });
+    // Small chunks cut through both JSON fields and line boundaries.
+    for (let offset = 0; offset < wire.length; offset += 7) observer.feed(wire.subarray(offset, offset + 7));
+    expect(observer.evidence().events.map(event => event.kind)).toEqual(manifest.expectedKinds);
+    expect(observer.snapshot().lastProgressAt).not.toBeNull();
+    expect(observer.finish({ exitCode: 0, termination: 'confirmed', finalValid: true }).state).toBe('completed');
+  });
   it.each([
     { type: 'text', data: 'synthetic' }, { type: 'thought', data: 'synthetic' },
     { type: 'usage', messageId: 'm1' }, { type: 'plan', entries: [] }, { type: 'available_commands' },
