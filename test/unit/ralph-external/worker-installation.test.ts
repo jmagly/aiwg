@@ -358,11 +358,11 @@ describe('S1 scoped installation qualification (T-OG-03/10/14/15/19)', () => {
     invocation.argv.pop();
     const originalStdout = invocation.stdoutPath;
     invocation.stdoutPath = path.join(f.root, 'forbidden');
-    await expect(driver.prepareWorkerInvocation(invocation, qualification)).rejects.toThrow('outside the qualified scope');
+    await expect(driver.prepareWorkerInvocation(invocation, qualification)).rejects.toThrow('must be inside the worker-writable root');
     const escape = path.join(f.cwd, 'escape');
     await symlink(f.root, escape);
     invocation.stdoutPath = path.join(escape, 'forbidden');
-    await expect(driver.prepareWorkerInvocation(invocation, qualification)).rejects.toThrow('outside the qualified scope');
+    await expect(driver.prepareWorkerInvocation(invocation, qualification)).rejects.toThrow('must be inside the worker-writable root');
     invocation.stdoutPath = originalStdout;
     invocation.cwd = f.root;
     await expect(driver.prepareWorkerInvocation(invocation, qualification)).rejects.toThrow('qualified workspace');
@@ -372,6 +372,51 @@ describe('S1 scoped installation qualification (T-OG-03/10/14/15/19)', () => {
     vi.stubEnv('AIWG_FAKE_WORKER_CONFIG', f.config);
     f.profile.controls.sandbox.mapping = 'changed';
     await expect(driver.prepareWorkerInvocation(invocation, qualification)).rejects.toThrow('qualification changed');
+  });
+
+  it.each(['brief', 'final_output'] as const)('#3192 resolve diagnoses %s outside the qualified root', async field => {
+    const f = await setup();
+    const inputs = workerResolutionFixture();
+    const adapter = inputs.snapshot.registry.providers.codex.workerAdapter!;
+    f.request.adapter = adapter;
+    f.profile = adapter.invocationProfiles['fixture-shell'];
+    f.request.policy = {};
+    f.request.permissions = { transport: 'shell' };
+    f.request.requiredControls = requiredWorkerControls({ policy: {}, permissions: f.request.permissions });
+    // Retain the resolver fixture's model controls with the installed fixture's
+    // external boundary, so the real installation owner enforces path scope.
+    for (const control of Object.values(adapter.invocationProfiles['fixture-shell'].controls) as any[]) {
+      control.support = 'external'; control.mapping = 'fixture runner';
+    }
+    adapter.invocation.envAllowlist = ['AIWG_FAKE_WORKER_CONFIG'];
+    adapter.invocationProfiles['fixture-shell'].envAllowlist = ['AIWG_FAKE_WORKER_CONFIG'];
+    const { qualification } = await preparedFixture(f);
+    inputs.snapshot.installations.codex.boundary = f.request.boundary;
+    const localDriver = {
+      qualification: { ...qualification, adapterId: adapter.id },
+      buildInvocation: async (input: any) => ({ argv: [f.request.executable, driver.fixtureCli, '--model', input.selected.model,
+        '--final-output', input.finalPath], stdin: 'closed', envNames: ['AIWG_FAKE_WORKER_CONFIG'] }),
+      prepareWorkerInvocation: (invocation: any, context: any) => driver.prepareWorkerInvocation(invocation, context),
+    };
+    const brief = path.join(f.cwd, 'brief.md');
+    await writeFile(brief, 'Reply OK.');
+    const request = { role: 'coding' as const, task: 'implementation', group: 'workers', brief,
+      workdir: f.cwd, final_output: path.join(f.cwd, 'final.json') };
+    const resolve = () => resolveWorkerInvocation(inputs.snapshot, request, { codex: localDriver }, inputs.request.now);
+    const allowed = await resolve();
+    expect(allowed.status, JSON.stringify({ diagnostics: allowed.diagnostics, exclusions: allowed.exclusions })).toBe('eligible');
+    expect(allowed.invocation?.readiness).toBe('launchable');
+    // A sibling with the same path prefix must still be refused.
+    const outside = `${f.cwd}-outside`;
+    await mkdir(outside);
+    request[field] = path.join(outside, field === 'brief' ? 'brief.md' : 'final.json');
+    if (field === 'brief') await writeFile(request.brief, 'Reply OK.');
+    const blocked = await resolve();
+    expect(blocked.status).toBe('blocked');
+    expect(blocked.invocation).toBeUndefined();
+    expect(blocked.diagnostics).toContainEqual({ code: 'OG_CONFIG_REFERENCE',
+      pointer: field === 'brief' ? '/request/brief' : '/request/finalOutput',
+      message: `${request[field]}${field === 'final_output' ? '.stdout' : ''} must be inside the worker-writable root ${f.cwd}.` });
   });
 
   it.each(['os', 'executor'])('binds the %s sandbox boundary to matching installation evidence before pure rendering', async kind => {

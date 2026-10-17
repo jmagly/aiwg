@@ -369,6 +369,16 @@ async function readBrief(filename: string): Promise<Buffer | null> {
 
 export type WorkerCommandPlan = WorkerResolutionPlan & { invocation?: WorkerResolvedInvocation; request?: WorkerCommandRequest };
 
+/** Structured root-check failure; only these explicit path details are public. */
+export class WorkerPathScopeError extends WorkerPolicyError {
+  readonly pointer: string;
+
+  constructor(key: 'briefPath' | 'stdoutPath' | 'stderrPath' | 'finalPath', filename: string, roots: string[]) {
+    super('OG_CONFIG_REFERENCE', `${filename} must be inside the worker-writable ${roots.length === 1 ? 'root' : 'roots'} ${roots.join(', ')}.`);
+    this.pointer = key === 'briefPath' ? '/request/brief' : '/request/finalOutput';
+  }
+}
+
 /** Re-resolve saved JSON through the same trusted owners; saved argv is never authority. */
 export async function revalidateWorkerInvocationPlan(saved: WorkerCommandPlan, snapshot: WorkerPlanSnapshot,
   drivers: Record<string, WorkerInvocationDriver>, now = new Date().toISOString()): Promise<WorkerResolvedInvocation> {
@@ -563,9 +573,10 @@ export async function resolveWorkerInvocation(snapshot: WorkerPlanSnapshot, requ
   }
 }
 
-/** Public diagnostics contain fixed summaries, never filesystem/probe/provider error text. */
+/** Public diagnostics contain fixed summaries or explicit typed request-path details. */
 export function workerInvocationDiagnostic(error: unknown, pointer: string,
   fallback: WorkerPolicyDiagnostic['code'] = 'OG_CONFIG_REFERENCE'): WorkerPolicyDiagnostic {
+  if (error instanceof WorkerPathScopeError) return { code: error.code, pointer: error.pointer, message: error.message };
   const code = error instanceof WorkerPolicyError ? error.code : fallback;
   const messages: Record<WorkerPolicyDiagnostic['code'], string> = {
     OG_CONFIG_REFERENCE: 'Invalid request or configuration reference; check the paths and settings.',
