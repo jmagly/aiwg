@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadOutputModeRegistry, readOutputModeState, resolveOutputModes, writeOutputModeState } from '../../../src/output-modes/registry.js';
 import { applyOutputModes } from '../../../src/output-modes/runtime.js';
 
@@ -12,7 +12,12 @@ async function root(): Promise<string> {
   return value;
 }
 
+beforeEach(async () => {
+  vi.stubEnv('TMPDIR', await root());
+});
+
 afterEach(async () => {
+  vi.unstubAllEnvs();
   delete process.env.AIWG_SESSION_ID;
   delete process.env.AIWG_CONFIG;
   // `roots` was tracked but never actually removed (#3018), leaking a directory per call.

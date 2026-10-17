@@ -1,4 +1,5 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../helpers/temp-dir.js';
+import { cpSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -186,7 +187,7 @@ describe('gates bundle providers', () => {
     // Symlink escape: a declared path that resolves outside the bundle refuses.
     const dir = mkdtempSync(join(tmpdir(), 'gates-link-'));
     cpSync(EXAMPLE_ROOT, dir, { recursive: true });
-    const outside = join(tmpdir(), `gates-outside-${Date.now()}.mjs`);
+    const outside = join(mkdtempSync(join(tmpdir(), 'gates-outside-')), 'outside.mjs');
     writeFileSync(outside, 'export const provider = { id: "example.count/v1" };');
     try {
       symlinkSync(outside, join(dir, 'gate-providers/link.mjs'));

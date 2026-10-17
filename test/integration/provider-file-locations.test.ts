@@ -1,3 +1,4 @@
+import { mkdtempSync } from '../helpers/temp-dir.js';
 /**
  * Provider File Locations Integration Tests
  *
@@ -18,9 +19,9 @@
  * - Windsurf: .windsurf/workflows/, .windsurf/skills/, .windsurf/rules/, .agents/skills/ + AGENTS.md (aggregated agents), .windsurfrules (deprecated stub)
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
-import { mkdtempSync, rmSync } from 'fs';
+import { rmSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { execFileSync, spawnSync } from 'child_process';
@@ -54,7 +55,8 @@ function isTsxAvailable(): boolean {
 }
 
 const TSX_AVAILABLE = isTsxAvailable();
-const TEST_BASE = path.join(os.tmpdir(), 'aiwg-provider-tests');
+let TEST_BASE: string;
+beforeAll(() => { TEST_BASE = mkdtempSync(path.join(os.tmpdir(), 'aiwg-provider-tests-')); });
 
 interface ProviderConfig {
   name: string;

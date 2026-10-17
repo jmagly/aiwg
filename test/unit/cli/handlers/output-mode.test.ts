@@ -1,7 +1,8 @@
+import { mkdtemp } from '../../../helpers/temp-dir.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtemp } from 'node:fs/promises';
+
 import { afterEach, describe, expect, it } from 'vitest';
 import type { HandlerContext } from '../../../../src/cli/handlers/types.js';
 import { outputModeHandler } from '../../../../src/cli/handlers/output-mode.js';

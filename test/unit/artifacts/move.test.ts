@@ -1,7 +1,8 @@
+import { mkdtempSync } from '../../helpers/temp-dir.js';
 import { describe, expect, it } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdirSync } from 'node:fs';
-import { basename, join, relative as pathRelative } from 'node:path';
+import { join, relative as pathRelative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { moveProjectArtifacts } from '../../../src/artifacts/move.js';
 import { PROJECT_AIWG_LOCATION_FILE, resolveProjectAiwgDir } from '../../../src/config/project-artifacts.js';
@@ -9,7 +10,7 @@ import { PROJECT_AIWG_LOCATION_FILE, resolveProjectAiwgDir } from '../../../src/
 describe('moveProjectArtifacts', () => {
   it('moves the artifact root, writes a pointer, updates gitignore, and rebuilds the project index', async () => {
     const projectDir = mkdtempSync(join(tmpdir(), 'aiwg-artifacts-move-'));
-    const destination = join(projectDir, '..', `${basename(projectDir)}-private`, 'renamed-aiwg');
+    const destination = join(mkdtempSync(join(tmpdir(), 'aiwg-artifacts-destination-')), 'renamed-aiwg');
     try {
       mkdirSync(join(projectDir, '.aiwg', 'requirements'), { recursive: true });
       mkdirSync(join(projectDir, '.aiwg', 'frameworks'), { recursive: true });
@@ -92,7 +93,7 @@ describe('moveProjectArtifacts', () => {
 
   it('dry-runs without moving or writing the pointer', async () => {
     const projectDir = mkdtempSync(join(tmpdir(), 'aiwg-artifacts-move-dry-'));
-    const destination = join(projectDir, '..', `${basename(projectDir)}-private`, '.aiwg');
+    const destination = join(mkdtempSync(join(tmpdir(), 'aiwg-artifacts-destination-')), '.aiwg');
     try {
       mkdirSync(join(projectDir, '.aiwg'), { recursive: true });
       const result = await moveProjectArtifacts({
@@ -114,7 +115,7 @@ describe('moveProjectArtifacts', () => {
 
   it('attaches an existing populated artifact root without moving either tree', async () => {
     const projectDir = mkdtempSync(join(tmpdir(), 'aiwg-artifacts-attach-'));
-    const destination = join(projectDir, '..', `${basename(projectDir)}-private`, '.aiwg');
+    const destination = join(mkdtempSync(join(tmpdir(), 'aiwg-artifacts-destination-')), '.aiwg');
     try {
       mkdirSync(join(projectDir, '.aiwg', 'working'), { recursive: true });
       mkdirSync(join(destination, 'requirements'), { recursive: true });

@@ -1,3 +1,4 @@
+import { mkdtempSync } from '../../helpers/temp-dir.js';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -44,7 +45,7 @@ describe('validate-metadata Agent Skills integration', () => {
   });
 
   it('fails CI for conformance errors and strict warning escalation', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-metadata-invalid-'));
+    const root = mkdtempSync(path.join(os.tmpdir(), 'aiwg-metadata-invalid-'));
     const invalidFile = path.join(root, 'invalid-metadata', 'SKILL.md');
     fs.mkdirSync(path.dirname(invalidFile));
     fs.copyFileSync(

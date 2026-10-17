@@ -479,7 +479,9 @@ Does simple things.`,
 
   it('should work for all command-needing providers', async () => {
     for (const provider of ['factory', 'opencode', 'warp', 'windsurf', 'copilot', 'codex', 'openclaw']) {
-      const providerTarget = path.join(tmpDir, `commands-${provider}`);
+      const providerTarget = provider === 'copilot'
+        ? path.join(tmpDir, '.github', 'commands')
+        : path.join(tmpDir, `commands-${provider}`);
       const result = await translateSkillsToCommands(skillsDir, {
         provider,
         targetDir: providerTarget,

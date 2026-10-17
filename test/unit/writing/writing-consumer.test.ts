@@ -16,6 +16,7 @@ const roots: string[] = [];
 afterEach(async () => { vi.unstubAllEnvs(); await Promise.all(roots.splice(0).map(p => rm(p, { recursive: true, force: true }))); });
 async function setup() {
   const cwd = await mkdtemp(path.join(tmpdir(), 'writing-consumer-')); roots.push(cwd);
+  vi.stubEnv('TMPDIR', cwd);
   vi.stubEnv('AIWG_CONFIG', path.join(cwd, 'user')); vi.stubEnv('AIWG_SESSION_ID', path.basename(cwd));
   const profile = parseWriterProfile({ schemaVersion: 1, id: 'author', version: '1.0.0', name: 'Private author', provenance: { source: 'private source', license: 'author' }, samples: [{ id: 'private-sample', text: 'Private author sample prose', sha256: createHash('sha256').update('Private author sample prose').digest('hex'), approved: true, status: 'active', provenance: { source: 'private', license: 'author' }, rights: { useForVoice: true, shareText: false }, sensitivity: 'private' }], preferences: [{ id: 'explicit', key: 'warmth', value: 'warm', origin: 'explicit', confidence: 'high' }] });
   await new WriterProfileStore({ cwd }).save(profile, 0);
