@@ -50,3 +50,20 @@ export function workerResolutionFixture() {
     context: { estimator: 'synthetic-upper-bound-v1', briefTokens: 100, inputTokens: 200, toolOutputAllowance: 300, reservedOutput: 1000 } };
   return { snapshot, request, observation, projectPolicy };
 }
+
+/** Three required roles with no qualified observations (#3173). */
+export function unqualifiedWorkerRolesFixture() {
+  const f = workerResolutionFixture();
+  const roles = ['efficiency', 'coding', 'reasoning'] as const;
+  const group = f.snapshot.config.parallelism!.groups!.workers;
+  group.requiredRoles = [...roles];
+  group.members = roles.map(role => ({ id: role, cli: 'codex', model: 'synthetic/a%b', roles: [role] }));
+  group.fallback = [];
+  for (const role of roles) f.snapshot.models.defaults.workerSelection!.roleGuidance![role] =
+    structuredClone(f.snapshot.models.defaults.workerSelection!.roleGuidance!.coding);
+  for (const row of f.snapshot.catalog.discovery!.instances!.codex.models) {
+    row.worker!.qualification.status = 'unqualified';
+  }
+  f.snapshot.installations = {};
+  return f;
+}

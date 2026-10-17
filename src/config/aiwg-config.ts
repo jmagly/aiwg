@@ -2354,10 +2354,25 @@ export function validateWorkerGroupReferences(parallelism: ParallelismConfig, se
   for (const [role, guidance] of Object.entries(selection.roleGuidance ?? {})) {
     for (const group of guidance.groups) if (!parallelism.groups?.[group]) errors.push(`OG_CONFIG_REFERENCE /defaults/workerSelection/roleGuidance/${role}/groups: Unknown group ${group}`);
   }
-  if (qualifiedRoles) for (const [id, group] of Object.entries(parallelism.groups ?? {})) {
-    for (const role of group.requiredRoles ?? []) if (!group.members.some(m => m.enabled !== false && parallelism.clis?.[m.cli]?.enabled !== false && m.roles.includes(role) && qualifiedRoles[`${id}/${m.id}`]?.includes(role))) errors.push(`OG_ADAPTER_UNQUALIFIED /parallelism/groups/${id}/requiredRoles: No qualified route covers ${role}`);
-  }
+  if (qualifiedRoles) errors.push(...validateWorkerGroupQualifications(parallelism, qualifiedRoles)
+    .map(diagnostic => `${diagnostic.code} ${diagnostic.pointer}: ${diagnostic.message}`));
   return errors;
+}
+
+/** Structured qualification gaps retain role scope for readiness projections. */
+export function validateWorkerGroupQualifications(parallelism: ParallelismConfig,
+  qualifiedRoles: Record<string, string[]>): import('../models/types.js').WorkerPolicyDiagnostic[] {
+  const diagnostics: import('../models/types.js').WorkerPolicyDiagnostic[] = [];
+  for (const [id, group] of Object.entries(parallelism.groups ?? {})) {
+    for (const role of group.requiredRoles ?? []) {
+      if (!group.members.some(m => m.enabled !== false && parallelism.clis?.[m.cli]?.enabled !== false
+        && m.roles.includes(role) && qualifiedRoles[`${id}/${m.id}`]?.includes(role))) {
+        diagnostics.push({ code: 'OG_ADAPTER_UNQUALIFIED', pointer: `/parallelism/groups/${id}/requiredRoles`,
+          message: `No qualified route covers ${role}`, roles: [role] });
+      }
+    }
+  }
+  return diagnostics;
 }
 
 /** A configured hard ceiling is eligible only where a qualified control enforces it. */

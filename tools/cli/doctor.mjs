@@ -2223,7 +2223,7 @@ export async function runDoctor() {
         if (report.contextDigest) check('Worker Health Context', 'info',
           `offline context digest=${report.contextDigest}; actual task context must be resolved before launch`);
         for (const finding of report.findings.slice(0, 32)) {
-          check(`Worker Health${finding.role ? ` (${finding.role})` : ''}`, finding.status,
+          check(`Worker Health${finding.role ? ` (${finding.role})` : finding.roles?.length ? ` (${finding.roles.join(', ')})` : ''}`, finding.status,
             `${finding.code}: ${finding.message} [next: ${finding.nextAction}]`);
         }
         if (report.findings.length > 32) check('Worker Health', 'warn',

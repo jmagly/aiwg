@@ -12,6 +12,8 @@ export interface WorkerHealthReadinessFinding {
   message: string;
   nextAction: string;
   role: string | null;
+  /** Roles affected by a shared diagnostic, emitted once with role=null. */
+  roles?: string[];
 }
 
 export interface WorkerHealthReadinessReport {
@@ -75,17 +77,28 @@ export function diagnoseWorkerHealthReadiness(snapshot: WorkerPlanSnapshot,
       message: 'No explicit quota/account correlation scope; shared aliases cannot establish independent upstream capacity.',
       nextAction: 'configure-qualified-quota-scope' });
   }
+  const sharedDiagnostics = new Map<string, WorkerHealthReadinessFinding>();
   for (const role of roles) {
     const plan = resolveWorkerPlan(snapshot, { ...request, role: role as WorkerPlanRequest['role'] });
     const isRequired = required.has(role as 'efficiency' | 'coding' | 'reasoning');
     const diagnostics = [...plan.diagnostics, ...plan.exclusions.flatMap(item => item.diagnostics)];
     const seen = new Set<string>();
     for (const diagnostic of diagnostics) {
-      const key = `${diagnostic.code}:${diagnostic.pointer}:${diagnostic.message}`;
+      if (diagnostic.roles && !diagnostic.roles.includes(role)) continue;
+      const key = JSON.stringify([diagnostic.code, diagnostic.pointer, diagnostic.message, diagnostic.blocking, diagnostic.origins]);
       if (seen.has(key)) continue;
       seen.add(key);
-      add({ ...diagnostic, status: diagnostic.blocking === false ? 'info' : 'warn', role,
-        nextAction: repairAction(diagnostic.code, diagnostic.pointer) });
+      const finding: WorkerHealthReadinessFinding = { ...diagnostic,
+        status: diagnostic.blocking === false ? 'info' : 'warn', role,
+        nextAction: repairAction(diagnostic.code, diagnostic.pointer) };
+      const shared = sharedDiagnostics.get(key);
+      if (shared) {
+        shared.roles = [...new Set([...(shared.roles ?? [shared.role!]), role])];
+        shared.role = null;
+      } else {
+        sharedDiagnostics.set(key, finding);
+        add(finding);
+      }
     }
     if (!plan.selected) {
       if (isRequired) report.ready = false;

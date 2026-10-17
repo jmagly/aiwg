@@ -9,7 +9,7 @@
 import { ConfigLoader } from './config-loader.js';
 import { WORKER_DISPATCH_ENABLE_COMMAND, WORKER_DISPATCH_READINESS_COMMAND } from './worker-dispatch-offer.js';
 import {
-  resolveWorkerGroupInstallation, resolveParallelism, validateWorkerGroupReferences, validateWorkerBudgetEnforcement,
+  resolveWorkerGroupInstallation, resolveParallelism, validateWorkerGroupQualifications, validateWorkerGroupReferences, validateWorkerBudgetEnforcement,
   workerActivationDigests, workerConfigDigest,
   type AiwgConfig, type WorkerActivation, type WorkerExecution,
 } from '../config/aiwg-config.js';
@@ -526,7 +526,9 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
         ? observed.qualification.roles.filter(role => policy.roleGuidance?.[role]?.groups.includes(groupId)) : [];
     }
   }
-  for (const message of validateWorkerGroupReferences(parallelism, policy, qualifiedRoles)) block('OG_ADAPTER_UNQUALIFIED', '/parallelism/groups', `${message}. Run aiwg doctor --probe-workers --qualify.`);
+  plan.diagnostics.push(...validateWorkerGroupQualifications(parallelism, qualifiedRoles).map(diagnostic => ({
+    ...diagnostic, message: `${diagnostic.message}. Run aiwg doctor --probe-workers --qualify.`,
+  })));
   const taskRole = request.taskClass ? policy.taskClasses?.[request.taskClass] : undefined;
   const role = request.role ?? taskRole;
   plan.role = role ?? null;

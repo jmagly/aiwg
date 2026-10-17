@@ -935,12 +935,13 @@ describe('doctor: real-process no-workers-configured output/exit regression (#28
     return projectDir;
   }
 
-  async function runDoctorIn(projectDir: string): Promise<{ stdout: string; exitCode: number }> {
+  async function runDoctorIn(projectDir: string, args: string[] = []): Promise<{ stdout: string; exitCode: number }> {
     const isolatedHome = mkdtempSync(join(tmpdir(), 'aiwg-doctor-home-'));
     scratchRoots.push(isolatedHome);
     const env = {
       ...process.env,
       HOME: isolatedHome,
+      AIWG_CONFIG: join(isolatedHome, '.config', 'aiwg'),
       USERPROFILE: isolatedHome,
       XDG_CONFIG_HOME: join(isolatedHome, '.config'),
       XDG_DATA_HOME: join(isolatedHome, '.local', 'share'),
@@ -953,7 +954,7 @@ describe('doctor: real-process no-workers-configured output/exit regression (#28
       AIWG_HOME: resolve(__dirname, '../../..'),
     };
     try {
-      const { stdout } = await execFileAsync('node', [DOCTOR_SCRIPT], { cwd: projectDir, env, timeout: 60_000 });
+      const { stdout } = await execFileAsync('node', [DOCTOR_SCRIPT, ...args], { cwd: projectDir, env, timeout: 60_000 });
       return { stdout, exitCode: 0 };
     } catch (error) {
       const err = error as { stdout?: string; code?: number };
@@ -1012,6 +1013,32 @@ describe('doctor: real-process no-workers-configured output/exit regression (#28
     const workerHealthLines = result.stdout.split('\n').filter(line => line.includes('Worker Health:'));
     expect(workerHealthLines).toHaveLength(1);
     expect(workerHealthLines[0]).toContain('group dispatch is disabled');
+  }, 60_000);
+
+  it('#3173 prints one qualification warning per role and deduplicates dispatch refusals', async () => {
+    const roles = ['efficiency', 'coding', 'reasoning'];
+    const projectDir = makeScratchProject(JSON.stringify({
+      providers: ['claude'], installed: {}, scripts: {},
+      parallelism: { worker_dispatch: true,
+        clis: { codex: { adapter: 'providers:codex', accountScope: 'local', quotaScope: 'local', executable: '/definitely/not/here' } },
+        groups: { harness: { requiredRoles: roles,
+          members: roles.map(role => ({ id: role, cli: 'codex', model: 'unobserved-model', roles: [role] })) } } },
+    }));
+    writeFileSync(join(projectDir, 'models.json'), JSON.stringify({
+      defaults: { workerSelection: { roleGuidance: Object.fromEntries(roles.map(role => [role, {
+        groups: ['harness'], tier: 'standard', initialEffort: 'medium', effortLadder: ['medium'],
+      }])) } },
+    }));
+    const result = await runDoctorIn(projectDir, ['--probe-workers']);
+    const health = result.stdout.split('\n').filter(line => /Worker Health \(.+\).*No qualified route covers/.test(line));
+    expect(health).toHaveLength(3);
+    for (const role of roles) {
+      expect(health.filter(line => line.includes(`Worker Health (${role})`))).toHaveLength(1);
+      expect(health.find(line => line.includes(`Worker Health (${role})`))).toContain(`No qualified route covers ${role}`);
+    }
+    const dispatch = directWorkerLines(result.stdout).find(line => line.includes('Direct Worker Dispatch (codex)'))!;
+    expect(dispatch.match(/OG_ADAPTER_UNQUALIFIED/g)).toHaveLength(3);
+    for (const role of roles) expect(dispatch.split(`No qualified route covers ${role}`)).toHaveLength(2);
   }, 60_000);
 
   it('renders a Direct Worker section with both facts when a worker is configured and probed', async () => {
