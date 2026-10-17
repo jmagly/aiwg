@@ -37,6 +37,12 @@
           "verifiedAt"
         ],
         "properties": {
+          "sessionEnvAllowlist": {
+            "description": "Exact provider auth/config names for legacy full agent sessions, in addition to the launcher's base environment. Independent of worker invocation allowlists.",
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+            "uniqueItems": true
+          },
           "agent": {
             "$ref": "#/$defs/control"
           },

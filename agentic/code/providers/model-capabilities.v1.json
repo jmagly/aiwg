@@ -208,6 +208,28 @@
       }
     },
     "claude": {
+      "sessionEnvAllowlist": [
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_BASE_URL",
+        "ANTHROPIC_MODEL",
+        "CLAUDE_CONFIG_DIR",
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        "CLAUDE_CODE_DISABLE_1M_CONTEXT",
+        "CLAUDE_CODE_USE_BEDROCK",
+        "CLAUDE_CODE_USE_VERTEX",
+        "AWS_PROFILE",
+        "AWS_REGION",
+        "AWS_DEFAULT_REGION",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "AWS_CONFIG_FILE",
+        "AWS_SHARED_CREDENTIALS_FILE",
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "ANTHROPIC_VERTEX_PROJECT_ID",
+        "CLOUD_ML_REGION"
+      ],
       "agent": "native",
       "skill": "native",
       "globalChild": "inherited",
@@ -429,6 +451,14 @@
       }
     },
     "codex": {
+      "sessionEnvAllowlist": [
+        "OPENAI_API_KEY",
+        "CODEX_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENAI_ORG_ID",
+        "OPENAI_PROJECT_ID",
+        "CODEX_HOME"
+      ],
       "agent": "native",
       "skill": "unsupported",
       "globalChild": "inherited",
@@ -640,6 +670,12 @@
       }
     },
     "copilot": {
+      "sessionEnvAllowlist": [
+        "COPILOT_GITHUB_TOKEN",
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "COPILOT_HOME"
+      ],
       "agent": "native",
       "skill": "unsupported",
       "globalChild": "inherited",
@@ -1025,6 +1061,9 @@
       }
     },
     "factory": {
+      "sessionEnvAllowlist": [
+        "FACTORY_API_KEY"
+      ],
       "agent": "native",
       "skill": "informational",
       "globalChild": "native",
@@ -1220,6 +1259,23 @@
       }
     },
     "opencode": {
+      "sessionEnvAllowlist": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GROQ_API_KEY",
+        "MISTRAL_API_KEY",
+        "XAI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "OPENCODE_API_KEY",
+        "OPENCODE_CONFIG",
+        "OPENCODE_CONFIG_DIR",
+        "OPENCODE_CONFIG_CONTENT",
+        "OPENCODE_SERVER_USERNAME",
+        "OPENCODE_SERVER_PASSWORD"
+      ],
       "agent": "native",
       "skill": "unsupported",
       "globalChild": "inherited",
@@ -1596,6 +1652,19 @@
       }
     },
     "omp": {
+      "sessionEnvAllowlist": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GROQ_API_KEY",
+        "MISTRAL_API_KEY",
+        "XAI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "PI_CONFIG_DIR",
+        "PI_CODING_AGENT_DIR"
+      ],
       "agent": "native",
       "skill": "inherited",
       "globalChild": "native",
@@ -1796,6 +1865,21 @@
       }
     },
     "pi": {
+      "sessionEnvAllowlist": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GROQ_API_KEY",
+        "MISTRAL_API_KEY",
+        "XAI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "PI_CODING_AGENT_DIR",
+        "PI_CODING_AGENT_SESSION_DIR",
+        "AIWG_PI_STUB_SCENARIO",
+        "AIWG_PI_STUB_RECEIPT"
+      ],
       "agent": "native",
       "skill": "inherited",
       "globalChild": "native",
@@ -1992,6 +2076,10 @@
       }
     },
     "deepseek-harness": {
+      "sessionEnvAllowlist": [
+        "DEEPSEEK_API_KEY",
+        "DSH_HOME"
+      ],
       "agent": "native",
       "skill": "inherited",
       "globalChild": "native",
@@ -3001,6 +3089,10 @@
       }
     },
     "muse": {
+      "sessionEnvAllowlist": [
+        "AIWG_MUSE_STUB_SCENARIO",
+        "AIWG_MUSE_STUB_RECEIPT"
+      ],
       "agent": "unsupported",
       "skill": "unsupported",
       "globalChild": "informational",

@@ -46,6 +46,7 @@ import { sampleWorkerIdentity, sameWorkerIdentity, createWorkerIdentityCapture, 
   qualifyWorkerCpuTickRate, sampleWorkerCpuTime, isSafeWorkerGroupTarget } from './process-monitor.mjs';
 import { createWorkerHealthObserver, sampleOwnedWorktreeContent, classifyWorkerHealthFailure } from './lib/worker-health.mjs';
 import { ScopedFailureBreaker, attributeFailureScope } from './lib/consecutive-failure-circuit-breaker.mjs';
+import { buildSessionEnvironment } from './lib/session-environment.mjs';
 import { launcherRecoveryEvidence, observeLauncherRecoveryOutcome, recordLauncherRecoveryHint } from './lib/launcher-recovery-evidence.mjs';
 export { observeLauncherRecoveryOutcome } from './lib/launcher-recovery-evidence.mjs';
 import { checkWorkerDispatch, detectWorkerIsolation, launchIsolatedWorker, getWorkerIsolationStatus, stopWorkerUnit, readUnitControlGroup } from './lib/worker-isolation.mjs';
@@ -3986,10 +3987,7 @@ export class SessionLauncher extends EventEmitter {
         cwd: options.workingDir,
         detached: isOmp && process.platform !== 'win32',
         stdio: [abortInput ? 'pipe' : 'ignore', 'pipe', 'pipe'],
-        env: {
-          ...process.env,
-          ...envOverrides,
-        },
+        env: buildSessionEnvironment(this.providerAdapter?.getName() ?? 'claude', envOverrides),
       });
 
       const child = this.currentProcess;

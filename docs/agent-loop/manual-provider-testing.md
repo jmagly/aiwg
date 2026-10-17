@@ -51,6 +51,39 @@ authenticated.
 - Each run executes in an isolated scratch workspace (`mktemp -d` by default), so
   the loop's `.aiwg/ralph-external/` output never touches the AIWG repo.
 
+## Session environment
+
+The legacy `SessionLauncher` forwards an allowlisted environment to full agent
+sessions. The common base in
+`tools/ralph-external/lib/session-environment.mjs` keeps:
+
+- `PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`; `LANG`, `LANGUAGE`, `LC_*`;
+  terminal and color settings (`TERM`, `COLORTERM`, `TERM_PROGRAM`, `NO_COLOR`,
+  `FORCE_COLOR`); and `CI`.
+- `TMPDIR`, `TMP`, `TEMP`, `XDG_*`, `SSH_AUTH_SOCK`, `SSH_AGENT_PID`, `GIT_*`.
+- HTTP, HTTPS, ALL, NO and FTP proxy variables, including lowercase spellings.
+- `NODE_OPTIONS`, `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, `SSL_CERT_DIR`.
+  `NODE_OPTIONS` is retained for Node-based provider CLIs and session tools.
+- Windows system and profile variables: `SYSTEMROOT`, `WINDIR`, `COMSPEC`,
+  `PATHEXT`, `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `APPDATA`, `LOCALAPPDATA`,
+  `PROGRAMDATA` (including mixed-case names).
+
+Provider auth and config names come from each provider's `sessionEnvAllowlist`
+in `agentic/code/providers/model-capabilities.v1.json`. For example, Codex keeps
+`OPENAI_API_KEY` and `CODEX_HOME`; Claude keeps Anthropic credentials and its
+Bedrock/Vertex configuration. Multi-backend clients (pi, omp, opencode) keep
+credentials for their supported inference backends. Pi's session directory and
+the exact pi/muse fixture scenario/receipt names are also listed there; there
+is no general `AIWG_*` passthrough. Muse can use its stored login under the
+forwarded home/XDG directories.
+
+Unlisted names, including AIWG tracker/ledger secrets and OpenBao/Vault tokens,
+are omitted. Credentials listed only for another provider are omitted as well.
+Explicit adapter `getEnvOverrides()` entries apply after filtering and can add
+variables or replace inherited values. Unknown providers inherit only the base
+unless their adapter supplies overrides. These session lists do not change the
+narrower single-shot worker invocation or isolation policies.
+
 ## Procedure
 
 All commands run from the AIWG repo root.

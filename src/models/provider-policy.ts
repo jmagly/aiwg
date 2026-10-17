@@ -130,6 +130,7 @@ export const WorkerAdapterSchema = z.custom<WorkerAdapterMetadata>().superRefine
   }
 });
 const CapabilityEntrySchema = z.object({
+  sessionEnvAllowlist: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/)).optional(),
   agent: OutcomeSchema,
   skill: OutcomeSchema,
   globalChild: OutcomeSchema,
