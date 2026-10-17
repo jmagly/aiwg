@@ -1048,7 +1048,8 @@ export async function discoverCapability(
     const { loadFortemiCoreMetadataEntries } = await import('./fortemi-core-query-adapter.js');
     const localGraphs = params.graph ? [params.graph] : defaultCapabilityGraphs(cwd);
     const localAvailable = localGraphs.some(
-      (graph) => loadFortemiCoreMetadataEntries(cwd, graph).entries.length > 0,
+      (graph) => loadFortemiCoreMetadataEntries(cwd, graph).entries.length > 0
+        || Object.keys(loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', graph)?.entries ?? {}).length > 0,
     );
     resourceSource = localAvailable ? 'local' : 'web';
   }
@@ -1099,6 +1100,16 @@ export async function discoverCapability(
         const fallback = projectCapabilityFallback(cwd);
         if (fallback) {
           entries.push(...fallback);
+          continue;
+        }
+      }
+      if (loaded.sourceIndexNewer && resourceSource === 'local') {
+        // Do not silently omit a graph whose derived cache is stale. Rank its
+        // current source metadata, without consulting scores from the old cache.
+        const index = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', graph);
+        if (index) {
+          console.error(`Warning: ${graph} capability cache is unavailable or stale; using the local ${graph} index. ${loaded.reason}`);
+          entries.push(...Object.values(index.entries).map((entry) => withIndexProvenance(entry, graph)));
           continue;
         }
       }

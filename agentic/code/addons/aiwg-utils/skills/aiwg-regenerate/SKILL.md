@@ -4,6 +4,9 @@ name: aiwg-regenerate
 platforms: [all]
 kernel: true
 description: Select and execute the canonical refresh, existing-project extraction, or legacy AIWG context regeneration branch
+triggers:
+  - "regenerate context files"
+  - "refresh project context"
 script:
   entrypoint: run.sh
   runtime: bash

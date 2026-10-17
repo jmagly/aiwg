@@ -28,7 +28,7 @@ function record(overrides: Partial<DiscoveryRelevanceQuery> = {}): DiscoveryRele
 describe('operational discovery relevance fixture', () => {
   it('contains at least ten reviewed queries for every broad operational type', () => {
     const records = parseDiscoveryRelevanceJsonl(fs.readFileSync(fixturePath, 'utf8'));
-    expect(records).toHaveLength(136);
+    expect(records).toHaveLength(139);
     expect(() => validateOperationalCoverage(records)).not.toThrow();
     expect(new Set(records.map((item) => item.query_class))).toEqual(new Set([
       'exact-name',

@@ -59,6 +59,8 @@ export interface FortemiCoreSyncStatus {
   exportPath: string;
   built: boolean;
   stale: boolean;
+  /** A valid cache predates its source index; current metadata can be used instead. */
+  sourceIndexNewer?: true;
   itemCount: number | null;
   exportChecksum: string | null;
   generatedAt: string | null;
@@ -279,6 +281,7 @@ export function getFortemiCoreSyncStatus(
     exportPath,
     built: exportExists,
     stale,
+    ...(sourceIsNewer ? { sourceIndexNewer: true as const } : {}),
     itemCount: manifest.item_count,
     exportChecksum: manifest.export_checksum,
     generatedAt: manifest.generated_at,

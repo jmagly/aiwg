@@ -16,6 +16,7 @@ import {
   getFortemiCoreSyncStatus,
   syncFortemiCoreIndex,
 } from "../../../src/artifacts/fortemi-core-sync.js";
+import * as fortemiSync from "../../../src/artifacts/fortemi-core-sync.js";
 import {
   loadFortemiCoreExport,
   loadFortemiCoreMetadataEntries,
@@ -356,6 +357,70 @@ describe("Fortemi Core discover/show parity adapter (#1688)", () => {
     await showArtifact(tmp, { name: "intake-wizard", json: true, backend: "fortemi-core" });
     expect(readConsoleJson().content).toContain("Intake Wizard");
     expect(consoleErrorSpy.mock.calls.flat().join("\n")).toContain("source index is newer");
+  });
+
+  it.each([
+    { explicitGraph: undefined, resourceSource: 'local' },
+    { explicitGraph: 'framework', resourceSource: 'local' },
+    { explicitGraph: 'project', resourceSource: 'local' },
+    { explicitGraph: undefined, resourceSource: 'auto' },
+  ] as const)(
+    'discovers current data instead of a stale cache (graph=$explicitGraph, resources=$resourceSource)',
+    async ({ explicitGraph, resourceSource }) => {
+      const web = await import('../../../src/resources/web-release.js');
+      const resolveWeb = vi.spyOn(web, 'resolveWebRelease')
+        .mockRejectedValue(new Error('Unexpected web resolution in offline discovery test'));
+      const graph = explicitGraph ?? 'framework';
+      const old = entry({ name: 'retired-intake', title: 'Retired Intake' });
+      writeProjectGraph(tmp, [old], undefined, graph);
+      syncFortemiCoreIndex(tmp, { graph });
+      const current = entry({
+        path: 'agentic/code/frameworks/test/skills/current-intake/SKILL.md',
+        name: 'current-intake', title: 'Current Intake',
+      });
+      writeProjectGraph(tmp, [current], undefined, graph);
+      const metadataPath = path.join(getGraphIndexDir(tmp, graph), 'metadata.json');
+      const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+      metadata.builtAt = '2026-01-04T00:00:00.000Z';
+      fs.writeFileSync(metadataPath, JSON.stringify(metadata));
+      expect(getFortemiCoreSyncStatus(tmp, graph).stale).toBe(true);
+      consoleSpy.mockClear();
+
+      await discoverCapability(tmp, { phrase: 'intake', graph: explicitGraph, resourceSource, json: true });
+      const result = readConsoleJson();
+      expect(result.results.map((item: { name: string }) => item.name)).toEqual(['current-intake']);
+      expect(result.results[0].provenance.graph).toBe(graph);
+      expect(consoleErrorSpy.mock.calls.flat().join('\n')).toContain(`using the local ${graph} index`);
+      expect(resolveWeb).not.toHaveBeenCalled();
+    },
+  );
+
+  it('uses current framework data when the packaged cache predates the source index', async () => {
+    writeProjectGraph(tmp, [entry({ name: 'packaged-intake' })], undefined, 'framework');
+    syncFortemiCoreIndex(tmp, { graph: 'framework' });
+    const status = getFortemiCoreSyncStatus(tmp, 'framework');
+    const exportPath = path.join(tmp, 'packaged-export.json');
+    fs.copyFileSync(status.exportPath, exportPath);
+    fs.rmSync(status.location, { recursive: true });
+    // Model a valid packaged export without mutating the installed package.
+    vi.spyOn(fortemiSync, 'getFortemiCorePrebuiltStatus').mockReturnValue({
+      ...status, source: 'prebuilt', exportPath,
+    });
+    writeProjectGraph(tmp, [entry({
+      name: 'current-only-intake', title: 'Current Only Intake',
+    })], undefined, 'framework');
+    const metadataPath = path.join(getGraphIndexDir(tmp, 'framework'), 'metadata.json');
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+    metadata.builtAt = '2026-01-04T00:00:00.000Z';
+    fs.writeFileSync(metadataPath, JSON.stringify(metadata));
+    expect(getFortemiCoreSyncStatus(tmp, 'framework').optedIn).toBe(false);
+    const loaded = loadFortemiCoreExport(tmp, 'framework');
+    expect(loaded.exported).toBeUndefined();
+    expect(loaded.reason).toContain('source index is newer');
+    consoleSpy.mockClear();
+
+    await discoverCapability(tmp, { phrase: 'intake', json: true });
+    expect(readConsoleJson().results.map((item: { name: string }) => item.name)).toEqual(['current-only-intake']);
   });
 
   it("points plain-text Fortemi no-match output to index sync", async () => {

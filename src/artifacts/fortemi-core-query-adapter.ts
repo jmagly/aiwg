@@ -12,6 +12,7 @@ import type {
 } from "./browser-export.js";
 import { bm25Rank, type FullTextDoc } from "./fulltext.js";
 import { getFortemiCorePrebuiltStatus, getFortemiCoreSyncStatus } from "./fortemi-core-sync.js";
+import { loadGraphIndexFile } from "./index-reader.js";
 import {
   operationalStateQueryProjection,
   type OperationalStateQueryProjection,
@@ -20,11 +21,13 @@ import {
 export interface FortemiCoreLoadResult {
   entries: MetadataEntry[];
   reason?: string;
+  sourceIndexNewer?: true;
 }
 
 export interface FortemiCoreExportLoadResult {
   exported?: AiwgFortemiIndexExport;
   reason?: string;
+  sourceIndexNewer?: true;
 }
 
 export interface FortemiCoreDependencyGraphLoadResult {
@@ -303,6 +306,22 @@ export function loadFortemiCoreExport(
       status = prebuilt;
     }
   }
+  // A packaged bootstrap cache can also predate a source checkout's index.
+  // Validate it against the same current data as the shared cache before use.
+  if (status.source === "prebuilt") {
+    const current = loadGraphIndexFile<ArtifactIndex>(cwd, "metadata.json", graph);
+    if (
+      current &&
+      Date.parse(current.builtAt) > Date.parse(status.sourceIndexBuiltAt ?? status.generatedAt ?? "")
+    ) {
+      status = {
+        ...status,
+        stale: true,
+        sourceIndexNewer: true,
+        reason: "source index is newer than the Fortemi Core static cache",
+      };
+    }
+  }
   if (!status.optedIn) {
     return {
       reason: `Fortemi Core static index is not materialized for graph '${graph}'. Run 'aiwg index sync${graph === "project" ? "" : ` --graph ${graph}`}' first, or pass '--backend local' to use the legacy local index.`,
@@ -310,6 +329,7 @@ export function loadFortemiCoreExport(
   }
   if (!status.built || status.stale) {
     return {
+      ...(status.sourceIndexNewer ? { sourceIndexNewer: true as const } : {}),
       reason: `${
         status.reason ??
         `Fortemi Core static index for graph '${graph}' is stale or incomplete`
@@ -404,7 +424,11 @@ export function loadFortemiCoreMetadataEntries(
   sourcePaths?: FortemiCoreVerifiedSourcePaths,
 ): FortemiCoreLoadResult {
   const loaded = loadFortemiCoreExport(cwd, graph, sourcePaths);
-  if (!loaded.exported) return { entries: [], reason: loaded.reason };
+  if (!loaded.exported) return {
+    entries: [],
+    reason: loaded.reason,
+    ...(loaded.sourceIndexNewer ? { sourceIndexNewer: true as const } : {}),
+  };
   return { entries: loaded.exported.items.map(entryFromRecord) };
 }
 
