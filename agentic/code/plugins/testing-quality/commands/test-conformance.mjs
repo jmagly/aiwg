@@ -21,7 +21,7 @@ export const COMMANDS = {
 const common = ['root', 'output', 'format'];
 const allowed = {
   init: ['platform', 'system', 'name'], inventory: ['protocol'], sample: ['protocol', 'inventory', 'evidence', 'unit', 'seed', 'size'],
-  collect: ['protocol', 'mode', 'lane', 'evidence'], assess: ['protocol', 'inventory', 'evidence', 'reviews', 'baseline'],
+  collect: ['protocol', 'mode', 'lane', 'evidence', 'control'], assess: ['protocol', 'inventory', 'evidence', 'reviews', 'baseline'],
   plan: ['changes'], apply: ['plan', 'receipt'], rollback: ['receipt'],
   templates: ['action', 'platform', 'template', 'source', 'variables'], research: ['protocol', 'query'],
   validate: ['input', 'schema'], report: ['assessment'],
@@ -68,9 +68,10 @@ export async function execute(command, args, context = {}) {
       if (mode === 'controls') {
         if (opts.evidence?.length !== 1) throw new Error('Control collection requires one baseline --evidence receipt');
         const { collectControls } = await import('../lib/controls.mjs');
-        value = await collectControls(root,await protocol(),{evidence:await read(opts.evidence[0]),lane:opts.lane ?? 'all'});
+        value = await collectControls(root,await protocol(),{evidence:await read(opts.evidence[0]),lane:opts.lane ?? 'all',controlId:opts.control ?? null});
         exitCode = value.spec.status === 'passed' ? 0 : 2; break;
       }
+      if (opts.control) throw new Error('--control only applies to --mode controls');
       if (!['discovery','execution'].includes(mode)) throw new Error('Mode must be discovery, execution or controls');
       value = await collectEvidence(root, await protocol(), {mode, lane: opts.lane ?? 'all'});
       exitCode = !value.spec.sourceStable || value.spec.diagnostics.length || value.spec.lanes.some(l => !l.process || l.process.exitCode !== 0 || l.process.reason !== 'exit' || l.process.signal || l.diagnostics.length || !l.normalized.complete || l.normalized.summary.failed || l.normalized.files.some(f => f.status === 'failed') || (l.coverage && !l.coverage.normalized.complete)) ? 2 : 0;

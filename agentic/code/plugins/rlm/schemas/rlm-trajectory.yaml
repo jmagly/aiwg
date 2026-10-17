@@ -613,7 +613,7 @@ examples:
           description: "Fixed validateUser function with null check"
       variables_set: []
     metadata:
-      model: "claude-sonnet-4.5"
+      model: "claude-sonnet-5"
       temperature: 0.7
       execution_mode: default
       started_at: "2026-02-09T10:00:00Z"

@@ -10,11 +10,13 @@
  *   node tools/plugin/package-plugins.mjs --plugin aiwg-sdlc # Package specific plugin
  *   node tools/plugin/package-plugins.mjs --clean            # Clean agentic/code/plugins directory
  *   node tools/plugin/package-plugins.mjs --dry-run          # Show what would be copied
+ *   node tools/plugin/package-plugins.mjs --all --check      # Verify tracked Claude copies
  */
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import os from 'os';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { importImpl } from '../_resolve-impl.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -704,6 +706,9 @@ function parseArgs() {
       case '-n':
         options.dryRun = true;
         break;
+      case '--check':
+        options.check = true;
+        break;
       case '--help':
       case '-h':
         console.log(`
@@ -722,6 +727,7 @@ Options:
   --output PATH         Standalone archive output (default: dist/plugins)
   --clean, -c           Clean plugins directory before packaging
   --dry-run, -n         Show what would be done without writing
+  --check               Verify all default Claude outputs without writing to the checkout
   --help, -h            Show this help message
 
 Examples:
@@ -844,7 +850,7 @@ function cleanPlugin(pluginDir) {
 function packagePlugin(name, config, options) {
   console.log(`\n📦 Packaging ${config.displayName}...`);
 
-  const pluginDir = path.join(PLUGINS_DIR, name);
+  const pluginDir = path.join(options.pluginsDir || PLUGINS_DIR, name);
 
   if (options.clean) {
     console.log('  🧹 Cleaning existing files...');
@@ -975,8 +981,9 @@ function writeClaudeMarketplaceManifest(options) {
     console.log(`  ${manifest.plugins.length} plugins`);
     return;
   }
-  fs.writeFileSync(existingPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-  console.log(`\n✓ Wrote Claude marketplace: ${existingPath} (${manifest.plugins.length} plugins)`);
+  const outputPath = options.marketplacePath || existingPath;
+  fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  console.log(`\n✓ Wrote Claude marketplace: ${outputPath} (${manifest.plugins.length} plugins)`);
 }
 
 // Package a Codex-format plugin (generates .codex-plugin/plugin.json + marketplace.json)
@@ -1105,9 +1112,79 @@ function writeCodexMarketplaceManifest(options) {
   console.log(`\n✓ Wrote Codex project marketplace: ${manifestPath} (${codexPlugins.length} plugins)`);
 }
 
+// Compare the same generation logic used by --all, including manifests,
+// rewrites and skill pruning. Only default Claude-owned paths are checked:
+// provider-native metadata and separately maintained templates are preserved.
+export function checkPackagedPlugins({ pluginsDir = PLUGINS_DIR,
+  marketplacePath = path.join(ROOT_DIR, '.claude-plugin/marketplace.json') } = {}) {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-plugin-check-'));
+  const differences = [];
+  function files(root) {
+    if (!fs.existsSync(root)) return [];
+    if (!fs.statSync(root).isDirectory()) return [''];
+    return fs.readdirSync(root, { withFileTypes: true }).flatMap(entry => (
+      files(path.join(root, entry.name)).map(file => path.join(entry.name, file))
+    ));
+  }
+  function compare(expected, actual, label) {
+    const paths = new Set([...files(expected), ...files(actual)]);
+    for (const file of [...paths].sort()) {
+      const generated = path.join(expected, file);
+      const checkedIn = path.join(actual, file);
+      const name = file ? `${label}/${file}` : label;
+      if (!fs.existsSync(generated)) differences.push(`Unexpected: ${name}`);
+      else if (!fs.existsSync(checkedIn)) differences.push(`Missing: ${name}`);
+      else if (fs.statSync(generated).isDirectory() !== fs.statSync(checkedIn).isDirectory()) differences.push(`Changed type: ${name}`);
+      else if (!fs.readFileSync(generated).equals(fs.readFileSync(checkedIn))) differences.push(`Changed: ${name}`);
+    }
+  }
+  try {
+    const options = { pluginsDir: path.join(temporary, 'plugins'),
+      marketplacePath: path.join(temporary, 'marketplace.json') };
+    for (const [name, config] of Object.entries(PLUGIN_CONFIGS)) {
+      if (config.pluginType && config.pluginType !== 'claude') continue;
+      packagePlugin(name, config, options);
+      const generated = path.join(options.pluginsDir, name);
+      const actual = path.join(pluginsDir, name);
+      const label = `agentic/code/plugins/${name}`;
+      if (config.sourceRoot) {
+        // Entire manifest-backed addon is generated, except other providers'
+        // metadata retained by cleanPlugin().
+        const roots = new Set([...fs.readdirSync(generated), ...files(actual).map(file => file.split(path.sep)[0])]);
+        for (const root of [...roots].sort()) {
+          if ((root.endsWith('-plugin') && root !== '.claude-plugin') || root === 'clawhub.json') continue;
+          compare(path.join(generated, root), path.join(actual, root), `${label}/${root}`);
+        }
+      } else {
+        const roots = [...Object.keys(config.sources || {}),
+          ...(config.extraCopy || []).map(extra => extra.to), '.claude-plugin/plugin.json'];
+        if (config.readme) roots.push('README.md');
+        for (const root of roots) compare(path.join(generated, root), path.join(actual, root), `${label}/${root}`);
+      }
+    }
+    writeClaudeMarketplaceManifest(options);
+    compare(options.marketplacePath, marketplacePath, '.claude-plugin/marketplace.json');
+    return differences;
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
 // Main function
 async function main() {
   const options = parseArgs();
+
+  if (options.check) {
+    if (!options.all || options.plugin || options.provider || options.source || options.output || options.clean || options.dryRun) {
+      throw new Error('--check requires --all and cannot be combined with other packaging options');
+    }
+    const differences = checkPackagedPlugins();
+    if (differences.length) {
+      throw new Error(`Generated plugin copies are stale:\n${differences.join('\n')}\nRun npm run package-plugins and review the diff.`);
+    }
+    console.log('✓ All generated Claude plugin copies match canonical sources.');
+    return;
+  }
 
   if (!options.all && !options.plugin) {
     console.log('Please specify --all or --plugin NAME');
@@ -1215,7 +1292,7 @@ async function main() {
   console.log('  aiwg use sdlc --provider openclaw         # OpenClaw (ClawHub publish pending)');
 }
 
-main().catch((error) => {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main().catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 });
