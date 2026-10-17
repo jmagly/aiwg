@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { importImpl } from '../_resolve-impl.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TARGET_VERSION = 'mission.aiwg.io/v1';
@@ -43,8 +44,7 @@ function sourceFor(value) {
 }
 
 async function codec() {
-  try { return await import('../../dist/src/mission-protocol/index.js'); }
-  catch { return import('tsx/esm').then(async () => import('../../src/mission-protocol/index.ts')); }
+  return importImpl(import.meta.url, 'mission-protocol/index.js');
 }
 
 async function transformDocument(value) {

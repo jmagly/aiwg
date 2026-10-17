@@ -9,12 +9,14 @@
  */
 
 import { execFileSync, spawn } from 'child_process';
-import { boundedExecFileSync } from '../../src/process/bounded-child-process.mjs';
+import { importImpl } from '../_resolve-impl.mjs';
 import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { homedir } from 'os';
+
+const { boundedExecFileSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONTAINER_ID_FILE = '.aiwg/daemon/container-id';

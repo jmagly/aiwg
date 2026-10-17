@@ -20,9 +20,11 @@ vi.mock('fs', async (importOriginal) => {
       unlinkSync: vi.fn(),
       mkdirSync: vi.fn(),
     },
-    existsSync: vi.fn().mockReturnValue(true),
+    // The implementation resolver reads the real package manifest via named
+    // fs exports; ContainerManager's default fs import stays mocked above.
+    existsSync: actual.existsSync,
     writeFileSync: vi.fn(),
-    readFileSync: vi.fn().mockReturnValue('abc123'),
+    readFileSync: actual.readFileSync,
     unlinkSync: vi.fn(),
     mkdirSync: vi.fn(),
   };
