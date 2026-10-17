@@ -82,6 +82,7 @@
     "test:grok-build:qualification": "node --test test/unit/providers/grok-build-qualification.test.mjs",
     "validate-metadata": "aiwg validate-metadata",
     "package-plugins": "node tools/plugin/package-plugins.mjs --all",
+    "lint:plugin-copies": "node tools/plugin/package-plugins.mjs --all --check",
     "package-plugins:clean": "node tools/plugin/package-plugins.mjs --all --clean",
     "package:cli": "node tools/release/build-cli-package.mjs",
     "build": "node tools/scripts/resource-preflight.mjs --profile full && AIWG_BUILD_PREFLIGHT_DONE=1 npm run build:cli && npm --prefix apps/web ci && npm --prefix apps/web run build",

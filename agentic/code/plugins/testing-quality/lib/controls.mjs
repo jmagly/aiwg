@@ -66,8 +66,13 @@ function receiptStatus(controls, sourceRestored) {
   return controls.every(c=>c.status==='killed') ? 'passed' : 'failed';
 }
 
-/** Explicit opt-in control execution: mutate only source, run the same lane, restore in finally. */
-export async function collectControls(root, protocol, { evidence, lane='all', outputDir } = {}) {
+/** Explicit opt-in control execution: mutate only source, run the same lane, restore in finally.
+ * `controlId`, when set, scopes execution to a single declared control (by id) within the
+ * selected lane(s), producing one small receipt instead of one receipt per lane covering every
+ * control. `assess` already aggregates verified negative-control receipts across `--evidence`
+ * inputs by laneId/controlId, so collecting controls one at a time and passing each receipt as
+ * its own `--evidence` input is equivalent to one combined receipt for assessment purposes. */
+export async function collectControls(root, protocol, { evidence, lane='all', controlId=null, outputDir } = {}) {
   root = await fs.realpath(root);
   await validateContract(evidence, 'test-run-receipt.v1');
   const current = await inventoryWorkspace(root, protocol);
@@ -75,6 +80,7 @@ export async function collectControls(root, protocol, { evidence, lane='all', ou
   if (baselineErrors.length) throw new Error(`Negative-control baseline is invalid: ${JSON.stringify(baselineErrors)}`);
   const selected = protocol.spec.lanes.filter(l=>lane==='all'||l.id===lane);
   if (!selected.length) throw new Error(`Unknown control lane ${lane}`);
+  if (controlId !== null && !selected.some(l => (l.negativeControls ?? []).some(c => c.id === controlId))) throw new Error(`Unknown control ${controlId} for lane ${lane}`);
   const runId=crypto.randomUUID(), directory=outputDir ?? `.aiwg/testing/conformance/controls/${runId}`;
   const controls=[], diagnostics=[];
   const spec={root,protocolHash:digest(protocol),snapshotHash:current.spec.snapshotHash,runId,baseline:evidence,controls,diagnostics,sourceRestored:true,status:'unknown'};
@@ -83,7 +89,9 @@ export async function collectControls(root, protocol, { evidence, lane='all', ou
   await writeNew(root,`${directory}/journal.json`,result);
   outer: for (const definition of selected) {
     if (!definition.negativeControls?.length) { controls.push({laneId:definition.id,controlId:null,testIds:[],status:'unknown',diagnostics:[diag('CONTROL_UNCONFIGURED','No negative controls declared for selected lane')]});await persist();continue; }
-    for (const control of definition.negativeControls) {
+    const scoped = controlId === null ? definition.negativeControls : definition.negativeControls.filter(c => c.id === controlId);
+    if (!scoped.length) continue;
+    for (const control of scoped) {
       const record={laneId:definition.id,controlId:control.id,testIds:[...control.testIds],status:'unknown',diagnostics:[]};controls.push(record);
       let applied;
       try {

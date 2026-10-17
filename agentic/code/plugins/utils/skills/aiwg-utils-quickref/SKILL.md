@@ -193,6 +193,7 @@ aiwg discover "delivery policy"                # → delivery-policy rule (and r
 aiwg discover "start using local issues"       # → issue-workflow-guide
 aiwg discover "choose issue tracking backend"  # → issue-workflow-guide
 aiwg discover "project-local customization"     # → project-local quickstart / customization docs
+aiwg discover "set up jev"                   # → decision-offload (Jev token setup + bounded-decision offload)
 ```
 
 ### Feature domains the steward owns (expansion / persona / project)

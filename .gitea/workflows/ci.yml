@@ -133,6 +133,10 @@ jobs:
         # coverage, and test results out of git unless explicitly allowlisted.
         run: npm run lint:generated-artifacts
 
+      - name: Verify generated plugin copies match canonical sources (#3061)
+        # Offline, read-only regeneration into a temporary directory.
+        run: npm run lint:plugin-copies
+
       - name: Verify vault CI migration
         # Local-only gate: validates workflow secret references, vault fetch
         # specs, the AppRole policy, and migration docs without reading live

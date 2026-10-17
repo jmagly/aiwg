@@ -91,6 +91,20 @@ other controls on an altered source tree. Add the controls receipt as another `-
 bounded experiment supports the named oracle and changed behavior; it is not a whole-system mutation score or universal
 proof of test validity.
 
+A controls receipt embeds the baseline lane evidence once plus a full mutant run and a full restored run for every
+control it covers, so its size is roughly `(1 + 2k)` times one lane's execution evidence for `k` controls collected in
+the same run. On a large lane this reaches the 16 MiB document ceiling (`readDocument` in `lib/contracts.mjs`) after
+only one or two controls. Pass `--control <id>` to collect exactly one declared control per receipt:
+
+```bash
+aiwg test-conformance collect --root /path/to/target --mode controls --lane unit --control wrong-value --evidence .aiwg/testing/execution-01.json --output .aiwg/testing/controls-wrong-value.json
+aiwg test-conformance collect --root /path/to/target --mode controls --lane unit --control off-by-one --evidence .aiwg/testing/execution-01.json --output .aiwg/testing/controls-off-by-one.json
+```
+
+`assess` aggregates verified negative-control receipts across every `--evidence` input by lane/control id, so passing
+each single-control receipt as its own `--evidence` entry is equivalent to one combined receipt: every configured
+`control:<lane>:<id>` gate is still produced, and no single receipt need grow with the number of controls in the lane.
+
 ## Oracle review and assessment
 
 Assign cases to the Test Oracle Reviewer with [test review](../templates/test-review.md), exact source bindings and

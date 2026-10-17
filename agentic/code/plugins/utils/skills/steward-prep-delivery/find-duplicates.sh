@@ -37,12 +37,19 @@ echo ""
 echo "## Local AIWG index (aiwg discover)"
 echo ""
 if command -v aiwg >/dev/null 2>&1; then
-  DISCOVER_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/steward-prep-discover.XXXXXX")"
-  DISCOVER_JSON="${DISCOVER_TMP_DIR}/discover.json"
+  DISCOVER_TMP_DIR=""
+  DISCOVER_JSON=""
   DISCOVER_PID=""
+  DISCOVER_CANDIDATE=""
   cleanup_discover_tmp() {
     if [ -n "${DISCOVER_TMP_DIR:-}" ] && [ -d "${DISCOVER_TMP_DIR}" ]; then
       rm -rf -- "${DISCOVER_TMP_DIR}"
+    fi
+    # Signaled while still waiting on mkdir: the candidate may already exist.
+    # It is empty at that point, so rmdir removes ours and never removes a
+    # non-empty directory someone else owns.
+    if [ -n "${DISCOVER_CANDIDATE:-}" ]; then
+      rmdir -- "${DISCOVER_CANDIDATE}" 2>/dev/null || true
     fi
   }
   terminate_discover() {
@@ -64,13 +71,35 @@ if command -v aiwg >/dev/null 2>&1; then
   trap 'handle_discover_signal 130' INT
   trap 'handle_discover_signal 143' TERM
 
-  # Keep ownership of the discovery child so signal cleanup does not depend on
-  # the caller creating and signalling a separate process group. @implements #2107
-  aiwg discover "${QUERY}" --limit 5 --json >"${DISCOVER_JSON}" 2>/dev/null &
-  DISCOVER_PID=$!
-  if wait "${DISCOVER_PID}"; then
+  # Create the temp dir as a background job reaped by the interruptible `wait`
+  # builtin. A foreground mktemp command substitution makes bash defer HUP/INT/TERM
+  # traps until mktemp exits, and under CI load that stalled signal handling
+  # for seconds after the directory already existed (#2982). The name is
+  # generated in bash and created atomically by `mkdir -m 700`, which fails if
+  # the path exists and never follows a symlink, so no predictable helper file
+  # in the shared temp dir is needed. Works with bash 3.2. @implements #2107
+  DISCOVER_ATTEMPT=0
+  while [ -z "${DISCOVER_TMP_DIR}" ] && [ "${DISCOVER_ATTEMPT}" -lt 5 ]; do
+    DISCOVER_ATTEMPT=$((DISCOVER_ATTEMPT + 1))
+    DISCOVER_CANDIDATE="${TMPDIR:-/tmp}/steward-prep-discover.$$.${RANDOM}${RANDOM}"
+    mkdir -m 700 -- "${DISCOVER_CANDIDATE}" 2>/dev/null &
+    DISCOVER_PID=$!
+    if wait "${DISCOVER_PID}"; then
+      DISCOVER_TMP_DIR="${DISCOVER_CANDIDATE}"
+    fi
     DISCOVER_PID=""
-    python3 - "${DISCOVER_JSON}" <<'PY' 2>/dev/null || echo "  (python3 not available to parse output)"
+    DISCOVER_CANDIDATE=""
+  done
+  if [ -n "${DISCOVER_TMP_DIR}" ]; then
+    DISCOVER_JSON="${DISCOVER_TMP_DIR}/discover.json"
+
+    # Keep ownership of the discovery child so signal cleanup does not depend on
+    # the caller creating and signalling a separate process group. @implements #2107
+    aiwg discover "${QUERY}" --limit 5 --json >"${DISCOVER_JSON}" 2>/dev/null &
+    DISCOVER_PID=$!
+    if wait "${DISCOVER_PID}"; then
+      DISCOVER_PID=""
+      python3 - "${DISCOVER_JSON}" <<'PY' 2>/dev/null || echo "  (python3 not available to parse output)"
 import json
 import sys
 
@@ -92,9 +121,12 @@ try:
 except Exception as e:
     print(f'  (parse error: {e})')
 PY
+    else
+      DISCOVER_PID=""
+      echo "  (aiwg discover failed — local index may not be built)"
+    fi
   else
-    DISCOVER_PID=""
-    echo "  (aiwg discover failed — local index may not be built)"
+    echo "  (failed to create discovery temp dir)"
   fi
 else
   echo "  (aiwg CLI not found in PATH)"

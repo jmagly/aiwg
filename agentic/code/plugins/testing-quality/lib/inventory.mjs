@@ -4,11 +4,19 @@ import { findFiles, readBounded, DEFAULT_EXCLUDES } from './workspace.mjs';
 
 const CONFIG_PATTERNS = ['**/{package.json,package-lock.json,pnpm-lock.yaml,yarn.lock,pyproject.toml,pytest.ini,tox.ini,setup.cfg,go.mod,go.sum,Cargo.toml,Cargo.lock,pom.xml,build.gradle,global.json,*.csproj,vitest.config.*,jest.config.*,tsconfig*.json}'];
 
+function isPythonUnittestRunner(text) {
+  if (/\bunittest\.TestCase\b/.test(text)) return true;
+  if (/\bunittest\.main\s*\(/.test(text)) return true;
+  if (/\bimport\s+unittest\b(?!\.mock)/.test(text)) return true;
+  if (/\bfrom\s+unittest\s+import\b/.test(text)) return true;
+  return false;
+}
+
 function sourceRunner(file, text, platform) {
   if (/\b(?:from\s*|require\s*\(\s*)['"]vitest['"]/.test(text)) return 'vitest';
   if (/\b(?:from\s*|require\s*\(\s*)['"]node:test['"]/.test(text)) return 'node';
   if (/\b(?:from\s*|require\s*\(\s*)['"]@jest\/globals['"]/.test(text)) return 'jest';
-  if (file.endsWith('.py')) return /\bunittest\b/.test(text) ? 'unittest' : 'pytest';
+  if (file.endsWith('.py')) return isPythonUnittestRunner(text) ? 'unittest' : 'pytest';
   if (file.endsWith('_test.go')) return 'go';
   if (file.endsWith('.rs')) return 'cargo';
   if (file.endsWith('.java')) return 'junit';
