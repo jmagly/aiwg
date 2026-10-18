@@ -1,3 +1,4 @@
+import { mkdtempSync } from '../../helpers/temp-dir.js';
 /**
  * Embedding Index Tests
  *
@@ -62,14 +63,14 @@ describe('loadEmbeddingManifest', () => {
   let tmpDir: string;
 
   it('returns null when no manifest exists', () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-embed-test-'));
+    tmpDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-embed-test-'));
     const result = loadEmbeddingManifest(tmpDir);
     expect(result).toBeNull();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it('loads a valid manifest', () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-embed-test-'));
+    tmpDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-embed-test-'));
     const embDir = path.join(tmpDir, 'embeddings');
     fs.mkdirSync(embDir, { recursive: true });
 
@@ -93,7 +94,7 @@ describe('loadEmbeddingManifest', () => {
   });
 
   it('returns null for corrupt manifest', () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-embed-test-'));
+    tmpDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-embed-test-'));
     const embDir = path.join(tmpDir, 'embeddings');
     fs.mkdirSync(embDir, { recursive: true });
     fs.writeFileSync(path.join(embDir, 'manifest.json'), 'not json');
@@ -184,7 +185,7 @@ describe('embeddingTextForEntry', () => {
   });
 
   it('includes source body text when body granularity is requested', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-embed-body-'));
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-embed-body-'));
     const rel = '.aiwg/notes/body.md';
     const full = path.join(tmpDir, rel);
     fs.mkdirSync(path.dirname(full), { recursive: true });
@@ -222,7 +223,7 @@ describe('embeddingTextForEntry', () => {
   });
 
   it('splits body granularity text into bounded source chunks', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-embed-body-chunks-'));
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-embed-body-chunks-'));
     const rel = 'chunked.md';
     const full = path.join(tmpDir, rel);
     fs.writeFileSync(

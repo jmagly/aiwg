@@ -141,6 +141,31 @@ Tests whose *subject* is the unavailable-backend path — such as
 `createGraphBackend`'s remediation message — must stay unguarded so the degraded
 path keeps its coverage.
 
+## Temporary directory cleanup
+
+The [#3018 audit](testing-temp-audit.md) records leaking prefixes and their owners.
+
+`npm test` (also the default portion of `npm run test:ci`) runs Vitest in a
+private `TMPDIR` and checks it after the child exits, even when tests fail.
+Unexpected files or directories fail the lane and are retained at the printed
+path for diagnosis. Only the private run's Node/tsx process caches are removed
+by the runner; it never sweeps the shared system temp directory.
+
+Tests own their fixtures. Import `mkdtemp` or `mkdtempSync` from
+`test/helpers/temp-dir.ts` for file-scoped cleanup in `afterAll`, or use an
+existing `afterEach`/`try`-`finally` cleanup. Create fixtures inside hooks or
+tests: module-level allocation can leak when an entire suite is skipped.
+Keep external destinations beneath another owned temporary directory so their
+empty parents are removed too. Filtered runs still use the gate:
+
+```bash
+npm test -- test/unit/artifacts/output-policy.test.ts
+```
+
+For a direct Vitest run with a caller-owned private `TMPDIR`, run
+`npm run lint:tmpdir-leaks -- --dir "$TMPDIR"` afterward. This standalone
+checker reports entries and never removes them.
+
 ## Minimum Test Coverage
 
 | Category | Minimum Coverage | Current |

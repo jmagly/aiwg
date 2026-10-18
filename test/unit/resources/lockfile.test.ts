@@ -1,3 +1,4 @@
+import { mkdtempSync } from '../../helpers/temp-dir.js';
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -21,8 +22,8 @@ describe("resource lockfile", () => {
   let previousArtifactsPath: string | undefined;
 
   beforeEach(async () => {
-    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "aiwg-resource-lock-project-"));
-    cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aiwg-resource-lock-cache-"));
+    projectDir = mkdtempSync(path.join(os.tmpdir(), "aiwg-resource-lock-project-"));
+    cacheRoot = mkdtempSync(path.join(os.tmpdir(), "aiwg-resource-lock-cache-"));
     fixture = createWebResourceReleaseFixture();
     await fixture.start();
     previousArtifactsPath = process.env.AIWG_ARTIFACTS_PATH;
@@ -94,7 +95,7 @@ describe("resource lockfile", () => {
 
   it("honors the configured project artifact root", async () => {
     const resolved = await release();
-    const externalAiwg = path.join(projectDir, "..", "private-aiwg");
+    const externalAiwg = mkdtempSync(path.join(os.tmpdir(), "aiwg-resource-lock-external-"));
     process.env.AIWG_ARTIFACTS_PATH = externalAiwg;
 
     const result = writeWebResourceLock(projectDir, resolved);

@@ -1,3 +1,4 @@
+import { mkdtempSync } from '../helpers/temp-dir.js';
 /**
  * Deployment Completeness & Content Validation Tests
  *
@@ -17,14 +18,15 @@
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
-import { mkdtempSync, rmSync, existsSync } from 'fs';
+import { rmSync, existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { execFileSync } from 'child_process';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const AGENTIC_ROOT = path.join(REPO_ROOT, 'agentic/code');
-const TEST_BASE = path.join(os.tmpdir(), 'aiwg-deploy-completeness');
+let TEST_BASE: string;
+beforeAll(() => { TEST_BASE = mkdtempSync(path.join(os.tmpdir(), 'aiwg-deploy-completeness-')); });
 
 // ---------------------------------------------------------------------------
 // Helpers

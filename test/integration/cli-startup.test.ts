@@ -22,7 +22,7 @@
  * making a full build a precondition for the fast unit-test workflow.
  */
 
-import { afterAll, describe, it, expect } from 'vitest';
+import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import { spawnSync } from 'child_process';
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -34,9 +34,10 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const ROUTER_PATH = path.join(REPO_ROOT, 'dist', 'src', 'cli', 'router.js');
 const BIN_PATH = path.join(REPO_ROOT, 'bin', 'aiwg.mjs');
-const TEST_CONFIG_DIR = mkdtempSync(path.join(os.tmpdir(), 'aiwg-cli-startup-config-'));
+let TEST_CONFIG_DIR: string;
+beforeAll(() => { TEST_CONFIG_DIR = mkdtempSync(path.join(os.tmpdir(), 'aiwg-cli-startup-config-')); });
 
-afterAll(() => rmSync(TEST_CONFIG_DIR, { recursive: true, force: true }));
+afterAll(() => { if (TEST_CONFIG_DIR) rmSync(TEST_CONFIG_DIR, { recursive: true, force: true }); });
 
 // Skip the integration suite if the compiled output isn't present. These
 // tests need the build artifact; running them without it would just produce

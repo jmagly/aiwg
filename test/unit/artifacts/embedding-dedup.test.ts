@@ -1,3 +1,4 @@
+import { mkdtempSync } from '../../helpers/temp-dir.js';
 /**
  * Semantic dedup + readIndexSync round-trip (#1493).
  *
@@ -31,7 +32,7 @@ function entry(over: Partial<MetadataEntry>): MetadataEntry {
 
 describe('dedupReport error path (no deps required)', () => {
   it('throws when there is no embedding index', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-nodedup-'));
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-nodedup-'));
     await expect(dedupReport(dir)).rejects.toThrow(/No embedding index/);
     fs.rmSync(dir, { recursive: true, force: true });
   });
@@ -49,7 +50,7 @@ describe('semantic pipeline round-trip (#1493)', () => {
       // test above covers the no-deps behavior. Skip the live pipeline.
       return;
     }
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-dedup-'));
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-dedup-'));
     const entries: Record<string, MetadataEntry> = {
       'REF-A': entry({ path: 'REF-A', title: 'FlashAttention fast exact attention', summary: 'IO-aware exact attention algorithm reducing memory reads and writes on GPUs.' }),
       'REF-A2': entry({ path: 'REF-A2', title: 'FlashAttention: fast and exact attention', summary: 'An IO-aware exact attention algorithm that reduces GPU memory reads/writes.' }),

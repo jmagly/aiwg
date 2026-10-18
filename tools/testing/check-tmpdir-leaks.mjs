@@ -2,24 +2,12 @@
 /**
  * TMPDIR leak gate (#3018).
  *
- * Standalone checker, not wired into any default test lane: a test run that
- * creates `mkdtemp`/`mkdtempSync` directories and never removes them (afterEach
- * missing, or cleanup only on the success path) fills the shared system temp
- * filesystem over many runs. This script does not run tests itself — an
- * operator or CI job points it at the SAME private TMPDIR a test run just
- * used, after that run finishes, and it fails if anything beyond a small
- * known-safe allowlist is still there.
+ * Used by run-default-lane.mjs (npm test) after the child exits, including on
+ * test failure. Can also inspect a private TMPDIR from a direct Vitest run:
  *
- * Usage:
- *   TMPDIR=/path/to/empty-private-dir npx vitest run --config config/vitest.config.js
- *   node tools/testing/check-tmpdir-leaks.mjs --dir /path/to/empty-private-dir
+ *   node tools/testing/check-tmpdir-leaks.mjs --dir /path/to/private-tmp-dir
  *
- * This is intentionally NOT auto-wired into package.json's aggregate test
- * lanes: the default lane does not control TMPDIR today, and most CI runners
- * already use a disposable container filesystem, so forcing this gate into
- * every lane would either be a no-op or require re-plumbing TMPDIR through
- * every lane's config. Run it explicitly (see README/#3018) when auditing a
- * lane for leaks, or wire it into a dedicated CI step that sets TMPDIR itself.
+ * This checker only reports entries; it never deletes them.
  */
 import fs from 'node:fs';
 import path from 'node:path';

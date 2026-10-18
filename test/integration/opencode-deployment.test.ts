@@ -1,3 +1,4 @@
+import { mkdtempSync } from '../helpers/temp-dir.js';
 /**
  * Integration tests for OpenCode provider deployment
  *
@@ -49,22 +50,35 @@ describe('OpenCode literal command arguments', () => {
 // OpenCode is installed at ~/.opencode/bin/opencode
 const OPENCODE_PATH = path.join(os.homedir(), '.opencode', 'bin', 'opencode');
 
+// Native --version/--help probes can create their own runtime temp directory.
+// Probes also run during collection, when skipped suites do not run hooks.
+function withNativeCliEnv<T>(run: (env: NodeJS.ProcessEnv) => T): T {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-opencode-native-'));
+  try {
+    return run({ ...process.env, TMPDIR: directory, TMP: directory, TEMP: directory });
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 // Check if opencode CLI is available
 function isOpenCodeAvailable(): boolean {
   try {
     // Try direct path first
     if (fs.existsSync(OPENCODE_PATH)) {
-      const result = spawnSync(...cliCommand(OPENCODE_PATH, ['--version']), {
+      const result = withNativeCliEnv(env => spawnSync(...cliCommand(OPENCODE_PATH, ['--version']), {
         encoding: 'utf-8',
         timeout: 5000,
-      });
+        env,
+      }));
       return result.status === 0;
     }
     // Try via PATH
-    const result = spawnSync(...cliCommand('opencode', ['--version']), {
+    const result = withNativeCliEnv(env => spawnSync(...cliCommand('opencode', ['--version']), {
       encoding: 'utf-8',
       timeout: 5000,
-    });
+      env,
+    }));
     return result.status === 0;
   } catch (error) {
     console.warn(`opencode CLI probe failed: ${String(error)}`);
@@ -82,12 +96,12 @@ function runOpenCode(
   try {
     // Use direct path if available, otherwise resolve the executable via PATH
     const cmd = fs.existsSync(OPENCODE_PATH) ? OPENCODE_PATH : 'opencode';
-    const result = spawnSync(...cliCommand(cmd, args), {
+    const result = withNativeCliEnv(env => spawnSync(...cliCommand(cmd, args), {
       encoding: 'utf-8',
       timeout: options.timeout || 30000,
       cwd: options.cwd || process.cwd(),
-      env: process.env,
-    });
+      env,
+    }));
     return {
       stdout: result.stdout || '',
       stderr: result.stderr || '',
@@ -104,7 +118,7 @@ describe('OpenCode Deployment', () => {
 
   beforeEach(() => {
     // Create temporary test directory
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg opencode;$literal-test-'));
+    testDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg opencode;$literal-test-'));
   });
 
   afterEach(() => {
@@ -255,7 +269,7 @@ describe('OpenCode MCP Configuration', () => {
   const cliPath = path.resolve(__dirname, '../../src/mcp/cli.mjs');
 
   beforeEach(() => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg opencode;$literal-mcp-test-'));
+    testDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg opencode;$literal-mcp-test-'));
   });
 
   afterEach(() => {
@@ -340,7 +354,7 @@ describe('OpenCode CLI Integration', () => {
   describe('Agent Configuration', () => {
     it.skipIf(!OPENCODE_AVAILABLE)('validates .opencode/agent/ directory structure', async () => {
       // Create test directory with proper structure
-      const testDir = path.join(os.tmpdir(), 'opencode-agent-test-' + Date.now());
+      const testDir = mkdtempSync(path.join(os.tmpdir(), 'opencode-agent-test-'));
       const agentDir = path.join(testDir, '.opencode', 'agent');
       fs.mkdirSync(agentDir, { recursive: true });
 
@@ -386,7 +400,7 @@ This is a test agent for OpenCode integration.
   describe('Command Configuration', () => {
     it.skipIf(!OPENCODE_AVAILABLE)('validates .opencode/commands/ directory structure', async () => {
       // Create test directory with proper structure
-      const testDir = path.join(os.tmpdir(), 'opencode-command-test-' + Date.now());
+      const testDir = mkdtempSync(path.join(os.tmpdir(), 'opencode-command-test-'));
       const commandDir = path.join(testDir, '.opencode', 'commands');
       fs.mkdirSync(commandDir, { recursive: true });
 
@@ -420,7 +434,7 @@ This is a test command for OpenCode integration.
   describe('JSON Configuration', () => {
     it.skipIf(!OPENCODE_AVAILABLE)('validates opencode.json format', async () => {
       // Create a test config
-      const testDir = path.join(os.tmpdir(), 'opencode-config-test-' + Date.now());
+      const testDir = mkdtempSync(path.join(os.tmpdir(), 'opencode-config-test-'));
       fs.mkdirSync(testDir, { recursive: true });
 
       const configContent = {
