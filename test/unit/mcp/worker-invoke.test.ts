@@ -5259,6 +5259,9 @@ describe('review 11 populated default driver equivalence', () => {
         const adapter = f.snapshot.registry.providers.codex.workerAdapter!;
         adapter.id = 'codex';
         const binding = f.snapshot.installations.codex;
+        // The installed executable is Node; give its fake CLI an exact version
+        // response so the current loader can recheck the recorded approval.
+        adapter.invocation.versionArgv = ['-e', `console.log(${JSON.stringify(binding.cliVersion)})`];
         const profile = adapter.invocationProfiles![binding.profile];
         const policy = f.snapshot.models.defaults.workerSelection;
         const { qualificationDigest } = await import('../../../src/models/qualification-digest.mjs');

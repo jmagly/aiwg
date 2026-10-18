@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { prepareWorkerInstallationStore } from '../../../src/models/worker-installation.mjs';
 
 vi.mock('node:fs/promises', { spy: true });
+// Node's native homedir ignores thread-local env changes in Vitest's pool.
+vi.mock('node:os', async importOriginal => {
+  const os = await importOriginal<typeof import('node:os')>();
+  return { ...os, homedir: () => process.env.HOME || os.homedir() };
+});
 const roots: string[] = [];
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -13,6 +18,42 @@ afterEach(async () => {
 });
 
 describe('qualification store permission repair', () => {
+  it.each([0o775, 0o777])('refuses repair beneath a writable ancestor (%s)', async mode => {
+    const home = await fs.mkdtemp(path.join(tmpdir(), 'aiwg-store-ancestor-'));
+    roots.push(home);
+    vi.stubEnv('HOME', home);
+    const ancestor = path.join(home, 'config');
+    const store = path.join(ancestor, 'aiwg');
+    await fs.mkdir(store, { recursive: true });
+    await fs.chmod(ancestor, mode);
+    await fs.chmod(store, 0o775);
+    vi.stubEnv('AIWG_CONFIG', store);
+    const open = vi.spyOn(fs, 'open');
+    for (const apply of [false, true]) {
+      await expect(prepareWorkerInstallationStore({ workerWritableRoots: [], apply }))
+        .rejects.toThrow(`Untrusted installation store ancestor: ${ancestor}`);
+    }
+    expect(open).not.toHaveBeenCalled();
+    expect((await fs.stat(store)).mode & 0o777).toBe(0o775);
+  });
+
+  it.each([0o755, 0o700])('repairs beneath trusted ancestors (%s)', async mode => {
+    const home = await fs.mkdtemp(path.join(tmpdir(), 'aiwg-store-trusted-'));
+    roots.push(home);
+    vi.stubEnv('HOME', home);
+    const ancestor = path.join(home, 'config');
+    const store = path.join(ancestor, 'aiwg');
+    await fs.mkdir(store, { recursive: true });
+    await fs.chmod(ancestor, mode);
+    await fs.chmod(store, 0o775);
+    vi.stubEnv('AIWG_CONFIG', store);
+    const options = { workerWritableRoots: [] };
+    await expect(prepareWorkerInstallationStore(options)).resolves.toEqual([{ path: store, action: 'chmod go-w' }]);
+    expect((await fs.stat(store)).mode & 0o777).toBe(0o775);
+    await prepareWorkerInstallationStore({ ...options, apply: true });
+    expect((await fs.stat(store)).mode & 0o777).toBe(0o755);
+  });
+
   it('refuses another owner with the path and never chmods it', async () => {
     const root = await fs.mkdtemp(path.join(tmpdir(), 'aiwg-store-owner-'));
     roots.push(root);

@@ -121,7 +121,7 @@ async function assertWorkerInstallationEvidence(request, scopeDigest) {
   }
 }
 
-/** Read-only recheck: the version probe is bound to the unchanged binary digest. */
+/** Read-only recheck of the approved installation bytes and bindings. */
 async function recheckWorkerInstallation(instance, options) {
   const request = structuredClone(options);
   const { requiredWorkerControls, isOperatorQualifiedWorkerAdapter } = await import('./provider-policy.js');
@@ -747,6 +747,27 @@ function installationStorePath() {
   return path.join(root, 'worker-installations.json');
 }
 
+// HOME is the operator's trust boundary; custom stores outside it are checked
+// back to /. O_NOFOLLOW on the store itself does not protect its ancestors.
+async function assertTrustedStoreAncestors(directory) {
+  const home = path.resolve(homedir());
+  const boundary = inside(home, directory) ? home : path.parse(directory).root;
+  // The store directory itself is checked by the caller.
+  if (directory === boundary) return;
+  const ancestors = [];
+  for (let target = path.dirname(directory); ; target = path.dirname(target)) {
+    ancestors.push(target);
+    if (target === boundary) break;
+  }
+  for (const target of ancestors.reverse()) {
+    const stat = await lstat(target);
+    if (!stat.isDirectory() || stat.isSymbolicLink() || stat.mode & 0o022
+      || process.getuid && stat.uid !== 0 && stat.uid !== process.getuid()) {
+      throw new Error(`Untrusted installation store ancestor: ${target}`);
+    }
+  }
+}
+
 async function assertTrustedStore(filename, writableRoots, repairDirectory = false, apply = false) {
   const changes = [];
   const canonical = await canonicalFuturePath(filename);
@@ -765,6 +786,7 @@ async function assertTrustedStore(filename, writableRoots, repairDirectory = fal
         if (!repairDirectory || target !== path.dirname(filename) || !process.getuid) {
           throw new Error(`Untrusted installation store permissions: ${target}`);
         }
+        await assertTrustedStoreAncestors(target);
         changes.push({ path: target, action: 'chmod go-w' });
         if (apply) {
           const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_DIRECTORY);
@@ -839,8 +861,8 @@ export async function recordWorkerInstallation(instance, options) {
   return result;
 }
 
-/** Read recorded host authority, validate installation bytes, then load the same
- * approved factory used by Ralph. Resolution never launches a version probe. */
+/** Read recorded host authority, validate installation bytes and the current CLI
+ * version, then load the same approved factory used by Ralph. */
 export async function loadRecordedWorkerInstallations({ registry, cwd, policy, parallelism, storePath, storeDigest }) {
   const { WorkerPolicyError, parseProviderModelCapabilities } = await import('./provider-policy.js');
   const { qualificationDigest } = await import('./qualification-digest.mjs');
@@ -910,6 +932,14 @@ export async function loadRecordedWorkerInstallations({ registry, cwd, policy, p
         if (!executable || await realpath(executable) !== scope.binary.realpath) throw fail();
       }
       if (scope.scopeDigest !== proof.scopeDigest) throw fail();
+      // A launcher can keep the same bytes while its CLI payload is updated.
+      // Reuse the bounded, credential-free doctor probe before granting authority.
+      const { version } = await boundedVersionProbe(scope.binary.realpath,
+        adapter.invocation.versionArgv, workerVersionProbeEnvironment(), cwd,
+        workerVersionProbeDefaults.timeoutMs, workerVersionProbeDefaults.maxBytes,
+        adapter.invocation.versionPattern);
+      if (version !== binding.cliVersion
+        || (await inspectWorkerInstallation(instance, installation)).scopeDigest !== scope.scopeDigest) throw fail();
       const profile = adapter.invocationProfiles[binding.profile];
       let mcpRegistry;
       if (profile.transport === 'mcp') {

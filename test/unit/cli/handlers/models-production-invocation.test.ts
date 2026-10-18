@@ -70,7 +70,8 @@ async function productionFixture(adapterFrame = false) {
   const cli = path.join(installed, 'ralph-worker-cli.mjs');
   const protocol = path.join(installed, 'ralph-worker-protocol.mjs');
   for (const filename of [cli, protocol]) await writeFile(filename, await readFile(path.resolve('test/fixtures', path.basename(filename))), { mode: 0o644 });
-  adapter.invocation.versionArgv = [cli, '--qualification-version'];
+  // Resolution rechecks the version without the worker's protocol environment.
+  adapter.invocation.versionArgv = ['-e', `console.log(${JSON.stringify(binding.cliVersion)})`];
   const args = (input: any, _profile: any, permissions: any) => [cli, '--model', input.selected.model, '--effort', input.selected.effort.value,
     '--sandbox', permissions.sandbox, '--approval', permissions.approval, '--final-output', input.finalPath];
   const source = await readFile(path.resolve('test/fixtures/production-worker-driver.mjs'), 'utf8');
@@ -195,10 +196,7 @@ describe('models resolve production installation loading', () => {
     const f = await productionFixture();
     const name = 'AIWG_SYNTHETIC_WORKER_ENV';
     const value = 'synthetic-only-environment-value';
-    // The fixture CLI's fake wire protocol (test/fixtures/ralph-worker-protocol.mjs)
-    // requires AIWG_FAKE_WORKER_CONFIG to name its synthetic settings file for any
-    // invocation, including the bounded version probe this records against — it is
-    // required test plumbing, not qualification input under test.
+    // Synthetic worker settings exercise the recorded environment allowlist.
     const fakeWorkerConfig = path.join(f.installed, 'qualification-version-fixture.json');
     await writeFile(fakeWorkerConfig, JSON.stringify({ version: '1.0.0' }));
     vi.stubEnv(name, value);

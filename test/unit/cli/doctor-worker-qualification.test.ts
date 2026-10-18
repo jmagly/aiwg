@@ -10,6 +10,11 @@ import { writeExecutable } from '../../helpers/write-executable.js';
 
 const terminal = vi.hoisted(() => ({ question: vi.fn(), close: vi.fn() }));
 vi.mock('node:readline/promises', () => ({ createInterface: () => terminal }));
+// The in-process TTY case needs the same temp HOME as the spawned CLI cases.
+vi.mock('node:os', async importOriginal => {
+  const os = await importOriginal<typeof import('node:os')>();
+  return { ...os, homedir: () => process.env.HOME || os.homedir() };
+});
 
 const exec = promisify(execFile);
 const repo = process.cwd();
@@ -78,6 +83,29 @@ process.exitCode = result.exitCode;
 }
 
 describe('doctor worker qualification through the public CLI (fake CLIs only)', () => {
+  it('blocks changed payload versions behind an unchanged launcher, and failed probes', async () => {
+    const f = await fixture();
+    const payload = path.join(f.root, 'payload.cjs');
+    await writeFile(payload, await readFile(f.binary));
+    await writeExecutable(f.binary, `#!${process.execPath}\nrequire(${JSON.stringify(payload)});\n`);
+    const launcher = await readFile(f.binary, 'utf8');
+    const qualified = await f.run(['doctor', '--probe-workers', '--qualify', '--yes', '--json']);
+    expect(qualified.code, qualified.stdout + qualified.stderr).toBe(0);
+    const resolved = await f.resolve();
+    expect(resolved.code, resolved.stdout + resolved.stderr).toBe(0);
+    for (const source of [
+      `console.log('codex-cli 0.162.0');\n`,
+      `process.exit(90);\n`,
+      `console.log('invalid version banner');\n`,
+    ]) {
+      await writeFile(payload, source);
+      expect(await readFile(f.binary, 'utf8')).toBe(launcher);
+      const changed = await f.resolve();
+      expect(changed.code).not.toBe(0);
+      expect(changed.stdout).toContain('aiwg doctor --probe-workers --qualify');
+    }
+  });
+
   it('qualifies installation and exact model roles, renders a launchable plan, and invalidates changed binary/version', async () => {
     const f = await fixture();
     const before = await f.resolve();
@@ -290,6 +318,7 @@ describe('doctor worker qualification through the public CLI (fake CLIs only)', 
     Object.defineProperty(process.stdin, 'isTTY', { configurable: true, value: true });
     Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true });
     vi.stubEnv('AIWG_HOME', repo);
+    vi.stubEnv('HOME', f.root);
     vi.stubEnv('AIWG_CONFIG', f.config);
     vi.stubEnv('AIWG_RESOLVE_IMPL_FROM', 'src');
     terminal.question.mockResolvedValue('n');
