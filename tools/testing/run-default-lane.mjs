@@ -6,6 +6,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_ALLOWED_ENTRIES, findLeakedEntries } from './check-tmpdir-leaks.mjs';
+import { importImpl } from '../_resolve-impl.mjs';
+
+const { signalChild } = await importImpl(import.meta.url, 'process/signal-child.mjs');
 
 export async function runDefaultLane(args = [], { command = process.execPath, runnerArgs } = {}) {
   // Keep the extra path component short for Unix-domain socket fixtures.
@@ -13,7 +16,7 @@ export async function runDefaultLane(args = [], { command = process.execPath, ru
   const root = fileURLToPath(new URL('../../', import.meta.url));
   let code = 1;
   let child;
-  const forwardSignal = signal => child?.kill(signal);
+  const forwardSignal = signal => signalChild(child, signal);
   const onInterrupt = () => forwardSignal('SIGINT');
   const onTerminate = () => forwardSignal('SIGTERM');
   try {
