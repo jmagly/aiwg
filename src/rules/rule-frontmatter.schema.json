@@ -1,0 +1,197 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aiwg.io/schemas/rules/rule-frontmatter.v1.schema.json",
+  "title": "Rule activation frontmatter",
+  "description": "ADR rule activation contract. Other existing discovery metadata is preserved. Missing activation is permitted only by the migration parser, which warns and infers tier delivery.",
+  "type": "object",
+  "required": [
+    "activation"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "activation": {
+      "type": "string",
+      "enum": [
+        "kernel",
+        "summary",
+        "bound",
+        "paths",
+        "on-demand"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "pattern": "^[^\\r\\n\\u0085\\u2028\\u2029]*\\S[^\\r\\n\\u0085\\u2028\\u2029]*$",
+      "description": "A nonempty single-line imperative, <=240 Unicode code points after trimming. Imperative mood is reviewed by authors.",
+      "allOf": [
+        {
+          "pattern": "^\\s*\\S(?:[^\\r\\n\\u0085\\u2028\\u2029]{0,238}\\S)?\\s*$"
+        }
+      ]
+    },
+    "bound_to": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!.*(?:^|/)\\.\\.?(/|$))[A-Za-z0-9_][A-Za-z0-9_.:-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.:-]*)*$"
+          }
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!.*(?:^|/)\\.\\.?(/|$))[A-Za-z0-9_][A-Za-z0-9_.:-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.:-]*)*$"
+          }
+        },
+        "flows": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!.*(?:^|/)\\.\\.?(/|$))[A-Za-z0-9_][A-Za-z0-9_.:-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.:-]*)*$"
+          }
+        }
+      }
+    },
+    "paths": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))(?=.*\\S)[^\\r\\n]+$"
+      }
+    },
+    "enforcedBy": {
+      "description": "Opaque reserved metadata for #2839. Has no activation or runtime enforcement effect."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "activation": {
+            "enum": [
+              "summary",
+              "bound",
+              "paths"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "summary"
+        ],
+        "properties": {
+          "summary": {}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "activation": {
+            "enum": [
+              "kernel",
+              "on-demand"
+            ]
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "bound_to"
+          ],
+          "properties": {
+            "bound_to": {}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "activation": {
+            "const": "paths"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "paths"
+        ],
+        "properties": {
+          "paths": {}
+        }
+      },
+      "else": {
+        "not": {
+          "required": [
+            "paths"
+          ],
+          "properties": {
+            "paths": {}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "activation": {
+            "const": "bound"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "bound_to"
+        ],
+        "properties": {
+          "bound_to": {
+            "type": "object",
+            "anyOf": [
+              {
+                "required": [
+                  "skills"
+                ],
+                "properties": {
+                  "skills": {
+                    "type": "array",
+                    "minItems": 1
+                  }
+                }
+              },
+              {
+                "required": [
+                  "agents"
+                ],
+                "properties": {
+                  "agents": {
+                    "type": "array",
+                    "minItems": 1
+                  }
+                }
+              },
+              {
+                "required": [
+                  "flows"
+                ],
+                "properties": {
+                  "flows": {
+                    "type": "array",
+                    "minItems": 1
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

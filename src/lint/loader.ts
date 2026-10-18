@@ -9,6 +9,7 @@
  */
 
 import fs from 'fs';
+import { ruleActivationRuleset } from './rule-activation.js';
 import fsp from 'fs/promises';
 import path from 'path';
 import type { LintRule, LintRuleset } from './types.js';
@@ -193,7 +194,7 @@ export async function loadRuleset(lintDir: string, frameworkId: string): Promise
  * 2. Deployed frameworks: .aiwg/frameworks/{id}/lint/
  */
 export async function discoverRulesets(cwd: string, frameworkRoot: string): Promise<LintRuleset[]> {
-  const rulesets: LintRuleset[] = [];
+  const rulesets: LintRuleset[] = [ruleActivationRuleset];
 
   // Check framework source directories
   const frameworksDir = path.join(frameworkRoot, 'agentic', 'code', 'frameworks');

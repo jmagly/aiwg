@@ -39,9 +39,11 @@ describe('build resource copier', () => {
     writeFileSync(path.join(nestedSource, 'profile.json'), '{"enabled":true}\n');
     writeFileSync(path.join(nestedSource, 'profile.yaml'), 'enabled: true\n');
     writeFileSync(path.join(nestedSource, 'profile.yml'), 'enabled: true\n');
+    writeFileSync(path.join(nestedSource, 'example.d.mts'), 'export const example: boolean;\n');
+    writeFileSync(path.join(nestedSource, 'ignored.mts'), 'export const ignored = true;\n');
     writeFileSync(path.join(nestedSource, 'ignored.ts'), 'export const ignored = true;\n');
 
-    expect(copyBuildResources({ sourceRoot, destinationRoot })).toBe(4);
+    expect(copyBuildResources({ sourceRoot, destinationRoot })).toBe(5);
     expect(readFileSync(
       path.join(destinationRoot, 'mcp', 'tools', 'example.mjs'),
       'utf8',
@@ -58,6 +60,8 @@ describe('build resource copier', () => {
       path.join(destinationRoot, 'mcp', 'tools', 'profile.yml'),
       'utf8',
     )).toBe('enabled: true\n');
+    expect(readFileSync(path.join(destinationRoot, 'mcp', 'tools', 'example.d.mts'), 'utf8')).toBe('export const example: boolean;\n');
+    expect(() => readFileSync(path.join(destinationRoot, 'mcp', 'tools', 'ignored.mts'))).toThrow();
     expect(() => readFileSync(
       path.join(destinationRoot, 'mcp', 'tools', 'ignored.ts'),
       'utf8',

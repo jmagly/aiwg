@@ -39,6 +39,15 @@ function formatDiagnostic(d: LintDiagnostic): string {
 /**
  * Format lint results in full detail
  */
+function formatBudget(result: LintResult): string[] {
+  const report = result.inlineBudget;
+  if (!report) return [];
+  return [
+    `Startup budget (${report.provider}): limit ${report.limit} tokens${report.disabled ? ' (guard disabled)' : ''}; selected ${report.selected_tokens} estimated tokens (${report.selected_bytes} bytes; ${report.estimate})`,
+    ...report.contributors.map(file => `  ${file.path}: ${file.bytes} bytes (${file.estimated_tokens} estimated tokens)`),
+  ];
+}
+
 function formatFull(result: LintResult): string {
   const lines: string[] = [];
 
@@ -46,6 +55,7 @@ function formatFull(result: LintResult): string {
   lines.push(`Target: ${result.target}`);
   lines.push(`Rulesets: ${result.rulesets.join(', ')}`);
   lines.push(`Files checked: ${result.summary.filesChecked}`);
+  lines.push(...formatBudget(result));
   lines.push(`Rules applied: ${result.summary.rulesApplied} of ${result.summary.rulesSelected}`);
   lines.push('');
   if (result.summary.coverageMessage) lines.push(`! ${result.summary.coverageMessage}`);
@@ -114,7 +124,7 @@ function formatFull(result: LintResult): string {
  * Format lint results as a summary (counts only)
  */
 function formatSummary(result: LintResult): string {
-  const lines: string[] = [];
+  const lines: string[] = [...formatBudget(result)];
   lines.push(`Lint: ${result.summary.filesChecked} files, ${result.summary.errors} errors, ${result.summary.warnings} warnings, ${result.summary.infos} info`);
   lines.push(`Rules applied: ${result.summary.rulesApplied} of ${result.summary.rulesSelected}`);
   if (result.summary.coverageMessage) lines.push(`! ${result.summary.coverageMessage}`);

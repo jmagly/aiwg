@@ -28,31 +28,56 @@
     "version": {
       "type": "string",
       "description": "AIWG config format version",
-      "examples": ["1"]
+      "examples": [
+        "1"
+      ]
     },
     "project": {
       "description": "Project identity and data classification. A bare string is the project name; the object form adds classification and handling policy.",
       "oneOf": [
-        { "type": "string", "description": "Project name" },
+        {
+          "type": "string",
+          "description": "Project name"
+        },
         {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "name": { "type": "string" },
-            "description": { "type": "string" },
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
             "classification": {
               "type": "string",
-              "enum": ["private", "sanitized", "public"],
+              "enum": [
+                "private",
+                "sanitized",
+                "public"
+              ],
               "description": "What the repository holds. 'private' defaults every handling flag to false."
             },
-            "pii": { "type": "boolean", "description": "Repository holds personally identifiable information" },
+            "pii": {
+              "type": "boolean",
+              "description": "Repository holds personally identifiable information"
+            },
             "handling": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "excerptable": { "type": "boolean", "description": "May content be quoted outside the repo?" },
-                "publishable": { "type": "boolean", "description": "May content be published?" },
-                "mirror": { "type": "boolean", "description": "May the repo be mirrored to a secondary remote?" }
+                "excerptable": {
+                  "type": "boolean",
+                  "description": "May content be quoted outside the repo?"
+                },
+                "publishable": {
+                  "type": "boolean",
+                  "description": "May content be published?"
+                },
+                "mirror": {
+                  "type": "boolean",
+                  "description": "May the repo be mirrored to a secondary remote?"
+                }
               }
             }
           }
@@ -115,25 +140,44 @@
       "properties": {
         "canonical": {
           "type": "string",
-          "enum": ["aiwg"],
+          "enum": [
+            "aiwg"
+          ],
           "default": "aiwg",
           "description": "Durable source of truth. Presentation destinations never replace this artifact."
         },
         "provider_native": {
           "type": "string",
-          "enum": ["disabled", "explicit-only", "project-default"],
+          "enum": [
+            "disabled",
+            "explicit-only",
+            "project-default"
+          ],
           "default": "explicit-only",
           "description": "Whether provider-native destinations are disabled, require an explicit task request, or may be selected by a declared project default."
         },
         "destinations": {
           "type": "object",
-          "propertyNames": { "pattern": "^[a-z0-9][a-z0-9.-]*$" },
+          "propertyNames": {
+            "pattern": "^[a-z0-9][a-z0-9.-]*$"
+          },
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "enabled": { "type": "boolean", "default": true },
-              "use_when": { "type": "string", "enum": ["disabled", "user-requested", "project-default"], "default": "user-requested" }
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              },
+              "use_when": {
+                "type": "string",
+                "enum": [
+                  "disabled",
+                  "user-requested",
+                  "project-default"
+                ],
+                "default": "user-requested"
+              }
             }
           }
         }
@@ -144,50 +188,118 @@
       "description": "Experimental Unified Harness Protocol client configuration. Credentials are references only and are resolved at request time.",
       "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "boolean", "default": false },
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
         "profiles": {
           "type": "object",
-          "propertyNames": { "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["endpoint", "version", "credential", "experimental"],
+            "required": [
+              "endpoint",
+              "version",
+              "credential",
+              "experimental"
+            ],
             "properties": {
-              "endpoint": { "type": "string", "format": "uri", "pattern": "^https?://" },
-              "version": { "const": "2026-08-11" },
+              "endpoint": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https?://"
+              },
+              "version": {
+                "const": "2026-08-11"
+              },
               "credential": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["source", "name"],
+                "required": [
+                  "source",
+                  "name"
+                ],
                 "properties": {
-                  "source": { "const": "env" },
-                  "name": { "type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$" }
+                  "source": {
+                    "const": "env"
+                  },
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Z_][A-Z0-9_]*$"
+                  }
                 }
               },
-              "defaultHarness": { "type": "string", "pattern": "^chrn_[A-Za-z0-9_-]+$" },
-              "defaultModel": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$" },
-              "experimental": { "const": true },
+              "defaultHarness": {
+                "type": "string",
+                "pattern": "^chrn_[A-Za-z0-9_-]+$"
+              },
+              "defaultModel": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$"
+              },
+              "experimental": {
+                "const": true
+              },
               "trust": {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "allowedHosts": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-                  "allowPrivateNetwork": { "type": "boolean", "default": false },
-                  "allowInsecureLoopback": { "type": "boolean", "default": false },
-                  "allowRedirects": { "type": "boolean", "default": false }
+                  "allowedHosts": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  },
+                  "allowPrivateNetwork": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "allowInsecureLoopback": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "allowRedirects": {
+                    "type": "boolean",
+                    "default": false
+                  }
                 }
               },
               "limits": {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "requestTimeoutMs": { "type": "integer", "minimum": 1 },
-                  "inactivityTimeoutMs": { "type": "integer", "minimum": 1 },
-                  "maxTaskSeconds": { "type": "integer", "minimum": 1 },
-                  "maxUploadBytes": { "type": "integer", "minimum": 1 },
-                  "maxArtifactBytes": { "type": "integer", "minimum": 1 },
-                  "maxArtifactCount": { "type": "integer", "minimum": 1 },
-                  "maxRetries": { "type": "integer", "minimum": 1 }
+                  "requestTimeoutMs": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "inactivityTimeoutMs": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "maxTaskSeconds": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "maxUploadBytes": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "maxArtifactBytes": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "maxArtifactCount": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "maxRetries": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
                 }
               }
             }
@@ -224,7 +336,7 @@
     },
     "remotes": {
       "type": "object",
-      "description": "Repo origin topology — declares primary (CI/issues/PRs) and secondary remotes (#994)",
+      "description": "Repo origin topology \u2014 declares primary (CI/issues/PRs) and secondary remotes (#994)",
       "additionalProperties": false,
       "properties": {
         "primary": {
@@ -237,7 +349,11 @@
         },
         "issue_provider": {
           "type": "string",
-          "enum": ["gitea", "github", "local"],
+          "enum": [
+            "gitea",
+            "github",
+            "local"
+          ],
           "description": "Explicit issue-tracker provider for self-hosted or local trackers when the remote URL is ambiguous."
         },
         "ci": {
@@ -254,7 +370,11 @@
         },
         "customer_issue_provider": {
           "type": "string",
-          "enum": ["gitea", "github", "local"],
+          "enum": [
+            "gitea",
+            "github",
+            "local"
+          ],
           "description": "Explicit provider hint for the customer-facing issue tracker."
         },
         "customer_tracker_actor": {
@@ -298,7 +418,11 @@
           "description": "Map remote URLs, owner/repo slugs, remote names, or 'local' to collaborator, maintainer, or admin.",
           "additionalProperties": {
             "type": "string",
-            "enum": ["collaborator", "maintainer", "admin"]
+            "enum": [
+              "collaborator",
+              "maintainer",
+              "admin"
+            ]
           },
           "examples": [
             {
@@ -312,12 +436,16 @@
     },
     "delivery": {
       "type": "object",
-      "description": "Repo control / delivery policy — how AIWG agents are expected to ship code (#995)",
+      "description": "Repo control / delivery policy \u2014 how AIWG agents are expected to ship code (#995)",
       "additionalProperties": false,
       "properties": {
         "mode": {
           "type": "string",
-          "enum": ["direct", "feature-branch", "pr-required"],
+          "enum": [
+            "direct",
+            "feature-branch",
+            "pr-required"
+          ],
           "description": "How agents deliver code. direct = commit/push to default_branch; feature-branch = push branch, no PR; pr-required = branch + PR (default)"
         },
         "default_branch": {
@@ -340,7 +468,12 @@
         },
         "merge_style": {
           "type": "string",
-          "enum": ["rebase-merge", "squash", "merge", "fast-forward-only"],
+          "enum": [
+            "rebase-merge",
+            "squash",
+            "merge",
+            "fast-forward-only"
+          ],
           "description": "Merge style. Defaults to 'rebase-merge'."
         },
         "delete_branch_on_merge": {
@@ -369,7 +502,11 @@
         },
         "force_push_policy": {
           "type": "string",
-          "enum": ["never", "own-branch-only", "allowed"],
+          "enum": [
+            "never",
+            "own-branch-only",
+            "allowed"
+          ],
           "description": "Force-push policy. Default 'never'."
         },
         "auto_close_issues": {
@@ -832,24 +969,32 @@
     },
     "index": {
       "type": "object",
-      "description": "Artifact-index configuration — graph definitions (#1491). Consolidated here from the legacy .aiwg/config.yaml per ADR adr-index-config-consolidation.",
+      "description": "Artifact-index configuration \u2014 graph definitions (#1491). Consolidated here from the legacy .aiwg/config.yaml per ADR adr-index-config-consolidation.",
       "additionalProperties": false,
       "properties": {
         "graphs": {
           "type": "object",
           "description": "Index graph definitions. Each key (except 'indices') is a JSON node/edge graph (IndexGraphDef); 'indices' holds the markdown-view manifest (IndexMarkdownIndices) rendered by corpus-index-build.",
           "properties": {
-            "indices": { "$ref": "#/definitions/IndexMarkdownIndices" }
+            "indices": {
+              "$ref": "#/definitions/IndexMarkdownIndices"
+            }
           },
-          "additionalProperties": { "$ref": "#/definitions/IndexGraphDef" }
+          "additionalProperties": {
+            "$ref": "#/definitions/IndexGraphDef"
+          }
         },
         "graphOverrides": {
           "type": "object",
           "description": "Safely adapts supported built-in graphs without redefining their identity or storage semantics.",
           "additionalProperties": false,
           "properties": {
-            "project": { "$ref": "#/definitions/IndexBuiltinGraphOverride" },
-            "codebase": { "$ref": "#/definitions/IndexBuiltinGraphOverride" }
+            "project": {
+              "$ref": "#/definitions/IndexBuiltinGraphOverride"
+            },
+            "codebase": {
+              "$ref": "#/definitions/IndexBuiltinGraphOverride"
+            }
           }
         },
         "userIndices": {
@@ -884,7 +1029,9 @@
               "additionalProperties": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["path"],
+                "required": [
+                  "path"
+                ],
                 "properties": {
                   "path": {
                     "type": "string",
@@ -892,12 +1039,17 @@
                   },
                   "backend": {
                     "type": "string",
-                    "enum": ["local", "fortemi-core"],
+                    "enum": [
+                      "local",
+                      "fortemi-core"
+                    ],
                     "description": "Preferred backend for this root. AIWG still builds the local graph before Fortemi sync."
                   },
                   "extensions": {
                     "type": "array",
-                    "items": { "type": "string" },
+                    "items": {
+                      "type": "string"
+                    },
                     "description": "File extensions to index. Defaults to markdown, YAML, and JSON."
                   }
                 }
@@ -932,7 +1084,10 @@
           "description": "Stores to write. project = .aiwg/telemetry/cli-commands.jsonl; global = XDG state.",
           "items": {
             "type": "string",
-            "enum": ["project", "global"]
+            "enum": [
+              "project",
+              "global"
+            ]
           },
           "uniqueItems": true
         },
@@ -963,7 +1118,10 @@
               "description": "Stores to write. project = .aiwg/telemetry/skill-usage.jsonl; global = XDG state.",
               "items": {
                 "type": "string",
-                "enum": ["project", "global"]
+                "enum": [
+                  "project",
+                  "global"
+                ]
               },
               "uniqueItems": true
             },
@@ -979,18 +1137,33 @@
     },
     "setup": {
       "type": "object",
-      "description": "Setup/onboarding preferences (#3050) — answers to opt-in offers presented during `aiwg init` / `aiwg setup project`. Not worker policy; kept separate from the frozen `parallelism` contract fragment (B-OG-29).",
+      "description": "Setup/onboarding preferences (#3050) \u2014 answers to opt-in offers presented during `aiwg init` / `aiwg setup project`. Not worker policy; kept separate from the frozen `parallelism` contract fragment (B-OG-29).",
       "additionalProperties": false,
       "properties": {
         "worker_dispatch_offer": {
           "type": "string",
-          "enum": ["declined"],
+          "enum": [
+            "declined"
+          ],
           "description": "Set to 'declined' when a person said no to the parallelism.worker_dispatch opt-in offer. Suppresses the offer and its hints until cleared."
         }
       }
     },
     "gates": {
       "$ref": "#/definitions/GatesConfig"
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inline_budget_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "default": 64000,
+          "description": "Startup lint guard, estimated UTF-8 bytes / 4. AIWG_RULES_INLINE_BUDGET_TOKENS overrides this value; 0 disables only this guard, never provider hard caps."
+        }
+      }
     }
   },
   "definitions": {
@@ -1249,8 +1422,16 @@
               }
             },
             "anyOf": [
-              { "required": ["pack"] },
-              { "required": ["packRef"] }
+              {
+                "required": [
+                  "pack"
+                ]
+              },
+              {
+                "required": [
+                  "packRef"
+                ]
+              }
             ]
           }
         },
@@ -1259,7 +1440,11 @@
           "description": "Outcome ceilings keyed by binding metadata.id, plus '*' as the project-wide default applied to every binding. A per-study key may only tighten the '*' default; a binding declaring a looser ceiling is refused at resolution.",
           "additionalProperties": {
             "type": "string",
-            "enum": ["PROMOTE", "HOLD", "ROLLBACK"]
+            "enum": [
+              "PROMOTE",
+              "HOLD",
+              "ROLLBACK"
+            ]
           }
         }
       }
@@ -1268,7 +1453,11 @@
       "type": "object",
       "description": "Pin over a registered gate pack whose composed gates all become project floors. Version and authored digest are verified at resolution.",
       "additionalProperties": false,
-      "required": ["id", "version", "digest"],
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -1289,21 +1478,44 @@
     "Authorization": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["version", "default_effect", "resources", "permissions", "roles", "assignments"],
+      "required": [
+        "version",
+        "default_effect",
+        "resources",
+        "permissions",
+        "roles",
+        "assignments"
+      ],
       "properties": {
-        "version": { "const": "1" },
-        "default_effect": { "const": "deny" },
+        "version": {
+          "const": "1"
+        },
+        "default_effect": {
+          "const": "deny"
+        },
         "resources": {
           "type": "object",
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["type", "value"],
+            "required": [
+              "type",
+              "value"
+            ],
             "properties": {
-              "type": { "type": "string" },
-              "value": { "type": "string" },
-              "provider": { "type": "string" },
-              "locator_env": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" }
+              "type": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "locator_env": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              }
             }
           }
         },
@@ -1312,12 +1524,35 @@
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["actions", "resource_types"],
+            "required": [
+              "actions",
+              "resource_types"
+            ],
             "properties": {
-              "actions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
-              "resource_types": { "type": "array", "minItems": 1, "items": { "type": "string" } },
-              "effect": { "type": "string", "enum": ["allow", "deny"] },
-              "description": { "type": "string" }
+              "actions": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "resource_types": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "effect": {
+                "type": "string",
+                "enum": [
+                  "allow",
+                  "deny"
+                ]
+              },
+              "description": {
+                "type": "string"
+              }
             }
           }
         },
@@ -1326,12 +1561,31 @@
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["permissions"],
+            "required": [
+              "permissions"
+            ],
             "properties": {
-              "permissions": { "type": "array", "items": { "type": "string" } },
-              "inherits": { "type": "array", "items": { "type": "string" } },
-              "boundaries": { "type": "array", "items": { "type": "string" } },
-              "description": { "type": "string" }
+              "permissions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "inherits": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "boundaries": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "description": {
+                "type": "string"
+              }
             }
           }
         },
@@ -1341,8 +1595,18 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "permissions": { "type": "array", "items": { "type": "string" } },
-              "resources": { "type": "array", "items": { "type": "string" } }
+              "permissions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "resources": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             }
           }
         },
@@ -1351,27 +1615,75 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "subjects", "roles", "scope"],
+            "required": [
+              "id",
+              "subjects",
+              "roles",
+              "scope"
+            ],
             "properties": {
-              "id": { "type": "string" },
+              "id": {
+                "type": "string"
+              },
               "subjects": {
-                "type": "array", "minItems": 1,
+                "type": "array",
+                "minItems": 1,
                 "items": {
-                  "type": "object", "additionalProperties": false, "required": ["kind", "id"],
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "id"
+                  ],
                   "properties": {
-                    "kind": { "type": "string", "enum": ["user", "group", "service", "workload"] },
-                    "id": { "type": "string" }
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "group",
+                        "service",
+                        "workload"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    }
                   }
                 }
               },
-              "roles": { "type": "array", "minItems": 1, "items": { "type": "string" } },
-              "scope": {
-                "type": "object", "additionalProperties": false, "required": ["resources"],
-                "properties": { "resources": { "type": "array", "minItems": 1, "items": { "type": "string" } } }
+              "roles": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
               },
-              "conditions": { "type": "object" },
-              "expires_at": { "type": "string", "format": "date-time" },
-              "justification": { "type": "string" }
+              "scope": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "resources"
+                ],
+                "properties": {
+                  "resources": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "conditions": {
+                "type": "object"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "justification": {
+                "type": "string"
+              }
             }
           }
         },
@@ -1379,9 +1691,15 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "aws_iam": { "$ref": "#/definitions/ProviderPermissionMappings" },
-            "entra_id": { "$ref": "#/definitions/ProviderPermissionMappings" },
-            "openbao": { "$ref": "#/definitions/ProviderPermissionMappings" }
+            "aws_iam": {
+              "$ref": "#/definitions/ProviderPermissionMappings"
+            },
+            "entra_id": {
+              "$ref": "#/definitions/ProviderPermissionMappings"
+            },
+            "openbao": {
+              "$ref": "#/definitions/ProviderPermissionMappings"
+            }
           }
         }
       }
@@ -1391,20 +1709,54 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["stable_id"],
+        "required": [
+          "stable_id"
+        ],
         "properties": {
-          "stable_id": { "type": "string" },
-          "provider_id": { "type": "string" },
-          "principal": { "type": "string" },
-          "scope": { "type": "string" },
-          "actions": { "type": "array", "items": { "type": "string" } },
-          "resources": { "type": "array", "items": { "type": "string" } },
-          "conditions": { "type": "object" },
-          "token_ttl": { "type": "string" },
-          "token_max_ttl": { "type": "string" },
-          "secret_id_ttl": { "type": "string" },
-          "secret_id_num_uses": { "type": "integer", "minimum": 0 },
-          "locator_env": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" }
+          "stable_id": {
+            "type": "string"
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "principal": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "conditions": {
+            "type": "object"
+          },
+          "token_ttl": {
+            "type": "string"
+          },
+          "token_max_ttl": {
+            "type": "string"
+          },
+          "secret_id_ttl": {
+            "type": "string"
+          },
+          "secret_id_num_uses": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "locator_env": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          }
         }
       }
     },
@@ -1432,7 +1784,11 @@
     "WorkspaceRepo": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "path", "allowed"],
+      "required": [
+        "name",
+        "path",
+        "allowed"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -1451,12 +1807,24 @@
           "description": "Explicit member capabilities. Unlisted actions and unlisted paths are denied regardless of filesystem writability.",
           "items": {
             "type": "string",
-            "enum": ["read", "write", "commit", "push", "issue-comment", "service-action", "destructive"]
+            "enum": [
+              "read",
+              "write",
+              "commit",
+              "push",
+              "issue-comment",
+              "service-action",
+              "destructive"
+            ]
           }
         },
         "provider": {
           "type": "string",
-          "enum": ["gitea", "github", "gitlab"],
+          "enum": [
+            "gitea",
+            "github",
+            "gitlab"
+          ],
           "description": "Optional hint for self-hosted domains that cannot be classified from their remote URL. Detectable remotes take precedence."
         },
         "notes": {
@@ -1469,7 +1837,10 @@
       "type": "object",
       "description": "A named public HTTP(S) resource. Credentials embedded in URLs are rejected by runtime validation.",
       "additionalProperties": false,
-      "required": ["label", "url"],
+      "required": [
+        "label",
+        "url"
+      ],
       "properties": {
         "label": {
           "type": "string",
@@ -1507,14 +1878,30 @@
       "type": "object",
       "description": "Provider-neutral workflow semantics for one tracker-native label.",
       "additionalProperties": false,
-      "required": ["name", "category", "description", "requires_human", "blocks_automation"],
+      "required": [
+        "name",
+        "category",
+        "description",
+        "requires_human",
+        "blocks_automation"
+      ],
       "allOf": [
         {
           "if": {
-            "properties": { "blocks_automation": { "const": true } },
-            "required": ["blocks_automation"]
+            "properties": {
+              "blocks_automation": {
+                "const": true
+              }
+            },
+            "required": [
+              "blocks_automation"
+            ]
           },
-          "then": { "required": ["resume_when"] }
+          "then": {
+            "required": [
+              "resume_when"
+            ]
+          }
         }
       ],
       "properties": {
@@ -1528,14 +1915,33 @@
           "description": "Optional provider-specific strings that preserve this semantic role.",
           "additionalProperties": false,
           "properties": {
-            "gitea": { "type": "string", "minLength": 1 },
-            "github": { "type": "string", "minLength": 1 },
-            "local": { "type": "string", "minLength": 1 }
+            "gitea": {
+              "type": "string",
+              "minLength": 1
+            },
+            "github": {
+              "type": "string",
+              "minLength": 1
+            },
+            "local": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "category": {
           "type": "string",
-          "enum": ["type", "area", "priority", "lifecycle", "blocked-reason", "review-approval", "ownership", "automation-eligibility", "human-interaction"],
+          "enum": [
+            "type",
+            "area",
+            "priority",
+            "lifecycle",
+            "blocked-reason",
+            "review-approval",
+            "ownership",
+            "automation-eligibility",
+            "human-interaction"
+          ],
           "description": "Informative role family used for search, audit, batching, and work selection."
         },
         "description": {
@@ -1573,12 +1979,19 @@
         },
         "via": {
           "type": "string",
-          "enum": ["tea", "gh", "mcp", "api"],
+          "enum": [
+            "tea",
+            "gh",
+            "mcp",
+            "api"
+          ],
           "description": "Tooling route to use for tracker writes."
         },
         "forbid_actors": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Forge logins that must not author delivery mutations."
         }
       }
@@ -1593,7 +2006,10 @@
         },
         "protocol": {
           "type": "string",
-          "enum": ["ssh", "https"],
+          "enum": [
+            "ssh",
+            "https"
+          ],
           "description": "Transport used by the primary remote."
         },
         "helper": {
@@ -1626,7 +2042,11 @@
       "properties": {
         "format": {
           "type": "string",
-          "enum": ["openpgp", "ssh", "x509"],
+          "enum": [
+            "openpgp",
+            "ssh",
+            "x509"
+          ],
           "description": "Signing key format."
         },
         "key": {
@@ -1643,7 +2063,11 @@
         },
         "enforce": {
           "type": "string",
-          "enum": ["commits", "tags", "all"],
+          "enum": [
+            "commits",
+            "tags",
+            "all"
+          ],
           "description": "Which delivery artifacts require signing."
         }
       }
@@ -1652,34 +2076,100 @@
       "type": "object",
       "description": "A JSON node/edge index graph (mirrors GraphConfig in src/artifacts/types.ts).",
       "additionalProperties": false,
-      "required": ["scanDirs"],
+      "required": [
+        "scanDirs"
+      ],
       "properties": {
-        "type": { "type": "string", "description": "Graph type identifier (defaults to the graph's key name)." },
-        "scanDirs": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Directories to scan, relative to project root (required)." },
-        "extensions": { "type": "array", "items": { "type": "string" }, "description": "File extensions to index. Default: ['.md', '.yaml', '.json']." },
-        "shared": { "type": "boolean", "description": "Whether the graph is shared across projects. Default false." },
-        "defaultBuild": { "type": "boolean", "description": "Include in `aiwg index build` with no --graph. Default true." },
-        "nodeStrategy": { "type": "string", "enum": ["default", "filename-metadata"], "description": "Node creation strategy." },
-        "filenamePattern": { "type": "string", "description": "Named-capture regex for the filename-metadata strategy." },
-        "graphBackend": { "type": "string", "enum": ["json", "graphology", "sqlite"], "description": "Graph storage backend. Default 'json'." },
-        "description": { "type": "string", "description": "Human-facing note (metadata; not consumed by the builder)." },
+        "type": {
+          "type": "string",
+          "description": "Graph type identifier (defaults to the graph's key name)."
+        },
+        "scanDirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Directories to scan, relative to project root (required)."
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "File extensions to index. Default: ['.md', '.yaml', '.json']."
+        },
+        "shared": {
+          "type": "boolean",
+          "description": "Whether the graph is shared across projects. Default false."
+        },
+        "defaultBuild": {
+          "type": "boolean",
+          "description": "Include in `aiwg index build` with no --graph. Default true."
+        },
+        "nodeStrategy": {
+          "type": "string",
+          "enum": [
+            "default",
+            "filename-metadata"
+          ],
+          "description": "Node creation strategy."
+        },
+        "filenamePattern": {
+          "type": "string",
+          "description": "Named-capture regex for the filename-metadata strategy."
+        },
+        "graphBackend": {
+          "type": "string",
+          "enum": [
+            "json",
+            "graphology",
+            "sqlite"
+          ],
+          "description": "Graph storage backend. Default 'json'."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-facing note (metadata; not consumed by the builder)."
+        },
         "edgeExtraction": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["parser", "edges"],
+          "required": [
+            "parser",
+            "edges"
+          ],
           "properties": {
-            "parser": { "type": "string", "enum": ["citation-sidecar"], "description": "Edge-extraction parser." },
+            "parser": {
+              "type": "string",
+              "enum": [
+                "citation-sidecar"
+              ],
+              "description": "Edge-extraction parser."
+            },
             "edges": {
               "type": "array",
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["type", "source", "target"],
+                "required": [
+                  "type",
+                  "source",
+                  "target"
+                ],
                 "properties": {
-                  "type": { "type": "string" },
-                  "source": { "type": "string" },
-                  "target": { "type": "string" },
-                  "skipEmpty": { "type": "boolean" }
+                  "type": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "skipEmpty": {
+                    "type": "boolean"
+                  }
                 }
               }
             }
@@ -1690,24 +2180,56 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["scanDir", "matchOn", "nodeKey", "mergeFields"],
+            "required": [
+              "scanDir",
+              "matchOn",
+              "nodeKey",
+              "mergeFields"
+            ],
             "properties": {
-              "scanDir": { "type": "string" },
-              "matchOn": { "type": "string" },
-              "nodeKey": { "type": "string" },
-              "mergeFields": { "type": "array", "items": { "type": "string" } }
+              "scanDir": {
+                "type": "string"
+              },
+              "matchOn": {
+                "type": "string"
+              },
+              "nodeKey": {
+                "type": "string"
+              },
+              "mergeFields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             }
           }
         },
         "embedding": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["enabled"],
+          "required": [
+            "enabled"
+          ],
           "properties": {
-            "enabled": { "type": "boolean" },
-            "model": { "type": "string" },
-            "topK": { "type": "integer", "minimum": 1 },
-            "rebuildOn": { "type": "string", "enum": ["content-change", "always", "never"] }
+            "enabled": {
+              "type": "boolean"
+            },
+            "model": {
+              "type": "string"
+            },
+            "topK": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "rebuildOn": {
+              "type": "string",
+              "enum": [
+                "content-change",
+                "always",
+                "never"
+              ]
+            }
           }
         }
       }
@@ -1717,31 +2239,71 @@
       "description": "Operator-controlled scan fields for an immutable built-in graph. Present fields replace the detected/default values.",
       "additionalProperties": false,
       "properties": {
-        "scanDirs": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
-        "extensions": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+        "scanDirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
       }
     },
     "IndexMarkdownIndices": {
       "type": "object",
       "description": "Markdown-view manifest rendered by the corpus-index-build skill (build.py). The builder consumes each manifest entry's `name` (renderer selector) and optional `output`.",
       "additionalProperties": false,
-      "required": ["manifest"],
+      "required": [
+        "manifest"
+      ],
       "properties": {
-        "scanDirs": { "type": "array", "items": { "type": "string" } },
-        "extensions": { "type": "array", "items": { "type": "string" } },
-        "defaultBuild": { "type": "boolean" },
+        "scanDirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "defaultBuild": {
+          "type": "boolean"
+        },
         "manifest": {
           "type": "array",
           "description": "Ordered list of markdown views to render.",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["name"],
+            "required": [
+              "name"
+            ],
             "properties": {
-              "name": { "type": "string", "description": "Renderer selector (by-topic, by-year, authors, by-venue, by-method, by-model-size, training-pipeline, citation-network, by-author, by-org, by-bridge, unprofiled-hubs)." },
-              "output": { "type": "string", "description": "Output path. Default indices/<name>.md." },
-              "description": { "type": "string", "description": "Human-facing note (metadata)." },
-              "source": { "type": "string", "description": "Human-facing note (metadata)." }
+              "name": {
+                "type": "string",
+                "description": "Renderer selector (by-topic, by-year, authors, by-venue, by-method, by-model-size, training-pipeline, citation-network, by-author, by-org, by-bridge, unprofiled-hubs)."
+              },
+              "output": {
+                "type": "string",
+                "description": "Output path. Default indices/<name>.md."
+              },
+              "description": {
+                "type": "string",
+                "description": "Human-facing note (metadata)."
+              },
+              "source": {
+                "type": "string",
+                "description": "Human-facing note (metadata)."
+              }
             }
           }
         }
@@ -1751,7 +2313,9 @@
       "type": "object",
       "description": "A non-primary git remote (mirror, upstream, publishing target)",
       "additionalProperties": false,
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -1772,142 +2336,320 @@
       "description": "Versioned, surface-aware forge-content threat-assessment policy. Missing configuration resolves to aiwg:balanced compatibility behavior.",
       "additionalProperties": false,
       "properties": {
-        "schemaVersion": { "type": "string", "const": "1" },
-        "mode": { "$ref": "#/definitions/ThreatAssessmentMode" },
-        "defaultProfile": { "type": "string", "minLength": 1 },
+        "schemaVersion": {
+          "type": "string",
+          "const": "1"
+        },
+        "mode": {
+          "$ref": "#/definitions/ThreatAssessmentMode"
+        },
+        "defaultProfile": {
+          "type": "string",
+          "minLength": 1
+        },
         "surfaces": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "issue-title": { "$ref": "#/definitions/ThreatSurfacePolicy" },
-            "issue-body": { "$ref": "#/definitions/ThreatSurfacePolicy" },
-            "issue-comment": { "$ref": "#/definitions/ThreatSurfacePolicy" },
-            "pull-request-title": { "$ref": "#/definitions/ThreatSurfacePolicy" },
-            "pull-request-body": { "$ref": "#/definitions/ThreatSurfacePolicy" },
-            "pull-request-diff-summary": { "$ref": "#/definitions/ThreatSurfacePolicy" },
-            "review-comment": { "$ref": "#/definitions/ThreatSurfacePolicy" },
-            "release-note": { "$ref": "#/definitions/ThreatSurfacePolicy" },
-            "handoff": { "$ref": "#/definitions/ThreatSurfacePolicy" },
-            "outbound-maintainer-comment": { "$ref": "#/definitions/ThreatSurfacePolicy" }
+            "issue-title": {
+              "$ref": "#/definitions/ThreatSurfacePolicy"
+            },
+            "issue-body": {
+              "$ref": "#/definitions/ThreatSurfacePolicy"
+            },
+            "issue-comment": {
+              "$ref": "#/definitions/ThreatSurfacePolicy"
+            },
+            "pull-request-title": {
+              "$ref": "#/definitions/ThreatSurfacePolicy"
+            },
+            "pull-request-body": {
+              "$ref": "#/definitions/ThreatSurfacePolicy"
+            },
+            "pull-request-diff-summary": {
+              "$ref": "#/definitions/ThreatSurfacePolicy"
+            },
+            "review-comment": {
+              "$ref": "#/definitions/ThreatSurfacePolicy"
+            },
+            "release-note": {
+              "$ref": "#/definitions/ThreatSurfacePolicy"
+            },
+            "handoff": {
+              "$ref": "#/definitions/ThreatSurfacePolicy"
+            },
+            "outbound-maintainer-comment": {
+              "$ref": "#/definitions/ThreatSurfacePolicy"
+            }
           }
         },
         "profiles": {
           "type": "object",
-          "propertyNames": { "pattern": "^(?!aiwg:)(?!trusted$)(?!audit$)(?!balanced$)(?!strict$)(?!high-assurance$)[a-z][a-z0-9-]*$" },
-          "additionalProperties": { "$ref": "#/definitions/ThreatProfile" }
+          "propertyNames": {
+            "pattern": "^(?!aiwg:)(?!trusted$)(?!audit$)(?!balanced$)(?!strict$)(?!high-assurance$)[a-z][a-z0-9-]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/ThreatProfile"
+          }
         },
         "rulePacks": {
           "type": "object",
-          "propertyNames": { "pattern": "^(?!aiwg:)[a-z][a-z0-9-]*$" },
-          "additionalProperties": { "$ref": "#/definitions/ThreatRulePack" }
+          "propertyNames": {
+            "pattern": "^(?!aiwg:)[a-z][a-z0-9-]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/ThreatRulePack"
+          }
         },
         "statements": {
           "type": "array",
-          "items": { "$ref": "#/definitions/ThreatStatement" }
+          "items": {
+            "$ref": "#/definitions/ThreatStatement"
+          }
         }
       }
     },
     "ThreatAssessmentMode": {
       "type": "string",
-      "enum": ["off", "audit", "enforce"]
+      "enum": [
+        "off",
+        "audit",
+        "enforce"
+      ]
     },
     "ThreatSeverity": {
       "type": "string",
-      "enum": ["informational", "low", "moderate", "high", "critical"]
+      "enum": [
+        "informational",
+        "low",
+        "moderate",
+        "high",
+        "critical"
+      ]
     },
     "ThreatSurfacePolicy": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "mode": { "$ref": "#/definitions/ThreatAssessmentMode" },
-        "profile": { "type": "string", "minLength": 1 }
+        "mode": {
+          "$ref": "#/definitions/ThreatAssessmentMode"
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "ThreatThresholds": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "flag": { "$ref": "#/definitions/ThreatSeverity" },
-        "requireAuthorization": { "$ref": "#/definitions/ThreatSeverity" },
-        "reject": { "$ref": "#/definitions/ThreatSeverity" }
+        "flag": {
+          "$ref": "#/definitions/ThreatSeverity"
+        },
+        "requireAuthorization": {
+          "$ref": "#/definitions/ThreatSeverity"
+        },
+        "reject": {
+          "$ref": "#/definitions/ThreatSeverity"
+        }
       }
     },
     "ThreatProfile": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "version": { "type": "string", "minLength": 1 },
-        "extends": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "mode": { "$ref": "#/definitions/ThreatAssessmentMode" },
-        "description": { "type": "string" },
-        "thresholds": { "$ref": "#/definitions/ThreatThresholds" },
-        "ruleSets": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "statements": { "type": "array", "items": { "$ref": "#/definitions/ThreatStatement" } }
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "extends": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "mode": {
+          "$ref": "#/definitions/ThreatAssessmentMode"
+        },
+        "description": {
+          "type": "string"
+        },
+        "thresholds": {
+          "$ref": "#/definitions/ThreatThresholds"
+        },
+        "ruleSets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "statements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ThreatStatement"
+          }
+        }
       }
     },
     "ThreatRulePack": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["version", "rules"],
+      "required": [
+        "version",
+        "rules"
+      ],
       "properties": {
-        "version": { "type": "string", "minLength": 1 },
-        "description": { "type": "string" },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
         "rules": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/definitions/ThreatRule" }
+          "items": {
+            "$ref": "#/definitions/ThreatRule"
+          }
         }
       }
     },
     "ThreatRule": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "severity", "patterns"],
+      "required": [
+        "id",
+        "severity",
+        "patterns"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-        "severity": { "$ref": "#/definitions/ThreatSeverity" },
-        "likelihood": { "type": "integer", "minimum": 1, "maximum": 5 },
-        "impact": { "type": "integer", "minimum": 1, "maximum": 5 },
-        "taxonomy": { "type": "array", "items": { "type": "string" } },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "severity": {
+          "$ref": "#/definitions/ThreatSeverity"
+        },
+        "likelihood": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "taxonomy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "patterns": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
         }
       }
     },
     "ThreatStatement": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "effect", "reason"],
+      "required": [
+        "id",
+        "effect",
+        "reason"
+      ],
       "allOf": [
         {
-          "if": { "properties": { "effect": { "const": "suppress" } } },
-          "then": {
-            "required": ["signals", "when", "riskAcceptance"],
+          "if": {
             "properties": {
-              "signals": { "minItems": 1 },
+              "effect": {
+                "const": "suppress"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "signals",
+              "when",
+              "riskAcceptance"
+            ],
+            "properties": {
+              "signals": {
+                "minItems": 1
+              },
               "when": {
                 "anyOf": [
-                  { "required": ["surface"] },
-                  { "required": ["semanticContext"] },
-                  { "required": ["requestedAction"] }
+                  {
+                    "required": [
+                      "surface"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "semanticContext"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "requestedAction"
+                    ]
+                  }
                 ]
               }
             }
           }
         },
         {
-          "if": { "properties": { "effect": { "const": "set-severity" } } },
-          "then": { "required": ["severity"] }
+          "if": {
+            "properties": {
+              "effect": {
+                "const": "set-severity"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "severity"
+            ]
+          }
         }
       ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-        "effect": { "type": "string", "enum": ["suppress", "set-severity"] },
-        "signals": { "type": "array", "items": { "type": "string" } },
-        "severity": { "$ref": "#/definitions/ThreatSeverity" },
-        "reason": { "type": "string", "minLength": 1 },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "effect": {
+          "type": "string",
+          "enum": [
+            "suppress",
+            "set-severity"
+          ]
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "severity": {
+          "$ref": "#/definitions/ThreatSeverity"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
         "when": {
           "type": "object",
           "additionalProperties": false,
@@ -1916,24 +2658,60 @@
               "type": "array",
               "items": {
                 "type": "string",
-                "enum": ["issue-title", "issue-body", "issue-comment", "pull-request-title", "pull-request-body", "pull-request-diff-summary", "review-comment", "release-note", "handoff", "outbound-maintainer-comment"]
+                "enum": [
+                  "issue-title",
+                  "issue-body",
+                  "issue-comment",
+                  "pull-request-title",
+                  "pull-request-body",
+                  "pull-request-diff-summary",
+                  "review-comment",
+                  "release-note",
+                  "handoff",
+                  "outbound-maintainer-comment"
+                ]
               }
             },
             "semanticContext": {
               "type": "array",
-              "items": { "type": "string", "enum": ["requested", "negative", "quoted", "documentation"] }
+              "items": {
+                "type": "string",
+                "enum": [
+                  "requested",
+                  "negative",
+                  "quoted",
+                  "documentation"
+                ]
+              }
             },
-            "requestedAction": { "type": "array", "items": { "type": "string" } }
+            "requestedAction": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
         "riskAcceptance": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["acceptedBy", "rationale"],
+          "required": [
+            "acceptedBy",
+            "rationale"
+          ],
           "properties": {
-            "acceptedBy": { "type": "string", "minLength": 1 },
-            "rationale": { "type": "string", "minLength": 1 },
-            "expiresAt": { "type": "string", "format": "date-time" }
+            "acceptedBy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "rationale": {
+              "type": "string",
+              "minLength": 1
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time"
+            }
           }
         }
       }

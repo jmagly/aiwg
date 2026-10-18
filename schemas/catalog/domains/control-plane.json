@@ -2,8 +2,12 @@
   "$schema": "../domain-manifest.v1.schema.json",
   "schemaVersion": "1",
   "domain": "schema-control-plane",
-  "owner": { "id": "aiwg-maintainers" },
-  "policy": { "compatibility": "backward" },
+  "owner": {
+    "id": "aiwg-maintainers"
+  },
+  "policy": {
+    "compatibility": "backward"
+  },
   "artifacts": [
     {
       "logicalName": "catalog.schema-artifact",
@@ -13,10 +17,22 @@
       "dialect": "https://json-schema.org/draft/2020-12/schema",
       "lifecycle": "active",
       "stability": "stable",
-      "owner": { "id": "aiwg-maintainers" },
-      "authority": { "kind": "canonical", "path": "schemas/catalog/schema-artifact.v1.schema.json" },
-      "compatibility": { "mode": "backward" },
-      "consumers": [{ "id": "schema-catalog-compiler", "boundary": "catalog manifest" }]
+      "owner": {
+        "id": "aiwg-maintainers"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "schemas/catalog/schema-artifact.v1.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "consumers": [
+        {
+          "id": "schema-catalog-compiler",
+          "boundary": "catalog manifest"
+        }
+      ]
     },
     {
       "logicalName": "catalog.domain-manifest",
@@ -26,11 +42,28 @@
       "dialect": "https://json-schema.org/draft/2020-12/schema",
       "lifecycle": "active",
       "stability": "stable",
-      "owner": { "id": "aiwg-maintainers" },
-      "authority": { "kind": "canonical", "path": "schemas/catalog/domain-manifest.v1.schema.json" },
-      "compatibility": { "mode": "backward" },
-      "dependencies": [{ "id": "https://aiwg.io/schemas/catalog/schema-artifact.v1.schema.json", "version": "1.0.0" }],
-      "consumers": [{ "id": "schema-catalog-loader", "boundary": "domain manifest" }]
+      "owner": {
+        "id": "aiwg-maintainers"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "schemas/catalog/domain-manifest.v1.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "dependencies": [
+        {
+          "id": "https://aiwg.io/schemas/catalog/schema-artifact.v1.schema.json",
+          "version": "1.0.0"
+        }
+      ],
+      "consumers": [
+        {
+          "id": "schema-catalog-loader",
+          "boundary": "domain manifest"
+        }
+      ]
     },
     {
       "logicalName": "catalog.root",
@@ -40,14 +73,57 @@
       "dialect": "https://json-schema.org/draft/2020-12/schema",
       "lifecycle": "active",
       "stability": "stable",
-      "owner": { "id": "aiwg-maintainers" },
-      "authority": { "kind": "canonical", "path": "schemas/catalog/catalog.v1.schema.json" },
-      "compatibility": { "mode": "backward" },
+      "owner": {
+        "id": "aiwg-maintainers"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "schemas/catalog/catalog.v1.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
       "dependencies": [
-        { "id": "https://aiwg.io/schemas/catalog/schema-artifact.v1.schema.json", "version": "1.0.0" },
-        { "id": "https://aiwg.io/schemas/catalog/domain-manifest.v1.schema.json", "version": "1.0.0" }
+        {
+          "id": "https://aiwg.io/schemas/catalog/schema-artifact.v1.schema.json",
+          "version": "1.0.0"
+        },
+        {
+          "id": "https://aiwg.io/schemas/catalog/domain-manifest.v1.schema.json",
+          "version": "1.0.0"
+        }
       ],
-      "consumers": [{ "id": "schema-catalog-loader", "boundary": "root catalog" }]
+      "consumers": [
+        {
+          "id": "schema-catalog-loader",
+          "boundary": "root catalog"
+        }
+      ]
+    },
+    {
+      "logicalName": "rules.rule-frontmatter",
+      "id": "https://aiwg.io/schemas/rules/rule-frontmatter.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "http://json-schema.org/draft-07/schema#",
+      "lifecycle": "active",
+      "stability": "stable",
+      "owner": {
+        "id": "aiwg-maintainers"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "src/rules/rule-frontmatter.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "consumers": [
+        {
+          "id": "rule-activation-parser",
+          "boundary": "rule source frontmatter"
+        }
+      ]
     }
   ]
 }

@@ -139,6 +139,7 @@
     "uat:cockpit-daily": "node apps/cockpit/scripts/cockpit-daily-gate.mjs",
     "e2e:cockpit-dev": "node test/e2e/cockpit-dev-e2e.mjs",
     "cockpit:up": "bash apps/cockpit/scripts/cockpit-up.sh",
+    "lint:rule-activation": "node bin/aiwg.mjs lint agentic/code --ruleset rule-activation --no-gitignore --ci",
     "lint:schemas": "node tools/scripts/lint-schemas.mjs",
     "schema:catalog": "node tools/scripts/build-schema-catalog.mjs",
     "schema:catalog:check": "node tools/scripts/build-schema-catalog.mjs --check",

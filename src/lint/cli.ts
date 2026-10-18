@@ -14,6 +14,8 @@
  */
 
 import fs from 'fs';
+import { readAiwgConfigCandidate } from '../config/aiwg-config.js';
+import type { InlineBudgetOptions } from '../rules/inline-budget.mjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { discoverRulesets } from './loader.js';
@@ -75,6 +77,8 @@ function parseArgs(args: string[]): LintOptions {
       options.rulesets = args[++i].split(',').map(s => s.trim());
     } else if (arg === '--format' && i + 1 < args.length) {
       options.format = args[++i] as LintOutputFormat;
+    } else if (arg === '--startup-plan' && i + 1 < args.length) {
+      options.startupPlan = args[++i];
     } else if (arg === '--ci') {
       options.ci = true;
     } else if (arg === '--allow-empty') {
@@ -110,6 +114,7 @@ export async function main(args: string[]): Promise<void> {
     console.log('Usage: aiwg lint <target> [--ruleset <name>] [--format full|summary|json] [--ci] [--allow-empty] [--fail-on error|warn|info] [--no-gitignore]');
     console.log('  --ci           Fail on lint violations, zero files checked or zero rules applied');
     console.log('  --allow-empty  Allow zero files or zero applied rules under --ci');
+    console.log('  --startup-plan <json>  Guard a complete projected startup set { provider, files: [{ path, bytes | content }] }');
     console.log('  --list-rulesets | --list-rules <ruleset>');
     return;
   }
@@ -181,8 +186,18 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  let startupBudget: InlineBudgetOptions | undefined;
+  if (options.startupPlan) {
+    const plan = JSON.parse(fs.readFileSync(path.resolve(cwd, options.startupPlan), 'utf8'));
+    if (!plan || typeof plan.provider !== 'string' || !Array.isArray(plan.files)) {
+      throw new Error('Startup plan must contain provider and files (the complete assembled startup set).');
+    }
+    startupBudget = { provider: plan.provider, files: plan.files, config: await readAiwgConfigCandidate(cwd) ?? {} };
+  }
+
   // Run lint
   const result = await runLint(targetDir, selectedRulesets, {
+    startupBudget,
     recursive: options.recursive,
     ci: options.ci,
     allowEmpty: options.allowEmpty,

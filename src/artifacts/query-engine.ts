@@ -1663,20 +1663,24 @@ async function loadShowEntries(
       }
       process.exit(1);
     }
-  } else if (params.graph) {
-    const idx = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', params.graph);
-    if (idx) entries = Object.values(idx.entries).map((entry) => withIndexProvenance(entry, params.graph!));
   } else {
-    for (const g of defaultCapabilityGraphs(cwd) as GraphType[]) {
-      const idx = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', g);
-      if (idx) entries.push(...Object.values(idx.entries).map((entry) => withIndexProvenance(entry, g)));
-    }
-    if (entries.length === 0) {
-      const legacy = loadMetadataIndex(cwd);
-      if (legacy) entries.push(...Object.values(legacy.entries));
-    }
+    entries = loadLocalCapabilityEntries(cwd, params.graph);
   }
   return { entries, aiwgRoot, resourceSource: 'local' };
+}
+
+/** Local index inputs shared by show and exact rule-binding validation (#2938). */
+export function loadLocalCapabilityEntries(cwd: string, graph?: GraphType): MetadataEntry[] {
+  const entries: MetadataEntry[] = [];
+  for (const selectedGraph of graph ? [graph] : defaultCapabilityGraphs(cwd)) {
+    const index = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', selectedGraph);
+    if (index) entries.push(...Object.values(index.entries).map(entry => withIndexProvenance(entry, selectedGraph)));
+  }
+  if (!graph && entries.length === 0) {
+    const legacy = loadMetadataIndex(cwd);
+    if (legacy) entries.push(...Object.values(legacy.entries));
+  }
+  return entries;
 }
 
 function findShowMatches(entries: MetadataEntry[], types: string[], needle: string): MetadataEntry[] {
@@ -1748,6 +1752,20 @@ function findShowMatches(entries: MetadataEntry[], types: string[], needle: stri
     if (nonPersonaMatches.length === 1) matches = nonPersonaMatches;
   }
   return matches;
+}
+
+/** Resolve exact rule binding IDs using the same precedence and ambiguity as show.
+ * Titles and filesystem path guesses are deliberately excluded (#2938).
+ */
+export function resolveRuleBindingTarget(
+  entries: MetadataEntry[], type: 'skill' | 'agent' | 'flow', id: string,
+): MetadataEntry {
+  const exact = entries.filter(entry => entry.type === type
+    && (entry.name === id || discoveryIdForEntry(entry) === id));
+  const matches = findShowMatches(exact, [type], id);
+  if (matches.length === 0) throw new Error(`Missing ${type} binding target: ${id}`);
+  if (matches.length > 1) throw new Error(`Ambiguous ${type} binding target: ${id}: ${matches.map(entry => entry.path).join(', ')}`);
+  return matches[0];
 }
 
 async function fortemiRecordForEntry(

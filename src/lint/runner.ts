@@ -8,6 +8,9 @@
  */
 
 import fs from 'fs';
+import { lintRuleActivation } from './rule-activation.js';
+import { guardRulesInlineBudget, type InlineBudgetOptions } from '../rules/inline-budget.mjs';
+import type { MetadataEntry } from '../artifacts/types.js';
 import { dropGitignored } from '../config/gitignore.js';
 import fsp from 'fs/promises';
 import path from 'path';
@@ -562,7 +565,8 @@ async function runRule(
   targetDir: string,
   allFiles: string[],
   referenceIndex: Set<string>,
-  projectRoot: string
+  projectRoot: string,
+  artifactEntries?: MetadataEntry[]
 ): Promise<{ diagnostics: LintDiagnostic[]; files: string[] }> {
   const diagnostics: LintDiagnostic[] = [];
 
@@ -606,6 +610,10 @@ async function runRule(
 
     for (const check of rule.checks) {
       if (check.type === 'id-unique') continue; // Already handled
+      if (check.type === 'rule-activation') {
+        diagnostics.push(...lintRuleActivation(content, file, projectRoot, artifactEntries));
+        continue;
+      }
 
       const checkDiagnostics = runCheck(
         check,
@@ -678,7 +686,9 @@ function autoDetectRulesets(target: string, available: LintRuleset[]): LintRules
   }
 
   // If no auto-detection, return all available
-  return matches.length > 0 ? matches : available;
+  return matches.length > 0
+    ? available.filter(ruleset => ruleset.id === 'rule-activation' || matches.includes(ruleset))
+    : available;
 }
 
 /**
@@ -687,7 +697,7 @@ function autoDetectRulesets(target: string, available: LintRuleset[]): LintRules
 export async function runLint(
   targetDir: string,
   rulesets: LintRuleset[],
-  options: { recursive?: boolean; failOn?: LintSeverity; respectGitignore?: boolean; ci?: boolean; allowEmpty?: boolean } = {}
+  options: { recursive?: boolean; failOn?: LintSeverity; respectGitignore?: boolean; ci?: boolean; allowEmpty?: boolean; artifactEntries?: MetadataEntry[]; startupBudget?: InlineBudgetOptions } = {}
 ): Promise<LintResult> {
   const recursive = options.recursive ?? true;
   const targetStat = await fsp.stat(targetDir).catch(() => null);
@@ -719,11 +729,31 @@ export async function runLint(
   for (const ruleset of rulesets) {
     for (const rule of ruleset.rules) {
       rulesSelected += 1;
-      const { diagnostics, files } = await runRule(rule, scanDir, allFiles, referenceIndex, projectRoot);
+      const { diagnostics, files } = await runRule(rule, scanDir, allFiles, referenceIndex, projectRoot, options.artifactEntries);
       ruleCoverage[rule.id] = files;
       if (files.length === 0) inapplicableRules.push(rule.id);
       allDiagnostics.push(...diagnostics);
     }
+  }
+
+  let budget: ReturnType<typeof guardRulesInlineBudget> | undefined;
+  if (options.startupBudget) {
+    try {
+      budget = guardRulesInlineBudget({
+        ...options.startupBudget, reportOnly: options.ci ? false : (options.startupBudget.reportOnly ?? true),
+      });
+    } catch (error) {
+      allDiagnostics.push({
+        ruleId: 'rules/inline-budget', ruleName: 'Rules inline budget', file: '(assembled startup)',
+        severity: 'error', message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  if (budget) {
+    for (const item of budget.diagnostics) allDiagnostics.push({
+      ruleId: 'rules/inline-budget', ruleName: 'Rules inline budget', file: '(assembled startup)',
+      severity: item.severity, message: item.message,
+    });
   }
 
   const errors = allDiagnostics.filter(d => d.severity === 'error').length;
@@ -748,6 +778,7 @@ export async function runLint(
     target: targetDir,
     rulesets: rulesets.map(r => r.id),
     diagnostics: allDiagnostics,
+    ...(budget ? { inlineBudget: budget.report } : {}),
     ruleCoverage,
     summary: {
       filesChecked: allFiles.length,

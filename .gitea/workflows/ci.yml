@@ -130,6 +130,9 @@ jobs:
       - name: Run source-bound testing conformance example
         run: npm run test:conformance:example
 
+      - name: Lint rule activation contracts (#2938)
+        run: npm run lint:rule-activation
+
       - name: Lint schemas
         # Validates schemas/executor-v1.json (draft-2020-12) and all
         # fixtures in test/conformance/executor-v1/fixtures/ against it.

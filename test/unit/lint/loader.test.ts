@@ -198,18 +198,17 @@ checks:
 
     const rulesets = await discoverRulesets(TEST_DIR, fwRoot);
 
-    expect(rulesets).toHaveLength(1);
-    expect(rulesets[0].id).toBe('my-framework');
-    expect(rulesets[0].rules).toHaveLength(1);
+    expect(rulesets.map(rs => rs.id)).toEqual(['rule-activation', 'my-framework']);
+    expect(rulesets[1].rules).toHaveLength(1);
   });
 
-  it('returns empty array when no frameworks have lint dirs', async () => {
+  it('retains core activation lint when no frameworks have lint dirs', async () => {
     const fwRoot = join(TEST_DIR, 'empty-fw');
     const fwDir = join(fwRoot, 'agentic', 'code', 'frameworks', 'bare-framework');
     mkdirSync(fwDir, { recursive: true });
     // No lint/ subdirectory
 
     const rulesets = await discoverRulesets(TEST_DIR, fwRoot);
-    expect(rulesets).toHaveLength(0);
+    expect(rulesets.map(rs => rs.id)).toEqual(['rule-activation']);
   });
 });

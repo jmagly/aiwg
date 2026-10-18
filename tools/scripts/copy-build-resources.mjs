@@ -43,7 +43,7 @@ function copyBuildResources({
         continue;
       }
 
-      if (!RESOURCE_EXTENSIONS.has(pathApi.extname(entry.name))) {
+      if (!RESOURCE_EXTENSIONS.has(pathApi.extname(entry.name)) && !entry.name.endsWith('.d.mts')) {
         continue;
       }
 
@@ -64,7 +64,7 @@ function copyBuildResources({
 
 function main() {
   const copied = copyBuildResources();
-  console.log(`Copied ${copied} .mjs, JSON, and YAML files to dist/src/`);
+  console.log(`Copied ${copied} .mjs, .d.mts, JSON, and YAML files to dist/src/`);
 }
 
 const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : '';

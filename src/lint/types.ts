@@ -23,6 +23,7 @@ export type LintOutputFormat = 'full' | 'summary' | 'json';
 export interface LintCheck {
   /** Check type */
   type:
+    | 'rule-activation'
     | 'frontmatter-required'
     | 'frontmatter-format'
     | 'reference-resolves'
@@ -186,6 +187,9 @@ export interface LintResult {
   /** Target-relative files selected by each rule, including empty selections. */
   ruleCoverage: Record<string, string[]>;
 
+  /** Complete assembled startup cost, when a deployment plan is supplied. */
+  inlineBudget?: import('../rules/inline-budget.mjs').InlineBudgetReport;
+
   /** Summary counts */
   summary: {
     filesChecked: number;
@@ -211,6 +215,8 @@ export interface LintResult {
  * CLI options for the lint command
  */
 export interface LintOptions {
+  /** JSON planned startup set: { provider, files: [{ path, bytes | content }] }. */
+  startupPlan?: string;
   /** Lint files git ignores too (default: false — generated trees are skipped, #2555). */
   respectGitignore?: boolean;
 
