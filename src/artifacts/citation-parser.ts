@@ -24,7 +24,7 @@
 
 import type { TypedEdge } from './types.js';
 import { parseFrontmatter } from './index-builder.js';
-import { CITATION_HEADER_ALIASES } from './citation-table-schema.js';
+import { CITATION_HEADER_ALIASES, CITATION_SECTION_ALIASES } from './citation-table-schema.js';
 
 /**
  * Match a single node identifier (REF-* or PROF-*) anywhere in a string.
@@ -60,6 +60,21 @@ const HEADER_ROLES = new Map(
 
 function normalizeCell(value: string): string {
   return value.toLowerCase().replace(/[`*_]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** Direction belongs to the heading, never to a mention in its section body. */
+function citationDirection(heading: string): 'incoming' | 'outgoing' | null {
+  const text = normalizeCell(heading.replace(/[ \t]+#+[ \t]*$/, ''));
+  const segment = text.split(/[/—:(]/, 1)[0].trim();
+  // Keep the corpus's Incoming/Outgoing descriptions, with a word boundary
+  // so unrelated words such as "Incomingish" cannot declare citations.
+  if (/^incoming(?:\s|$)/.test(segment)) return 'incoming';
+  if (/^outgoing(?:\s|$)/.test(segment)) return 'outgoing';
+  for (const direction of ['incoming', 'outgoing'] as const) {
+    if (CITATION_SECTION_ALIASES[direction].some(alias => text === alias
+      || (text.startsWith(alias) && /^\s*[/—:(]/.test(text.slice(alias.length))))) return direction;
+  }
+  return null;
 }
 
 /** Explicitly non-bibliographic or uncertain declarations must not assert citations. */
@@ -153,7 +168,7 @@ function extractTableRefs(
   const refs: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const heading = lines[i].match(/^(#{1,6})\s+(.+)/);
+    const heading = lines[i].match(/^ {0,3}(#{1,6})[ \t]+(.+)/);
     if (heading) {
       // A parent section's declaration also governs its nested tables.
       const parent = headings[headings.length - 1];
@@ -201,6 +216,10 @@ function extractTableRefs(
       const cells = parseRow(line);
       // Extra/missing cells have no unambiguous column semantics. Never guess.
       if (cells.length !== headers.length) continue;
+      // A resolution explicitly labelled as context/adjacency does not map
+      // the printed entry to that node (corpus Formal References variants).
+      if (colIndex !== -1
+        && /\b(?:REF-\d+[a-z]?|PROF-[POFG]-[a-z0-9-]+)\s+(?:(?:family )?context|adjacent)\b/i.test(normalizeCell(cells[colIndex]))) continue;
       // A condition can also qualify the printed title, as in the downstream
       // "Learning is Forgetting (if REF-828 in 6-benchmark suite)" row.
       if (cells.some(cell => /\b(?:if|unless|provided that|assuming)\s+[`*_[\s]*(?:REF-\d+|PROF-[POFG]-)/i.test(cell))) continue;
@@ -222,7 +241,7 @@ function extractTableRefs(
 /**
  * Parse a citation sidecar markdown file into structured edges.
  *
- * Tables in Incoming/Outgoing sections declare citations through a unique
+ * Tables in recognized directional or reference sections declare citations through a unique
  * registered resolution column, or whole-cell REF IDs when no such column
  * exists, independent of other metadata columns.
  * Topical, related, conditional and explicitly non-citation declarations are
@@ -238,25 +257,31 @@ export function parseCitationSidecar(content: string): CitationParseResult | nul
   const ref = typeof data.ref === 'string' ? data.ref : null;
   if (!ref || !NODE_ID_FULL.test(ref)) return null;
 
-  // Split body into sections by ## headings
-  const sections = body.split(/(?=^## )/m).filter(Boolean);
-  const preamble = sections[0]?.startsWith('## ') ? '' : sections[0] ?? '';
+  // ATX level-two headings allow indentation, tabs and closing hashes.
+  const sectionHeading = /^ {0,3}##[ \t]+([^\r\n]+)/m;
+  const sections = body.split(/(?=^ {0,3}##[ \t]+)/m).filter(Boolean);
+  const preamble = sectionHeading.test(sections[0] ?? '') ? '' : sections[0] ?? '';
   if (isNonCitationContext(preamble.replace(/^#+ .*$/gm, ''))) return { ref, cites: [], citedBy: [] };
 
   let cites: string[] = [];
   let citedBy: string[] = [];
 
   for (const section of sections) {
-    const sectionLower = section.toLowerCase().replace(/^## /, '');
+    const heading = section.match(sectionHeading);
+    const direction = heading ? citationDirection(heading[1]) : null;
 
-    if (sectionLower.startsWith('outgoing')) {
+    if (direction === 'outgoing') {
       cites.push(...extractTableRefs(section, CITATION_REF_COLUMNS, true));
-    } else if (sectionLower.startsWith('incoming')) {
+    } else if (direction === 'incoming') {
       citedBy.push(...extractTableRefs(section, CITATION_REF_COLUMNS, true));
     }
   }
 
-  return { ref, cites: [...new Set(cites)], citedBy: [...new Set(citedBy)] };
+  return {
+    ref,
+    cites: [...new Set(cites)].filter(target => target !== ref),
+    citedBy: [...new Set(citedBy)].filter(source => source !== ref),
+  };
 }
 
 /**
