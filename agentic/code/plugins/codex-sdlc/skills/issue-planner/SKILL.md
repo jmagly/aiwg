@@ -31,7 +31,26 @@ commandHint:
 
 # Issue Planner
 
+Before dispatch, declare the [context packet](https://github.com/jmagly/aiwg/blob/main/docs/context-engineering-contract.md) and [verification contract](https://github.com/jmagly/aiwg/blob/main/docs/verification-contracts.md). Record expected tracker artifacts, checks, outcomes, and evidence; missing or failed required evidence cannot be success. Choose execution mode with [autonomy and human roles](https://github.com/jmagly/aiwg/blob/main/docs/autonomy-and-human-roles.md).
+
 Transform a high-level objective into a fully researched, SDLC-gated issue backlog — ready for `address-issues` — without a human having to manually research, write docs, or decide priority order.
+
+## Artifact-root preflight (mandatory)
+
+Before reading or writing any logical `.aiwg/...` path, run:
+
+```bash
+aiwg artifacts path --json --check-write
+```
+
+Use the returned `artifact_root` as the physical replacement for the logical
+`.aiwg` prefix in every research, synthesis, requirements, planning, and report
+path below. Do not create repository-local payload when the resolved root is
+external. The only repository-local `.aiwg` exceptions are the control files
+`AIWG.md`, `aiwg.config`, and `frameworks/registry.json`. If the resolved
+external root is unavailable, stop with an actionable diagnostic; never fall
+back to `<project>/.aiwg`. Path resolution does not synchronize Git remotes:
+remote fetch/pull/push remains a separate, explicit operator workflow.
 
 ## Triggers
 

@@ -1,7 +1,7 @@
 # aiwg-dev Quickstart
 
 > **First time using AIWG?** Begin with [Install, Connect, and
-Verify](../../getting-started/install-connect-verify.md). This guide assumes AIWG is connected to the target project
+Verify](https://github.com/jmagly/aiwg/blob/main/docs/getting-started/install-connect-verify.md). This guide assumes AIWG is connected to the target project
 and your provider session can read the deployed context.
 
 Enable the developer toolkit and validate one AIWG component before review.

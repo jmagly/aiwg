@@ -13,7 +13,7 @@ commandHint:
 This workflow remains active. Its records can be projected to the Dataset
 Intelligence ledger, but arbitrary entity/activity attributes require a
 governed extension. See the [dataset migration
-guide](../../../addons/dataset-intelligence/docs/migration-guide.md).
+guide](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/dataset-intelligence/docs/migration-guide.md).
 
 Query W3C PROV-compliant provenance chains to trace artifact derivations and relationships.
 

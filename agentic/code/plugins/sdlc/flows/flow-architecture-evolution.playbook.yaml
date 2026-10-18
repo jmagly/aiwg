@@ -1,0 +1,76 @@
+# Heavy-flow proof (#1547): the agentic `flow-architecture-evolution` skill
+# expressed as a declarative YAML Flow. Unlike the gate-oriented flow-release
+# pilot (#1539), this flow uses the multi-agent documentation pattern — its
+# Step 5 dispatches FOUR reviewers in parallel, then synthesizes their feedback
+# into the architecture docs. That panel is encoded as a single `fanout` step
+# (agentic-step extension, #1547 / adr-flow-agentic-steps.md), proving the heavy
+# flows convert without loss. The SKILL.md remains the thin wrapper / source of
+# discoverable triggers; this playbook is the orchestration source of truth.
+#
+# Faithful to the prose flow's structure:
+#   Step 1 trigger assessment       → trigger-assessment   (architecture-designer)
+#   Step 2 options analysis         → options-analysis     (architecture-designer)
+#   Step 3 create ADR               → create-adr           (architecture-designer)
+#   Step 4 breaking-change/migration→ migration-analysis   (architecture-designer)
+#   Step 5 multi-agent review (×4)  → architecture-review  (FANOUT panel + synthesis)
+#   Step 6 update docs (synthesis)  → fanout.synthesize    (architecture-documenter)
+#   (human approval gate)           → approval-gate
+#   Step 7 evolution report         → evolution-report     (architecture-documenter)
+apiVersion: flow.aiwg.io/v1
+kind: FlowPlaybook
+metadata:
+  name: flow-architecture-evolution
+  labels:
+    category: sdlc-orchestration
+    domain: architecture
+spec:
+  vars:
+    trigger_event: ""
+  steps:
+    - id: trigger-assessment
+      capability: arch-trigger-assess
+      inputs:
+        - { name: trigger_event, from: "vars.trigger_event" }
+
+    - id: options-analysis
+      capability: arch-options-analysis
+      depends_on: [trigger-assessment]
+
+    - id: create-adr
+      capability: arch-create-adr
+      depends_on: [options-analysis]
+      outputs:
+        - name: adr_path
+
+    - id: migration-analysis
+      capability: arch-migration-analysis
+      depends_on: [create-adr]
+
+    # Step 5+6: the review panel. Four reviewers run in parallel; the
+    # architecture-documenter synthesizes their findings into the updated docs.
+    # depends_on consumers (the gate, the report) see the synthesized result.
+    - id: architecture-review
+      fanout:
+        strategy: parallel
+        agents:
+          - review-security        # security-architect
+          - review-testability     # test-architect
+          - review-performance     # performance-engineer
+          - review-legacy-impact   # legacy-modernizer
+        synthesize: incorporate-review   # architecture-documenter
+      depends_on: [migration-analysis]
+      outputs:
+        - name: review_consensus
+
+    - id: approval-gate
+      kind: gate
+      description: |
+        Human review (review_diff): present the synthesized architecture review
+        consensus and the updated SAD/ADR diff. Approve to emit the evolution
+        report, or return to revise. The four reviewer findings + the
+        architecture-documenter synthesis are surfaced at this pause point.
+      depends_on: [architecture-review]
+
+    - id: evolution-report
+      capability: arch-evolution-report
+      depends_on: [approval-gate]

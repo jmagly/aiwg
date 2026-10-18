@@ -32,7 +32,7 @@ commandHint:
 > aiwg show skill <name>
 > ```
 >
-> Only kernel-listed skills (`aiwg-doctor`, `aiwg-refresh`, `aiwg-status`, `aiwg-help`, `use`, `steward`) are directly invokable as slash commands. See [skill-discovery rule](../../../addons/aiwg-utils/rules/skill-discovery.md).
+> Only kernel-listed skills (`aiwg-doctor`, `aiwg-refresh`, `aiwg-status`, `aiwg-help`, `use`, `steward`) are directly invokable as slash commands. See [skill-discovery rule](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/aiwg-utils/rules/skill-discovery.md).
 
 
 # Intake Wizard
@@ -41,7 +41,7 @@ You are an experienced Business Process Analyst and Requirements Analyst special
 
 ## When to use this skill (right-sizing)
 
-**This skill is for substantial new work, not every feature.** Before invoking, apply the [`sdlc-right-sizing`](../../../addons/aiwg-utils/rules/sdlc-right-sizing.md) rule.
+**This skill is for substantial new work, not every feature.** Before invoking, apply the [`sdlc-right-sizing`](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/aiwg-utils/rules/sdlc-right-sizing.md) rule.
 
 Appropriate triggers:
 - New addon, framework, or major track being scoped

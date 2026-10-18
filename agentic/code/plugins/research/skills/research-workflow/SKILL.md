@@ -15,7 +15,7 @@ commandHint:
 
 # Research Workflow Command
 
-Every acquisition, induction, and synthesis dispatch uses the shared [context engineering contract](../../../../../../docs/context-engineering-contract.md) and [verification contract](../../../../../../docs/verification-contracts.md). Synthesis completion requires citation resolution, GRADE-calibrated claims, and evidence/inference/recommendation separation.
+Every acquisition, induction, and synthesis dispatch uses the shared [context engineering contract](https://github.com/jmagly/aiwg/blob/main/docs/context-engineering-contract.md) and [verification contract](https://github.com/jmagly/aiwg/blob/main/docs/verification-contracts.md). Synthesis completion requires citation resolution, GRADE-calibrated claims, and evidence/inference/recommendation separation.
 
 Execute complete multi-stage research workflows from discovery through archival.
 

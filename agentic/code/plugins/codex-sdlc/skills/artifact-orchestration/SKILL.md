@@ -16,6 +16,8 @@ Orchestrate multi-agent artifact generation with the Primary Author → Parallel
 Alternate expressions and non-obvious activations (primary phrases are matched automatically from the skill description):
 
 - "SAD" → Software Architecture Document
+- "software architecture document"
+- "architecture document"
 - "ADR" → Architecture Decision Record
 - "generate [artifact]" for named SDLC artifacts (test plan, deployment plan, requirements)
 

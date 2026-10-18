@@ -1,0 +1,434 @@
+{
+  "schemaVersion": 1,
+  "ledgerVersion": "1.0.0",
+  "reviewed": "2026-09-06",
+  "corpusCommit": "06824789c893f44387a95ca4a59cb05e65872ce9",
+  "synthesis": {
+    "path": "documentation/analysis/natural-voice-evidence-and-evaluation.md",
+    "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/documentation/analysis/natural-voice-evidence-and-evaluation.md",
+    "sha256": "778ca35c08891f566c46730849a748477ced4596fb534f8774905bd836e2c108"
+  },
+  "claimPolicy": {
+    "sourceGradeIsProductConfidence": false,
+    "detectorDefinesNaturalness": false,
+    "numericReleaseThresholds": [],
+    "humanQualityValidated": false
+  },
+  "records": [
+    {
+      "id": "REF-2452",
+      "record": {
+        "path": "documentation/references/REF-2452-shrinking-linguistic-diversity.md",
+        "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/documentation/references/REF-2452-shrinking-linguistic-diversity.md",
+        "sha256": "f697e26bb5dcf285efd29d3c6edc0e3fec13c76a2a9aac8d0b64e4de3b982cb8"
+      },
+      "primaryUrls": [
+        "https://arxiv.org/abs/2502.11266v2"
+      ],
+      "sourceVersion": "arXiv:2502.11266v2 (2026-08-24)",
+      "sourceArtifacts": [
+        {
+          "path": "pdfs/full/REF-2452-sourati-2025-shrinking-linguistic-diversity-v1.pdf",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/pdfs/full/REF-2452-sourati-2025-shrinking-linguistic-diversity-v1.pdf",
+          "sha256": "85cb9e7c2050e597729e07d2e0b58825495d3bf81016d95548fb5660e916115e"
+        },
+        {
+          "path": "pdfs/full/REF-2452-sourati-2026-shrinking-linguistic-diversity.pdf",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/pdfs/full/REF-2452-sourati-2026-shrinking-linguistic-diversity.pdf",
+          "sha256": "3562a021b2edac99897fe2358c84b57f8fe794048d34fe026dd2aab991dddee9"
+        },
+        {
+          "path": "sources/text/REF-2452-sourati-2025-shrinking-linguistic-diversity-v1.txt",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/text/REF-2452-sourati-2025-shrinking-linguistic-diversity-v1.txt",
+          "sha256": "a84a2f8842b32439ed3058167392486f24c7f12a6fc8887fb13ca3f9dceb8f1a"
+        },
+        {
+          "path": "sources/text/REF-2452-sourati-2026-shrinking-linguistic-diversity.txt",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/text/REF-2452-sourati-2026-shrinking-linguistic-diversity.txt",
+          "sha256": "f0ca5892ffe03f3a8c01f7676220aea23c6b4f12ea4830de7750b4fbb84ee572"
+        },
+        {
+          "path": "sources/html/REF-2452-nature-publisher.html",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/html/REF-2452-nature-publisher.html",
+          "sha256": "3aed328612fe788cd4ffafff363af8b4961973267414aaf3e5e0d35b1604c32e"
+        },
+        {
+          "path": "sources/html/REF-2452-sourati-metadata.html",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/html/REF-2452-sourati-metadata.html",
+          "sha256": "2ff54879636870a94281deaf5bb6766beec66f2e5106c395c9893008ef7fd148"
+        }
+      ],
+      "corpusGrade": "A-",
+      "evidenceClass": "computational-observational",
+      "productClaimConfidence": "moderate",
+      "verifiedLocator": "Study 1b, Table 3; Supplement B4\u2013B6",
+      "supportedInference": "Separate meaning retention from within-author and between-author diversity.",
+      "boundary": "Rewriting effects vary by model, prompt and domain; observational adoption trends are not population-wide causality.",
+      "disposition": "adopt-design-constraint",
+      "experiment": {
+        "status": "not-run",
+        "design": "Paired original/rewrite evaluation with author-clustered uncertainty and per-channel distributions."
+      },
+      "numericReleaseThresholdAllowed": false,
+      "modelProviderScope": "GPT-3.5, Llama 3 70B, Gemini Pro; text-embedding-ada-002; exact generation snapshots not established in ledger, see pinned Methods 1.7."
+    },
+    {
+      "id": "REF-2453",
+      "record": {
+        "path": "documentation/references/REF-2453-implicit-writing-style-imitation.md",
+        "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/documentation/references/REF-2453-implicit-writing-style-imitation.md",
+        "sha256": "f8eea077780344767447d5e55eedf92e3fd3e3d7e7e1619fe85d4c6b3c61270f"
+      },
+      "primaryUrls": [
+        "https://aclanthology.org/2025.findings-emnlp.532/"
+      ],
+      "sourceVersion": "Findings of EMNLP 2025 publisher PDF",
+      "sourceArtifacts": [
+        {
+          "path": "pdfs/full/REF-2453-wang-2025-implicit-writing-style-imitation.pdf",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/pdfs/full/REF-2453-wang-2025-implicit-writing-style-imitation.pdf",
+          "sha256": "cd031981952298b6bfaf145e404fc078333f93d7468eac3174abf701a17aa491"
+        },
+        {
+          "path": "sources/text/REF-2453-wang-2025-implicit-writing-style-imitation.txt",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/text/REF-2453-wang-2025-implicit-writing-style-imitation.txt",
+          "sha256": "c8e29b689b147f8dd1081fd357feba287ce8a35f42ed2098071ee5d43603d781"
+        },
+        {
+          "path": "sources/html/REF-2453-wang-metadata.html",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/html/REF-2453-wang-metadata.html",
+          "sha256": "252b1f891ccfa5b98bbb4fbdfcc6084076d80da397e299d4f30340fe7b0547b9"
+        }
+      ],
+      "corpusGrade": "A-",
+      "evidenceClass": "computational-experiment",
+      "productClaimConfidence": "moderate",
+      "verifiedLocator": "Tables 2, 3 and 6",
+      "supportedInference": "Compare equal-budget random, varied, length-matched and topic-matched exemplars.",
+      "boundary": "Topic-matched examples are not an established best selector; no universal exemplar count. Table 6 Enron attribution falls from 69.33 to 36.00 under similarity control on the follow-up subset.",
+      "disposition": "adopt-design-constraint",
+      "experiment": {
+        "status": "not-run",
+        "design": "Author/topic separated equal-token-budget selector ablation; report each metric independently."
+      },
+      "numericReleaseThresholdAllowed": false,
+      "modelProviderScope": "GPT-4o, GPT-4o-mini, Gemini-2.0-Flash, Gemma-3-27B, DeepSeek-V3, Llama-4-Maverick; temperature 0; Table 6 uses GPT-4o/Gemini/Llama subset. Hosted snapshot replay not guaranteed."
+    },
+    {
+      "id": "REF-2454",
+      "record": {
+        "path": "documentation/references/REF-2454-personal-style-postediting.md",
+        "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/documentation/references/REF-2454-personal-style-postediting.md",
+        "sha256": "de7236c6848066e752c46ee315bcb887ed14907d6927b69d4c0abd41fcb99aba"
+      },
+      "primaryUrls": [
+        "https://aclanthology.org/2026.acl-long.2030/"
+      ],
+      "sourceVersion": "ACL 2026 proceedings PDF, July 2026",
+      "sourceArtifacts": [
+        {
+          "path": "pdfs/full/REF-2454-baumler-2026-personal-style.pdf",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/pdfs/full/REF-2454-baumler-2026-personal-style.pdf",
+          "sha256": "fd41565f9cf0efdc1d2940867ab0c3f0dc8becd6bd563582d2af3553ff52bf46"
+        },
+        {
+          "path": "sources/text/REF-2454-baumler-2026-personal-style.txt",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/text/REF-2454-baumler-2026-personal-style.txt",
+          "sha256": "bb06ebfa41f1c19118e5f0169421507d52a6990e34cf80f6dc5f19af55ef3305"
+        }
+      ],
+      "corpusGrade": "A",
+      "evidenceClass": "human-experiment",
+      "productClaimConfidence": "moderate",
+      "verifiedLocator": "Sections 4, 6.1\u20136.5; Appendix B.1; Table 9",
+      "supportedInference": "Retain author post-editing and author approval as separate outcomes.",
+      "boundary": "Baumler drafts already used author notes. The study did not compare notes-conditioned with wholly generic-content drafts; repeated tasks are not independent authors.",
+      "disposition": "adopt-design-constraint",
+      "experiment": {
+        "status": "not-run",
+        "design": "Compare notes-only and notes-plus-exemplars with author review; cluster repeated observations by author."
+      },
+      "numericReleaseThresholdAllowed": false,
+      "modelProviderScope": "OpenAI o4-mini; exact API snapshot not stated in paper. LUAR-MUD and alternative embedding validation; no AIWG generation rerun."
+    },
+    {
+      "id": "REF-2455",
+      "record": {
+        "path": "documentation/references/REF-2455-gpt-detectors-non-native-bias.md",
+        "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/documentation/references/REF-2455-gpt-detectors-non-native-bias.md",
+        "sha256": "172c4027b434799b863c7de3217c3e32e4fd92fcff61d14566cc124a0daff7a5"
+      },
+      "primaryUrls": [
+        "https://arxiv.org/abs/2304.02819v3"
+      ],
+      "sourceVersion": "arXiv:2304.02819v3 (2023-07-10)",
+      "sourceArtifacts": [
+        {
+          "path": "pdfs/full/REF-2455-liang-2023-gpt-detector-bias.pdf",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/pdfs/full/REF-2455-liang-2023-gpt-detector-bias.pdf",
+          "sha256": "9962d30440c868302c01e326bc4dfb133e96767677c6684ffe6689168dca5c14"
+        },
+        {
+          "path": "sources/text/REF-2455-liang-2023-gpt-detector-bias.txt",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/text/REF-2455-liang-2023-gpt-detector-bias.txt",
+          "sha256": "780fb935f5aae65daeff308a97e688b37ea594e7e2e8b1eb5b77236a6b6d21ad"
+        }
+      ],
+      "corpusGrade": "A",
+      "evidenceClass": "detector-audit",
+      "productClaimConfidence": "moderate",
+      "verifiedLocator": "Results p. 2; Figure 2; Methods pp. 8\u20139",
+      "supportedInference": "Exclude detector scores from naturalness and publication gates.",
+      "boundary": "Historical March 2023 English detector services and unmatched essay populations do not establish current cross-language error rates.",
+      "disposition": "adopt-design-constraint",
+      "experiment": {
+        "status": "not-run",
+        "design": "If detectors are studied, pin detector version and measure subgroup false positives independently of voice quality."
+      },
+      "numericReleaseThresholdAllowed": false,
+      "modelProviderScope": "Seven historical public detector services, March 2023; GPT-3.5-era text interventions. No current-provider validity established."
+    },
+    {
+      "id": "REF-2456",
+      "record": {
+        "path": "documentation/references/REF-2456-different-time-language-detector-bias.md",
+        "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/documentation/references/REF-2456-different-time-language-detector-bias.md",
+        "sha256": "524999fa0a39ab84841280c1c8496707ddf088d6f27866c2d854fdd0c803f8b8"
+      },
+      "primaryUrls": [
+        "https://aclanthology.org/2026.eacl-srw.20/"
+      ],
+      "sourceVersion": "EACL 2026 Student Research Workshop publisher PDF",
+      "sourceArtifacts": [
+        {
+          "path": "pdfs/full/REF-2456-al-ali-2026-different-language-published.pdf",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/pdfs/full/REF-2456-al-ali-2026-different-language-published.pdf",
+          "sha256": "d2b127c4de1e0718a9ed81519bfb7f435efcb1d9790f088dfe1e8091ddd55246"
+        },
+        {
+          "path": "pdfs/full/REF-2456-al-ali-2026-different-language.pdf",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/pdfs/full/REF-2456-al-ali-2026-different-language.pdf",
+          "sha256": "2676bfe4174f21a41445dbb7b056274faaa075269581a71cb00219116ac72d8e"
+        },
+        {
+          "path": "sources/text/REF-2456-al-ali-2026-different-language-published.txt",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/text/REF-2456-al-ali-2026-different-language-published.txt",
+          "sha256": "afde8cc0c2fedab9aeed5d4e16b1d7c52c593c08fad7eed3ff41ff669c237a4a"
+        },
+        {
+          "path": "sources/text/REF-2456-al-ali-2026-different-language.txt",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/text/REF-2456-al-ali-2026-different-language.txt",
+          "sha256": "5c71670018085f0e196671416e041dfd85840d8a646d38083acc0fd5f8bb4403"
+        }
+      ],
+      "corpusGrade": "B",
+      "evidenceClass": "detector-audit",
+      "productClaimConfidence": "moderate",
+      "verifiedLocator": "Tables 1, 3 and 5; Sections 3.3 and 5.2",
+      "supportedInference": "Report language, proficiency, domain and preprocessing limits explicitly.",
+      "boundary": "Nonsignificant detector subgroup differences do not prove equality. The advanced Czech group has 29 learners and 29 matched natives; language/time/model effects are entangled.",
+      "disposition": "adopt-design-constraint",
+      "experiment": {
+        "status": "not-run",
+        "design": "Cross-language and preprocessing audit with uncertainty; unknown-authorship texts cannot estimate true error."
+      },
+      "numericReleaseThresholdAllowed": false,
+      "modelProviderScope": "Models/detectors available in 2025: GPT-4o-mini/Llama generator transfer, NB/RobeCzech and Plagramme; commercial version opaque. See pinned methods."
+    },
+    {
+      "id": "REF-2457",
+      "record": {
+        "path": "documentation/references/REF-2457-govuk-clear-language-content-design.md",
+        "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/documentation/references/REF-2457-govuk-clear-language-content-design.md",
+        "sha256": "5d7d261bb5c6b3487f52edc92652e427f057777011450f37acbddfe1adb8cc88"
+      },
+      "primaryUrls": [
+        "https://guidance.publishing.service.gov.uk/writing-to-gov-uk-standards/writing-guidelines/clear-language/",
+        "https://guidance.publishing.service.gov.uk/writing-to-gov-uk-standards/plan-manage-content/understand-content-design/"
+      ],
+      "sourceVersion": "Living web snapshots acquired 2026-09-06",
+      "sourceArtifacts": [
+        {
+          "path": "sources/html/REF-2457-govuk-clear-language.html",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/html/REF-2457-govuk-clear-language.html",
+          "sha256": "ef3badbaec02bf2046b1abcf2487d90248e032f4e7b4a4f0a5553438d91ee1f6"
+        },
+        {
+          "path": "sources/html/REF-2457-govuk-content-design.html",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/html/REF-2457-govuk-content-design.html",
+          "sha256": "9d472efd02650e3ed0e0f9017dfabbe7749ca9ae93b33c26068ebf8c1f4054b1"
+        },
+        {
+          "path": "sources/web/REF-2457-govuk-clear-language.md",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/web/REF-2457-govuk-clear-language.md",
+          "sha256": "04d8a7115413915d63e7ccffb1213074e9d5b5384f88db31cf822d73d15fdc07"
+        },
+        {
+          "path": "sources/web/REF-2457-govuk-content-design.md",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/web/REF-2457-govuk-content-design.md",
+          "sha256": "51cb9821a749eedd89dd98a278573ccbe62c7a87673e56b54fc181b0e833fffd"
+        }
+      ],
+      "corpusGrade": "B",
+      "evidenceClass": "editorial-guidance",
+      "productClaimConfidence": "very-low",
+      "verifiedLocator": "Clear language: specialist language and passive voice; content design: user needs",
+      "supportedInference": "Make audience/task needs explicit and retain useful terminology and contextual exceptions.",
+      "boundary": "Institutional editorial policy does not establish causal AI-naturalness benefits; sentence limits are review triggers, not universal release thresholds.",
+      "disposition": "adopt-design-constraint",
+      "experiment": {
+        "status": "not-run",
+        "design": "Matched factual content reader task-success and comprehension evaluation."
+      },
+      "numericReleaseThresholdAllowed": false,
+      "modelProviderScope": "No generation model/provider experiment; institutional editorial web guidance."
+    },
+    {
+      "id": "REF-2458",
+      "record": {
+        "path": "documentation/references/REF-2458-willison-ai-writing-policy-cliche-highlighter.md",
+        "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/documentation/references/REF-2458-willison-ai-writing-policy-cliche-highlighter.md",
+        "sha256": "9095d7f1a9d06b82e9ca25893a03f156de7c11cdd9a4c13d589e81919943430e"
+      },
+      "primaryUrls": [
+        "https://simonwillison.net/2026/Mar/1/ai-writing/",
+        "https://tools.simonwillison.net/llm-cliche-highlighter"
+      ],
+      "sourceVersion": "Policy 2026-03-01; highlighter snapshot 2026-09-06",
+      "sourceArtifacts": [
+        {
+          "path": "sources/html/REF-2458-willison-ai-writing.html",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/html/REF-2458-willison-ai-writing.html",
+          "sha256": "9b9fa9b60d1d91ab46542eb8d307cff96509916afd9f1c889a3a0dbe935d4ac4"
+        },
+        {
+          "path": "sources/html/REF-2458-willison-llm-cliche-highlighter.html",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/html/REF-2458-willison-llm-cliche-highlighter.html",
+          "sha256": "d543e0f4ac121f6a0e26f5baa34fea1ca735f00ea6a8f82b569933cbb7974bdf"
+        },
+        {
+          "path": "sources/web/REF-2458-willison-ai-writing.md",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/web/REF-2458-willison-ai-writing.md",
+          "sha256": "2344b9069e96d9f5a91197ebd3370ce9176c2395069c38ff0f4d115e68cb8d19"
+        },
+        {
+          "path": "sources/web/REF-2458-willison-llm-cliche-highlighter.md",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/web/REF-2458-willison-llm-cliche-highlighter.md",
+          "sha256": "e10b6331132e30288aeb211b61d683e8aff29c425546239949e560e34a4355b7"
+        }
+      ],
+      "corpusGrade": "B",
+      "evidenceClass": "practitioner-policy",
+      "productClaimConfidence": "very-low",
+      "verifiedLocator": "Policy body; highlighter patterns array; archived static probes",
+      "supportedInference": "Track provenance of opinions and intent; make clich\u00e9 flags contextual and overridable.",
+      "boundary": "Selected useful/literal counterexamples establish possible false positives, not their frequency. No authorship certification or universal vocabulary bans.",
+      "disposition": "adopt-design-constraint",
+      "experiment": {
+        "status": "not-run",
+        "design": "Representative author-labelled diagnostic precision study with literal, quoted, code and useful-list exceptions."
+      },
+      "numericReleaseThresholdAllowed": false,
+      "modelProviderScope": "Deterministic archived browser highlighter and practitioner policy; no validated model/provider outcome."
+    },
+    {
+      "id": "REF-2459",
+      "record": {
+        "path": "documentation/references/REF-2459-practitioner-natural-writing.md",
+        "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/documentation/references/REF-2459-practitioner-natural-writing.md",
+        "sha256": "0801c7e1da3ea4bbd977f7c53025891517e74ff311b783442224238ea2fa95df"
+      },
+      "primaryUrls": [
+        "https://www.reddit.com/r/PromptEngineering/comments/1vq3f5x/how_we_get_ai_to_write_like_a_human_after/"
+      ],
+      "sourceVersion": "Cached post and ten visible comments acquired 2026-09-06; publication date unavailable",
+      "sourceArtifacts": [
+        {
+          "path": "sources/text/REF-2459-reddit-natural-writing.txt",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/text/REF-2459-reddit-natural-writing.txt",
+          "sha256": "bb8f32887c81ad41062910f6106ef702cda9b676a6a48fe6ec65f0acd16ec931"
+        },
+        {
+          "path": "sources/web/REF-2459-reddit-natural-writing.md",
+          "url": "https://git.integrolabs.net/section9/research-papers/src/commit/06824789c893f44387a95ca4a59cb05e65872ce9/sources/web/REF-2459-reddit-natural-writing.md",
+          "sha256": "6bc681fac183cf30f58ec2aa4aca3037c2e75286b2bf9a35d4727fa7ee8b835b"
+        }
+      ],
+      "corpusGrade": "B",
+      "evidenceClass": "anecdote",
+      "productClaimConfidence": "very-low",
+      "verifiedLocator": "Post layers 1\u20133; visible comment p4331kq; corpus section 6",
+      "supportedInference": "Treat shared voice plus channel guidance and rules/tone/exemplars as testable hypotheses.",
+      "boundary": "Unverified agency outcomes, model ratings and costs cannot justify numeric release thresholds or cost forecasts.",
+      "disposition": "hypothesis-only",
+      "experiment": {
+        "status": "not-run",
+        "design": "Rules \u00d7 tone \u00d7 exemplars factorial comparison with held-out authors/topics and equal budgets."
+      },
+      "numericReleaseThresholdAllowed": false,
+      "modelProviderScope": "Commenter model identities are unverified assertions; no reproducible generation/provider experiment."
+    }
+  ],
+  "additionalSources": [
+    {
+      "id": "PersonalBench",
+      "primaryUrl": "https://arxiv.org/abs/2608.19746v1",
+      "sourceVersion": "2608.19746v1",
+      "accessed": "2026-09-06",
+      "acquisition": {
+        "status": "abstract-acquired",
+        "httpStatus": 200,
+        "sha256": "9e808b5ffdafb1e744fa3edda21173f6098ef525973245acd8ade22f944702e5",
+        "scope": "Versioned arXiv abstract HTML only; full methods not acquired or verified."
+      },
+      "assessment": "Abstract reports judge/authorship disagreement; limited Qwen 3 and GLM-4 coverage and possible evaluator circularity.",
+      "disposition": "defer-method-adoption",
+      "productClaimConfidence": "unestablished",
+      "experiment": {
+        "status": "not-run",
+        "design": "Inspect full methods, author-level splits and independent human validation before selecting an evaluator."
+      },
+      "numericReleaseThresholdAllowed": false
+    },
+    {
+      "id": "Jangra evaluation",
+      "primaryUrl": "https://arxiv.org/abs/2508.06374v4",
+      "sourceVersion": "2508.06374v4",
+      "accessed": "2026-09-06",
+      "acquisition": {
+        "status": "abstract-acquired",
+        "httpStatus": 200,
+        "sha256": "5b655a609cde4298899a4a2d5fa0a798886cd4ba0424bfd037817e4ad9ed3361",
+        "scope": "Versioned arXiv abstract HTML only; full methods not acquired or verified."
+      },
+      "assessment": "Abstract reports metric-ensemble benefits across eight tasks; EMNLP 2026 acceptance is author-reported in arXiv comments.",
+      "disposition": "defer-method-adoption",
+      "productClaimConfidence": "unestablished",
+      "experiment": {
+        "status": "not-run",
+        "design": "Review full benchmark, weighting, calibration and held-out validation before adopting any ensemble."
+      },
+      "numericReleaseThresholdAllowed": false
+    },
+    {
+      "id": "Pearl",
+      "primaryUrl": "https://arxiv.org/abs/2311.09180v2",
+      "sourceVersion": "2311.09180v2",
+      "accessed": "2026-09-06",
+      "acquisition": {
+        "status": "abstract-acquired",
+        "httpStatus": 200,
+        "sha256": "ee28ce1c7208ba133880ccf299efb33259a593a123e26518014d48afa5d5cc3f",
+        "scope": "Versioned arXiv abstract HTML only; full methods not acquired or verified."
+      },
+      "assessment": "Abstract proposes trained generation-calibrated retrieval for long-form social datasets; training and generation cost may exceed a provider-neutral baseline.",
+      "disposition": "defer-method-adoption",
+      "productClaimConfidence": "unestablished",
+      "experiment": {
+        "status": "not-run",
+        "design": "Assess full methods, training data consent, retriever cost and equal-budget baseline comparisons before optional adoption."
+      },
+      "numericReleaseThresholdAllowed": false
+    }
+  ]
+}

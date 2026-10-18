@@ -1,6 +1,6 @@
 # Agent Loop
 
-Classify work with the [autonomy and human operating roles framework](../../../../docs/autonomy-and-human-roles.md). A loop cannot override human-owned actions, checkpoints, or failed verification.
+Classify work with the [autonomy and human operating roles framework](https://github.com/jmagly/aiwg/blob/main/docs/autonomy-and-human-roles.md). A loop cannot override human-owned actions, checkpoints, or failed verification.
 
 Iterative AI task execution with automatic recovery - **iteration beats perfection**.
 
@@ -188,11 +188,11 @@ External Al provides:
 - Two-phase state assessment
 - Crash recovery and resume
 
-See [Al Guide](../../../../docs/agent-loop-guide.md) for full documentation on both internal and external Al.
+See [Al Guide](https://github.com/jmagly/aiwg/blob/main/docs/agent-loop-guide.md) for full documentation on both internal and external Al.
 
 ## Related
 
-- [Al Guide](../../../../docs/agent-loop-guide.md) - **Complete documentation** for both internal and external Al
+- [Al Guide](https://github.com/jmagly/aiwg/blob/main/docs/agent-loop-guide.md) - **Complete documentation** for both internal and external Al
 - [When to Use Al](docs/when-to-use-agent-loop.md) - Understanding Al's sweet spot
 - [Quickstart Guide](docs/quickstart.md) - Getting started
 - [Best Practices](docs/best-practices.md) - Writing effective tasks

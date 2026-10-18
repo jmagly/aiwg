@@ -22,7 +22,7 @@ commandHint:
 > aiwg show skill <name>
 > ```
 >
-> Claude Code deployments also mirror selected operator workflows into `.claude/commands/`; this skill is available there as `/aiwg-setup-project`. See [skill-discovery rule](../../../addons/aiwg-utils/rules/skill-discovery.md).
+> Claude Code deployments also mirror selected operator workflows into `.claude/commands/`; this skill is available there as `/aiwg-setup-project`. See [skill-discovery rule](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/aiwg-utils/rules/skill-discovery.md).
 
 
 # AIWG Setup Project

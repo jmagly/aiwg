@@ -76,7 +76,7 @@ See [Daemon Addon Guide](docs/daemon-addon-guide.md) for full details.
 
 ## Related
 
-- [Daemon Guide](../../docs/daemon-guide.md) — Daemon architecture and operations
+- [Daemon Guide](https://github.com/jmagly/aiwg/blob/main/docs/daemon-guide.md) — Daemon architecture and operations
 - Issue #605 — Tracking issue
 - Issue #602 — Concierge specification
 - Issue #603 — BEHAVIOR.md format specification

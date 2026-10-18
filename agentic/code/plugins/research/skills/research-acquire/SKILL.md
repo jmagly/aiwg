@@ -10,7 +10,7 @@ commandHint:
 
 # Research Acquire Command
 
-Dispatch with the shared [context packet](../../../../../../docs/context-engineering-contract.md) and [verification contract](../../../../../../docs/verification-contracts.md). Required evidence includes integrity, checksum, metadata, full-text status, and artifact paths; missing or failed required checks cannot yield success.
+Dispatch with the shared [context packet](https://github.com/jmagly/aiwg/blob/main/docs/context-engineering-contract.md) and [verification contract](https://github.com/jmagly/aiwg/blob/main/docs/verification-contracts.md). Required evidence includes integrity, checksum, metadata, full-text status, and artifact paths; missing or failed required checks cannot yield success.
 
 Download research papers from public repositories and extract metadata.
 

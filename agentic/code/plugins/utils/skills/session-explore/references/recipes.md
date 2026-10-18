@@ -5,7 +5,7 @@ actual authorized identifiers and quote shell arguments. Append the same
 `--db <catalog-path>` throughout when using a non-default catalog. Examples
 with mutations or forensic authorization are conditional actions, not part of
 the default exploration flow. The complete contract is
-[Session Catalog CLI](../../../../../../../docs/sessions/cli.md).
+[Session Catalog CLI](https://github.com/jmagly/aiwg/blob/main/docs/sessions/cli.md).
 
 ## Find a discussion or decision
 

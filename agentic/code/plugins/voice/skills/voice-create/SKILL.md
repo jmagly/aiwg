@@ -21,7 +21,7 @@ Alternate expressions and non-obvious activations (primary phrases are matched a
 
 For author-controlled samples and evidence-backed preferences, use the opt-in
 writer-profile API and `aiwg writer-profile` CLI described in
-[writer profile sidecars](../../../../../../docs/voice/writer-profiles.md).
+[writer profile sidecars](https://github.com/jmagly/aiwg/blob/main/docs/voice/writer-profiles.md).
 Keep the legacy YAML workflow below available. Do not silently migrate files.
 A legacy attachment preserves the original payload but does not approve inferred
 preferences. Sidecars do not infer demographics, personality, or signature phrases.
