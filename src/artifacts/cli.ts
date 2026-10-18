@@ -540,7 +540,7 @@ async function handleBuild(args: string[]): Promise<void> {
     console.log('  --all            Build all known graphs (including user-defined)');
     console.log('  --scope <dir>    Limit scan to a specific subdirectory');
     console.log('  --include-ignored Include gitignored sources (runtime directories stay excluded)');
-    console.log('  Source discovery skips symlinks and .aiwg/{working,sessions,.index}/.');
+    console.log('  Source discovery skips symlinks and .aiwg/{working,sessions,scratch,tmp,temp,cache,.index,.cache,.storage-cache}/.');
     console.log('  --graph <name>   Build a specific graph only (built-in or user-defined)');
     console.log('');
     console.log('Built-in graph names: project, codebase, source, user, framework');
@@ -656,16 +656,16 @@ async function syncFortemiCoreCachesAfterBuild(
   const { syncFortemiCoreIndex } = await import('./fortemi-core-sync.js');
   const { loadGraphIndexFile } = await import('./index-reader.js');
   for (const graph of graphs) {
-    // Some default-build graphs skip cleanly when their scan roots are absent.
-    // Only materialize a cache when this build left an actual source index.
-    if (!loadGraphIndexFile(cwd, 'metadata.json', graph)) continue;
     try {
+      // Some auto-selected graphs skip cleanly when their scan roots are absent.
+      if (!loadGraphIndexFile(cwd, 'metadata.json', graph)) continue;
       const manifest = syncFortemiCoreIndex(cwd, { graph });
       if (verbose) {
         console.log(`Fortemi Core ${graph} sync: ${manifest.status}, ${manifest.item_count} item(s) → ${manifest.export_path}`);
       }
     } catch (err) {
-      console.error(`Warning: Fortemi Core ${graph} sync failed: ${err instanceof Error ? err.message : String(err)}`);
+      process.exitCode = 1;
+      console.error(`Error: Fortemi Core ${graph} sync failed: ${err instanceof Error ? err.message : String(err)}`);
       console.error(`Run \`aiwg index sync --graph ${graph}\` before using Fortemi-backed commands for '${graph}' artifacts.`);
     }
   }
@@ -1249,17 +1249,26 @@ async function handleSync(args: string[]): Promise<void> {
     if (all) {
       const { loadGraphIndexFile } = await import('./index-reader.js');
       const manifests = [];
+      const failures: Array<{ graph: string; status: 'failed'; error: string }> = [];
       for (const [name] of orderedGraphEntries(Object.entries(GRAPH_CONFIGS))) {
-        if (!loadGraphIndexFile(cwd, 'metadata.json', name)) continue;
-        manifests.push(syncFortemiCoreIndex(cwd, { ...options, graph: name }));
+        try {
+          if (!loadGraphIndexFile(cwd, 'metadata.json', name)) continue;
+          manifests.push(syncFortemiCoreIndex(cwd, { ...options, graph: name }));
+        } catch (err) {
+          failures.push({ graph: name, status: 'failed', error: err instanceof Error ? err.message : String(err) });
+        }
       }
+      if (failures.length) process.exitCode = 1;
       if (json) {
-        console.log(JSON.stringify({ manifests }, null, 2));
+        console.log(JSON.stringify({ manifests, failures }, null, 2));
         return;
       }
-      console.log(`Fortemi Core sync: ${manifests.length} graph(s)`);
+      console.log(`Fortemi Core sync: ${manifests.length} graph(s) succeeded, ${failures.length} failed`);
       for (const manifest of manifests) {
         console.log(`  ${manifest.graph}: ${manifest.status}, ${manifest.item_count} item(s) → ${manifest.export_path}`);
+      }
+      for (const failure of failures) {
+        console.error(`  ${failure.graph}: failed — ${failure.error}`);
       }
       return;
     }

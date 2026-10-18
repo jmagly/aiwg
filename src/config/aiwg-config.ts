@@ -12,6 +12,9 @@
 import { resolveDispatchHostThresholds } from './dispatch-thresholds-runtime.mjs';
 export { DEFAULT_DISPATCH_HOST_THRESHOLDS, resolveDispatchHostThresholds } from './dispatch-thresholds-runtime.mjs';
 
+import { validateIndexGraphOverrides, type IndexBuiltinGraphOverride } from './index-graph-overrides.js';
+export type { IndexBuiltinGraphOverride } from './index-graph-overrides.js';
+
 import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import { readFileSync, existsSync } from 'node:fs';
@@ -1277,19 +1280,12 @@ export interface IndexConfig {
   graphBackend?: 'json' | 'graphology' | 'sqlite';
   graphs?: Record<string, IndexGraphDef | IndexMarkdownIndices>;
   graphOverrides?: {
+    project?: IndexBuiltinGraphOverride;
     codebase?: IndexBuiltinGraphOverride;
   };
   userIndices?: {
     enabled?: boolean;
   };
-}
-
-/** Safe operator-controlled fields for adapting an immutable built-in graph. */
-export interface IndexBuiltinGraphOverride {
-  /** Replaces the built-in scan roots when present. */
-  scanDirs?: string[];
-  /** Replaces the built-in extension allow-list when present. */
-  extensions?: string[];
 }
 
 export interface UserIndicesConfig {
@@ -1362,36 +1358,7 @@ export function validateIndexConfig(index: unknown): string[] {
   }
   const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
-  const graphOverrides = indexObject.graphOverrides;
-  if (graphOverrides !== undefined) {
-    if (typeof graphOverrides !== 'object' || graphOverrides === null || Array.isArray(graphOverrides)) {
-      errors.push('index.graphOverrides: must be an object mapping supported built-in graph names to overrides');
-    } else {
-      for (const [name, rawOverride] of Object.entries(graphOverrides as Record<string, unknown>)) {
-        const where = `index.graphOverrides.${name}`;
-        if (name !== 'codebase') {
-          errors.push(`${where}: unsupported built-in graph override (supported: codebase)`);
-          continue;
-        }
-        if (typeof rawOverride !== 'object' || rawOverride === null || Array.isArray(rawOverride)) {
-          errors.push(`${where}: must be an object`);
-          continue;
-        }
-        const override = rawOverride as Record<string, unknown>;
-        for (const field of Object.keys(override)) {
-          if (field !== 'scanDirs' && field !== 'extensions') {
-            errors.push(`${where}.${field}: unknown field (supported: scanDirs, extensions)`);
-          }
-        }
-        if (override.scanDirs !== undefined && (!isStringArray(override.scanDirs) || override.scanDirs.length === 0)) {
-          errors.push(`${where}.scanDirs: must be a non-empty array of strings`);
-        }
-        if (override.extensions !== undefined && (!isStringArray(override.extensions) || override.extensions.length === 0)) {
-          errors.push(`${where}.extensions: must be a non-empty array of strings`);
-        }
-      }
-    }
-  }
+  errors.push(...validateIndexGraphOverrides(indexObject.graphOverrides));
 
   const graphs = indexObject.graphs;
   if (graphs === undefined) return errors; // index with no graphs is permissible

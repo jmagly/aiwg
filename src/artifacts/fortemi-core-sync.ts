@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import type { GraphType } from "./types.js";
@@ -18,6 +18,8 @@ export interface FortemiCoreSyncOptions {
   repo?: string;
   privacy?: AiwgPrivacyClassification;
   generatedAt?: string;
+  /** Maximum serialized chunk size in UTF-16 characters (default: 64 KiB). */
+  maxChunkChars?: number;
 }
 
 export interface FortemiCoreSyncManifest {
@@ -134,6 +136,76 @@ function sourceIndexBuiltAt(cwd: string, graph: GraphType): string | null {
   return typeof index?.builtAt === "string" ? index.builtAt : null;
 }
 
+/**
+ * Emit the v2 JSON document without stringifying a collection or a whole record.
+ * Strings are escaped in bounded slices too: a single large text field must not
+ * reintroduce V8's string limit. Preserve pretty-print bytes for stable checksums.
+ */
+function* jsonTokens(value: unknown, maxChars: number, depth = 0, ancestors = new Set<object>()): Generator<string> {
+  if (value && typeof value === "object" && "toJSON" in value && typeof value.toJSON === "function") {
+    value = value.toJSON();
+  }
+  if (typeof value === "string") {
+    yield '"';
+    const sliceChars = Math.floor(maxChars / 6); // A control character can expand to \uXXXX.
+    for (let start = 0; start < value.length;) {
+      let end = Math.min(start + sliceChars, value.length);
+      // Keep surrogate pairs together, including when UTF-8 encoding each write.
+      if (end < value.length && /[\uD800-\uDBFF]/.test(value[end - 1]) && /[\uDC00-\uDFFF]/.test(value[end])) end--;
+      yield JSON.stringify(value.slice(start, end)).slice(1, -1);
+      start = end;
+    }
+    yield '"';
+  } else if (value && typeof value === "object") {
+    if (ancestors.has(value)) throw new TypeError("Converting circular structure to JSON");
+    ancestors.add(value);
+    const array = Array.isArray(value);
+    const entries = Array.isArray(value) ? value.map((item, index) => [String(index), item] as const)
+      : Object.entries(value).filter(([, item]) => item !== undefined && typeof item !== "function" && typeof item !== "symbol");
+    yield array ? "[" : "{";
+    for (let i = 0; i < entries.length; i++) {
+      yield (i === 0 ? "\n" : ",\n") + "  ".repeat(depth + 1);
+      const [key, item] = entries[i];
+      if (!array) {
+        yield* jsonTokens(key, maxChars, depth + 1, ancestors);
+        yield ": ";
+      }
+      yield* jsonTokens(item, maxChars, depth + 1, ancestors);
+    }
+    if (entries.length) yield "\n" + "  ".repeat(depth);
+    yield array ? "]" : "}";
+    ancestors.delete(value);
+  } else {
+    yield JSON.stringify(value) ?? "null";
+  }
+}
+
+/** Write and hash the same bounded chunks; publish only complete exports. */
+function writeExport(file: string, exported: AiwgFortemiIndexExport, maxChars: number): string {
+  const hash = createHash("sha256");
+  const fd = fs.openSync(file, "w");
+  try {
+    const flush = (chunk: string): void => {
+      const bytes = Buffer.from(chunk, "utf-8");
+      hash.update(bytes);
+      for (let offset = 0; offset < bytes.length;) offset += fs.writeSync(fd, bytes, offset, bytes.length - offset);
+    };
+    let pending = "";
+    for (const token of jsonTokens(exported, maxChars)) {
+      if (pending.length + token.length > maxChars) {
+        flush(pending);
+        pending = "";
+      }
+      pending += token;
+    }
+    flush(pending);
+    flush("\n");
+    return hash.digest("hex");
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 export function syncFortemiCoreIndex(
   cwd: string,
   options: FortemiCoreSyncOptions = {},
@@ -142,12 +214,15 @@ export function syncFortemiCoreIndex(
   const dir = syncDir(cwd, graph);
   const exportPath = path.join(dir, "aiwg-fortemi-index-v2.json");
   const manifestPath = path.join(dir, "manifest.json");
+  const maxChars = options.maxChunkChars ?? 64 * 1024;
+  if (!Number.isSafeInteger(maxChars) || maxChars < 64) throw new Error("maxChunkChars must be an integer of at least 64");
+  fs.mkdirSync(dir, { recursive: true });
+  const temporaryPath = path.join(dir, `.export-${randomUUID()}.tmp`);
   const previous = readManifest(manifestPath);
   const sourceBuiltAt = sourceIndexBuiltAt(cwd, graph);
 
   const buildExport = (generatedAt: string): {
     generatedAt: string;
-    json: string;
     checksum: string;
     itemCount: number;
     skosCoverage: FortemiCoreSyncManifest["skos_coverage"];
@@ -159,14 +234,13 @@ export function syncFortemiCoreIndex(
       generatedAt,
       schemaVersion: "v2",
     });
-    const json = JSON.stringify(exported, null, 2) + "\n";
+    const checksum = writeExport(temporaryPath, exported, maxChars);
     const recordsWithConcepts = exported.items.filter(
       (item) => (item.skos_concepts?.length ?? 0) > 0,
     ).length;
     return {
       generatedAt,
-      json,
-      checksum: sha256(json),
+      checksum,
       itemCount: exported.items.length,
       skosCoverage: {
         records_with_concepts: recordsWithConcepts,
@@ -180,42 +254,45 @@ export function syncFortemiCoreIndex(
     };
   };
 
-  let built = buildExport(
-    options.generatedAt ?? previous?.generated_at ?? new Date().toISOString(),
-  );
-  let status: FortemiCoreSyncManifest["status"] = "created";
-  if (previous) {
-    if (previous.export_checksum === built.checksum) {
-      status = "unchanged";
-    } else {
-      status = "updated";
-      if (options.generatedAt === undefined) {
-        built = buildExport(new Date().toISOString());
+  try {
+    let built = buildExport(
+      options.generatedAt ?? previous?.generated_at ?? new Date().toISOString(),
+    );
+    let status: FortemiCoreSyncManifest["status"] = "created";
+    if (previous) {
+      if (previous.export_checksum === built.checksum) {
+        status = "unchanged";
+      } else {
+        status = "updated";
+        if (options.generatedAt === undefined) {
+          built = buildExport(new Date().toISOString());
+        }
       }
     }
-  }
 
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(exportPath, built.json, "utf-8");
-  const manifest: FortemiCoreSyncManifest = {
-    schema_version: "aiwg.fortemi.core-sync.v1",
-    backend: "fortemi-core",
-    graph,
-    generated_at: built.generatedAt,
-    export_path: path.relative(cwd, exportPath),
-    export_schema_version: "aiwg.fortemi.index.export.v2",
-    export_checksum: built.checksum,
-    item_count: built.itemCount,
-    skos_coverage: built.skosCoverage,
-    status,
-    source_index_built_at: sourceBuiltAt,
-  };
-  fs.writeFileSync(
-    manifestPath,
-    JSON.stringify(manifest, null, 2) + "\n",
-    "utf-8",
-  );
-  return manifest;
+    fs.renameSync(temporaryPath, exportPath);
+    const manifest: FortemiCoreSyncManifest = {
+      schema_version: "aiwg.fortemi.core-sync.v1",
+      backend: "fortemi-core",
+      graph,
+      generated_at: built.generatedAt,
+      export_path: path.relative(cwd, exportPath),
+      export_schema_version: "aiwg.fortemi.index.export.v2",
+      export_checksum: built.checksum,
+      item_count: built.itemCount,
+      skos_coverage: built.skosCoverage,
+      status,
+      source_index_built_at: sourceBuiltAt,
+    };
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify(manifest, null, 2) + "\n",
+      "utf-8",
+    );
+    return manifest;
+  } finally {
+    fs.rmSync(temporaryPath, { force: true });
+  }
 }
 
 export function getFortemiCoreSyncStatus(

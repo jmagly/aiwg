@@ -833,6 +833,7 @@
           "description": "Safely adapts supported built-in graphs without redefining their identity or storage semantics.",
           "additionalProperties": false,
           "properties": {
+            "project": { "$ref": "#/definitions/IndexBuiltinGraphOverride" },
             "codebase": { "$ref": "#/definitions/IndexBuiltinGraphOverride" }
           }
         },

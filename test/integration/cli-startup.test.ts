@@ -24,7 +24,7 @@
 
 import { afterAll, describe, it, expect } from 'vitest';
 import { spawnSync } from 'child_process';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import os from 'os';
@@ -85,6 +85,49 @@ function runCli(
 }
 
 describe.skipIf(missingBuild)('CLI integration: basic lifecycle', () => {
+  it('preserves index build and multi-graph sync failure exit codes (#3185)', () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'aiwg-index-sync-exit-'));
+    try {
+      mkdirSync(path.join(root, '.aiwg', 'references'), { recursive: true });
+      writeFileSync(path.join(root, '.aiwg', 'references', 'one.md'), '# One\n');
+      mkdirSync(path.join(root, 'src'));
+      writeFileSync(path.join(root, 'src', 'one.ts'), 'export const one = 1;\n');
+      const cacheRoot = path.join(root, '.aiwg', '.index', 'fortemi-core');
+      mkdirSync(cacheRoot, { recursive: true });
+      writeFileSync(path.join(cacheRoot, 'project'), 'blocked directory');
+      const opts = {
+        cwd: root,
+        env: {
+          HOME: path.join(root, 'home'),
+          XDG_DATA_HOME: path.join(root, 'data'),
+          AIWG_ARTIFACTS_PATH: '',
+          AIWG_PROJECT_ARTIFACTS_PATH: '',
+          AIWG_PROJECT_AIWG_DIR: '',
+        },
+      };
+      const built = runCli(['index', 'build', '--all'], opts);
+      expect(built.error).toBeUndefined();
+      expect(built.status).toBe(1);
+      expect(built.stderr).toContain('Fortemi Core project sync failed');
+      expect(existsSync(path.join(cacheRoot, 'codebase', 'manifest.json'))).toBe(true);
+      for (const json of [false, true]) {
+        const synced = runCli(['index', 'sync', '--all', ...(json ? ['--json'] : [])], opts);
+        expect(synced.error).toBeUndefined();
+        expect(synced.status).toBe(1);
+        if (json) {
+          const report = JSON.parse(synced.stdout);
+          expect(report.failures).toEqual([expect.objectContaining({ graph: 'project' })]);
+          expect(report.manifests).toEqual(expect.arrayContaining([expect.objectContaining({ graph: 'codebase' })]));
+        } else {
+          expect(synced.stderr).toContain('project: failed');
+          expect(synced.stdout).toContain('codebase:');
+        }
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 90_000);
+
   it('aiwg --version exits 0 within 3 seconds', () => {
     const r = runCli(['--version'], { timeoutMs: 3_000 });
     expect(r.error).toBeUndefined();

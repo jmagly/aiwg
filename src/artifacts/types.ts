@@ -10,6 +10,7 @@
  */
 
 import fs from 'fs';
+import { validateIndexGraphOverrides, type IndexBuiltinGraphOverride } from '../config/index-graph-overrides.js';
 import os from 'node:os';
 import path from 'node:path';
 import { load as loadYaml } from 'js-yaml';
@@ -688,11 +689,6 @@ export function resolveGraphBackendType(graph?: GraphType): NonNullable<GraphCon
   return (graph ? GRAPH_CONFIGS[graph]?.graphBackend : undefined) ?? projectGraphBackend ?? 'json';
 }
 
-interface BuiltinGraphOverride {
-  scanDirs?: string[];
-  extensions?: string[];
-}
-
 function freshBuiltinGraphConfig(name: BuiltinGraphType): GraphConfig {
   const config = BUILTIN_GRAPH_CONFIGS[name];
   return {
@@ -738,7 +734,7 @@ function detectPythonCodebaseConfig(cwd: string, base: GraphConfig): GraphConfig
   };
 }
 
-function applyBuiltinGraphOverride(base: GraphConfig, override: BuiltinGraphOverride | undefined): GraphConfig {
+function applyBuiltinGraphOverride(base: GraphConfig, override: IndexBuiltinGraphOverride | undefined): GraphConfig {
   if (!override) return base;
   return {
     ...base,
@@ -962,10 +958,11 @@ export function loadModuleGraphConfigs(cwd: string, diagnostics?: GraphConfigWar
  * @implements #426 #726
  */
 export function loadUserGraphConfigs(cwd: string, diagnostics?: GraphConfigWarning[]): string[] {
-  // Built-ins are immutable in index.graphs, but codebase roots/extensions may
+  // Built-ins are immutable in index.graphs, but project/codebase scan fields may
   // be adapted through the explicitly bounded graphOverrides contract (#2123).
   // Reset on every project load so a prior cwd cannot leak its override or
   // detected Python package roots into a later build in the same process.
+  GRAPH_CONFIGS.project = freshBuiltinGraphConfig('project');
   GRAPH_CONFIGS.codebase = detectPythonCodebaseConfig(cwd, freshBuiltinGraphConfig('codebase'));
   projectGraphBackend = undefined;
 
@@ -978,7 +975,7 @@ export function loadUserGraphConfigs(cwd: string, diagnostics?: GraphConfigWarni
   // config.yaml is a
   // deprecated fallback so un-migrated corpora keep working.
   let graphs: Record<string, unknown> | undefined;
-  let graphOverrides: Record<string, unknown> | undefined;
+  let graphOverrides: unknown;
   let fromDeprecatedYaml = false;
   let canonicalIndexPresent = false;
 
@@ -993,7 +990,7 @@ export function loadUserGraphConfigs(cwd: string, diagnostics?: GraphConfigWarni
       const g = idx?.graphs as Record<string, unknown> | undefined;
       if (g && typeof g === 'object') graphs = g;
       const overrides = idx?.graphOverrides as Record<string, unknown> | undefined;
-      if (overrides && typeof overrides === 'object') graphOverrides = overrides;
+      graphOverrides = overrides;
     }
   } catch {
     // #1624 — surface a malformed aiwg.config rather than dropping the whole
@@ -1019,7 +1016,7 @@ export function loadUserGraphConfigs(cwd: string, diagnostics?: GraphConfigWarni
           fromDeprecatedYaml = true;
         }
         const overrides = idx?.graphOverrides as Record<string, unknown> | undefined;
-        if (overrides && typeof overrides === 'object') {
+        if (overrides !== undefined) {
           graphOverrides = overrides;
           fromDeprecatedYaml = true;
         }
@@ -1029,12 +1026,18 @@ export function loadUserGraphConfigs(cwd: string, diagnostics?: GraphConfigWarni
     }
   }
 
-  const codebaseOverride = graphOverrides?.codebase;
-  if (codebaseOverride && typeof codebaseOverride === 'object' && !Array.isArray(codebaseOverride)) {
-    GRAPH_CONFIGS.codebase = applyBuiltinGraphOverride(
-      GRAPH_CONFIGS.codebase,
-      codebaseOverride as BuiltinGraphOverride,
-    );
+  const warnOverride = (graph: string, reason: string): void => {
+    if (diagnostics) diagnostics.push({ graph, reason, source: 'operator-config' });
+    else console.warn(`[aiwg index] Warning: ${reason}`);
+  };
+  const overrideErrors = validateIndexGraphOverrides(graphOverrides);
+  for (const reason of overrideErrors) warnOverride('graphOverrides', reason);
+  if (graphOverrides && typeof graphOverrides === 'object' && !Array.isArray(graphOverrides)) {
+    for (const name of ['project', 'codebase'] as const) {
+      const override = (graphOverrides as Record<string, unknown>)[name];
+      if (override === undefined || validateIndexGraphOverrides({ [name]: override }).length > 0) continue;
+      GRAPH_CONFIGS[name] = applyBuiltinGraphOverride(GRAPH_CONFIGS[name], override as IndexBuiltinGraphOverride);
+    }
   }
 
   if (!graphs) return loaded;
@@ -1048,7 +1051,10 @@ export function loadUserGraphConfigs(cwd: string, diagnostics?: GraphConfigWarni
 
   for (const [name, def] of Object.entries(graphs)) {
     if (name in BUILTIN_GRAPH_CONFIGS) {
-      // Cannot override built-in graph names
+      warnOverride(name, `index.graphs.${name}: built-in graph definitions cannot be overridden here; ` +
+        (name === 'project' || name === 'codebase'
+          ? `use index.graphOverrides.${name} (supported: scanDirs, extensions)`
+          : 'no built-in override is supported for this graph'));
       continue;
     }
     const graphConfig = parseGraphDef(name, def as Record<string, unknown>);

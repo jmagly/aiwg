@@ -5,7 +5,8 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { main } from '../../../src/artifacts/cli.js';
 import { buildIndex } from '../../../src/artifacts/index-builder.js';
-import { collectGraphIndexFiles } from '../../../src/artifacts/index-files.js';
+import { INDEX_SCRATCH_DIRS, collectGraphIndexFiles } from '../../../src/artifacts/index-files.js';
+import { GRAPH_CONFIGS, loadUserGraphConfigs, type GraphConfigWarning } from '../../../src/artifacts/types.js';
 import { queryIndex } from '../../../src/artifacts/query-engine.js';
 
 /** @implements #3146 */
@@ -13,7 +14,7 @@ describe('default artifact index scope', () => {
   let fixture: string;
   let root: string;
   const canonical = '.aiwg/references/REF-2784-pipnn.md';
-  const ignored = '.aiwg/scratch/draft.md';
+  const ignored = '.aiwg/drafts/draft.md';
 
   function write(relative: string, content = '# Turbocharging PiPNN workshop\n'): void {
     const file = path.join(root, relative);
@@ -39,10 +40,13 @@ describe('default artifact index scope', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     execFileSync('git', ['init', '-q'], { cwd: root, timeout: 60_000 });
-    write('.gitignore', '.aiwg/scratch/\n');
+    write('.gitignore', '.aiwg/drafts/\n');
     write(canonical);
     write(ignored);
-    for (const dir of ['working', 'sessions', '.index']) write(`.aiwg/${dir}/draft.md`);
+    for (const dir of ['working', 'sessions', 'scratch', 'tmp', 'temp', 'cache', '.index', '.cache', '.storage-cache']) {
+      write(`.aiwg/${dir}/draft.md`);
+      write(`.aiwg/${dir}/acquisition/repo/nested/draft.md`);
+    }
     const sibling = path.join(fixture, 'sibling');
     fs.mkdirSync(sibling);
     fs.writeFileSync(path.join(sibling, 'outside.md'), '# Turbocharging PiPNN workshop\n');
@@ -87,12 +91,12 @@ describe('default artifact index scope', () => {
 
   it('enforces exclusions and symlink policy for explicit scopes and scan roots', async () => {
     write('.aiwg/references/nested/doc.md');
-    for (const scope of ['.aiwg/working', '.aiwg/sessions', '.aiwg/.index', '.aiwg/linked-outside', '.aiwg/duplicate', '.aiwg/duplicate/nested']) {
+    for (const scope of [...INDEX_SCRATCH_DIRS.map(name => `.aiwg/${name}`), '.aiwg/linked-outside', '.aiwg/duplicate', '.aiwg/duplicate/nested']) {
       expect(await collectGraphIndexFiles(root, 'project', { scope, includeIgnored: true })).toEqual([]);
     }
-    await buildIndex(root, { scope: '.aiwg/scratch', graph: 'project' });
+    await buildIndex(root, { scope: '.aiwg/drafts', graph: 'project' });
     expect(indexed()).toEqual([]);
-    await buildIndex(root, { scope: '.aiwg/scratch', graph: 'project', includeIgnored: true });
+    await buildIndex(root, { scope: '.aiwg/drafts', graph: 'project', includeIgnored: true });
     expect(indexed()).toEqual([ignored]);
     await buildIndex(root, { scope: '.aiwg/working', graph: 'project', includeIgnored: true });
     expect(indexed()).toEqual([]);
@@ -108,7 +112,7 @@ describe('default artifact index scope', () => {
   it('filters workspace-linked sources through the same ignore and runtime policy', async () => {
     write('WORKSPACE.md', [
       '[canonical](.aiwg/references/REF-2784-pipnn.md)',
-      '[scratch](.aiwg/scratch/draft.md)',
+      '[scratch](.aiwg/drafts/draft.md)',
       '[working](.aiwg/working/draft.md)',
       '[session](.aiwg/sessions/draft.md)',
       '[index](.aiwg/.index/draft.md)',
@@ -116,15 +120,15 @@ describe('default artifact index scope', () => {
     ].join('\n'));
     const expected = [path.join(root, canonical), path.join(root, 'WORKSPACE.md')];
     expect(await collectGraphIndexFiles(root, 'project')).toEqual(expected);
-    expect(await collectGraphIndexFiles(root, 'project', { includeIgnored: true }))
-      .toEqual([path.join(root, canonical), path.join(root, ignored), path.join(root, 'WORKSPACE.md')]);
+    expect((await collectGraphIndexFiles(root, 'project', { includeIgnored: true })).sort())
+      .toEqual([path.join(root, canonical), path.join(root, ignored), path.join(root, 'WORKSPACE.md')].sort());
   });
 
   it('excludes runtime directories under a configured external artifact root', async () => {
     const store = path.join(fixture, 'artifact-store');
     fs.mkdirSync(path.join(store, 'references'), { recursive: true });
     fs.writeFileSync(path.join(store, 'references', 'canonical.md'), '# Canonical\n');
-    for (const name of ['working', 'sessions', '.index']) {
+    for (const name of INDEX_SCRATCH_DIRS) {
       fs.mkdirSync(path.join(store, name), { recursive: true });
       fs.writeFileSync(path.join(store, name, 'draft.md'), '# Scratch\n');
     }
@@ -136,6 +140,48 @@ describe('default artifact index scope', () => {
       .toEqual([path.join(store, 'references', 'canonical.md')]);
     expect(await collectGraphIndexFiles(root, 'project', { includeIgnored: true }))
       .toEqual(['canonical.md', 'draft.md'].map(name => path.join(store, 'references', name)));
+  });
+
+  it('honours validated project scan roots and extensions while excluding scratch (#3185)', async () => {
+    write('docs/keep.md', '# Keep');
+    write('docs/omit.json', '{}');
+    write('.aiwg/aiwg.config', JSON.stringify({ index: { graphOverrides: {
+      project: { scanDirs: ['docs', '.aiwg/working', '.aiwg/cache'], extensions: ['.md'] },
+    } } }));
+    await main(['build', '--all', '--force', '--include-ignored']);
+    expect(indexed()).toEqual(['docs/keep.md']);
+    expect(GRAPH_CONFIGS.project.shared).toBe(false);
+    expect(GRAPH_CONFIGS.project.type).toBe('project');
+
+    write('.aiwg/aiwg.config', '{}');
+    loadUserGraphConfigs(root);
+    expect(GRAPH_CONFIGS.project.scanDirs).toEqual(['.aiwg']);
+    expect(GRAPH_CONFIGS.project.extensions).toContain('.json');
+  });
+
+  it('warns about misplaced and unsupported overrides and ignores invalid values safely (#3185)', () => {
+    write('.aiwg/aiwg.config', JSON.stringify({ index: {
+      graphs: { project: { scanDirs: ['docs'] } },
+      graphOverrides: { project: { scanDirs: [123], shared: true }, framework: { scanDirs: ['docs'] } },
+    } }));
+    const warnings: GraphConfigWarning[] = [];
+    loadUserGraphConfigs(root, warnings);
+    const reasons = warnings.map(warning => warning.reason).join('\n');
+    expect(reasons).toContain('index.graphs.project');
+    expect(reasons).toContain('use index.graphOverrides.project');
+    expect(reasons).toContain('index.graphOverrides.project.scanDirs');
+    expect(reasons).toContain('index.graphOverrides.project.shared');
+    expect(reasons).toContain('index.graphOverrides.framework: unsupported');
+    expect(GRAPH_CONFIGS.project.scanDirs).toEqual(['.aiwg']);
+    loadUserGraphConfigs(root);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('use index.graphOverrides.project'));
+  });
+
+  it('supports the same project override in legacy YAML (#3185)', async () => {
+    write('docs/keep.md');
+    write('.aiwg/config.yaml', 'index:\n  graphOverrides:\n    project:\n      scanDirs: [docs]\n      extensions: [.md]\n');
+    await buildIndex(root, { graph: 'project', force: true });
+    expect(indexed()).toEqual(['docs/keep.md']);
   });
 
   it('documents the opt-in and exclusions in build help', async () => {

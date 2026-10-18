@@ -93,6 +93,11 @@ function walkArtifactFiles(
   return results;
 }
 
+/** Runtime and acquisition scratch beneath either the local or relocated artifact root. */
+export const INDEX_SCRATCH_DIRS = [
+  'working', 'sessions', 'scratch', 'tmp', 'temp', 'cache', '.index', '.cache', '.storage-cache',
+] as const;
+
 export interface ArtifactDiscoveryOptions {
   scope?: string;
   includeIgnored?: boolean;
@@ -110,7 +115,7 @@ export async function collectGraphIndexFiles(
   }
   const artifactRoot = resolveProjectAiwgDir(cwd);
   const excludedDirs = [path.join(cwd, DEFAULT_PROJECT_AIWG_DIR), artifactRoot]
-    .flatMap(root => ['working', 'sessions', '.index'].map(name => path.resolve(root, name)));
+    .flatMap(root => INDEX_SCRATCH_DIRS.map(name => path.resolve(root, name)));
   const acceptPath = (file: string): boolean => {
     if (excludedDirs.some(dir => pathContains(dir, file))) return false;
     // Explicit scopes and workspace links can start below a symlink. Check

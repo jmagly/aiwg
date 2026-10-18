@@ -4513,7 +4513,19 @@ aiwg index build [options]
 
 **Default behavior** (no `--graph`): Builds all graphs with `defaultBuild: true`. Built-in defaults: `project` (always) and `codebase` (JavaScript/TypeScript roots plus detected conventional Python layouts; skipped with a warning only when no supported roots exist). The `framework` graph covers AIWG framework source (`agentic/code/`, `docs/`) and must be built explicitly with `--graph framework`.
 
-**Source discovery**: Artifact scans skip symlinked files and directories. `.aiwg/working/`, `.aiwg/sessions/`, and `.aiwg/.index/` are always excluded, including under a configured artifact root and with `--scope` or `--include-ignored`. Git ignore rules (including nested `.gitignore` files and negations) apply by default in Git worktrees; `--include-ignored` opts in to other ignored sources. Outside a Git worktree or without Git, ignore filtering is unavailable. Rebuild an existing index to remove previously indexed scratch.
+**Source discovery**: Artifact scans skip symlinked files and directories. The artifact root's `working/`, `sessions/`,
+`scratch/`, `tmp/`, `temp/`, `cache/`, `.index/`, `.cache/`, and `.storage-cache/` directories are always excluded,
+including under a configured artifact root and with `--scope` or `--include-ignored`. Git ignore rules (including nested
+`.gitignore` files and negations) apply by default in Git worktrees; `--include-ignored` opts in to other ignored
+sources. Outside a Git worktree or without Git, ignore filtering is unavailable. Rebuild an existing index to remove
+previously indexed scratch.
+
+**Fortemi synchronization**: Builds refresh the Fortemi static caches after writing the graph indexes. A cache failure
+identifies the graph and makes the command exit non-zero after attempting the remaining graphs. `aiwg index sync`
+refreshes the project cache; `aiwg index sync --all` attempts every built graph, reports each failure, and exits
+non-zero if any graph failed. With `--json`, the multi-graph report contains `manifests` for successful graphs and
+`failures` with each failed graph's error. Exports serialize and hash bounded chunks, preserving the JSON format and
+checksums without constructing a single export-sized string.
 
 **Incremental mode** (default): Only re-indexes files whose checksum has changed. Use `--force` for a full rebuild.
 
@@ -4551,7 +4563,8 @@ Fields:
 - `defaultBuild` — whether to include in `aiwg index build` with no `--graph` (default: `true`)
 - `shared` — whether the graph is shared across projects (default: `false`)
 
-User-defined graph names cannot override built-in names (`project`, `codebase`, `framework`).
+User-defined graph names cannot override built-in names (`project`, `codebase`, `framework`); attempted definitions warn
+instead of silently disappearing.
 
 The same `index.graphs` contract is accepted in `~/.aiwg/aiwg.config` for shared
 user-level graphs; those graphs also default `defaultBuild` to `true` and are
@@ -4560,12 +4573,20 @@ reported by bare `aiwg index stats` after they have been built. The concise
 with `defaultBuild: false`; use `index.graphs` when a user-level graph should be
 part of the default build/stats set.
 
-To replace only the built-in `codebase` graph's scan roots or extension allow-list, use the bounded `index.graphOverrides.codebase` contract. Present fields replace the detected/default value; omitted fields retain it. The graph identity, storage location, sharing mode, build policy, and backend cannot be widened through an override.
+To replace the built-in `project` or `codebase` graph's scan roots or extension allow-list, use
+`index.graphOverrides.project` or `index.graphOverrides.codebase`. Present fields replace the detected/default value;
+omitted fields retain it. Each field must be a non-empty array of non-blank strings. The graph identity, storage
+location, sharing mode, build policy, and backend cannot be widened through an override. Scratch exclusions still apply
+to overridden roots. Other built-in graph overrides are unsupported and produce diagnostics.
 
 ```json
 {
   "index": {
     "graphOverrides": {
+      "project": {
+        "scanDirs": [".aiwg/references", ".aiwg/requirements"],
+        "extensions": [".md"]
+      },
       "codebase": {
         "scanDirs": ["backend", "spec", "scripts"],
         "extensions": [".py", ".pyi"]

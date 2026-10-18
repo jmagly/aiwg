@@ -1489,7 +1489,7 @@ export const indexHandler: CommandHandler = {
       await main(ctx.args);
 
       return {
-        exitCode: 0,
+        exitCode: Number(process.exitCode ?? 0),
       };
     } catch (error) {
       const result = handlerResultFromError(error);

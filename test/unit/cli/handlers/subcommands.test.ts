@@ -532,6 +532,17 @@ describe("Subcommand Handlers", () => {
   });
 
   describe("indexHandler", () => {
+    it("propagates a partial sync failure reported by the index CLI (#3185)", async () => {
+      const previousExitCode = process.exitCode;
+      try {
+        mockIndexMain.mockImplementationOnce(async () => { process.exitCode = 1; });
+        mockContext.args = ["sync", "--all"];
+        expect((await indexHandler.execute(mockContext)).exitCode).toBe(1);
+      } finally {
+        process.exitCode = previousExitCode;
+      }
+    });
+
     it("should have correct metadata", () => {
       expect(indexHandler.id).toBe("index");
       expect(indexHandler.category).toBe("index");

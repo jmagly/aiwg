@@ -61,14 +61,24 @@ describe('validateIndexConfig', () => {
     })).toEqual([]);
   });
 
+  it('accepts project scan scope and rejects malformed or blank roots', () => {
+    expect(validateIndexConfig({ graphOverrides: { project: { scanDirs: ['docs'], extensions: ['.md'] } } })).toEqual([]);
+    for (const scanDirs of [[], [''], ['  '], [123], 'docs']) {
+      expect(validateIndexConfig({ graphOverrides: { project: { scanDirs } } }))
+        .toContain('index.graphOverrides.project.scanDirs: must be a non-empty array of strings');
+    }
+    expect(validateIndexConfig({ graphOverrides: { project: { shared: true } } }))
+      .toContain('index.graphOverrides.project.shared: unknown field (supported: scanDirs, extensions)');
+  });
+
   it('rejects unsupported or unsafe built-in override fields', () => {
     const errors = validateIndexConfig({
       graphOverrides: {
-        project: { scanDirs: ['elsewhere'] },
+        framework: { scanDirs: ['elsewhere'] },
         codebase: { scanDirs: [], shared: true },
       },
     });
-    expect(errors).toContain('index.graphOverrides.project: unsupported built-in graph override (supported: codebase)');
+    expect(errors).toContain('index.graphOverrides.framework: unsupported built-in graph override (supported: project, codebase)');
     expect(errors).toContain('index.graphOverrides.codebase.scanDirs: must be a non-empty array of strings');
     expect(errors).toContain('index.graphOverrides.codebase.shared: unknown field (supported: scanDirs, extensions)');
   });
