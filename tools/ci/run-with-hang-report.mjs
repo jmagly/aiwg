@@ -115,6 +115,7 @@ function captureDiagnostics(rootPid) {
     encoding: 'utf8',
     timeout: 15_000,
     maxBuffer: 8 * 1024 * 1024,
+    killSignal: 'SIGKILL',
   });
   if (result.status !== 0 || !result.stdout) {
     console.error(`[hang-report] process listing unavailable (${result.error?.message ?? `exit ${result.status}`})`);

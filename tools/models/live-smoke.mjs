@@ -44,6 +44,7 @@ const result = spawnSync('/bin/sh', ['-c', command], {
   encoding: 'utf8',
   timeout: 120_000,
   env: { ...process.env, AIWG_MODEL_SMOKE_BUDGET_USD: String(budget) },
+  killSignal: 'SIGKILL',
 });
 const evidence = {
   version: '1.0.0',

@@ -17,9 +17,9 @@ try {
   const env = smokeEnvironment(process.env, sandbox); Object.assign(report.checks, await verifyBinary(resolve(binary), process.env, sandbox));
   if (!report.checks.binaryPinned || !report.checks.versionMatched) throw Error('BINARY_PIN_MISMATCH');
   const manifest = JSON.parse(await readFile(join(root, 'test/fixtures/providers/omp-conformance/manifest.json'), 'utf8'));
-  const revision = spawnSync('git', ['-C', resolve(source), 'rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 10000 });
+  const revision = spawnSync('git', ['-C', resolve(source), 'rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 10000, killSignal: 'SIGKILL' });
   if (revision.status !== 0 || revision.stdout.trim() !== manifest.source.commit) throw Error('SOURCE_PIN_MISMATCH');
-  const pristine = spawnSync('git', ['-C', resolve(source), 'diff', '--quiet', 'HEAD'], { timeout: 10000 }); if (pristine.status !== 0) throw Error('SOURCE_MODIFIED');
+  const pristine = spawnSync('git', ['-C', resolve(source), 'diff', '--quiet', 'HEAD'], { timeout: 10000, killSignal: 'SIGKILL' }); if (pristine.status !== 0) throw Error('SOURCE_MODIFIED');
   report.checks.sourcePinned = true;
   // The upstream extension loader imports the HTML exporter, whose tool views
   // are generated at build time. Build missing output with the pinned generator.
@@ -27,7 +27,7 @@ try {
   try { await readFile(toolViews); } catch (error) {
     if (error.code !== 'ENOENT') throw error;
     stagedToolViews = toolViews;
-    const generated = spawnSync(option('--bun') || 'bun', ['run', 'gen:tool-views'], { cwd: join(resolve(source), 'packages/collab-web'), env, encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024 });
+    const generated = spawnSync(option('--bun') || 'bun', ['run', 'gen:tool-views'], { cwd: join(resolve(source), 'packages/collab-web'), env, encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024, killSignal: 'SIGKILL' });
     if (generated.status !== 0) throw Error('PINNED_TOOL_VIEWS_BUILD_FAILED');
   }
   const project = join(sandbox, 'project'); const agent = join(sandbox, 'agent'); const foreign = join(sandbox, 'foreign-user');
@@ -76,7 +76,7 @@ try {
   sourceTemp = await mkdtemp(join(resolve(source), '.aiwg-precedence-'));
   const sdk = join(sourceTemp, 'sdk.ts'); await copyFile(join(root, 'test/fixtures/providers/omp-precedence/sdk.ts'), sdk);
   const sdkReport = join(sandbox, 'sdk.json');
-  const native = spawnSync(option('--bun') || 'bun', [sdk], { cwd: resolve(source), env: { ...env, AIWG_OMP_PINNED_SOURCE: resolve(source), AIWG_OMP_AIWG_ROOT: root, AIWG_OMP_PRECEDENCE_SANDBOX: sandbox, AIWG_OMP_RULE_PROJECT: project, AIWG_OMP_PRECEDENCE_REPORT: sdkReport }, encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024 });
+  const native = spawnSync(option('--bun') || 'bun', [sdk], { cwd: resolve(source), env: { ...env, AIWG_OMP_PINNED_SOURCE: resolve(source), AIWG_OMP_AIWG_ROOT: root, AIWG_OMP_PRECEDENCE_SANDBOX: sandbox, AIWG_OMP_RULE_PROJECT: project, AIWG_OMP_PRECEDENCE_REPORT: sdkReport }, encoding: 'utf8', timeout: 60000, maxBuffer: 1024 * 1024, killSignal: 'SIGKILL' });
   try { report.checks.nativeSdk = JSON.parse(await readFile(sdkReport, 'utf8')); } catch {}
   if (native.status !== 0) { report.sdkFailure = (native.stderr || '').replaceAll(resolve(source), '<source>').replaceAll(sandbox, '<sandbox>').slice(-2000); throw Error('NATIVE_SDK_PRECEDENCE_FAILED'); }
   report.checks.nativeSdk = JSON.parse(await readFile(sdkReport, 'utf8'));

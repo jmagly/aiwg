@@ -58,6 +58,8 @@ export async function buildCliPackage({ outputDir = defaultOutputDir } = {}) {
     path.join(repoRoot, 'agentic', 'code', 'providers', 'capability-matrix.yaml'),
     path.join(repoRoot, 'agentic', 'code', 'providers', 'model-capabilities.v1.json'),
     path.join(repoRoot, 'agentic', 'code', 'providers', 'model-catalog.v1.json'),
+    path.join(repoRoot, 'dist', 'src', 'process', 'bounded-child-process.mjs'),
+    path.join(repoRoot, 'dist', 'src', 'process', 'signal-child.mjs'),
     path.join(repoRoot, 'tools', '_resolve-impl.mjs'),
     path.join(repoRoot, 'tools', 'agents', 'deploy-agents.mjs'),
     path.join(repoRoot, 'tools', 'providers', 'antigravity-transport.mjs'),

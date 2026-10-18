@@ -121,6 +121,7 @@ function run(command, args, options = {}) {
     encoding: 'utf8',
     timeout: 300_000,
     maxBuffer: 64 * 1024 * 1024,
+    killSignal: 'SIGKILL',
   });
   if (result.error || (!options.allowFailure && result.status !== 0)) {
     fail(`command failed: ${command} ${args.join(' ')}`, result);

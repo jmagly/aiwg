@@ -5,14 +5,17 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../../helpers/temp-dir.js';
 import { tmpdir } from 'node:os';
+import { EventEmitter } from 'node:events';
 import { dirname, join } from 'node:path';
 import type { HandlerContext } from '../../../../src/cli/handlers/types.js';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
 const {
+  mockSpawn,
   mockSpawnSync,
   mockExistsSync,
   mockForceUpdateCheck,
@@ -34,6 +37,7 @@ const {
   mockIsInteractive,
   writeFileSyncCalls,
 } = vi.hoisted(() => ({
+  mockSpawn: vi.fn(),
   mockSpawnSync: vi.fn(),
   mockExistsSync: vi.fn(),
   mockForceUpdateCheck: vi.fn().mockResolvedValue(undefined),
@@ -86,6 +90,7 @@ vi.mock('../../../../src/cli/env.js', () => ({
 
 vi.mock('child_process', () => ({
   spawnSync: mockSpawnSync,
+  spawn: mockSpawn,
 }));
 
 vi.mock('node:fs', async importOriginal => {
@@ -768,13 +773,23 @@ describe('sessionHandler.execute — headless prompt (#3062)', () => {
     }
   });
 
-  it('opencode file-transport: writes the prompt to a private 0600 temp file under mkdtemp, and removes it after launch', async () => {
+  it.each([undefined, '/project-controlled-temp'])('opencode uses a private system temp file independently of TMPDIR=%s and cleans it after launch', async tmpOverride => {
     mockIsInteractive.mockReturnValue(false);
+    mockSpawn.mockImplementation(() => {
+      const child = new EventEmitter();
+      queueMicrotask(() => child.emit('close', 0, null));
+      return child;
+    });
     mockGetProviderConfig.mockReturnValue({ name: 'OpenCode', binary: 'opencode', guidanceMessage: null });
-    const result = await sessionHandler.execute(makeCtx(['--provider', 'opencode', '--prompt', 'hello there']));
+    const oldTmpdir = process.env.TMPDIR;
+    if (tmpOverride) process.env.TMPDIR = tmpOverride;
+    let result;
+    try { result = await sessionHandler.execute(makeCtx(['--provider', 'opencode', '--prompt', 'hello there'])); } finally {
+      if (oldTmpdir === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = oldTmpdir;
+    }
     expect(result.exitCode).toBe(0);
 
-    const launch = mockSpawnSync.mock.calls.find(([command]) => command === 'opencode');
+    const launch = mockSpawn.mock.calls.find(([command]) => command === 'opencode');
     expect(launch).toBeDefined();
     expect(launch![1]).toEqual(
       expect.arrayContaining(['run', '--format', 'json', '-f', expect.stringContaining('prompt.txt'), 'Follow the instructions in the attached file exactly.']),
@@ -788,11 +803,36 @@ describe('sessionHandler.execute — headless prompt (#3062)', () => {
     const promptWrite = writeFileSyncCalls.find((call) => call.path.includes('prompt.txt'));
     expect(promptWrite).toBeDefined();
     expect(promptWrite!.options).toMatchObject({ mode: 0o600, flag: 'wx' });
-    expect(promptWrite!.path.startsWith(tmpdir())).toBe(true);
+    expect(promptWrite!.path.startsWith(process.platform === 'win32' ? join(process.env.SystemRoot!, 'Temp') : '/tmp/')).toBe(true);
 
     // Removed after the launch — every exit path cleans it up.
     const promptPath = (launch![1] as string[]).find((arg) => arg.includes('prompt.txt'))!;
     expect(existsSync(dirname(promptPath))).toBe(false);
+  });
+
+  it('cleans the prompt on SIGTERM before forwarding termination, then removes handlers', async () => {
+    mockIsInteractive.mockReturnValue(false);
+    mockGetProviderConfig.mockReturnValue({ name: 'OpenCode', binary: 'opencode', guidanceMessage: null });
+    const listenerCount = process.listenerCount('SIGTERM');
+    const kill = vi.fn();
+    let promptPath: string;
+    mockSpawn.mockImplementation((_command, args) => {
+      promptPath = args.find((arg: string) => arg.includes('prompt.txt'));
+      const child = Object.assign(new EventEmitter(), { pid: 12345, kill });
+      queueMicrotask(() => { process.emit('SIGTERM'); child.emit('close', null, 'SIGKILL'); });
+      return child;
+    });
+    const terminate = vi.spyOn(process, 'kill').mockImplementation(() => {
+      expect(existsSync(promptPath)).toBe(false);
+      return true;
+    });
+    try {
+      const result = await sessionHandler.execute(makeCtx(['--provider', 'opencode', '--prompt', 'private text']));
+      expect(result.exitCode).toBe(1);
+      expect(kill).toHaveBeenCalledWith('SIGKILL');
+      expect(terminate).toHaveBeenCalledWith(process.pid, 'SIGTERM');
+      expect(process.listenerCount('SIGTERM')).toBe(listenerCount);
+    } finally { terminate.mockRestore(); }
   });
 
   // Go/no-go review blocker 4: `args.includes('mcp')` matched the literal

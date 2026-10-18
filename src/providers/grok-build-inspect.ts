@@ -251,6 +251,7 @@ export function runGrokInspect(
       // npm exposes Grok through a .cmd shim on Windows; Node requires a shell
       // for .cmd/.bat launchers. Native .exe installs stay shell-free.
       shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(binary),
+      killSignal: 'SIGKILL',
     });
     if (result.error && (result.error as NodeJS.ErrnoException).code === 'ENOENT') {
       return { status: 'absent', remediation: ABSENT_REMEDIATION };

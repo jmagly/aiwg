@@ -10,7 +10,7 @@ import { boundedSpawnSync } from '../../process/bounded-child-process.mjs';
 import { sha256 } from '../../security/artifact-trust.js';
 import type { ArtifactVerificationResult } from '../../security/artifact-verifier.js';
 import { artifactVerifyHandler } from './artifact-verify.js';
-import { requireFlagValue, MissingFlagValueError } from '../flag-parsing.js';
+import { requireFlagValue, MissingFlagValueError, collectFlagValues, hasPositionalOrSwitch, argsTerminatorIndex, valueTokenIndexes } from '../flag-parsing.js';
 import { exitCodeForSpawnResult } from '../child-process-result.js';
 import { askString, createPromptInterface } from '../prompt-utils.js';
 
@@ -199,9 +199,8 @@ Safety:
 Headless input steps (#3062):
   A 'type: ask' step resolves its declared 'params' the same way a 'script'
   step's env vars do (--param/--params-file/env/default); if every declared
-  param is already resolved it runs headless, otherwise it is refused,
-  naming the missing param names — this CLI has no interactive-capture
-  mechanism for 'ask' steps, with or without a terminal. A step marked
+  param is already resolved it runs headless; otherwise a terminal prompts
+  for missing values. Without a terminal it refuses and names the missing params. A step marked
   'interactive: true' runs an arbitrary script whose questions cannot be
   enumerated; without a terminal it is refused outright. Every selected
   step (including nested 'platform-route' steps) is preflighted for both
@@ -221,40 +220,19 @@ function flagValue(args: readonly string[], name: string): string | undefined {
   return requireFlagValue(args, {}, name);
 }
 
+const VALUE_FLAGS = [
+  '--manifest', '--schema', '--platform', '--distro', '--params-file', '--param', '--set',
+  '--step', '--skip', '--type', '--output', '--name', '--attestation', '--policy', '--state',
+  '--asset-type', '--namespace', '--channel',
+];
+
 function hasFlag(args: readonly string[], ...names: string[]): boolean {
-  return args.some((arg) => names.includes(arg));
+  return names.some(name => hasPositionalOrSwitch(args, name, VALUE_FLAGS));
 }
 
 function positionalManifest(args: readonly string[]): string | undefined {
-  const valueFlags = new Set([
-    '--manifest',
-    '--schema',
-    '--platform',
-    '--distro',
-    '--params-file',
-    '--param',
-    '--set',
-    '--step',
-    '--skip',
-    '--type',
-    '--output',
-    '--name',
-    '--attestation',
-    '--policy',
-    '--state',
-    '--asset-type',
-    '--namespace',
-    '--channel',
-  ]);
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    if (valueFlags.has(arg)) {
-      i += 1;
-      continue;
-    }
-    if (!arg.startsWith('-')) return arg;
-  }
-  return undefined;
+  const consumed = valueTokenIndexes(args, VALUE_FLAGS);
+  return args.slice(0, argsTerminatorIndex(args)).find((arg, index) => !consumed.has(index) && !arg.startsWith('-'));
 }
 
 function resolveSchemaPath(frameworkRoot: string, cwd: string, override?: string): string {
@@ -602,13 +580,11 @@ function renderValidationText(result: LoadedManifest): string {
 
 function parseParamValues(args: readonly string[]): Record<string, string> {
   const values: Record<string, string> = {};
-  for (let i = 0; i < args.length; i += 1) {
-    if (args[i] !== '--param' && args[i] !== '--set') continue;
-    const raw = args[i + 1] ?? '';
+  for (const raw of collectFlagValues(args, {}, '--param', '--set')) {
     const eq = raw.indexOf('=');
-    if (eq <= 0) throw new Error(`${args[i]} requires KEY=VALUE`);
+    if (eq <= 0 || !raw.slice(0, eq).trim()) throw new MissingFlagValueError('--param KEY=VALUE');
+    // An empty parameter value is supported (e.g. explicitly clearing a default).
     values[raw.slice(0, eq)] = raw.slice(eq + 1);
-    i += 1;
   }
   return values;
 }
@@ -1214,10 +1190,19 @@ export async function runSetupManifest(options: RunOptions): Promise<HandlerResu
     return { exitCode: 1, message: `setup-run: platform ${target.os}${target.distro ? `/${target.distro}` : ''}/${target.arch}/${target.shell} is not declared in the manifest` };
   }
   const params = resolveParams(manifest, options);
-  if (params.missing.length) {
+  const steps = selectedSteps(manifest, options);
+  const askSteps: SetupStep[] = [];
+  const collectAsks = (selected: SetupStep[]) => {
+    for (const step of selected) {
+      if (step.type === 'ask') askSteps.push(step);
+      if (step.type === 'platform-route') collectAsks(step.routes?.find(route => route.platform === target.os)?.steps ?? []);
+    }
+  };
+  collectAsks(steps);
+  const promptable = new Set(isInteractive() ? askSteps.flatMap(askStepParams) : []);
+  if (params.missing.some(name => !promptable.has(name))) {
     return { exitCode: 1, message: `setup-run: required params missing before execution: ${params.missing.join(', ')}` };
   }
-  const steps = selectedSteps(manifest, options);
   if (options.step && steps.length === 0) return { exitCode: 1, message: `setup-run: step '${options.step}' not found` };
   if (options.dryRun) {
     process.stdout.write(planLines(manifest, validation.manifestPath, target, params.values, steps));
@@ -1239,6 +1224,15 @@ export async function runSetupManifest(options: RunOptions): Promise<HandlerResu
       message: `setup-run: refusing before executing any step:\n${blockers.map((b) => `  - ${b}`).join('\n')}`,
     };
   }
+  // Resolve required ask inputs before any scripts can consume them.
+  for (const step of askSteps) {
+    const missing = missingAskParams(step, params.values).filter(name => params.missing.includes(name));
+    if (!missing.length) continue;
+    Object.assign(params.values, await promptForAskStep(step, missing));
+  }
+  const checked = resolveParams(manifest, { ...options, paramValues: { ...options.paramValues, ...params.values } });
+  if (checked.missing.length) return { exitCode: 1, message: `setup-run: required params missing before execution: ${checked.missing.join(', ')}` };
+  Object.assign(params.values, checked.values);
   for (const step of steps) {
     const result = await runStep(step, manifest, validation.manifestDir, params.values, target.os, options.yes);
     if (!result.ok) {

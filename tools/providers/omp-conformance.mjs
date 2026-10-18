@@ -33,7 +33,7 @@ try {
       const workspace=join(sandbox,'workspace'), agentDir=join(sandbox,'agent'), report=join(sandbox,'probe.json');
       const env={PATH:process.env.PATH ?? '/usr/bin:/bin', XDG_CONFIG_HOME:join(sandbox,'config'), XDG_CACHE_HOME:join(sandbox,'cache'), XDG_DATA_HOME:join(sandbox,'data'), XDG_STATE_HOME:join(sandbox,'state'), PI_CODING_AGENT_DIR:agentDir, AIWG_OMP_CONFORMANCE_REPORT:report, NO_COLOR:'1', TERM:'dumb'};
       for(const dir of [workspace,agentDir])await mkdir(dir,{recursive:true});
-      const version=spawnSync(binary,['--version'],{env,cwd:workspace,encoding:'utf8',timeout:15000});
+      const version=spawnSync(binary,['--version'],{env,cwd:workspace,encoding:'utf8',timeout:15000, killSignal: 'SIGKILL' });
       result.binaryVersion=version.stdout?.trim();
       result.checks.version=version.status===0 && result.binaryVersion.includes(manifest.release.version);
       if(!result.checks.version)throw Error('OMP_VERSION_MISMATCH');

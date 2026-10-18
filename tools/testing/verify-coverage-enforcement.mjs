@@ -33,6 +33,7 @@ function run(phase) {
   }) + ';\n');
   const result = spawnSync(process.execPath, [path.join(root, 'node_modules/vitest/vitest.mjs'), 'run', '--config', config], {
     cwd: root, encoding: 'utf8', timeout: 30_000, maxBuffer: 4 * 1024 * 1024,
+    killSignal: 'SIGKILL',
   });
   fs.writeFileSync(path.join(dir, `${phase}.stdout.log`), result.stdout ?? '');
   fs.writeFileSync(path.join(dir, `${phase}.stderr.log`), result.stderr ?? '');

@@ -26,7 +26,7 @@ for (const flag of [...integerFlags, ...decimalFlags]) {
     test(`CLI rejects ${flag} value ${JSON.stringify(raw)}`, t => {
       const root = createRoot(t);
       const args = [CLI_PATH, '--status', flag, ...(raw === undefined ? [] : [raw])];
-      const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', timeout: 10000 });
+      const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', timeout: 10000, killSignal: 'SIGKILL' });
       assert.equal(result.error, undefined);
       assert.equal(result.signal, null);
       assert.equal(result.status, 1, result.stdout);
@@ -52,6 +52,7 @@ for (const [raw, expected] of [['1', 1], ['1e2', 100], ['1.0', 1]]) {
     assert.deepEqual(parsed.explorationQuota, { enabled: true, k: expected });
     const result = spawnSync(process.execPath, [CLI_PATH, '--status', ...args], {
       cwd: root, encoding: 'utf8', timeout: 10000,
+      killSignal: 'SIGKILL',
     });
     assert.equal(result.error, undefined);
     assert.equal(result.signal, null);
@@ -69,6 +70,7 @@ test('CLI accepts fractional positive cost and wall-clock limits', t => {
   assert.deepEqual(parsed.budgetLimits, { spend_usd: 0.25, wall_clock_minutes: 0.25 });
   const result = spawnSync(process.execPath, [CLI_PATH, '--status', ...args], {
     cwd: root, encoding: 'utf8', timeout: 10000,
+    killSignal: 'SIGKILL',
   });
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
@@ -179,6 +181,7 @@ for (const [locale, suffix, expectedTokens] of [
         env: { ...process.env, LANG: locale, LC_ALL: locale },
         encoding: 'utf8',
         timeout: 10000,
+        killSignal: 'SIGKILL',
       });
 
       assert.equal(result.error, undefined);
@@ -211,7 +214,7 @@ for (const [name, args, diagnostic] of [
 ]) {
   test(`CLI rejects ${name} with a failure exit`, t => {
     const root = createRoot(t);
-    const result = spawnSync(process.execPath, [CLI_PATH, ...args], { cwd: root, encoding: 'utf8', timeout: 10000 });
+    const result = spawnSync(process.execPath, [CLI_PATH, ...args], { cwd: root, encoding: 'utf8', timeout: 10000, killSignal: 'SIGKILL' });
     assert.equal(result.error, undefined);
     assert.equal(result.signal, null);
     assert.match(result.stderr, diagnostic);
@@ -227,7 +230,7 @@ for (const [name, args, output] of [
 ]) {
   test(`CLI ${name} remains successful`, t => {
     const root = createRoot(t);
-    const result = spawnSync(process.execPath, [CLI_PATH, ...args], { cwd: root, encoding: 'utf8', timeout: 10000 });
+    const result = spawnSync(process.execPath, [CLI_PATH, ...args], { cwd: root, encoding: 'utf8', timeout: 10000, killSignal: 'SIGKILL' });
     assert.equal(result.error, undefined);
     assert.equal(result.signal, null);
     assert.equal(result.status, 0, result.stderr);

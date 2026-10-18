@@ -142,6 +142,7 @@ export class OutputAnalyzer {
       const result = spawnSync(binary, args, {
         encoding: 'utf8',
         timeout: 60000, // 1 minute timeout for analysis
+        killSignal: 'SIGKILL',
       });
 
       if (result.status !== 0) {

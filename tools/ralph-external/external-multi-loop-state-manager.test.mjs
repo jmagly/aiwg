@@ -435,7 +435,7 @@ describe('ExternalMultiLoopStateManager', () => {
         await assert.rejects(manager.acquireLock('corrupt-probe'), /after 2 attempts/);
         assert.equal(waits, 1);
         console.log('bounded-rejection');
-      `, testRoot], { encoding: 'utf8', timeout: 5000 });
+      `, testRoot], { encoding: 'utf8', timeout: 5000, killSignal: 'SIGKILL' });
       assert.ifError(result.error);
       assert.strictEqual(result.status, 0, result.stderr);
       assert.strictEqual(result.stdout.trim(), 'bounded-rejection');

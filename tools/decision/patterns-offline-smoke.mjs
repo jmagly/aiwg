@@ -19,6 +19,7 @@ const npmrc = path.join(tempRoot, 'npmrc');
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const sourceCacheResult = spawnSync(npmCommand, ['config', 'get', 'cache'], {
   cwd: root, env: process.env, encoding: 'utf8', timeout: 30_000,
+  killSignal: 'SIGKILL',
 });
 if (sourceCacheResult.error || sourceCacheResult.status !== 0 || !sourceCacheResult.stdout.trim()) {
   throw new Error(`could not resolve the populated npm cache\n${sourceCacheResult.stderr || ''}`);
@@ -166,6 +167,7 @@ function run(command, args, options = {}) {
     // (#3062 B/C finding 8).
     timeout: positiveTimeoutMs(options.timeout, 180_000),
     maxBuffer: 64 * 1024 * 1024,
+    killSignal: 'SIGKILL',
   });
   if (result.error || result.status !== 0) {
     fail(`command failed: ${command} ${args.join(' ')}`, result);

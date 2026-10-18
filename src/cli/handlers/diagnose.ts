@@ -241,9 +241,9 @@ function redactSecretsInObject(obj: unknown): Record<string, unknown> {
 
 function collectGitInfo(cwd: string): string | null {
   try {
-    const branch = spawnSync('git', ['-C', cwd, 'rev-parse', '--abbrev-ref', 'HEAD'], { stdio: 'pipe', timeout: 5000 });
-    const log = spawnSync('git', ['-C', cwd, 'log', '-10', '--oneline'], { stdio: 'pipe', timeout: 5000 });
-    const remote = spawnSync('git', ['-C', cwd, 'remote', '-v'], { stdio: 'pipe', timeout: 5000 });
+    const branch = spawnSync('git', ['-C', cwd, 'rev-parse', '--abbrev-ref', 'HEAD'], { stdio: 'pipe', timeout: 5000, killSignal: 'SIGKILL' });
+    const log = spawnSync('git', ['-C', cwd, 'log', '-10', '--oneline'], { stdio: 'pipe', timeout: 5000, killSignal: 'SIGKILL' });
+    const remote = spawnSync('git', ['-C', cwd, 'remote', '-v'], { stdio: 'pipe', timeout: 5000, killSignal: 'SIGKILL' });
     if (branch.status !== 0) return null;
     return [
       `branch: ${branch.stdout.toString().trim()}`,
@@ -265,6 +265,7 @@ function collectDoctorOutput(): string | null {
       stdio: 'pipe',
       timeout: 30_000,
       env: { ...process.env, AIWG_LOG_DISABLE: '1', NO_COLOR: '1' },
+      killSignal: 'SIGKILL',
     });
     const out = r.stdout?.toString() ?? '';
     const err = r.stderr?.toString() ?? '';

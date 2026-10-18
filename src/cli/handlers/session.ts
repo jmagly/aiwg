@@ -33,10 +33,9 @@
 
 import { spawnSync } from 'child_process';
 import { readFile } from 'node:fs/promises';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdtempSync, rmSync, writeFileSync, realpathSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { boundedSpawnSync } from '../../process/bounded-child-process.mjs';
+import { boundedSpawn, boundedSpawnSync } from '../../process/bounded-child-process.mjs';
 import { existsSync } from 'node:fs';
 import { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 import { ensureRuntimeHome, writeProfileConfig, launchWithProfile } from '../../mcp/adapters/codex-runtime.js';
@@ -478,8 +477,8 @@ function buildHeadlessLaunch(provider: string, binaryArgs: string[], prompt: str
 
   // File transport (opencode): the prompt never touches argv or stdin — it
   // is written to a private temp file only this process can read, passed
-  // by path. `mkdtemp()` under the system temp directory (never a custom
-  // location — #3062 second review, finding 10) already gives the
+  // by path. `mkdtemp()` under the independently verified system temp
+  // directory gives the
   // directory itself a private, unpredictable name owned by this process;
   // the file within it additionally gets an explicit `0600` mode via an
   // exclusive create (`flag: 'wx'` — fails rather than silently
@@ -492,7 +491,15 @@ function buildHeadlessLaunch(provider: string, binaryArgs: string[], prompt: str
   // `launchProvider()`, keyed off `plan.tempDir`) handles the ordinary
   // "launch ran, now clean up" path; this one exists only for the write
   // itself failing before a `plan` is ever returned to that caller.
-  const tempDir = mkdtempSync(join(tmpdir(), 'aiwg-session-prompt-'));
+  // os.tmpdir() trusts TMPDIR/TEMP/TMP, which can point into the project.
+  // Select and validate the OS location independently of those overrides.
+  const systemTemp = realpathSync(process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:/Windows', 'Temp') : '/tmp');
+  const info = statSync(systemTemp);
+  if (!info.isDirectory() || (process.platform !== 'win32'
+      && (info.uid !== 0 && info.uid !== process.getuid?.() || (info.mode & 0o022) !== 0 && (info.mode & 0o1000) === 0))) {
+    throw new Error('Unsafe system temporary directory for session prompt');
+  }
+  const tempDir = mkdtempSync(join(systemTemp, 'aiwg-session-prompt-'));
   try {
     const promptPath = join(tempDir, 'prompt.txt');
     writeFileSync(promptPath, prompt, { encoding: 'utf-8', mode: 0o600, flag: 'wx' });
@@ -518,7 +525,7 @@ function buildHeadlessLaunch(provider: string, binaryArgs: string[], prompt: str
  * and without a terminal, this refuses before spawning anything that would
  * hang.
  */
-function launchProvider(
+async function launchProvider(
   provider: string,
   mcpInjected: boolean,
   mcpConfigPath: string | null | undefined,
@@ -526,7 +533,7 @@ function launchProvider(
   settingsPath: string | null | undefined,
   prompt: string | null | undefined,
   interactive: boolean,
-): HandlerResult {
+): Promise<HandlerResult> {
   const cfg = getProviderConfig(provider);
 
   if (!isSpawnableProvider(provider)) {
@@ -603,11 +610,15 @@ ${cfg.guidanceMessage ?? `Open ${cfg.name} in your project directory to begin.`}
       // 8); stdin-transport providers get it via `input` (never inherited
       // from the parent), file-transport providers get it via a private
       // temp file path already baked into `plan.args`.
-      const result = boundedSpawnSync(cfg.binary!, plan.args, 'long', {
+      const launchOptions: import('node:child_process').SpawnSyncOptions = {
         stdio: plan.input !== undefined ? ['pipe', 'inherit', 'inherit'] : ['ignore', 'inherit', 'inherit'],
         env: process.env as Record<string, string>,
         ...(plan.input !== undefined ? { input: plan.input } : {}),
-      });
+      };
+      const result = plan.tempDir
+        ? await boundedSpawn(cfg.binary!, plan.args, 'long', { ...launchOptions, stdio: ['ignore', 'inherit', 'inherit'] },
+          () => rmSync(plan.tempDir!, { recursive: true, force: true }))
+        : boundedSpawnSync(cfg.binary!, plan.args, 'long', launchOptions);
       const { exitCode, message } = exitCodeForSpawnResult(result, cfg.binary!);
       return message ? { exitCode, message } : { exitCode };
     } finally {

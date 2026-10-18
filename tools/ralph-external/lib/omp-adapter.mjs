@@ -134,7 +134,7 @@ export class OmpAdapter extends ProviderAdapter {
     if (event.type === 'rpc_frame_error' || event.type === 'error') return { kind: 'error', reasonCode: 'provider-failed' };
     return null;
   }
-  async getVersion() { const result = spawnSync(this.getBinary(), ['--version'], { encoding: 'utf8', timeout: 5000, maxBuffer: 65536 }); return result.status === 0 ? result.stdout.trim() : null; }
+  async getVersion() { const result = spawnSync(this.getBinary(), ['--version'], { encoding: 'utf8', timeout: 5000, maxBuffer: 65536, killSignal: 'SIGKILL' }); return result.status === 0 ? result.stdout.trim() : null; }
   async isAvailable() { return Boolean(await this.getVersion()); }
   getName() { return 'omp'; }
   getBinary() { return process.env.AIWG_OMP_BIN || 'omp'; }

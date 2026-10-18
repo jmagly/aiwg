@@ -35,7 +35,7 @@ if (actualHash.toLowerCase() !== expectedHash.toLowerCase()) {
   process.stderr.write('Grok Build binary SHA-256 mismatch\n');
   process.exit(1);
 }
-const version = spawnSync(binary, ['--version'], { encoding: 'utf8', timeout: 5_000, shell: false });
+const version = spawnSync(binary, ['--version'], { encoding: 'utf8', timeout: 5_000, shell: false, killSignal: 'SIGKILL' });
 if (version.status !== 0) {
   process.stderr.write('Grok Build binary version check failed\n');
   process.exit(1);

@@ -1643,6 +1643,7 @@ export async function runDoctor() {
         // integration runner budget so doctor does not report a false outage.
         timeout: 30_000,
         shell: process.platform === 'win32',
+        killSignal: 'SIGKILL',
       });
       if (r.error || r.status !== 0) {
         const detail = r.error

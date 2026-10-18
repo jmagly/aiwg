@@ -765,7 +765,7 @@ export async function dagLivePriorSpend(artifactRoot: string): Promise<{ usd: nu
 /** The artifact root must BE the canonical AIWG artifact root, never a subdirectory of it. */
 export async function assertDagLiveArtifactRoot(sourceRoot: string, artifactRoot: string): Promise<void> {
   let route: { artifact_root?: unknown };
-  try { route = JSON.parse(execFileSync('aiwg', ['artifacts', 'path', '--json', '--check-write'], { cwd: sourceRoot, encoding: 'utf8', timeout: 30_000 })); }
+  try { route = JSON.parse(execFileSync('aiwg', ['artifacts', 'path', '--json', '--check-write'], { cwd: sourceRoot, encoding: 'utf8', timeout: 30_000, killSignal: 'SIGKILL' })); }
   catch { throw new Error('D12 requires the canonical artifact root'); }
   if (typeof route.artifact_root !== 'string' || await realpath(route.artifact_root) !== await realpath(artifactRoot)) {
     throw new Error('D12 evidence must use the canonical artifact root itself');

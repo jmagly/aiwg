@@ -34,7 +34,7 @@ async function load(module) {
   return tsImport(`../../src/decision/${module}.ts`, import.meta.url);
 }
 try {
-  if (mode === '--collect-approved') execFileSync('npm', ['run', 'build:cli'], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'], timeout: 600_000 });
+  if (mode === '--collect-approved') execFileSync('npm', ['run', 'build:cli'], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'], timeout: 600_000, killSignal: 'SIGKILL' });
   const runtime = await load('egress-live-qualification');
   const frozen = JSON.parse(await readFile(FROZEN, 'utf8'));
   const corpusFor = () => runtime.generateEgressAttackCorpus(frozen.seed, frozen.itemsPerClass);

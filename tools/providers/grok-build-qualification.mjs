@@ -19,6 +19,7 @@ function run(command, args, cwd) {
   const result = spawnSync(command, args, {
     cwd, encoding: 'utf8', timeout: 30_000, maxBuffer: 2_000_000,
     shell: process.platform === 'win32',
+    killSignal: 'SIGKILL',
   });
   if (result.error || result.status !== 0) fail(`${command} ${args.join(' ')} failed; inspect the local command output (it is intentionally not copied into the receipt)`);
   return result.stdout.trim();

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from '../../helpers/temp-dir.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import path from 'node:path';
@@ -10,13 +11,18 @@ import {
   ALLOWLIST_RELATIVE_PATH,
   buildReExportIndex,
   findInteractiveMarkers,
-  findUnboundedCalls,
+  findUnboundedCalls as rawFindUnboundedCalls,
   TEST_PROCESS_TIMEOUT_MS,
   toPosixPath,
   validateAllowList,
 } from '../../../tools/testing/check-sync-child-process-timeouts.mjs';
 
 const gateScript = fileURLToPath(new URL('../../../tools/testing/check-sync-child-process-timeouts.mjs', import.meta.url));
+
+// These original fixtures exercise timeout validation independently of kill policy.
+function findUnboundedCalls(file, source, ...rest) {
+  return rawFindUnboundedCalls(file === 'fixture.ts' ? 'tools/testing/fixture.ts' : file, source.replace(/timeout\s*:/g, "killSignal: 'SIGKILL', timeout:"), ...rest);
+}
 
 describe('synchronous child-process timeout gate', () => {
   it('flags each synchronous API when its options omit a timeout', () => {
@@ -276,7 +282,7 @@ describe('findUnboundedCalls — requires a provably positive timeout (#3062 fin
   });
 
   it('accepts a shorthand `{ timeout }` property referencing a same-file const positive literal', () => {
-    const source = 'const timeout = 30_000;\nexecSync(cmd, { encoding: "utf-8", timeout });';
+    const source = 'const timeout = 30_000;\nexecSync(cmd, { encoding: "utf-8", killSignal: "SIGKILL", timeout });';
     expect(findUnboundedCalls('fixture.ts', source)).toEqual([]);
   });
 
@@ -296,8 +302,9 @@ describe('findUnboundedCalls — requires a provably positive timeout (#3062 fin
     expect(findUnboundedCalls('fixture.ts', source)).toEqual([]);
   });
 
-  it('accepts positiveTimeoutMs destructured from any call (bound by name, not by call target)', () => {
+  it('accepts positiveTimeoutMs through the verified implementation resolver', () => {
     const source = [
+      "import { importImpl } from '../../tools/_resolve-impl.mjs';",
       "const { positiveTimeoutMs } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');",
       "execSync('git status', { timeout: positiveTimeoutMs(userSuppliedValue, 30_000) });",
     ].join('\n');
@@ -509,7 +516,7 @@ describe('CLI — product-code report vs enforce mode (#3062)', () => {
     const result = spawnSync(process.execPath, [gateScript, '--root', root, '--enforce-product'], { encoding: 'utf8', timeout: 30_000 });
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("spawnSync has no explicit timeout, does not go through the bounded helper, and is not on the allow-list");
+    expect(result.stderr).toContain("spawnSync has no positive timeout with SIGKILL, does not go through the bounded helper, and is not on the allow-list");
   });
 
   it('fails (even in report mode) on a stale allow-list entry', () => {
@@ -601,5 +608,38 @@ describe('CLI — product-code report vs enforce mode (#3062)', () => {
     } finally {
       fsMod.rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe('product timeout hardening (#3078)', () => {
+  it.each([
+    "{ timeout: 1000, 'timeout': 0, killSignal: 'SIGKILL' }",
+    "{ timeout: 1000, [key]: 0, killSignal: 'SIGKILL' }",
+    "{ timeout: 1000, ['time' + 'out']: 0, killSignal: 'SIGKILL' }",
+    "{ timeout: 1000, killSignal: 'SIGKILL', ['kill' + 'Signal']: 'SIGTERM' }",
+    "{ timeout: 1000 }",
+    "{ timeout: 1000, killSignal: 'SIGTERM' }",
+  ])('rejects an overridable or soft bound: %s', options => {
+    expect(rawFindUnboundedCalls('fixture.ts', `spawnSync('child', [], ${options});`)).toHaveLength(1);
+  });
+  it.each([
+    'const ms = 1000; function run() { const ms = options.timeout; CALL }',
+    'const ms = 1000; function run(ms) { CALL }',
+    'const ms = 0; function other() { const ms = 1000; } CALL',
+  ])('resolves the actual timeout binding: %s', source => {
+    expect(rawFindUnboundedCalls('fixture.ts', source.replace('CALL', "spawnSync('child', [], {timeout: ms, killSignal: 'SIGKILL'});"))).toHaveLength(1);
+  });
+  it.each([
+    'const { positiveTimeoutMs } = unrelated();',
+    "import { positiveTimeoutMs } from './unrelated.mjs';",
+    "const { positiveTimeoutMs } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');",
+    "import { positiveTimeoutMs } from '../../src/process/bounded-child-process.mjs'; function run(positiveTimeoutMs) { CALL }",
+  ])('rejects unverified helper bindings: %s', declaration => {
+    const call = "spawnSync('child', [], {timeout: positiveTimeoutMs(input, 1000), killSignal: 'SIGKILL'});";
+    expect(rawFindUnboundedCalls('fixture.ts', declaration.includes('CALL') ? declaration.replace('CALL', call) : declaration + call)).toHaveLength(1);
+  });
+  it('accepts a hard bound and rejects a nonfinite bound', () => {
+    expect(rawFindUnboundedCalls('fixture.ts', "spawnSync('child', [], {timeout: 1000, killSignal: 'SIGKILL'});")).toHaveLength(0);
+    expect(rawFindUnboundedCalls('fixture.ts', "spawnSync('child', [], {timeout: 1e999, killSignal: 'SIGKILL'});")).toHaveLength(1);
   });
 });

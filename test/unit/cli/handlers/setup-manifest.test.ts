@@ -1,3 +1,4 @@
+import { mkdtempSync } from '../../../helpers/temp-dir.js';
 import { writeExecutableSync } from '../../../helpers/write-executable.js';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -103,7 +104,7 @@ describe('setup manifest CLI handlers', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-setup-manifest-'));
+    tmpDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-setup-manifest-'));
     stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -247,6 +248,32 @@ describe('setup manifest CLI handlers', () => {
     // Exactly one finding per distinct cycle — not one per node visited,
     // which would otherwise silently reveal an unbounded walk.
     expect(findings.filter((finding) => finding.rule === 'recoveryCycle')).toHaveLength(1);
+  });
+
+  it('uses shared repeatable parameter parsing, preserves last override and empty values', async () => {
+    writeExecutable(path.join(tmpDir, 'scripts/install.sh'), '#!/bin/sh\nexit 0\n');
+    writeManifest(tmpDir, baseManifest());
+    const result = await setupRunHandler.execute(ctx(tmpDir, [
+      '--manifest=setup.manifest.yaml', '--platform=linux', '--dry-run',
+      '--param=INSTALL_DIR=first', '--set', 'INSTALL_DIR=last', '--param=EXTRA=',
+    ]));
+    expect(result.exitCode).toBe(0);
+    expect(stdoutSpy.mock.calls.flat().join('')).toContain('INSTALL_DIR=last');
+  });
+
+  it.each([['--param'], ['--param=INSTALL_DIR=ok', '--param'], ['--set', '--yes']].map(args => ({ args })))('rejects malformed repeatable flags before execution: $args', async ({ args }) => {
+    const result = await setupRunHandler.execute(ctx(tmpDir, args));
+    expect(result.exitCode).toBe(2);
+    expect(mockAskString).not.toHaveBeenCalled();
+  });
+
+  it('does not treat parameter values or tokens after -- as confirmation switches', async () => {
+    writeExecutable(path.join(tmpDir, 'scripts/install.sh'), '#!/bin/sh\nexit 0\n');
+    writeManifest(tmpDir, baseManifest());
+    for (const suffix of [['--param', '--yes'], ['--', '--yes', '--dry-run']]) {
+      const result = await setupRunHandler.execute(ctx(tmpDir, ['--manifest', 'setup.manifest.yaml', '--platform', 'linux', '--param=INSTALL_DIR=ok', ...suffix]));
+      expect(result.exitCode).toBe(2);
+    }
   });
 
   it('dry-runs a valid manifest without executing steps', async () => {
@@ -402,7 +429,7 @@ describe('setup manifest: ask steps and preflight ordering (#3062)', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-setup-manifest-ask-'));
+    tmpDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-setup-manifest-ask-'));
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
@@ -458,13 +485,13 @@ describe('setup manifest: ask steps and preflight ordering (#3062)', () => {
 
   // #3062 second review, finding 5b: a declared ask input missing AT a
   // terminal is prompted for, not refused.
-  it('an ask step with a missing declared param, at a terminal, is prompted for it and the answer reaches later steps', async () => {
+  it.each([{}, { required: true }, { interactive_required: true }])('prompts at a terminal for missing ask inputs (%j) and passes answers to later steps', async required => {
     mockIsInteractive.mockReturnValue(true);
     promptAnswerQueue.push('staging');
     const marker = path.join(tmpDir, 'marker');
     writeExecutable(path.join(tmpDir, 'scripts', 'install.sh'), '#!/usr/bin/env sh\nprintf "$DEPLOY_TARGET" > ' + marker + '\n');
     const result = await runManifest({
-      params: [{ name: 'DEPLOY_TARGET', type: 'string' }],
+      params: [{ name: 'DEPLOY_TARGET', type: 'string', ...required }],
       steps: [
         { id: 'confirm-target', type: 'ask', message: 'Which target?', params: ['DEPLOY_TARGET'] },
         { id: 'install', type: 'script', script: 'scripts/install.sh' },
