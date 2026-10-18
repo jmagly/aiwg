@@ -381,6 +381,12 @@ export class SessionRepository {
         ON sessions(workspace_id, source_id, lifecycle);
       CREATE INDEX IF NOT EXISTS idx_event_session_sequence
         ON session_events(session_id, sequence_no);
+      CREATE INDEX IF NOT EXISTS idx_event_source_run
+        ON session_events(source_id, import_run_id);
+      CREATE INDEX IF NOT EXISTS idx_event_import_run_session
+        ON session_events(import_run_id, session_id);
+      CREATE INDEX IF NOT EXISTS idx_session_analytics_session
+        ON session_analytics_facts(session_id);
       CREATE INDEX IF NOT EXISTS idx_session_analytics_scope
         ON session_analytics_facts(
           workspace_id, category, provider, status, occurred_at, fact_id
@@ -388,6 +394,9 @@ export class SessionRepository {
       CREATE VIRTUAL TABLE IF NOT EXISTS session_event_fts USING fts5(
         event_id UNINDEXED, searchable_text, tokenize='unicode61'
       );
+      -- FTS5 stores event_id in c0. A covering index checks identity/rowid
+      -- alignment without reading searchable text or event JSON.
+      CREATE INDEX IF NOT EXISTS idx_fts_event_id ON session_event_fts_content(c0);
     `);
     const deletionReceiptColumns = this.db.prepare(
       'PRAGMA table_info(deletion_receipts)',
@@ -417,60 +426,94 @@ export class SessionRepository {
       CREATE INDEX IF NOT EXISTS idx_mutation_audit_workspace
       ON mutation_audit(workspace_id, occurred_at, operation_id)
       ;
+      CREATE INDEX IF NOT EXISTS idx_import_runs_batch
+      ON import_runs(batch_run_id);
       CREATE INDEX IF NOT EXISTS idx_batch_import_workspace
       ON batch_import_runs(workspace_id, updated_at, batch_run_id)
     `);
+    this.initializeAnalyticsVerification();
     this.alignSessionFtsRowids();
     this.migrateSessionPolicyAndProviderIdentity();
     this.migrateEventOriginAndIntent();
     this.alignSessionAnalytics();
   }
 
+  private initializeAnalyticsVerification(): void {
+    // Invalidate verification even for writes from another connection. Ordinary
+    // repository mutations maintain analytics in the same transaction below.
+    this.db.transaction(() => {
+      this.db.prepare(
+        'INSERT OR IGNORE INTO session_catalog_meta(key, value) VALUES (?, ?)',
+      ).run('consistency:analytics:v1', 'dirty');
+      for (const table of [
+        'session_events', 'session_analytics_facts', 'sessions', 'session_sources', 'import_runs',
+      ]) {
+        for (const operation of ['INSERT', 'UPDATE', 'DELETE']) {
+          this.db.exec(`
+            CREATE TRIGGER IF NOT EXISTS consistency_${table}_${operation.toLowerCase()}
+            AFTER ${operation} ON ${table}
+            BEGIN
+              UPDATE session_catalog_meta SET value='dirty'
+              WHERE key='consistency:analytics:v1' AND value!='dirty';
+            END;
+          `);
+        }
+      }
+    })();
+  }
+
+  private analyticsVerified(): boolean {
+    return this.db.prepare(
+      'SELECT value FROM session_catalog_meta WHERE key=?',
+    ).get('consistency:analytics:v1')?.value === 'verified';
+  }
+
+  private markAnalyticsVerified(): void {
+    this.db.prepare(
+      'UPDATE session_catalog_meta SET value=? WHERE key=?',
+    ).run('verified', 'consistency:analytics:v1');
+  }
+
+  private maintainedAnalyticsTransaction<T>(mutate: () => T): () => T {
+    return this.db.transaction(() => {
+      const verified = this.analyticsVerified();
+      const result = mutate();
+      // A scoped mutation must not hide pre-existing damage elsewhere.
+      if (verified) this.markAnalyticsVerified();
+      return result;
+    });
+  }
+
   private alignSessionAnalytics(): void {
-    const eventCount = Number(this.db.prepare(
-      `SELECT COUNT(*) AS count
-       FROM session_events e
-       JOIN import_runs r ON r.import_run_id=e.import_run_id
-       JOIN sessions s ON s.session_id=e.session_id
-       WHERE r.status='committed' AND s.lifecycle!='tombstoned'`,
-    ).get()?.count ?? 0);
-    const factSessions = Number(this.db.prepare(
-      'SELECT COUNT(DISTINCT session_id) AS count FROM session_analytics_facts',
-    ).get()?.count ?? 0);
-    const sourceSessions = Number(this.db.prepare(
-      `SELECT COUNT(DISTINCT e.session_id) AS count
-       FROM session_events e
-       JOIN import_runs r ON r.import_run_id=e.import_run_id
-       JOIN sessions s ON s.session_id=e.session_id
-       WHERE r.status='committed' AND s.lifecycle!='tombstoned'`,
-    ).get()?.count ?? 0);
-    if (eventCount === 0 || factSessions === sourceSessions) return;
-    this.rebuildAnalytics();
+    this.db.transaction(() => {
+      if (this.analyticsVerified()) return;
+      this.rebuildAnalytics();
+    })();
   }
 
   private alignSessionFtsRowids(): void {
-    const eventCount = Number(this.db.prepare(
-      'SELECT COUNT(*) AS count FROM session_events',
-    ).get()?.count ?? 0);
-    const ftsCount = Number(this.db.prepare(
-      'SELECT COUNT(*) AS count FROM session_event_fts',
-    ).get()?.count ?? 0);
-    const mismatches = Number(this.db.prepare(
-      `SELECT COUNT(*) AS count
-       FROM session_event_fts f
-       LEFT JOIN session_events e ON e.rowid=f.rowid
-       WHERE e.rowid IS NULL OR e.event_id!=f.event_id`,
-    ).get()?.count ?? 0);
-    if (eventCount === ftsCount && mismatches === 0) return;
-    const rebuild = this.db.transaction(() => {
+    this.db.transaction(() => {
+      const eventCount = Number(this.db.prepare(
+        'SELECT COUNT(*) AS count FROM session_events',
+      ).get()?.count ?? 0);
+      const ftsCount = Number(this.db.prepare(
+        'SELECT COUNT(*) AS count FROM session_event_fts_content',
+      ).get()?.count ?? 0);
+      const mismatch = this.db.prepare(
+        `SELECT 1 AS mismatch
+         FROM session_event_fts_content f
+         LEFT JOIN session_events e ON e.event_id=f.c0
+         WHERE e.rowid IS NULL OR e.rowid!=f.id
+         LIMIT 1`,
+      ).get();
+      if (eventCount === ftsCount && !mismatch) return;
       this.db.exec('DELETE FROM session_event_fts');
       this.db.exec(`
         INSERT INTO session_event_fts(rowid, event_id, searchable_text)
         SELECT rowid, event_id, json_extract(data, '$.searchableText')
         FROM session_events
       `);
-    });
-    rebuild();
+    })();
   }
 
   private migrateSessionPolicyAndProviderIdentity(): void {
@@ -807,7 +850,7 @@ export class SessionRepository {
     checkpoint: ImportCheckpoint,
     publish = true,
   ): ImportReceipt {
-    const apply = this.db.transaction((): ImportReceipt => {
+    const apply = this.maintainedAnalyticsTransaction((): ImportReceipt => {
       const existing = this.db.prepare(
         'SELECT outcome, counts, checkpoint FROM import_receipts WHERE import_run_id = ?',
       ).get(batch.run.importRunId);
@@ -963,7 +1006,7 @@ export class SessionRepository {
   }
 
   commitStagedImports(sourceId: string, parserVersion: string): number {
-    const commit = this.db.transaction((): number => {
+    const commit = this.maintainedAnalyticsTransaction((): number => {
       const staged = this.db.prepare(
         `SELECT import_run_id FROM import_runs
          WHERE source_id=? AND parser_version=? AND status='staged'`,
@@ -999,7 +1042,7 @@ export class SessionRepository {
            WHERE operation_id=?`,
         ).run(updated.observedAt, JSON.stringify(updated), operationId);
       }
-      if (result.changes > 0) this.rebuildAnalytics();
+      if (result.changes > 0) this.rebuildImportAnalytics(staged);
       return result.changes;
     });
     return commit();
@@ -1008,7 +1051,7 @@ export class SessionRepository {
   commitStagedBatch(batchRunId: string, sourceIds: readonly string[]): number {
     if (sourceIds.length === 0) return 0;
     const placeholders = sourceIds.map(() => '?').join(', ');
-    const commit = this.db.transaction((): number => {
+    const commit = this.maintainedAnalyticsTransaction((): number => {
       const params = [batchRunId, ...sourceIds];
       const staged = this.db.prepare(
         `SELECT import_run_id FROM import_runs
@@ -1045,29 +1088,41 @@ export class SessionRepository {
            WHERE operation_id=?`,
         ).run(updated.observedAt, JSON.stringify(updated), operationId);
       }
-      if (result.changes > 0) this.rebuildAnalytics();
+      if (result.changes > 0) this.rebuildImportAnalytics(staged);
       return result.changes;
     });
     return commit();
+  }
+
+  private rebuildImportAnalytics(importRunIds: readonly string[]): void {
+    const affected = this.db.prepare(
+      `SELECT DISTINCT s.workspace_id, s.session_id
+       FROM session_events e
+       JOIN sessions s ON s.session_id=e.session_id
+       WHERE e.import_run_id=?`,
+    );
+    const sessions = new Map<string, string>();
+    for (const importRunId of importRunIds) {
+      for (const row of affected.all(importRunId)) {
+        sessions.set(String(row.session_id), String(row.workspace_id));
+      }
+    }
+    for (const [sessionId, workspaceId] of sessions) {
+      this.rebuildAnalytics(workspaceId, sessionId);
+    }
   }
 
   sourceImportTotals(
     sourceId: string,
     batchRunId: string,
   ): { sessions: number; events: number } {
-    const events = Number(this.db.prepare(
-      `SELECT COUNT(*) AS count
+    const totals = this.db.prepare(
+      `SELECT COUNT(*) AS events, COUNT(DISTINCT e.session_id) AS sessions
        FROM session_events e
        JOIN import_runs r ON r.import_run_id=e.import_run_id
        WHERE e.source_id=? AND r.batch_run_id=?`,
-    ).get(sourceId, batchRunId)?.count ?? 0);
-    const sessions = Number(this.db.prepare(
-      `SELECT COUNT(DISTINCT e.session_id) AS count
-       FROM session_events e
-       JOIN import_runs r ON r.import_run_id=e.import_run_id
-       WHERE e.source_id=? AND r.batch_run_id=?`,
-    ).get(sourceId, batchRunId)?.count ?? 0);
-    return { sessions, events };
+    ).get(sourceId, batchRunId);
+    return { sessions: Number(totals?.sessions ?? 0), events: Number(totals?.events ?? 0) };
   }
 
   getSession(id: string, workspaceId?: string): Session | null {
@@ -1486,6 +1541,14 @@ export class SessionRepository {
   }
 
   rebuildAnalytics(workspaceId?: string, sessionId?: string): number {
+    return this.maintainedAnalyticsTransaction(() => {
+      const inserted = this.rebuildAnalyticsFacts(workspaceId, sessionId);
+      if (!workspaceId && !sessionId) this.markAnalyticsVerified();
+      return inserted;
+    })();
+  }
+
+  private rebuildAnalyticsFacts(workspaceId?: string, sessionId?: string): number {
     const where = [
       `r.status='committed'`,
       `s.lifecycle!='tombstoned'`,
@@ -2053,7 +2116,7 @@ export class SessionRepository {
   }
 
   tombstoneSession(sessionId: string, workspaceId?: string): boolean {
-    const tombstone = this.db.transaction(() => {
+    const tombstone = this.maintainedAnalyticsTransaction(() => {
       const row = this.db.prepare(
         `SELECT data, workspace_id FROM sessions
          WHERE session_id=? ${workspaceId ? 'AND workspace_id=?' : ''}`,
@@ -2088,7 +2151,7 @@ export class SessionRepository {
   }
 
   restoreSession(sessionId: string, workspaceId?: string): boolean {
-    const restore = this.db.transaction(() => {
+    const restore = this.maintainedAnalyticsTransaction(() => {
       const row = this.db.prepare(
         `SELECT data, workspace_id FROM sessions
          WHERE session_id=? ${workspaceId ? 'AND workspace_id=?' : ''}`,
@@ -2260,7 +2323,7 @@ export class SessionRepository {
         'purge mutation lacks an authorized workspace',
       );
     }
-    const apply = this.db.transaction((): DeletionReceipt => {
+    const apply = this.maintainedAnalyticsTransaction((): DeletionReceipt => {
       for (const decision of validatedDecisions) {
         this.db.prepare(
           `INSERT INTO promotion_dependency_decisions
@@ -2399,7 +2462,7 @@ export class SessionRepository {
   }
 
   reindex(workspaceId?: string): void {
-    const rebuild = this.db.transaction(() => {
+    const rebuild = this.maintainedAnalyticsTransaction(() => {
       let indexed = 0;
       if (!workspaceId) {
         this.db.exec('REINDEX');

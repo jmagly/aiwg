@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { requireFeaturePackage } from '../../../src/features/runtime.js';
 import {
   appendFile, readFile, rename, rm, stat, utimes, writeFile,
@@ -76,6 +76,252 @@ const records: ProviderRecord[] = [
 ];
 
 describeWithSqlite('transactional session repository and importer', () => {
+  it.each(['source', 'batch'] as const)(
+    'rebuilds only affected session analytics when committing staged %s imports',
+    async (commitScope) => {
+      const root = await mkdtemp(join(tmpdir(), 'aiwg-scoped-analytics-'));
+      const databasePath = join(root, 'catalog.sqlite');
+      const repository = new SessionRepository(databasePath);
+      const Database = requireFeaturePackage('better-sqlite3') as new (path: string) => any;
+      const raw = new Database(databasePath);
+      try {
+        const importer = new IncrementalSessionImporter(repository);
+        const workspaceId = 'workspace-scoped-analytics';
+        const request = {
+          source,
+          selectedSource: {
+            provider: 'generic' as const,
+            locator: '<fixture>',
+            locatorClass: 'synthetic-fixture',
+            sourceId: source.sourceId,
+            authorizedScope: { workspaceId, allowedRoots: ['/fixture'] },
+          },
+          workspaceId,
+          policyVersion: '1.0.0',
+        };
+        const initialRecords: ProviderRecord[] = ['changed', 'untouched'].map((name) => ({
+          nativeSessionId: name,
+          nativeEventId: `${name}-call`,
+          sequence: 0,
+          kind: 'tool-call',
+          role: 'assistant',
+          toolName: 'exec',
+          toolCallId: `${name}-call`,
+          occurredAt: '2026-07-26T00:00:00.000Z',
+          text: 'synthetic tool call',
+          rawReference: { locatorClass: 'fixture', sequence: 0 },
+        }));
+        await importer.import({ ...request, adapter: adapter(initialRecords), publish: true });
+        const changedSessionId = stableSessionId('generic', source.sourceId, 'changed');
+        const untouchedSessionId = stableSessionId('generic', source.sourceId, 'untouched');
+        const readFacts = () => raw.prepare(
+          'SELECT data FROM session_analytics_facts ORDER BY fact_id',
+        ).all();
+        const verified = () => raw.prepare(
+          "SELECT value FROM session_catalog_meta WHERE key='consistency:analytics:v1'",
+        ).get()?.value;
+        const initialFacts = readFacts();
+        expect(verified()).toBe('verified');
+        const changedFacts = repository.listAnalyticsFacts({ workspaceId, sessionId: changedSessionId });
+        const untouchedFacts = repository.listAnalyticsFacts({ workspaceId, sessionId: untouchedSessionId });
+        expect(changedFacts.length).toBeGreaterThan(0);
+        expect(untouchedFacts.length).toBeGreaterThan(0);
+        raw.exec(`
+          CREATE TABLE analytics_deletions (session_id TEXT NOT NULL);
+          CREATE TRIGGER track_analytics_deletions AFTER DELETE ON session_analytics_facts
+          BEGIN
+            INSERT INTO analytics_deletions(session_id) VALUES (OLD.session_id);
+          END;
+        `);
+
+        const batchRunId = 'analytics-update';
+        await importer.import({
+          ...request,
+          adapter: adapter([
+            ...initialRecords,
+            {
+              ...initialRecords[0], nativeEventId: 'changed-result', sequence: 1,
+              kind: 'tool-result', role: 'tool',
+              occurredAt: '2026-07-26T00:00:01.000Z',
+            },
+            {
+              ...initialRecords[0], nativeEventId: 'changed-retry', sequence: 2,
+              toolCallId: 'changed-retry', occurredAt: '2026-07-26T00:00:02.000Z',
+            },
+          ]),
+          publish: false,
+          batchRunId,
+          limits: { batchSize: 1 },
+        });
+        expect(readFacts()).toEqual(initialFacts);
+        expect(verified()).toBe('verified');
+        const commit = () => commitScope === 'source'
+          ? repository.commitStagedImports(source.sourceId, '1.0.0')
+          : repository.commitStagedBatch(batchRunId, [source.sourceId]);
+        expect(commit()).toBe(2);
+        // Both new runs affect the same session: rebuild it once, preserving its peer.
+        expect(raw.prepare('SELECT session_id FROM analytics_deletions').all()).toEqual(
+          changedFacts.map(() => ({ session_id: changedSessionId })),
+        );
+        expect(repository.listAnalyticsFacts({ workspaceId, sessionId: untouchedSessionId }))
+          .toEqual(untouchedFacts);
+        const committedFacts = readFacts();
+        expect(committedFacts.length).toBeGreaterThan(initialFacts.length);
+        expect(repository.listAnalyticsFacts({
+          workspaceId, sessionId: changedSessionId, categories: ['tool-result'],
+        })).toMatchObject([{ latencyMs: 1_000 }]);
+        expect(commit()).toBe(0);
+        expect(readFacts()).toEqual(committedFacts);
+        expect(verified()).toBe('verified');
+        expect(() => raw.transaction(() => {
+          raw.exec("UPDATE session_analytics_facts SET data='{}'");
+          expect(verified()).toBe('dirty');
+          throw new Error('rollback');
+        })()).toThrow('rollback');
+        expect(verified()).toBe('verified');
+        expect(readFacts()).toEqual(committedFacts);
+        raw.prepare('UPDATE session_analytics_facts SET data=? WHERE session_id=?')
+          .run('{}', untouchedSessionId);
+        repository.rebuildAnalytics(workspaceId, changedSessionId);
+        expect(verified()).toBe('dirty');
+
+        repository.reindex();
+        expect(verified()).toBe('verified');
+        expect(readFacts()).toEqual(committedFacts);
+      } finally {
+        raw.close();
+        repository.close();
+      }
+    },
+  );
+
+  it('uses indexed lookups for source totals, staged sessions and scoped analytics', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-import-query-plans-'));
+    const databasePath = join(root, 'catalog.sqlite');
+    const repository = new SessionRepository(databasePath);
+    const Database = requireFeaturePackage('better-sqlite3') as new (path: string) => any;
+    const raw = new Database(databasePath);
+    try {
+      const plan = (sql: string, ...params: string[]) => raw.prepare(
+        `EXPLAIN QUERY PLAN ${sql}`,
+      ).all(...params).map((row: { detail: string }) => row.detail).join('\n');
+      const totalsPlan = plan(
+        `SELECT COUNT(*) AS events, COUNT(DISTINCT e.session_id) AS sessions
+         FROM session_events e JOIN import_runs r ON r.import_run_id=e.import_run_id
+         WHERE e.source_id=? AND r.batch_run_id=?`,
+        source.sourceId, 'batch-1',
+      );
+      expect(totalsPlan).toContain('SEARCH e USING INDEX idx_event_source_run');
+      expect(totalsPlan).not.toContain('SCAN e');
+      expect(plan('SELECT import_run_id FROM import_runs WHERE batch_run_id=?', 'batch-1'))
+        .toContain('SEARCH import_runs USING INDEX idx_import_runs_batch');
+      expect(plan(
+        `SELECT DISTINCT s.workspace_id, s.session_id
+         FROM session_events e JOIN sessions s ON s.session_id=e.session_id
+         WHERE e.import_run_id=?`, 'run-1',
+      )).toContain('SEARCH e USING COVERING INDEX idx_event_import_run_session');
+      expect(plan('DELETE FROM session_analytics_facts WHERE session_id=?', 'session-1'))
+        .toContain('SEARCH session_analytics_facts USING COVERING INDEX idx_session_analytics_session');
+
+      const importer = new IncrementalSessionImporter(repository);
+      const request = {
+        source,
+        selectedSource: {
+          provider: 'generic' as const, locator: '<fixture>', locatorClass: 'synthetic-fixture',
+          sourceId: source.sourceId,
+          authorizedScope: { workspaceId: 'workspace-totals', allowedRoots: ['/fixture'] },
+        },
+        workspaceId: 'workspace-totals', policyVersion: '1.0.0',
+      };
+      await importer.import({ ...request, adapter: adapter(records), batchRunId: 'batch-1',
+        publish: false, limits: { batchSize: 1 } });
+      expect(repository.sourceImportTotals(source.sourceId, 'batch-1')).toEqual({ sessions: 1, events: 2 });
+      expect(repository.sourceImportTotals('another-source', 'batch-1')).toEqual({ sessions: 0, events: 0 });
+      expect(repository.sourceImportTotals(source.sourceId, 'another-batch')).toEqual({ sessions: 0, events: 0 });
+      repository.commitStagedBatch('batch-1', [source.sourceId]);
+      expect(repository.sourceImportTotals(source.sourceId, 'batch-1')).toEqual({ sessions: 1, events: 2 });
+    } finally {
+      raw.close();
+      repository.close();
+    }
+  });
+
+  it.each([
+    'fts-delete', 'fts-rowid', 'fts-identity', 'analytics-delete', 'analytics-update',
+    'event-update', 'run-status', 'session-lifecycle',
+  ] as const)('repairs %s on open and uses indexed checks on subsequent clean opens', async (damage) => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-consistency-markers-'));
+    const databasePath = join(root, 'catalog.sqlite');
+    let repository = new SessionRepository(databasePath);
+    const Database = requireFeaturePackage('better-sqlite3') as new (path: string) => any;
+    const raw = new Database(databasePath);
+    let prepareSpy: ReturnType<typeof vi.spyOn> | undefined;
+    try {
+      await new IncrementalSessionImporter(repository).import({
+        source,
+        selectedSource: {
+          provider: 'generic', locator: '<fixture>', locatorClass: 'synthetic-fixture',
+          sourceId: source.sourceId,
+          authorizedScope: { workspaceId: 'workspace-repair', allowedRoots: ['/fixture'] },
+        },
+        adapter: adapter(records), workspaceId: 'workspace-repair', policyVersion: '1.0.0',
+      });
+      const facts = () => raw.prepare('SELECT * FROM session_analytics_facts ORDER BY fact_id').all();
+      const fts = () => raw.prepare('SELECT rowid, event_id FROM session_event_fts ORDER BY rowid').all();
+      const expectedFacts = facts();
+      const expectedFts = fts();
+      expect(expectedFacts.length).toBeGreaterThan(1);
+      const markers = () => raw.prepare(
+        "SELECT value FROM session_catalog_meta WHERE key LIKE 'consistency:%' ORDER BY key",
+      ).all();
+      expect(markers()).toEqual([{ value: 'verified' }]);
+      repository.close();
+      if (damage === 'fts-delete') raw.exec('DELETE FROM session_event_fts WHERE rowid=1');
+      if (damage === 'fts-rowid') raw.exec('UPDATE session_event_fts SET rowid=1001 WHERE rowid=1');
+      if (damage === 'fts-identity') raw.exec("UPDATE session_event_fts SET event_id='wrong' WHERE rowid=1");
+      if (damage === 'analytics-delete') {
+        raw.prepare('DELETE FROM session_analytics_facts WHERE fact_id=?').run(expectedFacts[0].fact_id);
+      }
+      if (damage === 'analytics-update') {
+        raw.exec("UPDATE session_analytics_facts SET data='{}'");
+      }
+      if (damage === 'event-update') {
+        raw.exec(`UPDATE session_events SET data=json_set(data, '$.kind', 'tool-call', '$.toolName', 'exec')`);
+      }
+      if (damage === 'run-status') raw.exec("UPDATE import_runs SET status='staged'");
+      if (damage === 'session-lifecycle') raw.exec("UPDATE sessions SET lifecycle='tombstoned'");
+      if (!damage.startsWith('fts-')) expect(markers()).toEqual([{ value: 'dirty' }]);
+      repository = new SessionRepository(databasePath);
+      expect(fts()).toEqual(expectedFts);
+      if (damage === 'run-status' || damage === 'session-lifecycle') {
+        expect(facts()).toEqual([]);
+      } else if (damage === 'event-update') {
+        expect(facts()).not.toEqual(expectedFacts);
+        const repaired = facts();
+        repository.reindex();
+        expect(facts()).toEqual(repaired);
+      } else {
+        expect(facts()).toEqual(expectedFacts);
+      }
+      expect(markers()).toEqual([{ value: 'verified' }]);
+      repository.close();
+      prepareSpy = vi.spyOn(Database.prototype, 'prepare');
+      repository = new SessionRepository(databasePath);
+      const queries = prepareSpy.mock.calls.map(([sql]) => String(sql));
+      expect(queries.some((sql) => /COUNT\(DISTINCT|DELETE FROM session_analytics_facts/.test(sql)))
+        .toBe(false);
+      const ftsCheck = queries.find((sql) => sql.includes('SELECT 1 AS mismatch'));
+      const plan = raw.prepare(`EXPLAIN QUERY PLAN ${ftsCheck}`).all()
+        .map((row: { detail: string }) => row.detail).join('\n');
+      expect(plan).toContain('SCAN f USING COVERING INDEX idx_fts_event_id');
+      expect(plan).toContain('SEARCH e USING COVERING INDEX sqlite_autoindex_session_events_1');
+    } finally {
+      prepareSpy?.mockRestore();
+      raw.close();
+      repository.close();
+    }
+  });
+
   it('maintains content-free analytics and forensic indices across lifecycle mutations', async () => {
     const repository = new SessionRepository();
     const importer = new IncrementalSessionImporter(repository);
@@ -1818,6 +2064,7 @@ describeWithSqlite('transactional session repository and importer', () => {
       expect(raw.prepare(
         'SELECT key, value FROM session_catalog_meta ORDER BY key',
       ).all()).toEqual([
+        { key: 'consistency:analytics:v1', value: 'verified' },
         { key: 'event-origin-intent:v1', value: 'applied' },
         { key: 'policy-provider-identity:v2', value: 'applied' },
       ]);

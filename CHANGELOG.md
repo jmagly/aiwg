@@ -9,6 +9,10 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Fixed
 
+- Rebuild session analytics only for sessions affected by committed incremental
+  imports, index source/batch totals and aggregate them in one query, and skip
+  verified analytics scans and use covering indexes for FTS checks on open,
+  while repairing desynchronized analytics and FTS tables (#306).
 - Extract citation-sidecar graph edges from the resolution column of registered
   bibliographic and relationship tables in Incoming/Outgoing sections. Skip explicitly
   topical/thematic, related, conditional, or non-citation declarations and ambiguous
