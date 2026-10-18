@@ -163,7 +163,7 @@ export async function qualifyWorkerInstallation(instance, options) {
 }
 
 export async function prepareInstalledWorkerInvocation(instance, invocation, qualification) {
-  const { prepareWorkerInvocation } = await import('../serve/worker-invocation.js');
+  const { prepareWorkerInvocation, WorkerPathScopeError } = await import('../serve/worker-invocation.js');
   const { requiredWorkerControls, WorkerPolicyError, isOperatorQualifiedWorkerAdapter } = await import('./provider-policy.js');
   if (!isOperatorQualifiedWorkerAdapter(qualification.adapter)) qualification = { ...qualification, requiredControls: requiredWorkerControls({
     ...qualification, effort: invocation.selected.effort.value }) };
@@ -192,7 +192,7 @@ export async function prepareInstalledWorkerInvocation(instance, invocation, qua
     for (const key of ['briefPath', 'stdoutPath', 'stderrPath', 'finalPath']) {
       const target = await canonicalFuturePath(result[key]);
       const roots = key === 'briefPath' ? scope.inputRoots : scope.outputRoots;
-      if (!roots.some(root => inside(root, target))) throw new WorkerPolicyError('OG_CONFIG_REFERENCE', 'Worker input/output path is outside the qualified scope');
+      if (!roots.some(root => inside(root, target))) throw new WorkerPathScopeError(key, result[key], roots);
     }
     if (result.transport === 'shell') {
       const driverInput = isOperatorQualifiedWorkerAdapter(qualification.adapter)
