@@ -56,16 +56,16 @@ describe('Citation Sidecar Parser', () => {
       expect(extractRefsFromTable(tables, ['Inducted REF', 'REF'])).toEqual(['REF-004']);
     });
 
-    it('right-aligns a named final column when historical rows add placeholders (#1939)', () => {
+    it('skips malformed rows whose resolution column is ambiguous (#3186)', () => {
       const table = `
 | # | Title | Authors | Year | Inducted REF |
 |---|---|---|---|---|
 | 1 | Shifted | — | — | — | — | REF-006 |
 `;
-      expect(extractRefsFromTable(table, ['Inducted REF', 'REF'])).toEqual(['REF-006']);
+      expect(extractRefsFromTable(table, ['Inducted REF', 'REF'])).toEqual([]);
     });
 
-    it('handles decorated aliases and legacy headerless continuation rows (#1939)', () => {
+    it('skips shifted cells and headerless continuation rows (#3186)', () => {
       const tables = `
 | Work | In-corpus REF / issue | Status |
 |---|---|---|
@@ -73,10 +73,7 @@ describe('Citation Sidecar Parser', () => {
 
 | — | Continued work | REF-008 |
 `;
-      expect(extractRefsFromTable(tables, ['In-corpus REF', 'REF'])).toEqual([
-        'REF-007',
-        'REF-008',
-      ]);
+      expect(extractRefsFromTable(tables, ['In-corpus REF', 'REF'])).toEqual([]);
     });
 
     it('should handle case-insensitive column matching', () => {
@@ -197,10 +194,10 @@ type: citations
 
 ### Corpus Cross-References (Internal)
 
-| REF | Title | Relationship |
-|-----|-------|-------------|
-| REF-015 | Self-Refine | Cites RAG as retrieval augmentation baseline |
-| REF-042 | Chain of Thought | References retrieval augmentation |
+| # | Title | REF | Notes |
+|---|---|---|---|
+| 1 | Self-Refine | REF-015 | Cites RAG as retrieval augmentation baseline |
+| 2 | Chain of Thought | REF-042 | References retrieval augmentation |
 `;
 
       const result = parseCitationSidecar(content);
@@ -256,9 +253,9 @@ title: "Foundational Paper"
 
 ## Incoming: Papers That Cite This Work
 
-| REF | Title | Relationship |
-|-----|-------|-------------|
-| REF-010 | Follow-up | Extends the model |
+| Title | REF |
+|---|---|
+| Follow-up | REF-010 |
 `;
       const result = parseCitationSidecar(content);
       expect(result).not.toBeNull();
@@ -314,7 +311,7 @@ ref: REF-001
       });
     });
 
-    it('matches snapshot semantics for malformed rows with IDs before the named column (#1939)', () => {
+    it('extracts only the named resolution cell, excluding title IDs (#3186)', () => {
       const content = `---
 ref: REF-001
 ---
@@ -325,7 +322,7 @@ ref: REF-001
 |---|---|---|
 | 1 | REDIRECT → REF-002 | REF-003 |
 `;
-      expect(parseCitationSidecar(content)?.cites).toEqual(['REF-003', 'REF-002']);
+      expect(parseCitationSidecar(content)?.cites).toEqual(['REF-003']);
     });
 
     it('should parse a profile-edges sidecar with PROF-* source (#105)', () => {
@@ -399,6 +396,146 @@ No citations found.
       expect(result).not.toBeNull();
       expect(result!.cites).toEqual([]);
       expect(result!.citedBy).toEqual([]);
+    });
+  });
+
+  describe('semantic citation filtering (#3186)', () => {
+    const fixture = (name: string) => fs.readFileSync(
+      path.join(import.meta.dirname, '../../fixtures/citation-sidecar-edges', `${name}.md`), 'utf-8',
+    );
+
+    it.each([['topical', 'REF-1771'], ['relationship-notes', 'REF-834'], ['conditional', 'REF-828']])(
+      'does not assert citation edges for the %s fixture', (name, ref) => {
+        expect(parseCitationSidecar(fixture(name))).toEqual({ ref, cites: [], citedBy: [] });
+      },
+    );
+
+    it('preserves real citations beside non-citation rows and tables', () => {
+      expect(parseCitationSidecar(fixture('mixed'))).toEqual({
+        ref: 'REF-001', cites: ['REF-002', 'REF-003', 'REF-004'], citedBy: ['REF-005'],
+      });
+    });
+
+    it.each(['Outgoing', 'Incoming'])('requires a bibliographic schema in %s tables', direction => {
+      const content = `---
+ref: REF-001
+---
+## ${direction}
+
+| Topic | REF |
+|---|---|
+| Notes | REF-900 |
+
+| Title | Notes |
+|---|---|
+| Discussion | REF-901 |
+
+| Title | Inducted REF (topical) |
+|---|---|
+| Discussion | REF-902 |
+
+| Title | Inducted REF |
+| bogus | separator |
+| Discussion | REF-903 |
+
+| # | Title | Inducted REF | Notes |
+|---|---|---|---|
+| 1 | Actual citation | REF-002 | See REF-904 |
+`;
+      const result = parseCitationSidecar(content)!;
+      expect(direction === 'Outgoing' ? result.cites : result.citedBy).toEqual(['REF-002']);
+    });
+
+    it('keeps well-formed decorated historical aliases', () => {
+      const content = `---
+ref: REF-001
+---
+## Outgoing
+
+| Title / source | **In-corpus REF / issue** |
+|---|---|
+| Candidate | [\`REF-007\`](../REF-007.md) / #249 |
+`;
+      expect(parseCitationSidecar(content)?.cites).toEqual(['REF-007']);
+    });
+
+    it('honors a non-citation qualifier declared in the table header', () => {
+      const content = `---
+ref: REF-001
+---
+## Incoming
+
+| Title | REF | Relationship notes, not verified citation rows |
+|---|---|---|
+| Candidate | REF-828 | Similar method |
+`;
+      expect(parseCitationSidecar(content)?.citedBy).toEqual([]);
+    });
+
+    it('inherits section declarations through nested headings and resets sibling scopes', () => {
+      const content = `---
+ref: REF-001
+---
+## Outgoing
+
+### Non-bibliographic connections
+
+Topical relationships only.
+
+#### Candidates
+
+| Title | Inducted REF |
+|---|---|
+| Candidate | REF-828 |
+
+### Verified bibliography
+
+| Title | Inducted REF |
+|---|---|
+| Citation | REF-002 |
+`;
+      expect(parseCitationSidecar(content)?.cites).toEqual(['REF-002']);
+    });
+
+    it('does not promote trailing-column REFs or override the registered resolution column', () => {
+      const table = `
+| Title | Inducted REF | REF | Notes |
+|---|---|---|---|
+| Verified | REF-002 | REF-900 | REF-901 |
+| Unresolved | — | REF-902 | REF-903 |
+`;
+      expect(extractRefsFromTable(table, ['Inducted REF', 'REF'])).toEqual(['REF-002']);
+    });
+
+    it.each(['topical', 'thematic', 'related', 'conditional', 'non-citation', 'not a citation', 'not a verified citation', 'unverified', 'if REF-828 in suite'])(
+      'skips an explicit %s row qualifier without dropping adjacent citations', qualifier => {
+        const content = `---
+ref: REF-001
+---
+## Outgoing
+
+| # | Title | Inducted REF | Notes |
+|---|---|---|---|
+| 1 | Candidate | REF-828 | ${qualifier} |
+| 2 | Verified | REF-002 | printed-entry |
+`;
+        expect(parseCitationSidecar(content)?.cites).toEqual(['REF-002']);
+      },
+    );
+
+    it('honors a trailing note disavowing a table', () => {
+      const content = `---
+ref: REF-001
+---
+## Incoming
+
+| Title | REF |
+|---|---|
+| Candidate | REF-828 |
+
+Note: these are not citation edges.
+`;
+      expect(parseCitationSidecar(content)?.citedBy).toEqual([]);
     });
   });
 
@@ -620,14 +757,25 @@ type: citations
 |---|-------|---------|------|---------|--------------|
 | 7 | Dense passage retrieval | Karpukhin et al. | 2020 | arXiv:2004.04906 | REF-029 |
 | 26 | Neural Turing machines | Graves et al. | 2014 | arXiv:1410.5401 | REF-009 |
+| 27 | Topical neighbor | Someone | 2025 | — | — (topical → REF-015) |
+| 28 | Conditional neighbor | Someone | 2025 | — | if REF-015 in suite |
+
+| Topic | Notes |
+|---|---|
+| Similar work | REF-015 |
 
 ## Incoming: Papers That Cite This Work
 
 ### Corpus Cross-References (Internal)
 
-| REF | Title | Relationship |
-|-----|-------|-------------|
-| REF-015 | Self-Refine | Cites RAG as retrieval augmentation baseline |
+| # | Title | REF | Notes |
+|---|---|---|---|
+| 1 | Self-Refine | REF-015 | Printed reference |
+| 2 | DPR | REF-029 | methodological cousin |
+
+| REF | Relationship |
+|---|---|
+| REF-009 | related work |
 `);
 
       fs.writeFileSync(path.join(citationsDir, 'REF-029-citations.md'), `---
@@ -644,9 +792,9 @@ No inducted references.
 
 ### Corpus Cross-References (Internal)
 
-| REF | Title | Relationship |
-|-----|-------|-------------|
-| REF-008 | RAG | Uses DPR for retrieval |
+| # | Title | REF | Notes |
+|---|---|---|---|
+| 1 | RAG | REF-008 | Uses DPR for retrieval |
 `);
 
       fs.writeFileSync(path.join(citationsDir, 'REF-009-citations.md'), `---
@@ -663,10 +811,10 @@ No inducted references.
 
 ### Corpus Cross-References (Internal)
 
-| REF | Title | Relationship |
-|-----|-------|-------------|
-| REF-008 | RAG | References memory mechanisms |
-| REF-029 | DPR | Incoming-only declaration |
+| # | Title | REF | Notes |
+|---|---|---|---|
+| 1 | RAG | REF-008 | References memory mechanisms |
+| 2 | DPR | REF-029 | Printed reference |
 `);
 
       fs.writeFileSync(path.join(citationsDir, 'REF-015-citations.md'), `---
