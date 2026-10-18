@@ -18,7 +18,8 @@ function cleanRepo(): string {
 
 describe('Grok Build governed dispatch', () => {
   it('dispatches the documented ACP fixture and releases its slot after rejecting legacy frames', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'aiwg-grok-stream-dispatch-'));
+    // Keep dispatch slots inside the fixture so removing it cleans all state.
+    const root = cleanRepo();
     const wire = readFileSync(new URL('../../fixtures/providers/grok-build/health/stream.ndjson', import.meta.url), 'utf8');
     try {
       const dispatcher = await GrokBuildDispatcher.forProject(root);
