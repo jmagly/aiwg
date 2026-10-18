@@ -154,10 +154,10 @@ const NoticeEntrySchema = GrokbotEntryBaseSchema.extend({
 
 const GrokbotReplicaValueSchema = z.object({
   entries: z.array(GrokbotEntryBaseSchema),
-  epochHint: z.string().optional(),
-  acceptedSequenceHint: z.number().int().nonnegative().optional(),
-  persistedAt: z.number().int().nonnegative().optional(),
-  precedingTimestampMs: z.number().int().nonnegative().optional(),
+  epochHint: z.string().nullish(),
+  acceptedSequenceHint: z.number().int().nonnegative().nullish(),
+  persistedAt: z.number().int().nonnegative().nullish(),
+  precedingTimestampMs: z.number().int().nonnegative().nullish(),
 }).passthrough();
 
 const GrokbotReplicaDocumentSchema = z.object({
@@ -328,7 +328,7 @@ export class GrokbotSessionAdapter implements SessionSourceAdapter {
     }, this.limits);
     const parsed = GrokbotReplicaDocumentSchema.safeParse(value);
     if (!parsed.success) {
-      throw new SessionContractError('MALFORMED_SOURCE', 'Grok Bot transcript replica is malformed');
+      throw malformedGrokbotSource('transcript replica', parsed.error);
     }
     assertSupportedSchemaMajor(`${parsed.data.schemaVersion}.0.0`, GROKBOT_NATIVE_SCHEMA_MAJOR);
     const { entries, precedingTimestampMs } = parsed.data.value;
@@ -369,10 +369,24 @@ function mapGrokbotEntry(entry: GrokbotRawEntry): MappedGrokbotRecord | null {
   }
 }
 
-function mapSendMessage(raw: GrokbotRawEntry, occurredAt: string): MappedGrokbotRecord {
+function malformedGrokbotSource(subject: string, error: z.ZodError): SessionContractError {
+  // Include only schema paths and codes, never Zod messages or input values.
+  const issues = error.issues.map((issue) => `${issue.path.join('.') || '<root>'} (${issue.code})`);
+  return new SessionContractError('MALFORMED_SOURCE', `Grok Bot ${subject} is malformed at ${issues.join(', ')}`);
+}
+
+function mapSendMessage(raw: GrokbotRawEntry, occurredAt: string): MappedGrokbotRecord | null {
+  const messageType = z.object({ type: z.string().min(1) }).safeParse(raw.message);
+  if (messageType.success && !SendMessageEntrySchema.shape.message.options.some(
+    (option) => option.shape.type.value === messageType.data.type,
+  )) {
+    // Like unknown entry kinds, unknown message types are skipped without inventing content.
+    // Known types still go through their full schema validation below.
+    return null;
+  }
   const parsed = SendMessageEntrySchema.safeParse(raw);
   if (!parsed.success) {
-    throw new SessionContractError('MALFORMED_SOURCE', 'Grok Bot send-message entry is malformed');
+    throw malformedGrokbotSource('send-message entry', parsed.error);
   }
   const entry = parsed.data;
   const { message } = entry;
@@ -421,7 +435,7 @@ function mapSendMessage(raw: GrokbotRawEntry, occurredAt: string): MappedGrokbot
 function mapMessage(raw: GrokbotRawEntry, occurredAt: string): MappedGrokbotRecord {
   const parsed = MessageEntrySchema.safeParse(raw);
   if (!parsed.success) {
-    throw new SessionContractError('MALFORMED_SOURCE', 'Grok Bot message entry is malformed');
+    throw malformedGrokbotSource('message entry', parsed.error);
   }
   const entry = parsed.data;
   return {
@@ -443,7 +457,7 @@ function mapMessage(raw: GrokbotRawEntry, occurredAt: string): MappedGrokbotReco
 function mapUserAttachment(raw: GrokbotRawEntry, occurredAt: string): MappedGrokbotRecord {
   const parsed = UserAttachmentEntrySchema.safeParse(raw);
   if (!parsed.success) {
-    throw new SessionContractError('MALFORMED_SOURCE', 'Grok Bot user-attachment entry is malformed');
+    throw malformedGrokbotSource('user-attachment entry', parsed.error);
   }
   const entry = parsed.data;
   return {
@@ -469,7 +483,7 @@ function mapUserAttachment(raw: GrokbotRawEntry, occurredAt: string): MappedGrok
 function mapEvent(raw: GrokbotRawEntry, occurredAt: string): MappedGrokbotRecord {
   const parsed = EventEntrySchema.safeParse(raw);
   if (!parsed.success) {
-    throw new SessionContractError('MALFORMED_SOURCE', 'Grok Bot event entry is malformed');
+    throw malformedGrokbotSource('event entry', parsed.error);
   }
   const entry = parsed.data;
   const label = stringOrEmpty(entry.event.kind) || stringOrEmpty(entry.event.type) || 'event';
@@ -491,7 +505,7 @@ function mapEvent(raw: GrokbotRawEntry, occurredAt: string): MappedGrokbotRecord
 function mapNotice(raw: GrokbotRawEntry, occurredAt: string): MappedGrokbotRecord {
   const parsed = NoticeEntrySchema.safeParse(raw);
   if (!parsed.success) {
-    throw new SessionContractError('MALFORMED_SOURCE', 'Grok Bot notice entry is malformed');
+    throw malformedGrokbotSource('notice entry', parsed.error);
   }
   const entry = parsed.data;
   return {

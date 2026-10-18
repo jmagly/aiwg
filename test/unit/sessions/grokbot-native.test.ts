@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   GROKBOT_NATIVE_REPLICA_LOCATOR_CLASS,
   GrokbotSessionAdapter,
@@ -144,6 +144,106 @@ describe('Grok Bot native transcript-replica locator', () => {
   it('fails closed on a structurally malformed known-kind entry', async () => {
     await expect(collect(adapter.stream(replica('malformed'))))
       .rejects.toMatchObject({ code: 'MALFORMED_SOURCE' });
+  });
+
+  describe('replica schema compatibility', () => {
+    let root: string;
+    const entry = { kind: 'send-message', id: 'evt-1', timestampMs: 1_790_000_000_000, seq: 1 };
+    const textMessage = { ...entry, message: { type: 'text', content: 'Fixture message' } };
+
+    beforeEach(() => {
+      root = mkdtempSync(join(tmpdir(), 'aiwg-grokbot-schema-'));
+    });
+
+    afterEach(() => {
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    function sourceFor(value: Record<string, unknown>): SelectedSource {
+      const path = join(root, grokbotTranscriptReplicaFilename(ids.account, ids.conversations.complete));
+      writeFileSync(path, JSON.stringify({ schemaVersion: 1, value: { entries: [textMessage], ...value } }));
+      return { ...selectedFor(path), authorizedScope: { workspaceId: 'workspace-fixture', allowedRoots: [root] } };
+    }
+
+    it.each([
+      [1, 'complete'],
+      [41, 'provisional'],
+    ])('accepts null hints in a replica starting at seq %s', async (seq, consistency) => {
+      const source = sourceFor({
+        entries: [{ ...textMessage, seq }],
+        epochHint: null,
+        acceptedSequenceHint: null,
+        persistedAt: null,
+        precedingTimestampMs: null,
+      });
+      await expect(adapter.inspect(source)).resolves.toMatchObject({ consistency });
+      await expect(collect(adapter.stream(source))).resolves.toMatchObject([
+        { sequence: seq, text: 'Fixture message' },
+      ]);
+    });
+
+    it('skips unknown send-message types and continues streaming known messages', async () => {
+      const source = sourceFor({
+        entries: [
+          textMessage,
+          { ...entry, id: 'evt-2', seq: 2, message: { type: 'auto-review-approval', content: 'Do not export' } },
+          { ...textMessage, id: 'evt-3', seq: 3 },
+        ],
+      });
+      await expect(adapter.inspect(source)).resolves.toMatchObject({ consistency: 'complete' });
+      const records = await collect(adapter.stream(source));
+      expect(records.map((record) => record.nativeEventId)).toEqual(['evt-1', 'evt-3']);
+      expect(records.map((record) => record.text)).toEqual(['Fixture message', 'Fixture message']);
+      const resumed = await collect(adapter.stream(source, { value: 'native:1' }));
+      expect(resumed.map((record) => record.sourceCursor)).toEqual(['native:3']);
+    });
+
+    it.each([
+      ['text', { content: { privateContent: 'Do not export' } }, 'content'],
+      ['widget', { widget: { prompt: null } }, 'widget.prompt'],
+      ['email-draft', { draft: { body: 42 } }, 'draft.body'],
+      ['slack-draft', { draft: { body: 42 } }, 'draft.body'],
+      ['attachment', { url: 42, file_name: 'fixture.txt' }, 'url'],
+      ['user-form', { formRequest: { title: null } }, 'formRequest.title'],
+      ['secret-request', { secretRequest: { label: null } }, 'secretRequest.label'],
+    ])('still rejects malformed known message type %s with a field-only diagnostic', async (type, fields, path) => {
+      const source = sourceFor({ entries: [{ ...entry, message: { type, ...fields } }] });
+      await expect(collect(adapter.stream(source))).rejects.toMatchObject({
+        code: 'MALFORMED_SOURCE',
+        message: `Grok Bot send-message entry is malformed at message.${path} (invalid_type)`,
+      });
+    });
+
+    it.each([undefined, null, {}, { type: null }, { type: 42 }, { type: '' }])(
+      'rejects a missing or invalid message discriminator (%j)', async (message) => {
+        const source = sourceFor({ entries: [{ ...entry, message }] });
+        await expect(collect(adapter.stream(source))).rejects.toMatchObject({ code: 'MALFORMED_SOURCE' });
+      },
+    );
+
+    it.each([
+      ['epochHint', { privateContent: 'Do not export' }],
+      ['acceptedSequenceHint', 'Do not export'],
+      ['persistedAt', 'Do not export'],
+      ['precedingTimestampMs', 'Do not export'],
+    ])('reports the path and code for an invalid %s without its value', async (field, value) => {
+      const source = sourceFor({ [field]: value });
+      const error = {
+        code: 'MALFORMED_SOURCE',
+        message: `Grok Bot transcript replica is malformed at value.${field} (invalid_type)`,
+      };
+      await expect(adapter.inspect(source)).rejects.toMatchObject(error);
+      await expect(collect(adapter.stream(source))).rejects.toMatchObject(error);
+    });
+
+    it('reports multiple issue paths, including fields within replica entries', async () => {
+      const source = sourceFor({ entries: [{ ...textMessage, timestampMs: null }], persistedAt: -1 });
+      await expect(adapter.inspect(source)).rejects.toMatchObject({
+        code: 'MALFORMED_SOURCE',
+        message: 'Grok Bot transcript replica is malformed at value.entries.0.timestampMs (invalid_type), '
+          + 'value.persistedAt (too_small)',
+      });
+    });
   });
 
   it('rejects any locatorClass other than manual-export or the native replica class', async () => {
