@@ -1,5 +1,5 @@
 {"type":"thought","data":"synthetic reasoning"}
-{"type":"tool_call","toolCallId":"call_1","status":"in_progress","toolName":"read_file","content":[],"locations":[]}
+{"type":"tool_call","toolCallId":"call_1","title":"Read","kind":"read","status":"in_progress","toolName":"read_file","rawInput":{"path":"src/example.ts"},"content":[],"locations":[]}
 {"type":"tool_call_update","toolCallId":"call_1","status":"completed","rawOutput":{"lines":42},"content":[],"locations":[]}
 {"type":"text","data":"synthetic answer"}
 {"type":"usage","messageId":"resp_1","stopReason":"end_turn","usage":{"input_tokens":10,"output_tokens":5}}

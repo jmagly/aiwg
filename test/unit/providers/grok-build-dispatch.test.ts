@@ -17,6 +17,24 @@ function cleanRepo(): string {
 }
 
 describe('Grok Build governed dispatch', () => {
+  it('dispatches the documented ACP fixture and releases its slot after rejecting legacy frames', async () => {
+    // Keep dispatch slots inside the fixture so removing it cleans all state.
+    const root = cleanRepo();
+    const wire = readFileSync(new URL('../../fixtures/providers/grok-build/health/stream.ndjson', import.meta.url), 'utf8');
+    try {
+      const dispatcher = await GrokBuildDispatcher.forProject(root);
+      const dispatch = (stream: string) => dispatcher.dispatch({
+        command: process.execPath, prefixArgs: ['-e', `process.stdout.write(${JSON.stringify(stream)})`, '--'],
+        projectRoot: root, prompt: 'synthetic', authorize: () => true, budgetRemaining: () => true,
+      });
+      await expect(dispatch('{"type":"result","result":"legacy"}\n' + wire)).rejects.toThrow(/Invalid/);
+      expect(dispatcher.activeDispatches).toBe(0);
+      const { result } = await dispatch(wire);
+      expect(result.events.map(event => event.type)).toEqual(['thought', 'tool_call', 'tool_call_update', 'text', 'usage', 'plan', 'available_commands', 'end']);
+      expect(dispatcher.activeDispatches).toBe(0);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
   it('creates an isolated detached worktree and records recoverable ownership', async () => {
     const root = cleanRepo();
     let worktree = '';

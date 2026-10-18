@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { runGrokHeadless } from '../../../src/providers/grok-build-headless.js';
 
 function fake(script: string) {
@@ -7,6 +8,12 @@ function fake(script: string) {
 }
 
 describe('Grok Build bounded headless transport', () => {
+  it('replays every documented non-error ACP event from the shared health fixture', async () => {
+    const wire = readFileSync(new URL('../../fixtures/providers/grok-build/health/stream.ndjson', import.meta.url), 'utf8');
+    const result = await runGrokHeadless({ ...fake(`process.stdout.write(${JSON.stringify(wire)})`), prompt: 'hello' });
+    expect(result.events).toEqual(wire.trim().split('\n').map(line => JSON.parse(line)));
+  });
+
   it('uses fixed safe argv and parses plain termination', async () => {
     const result = await runGrokHeadless({
       ...fake('process.stdout.write(process.argv.join(" "))'), prompt: 'hello', format: 'plain',
@@ -27,6 +34,15 @@ describe('Grok Build bounded headless transport', () => {
     const result = await runGrokHeadless({ ...fake('console.log(JSON.stringify({text:"ok",stopReason:"end_turn"}))'), prompt: 'hello', format: 'json' });
     expect(result.events[0]).toMatchObject({ text: 'ok', stopReason: 'end_turn' });
     await expect(runGrokHeadless({ ...fake('console.log(JSON.stringify({type:"error",error:"failed"}))'), prompt: 'hello', format: 'json' }))
+      .rejects.toThrow(/JSON error/);
+  });
+
+  it.each([
+    { type: 'result', stopReason: 'end_turn', result: 'legacy' },
+    { stopReason: 'end_turn' },
+    { text: {}, stopReason: 'end_turn' },
+  ])('rejects a non-result JSON object %j', async event => {
+    await expect(runGrokHeadless({ ...fake(`console.log(${JSON.stringify(JSON.stringify(event))})`), prompt: 'hello', format: 'json' }))
       .rejects.toThrow(/JSON error/);
   });
 
@@ -88,6 +104,19 @@ describe('Grok Build bounded headless transport', () => {
 
   it.each(['null', '[]', '"text"', '{"type":"result"}', '{"type":"end","stopReason":"end_turn"}\n{"type":"text","data":"late"}'])('rejects malformed or legacy stream %s', async wire => {
     await expect(runGrokHeadless({ ...fake(`console.log(${JSON.stringify(wire)})`), prompt: 'hello' })).rejects.toThrow(/Invalid|terminal/);
+  });
+
+  it.each([
+    { type: 'message', role: 'assistant', content: 'legacy' },
+    { type: 'result', result: 'legacy' },
+    { text: 'single JSON result', stopReason: 'end_turn' },
+    { type: 'unknown' },
+    { type: null },
+    { type: { toString: 'text' } },
+  ])('a clean end cannot repair a foreign stream frame %j', async event => {
+    const wire = [event, { type: 'end', stopReason: 'end_turn' }].map(frame => JSON.stringify(frame)).join('\n');
+    await expect(runGrokHeadless({ ...fake(`console.log(${JSON.stringify(wire)})`), prompt: 'hello' }))
+      .rejects.toThrow(/Invalid/);
   });
 
   it('rejects unterminated trailing output even when the provider remains attached', async () => {
