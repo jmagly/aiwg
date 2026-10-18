@@ -18,7 +18,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { importImpl } from '../_resolve-impl.mjs';
-import { markdownLinks, reportPluginLinks } from './plugin-links.mjs';
+import { rewritePublishedMarkdown, reportPluginLinks } from './plugin-links.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -283,6 +283,11 @@ Core AIWG utilities for context regeneration and workspace management.
     name: 'codex-sdlc',
     displayName: 'AIWG SDLC for Codex',
     pluginType: 'codex',
+    scriptWrappers: [{
+      file: 'skills/address-issues-threat-assess/scripts/assess.mjs',
+      source: 'agentic/code/frameworks/sdlc-complete/skills/address-issues-threat-assess/scripts/assess.mjs',
+      exports: ['assessIssue', 'assessText', 'runCli'],
+    }],
     description: 'Complete SDLC framework packaged as a Codex plugin with skills, agents, and marketplace entry.',
     sources: {
       skills: 'agentic/code/frameworks/sdlc-complete/skills'
@@ -857,46 +862,13 @@ function pruneUndeclaredPackagedSkills(pluginDir, declaredSkills) {
 }
 
 
-// Published cross-component docs are available independently of plugin installs.
-// These aliases also repair historical framework-relative paths in source skills.
-const PUBLISHED_LINKS = {
-  '../../../addons/aiwg-utils/rules/skill-discovery.md': 'agentic/code/addons/aiwg-utils/rules/skill-discovery.md',
-  '../../../addons/aiwg-utils/rules/sdlc-right-sizing.md': 'agentic/code/addons/aiwg-utils/rules/sdlc-right-sizing.md',
-  '../../../addons/dataset-intelligence/docs/migration-guide.md': 'agentic/code/addons/dataset-intelligence/docs/migration-guide.md',
-  '../../../dataset-intelligence/docs/migration-guide.md': 'agentic/code/addons/dataset-intelligence/docs/migration-guide.md',
-  '../dataset-intelligence/migration-guide.md': 'agentic/code/addons/dataset-intelligence/docs/migration-guide.md',
-  '../../getting-started/install-connect-verify.md': 'docs/getting-started/install-connect-verify.md',
-  '../../docs/daemon-guide.md': 'docs/daemon-guide.md',
-  '../../../../../../docs/verification-contracts.md': 'docs/verification-contracts.md',
-  '.claude/rules/dev-idempotent-builds.md': 'agentic/code/extensions/dev/rules/dev-idempotent-builds.md',
-  '../../sdlc-complete/rules/token-security.md': 'agentic/code/frameworks/sdlc-complete/rules/token-security.md',
-};
-
 export function rewritePublishedLinks(pluginDir, payloadRoot = pluginDir) {
   for (const entry of fs.readdirSync(pluginDir, { withFileTypes: true })) {
     const target = path.join(pluginDir, entry.name);
     if (entry.isDirectory()) rewritePublishedLinks(target, payloadRoot);
     else if (entry.isFile() && entry.name.endsWith('.md')) {
       const body = fs.readFileSync(target, 'utf8');
-      let rewritten = body;
-      for (const link of markdownLinks(body).reverse()) {
-        let published = PUBLISHED_LINKS[link.target];
-        // Root docs appear at different depths in skills and copied docs.
-        // Never let a path into this checkout satisfy an installed plugin.
-        if (!published && /^(?:\.\.\/)+docs\//.test(link.target)) {
-          const document = link.target.replace(/^(?:\.\.\/)+/, '');
-          const local = path.resolve(path.dirname(target), link.target.split(/[?#]/)[0]);
-          const outside = path.relative(payloadRoot, local).startsWith(`..${path.sep}`);
-          if ((outside || !fs.existsSync(local))
-              && fs.existsSync(path.join(ROOT_DIR, document.split(/[?#]/)[0]))) published = document;
-        }
-        if (!published) continue;
-        if (!fs.existsSync(path.join(ROOT_DIR, published.split(/[?#]/)[0]))) {
-          throw new Error(`Published link source not found: ${published}`);
-        }
-        const url = `https://github.com/jmagly/aiwg/blob/main/${published}`;
-        rewritten = rewritten.slice(0, link.start) + url + rewritten.slice(link.start + link.target.length);
-      }
+      const rewritten = rewritePublishedMarkdown(body, target, payloadRoot, ROOT_DIR);
       if (rewritten !== body) fs.writeFileSync(target, rewritten);
     }
   }
@@ -1059,6 +1031,34 @@ function writeClaudeMarketplaceManifest(options) {
   const outputPath = options.marketplacePath || existingPath;
   fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   console.log(`\n✓ Wrote Claude marketplace: ${outputPath} (${manifest.plugins.length} plugins)`);
+}
+
+// Runtime delegates are generated after copying sources, so regeneration cannot
+// replace canonical routing with a checkout-relative implementation copy.
+export function writeCanonicalScriptWrappers(pluginDir, wrappers, repoRoot = ROOT_DIR) {
+  for (const wrapper of wrappers || []) {
+    const target = path.join(pluginDir, wrapper.file);
+    const relativeSource = path.relative(path.dirname(target), path.join(repoRoot, wrapper.source)).split(path.sep).join('/');
+    const source = JSON.stringify(wrapper.source);
+    fs.writeFileSync(target, `#!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const candidates = [
+  new URL(${JSON.stringify(relativeSource)}, import.meta.url),
+  pathToFileURL(path.resolve(process.cwd(), ${source})),
+  pathToFileURL(path.resolve(process.cwd(), 'node_modules/aiwg', ${source})),
+];
+const source = candidates.find(candidate => fs.existsSync(candidate));
+if (!source) throw new Error('Unable to locate the canonical AIWG threat-assessment wrapper');
+const canonical = await import(source.href);
+
+${wrapper.exports.map(name => `export const ${name} = canonical.${name};`).join('\n')}
+
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) runCli();
+`);
+  }
 }
 
 // Package a Codex-format plugin (generates .codex-plugin/plugin.json + marketplace.json)
@@ -1363,7 +1363,10 @@ async function main() {
             fs.cpSync(path.join(ROOT_DIR, extra.from), destination, { recursive: true });
           }
         }
-        if (provider !== 'claude') rewritePublishedLinks(pluginDir);
+        if (provider !== 'claude') {
+          writeCanonicalScriptWrappers(pluginDir, config.scriptWrappers);
+          rewritePublishedLinks(pluginDir);
+        }
         reportPluginLinks(pluginDir);
       }
     }

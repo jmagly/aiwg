@@ -14,6 +14,8 @@ import {
 } from '../../../agentic/code/frameworks/sdlc-complete/skills/address-issues/scripts/cycle-comment.mjs';
 import { effectId, parseEffectMarkers } from '../../../src/effects/index.js';
 
+import { rewritePublishedMarkdown } from '../../../tools/plugin/plugin-links.mjs';
+
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 const SOURCE = 'agentic/code/frameworks/sdlc-complete/skills';
@@ -94,7 +96,11 @@ describe('generated plugin copies', () => {
   for (const file of ['address-issues/SKILL.md', 'address-issues/scripts/cycle-comment.mjs', 'issue-close/SKILL.md']) {
     for (const copy of COPIES) {
       it(`${copy}/${file} matches the canonical source`, () => {
-        expect(read(`${copy}/${file}`)).toBe(read(`${SOURCE}/${file}`));
+        const canonical = read(`${SOURCE}/${file}`);
+        const expected = file.endsWith('.md')
+          ? rewritePublishedMarkdown(canonical, resolve(root, copy, file), resolve(root, copy, '..'))
+          : canonical;
+        expect(read(`${copy}/${file}`)).toBe(expected);
       });
     }
   }

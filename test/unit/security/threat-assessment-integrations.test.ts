@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { rewritePublishedMarkdown } from '../../../tools/plugin/plugin-links.mjs';
 import { describe, expect, it } from 'vitest';
 import { assessIssue as assessPluginIssue } from '../../../agentic/code/plugins/sdlc/skills/address-issues-threat-assess/scripts/assess.mjs';
+import { assessIssue as assessCanonicalIssue } from '../../../agentic/code/frameworks/sdlc-complete/skills/address-issues-threat-assess/scripts/assess.mjs';
+import { assessIssue as assessCodexIssue } from '../../../agentic/code/plugins/codex-sdlc/skills/address-issues-threat-assess/scripts/assess.mjs';
 
 function read(path: string): string {
   return readFileSync(path, 'utf8');
@@ -11,6 +15,7 @@ describe('shared threat-assessment workflow integrations', () => {
     const canonical = read('agentic/code/frameworks/sdlc-complete/skills/address-issues-threat-assess/scripts/assess.mjs');
     const sdlcMirror = read('agentic/code/plugins/sdlc/skills/address-issues-threat-assess/scripts/assess.mjs');
     const codexMirror = read('agentic/code/plugins/codex-sdlc/skills/address-issues-threat-assess/scripts/assess.mjs');
+    expect(assessCodexIssue).toBe(assessCanonicalIssue);
     expect(canonical).toContain('tools/security/threat-assessment.mjs');
     expect(sdlcMirror).toContain("from '../../../tools/security/threat-assessment.mjs'");
     expect(read('agentic/code/plugins/sdlc/tools/security/threat-assessment.mjs')).toContain('export function assessThreat');
@@ -103,9 +108,13 @@ describe('shared threat-assessment workflow integrations', () => {
       ],
     ];
     for (const group of groups) {
-      const contents = group.map(read);
-      expect(contents[1]).toBe(contents[0]);
-      expect(contents[2]).toBe(contents[0]);
+      const canonical = read(group[0]);
+      for (const mirror of group.slice(1)) {
+        const pluginRoot = mirror.split('/skills/')[0];
+        expect(read(mirror)).toBe(rewritePublishedMarkdown(
+          canonical, path.resolve(mirror), path.resolve(pluginRoot),
+        ));
+      }
     }
   });
 });

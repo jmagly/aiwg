@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { rewritePublishedMarkdown } from '../../../tools/plugin/plugin-links.mjs';
+
 const root = process.cwd();
 const addonRoot = path.join(root, 'agentic/code/addons/testing-quality');
 const pluginRoot = path.join(root, 'agentic/code/plugins/testing-quality');
@@ -113,7 +115,10 @@ describe('testing-quality mutation native-extension preflight', () => {
       'skills/mutation-test/SKILL.md',
     ]) {
       expect(normalizePlugin(await readFile(path.join(pluginRoot, relative), 'utf8'))).toBe(
-        normalizePlugin(await readFile(path.join(addonRoot, relative), 'utf8')),
+        normalizePlugin(rewritePublishedMarkdown(
+          await readFile(path.join(addonRoot, relative), 'utf8'),
+          path.join(pluginRoot, relative), pluginRoot, root,
+        )),
       );
     }
     for (const relative of ['overview.md', 'quickstart.md']) {

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { rewritePublishedLinks } from '../../../tools/plugin/package-plugins.mjs';
+import { rewritePublishedLinks, writeCanonicalScriptWrappers } from '../../../tools/plugin/package-plugins.mjs';
 import { checkPluginLinks, markdownLinks, reportPluginLinks } from '../../../tools/plugin/plugin-links.mjs';
 
 const temporary = [];
@@ -90,6 +90,37 @@ describe('plugin payload links (#3204)', () => {
     expect(result).toContain(`[sample](${shared})`);
     rewritePublishedLinks(root);
     expect(fs.readFileSync(skill, 'utf8')).toBe(result);
+  });
+
+  it('preserves executable paths in shell fences, inline code, and script files', () => {
+    const { root, skill } = fixture();
+    const shared = '../../../addons/aiwg-utils/rules/skill-discovery.md';
+    const executable = `\`\`\`bash\ncat ${shared}\n[example](${shared})\n\`\`\`\n\`[inline](${shared})\``;
+    const script = path.join(root, 'skills/sample/assess.mjs');
+    const source = `const example = '[script](${shared})';\n`;
+    fs.writeFileSync(skill, `${executable}\n[prose](${shared})\n`);
+    fs.writeFileSync(script, source);
+    rewritePublishedLinks(root);
+    expect(fs.readFileSync(skill, 'utf8')).toBe(`${executable}\n[prose](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/aiwg-utils/rules/skill-discovery.md)\n`);
+    expect(fs.readFileSync(script, 'utf8')).toBe(source);
+  });
+
+  it('regenerates canonical assess routing and executes the wrapper from another directory', () => {
+    const { root } = fixture();
+    const source = 'agentic/code/frameworks/sdlc-complete/skills/address-issues-threat-assess/scripts/assess.mjs';
+    const file = 'skills/sample/assess.mjs';
+    const wrappers = [{ file, source, exports: ['assessIssue', 'assessText', 'runCli'] }];
+    fs.writeFileSync(path.join(root, file), 'stale copied implementation');
+    writeCanonicalScriptWrappers(root, wrappers);
+    const first = fs.readFileSync(path.join(root, file), 'utf8');
+    expect(first).toContain('frameworks/sdlc-complete/skills/address-issues-threat-assess/scripts/assess.mjs');
+    writeCanonicalScriptWrappers(root, wrappers);
+    expect(fs.readFileSync(path.join(root, file), 'utf8')).toBe(first);
+    const result = spawnSync(process.execPath, [path.join(root, file), '--text', 'Fix the parser.', '--format', 'json'], {
+      cwd: root, encoding: 'utf8', timeout: 10_000,
+    });
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout).verdict).toBe('safe');
   });
 
   it('keeps the all-plugin unresolved inventory limited to reviewed cases', () => {

@@ -73,3 +73,42 @@ export function reportPluginLinks(pluginDir, log = console.warn) {
   log(`${path.basename(pluginDir)}: ${offenders.length} unresolved relative Markdown link(s)`);
   return offenders;
 }
+
+// Published cross-component docs are available independently of plugin installs.
+// These aliases also repair historical framework-relative paths in source skills.
+const PUBLISHED_LINKS = {
+  '../../../addons/aiwg-utils/rules/skill-discovery.md': 'agentic/code/addons/aiwg-utils/rules/skill-discovery.md',
+  '../../../addons/aiwg-utils/rules/sdlc-right-sizing.md': 'agentic/code/addons/aiwg-utils/rules/sdlc-right-sizing.md',
+  '../../../addons/dataset-intelligence/docs/migration-guide.md': 'agentic/code/addons/dataset-intelligence/docs/migration-guide.md',
+  '../../../dataset-intelligence/docs/migration-guide.md': 'agentic/code/addons/dataset-intelligence/docs/migration-guide.md',
+  '../dataset-intelligence/migration-guide.md': 'agentic/code/addons/dataset-intelligence/docs/migration-guide.md',
+  '../../getting-started/install-connect-verify.md': 'docs/getting-started/install-connect-verify.md',
+  '../../docs/daemon-guide.md': 'docs/daemon-guide.md',
+  '../../../../../../docs/verification-contracts.md': 'docs/verification-contracts.md',
+  '.claude/rules/dev-idempotent-builds.md': 'agentic/code/extensions/dev/rules/dev-idempotent-builds.md',
+  '../../sdlc-complete/rules/token-security.md': 'agentic/code/frameworks/sdlc-complete/rules/token-security.md',
+};
+
+/** Apply the packaging rewrite to prose only; scripts and code examples retain their paths. */
+export function rewritePublishedMarkdown(body, file, payloadRoot, repoRoot = path.resolve(import.meta.dirname, '../..')) {
+  let rewritten = body;
+  for (const link of markdownLinks(body).reverse()) {
+    let published = PUBLISHED_LINKS[link.target];
+    // Root docs appear at different depths in skills and copied docs.
+    // Never let a path into this checkout satisfy an installed plugin.
+    if (!published && /^(?:\.\.\/)+docs\//.test(link.target)) {
+      const document = link.target.replace(/^(?:\.\.\/)+/, '');
+      const local = path.resolve(path.dirname(file), link.target.split(/[?#]/)[0]);
+      const outside = path.relative(payloadRoot, local).startsWith(`..${path.sep}`);
+      if ((outside || !fs.existsSync(local))
+          && fs.existsSync(path.join(repoRoot, document.split(/[?#]/)[0]))) published = document;
+    }
+    if (!published) continue;
+    if (!fs.existsSync(path.join(repoRoot, published.split(/[?#]/)[0]))) {
+      throw new Error(`Published link source not found: ${published}`);
+    }
+    const url = `https://github.com/jmagly/aiwg/blob/main/${published}`;
+    rewritten = rewritten.slice(0, link.start) + url + rewritten.slice(link.start + link.target.length);
+  }
+  return rewritten;
+}
