@@ -318,6 +318,24 @@ The decision-engine addon ships
 (`aiwg:decision-engine/integrity-ceiling`, one `upstream-ceiling` floor gate)
 so discovery has a real entry; it validates and registers.
 
+## Human checkpoints and GatePack
+
+HITL, WorkflowGate and OpsGate remain separate contracts from GatePack (#2841).
+They describe human checkpoints and workflow coordination; GatePack evaluates
+evidence and emits advisory outcomes. A flow may pair a human checkpoint with
+a GateBinding, but a GateReport does not grant human approval or authorize an action.
+
+The HITL authority is
+`agentic/code/frameworks/sdlc-complete/schemas/flows/hitl-gate.yaml` (JSON Schema
+draft 2020-12 serialized as YAML). Reference templates, SDLC gate instances and
+cost-model notes live beside it in `hitl-gate-examples.yaml`. IDs accept uppercase
+hyphen-separated segments, preserving both `GATE-C2I` and the existing
+`GATE-AP-RECOVERY`, `GATE-AP-FALSE-POSITIVE` and `GATE-AP-DESTRUCTIVE` identities.
+`npm run lint:schemas` strictly compiles the authority and validates the shipped
+instances and partial templates; the persistence regression suite also checks
+runtime IDs and packaged copies. These checks validate configuration, not runtime
+approval enforcement.
+
 ## Pending (not in this phase)
 
 Live Jev calls, real held-out data, human reviewers and production rollout:

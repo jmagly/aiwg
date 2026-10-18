@@ -31,9 +31,17 @@ import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import { createHash } from 'crypto';
+import { validateHitlGates } from '../validation/hitl-gates.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..', '..');
+try {
+  const counts = validateHitlGates(projectRoot);
+  console.log(`[lint-schemas] HITL schema, templates, ${counts.phaseGates} SDLC gates and ${counts.addonGates} agent-persistence gates validated`);
+} catch (error) {
+  console.error(`[lint-schemas] HITL validation failed: ${error.message}`);
+  process.exit(1);
+}
 const args = process.argv.slice(2);
 const reportArgument = args.indexOf('--report-json');
 const reportPath = reportArgument >= 0 ? args[reportArgument + 1] : null;

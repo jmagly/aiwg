@@ -19,10 +19,15 @@ required:
   - behavior
 
 properties:
+  $schema:
+    type: string
+    const: "https://aiwg.io/schemas/hitl-gate/v1"
+
   id:
     type: string
-    pattern: "^GATE-[A-Z0-9]{3,10}$"
-    description: "Unique gate identifier"
+    pattern: "^GATE-[A-Z0-9]+(?:-[A-Z0-9]+)*$"
+    maxLength: 100
+    description: "Unique gate identifier; uppercase segments, e.g. GATE-C2I or GATE-AP-RECOVERY"
 
   name:
     type: string
@@ -41,6 +46,7 @@ properties:
       - review        # Human reviews but auto-proceeds with timeout
       - escalation    # Triggered by specific conditions
       - checkpoint    # Informational, always proceeds
+      - decision      # Human selects a disposition (e.g. false-positive override)
     description: "Type of human interaction required"
 
   trigger:
@@ -59,6 +65,8 @@ properties:
           - time_threshold     # After elapsed time
           - iteration_count    # After N iterations
           - error_pattern      # On specific error patterns
+      description:
+        type: string
       phase_from:
         type: string
         description: "Source phase (for phase_transition)"
@@ -177,6 +185,17 @@ properties:
             - revision_count
             - token_cost_saved
             - error_prevented
+            - destructive_action_rate
+            - approval_rate
+            - rejection_rate
+            - alternative_found_rate
+            - regret_rate
+            - escalation_resolution_time
+            - recovery_success_rate
+            - false_positive_rate
+            - detection_precision
+            - whitelist_growth_rate
+            - user_satisfaction
       baseline_comparison:
         type: string
         enum: [autonomous, previous_gate, manual]
@@ -195,162 +214,11 @@ properties:
       require_signature:
         type: boolean
         default: false
+      additional_fields:
+        type: array
+        items:
+          type: string
       retention_days:
         type: integer
         default: 90
 
-# Predefined gate templates
-gate_templates:
-  phase_approval:
-    description: "Standard phase transition approval"
-    gate_type: approval
-    behavior:
-      mode: CONDITIONAL
-      timeout: 86400  # 24 hours
-      timeout_action: block
-      auto_approve_conditions:
-        - condition: "confidence > 0.95 AND no_critical_issues"
-          reason: "High confidence with no blockers"
-    cost_tracking:
-      track_enabled: true
-      metrics: [time_to_decision, revision_count]
-
-  artifact_review:
-    description: "Artifact quality review"
-    gate_type: review
-    behavior:
-      mode: ALWAYS
-      timeout: 3600  # 1 hour
-      timeout_action: proceed
-    presentation:
-      context_window: 100
-
-  budget_checkpoint:
-    description: "Cost threshold checkpoint"
-    gate_type: escalation
-    trigger:
-      type: cost_threshold
-    behavior:
-      mode: CONDITIONAL
-      timeout: 0
-      timeout_action: abort
-
-  iteration_checkpoint:
-    description: "Progress checkpoint after iterations"
-    gate_type: checkpoint
-    trigger:
-      type: iteration_count
-      threshold: 5
-    behavior:
-      mode: CONDITIONAL
-      timeout: 300
-      timeout_action: proceed
-
-# SDLC phase transition gates
-sdlc_gates:
-  concept_to_inception:
-    id: "GATE-C2I"
-    name: "Concept to Inception Gate"
-    gate_type: approval
-    trigger:
-      type: phase_transition
-      phase_from: concept
-      phase_to: inception
-    behavior:
-      mode: ALWAYS
-      timeout: 172800  # 48 hours
-      timeout_action: block
-    presentation:
-      summary_template: |
-        ## Ready for Inception?
-
-        **Intake Form**: {{intake_status}}
-        **Solution Profile**: {{solution_status}}
-        **Stakeholders**: {{stakeholder_count}} identified
-
-        Approve to begin formal requirements gathering.
-      questions:
-        - id: "scope_approved"
-          question: "Is the project scope approved?"
-          options: ["Yes", "No - needs refinement", "Escalate to sponsor"]
-          required: true
-
-  inception_to_elaboration:
-    id: "GATE-I2E"
-    name: "Inception to Elaboration Gate"
-    gate_type: approval
-    trigger:
-      type: phase_transition
-      phase_from: inception
-      phase_to: elaboration
-    behavior:
-      mode: ALWAYS
-      timeout: 172800
-      timeout_action: block
-    presentation:
-      artifacts_to_show:
-        - ".aiwg/requirements/user-stories.md"
-        - ".aiwg/requirements/use-cases/"
-        - ".aiwg/risks/risk-register.md"
-
-  elaboration_to_construction:
-    id: "GATE-E2C"
-    name: "Elaboration to Construction Gate"
-    gate_type: approval
-    trigger:
-      type: phase_transition
-      phase_from: elaboration
-      phase_to: construction
-    behavior:
-      mode: ALWAYS
-      timeout: 172800
-      timeout_action: block
-    presentation:
-      artifacts_to_show:
-        - ".aiwg/architecture/software-architecture-doc.md"
-        - ".aiwg/architecture/decisions/"
-        - ".aiwg/testing/test-strategy.md"
-
-  construction_to_transition:
-    id: "GATE-C2T"
-    name: "Construction to Transition Gate"
-    gate_type: approval
-    trigger:
-      type: phase_transition
-      phase_from: construction
-      phase_to: transition
-    behavior:
-      mode: ALWAYS
-      timeout: 86400
-      timeout_action: block
-    presentation:
-      artifacts_to_show:
-        - ".aiwg/testing/test-results/"
-        - ".aiwg/deployment/deployment-plan.md"
-        - ".aiwg/security/security-assessment.md"
-
-# Cost savings tracking
-cost_model:
-  description: "Based on Agent Laboratory findings"
-  baseline:
-    fully_autonomous:
-      average_cost_multiplier: 6.0
-      error_rate: 0.35
-      revision_cycles: 4.2
-  with_hitl:
-    average_cost_multiplier: 1.0
-    error_rate: 0.05
-    revision_cycles: 0.83
-  savings_calculation: |
-    savings = (autonomous_cost - hitl_cost) / autonomous_cost
-    # Target: 84% cost reduction
-
-# References
-references:
-  research:
-    - "@.aiwg/research/findings/REF-057-agent-laboratory.md"
-  implementation:
-    - "#96"
-  related:
-    - "@agentic/code/frameworks/sdlc-complete/flows/"
-    - "@agentic/code/frameworks/sdlc-complete/schemas/flows/"
