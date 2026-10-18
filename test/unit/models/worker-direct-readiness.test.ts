@@ -9,7 +9,7 @@ import {
 } from '../../../src/models/worker-direct-readiness.js';
 import { loadProviderModelCapabilities } from '../../../src/models/provider-policy.js';
 import type { ParallelismConfig } from '../../../src/config/aiwg-config.js';
-import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
+import { unqualifiedWorkerRolesFixture, workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 
 // T-OG-12 / #2894 S1: synthetic offline inputs plus fake local CLIs created
 // under os.tmpdir() with a temp HOME. No paid calls, no credentials, no real
@@ -357,9 +357,37 @@ describe('T-OG-12 direct worker onboarding/readiness (#2894)', () => {
     // binding-only caveat, must be what is reported, named per member.
     expect(dispatch?.eligibilityDetail).toMatch(/OG_ADAPTER_UNQUALIFIED/);
     expect(dispatch?.eligibilityDetail).toMatch(/installation evidence/i);
-    expect(dispatch?.eligibilityDetail).toContain("group 'workers' member 'primary'");
-    expect(dispatch?.eligibilityDetail).toContain("group 'workers' member 'alternate'");
+    expect(dispatch?.eligibilityDetail).toContain('workers/primary');
+    expect(dispatch?.eligibilityDetail).toContain('workers/alternate');
     expect(dispatch?.eligibilityDetail).toContain('#3005');
+    const missingEvidence = dispatch?.diagnostics?.filter(row => row.message.includes('installation evidence'));
+    expect(missingEvidence).toHaveLength(1);
+    expect(missingEvidence![0]).toMatchObject({ pointer: '/parallelism/groups/workers/members',
+      members: ['workers/alternate', 'workers/primary'], roles: ['coding'] });
+  });
+
+  it('#3173 deduplicates group qualification diagnostics across three members in text and JSON', async () => {
+    const f = unqualifiedWorkerRolesFixture();
+    const input = { parallelism: f.snapshot.config.parallelism!, registry: f.snapshot.registry,
+      resolverSnapshot: { config: f.snapshot.config, models: f.snapshot.models,
+        modelDigests: f.snapshot.modelDigests, catalog: f.snapshot.catalog, now: f.request.now } };
+    const report = await diagnoseDirectWorkerReadiness(input);
+    const dispatch = JSON.parse(JSON.stringify(report)).findings.find((row: any) => row.kind === 'dispatch');
+    expect(dispatch.eligibility).toBe('blocked');
+    expect(dispatch.diagnostics).toHaveLength(3);
+    for (const role of ['efficiency', 'coding', 'reasoning']) {
+      expect(dispatch.diagnostics.filter((row: any) => row.roles.includes(role))).toEqual([
+        expect.objectContaining({ code: 'OG_ADAPTER_UNQUALIFIED', roles: [role],
+          members: ['workers/coding', 'workers/efficiency', 'workers/reasoning'] }),
+      ]);
+    }
+    const section = await buildDirectWorkerDoctorSection({ ...input, probeWorkers: false });
+    const text = section.lines.find(line => line.name === 'Direct Worker Dispatch (codex)')!.message;
+    expect(text.match(/OG_ADAPTER_UNQUALIFIED/g)).toHaveLength(3);
+    for (const role of ['efficiency', 'coding', 'reasoning']) {
+      expect(text.split(`No qualified route covers ${role}`)).toHaveLength(2);
+    }
+    expect(await diagnoseDirectWorkerReadiness(input)).toEqual(report);
   });
 
   it('T-OG-12-direct-10c falls back to a binding-only caveat without a resolverSnapshot', async () => {

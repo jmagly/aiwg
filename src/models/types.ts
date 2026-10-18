@@ -274,6 +274,8 @@ export interface WorkerPolicyOrigin {
   contribution: unknown;
 }
 export interface WorkerPolicyDiagnostic {
+  /** When present, this diagnostic concerns only these roles. */
+  roles?: string[];
   code: 'OG_POLICY_RELAXATION' | 'OG_CONFIG_REFERENCE' | 'OG_EFFORT_DENIED' | 'OG_MODEL_UNAPPROVED' | 'OG_DATA_POLICY' | 'OG_PIN_MISMATCH' | 'OG_ADAPTER_UNQUALIFIED' | 'OG_BUDGET_UNMEASURABLE';
   pointer: string;
   message: string;

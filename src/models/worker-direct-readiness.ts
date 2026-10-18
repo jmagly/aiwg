@@ -98,6 +98,12 @@ export type DirectWorkerAnnounce = (cli: string, executable: string, versionArgv
 export type DirectWorkerInstallReadiness = 'ready' | 'not-ready' | 'skipped' | 'unprobed';
 export type DirectWorkerDispatchEligibility = 'eligible' | 'blocked' | 'skipped';
 
+export interface DirectWorkerDispatchDiagnostic extends WorkerPolicyDiagnostic {
+  /** Group/member labels affected by this distinct diagnostic. */
+  members: string[];
+  roles: string[];
+}
+
 export interface DirectWorkerReadinessFinding {
   cli: string;
   /** 'install' speaks to installation readiness; 'dispatch' to resolver eligibility. */
@@ -118,6 +124,8 @@ export interface DirectWorkerReadinessFinding {
   eligibility: DirectWorkerDispatchEligibility | null;
   /** Resolver verdict in plain words (kind 'dispatch' only). */
   eligibilityDetail: string | null;
+  /** Distinct resolver refusals with their affected members and roles. */
+  diagnostics?: DirectWorkerDispatchDiagnostic[];
   /** Group members referencing this cli (`group/member`), for member context. */
   members: string[];
 }
@@ -305,17 +313,12 @@ function advisoryStatus(status: 'ok' | 'info' | 'warn' | 'error', required: bool
 export interface DirectWorkerEligibility {
   eligibility: DirectWorkerDispatchEligibility;
   detail: string;
+  diagnostics?: DirectWorkerDispatchDiagnostic[];
 }
 
 const offlineDirectContext = (): { estimator: string; briefTokens: number; inputTokens: number; toolOutputAllowance: number; reservedOutput: number } => (
   { estimator: 'doctor-offline-direct-context-v1', briefTokens: 0, inputTokens: 0, toolOutputAllowance: 0, reservedOutput: 0 }
 );
-
-function formatDiagnostics(diagnostics: WorkerPolicyDiagnostic[]): string {
-  const seen = new Map<string, WorkerPolicyDiagnostic>();
-  for (const diagnostic of diagnostics) seen.set(`${diagnostic.code}:${diagnostic.pointer}:${diagnostic.message}`, diagnostic);
-  return [...seen.values()].map(diagnostic => `${diagnostic.code} ${diagnostic.pointer}: ${diagnostic.message}`).join('; ');
-}
 
 /**
  * Dispatch eligibility from the actual offline dispatch resolver
@@ -336,12 +339,13 @@ function resolveEligibilityFromDispatchResolver(
     config: resolverSnapshot.config, models: resolverSnapshot.models, modelDigests: resolverSnapshot.modelDigests,
     catalog: resolverSnapshot.catalog, registry, installations: {},
   };
-  const refusals: string[] = [];
+  const diagnostics = new Map<string, DirectWorkerDispatchDiagnostic>();
+  const uncovered: string[] = [];
   for (const ref of refs) {
     if (!ref.enabled) continue;
     const matches = (tuple: { group: string; member: string }): boolean =>
       tuple.group === ref.groupId && tuple.member === ref.memberId;
-    const seen: WorkerPolicyDiagnostic[] = [];
+    const seen: DirectWorkerDispatchDiagnostic[] = [];
     let eligibleHere = false;
     for (const role of ref.member.roles) {
       const plan = resolveWorkerPlan(snapshot, {
@@ -350,23 +354,44 @@ function resolveEligibilityFromDispatchResolver(
       });
       if ([plan.selected, ...plan.alternatives].some(tuple => tuple && matches(tuple))) { eligibleHere = true; break; }
       const exclusion = plan.exclusions.find(matches);
-      seen.push(...(exclusion?.diagnostics ?? plan.diagnostics));
+      for (const diagnostic of exclusion?.diagnostics ?? plan.diagnostics) {
+        // Only an exact member pointer is generalized; other config pointers
+        // remain distinct even when their diagnostic text happens to match.
+        const memberPointer = `/parallelism/groups/${ref.groupId}/members/${ref.memberId}`;
+        const pointer = diagnostic.pointer === memberPointer || diagnostic.pointer.startsWith(`${memberPointer}/`)
+          ? `/parallelism/groups/${ref.groupId}/members${diagnostic.pointer.slice(memberPointer.length)}`
+          : diagnostic.pointer;
+        seen.push({ ...diagnostic, pointer, members: [`${ref.groupId}/${ref.memberId}`],
+          roles: diagnostic.roles ?? [role] });
+      }
     }
     if (eligibleHere) {
       return { eligibility: 'eligible',
         detail: `Dispatch resolver accepts cli '${cli}' for group '${ref.groupId}' member '${ref.memberId}'. `
           + `Dispatch eligibility: eligible. ${SMOKE_NOTE}` };
     }
-    const reasons = formatDiagnostics(seen);
-    refusals.push(`group '${ref.groupId}' member '${ref.memberId}'${reasons ? `: ${reasons}` : ' (no qualified route)'}`);
+    if (!seen.length) uncovered.push(`${ref.groupId}/${ref.memberId}`);
+    for (const diagnostic of seen) {
+      const key = JSON.stringify([diagnostic.code, diagnostic.pointer, diagnostic.message,
+        diagnostic.blocking, diagnostic.origins]);
+      const shared = diagnostics.get(key);
+      if (shared) {
+        shared.members = [...new Set([...shared.members, ...diagnostic.members])];
+        shared.roles = [...new Set([...shared.roles, ...diagnostic.roles])];
+      } else diagnostics.set(key, diagnostic);
+    }
   }
-  if (!refusals.length) {
+  if (!diagnostics.size && !uncovered.length) {
     return { eligibility: 'blocked',
       detail: `Dispatch resolver has no enabled group member to evaluate for cli '${cli}'. `
         + `Dispatch eligibility: blocked. ${SMOKE_NOTE}` };
   }
-  return { eligibility: 'blocked',
-    detail: `Dispatch resolver refuses cli '${cli}': ${refusals.join('; ')}. `
+  const distinct = [...diagnostics.values()];
+  const reasons = distinct.map(diagnostic => `${diagnostic.code} ${diagnostic.pointer}: ${diagnostic.message}`
+    + ` [roles: ${diagnostic.roles.join(', ')}; members: ${diagnostic.members.join(', ')}]`);
+  if (uncovered.length) reasons.push(`No qualified route [members: ${uncovered.join(', ')}]`);
+  return { eligibility: 'blocked', diagnostics: distinct,
+    detail: `Dispatch resolver refuses cli '${cli}': ${reasons.join('; ')}. `
       + `Dispatch eligibility: blocked. ${SMOKE_NOTE}` };
 }
 
@@ -462,11 +487,11 @@ export async function diagnoseDirectWorkerReadiness(input: {
   };
   const pushDispatch = (cli: string, profile: string | null, status: 'ok' | 'info' | 'warn',
     code: string, eligibility: DirectWorkerDispatchEligibility, detail: string, configKey: string,
-    members: string[], nextAction: string): void => {
+    members: string[], nextAction: string, diagnostics?: DirectWorkerDispatchDiagnostic[]): void => {
     report.findings.push({ cli, kind: 'dispatch', profile, executable: null, installedVersion: null,
       status, code, message: `${detail} (config ${configFile} key ${configKey}; ${describeConfigContext(members)})`,
       nextAction, configFile, configKey,
-      readiness: null, eligibility, eligibilityDetail: detail, members });
+      readiness: null, eligibility, eligibilityDetail: detail, members, ...(diagnostics ? { diagnostics } : {}) });
   };
   await Promise.all(cliIds.map(async cli => {
     const configured = parallelism.clis?.[cli];
@@ -481,9 +506,9 @@ export async function diagnoseDirectWorkerReadiness(input: {
         message: `Dispatch is disabled for cli '${cli}' (config ${configFile} key ${configKey}/enabled); the version probe was skipped. Installation readiness: skipped. (${describeConfigContext(members)})`,
         nextAction: 'enable-cli-to-onboard',
         configFile, configKey, readiness: 'skipped', members });
-      const { eligibility, detail } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
+      const { eligibility, detail, diagnostics } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
       pushDispatch(cli, configured.invocationProfile ?? null, 'info', 'WORKER_DIRECT_DISPATCH_BLOCKED',
-        eligibility, detail, configKey, members, 'enable-cli-to-onboard');
+        eligibility, detail, configKey, members, 'enable-cli-to-onboard', diagnostics);
       return;
     }
     const resolved = resolveDirectBinding(registry, configured?.adapter, cli);
@@ -493,9 +518,9 @@ export async function diagnoseDirectWorkerReadiness(input: {
         message: `${resolved.error} (config ${configFile} key ${configKey}/adapter); the profile cannot be onboarded. Installation readiness: not-ready. (${describeConfigContext(members)})`,
         nextAction: 'review-worker-configuration',
         configFile, configKey: `${configKey}/adapter`, readiness: 'not-ready', members });
-      const { eligibility, detail } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
+      const { eligibility, detail, diagnostics } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
       pushDispatch(cli, configured?.invocationProfile ?? null, 'warn', 'WORKER_DIRECT_DISPATCH_BLOCKED',
-        eligibility, detail, configKey, members, 'review-worker-configuration');
+        eligibility, detail, configKey, members, 'review-worker-configuration', diagnostics);
       return;
     }
     const { adapter, adapterRef } = resolved;
@@ -505,11 +530,11 @@ export async function diagnoseDirectWorkerReadiness(input: {
         message: `Cli '${cli}' binds '${adapterRef}' (config ${configFile} key ${configKey}/adapter), which uses an HTTP adapter; there is no CLI version probe — check endpoint health instead. Installation readiness: skipped. (${describeConfigContext(members)})`,
         nextAction: 'check-endpoint-health',
         configFile, configKey, readiness: 'skipped', members });
-      const { eligibility, detail } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
+      const { eligibility, detail, diagnostics } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
       pushDispatch(cli, null, eligibility === 'eligible' ? 'ok' : 'warn',
         eligibility === 'eligible' ? 'WORKER_DIRECT_DISPATCH_ELIGIBLE' : 'WORKER_DIRECT_DISPATCH_BLOCKED',
         eligibility, detail, configKey, members,
-        eligibility === 'eligible' ? 'check-endpoint-health' : 'review-worker-configuration');
+        eligibility === 'eligible' ? 'check-endpoint-health' : 'review-worker-configuration', diagnostics);
       return;
     }
     const profileIds = Object.keys(adapter.invocationProfiles ?? {});
@@ -524,9 +549,9 @@ export async function diagnoseDirectWorkerReadiness(input: {
           : `Cli '${cli}' binding '${adapterRef}' has no single direct profile to check (config ${configFile} key ${configKey}); configure invocationProfile explicitly. Installation readiness: not-ready. (${describeConfigContext(members)})`,
         nextAction: 'review-worker-configuration',
         configFile, configKey, readiness: 'not-ready', members });
-      const { eligibility, detail } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
+      const { eligibility, detail, diagnostics } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
       pushDispatch(cli, configured?.invocationProfile ?? null, 'warn', 'WORKER_DIRECT_DISPATCH_BLOCKED',
-        eligibility, detail, configKey, members, 'review-worker-configuration');
+        eligibility, detail, configKey, members, 'review-worker-configuration', diagnostics);
       return;
     }
     const profile = adapter.invocationProfiles[profileRef];
@@ -537,11 +562,11 @@ export async function diagnoseDirectWorkerReadiness(input: {
         message: `Cli '${cli}' binds '${adapterRef}' profile '${profileRef}' (config ${configFile} key ${configKey}); version probe not run — no subprocess was started. Installation readiness: unprobed. Rerun with probes to check install/version. (${describeConfigContext(members)})`,
         nextAction: 'rerun-with-probe-workers',
         configFile, configKey, readiness: 'unprobed', members });
-      const { eligibility, detail } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
+      const { eligibility, detail, diagnostics } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
       pushDispatch(cli, profileRef, eligibility === 'eligible' ? 'ok' : 'warn',
         eligibility === 'eligible' ? 'WORKER_DIRECT_DISPATCH_ELIGIBLE' : 'WORKER_DIRECT_DISPATCH_BLOCKED',
         eligibility, detail, configKey, members,
-        eligibility === 'eligible' ? 'rerun-with-probe-workers' : 'review-worker-configuration');
+        eligibility === 'eligible' ? 'rerun-with-probe-workers' : 'review-worker-configuration', diagnostics);
       return;
     }
     announce?.(cli, executable, adapter.invocation.versionArgv);
@@ -561,9 +586,9 @@ export async function diagnoseDirectWorkerReadiness(input: {
           : `Version probe for cli '${cli}' ('${executable}', config ${configFile} key ${configKey}) failed; retry once, then check PATH and execute permission. Installation readiness: not-ready. (${describeConfigContext(members)})`,
         nextAction: notInstalled ? 'install-cli' : 'retry-version-probe',
         configFile, configKey, readiness: 'not-ready', members });
-      const { eligibility, detail } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
+      const { eligibility, detail, diagnostics } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
       pushDispatch(cli, profileRef, 'warn', 'WORKER_DIRECT_DISPATCH_BLOCKED',
-        eligibility, detail, configKey, members, notInstalled ? 'install-cli' : 'retry-version-probe');
+        eligibility, detail, configKey, members, notInstalled ? 'install-cli' : 'retry-version-probe', diagnostics);
       return;
     }
     const rawBanner = outcome.rawBanner.trim();
@@ -576,9 +601,9 @@ export async function diagnoseDirectWorkerReadiness(input: {
         message: `CLI '${executable}' banner ${JSON.stringify(truncateBanner(rawBanner))} does not match the registered version pattern (config ${configFile} key ${configKey}); the install is unexpected — reinstall a supported release. Installation readiness: not-ready. (${describeConfigContext(members)})`,
         nextAction: 'reinstall-supported-cli',
         configFile, configKey, readiness: 'not-ready', members });
-      const { eligibility, detail } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
+      const { eligibility, detail, diagnostics } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
       pushDispatch(cli, profileRef, 'warn', 'WORKER_DIRECT_DISPATCH_BLOCKED',
-        eligibility, detail, configKey, members, 'reinstall-supported-cli');
+        eligibility, detail, configKey, members, 'reinstall-supported-cli', diagnostics);
       return;
     }
     const mismatch = workerVersionRangeMismatch(installedVersion, [profile.supportedVersions, adapter.supportedVersions]);
@@ -588,9 +613,9 @@ export async function diagnoseDirectWorkerReadiness(input: {
         message: `CLI '${executable}' version ${installedVersion} is outside supported range '${mismatch}' for cli '${cli}' (profile '${profileRef}', config ${configFile} key ${configKey}); upgrade or pin a supported release. Installation readiness: not-ready. (${describeConfigContext(members)})`,
         nextAction: 'upgrade-or-pin-cli',
         configFile, configKey, readiness: 'not-ready', members });
-      const { eligibility, detail } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
+      const { eligibility, detail, diagnostics } = checkDispatchEligibility(parallelism, registry, cli, false, resolverSnapshot, refs);
       pushDispatch(cli, profileRef, 'warn', 'WORKER_DIRECT_DISPATCH_BLOCKED',
-        eligibility, detail, configKey, members, 'upgrade-or-pin-cli');
+        eligibility, detail, configKey, members, 'upgrade-or-pin-cli', diagnostics);
       return;
     }
     pushInstall({ cli, profile: profileRef, executable, installedVersion,
@@ -598,10 +623,10 @@ export async function diagnoseDirectWorkerReadiness(input: {
       message: `CLI '${executable}' version ${installedVersion} matches profile '${profileRef}' for cli '${cli}' (config ${configFile} key ${configKey}). Installation readiness: ready. ${SMOKE_NOTE} See the dispatch finding for whether the resolver would dispatch. (${describeConfigContext(members)})`,
       nextAction: 'qualify-installed-cli',
       configFile, configKey, readiness: 'ready', members });
-    const { eligibility, detail } = checkDispatchEligibility(parallelism, registry, cli, true, resolverSnapshot, refs);
+    const { eligibility, detail, diagnostics } = checkDispatchEligibility(parallelism, registry, cli, true, resolverSnapshot, refs);
     pushDispatch(cli, profileRef, eligibility === 'eligible' ? 'ok' : 'warn',
       eligibility === 'eligible' ? 'WORKER_DIRECT_DISPATCH_ELIGIBLE' : 'WORKER_DIRECT_DISPATCH_BLOCKED',
-      eligibility, detail, configKey, members, 'qualify-installed-cli');
+      eligibility, detail, configKey, members, 'qualify-installed-cli', diagnostics);
   }));
   report.findings.sort((a, b) => a.cli.localeCompare(b.cli) || a.kind.localeCompare(b.kind));
   return report;

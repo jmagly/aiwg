@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diagnoseWorkerHealthReadiness } from '../../../src/models/worker-health-readiness.js';
-import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
+import { unqualifiedWorkerRolesFixture, workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { workerConfigDigest } from '../../../src/config/aiwg-config.js';
 
 // T-OG-12 / #2913 S1: synthetic offline inputs, no credentials, inference,
@@ -40,6 +40,31 @@ describe('T-OG-12 offline worker health readiness (S1 mapping)', () => {
       nextAction: 'qualify-role-route' }));
     expect(report.findings).toContainEqual(expect.objectContaining({ code: 'OG_ADAPTER_UNQUALIFIED',
       nextAction: 'qualify-installation-and-profile' }));
+  });
+
+  it('#3173 reports each unqualified required role once in text-facing and JSON findings', () => {
+    const f = unqualifiedWorkerRolesFixture();
+    const report = diagnoseWorkerHealthReadiness(f.snapshot, f.request);
+    const json = JSON.parse(JSON.stringify(report));
+    expect(json.ready).toBe(false);
+    const gaps = json.findings.filter((row: any) => row.code === 'OG_ADAPTER_UNQUALIFIED');
+    expect(gaps).toHaveLength(3);
+    for (const role of ['efficiency', 'coding', 'reasoning']) {
+      expect(gaps.filter((row: any) => row.role === role)).toEqual([
+        expect.objectContaining({ roles: [role], pointer: '/parallelism/groups/workers/requiredRoles',
+          message: `No qualified route covers ${role}. Run aiwg doctor --probe-workers --qualify.` }),
+      ]);
+    }
+    expect(json.findings.filter((row: any) => row.code === 'WORKER_ROLE_NOT_READY')).toHaveLength(3);
+  });
+
+  it('#3173 groups a shared catalog failure once with all affected roles', () => {
+    const f = unqualifiedWorkerRolesFixture();
+    f.snapshot.catalog.discovery!.instances!.codex.models[0].worker!.observedAt = 'invalid';
+    const report = diagnoseWorkerHealthReadiness(f.snapshot, f.request);
+    const failures = report.findings.filter(row => row.pointer === '/catalog/discovery');
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({ role: null, roles: ['coding', 'efficiency', 'reasoning'] });
   });
 
   it('T-OG-12-health-04 keeps optional role gaps request-scoped', () => {
