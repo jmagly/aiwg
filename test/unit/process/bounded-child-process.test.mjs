@@ -1,3 +1,4 @@
+import { useFixtureProcesses } from '../../helpers/fixture-processes.mjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -12,6 +13,8 @@ import {
   boundedSpawnSync,
   resolveSyncProcessTimeoutMs,
 } from '../../../src/process/bounded-child-process.mjs';
+
+useFixtureProcesses();
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtures = join(here, '../../fixtures/process');
@@ -309,7 +312,7 @@ describe('boundedExecSync / boundedExecFileSync — throw the enriched error on 
   it('boundedExecSync throws with code ETIMEDOUT, signal SIGKILL, and an enriched message', () => {
     let caught;
     try {
-      boundedExecSync(`node ${JSON.stringify(ignoreSigtermScript)}`, 'quick', { timeout: 200 });
+      boundedExecSync(`exec node ${JSON.stringify(ignoreSigtermScript)}`, 'quick', { timeout: 200 });
     } catch (error) {
       caught = error;
     }

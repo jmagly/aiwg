@@ -1,3 +1,4 @@
+import { useFixtureProcesses } from '../../helpers/fixture-processes.mjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { copyFileSync, chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,6 +10,8 @@ import { GiteaTracker } from '../../../tools/ralph-external/gitea-tracker.mjs';
 import { EvalHarness } from '../../../tools/ralph-external/eval-harness.mjs';
 import { MultiLoopStateManager } from '../../../tools/ralph/state-manager-sync.mjs';
 import { ProviderWatcher } from '../../../tools/daemon/provider-watcher.mjs';
+
+const trackFixture = useFixtureProcesses();
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 let root;
@@ -96,16 +99,12 @@ describe('remaining CodeQL shell callers in tools', () => {
     expect(calls()[1].args).toEqual(['list-panes', '-t', start[3], '-F', '#{pane_pid}']);
     const sessionPath = join(root, '.aiwg/daemon/pty', `${sessionId}.json`);
     const session = JSON.parse(readFileSync(sessionPath, 'utf8'));
-    const pane = spawn(process.execPath, [join(repoRoot, 'test/fixtures/process/ignore-sigterm.mjs')], { stdio: 'ignore' });
+    const pane = trackFixture(spawn(process.execPath, [join(repoRoot, 'test/fixtures/process/ignore-sigterm.mjs')], { stdio: 'ignore' }));
     session.pid = pane.pid;
     session.tmuxSession = payload;
     writeFileSync(sessionPath, JSON.stringify(session));
-    try {
-      expect(runTool('tools/daemon/index.mjs', ['pty', 'stop', sessionId])).toContain('stopped');
-      expect(calls()[2].args).toEqual(['kill-session', '-t', payload]);
-    } finally {
-      pane.kill('SIGKILL');
-    }
+    expect(runTool('tools/daemon/index.mjs', ['pty', 'stop', sessionId])).toContain('stopped');
+    expect(calls()[2].args).toEqual(['kill-session', '-t', payload]);
     expect(existsSync(join(root, 'injected'))).toBe(false);
   });
 

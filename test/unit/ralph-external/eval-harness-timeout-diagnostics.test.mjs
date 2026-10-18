@@ -1,3 +1,4 @@
+import { useFixtureProcesses } from '../../helpers/fixture-processes.mjs';
 /**
  * Regression test for #3062 finding 17: a `long`-tier bounded-helper
  * timeout must not be silently lost by EvalHarness's default command
@@ -14,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 
 import { EvalHarness } from '../../../tools/ralph-external/eval-harness.mjs';
 import { AIWG_SYNC_LONG_TIMEOUT_MS_ENV } from '../../../src/process/bounded-child-process.mjs';
+
+useFixtureProcesses();
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ignoreSigtermScript = join(here, '../../fixtures/process/ignore-sigterm.mjs');
@@ -49,7 +52,7 @@ describe('EvalHarness default runner — long-tier timeout diagnostics (#3062 fi
     iterationDir = mkdtempSync(join(tmpdir(), 'aiwg-eval-harness-timeout-'));
 
     const harness = new EvalHarness({
-      lint: { command: `node ${JSON.stringify(ignoreSigtermScript)}`, void_on_violation: false },
+      lint: { command: `exec node ${JSON.stringify(ignoreSigtermScript)}`, void_on_violation: false },
     });
     harness.run({ iterationDir });
 
