@@ -3,7 +3,7 @@ import { createReadStream, existsSync } from 'fs';
 import { createHash } from 'crypto';
 import { createInterface } from 'readline';
 import path from 'path';
-import os from 'os';
+import { getUserStateDir } from '../config/user-state.js';
 import type { AiwgConfig, SkillUsageConfig } from '../config/aiwg-config.js';
 import { readAiwgConfig } from '../config/aiwg-config.js';
 import {
@@ -699,8 +699,7 @@ function resolveUsagePath(
     return projectAiwgPath(projectRoot, 'telemetry', 'skill-usage.jsonl');
   }
 
-  const stateHome = env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state');
-  return path.join(stateHome, 'aiwg', 'skill-usage.jsonl');
+  return path.join(getUserStateDir(env), 'skill-usage.jsonl');
 }
 
 async function appendBoundedJsonl(filePath: string, event: SkillUsageEvent, maxBytes: number): Promise<void> {

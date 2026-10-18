@@ -86,6 +86,14 @@ export async function run(
   args: string[],
   options: { cwd?: string; signal?: AbortSignal } = {},
 ): Promise<void> {
+  // Scheduled index maintenance has no hooks, telemetry, or deployment side effects.
+  if (args[0] === 'index' && args[1] === 'refresh'
+    && !args.includes('--help') && !args.includes('-h')) {
+    const { runIndexRefresh } = await import('../artifacts/index-refresh.js');
+    const report = await runIndexRefresh(args.slice(2), options.cwd ?? process.cwd(), options.signal);
+    if (report.totals.errors) process.exit(1);
+    return;
+  }
   const started = process.hrtime.bigint();
   const registry = await initRouter();
   // Normalize `help <command>` into the same non-executing help path.

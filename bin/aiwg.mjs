@@ -332,7 +332,10 @@ async function runUpdateNotifierBootstrap() {
 }
 
 const cliArgs = process.argv.slice(2);
-if (isCredentialHandlingCommand(cliArgs)) {
+const indexRefresh = cliArgs[0] === 'index' && cliArgs[1] === 'refresh';
+if (indexRefresh) {
+  trace('notifier:skip (index refresh)');
+} else if (isCredentialHandlingCommand(cliArgs)) {
   trace('notifier:skip (credential-handling command)');
 } else {
   await runUpdateNotifierBootstrap();
@@ -513,7 +516,7 @@ async function main() {
       process.exit(1);
     }
     const { assertCanonicalInstallation } = await import(pathToFileURL(identityPath).href);
-    const readOnlyPreview = args.includes('--dry-run');
+    const readOnlyPreview = args.includes('--dry-run') || indexRefresh;
     try {
       assertCanonicalInstallation({
         actualRoot: activePackageRoot,
@@ -545,7 +548,7 @@ async function main() {
   // Wire up the logger level from -v/-vv/--quiet/AIWG_LOG_LEVEL before any
   // handler runs, and stamp the top-level invocation ID so the logger can
   // tag every record with it.
-  await applyVerbosityFromArgs(args, routerPath);
+  if (!indexRefresh) await applyVerbosityFromArgs(args, routerPath);
 
   // Top-level cancellation controller. SIGINT / SIGTERM flip it, long-running
   // handlers plumb ctx.signal through fetches and loops so Ctrl-C cancels

@@ -67,6 +67,8 @@ export interface SessionDiscoveryManifest {
   workspaceId: string;
   workspacePath: string;
   preflight?: SessionCoveragePreflight;
+  /** Exact canonical roots authorized by the discovery invocation. */
+  authorizedRoots?: Partial<Record<SessionProviderId, string[]>>;
   providers: DiscoveryProviderReport[];
   sources: DiscoveryManifestSource[];
 }
@@ -84,6 +86,8 @@ export interface DiscoverWorkspaceOptions {
   dshRoot?: string;
   grokbotRoot?: string;
   createdAt?: string;
+  /** Restrict maintenance discovery to previously authorized roots, with no defaults. */
+  authorizedRoots?: Partial<Record<SessionProviderId, string[]>>;
 }
 
 interface DiscoverableProvider {
@@ -172,6 +176,7 @@ export async function discoverWorkspaceHistories(
     },
   ];
 
+  const authorizedRoots: Partial<Record<SessionProviderId, string[]>> = { ...options.authorizedRoots };
   const reports = new Map<string, DiscoveryProviderReport>();
   const candidates: DiscoveryManifestSource[] = [];
   const seen = new Set<string>();
@@ -180,8 +185,14 @@ export async function discoverWorkspaceHistories(
     const adapter = registry.get(entry.provider);
     if (adapter.disposition === 'unsupported' || !adapter.supportedOperations.includes('discover')) continue;
     const availableRoots = [];
-    for (const root of entry.roots) {
-      if (await pathExists(root)) availableRoots.push(await canonicalPath(root));
+    for (const root of options.authorizedRoots ? options.authorizedRoots[entry.provider] ?? [] : entry.roots) {
+      if (await pathExists(root)) {
+        const canonical = await canonicalPath(root);
+        if (options.authorizedRoots && canonical !== root) {
+          throw new SessionContractError('INVALID_ARGUMENT', 'previously authorized provider root changed; rediscover with explicit authorization');
+        }
+        availableRoots.push(canonical);
+      }
     }
     if (availableRoots.length === 0) {
       const codexNeedsAuthorization = (entry.provider === 'codex' || entry.provider === 'omp'
@@ -202,6 +213,7 @@ export async function discoverWorkspaceHistories(
       ));
       continue;
     }
+    authorizedRoots[entry.provider] = availableRoots;
     const scope: AuthorizedScope = {
       workspaceId,
       allowedRoots: availableRoots,
@@ -319,6 +331,7 @@ export async function discoverWorkspaceHistories(
     schemaVersion: DISCOVERY_MANIFEST_VERSION,
     workspaceId,
     preflight,
+    authorizedRoots,
     sources: sources.map((source) => ({
       sourceId: source.sourceId,
       provider: source.provider,
@@ -342,6 +355,7 @@ export async function discoverWorkspaceHistories(
     workspaceId,
     workspacePath,
     preflight,
+    authorizedRoots,
     providers,
     sources,
   };
@@ -449,6 +463,7 @@ async function rediscoverManifestIdentity(manifest: SessionDiscoveryManifest): P
     schemaVersion: manifest.schemaVersion,
     workspaceId: manifest.workspaceId,
     ...(manifest.preflight ? { preflight: manifest.preflight } : {}),
+    ...(manifest.authorizedRoots ? { authorizedRoots: manifest.authorizedRoots } : {}),
     sources: manifest.sources.map((source) => ({
       sourceId: source.sourceId,
       provider: source.provider,

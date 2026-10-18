@@ -234,6 +234,16 @@ export async function main(args: string[]): Promise<void> {
   }
 
   switch (subcommand) {
+    case 'refresh': {
+      if (subcommandArgs.includes('--help') || subcommandArgs.includes('-h')) {
+        printIndexUsage();
+        break;
+      }
+      const { runIndexRefresh } = await import('./index-refresh.js');
+      await runIndexRefresh(subcommandArgs);
+      break;
+    }
+
     case 'build':
       await handleBuild(subcommandArgs);
       break;
@@ -330,7 +340,7 @@ export async function main(args: string[]): Promise<void> {
 
     default:
       console.error(`Error: Unknown index subcommand '${subcommand}'`);
-      console.log('Available: build, query, discover, show, export, sync, migrate-legacy, deps, stats, status, list, neighbors, set, embed, similar, dedup-report, eval-discovery, watch');
+      console.log('Available: build, refresh, query, discover, show, export, sync, migrate-legacy, deps, stats, status, list, neighbors, set, embed, similar, dedup-report, eval-discovery, watch');
       process.exit(1);
   }
 }
@@ -340,6 +350,7 @@ export function printIndexUsage(): void {
   console.log('');
   console.log('Available subcommands:');
   console.log('  build      Build/rebuild the artifact index');
+  console.log('  refresh    Safely refresh graphs, existing caches, and session catalogs');
   console.log('  query      Search artifacts by keyword, type, phase, tags');
   console.log('  discover   Capability search across operational asset types (#1214)');
   console.log('  show       Print the full text of a specific operational asset');
@@ -359,6 +370,8 @@ export function printIndexUsage(): void {
   console.log('');
   console.log('Options:');
   console.log('  build [--force] [--verbose] [--all] [--scope <dir>] [--graph <name>]');
+  console.log('  refresh [--full] [--workspace <path>]... [--root <dir>]');
+  console.log('          [--only graphs|sessions|caches] [--dry-run] [--json] [--lock-wait-ms <n>]');
   console.log('  sync [--backend fortemi-core] [--graph <name> | --all] [--repo <name>]');
   console.log('       [--privacy private|sanitized|public] [--generated-at <iso>] [--json]');
   console.log('  --graph <name>  Target a specific graph (framework, project, codebase, source, user, or user-defined)');
@@ -367,6 +380,7 @@ export function printIndexUsage(): void {
   console.log('Examples:');
   console.log('  aiwg index build');
   console.log('  aiwg index build --all');
+  console.log('  aiwg index refresh --root ~/dev --json');
   console.log('  aiwg index build --graph codebase --force');
   console.log('  aiwg index discover "create intake"');
   console.log('  aiwg index discover "deploy production" --limit 5 --json');

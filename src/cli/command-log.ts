@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, stat, writeFile, appendFile } from 'fs/promise
 import { existsSync } from 'fs';
 import { createHash } from 'crypto';
 import path from 'path';
-import os from 'os';
+import { getUserStateDir } from '../config/user-state.js';
 import type { AiwgConfig, CommandLogConfig } from '../config/aiwg-config.js';
 import { readAiwgConfig } from '../config/aiwg-config.js';
 import {
@@ -251,8 +251,7 @@ function resolveLogPath(
     return projectAiwgPath(projectRoot, 'telemetry', 'cli-commands.jsonl');
   }
 
-  const stateHome = env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state');
-  return path.join(stateHome, 'aiwg', 'cli-commands.jsonl');
+  return path.join(getUserStateDir(env), 'cli-commands.jsonl');
 }
 
 async function appendBoundedJsonl(filePath: string, event: CommandLogEvent, maxBytes: number): Promise<void> {

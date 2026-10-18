@@ -215,3 +215,64 @@ Both `discover` and `show` return paths anchored to `$AIWG_ROOT` for framework a
 - `.aiwg/architecture/design-manifest-schema.md` — bundle manifest design (#1044)
 - `agentic/code/addons/aiwg-utils/rules/skill-discovery.md` — the HIGH-enforcement rule that mandates discover-first
 - `agentic/code/addons/aiwg-utils/rules/post-commit-index-refresh.md` — the rule that keeps project/codebase graphs current
+
+## Scheduled index refresh
+
+Run `aiwg index refresh --root ~/dev --json` to refresh workspaces containing
+`.aiwg/` within four directory levels. The scan skips `node_modules`, `.git`,
+worktree caches, and directory symlinks. Without `--root`, refresh uses the current
+project; repeat `--workspace <path>` to select projects explicitly.
+
+Refresh builds configured, existing, and default graphs incrementally, syncs
+existing Fortemi Core caches, then discovers and imports existing session catalogs.
+Session discovery uses only roots saved by an earlier authorized discovery;
+`--full` rebuilds graphs and reindexes catalogs. Use `--only graphs|sessions|caches`
+to narrow the work or `--dry-run` to inspect the plan without writes. Missing
+SQLite support skips sessions with `aiwg features install sqlite` as the remedy.
+
+A host lease prevents overlapping runs; `--lock-wait-ms <n>` optionally waits
+(default: zero). A same-host dead PID lease is reclaimed. Checkpoints in
+`$XDG_STATE_HOME/aiwg` (default `~/.local/state/aiwg`) resume matching interrupted
+plans. The dispatch resource gate runs before each job, requiring at least 8 GiB
+available memory and load per core at most 0.8, plus the dispatch PSI/disk limits
+and any stricter project thresholds. A locked or resource-deferred run exits zero;
+job errors exit nonzero. JSON reports use `contractVersion: "1.0.0"`, command
+`index.refresh`, job outcomes and durations, and totals. Refresh does not deploy,
+check for updates, log commands, or regenerate corpus views.
+
+For a systemd user timer, save `~/.config/systemd/user/aiwg-index-refresh.service`
+(replace `/home/you/.local/bin/aiwg` with the absolute path from `command -v aiwg`;
+ensure Node 24 is on the service's PATH):
+
+```ini
+[Unit]
+Description=Refresh AIWG indexes
+
+[Service]
+Type=oneshot
+ExecStart=/home/you/.local/bin/aiwg index refresh --root %h/dev --json
+```
+
+Save `~/.config/systemd/user/aiwg-index-refresh.timer`:
+
+```ini
+[Unit]
+Description=Refresh AIWG indexes hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable it with `systemctl --user daemon-reload` followed by
+`systemctl --user enable --now aiwg-index-refresh.timer`. For cron, use a PATH
+that includes AIWG and Node 24:
+
+```cron
+PATH=/home/you/.local/bin:/usr/local/bin:/usr/bin:/bin
+17 * * * * aiwg index refresh --root ~/dev --json
+```

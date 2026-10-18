@@ -7,6 +7,12 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Added
+
+- Add `aiwg index refresh` for incremental graph, existing Fortemi cache, and
+  authorized session catalog maintenance, with host locking, resumable checkpoints,
+  resource deferral, dry-run planning, and a versioned JSON report (#310, Gitea #3227).
+
 ### Fixed
 
 - Rebuild session analytics only for sessions affected by committed incremental

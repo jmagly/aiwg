@@ -43,6 +43,7 @@ import { collectGraphIndexFiles, findArtifactFiles, indexPathFor } from './index
 
 export interface BuildOptions {
   force?: boolean;
+  quiet?: boolean;
   verbose?: boolean;
   scope?: string;
   includeIgnored?: boolean; // Include gitignored sources; runtime directories remain excluded
@@ -908,6 +909,7 @@ export async function buildIndex(
 ): Promise<void> {
   const { force = false, verbose = false, scope, includeIgnored = false, outputDir, graph, explicit = true } = options;
   const startTime = Date.now();
+  const log = options.quiet ? (..._args: unknown[]) => {} : console.log;
 
   // Ensure user-defined graphs are loaded
   loadUserGraphConfigs(cwd);
@@ -944,15 +946,15 @@ export async function buildIndex(
     // required directories" sends the operator looking in the wrong place (#2530).
     if (graph === 'framework') {
       const installRoot = resolveInstallRootHint();
-      console.log('The framework graph indexes the AIWG corpus and can only be built at the');
-      console.log('install root, not in a consumer project. Build it there, then sync here:');
-      console.log('');
-      console.log(`  cd ${installRoot} && aiwg index build --graph framework --force`);
-      console.log(`  cd ${cwd} && aiwg index sync --backend fortemi-core --graph framework`);
-      console.log('');
-      console.log("As an immediate workaround, discovery also works with '--backend local'.");
+      log('The framework graph indexes the AIWG corpus and can only be built at the');
+      log('install root, not in a consumer project. Build it there, then sync here:');
+      log('');
+      log(`  cd ${installRoot} && aiwg index build --graph framework --force`);
+      log(`  cd ${cwd} && aiwg index sync --backend fortemi-core --graph framework`);
+      log('');
+      log("As an immediate workaround, discovery also works with '--backend local'.");
     } else {
-      console.log('Run this command from a project with the required directories.');
+      log('Run this command from a project with the required directories.');
     }
     process.exit(1);
   }
@@ -982,8 +984,8 @@ export async function buildIndex(
       verbose,
     });
     const buildTimeMs = Date.now() - startTime;
-    console.log(`Source graph built in ${buildTimeMs}ms`);
-    console.log(`  Output: ${INDEX_DIR}/source/`);
+    log(`Source graph built in ${buildTimeMs}ms`);
+    log(`  Output: ${INDEX_DIR}/source/`);
     return;
   }
 
@@ -1042,7 +1044,7 @@ export async function buildIndex(
       if (!force && existingEntries[relativePath]?.checksum === checksum) {
         entries[relativePath] = existingEntries[relativePath];
         unchangedCount++;
-        if (verbose) console.log(`  unchanged: ${relativePath}`);
+        if (verbose) log(`  unchanged: ${relativePath}`);
         continue;
       }
 
@@ -1059,7 +1061,7 @@ export async function buildIndex(
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
           manifestStats.pruned++;
-          if (verbose) console.log(`  skipped missing: ${relativePath}`);
+          if (verbose) log(`  skipped missing: ${relativePath}`);
           continue;
         }
         throw err;
@@ -1073,7 +1075,7 @@ export async function buildIndex(
         nextManifestEntries[relativePath] = manifestEntry!;
         unchangedCount++;
         manifestStats.statSkipped++;
-        if (verbose) console.log(`  unchanged (stat): ${relativePath}`);
+        if (verbose) log(`  unchanged (stat): ${relativePath}`);
         continue;
       }
 
@@ -1088,7 +1090,7 @@ export async function buildIndex(
         nextManifestEntries[relativePath] = makeEntry(checksum, stat);
         unchangedCount++;
         manifestStats.checksumSkipped++;
-        if (verbose) console.log(`  unchanged (checksum): ${relativePath}`);
+        if (verbose) log(`  unchanged (checksum): ${relativePath}`);
         continue;
       }
 
@@ -1167,10 +1169,10 @@ export async function buildIndex(
 
     if (existingEntries[relativePath]) {
       updatedCount++;
-      if (verbose) console.log(`  updated: ${relativePath}`);
+      if (verbose) log(`  updated: ${relativePath}`);
     } else {
       newCount++;
-      if (verbose) console.log(`  new: ${relativePath}`);
+      if (verbose) log(`  new: ${relativePath}`);
     }
   }
 
@@ -1296,7 +1298,7 @@ export async function buildIndex(
     };
 
     if (verbose && citationEdgeCount > 0) {
-      console.log(`  citation edges: ${citationEdgeCount}`);
+      log(`  citation edges: ${citationEdgeCount}`);
     }
   }
 
@@ -1402,19 +1404,19 @@ export async function buildIndex(
 
   // Report
   const total = Object.keys(entries).length;
-  console.log(`Artifact index built in ${buildTimeMs}ms`);
-  console.log(`  Indexed ${newCount} new, updated ${updatedCount}, unchanged ${unchangedCount}`);
-  console.log(`  Total: ${total} artifacts`);
+  log(`Artifact index built in ${buildTimeMs}ms`);
+  log(`  Indexed ${newCount} new, updated ${updatedCount}, unchanged ${unchangedCount}`);
+  log(`  Total: ${total} artifacts`);
   // Report manifest-driven change detection stats (only meaningful when !force
   // and we actually went through the content-read path for at least one file)
   if (!force && manifestStats.checked > 0) {
     const fastPath = manifestStats.statSkipped;
     const slowPath = manifestStats.checked - manifestStats.statSkipped;
-    console.log(`  Change detection: ${manifestStats.checked} checked, ${fastPath} skipped via stat, ${slowPath} content-read, ${manifestStats.reindexed} re-indexed`);
+    log(`  Change detection: ${manifestStats.checked} checked, ${fastPath} skipped via stat, ${slowPath} content-read, ${manifestStats.reindexed} re-indexed`);
     if (manifestStats.pruned > 0) {
-      console.log(`  Pruned ${manifestStats.pruned} stale manifest entries (files no longer on disk)`);
+      log(`  Pruned ${manifestStats.pruned} stale manifest entries (files no longer on disk)`);
     }
   }
   const displayDir = graph ? indexOutputDir : `${INDEX_DIR}/`;
-  console.log(`  Output: ${displayDir}`);
+  log(`  Output: ${displayDir}`);
 }
