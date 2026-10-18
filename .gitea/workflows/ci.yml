@@ -303,6 +303,8 @@ jobs:
         # Match both publish workflows: the root package intentionally ships
         # apps/web/dist, so a CLI-only build produces an incomplete dry-run.
         run: npm run build
+      - name: Enforce package size and dependency budgets (#3075)
+        run: npm run check:budgets
       - name: Run isolated packaging lifecycle tests
         run: npm run test:packaging
 

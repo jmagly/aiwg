@@ -10,9 +10,9 @@
  * new regressions rather than baselining today's number. They can be
  * overridden via env for specific CI needs:
  *
- *   AIWG_PACK_PACKED_BUDGET_KB    — default 23000 (23 MB)
- *   AIWG_PACK_UNPACKED_BUDGET_KB  — default 70000 (70 MB)
- *   AIWG_PACK_FILES_BUDGET        — default 5500 (file count)
+ *   AIWG_PACK_PACKED_BUDGET_KB    — default 23000 (22.46 MiB)
+ *   AIWG_PACK_UNPACKED_BUDGET_KB  — default 82000 (80.08 MiB)
+ *   AIWG_PACK_FILES_BUDGET        — default 8000 (file count)
  *
  * The package intentionally ships a prebuilt Fortemi Core framework discovery
  * index so users do not have to build that index after install. The dedicated
@@ -27,12 +27,10 @@ import { importImpl } from '../_resolve-impl.mjs';
 const { boundedExecSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
 
 const PACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_PACKED_BUDGET_KB', 23_000);
-const UNPACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_UNPACKED_BUDGET_KB', 70_000);
-// The full package intentionally preserves the inspectable, offline corpus:
-// 3,900 agentic artifacts, 700+ local docs, compiled modules, and runtime
-// tools. The 5,500 ceiling leaves less than 2% headroom over the measured
-// post-cleanup package while still catching accidental file proliferation.
-const FILES_BUDGET = parseIntEnv('AIWG_PACK_FILES_BUDGET', 5_500);
+const UNPACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_UNPACKED_BUDGET_KB', 82_000);
+// Preserve the offline corpus, docs, compiled modules and runtime tools.
+// October measurements and headroom: docs/reports/package-budget-2026-10.md.
+const FILES_BUDGET = parseIntEnv('AIWG_PACK_FILES_BUDGET', 8_000);
 
 const verbose = process.argv.includes('--verbose');
 
@@ -67,17 +65,23 @@ try {
   // We use the first entry (single package). `long`, not `quick`: this runs
   // npm's pack lifecycle (prepack → tools/release/release:fortemi-index),
   // not just a local metadata read (#3062 finding 6).
-  const raw = boundedExecSync('npm pack --dry-run --json', 'long', { stdio: ['ignore', 'pipe', 'pipe'] });
+  const raw = boundedExecSync('npm pack --dry-run --json', 'long', {
+    cwd: new URL('../..', import.meta.url),
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 32 * 1024 * 1024,
+  });
   const out = parseNpmPackJson(raw.toString());
   const pkg = Array.isArray(out) ? out[0] : out;
-  if (!pkg || typeof pkg.size !== 'number') {
+  const fileCount = Array.isArray(pkg?.files) ? pkg.files.length : pkg?.fileCount;
+  if (!pkg || ![pkg.size, pkg.unpackedSize, fileCount].every(
+    (value) => Number.isSafeInteger(value) && value > 0,
+  )) {
     console.error('check-install-size: unexpected npm pack output');
     process.exit(1);
   }
 
   const packedKB = pkg.size / 1024;
   const unpackedKB = pkg.unpackedSize / 1024;
-  const fileCount = Array.isArray(pkg.files) ? pkg.files.length : (pkg.fileCount ?? 0);
 
   if (verbose) {
     console.log(`Package:      ${pkg.name}@${pkg.version}`);

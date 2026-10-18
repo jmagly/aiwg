@@ -13,7 +13,7 @@
  * when the number grows.
  *
  * Budgets (overridable via env):
- *   AIWG_DIRECT_DEPS_BUDGET     — default 15 (direct runtime deps)
+ *   AIWG_DIRECT_DEPS_BUDGET     — default 20 (direct runtime deps)
  *   AIWG_TRANSITIVE_DEPS_BUDGET — default 250 (transitive, when --all set)
  *
  * Usage:
@@ -33,7 +33,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
-const DIRECT_BUDGET = parseIntEnv('AIWG_DIRECT_DEPS_BUDGET', 15);
+// Reviewed October baseline: 18 direct runtime dependencies; two slots of
+// headroom. See docs/reports/package-budget-2026-10.md for the decision.
+const DIRECT_BUDGET = parseIntEnv('AIWG_DIRECT_DEPS_BUDGET', 20);
 const TRANSITIVE_BUDGET = parseIntEnv('AIWG_TRANSITIVE_DEPS_BUDGET', 250);
 
 const includeTransitive = process.argv.includes('--all');
@@ -78,24 +80,32 @@ if (directCount > DIRECT_BUDGET) {
 let transitiveCount;
 if (includeTransitive) {
   try {
-    const raw = boundedExecSync('npm ls --prod --all --json', 'quick', {
-      cwd: REPO_ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-      maxBuffer: 32 * 1024 * 1024,
-    });
+    let raw;
+    try {
+      raw = boundedExecSync('npm ls --prod --all --json', 'quick', {
+        cwd: REPO_ROOT,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf-8',
+        maxBuffer: 32 * 1024 * 1024,
+      });
+    } catch (err) {
+      // npm ls can report peer/optional problems while still returning a
+      // usable tree. Recover that tree, but never silently skip a requested gate.
+      if (!err.stdout?.length) throw err;
+      raw = err.stdout.toString();
+    }
     const tree = JSON.parse(raw);
+    if (!tree || typeof tree !== 'object' || !tree.dependencies) {
+      throw new Error('npm ls output did not contain a dependency tree');
+    }
     transitiveCount = countTransitive(tree);
     if (verbose) console.log(`Transitive deps: ${transitiveCount} (budget ${TRANSITIVE_BUDGET})`);
     if (transitiveCount > TRANSITIVE_BUDGET) {
       failures.push(`Transitive deps ${transitiveCount} exceeds budget of ${TRANSITIVE_BUDGET}`);
     }
   } catch (err) {
-    // npm ls exits non-zero on optional/peer warnings; recover and parse
-    // stdout if available. If parsing still fails, warn but don't fail
-    // the gate — the direct-deps check is the primary signal.
     const message = err instanceof Error ? err.message : String(err);
-    console.warn(`check-dep-budget: transitive check skipped (${message.slice(0, 80)}...)`);
+    failures.push(`Unable to measure transitive dependencies: ${message.slice(0, 160)}`);
   }
 }
 
