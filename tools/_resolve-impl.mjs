@@ -59,10 +59,10 @@ function resolveCandidate(root, relativeFromSrc, base) {
  * `importImpl(import.meta.url, '<module-path-relative-to-src>')` instead of
  * a literal relative import, so it finds `dist/src/` when installed and
  * `src/` in a checkout. `test/integration/tools-packed-relative-imports.test.ts`
- * guards this for every relative import already known to resolve.
+ * guards this for every shipped relative import without exceptions.
  *
  * Directories `package.json`'s `files` excludes from the npm package
- * (`tools/benchmarks/`, `tools/ci/`, `tools/contrib/`, `tools/docker/`,
+ * (`tools/benchmarks/`, `tools/ci/`, `tools/contrib/`,
  * `tools/eval/`, `tools/lint/` other than its listed exceptions,
  * `tools/manifest/` other than its listed exception, `tools/qualification/`,
  * and `tools/release/`) are maintainer/CI-only: they never run from an
@@ -74,17 +74,15 @@ function resolveCandidate(root, relativeFromSrc, base) {
  * shipped ever referenced them (#3062 B/C finding 2) — removing them
  * also trims install size (#3075).
  *
- * `.ts` files directly under `tools/**` that remain shipped (e.g. under
- * `tools/decision/`, `tools/experiments/`) are a separate, still-open
- * case: they are only ever run via `tsx` through an `npm run` script in a
- * checkout (there is no compile step that makes them directly
- * `node`-executable), so they also keep literal `src/**` imports — there
- * is no installed-package code path that reaches them to break. This is
- * pre-existing, documented debt (see the baseline in
- * `test/integration/tools-packed-relative-imports.test.ts`), not a
- * recommendation to add more of it: a new shipped `.ts` tool should
- * resolve through `importImpl` like everything else unless it has the
- * same checkout-only justification.
+ * Decision study/replay scripts, experiments, OMP conformance probes, the
+ * desktop issuer qualification, and repository testing scripts are also
+ * excluded: they require checkout fixtures, development dependencies, or
+ * unshipped application code and have no installed CLI callers. Keep those
+ * scripts in the repository rather than adapting them for installation.
+ *
+ * `tools/docker/container-manager.mjs` and `Dockerfile.daemon` are shipped
+ * exceptions to the Docker directory exclusion: `aiwg daemon start --docker`
+ * needs both. The manager uses this resolver for its implementation import.
  */
 export function resolveImpl(callerUrl, relativeFromSrc) {
   const root = findPackageRoot(callerUrl);

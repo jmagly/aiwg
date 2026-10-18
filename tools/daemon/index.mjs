@@ -37,6 +37,11 @@ class DaemonCLI {
 
   async run() {
     switch (this.command) {
+      case '--help':
+      case '-h':
+      case 'help':
+        this.usage();
+        return;
       case 'start':
         await this.start();
         break;
