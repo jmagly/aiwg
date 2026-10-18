@@ -62,6 +62,10 @@ export const GATE_PROVIDER_MAX_TIMEOUT_MS = 30000;
 export const GATE_PROVIDER_DEFAULT_MAX_RECORDS = 50000;
 /** Largest accepted isolated-run stdout body (single JSON message). */
 export const GATE_PROVIDER_MAX_OUTPUT_BYTES = 1024 * 1024;
+/** V8 old generation; RLIMIT_DATA also bounds off-heap ArrayBuffer allocations. */
+export const GATE_PROVIDER_MAX_OLD_SPACE_MB = 128;
+// Node reserves ~512 MiB for its code range before any provider runs.
+export const GATE_PROVIDER_MAX_DATA_BYTES = 768 * 1024 * 1024;
 
 export class GateProviderError extends Error {
   constructor(
@@ -405,11 +409,16 @@ function prepareIsolatedRun(record: TrustedProviderRecord, args: IsolatedRunArgs
 // ---------------------------------------------------------------------------
 
 const BWRAP_CANDIDATES = ['/usr/bin/bwrap', '/bin/bwrap', '/usr/local/bin/bwrap'];
+const PRLIMIT_CANDIDATES = ['/usr/bin/prlimit', '/bin/prlimit', '/usr/local/bin/prlimit'];
 const SANDBOX_NODE_PATH = '/aiwg/bin/node';
 const SANDBOX_CWD = '/tmp';
 const SANDBOX_SELF_TEST_TIMEOUT_MS = 15000;
 const SANDBOX_NAMESPACES = ['net', 'pid', 'ipc', 'uts', 'user', 'mnt'] as const;
+const MEMORY_NODE_ARGS = [
+  `--max-old-space-size=${GATE_PROVIDER_MAX_OLD_SPACE_MB}`, '--max-semi-space-size=16',
+];
 const DRIVER_NODE_ARGS = [
+  ...MEMORY_NODE_ARGS,
   '--experimental-vm-modules', '--permission', '--disallow-code-generation-from-strings',
   '--no-warnings', '--input-type=module', '-e', ISOLATED_CHILD_SOURCE,
 ];
@@ -419,8 +428,16 @@ const RESULT_FRAME = 'AIWG-RESULT ';
 const SANDBOX_SELF_TEST_SOURCE = [
   "import fs from 'node:fs';",
   "import net from 'node:net';",
+  "import v8 from 'node:v8';",
   "const input = JSON.parse(fs.readFileSync(0, 'utf8'));",
-  'const out = { env: {}, ns: {}, visible: [], connect: null };',
+  'const out = { env: {}, ns: {}, visible: [], connect: null, memory: null };',
+  // Read the inherited kernel limits AND exercise the allocation path. Do
+  // not touch the allocation if the wrapper is broken: fail without committing it.
+  "const data = /^Max data size\\s+(\\S+)\\s+(\\S+)/m.exec(fs.readFileSync('/proc/self/limits', 'utf8'));",
+  'let allocationBlocked = false;',
+  'try { new Uint8Array(input.maxDataBytes); } catch (error) { allocationBlocked = error instanceof RangeError; }',
+  'out.memory = { dataSoftBytes: Number(data?.[1]) || null, dataHardBytes: Number(data?.[2]) || null,',
+  '  heapLimitBytes: v8.getHeapStatistics().heap_size_limit, allocationBlocked };',
   'for (const key of Object.keys(process.env)) out.env[key] = String(process.env[key]);',
   "for (const name of input.namespaces) { try { out.ns[name] = fs.readlinkSync('/proc/self/ns/' + name); } catch { out.ns[name] = null; } }",
   'for (const path of input.paths) { try { fs.lstatSync(path); out.visible.push(path); } catch { /* absent */ } }',
@@ -435,23 +452,32 @@ const SANDBOX_SELF_TEST_SOURCE = [
   'process.stdout.write(JSON.stringify(out));',
 ].join('\n');
 
-let sandboxOverride: { bwrapPath?: string } | null = null;
+let sandboxOverride: { bwrapPath?: string; prlimitPath?: string } | null = null;
 let sandboxVerdict: { key: string; ok: boolean; reason: string } | undefined;
 let runtimeBindCache: Array<[string, string]> | undefined;
 
 /**
- * Test-only hook: point the runner at another bwrap path (for example a
+ * Test-only hook: point the runner at another bwrap/prlimit path (for example a
  * missing binary, or one that fails the self-test) or reset with `null`.
  * It can only make the runner refuse: whatever path is configured must still
  * pass the capability self-test before any provider runs.
  */
-export function configureIsolationSandboxForTests(options: { bwrapPath?: string } | null): void {
+export function configureIsolationSandboxForTests(options: { bwrapPath?: string; prlimitPath?: string } | null): void {
   sandboxOverride = options === null ? null : { ...options };
   sandboxVerdict = undefined;
 }
 
 function resolveBwrapPath(): string | null {
   const candidates = sandboxOverride?.bwrapPath !== undefined ? [sandboxOverride.bwrapPath] : BWRAP_CANDIDATES;
+  return resolveExecutable(candidates);
+}
+
+function resolvePrlimitPath(): string | null {
+  const candidates = sandboxOverride?.prlimitPath !== undefined ? [sandboxOverride.prlimitPath] : PRLIMIT_CANDIDATES;
+  return resolveExecutable(candidates);
+}
+
+function resolveExecutable(candidates: readonly string[]): string | null {
   for (const candidate of candidates) {
     try {
       const status = statSync(candidate);
@@ -555,13 +581,24 @@ function sandboxCommand(nodeArgs: readonly string[]): { command: string; args: s
     throw new GateProviderError(
       'bundle providers require bubblewrap (bwrap) for OS-level isolation and none was found: refusing to run', 'sandbox-unavailable');
   }
+  const prlimit = resolvePrlimitPath();
+  if (prlimit === null) {
+    throw new GateProviderError(
+      'bundle providers require prlimit for a kernel memory cap and none was found: refusing to run', 'sandbox-unavailable');
+  }
   const args = [
     '--unshare-all', '--unshare-user', '--disable-userns',
     '--die-with-parent', '--new-session', '--clearenv', '--cap-drop', 'ALL',
   ];
   for (const [source, target] of runtimeBinds()) args.push('--ro-bind', source, target);
   args.push('--tmpfs', SANDBOX_CWD, '--proc', '/proc', '--dev', '/dev', '--chdir', SANDBOX_CWD, '--', SANDBOX_NODE_PATH, ...nodeArgs);
-  return { command: bwrap, args, env: {} };
+  return {
+    command: prlimit,
+    // Both limits are hard as well as soft, inherited across exec into bwrap
+    // and node. Core dumps are disabled for bounded heap exhaustion failures.
+    args: [`--data=${GATE_PROVIDER_MAX_DATA_BYTES}:${GATE_PROVIDER_MAX_DATA_BYTES}`, '--core=0:0', '--', bwrap, ...args],
+    env: {},
+  };
 }
 
 /**
@@ -570,7 +607,8 @@ function sandboxCommand(nodeArgs: readonly string[]): { command: string; args: s
  * cleared environment, new session, die-with-parent, read-only node runtime
  * binds, a private tmpfs, and node with `--permission` (no fs, no child
  * processes, no workers) plus `--disallow-code-generation-from-strings`.
- * The spawn environment itself is empty.
+ * prlimit applies a hard data cap (including off-heap memory); V8 has a
+ * separate heap cap. The spawn environment itself is empty.
  */
 export function isolationLaunchPlan(): { command: string; args: string[]; env: Record<string, string> } {
   return sandboxCommand(DRIVER_NODE_ARGS);
@@ -583,6 +621,12 @@ interface SandboxSelfTestReport {
   sharedNamespaces: string[];
   hostPathsVisible: string[];
   connect: string | null;
+  memory: {
+    dataSoftBytes: number | null;
+    dataHardBytes: number | null;
+    heapLimitBytes: number;
+    allocationBlocked: boolean;
+  } | null;
 }
 
 function hostProbePaths(): string[] {
@@ -602,14 +646,17 @@ function hostProbePaths(): string[] {
 
 function selfTestInput(port: number | null): { paths: string[]; input: string } {
   const paths = hostProbePaths();
-  return { paths, input: JSON.stringify({ namespaces: SANDBOX_NAMESPACES, paths, port }) };
+  return { paths, input: JSON.stringify({ namespaces: SANDBOX_NAMESPACES, paths, port, maxDataBytes: GATE_PROVIDER_MAX_DATA_BYTES }) };
 }
 
 function judgeSelfTest(stdout: string, status: number | null, paths: string[], port: number | null): SandboxSelfTestReport {
   const report: SandboxSelfTestReport = {
-    ok: false, reason: '', envKeys: [], sharedNamespaces: [], hostPathsVisible: [], connect: null,
+    ok: false, reason: '', envKeys: [], sharedNamespaces: [], hostPathsVisible: [], connect: null, memory: null,
   };
-  let observed: { env?: Record<string, string>; ns?: Record<string, string | null>; visible?: string[]; connect?: string | null };
+  let observed: {
+    env?: Record<string, string>; ns?: Record<string, string | null>; visible?: string[]; connect?: string | null;
+    memory?: SandboxSelfTestReport['memory'];
+  };
   try {
     observed = JSON.parse(stdout) as typeof observed;
   } catch {
@@ -635,7 +682,15 @@ function judgeSelfTest(stdout: string, status: number | null, paths: string[], p
   }
   report.hostPathsVisible = (observed.visible ?? []).filter(path => paths.includes(path));
   report.connect = observed.connect ?? null;
+  report.memory = observed.memory ?? null;
   const problems: string[] = [];
+  const memory = report.memory;
+  if (memory === null
+    || memory.dataSoftBytes !== GATE_PROVIDER_MAX_DATA_BYTES || memory.dataHardBytes !== GATE_PROVIDER_MAX_DATA_BYTES
+    || !(memory.heapLimitBytes > 0 && memory.heapLimitBytes <= (GATE_PROVIDER_MAX_OLD_SPACE_MB + 48) * 1024 * 1024)
+    || memory.allocationBlocked !== true) {
+    problems.push('memory cap not enforced');
+  }
   if (report.envKeys.length) problems.push(`environment leaks ${report.envKeys.join(',')}`);
   if (report.sharedNamespaces.length) problems.push(`namespaces not private: ${report.sharedNamespaces.join(',')}`);
   if (report.hostPathsVisible.length) problems.push(`host paths visible: ${report.hostPathsVisible.join(',')}`);
@@ -647,7 +702,7 @@ function judgeSelfTest(stdout: string, status: number | null, paths: string[], p
 
 /**
  * Runs the sandbox capability self-test asynchronously and returns the
- * observations (empty env, private namespaces, no host paths, optional
+ * observations (enforced memory caps, empty env, private namespaces, no host paths, optional
  * loopback connect to a parent listener on `connectPort`).
  */
 export function probeIsolationSandbox(options?: { connectPort?: number }): Promise<SandboxSelfTestReport> {
@@ -655,12 +710,12 @@ export function probeIsolationSandbox(options?: { connectPort?: number }): Promi
   let plan: { command: string; args: string[]; env: Record<string, string> };
   let probe: { paths: string[]; input: string };
   try {
-    plan = sandboxCommand(['--no-warnings', '--input-type=module', '-e', SANDBOX_SELF_TEST_SOURCE]);
+    plan = sandboxCommand([...MEMORY_NODE_ARGS, '--no-warnings', '--input-type=module', '-e', SANDBOX_SELF_TEST_SOURCE]);
     probe = selfTestInput(port);
   } catch (error) {
     return Promise.resolve({
       ok: false, reason: error instanceof Error ? error.message : 'sandbox unavailable',
-      envKeys: [], sharedNamespaces: [], hostPathsVisible: [], connect: null,
+      envKeys: [], sharedNamespaces: [], hostPathsVisible: [], connect: null, memory: null,
     });
   }
   return new Promise((resolvePromise) => {
@@ -673,7 +728,7 @@ export function probeIsolationSandbox(options?: { connectPort?: number }): Promi
       clearTimeout(timer);
       resolvePromise({
         ok: false, reason: `sandbox failed to start: ${error.message}`,
-        envKeys: [], sharedNamespaces: [], hostPathsVisible: [], connect: null,
+        envKeys: [], sharedNamespaces: [], hostPathsVisible: [], connect: null, memory: null,
       });
     });
     child.on('close', (code) => {
@@ -686,15 +741,15 @@ export function probeIsolationSandbox(options?: { connectPort?: number }): Promi
 
 /**
  * Fail-closed gate before every provider run: bwrap must exist and pass the
- * capability self-test (cached per bwrap path for the process lifetime).
+ * capability self-test (cached per bwrap/prlimit path for the process lifetime).
  * There is no unsandboxed fallback.
  */
 function ensureIsolationSandbox(): void {
-  const key = resolveBwrapPath() ?? '<missing>';
+  const key = JSON.stringify([resolveBwrapPath(), resolvePrlimitPath()]);
   if (sandboxVerdict === undefined || sandboxVerdict.key !== key) {
     let verdict: { ok: boolean; reason: string };
     try {
-      const plan = sandboxCommand(['--no-warnings', '--input-type=module', '-e', SANDBOX_SELF_TEST_SOURCE]);
+      const plan = sandboxCommand([...MEMORY_NODE_ARGS, '--no-warnings', '--input-type=module', '-e', SANDBOX_SELF_TEST_SOURCE]);
       const probe = selfTestInput(null);
       const completed = spawnSync(plan.command, plan.args, {
         env: plan.env, input: probe.input, encoding: 'utf8', timeout: SANDBOX_SELF_TEST_TIMEOUT_MS,

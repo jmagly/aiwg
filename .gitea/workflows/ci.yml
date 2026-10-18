@@ -1,6 +1,6 @@
 # Main CI Workflow
 #
-# Runs on all pushes and pull requests to main/develop.
+# Runs on pushes to main/develop and manual dispatch; PRs run no CI.
 # Executes tests, type checking, and linting.
 
 name: CI
@@ -84,6 +84,25 @@ jobs:
 
       - name: Build CLI (required by integration tests that spawn bin/aiwg.mjs)
         run: npm run build:cli
+
+      - name: Require bundle provider sandbox suite where bwrap is available (#2846)
+        if: gitea.event_name == 'push' && gitea.ref == 'refs/heads/main'
+        # Runner images may lack bwrap or unprivileged user namespaces. A
+        # capable runner must execute the suite: memory/isolation regressions
+        # fail the step instead of turning the behavioural cases into skips.
+        run: |
+          if ! command -v bwrap >/dev/null 2>&1; then
+            echo "::notice::Skipping provider sandbox lane: bwrap is unavailable"
+            exit 0
+          fi
+          if ! bwrap --unshare-all --unshare-user --disable-userns --die-with-parent --ro-bind / / -- /bin/true; then
+            echo "::notice::Skipping provider sandbox lane: bwrap/user namespaces are unavailable"
+            exit 0
+          fi
+          AIWG_REQUIRE_PROVIDER_SANDBOX=1 nice -n 19 ./node_modules/.bin/vitest run --config config/vitest.config.js --maxWorkers=4 \
+            test/conformance/gates-v1/gates-provider-sandbox.test.ts \
+            test/conformance/gates-v1/gates-provider-isolation.test.ts \
+            test/conformance/gates-v1/gates-bundle-providers.test.ts
 
       - name: Install SQLite test backend
         # Keep native prebuild plumbing out of the default/package-lock install

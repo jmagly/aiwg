@@ -239,7 +239,7 @@ sandboxed(`C1b: only context-realm objects cross into provider code`, () => {
 });
 
 sandboxed(`C1c/C1d: OS-level sandbox (bubblewrap) with an empty environment`, () => {
-  it('self-test proves an empty env, private namespaces, no host paths and no host network', async () => {
+  it('self-test proves memory caps, an empty env, private namespaces, no host paths and no host network', async () => {
     const probe = (loader as unknown as {
       probeIsolationSandbox?: (options?: { connectPort?: number }) => Promise<Record<string, unknown>>;
     }).probeIsolationSandbox;
@@ -254,6 +254,13 @@ sandboxed(`C1c/C1d: OS-level sandbox (bubblewrap) with an empty environment`, ()
       expect(report.sharedNamespaces).toEqual([]);
       expect(report.hostPathsVisible).toEqual([]);
       expect(report.connect).not.toBe('connected');
+      expect(report.memory).toMatchObject({
+        dataSoftBytes: loader.GATE_PROVIDER_MAX_DATA_BYTES,
+        dataHardBytes: loader.GATE_PROVIDER_MAX_DATA_BYTES,
+        allocationBlocked: true,
+      });
+      expect((report.memory as { heapLimitBytes: number }).heapLimitBytes)
+        .toBeLessThanOrEqual((loader.GATE_PROVIDER_MAX_OLD_SPACE_MB + 48) * 1024 * 1024);
     } finally {
       server.close();
     }
@@ -265,7 +272,11 @@ sandboxed(`C1c/C1d: OS-level sandbox (bubblewrap) with an empty environment`, ()
     }).isolationLaunchPlan;
     expect(typeof plan).toBe('function');
     const launch = plan!();
-    expect(launch.command).toMatch(/bwrap$/);
+    expect(launch.command).toMatch(/prlimit$/);
+    expect(launch.args[0]).toBe(`--data=${loader.GATE_PROVIDER_MAX_DATA_BYTES}:${loader.GATE_PROVIDER_MAX_DATA_BYTES}`);
+    expect(launch.args).toContain('--core=0:0');
+    const bwrapIndex = launch.args.findIndex(arg => /\/bwrap$/.test(arg));
+    expect(bwrapIndex).toBeGreaterThan(0);
     expect(launch.env).toEqual({});
     for (const flag of ['--unshare-all', '--clearenv', '--die-with-parent', '--new-session', '--disable-userns']) {
       expect(launch.args, flag).toContain(flag);
@@ -276,10 +287,12 @@ sandboxed(`C1c/C1d: OS-level sandbox (bubblewrap) with an empty environment`, ()
     const nodeIndex = launch.args.indexOf('--permission');
     expect(nodeIndex).toBeGreaterThan(0);
     expect(launch.args).toContain('--disallow-code-generation-from-strings');
+    expect(launch.args).toContain(`--max-old-space-size=${loader.GATE_PROVIDER_MAX_OLD_SPACE_MB}`);
     expect(launch.args.some(arg => arg.startsWith('--allow-fs'))).toBe(false);
     // Host paths appear only as read-only bind SOURCES (node binary, libraries);
     // no bind target exposes the home directory or the working tree.
-    const sandboxArgs = launch.args.slice(0, launch.args.indexOf('--'));
+    const nodeStart = launch.args.indexOf('--', bwrapIndex);
+    const sandboxArgs = launch.args.slice(bwrapIndex + 1, nodeStart);
     const targets: string[] = [];
     sandboxArgs.forEach((arg, index) => { if (arg === '--ro-bind') targets.push(sandboxArgs[index + 2]!); });
     expect(targets.length).toBeGreaterThan(1);
@@ -287,8 +300,50 @@ sandboxed(`C1c/C1d: OS-level sandbox (bubblewrap) with an empty environment`, ()
       expect(target.startsWith(process.env.HOME ?? '/nonexistent-home'), target).toBe(false);
       expect(target.startsWith(process.cwd()), target).toBe(false);
     }
-    const nodeArgs = launch.args.slice(launch.args.indexOf('--') + 1);
+    const nodeArgs = launch.args.slice(nodeStart + 1);
     expect(nodeArgs.join(' ')).not.toContain(process.env.HOME ?? '/nonexistent-home');
+  });
+
+  it('blocks a 1 GiB off-heap allocation and cumulative smaller allocations', async () => {
+    const provider = await load(writeBundle(providerSource([
+      '    let singleBlocked = false;',
+      '    try { new Uint8Array(1024 * 1024 * 1024); } catch (e) { singleBlocked = e instanceof RangeError; }',
+      '    const held = []; let cumulativeBlocked = false;',
+      '    try { for (let i = 0; i < 64; i++) held.push(new Uint8Array(16 * 1024 * 1024)); }',
+      '    catch (e) { cumulativeBlocked = e instanceof RangeError; }',
+      '    return { metrics: { m: { singleBlocked, cumulativeBlocked } } };',
+    ].join('\n'))));
+    expect(metricOf(await invoke(provider))).toEqual({ singleBlocked: true, cumulativeBlocked: true });
+  });
+
+  it('contains heap exhaustion in the child and can run another provider afterwards', async () => {
+    const provider = await load(writeBundle(providerSource(
+      '    const held = []; for (;;) held.push(new Array(65536).fill(42));',
+    )));
+    await expect(invoke(provider)).rejects.toMatchObject({ code: 'rejected' });
+    const healthy = await load(writeBundle(providerSource('    return { metrics: { m: { value: 42 } } };')));
+    expect(metricOf(await invoke(healthy))).toEqual({ value: 42 });
+  });
+
+  it('refuses loading and invoking if prlimit is missing or does not apply the cap', async () => {
+    const provider = await load(writeBundle(providerSource('    return { metrics: { m: 1 } };')));
+    const ignoringWrapper = join(box('uncapped'), 'prlimit');
+    // Discard --data, --core and --, then run the real sandbox unchanged.
+    writeFileSync(ignoringWrapper, '#!/bin/sh\nshift\nshift\nshift\nexec "$@"\n', { mode: 0o755 });
+    for (const prlimitPath of ['/nonexistent/prlimit', ignoringWrapper]) {
+      loader.configureIsolationSandboxForTests({ prlimitPath });
+      try {
+        const report = await loader.probeIsolationSandbox();
+        expect(report.ok).toBe(false);
+        expect(report.reason).toMatch(/prlimit|memory cap/);
+        expect(loader.isolationSandboxStatus().ok).toBe(false);
+        await expect(invoke(provider)).rejects.toMatchObject({ code: 'sandbox-unavailable' });
+        await expect(load(writeBundle(providerSource('    return { metrics: { m: 2 } };'))))
+          .rejects.toMatchObject({ code: 'sandbox-unavailable' });
+      } finally {
+        loader.configureIsolationSandboxForTests(null);
+      }
+    }
   });
 
   it('fails closed when bwrap is missing or fails its capability self-test (never unsandboxed)', async () => {
