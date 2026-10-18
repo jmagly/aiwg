@@ -385,6 +385,7 @@ Based on your answers, I'll adjust:
        Analyze requirements to identify:
        - New data entities needed
        - Existing entities to modify
+       - Configuration, events, messages, files, imports/exports, and structured user input
        - New API endpoints required
        - Integration points with external systems
 
@@ -392,13 +393,14 @@ Based on your answers, I'll adjust:
        - List of data contracts needed
        - List of interface specifications needed
        - Dependencies on existing contracts
+       - Every schema-bearing boundary and any explicit opt-out candidate
 
        Output: .aiwg/working/discovery/iteration-{N}/designs/inventory.md
        """
    )
    ```
 
-2. **Create Data Contract Cards** (parallel):
+2. **Create Canonical Schemas and Data Contract Cards** (parallel):
    ```
    # For each identified data entity:
    Task(
@@ -407,6 +409,12 @@ Based on your answers, I'll adjust:
        prompt="""
        Entity: {entity-name}
        Related use cases: {use-case-ids}
+
+       First invoke schema-intake from the schema-governance addon. Persistent,
+       exchanged, configured, queued, evented, imported/exported, or structured
+       user-authored data requires a governed schema by default. Do not ask the
+       user to know schema terminology. An opt-out requires an ephemeral internal
+       boundary, owner, rationale, and review date.
 
        Use template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/analysis-design/data-contract-card.md
 
@@ -417,11 +425,13 @@ Based on your answers, I'll adjust:
           - Relationships to other entities
           - Business rules
 
-       2. Schema Specification
+       2. Canonical Schema Specification
           - Fields and data types
           - Required vs. optional
           - Validation rules
           - Default values
+          - Stable catalog identity, version, owner, authority, consumers
+          - Valid and invalid executable fixtures
 
        3. Example (JSON/YAML)
           ```json
@@ -438,7 +448,10 @@ Based on your answers, I'll adjust:
           - Migration approach
           - Backward compatibility
 
-       Output: .aiwg/working/discovery/iteration-{N}/designs/data-contract-{entity}.md
+       Outputs:
+       - .aiwg/working/discovery/iteration-{N}/designs/data-contract-{entity}.md
+       - Canonical schema under the project schema root
+       - Catalog/domain-manifest registration and fixtures
        """
    )
    ```

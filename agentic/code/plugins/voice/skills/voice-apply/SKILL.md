@@ -33,14 +33,14 @@ For model-driven voice transformation, use the packaged [criticism/correction fl
 ## Brief and fidelity contract
 
 For author-controlled writing, prepare a structured
-[writing brief](../../../../../../docs/voice/writing-briefs.md) before generating prose.
+[writing brief](https://github.com/jmagly/aiwg/blob/main/docs/voice/writing-briefs.md) before generating prose.
 Record reader task, supported propositions, limitations, intended action and
 approved author notes. Missing first-person experiences or design rationale are
 editorial gaps; do not invent them. Keep evidence strength independent of voice.
 Proofread-only applies selected authorized correction IDs to the original source;
 other operations expose explicit permissions and lineage for downstream execution.
 
-Run [fidelity checks](../../../../../../docs/voice/fidelity.md) after every final
+Run [fidelity checks](https://github.com/jmagly/aiwg/blob/main/docs/voice/fidelity.md) after every final
 structure/presentation pass. Uncertain paraphrases require review. Preserve the
 original on configured fallback and report attempted versus retained changes
 outside product prose. Automated literal guards are not semantic proof.

@@ -1,0 +1,68 @@
+[
+  {
+    "plugin": "agent-loop",
+    "file": "README.md",
+    "target": "docs/examples/test-fix.md",
+    "reason": "missing-target"
+  },
+  {
+    "plugin": "agent-loop",
+    "file": "README.md",
+    "target": "docs/examples/greenfield.md",
+    "reason": "missing-target"
+  },
+  {
+    "plugin": "aiwg-dev",
+    "file": "skills/devkit-create-agent/SKILL.md",
+    "target": "~/.local/share/ai-writing-guide/docs/AGENT-DESIGN.md",
+    "reason": "missing-target"
+  },
+  {
+    "plugin": "context-curator",
+    "file": "README.md",
+    "target": "~/.local/share/ai-writing-guide/docs/references/REF-002-llm-failure-modes-agentic.md",
+    "reason": "missing-target"
+  },
+  {
+    "plugin": "context-curator",
+    "file": "README.md",
+    "target": "~/.local/share/ai-writing-guide/docs/AGENT-DESIGN.md#rule-6-scoped-context",
+    "reason": "missing-target"
+  },
+  {
+    "plugin": "context-curator",
+    "file": "README.md",
+    "target": "~/.local/share/ai-writing-guide/.aiwg/planning/roig-2025-gap-analysis.md",
+    "reason": "missing-target"
+  },
+  {
+    "plugin": "research",
+    "file": "skills/induct-media/examples/expected-REF-101-radar.md",
+    "target": "../citations/REF-101-citations.md",
+    "reason": "missing-target"
+  },
+  {
+    "plugin": "research",
+    "file": "skills/induct-media/examples/expected-REF-101-radar.md",
+    "target": "../references/REF-101.md",
+    "reason": "missing-target"
+  },
+  {
+    "plugin": "research",
+    "file": "skills/induct-media/examples/expected-REF-101-radar.md",
+    "target": "../references/REF-101.md",
+    "reason": "missing-target"
+  },
+  {
+    "plugin": "research",
+    "file": "skills/induct-media/examples/expected-REF-101-radar.md",
+    "target": "../citations/REF-101-citations.md",
+    "reason": "missing-target"
+  },
+  {
+    "plugin": "research",
+    "file": "skills/induct-media/examples/expected-REF-101.md",
+    "target": "../citations/REF-101-citations.md",
+    "reason": "missing-target"
+  }
+]

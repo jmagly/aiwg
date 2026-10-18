@@ -69,6 +69,7 @@
     "tools/providers/antigravity-transport.mjs",
     "tools/commands/deploy-prompts-codex.mjs",
     "tools/plugin/package-plugins.mjs",
+    "tools/plugin/plugin-links.mjs",
     "tools/skills/deploy-skills-codex.mjs",
     "README.md"
   ],

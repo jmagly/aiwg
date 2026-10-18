@@ -18,6 +18,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { importImpl } from '../_resolve-impl.mjs';
+import { rewritePublishedMarkdown, reportPluginLinks } from './plugin-links.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,7 +41,9 @@ const PLUGIN_CONFIGS = {
       skills: 'agentic/code/frameworks/sdlc-complete/skills'
     },
     extraCopy: [
-      { from: 'tools/security/threat-assessment.mjs', to: 'tools/security/threat-assessment.mjs' }
+      { from: 'tools/security/threat-assessment.mjs', to: 'tools/security/threat-assessment.mjs' },
+      { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-architecture-evolution.playbook.yaml', to: 'flows/flow-architecture-evolution.playbook.yaml' },
+      { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-release.playbook.yaml', to: 'flows/flow-release.playbook.yaml' }
     ],
     rewrites: [
       {
@@ -138,7 +141,12 @@ Marketing automation framework with 37 specialized agents.
       skills: 'agentic/code/addons/voice-framework/skills'
     },
     extraCopy: [
-      { from: 'agentic/code/addons/voice-framework/voices', to: 'voices' }
+      { from: 'agentic/code/addons/voice-framework/voices', to: 'voices' },
+      { from: 'agentic/code/addons/voice-framework/docs/writing-workflows.md', to: 'docs/writing-workflows.md' },
+      { from: 'agentic/code/addons/voice-framework/docs/voice-output-impact.md', to: 'docs/voice-output-impact.md' },
+      { from: 'agentic/code/addons/voice-framework/docs/natural-voice/ADR-001-evidence-and-ownership.md', to: 'docs/natural-voice/ADR-001-evidence-and-ownership.md' },
+      { from: 'agentic/code/addons/voice-framework/docs/natural-voice/evidence-ledger.v1.json', to: 'docs/natural-voice/evidence-ledger.v1.json' },
+      { from: 'agentic/code/addons/voice-framework/flows/voice-critique-correction.flow.yaml', to: 'flows/voice-critique-correction.flow.yaml' }
     ],
     readme: `# AIWG Voice Framework
 
@@ -229,6 +237,10 @@ Writing quality validation and AI pattern detection.
       agents: 'agentic/code/addons/aiwg-utils/agents',
       skills: 'agentic/code/addons/aiwg-utils/skills'
     },
+    extraCopy: [
+      { from: 'agentic/code/addons/aiwg-utils/rules/skill-discovery.md', to: 'rules/skill-discovery.md' },
+      { from: 'agentic/code/addons/aiwg-utils/rules/cli-secondary.md', to: 'rules/cli-secondary.md' }
+    ],
     readme: `# AIWG Utilities
 
 Core AIWG utilities for context regeneration and workspace management.
@@ -271,10 +283,19 @@ Core AIWG utilities for context regeneration and workspace management.
     name: 'codex-sdlc',
     displayName: 'AIWG SDLC for Codex',
     pluginType: 'codex',
+    scriptWrappers: [{
+      file: 'skills/address-issues-threat-assess/scripts/assess.mjs',
+      source: 'agentic/code/frameworks/sdlc-complete/skills/address-issues-threat-assess/scripts/assess.mjs',
+      exports: ['assessIssue', 'assessText', 'runCli'],
+    }],
     description: 'Complete SDLC framework packaged as a Codex plugin with skills, agents, and marketplace entry.',
     sources: {
       skills: 'agentic/code/frameworks/sdlc-complete/skills'
     },
+    extraCopy: [
+      { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-architecture-evolution.playbook.yaml', to: 'flows/flow-architecture-evolution.playbook.yaml' },
+      { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-release.playbook.yaml', to: 'flows/flow-release.playbook.yaml' }
+    ],
     readme: `# AIWG SDLC for Codex
 
 AIWG SDLC framework packaged as a Codex plugin.
@@ -350,6 +371,9 @@ Digital forensics and incident response framework with 14 specialized agents.
       agents: 'agentic/code/frameworks/security-engineering/agents',
       skills: 'agentic/code/frameworks/security-engineering/skills'
     },
+    extraCopy: [
+      { from: 'agentic/code/frameworks/security-engineering/rules/ci-action-pinning.md', to: 'rules/ci-action-pinning.md' }
+    ],
     readme: `# AIWG Security Engineering
 
 Applied security engineering framework for cryptographic primitive selection, chain-of-trust integrity, and physical-threat modeling.
@@ -396,6 +420,10 @@ Applied security engineering framework for cryptographic primitive selection, ch
       agents: 'agentic/code/frameworks/research-complete/agents',
       skills: 'agentic/code/frameworks/research-complete/skills'
     },
+    extraCopy: [
+      { from: 'agentic/code/frameworks/research-complete/docs/bibliographic-services.md', to: 'docs/bibliographic-services.md' },
+      { from: 'agentic/code/frameworks/research-complete/docs/corpus-data-model.md', to: 'docs/corpus-data-model.md' }
+    ],
     readme: `# AIWG Research Complete
 
 Research workflow framework with 9 specialized agents for academic and technical research.
@@ -681,6 +709,9 @@ function parseArgs() {
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
+      case '--check-links':
+        options.checkLinks = true;
+        break;
       case '--all':
       case '-a':
         options.all = true;
@@ -718,6 +749,7 @@ Usage:
   node tools/plugin/package-plugins.mjs [options]
 
 Options:
+  --check-links         Report payload links without writing; exit 1 on offenders
   --all, -a             Package all plugins
   --plugin, -p NAME     Package specific plugin
   --provider NAME       Package for a specific provider
@@ -829,6 +861,19 @@ function pruneUndeclaredPackagedSkills(pluginDir, declaredSkills) {
   }
 }
 
+
+export function rewritePublishedLinks(pluginDir, payloadRoot = pluginDir) {
+  for (const entry of fs.readdirSync(pluginDir, { withFileTypes: true })) {
+    const target = path.join(pluginDir, entry.name);
+    if (entry.isDirectory()) rewritePublishedLinks(target, payloadRoot);
+    else if (entry.isFile() && entry.name.endsWith('.md')) {
+      const body = fs.readFileSync(target, 'utf8');
+      const rewritten = rewritePublishedMarkdown(body, target, payloadRoot, ROOT_DIR);
+      if (rewritten !== body) fs.writeFileSync(target, rewritten);
+    }
+  }
+}
+
 // Clean plugin directory (except .claude-plugin)
 function cleanPlugin(pluginDir) {
   if (!fs.existsSync(pluginDir)) return;
@@ -936,6 +981,8 @@ function packagePlugin(name, config, options) {
     }, null, 2)}\n`);
   }
 
+  if (!options.dryRun) rewritePublishedLinks(pluginDir);
+
   console.log(`  ✅ ${config.displayName} packaged successfully`);
 }
 
@@ -984,6 +1031,34 @@ function writeClaudeMarketplaceManifest(options) {
   const outputPath = options.marketplacePath || existingPath;
   fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   console.log(`\n✓ Wrote Claude marketplace: ${outputPath} (${manifest.plugins.length} plugins)`);
+}
+
+// Runtime delegates are generated after copying sources, so regeneration cannot
+// replace canonical routing with a checkout-relative implementation copy.
+export function writeCanonicalScriptWrappers(pluginDir, wrappers, repoRoot = ROOT_DIR) {
+  for (const wrapper of wrappers || []) {
+    const target = path.join(pluginDir, wrapper.file);
+    const relativeSource = path.relative(path.dirname(target), path.join(repoRoot, wrapper.source)).split(path.sep).join('/');
+    const source = JSON.stringify(wrapper.source);
+    fs.writeFileSync(target, `#!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const candidates = [
+  new URL(${JSON.stringify(relativeSource)}, import.meta.url),
+  pathToFileURL(path.resolve(process.cwd(), ${source})),
+  pathToFileURL(path.resolve(process.cwd(), 'node_modules/aiwg', ${source})),
+];
+const source = candidates.find(candidate => fs.existsSync(candidate));
+if (!source) throw new Error('Unable to locate the canonical AIWG threat-assessment wrapper');
+const canonical = await import(source.href);
+
+${wrapper.exports.map(name => `export const ${name} = canonical.${name};`).join('\n')}
+
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) runCli();
+`);
+  }
 }
 
 // Package a Codex-format plugin (generates .codex-plugin/plugin.json + marketplace.json)
@@ -1175,7 +1250,7 @@ async function main() {
   const options = parseArgs();
 
   if (options.check) {
-    if (!options.all || options.plugin || options.provider || options.source || options.output || options.clean || options.dryRun) {
+    if (!options.all || options.plugin || options.provider || options.source || options.output || options.clean || options.dryRun || options.checkLinks) {
       throw new Error('--check requires --all and cannot be combined with other packaging options');
     }
     const differences = checkPackagedPlugins();
@@ -1200,7 +1275,7 @@ async function main() {
     console.log('   Mode: DRY RUN (no files will be changed)');
   }
 
-  if (options.plugin && !options.all) {
+  if (options.plugin && !options.all && !options.checkLinks) {
     const { packageStandalonePlugin } = await importImpl(import.meta.url, 'plugins/standalone-packager.js');
     const standalone = await packageStandalonePlugin({
       cwd: process.cwd(),
@@ -1252,6 +1327,15 @@ async function main() {
     process.exit(1);
   }
 
+  if (options.checkLinks) {
+    let count = 0;
+    for (const [name] of pluginsToPackage) {
+      count += reportPluginLinks(path.join(PLUGINS_DIR, name)).length;
+    }
+    if (count) process.exitCode = 1;
+    return;
+  }
+
   // Package for each (provider, plugin) combination
   for (const provider of providersToRun) {
     for (const [name, config] of pluginsToPackage) {
@@ -1268,6 +1352,22 @@ async function main() {
       } else {
         // cursor, factory, openclaw — generic provider plugin bundle
         await packageProviderPlugin(name, config, options, effectiveProvider);
+      }
+      if (!options.dryRun) {
+        const pluginDir = path.join(PLUGINS_DIR, name);
+        // Claude already copied extras; other providers need the same docs.
+        if (provider !== 'claude') {
+          for (const extra of config.extraCopy || []) {
+            const destination = path.join(pluginDir, extra.to);
+            fs.mkdirSync(path.dirname(destination), { recursive: true });
+            fs.cpSync(path.join(ROOT_DIR, extra.from), destination, { recursive: true });
+          }
+        }
+        if (provider !== 'claude') {
+          writeCanonicalScriptWrappers(pluginDir, config.scriptWrappers);
+          rewritePublishedLinks(pluginDir);
+        }
+        reportPluginLinks(pluginDir);
       }
     }
 

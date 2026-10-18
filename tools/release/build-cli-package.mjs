@@ -63,6 +63,7 @@ export async function buildCliPackage({ outputDir = defaultOutputDir } = {}) {
     path.join(repoRoot, 'tools', 'providers', 'antigravity-transport.mjs'),
     path.join(repoRoot, 'tools', 'commands', 'deploy-prompts-codex.mjs'),
     path.join(repoRoot, 'tools', 'plugin', 'package-plugins.mjs'),
+    path.join(repoRoot, 'tools', 'plugin', 'plugin-links.mjs'),
     path.join(repoRoot, 'tools', 'skills', 'deploy-skills-codex.mjs'),
   ];
   for (const filename of required) await readFile(filename);
@@ -152,7 +153,9 @@ export async function buildCliPackage({ outputDir = defaultOutputDir } = {}) {
     { recursive: true },
   );
   await cp(path.join(repoRoot, 'tools', 'commands', 'deploy-prompts-codex.mjs'), path.join(outputDir, 'tools', 'commands', 'deploy-prompts-codex.mjs'));
-  await cp(path.join(repoRoot, 'tools', 'plugin', 'package-plugins.mjs'), path.join(outputDir, 'tools', 'plugin', 'package-plugins.mjs'));
+  for (const filename of ['package-plugins.mjs', 'plugin-links.mjs']) {
+    await cp(path.join(repoRoot, 'tools', 'plugin', filename), path.join(outputDir, 'tools', 'plugin', filename));
+  }
   await cp(path.join(repoRoot, 'tools', 'providers', 'antigravity-transport.mjs'), path.join(outputDir, 'tools', 'providers', 'antigravity-transport.mjs'));
   await cp(path.join(repoRoot, 'tools', 'skills', 'deploy-skills-codex.mjs'), path.join(outputDir, 'tools', 'skills', 'deploy-skills-codex.mjs'));
   await cp(path.join(repoRoot, 'bin', 'aiwg.mjs'), path.join(outputDir, 'bin', 'aiwg.mjs'));

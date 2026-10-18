@@ -14,7 +14,7 @@ commandHint:
 
 # Induct Research
 
-Before dispatch, apply the shared [context engineering contract](../../../../../../docs/context-engineering-contract.md) and [verification contract](../../../../../../docs/verification-contracts.md). Missing source, fixity, sidecar, GRADE, or lint evidence makes the result incomplete or blocked, never complete.
+Before dispatch, apply the shared [context engineering contract](https://github.com/jmagly/aiwg/blob/main/docs/context-engineering-contract.md) and [verification contract](https://github.com/jmagly/aiwg/blob/main/docs/verification-contracts.md). Missing source, fixity, sidecar, GRADE, or lint evidence makes the result incomplete or blocked, never complete.
 
 Process one or more research sources — an issue, a file, a directory of papers, or a URI — and file structured induction tasks into a research repository so nothing gets lost. The analogue of `address-issues` for research corpora.
 
@@ -270,7 +270,7 @@ for them unprompted:
 
 **Register the residue as a check, not as prose.** Any uncertainty that survives the gate
 must be recorded as a declared check with an outcome, so it lands as `incomplete` or
-`blocked` per [`verification-contracts.md`](../../../../../../docs/verification-contracts.md)
+`blocked` per [`verification-contracts.md`](https://github.com/jmagly/aiwg/blob/main/docs/verification-contracts.md)
 instead of as narrative an automated reader cannot see.
 
 The `research/uncertainty-registered` lint rule checks this on induction output: it flags a

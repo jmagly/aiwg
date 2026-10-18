@@ -80,6 +80,8 @@ aiwg discover "architecture evolution"         # → flow-architecture-evolution
 aiwg discover "iteration dual track"           # → flow-iteration-dual-track
 aiwg discover "delivery track"                 # → flow-delivery-track
 aiwg discover "discovery track"                # → flow-discovery-track
+aiwg discover "define data shape"              # → schema-intake (schema-governance addon)
+aiwg discover "change an existing schema"      # → schema-evolve (schema-governance addon)
 ```
 
 ### Quality gates

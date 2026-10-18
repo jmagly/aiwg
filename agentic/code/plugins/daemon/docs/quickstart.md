@@ -1,7 +1,7 @@
 # Daemon Addon Status
 
 > **First time using AIWG?** Begin with [Install, Connect, and
-Verify](../../getting-started/install-connect-verify.md). This status page assumes AIWG is connected to the target
+Verify](https://github.com/jmagly/aiwg/blob/main/docs/getting-started/install-connect-verify.md). This status page assumes AIWG is connected to the target
 project and your provider session can read the deployed context.
 
 The daemon addon contains design artifacts and configuration scaffolding, but

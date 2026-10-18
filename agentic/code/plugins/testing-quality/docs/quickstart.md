@@ -4,7 +4,7 @@ For source-bound conformance assessment, reversible normalization templates, and
 [test conformance workflow](conformance-workflow.md). The toolkit retains the six original testing-quality skills.
 
 > **First time using AIWG?** Begin with [Install, Connect, and
-Verify](../../getting-started/install-connect-verify.md). This guide assumes AIWG is connected to the target project
+Verify](https://github.com/jmagly/aiwg/blob/main/docs/getting-started/install-connect-verify.md). This guide assumes AIWG is connected to the target project
 and your provider session can read the deployed context.
 
 Set up a reviewable test-quality check and turn the findings into specific

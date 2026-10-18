@@ -14,6 +14,11 @@ commandHint:
 
 # Check Traceability
 
+This verification workflow remains active. Dataset Intelligence can project
+links into its ledger, but a mention is not verified traceability and a
+verified link without a run identity remains inferred. See the [dataset
+migration guide](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/dataset-intelligence/docs/migration-guide.md).
+
 ## Task
 
 Verify the full specification-to-code refinement chain and report coverage at each layer. The traceability chain has 5 layers:

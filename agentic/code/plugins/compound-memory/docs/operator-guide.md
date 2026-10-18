@@ -3,7 +3,7 @@
 Compound Memory remains independently supported. Dataset Intelligence may
 register source/run evidence, but does not replace promotion, review, bounded
 context, or maintenance semantics. See the [dataset migration
-guide](../dataset-intelligence/migration-guide.md).
+guide](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/dataset-intelligence/docs/migration-guide.md).
 
 ## Activate
 

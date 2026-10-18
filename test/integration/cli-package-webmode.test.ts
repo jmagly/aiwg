@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -198,6 +198,53 @@ describe('packaging release-age policy interpretation', () => {
   });
 });
 
+describe('@aiwg/cli offline plugin packaging', () => {
+  it('packs the helper and packages an external plugin from the extracted CLI', async () => {
+    const scratch = await mkdtemp(path.join(os.tmpdir(), 'aiwg-cli-plugin-offline-'));
+    try {
+      const stage = path.join(scratch, 'stage');
+      await buildCliPackage({ outputDir: stage });
+      const pack = spawnSync('npm', [
+        'pack', stage, '--offline', '--ignore-scripts', '--json',
+        '--cache', path.join(scratch, 'cache'), '--pack-destination', scratch,
+      ], { cwd: PROJECT_ROOT, encoding: 'utf8', timeout: 60_000, maxBuffer: 64 * 1024 * 1024 });
+      expect(pack.status, pack.stderr).toBe(0);
+      const packed = JSON.parse(pack.stdout)[0];
+      expect(packed.files.map((file: { path: string }) => file.path)).toContain('tools/plugin/plugin-links.mjs');
+      const extracted = path.join(scratch, 'extracted');
+      await mkdir(extracted);
+      const unpack = spawnSync('tar', ['-xzf', path.join(scratch, packed.filename), '-C', extracted, '--strip-components=1'], {
+        encoding: 'utf8', timeout: 30_000,
+      });
+      expect(unpack.status, unpack.stderr).toBe(0);
+      // Borrow existing dependencies read-only; never run npm install.
+      await symlink(path.join(PROJECT_ROOT, 'node_modules'), path.join(extracted, 'node_modules'), 'dir');
+      expect(await readFile(path.join(extracted, 'tools/plugin/plugin-links.mjs'), 'utf8'))
+        .toBe(await readFile(path.join(PROJECT_ROOT, 'tools/plugin/plugin-links.mjs'), 'utf8'));
+      const project = path.join(scratch, 'consumer');
+      const wrapper = await createExternalPluginProject(project);
+      const result = spawnSync(process.execPath, [
+        path.join(extracted, 'bin/aiwg.mjs'), 'package-plugin', path.relative(project, wrapper), '--provider', 'all',
+      ], {
+        cwd: project, encoding: 'utf8', timeout: 60_000,
+        env: {
+          ...isolatedNpmEnv(), HOME: scratch, USERPROFILE: scratch,
+          XDG_CACHE_HOME: path.join(scratch, 'cache'), XDG_CONFIG_HOME: path.join(scratch, 'config'),
+          XDG_DATA_HOME: path.join(scratch, 'data'), AIWG_CONFIG: path.join(scratch, 'config'),
+          NO_UPDATE_NOTIFIER: '1', AIWG_LOG_LEVEL: 'silent',
+        },
+      });
+      expect(result.status, result.stdout + result.stderr).toBe(0);
+      for (const provider of ['claude', 'codex']) {
+        expect((await readFile(path.join(project, 'dist/plugins', `bt6-maintainer-0.2.0-${provider}.tar.gz`))).byteLength)
+          .toBeGreaterThan(0);
+      }
+    } finally {
+      await rm(scratch, { recursive: true, force: true });
+    }
+  }, 120_000);
+});
+
 describe('@aiwg/cli packaged web distribution', () => {
   beforeAll(async () => {
     tempRoot = await mkdtemp(path.join(os.tmpdir(), 'aiwg-cli-package-'));
@@ -303,6 +350,7 @@ describe('@aiwg/cli packaged web distribution', () => {
       'tools/providers/antigravity-transport.mjs',
       'tools/commands/deploy-prompts-codex.mjs',
       'tools/plugin/package-plugins.mjs',
+      'tools/plugin/plugin-links.mjs',
       'tools/skills/deploy-skills-codex.mjs',
     ];
     expect(paths.filter((entry) => entry.startsWith('tools/')).every(
@@ -327,6 +375,7 @@ describe('@aiwg/cli packaged web distribution', () => {
     expect(paths).toContain('tools/providers/antigravity-transport.mjs');
     expect(paths).toContain('agentic/code/providers/antigravity/provider-contract.v1.json');
     expect(paths).toContain('tools/plugin/package-plugins.mjs');
+    expect(paths).toContain('tools/plugin/plugin-links.mjs');
     expect(paths).toContain('README.md');
     expect(installedReadme).toBe(sourceReadme);
     expect(Buffer.byteLength(installedReadme)).toBeGreaterThan(25_000);

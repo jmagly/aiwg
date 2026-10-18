@@ -1,0 +1,144 @@
+# Pilot conversion (#1539): the agentic `flow-release` skill expressed as a
+# declarative YAML Flow (WorkflowPlaybook). The flow-release SKILL.md is now a
+# thin wrapper that points here; this playbook is the source of truth for the
+# release gate sequence. Detailed per-gate config still lives in the project's
+# `.aiwg/release.config` (which flow-release already reads) — this playbook
+# encodes the release-plan resolution point, gate SEQUENCE, dependencies,
+# hard-stops, and the human gate.
+#
+# Schema-fit note (#1539): `inventory`/`targets` are now optional for
+# non-iterating Flows. SDLC flows act on a single project context rather than
+# iterating a host set, so this Flow omits them entirely (the host-ops heritage
+# fields are reserved for Flows that fan over an inventory).
+apiVersion: workflow.aiwg.io/v1
+kind: WorkflowPlaybook
+metadata:
+  name: flow-release
+  labels:
+    category: sdlc-orchestration
+    domain: release
+spec:
+  vars:
+    config_path: .aiwg/release.config
+    release_plan_dir: .aiwg/releases
+  steps:
+    - id: resolve-release-plan
+      capability: release-plan-resolve
+      inputs:
+        - name: release_plan_dir
+          value: .aiwg/releases
+        - name: selected_plan_id
+          value: "{plan}"
+        - name: project_delivery_mode
+          value: "{project_delivery_mode}"
+
+    - id: local-build-test
+      capability: release-build-gate
+      depends_on: [resolve-release-plan]
+      inputs:
+        - name: gate
+          value: local-build-test
+        - name: hard_stop
+          value: true
+        - name: steps
+          value:
+            - { id: typecheck, run: "npx tsc --noEmit" }
+            - { id: unit-tests, run: "npm test" }
+
+    - id: ci-green
+      capability: release-ci-poll
+      depends_on: [resolve-release-plan, local-build-test]
+      inputs:
+        - name: hard_stop
+          value: true
+        - name: required_workflows
+          value: [ci.yml, validate.yml]
+        - name: timeout_seconds
+          value: 600
+
+    - id: doc-sync
+      capability: release-doc-sync
+      depends_on: [ci-green]
+      inputs:
+        - name: hard_stop
+          value: true
+        - name: direction
+          value: code-to-docs
+        - name: dry_run_first
+          value: true
+
+    - id: assess-release-content
+      capability: threat-assessment
+      depends_on: [doc-sync]
+      inputs:
+        - name: engine
+          value: tools/security/threat-assessment.mjs
+        - name: surface
+          value: release-note
+        - name: policy
+          value: .aiwg/aiwg.config#security.threatAssessment
+        - name: content
+          value: "{release_notes_and_announcement}"
+      outputs:
+        - name: threat_assessment_report
+
+    - id: changelog-and-announcement
+      capability: release-assert-artifacts
+      depends_on: [assess-release-content]
+      inputs:
+        - name: hard_stop
+          value: true
+        - name: required_for_channels
+          value: [stable]
+        - name: artifacts
+          value:
+            - { path: CHANGELOG.md, section_pattern: "## [{version}]" }
+            - { path: "docs/releases/v{version}-announcement.md", must_exist: true }
+
+    - id: readme-freshness
+      kind: gate
+      description: |
+        Human gate (review_diff): run `git diff <latest-stable>..HEAD -- README.md`
+        and confirm the README reflects what ships in this release. hard_stop is
+        false in flow-release — a "no" logs a warning and continues.
+      depends_on: [changelog-and-announcement]
+
+    - id: tag-and-release
+      capability: release-cut-tag
+      depends_on: [readme-freshness]
+      inputs:
+        - name: hard_stop
+          value: true
+        - name: wrapper
+          value: tools/release/cut-tag.sh
+      outputs:
+        - name: tag
+
+    - id: verify-release-publication
+      capability: release-publication-verify
+      depends_on: [tag-and-release]
+      inputs:
+        - name: tag
+          value: "{tag}"
+        - name: hard_stop
+          value: true
+
+    - id: post-release
+      capability: release-post-actions
+      depends_on: [verify-release-publication]
+      inputs:
+        - name: hard_stop
+          value: false
+        - name: actions
+          value:
+            - { close_imported_issues_with_thanks: true }
+            - { update_release_entry: gitea }
+            - { update_release_entry: github, skip_when_flag: "--no-mirror" }
+            - create_github_announcement_discussion:
+                category: Announcements
+                required_for_channels: [stable]
+                hard_stop: true
+                skip_when_flag: "--no-mirror"
+                links: [github_release, npm_version, release_notes, changelog]
+                style: conversational-impact-guidance
+                run: node tools/release/publish-github-release-discussion.mjs --version {version} --body {evidence_dir}/discussion.md --evidence-dir {evidence_dir}

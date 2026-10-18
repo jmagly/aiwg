@@ -45,10 +45,12 @@ describe('generated plugin copies', () => {
       if (name === 'line-memory') fs.cpSync(source, target, { recursive: true });
       else fs.symlinkSync(source, target);
     }
+    fs.symlinkSync(path.join(root, 'agentic/code/extensions'), path.join(fixture, 'agentic/code/extensions'));
+    fs.symlinkSync(path.join(root, 'docs'), path.join(fixture, 'docs'));
     fs.symlinkSync(path.join(root, 'agentic/code/frameworks'), path.join(fixture, 'agentic/code/frameworks'));
     fs.symlinkSync(pluginsDir, path.join(fixture, 'agentic/code/plugins'));
     for (const file of ['package.json', '.claude-plugin/marketplace.json',
-      'tools/_resolve-impl.mjs', 'tools/plugin/package-plugins.mjs', 'tools/security/threat-assessment.mjs']) {
+      'tools/_resolve-impl.mjs', 'tools/plugin/package-plugins.mjs', 'tools/plugin/plugin-links.mjs', 'tools/security/threat-assessment.mjs']) {
       fs.mkdirSync(path.dirname(path.join(fixture, file)), { recursive: true });
       fs.copyFileSync(path.join(root, file), path.join(fixture, file));
     }
@@ -67,7 +69,8 @@ describe('generated plugin copies', () => {
         fs.closeSync(fd);
       }
     };
-    expect(run().status).toBe(0);
+    const initial = run();
+    expect(initial.status, initial.output).toBe(0);
     const packaged = path.join(pluginsDir, 'line-memory/commands/line-memory.mjs');
     const before = fs.readFileSync(packaged);
     fs.appendFileSync(path.join(addons, 'line-memory/commands/line-memory.mjs'), '\n// canonical change\n');
