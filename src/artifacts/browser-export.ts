@@ -732,6 +732,9 @@ function recordForEntry(
                 ? { aiwg_search_terms: uniqueSorted(entry.searchTerms) }
                 : {}),
               ...(entry.script ? { aiwg_script: entry.script } : {}),
+              ...(entry.activation ? { activation: entry.activation } : {}),
+              ...(entry.bound_to ? { bound_to: entry.bound_to } : {}),
+              ...(entry.ruleSummary !== undefined ? { summary: entry.ruleSummary } : {}),
             },
           },
         }

@@ -1730,7 +1730,7 @@ async function handleDiscover(args: string[]): Promise<void> {
  * artifact by type and name.
  *
  * Shape (#1218):
- *   aiwg show <type> <name> [--json] [--first] [--graph <name>] [--backend local|fortemi-core]
+ *   aiwg show <type> <name> [--json] [--first] [--bound-rule-bodies] [--graph <name>] [--backend local|fortemi-core]
  *
  * Type is positional (not a flag) so the verb reads as
  * "show <kind> <name>". `<type>` is one of the operational show types.
@@ -1753,8 +1753,8 @@ async function handleShow(args: string[]): Promise<void> {
 
   const HELP_TEXT = [
     '',
-    'Usage: aiwg show <type> <name> [--json] [--first] [--graph <name>] [--backend local|fortemi-core] [--resource-source local|web|auto] [--aiwg-version <version|range|digest|channel>] [--offline]',
-    '       aiwg show metadata <id-or-name-or-path> [--json] [--first] [--graph <name>] [--backend local|fortemi-core] [--resource-source local|web|auto] [--aiwg-version <version|range|digest|channel>] [--offline]',
+    'Usage: aiwg show <type> <name> [--json] [--first] [--bound-rule-bodies] [--graph <name>] [--backend local|fortemi-core] [--resource-source local|web|auto] [--aiwg-version <version|range|digest|channel>] [--offline]',
+    '       aiwg show metadata <id-or-name-or-path> [--json] [--first] [--bound-rule-bodies] [--graph <name>] [--backend local|fortemi-core] [--resource-source local|web|auto] [--aiwg-version <version|range|digest|channel>] [--offline]',
     '       aiwg index show <type> <name> ...',
     '',
     `Types: ${OPERATIONAL_SHOW_TYPES.join(' | ')}`,
@@ -1769,6 +1769,9 @@ async function handleShow(args: string[]): Promise<void> {
     '  aiwg show agent aiwg-steward',
     '  aiwg show command discover',
     '  aiwg show skill intake-wizard --resource-source web --aiwg-version stable',
+    '',
+    'Bound rules: summaries and show pointers are appended for bound skills, agents, and flows.',
+    'Use --bound-rule-bodies to include their full text (JSON: bound_rules[].content).',
     '',
     'Tip: use `aiwg discover "<phrase>" --json` first to find the stable id.',
   ].join('\n');
@@ -1837,6 +1840,7 @@ async function handleShow(args: string[]): Promise<void> {
 
   const params = {
     name,
+    boundRuleBodies: flags.includes('--bound-rule-bodies'),
     typeFilter: type ? [type] : undefined,
     json,
     first,

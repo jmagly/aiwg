@@ -84,6 +84,26 @@ export function parseFrontmatter(content: string): { data: Record<string, unknow
   }
 }
 
+/** Read the target rule schema tolerantly while older rules remain untagged. */
+export function extractRuleBindings(data: Record<string, unknown>): Pick<MetadataEntry, 'activation' | 'bound_to' | 'ruleSummary'> {
+  const bound_to: NonNullable<MetadataEntry['bound_to']> = {};
+  const raw = data.bound_to;
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const key of ['skills', 'agents', 'flows'] as const) {
+      const targets = (raw as Record<string, unknown>)[key];
+      if (Array.isArray(targets)) {
+        const names = [...new Set(targets.filter((name): name is string => typeof name === 'string' && name.trim().length > 0))];
+        if (names.length) bound_to[key] = names;
+      }
+    }
+  }
+  return {
+    ...(typeof data.activation === 'string' ? { activation: data.activation } : {}),
+    ...(typeof data.summary === 'string' ? { ruleSummary: data.summary } : {}),
+    ...(Object.keys(bound_to).length ? { bound_to } : {}),
+  };
+}
+
 /**
  * Extract @-mention references from content
  */
@@ -1182,6 +1202,7 @@ export async function buildIndex(
         ...(searchTerms && searchTerms.length > 0 ? { searchTerms } : {}),
         ...(kernel ? { kernel } : {}),
         ...(script ? { script } : {}),
+        ...(type === 'rule' || type === 'behavior' ? extractRuleBindings(data) : {}),
         ...(operationalState ? { operationalState } : {}),
         ...(stateTransfer ? { stateTransfer } : {}),
       };

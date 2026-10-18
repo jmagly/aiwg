@@ -63,6 +63,11 @@ export interface MetadataEntry {
    */
   name?: string;
 
+  /** Rule activation and typed targets; absent declarations are unbound. */
+  activation?: string;
+  bound_to?: Partial<Record<'skills' | 'agents' | 'flows', string[]>>;
+  ruleSummary?: string;
+
   /** Tags from frontmatter */
   tags: string[];
 
@@ -433,7 +438,7 @@ export const INDEX_VERSION = '1.0.0';
  * making the serialized index schema incompatible; a mismatch simply forces a
  * one-time content re-extraction during the next incremental build.
  */
-export const INDEX_EXTRACTOR_VERSION = '2026.08.24.1';
+export const INDEX_EXTRACTOR_VERSION = '2026.10.18.1';
 
 /**
  * Built-in graph type identifiers

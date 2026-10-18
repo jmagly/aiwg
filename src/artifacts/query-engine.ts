@@ -1533,6 +1533,8 @@ export interface ShowParams {
   json?: boolean;
   /** Override default graph (defaults to `framework`, falls back to `project`) */
   graph?: GraphType;
+  /** Include full bound rule bodies in addition to summaries and pointers. */
+  boundRuleBodies?: boolean;
   /** When ambiguous, pick the first match instead of erroring */
   first?: boolean;
   /** Query backend. Defaults to Fortemi Core; use local for the legacy path. */
@@ -2015,6 +2017,64 @@ async function findAgentInCorpus(
   return null;
 }
 
+/** Build an ephemeral reverse lookup from the already-loaded rule metadata. */
+function rulesBoundTo(entries: MetadataEntry[], target: MetadataEntry): MetadataEntry[] {
+  const key = ({ skill: 'skills', agent: 'agents', flow: 'flows' } as const)[target.type as 'skill' | 'agent' | 'flow'];
+  if (!key) return [];
+  const file = path.basename(normalizeIndexedPath(target.path));
+  const aliases = [target.name, target.title, target.path, discoveryIdForEntry(target),
+    file === 'SKILL.md' ? path.basename(path.dirname(normalizeIndexedPath(target.path))) : file.replace(/\.[^.]+$/, '')]
+    .filter((alias): alias is string => !!alias);
+  const seen = new Set<string>();
+  return entries.filter(rule => {
+    if (rule.type !== 'rule' && rule.type !== 'behavior') return false;
+    const patterns = rule.bound_to?.[key];
+    if (!Array.isArray(patterns) || !patterns.some(pattern => typeof pattern === 'string'
+      && aliases.some(alias => alias === pattern || minimatch(alias, pattern, { nonegate: true, nocomment: true })))) return false;
+    const identity = `${rule.type}:${rule.path}`;
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  }).sort((a, b) => (a.name ?? a.path).localeCompare(b.name ?? b.path) || a.path.localeCompare(b.path));
+}
+
+async function showBindings(
+  entries: MetadataEntry[], target: MetadataEntry, content: string, params: ShowParams,
+  read: (entry: MetadataEntry) => Promise<string>,
+): Promise<{ fields: Record<string, unknown>; text: string }> {
+  const rules = rulesBoundTo(entries, target);
+  const boundRules = await Promise.all(rules.map(async rule => ({
+    name: rule.name ?? path.basename(rule.path, '.md'),
+    activation: rule.activation ?? null,
+    summary: rule.ruleSummary ?? '',
+    show_command: `aiwg show ${rule.type} ${rule.name ?? path.basename(rule.path, '.md')}`,
+    ...(params.boundRuleBodies ? { content: await read(rule) } : {}),
+  })));
+  // Parse the selected rule for reverse lookup, including corpus-only rules.
+  const targets = target.type === 'rule' || target.type === 'behavior'
+    ? parseFrontmatter(content).data.bound_to : undefined;
+  const boundTo = targets && typeof targets === 'object' && !Array.isArray(targets)
+    ? Object.fromEntries(['skills', 'agents', 'flows'].flatMap(key => {
+        const values = (targets as Record<string, unknown>)[key];
+        const names = Array.isArray(values) ? [...new Set(values.filter((value): value is string => typeof value === 'string' && !!value.trim()))] : [];
+        return names.length ? [[key, names]] : [];
+      })) : {};
+  let text = '';
+  if (boundRules.length) {
+    text += '\n## Bound rules\n\n' + boundRules.map(rule =>
+      `- **${rule.name}**: ${rule.summary} (\`${rule.show_command}\`)`
+      + ('content' in rule ? `\n\n${rule.content}` : '')).join('\n') + '\n';
+  }
+  if (Object.keys(boundTo).length) {
+    text += '\n## Bound targets\n\n' + Object.entries(boundTo)
+      .map(([key, names]) => `- ${key}: ${(names as string[]).map(name => `\`${name}\``).join(', ')}`).join('\n') + '\n';
+  }
+  return { fields: {
+    ...(boundRules.length ? { bound_rules: boundRules } : {}),
+    ...(Object.keys(boundTo).length ? { bound_to: boundTo } : {}),
+  }, text };
+}
+
 /**
  * Read and emit the full text of a specific artifact (typically a
  * SKILL.md). Consumers don't need to know where AIWG stores skills —
@@ -2077,8 +2137,12 @@ export async function showArtifact(
         const installHint = corpusMatch.bundleKind && corpusMatch.bundleId
           ? `Run \`aiwg use ${corpusMatch.bundleId}\` to install this ${corpusMatch.bundleKind} into the workspace.`
           : 'Run `aiwg index build --graph framework` to refresh the artifact index.';
+        const bindings = await showBindings(entries, {
+          path: corpusMatch.path, type: corpusMatch.type, name: needle, title: needle,
+        } as MetadataEntry, content, params, rule => fs.readFile(resolveMetadataPath(cwd, aiwgRoot, rule), 'utf8'));
         if (params.json) {
           console.log(JSON.stringify({
+            ...bindings.fields,
             path: corpusMatch.path,
             type: corpusMatch.type,
             title: needle,
@@ -2101,6 +2165,7 @@ export async function showArtifact(
         process.stdout.write(banner);
         process.stdout.write(content);
         if (!content.endsWith('\n')) process.stdout.write('\n');
+        if (bindings.text) process.stdout.write(bindings.text);
         return;
       }
     }
@@ -2185,6 +2250,18 @@ export async function showArtifact(
     }
   }
 
+  const bindings = await showBindings(entries, entry, content, params, async rule => {
+    if (resourceSource === 'local') return fs.readFile(resolvePath(rule), 'utf8');
+    const { logicalIdFromFirstPartyPath, resolveAiwgResourceBytes } = await import('../resources/resolver.js');
+    const logicalId = logicalIdFromFirstPartyPath(rule.path);
+    if (!logicalId || !webRelease) throw new Error(`Cannot resolve bound rule: ${rule.path}`);
+    const resolved = await resolveAiwgResourceBytes(logicalId, {
+      source: 'web', frameworkRoot: aiwgRoot ?? cwd, webRelease,
+      webReleaseOptions: params.webReleaseOptions, offline: params.offline,
+    });
+    return resolved.bytes.toString('utf8');
+  });
+
   if (params.json) {
     const providerModels = resourceSource === 'local'
       ? await loadProviderModelMetadata(cwd, aiwgRoot)
@@ -2216,13 +2293,13 @@ export async function showArtifact(
         ? { executable: true, run_hint: buildRunHint(entry) }
         : {}),
       ...(providerModels ? { providerModels } : {}),
+      ...bindings.fields,
       content,
     }, null, 2));
     return;
   }
 
-  // Plain mode: stream the file content unmodified so the consumer
-  // (agent or operator) sees exactly what the source authored.
+  // Stream the authored content first; append binding guidance only when present.
   // #1227 — for script-bearing skills, prepend a one-line banner so
   // agents reading the body immediately see the skill is executable.
   if (entry.script) {
@@ -2231,6 +2308,7 @@ export async function showArtifact(
   }
   process.stdout.write(content);
   if (!content.endsWith('\n')) process.stdout.write('\n');
+  if (bindings.text) process.stdout.write(bindings.text);
 }
 
 export async function showMetadata(

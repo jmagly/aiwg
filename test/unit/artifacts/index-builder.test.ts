@@ -583,7 +583,7 @@ New users can register.
       // Check metadata content
       const metadata = JSON.parse(fs.readFileSync(path.join(indexDir, 'metadata.json'), 'utf-8'));
       expect(metadata.version).toBe('1.0.0');
-      expect(metadata.extractorVersion).toBe('2026.08.24.1');
+      expect(metadata.extractorVersion).toBe('2026.10.18.1');
       expect(Object.keys(metadata.entries)).toHaveLength(2);
 
       const uc001 = metadata.entries['.aiwg/requirements/UC-001.md'];
@@ -782,7 +782,7 @@ state_transfer:
       logSpy.mockRestore();
       const rebuilt = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
       expect(rebuilt.version).toBe('1.0.0');
-      expect(rebuilt.extractorVersion).toBe('2026.08.24.1');
+      expect(rebuilt.extractorVersion).toBe('2026.10.18.1');
       expect(rebuilt.buildConfigHash).toMatch(/^[a-f0-9]{64}$/);
       expect(rebuilt.entries[entryPath].type).toBe('runbook');
       expect(rebuilt.entries[entryPath].kind).toBe('Runbook');

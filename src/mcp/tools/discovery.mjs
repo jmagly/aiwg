@@ -85,12 +85,13 @@ export function registerDiscoveryTools(server, { corpusStore } = {}) {
     title: 'Show AIWG Skill',
     description: 'Fetch the full body of an AIWG SKILL.md by name. Returns path + content envelope.',
     inputSchema: {
+      bound_rule_bodies: z.boolean().optional().describe('Include full bound rule bodies'),
       name: z.string().describe('Skill name (slug; e.g. "intake-wizard")'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ name }) => {
+  }, async ({ name, bound_rule_bodies }) => {
     try {
-      const { stdout, code, stderr } = await runAiwgCli(['show', 'skill', name, '--json']);
+      const { stdout, code, stderr } = await runAiwgCli(['show', 'skill', name, '--json', ...(bound_rule_bodies ? ['--bound-rule-bodies'] : [])]);
       if (code !== 0) return mcpError(`skill-show failed: ${stderr}`);
       return mcpJson(stdout);
     } catch (err) {
@@ -182,12 +183,13 @@ export function registerDiscoveryTools(server, { corpusStore } = {}) {
     title: 'Show AIWG Agent Definition',
     description: 'Fetch the full agent definition (system prompt + frontmatter) by name.',
     inputSchema: {
+      bound_rule_bodies: z.boolean().optional().describe('Include full bound rule bodies'),
       name: z.string().describe('Agent name (e.g. "test-engineer", "security-auditor")'),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ name }) => {
+  }, async ({ name, bound_rule_bodies }) => {
     try {
-      const { stdout, code, stderr } = await runAiwgCli(['show', 'agent', name, '--json']);
+      const { stdout, code, stderr } = await runAiwgCli(['show', 'agent', name, '--json', ...(bound_rule_bodies ? ['--bound-rule-bodies'] : [])]);
       if (code !== 0) return mcpError(`agent-show failed: ${stderr}`);
       return mcpJson(stdout);
     } catch (err) {

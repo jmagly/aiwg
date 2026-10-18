@@ -54,7 +54,7 @@ beforeEach(() => {
     if (!fixture.files.has(file)) throw new Error(`Missing file: ${file}`);
     return fixture.files.get(file);
   });
-  fixture.cli.mockImplementation(() => { throw new Error('Flow tools must not spawn a CLI'); });
+  fixture.cli.mockResolvedValue({ code: 0, stdout: '{}', stderr: '' });
   // Insert reverse lexical order to make sorting independently observable.
   addFile(path.join(frameworks, 'second/flows/zeta.playbook.yaml'), 'metadata:\n  name: zeta\n');
   addFile(alphaPath, yaml);
@@ -111,6 +111,13 @@ describe('MCP flow tools with a controlled corpus', () => {
     expect(result.isError).not.toBe(true);
     expect(decode(result).content).toBe(yaml);
     expect(decode(result).path).toBe(alphaPath);
+  });
+
+  it('flow-show returns CLI bound rules and forwards the full-body option', async () => {
+    const bound_rules = [{ name: 'flow-policy', activation: 'bound', summary: 'Check gates.', show_command: 'aiwg show rule flow-policy', content: '# Policy' }];
+    fixture.cli.mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ bound_rules }), stderr: '' });
+    expect(decode(await invoke('flow-show', { name: 'alpha', bound_rule_bodies: true })).bound_rules).toEqual(bound_rules);
+    expect(fixture.cli).toHaveBeenCalledWith(['show', 'flow', alphaPath, '--json', '--bound-rule-bodies']);
   });
 
   it.each(['flow-show', 'flow-run'])('%s reports a missing flow rather than a success envelope', async tool => {

@@ -1,3 +1,4 @@
+import { extractRuleBindings } from './index-builder.js';
 import fs from "node:fs";
 import { createHash } from "node:crypto";
 import type {
@@ -414,6 +415,7 @@ function entryFromRecord(record: AiwgFortemiRecord): MetadataEntry {
         && typeof (indexedScript as Record<string, unknown>).runtime === "string"
         ? indexedScript as MetadataEntry["script"]
         : undefined,
+    ...extractRuleBindings(indexedFrontmatter),
     operationalState: record.operational_state,
   };
 }

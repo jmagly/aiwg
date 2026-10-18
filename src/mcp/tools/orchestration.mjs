@@ -160,15 +160,22 @@ export function registerFlowToolset(server) {
     description: 'Fetch a declarative Flow playbook by name, including parsed step summary and the wrapper skill path when present.',
     inputSchema: {
       name: z.string().describe('Flow name or playbook file name (e.g. flow-release)'),
+      bound_rule_bodies: z.boolean().optional().describe('Include full bound rule bodies'),
       framework: z.string().optional().describe('Optional framework disambiguator'),
     },
     annotations: { readOnlyHint: true, openWorldHint: false },
-  }, async ({ name, framework }) => {
+  }, async ({ name, framework, bound_rule_bodies }) => {
     try {
       const flow = await findFlow(name, framework);
       if (!flow) return mcpError(`flow-show: flow not found: ${name}`);
       flow.wrapper_skill.exists = await pathExists(flow.wrapper_skill.path);
-      return mcpJson(flow);
+      const { stdout, stderr, code } = await runAiwgCli([
+        'show', 'flow', flow.path, '--json',
+        ...(bound_rule_bodies ? ['--bound-rule-bodies'] : []),
+      ]);
+      if (code !== 0) return mcpError(`flow-show binding lookup failed: ${stderr}`);
+      const shown = JSON.parse(stdout);
+      return mcpJson({ ...flow, ...(shown.bound_rules ? { bound_rules: shown.bound_rules } : {}) });
     } catch (err) {
       return mcpError(`flow-show: ${err.message}`);
     }
