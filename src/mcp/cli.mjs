@@ -31,6 +31,7 @@ import {
 import { assertCredentialPolicy, CREDENTIAL_POLICIES, installPolicyCheckedServer, redactCredentialArgs, redactCredentialText, redactCredentialRecord, resolveCredentialPolicy } from './credentials.mjs';
 import { getMcpInjectionDefinition } from '../providers/provider-definitions.mjs';
 import { manageOmpMcp } from './omp-config.mjs';
+import { claudeDesktopConfigPath, resolveClaudeInstallTarget, legacyClaudeMigration } from './claude-install.mjs';
 import { unmanageGrokBuildMcp } from './grok-build-config.mjs';
 
 /**
@@ -225,7 +226,8 @@ Examples:
   aiwg mcp remove fortemi
 
   # Install AIWG's own MCP server
-  aiwg mcp install claude
+  aiwg mcp install claude-code
+  aiwg mcp install claude-desktop
   aiwg mcp serve
   aiwg mcp info
 `);
@@ -238,7 +240,11 @@ async function generateConfig(target, projectDir = '.', scope = 'project') {
   const homeDir = process.env.HOME || process.env.USERPROFILE;
 
   const configs = {
-    claude: {
+    'claude-desktop': {
+      path: claudeDesktopConfigPath(),
+      content: { mcpServers: { aiwg: { command: 'aiwg', args: ['mcp', 'serve'] } } },
+    },
+    'claude-code': {
       path: scope === 'user' ? path.join(homeDir, '.claude.json') : path.join(projectDir, '.mcp.json'),
       userScope: scope === 'user',
       content: {
@@ -555,7 +561,7 @@ enabled_tools = [
   // other target's `configs[...]` entry above is a fixed `aiwg mcp serve`
   // stdio/TOML stanza with no env/headers field, so there is nothing further
   // for assertProjectCredentials to check there.
-  if (target === 'claude' && scope !== 'user') {
+  if (target === 'claude-code' && scope !== 'user') {
     assertProjectCredentials(Object.entries(config.content.mcpServers).map(([name, server]) => ({ name, ...server })), config.path);
   }
 
@@ -571,7 +577,13 @@ enabled_tools = [
         }
       };
 
-  await writeConfigAtomic(config.path, JSON.stringify(merged, null, 2), { userScope, projectRoot });
+  const migration = ['claude-code', 'claude-desktop'].includes(target)
+    ? await legacyClaudeMigration(projectDir) : [];
+  await writeConfigTransaction([
+    { file: config.path, content: JSON.stringify(merged, null, 2), options: { userScope, projectRoot } },
+    ...migration,
+  ]);
+  if (migration.length) console.log('Removed legacy AIWG MCP entry from .claude/settings.local.json');
   console.log(`MCP configuration written to: ${config.path}`);
   console.log(`\nTo use AIWG MCP server with ${target}:`);
   console.log(`  1. Restart ${target}`);
@@ -1634,7 +1646,11 @@ export async function main(args = process.argv.slice(2)) {
       const scope = parseFlag(args, '--scope') || 'project';
       if (!['project', 'user'].includes(scope)) throw new Error('Scope must be project or user');
       const installArgs = args.slice(1).filter((a, index, rest) => !a.startsWith('--') && !['--scope', '--project'].includes(rest[index - 1]));
-      const target = installArgs[0] || 'claude';
+      const requestedTarget = installArgs[0] || 'claude';
+      const target = resolveClaudeInstallTarget(requestedTarget, scope);
+      if (requestedTarget === 'claude') {
+        console.warn(`Deprecated MCP install target "claude" selected ${target}; use "aiwg mcp install ${target}" explicitly.`);
+      }
       const projectDir = parseFlag(args, '--project') || installArgs[1] || '.';
 
       // Check for --dry-run flag
@@ -1643,7 +1659,8 @@ export async function main(args = process.argv.slice(2)) {
         console.log(`[DRY RUN] Would generate MCP config for: ${target}`);
         console.log(`[DRY RUN] Target directory: ${projectDir}`);
         const configPaths = {
-          claude: scope === 'user' ? path.join(homeDir, '.claude.json') : path.join(projectDir, '.mcp.json'),
+          'claude-desktop': claudeDesktopConfigPath(),
+          'claude-code': scope === 'user' ? path.join(homeDir, '.claude.json') : path.join(projectDir, '.mcp.json'),
           cursor: '.cursor/mcp.json',
           factory: (projectDir === '.' || projectDir === 'global')
             ? path.join(homeDir, '.factory/mcp.json')
