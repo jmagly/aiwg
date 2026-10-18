@@ -37,6 +37,7 @@ describe('T-OG-14 published package installed adapter paths', () => {
     const constructedImports: Record<string, string[]> = {
       'dist/src/mcp/tools/worker-invoke.mjs': ['tools/_resolve-impl.mjs'],
       'dist/src/mcp/tools/worker-shell-control.mjs': ['tools/ralph-external/lib/systemd-client.mjs'],
+      'tools/ralph-external/lib/session-environment.mjs': ['agentic/code/providers/model-capabilities.v1.json'],
       'tools/scripts/resource-preflight.mjs': [
         'dist/src/config/dispatch-thresholds-runtime.mjs', 'dist/src/config/project-artifacts-runtime.mjs',
       ],
@@ -66,6 +67,33 @@ describe('T-OG-14 published package installed adapter paths', () => {
       pending.push(...imports);
     }
     expect([...visited].filter(filename => !files.has(filename))).toEqual([]);
+  }, 60_000);
+
+  it.each(['aiwg', '@aiwg/cli'])('%s loads session environment policy from an extracted package', async target => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'aiwg-session-env-package-'));
+    roots.push(root);
+    const stage = path.join(root, 'stage');
+    if (target === '@aiwg/cli') await buildCliPackage({ outputDir: stage });
+    const { stdout } = await exec('npm', ['pack', target === 'aiwg' ? process.cwd() : stage,
+      '--ignore-scripts', '--json', '--pack-destination', root], {
+      cwd: root, timeout: 60_000, maxBuffer: 64 * 1024 * 1024,
+      env: { PATH: process.env.PATH, HOME: root, XDG_CONFIG_HOME: path.join(root, 'config'),
+        npm_config_cache: path.join(root, 'cache'), npm_config_update_notifier: 'false' },
+    });
+    const packed = JSON.parse(stdout)[0];
+    const files = packed.files.map((file: any) => file.path);
+    expect(files).toContain('tools/ralph-external/lib/session-environment.mjs');
+    expect(files).toContain('agentic/code/providers/model-capabilities.v1.json');
+    await exec('tar', ['-xzf', path.join(root, packed.filename), '-C', root]);
+    // No checkout fallback or dependency install: this module must find its
+    // provider policy using only its package-relative URL in the shipped tree.
+    const { stdout: result } = await exec(process.execPath, ['--input-type=module', '-e', `
+      import { buildSessionEnvironment } from './package/tools/ralph-external/lib/session-environment.mjs';
+      console.log(JSON.stringify(buildSessionEnvironment('codex', {}, {
+        OPENAI_API_KEY: 'synthetic-provider', AIWG_GITEA_TOKEN: 'synthetic-denied',
+      })));
+    `], { cwd: root, timeout: 10_000, env: { PATH: process.env.PATH, HOME: root } });
+    expect(JSON.parse(result)).toEqual({ OPENAI_API_KEY: 'synthetic-provider' });
   }, 60_000);
 
   it.each(['aiwg', '@aiwg/cli'])('%s loads a third module and catalog outside the checkout', async target => {

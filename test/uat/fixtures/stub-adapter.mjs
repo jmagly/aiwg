@@ -68,7 +68,14 @@ export class StubAdapter extends ProviderAdapter {
   }
 
   getEnvOverrides() {
-    return { CI: 'true' };
+    // Fixture controls are explicit adapter configuration, never inherited by
+    // production providers through the session environment allowlist.
+    const fixtureEnv = Object.fromEntries(
+      ['UAT_STUB_OUTPUT', 'UAT_STUB_USAGE', 'UAT_LOG_FILE']
+        .filter(name => process.env[name] !== undefined)
+        .map(name => [name, process.env[name]])
+    );
+    return { CI: 'true', ...fixtureEnv };
   }
 
   getTranscriptPath() {

@@ -58,6 +58,7 @@ describe('SessionLauncher', () => {
         AIWG_AUDIT_SENTINEL: 'synthetic-denied', AIWG_GITEA_TOKEN: 'synthetic-gitea',
         AIWG_LEDGER_SIGNING_KEY: 'synthetic-ledger', OPENBAO_TOKEN: 'synthetic-bao',
         VAULT_TOKEN: 'synthetic-vault', [deniedAuth]: 'synthetic-other-provider',
+        UAT_STUB_OUTPUT: 'synthetic-output', UAT_STUB_USAGE: '500:0.25', UAT_LOG_FILE: '/fixture/log',
       };
       for (const [name, value] of Object.entries({ ...allowed, ...denied })) vi.stubEnv(name, value);
       vi.stubEnv('PATH', `${testDir}:${process.env.PATH}`);
