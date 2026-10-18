@@ -404,6 +404,203 @@ No citations found.
       path.join(import.meta.dirname, '../../fixtures/citation-sidecar-edges', `${name}.md`), 'utf-8',
     );
 
+    const schema = JSON.parse(fs.readFileSync(
+      path.join(import.meta.dirname, '../../fixtures/citation-sidecar-edges/citation-sidecar.schema.json'), 'utf-8',
+    )) as {
+      headerAliases: Record<string, string[]>;
+      variants: { id: string; kind: string; roles: string[] }[];
+    };
+
+    function schemaTable(roles: string[], headers = roles.map(role => schema.headerAliases[role][0])): string {
+      const cells = roles.map(role => role === 'ref' ? 'REF-002' : 'Metadata mentioning REF-900');
+      return [
+        `| ${headers.join(' | ')} |`,
+        `| ${headers.map(() => '---').join(' | ')} |`,
+        `| ${cells.join(' | ')} |`,
+      ].join('\n');
+    }
+
+    it.each(schema.variants)('resolves the named REF column of $id ($kind)', variant => {
+      const table = schemaTable(variant.roles);
+      const result = parseCitationSidecar(`---\nref: REF-001\n---\n## Outgoing\n${table}\n\n## Incoming\n${table}`);
+      const expected = variant.roles.includes('ref') ? ['REF-002'] : [];
+      expect(result).toEqual({ ref: 'REF-001', cites: expected, citedBy: expected });
+    });
+
+    const bibliographicForms = schema.variants.filter(variant => ['citation', 'compact', 'relation'].includes(variant.kind));
+    const aliases = Object.entries(schema.headerAliases).flatMap(([role, names]) => {
+      const form = bibliographicForms.find(variant => variant.roles.includes(role));
+      return form ? names.filter(alias => !alias.includes('not citation-grounded'))
+        .map(alias => ({ role, alias, roles: form.roles })) : [];
+    });
+    it.each(aliases)('accepts the exact registered $role alias "$alias"', ({ role, alias, roles }) => {
+      const headers = roles.map(value => value === role ? `**${alias.toUpperCase()}**` : schema.headerAliases[value][0]);
+      expect(parseCitationSidecar(`---\nref: REF-001\n---\n## Outgoing\n${schemaTable(roles, headers)}`)?.cites)
+        .toEqual(['REF-002']);
+    });
+
+    it.each(['Title | REF | REF', 'Title | REF | Corpus REF'])(
+      'rejects ambiguous resolution headers: %s', header => {
+        const headers = header.split(' | ');
+        const table = `| ${header} |\n| ${headers.map(() => '---').join(' | ')} |\n| ${headers.map(() => 'REF-002').join(' | ')} |`;
+        expect(parseCitationSidecar(`---\nref: REF-001\n---\n## Outgoing\n${table}`)?.cites).toEqual([]);
+      },
+    );
+
+    it.each(['REF | Title', 'Title | REF | Extra', 'REF | Marker | Verbatim prose snippet'])(
+      'resolves the named column regardless of other column roles: %s', header => {
+        const headers = header.split(' | ');
+        const table = `| ${header} |\n| ${headers.map(() => '---').join(' | ')} |\n| ${headers.map(h => h === 'REF' ? 'REF-002' : 'REF-900').join(' | ')} |`;
+        expect(parseCitationSidecar(`---\nref: REF-001\n---\n## Outgoing\n${table}`)?.cites).toEqual(['REF-002']);
+      },
+    );
+
+    it('keeps the REF-016 incoming and REF-1024 outgoing declarations in their stated directions', () => {
+      const cot = parseCitationSidecar(fixture('ref-016'))!;
+      const gpt = parseCitationSidecar(fixture('ref-1024'))!;
+      expect(cot).toEqual({ ref: 'REF-016', cites: [], citedBy: ['REF-1024', 'REF-1148'] });
+      expect(gpt).toEqual({ ref: 'REF-1024', cites: ['REF-016'], citedBy: ['REF-1013'] });
+      const paths = new Map(['REF-016', 'REF-1024', 'REF-1148', 'REF-1013'].map(ref => [ref, `${ref}.md`]));
+      expect(citationResultToEdges(cot, paths).downstream)
+        .toContainEqual({ path: 'REF-1024.md', type: 'cited-by' });
+      expect(citationResultToEdges(gpt, paths).upstream)
+        .toContainEqual({ path: 'REF-016.md', type: 'cites' });
+    });
+
+    it('accepts corpus header variants with additional metadata in either direction', () => {
+      const content = fixture('header-variants');
+      const expected = Array.from({ length: 14 }, (_, index) => `REF-${index + 2}`);
+      expect(parseCitationSidecar(content)?.cites).toEqual(expected);
+      expect(parseCitationSidecar(content.replace('## Outgoing', '## Incoming'))?.citedBy).toEqual(expected);
+    });
+
+    it('still filters explicit mapping qualifiers in tables with extra columns', () => {
+      const table = `
+| # | Cited work | Autellix ref | In-corpus REF | Mapping | Evidence |
+|---|---|---|---|---|---|
+| 1 | Verified work | [36] | REF-002 | exact | Ref list [36] |
+| 2 | Another work | [78] | REF-003 | related | Ref list [78] |
+`;
+      expect(parseCitationSidecar(`---\nref: REF-001\n---\n## Outgoing\n${table}`)?.cites).toEqual(['REF-002']);
+    });
+
+    it('keeps two-column citation descriptions in both directions and skips qualified rows', () => {
+      expect(parseCitationSidecar(fixture('two-column-relationship')))
+        .toEqual({ ref: 'REF-001', cites: ['REF-002'], citedBy: ['REF-004'] });
+    });
+
+    it('preserves the verified I-JEPA incoming relationship declaration', () => {
+      expect(parseCitationSidecar(fixture('verified-relationship'))).toEqual({
+        ref: 'REF-1151', cites: ['REF-2883'], citedBy: ['REF-2840', 'REF-2817'],
+      });
+    });
+
+    it('keeps citation descriptions mentioning related work and paper titles', () => {
+      const content = `---
+ref: REF-001
+---
+## Incoming
+
+| REF | Relationship |
+|---|---|
+| REF-002 | DeLM cites LongMem in Related Work. |
+| REF-003 | Agent-evaluation paper that cites this as a related benchmark. |
+| REF-004 | Parent source that cites Conditional Memory as an architecture dependency. |
+| REF-005 | What If? cites this work in printed reference 3. |
+| REF-006 | Topical only; a previous record says cites this work. |
+| REF-007 | Not a citation, even though the old row said cites this work. |
+| REF-008 | Conditional: if REF-001 is in the benchmark suite. |
+| REF-009 | Extracted Conditional Memory citation, printed reference 3. |
+`;
+      expect(parseCitationSidecar(content)?.citedBy).toEqual(['REF-002', 'REF-003', 'REF-004', 'REF-005', 'REF-009']);
+    });
+
+    it('scopes candidate-specific audit notes without disavowing verified tables', () => {
+      const content = `---
+ref: REF-001
+---
+# Citation Network
+
+REF-900 is a different paper, topical only.
+
+## Outgoing
+
+Historical records retain topical labels, not verified printed citations.
+- REF-901 — thematic connection, not a citation. Original row: \`| REF-901 | related |\`.
+
+| REF | Relationship |
+|---|---|
+| REF-002 | Cites this work |
+
+## Incoming
+
+Only verified in-corpus citers appear below.
+External search results are discovery candidates, not verified citation edges.
+<!-- The table below repairs a row formerly filed under relationship notes,
+not verified citation rows. -->
+
+| Title | REF |
+|---|---|
+| Verified bibliography entry | REF-003 |
+`;
+      expect(parseCitationSidecar(content)).toEqual({ ref: 'REF-001', cites: ['REF-002'], citedBy: ['REF-003'] });
+    });
+
+    it('honors whole-table qualifiers even when they name a REF', () => {
+      const content = `---
+ref: REF-001
+---
+## Incoming
+
+The connections below are topical within the REF-001 cluster, not citation edges.
+
+| REF | Relationship |
+|---|---|
+| REF-002 | Similar architecture |
+`;
+      expect(parseCitationSidecar(content)?.citedBy).toEqual([]);
+    });
+
+    it('keeps six-column citations and excludes IDs in titles and locators', () => {
+      expect(parseCitationSidecar(fixture('six-column'))).toEqual({
+        ref: 'REF-001', cites: ['REF-002', 'REF-003', 'REF-004'], citedBy: ['REF-005'],
+      });
+    });
+
+    it('recognizes a condition on a REF in the title without rejecting thematic paper titles', () => {
+      const table = `
+| # | Title | REF |
+|---|---|---|
+| 1 | Conklin Learning is Forgetting (if REF-828 in 6-benchmark suite) | REF-839 |
+| 2 | Thematic Modeling | REF-002 |
+| 3 | Conditional Computation | REF-003 |
+`;
+      expect(parseCitationSidecar(`---\nref: REF-001\n---\n## Outgoing\n${table}`)?.cites)
+        .toEqual(['REF-002', 'REF-003']);
+    });
+
+    it('keeps a verified bibliography when audit prose explains why other candidates were rejected', () => {
+      // Minimal REF-2572 shape: its audit note says a .bib-only entry is not a
+      // citation. That statement does not disavow the verified table below it.
+      const content = `---
+ref: REF-2572
+---
+## Outgoing: Sources This Work Cites
+
+The compiled bibliography contains 512 entries. A .bib-only entry is not a citation;
+those candidates are excluded. These are works this paper does not cite.
+Other related work was checked if needed.
+The compiled keys agree: no entry is uncited and no citation is dangling.
+
+Two candidate matches were rejected: REF-891 and REF-1665 are different papers.
+
+| # | Title | Authors | Year | Venue / DOI / URL | Inducted REF |
+|---|---|---|---|---|---|
+| 7 | Self-rag | Asai et al. | 2024 | ICLR | REF-1543 |
+`;
+      expect(parseCitationSidecar(content)?.cites).toEqual(['REF-1543']);
+    });
+
     it.each([['topical', 'REF-1771'], ['relationship-notes', 'REF-834'], ['conditional', 'REF-828']])(
       'does not assert citation edges for the %s fixture', (name, ref) => {
         expect(parseCitationSidecar(fixture(name))).toEqual({ ref, cites: [], citedBy: [] });
@@ -412,23 +609,23 @@ No citations found.
 
     it('preserves real citations beside non-citation rows and tables', () => {
       expect(parseCitationSidecar(fixture('mixed'))).toEqual({
-        ref: 'REF-001', cites: ['REF-002', 'REF-003', 'REF-004'], citedBy: ['REF-005'],
+        ref: 'REF-001', cites: ['REF-002', 'REF-003', 'REF-004'], citedBy: ['REF-005', 'REF-1727'],
       });
     });
 
-    it.each(['Outgoing', 'Incoming'])('requires a bibliographic schema in %s tables', direction => {
+    it.each(['Outgoing', 'Incoming'])('excludes embedded IDs and invalid rows in %s tables', direction => {
       const content = `---
 ref: REF-001
 ---
 ## ${direction}
 
-| Topic | REF |
+| Topic | Target |
 |---|---|
-| Notes | REF-900 |
+| Notes | See REF-900 |
 
 | Title | Notes |
 |---|---|
-| Discussion | REF-901 |
+| Discussion | REF-901 pending |
 
 | Title | Inducted REF (topical) |
 |---|---|
@@ -445,6 +642,29 @@ ref: REF-001
       const result = parseCitationSidecar(content)!;
       expect(direction === 'Outgoing' ? result.cites : result.citedBy).toEqual(['REF-002']);
     });
+
+    it('resolves whole-cell Status IDs without a named resolution column', () => {
+      expect(parseCitationSidecar(fixture('status-resolution'))).toEqual({
+        ref: 'REF-1540', cites: ['REF-1542', 'REF-1607', 'REF-1608'], citedBy: ['REF-2840'],
+      });
+    });
+
+    it.each(['topical', 'thematic', 'related', 'conditional', 'non-citation', 'if REF-828 in suite'])(
+      'honors %s qualifiers in unnamed resolution tables', qualifier => {
+        const table = `| Cited Work | Status | Extra |\n|---|---|---|\n| Work | REF-002 | ${qualifier} |`;
+        for (const direction of ['Outgoing', 'Incoming']) {
+          expect(parseCitationSidecar(`---\nref: REF-001\n---\n## ${direction}\n${table}`))
+            .toEqual({ ref: 'REF-001', cites: [], citedBy: [] });
+        }
+        if (qualifier.startsWith('if ')) return;
+        for (const context of [`### ${qualifier}\n`, '', `Note: ${qualifier} relationships only.`]) {
+          const header = context ? 'Extra' : qualifier;
+          const qualified = table.replace('Extra', header).replace(qualifier + ' |', 'printed entry |');
+          const body = context.startsWith('Note:') ? `${qualified}\n\n${context}` : `${context}\n${qualified}`;
+          expect(parseCitationSidecar(`---\nref: REF-001\n---\n## Outgoing\n${body}`)?.cites).toEqual([]);
+        }
+      },
+    );
 
     it('keeps well-formed decorated historical aliases', () => {
       const content = `---
@@ -762,7 +982,7 @@ type: citations
 
 | Topic | Notes |
 |---|---|
-| Similar work | REF-015 |
+| Similar work | Related REF-015 |
 
 ## Incoming: Papers That Cite This Work
 
@@ -885,6 +1105,17 @@ No corpus citations.
         unmirroredOutgoing: 1,
         unmirroredIncoming: 1,
       });
+
+      // An incremental rebuild must also discard cached edges from the old
+      // permissive extractor even though none of the source files changed.
+      ref008.upstream.push({ path: 'documentation/citations/REF-015-citations.md', type: 'cites' });
+      fs.writeFileSync(path.join(indexDir, 'dependencies.json'), JSON.stringify(deps));
+      await buildIndex(tmpDir, { graph: 'citation-network', explicit: true });
+      const rebuilt: DependencyGraph = JSON.parse(
+        fs.readFileSync(path.join(indexDir, 'dependencies.json'), 'utf-8'),
+      );
+      expect(rebuilt['documentation/citations/REF-008-citations.md'].upstream.filter(edge => edge.type === 'cites'))
+        .toEqual(citesEdges);
     });
 
     it('should extract PROF-* → REF-* edges in citation-network graph (#105)', async () => {

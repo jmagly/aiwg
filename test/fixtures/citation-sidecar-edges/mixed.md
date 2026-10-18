@@ -29,7 +29,7 @@ ref: REF-001
 
 | Topic | Notes |
 |---|---|
-| Bibliographic discussion | REF-905 |
+| Bibliographic discussion | See REF-905 |
 
 ## Incoming
 

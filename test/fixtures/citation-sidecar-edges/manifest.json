@@ -1,0 +1,20 @@
+{
+  "name": "citation-sidecar-edges",
+  "path": "test/fixtures/citation-sidecar-edges",
+  "schema": "directory-file-list/v1",
+  "files": [
+    "README.md",
+    "citation-sidecar.schema.json",
+    "conditional.md",
+    "mixed.md",
+    "relationship-notes.md",
+    "six-column.md",
+    "status-resolution.md",
+    "topical.md",
+    "two-column-relationship.md",
+    "verified-relationship.md"
+  ],
+  "ignore": [
+    "manifest.json"
+  ]
+}

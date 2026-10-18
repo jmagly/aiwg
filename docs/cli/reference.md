@@ -4610,6 +4610,18 @@ to overridden roots. Other built-in graph overrides are unsupported and produce 
 | `edgeExtraction.parser` | string                             | Parser for edge extraction (e.g., `citation-sidecar`)    |
 | `edgeExtraction.edges`  | array                              | Edge type declarations for the parser                    |
 
+The `citation-sidecar` parser accepts registered bibliographic, compact, and relationship table
+headers and reads only their resolution column (`Inducted REF`, `Corpus REF`,
+`Citing REF`, and registered equivalents). The ordered forms and exact header
+aliases live in `src/artifacts/citation-table-schema.ts`. Within Incoming/Outgoing
+sections, tables such as `| REF | Relationship |` declare citations: the REF column
+resolves the edge and the relationship text describes it. Explicit topical,
+thematic, related, conditional, or non-citation qualifiers suppress the affected
+rows or tables. Other rows still produce edges. Unknown headers, headerless continuation
+rows, and rows with extra or missing cells are skipped rather than inferred.
+Rebuild an existing graph with `aiwg index build --graph citation-network --force`
+to apply the extraction rules.
+
 **Graph backends**: The default `json` backend requires no extra packages. For larger corpora or richer traversal, install an optional backend:
 
 ```bash

@@ -24,7 +24,7 @@
 
 import type { TypedEdge } from './types.js';
 import { parseFrontmatter } from './index-builder.js';
-import { CITATION_HEADER_ALIASES, CITATION_TABLE_FORMS } from './citation-table-schema.js';
+import { CITATION_HEADER_ALIASES } from './citation-table-schema.js';
 
 /**
  * Match a single node identifier (REF-* or PROF-*) anywhere in a string.
@@ -38,6 +38,16 @@ const NODE_ID_PATTERN = /(?:REF-\d+[a-z]?|PROF-[POFG]-[a-z0-9-]+)/g;
  * frontmatter `ref` values.
  */
 const NODE_ID_FULL = /^(?:REF-\d+[a-z]?|PROF-[POFG]-[a-z0-9-]+)$/;
+
+/** An unnamed resolution cell must contain only one REF, optionally decorated. */
+function standaloneRef(value: string): string | null {
+  let text = value.trim();
+  const link = text.match(/^\[([^\]]+)\]\([^\s]+(?:\s+"[^"\n]*")?\)$/);
+  if (link) text = link[1].trim();
+  const code = text.match(/^`([^`]+)`$/);
+  if (code) text = code[1].trim();
+  return /^REF-\d+[a-z]?$/.test(text) ? text : null;
+}
 
 /** Resolution aliases are shared by every registered bibliographic form. */
 const CITATION_REF_COLUMNS = CITATION_HEADER_ALIASES.ref;
@@ -55,10 +65,33 @@ function normalizeCell(value: string): string {
 /** Explicitly non-bibliographic or uncertain declarations must not assert citations. */
 function isNonCitation(value: string): boolean {
   const text = normalizeCell(value);
-  return /\b(?:topical|thematic|conditional|non[- ]citations?|methodological cousin|related|unverified)\b/.test(text)
-    || /\bnot (?:(?:a|an) )?(?:(?:verified|formal) )?(?:citations?|cites|cited|verified)\b/.test(text)
+  // An explicit disavowal wins even when the description also says "cites".
+  if (/\b(?:topical|thematic|non[- ]citations?|methodological cousin|unverified)\b/.test(text)
+    || /\bnot (?:(?:a|an) )?(?:(?:verified|formal|directly) )?(?:citations?|cites?|cited|verified)\b/.test(text)
     || /\bno (?:formal |verified )?citations?\b/.test(text)
-    || /\b(?:if|unless|provided that|assuming)\b/.test(text);
+    || /\b(?:if|unless|provided that|assuming)\s+(?:ref-\d+|prof-[pofg]-|present\b)/.test(text)
+    || /\bconditional (?:on|upon)\b/.test(text)
+    || /^(?:conditional|related)(?:\s+only)?\s*(?:[(:;—-]|$)/.test(text)) return true;
+  // "Cites X in Related Work", "cites-related-version", and citations to a
+  // paper named "Conditional Memory" describe real citations, not qualifiers.
+  if (/\b(?:cites?|cited|citing)\b/.test(text)) return false;
+  return /\brelated\b/.test(text);
+}
+
+/** Table/section declarations, rather than incidental mentions in audit prose. */
+function isNonCitationContext(value: string): boolean {
+  // Candidate-specific audit prose does not disavow the surrounding tables.
+  // Keep whole-table declarations separate from notes about particular REFs.
+  const text = value.replace(/<!--[\s\S]*?-->/g, '').toLowerCase().replace(/[`*_]/g, '').split('\n')
+    .filter(line => !/\b(?:search results|external .*?candidates?|historical records)\b/.test(line))
+    .filter(line => !/(?:ref-\d+|prof-[pofg]-)/.test(line)
+      || /\b(?:rows|tables?|relationships?|connections?) (?:below|are|only)\b/.test(line))
+    .join('\n');
+  return /(?:^|\n)\s*(?:related|topical|thematic) works[^\n]*\b(?:do|does) not (?:directly )?cite\b/.test(text)
+    || /\b(?:no (?:formal|verified) citations?|not (?:(?:asserted|verified) )?citation (?:edges?|rows?)|relationship notes|related corpus nodes)\b/.test(text)
+    || /\bno citations\s*(?:[.!;]|$)/.test(text)
+    || /\b(?:topical|thematic|related|conditional|non-citation) (?:relationships?|connections?|only)\b/.test(text)
+    || /(?:^|\n)\s*(?:topical|thematic|related|conditional|non-citation)(?:\s+(?:relationships?|connections?|notes|rows|only))?\s*(?:$|\n)/.test(text);
 }
 
 /**
@@ -112,7 +145,8 @@ function extractTableRefs(
   const aliases = (typeof columnName === 'string' ? [columnName] : columnName)
     .map(normalizeCell);
   const parseRow = (line: string): string[] =>
-    line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim());
+    line.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/)
+      .map(cell => cell.replace(/\\\|/g, '|').trim());
   const lines = tableText.split('\n');
   const headings: { level: number; text: string }[] = [];
   let preamble: string[] = [];
@@ -143,33 +177,42 @@ function extractTableRefs(
     const following: string[] = [];
     for (let j = i + 1; j < lines.length && !/^\s*[#|]/.test(lines[j]); j++) following.push(lines[j]);
     if (/^\s*note\b/im.test(following.join('\n'))) context.push(...following);
-    if (isNonCitation(context.join('\n')) || table.length < 3) continue;
+    if (isNonCitationContext(context.join('\n')) || table.length < 3) continue;
 
     const headers = parseRow(table[0]).map(normalizeCell);
     if (headers.some(isNonCitation)) continue;
     const separator = parseRow(table[1]);
     if (separator.length !== headers.length || !separator.every(cell => /^:?-{3,}:?$/.test(cell))) continue;
     const roles = headers.map(header => HEADER_ROLES.get(header));
-    if (bibliographicOnly && !CITATION_TABLE_FORMS.some(form =>
-      form.length === roles.length && form.every((role, index) => role === roles[index]),
-    )) continue;
+    // Incoming/Outgoing declares the direction; the named resolution header
+    // identifies the target when present. Otherwise whole-cell REF IDs
+    // resolve rows. Additional metadata and column order do not change
+    // those semantics. Multiple resolution columns are ambiguous.
+    if (bibliographicOnly && roles.filter(role => role === 'ref').length > 1) continue;
 
-    // For graph extraction the matched form registers exactly one resolution
-    // column. The generic column helper still honors its explicit alias order.
+    // For graph extraction the headers register exactly one resolution
+    // column when present. The generic column helper still honors its explicit alias order.
     const colIndex = bibliographicOnly
       ? roles.indexOf('ref')
       : aliases.map(alias => headers.indexOf(alias)).find(index => index !== -1) ?? -1;
-    if (colIndex === -1) continue;
+    if (colIndex === -1 && !bibliographicOnly) continue;
 
     for (const line of table.slice(2)) {
       const cells = parseRow(line);
       // Extra/missing cells have no unambiguous column semantics. Never guess.
       if (cells.length !== headers.length) continue;
-      const qualifiers = cells.filter((_, index) => index === colIndex
-        || ['notes', 'evidence', 'context', 'kind'].includes(roles[index] ?? '')
+      // A condition can also qualify the printed title, as in the downstream
+      // "Learning is Forgetting (if REF-828 in 6-benchmark suite)" row.
+      if (cells.some(cell => /\b(?:if|unless|provided that|assuming)\s+[`*_[\s]*(?:REF-\d+|PROF-[POFG]-)/i.test(cell))) continue;
+      const qualifiers = cells.filter((_, index) => (bibliographicOnly && colIndex === -1) || index === colIndex
+        || ['notes', 'evidence', 'context', 'kind', 'relationship', 'status'].includes(roles[index] ?? '')
         || (!bibliographicOnly && !['#', 'title', 'work', 'authors', 'year', 'doi/url', 'doi', 'url'].includes(headers[index])));
       if (qualifiers.some(isNonCitation)) continue;
-      const matches = cells[colIndex].match(NODE_ID_PATTERN);
+      // Without a named resolution column, only whole-cell REF IDs resolve.
+      // Named columns always take precedence over incidental IDs elsewhere.
+      const matches = colIndex === -1
+        ? cells.map(standaloneRef).filter((ref): ref is string => ref !== null)
+        : cells[colIndex].match(NODE_ID_PATTERN);
       if (matches) refs.push(...matches);
     }
   }
@@ -179,8 +222,9 @@ function extractTableRefs(
 /**
  * Parse a citation sidecar markdown file into structured edges.
  *
- * Only registered bibliographic header forms declare citations, through their
- * resolution column alone.
+ * Tables in Incoming/Outgoing sections declare citations through a unique
+ * registered resolution column, or whole-cell REF IDs when no such column
+ * exists, independent of other metadata columns.
  * Topical, related, conditional and explicitly non-citation declarations are
  * skipped; they do not produce citation edges or new relationship types.
  *
@@ -197,7 +241,7 @@ export function parseCitationSidecar(content: string): CitationParseResult | nul
   // Split body into sections by ## headings
   const sections = body.split(/(?=^## )/m).filter(Boolean);
   const preamble = sections[0]?.startsWith('## ') ? '' : sections[0] ?? '';
-  if (isNonCitation(preamble.replace(/^#+ .*$/gm, ''))) return { ref, cites: [], citedBy: [] };
+  if (isNonCitationContext(preamble.replace(/^#+ .*$/gm, ''))) return { ref, cites: [], citedBy: [] };
 
   let cites: string[] = [];
   let citedBy: string[] = [];

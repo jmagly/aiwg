@@ -7,6 +7,13 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Fixed
+
+- Extract citation-sidecar graph edges from the resolution column of registered
+  bibliographic and relationship tables in Incoming/Outgoing sections. Skip explicitly
+  topical/thematic, related, conditional, or non-citation declarations and ambiguous
+  rows; preserve verified citations in mixed tables (#3186).
+
 ## [2026.10.3] - 2026-10-14
 
 > 2026.10.2 was tagged (`v2026.10.2`) but never published: its npm publish jobs failed
