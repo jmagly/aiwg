@@ -1808,6 +1808,18 @@
       "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
     },
     {
+      "path": "test/integration/tools-packed-relative-imports.test.ts",
+      "owner": "test/integration",
+      "role": "fixture-or-test",
+      "currentVersion": "mission.aiwg.io/v1",
+      "statusVocabulary": [
+        "running"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "retain",
+      "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
+    },
+    {
       "path": "test/integration/uhp-fake-server.test.ts",
       "owner": "test/integration",
       "role": "fixture-or-test",
