@@ -1,3 +1,5 @@
+import { mkdtempSync } from '../../helpers/temp-dir.js';
+import { spawnSync } from 'node:child_process';
 import { useFixtureProcesses } from '../../helpers/fixture-processes.mjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +12,7 @@ import {
   SYNC_PROCESS_TIER_BOUNDS_MS,
   boundedExecFileSync,
   boundedExecSync,
+  boundedSpawn,
   boundedSpawnSync,
   resolveSyncProcessTimeoutMs,
 } from '../../../src/process/bounded-child-process.mjs';
@@ -364,5 +367,44 @@ describe('bounded* wrappers — normal (non-timeout) behavior is unchanged', () 
 
   it('requires a valid tier', () => {
     expect(() => boundedSpawnSync('node', ['-v'], 'fast')).toThrow(TypeError);
+  });
+});
+
+describe('boundedSpawn asynchronous file-transport lifecycle (#3078)', () => {
+  it('kills a child ignoring SIGTERM at the configured bound', async () => {
+    const result = await boundedSpawn(process.execPath, [ignoreSigtermScript], 'quick', {
+      timeout: 250, killSignal: 'SIGTERM', stdio: 'ignore',
+    });
+    expect(result.error?.code).toBe('ETIMEDOUT');
+    expect(result.signal).toBe('SIGKILL');
+  });
+  it('reports spawn failures and removes its signal listeners', async () => {
+    const before = ['SIGTERM', 'SIGINT', 'SIGHUP'].map(signal => process.listenerCount(signal));
+    const result = await boundedSpawn('/aiwg-nonexistent-command-3078', [], 'quick', { stdio: 'ignore' });
+    expect(result.error?.code).toBe('ENOENT');
+    expect(['SIGTERM', 'SIGINT', 'SIGHUP'].map(signal => process.listenerCount(signal))).toEqual(before);
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('file cleanup on real termination signals (#3078)', () => {
+  it.each(['SIGTERM', 'SIGINT', 'SIGHUP'])('cleans before exiting with %s', signal => {
+    const directory = mkdtempSync(join(tmpdir(), 'aiwg-signal-cleanup-'));
+    const file = join(directory, 'prompt.txt');
+    writeFileSync(file, 'private prompt');
+    const helperUrl = new URL('../../../src/process/bounded-child-process.mjs', import.meta.url).href;
+    const driver = `
+      import { boundedSpawn } from ${JSON.stringify(helperUrl)};
+      import { rmSync } from 'node:fs';
+      const run = boundedSpawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], 'quick',
+        { stdio: 'ignore' }, () => rmSync(${JSON.stringify(file)}));
+      setTimeout(() => process.kill(process.pid, ${JSON.stringify(signal)}), 100);
+      await run;
+    `;
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', driver], {
+      encoding: 'utf8', timeout: 3000, killSignal: 'SIGKILL',
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.signal).toBe(signal);
+    expect(existsSync(file)).toBe(false);
   });
 });

@@ -75,3 +75,10 @@ export function boundedSpawnSync(
   tier: SyncProcessTier,
   options?: SpawnSyncOptions,
 ): SpawnSyncReturns<string | Buffer>;
+
+/** Async launch with direct-child timeout and cleanup before termination. */
+export function boundedSpawn(
+  command: string, args: readonly string[], tier: SyncProcessTier,
+  options: import('node:child_process').SpawnOptions,
+  onTermination?: () => void,
+): Promise<{ status: number | null; signal: NodeJS.Signals | null; error?: Error; pid?: number }>;

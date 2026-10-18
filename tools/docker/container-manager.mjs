@@ -196,7 +196,7 @@ export class ContainerManager {
    */
   stop() {
     try {
-      execFileSync('docker', ['stop', this.#containerName], { stdio: 'ignore', timeout: 15000 });
+      execFileSync('docker', ['stop', this.#containerName], { stdio: 'ignore', timeout: 15000, killSignal: 'SIGKILL' });
     } catch {
       // Container may not be running
     }

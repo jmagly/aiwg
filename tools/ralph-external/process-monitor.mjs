@@ -38,13 +38,20 @@ import { createWorkerHealthObserver } from './lib/worker-health.mjs';
 // health query as unavailable instead of surfacing the actual failure.
 let boundedExecFileSync = null;
 let processHealthUnavailableReason = null;
+let importImpl;
 try {
-  const { importImpl } = await import('../_resolve-impl.mjs');
-  ({ boundedExecFileSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs'));
+  ({ importImpl } = await import('../_resolve-impl.mjs'));
 } catch (error) {
-  if (error?.code !== 'ERR_MODULE_NOT_FOUND') throw error;
-  boundedExecFileSync = null;
-  processHealthUnavailableReason = `bounded-child-process helper unavailable (standalone load without tools/_resolve-impl.mjs or src/dist/ nearby): ${error.message}`;
+  if (error?.code !== 'ERR_MODULE_NOT_FOUND' || error.url !== new URL('../_resolve-impl.mjs', import.meta.url).href) throw error;
+  processHealthUnavailableReason = 'bounded-child-process helper unavailable: resolver missing (tools/_resolve-impl.mjs)';
+}
+if (importImpl) {
+  try {
+    ({ boundedExecFileSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs'));
+  } catch (error) {
+    if (!['AIWG_IMPLEMENTATION_MISSING', 'AIWG_PACKAGE_ROOT_MISSING'].includes(error?.code)) throw error;
+    processHealthUnavailableReason = `bounded-child-process helper unavailable: implementation missing: ${error.message}`;
+  }
 }
 
 /** Side-effect-free Linux sample. Unknown identity never grants signal authority. */

@@ -36,7 +36,7 @@ try {
       process.exit(2);
     }
     // Compile the exact committed source; stale dist cannot back live evidence.
-    execFileSync('npm', ['run', 'build:cli'], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'], timeout: 900_000 });
+    execFileSync('npm', ['run', 'build:cli'], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'], timeout: 900_000, killSignal: 'SIGKILL' });
   }
   const live = mode === '--collect-approved';
   const module = name => live ? pathToFileURL(join(root, `dist/src/decision/${name}.js`)).href : pathToFileURL(join(root, `src/decision/${name}.ts`)).href;

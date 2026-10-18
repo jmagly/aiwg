@@ -50,6 +50,7 @@ function inspectMuseCli(env) {
     env,
     encoding: 'utf8',
     timeout: MUSE_VERSION_TIMEOUT_MS,
+    killSignal: 'SIGKILL',
   });
   if (result.error?.code === 'ENOENT') return 'absent';
   if (result.error?.code === 'ETIMEDOUT') return 'present (version timeout)';

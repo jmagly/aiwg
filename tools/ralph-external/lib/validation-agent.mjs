@@ -191,6 +191,7 @@ export class ValidationAgent {
         cwd: this.projectRoot,
         encoding: 'utf8',
         timeout: 5000,
+        killSignal: 'SIGKILL',
       });
 
       if (conflictCheck.stdout && conflictCheck.stdout.trim()) {
@@ -209,6 +210,7 @@ export class ValidationAgent {
         cwd: this.projectRoot,
         encoding: 'utf8',
         timeout: 5000,
+        killSignal: 'SIGKILL',
       });
 
       if (statusCheck.stdout) {
@@ -304,6 +306,7 @@ export class ValidationAgent {
         cwd: this.projectRoot,
         encoding: 'utf8',
         timeout: positiveTimeoutMs(this.timeout, 60000),
+        killSignal: 'SIGKILL',
       });
 
       result.ran = true;
@@ -375,6 +378,7 @@ export class ValidationAgent {
           cwd: this.projectRoot,
           encoding: 'utf8',
           timeout: positiveTimeoutMs(this.timeout, 60000),
+          killSignal: 'SIGKILL',
         });
 
         result.ran = true;
@@ -420,6 +424,7 @@ export class ValidationAgent {
         cwd: this.projectRoot,
         encoding: 'utf8',
         timeout: positiveTimeoutMs(this.timeout, 60000),
+        killSignal: 'SIGKILL',
       });
 
       result.ran = true;

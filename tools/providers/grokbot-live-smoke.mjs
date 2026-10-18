@@ -67,6 +67,7 @@ function runAiwg(args, cwd, env) {
     encoding: 'utf8',
     timeout: 120_000,
     maxBuffer: 8 * 1024 * 1024,
+    killSignal: 'SIGKILL',
   });
 }
 

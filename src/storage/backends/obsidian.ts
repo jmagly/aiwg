@@ -108,6 +108,7 @@ export class ObsidianAdapter implements StorageAdapter {
       execSync('obsidian --version', {
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: 2000,
+        killSignal: 'SIGKILL',
       });
     } catch {
       this.cliWarned = true;

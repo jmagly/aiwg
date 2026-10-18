@@ -309,89 +309,55 @@ function collectChildProcessApiAliases(source, crossFile) {
 /** The exported name the gate trusts to produce a provably positive timeout; see positiveTimeoutMs() in src/process/bounded-child-process.mjs. */
 const TRUSTED_TIMEOUT_HELPER_NAME = 'positiveTimeoutMs';
 
-/**
- * Local identifiers bound to `positiveTimeoutMs` (#3062 B/C finding 8): a
- * renamed named import, destructuring it out of any call (deliberately
- * permissive about the call itself — `await importImpl(...)`,
- * `require(...)`, or anything else; naming a local binding
- * `positiveTimeoutMs` is the signal, not which call produced it), or a
- * same-file reassignment of an already-trusted binding. A call to one of
- * these is treated as a provably positive timeout by
- * `hasProvablyPositiveTimeout` below, because the helper itself guarantees
- * that contract — see its own doc comment.
- *
- * @param {ts.SourceFile} source
- * @returns {Set<string>}
- */
-function collectTrustedTimeoutHelperAliases(source) {
-  const trusted = new Set();
-
-  const visit = (node) => {
-    if (ts.isImportDeclaration(node) && node.importClause?.namedBindings
-        && ts.isNamedImports(node.importClause.namedBindings)) {
-      for (const element of node.importClause.namedBindings.elements) {
-        if ((element.propertyName ?? element.name).text === TRUSTED_TIMEOUT_HELPER_NAME) {
-          trusted.add(element.name.text);
-        }
-      }
-    } else if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name)) {
-      for (const element of node.name.elements) {
-        if (!ts.isBindingElement(element) || !ts.isIdentifier(element.name)) continue;
-        const sourceName = element.propertyName && ts.isIdentifier(element.propertyName)
-          ? element.propertyName.text
-          : element.name.text;
-        if (sourceName === TRUSTED_TIMEOUT_HELPER_NAME) trusted.add(element.name.text);
-      }
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-
-  for (let pass = 0; pass < 5; pass += 1) {
-    let changed = false;
-    const propagate = (node) => {
-      if (ts.isVariableDeclaration(node) && node.initializer && ts.isIdentifier(node.name)
-          && ts.isIdentifier(node.initializer) && trusted.has(node.initializer.text)
-          && !trusted.has(node.name.text)) {
-        trusted.add(node.name.text);
-        changed = true;
-      }
-      ts.forEachChild(node, propagate);
-    };
-    propagate(source);
-    if (!changed) break;
-  }
-
-  return trusted;
+/** A local checker resolves lexical bindings without loading imports or executing code. */
+function localChecker(source) {
+  const host = ts.createCompilerHost({ noLib: true, noResolve: true, allowJs: true });
+  host.getSourceFile = name => name === source.fileName ? source : undefined;
+  return ts.createProgram([source.fileName], { noLib: true, noResolve: true, allowJs: true }, host).getTypeChecker();
 }
 
-/**
- * `const` declarations in `source` whose initializer resolves to a numeric
- * value via `literalNumericValue` (a plain numeric literal or a simple
- * constant arithmetic expression of such literals) — the only form of
- * same-file identifier resolution the non-literal-timeout rule allows
- * (#3062 B/C finding 8's tightened rule, replacing "any expression is
- * accepted"). A `let`/`var` is deliberately excluded: it can be
- * reassigned after declaration, so resolving it here would be unsound.
- *
- * @param {ts.SourceFile} source
- * @returns {Map<string, number>}
- */
-function collectConstNumericLiterals(source) {
-  const values = new Map();
-  const visit = (node) => {
-    if (ts.isVariableStatement(node) && (node.declarationList.flags & ts.NodeFlags.Const)) {
-      for (const declaration of node.declarationList.declarations) {
-        if (ts.isIdentifier(declaration.name) && declaration.initializer) {
-          const value = literalNumericValue(declaration.initializer);
-          if (value !== null) values.set(declaration.name.text, value);
-        }
-      }
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-  return values;
+function importedFrom(identifier, checker, exportedName, moduleMatches) {
+  const declaration = checker.getSymbolAtLocation(identifier)?.declarations?.[0];
+  if (!declaration || !ts.isImportSpecifier(declaration)) return false;
+  const imported = (declaration.propertyName ?? declaration.name).text;
+  const module = declaration.parent.parent.parent.moduleSpecifier;
+  return imported === exportedName && ts.isStringLiteralLike(module) && moduleMatches(module.text, identifier.getSourceFile().fileName);
+}
+
+// Trust only the owning module, including its installed dist layout.
+const gateRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const isTimeoutModule = (spec, fromFile) => spec.startsWith('.') && ['src', 'dist/src'].some(base =>
+  path.resolve(path.dirname(fromFile), spec) === path.join(gateRoot, base, 'process/bounded-child-process.mjs'));
+const isResolverModule = (spec, fromFile) => spec.startsWith('.') &&
+  path.resolve(path.dirname(fromFile), spec) === path.join(gateRoot, 'tools/_resolve-impl.mjs');
+
+function trustedTimeoutHelper(identifier, checker, seen = new Set()) {
+  const symbol = checker.getSymbolAtLocation(identifier);
+  if (!symbol || seen.has(symbol)) return false;
+  seen.add(symbol);
+  if (importedFrom(identifier, checker, TRUSTED_TIMEOUT_HELPER_NAME, isTimeoutModule)) return true;
+  const declaration = symbol.declarations?.[0];
+  if (declaration && ts.isVariableDeclaration(declaration)
+      && declaration.parent.flags & ts.NodeFlags.Const && declaration.initializer
+      && ts.isIdentifier(declaration.initializer)) {
+    return trustedTimeoutHelper(declaration.initializer, checker, seen);
+  }
+  if (!declaration || !ts.isBindingElement(declaration)
+      || (declaration.propertyName ?? declaration.name).getText() !== TRUSTED_TIMEOUT_HELPER_NAME) return false;
+  const variable = declaration.parent.parent;
+  if (!ts.isVariableDeclaration(variable) || !(variable.parent.flags & ts.NodeFlags.Const)) return false;
+  let init = variable.initializer;
+  if (init && ts.isAwaitExpression(init)) init = init.expression;
+  if (!init || !ts.isCallExpression(init)) return false;
+  if (init.expression.kind === ts.SyntaxKind.ImportKeyword
+      || ts.isIdentifier(init.expression) && init.expression.text === 'require'
+        && !checker.getSymbolAtLocation(init.expression)) {
+    return init.arguments.length === 1 && ts.isStringLiteralLike(init.arguments[0]) && isTimeoutModule(init.arguments[0].text, identifier.getSourceFile().fileName);
+  }
+  return ts.isIdentifier(init.expression)
+    && importedFrom(init.expression, checker, 'importImpl', isResolverModule)
+    && init.arguments.length === 2 && ts.isStringLiteralLike(init.arguments[1])
+    && init.arguments[1].text === 'process/bounded-child-process.mjs';
 }
 
 /**
@@ -458,54 +424,27 @@ function isUndefinedKeyword(expr) {
   return expr.kind === ts.SyntaxKind.UndefinedKeyword || (ts.isIdentifier(expr) && expr.text === 'undefined');
 }
 
-/**
- * Whether `expr` is a provably positive timeout value. In `strict` mode
- * (the product-code scan, `checkProduct()` — #3062 B/C finding 8, which
- * replaces the earlier "accept anything not provably bad" rule):
- *
- *   - a numeric literal, or a simple constant arithmetic expression of
- *     such literals, that resolves `> 0`;
- *   - a plain identifier that resolves, in the same file, to a `const`
- *     declaration meeting the above (via `constLiterals`);
- *   - a call to the gate-trusted `positiveTimeoutMs` helper (via
- *     `trustedTimeoutHelperAliases`), which guarantees a positive result
- *     by construction (see its doc comment in
- *     src/process/bounded-child-process.mjs) regardless of what dynamic
- *     value it was given.
- *
- * Anything else — `undefined`, a property access (`options.timeout`), an
- * identifier that isn't a resolvable same-file `const`, a call to
- * anything other than the trusted helper, etc. — is not provably
- * positive: the call must go through the bounded helper instead.
- *
- * Strict mode is deliberately scoped to product code: it targets
- * caller-controlled, unvalidated dynamic bounds reaching a real execution
- * path. `check()`'s test/ scan passes `lenientTimeout: true`, keeping the
- * original, broader rule (anything not provably `<= 0` or `undefined` is
- * accepted) for test fixtures that commonly reference a timeout constant
- * imported from elsewhere — tightening that scan too would fail on
- * unrelated, pre-existing test files far outside any one issue's scope,
- * for a case this rule isn't really targeting (a test author's own
- * fixture value, not untrusted runtime input).
- *
- * @param {ts.Expression} expr
- * @param {{ constLiterals: Map<string, number>, trustedTimeoutHelperAliases: Set<string>, lenientTimeout: boolean }} context
- * @returns {boolean}
- */
-function isTimeoutExpressionProvablyPositive(expr, { constLiterals, trustedTimeoutHelperAliases, lenientTimeout }) {
+/** Resolve positive bounds through lexical const bindings or imports from the
+ * owning helper. Tests retain their existing lenient explicit-timeout rule. */
+function isTimeoutExpressionProvablyPositive(expr, context) {
+  const { lenientTimeout } = context;
   if (isUndefinedKeyword(expr)) return false;
   const numeric = literalNumericValue(expr);
-  if (numeric !== null) return numeric > 0;
+  if (numeric !== null) return Number.isFinite(numeric) && numeric > 0;
+  if (lenientTimeout) return true;
+  const checker = context.checker;
   if (ts.isIdentifier(expr)) {
-    const resolved = constLiterals.get(expr.text);
-    if (resolved !== undefined) return resolved > 0;
-    return lenientTimeout;
+    const declaration = checker.getShorthandAssignmentValueSymbol?.(expr.parent)?.valueDeclaration
+      ?? checker.getSymbolAtLocation(expr)?.valueDeclaration;
+    if (declaration && ts.isVariableDeclaration(declaration)
+        && declaration.parent.flags & ts.NodeFlags.Const && declaration.initializer) {
+      const value = literalNumericValue(declaration.initializer);
+      if (value !== null) return Number.isFinite(value) && value > 0;
+    }
   }
-  if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)) {
-    if (trustedTimeoutHelperAliases.has(expr.expression.text)) return true;
-    return lenientTimeout;
-  }
-  return lenientTimeout; // e.g. a property access like options.timeout
+  if (ts.isCallExpression(expr) && ts.isIdentifier(expr.expression)
+      && trustedTimeoutHelper(expr.expression, checker)) return true;
+  return lenientTimeout;
 }
 
 /**
@@ -522,7 +461,9 @@ function isTimeoutExpressionProvablyPositive(expr, { constLiterals, trustedTimeo
  */
 function propertyKeyName(property, source) {
   if (!property.name) return null;
-  if (!ts.isComputedPropertyName(property.name)) return property.name.getText(source);
+  if (!ts.isComputedPropertyName(property.name)) {
+    return ts.isStringLiteralLike(property.name) ? property.name.text : property.name.getText(source);
+  }
   const expression = property.name.expression;
   return ts.isStringLiteralLike(expression) ? expression.text : null;
 }
@@ -535,12 +476,23 @@ function propertyKeyName(property, source) {
  */
 function hasProvablyPositiveTimeout(objectLiteral, source, context) {
   let timeoutIsPositive = false;
+  let killIsHard = false;
   for (const property of objectLiteral.properties) {
     if (ts.isSpreadAssignment(property)) {
+      killIsHard = false;
       timeoutIsPositive = false; // an unresolved spread can override/remove a preceding `timeout`
       continue;
     }
-    if (propertyKeyName(property, source) !== 'timeout') continue;
+    const key = propertyKeyName(property, source);
+    if (key === null && property.name && ts.isComputedPropertyName(property.name)) {
+      timeoutIsPositive = false;
+      killIsHard = false; // an unknown computed key can replace either option
+    }
+    if (key === 'killSignal') {
+      killIsHard = ts.isPropertyAssignment(property) && ts.isStringLiteralLike(property.initializer)
+        && property.initializer.text === 'SIGKILL';
+    }
+    if (key !== 'timeout') continue;
     if (ts.isPropertyAssignment(property)) {
       timeoutIsPositive = isTimeoutExpressionProvablyPositive(property.initializer, context);
     } else if (ts.isShorthandPropertyAssignment(property)) {
@@ -552,7 +504,7 @@ function hasProvablyPositiveTimeout(objectLiteral, source, context) {
       timeoutIsPositive = false; // e.g. a method named `timeout` — not an option value at all
     }
   }
-  return timeoutIsPositive;
+  return timeoutIsPositive && (context.lenientTimeout || killIsHard);
 }
 
 /**
@@ -586,9 +538,9 @@ export function findUnboundedCalls(file, text, crossFile, { lenientTimeout = fal
   const aliases = file === BOUNDED_HELPER_IMPLEMENTATION_FILE
     ? undefined
     : collectChildProcessApiAliases(source, crossFile && { file: crossFile.absoluteFile, reExportIndex: crossFile.reExportIndex });
+  let checker;
   const timeoutContext = {
-    constLiterals: collectConstNumericLiterals(source),
-    trustedTimeoutHelperAliases: collectTrustedTimeoutHelperAliases(source),
+    get checker() { return checker ??= localChecker(source); },
     lenientTimeout,
   };
   const findings = [];
@@ -934,7 +886,7 @@ if (invoked) {
 
   if (enforceProduct && product.violations.length) {
     for (const finding of product.violations) {
-      console.error(`${finding.file}:${finding.line}: ${finding.api} has no explicit timeout, does not go through the bounded helper, and is not on the allow-list`);
+      console.error(`${finding.file}:${finding.line}: ${finding.api} has no positive timeout with SIGKILL, does not go through the bounded helper, and is not on the allow-list`);
     }
     failed = true;
   }

@@ -144,7 +144,7 @@ export async function unmanageGrokBuildMcp(configPath, names, options = {}) {
 }
 
 function runJson(binary, args, cwd, env) {
-  const run = spawnSync(binary, args, { cwd, env, encoding: 'utf8', timeout: 30_000 });
+  const run = spawnSync(binary, args, { cwd, env, encoding: 'utf8', timeout: 30_000, killSignal: 'SIGKILL' });
   if (run.error || run.status !== 0) return { ok: false, detail: run.error?.message || run.stderr || `exit ${run.status}` };
   try { return { ok: true, value: JSON.parse(run.stdout || '{}') }; }
   catch { return { ok: false, detail: 'Grok returned malformed JSON' }; }

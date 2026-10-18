@@ -387,7 +387,7 @@ export async function sampleOwnedWorktreeContent(root, { files, maxFiles = 128, 
     if (!candidates) {
       const status = execFileSync('git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false',
         '-C', root, 'status', '--porcelain=v1', '-z', '--untracked-files=all'],
-        { timeout: 1000, maxBuffer: 65536, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_CONFIG_COUNT: '0' } });
+        { timeout: 1000, maxBuffer: 65536, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_CONFIG_COUNT: '0' }, killSignal: 'SIGKILL' });
       candidates = [];
       const records = status.split('\0');
       for (let i = 0; i < records.length; i++) {

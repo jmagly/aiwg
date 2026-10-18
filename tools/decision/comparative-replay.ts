@@ -175,7 +175,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.stdout.write('Disabled. Use --replay for the frozen synthetic study: 600 roots, zero provider calls.\n');
   } else {
     const routing = JSON.parse(execFileSync('aiwg', ['artifacts', 'path', '--json', '--check-write'],
-      { encoding: 'utf8', timeout: 10_000, stdio: ['ignore', 'pipe', 'pipe'] })) as { artifact_root: string; write_ready: boolean };
+      { encoding: 'utf8', timeout: 10_000, stdio: ['ignore', 'pipe', 'pipe'], killSignal: 'SIGKILL' })) as { artifact_root: string; write_ready: boolean };
     if (!routing.write_ready) throw new Error('artifact root is unavailable');
     const directory = resolve(routing.artifact_root, 'decisions/sensitivity/d23-comparative-replay-v1');
     await writeReplayStudy(directory);

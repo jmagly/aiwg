@@ -211,7 +211,7 @@ export function validateContextLiveApproval(approval: ContextLiveApproval, corpu
   if (corpus.profile.safetyMarginBps < approval.marginRule.maximumMarginBps) throw new Error('TV-12 collection margin is below the preregistered maximum');
 }
 export async function assertContextLiveSource(root: string, expected: string): Promise<void> {
-  const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8', timeout: 10_000 }).trim();
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8', timeout: 10_000, killSignal: 'SIGKILL' }).trim();
   if (git('rev-parse', 'HEAD') !== expected || git('status', '--porcelain', '--untracked-files=all')) throw new Error('TV-12 requires clean exact source commit');
 }
 export interface ContextLiveRecord {
@@ -417,7 +417,7 @@ export async function collectContextLiveCase(item: ContextLiveCase, corpus: Cont
 }
 /** `exact` (run evidence) requires the canonical root itself; `within` (prepared inputs) allows a descendant. */
 export async function assertContextArtifactRoot(sourceRoot: string, artifactRoot: string, mode: 'exact' | 'within' = 'exact'): Promise<void> {
-  const route = JSON.parse(execFileSync('aiwg', ['artifacts', 'path', '--json', '--check-write'], { cwd: sourceRoot, encoding: 'utf8', timeout: 10_000 }));
+  const route = JSON.parse(execFileSync('aiwg', ['artifacts', 'path', '--json', '--check-write'], { cwd: sourceRoot, encoding: 'utf8', timeout: 10_000, killSignal: 'SIGKILL' }));
   if (typeof route.artifact_root !== 'string') throw new Error('Canonical artifact root unavailable');
   const delta = relative(await realpath(route.artifact_root), await realpath(artifactRoot));
   if (mode === 'exact' ? delta !== '' : delta === '..' || delta.startsWith('../') || isAbsolute(delta)) throw new Error('TV-12 evidence must use the canonical artifact root');

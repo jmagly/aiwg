@@ -15,10 +15,10 @@ try {
   if(!source||!existsSync(join(source,'node_modules/.bin/tsc'))){result.status='skipped';result.reason='PINNED_SOURCE_DEPENDENCIES_UNAVAILABLE';if(args.includes('--require'))throw Error(result.reason);}
   else {
     const checkout=resolve(source);
-    const git=spawnSync('git',['-C',checkout,'rev-parse','HEAD'],{encoding:'utf8',timeout:10000});
+    const git=spawnSync('git',['-C',checkout,'rev-parse','HEAD'],{encoding:'utf8',timeout:10000, killSignal: 'SIGKILL' });
     if(git.status!==0||git.stdout.trim()!==manifest.source.commit)throw Error('OMP_SOURCE_REVISION_MISMATCH');
     result.checks.sourceRevision=true;
-    const pristine=spawnSync('git',['-C',checkout,'diff','--quiet','HEAD'],{timeout:10000});
+    const pristine=spawnSync('git',['-C',checkout,'diff','--quiet','HEAD'],{timeout:10000, killSignal: 'SIGKILL' });
     if(pristine.status!==0)throw Error('OMP_SOURCE_TRACKED_FILES_MODIFIED');
     result.checks.trackedSourcePristine=true;
     temporary=await mkdtemp(join(checkout,'.aiwg-api-conformance-'));
@@ -26,7 +26,7 @@ try {
     result.bridgeSha256=createHash('sha256').update(await readFile(bridge)).digest('hex');
     await copyFile(bridge,join(temporary,'aiwg-bridge.ts'));
     await writeFile(join(temporary,'tsconfig.json'),JSON.stringify({extends:'../tsconfig.base.json',files:['aiwg-bridge.ts']}));
-    const check=spawnSync(join(checkout,'node_modules/.bin/tsc'),['--project',join(temporary,'tsconfig.json'),'--pretty','false'],{cwd:checkout,encoding:'utf8',timeout:120000,maxBuffer:1024*1024});
+    const check=spawnSync(join(checkout,'node_modules/.bin/tsc'),['--project',join(temporary,'tsconfig.json'),'--pretty','false'],{cwd:checkout,encoding:'utf8',timeout:120000,maxBuffer:1024*1024, killSignal: 'SIGKILL' });
     result.compiler=JSON.parse(await readFile(join(checkout,'node_modules/typescript/package.json'),'utf8')).version;
     result.checks.nativeExtensionTypes=check.status===0;
     result.diagnostics=(check.stdout+check.stderr).replaceAll(checkout,'<pinned-source>').slice(0,20000);

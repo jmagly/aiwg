@@ -43,7 +43,7 @@ try {
   }
   const root = resolve(import.meta.dirname, '../..');
   // Compile the exact source before importing the runtime; stale dist cannot back live evidence.
-  execFileSync('npm', ['run', 'build:cli'], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'], timeout: 300_000 });
+  execFileSync('npm', ['run', 'build:cli'], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'], timeout: 300_000, killSignal: 'SIGKILL' });
   const runtime = await import('../../dist/src/decision/context-live-qualification.js');
   const promotion = await import('../../dist/src/decision/context-live-promotion.js');
   const pinnedHost = async (resolverPath, expected, approved) => {

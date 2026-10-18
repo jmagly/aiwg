@@ -20,7 +20,7 @@ function findPackageRoot(callerUrl) {
     dir = parent;
   }
 
-  throw new Error(`Could not locate AIWG package root from ${callerUrl}`);
+  throw Object.assign(new Error(`Could not locate AIWG package root from ${callerUrl}`), { code: 'AIWG_PACKAGE_ROOT_MISSING' });
 }
 
 function candidatesFor(root, relativeFromSrc, base) {
@@ -102,7 +102,7 @@ export function resolveImpl(callerUrl, relativeFromSrc) {
   const attempted = order
     .flatMap((base) => candidatesFor(root, relativeFromSrc, base))
     .join(', ');
-  throw new Error(`Could not resolve ${relativeFromSrc}; attempted: ${attempted}`);
+  throw Object.assign(new Error(`Could not resolve ${relativeFromSrc}; attempted: ${attempted}`), { code: 'AIWG_IMPLEMENTATION_MISSING' });
 }
 
 export async function importImpl(callerUrl, relativeFromSrc) {

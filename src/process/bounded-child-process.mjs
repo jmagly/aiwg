@@ -70,10 +70,12 @@
  */
 
 import {
+  spawn,
   execSync as nodeExecSync,
   execFileSync as nodeExecFileSync,
   spawnSync as nodeSpawnSync,
 } from 'node:child_process';
+import { signalChild } from './signal-child.mjs';
 
 /** Env var that raises or disables the `long` tier bound. `0` disables it (no timeout). */
 export const AIWG_SYNC_LONG_TIMEOUT_MS_ENV = 'AIWG_SYNC_LONG_TIMEOUT_MS';
@@ -384,4 +386,45 @@ export function boundedSpawnSync(command, args, tier, options) {
   const result = nodeSpawnSync(command, args, nodeOptions);
   enrichTimeoutError(result.error, { description: describeCommand(command, args), tier, boundMs, signal: result.signal });
   return result;
+}
+
+/** Async counterpart for launches that must clean owned files on termination.
+ * Like the sync wrappers, this supervises the direct child only. */
+export async function boundedSpawn(command, args, tier, options, onTermination = () => {}) {
+  assertValidTier(tier);
+  const boundMs = effectiveTimeoutMs(tier, options);
+  const { timeout: _timeout, killSignal: _killSignal, ...nodeOptions } = toNodeOptions(options, boundMs);
+  let child;
+  let timer;
+  let timedOut = false;
+  const handlers = new Map();
+  try {
+    child = spawn(command, args, nodeOptions);
+    for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+      const handler = () => {
+        try { onTermination(); }
+        finally {
+          signalChild(child, 'SIGKILL');
+          // Restore the signal's normal exit semantics after cleanup.
+          process.removeListener(signal, handler);
+          process.kill(process.pid, signal);
+        }
+      };
+      handlers.set(signal, handler);
+      process.once(signal, handler);
+    }
+    if (boundMs > 0) timer = setTimeout(() => { timedOut = true; signalChild(child, 'SIGKILL'); }, boundMs);
+    return await new Promise(resolve => {
+      let spawnError;
+      child.once('error', error => { spawnError = error; });
+      child.once('close', (status, signal) => {
+        const error = timedOut ? Object.assign(new Error(`Command timed out after ${boundMs}ms`), { code: 'ETIMEDOUT' }) : spawnError;
+        enrichTimeoutError(error, { description: describeCommand(command, args), tier, boundMs, signal });
+        resolve({ status, signal, error, pid: child.pid, stdout: null, stderr: null, output: [] });
+      });
+    });
+  } finally {
+    clearTimeout(timer);
+    for (const [signal, handler] of handlers) process.removeListener(signal, handler);
+  }
 }

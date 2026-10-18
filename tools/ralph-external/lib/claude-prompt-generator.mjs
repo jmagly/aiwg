@@ -100,6 +100,7 @@ export class ClaudePromptGenerator {
         // which still lets a negative value through); clamp it so it can
         // never disable or invert the bound (#3062 B/C finding 8).
         timeout: positiveTimeoutMs(this.timeout, 90000),
+        killSignal: 'SIGKILL',
       });
 
       if (result.status !== 0) {

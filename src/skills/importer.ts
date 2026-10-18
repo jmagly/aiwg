@@ -358,6 +358,7 @@ function runGit(
     maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 120_000,
+    killSignal: 'SIGKILL',
   });
   if (result.error) {
     if ((result.error as NodeJS.ErrnoException).code === 'ETIMEDOUT') {

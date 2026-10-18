@@ -179,6 +179,7 @@ export class EscalationHandler {
     ], {
       encoding: 'utf8',
       timeout: 10000,
+      killSignal: 'SIGKILL',
     });
 
     if (result.status !== 0) {
@@ -271,6 +272,7 @@ export class EscalationHandler {
     ], {
       encoding: 'utf8',
       timeout: 5000,
+      killSignal: 'SIGKILL',
     });
 
     if (result.status !== 0) {

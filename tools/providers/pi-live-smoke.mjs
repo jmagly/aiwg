@@ -49,6 +49,7 @@ function runPi(runtime, args, env, input) {
     input,
     timeout: 120_000,
     maxBuffer: 16 * 1024 * 1024,
+    killSignal: 'SIGKILL',
   });
 }
 

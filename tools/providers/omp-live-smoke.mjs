@@ -26,7 +26,7 @@ export async function verifyBinary(binary, env, sandbox) {
   await access(binary, constants.X_OK);
   const hash = createHash('sha256'); for await (const bytes of createReadStream(binary)) hash.update(bytes);
   if (hash.digest('hex') !== pin.sha256) return { binaryPinned: false, versionMatched: false };
-  const version = spawnSync(binary, ['--version'], { cwd: sandbox, env: smokeEnvironment(env, sandbox), encoding: 'utf8', timeout: 15000, maxBuffer: 16384 });
+  const version = spawnSync(binary, ['--version'], { cwd: sandbox, env: smokeEnvironment(env, sandbox), encoding: 'utf8', timeout: 15000, maxBuffer: 16384, killSignal: 'SIGKILL' });
   return { binaryPinned: true, versionMatched: version.status === 0 && [manifest.release.version, `omp/${manifest.release.version}`].includes(version.stdout.trim()) };
 }
 export async function runLiveSmoke(options, dependencies = {}) {

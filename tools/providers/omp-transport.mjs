@@ -183,7 +183,7 @@ export async function warmAndConnectOmpRpcClient({ binary, cwd, env, warmArgs = 
   const warmStarted = Date.now();
   // warmTimeoutMs is caller-controlled; clamp it so a caller passing 0 (or
   // anything else non-positive) can't disable the bound (#3062 B/C finding 8).
-  const warmup = spawnSync(binary, warmArgs, { cwd, env, encoding: 'utf8', timeout: positiveTimeoutMs(warmTimeoutMs, 15000) });
+  const warmup = spawnSync(binary, warmArgs, { cwd, env, encoding: 'utf8', timeout: positiveTimeoutMs(warmTimeoutMs, 15000), killSignal: 'SIGKILL' });
   const warmedMs = Date.now() - warmStarted;
   const warmupResult = { status: warmup.status ?? null, signal: warmup.signal ?? null, error: warmup.error ? String(warmup.error.message ?? warmup.error) : null };
   const readyStarted = Date.now();

@@ -225,6 +225,7 @@ export class StateAssessor {
         encoding: 'utf8',
         timeout: 120000, // 2 minute timeout
         cwd: this.projectRoot,
+        killSignal: 'SIGKILL',
       });
 
       if (result.status === 0) {

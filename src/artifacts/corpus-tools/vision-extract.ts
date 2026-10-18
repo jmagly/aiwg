@@ -74,6 +74,7 @@ const codexAdapter: VisionAdapter = {
         // function's own documented default (see extractPages() below).
         timeout: positiveTimeoutMs(ctx.timeoutSec * 1000, 240_000),
         encoding: 'utf8',
+        killSignal: 'SIGKILL',
       });
       if (r.status === 0 && fs.existsSync(tmp)) {
         const text = fs.readFileSync(tmp, 'utf8');
@@ -175,6 +176,7 @@ function commandAdapter(template: string): VisionAdapter {
         const r = spawnSync('sh', ['-c', cmd, 'aiwg-vision', imagePath, promptFile, out], {
           timeout: positiveTimeoutMs(ctx.timeoutSec * 1000, 240_000), encoding: 'utf8',
           env: { ...process.env, AIWG_VISION_IMAGE: imagePath, AIWG_VISION_PROMPT_FILE: promptFile, AIWG_VISION_OUT: out },
+          killSignal: 'SIGKILL',
         });
         let text: string | undefined;
         if (fs.existsSync(out)) text = fs.readFileSync(out, 'utf8');
