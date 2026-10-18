@@ -495,6 +495,76 @@ No citations found.
       });
     });
 
+    it('keeps citation statements under heading variants and resolves only the citer cell', () => {
+      expect(parseCitationSidecar(fixture('section-headings'))).toEqual({
+        ref: 'REF-1151',
+        cites: ['REF-2883', 'REF-2880', 'REF-2879'],
+        citedBy: ['REF-2840', 'REF-2616', 'REF-2705', 'REF-2570', 'REF-2599', 'REF-2578', 'REF-2543'],
+      });
+    });
+
+    const headingVariants = [
+      ['Incoming / Corpus Connections', 'incoming'],
+      ['Incoming / Corpus Links', 'incoming'],
+      ['Incoming — Corpus Connections', 'incoming'],
+      ['Incoming: Papers That Cite This Work', 'incoming'],
+      ['Incoming (selected — corpus REFs that cite this benchmark)', 'incoming'],
+      ['Incoming references in this corpus', 'incoming'],
+      ['Incoming Citation Backlinks Added', 'incoming'],
+      ['Incoming Citations', 'incoming'],
+      ['Cited-by', 'incoming'],
+      ['Cited by / Corpus Papers', 'incoming'],
+      ['Papers That Cite This Work (selected)', 'incoming'],
+      ['Sources That Cite This Work: verified', 'incoming'],
+      ['Works That Cite This Work — corpus', 'incoming'],
+      ['Outgoing / Corpus Links', 'outgoing'],
+      ['Outgoing — References', 'outgoing'],
+      ['Outgoing: Papers This Work Cites', 'outgoing'],
+      ['Outgoing (selected)', 'outgoing'],
+      ['Outgoing References', 'outgoing'],
+      ['Outgoing Citation Map', 'outgoing'],
+      ['Outgoing source references', 'outgoing'],
+      ['Cites', 'outgoing'],
+      ['References / Corpus', 'outgoing'],
+      ['References: selected', 'outgoing'],
+      ['Papers This Work Cites (selected)', 'outgoing'],
+      ['Sources This Work Cites', 'outgoing'],
+      ['Works This Work Cites', 'outgoing'],
+      ['Formal / High-Value References Extracted', 'outgoing'],
+      ['Formal / High-Value References Extracted (selected)', 'outgoing'],
+      ['Formal / High-Value References and Benchmarks Extracted', 'outgoing'],
+      ['Formal References Extracted From the Card', 'outgoing'],
+      ['Formal References Extracted From the Addendum / Parent Card', 'outgoing'],
+      ['High-Value References and Benchmarks', 'outgoing'],
+      ['Foundational External Citations', 'outgoing'],
+    ];
+    it.each(headingVariants)('recognizes the direction of "%s"', (heading, direction) => {
+      const table = '| REF | Relationship |\n|---|---|\n| REF-002 | Cites this work |';
+      const content = `---\nref: REF-001\n---\n   ##\t**${heading.toUpperCase()}** ##\n${table}`;
+      expect(parseCitationSidecar(content)).toEqual({
+        ref: 'REF-001',
+        cites: direction === 'outgoing' ? ['REF-002'] : [],
+        citedBy: direction === 'incoming' ? ['REF-002'] : [],
+      });
+    });
+
+    it.each(['Related work', 'Topical connections', 'Cross-References', 'Incomingish', 'Outgoingness', 'Notes: Incoming', 'Notes / References'])(
+      'does not infer citations from the unrelated heading "%s"', heading => {
+        const content = `---\nref: REF-001\n---\n## ${heading}\nPapers that cite this work:\n\n| REF | Relationship |\n|---|---|\n| REF-002 | Cites this work |`;
+        expect(parseCitationSidecar(content)).toEqual({ ref: 'REF-001', cites: [], citedBy: [] });
+      },
+    );
+
+    it.each(['Incoming / Corpus Connections', 'Cited-by', 'References', 'Formal / High-Value References Extracted'])(
+      'keeps explicit non-citation qualifiers effective under "%s"', heading => {
+        const table = '| REF | Relationship |\n|---|---|\n| REF-002 | — cites this work |\n| REF-003 | Topical only; previous row said cites this work |';
+        const result = parseCitationSidecar(`---\nref: REF-001\n---\n## ${heading}\n${table}`)!;
+        expect([...result.cites, ...result.citedBy]).toEqual(['REF-002']);
+        expect(parseCitationSidecar(`---\nref: REF-001\n---\n## ${heading} (non-citation relationships only)\n${table}`))
+          .toEqual({ ref: 'REF-001', cites: [], citedBy: [] });
+      },
+    );
+
     it('keeps citation descriptions mentioning related work and paper titles', () => {
       const content = `---
 ref: REF-001
@@ -933,6 +1003,47 @@ Note: these are not citation edges.
           delete GRAPH_CONFIGS[key];
         }
       }
+    });
+
+    it('indexes heading variants without turning fan-out provenance into cited-by edges', async () => {
+      const citationsDir = path.join(tmpDir, 'documentation/citations');
+      fs.mkdirSync(citationsDir, { recursive: true });
+      fs.mkdirSync(path.join(tmpDir, '.aiwg'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, '.aiwg/config.yaml'), `
+index:
+  graphs:
+    citation-network:
+      scanDirs: [documentation/citations]
+      extensions: [.md]
+      edgeExtraction:
+        parser: citation-sidecar
+`);
+      fs.copyFileSync(
+        path.join(import.meta.dirname, '../../fixtures/citation-sidecar-edges/section-headings.md'),
+        path.join(citationsDir, 'REF-1151-citations.md'),
+      );
+      const incoming = ['REF-2840', 'REF-2616', 'REF-2705', 'REF-2570', 'REF-2599', 'REF-2578', 'REF-2543'];
+      const outgoing = ['REF-2883', 'REF-2880', 'REF-2879'];
+      for (const ref of [...incoming, ...outgoing, 'REF-2528', 'REF-900', 'REF-901', 'REF-902', 'REF-903', 'REF-904']) {
+        fs.writeFileSync(path.join(citationsDir, `${ref}-citations.md`), `---\nref: ${ref}\n---\n`);
+      }
+
+      await buildIndex(tmpDir, { force: true, graph: 'citation-network', explicit: true });
+      const graph: DependencyGraph = JSON.parse(fs.readFileSync(
+        path.join(tmpDir, '.aiwg/.index/citation-network/dependencies.json'), 'utf-8',
+      ));
+      const nodePath = 'documentation/citations/REF-1151-citations.md';
+      expect(graph[nodePath].downstream).toEqual(incoming.map(ref => ({
+        path: `documentation/citations/${ref}-citations.md`, type: 'cited-by',
+      })));
+      expect(graph[nodePath].upstream).toEqual(outgoing.map(ref => ({
+        path: `documentation/citations/${ref}-citations.md`, type: 'cites',
+      })));
+      for (const ref of incoming) {
+        expect(graph[`documentation/citations/${ref}-citations.md`].upstream)
+          .toContainEqual({ path: nodePath, type: 'cited-by' });
+      }
+      expect(graph['documentation/citations/REF-2528-citations.md']).toEqual({ upstream: [], downstream: [] });
     });
 
     it('should extract citation edges when edgeExtraction is configured', async () => {

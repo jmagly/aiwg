@@ -20,6 +20,10 @@ Minimal downstream table shapes for issue #3186:
   linked and backtick-wrapped IDs, embedded mentions and qualified exclusions.
 - `header-variants.md`: corpus header aliases and extra metadata columns before
   and after the resolution column.
+- `section-headings.md`: Incoming/Outgoing slash and em-dash headings, Cited-by,
+  Papers That Cite This Work, References, formal-reference headings, citation
+  statements (including `— cites this work`), self-edges, and provenance IDs
+  outside the resolution cell.
 - `citation-sidecar-contract.json` (research-papers' `citation-sidecar.schema.json`): schema version 1 from research-papers, retained
   as an independent inventory of corpus forms and aliases. Graph extraction uses
   a unique resolution header in Incoming/Outgoing, or whole-cell REF IDs when
@@ -28,3 +32,29 @@ Minimal downstream table shapes for issue #3186:
 
 These fixtures contain synthetic metadata and minimal transcriptions; tests do
 not access the downstream checkout.
+
+Supported section headings (case-insensitive, with optional Markdown emphasis,
+closing hashes, indentation and tabs):
+
+- `Incoming` / `Outgoing`, with word-bounded descriptions. Corpus variants
+  include `Incoming / Corpus Connections`, `Incoming / Corpus Links`,
+  `Incoming: Papers That Cite This Work`, `Incoming (selected — corpus REFs that
+  cite this paper)`, `Incoming references in this corpus`, `Incoming Citation
+  Backlinks Added`, `Incoming Citations`, `Outgoing References`, `Outgoing
+  Citations`, `Outgoing Citation Map`, `Outgoing source references`, and
+  `Outgoing (selected)`. Their `/`, `—`, `:`, and `(` suffixes retain direction.
+- Whole headings or first segments before those delimiters: `Cited-by`,
+  `Cited by`, `Papers That Cite This Work`, `Sources That Cite This Work`,
+  `Works That Cite This Work` (incoming); `Cites`, `References`,
+  `Papers This Work Cites`, `Sources This Work Cites`, `Works This Work Cites`
+  (outgoing).
+- Exact corpus bibliography headings: `Formal / High-Value References
+  Extracted`, `Formal / High-Value References and Benchmarks Extracted`,
+  `Formal References Extracted From the Card`, `Formal References Extracted
+  From the Addendum / Parent Card`, `High-Value References and Benchmarks`,
+  `Foundational External Citations` (outgoing).
+
+`Related work`, `Topical connections`, general corpus connections, audit notes,
+and rejected-candidate headings do not declare citations. Explicit qualifiers
+still apply inside recognized sections; a resolution labelled `context`,
+`family context`, or `adjacent` does not identify a cited artifact.

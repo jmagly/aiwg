@@ -9,6 +9,20 @@
  * they do not need to follow an enumerated table shape.
  */
 
+/** Direction names used as whole headings or before /, —, :, or (. */
+export const CITATION_SECTION_ALIASES = {
+  incoming: ['cited-by', 'cited by', 'papers that cite this work', 'sources that cite this work', 'works that cite this work'],
+  outgoing: [
+    'cites', 'references', 'papers this work cites', 'sources this work cites', 'works this work cites',
+    'formal / high-value references extracted',
+    'formal / high-value references and benchmarks extracted',
+    'formal references extracted from the card',
+    'formal references extracted from the addendum / parent card',
+    'high-value references and benchmarks',
+    'foundational external citations',
+  ],
+} as const;
+
 export const CITATION_HEADER_ALIASES: Record<string, readonly string[]> = {
   ordinal: ['#', 'bibliography #', 'label', 'row', 'original label', '# (arxiv)'],
   title: [
