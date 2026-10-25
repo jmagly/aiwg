@@ -118,7 +118,7 @@
     "semver": "^7.8.5",
     "toml-eslint-parser": "0.10.0",
     "yaml": "^2.9.0",
-    "zod": "^3.25.0"
+    "zod": "^4.6.7"
   },
   "optionalDependencies": {
     "@hono/node-server": "2.0.11",
