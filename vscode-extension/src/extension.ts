@@ -12,6 +12,7 @@ import { AiwgSidebarProvider } from './providers/sidebar-tree';
 import { AiwgCliRunner } from './cli/runner';
 import { configureMcp } from './mcp/auto-config';
 import { registerChatParticipant } from './participant/handler';
+import { watchProjectConfig } from './config-watcher';
 
 let statusBar: AiwgStatusBar | undefined;
 let sidebarProvider: AiwgSidebarProvider | undefined;
@@ -54,15 +55,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await maybePromptInit(workspaceRoot);
   }
 
-  // Watch aiwg.config.json for changes and refresh sidebar
   if (workspaceRoot) {
-    const configWatcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(workspaceRoot, '.aiwg/aiwg.config.json')
-    );
-    configWatcher.onDidChange(() => sidebarProvider?.refresh());
-    configWatcher.onDidCreate(() => sidebarProvider?.refresh());
-    configWatcher.onDidDelete(() => sidebarProvider?.refresh());
-    context.subscriptions.push(configWatcher);
+    watchProjectConfig(context, workspaceRoot, () => sidebarProvider?.refresh());
   }
 }
 
