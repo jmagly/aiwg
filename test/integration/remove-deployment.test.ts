@@ -36,7 +36,7 @@ function setup(audit = true) {
   if (!audit) env.AIWG_SKIP_ACTIVITY_LOG = '1';
   const command = (script: string, args: string[]) => {
     const result = spawnSync(process.execPath, [path.isAbsolute(script) ? script : path.join(ROOT, script), ...args], {
-      cwd: project, env, encoding: 'utf8', timeout: 180_000, maxBuffer: 16 * 1024 * 1024,
+      cwd: project, env, encoding: 'utf8', timeout: DEPLOY_BOUND_MS, maxBuffer: 16 * 1024 * 1024,
     });
     expect(result.status, `${result.stdout}\n${result.stderr}\n${result.error || ''}`).toBe(0);
     return result.stdout;
@@ -46,6 +46,12 @@ function setup(audit = true) {
 function write(root: string, file: string, value: string) {
   fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); fs.writeFileSync(path.join(root, file), value);
 }
+
+// Real sdlc and marketing deploys take about 40 s on titan but over 180 s on the
+// shared CI runner (main run 94796), so one child deploy gets 600 s. The serial
+// deployment lane's watchdog and job bounds allow for that.
+const DEPLOY_BOUND_MS = 600_000;
+const REAL_DEPLOY_TEST_MS = 900_000;
 
 describe('receipt-backed removal after deployment (#3769)', () => {
 
@@ -73,7 +79,7 @@ describe('receipt-backed removal after deployment (#3769)', () => {
     command('bin/aiwg.mjs', ['remove', 'sdlc']);
     expect(fs.readFileSync(settingsFile, 'utf8')).toBe(original);
     expect(records(project).get(settingsFile)).toBeUndefined();
-  }, 240_000);
+  }, REAL_DEPLOY_TEST_MS);
 
   it('removes exactly sdlc-owned recorded files after real sdlc and marketing deploys', () => {
     const { project, command } = setup();
@@ -113,7 +119,7 @@ describe('receipt-backed removal after deployment (#3769)', () => {
     for (const [file, entry] of records(project)) if (entry.owners?.includes(owner) && !deferred(file, entry)) {
       expect(entry).toEqual(before.get(edited));
     }
-  }, 240_000);
+  }, REAL_DEPLOY_TEST_MS);
 
   it.each([false, true])('restores the file tree after a file-only deploy/remove round trip (operator edit: %s)', async edited => {
     const { project, scratch, command } = setup(false);

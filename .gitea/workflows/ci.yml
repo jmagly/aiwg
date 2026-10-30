@@ -386,7 +386,7 @@ jobs:
     name: Provider deployment integration
     runs-on: ubuntu-latest
     container: node:24@sha256:050bf2bbe33c1d6754e060bec89378a79ed831f04a7bb1a53fe45e997df7b3bb
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
@@ -395,7 +395,7 @@ jobs:
       - name: Build CLI prerequisites
         run: npm run build:cli
       - name: Run serial provider deployment integration
-        run: node tools/ci/run-with-hang-report.mjs --timeout 18m -- npm run test:deployment
+        run: node tools/ci/run-with-hang-report.mjs --timeout 30m -- npm run test:deployment
 
   # Full-corpus index performance, real package installation/build, and
   # full-corpus discovery are isolated gates. They must not compete with the

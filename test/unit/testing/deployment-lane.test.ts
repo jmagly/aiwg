@@ -54,10 +54,10 @@ describe('required provider deployment lane', () => {
     const workflow = parseYaml(readFileSync(path.join(root, '.gitea/workflows/ci.yml'), 'utf8'));
     const job = workflow.jobs.deployment;
     expect(job.name).toBe('Provider deployment integration');
-    expect(job['timeout-minutes']).toBe(25);
+    expect(job['timeout-minutes']).toBe(40);
     const commands = job.steps.map((step: { run?: string }) => step.run ?? '');
     expect(commands).toContain('npm run build:cli');
-    expect(commands).toContain('node tools/ci/run-with-hang-report.mjs --timeout 18m -- npm run test:deployment');
+    expect(commands).toContain('node tools/ci/run-with-hang-report.mjs --timeout 30m -- npm run test:deployment');
     expect(workflow.jobs.build.needs).toContain('deployment');
 
     const scripts = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).scripts;
