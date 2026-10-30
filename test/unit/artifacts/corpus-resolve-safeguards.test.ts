@@ -172,8 +172,8 @@ describe('conservative title resolution', () => {
     expect((await run('Self-supervised representation learning')).paper?.year).toBe(2024);
     state.s2 = [s2Paper({ year: 0, publicationDate: undefined })];
     const result = await run('Self-supervised representation learning');
-    expect(result.status).toBe('deferred');
-    expect(result.paths_tried[0]).toMatchObject({ status: 'error' });
+    expect(result).toMatchObject({ status: 'unresolved', incomplete: false, candidates: [] });
+    expect(result.paths_tried[0]).toMatchObject({ status: 'empty' });
     expect(result).not.toHaveProperty('paper');
   });
   it('resolves VAD as one published work with its arXiv alternate ID', async () => {

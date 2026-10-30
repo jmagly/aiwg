@@ -7,7 +7,7 @@ export const crossrefPaper = (overrides: Partial<CrossRefResponse> = {}): CrossR
 
 export interface HttpFixture {
   s2: SemanticScholarResponse[];
-  arxiv: Array<{ id: string; title: string }>;
+  arxiv: Array<{ id: string; title: string; year?: number }>;
   crossref: CrossRefResponse[];
   errors: Partial<Record<'s2' | 'arxiv' | 'crossref', number>>;
   idTitle: string;
@@ -19,7 +19,7 @@ export function httpFixture(): HttpFixture {
 
 const xml = (papers: HttpFixture['arxiv']): string => `<feed>${papers.map(p => `<entry>
   <id>https://arxiv.org/abs/${p.id}</id><title>${p.title}</title><summary>Fixture abstract</summary>
-  <published>2024-02-03T00:00:00Z</published><author><name>Ada Example</name></author>
+  <published>${p.year ?? 2024}-02-03T00:00:00Z</published><author><name>Ada Example</name></author>
   <link title="pdf" href="https://arxiv.org/pdf/${p.id}.pdf"/>
   </entry>`).join('')}</feed>`;
 

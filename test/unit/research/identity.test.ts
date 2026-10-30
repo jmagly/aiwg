@@ -48,6 +48,12 @@ describe('research identities', () => {
     expect(normalizeDoi('doi:10.1234/ABC).')).toBe('10.1234/abc');
   });
 
+  it('retains canonical alternate DOI keys for preprint identities', () => {
+    const identity = { doi: '10.1234/JOURNAL', alternateDois: ['https://doi.org/10.2139/SSRN.1568864', 'invalid', '10.2139/ssrn.1568864'] };
+    expect(normalizeIdentity(identity)).toMatchObject({ doi: '10.1234/journal', alternateDois: ['10.2139/ssrn.1568864'] });
+    expect(identityKeys(identity)).toEqual(['doi:10.1234/journal', 'doi:10.2139/ssrn.1568864']);
+  });
+
   it('normalizes Unicode, punctuation and LaTeX formatting consistently', () => {
     expect(normalizeTitle('｛ＡＩ｝ \\textbf{Self}-Supervised $x^2$')).toBe('ai self supervised x 2');
   });

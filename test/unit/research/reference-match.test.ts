@@ -42,6 +42,11 @@ describe('one work with preprint and published identifiers', () => {
   it('keeps conflicting published DOIs separate even with an arXiv link', () => {
     expect(mergePapers([bridge, paper({ doi: '10.1234/different' })])).toHaveLength(2);
   });
+  it('does not let merged preprint identities bridge different published DOIs', () => {
+    const first = paper({ ...published, arxivId: preprint.arxivId, alternateDois: [preprint.doi!] });
+    const second = paper({ ...first, id: '10.1234/different', doi: '10.1234/different' });
+    expect(mergePapers([first, second])).toHaveLength(2);
+  });
   it('never merges on title, year and author alone', () => {
     expect(mergePapers([paper({ arxivId: undefined }), published])).toHaveLength(2);
   });
@@ -67,4 +72,29 @@ it.each(['Hamiltonian Generative Networks', 'Distinctive Graph Diffusion Models'
   const candidates = [scorePaper(reference, paper({ title }))];
   expect(needsTitleDisambiguation(reference, candidates, false)).toBe(false);
   expect(classifyCandidates(candidates)).toBe('resolved');
+});
+
+describe('generic title metadata gates', () => {
+  it.each(['year', 'author'] as const)('permits a lone threshold candidate with matching %s', metadata => {
+    const reference = { ...parsePartialReference('Logical physical clocks'),
+      ...(metadata === 'year' ? { year: 2023 } : { firstAuthor: 'Jiang' }) };
+    const candidate = scorePaper(reference, paper({ title: reference.title! }));
+    candidate.score = 0.92;
+    expect(candidate.score_parts[metadata === 'year' ? 'year' : 'first_author']).toBe(1);
+    expect(classifyCandidates([candidate])).toBe('resolved');
+    expect(needsTitleDisambiguation(reference, [candidate], true)).toBe(false);
+  });
+  it.each([false, true])('retains caution with a competing candidate and matching author (incomplete: %s)', incomplete => {
+    const reference = { ...parsePartialReference('Logical physical clocks'), firstAuthor: 'Jiang' };
+    const candidates = [scorePaper(reference, paper({ title: reference.title! })),
+      scorePaper(reference, paper({ title: 'Logical physical clocks models' }))];
+    expect(needsTitleDisambiguation(reference, candidates, incomplete)).toBe(true);
+  });
+  it.each([false, true])('ignores an unrelated candidate with a matching author (incomplete: %s)', incomplete => {
+    const reference = { ...parsePartialReference('Logical physical clocks'), firstAuthor: 'Jiang' };
+    const candidates = [scorePaper(reference, paper({ title: reference.title! })),
+      scorePaper(reference, paper({ title: 'Unrelated quantum optimization' }))];
+    expect(classifyCandidates([candidates[1]])).toBe('unresolved');
+    expect(needsTitleDisambiguation(reference, candidates, incomplete)).toBe(false);
+  });
 });

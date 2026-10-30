@@ -60,15 +60,24 @@ export function titleSimilarity(left: string, right: string): number {
   return coverage * row[b.length] / Math.min(a.length, b.length) * repetition;
 }
 
-/** Incomplete short/generic titles require an ID; unqualified very short titles need metadata. */
+/** Caution needs competing candidates or an unqualified generic topic, never length alone with metadata. */
 export function needsTitleDisambiguation(reference: PartialReference, candidates: ScoredPaper[], incomplete: boolean): boolean {
-  if (!reference.title || candidates[0]?.score_parts.identifier === 1) return false;
+  if (!reference.title || !candidates.length || candidates[0]?.score_parts.identifier === 1) return false;
+  const unqualified = reference.year === undefined && !reference.firstAuthor;
+  const competing = candidates.slice(1).some(candidate => classifyCandidates([candidate]) !== 'unresolved');
+  if (!competing && !unqualified) return false;
   const title = normalizeTitle(reference.title);
   const tokens = title.split(' ');
   const informative = tokens.filter(token => !/^(?:a|an|the|of|for|in|on|and|with|to|is|all|you)$/.test(token));
   const exact = candidates.filter(candidate => normalizeTitle(candidate.paper.title) === title).length;
+  // Overview headings and common topic phrases remain generic even after a complete search.
+  // Single names/acronyms and distinctive technical phrases keep their complete-search behavior.
+  const overview = /^(?:(?:a|an|the) )?(?:tutorial|theory)\b/.test(title);
+  const commonTopic = informative.every(token => /^(?:deep|learning|scaling|laws|logical|physical|clocks)$/.test(token));
+  const generic = tokens.length > 1 && (tokens.length <= 2 ||
+    (informative.length <= 4 && (overview || commonTopic)));
   return (incomplete && (tokens.length <= 4 || informative.length <= 4 || exact > 1)) ||
-    (tokens.length <= 2 && reference.year === undefined && !reference.firstAuthor);
+    (generic && (unqualified || competing));
 }
 
 function surname(name: string): string {
@@ -103,16 +112,29 @@ export function classifyCandidates(candidates: ScoredPaper[]): ResolutionStatus 
   return best + 1e-12 >= 0.92 && margin + 1e-12 >= 0.05 ? 'resolved' : 'ambiguous';
 }
 
-/** Shared IDs require title similarity >= 0.5; title agreement never establishes identity. */
+/** Shared IDs or corroborated preprint/publication metadata establish a work, never title alone. */
 export function mergePapers(papers: ResearchPaper[]): ResearchPaper[] {
   const ids = ['arxivId', 'doi', 's2PaperId', 'openReviewId', 'aclId'] as const;
-  const published = (paper: ResearchPaper) => Boolean(paper.doi && !parseArxivId(paper.doi));
+  const preprintDoi = (doi: string) => Boolean(parseArxivId(doi) || /^10\.2139\/ssrn\./i.test(doi));
+  const published = (paper: ResearchPaper) => Boolean(paper.doi && !preprintDoi(paper.doi));
+  const preprint = (paper: ResearchPaper) => !published(paper) && Boolean(paper.arxivId || (paper.doi && preprintDoi(paper.doi)));
+  const sameWorkMetadata = (left: ResearchPaper, right: ResearchPaper) => {
+    if (!((preprint(left) && published(right)) || (preprint(right) && published(left)))) return false;
+    if (!Number.isInteger(left.year) || !Number.isInteger(right.year) || Math.abs(left.year - right.year) > 2) return false;
+    if (!normalizeTitle(left.title) || normalizeTitle(left.title) !== normalizeTitle(right.title)) return false;
+    const names = new Set(left.authors.map(author => normalizeTitle(author.name)).filter(Boolean));
+    return right.authors.some(author => names.has(normalizeTitle(author.name)));
+  };
   const linked = (left: ResearchPaper, right: ResearchPaper) => {
     const a = normalizeIdentity(left), b = normalizeIdentity(right);
     if (titleSimilarity(a.title ?? '', b.title ?? '') < 0.5) return false;
+    if (published(left) && published(right) && a.doi !== b.doi) return false;
+    const metadataMatch = sameWorkMetadata(left, right);
+    const sharedDoi = [a.doi, ...(a.alternateDois ?? [])].some(doi => doi && [b.doi, ...(b.alternateDois ?? [])].includes(doi));
     if (ids.some(key => a[key] && b[key] && a[key] !== b[key] &&
-      !(key === 'doi' && a.arxivId && a.arxivId === b.arxivId && (parseArxivId(a.doi!) || parseArxivId(b.doi!))))) return false;
-    return ids.some(key => a[key] && a[key] === b[key]);
+      !(key === 'doi' && (metadataMatch || sharedDoi ||
+        (a.arxivId && a.arxivId === b.arxivId && (parseArxivId(a.doi!) || parseArxivId(b.doi!))))))) return false;
+    return metadataMatch || sharedDoi || ids.some(key => a[key] && a[key] === b[key]);
   };
   const combine = (left: ResearchPaper, right: ResearchPaper): ResearchPaper => {
     // A published CrossRef record owns proceedings metadata; other sources fill gaps.
@@ -126,6 +148,10 @@ export function mergePapers(papers: ResearchPaper[]): ResearchPaper[] {
         (result as unknown as Record<string, unknown>)[key] = value;
       }
     }
+    const alternateDois = [...new Set([primary.doi, alternate.doi,
+      ...(primary.alternateDois ?? []), ...(alternate.alternateDois ?? [])])]
+      .filter((doi): doi is string => Boolean(doi && doi !== result.doi));
+    if (alternateDois.length) result.alternateDois = alternateDois;
     return result;
   };
   const merged: ResearchPaper[] = [];
