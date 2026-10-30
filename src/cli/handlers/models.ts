@@ -1,4 +1,5 @@
 import { MODELS_HELP } from './models-help.js';
+import { shellRefusalDiagnostics } from './models-refusal.js';
 import { updateJson } from '../../models/config-writer.js';
 import { atomicConfigWrite as atomicWrite } from '../../config/worker-write.js';
 import { handleWorkerAdoptionArgs } from '../../config/worker-adoption-cli.js';
@@ -43,7 +44,6 @@ export interface ModelsWorkerServices {
   load(ctx: HandlerContext): Promise<{ snapshot: WorkerPlanSnapshot; drivers: Record<string, WorkerInvocationDriver> }>;
   now?(): string;
 }
-
 /**
  * #2892: exported so the MCP worker-invoke bridge can resolve a direct worker
  * plan in-process (same snapshot/driver construction as `aiwg models resolve`),
@@ -133,7 +133,7 @@ async function resolveDirect(ctx: HandlerContext, services: ModelsWorkerServices
     const { snapshot, drivers } = await services.load(ctx);
     const plan = await resolveWorkerInvocation(snapshot, request, drivers, services.now?.());
     const runnable = plan.invocation?.readiness === 'launchable';
-    if (shell && !runnable) console.error(JSON.stringify({ status: 'blocked', diagnostics: plan.diagnostics }, null, 2));
+    if (shell && !runnable) console.error(JSON.stringify({ status: 'blocked', diagnostics: shellRefusalDiagnostics(plan) }, null, 2));
     else if (shell && plan.invocation?.transport === 'shell') print(plan.invocation.shellCommand, false);
     else print(plan, true);
     return { exitCode: runnable ? 0 : 2 };
