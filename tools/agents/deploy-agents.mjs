@@ -159,6 +159,7 @@ import { pruneStaleAiwgArtifacts } from './providers/stale-artifact-prune.mjs';
 export { parseArgs } from './deploy-options.mjs';
 export { collectMirrorSkillDirs } from './deploy-command-mirrors.mjs';
 import { parseArgs, printHelp } from './deploy-options.mjs';
+import { useRuleSelectionConfig } from './use-rule-selection.mjs';
 import { mirrorSkillsAsCommands } from './deploy-command-mirrors.mjs';
 import { resolveShorthand, saveModelConfig, promptCommandsMigration } from './deploy-support.mjs';
 const { captureDeploymentOutputs, recordDeploymentOutputs, deploymentOutputRoots } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
@@ -248,6 +249,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
   const { writeContextFileSync } = await import('./providers/context-write.mjs');
   const opts = {
     writeReceipt: writeContextFileSync,
+    config: useRuleSelectionConfig(cfg, srcRoot),
     srcRoot,
     target: cfg.target,
     ...(cfg.userScope ? { userScope: true } : {}),
