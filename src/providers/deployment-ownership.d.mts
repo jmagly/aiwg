@@ -1,6 +1,7 @@
 import type { PathLike } from 'node:fs';
 export interface DeploymentOwnershipOptions {
   dryRun?: boolean;
+  claimUnchangedSettings?: boolean;
   onlyDeclared?: boolean;
   srcRoot?: string;
   target?: string;
@@ -14,3 +15,5 @@ export function deploymentOutputRoots(provider: { name: string; paths?: Record<s
 export function captureDeploymentOutputs(roots: PathLike[]): Map<string, Buffer>;
 export function recordDeploymentOutputs(before: Map<string, Buffer>, roots: PathLike[], opts?: DeploymentOwnershipOptions): void;
 export function refreshSettingsDigests(record: { settings?: Record<string, unknown> }): void;
+
+export function deploymentOwner(opts: DeploymentOwnershipOptions): string | undefined;

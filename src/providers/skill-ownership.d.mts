@@ -6,6 +6,13 @@ export interface ArtifactOwnershipRecord {
   sourcePath?: string;
   version?: string;
   kind?: string;
+  settings?: Record<string, SettingsOwnershipRecord>;
+  settingsPreimage?: { present: boolean; bytes?: string; hash?: string };
+}
+export interface SettingsContribution { hash: string; value: unknown; owners: string[] }
+export interface SettingsOwnershipRecord extends SettingsContribution {
+  previous: { present?: boolean; value?: unknown; unverifiable?: boolean };
+  contributions?: SettingsContribution[];
 }
 export interface SkillReceipt {
   skillSource?: string;
