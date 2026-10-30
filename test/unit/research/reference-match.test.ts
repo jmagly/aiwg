@@ -1,6 +1,6 @@
 // Guard ordered title scoring and identifier-backed work deduplication.
 import { describe, expect, it } from 'vitest';
-import { classifyCandidates, mergePapers, needsTitleDisambiguation, parsePartialReference, scorePaper, titleSimilarity } from '../../../src/research/reference-match.js';
+import { classifyCandidates, mergePapers, needsTitleDisambiguation, needsYearReview, parsePartialReference, scorePaper, titleSimilarity } from '../../../src/research/reference-match.js';
 import type { ResearchPaper } from '../../../src/research/types.js';
 
 const paper = (overrides: Partial<ResearchPaper>): ResearchPaper => ({
@@ -99,12 +99,57 @@ describe('generic title metadata gates', () => {
   });
 });
 
-describe('needsTitleDisambiguation: a contradicting year', () => {
+describe('year review independent of title disambiguation', () => {
+  it.each([NaN, Infinity, 2023.5])('treats a non-integer year (%s) as absent', year => {
+    const reference = parsePartialReference('Extremely randomized trees', year);
+    expect(reference.year).toBeUndefined();
+    expect(scorePaper(reference, paper({ title: reference.title! })).score_parts).not.toHaveProperty('year');
+    expect(parsePartialReference('Extremely randomized trees (2006)', year).year).toBe(2006);
+  });
+  it('requires review for an unverified same-title work only one year off', () => {
+    const reference = parsePartialReference('"Applied optimal control" (1972)');
+    const candidate = scorePaper(reference, paper({ title: reference.title!, year: 1971,
+      arxivId: undefined, doi: '10.1234/different-work', source: 'crossref' }));
+    expect(classifyCandidates([candidate])).toBe('resolved');
+    expect(needsTitleDisambiguation(reference, [candidate], false)).toBe(false);
+    expect(needsYearReview(reference, candidate)).toBe(true);
+  });
+  it.each([[1972, false], [1975, true]] as const)('limits verified identifier tolerance for %s', (year, review) => {
+    const reference = parsePartialReference('Applied optimal control', year);
+    const candidate = scorePaper(reference, paper({ title: reference.title!, year: 1971, arxivId: undefined }), true);
+    expect(candidate.score_parts.identifier).toBe(1);
+    expect(needsYearReview(reference, candidate)).toBe(review);
+  });
   it('keeps a lone exact-title candidate cautious when its year contradicts the supplied one', () => {
     const reference = parsePartialReference('Planning-oriented autonomous driving (2023)');
     const wrongYear = scorePaper(reference, paper({ title: 'Planning-oriented autonomous driving', year: 2021 }));
-    expect(needsTitleDisambiguation(reference, [wrongYear], false)).toBe(true);
+    expect(needsYearReview(reference, wrongYear)).toBe(true);
+    expect(needsTitleDisambiguation(reference, [wrongYear], false)).toBe(false);
     const rightYear = scorePaper(reference, paper({ title: 'Planning-oriented autonomous driving', year: 2023 }));
     expect(needsTitleDisambiguation(reference, [rightYear], false)).toBe(false);
+    expect(needsYearReview(reference, rightYear)).toBe(false);
+  });
+});
+
+describe('runner-up margin for title caution', () => {
+  it.each([false, true])('ignores a distant plausible runner-up (incomplete: %s)', incomplete => {
+    const reference = parsePartialReference('Extremely randomized trees (2006)');
+    const candidates = [scorePaper(reference, paper({ title: reference.title!, year: 2006 })),
+      scorePaper(reference, paper({ title: 'Extremely randomized trees models', year: 2021 }))];
+    expect(candidates[1].score).toBeCloseTo(0.711, 3);
+    expect(needsTitleDisambiguation(reference, candidates, incomplete)).toBe(false);
+  });
+  it.each([[2023, 0.25, 0, true], [2023, 0.250001, 0.000001, false], [2022, 0.30, 0, false]] as const)(
+    'uses a scored plausible runner-up from %s at margin %s', (year, margin, offset, cautious) => {
+    const reference = parsePartialReference('Example et al. 2023. A theory of clocks in the world and time');
+    const winner = scorePaper(reference, paper({ title: reference.title!, authors: [{ name: 'Example' }] }));
+    const runner = scorePaper(reference, paper({ id: 'other-work', arxivId: undefined,
+      title: 'A theory of clocks in the world', year, authors: [{ name: 'Other' }] }));
+    expect(titleSimilarity(reference.title!, runner.paper.title)).toBeCloseTo(7 / 9, 12);
+    expect(classifyCandidates([runner])).toBe('ambiguous');
+    // Remove arithmetic noise; perturb the same real runner to pin just outside the boundary too.
+    runner.score = Math.round(runner.score * 1e12) / 1e12 - offset;
+    expect(winner.score - runner.score).toBeCloseTo(margin, 12);
+    expect(needsTitleDisambiguation(reference, [winner, runner], false)).toBe(cautious);
   });
 });

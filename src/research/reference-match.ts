@@ -35,7 +35,8 @@ export function parsePartialReference(input: string, year?: number): PartialRefe
   else if (bibliography) rest = bibliography[3].split(/\.\s+/)[0];
   else if (date) rest = rest.replace(date[0], '');
   rest = rest.replace(/^[\s.,;:()[\]{}"']+|[\s.,;:()[\]{}"']+$/g, '').trim();
-  return { input, identifier, title: normalizeTitle(rest) ? rest : undefined, year: year ?? (inferredYear ? Number(inferredYear) : undefined), firstAuthor };
+  const publicationYear = Number.isInteger(year) ? year : (inferredYear ? Number(inferredYear) : undefined);
+  return { input, identifier, title: normalizeTitle(rest) ? rest : undefined, year: publicationYear, firstAuthor };
 }
 
 /** Token coverage discounted by sequence order; ordered prefixes retain coverage scores. */
@@ -64,9 +65,10 @@ export function titleSimilarity(left: string, right: string): number {
 export function needsTitleDisambiguation(reference: PartialReference, candidates: ScoredPaper[], incomplete: boolean): boolean {
   if (!reference.title || !candidates.length || candidates[0]?.score_parts.identifier === 1) return false;
   const unqualified = reference.year === undefined && !reference.firstAuthor;
-  const competing = candidates.slice(1).some(candidate => classifyCandidates([candidate]) !== 'unresolved');
-  // A supplied year that the only candidate contradicts is not corroboration.
-  if (reference.year !== undefined && candidates[0]?.score_parts.year === 0) return true;
+  // A 0.25 window preserves caution for short titles sharing three of four tokens
+  // (~0.24 behind with author corroboration), excluding weaker hits like 1.000 vs 0.711.
+  const competing = candidates.slice(1).some(candidate => classifyCandidates([candidate]) !== 'unresolved' &&
+    candidates[0].score - candidate.score <= 0.25 + 1e-12);
   if (!competing && !unqualified) return false;
   const title = normalizeTitle(reference.title);
   const tokens = title.split(' ');
@@ -80,6 +82,14 @@ export function needsTitleDisambiguation(reference: PartialReference, candidates
     (informative.length <= 4 && (overview || commonTopic)));
   return (incomplete && (tokens.length <= 4 || informative.length <= 4 || exact > 1)) ||
     (generic && (unqualified || competing));
+}
+
+/** Exact titles need an arXiv link or verified identity to tolerate one year of preprint/venue lag. */
+export function needsYearReview(reference: PartialReference, candidate?: ScoredPaper): boolean {
+  if (reference.year === undefined || !candidate || candidate.score_parts.year !== 0) return false;
+  // Verified identifiers permit only this bounded lag (year_mismatch); larger gaps still need review.
+  const supportsLag = Boolean(candidate.paper.arxivId || candidate.score_parts.identifier === 1);
+  return !supportsLag || candidate.score_parts.title !== 1 || Math.abs(reference.year - candidate.paper.year) !== 1;
 }
 
 function surname(name: string): string {
