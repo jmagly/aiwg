@@ -20,7 +20,9 @@ the tested Flue 2.3.0 graph: Valibot, `@modelcontextprotocol/client` 2.0.0 and
 its `/stdio` export. These are already present in the pinned lab graph; AIWG
 does not install dependencies or provide model credentials.
 
-Each call owns a stdio child and closes it on success or failure. The child
+Each call owns a stdio child and closes it on success or failure. Initialization
+has a 10-second deadline and observes cancellation; transport cleanup can take
+up to 4 more seconds to terminate a silent child. The child
 inherits the SDK's safe process settings plus AIWG root/path settings; optional
 subsystem toolsets are disabled. No HTTP listener, gateway, `local()` sandbox,
 approval bridge or model invocation is involved. Artifact writes go through
@@ -36,8 +38,8 @@ effect. Schema parity compares those public projections with live `tools/list`
 schemas; fixed arguments and the omitted project selector remain server-owned.
 
 Transport decision (#3123/#3124): the SDK stdio client works. Flue's documented
-trusted-code route (`@flue/runtime/dist/index.mjs:744-750`) calls `new URL` and
-constructs its own HTTP/SSE transport (`dist/mcp-CYraeuuF.mjs:44-56,114-125`).
+trusted-code route (`@flue/runtime/dist/mcp-CYraeuuF.mjs:45-48,114-125`,
+re-exported by `index.mjs:10`) calls `new URL` and constructs its own HTTP/SSE transport.
 The spike supplies both stdio and a custom transport with a throwing fetch;
 both reach the HTTP fetch instead of a custom transport. The SDK connects to
 the existing `src/mcp/server.mjs` over stdio and directly calls all three tools.

@@ -5,8 +5,8 @@ import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
 
 /* Transport spike: Flue 2.3.0's documented trusted-code escape hatch
- * (@flue/runtime/dist/index.mjs:744-750) still calls new URL(definition.url)
- * and constructs HTTP/SSE internally (dist/mcp-CYraeuuF.mjs:44-56,114-125).
+ * (@flue/runtime/dist/mcp-CYraeuuF.mjs:45-48,114-125, re-exported by
+ * index.mjs:10) calls new URL(definition.url) and constructs HTTP/SSE internally.
  * It accepts neither a custom transport nor stdio. SDK 2.0.0 Client plus
  * StdioClientTransport works against src/mcp/server.mjs (SDK dist/stdio.mjs,
  * package.json exports["./stdio"]). No listener, gateway, or model is needed.
@@ -53,7 +53,22 @@ export function createAiwgTools(options: AiwgToolOptions = {}) {
       cwd, env, stderr: 'inherit',
     });
     try {
-      await client.connect(transport);
+      // Bound initialize to 10 seconds; transport.close also reaps a silent child
+      // on timeout/abort (SDK cleanup may take another 4 seconds to escalate).
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let abortConnect = () => {};
+      try {
+        const interrupted = new Promise<never>((_, reject) => {
+          abortConnect = () => reject(signal?.reason ?? new Error('AIWG MCP connect aborted'));
+          signal?.addEventListener('abort', abortConnect, { once: true });
+          if (signal?.aborted) abortConnect();
+          timer = setTimeout(() => reject(new Error('AIWG MCP connect timed out after 10000 ms')), 10_000);
+        });
+        await Promise.race([client.connect(transport), interrupted]);
+      } finally {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', abortConnect);
+      }
       signal?.throwIfAborted();
       const result = await client.callTool({ name, arguments: args }, { signal, timeout: 180_000 });
       const text = result.content.filter(item => item.type === 'text').map(item => item.text).join('\n');
@@ -62,6 +77,7 @@ export function createAiwgTools(options: AiwgToolOptions = {}) {
       if (result.isError) throw new Error(output || `AIWG MCP tool ${name} failed`);
       return { output };
     } finally {
+      await transport.close();
       await client.close();
     }
   }

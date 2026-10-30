@@ -10,18 +10,21 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { prepareProject } from '../../fixtures/providers/flue/project.mjs';
 import { assertSchemaParity } from '../../fixtures/providers/flue/schema-parity.mjs';
+import { assertConnectLifecycle } from '../../fixtures/providers/flue/connect-lifecycle.mjs';
 
 let root: string;
 let fixture: Awaited<ReturnType<typeof prepareProject>>;
 let module: any;
 let tools: any;
 let listing: any[];
+let templateSource: string;
 const fixtures = path.resolve('test/fixtures/providers/flue');
 
 beforeAll(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'aiwg-flue-tools-'));
   fixture = await prepareProject(root);
   let source = await readFile('agentic/code/providers/flue/templates/aiwg/tools.ts', 'utf8');
+  templateSource = source;
   // Framework builders are unit doubles; no optional Flue packages are required
   // in AIWG itself. The separate smoke runs these same wrappers with SDK 2/Flue/Valibot.
   for (const [specifier, target] of Object.entries({
@@ -55,6 +58,29 @@ async function invoke(name: string, data: unknown, signal?: AbortSignal) {
 }
 
 describe('generated Flue AIWG tools', () => {
+  it('requires strict Valibot objects in every template tool, rejecting loose mutations', () => {
+    const assertStrict = (source: string) => {
+      const parsed = ts.createSourceFile('tools.ts', source, ts.ScriptTarget.Latest, true);
+      let checked = 0;
+      const visit = (node: ts.Node) => {
+        if (ts.isCallExpression(node) && node.expression.getText(parsed) === 'defineTool') {
+          const definition = node.arguments[0];
+          if (!ts.isObjectLiteralExpression(definition)) throw new Error('Expected tool definition');
+          const input = definition.properties.find(prop => prop.name?.getText(parsed) === 'input');
+          if (!input || !ts.isPropertyAssignment(input) || !ts.isCallExpression(input.initializer)
+            || input.initializer.expression.getText(parsed) !== 'v.strictObject') throw new Error('Expected strict object');
+          checked++;
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(parsed);
+      expect(checked).toBe(3);
+    };
+    assertStrict(templateSource);
+    for (const loose of ['v.object(', 'v.looseObject(']) {
+      expect(() => assertStrict(templateSource.replaceAll('v.strictObject(', loose))).toThrow(/strict object/);
+    }
+  });
   it('exports exactly the three promised tool definitions and reusable names', () => {
     expect(Object.keys(tools)).toEqual(module.AIWG_TOOL_NAMES);
     for (const name of module.AIWG_TOOL_NAMES) expect(module[name].name).toBe(name);
@@ -67,12 +93,34 @@ describe('generated Flue AIWG tools', () => {
     for (const mutate of [
       (schema: any) => { schema.properties.phrase.type = 'number'; },
       (schema: any) => { schema.required = []; },
+      (schema: any) => { schema.properties.new_required = { type: 'string' }; schema.required.push('new_required'); },
       (schema: any) => { schema.additionalProperties = true; },
     ]) {
       const changed = structuredClone(listing);
       mutate(changed.find(tool => tool.name === 'discover').inputSchema);
       expect(() => assertSchemaParity(inputs, changed)).toThrow();
     }
+  });
+  it('rejects newly required fields on every MCP projection', () => {
+    const inputs = Object.fromEntries(Object.entries(tools).map(([name, tool]: [string, any]) => [name, tool.input.jsonSchema]));
+    for (const name of ['discover', 'skill-show', 'agent-show', 'command-show', 'rule-show', 'artifact-write']) {
+      const changed = structuredClone(listing);
+      const schema = changed.find(tool => tool.name === name).inputSchema;
+      schema.properties.new_required = { type: 'string' };
+      schema.required.push('new_required');
+      expect(() => assertSchemaParity(inputs, changed)).toThrow();
+    }
+  });
+  it('checks extra-property policy recursively, including omitted optional MCP data', () => {
+    const inputs = Object.fromEntries(Object.entries(tools).map(([name, tool]: [string, any]) => [name, tool.input.jsonSchema]));
+    const changed = structuredClone(listing);
+    const nested = { type: 'object', properties: {}, additionalProperties: false };
+    changed.find(tool => tool.name === 'discover').inputSchema.properties.metadata = { type: 'array', items: nested };
+    assertSchemaParity(inputs, changed);
+    nested.additionalProperties = true;
+    expect(() => assertSchemaParity(inputs, changed)).toThrow(/additional properties/);
+    delete (nested as any).additionalProperties;
+    expect(() => assertSchemaParity(inputs, changed)).toThrow(/additional properties/);
   });
   it('finds matches with an optional type filter', async () => {
     expect((await invoke('aiwg_discover', { query: 'fixture' })).matches[0].name).toBe('fixture-skill');
@@ -110,6 +158,9 @@ describe('generated Flue AIWG tools', () => {
   });
   it('rejects cancellation before creating a child', async () => {
     await expect(invoke('aiwg_discover', { query: 'fixture' }, AbortSignal.abort())).rejects.toThrow();
+  });
+  it.each(['timeout', 'abort'])('reaps a child that never initializes on %s', async mode => {
+    await assertConnectLifecycle(module.createAiwgTools, fixture.options, root, mode);
   });
   it.each([
     ['aiwg_discover', { query: 1 }], ['aiwg_discover', { query: 'x', type: 'invalid' }],

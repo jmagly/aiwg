@@ -24,6 +24,7 @@ try {
   await cp(path.join(repo, 'agentic/code/providers/flue/templates/aiwg/tools.ts'), path.join(root, 'src/aiwg/tools.ts'));
   const fixture = pathToFileURL(path.join(repo, 'test/fixtures/providers/flue/project.mjs')).href;
   const parity = pathToFileURL(path.join(repo, 'test/fixtures/providers/flue/schema-parity.mjs')).href;
+  const lifecycle = pathToFileURL(path.join(repo, 'test/fixtures/providers/flue/connect-lifecycle.mjs')).href;
   const runner = `
 import assert from 'node:assert/strict';
 import { readFile, access } from 'node:fs/promises';
@@ -37,6 +38,7 @@ import { toJsonSchema } from '@valibot/to-json-schema';
 import { createAiwgTools, AIWG_TOOL_NAMES } from './src/aiwg/tools.ts';
 import { prepareProject } from ${JSON.stringify(fixture)};
 import { assertSchemaParity } from ${JSON.stringify(parity)};
+import { assertConnectLifecycle } from ${JSON.stringify(lifecycle)};
 globalThis.fetch = () => { throw new Error('Network forbidden'); };
 let passed = 0;
 async function check(name, run) {
@@ -104,6 +106,10 @@ await check('artifact write rejects traversal and absolute paths', async () => {
 await check('MCP failure surfaces as a Flue tool error', async () => {
   await assert.rejects(call('aiwg_discover', { query: 'server-failure' }), /Synthetic discovery failure/);
 });
+for (const mode of ['timeout', 'abort']) {
+  await check('silent initialize child is reaped on ' + mode, () =>
+    assertConnectLifecycle(createAiwgTools, fixture.options, import.meta.dirname, mode));
+}
 await check('real Valibot rejects invalid tool data', () => {
   assert.throws(() => v.parse(tools.aiwg_discover.input, { query: 1 }));
   assert.throws(() => v.parse(tools.aiwg_show.input, { type: 'unknown', name: 'x' }));
