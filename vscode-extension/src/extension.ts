@@ -16,8 +16,10 @@ import { watchProjectConfig } from './config-watcher';
 
 let statusBar: AiwgStatusBar | undefined;
 let sidebarProvider: AiwgSidebarProvider | undefined;
+let subscriptions: vscode.Disposable[] | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  subscriptions = context.subscriptions;
   const workspaceRoot = getWorkspaceRoot();
 
   // Detect CLI path
@@ -61,7 +63,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export function deactivate(): void {
-  statusBar?.dispose();
+  const disposables = subscriptions?.splice(0) ?? [];
+  subscriptions = undefined;
+  sidebarProvider = undefined;
+  statusBar = undefined;
+  for (const disposable of disposables) disposable.dispose();
 }
 
 function getWorkspaceRoot(): string {
