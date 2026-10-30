@@ -30,7 +30,8 @@ export function hostResourceReport({ config, live, readers, paths, thresholdOver
   if (group !== undefined && !Object.hasOwn(configured, group)) {
     throw new Error(`Unknown group "${group}"; configured groups: ${Object.keys(configured).join(', ') || '(none)'}`);
   }
-  const measured = live ?? readLiveHostResources({ now, ...readers, paths, groupNames: Object.keys(configured) });
+  // Local collection and evaluation share one clock; supplied snapshots retain their source time.
+  const measured = live ?? readLiveHostResources({ ...readers, now, paths, groupNames: Object.keys(configured) });
   const evaluated = now();
   const origins = {};
   let thresholds;
