@@ -76,10 +76,7 @@ describe('#2313 bound rule identity across production surfaces', () => {
     }, 120_000);
   }
 
-  // Confirmed product mismatch: compoundGoverningRules excludes kernel pins in discover;
-  // showBindings retains them. Refactoring its 2,833-line owner below 500 lines plus
-  // these checks exceeds this slice's six-file limit. Preserve the failing oracle.
-  it.skip('#3768 https://git.integrolabs.net/roctinam/aiwg/issues/3768: discover drops a kernel-pinned rule that show keeps (pin parity)', () => {
+  it('#3768 https://git.integrolabs.net/roctinam/aiwg/issues/3768: discover drops a kernel-pinned rule that show keeps (pin parity)', () => {
     for (const [lane, packageRoot] of [['source', fixture.stage], ['packed', fixture.installed]]) {
       for (const kind of kinds) {
         const discovery = fixture.cli(packageRoot, lane, ['discover', 'amber beacon', '--type', kind], true);
