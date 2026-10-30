@@ -1759,9 +1759,12 @@ async function generateDeploymentContextFiles(options: ContextPipelineOptions): 
   return result;
 }
 
-let useDeployment: { resourceCredentials?: Awaited<ReturnType<typeof prepareResourceCredentials>>; version: string; skipAttribution?: boolean; skipContextFiles: boolean; contextFiles: ContextPipelineResult[] } | undefined;
+let useDeployment: { ruleSelectionMode?: string; resourceCredentials?: Awaited<ReturnType<typeof prepareResourceCredentials>>; version: string; skipAttribution?: boolean; skipContextFiles: boolean; contextFiles: ContextPipelineResult[] } | undefined;
 function useDeploymentArgs(args: string[]): string[] {
   const forwarded = [...args];
+  const modeIndex = args.indexOf('--mode');
+  if (useDeployment && modeIndex >= 0) useDeployment.ruleSelectionMode ??= args[modeIndex + 1];
+  if (useDeployment?.ruleSelectionMode && !forwarded.includes('--rule-selection-mode')) forwarded.push('--rule-selection-mode', useDeployment.ruleSelectionMode);
   if (useDeployment && !forwarded.includes('--deploy-version')) forwarded.push('--deploy-version', useDeployment.version);
   if (useDeployment?.skipContextFiles && !forwarded.includes('--no-context-files')) forwarded.push('--no-context-files');
   if (useDeployment?.skipAttribution && !forwarded.includes('--no-attribution')) forwarded.push('--no-attribution');
@@ -2707,6 +2710,7 @@ export class UseHandler implements CommandHandler {
     const previousDeployment = useDeployment;
     useDeployment = {
       resourceCredentials,
+      ruleSelectionMode: previousDeployment?.ruleSelectionMode,
       version: previousDeployment?.version ?? resolveDeployVersion(ctx.frameworkRoot || await getFrameworkRoot()),
       skipAttribution: previousDeployment?.skipAttribution || ctx.args.includes('--no-attribution'),
       skipContextFiles: previousDeployment?.skipContextFiles || ctx.args.includes('--no-context-files'),
