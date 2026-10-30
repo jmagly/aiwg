@@ -49,7 +49,7 @@ The diagnostic names the file and invalid field. Common causes are:
 - `conformance` without both `validation.hook` and `validation.standardVersion`;
 - an extra field not defined by the schema.
 
-Compare the profile with [the custom-profile guide](./custom-output-modes.md) and the output-mode-profile schema.
+Compare the profile with [the custom-profile guide](./custom-output-modes.md) and [the schema](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/voice-framework/schemas/output-mode-profile.schema.json).
 
 ## Two modes conflict
 

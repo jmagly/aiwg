@@ -50,6 +50,7 @@ Every archive includes self-verifying SHA-256 checksums and W3C PROV-compliant p
 | Quality Assessor | Score and filter content |
 | Metadata Curator | Tag, name, organize |
 | Completeness Tracker | Gap analysis and prioritization |
+| LLM Model Archivist | Discover, rank, and preserve open-weight language models with fixity and provenance |
 
 ### Commands
 

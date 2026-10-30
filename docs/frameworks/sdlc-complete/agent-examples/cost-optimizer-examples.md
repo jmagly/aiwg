@@ -87,7 +87,7 @@ export default {
 
 ```dockerfile
 # BEFORE: Naive single-stage build (image: ~1.2GB)
-FROM node:24
+FROM node:20
 WORKDIR /app
 COPY . .
 RUN npm install
@@ -99,13 +99,13 @@ CMD ["node", "dist/server.js"]
 ```dockerfile
 # AFTER: Multi-stage build with layer caching (image: ~85MB)
 # Stage 1: Dependencies (cached unless package.json changes)
-FROM node:24-alpine AS deps
+FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 
 # Stage 2: Build (cached unless source changes)
-FROM node:24-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -113,7 +113,7 @@ COPY . .
 RUN npm run build
 
 # Stage 3: Runtime (minimal final image)
-FROM node:24-alpine AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV production
 

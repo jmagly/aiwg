@@ -20,10 +20,22 @@ PersonalBench v1, Jangra v4 and Pearl v2 received versioned abstract acquisition
 
 ## Evidence refresh
 
+> "Review whether this evidence change requires a new ledger version and reassessment."
+
+Your assistant follows the refresh contract below and keeps provenance validation separate from human quality qualification.
+
+### Command reference
+
 A research maintainer must issue a new ledger version when a publication changes, is corrected/retracted, an archived hash drifts, a policy/tool changes, or a product decision relies on new evidence. Keep old ledger files and pinned corpus commits available. Record changed claims, limitations, review date and affected consumers; repeat claim-to-section/table inspection. URLs identify publications; hashes identify the exact reviewed bytes. Dynamic web HTML hashes identify acquisition bytes, not an immutable promise about subsequent responses.
 
 A model, provider, prompt, exemplar selector, evaluator, decoding, channel or language change invalidates transfer of affected local qualification results until re-evaluated. Record exact model/provider versions where exposed, and explicitly record unknown snapshots. Freeze evaluator inputs separately from generation/profile construction. Register sample size rationale and thresholds before held-out testing, split authors/topics, analyze repeated observations by author, and retain blind author/reader outcomes alongside independent metrics. Deterministic ledger validation verifies provenance and policy constraints; it cannot prove human-rated quality.
 
 ## Verification
+
+> "Validate the natural-voice ledger against my local research checkout and explain what was checked."
+
+Your assistant runs the ledger validator with the supplied checkout path and reports the structure-only limitation when no checkout is supplied.
+
+### Command reference
 
 Run `node agentic/code/addons/voice-framework/docs/natural-voice/validate-ledger.mjs /path/to/research-papers` to verify every source and record hash at the pinned commit. Without the checkout argument it validates structure and policy only. Run the ledger fixture through the repository test runner. Review primary links and a sample of source table mappings when refreshing; a valid hash proves bytes, not the correctness of an inference.
