@@ -866,7 +866,90 @@
       "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
     },
     {
-      "path": "src/cli/handlers/mc.ts",
+      "path": "src/cli/handlers/mc-agents.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc-args.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc-control.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "aborted",
+        "done",
+        "failed",
+        "running"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc-dispatch.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "running"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc-help.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "running"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc-run.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "failed",
+        "running",
+        "unknown"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc-session.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc-status.ts",
       "owner": "src/cli",
       "role": "producer-consumer",
       "currentVersion": "unversioned",
@@ -875,10 +958,63 @@
         "completed",
         "done",
         "failed",
+        "running"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc-summary.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "completed",
+        "failed",
+        "pending"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc-types.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "aborted",
+        "done",
+        "failed",
+        "running"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc-worker.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "completed",
+        "failed",
         "pending",
         "running",
         "unknown"
       ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/cli/handlers/mc.ts",
+      "owner": "src/cli",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [],
       "serialization": "typescript/javascript",
       "migrationAction": "adapt",
       "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
@@ -1291,6 +1427,20 @@
         "aborted",
         "done",
         "failed"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "adapt",
+      "migrationReason": "Legacy or transport-specific shape remains behind the versioned Mission codec adapter during the compatibility window."
+    },
+    {
+      "path": "src/serve/mission-summary.ts",
+      "owner": "src/serve",
+      "role": "producer-consumer",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "completed",
+        "failed",
+        "unknown"
       ],
       "serialization": "typescript/javascript",
       "migrationAction": "adapt",
@@ -1966,6 +2116,20 @@
       "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
     },
     {
+      "path": "test/fixtures/mission-summary.ts",
+      "owner": "test/fixtures",
+      "role": "fixture-or-test",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "completed",
+        "failed",
+        "unknown"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "retain",
+      "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
+    },
+    {
       "path": "test/fixtures/ralph-recovery-baseline/src/config/aiwg-config.ts",
       "owner": "test/fixtures",
       "role": "fixture-or-test",
@@ -2299,6 +2463,20 @@
       "role": "fixture-or-test",
       "currentVersion": "unversioned",
       "statusVocabulary": [],
+      "serialization": "typescript/javascript",
+      "migrationAction": "retain",
+      "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
+    },
+    {
+      "path": "test/unit/cli/handlers/mc-summary.test.ts",
+      "owner": "test/unit",
+      "role": "fixture-or-test",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "completed",
+        "failed",
+        "unknown"
+      ],
       "serialization": "typescript/javascript",
       "migrationAction": "retain",
       "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
@@ -2698,6 +2876,24 @@
         "aborted",
         "completed",
         "input-required"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "retain",
+      "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
+    },
+    {
+      "path": "test/unit/serve/mission-summary.test.ts",
+      "owner": "test/unit",
+      "role": "fixture-or-test",
+      "currentVersion": "unversioned",
+      "statusVocabulary": [
+        "cancelled",
+        "completed",
+        "failed",
+        "incomplete",
+        "pending",
+        "running",
+        "unknown"
       ],
       "serialization": "typescript/javascript",
       "migrationAction": "retain",
