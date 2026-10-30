@@ -10,6 +10,22 @@ const maxAgeMs = 300_000;
 const report = (ageMs: number, live = remote(), extra = {}) => hostResourceReport({ live, now: () => collected + ageMs, ...extra });
 
 describe('host snapshot freshness', () => {
+  it('uses the explicit decision clock for local collection even when readers supply another clock', () => {
+    const result = hostResourceReport({ now: () => collected,
+      readers: { ...hostResourceReaders(), now: () => collected - 7 * 86400_000 } });
+    expect(result).toMatchObject({ ok: true, freshness: {
+      status: 'fresh', collectedAt: remote().collectedAt, evaluatedAt: remote().collectedAt, ageMs: 0,
+    } });
+    expect(result.measured.collectedAt).toBe(remote().collectedAt);
+  });
+
+  it('uses the readers clock for both local collection and evaluation when no explicit clock is supplied', () => {
+    const result = hostResourceReport({ readers: { ...hostResourceReaders(), now: () => collected } });
+    expect(result).toMatchObject({ ok: true, freshness: {
+      status: 'fresh', collectedAt: remote().collectedAt, evaluatedAt: remote().collectedAt, ageMs: 0,
+    } });
+  });
+
   it('timestamps live collection before reading signals with an injected clock', () => {
     let clock = collected;
     const readers = hostResourceReaders();
