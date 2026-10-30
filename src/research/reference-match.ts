@@ -84,11 +84,27 @@ export function needsTitleDisambiguation(reference: PartialReference, candidates
     (generic && (unqualified || competing));
 }
 
-/** Exact titles need an arXiv link or verified identity to tolerate one year of preprint/venue lag. */
+const preprintDoi = (doi: string) => Boolean(parseArxivId(doi) || /^10\.2139\/ssrn\./i.test(doi));
+
+function paperSources(paper: ResearchPaper): NonNullable<ResearchPaper['mergedSources']> {
+  const { source, type, arxivId, doi, venue, publicationVenue } = paper;
+  return paper.mergedSources ?? [{ source, type, arxivId, doi, venue, publicationVenue }];
+}
+
+/** Exact titles need corroboration to tolerate one year of preprint/venue lag. */
 export function needsYearReview(reference: PartialReference, candidate?: ScoredPaper): boolean {
   if (reference.year === undefined || !candidate || candidate.score_parts.year !== 0) return false;
-  // Verified identifiers permit only this bounded lag (year_mismatch); larger gaps still need review.
-  const supportsLag = Boolean(candidate.paper.arxivId || candidate.score_parts.identifier === 1);
+  const sources = paperSources(candidate.paper);
+  const preprint = sources.some(record => record.source === 'arxiv' || record.type === 'preprint' ||
+    (record.doi && preprintDoi(record.doi)) || (record.source === 'semantic-scholar' && record.arxivId));
+  const venue = sources.some(record => record.doi && !preprintDoi(record.doi) &&
+    (record.source === 'crossref' || record.source === 'unpaywall' || record.type === 'conference' ||
+      record.type === 'journal' || record.venue || record.publicationVenue?.name));
+  // An arXiv id alone cannot prove a preprint/venue split: require both ids and source
+  // evidence for both versions (including S2's linked venue), a verified supplied id,
+  // or a matching supplied first author. Only exact titles and a one-year gap qualify.
+  const supportsLag = Boolean((candidate.paper.arxivId && candidate.paper.doi && preprint && venue) ||
+    candidate.score_parts.identifier === 1 || (reference.firstAuthor && candidate.score_parts.first_author === 1));
   return !supportsLag || candidate.score_parts.title !== 1 || Math.abs(reference.year - candidate.paper.year) !== 1;
 }
 
@@ -127,7 +143,6 @@ export function classifyCandidates(candidates: ScoredPaper[]): ResolutionStatus 
 /** Shared IDs or corroborated preprint/publication metadata establish a work, never title alone. */
 export function mergePapers(papers: ResearchPaper[]): ResearchPaper[] {
   const ids = ['arxivId', 'doi', 's2PaperId', 'openReviewId', 'aclId'] as const;
-  const preprintDoi = (doi: string) => Boolean(parseArxivId(doi) || /^10\.2139\/ssrn\./i.test(doi));
   const published = (paper: ResearchPaper) => Boolean(paper.doi && !preprintDoi(paper.doi));
   const preprint = (paper: ResearchPaper) => !published(paper) && Boolean(paper.arxivId || (paper.doi && preprintDoi(paper.doi)));
   const sameWorkMetadata = (left: ResearchPaper, right: ResearchPaper) => {
@@ -164,6 +179,7 @@ export function mergePapers(papers: ResearchPaper[]): ResearchPaper[] {
       ...(primary.alternateDois ?? []), ...(alternate.alternateDois ?? [])])]
       .filter((doi): doi is string => Boolean(doi && doi !== result.doi));
     if (alternateDois.length) result.alternateDois = alternateDois;
+    result.mergedSources = [...paperSources(left), ...paperSources(right)];
     return result;
   };
   const merged: ResearchPaper[] = [];

@@ -44,6 +44,8 @@ export interface ResearchPaper {
   type?: 'journal' | 'conference' | 'preprint' | 'book' | 'thesis' | 'other';
   /** Source of the data */
   source: 'semantic-scholar' | 'crossref' | 'arxiv' | 'unpaywall';
+  /** Original source metadata retained when candidate records merge. */
+  mergedSources?: Array<Pick<ResearchPaper, 'source' | 'type' | 'arxivId' | 'doi' | 'venue' | 'publicationVenue'>>;
   /** Timestamp when data was retrieved */
   retrievedAt: string;
 }

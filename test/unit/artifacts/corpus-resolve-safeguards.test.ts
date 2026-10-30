@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveReference, type ResolutionResult } from '../../../src/artifacts/corpus-tools/resolve.js';
 import { resolveCli, RESOLVE_USAGE } from '../../../src/artifacts/corpus-tools/resolve-cli.js';
+import * as referenceMatch from '../../../src/research/reference-match.js';
 import { fixtureFetch, httpFixture, s2Paper, crossrefPaper, type HttpFixture } from '../../fixtures/research/resolve-http.js';
 
 let root: string;
@@ -114,6 +115,26 @@ describe('retryable resolution', () => {
 });
 
 describe('conservative title resolution', () => {
+  it('kills the mutation granting one-year tolerance to any arXiv id', async () => {
+    state.s2 = [s2Paper({ title: 'Applied optimal control', year: 1971,
+      externalIds: { ArXiv: '9999.99999', DOI: '10.1234/different-work' },
+      venue: undefined, publicationVenue: undefined })];
+    const assertReview = (result: ResolutionResult) => {
+      expect(result.status).toBe('ambiguous');
+      expect(result).not.toHaveProperty('paper');
+      expect(result.findings).toContainEqual(expect.objectContaining({ type: 'year_conflict' }));
+    };
+    const original = referenceMatch.needsYearReview;
+    const mutation = vi.spyOn(referenceMatch, 'needsYearReview').mockImplementation((reference, candidate) =>
+      candidate?.paper.arxivId && candidate.score_parts.title === 1 &&
+      Math.abs(reference.year! - candidate.paper.year) === 1 ? false : original(reference, candidate));
+    try {
+      const result = await run('"Applied optimal control" (1972)');
+      expect(result.status).toBe('resolved');
+      expect(() => assertReview(result)).toThrow();
+    } finally { mutation.mockRestore(); }
+    assertReview(await run('"Applied optimal control" (1972)'));
+  });
   it.each(['Hamiltonian Generative Networks', 'Distinctive Graph Diffusion Models'])('resolves distinctive complete title: %s', async title => {
     state.s2 = [s2Paper({ title })];
     const result = await run(title);

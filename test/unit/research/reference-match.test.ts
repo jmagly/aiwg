@@ -34,6 +34,12 @@ describe('one work with preprint and published identifiers', () => {
     expect(merged).toHaveLength(1);
     expect(merged[0]).toMatchObject({ id: published.id, source: 'crossref', type: 'conference',
       doi: published.doi, arxivId: '2303.12077', s2PaperId: 's2-vad' });
+    expect(merged[0].mergedSources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'arxiv', type: 'preprint' }),
+      expect.objectContaining({ source: 'crossref', type: 'conference' }),
+    ]));
+    const reference = parsePartialReference(`"${published.title}" (2024)`);
+    expect(needsYearReview(reference, scorePaper(reference, merged[0]))).toBe(false);
     expect(preprint.doi).toBe('10.48550/arXiv.2303.12077');
   });
   it('recognizes an arXiv DOI without an explicit arxivId', () => {
@@ -113,6 +119,24 @@ describe('year review independent of title disambiguation', () => {
     expect(classifyCandidates([candidate])).toBe('resolved');
     expect(needsTitleDisambiguation(reference, [candidate], false)).toBe(false);
     expect(needsYearReview(reference, candidate)).toBe(true);
+  });
+  it.each([undefined, '10.1234/different-work'])('requires review for an arXiv id without venue evidence (DOI: %s)', doi => {
+    const reference = parsePartialReference('"Applied optimal control" (1972)');
+    const candidate = scorePaper(reference, paper({ title: reference.title!, year: 1971, arxivId: '9999.99999', doi }));
+    expect(candidate.score_parts).toEqual({ title: 1, year: 0 });
+    expect(needsYearReview(reference, candidate)).toBe(true);
+  });
+  it.each([undefined, 'CVPR'])('requires S2 venue evidence with both ids (venue: %s)', venue => {
+    const reference = parsePartialReference('Planning-oriented autonomous driving (2023)');
+    const candidate = scorePaper(reference, paper({ title: reference.title!, year: 2022,
+      doi: '10.1234/venue', source: 'semantic-scholar', type: undefined, venue }));
+    expect(needsYearReview(reference, candidate)).toBe(!venue);
+  });
+  it.each([[1972, 'Jiang', false], [1972, 'Other', true], [1975, 'Jiang', true]] as const)(
+    'bounds the first-author allowance for %s / %s', (year, firstAuthor, review) => {
+    const reference = { ...parsePartialReference('Applied optimal control', year), firstAuthor };
+    const candidate = scorePaper(reference, paper({ title: reference.title!, year: 1971, arxivId: undefined }));
+    expect(needsYearReview(reference, candidate)).toBe(review);
   });
   it.each([[1972, false], [1975, true]] as const)('limits verified identifier tolerance for %s', (year, review) => {
     const reference = parsePartialReference('Applied optimal control', year);

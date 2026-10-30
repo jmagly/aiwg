@@ -44,6 +44,35 @@ describe('#3794 runner-up distance', () => {
 });
 
 describe('#3794 year findings', () => {
+  it('rejects the 1971 control candidate carrying an uncorroborated arXiv id and DOI', async () => {
+    state.s2 = [s2Paper({ title: control.title, year: 1971, authors: [],
+      externalIds: { ArXiv: '9999.99999', DOI: '10.1234/different-work' },
+      venue: undefined, publicationVenue: undefined })];
+    const result = await run('"Applied optimal control" (1972)');
+    expect(result).toMatchObject({ status: 'ambiguous', incomplete: false });
+    expect(result).not.toHaveProperty('paper');
+    expect(result.reference.identifier).toBeUndefined();
+    expect(result.reference.firstAuthor).toBeUndefined();
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].paper).toMatchObject({ arxivId: '9999.99999', doi: '10.1234/different-work' });
+    expect(result.findings).toEqual([{ type: 'year_conflict', supplied: '1972', returned: '1971',
+      candidate: result.candidates[0].paper.id }]);
+  });
+  it('resolves a one-year gap with a supplied matching first author and no identifiers', async () => {
+    state.s2 = [s2Paper({ title: control.title, year: 1971, externalIds: {} })];
+    const result = await run('Example, A. (1972). Applied optimal control.');
+    expect(result).toMatchObject({ status: 'resolved', reference: { firstAuthor: 'Example' },
+      paper: { title: control.title, year: 1971 } });
+    expect(result.candidates[0].score_parts).toEqual({ title: 1, year: 0, first_author: 1 });
+    expect(result.findings).toEqual([{ type: 'year_mismatch', supplied: '1972', returned: '1971', candidate: result.paper!.id }]);
+  });
+  it('resolves planning from the sole S2 record linking both ids to a venue', async () => {
+    state.s2 = [planningRecord()];
+    const result = await run(`${planning.title} (${planning.venueYear})`);
+    expect(result).toMatchObject({ status: 'resolved', paper: { arxivId: planning.arxiv, doi: planning.doi, venue: 'CVPR' } });
+    expect(result.candidates).toHaveLength(1);
+    expect(result.findings).toEqual([{ type: 'year_mismatch', supplied: '2023', returned: '2022', candidate: result.paper!.id }]);
+  });
   it('does not resolve a different Applied optimal control work from 1971 for the supplied 1972', async () => {
     state.crossref = [crossrefPaper({ title: [control.title], DOI: '10.1234/different-work',
       published: { 'date-parts': [[1971]] } })];
