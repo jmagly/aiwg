@@ -52,7 +52,7 @@ export interface GateStatistic {
   bound?: 'upper' | 'lower';
   levelBps?: number | GateParamRef;
   mode?: 'non-inferiority' | 'superiority';
-  marginBps?: number;
+  marginBps?: number | GateParamRef;
   seed?: number;
   resamples?: number;
   bounds?: readonly [number, number];
