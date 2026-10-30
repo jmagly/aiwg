@@ -9,6 +9,11 @@ export const unavailableLanes = {
   'vscode-extension': 'Requires the VS Code Electron extension host and a display (xvfb on Linux); neither is provisioned in the default CI image.',
 };
 
+// Exact test-file dispositions are reported, never treated as executed tests.
+export const unavailableTestFiles = {
+  'test/fixtures/testing-quality/native-extension/test_native_extension.py': 'No .gitea workflow invokes pytest for this file. test/unit/addons/testing-quality-mutation.test.ts imports it through the native-extension preflight as an input fixture; its Python test body is not executed by that regression.',
+};
+
 // Paths are relative to the owning package. A package script alone never owns
 // all its sources: files must match one of these patterns or an existing lane.
 export const packageRunnerLanes = [

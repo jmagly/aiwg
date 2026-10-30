@@ -13,13 +13,13 @@ const vitestSource = "import { it } from 'vitest'; throw new Error('MUST_NOT_EXE
 const nodeSource = "const { test } = require('node:test'); throw new Error('MUST_NOT_EXECUTE'); test('fixture', () => {});";
 const extensionSource = "import * as assert from 'node:assert'; suite('extension', () => { test('works', () => assert.ok(true)); });";
 
-function project({ files = {}, lanes = [], unavailable = {}, ci = 'npm test', packages = {} } = {}) {
+function project({ files = {}, lanes = [], unavailable = {}, unavailableFiles = {}, ci = 'npm test', packages = {} } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-nested-registration-'));
   roots.push(root);
   const entries = {
     'package.json': JSON.stringify({ type: 'module', scripts: { test: 'vitest run --config config/vitest.config.js' } }),
     'config/vitest.config.js': "export default { test: { include: ['test/control.test.ts'] } };",
-    'config/test-lanes.mjs': `export const nodeFiles = []; export const packageRunnerLanes = ${JSON.stringify(lanes)}; export const unavailableLanes = ${JSON.stringify(unavailable)};`,
+    'config/test-lanes.mjs': `export const nodeFiles = []; export const packageRunnerLanes = ${JSON.stringify(lanes)}; export const unavailableLanes = ${JSON.stringify(unavailable)}; export const unavailableTestFiles = ${JSON.stringify(unavailableFiles)};`,
     '.gitea/workflows/ci.yml': JSON.stringify({ jobs: { tests: { steps: [{ run: ci }] } } }),
     'test/control.test.ts': vitestSource,
     ...Object.fromEntries(Object.entries(packages).map(([dir, pkg]) => [`${dir}/package.json`, JSON.stringify(pkg)])),
@@ -59,6 +59,47 @@ describe('nested runner ownership', () => {
     expect(report.files).toContainEqual({ file, runner, lanes: [] });
   });
 
+  it.each(['test/fixtures/python/test_probe.py', 'packages/python/tests/probe_test.py'])('requires ownership or a reason for %s', file => {
+    const files = { [file]: "raise RuntimeError('MUST_NOT_EXECUTE')\ndef test_probe():\n    assert True\n" };
+    const missing = run(project({ files }));
+    expect(missing.child.status).toBe(1);
+    expect(missing.report.errors).toContainEqual(expect.stringContaining(`${file}: unassigned test file`));
+    expect(missing.report.files).toContainEqual({ file, runner: 'pytest', lanes: [] });
+    const reason = 'No pytest job provisions this fixture in CI.';
+    const reasoned = run(project({ files, unavailableFiles: { [file]: reason } }));
+    expect(reasoned.child.status).toBe(0);
+    expect(reasoned.report.errors).toEqual([]);
+    expect(reasoned.report.files).toContainEqual({ file, runner: 'pytest', lanes: [], unavailableReason: reason });
+  });
+
+  it.each([undefined, '', '  ', 42])('rejects an invalid unavailable test reason %s', reason => {
+    const file = 'test/fixtures/python/test_probe.py';
+    const { child, report } = run(project({ files: { [file]: 'def test_probe(): pass' }, unavailableFiles: { [file]: reason } }));
+    expect(child.status).toBe(1);
+    expect(report.errors).toContainEqual(expect.stringContaining(`${file}: unassigned test file`));
+    if (reason !== undefined) expect(report.errors).toContain(`Unavailable test requires a reason: ${file}`);
+  });
+
+  it('rejects stale unavailable test entries', () => {
+    const { child, report } = run(project({ unavailableFiles: { 'test/gone_test.py': 'Removed fixture.' } }));
+    expect(child.status).toBe(1);
+    expect(report.errors).toContain('Unavailable test entry references undiscovered file: test/gone_test.py');
+  });
+
+  it.each([false, true])('accepts a CI-owned pytest package lane and rejects a redundant file disposition (%s)', redundant => {
+    const file = 'packages/python/tests/probe_test.py';
+    const { child, report } = run(project({
+      files: { [file]: 'def test_probe(): pass' },
+      packages: { 'packages/python': { name: 'python', scripts: { test: 'python3 -m pytest tests' } } },
+      lanes: [{ id: 'python', runner: 'pytest', package: 'packages/python', script: 'test', files: ['tests/*_test.py'] }],
+      ci: 'npm test && npm --prefix packages/python test',
+      unavailableFiles: redundant ? { [file]: 'Stale reason.' } : {},
+    }));
+    expect(child.status).toBe(redundant ? 1 : 0);
+    expect(report.errors).toEqual(redundant ? [`Assigned test is listed as unavailable; remove it: ${file}`] : []);
+    expect(report.files).toContainEqual(expect.objectContaining({ file, runner: 'pytest', lanes: [{ id: 'python', live: false }] }));
+  });
+
   const webLane = { id: 'widget-web', runner: 'vitest', package: 'apps/widget/web', script: 'test', files: ['src/**/*.test.ts'] };
   const webPackages = {
     'apps/widget': { name: '@fixture/widget', scripts: { 'test:web': 'npm --prefix web test' } },
@@ -72,6 +113,15 @@ describe('nested runner ownership', () => {
     expect(child.status).toBe(0);
     expect(report.errors).toEqual([]);
     expect(report.files).toContainEqual({ file, runner: 'vitest', lanes: [{ id: 'widget-web', live: false }] });
+  });
+
+  it('rejects a CI-reachable package lane listed as unavailable', () => {
+    const { child, report } = run(project({ lanes: [webLane], packages: webPackages,
+      ci: 'npm test && npm --prefix apps/widget run test:web',
+      unavailable: { 'widget-web': 'Stale unavailable reason.' },
+      files: { 'apps/widget/web/src/covered.test.ts': vitestSource } }));
+    expect(child.status).toBe(1);
+    expect(report.errors).toEqual(['CI-owned package lane is listed as unavailable; remove it: widget-web']);
   });
 
   it('requires a reason even when an unavailable root lane is named live', () => {

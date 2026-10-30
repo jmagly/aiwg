@@ -12,6 +12,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 
 // Discover real runner APIs and inline suites without executing source bodies.
 function sourceRunner(file, body) {
+  if (file.endsWith('.py')) return 'pytest';
   const source = ts.createSourceFile(file, body, ts.ScriptTarget.Latest, true);
   const imports = source.statements.filter(ts.isImportDeclaration).map(s => s.moduleSpecifier.text);
   const calls = new Set();
@@ -44,7 +45,7 @@ function sourceRunner(file, body) {
 export async function inspectTestRegistration(root = repositoryRoot) {
   root = path.resolve(root);
   const { nodeFiles, releaseLaneWorkflows = {}, optInPackageTests = [], scriptLaneExemptions = [],
-    packageRunnerLanes = [], unavailableLanes = {} } = await import(pathToFileURL(path.join(root, 'config/test-lanes.mjs')).href);
+    packageRunnerLanes = [], unavailableLanes = {}, unavailableTestFiles = {} } = await import(pathToFileURL(path.join(root, 'config/test-lanes.mjs')).href);
   const configs = globSync('config/vitest*.config.js', { cwd: root }).sort();
   const lanes = [];
   for (const config of configs) {
@@ -66,6 +67,10 @@ export async function inspectTestRegistration(root = repositoryRoot) {
     ...nestedRoots.map(dir => `${dir}/**/*.{test,spec,uat}.{ts,tsx,js,jsx,mjs,mts,cts,cjs}`),
     'agentic/code/extensions/**/*.{test,spec}.{ts,tsx,js,jsx,mjs,mts,cts,cjs}',
   ], { cwd: root, ignore: ignored }));
+  // Python fixture tests remain candidates: consuming an import fixture does not
+  // establish that CI executes its test bodies. Keep dependency/build exclusions.
+  for (const file of globSync('**/{test_*,*_test}.py', { cwd: root, nodir: true,
+    ignore: ignored.filter(pattern => !pattern.includes('fixtures')) })) candidates.add(file);
   // Filename discovery alone misses inline suites and unsuffixed runner imports.
   // Generated plugin mirrors remain excluded; nested packages are source owners.
   const runners = new Map();
@@ -112,6 +117,7 @@ export async function inspectTestRegistration(root = repositoryRoot) {
       errors.push(`${lane.id}: lane discovers zero files`);
     }
     if (lane.package) {
+      if (lane.reachable && Object.hasOwn(unavailableLanes, lane.id)) errors.push(`CI-owned package lane is listed as unavailable; remove it: ${lane.id}`);
       if (!lane.reachable && !hasReason(unavailableLanes[lane.id])) errors.push(`Unavailable lane requires a reason in config/test-lanes.mjs: ${lane.id}`);
     } else if (releaseReachable.has(lane.id)) {
       if (!releaseReachable.get(lane.id).includes(`--config ${lane.id}`)) errors.push(`Release lane is not reachable from its workflow: ${lane.id}`);
@@ -126,7 +132,8 @@ export async function inspectTestRegistration(root = repositoryRoot) {
     const runner = runners.get(file) ?? sourceRunner(file, fs.readFileSync(path.join(root, file), 'utf8'));
     const owners = lanes.filter(lane => lane.files.has(file));
     if (runner === 'unknown') errors.push(`${file}: unknown test API; declare an explicit owning runner`);
-    if (!owners.length) {
+    const unavailableReason = unavailableTestFiles[file];
+    if (!owners.length && !hasReason(unavailableReason)) {
       const nested = nestedRoots.some(dir => file.startsWith(`${dir}/`)) || file.startsWith('agentic/code/addons/');
       errors.push(`${file}: unassigned test file${nested ? `; missing ${runner} lane` : ''}`);
     }
@@ -144,7 +151,13 @@ export async function inspectTestRegistration(root = repositoryRoot) {
     for (const owner of owners) {
       if (owner.runner !== (runner === 'node-file-harness' ? 'node' : runner)) errors.push(`${file}: ${runner} handed to ${owner.runner} in ${owner.id}`);
     }
-    records.push({ file, runner, lanes: owners.map(({ id, live }) => ({ id, live })) });
+    records.push({ file, runner, lanes: owners.map(({ id, live }) => ({ id, live })),
+      ...(hasReason(unavailableReason) ? { unavailableReason } : {}) });
+  }
+  for (const [file, reason] of Object.entries(unavailableTestFiles)) {
+    if (!candidates.has(file)) errors.push(`Unavailable test entry references undiscovered file: ${file}`);
+    if (!hasReason(reason)) errors.push(`Unavailable test requires a reason: ${file}`);
+    if (lanes.some(lane => lane.files.has(file))) errors.push(`Assigned test is listed as unavailable; remove it: ${file}`);
   }
   for (const [id, reason] of Object.entries(unavailableLanes)) {
     const lane = lanes.find(lane => lane.id === id);
@@ -155,7 +168,7 @@ export async function inspectTestRegistration(root = repositoryRoot) {
     id: lane.id, reason: unavailableLanes[lane.id], files: [...lane.files].sort(),
   }));
   if (!records.length) errors.push('No candidate test files found');
-  const report = { schemaVersion: 1, scope: 'Root, framework/addon, tools, nested packages/apps and extension sources, including inline suites and runner entry points. Owned input fixtures, addon templates, dependency/build trees and generated plugin mirrors excluded. Package scripts require CI reachability or a reasoned opt-in.', units: 'Source files and imported APIs, not registered or executed cases', totalFiles: records.length, files: records, scriptLanes: scriptLanes.records, unavailableLanes: unavailable, errors };
+  const report = { schemaVersion: 1, scope: 'Root, framework/addon, tools, nested packages/apps and extension sources, including Python test filenames, inline suites and runner entry points. Python tests require an owning lane or an explicit unavailableTestFiles reason. Owned JS/TS input fixtures, addon templates, dependency/build trees and generated plugin mirrors excluded. Package scripts require CI reachability or a reasoned opt-in.', units: 'Source files and imported APIs, not registered or executed cases', totalFiles: records.length, files: records, scriptLanes: scriptLanes.records, unavailableLanes: unavailable, errors };
   return report;
 }
 
