@@ -1,10 +1,28 @@
 // Normalize host measurements, tighten-only thresholds and remaining worker capacity.
 import { getProviderParallelismDefaults } from './aiwg-config.js';
 import { expandWorkerGroupTemplates } from './worker-group-templates.js';
-import { resolveDispatchHostThresholds } from './dispatch-thresholds-runtime.mjs';
+import { DEFAULT_DISPATCH_HOST_THRESHOLDS, resolveDispatchHostThresholds } from './dispatch-thresholds-runtime.mjs';
 import { evaluateDispatchGate, readLiveHostResources } from './host-resource-runtime.mjs';
 
-export function hostResourceReport({ config, live, readers, paths, thresholdOverlay, caps, group } = {}) {
+// Re-evaluate persisted/remote collection times; never stamp them with the read time.
+function snapshotFreshness(measured, evaluated, maxSnapshotAgeSeconds) {
+  const collected = Date.parse(measured.collectedAt);
+  const ageMs = evaluated - collected;
+  const maxAgeMs = maxSnapshotAgeSeconds * 1000;
+  const result = { collectedAt: Number.isFinite(collected) ? new Date(collected).toISOString() : null,
+    evaluatedAt: Number.isFinite(evaluated) ? new Date(evaluated).toISOString() : null,
+    ageMs: Number.isFinite(ageMs) ? ageMs : null, maxAgeMs, status: 'fresh' };
+  if (!Number.isFinite(ageMs)) {
+    result.status = 'unavailable'; result.reason = 'collection time or evaluation clock missing or invalid';
+  } else if (ageMs < 0) {
+    result.status = 'unavailable'; result.reason = 'collection time is in the future';
+  } else if (ageMs > maxAgeMs) {
+    result.status = 'stale'; result.reason = `resource snapshot age ${ageMs}ms exceeds ${maxAgeMs}ms`;
+  }
+  return result;
+}
+
+export function hostResourceReport({ config, live, readers, paths, thresholdOverlay, caps, group, now = readers?.now ?? Date.now } = {}) {
   const expansion = expandWorkerGroupTemplates(config?.parallelism);
   if (expansion.errors.length) throw new Error(expansion.errors.join('; '));
   const parallelism = expansion.parallelism;
@@ -12,21 +30,32 @@ export function hostResourceReport({ config, live, readers, paths, thresholdOver
   if (group !== undefined && !Object.hasOwn(configured, group)) {
     throw new Error(`Unknown group "${group}"; configured groups: ${Object.keys(configured).join(', ') || '(none)'}`);
   }
-  const measured = live ?? readLiveHostResources({ ...readers, paths, groupNames: Object.keys(configured) });
+  const measured = live ?? readLiveHostResources({ now, ...readers, paths, groupNames: Object.keys(configured) });
+  const evaluated = now();
   const origins = {};
   let thresholds;
   try {
     thresholds = resolveDispatchHostThresholds(config?.build?.resource_preflight?.dispatch,
       config?.parallelism?.admission?.hostResources, thresholdOverlay, origins);
   } catch (error) {
-    return { measured, thresholds: null, origins, slots: 0, ok: false, limits: [], groups: [],
+    const snapshot = snapshotFreshness(measured, evaluated, DEFAULT_DISPATCH_HOST_THRESHOLDS.max_snapshot_age_seconds);
+    return { measured, freshness: snapshot, thresholds: null, origins, slots: 0, ok: false, limits: [], groups: [],
       failures: [{ signal: 'thresholds', reason: error.message }] };
   }
+  const snapshot = snapshotFreshness(measured, evaluated, thresholds.max_snapshot_age_seconds);
   const gate = evaluateDispatchGate(measured, thresholds);
+  if (!Number.isFinite(measured.load1) || !Number.isFinite(measured.cores) || measured.cores <= 0) {
+    gate.failures.push({ signal: 'load', reason: 'load headroom requires detectable load1 and positive cores' });
+  }
   const names = { 'avail-mem': 'min_avail_mem_gb', load: 'max_load_ratio',
     'mem-psi-avg10': 'max_mem_psi_avg10', 'mem-psi-avg60': 'max_mem_psi_avg60',
     'free-disk': 'min_free_disk_gb', workers: 'max_workers' };
-  const failures = gate.failures.map(failure => ({ ...failure, signal: names[failure.signal] ?? failure.signal }));
+  const failures = gate.failures.map(failure => ({ ...failure, signal: names[failure.signal] ?? failure.signal,
+    reason: failure.actual === undefined ? `unavailable: ${failure.reason}` : failure.reason }));
+  if (snapshot.status !== 'fresh') failures.unshift({ signal: 'snapshot', reason: `${snapshot.status}: ${snapshot.reason}` });
+  else if (failures.some(failure => failure.reason.startsWith('unavailable:'))) {
+    snapshot.status = 'unavailable'; snapshot.reason = 'required host signals unavailable';
+  }
   const limits = [];
   const add = (threshold, available, reason) => {
     const slots = Number.isFinite(available) ? Math.max(0, Math.floor(available)) : 0;
@@ -73,7 +102,7 @@ export function hostResourceReport({ config, live, readers, paths, thresholdOver
   });
   const slots = failures.length ? 0 : Math.min(...limits.map(limit => limit.slots));
   const limitingThreshold = failures[0]?.signal ?? [...limits].sort((a, b) => a.slots - b.slots)[0]?.threshold;
-  return { measured, thresholds, origins, slots, ok: slots > 0, limits, failures, groups, limitingThreshold,
+  return { measured, freshness: snapshot, thresholds, origins, slots, ok: slots > 0, limits, failures, groups, limitingThreshold,
     counting: 'current UID AIWG worker units plus distinct AIWG_WORKER_INVOCATION_ID markers outside those units; '
       + (measured.workerCountingSource === 'owned-process-fallback' ? 'systemd unavailable: owned-process fallback; ' : '')
       + 'hostCliProcesses: exact codex/muse/muse-bin comm, informational, not used for admission; group attribution uses unambiguous configured prefixes in existing invocation markers or unit names; unattributed workers count against every group; tuple caps without attribution use owned worker total' };

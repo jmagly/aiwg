@@ -1,4 +1,6 @@
 export interface HostResourceSample {
+  /** Start of collection on the source host; absent on legacy/unavailable snapshots. */
+  collectedAt?: string;
   supported: boolean; reason?: string; availMemGb?: number; load1?: number; cores?: number;
   loadRatio?: number; memPsiAvg10?: number; memPsiAvg60?: number; memPsiAvg300?: number;
   workerGroups?: Record<string, number>;
@@ -11,6 +13,7 @@ export interface WorkerCensus {
   source?: HostResourceSample['workerCountingSource'];
 }
 export interface HostResourceReaders {
+  now?: () => number;
   readText?: (path: string) => string;
   readDir?: (path: string) => string[];
   uid?: number;
