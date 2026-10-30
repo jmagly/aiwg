@@ -1017,11 +1017,11 @@ To enable persistence for existing Al installations:
 
 ### Schemas
 
-- `@$AIWG_ROOT/agentic/code/addons/ralph/hooks/persistence-hooks.yaml` - Hook definitions
-- `@$AIWG_ROOT/agentic/code/addons/ralph/schemas/persistence-extension.yaml` - State extension schema
-- `@$AIWG_ROOT/agentic/code/addons/ralph/schemas/loop-state.yaml` - Base loop state schema
-- `@$AIWG_ROOT/agentic/code/addons/ralph/schemas/checkpoint.yaml` - Checkpoint schema
-- `@$AIWG_ROOT/agentic/code/addons/ralph/schemas/iteration-analytics.yaml` - Iteration analytics
+- `@$AIWG_ROOT/agentic/code/addons/agent-loop/hooks/persistence-hooks.yaml` - Hook definitions
+- `@$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/persistence-extension.yaml` - State extension schema
+- `@$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/loop-state.yaml` - Base loop state schema
+- `@$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/checkpoint.yaml` - Checkpoint schema
+- `@$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/iteration-analytics.yaml` - Iteration analytics
 
 ### Requirements
 

@@ -1,5 +1,11 @@
 # Contextual writing diagnostics
 
+> "Show contextual findings in this text and retain the phrases I deliberately chose."
+
+Your assistant can use the diagnostics API to return located findings and record author-reviewed span exceptions.
+
+## Command reference
+
 The JavaScript package exports `diagnoseWriting`, `diagnoseWritingBatch` and
 `writingContentHash`. `WritingValidationEngine.diagnose` uses the same implementation.
 These are editorial review APIs: they return located findings and never rewrite

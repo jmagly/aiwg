@@ -112,6 +112,38 @@ Shows what you have, what's missing, and what to prioritize.
 /acquire --url "https://youtube.com/watch?v=..." --format audio --output ~/music/
 ```
 
+### Open-Weight Model Archival
+
+> "Find the current best uncompressed models in the 8-9B range and start Phase 1 archival into /archive/llm."
+
+Your assistant uses the LLM Model Archivist workflow to assess candidates and verify their archival records.
+
+#### Command reference
+
+The same discipline applies to open-weight language models: discover
+candidates, rank them on sourced evidence, archive original-precision weights,
+and verify them with a checksum manifest and a PROV record.
+
+```text
+"Find the current best uncompressed models in the 8-9B range and start
+ Phase 1 archival into /archive/llm."
+```
+
+The `llm-model-archivist` agent reuses `find-sources`, `acquire`,
+`integrity-verification`, `verify-archive`, `provenance-tracking`, and
+`check-completeness`, and renders its inventory and report with:
+
+```bash
+node tools/media-curator/llm-model-report.mjs inventory render inventory.json > inventory.md
+node tools/media-curator/llm-model-report.mjs report lint report.md     # fails on unsourced numbers
+node tools/media-curator/llm-model-archive.mjs fixity verify <model-dir> # fails on a missing or corrupted shard
+```
+
+Quantized-only models are flagged in the report, not archived, unless you ask
+for them explicitly. Hub tokens are read at the point of use and never written
+into the inventory or report. Field reference:
+[LLM model archive templates](llm-model-archive-templates.md).
+
 ## Assembly and Export
 
 ### Create a Narrative Compilation

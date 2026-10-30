@@ -7,6 +7,12 @@ outside those portable artifacts.
 
 ## Install
 
+> "Install the Decision Engine addon for Claude in this project."
+
+Your assistant explicitly deploys the addon to the requested provider.
+
+### Command reference
+
 Deploy the addon by name to each provider that should see the skill:
 
 ```bash
@@ -27,6 +33,12 @@ says how to fix it.
 
 ## Examples
 
+> "Run the packaged Decision Engine example with its deterministic fixture worker."
+
+Your assistant uses the offline example request with the deployed skill script.
+
+### Command reference
+
 The addon ships an offline example set in `examples/`. It includes a ruleset,
 definitions, Jev and LLM-subagent bindings, and a deterministic fixture worker.
 From an installed package:
@@ -42,6 +54,12 @@ examples are under `$(npm root -g)/aiwg/agentic/code/addons/decision-engine/exam
 
 ## Backends and evaluation
 
+> "Review this decision binding and dispatcher request before evaluation."
+
+Your assistant checks the backend pin, projection policy, retry limits and independent action gates described below.
+
+### Command reference
+
 Jev uses `https://api.typesafe.ai/v1/systemone` with bearer authentication. A
 binding stores only a logical `credentialRef`; the dispatcher request maps it
 to an operator-provided environment-variable name. Production deployments
@@ -55,7 +73,7 @@ adapters without a policy, and the evaluator denies a policy whose origin or
 region does not match the adapter. The region is the operator's recorded
 deployment attribute. It is not enforced by the transport and does not certify
 provider residency. Egress denials follow `RUN-JEV-EGRESS-v1` in
-`docs/decision/operations/README.md`. The live smoke additionally requires
+[the operations runbook](https://github.com/jmagly/aiwg/blob/main/docs/decision/operations/README.md). The live smoke additionally requires
 `AIWG_DECISION_JEV_REGION` and runs through the same projection boundary.
 
 An LLM binding pins a subagent. The runtime adapter module must resolve that
@@ -73,7 +91,7 @@ and authorization gates independently.
 
 Single-question offload through `aiwg decision ask` is enabled by
 `aiwg decision setup jev` and governed for agents by the `decision-offload`
-rule. See the [Jev quickstart](../../../../../docs/decision/jev-quickstart.md).
+rule. See the [Jev quickstart](https://github.com/jmagly/aiwg/blob/main/docs/decision/jev-quickstart.md).
 
 To explicitly upgrade a string-only definition, build the package and run
 `node agentic/code/addons/decision-engine/skills/decision-evaluate/scripts/decision-convert-definition.mjs <old.json> <new.json>`.
@@ -82,6 +100,12 @@ and leaves ruleset pin updates to the author. Structured fields require
 `decision.aiwg.io/v1alpha2`; historical v1alpha1 artifacts remain readable.
 
 ## Durable receipts
+
+> "Configure durable decision receipts using a host-managed integrity key."
+
+Your assistant configures logical key references and receipt storage without putting key values into portable artifacts.
+
+### Command reference
 
 Set `receiptDirectory` in the dispatcher request to keep durable,
 HMAC-protected invocation receipts. The directory is resolved relative to the
@@ -122,13 +146,19 @@ refused, so the key cannot be sent to a remote backend.
 
 ## Held-out study collection
 
+> "Review the synthetic held-out study setup and its approval requirements."
+
+Your assistant uses the source-checkout guides to distinguish preparation and dry-run from separately approved collection.
+
+### Command reference
+
 Source-checkout operators can use the experimental, default-off
-[shared held-out collector](../../../../../docs/decision/heldout-collector.md)
+[shared held-out collector](https://github.com/jmagly/aiwg/blob/main/docs/decision/heldout-collector.md)
 for synthetic D17/D29 study modules. Preparation and dry-run use source directly;
 collection needs a separate priced, digest-bound approval and explicit env gate.
 The collector does not promote models or establish study quality.
 
-The [D29 v6 study](../../../../../docs/decision/d29-heldout-study.md) adds balanced
+The [D29 v6 study](https://github.com/jmagly/aiwg/blob/main/docs/decision/d29-heldout-study.md) adds balanced
 inventory facts, replacement-slot screening-control cases and explicit provider
 labeling conventions. Passage baseline v2 is primary; unchanged passage v1 and
 the original baseline remain secondary. Development and public-test audits cover

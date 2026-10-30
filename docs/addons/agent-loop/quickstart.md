@@ -20,7 +20,7 @@ Use an iterative loop for one bounded task with a measurable completion check.
 Al works best when the "what" is already clear. If requirements are still open,
 start with intake, discovery, or a short planning pass before launching a loop.
 
-**Safe to proceed?** Read on. **Unsure?** See [When to Use Agent Loop](when-to-use-agent-loop.md) first.
+**Safe to proceed?** Read on. **Unsure?** See [When to Use Al](when-to-use-agent-loop.md) first.
 
 ---
 
@@ -204,7 +204,7 @@ Al stores state and reports in `.aiwg/ralph/`:
 
 ## Next Steps
 
-- Read [When to Use Agent Loop](when-to-use-agent-loop.md) to understand Agent Loop's sweet spot
+- Read [When to Use Al](when-to-use-agent-loop.md) to understand Al's sweet spot
 - Read [Best Practices](best-practices.md) for effective prompt engineering
 - See [Examples](examples/) for common patterns
 - Check [Troubleshooting](troubleshooting.md) if you get stuck

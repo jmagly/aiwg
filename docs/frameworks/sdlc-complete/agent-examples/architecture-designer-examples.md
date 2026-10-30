@@ -148,7 +148,7 @@ Design the authentication service component for our healthcare portal applicatio
 Standalone authentication service handling provider credential verification, session management, and MFA enforcement for HIPAA-compliant healthcare portal access.
 
 ### Technology Stack
-- **Runtime**: Node.js 24.x (LTS)
+- **Runtime**: Node.js 20.x (LTS)
 - **Framework**: Express.js with helmet security middleware
 - **Authentication**: Passport.js with custom NPI strategy
 - **MFA**: Speakeasy (TOTP) + Twilio (SMS backup)
@@ -615,7 +615,7 @@ Service comes back online → Processes backlog
 | Event Bus | Apache Kafka | 3.6 | High throughput (1M+ events/sec), durable storage, partition-based ordering |
 | Schema Registry | Confluent Schema Registry | 7.5 | Schema evolution, compatibility checks |
 | Orchestrator | Temporal | 1.22 | Saga workflow orchestration, built-in retry/compensation |
-| Services Runtime | Node.js | 24.x LTS | Non-blocking I/O for high concurrency |
+| Services Runtime | Node.js | 20.x LTS | Non-blocking I/O for high concurrency |
 | Event Sourcing | PostgreSQL + Debezium | 15.4 / 2.4 | Change data capture to Kafka, audit trail |
 | Idempotency Cache | Redis | 7.2 | Fast duplicate detection, 7-day TTL |
 | Monitoring | Prometheus + Grafana | 2.47 / 10.2 | Kafka lag monitoring, service health |
