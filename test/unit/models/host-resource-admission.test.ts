@@ -15,7 +15,7 @@ const roots: string[] = [];
 afterEach(async () => { vi.restoreAllMocks(); await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 const fixture = () => {
   const f = workerResolutionFixture();
-  f.snapshot.hostResources = healthyHostResources();
+  f.snapshot.hostResources = { ...healthyHostResources(), collectedAt: f.request.now };
   return f;
 };
 const resolve = (f: ReturnType<typeof fixture>) => resolveWorkerPlan(f.snapshot, f.request);
@@ -25,7 +25,7 @@ describe('resolver host capacity', () => {
     const f = fixture();
     f.snapshot.config.parallelism!.max_parallel_subagents = 20;
     f.snapshot.config.parallelism!.groups!.workers.maxParallel = 20;
-    f.snapshot.hostResources = { ...healthyHostResources(), workers: 6, availMemGb: 128 };
+    f.snapshot.hostResources = { ...healthyHostResources(), collectedAt: f.request.now, workers: 6, availMemGb: 128 };
     const blocked = resolve(f);
     expect(blocked).toMatchObject({ status: 'blocked', selected: null, slots: 0,
       resources: { thresholds: { max_workers: 5 }, origins: { max_workers: ['default'] } } });
@@ -42,11 +42,11 @@ describe('resolver host capacity', () => {
     const f = fixture();
     f.request.group = 'workers';
     f.snapshot.config.parallelism!.groups!.unrelated = { ...structuredClone(f.snapshot.config.parallelism!.groups!.workers), maxParallel: 1 };
-    const readers = { ...hostResourceReaders(), countWorkers: () => workers,
+    const readers = { ...hostResourceReaders(), now: () => Date.parse(f.request.now), countWorkers: () => workers,
       statfsPath: () => ({ bavail: 32, bsize: 1024 ** 3 }) };
     f.snapshot.hostResources = readLiveHostResources(readers);
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const code = await runResourceDoctor('/synthetic', { config: f.snapshot.config, readers, group: 'workers', json: true });
+    const code = await runResourceDoctor('/synthetic', { config: f.snapshot.config, readers, now: () => Date.parse(f.request.now), group: 'workers', json: true });
     const doctor = JSON.parse(String(log.mock.calls.at(-1)![0]));
     const plan = resolve(f);
     expect(plan.slots).toBe(doctor.slots);
@@ -60,24 +60,24 @@ describe('resolver host capacity', () => {
     f.snapshot.config.parallelism!.groups!.other = { ...structuredClone(f.snapshot.config.parallelism!.groups!.workers), maxParallel: 1 };
     f.snapshot.hostResources = readLiveHostResources({ ...ownedWorkerReaders(undefined, [
       { invocation: 'other-one' }, { invocation: 'other-two' },
-    ]), groupNames: ['workers', 'other'] });
-    const doctor = hostResourceReport({ config: f.snapshot.config, live: f.snapshot.hostResources, group: 'workers' });
+    ]), groupNames: ['workers', 'other'], now: () => Date.parse(f.request.now) });
+    const doctor = hostResourceReport({ config: f.snapshot.config, live: f.snapshot.hostResources, now: () => Date.parse(f.request.now), group: 'workers' });
     expect(doctor.slots).toBe(2);
     expect(resolve(f)).toMatchObject({ status: 'eligible', slots: 2 });
   });
   it('uses owned workers for project, group, CLI and member caps while retaining raw host process counts', () => {
     const f = fixture();
     const unit = 'aiwg-worker-one.service';
-    f.snapshot.hostResources = readLiveHostResources(ownedWorkerReaders([unit],
-      Array.from({ length: 14 }, (_, index) => index < 3 ? { invocation: 'one', unit } : {})));
+    f.snapshot.hostResources = readLiveHostResources({ ...ownedWorkerReaders([unit],
+      Array.from({ length: 14 }, (_, index) => index < 3 ? { invocation: 'one', unit } : {})), now: () => Date.parse(f.request.now) });
     f.snapshot.config.parallelism!.max_parallel_subagents = 10;
     f.snapshot.config.parallelism!.admission = { cliCaps: { codex: 3 }, memberCaps: { 'workers/primary': 3 } };
     const plan = resolve(f);
     expect(plan).toMatchObject({ status: 'eligible', slots: 1, resources: { ok: true,
       measured: { workers: 1, workerUnits: 1, hostCliProcesses: { codex: 14, muse: 0 } } } });
-    f.snapshot.hostResources = readLiveHostResources(ownedWorkerReaders(undefined, [
+    f.snapshot.hostResources = readLiveHostResources({ ...ownedWorkerReaders(undefined, [
       { invocation: 'a' }, { invocation: 'a' }, { invocation: 'b' }, { invocation: 'b' },
-    ]));
+    ]), now: () => Date.parse(f.request.now) });
     expect(resolve(f)).toMatchObject({ status: 'blocked', slots: 0, resources: { measured: { workers: 2 } } });
   });
   it('samples the requested worktree and output filesystem rather than only the project cwd', () => {
@@ -133,11 +133,13 @@ describe('resolver host capacity', () => {
     ['min_avail_mem_gb', { availMemGb: 1 }], ['max_load_ratio', { load1: 8, loadRatio: 1 }],
     ['max_mem_psi_avg10', { memPsiAvg10: 31 }], ['max_mem_psi_avg60', { memPsiAvg60: 11 }],
     ['min_free_disk_gb', { freeDiskGb: 1 }], ['max_workers', { workers: 4 }],
+    ['snapshot', { collectedAt: undefined }], ['snapshot', { collectedAt: '2020-01-01T00:00:00Z' }],
+    ['snapshot', { collectedAt: '2099-01-01T00:00:00Z' }],
   ])('never renders a shell launch at zero slots (%s)', async (threshold, sample) => {
     const root = await mkdtemp(path.join(tmpdir(), 'aiwg-host-resource-')); roots.push(root);
     const f = fixture();
     f.snapshot.config.parallelism!.admission = { hostResources: { max_workers: 4 } };
-    f.snapshot.hostResources = { ...healthyHostResources(), ...sample };
+    f.snapshot.hostResources = { ...healthyHostResources(), collectedAt: f.request.now, ...sample };
     const brief = path.join(root, 'brief.txt'); await writeFile(brief, 'Synthetic task');
     const workdir = path.join(root, 'tree'); await mkdir(workdir);
     const handler = createModelsHandler({ load: async () => ({ snapshot: f.snapshot, drivers: {} }), now: () => f.request.now });

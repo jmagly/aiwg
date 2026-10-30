@@ -197,14 +197,14 @@ The frozen `parallelism.fragment.json` `admission.hostResources` object is
 amended additively with `min_free_disk_gb` (`type: number, minimum: 0,
 default: 2`), the same shape as the existing numeric `hostResources` fields
 it sits alongside (`min_avail_mem_gb`, `max_load_ratio`, `max_mem_psi_avg10`,
-`max_mem_psi_avg60`, `max_workers`). No existing field, default or required
-list is touched. The fragment and manifest SHA-256 are amended together; the
+`max_mem_psi_avg60`, `max_workers`). No existing defaults or required lists change. The fragment and manifest SHA-256 are amended together; the
 exact-match test (`worker-contracts.test.ts`) continues to compare the frozen
 fragment and the production schema field-for-field with no relaxation. The
 production schema (`vscode-extension/schemas/aiwg.config.v1.json`
 `parallelism.admission.hostResources`) and the `DispatchHostThresholds`
-TypeScript interface (`src/config/aiwg-config.ts`) carry the identical field,
-so a configured free-disk floor validates through both the shipped JSON
+TypeScript interface (re-exported from `src/config/aiwg-config.ts`) agree.
+#3301 adds positive `max_snapshot_age_seconds` (default 300, MIN across layers),
+amending fragment/digest together with exact equality intact. The free-disk floor validates through the shipped JSON
 schema and `resolveDispatchHostThresholds`/`resolveDispatchThresholds`
 (`tools/scripts/resource-preflight.mjs`), which share one conservative
 default set (`DEFAULT_DISPATCH_HOST_THRESHOLDS` /

@@ -8,7 +8,7 @@ it('defaults max_workers to 5 with a default origin and preserves every other de
   const origins: Record<string, string[]> = {};
   expect(resolveDispatchHostThresholds(undefined, undefined, undefined, origins)).toEqual({
     min_avail_mem_gb: 8, max_load_ratio: 1, max_mem_psi_avg10: 30,
-    max_mem_psi_avg60: 10, min_free_disk_gb: 2, max_workers: 5,
+    max_mem_psi_avg60: 10, min_free_disk_gb: 2, max_workers: 5, max_snapshot_age_seconds: 300,
   });
   expect(origins.max_workers).toEqual(['default']);
 });
