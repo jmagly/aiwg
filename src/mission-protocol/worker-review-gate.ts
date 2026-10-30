@@ -17,6 +17,14 @@ export interface WorkerAcceptanceContext {
 }
 function fail(message: string): never { throw new WorkerContractError('OG_CONTRACT_INVALID', message); }
 
+/** Read an existing verifier verdict; never promote worker completion to acceptance. */
+export function hasIndependentWorkerAcceptance(verification: Verification): boolean {
+  return verification.status === 'accepted'
+    && !!verification.reviewRounds?.length
+    && verification.evidence.length > 0
+    && workerReviewEvidenceErrors(verification).length === 0;
+}
+
 /** Additional relational checks after JSON Schema shape validation. */
 export function workerReviewEvidenceErrors(verification: Verification): string[] {
   const errors: string[] = [];
