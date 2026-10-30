@@ -48,7 +48,7 @@ export const removeHandler: CommandHandler = {
       'Bundled file removal preserves modified files, unrecorded operator files, foreign skills,',
       'and symlinks inside skill directories. Project-local bundle source is never deleted.',
       'Legacy outputs without receipts are unverifiable and preserved.',
-      'Settings and hooks with contribution receipts are preserved for separate recovery.',
+      'Recorded settings and hooks restore pre-deploy values; operator edits are kept and reported.',
       'User-scope legacy records without artifact manifests require manual file cleanup.',
       'Unregistered ids fall back to the legacy plugin uninstaller (also supports --keep-data).',
       '',

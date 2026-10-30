@@ -2,6 +2,7 @@
 import type { HandlerResult } from "./types.js";
 import { releaseSkillOwnership } from "../../providers/skill-ownership.mjs";
 import { removeClaudeAttribution } from "../../extensions/claude-hooks-installer.js";
+import { createHash } from "node:crypto";
 import * as os from "node:os";
 import { firstRemovePositional, parseRemoveProvider } from "./remove-options.js";
 export async function removeUserScopeDeploy(args: ReadonlyArray<string>): Promise<HandlerResult> {
@@ -48,6 +49,8 @@ export async function removeUserScopeDeploy(args: ReadonlyArray<string>): Promis
   if (dryRun) linesOut.push(`[dry-run] Plan for user-scope remove of '${positional}':`);
   else linesOut.push(`Removing user-scope mirror of '${positional}':`);
 
+  const { resolveFrameworkDir } = await import('./use.js');
+  const owner = resolveFrameworkDir(positional) ?? positional;
   let totalDeleted = 0;
   let conservativeFallbackUsed = false;
 
@@ -99,8 +102,30 @@ export async function removeUserScopeDeploy(args: ReadonlyArray<string>): Promis
     for (const [type, dir, names] of sets) {
       if (!dir || !names || names.length === 0) continue;
       let deletedHere = 0;
+      let managed: Record<string, { hash?: string; owners?: string[] }> = {};
+      if (type !== 'skills') {
+        try { managed = JSON.parse(await fs.readFile(path.join(dir, '.aiwg-manifest.json'), 'utf8')).managed ?? {}; }
+        catch { /* Legacy mirrors may have no digest receipt. */ }
+      }
       for (const name of names) {
         const target = path.join(dir, name);
+        const shared = Object.entries(registry.installed).some(([framework, installed]) => framework !== positional
+          && (installed.deployedTo[p] as typeof providerEntry | undefined)?.entries?.[type as keyof NonNullable<typeof recorded>]?.includes(name));
+        if (shared || managed[name]?.owners?.some(candidate => candidate !== owner)) {
+          linesOut.push(`  · ${p} ${type}: preserve ${target} — shared with another installed framework`);
+          continue;
+        }
+        if (type !== 'skills') {
+          const digest = managed[name]?.hash;
+          if (digest !== undefined) {
+            const stat = await fs.lstat(target).catch(() => null);
+            const bytes = stat?.isFile() ? await fs.readFile(target).catch(() => null) : null;
+            if (!bytes || `sha256:${createHash('sha256').update(bytes).digest('hex')}` !== digest) {
+              linesOut.push(`  · ${p} ${type}: preserve ${target} — modified or unverifiable managed file`);
+              continue;
+            }
+          } else linesOut.push(`  ⚠ ${p} ${type}: ${target} — legacy manifest has no digest; ${dryRun ? 'would remove' : 'removing'} by recorded name`);
+        }
         if (dryRun) {
           linesOut.push(`  · ${p} ${type}: ${target}`);
           deletedHere++;
@@ -108,8 +133,7 @@ export async function removeUserScopeDeploy(args: ReadonlyArray<string>): Promis
         }
         try {
           if (type === 'skills') {
-            const { resolveFrameworkDir } = await import('./use.js');
-            const released = releaseSkillOwnership(target, { frameworkSlug: resolveFrameworkDir(positional) ?? positional });
+            const released = releaseSkillOwnership(target, { frameworkSlug: owner });
             if (released === null) continue;
           } else {
             await fs.rm(target, { recursive: true, force: true });

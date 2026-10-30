@@ -40,9 +40,8 @@ export async function removeBundledDeployment(project: string, id: string, owner
         lines.push('    Count discrepancy: deployedTo is a historical provider snapshot; receipts alone determine ownership and deletions.');
       }
       for (const item of plan.decisions) {
-        if (!opts.dryRun && !item.owned && item.reason.startsWith('foreign')) continue;
         const verb = opts.dryRun ? `Would ${item.action}` : item.action === 'remove' ? 'Remove' : item.action === 'release' ? 'Release' : 'Preserve';
-        lines.push(`    ${verb} ${path.relative(project, item.path)} — ${item.reason}`);
+        lines.push(`    ${verb} ${path.relative(project, item.path)}${item.pointer ? `#${item.pointer}` : ''} — ${item.reason}`);
         if (item.action === 'remove' && item.owned) removed++;
       }
       for (const write of plan.writes) {

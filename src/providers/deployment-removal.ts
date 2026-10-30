@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { getProviderArtifactPathStrings } from './provider-definitions.js';
 import { deployedSkillRoots } from './deployed-skill-roots.js';
 import { releaseSkillOwnership, type ArtifactOwnershipRecord } from './skill-ownership.mjs';
+import { restoreSettings } from './settings-removal.js';
 import type { RemovalWrite } from './removal-transaction.js';
 
 const SIDECAR = '.aiwg-manifest.json';
@@ -13,7 +14,7 @@ const hash = (bytes: Buffer) => `sha256:${createHash('sha256').update(bytes).dig
 const inside = (root: string, file: string) => file.startsWith(`${root}${path.sep}`);
 export interface RemovalDecision {
   path: string; action: 'remove' | 'preserve' | 'release'; reason: string; kind?: string;
-  owned?: boolean; legacy?: boolean;
+  owned?: boolean; legacy?: boolean; pointer?: string;
 }
 export interface DeploymentRemovalPlan {
   decisions: RemovalDecision[]; writes: RemovalWrite[]; remaining: ArtifactOwnershipRecord[];
@@ -82,6 +83,7 @@ export function planDeploymentRemoval(project: string, provider: string, owner: 
         decisions.push({ ...decision, owned: true, legacy: true });
         if (decision.action === 'remove') writes.push({ path: decision.path, before: fs.readFileSync(decision.path), after: null });
       }
+      accounted.add(file);
       recorded.push({ ...receipt.managed!['SKILL.md'], kind: 'skill' });
       continue;
     }
@@ -97,8 +99,17 @@ export function planDeploymentRemoval(project: string, provider: string, owner: 
       let action: RemovalDecision['action'] = 'preserve', reason = 'modified or unverifiable managed file';
       if (!inside(base, target) || target === file || !roots.some(root => inside(root, target)) && base !== project) reason = 'unsafe receipt path; unverifiable';
       else if (symlinkBetween(roots.find(root => inside(root, target)) || project, target)) reason = 'symlink preserved';
-      else if (record.kind === 'settings' || record.kind === 'hook') reason = 'settings and hook recovery deferred to item 3';
-      else if (CONTEXT_BRIDGES.has(path.basename(target))) reason = 'context hook recovery deferred to item 3; pre-deploy operator content unverifiable';
+      else if (record.kind === 'settings' && record.settings && (claims.get(target) || []).length === 1) {
+        const restored = restoreSettings(target, record, owner);
+        decisions.push(...restored.decisions);
+        if (restored.write) writes.push(restored.write);
+        if (restored.retained) remaining.push(record);
+        if (!record.owners?.length) delete receipt.managed![name];
+        changed = true;
+        continue;
+      }
+      else if (record.kind === 'settings') reason = 'settings contributions missing or conflicting; unverifiable';
+      else if (CONTEXT_BRIDGES.has(path.basename(target))) reason = 'context bridge preserved; pre-deploy operator content unverifiable';
       else if ((claims.get(target) || []).some(claim => claim.hash !== record.hash)) reason = 'conflicting receipt digests; unverifiable';
       else if ((claims.get(target) || []).some(claim => (claim.owners || (claim.frameworkSlug ? [claim.frameworkSlug] : [])).some(item => item !== owner))) { action = 'release'; reason = 'shared with another framework; release this owner only'; }
       else {
@@ -140,8 +151,9 @@ export function planDeploymentRemoval(project: string, provider: string, owner: 
   }
   const unique = new Map<string, RemovalDecision>();
   for (const decision of decisions) {
-    const previous = unique.get(decision.path);
-    if (!previous || decision.action === 'preserve' || previous.action === 'remove') unique.set(decision.path, decision);
+    const key = `${decision.path}#${decision.pointer ?? ''}`;
+    const previous = unique.get(key);
+    if (!previous || decision.action === 'preserve' || previous.action === 'remove') unique.set(key, decision);
   }
   return { decisions: [...unique.values()], writes, remaining, recorded, legacy: !modern };
 }

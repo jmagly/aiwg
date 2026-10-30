@@ -624,7 +624,8 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     expect(readFileSync(join(root, 'edited/local.txt'), 'utf8')).toBe('operator addition');
     expect(readFileSync(join(root, 'edited/SKILL.md'), 'utf8')).toBe('operator instructions');
     expect(readFileSync(join(root, 'foreign/SKILL.md'), 'utf8')).toBe('foreign owner');
-    expect(result.message).not.toContain('skills/foreign');
+    if (scope === 'bundled') expect(result.message).toContain('Preserve .claude/.aiwg/skills/foreign/SKILL.md — foreign or unverifiable ownership receipt');
+    else expect(result.message).not.toContain('skills/foreign');
     const framework = join(tempRoot, 'sources/agentic/code/frameworks/sdlc-complete/skills/cleanup-audit');
     write(framework, 'SKILL.md', 'SDLC version');
     deploySkillDir(framework, root, {});

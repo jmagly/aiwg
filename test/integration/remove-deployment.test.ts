@@ -48,6 +48,33 @@ function write(root: string, file: string, value: string) {
 }
 
 describe('receipt-backed removal after deployment (#3769)', () => {
+
+  it('restores Claude settings and managed hooks after public sdlc/marketing deployment and removal', () => {
+    const { project, command } = setup(false);
+    const settingsFile = path.join(project, '.claude/settings.json');
+    const original = '{\n\t"theme": "operator", "hooks": { "SessionStart": [{"hooks": [{"type": "command", "command": "operator"}]}] }\n}\n';
+    write(project, '.claude/settings.json', original);
+    const deploy = (bundle: string) => command('bin/aiwg.mjs', ['use', bundle, '--provider', 'claude',
+      '--target', project, '--scope', 'project', '--copy-all', '--no-project-local', '--json']);
+    deploy('sdlc');
+    const sdlcSettings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+    expect(sdlcSettings.aiwg.mode).toBeUndefined();
+    expect(Object.values(sdlcSettings.hooks).flat().some((group: any) => group.hooks.some((hook: any) => hook._aiwg_managed))).toBe(true);
+    deploy('marketing');
+    expect(JSON.parse(fs.readFileSync(settingsFile, 'utf8')).aiwg.mode).toBeUndefined();
+    const deployed = fs.readFileSync(settingsFile);
+    const preview = command('bin/aiwg.mjs', ['remove', 'marketing', '--dry-run']);
+    expect(preview).toContain('settings.json#/attribution/');
+    expect(fs.readFileSync(settingsFile)).toEqual(deployed);
+    command('bin/aiwg.mjs', ['remove', 'marketing']);
+    const remaining = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+    expect(remaining.aiwg.mode).toBeUndefined();
+    expect(remaining.hooks).toEqual(sdlcSettings.hooks);
+    command('bin/aiwg.mjs', ['remove', 'sdlc']);
+    expect(fs.readFileSync(settingsFile, 'utf8')).toBe(original);
+    expect(records(project).get(settingsFile)).toBeUndefined();
+  }, 240_000);
+
   it('removes exactly sdlc-owned recorded files after real sdlc and marketing deploys', () => {
     const { project, command } = setup();
     write(project, '.claude/agents/operator.md', 'Operator instructions.\n');
@@ -64,6 +91,8 @@ describe('receipt-backed removal after deployment (#3769)', () => {
     expect(sourceAgents.length).toBeGreaterThan(0);
     const protectedFiles = new Map([...before].filter(([, entry]) => !entry.owners?.includes(owner) || entry.owners.length > 1)
       .map(([file]) => [file, fs.readFileSync(file)]));
+    const settingsFile = path.join(project, '.claude/settings.json');
+    const settingsBefore = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
     const edited = owned.find(([, entry]) => entry.kind === 'agent')![0];
     fs.appendFileSync(edited, '\nOperator edit.\n');
     const preview = command('bin/aiwg.mjs', ['remove', 'sdlc', '--dry-run']);
@@ -79,6 +108,8 @@ describe('receipt-backed removal after deployment (#3769)', () => {
     expect(fs.readFileSync(edited, 'utf8')).toContain('Operator edit.');
     expect(fs.readFileSync(path.join(project, '.claude/agents/operator.md'), 'utf8')).toBe('Operator instructions.\n');
     expect(records(project).get(edited).owners).toContain(owner);
+    expect(JSON.parse(fs.readFileSync(settingsFile, 'utf8')).aiwg.mode).toBe('sdlc');
+    expect(JSON.parse(fs.readFileSync(settingsFile, 'utf8')).hooks).toEqual(settingsBefore.hooks);
     for (const [file, entry] of records(project)) if (entry.owners?.includes(owner) && !deferred(file, entry)) {
       expect(entry).toEqual(before.get(edited));
     }

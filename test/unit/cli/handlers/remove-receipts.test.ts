@@ -4,8 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as skillOwner from '../../../../src/providers/skill-ownership.mjs';
 import * as configOwner from '../../../../src/config/aiwg-config.js';
 import { removeHandler } from '../../../../src/cli/handlers/subcommands.js';
+import { captureDeploymentOutputs, recordDeploymentOutputs } from '../../../../src/providers/deployment-ownership.mjs';
 import { planDeploymentRemoval } from '../../../../src/providers/deployment-removal.js';
 import { applyRemovalTransaction } from '../../../../src/providers/removal-transaction.js';
 
@@ -64,6 +66,31 @@ describe('receipt-backed framework file removal (#3769)', () => {
     ]);
     expect(snapshot()).toEqual(before);
   });
+  it('reports the same foreign preservation lines in preview and real removal', async () => {
+    const preview = await run(['--dry-run']);
+    const result = await run();
+    const foreign = (message: string) => message.split('\n').filter(line => line.includes(' — foreign'))
+      .map(line => line.trim().replace(/^(Would preserve|Preserve) /, ''));
+    expect(foreign(preview.message!)).toContain('.claude/agents/marketing.md — foreign ownership receipt; owned by another bundle');
+    expect(foreign(result.message!)).toEqual(foreign(preview.message!));
+  });
+  it('accounts for a released legacy skill sidecar without a stray preservation report', async () => {
+    receipt('.claude/skills/demo', { 'SKILL.md': { hash: hash('deployed'), frameworkSlug: owner } });
+    const plan = planDeploymentRemoval(root, 'claude', owner);
+    const file = path.join(root, '.claude/skills/demo/.aiwg-manifest.json');
+    expect(plan.decisions.filter(item => item.path === file)).toEqual([
+      expect.objectContaining({ action: 'remove', reason: 'ownership metadata released' }),
+    ]);
+    await applyRemovalTransaction(plan.writes);
+    expect(fs.existsSync(file)).toBe(false);
+  });
+  it('accounts for a recognized legacy sidecar even when its release emits no actions', () => {
+    receipt('.claude/skills/demo', { 'SKILL.md': { hash: hash('deployed'), frameworkSlug: owner } });
+    vi.spyOn(skillOwner, 'releaseSkillOwnership').mockReturnValueOnce(null);
+    const plan = planDeploymentRemoval(root, 'claude', owner);
+    const file = path.join(root, '.claude/skills/demo/.aiwg-manifest.json');
+    expect(plan.decisions.some(item => item.path === file && item.reason.includes('unrecorded operator file'))).toBe(false);
+  });
   it('removes every owned kind and retains marketing and operator bytes', async () => {
     const result = await run(); expect(result.exitCode, result.message).toBe(0);
     for (const file of ['agents/one.md', 'agents/two.md', 'commands/one.md', 'rules/one.md', 'skills/demo/SKILL.md']) expect(fs.existsSync(path.join(root, '.claude', file))).toBe(false);
@@ -113,11 +140,32 @@ describe('receipt-backed framework file removal (#3769)', () => {
     expect(fs.readFileSync(path.join(root, 'outside.md'), 'utf8')).toBe('deployed');
     expect(fs.lstatSync(path.join(root, '.claude/agents/link.md')).isSymbolicLink()).toBe(true);
   });
-  it('keeps settings and hook contributions and their receipts for item 3', async () => {
+  it('reports operator settings edits and retains only unresolved keys across repeated removals', async () => {
+    write('.claude/settings.json', { theme: 'operator' });
+    const before = captureDeploymentOutputs([path.join(root, '.claude')]);
+    write('.claude/settings.json', { theme: 'operator', aiwg: { mode: 'sdlc', enabled: true } });
+    recordDeploymentOutputs(before, [path.join(root, '.claude')], { frameworkSlug: owner });
+    write('.claude/settings.json', { theme: 'operator', aiwg: { mode: 'custom', enabled: true } });
+    const result = await run();
+    expect(result.exitCode, result.message).toBe(0);
+    expect(result.message).toContain('settings.json#/aiwg/mode — operator-edited settings value preserved');
+    expect(read('.claude/settings.json')).toEqual({ theme: 'operator', aiwg: { mode: 'custom' } });
+    expect(Object.keys(read('.claude/.aiwg-manifest.json').managed['settings.json'].settings)).toEqual(['/aiwg/mode']);
+    expect(read('.aiwg/aiwg.config').installed.sdlc.deployedTo.claude).toEqual({ agents: 0, commands: 0, skills: 0, rules: 0 });
+    const second = await run(); expect(second.message).toContain('operator-edited settings value preserved');
+    write('.claude/settings.json', { theme: 'operator', aiwg: { mode: 'sdlc' } });
+    const third = await run(); expect(third.exitCode, third.message).toBe(0);
+    expect(read('.claude/settings.json')).toEqual({ theme: 'operator' });
+    expect(read('.aiwg/aiwg.config').installed.sdlc).toBeUndefined();
+  });
+  it('keeps unverifiable settings while removing a verified hook script', async () => {
     write('.claude/settings.json', 'deployed'); write('.claude/hooks/check.sh', 'deployed');
     receipt('.claude', { 'settings.json': record('settings'), 'hooks/check.sh': record('hook') });
     const result = await run(); expect(result.exitCode, result.message).toBe(0);
-    expect(result.message).toContain('settings and hook recovery deferred to item 3');
+    expect(result.message).toContain('settings contributions missing or conflicting; unverifiable');
+    expect(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf8')).toBe('deployed');
+    expect(fs.existsSync(path.join(root, '.claude/hooks/check.sh'))).toBe(false);
+    expect(read('.claude/.aiwg-manifest.json').managed['hooks/check.sh']).toBeUndefined();
     expect(read('.claude/.aiwg-manifest.json').managed['settings.json'].owners).toEqual([owner]);
     expect(read('.aiwg/aiwg.config').installed.sdlc.deployedTo.claude).toEqual({ agents: 0, commands: 0, skills: 0, rules: 0 });
   });
@@ -128,7 +176,7 @@ describe('receipt-backed framework file removal (#3769)', () => {
       'CLAUDE.md': { ...record('generated'), hash: hash(content) },
     } });
     const result = await run(); expect(result.exitCode, result.message).toBe(0);
-    expect(result.message).toContain('context hook recovery deferred');
+    expect(result.message).toContain('context bridge preserved; pre-deploy operator content unverifiable');
     expect(fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8')).toBe(content);
     expect(read('.aiwg/.aiwg-manifest.json').managed['CLAUDE.md'].owners).toEqual([owner]);
   });

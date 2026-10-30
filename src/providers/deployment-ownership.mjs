@@ -14,7 +14,7 @@ const stable = value => JSON.stringify(value, (_key, child) => child && typeof c
   ? Object.fromEntries(Object.entries(child).sort(([a], [b]) => a.localeCompare(b))) : child);
 const parse = bytes => { try { return JSON.parse(bytes?.toString() || '{}'); } catch { return {}; } };
 const bundleOwner = source => extractFrameworkSlug(source) || source.replaceAll('\\', '/').match(/(?:agentic\/code|\.aiwg)\/(?:frameworks|addons|extensions|plugins)\/([^/]+)\//)?.[1];
-const ownersFor = opts => {
+export const deploymentOwner = opts => {
   const names = { sdlc: 'sdlc-complete', marketing: 'media-marketing-kit', mmk: 'media-marketing-kit',
     research: 'research-complete', forensics: 'forensics-complete', dfir: 'forensics-complete', validation: 'validation-complete', ops: 'ops-complete', general: 'writing-quality' };
   return opts.frameworkSlug || bundleOwner(`${opts.logicalInputPath?.(opts.srcRoot) || opts.srcRoot}/manifest.json`) || names[opts.mode] || opts.mode;
@@ -73,13 +73,20 @@ function leaves(value, pointer = '', out = {}) {
 }
 
 /** Settings arrays retain individual contributions so operator entries aren't claimed. */
-function settingsRecords(previous, current, prior, owner) {
+function settingsRecords(previous, current, prior, owner, claimUnchanged) {
   const records = { ...prior };
   if (current === null) return records;
   const before = previous === null ? {} : leaves(previous), after = leaves(current);
   for (const [pointer, value] of Object.entries(after)) {
-    if (stable(before[pointer]) === stable(value)) continue;
     const old = records[pointer];
+    if (stable(before[pointer]) === stable(value)) {
+      if (claimUnchanged && old?.hash === hash(stable(value))) {
+        records[pointer] = { ...old, owners: [...new Set([...(old.owners || []), owner])].sort(),
+          ...(old.contributions ? { contributions: old.contributions.map(entry => ({ ...entry,
+            owners: [...new Set([...entry.owners, ...(Array.isArray(value) || entry.hash === old.hash && !old.contributions.some(item => item.owners.includes(owner)) ? [owner] : [])])].sort() })) } : {}) };
+      }
+      continue;
+    }
     const digest = hash(stable(value));
     const verified = Object.hasOwn(before, pointer) && old?.hash === hash(stable(before[pointer]));
     const preimage = verified ? old.previous
@@ -87,7 +94,10 @@ function settingsRecords(previous, current, prior, owner) {
     const record = { hash: digest, value, previous: preimage, owners: [...new Set([...(verified ? old.owners || [] : []), owner])].sort() };
     if (!Array.isArray(value) && verified) {
       const contributions = old.contributions || [{ hash: old.hash, value: old.value, owners: old.owners }];
-      record.contributions = [...contributions.filter(entry => !entry.owners.includes(owner)), { hash: digest, value, owners: [owner] }];
+      record.contributions = [...contributions.flatMap(entry => {
+        const owners = entry.owners.filter(candidate => candidate !== owner);
+        return owners.length ? [{ ...entry, owners }] : [];
+      }), { hash: digest, value, owners: [owner] }];
     }
     if (Array.isArray(value)) {
       const previousValues = Array.isArray(before[pointer]) ? before[pointer] : [];
@@ -116,7 +126,7 @@ function artifactKind(file) {
 export function recordDeploymentOutputs(before, roots, opts = {}) {
   if (opts.dryRun) return;
   const after = captureDeploymentOutputs(roots);
-  const owner = ownersFor(opts);
+  const owner = deploymentOwner(opts);
   const manifests = new Map();
   const manifest = dir => {
     const file = path.join(dir, SIDECAR);
@@ -193,7 +203,15 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
     // Settings have key/value receipts in the same entry, never a separate store.
     if (/^(?:settings(?:\.local)?|hooks|opencode|config|aiwg\.cordis\.patch)\.(?:json|toml|ya?ml)$/.test(path.basename(file))) {
       record.kind = 'settings';
-      record.settings = settingsRecords(settingsDocument(file, before.get(file)), settingsDocument(file, bytes), previous?.settings, selectedOwner);
+      record.settingsPreimage = previous?.settingsPreimage || (!previous?.settings ? {
+        present: before.has(file), ...(before.has(file) ? { bytes: before.get(file).toString('base64'), hash: hash(before.get(file)) } : {})
+      } : undefined);
+      const claimUnchanged = opts.claimUnchangedSettings !== false
+        && !/(?:agentic\/code|\.aiwg)\/(?:addons|extensions)\//.test((opts.logicalInputPath?.(opts.srcRoot) || opts.srcRoot)?.replaceAll('\\', '/') || '');
+      record.settings = settingsRecords(settingsDocument(file, before.get(file)), settingsDocument(file, bytes), previous?.settings, selectedOwner, claimUnchanged);
+      const settingsOwners = Object.values(record.settings).flatMap(entry => entry.owners);
+      record.owners = [...new Set(settingsOwners.length ? settingsOwners
+        : [...(previous?.owners || []), ...(changed ? [selectedOwner] : [])])].sort();
     }
     receipt.managed ||= {};
     receipt.managed[name] = record;
