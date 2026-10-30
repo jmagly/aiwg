@@ -2929,13 +2929,12 @@
       "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
     },
     {
-      "path": "tools/agents/providers/base.mjs",
+      "path": "tools/agents/providers/base-behaviors.mjs",
       "owner": "tools/agents",
       "role": "producer-consumer",
       "currentVersion": "unversioned",
       "statusVocabulary": [
-        "unknown",
-        "working"
+        "unknown"
       ],
       "serialization": "typescript/javascript",
       "migrationAction": "adapt",
