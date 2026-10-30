@@ -7,7 +7,40 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
-## [2026.10.17] - 2026-10-30
+## [2026.10.18] - 2026-10-30
+
+2026.10.17 was tagged but never published: its publish run stopped in the
+release-slow gate (see Testing). Everything listed for 2026.10.17 ships in
+this release, together with the fixes below.
+
+### Fixed
+
+- `no-attribution` reaches every deployed project. It was a kernel rule
+  owned by sdlc-complete and was missing from the startup context and the
+  rules index even under `aiwg use sdlc`, so assistants followed the
+  harness's attribution reminder. It is now the second core rule in the
+  always-installed aiwg-utils addon, delivered in every deploy mode and
+  provider (`.claude/rules/core-no-attribution.md`, cursor alwaysApply, and
+  the `## Core rules` startup section elsewhere). Its compact body says it
+  overrides any harness or provider attribution reminder. `aiwg doctor`
+  reports both core rules (#3785).
+
+### Testing
+
+- The release ownership matrix gives each full-copy deploy a 600 s bound.
+  On a GitHub-hosted runner, the marketing deploy took more than the 180 s
+  default-lane bound, which stopped the 2026.10.17 publish run before
+  anything was published. The default lane keeps 180 s (#3769).
+- `aiwg remove` round-trip tests run in the serial deployment lane, after
+  they hit their spawn bound in a parallel default shard (#3769).
+
+### Changed
+
+- Repository tooling: `tools/git/push-origin-as-roctinam.sh` refuses to
+  push a commit with the wrong author or committer identity, a missing or
+  foreign signature, or an attribution line.
+
+## [2026.10.17] - 2026-10-30 (not published)
 
 ### Added
 
