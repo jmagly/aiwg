@@ -22,7 +22,9 @@ export function receipts(project: string): Map<string, any> {
 }
 export const hash = (file: string) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
 
-export function frameworkOwnershipTests(bundle: string, slug: string): void {
+// One child deploy is bounded by deployTimeoutMs. The serial release lane runs on
+// slower hosted runners, so it passes a wider bound than the default lane.
+export function frameworkOwnershipTests(bundle: string, slug: string, deployTimeoutMs = 180_000): void {
   describe(`framework deploy ownership receipts (#3769): ${bundle}`, () => {
     let scratch: string;
     let project: string;
@@ -49,11 +51,11 @@ export function frameworkOwnershipTests(bundle: string, slug: string): void {
       deploy = () => {
         const result = spawnSync(process.execPath, [path.join(ROOT, 'bin/aiwg.mjs'), 'use', bundle, '--provider', 'claude',
           '--target', project, '--scope', 'project', '--copy-all', '--no-project-local', '--json'],
-        { cwd: project, env, encoding: 'utf8', timeout: 180_000, maxBuffer: 8 * 1024 * 1024 });
+        { cwd: project, env, encoding: 'utf8', timeout: deployTimeoutMs, maxBuffer: 8 * 1024 * 1024 });
         expect(result.status, `${result.stdout}\n${result.stderr}\n${result.error || ''}`).toBe(0);
       };
       deploy();
-    }, 180_000);
+    }, deployTimeoutMs + 30_000);
     afterAll(() => { if (scratch) fs.rmSync(scratch, { recursive: true, force: true }); });
 
     it(`records every output of ${bundle} and agrees with deployedTo counts`, () => {
@@ -99,6 +101,6 @@ export function frameworkOwnershipTests(bundle: string, slug: string): void {
       const afterBound = fs.readFileSync(path.join(project, '.claude/RULES-BOUND.md'));
       expect(afterBound).toEqual(beforeBound);
       expect([...receipts(project).entries()].map(([file, entry]) => [file, entry]).sort()).toEqual(state);
-    }, 180_000);
+    }, deployTimeoutMs + 30_000);
   });
 }
