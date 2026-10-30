@@ -13,6 +13,7 @@ export interface ResearchIdentity {
   arxivId?: string;
   arxivVersion?: number;
   doi?: string;
+  alternateDois?: string[];
   s2PaperId?: string;
   openReviewId?: string;
   aclId?: string;
@@ -82,9 +83,12 @@ export function normalizeIdentity(value: ResearchIdentity | Record<string, unkno
     .map(v => typeof v === 'number' && Number.isFinite(v) ? String(v) : v)
     .find(v => typeof v === 'string' && v.trim()) as string | undefined;
   const arxiv = parseArxivId(str('arxivId', 'arxiv_id', 'arxiv') ?? '') ?? parseArxivId(str('doi') ?? '');
+  const alternateDois = Array.isArray(fields.alternateDois)
+    ? [...new Set(fields.alternateDois.flatMap(value => typeof value === 'string' ? normalizeDoi(value) ?? [] : []))] : [];
   return {
     ...(arxiv ? { arxivId: arxiv.id, arxivVersion: arxiv.version ?? (typeof fields.arxivVersion === 'number' ? fields.arxivVersion : undefined) } : {}),
     doi: normalizeDoi(str('doi', 'DOI') ?? ''),
+    ...(alternateDois.length ? { alternateDois } : {}),
     s2PaperId: str('s2PaperId', 's2_paper_id', 'paperId')?.toLowerCase(),
     openReviewId: str('openReviewId', 'openreview_id')?.toLowerCase(),
     aclId: str('aclId', 'acl_id')?.toLowerCase(),
@@ -95,8 +99,11 @@ export function normalizeIdentity(value: ResearchIdentity | Record<string, unkno
 /** Stable keys for matching any identifier or a normalized title across corpus sources. */
 export function identityKeys(value: ResearchIdentity | Record<string, unknown>): string[] {
   const identity = normalizeIdentity(value);
-  return (['arxivId', 'doi', 's2PaperId', 'openReviewId', 'aclId', 'title'] as const)
-    .flatMap(key => identity[key] ? [`${key}:${identity[key]}`] : []);
+  return [...new Set([
+    ...(['arxivId', 'doi', 's2PaperId', 'openReviewId', 'aclId', 'title'] as const)
+      .flatMap(key => identity[key] ? [`${key}:${identity[key]}`] : []),
+    ...(identity.alternateDois ?? []).map(doi => `doi:${doi}`),
+  ])];
 }
 
 /** REF spelling is case-sensitive, including the optional legacy suffix letter. */

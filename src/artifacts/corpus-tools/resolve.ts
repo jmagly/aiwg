@@ -14,6 +14,8 @@ export interface ResolutionPath {
   status: 'returned' | 'empty' | 'error';
   returned: ResearchPaper[];
   error?: string;
+  /** Only transient source failures leave the lookup incomplete. */
+  retryable?: boolean;
 }
 
 export type ResolutionFinding = {
@@ -85,7 +87,14 @@ export async function resolveReference(input: string, root: string, year?: numbe
 
   async function attempt(source: ResolutionPath['source'], method: string, query: string, run: () => Promise<ResearchPaper[]>, byId = false): Promise<void> {
     try {
-      const returned = (await run()).slice(0, 5).map(canonicalPaper);
+      const returned = (await run()).slice(0, 5).flatMap(paper => {
+        try { return [canonicalPaper(paper)]; }
+        catch (error) {
+          // Missing years are record quality, not a failed request; retain valid siblings.
+          if (error instanceof ResearchError && error.code === ResearchErrorCode.RF_301) return [];
+          throw error;
+        }
+      });
       if (returned.some(paper => !paper.id || !normalizeTitle(paper.title))) {
         throw new ResearchError(ResearchErrorCode.RF_301, 'Response lacks a paper identity or title');
       }
@@ -110,8 +119,13 @@ export async function resolveReference(input: string, root: string, year?: numbe
       }
     } catch (error) {
       const missing = error instanceof ResearchError && error.code === ResearchErrorCode.RF_300;
+      const retryable = error instanceof ResearchError && [
+        ResearchErrorCode.RF_103, ResearchErrorCode.RF_104, ResearchErrorCode.RF_200,
+        ResearchErrorCode.RF_201, ResearchErrorCode.RF_202, ResearchErrorCode.RF_500,
+        ResearchErrorCode.RF_501, ResearchErrorCode.RF_502,
+      ].includes(error.code);
       paths.push({ source, method, query, status: missing ? 'empty' : 'error', returned: [],
-        ...(missing ? {} : { error: error instanceof Error ? error.message : String(error) }) });
+        ...(missing ? {} : { error: error instanceof Error ? error.message : String(error), retryable }) });
     }
   }
 
@@ -152,12 +166,14 @@ export async function resolveReference(input: string, root: string, year?: numbe
     }
   }
   const classified = classifyCandidates(candidates);
-  const incomplete = paths.some(path => path.status === 'error');
+  const incomplete = paths.some(path => path.retryable);
   const titleAmbiguous = needsTitleDisambiguation(reference, candidates, incomplete);
   const status = classified === 'unresolved' && incomplete ? 'deferred'
     : classified === 'resolved' && (identifierUnresolved || titleAmbiguous) ? 'ambiguous' : classified;
   if (titleAmbiguous && classified !== 'unresolved') findings.push({ type: 'title_ambiguous',
-    supplied: reference.title!, returned: 'Supply a year, author, or verified identifier to disambiguate this title' });
+    supplied: reference.title!, returned: reference.year === undefined
+      ? 'Supply a year, author, or verified identifier to disambiguate this title'
+      : 'Supply an author or verified identifier to disambiguate this title' });
   const paper = status === 'resolved' ? candidates[0].paper : undefined;
   const corpusMatches = paper ? findInCorpus(root, paper) : [];
   return { input, reference, status, incomplete, candidates,
