@@ -4,7 +4,7 @@ triggers:
   - should I add a co-authored-by line
   - how do I write the commit message
   - AI attribution in commits
-activation: kernel
+activation: core
 summary: Omit AI tool attribution, signatures, and branding from commits, pull requests, code, documentation, and generated content.
 ---
 

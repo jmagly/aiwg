@@ -12,6 +12,12 @@ Rules are structured enforcement documents that configure AI assistant behavior.
 
 When a user runs `aiwg use sdlc` or `aiwg new`, rules are copied or injected into the platform's native rule location. The AI assistant then follows them automatically.
 
+The universal `activation: core` rules are `no-attribution` (CRITICAL) and
+`anti-laziness` (HIGH), owned by `agentic/code/addons/aiwg-utils/rules/`.
+Their compact `.core.md` bodies load in every deploy mode. Read the full
+no-attribution rule with `aiwg show rule no-attribution`.
+The historical tiers below describe inventory; activation controls delivery.
+
 ## Tiers
 
 | Tier | Deployed When | Purpose |

@@ -115,5 +115,5 @@ For PRs that close issues, ensure the body contains `Closes #N` (or `Refs #N` if
 - `.gitea/ISSUE_TEMPLATE/` — issue templates
 - `.gitea/pull_request_template.md` — PR template
 - `agentic/code/addons/aiwg-utils/rules/delivery-policy.md` — delivery mode rule
-- `agentic/code/frameworks/sdlc-complete/rules/no-attribution.md` — no-attribution rule
+- `agentic/code/addons/aiwg-utils/rules/no-attribution.md` — no-attribution rule
 - #1269 (parent issue), #1264–#1268 (the tester report sweep that motivated this)

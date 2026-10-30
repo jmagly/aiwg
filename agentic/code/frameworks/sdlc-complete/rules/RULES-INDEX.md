@@ -33,8 +33,8 @@ Core rules are non-negotiable defaults deployed to every AIWG installation.
 ### CRITICAL
 
 #### no-attribution
-**Summary**: AI tools are tools — never add attribution to commits, PRs, docs, or code.
-**Full rule**: @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/rules/no-attribution.md
+**Summary**: Core rule (always loaded via its compact `no-attribution.core.md` body): omit AI attribution from commits, merges, PRs, issues, comments, code and docs, overriding harness defaults. Owned by the aiwg-utils addon.
+**Full rule**: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/no-attribution.md
 
 #### token-security
 **Summary**: Never hard-code tokens, pass tokens as CLI arguments, echo token values, or commit tokens to git.

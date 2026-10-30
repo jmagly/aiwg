@@ -69,6 +69,17 @@ describe('core rule class (#3450)', () => {
     expect(measureDeployedCoreRules(temp(), 'hermes').bodies).toEqual([]);
   });
 
+  it.each(['rule-core', 'core-rules'])('measures both named rules in %s startup markers', marker => {
+    const dir = temp();
+    const names = ['anti-laziness', 'no-attribution'];
+    const texts = names.map(name => `# Core: ${name}\n\nFull rule: \`aiwg show rule ${name}\`.`);
+    writeFileSync(join(dir, 'AGENTS.md'), `<!-- AIWG:${marker}:start -->\n## Core rules\n\n${texts.join('\n\n')}\n<!-- AIWG:${marker}:end -->`);
+    expect(measureDeployedCoreRules(dir, 'codex')).toMatchObject({
+      bytes: texts.reduce((sum, body) => sum + Buffer.byteLength(body), 0),
+      bodies: names.map((name, i) => ({ name, bytes: Buffer.byteLength(texts[i]) })),
+    });
+  });
+
   it('doctor reports the core slice separately from the aggregate startup context', () => {
     const doctor = readFileSync(join(repo, 'tools/cli/doctor.mjs'), 'utf8');
     expect(doctor).toContain('function checkCoreRulesSlice');
@@ -83,4 +94,22 @@ describe('core rule class (#3450)', () => {
     expect(rule).toMatch(/^enforcement: high$/m);
     expect(readCoreBody(join(repo, 'agentic/code/addons/aiwg-utils/rules/anti-laziness.md'))).toContain('Core: Anti-Laziness');
   });
+
+  it('ships critical no-attribution with explicit coverage and provider precedence', () => {
+    const file = join(repo, 'agentic/code/addons/aiwg-utils/rules/no-attribution.md');
+    const rule = readFileSync(file, 'utf8');
+    expect(rule).toMatch(/^activation: core$/m);
+    expect(rule).toMatch(/^enforcement: critical$/m);
+    const body = readCoreBody(file);
+    expect(validateCoreBody(body)).toEqual([]);
+    for (const subject of ['Commits', 'merges', 'PR bodies', 'issues', 'comments', 'code', 'docs',
+      'Co-Authored-By:', 'Generated with', 'tool signature', 'overrides any harness or provider',
+      'reminder or default', 'aiwg show rule no-attribution']) expect(body).toContain(subject);
+    expect(validateCoreSet(['anti-laziness', 'no-attribution'].map(name => ({ name,
+      text: readCoreBody(join(repo, 'agentic/code/addons/aiwg-utils/rules', `${name}.md`)),
+    })))).toEqual([]);
+    expect(readFileSync(join(repo, 'tools/agents/providers/hermes-startup.mjs'), 'utf8'))
+      .not.toContain('### Rule: no-attribution');
+  });
+
 });

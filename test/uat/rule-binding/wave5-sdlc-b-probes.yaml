@@ -494,7 +494,7 @@ rules:
             path: reason
             pattern: \S
   - id: no-attribution
-    source: agentic/code/frameworks/sdlc-complete/rules/no-attribution.md
+    source: agentic/code/addons/aiwg-utils/rules/no-attribution.md
     probes:
       - id: positive-1
         kind: positive

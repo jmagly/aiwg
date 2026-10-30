@@ -3,13 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findPackageRoot } from '../cli/find-package-root.js';
-import { parseRuleFrontmatter, readCoreBody, validateCoreSet } from './activation.mjs';
+import { parseRuleFrontmatter, readCoreBody, validateCoreSet, CORE_RULES_START, CORE_RULES_END } from './activation.mjs';
 
 export function renderCoreStartup(rules) {
   const cores = [...new Map(rules.filter(rule => rule.coreBody !== undefined).map(rule => [rule.name, rule])).values()];
   const errors = validateCoreSet(cores.map(rule => ({ name: rule.name, text: rule.coreBody })));
   if (errors.length) throw new Error(errors.join('; '));
-  return cores.length ? `<!-- AIWG:rule-core:start -->\n## Core rules\n\n${cores.map(rule => rule.coreBody).join('\n\n')}\n<!-- AIWG:rule-core:end -->\n` : '';
+  return cores.length ? `${CORE_RULES_START}\n## Core rules\n\n${cores.map(rule => rule.coreBody).join('\n\n')}\n${CORE_RULES_END}\n` : '';
 }
 
 export function ensureCoreStartup(content) {

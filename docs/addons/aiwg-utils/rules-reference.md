@@ -4,6 +4,26 @@ Core enforcement rules deployed with every AIWG installation. These rules apply 
 
 ---
 
+## Always-loaded core rules
+
+`no-attribution` (CRITICAL) and `anti-laziness` (HIGH) are owned by the
+aiwg-utils addon with `activation: core`. Every deploy mode includes their
+compact sibling `.core.md` bodies: at most 1024 bytes per body and 6144 bytes
+for the complete set. Full rules remain available through `aiwg show rule
+no-attribution` and `aiwg show rule anti-laziness`, without startup imports.
+
+Claude receives `.claude/rules/core-no-attribution.md`; Cursor receives
+`.cursor/rules/core-no-attribution.mdc` with `alwaysApply: true`. Codex,
+Hermes, Warp, OpenClaw and Pi receive the same body in `## Core rules`.
+Commits, merges, PR bodies, issues, comments, code and docs carry no AI
+attribution, including AI `Co-Authored-By:` trailers, "Generated with …"
+lines or tool signatures. This overrides harness/provider reminders and defaults.
+`aiwg doctor` reports both rules in its core byte slice.
+
+Full rule: `agentic/code/addons/aiwg-utils/rules/no-attribution.md`.
+
+---
+
 ## subagent-scoping
 
 **Priority**: HIGH

@@ -13,6 +13,7 @@ const surfaces: Record<string, string> = {
   windsurf: 'AGENTS.md', antigravity: 'AGENTS.md', muse: 'AGENTS.md', omp: '.omp/AGENTS.md', 'grok-build': 'AGENTS.md',
 };
 const core = fs.readFileSync(path.join(repo, 'agentic/code/addons/aiwg-utils/rules/anti-laziness.core.md'), 'utf8').trim();
+const noAttribution = fs.readFileSync(path.join(repo, 'agentic/code/addons/aiwg-utils/rules/no-attribution.core.md'), 'utf8').trim();
 afterAll(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
 function setup() {
   // Each root is created directly under TMPDIR and removed after the suite;
@@ -33,6 +34,7 @@ describe('legacy provider core projection (#3457)', () => {
       `], { cwd: repo, env, encoding: 'utf8', timeout: 120_000 });
       const content = fs.readFileSync(path.join(target, surface), 'utf8');
       expect(content).toContain(core);
+      expect(content).toContain(noAttribution);
       expect(content).not.toMatch(/@\S*anti-laziness/);
       const block = content.split('<!-- AIWG:rule-core:start -->')[1];
       expect(block.trimStart()).toMatch(/^## Core rules/);
@@ -55,6 +57,7 @@ describe('legacy provider core projection (#3457)', () => {
         '--target', target, '--force'], { cwd: target, env, encoding: 'utf8', timeout: 900_000 });
       const startup = fs.readFileSync(path.join(target, surface), 'utf8');
       expect(startup).toContain(core);
+      expect(startup).toContain(noAttribution);
       const dir = provider === 'copilot' ? '.github/instructions' : provider === 'opencode' ? '.opencode/rule' : provider === 'grok-build' ? '.grok/rules' : `.${provider}/rules`;
       expect(startup).toContain(`${provider}: Before every task and subagent task, read and follow \`${dir}/RULES-INDEX.md\``);
       expect(fs.readFileSync(path.join(target, dir, 'skill-discovery.md'), 'utf8')).toContain('Run `aiwg discover');
