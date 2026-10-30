@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, readFileSync, existsSync, readdirSync, mkdirSync, 
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { measureDeployedCoreRules } from '../../../src/rules/activation.mjs';
 
 // Core rule class (#3450): compact bodies always injected into every harness.
 const repo = resolve(__dirname, '../../..');
@@ -12,12 +13,15 @@ afterEach(() => roots.splice(0).forEach(root => rmSync(root, { recursive: true, 
 const walk = (dir: string): string[] => existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]) : [];
 const CORE = readFileSync(join(repo, 'agentic/code/addons/aiwg-utils/rules/anti-laziness.core.md'), 'utf8').trim();
 const MARKER = '# Core: Anti-Laziness';
+const NO_ATTRIBUTION = readFileSync(join(repo, 'agentic/code/addons/aiwg-utils/rules/no-attribution.core.md'), 'utf8').trim();
 const PROVIDER_FILES: Record<string, string[]> = {
   claude: ['.claude/rules/core-anti-laziness.md'],
   cursor: ['.cursor/rules/core-anti-laziness.mdc'],
   codex: ['AGENTS.md'],
   hermes: ['AGENTS.md'],
   warp: ['WARP.md'],
+  openclaw: ['../home/.openclaw/workspace/AGENTS.md'],
+  pi: ['AGENTS.md'],
 };
 
 function run(srcRoot: string, target: string, provider: string, extra: Record<string, unknown> = {}, env: Record<string, string> = {}) {
@@ -27,7 +31,7 @@ function run(srcRoot: string, target: string, provider: string, extra: Record<st
     const report = await deploy(${JSON.stringify(opts)});
     console.log('REPORT:' + JSON.stringify(report));
   `], { cwd: repo, env: { ...process.env, HOME: join(target, '../home'), HERMES_HOME: join(target, '../home/.hermes'),
-    AIWG_ROOT: srcRoot, AIWG_RULES_INLINE_BUDGET_TOKENS: '0', ...env }, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] });
+    AIWG_ROOT: srcRoot, OPENCLAW_PROFILE: 'default', AIWG_RULES_INLINE_BUDGET_TOKENS: '0', ...env }, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] });
 }
 function tempRoot() {
   const root = mkdtempSync(join(tmpdir(), 'aiwg-core-rules-'));
@@ -54,13 +58,40 @@ describe('core rule delivery (#3450)', () => {
       for (const name of PROVIDER_FILES[provider]) {
         const content = readFileSync(join(root, 'target', name), 'utf8');
         expect(content).toContain(CORE);
+        const attributionFile = name.replace('anti-laziness', 'no-attribution');
+        const attribution = readFileSync(join(root, 'target', attributionFile), 'utf8');
+        expect(attribution).toContain(NO_ATTRIBUTION);
+        if (provider === 'cursor') expect(attribution).toContain('alwaysApply: true');
+        if (!['claude', 'cursor'].includes(provider)) expect(attribution).toContain('## Core rules');
       }
       // sdlc-complete rules are absent in this mode, proving independence from the framework
       const all = walk(join(root, 'target')).filter(f => /\.(md|mdc)$/.test(f)).map(f => readFileSync(f, 'utf8')).join('\n');
       expect(all).not.toContain('agent-friendly-code');
       // The full rule is reachable by command only and is never imported.
       expect(all).not.toMatch(/@[^\s)`]*anti-laziness/);
+      expect(all).not.toMatch(/@[^\s)`]*no-attribution/);
+      const measured = measureDeployedCoreRules(provider === 'openclaw' ? join(root, 'home/.openclaw/workspace') : join(root, 'target'), provider);
+      expect(measured.bodies.map(body => body.name).join(' ')).toContain('anti-laziness');
+      expect(measured.bodies.map(body => body.name).join(' ')).toContain('no-attribution');
+      expect(measured.bytes).toBeLessThanOrEqual(measured.limit);
     }, 120_000);
+  }
+
+  for (const provider of Object.keys(PROVIDER_FILES)) {
+    for (const mode of ['sdlc', 'all', 'kernel-only']) {
+      it(`${provider}: ${mode} delivers both shipped core bodies`, () => {
+        const root = tempRoot();
+        run(repo, join(root, 'target'), provider, {
+          mode: mode === 'kernel-only' ? 'all' : mode, kernelOnly: mode === 'kernel-only',
+          config: { installed: { sdlc: {} } },
+        });
+        for (const name of PROVIDER_FILES[provider]) {
+          expect(readFileSync(join(root, 'target', name), 'utf8')).toContain(CORE);
+          expect(readFileSync(join(root, 'target', name.replace('anti-laziness', 'no-attribution')), 'utf8'))
+            .toContain(NO_ATTRIBUTION);
+        }
+      }, 120_000);
+    }
   }
 
   it('places the core section first in the managed startup block, before kernel rules', () => {

@@ -146,6 +146,7 @@
     "session-harvest"
   ],
   "rules": [
+    "no-attribution",
     "no-time-estimates",
     "agent-deployment",
     "context-bloat",

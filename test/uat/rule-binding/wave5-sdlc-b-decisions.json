@@ -20,7 +20,7 @@
   {
     "rule": "no-attribution",
     "enforcement": "critical",
-    "activation": "kernel",
+    "activation": "core",
     "reason": "Universal output-authorship guard: any role can emit branded content before selecting an artifact or path. Compact the mandatory core to preserve full-body delivery within the Hermes hard cap."
   },
   {

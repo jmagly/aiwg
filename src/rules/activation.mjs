@@ -12,8 +12,8 @@ export const RULE_ACTIVATIONS = Object.freeze(['core', 'kernel', 'summary', 'bou
 // `aiwg show rule <name>`, never an @ import.
 export const CORE_BODY_MAX_BYTES = 1024;
 export const CORE_TOTAL_MAX_BYTES = 6144;
-export const CORE_RULES_START = '<!-- AIWG:core-rules:start -->';
-export const CORE_RULES_END = '<!-- AIWG:core-rules:end -->';
+export const CORE_RULES_START = '<!-- AIWG:rule-core:start -->';
+export const CORE_RULES_END = '<!-- AIWG:rule-core:end -->';
 const AT_IMPORT = /(?:^|[\s(`"'])@[\w$.\/-]*[\/.][\w$.\/-]*/m;
 
 export const RULE_BINDING_TYPES = Object.freeze({ skills: 'skill', agents: 'agent', flows: 'flow' });
@@ -147,12 +147,21 @@ export function measureDeployedCoreRules(target, provider, rulesDir) {
       const file = path.join(target, name);
       if (!existsSync(file)) continue;
       const content = readFileSync(file, 'utf8');
-      const start = content.indexOf(CORE_RULES_START);
-      const end = content.indexOf(CORE_RULES_END);
-      if (start >= 0 && end > start) {
-        bodies.push({ name, bytes: Buffer.byteLength(content.slice(start + CORE_RULES_START.length, end).trim(), 'utf8') });
+      for (const [startMarker, endMarker] of [[CORE_RULES_START, CORE_RULES_END],
+        ['<!-- AIWG:core-rules:start -->', '<!-- AIWG:core-rules:end -->']]) {
+        const start = content.indexOf(startMarker);
+        const end = content.indexOf(endMarker);
+        if (start < 0 || end <= start) continue;
+        const section = content.slice(start + startMarker.length, end).trim();
+        const parts = section.replace(/^## Core rules\s*/, '').split(/(?=^# Core: )/m).filter(text => text.trim());
+        const named = parts.every(text => /^# Core: /m.test(text));
+        for (const text of named ? parts : [section]) {
+          const ruleName = text.match(/aiwg show rule ([\w-]+)/)?.[1];
+          bodies.push({ name: ruleName || name, bytes: Buffer.byteLength(text.trim(), 'utf8') });
+        }
         break;
       }
+      if (bodies.length) break;
     }
   }
   return { bodies, bytes: bodies.reduce((sum, item) => sum + item.bytes, 0), limit: CORE_TOTAL_MAX_BYTES };

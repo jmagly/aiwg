@@ -56,9 +56,11 @@
   "rules": [
     {
       "name": "no-attribution",
-      "file": "no-attribution.md",
+      "file": "../../../addons/aiwg-utils/rules/no-attribution.md",
       "enforcement": "critical",
       "tier": "core",
+      "activation": "core",
+      "home": "aiwg-utils",
       "description": "Zero AI attribution in commits, PRs, docs, and code across all platforms",
       "issue": "#295"
     },

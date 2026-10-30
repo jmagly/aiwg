@@ -30,10 +30,12 @@ describe('Wave 5 sdlc-b canonical rule delivery (#2945)', () => {
     bundle = path.join(source, 'agentic/code/addons/wave5-sdlc-b');
     fs.mkdirSync(path.join(bundle, 'rules'), { recursive: true });
     rules = wave.map(name => {
-      const owner = 'frameworks/sdlc-complete';
+      const owner = name === 'no-attribution' ? 'addons/aiwg-utils' : 'frameworks/sdlc-complete';
       const file = path.join(repo, 'agentic/code', owner, 'rules', `${name}.md`);
       fs.copyFileSync(file, path.join(bundle, 'rules', `${name}.md`));
-      return { name, data: metadata(file) };
+      const data = metadata(file);
+      if (data.activation === 'core') fs.copyFileSync(file.replace(/\.md$/, '.core.md'), path.join(bundle, 'rules', `${name}.core.md`));
+      return { name, data };
     });
     // Real indexed names and paths exercise display-name/slugs and canonical
     // precedence; no hand-built binding entries can hide unresolved targets.
@@ -70,12 +72,13 @@ describe('Wave 5 sdlc-b canonical rule delivery (#2945)', () => {
       expect(decisions).toContainEqual(expect.objectContaining({ rule: name,
         activation: data.activation, enforcement: data.enforcement, reason: expect.stringMatching(/\S/) }));
       expect([...data.summary].length).toBeLessThanOrEqual(240);
-      if (data.activation === 'kernel') expect(data.bound_to).toBeUndefined();
+      if (['core', 'kernel'].includes(data.activation)) expect(data.bound_to).toBeUndefined();
       else expect(Object.values(data.bound_to).flat().length).toBeGreaterThan(0);
       expect(Object.values(data.bound_to ?? {}).flat().every(id => !String(id).includes('*'))).toBe(true);
     }
     expect(rules.filter(rule => rule.data.activation === 'kernel').map(rule => rule.name).sort())
-      .toEqual(['no-attribution', 'token-security']);
+      .toEqual(['token-security']);
+    expect(rules.find(rule => rule.name === 'no-attribution')!.data.activation).toBe('core');
     expect(rules.find(rule => rule.name === 'versioning')!.data.activation).toBe('paths');
     expect(rules.find(rule => rule.name === 'sdlc-orchestration')!.data.paths).toContain('.aiwg/**');
   });
@@ -187,6 +190,10 @@ describe('Wave 5 sdlc-b canonical rule delivery (#2945)', () => {
     for (const { name, data } of rules) {
       const canonical = read(path.join(bundle, 'rules', `${name}.md`));
       const body = canonical.replace(/^---\n[\s\S]*?\n---\s*/, '').trim();
+      if (data.activation === 'core') {
+        expect(startup).toContain(read(path.join(bundle, 'rules', `${name}.core.md`)).trim());
+        expect(startup).not.toContain(body);
+      }
       if (data.activation === 'kernel') expect(startup, `${provider}: ${name}`).toContain(body);
       if (data.activation === 'summary') {
         expect(startup).toContain(data.summary);

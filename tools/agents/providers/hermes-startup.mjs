@@ -58,11 +58,6 @@ whenever the user mentions AIWG, a framework name (sdlc, research, forensics,
 ops, marketing, security-engineering, media-curator, knowledge-base), or
 capability keywords (skill, agent, command, rule, workflow).
 
-### Rule: no-attribution
-Never add AI-tool attribution to commits, PRs, code, or docs. No \`Co-Authored-By:\`,
-no "Generated with", no "Written by [AI tool]". The AI is a tool; tools don't sign
-their output. Applies to ALL platforms (Claude, Codex, Copilot, Cursor, etc.).
-
 ### Rule: citation-policy
 Never fabricate citations, DOIs, URLs, or page numbers. Only cite sources that
 exist in the research corpus (.aiwg/research/sources/). Match claim strength
