@@ -144,8 +144,11 @@ HeldoutFrozen / first-access record, never a binding field (the binding's
 seal is an unkeyed integrity digest, not an authenticity proof: any caller
 can compute one, so `holdout` is a trusted caller input in the same trust
 class as `trustedBindingDigest`. Callers must build it from the held-out
-collector's verified HeldoutFrozen and access records; an entry point that
-accepts and verifies the HeldoutFrozen record itself is tracked in #2833. A
+collector's verified HeldoutFrozen and access records. The shipped
+`evaluateGatesFromHeldoutFrozen` / `sealGateHoldoutFromFrozen` entry points
+in `src/gates/heldout.ts` verify the frozen bundle, pinned analysis and signed
+first-access record before deriving those inputs; see
+[the HeldoutFrozen boundary](heldout-gate-boundary.md). A
 missing or unsealed record, a seal mismatch, a frozen-record digest mismatch,
 or a freeze at or after first access refuses evaluation. `firstAccessedAt`
 may be null only when the binding declares no held-out split (no
@@ -374,13 +377,3 @@ shipped integrity-ceiling pack plus the `coverage-floor` conformance fixture
 pack (`test/conformance/gates-v1/fixtures/`); live discovery ranking against
 a full index is not asserted. No live criterion is met; the harness above is
 what those phases build on.
-
-there is no CLI (`aiwg gates`, #2830) and D29 is the only study migrated to
-bindings (#2833). Addon/extension provider loading (#2831) is implemented as an
-experimental default-off offline harness (code digests, mandatory review,
-sealed sections, timeouts); live provider qualification, real held-out
-provider data, human review sign-off beyond the fixture attestation and
-production rollout remain pending. Project floors in `aiwg.config` (#2832)
-are implemented as a trusted registry/evaluator input with the default
-integrity-ceiling floor; D29 resolves with those floors offline. No live
-criterion is met; the harness above is what those phases build on.
