@@ -193,6 +193,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.10.17-announcement",
     "releases/v2026.10.16-announcement",
     "releases/v2026.10.15-announcement",
     "releases/v2026.10.14-announcement",
@@ -1647,6 +1648,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.10.17-announcement",
+      "title": "v2026.10.17 — Undo a Setup and Get Answers You Can Trust",
+      "summary": "Remove a framework cleanly while keeping your edits, the same rules from search and details, resource checks that say how fresh they are, and refused helper requests that say why.",
+      "file": "releases/v2026.10.17-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.10.16-announcement",
