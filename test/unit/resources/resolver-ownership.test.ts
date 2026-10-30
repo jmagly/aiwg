@@ -24,7 +24,7 @@ describe("AIWG resource resolver ownership", () => {
       "src/resources/resolver.ts",
       "src/resources/web-release.ts",
       // #3306: `aiwg show --resource` reads a verified companion file for the card.
-      "src/artifacts/query-engine.ts",
+      "src/artifacts/query-engine-show-card.ts",
     ]);
     const offenders = walk(path.join(REPO_ROOT, "src"))
       .filter((pathname) => !allowed.has(path.relative(REPO_ROOT, pathname).replace(/\\/g, "/")))
