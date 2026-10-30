@@ -1,6 +1,6 @@
 # ADR: First-class declarative gates
 
-- Status: **proposed** — draft for operator acceptance; implementation is not acceptance.
+- Status: **accepted** by the operator on 2026-10-30 (release 17 plan item 15): the ownership and trust boundary as written, with #2834 then #2835 as fixture-parity migrations. #2836 and #2837 stay alternates. Acceptance grants no live-run, promotion or default-activation authority.
 - Updated: 2026-10-30, against the 2026.10.16 source tree.
 - Tracking: [#2825](https://git.integrolabs.net/roctinam/aiwg/issues/2825);
   parent epic [#2824](https://git.integrolabs.net/roctinam/aiwg/issues/2824);
@@ -268,8 +268,7 @@ this draft.
 1. **Accept this ownership/trust boundary?** Options: accept, request amendments
    or defer. **Recommendation:** accept after review while retaining experimental
    opt-in operation and the distinction between caller-trusted core inputs and
-   verified HeldoutFrozen entry. Record the operator approval reference before
-   changing status; it remains **proposed**.
+   verified HeldoutFrozen entry. Accepted by the operator on 2026-10-30.
 2. **Approve D23/D17 migration scope?** Options: fixture-parity migrations in
    that order, defer, or expand behavior. **Recommendation:** #2834 then #2835
    after acceptance, preserving historical decisions, integrity ceilings and
