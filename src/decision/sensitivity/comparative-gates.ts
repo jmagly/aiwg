@@ -4,7 +4,7 @@ import { evaluateGates, sealGateHoldout, sealUpstream, type EvaluateGatesInput }
 import { GateRegistry } from '../../gates/registry.js';
 import { createCoreProviderRegistry, evidenceProvider, pairedProvider, proportionProvider } from '../../gates/providers/index.js';
 import { qualifyGateParameter, type GateBinding, type GateDefinition, type GatePack, type GateReport } from '../../gates/types.js';
-import type { ComparativeReplayInput, ComparativeReplayPreregistration, ComparativeReplayReport } from './comparative.js';
+import type { ComparativeReplayInput, ComparativeReplayReport } from './comparative.js';
 
 export const COMPARATIVE_REPLAY_POLICY = {
   minimumTestRoots: 400, minimumSliceRoots: 100, levelBps: 9500,
@@ -22,7 +22,7 @@ const CHECKS = ['reports-valid', 'zero-call-budget-violated', 'reproduction-mism
   'integrity-sample-mismatch', 'reviewer-audit-pending'] as const;
 const NON_DIAGNOSTIC = new Set(['integrity-ceiling', 'integrity-sample-mismatch', 'reviewer-audit-pending']);
 
-function replayPack(plan: ComparativeReplayPreregistration): GatePack {
+function replayPack(): GatePack {
   const errors = { provider: proportionProvider.id, name: 'false-ready' };
   const gate = (id: string, kind: GateDefinition['kind'], rest: Partial<GateDefinition>): GateDefinition =>
     ({ id, kind, scope: ALL, direction: LOWER, onFail: 'HOLD', ...rest });
@@ -34,6 +34,7 @@ function replayPack(plan: ComparativeReplayPreregistration): GatePack {
         minimumTestRoots: { type: 'count', direction: HIGHER },
         minimumSliceRoots: { type: 'count', direction: HIGHER },
         levelBps: { type: 'level', direction: HIGHER },
+        nonInferiorityMarginBps: { type: 'value', direction: HIGHER },
         maxErrorUpperBps: { type: 'bps', direction: LOWER },
         maxSliceErrorUpperBps: { type: 'bps', direction: LOWER },
       },
@@ -52,7 +53,7 @@ function replayPack(plan: ComparativeReplayPreregistration): GatePack {
         gate('non-inferiority-failed', 'paired-difference', {
           metric: { provider: pairedProvider.id, name: 'contrast' }, direction: HIGHER,
           statistic: { kind: 'paired-difference', method: 'newcombe', levelBps: { param: 'levelBps' },
-            mode: 'non-inferiority', marginBps: plan.nonInferiorityMarginBps },
+            mode: 'non-inferiority', marginBps: { param: 'nonInferiorityMarginBps' } },
         }),
         gate('error-bound-failed', 'interval-bound', { metric: errors,
           statistic: { kind: 'interval-bound', method: 'wilson', bound: 'upper', levelBps: { param: 'levelBps' } },
@@ -79,9 +80,13 @@ export function comparativeReplayGateInput(input: ComparativeReplayInput,
     'backendCalls' | 'tokens' | 'costMicros' | 'exactReproduction'>,
   reportFindings: ReadonlySet<string>): EvaluateGatesInput {
   const plan = input.preregistration;
+  if (plan.pairedMethod !== COMPARATIVE_REPLAY_POLICY.pairedMethod
+    || plan.errorMethod !== COMPARATIVE_REPLAY_POLICY.errorMethod) {
+    throw new Error('D23 comparative replay requires pairedMethod newcombe-10 and errorMethod wilson');
+  }
   const providers = createCoreProviderRegistry();
   const registry = new GateRegistry(providers);
-  registry.registerPack(replayPack(plan), { namespace: 'project' });
+  registry.registerPack(replayPack(), { namespace: 'project' });
   const pack = registry.resolvePack(PACK_ID);
   const metricProviders = [proportionProvider, pairedProvider, evidenceProvider];
   const binding: GateBinding = {
@@ -90,7 +95,7 @@ export function comparativeReplayGateInput(input: ComparativeReplayInput,
     spec: {
       packs: [{ id: PACK_ID, version: '1.0.0', digest: pack.digest, resolvedDigest: pack.resolvedDigest }],
       parameters: Object.fromEntries(['minimumTestRoots', 'minimumSliceRoots', 'levelBps',
-        'maxErrorUpperBps', 'maxSliceErrorUpperBps'].map(name =>
+        'nonInferiorityMarginBps', 'maxErrorUpperBps', 'maxSliceErrorUpperBps'].map(name =>
         [qualifyGateParameter(PACK_ID, name), plan[name as keyof typeof COMPARATIVE_REPLAY_POLICY] as number])),
       slices: [...SLICES], references: [],
       metricProviders: metricProviders.map(({ id, version, sourceDigest }) => ({ id, version, sourceDigest })),
@@ -134,8 +139,8 @@ export function evaluateComparativeReplayGates(...args: Parameters<typeof compar
 /** Translate gate evidence to the retained D23 finding vocabulary without re-evaluating thresholds. */
 export function comparativeReplayGateFindings(report: GateReport): { findings: string[]; diagnosticDecision: 'pass' | 'fail' } {
   const failed = report.gateEvidence.filter(gate => gate.status !== 'pass');
-  const findings = failed.filter(gate => gate.gateId !== 'reports-valid' && gate.gateId !== 'integrity-ceiling')
-    .map(gate => gate.gateId.startsWith('slice-') ? `slice-failed:${gate.slice}` : gate.gateId);
-  findings.push(...(report.upstream?.reasons ?? []).map(reason => reason.replace(/^upstream:/, '')));
-  return { findings, diagnosticDecision: failed.some(gate => !NON_DIAGNOSTIC.has(gate.gateId)) ? 'fail' : 'pass' };
+  const findings = new Set(failed.filter(gate => gate.gateId !== 'reports-valid' && gate.gateId !== 'integrity-ceiling')
+    .map(gate => gate.gateId.startsWith('slice-') ? `slice-failed:${gate.slice}` : gate.gateId));
+  for (const reason of report.upstream?.reasons ?? []) findings.add(reason.replace(/^upstream:/, ''));
+  return { findings: [...findings], diagnosticDecision: failed.some(gate => !NON_DIAGNOSTIC.has(gate.gateId)) ? 'fail' : 'pass' };
 }
