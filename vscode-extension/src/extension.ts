@@ -166,9 +166,11 @@ async function maybePromptInit(workspaceRoot: string): Promise<void> {
   const config = vscode.workspace.getConfiguration('aiwg');
   if (!config.get<boolean>('init.autoPrompt')) return;
 
-  const configUri = vscode.Uri.file(`${workspaceRoot}/.aiwg/aiwg.config.json`);
-  const exists = await vscode.workspace.fs.stat(configUri).then(() => true, () => false);
-  if (exists) return;
+  for (const filename of ['aiwg.config', 'aiwg.config.json']) {
+    const configUri = vscode.Uri.file(`${workspaceRoot}/.aiwg/${filename}`);
+    const exists = await vscode.workspace.fs.stat(configUri).then(() => true, () => false);
+    if (exists) return;
+  }
 
   const action = await vscode.window.showInformationMessage(
     'No AIWG config found in this project. Initialize AIWG?',
