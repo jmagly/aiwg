@@ -107,7 +107,9 @@ describe('compound action discovery (#3292)', () => {
     expect(reader.ruleStats('flow', 'release').required_checks).toBe(1);
     const pinnedId = relationId(entries.find(entry => entry.name === 'bound')!);
     const pinnedReader = new RelationsReader(buildRelations(entries), new Set([pinnedId]));
-    expect(compoundGoverningRules([], target('work'), pinnedReader, 'approval request').map(item => item.rule.name)).toEqual(['paths', 'trigger']);
+    const pinnedRules = compoundGoverningRules([], target('work'), pinnedReader, 'approval request');
+    expect(pinnedRules.map(item => item.rule.name)).toEqual(['bound', 'paths', 'trigger']);
+    expect(pinnedRules[0].rule.activation).toBe('kernel');
     expect(pinnedReader.pinnedRuleIds.has(pinnedId)).toBe(true);
     expect(pinnedReader.ruleStats('skill', 'work').by_activation.kernel).toBe(1);
   });

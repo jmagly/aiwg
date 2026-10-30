@@ -64,18 +64,22 @@ export function compoundGoverningRules(entries: MetadataEntry[], target: Metadat
   phrase = '', includeMatches = true, excludeKernel = true): GoverningRule[] {
   if (!['skill', 'agent', 'flow', 'command'].includes(target.type)) return [];
   const found = new Map<string, GoverningRule>();
-  const add = (rule: MetadataEntry, why: string) => {
+  const add = (rule: MetadataEntry, why: string, binding = false) => {
+    const pinned = relations?.pinnedRuleIds.has(discoveryIdForEntry(rule));
     const activation = rule.activation ?? (rule.type === 'behavior' ? 'kernel' : inferRuleActivation(rule.ruleEnforcement));
-    if (excludeKernel && (activation === 'kernel' || activation === 'core' || rule.kernel || relations?.pinnedRuleIds.has(discoveryIdForEntry(rule)))) return;
-    const key = `${rule.type}:${rule.path}`, item = found.get(key) ?? { rule, applicability: [] };
+    // Delivery mode never removes an explicit contract; only ambient matches are filtered.
+    if (!binding && excludeKernel && (activation === 'kernel' || activation === 'core' || rule.kernel || pinned)) return;
+    const key = `${rule.type}:${rule.path}`, item = found.get(key) ?? {
+      rule: pinned ? { ...rule, activation: 'kernel' } : rule, applicability: [],
+    };
     if (!item.applicability.includes(why)) item.applicability.push(why);
     found.set(key, item);
   };
-  for (const rule of relationshipRules(entries, target, relations)) add(rule, `bound:${target.type}:${discoveryIdForEntry(target)}`);
+  for (const rule of relationshipRules(entries, target, relations)) add(rule, `bound:${target.type}:${discoveryIdForEntry(target)}`, true);
   if (relations && target.type === 'skill' && target.name?.startsWith('projected:')) {
     for (const id of relations.rulesForTarget('skill', target.name)) {
       const rule = relationMetadata(relations).find(rule => discoveryIdForEntry(rule) === id);
-      if (rule) add(rule, `projected-flow:${target.name.slice('projected:'.length)}`);
+      if (rule) add(rule, `projected-flow:${target.name.slice('projected:'.length)}`, true);
     }
   }
   if (includeMatches) {
@@ -157,7 +161,6 @@ export async function showBindings(
   relations?: RelationsReader,
 ): Promise<{ fields: Record<string, unknown>; text: string }> {
   const governing = compoundGoverningRules(entries, target, relations, '', false, false);
-  for (const { rule } of governing) if (relations?.pinnedRuleIds.has(discoveryIdForEntry(rule))) rule.activation = 'kernel';
   const rules = governing.map(item => item.rule);
   const boundRules = await Promise.all(rules.map(async rule => ({
     ...boundRuleDescriptor(rule),

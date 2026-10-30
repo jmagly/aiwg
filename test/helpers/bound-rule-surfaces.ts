@@ -32,7 +32,7 @@ export function boundRuleFixture() {
     fs.mkdirSync(launcher, { recursive: true });
     if (!fs.existsSync(path.join(launcher, 'aiwg'))) fs.symlinkSync(path.join(packageRoot, 'bin/aiwg.mjs'), path.join(launcher, 'aiwg'));
     // Allowlist the child environment; never inherit account stores or runtime overrides.
-    return { PATH: `${launcher}${path.delimiter}${process.env.PATH}`, HOME: home, USERPROFILE: home,
+    return { PATH: `${launcher}${path.delimiter}${process.env.PATH}`, HOME: home, USERPROFILE: home, TMPDIR: os.tmpdir(),
       XDG_CONFIG_HOME: path.join(home, 'config'), XDG_DATA_HOME: path.join(home, 'data'),
       XDG_CACHE_HOME: path.join(home, 'cache'), XDG_STATE_HOME: path.join(home, 'state'),
       AIWG_CONFIG: path.join(home, 'config/aiwg'), AIWG_ROOT: packageRoot,
