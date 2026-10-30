@@ -59,13 +59,15 @@ export function scanWorkerInvocationProcesses({ invocationId, startTicks, uid = 
   const present = () => ({ ...unknown('same-uid process still carries invocation marker (possible escaped descendant)'), markerPresent: true });
   const gone = error => ['ENOENT', 'ESRCH'].includes(error.code);
   let directory, uncertain = null;
+  // A time bound must never hide earlier unreadable-process or byte-bound evidence.
+  const timedOut = () => uncertain ?? { ...unknown('same-uid invocation-marker scan time bound reached'), timeBoundReached: true };
   try {
     directory = fs.opendirSync(procRoot);
     // Stream entries and cap per-process reads; neither a huge PID set nor
     // a large environment can turn this proof into an unbounded allocation.
     const buffer = Buffer.alloc(Math.min(65536, maxEnvironmentBytes + 1));
     for (let count = 0; ; count++) {
-      if (now() >= deadline) return unknown('same-uid invocation-marker scan time bound reached');
+      if (now() >= deadline) return timedOut();
       const entry = directory.readSync();
       if (!entry) return uncertain ?? { confirmed: true, missing: null };
       if (count >= maxEntries) return unknown('same-uid invocation-marker scan count bound reached');
@@ -79,7 +81,7 @@ export function scanWorkerInvocationProcesses({ invocationId, startTicks, uid = 
         let bytes = 0, tail = '';
         const decoder = new StringDecoder('utf8');
         for (;;) {
-          if (now() >= deadline) return unknown('same-uid invocation-marker scan time bound reached');
+          if (now() >= deadline) return timedOut();
           const size = fs.readSync(fd, buffer, 0, Math.min(buffer.length, maxEnvironmentBytes + 1 - bytes), null);
           if (!size) break;
           bytes += size;

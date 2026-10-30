@@ -103,6 +103,7 @@
         "test/unit/ralph-external/trusted-verification.test.ts",
         "test/unit/ralph-external/worker-verification-cli.test.ts",
         "test/unit/ralph-external/worker-termination.test.mjs",
+        "test/unit/ralph-external/worker-termination-budget.test.mjs",
         "test/unit/config/worker-context.test.ts",
         "test/unit/config/worker-context-refusals.test.ts",
         "test/unit/ralph-external/worker-context.test.ts"
