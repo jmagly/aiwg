@@ -25,6 +25,9 @@ are numerically identical to the pre-move implementations.
   (`d29-synthetic-v6/v7-absolute-gates`, HOLD ceiling) evaluated through
   `evaluateGates` with project floors, a holdout seal and sealed upstream
   integrity. See [the D29 study](d29-heldout-study.md).
+- D17 thresholds now use bindings (#2835), preserving each historical diagnostic
+  case and an independent never-PROMOTE ceiling. See the
+  [D17 parity and artifact disposition](d17-gate-binding-disposition.md).
 - `src/gates/providers/loader.ts` (#2831 rework, experimental default-off):
   addon/extension bundle providers declared in the bundle manifest
   (`gateProviders`, Zod in `src/extensions/manifest.ts`) run ONLY in a
@@ -368,15 +371,15 @@ Live Jev calls, real held-out data, human reviewers and production rollout:
 addon/extension provider loading exists only as the experimental,
 default-off isolated runner with config-allowlist trust and records
 reproduction (#2831 rework; CLI re-runs from a records file are still
-pending) — and D29 is the only study migrated to bindings (#2833, offline
+pending) — D29 and D17 use bindings (#2833/#2835, offline
 only). The discovery relevance fixture covers the
 shipped integrity-ceiling pack plus the `coverage-floor` conformance fixture
 pack (`test/conformance/gates-v1/fixtures/`); live discovery ranking against
 a full index is not asserted. No live criterion is met; the harness above is
 what those phases build on.
 
-there is no CLI (`aiwg gates`, #2830) and D29 is the only study migrated to
-bindings (#2833). Addon/extension provider loading (#2831) is implemented as an
+The offline CLI (`aiwg gates`, #2830) and D29/D17 study bindings
+(#2833/#2835) are implemented. Addon/extension provider loading (#2831) is implemented as an
 experimental default-off offline harness (code digests, mandatory review,
 sealed sections, timeouts); live provider qualification, real held-out
 provider data, human review sign-off beyond the fixture attestation and

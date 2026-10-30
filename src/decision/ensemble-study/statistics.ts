@@ -1,7 +1,8 @@
-import { pairedBinaryDifferenceInterval, pairedMeanDifferenceBootstrap, pairedNonInferiority, wilsonScoreInterval } from '../qualification/quality.js';
-import { pairedDeltaFinding } from '../ensemble/contract.js';
+import { pairedBinaryDifferenceInterval, pairedMeanDifferenceBootstrap, wilsonScoreInterval } from '../qualification/quality.js';
 import type { PairedDeltaObservation } from '../ensemble/types.js';
 import { D17_ANALYSIS, validateD17Analysis } from './protocol.js';
+import { d17GateFindings, evaluateD17Statistics } from './gates.js';
+import type { GateBinding } from '../../gates/types.js';
 
 export interface D17ArmMeasurement {
   probability: number;
@@ -27,7 +28,7 @@ function interval(pairs: readonly D17Pair[], endpoint: (arm: D17ArmMeasurement) 
 }
 
 /** Local descriptive statistics, never a release authorization. Missing endpoints withhold native reporting. */
-export function d17Statistics(pairs: readonly D17Pair[], expectedIds: readonly string[], protocol: unknown = D17_ANALYSIS) {
+export function d17Statistics(pairs: readonly D17Pair[], expectedIds: readonly string[], protocol: unknown = D17_ANALYSIS, binding?: GateBinding) {
   validateD17Analysis(protocol);
   const p = protocol;
   if (new Set(expectedIds).size !== expectedIds.length || new Set(pairs.map(row => row.id)).size !== pairs.length
@@ -38,12 +39,9 @@ export function d17Statistics(pairs: readonly D17Pair[], expectedIds: readonly s
       || [arm.latencyMs, arm.reservedCostMicros].some(n => typeof n !== 'number' || !Number.isFinite(n) || n < 0)
       || arm.tokens !== null && (!Number.isSafeInteger(arm.tokens) || arm.tokens < 0)) throw new Error('D17 unknown or invalid measurement');
   }
-  const findings: string[] = [];
-  if (pairs.length !== expectedIds.length || pairs.length < p.minimumPairs) findings.push('incomplete-pairs');
   const slices = p.slices.map(slice => {
     const rows = pairs.filter(row => row.slice === slice);
     const delta = rows.length ? mean(rows.map(row => Number(row.challenger.correct) - Number(row.champion.correct))) : null;
-    if (rows.length < p.minimumPerSlice) findings.push(`slice-insufficient:${slice}`);
     return { slice, n: rows.length, qualityDelta: delta, harm: delta !== null && delta < 0, descriptiveOnly: true };
   });
   const metrics = (arm: D17ArmMeasurement): Record<string, number | null> => ({ quality: Number(arm.correct), calibration: arm.brier,
@@ -53,7 +51,6 @@ export function d17Statistics(pairs: readonly D17Pair[], expectedIds: readonly s
     const complete = pairs.filter(row => metrics(row.champion)[threshold.metric] !== null && metrics(row.challenger)[threshold.metric] !== null);
     const item = { metric: threshold.metric, pairs: complete.length, delta: complete.length ? mean(complete.map(row =>
       metrics(row.challenger)[threshold.metric]! - metrics(row.champion)[threshold.metric]!)) : null };
-    const finding = pairedDeltaFinding(threshold, item); if (finding) findings.push(finding);
     return item;
   });
   const quality = pairs.length ? interval(pairs, arm => arm.correct, p.interval.levelBps) : null;
@@ -66,20 +63,15 @@ export function d17Statistics(pairs: readonly D17Pair[], expectedIds: readonly s
   const acceptedErrorUpperBps = risk ? Math.ceil(risk[1] * 10000) : null;
   const coverageLowerBps = coverage ? Math.floor(coverage[0] * 10000) : null;
   const p95LatencyIncreaseMs = pairs.length ? p95(pairs.map(row => row.challenger.latencyMs)) - p95(pairs.map(row => row.champion.latencyMs)) : null;
-  if (!quality || pairedNonInferiority({ interval: quality, marginBps: p.interval.nonInferiorityMarginBps }).decision !== 'non-inferior') findings.push('quality-ni');
-  if (!brier || brier.upperBps > p.brier.maximumUpperBps) findings.push('brier-upper');
-  if (!abstention || abstention.upperBps > p.abstention.maximumUpperBps) findings.push('abstention-upper');
-  if (acceptedErrorUpperBps === null || acceptedErrorUpperBps > p.risk.maximumAcceptedErrorUpperBps) findings.push('accepted-risk-upper');
-  if (coverageLowerBps === null || coverageLowerBps < p.risk.minimumCoverageLowerBps) findings.push('coverage-lower');
-  if (p95LatencyIncreaseMs === null || p95LatencyIncreaseMs > p.maximumP95LatencyIncreaseMs) findings.push('latency-p95');
   const observed = new Set(pairs.map(row => row.id));
-  return { sampleN: pairs.length, missingIds: expectedIds.filter(id => !observed.has(id)), slices, pairedDeltas,
+  const measurements = { sampleN: pairs.length, missingIds: expectedIds.filter(id => !observed.has(id)), slices, pairedDeltas,
     quality, brier, abstention, acceptedN: accepted.length, acceptedErrors: errors, acceptedErrorUpperBps, coverageLowerBps,
     p95LatencyIncreaseMs, latencyDifferencesMs: pairs.map(row => row.challenger.latencyMs - row.champion.latencyMs),
     netSavingsMicros: pairs.reduce((sum, row) => sum + row.champion.reservedCostMicros - row.challenger.reservedCostMicros, 0),
     costBasis: 'nonrefundable-reservations-including-failed-attempts',
-    benefitSupported: quality !== null && quality.lowerBps > p.interval.benefitLowerExclusiveBps,
-    findings: findings.sort(), statisticalGate: findings.length ? 'HOLD' : 'pass',
+  };
+  const gates = d17GateFindings(evaluateD17Statistics(measurements, binding));
+  return { ...measurements, benefitSupported: gates.benefitSupported, findings: gates.findings, statisticalGate: gates.statisticalGate,
     worstCaseFailureAsError: { n: expectedIds.length, championCorrect: pairs.filter(row => row.champion.correct).length,
       challengerCorrect: pairs.filter(row => row.challenger.correct).length, missingPairsCountedAsErrors: expectedIds.length - pairs.length } };
 }

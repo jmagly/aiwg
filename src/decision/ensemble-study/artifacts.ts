@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { admitEntry, DEFAULT_ENTRY_LIMITS } from '../entry.js';
 import { heldoutDigest } from '../heldout/contract.js';
+import { D17_ANALYSIS, validateD17Analysis } from './protocol.js';
 import type { prepareD17Study } from './corpus.js';
 
 const schemas = { analysis: 'D17StudyAnalysis', splits: 'D17StudySplits', gold: 'D17StudyGold',
@@ -50,6 +51,12 @@ const reportLimits = { ...limits, serializedBytes: 33_554_432, properties: 50000
 export function validateD17Artifact<K extends keyof Artifacts>(name: K, value: unknown): asserts value is Artifacts[K] {
   admitEntry(value, name === 'report' || name === 'reportV2' ? reportLimits : limits);
   if (!validators[name]?.(value)) throw new Error(`D17 invalid ${name} artifact`);
+  if (name === 'analysis' || name === 'analysisV2') {
+    validateD17Analysis((value as Artifacts['analysis']).protocol);
+  }
+  if (name === 'nativeTemplates') {
+    validateD17Analysis({ ...D17_ANALYSIS, native: (value as Artifacts['nativeTemplates']).comparison.pairedMetrics });
+  }
   if (name === 'report' || name === 'reportV2') {
     const report = value as { decision: GateOutcome; integrity: QualificationIntegrityMetadata };
     assertDecisionCeiling(report.decision, ceilingDecision('HOLD', report.integrity.release_gate.decision,
