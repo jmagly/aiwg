@@ -98,3 +98,13 @@ describe('generic title metadata gates', () => {
     expect(needsTitleDisambiguation(reference, candidates, incomplete)).toBe(false);
   });
 });
+
+describe('needsTitleDisambiguation: a contradicting year', () => {
+  it('keeps a lone exact-title candidate cautious when its year contradicts the supplied one', () => {
+    const reference = parsePartialReference('Planning-oriented autonomous driving (2023)');
+    const wrongYear = scorePaper(reference, paper({ title: 'Planning-oriented autonomous driving', year: 2021 }));
+    expect(needsTitleDisambiguation(reference, [wrongYear], false)).toBe(true);
+    const rightYear = scorePaper(reference, paper({ title: 'Planning-oriented autonomous driving', year: 2023 }));
+    expect(needsTitleDisambiguation(reference, [rightYear], false)).toBe(false);
+  });
+});

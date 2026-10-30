@@ -65,6 +65,8 @@ export function needsTitleDisambiguation(reference: PartialReference, candidates
   if (!reference.title || !candidates.length || candidates[0]?.score_parts.identifier === 1) return false;
   const unqualified = reference.year === undefined && !reference.firstAuthor;
   const competing = candidates.slice(1).some(candidate => classifyCandidates([candidate]) !== 'unresolved');
+  // A supplied year that the only candidate contradicts is not corroboration.
+  if (reference.year !== undefined && candidates[0]?.score_parts.year === 0) return true;
   if (!competing && !unqualified) return false;
   const title = normalizeTitle(reference.title);
   const tokens = title.split(' ');
