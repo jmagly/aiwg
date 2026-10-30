@@ -10,12 +10,18 @@ import { buildComparativeReplayReport, validateComparativeReplayReport, type Com
 import { readReplayArtifacts, replayFrozenCorpus, replayInput, replayPreregistration, writeReplayStudy, buildReplayReviewPackets } from '../../../tools/decision/comparative-replay.js';
 import { validateReplayAssets, validateReplayFreeze, validateReplayReviewPackets } from '../../../tools/decision/comparative-replay-assets.js';
 import { REPLAY_CLOCK, type ReplayGold } from '../../../tools/decision/comparative-replay-corpus.js';
+import * as gates from '../../../src/gates/evaluate.js';
+import { comparativeReplayGateInput } from '../../../src/decision/sensitivity/comparative-gates.js';
+import { evidenceProvider } from '../../../src/gates/providers/index.js';
 
 const frozenAt = '2026-09-30T12:00:00.000Z';
 const accessedAt = '2026-09-30T12:00:01.000Z';
 const state = () => ({ maxEntriesPerPrincipal: 600, reportsByWindow: new Map<string, number>(), pathCounts: new Map<string, number>() });
 const artifacts = readReplayArtifacts();
 let input: ComparativeReplayInput;
+let boundReport: ReturnType<typeof buildComparativeReplayReport>;
+const retained = JSON.parse(readFileSync(resolve(import.meta.dirname,
+  '../../../docs/decision/evidence/comparative-replay-v1/report.json'), 'utf8')) as typeof boundReport;
 const temporary = mkdtempSync(resolve(tmpdir(), 'd23-replay-'));
 afterAll(() => { rmSync(temporary, { recursive: true, force: true }); });
 
@@ -61,10 +67,92 @@ beforeAll(async () => {
     expect(run.stopped).toBe(false);
     expect(transport).not.toHaveBeenCalled();
     input = replayInput(artifacts, replayPreregistration(artifacts, frozenAt), run.roots, accessedAt);
+    boundReport = buildComparativeReplayReport(input);
   } finally { vi.unstubAllGlobals(); }
 }, 120_000);
 
 describe('D23 comparative policy replay', () => {
+  it.each(artifacts.corpus.roots.map(root => [root.id]))('preserves the retained binding result for %s', id => {
+    const actual = boundReport.roots.find(root => root.id === id);
+    const expected = retained.roots.find(root => root.id === id);
+    expect(expected).toBeDefined();
+    expect(actual).toEqual(expected);
+    expect(actual?.correct).toBe(true);
+    expect(actual?.falseNoChange).toBe(false);
+  });
+
+  it('gets report decisions from evaluateGates and responds to a binding threshold mutation', () => {
+    const evaluate = gates.evaluateGates;
+    const spy = vi.spyOn(gates, 'evaluateGates').mockImplementation(context => {
+      context.binding.spec.parameters['project:d23-comparative-replay.maxErrorUpperBps'] = 95;
+      context.trustedBindingDigest = sensitivityDigest(context.binding);
+      context.holdout = gates.sealGateHoldout({ frozenDigest: context.trustedBindingDigest, firstAccessedAt: accessedAt });
+      return evaluate(context);
+    });
+    try {
+      const changed = buildComparativeReplayReport(input);
+      expect(spy).toHaveBeenCalledOnce();
+      expect(spy.mock.results[0]!.value).toMatchObject({ kind: 'GateReport', decision: changed.decision });
+      expect(boundReport.diagnosticDecision).toBe('pass');
+      expect(changed.diagnosticDecision).toBe('fail');
+      expect(changed.findings).toContain('error-bound-failed');
+      expect(changed.decision).toBe('HOLD');
+    } finally { spy.mockRestore(); }
+  });
+
+  it('changes the evaluator verdict when a binding threshold is tightened under synthetic completed review', () => {
+    const candidate = perfectGateFixture();
+    Object.assign(candidate.integrity, { integrity_mode: 'locked', integrity_state: 'verified',
+      trusted_score_source: 'locked-artifact-snapshot', weak_signal_reason: null,
+      release_gate: { decision: 'PROMOTE', reasons: [] } });
+    candidate.trustedIntegrityDigest = sensitivityDigest(candidate.integrity);
+    const report = buildComparativeReplayReport(candidate);
+    const context = comparativeReplayGateInput(candidate, report.roots, report.metrics, new Set());
+    // This raw evaluator fixture is deliberately synthetic. Production D23 review ingestion still refuses.
+    const review = context.metrics.providers[evidenceProvider.id]!.metrics.attestations!.pooled!.available!
+      .find(item => item.id === 'reviewer-audit-pending')!;
+    review.passed = true;
+    expect(gates.evaluateGates(context).decision).toBe('PROMOTE');
+    context.binding.spec.parameters['project:d23-comparative-replay.maxErrorUpperBps'] = 95;
+    expect(() => gates.evaluateGates(context)).toThrow(/digest/);
+    context.trustedBindingDigest = sensitivityDigest(context.binding);
+    context.holdout = gates.sealGateHoldout({ frozenDigest: context.trustedBindingDigest, firstAccessedAt: accessedAt });
+    const changed = gates.evaluateGates(context);
+    expect(changed.decision).toBe('HOLD');
+    expect(changed.gateEvidence.find(item => item.gateId === 'error-bound-failed')).toMatchObject({
+      status: 'fail', threshold: { resolved: 95 }, statistic: { upperBps: 96 },
+    });
+    expect(report.decision).toBe('HOLD');
+    expect(report.findings).toContain('reviewer-audit-pending');
+  });
+
+  it.each([
+    ['verified review pending', {}, 'HOLD'],
+    ['upstream hold', { release_gate: { decision: 'HOLD', reasons: [] } }, 'HOLD'],
+    ['upstream rollback', { release_gate: { decision: 'ROLLBACK', reasons: [] } }, 'ROLLBACK'],
+    ['compromise state', { integrity_state: 'compromised' }, 'ROLLBACK'],
+    ['compromise label', { compromise_labels: ['fixture_edit'] }, 'ROLLBACK'],
+    ['unverified', { integrity_state: 'unverified' }, 'HOLD'],
+    ['unknown mode', { integrity_mode: 'unknown' }, 'HOLD'],
+    ['unknown source', { trusted_score_source: 'unknown' }, 'HOLD'],
+    ['fresh workspace missing', { fresh_workspace_required: true, fresh_workspace_verified: false }, 'HOLD'],
+    ['uncertainty missing', { uncertainty: null }, 'HOLD'],
+    ['baseline missing', { paired_baseline: null }, 'HOLD'],
+    ['sample mismatch', { sample_n: 399 }, 'HOLD'],
+  ] as const)('keeps the binding integrity ceiling for %s', (_name, integrity, decision) => {
+    const candidate = perfectGateFixture();
+    Object.assign(candidate.integrity, { integrity_mode: 'locked', integrity_state: 'verified',
+      trusted_score_source: 'locked-artifact-snapshot', weak_signal_reason: null,
+      release_gate: { decision: 'PROMOTE', reasons: [] } }, integrity);
+    candidate.trustedIntegrityDigest = sensitivityDigest(candidate.integrity);
+    const report = buildComparativeReplayReport(candidate);
+    const context = comparativeReplayGateInput(candidate, report.roots, report.metrics, new Set());
+    expect(report.diagnosticDecision).toBe('pass');
+    expect(gates.evaluateGates(context).decision).toBe(decision);
+    expect(report.decision).toBe(decision);
+    expect(context.binding.kind).toBe('GateBinding');
+  });
+
   it('binds 600 unique synthetic roots and passes threshold equality while integrity stays HOLD', () => {
     expect(artifacts.corpus.deduplication).toEqual({ roots: 600, payloads: 600, duplicatePayloads: 0,
       sourceInputs: 600, duplicateSourceInputs: 0, crossSplitFamilies: 0 });
@@ -308,6 +396,13 @@ describe('D23 comparative policy replay', () => {
     const directory = resolve(temporary, 'study');
     await writeReplayStudy(directory);
     const report = JSON.parse(readFileSync(resolve(directory, 'comparative-report.json'), 'utf8'));
+    const binding = JSON.parse(readFileSync(resolve(directory, 'gate-binding.json'), 'utf8'));
+    const gateReport = JSON.parse(readFileSync(resolve(directory, 'gate-report.json'), 'utf8'));
+    expect(binding.kind).toBe('GateBinding');
+    expect(gateReport).toMatchObject({ kind: 'GateReport', decision: report.decision,
+      binding: { digest: sensitivityDigest(binding) } });
+    expect(gateReport.gateEvidence.find((item: { gateId: string }) => item.gateId === 'reviewer-audit-pending'))
+      .toMatchObject({ status: 'fail', outcome: 'HOLD' });
     expect(report.decision).toBe('HOLD');
     expect(report.metrics.errors).toBe(0);
     expect(report.diagnosticDecision).toBe('pass');

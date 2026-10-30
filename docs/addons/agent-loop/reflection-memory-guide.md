@@ -615,14 +615,14 @@ function pruneReflectionsToFit(
 ```bash
 # Validate reflection against schema
 npx ajv validate \
-  -s agentic/code/addons/ralph/schemas/reflection-memory.json \
+  -s agentic/code/addons/agent-loop/schemas/reflection-memory.json \
   -d .aiwg/ralph/reflections/ralph-task-123/001.json
 ```
 
 **Runtime Validation**:
 ```typescript
 import Ajv from 'ajv';
-import schema from '@/agentic/code/addons/ralph/schemas/reflection-memory.json';
+import schema from '@/agentic/code/addons/agent-loop/schemas/reflection-memory.json';
 
 const ajv = new Ajv();
 const validate = ajv.compile(schema);
@@ -639,7 +639,7 @@ function validateReflection(reflection: unknown): Reflection {
 
 ### AIWG Documentation
 
-- **@$AIWG_ROOT/agentic/code/addons/ralph/schemas/reflection-memory.json** - JSON Schema definition
+- **@$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/reflection-memory.json** - JSON Schema definition
 - **@.aiwg/ralph/reflections/.gitkeep** - Directory structure documentation
 - **@.aiwg/ralph/reflections/example/001.json** - Example reflection
 - **@$AIWG_ROOT/docs/references/REF-021-reflexion-verbal-reinforcement.md** - Research foundation

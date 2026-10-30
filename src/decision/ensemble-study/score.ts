@@ -12,6 +12,7 @@ import { qualificationIntegrityAllowlistProblems } from '../qualification/releas
 import type { QualificationIntegrityMetadata } from '../qualification/release.js';
 import { evaluateBinaryHeldout, freezeQualificationSplit } from '../qualification/quality.js';
 import { D17_ANALYSIS } from './protocol.js';
+import { d17StudyDecision, evaluateD17Statistics } from './gates.js';
 import { d17Statistics, type D17ArmMeasurement, type D17Pair } from './statistics.js';
 import type { prepareD17Study } from './corpus.js';
 import type { prepareD17StagedStudy } from './staged.js';
@@ -158,7 +159,7 @@ export async function scoreD17Study(input: ScoreInput, prepared: Prepared) {
     calibrationDiagnostics: { champion: binary('champion'), challenger: binary('challenger'), calibrated: false },
     pending: ['D09 compatible member and aggregate calibration', 'blind gold audit and delayed repeats', 'separate extra-cost tradeoff approval',
       'protected native report approval and eligibility'],
-    decision: ceilingDecision('HOLD', input.integrity.release_gate.decision, input.integrity.compromise_labels.length ? 'ROLLBACK' : 'PROMOTE') };
+    decision: d17StudyDecision(evaluateD17Statistics(statistics, undefined, input.integrity), input.integrity) };
   validateD17Artifact('report', report);
   return report;
 }
@@ -339,7 +340,7 @@ export async function scoreD17StagedStudy(input: Omit<ScoreInput, 'approvedCalib
     mappingDigest: heldoutDigest(verified[role].mapping), compatibility: { action: 'allow' as const,
       state: verified[role].compatibility.state as 'exact' | 'approved-compatible', pinId: verified[role].compatibility.pinId } });
   const approved = input.approvedCalibration as { calibrationPhaseRecordDigest: Digest; priorApprovalDigest: Digest };
-  const decision = ceilingDecision('HOLD', input.integrity.release_gate.decision, input.integrity.compromise_labels.length ? 'ROLLBACK' : 'PROMOTE');
+  const decision = d17StudyDecision(evaluateD17Statistics(statistics, undefined, input.integrity), input.integrity);
   const report = { schemaVersion: 'decision-d17-study-report/v2' as const, scope: 'synthetic-staged-calibrated' as const,
     calibrated: true as const, d09Qualified: true as const, calibratedGate: true as const,
     corpusDigest: heldoutDigest(prepared.corpus), preregistrationDigest: heldoutDigest(prepared.preregistration),

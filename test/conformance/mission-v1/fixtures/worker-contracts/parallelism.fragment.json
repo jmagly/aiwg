@@ -153,10 +153,8 @@
               "minimum": 0,
               "default": 2
             },
-            "max_workers": {
-              "type": "integer",
-              "minimum": 1
-            }
+            "max_workers": { "type": "integer", "minimum": 1 },
+            "max_snapshot_age_seconds": { "type": "number", "exclusiveMinimum": 0, "default": 300 }
           }
         }
       }

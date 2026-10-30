@@ -3,9 +3,13 @@ import { sampleWorkerIdentity, isSafeWorkerGroupTarget } from '../process-monito
 import { getWorkerIsolationStatus } from './worker-isolation-status.mjs';
 import { scanWorkerInvocationProcesses } from './worker-invocation-processes.mjs';
 
+const TERMINATION_BUDGET_MS = 2000;
+const TERMINATION_ATTEMPT_MS = 100;
+const TERMINATION_MAX_ATTEMPTS = 21;
+
 export function observeWorkerTermination({ mode, native, workerExited, identity,
   supervisor = sampleWorkerIdentity(process.pid), kill = process.kill, invocationId,
-  scan = scanWorkerInvocationProcesses, deadline } = {}) {
+  scan = scanWorkerInvocationProcesses, deadline, now = () => performance.now() } = {}) {
   if (mode === 'systemd-unit') {
     const exited = workerExited === true || [1, 2, 3].includes(native?.execMainCode);
     return { confirmed: exited && native?.active === false && native?.cgroupEmpty === true,
@@ -25,7 +29,10 @@ export function observeWorkerTermination({ mode, native, workerExited, identity,
     // readable stat/cgroup links instead of failing closed on every
     // unreadable post-start process.
     if (error.code === 'ESRCH') {
-      return scan({ invocationId, startTicks: identity.startTicks, uid: identity.uid, deadline,
+      // Exit-time callers get one scan, at most 2 s. An explicit deadline
+      // leaves the scan budget and retries to the recheck caller.
+      return scan({ invocationId, startTicks: identity.startTicks, uid: identity.uid, now,
+        deadline: deadline ?? now() + TERMINATION_BUDGET_MS,
         workerPid: identity.pid, workerPgid: identity.pgid, workerSession: identity.sessionId });
     }
     return { confirmed: false, missing: `empty owned process group (signal-0 returned ${error.code ?? 'unknown'})` };
@@ -57,10 +64,10 @@ export async function recheckWorkerTermination({ processRecord, exitRecord,
   if (processRecord.isolation !== 'systemd-unit' && processRecord.invocationMarker !== processRecord.invocationId) {
     return { confirmed: false, missing: 'escaped-descendant evidence: launcher-bound invocation marker in process.json' };
   }
-  const deadline = now() + 2000;
+  const deadline = now() + TERMINATION_BUDGET_MS;
   // Both elapsed time and sample count bound the check, including injected clocks.
   let evidence;
-  for (let attempt = 0; attempt < 21; attempt++) {
+  for (let attempt = 0; attempt < TERMINATION_MAX_ATTEMPTS; attempt++) {
     if (evidence && now() >= deadline) return evidence;
     let native = null;
     // Use the unit's retained exit state whenever a unit name is recorded,
@@ -68,15 +75,15 @@ export async function recheckWorkerTermination({ processRecord, exitRecord,
     // selection is unchanged, but unit (cgroup) evidence is preferred
     // wherever it is available. Non-unit modes still ignore it below.
     if (typeof processRecord.unit === 'string' && processRecord.unit !== '') {
-      try { native = status(processRecord.unit, { timeoutMs: Math.max(1, Math.min(100, deadline - now())) }); }
+      try { native = status(processRecord.unit, { timeoutMs: Math.max(1, Math.min(TERMINATION_ATTEMPT_MS, deadline - now())) }); }
       catch { /* Unavailable is never empty. */ }
     }
     evidence = observe({ mode: processRecord.isolation, native, identity, invocationId: processRecord.invocationId,
-      deadline: Math.min(deadline, now() + 100),
+      deadline: Math.min(deadline, now() + TERMINATION_ATTEMPT_MS), now,
       workerExited: Number.isInteger(exitRecord.exitCode) && exitRecord.exitCode >= 0 && exitRecord.exitCode <= 255
         || exitRecord.captureCoverage === 'complete' && exitRecord.workerTermination === 'confirmed' && /^SIG[A-Z0-9]+$/.test(exitRecord.signal ?? '') });
-    if (evidence.confirmed || evidence.markerPresent || now() >= deadline || attempt === 20) return evidence;
-    await wait(Math.min(100, Math.max(0, deadline - now())));
+    if (evidence.confirmed || evidence.markerPresent || now() >= deadline || attempt === TERMINATION_MAX_ATTEMPTS - 1) return evidence;
+    await wait(Math.min(TERMINATION_ATTEMPT_MS, Math.max(0, deadline - now())));
   }
   return evidence;
 }

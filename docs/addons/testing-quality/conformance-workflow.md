@@ -6,6 +6,12 @@ A report never turns static screening or a passing runner into proof that every 
 
 ## Deploy and orient
 
+> "Set up the testing-quality addon for my provider and show the target command entry point."
+
+Your assistant deploys the addon through the use skill and checks the available conformance command.
+
+### Command reference
+
 Deploy the addon using the `use` skill and `aiwg use testing-quality --provider <provider>`. This registers `aiwg
 test-conformance` and makes the roles/skills discoverable. The provider selects how roles run; YAML flows describe agent
 work, not a separate shell scheduler. For an installation without namespace registration, use the equivalent direct
@@ -20,6 +26,12 @@ relative to the target. The default protocol path is `.aiwg/testing/conformance.
 artifacts; create new output paths for independent runs. Do not overwrite the original audit with post-repair evidence.
 
 ## Configure the target protocol
+
+> "Initialize a conformance protocol for this target and help me review its scope."
+
+Your assistant generates and validates the protocol, then reviews the configured sources, lanes and limitations.
+
+### Command reference
 
 ```bash
 aiwg test-conformance init --root /path/to/target --platform auto --system example-service --name example-tests --output .aiwg/testing/conformance.yaml
@@ -47,6 +59,12 @@ metrics as limitations. Research paths are user-configured local roots; `allowWe
 
 ## Inventory, sampling and evidence
 
+> "Inventory this target, save a reproducible sample, and collect discovery and execution evidence for the authorized lanes."
+
+Your assistant keeps inventory, sampling, discovery and execution artifacts separate and reports missing evidence.
+
+### Command reference
+
 ```bash
 aiwg test-conformance inventory --root /path/to/target --output .aiwg/testing/inventory-01.json
 aiwg test-conformance sample --root /path/to/target --inventory .aiwg/testing/inventory-01.json --unit test-file --seed audit-2026-09 --size 20 --output .aiwg/testing/sample-01.json
@@ -70,6 +88,12 @@ not sum overlapping lanes as unique tests.
 
 ## Execute attributable negative controls
 
+> "Run the declared negative controls for the authorized source changes and verify restoration."
+
+Your assistant uses the guarded controls operation and retains baseline, mutant and restored evidence.
+
+### Command reference
+
 Configure each lane's `negativeControls` only after baseline case IDs are available. A control points to an existing
 `TestNormalizationPlan` that changes inventoried source files; test, configuration, runner-entrypoint, deletion and
 permission-change edits are rejected. Its command/result must exactly match the lane recipe, so an unrelated command
@@ -91,7 +115,35 @@ other controls on an altered source tree. Add the controls receipt as another `-
 bounded experiment supports the named oracle and changed behavior; it is not a whole-system mutation score or universal
 proof of test validity.
 
+A controls receipt embeds the baseline lane evidence once plus a full mutant run and a full restored run for every
+control it covers, so its size is roughly `(1 + 2k)` times one lane's execution evidence for `k` controls collected in
+the same run. On a large lane this reaches the 16 MiB document ceiling (`readDocument` in `lib/contracts.mjs`) after
+only one or two controls. Pass `--control <id>` to collect exactly one declared control per receipt:
+
+```bash
+aiwg test-conformance collect --root /path/to/target --mode controls --lane unit --control wrong-value --evidence .aiwg/testing/execution-01.json --output .aiwg/testing/controls-wrong-value.json
+aiwg test-conformance collect --root /path/to/target --mode controls --lane unit --control off-by-one --evidence .aiwg/testing/execution-01.json --output .aiwg/testing/controls-off-by-one.json
+```
+
+`assess` aggregates verified negative-control receipts across every `--evidence` input by lane/control id, so passing
+each single-control receipt as its own `--evidence` entry is equivalent to one combined receipt: every configured
+`control:<lane>:<id>` gate is still produced, and no single receipt need grow with the number of controls in the lane.
+
 ## Oracle review and assessment
+
+> "Review what these tests observe, then assess and report the supported conformance scope."
+
+Your assistant binds review to the source and combines the completed reviews with verified runner evidence.
+
+```brief
+Review the sampled cases against their exact test source, helpers and system under test.
+Record what each test observes, the wrong behavior it rejects, fixture isolation, cleanup, source bindings and limitations using the current review contract.
+Leave unreviewed cases outstanding.
+```
+
+> "Recheck the cases with missing source bindings and retain unknown status where evidence is still absent."
+
+### Command reference
 
 Assign cases to the Test Oracle Reviewer with [test review](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/testing-quality/templates/test-review.md), exact source bindings and
 relevant helpers/SUT. Record what a test actually observes, wrong behavior it rejects, fixture isolation, cleanup and
@@ -115,6 +167,12 @@ all tests are certified.
 
 ## Repair and platform normalization
 
+> "Prepare a bounded normalization plan from these reviewed edits and show its rollback path."
+
+Your assistant creates a plan for review and applies it only within the existing task authorization.
+
+### Command reference
+
 Create an edits JSON document with `purpose` and `edits: [{path, content}]`. Content is the complete intended UTF-8
 file; null means an intentional deletion. The plan captures complete original and replacement content, hashes and
 permissions. Use [normalization plan review](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/testing-quality/templates/normalization-plan.md) for acceptance and verification.
@@ -133,6 +191,14 @@ before/after content. There is no shell execution inside a plan.
 A durable receipt precedes target writes. Partial failure records observed states and does not claim successful
 application or automatic rollback. Inspect that receipt and create a recovery plan; completed rollback refuses unrelated
 later edits. Avoid concurrent editors during apply: filesystem preconditions are not a cross-process transaction lock.
+
+### Develop and deploy platform templates
+
+> "List the available platform templates and prepare a configuration plan for my target."
+
+Your assistant selects a shipped template or develops a custom artifact, then returns a normalization plan for review.
+
+#### Command reference
 
 The platform template layer develops/deploys target testing conventions independently from provider addon deployment:
 
@@ -187,6 +253,12 @@ for an explicitly bounded batch budget, preserving artifacts for every pass. End
 status with remaining findings; do not loosen the acceptance scope to finish the loop.
 
 ## Research and platform support
+
+> "Find testing-tool leads for this configured platform and report the demonstrated support level."
+
+Your assistant records located sources and gaps without treating research leads as verified integrations.
+
+### Command reference
 
 ```bash
 aiwg test-conformance research --root /path/to/target --query "mutation and property testing for the configured platform" --output .aiwg/testing/tool-research.json

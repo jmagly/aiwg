@@ -7,6 +7,12 @@ they enforce.
 
 ## Inventory entry (`inventory.json`)
 
+> "Validate my model inventory and render it for review."
+
+Your assistant uses the inventory validator and renderer with the entry contract below.
+
+### Command reference
+
 One entry per evaluated model. `status` moves `candidate` → `archived` once
 `fixity verify` passes, or → `flagged-quantized-only` / `rejected`.
 
@@ -52,6 +58,12 @@ node tools/media-curator/llm-model-report.mjs inventory render inventory.json > 
 
 ## Report (`report.json` → `report.md`)
 
+> "Render my model archive report and check its evidence citations."
+
+Your assistant renders the report and runs the report linter for missing evidence and credential exposure.
+
+### Command reference
+
 ```json
 {
   "title": "Open-weight 8-9B archival candidates",
@@ -77,6 +89,12 @@ it warns on overclaiming language (`proves`, `conclusively`) per the
 `citation-policy` rule.
 
 ## Per-model records
+
+> "Write and verify fixity records for this archived model revision, then write its provenance."
+
+Your assistant uses the archive tools to create the checksum manifest and provenance record beside the weights.
+
+### Command reference
 
 Written into the revision directory beside the weights:
 

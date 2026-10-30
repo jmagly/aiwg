@@ -29,7 +29,7 @@ The steward default dispatch is Tier 1. Follow this path for detail:
 
 1. Start from the inline Tier-2 Routing Map in `aiwg-steward.md`.
 2. For quick anchors, load `steward-quickref` or `aiwg-utils-quickref` with
-   `aiwg show skill <name>`.
+   `aiwg show skill <name> --body`.
 3. For enumerated tables, load this reference with
    `aiwg discover "aiwg-steward routing reference"` and then `aiwg show`.
 4. If a route is ambiguous, ask one clarifying question.
@@ -154,7 +154,7 @@ aiwg-refresh, aiwg-status, aiwg-help, use, aiwg-regenerate). Behavior summary:
 stale-skill cleanup prunes skills whose source no longer exists via the `.aiwg-managed`
 marker; `--copy-all` opts into the legacy per-project mirror for sandboxed runtimes where
 `$AIWG_ROOT` isn't readable; `aiwg discover --limit` defaults to 5; `aiwg show <name>`
-resolves an unambiguous single name (use `aiwg show <type> <name>` when the type is
+resolves an unambiguous single name (use `aiwg show <type> <name> --body` when the type is
 known). Version-specific provenance and edge cases (rc.17/rc.21/rc.23 changelog detail)
 live in the worked-examples catalog.
 

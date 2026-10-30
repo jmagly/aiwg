@@ -1,3 +1,4 @@
+import { healthyHostResources } from './host-resources.js';
 import { emptyConfig, workerConfigDigest } from '../../src/config/aiwg-config.js';
 import { DEFAULT_WORKER_SELECTION, loadProviderModelCapabilities, mergeWorkerSelection } from '../../src/models/provider-policy.js';
 import type { WorkerPlanRequest, WorkerPlanSnapshot } from '../../src/models/resolver.js';
@@ -28,6 +29,7 @@ export function workerResolutionFixture() {
     { source: 'fixture:project', authority: 'project', digest: workerConfigDigest(projectPolicy), policy: projectPolicy },
   ]);
   const snapshot: WorkerPlanSnapshot = {
+    hostResources: { ...healthyHostResources(), collectedAt: observation.observedAt, workers: 0 },
     config: { ...emptyConfig(), parallelism: { worker_dispatch: true, max_parallel_subagents: 4,
       groups: { workers: { maxParallel: 2, members: [
         { id: 'primary', cli: 'codex', model: 'synthetic/a%b', roles: ['coding'], priority: 10 },

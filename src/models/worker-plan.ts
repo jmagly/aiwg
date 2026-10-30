@@ -42,7 +42,7 @@ export interface WorkerResolutionBinding {
 
 export interface WorkerPlanSnapshot {
   config: AiwgConfig;
-  /** Fresh host sample supplied by the launch host; never request-controlled. */
+  /** Timestamped host sample supplied by the launch host; never request-controlled. */
   hostResources?: HostResourceSample;
   /** ConfigLoader.load(parallelism), including restriction origins and wrapper pins. */
   models: MergedModelConfig;
@@ -166,10 +166,10 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
     policy: structuredClone(policy), origins: structuredClone(snapshot.models.workerPolicyOrigins),
     choice: null, capacity: 'conductor-guidance-only', ceilings: {},
   };
-  if (snapshot.hostResources) {
-    plan.resources = hostResourceReport({ config: snapshot.config, live: snapshot.hostResources });
-    plan.slots = plan.resources.slots;
-  }
+  const resourceInput = { config: snapshot.config, live: snapshot.hostResources ?? { supported: false, reason: 'host snapshot missing' },
+    now: () => Date.parse(request.now) };
+  plan.resources = hostResourceReport(resourceInput);
+  plan.slots = plan.resources.slots;
   const diagnostic = (code: WorkerPolicyDiagnostic['code'], pointer: string, message: string): WorkerPolicyDiagnostic => ({ code, pointer, message });
   const block = (code: WorkerPolicyDiagnostic['code'], pointer: string, message: string): void => {
     plan.diagnostics.push(diagnostic(code, pointer, message));
@@ -367,7 +367,7 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
           const caps = [...capEntries.map(([, value]) => value), snapshot.constraints?.maxParallel, request.maxParallel]
             .filter((value): value is number => value !== undefined);
           // The shared report owns project/group caps; the remaining entries scope the tuple.
-          const resources = snapshot.hostResources && hostResourceReport({ config: snapshot.config, live: snapshot.hostResources, group: groupId,
+          const resources = hostResourceReport({ ...resourceInput, group: groupId,
             caps: [...capEntries.slice(3).map(([threshold, limit]) => ({ threshold, limit })),
               { threshold: 'constraints.maxParallel', limit: snapshot.constraints?.maxParallel, running: 0 },
               { threshold: 'request.maxParallel', limit: request.maxParallel, running: 0 }] });

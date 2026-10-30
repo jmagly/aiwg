@@ -475,15 +475,15 @@ escalation_on_max: true  # Human takes over
 
 The executable feedback loop conforms to:
 - `@$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/schemas/flows/executable-feedback.yaml` — Workflow schema
-- `@$AIWG_ROOT/agentic/code/addons/ralph/schemas/debug-memory.yaml` — Debug memory schema
-- `@$AIWG_ROOT/agentic/code/addons/ralph/schemas/actionable-feedback.yaml` — Feedback schema
-- `@$AIWG_ROOT/agentic/code/addons/ralph/schemas/iteration-analytics.yaml` — Analytics schema
+- `@$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/debug-memory.yaml` — Debug memory schema
+- `@$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/actionable-feedback.yaml` — Feedback schema
+- `@$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/iteration-analytics.yaml` — Analytics schema
 
 ## References
 
 - @.aiwg/research/findings/REF-013-metagpt.md — MetaGPT research findings
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/rules/executable-feedback.md — Executable feedback rules
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/schemas/flows/executable-feedback.yaml — Workflow schema
-- @$AIWG_ROOT/agentic/code/addons/ralph/schemas/debug-memory.yaml — Debug memory schema
-- @$AIWG_ROOT/agentic/code/addons/ralph/docs/reflection-memory-guide.md — Related: Reflexion memory guide
+- @$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/debug-memory.yaml — Debug memory schema
+- @$AIWG_ROOT/agentic/code/addons/agent-loop/docs/reflection-memory-guide.md — Related: Reflexion memory guide
 - #101 — Implementation issue

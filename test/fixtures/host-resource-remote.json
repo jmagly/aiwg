@@ -1,0 +1,13 @@
+{
+  "collectedAt": "2026-10-30T12:00:00.000Z",
+  "supported": true,
+  "availMemGb": 32,
+  "load1": 1,
+  "cores": 8,
+  "loadRatio": 0.125,
+  "memPsiAvg10": 2,
+  "memPsiAvg60": 1,
+  "memPsiAvg300": 0,
+  "workers": 1,
+  "freeDiskGb": 32
+}

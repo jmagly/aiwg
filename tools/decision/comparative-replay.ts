@@ -4,9 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { canonicalJson } from '../../src/security/artifact-trust.js';
 import { artifactPin } from '../../src/decision/validate.js';
+import { COMPARATIVE_REPLAY_POLICY } from '../../src/decision/sensitivity/comparative-gates.js';
 import { analyzeDecisionSensitivity } from '../../src/decision/sensitivity/runtime.js';
 import { sensitivityDigest, validateSensitivityReport } from '../../src/decision/sensitivity/contract.js';
-import { buildComparativeReplayReport, type ComparativeReplayInput, type ComparativeReplayPreregistration,
+import { buildComparativeReplayEvaluation, type ComparativeReplayInput, type ComparativeReplayPreregistration,
   type ComparativeReplayRoot } from '../../src/decision/sensitivity/comparative.js';
 import type { QualificationIntegrityMetadata } from '../../src/decision/qualification/release.js';
 import type { SensitivityProbeState, SensitivityReport } from '../../src/decision/sensitivity/types.js';
@@ -31,10 +32,7 @@ export function replayPreregistration(artifacts: ReplayArtifacts, frozenAt: stri
     schemaVersion: 'decision-comparative-replay-preregistration/v1', id: 'd23-synthetic-policy-replay-v1', mode: 'shadow',
     corpusDigest: sensitivityDigest(artifacts.split.members.map(({ id, payloadDigest }) => ({ id, payloadDigest }))),
     goldDigest: sensitivityDigest(artifacts.gold.roots), splitDigest: sensitivityDigest(artifacts.split.members),
-    comparatorVersion: 'policy-replay-reference-v1', frozenAt, minimumTestRoots: 400, minimumSliceRoots: 100,
-    levelBps: 9500, pairedMethod: 'newcombe-10', errorMethod: 'wilson', nonInferiorityMarginBps: -100,
-    maxErrorUpperBps: 100, maxSliceErrorUpperBps: 500, maxBackendCalls: 0, maxTokens: 0, maxCostMicros: 0,
-    requireExactReproduction: true,
+    comparatorVersion: 'policy-replay-reference-v1', frozenAt, ...COMPARATIVE_REPLAY_POLICY,
   };
   return { ...payload, digest: sensitivityDigest(payload) };
 }
@@ -163,7 +161,10 @@ export async function writeReplayStudy(directory: string): Promise<void> {
     write('completion.json', { completedRoots: run.roots.length, stopped: run.stopped });
     if (run.stopped) return;
     const input = replayInput(artifacts, plan, run.roots, accessedAt);
-    write('comparative-report.json', buildComparativeReplayReport(input));
+    const evaluated = buildComparativeReplayEvaluation(input);
+    write('gate-binding.json', evaluated.binding);
+    write('gate-report.json', evaluated.gateReport);
+    write('comparative-report.json', evaluated.report);
     write('operator-audit-key.json', artifacts.auditSample);
     write('review-packets.json', buildReplayReviewPackets(artifacts, run.roots));
     writeFileSync(resolve(directory, 'review-template.md'), artifacts.reviewTemplate, { flag: 'wx', flush: true });

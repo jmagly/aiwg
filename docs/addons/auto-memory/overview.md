@@ -198,4 +198,4 @@ sections.
 ## References
 
 - `@$AIWG_ROOT/agentic/code/addons/auto-memory/seeds/` — Seed template files
-- `@$AIWG_ROOT/agentic/code/addons/ralph/schemas/debug-memory.yaml` — agent loop debug memory schema
+- `@$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/debug-memory.yaml` — agent loop debug memory schema

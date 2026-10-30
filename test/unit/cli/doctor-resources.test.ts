@@ -57,7 +57,7 @@ it('accepts the resource mode in both strict doctor parsers and honors the termi
 it('emits exactly the shared resource report as one JSON document and a matching text exit', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'aiwg-doctor-resources-')); roots.push(root);
   const config = { parallelism: { max_parallel_subagents: 3, admission: { hostResources: { max_workers: 1 } } } } as any;
-  const readers = { ...hostResourceReaders(), statfsPath: () => ({ bavail: 32, bsize: 1024 ** 3 }) };
+  const readers = { ...hostResourceReaders(), now: () => Date.parse('2026-10-30T12:00:00Z'), statfsPath: () => ({ bavail: 32, bsize: 1024 ** 3 }) };
   const log = vi.spyOn(console, 'log').mockImplementation(() => {});
   expect(await runResourceDoctor(root, { json: true, readers, config })).toBe(1);
   expect(log).toHaveBeenCalledTimes(1);
@@ -101,7 +101,7 @@ it('parses group values strictly in both parsers and requires resource mode', ()
 it('prints every group separately and names each threshold once per diagnostic', async () => {
   const config = { parallelism: { max_parallel_subagents: 10,
     groups: { harness: { maxParallel: 3 }, muse: { maxParallel: 1 } } } } as any;
-  const readers = { ...hostResourceReaders(), statfsPath: () => ({ bavail: 32, bsize: 1024 ** 3 }) };
+  const readers = { ...hostResourceReaders(), now: () => Date.parse('2026-10-30T12:00:00Z'), statfsPath: () => ({ bavail: 32, bsize: 1024 ** 3 }) };
   const log = vi.spyOn(console, 'log').mockImplementation(() => {});
   expect(await runResourceDoctor('/synthetic', { config, readers })).toBe(0);
   expect(log.mock.calls.flat().join('\n')).toMatch(/Group harness:.*slots=2/);
@@ -125,8 +125,28 @@ it('documents the group resource gate before each launch', () => {
 
 it('prints a blocking project threshold only once per diagnostic', async () => {
   const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-  const readers = { ...hostResourceReaders(), statfsPath: () => ({ bavail: 32, bsize: 1024 ** 3 }) };
+  const readers = { ...hostResourceReaders(), now: () => Date.parse('2026-10-30T12:00:00Z'), statfsPath: () => ({ bavail: 32, bsize: 1024 ** 3 }) };
   expect(await runResourceDoctor('/synthetic', { readers, config: { parallelism: { max_parallel_subagents: 1 } } })).toBe(1);
   expect(log.mock.calls.flat()).toContain('max_parallel_subagents: admission capacity exhausted or worker count unavailable');
   expect(log.mock.calls.flat().join('\n')).not.toContain('max_parallel_subagents: max_parallel_subagents:');
+});
+
+it.each([
+  ['fresh', 240_000, {}, 0], ['stale', 360_000, {}, 1],
+  ['unavailable', 1000, { collectedAt: undefined }, 1],
+  ['unavailable', 1000, { freeDiskGb: undefined }, 1],
+] as const)('prints %s synthetic SSH snapshot collection time and age in text and JSON', async (status, ageMs, fields, exit) => {
+  const remote = JSON.parse(readFileSync('test/fixtures/host-resource-remote.json', 'utf8'));
+  const live = { ...remote, ...fields };
+  const now = () => Date.parse(remote.collectedAt) + ageMs;
+  const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+  expect(await runResourceDoctor('/synthetic/remote', { config: {}, live, now, json: true })).toBe(exit);
+  const result = JSON.parse(String(log.mock.calls[0][0]));
+  expect(result.freshness).toMatchObject({ status, collectedAt: live.collectedAt ?? null,
+    ageMs: live.collectedAt ? ageMs : null });
+  log.mockClear();
+  expect(await runResourceDoctor('/synthetic/remote', { config: {}, live, now })).toBe(exit);
+  const text = log.mock.calls.flat().join('\n');
+  expect(text).toContain(`Snapshot: ${status}; collectedAt=${live.collectedAt ?? 'unavailable'}; ageMs=${live.collectedAt ? ageMs : 'unavailable'}`);
+  for (const failure of result.failures) expect(text).toContain(`${failure.signal}: ${failure.reason}`);
 });

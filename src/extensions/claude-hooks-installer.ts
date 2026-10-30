@@ -29,6 +29,7 @@
 
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import { captureDeploymentOutputs, recordDeploymentOutputs } from '../providers/deployment-ownership.mjs';
 import { mergeClaudeAttribution, undoClaudeAttribution } from './claude-attribution.js';
 
 /**
@@ -74,6 +75,9 @@ interface LegacyHookMatcher {
 }
 
 export interface InstallOptions {
+  /** Deploy owner; standalone hook installation derives existing framework users. */
+  frameworkSlug?: string;
+  claimUnchangedSettings?: boolean;
   /** Project root absolute path (where .claude/ lives) */
   projectPath: string;
   /** Framework root (where agentic/code/addons/aiwg-hooks/ lives) */
@@ -173,6 +177,8 @@ async function atomicWrite(filePath: string, content: string): Promise<void> {
  * written.
  */
 export async function installAiwgHooks(opts: InstallOptions): Promise<InstallResult | null> {
+  const ownershipRoots = [path.join(opts.projectPath, '.claude')];
+  const ownershipBefore = opts.dryRun ? undefined : captureDeploymentOutputs(ownershipRoots);
   const sourceHooksDir = path.join(
     opts.frameworkRoot,
     'agentic',
@@ -335,6 +341,19 @@ export async function installAiwgHooks(opts: InstallOptions): Promise<InstallRes
     await atomicWrite(result.settingsPath, JSON.stringify(settings, null, 2) + '\n');
   }
 
+  if (ownershipBefore) {
+    const sidecar = ownershipBefore.get(path.join(opts.projectPath, '.claude/.aiwg-manifest.json'));
+    let recordedOwners: string[] = [];
+    try { recordedOwners = JSON.parse(sidecar?.toString() || '{}').managed?.['settings.json']?.owners || []; }
+    catch { /* Standalone installs retain the addon owner when no receipt verifies users. */ }
+    const owners = opts.frameworkSlug ? [opts.frameworkSlug] : recordedOwners;
+    let snapshot = ownershipBefore;
+    for (const owner of owners.length ? owners : ['aiwg-hooks']) {
+      recordDeploymentOutputs(snapshot, ownershipRoots, { frameworkSlug: owner, claimUnchangedSettings: opts.claimUnchangedSettings,
+        writtenFiles: [...result.installedScripts, result.settingsPath] });
+      snapshot = captureDeploymentOutputs(ownershipRoots);
+    }
+  }
   return result;
 }
 

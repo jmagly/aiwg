@@ -124,3 +124,24 @@ export async function buildAiwgMdContent(
 export async function generateAiwgMd(projectPath: string, stagedClaudeMdContent?: string | null): Promise<string> {
   return buildAiwgMdContent(projectPath, stagedClaudeMdContent);
 }
+
+/** Keep pipeline-owned startup boilerplate out of the shared context on redeploy. */
+export async function generateAiwgMdForPipeline(projectPath: string): Promise<string> {
+  let claudeMdContent: string | null;
+  try { claudeMdContent = await fs.readFile(path.join(projectPath, 'CLAUDE.md'), 'utf8'); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    claudeMdContent = null;
+  }
+  // A generated startup hook is not project prose. Mirroring it would change
+  // the initial shared-context stub on redeploy and duplicate provider policy.
+  if (claudeMdContent?.includes(CLAUDE_HOOK_START)) {
+    const prose = claudeMdContent
+      .replace(/<!-- AIWG:claude-md-hook:start -->[\s\S]*?<!-- AIWG:claude-md-hook:end -->/g, '')
+      .replace(/<!-- AIWG:(rule-core|rule-startup|rule-hook-[\w-]+):start -->[\s\S]*?<!-- AIWG:\1:end -->/g, '')
+      .replace(/^\s*<!-- aiwg-managed -->\s*$/gm, '');
+    if (!prose.trim()) claudeMdContent = null;
+  }
+
+  return buildAiwgMdContent(projectPath, claudeMdContent);
+}

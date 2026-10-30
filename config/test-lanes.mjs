@@ -1,4 +1,25 @@
-// Required offline lane ownership. Live UAT is separately declared by its configs.
+// Runner source ownership and explicit reasons for lanes unavailable in main CI.
+export const unavailableLanes = {
+  'config/vitest.uat-cockpit-live.config.js': 'Requires a live agentic-sandbox executor; the offline CI image does not provide that service.',
+  'config/vitest.uat-daemon.config.js': 'Requires an authenticated provider CLI/account and a real daemon with isolated sockets.',
+  'config/vitest.uat-fleet-sandbox.config.js': 'Requires live fleet SSH targets and agentic-sandbox hosts; unavailable in offline CI.',
+  'config/vitest.uat-live.config.js': 'Requires authenticated Claude/Codex accounts and paid live provider calls.',
+  'config/vitest.uat-serve-live.config.js': 'Requires a live agentic-sandbox service for aiwg serve integration.',
+  'config/vitest.uat-workers-live.config.js': 'Manual fake-CLI subprocess readiness diagnostic; kept separate from stub UAT because process-probe timing needs a dedicated runner budget.',
+  'vscode-extension': 'Requires the VS Code Electron extension host and a display (xvfb on Linux); neither is provisioned in the default CI image.',
+};
+
+// Exact test-file dispositions are reported, never treated as executed tests.
+export const unavailableTestFiles = {
+  'test/fixtures/testing-quality/native-extension/test_native_extension.py': 'No .gitea workflow invokes pytest for this file. test/unit/addons/testing-quality-mutation.test.ts imports it through the native-extension preflight as an input fixture; its Python test body is not executed by that regression.',
+};
+
+// Paths are relative to the owning package. A package script alone never owns
+// all its sources: files must match one of these patterns or an existing lane.
+export const packageRunnerLanes = [
+  { id: 'cockpit-web', runner: 'vitest', package: 'apps/cockpit/web', script: 'test', files: ['src/**/*.test.{ts,tsx}'] },
+  { id: 'vscode-extension', runner: 'mocha', package: 'vscode-extension', script: 'test', files: ['test/**/*.ts'] },
+];
 export const packagingFiles = [
   'test/integration/relations-prebuilt-packaging.test.ts',
   'test/integration/artifacts/aiwg-tracking.test.ts',
@@ -33,6 +54,8 @@ export const deploymentFiles = [
 // CLI contracts and a small provider smoke matrix remain in the default lane.
 // These do not overlap the required post-merge deploymentFiles lane above.
 export const releaseSlowFiles = [
+  // Full-copy marketing ownership includes every addon/extension and a redeploy.
+  'test/integration/ownership-matrix-deployment.test.ts',
   'test/integration/provider-file-locations.test.ts',
   'test/integration/kernel-deployment-conformance.test.ts',
   'test/integration/deployment-completeness.test.ts',
@@ -58,8 +81,9 @@ export const orchestrationConformanceFiles = [
   'test/conformance/mission-v1/**/*.test.ts',
 ];
 // Workspace package test ownership (#3729). Every `test`/`test:*` script in
-// apps/*/package.json must be invoked by a canonical CI job, or be listed in
-// optInPackageTests with a non-empty reason. Non-test harness scripts may also
+// nested package.json must be invoked by a main CI job, owned by a reasoned
+// unavailable lane, or listed in optInPackageTests with a non-empty reason.
+// Non-test harness scripts may also
 // be listed to document a manual-only classification; listed scripts must exist
 // and must NOT be CI-invoked (no redundant entries).
 // Cockpit harness classification: the four smoke harnesses run in CI because
@@ -68,6 +92,7 @@ export const orchestrationConformanceFiles = [
 // shell-core: isolated mkdtemp HOME; vscode: stubbed vscode module + fetch).
 // The two poc harnesses stay manual-only (see entries below).
 export const optInPackageTests = [
+  { package: 'droid-mcp-server', script: 'test', reason: 'Focused package alias; root test:node already executes test/bridge.test.mjs via the CI-owned addon Node pattern.' },
   { package: '@aiwg/cockpit', script: 'test', reason: 'Local aggregate chaining CI-owned smoke with manual-only poc harnesses; CI invokes test:web and smoke directly.' },
   { package: '@aiwg/cockpit', script: 'poc', reason: 'Manual-only PoCs: kill-bridge-isolation.mjs needs fixed ports plus SIGKILL timing (flake-prone on shared runners); security-checks.mjs reads/writes the real $HOME runtime file (non-hermetic).' },
 ];

@@ -410,6 +410,19 @@ describe('Claude attribution defaults (#3750)', () => {
     await expect(installAiwgHooks({ projectPath, frameworkRoot, hooks: false })).rejects.toThrow('Backup failed');
     expect(await readSettings()).toEqual({ attribution: { commit: 'Keep' } });
   });
+  it('backs up operator bytes and shares only settings the installer writes', async () => {
+    await seed({ operator: true });
+    const before = await fs.readFile(path.join(projectPath, '.claude/settings.json'));
+    const first = await installAiwgHooks({ projectPath, frameworkRoot, hooks: false, frameworkSlug: 'sdlc-complete' });
+    expect(await fs.readFile(first!.backupPath!)).toEqual(before);
+    await installAiwgHooks({ projectPath, frameworkRoot, hooks: false, frameworkSlug: 'media-marketing-kit' });
+    await installAiwgHooks({ projectPath, frameworkRoot, hooks: false });
+    const record = JSON.parse(await fs.readFile(path.join(projectPath, '.claude/.aiwg-manifest.json'), 'utf8')).managed['settings.json'];
+    expect(record.settingsPreimage.bytes).toBe(before.toString('base64'));
+    expect((await readSettings()).aiwg).not.toHaveProperty('mode');
+    expect(record.settings['/aiwg/mode']).toBeUndefined();
+    expect(record.settings['/attribution/pr'].owners).toEqual(['media-marketing-kit', 'sdlc-complete']);
+  });
   it('re-runs idempotently with one backup of the unmarked original', async () => {
     await seed({ attribution: { commit: '' }, env: { KEEP: 'yes' } });
     const first = await installAiwgHooks({ projectPath, frameworkRoot });

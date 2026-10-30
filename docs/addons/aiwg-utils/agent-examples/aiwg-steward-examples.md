@@ -223,7 +223,7 @@ detail and edge cases were externalized here.
 - **Discover defaults (rc.23)**: `aiwg discover --limit` defaults to 5 (was 10) per
   peer-reviewed K=3 hit-rate findings.
 - **Show single-name fallback (rc.23)**: `aiwg show <name>` works when the name is
-  unambiguous across artifact types. `aiwg show <type> <name>` still works and is preferred
+  unambiguous across artifact types. `aiwg show <type> <name> --body` still works and is preferred
   when the type is known. Multi-type matches still error with the disambiguation list.
 
 ## Post-Deploy Session Reload (#1240)

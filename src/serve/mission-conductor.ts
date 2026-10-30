@@ -31,6 +31,8 @@ import { assertMissionWorkerHandoff } from '../mission-protocol/codecs.js';
 import { lookupEffect, reconcileEffect, recordIntent, type EffectLedger, type EffectReceipt } from '../effects/ledger.js';
 import { createVerifierRegistry } from '../effects/verifiers/registry.js';
 import { fileDigestVerifier } from '../effects/verifiers/file.js';
+import type { WorkerResult, WorkerDirectResult } from '../mission-protocol/types.js';
+export { summarizeMissionLedger } from './mission-summary.js';
 
 /** A single worker cycle within a Mission — runs on exactly one stack. */
 export interface WorkerCycle {
@@ -73,6 +75,8 @@ export interface CycleResult {
   routed: boolean;
   reason: string;
   output?: string;
+  /** Existing adapter/verifier result, retained without creating an acceptance store. */
+  workerResult?: WorkerResult | WorkerDirectResult;
   /** Runtime-agnostic cost units (e.g. output tokens) for cross-stack aggregation. */
   cost: number;
   graph?: GraphExecutionMetadata;
@@ -115,7 +119,8 @@ export type RunWorker = (
   cycle: WorkerCycle,
   executor: ExecutorRegistration,
   invocation: { runtimeCapability: string; primitive: string; describe: string },
-) => { output?: string; cost?: number } | Promise<{ output?: string; cost?: number }>;
+) => { output?: string; cost?: number; workerResult?: CycleResult['workerResult'] }
+  | Promise<{ output?: string; cost?: number; workerResult?: CycleResult['workerResult'] }>;
 
 /** Scores a worker output against the mission's outcome; higher is better. */
 export type ScoreOutput = (result: CycleResult) => number;
@@ -274,6 +279,7 @@ export class MissionConductor {
       }
 
       let output: string | undefined;
+      let workerResult: CycleResult['workerResult'];
       let cost = 0;
       let reason = routing.selected.matchReason;
       try {
@@ -309,6 +315,7 @@ export class MissionConductor {
         if (!recovered) {
           const ran = await this.runWorker(cycle, executor, invocation);
           output = ran.output;
+          workerResult = ran.workerResult === undefined ? undefined : structuredClone(ran.workerResult);
           cost = ran.cost ?? 0;
           if (intent) {
             const checked = await reconcile(intent.effectId);
@@ -340,6 +347,7 @@ export class MissionConductor {
         routed: true,
         reason,
         output,
+        ...(workerResult ? { workerResult } : {}),
         cost,
         ...(graph ? { graph } : {}),
       };

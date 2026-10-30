@@ -7,6 +7,7 @@ export const DEFAULT_DISPATCH_HOST_THRESHOLDS = Object.freeze({
   // 08 brief/evidence retention: stop new admissions when less than 2 GiB free remains.
   min_free_disk_gb: 2,
   max_workers: 5,
+  max_snapshot_age_seconds: 300,
 });
 
 /**
@@ -31,6 +32,9 @@ export function resolveDispatchHostThresholds(buildDispatch, admissionHostResour
       if (value === undefined) continue;
       if (!Number.isFinite(value) || value < 0) {
         throw new Error(`OG_CONFIG_REFERENCE dispatch threshold ${key}: must be a non-negative number`);
+      }
+      if (key === 'max_snapshot_age_seconds' && value <= 0) {
+        throw new Error('OG_CONFIG_REFERENCE dispatch threshold max_snapshot_age_seconds: must be a positive number');
       }
       if (key === 'max_workers' && (!Number.isInteger(value) || value < 1)) {
         throw new Error('OG_CONFIG_REFERENCE dispatch threshold max_workers: must be an integer >= 1 when set');

@@ -21,7 +21,7 @@ export async function managedMcWorkerFixture(root: string, options: {
   const refresh = (value: unknown): void => {
     if (!value || typeof value !== 'object') return;
     for (const [key, child] of Object.entries(value)) {
-      if (['observedAt', 'fetchedAt', 'verifiedAt', 'qualifiedAt'].includes(key) && typeof child === 'string') {
+      if (['observedAt', 'fetchedAt', 'verifiedAt', 'qualifiedAt', 'collectedAt'].includes(key) && typeof child === 'string') {
         (value as Record<string, unknown>)[key] = now;
       } else refresh(child);
     }

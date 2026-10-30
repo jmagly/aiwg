@@ -446,11 +446,11 @@ describe('B-OG-16 real MC caller binding', () => {
     const statePath = join(dir, '.aiwg/ralph-external/loops/ralph-s2/session-state.json');
     const c = context(`mc-${event}`, 'real handler with synthetic Ralph state', 'B-OG-16', storePath);
     c.trace.evidence = [
-      source('src/cli/handlers/mc.ts', 'const admission = scheduler.submit('),
-      source('src/cli/handlers/mc.ts', 'const ralphStatus = String(state.status'),
-      source('src/cli/handlers/mc.ts', 'try { scheduler.release(mission.admissionRequestId); }'),
-      source('src/cli/handlers/mc.ts', 'const renewed = managed'),
-      source('src/cli/handlers/mc.ts', 'scheduler.cancel(mission.admissionRequestId)'),
+      source('src/cli/handlers/mc-run.ts', 'const admission = scheduler.submit('),
+      source('src/cli/handlers/mc-status.ts', 'const ralphStatus = String(state.status'),
+      source('src/cli/handlers/mc-status.ts', 'try { scheduler.release(mission.admissionRequestId); }'),
+      source('src/cli/handlers/mc-status.ts', 'const renewed = managed'),
+      source('src/cli/handlers/mc-control.ts', 'scheduler.cancel(mission.admissionRequestId)'),
     ];
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(start);
@@ -522,7 +522,7 @@ describe('B-OG-16 real MC caller binding', () => {
       expect(launchExternalRalph).not.toHaveBeenCalled();
       expect(c.scheduler.snapshot().records).toEqual({});
       expect(caller().missionStatus).toBe('queued');
-      c.trace.evidence.push(source('src/cli/handlers/mc.ts', "assertMissionWorkerHandoff(mission, 'mc-cli', support)"));
+      c.trace.evidence.push(source('src/cli/handlers/mc-run.ts', "assertMissionWorkerHandoff(mission, 'mc-cli', support)"));
       c.finish('NOT-EXPRESSIBLE', 'The shared dispatch-health-feature fixture is rejected with OG_CONTRACT_UNSUPPORTED before admission or launch. Legacy MC binding exists, but managed health caller events require #2919–#2924.');
       return;
     }
@@ -763,8 +763,8 @@ afterAll(() => {
   const inventory = [
     { owner: 'Mission', verdict: 'NOT-EXPRESSIBLE', reason: 'Routes worker cycles and rejects unsupported worker handoffs; no SharedHostScheduler binding.', evidence: [source('src/serve/mission-conductor.ts', 'assertMissionWorkerHandoff(plan'), source('src/serve/mission-conductor.ts', "import { routeMission }")] },
     { owner: 'Fleet Mission', verdict: 'NOT-EXPRESSIBLE', reason: 'Fleet lifecycle aggregation exists, but no SharedHostScheduler binding.', evidence: [source('src/serve/fleet-mission-conductor.ts', 'assertMissionWorkerHandoff(plan'), source('src/serve/fleet-mission-conductor.ts', 'function lifecycleSatisfied')] },
-    { owner: 'Flow', verdict: 'NOT-EXPRESSIBLE', reason: 'Managed Flow uses the MC project adapter; separate unit fixtures cover its schema/accounting boundary, while this trace lane exercises MC callers.', evidence: [source('src/cli/handlers/mc.ts', 'export async function createMcFlowAdapter'), source('agentic/code/addons/composition-engine/lib/runtime.mjs', 'export function createManagedCompositionAdapter')] },
-    { owner: 'Ralph', verdict: 'NOT-EXPRESSIBLE', reason: 'Managed Ralph capture validates shared MC authority and fenced health; this trace lane substitutes process launch and tests MC ingestion, with capture covered in its unit lane.', evidence: [source('src/cli/handlers/mc.ts', 'const ralphStatus = String(state.status'), source('tools/ralph-external/session-launcher.mjs', 'assertManagedWorkerLaunch')] },
+    { owner: 'Flow', verdict: 'NOT-EXPRESSIBLE', reason: 'Managed Flow uses the MC project adapter; separate unit fixtures cover its schema/accounting boundary, while this trace lane exercises MC callers.', evidence: [source('src/cli/handlers/mc-worker.ts', 'export async function createMcFlowAdapter'), source('agentic/code/addons/composition-engine/lib/runtime.mjs', 'export function createManagedCompositionAdapter')] },
+    { owner: 'Ralph', verdict: 'NOT-EXPRESSIBLE', reason: 'Managed Ralph capture validates shared MC authority and fenced health; this trace lane substitutes process launch and tests MC ingestion, with capture covered in its unit lane.', evidence: [source('src/cli/handlers/mc-status.ts', 'const ralphStatus = String(state.status'), source('tools/ralph-external/session-launcher.mjs', 'assertManagedWorkerLaunch')] },
   ];
   for (const trace of traces) {
     for (const step of trace.steps) {

@@ -110,6 +110,53 @@ I may be in the wrong folder. Check pwd, list the project signals you see, run o
 aiwg status --probe --json
 ```
 
+## Undo A Framework Deploy
+
+> "Remove the marketing framework from this project and show me what will change first"
+
+Your assistant starts in the project folder and runs a dry run. The preview lists
+recorded agents, commands, rules, skills, hook scripts and settings contributions,
+with a reason for each removal, restoration or preserved path. Settings lines
+include the key path, such as `.claude/settings.json#/aiwg/mode`. The preview
+writes nothing; review it before asking your assistant to apply the removal.
+
+Removal restores recorded pre-deploy settings values, or deletes keys that did
+not exist before deployment. When another framework still contributes a value
+or hook, its contribution stays. For example, removing marketing after deploying
+SDLC and marketing leaves the SDLC settings and shared hooks in place. Removing
+both restores the pre-deploy settings, including the original file bytes when
+nothing was edited and the deploy recorded a byte preimage.
+
+Edited files, settings values and hook entries are kept and reported. Shared
+files stay while their receipt releases only the selected framework's ownership.
+Files and settings without verifiable ownership or pre-deploy values are kept;
+older deployments may need manual review. Shared context bridges such as
+`CLAUDE.md` are kept when their pre-deploy operator content cannot be verified.
+Do not delete these paths just because they appeared in the deploy directory.
+
+A partial removal retains unresolved contributions in the ownership receipts and
+keeps deployment records for them. A second run leaves operator edits intact;
+after you reconcile an edited value with its recorded deployed value, rerun the
+same command to finish. Completed contributions are released from the receipts
+so they are not restored again. File deletions, settings restoration, receipt
+updates and deployment-record updates share a transaction: a failed restoration
+rolls them back together and reports the recovery journal path.
+
+### Command reference
+
+```bash
+cd /path/to/your/project
+aiwg remove marketing --dry-run
+aiwg remove marketing
+# Limit the preview or removal to a recorded provider:
+aiwg remove marketing --provider claude --dry-run
+# After reviewing the first removal, preview the remaining framework:
+aiwg remove sdlc --dry-run
+```
+
+`--keep-registry` keeps installed/deployedTo records. `--force` does not override
+bundled framework ownership checks or overwrite operator edits.
+
 ## Related
 
 - [Start Here](start-here.md)

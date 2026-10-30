@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
+import { refreshRecordedContextOutput } from '../../providers/context-output-ownership.js';
 import { trackTemporaryDirectory } from '../../utils/temporary-directory.js';
 
 const JOURNAL_ENV = 'AIWG_CONTEXT_WRITE_JOURNAL';
@@ -181,6 +182,7 @@ export function writeContextFileSync(file: string, content: string | Buffer, _en
         verify();
         verifyTarget(anchored, result);
         if (!matches(state(fd), result)) throw new Error(`Context changed during write: ${absolute}`);
+        if (!stageLog) refreshRecordedContextOutput(absolute, prior?.hash, result.hash, writeContextFileSync);
       }
     } finally { fs.closeSync(fd); }
   });

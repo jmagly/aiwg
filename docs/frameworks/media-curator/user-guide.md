@@ -114,6 +114,12 @@ Shows what you have, what's missing, and what to prioritize.
 
 ### Open-Weight Model Archival
 
+> "Find the current best uncompressed models in the 8-9B range and start Phase 1 archival into /archive/llm."
+
+Your assistant uses the LLM Model Archivist workflow to assess candidates and verify their archival records.
+
+#### Command reference
+
 The same discipline applies to open-weight language models: discover
 candidates, rank them on sourced evidence, archive original-precision weights,
 and verify them with a checksum manifest and a PROV record.
@@ -136,7 +142,7 @@ node tools/media-curator/llm-model-archive.mjs fixity verify <model-dir> # fails
 Quantized-only models are flagged in the report, not archived, unless you ask
 for them explicitly. Hub tokens are read at the point of use and never written
 into the inventory or report. Field reference:
-`agentic/code/frameworks/media-curator/docs/llm-model-archive-templates.md`.
+[LLM model archive templates](llm-model-archive-templates.md).
 
 ## Assembly and Export
 

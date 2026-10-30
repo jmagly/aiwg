@@ -6,7 +6,7 @@
  * the plugin-provided /workflow. This test proves:
  *   1. the skill source exists with kernel:true frontmatter,
  *   2. it is a member of MIRRORED_KERNEL_COMMAND_SKILLS in BOTH the TS handler
- *      (src/cli/handlers/use.ts) and the JS deployer (tools/agents/deploy-agents.mjs)
+ *      (src/cli/handlers/use.ts) and the JS deployer (tools/agents/deploy-command-mirrors.mjs, used by deploy-agents.mjs)
  *      — the duplicated set is a known drift risk, so assert parity,
  *   3. the body encodes the Mission → external/durable route + retained-ownership
  *      contract (#1537 ADR), so /aiwg-mission maps to a Mission, not a no-op.
@@ -42,7 +42,7 @@ describe('aiwg-mission kernel skill (#1544)', () => {
 
   it('is mirrored as a kernel command-skill in BOTH deploy paths (→ ~/.codex/prompts/)', () => {
     const tsSet = readKernelSet('src/cli/handlers/use.ts');
-    const jsSet = readKernelSet('tools/agents/deploy-agents.mjs');
+    const jsSet = readKernelSet('tools/agents/deploy-command-mirrors.mjs');
     expect(tsSet).toContain("'aiwg-mission'");
     expect(jsSet).toContain("'aiwg-mission'");
   });
@@ -74,7 +74,7 @@ describe('issue-workflow commands mirror as commands (#1549)', () => {
     // These skills are NOT kernel and NOT flow-*, so without an explicit entry
     // they never mirror to .opencode/command/ / .claude/commands/ (#1549).
     const tsSet = readStandardSet('src/cli/handlers/use.ts');
-    const jsSet = readStandardSet('tools/agents/deploy-agents.mjs');
+    const jsSet = readStandardSet('tools/agents/deploy-command-mirrors.mjs');
     for (const set of [tsSet, jsSet]) {
       expect(set).toContain("'address-issues'");
       expect(set).toContain("'issue-audit'");
@@ -85,6 +85,6 @@ describe('issue-workflow commands mirror as commands (#1549)', () => {
     const norm = (s: string) =>
       [...s.matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]).sort();
     expect(norm(readStandardSet('src/cli/handlers/use.ts')))
-      .toEqual(norm(readStandardSet('tools/agents/deploy-agents.mjs')));
+      .toEqual(norm(readStandardSet('tools/agents/deploy-command-mirrors.mjs')));
   });
 });

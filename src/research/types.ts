@@ -20,6 +20,8 @@ export interface ResearchPaper {
   abstract?: string;
   /** DOI if available */
   doi?: string;
+  /** Additional DOI identities retained when preprint and publication records merge. */
+  alternateDois?: string[];
   /** arXiv ID if available */
   arxivId?: string;
   /** Version returned by arXiv; requested versions stay in the parsed reference. */

@@ -17,6 +17,8 @@ export async function postDeploy(targetDir, opts) {
 
   // If settings.json doesn't exist, create a minimal one
   if (!fs.existsSync(settingsPath) && !opts.dryRun) {
+    const { captureDeploymentOutputs, recordDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
+    const before = captureDeploymentOutputs([claudeDir]);
     ensureDir(claudeDir);
     const settings = {
       version: '1.0',
@@ -27,14 +29,20 @@ export async function postDeploy(targetDir, opts) {
       }
     };
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    recordDeploymentOutputs(before, [claudeDir], { ...opts, writtenFiles: [settingsPath] });
+    opts.writtenFiles?.push(settingsPath);
     console.log('Created .claude/settings.json');
   }
+
+  const addonPass = /(?:agentic\/code|\.aiwg)\/(?:addons|extensions)\//.test((opts.logicalInputPath?.(opts.srcRoot) || opts.srcRoot)?.replaceAll('\\', '/') || '');
 
   // Reuse the settings owner's backup/atomic merge, independently of hooks.
   if (opts.attribution !== false) {
     const { installAiwgHooks } = await importImpl(import.meta.url, 'extensions/claude-hooks-installer.js');
-    const result = await installAiwgHooks({ projectPath: targetDir, frameworkRoot: opts.srcRoot || targetDir,
-      hooks: false, dryRun: opts.dryRun });
+    const { deploymentOwner } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
+    const result = await installAiwgHooks({ frameworkSlug: deploymentOwner(opts), claimUnchangedSettings: !addonPass, projectPath: targetDir, frameworkRoot: opts.srcRoot || targetDir,
+      attribution: opts.attribution !== false, hooks: false, dryRun: opts.dryRun });
+    if (!opts.dryRun && result) opts.writtenFiles?.push(result.settingsPath);
     for (const warning of result?.warnings || []) console.warn(`Claude settings: ${warning}`);
   }
   await deployConductorDataGuard(targetDir, 'claude', opts);

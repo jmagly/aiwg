@@ -194,6 +194,8 @@ function sampleFreeDiskGb(readers) {
 }
 
 function readLiveHostResources(readers = {}) {
+  // Capture the start of collection, so slow readers cannot make old values newer.
+  const collectedAt = new Date((readers.now ?? Date.now)()).toISOString();
   const readText = readers.readText ?? (path => readFileSync(path, 'utf8'));
   const coreCount = readers.coreCount ?? (() => os.cpus().length);
   const countWorkers = readers.countWorkers ?? (() => countWorkerProcesses(readers));
@@ -203,7 +205,7 @@ function readLiveHostResources(readers = {}) {
   // (threaded through `checkWorkerDispatch({ paths })`); without them free
   // disk is unknown and the gate fails closed.
   if (process.platform !== 'linux' && readers.readText === undefined) {
-    return { supported: false, reason: `live dispatch signals require Linux /proc (this host: ${process.platform})` };
+    return { collectedAt, supported: false, reason: `live dispatch signals require Linux /proc (this host: ${process.platform})` };
   }
   const readOptional = (path) => {
     try {
@@ -222,6 +224,7 @@ function readLiveHostResources(readers = {}) {
     workers = undefined;
   }
   return {
+    collectedAt,
     supported: true,
     availMemGb: parseMemAvailableGb(readOptional('/proc/meminfo') ?? ''),
     load1: load?.load1,
@@ -252,24 +255,24 @@ function evaluateDispatchGate(live, thresholds) {
     };
   }
   const breach = (signal, actual, threshold, reason) => failures.push({ signal, actual, threshold, reason });
-  if (live.availMemGb === undefined) breach('avail-mem', undefined, thresholds.min_avail_mem_gb, 'MemAvailable not detectable on this host');
+  if (!Number.isFinite(live.availMemGb)) breach('avail-mem', undefined, thresholds.min_avail_mem_gb, 'MemAvailable not detectable on this host');
   else if (live.availMemGb < thresholds.min_avail_mem_gb) {
     breach('avail-mem', live.availMemGb, thresholds.min_avail_mem_gb, `available ${live.availMemGb.toFixed(1)}GB < ${thresholds.min_avail_mem_gb}GB`);
   }
-  if (live.loadRatio === undefined) breach('load', undefined, thresholds.max_load_ratio, 'load average not detectable on this host');
+  if (!Number.isFinite(live.loadRatio)) breach('load', undefined, thresholds.max_load_ratio, 'load average not detectable on this host');
   else if (live.loadRatio > thresholds.max_load_ratio) {
     breach('load', live.loadRatio, thresholds.max_load_ratio, `load ratio ${live.loadRatio.toFixed(2)} > ${thresholds.max_load_ratio}`);
   }
-  if (live.memPsiAvg10 === undefined) breach('mem-psi-avg10', undefined, thresholds.max_mem_psi_avg10, '/proc/pressure/memory not detectable on this host');
+  if (!Number.isFinite(live.memPsiAvg10)) breach('mem-psi-avg10', undefined, thresholds.max_mem_psi_avg10, '/proc/pressure/memory not detectable on this host');
   else if (live.memPsiAvg10 > thresholds.max_mem_psi_avg10) {
     breach('mem-psi-avg10', live.memPsiAvg10, thresholds.max_mem_psi_avg10, `memory PSI avg10 ${live.memPsiAvg10} > ${thresholds.max_mem_psi_avg10}`);
   }
-  if (live.memPsiAvg60 === undefined) breach('mem-psi-avg60', undefined, thresholds.max_mem_psi_avg60, '/proc/pressure/memory not detectable on this host');
+  if (!Number.isFinite(live.memPsiAvg60)) breach('mem-psi-avg60', undefined, thresholds.max_mem_psi_avg60, '/proc/pressure/memory not detectable on this host');
   else if (live.memPsiAvg60 > thresholds.max_mem_psi_avg60) {
     breach('mem-psi-avg60', live.memPsiAvg60, thresholds.max_mem_psi_avg60, `memory PSI avg60 ${live.memPsiAvg60} > ${thresholds.max_mem_psi_avg60}`);
   }
   if (thresholds.max_workers !== undefined) {
-    if (live.workers === undefined) breach('workers', undefined, thresholds.max_workers, 'worker count not detectable on this host');
+    if (!Number.isFinite(live.workers)) breach('workers', undefined, thresholds.max_workers, 'worker count not detectable on this host');
     else if (live.workers >= thresholds.max_workers) {
       breach('workers', live.workers, thresholds.max_workers, `${live.workers} running workers >= ${thresholds.max_workers}`);
     }

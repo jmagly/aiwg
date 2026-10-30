@@ -12,6 +12,12 @@ Al divides people. Some swear by it. Others have war stories about it running al
 
 ### The Disaster Case: Greenfield + Vague Directive
 
+> "Check whether this vague app request is ready for an implementation loop."
+
+Your assistant identifies missing requirements before using the loop; the following command illustrates the failure case.
+
+#### Command reference
+
 ```bash
 # DON'T DO THIS
 /ralph "make me a baking app" --completion "app works"
@@ -31,6 +37,12 @@ What happens:
 **Why this fails**: The AI is trying to answer "WHAT to build" while simultaneously trying to figure out "HOW to build it." These are fundamentally different problems. Mixing them creates chaos.
 
 ### The Success Case: Documented Project + Implementation Focus
+
+> "Implement the documented login use case and verify its completion commands."
+
+Your assistant uses the defined use case and architecture to scope the implementation loop.
+
+#### Command reference
 
 ```bash
 # DO THIS
@@ -95,6 +107,12 @@ By the time you've completed AIWG's Discovery Track:
 
 ### Implementation of Well-Defined Features
 
+> "Implement UC-PAY-003 and use its payment tests as the completion check."
+
+Your assistant iterates on the specified use case with the completion command below.
+
+#### Command reference
+
 ```bash
 /ralph "Implement @.aiwg/requirements/UC-PAY-003.md" \
   --completion "npm test -- payment passes"
@@ -103,6 +121,12 @@ By the time you've completed AIWG's Discovery Track:
 The use case document tells Al exactly what to build. Al figures out the implementation.
 
 ### Mechanical Transformations
+
+> "Convert the utility files to TypeScript following ADR-012 and verify compilation."
+
+Your assistant uses the ADR to constrain the iterative transformation.
+
+#### Command reference
 
 ```bash
 /ralph "Convert src/utils/*.js to TypeScript per @.aiwg/architecture/adr-012-typescript.md" \
@@ -113,6 +137,12 @@ The ADR defines the transformation rules. Al applies them iteratively.
 
 ### Test-Driven Fixes
 
+> "Fix the failing authentication tests and verify the authentication suite."
+
+Your assistant uses the failing tests to define the bounded loop target.
+
+#### Command reference
+
 ```bash
 /ralph "Fix all failing tests in src/auth/" \
   --completion "npm test -- auth passes"
@@ -122,6 +152,12 @@ Tests define expected behavior. Al makes code match expectations.
 
 ### Dependency Resolution
 
+> "Update to React 19 and resolve breaking changes until tests and the build pass."
+
+Your assistant uses the test and build commands as completion checks for the migration.
+
+#### Command reference
+
 ```bash
 /ralph "Update to React 19 and fix all breaking changes" \
   --completion "npm test passes AND npm run build succeeds"
@@ -130,6 +166,12 @@ Tests define expected behavior. Al makes code match expectations.
 Al excels at the tedious iteration of finding compatible versions and fixing API changes.
 
 ### Code Quality Gates
+
+> "Raise service test coverage to the specified threshold and verify the report."
+
+Your assistant uses the scoped coverage target as the loop completion criterion.
+
+#### Command reference
 
 ```bash
 /ralph "Achieve 80% test coverage in src/services/" \
@@ -141,6 +183,12 @@ Clear metric, well-defined scope. Al adds tests until the threshold is met.
 ## When NOT to Use Al
 
 ### Greenfield Without Documentation
+
+> "Define the requirements and architecture before starting an implementation loop."
+
+Your assistant uses the intake and lifecycle flows before implementing a documented use case.
+
+#### Command reference
 
 If you have no architecture doc, no requirements, no design - **stop**. Don't invoke Al. Use the AIWG intake process first.
 
@@ -156,6 +204,12 @@ If you have no architecture doc, no requirements, no design - **stop**. Don't in
 
 ### Vague or Subjective Goals
 
+> "Help me replace this subjective goal with an objectively verifiable task."
+
+Your assistant asks for a concrete target before invoking a loop; the following commands illustrate goals to avoid.
+
+#### Command reference
+
 ```bash
 # BAD - cannot verify, no clear target
 /ralph "make the code better" --completion "code is good"
@@ -167,6 +221,12 @@ If you can't write a command that verifies success, Al can't iterate toward it.
 
 ### Research or Exploration
 
+> "Explore the authentication design before starting implementation."
+
+Your assistant uses discovery or manual exploration; the command below illustrates an unsuitable implementation loop.
+
+#### Command reference
+
 ```bash
 # BAD - this isn't an implementation task
 /ralph "figure out how authentication should work" --completion "auth design is done"
@@ -176,6 +236,12 @@ Use `/flow-discovery-track` or manual exploration for research. Al is for implem
 
 ### Undefined Scope
 
+> "Break the remaining app work into specific documented features before looping."
+
+Your assistant narrows the scope first; the command below illustrates an undefined completion target.
+
+#### Command reference
+
 ```bash
 # BAD - how many features is "complete"?
 /ralph "finish the app" --completion "app is complete"
@@ -184,6 +250,12 @@ Use `/flow-discovery-track` or manual exploration for research. Al is for implem
 Break this into specific, documented features first.
 
 ## Al for Documentation (Carefully Scoped)
+
+> "Generate the missing architecture decisions or use cases from the specified source material with explicit completion checks."
+
+Your assistant keeps documentation loops bounded to the requested artifacts and verifiable criteria.
+
+### Command reference
 
 Al can help with documentation itself - but only with specific, verifiable scope:
 
@@ -203,6 +275,12 @@ Al can help with documentation itself - but only with specific, verifiable scope
 ```
 
 ## Warning Signs: Is Al Thrashing?
+
+> "Review this repeating loop failure and stop it if the requirements need repair."
+
+Your assistant checks the warning signs below and uses the abort path before revising the specification.
+
+### Command reference
 
 Watch for these indicators:
 
@@ -224,6 +302,12 @@ Watch for these indicators:
 ```
 
 ## The Al Readiness Checklist
+
+> "Check this feature against the loop readiness checklist before implementation."
+
+Your assistant reviews scope, requirements and verification commands before invoking the loop.
+
+### Command reference
 
 Before invoking Al, ask:
 

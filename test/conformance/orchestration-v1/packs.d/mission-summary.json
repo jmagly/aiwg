@@ -1,0 +1,9 @@
+{
+  "T-OG-09": {
+    "testFiles": [
+      "test/unit/serve/mission-summary.test.ts",
+      "test/unit/mission-protocol/worker-review-summary.test.ts",
+      "test/unit/cli/handlers/mc-summary.test.ts"
+    ]
+  }
+}

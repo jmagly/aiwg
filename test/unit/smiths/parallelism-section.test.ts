@@ -598,7 +598,7 @@ describe('T-OG-07/12/15/19 remaining parallelism policy facts (#2893)', () => {
 
   it('G01 renders real cached timestamps and ages without converting a cache read into eligibility', async () => {
     const f = writeFixture();
-    const now = new Date(Date.parse(f.request.now) + 3600_000);
+    const now = new Date(Date.parse(f.request.now) + 3600_000); f.snapshot.hostResources!.collectedAt = now.toISOString();
     const before = structuredClone(f);
     const section = await buildParallelismSection(tmpDir, { now: () => now });
     const selected = resolveWorkerPlan(f.snapshot, { ...f.request, now: now.toISOString() }).selected!;
@@ -655,7 +655,7 @@ describe('T-OG-07/12/15/19 remaining parallelism policy facts (#2893)', () => {
     const section = await buildParallelismSection(tmpDir);
     expect(section).toContain('observation warning after 1 hours; observation blocked after 2 hours; verification blocked after 3 days');
     const resolveAt = (hours: number) => resolveWorkerPlan(f.snapshot, {
-      ...f.request, now: new Date(Date.parse(f.request.now) + hours * 3600_000).toISOString(),
+      ...f.request, now: f.snapshot.hostResources!.collectedAt = new Date(Date.parse(f.request.now) + hours * 3600_000).toISOString(),
     });
     expect(resolveAt(1).selected?.diagnostics).toEqual([]);
     expect(resolveAt(1.5).selected?.diagnostics).toContainEqual(expect.objectContaining({ blocking: false }));

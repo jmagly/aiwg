@@ -13,7 +13,7 @@ import type {
 } from './types.js';
 import { sanitizeDescription, sanitizeTags } from './sanitizer.js';
 import { checkPathAllowed } from './allowlist.js';
-import { generateAiwgMd } from './aiwg-md.js';
+import { generateAiwgMdForPipeline as generateAiwgMd } from './aiwg-md.js';
 import { injectSpilloverBlock } from './overflow.js';
 import { migrateAiwgOperatorNotes } from './finalization.js';
 import { shouldEmitAgentsMd, shouldEmitClaudeMdHook } from './provider-policy.js';

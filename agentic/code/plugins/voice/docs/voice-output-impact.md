@@ -2,6 +2,12 @@
 
 ## Selected development default
 
+> "Apply the selected voice workflow to this draft, retaining the original if review does not qualify the candidate."
+
+Your assistant follows the opt-in critique and correction flow with the model and review limits below.
+
+### Command reference
+
 Use requested `gpt-6-astra`, medium reasoning, one initial draw, primary-session criticism, at most one same-model correction, full primary-session recheck, then production revision replay. Keep an initial joint pass unchanged; correct only failures with returned responses. Preserve the original when no candidate qualifies or no valid review exists. Do not silently substitute a model or reviewer. Additional planned voices are paused.
 
 The packaged [flow](../flows/voice-critique-correction.flow.yaml) is the complete repeatable protocol. It is agent-interpreted AIWG metalanguage, not an unattended CLI model runner. The protocol fields describe obligations beyond schema validation. This is an opt-in development workflow, not automatic interception of provider outputs or completed channel qualification.
@@ -29,6 +35,12 @@ These are development judgments by one primary session on three public source pr
 
 ## What applying voice may change
 
+> "Review the voice edit against the original facts and requested edit permissions."
+
+Your assistant checks factual relationships and protected literals before retaining a candidate.
+
+### Command reference
+
 Voice can change clause arrangement, transitions, emphasis, paragraph movement, word choice and rhythm within the requested edit permissions. It must preserve propositions, actors, quantities, chronology, uncertainty, scope, attribution, unresolved work and the requested action. Literal checks alone cannot establish these properties.
 
 For example, the richer fixture says missing-charger reports declined from 12 to 3 during a six-week pilot. Moving 12 to before the pilot changes chronology even if both numbers survive. Dating the decision to keep the checklist to April 12 confuses the end-of-pilot decision with subsequent adoption. Adding an instruction for a volunteer to record checks changes that actor's task. Each is a fidelity failure, regardless of cadence. The successful neutral richer cases preserved these relationships; a third preserved them but remained a generic paraphrase and was rejected for voice.
@@ -39,11 +51,23 @@ For the technical fixture, exact commands, provider identifiers, operator respon
 
 ## Rendering choices retain the core voice
 
+> "Adapt this draft to the requested register while preserving its core phrasing and factual scope."
+
+Your assistant keeps rendering choices within the edit permissions and the pending integration limits below.
+
+### Command reference
+
 Simulated actual preserves supported register and surface habits without arbitrary inserted errors. Cleaned fixes requested mechanics while retaining phrasing and cadence. Formal changes register locally; it does not authorize stronger claims, generic essay structure or larger rewrites. Concise removes redundancy before paraphrasing and may retain already concise text. Accessible and technical adaptations remain constrained by the reader task and factual ledger. These are separate choices from channel and edit intensity; the complete selectable-mode integration and cross-mode qualification remain pending.
 
 Do not insert catchphrases, first-person experiences, examples, opinions or numbers merely because a profile suggests them. Generated outputs never become authentic source evidence automatically. No blanket ban on punctuation or familiar phrases substitutes for contextual review.
 
 ## Receipts and evaluation
+
+> "Record attempted and retained voice changes with review results and known measurement limits."
+
+Your assistant retains hashes, review and selection records separately from publishable prose.
+
+### Command reference
 
 Retain original and candidate hashes, profile version, selected mode/channel, exact prompts, literal policy, edit budget, raw outputs, requested and resolved model, review, criticism, recheck, selection and replay. Report attempted changes separately from retained changes, with a source-to-selected diff and rejection reasons. Explain substantive changes outside the user's prose. No-review replay must retain the original. Passing initial candidates skip correction; skips are not measured pass-to-pass corrections.
 

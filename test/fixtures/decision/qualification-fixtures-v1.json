@@ -2784,6 +2784,23 @@
         "#3747",
         "docs/decision/d29-signed-access-disposition.md"
       ]
+    },
+    {
+      "id": "DEC-DSEVENTEEN-01",
+      "path": "test/fixtures/decision/ensemble/d17-gate-parity.v1.json",
+      "origin": "repository-authored",
+      "author": "Repository maintainers",
+      "date": "2026-10-30",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "unversioned-json",
+      "digest": "sha256:da4c41a45773eeaa700bb5ce87ddc4f01160fe5acbdbc0bde684609ee3c32233",
+      "expectedOutcome": "Reproduce each pre-binding D17 statistics digest, serialized bytes, findings and diagnostic HOLD verdict.",
+      "links": [
+        "JEV-16",
+        "#2835",
+        "docs/decision/d17-gate-binding-disposition.md"
+      ]
     }
   ]
 }

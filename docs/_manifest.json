@@ -566,7 +566,20 @@
     "addons/network-analysis/termshark-handoff",
     "releases/grokbot-stable-promotion-notes",
     "releases/muse-stable-promotion-notes",
-    "blog/2026-9-aiwg-september-2026-report"
+    "blog/2026-9-aiwg-september-2026-report",
+    "frameworks/media-curator/llm-model-archive-templates",
+    "addons/agent-loop/hitl-authorization",
+    "addons/agent-loop/when-to-use-agent-loop",
+    "addons/decision-engine",
+    "addons/decision-engine/operations",
+    "addons/testing-quality/conformance-workflow",
+    "addons/voice-framework/contextual-diagnostics-evaluation",
+    "addons/voice-framework/contextual-diagnostics",
+    "addons/voice-framework/natural-voice",
+    "addons/voice-framework/natural-voice/ADR-001-evidence-and-ownership",
+    "addons/voice-framework/natural-voice/verification-2026-09-06",
+    "addons/voice-framework/voice-output-impact",
+    "addons/voice-framework/writing-workflows"
   ],
   "sections": [
     {
@@ -4310,6 +4323,97 @@
       "summary": "Linux PUW evidence for muse stable; macOS/Windows waived by maintainer",
       "file": "integrations/muse-linux-puw.md",
       "parent": "reference"
+    },
+    {
+      "id": "frameworks/media-curator/llm-model-archive-templates",
+      "title": "LLM Model Archive Templates",
+      "summary": "Inventory, reports, fixity and provenance contracts for model archives",
+      "file": "frameworks/media-curator/llm-model-archive-templates.md",
+      "parent": "frameworks/media-curator"
+    },
+    {
+      "id": "addons/agent-loop/hitl-authorization",
+      "title": "HITL Authorization",
+      "summary": "Host-bound authorization checks and human review checkpoints for agent loops",
+      "file": "addons/agent-loop/hitl-authorization.md",
+      "parent": "addons/agent-loop"
+    },
+    {
+      "id": "addons/agent-loop/when-to-use-agent-loop",
+      "title": "When to Use the Agent Loop",
+      "summary": "Understanding Al's sweet spot and avoiding the token-burning trap.",
+      "file": "addons/agent-loop/when-to-use-agent-loop.md",
+      "parent": "addons/agent-loop"
+    },
+    {
+      "id": "addons/decision-engine",
+      "title": "Decision Engine",
+      "summary": "Explicit installation, bounded evaluation and durable decision receipts",
+      "collapsed": true,
+      "parent": "addons"
+    },
+    {
+      "id": "addons/decision-engine/operations",
+      "title": "Operations",
+      "summary": "Decision Engine setup, backends, receipt integrity and study collection limits",
+      "file": "addons/decision-engine/operations.md",
+      "parent": "addons/decision-engine"
+    },
+    {
+      "id": "addons/testing-quality/conformance-workflow",
+      "title": "Conformance Workflow",
+      "summary": "The testing-quality addon couples an explicit target protocol with executable inventory, evidence co",
+      "file": "addons/testing-quality/conformance-workflow.md",
+      "parent": "addons/testing-quality"
+    },
+    {
+      "id": "addons/voice-framework/contextual-diagnostics-evaluation",
+      "title": "Contextual Diagnostics Evaluation",
+      "summary": "This is a developer-labeled deterministic regression evaluation for #2297. The cases deliberately co",
+      "file": "addons/voice-framework/contextual-diagnostics-evaluation.md",
+      "parent": "addons/voice-framework"
+    },
+    {
+      "id": "addons/voice-framework/contextual-diagnostics",
+      "title": "Contextual Diagnostics",
+      "summary": "Located editorial findings, author-reviewed exceptions and compatibility limits",
+      "file": "addons/voice-framework/contextual-diagnostics.md",
+      "parent": "addons/voice-framework"
+    },
+    {
+      "id": "addons/voice-framework/natural-voice",
+      "title": "Natural Voice",
+      "summary": "Ownership, evidence contracts and recorded provenance verification",
+      "collapsed": true,
+      "parent": "addons/voice-framework"
+    },
+    {
+      "id": "addons/voice-framework/natural-voice/ADR-001-evidence-and-ownership",
+      "title": "ADR 001 Evidence And Ownership",
+      "summary": "Status: accepted design decision, 2026-09-06. Tracks #2293 and #2292.",
+      "file": "addons/voice-framework/natural-voice/ADR-001-evidence-and-ownership.md",
+      "parent": "addons/voice-framework/natural-voice"
+    },
+    {
+      "id": "addons/voice-framework/natural-voice/verification-2026-09-06",
+      "title": "Verification 2026 09 06",
+      "summary": "Scope: #2293 evidence contract. This is a citation/provenance check, not a replicated experiment or ",
+      "file": "addons/voice-framework/natural-voice/verification-2026-09-06.md",
+      "parent": "addons/voice-framework/natural-voice"
+    },
+    {
+      "id": "addons/voice-framework/voice-output-impact",
+      "title": "Voice Output Impact",
+      "summary": "Selected voice workflow, measured impact, fidelity checks and fallback limits",
+      "file": "addons/voice-framework/voice-output-impact.md",
+      "parent": "addons/voice-framework"
+    },
+    {
+      "id": "addons/voice-framework/writing-workflows",
+      "title": "Writing Workflows",
+      "summary": "These recipes use the existing mode resolver and opt-in writer sidecars. They do not activate a univ",
+      "file": "addons/voice-framework/writing-workflows.md",
+      "parent": "addons/voice-framework"
     }
   ],
   "pages": [

@@ -51,7 +51,7 @@ function copyChecker(root) {
   const destination = path.join(root, 'tools/testing/check-test-registration.mjs');
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   fs.copyFileSync(fileURLToPath(checker), destination);
-  for (const name of ['check-script-lanes.mjs', 'workflow-commands.mjs']) {
+  for (const name of ['check-script-lanes.mjs', 'workflow-commands.mjs', 'package-runner-ownership.mjs']) {
     fs.copyFileSync(path.join(repo, 'tools/testing', name), path.join(root, 'tools/testing', name));
   }
   expect(fs.readFileSync(destination)).toEqual(fs.readFileSync(fileURLToPath(checker)));
@@ -148,7 +148,7 @@ describe('test runner registration gate', () => {
   ])('rejects an unassigned %s suite outside the original census', (_kind, file, body) => {
     const { child, report } = run(project({ files: { [file]: body } }));
     expect(child.status).toBe(1);
-    expect(report.errors).toEqual([`${file}: unassigned test file`]);
+    expect(report.errors).toEqual([`${file}: unassigned test file${_kind === 'addon' ? '; missing node lane' : ''}`]);
     expect(report.files.find(row => row.file === file)?.lanes).toEqual([]);
   });
 

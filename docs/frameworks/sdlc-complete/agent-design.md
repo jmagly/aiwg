@@ -314,7 +314,7 @@ For comprehensive document review, launch simultaneously:
 - Technical Writer → Clarity review
 - Requirements Analyst → Traceability check
 
-All reviewers read the same input and commit separate initial judgments before seeing other reviews. Agreement does not establish independent errors or proof; consequential claims need an executable check or human acceptance. See `docs/decision/evaluator-calibration.md`.
+All reviewers read the same input and commit separate initial judgments before seeing other reviews. Agreement does not establish independent errors or proof; consequential claims need an executable check or human acceptance. See `$AIWG_ROOT/docs/decision/evaluator-calibration.md`.
 Synthesizer agent merges feedback afterward.
 ```
 

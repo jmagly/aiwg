@@ -6,6 +6,12 @@ The versioned fixture is `test/fixtures/writing/contextual-diagnostics.v1.json`.
 
 ## Reproduce
 
+> "Reproduce the contextual diagnostics fixture evaluation and explain its limits."
+
+Your assistant runs the deterministic fixture tests and reports their metrics without treating them as human voice qualification.
+
+### Command reference
+
 Run:
 
 ```sh

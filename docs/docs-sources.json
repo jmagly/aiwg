@@ -40,6 +40,7 @@
     "files": [
       "agent-examples.md",
       "agent-examples/acquisition-manager-examples.md",
+      "llm-model-archive-templates.md",
       "overview.md",
       "standards-reference.md",
       "type-flexible-curation.md",
@@ -88,6 +89,7 @@
       "agent-examples/documentation-agent-examples.md",
       "agent-examples/quality-agent-examples.md",
       "agent-examples/research-acquisition-agent-examples.md",
+      "bibliographic-services.md",
       "corpus-data-model.md",
       "overview.md",
       "packet-evidence.md",
@@ -172,10 +174,11 @@
       "examples/migration.md",
       "examples/test-fix-loop.md",
       "executable-feedback-guide.md",
+      "hitl-authorization.md",
       "quickstart.md",
       "reflection-memory-guide.md",
       "troubleshooting.md",
-      "when-to-use-ralph.md"
+      "when-to-use-agent-loop.md"
     ]
   },
   {
@@ -437,6 +440,7 @@
     "source": "agentic/code/addons/testing-quality/docs",
     "dest": "docs/addons/testing-quality",
     "files": [
+      "conformance-workflow.md",
       "overview.md",
       "quickstart.md"
     ]
@@ -447,12 +451,18 @@
     "source": "agentic/code/addons/voice-framework/docs",
     "dest": "docs/addons/voice-framework",
     "files": [
+      "contextual-diagnostics-evaluation.md",
+      "contextual-diagnostics.md",
       "custom-output-modes.md",
+      "natural-voice/ADR-001-evidence-and-ownership.md",
+      "natural-voice/verification-2026-09-06.md",
       "output-mode-integration.md",
       "output-mode-troubleshooting.md",
       "output-modes.md",
       "overview.md",
-      "quickstart.md"
+      "quickstart.md",
+      "voice-output-impact.md",
+      "writing-workflows.md"
     ]
   },
   {

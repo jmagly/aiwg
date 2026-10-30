@@ -1,0 +1,346 @@
+{
+  "source": "d88d04e401f658c10e0845b88610aafb100d2c73",
+  "protocol": {
+    "schemaVersion": "decision-d17-protocol/v1",
+    "minimumPairs": 1200,
+    "slices": [
+      "direct-facts",
+      "multi-fact",
+      "negation",
+      "authority"
+    ],
+    "minimumPerSlice": 300,
+    "interval": {
+      "method": "newcombe-10",
+      "levelBps": 9500,
+      "nonInferiorityMarginBps": -300,
+      "benefitLowerExclusiveBps": 0
+    },
+    "brier": {
+      "method": "percentile-bootstrap",
+      "levelBps": 9500,
+      "seed": 2611,
+      "resamples": 20000,
+      "maximumUpperBps": 200
+    },
+    "risk": {
+      "method": "wilson",
+      "levelBps": 9500,
+      "maximumAcceptedErrorUpperBps": 500,
+      "minimumCoverageLowerBps": 6000
+    },
+    "abstention": {
+      "method": "newcombe-10",
+      "levelBps": 9500,
+      "maximumUpperBps": 500
+    },
+    "maximumP95LatencyIncreaseMs": 15000,
+    "acceptance": {
+      "tieRule": "defer",
+      "disagreementMetric": "jensen-shannon-v1",
+      "maximumDisagreementBps": 1000,
+      "minimumSuccessfulMembers": 3,
+      "highAgreementWarningBps": 100
+    },
+    "economics": {
+      "kind": "additional-cost-tolerance",
+      "positiveNetSavingsRequired": false,
+      "separateTradeoffApprovalRequired": true
+    },
+    "native": [
+      {
+        "metric": "quality",
+        "comparison": "delta-at-least",
+        "bound": -0.03,
+        "minimumPairs": 1200
+      },
+      {
+        "metric": "calibration",
+        "comparison": "delta-at-most",
+        "bound": 0.02,
+        "minimumPairs": 1200
+      },
+      {
+        "metric": "risk-coverage",
+        "comparison": "delta-at-most",
+        "bound": 0.01,
+        "minimumPairs": 1200
+      },
+      {
+        "metric": "abstention",
+        "comparison": "delta-at-most",
+        "bound": 0.05,
+        "minimumPairs": 1200
+      },
+      {
+        "metric": "latency",
+        "comparison": "delta-at-most",
+        "bound": 10000,
+        "minimumPairs": 1200
+      },
+      {
+        "metric": "tokens",
+        "comparison": "delta-at-most",
+        "bound": 8000,
+        "minimumPairs": 1200
+      },
+      {
+        "metric": "cost",
+        "comparison": "delta-at-most",
+        "bound": 800,
+        "minimumPairs": 1200
+      },
+      {
+        "metric": "slice",
+        "comparison": "delta-at-least",
+        "bound": -0.03,
+        "minimumPairs": 1200
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "unchanged",
+      "statisticsDigest": "sha256:46eae40c8cc13d8144db716279cc2d47aa89ec8c7a8ad475b2a8c8017783c549",
+      "statisticalGate": "pass",
+      "findings": [],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:f6479d99a21ae0703169092a20931e9cd05173453448cb9348c0bb3d24c0e423"
+    },
+    {
+      "name": "extra-cost",
+      "statisticsDigest": "sha256:83748bcef7ed749371e5edaf40cefbe115b17def2b049db526f2f9cddc29d6c7",
+      "statisticalGate": "pass",
+      "findings": [],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:83a6b73a88173c6322222369dcc23eb389afdaf06ce3228e98a94b87106d2600"
+    },
+    {
+      "name": "quality-ni",
+      "statisticsDigest": "sha256:87d7c26a784f0f7e50aac409df1f3056c384d53c00a66f70a16605ee9d844c58",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "paired-delta-failed:risk-coverage",
+        "quality-ni"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:b1f935f8dec1c213b1e95761cf66140782ef3acd24d6a0f243d4aab0b0de2d9f"
+    },
+    {
+      "name": "benefit",
+      "statisticsDigest": "sha256:5e70bebec4b4e7af1a1435254bddc0d83e6f7d569bc3c4f87a16f8b796abd170",
+      "statisticalGate": "pass",
+      "findings": [],
+      "benefitSupported": true,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:25df3a2fcd846e109640b770b0c1878bd5d66c66930a5880556de00121e4f1d1"
+    },
+    {
+      "name": "native-quality",
+      "statisticsDigest": "sha256:b88c5b844b1560452c84f7be2bd2f444846181ab359611b10fa3d0b1785918a8",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "accepted-risk-upper",
+        "paired-delta-failed:quality",
+        "paired-delta-failed:risk-coverage",
+        "paired-delta-failed:slice",
+        "quality-ni"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:035fc4b6adef4cdd50ecfed48a025b526cfb979cd84a148a2cfb8ba00daeadd8"
+    },
+    {
+      "name": "slice-support",
+      "statisticsDigest": "sha256:e38741a8b61c1d20c42726308252a0bae205421c4aca25646308ec9f02b4a360",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "slice-insufficient:direct-facts"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:2379acdcab9bdb9347f2b5352029e74e69c253be37e6e1521b207c34aa885449"
+    },
+    {
+      "name": "slice-harm",
+      "statisticsDigest": "sha256:491304105eccfc84b9729ebae9746b02d454cf37fa2505bbe67027f49d50eb7b",
+      "statisticalGate": "pass",
+      "findings": [],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:be875663807bd2658ecbadc81c3c8482e83712b553db14dbbaf93cf66c0395d5"
+    },
+    {
+      "name": "accepted-risk",
+      "statisticsDigest": "sha256:07cd3f0eb0afe6ccb0cd8d6f2374dfeb59b342c510b6e0b667f5fe04accc5da1",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "accepted-risk-upper"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:4e7141d9a8399065d6d0bf583d019cefbdf793d5d97db7b00e986c6c3a89b400"
+    },
+    {
+      "name": "coverage",
+      "statisticsDigest": "sha256:9085a517ed4649d7e37f071d12c1304dc8aed17eeac1202cf326bede263a79c7",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "coverage-lower"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:87fb19cbf336fc60a9a70b8d56e5e034412fd48fe5333291c6893fbb5ea2ecc7"
+    },
+    {
+      "name": "abstention",
+      "statisticsDigest": "sha256:7b9af79f8ee91dc43f4a54a30a7f823087aa3378f9ff6f3a5fd9aac87cd118b5",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "abstention-upper"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:dfd3597faab8aa4c51c3ffcda88417aaefd62cbb209fa373360b7391cfe00c3a"
+    },
+    {
+      "name": "brier",
+      "statisticsDigest": "sha256:aa89780a531eefc17872e8c02c2f0765324c2c4e4e6ed43265807fcbac603ffe",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "brier-upper"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:38bbbab24454119f5a9ffa50e4405fd77fcaccc6d5084896f09293c55a5a780f"
+    },
+    {
+      "name": "p95",
+      "statisticsDigest": "sha256:1f81c9edcf4ebbf391f89fd08e1f3bf7d3c2408ab908664468be729b19088769",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "latency-p95"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:b89b326e9d7cdd89fe469eb30a5ec744958fe203ba4d3a5ab6b0cde4ddece020"
+    },
+    {
+      "name": "inclusive-caps",
+      "statisticsDigest": "sha256:afbf4244b2849173b4c296b5a6ce220ced9215b6ff016748ca472af3d61cfad5",
+      "statisticalGate": "pass",
+      "findings": [],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:7f78f293c8211ab5da491aa6effcc5bb7fccae2a5e761c7d7df594378a2e5573"
+    },
+    {
+      "name": "cost",
+      "statisticsDigest": "sha256:4e5574e803f1d45d9f20e9cbfc8da9b7faaaa098dddaa87f5fcdbc2750c6defe",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "paired-delta-failed:cost"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:9f910538ebb65266d42faf8a8dba28d60b32d0f86e746b5cfd3f65b4bd1651a2"
+    },
+    {
+      "name": "tokens",
+      "statisticsDigest": "sha256:9139662f62e487e177e765568ba93ee0706274b988cba22b2b15fb80cfdd67be",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "paired-delta-failed:tokens"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:b83fed8aeecbbfcdbbe0895ad20db866805e5206317ea5a0736dafd3392c2cc0"
+    },
+    {
+      "name": "latency",
+      "statisticsDigest": "sha256:cac2dff2b21add9943bd3cf2ce31ab0cef5ce993902f3f859465997c9f0a3f74",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "paired-delta-failed:latency"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:cd07d299fa4b47e37c9586781945e8c94ec9a7bcd52d1e52f8434f646733af56"
+    },
+    {
+      "name": "calibration",
+      "statisticsDigest": "sha256:487c542ee6d6429a086cff58c5da8a56f8f3dff5c3ca54d652485dcbe6907842",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "brier-upper",
+        "paired-delta-failed:calibration"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:182b01aa07f04da5edbcae3be2234d25e6a477bf63bd700c73ad4c40b4748019"
+    },
+    {
+      "name": "unknown-tokens",
+      "statisticsDigest": "sha256:42d68b8059614f9609c453f095a8eb79062fd4f9d4d0b30e6052302d6fbc1c56",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "paired-delta-insufficient:tokens"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:2cd998747cc769ddaf228be3473f15ab7ccd86d60b77198e5a3d0c9c2d2b11e9"
+    },
+    {
+      "name": "missing-pair",
+      "statisticsDigest": "sha256:fc4cdd39751dc61efb53145f367d1977058c8c6efd061918c8d2b09845740b54",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "incomplete-pairs",
+        "paired-delta-insufficient:abstention",
+        "paired-delta-insufficient:calibration",
+        "paired-delta-insufficient:cost",
+        "paired-delta-insufficient:latency",
+        "paired-delta-insufficient:quality",
+        "paired-delta-insufficient:risk-coverage",
+        "paired-delta-insufficient:slice",
+        "paired-delta-insufficient:tokens",
+        "slice-insufficient:direct-facts"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:fa4572bb1a119ac4ecea49f82ddeb78966fa738c08b78c5055bbd22852aac0d5"
+    },
+    {
+      "name": "empty",
+      "statisticsDigest": "sha256:c18322cfe73c657fadf6ff308f09080e985092d37c90c0a256e8377045b26e58",
+      "statisticalGate": "HOLD",
+      "findings": [
+        "abstention-upper",
+        "accepted-risk-upper",
+        "brier-upper",
+        "coverage-lower",
+        "incomplete-pairs",
+        "latency-p95",
+        "paired-delta-unknown:abstention",
+        "paired-delta-unknown:calibration",
+        "paired-delta-unknown:cost",
+        "paired-delta-unknown:latency",
+        "paired-delta-unknown:quality",
+        "paired-delta-unknown:risk-coverage",
+        "paired-delta-unknown:slice",
+        "paired-delta-unknown:tokens",
+        "quality-ni",
+        "slice-insufficient:authority",
+        "slice-insufficient:direct-facts",
+        "slice-insufficient:multi-fact",
+        "slice-insufficient:negation"
+      ],
+      "benefitSupported": false,
+      "decision": "HOLD",
+      "serializationDigest": "sha256:203e72de3914b952c045151a4032b0c9fb28a9e78635d95fc2c7eb6942feb606"
+    }
+  ]
+}

@@ -955,5 +955,5 @@ The RLM-TaskStore integration provides:
 - @.aiwg/requirements/use-cases/UC-IPC-002.md - TaskStore requirements
 - @.aiwg/research/findings/REF-089-rlm.md - RLM research foundation
 - @test/unit/daemon/task-store.test.js - TaskStore test suite
-- @$AIWG_ROOT/agentic/code/addons/ralph/schemas/checkpoint.yaml - Checkpoint patterns
+- @$AIWG_ROOT/agentic/code/addons/agent-loop/schemas/checkpoint.yaml - Checkpoint patterns
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/schemas/flows/error-handling.yaml - Error recovery

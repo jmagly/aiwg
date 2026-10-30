@@ -38,6 +38,7 @@ async function productionFixture(adapterFrame = false) {
   vi.stubEnv('HOME', path.join(root, 'home')); vi.stubEnv('AIWG_CONFIG', configDir); vi.stubEnv('AIWG_HOME', frameworkRoot);
   const f = workerResolutionFixture();
   const now = new Date().toISOString();
+  f.snapshot.hostResources!.collectedAt = now;
   const id = `fixture-${path.basename(root).toLowerCase()}`;
   const adapter = f.snapshot.registry.providers.codex.workerAdapter!;
   adapter.id = id; adapter.runtimeDriver = `installed:${id}`;

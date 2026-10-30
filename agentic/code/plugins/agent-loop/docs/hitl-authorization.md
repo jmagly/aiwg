@@ -1,5 +1,11 @@
 # Agent-loop authorization checkpoints
 
+> "Check whether the next loop action is authorized for these exact files and effects."
+
+Your assistant keeps the existing review gate unless the host authorization check returns an auto-authorized decision with a receipt.
+
+## Command reference
+
 Before a loop's confirmation checkpoint, classify the actual pending effects
 in the host, using the resolved target repo and execution environment, every
 affected repo-relative path, reversibility, and impact. Build the
