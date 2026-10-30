@@ -12,9 +12,30 @@ production rollout occurred.
 unchanged upstream integrity envelope, its separately supplied trusted digest,
 frozen membership/gold/plan bindings, all 600 diagnostic report digests,
 root-level correctness, CI bounds, slice gates and an additive release verdict.
-It uses the D23 analyzer and shared qualification Newcombe/Wilson helpers.
+It uses the D23 analyzer and a GateBinding evaluated by `src/gates/evaluate.ts`.
 Upstream HOLD/ROLLBACK cannot become PROMOTE. Compromise becomes ROLLBACK.
 Malformed or digest-mismatched artifacts are rejected before scoring.
+
+The [binding adapter](../../src/decision/sensitivity/comparative-gates.ts)
+derives a pinned project pack from the validated historical preregistration.
+It binds Newcombe non-inferiority, Wilson overall/slice bounds, support and
+zero-error criteria using the shipped paired/proportion providers. Evidence
+gates retain report validity, zero-call budgets, reproduction, sample consistency
+and pending review; an upstream-ceiling gate retains the integrity allowlist.
+Both the final decision and diagnostic verdict come from gate evaluation, and
+the reported statistical bounds come from its evidence.
+
+This legacy adapter explicitly opts out of ambient project floors so replay
+continues to reproduce the retained policy. Binding and holdout seals derive
+from the already validated D23 plan and access record; they do not establish
+new preregistration or signed first-access evidence. The retained v1 report
+format and frozen evidence bytes remain unchanged. New offline studies also
+retain `gate-binding.json` and `gate-report.json` beside `comparative-report.json`.
+Tests compare all 600 root
+results individually and reconstruct the retained report exactly. A binding
+threshold mutation changes the diagnostic verdict; a separate synthetic raw
+evaluator fixture with completed review exposes the resulting PROMOTE-to-HOLD
+change without enabling review ingestion in the D23 report builder.
 
 The builder checks every report's source and plan pin, inference kind, zero row
 and total resource consumption, hashed-value privacy and exact reproduction.

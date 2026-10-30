@@ -1,6 +1,7 @@
-import { assertDecisionCeiling, ceilingDecision } from '../../gates/lattice.js';
-import { pairedBinaryDifferenceInterval, wilsonScoreInterval } from '../qualification/quality.js';
-import { qualificationIntegrityAllowlistProblems, type QualificationIntegrityMetadata } from '../qualification/release.js';
+import { assertDecisionCeiling } from '../../gates/lattice.js';
+import { comparativeReplayGateFindings, evaluateComparativeReplayGates } from './comparative-gates.js';
+import type { GateBinding, GateReport } from '../../gates/types.js';
+import type { QualificationIntegrityMetadata } from '../qualification/release.js';
 import { checkSensitivitySchema, sensitivityDigest, validateSensitivityReport } from './contract.js';
 import type { SensitivityDigest, SensitivityReport } from './types.js';
 
@@ -90,7 +91,6 @@ export interface ComparativeReplayReport {
 }
 
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
-const bpsUpper = (events: number, n: number, levelBps: number): number | null => n ? Math.ceil(wilsonScoreInterval({ events, n, levelBps })[1] * 10_000) : null;
 
 export function validateComparativeReplayPreregistration(value: ComparativeReplayPreregistration): void {
   checkSensitivitySchema('comparativePlan', value);
@@ -102,7 +102,9 @@ export function validateComparativeReplayPreregistration(value: ComparativeRepla
 }
 
 /** Rebuild from trusted preregistration, stored reports and independently authored gold. */
-export function buildComparativeReplayReport(input: ComparativeReplayInput): ComparativeReplayReport {
+export function buildComparativeReplayEvaluation(input: ComparativeReplayInput): {
+  report: ComparativeReplayReport; binding: GateBinding; gateReport: GateReport;
+} {
   const plan = input.preregistration;
   validateComparativeReplayPreregistration(plan);
   if (plan.digest !== input.trustedPreregistrationDigest) throw new Error('untrusted comparative replay preregistration');
@@ -171,34 +173,20 @@ export function buildComparativeReplayReport(input: ComparativeReplayInput): Com
   const testRows = rows.filter(row => row.split === 'test');
   const errors = testRows.filter(row => !row.correct).length;
   const falseNoChange = testRows.filter(row => row.falseNoChange).length;
-  const pairedLowerBps = testRows.length ? pairedBinaryDifferenceInterval({ counts: { both: testRows.length - errors,
-    candidateOnly: 0, baselineOnly: errors, neither: 0 }, levelBps: plan.levelBps, method: plan.pairedMethod }).lowerBps : null;
-  const errorUpperBps = bpsUpper(errors, testRows.length, plan.levelBps);
+  if (input.reviewerAuditDigest !== null) throw new Error('operator review ingestion is not implemented');
+  const { binding, gateReport: gates } = evaluateComparativeReplayGates(input, rows,
+    { backendCalls, tokens, costMicros, exactReproduction }, findings);
+  const { diagnosticDecision, findings: gateFindings } = comparativeReplayGateFindings(gates);
+  for (const finding of gateFindings) findings.add(finding);
+  const pairedLowerBps = gates.gateEvidence.find(gate => gate.gateId === 'non-inferiority-failed')?.statistic?.lowerBps ?? null;
+  const errorUpperBps = gates.gateEvidence.find(gate => gate.gateId === 'error-bound-failed')?.statistic?.upperBps ?? null;
   const slices = Object.fromEntries(REPLAY_SLICES.map(slice => {
     const items = testRows.filter(row => row.slice === slice);
-    const sliceErrors = items.filter(row => !row.correct).length;
-    return [slice, { roots: items.length, errors: sliceErrors, errorUpperBps: bpsUpper(sliceErrors, items.length, plan.levelBps) }];
+    return [slice, { roots: items.length, errors: items.filter(row => !row.correct).length,
+      errorUpperBps: gates.gateEvidence.find(gate => gate.gateId === 'slice-error-bound' && gate.slice === slice)?.statistic?.upperBps ?? null }];
   })) as ComparativeReplayReport['metrics']['slices'];
-  if (testRows.length < plan.minimumTestRoots) findings.add('test-support-insufficient');
-  if (errors > 0) findings.add('diagnostic-errors');
-  if (falseNoChange > 0) findings.add('false-no-change');
-  if (pairedLowerBps === null || pairedLowerBps < plan.nonInferiorityMarginBps) findings.add('non-inferiority-failed');
-  if (errorUpperBps === null || errorUpperBps > plan.maxErrorUpperBps) findings.add('error-bound-failed');
-  for (const slice of REPLAY_SLICES) {
-    const metric = slices[slice];
-    if (metric.roots < plan.minimumSliceRoots || metric.errors > 0
-      || metric.errorUpperBps === null || metric.errorUpperBps > plan.maxSliceErrorUpperBps) findings.add(`slice-failed:${slice}`);
-  }
-  if (backendCalls > plan.maxBackendCalls || tokens > plan.maxTokens || costMicros > plan.maxCostMicros) findings.add('zero-call-budget-violated');
-  if (!exactReproduction) findings.add('reproduction-mismatch');
-  const diagnosticDecision = findings.size === 0 ? 'pass' : 'fail';
-  for (const problem of qualificationIntegrityAllowlistProblems(input.integrity)) findings.add(problem);
-  if (input.integrity.sample_n !== testRows.length) findings.add('integrity-sample-mismatch');
-  if (input.reviewerAuditDigest !== null) throw new Error('operator review ingestion is not implemented');
-  findings.add('reviewer-audit-pending');
   const upstreamDecision = input.integrity.release_gate.decision;
-  const decision = ceilingDecision(upstreamDecision, input.integrity.integrity_state === 'compromised'
-    || input.integrity.compromise_labels.length > 0 ? 'ROLLBACK' : 'PROMOTE', findings.size > 0 ? 'HOLD' : 'PROMOTE');
+  const decision = gates.decision;
   const payload: Omit<ComparativeReplayReport, 'digest'> = {
     schemaVersion: 'decision-comparative-replay-report/v1', mode: 'shadow',
     semantics: 'associative-sensitivity-not-causal', actionAuthorization: 'not-authorized',
@@ -211,7 +199,11 @@ export function buildComparativeReplayReport(input: ComparativeReplayInput): Com
   };
   const report: ComparativeReplayReport = { ...payload, digest: sensitivityDigest(payload) };
   checkSensitivitySchema('comparativeReport', report);
-  return report;
+  return { report, binding, gateReport: gates };
+}
+
+export function buildComparativeReplayReport(input: ComparativeReplayInput): ComparativeReplayReport {
+  return buildComparativeReplayEvaluation(input).report;
 }
 
 export function validateComparativeReplayReport(report: ComparativeReplayReport, input: ComparativeReplayInput): void {
