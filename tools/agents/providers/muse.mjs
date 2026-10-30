@@ -49,7 +49,9 @@ import {
   resolveMuseXdgSkillsDir,
   museXdgSkillsDirRemediation,
 } from './muse-paths.mjs';
-import { deployMuseHooks, deployMuseMcp } from './muse-hooks.mjs';
+import { importImpl } from '../../_resolve-impl.mjs';
+const { captureDeploymentOutputs, recordDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
+import { assertMuseUserSettingsPath, deployMuseHooks, deployMuseMcp } from './muse-hooks.mjs';
 
 export const name = 'muse';
 export const aliases = []; // ADR: no aliases (no muse-spark, muse-code, spark, meta)
@@ -241,7 +243,10 @@ export async function postDeploy(targetDir, opts = {}) {
   // #228 — optional MCP settings profile. Explicit opt-in only (--mcp);
   // default `aiwg use --provider muse` never touches user settings.
   if (fullDeploy && opts.mcp === true) {
-    await deployMuseMcp(opts);
+    const settingsPath = assertMuseUserSettingsPath(opts.env || process.env, opts.userHome || os.homedir());
+    const before = opts.dryRun ? null : captureDeploymentOutputs([settingsPath]);
+    const result = await deployMuseMcp(opts);
+    if (before && result.wrote) recordDeploymentOutputs(before, [settingsPath], { ...opts, writtenFiles: [settingsPath] });
   }
 
   if (!opts.quiet) {

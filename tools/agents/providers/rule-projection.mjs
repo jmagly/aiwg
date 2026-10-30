@@ -47,6 +47,9 @@ function registerOpenCode(opts, provider, rulesDir) {
   writeContextFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
 }
 export function projectRules(opts, provider) {
+  const put = (file, content) => {
+    fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, content); opts.writtenFiles?.push(file);
+  };
   const nativePaths = nativePathLoader(provider.name);
   const rules = projectOnDemandReferences(opts.ruleDelivery.rules, nativePaths);
   const rulesDir = ruleDirectory(opts, provider);

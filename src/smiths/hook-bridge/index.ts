@@ -10,6 +10,9 @@
  * @module smiths/hook-bridge
  */
 
+import path from 'node:path';
+import { homedir } from 'node:os';
+import { captureDeploymentOutputs, recordDeploymentOutputs } from '../../providers/deployment-ownership.mjs';
 import type { HookSource, TranslateOptions, TranslateResult, ProviderTranslator } from './types.js';
 import { translateForCodex } from './codex-translator.js';
 import { translateForCopilot } from './copilot-translator.js';
@@ -74,7 +77,12 @@ export async function bridgeAll(
         continue;
       }
       try {
+        const roots = [path.join(options.projectPath, '.factory/hooks'), path.join(options.projectPath, '.github/hooks'),
+          path.join(options.projectPath, '.grok/hooks'), path.join(process.env.CODEX_HOME || path.join(homedir(), '.codex'), 'config.toml'),
+          path.join(homedir(), '.hermes/plugins')];
+        const before = options.dryRun ? undefined : captureDeploymentOutputs(roots);
         const r = await translator(source, options);
+        if (before) recordDeploymentOutputs(before, roots, { frameworkSlug: 'aiwg-hooks', writtenFiles: r.emittedPaths });
         results.push(r);
       } catch (err) {
         results.push({

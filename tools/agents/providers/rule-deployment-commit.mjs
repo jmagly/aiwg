@@ -1,6 +1,8 @@
 // Validate and promote staged deployment plans through safe writers.
 import fs from 'node:fs';
 import path from 'node:path';
+import { importImpl } from '../../_resolve-impl.mjs';
+const { refreshSettingsDigests } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 import {
   contentHash,
   deploySkillsWithKernelRouting,
@@ -53,6 +55,21 @@ export function commitRuleDeploymentPlan(plan) {
       for (const mapping of [...plan.sourceMappings].sort((a, b) => b.to.length - a.to.length)) content = content.split(mapping.to).join(mapping.from);
       return content.split(plan.snapshotRoot).join(plan.corpusRoot).split(stage).join(target);
     };
+    const normalizeReceipt = (file, output) => {
+      if (path.basename(file) !== '.aiwg-manifest.json') return output;
+      const receipt = JSON.parse(output.toString('utf8'));
+      for (const [name, record] of Object.entries(receipt.managed || {})) {
+        const base = file === path.join(stage, '.aiwg/.aiwg-manifest.json') && receipt.scope === 'project' ? stage : path.dirname(file);
+        const recordedFile = path.resolve(base, name);
+        if (!within(base, recordedFile) || !fs.existsSync(recordedFile)) continue;
+        const recorded = fs.readFileSync(recordedFile);
+        if (record.hash !== `sha256:${contentHash(recorded)}`) continue;
+        const promoted = recorded.includes(0) ? recorded : Buffer.from(normalize(recorded.toString('utf8')));
+        record.hash = `sha256:${contentHash(promoted)}`;
+        refreshSettingsDigests(record);
+      }
+      return Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`);
+    };
     const delegated = (from, rel) => mappings.some(mapping => mapping.from !== from
       && mapping.from.startsWith(`${from}${path.sep}`)
       && (path.join(from, rel) === mapping.from || path.join(from, rel).startsWith(`${mapping.from}${path.sep}`)));
@@ -79,27 +96,14 @@ export function commitRuleDeploymentPlan(plan) {
         const buffer = fs.readFileSync(file);
         // Provider output includes binary skill resources; normalize text only.
         let output = buffer.includes(0) ? buffer : Buffer.from(normalize(buffer.toString('utf8')));
-        if (path.basename(file) === '.aiwg-manifest.json') {
-          const receipt = JSON.parse(output.toString('utf8'));
-          for (const [name, record] of Object.entries(receipt.managed || {})) {
-            const recordedFile = path.resolve(path.dirname(file), name);
-            if (!within(path.dirname(file), recordedFile) || !fs.existsSync(recordedFile)) continue;
-            const recorded = fs.readFileSync(recordedFile);
-            // Do not bless operator edits whose bytes already differ from the
-            // ownership receipt. Only normalize hashes of pristine staged files.
-            if (record.hash !== `sha256:${contentHash(recorded)}`) continue;
-            const promoted = recorded.includes(0) ? recorded : Buffer.from(normalize(recorded.toString('utf8')));
-            record.hash = `sha256:${contentHash(promoted)}`;
-          }
-          output = Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`);
-        }
+        output = normalizeReceipt(file, output);
         fs.mkdirSync(path.dirname(path.join(from, rel)), { recursive: true });
         if (plan.contextWrites.includes(file)) writeContextFileSync(path.join(from, rel), output);
         else fs.writeFileSync(path.join(from, rel), output);
       }
     }
     for (const name of rootNames) if (fs.existsSync(path.join(stage, name))) {
-      const output = normalize(read(path.join(stage, name)));
+      const output = normalizeReceipt(path.join(stage, name), Buffer.from(normalize(read(path.join(stage, name))))).toString('utf8');
       if (output === read(path.join(target, name))) continue;
       const write = plan.contextWrites.includes(path.join(stage, name)) ? writeContextFileSync : put;
       write(path.join(target, name), output);
