@@ -54,6 +54,8 @@ export const deploymentFiles = [
 // CLI contracts and a small provider smoke matrix remain in the default lane.
 // These do not overlap the required post-merge deploymentFiles lane above.
 export const releaseSlowFiles = [
+  // Full-copy marketing ownership includes every addon/extension and a redeploy.
+  'test/integration/ownership-matrix-deployment.test.ts',
   'test/integration/provider-file-locations.test.ts',
   'test/integration/kernel-deployment-conformance.test.ts',
   'test/integration/deployment-completeness.test.ts',
