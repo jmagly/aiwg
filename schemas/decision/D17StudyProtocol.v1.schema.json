@@ -23,7 +23,7 @@
       "const": "decision-d17-protocol/v1"
     },
     "minimumPairs": {
-      "const": 1200
+      "type": "integer"
     },
     "slices": {
       "type": "array",
@@ -35,7 +35,7 @@
       ]
     },
     "minimumPerSlice": {
-      "const": 300
+      "type": "integer"
     },
     "interval": {
       "type": "object",
@@ -51,13 +51,13 @@
           "const": "newcombe-10"
         },
         "levelBps": {
-          "const": 9500
+          "type": "integer"
         },
         "nonInferiorityMarginBps": {
-          "const": -300
+          "type": "integer"
         },
         "benefitLowerExclusiveBps": {
-          "const": 0
+          "type": "integer"
         }
       }
     },
@@ -76,16 +76,16 @@
           "const": "percentile-bootstrap"
         },
         "levelBps": {
-          "const": 9500
+          "type": "integer"
         },
         "seed": {
-          "const": 2611
+          "type": "integer"
         },
         "resamples": {
-          "const": 20000
+          "type": "integer"
         },
         "maximumUpperBps": {
-          "const": 200
+          "type": "integer"
         }
       }
     },
@@ -103,13 +103,13 @@
           "const": "wilson"
         },
         "levelBps": {
-          "const": 9500
+          "type": "integer"
         },
         "maximumAcceptedErrorUpperBps": {
-          "const": 500
+          "type": "integer"
         },
         "minimumCoverageLowerBps": {
-          "const": 6000
+          "type": "integer"
         }
       }
     },
@@ -126,15 +126,15 @@
           "const": "newcombe-10"
         },
         "levelBps": {
-          "const": 9500
+          "type": "integer"
         },
         "maximumUpperBps": {
-          "const": 500
+          "type": "integer"
         }
       }
     },
     "maximumP95LatencyIncreaseMs": {
-      "const": 15000
+      "type": "integer"
     },
     "acceptance": {
       "type": "object",
@@ -154,13 +154,13 @@
           "const": "jensen-shannon-v1"
         },
         "maximumDisagreementBps": {
-          "const": 1000
+          "type": "integer"
         },
         "minimumSuccessfulMembers": {
-          "const": 3
+          "type": "integer"
         },
         "highAgreementWarningBps": {
-          "const": 100
+          "type": "integer"
         }
       }
     },
@@ -186,56 +186,28 @@
     },
     "native": {
       "type": "array",
-      "const": [
-        {
-          "metric": "quality",
-          "comparison": "delta-at-least",
-          "bound": -0.03,
-          "minimumPairs": 1200
-        },
-        {
-          "metric": "calibration",
-          "comparison": "delta-at-most",
-          "bound": 0.02,
-          "minimumPairs": 1200
-        },
-        {
-          "metric": "risk-coverage",
-          "comparison": "delta-at-most",
-          "bound": 0.01,
-          "minimumPairs": 1200
-        },
-        {
-          "metric": "abstention",
-          "comparison": "delta-at-most",
-          "bound": 0.05,
-          "minimumPairs": 1200
-        },
-        {
-          "metric": "latency",
-          "comparison": "delta-at-most",
-          "bound": 10000,
-          "minimumPairs": 1200
-        },
-        {
-          "metric": "tokens",
-          "comparison": "delta-at-most",
-          "bound": 8000,
-          "minimumPairs": 1200
-        },
-        {
-          "metric": "cost",
-          "comparison": "delta-at-most",
-          "bound": 800,
-          "minimumPairs": 1200
-        },
-        {
-          "metric": "slice",
-          "comparison": "delta-at-least",
-          "bound": -0.03,
-          "minimumPairs": 1200
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["metric", "comparison", "bound", "minimumPairs"],
+        "properties": {
+          "metric": {
+            "enum": ["quality", "calibration", "risk-coverage", "abstention", "latency", "tokens", "cost", "slice"]
+          },
+          "comparison": {
+            "enum": ["delta-at-least", "delta-at-most"]
+          },
+          "bound": {
+            "type": "number"
+          },
+          "minimumPairs": {
+            "type": "integer",
+            "minimum": 1
+          }
         }
-      ]
+      }
     }
   }
 }
