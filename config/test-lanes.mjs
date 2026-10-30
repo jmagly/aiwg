@@ -49,6 +49,8 @@ export const deploymentFiles = [
   'test/integration/use-all-deployment.test.ts',
   'test/integration/hermes-deployment.test.ts',
   'test/integration/guided-setup-walkthrough.test.ts',
+  // Real sdlc and marketing deploys followed by `aiwg remove` (#3769).
+  'test/integration/remove-deployment.test.ts',
 ];
 // Exhaustive provider deployment matrices run before releases, while focused
 // CLI contracts and a small provider smoke matrix remain in the default lane.

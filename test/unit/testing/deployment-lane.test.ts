@@ -35,6 +35,7 @@ describe('required provider deployment lane', () => {
       'test/integration/use-all-deployment.test.ts',
       'test/integration/hermes-deployment.test.ts',
       'test/integration/guided-setup-walkthrough.test.ts',
+      'test/integration/remove-deployment.test.ts',
     ]);
     expect(deployment.test.include).toEqual(deploymentFiles);
     expect(deployment.test).toMatchObject({
