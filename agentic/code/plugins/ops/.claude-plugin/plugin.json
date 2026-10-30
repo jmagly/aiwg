@@ -1,6 +1,6 @@
 {
   "name": "ops",
-  "version": "2026.10.16",
+  "version": "2026.10.17",
   "description": "Operational infrastructure framework with 12 specialized agents covering incident response, runbook execution, fleet inventory, certificate lifecycle, and disaster recovery planning.",
   "author": {
     "name": "AIWG Contributors",

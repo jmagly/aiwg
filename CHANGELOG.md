@@ -7,6 +7,253 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.10.17] - 2026-10-30
+
+### Added
+
+- Deploys record every artifact and settings contribution through the existing
+  ownership receipts: agents, commands, rules, skills, hooks, settings keys and
+  MCP entries, with SHA-256 content digests and shared ownership. Redeploys
+  are idempotent. Existing deployments keep working; unresolved owners are
+  reported rather than reconstructed by guessing (#3769).
+- `aiwg doctor --resources` and resolve admission include collection time,
+  evaluation time and snapshot age. The new positive dispatch threshold
+  `max_snapshot_age_seconds` defaults to 300 seconds (5 minutes), combines
+  across layers by MIN and cannot be loosened above that default. Older
+  snapshots are `stale`; missing, malformed or future-dated collection times
+  and missing required signals are `unavailable`. Both states refuse launch
+  admission with a named reason. Host snapshots no longer reuse the model
+  resolver's 168-hour observation window. Local collection uses the report's
+  clock; supplied snapshots retain their source collection time. The config
+  schema, frozen mission-v1 fragment and manifest digest are updated together
+  with a documented disposition (#3301).
+- `aiwg mc summary --ledger <path> [--json]` reads an existing Mission
+  conductor ledger without synchronization, writes or a new store. It
+  separates accepted work (a codec-valid accepted worker result with retained
+  independent review rounds and non-empty evidence references), completed
+  work (an executed checkpoint or bound execution result without acceptance),
+  failed checkpoints and unknown work. Routed-only, plan-only and
+  checkpoint-only cycles never count as accepted or completed. Unrecognized
+  string execution modes are accepted by the CLI guard and classify every
+  cycle as unknown with the mode in the reason (#3772).
+
+### Changed
+
+- The artifact query engine is split from its 2,833-line implementation into
+  12 focused modules for corpus, entries, index, matching, options, rules,
+  scoring, discover, discover output, show, show card and show load. The
+  existing facade and public API remain; code moves preserve logic, exports
+  and dependencies, with each new module under 500 lines (#3768).
+- Deployment provider code now sits behind the existing base facade in
+  focused `base-*.mjs` modules; option, support and command-mirror handling
+  moves into `deploy-*.mjs` helpers. Command mirrors keep their prior set,
+  run when `deployCommands` or `commandsOnly` is set even without a policy,
+  and retain the original CLAUDE.md hook order. Removal handlers and Mission
+  Control handlers are split behind their existing facades. The regenerated
+  mission inventory follows behavior code into `base-behaviors.mjs`
+  (#3769, #3772).
+- Thirteen pending documentation sections enter the docsite through the
+  existing manifest and collector, covering agent-loop, aiwg-utils,
+  auto-memory, decision-engine, media-curator, research-complete, rlm,
+  sdlc-complete, testing-quality and voice-framework. Task sections lead with
+  assistant requests before command references. The Media Curator archival
+  section is preserved in its canonical source; unpublished voice-page links
+  use GitHub URLs, and six stale plugin copies are regenerated (#2528).
+- The first-class gates ADR documents shipped ownership, artifact models,
+  inheritance, project policy, evaluation, insufficiency and refusal,
+  HeldoutFrozen and signed first access (refs #3747), D29 adoption and limits,
+  and proposed migrations. The operator accepted its ownership and trust
+  boundary on 2026-10-30. Acceptance authorizes neither live runs, promotion
+  nor default activation. Stale shipped-status claims and a contradictory
+  CLI paragraph in the gates guide are corrected. D23 and D17 migrations
+  follow; #2836 and #2837 remain alternates (#2825, #2834, #2835).
+- D23 comparative replay derives a GateBinding from its existing
+  preregistration and uses the shipped evaluator for non-inferiority,
+  error-bound, reviewer and integrity criteria. Slice, support, budget and
+  reproduction checks, reviewer-pending HOLD and compromise ROLLBACK remain.
+  The offline writer retains the derived binding and report beside the
+  unchanged comparative report; frozen evidence is untouched. The
+  non-inferiority margin is a binding parameter, and GatePack.v1alpha1
+  `marginBps` additively accepts a parameter reference or integer. Plans with
+  paired/error methods other than frozen Newcombe-10/Wilson are refused.
+  Per-slice failures are deduplicated; registry code is split into composition,
+  tightening, validation and observation modules under 500 lines (#2834).
+- D17 diagnostic thresholds move from duplicated protocol, scorer and schema
+  constants into one binding policy evaluated by the shipped evaluator.
+  Protocol validation still requires exact canonical equality against a
+  private frozen v1 snapshot; mutating the exported protocol cannot redefine
+  thresholds. D17 keeps its original integrity ceiling and independent
+  never-PROMOTE ceiling, including when a binding returns PROMOTE or the
+  separate calibrated D09 route runs. Empty native measurements are unknown.
+  Retained fixture parity and provenance are registered with a disposition
+  (#2835, refs #2825, #2834).
+
+### Fixed
+
+- `aiwg remove <framework>` now undoes a recorded deploy's files, settings
+  and hook entries. Dry runs and removal use the same receipts and report
+  the same preserved files. Agents, commands, rules and skills are deleted
+  only when owned by that framework and their current digest matches.
+  Edited files, shared files and files without receipts are kept and
+  reported; shared files lose only the departing owner. Contradictory or
+  duplicate receipts block deletion of the path. Deletions, receipt updates
+  and the `aiwg.config` write form one backed-up transaction that rolls back
+  on failure. Legacy deployments without receipts are kept and reported;
+  historical provider-wide `deployedTo` counts are not treated as framework
+  ownership (#3769).
+- Removal restores only settings keys and hook entries still owned by the
+  framework. Receipts retain shared ownership and pre-deploy bytes; operator
+  edits to the same keys or hook arrays are kept and reported, shared values
+  stay with remaining owners, and stacked `mode` values restore in either
+  removal order. Partial removals retain unresolved contributions for retry.
+  Original bytes are restored only while the file still matches deploy
+  output, preserving comment-only YAML and TOML edits. Deploys still write
+  `aiwg.mode` only when creating `.claude/settings.json`, and record that
+  creation for undo; `--no-attribution` deploys do not touch settings.
+  User-scope agent, command, rule and behavior removal checks recorded
+  digests and remaining framework names. Legacy user records without a
+  digest retain name-based removal with an explicit report. Legacy skill
+  sidecars are no longer misreported as operator files (#3769).
+- CLI and MCP `discover` and `show` agree on kernel-pinned bound rules.
+  Delivery mode filters ambient query-derived matches only; rules explicitly
+  bound by a component or projected flow remain in required checks and bound
+  rules, marked with activation `kernel` when pinned (#3768, refs #2313).
+- `aiwg models resolve --format shell` collects and deduplicates the plan's
+  existing blocking diagnostics, including excluded-candidate diagnostics.
+  A refused launch prints its reasons on stderr, exits 2 and leaves stdout
+  empty instead of returning an empty diagnostics array. JSON output remains
+  unchanged (#3770).
+- The VS Code extension watches `.aiwg/aiwg.config` and the legacy
+  `.aiwg/aiwg.config.json` through one pattern. Create, change and delete each
+  refresh the sidebar once; the watcher belongs to the activation context.
+  The initialization prompt checks the canonical file first with the legacy
+  name as fallback, preventing an init offer for an initialized project
+  (#3771).
+- VS Code deactivation drains registered subscriptions and clears module
+  references. Reactivation retains exactly one listener set, fixing the leak
+  found by real-entry-point lifecycle tests (#2314).
+- `aiwg corpus resolve` resolves a lone candidate at or above threshold when
+  its year or author corroborates the reference, even if another source
+  times out. Competing candidates or references without a year or author
+  retain generic-title caution; a sole candidate contradicting a supplied
+  year stays ambiguous. Disambiguation no longer requests a year already
+  supplied. A preprint/publication pair merges when normalized titles match,
+  author lists overlap and years are within two, including CrossRef
+  `10.52202/...` with `10.48550/arxiv...` and SSRN with journal DOIs. Both
+  DOIs survive as `alternateDois`; different published DOIs and title-only
+  matches never merge. `incomplete` counts only outcome-relevant path
+  failures (timeouts, 429, 5xx and connection errors); a CrossRef record
+  without a valid year is discarded rather than counted as a failed path.
+  A known limit remains: the author-overlap check requires only one shared
+  author, so distinct works with identical titles within two years could
+  merge (#3780, refs #3765).
+- Exit-time worker termination checks use one `/proc` invocation-marker
+  scan bounded at 2 seconds instead of 100 milliseconds, avoiding false
+  `termination: uncertain` results on busy hosts that blocked retry linkage.
+  Rechecks retain explicit deadlines and retries. Present markers, live
+  group members, unreadable post-start processes and the count bound still
+  refuse confirmation; a time bound does not hide earlier uncertainty
+  (#3781).
+- Canonical documentation sources recover docs-only edits overwritten by
+  recollection: Node 24 runtime examples for cost-optimizer,
+  architecture-designer and mobile-developer, Agent Loop quickstart labels,
+  and RLM deployment/multi-provider guidance without hard-coded provider
+  counts, pointing to `aiwg help`. Collected and plugin copies are
+  regenerated; all 228 collected pages match their sources (#2528).
+
+### Security
+
+- Host-audit requests reach the existing sys-host-audit skill and Sys Host
+  Profiler through plain resource/service audit descriptions and triggers.
+  Without host documentation, the skill collects a baseline snapshot.
+  Instructions prohibit reading or printing credentials, keys, tokens,
+  environment values or private config, prohibit sudo and require bounded
+  metadata probes with sensitive output redacted. Raw machine-id, dmidecode
+  and disk-serial reads are removed. Runner planning and provisioning remain
+  outside this slice (#3749).
+- Dependency remediation #3774 is deferred: the patched msal-node line is
+  reachable through `@azure/identity` 4.14.1, eligible from 2026-11-05 under
+  the release-age policy. The vulnerable zod copy remains pinned by every
+  `@fortemi/core` release and needs an upstream Fortemi release on zod 4.
+  Neither remediation is claimed as shipped.
+
+### Testing
+
+- Ownership tests check recorded outputs, digests, provider counts,
+  redeploy idempotence and byte-identical context. Twelve deploy comparisons
+  across SDLC/marketing, use/source and Claude/Codex/Hermes match prior
+  output paths and hashes apart from new receipts. File-removal work adds
+  23 tests and 11 safeguard mutations; settings/hook recovery has ten
+  safeguard mutations, each failing a test. Shared `beforeAll` deploys keep
+  assertions unchanged: SDLC remains end to end in the default lane and the
+  full marketing matrix moves to registered release-slow tests, without a
+  timeout increase. The ownership file drops from 298 to 66 seconds; the
+  integration commit records 868 integration, 265 release-slow and 29
+  deployment passes. Command-mirror tests read the extracted declarations
+  with five unchanged parity passes. Shared JSONC parser tests cover plain
+  JSON, comments, comment markers inside strings, escaped quotes,
+  unterminated comments, non-string input and invalid JSON (#3769).
+- Query-engine extraction checks 120 byte-identical CLI/MCP output pairs
+  under a fixed clock and identical suite counts. The packed kernel-pin
+  parity case previously skipped under #3768 is enabled with unchanged
+  assertions; a new unit regression reproduces the divergence. Compound
+  discovery now asserts bound-rule inclusion and kernel activation
+  (#3768, refs #2313).
+- Injected clocks and synthetic remote snapshots cover freshness at four
+  and six minutes, a 60-second tightening and the 300-second upper bound;
+  all 11 safeguard removals fail tests. Resource fixtures use their tests'
+  fixed collection clock without changing assertions (#3301).
+- Resolve diagnostics tests cover unauthorized premium, unknown task class,
+  conflicting role, zero host slots, JSON preservation and non-mutation
+  (#3770). Termination tests confirm a 180 ms scan and retain uncertainty
+  beyond 2 seconds (#3781).
+- Extension-host tests under Xvfb cover canonical config create/change/delete
+  with one refresh each, canonical/legacy/absent init cases and real
+  activate/deactivate/reactivate cleanup. A deliberately leaked listener
+  fails both lifecycle tests (#3771, #2314).
+- Runner ownership inventories nested package/extension sources, package
+  scripts and CI reachability through nested npm calls. Fifteen Cockpit web
+  suites use their existing CI runner; the extension records its
+  Electron/display/Xvfb requirement, six opt-in UAT lanes state why CI does
+  not run them, and the Droid bridge script aliases CI-owned Node tests.
+  Python `test_*.py` and `*_test.py` files require a lane or an explicit
+  unavailable reason; the native-extension Python mutation fixture is
+  recorded accordingly, without adding pytest to CI. A CI-reachable lane
+  cannot also be unavailable. Synthetic trees cover missing and unavailable
+  lanes; the final follow-up records 682 passes and 1,720 owned sources
+  (#2317).
+- Host-audit discovery fixtures cover eight audit phrasings and two unrelated
+  controls; “audit host” and “host disk usage” must rank first, while looser
+  phrasings retain top-three checks (#3749).
+- Mission ledger fixtures cover every summary class, routed-only work,
+  review without evidence and unknown execution modes. Scheduler-trace
+  evidence anchors follow the split MC callers with assertions unchanged;
+  the integration commit records 56 evidence passes (#3772).
+- Research fixtures cover the resolve regressions, matching/contradicting
+  years and restored safeguards against resolving arbitrary lone candidates
+  (#3780, refs #3765).
+- All 600 retained D23 cases keep identical decisions and the historical
+  report reproduces exactly; margin/threshold mutations flip PROMOTE to
+  HOLD, and decision/gates conformance passes. Retained D17 fixtures keep
+  identical verdicts and statistics digests, with a separate test for the
+  independent never-PROMOTE ceiling (#2834, #2835).
+- Documentation checks report zero pending collection sections, passing
+  plugin-copy/link checks and strict docsite builds without broken links;
+  runtime-policy checks and a 228-page source comparison cover restored
+  documentation (#2528, #2825).
+- Offline estimator correction #2772 and wording-shift assessment #2872 move
+  to alternates because retained TV-12 and D17-MF evidence is unavailable.
+  Neither is reconstructed or approximated; both await that evidence.
+
+### Dependencies
+
+- The VS Code extension's Mocha 12 dependency resolves serialize-javascript
+  7.1.4 in the lockfile. Published 2026-10-23, it clears the seven-day
+  release-age policy on 2026-10-30. The extension typechecks, compiles,
+  packages and passes extension-host tests under Xvfb. This completes #3763;
+  its Vite portion shipped in 2026.10.16, and GitHub Dependabot #392 is
+  superseded.
+
 ## [2026.10.16] - 2026-10-30
 
 ### Added
