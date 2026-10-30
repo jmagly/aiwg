@@ -1,0 +1,18 @@
+{
+  "positive": [
+    "audit this host",
+    "what's running on this server",
+    "profile this machine before we put agents on it",
+    "check the box's resources and services",
+    "inspect server hardware and listening ports",
+    "summarize this computer's memory storage and daemons"
+  ],
+  "topMatch": [
+    "audit host",
+    "host disk usage"
+  ],
+  "negative": [
+    { "phrase": "npm supply chain audit", "expected": "npm-supply-chain-audit" },
+    { "phrase": "project status", "expected": "project-status" }
+  ]
+}
