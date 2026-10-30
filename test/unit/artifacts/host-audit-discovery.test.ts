@@ -8,6 +8,7 @@ import { discoverHandler } from '../../../src/cli/handlers/subcommands.js';
 
 const fixture = JSON.parse(readFileSync(resolve('test/fixtures/artifacts/host-audit-discovery.json'), 'utf8')) as {
   positive: string[];
+  topMatch: string[];
   negative: { phrase: string; expected: string }[];
 };
 const skill = 'agentic/code/extensions/sys/skills/sys-host-audit.md';
@@ -57,6 +58,11 @@ async function discover(phrase: string, type?: string) {
     log.mockRestore();
   }
 }
+
+it.each(fixture.topMatch)('ranks host audit first for "%s"', async phrase => {
+  const results = await discover(phrase);
+  expect(results[0]?.name, results.map(result => result.name).join(', ')).toBe(identities[0]);
+});
 
 it.each(fixture.positive)('routes "%s" to host audit or profiler in the top three', async phrase => {
   const results = await discover(phrase);
