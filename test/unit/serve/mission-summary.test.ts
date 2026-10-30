@@ -109,3 +109,12 @@ describe('Mission ledger summary', () => {
     expect(conductor.summarizeMissionLedger(resumed).counts.accepted).toBe(1);
   });
 });
+
+describe('mission summary: unrecognized execution modes', () => {
+  it('classifies every cycle unknown instead of crediting work it cannot interpret', () => {
+    const ledger = { ...summaryLedger('accepted'), executionMode: 'future-mode' } as any;
+    const summary = conductor.summarizeMissionLedger(ledger);
+    expect(summary.cycles.every(cycle => cycle.status === 'unknown')).toBe(true);
+    expect(summary.cycles[0].reason).toContain('future-mode');
+  });
+});

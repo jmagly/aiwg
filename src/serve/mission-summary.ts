@@ -21,6 +21,9 @@ function classify(ledger: MissionLedger, cycle: CycleResult): MissionCycleSummar
   const entry = (status: MissionWorkStatus, reason: string, evidence: WorkerArtifact[] = []): MissionCycleSummary =>
     ({ cycleId: cycle.cycleId, status, reason, evidence: structuredClone(evidence) });
   if (ledger.checkpoint.failed.includes(cycle.cycleId)) return entry('failed', 'Conductor recorded failure');
+  if (ledger.executionMode !== undefined && !['plan-only', 'executed'].includes(ledger.executionMode)) {
+    return entry('unknown', `Unrecognized execution mode: ${String(ledger.executionMode)}`);
+  }
   if (ledger.executionMode === 'plan-only' || !cycle.routed
     || !ledger.checkpoint.completed.includes(cycle.cycleId)
     || ledger.checkpoint.pending.includes(cycle.cycleId)) {

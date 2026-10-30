@@ -49,6 +49,14 @@ describe('mc summary', () => {
     expect(await readdir(root)).toEqual([]);
   });
 
+  it('accepts a future execution mode and reports its cycles unknown', async () => {
+    await writeFile(join(root, 'ledger.json'), JSON.stringify({ missionId: 'fixture', executionMode: 'future-mode',
+      cycles: [{ cycleId: 'c1', routed: true }], checkpoint: { completed: ['c1'], failed: [], pending: [] } }));
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect((await mcHandler.execute(context(['summary', '--ledger', 'ledger.json', '--json']))).exitCode).toBe(0);
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0])).cycles[0].status).toBe('unknown');
+  });
+
   it.each(['not-json', 'null', '{}', '{"missionId":"fixture","cycles":[],"checkpoint":{}}'])
   ('rejects malformed ledger %s without writing', async bytes => {
     await writeFile(join(root, 'ledger.json'), bytes);

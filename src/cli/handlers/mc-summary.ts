@@ -14,7 +14,8 @@ function ledgerShape(value: any): value is MissionLedger {
     && new Set(value.cycles.map((cycle: any) => cycle.cycleId)).size === value.cycles.length
     && value.checkpoint && ['completed', 'failed', 'pending'].every(key =>
       Array.isArray(value.checkpoint[key]) && value.checkpoint[key].every((id: unknown) => typeof id === 'string'))
-    && (value.executionMode === undefined || ['plan-only', 'executed'].includes(value.executionMode));
+    // A future execution mode is classified unknown by the summary, not rejected.
+    && (value.executionMode === undefined || typeof value.executionMode === 'string');
 }
 
 export async function mcSummary(ctx: HandlerContext): Promise<HandlerResult> {
