@@ -12,11 +12,14 @@ import { AiwgSidebarProvider } from './providers/sidebar-tree';
 import { AiwgCliRunner } from './cli/runner';
 import { configureMcp } from './mcp/auto-config';
 import { registerChatParticipant } from './participant/handler';
+import { watchProjectConfig } from './config-watcher';
 
 let statusBar: AiwgStatusBar | undefined;
 let sidebarProvider: AiwgSidebarProvider | undefined;
+let subscriptions: vscode.Disposable[] | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  subscriptions = context.subscriptions;
   const workspaceRoot = getWorkspaceRoot();
 
   // Detect CLI path
@@ -54,20 +57,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await maybePromptInit(workspaceRoot);
   }
 
-  // Watch aiwg.config.json for changes and refresh sidebar
   if (workspaceRoot) {
-    const configWatcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(workspaceRoot, '.aiwg/aiwg.config.json')
-    );
-    configWatcher.onDidChange(() => sidebarProvider?.refresh());
-    configWatcher.onDidCreate(() => sidebarProvider?.refresh());
-    configWatcher.onDidDelete(() => sidebarProvider?.refresh());
-    context.subscriptions.push(configWatcher);
+    watchProjectConfig(context, workspaceRoot, () => sidebarProvider?.refresh());
   }
 }
 
 export function deactivate(): void {
-  statusBar?.dispose();
+  const disposables = subscriptions?.splice(0) ?? [];
+  subscriptions = undefined;
+  sidebarProvider = undefined;
+  statusBar = undefined;
+  for (const disposable of disposables) disposable.dispose();
 }
 
 function getWorkspaceRoot(): string {
@@ -166,9 +166,11 @@ async function maybePromptInit(workspaceRoot: string): Promise<void> {
   const config = vscode.workspace.getConfiguration('aiwg');
   if (!config.get<boolean>('init.autoPrompt')) return;
 
-  const configUri = vscode.Uri.file(`${workspaceRoot}/.aiwg/aiwg.config.json`);
-  const exists = await vscode.workspace.fs.stat(configUri).then(() => true, () => false);
-  if (exists) return;
+  for (const filename of ['aiwg.config', 'aiwg.config.json']) {
+    const configUri = vscode.Uri.file(`${workspaceRoot}/.aiwg/${filename}`);
+    const exists = await vscode.workspace.fs.stat(configUri).then(() => true, () => false);
+    if (exists) return;
+  }
 
   const action = await vscode.window.showInformationMessage(
     'No AIWG config found in this project. Initialize AIWG?',
