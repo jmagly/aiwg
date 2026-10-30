@@ -6,6 +6,7 @@ import { importImpl } from '../../_resolve-impl.mjs';
 import {
   addManagedMarker,
   contentHash,
+  extractFrameworkSlug,
   getFrameworksForMode,
   listMdFiles,
   replaceBoundRulesBlock,
@@ -177,6 +178,24 @@ export function put(file, content) { fs.mkdirSync(path.dirname(file), { recursiv
 
 /** External helpers also project skills/flows. Inject into their body, never descriptions. */
 export function finishBindings(opts, provider) {
+  const putOwned = (file, content) => { put(file, content); opts.writtenFiles?.push(file); };
+  const corpus = opts.srcRoot && (resolveAiwgRoot(opts.srcRoot) || opts.srcRoot);
+  const frameworks = corpus ? getFrameworksForMode(corpus, 'all') : [];
+  const knownFrameworks = new Set(frameworks.map(framework => framework.id));
+  const installed = Object.keys(opts.config?.installed || opts.pinConfigs?.project?.installed || {});
+  const invoked = opts.srcRoot ? getFrameworksForMode(opts.srcRoot,
+    opts.mode === 'all' && installed.length ? 'general' : opts.mode) : [];
+  const selectedFrameworks = new Set([
+    ...invoked,
+    ...installed.filter(name => name !== 'all').flatMap(name => corpus ? getFrameworksForMode(corpus, name) : []),
+    ...frameworks.filter(framework => [opts.srcRoot, ...(opts.additionalSources || [])].filter(Boolean)
+      .some(source => path.resolve(framework.path) === path.resolve(source)) || (framework.manifest.core && framework.manifest.autoInstall)),
+  ].map(framework => framework.id));
+  // Selected dependency rules also identify frameworks reached through addons.
+  for (const rule of opts.ruleDelivery.rules || []) {
+    const owner = rule.file && extractFrameworkSlug(rule.file);
+    if (knownFrameworks.has(owner)) selectedFrameworks.add(owner);
+  }
   const roots = [opts.target, opts.deploymentHome,
     ...[opts.kernelSkillsPath, opts.activeWorkspace, ...Object.values(provider.paths)].filter(p => p && path.isAbsolute(p))];
   const files = [...new Set(roots.flatMap(walk))];
@@ -197,7 +216,15 @@ export function finishBindings(opts, provider) {
     const name = skill ? path.basename(path.dirname(file)) : path.basename(file).replace(/\.(md|toml)$/, '');
     const sidecarPath = path.join(skill ? path.dirname(file) : path.dirname(file), '.aiwg-manifest.json');
     const sidecar = fs.existsSync(sidecarPath) ? JSON.parse(read(sidecarPath)) : null;
-    const source = sidecar?.skillSource ? path.join(sidecar.skillSource, 'SKILL.md') : sidecar?.managed?.[path.basename(file)]?.sourcePath;
+    // Wrapper source identity is ownership metadata. Preserve the legacy
+    // flow-only name lookup instead of selecting new skill binding targets.
+    const wrapper = !skill && sidecar?.managed?.[path.basename(file)]?.kind === 'skill-command';
+    const wrapperOwner = sidecar?.managed?.[path.basename(file)]?.frameworkSlug
+      || extractFrameworkSlug(sidecar?.managed?.[path.basename(file)]?.sourcePath || '');
+    // Shared command surfaces can contain a framework's late wrappers before
+    // that framework is selected. Do not activate its bindings on redeploy.
+    if (wrapper && knownFrameworks.has(wrapperOwner) && !selectedFrameworks.has(wrapperOwner)) continue;
+    const source = wrapper ? undefined : sidecar?.skillSource ? path.join(sidecar.skillSource, 'SKILL.md') : sidecar?.managed?.[path.basename(file)]?.sourcePath;
     const flowSource = opts.flowSkillSources?.get(file);
     const targets = [...(flowSource ? targetsBySource.get(flowSource) || [] : []),
       ...(source ? targetsBySource.get(path.resolve(source)) || [] : opts.ruleDelivery.targets.filter(target =>
@@ -225,14 +252,14 @@ export function finishBindings(opts, provider) {
     };
     if (file.endsWith('.toml')) content = content.replace(/^developer_instructions = (".*")$/m, (_, value) => `developer_instructions = ${JSON.stringify(pointer(JSON.parse(value)))}`);
     else content = pointer(content);
-    put(file, content);
+    putOwned(file, content);
     // Keep deployment hashes honest after projection by external helpers.
     if (sidecar?.managed?.[path.basename(file)]) {
       sidecar.managed[path.basename(file)].hash = `sha256:${contentHash(content)}`;
-      put(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`);
+      putOwned(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`);
     }
   }
-  if (sections.size) put(indexFile, managed('# Bound rules\n\nFetch and follow every full rule in the invoked artifact’s section before governed work.\n\n' +
+  if (sections.size) putOwned(indexFile, managed('# Bound rules\n\nFetch and follow every full rule in the invoked artifact’s section before governed work.\n\n' +
     [...sections.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, section]) => section).join('\n\n') + '\n', opts));
   else if (/aiwg:managed/.test(read(indexFile))) fs.rmSync(indexFile);
 

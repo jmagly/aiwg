@@ -29,6 +29,7 @@
 
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import { captureDeploymentOutputs, recordDeploymentOutputs } from '../providers/deployment-ownership.mjs';
 import { mergeClaudeAttribution, undoClaudeAttribution } from './claude-attribution.js';
 
 /**
@@ -173,6 +174,8 @@ async function atomicWrite(filePath: string, content: string): Promise<void> {
  * written.
  */
 export async function installAiwgHooks(opts: InstallOptions): Promise<InstallResult | null> {
+  const ownershipRoots = [path.join(opts.projectPath, '.claude')];
+  const ownershipBefore = opts.dryRun ? undefined : captureDeploymentOutputs(ownershipRoots);
   const sourceHooksDir = path.join(
     opts.frameworkRoot,
     'agentic',
@@ -335,6 +338,7 @@ export async function installAiwgHooks(opts: InstallOptions): Promise<InstallRes
     await atomicWrite(result.settingsPath, JSON.stringify(settings, null, 2) + '\n');
   }
 
+  if (ownershipBefore) recordDeploymentOutputs(ownershipBefore, ownershipRoots, { frameworkSlug: 'aiwg-hooks', writtenFiles: [...result.installedScripts, result.settingsPath] });
   return result;
 }
 

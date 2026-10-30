@@ -35,6 +35,7 @@ export async function postDeploy(targetDir, opts) {
     const { installAiwgHooks } = await importImpl(import.meta.url, 'extensions/claude-hooks-installer.js');
     const result = await installAiwgHooks({ projectPath: targetDir, frameworkRoot: opts.srcRoot || targetDir,
       hooks: false, dryRun: opts.dryRun });
+    if (!opts.dryRun && result) opts.writtenFiles?.push(result.settingsPath);
     for (const warning of result?.warnings || []) console.warn(`Claude settings: ${warning}`);
   }
   await deployConductorDataGuard(targetDir, 'claude', opts);

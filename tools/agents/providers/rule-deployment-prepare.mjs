@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { importImpl } from '../../_resolve-impl.mjs';
 import {
   deployEmulatedBehaviors,
   discoverAddons,
@@ -11,7 +12,7 @@ import {
   replaceBoundRulesBlock,
   resolveAiwgRoot,
 } from './base.mjs';
-import { CONTEXT_STAGE_ENV, GENERATED_CONTEXT_NAMES, OPERATOR_CONTEXT_NAMES } from './context-write.mjs';
+import { writeContextFileSync, CONTEXT_STAGE_ENV, GENERATED_CONTEXT_NAMES, OPERATOR_CONTEXT_NAMES } from './context-write.mjs';
 import { captureProviderPathDescriptors, logicalProviderOutputPath, restoreProviderPaths, setStagedProviderPath } from './provider-paths-staging.mjs';
 import {
   collectDeploymentRuleSources,
@@ -44,6 +45,7 @@ import {
   verifyInputPool,
 } from './rule-deployment-state.mjs';
 import { inlineStartup, projectRules } from './rule-projection.mjs';
+const { captureDeploymentOutputs, recordDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 import { retireInlineStartup } from './rule-startup.mjs';
 
 /** Stage only provider/context output, never the user's source tree. On failure
@@ -229,6 +231,10 @@ export async function prepareRuleDeployment(original, provider, deploy) {
         if (!rootNames.includes(safe)) rootNames.push(safe);
       }
     }
+    for (const name of [...rootNames]) {
+      const sidecar = path.join(path.dirname(name) === '.' ? '.aiwg' : path.dirname(name), '.aiwg-manifest.json');
+      if (!rootNames.includes(sidecar)) rootNames.push(sidecar);
+    }
     preimages.push(...snapshotPreimages(rootNames.map(name => path.join(target, name))));
     for (const name of rootNames) {
       const from = path.join(target, name), to = path.join(stage, name);
@@ -328,8 +334,10 @@ export async function prepareRuleDeployment(original, provider, deploy) {
     }
     delivery.bindings = remappedBindings;
     preimages.push(...snapshotPreimages([...delivery.rules.map(rule => rule.file), ...delivery.targets.map(entry => entry.source), path.join(target, '.aiwg', 'aiwg.config')]));
-    const opts = { ...original, target: stage, dryRun: false, ruleDelivery: delivery, logicalOutputPath: file => logicalProviderOutputPath(file, stage, target, mappings),
+    const opts = { ...original, writeReceipt: writeContextFileSync, writtenFiles: [], target: stage, dryRun: false, ruleDelivery: delivery, logicalOutputPath: file => logicalProviderOutputPath(file, stage, target, mappings),
       kernelSkillsPath: kernel, deploymentHome: home, activeWorkspace, hermesLegacySkills, legacyCodexSkills, staging: true };
+    const ownershipRoots = [stage, ...mappings.map(mapping => mapping.to)];
+    const ownershipBefore = captureDeploymentOutputs(ownershipRoots);
     if (!opts.deferRuleProjection && (opts.kernelOnly || opts.deployRules || opts.rulesOnly ||
       (!opts.skillsOnly && !opts.commandsOnly && (inlineStartup[provider.name] || ['hermes', 'warp'].includes(provider.name))))) retireInlineStartup(opts, provider);
     await deploySelectedSurface(opts, provider, deploy);
@@ -422,6 +430,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
       console.log(`[dry-run] Planned ${provider.name} deployment: ${guarded.report.selected_bytes} startup bytes; no output promoted.`);
       return { report: guarded.report, noop: true };
     }
+    recordDeploymentOutputs(ownershipBefore, ownershipRoots, opts);
     const workspaceDirs = [];
     const collectDirs = (dir, rel = '') => {
       if (!fs.existsSync(dir)) return;

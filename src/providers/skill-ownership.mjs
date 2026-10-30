@@ -27,11 +27,13 @@ export function sameSkillOwner(receipt, skillSource, frameworkSlug = extractFram
 }
 
 /** Frameworks outrank addons; peers retain ownership unless explicitly forced. */
-export function canDeploySkill(receipt, skillSource, { force = false } = {}) {
+export function canDeploySkill(receipt, skillSource, { force = false, logicalInputPath } = {}) {
   const owner = receipt?.managed?.['SKILL.md']?.frameworkSlug || receipt?.skillSource;
-  if (!owner || sameSkillOwner(receipt, skillSource)) return true;
-  const incoming = extractFrameworkSlug(`${skillSource}/SKILL.md`) || skillSource;
-  const isFramework = /(?:^|\/)agentic\/code\/frameworks\//.test(skillSource.replace(/\\/g, '/'));
+  const logicalSource = logicalInputPath?.(skillSource) || skillSource;
+  const incomingSlug = extractFrameworkSlug(`${logicalSource}/SKILL.md`);
+  if (!owner || sameSkillOwner(receipt, skillSource, incomingSlug)) return true;
+  const incoming = incomingSlug || skillSource;
+  const isFramework = /(?:^|\/)agentic\/code\/frameworks\//.test(logicalSource.replace(/\\/g, '/'));
   const wasAddon = /(?:^|\/)agentic\/code\/addons\//.test((receipt.skillSource || '').replace(/\\/g, '/'));
   const replace = force || (isFramework && wasAddon);
   console.warn(`Skill deploy collision: '${path.basename(skillSource)}' is owned by ${owner}; ${incoming} ${replace ? 'taking ownership' : 'skipped'}`);
@@ -103,4 +105,10 @@ export function releaseSkillOwnership(skillDir, owner, opts = {}) {
   }
   if (opts.dryRun) return false;
   try { fs.rmdirSync(skillDir); return true; } catch { return false; }
+}
+
+/** Deploy adds owners; only explicit removal may release a recorded owner. */
+export function mergeArtifactOwnership(previous, current, owner) {
+  const owners = previous?.owners || [];
+  return { ...(previous?.hash === current.hash ? previous : {}), ...current, owners: [...new Set([...owners, ...(current.owners || []), owner])].sort() };
 }
