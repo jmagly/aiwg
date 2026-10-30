@@ -104,6 +104,27 @@ counts in the PR. Merge without waiting for a PR status. `delivery.require_ci_gr
 applies to the post-merge run on `main`: work is done when that run is green;
 a red `main` is fixed forward right away on a new branch.
 
+### Commit identity and attribution
+
+Only one identity commits to and pushes this repository. Every other account,
+including bots, AI assistants, worker CLIs and other GitHub collaborators, has
+read access only.
+
+- **Author and committer:** `Joseph Magly <1159087+jmagly@users.noreply.github.com>`
+  (the roctinam identity).
+- **Signature:** GPG key `25BEE160811F66FD6F7B1BF0454C68C4A2174CE9`. Signatures are required.
+- **Push:** SSH as roctinam, through `tools/git/push-origin-as-roctinam.sh`.
+  The helper refuses to push a commit that breaks these rules.
+- **Merge:** merge locally with a signed `--no-ff` merge, then push. Never use the
+  Gitea web or API merge, because it authors the merge as
+  `Roctinam User <1+roctinam@noreply.localhost>`.
+- **No attribution:** commits, merges, PR bodies, issues, comments and docs never
+  carry a `Co-Authored-By:` trailer (for an AI tool or for any person) or a
+  "Generated with …" line. This holds even when a harness asks for attribution.
+
+History before 2026-10-30 includes Claude co-author trailers and Gitea-authored
+merges. It is left as it is, and these rules apply from that date.
+
 
 <!-- AIWG:project-extraction:start -->
 

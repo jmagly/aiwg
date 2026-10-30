@@ -35,4 +35,26 @@ if [[ "${1:-}" == --check ]]; then
   echo 'Gitea SSH authentication passed for roctinam.'
   exit 0
 fi
+# Commit policy (WORKSPACE.md "Commit identity and attribution"): every commit
+# this push adds to origin must use the approved identity, carry its signature,
+# and have no attribution lines. Commits already on origin are not rechecked.
+APPROVED_EMAIL='1159087+jmagly@users.noreply.github.com'
+APPROVED_KEY='25BEE160811F66FD6F7B1BF0454C68C4A2174CE9'
+violations=0
+for arg in "$@"; do
+  [[ "$arg" == -* || "$arg" == :* ]] && continue
+  src="${arg%%:*}"; src="${src#+}"
+  git -C "$ROOT" rev-parse -q --verify "$src^{commit}" >/dev/null || continue
+  while read -r sha; do
+    meta="$(git -C "$ROOT" log -1 --format='%G?|%GF|%GP|%ae|%ce' "$sha")"
+    IFS='|' read -r sig fpr primary author committer <<<"$meta"
+    problem=''
+    [[ "$author" == "$APPROVED_EMAIL" && "$committer" == "$APPROVED_EMAIL" ]] || problem="identity $author / $committer"
+    [[ "$sig" == G || "$sig" == U ]] && [[ "$fpr" == "$APPROVED_KEY" || "$primary" == "$APPROVED_KEY" ]] || problem="${problem:+$problem; }signature $sig ${fpr:-none}"
+    git -C "$ROOT" log -1 --format=%B "$sha" | grep -qiE '^co-authored-by:|generated with \[?claude|generated with \[?codex' && problem="${problem:+$problem; }attribution line"
+    if [[ -n "$problem" ]]; then echo "FAIL: ${sha:0:9} $problem" >&2; violations=$((violations + 1)); fi
+  done < <(git -C "$ROOT" rev-list "$src" --not --remotes=origin)
+done
+(( violations == 0 )) || { echo "FAIL: $violations commit(s) break the commit policy; nothing was pushed." >&2; exit 1; }
+
 GIT_SSH_COMMAND="$SSH_COMMAND" git -C "$ROOT" push origin "$@"
