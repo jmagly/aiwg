@@ -58,7 +58,7 @@ function retainToolJsonSchema(schema, seen = new Set()) {
 /**
  * Create and configure the AIWG MCP Server
  */
-export async function createServer() {
+export async function createServer(options = {}) {
   const server = new McpServer({
     name: 'aiwg',
     version: '1.0.0'
@@ -73,7 +73,9 @@ export async function createServer() {
       retainToolJsonSchema(schema);
       schemas[key] = schema;
     }
-    return registerTool(name, { ...config, ...schemas }, handler);
+    const projected = options.configureTool?.(name, { ...config, ...schemas }, handler);
+    if (options.configureTool && !projected) return;
+    return registerTool(name, projected?.config ?? { ...config, ...schemas }, projected?.handler ?? handler);
   };
 
   // ============================================
@@ -107,7 +109,7 @@ export async function createServer() {
       };
     });
   }
-  registerWriterProfileResources(server);
+  registerWriterProfileResources(server, { projectRoot: options.projectDir });
 
   // ============================================
   // Command-run dispatch (#1312) — registers:
@@ -130,7 +132,7 @@ export async function createServer() {
   // `all` deliberately does not reach it (src/mcp/tools/subsystems.mjs).
   // Default: none (core only — discovery + command-run)
   // ============================================
-  const requested = parseToolsets(process.env.AIWG_MCP_TOOLSETS || '');
+  const requested = parseToolsets(options.toolsets ?? process.env.AIWG_MCP_TOOLSETS ?? '');
   // #2892 B1: the `workers` toolset's served project root is resolved ONCE,
   // here, at registration time — never lazily from `process.cwd()` inside
   // the tool handler on first request. A project root that cannot be found
@@ -139,7 +141,7 @@ export async function createServer() {
   // back to an implicit cwd.
   let projectRoot;
   try {
-    projectRoot = await findProjectRoot();
+    projectRoot = options.projectDir ?? await findProjectRoot();
   } catch {
     projectRoot = undefined;
   }
@@ -152,9 +154,9 @@ export async function createServer() {
   // must pin its own missing default at startup, never adopt the ancestor's
   // store. Callers select other projects explicitly via `project_dir`.
   const artifactEnv = { ...process.env };
-  const trustedProjectRoot = await fs.realpath(process.cwd());
+  const trustedProjectRoot = await fs.realpath(options.projectDir ?? process.cwd());
   const trustedArtifactRoot = await resolveProjectAiwgDir(trustedProjectRoot, { env: artifactEnv });
-  const startupStore = await pinArtifactRoot(trustedArtifactRoot, trustedProjectRoot);
+  const startupStore = options.artifactStore ?? await pinArtifactRoot(trustedArtifactRoot, trustedProjectRoot);
   const trustedStore = startupStore.root;
   const projects = new Map();
   async function trustProject(requested, store) {
