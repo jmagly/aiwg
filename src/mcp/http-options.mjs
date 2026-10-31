@@ -80,7 +80,7 @@ function authority(value) {
 
 export function hostPolicy(host, additional = []) {
   const bindHost = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
-  const aliases = host === '127.0.0.1' ? ['localhost'] : [];
+  const aliases = ['127.0.0.1', '::1', '[::1]'].includes(host) ? ['localhost'] : [];
   const allowed = [bindHost, ...aliases, ...additional].map(authority);
   const accepts = value => {
     try {

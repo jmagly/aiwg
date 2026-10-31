@@ -22,7 +22,7 @@ aiwg mcp serve --transport http --project /srv/build/my-project \
 ```
 
 The endpoint is `http://127.0.0.1:3100/mcp`; `http://localhost:3100/mcp` is also
-accepted on the default bind. For another machine, place a TLS
+accepted on the default bind and IPv6 loopback binds. For another machine, place a TLS
 reverse proxy in front of it, preserve the Authorization and MCP session headers,
 and allow the proxy's public hostname:
 
@@ -33,7 +33,7 @@ aiwg mcp serve --transport http --project /srv/build/my-project \
 
 Keep the file readable only by the service account. Supply exactly one of
 `--token-env <NAME>` and `--token-file <path>`; the CLI accepts no token-value flag.
-Loopback binds `127.0.0.1`, `::1` and `[::1]` need no remote-bind opt-in or warning.
+Loopback binds `127.0.0.1`, `::1`, `[::1]` and `localhost` need no remote-bind opt-in or warning.
 Other bind addresses require `--allow-remote-bind` and emit a warning.
 TLS termination and firewall configuration belong to the operator.
 Use this dedicated listener for MCP; `aiwg serve` is the local dashboard.

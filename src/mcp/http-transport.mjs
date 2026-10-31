@@ -37,7 +37,7 @@ async function readBody(request, response) {
 
 export async function startHttpServer(options) {
   const host = options.host === '[::1]' ? '::1' : options.host ?? '127.0.0.1';
-  const loopback = host === '127.0.0.1' || host === '::1';
+  const loopback = host === '127.0.0.1' || host === '::1' || host === 'localhost';
   if (!loopback && !options.allowRemoteBind) {
     throw new Error('A non-loopback --host requires --allow-remote-bind');
   }
