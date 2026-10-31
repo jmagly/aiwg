@@ -201,6 +201,14 @@ Inject Options:
 Serve Options:
   --transport <type>   Transport type: stdio (default), http
   --port <number>      Port for HTTP transport (default: 3100)
+  --project <dir>      Required HTTP project; pinned at startup
+  --token-env <NAME>   HTTP bearer token environment variable (choose one source)
+  --token-file <path>  HTTP bearer token file; re-read per request for rotation
+  --host <address>    HTTP bind address (default: 127.0.0.1)
+  --allow-remote-bind  Required for non-loopback binds; emits a warning
+  --allowed-host <h>   Additional HTTP Host/Origin hostname (repeatable)
+  --max-sessions <n>   HTTP session cap (default: 8; idle timeout: 300 seconds)
+  --tools <csv>        Narrow HTTP tools: discover, *-show, artifact-write
   --toolsets <csv>     Opt-in toolsets: flows, missions, memory, kb, research,
                        activity-log, index, ralph, mc, ops, sandbox, decision, workers
                        all excludes workers; enable explicitly with --toolsets all,workers
@@ -1619,15 +1627,12 @@ export async function main(args = process.argv.slice(2)) {
   switch (command) {
     case 'serve': {
       // Parse options
-      const transportIdx = args.indexOf('--transport');
-      const transport = transportIdx !== -1 ? args[transportIdx + 1] : 'stdio';
+      const transport = requireFlagValue(args, { rejectEmpty: true }, '--transport') ?? 'stdio';
 
       if (transport === 'http') {
-        const portIdx = args.indexOf('--port');
-        const port = portIdx !== -1 ? parseInt(args[portIdx + 1], 10) : 3100;
-        console.error(`HTTP transport not yet implemented. Use stdio for now.`);
-        console.error(`Would start on port ${port}`);
-        process.exit(1);
+        const { serveHttp } = await import('./http-transport.mjs');
+        await serveHttp(subArgs);
+        break;
       }
 
       // --toolsets flag overrides AIWG_MCP_TOOLSETS env (#1332 / S18)

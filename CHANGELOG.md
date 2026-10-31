@@ -7,6 +7,14 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Added
+
+- Authenticated, project-bound Streamable HTTP MCP transport through
+  `aiwg mcp serve --transport http`, with a restricted tool surface, rotating
+  token files, bounded sessions, Host/Origin validation and cancellation.
+  Flue 2.3.0 remote client coverage and setup guide: `docs/providers/flue-remote.md`
+  (#3124). Stdio remains the default.
+
 ## [2026.10.19] - 2026-10-31
 
 ### Added

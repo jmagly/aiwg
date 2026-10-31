@@ -13,8 +13,9 @@ const root = path.resolve(import.meta.dirname, '../../..');
 
 describe('required provider deployment lane', () => {
   it('runs exhaustive deployment matrices only in the serial release lane', () => {
-    expect(releaseSlowFiles).toHaveLength(8);
+    expect(releaseSlowFiles).toHaveLength(9);
     expect(releaseSlowFiles).toContain('test/integration/flue-node-e2e.test.ts');
+    expect(releaseSlowFiles).toContain('test/integration/flue-mcp-http.test.ts');
     expect(releaseSlowFiles).toContain('test/integration/ownership-matrix-deployment.test.ts');
     expect(releaseSlow.test.include).toEqual(releaseSlowFiles);
     expect(releaseSlow.test).toMatchObject({ pool: 'forks', maxWorkers: 1, fileParallelism: false });
