@@ -277,7 +277,17 @@ describe('Agent Skills import-to-provider round trip', () => {
   it('keeps the provider oracle explicit and aligned with all canonical IDs', () => {
     expect(providerOracle.providers.map((provider) => provider.id))
       .toEqual([...PROVIDER_IDS]);
-    expect(providerOracle.providers).toHaveLength(19);
+    expect(providerOracle.providers).toHaveLength(20);
+  });
+
+  it('rejects Flue user scope without writing a projection', () => {
+    const result = deployImportedAgentSkill(providerOracle.skill.name, {
+      projectDir, homeDir, target: 'flue', scope: 'user',
+    });
+    expect(result.projectionStatus).toBe('unsupported');
+    expect(result.reasons).toContain('Flue (experimental) supports project scope only');
+    expect(fs.existsSync(path.join(projectDir, '.agents/skills', providerOracle.skill.name))).toBe(false);
+    expect(fs.existsSync(path.join(homeDir, '.agents/skills', providerOracle.skill.name))).toBe(false);
   });
 
   it('preserves every managed source file as exact bytes without running scripts', () => {
@@ -320,7 +330,7 @@ describe('Agent Skills import-to-provider round trip', () => {
         provider: provider.id,
         path: expectedPath,
         projectionStatus: provider.status,
-        outcome: ['codex', 'deepseek-harness', 'muse'].includes(provider.id)
+        outcome: ['codex', 'deepseek-harness', 'flue', 'muse'].includes(provider.id)
           ? 'unchanged'
           : provider.outcome,
       });

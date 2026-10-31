@@ -46,6 +46,15 @@ export function resolvePolicy(
         'uses the project .agents/skills compatibility surface without the legacy 100/500 truncation transform',
       );
       break;
+    case 'flue':
+      maxDescriptionLength = namespace.maxDescriptionLength;
+      reasons.push('uses the project-only .agents/skills surface; app skills must be explicitly mounted');
+      if (options.scope === 'user') {
+        status = 'unsupported';
+        supported = false;
+        reasons.push('Flue (experimental) supports project scope only');
+      }
+      break;
     case 'factory':
       status = 'projected';
       appendToDescription = namespace.appendToDescription;
