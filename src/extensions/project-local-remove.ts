@@ -14,7 +14,7 @@
  */
 
 import { lstat, readdir, readFile, stat, unlink, rmdir } from 'fs/promises';
-import { resolve, join, relative, dirname, isAbsolute } from 'path';
+import { resolve, join, relative, dirname, isAbsolute, sep } from 'path';
 import { deployedSkillRoots } from '../providers/deployed-skill-roots.js';
 import { releaseSkillOwnership } from '../providers/skill-ownership.mjs';
 import type { AiwgConfig, InstalledEntry } from '../config/aiwg-config.js';
@@ -44,6 +44,7 @@ export interface ArtifactRevertOutcome {
 }
 
 export interface RemoveOptions {
+  preserveRoots?: string[];
   /** Skip case-2 mutation prompt; revert mutated files. Never deletes source. */
   force?: boolean;
   /** Limit revert to this provider only. */
@@ -338,7 +339,7 @@ export async function removeProjectLocalBundle(
     // retired skills no longer present in the source inventory.
     const receiptSkills = new Set<string>();
     const sourceRoot = installedEntry.localPath ? resolve(projectDir, installedEntry.localPath) : undefined;
-    for (const root of deployedSkillRoots(projectDir, provider)) {
+    for (const root of deployedSkillRoots(projectDir, provider).filter(root => !opts.preserveRoots?.includes(root))) {
       for (const name of await readdir(root).catch(() => [] as string[])) {
         const skillDir = join(root, name);
         try { await readFile(join(skillDir, '.aiwg-manifest.json'), 'utf8'); } catch { continue; }
@@ -384,7 +385,7 @@ export async function removeProjectLocalBundle(
         continue;
       }
 
-      const candidates = candidateDeployedPaths(projectDir, provider, sourceRel);
+      const candidates = candidateDeployedPaths(projectDir, provider, sourceRel).filter(file => !opts.preserveRoots?.some(root => file === root || file.startsWith(`${root}${sep}`)));
       let resolvedAbs: string | null = null;
       let detectedCase: RemoveCase = 'missing';
       for (const c of candidates) {

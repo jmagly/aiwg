@@ -2,8 +2,7 @@
 
 Ask your coding assistant:
 
-> Add AIWG to my Flue app and give it a code reviewer. Keep conversation state
-> across restarts and save the review as an artifact.
+> Add only the SDLC framework and the voice framework to my Flue app.
 
 Then give the running Flue app a concrete task:
 
@@ -15,7 +14,9 @@ Start with the [Node example](../../examples/flue-node/README.md), or ask your
 assistant to add the same imports to an existing app. From the app directory:
 
 ```sh
-aiwg use sdlc --provider flue
+aiwg use sdlc --provider flue --declare
+aiwg use voice-framework --provider flue --declare
+aiwg refresh
 ```
 
 Deploy AIWG before starting the example: generated modules and skills are
@@ -39,12 +40,29 @@ The example explicitly mounts the deployed `sdlc-quickref` with `useSkill`.
 Flue's automatic workspace skill discovery requires a sandbox; this example
 uses no sandbox. Its tools and specialists are ordinary app imports.
 
-The Flue provider targets Node apps using Flue 2.3.0. It deploys kernel skills
+The Flue provider targets Node apps using Flue 2.3.0. It deploys each selected bundle’s full skill set
 into `.agents/skills`, composes WORKSPACE.md and AIWG.md into cwd `AGENTS.md`
 with inline core rules, and supplies a conventional `db.ts` selecting SQLite at
 `.flue-state/state.db` relative to the project root, regardless of the process
 working directory. It adds `.flue-state/` to `.gitignore` and writes
-`src/aiwg/tools.ts` plus `src/aiwg/specialists.ts`.
+`src/aiwg/tools.ts`, `src/aiwg/skills.ts` and `src/aiwg/specialists.ts`.
+`aiwg-utils` is opt-in for Flue; framework deployments do not include addons.
+Bundle manifests select specialists (SDLC supplies Code Reviewer and Test Engineer).
+The skill module exports each skill, a bundle array such as `sdlcSkills` or
+`voiceFrameworkSkills`, and `useAiwgSkills(...bundles)` to mount those arrays.
+
+The commands above declare intent in `installed.<bundle>.deployedTo.flue`.
+A pending entry is `{ "deployedTo": { "flue": {} } }`. Refresh and update deploy
+only the providers declared for each bundle. Drop an entry by hand, or run
+`aiwg remove voice-framework --provider flue --declare`, then refresh to prune
+its unchanged files in index mode (the default). `--copy-all` (also accepted
+with `--declare`) records `copy: true` for that bundle and provider; update and
+refresh retain that mode and update unchanged copies in place. Dropped bundles
+are kept in copy mode; run `aiwg remove <bundle>` to delete them. A later
+`aiwg use` without the flag records index mode. Operator edits are kept and
+reported in both modes. Use `--dry-run`
+on update or refresh to review the per-provider add and remove plan. Ordinary
+bundle removal regenerates shared imports for the remaining deployed bundles.
 Reviewed resident memory stays in its maintained `WORKSPACE.md` projection;
 it is excluded from the inline `AGENTS.md` copy.
 

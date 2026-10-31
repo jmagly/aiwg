@@ -6,6 +6,7 @@ import { resolveProjectAiwgDir } from '../../config/project-artifacts.js';
 import { removeClaudeAttribution } from '../../extensions/claude-hooks-installer.js';
 import { planDeploymentRemoval, type RemovalDecision } from '../../providers/deployment-removal.js';
 import { applyRemovalTransaction, type RemovalWrite } from '../../providers/removal-transaction.js';
+import { refreshRemainingFlueModules } from './remove-flue-modules.js';
 import type { HandlerResult } from './types.js';
 
 function counts(decisions: RemovalDecision[]): DeployedArtifactCounts {
@@ -19,10 +20,10 @@ function counts(decisions: RemovalDecision[]): DeployedArtifactCounts {
   }
   return result;
 }
-const summary = (value: DeployedArtifactCounts) => `${value.agents} agents, ${value.commands} commands, ${value.rules} rules, ${value.skills} skills`;
+const summary = (value: Partial<DeployedArtifactCounts>) => `${value.agents ?? 0} agents, ${value.commands ?? 0} commands, ${value.rules ?? 0} rules, ${value.skills ?? 0} skills`;
 
 export async function removeBundledDeployment(project: string, id: string, owner: string, config: AiwgConfig,
-  providers: string[], opts: { dryRun: boolean; keepRegistry: boolean }): Promise<HandlerResult> {
+  providers: string[], opts: { dryRun: boolean; keepRegistry: boolean; preserveRoots?: string[]; includeProject?: boolean }): Promise<HandlerResult> {
   const entry = config.installed[id];
   const configBefore = JSON.stringify(config);
   let writeConfig = false;
@@ -30,7 +31,7 @@ export async function removeBundledDeployment(project: string, id: string, owner
   let removed = 0, modern = false;
   try {
     for (const provider of providers) {
-      const plan = planDeploymentRemoval(project, provider, owner, providers.length === Object.keys(entry.deployedTo).length);
+      const plan = planDeploymentRemoval(project, provider, owner, opts.includeProject ?? providers.length === Object.keys(entry.deployedTo).length, opts.preserveRoots);
       modern ||= !plan.legacy;
       lines.push(`  Provider ${provider}:`);
       lines.push(`    Receipt inventory: ${summary(counts(plan.decisions))}; ${plan.recorded.length} owned file record(s).`);
@@ -59,11 +60,11 @@ export async function removeBundledDeployment(project: string, id: string, owner
           const residual = counts(retained);
           let unverifiable = 0;
           for (const kind of Object.keys(residual) as Array<keyof DeployedArtifactCounts>) {
-            const gap = Math.max(0, entry.deployedTo[provider][kind] - inventory[kind]);
+            const gap = Math.max(0, (entry.deployedTo[provider][kind] ?? 0) - inventory[kind]);
             residual[kind] += gap; unverifiable += gap;
           }
           if (retained.length || unverifiable) {
-            entry.deployedTo[provider] = residual;
+            entry.deployedTo[provider] = { ...residual, ...(entry.deployedTo[provider].copy === undefined ? {} : { copy: entry.deployedTo[provider].copy }) };
             if (unverifiable) lines.push(`    Retained ${unverifiable} unverifiable historical artifact count(s); no ownership inferred.`);
             lines.push(`    Partial removal: ${retained.length} owned file record(s) retained; deployedTo counts reconciled.`);
           } else delete entry.deployedTo[provider];
@@ -102,6 +103,7 @@ export async function removeBundledDeployment(project: string, id: string, owner
         try { fs.rmdirSync(dir); } catch { /* Nonempty directories preserve operator files and remaining receipts. */ }
       }
     }
+    if (!opts.dryRun && !opts.keepRegistry && providers.includes('flue')) await refreshRemainingFlueModules(project, config);
     lines.push(`${opts.dryRun ? 'Would remove' : 'Removed'} ${removed} unchanged recorded file(s); operator files preserved.`);
     return { exitCode: 0, message: lines.join('\n') };
   } catch (error) {

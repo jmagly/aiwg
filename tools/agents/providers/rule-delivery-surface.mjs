@@ -216,6 +216,19 @@ export function finishBindings(opts, provider) {
     const name = skill ? path.basename(path.dirname(file)) : path.basename(file).replace(/\.(md|toml)$/, '');
     const sidecarPath = path.join(skill ? path.dirname(file) : path.dirname(file), '.aiwg-manifest.json');
     const sidecar = fs.existsSync(sidecarPath) ? JSON.parse(read(sidecarPath)) : null;
+    const record = sidecar?.managed?.[path.basename(file)];
+    const priorBytes = opts.ownershipBefore?.get(file);
+    const priorSidecar = opts.ownershipBefore?.get(sidecarPath);
+    const prior = priorSidecar && JSON.parse(priorSidecar.toString()).managed?.[path.basename(file)];
+    // Check the pre-deploy claim too: a helper may have rewritten its sidecar
+    // or overwritten an edit that preservation will restore after binding.
+    const editedBefore = prior && priorBytes && prior.hash !== `sha256:${contentHash(priorBytes)}`;
+    const emitted = opts.ownershipBefore && (!priorBytes || !priorBytes.equals(Buffer.from(content)));
+    const editedNow = (record || provider.name === 'flue') && record?.hash !== `sha256:${contentHash(content)}`;
+    if (editedBefore || !emitted && editedNow) {
+      console.warn(`${provider.name}: keeping operator-edited binding target ${opts.logicalOutputPath?.(file) || file}`);
+      continue;
+    }
     // Wrapper source identity is ownership metadata. Preserve the legacy
     // flow-only name lookup instead of selecting new skill binding targets.
     const wrapper = !skill && sidecar?.managed?.[path.basename(file)]?.kind === 'skill-command';
@@ -268,7 +281,7 @@ export function finishBindings(opts, provider) {
 /** Bindings annotate the selected deployment; they do not select standard skills
  * (ADR lines 102–108). Flow projections follow the same opt-in and tier routing. */
 export function projectBoundFlowSkills(opts, provider, selected) {
-  if (provider.name === 'flue') return; // This app target deploys kernel skills only (#3121).
+  if (provider.name === 'flue') return; // Flue deploys authored bundle skills; command projections remain index-only.
   opts.flowSkillSources = new Map();
   if (opts.rulesOnly || opts.commandsOnly || !(opts.deploySkills || opts.skillsOnly)) return;
   const kernel = path.isAbsolute(provider.kernelSkillsPath || '') ? opts.kernelSkillsPath
@@ -295,6 +308,7 @@ export function projectBoundFlowSkills(opts, provider, selected) {
       const stale = receipt?.flowSource && (opts.copyStandardSkills !== true
         || !sources.has(receipt.flowSource) || root !== standard);
       if (!legacy && !stale) continue;
+      if (opts.copyMode ?? opts.copyStandardSkills) continue;
       fs.rmSync(file, { force: true });
       if (receipt?.flowSource) {
         fs.rmSync(receiptFile, { force: true });

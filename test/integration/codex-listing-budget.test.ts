@@ -81,7 +81,7 @@ describe('codex startup-listing budget (#2561)', () => {
     expect(fs.existsSync(path.join(standardDir, 'alpha', 'SKILL.md'))).toBe(true);
   });
 
-  it('re-places an over-cap kernel deployment on the next plain redeploy (budget-only remediation)', () => {
+  it('keeps copy-mode overflow until index cleanup reconciles the listing budget', () => {
     const source = tempDir('codex-budget-src');
     const project = tempDir('codex-budget-project');
     writeSkill(source, 'alpha', 300);
@@ -97,6 +97,9 @@ describe('codex startup-listing budget (#2561)', () => {
     // A plain redeploy under the cap moves the overflow without --force.
     const fixed = run(['--source', source, '--target', kernelDir, '--standard-target', standardDir, '--copy-all', '--listing-cap', '200']);
     expect(fixed.exitCode).toBe(0);
+    expect(listing(kernelDir)).toEqual(['alpha', 'beta']);
+    const indexed = run(['--source', source, '--target', kernelDir, '--standard-target', standardDir, '--copy-all', '--index-mode', '--listing-cap', '200']);
+    expect(indexed.exitCode).toBe(0);
     expect(listing(kernelDir)).toEqual(['beta']);
     expect(listing(standardDir)).toEqual(['alpha']);
   });

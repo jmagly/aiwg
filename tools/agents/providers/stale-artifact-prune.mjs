@@ -48,6 +48,7 @@ export function bulkInstallOwnsFlatArtifacts(target) {
 }
 
 export function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explicitSource) {
+  if (opts.copyMode ?? opts.copyStandardSkills) return;
   if (opts.skillsOnly && !opts.kernelOnly) return; // skills run their own prune in the provider
 
   const aiwgRoot = resolveAiwgRoot(srcRoot);

@@ -52,6 +52,8 @@ export const deploymentFiles = [
   'test/integration/guided-setup-walkthrough.test.ts',
   // Real sdlc and marketing deploys followed by `aiwg remove` (#3769).
   'test/integration/remove-deployment.test.ts',
+  // Repeated real CLI updates read the same immutable corpus and source index.
+  'test/integration/bundle-reconciliation-cli.test.ts',
 ];
 // Exhaustive provider deployment matrices run before releases, while focused
 // CLI contracts and a small provider smoke matrix remain in the default lane.
