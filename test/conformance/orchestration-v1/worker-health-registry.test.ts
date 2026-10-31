@@ -15,7 +15,7 @@ import {
 // source-only evidence; it stays unqualified like every other doc-only row.
 const hostedIn = ['claude', 'codex', 'copilot', 'factory', 'cursor', 'opencode', 'warp',
   'grok-build', 'hermes', 'muse', 'openclaw', 'antigravity', 'deepseek-harness', 'pi', 'omp', 'openhuman'];
-const hostedOut = ['windsurf', 'grokbot'];
+const hostedOut = ['windsurf', 'grokbot', 'flue'];
 // Health descriptions are inert in the bundled registry. Register copies only
 // in this synthetic diagnostic fixture to exercise their adapter contracts.
 const registry = structuredClone(loadProviderModelCapabilities());
