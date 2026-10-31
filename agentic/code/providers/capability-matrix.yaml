@@ -934,6 +934,57 @@ providers:
     deploy_target: project
     aggregated_output: false
 
+  flue:
+    display_name: Flue (experimental)
+    status: experimental
+    route_feasibility:
+      scope: out
+      identity: unavailable
+      evidence: R
+      channel: "none - Flue 2.3.0 app target; no worker dispatch (#3120 D6)"
+      coverage:
+        profile_issue: null
+        source_date: "2026-10-30"
+        live_qualified: false
+        exclusion_gap: "Flue run accepts prompts in argv and lacks worker model/effort flags; app deployment only."
+        recheck: "Rechecked 2026-10-30 against installed Flue 2.3.0 source; #3120 D6 excludes worker dispatch."
+        sources:
+          - "tools/agents/providers/flue.mjs"
+          - "docs/providers/flue.md"
+          - "https://flueframework.com/docs/"
+      fanout: unknown
+      probe_budget: { status: proposed, calls: 0, tokens: 0 }
+    daemon_tier: unsupported
+    daemon_pty_adapter: false
+    artifact_paths:
+      agents: ""
+      commands: ""
+      skills: .agents/skills/
+      rules: AGENTS.md
+      behaviors: null
+    native_features:
+      cron: false
+      agent_teams: false
+      tasks: false
+      mcp: false
+      behaviors: false
+      mission_control: false
+      daemon: false
+    emulation:
+      cron: null
+      agent_teams: null
+      tasks: null
+      mcp: null
+      behaviors: null
+      mission_control: null
+      daemon: null
+    hook_wiring:
+      at_link_support: false
+      fallback: full-inject
+      context_file: AGENTS.md
+    deploy_target: project
+    aggregated_output: false
+
   pi:
     display_name: Pi Coding Agent
     route_feasibility:

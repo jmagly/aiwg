@@ -5,6 +5,14 @@ import type { ProviderContextContract } from './provider-definition-schema.js';
 const VERIFIED_ON = '2026-07-21';
 
 export const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
+  flue: {
+    startupFiles: ['AGENTS.md'], precedence: ['provider/system', 'cwd AGENTS.md bytes'],
+    loadMode: 'prose-directive', includeSyntax: null, configRegistration: null,
+    bootstrapTargets: ['AGENTS.md'], maxContextBytes: null, recommendedMaxLines: null,
+    nestedContext: false, support: 'supported',
+    verification: { method: 'Installed Flue 2.3.0 source; context must be inlined',
+      source: '@flue/runtime/dist/conversation-stream-store-CXrgv-b0.mjs:339-349,463-482', lastVerified: '2026-10-30' },
+  },
   antigravity: {
     startupFiles: ['AGENTS.md', 'GEMINI.md'],
     precedence: ['provider/system', 'project AGENTS.md or GEMINI.md', 'nested project context when selected by the CLI'],

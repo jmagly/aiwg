@@ -46,6 +46,7 @@ export const discoveryFiles = ['test/integration/artifacts/discover-fortemi-corp
 // Full-corpus provider deployment owns one shared immutable source cache and
 // runs serially so multiple child CLIs do not compete inside the default lane.
 export const deploymentFiles = [
+  'test/integration/flue-deployment.test.ts',
   'test/integration/use-all-deployment.test.ts',
   'test/integration/hermes-deployment.test.ts',
   'test/integration/guided-setup-walkthrough.test.ts',
@@ -56,6 +57,8 @@ export const deploymentFiles = [
 // CLI contracts and a small provider smoke matrix remain in the default lane.
 // These do not overlap the required post-merge deploymentFiles lane above.
 export const releaseSlowFiles = [
+  // Real Flue/Pi graph is provisioned from the example lockfile before this lane.
+  'test/integration/flue-node-e2e.test.ts',
   // Full-copy marketing ownership includes every addon/extension and a redeploy.
   'test/integration/ownership-matrix-deployment.test.ts',
   'test/integration/provider-file-locations.test.ts',

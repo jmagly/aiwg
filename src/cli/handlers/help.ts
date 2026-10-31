@@ -183,7 +183,7 @@ function displayHelp(): void {
   ui.rule();
   ui.blank();
   const providers = listProviderDefinitions().filter(({ id }) => id !== 'generic');
-  console.log(`  ${ui.dimText('Providers:')} ${providers.length} — ${providers.map(({ id }) => id).join(', ')} (default: claude; aliases: agy → antigravity, devin → windsurf, oh-my-pi → omp)`);
+  console.log(`  ${ui.dimText('Providers:')} ${providers.length} — ${providers.map(({ id, status }) => status === 'experimental' ? `${id} (experimental)` : id).join(', ')} (default: claude; aliases: agy → antigravity, devin → windsurf, oh-my-pi → omp)`);
   ui.blank();
   console.log(`  ${ui.dimText('Examples:')}`);
   console.log(`    aiwg use sdlc                   ${ui.dimText('Install SDLC framework')}`);

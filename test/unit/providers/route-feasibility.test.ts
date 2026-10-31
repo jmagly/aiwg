@@ -26,7 +26,7 @@ const QUALIFICATION_OWNERS: Record<string, string> = {
   warp: 'B-OG-40', 'grok-build': 'B-OG-41', openclaw: 'B-OG-42',
   antigravity: 'B-OG-43', 'deepseek-harness': 'B-OG-44', pi: 'B-OG-45',
   omp: 'B-OG-45', windsurf: 'B-OG-47', grokbot: 'B-OG-47', openhuman: 'B-OG-47',
-  local: 'B-OG-09', generic: '—',
+  flue: 'B-OG-47', local: 'B-OG-09', generic: '—',
 };
 
 // Native channel anchors shared by the prose row and matrix metadata.
@@ -43,7 +43,7 @@ const CHANNEL_ANCHORS: Record<string, string> = {
 
 // B-OG-47 promotions carry a proposed live-qualification budget until the
 // operator authorizes one; a proposed budget never authorizes a probe.
-const PROMOTED_PENDING_AUTHORIZATION = new Set(['openhuman']);
+const PROMOTED_PENDING_AUTHORIZATION = new Set(['openhuman', 'flue']);
 
 function feasibilityRows(document: string): string[][] {
   const section = document.split('## Per-target feasibility\n')[1]?.split('\n## ')[0];
@@ -143,8 +143,8 @@ describe('route-feasibility evidence inventory (B-OG-27)', () => {
   it('records a valid feasibility row for every named registry provider', () => {
     const named = listProviderDefinitions().filter(({ id }) => id !== 'generic');
 
-    expect(named).toHaveLength(18);
-    expect(listProviderDefinitions()).toHaveLength(19);
+    expect(named).toHaveLength(19);
+    expect(listProviderDefinitions()).toHaveLength(20);
 
     for (const definition of named) {
       const row = getRouteFeasibility(definition.id);

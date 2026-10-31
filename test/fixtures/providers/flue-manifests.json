@@ -1,0 +1,40 @@
+{
+  "valid": [
+    {
+      "scope": "project",
+      "managed": {
+        "AGENTS.md": {
+          "hash": "sha256:06e55b633481f7bb072957eabcf11053c041e80d3dbaa2f878ade4f5244b5082",
+          "owners": ["sdlc-complete"],
+          "kind": "generated",
+          "filePreimage": { "present": false }
+        },
+        ".gitignore": {
+          "hash": "sha256:c9b2726eea195b85e3797780e015e98501cd4b13cbbbb9e4756c38cafcc67255",
+          "owners": ["sdlc-complete"],
+          "filePreimage": {
+            "present": true,
+            "bytes": "b3BlcmF0b3I=",
+            "hash": "sha256:06e55b633481f7bb072957eabcf11053c041e80d3dbaa2f878ade4f5244b5082"
+          }
+        }
+      }
+    },
+    {
+      "skillSource": "synthetic/legacy/skill",
+      "managed": {
+        "SKILL.md": {
+          "hash": "sha256:06e55b633481f7bb072957eabcf11053c041e80d3dbaa2f878ade4f5244b5082",
+          "frameworkSlug": "sdlc-complete"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    { "managed": { "AGENTS.md": { "filePreimage": { "present": true } } } },
+    { "managed": { "AGENTS.md": { "filePreimage": { "present": false, "bytes": "" } } } },
+    { "managed": { "AGENTS.md": { "filePreimage": { "present": false, "hash": "sha256:06e55b633481f7bb072957eabcf11053c041e80d3dbaa2f878ade4f5244b5082" } } } },
+    { "managed": { "AGENTS.md": { "filePreimage": { "present": true, "bytes": "!", "hash": "invalid" } } } },
+    { "managed": { "AGENTS.md": { "filePreimage": { "present": false, "unrecognized": true } } } }
+  ]
+}

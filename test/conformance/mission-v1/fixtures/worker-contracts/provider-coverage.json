@@ -165,6 +165,15 @@
       "consumer": "models resolve / worker-resolve / worker-invoke"
     },
     {
+      "provider": "flue",
+      "owner": "B-OG-47",
+      "scope": "OUT",
+      "nativeMcp": "app-target-only",
+      "qualification": "unqualified",
+      "kind": "deployment-provider",
+      "consumer": "models resolve: unsupported; app deployment only (#3120 D6)"
+    },
+    {
       "provider": "generic",
       "owner": "B-OG-47",
       "scope": "OUT",

@@ -82,6 +82,7 @@ const POLICIES: Record<Platform, ProviderMemoryPolicy> = {
   copilot: { limits: ['no-general-precedence', 'surface-and-enabled-state-required', 'scope-limited-imports', 'runtime-load-unobserved'], sessionEffect: 'next-session' },
   cursor: { limits: ['always-apply-except-globs', 'runtime-load-unobserved'], sessionEffect: 'next-session' },
   'deepseek-harness': { limits: ['runtime-load-unobserved'], sessionEffect: 'next-session' },
+  flue: { limits: ['runtime-load-unobserved'], sessionEffect: 'next-session' },
   factory: { limits: ['runtime-load-unobserved'], sessionEffect: 'next-session' },
   grokbot: { limits: ['runtime-load-unobserved'], sessionEffect: 'unknown' },
   'grok-build': { limits: ['runtime-load-unobserved'], sessionEffect: 'next-session' },
