@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { projectLocalCopyMode, recordBundleDeployment } from '../../../../src/cli/handlers/bundle-deployment-mode.js';
 import { emptyConfig } from '../../../../src/config/aiwg-config.js';
-import { bundleProviders, pruneUndeclaredBundles } from '../../../../src/cli/handlers/bundle-reconciliation.js';
+import { expectedBundleOwners, pruneAfterScopedDeployments, bundleProviders, pruneUndeclaredBundles } from '../../../../src/cli/handlers/bundle-reconciliation.js';
 import { refreshDeclaredBundles } from '../../../../src/cli/handlers/refresh-bundles.js';
 import { removeBundledDeployment } from '../../../../src/cli/handlers/remove-bundled.js';
 import { declareBundle } from '../../../../src/cli/handlers/bundle-declaration.js';
@@ -204,4 +204,69 @@ it('prunes only the declared parent, retaining additive owners on later refreshe
   for (let iteration = 0; iteration < 2; iteration++) expect(await pruneUndeclaredBundles(root, config, 'claude', false, root)).toBe(0);
   expect(fs.existsSync(parent)).toBe(false);
   expect(fs.readFileSync(additive, 'utf8')).toBe('deployed');
+});
+
+it.each([undefined, false, true])('uses each provider’s recorded additive gates (skipUtils=%s)', async skipUtils => {
+  for (const [group, id] of [['frameworks', 'sdlc-complete'], ['addons', 'aiwg-utils'], ['extensions', 'example']]) {
+    const dir = path.join(root, 'agentic/code', group, id); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'manifest.json'), '{}');
+  }
+  const config = emptyConfig(['claude', 'codex']);
+  config.installed.sdlc = { deployedTo: { claude: { skipUtils }, codex: { skipUtils: false, kernelOnly: true } } };
+  const owners = await expectedBundleOwners(config, 'claude', root);
+  expect(owners.has('aiwg-utils')).toBe(skipUtils !== true);
+  expect(owners.has('example')).toBe(skipUtils !== true);
+  const kernel = await expectedBundleOwners(config, 'codex', root);
+  expect(kernel.has('aiwg-utils')).toBe(true);
+  expect(kernel.has('example')).toBe(false);
+  // Another framework with unknown flags broadens the union safely.
+  config.installed.all = { deployedTo: { claude: {} } };
+  expect((await expectedBundleOwners(config, 'claude', root)).has('example')).toBe(true);
+});
+
+it('records copy-derived kernel scope and retains an all-framework declaration without keeping skipped addons', async () => {
+  for (const [group, id] of [['frameworks', 'sdlc-complete'], ['addons', 'aiwg-utils'], ['extensions', 'example']]) {
+    const dir = path.join(root, 'agentic/code', group, id); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'manifest.json'), '{}');
+  }
+  const { bundleDeploymentHistory } = await import('../../../../src/cli/handlers/bundle-deployment-mode.js');
+  await recordBundleDeployment(root, 'all', 'claude', ['--no-utils'], root);
+  expect(bundleDeploymentHistory(root).claude.all).toEqual({ copy: false, skipUtils: true, kernelOnly: true, produces: ['sdlc-complete'] });
+  await recordBundleDeployment(root, 'all', 'codex', ['--copy-all'], root);
+  expect(bundleDeploymentHistory(root).codex.all).toMatchObject({ copy: true, skipUtils: false, kernelOnly: false });
+  const config = emptyConfig(['claude']); config.installed.all = { deployedTo: { claude: { skipUtils: true, kernelOnly: true } } };
+  const unchanged = skill('aiwg-utils', 'old-utils', false, 'claude');
+  const edited = skill('aiwg-utils', 'edited-utils', true, 'claude');
+  const keep = skill('sdlc-complete', 'sdlc', false, 'claude');
+  expect(await pruneUndeclaredBundles(root, config, 'claude', false, root)).toBe(0);
+  expect(fs.existsSync(unchanged)).toBe(false);
+  expect(fs.readFileSync(edited, 'utf8')).toBe('operator edit');
+  expect(fs.readFileSync(keep, 'utf8')).toBe('deployed');
+});
+
+it('retains Flue’s composed all owner with recorded kernel flags', async () => {
+  const file = skill('all', 'composed-kernel');
+  const config = emptyConfig(['flue']);
+  config.installed.all = { deployedTo: { flue: { skipUtils: false, kernelOnly: true } } };
+  expect(await expectedBundleOwners(config, 'flue', root)).toEqual(new Set(['all']));
+  expect(await pruneUndeclaredBundles(root, config, 'flue', false, root)).toBe(0);
+  expect(fs.readFileSync(file, 'utf8')).toBe('deployed');
+});
+
+it('removes recreated additive copies after a restricted deploy and leaves unknown scope alone', async () => {
+  for (const [group, id] of [['frameworks', 'sdlc-complete'], ['addons', 'aiwg-utils']]) {
+    const dir = path.join(root, 'agentic/code', group, id); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'manifest.json'), '{}');
+  }
+  const config = emptyConfig(['claude']); config.installed.sdlc = { deployedTo: { claude: { skipUtils: true, kernelOnly: false } } };
+  fs.mkdirSync(path.join(root, '.aiwg'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.aiwg/aiwg.config'), JSON.stringify(config));
+  const file = skill('aiwg-utils', 'recreated', false, 'claude');
+  const edited = skill('aiwg-utils', 'edited', true, 'claude');
+  const unknown = structuredClone(config); unknown.installed.sdlc.deployedTo.claude = {};
+  expect(await pruneAfterScopedDeployments(root, unknown, 'claude', root)).toBe(0);
+  expect(fs.existsSync(file)).toBe(true);
+  expect(await pruneAfterScopedDeployments(root, config, 'claude', root)).toBe(0);
+  expect(fs.existsSync(file)).toBe(false);
+  expect(fs.readFileSync(edited, 'utf8')).toBe('operator edit');
 });

@@ -3,7 +3,7 @@ import { providerCopyMode } from '../../providers/deployment-preservation.mjs';
 import { bundleDeploymentHistory, markBundleReconciled } from './bundle-deployment-mode.js';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AiwgConfig } from '../../config/aiwg-config.js';
+import { readAiwgConfig, type AiwgConfig } from '../../config/aiwg-config.js';
 import { REGISTRY_ID_TO_USE_NAME, frameworkRegistryId } from '../../config/framework-aliases.js';
 import { getProviderArtifactPathStrings, PROVIDER_IDS } from '../../providers/provider-definitions.js';
 import { deployedSkillRoots } from '../../providers/deployed-skill-roots.js';
@@ -21,10 +21,18 @@ export function bundleProviders(installed: AiwgConfig['installed'], id: string, 
 export async function expectedBundleOwners(config: AiwgConfig, provider: string, frameworkRoot: string): Promise<Set<string>> {
   const selected = Object.keys(config.installed).filter(id => bundleProviders(config.installed, id, provider).length);
   const expected = new Set(selected.map(frameworkRegistryId));
-  const hasFramework = selected.some(id => id === 'all' || fs.existsSync(path.join(frameworkRoot, 'agentic/code/frameworks', frameworkRegistryId(id), 'manifest.json'))
-    || ['writing', 'general'].includes(id));
-  if (hasFramework) {
-    const { addons, extensions } = await frameworkAdditiveBundles(frameworkRoot, provider, false, selected.every(id => id === 'all'));
+  for (const id of selected) {
+    if (!(id === 'all' || fs.existsSync(path.join(frameworkRoot, 'agentic/code/frameworks', frameworkRegistryId(id), 'manifest.json'))
+      || ['writing', 'general'].includes(id))) continue;
+    const flags = config.installed[id].deployedTo[provider];
+    if (id === 'all' && provider !== 'flue' && (flags.skipUtils !== undefined || flags.kernelOnly !== undefined)) {
+      expected.delete('all');
+      for (const name of fs.readdirSync(path.join(frameworkRoot, 'agentic/code/frameworks'))) {
+        if (fs.existsSync(path.join(frameworkRoot, 'agentic/code/frameworks', name, 'manifest.json'))) expected.add(frameworkRegistryId(name));
+      }
+    }
+    // Unknown history must retain the broader additive surface.
+    const { addons, extensions } = await frameworkAdditiveBundles(frameworkRoot, provider, flags.skipUtils === true, flags.kernelOnly === true);
     for (const owner of [...addons, ...extensions]) expected.add(frameworkRegistryId(owner));
   }
   if (provider !== 'flue') for (const id of selected) {
@@ -104,4 +112,11 @@ export async function pruneUndeclaredBundles(project: string, config: AiwgConfig
     }
   }
   return failures;
+}
+
+// Root collectors can recreate additive copies; enforce a recorded restricted scope last.
+export async function pruneAfterScopedDeployments(project: string, config: AiwgConfig | null, requested?: string, frameworkRoot?: string): Promise<number> {
+  const restricted = Object.values(config?.installed ?? {}).some(entry => Object.entries(entry.deployedTo).some(([provider, flags]) =>
+    (!requested || requested.split(',').includes(provider)) && (flags.skipUtils === true || flags.kernelOnly === true)));
+  return restricted ? pruneUndeclaredBundles(project, await readAiwgConfig(project), requested, false, frameworkRoot) : 0;
 }

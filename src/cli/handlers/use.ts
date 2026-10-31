@@ -43,7 +43,7 @@ import { initHandler } from './init.js';
 import { selectAddonProfile } from './use-addon-profile.js';
 import { deploymentEditWarnings } from '../../providers/deployment-preservation.mjs';
 import { permitsBundleDeployment } from '../../config/installed-selection.js';
-import { recordBundleDeployment, copyCleanupArgs, projectLocalDeploymentContext, projectLocalCopyMode } from './bundle-deployment-mode.js';
+import { bundleDeploymentScope, recordBundleDeployment, copyCleanupArgs, projectLocalDeploymentContext, projectLocalCopyMode } from './bundle-deployment-mode.js';
 import { frameworkAdditiveBundles, getAllAddons, getAllExtensions } from './use-additive-bundles.js';
 export { getAllAddons, getAllExtensions, USE_ALL_DISALLOW, USE_ALL_EXTENSIONS_DISALLOW } from './use-additive-bundles.js';
 import {
@@ -113,6 +113,7 @@ import {
 } from '../../smiths/context-pipeline/index.js';
 import type { Platform } from '../../agents/types.js';
 import { verifyModelWrapperDeployment } from '../../models/wrapper-deployment.js';
+import { countRecordedFrameworkArtifacts, receiptIncludesOwner } from './use-owned-counts.js';
 import { countDeployedBundleFiles, countDeployedBundleRules } from './use-bundle-counts.js';
 import { reconcileDeployedSkillAssets } from './use-skill-assets.js';
 import {
@@ -1201,7 +1202,8 @@ async function countDeployedBundleSkills(
     let found = false;
     for (const dir of uniqueCandidateDirs) {
       for (const name of names) {
-        if (!(await fileExists(path.join(dir, name, 'SKILL.md')))) continue;
+        if (!(await fileExists(path.join(dir, name, 'SKILL.md')))
+          || !await receiptIncludesOwner(path.join(dir, name, 'SKILL.md'), new Set([path.basename(bundlePath)]))) continue;
         count++;
         found = true;
         break;
@@ -4253,7 +4255,8 @@ export class UseHandler implements CommandHandler {
     // registry record written below (#621) reflects the real deploy even on
     // a verbose run — the prior `if (quiet)` guard left the record
     // `{agents: 0, commands: 0, skills: 0, rules: 0}` on `-v` runs.
-    const counts = await countDeployedArtifacts(target, paths, provider);
+    const counts = dryRun ? await countDeployedArtifacts(target, paths, provider)
+      : await countRecordedFrameworkArtifacts(target, provider, framework, frameworkRoot, remainingArgs);
 
     // Deploy CI workflow files when --ci-hooks-enabled is set (#661)
     if (ciHooksEnabled) {
@@ -4430,17 +4433,13 @@ export class UseHandler implements CommandHandler {
           : null;
         if (!frameworkManifestPath) throw new Error('no manifest for general/writing mode');
         const mHash = await hashManifest(frameworkManifestPath);
-        const updatedConfig = updateInstalled(config, framework, provider, {
-          agents: counts.agents,
-          commands: counts.commands,
-          skills: counts.skills,
-          rules: counts.rules,
-        }, {
+        const updatedConfig = updateInstalled(config, framework, provider, counts, {
           version: versionInfo.version,
           source: 'bundled',
           manifestHash: mHash,
           asPrimary: Boolean(explicitProvider),
           copy: remainingArgs.includes('--copy-all') || remainingArgs.includes('--copy-standard-skills'),
+          ...bundleDeploymentScope(framework, provider, remainingArgs),
         });
         await writeAiwgConfig(projectDir, updatedConfig);
         await recordBundleDeployment(projectDir, framework, provider, remainingArgs, frameworkRoot);

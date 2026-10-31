@@ -9,8 +9,10 @@ export function validateInstalled(installed: unknown): void {
     let deployed = false;
     for (const [provider, counts] of Object.entries(entry.deployedTo)) {
       if (!object(counts)) throw new Error(`installed.${id}.deployedTo.${provider} must be an object`);
-      if (counts.copy !== undefined && typeof counts.copy !== 'boolean') throw new Error(`installed.${id}.deployedTo.${provider}.copy must be boolean`);
-      if (!Object.keys(counts).some(key => key !== 'copy')) continue;
+      for (const flag of ['copy', 'skipUtils', 'kernelOnly']) {
+        if (counts[flag] !== undefined && typeof counts[flag] !== 'boolean') throw new Error(`installed.${id}.deployedTo.${provider}.${flag} must be boolean`);
+      }
+      if (!Object.keys(counts).some(key => !['copy', 'skipUtils', 'kernelOnly'].includes(key))) continue;
       if (kinds.some(kind => !Number.isSafeInteger(counts[kind]) || (counts[kind] as number) < 0)) {
         throw new Error(`installed.${id}.deployedTo.${provider} requires all four nonnegative artifact counts or {}`);
       }

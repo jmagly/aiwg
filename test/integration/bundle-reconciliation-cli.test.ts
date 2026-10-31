@@ -3,9 +3,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { afterEach, expect, it } from 'vitest';
+import { assertFreshCliBuild } from '../helpers/compiled-cli-freshness.js';
+import { afterEach, beforeAll, expect, it } from 'vitest';
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const temporary: string[] = [];
+beforeAll(() => assertFreshCliBuild(ROOT));
 afterEach(() => { for (const dir of temporary.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 function setup() {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-bundle-cli-')); temporary.push(scratch);
@@ -39,6 +41,7 @@ it.each(['codex', 'claude'].flatMap(provider => [false, true].map(declared => ({
   'preserves edited voice bytes and original ownership across updates ($provider, declared=$declared)', ({ provider, declared }) => {
     const { project, command, readConfig, writeConfig } = setup();
     command('use', 'sdlc', '--provider', provider, '--no-project-local', '--yes');
+    expect(readConfig().installed.sdlc.deployedTo[provider].skills).toBe(19);
     command('use', 'voice-framework', '--provider', provider, '--declare');
     command('use', 'voice-framework', '--provider', provider, '--yes');
     const skills = provider === 'codex' ? '.agents/skills' : '.claude/.aiwg/skills';
@@ -53,6 +56,8 @@ it.each(['codex', 'claude'].flatMap(provider => [false, true].map(declared => ({
       expect(fs.existsSync(file), output).toBe(true);
       expect(fs.readFileSync(file, 'utf8')).toBe(edited);
       expect(receipt().hash).toBe(originalHash);
+      expect(receipt().owners).toEqual(['voice-framework']);
+      expect(readConfig().installed.sdlc.deployedTo[provider].skills).toBe(19);
       expect(output).toMatch(/voice-create.*(?:operator-edited|modified or unverifiable)/);
     };
     if (declared) { update(); update(); }
@@ -157,3 +162,49 @@ it.each([false, true])('persists mode, updates unchanged standard copies, and ke
     expect(providerSnapshot()).toEqual(copied);
   }
 }, 600_000);
+
+it.each(['claude', 'codex'])('prunes only unchanged utils after a recorded --no-utils deploy (%s)', provider => {
+  const { project, command, plans, readConfig, writeConfig } = setup();
+  command('use', 'sdlc', '--provider', provider, '--no-project-local', '--yes');
+  const skills = provider === 'codex' ? '.agents/skills' : '.claude/skills';
+  const unchanged = path.join(project, skills, 'aiwg-help/SKILL.md');
+  const edited = path.join(project, skills, 'aiwg-status/SKILL.md');
+  const framework = path.join(project, skills, 'sdlc-quickref/SKILL.md');
+  const frameworkBytes = fs.readFileSync(framework, 'utf8');
+  fs.writeFileSync(edited, fs.readFileSync(edited, 'utf8') + '\nOperator note\n');
+  const editedBytes = fs.readFileSync(edited, 'utf8');
+  command('use', 'sdlc', '--provider', provider, '--no-project-local', '--no-utils', '--yes');
+  expect(readConfig().installed.sdlc.deployedTo[provider]).toMatchObject({ skipUtils: true, kernelOnly: false });
+  expect(fs.existsSync(unchanged)).toBe(true);
+  const known = readConfig();
+  const unknown = structuredClone(known);
+  delete unknown.installed.sdlc.deployedTo[provider].skipUtils;
+  delete unknown.installed.sdlc.deployedTo[provider].kernelOnly;
+  writeConfig(unknown);
+  for (const output of plans(provider)) expect(output).not.toContain(`Would remove aiwg-utils for ${provider}`);
+  expect(fs.existsSync(unchanged)).toBe(true);
+  writeConfig(known);
+  for (const output of plans(provider)) expect(output).toContain(`Would remove aiwg-utils for ${provider}`);
+  for (const [action, flag] of [['update', '--skip-check'], ['refresh', '--skip-update']]) {
+    command(action, flag, '--provider', provider);
+    expect(fs.existsSync(unchanged)).toBe(false);
+    expect(fs.readFileSync(edited, 'utf8')).toBe(editedBytes);
+    expect(fs.readFileSync(framework, 'utf8')).toBe(frameworkBytes);
+    expect(readConfig().installed.sdlc.deployedTo[provider].skipUtils).toBe(true);
+  }
+}, 600_000);
+
+it.each(['.ts', '.mjs', '.json', '.yaml'])('detects stale and missing compiled dependencies (%s)', extension => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-cli-freshness-')); temporary.push(root);
+  fs.mkdirSync(path.join(root, 'src/nested'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'dist/src/nested'), { recursive: true });
+  const source = path.join(root, 'src/nested/dependency' + extension);
+  const output = path.join(root, 'dist/src/nested/dependency' + (extension === '.ts' ? '.js' : extension));
+  fs.writeFileSync(source, 'fixture');
+  expect(() => assertFreshCliBuild(root)).toThrow('run npm run build:cli');
+  fs.writeFileSync(output, 'fixture');
+  fs.utimesSync(source, 100, 100); fs.utimesSync(output, 101, 101);
+  expect(() => assertFreshCliBuild(root)).not.toThrow();
+  fs.utimesSync(source, 102, 102);
+  expect(() => assertFreshCliBuild(root)).toThrow('run npm run build:cli');
+});

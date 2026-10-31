@@ -115,7 +115,7 @@ export interface InstalledEntry {
   installedAt?: string;
 
   /** Provider → deployed counts or pending intent; copy persists the deployment mode. */
-  deployedTo: Record<string, Partial<DeployedArtifactCounts> & { copy?: boolean }>;
+  deployedTo: Record<string, Partial<DeployedArtifactCounts> & { copy?: boolean; skipUtils?: boolean; kernelOnly?: boolean }>;
 
   /** SHA-256 of manifest.json at deploy time; used for stale detection */
   manifestHash?: string;
@@ -2028,6 +2028,8 @@ export function updateInstalled(
      */
     asPrimary?: boolean;
     copy?: boolean;
+    skipUtils?: boolean;
+    kernelOnly?: boolean;
   }
 ): AiwgConfig {
   // Project-local invariant: `source: 'project-local'` requires localPath + localType
@@ -2051,7 +2053,8 @@ export function updateInstalled(
   existing.version = opts.version;
   existing.source = opts.source;
   existing.installedAt = new Date().toISOString();
-  existing.deployedTo[provider] = { ...counts, ...(opts.copy === undefined ? {} : { copy: opts.copy }) };
+  existing.deployedTo[provider] = { ...counts, ...(opts.copy === undefined ? {} : { copy: opts.copy }),
+    ...(opts.skipUtils === undefined ? {} : { skipUtils: opts.skipUtils }), ...(opts.kernelOnly === undefined ? {} : { kernelOnly: opts.kernelOnly }) };
   if (opts.manifestHash) existing.manifestHash = opts.manifestHash;
 
   if (opts.source === 'project-local') {
