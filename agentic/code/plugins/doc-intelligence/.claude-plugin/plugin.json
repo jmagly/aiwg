@@ -1,6 +1,6 @@
 {
   "name": "doc-intelligence",
-  "version": "2026.10.18",
+  "version": "2026.10.19",
   "description": "Documentation intelligence addon for scraping, extraction, analysis, and generated-docs auditing.",
   "author": {
     "name": "AIWG Contributors",

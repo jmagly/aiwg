@@ -7,6 +7,139 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.10.19] - 2026-10-31
+
+### Added
+
+- Experimental Flue 2.3.0 **Node app target** through
+  `aiwg use <framework> --provider flue`. Kernel skills deploy to
+  `.agents/skills/<name>/SKILL.md` through existing copy and platform
+  transforms, with Flue frontmatter validation. Composed WORKSPACE.md and
+  AIWG.md context and core rules are inlined into cwd `AGENTS.md`, because
+  Flue reads its bytes without following links. Operator text outside AIWG
+  markers survives redeployment. The provider is registered in provider
+  definitions, the capability matrix, doctor and docs; it is an app target,
+  not an orchestration worker CLI (#3121, architecture #3120).
+- Generated `src/aiwg/tools.ts` exposes exactly `aiwg_discover`, `aiwg_show`
+  with governing-rule drill-in, and `aiwg_artifact_write`. Strict Valibot
+  input schemas mirror the authoritative MCP tool schemas. The tools use
+  the MCP SDK 2.0.0 stdio client to reach AIWG's existing MCP server as an
+  app child process, with no network listener. Flue's trusted-code
+  `createMcpConnection` route builds HTTP/SSE transport and cannot carry
+  stdio. Artifact writes go through AIWG's artifact tool and remain
+  contained to the configured artifact root (#3123, #3124).
+- Generated `src/aiwg/specialists.ts` supplies exactly **Code Reviewer** and
+  **Test Engineer** delegates from canonical sdlc-complete agent bodies,
+  using the existing transforms. They mount only the three AIWG tools and
+  inherit the app model unless the operator pins one. A fixed exported
+  roster owns this slice; it introduces no new configuration. Ownership
+  receipts cover the module, removal and preservation of operator edits
+  (#3122).
+- A conventional `db.ts` selects durable SQLite state at
+  `.flue-state/state.db`, with `.flue-state/` added to `.gitignore`. State
+  stays outside `.flue/`, whose presence changes Flue's app source root and
+  can hide `src/`. Existing operator database modules are reported and
+  preserved. Deployment outputs have ownership receipts; removal undoes
+  generated output while retaining operator files (#3121, #3125).
+- `examples/flue-node/` provides a minimal Flue 2.3.0 app pinned to the lab
+  lockfile. Its assistant imports deployed AIWG tools and specialists and
+  reads the model id from the environment. Run
+  `aiwg use sdlc --provider flue` before starting it. Prompt-first onboarding
+  in `docs/providers/flue.md`, linked from the provider inventory, states
+  verified versions and scope. Artifacts land in the project's AIWG artifact
+  store, for example `.aiwg/reviews/example.md` (#3126).
+
+### Changed
+
+- Flue deployment follows the accepted Node-only architecture (#3120).
+  Cloudflare (#3127), sandboxes, approval hooks, a network MCP gateway,
+  user scope and the importable `@aiwg/flue` package are outside this
+  experimental slice. The #3124 transport work is limited to local stdio;
+  it does not ship a remote gateway. The delegate roster is fixed rather
+  than configurable (#3121, #3122, #3123, #3124).
+- Every workflow running release-slow, including the npm publish job,
+  provisions the example's locked dependencies first. The lane-inventory
+  test pins the added deployment and release-slow files (#3126).
+
+### Fixed
+
+- A first `aiwg use sdlc` now retains the framework's rules through addon
+  projection passes; previously the last addon projection dropped them
+  until a second run. `use` forwards the requested deployment mode as
+  internal `--rule-selection-mode` to every pass. The projector augments
+  its configuration snapshot in memory, without writing installation
+  metadata early. Existing installation records and operator pins retain
+  precedence. Logic lives in `tools/agents/use-rule-selection.mjs` behind
+  a small change to the existing handler (#3786).
+- Citation title resolution now blocks on a runner-up only when it is within
+  0.25 of the winning score. `Extremely randomized trees (2006)` resolves
+  with a 1.000 winner against a 0.711 wrong-year runner-up. An exact title
+  one year off receives `year_mismatch` only with corroboration: merged
+  source evidence of both preprint and venue versions (arXiv id and
+  published DOI), a verified supplied identifier, or a matching supplied
+  first author. An arXiv id alone is insufficient. Other year
+  contradictions produce `year_conflict`, naming both years and requiring
+  review, rather than `title_ambiguous` and a request for an author.
+  Non-integer years are ignored; merged records preserve source lists.
+  `Planning-oriented autonomous driving (2023)` resolves to arXiv
+  2212.10156 / DOI 10.1109/cvpr52729.2023.01712 with `year_mismatch`
+  (#3794, follow-up to #3780).
+- Flue MCP initialization now has a 10-second bound and honors abort,
+  instead of hanging forever when a started child never answers
+  `initialize`. The transport always closes so a silent child is reaped
+  (#3123, #3124).
+- Flue removal explicitly reports preservation of edited generated files
+  with stale receipts. Database discovery follows `.flue/`, then `src/`,
+  then the project root. Static config inspection recognizes only a
+  top-level `db` entry in the exported configuration, without evaluating
+  app code, and checks all Flue 2.3.0 config filenames and extensions in
+  their priority order. An explicit operator database produces a warning
+  and suppresses database generation and ignore changes; nested `db:` keys
+  no longer suppress generation. Ignore-line normalization handles leading
+  and trailing slashes, `/*` and `.flue-state/**` without duplicates.
+  The receipt schema references optional file preimages while remaining
+  compatible with legacy manifests (#3121).
+
+### Testing
+
+- First and second deployments have matching rule sources, bytes and
+  indexes: `use sdlc` 77/77, `use all` 37/37 and `use all --copy-all`
+  98/98. Removal still retires framework rules (#3786).
+- Citation regressions reject different works with the same title one year
+  apart, retain all #3780 cases and distinguish year findings. Four
+  safeguard mutations fail tests, and an additional mutation catches the
+  permissive arXiv-only one-year tolerance (#3794).
+- Flue tool schema parity checks exact required-field sets and nested
+  `additionalProperties`; unit tests reject non-strict Valibot objects.
+  Receipt fixtures cover valid, invalid and legacy preimage manifests
+  (#3121, #3123, #3124).
+- The offline release-slow end-to-end test copies the example and uses a
+  scripted model provider, with 600 seconds per child deployment. It checks
+  public deploy/remove, discovery, show with rules, skill activation,
+  delegation to both shipped specialists, contained artifact writing and
+  byte-identical preservation of the example's own files on removal
+  (#3122, #3126).
+- All eight durability checks now run in release-slow against provisioned
+  example dependencies, extending the manual lab smoke. Flue 2.3.0 tests
+  inject a scripted provider through Flue `setProvider` and Pi
+  `createProvider`; they check restart/resume, observable abort mid-tool,
+  later reconciliation, rival owner/dispatch fencing and absence of writes
+  under `node_modules/.cache`. Rival dispatch uses the same conversation
+  and asserts fencing in a separate scenario because admission fences the
+  original writer. These checks do not establish active-active ownership
+  (#3125, #3126).
+- The commit record reports a live OpenRouter / Claude Haiku 4.5 run
+  completing the full Node flow, with its artifact at the project's AIWG
+  artifact root (#3126).
+
+### Dependencies
+
+- The Node example pins Flue 2.3.0 through the lab lockfile; the AIWG tools
+  use the MCP SDK 2.0.0 stdio client (#3123, #3124, #3126).
+- Dependency remediation #3774 remains deferred. The msal-node fix through
+  `@azure/identity` 4.14.1 becomes eligible on **2026-11-05**. The zod fix
+  waits for an upstream Fortemi release on zod 4. Neither fix ships here.
+
 ## [2026.10.18] - 2026-10-30
 
 This release also carries everything prepared as 2026.10.17, which was tagged

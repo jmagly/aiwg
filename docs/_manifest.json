@@ -193,6 +193,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.10.19-announcement",
     "releases/v2026.10.18-announcement",
     "releases/v2026.10.16-announcement",
     "releases/v2026.10.15-announcement",
@@ -1648,6 +1649,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.10.19-announcement",
+      "title": "v2026.10.19 — Give Your Flue App AIWG Skills and a Code Reviewer",
+      "summary": "AIWG works inside Flue apps (experimental, Node): skills, tools to find guidance and save results, and two built-in helpers. Plus a complete first install and smarter citation years.",
+      "file": "releases/v2026.10.19-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.10.18-announcement",

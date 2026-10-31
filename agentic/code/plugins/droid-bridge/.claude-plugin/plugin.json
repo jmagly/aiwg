@@ -1,6 +1,6 @@
 {
   "name": "droid-bridge",
-  "version": "2026.10.18",
+  "version": "2026.10.19",
   "description": "MCP server bridging Claude Code to Factory Droid for batch operations and automated fixes",
   "author": {
     "name": "AIWG Contributors",
