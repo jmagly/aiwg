@@ -241,3 +241,13 @@ test('Socket audit installs the release source runtime dependencies before runni
   const bare = [...script.matchAll(/^import .* from '([^'.][^']*)'/gm)].map(m => m[1]).filter(name => !name.startsWith('node:'));
   for (const name of bare) assert.ok(pkg.dependencies?.[name.split('/')[0]], `${name} must be a production dependency`);
 });
+
+test('Socket published inventory installs all four exact release versions', () => {
+  const inventory = socketWorkflow.split('      - name: Build published dependency inventory\n')[1]
+    ?.split('\n      - name:')[0] ?? '';
+  const install = inventory.match(/npm install[^\n]* \\\n([^\n]*)/);
+  assert.ok(install, 'inventory must install the published dependency closure');
+  assert.deepEqual([...install[1].matchAll(/"([^" ]+)"/g)].map(match => match[1]), [
+    'aiwg@$VERSION', '@aiwg/cli@$VERSION', '@aiwg/cockpit@$VERSION', '@aiwg/flue@$VERSION',
+  ]);
+});

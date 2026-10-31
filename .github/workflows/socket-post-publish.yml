@@ -211,7 +211,7 @@ jobs:
           AUDIT_ROOT="$RUNNER_TEMP/aiwg-socket-audit"
           mkdir -p "$AUDIT_ROOT"
           npm install --prefix "$AUDIT_ROOT" --package-lock-only --ignore-scripts --no-audit --no-fund \
-            "aiwg@$VERSION" "@aiwg/cli@$VERSION"
+            "aiwg@$VERSION" "@aiwg/cli@$VERSION" "@aiwg/cockpit@$VERSION" "@aiwg/flue@$VERSION"
           echo "dependency_lock=$AUDIT_ROOT/package-lock.json" >> "$GITHUB_ENV"
           cat > "$STATUS_FILE" <<EOF
           # Socket post-publish workflow status

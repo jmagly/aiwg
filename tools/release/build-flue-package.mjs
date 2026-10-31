@@ -14,7 +14,7 @@ export function buildFluePackage({ outputDir = path.join(root, 'dist/packages/fl
   const pkg = JSON.parse(fs.readFileSync(path.join(source, 'package.json'), 'utf8'));
   const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
   if (pkg.name !== '@aiwg/flue' || pkg.version !== version) throw new Error(`@aiwg/flue version ${pkg.version} must exactly match root ${version}`);
-  if (pkg.dependencies || pkg.optionalDependencies || JSON.stringify(pkg.peerDependencies) !== JSON.stringify({ '@flue/runtime': '2.3.x' })) throw new Error('@aiwg/flue must depend only on its Flue 2.3.x peer');
+  if (pkg.dependencies || pkg.optionalDependencies || JSON.stringify(pkg.peerDependencies) !== JSON.stringify({ '@flue/runtime': '2.3.x', '@modelcontextprotocol/client': '2.0.0', valibot: '^1.1.0' })) throw new Error('@aiwg/flue must declare exactly its Flue 2.3.x, MCP client 2.0.0 and Valibot ^1.1.0 peers');
   const { bundles, skills } = fluePackageSkills(root);
   fs.rmSync(outputDir, { recursive: true, force: true });
   fs.mkdirSync(outputDir, { recursive: true });
@@ -39,9 +39,7 @@ export function buildFluePackage({ outputDir = path.join(root, 'dist/packages/fl
   const opts = { srcRoot: root, packageOutput: true, config: { installed: Object.fromEntries(bundles.map(bundle => [bundle.id, { deployedTo: { flue: {} } }])) } };
   fs.writeFileSync(path.join(outputDir, 'specialists.js'), generateFlueSpecialists(opts));
   fs.writeFileSync(path.join(outputDir, 'specialists.d.ts'), generateFlueSpecialists({ ...opts, declarations: true }));
-  const template = fs.readFileSync(path.join(root, 'agentic/code/providers/flue/templates/aiwg/tools.ts'), 'utf8')
-    .replace("import * as v from 'valibot';", "import { v, Client, StdioClientTransport, getDefaultEnvironment } from './node-dependencies.js';")
-    .replace(/^import .* from '@modelcontextprotocol\/client(?:\/stdio)?';\n/gm, '');
+  const template = fs.readFileSync(path.join(root, 'agentic/code/providers/flue/templates/aiwg/tools.ts'), 'utf8');
   fs.writeFileSync(path.join(outputDir, 'node.js'), ts.transpileModule(template, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText);
   fs.writeFileSync(path.join(outputDir, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
   return { outputDir, version, skills: skills.size };

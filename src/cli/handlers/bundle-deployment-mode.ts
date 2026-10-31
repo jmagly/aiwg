@@ -6,7 +6,7 @@ import { readAiwgConfig, type AiwgConfig } from '../../config/aiwg-config.js';
 import type { HandlerContext } from './types.js';
 import { frameworkRegistryId } from '../../config/framework-aliases.js';
 
-type History = Record<string, Record<string, { copy: boolean; skipUtils?: boolean; kernelOnly?: boolean; produces?: string[]; reconciled?: boolean }>>;
+type History = Record<string, Record<string, { copy: boolean; package?: boolean; skipUtils?: boolean; kernelOnly?: boolean; produces?: string[]; reconciled?: boolean }>>;
 const receiptPath = (project: string) => path.join(project, '.aiwg/.aiwg-manifest.json');
 export function bundleDeploymentHistory(project: string): History {
   try { return JSON.parse(fs.readFileSync(receiptPath(project), 'utf8')).bundleDeployments ?? {}; }
@@ -28,7 +28,7 @@ export async function recordBundleDeployment(project: string, id: string, provid
   const receipt = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { scope: 'project', managed: {} };
   receipt.bundleDeployments ??= {};
   receipt.bundleDeployments[provider] ??= {};
-  receipt.bundleDeployments[provider][frameworkRegistryId(id)] = { copy: args.includes('--copy-all') || args.includes('--copy-standard-skills'), ...flags, produces };
+  receipt.bundleDeployments[provider][frameworkRegistryId(id)] = { copy: args.includes('--copy-all') || args.includes('--copy-standard-skills'), ...flags, ...(provider === 'flue' ? { package: args.includes('--package') } : {}), produces };
   fs.mkdirSync(path.dirname(file), { recursive: true });
   writeContextFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`);
 }

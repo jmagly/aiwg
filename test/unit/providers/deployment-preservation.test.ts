@@ -90,19 +90,38 @@ it.each([false, true])('updates unchanged Codex metadata and preserves edits wit
   expect(fs.readFileSync(path.join(target, 'agents/openai.yaml'), 'utf8')).toBe('Operator metadata\n');
 });
 
-it.each([false, true])('respects another parent’s copy mode during an index pass (parent copy=%s)', parentCopy => {
+it.each([{ copy: false }, { copy: true }, { copy: false, package: true }])('respects another parent’s mode during an index pass (%j)', parentMode => {
   const file = path.join(root, '.claude/skills/aiwg-utils/SKILL.md');
   const receiptFile = path.join(path.dirname(file), '.aiwg-manifest.json');
   const receipt = JSON.stringify({ managed: { 'SKILL.md': { owners: ['aiwg-utils'], hash: hash('original') } } });
   write(file, 'original'); write(receiptFile, receipt);
   write(path.join(root, '.aiwg/.aiwg-manifest.json'), JSON.stringify({ bundleDeployments: { claude: {
-    'sdlc-complete': { copy: parentCopy, produces: ['aiwg-utils'] },
+    'sdlc-complete': { ...parentMode, produces: ['aiwg-utils'] },
     'aiwg-utils': { copy: true, produces: ['aiwg-utils'] },
   } } }));
   const before = new Map([[file, Buffer.from('original')], [receiptFile, Buffer.from(receipt)]]);
   fs.rmSync(file);
   preserveDeploymentOutputs(before, [root], { target: root, provider: 'claude', copyMode: false,
     srcRoot: path.join(root, 'agentic/code/addons/aiwg-utils') });
-  expect(fs.existsSync(file)).toBe(parentCopy);
-  if (parentCopy) expect(fs.readFileSync(file, 'utf8')).toBe('original');
+  expect(fs.existsSync(file)).toBe(parentMode.copy || parentMode.package === true);
+  if (parentMode.copy || parentMode.package) expect(fs.readFileSync(file, 'utf8')).toBe('original');
+});
+
+
+it.each(['history', 'declaration'])('preserves a package deployment from its %s, including produced owners', async source => {
+  const file = path.join(root, '.agents/skills/custom/SKILL.md');
+  const receiptFile = path.join(path.dirname(file), '.aiwg-manifest.json');
+  const receipt = JSON.stringify({ managed: { 'SKILL.md': { owners: ['custom'], hash: hash('original') } } });
+  write(file, 'original'); write(receiptFile, receipt);
+  await recordBundleDeployment(root, 'custom', 'flue', ['--package'], root);
+  const config = emptyConfig(['flue']);
+  if (source === 'declaration') config.installed.custom = { deployedTo: { flue: { package: true } } };
+  expect(automaticRemovalAllowed(root, 'flue', file, config)).toBe(false);
+  const before = new Map([[file, Buffer.from('original')], [receiptFile, Buffer.from(receipt)]]);
+  fs.rmSync(file);
+  preserveDeploymentOutputs(before, [root], { target: root, provider: 'flue', config, mode: 'other' });
+  expect(fs.readFileSync(file, 'utf8')).toBe('original');
+  const { providerCopyMode } = await import('../../../src/providers/deployment-preservation.mjs');
+  expect(providerCopyMode(root, 'flue', undefined, config)).toBe(true);
+  expect(providerCopyMode(root, 'flue', 'custom', config, 'custom')).toBe(false);
 });
