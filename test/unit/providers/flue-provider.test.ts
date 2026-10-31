@@ -38,6 +38,7 @@ beforeEach(() => {
   scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-flue-'));
   project = path.join(scratch, 'project'); fs.mkdirSync(project);
   source = path.join(scratch, 'agentic/code/frameworks/sdlc-complete');
+  for (const name of ['code-reviewer', 'test-engineer']) write(source, `agents/${name}.md`, `---\nname: ${name}\ndescription: Synthetic ${name}\n---\nSynthetic ${name} body.\n`);
   write(source, 'skills/demo/SKILL.md', '---\nname: demo\ndescription: Synthetic Flue skill\nkernel: true\nplatforms: [all]\n---\nUse the synthetic skill.\n');
   write(source, 'skills/bulk/SKILL.md', '---\nname: bulk\ndescription: Discovery only\n---\nBulk.\n');
 });
@@ -81,10 +82,12 @@ describe('Flue experimental deployment and lifecycle', () => {
     expect(context).toContain('anti-laziness');
     expect(context).toContain('no-attribution');
     expect(context).not.toContain('Read and follow [WORKSPACE.md]');
-    const state = path.posix.join(dir ? '..' : '.', '.flue-state/state.db');
-    expect(read(path.join(dir, 'db.ts'))).toContain(`new URL(${JSON.stringify(state)}, import.meta.url)`);
+    const dbDir = dir || 'src';
+    const state = path.posix.join('..', '.flue-state/state.db');
+    expect(read(path.join(dbDir, 'db.ts'))).toContain(`new URL(${JSON.stringify(state)}, import.meta.url)`);
     expect(read('.gitignore')).toBe('.flue-state/\n');
-    for (const name of ['AGENTS.md', 'AIWG.md', 'WORKSPACE.md', path.join(dir, 'db.ts'), '.gitignore']) {
+    expect(discoverProjectEntry(resolveSourceRoot(project), 'db')).toBe(path.join(project, dbDir, 'db.ts'));
+    for (const name of ['AGENTS.md', 'AIWG.md', 'WORKSPACE.md', path.join(dbDir, 'db.ts'), '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts']) {
       expect(receipt().managed[name]).toMatchObject({ owners: ['sdlc-complete'], filePreimage: { present: false } });
     }
     const skillReceipt = JSON.parse(read('.agents/skills/demo/.aiwg-manifest.json'));
@@ -163,21 +166,30 @@ describe('Flue experimental deployment and lifecycle', () => {
 
   it('preserves edited generated files during removal', async () => {
     await deploy();
-    fs.appendFileSync(path.join(project, 'db.ts'), '// operator change\n');
-    await remove();
-    expect(read('db.ts')).toContain('operator change');
+    fs.appendFileSync(path.join(project, 'src/db.ts'), '// operator change\n');
+    fs.appendFileSync(path.join(project, 'src/aiwg/specialists.ts'), '// operator specialist change\n');
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await deploy();
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('keeping existing module'));
+    const plan = planDeploymentRemoval(project, 'flue', 'sdlc-complete');
+    expect(plan.decisions).toContainEqual(expect.objectContaining({ path: path.join(project, 'src/aiwg/specialists.ts'), action: 'preserve', reason: 'modified or unverifiable managed file' }));
+    await applyRemovalTransaction(plan.writes);
+    expect(read('src/db.ts')).toContain('operator change');
+    expect(read('src/aiwg/specialists.ts')).toContain('operator specialist change');
   }, 60_000);
 
   it('keeps generated database and ignore outputs until their last framework owner is removed', async () => {
     await deploy();
     await flue.deploy({ ...options(), frameworkSlug: 'marketing' });
-    expect(receipt().managed['db.ts'].owners).toEqual(['marketing', 'sdlc-complete']);
+    for (const file of ['src/db.ts', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts'])
+      expect(receipt().managed[file].owners).toEqual(['marketing', 'sdlc-complete']);
     await remove();
-    expect(read('db.ts')).toContain('sqlite');
+    expect(read('src/db.ts')).toContain('sqlite');
     expect(read('.gitignore')).toBe('.flue-state/\n');
     await applyRemovalTransaction(planDeploymentRemoval(project, 'flue', 'marketing').writes);
-    expect(fs.existsSync(path.join(project, 'db.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(project, 'src/db.ts'))).toBe(false);
     expect(fs.existsSync(path.join(project, '.gitignore'))).toBe(false);
+    for (const file of ['tools.ts', 'specialists.ts']) expect(fs.existsSync(path.join(project, 'src/aiwg', file))).toBe(false);
   }, 60_000);
 
   it('keeps operator context additions through a redeploy and removal', async () => {
@@ -207,7 +219,7 @@ describe('Flue experimental deployment and lifecycle', () => {
     expect(read('.gitignore')).toBe('/.flue-state/\n');
     write(project, 'AGENTS.md', '<!-- AIWG:flue-context:start -->');
     expect(() => writeFlueContext(project)).toThrow('Malformed');
-    expect(flueDeploymentFiles(project)).toEqual(['db.ts', '.gitignore']);
+    expect(flueDeploymentFiles(project)).toEqual(['src/db.ts', '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts']);
   });
 
   it('governs complete and absent file preimages with the existing provider receipt schema', () => {

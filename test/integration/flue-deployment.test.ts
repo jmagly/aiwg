@@ -62,9 +62,14 @@ describe('public experimental Flue app deployment', () => {
       expect(receipt.managed['SKILL.md'].owners).toEqual(['sdlc-complete']);
     }
     const receipt = JSON.parse(fs.readFileSync(path.join(project, '.aiwg/.aiwg-manifest.json'), 'utf8'));
+    for (const file of ['src/aiwg/tools.ts', 'src/aiwg/specialists.ts']) {
+      expect(fs.existsSync(path.join(project, file))).toBe(true);
+      expect(receipt.managed[file]).toMatchObject({ owners: ['sdlc-complete'], filePreimage: { present: false } });
+    }
     if (operatorDatabase) expect(receipt.managed['src/db.ts']).toBeUndefined();
     else expect(receipt.managed['src/db.ts'].owners).toEqual(['sdlc-complete']);
     command('remove', 'sdlc');
+    for (const file of ['src/aiwg/tools.ts', 'src/aiwg/specialists.ts']) expect(fs.existsSync(path.join(project, file))).toBe(false);
     for (const [name, bytes] of Object.entries(initial)) expect(fs.readFileSync(path.join(project, name), 'utf8')).toBe(bytes);
     if (operatorDatabase) expect(fs.readFileSync(path.join(project, 'src/db.ts'), 'utf8')).toBe('// Operator database\n');
     else expect(fs.existsSync(path.join(project, 'src/db.ts'))).toBe(false);

@@ -6,10 +6,10 @@ import { createHash } from 'node:crypto';
 const exists = file => { try { fs.lstatSync(file); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 const directory = file => exists(file) && fs.lstatSync(file).isDirectory();
 export function flueDeploymentFiles(target) {
-  const source = ['.flue', 'src'].find(dir => directory(path.join(target, dir))) || '';
-  return [path.join(source, 'db.ts'), '.gitignore'];
+  const source = ['.flue', 'src'].find(dir => directory(path.join(target, dir))) || 'src';
+  return [path.join(source, 'db.ts'), '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts'];
 }
-function claimRecordedFile(target, file, opts) {
+export function claimRecordedFile(target, file, opts) {
   if (!exists(file)) return false;
   let record;
   try { record = JSON.parse(fs.readFileSync(path.join(target, '.aiwg/.aiwg-manifest.json'), 'utf8')).managed?.[path.relative(target, file).split(path.sep).join('/')]; }

@@ -175,7 +175,7 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
       skillRoot = path.dirname(skillRoot);
     }
     const skillReceipt = parse(after.get(path.join(skillRoot, SIDECAR)));
-    const projectScoped = projectRoot && (path.dirname(file) === projectRoot || opts.provider === 'flue' && /[/\\]db\.ts$/.test(file));
+    const projectScoped = projectRoot && (path.dirname(file) === projectRoot || opts.provider === 'flue' && /[/\\](?:db\.ts|aiwg[/\\](?:tools|specialists)\.ts)$/.test(file));
     const dir = projectScoped ? path.join(projectRoot, '.aiwg') : declaration ? path.dirname(declaration.file) : skillReceipt.managed?.['SKILL.md'] ? skillRoot : path.dirname(file);
     const name = declaration?.name || portable(path.relative(projectScoped ? projectRoot : dir, file));
     const existing = manifests.get(path.join(dir, SIDECAR)) || parse(after.get(path.join(dir, SIDECAR)));

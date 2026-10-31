@@ -4,6 +4,8 @@ import { importImpl } from '../../_resolve-impl.mjs';
 import { collectFrameworkArtifacts, deploySkillsWithKernelRouting, getAddonSkillDirs,
   isKernelSkill, normalizeDeploymentMode, withRuleDeployment } from './base.mjs';
 import { flueDeploymentFiles, deployFlueDatabase } from './flue-project.mjs';
+import { deployFlueSpecialists } from './flue-specialists.mjs';
+export { FLUE_SPECIALISTS } from './flue-specialists.mjs';
 const { generate } = await importImpl(import.meta.url, 'smiths/context-pipeline/generator.js');
 
 export const name = 'flue';
@@ -28,6 +30,7 @@ export function deploySkills(skillDirs, target, opts) {
 
 export async function postDeploy(target, opts) {
   deployFlueDatabase(target, opts);
+  deployFlueSpecialists(target, opts);
   if (opts.contextFiles !== false) await generate({ provider: name, projectPath: target, sections: [], detectExistingFiles: true });
 }
 

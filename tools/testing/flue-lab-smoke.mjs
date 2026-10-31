@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
+import { deployFlueDatabase } from '../agents/providers/flue-project.mjs';
+import { deployFlueSpecialists } from '../agents/providers/flue-specialists.mjs';
 
 const repo = fileURLToPath(new URL('../../', import.meta.url));
 const labFlag = process.argv.indexOf('--lab');
@@ -18,13 +20,15 @@ try {
   if (runtime.version !== '2.3.0') throw new Error(`Expected Flue 2.3.0, got ${runtime.version}`);
   // An explicit allowlist avoids reading .env, credentials, conversations or lab state.
   for (const file of ['package.json', 'package-lock.json', 'node_modules']) {
-    await cp(path.join(lab, file), path.join(root, file), { recursive: true });
+    await cp(path.join(lab, file), path.join(root, file), { recursive: true, filter: source => !source.split(path.sep).includes('.cache') });
   }
   await mkdir(path.join(root, 'src/aiwg'), { recursive: true });
-  await cp(path.join(repo, 'agentic/code/providers/flue/templates/aiwg/tools.ts'), path.join(root, 'src/aiwg/tools.ts'));
+  deployFlueDatabase(root, {});
+  deployFlueSpecialists(root, { srcRoot: repo });
   const fixture = pathToFileURL(path.join(repo, 'test/fixtures/providers/flue/project.mjs')).href;
   const parity = pathToFileURL(path.join(repo, 'test/fixtures/providers/flue/schema-parity.mjs')).href;
   const lifecycle = pathToFileURL(path.join(repo, 'test/fixtures/providers/flue/connect-lifecycle.mjs')).href;
+  const durability = pathToFileURL(path.join(repo, 'test/fixtures/providers/flue/durability-checks.mjs')).href;
   const runner = `
 import assert from 'node:assert/strict';
 import { readFile, access } from 'node:fs/promises';
@@ -39,6 +43,8 @@ import { createAiwgTools, AIWG_TOOL_NAMES } from './src/aiwg/tools.ts';
 import { prepareProject } from ${JSON.stringify(fixture)};
 import { assertSchemaParity } from ${JSON.stringify(parity)};
 import { assertConnectLifecycle } from ${JSON.stringify(lifecycle)};
+import { assertDurability } from ${JSON.stringify(durability)};
+import { codeReviewer, testEngineer } from './src/aiwg/specialists.ts';
 globalThis.fetch = () => { throw new Error('Network forbidden'); };
 let passed = 0;
 async function check(name, run) {
@@ -55,7 +61,8 @@ async function call(name, input) {
 await check('template typechecks with the real app graph', () => {
   execFileSync(process.execPath, [${JSON.stringify(path.join(repo, 'node_modules/typescript/bin/tsc'))},
     '--noEmit', '--strict', '--skipLibCheck', '--target', 'ES2022',
-    '--module', 'NodeNext', '--moduleResolution', 'NodeNext', 'src/aiwg/tools.ts'],
+    '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--allowImportingTsExtensions',
+    'src/aiwg/tools.ts', 'src/aiwg/specialists.ts', 'src/db.ts'],
     { cwd: import.meta.dirname, timeout: 30_000, stdio: 'inherit' });
 });
 await check('real Flue definitions load exactly three tools', () => {
@@ -117,7 +124,15 @@ await check('real Valibot rejects invalid tool data', () => {
 await check('tool data cannot select another artifact project', async () => {
   await assert.rejects(call('aiwg_artifact_write', { path: 'fixed.md', content: 'fixed', project_dir: '/' }));
 });
-console.log('Flue 2.3.0 lab-copy smoke: ' + passed + ' passed, 0 failed (no model, no network).');
+await check('real Flue curated definitions inherit app model', () => {
+  assert.deepEqual([codeReviewer.name, testEngineer.name], ['code-reviewer', 'test-engineer']);
+  for (const definition of [codeReviewer, testEngineer]) {
+    assert.equal(Object.hasOwn(definition, 'model'), false);
+    assert.equal(Object.isFrozen(definition), true);
+  }
+});
+await assertDurability(import.meta.dirname, fixture, check);
+console.log('Flue 2.3.0 lab-copy smoke: ' + passed + ' passed, 0 failed (scripted provider, no network).');
 `;
   await writeFile(path.join(root, 'smoke.mjs'), runner);
   const code = await new Promise((resolve, reject) => {
