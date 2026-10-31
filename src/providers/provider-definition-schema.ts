@@ -162,6 +162,7 @@ export const ProviderDefinitionSchema = z.object({
     'cursor',
     'deepseek-harness',
     'factory',
+    'flue',
     'grokbot',
     'grok-build',
     'hermes',

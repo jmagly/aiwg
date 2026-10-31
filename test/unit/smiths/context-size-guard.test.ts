@@ -31,6 +31,22 @@ const contracts = [
 ].join('\n');
 
 describe('generated bridges with full configuration', () => {
+  it('reports full Flue context separately and retains the bridge limit for all other bytes', async () => {
+    const payload = '<!-- AIWG:flue-context:start -->\n# Flue AIWG context (experimental)\n' + 'context '.repeat(2048) + '\n<!-- AIWG:flue-context:end -->';
+    const bridge = 'Operator policy.\n';
+    const file = path.join(tmpDir, 'AGENTS.md');
+    await fs.writeFile(file, bridge + payload);
+    const scan = await scanContextBridgeSizes({ rootDir: tmpDir });
+    expect(scan.violations).toEqual([]);
+    expect(scan.records[0]).toMatchObject({ size: Buffer.byteLength(bridge), inlineBytes: Buffer.byteLength(payload) });
+    expect(formatContextBridgeSizeReport(scan)).toContain('inline Flue context:');
+    expect(await fs.readFile(file, 'utf8')).toBe(bridge + payload);
+    await fs.writeFile(file, bridge + payload.replace('<!-- AIWG:flue-context:end -->', ''));
+    expect((await scanContextBridgeSizes({ rootDir: tmpDir })).violations).toHaveLength(1);
+    await fs.writeFile(file, 'operator '.repeat(2048) + payload);
+    expect((await scanContextBridgeSizes({ rootDir: tmpDir })).violations).toHaveLength(1);
+  });
+
   it.each(['fresh', 'legacy', 'round3'])('keeps one flat bootstrap and canonical header across two full deployments from %s', async initial => {
     const repo = path.resolve(__dirname, '../../..');
     const project = path.join(tmpDir, 'project'), home = path.join(tmpDir, 'home');

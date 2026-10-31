@@ -222,6 +222,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
     fs.mkdirSync(path.join(stage, '.aiwg'), { recursive: true });
     if (fs.existsSync(projectSnapshot)) materializeInput(projectSnapshot, path.join(stage, '.aiwg', 'aiwg.config'));
     const rootNames = ['opencode.json', ...GENERATED_CONTEXT_NAMES, ...OPERATOR_CONTEXT_NAMES, '.aiwg/frameworks/registry.json'];
+    if (provider.deploymentFiles) rootNames.push(...provider.deploymentFiles(target));
     if (provider.name === 'windsurf') rootNames.push('.windsurfrules');
     for (const framework of getFrameworksForMode(original.srcRoot, original.mode)) {
       for (const entry of framework.manifest?.memory?.creates || []) {
@@ -335,7 +336,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
     delivery.bindings = remappedBindings;
     preimages.push(...snapshotPreimages([...delivery.rules.map(rule => rule.file), ...delivery.targets.map(entry => entry.source), path.join(target, '.aiwg', 'aiwg.config')]));
     const opts = { ...original, writeReceipt: writeContextFileSync, writtenFiles: [], target: stage, dryRun: false, ruleDelivery: delivery, logicalOutputPath: file => logicalProviderOutputPath(file, stage, target, mappings),
-      kernelSkillsPath: kernel, deploymentHome: home, activeWorkspace, hermesLegacySkills, legacyCodexSkills, staging: true };
+      flueDatabaseFile: provider.name === 'flue' ? provider.deploymentFiles(target)[0] : undefined, kernelSkillsPath: kernel, deploymentHome: home, activeWorkspace, hermesLegacySkills, legacyCodexSkills, staging: true };
     const ownershipRoots = [stage, ...mappings.map(mapping => mapping.to)];
     const ownershipBefore = captureDeploymentOutputs(ownershipRoots);
     if (!opts.deferRuleProjection && (opts.kernelOnly || opts.deployRules || opts.rulesOnly ||

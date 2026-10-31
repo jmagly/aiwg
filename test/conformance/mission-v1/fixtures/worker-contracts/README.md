@@ -856,3 +856,7 @@ legacy vectors remain unchanged. Result assembly uses the existing required
 review policy and shared observed-lineage diagnostics, binds final review to
 the conductor's current head, and derives rounds-to-clean. These fixtures do
 not qualify live providers or introduce a managed evidence framework.
+
+#3121 adds Flue to provider-coverage.json as an OUT app target only, with no
+worker adapter or invocation profile (#3120 D6). Existing frozen schema
+fragments and their manifest digests are unchanged.

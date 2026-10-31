@@ -170,7 +170,7 @@ guide](docs/troubleshooting/index.md) for the full recovery paths.
 
 AIWG gives your AI assistant reusable project context and specialist workflows. Its deployment layer connects those
 instructions to your provider: `aiwg use` copies markdown and YAML source files into the paths each provider reads, so
-one source of truth works across 18 named provider integrations. A nineteenth `generic` adapter emits portable files
+one source of truth works across 19 named provider integrations. A twentieth `generic` adapter emits portable files
 for unrecognized or custom harnesses and is not counted as a named integration.
 
 Around that core, AIWG ships agent-facing utilities for work that benefits from additional structure: persistent
@@ -642,7 +642,7 @@ The orchestration pattern: **Primary Author → Parallel Reviewers → Synthesiz
 - **Artifact templates** — structured requirements, design decisions, campaign briefs, source notes, runbooks, and
   review reports.
 - **Multi-provider deployment** — Google Antigravity CLI, Claude Code, OpenAI Codex, GitHub Copilot, Cursor, DeepSeek
-  Harness, Factory AI, Grok Bot, Grok Build, Hermes, Muse Code, OpenCode, OpenClaw, OpenHuman, Pi Coding Agent, Oh My
+  Harness, Factory AI, Flue (experimental), Grok Bot, Grok Build, Hermes, Muse Code, OpenCode, OpenClaw, OpenHuman, Pi Coding Agent, Oh My
   Pi, Warp Terminal, and Devin Desktop.
 - **Domain frameworks** — software development, forensics, marketing, research, media curation, operations, knowledge
   base, and security engineering.
@@ -1653,6 +1653,7 @@ See [cross-platform overview](docs/integrations/cross-platform-overview.md) for 
 | Oh My Pi | `aiwg use all --provider omp` | `.omp/AGENTS.md` | Agents, prompts, rules, skills | Dedicated OMP quickstart: [Oh My Pi quickstart](docs/providers/omp.md). |
 | Pi Coding Agent | `aiwg use all --provider pi` | `AGENTS.md` | Agent Skills, prompt templates, trust-gated extension bridge | Experimental; see [Pi quickstart](docs/integrations/pi-quickstart.md). |
 | Antigravity | `aiwg use all --provider antigravity` | `AGENTS.md` and `.agents/` | Agents, skills, indexed commands, MCP config when enabled | See [Antigravity provider docs](docs/providers/antigravity.md). |
+| Flue | `aiwg use sdlc --provider flue` | Inline `AGENTS.md` | Kernel `.agents/skills/`, SQLite `db.ts` | Experimental app target. [Reference](docs/providers/flue.md). |
 | Generic Markdown | `aiwg use all --provider generic` | `AIWG.md` / `WORKSPACE.md` | Markdown instructions | Use when a provider reads repo docs but has no dedicated integration. |
 
 For CI jobs, [build verification](docs/integrations/build-verify.md) checks

@@ -199,7 +199,7 @@ export function finishBindings(opts, provider) {
   const roots = [opts.target, opts.deploymentHome,
     ...[opts.kernelSkillsPath, opts.activeWorkspace, ...Object.values(provider.paths)].filter(p => p && path.isAbsolute(p))];
   const files = [...new Set(roots.flatMap(walk))];
-  const indexRel = provider.name === 'copilot' ? '.github/RULES-BOUND.md' : `.${provider.name}/RULES-BOUND.md`;
+  const indexRel = provider.name === 'copilot' ? '.github/RULES-BOUND.md' : provider.name === 'flue' ? '.agents/.aiwg/RULES-BOUND.md' : `.${provider.name}/RULES-BOUND.md`;
   const indexFile = path.join(opts.target, indexRel);
   const anchor = target => `${target.type}-${target.name}`.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
   const sections = new Map();
@@ -268,6 +268,7 @@ export function finishBindings(opts, provider) {
 /** Bindings annotate the selected deployment; they do not select standard skills
  * (ADR lines 102–108). Flow projections follow the same opt-in and tier routing. */
 export function projectBoundFlowSkills(opts, provider, selected) {
+  if (provider.name === 'flue') return; // This app target deploys kernel skills only (#3121).
   opts.flowSkillSources = new Map();
   if (opts.rulesOnly || opts.commandsOnly || !(opts.deploySkills || opts.skillsOnly)) return;
   const kernel = path.isAbsolute(provider.kernelSkillsPath || '') ? opts.kernelSkillsPath

@@ -18,6 +18,6 @@ export function requireModelResource(filename: string): unknown {
   throw new Error(`Model policy resource is missing: ${filename}`);
 }
 export const ProviderSchema = z.enum([
-  'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'grokbot', 'grok-build', 'hermes',
+  'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'flue', 'grokbot', 'grok-build', 'hermes',
   'muse', 'opencode', 'openclaw', 'openhuman', 'omp', 'pi', 'warp', 'windsurf',
 ]);

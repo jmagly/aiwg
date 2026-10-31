@@ -1,0 +1,14 @@
+{
+  "valid": [
+    { "present": false },
+    { "present": true, "bytes": "LmZsdWUtc3RhdGUvCg==", "hash": "sha256:c9b2726eea195b85e3797780e015e98501cd4b13cbbbb9e4756c38cafcc67255" },
+    { "present": true, "bytes": "b3BlcmF0b3I=", "hash": "sha256:06e55b633481f7bb072957eabcf11053c041e80d3dbaa2f878ade4f5244b5082" }
+  ],
+  "invalid": [
+    { "present": true },
+    { "present": false, "bytes": "" },
+    { "present": false, "hash": "sha256:06e55b633481f7bb072957eabcf11053c041e80d3dbaa2f878ade4f5244b5082" },
+    { "present": true, "bytes": "!", "hash": "invalid" },
+    { "present": false, "unrecognized": true }
+  ]
+}

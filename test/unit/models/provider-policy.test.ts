@@ -79,12 +79,13 @@ describe('provider model registry', () => {
   it('covers every audited provider with sourced, dated capability entries', () => {
     const registry = loadProviderModelCapabilities();
     expect(Object.keys(registry.providers).sort()).toEqual([
-      'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'grok-build', 'grokbot', 'hermes',
+      'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'flue', 'grok-build', 'grokbot', 'hermes',
       'muse', 'omp', 'openclaw', 'opencode', 'openhuman', 'pi', 'warp', 'windsurf',
     ]);
-    for (const capability of Object.values(registry.providers)) {
+    for (const [provider, capability] of Object.entries(registry.providers)) {
       expect(capability.sourceUrl).toMatch(/^https:\/\//);
-      expect(capability.verifiedAt).toMatch(/^2026-(?:07-20|09-04|09-05|09-15|09-21|09-24|09-25)$/);
+      if (provider === 'flue') expect(capability.verifiedAt).toBe('2026-10-30');
+      else expect(capability.verifiedAt).toMatch(/^2026-(?:07-20|09-04|09-05|09-15|09-21|09-24|09-25)$/);
       expect(capability.identifierSyntax).not.toBe('');
       expect(capability.verification).not.toBe('');
     }

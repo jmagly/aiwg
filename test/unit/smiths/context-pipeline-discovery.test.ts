@@ -190,7 +190,8 @@ describe('provider policy', () => {
     expect(shouldEmitContextFiles('grok-build')).toBe(true);
     expect(shouldEmitContextFiles('muse')).toBe(true);
     expect(shouldEmitContextFiles('openhuman')).toBe(true);
-    expect(AGENTS_MD_PROVIDERS.size).toBe(14);
+    expect(shouldEmitContextFiles('flue')).toBe(true);
+    expect(AGENTS_MD_PROVIDERS.size).toBe(15);
   });
 
   // #1437: claude is no longer skipped — it gets AIWG.md emission + CLAUDE.md hook

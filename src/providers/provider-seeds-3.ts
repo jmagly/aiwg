@@ -3,6 +3,24 @@ import type { BuiltInSeed } from './provider-definition-schema.js';
 
 export const BUILT_IN_SEEDS_3: BuiltInSeed[] = [
   {
+    id: 'flue', displayName: 'Flue (experimental)', status: 'experimental', aliases: [], builtIn: true,
+    surfaces: { primary: 'flue', compatibility: [], precedence: ['AGENTS.md', '.agents/skills/'], related: [] },
+    detection: { env: [], process: [], capabilityId: 'flue' },
+    paths: {
+      artifacts: { agents: null, commands: null, skills: '.agents/skills', rules: null, behaviors: null },
+      kernelSkills: '.agents/skills', configFile: 'AGENTS.md',
+      contextDiscovery: { agents: null, skills: '.agents/skills', rules: null, behaviors: null },
+      contextFiles: { aiwgMd: true, agentsMd: true, claudeMdHook: false, hookFile: null, contextFile: 'AGENTS.md' },
+    },
+    smithPaths: { agents: null, commands: null, skills: '.agents/skills', rules: null,
+      fileExtension: '.md', configFile: 'AGENTS.md', aggregated: false },
+    skillNamespace: { deploymentGroup: 'one-level', pathType: 'project', skillsBaseDir: '.agents/skills',
+      subdirLayout: false, maxNameLength: 64, maxDescriptionLength: 1024 },
+    adapters: { agentFormat: 'none', hookBridge: null, mcpInjection: null,
+      contextAggregation: 'agents-md', ruleFormat: 'agents-md-section' },
+    matrixRef: 'flue',
+  },
+  {
     id: 'pi',
     aliases: ['pi-coding-agent'],
     builtIn: true,
