@@ -227,6 +227,11 @@ echo "  [8/13] Announcement file OK"
 # Required before either an RC or stable tag can be created. Run before any
 # signing-key lookup so failed infrastructure checks do not open the keyring.
 npm run build:cli
+# The Flue example's locked dependencies back the release-slow Flue end-to-end test,
+# as in every CI workflow that runs this lane.
+if [ -f examples/flue-node/package-lock.json ]; then
+  npm ci --prefix examples/flue-node --no-audit --no-fund
+fi
 node tools/ci/run-with-hang-report.mjs --timeout 30m -- npm run test:release-slow
 echo "  [8b/13] Release infrastructure lane passed"
 
