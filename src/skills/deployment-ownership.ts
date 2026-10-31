@@ -60,7 +60,7 @@ export function readDeploymentSidecar(
 }
 
 /**
- * Codex, Antigravity, DeepSeek Harness, and Muse intentionally consume the
+ * Codex, Antigravity, DeepSeek Harness, Flue, and Muse intentionally consume the
  * same portable project skill surface (<repo>/.agents/skills). A projection
  * written for any member is managed ownership for the others when the
  * desired payload is otherwise byte-identical.
@@ -69,7 +69,7 @@ export function providersShareProjectionSurface(
   actual: Platform,
   expected: Platform,
 ): boolean {
-  const shared = new Set<Platform>(['antigravity', 'codex', 'deepseek-harness', 'muse']);
+  const shared = new Set<Platform>(['antigravity', 'codex', 'deepseek-harness', 'flue', 'muse']);
   return actual === expected || (shared.has(actual) && shared.has(expected));
 }
 

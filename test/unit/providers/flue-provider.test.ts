@@ -155,6 +155,22 @@ describe('Flue experimental deployment and lifecycle', () => {
     expect(read('AGENTS.md').match(/AIWG:flue-context:start/g)).toHaveLength(1);
   }, 60_000);
 
+  it('keeps resident memory in its canonical projection and removes legacy inline copies', () => {
+    const resident = '<!-- AIWG:resident-memory:start -->\nReviewed resident fact.\n<!-- AIWG:resident-memory:end -->';
+    write(project, 'WORKSPACE.md', `# Workspace\nKeep operator policy.\n${resident}\n`);
+    write(project, 'AIWG.md', '# Framework discovery\n');
+    write(project, 'AGENTS.md', `Operator prefix.\n<!-- AIWG:flue-context:start -->\n${resident}\n<!-- AIWG:flue-context:end -->\nOperator suffix.\n`);
+    const context = writeFlueContext(project);
+    expect(context).not.toContain('Reviewed resident fact.');
+    expect(context).not.toContain('AIWG:resident-memory:');
+    expect(context).toContain('Keep operator policy.');
+    expect(context).toContain('# Framework discovery');
+    expect(context).toMatch(/^Operator prefix\.\n/);
+    expect(context).toMatch(/Operator suffix\.\n$/);
+    expect(read('WORKSPACE.md')).toContain(resident);
+    expect(writeFlueContext(project)).toBe(context);
+  });
+
   it('preserves operator skills and another provider mirror outside its kernel set', async () => {
     write(project, '.agents/skills/bulk/SKILL.md', 'Operator native skill.\n');
     write(project, '.agents/.aiwg/skills/bulk/SKILL.md', 'Another provider mirror.\n');

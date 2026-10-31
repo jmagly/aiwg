@@ -45,6 +45,8 @@ with inline core rules, and supplies a conventional `db.ts` selecting SQLite at
 `.flue-state/state.db` relative to the project root, regardless of the process
 working directory. It adds `.flue-state/` to `.gitignore` and writes
 `src/aiwg/tools.ts` plus `src/aiwg/specialists.ts`.
+Reviewed resident memory stays in its maintained `WORKSPACE.md` projection;
+it is excluded from the inline `AGENTS.md` copy.
 
 ```sh
 aiwg use sdlc --provider flue --scope project

@@ -99,6 +99,7 @@
     "tools/agents/deploy-command-mirrors.mjs",
     "tools/agents/deploy-options.mjs",
     "tools/agents/deploy-support.mjs",
+    "tools/agents/use-rule-selection.mjs",
     "tools/agents/providers/",
     "tools/providers/antigravity-transport.mjs",
     "tools/commands/deploy-prompts-codex.mjs",

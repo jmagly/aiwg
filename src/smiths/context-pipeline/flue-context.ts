@@ -10,7 +10,10 @@ export function writeFlueContext(project: string): string {
   const start = '<!-- AIWG:flue-context:start -->', end = '<!-- AIWG:flue-context:end -->';
   const existing = read('AGENTS.md');
   const body = [read('WORKSPACE.md'), read('AIWG.md')].filter(Boolean).join('\n\n')
-    .replace(/<!-- AIWG:provider-bootstrap:start -->[\s\S]*?<!-- AIWG:provider-bootstrap:end -->/g, '');
+    .replace(/<!-- AIWG:provider-bootstrap:start -->[\s\S]*?<!-- AIWG:provider-bootstrap:end -->/g, '')
+    // Resident memory has one maintained projection in WORKSPACE.md. Copying it
+    // into a provider adapter leaves a second startup copy outside that owner.
+    .replace(/<!-- AIWG:resident-memory:start -->[\s\S]*?<!-- AIWG:resident-memory:end -->/g, '');
   const block = `${start}\n# Flue AIWG context (experimental)\n\n${PROVIDER_RULE_AUTHORITY.join('\n')}\n\n${ensureCoreStartup(body)}\n${end}`;
   const from = existing.indexOf(start), to = existing.indexOf(end);
   if ((from >= 0) !== (to >= 0) || from >= 0 && to < from) throw new Error('Malformed AIWG Flue context markers in AGENTS.md');

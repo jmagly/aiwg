@@ -94,6 +94,15 @@
       "descriptionSuffix": "Use when relevant to the task."
     },
     {
+      "id": "flue",
+      "location": "project",
+      "root": ".agents/skills",
+      "status": "native",
+      "outcome": "deployed",
+      "validator": "pass",
+      "resources": "exact"
+    },
+    {
       "id": "grokbot",
       "location": "configured",
       "root": "",
