@@ -133,6 +133,9 @@ interface ReloadNotice {
 }
 
 const RESTART_NOTICES: Readonly<Record<string, ReloadNotice>> = {
+  flue: { policy: 'restart-required',
+    action: 'Restart the Flue app before checking deployed context and skills.',
+    reason: 'Flue is experimental; app hot reload of deployed context and skills has not been verified.' },
   claude: {
     policy: 'restart-required',
     action: 'Restart Claude Code so the running session reloads deployed agents and skills.',

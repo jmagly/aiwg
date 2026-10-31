@@ -3,7 +3,7 @@ import { ArxivClient } from '../../research/clients/arxiv.js';
 import { CrossRefClient } from '../../research/clients/crossref.js';
 import { SemanticScholarClient } from '../../research/clients/semantic-scholar.js';
 import { identityKeys, normalizeIdentity, normalizeTitle, type ResearchIdentifier } from '../../research/identity.js';
-import { classifyCandidates, mergePapers, needsTitleDisambiguation, parsePartialReference, scorePaper, type PartialReference, type ScoredPaper, type ResolutionStatus } from '../../research/reference-match.js';
+import { classifyCandidates, mergePapers, needsTitleDisambiguation, needsYearReview, parsePartialReference, scorePaper, type PartialReference, type ScoredPaper, type ResolutionStatus } from '../../research/reference-match.js';
 import { ResearchError, ResearchErrorCode, type ResearchPaper } from '../../research/types.js';
 import { findInCorpus, type CorpusIdentityMatch } from './resolve-corpus.js';
 
@@ -19,7 +19,7 @@ export interface ResolutionPath {
 }
 
 export type ResolutionFinding = {
-  type: 'title_mismatch' | 'identifier_mismatch';
+  type: 'title_mismatch' | 'identifier_mismatch' | 'year_mismatch' | 'year_conflict';
   supplied: string;
   returned: string;
   candidate: string;
@@ -168,8 +168,13 @@ export async function resolveReference(input: string, root: string, year?: numbe
   const classified = classifyCandidates(candidates);
   const incomplete = paths.some(path => path.retryable);
   const titleAmbiguous = needsTitleDisambiguation(reference, candidates, incomplete);
+  const yearConflict = needsYearReview(reference, candidates[0]);
+  if (classified !== 'unresolved' && candidates[0]?.score_parts.year === 0) {
+    findings.push({ type: yearConflict ? 'year_conflict' : 'year_mismatch',
+      supplied: String(reference.year), returned: String(candidates[0].paper.year), candidate: candidates[0].paper.id });
+  }
   const status = classified === 'unresolved' && incomplete ? 'deferred'
-    : classified === 'resolved' && (identifierUnresolved || titleAmbiguous) ? 'ambiguous' : classified;
+    : classified === 'resolved' && (identifierUnresolved || titleAmbiguous || yearConflict) ? 'ambiguous' : classified;
   if (titleAmbiguous && classified !== 'unresolved') findings.push({ type: 'title_ambiguous',
     supplied: reference.title!, returned: reference.year === undefined
       ? 'Supply a year, author, or verified identifier to disambiguate this title'

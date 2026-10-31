@@ -1,5 +1,6 @@
 import type { PathLike } from 'node:fs';
 export interface DeploymentOwnershipOptions {
+  provider?: string;
   dryRun?: boolean;
   claimUnchangedSettings?: boolean;
   onlyDeclared?: boolean;
@@ -11,7 +12,7 @@ export interface DeploymentOwnershipOptions {
   writtenFiles?: string[];
   logicalInputPath?: (file: string) => string;
 }
-export function deploymentOutputRoots(provider: { name: string; paths?: Record<string, string>; kernelSkillsPath?: string }, target: string): string[];
+export function deploymentOutputRoots(provider: { name: string; paths?: Record<string, string>; kernelSkillsPath?: string; deploymentFiles?: (target: string) => string[] }, target: string): string[];
 export function captureDeploymentOutputs(roots: PathLike[]): Map<string, Buffer>;
 export function recordDeploymentOutputs(before: Map<string, Buffer>, roots: PathLike[], opts?: DeploymentOwnershipOptions): void;
 export function refreshSettingsDigests(record: { settings?: Record<string, unknown> }): void;

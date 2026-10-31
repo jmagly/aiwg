@@ -34,9 +34,16 @@ export async function scanContextBridgeSizes(options = {}) {
       records.push({ path: relPath, exists: false, size: 0, ceilingBytes });
       continue;
     }
-    const record = { path: relPath, exists: true, size: stat.size, ceilingBytes };
+    // Flue consumes full context bytes rather than a bootstrap bridge. Report
+    // its explicit payload separately; malformed markers never hide bridge bytes.
+    const text = relPath === 'AGENTS.md' ? await fs.readFile(filePath, 'utf8') : '';
+    const inline = text.match(/^<!-- AIWG:flue-context:start -->\r?\n# Flue AIWG context \(experimental\)\r?\n[\s\S]*?^<!-- AIWG:flue-context:end -->/m);
+    const inlineBytes = inline && text.split('<!-- AIWG:flue-context:start -->').length === 2
+      && text.split('<!-- AIWG:flue-context:end -->').length === 2 ? Buffer.byteLength(inline[0]) : 0;
+    const record = { path: relPath, exists: true, size: stat.size - inlineBytes, ceilingBytes,
+      ...(inlineBytes ? { inlineBytes } : {}) };
     records.push(record);
-    if (stat.size > ceilingBytes) {
+    if (record.size > ceilingBytes) {
       violations.push(record);
     }
   }
@@ -57,7 +64,7 @@ export function formatContextBridgeSizeReport(result) {
       lines.push(`  - ${record.path}: missing`);
     } else {
       const status = record.size > result.ceilingBytes ? 'VIOLATION' : 'ok';
-      lines.push(`  - ${record.path}: ${formatSize(record.size)} (${status})`);
+      lines.push(`  - ${record.path}: ${formatSize(record.size)} (${status})${record.inlineBytes ? `; inline Flue context: ${formatSize(record.inlineBytes)} (no verified provider ceiling)` : ''}`);
     }
   }
   if (result.violations.length > 0) {

@@ -137,6 +137,7 @@ describe('managed Agent Skills provider matrix', () => {
       ['cursor', 'native'],
       ['deepseek-harness', 'native'],
       ['factory', 'projected'],
+      ['flue', 'native'],
       ['grokbot', 'native'],
       ['grok-build', 'native'],
       ['hermes', 'native'],
@@ -158,7 +159,7 @@ describe('managed Agent Skills provider matrix', () => {
       expect(result.path).toContain(name);
       expect(result.reasons.length).toBeGreaterThan(0);
       expect(result.outcome).toBe(
-        ['codex', 'deepseek-harness', 'muse'].includes(result.provider) ? 'unchanged' : 'deployed',
+        ['codex', 'deepseek-harness', 'flue', 'muse'].includes(result.provider) ? 'unchanged' : 'deployed',
       );
       expect(fs.readFileSync(path.join(result.path, AGENT_SKILL_MANAGED_MARKER), 'utf8'))
         .toBe('aiwg-agent-skill-v1\n');
@@ -169,10 +170,10 @@ describe('managed Agent Skills provider matrix', () => {
       expect(sidecar).toMatchObject({
         schemaVersion: 1,
         name,
-        provider: ['codex', 'deepseek-harness', 'muse'].includes(result.provider)
+        provider: ['codex', 'deepseek-harness', 'flue', 'muse'].includes(result.provider)
           ? 'antigravity'
           : result.provider,
-        projectionStatus: ['codex', 'deepseek-harness', 'muse'].includes(result.provider)
+        projectionStatus: ['codex', 'deepseek-harness', 'flue', 'muse'].includes(result.provider)
           ? 'native'
           : result.projectionStatus,
         sourceDigest: result.sourceDigest,

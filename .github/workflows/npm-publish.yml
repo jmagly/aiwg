@@ -293,6 +293,10 @@ jobs:
           npm run test:packaging
           npm run test:sessions:feature-install
 
+      - name: Install locked Flue example dependencies for the offline release lane
+        if: ${{ steps.recovery.outputs.recovered != 'true' }}
+        run: npm ci --prefix examples/flue-node
+
       - name: Require slow release infrastructure tests
         if: ${{ steps.recovery.outputs.recovered != 'true' }}
         run: node tools/ci/run-with-hang-report.mjs --timeout 30m -- npm run test:release-slow

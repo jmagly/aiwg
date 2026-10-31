@@ -29,6 +29,7 @@ export function parseArgs(args = process.argv.slice(2)) {
     reportOnly: true,
     kernelOnly: false,
     deferRuleProjection: false,
+    ruleSelectionMode: null,
     additionalSources: [],
     filter: null,           // Glob pattern for agent names
     filterRole: null,       // Filter by role: reasoning|coding|efficiency
@@ -60,6 +61,12 @@ export function parseArgs(args = process.argv.slice(2)) {
     }
     else if (a === '--target' && args[i + 1]) cfg.target = path.resolve(args[++i]);
     else if (a === '--mode' && args[i + 1]) cfg.mode = String(args[++i]).toLowerCase();
+    // Internal use orchestration: selection survives source-specific passes.
+    else if (a === '--rule-selection-mode') {
+      const mode = args[++i];
+      if (!mode || mode.startsWith('--')) throw new Error('--rule-selection-mode requires a deployment mode');
+      cfg.ruleSelectionMode = mode.toLowerCase();
+    }
     else if (a === '--scope') {
       const scope = args[++i];
       if (scope !== 'user' && scope !== 'project') {
@@ -216,6 +223,8 @@ Providers (all deploy agents, commands, skills, and rules):
               Paths: .cursor/agents/, .cursor/commands/, .cursor/skills/, .cursor/rules/
   warp      - Warp Terminal
               Paths: .warp/agents/, .warp/commands/, .warp/skills/, .warp/rules/ + WARP.md
+  flue      - Flue (experimental app target; project scope only)
+              Paths: .agents/skills/, inline AGENTS.md, source-root db.ts, .gitignore
   deepseek-harness - DeepSeek Harness (alias: dsh; experimental)
               Paths: AGENTS.md, .agents/skills/, .dsh/aiwg.cordis.patch.yml
   devin     - Devin Desktop (preferred; aliases: devin-desktop, windsurf)

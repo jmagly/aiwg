@@ -19,6 +19,7 @@ export const PROVIDER_IDS: readonly Platform[] = [
   'cursor',
   'deepseek-harness',
   'factory',
+  'flue',
   'grokbot',
   'grok-build',
   'hermes',

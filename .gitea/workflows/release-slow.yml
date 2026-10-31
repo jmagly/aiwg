@@ -11,6 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - run: npm ci
+      - run: npm ci --prefix examples/flue-node
       - run: npm run build:cli
       - name: Run release infrastructure lane
         run: node tools/ci/run-with-hang-report.mjs --timeout 30m -- npm run test:release-slow

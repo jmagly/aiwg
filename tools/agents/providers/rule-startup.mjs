@@ -14,7 +14,7 @@ const bootstrap = [
 ].join('\n');
 const read = file => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
 export const inlineStartup = {
-  codex: 'AGENTS.md', pi: 'AGENTS.md', hermes: 'AGENTS.md', warp: 'WARP.md',
+  codex: 'AGENTS.md', flue: 'AGENTS.md', pi: 'AGENTS.md', hermes: 'AGENTS.md', warp: 'WARP.md',
   copilot: '.github/copilot-instructions.md', factory: 'AGENTS.md', opencode: 'AGENTS.md',
   windsurf: 'AGENTS.md', antigravity: 'AGENTS.md', muse: 'AGENTS.md',
   omp: '.omp/AGENTS.md', 'grok-build': 'AGENTS.md',
@@ -57,8 +57,8 @@ export function projectStartup(opts, provider, coreSection, indexFile) {
   retireInlineStartup(opts, provider, file);
   const files = provider.name === 'hermes' ? [file, path.join(opts.target, '.hermes.md')] : [file];
   for (const startup of files) {
-    let content = normalizeRuleStartup(read(startup), bootstrap, path.basename(startup) === 'AGENTS.md');
-    content = section(content, 'rule-core', coreSection.replace(/<!-- AIWG:(?:core-rules|rule-core):(?:start|end) -->\n?/g, '').trimEnd());
+    let content = provider.name === 'flue' ? read(startup) : normalizeRuleStartup(read(startup), bootstrap, path.basename(startup) === 'AGENTS.md');
+    if (provider.name !== 'flue' || coreSection) content = section(content, 'rule-core', coreSection.replace(/<!-- AIWG:(?:core-rules|rule-core):(?:start|end) -->\n?/g, '').trimEnd());
     const logical = opts.logicalOutputPath || (file => file);
     const location = path.relative(logical(opts.target), logical(indexFile)).replaceAll('\\', '/');
     const hook = `${provider.name}: Before every task and subagent task, read and follow \`${location}\`; read every listed kernel file and fetch matching full rules before governed work.`;

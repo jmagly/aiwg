@@ -2533,6 +2533,29 @@
         }
       }
     },
+    "flue": {
+      "sessionEnvAllowlist": [],
+      "agent": "unsupported",
+      "skill": "unsupported",
+      "globalChild": "unsupported",
+      "identifierSyntax": "App-owned Flue model configuration; no AIWG worker selector",
+      "inheritance": "Application-owned; no worker dispatch",
+      "invalidPinFallback": "Report unsupported",
+      "configTarget": "Application-owned",
+      "artifactFormat": "Kernel SKILL.md and composed AGENTS.md",
+      "verification": "Flue 2.3.0 installed source; app deployment only (#3120 D6)",
+      "sourceUrl": "https://flueframework.com/docs/",
+      "verifiedAt": "2026-10-30",
+      "workerHealthCoverage": {
+        "scope": "out",
+        "coverage": "unobserved",
+        "handshake": "unobserved",
+        "evidenceGrades": ["R"],
+        "qualificationOwner": "B-OG-47",
+        "provenance": ["tools/agents/providers/flue.mjs", "docs/providers/flue.md"],
+        "reason": "Flue is an app target, with no worker invocation profile or adapter (#3120 D6)."
+      }
+    },
     "grokbot": {
       "sessionEnvAllowlist": [],
       "agent": "unsupported",

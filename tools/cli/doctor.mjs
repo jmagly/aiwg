@@ -151,6 +151,7 @@ const PROVIDER_LABELS = {
   openhuman: 'OpenHuman',
   omp: 'Oh My Pi',
   pi: 'Pi Coding Agent',
+  flue: 'Flue (experimental)',
   hermes:   'Hermes',
   grokbot:  'Grok Bot',
   'grok-build': 'Grok Build',

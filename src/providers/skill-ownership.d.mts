@@ -7,6 +7,7 @@ export interface ArtifactOwnershipRecord {
   version?: string;
   kind?: string;
   settings?: Record<string, SettingsOwnershipRecord>;
+  filePreimage?: { present: boolean; bytes?: string; hash?: string };
   settingsPreimage?: { present: boolean; bytes?: string; hash?: string };
 }
 export interface SettingsContribution { hash: string; value: unknown; owners: string[] }

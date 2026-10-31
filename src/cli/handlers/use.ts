@@ -638,7 +638,7 @@ export async function ensureProviderGeneratedDirsIgnored(
   provider: string,
   opts: { dryRun: boolean; verbose: boolean },
 ): Promise<void> {
-  if (opts.dryRun) return;
+  if (opts.dryRun || provider === 'flue') return; // Flue records its ignore edit inside the provider transaction.
 
   const patterns = gitignorePatternsForDeploy(provider);
   if (patterns.length === 0) return;
@@ -1759,9 +1759,12 @@ async function generateDeploymentContextFiles(options: ContextPipelineOptions): 
   return result;
 }
 
-let useDeployment: { resourceCredentials?: Awaited<ReturnType<typeof prepareResourceCredentials>>; version: string; skipAttribution?: boolean; skipContextFiles: boolean; contextFiles: ContextPipelineResult[] } | undefined;
+let useDeployment: { ruleSelectionMode?: string; resourceCredentials?: Awaited<ReturnType<typeof prepareResourceCredentials>>; version: string; skipAttribution?: boolean; skipContextFiles: boolean; contextFiles: ContextPipelineResult[] } | undefined;
 function useDeploymentArgs(args: string[]): string[] {
   const forwarded = [...args];
+  const modeIndex = args.indexOf('--mode');
+  if (useDeployment && modeIndex >= 0) useDeployment.ruleSelectionMode ??= args[modeIndex + 1];
+  if (useDeployment?.ruleSelectionMode && !forwarded.includes('--rule-selection-mode')) forwarded.push('--rule-selection-mode', useDeployment.ruleSelectionMode);
   if (useDeployment && !forwarded.includes('--deploy-version')) forwarded.push('--deploy-version', useDeployment.version);
   if (useDeployment?.skipContextFiles && !forwarded.includes('--no-context-files')) forwarded.push('--no-context-files');
   if (useDeployment?.skipAttribution && !forwarded.includes('--no-attribution')) forwarded.push('--no-attribution');
@@ -2707,6 +2710,7 @@ export class UseHandler implements CommandHandler {
     const previousDeployment = useDeployment;
     useDeployment = {
       resourceCredentials,
+      ruleSelectionMode: previousDeployment?.ruleSelectionMode,
       version: previousDeployment?.version ?? resolveDeployVersion(ctx.frameworkRoot || await getFrameworkRoot()),
       skipAttribution: previousDeployment?.skipAttribution || ctx.args.includes('--no-attribution'),
       skipContextFiles: previousDeployment?.skipContextFiles || ctx.args.includes('--no-context-files'),
@@ -3870,8 +3874,8 @@ export class UseHandler implements CommandHandler {
       && !remainingArgs.includes('--copy-all')
       && !remainingArgs.includes('--copy-standard-skills');
     if (bulkKernelOnly) providerDeployArgs.push('--kernel-only');
-    const allAddons = skipUtils ? [] : await getAllAddons(frameworkRoot);
-    const allExtensions = skipUtils || bulkKernelOnly ? [] : await getAllExtensions(frameworkRoot);
+    const allAddons = skipUtils || provider === 'flue' ? [] : await getAllAddons(frameworkRoot);
+    const allExtensions = skipUtils || bulkKernelOnly || provider === 'flue' ? [] : await getAllExtensions(frameworkRoot);
     const mainIncludesAddons = mainDeploymentIncludesAddons(provider, mode, providerDeployArgs);
     // OMP's extension sources share the root transaction and binding scan.
     // Their CLI contributions are still registered below in source order.
@@ -4128,7 +4132,7 @@ export class UseHandler implements CommandHandler {
     // Pi model selection/headless routing is delivered by #2151. Until that
     // adapter exists, do not require model-wrapper artifacts that Pi cannot
     // load; resource deployment remains independently valid.
-    if (!dryRun && !skipUtils && !bulkKernelOnly && !['pi', 'omp'].includes(provider)) {
+    if (!dryRun && !skipUtils && !bulkKernelOnly && !['pi', 'omp', 'flue'].includes(provider)) {
       const wrapperValidation = await validateDeployedModelWrappers({
         provider,
         target,

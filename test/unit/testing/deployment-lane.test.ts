@@ -13,7 +13,8 @@ const root = path.resolve(import.meta.dirname, '../../..');
 
 describe('required provider deployment lane', () => {
   it('runs exhaustive deployment matrices only in the serial release lane', () => {
-    expect(releaseSlowFiles).toHaveLength(7);
+    expect(releaseSlowFiles).toHaveLength(8);
+    expect(releaseSlowFiles).toContain('test/integration/flue-node-e2e.test.ts');
     expect(releaseSlowFiles).toContain('test/integration/ownership-matrix-deployment.test.ts');
     expect(releaseSlow.test.include).toEqual(releaseSlowFiles);
     expect(releaseSlow.test).toMatchObject({ pool: 'forks', maxWorkers: 1, fileParallelism: false });
@@ -32,6 +33,7 @@ describe('required provider deployment lane', () => {
     // The guided-setup walkthrough (#3449 A6) applies a real `aiwg use`
     // deployment against the shared reviewed cache, so it runs in this lane.
     expect(deploymentFiles).toEqual([
+      'test/integration/flue-deployment.test.ts',
       'test/integration/use-all-deployment.test.ts',
       'test/integration/hermes-deployment.test.ts',
       'test/integration/guided-setup-walkthrough.test.ts',

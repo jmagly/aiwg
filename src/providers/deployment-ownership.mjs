@@ -26,6 +26,7 @@ export function deploymentOutputRoots(provider, target) {
     ? dir : path.join(target, dir.split(/[\\/]/)[0]));
   if (provider.kernelSkillsPath) roots.push(path.resolve(target, provider.kernelSkillsPath));
   return [...new Set([...roots, path.join(target, `.${provider.name}`), path.join(target, '.agents'),
+    ...(provider.deploymentFiles?.(target) || []).map(name => path.join(target, name)),
     ...['AGENTS.md', 'AIWG.md', 'WORKSPACE.md', 'CLAUDE.md', 'WARP.md', '.hermes.md', 'opencode.json',
       '.windsurfrules', 'models.json', '.aiwg/frameworks', '.aiwg/.aiwg-manifest.json'].map(name => path.join(target, name))])];
 }
@@ -174,26 +175,35 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
       skillRoot = path.dirname(skillRoot);
     }
     const skillReceipt = parse(after.get(path.join(skillRoot, SIDECAR)));
-    const projectScoped = projectRoot && path.dirname(file) === projectRoot;
+    const projectScoped = projectRoot && (path.dirname(file) === projectRoot || opts.provider === 'flue' && /[/\\](?:db\.ts|aiwg[/\\](?:tools|specialists)\.ts)$/.test(file));
     const dir = projectScoped ? path.join(projectRoot, '.aiwg') : declaration ? path.dirname(declaration.file) : skillReceipt.managed?.['SKILL.md'] ? skillRoot : path.dirname(file);
     const name = declaration?.name || portable(path.relative(projectScoped ? projectRoot : dir, file));
     const existing = manifests.get(path.join(dir, SIDECAR)) || parse(after.get(path.join(dir, SIDECAR)));
     const previous = parse(before.get(path.join(dir, SIDECAR))).managed?.[name];
     const current = existing.managed?.[name] || {};
+    // A redeploy may preserve operator additions around generated context.
+    // Keep the old digest so removal cannot restore a stale preimage over them.
+    if (previous?.filePreimage && before.has(file) && previous.hash !== hash(before.get(file))) continue;
     const identity = current.sourcePath || `${declaration?.receipt.skillSource}/SKILL.md`;
     const logicalSource = opts.logicalInputPath?.(identity) || identity;
     const sourceOwner = (declaration || current.hash === hash(bytes)) && (current.frameworkSlug || bundleOwner(logicalSource))
       || skillReceipt.managed?.['SKILL.md']?.frameworkSlug;
     const generatedIndex = /^RULES-(?:INDEX|ONDEMAND)\.(?:md|mdc)$/.test(path.basename(file));
     const kind = generatedIndex ? 'rule-index' : current.kind || artifactKind(file);
-    const selectedOwner = sourceOwner || (opts.onlyDeclared ? current.owners?.[0] : owner);
+    const selectedOwner = opts.provider === 'flue' ? owner : sourceOwner || (opts.onlyDeclared ? current.owners?.[0] : owner);
     if (!selectedOwner) {
       console.warn(`Ownership not recorded for ${file}: no framework owner resolved.`);
       continue;
     }
     const receipt = manifest(dir);
     if (projectScoped) receipt.scope = 'project';
-    const record = mergeArtifactOwnership(previous, { ...current, hash: hash(bytes), owners: current.hash === hash(bytes) ? current.owners : [], kind }, selectedOwner);
+    const record = mergeArtifactOwnership(previous, { ...current, hash: hash(bytes), owners: opts.provider === 'flue' ? [] : current.hash === hash(bytes) ? current.owners : [], kind }, selectedOwner);
+    // Flue's composed context and generated database/ignore outputs support
+    // exact restoration. Never infer a preimage for another provider's files.
+    if (opts.provider === 'flue' && (projectScoped || /[/\\]db\.ts$/.test(file))) {
+      record.filePreimage = previous?.filePreimage || { present: before.has(file),
+        ...(before.has(file) ? { bytes: before.get(file).toString('base64'), hash: hash(before.get(file)) } : {}) };
+    }
     // Structural rule indexes are generated outputs; their assembly scratch
     // directory is not a durable source identity.
     if (generatedIndex) {
