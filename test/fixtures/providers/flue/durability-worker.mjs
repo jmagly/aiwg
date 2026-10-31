@@ -63,7 +63,7 @@ try {
     const resumed = await boundedRead(await handle.dispatch('follow-up'));
     assert.equal(resumed.text, 'resumed-same-conversation');
     assert.equal(resumed.uid, original.uid);
-  } else if (mode === 'owner') {
+  } else if (['owner', 'fencing-owner'].includes(mode)) {
     fake.setResponses([fauxAssistantMessage(fauxToolCall('aiwg_artifact_write', {
       path: 'effect.md', content: 'effect-before-ack',
     }), { stopReason: 'toolUse' })]);
@@ -76,22 +76,47 @@ try {
     }
     process.send({ ready: true });
     await new Promise(resolve => process.once('message', resolve));
-    await handle.abort();
-    await assert.rejects(boundedRead(receipt), error => error.outcome === 'aborted');
-  } else if (mode === 'rival') {
+    if (mode === 'owner') {
+      await handle.abort();
+      await assert.rejects(boundedRead(receipt), error => error.outcome === 'aborted');
+    }
+  } else if (['rival', 'lease-rival'].includes(mode)) {
     const receipt = JSON.parse(await readFile('abort-receipt.json', 'utf8'));
     // The second live runtime uses the same SQLite store and coordinator claim API.
     const { submissionStore } = await db.connect();
     const original = await submissionStore.getSubmission(receipt.submissionId);
     assert.equal(original.status, 'running');
     assert.ok(original.ownerId && original.leaseExpiresAt > Date.now());
-    const claim = await submissionStore.claimSubmission({ submissionId: receipt.submissionId,
+    const liveClaim = await submissionStore.claimSubmission({ submissionId: receipt.submissionId,
       attemptId: 'rival-attempt', ownerId: 'rival-owner', leaseExpiresAt: Date.now() + 30_000 });
-    assert.equal(claim, null, 'a live submission cannot be claimed by a second owner');
+    assert.equal(liveClaim, null, 'a live submission cannot be claimed by a second owner');
+    if (mode === 'rival') {
+      // Flue 2.3.0 builtin-providers-C5FpT9g1.mjs:1288-1323 admits and wakes;
+      // sql-agent-execution-store-LqbFqydc.mjs:455-473 fences later work in the same session.
+      const rivalReceipt = await handle.dispatch('rival dispatch on durable-conversation');
+      assert.notEqual(rivalReceipt.submissionId, receipt.submissionId);
+      assert.equal(rivalReceipt.uid, receipt.uid);
+      await assert.rejects(handle.read(rivalReceipt, { signal: AbortSignal.timeout(200) }),
+        error => error.name === 'TimeoutError');
+      const queued = await submissionStore.getSubmission(rivalReceipt.submissionId);
+      assert.equal(queued.sessionKey, original.sessionKey);
+      assert.ok(queued.sequence > original.sequence);
+      assert.equal(queued.status, 'queued');
+      assert.equal(queued.ownerId, undefined);
+      assert.equal(queued.attemptId, undefined);
+      assert.equal(queued.leaseExpiresAt, 0);
+      const claim = await submissionStore.claimSubmission({ submissionId: rivalReceipt.submissionId,
+        attemptId: 'rival-attempt', ownerId: 'rival-owner', leaseExpiresAt: Date.now() + 30_000 });
+      assert.equal(claim, null, 'a later dispatch cannot run ahead of the live owner');
+    } else {
+      await assert.rejects(handle.read(receipt, { signal: AbortSignal.timeout(200) }),
+        error => error.name === 'TimeoutError');
+    }
     const after = await submissionStore.getSubmission(receipt.submissionId);
+    assert.equal(after.status, 'running');
     assert.equal(after.ownerId, original.ownerId);
     assert.equal(after.attemptId, original.attemptId);
-    await assert.rejects(handle.read(receipt, { signal: AbortSignal.timeout(200) }));
+    assert.ok(after.leaseExpiresAt > Date.now());
     assert.equal(fake.state.callCount, 0, 'rival must never execute the model or tool');
   } else if (mode === 'reconcile') {
     const receipt = JSON.parse(await readFile('abort-receipt.json', 'utf8'));

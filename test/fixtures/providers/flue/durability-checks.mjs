@@ -1,21 +1,24 @@
 // Exercise independent runtime processes against the generated app database.
 import assert from 'node:assert/strict';
-import { readFile, readdir, cp, writeFile } from 'node:fs/promises';
+import { readFile, readdir, cp, writeFile, mkdir, symlink } from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export async function assertDurability(root, fixture, check) {
   const worker = fileURLToPath(new URL('./durability-worker.mjs', import.meta.url));
-  await cp(worker, path.join(root, 'durability-worker.mjs'));
-  await writeFile(path.join(root, 'durability-options.json'), JSON.stringify({
-    ...fixture.options, cwd: root,
-    args: [fileURLToPath(new URL('./interrupted-server.mjs', import.meta.url))],
-  }));
+  async function prepare(directory) {
+    await cp(worker, path.join(directory, 'durability-worker.mjs'));
+    await writeFile(path.join(directory, 'durability-options.json'), JSON.stringify({
+      ...fixture.options, cwd: directory,
+      args: [fileURLToPath(new URL('./interrupted-server.mjs', import.meta.url))],
+    }));
+  }
+  await prepare(root);
   const env = { PATH: path.dirname(process.execPath), HOME: path.join(root, 'home'), TMPDIR: root };
-  function launch(mode, ipc = false) {
+  function launch(mode, ipc = false, directory = root) {
     const child = spawn(process.execPath, ['durability-worker.mjs', mode], {
-      cwd: root, env, stdio: ipc ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
+      cwd: directory, env, stdio: ipc ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
     });
     let output = '';
     child.stdout.on('data', data => { output += data; });
@@ -43,13 +46,35 @@ export async function assertDurability(root, fixture, check) {
   });
   try {
     await ready;
-    await check('second live owner is fenced by the submission lease', () => launch('rival').done);
+    await check('second live owner is fenced by the submission lease', () => launch('lease-rival').done);
     await check('aborting an AIWG tool durably settles as aborted', async () => {
       owner.child.send({ abort: true });
       await owner.done;
     });
   } finally { if (owner.child.exitCode === null) owner.child.kill('SIGKILL'); }
   await check('restart read reconciles the aborted effect without replay', () => launch('reconcile').done);
+  await check('rival dispatch stays queued behind the live owner without model execution', async () => {
+    // Admission acquires a new conversation producer in Flue 2.3.0, fencing the
+    // old writer (conversation-stream-store-CXrgv-b0.mjs:5768-5795). Keep the
+    // competing-dispatch store separate from the abort/reconciliation lifetime.
+    const directory = path.join(root, 'dispatch-fencing');
+    await mkdir(directory);
+    await cp(path.join(root, 'src'), path.join(directory, 'src'), { recursive: true });
+    await symlink(path.join(root, 'node_modules'), path.join(directory, 'node_modules'), 'dir');
+    await prepare(directory);
+    const competitor = launch('fencing-owner', true, directory);
+    const ready = new Promise((resolve, reject) => {
+      competitor.child.once('message', resolve);
+      competitor.done.then(() => reject(new Error('Fencing owner exited before ready')), reject);
+    });
+    try {
+      await ready;
+      await launch('rival', false, directory).done;
+    } finally {
+      if (competitor.child.connected) competitor.child.send({ stop: true });
+      await competitor.done;
+    }
+  });
   for (const name of ['code-reviewer', 'test-engineer']) {
     await check(`real task delegates to ${name} with inherited model and AIWG tools`, () => launch(name).done);
   }

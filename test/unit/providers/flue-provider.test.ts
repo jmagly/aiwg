@@ -235,7 +235,8 @@ describe('Flue experimental deployment and lifecycle', () => {
     expect(discoverProjectEntry(resolveSourceRoot(project), 'db')).toBe(path.join(project, selected));
   }, 60_000);
 
-  it.each(['.flue-state', '.flue-state/', '.flue-state/*', '/.flue-state', '/.flue-state/', '/.flue-state/*'])('keeps equivalent ignore rule %s byte-exact', rule => {
+  it.each(['.flue-state', '.flue-state/', '.flue-state/*', '.flue-state/**',
+    '/.flue-state', '/.flue-state/', '/.flue-state/*', '/.flue-state/**'])('keeps equivalent ignore rule %s byte-exact', rule => {
     const before = `dist/\r\n ${rule} \r\n`;
     write(project, '.gitignore', before);
     deployFlueDatabase(project, {});
@@ -254,28 +255,54 @@ describe('Flue experimental deployment and lifecycle', () => {
     });
 
   it.each(['// db: "custom"', '/* db: "custom" */', 'export default { note: "db: custom" };',
-    'export default { note: `db: custom` };'])('ignores config comments and string contents (%s)', config => {
-    write(project, 'flue.config.ts', config);
-    deployFlueDatabase(project, {});
-    expect(read('src/db.ts')).toContain('sqlite');
-    expect(read('.gitignore')).toBe('.flue-state/\n');
+    'export default { note: `db: custom` };', 'export default { nested: { db: "./x" } };',
+    'export default defineConfig({ nested: { "db": "./x" } });',
+    'const other = { db: "./x" }; export default {};',
+    'export default {}; const other = { db: "./x" };',
+    'export default { nested: [{ db: "./x" }] };'])(
+    'ignores config content outside top-level exported keys (%s)', config => {
+      write(project, 'flue.config.ts', config);
+      deployFlueDatabase(project, {});
+      expect(read('src/db.ts')).toContain('sqlite');
+      expect(read('.gitignore')).toBe('.flue-state/\n');
   });
 
-  it.each([false, true])('respects a config-pointed operator db through staged deploy/remove (existing ignore: %s)', async ignore => {
-    write(project, 'src/app.ts', 'export default {};\n');
-    write(project, 'flue.config.ts', 'export default { db: "./custom/database.ts" };\n');
-    write(project, 'custom/database.ts', '// operator database\n');
-    if (ignore) write(project, '.gitignore', 'dist/');
-    const before = snapshot();
-    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await deploy();
-    expect(warning).toHaveBeenCalledWith(expect.stringContaining('keeping explicit db entry in flue.config.ts'));
-    expect(fs.existsSync(path.join(project, 'src/db.ts'))).toBe(false);
-    expect(fs.existsSync(path.join(project, '.gitignore'))).toBe(ignore);
-    if (ignore) expect(read('.gitignore')).toBe('dist/');
-    for (const name of ['src/db.ts', '.gitignore', 'flue.config.ts']) expect(receipt().managed[name]).toBeUndefined();
-    await remove();
-    expect(snapshot()).toEqual(before);
+  it.each(['export default { nested: { db: "./nested" }, db: "./custom" };',
+    'export default defineConfig({ nested: { db: "./nested" }, "db": "./custom" });',
+    'export default ({ db: "./custom" });', 'module.exports = { db: "./custom" };'])(
+    'respects top-level exported db keys (%s)', config => {
+      write(project, 'flue.config.ts', config);
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      deployFlueDatabase(project, {});
+      expect(snapshot()).toEqual({ 'flue.config.ts': Buffer.from(config).toString('base64') });
+    });
+
+  const configExtensions = ['ts', 'mts', 'mjs', 'js', 'cjs', 'cts'];
+  it.each(configExtensions.slice(0, -1))('uses Flue config priority after .%s', ext => {
+    const next = configExtensions[configExtensions.indexOf(ext) + 1];
+    write(project, `flue.config.${ext}`, 'export default {};\n');
+    write(project, `flue.config.${next}`, 'export default { db: "./unused" };\n');
+    deployFlueDatabase(project, {});
+    expect(read('src/db.ts')).toContain('sqlite');
+  });
+
+  it.each(configExtensions.flatMap(ext => [false, true].map(ignore => ({ ext, ignore }))))(
+    'respects a config-pointed db through staged deploy/remove (.$ext, ignore: $ignore)', async ({ ext, ignore }) => {
+      const config = `flue.config.${ext}`;
+      write(project, 'src/app.ts', 'export default {};\n');
+      write(project, config, `${['cjs', 'cts'].includes(ext) ? 'module.exports =' : 'export default'} { db: "./custom/database.ts" };\n`);
+      write(project, 'custom/database.ts', '// operator database\n');
+      if (ignore) write(project, '.gitignore', 'dist/');
+      const before = snapshot();
+      const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      await deploy();
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining(`keeping explicit db entry in ${config}`));
+      expect(fs.existsSync(path.join(project, 'src/db.ts'))).toBe(false);
+      expect(fs.existsSync(path.join(project, '.gitignore'))).toBe(ignore);
+      if (ignore) expect(read('.gitignore')).toBe('dist/');
+      for (const name of ['src/db.ts', '.gitignore', config]) expect(receipt().managed[name]).toBeUndefined();
+      await remove();
+      expect(snapshot()).toEqual(before);
   }, 60_000);
 
   it('keeps an existing ignore rule and rejects malformed context markers', () => {
@@ -285,7 +312,8 @@ describe('Flue experimental deployment and lifecycle', () => {
     write(project, 'AGENTS.md', '<!-- AIWG:flue-context:start -->');
     expect(() => writeFlueContext(project)).toThrow('Malformed');
     expect(flueDeploymentFiles(project)).toEqual(['src/db.ts', '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts',
-      'flue.config.ts', '.flue/db.ts', '.flue/db.mts', '.flue/db.js', '.flue/db.mjs',
+      'flue.config.ts', 'flue.config.mts', 'flue.config.mjs', 'flue.config.js', 'flue.config.cjs', 'flue.config.cts',
+      '.flue/db.ts', '.flue/db.mts', '.flue/db.js', '.flue/db.mjs',
       'src/db.mts', 'src/db.js', 'src/db.mjs', 'db.ts', 'db.mts', 'db.js', 'db.mjs']);
   });
 

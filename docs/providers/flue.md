@@ -67,9 +67,11 @@ uses `.flue/` when present, otherwise `src/`, which the generated modules
 establish in an empty project, without evaluating application configuration.
 For an existing root-level app/database, configure explicit `app`/`db` entry
 paths before adding `src/`, or move the operator modules into `src/`.
-If a static `db:` property appears in `flue.config.ts`, AIWG warns and leaves
+If a static top-level `db:` property appears in the selected `flue.config.*`, AIWG warns and leaves
 database generation and ignore rules to the operator. It reads the config as
-text without evaluating it; review that module's storage setting.
+text without evaluating it; review that module's storage setting. The first
+existing config wins in `.ts`, `.mts`, `.mjs`, `.js`, `.cjs`, `.cts` order,
+matching Flue 2.3.0's `@flue/runtime/dist/config.mjs:91–98,106–117`.
 State stays outside `.flue/` because
 Flue treats that directory as a source root ahead of `src/`. Apps already using
 `src/` or `.flue/` retain source discovery. Deployment does not start the app
@@ -82,6 +84,15 @@ with `init(Agent, { id })`; `read(receipt)` reattaches to a durable result.
 observation. An aborted tool acknowledgement can leave an external effect in
 place: read the effect back and reconcile before retrying. Submission leases
 fence competing claims; this is not support for active-active app owners.
+The smoke dispatches from a second process on the same conversation and checks
+that its submission stays queued without an owner or model call while the
+original lease remains live. Flue 2.3.0 admits and wakes dispatches in
+`@flue/runtime/dist/builtin-providers-C5FpT9g1.mjs:1288–1323`; the same-session
+ordering guard is `@flue/runtime/dist/sql-agent-execution-store-LqbFqydc.mjs:455–473`.
+Rival admission can also replace the conversation producer and fence the old
+writer (`@flue/runtime/dist/conversation-stream-store-CXrgv-b0.mjs:5768–5795`).
+The dispatch competition uses a separate disposable store from the abort and
+reconciliation checks; it does not establish safe concurrent app ownership.
 State is app-owned and survives `aiwg remove`.
 Use a production Node build or `flue run` to check restart behavior; Vite's
 development database is disposable. Keep the same project, agent identity,
