@@ -1,5 +1,44 @@
 # Flue (experimental)
 
+Ask your coding assistant:
+
+> Add AIWG to my Flue app and give it a code reviewer. Keep conversation state
+> across restarts and save the review as an artifact.
+
+Then give the running Flue app a concrete task:
+
+> Review this change: `export const add = (a, b) => a - b;`. Discover the AIWG
+> SDLC quickref, show its governing rules, activate the skill, ask Code Reviewer
+> to assess the change, and save the review at reviews/example.md.
+
+Start with the [Node example](../../examples/flue-node/README.md), or ask your
+assistant to add the same imports to an existing app. From the app directory:
+
+```sh
+aiwg use sdlc --provider flue
+```
+
+Deploy AIWG before starting the example: generated modules and skills are
+deliberately absent from its source. For the example, then run `npm ci` and
+`npm run dev`. Set `FLUE_MODEL` in the environment to choose a model; its default
+is `openrouter/anthropic/claude-haiku-4.5`. Supply model credentials through your
+environment. AIWG does not store them.
+
+Verified versions: **Flue 2.3.0, Pi 1.4.0, Node >= 22.19.0**. The example
+lockfile preserves the tested dependency graph. Use Node 24 when also running
+the AIWG CLI, which requires Node >= 24.
+
+| Supported in this slice | Outside this slice |
+|---|---|
+| Node app target | Cloudflare |
+| `aiwg_discover`, `aiwg_show`, `aiwg_artifact_write` | A network MCP gateway |
+| Code Reviewer and Test Engineer | Sandboxes and approval hooks |
+| Explicitly mounted AIWG skills and SQLite state | User scope and the `@aiwg/flue` package import |
+
+The example explicitly mounts the deployed `sdlc-quickref` with `useSkill`.
+Flue's automatic workspace skill discovery requires a sandbox; this example
+uses no sandbox. Its tools and specialists are ordinary app imports.
+
 The Flue provider targets Node apps using Flue 2.3.0. It deploys kernel skills
 into `.agents/skills`, composes WORKSPACE.md and AIWG.md into cwd `AGENTS.md`
 with inline core rules, and supplies a conventional `db.ts` selecting SQLite at
@@ -44,6 +83,9 @@ observation. An aborted tool acknowledgement can leave an external effect in
 place: read the effect back and reconcile before retrying. Submission leases
 fence competing claims; this is not support for active-active app owners.
 State is app-owned and survives `aiwg remove`.
+Use a production Node build or `flue run` to check restart behavior; Vite's
+development database is disposable. Keep the same project, agent identity,
+conversation id and state database when restarting.
 
 The generated tools expose discovery, governing-rule drill-ins and contained
 artifact writes through the in-process MCP stdio client. The specialists are
@@ -102,3 +144,14 @@ the smoke calls `setProvider(fake.provider)` and `start({ providers: [] })`
 to avoid registering external providers. Lease claims are guarded by SQL in
 `@flue/runtime/dist/sql-agent-execution-store-LqbFqydc.mjs:455–473`.
 These are Flue 2.3.0 / Pi 1.4.0 contracts; keep the lab lockfile when testing.
+
+The example's offline end-to-end test is in the release-slow lane. Provision
+`examples/flue-node` dependencies from its lockfile before running it, or point
+`AIWG_FLUE_DEPENDENCIES` at an existing locked project. It copies dependencies
+into a temporary project, uses `setProvider` with Pi's keyless scripted provider,
+and runs public deploy/remove, skill activation, delegation, artifact writing,
+restart, abort, and effect reconciliation without a model service:
+
+```sh
+TMPDIR=/var/tmp npm run test:release-slow -- flue-node-e2e
+```

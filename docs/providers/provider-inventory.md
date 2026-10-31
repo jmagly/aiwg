@@ -13,7 +13,7 @@ AIWG has **19 named provider integrations**. The source-of-truth registry is
 | `cursor` | Cursor IDE | Stable | Project |
 | `deepseek-harness` | [DeepSeek Harness](deepseek-harness.md) | Experimental | Project |
 | `factory` | Factory AI | Stable | Project |
-| `flue` | [Flue](flue.md) | Experimental | Project; kernel skills, inline context, SQLite setup |
+| `flue` | [Flue onboarding and Node example](flue.md) | Experimental | Project; three tools, two specialists, skills, SQLite state |
 | `grokbot` | [Grok Bot](../integrations/grokbot-quickstart.md) | Stable | Mixed project/user (skills fail-closed until `AIWG_GROKBOT_SKILLS_DIR`) |
 | `grok-build` | [Grok Build](../architecture/adr-grokbot-provider-target.md) | Experimental | Mixed project/user (`$GROK_HOME`; kernel skills + AGENTS.md; agents/rules indexed until #2577) |
 | `hermes` | Hermes | Stable | Mixed project/user |

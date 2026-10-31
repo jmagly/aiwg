@@ -76,6 +76,9 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Install locked Flue example dependencies for the offline release lane
+        run: npm ci --prefix examples/flue-node
+
       - name: Install mandatory SQLite session test backend
         run: |
           npm run features:sqlite
