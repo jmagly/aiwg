@@ -79,6 +79,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   openclaw:  'OpenClaw          ~/.openclaw/',
   hermes:    'Hermes (MCP)      aiwg mcp',
   omp:       'Oh My Pi         .omp/ + .agents/skills/',
+  flue:      'Flue (experimental) .agents/skills/ + AGENTS.md + db.ts',
   pi:        'Pi Coding Agent   .pi/ + .agents/skills/',
 };
 

@@ -24,7 +24,7 @@
   --rules-only             Deploy only rules (skip agents)
  *   --dry-run                Show what would be deployed without writing
  *   --force                  Overwrite existing files
- *   --provider <name>        Target provider: antigravity (agy), claude (default), openai, codex, cursor, opencode, copilot, factory, grokbot, grok-build, muse, pi, omp, deepseek-harness (dsh), warp, devin, hermes, openhuman, or openclaw
+ *   --provider <name>        Target provider: antigravity (agy), claude (default), openai, codex, cursor, opencode, copilot, factory, grokbot, grok-build, muse, flue (experimental), pi, omp, deepseek-harness (dsh), warp, devin, hermes, openhuman, or openclaw
  *   --model <name>            Override model for all tiers (blanket)
  *   --reasoning-model <name> Override model for reasoning tasks
  *   --coding-model <name>    Override model for coding tasks
@@ -101,7 +101,7 @@ const PROVIDER_ALIASES = {
   'dsh': 'deepseek-harness',
 };
 
-const AVAILABLE_PROVIDERS = ['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'pi', 'omp', 'deepseek-harness', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse'];
+const AVAILABLE_PROVIDERS = ['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'flue', 'pi', 'omp', 'deepseek-harness', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse'];
 
 const UNSUPPORTED_PROVIDER_HINTS = {
   'devin-cli': [
@@ -348,7 +348,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
   try {
     if (!internal.finalizeOnly) {
       if (cfg.kernelOnly && (!cfg.deferRuleProjection || preparationActive)
-        && !['claude', 'codex', 'cursor', 'hermes', 'warp', 'openclaw', 'pi', 'copilot', 'factory', 'opencode', 'windsurf', 'antigravity', 'muse', 'omp', 'grok-build'].includes(provider.name)) {
+        && !['claude', 'codex', 'cursor', 'hermes', 'warp', 'openclaw', 'flue', 'pi', 'copilot', 'factory', 'opencode', 'windsurf', 'antigravity', 'muse', 'omp', 'grok-build'].includes(provider.name)) {
         const { deployWithRuleDelivery } = await import('./providers/rule-delivery.mjs');
         await deployWithRuleDelivery(opts, provider, staged => provider.deploy(staged));
       } else await provider.deploy(opts);

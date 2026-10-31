@@ -46,6 +46,7 @@ export const discoveryFiles = ['test/integration/artifacts/discover-fortemi-corp
 // Full-corpus provider deployment owns one shared immutable source cache and
 // runs serially so multiple child CLIs do not compete inside the default lane.
 export const deploymentFiles = [
+  'test/integration/flue-deployment.test.ts',
   'test/integration/use-all-deployment.test.ts',
   'test/integration/hermes-deployment.test.ts',
   'test/integration/guided-setup-walkthrough.test.ts',

@@ -3,15 +3,15 @@
 AIWG gives your AI assistant reusable project context and specialist workflows
 inside the AI tools you already use. The provider integration decides where
 that context, skills, commands, rules, and agents are written so the selected
-tool can read them. AIWG has 18 named provider integrations plus a separate
+tool can read them. AIWG has 19 named provider integrations plus a separate
 provider-neutral `generic` fallback adapter.
 
 ---
 
 ## Quick Comparison
 
-The technical registry currently covers **18 named provider integrations**,
-including Google Antigravity CLI, Grok Bot, Grok Build, Muse Code, Oh My Pi, and Pi Coding Agent, plus a
+The technical registry currently covers **19 named provider integrations**,
+including Google Antigravity CLI, Flue (experimental), Grok Bot, Grok Build, Muse Code, Oh My Pi, and Pi Coding Agent, plus a
 provider-neutral `generic` fallback adapter. Start with [Install, Connect, and
 Verify](../getting-started/install-connect-verify.md), then use the row below
 for provider-specific deployment details. The commands in this table are
@@ -20,6 +20,7 @@ complete supported setup unless project policy selects a narrower scope.
 
 | Platform | Deploy Command | Context File |
 |----------|----------------|--------------|
+| Flue (experimental) | `aiwg use sdlc --provider flue` | Inline AGENTS.md |
 | Google Antigravity CLI | `aiwg use sdlc --provider antigravity` (alias `agy`) | AGENTS.md |
 | Claude Code | `aiwg use sdlc` | CLAUDE.md |
 | OpenAI/Codex | `aiwg use sdlc --provider codex` | AGENTS.md |

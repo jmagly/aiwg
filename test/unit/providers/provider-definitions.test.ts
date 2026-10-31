@@ -15,6 +15,7 @@ const CURRENT_PLATFORM_IDS = [
   'cursor',
   'deepseek-harness',
   'factory',
+  'flue',
   'grokbot',
   'grok-build',
   'hermes',

@@ -109,6 +109,24 @@ export function planDeploymentRemoval(project: string, provider: string, owner: 
         continue;
       }
       else if (record.kind === 'settings') reason = 'settings contributions missing or conflicting; unverifiable';
+      else if (record.filePreimage && (claims.get(target) || []).length === 1) {
+        const snapshot = record.filePreimage;
+        const prior = snapshot.present && typeof snapshot.bytes === 'string' ? Buffer.from(snapshot.bytes, 'base64') : null;
+        const valid = snapshot.present === false || prior !== null && hash(prior) === snapshot.hash;
+        const current = fs.existsSync(target) && fs.lstatSync(target).isFile() ? fs.readFileSync(target) : null;
+        if (valid && current && hash(current) === record.hash) {
+          const others = owners.filter(candidate => candidate !== owner);
+          if (others.length) { record.owners = others; remaining.push(record); }
+          else {
+            writes.push({ path: target, before: current, after: prior });
+            delete receipt.managed![name];
+          }
+          decisions.push({ path: target, action: others.length || prior ? 'release' : 'remove',
+            reason: others.length ? 'shared generated output; release this owner only' : 'verified file preimage restored', kind: record.kind, owned: true });
+          changed = true;
+          continue;
+        }
+      }
       else if (CONTEXT_BRIDGES.has(path.basename(target))) reason = 'context bridge preserved; pre-deploy operator content unverifiable';
       else if ((claims.get(target) || []).some(claim => claim.hash !== record.hash)) reason = 'conflicting receipt digests; unverifiable';
       else if ((claims.get(target) || []).some(claim => (claim.owners || (claim.frameworkSlug ? [claim.frameworkSlug] : [])).some(item => item !== owner))) { action = 'release'; reason = 'shared with another framework; release this owner only'; }

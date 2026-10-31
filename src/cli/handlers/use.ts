@@ -638,7 +638,7 @@ export async function ensureProviderGeneratedDirsIgnored(
   provider: string,
   opts: { dryRun: boolean; verbose: boolean },
 ): Promise<void> {
-  if (opts.dryRun) return;
+  if (opts.dryRun || provider === 'flue') return; // Flue records its ignore edit inside the provider transaction.
 
   const patterns = gitignorePatternsForDeploy(provider);
   if (patterns.length === 0) return;
@@ -3870,8 +3870,8 @@ export class UseHandler implements CommandHandler {
       && !remainingArgs.includes('--copy-all')
       && !remainingArgs.includes('--copy-standard-skills');
     if (bulkKernelOnly) providerDeployArgs.push('--kernel-only');
-    const allAddons = skipUtils ? [] : await getAllAddons(frameworkRoot);
-    const allExtensions = skipUtils || bulkKernelOnly ? [] : await getAllExtensions(frameworkRoot);
+    const allAddons = skipUtils || provider === 'flue' ? [] : await getAllAddons(frameworkRoot);
+    const allExtensions = skipUtils || bulkKernelOnly || provider === 'flue' ? [] : await getAllExtensions(frameworkRoot);
     const mainIncludesAddons = mainDeploymentIncludesAddons(provider, mode, providerDeployArgs);
     // OMP's extension sources share the root transaction and binding scan.
     // Their CLI contributions are still registered below in source order.
@@ -4128,7 +4128,7 @@ export class UseHandler implements CommandHandler {
     // Pi model selection/headless routing is delivered by #2151. Until that
     // adapter exists, do not require model-wrapper artifacts that Pi cannot
     // load; resource deployment remains independently valid.
-    if (!dryRun && !skipUtils && !bulkKernelOnly && !['pi', 'omp'].includes(provider)) {
+    if (!dryRun && !skipUtils && !bulkKernelOnly && !['pi', 'omp', 'flue'].includes(provider)) {
       const wrapperValidation = await validateDeployedModelWrappers({
         provider,
         target,

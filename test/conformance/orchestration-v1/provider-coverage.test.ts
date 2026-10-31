@@ -111,7 +111,7 @@ describe('T-OG-19 S1 registry coverage reconciliation (B-OG-47)', () => {
     for (const [id, row] of rows) {
       expect(row.coverage, id).toBeDefined();
       expect(row.coverage!.source_date, id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect([BASELINE_DATE, RECHECK_DATE], id).toContain(row.coverage!.source_date);
+      expect([BASELINE_DATE, RECHECK_DATE, ...(id === 'flue' ? ['2026-10-30'] : [])], id).toContain(row.coverage!.source_date);
       expect(row.coverage!.sources.length, id).toBeGreaterThan(0);
       for (const source of row.coverage!.sources) {
         if (/^https?:/.test(source)) expect(source, id).toMatch(/^https:\/\//);
@@ -168,13 +168,13 @@ describe('T-OG-19 S1 registry coverage reconciliation (B-OG-47)', () => {
   it('PC04 records a concrete gap and recheck for each excluded row, with no fabricated command', () => {
     const registry = loadProviderModelCapabilities();
     const out = [...canonicalMatrix()].filter(([, row]) => row.scope === 'out');
-    expect(out.map(([id]) => id).sort()).toEqual(['grokbot', 'windsurf']);
+    expect(out.map(([id]) => id).sort()).toEqual(['flue', 'grokbot', 'windsurf']);
     for (const [id, row] of out) {
       expect(row.channel, id).toMatch(/^none - /);
       expect(row.identity, id).toBe('unavailable');
       expect(row.coverage!.exclusion_gap?.length, id).toBeGreaterThan(40);
-      expect(row.coverage!.recheck, id).toMatch(new RegExp(`^Rechecked ${RECHECK_DATE}`));
-      expect(row.coverage!.source_date, id).toBe(RECHECK_DATE);
+      expect(row.coverage!.recheck, id).toMatch(new RegExp(`^Rechecked ${id === 'flue' ? '2026-10-30' : RECHECK_DATE}`));
+      expect(row.coverage!.source_date, id).toBe(id === 'flue' ? '2026-10-30' : RECHECK_DATE);
       expect(row.coverage!.sources.some(source => source.startsWith('https://')), id).toBe(true);
       const entry = registry.providers[id as keyof typeof registry.providers];
       expect(entry.workerHealthAdapter, id).toBeUndefined();

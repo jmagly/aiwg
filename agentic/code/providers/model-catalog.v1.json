@@ -327,6 +327,15 @@
       "sourceUrl": "https://docs.openclaw.ai/tools/subagents",
       "verifiedAt": "2026-07-20"
     },
+    "flue": {
+      "roles": {
+        "reasoning": { "id": "app-owned", "status": "unverified", "observed": false },
+        "coding": { "id": "app-owned", "status": "unverified", "observed": false },
+        "efficiency": { "id": "app-owned", "status": "unverified", "observed": false }
+      },
+      "sourceUrl": "https://flueframework.com/docs/",
+      "verifiedAt": "2026-10-30"
+    },
     "grokbot": {
       "roles": {
         "reasoning": {

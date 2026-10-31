@@ -216,6 +216,8 @@ Providers (all deploy agents, commands, skills, and rules):
               Paths: .cursor/agents/, .cursor/commands/, .cursor/skills/, .cursor/rules/
   warp      - Warp Terminal
               Paths: .warp/agents/, .warp/commands/, .warp/skills/, .warp/rules/ + WARP.md
+  flue      - Flue (experimental app target; project scope only)
+              Paths: .agents/skills/, inline AGENTS.md, source-root db.ts, .gitignore
   deepseek-harness - DeepSeek Harness (alias: dsh; experimental)
               Paths: AGENTS.md, .agents/skills/, .dsh/aiwg.cordis.patch.yml
   devin     - Devin Desktop (preferred; aliases: devin-desktop, windsurf)

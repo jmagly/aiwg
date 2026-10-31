@@ -83,9 +83,10 @@ does not establish live qualification, which stays with B-OG-07/08/09/28
 | `windsurf` | OUT | unavailable | R: no verified headless Desktop worker command; IDE startup is not inference; MCP client config is not worker serving | Unknown; recheck B-OG-47 before any scope change | authorized (operator, 2026-10-07; titan, noodle): 1 / 0 | B-OG-47 |
 | `grokbot` | OUT | unavailable | R: desktop CreateAgent/registered-machine capabilities establish no headless subprocess contract; connectors consume tools | Unknown; recheck B-OG-47 | authorized (operator, 2026-10-07; titan, noodle): 1 / 0 | B-OG-47 |
 | `openhuman` | IN (promoted by B-OG-47, 2026-10-08) | runtime-configured-only | D: `openhuman-core --model M call --method openhuman.agent_chat --params-stdin` (in-process one-shot agent turn; conductor-framed params `message`, `model_override`, `cwd` on stdin until EOF; final JSON on stdout, no event stream); native `openhuman-core mcp` `agent.run_subagent` has no model/effort/workspace pin and is not a worker tool | Unknown: the orchestrator may spawn subagents (depth-capped only); effort, step-cap and approval/sandbox mapping unknown; blocks strict use | proposed (operator authorization required): 3 / 30000 | B-OG-47 |
+| `flue` | OUT | unavailable | R: Flue 2.3.0 app target; no worker dispatch (#3120 D6) | Unknown; app-only, no CLI adapter | proposed (operator authorization required): 0 / 0 | B-OG-47 |
 | `generic` | OUT | unavailable | Registry-only fallback, no binary or flags; custom adapters remain extensible through the existing factory | N/A — not an executable route | authorized (operator, 2026-10-07; titan, noodle): 0 / 0 | — |
 
-Machine-readable scope/identity/channel/fan-out/budget rows for the 18
+Machine-readable scope/identity/channel/fan-out/budget rows for the 19
 matrix providers live in `agentic/code/providers/capability-matrix.yaml`
 (`route_feasibility`, typed via `getRouteFeasibility` in
 `src/providers/capability-matrix.ts`). `generic` and `local` are
@@ -132,6 +133,7 @@ excluded hosted rows were rechecked as recorded below.
 | `local` | IN | roctinam/aiwg#2899 | 2026-10-07 | no | H: ollama/llama-server installed, endpoint not started |
 | `windsurf` | OUT | — | 2026-10-08 | no | Gap: Devin Desktop documents no headless worker command or worker-serving MCP tool. Recheck: unchanged; [Devin CLI](https://docs.devin.ai/cli/reference/commands.md) has `-p/--print`, `--model`, `--prompt-file` but stays a distinct future provider until registry support exists |
 | `grokbot` | OUT | — | 2026-10-08 | no | Gap: Bots run on xAI-hosted computers from desktop/mobile chat, routines and connectors; no local CLI, headless subprocess or worker MCP tool. Recheck: unchanged per [Grok Bot docs](https://docs.x.ai/grok-bot/overview.md) |
+| `flue` | OUT | — | 2026-10-30 | no | Gap: app target only; argv prompts and absent worker model/effort flags. Recheck: installed Flue 2.3.0 source; #3120 D6 excludes worker dispatch; see [Flue](flue.md) |
 | `generic` | OUT | — | 2026-10-07 | no | Registry-only deployment fallback with no binary, flags or upstream interface to recheck |
 
 Promotion consequence: OpenHuman joins S1 under this issue with an inert,

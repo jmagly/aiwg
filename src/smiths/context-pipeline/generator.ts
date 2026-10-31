@@ -1,4 +1,5 @@
 // Generate canonical workspace context and provider adapters after artifact deployment.
+import { writeFlueContext } from './flue-context.js';
 import { ensureCoreStartup } from '../../rules/core-startup.mjs';
 import { preserveBridgeOperatorText } from './bridge-ownership.js';
 import { promises as fs } from 'node:fs';
@@ -354,7 +355,7 @@ export async function generate(opts: ContextPipelineOptions): Promise<ContextPip
   // cursor/windsurf/hermes/warp/factory/opencode use AGENTS.md as their bridge
   // to AIWG.md. Claude uses CLAUDE.md hook instead (#1437); openclaw is
   // home-dir-only and 'generic' has no provider-local footprint.
-  if (!opts.skip?.agentsMd && shouldEmitAgentsMd(opts.provider)) {
+  if (opts.provider !== 'flue' && !opts.skip?.agentsMd && shouldEmitAgentsMd(opts.provider)) {
     const agentsMdPath = path.join(opts.projectPath, 'AGENTS.md');
     let canWrite = true;
 
@@ -467,5 +468,9 @@ export async function generate(opts: ContextPipelineOptions): Promise<ContextPip
     }
   }
 
+  if (opts.provider === 'flue' && !opts.skip?.agentsMd) {
+    result.agentsMdBytes = Buffer.byteLength(writeFlueContext(opts.projectPath));
+    result.agentsMdPath = path.join(opts.projectPath, 'AGENTS.md');
+  }
   return result;
 }
