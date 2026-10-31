@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "aiwg-flue-cloudflare-example",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["FlueAiwgAssistantAgent"] }
+  ]
+}

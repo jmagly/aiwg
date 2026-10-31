@@ -24,6 +24,18 @@ afterEach(() => { fs.rmSync(root, { force: true, recursive: true }); });
 const record = (before: Map<string, Buffer>, mode = 'sdlc') => recordDeploymentOutputs(before, [root], { mode });
 
 describe('deploy-wide sidecar ownership', () => {
+  it('records copied Cloudflare helper files with project preimages for Flue removal', () => {
+    const before = captureDeploymentOutputs([root]);
+    const names = ['src/aiwg/remote-specialist.js', 'src/aiwg/remote-specialist.d.ts'];
+    for (const name of names) write(name, 'synthetic helper');
+    recordDeploymentOutputs(before, [root], { provider: 'flue', mode: 'sdlc', target: root });
+    expect(receipt('.aiwg').scope).toBe('project');
+    for (const name of names) expect(receipt('.aiwg').managed[name]).toMatchObject({
+      hash: digest('synthetic helper'), owners: ['sdlc-complete'], filePreimage: { present: false },
+    });
+    expect(fs.existsSync(path.join(root, 'src/aiwg/.aiwg-manifest.json'))).toBe(false);
+  });
+
   it.each([false, true])('retains prior records for untouched edited files despite emitted receipts (explicit=%s)', explicit => {
     const name = 'skills/demo/SKILL.md';
     write(name, 'original');

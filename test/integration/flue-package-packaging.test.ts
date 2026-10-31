@@ -3,11 +3,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, inject, it } from 'vitest';
 import { packFlue } from '../helpers/flue-package.mjs';
 import { validateFlueSkill } from '../../tools/agents/providers/flue-validation.mjs';
 let scratch: string;
 afterEach(() => { if (scratch) fs.rmSync(scratch, { recursive: true, force: true }); });
+it('ships the canonical copy-mode helpers with the base CLI', () => {
+  const base = inject('basePackageManifest');
+  expect(base.files.map(file => file.path).filter(file => file.startsWith('packages/')).sort()).toEqual([
+    'packages/flue/remote-specialist.d.ts', 'packages/flue/remote-specialist.js',
+  ]);
+});
+
 it('packs every typed export with only the Flue peer and no third-party implementation', () => {
   scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-flue-pack-'));
   const { tarball, info, skills } = packFlue(scratch);
@@ -26,9 +33,9 @@ it('packs every typed export with only the Flue peer and no third-party implemen
   }
   // Every executable module must originate in AIWG source or its tool template.
   expect(fs.readFileSync(path.join(directory, 'tools.js'), 'utf8')).not.toMatch(/node:|process\./);
-  const allowed = new Set(['tools.js', 'specialists.js', 'specialist-binding.js', 'node.js', 'node-dependencies.js']);
+  const allowed = new Set(['tools.js', 'specialists.js', 'specialist-binding.js', 'remote-specialist.js', 'node.js', 'node-dependencies.js']);
   expect(info.files.filter((file: any) => /\.(?:m?js|cjs)$/.test(file.path) && !file.path.startsWith('skills/')).every((file: any) => allowed.has(file.path))).toBe(true);
-  for (const name of ['tools.js', 'specialist-binding.js', 'node-dependencies.js']) expect(fs.readFileSync(path.join(directory, name), 'utf8')).toBe(fs.readFileSync(path.resolve('packages/flue', name), 'utf8'));
+  for (const name of ['tools.js', 'specialist-binding.js', 'remote-specialist.js', 'node-dependencies.js']) expect(fs.readFileSync(path.join(directory, name), 'utf8')).toBe(fs.readFileSync(path.resolve('packages/flue', name), 'utf8'));
   for (const name of allowed) expect(fs.readFileSync(path.join(directory, name), 'utf8')).not.toMatch(/node_modules\/|__commonJS|__toESM|vite\/dist|lightningcss/);
   console.log(`Flue tarball: ${info.size} packed bytes; ${info.unpackedSize} unpacked bytes; ${skills} skills`);
 }, 120_000);

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, it, vi } from 'vitest';
 import { validateFlueSkill } from '../../../tools/agents/providers/flue-validation.mjs';
-vi.mock('@flue/runtime', () => ({ defineSubagent: (value: unknown) => value, useTool: vi.fn(), useMcpConnection: vi.fn() }));
+vi.mock('@flue/runtime', () => ({ defineSubagent: (value: unknown) => value, useTool: vi.fn(), useDelivery: () => ({}), useAgentStart: vi.fn(), useAgentFinish: vi.fn() }));
 import { createSpecialist } from '../../../packages/flue/specialist-binding.js';
 const definition = { name: 'synthetic', description: 'Synthetic delegate', agent: () => 'instructions' };
 it('names the bad fixture and validates name and description bounds', () => {

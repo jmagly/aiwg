@@ -343,7 +343,8 @@ describe('Flue experimental deployment and lifecycle', () => {
     expect(flueDeploymentFiles(project)).toEqual(['src/db.ts', '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts', 'src/aiwg/skills.ts',
       'flue.config.ts', 'flue.config.mts', 'flue.config.mjs', 'flue.config.js', 'flue.config.cjs', 'flue.config.cts',
       '.flue/db.ts', '.flue/db.mts', '.flue/db.js', '.flue/db.mjs',
-      'src/db.mts', 'src/db.js', 'src/db.mjs', 'db.ts', 'db.mts', 'db.js', 'db.mjs']);
+      'src/db.mts', 'src/db.js', 'src/db.mjs', 'db.ts', 'db.mts', 'db.js', 'db.mjs', 'wrangler.jsonc',
+      'src/aiwg/remote-specialist.js', 'src/aiwg/remote-specialist.d.ts']);
   });
 
   it('governs complete and absent file preimages with the existing provider receipt schema', async () => {

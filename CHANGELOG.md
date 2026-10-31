@@ -9,6 +9,11 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Added
 
+- Cloudflare-target Flue generation with Worker-bound remote tools, a pinned
+  package-mode example, and local workerd qualification for skills, delegation,
+  project-bound artifacts, restart/resume, abort and authentication. Deployed
+  validation remains pending an operator token (#3127).
+
 - MIT `@aiwg/flue` peer-only package: static bundle skills, manifest-selected
   specialist factories, remote and Node MCP helpers. Flue `use --package`
   imports package skills and persists the mode across update/refresh (#3122).

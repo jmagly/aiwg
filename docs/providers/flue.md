@@ -31,7 +31,7 @@ the AIWG CLI, which requires Node >= 24.
 
 | Supported in this slice | Outside this slice |
 |---|---|
-| Node app target | Cloudflare |
+| Node app target; Cloudflare local emulation | Cloudflare deployed validation |
 | `aiwg_discover`, `aiwg_show`, `aiwg_artifact_write` and [remote MCP](flue-remote.md) | Multi-tenant MCP hosting |
 | Manifest-selected specialists and package imports | Sandboxes and approval hooks |
 | Explicitly mounted AIWG skills and SQLite state | User scope |
@@ -40,7 +40,7 @@ The example explicitly mounts the deployed `sdlc-quickref` with `useSkill`.
 Flue's automatic workspace skill discovery requires a sandbox; this example
 uses no sandbox. Its tools and specialists are ordinary app imports.
 
-The Flue provider targets Node apps using Flue 2.3.0. It deploys each selected bundle’s full skill set
+For Node apps using Flue 2.3.0, the provider deploys each selected bundle’s full skill set
 into `.agents/skills`, composes WORKSPACE.md and AIWG.md into cwd `AGENTS.md`
 with inline core rules, and supplies a conventional `db.ts` selecting SQLite at
 `.flue-state/state.db` relative to the project root, regardless of the process
@@ -94,7 +94,7 @@ aiwg use voice-framework --provider flue --package
 These commands run headlessly. `src/aiwg/skills.ts` uses static imports such as
 `@aiwg/flue/skills/sdlc-quickref/SKILL.md` and exports the same per-skill values,
 bundle arrays and mounting helper as copy mode. No skill files are copied.
-The generated `tools.ts` re-exports `@aiwg/flue/tools/node`, so app modules use
+On Node, generated `tools.ts` re-exports `@aiwg/flue/tools/node`, so app modules use
 the peer-owned Node adapters rather than importing adapter dependencies directly.
 `installed.<bundle>.deployedTo.flue.package: true` retains package mode through
 `aiwg update` and `aiwg refresh`; `--declare --package` also supports pending intent.
@@ -137,7 +137,74 @@ resolver for rotation. Its explicit default tools are `discover`, `skill-show`
 and `artifact-write`; adapted names are `mcp__aiwg__discover`,
 `mcp__aiwg__skill-show` and `mcp__aiwg__artifact-write`.
 The remote helper has no Node imports. See [remote setup](flue-remote.md).
-Cloudflare app support remains a separate follow-up.
+See the Cloudflare target below for Worker bindings and emulation qualification.
+
+Call remote specialist factories inside the root agent render. Flue 2.3.0
+rejects `useMcpConnection` inside subagents, so the factory prepares adapted
+tools with `createMcpConnection` in root `useAgentStart` hooks, mounts those
+definitions in the delegate, and closes on `useAgentFinish` or cancellation.
+Delivery-scoped bindings survive rerenders and isolate conversations.
+Custom finish-hook continuations with remote specialists are unsupported in
+this slice; normal completion, follow-up submissions, and abort are qualified.
+
+## Cloudflare target
+
+> Add AIWG to my Cloudflare Flue app using package mode. Mount the SDLC
+> quickref and Code Reviewer. Use Worker bindings for the remote AIWG URL and
+> token, and save artifacts in the remote server's bound project.
+
+> Run the Cloudflare example locally in workerd. Verify skill activation,
+> specialist delegation, remote discovery/show/write, restart/resume and abort.
+
+Start with the [Cloudflare example](../../examples/flue-cloudflare/README.md).
+Declare `target: 'cloudflare'` in `flue.config.*`, then run from its copy:
+
+```sh
+aiwg use sdlc --provider flue --package
+npm ci
+npm run dev
+npm run build
+```
+
+| Target | Support | Deployed result |
+|---|---|---|
+| Node | Supported; SQLite, local stdio or remote tools | Existing Node runtime coverage |
+| Cloudflare | Emulation-qualified in workerd | Pending operator token; no deployment performed |
+
+The static config declaration switches AIWG generation: no `db.ts`, no stdio
+tools, and `src/aiwg/tools.ts` exposes `aiwgConnection()`. Call it inside the
+agent render and mount the returned connection with `useMcpConnection`.
+Package mode uses `@aiwg/flue/tools`; copy mode generates an equivalent portable
+connection. Both read `AIWG_MCP_URL` and `AIWG_MCP_TOKEN` from Worker bindings via
+`getCloudflareContext()`, with an explicit error if either binding is absent.
+A bare `wrangler.jsonc` prints a warning and retains Node generation.
+
+The [remote setup guide](flue-remote.md) owns listener authentication and project
+binding. Local tests generate an ignored `.dev.vars` file with a random token.
+The Worker never writes AIWG artifacts locally. Keep `nodejs_compat`, a
+compatibility date, `new_sqlite_classes` migrations and a pinned `agentName` as
+shown in the example. Durable Object SQLite holds conversation state. Flue's
+Vite plugin precedes `cloudflare({ config: flueWorkerConfig() })`.
+
+**Emulation:** the release-slow suite uses the pinned Cloudflare lab and a local
+scripted model. It checks build, packaged skill import/listing/activation,
+specialist execution, exact remote results and artifact placement, process
+restart/resume of the same Durable Object conversation, mid-run abort, and
+clear wrong-token failure. It skips only if provisioning is unset:
+
+```sh
+AIWG_FLUE_CF_DEPENDENCIES=/path/to/flue-lab-cf \
+  nice -n 19 npm run test:release-slow -- flue-cloudflare-e2e
+```
+
+**Deployed:** pending the operator's later token and a separate deployed run.
+Local timings do not establish compliance with Cloudflare's default 30 s
+active-CPU budget per invocation. Workers cannot spawn stdio children.
+Filesystem tools require Cloudflare Sandbox or Computer; this example uses
+neither. Flue's remote adapter supplies tools only, without MCP resources,
+prompts or elicitation. No Cloudflare account is needed for these local tests.
+
+## Node state and ownership
 
 Operator content outside the AIWG context markers survives redeployment.
 Existing database modules are reported and preserved, including `db.ts`.

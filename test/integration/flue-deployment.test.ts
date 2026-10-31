@@ -35,6 +35,27 @@ function setup() {
 }
 
 describe('public experimental Flue app deployment', () => {
+  it.each([false, true])('stages the Cloudflare target and restores files on removal (package: %s)', packaged => {
+    const { project, command, snapshot } = setup();
+    fs.writeFileSync(path.join(project, 'flue.config.ts'), "export default { target: 'cloudflare' };\n");
+    fs.writeFileSync(path.join(project, 'wrangler.jsonc'), '{ "name": "synthetic-worker" }\n');
+    const before = snapshot();
+    command('use', 'sdlc', '--provider', 'flue', ...(packaged ? ['--package'] : []));
+    expect(fs.existsSync(path.join(project, 'src/db.ts'))).toBe(false);
+    const tools = fs.readFileSync(path.join(project, 'src/aiwg/tools.ts'), 'utf8');
+    expect(tools).toContain('getCloudflareContext');
+    expect(tools).not.toMatch(/stdio|tools\/node|node:/);
+    expect(tools).toContain(packaged ? '@aiwg/flue/tools' : 'defineMcpConnection');
+    if (!packaged) expect(fs.readFileSync(path.join(project, 'src/aiwg/remote-specialist.js'), 'utf8')).toContain('createMcpConnection');
+    command('remove', 'sdlc');
+    const after = snapshot();
+    for (const [name, bytes] of Object.entries(before)) expect(after[name], name).toBe(bytes);
+    for (const name of ['src/db.ts', '.gitignore', 'AGENTS.md', 'WORKSPACE.md', 'AIWG.md',
+      'src/aiwg/tools.ts', 'src/aiwg/skills.ts', 'src/aiwg/specialists.ts',
+      'src/aiwg/remote-specialist.js', 'src/aiwg/remote-specialist.d.ts']) expect(after[name], name).toBeUndefined();
+    expect(fs.existsSync(path.join(project, '.agents'))).toBe(false);
+  }, 900_000);
+
   it.each([false, true])('removes every deployed payload and preserves operator files (operator database: %s)', operatorDatabase => {
     const { project, command } = setup();
     const initial = { 'src/app.ts': 'export const operatorApp = true;\n',

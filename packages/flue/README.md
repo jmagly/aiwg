@@ -22,6 +22,11 @@ Pass `{ model, tools: Object.values(createAiwgTools()) }` or
 `{ model, connection: createAiwgConnection({ url, token }) }` to `codeReviewer`.
 Use Flue's `useSkill` and `useSubagent` hooks to mount the results. The specialist
 mounts those tools in its own render. Omitting `model` inherits the app model.
+Call a remote specialist factory inside the root agent render: it prepares
+the remote tools in `useAgentStart`, then mounts adapted definitions in the
+delegate, since Flue rejects subagent `useMcpConnection` calls. Connections
+close on `useAgentFinish` or cancellation. Custom finish-hook continuations
+with remote specialists are unsupported in this slice.
 
 The package ships no third-party code. Node tools reuse the canonical AIWG
 stdio adapter, resolving adapter dependencies from the pinned Flue peer. Install

@@ -60,6 +60,7 @@ export const deploymentFiles = [
 // CLI contracts and a small provider smoke matrix remain in the default lane.
 // These do not overlap the required post-merge deploymentFiles lane above.
 export const releaseSlowFiles = [
+  'test/integration/flue-cloudflare-e2e.test.ts',
   'test/integration/flue-package-consumer.test.ts',
   // Real Flue/Pi graph is provisioned from the example lockfile before this lane.
   'test/integration/flue-node-e2e.test.ts',

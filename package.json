@@ -293,6 +293,8 @@
     "schemas/marketplace/",
     "vscode-extension/schemas/aiwg.config.v1.json",
     "agentic/",
+    "packages/flue/remote-specialist.js",
+    "packages/flue/remote-specialist.d.ts",
     "!agentic/**/*.test.ts",
     "!agentic/**/package-lock.json",
     "!agentic/**/package.json",

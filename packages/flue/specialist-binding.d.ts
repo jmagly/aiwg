@@ -4,7 +4,7 @@ export interface SpecialistOptions {
   model?: string;
   /** Bind the actual Node tool definitions the delegate will mount. */
   tools?: readonly ToolDefinition[];
-  /** Bind the remote connection the delegate will mount; list its required tools explicitly. */
+  /** Prepare remote tools in root lifecycle hooks; list required tools explicitly. Call the factory inside the root render. */
   connection?: McpConnectionDefinition;
 }
 export declare function createSpecialist(definition: SubagentDefinition, options?: SpecialistOptions): SubagentDefinition;

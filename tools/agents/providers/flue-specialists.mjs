@@ -7,6 +7,7 @@ import { generateFlueSkills } from './flue-skills.mjs';
 import { parseFrontmatter } from './base-frontmatter.mjs';
 import { injectBoundRules } from './base-contract.mjs';
 import { claimRecordedFile } from './flue-project.mjs';
+import { cloudflareTools } from './flue-cloudflare.mjs';
 
 function specialists(bundles) {
   return [...new Map(bundles.flatMap(bundle => (bundle.manifest.flue?.specialists || []).map(name =>
@@ -16,6 +17,7 @@ export const FLUE_SPECIALISTS = Object.freeze(specialists(flueBundleInventory({ 
   .map(({ root: _root, ...entry }) => Object.freeze(entry)));
 
 export function generateFlueSpecialists(opts) {
+  const cloudflare = opts.flueTarget === 'cloudflare';
   const selected = specialists(selectedFlueBundles(opts));
   const definitions = selected.map(specialist => {
     const logical = path.join(specialist.root, 'agents', specialist.file);
@@ -28,9 +30,9 @@ export function generateFlueSpecialists(opts) {
   name: ${JSON.stringify(specialist.name)},
   description: ${JSON.stringify(metadata.description || metadata.name)},
   agent() {
-    useTool(aiwg_discover);
+    ${cloudflare ? '' : `useTool(aiwg_discover);
     useTool(aiwg_show);
-    useTool(aiwg_artifact_write);
+    useTool(aiwg_artifact_write);`}
     return ${JSON.stringify(body.trim())};
   },
 });`;
@@ -38,18 +40,18 @@ export function generateFlueSpecialists(opts) {
   if (opts.packageOutput) {
     const bundles = selectedFlueBundles(opts);
     const groups = bundles.map(bundle => ({ name: `${camel(bundle.id === 'sdlc-complete' ? 'sdlc' : bundle.id)}Specialists`, members: specialists([bundle]) }));
-    if (opts.declarations) return `import type { SubagentDefinition } from '@flue/runtime';\nimport type { SpecialistOptions } from './specialist-binding.js';\nexport type { SpecialistOptions } from './specialist-binding.js';\n${selected.map(s => `export declare function ${s.exportName}(options?: SpecialistOptions): SubagentDefinition;`).join('\n')}\n${groups.map(g => `export declare function ${g.name}(options?: SpecialistOptions): SubagentDefinition[];`).join('\n')}\n`;
-    return `import { createSpecialist } from './specialist-binding.js';\n${definitions.join('\n\n')}\n${groups.map(g => `export function ${g.name}(options) { return [${g.members.map(s => `${s.exportName}(options)`).join(', ')}]; }`).join('\n')}\n`;
+    if (opts.declarations) return `import type { SubagentDefinition, McpConnectionDefinition } from '@flue/runtime';\nimport type { SpecialistOptions } from './specialist-binding.js';\nexport type { SpecialistOptions } from './specialist-binding.js';\nexport declare function bindRemoteSpecialist(definition: SubagentDefinition, connection: McpConnectionDefinition): SubagentDefinition;\n${selected.map(s => `export declare function ${s.exportName}(options?: SpecialistOptions): SubagentDefinition;`).join('\n')}\n${groups.map(g => `export declare function ${g.name}(options?: SpecialistOptions): SubagentDefinition[];`).join('\n')}\n`;
+    return `import { createSpecialist } from './specialist-binding.js';\nexport { bindRemoteSpecialist } from './remote-specialist.js';\n${definitions.join('\n\n')}\n${groups.map(g => `export function ${g.name}(options) { return [${g.members.map(s => `${s.exportName}(options)`).join(', ')}]; }`).join('\n')}\n`;
   }
   return `// Curated AIWG delegates; regenerate from canonical sdlc-complete agents.
-import { defineSubagent, useSubagent, useTool } from '@flue/runtime';
-import { aiwg_discover, aiwg_show, aiwg_artifact_write } from './tools.ts';
+import { defineSubagent, useSubagent${cloudflare ? '' : ', useTool'} } from '@flue/runtime';
+import { ${cloudflare ? 'aiwgConnection, bindRemoteSpecialist' : 'aiwg_discover, aiwg_show, aiwg_artifact_write'} } from './tools.ts';
 
 ${definitions.join('\n\n')}
 
 /** Trusted app options: omit pins to inherit the app model and effort. */
 export function useAiwgSpecialists(pins: { ${selected.map(({ exportName }) => `${exportName}?: string`).join('; ')} } = {}) {
-${selected.map(({ exportName }) => `  useSubagent(pins.${exportName} === undefined ? ${exportName} : { ...${exportName}, model: pins.${exportName} });`).join('\n')}
+${selected.map(({ exportName }) => `  useSubagent(${cloudflare ? 'bindRemoteSpecialist(' : ''}pins.${exportName} === undefined ? ${exportName} : { ...${exportName}, model: pins.${exportName} }${cloudflare ? ', aiwgConnection())' : ''});`).join('\n')}
 }
 `;
 }
@@ -70,7 +72,11 @@ export function deployFlueSpecialists(target, opts) {
     }
   };
   const template = fileURLToPath(new URL('../../../agentic/code/providers/flue/templates/aiwg/tools.ts', import.meta.url));
-  write('src/aiwg/tools.ts', () => opts.fluePackage ? "export * from '@aiwg/flue/tools/node';\n" : fs.readFileSync(opts.mapInputPath?.(template) || template, 'utf8'));
+  if (opts.flueTarget === 'cloudflare' && !opts.fluePackage) {
+    for (const ext of ['js', 'd.ts']) write(`src/aiwg/remote-specialist.${ext}`, () =>
+      fs.readFileSync(new URL(`../../../packages/flue/remote-specialist.${ext}`, import.meta.url), 'utf8'));
+  }
+  write('src/aiwg/tools.ts', () => opts.flueTarget === 'cloudflare' ? cloudflareTools(opts) : opts.fluePackage ? "export * from '@aiwg/flue/tools/node';\n" : fs.readFileSync(opts.mapInputPath?.(template) || template, 'utf8'));
   write('src/aiwg/specialists.ts', () => generateFlueSpecialists(opts));
   write('src/aiwg/skills.ts', () => generateFlueSkills(target, opts));
 }
