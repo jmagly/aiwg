@@ -7,7 +7,7 @@ import { projectAiwgPath } from '../../config/project-artifacts.js';
 import type { AiwgConfig } from '../../config/aiwg-config.js';
 import { getConfigPath } from '../../config/aiwg-config.js';
 import { bundleCopyArgs } from './bundle-deployment-mode.js';
-import { bundleProviders, pruneUndeclaredBundles } from './bundle-reconciliation.js';
+import { bundleProviders, pruneUndeclaredBundles, pruneAfterScopedDeployments } from './bundle-reconciliation.js';
 import { readAiwgConfig } from '../../config/aiwg-config.js';
 import { withInstalledSelection } from '../../config/installed-selection.js';
 
@@ -127,7 +127,7 @@ export const updateHandler: CommandHandler = {
     const installedFrameworks = deployAll ? ['all'] : [...new Set(
       (configured ?? registry?.frameworks.map(item => item.id) ?? []).map(useName)
     )];
-    const pruneFailures = !deployAll && installed !== undefined
+    let pruneFailures = !deployAll && installed !== undefined
       ? await pruneUndeclaredBundles(ctx.cwd, await readAiwgConfig(ctx.cwd), providerArgs[1], dryRun, ctx.frameworkRoot) : 0;
     const deployments = installedFrameworks.flatMap(fw => installed === undefined || deployAll
       ? [{ fw, args: providerArgs }]
@@ -165,6 +165,8 @@ export const updateHandler: CommandHandler = {
         console.error(`Warning: Failed to re-deploy ${fw}: ${result.message || `exit ${result.exitCode}`}`);
       }
     }
+
+    if (!deployAll) pruneFailures += await pruneAfterScopedDeployments(ctx.cwd, await readAiwgConfig(ctx.cwd), providerArgs[1], ctx.frameworkRoot);
 
     // Step 4: Report summary
     console.log('');

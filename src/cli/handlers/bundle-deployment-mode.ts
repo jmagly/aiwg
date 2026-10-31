@@ -6,7 +6,7 @@ import { readAiwgConfig, type AiwgConfig } from '../../config/aiwg-config.js';
 import type { HandlerContext } from './types.js';
 import { frameworkRegistryId } from '../../config/framework-aliases.js';
 
-type History = Record<string, Record<string, { copy: boolean; produces?: string[]; reconciled?: boolean }>>;
+type History = Record<string, Record<string, { copy: boolean; skipUtils?: boolean; kernelOnly?: boolean; produces?: string[]; reconciled?: boolean }>>;
 const receiptPath = (project: string) => path.join(project, '.aiwg/.aiwg-manifest.json');
 export function bundleDeploymentHistory(project: string): History {
   try { return JSON.parse(fs.readFileSync(receiptPath(project), 'utf8')).bundleDeployments ?? {}; }
@@ -14,19 +14,21 @@ export function bundleDeploymentHistory(project: string): History {
 }
 export function bundleCopyArgs(installed: AiwgConfig['installed'], id: string, provider: string): string[] {
   const entry = Object.entries(installed).find(([key]) => frameworkRegistryId(key) === frameworkRegistryId(id))?.[1];
-  return [...(entry?.deployedTo[provider]?.copy === true ? ['--copy-all'] : []),
-    ...(provider === 'flue' && entry?.deployedTo.flue?.package === true ? ['--package'] : [])];
+  const flags = entry?.deployedTo[provider];
+  return [...(flags?.copy === true ? ['--copy-all'] : []), ...(flags?.skipUtils === true ? ['--no-utils'] : []),
+    ...(provider === 'flue' && flags?.package === true ? ['--package'] : [])];
 }
 export async function recordBundleDeployment(project: string, id: string, provider: string, args: string[], frameworkRoot?: string): Promise<void> {
   const { expectedBundleOwners } = await import('./bundle-reconciliation.js');
   const { getFrameworkRoot } = await import('../../channel/manager.mjs');
-  const selected = { installed: { [id]: { deployedTo: { [provider]: {} } } } } as AiwgConfig;
-  const produces = id === 'all' ? ['*'] : [...await expectedBundleOwners(selected, provider, frameworkRoot ?? await getFrameworkRoot())].sort();
+  const flags = bundleDeploymentScope(id, provider, args);
+  const selected = { installed: { [id]: { deployedTo: { [provider]: flags } } } } as AiwgConfig;
+  const produces = [...await expectedBundleOwners(selected, provider, frameworkRoot ?? await getFrameworkRoot())].sort();
   const file = receiptPath(project);
   const receipt = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { scope: 'project', managed: {} };
   receipt.bundleDeployments ??= {};
   receipt.bundleDeployments[provider] ??= {};
-  receipt.bundleDeployments[provider][frameworkRegistryId(id)] = { copy: args.includes('--copy-all') || args.includes('--copy-standard-skills'), produces };
+  receipt.bundleDeployments[provider][frameworkRegistryId(id)] = { copy: args.includes('--copy-all') || args.includes('--copy-standard-skills'), ...flags, produces };
   fs.mkdirSync(path.dirname(file), { recursive: true });
   writeContextFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`);
 }
@@ -56,4 +58,10 @@ export async function projectLocalDeploymentContext(ctx: HandlerContext, project
 export function projectLocalCopyMode(config: AiwgConfig, id: string, provider: string, args: string[], explicit: boolean): boolean {
   const requested = args.includes('--copy-all') || args.includes('--copy-standard-skills');
   return explicit ? requested : config.installed[id]?.deployedTo[provider]?.copy ?? requested;
+}
+
+// Match the effective framework gates used by the deployment pass.
+export function bundleDeploymentScope(id: string, provider: string, args: string[]) {
+  return { skipUtils: args.includes('--no-utils'), kernelOnly: id === 'all' && !['pi', 'omp'].includes(provider)
+    && !args.includes('--copy-all') && !args.includes('--copy-standard-skills') };
 }

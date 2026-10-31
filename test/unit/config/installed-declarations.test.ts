@@ -15,6 +15,7 @@ it.each([
   { deployedTo: { flue: {} } },
   { deployedTo: { flue: { package: true } } },
   { deployedTo: { flue: { copy: true }, claude: { copy: false } } },
+  { deployedTo: { claude: { skipUtils: true, kernelOnly: false }, codex: {} } },
   { version: '1', source: 'bundled', installedAt: '2026-10-31T00:00:00Z', deployedTo: { flue: {}, codex: { agents: 0, commands: 0, skills: 3, rules: 0 } } },
 ])('accepts pending declarations and mixed pending/deployed providers: %j', entry => {
   expect(() => validateInstalled({ sdlc: entry })).not.toThrow();
@@ -24,6 +25,8 @@ it.each([
   { deployedTo: { flue: { copy: 'yes' } } },
   { deployedTo: { flue: { package: 'yes' } } },
   { deployedTo: { claude: { package: true } } },
+  { deployedTo: { claude: { skipUtils: 'yes' } } },
+  { deployedTo: { codex: { kernelOnly: 1 } } },
   { deployedTo: { flue: { copy: true, skills: 2 } } },
   { deployedTo: { flue: { skills: 2 } } },
   { source: 'bundled', deployedTo: { flue: {} } },
@@ -37,8 +40,8 @@ it('fills a pending record without losing its other provider declarations', () =
   const config = emptyConfig(['flue']);
   config.installed.sdlc = { deployedTo: { flue: {}, codex: {} } };
   expect(getDeploymentSummary(config, 'flue')).toEqual({ agents: 0, commands: 0, skills: 0, rules: 0 });
-  updateInstalled(config, 'sdlc', 'flue', { agents: 0, commands: 0, skills: 116, rules: 2 }, { version: '1', source: 'bundled' });
-  expect(config.installed.sdlc).toMatchObject({ version: '1', source: 'bundled', deployedTo: { codex: {}, flue: { skills: 116 } } });
+  updateInstalled(config, 'sdlc', 'flue', { agents: 0, commands: 0, skills: 116, rules: 2 }, { version: '1', source: 'bundled', skipUtils: true, kernelOnly: false });
+  expect(config.installed.sdlc).toMatchObject({ version: '1', source: 'bundled', deployedTo: { codex: {}, flue: { skills: 116, skipUtils: true, kernelOnly: false } } });
   expect(typeof config.installed.sdlc.installedAt).toBe('string');
   expect(() => validateInstalled(config.installed)).not.toThrow();
 });
