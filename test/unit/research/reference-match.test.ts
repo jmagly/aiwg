@@ -156,6 +156,17 @@ describe('year review independent of title disambiguation', () => {
 });
 
 describe('runner-up margin for title caution', () => {
+  it.each([
+    [1970, 1970, 2000, false], [1970, 1970, 1970, true],
+    [1970, 1970, 1971, true], [1970, 1970, 1969, true],
+    [1970, 1970, 1972, false], [1970, 1970, 1968, false],
+    [1970, 1970, 0, true],
+    [1971, 1970, 2000, true], [undefined, 1970, 2000, true],
+  ] as const)('requires an exact winner year to dismiss a reprint (%s, %s, %s)', (supplied, winnerYear, runnerYear, cautious) => {
+    const reference = parsePartialReference('Ridge regression: Biased estimation for nonorthogonal problems', supplied);
+    const candidates = [winnerYear, runnerYear].map(year => scorePaper(reference, paper({ title: reference.title!, year })));
+    expect(needsTitleDisambiguation(reference, candidates, true)).toBe(cautious);
+  });
   it.each([false, true])('ignores a distant plausible runner-up (incomplete: %s)', incomplete => {
     const reference = parsePartialReference('Extremely randomized trees (2006)');
     const candidates = [scorePaper(reference, paper({ title: reference.title!, year: 2006 })),
