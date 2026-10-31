@@ -68,6 +68,10 @@ export function needsTitleDisambiguation(reference: PartialReference, candidates
   // A 0.25 window preserves caution for short titles sharing three of four tokens
   // (~0.24 behind with author corroboration), excluding weaker hits like 1.000 vs 0.711.
   const competing = candidates.slice(1).some(candidate => classifyCandidates([candidate]) !== 'unresolved' &&
+    // An exact winner year excludes only known gaps beyond one-year preprint/venue lag
+    // (e.g. reprints); adjacent or missing runner-up years still compete, failing safe.
+    !(reference.year !== undefined && candidates[0].score_parts.year === 1 && candidate.score_parts.year === 0 &&
+      candidate.paper.year > 0 && Math.abs(candidate.paper.year - reference.year) > 1) &&
     candidates[0].score - candidate.score <= 0.25 + 1e-12);
   if (!competing && !unqualified) return false;
   const title = normalizeTitle(reference.title);
