@@ -18,13 +18,20 @@ Review an existing module to ensure it selects durable storage. Generated files
 have ownership receipts; removal restores their verified original bytes and
 preserves files edited after deployment.
 
+The existing provider transformation-receipt schema also exposes
+`#/$defs/deploymentManifest` for `.aiwg-manifest.json` ownership sidecars.
+It validates optional `managed[*].filePreimage` snapshots while accepting
+legacy entries without snapshots; transformation receipts retain their shape.
+
 Flue discovers `db.ts` in `.flue/`, then `src/`, then the project root. AIWG
 uses `.flue/` when present, otherwise `src/`, which the generated modules
 establish in an empty project, without evaluating application configuration.
 For an existing root-level app/database, configure explicit `app`/`db` entry
 paths before adding `src/`, or move the operator modules into `src/`.
-If the app sets an explicit `db` path in `flue.config.ts`, keep that operator
-module and review its storage setting. State stays outside `.flue/` because
+If a static `db:` property appears in `flue.config.ts`, AIWG warns and leaves
+database generation and ignore rules to the operator. It reads the config as
+text without evaluating it; review that module's storage setting.
+State stays outside `.flue/` because
 Flue treats that directory as a source root ahead of `src/`. Apps already using
 `src/` or `.flue/` retain source discovery. Deployment does not start the app
 or create the database directory.

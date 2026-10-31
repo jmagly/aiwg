@@ -172,7 +172,7 @@ describe('Flue experimental deployment and lifecycle', () => {
     await deploy();
     expect(warning).toHaveBeenCalledWith(expect.stringContaining('keeping existing module'));
     const plan = planDeploymentRemoval(project, 'flue', 'sdlc-complete');
-    expect(plan.decisions).toContainEqual(expect.objectContaining({ path: path.join(project, 'src/aiwg/specialists.ts'), action: 'preserve', reason: 'modified or unverifiable managed file' }));
+    expect(plan.decisions).toContainEqual(expect.objectContaining({ path: path.join(project, 'src/aiwg/specialists.ts'), action: 'preserve', reason: 'edited generated file; preserved' }));
     await applyRemovalTransaction(plan.writes);
     expect(read('src/db.ts')).toContain('operator change');
     expect(read('src/aiwg/specialists.ts')).toContain('operator specialist change');
@@ -196,8 +196,16 @@ describe('Flue experimental deployment and lifecycle', () => {
     await deploy();
     fs.appendFileSync(path.join(project, 'AGENTS.md'), '\nOperator addition.\n');
     await deploy();
-    await remove();
-    expect(read('AGENTS.md')).toContain('Operator addition.');
+    fs.appendFileSync(path.join(project, 'AGENTS.md'), '\nSecond operator edit.\n');
+    const before = read('AGENTS.md'), record = receipt().managed['AGENTS.md'];
+    const plan = planDeploymentRemoval(project, 'flue', 'sdlc-complete');
+    expect(plan.decisions).toContainEqual(expect.objectContaining({ path: path.join(project, 'AGENTS.md'),
+      action: 'preserve', reason: 'edited generated file; preserved' }));
+    expect(plan.remaining).toContainEqual(record);
+    expect(plan.writes.some(write => write.path === path.join(project, 'AGENTS.md'))).toBe(false);
+    await applyRemovalTransaction(plan.writes);
+    expect(read('AGENTS.md')).toBe(before);
+    expect(receipt().managed['AGENTS.md']).toEqual(record);
   }, 60_000);
 
   it('does not mutate a dry run or accept user scope', async () => {
@@ -213,16 +221,75 @@ describe('Flue experimental deployment and lifecycle', () => {
     expect(files(project).filter(file => file.endsWith('db.ts'))).toEqual([]);
   });
 
+  it.each(['src', '.flue'])('reports the database in %s ahead of a stray root module in staged deployment', async dir => {
+    write(project, 'db.mjs', '// stray root database\n');
+    write(project, 'src/db.ts', '// operator src database\n');
+    if (dir === '.flue') write(project, '.flue/db.mts', '// operator flue database\n');
+    const selected = dir === '.flue' ? '.flue/db.mts' : 'src/db.ts';
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await deploy();
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining(`keeping existing database module ${path.join(project, selected)};`));
+    expect(warning).not.toHaveBeenCalledWith(expect.stringContaining(`module ${path.join(project, 'db.mjs')};`));
+    expect(receipt().managed[selected]).toBeUndefined();
+    expect(read('db.mjs')).toBe('// stray root database\n');
+    expect(discoverProjectEntry(resolveSourceRoot(project), 'db')).toBe(path.join(project, selected));
+  }, 60_000);
+
+  it.each(['.flue-state', '.flue-state/', '.flue-state/*', '/.flue-state', '/.flue-state/', '/.flue-state/*'])('keeps equivalent ignore rule %s byte-exact', rule => {
+    const before = `dist/\r\n ${rule} \r\n`;
+    write(project, '.gitignore', before);
+    deployFlueDatabase(project, {});
+    expect(read('.gitignore')).toBe(before);
+  });
+
+  it.each(['db: "./custom/database.ts"', '"db": customDatabase', "'db' /* operator */ : resolveDatabase()"])(
+    'preserves an explicit config entry without evaluating it (%s)', entry => {
+      const config = `throw new Error('must never evaluate');\nexport default { ${entry} };\n`;
+      write(project, 'flue.config.ts', config);
+      write(project, '.gitignore', 'dist/');
+      const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      deployFlueDatabase(project, {});
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining('keeping explicit db entry in flue.config.ts'));
+      expect(snapshot()).toEqual({ 'flue.config.ts': Buffer.from(config).toString('base64'), '.gitignore': Buffer.from('dist/').toString('base64') });
+    });
+
+  it.each(['// db: "custom"', '/* db: "custom" */', 'export default { note: "db: custom" };',
+    'export default { note: `db: custom` };'])('ignores config comments and string contents (%s)', config => {
+    write(project, 'flue.config.ts', config);
+    deployFlueDatabase(project, {});
+    expect(read('src/db.ts')).toContain('sqlite');
+    expect(read('.gitignore')).toBe('.flue-state/\n');
+  });
+
+  it.each([false, true])('respects a config-pointed operator db through staged deploy/remove (existing ignore: %s)', async ignore => {
+    write(project, 'src/app.ts', 'export default {};\n');
+    write(project, 'flue.config.ts', 'export default { db: "./custom/database.ts" };\n');
+    write(project, 'custom/database.ts', '// operator database\n');
+    if (ignore) write(project, '.gitignore', 'dist/');
+    const before = snapshot();
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await deploy();
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('keeping explicit db entry in flue.config.ts'));
+    expect(fs.existsSync(path.join(project, 'src/db.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(project, '.gitignore'))).toBe(ignore);
+    if (ignore) expect(read('.gitignore')).toBe('dist/');
+    for (const name of ['src/db.ts', '.gitignore', 'flue.config.ts']) expect(receipt().managed[name]).toBeUndefined();
+    await remove();
+    expect(snapshot()).toEqual(before);
+  }, 60_000);
+
   it('keeps an existing ignore rule and rejects malformed context markers', () => {
     write(project, '.gitignore', '/.flue-state/\n');
     deployFlueDatabase(project, {});
     expect(read('.gitignore')).toBe('/.flue-state/\n');
     write(project, 'AGENTS.md', '<!-- AIWG:flue-context:start -->');
     expect(() => writeFlueContext(project)).toThrow('Malformed');
-    expect(flueDeploymentFiles(project)).toEqual(['src/db.ts', '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts']);
+    expect(flueDeploymentFiles(project)).toEqual(['src/db.ts', '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts',
+      'flue.config.ts', '.flue/db.ts', '.flue/db.mts', '.flue/db.js', '.flue/db.mjs',
+      'src/db.mts', 'src/db.js', 'src/db.mjs', 'db.ts', 'db.mts', 'db.js', 'db.mjs']);
   });
 
-  it('governs complete and absent file preimages with the existing provider receipt schema', () => {
+  it('governs complete and absent file preimages with the existing provider receipt schema', async () => {
     const schema = JSON.parse(fs.readFileSync(path.join(ROOT, 'schemas/providers/aiwg-provider-transformation-receipt.v1.schema.json'), 'utf8'));
     const ajv = new Ajv({ strict: true }); addFormats(ajv);
     ajv.addSchema(schema);
@@ -231,5 +298,15 @@ describe('Flue experimental deployment and lifecycle', () => {
     for (const item of fixture.valid) expect(validate(item), JSON.stringify(validate.errors)).toBe(true);
     for (const item of fixture.invalid) expect(validate(item)).toBe(false);
     expect(validate({ present: true, bytes: '', hash: `sha256:${createHash('sha256').update('').digest('hex')}` })).toBe(true);
+    const validateManifest = ajv.compile({ $ref: `${schema.$id}#/$defs/deploymentManifest` });
+    const manifests = JSON.parse(fs.readFileSync(path.join(ROOT, 'test/fixtures/providers/flue-manifests.json'), 'utf8'));
+    for (const item of manifests.valid) expect(validateManifest(item), JSON.stringify(validateManifest.errors)).toBe(true);
+    for (const item of manifests.invalid) expect(validateManifest(item)).toBe(false);
+    await deploy();
+    expect(validateManifest(receipt()), JSON.stringify(validateManifest.errors)).toBe(true);
+    for (const filePreimage of fixture.invalid) {
+      const invalid = receipt(); invalid.managed['AGENTS.md'].filePreimage = filePreimage;
+      expect(validateManifest(invalid)).toBe(false);
+    }
   });
 });

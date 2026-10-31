@@ -47,6 +47,22 @@
     }
   },
   "$defs": {
+    "deploymentManifest": {
+      "description": "Deployment ownership sidecar; legacy metadata remains accepted. Validate .aiwg-manifest.json against this definition.",
+      "type": "object",
+      "required": ["managed"],
+      "properties": {
+        "managed": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "filePreimage": { "$ref": "#/$defs/deploymentFilePreimage" }
+            }
+          }
+        }
+      }
+    },
     "deploymentFilePreimage": {
       "type": "object",
       "additionalProperties": false,

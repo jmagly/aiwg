@@ -5,9 +5,21 @@ import { createHash } from 'node:crypto';
 
 const exists = file => { try { fs.lstatSync(file); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 const directory = file => exists(file) && fs.lstatSync(file).isDirectory();
+const databaseFiles = () => ['.flue', 'src', ''].flatMap(dir => ['ts', 'mts', 'js', 'mjs'].map(ext => path.join(dir, `db.${ext}`)));
 export function flueDeploymentFiles(target) {
   const source = ['.flue', 'src'].find(dir => directory(path.join(target, dir))) || 'src';
-  return [path.join(source, 'db.ts'), '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts'];
+  // Snapshot config and conventional entries too: deployment reads a staged project.
+  return [...new Set([path.join(source, 'db.ts'), '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts',
+    'flue.config.ts', ...databaseFiles()])];
+}
+function explicitDatabase(target) {
+  const config = path.join(target, 'flue.config.ts');
+  if (!exists(config)) return false;
+  // Static tokens only; comments and string/template contents cannot become keys.
+  const tokens = fs.readFileSync(config, 'utf8').match(/\/\*[\s\S]*?\*\/|\/\/[^\r\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|[A-Za-z_$][\w$]*|[^\s]/g) || [];
+  const code = tokens.filter(token => !token.startsWith('//') && !token.startsWith('/*'));
+  return code.some((token, index) => ['db', '"db"', "'db'"].includes(token)
+    && ['{', ','].includes(code[index - 1]) && code[index + 1] === ':');
 }
 export function claimRecordedFile(target, file, opts) {
   if (!exists(file)) return false;
@@ -20,10 +32,14 @@ export function claimRecordedFile(target, file, opts) {
   return true;
 }
 export function deployFlueDatabase(target, opts) {
+  if (explicitDatabase(target)) {
+    console.warn('Flue (experimental): keeping explicit db entry in flue.config.ts; verify the operator module selects durable SQLite at .flue-state/state.db.');
+    return;
+  }
   const relative = opts.flueDatabaseFile || flueDeploymentFiles(target)[0];
   const file = path.join(target, relative);
   // All conventional operator database formats take precedence over generation.
-  const operator = ['', 'src', '.flue'].flatMap(dir => ['ts', 'mts', 'js', 'mjs'].map(ext => path.join(target, dir, `db.${ext}`)))
+  const operator = databaseFiles().map(name => path.join(target, name))
     .find(exists);
   if (operator && !claimRecordedFile(target, operator, opts)) console.warn(`Flue (experimental): keeping existing database module ${opts.logicalOutputPath?.(operator) || operator}; verify it selects durable SQLite at .flue-state/state.db.`);
   else if (!operator && !opts.dryRun) {
@@ -34,7 +50,7 @@ export function deployFlueDatabase(target, opts) {
   const ignore = path.join(target, '.gitignore');
   claimRecordedFile(target, ignore, opts);
   const before = exists(ignore) ? fs.readFileSync(ignore, 'utf8') : '';
-  if (!before.split(/\r?\n/).some(line => ['.flue-state/', '/.flue-state/'].includes(line.trim())) && !opts.dryRun) {
+  if (!before.split(/\r?\n/).some(line => line.trim().replace(/^\//, '').replace(/\/(?:\*)?$/, '') === '.flue-state') && !opts.dryRun) {
     fs.writeFileSync(ignore, `${before}${before && !before.endsWith('\n') ? '\n' : ''}.flue-state/\n`);
   }
 }

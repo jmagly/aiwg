@@ -126,6 +126,7 @@ export function planDeploymentRemoval(project: string, provider: string, owner: 
           changed = true;
           continue;
         }
+        reason = 'edited generated file; preserved';
       }
       else if (CONTEXT_BRIDGES.has(path.basename(target))) reason = 'context bridge preserved; pre-deploy operator content unverifiable';
       else if ((claims.get(target) || []).some(claim => claim.hash !== record.hash)) reason = 'conflicting receipt digests; unverifiable';
