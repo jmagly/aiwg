@@ -1,6 +1,6 @@
 {
   "name": "@aiwg/cockpit",
-  "version": "2026.10.18",
+  "version": "2026.10.19",
   "description": "AIWG Cockpit — UX-first control plane over AIWG + multi-stack agentic sessions. Opt-in, separately published; NOT shipped in the base aiwg npm package (guarded by test/smoke/cockpit-base-footprint.test.js).",
   "type": "module",
   "license": "MIT",

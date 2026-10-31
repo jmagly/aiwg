@@ -1,6 +1,6 @@
 {
   "name": "context-curator",
-  "version": "2026.10.18",
+  "version": "2026.10.19",
   "description": "Context curation and distractor filtering for production-grade agent reliability",
   "author": {
     "name": "AIWG Contributors",
