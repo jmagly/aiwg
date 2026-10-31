@@ -13,6 +13,7 @@ const ajv = new Ajv({ strict: true }); addFormats(ajv);
 const validate = ajv.compile(schema.definitions.InstalledFramework);
 it.each([
   { deployedTo: { flue: {} } },
+  { deployedTo: { flue: { package: true } } },
   { deployedTo: { flue: { copy: true }, claude: { copy: false } } },
   { version: '1', source: 'bundled', installedAt: '2026-10-31T00:00:00Z', deployedTo: { flue: {}, codex: { agents: 0, commands: 0, skills: 3, rules: 0 } } },
 ])('accepts pending declarations and mixed pending/deployed providers: %j', entry => {
@@ -21,6 +22,8 @@ it.each([
 });
 it.each([
   { deployedTo: { flue: { copy: 'yes' } } },
+  { deployedTo: { flue: { package: 'yes' } } },
+  { deployedTo: { claude: { package: true } } },
   { deployedTo: { flue: { copy: true, skills: 2 } } },
   { deployedTo: { flue: { skills: 2 } } },
   { source: 'bundled', deployedTo: { flue: {} } },
@@ -50,4 +53,14 @@ it('limits automatic local passes to the bundle’s declared providers while pre
       expect(permitsBundleDeployment(project, 'dropped', 'claude')).toBe(false);
     });
   } finally { fs.rmSync(project, { recursive: true, force: true }); }
+});
+
+it('persists Flue package mode alongside copy mode and forwards it on update', async () => {
+  const { bundleCopyArgs } = await import('../../../src/cli/handlers/bundle-deployment-mode.js');
+  const config = emptyConfig(['flue']);
+  updateInstalled(config, 'sdlc', 'flue', { agents: 0, commands: 0, skills: 0, rules: 0 },
+    { version: '1', source: 'bundled', package: true, copy: false });
+  expect(config.installed.sdlc.deployedTo.flue.package).toBe(true);
+  expect(bundleCopyArgs(config.installed, 'sdlc-complete', 'flue')).toEqual(['--package']);
+  expect(validate(config.installed.sdlc), JSON.stringify(validate.errors)).toBe(true);
 });

@@ -79,7 +79,7 @@ describe('Socket post-publish audit', () => {
       'node_modules/@aiwg/cli': { name: '@aiwg/cli', version: '2026.8.8' },
       'node_modules/chalk': { version: '4.1.2' }
     } }, '2026.8.8')
-    expect(components.filter(item => item.depth === 'direct')).toHaveLength(2)
+    expect(components.filter(item => item.depth === 'direct')).toHaveLength(3)
     expect(components.find(item => item.purl.includes('chalk'))?.depth).toBe('transitive')
   })
 
@@ -189,7 +189,7 @@ describe('Socket post-publish audit', () => {
     const secondary = componentsFromLock(lock, '2026.8.8', { releaseRoot: false })
     expect(secondary.map(component => component.purl)).toEqual(['pkg:npm/chalk@4.1.2'])
     expect(componentsFromLock(lock, '2026.8.8').filter(component => component.depth === 'direct')).toEqual(
-      roots.map(root => expect.objectContaining(root))
+      [...roots, { purl: 'pkg:npm/%40aiwg/flue@2026.8.8', depth: 'direct' }].map(root => expect.objectContaining(root))
     )
   })
 

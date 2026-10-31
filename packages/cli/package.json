@@ -107,6 +107,7 @@
     "tools/plugin/plugin-links.mjs",
     "tools/skills/deploy-skills-codex.mjs",
     "tools/skills/codex-skill-transform.mjs",
+    "tools/skills/codex-skill-metadata.mjs",
     "README.md"
   ],
   "repository": {

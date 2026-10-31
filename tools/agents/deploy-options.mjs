@@ -111,6 +111,7 @@ export function parseArgs(args = process.argv.slice(2)) {
     // Structural opt-out: skip the migration without claiming the operator declined it (#2541).
     else if (a === '--no-commands-warning') cfg.warnOnSkippedCommandsMigration = false;
     else if (a === '--index-mode') cfg.indexMode = true; // internal: forced local copies still use index cleanup
+    else if (a === '--package') cfg.fluePackage = true;
     else if (a === '--copy-all' || a === '--copy-standard-skills') cfg.copyStandardSkills = true;
     // #228: Muse provider — explicit opt-in MCP settings profile, and the
     // managed-hooks opt-out (default on, mirroring the Claude autoInstall policy).

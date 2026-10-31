@@ -274,12 +274,13 @@ After CI/CD completes:
 ```bash
 npm view aiwg version
 npm view @aiwg/cockpit version
+npm view @aiwg/flue version
 npm view @aiwg/cli version
-# All three should show: 2026.1.5
+# All four should show: 2026.1.5
 ```
 
-The GitHub trusted-publishing workflow publishes `aiwg`, `@aiwg/cockpit`, and
-`@aiwg/cli` at the same CalVer. After uploading release assets it checks each
+The GitHub trusted-publishing workflow publishes `aiwg`, `@aiwg/cockpit`, `@aiwg/cli`,
+and `@aiwg/flue` at the same CalVer. After uploading release assets it checks each
 stable dist-tag and provenance attestation; visibility delays are advisory.
 
 For stable releases, OIDC sets `latest` during publication. The workflow does
@@ -287,7 +288,7 @@ not create, advance, or maintain an npm `next` dist-tag. `next` is retired from
 the public registry: removing it requires a one-time authenticated npm account
 session because trusted publishing authorizes publication, not dist-tag edits.
 The post-release gate checks that `latest` matches the release and `next` is
-absent for all three packages.
+absent for all four packages.
 
 ### 5. Mirror signed release assets to the Gitea release
 
@@ -376,7 +377,7 @@ The `A2A Conformance` workflow provisions a reference agentic-sandbox instance v
 ## npm publication channel
 
 The npm release pipeline accepts only stable CalVer tags matching
-`vYYYY.M.PATCH`. It publishes `aiwg`, `@aiwg/cli`, and `@aiwg/cockpit` at the
+`vYYYY.M.PATCH`. It publishes `aiwg`, `@aiwg/cli`, `@aiwg/cockpit`, and `@aiwg/flue` at the
 same version. GitHub Actions trusted publishing sets `latest` on npmjs.org;
 Gitea Actions sets `latest` on its package mirror and removes its old `next`
 alias. The public npm `next` alias requires a one-time authenticated removal.
@@ -385,7 +386,7 @@ on npmjs.org. The pipeline does not publish nightly, alpha, beta, or RC versions
 
 ```bash
 # One-time public registry cleanup from an authenticated npm account session.
-for package in aiwg @aiwg/cli @aiwg/cockpit; do
+for package in aiwg @aiwg/cli @aiwg/cockpit @aiwg/flue; do
   npm dist-tag rm "$package" next --registry=https://registry.npmjs.org
 done
 # After CI publishes the new version:
@@ -581,7 +582,7 @@ the benefit; the threat-model effect of either shape is equivalent.
 
 ## Package ownership & npm registries
 
-AIWG ships **three** npm packages with **different ownership models** — this split
+AIWG ships **four** npm packages with **different ownership models** — this split
 is intentional; don't try to "unify" them.
 
 | Package         | Scope / owner                                      | Public install                 | Notes                                                                                        |
@@ -590,6 +591,8 @@ is intentional; don't try to "unify" them.
 | `@aiwg/cli`     | **scoped**, under the `@aiwg` org                  | `npm install -g @aiwg/cli`     | Lightweight CLI/API runtime without the corpus; its version is exactly lockstep with `aiwg`. |
 | `@aiwg/cockpit` | **scoped**, under the `@aiwg` org                  | `npm install -g @aiwg/cockpit` | Opt-in Cockpit package.                                                                      |
 
+| `@aiwg/flue` | **scoped**, under the `@aiwg` org | `npm install @aiwg/flue` | Opt-in Flue skills and tool helpers; version lockstep with `aiwg`; first publish is a manual operator bootstrap. |
+
 ### Direct stable publication
 
 Before cutting a stable tag, the release operator must confirm successful main CI
@@ -597,7 +600,7 @@ for the exact commit to be tagged. The workflow verifies ancestry but does not
 independently prove CI status. A signed stable tag on main starts the GitHub
 publication workflow. The workflow
 verifies the tag and main ancestry, builds and tests the release, packs and
-smoke-installs all three packages, then publishes those exact tarballs to npmjs
+smoke-installs all four packages, then publishes those exact tarballs to npmjs
 using OIDC and provenance. An observed registry identity mismatch fails the
 release, and recovery from an existing-version conflict requires an exact
 identity match. Registry visibility, provenance and dist-tag checks are
@@ -647,7 +650,7 @@ then `test:release-slow`, and succeeds only after both pass. The exact lane
 inventory and failed-gate diagnostics remain in `validation.json`.
 
 The optional Gitea mirror is a manual tag-bound dispatch after npmjs publication.
-It verifies all three public package identities before mirroring the same bytes.
+It verifies all four public package identities before mirroring the same bytes.
 For GitHub recovery, dispatch the same signed tag:
 
 ```bash
@@ -669,13 +672,13 @@ npm install --global \
 
 This downloads AIWG from Gitea while resolving its public dependencies from
 npmjs.org. The Gitea release workflow emits the version-specific form of this
-command, and the publish workflow clean-installs all three mirrored tarballs.
+command, and the publish workflow clean-installs all four mirrored tarballs.
 
 ### OIDC trusted publishers are per-package
 
 Each package needs its **own** OIDC trusted publisher configured on npmjs.org,
 pointed at `jmagly/aiwg`'s `.github/workflows/npm-publish.yml`. Configure the
-same publisher tuple separately for `aiwg`, `@aiwg/cli`, and `@aiwg/cockpit`.
+same publisher tuple separately for `aiwg`, `@aiwg/cli`, `@aiwg/cockpit`, and `@aiwg/flue`.
 The historical `@aiwg/cli@0.0.0-bootstrap.0` reservation is not an AIWG
 release. Released packages use the shared AIWG CalVer, and the deprecated
 `bootstrap` dist-tag is intentionally absent.
@@ -690,6 +693,7 @@ registry stub. The source files are:
 | `aiwg` | `README.md` |
 | `@aiwg/cli` | `packages/cli/README.md` |
 | `@aiwg/cockpit` | `apps/cockpit/README.md` |
+| `@aiwg/flue` | `packages/flue/README.md` |
 
 Each README must stand alone on npm and include package-specific installation,
 quick start, architecture or operating model, troubleshooting, documentation

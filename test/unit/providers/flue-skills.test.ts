@@ -63,3 +63,36 @@ it.each([...Object.entries(REGISTRY_ID_TO_USE_NAME), ['general', 'general'], ['w
   const opts = { srcRoot: root, mode: 'unused', config: { installed: { [id]: { deployedTo: { flue: {} } } } } };
   expect(selectedFlueBundles(opts).map((bundle: { id: string }) => bundle.id)).toEqual([canonical]);
 });
+it('preserves package imports for an aliased bundle alongside a workspace copy', () => {
+  const corpus = path.join(root, 'corpus');
+  const project = path.join(root, 'project');
+  for (const [group, id, skill] of [['frameworks', 'research-complete', 'cite'], ['addons', 'voice-framework', 'voice']] as const) {
+    write(path.join(corpus, 'agentic/code', group, id, 'manifest.json'), '{}');
+    write(path.join(corpus, 'agentic/code', group, id, 'skills', skill, 'SKILL.md'), `---\nname: ${skill}\ndescription: Synthetic skill\n---\n`);
+  }
+  write(path.join(project, '.agents/skills/voice/SKILL.md'), 'workspace copy');
+  const generated = generateFlueSkills(project, { srcRoot: path.join(corpus, 'agentic/code/addons/voice-framework'), config: { installed: {
+    research: { deployedTo: { flue: { package: true } } }, 'voice-framework': { deployedTo: { flue: {} } },
+  } } });
+  expect(generated).toContain("import cite from '@aiwg/flue/skills/cite/SKILL.md'");
+  expect(generated).toContain("import voice from '../../.agents/skills/voice/SKILL.md'");
+});
+it('emits package specialist factories and declarations from the same manifest selection', () => {
+  const source = path.join(root, 'agentic/code/addons/synthetic');
+  write(path.join(source, 'manifest.json'), JSON.stringify({ flue: { specialists: ['local-reviewer'] } }));
+  write(path.join(source, 'agents/local-reviewer.md'), '---\nname: Local Reviewer\ndescription: Review locally\n---\nCanonical body.\n');
+  const options = { srcRoot: source, packageOutput: true };
+  expect(generateFlueSpecialists(options)).toContain('export function localReviewer(options)');
+  expect(generateFlueSpecialists(options)).toContain('export function syntheticSpecialists(options)');
+  expect(generateFlueSpecialists({ ...options, declarations: true })).toContain('localReviewer(options?: SpecialistOptions): SubagentDefinition');
+  expect(generateFlueSpecialists(options)).toContain('Canonical body.');
+});
+it('lets an explicit framework invocation switch an existing declaration to package mode', () => {
+  fs.mkdirSync(path.join(root, 'agentic/code/addons'), { recursive: true });
+  const source = path.join(root, 'agentic/code/frameworks/sdlc-complete');
+  write(path.join(source, 'manifest.json'), '{}');
+  write(path.join(source, 'skills/review/SKILL.md'), '---\nname: review\ndescription: Review changes\n---\n');
+  const generated = generateFlueSkills(path.join(root, 'project'), { srcRoot: root, mode: 'sdlc', fluePackage: true,
+    config: { installed: { sdlc: { deployedTo: { flue: { package: false } } } } } });
+  expect(generated).toContain("import review from '@aiwg/flue/skills/review/SKILL.md'");
+});

@@ -32,9 +32,9 @@ the AIWG CLI, which requires Node >= 24.
 | Supported in this slice | Outside this slice |
 |---|---|
 | Node app target | Cloudflare |
-| `aiwg_discover`, `aiwg_show`, `aiwg_artifact_write` | A network MCP gateway |
-| Code Reviewer and Test Engineer | Sandboxes and approval hooks |
-| Explicitly mounted AIWG skills and SQLite state | User scope and the `@aiwg/flue` package import |
+| `aiwg_discover`, `aiwg_show`, `aiwg_artifact_write` and [remote MCP](flue-remote.md) | Multi-tenant MCP hosting |
+| Manifest-selected specialists and package imports | Sandboxes and approval hooks |
+| Explicitly mounted AIWG skills and SQLite state | User scope |
 
 The example explicitly mounts the deployed `sdlc-quickref` with `useSkill`.
 Flue's automatic workspace skill discovery requires a sandbox; this example
@@ -70,6 +70,74 @@ it is excluded from the inline `AGENTS.md` copy.
 aiwg use sdlc --provider flue --scope project
 aiwg remove sdlc
 ```
+
+## Package mode
+
+> Add the SDLC and voice bundles to this Flue app using `@aiwg/flue` package
+> imports. Keep the skills out of the project tree, and preserve that choice
+> when I update or refresh AIWG.
+
+> Mount the SDLC quickref and Code Reviewer. Use the model selected by this app
+> and the local AIWG tools. Tell me which tool import is missing if setup is incomplete.
+
+Install `@aiwg/flue` alongside your app's `@flue/runtime@2.3.0` and Flue build
+plugin. The MIT package declares only a `@flue/runtime: 2.3.x` peer. Vite and
+other build dependencies belong to the app. The first npm publication requires
+an operator bootstrap; later releases follow the normal trusted publishing path.
+
+```sh
+npm install @aiwg/flue @flue/runtime@2.3.0
+aiwg use sdlc --provider flue --package
+aiwg use voice-framework --provider flue --package
+```
+
+These commands run headlessly. `src/aiwg/skills.ts` uses static imports such as
+`@aiwg/flue/skills/sdlc-quickref/SKILL.md` and exports the same per-skill values,
+bundle arrays and mounting helper as copy mode. No skill files are copied.
+The generated `tools.ts` re-exports `@aiwg/flue/tools/node`, so app modules use
+the peer-owned Node adapters rather than importing adapter dependencies directly.
+`installed.<bundle>.deployedTo.flue.package: true` retains package mode through
+`aiwg update` and `aiwg refresh`; `--declare --package` also supports pending intent.
+Only framework and eligible addon skills are published. Project-local bundles
+and extensions use workspace copies. A shared skill name uses the first canonical
+framework in inventory order (frameworks precede addons).
+
+Apps can import directly too:
+
+```ts
+import { useModel, useSkill, useSubagent, useTool } from '@flue/runtime';
+import quickref from '@aiwg/flue/skills/sdlc-quickref/SKILL.md';
+import { codeReviewer, sdlcSpecialists } from '@aiwg/flue/specialists';
+import { createAiwgTools } from '@aiwg/flue/tools/node';
+
+export function Assistant() {
+  const model = process.env.FLUE_MODEL!;
+  useModel(model);
+  const tools = Object.values(createAiwgTools());
+  for (const tool of tools) useTool(tool);
+  useSkill(quickref);
+  useSubagent(codeReviewer({ model, tools }));
+  // Or mount every specialist in the selected bundle:
+  // for (const specialist of sdlcSpecialists({ model, tools })) useSubagent(specialist);
+  return 'Review the supplied change using the SDLC rules.';
+}
+```
+
+Factories bind the actual tools the delegate mounts. Missing capabilities throw
+before mounting and name both the missing tool and the supplying export.
+The package contains no model IDs; omitting `model` inherits the app model.
+The Node export reuses the workspace tools template and resolves its adapters
+from Flue 2.3.x's own dependency graph, including nested dependency layouts.
+It requires a separately installed `aiwg` executable for stdio calls.
+
+For remote tools use `createAiwgConnection({ url, token })` from
+`@aiwg/flue/tools`, mount it with `useMcpConnection(connection)`, and pass
+`{ model, connection }` to the specialist factory. The helper accepts a token
+resolver for rotation. Its explicit default tools are `discover`, `skill-show`
+and `artifact-write`; adapted names are `mcp__aiwg__discover`,
+`mcp__aiwg__skill-show` and `mcp__aiwg__artifact-write`.
+The remote helper has no Node imports. See [remote setup](flue-remote.md).
+Cloudflare app support remains a separate follow-up.
 
 Operator content outside the AIWG context markers survives redeployment.
 Existing database modules are reported and preserved, including `db.ts`.

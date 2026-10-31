@@ -4,12 +4,12 @@ AIWG captures Socket package-analysis evidence after npm trusted publishing succ
 
 ## What is evaluated
 
-The workflow evaluates both published entry points, `aiwg` and `@aiwg/cli`, at the exact release version. It inventories the published dependency tree plus every explicitly configured npm and Cargo lockfile, queries resolved external package versions, and records findings in two groups:
+The workflow evaluates the CLI and Flue entry points, `aiwg`, `@aiwg/cli` and `@aiwg/flue`, at the exact release version. It inventories the published dependency tree plus every explicitly configured npm and Cargo lockfile, queries resolved external package versions, and records findings in two groups:
 
 - **direct** — alerts and category scores on the two AIWG packages;
 - **transitive** — alerts on packages reached through their runtime dependency tree.
 
-Secondary npm lockfile roots, private packages, and workspace links are not query targets. Cargo packages at version `0.0.0` without a `source` are local workspace packages and are excluded, including `aiwg-cockpit-desktop`. Registry and git dependencies at `0.0.0` remain in the inventory. The two published release entry points remain explicit targets.
+Secondary npm lockfile roots, private packages, and workspace links are not query targets. Cargo packages at version `0.0.0` without a `source` are local workspace packages and are excluded, including `aiwg-cockpit-desktop`. Registry and git dependencies at `0.0.0` remain in the inventory. The published CLI and Flue entry points remain explicit targets.
 
 Category scores are compared independently with [`ci/socket-score-baseline.json`](../../ci/socket-score-baseline.json). A score drop of 0.10 or greater triggers review. Scanner scoring models can evolve, so a score change is evidence to investigate—not authorization to remove or degrade a supported capability.
 
@@ -21,9 +21,9 @@ The baseline classifies `socketUpgradeAvailable` as informational: it advertises
 
 The workflow never converts missing evidence into a clean result. Missing credentials, HTTP errors, rate limits after bounded retries, malformed responses, delayed scans, `pendingScan`, `notFound`, and missing requested packages produce an `unavailable` report and a failed workflow.
 
-Before building the published dependency inventory, the workflow polls `npm view <pkg>@<version> version` for `aiwg`, `@aiwg/cli`, and `@aiwg/cockpit`. All three must return the exact release version. The default visibility wait is 45 minutes, with checks every 30 seconds. Registry requests and sleeps are bounded by the remaining wait; npm fetch retries are disabled.
+Before building the published dependency inventory, the workflow polls `npm view <pkg>@<version> version` for `aiwg`, `@aiwg/cli`, `@aiwg/cockpit`, and `@aiwg/flue`. All four must return the exact release version. The default visibility wait is 45 minutes, with checks every 30 seconds. Registry requests and sleeps are bounded by the remaining wait; npm fetch retries are disabled.
 
-If npm still holds any package in review when the wait expires, the workflow skips dependency installation and Socket scanning. Both the job summary and uploaded `workflow-status.md` record `unavailable: npm-review-pending`, the release version/tag/commit, and the exact manual re-dispatch command. The final audit gate still fails closed for unavailable evidence; the release publication remains successful. Re-dispatch once all three versions are visible.
+If npm still holds any package in review when the wait expires, the workflow skips dependency installation and Socket scanning. Both the job summary and uploaded `workflow-status.md` record `unavailable: npm-review-pending`, the release version/tag/commit, and the exact manual re-dispatch command. The final audit gate still fails closed for unavailable evidence; the release publication remains successful. Re-dispatch once all four versions are visible.
 
 Every run uploads workflow status evidence, including when npm visibility expires. When Socket evaluation runs, it also uploads JSON and Markdown reports even when evaluation fails. Reports contain alert metadata but never include the API token.
 
@@ -47,7 +47,7 @@ Configure these values in the GitHub repository:
 
 - secret `SOCKET_API_TOKEN`, restricted to Socket's `packages:list` scope;
 - variable `SOCKET_ORG_SLUG`, containing the Socket organization slug.
-- optional variable `SOCKET_NPM_VISIBILITY_WAIT_MINUTES` (default `45`): integer minutes from `1` to `90` to wait for all three exact npm versions. Values outside that range fail configuration validation.
+- optional variable `SOCKET_NPM_VISIBILITY_WAIT_MINUTES` (default `45`): integer minutes from `1` to `90` to wait for all four exact npm versions. Values outside that range fail configuration validation.
 - optional variable `SOCKET_PACE_QUOTA_MINUTES` (default `120`): how long the audit may wait for the next Socket quota window after HTTP 429. A release has roughly 800 components, more than the free plan's 500 units per hour, so pacing is on by default.
 
 The job timeout is 240 minutes: the maximum 90-minute npm visibility wait + 120 minutes of Socket pacing + 30 minutes for checkout, inventory, scanning, and evidence upload. If increasing Socket pacing above 120 minutes, increase the workflow timeout to preserve that allowance.

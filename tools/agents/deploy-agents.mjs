@@ -298,6 +298,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
     // for the standard tier. Default is no-copy + index-driven discovery.
     // Replaces the legacy AIWG_COPY_STANDARD_SKILLS env var (removed rc.30).
     // Default (#1217) is no-copy + index-driven discovery.
+    fluePackage: cfg.fluePackage === true,
     copyStandardSkills: cfg.copyStandardSkills === true,
     copyMode: cfg.copyStandardSkills === true && cfg.indexMode !== true,
     // #228: Muse provider hooks/MCP profile surface.

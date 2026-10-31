@@ -21,6 +21,9 @@ export function generateFlueSpecialists(opts) {
     const logical = path.join(specialist.root, 'agents', specialist.file);
     const file = opts.mapInputPath?.(logical) || logical;
     const { body, metadata } = parseFrontmatter(injectBoundRules(fs.readFileSync(file, 'utf8'), file, opts));
+    if (opts.packageOutput) return `export function ${specialist.exportName}(options) {
+  return createSpecialist({ name: ${JSON.stringify(specialist.name)}, description: ${JSON.stringify(metadata.description || metadata.name)}, agent() { return ${JSON.stringify(body.trim())}; } }, options);
+}`;
     return `export const ${specialist.exportName} = defineSubagent({
   name: ${JSON.stringify(specialist.name)},
   description: ${JSON.stringify(metadata.description || metadata.name)},
@@ -32,6 +35,12 @@ export function generateFlueSpecialists(opts) {
   },
 });`;
   });
+  if (opts.packageOutput) {
+    const bundles = selectedFlueBundles(opts);
+    const groups = bundles.map(bundle => ({ name: `${camel(bundle.id === 'sdlc-complete' ? 'sdlc' : bundle.id)}Specialists`, members: specialists([bundle]) }));
+    if (opts.declarations) return `import type { SubagentDefinition } from '@flue/runtime';\nimport type { SpecialistOptions } from './specialist-binding.js';\nexport type { SpecialistOptions } from './specialist-binding.js';\n${selected.map(s => `export declare function ${s.exportName}(options?: SpecialistOptions): SubagentDefinition;`).join('\n')}\n${groups.map(g => `export declare function ${g.name}(options?: SpecialistOptions): SubagentDefinition[];`).join('\n')}\n`;
+    return `import { createSpecialist } from './specialist-binding.js';\n${definitions.join('\n\n')}\n${groups.map(g => `export function ${g.name}(options) { return [${g.members.map(s => `${s.exportName}(options)`).join(', ')}]; }`).join('\n')}\n`;
+  }
   return `// Curated AIWG delegates; regenerate from canonical sdlc-complete agents.
 import { defineSubagent, useSubagent, useTool } from '@flue/runtime';
 import { aiwg_discover, aiwg_show, aiwg_artifact_write } from './tools.ts';
@@ -61,7 +70,7 @@ export function deployFlueSpecialists(target, opts) {
     }
   };
   const template = fileURLToPath(new URL('../../../agentic/code/providers/flue/templates/aiwg/tools.ts', import.meta.url));
-  write('src/aiwg/tools.ts', () => fs.readFileSync(opts.mapInputPath?.(template) || template, 'utf8'));
+  write('src/aiwg/tools.ts', () => opts.fluePackage ? "export * from '@aiwg/flue/tools/node';\n" : fs.readFileSync(opts.mapInputPath?.(template) || template, 'utf8'));
   write('src/aiwg/specialists.ts', () => generateFlueSpecialists(opts));
   write('src/aiwg/skills.ts', () => generateFlueSkills(target, opts));
 }

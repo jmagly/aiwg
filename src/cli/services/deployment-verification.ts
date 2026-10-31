@@ -14,6 +14,7 @@ import {
   resolveProviderPathValue,
 } from '../../providers/provider-definitions.js';
 import { resolveGrokbotSkillsDir } from '../../providers/grokbot-paths.js';
+import { hasFluePackageDeployment } from '../../providers/flue-package-mode.js';
 import { resolveGrokHome } from '../../providers/grok-build-paths.js';
 import { runGrokInspect } from '../../providers/grok-build-inspect.js';
 import { diagnoseIntegratedProviderTransformationReceipt } from '../../providers/transformation-receipt-integration.js';
@@ -664,7 +665,7 @@ export async function verifyProviderDeployment(
     const kernelCount = await countEntries(kernelPath);
     if (kernelPath && kernelPath !== resolvedSkillsPath) counts.skills += kernelCount;
     const artifactTotal = Object.values(counts).reduce((sum, value) => sum + value, 0);
-    if (artifactTotal === 0) {
+    if (artifactTotal === 0 && !(normalized === 'flue' && await hasFluePackageDeployment(options.projectRoot))) {
       // Bridge-only providers (e.g. grokbot project scope without skills env)
       // intentionally have null native artifact dirs and land AGENTS.md instead.
       const bridgeName = definition.paths.configFile || definition.paths.contextFiles?.contextFile;

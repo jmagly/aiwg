@@ -154,7 +154,9 @@ fi
 echo "  [3/13] marketplace.json lockstep OK"
 
 # ---------------------------------------------------------------------------
-# 4. @aiwg/cockpit package lockstep
+# 4. Published packages, including @aiwg/flue, stay in lockstep
+node tools/workspace/check-marketplace-version.mjs
+# @aiwg/cockpit package lockstep
 # ---------------------------------------------------------------------------
 COCKPIT_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('apps/cockpit/package.json','utf8')).version)")
 if [ "$COCKPIT_VERSION" != "$VERSION" ]; then

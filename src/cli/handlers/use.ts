@@ -1641,7 +1641,7 @@ for (const flag of [...MODEL_DEPLOY_VALUE_FLAGS, '--reasoning', '--coding', '--e
   USE_FLAGS_WITH_VALUES.add(flag);
 }
 const USE_BOOLEAN_FLAGS = new Set([
-  '--force', '--copy-all', '--copy-standard-skills', '--dry-run', '--verbose', '-v', '--quiet', '-q',
+  '--package', '--force', '--copy-all', '--copy-standard-skills', '--dry-run', '--verbose', '-v', '--quiet', '-q',
   '--json', '--no-project-local', '--no-context-files', '--no-workspace-md',
   '--no-aiwg-md', '--no-agents-md', '--force-context-files', '--global', '--user',
   '--no-utils', '--ci-hooks-enabled', '--skip-conflicts', '--no-harness-agents',
@@ -2572,6 +2572,7 @@ Additional options:
   --providers <a,b>         Providers for global bootstrap
   --prefix <dir>            Alias for --target
   --global, --user          Install to user scope
+  --package                Flue: import skills from @aiwg/flue; persist across update/refresh
   --copy-standard-skills    Alias for --copy-all (also restores the full surface)
   --profile <name>          Select workspace profile (implicit target: all)
   --workspace-signals       Show the workspace signal plan
@@ -3461,6 +3462,7 @@ export class UseHandler implements CommandHandler {
         // left index-only: the user asked to install this specific bundle and
         // its supporting scripts must travel with the skill directory.
         addonBaseArgs.push('--copy-all', ...copyCleanupArgs(remainingArgs));
+        if (provider === 'flue' && remainingArgs.includes('--package')) addonBaseArgs.push('--package');
         addonBaseArgs.push(...modelDeployArgs);
         if (provider) addonBaseArgs.push('--provider', provider);
         if (target) addonBaseArgs.push('--target', target);
@@ -3610,6 +3612,7 @@ export class UseHandler implements CommandHandler {
               source: 'bundled',
               manifestHash: await hashManifest(manifestPath),
               asPrimary: Boolean(explicitAddonProvider),
+              package: provider === 'flue' ? remainingArgs.includes('--package') : undefined,
               copy: remainingArgs.includes('--copy-all') || remainingArgs.includes('--copy-standard-skills'),
             });
             await writeAiwgConfig(projectDir, updated);
@@ -4218,7 +4221,7 @@ export class UseHandler implements CommandHandler {
         if (!prebuilt && await fs.access(path.join(aiwgRootForIndex, 'prebuilt', 'framework-relations', 'manifest.json')).then(() => true).catch(() => false)) {
           const { selectPrebuiltRelations } = await import('../../artifacts/relations.js');
           const reason = selectPrebuiltRelations(aiwgRootForIndex).reason ?? 'packaged search index is missing, stale, or does not match the source';
-          ui.dim(`  Packaged index unavailable: ${reason}.`);
+          ui.dim(verbose ? `  Packaged index unavailable: ${reason}.` : '  Packaged index unavailable; rebuilding capability index.');
         }
         ui.dim('  Indexing operational assets for agent-side lookup.');
 
@@ -4440,6 +4443,7 @@ export class UseHandler implements CommandHandler {
           source: 'bundled',
           manifestHash: mHash,
           asPrimary: Boolean(explicitProvider),
+          package: provider === 'flue' ? remainingArgs.includes('--package') : undefined,
           copy: remainingArgs.includes('--copy-all') || remainingArgs.includes('--copy-standard-skills'),
         });
         await writeAiwgConfig(projectDir, updatedConfig);

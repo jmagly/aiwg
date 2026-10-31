@@ -322,7 +322,7 @@ async function requirePriorRegistry({ policy, registryName, decision, directory,
 
 /**
  * Irreversible entry point. It accepts only the in-process decision above,
- * stages immutable copies, rechecks the complete three-package inventory
+ * stages immutable copies, rechecks the complete release-package inventory
  * before and after every registry action, and verifies conflict recovery.
  */
 export async function publishReleasePromotion({ decision, registryName, receiptPath } = {}) {

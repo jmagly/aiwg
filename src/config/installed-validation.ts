@@ -10,7 +10,8 @@ export function validateInstalled(installed: unknown): void {
     for (const [provider, counts] of Object.entries(entry.deployedTo)) {
       if (!object(counts)) throw new Error(`installed.${id}.deployedTo.${provider} must be an object`);
       if (counts.copy !== undefined && typeof counts.copy !== 'boolean') throw new Error(`installed.${id}.deployedTo.${provider}.copy must be boolean`);
-      if (!Object.keys(counts).some(key => key !== 'copy')) continue;
+      if (counts.package !== undefined && (typeof counts.package !== 'boolean' || provider !== 'flue')) throw new Error(`installed.${id}.deployedTo.${provider}.package requires Flue and a boolean`);
+      if (!Object.keys(counts).some(key => !['copy', 'package'].includes(key))) continue;
       if (kinds.some(kind => !Number.isSafeInteger(counts[kind]) || (counts[kind] as number) < 0)) {
         throw new Error(`installed.${id}.deployedTo.${provider} requires all four nonnegative artifact counts or {}`);
       }

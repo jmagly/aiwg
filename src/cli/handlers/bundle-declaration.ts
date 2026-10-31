@@ -35,6 +35,7 @@ export async function declareBundle(ctx: HandlerContext, remove = false): Promis
     } else {
       config.installed[key] ??= { deployedTo: {} };
       config.installed[key].deployedTo[provider] = ctx.args.includes('--copy-all') || ctx.args.includes('--copy-standard-skills') ? { copy: true } : {};
+      if (provider === 'flue' && ctx.args.includes('--package')) config.installed[key].deployedTo[provider].package = true;
       ensureProviderListed(config, provider);
     }
     const dryRun = ctx.args.includes('--dry-run');

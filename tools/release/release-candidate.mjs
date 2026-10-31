@@ -61,6 +61,7 @@ export const RC_VALIDATION_PROFILES = Object.freeze({
 export const SURFACES = [
   { name: 'aiwg', dir: '.', stem: 'aiwg', bin: 'bin/aiwg.mjs' },
   { name: '@aiwg/cli', dir: 'dist/packages/cli', stem: 'aiwg-cli', bin: 'bin/aiwg.mjs' },
+  { name: '@aiwg/flue', dir: 'dist/packages/flue', stem: 'aiwg-flue', module: 'tools.js' },
   { name: '@aiwg/cockpit', dir: 'apps/cockpit', stem: 'aiwg-cockpit', bin: 'bridge/src/server.mjs' },
 ];
 const CALVER = '(?:19|20)\\d{2}\\.(?:[1-9]|1[0-2])\\.(?:0|[1-9]\\d*)';
@@ -129,6 +130,7 @@ function isolatedEnv(temp, base) {
 export function packAndSmoke({ root = ROOT, output, spawn = boundedSpawnSync, env = process.env } = {}) {
   if (!output) throw new Error('Bundle output is required');
   output = path.resolve(output); fs.mkdirSync(output, { recursive: true });
+  command(process.execPath, [path.join(root, 'tools/release/build-flue-package.mjs')], { cwd: root, env, spawn });
   const version = readJson(path.join(root, 'package.json')).version;
   const allowlist = new Set(fs.readFileSync(path.join(root, 'ci/expected-tarball-top-level.txt'), 'utf8').split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#')));
   for (const surface of SURFACES) {
@@ -171,7 +173,9 @@ export function smokeTarballs({ root = ROOT, output, spawn = boundedSpawnSync, e
       const installed = path.join(prefix, 'node_modules', ...surface.name.split('/'));
       const pkg = readJson(path.join(installed, 'package.json'));
       if (pkg.name !== surface.name || pkg.version !== version) throw new Error(`Installed package identity mismatch: ${surface.name}`);
-      if (surface.name === '@aiwg/cockpit') {
+      if (surface.module) {
+        command(process.execPath, [path.join(root, 'tools/release/flue-package-smoke.mjs'), installed], { cwd: temp, env: cleanEnv, spawn, timeout: 120000 });
+      } else if (surface.name === '@aiwg/cockpit') {
         command(process.execPath, ['--input-type=module', '-e', 'const m=await import(process.argv[1]);if(typeof m.createBridge!=="function")throw new Error("Missing bridge API")', pathToFileURL(path.join(installed, surface.bin)).href], { cwd: temp, env: cleanEnv, spawn, timeout: 120000 });
       } else {
         const actual = command(process.execPath, [path.join(installed, surface.bin), '--version'], { cwd: temp, env: cleanEnv, spawn, timeout: 120000 });
@@ -205,7 +209,7 @@ export function writeCandidateManifest({ root = ROOT, output, tag, env = process
   if (!SHA.test(commit) || head !== commit || !SHA.test(tagObject)) throw new Error('RC tag does not match checked-out commit');
   validateLanes(readJson(path.join(output, 'validation.json')), commit);
   const smoke = readJson(path.join(output, 'installed-smoke.json'));
-  if (!smoke.pass || smoke.packages?.length !== 3 || SURFACES.some(surface => smoke.packages.filter(item => item.package === surface.name && item.status === 'success' && item.installed_version === version).length !== 1)) throw new Error('Missing exact installed smoke evidence');
+  if (!smoke.pass || smoke.packages?.length !== SURFACES.length || SURFACES.some(surface => smoke.packages.filter(item => item.package === surface.name && item.status === 'success' && item.installed_version === version).length !== 1)) throw new Error('Missing exact installed smoke evidence');
   for (const surface of SURFACES) {
     const filename = `${surface.stem}-${version}.tgz`;
     if (smoke.packages.find(item => item.package === surface.name)?.sha256 !== sha256(path.join(output, filename))) throw new Error('Exact installed smoke digest mismatch');
@@ -266,7 +270,7 @@ export function verifyRcBundle({ directory, run, jobs, artifact, workflow, workf
     throw new Error('RC validation identity profile does not match its authenticated workflow trigger');
   }
   const smoke = readJson(path.join(directory, 'installed-smoke.json'));
-  if (smoke.pass !== true || smoke.packages?.length !== 3 || SURFACES.some(surface => {
+  if (smoke.pass !== true || smoke.packages?.length !== SURFACES.length || SURFACES.some(surface => {
     const filename = `${surface.stem}-${manifest.package_version}.tgz`;
     return smoke.packages.filter(item => item.package === surface.name && item.status === 'success' && item.filename === filename && item.sha256 === manifest.files[filename] && item.installed_version === manifest.package_version).length !== 1;
   })) throw new Error('Mismatching exact installed smoke evidence');

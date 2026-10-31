@@ -55,6 +55,7 @@ describe('@aiwg/cli release workflow wiring', () => {
     expect(verify.run).toContain('npm view "@aiwg/cli@${VERSION}" dist.tarball --registry=');
     expect(verify.run).toContain('"$CLI_INSTALL/node_modules/.bin/aiwg" help');
     expect(verify.run).toContain('"$COCKPIT_INSTALL/node_modules/.bin/aiwg-cockpit"');
+    expect(verify.run).toContain('flue-package-smoke.mjs');
   });
 
   it('documents a dependency-safe Gitea mirror install in generated releases', () => {

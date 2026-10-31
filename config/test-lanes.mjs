@@ -21,6 +21,7 @@ export const packageRunnerLanes = [
   { id: 'vscode-extension', runner: 'mocha', package: 'vscode-extension', script: 'test', files: ['test/**/*.ts'] },
 ];
 export const packagingFiles = [
+  'test/integration/flue-package-packaging.test.ts',
   'test/integration/relations-prebuilt-packaging.test.ts',
   'test/integration/artifacts/aiwg-tracking.test.ts',
   'test/smoke/cockpit-base-footprint.test.js',
@@ -59,6 +60,7 @@ export const deploymentFiles = [
 // CLI contracts and a small provider smoke matrix remain in the default lane.
 // These do not overlap the required post-merge deploymentFiles lane above.
 export const releaseSlowFiles = [
+  'test/integration/flue-package-consumer.test.ts',
   // Real Flue/Pi graph is provisioned from the example lockfile before this lane.
   'test/integration/flue-node-e2e.test.ts',
   'test/integration/flue-mcp-http.test.ts',

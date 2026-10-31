@@ -9,6 +9,10 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Added
 
+- MIT `@aiwg/flue` peer-only package: static bundle skills, manifest-selected
+  specialist factories, remote and Node MCP helpers. Flue `use --package`
+  imports package skills and persists the mode across update/refresh (#3122).
+
 - Authenticated, project-bound Streamable HTTP MCP transport through
   `aiwg mcp serve --transport http`, with a restricted tool surface, rotating
   token files, bounded sessions, Host/Origin validation and cancellation.

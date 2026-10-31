@@ -142,7 +142,7 @@ jobs:
           DEADLINE=$(( $(date +%s) + NPM_VISIBILITY_WAIT_MINUTES * 60 ))
           while :; do
             AVAILABLE=true
-            for PACKAGE in aiwg @aiwg/cli @aiwg/cockpit; do
+            for PACKAGE in aiwg @aiwg/cli @aiwg/cockpit @aiwg/flue; do
               REMAINING=$(( DEADLINE - $(date +%s) ))
               if [ "$REMAINING" -le 0 ]; then
                 AVAILABLE=false

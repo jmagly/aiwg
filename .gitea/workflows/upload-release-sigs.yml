@@ -119,6 +119,7 @@ jobs:
           echo "tarball=aiwg-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
           echo "cli_tarball=aiwg-cli-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
           echo "cockpit_tarball=aiwg-cockpit-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
+          echo "flue_tarball=aiwg-flue-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
           echo "tarball_sig=aiwg-${VERSION}.tgz.sigstore" >> "$GITHUB_OUTPUT"
           echo "manifest=release-manifest.json" >> "$GITHUB_OUTPUT"
           echo "manifest_sig=release-manifest.json.sigstore" >> "$GITHUB_OUTPUT"
@@ -142,6 +143,7 @@ jobs:
           TARBALL='${{ steps.tag.outputs.tarball }}'
           CLI_TARBALL='${{ steps.tag.outputs.cli_tarball }}'
           COCKPIT_TARBALL='${{ steps.tag.outputs.cockpit_tarball }}'
+          FLUE_TARBALL='${{ steps.tag.outputs.flue_tarball }}'
           TARBALL_SIG='${{ steps.tag.outputs.tarball_sig }}'
           MANIFEST='${{ steps.tag.outputs.manifest }}'
           MANIFEST_SIG='${{ steps.tag.outputs.manifest_sig }}'
@@ -160,6 +162,7 @@ jobs:
           download_asset "$TARBALL"
           download_asset "$CLI_TARBALL"
           download_asset "$COCKPIT_TARBALL"
+          download_asset "$FLUE_TARBALL"
           download_asset "$TARBALL_SIG"
           download_asset "$MANIFEST"
           download_asset "$MANIFEST_SIG"
@@ -170,7 +173,7 @@ jobs:
 
           # Hard-check that all expected assets are present.
           MISSING=0
-          for f in "$TARBALL" "$CLI_TARBALL" "$COCKPIT_TARBALL" "$TARBALL_SIG" "$MANIFEST" "$MANIFEST_SIG" "$SBOM" "$SBOM_SIG" "$INSTALLER" "$CHECKSUMS"; do
+          for f in "$TARBALL" "$CLI_TARBALL" "$COCKPIT_TARBALL" "$FLUE_TARBALL" "$TARBALL_SIG" "$MANIFEST" "$MANIFEST_SIG" "$SBOM" "$SBOM_SIG" "$INSTALLER" "$CHECKSUMS"; do
             if [ ! -f "$f" ]; then
               echo "✗ Missing expected asset on GitHub release: $f"
               MISSING=1
@@ -276,6 +279,7 @@ jobs:
           upload_asset '${{ steps.tag.outputs.tarball }}'
           upload_asset '${{ steps.tag.outputs.cli_tarball }}'
           upload_asset '${{ steps.tag.outputs.cockpit_tarball }}'
+          upload_asset '${{ steps.tag.outputs.flue_tarball }}'
           upload_asset '${{ steps.tag.outputs.tarball_sig }}'
           upload_asset '${{ steps.tag.outputs.manifest }}'
           upload_asset '${{ steps.tag.outputs.manifest_sig }}'
@@ -297,6 +301,7 @@ jobs:
             '${{ steps.tag.outputs.tarball }}' \
             '${{ steps.tag.outputs.cli_tarball }}' \
             '${{ steps.tag.outputs.cockpit_tarball }}' \
+            '${{ steps.tag.outputs.flue_tarball }}' \
             '${{ steps.tag.outputs.tarball_sig }}' \
             '${{ steps.tag.outputs.manifest }}' \
             '${{ steps.tag.outputs.manifest_sig }}' \

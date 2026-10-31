@@ -44,6 +44,8 @@ export function checkVersionLockstep(
   const pkg = readJson(root, 'package.json');
   const lock = readJson(root, 'package-lock.json');
   const cli = readJson(root, 'packages/cli/package.json');
+  const flue = readJson(root, 'packages/flue/package.json');
+  if (flue.version !== pkg.version) return { ok: false, message: `FAIL: @aiwg/flue version (${flue.version}) must match ${pkg.version}`, fix: `Update packages/flue/package.json to ${pkg.version}.` };
   const cockpit = readJson(root, 'apps/cockpit/package.json');
   const cockpitLock = readJson(root, 'apps/cockpit/package-lock.json');
   const cockpitWeb = readJson(root, 'apps/cockpit/web/package.json');
@@ -249,7 +251,7 @@ export function checkVersionLockstep(
     return {
       ok: true,
       message:
-        `OK package lockfiles, @aiwg/cli, @aiwg/cockpit, marketplace, and ` +
+        `OK package lockfiles, @aiwg/cli, @aiwg/cockpit, @aiwg/flue, marketplace, and ` +
         `${localMarketplacePlugins.length} local plugin version(s) ` +
         `(${marketplaceVersion}) match package.json (${pkgVersion})`,
     };

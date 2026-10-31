@@ -42,7 +42,7 @@ export function componentsFromLock(lock, version, provenance = {}) {
   // Secondary locks describe local workspace roots, not published scan targets.
   const roots = new Set(provenance.releaseRoot === false
     ? []
-    : [npmPurl('aiwg', version), npmPurl('@aiwg/cli', version)])
+    : [npmPurl('aiwg', version), npmPurl('@aiwg/cli', version), npmPurl('@aiwg/flue', version)])
   const directNames = new Set(Object.keys({
     ...(rootMetadata.dependencies ?? {}),
     ...(rootMetadata.optionalDependencies ?? {}),
@@ -456,7 +456,8 @@ async function main() {
   const baseline = JSON.parse(await readFile(baselinePath, 'utf8'))
   let components = [
     { purl: npmPurl('aiwg', version), depth: 'direct' },
-    { purl: npmPurl('@aiwg/cli', version), depth: 'direct' }
+    { purl: npmPurl('@aiwg/cli', version), depth: 'direct' },
+    { purl: npmPurl('@aiwg/flue', version), depth: 'direct' }
   ]
   if (args['dependency-lock']) {
     const commitSha = args.commit ?? boundedExecFileSync('git', ['rev-parse', 'HEAD'], 'quick', { encoding: 'utf8' }).trim()

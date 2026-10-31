@@ -7,7 +7,7 @@ if [[ ! "$VERSION" =~ ^[0-9]{4}\.([1-9]|1[0-2])\.(0|[1-9][0-9]*)$ ]]; then
   exit 2
 fi
 
-for PACKAGE in aiwg @aiwg/cli @aiwg/cockpit; do
+for PACKAGE in aiwg @aiwg/cli @aiwg/cockpit @aiwg/flue; do
   VERIFIED=false
   for ATTEMPT in 1 2 3 4 5; do
     TAGS=$(npm dist-tag ls "$PACKAGE" --registry=https://registry.npmjs.org)

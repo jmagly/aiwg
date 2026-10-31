@@ -23,6 +23,7 @@ export const deployCommands = () => 0;
 export const deployRules = () => 0;
 
 export function deploySkills(skillDirs, target, opts) {
+  if (opts.fluePackage) return { kernel: 0, standard: 0 };
   const destination = path.join(target, kernelSkillsPath);
   for (const dir of skillDirs) deployFlueSkill(dir, destination, opts);
   return { kernel: skillDirs.length, standard: 0 };

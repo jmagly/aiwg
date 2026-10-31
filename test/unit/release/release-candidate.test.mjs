@@ -54,9 +54,9 @@ describe('signed RC identity and exact-artifact promotion foundation (#3201)', (
     expect(() => releaseIdentity(tag, version, 'stable')).toThrow(/identity/);
   });
   it.each(['v2026.10.4-rc.0', 'v2026.10.4-rc.x', 'v2026.010.4-rc.1', 'v2026.10.4-beta.1', 'main'])('rejects malformed RC tag %s', invalid => expect(() => releaseIdentity(invalid, version)).toThrow());
-  it('retains and verifies all three exact artifacts, SBOM, installer, and complete validation evidence', () => {
+  it('retains and verifies all four exact artifacts, SBOM, installer, and complete validation evidence', () => {
     const f = fixture(), verified = verifyRcBundle(f), plan = promotionPlan(verified);
-    expect(plan.packages).toHaveLength(3);
+    expect(plan.packages).toHaveLength(4);
     for (const pkg of plan.packages) {
       expect(pkg.sha256).toBe(sha256(pkg.path));
       expect(pkg.proposed_argv[1]).toBe(pkg.path);
@@ -158,7 +158,7 @@ describe('signed RC identity and exact-artifact promotion foundation (#3201)', (
     if (state === 'missing') f.artifact = null;
     expect(() => verifyRcBundle(f)).toThrow();
   });
-  it.each(['aiwg', 'aiwg-cli', 'aiwg-cockpit'])('rejects changed %s bytes and missing tarballs', stem => {
+  it.each(['aiwg', 'aiwg-cli', 'aiwg-cockpit', 'aiwg-flue'])('rejects changed %s bytes and missing tarballs', stem => {
     const f = fixture(), file = path.join(f.directory, `${stem}-${version}.tgz`);
     fs.appendFileSync(file, 'modified'); expect(() => verifyRcBundle(f)).toThrow(/digest/);
     fs.rmSync(file); expect(() => verifyRcBundle(f)).toThrow(/inventory/);
@@ -267,9 +267,9 @@ describe('signed RC identity and exact-artifact promotion foundation (#3201)', (
       }
       return { status: 0, stdout: version };
     } });
-    expect(evidence.packages).toHaveLength(3);
+    expect(evidence.packages).toHaveLength(4);
     const packs = calls.filter(call => call.command === 'npm' && call.args[0] === 'pack');
-    expect(packs).toHaveLength(4);
+    expect(packs).toHaveLength(SURFACES.length + 1);
     expect(packs.at(-1).args[3]).not.toBe(output);
     expect(fs.existsSync(packs.at(-1).args[3])).toBe(false);
     expect(calls.filter(call => call.command === 'npm' && call.args[0] === 'install').every(call => path.dirname(call.args.at(-1)) === output)).toBe(true);
@@ -316,7 +316,7 @@ describe('signed RC identity and exact-artifact promotion foundation (#3201)', (
       return { status: 0, stdout: version };
     } });
     expect(evidence.packages.map(pkg => pkg.package)).toEqual(SURFACES.map(surface => surface.name));
-    expect(calls.filter(call => call.command === 'npm')).toHaveLength(3);
+    expect(calls.filter(call => call.command === 'npm')).toHaveLength(4);
     for (const item of evidence.packages) expect(item.sha256).toBe(sha256(path.join(output, item.filename)));
   });
   it('withholds publication and signing credentials from every recovery smoke child', () => {
@@ -339,7 +339,7 @@ describe('signed RC identity and exact-artifact promotion foundation (#3201)', (
       return { status: 0, stdout: version };
     } });
     expect(evidence.pass).toBe(true);
-    expect(childEnvs).toHaveLength(8);
+    expect(childEnvs).toHaveLength(10);
     for (const childEnv of childEnvs) {
       for (const key of Object.keys(credentials)) expect(childEnv).not.toHaveProperty(key);
       expect(childEnv).toMatchObject({ PATH: '/synthetic/bin', GITHUB_REPOSITORY: repository });

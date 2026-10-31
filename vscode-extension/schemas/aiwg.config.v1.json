@@ -3248,6 +3248,7 @@
         },
         "deployedTo": {
           "type": "object",
+          "allOf": [{ "patternProperties": { "^(?!flue$)": { "type": "object", "properties": { "package": false } } } }],
           "additionalProperties": {
             "type": "object",
             "properties": {
@@ -3256,11 +3257,12 @@
               "skills": { "type": "integer", "minimum": 0 },
               "rules": { "type": "integer", "minimum": 0 },
               "entries": { "type": "object" },
-              "copy": { "type": "boolean", "description": "Keep project copies during refresh/update; only explicit remove deletes them" }
+              "copy": { "type": "boolean", "description": "Keep project copies during refresh/update; only explicit remove deletes them" },
+              "package": { "type": "boolean", "description": "Import Flue skills from @aiwg/flue instead of copying them" }
             },
             "additionalProperties": false,
             "anyOf": [
-              { "propertyNames": { "enum": ["copy"] } },
+              { "propertyNames": { "enum": ["copy", "package"] } },
               { "required": ["agents", "commands", "skills", "rules"], "properties": { "agents": {}, "commands": {}, "skills": {}, "rules": {} } }
             ]
           }
@@ -3270,7 +3272,7 @@
         {
           "properties": {
             "version": false, "source": false, "installedAt": false,
-            "deployedTo": { "type": "object", "additionalProperties": { "type": "object", "propertyNames": { "enum": ["copy"] } } }
+            "deployedTo": { "type": "object", "additionalProperties": { "type": "object", "propertyNames": { "enum": ["copy", "package"] } } }
           }
         },
         { "required": ["version", "source", "installedAt"], "properties": { "version": {}, "source": {}, "installedAt": {} } }

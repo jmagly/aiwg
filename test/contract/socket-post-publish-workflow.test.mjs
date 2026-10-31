@@ -190,13 +190,13 @@ test('npm visibility wait is bounded, configurable, and precedes inventory insta
   assert.match(socketRunbook, /`1` to `90`/);
 });
 
-test('npm visibility accepts all three exact versions immediately or after a retry', () => {
+test('npm visibility accepts all four exact versions immediately or after a retry', () => {
   for (const scenario of ['ready', 'delayed']) {
     const result = runVisibility(scenario);
     assert.equal(result.read('output'), 'available=true\n');
     assert.equal(result.read('summary'), '');
     assert.equal(Number(result.read('clock')), scenario === 'ready' ? 0 : 30);
-    for (const pkg of ['aiwg', '@aiwg/cli', '@aiwg/cockpit']) {
+    for (const pkg of ['aiwg', '@aiwg/cli', '@aiwg/cockpit', '@aiwg/flue']) {
       assert.ok(result.read('calls').includes(`view ${pkg}@2026.10.6 version`));
     }
   }

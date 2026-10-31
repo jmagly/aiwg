@@ -14,7 +14,8 @@ export function bundleDeploymentHistory(project: string): History {
 }
 export function bundleCopyArgs(installed: AiwgConfig['installed'], id: string, provider: string): string[] {
   const entry = Object.entries(installed).find(([key]) => frameworkRegistryId(key) === frameworkRegistryId(id))?.[1];
-  return entry?.deployedTo[provider]?.copy === true ? ['--copy-all'] : [];
+  return [...(entry?.deployedTo[provider]?.copy === true ? ['--copy-all'] : []),
+    ...(provider === 'flue' && entry?.deployedTo.flue?.package === true ? ['--package'] : [])];
 }
 export async function recordBundleDeployment(project: string, id: string, provider: string, args: string[], frameworkRoot?: string): Promise<void> {
   const { expectedBundleOwners } = await import('./bundle-reconciliation.js');

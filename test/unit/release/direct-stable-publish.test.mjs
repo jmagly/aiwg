@@ -10,7 +10,7 @@ const roots=[];
 afterEach(() => { for (const p of roots.splice(0)) fs.rmSync(p,{recursive:true,force:true}); });
 function fixture(version = '2026.10.4'){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aiwg-direct-release-'));roots.push(dir);
- const pairs=[['aiwg','aiwg'],['@aiwg/cli','aiwg-cli'],['@aiwg/cockpit','aiwg-cockpit']];
+ const pairs=[['aiwg','aiwg'],['@aiwg/cli','aiwg-cli'],['@aiwg/cockpit','aiwg-cockpit'],['@aiwg/flue','aiwg-flue']];
  const packages=pairs.map(([name,stem])=>{const filename=`${stem}-${version}.tgz`, bytes=Buffer.from(`fixture:${name}`);fs.writeFileSync(path.join(dir,filename),bytes);return {package:name,filename,sha256:createHash('sha256').update(bytes).digest('hex'),installed_version:version,status:'success'};});
  fs.writeFileSync(path.join(dir,'installed-smoke.json'),JSON.stringify({pass:true,packages}));return {dir,packages};
 }
@@ -26,11 +26,11 @@ function fake(packages,{badIdentity=false,missingProvenance=false,conflict=false
  }};
 }
 describe('direct stable exact tarball publication',()=>{
- it('publishes three smoke-bound tarballs and recovers verified conflicts',async()=>{const {dir,packages}=fixture(), f=fake(packages,{conflict:true});const result=await publish({directory:dir,version:'2026.10.4',receipt:path.join(dir,'receipt'),spawn:f.spawn,sleep:async()=>{}});expect(result.complete).toBe(true);for(const item of result.packages) expect(item.attestations).toEqual({url:'https://example.invalid/attestation',provenance:{predicateType:'https://slsa.dev/provenance/v1'}});expect(result.packages.map(p=>p.disposition)).toEqual(['already-published','already-published','already-published']);expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(3);});
+ it('publishes four smoke-bound tarballs and recovers verified conflicts',async()=>{const {dir,packages}=fixture(), f=fake(packages,{conflict:true});const result=await publish({directory:dir,version:'2026.10.4',receipt:path.join(dir,'receipt'),spawn:f.spawn,sleep:async()=>{}});expect(result.complete).toBe(true);for(const item of result.packages) expect(item.attestations).toEqual({url:'https://example.invalid/attestation',provenance:{predicateType:'https://slsa.dev/provenance/v1'}});expect(result.packages.map(p=>p.disposition)).toEqual(['already-published','already-published','already-published','already-published']);expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(4);});
  it('rejects altered tarballs before any publication',()=>{const {dir}=fixture();fs.writeFileSync(path.join(dir,'aiwg-2026.10.4.tgz'),'altered');expect(()=>validateInputs(dir,'2026.10.4')).toThrow(/Tarball changed/);});
  it.each([{badIdentity:true},{unavailable:true}])('rejects unverified registry conflicts %j',async options=>{const {dir,packages}=fixture(),f=fake(packages,{...options,conflict:true});await expect(publish({directory:dir,version:'2026.10.4',receipt:path.join(dir,'receipt'),spawn:f.spawn,sleep:async()=>{}})).rejects.toThrow();expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(1);},20000);
- it('does not mirror before all three public identities verify',async()=>{const {dir,packages}=fixture(),f=fake(packages,{badIdentity:true});await expect(mirror({directory:dir,version:'2026.10.4',receipt:path.join(dir,'receipt'),spawn:f.spawn,sleep:async()=>{}})).rejects.toThrow();expect(f.calls.some(a=>a[0]==='publish')).toBe(false);});
- it.each([{next:true},{wrongLatest:true},{missingProvenance:true},{unavailable:true}])('keeps registry visibility and policy checks advisory after a successful publish %j',async options=>{const {dir,packages}=fixture(),f=fake(packages,options);const result=await publish({directory:dir,version:'2026.10.4',receipt:path.join(dir,'receipt'),spawn:f.spawn,sleep:async()=>{}});expect(result.complete).toBe(true);expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(3);if(options.unavailable)expect(result.packages.every(p=>p.registry_identity==='pending')).toBe(true);});
+ it('does not mirror before all four public identities verify',async()=>{const {dir,packages}=fixture(),f=fake(packages,{badIdentity:true});await expect(mirror({directory:dir,version:'2026.10.4',receipt:path.join(dir,'receipt'),spawn:f.spawn,sleep:async()=>{}})).rejects.toThrow();expect(f.calls.some(a=>a[0]==='publish')).toBe(false);});
+ it.each([{next:true},{wrongLatest:true},{missingProvenance:true},{unavailable:true}])('keeps registry visibility and policy checks advisory after a successful publish %j',async options=>{const {dir,packages}=fixture(),f=fake(packages,options);const result=await publish({directory:dir,version:'2026.10.4',receipt:path.join(dir,'receipt'),spawn:f.spawn,sleep:async()=>{}});expect(result.complete).toBe(true);expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(4);if(options.unavailable)expect(result.packages.every(p=>p.registry_identity==='pending')).toBe(true);});
  it('blocks a successful publish when an observed registry identity disagrees',async()=>{const {dir,packages}=fixture(),f=fake(packages,{badIdentity:true});await expect(publish({directory:dir,version:'2026.10.4',receipt:path.join(dir,'receipt'),spawn:f.spawn,sleep:async()=>{}})).rejects.toThrow(/identity mismatch/);expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(1);});
 });
 
@@ -76,16 +76,16 @@ describe('post-publication signing recovery',()=>{
  it.each([2,1])('recovers v2026.10.9 after signing fails, with no republish (attempt %s)',async attempt=>{
    const f=recoveryFixture({attempt});
    await publish({directory:f.original.dir,version:f.version,receipt:path.join(f.original.dir,'publication'),spawn:f.spawn});
-   expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(3);
+   expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(4);
    const signer={file:path.join(f.original.dir,f.original.packages[0].filename),bundle:path.join(f.directory,'bundle'),env:{ACTIONS_ID_TOKEN_REQUEST_URL:'https://oidc.invalid/token',ACTIONS_ID_TOKEN_REQUEST_TOKEN:'synthetic-request'},sleep:async()=>{}};
    await expect(signBlob({...signer,fetchImpl:async()=>new Response('upstream unavailable',{status:503}),spawn:()=>{throw new Error('must not sign');}})).rejects.toThrow(/after 3 attempts/);
    // A new local build would disagree; recovery must overwrite it with registry bytes.
    fs.writeFileSync(path.join(f.directory,f.original.packages[2].filename),'rebuilt cockpit drift');
    const recovery=await prepareRecovery(f.options);
    expect(recovery).toMatchObject({recovered:true,artifacts:[44]});
-   expect(validateInputs(f.directory,f.version)).toHaveLength(3);
+   expect(validateInputs(f.directory,f.version)).toHaveLength(4);
    await publish({directory:f.directory,version:f.version,receipt:path.join(f.directory,'publication'),spawn:f.spawn,knownPublished:recovery.published});
-   expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(3);
+   expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(4);
    const signed=[];
    await signBlob({...signer,file:path.join(f.directory,f.original.packages[0].filename),fetchImpl:async()=>Response.json({value:'synthetic-signing-identity'}),spawn:(_cmd,args)=>{signed.push(args);fs.writeFileSync(signer.bundle,'signed bundle');return {status:0};}});
    expect(signed).toHaveLength(1);expect(fs.readFileSync(signer.bundle,'utf8')).toBe('signed bundle');
@@ -98,7 +98,7 @@ describe('post-publication signing recovery',()=>{
  });
  it('refuses a tarball that fails npm dist.integrity',async()=>{const f=recoveryFixture({corrupt:true});f.seed();await expect(prepareRecovery(f.options)).rejects.toThrow(/identity mismatch/);});
  it('refuses retained tarball corruption even when retained smoke hashes match npm',async()=>{const f=recoveryFixture({changed:true});f.seed();await expect(prepareRecovery(f.options)).rejects.toThrow(/retained smoke-tested/);});
- it('reuses retained bytes for the unpublished portion of a partial publication',async()=>{const f=recoveryFixture({partial:true});f.seed();await prepareRecovery(f.options);await publish({directory:f.directory,version:f.version,receipt:path.join(f.directory,'publication'),spawn:f.spawn});expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(2);});
+ it('reuses retained bytes for the unpublished portion of a partial publication',async()=>{const f=recoveryFixture({partial:true});f.seed();await prepareRecovery(f.options);await publish({directory:f.directory,version:f.version,receipt:path.join(f.directory,'publication'),spawn:f.spawn});expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(3);});
  it('fails closed on missing partial-publication retention',async()=>{const f=recoveryFixture({partial:true,retained:false});f.seed();await expect(prepareRecovery(f.options)).rejects.toThrow(/lacks retained smoke-tested bytes/);});
  it('uses the original artifact and ignores later attempts containing rebuilt bytes',async()=>{
    const f=recoveryFixture();f.seed();f.options.attempt=3;
@@ -112,7 +112,7 @@ describe('post-publication signing recovery',()=>{
    const f=recoveryFixture();f.seed();f.required.splice(f.required.indexOf('Pack and smoke-test exact npm surfaces'),1,'Recover published registry tarballs');
    expect((await prepareRecovery(f.options)).recovered).toBe(true);
  });
- it.each(['aiwg','@aiwg/cli','@aiwg/cockpit'])('rejects an uploaded archive missing %s even with a complete smoke manifest',async omit=>{
+ it.each(['aiwg','@aiwg/cli','@aiwg/cockpit','@aiwg/flue'])('rejects an uploaded archive missing %s even with a complete smoke manifest',async omit=>{
    const f=recoveryFixture({omit});await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1})).rejects.toThrow();
  });
  it('takes the normal pack lane only when all registry versions are absent',async()=>{const f=recoveryFixture();expect(await prepareRecovery(f.options)).toEqual({recovered:false});});
@@ -125,7 +125,7 @@ describe('post-publication signing recovery',()=>{
  });
  it('rejects unsigned retained evidence',async()=>{const f=recoveryFixture();f.seed();f.required.splice(1,1);await expect(prepareRecovery(f.options)).rejects.toThrow(/smoke-test steps/);});
  it('rejects artifacts from a different source identity',async()=>{const f=recoveryFixture();f.seed();f.run.head_sha='b'.repeat(40);await expect(prepareRecovery(f.options)).rejects.toThrow(/workflow identity/);});
- it.each([false,true])('verifies all three tarballs in the uploaded ZIP (incomplete=%s)',async legacy=>{
+ it.each([false,true])('verifies all four tarballs in the uploaded ZIP (incomplete=%s)',async legacy=>{
    const f=recoveryFixture({legacy});
    const options={...f.options,directory:f.original.dir,attempt:1};
    if(legacy)await expect(verifyRetention(options)).rejects.toThrow();else await expect(verifyRetention(options)).resolves.toBeUndefined();
