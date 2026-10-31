@@ -134,7 +134,7 @@ describe('shared skill copier ownership and stale files (#3035)', () => {
     expect(existsSync(join(deployed, 'assets/retired.txt'))).toBe(false);
     expect(readFileSync(join(deployed, 'references/recipe.md'), 'utf8')).toBe('operator edit');
     expect(readFileSync(join(deployed, 'assets/local.txt'), 'utf8')).toBe('operator addition');
-    expect(Object.keys(readSidecarManifest(deployed).managed)).toEqual(['SKILL.md']);
+    expect(Object.keys(readSidecarManifest(deployed).managed)).toEqual(['SKILL.md', 'references/recipe.md']);
   });
 
   it('preserves stale support files during a dry run', () => {
@@ -177,7 +177,7 @@ describe('shared skill copier ownership and stale files (#3035)', () => {
     const options = { copyStandardSkills: true, srcRoot: sources };
     deploySkillsWithKernelRouting([addon, sibling], destination, null, options);
     rmSync(addon, { recursive: true });
-    const result = deploySkillsWithKernelRouting([], destination, null, options);
+    const result = deploySkillsWithKernelRouting([], destination, null, { ...options, copyStandardSkills: false });
     expect(result.prunedFromStandardDir).toBe(1);
     expect(existsSync(join(destination, 'demo'))).toBe(false);
     expect(existsSync(join(destination, 'sibling/SKILL.md'))).toBe(true);
@@ -192,7 +192,7 @@ describe('shared skill copier ownership and stale files (#3035)', () => {
     write(join(destination, 'legacy/SKILL.md'), 'operator or legacy skill');
     write(join(destination, 'legacy/.aiwg-managed'), 'aiwg\n');
     rmSync(addon, { recursive: true });
-    const result = deploySkillsWithKernelRouting([], destination, null, options);
+    const result = deploySkillsWithKernelRouting([], destination, null, { ...options, copyStandardSkills: false });
     expect(result.prunedFromStandardDir).toBe(0);
     expect(existsSync(join(destination, 'demo/SKILL.md'))).toBe(false);
     expect(readFileSync(join(destination, 'demo/local.txt'), 'utf8')).toBe('operator addition');

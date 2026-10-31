@@ -1,3 +1,4 @@
+import { recordManagedCopy } from '../helpers/managed-copy-fixture.js';
 import { assertStartupRuleDelivery } from '../helpers/rule-delivery-context.js';
 /**
  * Codex Integration Tests
@@ -260,8 +261,9 @@ describe.skipIf(!GIT_INIT_AVAILABLE)('Codex Integration', () => {
         '---\nnamespace: aiwg\nname: aiwg-mcp\nplatforms: [all]\n\n---\n\n# AIWG MCP Server\n'
       );
 
+      recordManagedCopy(path.join(legacyDir, 'SKILL.md'));
       const output = runScript('tools/skills/deploy-skills-codex.mjs', [
-        '--target', skillsDir
+        '--index-mode', '--target', skillsDir
       ]);
 
       await expect(fs.access(legacyDir)).rejects.toThrow();
@@ -363,6 +365,7 @@ describe.skipIf(!GIT_INIT_AVAILABLE)('Codex Integration', () => {
       await fs.mkdir(staleDir, { recursive: true });
       await fs.writeFile(path.join(staleDir, 'SKILL.md'), '---\nname: eval-agent\ndescription: stale\n---\n');
       await fs.writeFile(path.join(staleDir, '.aiwg-managed'), 'aiwg\n');
+      recordManagedCopy(path.join(staleDir, 'SKILL.md'));
 
       execFileSync(process.execPath, [
         path.join(REPO_ROOT, 'tools/skills/deploy-skills-codex.mjs'),

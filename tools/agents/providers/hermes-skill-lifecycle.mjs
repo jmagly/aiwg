@@ -81,6 +81,7 @@ function updateBundledManifest(kernelSkillNames, opts) {
  *     directories under ~/.hermes/
  */
 function migrateLegacySkillPath(opts) {
+  if (opts.copyMode ?? opts.copyStandardSkills) return;
   const { dryRun, quiet } = opts;
   // Resolve through the same HERMES_HOME contract as every other path in
   // this provider (env var first, platform default otherwise): with

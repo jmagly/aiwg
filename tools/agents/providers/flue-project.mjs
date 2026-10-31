@@ -11,7 +11,7 @@ const configFiles = ['ts', 'mts', 'mjs', 'js', 'cjs', 'cts'].map(ext => `flue.co
 export function flueDeploymentFiles(target) {
   const source = ['.flue', 'src'].find(dir => directory(path.join(target, dir))) || 'src';
   // Snapshot config and conventional entries too: deployment reads a staged project.
-  return [...new Set([path.join(source, 'db.ts'), '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts',
+  return [...new Set([path.join(source, 'db.ts'), '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts', 'src/aiwg/skills.ts',
     ...configFiles, ...databaseFiles()])];
 }
 function explicitDatabase(target) {

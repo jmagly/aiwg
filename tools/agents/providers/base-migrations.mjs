@@ -39,6 +39,7 @@ import { MANAGED_MARKER_RE, MANIFEST_FILENAME, readSidecarManifest, writeSidecar
 export function cleanupOldRuleFiles(rulesDir, opts = {}) {
   const { dryRun = false, cleanRules = false, incomingFiles } = opts;
   const removed = [];
+  if (opts.copyMode ?? opts.copyStandardSkills) return removed;
 
   if (!fs.existsSync(rulesDir)) return removed;
   if (!cleanRules) return removed;

@@ -1,3 +1,4 @@
+import { validateInstalled } from './installed-validation.js';
 import { preserveInstalledSelection } from './installed-selection.js';
 import { validateHitlPolicy } from '../policy/hitl-validation.js';
 import { normalizeAiwgConfigCandidate } from './config-normalization.js';
@@ -99,7 +100,7 @@ export interface DeployedArtifactCounts {
  */
 export interface InstalledEntry {
   /** Deployed version (CalVer or semver) */
-  version: string;
+  version?: string;
 
   /**
    * Source of the deployment:
@@ -108,13 +109,13 @@ export interface InstalledEntry {
    *   "project-local" — came from .aiwg/{extensions,addons,frameworks,plugins,providers}/<id>/ (#1035)
    *   git URL         — direct source URL
    */
-  source: 'bundled' | 'cache' | 'project-local' | string;
+  source?: 'bundled' | 'cache' | 'project-local' | string;
 
   /** ISO-8601 timestamp of last deployment */
-  installedAt: string;
+  installedAt?: string;
 
-  /** Provider → artifact counts */
-  deployedTo: Record<string, DeployedArtifactCounts>;
+  /** Provider → deployed counts or pending intent; copy persists the deployment mode. */
+  deployedTo: Record<string, Partial<DeployedArtifactCounts> & { copy?: boolean }>;
 
   /** SHA-256 of manifest.json at deploy time; used for stale detection */
   manifestHash?: string;
@@ -1827,6 +1828,7 @@ export async function readAiwgConfigCandidate(projectDir: string): Promise<AiwgC
     }
   }
 
+  validateInstalled(parsed.installed);
   const externalLinkErrors = validateExternalLinks(parsed.externalLinks);
   if (externalLinkErrors.length > 0) {
     throw new Error(`Invalid .aiwg/aiwg.config:\n${externalLinkErrors.join('\n')}`);
@@ -2025,6 +2027,7 @@ export function updateInstalled(
      * of `providers[]` so doctor/parallelism treat it as primary (#247).
      */
     asPrimary?: boolean;
+    copy?: boolean;
   }
 ): AiwgConfig {
   // Project-local invariant: `source: 'project-local'` requires localPath + localType
@@ -2048,7 +2051,7 @@ export function updateInstalled(
   existing.version = opts.version;
   existing.source = opts.source;
   existing.installedAt = new Date().toISOString();
-  existing.deployedTo[provider] = counts;
+  existing.deployedTo[provider] = { ...counts, ...(opts.copy === undefined ? {} : { copy: opts.copy }) };
   if (opts.manifestHash) existing.manifestHash = opts.manifestHash;
 
   if (opts.source === 'project-local') {
@@ -2091,10 +2094,10 @@ export function getDeploymentSummary(
   for (const entry of Object.values(config.installed)) {
     const counts = entry.deployedTo[targetProvider];
     if (!counts) continue;
-    totals.agents += counts.agents;
-    totals.commands += counts.commands;
-    totals.skills += counts.skills;
-    totals.rules += counts.rules;
+    totals.agents += counts.agents ?? 0;
+    totals.commands += counts.commands ?? 0;
+    totals.skills += counts.skills ?? 0;
+    totals.rules += counts.rules ?? 0;
   }
 
   return totals;

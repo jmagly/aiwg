@@ -42,6 +42,7 @@ export function canDeploySkill(receipt, skillSource, { force = false, logicalInp
 
 /** Remove unchanged recorded files, allowing symlinks above (but never inside) the skill root. */
 export function pruneRecordedSkillFiles(skillDir, managed, desired, opts = {}) {
+  if (opts.copyMode ?? opts.copyStandardSkills) return;
   const root = path.resolve(skillDir);
   for (const [relative, record] of Object.entries(managed || {})) {
     const target = path.resolve(skillDir, relative);

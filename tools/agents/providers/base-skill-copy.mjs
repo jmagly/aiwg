@@ -8,7 +8,7 @@ import { getFrameworksForMode } from './base-framework-discovery.mjs';
 
 /** Source-scoped cleanup also works when a removed standard skill is absent from this deploy's input. */
 export function pruneMissingStandardSkills(destDir, opts) {
-  if (!destDir || !opts?.srcRoot || opts.dryRun || !fs.existsSync(destDir)) return 0;
+  if ((opts?.copyMode ?? opts?.copyStandardSkills) || !destDir || !opts?.srcRoot || opts.dryRun || !fs.existsSync(destDir)) return 0;
   const sourceRoot = path.resolve(opts.srcRoot);
   let pruned = 0;
   for (const entry of fs.readdirSync(destDir, { withFileTypes: true })) {
@@ -99,6 +99,11 @@ export function deploySkillDir(skillDir, destDir, opts) {
         };
         if (fs.existsSync(destPath)) {
           const destContent = fs.readFileSync(destPath, 'utf8');
+          if (previous?.managed?.[relative]?.hash && previous.managed[relative].hash !== `sha256:${contentHash(destContent)}`) {
+            managed[relative] = previous.managed[relative];
+            console.warn(`${opts.logicalOutputPath?.(destPath) || destPath}: kept (operator-edited)`);
+            continue;
+          }
           if (destContent === srcContent && !force) {
             if (verbose) console.log(`skip (unchanged): ${path.relative(destDir, destPath)}`);
             continue;
@@ -117,6 +122,9 @@ export function deploySkillDir(skillDir, destDir, opts) {
 
   copyRecursive(skillDir, destSkillDir);
   pruneRecordedSkillFiles(destSkillDir, previous?.managed, new Set(Object.keys(managed)), opts);
+  for (const [name, record] of Object.entries(previous?.managed || {})) {
+    if (!managed[name] && fs.existsSync(path.join(destSkillDir, name))) managed[name] = record;
+  }
   writeSidecarManifest(destSkillDir, { managed, skillSource: path.resolve(skillDir) }, dryRun);
 
   // Drop a `.aiwg-managed` marker so future cleanup runs can identify

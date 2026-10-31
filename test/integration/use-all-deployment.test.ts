@@ -1,3 +1,4 @@
+import { recordManagedCopy } from '../helpers/managed-copy-fixture.js';
 /**
  * Integration tests for `aiwg use all` disallow-list behaviour
  *
@@ -347,6 +348,7 @@ describe.skipIf(!GIT_AVAILABLE)('aiwg use all — deployment coverage', { timeou
         const agentsDir = path.join(projectDir, '.codex', 'agents');
         await fs.mkdir(agentsDir, { recursive: true });
         await fs.writeFile(path.join(agentsDir, 'stale-aiwg.toml'), '# aiwg:managed v0 test\nname = "stale"\n');
+        recordManagedCopy(path.join(agentsDir, 'stale-aiwg.toml'));
         await fs.writeFile(path.join(agentsDir, 'operator.toml'), 'name = "operator"\n');
         const result = runAiwgWithEnv(
           ['use', 'all', '--provider', 'codex', '--target', projectDir],
@@ -447,6 +449,7 @@ describe.skipIf(!GIT_AVAILABLE)('aiwg use all — deployment coverage', { timeou
         const agentsDir = path.join(projectDir, '.claude', 'agents');
         await fs.mkdir(agentsDir, { recursive: true });
         await fs.writeFile(path.join(agentsDir, 'stale-aiwg.md'), '<!-- aiwg:managed v0 test -->\n# stale\n');
+        recordManagedCopy(path.join(agentsDir, 'stale-aiwg.md'));
         await fs.writeFile(path.join(agentsDir, 'operator.md'), '# operator\n');
         const result = runAiwgWithEnv(
           ['use', 'all', '--provider', 'claude', '--target', projectDir],

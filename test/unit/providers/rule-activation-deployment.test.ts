@@ -103,16 +103,16 @@ describe('activation-selected provider deployment (#2939)', () => {
 
   it('redeploy replaces changed summaries, removes stale blocks and startup bodies, and retires budget sidecars', () => {
     const root = setup();
-    deploy(root, 'claude');
+    deploy(root, 'claude', { copyStandardSkills: false });
     const file = join(root, 'source/rules/fixture-bound.md');
     writeFileSync(file, readFileSync(file, 'utf8').replace('Follow the fixture bound policy.', 'Follow the revised bound policy.'));
     writeFileSync(join(root, 'target/.claude/rules/.aiwg-rules-budget.json'), JSON.stringify({ budgetTokens: 64000, demoted: ['fixture-kernel'] }));
-    deploy(root, 'claude');
+    deploy(root, 'claude', { copyStandardSkills: false });
     expect(readFileSync(join(root, 'target/.claude/skills/fixture-skill/SKILL.md'), 'utf8')).toContain('RULES-BOUND.md#skill-fixture-skill');
     expect(readFileSync(join(root, 'target/.claude/RULES-BOUND.md'), 'utf8')).toContain('Follow the revised bound policy.');
     expect(existsSync(join(root, 'target/.claude/rules/.aiwg-rules-budget.json'))).toBe(false);
     rmSync(file);
-    deploy(root, 'claude');
+    deploy(root, 'claude', { copyStandardSkills: false });
     expect(readFileSync(join(root, 'target/.claude/RULES-BOUND.md'), 'utf8')).not.toContain('fixture-bound');
   }, 90_000);
   it('keeps untagged SDLC/Claude rules on demand without promoting legacy scope metadata', () => {
@@ -200,8 +200,9 @@ describe('activation-selected provider deployment (#2939)', () => {
     expect(authored).toContain('AUTHORED_FLOW_SKILL_BODY');
     expect(authored).toContain('RULES-BOUND.md#');
     expect(authored).not.toContain('```yaml');
-    // Remove the authored representation; --copy-all can now project the flow.
+    // Index cleanup releases the retired authored copy before projecting the flow.
     rmSync(source, { recursive: true });
+    deploy(root, 'claude', { copyStandardSkills: false });
     deploy(root, 'claude');
     expect(readFileSync(join(output, 'SKILL.md'), 'utf8')).toContain('```yaml');
     writeFileSync(join(output, 'operator-note.txt'), 'Keep this operator resource.');
@@ -378,13 +379,13 @@ describe('activation-selected provider deployment (#2939)', () => {
 
   it('reconciles managed startup bodies when activation changes or source disappears', () => {
     const root = setup();
-    deploy(root, 'claude');
+    deploy(root, 'claude', { copyStandardSkills: false });
     const source = join(root, 'source/rules/fixture-kernel.md');
     writeFileSync(source, '---\nname: fixture-kernel\nactivation: on-demand\n---\nKERNEL_NOW_MANUAL');
-    deploy(root, 'claude');
+    deploy(root, 'claude', { copyStandardSkills: false });
     expect(existsSync(join(root, 'target/.claude/rules/fixture-kernel.md'))).toBe(false);
     rmSync(join(root, 'source/rules/fixture-paths.md'));
-    deploy(root, 'claude');
+    deploy(root, 'claude', { copyStandardSkills: false });
     expect(existsSync(join(root, 'target/.claude/rules/fixture-paths.md'))).toBe(false);
   }, 90_000);
 

@@ -39,6 +39,7 @@ beforeEach(() => {
   project = path.join(scratch, 'project'); fs.mkdirSync(project);
   source = path.join(scratch, 'agentic/code/frameworks/sdlc-complete');
   for (const name of ['code-reviewer', 'test-engineer']) write(source, `agents/${name}.md`, `---\nname: ${name}\ndescription: Synthetic ${name}\n---\nSynthetic ${name} body.\n`);
+  write(source, 'manifest.json', JSON.stringify({ flue: { specialists: ['code-reviewer', 'test-engineer'] } }));
   write(source, 'skills/demo/SKILL.md', '---\nname: demo\ndescription: Synthetic Flue skill\nkernel: true\nplatforms: [all]\n---\nUse the synthetic skill.\n');
   write(source, 'skills/bulk/SKILL.md', '---\nname: bulk\ndescription: Discovery only\n---\nBulk.\n');
 });
@@ -64,7 +65,18 @@ describe('Flue experimental deployment and lifecycle', () => {
     expect(Object.values(definition.capabilities.nativeFeatures)).not.toContain(true);
   });
 
-  it.each(['', 'src', '.flue'])('deploys kernel skills, inline context, database and receipts (source: %s)', async dir => {
+  it('keeps use all on the historical kernel surface, including addon kernels', async () => {
+    const addon = path.join(scratch, 'agentic/code/addons/aiwg-utils');
+    write(addon, 'manifest.json', JSON.stringify({ id: 'aiwg-utils', type: 'addon' }));
+    write(addon, 'skills/utility/SKILL.md', '---\nname: utility\ndescription: Synthetic utility\nkernel: true\n---\nUtility.\n');
+    write(addon, 'skills/standard-utility/SKILL.md', '---\nname: standard-utility\ndescription: Standard utility\n---\nStandard.\n');
+    await flue.deploy({ ...options(), srcRoot: scratch, mode: 'all', frameworkSlug: 'all' });
+    expect(fs.readdirSync(path.join(project, '.agents/skills')).sort()).toEqual(['demo', 'utility']);
+    expect(read('src/aiwg/skills.ts')).toContain('export const aiwgUtilsSkills = [utility]');
+    expect(read('src/aiwg/skills.ts')).not.toContain('standardUtility');
+  });
+
+  it.each(['', 'src', '.flue'])('deploys all bundle skills, inline context, database and receipts (source: %s)', async dir => {
     if (dir) fs.mkdirSync(path.join(project, dir));
     await deploy();
     const skill = read('.agents/skills/demo/SKILL.md');
@@ -75,7 +87,8 @@ describe('Flue experimental deployment and lifecycle', () => {
     expect(metadata.name.length).toBeLessThanOrEqual(64);
     expect(metadata.description.length).toBeLessThanOrEqual(1024);
     expect(metadata.platforms).toEqual(['flue']);
-    expect(fs.existsSync(path.join(project, '.agents/skills/bulk'))).toBe(false);
+    expect(read('.agents/skills/bulk/SKILL.md')).toContain('Bulk.');
+    expect(read('src/aiwg/skills.ts')).toContain("import bulk from '../../.agents/skills/bulk/SKILL.md'");
     const context = read('AGENTS.md');
     expect(context).toContain('## AIWG Context Graph');
     expect(context).toContain('Context Finalization');
@@ -327,7 +340,7 @@ describe('Flue experimental deployment and lifecycle', () => {
     expect(read('.gitignore')).toBe('/.flue-state/\n');
     write(project, 'AGENTS.md', '<!-- AIWG:flue-context:start -->');
     expect(() => writeFlueContext(project)).toThrow('Malformed');
-    expect(flueDeploymentFiles(project)).toEqual(['src/db.ts', '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts',
+    expect(flueDeploymentFiles(project)).toEqual(['src/db.ts', '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts', 'src/aiwg/skills.ts',
       'flue.config.ts', 'flue.config.mts', 'flue.config.mjs', 'flue.config.js', 'flue.config.cjs', 'flue.config.cts',
       '.flue/db.ts', '.flue/db.mts', '.flue/db.js', '.flue/db.mjs',
       'src/db.mts', 'src/db.js', 'src/db.mjs', 'db.ts', 'db.mts', 'db.js', 'db.mjs']);

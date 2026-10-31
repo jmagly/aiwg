@@ -1,22 +1,24 @@
-// Generate the fixed Flue delegates from canonical agents and shared rule transforms.
+// Generate the selected Flue delegates from canonical agents and shared rule transforms.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveAiwgRoot } from './base-inventory.mjs';
+import { camel, flueBundleInventory, selectedFlueBundles } from './flue-bundles.mjs';
+import { generateFlueSkills } from './flue-skills.mjs';
 import { parseFrontmatter } from './base-frontmatter.mjs';
 import { injectBoundRules } from './base-contract.mjs';
 import { claimRecordedFile } from './flue-project.mjs';
 
-export const FLUE_SPECIALISTS = Object.freeze([
-  Object.freeze({ name: 'code-reviewer', exportName: 'codeReviewer', file: 'code-reviewer.md' }),
-  Object.freeze({ name: 'test-engineer', exportName: 'testEngineer', file: 'test-engineer.md' }),
-]);
+function specialists(bundles) {
+  return [...new Map(bundles.flatMap(bundle => (bundle.manifest.flue?.specialists || []).map(name =>
+    [name, { name, exportName: camel(name), file: `${name}.md`, root: bundle.root }]))).values()];
+}
+export const FLUE_SPECIALISTS = Object.freeze(specialists(flueBundleInventory({ srcRoot: fileURLToPath(new URL('../../../', import.meta.url)) }))
+  .map(({ root: _root, ...entry }) => Object.freeze(entry)));
 
 export function generateFlueSpecialists(opts) {
-  const root = resolveAiwgRoot(opts.srcRoot);
-  const framework = root ? path.join(root, 'agentic/code/frameworks/sdlc-complete') : opts.srcRoot;
-  const definitions = FLUE_SPECIALISTS.map(specialist => {
-    const logical = path.join(framework, 'agents', specialist.file);
+  const selected = specialists(selectedFlueBundles(opts));
+  const definitions = selected.map(specialist => {
+    const logical = path.join(specialist.root, 'agents', specialist.file);
     const file = opts.mapInputPath?.(logical) || logical;
     const { body, metadata } = parseFrontmatter(injectBoundRules(fs.readFileSync(file, 'utf8'), file, opts));
     return `export const ${specialist.exportName} = defineSubagent({
@@ -37,8 +39,8 @@ import { aiwg_discover, aiwg_show, aiwg_artifact_write } from './tools.ts';
 ${definitions.join('\n\n')}
 
 /** Trusted app options: omit pins to inherit the app model and effort. */
-export function useAiwgSpecialists(pins: { codeReviewer?: string; testEngineer?: string } = {}) {
-${FLUE_SPECIALISTS.map(({ exportName }) => `  useSubagent(pins.${exportName} === undefined ? ${exportName} : { ...${exportName}, model: pins.${exportName} });`).join('\n')}
+export function useAiwgSpecialists(pins: { ${selected.map(({ exportName }) => `${exportName}?: string`).join('; ')} } = {}) {
+${selected.map(({ exportName }) => `  useSubagent(pins.${exportName} === undefined ? ${exportName} : { ...${exportName}, model: pins.${exportName} });`).join('\n')}
 }
 `;
 }
@@ -61,4 +63,5 @@ export function deployFlueSpecialists(target, opts) {
   const template = fileURLToPath(new URL('../../../agentic/code/providers/flue/templates/aiwg/tools.ts', import.meta.url));
   write('src/aiwg/tools.ts', () => fs.readFileSync(opts.mapInputPath?.(template) || template, 'utf8'));
   write('src/aiwg/specialists.ts', () => generateFlueSpecialists(opts));
+  write('src/aiwg/skills.ts', () => generateFlueSkills(target, opts));
 }

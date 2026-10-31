@@ -13,6 +13,7 @@ beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'flue-specialists-'));
   source = path.join(root, 'sdlc-complete');
   fs.mkdirSync(path.join(source, 'agents'), { recursive: true });
+  fs.writeFileSync(path.join(source, 'manifest.json'), JSON.stringify({ flue: { specialists: ['code-reviewer', 'test-engineer'] } }));
   for (const { file } of FLUE_SPECIALISTS) fs.writeFileSync(path.join(source, 'agents', file),
     `---\nname: Synthetic\ndescription: Synthetic specialist\nmodel: sonnet\ntools: Bash, Write\n---\nBody for ${file}: \u0060code\u0060 and \u0024{literal}.\n`);
   vi.stubEnv('AIWG_ROOT', '');

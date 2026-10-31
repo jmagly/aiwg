@@ -15,6 +15,7 @@
  * @parent #684
  */
 
+import { getFrameworkRoot } from '../../src/channel/manager.mjs';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
@@ -26,6 +27,8 @@ const savedProcessProvider = process.env.AIWG_TEST_PROCESS_PROVIDER;
 
 beforeEach(() => {
   process.env.AIWG_TEST_PROCESS_PROVIDER = 'codex';
+  vi.mocked(getFrameworkRoot).mockResolvedValue(REPO_ROOT);
+  mockReadAiwgConfig.mockResolvedValue({ providers: ['codex'], installed: { sdlc: { deployedTo: { codex: {} } } }, parallelism: {} });
 });
 
 afterEach(() => {
@@ -84,7 +87,7 @@ const {
   mockUseExecute: vi.fn().mockResolvedValue({ exitCode: 0 }),
   mockReadAiwgConfig: vi.fn().mockResolvedValue({
     providers: ['codex'],
-    installed: { sdlc: {} },
+    installed: { sdlc: { deployedTo: { codex: {} } } },
     parallelism: {},
   }),
 }));
@@ -200,7 +203,7 @@ describe('sync --skip-update', () => {
     vi.clearAllMocks();
     mockRun.mockResolvedValue({ exitCode: 0 });
     mockReadAiwgConfig.mockResolvedValue({
-      providers: ['codex'], installed: { sdlc: {} }, parallelism: {},
+      providers: ['codex'], installed: { sdlc: { deployedTo: { codex: {} } } }, parallelism: {},
     });
   });
 

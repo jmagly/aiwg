@@ -41,6 +41,11 @@ import { getLogger } from '../log.js';
 import { installCockpit } from './cockpit.js';
 import { initHandler } from './init.js';
 import { selectAddonProfile } from './use-addon-profile.js';
+import { deploymentEditWarnings } from '../../providers/deployment-preservation.mjs';
+import { permitsBundleDeployment } from '../../config/installed-selection.js';
+import { recordBundleDeployment, copyCleanupArgs, projectLocalDeploymentContext, projectLocalCopyMode } from './bundle-deployment-mode.js';
+import { frameworkAdditiveBundles, getAllAddons, getAllExtensions } from './use-additive-bundles.js';
+export { getAllAddons, getAllExtensions, USE_ALL_DISALLOW, USE_ALL_EXTENSIONS_DISALLOW } from './use-additive-bundles.js';
 import {
   checkCollisions,
   formatCollisionReport,
@@ -350,33 +355,6 @@ export function resolveFrameworkDir(framework: string): string | undefined {
   return FRAMEWORK_DIR_MAP[framework];
 }
 
-/**
- * Addons excluded from `aiwg use all`.
- * aiwg-dev is contributor-only tooling — not for end users.
- */
-export const USE_ALL_DISALLOW = new Set(['aiwg-dev']);
-
-/**
- * Whether an addon's manifest keeps it out of bulk deploys (#2641).
- *
- * `devOnly` marks contributor tooling; `explicitInstall` marks an addon that is
- * deployed only when named, such as `aiwg use decision-engine`. Both match
- * `discoverAddons()` in tools/agents/providers/base.mjs, which applies the same
- * rule to framework-mode deploys.
- *
- * `autoInstall: false` is deliberately NOT an exclusion signal: most addons
- * declare it (and the extension manifest schema defaults to it), so honoring
- * it would drop most addons from `all` for existing users.
- */
-async function isExplicitOnlyAddon(addonDir: string): Promise<boolean> {
-  try {
-    const manifest = JSON.parse(await fs.readFile(path.join(addonDir, 'manifest.json'), 'utf8'));
-    return manifest?.devOnly === true || manifest?.explicitInstall === true;
-  } catch {
-    return false;
-  }
-}
-
 /** Full-framework setup requires the corpus omitted by the lightweight CLI. */
 async function bundledSetupPrerequisiteMessage(frameworkRoot: string): Promise<string | undefined> {
   let packageName: string | undefined;
@@ -404,56 +382,6 @@ async function bundledSetupPrerequisiteMessage(frameworkRoot: string): Promise<s
     '  npm install -g aiwg',
     '@aiwg/cli can still query signed web resources and deploy external project-local bundles.',
   ].join('\n');
-}
-
-/**
- * Discover all addon names from the filesystem, minus the disallow list and
- * addons whose manifest restricts them to explicit installs.
- */
-export async function getAllAddons(frameworkRoot: string): Promise<string[]> {
-  const addonsDir = path.join(frameworkRoot, 'agentic/code/addons');
-  const entries = await fs.readdir(addonsDir, { withFileTypes: true });
-  const candidates = entries.filter(e => e.isDirectory() && !USE_ALL_DISALLOW.has(e.name));
-  const excluded = await Promise.all(candidates.map(e => isExplicitOnlyAddon(path.join(addonsDir, e.name))));
-  return candidates.filter((_, index) => !excluded[index]).map(e => e.name);
-}
-
-/**
- * Extensions excluded from `aiwg use all` deployment.
- * `api-adapter` is an OpenAPI spec, not a deployable artifact bundle.
- */
-export const USE_ALL_EXTENSIONS_DISALLOW = new Set(['api-adapter']);
-
-/**
- * Discover all extension names from `agentic/code/extensions/*` (#1221).
- *
- * Extensions are addon-shaped bundles with their own `manifest.json`,
- * `skills/`, `rules/`, and `templates/` directories. Only directories
- * containing a `manifest.json` are considered deployable; bare directories
- * (e.g. `api-adapter` which only ships an OpenAPI spec) are skipped.
- */
-export async function getAllExtensions(frameworkRoot: string): Promise<string[]> {
-  const extensionsDir = path.join(frameworkRoot, 'agentic/code/extensions');
-  let entries: import('fs').Dirent[];
-  try {
-    entries = await fs.readdir(extensionsDir, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-  const result: string[] = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (USE_ALL_EXTENSIONS_DISALLOW.has(entry.name)) continue;
-    const manifestPath = path.join(extensionsDir, entry.name, 'manifest.json');
-    try {
-      await fs.access(manifestPath);
-      result.push(entry.name);
-    } catch {
-      // Directory without a manifest is not deployable as an extension.
-      continue;
-    }
-  }
-  return result;
 }
 
 /**
@@ -1382,7 +1310,7 @@ async function deployOneProjectLocalBundle(opts: {
       // graph. Without --copy-all, the bundle's rules deploy but its skills
       // never reach <provider>/.aiwg/skills/, leaving them invisible to
       // both the platform and the index.
-      '--copy-all',
+      '--copy-all', ...copyCleanupArgs(ctx.args),
       // That copy-all is the deployer's doing, not the operator's, so the
       // provider's startup listing cap still applies; overflow lands on the
       // standard tier instead of over the cap (#2561).
@@ -1491,9 +1419,9 @@ async function deployProjectLocalBundles(opts: {
 
   const targetBundles = onlyBundleId
     ? discovery.bundles.filter(b => b.id === onlyBundleId)
-    : discovery.bundles.filter(b => b.type !== 'provider');
+    : discovery.bundles.filter(b => b.type !== 'provider' && permitsBundleDeployment(projectDir, b.id, provider));
 
-  if (targetBundles.length === 0) {
+  if (targetBundles.length === 0 && discovery.bundles.length === 0) {
     if (!onlyBundleId) {
       const { hasProjectQuickref, deployProjectQuickref } = await import('../../extensions/project-quickref.js');
       try {
@@ -1566,7 +1494,7 @@ async function deployProjectLocalBundles(opts: {
     }
 
     const result = await deployOneProjectLocalBundle({
-      bundle, ctx, frameworkRoot, provider, target, dryRun, verbose, quiet, modelArgs,
+      bundle, ctx: await projectLocalDeploymentContext(ctx, projectDir, bundle.id, provider, Boolean(onlyBundleId)), frameworkRoot, provider, target, dryRun, verbose, quiet, modelArgs,
     });
 
     if (result.exitCode !== 0) {
@@ -1621,10 +1549,12 @@ async function deployProjectLocalBundles(opts: {
           localPath: bundle.localPath,
           localType: bundle.type,
           manifestVersion: bundle.manifest.manifestVersion,
+          copy: projectLocalCopyMode(config, bundle.id, provider, ctx.args, Boolean(onlyBundleId)),
           artifactHashes,
           deployedArtifactHashes,
         });
         await writeAiwgConfig(projectDir, updated);
+        await recordBundleDeployment(projectDir, bundle.id, provider, updated.installed[bundle.id].deployedTo[provider].copy ? ['--copy-all'] : [], frameworkRoot);
       } catch (err) {
         // Non-fatal: deploy already succeeded
         ui.warn(`Project-local registry update failed for '${bundle.id}': ${err instanceof Error ? err.message : String(err)}`);
@@ -1635,7 +1565,7 @@ async function deployProjectLocalBundles(opts: {
   // Automatic reconciliation (also used by refresh/upgrade) must restore the
   // project search cache for existing bundles, just as a named local install
   // does. Named installs refresh once after all selected providers finish.
-  if (deployed > 0 && !dryRun && !onlyBundleId) {
+  if (discovery.bundles.length > 0 && !dryRun && !onlyBundleId) {
     try {
       await rebuildExternalBundleIndex(projectDir, 'project', verbose);
     } catch (error) {
@@ -1719,7 +1649,7 @@ const USE_BOOLEAN_FLAGS = new Set([
   '--allow-over-budget', '--no-hooks', '--no-attribution', '--enable-cross-provider-hooks',
   '--skip-commands-migration', '--listing-budget', '--mcp', '--as-agents-md',
   '--create-agents-md', '--commands-only', '--skills-only', '--rules-only',
-  '--save', '--save-user', '--help', '-h',
+  '--declare', '--save', '--save-user', '--help', '-h',
 ]);
 
 export function validateUseOptions(args: string[], preparedCapabilities = new Set<string>()): string | undefined {
@@ -2653,6 +2583,7 @@ Additional options:
   --filter <glob>, --filter-role <role>
                             Filter deployed agents
   --save, --save-user        Persist model selection
+  --declare                 Declare a bundle for --provider without deploying (project scope)
   --no-utils                Skip additive addon and extension passes
   --no-workspace-md, --no-aiwg-md, --no-agents-md
                             Suppress individual context files
@@ -2696,6 +2627,7 @@ export class UseHandler implements CommandHandler {
   }
 
   async execute(ctx: HandlerContext): Promise<HandlerResult> {
+    if (ctx.args.includes('--declare')) return (await import('./bundle-declaration.js')).declareBundle(ctx);
     let resourceCredentials = useDeployment?.resourceCredentials;
     try {
       if (!resourceCredentials) {
@@ -2842,6 +2774,9 @@ export class UseHandler implements CommandHandler {
       }
     }
 
+    if (coreResult.exitCode === 0 && !dryRun) for (const provider of providers) {
+      for (const warning of deploymentEditWarnings(projectDir, provider)) originalConsole.warn(warning);
+    }
     let result: UseDeploymentResult;
     if (dryRun && coreResult.exitCode === 0) {
       result = buildDryRunUseResult({
@@ -3525,7 +3460,7 @@ export class UseHandler implements CommandHandler {
         // project. Unlike a full framework deploy, its standard skills cannot be
         // left index-only: the user asked to install this specific bundle and
         // its supporting scripts must travel with the skill directory.
-        addonBaseArgs.push('--copy-all');
+        addonBaseArgs.push('--copy-all', ...copyCleanupArgs(remainingArgs));
         addonBaseArgs.push(...modelDeployArgs);
         if (provider) addonBaseArgs.push('--provider', provider);
         if (target) addonBaseArgs.push('--target', target);
@@ -3537,7 +3472,7 @@ export class UseHandler implements CommandHandler {
         if (dryRunAddon) addonBaseArgs.push('--dry-run');
         if (remainingArgs.includes('--force')) addonBaseArgs.push('--force');
 
-        const activationOrder = isAddon
+        const activationOrder = isAddon && provider !== 'flue'
           ? await resolveRequiredAddonActivationOrder(frameworkRoot, framework)
           : [framework];
         const requiredAddons = activationOrder.slice(0, -1);
@@ -3675,8 +3610,10 @@ export class UseHandler implements CommandHandler {
               source: 'bundled',
               manifestHash: await hashManifest(manifestPath),
               asPrimary: Boolean(explicitAddonProvider),
+              copy: remainingArgs.includes('--copy-all') || remainingArgs.includes('--copy-standard-skills'),
             });
             await writeAiwgConfig(projectDir, updated);
+            await recordBundleDeployment(projectDir, framework, provider, remainingArgs, frameworkRoot);
             config = updated;
           } catch (error) {
             ui.warn(`Addon registry update failed for '${framework}': ${error instanceof Error ? error.message : String(error)}`);
@@ -3874,8 +3811,7 @@ export class UseHandler implements CommandHandler {
       && !remainingArgs.includes('--copy-all')
       && !remainingArgs.includes('--copy-standard-skills');
     if (bulkKernelOnly) providerDeployArgs.push('--kernel-only');
-    const allAddons = skipUtils || provider === 'flue' ? [] : await getAllAddons(frameworkRoot);
-    const allExtensions = skipUtils || bulkKernelOnly || provider === 'flue' ? [] : await getAllExtensions(frameworkRoot);
+    const { addons: allAddons, extensions: allExtensions } = await frameworkAdditiveBundles(frameworkRoot, provider, skipUtils, bulkKernelOnly);
     const mainIncludesAddons = mainDeploymentIncludesAddons(provider, mode, providerDeployArgs);
     // OMP's extension sources share the root transaction and binding scan.
     // Their CLI contributions are still registered below in source order.
@@ -4106,7 +4042,7 @@ export class UseHandler implements CommandHandler {
     // Deploy project-local bundles (#1035). Auto-runs after upstream addons unless
     // --no-project-local. Idempotent — overwrites prior deploys. Skipped under
     // --dry-run-disabled scenarios for safety; --dry-run is honored and logged.
-    if (!skipProjectLocal) {
+    if (!skipProjectLocal && provider !== 'flue') {
       const plResult = await deployProjectLocalBundles({
         ctx,
         frameworkRoot,
@@ -4504,8 +4440,10 @@ export class UseHandler implements CommandHandler {
           source: 'bundled',
           manifestHash: mHash,
           asPrimary: Boolean(explicitProvider),
+          copy: remainingArgs.includes('--copy-all') || remainingArgs.includes('--copy-standard-skills'),
         });
         await writeAiwgConfig(projectDir, updatedConfig);
+        await recordBundleDeployment(projectDir, framework, provider, remainingArgs, frameworkRoot);
       } catch {
         // Non-fatal: config tracking failure must not block deployment
       }

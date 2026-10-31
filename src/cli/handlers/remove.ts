@@ -33,6 +33,7 @@ export const removeHandler: CommandHandler = {
       'Project-local removal reverts deployed artifacts using recorded hashes; bundle source is preserved.',
       '',
       'Options:',
+      '  --declare          Drop the provider declaration without removing files (requires --provider).',
       '  --dry-run          List planned removals and preserved paths with reasons; write nothing.',
       '  --provider <p>     Select one recorded provider deployment.',
       '  --keep-registry    Keep project installed/deployedTo records after removal. By default,',
@@ -61,6 +62,7 @@ export const removeHandler: CommandHandler = {
   },
 
   async execute(ctx: HandlerContext): Promise<HandlerResult> {
+    if (ctx.args.includes('--declare')) return (await import('./bundle-declaration.js')).declareBundle(ctx, true);
     // Explicit provider removal is separate from framework removal. The native
     // adapter validates receipt hashes and preserves operator modifications.
     const nativeRemovalProvider = parseRemoveProvider(ctx.args);
@@ -142,6 +144,10 @@ export const removeHandler: CommandHandler = {
         const projectDir = getProjectDir({ cwd: ctx.cwd }, ctx.args);
         const config = await readAiwgConfig(projectDir);
         const entry = config?.installed?.[positionalArg];
+        if (config && !entry) {
+          const result = await (await import('./remove-historical-bundle.js')).removeHistoricalBundle(projectDir, positionalArg, providerParse.provider, config, ctx.args.includes('--dry-run'));
+          if (result) return result;
+        }
         if (config && entry && entry.source !== 'project-local') {
           const { resolveFrameworkDir } = await import('./use.js');
           const { removeBundledDeployment } = await import('./remove-bundled.js');

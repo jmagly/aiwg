@@ -7,6 +7,16 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Changed
+
+- Experimental Flue deployments now honor per-provider bundle declarations,
+  include standard-tier skills, and generate static skill imports and manifest-selected
+  specialists. `aiwg-utils` is now opt-in for Flue. `use`/`remove --declare` edit
+  intent without changing files; update and refresh deploy pending entries and
+  prune undeclared bundles while preserving operator edits (#3801). Additive
+  framework passes remain expected. Per-provider copy mode persists across
+  refresh/update and keeps files until an explicit removal.
+
 ## [2026.10.19] - 2026-10-31
 
 ### Added
