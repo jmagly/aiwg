@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { afterEach, expect, it } from 'vitest';
 
@@ -71,6 +72,29 @@ it('discovers, shows rules, activates, delegates, writes, resumes, aborts and re
   expect(fs.existsSync(path.join(project, 'reviews/example.md'))).toBe(false);
   expect(fs.readFileSync(path.join(project, '.flue-state/state.db')).subarray(0, 16).toString()).toBe('SQLite format 3\0');
   expect(fs.existsSync(path.join(project, 'node_modules/.cache'))).toBe(false);
+  // Run the manual lab's durability suite in CI against an independent store,
+  // so its competing owners and synthetic effects cannot affect the app test.
+  const durability = path.join(scratch, 'durability');
+  fs.mkdirSync(durability);
+  fs.cpSync(path.join(project, 'src'), path.join(durability, 'src'), { recursive: true });
+  fs.symlinkSync(path.join(project, 'node_modules'), path.join(durability, 'node_modules'), 'dir');
+  const fixtureUrl = (name: string) => pathToFileURL(path.join(ROOT, 'test/fixtures/providers/flue', name)).href;
+  fs.writeFileSync(path.join(durability, 'check.mjs'), `
+import assert from 'node:assert/strict';
+import { prepareProject } from ${JSON.stringify(fixtureUrl('project.mjs'))};
+import { assertDurability } from ${JSON.stringify(fixtureUrl('durability-checks.mjs'))};
+globalThis.fetch = () => { throw new Error('Network forbidden'); };
+let passed = 0;
+await assertDurability(import.meta.dirname, await prepareProject(import.meta.dirname), async (name, check) => {
+  await check();
+  passed++;
+  console.log('PASS ' + name);
+});
+assert.equal(passed, 8);
+console.log('PASS durability checks: ' + passed);
+`);
+  // Each worker has a 30s hard stop; allow all lifetimes room on hosted runners.
+  expect(run([path.join(durability, 'check.mjs')], 300_000)).toContain('PASS durability checks: 8');
   const interrupted = path.join(ROOT, 'test/fixtures/providers/flue/interrupted-server.mjs');
   fs.writeFileSync(shim, `#!${process.execPath}\nimport ${JSON.stringify(interrupted)};\n`);
   for (const mode of ['abort', 'reconcile']) expect(run(['node-slice-worker.mjs', mode], 60_000)).toContain(`PASS Node slice ${mode}`);

@@ -55,6 +55,11 @@ try {
       },
       context => {
         assert.match(result(context, 'task'), /add subtracts/);
+        return call('task', { agent: 'test-engineer', prompt: 'Suggest a regression test for add returning a - b.' });
+      },
+      () => fauxAssistantMessage('Test Engineer: assert add(2, 3) equals 5.'),
+      context => {
+        assert.match(result(context, 'task'), /Test Engineer: assert add\(2, 3\) equals 5/);
         return call('aiwg_artifact_write', { path: 'reviews/example.md', content: 'Code Reviewer: use a + b.\n' });
       },
       context => {
@@ -65,7 +70,7 @@ try {
     const receipt = await handle.dispatch('Review this change: export const add = (a, b) => a - b;');
     const reply = await read(receipt);
     assert.equal(reply.text, 'Review saved at reviews/example.md.');
-    assert.equal(fake.state.callCount, 7);
+    assert.equal(fake.state.callCount, 9);
     await writeFile('slice-receipt.json', JSON.stringify(receipt));
     await writeFile('slice-reply.json', JSON.stringify(reply));
   } else if (mode === 'restart') {

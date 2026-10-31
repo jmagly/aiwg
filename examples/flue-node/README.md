@@ -28,6 +28,8 @@ Then ask the running app:
 > SDLC quickref, show its governing rules, activate it, ask Code Reviewer to
 > assess the change, and save the review at reviews/example.md.
 
+AIWG artifacts land in the project's AIWG artifact store (`.aiwg/`), for example `.aiwg/reviews/example.md`, rather than the project root.
+
 The app exposes `/agents/assistant`. Reuse the same conversation id for a
 follow-up. Production Node uses the deployed `src/db.ts` and
 `.flue-state/state.db`. Keep one live owner per conversation. `vite` development

@@ -105,6 +105,8 @@ sdlc-complete agent bodies with the shared bound-rule transform. Each mounts
 only those three AIWG tools. The fixed exported `FLUE_SPECIALISTS` list in
 `tools/agents/providers/flue-specialists.mjs` owns this roster.
 
+AIWG artifacts land in the project's AIWG artifact store (`.aiwg/`), for example `.aiwg/reviews/example.md`, rather than the project root.
+
 Mount them in an app agent after its `useModel` declaration:
 
 ```ts
@@ -161,7 +163,8 @@ The example's offline end-to-end test is in the release-slow lane. Provision
 `AIWG_FLUE_DEPENDENCIES` at an existing locked project. It copies dependencies
 into a temporary project, uses `setProvider` with Pi's keyless scripted provider,
 and runs public deploy/remove, skill activation, delegation, artifact writing,
-restart, abort, and effect reconciliation without a model service:
+restart, abort, effect reconciliation, and the shared durability checks (including
+owner and dispatch fencing and absence of `node_modules/.cache`) without a model service:
 
 ```sh
 TMPDIR=/var/tmp npm run test:release-slow -- flue-node-e2e
