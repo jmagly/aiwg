@@ -12,9 +12,9 @@ export function providerCopyMode(project, provider, owner, config, indexOwner) {
   if (!config) {
     try { config = JSON.parse(fs.readFileSync(path.join(project, '.aiwg/aiwg.config'), 'utf8')); } catch { config = {}; }
   }
-  const modes = new Map(Object.entries(history).map(([id, mode]) => [frameworkRegistryId(id), mode.copy === true]));
+  const modes = new Map(Object.entries(history).map(([id, mode]) => [frameworkRegistryId(id), mode.copy === true || mode.package === true]));
   for (const [id, entry] of Object.entries(config.installed || {})) {
-    if (entry.deployedTo?.[provider]) modes.set(frameworkRegistryId(id), entry.deployedTo[provider].copy === true);
+    if (entry.deployedTo?.[provider]) modes.set(frameworkRegistryId(id), entry.deployedTo[provider].copy === true || entry.deployedTo[provider].package === true);
   }
   if (indexOwner) modes.set(frameworkRegistryId(indexOwner), false);
   const inherited = new Set();

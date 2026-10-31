@@ -13,8 +13,9 @@ export async function pruneUndeclaredHashes(project: string, config: AiwgConfig,
     for (const provider of historicalProviders) {
       if (!getProviderArtifactPathStrings(provider)) continue;
       if (entry.deployedTo[provider] || requested && !requested.split(',').includes(provider)) continue;
-      if (bundleDeploymentHistory(project)[provider]?.[frameworkRegistryId(id)]?.copy) {
-        console.log(`${id} for ${provider}: kept (copy mode); run \`aiwg remove ${id}\` to delete`);
+      const mode = bundleDeploymentHistory(project)[provider]?.[frameworkRegistryId(id)];
+      if (mode?.copy || mode?.package) {
+        console.log(`${id} for ${provider}: kept (${mode?.copy ? 'copy' : 'package'} mode); run \`aiwg remove ${id}\` to delete`);
         handled.add(`${provider}:${id}`);
         continue;
       }

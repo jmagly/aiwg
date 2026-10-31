@@ -98,7 +98,7 @@ export async function pruneUndeclaredBundles(project: string, config: AiwgConfig
         continue;
       }
       const otherProviders = [...expected].filter(([other, owners]) => other !== provider
-        && (history[other]?.[frameworkRegistryId(owner)]?.copy || owners.has(frameworkRegistryId(owner)) || other !== 'flue' && owners.has('all'))).map(([other]) => other);
+        && (history[other]?.[frameworkRegistryId(owner)]?.copy || history[other]?.[frameworkRegistryId(owner)]?.package || owners.has(frameworkRegistryId(owner)) || other !== 'flue' && owners.has('all'))).map(([other]) => other);
       const sharedRoots = deployedSkillRoots(project, provider).filter(root => otherProviders.some(other => deployedSkillRoots(project, other).includes(root)));
       console.log(`${dryRun ? 'Would remove' : 'Removing'} ${bundleUseName(owner)} for ${provider}`);
       // A temporary historical record supplies context for the public per-bundle

@@ -81,12 +81,13 @@ aiwg remove sdlc
 > and the local AIWG tools. Tell me which tool import is missing if setup is incomplete.
 
 Install `@aiwg/flue` alongside your app's `@flue/runtime@2.3.0` and Flue build
-plugin. The MIT package declares only a `@flue/runtime: 2.3.x` peer. Vite and
+plugin. The MIT package declares peers `@flue/runtime: 2.3.x`,
+`@modelcontextprotocol/client: 2.0.0`, and `valibot: ^1.1.0`. Vite and
 other build dependencies belong to the app. The first npm publication requires
 an operator bootstrap; later releases follow the normal trusted publishing path.
 
 ```sh
-npm install @aiwg/flue @flue/runtime@2.3.0
+npm install @aiwg/flue @flue/runtime@2.3.0 @modelcontextprotocol/client@2.0.0 'valibot@^1.1.0'
 aiwg use sdlc --provider flue --package
 aiwg use voice-framework --provider flue --package
 ```

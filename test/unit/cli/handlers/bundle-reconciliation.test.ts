@@ -270,3 +270,37 @@ it('removes recreated additive copies after a restricted deploy and leaves unkno
   expect(fs.existsSync(file)).toBe(false);
   expect(fs.readFileSync(edited, 'utf8')).toBe('operator edit');
 });
+
+
+it('retains package history after undeclaration and replaces it on an index redeploy', async () => {
+  const { bundleDeploymentHistory } = await import('../../../../src/cli/handlers/bundle-deployment-mode.js');
+  const file = skill('sdlc-complete', 'package-owned');
+  await recordBundleDeployment(root, 'sdlc', 'flue', ['--package'], root);
+  expect(bundleDeploymentHistory(root).flue['sdlc-complete']).toMatchObject({ copy: false, package: true });
+  const config = emptyConfig(['flue']);
+  expect(await pruneUndeclaredBundles(root, config, 'flue', false, root)).toBe(0);
+  expect(fs.readFileSync(file, 'utf8')).toBe('deployed');
+  await recordBundleDeployment(root, 'sdlc', 'flue', [], root);
+  expect(bundleDeploymentHistory(root).flue['sdlc-complete'].package).toBe(false);
+  expect(await pruneUndeclaredBundles(root, config, 'flue', false, root)).toBe(0);
+  expect(fs.existsSync(file)).toBe(false);
+});
+
+it('protects shared skills using an undeclared Flue package history', async () => {
+  const shared = skill('sdlc-complete', 'shared-package');
+  await recordBundleDeployment(root, 'sdlc', 'flue', ['--package'], root);
+  const config = emptyConfig(['codex', 'flue']);
+  expect(await pruneUndeclaredBundles(root, config, 'codex', false, root)).toBe(0);
+  expect(fs.readFileSync(shared, 'utf8')).toBe('deployed');
+});
+
+it('keeps historical project-local package hashes after Flue is undeclared', async () => {
+  const file = skill('custom', 'local-package');
+  await recordBundleDeployment(root, 'custom', 'flue', ['--package'], root);
+  const config = emptyConfig(['flue']);
+  config.installed.custom = { source: 'project-local', localPath: '.aiwg/addons/custom', localType: 'addon',
+    deployedTo: {}, deployedArtifactHashes: { flue: { 'skills/local-package/SKILL.md': hash('deployed').slice(7) } } };
+  expect(await pruneUndeclaredBundles(root, config, 'flue', false, root)).toBe(0);
+  expect(fs.readFileSync(file, 'utf8')).toBe('deployed');
+  expect(console.log).toHaveBeenCalledWith(expect.stringContaining('kept (package mode)'));
+});
