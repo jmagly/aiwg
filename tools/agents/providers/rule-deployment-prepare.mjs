@@ -430,6 +430,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
       for (const name of rootNames) {
         const file = path.join(stage, name);
         if (fs.existsSync(file) && normalize(read(file)) !== read(path.join(target, name))) console.log(`[dry-run] Would write ${path.join(target, name)}`);
+        else if (!fs.existsSync(file) && fs.existsSync(path.join(target, name))) console.log(`[dry-run] Would remove ${path.join(target, name)}`);
       }
       console.log(`[dry-run] Planned ${provider.name} deployment: ${guarded.report.selected_bytes} startup bytes; no output promoted.`);
       return { report: guarded.report, noop: true };

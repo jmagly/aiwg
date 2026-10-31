@@ -35,6 +35,67 @@ function setup() {
 }
 
 describe('public experimental Flue app deployment', () => {
+  it.each(['node', 'cloudflare'].flatMap(from => ['unchanged', 'edited', 'unrecorded', 'copy'].map(protection => ({ from, protection }))))(
+    'switches from $from with $protection files through the compiled CLI', ({ from, protection }) => {
+      const { project, command, snapshot } = setup();
+      const to = from === 'node' ? 'cloudflare' : 'node';
+      const config = path.join(project, 'flue.config.ts');
+      const receiptFile = path.join(project, '.aiwg/.aiwg-manifest.json');
+      const receipt = () => JSON.parse(fs.readFileSync(receiptFile, 'utf8'));
+      const obsolete = from === 'node' ? ['src/db.ts'] : ['src/aiwg/remote-specialist.js', 'src/aiwg/remote-specialist.d.ts'];
+      const files = [...obsolete, 'src/aiwg/tools.ts'];
+      const deploy = ['use', 'sdlc', '--provider', 'flue', ...(protection === 'copy' ? ['--copy-all'] : [])];
+      fs.writeFileSync(config, `export default { target: '${from}' };\n`);
+      command(...deploy);
+      for (const file of files) expect(receipt().managed[file].filePreimage).toEqual({ present: false });
+      if (protection === 'edited') for (const file of files) fs.appendFileSync(path.join(project, file), '\n// Operator edit\n');
+      if (protection === 'unrecorded') {
+        const value = receipt();
+        for (const file of files) delete value.managed[file];
+        fs.writeFileSync(receiptFile, JSON.stringify(value));
+      }
+      const before = Object.fromEntries(files.map(file => [file, fs.readFileSync(path.join(project, file), 'utf8')]));
+      fs.writeFileSync(config, `export default { target: '${to}' };\n`);
+      const preview = snapshot();
+      command(...deploy, '--dry-run');
+      expect(snapshot()).toEqual(preview);
+      const output = command(...deploy);
+      for (const file of obsolete) {
+        if (protection === 'unchanged') {
+          expect(fs.existsSync(path.join(project, file)), file).toBe(false);
+          expect(receipt().managed[file], file).toBeUndefined();
+        } else {
+          expect(fs.readFileSync(path.join(project, file), 'utf8'), file).toBe(before[file]);
+          const warning = output.split('\n').find(line => line.includes(file) && line.includes('keeping'));
+          expect(warning, output).toContain('remove this file manually');
+          if (protection === 'copy') expect(warning).toContain('copy mode');
+        }
+      }
+      const tools = fs.readFileSync(path.join(project, 'src/aiwg/tools.ts'), 'utf8');
+      if (['edited', 'unrecorded'].includes(protection)) {
+        expect(tools).toBe(before['src/aiwg/tools.ts']);
+        expect(output.split('\n').find(line => line.includes('src/aiwg/tools.ts') && line.includes('keeping'))).toContain('remove this file manually and redeploy');
+      } else {
+        expect(tools).toContain(to === 'cloudflare' ? 'getCloudflareContext' : 'stdio');
+        if (to === 'cloudflare') expect(tools).not.toMatch(/stdio|tools\/node|node:/);
+      }
+    }, 900_000,
+  );
+
+  it('preserves operator database modules while switching to Cloudflare', () => {
+    const { project, command } = setup();
+    fs.mkdirSync(path.join(project, '.flue'));
+    const databases = ['.flue/db.mts', 'src/db.ts', 'db.mjs'];
+    for (const file of databases) fs.writeFileSync(path.join(project, file), '// Operator database\n');
+    command('use', 'sdlc', '--provider', 'flue');
+    fs.writeFileSync(path.join(project, 'flue.config.ts'), "export default { target: 'cloudflare', db: './db.mjs' };\n");
+    const output = command('use', 'sdlc', '--provider', 'flue');
+    for (const file of databases) {
+      expect(fs.readFileSync(path.join(project, file), 'utf8')).toBe('// Operator database\n');
+      expect(output.split('\n').find(line => line.includes(file) && line.includes('keeping'))).toContain('remove this file manually');
+    }
+  }, 900_000);
+
   it.each([false, true])('stages the Cloudflare target and restores files on removal (package: %s)', packaged => {
     const { project, command, snapshot } = setup();
     fs.writeFileSync(path.join(project, 'flue.config.ts'), "export default { target: 'cloudflare' };\n");

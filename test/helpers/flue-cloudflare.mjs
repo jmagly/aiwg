@@ -24,7 +24,7 @@ export async function prepareCloudflare(lab) {
     let output = '';
     child.stdout.on('data', bytes => { output += bytes; });
     child.stderr.on('data', bytes => { output += bytes; });
-    const timer = setTimeout(() => process.kill(-child.pid, 'SIGKILL'), timeout);
+    const timer = setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; } }, timeout);
     try {
       const [code] = await once(child, 'close');
       if (code !== 0) throw new Error(`${command} ${args.join(' ')} failed (${code}):\n${output}`);
@@ -37,7 +37,7 @@ export async function prepareCloudflare(lab) {
     const child = worker;
     worker = undefined;
     const closed = once(child, 'close');
-    process.kill(-child.pid, 'SIGTERM');
+    try { process.kill(-child.pid, 'SIGTERM'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
     const timer = setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }, 5000);
     try { await closed; } finally { clearTimeout(timer); }
   }

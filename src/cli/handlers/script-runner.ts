@@ -22,6 +22,10 @@ import { HandlerResult, ScriptRunner, ScriptRunnerOptions } from './types.js';
 // complete invocation (including import), and restore them even after failure.
 let deploymentQueue: Promise<unknown> = Promise.resolve();
 
+function reportFlueWarnings(message: string, sink = console): void {
+  for (const line of message.split(/\r?\n/)) if (line.startsWith('Flue (experimental):')) sink.warn(line);
+}
+
 /**
  * Default script runner implementation
  *
@@ -132,6 +136,9 @@ export class DefaultScriptRunner implements ScriptRunner {
             message: stderr || `Script exited with code ${code ?? 1}: ${path.basename(fullPath)}`,
           });
         } else {
+          if (options.capture && code === 0 && scriptPath === 'tools/agents/deploy-agents.mjs') {
+            reportFlueWarnings(Buffer.concat(capturedStderr).toString());
+          }
           resolve({
             exitCode: code ?? 0,
           });
@@ -184,6 +191,7 @@ export class DefaultScriptRunner implements ScriptRunner {
       const exitCode = (await deployer.main(args, { capture: options.capture === true })) ?? 0;
       const message = Buffer.concat(diagnostics).toString().trim()
         || (exitCode ? `Deployment script exited with code ${exitCode}: ${path.basename(fullPath)}` : '');
+      if (exitCode === 0 && options.capture) reportFlueWarnings(message, previousConsole);
       return exitCode || message ? { exitCode, message } : { exitCode };
     } catch (error) {
       const message = Buffer.concat(diagnostics).toString().trim()

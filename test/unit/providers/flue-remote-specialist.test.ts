@@ -61,3 +61,38 @@ it('closes an adapted connection when the submission aborts', async () => {
   expect(close).toHaveBeenCalledTimes(1);
   expect(() => delegate.agent()).toThrow('remote tools are not ready');
 });
+
+it('clears the previous abort cleanup before a subsequent connection fails', async () => {
+  const close = vi.fn();
+  hooks.connect.mockResolvedValueOnce({ tools: [], close }).mockRejectedValueOnce(new Error('connection failed'));
+  const delegate = bindRemoteSpecialist(definition, connection);
+  const controller = new AbortController();
+  const remove = vi.spyOn(controller.signal, 'removeEventListener');
+  await hooks.starts[0]({ signal: controller.signal });
+  await hooks.finishes[0]();
+  expect(remove).toHaveBeenCalledTimes(1);
+  await expect(hooks.starts[0](ctx())).rejects.toThrow('connection failed');
+  await hooks.finishes[0]();
+  controller.abort();
+  expect(remove).toHaveBeenCalledTimes(1);
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(() => delegate.agent()).toThrow('remote tools are not ready');
+});
+
+it('removes the listener and closes once for an already aborted submission', async () => {
+  const close = vi.fn();
+  hooks.connect.mockResolvedValue({ tools: [], close });
+  const delegate = bindRemoteSpecialist(definition, connection);
+  const controller = new AbortController();
+  controller.abort();
+  const add = vi.spyOn(controller.signal, 'addEventListener');
+  const remove = vi.spyOn(controller.signal, 'removeEventListener');
+  await hooks.starts[0]({ signal: controller.signal });
+  expect(add).toHaveBeenCalledExactlyOnceWith('abort', expect.any(Function), { once: true });
+  expect(remove).toHaveBeenCalledExactlyOnceWith('abort', add.mock.calls[0][1]);
+  expect(close).toHaveBeenCalledTimes(1);
+  expect(() => delegate.agent()).toThrow('remote tools are not ready');
+  await hooks.finishes[0]();
+  expect(remove).toHaveBeenCalledTimes(1);
+  expect(close).toHaveBeenCalledTimes(1);
+});

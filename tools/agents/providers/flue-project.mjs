@@ -2,6 +2,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { importImpl } from '../../_resolve-impl.mjs';
+const { providerCopyMode } = await importImpl(import.meta.url, 'providers/deployment-preservation.mjs');
+const { deploymentOwner } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 
 const exists = file => { try { fs.lstatSync(file); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 const directory = file => exists(file) && fs.lstatSync(file).isDirectory();
@@ -45,7 +48,7 @@ function configProperty(target, key) {
 }
 export function detectFlueTarget(target, { warn = false } = {}) {
   const value = configProperty(target, 'target')?.value;
-  if (["'cloudflare'", '"cloudflare"'].includes(value)) return 'cloudflare';
+  if (["'cloudflare'", '"cloudflare"', '`cloudflare`'].includes(value)) return 'cloudflare';
   if (warn && exists(path.join(target, 'wrangler.jsonc'))) {
     console.warn("Flue (experimental): wrangler.jsonc found without an explicit target: 'cloudflare' in flue.config.*; keeping Node deployment.");
   }
@@ -60,6 +63,33 @@ export function claimRecordedFile(target, file, opts) {
   if (!record?.filePreimage || record.hash !== hash) return false;
   opts.writtenFiles?.push(file);
   return true;
+}
+export function retireFlueTargetFiles(target, opts) {
+  const cloudflare = opts.flueTarget === 'cloudflare';
+  const candidates = cloudflare ? databaseFiles() : ['src/aiwg/remote-specialist.js', 'src/aiwg/remote-specialist.d.ts'];
+  const receiptFile = path.join(target, '.aiwg/.aiwg-manifest.json');
+  let receipt;
+  try { receipt = JSON.parse(fs.readFileSync(receiptFile, 'utf8')); } catch { receipt = {}; }
+  let changed = false;
+  for (const relative of candidates) {
+    const file = path.join(target, relative);
+    if (!exists(file)) continue;
+    const record = receipt.managed?.[relative.split(path.sep).join('/')];
+    const copy = (opts.copyMode ?? opts.copyStandardSkills) || (record?.owners || []).some(owner =>
+      providerCopyMode(target, 'flue', owner, opts.config, deploymentOwner(opts)));
+    const reason = copy ? 'copy mode' : cloudflare && record?.filePreimage?.present ? 'operator database module'
+      : !claimRecordedFile(target, file, {}) ? 'edited or unrecorded file' : undefined;
+    if (reason) {
+      console.warn(`Flue (experimental): keeping ${opts.logicalOutputPath?.(file) || file} (${reason}); remove this file manually if no longer needed for the new target.`);
+      continue;
+    }
+    if (!opts.dryRun) {
+      fs.rmSync(file);
+      delete receipt.managed[relative.split(path.sep).join('/')];
+      changed = true;
+    }
+  }
+  if (changed) (opts.writeReceipt || fs.writeFileSync)(receiptFile, `${JSON.stringify(receipt, null, 2)}\n`);
 }
 export function deployFlueDatabase(target, opts) {
   if (detectFlueTarget(target) === 'cloudflare') return;

@@ -62,6 +62,8 @@ it.each([
   'export default { note: "target: \'cloudflare\'" };',
   "const other = { target: 'cloudflare' }; export default {};",
   "export default { target: computeTarget() };",
+  'export default { target: `cloud${suffix}` };',
+  'export default { target: `${"cloudflare"}` };',
 ])('ignores nonliteral and nonexported target declarations: %s', text => {
   write('flue.config.ts', text);
   expect(detectFlueTarget(project)).toBe('node');
@@ -72,6 +74,24 @@ it.each([
 it.each(['ts', 'mts', 'mjs', 'js', 'cjs', 'cts'])('detects target in config.%s', ext => {
   write(`flue.config.${ext}`, `module.exports = { 'target' /* comment */ : "cloudflare" };`);
   expect(detectFlueTarget(project)).toBe('cloudflare');
+});
+
+it('accepts a no-substitution template literal target', () => {
+  write('flue.config.ts', 'export default { target: `cloudflare` };');
+  expect(detectFlueTarget(project)).toBe('cloudflare');
+});
+
+it.each(['node', 'cloudflare'])('promotes recorded file removals when switching from %s', async from => {
+  const opts = { srcRoot: source, target: project, mode: 'sdlc', frameworkSlug: 'sdlc-complete', contextFiles: false, deployVersion: '1' };
+  write('flue.config.ts', `export default { target: '${from}' };`);
+  await flue.deploy(opts);
+  const obsolete = from === 'node' ? 'src/db.ts' : 'src/aiwg/remote-specialist.js';
+  const receipt = () => JSON.parse(read('.aiwg/.aiwg-manifest.json'));
+  expect(receipt().managed[obsolete].filePreimage).toEqual({ present: false });
+  write('flue.config.ts', `export default { target: '${from === 'node' ? 'cloudflare' : 'node'}' };`);
+  await flue.deploy(opts);
+  expect(fs.existsSync(path.join(project, obsolete))).toBe(false);
+  expect(receipt().managed[obsolete]).toBeUndefined();
 });
 
 it('selects the first existing Flue config', () => {

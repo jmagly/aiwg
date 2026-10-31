@@ -107,6 +107,8 @@ export function commitRuleDeploymentPlan(plan) {
       if (output === read(path.join(target, name))) continue;
       const write = plan.contextWrites.includes(path.join(stage, name)) ? writeContextFileSync : put;
       write(path.join(target, name), output);
+    } else if (plan.preimages.some(item => item.path === path.join(target, name) && item.state.kind !== 'missing')) {
+      fs.rmSync(path.join(target, name), { force: true });
     }
     return plan.report;
   } finally {

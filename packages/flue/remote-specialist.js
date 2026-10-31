@@ -13,16 +13,20 @@ export function bindRemoteSpecialist(definition, connection) {
     state.pending = undefined;
     state.live = undefined;
     state.removeAbort?.();
+    state.removeAbort = undefined;
     if (pending) await (await pending).close();
   };
   useAgentStart(async ({ signal }) => {
-    state.pending ??= createMcpConnection(connection);
-    try { state.live = await state.pending; }
-    catch (error) { state.pending = undefined; throw error; }
     state.removeAbort?.();
+    state.removeAbort = undefined;
+    try {
+      state.pending ??= createMcpConnection(connection);
+      state.live = await state.pending;
+    }
+    catch (error) { state.pending = undefined; state.live = undefined; throw error; }
     const abort = () => { void close().catch(() => {}); };
-    signal.addEventListener('abort', abort, { once: true });
     state.removeAbort = () => signal.removeEventListener('abort', abort);
+    signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) await close();
   });
   useAgentFinish(close);

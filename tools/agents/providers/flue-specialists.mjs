@@ -62,7 +62,7 @@ export function deployFlueSpecialists(target, opts) {
     const file = path.join(target, relative);
     if (fs.lstatSync(file, { throwIfNoEntry: false })) {
       if (!claimRecordedFile(target, file, opts)) {
-        console.warn(`Flue (experimental): keeping existing module ${opts.logicalOutputPath?.(file) || file}`);
+        console.warn(`Flue (experimental): keeping existing module ${opts.logicalOutputPath?.(file) || file}; remove this file manually and redeploy to generate it for the current target.`);
         return;
       }
     }
