@@ -1,6 +1,6 @@
 {
   "name": "@aiwg/flue",
-  "version": "2026.10.19",
+  "version": "2026.11.0",
   "description": "AIWG bundle skills, specialist factories and MCP tools for Flue apps.",
   "license": "MIT",
   "type": "module",
