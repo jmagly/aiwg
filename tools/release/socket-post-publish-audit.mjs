@@ -7,6 +7,10 @@ import { boundedExecFileSync } from '../../src/process/bounded-child-process.mjs
 import { pathToFileURL } from 'node:url'
 import { valid as validVersion } from 'semver'
 
+import { fetchArtifacts, SOCKET_PURL_BATCH_SIZE } from './socket-post-publish-fetch.mjs'
+import { auditWithPendingScans, scanWaitMarkdown } from './socket-post-publish-retry.mjs'
+export { fetchArtifacts, SOCKET_PURL_BATCH_SIZE }
+
 const SCORE_KEYS = ['supplyChain', 'quality', 'maintenance', 'vulnerability', 'license']
 const CAPABILITY_ALERTS = new Set(['shellAccess', 'filesystemAccess', 'networkAccess', 'envVars', 'urlAccess'])
 
@@ -313,7 +317,7 @@ export function evaluateSocketArtifacts({ artifacts, baseline, components, now =
     if (finding.depth === 'direct' && CAPABILITY_ALERTS.has(finding.type)) return true
     return baseline.policy.blockingSeverities.includes(finding.severity)
   })
-  const status = unavailable.length ? 'unavailable' : (blocking.length || scoreRegressions.length || validationErrors.length ? 'fail' : 'pass')
+  const status = blocking.length || scoreRegressions.length || validationErrors.length ? 'fail' : (unavailable.length ? 'unavailable' : 'pass')
   return {
     schemaVersion: 2,
     status,
@@ -371,81 +375,9 @@ function reportMarkdown(report, version, organization = 'AIWG') {
     for (const item of report.findings.scoreRegressions) rows.push(`- \`${item.package}\` ${item.category}: ${item.baseline} → ${item.current}`)
     rows.push('', 'A score change triggers review; it does not by itself authorize removing supported capability.', '')
   }
-  return `${rows.join('\n')}\n`
+  return `${rows.join('\n')}\n${scanWaitMarkdown(report.scanWait)}`
 }
 
-const socketAuthorization = token => `Basic ${Buffer.from(`${token}:`).toString('base64')}`
-
-/**
- * Wait for the next Socket quota window when a request was rate limited.
- * Returns false when the window opens after the pacing deadline, so the caller
- * reports the 429 instead of waiting without bound.
- */
-async function waitForQuotaWindow({ token, fetchImpl, deadline, now, sleep, log }) {
-  let refreshAt = Number.NaN
-  try {
-    const response = await fetchImpl('https://api.socket.dev/v0/quota', {
-      headers: { authorization: socketAuthorization(token), accept: 'application/json' }
-    })
-    if (response.ok) refreshAt = Date.parse((await response.json()).nextWindowRefresh)
-  } catch { /* fall back to a one-minute wait below */ }
-  const resumeAt = Number.isFinite(refreshAt) ? refreshAt + 5000 : now() + 60000
-  if (resumeAt > deadline) return false
-  log(`Socket quota exhausted; waiting until ${new Date(resumeAt).toISOString()} for the next window`)
-  await sleep(Math.max(0, resumeAt - now()))
-  return true
-}
-
-// Socket bills the org-scoped purl endpoint per request (up to 100 units on a
-// 500-unit hourly free plan), not per component, so a release of ~800
-// components must go in a few large requests rather than many small ones.
-export const SOCKET_PURL_BATCH_SIZE = 500
-
-export async function fetchArtifacts({
-  components,
-  token,
-  orgSlug,
-  fetchImpl = fetch,
-  paceQuotaMs = 0,
-  batchSize = SOCKET_PURL_BATCH_SIZE,
-  now = Date.now,
-  sleep = ms => new Promise(resolveDelay => setTimeout(resolveDelay, ms)),
-  log = message => console.error(message)
-}) {
-  const all = []
-  // Opt-in pacing for plans whose hourly quota is smaller than one full run:
-  // a 429 waits for the next quota window (bounded by paceQuotaMs overall)
-  // instead of consuming a retry. Without it, behaviour is unchanged.
-  const paceDeadline = paceQuotaMs > 0 ? now() + paceQuotaMs : null
-  if (!Number.isSafeInteger(batchSize) || batchSize < 1) throw new Error('Socket batch size must be a positive integer')
-  for (let offset = 0; offset < components.length; offset += batchSize) {
-    const batch = components.slice(offset, offset + batchSize)
-    const url = new URL(`https://api.socket.dev/v0/orgs/${encodeURIComponent(orgSlug)}/purl`)
-    url.search = new URLSearchParams({ alerts: 'true', poll: 'true', timeoutSec: '300', summary: 'true' }).toString()
-    let response
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
-      response = await fetchImpl(url, {
-        method: 'POST',
-        headers: { authorization: socketAuthorization(token), 'content-type': 'application/json', accept: 'application/x-ndjson' },
-        body: JSON.stringify({ components: batch.map(({ purl }) => ({ purl })) })
-      })
-      if (response.ok || (response.status !== 429 && response.status < 500)) break
-      if (response.status === 429 && paceDeadline !== null
-        && await waitForQuotaWindow({ token, fetchImpl, deadline: paceDeadline, now, sleep, log })) {
-        attempt -= 1
-        continue
-      }
-      await sleep(attempt * 1000)
-    }
-    if (!response?.ok) throw new Error(`Socket API request failed with HTTP ${response?.status ?? 'unknown'}`)
-    const text = await response.text()
-    for (const line of text.split(/\r?\n/)) {
-      if (!line.trim()) continue
-      try { all.push(JSON.parse(line)) } catch { throw new Error('Socket API returned malformed NDJSON') }
-    }
-  }
-  return all
-}
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
@@ -482,6 +414,7 @@ async function main() {
   }
 
   let artifacts
+  let report
   let fetchError = null
   try {
     if (args.input) {
@@ -495,14 +428,14 @@ async function main() {
       if (!Number.isFinite(paceMinutes) || paceMinutes < 0) throw new Error('--pace-quota-minutes must be a non-negative number')
       const batchSize = Number(args['batch-size'] ?? process.env.SOCKET_PURL_BATCH_SIZE ?? SOCKET_PURL_BATCH_SIZE)
       if (!Number.isSafeInteger(batchSize) || batchSize < 1) throw new Error('--batch-size must be a positive integer')
-      artifacts = await fetchArtifacts({ components, token, orgSlug, paceQuotaMs: paceMinutes * 60_000, batchSize })
+      report = await auditWithPendingScans({ components, version, baseline, evaluate: evaluateSocketArtifacts, token, orgSlug, paceQuotaMs: paceMinutes * 60_000, batchSize })
     }
   } catch (error) {
     fetchError = error instanceof Error ? error.message : String(error)
     artifacts = []
   }
 
-  const report = evaluateSocketArtifacts({ artifacts, baseline, components })
+  report ??= evaluateSocketArtifacts({ artifacts, baseline, components })
   if (fetchError) report.findings.unavailable.unshift({ purl: '*', reason: fetchError })
   if (fetchError) {
     report.status = 'unavailable'

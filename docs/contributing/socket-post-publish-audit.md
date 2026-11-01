@@ -19,7 +19,11 @@ The baseline classifies `socketUpgradeAvailable` as informational: it advertises
 
 ## Failure and unavailable states
 
-The workflow never converts missing evidence into a clean result. Missing credentials, HTTP errors, rate limits after bounded retries, malformed responses, delayed scans, `pendingScan`, `notFound`, and missing requested packages produce an `unavailable` report and a failed workflow.
+The workflow never converts missing evidence into a clean result. Missing credentials, HTTP errors, rate limits after bounded retries, malformed responses, delayed scans after the bounded wait, and missing requested packages produce an `unavailable` report and a failed workflow.
+
+When all unavailable entries are explicit `pendingScan` or `notFound` results for `aiwg`, `@aiwg/cli`, `@aiwg/cockpit`, or `@aiwg/flue` at the just-published version, the audit retries only those PURLs for up to 75 minutes. Backoff starts at one minute, doubles to two and four minutes, then stays at five minutes, bounded by a single deadline shared with request and quota waits. Completed results are retained. Blocking alerts, score regressions, and validation errors fail immediately, even alongside pending results. Third-party misses, older AIWG versions, and bare missing responses remain unavailable without this wait.
+
+Each attempt logs its count and next retry time. JSON and Markdown evidence retain the elapsed wait, waited PURLs, attempt history, and final status, including on deadline expiry or a later HTTP error.
 
 Before building the published dependency inventory, the workflow polls `npm view <pkg>@<version> version` for `aiwg`, `@aiwg/cli`, `@aiwg/cockpit`, and `@aiwg/flue`. All four must return the exact release version. The default visibility wait is 45 minutes, with checks every 30 seconds. Registry requests and sleeps are bounded by the remaining wait; npm fetch retries are disabled.
 
@@ -50,7 +54,7 @@ Configure these values in the GitHub repository:
 - optional variable `SOCKET_NPM_VISIBILITY_WAIT_MINUTES` (default `45`): integer minutes from `1` to `90` to wait for all four exact npm versions. Values outside that range fail configuration validation.
 - optional variable `SOCKET_PACE_QUOTA_MINUTES` (default `120`): how long the audit may wait for the next Socket quota window after HTTP 429. A release has roughly 800 components, more than the free plan's 500 units per hour, so pacing is on by default.
 
-The job timeout is 240 minutes: the maximum 90-minute npm visibility wait + 120 minutes of Socket pacing + 30 minutes for checkout, inventory, scanning, and evidence upload. If increasing Socket pacing above 120 minutes, increase the workflow timeout to preserve that allowance.
+The audit job timeout is 315 minutes: the maximum 90-minute npm visibility wait + 120 minutes of Socket pacing + the 75-minute pending-scan wait + 30 minutes for checkout, inventory, scanning, and evidence upload. This is separate from the publication job's 65-minute timeout. If increasing Socket pacing above 120 minutes, increase the workflow timeout to preserve that allowance. The quota-pacing deadline is shared across requests and scan retries; retries do not restart it.
 
 The tag-bound npm publication workflow invokes the Socket workflow directly as
 a reusable workflow after publication succeeds. This avoids relying on a

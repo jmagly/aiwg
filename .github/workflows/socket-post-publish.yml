@@ -45,8 +45,8 @@ jobs:
     container: node:24@sha256:050bf2bbe33c1d6754e060bec89378a79ed831f04a7bb1a53fe45e997df7b3bb
     # A free-plan Socket org (500 units/hour) cannot cover one release in a
     # single quota window, so the audit waits for the next window (see pace below).
-    # 90 minutes maximum npm visibility wait + 120 Socket pacing + 30 scan overhead.
-    timeout-minutes: 240
+    # 90 minutes npm visibility + 120 quota pacing + 75 pending scans + 30 overhead.
+    timeout-minutes: 315
     defaults:
       run:
         shell: bash
