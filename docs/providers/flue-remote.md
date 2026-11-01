@@ -128,4 +128,9 @@ TMPDIR=/var/tmp nice -n 19 npm run test:release-slow -- test/integration/flue-mc
 
 The release lane resolves Flue from `examples/flue-node/node_modules`, or from
 `$AIWG_FLUE_DEPENDENCIES/node_modules` when that variable names a provisioned
-Flue 2.3.0 project. Tests generate their own temporary tokens and projects.
+Flue 2.3.0 project. Provision the default with `npm ci --prefix examples/flue-node`.
+The Cloudflare workerd suite resolves `examples/flue-cloudflare/node_modules`,
+or `$AIWG_FLUE_CF_DEPENDENCIES/node_modules`. Provision it with
+`npm ci --prefix examples/flue-cloudflare --no-audit --no-fund` before running
+the complete release-slow lane. Missing dependencies fail with a provisioning
+message. Tests generate their own temporary tokens and projects.

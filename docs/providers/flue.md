@@ -187,16 +187,21 @@ compatibility date, `new_sqlite_classes` migrations and a pinned `agentName` as
 shown in the example. Durable Object SQLite holds conversation state. Flue's
 Vite plugin precedes `cloudflare({ config: flueWorkerConfig() })`.
 
-**Emulation:** the release-slow suite uses the pinned Cloudflare lab and a local
+**Emulation:** the release-slow suite uses the locked Cloudflare example and a local
 scripted model. It checks build, packaged skill import/listing/activation,
 specialist execution, exact remote results and artifact placement, process
 restart/resume of the same Durable Object conversation, mid-run abort, and
-clear wrong-token failure. It skips only if provisioning is unset:
+clear wrong-token failure. Provision the example before running; missing dependencies
+fail with a provisioning command:
 
 ```sh
-AIWG_FLUE_CF_DEPENDENCIES=/path/to/flue-lab-cf \
-  nice -n 19 npm run test:release-slow -- flue-cloudflare-e2e
+npm ci --prefix examples/flue-cloudflare --no-audit --no-fund
+NO_UPDATE_NOTIFIER=1 nice -n 19 npm run test:release-slow -- flue-cloudflare-e2e
 ```
+
+`AIWG_FLUE_CF_DEPENDENCIES` can instead name a provisioned locked project;
+the suite resolves its `node_modules`. Both paths use temporary HOME/config/state,
+a 60 s workerd startup cap, and 300 s lifecycle tests for slower hosted runners.
 
 **Deployed:** pending the operator's later token and a separate deployed run.
 Local timings do not establish compliance with Cloudflare's default 30 s
@@ -315,12 +320,15 @@ to avoid registering external providers. Lease claims are guarded by SQL in
 These are Flue 2.3.0 / Pi 1.4.0 contracts; keep the lab lockfile when testing.
 
 The example's offline end-to-end test is in the release-slow lane. Provision
-`examples/flue-node` dependencies from its lockfile before running it, or point
+`examples/flue-node` dependencies with `npm ci --prefix examples/flue-node`
+before running it, or point
 `AIWG_FLUE_DEPENDENCIES` at an existing locked project. It copies dependencies
 into a temporary project, uses `setProvider` with Pi's keyless scripted provider,
 and runs public deploy/remove, skill activation, delegation, artifact writing,
 restart, abort, effect reconciliation, and the shared durability checks (including
-owner and dispatch fencing and absence of `node_modules/.cache`) without a model service:
+owner and dispatch fencing and absence of `node_modules/.cache`) without a model service.
+For the complete release-slow lane, also provision `examples/flue-cloudflare`
+with `npm ci --prefix examples/flue-cloudflare --no-audit --no-fund`:
 
 ```sh
 TMPDIR=/var/tmp npm run test:release-slow -- flue-node-e2e

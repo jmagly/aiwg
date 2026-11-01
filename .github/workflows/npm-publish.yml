@@ -297,6 +297,10 @@ jobs:
         if: ${{ steps.recovery.outputs.recovered != 'true' }}
         run: npm ci --prefix examples/flue-node
 
+      - name: Install locked Flue Cloudflare example dependencies for the offline release lane
+        if: ${{ steps.recovery.outputs.recovered != 'true' }}
+        run: npm ci --prefix examples/flue-cloudflare --no-audit --no-fund
+
       - name: Require slow release infrastructure tests
         if: ${{ steps.recovery.outputs.recovered != 'true' }}
         run: node tools/ci/run-with-hang-report.mjs --timeout 30m -- npm run test:release-slow

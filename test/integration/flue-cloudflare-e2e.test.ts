@@ -6,9 +6,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { launchHttp } from '../fixtures/mcp/http-service.mjs';
 import { prepareCloudflare } from '../helpers/flue-cloudflare.mjs';
 
-const lab = process.env.AIWG_FLUE_CF_DEPENDENCIES;
-const provisioned = lab !== undefined;
-if (!provisioned) console.info('Provision the locked Flue Cloudflare 2.3.0 lab and set AIWG_FLUE_CF_DEPENDENCIES to run workerd qualification.');
+const example = path.resolve(import.meta.dirname, '../../examples/flue-cloudflare');
+const dependencyProject = process.env.AIWG_FLUE_CF_DEPENDENCIES || example;
+const dependencies = path.resolve(dependencyProject, 'node_modules');
+// Allow startup (60s), settlement (90s), HTTP waits and cancellation on hosted runners.
+const lifecycleTimeout = 300_000;
 type Part = { type: string; toolName?: string; state?: string; text?: string; output?: unknown };
 type Snapshot = { conversationId: string; messages: { id: string; role: string; parts: Part[] }[];
   settlements: { submissionId: string; outcome: string; error?: unknown }[] };
@@ -52,25 +54,25 @@ function vars(token: string) {
   ].join('\n'), { mode: 0o600 });
 }
 
-describe.skipIf(!provisioned)('Flue Cloudflare local emulation', () => {
+describe('Flue Cloudflare local emulation', () => {
   beforeAll(async () => {
-    expect(lab, 'AIWG_FLUE_CF_DEPENDENCIES must name the provisioned lab').not.toBe('');
+    expect(fs.existsSync(dependencies), 'Provision with npm ci --prefix examples/flue-cloudflare, or set AIWG_FLUE_CF_DEPENDENCIES to a locked Flue 2.3.0 project').toBe(true);
     for (const [name, version] of Object.entries({ '@flue/cli': '2.3.0', '@flue/runtime': '2.3.0', '@flue/vite': '2.3.0',
       '@cloudflare/vite-plugin': '1.65.0', wrangler: '4.152.0', vite: '8.3.5', hono: '4.13.13', workerd: '1.20261019.1' })) {
-      expect(JSON.parse(fs.readFileSync(path.join(lab!, 'node_modules', name, 'package.json'), 'utf8')).version, name).toBe(version);
+      expect(JSON.parse(fs.readFileSync(path.join(dependencies, name, 'package.json'), 'utf8')).version, name).toBe(version);
     }
-    app = await prepareCloudflare(lab!);
+    app = await prepareCloudflare(dependencyProject);
     service = await launchHttp();
     artifact = path.join(service.project, '.aiwg/reviews/cloudflare.md');
     vars(service.token);
     await app.run(process.execPath, [path.join(import.meta.dirname, '../../node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck',
       '--target', 'ES2023', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--allowImportingTsExtensions',
-      'src/app.ts', 'src/aiwg/specialists.ts', 'src/aiwg/skills.ts', 'flue.config.ts', 'vite.config.ts']);
+      'src/app.ts', 'src/aiwg/specialists.ts', 'src/aiwg/skills.ts', 'flue.config.ts', 'vite.config.ts'], 60_000);
     const started = performance.now();
-    buildLog = await app.run(process.execPath, [path.join(app.project, 'node_modules/vite/bin/vite.js'), 'build']);
+    buildLog = await app.run(process.execPath, [path.join(app.project, 'node_modules/vite/bin/vite.js'), 'build'], 60_000);
     buildMs = Math.round(performance.now() - started);
     origin = await app.start();
-  }, 300_000);
+  }, 600_000);
   afterAll(async () => { await app?.close(); await service?.close(); }, 30_000);
 
   it('builds the Cloudflare example without database or stdio modules', () => {
@@ -89,7 +91,7 @@ describe.skipIf(!provisioned)('Flue Cloudflare local emulation', () => {
     expect(activated?.state).toBe('output-available');
     expect(JSON.stringify(activated?.output)).toContain('SDLC Framework');
     expect(parts(review).filter(part => part.type === 'text').map(part => part.text).join('')).toBe('PASS Cloudflare review review-state-3127');
-  }, 120_000);
+  }, lifecycleTimeout);
 
   it('runs the packaged Code Reviewer specialist with remote capabilities', () => {
     const task = parts(review).find(part => part.toolName === 'task');
@@ -122,7 +124,7 @@ describe.skipIf(!provisioned)('Flue Cloudflare local emulation', () => {
     expect(snapshot.messages.slice(0, prior.messages.length)).toEqual(prior.messages);
     expect(parts(snapshot).filter(part => part.type === 'text').at(-1)?.text).toBe('PASS resumed review-state-3127');
     expect(fs.readFileSync(artifact, 'utf8')).toBe('Code Reviewer: use a + b.\n');
-  }, 120_000);
+  }, lifecycleTimeout);
 
   it('aborts while a remote tool is running and durably records cancellation', async () => {
     const admission = await send('abort', '__abort__');
@@ -141,7 +143,7 @@ describe.skipIf(!provisioned)('Flue Cloudflare local emulation', () => {
     await app.stop();
     origin = await app.start();
     expect((await history('abort')).settlements.find(item => item.submissionId === admission.submissionId)?.outcome).toBe('aborted');
-  }, 120_000);
+  }, lifecycleTimeout);
 
   it('fails clearly with a wrong token and leaves the artifact untouched', async () => {
     const before = fs.readFileSync(artifact);
@@ -153,5 +155,5 @@ describe.skipIf(!provisioned)('Flue Cloudflare local emulation', () => {
     expect(JSON.stringify(snapshot)).toMatch(/failed/i);
     expect(app.logs()).toMatch(/401|unauthorized/i);
     expect(fs.readFileSync(artifact)).toEqual(before);
-  }, 120_000);
+  }, lifecycleTimeout);
 });

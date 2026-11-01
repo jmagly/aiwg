@@ -622,9 +622,15 @@ The slow provider deployment and CLI infrastructure suites belong to
 `test:release-slow`, declared in [the lane inventory](../../config/test-lanes.mjs)
 and selected by [its Vitest config](../../config/vitest.release-slow.config.js).
 They run before releases instead of on every merge. Fast provider deployment
-smokes remain in the default test lane. Run the release lane locally with:
+smokes remain in the default test lane. Both locked Flue examples must be
+provisioned; CI installs both before this lane. Local overrides
+`AIWG_FLUE_DEPENDENCIES` (Node) and `AIWG_FLUE_CF_DEPENDENCIES` (Cloudflare)
+can name existing locked projects. Missing dependencies fail instead of skipping.
+Run the release lane locally with:
 
 ```bash
+npm ci --prefix examples/flue-node --no-audit --no-fund
+npm ci --prefix examples/flue-cloudflare --no-audit --no-fund
 npm run build:cli
 npm run test:release-slow
 ```

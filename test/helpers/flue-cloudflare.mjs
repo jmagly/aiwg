@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { packFlue } from './flue-package.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
-export async function prepareCloudflare(lab) {
+export async function prepareCloudflare(dependencyProject) {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-flue-cf-'));
   let worker;
   let logs = '';
@@ -65,7 +65,7 @@ export async function prepareCloudflare(lab) {
     fs.cpSync(path.join(root, 'examples/flue-cloudflare'), project, { recursive: true,
       filter: source => !['node_modules', 'dist', '.wrangler', '.flue-vite', '.flue-vite.wrangler.jsonc'].includes(path.basename(source))
         && !/^\.(?:dev\.vars|env)(?:\.|$)/.test(path.basename(source)) });
-    fs.cpSync(path.join(lab, 'node_modules'), path.join(project, 'node_modules'), {
+    fs.cpSync(path.resolve(dependencyProject, 'node_modules'), path.join(project, 'node_modules'), {
       recursive: true, filter: source => !source.split(path.sep).includes('.cache'),
     });
     const { tarball } = packFlue(scratch);

@@ -10,20 +10,21 @@ Copy this directory into your project. Run **`aiwg use sdlc --provider flue
 --package` first**, from the copied directory. Generated skills, context, tools
 and specialists are deliberately absent. The app imports a packaged skill and
 specialist and the generated remote connection; it requires no local MCP child.
-The first `@aiwg/flue` publication requires operator bootstrap; maintainers test
-the locally packed package before publication.
+`@aiwg/flue` is not in this example's lockfile, so the locked toolchain installs
+before a release is published. Add the package that matches your AIWG version
+after `npm ci`. Maintainer tests use the locally packed package instead.
 
 ```sh
 aiwg use sdlc --provider flue --package
 npm ci
+npm install @aiwg/flue@<aiwg-version>   # same version as `aiwg --version`
 npm run dev
 ```
 
 Verified toolchain: `@flue/cli`, `@flue/runtime`, `@flue/vite` **2.3.0**,
 `@cloudflare/vite-plugin` **1.65.0**, Wrangler **4.152.0** (workerd
 **1.20261019.1**), Vite **8.3.5**, Hono **4.13.13**, Node **24**.
-The lockfile was generated offline from the pinned lab graph and local AIWG
-package metadata; publication integrity for `@aiwg/flue` is pending bootstrap.
+The lockfile was generated offline from the pinned lab graph.
 No dependency installation is part of the emulation suite.
 
 Start the [dedicated MCP listener](../../docs/providers/flue-remote.md) bound to
@@ -67,15 +68,16 @@ that production quota. Stdio/process spawning and local filesystem tools are
 unsupported here; neither Cloudflare Sandbox nor Computer is configured.
 Resources, prompts and elicitation are not adapted by Flue's MCP tool client.
 
-Maintainers run the release-slow suite against a pre-provisioned locked lab:
+Maintainers provision the locked example before running its release-slow suite:
 
 ```sh
-AIWG_FLUE_CF_DEPENDENCIES=/path/to/flue-lab-cf \
-  nice -n 19 npm run test:release-slow -- flue-cloudflare-e2e
+npm ci --prefix examples/flue-cloudflare --no-audit --no-fund
+NO_UPDATE_NOTIFIER=1 nice -n 19 npm run test:release-slow -- flue-cloudflare-e2e
 ```
 
 The suite packs `@aiwg/flue`, copies dependencies and this example into
 `os.tmpdir()` + `mkdtemp`, generates `.dev.vars` and a D9 token, and restarts
-workerd with the same local state. It skips only when that variable is unset;
-an invalid or incompatible provisioned graph fails. All HOME/config/state paths
-are temporary. See the [Flue guide](../../docs/providers/flue.md).
+workerd with the same local state. `AIWG_FLUE_CF_DEPENDENCIES` may override
+the dependency project with a provisioned locked lab. Missing or incompatible
+dependencies fail; workerd startup is capped at 60 s and lifecycle tests at 300 s.
+All HOME/config/state paths are temporary. See the [Flue guide](../../docs/providers/flue.md).
