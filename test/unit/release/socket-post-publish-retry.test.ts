@@ -52,6 +52,23 @@ describe('Socket published-scan retry', () => {
     expect(scanWaitMarkdown(report.scanWait)).toContain('**PASS**')
   })
 
+  it('retries a release PURL that Socket reports in decoded form, re-querying the canonical PURL', async () => {
+    const decoded = `pkg:npm/@aiwg/cli@${version}`
+    const clock = harness(attempt => attempt === 1 ? [ready(), pending(decoded)] : [ready(cli.purl)])
+    const report = await auditWithPendingScans({ ...clock.options, components: [root, cli] })
+    expect(report.status).toBe('pass')
+    expect(clock.requests).toEqual([[root.purl, cli.purl], [cli.purl]])
+    expect(report.scanWait).toMatchObject({ purls: [cli.purl], finalStatus: 'pass' })
+  })
+
+  it('does not wait on a bare missing-response with no explicit pending reason', async () => {
+    const clock = harness(() => [ready()])
+    const report = await auditWithPendingScans({ ...clock.options, components: [root, cli] })
+    expect(report.status).toBe('unavailable')
+    expect(clock.requests).toEqual([[root.purl, cli.purl]])
+    expect(clock.sleeps).toEqual([])
+  })
+
   it('bounds pending scans to 75 minutes and records every attempt on exhaustion', async () => {
     const clock = harness(() => [pending()])
     const report = await auditWithPendingScans({ ...clock.options, components: [root] })

@@ -5,20 +5,32 @@ export const SOCKET_SCAN_WAIT_MS = 75 * 60_000
 const RELEASE_PACKAGES = ['pkg:npm/aiwg', 'pkg:npm/%40aiwg/cli', 'pkg:npm/%40aiwg/cockpit', 'pkg:npm/%40aiwg/flue']
 const PENDING_REASONS = new Set(['pendingScan', 'notFound'])
 
+// Socket may return encoded (%40aiwg) or decoded (@aiwg) PURLs; compare decoded forms.
+const normalize = purl => { try { return decodeURIComponent(String(purl)) } catch { return String(purl) } }
+
 function pendingReleasePurls(report, version) {
-  const releasePurls = new Set(RELEASE_PACKAGES.map(base => `${base}@${encodeURIComponent(version)}`))
+  // Map each decoded release PURL to the canonical (queried) form used for re-queries.
+  const canonical = new Map(RELEASE_PACKAGES.map(base => `${base}@${encodeURIComponent(version)}`).map(purl => [normalize(purl), purl]))
+  const releasePurls = new Set(canonical.keys())
   const unavailable = report.findings.unavailable
-  const pending = new Set(unavailable.filter(item => PENDING_REASONS.has(item.reason)).map(item => item.purl))
-  // Socket purlError records also produce a missing-response entry in the evaluator.
-  const retryable = unavailable.every(item => releasePurls.has(item.purl) && pending.has(item.purl)
-    && (PENDING_REASONS.has(item.reason) || item.reason === 'missing-response'))
-  return retryable ? [...pending] : []
+  // Wait only while every unavailable entry is an exact-release AIWG PURL that Socket reports as
+  // pending. A Socket purlError also yields a missing-response entry for the same PURL; that is
+  // accepted only when the same PURL has an explicit pending reason.
+  const pending = new Set(unavailable.filter(item => PENDING_REASONS.has(item.reason)).map(item => normalize(item.purl)))
+  const retryable = unavailable.length > 0 && unavailable.every(item => {
+    const purl = normalize(item.purl)
+    if (!releasePurls.has(purl)) return false
+    if (PENDING_REASONS.has(item.reason)) return true
+    return item.reason === 'missing-response' && pending.has(purl)
+  })
+  return retryable ? [...pending].map(purl => canonical.get(purl)) : []
 }
 
 function wasQueried(artifact, purls) {
   const purl = artifact.inputPurl ?? artifact.purl ?? artifact.value?.inputPurl
-  if (purl) return purls.has(purl)
-  return [...purls].some(value => decodeURIComponent(value) === `pkg:npm/${artifact.name}@${artifact.version}`)
+  const queried = new Set([...purls].map(normalize))
+  if (purl) return queried.has(normalize(purl))
+  return queried.has(`pkg:npm/${artifact.name}@${artifact.version}`)
 }
 
 export async function auditWithPendingScans({
