@@ -16,6 +16,18 @@ else if (args[0] === 'tunnel') {
     console.error('synthetic upload failure ' + process.env.CLOUDFLARE_API_TOKEN);
     process.exitCode = 1;
   } else console.log(`https://${args[args.indexOf('--name') + 1]}.synthetic.workers.dev`);
+} else if (args[0] === 'deployments') {
+  trace('deployments ' + args.join(' '));
+  console.log(JSON.stringify({ versions: [{ version_id: 'v-synthetic', percentage: 100 }] }));
+} else if (args[0] === 'tail') {
+  trace('tail ' + args[1]);
+  process.on('SIGTERM', () => process.exit(0));
+  let seen = 0;
+  setInterval(() => {
+    const lines = fs.existsSync(process.env.FAKE_CF_REQUESTS) ? fs.readFileSync(process.env.FAKE_CF_REQUESTS, 'utf8').split('\n').filter(Boolean) : [];
+    for (const url of lines.slice(seen)) console.log(JSON.stringify({ scriptVersion: { id: 'v-synthetic' }, event: { request: { url } } }));
+    seen = lines.length;
+  }, 100);
 } else if (args[0] === 'delete') {
   trace('delete ' + args.join(' '));
   if (process.env.FAKE_CF_MODE === 'delete-fail') process.exitCode = 1;

@@ -5,7 +5,8 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { launchHttp } from '../fixtures/mcp/http-service.mjs';
 import { buildCloudflare, cloudflareVersions, prepareCloudflare, verifyCloudflareDependencies } from './flue-cloudflare.mjs';
-import { createRedactor, processRunner, requireDeployedOptIn, startTunnel, workerName } from './flue-cloudflare-deployed-process.mjs';
+import { randomBytes } from 'node:crypto';
+import { createRedactor, processRunner, requireDeployedOptIn, startTunnel, tailEvents, tailObjects, workerName } from './flue-cloudflare-deployed-process.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const aiwgVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
@@ -20,7 +21,7 @@ export function deployedCheck({ env = process.env, prepare = prepareCloudflare, 
   const resultsPath = path.join(resultsDir, 'results.json');
   const results = { worker: name, startedAt: new Date().toISOString(), restart: 'Redeploy the same built script under the same Worker name; no remote workerd process restart is available.',
     versions: { node: process.version, aiwg: aiwgVersion, '@aiwg/flue': aiwgVersion, ...cloudflareVersions }, cases: [], teardown: {} };
-  let app, service, tunnel, runner, wrangler, config, attemptedDeploy = false, closing, starting, interrupted = false;
+  let app, service, tunnel, runner, wrangler, config, tail, attemptedDeploy = false, closing, starting, interrupted = false;
   const active = () => { if (interrupted) throw new Error('Deployed check interrupted'); };
   function write() { fs.writeFileSync(resultsPath, redact(JSON.stringify(results, null, 2)) + '\n', { mode: 0o600 }); }
   function record(caseName, status, durationMs, error) {
@@ -33,16 +34,41 @@ export function deployedCheck({ env = process.env, prepare = prepareCloudflare, 
     return runner.run(process.execPath, [wrangler, ...args], options);
   }
   async function ready(origin) {
-    const deadline = Date.now() + 60_000;
+    // An unused conversation id has no stream, so Flue answers 404 with JSON.
+    // Any Flue JSON answer proves the Worker serves; edge HTML pages do not.
+    const deadline = Date.now() + 180_000;
+    let last = 'no response';
     while (Date.now() < deadline) {
       active();
       try {
         const response = await request(`${origin}/agents/assistant/readiness`, { signal: AbortSignal.timeout(5000) });
-        if (response.ok) return;
-      } catch { /* Bounded propagation wait after upload or secret rotation. */ }
-      await delay(500);
+        const type = response.headers?.get?.('content-type') || '';
+        if (response.ok || (response.status < 500 && type.includes('json'))) return;
+        last = `HTTP ${response.status} ${type || 'no content-type'}`;
+      } catch (error) { last = String(error?.cause?.code || error?.name || error); }
+      await delay(1000);
     }
-    throw new Error('workers.dev readiness timeout (60s)');
+    throw new Error(`workers.dev readiness timeout (180s); last: ${redact(last)}`);
+  }
+  // Secret rotation creates a version that reaches the edge gradually, and live Durable
+  // Objects may keep the previous one. Probe fresh object ids until three in a row are
+  // served by the deployment's 100% version.
+  async function servingVersion(origin) {
+    const status = JSON.parse(await command(['deployments', 'status', '--json', '--name', name, '--config', config]));
+    const version = status.versions?.find(entry => entry.percentage === 100)?.version_id;
+    if (!version) throw new Error('No single active Worker version after rotation');
+    const deadline = Date.now() + 180_000;
+    let streak = 0, last = 'none';
+    while (Date.now() < deadline) {
+      active();
+      const id = `version-${randomBytes(6).toString('hex')}`;
+      try { await request(`${origin}/agents/assistant/${id}`, { signal: AbortSignal.timeout(5000) }); } catch { /* counted as a miss */ }
+      await delay(1500);
+      const served = tailEvents(tail?.output() || '').filter(event => event.url.includes(`/${id}`)).map(event => event.version);
+      if (served.length && served.every(value => value === version)) { if (++streak === 3) return version; }
+      else { streak = 0; last = served.length ? served.join(',') : 'no tail event'; }
+    }
+    throw new Error(`Worker version ${version} not serving after 180s; last: ${last}`);
   }
   async function deploy() {
     active();
@@ -86,11 +112,25 @@ export function deployedCheck({ env = process.env, prepare = prepareCloudflare, 
       let origin = await deploy();
       await secret('AIWG_MCP_URL', tunnel.url);
       await secret('AIWG_MCP_TOKEN', service.token);
+      // Worker logs explain internal errors; saved redacted beside results.json.
+      tail = runner.start(process.execPath, [wrangler, 'tail', name, '--format', 'json', '--config', config]);
       await ready(origin);
       return { app, service, artifact, ...built, origin, redact, record,
-        failureDetails: snapshot => redact(JSON.stringify(snapshot)),
+        // Deployed settlements carry only a generic internal_error; the cause is in
+        // the Worker log for the same submission id, so wait briefly for tail lag.
+        async failureDetails(snapshot) {
+          const ids = (snapshot?.settlements || []).map(entry => entry.submissionId).filter(Boolean);
+          const deadline = Date.now() + 20_000;
+          let lines = [];
+          while (Date.now() < deadline) {
+            lines = tailObjects(tail?.output() || '').map(entry => entry.raw).filter(raw => ids.some(id => raw.includes(id)));
+            if (lines.some(raw => /SdkHttpError|"level": *"error"/i.test(raw))) break;
+            await delay(500);
+          }
+          return redact(`${JSON.stringify(snapshot)}\n${lines.join('\n')}`);
+        },
         async restart() { origin = await deploy(); await ready(origin); },
-        async setToken(token) { await secret('AIWG_MCP_TOKEN', token); await ready(origin); },
+        async setToken(token) { await secret('AIWG_MCP_TOKEN', token); await ready(origin); await servingVersion(origin); },
       };
     } catch (error) {
       results.error = redact(String(error));
@@ -105,6 +145,9 @@ export function deployedCheck({ env = process.env, prepare = prepareCloudflare, 
         try { await action(); summary[key] = 'ok'; }
         catch (error) { summary[key] = redact(String(error)); }
       }
+      try {
+        if (tail) fs.writeFileSync(path.join(resultsDir, 'worker-tail.jsonl'), redact(tail.output()) + '\n', { mode: 0o600 });
+      } catch (error) { summary.tail = redact(String(error)); }
       try {
         if (attemptedDeploy) await cleanup('worker', async () => {
           try { await command(['delete', name, '--force'], { timeout: 90_000 }); }

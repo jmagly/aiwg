@@ -31,7 +31,7 @@ the AIWG CLI, which requires Node >= 24.
 
 | Supported in this slice | Outside this slice |
 |---|---|
-| Node app target; Cloudflare local emulation | Cloudflare deployed validation |
+| Node app target; Cloudflare (local emulation and one manual deployed run) | Cloudflare Sandbox and Containers |
 | `aiwg_discover`, `aiwg_show`, `aiwg_artifact_write` and [remote MCP](flue-remote.md) | Multi-tenant MCP hosting |
 | Manifest-selected specialists and package imports | Sandboxes and approval hooks |
 | Explicitly mounted AIWG skills and SQLite state | User scope |
@@ -170,7 +170,7 @@ npm run build
 | Target | Support | Deployed result |
 |---|---|---|
 | Node | Supported; SQLite, local stdio or remote tools | Existing Node runtime coverage |
-| Cloudflare | Emulation-qualified in workerd | Pending operator token; no deployment performed |
+| Cloudflare | Emulation-qualified in workerd; validated by one manual deployed run | 7/7 cases on Cloudflare (2026-11-01, manual run) |
 
 The static config declaration switches AIWG generation: no `db.ts`, no stdio
 tools, and `src/aiwg/tools.ts` exposes `aiwgConnection()`. Call it inside the
@@ -203,7 +203,24 @@ NO_UPDATE_NOTIFIER=1 nice -n 19 npm run test:release-slow -- flue-cloudflare-e2e
 the suite resolves its `node_modules`. Both paths use temporary HOME/config/state,
 a 60 s workerd startup cap, and 300 s lifecycle tests for slower hosted runners.
 
-**Deployed validation pending:** no real deployed run has been recorded.
+**Deployed validation (2026-11-01, one manual run on titan):** 7/7 cases passed
+against a real Worker on `workers.dev` with `@flue/runtime` 2.3.0, Wrangler
+4.152.0 and workerd 1.20261019.1: build, packaged skill, specialist, remote
+discover/show/write into the D9 project, restart/resume by redeploy, abort and
+wrong token. The Worker served 47 invocations, all `ok`, with at most 17 ms CPU
+each (median 1 ms) and at most 6.2 s wall time. Teardown deleted the Worker and
+closed the tunnel. Emulation and deployed results are separate checks.
+
+Deployed specifics found by this run:
+- The quick tunnel forwards a public Host header; the check passes
+  `--http-host-header 127.0.0.1:<port>` so the D9 listener's Host/Origin guard
+  stays unchanged. A real deployment should instead start
+  `aiwg mcp serve --transport http` with `--allowed-host <public hostname>`.
+- Deployed settlements report only `internal_error`; the cause (for example
+  `Server returned 401`) is in the Worker log for the same submission id
+  (`wrangler tail`).
+- A secret rotation reaches the edge gradually and live Durable Objects can keep
+  the previous version, so the check waits until fresh objects run the new version.
 
 The deployed counterpart is **manual only and never automatic**. It is excluded
 from default/release-slow selection, workflows and `cut-tag.sh`. Its dedicated
@@ -247,7 +264,7 @@ with a reason. Retain that JSON when recording an actual deployed result, then
 remove the results directory when finished.
 
 Local timings do not establish compliance with Cloudflare's default 30 s
-active-CPU budget per invocation. Workers cannot spawn stdio children.
+active-CPU budget per invocation; the deployed run above measured at most 17 ms. Workers cannot spawn stdio children.
 Filesystem tools require Cloudflare Sandbox or Computer; this example uses
 neither. Flue's remote adapter supplies tools only, without MCP resources,
 prompts or elicitation. No Cloudflare account is needed for these local tests.

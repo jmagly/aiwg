@@ -15,7 +15,7 @@ export type CloudflareContext = {
   origin: string; artifact: string; buildLog: string; buildMs: number;
   restart: () => Promise<void>;
   setToken: (token: string) => Promise<void>;
-  failureDetails: (snapshot: Snapshot) => string;
+  failureDetails: (snapshot: Snapshot) => string | Promise<string>;
   record?: (name: string, status: string, durationMs: number, error?: unknown) => void;
   redact?: (value: string) => string;
 };
@@ -139,7 +139,7 @@ export function registerCloudflareCases(state: CloudflareContext) {
     const admission = await send('wrong-token', 'Review this change.');
     const snapshot = await settled('wrong-token', admission.submissionId, 'failed');
     expect(JSON.stringify(snapshot)).toMatch(/failed/i);
-    expect(state.failureDetails(snapshot)).toMatch(/401|unauthorized/i);
+    expect(await state.failureDetails(snapshot)).toMatch(/401|unauthorized/i);
     expect(fs.readFileSync(state.artifact)).toEqual(before);
   }, lifecycleTimeout);
 }

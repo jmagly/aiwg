@@ -14,9 +14,11 @@ export function fakeDeployedOptions(scratch, mode = 'deploy-fail') {
     AIWG_FLUE_CF_DEPLOY: '1', CLOUDFLARE_API_TOKEN: 'synthetic-cloudflare-api-token',
     CLOUDFLARE_ACCOUNT_ID: 'synthetic-cloudflare-account-id', AIWG_FLUE_CF_DEPENDENCIES: appRoot };
   const childEnv = { PATH: env.PATH, HOME: path.join(scratch, 'home'), NO_UPDATE_NOTIFIER: '1',
-    FAKE_CF_TRACE: trace, FAKE_CF_MODE: mode, WRANGLER_SEND_METRICS: 'false' };
+    FAKE_CF_TRACE: trace, FAKE_CF_MODE: mode, FAKE_CF_REQUESTS: path.join(scratch, 'requests'), WRANGLER_SEND_METRICS: 'false' };
   const stopped = value => fs.appendFileSync(trace, value + '\n');
-  return { env, verify() {}, request: async () => ({ ok: true }),
+  // Requests are logged so the fake `wrangler tail` can report which version served them.
+  const request = async url => { fs.appendFileSync(childEnv.FAKE_CF_REQUESTS, url + '\n'); return { ok: true }; };
+  return { env, verify() {}, request,
     async prepare() {
       fs.mkdirSync(path.join(appRoot, 'node_modules/wrangler/bin'), { recursive: true });
       fs.copyFileSync(cli, path.join(appRoot, 'node_modules/wrangler/bin/wrangler.js'));

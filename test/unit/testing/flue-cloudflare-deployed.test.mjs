@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, describe, expect, it } from 'vitest';
 import { globSync } from 'glob';
 import { deployedCheck } from '../../helpers/flue-cloudflare-deployed.mjs';
-import { createRedactor, processRunner, requireDeployedOptIn, startTunnel, tunnelUrl, workerName } from '../../helpers/flue-cloudflare-deployed-process.mjs';
+import { createRedactor, processRunner, requireDeployedOptIn, startTunnel, tailEvents, tunnelUrl, workerName } from '../../helpers/flue-cloudflare-deployed-process.mjs';
 import { fakeDeployedOptions } from '../../fixtures/providers/flue/cloudflare-deployed-fixture.mjs';
 import * as lanes from '../../../config/test-lanes.mjs';
 import { runDeployedVitest } from '../../../tools/testing/flue-cloudflare-deployed.mjs';
@@ -78,6 +78,27 @@ describe('manual Cloudflare deployed check (offline)', () => {
     await expect(startTunnel(runner, executable, 'http://127.0.0.1:12345/mcp', 100)).rejects.toThrow(/URL timeout/);
     await runner.stopAll();
   });
+
+  it('reads the serving script version per request from chunked wrangler tail output', () => {
+    const a = JSON.stringify({ scriptVersion: { id: 'v-old' }, event: { request: { url: 'https://w.example/agents/assistant/x1' } }, logs: [{ message: ['brace } in "text"'] }] });
+    const b = JSON.stringify({ scriptVersion: { id: 'v-new' }, event: { request: { url: 'https://w.example/agents/assistant/x2' } } });
+    expect(tailEvents(`noise\n${a}\n${b.slice(0, 20)}`)).toEqual([{ version: 'v-old', url: 'https://w.example/agents/assistant/x1' }]);
+    expect(tailEvents(`${a}\n${b}\n{"scheduled":true}`)).toEqual([
+      { version: 'v-old', url: 'https://w.example/agents/assistant/x1' },
+      { version: 'v-new', url: 'https://w.example/agents/assistant/x2' },
+    ]);
+  });
+
+  it('presents the loopback Host to the D9 listener through the tunnel', async () => {
+    const dir = scratch();
+    const executable = path.join(dir, 'echo-args');
+    fs.writeFileSync(executable, `#!${process.execPath}\nconsole.error(JSON.stringify(process.argv.slice(2)));\nconsole.error('https://abc-def.trycloudflare.com');\nsetInterval(() => {}, 1000);\n`, { mode: 0o755 });
+    const runner = processRunner({ cwd: dir, env: { PATH: process.env.PATH } });
+    const tunnel = await startTunnel(runner, executable, 'http://127.0.0.1:12345/mcp', 5000);
+    expect(tunnel.url).toBe('https://abc-def.trycloudflare.com/mcp');
+    expect(tunnel.output()).toContain(JSON.stringify(['tunnel', '--url', 'http://127.0.0.1:12345', '--http-host-header', '127.0.0.1:12345']));
+    await runner.stopAll();
+  });
   it('deletes a possibly uploaded Worker and removes resources after deployment failure', async () => {
     const { check, dir, logs } = fixture('deploy-fail');
     check.record('synthetic case', 'pending', 0);
@@ -109,6 +130,8 @@ describe('manual Cloudflare deployed check (offline)', () => {
       const trace = fs.readFileSync(path.join(dir, 'trace'), 'utf8');
       expect(trace).toContain('secret AIWG_MCP_URL stdin=true');
       expect(trace).toContain('secret AIWG_MCP_TOKEN stdin=true');
+      expect(trace).toContain(`deployments deployments status --json --name ${check.name}`);
+      expect(trace).toContain(`tail ${check.name}`);
       expect(trace).not.toContain('synthetic-mcp-token');
       expect(trace).not.toContain('synthetic-check.trycloudflare.com');
       const config = fs.readFileSync(path.join(dir, 'app/wrangler.jsonc'), 'utf8');

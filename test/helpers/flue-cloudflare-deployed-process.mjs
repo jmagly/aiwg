@@ -71,7 +71,9 @@ export function processRunner({ cwd, env, redact = String }) {
   } };
 }
 export async function startTunnel(runner, executable, url, timeout = 30_000) {
-  const task = runner.start(executable, ['tunnel', '--url', new URL(url).origin]);
+  // Present the loopback Host to the D9 listener so its DNS-rebinding guard stays unchanged.
+  const origin = new URL(url);
+  const task = runner.start(executable, ['tunnel', '--url', origin.origin, '--http-host-header', origin.host]);
   task.child.stdin.end();
   const deadline = Date.now() + timeout;
   try {
@@ -83,4 +85,29 @@ export async function startTunnel(runner, executable, url, timeout = 30_000) {
     }
     throw new Error(`cloudflared tunnel URL timeout (${timeout}ms):\n${task.output()}`);
   } catch (error) { await task.stop(); throw error; }
+}
+// Split `wrangler tail --format json` output (pretty-printed objects) into whole events.
+export function tailObjects(output) {
+  const objects = [];
+  let index = 0;
+  while ((index = output.indexOf('{', index)) >= 0) {
+    let depth = 0, end = -1, quoted = false, escaped = false;
+    for (let i = index; i < output.length; i++) {
+      const char = output[i];
+      if (quoted) { if (escaped) escaped = false; else if (char === '\\') escaped = true; else if (char === '"') quoted = false; continue; }
+      if (char === '"') quoted = true;
+      else if (char === '{') depth++;
+      else if (char === '}' && --depth === 0) { end = i; break; }
+    }
+    if (end < 0) break;
+    const raw = output.slice(index, end + 1);
+    try { objects.push({ raw, event: JSON.parse(raw) }); } catch { /* Not a tail event object. */ }
+    index = end + 1;
+  }
+  return objects;
+}
+// The version that served each request.
+export function tailEvents(output) {
+  return tailObjects(output).map(({ event }) => ({ version: event?.scriptVersion?.id, url: event?.event?.request?.url }))
+    .filter(event => typeof event.url === 'string');
 }

@@ -11,8 +11,9 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 - Cloudflare-target Flue generation with Worker-bound remote tools, a pinned
   package-mode example, and local workerd qualification for skills, delegation,
-  project-bound artifacts, restart/resume, abort and authentication. Deployed
-  validation remains pending an operator token (#3127).
+  project-bound artifacts, restart/resume, abort and authentication, plus a
+  manual-only deployed check (`npm run test:flue-cloudflare-deployed`, never in
+  CI). One manual deployed run passed all seven cases on Cloudflare (#3127).
 
 - MIT `@aiwg/flue` peer-only package: static bundle skills, manifest-selected
   specialist factories, remote and Node MCP helpers. Flue `use --package`
