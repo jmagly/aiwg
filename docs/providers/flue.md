@@ -203,7 +203,49 @@ NO_UPDATE_NOTIFIER=1 nice -n 19 npm run test:release-slow -- flue-cloudflare-e2e
 the suite resolves its `node_modules`. Both paths use temporary HOME/config/state,
 a 60 s workerd startup cap, and 300 s lifecycle tests for slower hosted runners.
 
-**Deployed:** pending the operator's later token and a separate deployed run.
+**Deployed validation pending:** no real deployed run has been recorded.
+
+The deployed counterpart is **manual only and never automatic**. It is excluded
+from default/release-slow selection, workflows and `cut-tag.sh`. Its dedicated
+`config/vitest.flue-cloudflare-deployed.config.js` is registered only as an
+unavailable manual config, following the live UAT convention. Only the explicit
+npm script starts it; the script and config both refuse without all three inputs.
+
+Prerequisites: built AIWG CLI, the provisioned locked Cloudflare example (or
+`AIWG_FLUE_CF_DEPENDENCIES` pointing at its dependencies), `cloudflared` on PATH
+(or `AIWG_CLOUDFLARED` naming its executable), Cloudflare account ID, and an API
+token with **Account › Workers Scripts Edit** plus **Account Settings Read**.
+Supply credentials through the operator's environment; never put them in the
+repository or command arguments. With `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` already exported, explicitly authorize one run:
+
+```sh
+AIWG_FLUE_CF_DEPLOY=1 NO_UPDATE_NOTIFIER=1 nice -n 19 npm run test:flue-cloudflare-deployed
+```
+
+The check copies the app and packed `@aiwg/flue` into temporary directories,
+uses package mode and the same keyless scripted model as local workerd tests,
+starts a token-protected D9 HTTP listener bound to a temporary project on
+127.0.0.1, and exposes it through a bounded-wait `cloudflared` quick tunnel.
+It uses the example's Wrangler with a random `aiwg-flue-check-<random>` name.
+`AIWG_MCP_URL` and `AIWG_MCP_TOKEN` are set only with `wrangler secret put` via
+stdin. Captured diagnostics are redacted and Wrangler disk logging is disabled.
+
+All seven local cases are shared with the deployed suite. For restart/resume
+and persisted abort, the deployed check **redeploys the same built script under
+the same Worker name**; it cannot restart a remote workerd process. No case is
+skipped. This checks state across deployment, rather than an operator-controlled
+remote process restart.
+
+Teardown runs on failure and SIGINT/SIGTERM: delete the Worker, stop the tunnel
+and server, and remove app/server temporary directories. A teardown summary
+prints an exact manual cleanup command if deletion fails. A separate temporary
+results directory is intentionally retained: its printed `results.json` records
+per-case pass/fail, timings, versions, the restart method and cleanup outcomes,
+without secrets. Cases blocked by setup/interruption are recorded as failures
+with a reason. Retain that JSON when recording an actual deployed result, then
+remove the results directory when finished.
+
 Local timings do not establish compliance with Cloudflare's default 30 s
 active-CPU budget per invocation. Workers cannot spawn stdio children.
 Filesystem tools require Cloudflare Sandbox or Computer; this example uses

@@ -93,6 +93,7 @@
     "build:web": "node tools/scripts/resource-preflight.mjs --profile web && npm --prefix apps/web ci && npm --prefix apps/web run build",
     "test": "node tools/testing/run-default-lane.mjs",
     "test:deployment": "node tools/testing/run-default-lane.mjs --config config/vitest.deployment.config.js",
+    "test:flue-cloudflare-deployed": "node tools/testing/flue-cloudflare-deployed.mjs",
     "test:release-slow": "node tools/testing/run-default-lane.mjs --config config/vitest.release-slow.config.js",
     "test:durations": "node tools/testing/refresh-test-durations.mjs",
     "test:wasm": "node tools/testing/run-default-lane.mjs --config config/vitest.wasm.config.js",

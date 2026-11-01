@@ -18,7 +18,7 @@ export async function prepareCloudflare(dependencyProject) {
     TMPDIR: scratch, XDG_CONFIG_HOME: path.join(home, '.config'), XDG_CACHE_HOME: path.join(home, '.cache'),
     XDG_DATA_HOME: path.join(home, '.local/share'), XDG_STATE_HOME: path.join(home, '.state'),
     AIWG_CONFIG: path.join(home, '.aiwg'), AIWG_ROOT: root, AIWG_RESOLVE_IMPL_FROM: 'dist', AIWG_SKIP_ACTIVITY_LOG: '1',
-    NO_UPDATE_NOTIFIER: '1', WRANGLER_SEND_METRICS: 'false', CI: '1' };
+    NO_UPDATE_NOTIFIER: '1', WRANGLER_SEND_METRICS: 'false', WRANGLER_WRITE_LOGS: 'false', CI: '1' };
   async function run(command, args, timeout = 180_000) {
     const child = spawn(command, args, { cwd: project, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
     let output = '';
@@ -82,4 +82,23 @@ export async function prepareCloudflare(dependencyProject) {
     fs.writeFileSync(config, fs.readFileSync(config, 'utf8').replace("target: 'cloudflare'", "target: 'cloudflare', providers: [], tracing: false"));
     return result;
   } catch (error) { await result.close(); throw error; }
+}
+
+export const cloudflareVersions = { '@flue/cli': '2.3.0', '@flue/runtime': '2.3.0', '@flue/vite': '2.3.0',
+  '@cloudflare/vite-plugin': '1.65.0', wrangler: '4.152.0', vite: '8.3.5', hono: '4.13.13', workerd: '1.20261019.1' };
+export function verifyCloudflareDependencies(project) {
+  const dependencies = path.resolve(project, 'node_modules');
+  if (!fs.existsSync(dependencies)) throw new Error('Provision the locked examples/flue-cloudflare dependencies, or set AIWG_FLUE_CF_DEPENDENCIES. This check never installs packages.');
+  for (const [name, version] of Object.entries(cloudflareVersions)) {
+    const actual = JSON.parse(fs.readFileSync(path.join(dependencies, name, 'package.json'), 'utf8')).version;
+    if (actual !== version) throw new Error(`${name}: expected ${version}, received ${actual}`);
+  }
+}
+export async function buildCloudflare(app) {
+  await app.run(process.execPath, [path.join(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck',
+    '--target', 'ES2023', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--allowImportingTsExtensions',
+    'src/app.ts', 'src/aiwg/specialists.ts', 'src/aiwg/skills.ts', 'flue.config.ts', 'vite.config.ts'], 60_000);
+  const started = performance.now();
+  const buildLog = await app.run(process.execPath, [path.join(app.project, 'node_modules/vite/bin/vite.js'), 'build'], 60_000);
+  return { buildLog, buildMs: Math.round(performance.now() - started) };
 }
