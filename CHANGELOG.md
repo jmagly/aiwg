@@ -37,6 +37,9 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 - The verbalized-sampling addon's agent is now `verbalized-content-diversifier`.
   It previously shared the name `content-diversifier` with the writing-quality
   agent, so installing both addons made one overwrite the other.
+  An existing `.claude/agents/content-diversifier.md` (or the matching file for
+  your provider) that came from verbalized-sampling is not removed automatically;
+  delete it after updating unless writing-quality is installed.
 - Copy-mode deployments now remove a skill's old-tier copy when it moves between
   the kernel and standard tiers, but only if the copy is unchanged; edited copies
   stay with a warning. Index mode again deletes stale skills that carry only the

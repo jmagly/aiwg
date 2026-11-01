@@ -141,7 +141,7 @@ export function deploySkillsWithKernelRouting(
         } catch { /* preserve unreadable/operator-owned content */ }
       }
       if (!managed) continue;
-      if (!removeSkillCopy(target, { ...opts, tierMove: true })) continue;
+      if (!removeSkillCopy(target, { ...opts, tierMove: true, replacement: path.join(kernelDestDir, entry.name) })) continue;
       prunedKernelFromStandardDir++;
       if (opts?.verbose) console.log(`pruned promoted kernel from standard dir: ${entry.name}`);
     }
@@ -161,7 +161,10 @@ export function deploySkillsWithKernelRouting(
       if (!standardNames.has(entry.name)) continue;
       const target = path.join(kernelDestDir, entry.name);
       try {
-        if (!removeSkillCopy(target, { ...opts, tierMove: true })) continue;
+        // Index mode serves standard skills from $AIWG_ROOT; copy mode must have
+        // written the standard-tier copy before the kernel copy goes.
+        const replacement = copyStandardSkills && standardDestDir ? path.join(standardDestDir, entry.name) : undefined;
+        if (!removeSkillCopy(target, { ...opts, tierMove: true, replacement })) continue;
         prunedFromKernelDir++;
         if (opts?.verbose) console.log(`pruned legacy from kernel dir: ${entry.name}`);
       } catch (err) {

@@ -5,6 +5,11 @@ import { createHash } from 'node:crypto';
 export function removeSkillCopy(dir, opts = {}) {
   const copyMode = opts.copyMode ?? opts.copyStandardSkills;
   if (copyMode && !opts.tierMove) return false;
+  // A copy-mode tier move only replaces: the new-tier copy must already exist.
+  if (copyMode && opts.tierMove && !(opts.replacement && fs.existsSync(path.join(opts.replacement, 'SKILL.md')))) {
+    console.warn(`${opts.logicalOutputPath?.(dir) || dir}: kept (replacement copy missing)`);
+    return false;
+  }
   const keep = reason => {
     console.warn(`${opts.logicalOutputPath?.(dir) || dir}: kept (${reason})`);
     return false;
