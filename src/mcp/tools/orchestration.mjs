@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod';
+import { toolContext } from '../tool-context.mjs';
 import { integer } from '../../schema/zod-validation.mjs';
 import { showDrillInSchema, showDrillInArgs } from './discovery.mjs';
 import { parse as parseYaml } from 'yaml';
@@ -19,7 +20,7 @@ import { AIWG_ROOT, mcpError, mcpJson, runAiwgCli } from '../helpers.mjs';
 function candidateAiwgRoots() {
   const roots = [
     AIWG_ROOT,
-    process.cwd(),
+    toolContext.getStore()?.projectDir ?? process.cwd(),
   ];
   return [...new Set(roots.map((r) => path.resolve(r)).filter(Boolean))];
 }

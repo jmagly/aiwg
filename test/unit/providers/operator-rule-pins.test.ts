@@ -63,7 +63,7 @@ describe('operator pinned provider projections', () => {
       deploy(root, provider);
       expect(contents(root)).toEqual(first);
       const config = { installed: { fixture: {} }, rules: { always_load: [] } };
-      const unpinned = JSON.parse(deploy(root, provider, { config }).split('REPORT:')[1].trim());
+      const unpinned = JSON.parse(deploy(root, provider, { config, copyStandardSkills: false }).split('REPORT:')[1].trim());
       const normal = readRuleDeliveryContext(unpinned, provider);
       expect(normal).not.toContain('FIXTURE_BOUND_BODY');
       expect(normal).not.toContain('FIXTURE_SUMMARY_BODY');
@@ -71,7 +71,7 @@ describe('operator pinned provider projections', () => {
       expect(normal).toContain('Follow the fixture summary policy.');
       expect(unpinned.pins).toHaveLength(0);
       const restored = contents(root);
-      deploy(root, provider, { config });
+      deploy(root, provider, { config, copyStandardSkills: false });
       expect(contents(root)).toEqual(restored);
     }, 90_000);
   }

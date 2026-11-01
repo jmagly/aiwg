@@ -24,6 +24,42 @@ afterEach(() => { fs.rmSync(root, { force: true, recursive: true }); });
 const record = (before: Map<string, Buffer>, mode = 'sdlc') => recordDeploymentOutputs(before, [root], { mode });
 
 describe('deploy-wide sidecar ownership', () => {
+  it('records copied Cloudflare helper files with project preimages for Flue removal', () => {
+    const before = captureDeploymentOutputs([root]);
+    const names = ['src/aiwg/remote-specialist.js', 'src/aiwg/remote-specialist.d.ts'];
+    for (const name of names) write(name, 'synthetic helper');
+    recordDeploymentOutputs(before, [root], { provider: 'flue', mode: 'sdlc', target: root });
+    expect(receipt('.aiwg').scope).toBe('project');
+    for (const name of names) expect(receipt('.aiwg').managed[name]).toMatchObject({
+      hash: digest('synthetic helper'), owners: ['sdlc-complete'], filePreimage: { present: false },
+    });
+    expect(fs.existsSync(path.join(root, 'src/aiwg/.aiwg-manifest.json'))).toBe(false);
+  });
+
+  it.each([false, true])('retains prior records for untouched edited files despite emitted receipts (explicit=%s)', explicit => {
+    const name = 'skills/demo/SKILL.md';
+    write(name, 'original');
+    const original = { hash: digest('original'), owners: ['voice-framework'], kind: 'skill', sourcePath: '/original/SKILL.md' };
+    write('skills/demo/.aiwg-manifest.json', { managed: { 'SKILL.md': original } });
+    write(name, 'original\n# operator note');
+    const before = captureDeploymentOutputs([root]);
+    // A helper rewrites metadata without writing the preserved payload.
+    write('skills/demo/.aiwg-manifest.json', { skillSource: '/staging/input/skills/demo', managed: { 'SKILL.md': {
+      hash: digest('original\n# operator note'), frameworkSlug: 'voice-framework',
+    } } });
+    recordDeploymentOutputs(before, [root], { mode: 'sdlc', writtenFiles: explicit ? [path.join(root, name)] : [] });
+    expect(receipt('skills/demo').managed['SKILL.md']).toEqual(original);
+    expect(fs.readFileSync(path.join(root, name), 'utf8')).toBe('original\n# operator note');
+  });
+
+  it('does not accept a new receipt as proof that an existing unrecorded file was written', () => {
+    write('skills/demo/SKILL.md', 'operator');
+    const before = captureDeploymentOutputs([root]);
+    write('skills/demo/.aiwg-manifest.json', { managed: { 'SKILL.md': { hash: digest('operator'), frameworkSlug: 'voice-framework' } } });
+    record(before);
+    expect(receipt('skills/demo').managed['SKILL.md']).toBeUndefined();
+  });
+
   it.each([false, true])('reports unresolved ownership without claiming outputs (onlyDeclared=%s)', onlyDeclared => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const before = captureDeploymentOutputs([root]);

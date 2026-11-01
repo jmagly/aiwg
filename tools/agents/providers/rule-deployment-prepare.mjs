@@ -46,6 +46,7 @@ import {
 } from './rule-deployment-state.mjs';
 import { inlineStartup, projectRules } from './rule-projection.mjs';
 const { captureDeploymentOutputs, recordDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
+const { preserveDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-preservation.mjs');
 import { retireInlineStartup } from './rule-startup.mjs';
 
 /** Stage only provider/context output, never the user's source tree. On failure
@@ -339,6 +340,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
       flueDatabaseFile: provider.name === 'flue' ? provider.deploymentFiles(target)[0] : undefined, kernelSkillsPath: kernel, deploymentHome: home, activeWorkspace, hermesLegacySkills, legacyCodexSkills, staging: true };
     const ownershipRoots = [stage, ...mappings.map(mapping => mapping.to)];
     const ownershipBefore = captureDeploymentOutputs(ownershipRoots);
+    opts.ownershipBefore = ownershipBefore;
     if (!opts.deferRuleProjection && (opts.kernelOnly || opts.deployRules || opts.rulesOnly ||
       (!opts.skillsOnly && !opts.commandsOnly && (inlineStartup[provider.name] || ['hermes', 'warp'].includes(provider.name))))) retireInlineStartup(opts, provider);
     await deploySelectedSurface(opts, provider, deploy);
@@ -371,6 +373,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
       if (opts.kernelOnly || opts.deployRules || opts.rulesOnly || (!opts.skillsOnly && !opts.commandsOnly && (inlineStartup[provider.name] || ['hermes', 'warp'].includes(provider.name)))) projectRules(opts, provider);
       finishBindings(opts, provider);
     }
+    preserveDeploymentOutputs(ownershipBefore, ownershipRoots, opts);
     // Normalize all generated path wrappers before counting or promoting bytes.
     const normalize = content => {
       for (const mapping of [...mappings].sort((a, b) => b.to.length - a.to.length)) content = content.split(mapping.to).join(mapping.from);
@@ -427,6 +430,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
       for (const name of rootNames) {
         const file = path.join(stage, name);
         if (fs.existsSync(file) && normalize(read(file)) !== read(path.join(target, name))) console.log(`[dry-run] Would write ${path.join(target, name)}`);
+        else if (!fs.existsSync(file) && fs.existsSync(path.join(target, name))) console.log(`[dry-run] Would remove ${path.join(target, name)}`);
       }
       console.log(`[dry-run] Planned ${provider.name} deployment: ${guarded.report.selected_bytes} startup bytes; no output promoted.`);
       return { report: guarded.report, noop: true };

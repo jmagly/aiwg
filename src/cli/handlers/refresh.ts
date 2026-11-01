@@ -22,6 +22,9 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 import { createScriptRunner } from './script-runner.js';
 import { createUseHandler } from './use.js';
+import { automaticRemovalAllowed } from '../../providers/deployment-preservation.mjs';
+import { refreshDeclaredBundles } from './refresh-bundles.js';
+import { bundledRuleOutputNames } from './refresh-rule-inventory.js';
 import { getFrameworkRoot } from '../../channel/manager.mjs';
 import { refreshAllPackages } from '../../packages/registry.js';
 import { resolveActiveProvider } from '../provider-resolution.js';
@@ -90,7 +93,9 @@ export async function currentBundledRuleBasenames(frameworkRoot: string): Promis
         continue;
       }
       for (const entry of entries) {
-        if (entry.isFile() && entry.name.endsWith('.md')) names.add(entry.name);
+        if (entry.isFile() && entry.name.endsWith('.md')) {
+          for (const name of await bundledRuleOutputNames(path.join(rulesDir, entry.name))) names.add(name);
+        }
       }
     }
   }
@@ -374,6 +379,7 @@ export async function pruneStaleManagedAgentFiles(options: {
         record(trackedSkipped, provider, hit.relativePath);
         continue;
       }
+      if (!automaticRemovalAllowed(options.projectRoot, provider, hit.absolutePath)) continue;
       if (!options.dryRun) await fs.rm(hit.absolutePath, { force: true });
       record(removals, provider, hit.relativePath);
     }
@@ -430,13 +436,13 @@ async function reconcileDeployedToAfterPrune(
     let outstanding = removal.paths.length;
     const byAgentsDesc = entries
       .slice()
-      .sort((a, b) => b.deployedTo[removal.provider].agents - a.deployedTo[removal.provider].agents);
+      .sort((a, b) => (b.deployedTo[removal.provider].agents ?? 0) - (a.deployedTo[removal.provider].agents ?? 0));
     for (const entry of byAgentsDesc) {
       if (outstanding <= 0) break;
       const counts = entry.deployedTo[removal.provider];
-      const deduct = Math.min(counts.agents, outstanding);
+      const deduct = Math.min(counts.agents ?? 0, outstanding);
       if (deduct <= 0) continue;
-      counts.agents -= deduct;
+      counts.agents = (counts.agents ?? 0) - deduct;
       outstanding -= deduct;
       changed = true;
     }
@@ -645,48 +651,9 @@ export const refreshHandler: CommandHandler = {
       : requestedFrameworks;
     if (!quiet) ui.info(dryRun ? 'Would re-deploy frameworks...' : 'Re-deploying frameworks...');
 
-    if (!dryRun) {
-      if (frameworks.length === 0 && !quiet) {
-        ui.dim('  No installed frameworks or addons to re-deploy');
-      }
-      for (const fw of frameworks) {
-        // Invoke the active installation's handler directly. The historical
-        // deploy.mjs bridge shells out to the first `aiwg` on PATH, which can
-        // be a different version/root and therefore cannot safely refresh
-        // addons installed by this package (#143/#2102).
-        const useResult = await activeUseHandler.execute({
-          ...ctx,
-          cwd: ctx.cwd,
-          frameworkRoot,
-          args: [
-            fw,
-            '--provider', detectedProvider,
-            '--target', ctx.cwd,
-            '--yes',
-            '--json',
-            // #2507: give operators a reclaim path for artifacts an older
-            // AIWG left behind without a managed marker.
-            ...(forceDeploy ? ['--force'] : []),
-            ...(hasFlag(ctx.args, '--allow-over-budget') ? ['--allow-over-budget'] : []),
-            ...modelDeployArgs,
-          ],
-          rawArgs: ['use', fw],
-        });
-        if (useResult.exitCode === 0) {
-          if (!quiet) ui.success(`Deployed: ${fw}`);
-        } else {
-          deploymentFailures.push(fw);
-          if (!quiet) ui.warn(`Deploy issue: ${fw} (exit ${useResult.exitCode})`);
-        }
-      }
-    } else {
-      if (!quiet) {
-        if (frameworks.length === 0) ui.dim('    No installed frameworks or addons');
-        for (const fw of frameworks) {
-          ui.dim(`    Would re-deploy: ${fw}`);
-        }
-      }
-    }
+    deploymentFailures.push(...await refreshDeclaredBundles(ctx, refreshConfig, frameworks, provider, {
+      handler: activeUseHandler, frameworkRoot, dryRun, quiet, forceDeploy, modelDeployArgs,
+    }));
 
     // Runtime updates can change the corpus even when there are no recorded
     // deployments. Refresh both discovery representations, independently of use.

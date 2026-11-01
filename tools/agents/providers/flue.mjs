@@ -1,9 +1,10 @@
 // Deploy the experimental Flue app target through shared skills and context owners.
 import path from 'node:path';
 import { importImpl } from '../../_resolve-impl.mjs';
-import { collectFrameworkArtifacts, deploySkillsWithKernelRouting, getAddonSkillDirs,
+import { collectFrameworkArtifacts, listSkillDirs, getAddonSkillDirs,
   isKernelSkill, normalizeDeploymentMode, withRuleDeployment } from './base.mjs';
-import { flueDeploymentFiles, deployFlueDatabase } from './flue-project.mjs';
+import { deployFlueSkill } from './flue-skill-copy.mjs';
+import { flueDeploymentFiles, deployFlueDatabase, detectFlueTarget, retireFlueTargetFiles } from './flue-project.mjs';
 import { deployFlueSpecialists } from './flue-specialists.mjs';
 export { FLUE_SPECIALISTS } from './flue-specialists.mjs';
 const { generate } = await importImpl(import.meta.url, 'smiths/context-pipeline/generator.js');
@@ -22,13 +23,15 @@ export const deployCommands = () => 0;
 export const deployRules = () => 0;
 
 export function deploySkills(skillDirs, target, opts) {
-  // Flue has no legacy bulk mirror. Limit cleanup to its selected kernel set
-  // so another provider's mirrors and operator standard skills stay untouched.
-  return deploySkillsWithKernelRouting(skillDirs.filter(isKernelSkill), null,
-    path.join(target, kernelSkillsPath), { ...opts, copyStandardSkills: false });
+  if (opts.fluePackage) return { kernel: 0, standard: 0 };
+  const destination = path.join(target, kernelSkillsPath);
+  for (const dir of skillDirs) deployFlueSkill(dir, destination, opts);
+  return { kernel: skillDirs.length, standard: 0 };
 }
 
 export async function postDeploy(target, opts) {
+  opts = { ...opts, flueTarget: detectFlueTarget(target, { warn: true }) };
+  retireFlueTargetFiles(target, opts);
   deployFlueDatabase(target, opts);
   deployFlueSpecialists(target, opts);
   if (opts.contextFiles !== false) await generate({ provider: name, projectPath: target, sections: [], detectExistingFiles: true });
@@ -38,9 +41,10 @@ export async function deploy(opts) {
   if (opts.userScope) throw new Error('Flue (experimental) supports project scope only.');
   return withRuleDeployment({ ...opts, provider: name }, provider, async staged => {
     const mode = normalizeDeploymentMode(staged.mode);
-    const skills = [...getAddonSkillDirs(staged.srcRoot),
+    const invoked = listSkillDirs(path.join(staged.srcRoot, 'skills'));
+    const skills = [...invoked, ...(mode === 'all' ? getAddonSkillDirs(staged.srcRoot) : []),
       ...collectFrameworkArtifacts(staged.srcRoot, mode, { includeAgents: false, includeCommands: false, includeSkills: true, includeRules: false }).skills];
-    const count = deploySkills(skills, staged.target, staged);
+    const count = deploySkills(mode === 'all' && !invoked.length ? skills.filter(isKernelSkill) : skills, staged.target, staged);
     await postDeploy(staged.target, staged);
     return count.kernel;
   });

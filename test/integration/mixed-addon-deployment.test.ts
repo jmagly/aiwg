@@ -37,6 +37,9 @@ describe('mixed agent and skill addon deployment', () => {
     const sampling = await handler.execute(context('verbalized-sampling'));
     expect(sampling.exitCode, sampling.message).toBe(0);
     expect(await readFile(
+      path.join(projectDir, '.claude/agents/verbalized-content-diversifier.md'), 'utf8',
+    )).toContain('Verbalized Sampling');
+    expect(await readFile(
       path.join(projectDir, '.claude/.aiwg/skills/diversity-tuning/SKILL.md'),
       'utf8',
     )).toContain('name: diversity-tuning');

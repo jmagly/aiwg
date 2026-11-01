@@ -49,6 +49,8 @@ function makeRepo({
   tempRoot = mkdtempSync(join(tmpdir(), 'aiwg-version-lockstep-'));
   mkdirSync(join(tempRoot, '.claude-plugin'), { recursive: true });
   mkdirSync(join(tempRoot, 'packages', 'cli'), { recursive: true });
+  mkdirSync(join(tempRoot, 'packages', 'flue'), { recursive: true });
+  writeJson(join(tempRoot, 'packages', 'flue', 'package.json'), { name: '@aiwg/flue', version: packageVersion });
   mkdirSync(join(tempRoot, 'apps', 'cockpit'), { recursive: true });
   mkdirSync(join(tempRoot, 'apps', 'cockpit', 'web'), { recursive: true });
   mkdirSync(join(tempRoot, 'agentic', 'code', 'plugins', 'sdlc', '.claude-plugin'), { recursive: true });

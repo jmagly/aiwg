@@ -5,6 +5,9 @@ node_modules/
 *.pyc
 __pycache__/
 .env
+.dev.vars
+.flue-vite/
+.flue-vite.wrangler.jsonc
 .venv/
 env/
 venv/

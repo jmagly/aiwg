@@ -1,5 +1,6 @@
 // Runner source ownership and explicit reasons for lanes unavailable in main CI.
 export const unavailableLanes = {
+  'config/vitest.flue-cloudflare-deployed.config.js': 'Manual only: paid Cloudflare Worker deployment requires explicit AIWG_FLUE_CF_DEPLOY=1 and account credentials; never automatic.',
   'config/vitest.uat-cockpit-live.config.js': 'Requires a live agentic-sandbox executor; the offline CI image does not provide that service.',
   'config/vitest.uat-daemon.config.js': 'Requires an authenticated provider CLI/account and a real daemon with isolated sockets.',
   'config/vitest.uat-fleet-sandbox.config.js': 'Requires live fleet SSH targets and agentic-sandbox hosts; unavailable in offline CI.',
@@ -21,6 +22,7 @@ export const packageRunnerLanes = [
   { id: 'vscode-extension', runner: 'mocha', package: 'vscode-extension', script: 'test', files: ['test/**/*.ts'] },
 ];
 export const packagingFiles = [
+  'test/integration/flue-package-packaging.test.ts',
   'test/integration/relations-prebuilt-packaging.test.ts',
   'test/integration/artifacts/aiwg-tracking.test.ts',
   'test/smoke/cockpit-base-footprint.test.js',
@@ -52,13 +54,19 @@ export const deploymentFiles = [
   'test/integration/guided-setup-walkthrough.test.ts',
   // Real sdlc and marketing deploys followed by `aiwg remove` (#3769).
   'test/integration/remove-deployment.test.ts',
+  // Repeated real CLI updates read the same immutable corpus and source index.
+  'test/integration/bundle-reconciliation-cli.test.ts',
 ];
 // Exhaustive provider deployment matrices run before releases, while focused
 // CLI contracts and a small provider smoke matrix remain in the default lane.
 // These do not overlap the required post-merge deploymentFiles lane above.
 export const releaseSlowFiles = [
+  'test/integration/flue-cloudflare-e2e.test.ts',
+  'test/integration/flue-package-consumer.test.ts',
   // Real Flue/Pi graph is provisioned from the example lockfile before this lane.
   'test/integration/flue-node-e2e.test.ts',
+  'test/integration/flue-mcp-http.test.ts',
+  'test/integration/flue-remote-package-consumer.test.ts',
   // Full-copy marketing ownership includes every addon/extension and a redeploy.
   'test/integration/ownership-matrix-deployment.test.ts',
   'test/integration/provider-file-locations.test.ts',
@@ -139,6 +147,7 @@ export const d29SlowFiles = [
 // Root gate-script exceptions: one explicit owner/reason per non-main invocation.
 // `unwired` is census debt for the release conductor, not an approved manual policy.
 export const scriptLaneExemptions = [
+  { script: 'test:flue-cloudflare-deployed', kind: 'manual', owner: 'provider-maintainers', reason: 'Paid real Cloudflare deployment; explicit opt-in and credentials required. Never CI or release automation.' },
   { script: 'lint:rule-triggers', kind: 'manual', owner: 'discovery-maintainers', reason: 'Advisory trigger coverage report; source explicitly defers --fail-on-missing until coverage closes.' },
   { script: 'lint:tarball', kind: 'release-only', owner: 'release-maintainers', reason: 'Release candidate routine/full profiles invoke the tarball audit in tools/release/release-candidate.mjs.' },
   { script: 'lint:test-process-timeouts:report', kind: 'manual', owner: 'testing-maintainers', reason: 'Advisory full timeout report; main invokes the --enforce-product variant.' },

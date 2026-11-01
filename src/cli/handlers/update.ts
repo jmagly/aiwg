@@ -6,6 +6,9 @@ import { useHandler as useFrameworkHandler } from './use.js';
 import { projectAiwgPath } from '../../config/project-artifacts.js';
 import type { AiwgConfig } from '../../config/aiwg-config.js';
 import { getConfigPath } from '../../config/aiwg-config.js';
+import { bundleCopyArgs } from './bundle-deployment-mode.js';
+import { bundleProviders, pruneUndeclaredBundles, pruneAfterScopedDeployments } from './bundle-reconciliation.js';
+import { readAiwgConfig } from '../../config/aiwg-config.js';
 import { withInstalledSelection } from '../../config/installed-selection.js';
 
 import { REGISTRY_ID_TO_USE_NAME } from '../../config/framework-aliases.js';
@@ -124,9 +127,14 @@ export const updateHandler: CommandHandler = {
     const installedFrameworks = deployAll ? ['all'] : [...new Set(
       (configured ?? registry?.frameworks.map(item => item.id) ?? []).map(useName)
     )];
+    let pruneFailures = !deployAll && installed !== undefined
+      ? await pruneUndeclaredBundles(ctx.cwd, await readAiwgConfig(ctx.cwd), providerArgs[1], dryRun, ctx.frameworkRoot) : 0;
+    const deployments = installedFrameworks.flatMap(fw => installed === undefined || deployAll
+      ? [{ fw, args: providerArgs }]
+      : bundleProviders(installed, fw, providerArgs[1]).map(provider => ({ fw, args: ['--provider', provider, ...bundleCopyArgs(installed, fw, provider)] })));
     if (installedFrameworks.length === 0) {
       console.log('No installed frameworks to re-deploy. Use aiwg use <framework> to install one.');
-      return { exitCode: 0 };
+      return { exitCode: pruneFailures ? 1 : 0 };
     }
 
     // Report what will be updated
@@ -135,28 +143,30 @@ export const updateHandler: CommandHandler = {
 
     if (dryRun) {
       console.log('Dry run: Would re-deploy the following frameworks:');
-      for (const fw of installedFrameworks) {
-        console.log(`  - aiwg use ${[fw, ...providerArgs].join(' ')}`);
+      for (const { fw, args } of deployments) {
+        console.log(`  - aiwg use ${[fw, ...args].join(' ')}`);
       }
-      return { exitCode: 0 };
+      return { exitCode: pruneFailures ? 1 : 0 };
     }
 
     // Step 3: Re-deploy each installed framework
     const results: Array<{ framework: string; exitCode: number }> = [];
 
-    for (const fw of installedFrameworks) {
+    for (const { fw, args } of deployments) {
       console.log(`Re-deploying ${fw}...`);
       const deploy = () => useFrameworkHandler.execute({
         ...ctx,
-        args: [fw, ...providerArgs],
+        args: [fw, ...args],
       });
       const result = await (deployAll ? deploy() : withInstalledSelection(ctx.cwd, installed, deploy));
       results.push({ framework: fw, exitCode: result.exitCode });
 
       if (result.exitCode !== 0) {
-        console.error(`Warning: Failed to re-deploy ${fw}`);
+        console.error(`Warning: Failed to re-deploy ${fw}: ${result.message || `exit ${result.exitCode}`}`);
       }
     }
+
+    if (!deployAll) pruneFailures += await pruneAfterScopedDeployments(ctx.cwd, await readAiwgConfig(ctx.cwd), providerArgs[1], ctx.frameworkRoot);
 
     // Step 4: Report summary
     console.log('');
@@ -173,7 +183,7 @@ export const updateHandler: CommandHandler = {
     console.log(`Updated: ${succeeded.length}/${results.length}`);
 
     return {
-      exitCode: failed.length > 0 ? 1 : 0,
+      exitCode: failed.length > 0 || pruneFailures ? 1 : 0,
       message: failed.length > 0
         ? `Some frameworks failed to update: ${failed.map(f => f.framework).join(', ')}`
         : `Successfully updated ${succeeded.length} framework(s)`,

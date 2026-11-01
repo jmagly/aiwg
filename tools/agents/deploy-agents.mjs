@@ -162,6 +162,7 @@ import { parseArgs, printHelp } from './deploy-options.mjs';
 import { useRuleSelectionConfig } from './use-rule-selection.mjs';
 import { mirrorSkillsAsCommands } from './deploy-command-mirrors.mjs';
 import { resolveShorthand, saveModelConfig, promptCommandsMigration } from './deploy-support.mjs';
+const { preserveDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-preservation.mjs');
 const { captureDeploymentOutputs, recordDeploymentOutputs, deploymentOutputRoots } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 
 export async function main(args = process.argv.slice(2), internal = {}) {
@@ -248,6 +249,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
   // Build options for provider
   const { writeContextFileSync } = await import('./providers/context-write.mjs');
   const opts = {
+    replacedSkillCopies: new Set(),
     writeReceipt: writeContextFileSync,
     config: useRuleSelectionConfig(cfg, srcRoot),
     srcRoot,
@@ -297,7 +299,9 @@ export async function main(args = process.argv.slice(2), internal = {}) {
     // for the standard tier. Default is no-copy + index-driven discovery.
     // Replaces the legacy AIWG_COPY_STANDARD_SKILLS env var (removed rc.30).
     // Default (#1217) is no-copy + index-driven discovery.
+    fluePackage: cfg.fluePackage === true,
     copyStandardSkills: cfg.copyStandardSkills === true,
+    copyMode: cfg.copyStandardSkills === true && cfg.indexMode !== true,
     // #228: Muse provider hooks/MCP profile surface.
     mcp: cfg.mcp === true,
     hooks: cfg.hooks !== false,
@@ -318,7 +322,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
   // Commands → Skills migration: prompt then delete the commands directory
   // so stale command files don't create duplicates in the provider TUI.
   if (!preparationActive && !internal.finalizeOnly) {
-    if (!cfg.dryRun && !cfg.skipCommandsMigration) {
+    if (!cfg.dryRun && !opts.copyMode && !cfg.skipCommandsMigration) {
       const doMigrate = await promptCommandsMigration(cfg, provider, cfg.target, internal.capture ? false : process.stdout.isTTY);
       if (doMigrate) {
         const commandsRelPath = provider.paths?.commands;
@@ -386,6 +390,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
       await saveModelConfig(cfg, provider.name);
     }
 
+    if (ownershipBefore) preserveDeploymentOutputs(ownershipBefore, ownershipRoots, opts);
     if (ownershipBefore) recordDeploymentOutputs(ownershipBefore, ownershipRoots, opts);
     if (!cfg.quiet) console.log(`\n=== Deployment complete ===\n`);
   } catch (err) {

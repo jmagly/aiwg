@@ -154,7 +154,7 @@ describe('direct stable publication and advisory registry checks', () => {
     expect(readFileSync(join(directory, 'calls'), 'utf8')).toContain('--latest=false --prerelease=true');
   });
 
-  it.each(['missing', 'error', 'timeout', 'visible'])('bounds provenance lookups for all three packages when %s', (state) => {
+  it.each(['missing', 'error', 'timeout', 'visible'])('bounds provenance lookups for all four packages when %s', (state) => {
     const directory = fixture();
     const result = runStep('Verify provenance attestation landed', directory, registryMocks, {
       ATTESTATIONS: state === 'visible' ? 'attestation' : '',
@@ -163,8 +163,8 @@ describe('direct stable publication and advisory registry checks', () => {
     });
     expect(result.status).toBe(state === 'visible' ? 0 : 1);
     const calls = readFileSync(join(directory, 'calls'), 'utf8').trim().split('\n');
-    expect(calls).toHaveLength(state === 'visible' ? 3 : 9);
-    for (const name of ['aiwg', '@aiwg/cli', '@aiwg/cockpit']) {
+    expect(calls).toHaveLength(state === 'visible' ? 4 : 12);
+    for (const name of ['aiwg', '@aiwg/cli', '@aiwg/cockpit', '@aiwg/flue']) {
       expect(calls.some(call => call.includes(`10s npm view ${name}@2026.10.3`))).toBe(true);
     }
     expect(step('Verify provenance attestation landed')['continue-on-error']).toBe(true);

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { SOCKET_SCAN_WAIT_MS } from '../../tools/release/socket-post-publish-retry.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const publishWorkflow = readFileSync(
@@ -162,10 +163,23 @@ test('Socket audit paces across quota windows with a job timeout that covers the
     socketWorkflow,
     /SOCKET_PACE_QUOTA_MINUTES: \$\{\{ vars\.SOCKET_PACE_QUOTA_MINUTES \|\| '120' \}\}/,
   );
-  const timeout = Number(socketWorkflow.match(/^\s*timeout-minutes: (\d+)$/m)?.[1]);
-  assert.equal(timeout, 90 + 120 + 30, 'job timeout must cover maximum npm wait, Socket pacing, and scan overhead');
+  const auditJob = socketWorkflow.split('  audit:\n')[1];
+  const timeout = Number(auditJob.match(/^\s*timeout-minutes: (\d+)$/m)?.[1]);
+  assert.equal(SOCKET_SCAN_WAIT_MS, 75 * 60_000);
+  assert.equal(timeout, 90 + 120 + SOCKET_SCAN_WAIT_MS / 60_000 + 30,
+    'audit job timeout must cover npm visibility, quota pacing, pending scans, and overhead');
+  const publishTimeout = Number(publishWorkflow.match(/^\s*timeout-minutes: (\d+)$/m)?.[1]);
+  assert.equal(publishTimeout, 65, 'publication retains its separate job timeout');
+  const call = publishWorkflow.split('  socket-post-publish:\n')[1];
+  assert.doesNotMatch(call, /timeout-minutes:/, 'the reusable audit owns its timeout');
   assert.match(socketRunbook, /SOCKET_PACE_QUOTA_MINUTES/);
-  assert.match(socketRunbook, /240 minutes/);
+  assert.match(socketRunbook, /315 minutes/);
+  assert.match(socketRunbook, /75-minute pending-scan wait/);
+});
+
+test('Gitea publication mirrors packages without running the Socket audit', () => {
+  const mirror = readFileSync(path.join(ROOT, '.gitea/workflows/npm-publish.yml'), 'utf8');
+  assert.doesNotMatch(mirror, /socket-post-publish/);
 });
 
 test('npm visibility wait is bounded, configurable, and precedes inventory installation', () => {
@@ -190,13 +204,13 @@ test('npm visibility wait is bounded, configurable, and precedes inventory insta
   assert.match(socketRunbook, /`1` to `90`/);
 });
 
-test('npm visibility accepts all three exact versions immediately or after a retry', () => {
+test('npm visibility accepts all four exact versions immediately or after a retry', () => {
   for (const scenario of ['ready', 'delayed']) {
     const result = runVisibility(scenario);
     assert.equal(result.read('output'), 'available=true\n');
     assert.equal(result.read('summary'), '');
     assert.equal(Number(result.read('clock')), scenario === 'ready' ? 0 : 30);
-    for (const pkg of ['aiwg', '@aiwg/cli', '@aiwg/cockpit']) {
+    for (const pkg of ['aiwg', '@aiwg/cli', '@aiwg/cockpit', '@aiwg/flue']) {
       assert.ok(result.read('calls').includes(`view ${pkg}@2026.10.6 version`));
     }
   }
@@ -240,4 +254,14 @@ test('Socket audit installs the release source runtime dependencies before runni
   const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const bare = [...script.matchAll(/^import .* from '([^'.][^']*)'/gm)].map(m => m[1]).filter(name => !name.startsWith('node:'));
   for (const name of bare) assert.ok(pkg.dependencies?.[name.split('/')[0]], `${name} must be a production dependency`);
+});
+
+test('Socket published inventory installs all four exact release versions', () => {
+  const inventory = socketWorkflow.split('      - name: Build published dependency inventory\n')[1]
+    ?.split('\n      - name:')[0] ?? '';
+  const install = inventory.match(/npm install[^\n]* \\\n([^\n]*)/);
+  assert.ok(install, 'inventory must install the published dependency closure');
+  assert.deepEqual([...install[1].matchAll(/"([^" ]+)"/g)].map(match => match[1]), [
+    'aiwg@$VERSION', '@aiwg/cli@$VERSION', '@aiwg/cockpit@$VERSION', '@aiwg/flue@$VERSION',
+  ]);
 });

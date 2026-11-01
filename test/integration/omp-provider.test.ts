@@ -49,6 +49,9 @@ describe('OMP public use command integration',()=>{
     if(preservedSupport)expect(readFileSync(preservedSupport,'utf8')).toBe('Operator-owned support update');
     expect(files(join(workspace,'.agents/skills')).filter(f=>f.endsWith('/SKILL.md'))).toEqual(full);
     cli(['use','sdlc','--provider','omp','--no-project-local','--json']);
+    expect(existsSync(join(workspace,'.agents/skills/workspace-reset/SKILL.md'))).toBe(true);
+    cli(common); // Explicitly return aiwg-utils to index mode before reconciling it.
+    cli(['use','sdlc','--provider','omp','--no-project-local','--json']);
     const startup=readFileSync(join(workspace,'.omp/AGENTS.md'),'utf8');
     expect(startup).toContain('## Core rules');
     const index = assertStartupRuleDelivery(workspace, 'omp', startup);

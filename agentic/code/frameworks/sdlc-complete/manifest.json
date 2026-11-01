@@ -12,6 +12,9 @@
     "artifacts",
     "templates"
   ],
+  "flue": {
+    "specialists": ["code-reviewer", "test-engineer"]
+  },
   "contextContributions": {
     "hookFragment": "templates/project/AIWG-sdlc-fragment.md",
     "sectionsDir": "templates/aiwg-sections",

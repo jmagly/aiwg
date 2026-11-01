@@ -33,13 +33,14 @@ function symlinkBetween(root: string, file: string): boolean {
   return false;
 }
 
-export function planDeploymentRemoval(project: string, provider: string, owner: string, includeProject = true): DeploymentRemovalPlan {
+export function planDeploymentRemoval(project: string, provider: string, owner: string, includeProject = true, preserveRoots: string[] = []): DeploymentRemovalPlan {
   const paths = Object.values(getProviderArtifactPathStrings(provider) || {}).filter(Boolean);
   const roots = [...new Set([...paths.map(dir => path.isAbsolute(dir) ? dir : path.join(project, dir.split(/[\\/]/)[0])),
     ...deployedSkillRoots(project, provider), path.join(project, `.${provider}`), ...(includeProject ? [path.join(project, '.aiwg/frameworks')] : [])])].map(root => path.resolve(root));
   const files = new Set<string>();
   const decisions: RemovalDecision[] = [], writes: RemovalWrite[] = [], remaining: ArtifactOwnershipRecord[] = [], recorded: ArtifactOwnershipRecord[] = [];
   const visit = (file: string) => {
+    if (preserveRoots.some(root => file === root || inside(root, file))) return;
     let stat;
     try { stat = fs.lstatSync(file); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return; throw error; }
     if (stat.isDirectory()) for (const name of fs.readdirSync(file).sort()) visit(path.join(file, name));
@@ -152,7 +153,7 @@ export function planDeploymentRemoval(project: string, provider: string, owner: 
       } else delete receipt.managed![name];
     }
     if (changed) {
-      const empty = Object.keys(receipt.managed!).length === 0;
+      const empty = Object.keys(receipt.managed!).length === 0 && !receipt.bundleDeployments;
       writes.push({ path: file, before, after: empty ? null : Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`) });
       if (empty) decisions.push({ path: file, action: 'remove', reason: 'ownership metadata released' });
     }

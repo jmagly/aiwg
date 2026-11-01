@@ -154,7 +154,7 @@
     },
     "installed": {
       "type": "object",
-      "description": "Installed AIWG frameworks",
+      "description": "Declared bundles per provider, including pending deployments",
       "additionalProperties": {
         "$ref": "#/definitions/InstalledFramework"
       }
@@ -3231,29 +3231,54 @@
     },
     "InstalledFramework": {
       "type": "object",
-      "description": "Metadata for an installed AIWG framework",
+      "description": "A bundle declaration; empty provider counts mean pending deployment",
+      "required": ["deployedTo"],
       "properties": {
-        "version": {
-          "type": "string",
-          "description": "Installed framework version (CalVer: YYYY.M.PATCH)"
+        "version": { "type": "string" },
+        "source": { "type": "string" },
+        "installedAt": { "type": "string", "format": "date-time" },
+        "manifestHash": { "type": "string" },
+        "localPath": { "type": "string" },
+        "localType": { "type": "string" },
+        "manifestVersion": { "type": "string" },
+        "artifactHashes": { "type": "object", "additionalProperties": { "type": "string" } },
+        "deployedArtifactHashes": {
+          "type": "object",
+          "additionalProperties": { "type": "object", "additionalProperties": { "type": "string" } }
         },
-        "providers": {
-          "type": "array",
-          "description": "Providers this framework was deployed to",
-          "items": {
-            "type": "string"
+        "deployedTo": {
+          "type": "object",
+          "allOf": [{ "patternProperties": { "^(?!flue$)": { "type": "object", "properties": { "package": false } } } }],
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "agents": { "type": "integer", "minimum": 0 },
+              "commands": { "type": "integer", "minimum": 0 },
+              "skills": { "type": "integer", "minimum": 0 },
+              "rules": { "type": "integer", "minimum": 0 },
+              "entries": { "type": "object" },
+              "skipUtils": { "type": "boolean", "description": "Effective --no-utils flag at deployment" },
+              "kernelOnly": { "type": "boolean", "description": "Effective kernel-only deployment scope" },
+              "copy": { "type": "boolean", "description": "Keep project copies during refresh/update; only explicit remove deletes them" },
+              "package": { "type": "boolean", "description": "Import Flue skills from @aiwg/flue instead of copying them" }
+            },
+            "additionalProperties": false,
+            "anyOf": [
+              { "propertyNames": { "enum": ["copy", "package", "skipUtils", "kernelOnly"] } },
+              { "required": ["agents", "commands", "skills", "rules"], "properties": { "agents": {}, "commands": {}, "skills": {}, "rules": {} } }
+            ]
           }
-        },
-        "installedAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "ISO 8601 timestamp of installation"
-        },
-        "source": {
-          "type": "string",
-          "description": "Source registry or path"
         }
       },
+      "anyOf": [
+        {
+          "properties": {
+            "version": false, "source": false, "installedAt": false,
+            "deployedTo": { "type": "object", "additionalProperties": { "type": "object", "propertyNames": { "enum": ["copy", "package", "skipUtils", "kernelOnly"] } } }
+          }
+        },
+        { "required": ["version", "source", "installedAt"], "properties": { "version": {}, "source": {}, "installedAt": {} } }
+      ],
       "additionalProperties": false
     }
   }

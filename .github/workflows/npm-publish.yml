@@ -23,7 +23,7 @@
 #
 # REQUIREMENTS (one-time, operator-side):
 # 1. npmjs.org → package settings → trusted publishers → add a publisher for
-#    each of `aiwg`, `@aiwg/cli`, and `@aiwg/cockpit`:
+#    each of `aiwg`, `@aiwg/cli`, `@aiwg/cockpit`, and `@aiwg/flue`:
 #      Provider:      GitHub Actions
 #      Owner:         jmagly
 #      Repository:    aiwg
@@ -297,6 +297,10 @@ jobs:
         if: ${{ steps.recovery.outputs.recovered != 'true' }}
         run: npm ci --prefix examples/flue-node
 
+      - name: Install locked Flue Cloudflare example dependencies for the offline release lane
+        if: ${{ steps.recovery.outputs.recovered != 'true' }}
+        run: npm ci --prefix examples/flue-cloudflare --no-audit --no-fund
+
       - name: Require slow release infrastructure tests
         if: ${{ steps.recovery.outputs.recovered != 'true' }}
         run: node tools/ci/run-with-hang-report.mjs --timeout 30m -- npm run test:release-slow
@@ -358,13 +362,13 @@ jobs:
           set -euo pipefail
           VERSION='${{ steps.version.outputs.version }}'
           node tools/release/direct-stable-publish.mjs --directory "$RUNNER_TEMP/stable-package" --version "$VERSION" --receipt "$RUNNER_TEMP/stable-publication.json" --already-published "$ALREADY_PUBLISHED"
-          cp "$RUNNER_TEMP/stable-package/aiwg-${VERSION}.tgz" "$RUNNER_TEMP/stable-package/aiwg-cli-${VERSION}.tgz" "$RUNNER_TEMP/stable-package/aiwg-cockpit-${VERSION}.tgz" "$RUNNER_TEMP/stable-package/aiwg-${VERSION}.cdx.json" "$RUNNER_TEMP/stable-package/install.sh" .
+          cp "$RUNNER_TEMP/stable-package/aiwg-${VERSION}.tgz" "$RUNNER_TEMP/stable-package/aiwg-cli-${VERSION}.tgz" "$RUNNER_TEMP/stable-package/aiwg-cockpit-${VERSION}.tgz" "$RUNNER_TEMP/stable-package/aiwg-flue-${VERSION}.tgz" "$RUNNER_TEMP/stable-package/aiwg-${VERSION}.cdx.json" "$RUNNER_TEMP/stable-package/install.sh" .
           node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs';
           import { createHash } from 'node:crypto';
           const receipt = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/stable-publication.json'));
-          if (!receipt.complete || receipt.packages.length !== 3) throw new Error('Incomplete publication receipt');
-          const stems = {'aiwg':'aiwg', '@aiwg/cli':'aiwg-cli', '@aiwg/cockpit':'aiwg-cockpit'};
+          if (!receipt.complete || receipt.packages.length !== 4) throw new Error('Incomplete publication receipt');
+          const stems = {'aiwg':'aiwg', '@aiwg/cli':'aiwg-cli', '@aiwg/cockpit':'aiwg-cockpit', '@aiwg/flue':'aiwg-flue'};
           for (const item of receipt.packages) {
             const file = `${stems[item.package]}-${receipt.version}.tgz`;
             if (createHash('sha256').update(readFileSync(file)).digest('hex') !== item.sha256) throw new Error(`Asset mismatch: ${item.package}`);
@@ -632,6 +636,7 @@ jobs:
             "$TARBALL" \
             "aiwg-cli-${{ steps.version.outputs.version }}.tgz" \
             "aiwg-cockpit-${{ steps.version.outputs.version }}.tgz" \
+            "aiwg-flue-${{ steps.version.outputs.version }}.tgz" \
             "$TARBALL_SIG" \
             "$MANIFEST" \
             "$MANIFEST_SIG" \
@@ -672,6 +677,7 @@ jobs:
             "$TARBALL" \
             "aiwg-cli-${VERSION}.tgz" \
             "aiwg-cockpit-${VERSION}.tgz" \
+            "aiwg-flue-${VERSION}.tgz" \
             "$TARBALL_SIG" \
             "$MANIFEST" \
             "$MANIFEST_SIG" \
@@ -765,6 +771,7 @@ jobs:
           FAILED=0
           verify_attestations aiwg || FAILED=1
           verify_attestations @aiwg/cockpit || FAILED=1
+          verify_attestations @aiwg/flue || FAILED=1
           verify_attestations @aiwg/cli || FAILED=1
           exit "$FAILED"
 
@@ -793,12 +800,12 @@ jobs:
           set -euo pipefail
           RECOVERY="gh workflow run npm-publish.yml --repo jmagly/aiwg --ref ${TAG} -f tag_to_publish=${TAG}"
           if [ "$PROVENANCE_OUTCOME" = failure ]; then
-            MESSAGE="Re-check npm visibility and dist.attestations for aiwg@${VERSION}, @aiwg/cli@${VERSION}, and @aiwg/cockpit@${VERSION}: npm view <package>@${VERSION} dist.attestations --json --prefer-online. Recovery: ${RECOVERY}"
+            MESSAGE="Re-check npm visibility and dist.attestations for aiwg@${VERSION}, @aiwg/cli@${VERSION}, and @aiwg/cockpit@${VERSION}, @aiwg/flue@${VERSION}: npm view <package>@${VERSION} dist.attestations --json --prefer-online. Recovery: ${RECOVERY}"
             echo "::warning::${MESSAGE}"
             printf '%s\n' "$MESSAGE" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "$DIST_TAGS_OUTCOME" = failure ]; then
-            MESSAGE="Re-check latest = ${VERSION} and absence of next for aiwg, @aiwg/cli, and @aiwg/cockpit: bash tools/release/verify-npm-dist-tags.sh ${VERSION}. Recovery: ${RECOVERY}"
+            MESSAGE="Re-check latest = ${VERSION} and absence of next for aiwg, @aiwg/cli, and @aiwg/cockpit, @aiwg/flue: bash tools/release/verify-npm-dist-tags.sh ${VERSION}. Recovery: ${RECOVERY}"
             echo "::warning::${MESSAGE}"
             printf '%s\n' "$MESSAGE" >> "$GITHUB_STEP_SUMMARY"
           fi

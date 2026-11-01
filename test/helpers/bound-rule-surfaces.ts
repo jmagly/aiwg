@@ -46,7 +46,7 @@ export function boundRuleFixture() {
   const projectFor = (lane: string, pinned: boolean) => {
     const project = path.join(root, `project-${lane}-${pinned}`);
     put(path.join(project, '.aiwg/aiwg.config'), JSON.stringify({
-      installed: Object.fromEntries(bundles.map(bundle => [bundle, { source: 'bundled' }])),
+      installed: Object.fromEntries(bundles.map(bundle => [bundle, { source: 'bundled', version: '1.0.0', installedAt: '2026-10-31T00:00:00Z', deployedTo: {} }])),
       ...(pinned ? { rules: { always_load: [{ rules: [id('rule', policy('amber'))] }] } } : {}),
     }));
     return project;

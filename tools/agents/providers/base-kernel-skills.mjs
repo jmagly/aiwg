@@ -1,4 +1,5 @@
 // Shared provider kernel skills utilities.
+import { removeSkillCopy } from './skill-copy-prune.mjs';
 import { fs, path } from './base-runtime.mjs';
 import { parseFrontmatter } from './base-frontmatter.mjs';
 import { ensureDir } from './base-files.mjs';
@@ -140,7 +141,7 @@ export function deploySkillsWithKernelRouting(
         } catch { /* preserve unreadable/operator-owned content */ }
       }
       if (!managed) continue;
-      fs.rmSync(target, { recursive: true, force: true });
+      if (!removeSkillCopy(target, { ...opts, tierMove: true, replacement: path.join(kernelDestDir, entry.name) })) continue;
       prunedKernelFromStandardDir++;
       if (opts?.verbose) console.log(`pruned promoted kernel from standard dir: ${entry.name}`);
     }
@@ -160,7 +161,10 @@ export function deploySkillsWithKernelRouting(
       if (!standardNames.has(entry.name)) continue;
       const target = path.join(kernelDestDir, entry.name);
       try {
-        fs.rmSync(target, { recursive: true, force: true });
+        // Index mode serves standard skills from $AIWG_ROOT; copy mode must have
+        // written the standard-tier copy before the kernel copy goes.
+        const replacement = copyStandardSkills && standardDestDir ? path.join(standardDestDir, entry.name) : undefined;
+        if (!removeSkillCopy(target, { ...opts, tierMove: true, replacement })) continue;
         prunedFromKernelDir++;
         if (opts?.verbose) console.log(`pruned legacy from kernel dir: ${entry.name}`);
       } catch (err) {
@@ -187,7 +191,7 @@ export function deploySkillsWithKernelRouting(
       if (!allSkillNames.has(entry.name)) continue;
       const target = path.join(standardDestDir, entry.name);
       try {
-        fs.rmSync(target, { recursive: true, force: true });
+        if (!removeSkillCopy(target, opts)) continue;
         prunedFromStandardDir++;
         if (opts?.verbose) console.log(`pruned legacy from standard dir: ${entry.name}`);
       } catch (err) {
@@ -316,7 +320,7 @@ export function computeAllKernelNames(srcRoot) {
  * @returns {number} count of pruned entries
  */
 export function pruneStaleAiwgSkills(kernelDestDir, desiredKernelNames, opts = {}) {
-  if (!kernelDestDir || !fs.existsSync(kernelDestDir)) return 0;
+  if ((opts.copyMode ?? opts.copyStandardSkills) || !kernelDestDir || !fs.existsSync(kernelDestDir)) return 0;
   // No global desired set — skip pruning rather than delete everything (#123).
   if (desiredKernelNames == null) return 0;
   if (opts.dryRun) return 0;
@@ -343,7 +347,7 @@ export function pruneStaleAiwgSkills(kernelDestDir, desiredKernelNames, opts = {
     if (!isAiwgManaged) continue;
 
     try {
-      fs.rmSync(path.join(kernelDestDir, entry.name), { recursive: true, force: true });
+      if (!removeSkillCopy(path.join(kernelDestDir, entry.name), opts)) continue;
       pruned++;
       if (opts.verbose) console.log(`pruned stale AIWG skill: ${entry.name}`);
     } catch (err) {

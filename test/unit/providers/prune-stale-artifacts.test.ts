@@ -11,6 +11,8 @@
  *   - migrateCommandsDirectory (user-file preservation)
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { recordManagedCopy } from '../../helpers/managed-copy-fixture.js';
+import { createHash } from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -34,13 +36,14 @@ afterEach(() => {
 
 function writeManaged(name: string, body = 'aiwg artifact') {
   fs.writeFileSync(path.join(dir, name), MARKER + body);
+  recordManagedCopy(path.join(dir, name));
 }
 function writeUser(name: string, body = 'user artifact') {
   fs.writeFileSync(path.join(dir, name), body);
 }
 function writeSidecar(names: string[]) {
   const managed: Record<string, unknown> = {};
-  for (const n of names) managed[n] = { hash: 'sha256:deadbeef', source: 'bundled', version: '0.0.0' };
+  for (const n of names) managed[n] = { hash: `sha256:${createHash('sha256').update(fs.readFileSync(path.join(dir, n))).digest('hex')}`, source: 'bundled', version: '0.0.0' };
   fs.writeFileSync(path.join(dir, '.aiwg-manifest.json'), JSON.stringify({ managed }, null, 2));
 }
 
@@ -219,7 +222,7 @@ describe('#2507 skill-command wrappers survive prune and migration', () => {
       ? JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
       : { managed: {} };
     manifest.managed[name] = {
-      hash: 'sha256:test', source: 'bundled', version: '0.0.0', kind: 'skill-command',
+      hash: `sha256:${createHash('sha256').update(fs.readFileSync(path.join(dir, name))).digest('hex')}`, source: 'bundled', version: '0.0.0', kind: 'skill-command',
     };
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   }
@@ -359,9 +362,10 @@ describe('#3740 activation projection owns rule retirement', () => {
     const kernel = path.join(rules, 'dev-pipeline-safety.md');
     fs.writeFileSync(kernel, MARKER + 'Extension kernel policy');
     fs.writeFileSync(path.join(agents, 'retired-agent.md'), MARKER + 'Retired definition');
+    recordManagedCopy(path.join(agents, 'retired-agent.md'));
     fs.writeFileSync(path.join(rules, 'operator.md'), 'Operator policy');
     fs.writeFileSync(path.join(rules, '.aiwg-manifest.json'), JSON.stringify({
-      managed: { 'dev-pipeline-safety.md': {} },
+      managed: { 'dev-pipeline-safety.md': { hash: `sha256:${createHash('sha256').update(fs.readFileSync(kernel)).digest('hex')}` } },
       ...(projected ? { delivery: { rules: '.omp/rules', entryPoint: '.omp/rules/RULES-INDEX.md' } } : {}),
     }));
     pruneStaleAiwgArtifacts({ paths: { rules: '.omp/rules', agents: '.omp/agents' } }, dir, REPO_ROOT,

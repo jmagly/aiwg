@@ -102,11 +102,25 @@ export function commitRuleDeploymentPlan(plan) {
         else fs.writeFileSync(path.join(from, rel), output);
       }
     }
+    // A root file missing from the stage is removed only when the deploy retired it
+    // deliberately: the target receipt records it, it is unchanged since, and the
+    // staged receipt dropped the record. Copy mode never drops records, so never deletes.
+    const receiptOf = root => { try { return JSON.parse(fs.readFileSync(path.join(root, '.aiwg/.aiwg-manifest.json'), 'utf8')).managed || {}; } catch { return {}; } };
+    const recordedBefore = receiptOf(target), recordedAfter = receiptOf(stage);
+    const retired = name => {
+      const key = name.split(path.sep).join('/');
+      const record = recordedBefore[key];
+      if (!record || recordedAfter[key]) return false;
+      try { return record.hash === `sha256:${contentHash(fs.readFileSync(path.join(target, name)))}`; } catch { return false; }
+    };
     for (const name of rootNames) if (fs.existsSync(path.join(stage, name))) {
       const output = normalizeReceipt(path.join(stage, name), Buffer.from(normalize(read(path.join(stage, name))))).toString('utf8');
       if (output === read(path.join(target, name))) continue;
       const write = plan.contextWrites.includes(path.join(stage, name)) ? writeContextFileSync : put;
       write(path.join(target, name), output);
+    } else if (plan.preimages.some(item => item.path === path.join(target, name) && item.state.kind !== 'missing')) {
+      if (retired(name)) fs.rmSync(path.join(target, name), { force: true });
+      else console.warn(`Keeping ${path.join(target, name)}: not a recorded, unchanged AIWG copy retired by this deploy.`);
     }
     return plan.report;
   } finally {

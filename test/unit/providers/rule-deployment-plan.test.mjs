@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { createHash } from 'node:crypto';
 import {
   prepareRuleDeployment,
   commitRuleDeploymentPlan,
@@ -34,6 +35,39 @@ function fixture() {
   };
   return { root, source, target, provider, opts, deploy };
 }
+
+describe('staged root-file removal', () => {
+  const hash = text => `sha256:${createHash('sha256').update(text).digest('hex')}`;
+  const receipt = (root, managed) => {
+    fs.mkdirSync(path.join(root, '.aiwg'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.aiwg/.aiwg-manifest.json'), JSON.stringify({ scope: 'project', managed }));
+  };
+  it('keeps a root file the deploy removed without retiring a recorded, unchanged copy', async () => {
+    const f = fixture();
+    const plan = await prepareRuleDeployment(f.opts, f.provider, async ({ target: stage }) => { fs.rmSync(path.join(stage, 'AGENTS.md')); });
+    commitRuleDeploymentPlan(plan);
+    expect(fs.readFileSync(path.join(f.target, 'AGENTS.md'), 'utf8')).toBe('original');
+  });
+  it('keeps an edited recorded root file even when the staged receipt drops it', async () => {
+    const f = fixture();
+    receipt(f.target, { 'AGENTS.md': { hash: hash('generated') } });
+    const plan = await prepareRuleDeployment(f.opts, f.provider, async ({ target: stage }) => {
+      fs.rmSync(path.join(stage, 'AGENTS.md')); receipt(stage, {});
+    });
+    commitRuleDeploymentPlan(plan);
+    expect(fs.readFileSync(path.join(f.target, 'AGENTS.md'), 'utf8')).toBe('original');
+  });
+  it('removes a recorded, unchanged root file that the staged receipt retired', async () => {
+    const f = fixture();
+    receipt(f.target, { 'AGENTS.md': { hash: hash('original') } });
+    const plan = await prepareRuleDeployment(f.opts, f.provider, async ({ target: stage }) => {
+      fs.rmSync(path.join(stage, 'AGENTS.md')); receipt(stage, {});
+    });
+    commitRuleDeploymentPlan(plan);
+    expect(fs.existsSync(path.join(f.target, 'AGENTS.md'))).toBe(false);
+    expect(JSON.parse(fs.readFileSync(path.join(f.target, '.aiwg/.aiwg-manifest.json'), 'utf8')).managed).toEqual({});
+  });
+});
 
 describe('staged rule deployment plans', () => {
   it('materializes nested resources and symlink aliases with their executable modes', async () => {

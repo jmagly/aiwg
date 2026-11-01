@@ -7,7 +7,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, mkdirSync, rmSync } from 'fs';
+import { writeManagedFixture as writeFileSync } from '../../../helpers/managed-copy-fixture.js';
 import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
@@ -120,11 +121,12 @@ function makeCtx(args: string[] = []): HandlerContext {
 // ── Tests ─────────────────────────────────────────────────────
 
 beforeEach(() => {
+  vi.mocked(getFrameworkRoot).mockResolvedValue('/mock/framework/root');
   process.env.AIWG_TEST_PROCESS_PROVIDER = 'codex';
   mockUseExecute.mockResolvedValue({ exitCode: 0 });
   mockReadAiwgConfig.mockResolvedValue({
     providers: ['codex'],
-    installed: { sdlc: {}, 'writing-quality': {} },
+    installed: { sdlc: { deployedTo: { codex: {} } }, 'writing-quality': { deployedTo: { codex: {} } } },
     parallelism: {},
   });
 });
@@ -180,6 +182,16 @@ describe('syncHandler.execute — default run (no flags)', () => {
     expect(calls).toContain('tools/cli/update.mjs');
     expect(mockUseExecute).toHaveBeenCalled();
     expect(calls).toContain('tools/cli/doctor.mjs');
+  });
+
+  it('requires an explicit provider when active-provider detection is ambiguous', async () => {
+    const resolver = await import('../../../../src/cli/provider-resolution.js');
+    vi.spyOn(resolver, 'resolveActiveProvider').mockResolvedValue({ provider: null, source: 'ambiguous', candidates: ['codex', 'flue'], reason: 'multiple configured providers' });
+    mockReadAiwgConfig.mockResolvedValue({ providers: ['codex', 'flue'], installed: { sdlc: { deployedTo: { codex: {}, flue: {} } } }, parallelism: {} });
+    const result = await syncHandler.execute(makeCtx(['--skip-update']));
+    expect(result.exitCode).toBe(2);
+    expect(result.message).toContain('Provider detection ambiguous');
+    expect(mockUseExecute).not.toHaveBeenCalled();
   });
 
   it('calls refreshAllPackages', async () => {
@@ -283,6 +295,7 @@ describe('syncHandler.execute — --provider', () => {
   beforeEach(() => { vi.clearAllMocks(); mockRun.mockResolvedValue({ exitCode: 0 }); });
 
   it('passes --provider copilot to the active use handler', async () => {
+    mockReadAiwgConfig.mockResolvedValue({ providers: ['codex', 'copilot'], installed: { sdlc: { deployedTo: { codex: {}, copilot: {} } } }, parallelism: {} });
     await syncHandler.execute(makeCtx(['--provider', 'copilot']));
     expect(mockUseExecute).toHaveBeenCalled();
     const deployArgs = mockUseExecute.mock.calls[0][0].args;
@@ -295,6 +308,7 @@ describe('syncHandler.execute — --frameworks', () => {
   beforeEach(() => { vi.clearAllMocks(); mockRun.mockResolvedValue({ exitCode: 0 }); });
 
   it('calls the active use handler once per framework when --frameworks sdlc,research', async () => {
+    mockReadAiwgConfig.mockResolvedValue({ providers: ['codex'], installed: { sdlc: { deployedTo: { codex: {} } }, research: { deployedTo: { codex: {} } } }, parallelism: {} });
     await syncHandler.execute(makeCtx(['--frameworks', 'sdlc,research']));
     expect(mockUseExecute).toHaveBeenCalledTimes(2);
     const deployTargets = mockUseExecute.mock.calls.map(([useCtx]) => useCtx.args[0]);
@@ -432,7 +446,7 @@ describe('syncHandler.execute — stale deployment detection', () => {
   it('detects stale frameworks when manifest hash differs (exits 0, stale is non-fatal)', async () => {
     mockReadAiwgConfig.mockResolvedValue({
       installed: {
-        sdlc: { manifestHash: 'old-hash' },
+        sdlc: { deployedTo: { codex: {} }, manifestHash: 'old-hash' },
       },
     });
     mockHashManifest.mockResolvedValue('new-hash');
@@ -445,7 +459,7 @@ describe('syncHandler.execute — stale deployment detection', () => {
   it('reports all up to date when hashes match', async () => {
     mockReadAiwgConfig.mockResolvedValue({
       installed: {
-        sdlc: { manifestHash: 'same-hash' },
+        sdlc: { deployedTo: { codex: {} }, manifestHash: 'same-hash' },
       },
     });
     mockHashManifest.mockResolvedValue('same-hash');

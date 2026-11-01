@@ -132,10 +132,10 @@ export async function formatUserScopeRegistry(): Promise<HandlerResult> {
     const providers = Object.entries(entry.deployedTo);
     for (const [provider, counts] of providers) {
       const parts: string[] = [];
-      if (counts.agents > 0) parts.push(`${counts.agents} agents`);
-      if (counts.commands > 0) parts.push(`${counts.commands} commands`);
-      if (counts.skills > 0) parts.push(`${counts.skills} skills`);
-      if (counts.rules > 0) parts.push(`${counts.rules} rules`);
+      if ((counts.agents ?? 0) > 0) parts.push(`${counts.agents} agents`);
+      if ((counts.commands ?? 0) > 0) parts.push(`${counts.commands} commands`);
+      if ((counts.skills ?? 0) > 0) parts.push(`${counts.skills} skills`);
+      if ((counts.rules ?? 0) > 0) parts.push(`${counts.rules} rules`);
       output += `    ${provider}: ${parts.length > 0 ? parts.join(', ') : '(empty)'}\n`;
     }
     output += '\n';

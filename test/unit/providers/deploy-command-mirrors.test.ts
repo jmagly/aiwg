@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 // @ts-expect-error provider tool module has no TypeScript declaration
 import { mirrorSkillsAsCommands } from '../../../tools/agents/deploy-command-mirrors.mjs';
@@ -31,6 +32,39 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(scratch, { recursive: true, force: true }));
 
 describe('command mirror split preserves legacy behavior', () => {
+  it.each(['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'flue', 'pi', 'omp',
+    'deepseek-harness', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse'])(
+    '%s does not inject bindings into edited targets or refresh their receipts', providerName => {
+      const target = path.join(scratch, 'target');
+      const dir = path.join(target, `.${providerName}/skills/demo`);
+      fs.mkdirSync(dir, { recursive: true });
+      const file = path.join(dir, 'SKILL.md'), sidecar = path.join(dir, '.aiwg-manifest.json');
+      const digest = (text: string) => `sha256:${createHash('sha256').update(text).digest('hex')}`;
+      const original = '# aiwg:managed v1 bundled\nSkill body\n';
+      const edited = original + '# operator note\n';
+      const receipt = { skillSource: path.join(source, 'skills/demo'), managed: { 'SKILL.md': { hash: digest(original) } } };
+      fs.writeFileSync(file, edited);
+      fs.writeFileSync(sidecar, JSON.stringify(receipt));
+      const before = new Map([[file, Buffer.from(edited)], [sidecar, fs.readFileSync(sidecar)]]);
+      const sourcePath = path.join(source, 'skills/demo/SKILL.md');
+      const opts = { target, deploymentHome: path.join(scratch, 'home'), writtenFiles: [] as string[], ruleDelivery: {
+        rules: [], targets: [{ type: 'skill', name: 'demo', source: sourcePath }],
+        bindings: new Map([[sourcePath, [{ name: 'fixture-rule', summary: 'Read the rule.' }]]]),
+      } };
+      const provider = { name: providerName, paths: { skills: `.${providerName}/skills` } };
+      finishBindings(opts, provider);
+      expect(fs.readFileSync(file, 'utf8')).toBe(edited);
+      expect(JSON.parse(fs.readFileSync(sidecar, 'utf8'))).toEqual(receipt);
+      // A provider may also have rewritten its receipt before the binder runs.
+      fs.writeFileSync(sidecar, JSON.stringify({ ...receipt, managed: { 'SKILL.md': { hash: digest(edited) } } }));
+      const rewritten = fs.readFileSync(sidecar);
+      finishBindings({ ...opts, ownershipBefore: before }, provider);
+      expect(fs.readFileSync(file, 'utf8')).toBe(edited);
+      expect(fs.readFileSync(sidecar)).toEqual(rewritten);
+      expect(opts.writtenFiles).toEqual([]);
+    },
+  );
+
   it.each(['sdlc', 'marketing'])('binds late framework wrappers only when selected (installed=%s)', installed => {
     const target = path.join(scratch, 'target');
     const provider = { name: 'claude', paths: { commands: '.claude/commands' } };

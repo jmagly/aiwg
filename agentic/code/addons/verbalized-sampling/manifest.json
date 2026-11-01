@@ -29,7 +29,7 @@
     "rules": "rules/"
   },
   "agents": [
-    "content-diversifier"
+    "verbalized-content-diversifier"
   ],
   "prompts": [
     "vs-standard",

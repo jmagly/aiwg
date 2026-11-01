@@ -225,6 +225,7 @@ AIWG publishes three packages in exact CalVer lockstep:
 | `@aiwg/cli` | Agentic runtimes, web-connected sessions, CI, and lightweight global use | Signed release host by default | `npm i -g @aiwg/cli` |
 | `aiwg` | Full local operation, framework deployment, authoring, offline-first projects | Bundled local corpus by default; web mode optional | `npm i -g aiwg` |
 | `@aiwg/cockpit` | Optional local control plane and operator UI | Installed separately or through the full CLI | `npm i -g @aiwg/cockpit` |
+| `@aiwg/flue` | Flue app skills, specialists and MCP helpers | Installed in a Flue app | `npm install @aiwg/flue` |
 
 Choose `@aiwg/cli` when AIWG skills and agents need a small, globally available
 execution layer and can obtain resources from the signed web release. Choose

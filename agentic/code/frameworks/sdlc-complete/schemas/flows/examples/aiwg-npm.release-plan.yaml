@@ -63,6 +63,14 @@ publish_targets:
       beta: next
       alpha: next
       nightly: nightly
+  - type: npm
+    package: "@aiwg/flue"
+    dist_tags:
+      stable: latest
+      rc: next
+      beta: next
+      alpha: next
+      nightly: nightly
   - type: gitea-release
     remote: origin
     owner: roctinam

@@ -1,0 +1,22 @@
+{
+  "name": "aiwg-flue-cloudflare-example",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@flue/cli": "2.3.0",
+    "@flue/runtime": "2.3.0",
+    "@flue/vite": "2.3.0",
+    "@cloudflare/vite-plugin": "1.65.0",
+    "wrangler": "4.152.0",
+    "hono": "4.13.13",
+    "vite": "8.3.5"
+  }
+}

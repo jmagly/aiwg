@@ -1,3 +1,4 @@
+import { removeSkillCopy } from './skill-copy-prune.mjs';
 import { withModelWrapper } from './model-wrapper.mjs';
 import { postDeploy } from './codex-post-deploy.mjs';
 export { postDeploy };
@@ -286,6 +287,7 @@ export async function deployCommands(targetDir, srcRoot, opts) {
   if (opts.force) args.push('--force');
   if (opts.mode) args.push('--mode', opts.mode);
   if (opts.copyStandardSkills === true) args.push('--copy-all');
+  if (opts.copyMode === false) args.push('--index-mode');
   // A copy-all the deployer forced on the caller's behalf (project-local
   // bundles) still honors the startup listing cap (#2561).
   if (opts.listingBudget === true) args.push('--listing-budget');
@@ -322,6 +324,7 @@ export async function deploySkills(targetDir, srcRoot, opts) {
   if (opts.force) args.push('--force');
   if (opts.mode) args.push('--mode', opts.mode);
   if (opts.copyStandardSkills === true) args.push('--copy-all');
+  if (opts.copyMode === false) args.push('--index-mode');
   // A copy-all the deployer forced on the caller's behalf (project-local
   // bundles) still honors the startup listing cap (#2561).
   if (opts.listingBudget === true) args.push('--listing-budget');
@@ -342,6 +345,7 @@ export async function deploySkills(targetDir, srcRoot, opts) {
  * touched. The now-empty legacy dir is removed if AIWG owned everything in it.
  */
 export function pruneLegacyCodexSkills(opts = {}, legacyDir = path.join(os.homedir(), '.codex', 'skills')) {
+  if (opts.copyMode ?? opts.copyStandardSkills) return 0;
   let entries;
   try {
     entries = fs.readdirSync(legacyDir, { withFileTypes: true });
@@ -365,7 +369,7 @@ export function pruneLegacyCodexSkills(opts = {}, legacyDir = path.join(os.homed
     if (opts.dryRun) {
       console.log(`[dry-run] would prune legacy AIWG skill ${skillDir}`);
     } else {
-      fs.rmSync(skillDir, { recursive: true, force: true });
+      if (!removeSkillCopy(skillDir, opts)) continue;
     }
     pruned++;
   }

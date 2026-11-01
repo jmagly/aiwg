@@ -1,6 +1,7 @@
 // Fake local deployer for addon provider-selection and install-state tests.
-import { cpSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 export async function main(args) {
   if (args.includes('--dry-run')) return 0;
@@ -14,6 +15,11 @@ export async function main(args) {
     const deployed = path.join(skills, name);
     cpSync(path.join(source, 'skills', name), deployed, { recursive: true });
     writeFileSync(path.join(deployed, '.aiwg-managed'), 'aiwg\n');
+    const owner = path.basename(source);
+    writeFileSync(path.join(deployed, '.aiwg-manifest.json'), JSON.stringify({ managed: { 'SKILL.md': {
+      owners: [owner], frameworkSlug: owner,
+      hash: `sha256:${createHash('sha256').update(readFileSync(path.join(deployed, 'SKILL.md'))).digest('hex')}`,
+    } } }));
   }
   return 0;
 }

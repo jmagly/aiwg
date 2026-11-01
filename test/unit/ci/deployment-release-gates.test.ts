@@ -59,6 +59,31 @@ describe('required provider deployment release gates', () => {
     expect(job.steps[gate]['continue-on-error']).toBeUndefined();
     expect(job['timeout-minutes']).toBeGreaterThan(30);
   });
+  it.each([
+    ['.gitea/workflows/release-slow.yml', 'release-slow', 'Run release infrastructure lane'],
+    ['.github/workflows/release-candidate.yml', 'validate', 'Run release validation profile'],
+    ['.github/workflows/release-comparison.yml', 'validate', 'Run quarterly full validation'],
+    ['.github/workflows/npm-publish.yml', 'publish-to-npmjs-org', 'Require slow release infrastructure tests'],
+  ])('provisions both locked Flue examples before the release lane in %s', (file, job, gateName) => {
+    const steps = load(file).jobs[job].steps;
+    const node = steps.findIndex((step: { run?: string }) => step.run === 'npm ci --prefix examples/flue-node');
+    const cloudflare = steps.findIndex((step: { run?: string }) =>
+      step.run === 'npm ci --prefix examples/flue-cloudflare --no-audit --no-fund');
+    const gate = steps.findIndex((step: { name?: string }) => step.name === gateName);
+    expect(node).toBeGreaterThanOrEqual(0);
+    expect(cloudflare).toBe(node + 1);
+    expect(gate).toBeGreaterThan(cloudflare);
+    expect(steps[cloudflare].if).toBe(steps[node].if);
+    expect(steps[cloudflare]['continue-on-error']).toBeUndefined();
+  });
+  it('locks the hosted Linux x64 workerd binary required by Wrangler', () => {
+    const { packages } = JSON.parse(readFileSync(resolve(root, 'examples/flue-cloudflare/package-lock.json'), 'utf8'));
+    const binary = packages['node_modules/@cloudflare/workerd-linux-64'];
+    expect(binary.version).toBe(packages['node_modules/workerd'].optionalDependencies['@cloudflare/workerd-linux-64']);
+    expect(binary).toMatchObject({ os: ['linux'], cpu: ['x64'], optional: true });
+    expect(binary.resolved).toContain(`/workerd-linux-64-${binary.version}.tgz`);
+    expect(binary.integrity).toMatch(/^sha512-/);
+  });
   it('requires slow release coverage in the existing routine RC deployment script', () => {
     const { scripts } = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
     expect(scripts['test:release:routine-deployment']).toBe('npm run test:release-slow && vitest run --config config/vitest.config.js --maxWorkers=1 --fileParallelism=false test/integration/use-self-verification.test.ts');
@@ -67,6 +92,11 @@ describe('required provider deployment release gates', () => {
     const source = readFileSync(resolve(root, 'tools/release/cut-tag.sh'), 'utf8');
     const gate = source.indexOf('\nnode tools/ci/run-with-hang-report.mjs --timeout 30m -- npm run test:release-slow');
     expect(gate).toBeGreaterThan(source.indexOf('\nnpm run build:cli'));
+    for (const example of ['flue-node', 'flue-cloudflare']) {
+      const provision = `if [ -f examples/${example}/package-lock.json ]; then\n  npm ci --prefix examples/${example} --no-audit --no-fund\nfi`;
+      expect(source).toContain(provision);
+      expect(gate).toBeGreaterThan(source.indexOf(provision));
+    }
     expect(gate).toBeLessThan(source.indexOf('\nif [ "$AIWG_RELEASE_SIGN_FROM_VAULT" = "1" ]'));
     expect(gate).toBeLessThan(source.indexOf('\ngit "${GIT_TAG_GPG_OPTS[@]}" tag -s'));
     expect(source).toContain('set -euo pipefail');

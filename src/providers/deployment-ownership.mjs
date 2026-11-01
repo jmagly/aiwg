@@ -138,6 +138,7 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
   const receiptRoot = (file, receipt) => projectRoot && file === path.join(projectRoot, '.aiwg', SIDECAR) && receipt.scope === 'project'
     ? projectRoot : path.dirname(file);
   const declared = new Map();
+  const preserved = new Set();
   for (const [file, bytes] of after) {
     if (path.basename(file) !== SIDECAR) continue;
     const receipt = parse(bytes), previous = parse(before.get(file));
@@ -156,12 +157,25 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
       const base = receiptRoot(file, receipt);
       const target = path.resolve(base, name);
       if (!target.startsWith(`${base}${path.sep}`) || !after.has(target)) continue;
+      const prior = previous.managed?.[name];
+      // A receipt rewrite is not evidence of a payload write. Preservation can
+      // also restore bytes after a writer/binder marked the file as written.
+      // Never bless those edited bytes, even with an explicit write hint.
+      if (before.get(target)?.equals(after.get(target)) &&
+        (prior ? prior.hash !== hash(before.get(target)) : entry.hash === hash(before.get(target)) && !opts.writtenFiles?.includes(target))) {
+        if (prior) receipt.managed[name] = prior;
+        else delete receipt.managed[name];
+        preserved.add(target);
+        manifests.set(file, receipt);
+        continue;
+      }
       if (stable(previous.managed?.[name]) !== stable(entry)) declared.set(target, { file, name, entry, receipt });
     }
   }
   for (const [file, bytes] of after) {
     if (path.basename(file) === SIDECAR || /(?:^|[/\\])aiwg\.config$/.test(file)
       || /(?:\.bak\.|\.aiwg-backup-)/.test(path.basename(file))) continue;
+    if (preserved.has(file)) continue;
     const changed = !before.get(file)?.equals(bytes);
     const declaration = declared.get(file);
     if (opts.onlyDeclared && !declaration) continue;
@@ -175,7 +189,7 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
       skillRoot = path.dirname(skillRoot);
     }
     const skillReceipt = parse(after.get(path.join(skillRoot, SIDECAR)));
-    const projectScoped = projectRoot && (path.dirname(file) === projectRoot || opts.provider === 'flue' && /[/\\](?:db\.ts|aiwg[/\\](?:tools|specialists)\.ts)$/.test(file));
+    const projectScoped = projectRoot && (path.dirname(file) === projectRoot || opts.provider === 'flue' && /[/\\](?:db\.ts|aiwg[/\\](?:(?:tools|specialists|skills)\.ts|remote-specialist\.(?:js|d\.ts)))$/.test(file));
     const dir = projectScoped ? path.join(projectRoot, '.aiwg') : declaration ? path.dirname(declaration.file) : skillReceipt.managed?.['SKILL.md'] ? skillRoot : path.dirname(file);
     const name = declaration?.name || portable(path.relative(projectScoped ? projectRoot : dir, file));
     const existing = manifests.get(path.join(dir, SIDECAR)) || parse(after.get(path.join(dir, SIDECAR)));

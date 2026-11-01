@@ -43,6 +43,7 @@ const PUBLIC_TOKEN_TO_MIRROR_OUTPUT = new Map([
   ['$TARBALL', 'tarball'],
   ['aiwg-cli-${VERSION}.tgz', 'cli_tarball'],
   ['aiwg-cockpit-${VERSION}.tgz', 'cockpit_tarball'],
+  ['aiwg-flue-${VERSION}.tgz', 'flue_tarball'],
   ['$TARBALL_SIG', 'tarball_sig'],
   ['$MANIFEST', 'manifest'],
   ['$MANIFEST_SIG', 'manifest_sig'],

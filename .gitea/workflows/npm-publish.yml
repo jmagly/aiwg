@@ -135,7 +135,7 @@ jobs:
           set -euo pipefail
           VERSION='${{ steps.version.outputs.version }}'
           MIRROR_DIR=$(mktemp -d "$RUNNER_TEMP/stable-mirror.XXXXXX")
-          for PACKAGE in aiwg @aiwg/cli @aiwg/cockpit; do
+          for PACKAGE in aiwg @aiwg/cli @aiwg/cockpit @aiwg/flue; do
             npm pack "${PACKAGE}@${VERSION}" --ignore-scripts --registry https://registry.npmjs.org --pack-destination "$MIRROR_DIR"
           done
           printf '%s\n' '//git.integrolabs.net/api/packages/roctinam/npm/:_authToken=${NODE_AUTH_TOKEN}' > "$RUNNER_TEMP/.npmrc"
@@ -158,7 +158,7 @@ jobs:
           //git.integrolabs.net/api/packages/roctinam/npm/:_authToken=${NODE_AUTH_TOKEN}
           NPMRC
           VERSION="${{ steps.version.outputs.version }}"
-          for PACKAGE in aiwg @aiwg/cli @aiwg/cockpit; do
+          for PACKAGE in aiwg @aiwg/cli @aiwg/cockpit @aiwg/flue; do
             TAGS=$(npm dist-tag ls "$PACKAGE" --registry=${{ env.GITEA_NPM_REGISTRY }})
             if grep -Eq '^next: ' <<< "$TAGS"; then
               npm dist-tag rm "$PACKAGE" next --registry=${{ env.GITEA_NPM_REGISTRY }}
@@ -240,7 +240,12 @@ jobs:
           fi
           ROOT_TARBALL=$(npm view "aiwg@${VERSION}" dist.tarball --registry=${{ env.GITEA_NPM_REGISTRY }})
           CLI_TARBALL=$(npm view "@aiwg/cli@${VERSION}" dist.tarball --registry=${{ env.GITEA_NPM_REGISTRY }})
+          FLUE_TARBALL=$(npm view "@aiwg/flue@${VERSION}" dist.tarball --registry=${{ env.GITEA_NPM_REGISTRY }})
           COCKPIT_TARBALL=$(npm view "@aiwg/cockpit@${VERSION}" dist.tarball --registry=${{ env.GITEA_NPM_REGISTRY }})
+
+          FLUE_INSTALL=$(mktemp -d)
+          npm install --prefix "$FLUE_INSTALL" --no-audit --no-fund "$FLUE_TARBALL"
+          node tools/release/flue-package-smoke.mjs "$FLUE_INSTALL/node_modules/@aiwg/flue"
 
           ROOT_INSTALL=$(mktemp -d)
           npm install --prefix "$ROOT_INSTALL" --no-audit --no-fund "$ROOT_TARBALL"

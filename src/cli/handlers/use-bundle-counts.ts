@@ -2,6 +2,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { receiptIncludesOwner } from './use-owned-counts.js';
 import { parseRuleFrontmatter } from '../../rules/activation.mjs';
 
 export async function countDeployedBundleRules(bundlePath: string, target: string, deployPath: string, provider?: string): Promise<number> {
@@ -58,7 +59,9 @@ export async function countDeployedBundleFiles(
   for (const name of names) {
     for (const extension of extensions) {
       try {
-        await fs.access(path.join(path.resolve(target, deployPath), path.basename(name, '.md') + extension));
+        const file = path.join(path.resolve(target, deployPath), path.basename(name, '.md') + extension);
+        await fs.access(file);
+        if (!await receiptIncludesOwner(file, new Set([path.basename(bundlePath)]))) continue;
         count++;
         break;
       } catch { /* Only count artifacts actually written by this bundle. */ }

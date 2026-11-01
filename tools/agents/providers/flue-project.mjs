@@ -2,6 +2,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { importImpl } from '../../_resolve-impl.mjs';
+const { providerCopyMode } = await importImpl(import.meta.url, 'providers/deployment-preservation.mjs');
+const { deploymentOwner } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 
 const exists = file => { try { fs.lstatSync(file); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 const directory = file => exists(file) && fs.lstatSync(file).isDirectory();
@@ -11,10 +14,10 @@ const configFiles = ['ts', 'mts', 'mjs', 'js', 'cjs', 'cts'].map(ext => `flue.co
 export function flueDeploymentFiles(target) {
   const source = ['.flue', 'src'].find(dir => directory(path.join(target, dir))) || 'src';
   // Snapshot config and conventional entries too: deployment reads a staged project.
-  return [...new Set([path.join(source, 'db.ts'), '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts',
-    ...configFiles, ...databaseFiles()])];
+  return [...new Set([path.join(source, 'db.ts'), '.gitignore', 'src/aiwg/tools.ts', 'src/aiwg/specialists.ts', 'src/aiwg/skills.ts',
+    ...configFiles, ...databaseFiles(), 'wrangler.jsonc', 'src/aiwg/remote-specialist.js', 'src/aiwg/remote-specialist.d.ts'])];
 }
-function explicitDatabase(target) {
+function configProperty(target, key) {
   const config = configFiles.find(file => exists(path.join(target, file)));
   if (!config) return;
   // Static tokens only; comments and string/template contents cannot become keys.
@@ -34,14 +37,22 @@ function explicitDatabase(target) {
   const nesting = [];
   for (let index = start; index < code.length; index++) {
     const token = code[index];
-    if (nesting.length === 1 && ['db', '"db"', "'db'"].includes(token)
-      && ['{', ','].includes(code[index - 1]) && code[index + 1] === ':') return config;
+    if (nesting.length === 1 && [key, `"${key}"`, `'${key}'`].includes(token)
+      && ['{', ','].includes(code[index - 1]) && code[index + 1] === ':') return { config, value: code[index + 2] };
     if (['{', '[', '('].includes(token)) nesting.push(token);
     else if (['}', ']', ')'].includes(token)) {
       nesting.pop();
       if (!nesting.length) break;
     }
   }
+}
+export function detectFlueTarget(target, { warn = false } = {}) {
+  const value = configProperty(target, 'target')?.value;
+  if (["'cloudflare'", '"cloudflare"', '`cloudflare`'].includes(value)) return 'cloudflare';
+  if (warn && exists(path.join(target, 'wrangler.jsonc'))) {
+    console.warn("Flue (experimental): wrangler.jsonc found without an explicit target: 'cloudflare' in flue.config.*; keeping Node deployment.");
+  }
+  return 'node';
 }
 export function claimRecordedFile(target, file, opts) {
   if (!exists(file)) return false;
@@ -53,8 +64,36 @@ export function claimRecordedFile(target, file, opts) {
   opts.writtenFiles?.push(file);
   return true;
 }
+export function retireFlueTargetFiles(target, opts) {
+  const cloudflare = opts.flueTarget === 'cloudflare';
+  const candidates = cloudflare ? databaseFiles() : ['src/aiwg/remote-specialist.js', 'src/aiwg/remote-specialist.d.ts'];
+  const receiptFile = path.join(target, '.aiwg/.aiwg-manifest.json');
+  let receipt;
+  try { receipt = JSON.parse(fs.readFileSync(receiptFile, 'utf8')); } catch { receipt = {}; }
+  let changed = false;
+  for (const relative of candidates) {
+    const file = path.join(target, relative);
+    if (!exists(file)) continue;
+    const record = receipt.managed?.[relative.split(path.sep).join('/')];
+    const copy = (opts.copyMode ?? opts.copyStandardSkills) || (record?.owners || []).some(owner =>
+      providerCopyMode(target, 'flue', owner, opts.config, deploymentOwner(opts)));
+    const reason = copy ? 'copy mode' : cloudflare && record?.filePreimage?.present ? 'operator database module'
+      : !claimRecordedFile(target, file, {}) ? 'edited or unrecorded file' : undefined;
+    if (reason) {
+      console.warn(`Flue (experimental): keeping ${opts.logicalOutputPath?.(file) || file} (${reason}); remove this file manually if no longer needed for the new target.`);
+      continue;
+    }
+    if (!opts.dryRun) {
+      fs.rmSync(file);
+      delete receipt.managed[relative.split(path.sep).join('/')];
+      changed = true;
+    }
+  }
+  if (changed) (opts.writeReceipt || fs.writeFileSync)(receiptFile, `${JSON.stringify(receipt, null, 2)}\n`);
+}
 export function deployFlueDatabase(target, opts) {
-  const config = explicitDatabase(target);
+  if (detectFlueTarget(target) === 'cloudflare') return;
+  const config = configProperty(target, 'db')?.config;
   if (config) {
     console.warn(`Flue (experimental): keeping explicit db entry in ${config}; verify the operator module selects durable SQLite at .flue-state/state.db.`);
     return;

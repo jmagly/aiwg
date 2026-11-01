@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, openSync, closeSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createScriptRunner, DefaultScriptRunner } from '../../../../src/cli/handlers/script-runner.js';
 
 describe('DefaultScriptRunner', () => {
@@ -14,6 +14,7 @@ describe('DefaultScriptRunner', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -32,6 +33,22 @@ describe('DefaultScriptRunner', () => {
     writeFileSync(join(root, 'tools/agents/deploy-agents.mjs'), source);
     return 'tools/agents/deploy-agents.mjs';
   }
+
+  it.each([false, true])('surfaces Flue preservation warnings from captured successful deployment (subprocess=%s)', async subprocess => {
+    const warning = 'Flue (experimental): keeping /project/src/db.ts (copy mode); remove this file manually.';
+    const file = deployer(`
+      export async function main() {
+        console.warn(${JSON.stringify(warning)});
+        console.error('unrelated diagnostic');
+        return 0;
+      }
+      if (process.argv[1].endsWith('/deploy-agents.mjs')) await main();
+    `);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await runner.run(file, [], { capture: true, ...(subprocess ? { timeout: 10_000 } : {}) });
+    expect(result.exitCode).toBe(0);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(warning);
+  });
 
   it('reuses the deployment module, captures preview stdout and bounds stderr', async () => {
     const file = deployer(`

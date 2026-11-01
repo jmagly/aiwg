@@ -86,3 +86,10 @@ describe('published package README quality contract', () => {
     });
   }
 });
+
+it('@aiwg/flue documents its app-owned peer and public library exports', () => {
+  const body = readFileSync(path.join(ROOT, 'packages/flue/README.md'), 'utf8');
+  expect(body).toMatch(/^# @aiwg\/flue$/m);
+  expect(body.trim().split(/\s+/).length).toBeGreaterThan(100);
+  for (const value of ['npm install @aiwg/flue', '@flue/runtime@2.3.0', '@aiwg/flue/skills/', '@aiwg/flue/specialists', '@aiwg/flue/tools/node', '@aiwg/flue/tools']) expect(body).toContain(value);
+});

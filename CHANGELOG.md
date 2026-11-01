@@ -7,6 +7,49 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Added
+
+- Cloudflare-target Flue generation with Worker-bound remote tools, a pinned
+  package-mode example, and local workerd qualification for skills, delegation,
+  project-bound artifacts, restart/resume, abort and authentication, plus a
+  manual-only deployed check (`npm run test:flue-cloudflare-deployed`, never in
+  CI). One manual deployed run passed all seven cases on Cloudflare (#3127).
+
+- MIT `@aiwg/flue` peer-only package: static bundle skills, manifest-selected
+  specialist factories, remote and Node MCP helpers. Flue `use --package`
+  imports package skills and persists the mode across update/refresh (#3122).
+
+- Authenticated, project-bound Streamable HTTP MCP transport through
+  `aiwg mcp serve --transport http`, with a restricted tool surface, rotating
+  token files, bounded sessions, Host/Origin validation and cancellation.
+  Flue 2.3.0 remote client coverage and setup guide: `docs/providers/flue-remote.md`
+  (#3124). Stdio remains the default.
+
+### Changed
+
+- Experimental Flue deployments now honor per-provider bundle declarations,
+  include standard-tier skills, and generate static skill imports and manifest-selected
+  specialists. `aiwg-utils` is now opt-in for Flue. `use`/`remove --declare` edit
+  intent without changing files; update and refresh deploy pending entries and
+  prune undeclared bundles while preserving operator edits (#3801). Additive
+  framework passes remain expected. Per-provider copy mode persists across
+  refresh/update and keeps files until an explicit removal.
+- The verbalized-sampling addon's agent is now `verbalized-content-diversifier`.
+  It previously shared the name `content-diversifier` with the writing-quality
+  agent, so installing both addons made one overwrite the other.
+  An existing `.claude/agents/content-diversifier.md` (or the matching file for
+  your provider) that came from verbalized-sampling is not removed automatically;
+  delete it after updating unless writing-quality is installed.
+- Copy-mode deployments now remove a skill's old-tier copy when it moves between
+  the kernel and standard tiers, but only if the copy is unchanged; edited copies
+  stay with a warning. Index mode again deletes stale skills that carry only the
+  legacy `.aiwg-managed` marker.
+
+### Fixed
+
+- Existing `.aiwg/aiwg.config` files with older or partial `installed` records
+  load again; strict checks apply only to newly written records.
+
 ## [2026.10.19] - 2026-10-31
 
 ### Added

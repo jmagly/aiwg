@@ -5,6 +5,7 @@
  * @issues #1311 (scope split), #1312 (command-run), #1313 (discover + pairs)
  */
 
+import { cliExecutionOptions, bindCliCancellation } from './tool-context.mjs';
 import { signalChild } from '../process/signal-child.mjs';
 import { spawn } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
@@ -266,7 +267,9 @@ export function isGlobalAllowed(toolName) {
  * @param {{ cwd?: string, env?: object, timeoutMs?: number, input?: string }} [options]
  * @returns {Promise<{ stdout: string, stderr: string, code: number }>}
  */
-export function runAiwgCli(args, { cwd, env, timeoutMs = 120_000, input } = {}) {
+export function runAiwgCli(args, options = {}) {
+  const { cwd, env, timeoutMs = 120_000, input, signal } = cliExecutionOptions(options);
+  signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
     const proc = spawn('aiwg', args, {
       shell: false,
@@ -298,6 +301,7 @@ export function runAiwgCli(args, { cwd, env, timeoutMs = 120_000, input } = {}) 
       rejectAndTerminate(new Error(`aiwg ${args[0] || ''} timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
+    bindCliCancellation(proc, signal, rejectAndTerminate);
     proc.stdout.on('data', (chunk) => { stdout += stdoutDecoder.write(chunk); });
     proc.stderr.on('data', (chunk) => { stderr += stderrDecoder.write(chunk); });
 

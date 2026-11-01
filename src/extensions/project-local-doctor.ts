@@ -365,7 +365,7 @@ export async function buildProjectLocalDoctorSection(
           const cells = provList.map(p => {
             const c = entry.deployedTo[p];
             if (!c) return '-'.padEnd(8);
-            const total = c.agents + c.commands + c.skills + c.rules;
+            const total = (c.agents ?? 0) + (c.commands ?? 0) + (c.skills ?? 0) + (c.rules ?? 0);
             return `✓ ${total}`.padEnd(8);
           }).join('');
           lines.push(`    ${name.padEnd(20)}${cells}`);

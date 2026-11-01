@@ -1,3 +1,4 @@
+import { removeSkillCopy } from './skill-copy-prune.mjs';
 import { withModelWrapper } from './model-wrapper.mjs';
 import { postDeploy } from './claude-post-deploy.mjs';
 export { postDeploy };
@@ -267,7 +268,7 @@ function cleanupLegacyBuiltinCollisions(destDir, opts) {
     if (!/^namespace:\s*aiwg\s*$/m.test(content)) continue;
 
     try {
-      fs.rmSync(skillPath, { recursive: true, force: true });
+      if (!removeSkillCopy(skillPath, opts)) continue;
       if (opts.verbose) console.log(`removed legacy skill: ${name} (superseded by aiwg-${name})`);
     } catch { /* non-fatal */ }
   }

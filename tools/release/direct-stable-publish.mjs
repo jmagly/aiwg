@@ -11,7 +11,7 @@ import { smokeTarballs } from './release-candidate.mjs';
 import { createGithubEvidenceTransport } from './github-evidence-transport.mjs';
 import { importImpl } from '../_resolve-impl.mjs';
 const { boundedSpawnSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
-const SURFACES = [{ name: 'aiwg', stem: 'aiwg' }, { name: '@aiwg/cli', stem: 'aiwg-cli' }, { name: '@aiwg/cockpit', stem: 'aiwg-cockpit' }];
+import { SURFACES } from './release-candidate.mjs';
 const sha256 = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const registry = 'https://registry.npmjs.org';
 const workflowPath = '.github/workflows/npm-publish.yml';
@@ -44,7 +44,7 @@ async function extractedArtifact(client, repository, artifact, destination, spaw
 }
 function smokeRecords(directory, version) {
   const smoke = JSON.parse(fs.readFileSync(path.join(directory, 'installed-smoke.json'), 'utf8'));
-  if (smoke.pass !== true || !Array.isArray(smoke.packages) || smoke.packages.length !== 3) throw new Error('Missing installed smoke evidence');
+  if (smoke.pass !== true || !Array.isArray(smoke.packages) || smoke.packages.length !== SURFACES.length) throw new Error('Missing installed smoke evidence');
   for (const surface of SURFACES) {
     const matches = smoke.packages.filter(x => x.package === surface.name && x.filename === `${surface.stem}-${version}.tgz` && x.installed_version === version && x.status === 'success');
     if (matches.length !== 1 || !/^[a-f0-9]{64}$/.test(matches[0].sha256)) throw new Error(`Invalid smoke evidence for ${surface.name}`);
@@ -130,7 +130,7 @@ export async function prepareRecovery({ directory, version, repository, commit, 
 }
 
 // Upload-artifact only errors if *none* of its paths match. Verify the actual
-// retained ZIP, including all three smoke-bound digests, before npm can publish.
+// retained ZIP, including all four smoke-bound digests, before npm can publish.
 export async function verifyRetention({ directory, version, repository, runId, attempt, client, spawn = boundedSpawnSync }) {
   const packages = validateInputs(directory, version);
   const artifacts = pageItems(await client.listRunArtifacts({ repository, runId })).filter(item => item.name === `stable-packages-${runId}-${attempt}` && item.expired === false && item.workflow_run?.id === runId);
@@ -146,7 +146,7 @@ export async function verifyRetention({ directory, version, repository, runId, a
 export function validateInputs(directory, version) {
   if (!/^\d{4}\.(?:[1-9]|1[0-2])\.(?:0|[1-9]\d*)$/.test(version)) throw new Error('Invalid stable version');
   const smoke = JSON.parse(fs.readFileSync(path.join(directory, 'installed-smoke.json'), 'utf8'));
-  if (smoke.pass !== true || !Array.isArray(smoke.packages) || smoke.packages.length !== 3) throw new Error('Missing installed smoke evidence');
+  if (smoke.pass !== true || !Array.isArray(smoke.packages) || smoke.packages.length !== SURFACES.length) throw new Error('Missing installed smoke evidence');
   return SURFACES.map(surface => {
     const filename = `${surface.stem}-${version}.tgz`;
     const matches = smoke.packages.filter(x => x.package === surface.name && x.filename === filename && x.installed_version === version && x.status === 'success');
@@ -212,7 +212,7 @@ export async function mirror({ directory, version, receipt, spawn = boundedSpawn
   });
   const verifyFiles = () => { for (const item of packages) if (sha256(item.file) !== item.sha256) throw new Error(`Tarball changed: ${item.name}`); };
   const npm = args => spawn('npm', args, 'long', { env, encoding: 'utf8', timeout: 180000, maxBuffer: 8 * 1024 * 1024 });
-  // All three public artifacts must already exist and match before any local publication.
+  // All four public artifacts must already exist and match before any local publication.
   for (const item of packages) {
     const result = npm(['view', `${item.name}@${version}`, '--json', '--registry', 'https://registry.npmjs.org']);
     if (result.error || result.status !== 0) throw new Error(`Public package unavailable: ${item.name}`);

@@ -30,6 +30,7 @@
  *   --force            Overwrite existing files
  */
 
+import { removeSkillCopy } from '../agents/providers/skill-copy-prune.mjs';
 import realFs from 'fs';
 import { createRequire } from 'module';
 const _require = createRequire(import.meta.url);
@@ -40,6 +41,7 @@ import { fileURLToPath } from 'node:url';
 import os from 'os';
 import { deploySkillDir, getFrameworksForMode, normalizeDeploymentMode, isKernelSkill } from '../agents/providers/base.mjs';
 
+import { writeCodexSkillMetadata } from './codex-skill-metadata.mjs';
 import { stripWrappingQuotes, transformToCodexSkill } from './codex-skill-transform.mjs';
 const LEGACY_RENAMED_SKILLS = new Set(['aiwg-mcp']);
 
@@ -131,6 +133,7 @@ function parseArgs(args, homeDir) {
     else if (a === '--mode' && args[i + 1]) cfg.mode = String(args[++i]).toLowerCase();
     else if (a === '--dry-run') cfg.dryRun = true;
     else if (a === '--force') cfg.force = true;
+    else if (a === '--index-mode') cfg.indexMode = true;
     else if (a === '--copy-all' || a === '--copy-standard-skills') cfg.copyStandardSkills = true;
     else if (a === '--listing-cap' && args[i + 1]) { cfg.listingCap = Math.max(0, Number(args[++i]) || 0); cfg.listingCapExplicit = true; }
     else if (a === '--standard-target' && args[i + 1]) cfg.standardTarget = path.resolve(args[++i]);
@@ -172,7 +175,6 @@ function findSkillDirs(baseDir) {
 function deploySkill(skill, targetDir, opts) {
   const { force = false, dryRun = false } = opts;
   const skillDir = path.join(targetDir, skill.name);
-  const metadataPath = path.join(skillDir, 'agents', 'openai.yaml');
 
   if (dryRun) {
     console.log(`  [dry-run] deploy: ${skill.name}`);
@@ -186,12 +188,11 @@ function deploySkill(skill, targetDir, opts) {
 
   // Use the same whole-folder copier and ownership receipt as other providers.
   const deployed = deploySkillDir(path.dirname(skill.sourcePath), targetDir, {
-    force, dryRun, provider: 'codex', skillName: skill.name,
+    ...opts, force, dryRun, provider: 'codex', skillName: skill.name,
     transformSkillMd: () => skill.content,
   });
   if (deployed === false) return { action: 'skip', reason: 'ownership' };
-  ensureDir(path.dirname(metadataPath));
-  fs.writeFileSync(metadataPath, skill.metadataContent, 'utf8');
+  writeCodexSkillMetadata(skillDir, skill.metadataContent);
   console.log(`  deployed: ${skill.name}`);
 
   return { action: 'deploy', reason: 'success' };
@@ -376,7 +377,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
       console.log(`\n${item.label} (${planned.filter((p) => p.label === item.label).length} skills):`);
     }
     const demoted = budget.demoted.has(item);
-    const result = deploySkill(item.skill, demoted ? standardTarget : target, { force, dryRun });
+    const result = deploySkill(item.skill, demoted ? standardTarget : target, { force, dryRun, copyStandardSkills, copyMode: copyStandardSkills && !cfg.indexMode });
     if (demoted) console.log(`    ↳ standard tier (${path.relative(process.cwd(), standardTarget) || standardTarget}) — startup listing budget`);
     if (result.action === 'deploy') totalDeployed++;
     else totalSkipped++;
@@ -406,7 +407,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
   // skills can delete the kernel skills installed by the preceding full-root
   // Codex pass, leaving `.agents/skills/` empty while `aiwg use` still exits 0.
   let totalPruned = 0;
-  if (fs.existsSync(target)) {
+  if ((!copyStandardSkills || cfg.indexMode) && fs.existsSync(target)) {
     const targetEntries = fs.readdirSync(target, { withFileTypes: true });
     for (const entry of targetEntries) {
       if (!entry.isDirectory()) continue;
@@ -445,7 +446,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
       if (dryRun) {
         console.log(`  [dry-run] would prune stale skill: ${name}`);
       } else {
-        fs.rmSync(full, { recursive: true, force: true });
+        if (!removeSkillCopy(full, { ...cfg, copyMode: copyStandardSkills && !cfg.indexMode })) continue;
       }
       totalPruned++;
     }

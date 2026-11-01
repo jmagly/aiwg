@@ -4,6 +4,7 @@
  * orchestrator wiring in tools/agents/deploy-agents.mjs (pruneStaleAiwgArtifacts).
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { recordManagedCopy } from '../helpers/managed-copy-fixture.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -48,6 +49,7 @@ describe('#1627 deploy prunes stale AIWG agents and preserves user agents', () =
     // A stale AIWG agent (carries the managed marker, but no such source ships).
     const staleName = 'zzz-removed-by-1627-agent.md';
     fs.writeFileSync(path.join(agentsDir, staleName), MARKER + '# stale agent\n');
+    recordManagedCopy(path.join(agentsDir, staleName));
     // An operator-authored agent (no marker) — must survive.
     const userName = 'my-private-agent.md';
     fs.writeFileSync(path.join(agentsDir, userName), '# my private agent\n');

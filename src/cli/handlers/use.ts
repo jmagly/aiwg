@@ -41,6 +41,11 @@ import { getLogger } from '../log.js';
 import { installCockpit } from './cockpit.js';
 import { initHandler } from './init.js';
 import { selectAddonProfile } from './use-addon-profile.js';
+import { deploymentEditWarnings } from '../../providers/deployment-preservation.mjs';
+import { permitsBundleDeployment } from '../../config/installed-selection.js';
+import { bundleDeploymentScope, recordBundleDeployment, copyCleanupArgs, projectLocalDeploymentContext, projectLocalCopyMode } from './bundle-deployment-mode.js';
+import { frameworkAdditiveBundles, getAllAddons, getAllExtensions } from './use-additive-bundles.js';
+export { getAllAddons, getAllExtensions, USE_ALL_DISALLOW, USE_ALL_EXTENSIONS_DISALLOW } from './use-additive-bundles.js';
 import {
   checkCollisions,
   formatCollisionReport,
@@ -108,6 +113,7 @@ import {
 } from '../../smiths/context-pipeline/index.js';
 import type { Platform } from '../../agents/types.js';
 import { verifyModelWrapperDeployment } from '../../models/wrapper-deployment.js';
+import { countRecordedFrameworkArtifacts, receiptIncludesOwner } from './use-owned-counts.js';
 import { countDeployedBundleFiles, countDeployedBundleRules } from './use-bundle-counts.js';
 import { reconcileDeployedSkillAssets } from './use-skill-assets.js';
 import {
@@ -350,33 +356,6 @@ export function resolveFrameworkDir(framework: string): string | undefined {
   return FRAMEWORK_DIR_MAP[framework];
 }
 
-/**
- * Addons excluded from `aiwg use all`.
- * aiwg-dev is contributor-only tooling — not for end users.
- */
-export const USE_ALL_DISALLOW = new Set(['aiwg-dev']);
-
-/**
- * Whether an addon's manifest keeps it out of bulk deploys (#2641).
- *
- * `devOnly` marks contributor tooling; `explicitInstall` marks an addon that is
- * deployed only when named, such as `aiwg use decision-engine`. Both match
- * `discoverAddons()` in tools/agents/providers/base.mjs, which applies the same
- * rule to framework-mode deploys.
- *
- * `autoInstall: false` is deliberately NOT an exclusion signal: most addons
- * declare it (and the extension manifest schema defaults to it), so honoring
- * it would drop most addons from `all` for existing users.
- */
-async function isExplicitOnlyAddon(addonDir: string): Promise<boolean> {
-  try {
-    const manifest = JSON.parse(await fs.readFile(path.join(addonDir, 'manifest.json'), 'utf8'));
-    return manifest?.devOnly === true || manifest?.explicitInstall === true;
-  } catch {
-    return false;
-  }
-}
-
 /** Full-framework setup requires the corpus omitted by the lightweight CLI. */
 async function bundledSetupPrerequisiteMessage(frameworkRoot: string): Promise<string | undefined> {
   let packageName: string | undefined;
@@ -404,56 +383,6 @@ async function bundledSetupPrerequisiteMessage(frameworkRoot: string): Promise<s
     '  npm install -g aiwg',
     '@aiwg/cli can still query signed web resources and deploy external project-local bundles.',
   ].join('\n');
-}
-
-/**
- * Discover all addon names from the filesystem, minus the disallow list and
- * addons whose manifest restricts them to explicit installs.
- */
-export async function getAllAddons(frameworkRoot: string): Promise<string[]> {
-  const addonsDir = path.join(frameworkRoot, 'agentic/code/addons');
-  const entries = await fs.readdir(addonsDir, { withFileTypes: true });
-  const candidates = entries.filter(e => e.isDirectory() && !USE_ALL_DISALLOW.has(e.name));
-  const excluded = await Promise.all(candidates.map(e => isExplicitOnlyAddon(path.join(addonsDir, e.name))));
-  return candidates.filter((_, index) => !excluded[index]).map(e => e.name);
-}
-
-/**
- * Extensions excluded from `aiwg use all` deployment.
- * `api-adapter` is an OpenAPI spec, not a deployable artifact bundle.
- */
-export const USE_ALL_EXTENSIONS_DISALLOW = new Set(['api-adapter']);
-
-/**
- * Discover all extension names from `agentic/code/extensions/*` (#1221).
- *
- * Extensions are addon-shaped bundles with their own `manifest.json`,
- * `skills/`, `rules/`, and `templates/` directories. Only directories
- * containing a `manifest.json` are considered deployable; bare directories
- * (e.g. `api-adapter` which only ships an OpenAPI spec) are skipped.
- */
-export async function getAllExtensions(frameworkRoot: string): Promise<string[]> {
-  const extensionsDir = path.join(frameworkRoot, 'agentic/code/extensions');
-  let entries: import('fs').Dirent[];
-  try {
-    entries = await fs.readdir(extensionsDir, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-  const result: string[] = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (USE_ALL_EXTENSIONS_DISALLOW.has(entry.name)) continue;
-    const manifestPath = path.join(extensionsDir, entry.name, 'manifest.json');
-    try {
-      await fs.access(manifestPath);
-      result.push(entry.name);
-    } catch {
-      // Directory without a manifest is not deployable as an extension.
-      continue;
-    }
-  }
-  return result;
 }
 
 /**
@@ -686,7 +615,7 @@ const MIRRORED_KERNEL_COMMAND_SKILLS = new Set([
   'steward',
 ]);
 
-function shouldMirrorStandardCommandSkill(skillName: string): boolean {
+export function shouldMirrorStandardCommandSkill(skillName: string): boolean {
   return skillName.startsWith('flow-') || MIRRORED_STANDARD_COMMAND_SKILLS.has(skillName);
 }
 
@@ -1273,7 +1202,8 @@ async function countDeployedBundleSkills(
     let found = false;
     for (const dir of uniqueCandidateDirs) {
       for (const name of names) {
-        if (!(await fileExists(path.join(dir, name, 'SKILL.md')))) continue;
+        if (!(await fileExists(path.join(dir, name, 'SKILL.md')))
+          || !await receiptIncludesOwner(path.join(dir, name, 'SKILL.md'), new Set([path.basename(bundlePath)]))) continue;
         count++;
         found = true;
         break;
@@ -1382,7 +1312,7 @@ async function deployOneProjectLocalBundle(opts: {
       // graph. Without --copy-all, the bundle's rules deploy but its skills
       // never reach <provider>/.aiwg/skills/, leaving them invisible to
       // both the platform and the index.
-      '--copy-all',
+      '--copy-all', ...copyCleanupArgs(ctx.args),
       // That copy-all is the deployer's doing, not the operator's, so the
       // provider's startup listing cap still applies; overflow lands on the
       // standard tier instead of over the cap (#2561).
@@ -1491,9 +1421,9 @@ async function deployProjectLocalBundles(opts: {
 
   const targetBundles = onlyBundleId
     ? discovery.bundles.filter(b => b.id === onlyBundleId)
-    : discovery.bundles.filter(b => b.type !== 'provider');
+    : discovery.bundles.filter(b => b.type !== 'provider' && permitsBundleDeployment(projectDir, b.id, provider));
 
-  if (targetBundles.length === 0) {
+  if (targetBundles.length === 0 && discovery.bundles.length === 0) {
     if (!onlyBundleId) {
       const { hasProjectQuickref, deployProjectQuickref } = await import('../../extensions/project-quickref.js');
       try {
@@ -1566,7 +1496,7 @@ async function deployProjectLocalBundles(opts: {
     }
 
     const result = await deployOneProjectLocalBundle({
-      bundle, ctx, frameworkRoot, provider, target, dryRun, verbose, quiet, modelArgs,
+      bundle, ctx: await projectLocalDeploymentContext(ctx, projectDir, bundle.id, provider, Boolean(onlyBundleId)), frameworkRoot, provider, target, dryRun, verbose, quiet, modelArgs,
     });
 
     if (result.exitCode !== 0) {
@@ -1621,10 +1551,12 @@ async function deployProjectLocalBundles(opts: {
           localPath: bundle.localPath,
           localType: bundle.type,
           manifestVersion: bundle.manifest.manifestVersion,
+          copy: projectLocalCopyMode(config, bundle.id, provider, ctx.args, Boolean(onlyBundleId)),
           artifactHashes,
           deployedArtifactHashes,
         });
         await writeAiwgConfig(projectDir, updated);
+        await recordBundleDeployment(projectDir, bundle.id, provider, updated.installed[bundle.id].deployedTo[provider].copy ? ['--copy-all'] : [], frameworkRoot);
       } catch (err) {
         // Non-fatal: deploy already succeeded
         ui.warn(`Project-local registry update failed for '${bundle.id}': ${err instanceof Error ? err.message : String(err)}`);
@@ -1635,7 +1567,7 @@ async function deployProjectLocalBundles(opts: {
   // Automatic reconciliation (also used by refresh/upgrade) must restore the
   // project search cache for existing bundles, just as a named local install
   // does. Named installs refresh once after all selected providers finish.
-  if (deployed > 0 && !dryRun && !onlyBundleId) {
+  if (discovery.bundles.length > 0 && !dryRun && !onlyBundleId) {
     try {
       await rebuildExternalBundleIndex(projectDir, 'project', verbose);
     } catch (error) {
@@ -1711,7 +1643,7 @@ for (const flag of [...MODEL_DEPLOY_VALUE_FLAGS, '--reasoning', '--coding', '--e
   USE_FLAGS_WITH_VALUES.add(flag);
 }
 const USE_BOOLEAN_FLAGS = new Set([
-  '--force', '--copy-all', '--copy-standard-skills', '--dry-run', '--verbose', '-v', '--quiet', '-q',
+  '--package', '--force', '--copy-all', '--copy-standard-skills', '--dry-run', '--verbose', '-v', '--quiet', '-q',
   '--json', '--no-project-local', '--no-context-files', '--no-workspace-md',
   '--no-aiwg-md', '--no-agents-md', '--force-context-files', '--global', '--user',
   '--no-utils', '--ci-hooks-enabled', '--skip-conflicts', '--no-harness-agents',
@@ -1719,7 +1651,7 @@ const USE_BOOLEAN_FLAGS = new Set([
   '--allow-over-budget', '--no-hooks', '--no-attribution', '--enable-cross-provider-hooks',
   '--skip-commands-migration', '--listing-budget', '--mcp', '--as-agents-md',
   '--create-agents-md', '--commands-only', '--skills-only', '--rules-only',
-  '--save', '--save-user', '--help', '-h',
+  '--declare', '--save', '--save-user', '--help', '-h',
 ]);
 
 export function validateUseOptions(args: string[], preparedCapabilities = new Set<string>()): string | undefined {
@@ -2642,6 +2574,7 @@ Additional options:
   --providers <a,b>         Providers for global bootstrap
   --prefix <dir>            Alias for --target
   --global, --user          Install to user scope
+  --package                Flue: import skills from @aiwg/flue; persist across update/refresh
   --copy-standard-skills    Alias for --copy-all (also restores the full surface)
   --profile <name>          Select workspace profile (implicit target: all)
   --workspace-signals       Show the workspace signal plan
@@ -2653,6 +2586,7 @@ Additional options:
   --filter <glob>, --filter-role <role>
                             Filter deployed agents
   --save, --save-user        Persist model selection
+  --declare                 Declare a bundle for --provider without deploying (project scope)
   --no-utils                Skip additive addon and extension passes
   --no-workspace-md, --no-aiwg-md, --no-agents-md
                             Suppress individual context files
@@ -2696,6 +2630,7 @@ export class UseHandler implements CommandHandler {
   }
 
   async execute(ctx: HandlerContext): Promise<HandlerResult> {
+    if (ctx.args.includes('--declare')) return (await import('./bundle-declaration.js')).declareBundle(ctx);
     let resourceCredentials = useDeployment?.resourceCredentials;
     try {
       if (!resourceCredentials) {
@@ -2842,6 +2777,9 @@ export class UseHandler implements CommandHandler {
       }
     }
 
+    if (coreResult.exitCode === 0 && !dryRun) for (const provider of providers) {
+      for (const warning of deploymentEditWarnings(projectDir, provider)) originalConsole.warn(warning);
+    }
     let result: UseDeploymentResult;
     if (dryRun && coreResult.exitCode === 0) {
       result = buildDryRunUseResult({
@@ -3525,7 +3463,8 @@ export class UseHandler implements CommandHandler {
         // project. Unlike a full framework deploy, its standard skills cannot be
         // left index-only: the user asked to install this specific bundle and
         // its supporting scripts must travel with the skill directory.
-        addonBaseArgs.push('--copy-all');
+        addonBaseArgs.push('--copy-all', ...copyCleanupArgs(remainingArgs));
+        if (provider === 'flue' && remainingArgs.includes('--package')) addonBaseArgs.push('--package');
         addonBaseArgs.push(...modelDeployArgs);
         if (provider) addonBaseArgs.push('--provider', provider);
         if (target) addonBaseArgs.push('--target', target);
@@ -3537,7 +3476,7 @@ export class UseHandler implements CommandHandler {
         if (dryRunAddon) addonBaseArgs.push('--dry-run');
         if (remainingArgs.includes('--force')) addonBaseArgs.push('--force');
 
-        const activationOrder = isAddon
+        const activationOrder = isAddon && provider !== 'flue'
           ? await resolveRequiredAddonActivationOrder(frameworkRoot, framework)
           : [framework];
         const requiredAddons = activationOrder.slice(0, -1);
@@ -3675,8 +3614,11 @@ export class UseHandler implements CommandHandler {
               source: 'bundled',
               manifestHash: await hashManifest(manifestPath),
               asPrimary: Boolean(explicitAddonProvider),
+              package: provider === 'flue' ? remainingArgs.includes('--package') : undefined,
+              copy: remainingArgs.includes('--copy-all') || remainingArgs.includes('--copy-standard-skills'),
             });
             await writeAiwgConfig(projectDir, updated);
+            await recordBundleDeployment(projectDir, framework, provider, remainingArgs, frameworkRoot);
             config = updated;
           } catch (error) {
             ui.warn(`Addon registry update failed for '${framework}': ${error instanceof Error ? error.message : String(error)}`);
@@ -3874,8 +3816,7 @@ export class UseHandler implements CommandHandler {
       && !remainingArgs.includes('--copy-all')
       && !remainingArgs.includes('--copy-standard-skills');
     if (bulkKernelOnly) providerDeployArgs.push('--kernel-only');
-    const allAddons = skipUtils || provider === 'flue' ? [] : await getAllAddons(frameworkRoot);
-    const allExtensions = skipUtils || bulkKernelOnly || provider === 'flue' ? [] : await getAllExtensions(frameworkRoot);
+    const { addons: allAddons, extensions: allExtensions } = await frameworkAdditiveBundles(frameworkRoot, provider, skipUtils, bulkKernelOnly);
     const mainIncludesAddons = mainDeploymentIncludesAddons(provider, mode, providerDeployArgs);
     // OMP's extension sources share the root transaction and binding scan.
     // Their CLI contributions are still registered below in source order.
@@ -4106,7 +4047,7 @@ export class UseHandler implements CommandHandler {
     // Deploy project-local bundles (#1035). Auto-runs after upstream addons unless
     // --no-project-local. Idempotent — overwrites prior deploys. Skipped under
     // --dry-run-disabled scenarios for safety; --dry-run is honored and logged.
-    if (!skipProjectLocal) {
+    if (!skipProjectLocal && provider !== 'flue') {
       const plResult = await deployProjectLocalBundles({
         ctx,
         frameworkRoot,
@@ -4282,7 +4223,7 @@ export class UseHandler implements CommandHandler {
         if (!prebuilt && await fs.access(path.join(aiwgRootForIndex, 'prebuilt', 'framework-relations', 'manifest.json')).then(() => true).catch(() => false)) {
           const { selectPrebuiltRelations } = await import('../../artifacts/relations.js');
           const reason = selectPrebuiltRelations(aiwgRootForIndex).reason ?? 'packaged search index is missing, stale, or does not match the source';
-          ui.dim(`  Packaged index unavailable: ${reason}.`);
+          ui.dim(verbose ? `  Packaged index unavailable: ${reason}.` : '  Packaged index unavailable; rebuilding capability index.');
         }
         ui.dim('  Indexing operational assets for agent-side lookup.');
 
@@ -4317,7 +4258,8 @@ export class UseHandler implements CommandHandler {
     // registry record written below (#621) reflects the real deploy even on
     // a verbose run — the prior `if (quiet)` guard left the record
     // `{agents: 0, commands: 0, skills: 0, rules: 0}` on `-v` runs.
-    const counts = await countDeployedArtifacts(target, paths, provider);
+    const counts = dryRun ? await countDeployedArtifacts(target, paths, provider)
+      : await countRecordedFrameworkArtifacts(target, provider, framework, frameworkRoot, remainingArgs);
 
     // Deploy CI workflow files when --ci-hooks-enabled is set (#661)
     if (ciHooksEnabled) {
@@ -4494,18 +4436,17 @@ export class UseHandler implements CommandHandler {
           : null;
         if (!frameworkManifestPath) throw new Error('no manifest for general/writing mode');
         const mHash = await hashManifest(frameworkManifestPath);
-        const updatedConfig = updateInstalled(config, framework, provider, {
-          agents: counts.agents,
-          commands: counts.commands,
-          skills: counts.skills,
-          rules: counts.rules,
-        }, {
+        const updatedConfig = updateInstalled(config, framework, provider, counts, {
           version: versionInfo.version,
           source: 'bundled',
           manifestHash: mHash,
           asPrimary: Boolean(explicitProvider),
+          package: provider === 'flue' ? remainingArgs.includes('--package') : undefined,
+          copy: remainingArgs.includes('--copy-all') || remainingArgs.includes('--copy-standard-skills'),
+          ...bundleDeploymentScope(framework, provider, remainingArgs),
         });
         await writeAiwgConfig(projectDir, updatedConfig);
+        await recordBundleDeployment(projectDir, framework, provider, remainingArgs, frameworkRoot);
       } catch {
         // Non-fatal: config tracking failure must not block deployment
       }

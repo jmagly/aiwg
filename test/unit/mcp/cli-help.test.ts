@@ -34,6 +34,14 @@ function run(command: string) {
   return result.stdout;
 }
 describe('MCP capability help', () => {
+  it('documents the authenticated, project-bound HTTP options', () => {
+    const output = run('--help');
+    for (const flag of ['--project', '--token-env', '--token-file', '--host', '--allow-remote-bind', '--allowed-host', '--max-sessions', '--tools']) {
+      expect(output).toContain(flag);
+    }
+    expect(output).toContain('127.0.0.1');
+    expect(output).toContain('stdio (default)');
+  });
   it('reports counts equal to the registered core and every optional toolset', async () => {
     const server = await createServer();
     try {

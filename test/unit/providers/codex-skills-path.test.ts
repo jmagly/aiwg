@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { recordManagedCopy } from '../../helpers/managed-copy-fixture.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -47,6 +48,7 @@ describe('pruneLegacyCodexSkills (#766 self-heal)', () => {
     const dir = path.join(tmpDir, name);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'SKILL.md'), `---\nname: ${name}\n---\nbody\n`);
+    if (managed || name === 'aiwg-mcp') recordManagedCopy(path.join(dir, 'SKILL.md'));
     if (managed) fs.writeFileSync(path.join(dir, '.aiwg-managed'), 'true\n');
     return dir;
   }

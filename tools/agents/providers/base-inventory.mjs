@@ -3,7 +3,7 @@ import { fs, path } from './base-runtime.mjs';
 import { collectFrameworkArtifacts } from './base-framework-discovery.mjs';
 import { getAddonAgentFiles, getAddonCommandFiles } from './base-addon-discovery.mjs';
 import { getAddonRuleFiles } from './base-rule-index.mjs';
-import { MANAGED_MARKER_RE, MANIFEST_FILENAME, readSidecarManifest, writeSidecarManifest } from './base-files.mjs';
+import { contentHash, MANAGED_MARKER_RE, MANIFEST_FILENAME, readSidecarManifest, writeSidecarManifest } from './base-files.mjs';
 
 
 // ============================================================================
@@ -188,6 +188,7 @@ export function computeAllSkillNames(srcRoot) {
  * @returns {string[]} removed (or would-be-removed) file paths
  */
 export function pruneStaleAiwgFiles(destDir, desiredStems, opts = {}) {
+  if (opts.copyMode ?? opts.copyStandardSkills) return [];
   const { dryRun = false, verbose = false } = opts;
   const artifactExtensions = opts.artifactExtensions || ['.md', '.mdc'];
   // When supplied, skill-command wrappers are retired against the set of skills
@@ -246,6 +247,10 @@ export function pruneStaleAiwgFiles(destDir, desiredStems, opts = {}) {
     if (!owned) continue;
 
     const target = path.join(destDir, name);
+    if (!managed[name]?.hash || managed[name].hash !== `sha256:${contentHash(fs.readFileSync(target))}`) {
+      console.warn(`${target}: kept (${managed[name]?.hash ? 'operator-edited' : 'unverifiable ownership'})`);
+      continue;
+    }
     removed.push(target);
     if (dryRun) {
       if (verbose) console.log(`[dry-run] would prune stale AIWG artifact: ${path.relative(process.cwd(), target)}`);

@@ -41,7 +41,7 @@ describe('update installed authority', () => {
     await fs.writeFile(path.join(root, '.aiwg/aiwg.config'), JSON.stringify(value));
     return fs.readFile(path.join(root, '.aiwg/aiwg.config'), 'utf8');
   }
-  const entry = { version: '1', source: 'bundled', installedAt: '2026-01-01', deployedTo: {} };
+  const entry = { version: '1', source: 'bundled', installedAt: '2026-01-01', deployedTo: { codex: {} } };
   const output = (spy: ReturnType<typeof vi.spyOn>) => spy.mock.calls.flat().join('\n');
 
   it('deploys only config entries and reports stale registry frameworks', async () => {

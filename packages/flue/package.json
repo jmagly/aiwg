@@ -1,0 +1,38 @@
+{
+  "name": "@aiwg/flue",
+  "version": "2026.10.19",
+  "description": "AIWG bundle skills, specialist factories and MCP tools for Flue apps.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jmagly/aiwg.git",
+    "directory": "packages/flue"
+  },
+  "peerDependencies": {
+    "@flue/runtime": "2.3.x",
+    "@modelcontextprotocol/client": "2.0.0",
+    "valibot": "^1.1.0"
+  },
+  "files": [
+    "skills/",
+    "*.js",
+    "*.d.ts",
+    "LICENSE",
+    "README.md"
+  ],
+  "exports": {
+    "./specialists": {
+      "types": "./specialists.d.ts",
+      "import": "./specialists.js"
+    },
+    "./tools": {
+      "types": "./tools.d.ts",
+      "import": "./tools.js"
+    },
+    "./tools/node": {
+      "types": "./node.d.ts",
+      "import": "./node.js"
+    }
+  }
+}

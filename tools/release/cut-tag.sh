@@ -154,7 +154,9 @@ fi
 echo "  [3/13] marketplace.json lockstep OK"
 
 # ---------------------------------------------------------------------------
-# 4. @aiwg/cockpit package lockstep
+# 4. Published packages, including @aiwg/flue, stay in lockstep
+node tools/workspace/check-marketplace-version.mjs
+# @aiwg/cockpit package lockstep
 # ---------------------------------------------------------------------------
 COCKPIT_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('apps/cockpit/package.json','utf8')).version)")
 if [ "$COCKPIT_VERSION" != "$VERSION" ]; then
@@ -227,10 +229,13 @@ echo "  [8/13] Announcement file OK"
 # Required before either an RC or stable tag can be created. Run before any
 # signing-key lookup so failed infrastructure checks do not open the keyring.
 npm run build:cli
-# The Flue example's locked dependencies back the release-slow Flue end-to-end test,
+# The Flue examples' locked dependencies back the release-slow Flue end-to-end tests,
 # as in every CI workflow that runs this lane.
 if [ -f examples/flue-node/package-lock.json ]; then
   npm ci --prefix examples/flue-node --no-audit --no-fund
+fi
+if [ -f examples/flue-cloudflare/package-lock.json ]; then
+  npm ci --prefix examples/flue-cloudflare --no-audit --no-fund
 fi
 node tools/ci/run-with-hang-report.mjs --timeout 30m -- npm run test:release-slow
 echo "  [8b/13] Release infrastructure lane passed"

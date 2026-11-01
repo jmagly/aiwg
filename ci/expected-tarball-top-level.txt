@@ -48,6 +48,8 @@ dist
 docs
 man
 package.json
+# Portable Flue copy-mode helper and declaration only (#3127).
+packages
 prebuilt
 schemas
 setup.aiwg.yaml
