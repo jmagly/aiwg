@@ -61,8 +61,8 @@ and a compatibility date are required.
 
 Emulation qualification covers build, packaged skill listing/activation,
 specialist delegation, remote discovery/show/write, restart/resume, abort and
-invalid-token failure. Deployed validation is **pending an operator token**;
-this round performs no Cloudflare deployment. Active CPU limits on Cloudflare
+invalid-token failure. One manual deployed run on Cloudflare passed all seven
+cases (2026-11-01); see the Flue guide's deployed-validation section. Active CPU limits on Cloudflare
 are 30 seconds per invocation by default; local wall timings do not qualify
 that production quota. Stdio/process spawning and local filesystem tools are
 unsupported here; neither Cloudflare Sandbox nor Computer is configured.
