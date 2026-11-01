@@ -107,6 +107,14 @@ describe('manual Cloudflare deployed check (offline)', () => {
     expect(tunnel.output()).toContain(JSON.stringify(['tunnel', '--url', 'http://127.0.0.1:12345', '--http-host-header', '127.0.0.1:12345']));
     await runner.stopAll();
   });
+  it('rejects a tunnel that prints its URL and then exits', async () => {
+    const dir = scratch();
+    const executable = path.join(dir, 'url-then-exit');
+    fs.writeFileSync(executable, `#!${process.execPath}\nconsole.error('https://abc-def.trycloudflare.com');\nsetTimeout(() => process.exit(1), 200);\n`, { mode: 0o755 });
+    const runner = processRunner({ cwd: dir, env: { PATH: process.env.PATH } });
+    await expect(startTunnel(runner, executable, 'http://127.0.0.1:12345/mcp', 5000)).rejects.toThrow(/cloudflared exited before tunnel readiness/);
+    await runner.stopAll();
+  });
   it('deletes a possibly uploaded Worker and removes resources after deployment failure', async () => {
     const { check, dir, logs } = fixture('deploy-fail');
     check.record('synthetic case', 'pending', 0);

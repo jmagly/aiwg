@@ -252,6 +252,7 @@
     "!tools/providers/omp-conformance.mjs",
     "!tools/providers/omp-mcp-conformance.mjs",
     "!tools/testing/audit-conformance-inventory.mjs",
+    "!tools/testing/flue-cloudflare-deployed.mjs",
     "!tools/testing/run-conformance-example.mjs",
     "!tools/testing/verify-coverage-enforcement.mjs",
     "!tools/eval/",

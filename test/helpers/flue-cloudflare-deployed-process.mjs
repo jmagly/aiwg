@@ -70,7 +70,7 @@ export function processRunner({ cwd, env, redact = String }) {
     await Promise.all(children.values());
   } };
 }
-export async function startTunnel(runner, executable, url, timeout = 30_000) {
+export async function startTunnel(runner, executable, url, timeout = 30_000, settle = 1_000) {
   // Present the loopback Host to the D9 listener so its DNS-rebinding guard stays unchanged.
   const origin = new URL(url);
   const task = runner.start(executable, ['tunnel', '--url', origin.origin, '--http-host-header', origin.host]);
@@ -80,7 +80,12 @@ export async function startTunnel(runner, executable, url, timeout = 30_000) {
     while (Date.now() < deadline) {
       if (task.failed()) throw new Error(`cloudflared exited before tunnel readiness:\n${task.output()}`);
       const origin = tunnelUrl(task.output());
-      if (origin) return { ...task, url: `${origin}/mcp` };
+      if (origin) {
+        // cloudflared can print its URL and then exit; ready means still running after a settle window.
+        await delay(settle);
+        if (task.failed()) throw new Error(`cloudflared exited before tunnel readiness:\n${task.output()}`);
+        return { ...task, url: `${origin}/mcp` };
+      }
       await delay(25);
     }
     throw new Error(`cloudflared tunnel URL timeout (${timeout}ms):\n${task.output()}`);
