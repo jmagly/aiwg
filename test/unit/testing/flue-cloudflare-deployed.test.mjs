@@ -89,6 +89,14 @@ describe('manual Cloudflare deployed check (offline)', () => {
     ]);
   });
 
+  it('redacts a tunnel URL printed before cloudflared exits early', async () => {
+    const { check } = fixture('tunnel-exit');
+    await expect(check.start()).rejects.toThrow(/cloudflared exited before tunnel readiness/);
+    const json = fs.readFileSync(check.resultsPath, 'utf8');
+    expect(json).toContain('[REDACTED]');
+    expect(json).not.toContain('synthetic-check.trycloudflare.com');
+  });
+
   it('presents the loopback Host to the D9 listener through the tunnel', async () => {
     const dir = scratch();
     const executable = path.join(dir, 'echo-args');

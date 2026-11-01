@@ -8,6 +8,7 @@ else if (args[0] === 'tunnel') {
   trace(`tunnel ${process.pid}`);
   process.on('SIGTERM', () => { trace('tunnel stopped'); process.exit(0); });
   console.error('https://synthetic-check.trycloudflare.com');
+  if (process.env.FAKE_CF_MODE === 'tunnel-exit') process.exit(1);
   setInterval(() => {}, 1000);
 } else if (args[0] === 'deploy') {
   trace('deploy ' + args.join(' '));

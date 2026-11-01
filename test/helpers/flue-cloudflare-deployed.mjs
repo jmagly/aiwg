@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { launchHttp } from '../fixtures/mcp/http-service.mjs';
 import { buildCloudflare, cloudflareVersions, prepareCloudflare, verifyCloudflareDependencies } from './flue-cloudflare.mjs';
 import { randomBytes } from 'node:crypto';
-import { createRedactor, processRunner, requireDeployedOptIn, startTunnel, tailEvents, tailObjects, workerName } from './flue-cloudflare-deployed-process.mjs';
+import { createRedactor, processRunner, requireDeployedOptIn, startTunnel, tailEvents, tailObjects, tunnelUrl, workerName } from './flue-cloudflare-deployed-process.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const aiwgVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
@@ -120,7 +120,7 @@ export function deployedCheck({ env = process.env, prepare = prepareCloudflare, 
         // the Worker log for the same submission id, so wait briefly for tail lag.
         async failureDetails(snapshot) {
           const ids = (snapshot?.settlements || []).map(entry => entry.submissionId).filter(Boolean);
-          const deadline = Date.now() + 20_000;
+          const deadline = Date.now() + 60_000;
           let lines = [];
           while (Date.now() < deadline) {
             lines = tailObjects(tail?.output() || '').map(entry => entry.raw).filter(raw => ids.some(id => raw.includes(id)));
@@ -133,6 +133,9 @@ export function deployedCheck({ env = process.env, prepare = prepareCloudflare, 
         async setToken(token) { await secret('AIWG_MCP_TOKEN', token); await ready(origin); await servingVersion(origin); },
       };
     } catch (error) {
+      // A tunnel that failed after printing its URL leaves that URL in the error text.
+      const leaked = tunnelUrl(String(error));
+      if (leaked) redact.add(leaked);
       results.error = redact(String(error));
       try { throw new Error(results.error); } finally { await close(); }
     }
