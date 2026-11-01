@@ -1,6 +1,6 @@
 {
   "name": "aiwg-evals",
-  "version": "2026.10.19",
+  "version": "2026.11.0",
   "description": "Automated evaluation framework for agent quality, based on KAMI benchmark methodology and ReAct patterns",
   "author": {
     "name": "AIWG Contributors",

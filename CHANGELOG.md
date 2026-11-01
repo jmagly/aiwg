@@ -7,6 +7,8 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.0] - 2026-11-01
+
 ### Added
 
 - Cloudflare-target Flue generation with Worker-bound remote tools, a pinned
@@ -49,6 +51,18 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 - Existing `.aiwg/aiwg.config` files with older or partial `installed` records
   load again; strict checks apply only to newly written records.
+- The post-publish Socket audit now waits, with bounded backoff, for Socket to
+  finish scanning the just-published AIWG packages instead of reporting
+  `unavailable` minutes after publish. Blocking alerts, score regressions and
+  validation errors still fail immediately.
+
+### Dependencies
+
+- The VS Code extension lockfile resolves `@azure/msal-node` 7.1.2 through
+  `@azure/identity` 4.14.1, closing a high Dependabot alert (#3774). This used a
+  one-time, operator-authorized exception to the 7-day release-age gate. The
+  nested `zod` 3 under `@fortemi/core` stays until a `@fortemi/core` release
+  supports zod 4.
 
 ## [2026.10.19] - 2026-10-31
 
