@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { SOCKET_SCAN_WAIT_MS } from '../../tools/release/socket-post-publish-retry.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const publishWorkflow = readFileSync(
@@ -162,10 +163,23 @@ test('Socket audit paces across quota windows with a job timeout that covers the
     socketWorkflow,
     /SOCKET_PACE_QUOTA_MINUTES: \$\{\{ vars\.SOCKET_PACE_QUOTA_MINUTES \|\| '120' \}\}/,
   );
-  const timeout = Number(socketWorkflow.match(/^\s*timeout-minutes: (\d+)$/m)?.[1]);
-  assert.equal(timeout, 90 + 120 + 30, 'job timeout must cover maximum npm wait, Socket pacing, and scan overhead');
+  const auditJob = socketWorkflow.split('  audit:\n')[1];
+  const timeout = Number(auditJob.match(/^\s*timeout-minutes: (\d+)$/m)?.[1]);
+  assert.equal(SOCKET_SCAN_WAIT_MS, 75 * 60_000);
+  assert.equal(timeout, 90 + 120 + SOCKET_SCAN_WAIT_MS / 60_000 + 30,
+    'audit job timeout must cover npm visibility, quota pacing, pending scans, and overhead');
+  const publishTimeout = Number(publishWorkflow.match(/^\s*timeout-minutes: (\d+)$/m)?.[1]);
+  assert.equal(publishTimeout, 65, 'publication retains its separate job timeout');
+  const call = publishWorkflow.split('  socket-post-publish:\n')[1];
+  assert.doesNotMatch(call, /timeout-minutes:/, 'the reusable audit owns its timeout');
   assert.match(socketRunbook, /SOCKET_PACE_QUOTA_MINUTES/);
-  assert.match(socketRunbook, /240 minutes/);
+  assert.match(socketRunbook, /315 minutes/);
+  assert.match(socketRunbook, /75-minute pending-scan wait/);
+});
+
+test('Gitea publication mirrors packages without running the Socket audit', () => {
+  const mirror = readFileSync(path.join(ROOT, '.gitea/workflows/npm-publish.yml'), 'utf8');
+  assert.doesNotMatch(mirror, /socket-post-publish/);
 });
 
 test('npm visibility wait is bounded, configurable, and precedes inventory installation', () => {
