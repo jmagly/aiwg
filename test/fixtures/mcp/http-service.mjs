@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { randomBytes } from 'node:crypto';
 
 const root = path.resolve(import.meta.dirname, '../../..');
-export async function launchHttp(extra = [], { fileToken = false, idleTimeoutMs } = {}) {
+export async function launchHttp(extra = [], { fileToken = false, idleTimeoutMs, inProcess = false } = {}) {
   const scratch = await fs.mkdtemp(path.join(os.tmpdir(), 'aiwg-mcp-http-'));
   const project = path.join(scratch, 'project');
   const home = path.join(scratch, 'home');
@@ -19,6 +19,39 @@ export async function launchHttp(extra = [], { fileToken = false, idleTimeoutMs 
   await fs.writeFile(path.join(bin, 'aiwg'), `#!${process.execPath}\nimport ${JSON.stringify(pathToFileURL(path.join(import.meta.dirname, 'http-cli-proxy.mjs')).href)};\n`, { mode: 0o755 });
   const args = ['serve', '--transport=http', '--project', project, '--port', '0',
     ...(fileToken ? ['--token-file', tokenFile] : ['--token-env', 'AIWG_HTTP_FIXTURE_TOKEN']), ...extra];
+  const env = { PATH: [bin, path.dirname(process.execPath), '/usr/bin', '/bin'].join(path.delimiter),
+    HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: path.join(home, '.config'),
+    XDG_CACHE_HOME: path.join(home, '.cache'), XDG_DATA_HOME: path.join(home, '.local/share'),
+    XDG_STATE_HOME: path.join(home, '.local/state'), AIWG_CONFIG: path.join(home, '.aiwg'),
+    AIWG_ROOT: root, AIWG_RESOLVE_IMPL_FROM: 'dist', AIWG_SKIP_ACTIVITY_LOG: '1',
+    AIWG_PROJECT_AIWG_DIR: path.join(project, '.aiwg'), AIWG_MCP_TOOLSETS: 'all,workers',
+    AIWG_HTTP_FIXTURE_TOKEN: token, NO_UPDATE_NOTIFIER: '1', CI: '1' };
+  if (inProcess) {
+    const previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
+    Object.assign(process.env, env);
+    const restore = () => {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    };
+    try {
+      const { startHttpServer } = await import('../../../src/mcp/http-transport.mjs');
+      const { parseHttpOptions } = await import('../../../src/mcp/http-options.mjs');
+      const service = await startHttpServer({ ...parseHttpOptions(args.slice(1)), idleTimeoutMs });
+      return { scratch, project, token, tokenFile, service,
+        url: `http://127.0.0.1:${service.listener.address().port}/mcp`,
+        async close() {
+          try { await service.close(); }
+          finally { restore(); await fs.rm(scratch, { recursive: true, force: true }); }
+        },
+      };
+    } catch (error) {
+      restore();
+      await fs.rm(scratch, { recursive: true, force: true });
+      throw error;
+    }
+  }
   const moduleUrl = pathToFileURL(path.join(root, 'src/mcp/cli.mjs')).href;
   const script = idleTimeoutMs === undefined
     ? `const { main } = await import(${JSON.stringify(moduleUrl)}); await main(${JSON.stringify(args)});`
@@ -28,13 +61,7 @@ export async function launchHttp(extra = [], { fileToken = false, idleTimeoutMs 
        process.once('SIGTERM', () => service.close()); await service.closed;`;
   const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
     cwd: scratch,
-    env: { PATH: [bin, path.dirname(process.execPath), '/usr/bin', '/bin'].join(path.delimiter),
-      HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: path.join(home, '.config'),
-      XDG_CACHE_HOME: path.join(home, '.cache'), XDG_DATA_HOME: path.join(home, '.local/share'),
-      XDG_STATE_HOME: path.join(home, '.local/state'), AIWG_CONFIG: path.join(home, '.aiwg'),
-      AIWG_ROOT: root, AIWG_RESOLVE_IMPL_FROM: 'dist', AIWG_SKIP_ACTIVITY_LOG: '1',
-      AIWG_PROJECT_AIWG_DIR: path.join(project, '.aiwg'), AIWG_MCP_TOOLSETS: 'all,workers',
-      AIWG_HTTP_FIXTURE_TOKEN: token, NO_UPDATE_NOTIFIER: '1', CI: '1' },
+    env,
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   let logs = '';

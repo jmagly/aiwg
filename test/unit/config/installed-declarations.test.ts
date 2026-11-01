@@ -11,6 +11,19 @@ import { emptyConfig, getDeploymentSummary, updateInstalled } from '../../../src
 const schema = JSON.parse(fs.readFileSync(path.resolve('vscode-extension/schemas/aiwg.config.v1.json'), 'utf8'));
 const ajv = new Ajv({ strict: true }); addFormats(ajv);
 const validate = ajv.compile(schema.definitions.InstalledFramework);
+it('allows an absent installed block in legacy configurations', () => {
+  expect(validateInstalled(undefined)).toBeUndefined();
+});
+it.each([
+  [null, 'installed must be an object'],
+  [[], 'installed must be an object'],
+  [{ sdlc: null }, 'installed.sdlc.deployedTo must be an object'],
+  [{ sdlc: {} }, 'installed.sdlc.deployedTo must be an object'],
+  [{ sdlc: { deployedTo: [] } }, 'installed.sdlc.deployedTo must be an object'],
+  [{ sdlc: { deployedTo: { codex: null } } }, 'installed.sdlc.deployedTo.codex must be an object'],
+])('rejects malformed installed containers: %j', (installed, message) => {
+  expect(() => validateInstalled(installed)).toThrow(new Error(message as string));
+});
 it.each([
   { deployedTo: { flue: {} } },
   { deployedTo: { flue: { package: true } } },
