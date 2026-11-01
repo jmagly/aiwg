@@ -84,7 +84,6 @@ export function deploySkillsWithKernelRouting(
   // at their source path under $AIWG_ROOT and are reached via the
   // artifact index.
   const copyStandardSkills = opts?.copyStandardSkills === true;
-  const copyMode = opts?.copyMode ?? copyStandardSkills;
 
   const kernel = [];
   const standard = [];
@@ -121,7 +120,6 @@ export function deploySkillsWithKernelRouting(
   // both tiers can surface the same skill twice after a tier transition.
   let prunedKernelFromStandardDir = 0;
   if (
-    !copyMode &&
     standardDestDir &&
     fs.existsSync(standardDestDir) &&
     !opts?.dryRun &&
@@ -143,7 +141,7 @@ export function deploySkillsWithKernelRouting(
         } catch { /* preserve unreadable/operator-owned content */ }
       }
       if (!managed) continue;
-      if (!removeSkillCopy(target, opts)) continue;
+      if (!removeSkillCopy(target, { ...opts, tierMove: true })) continue;
       prunedKernelFromStandardDir++;
       if (opts?.verbose) console.log(`pruned promoted kernel from standard dir: ${entry.name}`);
     }
@@ -155,7 +153,7 @@ export function deploySkillsWithKernelRouting(
   // (`pruneStaleAiwgSkills`) — running per-call here would race because
   // `deploySkills` may be invoked multiple times in one orchestration.
   let prunedFromKernelDir = 0;
-  if (!copyMode && kernelDestDir && fs.existsSync(kernelDestDir) && !opts?.dryRun) {
+  if (kernelDestDir && fs.existsSync(kernelDestDir) && !opts?.dryRun) {
     for (const entry of fs.readdirSync(kernelDestDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       const skillMd = path.join(kernelDestDir, entry.name, 'SKILL.md');
@@ -163,7 +161,7 @@ export function deploySkillsWithKernelRouting(
       if (!standardNames.has(entry.name)) continue;
       const target = path.join(kernelDestDir, entry.name);
       try {
-        if (!removeSkillCopy(target, opts)) continue;
+        if (!removeSkillCopy(target, { ...opts, tierMove: true })) continue;
         prunedFromKernelDir++;
         if (opts?.verbose) console.log(`pruned legacy from kernel dir: ${entry.name}`);
       } catch (err) {

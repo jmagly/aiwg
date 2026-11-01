@@ -125,6 +125,7 @@ describe('signed RC identity and exact-artifact promotion foundation (#3201)', (
   it.each([
     'Install locked dependencies',
     'Install locked Flue example dependencies for the offline release lane',
+    'Install locked Flue Cloudflare example dependencies for the offline release lane',
     'Install mandatory SQLite session test backend',
     'Scan known affected package feed',
     'Install syft (SBOM generator)',

@@ -1,4 +1,4 @@
-// Validate pending declarations without accepting incomplete deployment records.
+// Validate new declarations and deployment writes without rejecting historical reads.
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const kinds = ['agents', 'commands', 'skills', 'rules'];
 export function validateInstalled(installed: unknown): void {

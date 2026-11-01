@@ -55,6 +55,7 @@ export function preserveDeploymentOutputs(before, roots, opts = {}) {
   for (const [file, bytes] of before) {
     if (path.basename(file) === sidecar) continue;
     const exists = fs.existsSync(file);
+    if (!exists && opts.replacedSkillCopies?.has(file)) continue;
     const claim = claims.get(file);
     const edited = claim?.record.hash && claim.record.hash !== hash(bytes) && !context.has(path.basename(file)) && claim.record.kind !== 'settings';
     const owners = claim?.record.owners || (claim?.record.frameworkSlug ? [claim.record.frameworkSlug] : []);

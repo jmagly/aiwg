@@ -23,7 +23,7 @@ aiwg use verbalized-sampling
 | Prompt | vs-standard | Standard VS with probability distribution |
 | Prompt | vs-cot | Chain-of-thought variant for deep ideation |
 | Prompt | vs-multi | Multi-response with diversity filtering |
-| Agent | content-diversifier | Applies VS techniques to generation tasks |
+| Agent | verbalized-content-diversifier | Applies VS techniques to generation tasks |
 | Skill | diversity-tuning | Interactive parameter tuning with presets |
 | Rule | diversity-awareness | Detects when VS should be suggested |
 

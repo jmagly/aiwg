@@ -249,6 +249,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
   // Build options for provider
   const { writeContextFileSync } = await import('./providers/context-write.mjs');
   const opts = {
+    replacedSkillCopies: new Set(),
     writeReceipt: writeContextFileSync,
     config: useRuleSelectionConfig(cfg, srcRoot),
     srcRoot,

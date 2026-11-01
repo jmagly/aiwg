@@ -615,7 +615,7 @@ const MIRRORED_KERNEL_COMMAND_SKILLS = new Set([
   'steward',
 ]);
 
-function shouldMirrorStandardCommandSkill(skillName: string): boolean {
+export function shouldMirrorStandardCommandSkill(skillName: string): boolean {
   return skillName.startsWith('flow-') || MIRRORED_STANDARD_COMMAND_SKILLS.has(skillName);
 }
 

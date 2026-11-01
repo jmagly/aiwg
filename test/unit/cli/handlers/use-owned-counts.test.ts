@@ -38,3 +38,26 @@ it('counts framework and implicit addon skills while keeping explicit bundle own
   expect(await countRecordedFrameworkArtifacts(root, 'claude', 'sdlc', root, [])).toEqual({ agents: 0, commands: 0, skills: 2, rules: 0 });
   expect(await countRecordedFrameworkArtifacts(root, 'claude', 'sdlc', root, ['--no-utils'])).toEqual({ agents: 0, commands: 0, skills: 1, rules: 0 });
 });
+it('counts shared operator mirrors without adopting unrelated files from another framework', async () => {
+  write('agentic/code/frameworks/media-marketing-kit/manifest.json', '{}');
+  for (const name of ['flow-release', 'unrelated', 'flow-retired']) {
+    const relative = `.claude/commands/${name}.md`;
+    write(relative, 'wrapper');
+  }
+  const shared = 'agentic/code/frameworks/sdlc-complete/skills/flow-release/SKILL.md';
+  write(shared, 'source');
+  write('.claude/commands/.aiwg-manifest.json', JSON.stringify({ managed: {
+    'flow-release.md': { owners: ['sdlc-complete'], kind: 'skill-command', sourcePath: path.join(root, shared) },
+    'unrelated.md': { owners: ['sdlc-complete'], kind: 'command' },
+    'flow-retired.md': { owners: ['sdlc-complete'], kind: 'skill-command', sourcePath: path.join(root, 'missing') },
+  } }));
+  expect(await countRecordedFrameworkArtifacts(root, 'claude', 'marketing', root, ['--no-utils'])).toEqual({ agents: 0, commands: 1, skills: 0, rules: 0 });
+});
+it('uses recorded skill identity for provider-specific command filenames', async () => {
+  const source = write('agentic/code/frameworks/sdlc-complete/skills/flow-release/SKILL.md', 'source');
+  const file = write('.github/prompts/flow-release.prompt.md', 'wrapper');
+  write('.github/prompts/.aiwg-manifest.json', JSON.stringify({ managed: {
+    'flow-release.prompt.md': { owners: ['sdlc-complete'], kind: 'skill-command', sourcePath: source },
+  } }));
+  expect(await receiptIncludesOwner(file, new Set(['media-marketing-kit']), root)).toBe(true);
+});

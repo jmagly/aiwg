@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Inventory current Mission surfaces, including unstaged changes discovered through Git.
 import { readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -74,10 +75,19 @@ function classify(file, text) {
   };
 }
 
+export async function readInventorySource(directory, file) {
+  try { return await readFile(path.join(directory, file), 'utf8'); }
+  catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
 export async function buildInventory() {
   const entries = [];
   for (const file of trackedFiles()) {
-    const text = await readFile(path.join(root, file), 'utf8');
+    const text = await readInventorySource(root, file);
+    if (text === null) continue; // The Git index can still name unstaged deletions.
     if (file.startsWith('src/mission-protocol/') || file.startsWith('test/conformance/mission-v1/') || marker.test(text) || requiredSurfaces.has(file)) entries.push(classify(file, text));
   }
   return { schemaVersion: 'mission-inventory.aiwg.io/v1', generatedBy: 'tools/mission-protocol/inventory.mjs', entries };

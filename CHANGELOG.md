@@ -34,6 +34,18 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
   prune undeclared bundles while preserving operator edits (#3801). Additive
   framework passes remain expected. Per-provider copy mode persists across
   refresh/update and keeps files until an explicit removal.
+- The verbalized-sampling addon's agent is now `verbalized-content-diversifier`.
+  It previously shared the name `content-diversifier` with the writing-quality
+  agent, so installing both addons made one overwrite the other.
+- Copy-mode deployments now remove a skill's old-tier copy when it moves between
+  the kernel and standard tiers, but only if the copy is unchanged; edited copies
+  stay with a warning. Index mode again deletes stale skills that carry only the
+  legacy `.aiwg-managed` marker.
+
+### Fixed
+
+- Existing `.aiwg/aiwg.config` files with older or partial `installed` records
+  load again; strict checks apply only to newly written records.
 
 ## [2026.10.19] - 2026-10-31
 

@@ -20,6 +20,7 @@ export const RC_STEPS = [
   'Setup Node.js',
   'Install locked dependencies',
   'Install locked Flue example dependencies for the offline release lane',
+  'Install locked Flue Cloudflare example dependencies for the offline release lane',
   'Install mandatory SQLite session test backend',
   'Scan known affected package feed',
   'Resolve validation profile',

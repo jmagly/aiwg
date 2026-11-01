@@ -1828,7 +1828,6 @@ export async function readAiwgConfigCandidate(projectDir: string): Promise<AiwgC
     }
   }
 
-  validateInstalled(parsed.installed);
   const externalLinkErrors = validateExternalLinks(parsed.externalLinks);
   if (externalLinkErrors.length > 0) {
     throw new Error(`Invalid .aiwg/aiwg.config:\n${externalLinkErrors.join('\n')}`);
@@ -2043,6 +2042,9 @@ export function updateInstalled(
     }
   }
 
+  validateInstalled({ [name]: { version: opts.version, source: opts.source, installedAt: new Date().toISOString(),
+    deployedTo: { [provider]: { agents: counts.agents, commands: counts.commands, skills: counts.skills, rules: counts.rules,
+      copy: opts.copy, package: opts.package, skipUtils: opts.skipUtils, kernelOnly: opts.kernelOnly } } } });
   const existing = config.installed[name] ?? {
     version: opts.version,
     source: opts.source,

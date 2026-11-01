@@ -7,6 +7,7 @@ import { REGISTRY_ID_TO_USE_NAME } from '../../config/framework-aliases.js';
 import { getProviderArtifactPathStrings } from '../../providers/provider-definitions.js';
 import { firstRemovePositional, parseRemoveProvider } from './remove-options.js';
 import type { HandlerContext, HandlerResult } from './types.js';
+import { validateInstalled } from '../../config/installed-validation.js';
 
 export async function declareBundle(ctx: HandlerContext, remove = false): Promise<HandlerResult> {
   try {
@@ -36,6 +37,7 @@ export async function declareBundle(ctx: HandlerContext, remove = false): Promis
       config.installed[key] ??= { deployedTo: {} };
       config.installed[key].deployedTo[provider] = ctx.args.includes('--copy-all') || ctx.args.includes('--copy-standard-skills') ? { copy: true } : {};
       if (provider === 'flue' && ctx.args.includes('--package')) config.installed[key].deployedTo[provider].package = true;
+      validateInstalled({ [key]: { deployedTo: { [provider]: config.installed[key].deployedTo[provider] } } });
       ensureProviderListed(config, provider);
     }
     const dryRun = ctx.args.includes('--dry-run');
