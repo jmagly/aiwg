@@ -1,17 +1,15 @@
 ---
 title: "AIWG - October 2026 Report"
 slug: "2026-10-aiwg-october-2026-report"
-date: "2026-10-31"
+date: "2026-11-01"
 project: "AIWG"
 type: report
 tags: [report, "2026-10", aiwg]
 summary: "October brought shared project context, checked worker handoffs, fuller session records, and new ways to review memory, small decisions, and research sources."
 hero: "https://docs.aiwg.io/assets/blog/2026-10-aiwg-october-2026-report.png"
 hero_alt: "Screenprint illustration in rust, ochre and slate: an open ring binder of project notes sends four colored paths, each through a small checkpoint gate, to four different tool windows, with autumn leaves and hills behind."
-status: "scheduled"
+status: "published"
 canonical: "https://aiwg.io/blog/2026-10-aiwg-october-2026-report"
-publish_at: "2026-11-01T12:00:00Z"
-scheduled_assets: ["blog/2026-10-aiwg-october-2026-report.png"]
 ---
 
 # AIWG — October 2026

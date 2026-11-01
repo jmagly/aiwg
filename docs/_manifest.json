@@ -582,7 +582,8 @@
     "addons/voice-framework/natural-voice/ADR-001-evidence-and-ownership",
     "addons/voice-framework/natural-voice/verification-2026-09-06",
     "addons/voice-framework/voice-output-impact",
-    "addons/voice-framework/writing-workflows"
+    "addons/voice-framework/writing-workflows",
+    "blog/2026-10-aiwg-october-2026-report"
   ],
   "sections": [
     {
@@ -4460,6 +4461,13 @@
       "title": "AIWG - September 2026 Report",
       "summary": "September brought more provider choices, a shared alpha contract for decisions, and civic workflows that keep sources and human review close to the work.",
       "file": "blog/2026-9-aiwg-september-2026-report.md",
+      "parent": "blog"
+    },
+    {
+      "id": "blog/2026-10-aiwg-october-2026-report",
+      "title": "AIWG - October 2026 Report",
+      "summary": "October brought shared project context, checked worker handoffs, fuller session records, and new ways to review memory, small decisions, and research sources.",
+      "file": "blog/2026-10-aiwg-october-2026-report.md",
       "parent": "blog"
     }
   ]
