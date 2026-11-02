@@ -77,6 +77,13 @@ describe('direct stable publication and advisory registry checks', () => {
     expect(script).toContain('registry.npmjs.org');
     expect(script).toContain('direct-stable-publish.mjs --mirror');
     expect(script).not.toContain('release-promotion.mjs');
+    // #3806: the age-gate exemption covers only the first-party exact-version fetch.
+    expect(script).toContain('for PACKAGE in aiwg @aiwg/cli @aiwg/cockpit @aiwg/flue; do');
+    expect(script).toContain('npm pack "${PACKAGE}@${VERSION}" --min-release-age=0 ');
+    expect(script.match(/--min-release-age/g)).toHaveLength(1);
+    const otherSteps = steps.filter((item: {name:string}) => item.name !== 'Fetch public stable tarballs and mirror them');
+    expect(JSON.stringify(otherSteps)).not.toContain('min-release-age=0');
+    expect(readFileSync(join(root, '.npmrc'), 'utf8')).toMatch(/^min-release-age=7$/m);
   });
 
   it('validates, packs and publishes exact stable tarballs before release assets', () => {
