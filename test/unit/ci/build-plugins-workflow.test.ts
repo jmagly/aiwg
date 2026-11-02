@@ -56,6 +56,9 @@ describe('required plugin tag validation', () => {
     expect(jobs.validate.if).toBe('always()');
     expect(shards.if).toBeUndefined();
     expect(jobs.deployment.if).toBeUndefined();
+    expect(jobs.deployment.name).toBe('Provider deployment integration (shard ${{ matrix.shard }}/2)');
+    expect(jobs.deployment.strategy).toEqual({ 'fail-fast': false, matrix: { shard: [1, 2] } });
+    expect(jobs.deployment.env).toEqual({ AIWG_DEPLOYMENT_SHARD: '${{ matrix.shard }}' });
     for (const job of [shards, jobs.deployment, jobs.validate]) {
       expect(job['continue-on-error']).toBeUndefined();
       for (const step of job.steps) {

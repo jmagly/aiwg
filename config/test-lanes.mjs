@@ -57,6 +57,21 @@ export const deploymentFiles = [
   // Repeated real CLI updates read the same immutable corpus and source index.
   'test/integration/bundle-reconciliation-cli.test.ts',
 ];
+// CI splits the serial deployment lane into two hand-balanced shards so each
+// fits its time limit on slower shared runners. Each shard is still serial.
+// Measured on titan (run 96216): shard 1 ~530 s, shard 2 ~545 s.
+export const deploymentShards = [
+  [
+    'test/integration/bundle-reconciliation-cli.test.ts',
+    'test/integration/guided-setup-walkthrough.test.ts',
+    'test/integration/hermes-deployment.test.ts',
+  ],
+  [
+    'test/integration/flue-deployment.test.ts',
+    'test/integration/remove-deployment.test.ts',
+    'test/integration/use-all-deployment.test.ts',
+  ],
+];
 // Exhaustive provider deployment matrices run before releases, while focused
 // CLI contracts and a small provider smoke matrix remain in the default lane.
 // These do not overlap the required post-merge deploymentFiles lane above.

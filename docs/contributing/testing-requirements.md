@@ -196,8 +196,12 @@ node tools/testing/check-native-shards.mjs 4
 
 `config/test-lanes.mjs` assigns exhaustive provider deployment matrices to
 `test:release-slow`; default shards exclude them. Small public CLI deployment
-smokes and focused CLI contracts remain on every merge. The existing
-`test:deployment` lane still owns its three independent suites. See
+smokes and focused CLI contracts remain on every merge. The `test:deployment`
+lane owns the full-corpus deployment suites and runs them one file at a time.
+CI splits it into two shards (`deploymentShards` in `config/test-lanes.mjs`),
+selected with `AIWG_DEPLOYMENT_SHARD=1` or `2`. Locally, `npm run test:deployment`
+runs every file. When you add a deployment suite, add it to the shard whose
+measured time is lower. See
 [release validation](versioning.md#publication-surfaces-and-release-infrastructure-validation) for the
 required pre-tag/publication gates and manual workflow entry point.
 

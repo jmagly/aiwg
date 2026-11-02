@@ -3,11 +3,11 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import base from '../../../config/vitest.config.js';
-import deployment from '../../../config/vitest.deployment.config.js';
+import deployment, { deploymentLaneFiles } from '../../../config/vitest.deployment.config.js';
 import packaging from '../../../config/vitest.packaging.config.js';
 import releaseSlow from '../../../config/vitest.release-slow.config.js';
 import uatConfig from '../../../config/vitest.uat.config.js';
-import { deploymentFiles, packagingFiles, releaseSlowFiles } from '../../../config/test-lanes.mjs';
+import { deploymentFiles, deploymentShards, packagingFiles, releaseSlowFiles } from '../../../config/test-lanes.mjs';
 
 const root = path.resolve(import.meta.dirname, '../../..');
 
@@ -57,10 +57,27 @@ describe('required provider deployment lane', () => {
     ]);
   });
 
+  it('splits the lane into two serial shards that run every deployment file exactly once', () => {
+    expect(deploymentShards).toHaveLength(2);
+    const sharded = deploymentShards.flat();
+    expect(new Set(sharded).size).toBe(sharded.length);
+    expect([...sharded].sort()).toEqual([...deploymentFiles].sort());
+    for (const shard of deploymentShards) expect(shard.length).toBeGreaterThan(0);
+    expect(deploymentLaneFiles(undefined)).toEqual(deploymentFiles);
+    expect(deploymentLaneFiles('')).toEqual(deploymentFiles);
+    expect(deploymentLaneFiles('1')).toEqual(deploymentShards[0]);
+    expect(deploymentLaneFiles('2')).toEqual(deploymentShards[1]);
+    for (const invalid of ['0', '3', 'x', '1.5']) {
+      expect(() => deploymentLaneFiles(invalid)).toThrow(/AIWG_DEPLOYMENT_SHARD must be 1-2/);
+    }
+  });
+
   it('is a required canonical build prerequisite', () => {
     const workflow = parseYaml(readFileSync(path.join(root, '.gitea/workflows/ci.yml'), 'utf8'));
     const job = workflow.jobs.deployment;
-    expect(job.name).toBe('Provider deployment integration');
+    expect(job.name).toBe('Provider deployment integration (shard ${{ matrix.shard }}/2)');
+    expect(job.strategy).toEqual({ 'fail-fast': false, matrix: { shard: [1, 2] } });
+    expect(job.env).toEqual({ AIWG_DEPLOYMENT_SHARD: '${{ matrix.shard }}' });
     expect(job['timeout-minutes']).toBe(40);
     const commands = job.steps.map((step: { run?: string }) => step.run ?? '');
     expect(commands).toContain('npm run build:cli');
