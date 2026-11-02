@@ -73,3 +73,28 @@ Regression tests exercise actual CLI exit statuses at and above each boundary,
 measurement failures, and the packaging workflow wiring. Future intentional
 increases should update the script defaults and record their measurements and
 tradeoffs in the change description or commit message.
+
+## November 2026 update: file budget
+
+After 2026.11.0 the package reached 8,001 files against the 8,000 file budget,
+and the post-merge packaging lane failed. The extra file is the published
+October 2026 blog post. Blog posts are part of the shipped discovery corpus: the
+prebuilt relationship index digests `docs/`, so excluding them from the package
+would make every installed index stale.
+
+Raise the file budget from 8,000 to 8,800, about 10% headroom over the measured
+count, the same margin the October decision chose. The packed and unpacked limits
+stay unchanged.
+
+Measured on `main` at 6eb4670df in the CI packaging lane after the full release
+build:
+
+| Metric | Measured | Budget |
+| --- | ---: | ---: |
+| Packed | 19,218.3 KiB | 23,000 KiB |
+| Unpacked | 79.50 MiB | 80.08 MiB (82,000 KiB) |
+| Files | 8,001 | 8,800 |
+
+The unpacked size now has under 1% headroom. The next corpus growth will reach
+that limit, which needs its own measured review rather than another file-count
+raise.
