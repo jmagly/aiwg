@@ -447,6 +447,11 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
+    env:
+      # npm ci fills this cache, and the package-install tests reuse it, so a
+      # slow registry cannot push a cold dependency install past its cap.
+      npm_config_cache: /tmp/aiwg-package-npm-cache
+      AIWG_PACKAGE_TEST_NPM_CACHE: /tmp/aiwg-package-npm-cache
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
