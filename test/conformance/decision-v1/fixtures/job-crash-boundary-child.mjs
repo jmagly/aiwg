@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { appendFile, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, link, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../../../../src/security/artifact-trust.ts';
 import { FileJobStore } from '../../../../src/decision/job-store.ts';
@@ -24,7 +24,11 @@ async function halt(snapshot) {
     const torn = canonicalJson(snapshot);
     await writeFile(join(directory, `.${prefix}.job-${randomUUID()}.tmp`), torn.slice(0, torn.length >> 1), { flag: 'wx', mode: 0o600 });
   }
-  await writeFile(marker, `${boundary}:${phase}`, { flag: 'wx', mode: 0o600 });
+  // Publish the marker atomically: the parent polls for it and must never read it half-written.
+  const partial = `${marker}.${process.pid}.partial`;
+  await writeFile(partial, `${boundary}:${phase}`, { flag: 'wx', mode: 0o600 });
+  await link(partial, marker);
+  await unlink(partial);
   await new Promise(() => setInterval(() => {}, 1000));
 }
 class CrashingJobStore extends FileJobStore {

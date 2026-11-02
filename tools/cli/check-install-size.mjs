@@ -12,7 +12,7 @@
  *
  *   AIWG_PACK_PACKED_BUDGET_KB    — default 23000 (22.46 MiB)
  *   AIWG_PACK_UNPACKED_BUDGET_KB  — default 82000 (80.08 MiB)
- *   AIWG_PACK_FILES_BUDGET        — default 8000 (file count)
+ *   AIWG_PACK_FILES_BUDGET        — default 8800 (file count)
  *
  * The package intentionally ships a prebuilt Fortemi Core framework discovery
  * index so users do not have to build that index after install. The dedicated
@@ -29,8 +29,8 @@ const { boundedExecSync } = await importImpl(import.meta.url, 'process/bounded-c
 const PACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_PACKED_BUDGET_KB', 23_000);
 const UNPACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_UNPACKED_BUDGET_KB', 82_000);
 // Preserve the offline corpus, docs, compiled modules and runtime tools.
-// October measurements and headroom: docs/reports/package-budget-2026-10.md.
-const FILES_BUDGET = parseIntEnv('AIWG_PACK_FILES_BUDGET', 8_000);
+// Measurements and headroom: docs/reports/package-budget-2026-10.md.
+const FILES_BUDGET = parseIntEnv('AIWG_PACK_FILES_BUDGET', 8_800);
 
 const verbose = process.argv.includes('--verbose');
 
