@@ -135,8 +135,12 @@ jobs:
           set -euo pipefail
           VERSION='${{ steps.version.outputs.version }}'
           MIRROR_DIR=$(mktemp -d "$RUNNER_TEMP/stable-mirror.XXXXXX")
+          # Operator-authorized exemption (#3806): the release-age gate does not apply
+          # to fetching our own four first-party packages at the exact released
+          # version. direct-stable-publish.mjs --mirror verifies their identities.
+          # Every other install keeps the repository's min-release-age=7.
           for PACKAGE in aiwg @aiwg/cli @aiwg/cockpit @aiwg/flue; do
-            npm pack "${PACKAGE}@${VERSION}" --ignore-scripts --registry https://registry.npmjs.org --pack-destination "$MIRROR_DIR"
+            npm pack "${PACKAGE}@${VERSION}" --min-release-age=0 --ignore-scripts --registry https://registry.npmjs.org --pack-destination "$MIRROR_DIR"
           done
           printf '%s\n' '//git.integrolabs.net/api/packages/roctinam/npm/:_authToken=${NODE_AUTH_TOKEN}' > "$RUNNER_TEMP/.npmrc"
           NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/.npmrc" node tools/release/direct-stable-publish.mjs --mirror --directory "$MIRROR_DIR" --version "$VERSION" --receipt "$RUNNER_TEMP/gitea-publication.json"
