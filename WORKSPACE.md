@@ -72,25 +72,24 @@ gh run list --repo jmagly/aiwg --limit 5
 gh run view <run-id> --repo jmagly/aiwg
 ```
 
-Stable tag pushes fail closed because they cannot carry retained-RC evidence.
-Publication uses a tag-bound dispatch with the signed RC tag, RC run/artifact,
-current UTC-quarter full-validation/comparison run and artifact, candidate-bound
-approval issue, and exact approval-body SHA-256. Routine RCs use the versioned
-routine profile; quarterly validation uses the exact 43-lane full profile. Both
-workflows require a dedicated `AIWG_GITHUB_RELEASE_EVIDENCE_TOKEN` that supports
-GitHub's authenticated-user API. The checked-in policy is currently disabled.
+A signed stable tag push publishes. `tools/release/cut-tag.sh` runs the release-slow
+lane and signs the tag; pushing that tag to GitHub starts `npm-publish.yml`, which can
+also be dispatched against the same existing tag (`tag_to_publish`). The job checks
+that it is bound to the tag, verifies the tag signature, validates and builds the
+release, reruns the slow release lane, packs and smoke-tests the exact npm tarballs,
+and retains them. It then publishes those tarballs to npmjs.org with OIDC provenance,
+creates the GitHub release, signs the tarballs and SBOM with cosign, and uploads the
+signed assets, `SHA256SUMS` and the installer. The Gitea side follows by dispatch:
+`upload-release-sigs.yml` mirrors the release assets, then `npm-publish.yml` mirrors
+the packages into the Gitea registry once their npmjs identities are visible.
 
-The GitHub job publishes the three retained RC tarballs through
-`tools/release/release-promotion.mjs`, then creates the release, signs the retained
-root tarball and SBOM, and uploads all three tarballs plus the signed assets,
-`SHA256SUMS`, and retained `install.sh`. The Gitea job runs after npmjs identities
-are visible and mirrors the same retained files.
-
-npm visibility/provenance and stable dist-tag checks run last with short, bounded
+npm visibility, provenance and stable dist-tag checks run last with short, bounded
 waits and are advisory: failures emit warnings and job-summary recovery commands
 without failing the job or preventing the subsequent Socket audit. Real npm
 publish failures still block; already-published versions count as success.
-Recovery reruns the same stable tag with the same complete evidence-input set.
+Recovery reruns or re-dispatches the same stable tag. The `socket-post-publish` job
+runs after publication; while #3809 is open its known Flue runtime findings mark the
+run failed even when the publish job succeeded, so check the publish job itself.
 
 Source of record: `docs/contributing/versioning.md` ("Publication surfaces").
 
