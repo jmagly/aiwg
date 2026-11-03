@@ -945,7 +945,8 @@ async function captureOneWorker(owner, ctx) {
   const { child, outcome, invocation, invocationId, supervisor, launchTime, monotonicStart, publish, paths, handles, options,
     canaryDeadlineMs = null, canaryNowMs = () => Date.now(), recoveryGated = false } = ctx;
   const hasTransport = outcome.mode === 'systemd-unit' || outcome.transportSupervisor;
-  const sampleIdentity = options.sampleIdentity ?? sampleWorkerIdentity;
+  // Spawn-time capture keeps a fast-exiting worker's identity (#3835).
+  const sampleIdentity = options.sampleIdentity ?? (pid => sampleWorkerIdentity(pid, { includeExited: true }));
   // Separate hook from `sampleIdentity` (the worker-side sampler): this one
   // samples the launcher's own trusted transport child, never a worker PID,
   // and tests need to control the two independently (e.g. the transport
@@ -1643,7 +1644,8 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
 async function captureOneWorkerBaseline(owner, ctx) {
   const { child, outcome, invocation, invocationId, supervisor, launchTime, monotonicStart, publish, paths, handles, options } = ctx;
   const hasTransport = outcome.mode === 'systemd-unit' || outcome.transportSupervisor;
-  const sampleIdentity = options.sampleIdentity ?? sampleWorkerIdentity;
+  // Spawn-time capture keeps a fast-exiting worker's identity (#3835).
+  const sampleIdentity = options.sampleIdentity ?? (pid => sampleWorkerIdentity(pid, { includeExited: true }));
   const sampleNativeSupervisor = options.sampleNativeSupervisor ?? sampleWorkerIdentity;
   // For our own detached child, spawn waits through setsid/exec; one owned leader sample suffices.
   const immediate = !hasTransport ? sampleIdentity(child.pid) : null;
