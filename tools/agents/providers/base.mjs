@@ -5,7 +5,7 @@ export { loadModelConfig, loadRuntimeModelCatalog, parseSkillPlatforms, skillMat
 export { parseFrontmatter, stringifyFrontmatter, toKebabCase, stripJsonComments, inferAgentCategory, parseTools, filterCommandsAgainstSkills } from './base-frontmatter.mjs';
 export { deployFiles, deploySoulCompanions } from './base-flat-artifacts.mjs';
 export { isKernelSkill, deploySkillsWithKernelRouting, computeAllKernelNames, pruneStaleAiwgSkills } from './base-kernel-skills.mjs';
-export { artifactStem, computeAllArtifactBasenames, resolveAiwgRoot, computeAllSkillNames, pruneStaleAiwgFiles } from './base-inventory.mjs';
+export { artifactStem, computeAllArtifactBasenames, computeArtifactInventory, resolveAiwgRoot, computeAllSkillNames, pruneStaleAiwgFiles } from './base-inventory.mjs';
 export { deploySkillDir, initializeFrameworkWorkspace } from './base-skill-copy.mjs';
 export { buildRemotesTopologyBlock, interpolateContextTokens, createManagedMdFromTemplate, createAgentsMdFromTemplate } from './base-context.mjs';
 export { shouldDeployAgent, matchesGlob, filterAgentFiles, normalizeDeploymentMode, discoverFrameworks, getFrameworksForMode, collectFrameworkArtifacts } from './base-framework-discovery.mjs';

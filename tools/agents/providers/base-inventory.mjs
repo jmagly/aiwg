@@ -1,5 +1,5 @@
 // Shared provider inventory utilities.
-import { fs, path } from './base-runtime.mjs';
+import { extractFrameworkSlug, fs, path } from './base-runtime.mjs';
 import { collectFrameworkArtifacts } from './base-framework-discovery.mjs';
 import { getAddonAgentFiles, getAddonCommandFiles } from './base-addon-discovery.mjs';
 import { getAddonRuleFiles } from './base-rule-index.mjs';
@@ -40,8 +40,9 @@ export function artifactStem(name) {
  * deliberate and mirrors `computeAllKernelNames` for skills: `aiwg use sdlc`
  * must not prune a marketing agent that a prior `aiwg use all` deployed and
  * that is still a valid AIWG artifact. Only artifacts whose source no longer
- * exists ANYWHERE in the tree (renamed/removed) fall out of this set and
- * become prune-eligible.
+ * exists ANYWHERE in the tree (renamed/removed) fall out of this set.
+ * Receipts with bundle identity use the owner inventory instead, so an
+ * unrelated bundle's same-named artifact cannot hide a retired artifact.
  *
  * Anchors to the AIWG root (resolved by walking up from `srcRoot` for the
  * `agentic/code/frameworks` + `agentic/code/addons` pair, or `AIWG_ROOT`),
@@ -57,12 +58,25 @@ export function artifactStem(name) {
  *   if the AIWG framework/addon tree can't be located
  */
 export function computeAllArtifactBasenames(srcRoot, type) {
+  return computeArtifactInventory(srcRoot, type)?.stems ?? null;
+}
+
+/** Global and per-bundle stems from the same mode-independent discovery pass. */
+export function computeArtifactInventory(srcRoot, type) {
   const aiwgRoot = resolveAiwgRoot(srcRoot);
   if (!aiwgRoot) return null;
 
   const stems = new Set();
+  const ownerStems = new Map();
   const add = (files) => {
-    for (const f of files) stems.add(artifactStem(path.basename(f)));
+    for (const f of files) {
+      const stem = artifactStem(path.basename(f));
+      stems.add(stem);
+      const owner = extractFrameworkSlug(f);
+      if (!owner) continue;
+      if (!ownerStems.has(owner)) ownerStems.set(owner, new Set());
+      ownerStems.get(owner).add(stem);
+    }
   };
 
   const frameworkArtifacts = collectFrameworkArtifacts(aiwgRoot, 'all', {
@@ -87,7 +101,7 @@ export function computeAllArtifactBasenames(srcRoot, type) {
     add(getAddonRuleFiles(aiwgRoot, [], { includeExplicit: true }));
   }
 
-  return stems;
+  return { stems, ownerStems };
 }
 
 
@@ -170,21 +184,23 @@ export function computeAllSkillNames(srcRoot) {
  *   1. It has an allowed deployed-artifact extension (`.md` / `.mdc` by
  *      default; callers may include `.toml`), is not `RULES-INDEX.md`,
  *      and not the sidecar manifest.
- *   2. Its stem is NOT in `desiredStems` (the source no longer ships it).
+ *   2. No recorded owner still ships its stem. Receipts without bundle
+ *      identity fall back to the global `desiredStems` check.
  *   3. It carries an AIWG ownership signal — either a `.aiwg-manifest.json`
  *      sidecar entry, or an in-file `aiwg:managed` marker.
+ *   4. Its bytes match the sidecar's hash. Markers alone never permit deletion.
  *
- * User-authored files (no ownership signal) and current AIWG artifacts (stem
- * in the desired set) are never touched. Pruned files also have their sidecar
+ * User-authored files (no ownership signal) and artifacts still shipped by a
+ * recorded owner are never touched. Pruned files also have their sidecar
  * entry dropped so the manifest stays accurate.
  *
- * Safe to call on every deploy invocation: `desiredStems` is the global
- * (mode-independent) source set, so sibling-framework files are never
- * collateral.
+ * Shared-path rule: retain the file if ANY recorded owner still ships the
+ * stem, including when another recorded owner has retired it. Inventory is
+ * mode-independent so sibling-framework files remain protected.
  *
  * @param {string} destDir absolute path to the provider artifact dir
  * @param {Set<string>|string[]} desiredStems stems that should remain
- * @param {object} opts `{ dryRun, verbose }`
+ * @param {object} opts `{ dryRun, verbose, ownerStems?: Map<string, Set<string>> }`
  * @returns {string[]} removed (or would-be-removed) file paths
  */
 export function pruneStaleAiwgFiles(destDir, desiredStems, opts = {}) {
@@ -224,7 +240,13 @@ export function pruneStaleAiwgFiles(destDir, desiredStems, opts = {}) {
     const lower = name.toLowerCase();
     if (!artifactExtensions.some(extension => lower.endsWith(extension))) continue;
 
-    if (desired.has(artifactStem(name))) continue;
+    const stem = artifactStem(name);
+    const record = managed[name];
+    const owners = [record?.frameworkSlug, ...(Array.isArray(record?.owners) ? record.owners : [])]
+      .filter(owner => typeof owner === 'string' && owner.length > 0);
+    // Wrappers belong to the skill inventory below, not the command inventory.
+    const ownerAware = opts.ownerStems instanceof Map && owners.length > 0 && record?.kind !== 'skill-command';
+    if (ownerAware ? owners.some(owner => opts.ownerStems.get(owner)?.has(stem)) : desired.has(stem)) continue;
 
     // Skill-command wrappers are named after skills, not command sources, so
     // they are absent from the command desired set by construction — pruning
