@@ -1,5 +1,6 @@
 /** Stop-proof retention and post-write containment regressions with local fixtures. */
-import fs, { mkdtemp, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import fs, { mkdtemp, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import { syncBuiltinESMExports } from 'node:module';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';

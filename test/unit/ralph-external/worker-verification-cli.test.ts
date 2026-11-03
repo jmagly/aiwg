@@ -1,6 +1,10 @@
 // Exercise the installed worker CLI with synthetic launcher records and clients.
 import { afterEach, describe, expect, it } from 'vitest';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, symlinkSync } from 'node:fs';
+import { rmSync } from '../../helpers/worker-capture-cleanup.mjs';
+import { WorkerCaptureOwner } from '../../../tools/ralph-external/lib/worker-capture.mjs';
+import { publishWorkerRecord } from '../../../tools/ralph-external/session-launcher.mjs';
+import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -64,6 +68,28 @@ describe('T-OG-04 installed CLI trusted verification', () => {
     expect(result.output.treeDigest).toMatch(/^fd-tree:sha256:/);
     expect(result.output.evidence).toHaveLength(1);
     expect(result.output.runnerRef).toBe(new URL('../../../tools/ralph-external/lib/trusted-verification.mjs', import.meta.url).href);
+  });
+
+  it('checks sealed capture digests before executing protected checks (#3832)', async () => {
+    const f = fixture();
+    const invocation = JSON.parse(await readFile(path.join(f.run, 'invocation.json'), 'utf8'));
+    invocation.captures = {};
+    const owner = new WorkerCaptureOwner({ runDir: f.run, paths: invocation.paths, captures: {},
+      inspect: inspectWorkerPath, invocationId: invocation.invocationId });
+    const publish = owner.writer(publishWorkerRecord);
+    await publish(f.run, 'invocation.json', invocation, inspectWorkerPath);
+    await publish(f.run, 'exit.json', { invocationId: invocation.invocationId, termination: 'confirmed' }, inspectWorkerPath);
+    await owner.finish();
+    expect(f.invoke().output.status).toBe('accepted');
+    const exit = JSON.parse(await readFile(path.join(f.run, 'exit.json'), 'utf8'));
+    const snapshot = exit.captureSeal.files[0].path;
+    await chmod(snapshot, 0o600);
+    await writeFile(snapshot, 'tampered capture');
+    await chmod(snapshot, 0o400);
+    const result = f.invoke(['--check', f.check('throw new Error("must not execute")')]);
+    expect(result.status).toBe(1);
+    expect(result.output).toMatchObject({ status: 'rejected', evidence: [], errorCode: 'VERIFICATION_REQUEST_FAILED' });
+    expect(result.output.findings.join(' ')).toMatch(/capture seal verification failed.*digest mismatch/);
   });
 
   it.each(['unavailable', 'missing-home'])('fails closed before checks when isolation is %s', mode => {

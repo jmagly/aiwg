@@ -13,7 +13,8 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { mkdtemp, mkdir, writeFile, readFile, rm, lstat, symlink, chmod, readdir, truncate, link, unlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, lstat, symlink, chmod, readdir, truncate, link, unlink } from 'node:fs/promises';
+import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import * as fsPromises from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 // #2915 round 8 review 8 (C8): a mostly-transparent passthrough mock of
@@ -4932,7 +4933,7 @@ describe('baseline equivalence (#2915 round 8, D6): frozen 8c812250d6 vs the bra
           // which the algorithm itself legitimately folds in).
           expect(baselineInvocation.taskDigest).toBe(qualificationDigest(baselineSaved.request));
           expect(branchInvocation.taskDigest).toBe(qualificationDigest(branchSaved.request));
-          expect(Object.keys(branchInvocation).sort()).toEqual(Object.keys(baselineInvocation).sort());
+          expect(Object.keys(normalizeMarkerRunRecord('invocation.json', baselineInvocation, branchInvocation)).sort()).toEqual(Object.keys(baselineInvocation).sort());
           const baselineExit = JSON.parse(await readFile(path.join(baseline.runDir, 'exit.json'), 'utf8'));
           const branchExit = JSON.parse(await readFile(path.join(branch.runDir, 'exit.json'), 'utf8'));
           expect(Object.keys(normalizeMarkerRunRecord('exit.json', baselineExit, branchExit)).sort()).toEqual(Object.keys(baselineExit).sort());

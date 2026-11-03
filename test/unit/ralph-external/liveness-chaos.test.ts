@@ -1,7 +1,8 @@
 import { trackWorkerProcess } from '../../fixtures/ralph-external/worker-process-inventory.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
-import { lstat, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';

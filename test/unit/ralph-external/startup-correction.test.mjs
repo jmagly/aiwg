@@ -1,3 +1,4 @@
+import { rmSync as removeWorkerTree } from '../../helpers/worker-capture-cleanup.mjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -21,7 +22,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
   resetInProcessAllowanceLedger();
   for (const breaker of breakers.splice(0)) breaker.destroy();
-  for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) removeWorkerTree(root, { recursive: true, force: true });
 });
 
 async function fixture(settings = {}) {

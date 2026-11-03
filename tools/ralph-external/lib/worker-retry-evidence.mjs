@@ -4,6 +4,7 @@ import { importImpl } from '../../_resolve-impl.mjs';
 import { lstat, readdir, realpath } from 'node:fs/promises';
 import { boundedPrivateRead, withWorkerPath } from './worker-inputs.mjs';
 import { resolveRetryReference } from './worker-launch-cli.mjs';
+import { verifyWorkerCaptureSeal } from './worker-capture.mjs';
 import { realBeneath, stableTaskChainDigest, assertStopBeforeRetry, publishWorkerRecord, UNBOUND_RETRY_EVIDENCE_CODE } from '../session-launcher.mjs';
 import { recheckWorkerTermination } from './worker-termination.mjs';
 
@@ -78,6 +79,8 @@ export async function verifyRetryPredecessor(retryOf, { newInvocationPath, inspe
   }
   if (exitRecord?.invocationId !== prevId) fail('exit.json identity does not match retryOf');
   let bindingDigest, correction;
+  try { await verifyWorkerCaptureSeal(prevRunDir, invocationRecord, exitRecord, inspect); }
+  catch (error) { fail(`capture seal verification failed (${error.message})`); }
   if (newInvocationPath !== undefined) {
     // #2915 review 4 (finding 4): the SAME stable task-chain identity
     // `launchOneWorker` publishes — role/task/group plus the brief CONTENT

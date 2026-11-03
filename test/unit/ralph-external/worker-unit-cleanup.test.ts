@@ -1,12 +1,13 @@
 // Retained status must survive best-effort cleanup, which requires a private launch owner.
 import { EventEmitter } from 'node:events';
-import { rmSync } from 'node:fs';
+import { rmSync } from '../../helpers/worker-capture-cleanup.mjs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { systemdClientFixture } from '../../fixtures/systemd-client.js';
 import { workerInvocationFixture } from '../../fixtures/worker-single-invocation.js';
 import { PassThrough } from 'node:stream';
-import { readFile, rm } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import { createWorkerUnitOwner, publishWorkerUnitExit, resetRecordedWorkerUnit, recordWorkerUnitStop, readRecordedWorkerUnitStop } from '../../../tools/ralph-external/lib/worker-unit-cleanup.mjs';
 import { stopOverflowWorker } from '../../../tools/ralph-external/lib/worker-overflow.mjs';
 import { launchIsolatedWorker } from '../../../tools/ralph-external/lib/worker-isolation.mjs';

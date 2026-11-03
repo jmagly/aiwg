@@ -1,7 +1,8 @@
 // Offline Ollama fixture lifecycle, installed package and resolver snapshots.
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
-import { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { rm } from '../../../helpers/worker-capture-cleanup.mjs';
 import { createServer as createTcpServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';

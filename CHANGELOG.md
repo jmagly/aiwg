@@ -13,6 +13,7 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 - Refuse flagless worker relaunches with open task predecessors and allow explicit brief/group corrections after verified owned-stop proof while preserving retry lineage (#3831).
 - Add opt-in conductor worker-execution checks (default off): set `defaults.workerSelection.guards.denyConductorWorkerExecution: true` in `models.json` and redeploy Claude to deny worker tests/imports with `aiwg ralph-external --verify-worker` guidance while allowing diff reads (#3833).
+- Preserve read-only per-attempt worker capture snapshots with verified digests and refuse capture or deliverable path reuse (#3832).
 
 - Index-mode flat artifact pruning now checks each receipt's bundle owners,
   so upgrading verbalized-sampling removes its unchanged old
