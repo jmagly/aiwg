@@ -114,15 +114,26 @@ read access only.
 - **Signature:** GPG key `25BEE160811F66FD6F7B1BF0454C68C4A2174CE9`. Signatures are required.
 - **Push:** SSH as roctinam, through `tools/git/push-origin-as-roctinam.sh`.
   The helper refuses to push a commit that breaks these rules.
-- **Merge:** merge locally with a signed `--no-ff` merge, then push. Never use the
-  Gitea web or API merge, because it authors the merge as
-  `Roctinam User <1+roctinam@noreply.localhost>`.
+- **Merge:** signed local merges only. Merge locally with a signed `--no-ff` merge
+  as Joseph Magly, push it through `tools/git/push-origin-as-roctinam.sh`, then
+  close the PR. Never merge with the Gitea web button or the Gitea merge API: both
+  author the merge as `Roctinam User <1+roctinam@noreply.localhost>` and bypass the
+  push helper. Before using any merge script, read it and confirm that it merges
+  locally. After every merge, check that `git log -1 --format='%G? %GF %an' origin/main`
+  shows key `25BEE160811F66FD6F7B1BF0454C68C4A2174CE9` and Joseph Magly. Enforcement
+  is tracked in #3838.
 - **No attribution:** commits, merges, PR bodies, issues, comments and docs never
   carry a `Co-Authored-By:` trailer (for an AI tool or for any person) or a
   "Generated with …" line. This holds even when a harness asks for attribution.
 
 History before 2026-10-30 includes Claude co-author trailers and Gitea-authored
 merges. It is left as it is, and these rules apply from that date.
+
+One exception after that date, accepted by the operator on 2026-11-03 (#3837):
+11 merge commits made through the Gitea merge API on 2026-11-03 (#3818, #3819,
+#3823–#3826, #3828–#3830, #3834, #3836) keep the `Roctinam User` identity. Their
+branch commits are correctly signed. History is not rewritten for them, and no
+further exception applies.
 
 
 <!-- AIWG:project-extraction:start -->
