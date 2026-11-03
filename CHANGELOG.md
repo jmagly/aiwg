@@ -7,6 +7,15 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Fixed
+
+- Index-mode flat artifact pruning now checks each receipt's bundle owners,
+  so upgrading verbalized-sampling removes its unchanged old
+  `content-diversifier` agent even while writing-quality still ships that name
+  (#3807). Manual deletion is no longer needed for unchanged, recorded copies.
+  Shared paths survive while any recorded owner still ships the stem; edited,
+  operator-owned, unrecorded and copy-mode files remain preserved.
+
 ### Dependencies
 
 - Require MCP client 2.3.0 for `@aiwg/flue` and document app overrides for the Flue 2.3.0 dependency advisories (#3821).

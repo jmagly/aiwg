@@ -1,7 +1,7 @@
 /** Preserve projector-owned rules while pruning stale legacy flat artifacts. */
 import fs from 'node:fs';
 import path from 'node:path';
-import { computeAllArtifactBasenames, computeAllSkillNames, pruneStaleAiwgFiles, resolveAiwgRoot } from './base.mjs';
+import { computeArtifactInventory, computeAllSkillNames, pruneStaleAiwgFiles, resolveAiwgRoot } from './base.mjs';
 
 /**
  * After a deploy, prune AIWG-managed flat artifacts (agents/commands/rules)
@@ -12,10 +12,10 @@ import { computeAllArtifactBasenames, computeAllSkillNames, pruneStaleAiwgFiles,
  *     or `--source` under `<aiwgRoot>/agentic/code`). Project-local bundle
  *     deploys (`--source <bundle>`) are skipped so a bundle's just-deployed
  *     artifacts are never mistaken for stale framework files.
- *   - `pruneStaleAiwgFiles` itself only removes files carrying an AIWG
- *     ownership signal (sidecar entry or `aiwg:managed` marker) AND whose
- *     stem is absent from the global, mode-independent source set, so
- *     user-authored files and sibling-framework artifacts always survive.
+ *   - `pruneStaleAiwgFiles` itself only removes files whose AIWG
+ *     receipt hash matches their bytes AND whose recorded owners no longer
+ *     ship the stem. Without bundle identity, it uses the global source set.
+ *     Any still-shipping recorded owner protects a shared path.
  *   - Aggregate-file paths (e.g. `AGENTS.md`) and unset paths are skipped.
  *
  * @param {object} provider loaded provider module
@@ -103,8 +103,8 @@ export function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explici
     if (!relPath) continue;                 // type not file-deployed by provider
     if (relPath.endsWith('.md')) continue;  // aggregate file (e.g. AGENTS.md)
 
-    const desired = computeAllArtifactBasenames(srcRoot, type);
-    if (!desired) continue;                 // no global desired set → skip
+    const inventory = computeArtifactInventory(srcRoot, type);
+    if (!inventory) continue;               // no global desired set → skip
 
     const destDir = path.isAbsolute(relPath) ? relPath : path.join(target, relPath);
     // Activation projection owns its complete selected rule set, including extensions.
@@ -113,7 +113,8 @@ export function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explici
       const receipt = path.join(destDir, '.aiwg-manifest.json');
       if (fs.existsSync(receipt) && JSON.parse(fs.readFileSync(receipt, 'utf8')).delivery) continue;
     }
-    const removed = pruneStaleAiwgFiles(destDir, desired, {
+    const removed = pruneStaleAiwgFiles(destDir, inventory.stems, {
+      ownerStems: inventory.ownerStems,
       dryRun: opts.dryRun,
       verbose: opts.verbose,
       // Retire wrappers whose source skill no longer ships (#2511). Only the
