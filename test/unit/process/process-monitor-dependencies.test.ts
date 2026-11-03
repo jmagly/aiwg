@@ -14,6 +14,7 @@ async function stage(resolver: boolean, implementation: 'missing' | 'present' | 
   await writeFile(join(root, 'package.json'), JSON.stringify({ name: '@aiwg/cli', type: 'module' }));
   await cp('tools/ralph-external/process-monitor.mjs', join(directory, 'process-monitor.mjs'));
   await cp('tools/ralph-external/lib/worker-health.mjs', join(directory, 'lib/worker-health.mjs'));
+  await cp('tools/ralph-external/lib/worker-process-identity.mjs', join(directory, 'lib/worker-process-identity.mjs'));
   if (resolver) await cp('tools/_resolve-impl.mjs', join(root, 'tools/_resolve-impl.mjs'));
   if (implementation !== 'missing') {
     await mkdir(join(root, 'dist/src/process'), { recursive: true });

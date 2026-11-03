@@ -109,11 +109,13 @@ export async function verifyRetryPredecessor(retryOf, { newInvocationPath, inspe
         const processRecord = JSON.parse((await boundedPrivateRead(join(prevRunDir, 'process.json'), 65536, inspect, true, true)).toString('utf8'));
         evidence = await recheckWorkerTermination({ processRecord, exitRecord });
       } catch (error) { evidence = { confirmed: false, missing: `readable, private launcher process.json (${error.message})` }; }
+      exitRecord = { ...exitRecord, terminationMissing: evidence.missing ?? null,
+        ...(exitRecord.healthEvidence ? { healthEvidence: { ...exitRecord.healthEvidence, terminationMissing: evidence.missing ?? null } } : {}) };
       if (evidence.confirmed) {
         exitRecord = { ...exitRecord, termination: 'confirmed', descendants: 'none',
           ...(exitRecord.health ? { health: { ...exitRecord.health, termination: 'confirmed' } } : {}) };
-        await publishWorkerRecord(prevRunDir, 'exit.json', exitRecord, inspect);
       }
+      await publishWorkerRecord(prevRunDir, 'exit.json', exitRecord, inspect);
     }
     if (exitRecord.termination !== 'confirmed') {
       assertStopBeforeRetry(exitRecord, { expectedInvocationId: prevId, runDir: prevRunDir, missing: evidence?.missing });

@@ -1,10 +1,10 @@
-// Synthetic scan clocks exercise the launcher's single exit-time scan budget.
+// Synthetic scan clocks exercise exit-time and explicit-recheck termination budgets.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sampleWorkerIdentity } from '../../../tools/ralph-external/process-monitor.mjs';
-import { observeWorkerTermination } from '../../../tools/ralph-external/lib/worker-termination.mjs';
+import { observeWorkerTermination, recheckWorkerTermination } from '../../../tools/ralph-external/lib/worker-termination.mjs';
 import { scanWorkerInvocationProcesses, WORKER_INVOCATION_MARKER } from '../../../tools/ralph-external/lib/worker-invocation-processes.mjs';
 
 const roots = [];
@@ -37,6 +37,25 @@ describe('T-OG-04 exit-time termination budget (#3781)', () => {
       } } }));
     expect(observeWorkerTermination({ ...base, now: () => clock, scan }))
       .toMatchObject({ confirmed: true, missing: null });
+    expect(clock).toBe(180);
+    expect(scan).toHaveBeenCalledTimes(1);
+    expect(scan.mock.calls[0][0].deadline).toBe(2000);
+  });
+
+  it('lets an explicit recheck complete a 180 ms scan within its shared two-second budget', async () => {
+    const { procRoot, base } = fixture('OTHER=value\0', 6);
+    let clock = 0;
+    const scan = vi.fn(input => scanWorkerInvocationProcesses({ ...input, procRoot,
+      fs: { ...fs, statSync: (...args) => { clock += 30; return fs.statSync(...args); } } }));
+    const evidence = await recheckWorkerTermination({
+      processRecord: { invocationId: base.invocationId, invocationMarker: base.invocationId,
+        origin: 'launcher', supervisor: base.supervisor, isolation: 'degraded',
+        ownership: 'owned-group', identityObservation: 'stable-owned-group', worker: base.identity },
+      exitRecord: { invocationId: base.invocationId, isolation: 'degraded', exitCode: 0 },
+      observe: input => observeWorkerTermination({ ...base, ...input, scan }),
+      now: () => clock, wait: async ms => { clock += ms; },
+    });
+    expect(evidence).toEqual({ confirmed: true, missing: null });
     expect(clock).toBe(180);
     expect(scan).toHaveBeenCalledTimes(1);
     expect(scan.mock.calls[0][0].deadline).toBe(2000);

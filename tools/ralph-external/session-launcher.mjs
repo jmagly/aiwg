@@ -52,7 +52,7 @@ import { buildSessionEnvironment } from './lib/session-environment.mjs';
 import { withWorkerPath, boundedPrivateRead } from './lib/worker-inputs.mjs';
 import { collectWorkerFinal } from './lib/worker-final.mjs';
 import { prepareWorkerRetry, workerRetryRecordFields } from './lib/worker-retry-evidence.mjs';
-import { observeWorkerTermination, terminationRemedy } from './lib/worker-termination.mjs';
+import { settleWorkerTermination, terminationRemedy } from './lib/worker-termination.mjs';
 import { buildWorkerInvocationEnvironment } from './lib/worker-invocation-processes.mjs';
 import { launcherRecoveryEvidence, observeLauncherRecoveryOutcome, recordLauncherRecoveryHint } from './lib/launcher-recovery-evidence.mjs';
 export { observeLauncherRecoveryOutcome } from './lib/launcher-recovery-evidence.mjs';
@@ -1134,8 +1134,10 @@ async function captureOneWorker(owner, ctx) {
     const native = outcome.unit ? readNative() ?? readRecordedWorkerUnitStop(outcome, { native: true }) : null;
     const members = identity ? sampleWorkerGroup(identity.pgid) : null;
     // Require positive kernel evidence of owned containment being empty.
-    const confirmed = (outcome.mode !== 'systemd-unit' && child.pid === undefined) || observeWorkerTermination({ mode: outcome.mode, native,
-      workerExited: sawExit, identity, supervisor, invocationId }).confirmed;
+    const terminationEvidence = outcome.mode !== 'systemd-unit' && child.pid === undefined
+      ? { confirmed: true, missing: null } : await settleWorkerTermination({ mode: outcome.mode, native,
+        workerExited: sawExit, identity, supervisor, invocationId });
+    const confirmed = terminationEvidence.confirmed;
     // `worker-exit.json`/`worker-identity.json` are written into a directory
     // the worker itself can reach (same UID, no filesystem confinement), so a
     // worker can plant either file before the trusted transport ever writes
@@ -1171,7 +1173,7 @@ async function captureOneWorker(owner, ctx) {
       : outcome.mode === 'systemd-unit' && native?.execMainCode === 1 ? native.execMainStatus : waitCode;
     const result = { invocationId, exitCode, signal: resultSignal,
       endedAt: new Date().toISOString(), termination: confirmed ? 'confirmed' : 'uncertain',
-      descendants: confirmed ? 'none' : 'unknown', timedOut: resultTimedOut,
+      terminationMissing: terminationEvidence.missing, descendants: confirmed ? 'none' : 'unknown', timedOut: resultTimedOut,
       cancelled: stopReason === 'CANCELLED', stopReason, errorCode: errorCode ?? null, capturedBytes: Math.min(total, output.length),
       // Unauthenticated: reported by the worker-writable transport record, not
       // kernel-observed. Never used above for exitCode/signal/termination.
@@ -1804,8 +1806,10 @@ async function captureOneWorkerBaseline(owner, ctx) {
     // evidence is used wherever it is available.
     const native = outcome.unit ? readNative() ?? readRecordedWorkerUnitStop(outcome, { native: true }) : null;
     const members = identity ? sampleWorkerGroup(identity.pgid) : null;
-    const confirmed = (outcome.mode !== 'systemd-unit' && child.pid === undefined) || observeWorkerTermination({ mode: outcome.mode, native,
-      workerExited: sawExit, identity, supervisor, invocationId }).confirmed;
+    const terminationEvidence = outcome.mode !== 'systemd-unit' && child.pid === undefined
+      ? { confirmed: true, missing: null } : await settleWorkerTermination({ mode: outcome.mode, native,
+        workerExited: sawExit, identity, supervisor, invocationId });
+    const confirmed = terminationEvidence.confirmed;
     const workerExit = hasTransport ? await transportRecord('worker-exit.json') : null;
     if (!identity && hasTransport && nativeSupervisor) {
       const workerStart = await transportRecord('worker-identity.json');
@@ -1824,7 +1828,7 @@ async function captureOneWorkerBaseline(owner, ctx) {
     const result = { invocationId, exitCode, signal: resultSignal,
       ...(options.managedAdmission ? { managedAdmission: options.managedAdmission } : {}),
       endedAt: new Date().toISOString(), termination: confirmed ? 'confirmed' : 'uncertain',
-      descendants: confirmed ? 'none' : 'unknown', timedOut: resultTimedOut,
+      terminationMissing: terminationEvidence.missing, descendants: confirmed ? 'none' : 'unknown', timedOut: resultTimedOut,
       cancelled: stopReason === 'CANCELLED', stopReason, errorCode: errorCode ?? null, capturedBytes: Math.min(total, output.length),
       workerTermination: hasTransport ? workerExit && !workerExit.errorCode ? 'confirmed' : 'uncertain' : sawExit ? 'confirmed' : 'uncertain',
       workerReportedExit: workerExit ? { exitCode: workerExit.exitCode, signal: workerExit.signal, errorCode: workerExit.errorCode ?? null } : null,
@@ -2034,7 +2038,7 @@ export const UNBOUND_RETRY_EVIDENCE_CODE = 'UNBOUND_RETRY_EVIDENCE';
  * retry and is surfaced with a code the conductor can act on — it must never
  * silently spawn a duplicate writer.
  */
-export function stopBeforeRetryGate(previousResult, { expectedInvocationId = null, runDir, missing } = {}) {
+export function stopBeforeRetryGate(previousResult, { expectedInvocationId = null, runDir, missing = previousResult?.terminationMissing } = {}) {
   if (previousResult?.termination !== 'confirmed') {
     return {
       ok: false,

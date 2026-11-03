@@ -69,6 +69,7 @@
     "tools/ralph-external/lib/worker-isolation-status.mjs",
     "tools/ralph-external/lib/worker-retry-evidence.mjs",
     "tools/ralph-external/lib/worker-termination.mjs",
+    "tools/ralph-external/lib/worker-process-identity.mjs",
     "tools/ralph-external/lib/worker-invocation-processes.mjs",
     "tools/ralph-external/lib/worker-invocation-ancestry.mjs",
     "tools/ralph-external/lib/worker-context.mjs",

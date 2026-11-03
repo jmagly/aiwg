@@ -9,6 +9,8 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Fixed
 
+- Preserve exited worker birth identity, recheck transient termination evidence within the existing budget, and retain missing-proof diagnostics under load (#3835).
+
 - Refuse flagless worker relaunches with open task predecessors and allow explicit brief/group corrections after verified owned-stop proof while preserving retry lineage (#3831).
 
 - Index-mode flat artifact pruning now checks each receipt's bundle owners,
