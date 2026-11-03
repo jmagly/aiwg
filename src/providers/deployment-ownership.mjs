@@ -31,16 +31,110 @@ export function deploymentOutputRoots(provider, target) {
       '.windsurfrules', 'models.json', '.aiwg/frameworks', '.aiwg/.aiwg-manifest.json'].map(name => path.join(target, name))])];
 }
 
-/** Capture regular output files before this invocation; never follow symlinks. */
-export function captureDeploymentOutputs(roots) {
+// Settings files and Flue outputs keep preimage bytes in their receipts.
+const SETTINGS_FILE = /^(?:settings(?:\.local)?|hooks|opencode|config|aiwg\.cordis\.patch)\.(?:json|toml|ya?ml)$/;
+const FLUE_OUTPUT = /[/\\](?:db\.ts|aiwg[/\\](?:(?:tools|specialists|skills)\.ts|remote-specialist\.(?:js|d\.ts)))$/;
+// Timestamps are coarse: a same-size write right after a stat can keep its
+// ctime. Files changed this recently are hashed instead of trusted by stat.
+const RECENT_NS = 2_000_000_000n;
+
+/**
+ * A snapshot entry for a file whose bytes the recorder never needs: provider
+ * homes such as ~/.hermes or ~/.codex hold gigabytes of runtime data (#3846).
+ * `hash` is set when the bytes were read; otherwise only the stat is known.
+ */
+export class DeploymentOutputState {
+  constructor(signature, digest) { this.signature = signature; this.hash = digest; }
+}
+const signatures = new WeakMap();
+const digests = new WeakMap();
+const digestOf = entry => {
+  if (entry == null) return undefined;
+  if (entry instanceof DeploymentOutputState) return entry.hash;
+  if (!digests.has(entry)) digests.set(entry, hash(entry));
+  return digests.get(entry);
+};
+/** sha256 digest of a snapshot entry, or undefined when only its stat is known. */
+export const outputDigest = entry => digestOf(entry);
+/** Content equality; a stat-only entry never equals a different entry. */
+export const sameOutput = (a, b) => a != null && b != null && (a === b || (digestOf(a) !== undefined && digestOf(a) === digestOf(b)));
+const bytesOf = (file, entry) => {
+  if (entry == null || Buffer.isBuffer(entry)) return entry;
+  throw new Error(`Deployment snapshot did not retain bytes for ${file}`);
+};
+const signature = stat => `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`;
+const receiptBase = (file, receipt) => receipt.scope === 'project' && path.basename(path.dirname(file)) === '.aiwg'
+  ? path.dirname(path.dirname(file)) : path.dirname(file);
+const claimsOf = (file, bytes, claims) => {
+  const receipt = parse(bytes), base = receiptBase(file, receipt);
+  for (const name of Object.keys(receipt.managed || {})) {
+    const target = path.resolve(base, name);
+    if (target.startsWith(`${base}${path.sep}`)) claims.add(target);
+  }
+};
+
+/**
+ * Capture regular output files before this invocation; never follow symlinks.
+ * Bytes are kept for receipts, settings, Flue outputs, receipt-claimed files,
+ * files beside a receipt and project-root files. Other files are recorded by
+ * stat (or digest, when recently changed), so memory does not scale with the
+ * size of a provider home. Pass the earlier snapshot as `previous` to reuse
+ * entries for files whose stat did not change.
+ */
+export function captureDeploymentOutputs(roots, { previous } = {}) {
   const files = new Map();
-  const visit = file => {
-    let stat;
-    try { stat = fs.lstatSync(file); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
-    if (stat.isDirectory()) for (const name of fs.readdirSync(file)) visit(path.join(file, name));
-    else if (stat.isFile()) files.set(path.resolve(file), fs.readFileSync(file));
+  const stats = new Map();
+  signatures.set(files, stats);
+  const prior = previous && signatures.get(previous);
+  const recentFrom = BigInt(Date.now()) * 1_000_000n - RECENT_NS;
+  const claims = new Set();
+  // A file this process cannot read is not one it wrote; keep its stat only.
+  // Live provider homes also delete files mid-walk; those are simply absent.
+  const gone = Symbol('gone');
+  const readable = file => {
+    try { return fs.readFileSync(file); } catch (error) {
+      if (error.code === 'EACCES' || error.code === 'EPERM') return null;
+      if (error.code === 'ENOENT') return gone;
+      throw error;
+    }
   };
-  for (const root of roots) visit(root);
+  const capture = (file, stat, retain, output) => {
+    const sig = signature(stat), recent = stat.ctimeNs >= recentFrom, old = previous?.get(file);
+    stats.set(file, sig);
+    if (old && !recent && prior?.get(file) === sig && (Buffer.isBuffer(old) || !retain)) { files.set(file, old); return; }
+    // The post-deploy pass hashes every file it cannot reuse. The first pass
+    // hashes AIWG output kinds (so an identical rewrite is not a change) and
+    // recently changed files; provider runtime data keeps only its stat.
+    const bytes = retain || previous || recent || output ? readable(file) : null;
+    if (bytes === gone) { stats.delete(file); return; }
+    files.set(file, retain && bytes ? bytes : new DeploymentOutputState(sig, bytes ? hash(bytes) : undefined));
+  };
+  // `parent` is 'project' for a project root's direct children and 'managed'
+  // for files beside a receipt.
+  const visit = (root, file, depth, parent) => {
+    let stat;
+    try { stat = fs.lstatSync(file, { bigint: true }); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
+    if (stat.isDirectory()) {
+      let names;
+      try { names = fs.readdirSync(file); } catch (error) { if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return; throw error; }
+      const managed = names.includes(SIDECAR);
+      // Read a directory's receipt before its files so its claims are known.
+      if (managed) visit(root, path.join(file, SIDECAR), depth + 1, 'managed');
+      const childParent = depth === 0 && names.includes('.aiwg') ? 'project' : managed ? 'managed' : null;
+      for (const name of names) if (name !== SIDECAR) visit(root, path.join(file, name), depth + 1, childParent);
+    } else if (stat.isFile()) {
+      const key = path.resolve(file), base = path.basename(key);
+      capture(key, stat, base === SIDECAR || SETTINGS_FILE.test(base) || FLUE_OUTPUT.test(key)
+        || depth === 0 || parent !== null || claims.has(key), artifactKind(path.relative(root, key)) !== 'generated');
+      if (base === SIDECAR) claimsOf(key, files.get(key), claims);
+    }
+  };
+  // Project-scoped receipts claim files outside their own directory.
+  for (const root of roots) {
+    const receipt = path.basename(String(root)) === SIDECAR ? String(root) : path.join(String(root), '.aiwg', SIDECAR);
+    try { claimsOf(path.resolve(receipt), fs.readFileSync(receipt), claims); } catch { /* absent */ }
+  }
+  for (const root of roots) visit(path.resolve(String(root)), String(root), 0, null);
   // A root-level file's sidecar is itself outside that file's snapshot root.
   for (const file of [...files.keys()]) {
     const receipt = path.join(path.dirname(file), SIDECAR);
@@ -126,7 +220,7 @@ function artifactKind(file) {
 /** Record only writes evidenced by this invocation or newly emitted file receipts. */
 export function recordDeploymentOutputs(before, roots, opts = {}) {
   if (opts.dryRun) return;
-  const after = captureDeploymentOutputs(roots);
+  const after = captureDeploymentOutputs(roots, { previous: before });
   const owner = deploymentOwner(opts);
   const manifests = new Map();
   const manifest = dir => {
@@ -148,7 +242,7 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
       const base = receiptRoot(file, receipt);
       const target = path.resolve(base, name);
       if (!target.startsWith(`${base}${path.sep}`) || receipt.managed?.[name]) continue;
-      if (!before.has(target) || !after.get(target)?.equals(before.get(target))) continue;
+      if (!sameOutput(after.get(target), before.get(target))) continue;
       receipt.managed ||= {};
       receipt.managed[name] = entry;
       manifests.set(file, receipt);
@@ -161,8 +255,8 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
       // A receipt rewrite is not evidence of a payload write. Preservation can
       // also restore bytes after a writer/binder marked the file as written.
       // Never bless those edited bytes, even with an explicit write hint.
-      if (before.get(target)?.equals(after.get(target)) &&
-        (prior ? prior.hash !== hash(before.get(target)) : entry.hash === hash(before.get(target)) && !opts.writtenFiles?.includes(target))) {
+      if (sameOutput(before.get(target), after.get(target)) &&
+        (prior ? prior.hash !== digestOf(before.get(target)) : entry.hash === digestOf(before.get(target)) && !opts.writtenFiles?.includes(target))) {
         if (prior) receipt.managed[name] = prior;
         else delete receipt.managed[name];
         preserved.add(target);
@@ -176,12 +270,12 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
     if (path.basename(file) === SIDECAR || /(?:^|[/\\])aiwg\.config$/.test(file)
       || /(?:\.bak\.|\.aiwg-backup-)/.test(path.basename(file))) continue;
     if (preserved.has(file)) continue;
-    const changed = !before.get(file)?.equals(bytes);
+    const changed = !sameOutput(before.get(file), bytes);
     const declaration = declared.get(file);
     if (opts.onlyDeclared && !declaration) continue;
     if (!changed && !declaration && !opts.writtenFiles?.includes(file)) continue;
     // Existing integrity receipts that disagree with bytes never bless operator edits.
-    if (declaration?.entry.hash && declaration.entry.hash !== hash(bytes)) continue;
+    if (declaration?.entry.hash && declaration.entry.hash !== digestOf(bytes)) continue;
     let skillRoot = path.dirname(file);
     while (skillRoot !== path.dirname(skillRoot)) {
       const parentReceipt = parse(after.get(path.join(skillRoot, SIDECAR)));
@@ -189,7 +283,7 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
       skillRoot = path.dirname(skillRoot);
     }
     const skillReceipt = parse(after.get(path.join(skillRoot, SIDECAR)));
-    const projectScoped = projectRoot && (path.dirname(file) === projectRoot || opts.provider === 'flue' && /[/\\](?:db\.ts|aiwg[/\\](?:(?:tools|specialists|skills)\.ts|remote-specialist\.(?:js|d\.ts)))$/.test(file));
+    const projectScoped = projectRoot && (path.dirname(file) === projectRoot || opts.provider === 'flue' && FLUE_OUTPUT.test(file));
     const dir = projectScoped ? path.join(projectRoot, '.aiwg') : declaration ? path.dirname(declaration.file) : skillReceipt.managed?.['SKILL.md'] ? skillRoot : path.dirname(file);
     const name = declaration?.name || portable(path.relative(projectScoped ? projectRoot : dir, file));
     const existing = manifests.get(path.join(dir, SIDECAR)) || parse(after.get(path.join(dir, SIDECAR)));
@@ -197,10 +291,10 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
     const current = existing.managed?.[name] || {};
     // A redeploy may preserve operator additions around generated context.
     // Keep the old digest so removal cannot restore a stale preimage over them.
-    if (previous?.filePreimage && before.has(file) && previous.hash !== hash(before.get(file))) continue;
+    if (previous?.filePreimage && before.has(file) && previous.hash !== digestOf(before.get(file))) continue;
     const identity = current.sourcePath || `${declaration?.receipt.skillSource}/SKILL.md`;
     const logicalSource = opts.logicalInputPath?.(identity) || identity;
-    const sourceOwner = (declaration || current.hash === hash(bytes)) && (current.frameworkSlug || bundleOwner(logicalSource))
+    const sourceOwner = (declaration || current.hash === digestOf(bytes)) && (current.frameworkSlug || bundleOwner(logicalSource))
       || skillReceipt.managed?.['SKILL.md']?.frameworkSlug;
     const generatedIndex = /^RULES-(?:INDEX|ONDEMAND)\.(?:md|mdc)$/.test(path.basename(file));
     const kind = generatedIndex ? 'rule-index' : current.kind || artifactKind(file);
@@ -211,12 +305,12 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
     }
     const receipt = manifest(dir);
     if (projectScoped) receipt.scope = 'project';
-    const record = mergeArtifactOwnership(previous, { ...current, hash: hash(bytes), owners: opts.provider === 'flue' ? [] : current.hash === hash(bytes) ? current.owners : [], kind }, selectedOwner);
+    const record = mergeArtifactOwnership(previous, { ...current, hash: digestOf(bytes), owners: opts.provider === 'flue' ? [] : current.hash === digestOf(bytes) ? current.owners : [], kind }, selectedOwner);
     // Flue's composed context and generated database/ignore outputs support
     // exact restoration. Never infer a preimage for another provider's files.
     if (opts.provider === 'flue' && (projectScoped || /[/\\]db\.ts$/.test(file))) {
       record.filePreimage = previous?.filePreimage || { present: before.has(file),
-        ...(before.has(file) ? { bytes: before.get(file).toString('base64'), hash: hash(before.get(file)) } : {}) };
+        ...(before.has(file) ? { bytes: bytesOf(file, before.get(file)).toString('base64'), hash: digestOf(before.get(file)) } : {}) };
     }
     // Structural rule indexes are generated outputs; their assembly scratch
     // directory is not a durable source identity.
@@ -225,14 +319,14 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
       record.kind = 'rule-index';
     }
     // Settings have key/value receipts in the same entry, never a separate store.
-    if (/^(?:settings(?:\.local)?|hooks|opencode|config|aiwg\.cordis\.patch)\.(?:json|toml|ya?ml)$/.test(path.basename(file))) {
+    if (SETTINGS_FILE.test(path.basename(file))) {
       record.kind = 'settings';
       record.settingsPreimage = previous?.settingsPreimage || (!previous?.settings ? {
-        present: before.has(file), ...(before.has(file) ? { bytes: before.get(file).toString('base64'), hash: hash(before.get(file)) } : {})
+        present: before.has(file), ...(before.has(file) ? { bytes: bytesOf(file, before.get(file)).toString('base64'), hash: digestOf(before.get(file)) } : {})
       } : undefined);
       const claimUnchanged = opts.claimUnchangedSettings !== false
         && !/(?:agentic\/code|\.aiwg)\/(?:addons|extensions)\//.test((opts.logicalInputPath?.(opts.srcRoot) || opts.srcRoot)?.replaceAll('\\', '/') || '');
-      record.settings = settingsRecords(settingsDocument(file, before.get(file)), settingsDocument(file, bytes), previous?.settings, selectedOwner, claimUnchanged);
+      record.settings = settingsRecords(settingsDocument(file, bytesOf(file, before.get(file))), settingsDocument(file, bytesOf(file, bytes)), previous?.settings, selectedOwner, claimUnchanged);
       const settingsOwners = Object.values(record.settings).flatMap(entry => entry.owners);
       record.owners = [...new Set(settingsOwners.length ? settingsOwners
         : [...(previous?.owners || []), ...(changed ? [selectedOwner] : [])])].sort();

@@ -124,7 +124,9 @@ export async function mirrorArtifactDir(src: string, dst: string, ownedThisCall:
   }
   if (Object.keys(copiedRecords).length) {
     const sidecarPath = path.resolve(dst, SIDECAR);
-    const prior = receipt(before.get(sidecarPath));
+    // Receipt sidecars are always captured as bytes.
+    const priorBytes = before.get(sidecarPath);
+    const prior = receipt(Buffer.isBuffer(priorBytes) ? priorBytes : undefined);
     const next = { ...prior, managed: { ...object(prior.managed), ...copiedRecords } };
     await fs.writeFile(sidecarPath, `${JSON.stringify(next, null, 2)}\n`);
   }
