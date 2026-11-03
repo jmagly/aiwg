@@ -229,6 +229,92 @@
     "codes": []
   },
   {
+    "id": "boolean-or-denyConductorWorkerExecution",
+    "kind": "merge",
+    "pack": "T-OG-01",
+    "user": {
+      "guards": {
+        "denyConductorWorkerExecution": true
+      }
+    },
+    "project": {
+      "guards": {
+        "denyConductorWorkerExecution": false
+      }
+    },
+    "expected": {
+      "guards": {
+        "denyConductorWorkerExecution": true
+      }
+    },
+    "codes": [
+      "OG_POLICY_RELAXATION"
+    ]
+  },
+  {
+    "id": "first-explicit-false-denyConductorWorkerExecution",
+    "kind": "merge",
+    "pack": "T-OG-01",
+    "user": null,
+    "project": {
+      "guards": {
+        "denyConductorWorkerExecution": false
+      }
+    },
+    "expected": {
+      "guards": {
+        "denyConductorWorkerExecution": false
+      }
+    },
+    "codes": []
+  },
+  {
+    "id": "conductor-execution-default-off",
+    "kind": "merge",
+    "pack": "T-OG-01",
+    "user": null,
+    "project": null,
+    "expected": {
+      "guards": {}
+    },
+    "absentGuards": [
+      "denyConductorWorkerExecution"
+    ],
+    "codes": []
+  },
+  {
+    "id": "conductor-execution-explicit-opt-in",
+    "kind": "merge",
+    "pack": "T-OG-01",
+    "user": null,
+    "project": {
+      "guards": {
+        "denyConductorWorkerExecution": true
+      }
+    },
+    "expected": {
+      "guards": {
+        "denyConductorWorkerExecution": true
+      }
+    },
+    "codes": []
+  },
+  {
+    "id": "conductor-execution-boolean-only",
+    "kind": "models",
+    "pack": "T-OG-01",
+    "value": {
+      "defaults": {
+        "workerSelection": {
+          "guards": {
+            "denyConductorWorkerExecution": "true"
+          }
+        }
+      }
+    },
+    "valid": false
+  },
+  {
     "id": "boolean-or-requireExactModel",
     "kind": "merge",
     "pack": "T-OG-01",

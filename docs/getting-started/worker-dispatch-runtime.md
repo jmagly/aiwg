@@ -351,6 +351,15 @@ aiwg ralph-external --verify-worker --run-dir /absolute/private/runs/attempt-1 \
   --json
 ```
 
+The [conductor tool guard](../providers/conductor-local-only-inputs.md) offers opt-in
+execution checks (default `false`). Set
+`defaults.workerSelection.guards.denyConductorWorkerExecution: true` in project or
+user `models.json` and redeploy Claude to refuse direct worker tests and imports,
+including resource-only `systemd-run` wrappers,
+with guidance to this verifier. `parallelism.worker_dispatch` alone does not
+enable the check. The guard is not a sandbox; strong enforcement
+requires the harness boundary. Worker diff and source inspection stay allowed.
+
 Repeat `--check` for multiple checks. Each JSON object accepts `id`, an absolute
 `command` outside the worktree, and optional `args`, absolute `cwd` within the
 worktree, `envNames` and `timeoutMs` (1–86400000). The exact supplied binaries form

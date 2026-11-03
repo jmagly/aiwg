@@ -53,6 +53,10 @@
                   "type": "boolean",
                   "default": true
                 },
+                "denyConductorWorkerExecution": {
+                  "type": "boolean",
+                  "default": false
+                },
                 "requireExactModel": {
                   "type": "boolean",
                   "default": true

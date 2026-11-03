@@ -1,0 +1,50 @@
+[
+  {
+    "source": "runs/direct-02/transcript.jsonl:231",
+    "root": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-02",
+    "workerTree": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-02/.eval-control/worker-tree",
+    "event": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd /home/roctinam/dev/jmagly/aiwg-wt/eval-direct-02/.eval-control/worker-tree && which systemd-run; systemd-run --user --scope --quiet -p MemoryMax=512M -p TasksMax=64 -- node eval-work/reset.test.mjs; echo \"EXIT=$?\""
+      },
+      "cwd": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-02/.eval-control/worker-tree"
+    }
+  },
+  {
+    "source": "runs/direct-02/transcript.jsonl:242",
+    "root": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-02",
+    "workerTree": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-02/.eval-control/worker-tree",
+    "event": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd /home/roctinam/dev/jmagly/aiwg-wt/eval-direct-02 && cp .eval-control/worker-tree/eval-work/reset.mjs eval-work/reset.mjs\ncp .eval-control/worker-tree/eval-work/reset.test.mjs eval-work/reset.test.mjs\nsha256sum eval-work/reset.mjs eval-work/reset.test.mjs\nsystemd-run --user --scope --quiet -p MemoryMax=512M -p TasksMax=64 -- node eval-work/reset.test.mjs; echo \"EXIT=$?\""
+      },
+      "cwd": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-02"
+    }
+  },
+  {
+    "source": "runs/direct-17/transcript.jsonl:259",
+    "root": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-17",
+    "workerTree": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-17/.eval-control/worker-tree",
+    "event": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "which systemd-run && systemd-run --user --pipe --wait --collect -p MemoryMax=512M -- node /home/roctinam/dev/jmagly/aiwg-wt/eval-direct-17/.eval-control/worker-tree/eval-work/reset.test.mjs; echo \"exit:$?\""
+      },
+      "cwd": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-17"
+    }
+  },
+  {
+    "source": "runs/direct-17/transcript.jsonl:265",
+    "root": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-17",
+    "workerTree": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-17/.eval-control/worker-tree",
+    "event": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd /home/roctinam/dev/jmagly/aiwg-wt/eval-direct-17 && for f in reset.mjs reset.test.mjs README.md; do echo \"$f: $(sha256sum .eval-control/worker-tree/eval-work/$f | cut -d' ' -f1)\"; done\necho \"--- manual spot checks ---\"\nnode -e \"\nimport('/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-17/.eval-control/worker-tree/eval-work/reset.mjs').then(({parseReset})=>{\n  console.log('obj:', parseReset({}, 1000));\n  console.log('neg:', parseReset(-5, 1000));\n  console.log('bool:', parseReset(true, 1000));\n  console.log('valid str:', parseReset('3.5', 1000));\n  console.log('valid num:', parseReset(10, 1000));\n});\n\""
+      },
+      "cwd": "/home/roctinam/dev/jmagly/aiwg-wt/eval-direct-17"
+    }
+  }
+]

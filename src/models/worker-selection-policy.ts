@@ -43,6 +43,7 @@ export const WorkerSelectionPolicySchema = z.strictObject({
     deniedEfforts: uniqueStrings.optional(),
     deniedModels: uniqueStrings.optional(),
     denySelfDelegation: z.boolean().optional(),
+    denyConductorWorkerExecution: z.boolean().optional(),
     requireExactModel: z.boolean().optional(),
     allowedVisibility: z.array(z.enum(['listed', 'hidden'])).refine(v => new Set(v).size === v.length).optional(),
     allowedLifecycle: z.array(z.enum(['active', 'deprecated'])).refine(v => new Set(v).size === v.length).optional(),
@@ -146,7 +147,7 @@ export function mergeWorkerSelection(layers: WorkerPolicyLayer[]): {
         else if (['allowedVisibility', 'allowedLifecycle', 'allowedProcessing'].includes(key)) {
           relaxation = value.some((v: string) => !previous.includes(v));
           effective = previous.filter((v: string) => value.includes(v));
-        } else if (['denySelfDelegation', 'requireExactModel'].includes(key)) {
+        } else if (['denySelfDelegation', 'denyConductorWorkerExecution', 'requireExactModel'].includes(key)) {
           relaxation = previous === true && value === false;
           effective = previous || value;
         } else if (['allowUnknown', 'allowProductImprovement'].includes(key)) {

@@ -53,6 +53,13 @@ extension round trips; other consumers advertise no worker support in
 
 ## Disposition and consumer ownership
 
+### #3833 opt-in conductor execution guard amendment
+
+The worker-selection guard adds `denyConductorWorkerExecution` (boolean, default
+`false` when absent; no key is injected into built-in defaults or resolved policies).
+Its fragment and manifest digest are amended together; strict owner
+equality is preserved. Opt-in execution checks add no schema family.
+
 ### #3656 conductor input guard amendment
 
 The existing data-policy objects add `localOnlyPaths` (literal project-relative

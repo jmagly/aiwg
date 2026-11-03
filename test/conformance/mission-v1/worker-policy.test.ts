@@ -57,6 +57,10 @@ describe('B-OG-29 production policy semantics (T-OG-01/05)', () => {
         { source: 'fixture:project', authority: 'project', digest: workerConfigDigest(vector.project), policy: vector.project },
       ]);
       expect(result.policy).toMatchObject(vector.expected);
+      for (const key of vector.absentGuards ?? []) {
+        expect(result.policy.guards).not.toHaveProperty(key);
+        expect(result.origins).not.toHaveProperty(`/defaults/workerSelection/guards/${key}`);
+      }
       expect(result.diagnostics.map(d => d.code)).toEqual(vector.codes);
       for (const diagnostic of result.diagnostics.filter(d => d.code === 'OG_POLICY_RELAXATION')) {
         expect(diagnostic.origins?.map(o => o.authority)).toEqual(['user', 'project']);

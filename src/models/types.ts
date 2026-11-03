@@ -263,6 +263,7 @@ export interface WorkerSelectionPolicy {
     deniedEfforts?: string[];
     deniedModels?: string[];
     denySelfDelegation?: boolean;
+    denyConductorWorkerExecution?: boolean;
     requireExactModel?: boolean;
     allowedVisibility?: Array<'listed' | 'hidden'>;
     allowedLifecycle?: Array<'active' | 'deprecated'>;
