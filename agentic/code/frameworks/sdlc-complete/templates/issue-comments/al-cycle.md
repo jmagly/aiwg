@@ -15,5 +15,3 @@
 ### Next Steps
 {{next_steps}}
 
----
-*Automated by AIWG Al — reply to this issue to provide feedback*
