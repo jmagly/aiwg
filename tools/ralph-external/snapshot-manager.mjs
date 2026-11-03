@@ -7,9 +7,9 @@
  * @implements @.aiwg/requirements/design-ralph-external.md
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
-import { join, relative } from 'path';
-import { createHash } from 'crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { snapshotCompleteness, captureReadableFile, walkSnapshotDirectory, readSnapshotText, listSnapshotDirectory } from './lib/snapshot-access.mjs';
 import { importImpl } from '../_resolve-impl.mjs';
 
 const { boundedExecSync, boundedExecFileSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
@@ -112,6 +112,7 @@ export class SnapshotManager {
    */
   constructor(projectRoot) {
     this.projectRoot = projectRoot;
+    this.completeness = snapshotCompleteness();
   }
 
   /**
@@ -122,6 +123,7 @@ export class SnapshotManager {
    */
   capturePreSnapshot(projectRoot, iterationDir) {
     const timestamp = new Date().toISOString();
+    this.completeness = snapshotCompleteness();
 
     // Ensure iteration directory exists
     if (!existsSync(iterationDir)) {
@@ -140,6 +142,7 @@ export class SnapshotManager {
     /** @type {PreSnapshot} */
     const snapshot = {
       timestamp,
+      completeness: this.completeness,
       git,
       keyFiles,
       aiwg,
@@ -160,6 +163,7 @@ export class SnapshotManager {
    */
   capturePostSnapshot(projectRoot, iterationDir) {
     const timestamp = new Date().toISOString();
+    this.completeness = snapshotCompleteness();
 
     // Load pre-snapshot for comparison
     const preSnapshotPath = join(iterationDir, 'pre-snapshot.json');
@@ -188,6 +192,7 @@ export class SnapshotManager {
     /** @type {PostSnapshot} */
     const snapshot = {
       timestamp,
+      completeness: this.completeness,
       git,
       fileDiffs,
       commits,
@@ -342,7 +347,8 @@ export class SnapshotManager {
     for (const filename of KEY_FILES) {
       const filePath = join(projectRoot, filename);
       if (existsSync(filePath)) {
-        snapshots.push(this.createFileSnapshot(projectRoot, filePath));
+        const snapshot = this.createFileSnapshot(projectRoot, filePath);
+        if (snapshot) snapshots.push(snapshot);
       }
     }
 
@@ -360,7 +366,8 @@ export class SnapshotManager {
 
     if (existsSync(aiwgDir)) {
       this.walkDirectory(aiwgDir, (filePath) => {
-        files.push(this.createFileSnapshot(projectRoot, filePath));
+        const snapshot = this.createFileSnapshot(projectRoot, filePath);
+        if (snapshot) files.push(snapshot);
       });
     }
 
@@ -388,16 +395,7 @@ export class SnapshotManager {
    * @returns {FileSnapshot}
    */
   createFileSnapshot(projectRoot, filePath) {
-    const content = readFileSync(filePath);
-    const hash = createHash('sha256').update(content).digest('hex');
-    const stats = statSync(filePath);
-
-    return {
-      path: relative(projectRoot, filePath),
-      hash,
-      size: stats.size,
-      mtime: stats.mtime.toISOString(),
-    };
+    return captureReadableFile(this, projectRoot, filePath);
   }
 
   /**
@@ -406,21 +404,7 @@ export class SnapshotManager {
    * @param {Function} callback
    */
   walkDirectory(dir, callback) {
-    if (!existsSync(dir)) {
-      return;
-    }
-
-    const entries = readdirSync(dir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = join(dir, entry.name);
-
-      if (entry.isDirectory()) {
-        this.walkDirectory(fullPath, callback);
-      } else if (entry.isFile()) {
-        callback(fullPath);
-      }
-    }
+    return walkSnapshotDirectory(this, dir, callback);
   }
 
   /**
@@ -531,10 +515,11 @@ export class SnapshotManager {
     // Check iteration output logs first
     const outputDir = join(iterationDir, '..');
     if (existsSync(outputDir)) {
-      const files = readdirSync(outputDir);
+      const files = listSnapshotDirectory(this, outputDir);
       for (const file of files) {
         if (file.endsWith('.log')) {
-          const content = readFileSync(join(outputDir, file), 'utf8');
+          const content = readSnapshotText(this, join(outputDir, file));
+          if (content === null) continue;
           const summary = this.parseTestOutput(content);
           if (summary) {
             return {
@@ -556,7 +541,8 @@ export class SnapshotManager {
 
     for (const path of testPaths) {
       if (existsSync(path)) {
-        const content = readFileSync(path, 'utf8');
+        const content = readSnapshotText(this, path);
+        if (content === null) continue;
         const summary = this.parseTestOutput(content);
         if (summary) {
           return {

@@ -258,6 +258,7 @@
     "!tools/eval/",
     "!tools/qualification/",
     "!tools/**/*.md",
+    "tools/ralph-external/templates/*.md",
     "!tools/**/*.test.mjs",
     "!tools/**/*.example.mjs",
     "!tools/**/*.patch",
