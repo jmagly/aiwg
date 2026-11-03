@@ -27,6 +27,8 @@ import { OutputAnalyzer } from './output-analyzer.mjs';
 import { PromptGenerator } from './prompt-generator.mjs';
 import { SnapshotManager } from './snapshot-manager.mjs';
 import { launchRalphCycle } from './lib/ralph-cycle-launch.mjs';
+import { processLoopControl } from './lib/loop-pid-control.mjs';
+import { handleInitializationFailure, recordedOutputs, noRecordedOutput } from './lib/loop-initialization.mjs';
 import { StateAssessor } from './state-assessor.mjs';
 // Research-backed modules (REF-015 Self-Refine, REF-021 Reflexion)
 import { BestOutputTracker } from './best-output-tracker.mjs';
@@ -651,9 +653,10 @@ export class Orchestrator {
       // Get output paths and iteration directory
       const outputPaths = this.stateManager.getOutputPaths(state.currentIteration);
       const iterationDir = dirname(outputPaths.stdout);
-      mkdirSync(iterationDir, { recursive: true });
-
+      let workerLaunchAttempted = false;
+      this.currentPreSnapshot = null;
       try {
+        mkdirSync(iterationDir, { recursive: true });
         // ========== PRE-SESSION SNAPSHOT ==========
         if (state.config.enableSnapshots) {
           console.log('[External Ralph] Capturing pre-session snapshot...');
@@ -744,25 +747,8 @@ export class Orchestrator {
 
         // PID Controller: Compute control signals
         let controlSignals = null;
-        if (this.pidController && this.metricsCollector && state.currentIteration > 1) {
-          // Extract metrics from last iteration
-          const metrics = this.metricsCollector.extractIterationMetrics(lastIteration);
-          const pidMetrics = this.metricsCollector.computePIDMetrics(metrics);
-
-          // Adjust gains based on situation
-          if (this.gainScheduler && assessment) {
-            const adjustedGains = this.gainScheduler.adjustGains({
-              phase: assessment.phase || 'normal',
-              volatility: pidMetrics.derivative,
-              errorMagnitude: pidMetrics.proportional,
-            });
-            this.pidController.updateGains(adjustedGains);
-          }
-
-          // Compute control output
-          controlSignals = this.pidController.compute(pidMetrics.proportional);
-
-          console.log(`[External Ralph] PID control: P=${pidMetrics.proportional.toFixed(3)}, output=${controlSignals.output.toFixed(3)}`);
+        if (this.pidController && this.metricsCollector && lastIteration) {
+          controlSignals = processLoopControl(this, state, lastIteration);
         }
 
         // ValidationAgent: Pre-iteration validation
@@ -964,6 +950,7 @@ export class Orchestrator {
           }
         }
 
+        workerLaunchAttempted = true;
         const sessionResult = await launchRalphCycle(this, state, {
           prompt, systemPrompt, outputPaths, iterationDir, timeoutMs: sessionTimeoutMs,
         });
@@ -1447,6 +1434,12 @@ export class Orchestrator {
           this.checkpointManager = null;
         }
 
+        if (!workerLaunchAttempted) {
+          const failure = await handleInitializationFailure(this, state, error);
+          if (failure) return failure;
+          continue;
+        }
+
         // Save error state; keep the loop's copy current so later full-state
         // saves (e.g. attempt persistence) cannot drop this iteration.
         state = this.stateManager.addIteration({
@@ -1493,7 +1486,7 @@ export class Orchestrator {
 
     // Select best output even on limit reached (REF-015)
     const selection = await this.selectBestOutput(state);
-    if (selection.bestIteration !== state.currentIteration) {
+    if (selection.bestIteration != null && selection.bestIteration !== state.currentIteration) {
       console.log(`[External Ralph] Selected iteration ${selection.bestIteration} as best output (limit reached)`);
     }
 
@@ -1532,7 +1525,8 @@ export class Orchestrator {
 |----------|-------|
 | Loop ID | ${state.loopId} |
 | Status | ${status} |
-| Iterations | ${state.currentIteration} |
+| Iterations | ${state.iterations.length} |
+| Initialization failures | ${state.initializationFailures?.length || 0} |
 | Start Time | ${state.startTime} |
 | End Time | ${new Date().toISOString()} |
 
@@ -1563,6 +1557,8 @@ ${state.budgetStopReport ? `Budget stop report: ${state.budgetStopReportPath || 
 ${state.filesModified.length > 0 ? state.filesModified.map(f => `- ${f}`).join('\n') : 'None recorded'}
 
 ## Final Status
+
+${state.outputSummary || ''}
 
 **${status.toUpperCase()}**
 `;
@@ -1663,16 +1659,17 @@ ${state.filesModified.length > 0 ? state.filesModified.map(f => `- ${f}`).join('
    * @returns {Promise<Object>} Selection result with best iteration info
    */
   async selectBestOutput(state) {
+    if (recordedOutputs(state).length === 0) return noRecordedOutput(state);
     console.log('[External Ralph] Selecting best output from iteration history...');
 
-    let bestIteration = state.currentIteration;
+    let bestIteration = recordedOutputs(state).at(-1).number;
     let selectionSource = 'final';
 
     // Try BestOutputTracker first (quality dimensions approach)
     if (this.bestOutputTracker) {
       try {
         const bestOutput = this.bestOutputTracker.selectOutput();
-        if (bestOutput && bestOutput.selected_iteration !== state.currentIteration) {
+        if (recordedOutputs(state).some(it => it.number === bestOutput?.selected_iteration) && bestOutput.selected_iteration !== state.currentIteration) {
           bestIteration = bestOutput.selected_iteration;
           selectionSource = 'best-output-tracker';
           console.log(`[External Ralph] BestOutputTracker selected iteration ${bestIteration} (score: ${bestOutput.quality_score})`);
@@ -1687,7 +1684,7 @@ ${state.filesModified.length > 0 ? state.filesModified.map(f => `- ${f}`).join('
       try {
         const bestFromAnalytics = this.iterationAnalytics.selectBestIteration();
         const selected = bestFromAnalytics?.selected || bestFromAnalytics;
-        if (selected && selected.iteration_number !== state.currentIteration) {
+        if (recordedOutputs(state).some(it => it.number === selected?.iteration_number) && selected.iteration_number !== state.currentIteration) {
           bestIteration = selected.iteration_number;
           selectionSource = 'iteration-analytics';
           console.log(`[External Ralph] IterationAnalytics selected iteration ${bestIteration} (quality: ${selected.quality_score})`);
@@ -1772,7 +1769,7 @@ ${state.filesModified.length > 0 ? state.filesModified.map(f => `- ${f}`).join('
 
         await this.crossTaskLearner.recordTaskCompletion({
           task_description: state.objective,
-          task_type: 'ralph-loop',
+          task_type: 'implementation',
           outcome,
           iterations: state.currentIteration,
           final_quality: state.lastAnalysis?.completionPercentage / 100 || 0,

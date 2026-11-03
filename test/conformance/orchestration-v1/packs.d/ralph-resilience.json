@@ -1,0 +1,9 @@
+{
+  "T-OG-13": [
+    "test/unit/ralph-external/snapshot-resilience.test.mjs",
+    "test/unit/ralph-external/orchestrator-resilience.test.mjs"
+  ],
+  "T-OG-14": [
+    "test/unit/ralph-external/orchestrator-resilience.test.mjs"
+  ]
+}
