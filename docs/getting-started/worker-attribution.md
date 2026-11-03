@@ -1,5 +1,8 @@
 # Worker attribution and capacity recovery
 
+> **First time using AIWG?** Begin with [Install, Connect, and Verify](install-connect-verify.md). This page covers
+> how worker capacity is counted and how to recover a blocked launch.
+
 AIWG launchers and rendered `models resolve --format shell` commands set
 `AIWG_WORKER_INVOCATION_ID`, `AIWG_WORKER_WORKSPACE`, and `AIWG_WORKER_GROUP`.
 The workspace is the canonical absolute worker workdir (symlinks resolved when
