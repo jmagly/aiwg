@@ -3,7 +3,8 @@ import { workerInvocationFixture } from '../../fixtures/worker-single-invocation
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { mkdtemp, readFile, rm, lstat, open, rename } from 'node:fs/promises';
+import { mkdtemp, readFile, lstat, open, rename } from 'node:fs/promises';
+import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import { writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

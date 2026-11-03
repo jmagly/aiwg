@@ -2,7 +2,8 @@
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { writeFileSync } from 'node:fs';
-import { readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { readFile, symlink, writeFile } from 'node:fs/promises';
+import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';

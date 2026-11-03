@@ -500,6 +500,12 @@ remaining task deadline and 300 seconds. Only its verified success closes the sc
 blocks overlapping retries; unavailable qualified probes require operator intervention. No recovery path
 grants more attempts, budget, or permissions.
 
+When an attempt ends, the launcher copies its captures and output files into a read-only
+`.captures-<run directory>` folder beside the run directory and records their digests in `exit.json`.
+Verification checks those digests before it runs any protected check, and a later attempt cannot reuse
+an earlier attempt's capture or output paths. Because the folder is read-only, remove an old runs
+directory with `chmod -R u+w <runs-dir> && rm -rf <runs-dir>`.
+
 ### Command reference: recovery status
 
 Read status with the existing command:

@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { access, lstat, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { access, lstat, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

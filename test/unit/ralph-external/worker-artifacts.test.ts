@@ -1,5 +1,6 @@
 /** Bounded execution-time artifact and invocation regression coverage. */
-import { mkdtemp, mkdir, writeFile, readFile, rm, lstat, symlink, readdir, rename } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, lstat, symlink, readdir, rename } from 'node:fs/promises';
+import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import fs from 'node:fs/promises';
 import childProcess from 'node:child_process';
 import { EventEmitter } from 'node:events';

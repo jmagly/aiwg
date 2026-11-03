@@ -1,5 +1,36 @@
 // Assert exact marker and termination-diagnostic additions against frozen legacy records.
 import { expect } from 'vitest';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { basename, dirname, join } from 'node:path';
+
+// Assert every #3832 addition before projecting records onto the frozen baseline shape.
+function normalizeCaptureRecord(name, baseline, branch) {
+  if (!['invocation.json', 'exit.json'].includes(name)) return branch;
+  const { captureDirectory, captureSeal, ...unchanged } = branch;
+  if (name === 'invocation.json') {
+    const runDir = dirname(branch.captures.stdout);
+    expect(captureDirectory).toBe(join(dirname(runDir), `.captures-${basename(runDir)}`));
+    expect((lstatSync(captureDirectory).mode & 0o777)).toBe(0o500);
+  }
+  if (name === 'exit.json' || captureSeal) {
+    expect(baseline).not.toHaveProperty('captureSeal');
+    expect(captureSeal.files).toHaveLength(5);
+    expect(Number.isFinite(Date.parse(captureSeal.sealedAt))).toBe(true);
+    expect((lstatSync(captureSeal.directory).mode & 0o777)).toBe(0o500);
+    const hash = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+    expect(captureSeal.digest).toBe(hash(JSON.stringify(captureSeal.files)));
+    for (const file of captureSeal.files) {
+      if (file.missing) { expect(existsSync(file.path)).toBe(false); expect(existsSync(file.source)).toBe(false); continue; }
+      expect((lstatSync(file.path).mode & 0o777)).toBe(0o400);
+      const bytes = readFileSync(file.path);
+      expect(bytes).toEqual(readFileSync(file.source));
+      expect(file.byteLength).toBe(bytes.length);
+      expect(file.digest).toBe(hash(bytes));
+    }
+  }
+  return unchanged;
+}
 
 const marker = 'AIWG_WORKER_INVOCATION_ID';
 function expectedTerminationMissing(record) {
@@ -19,6 +50,7 @@ function checkedTerminationEvidence(evidence, missing) {
 }
 
 export function normalizeMarkerRunRecord(name, baseline, branch, exitRecord) {
+  branch = normalizeCaptureRecord(name, baseline, branch);
   if (name === 'exit.json') {
     const missing = expectedTerminationMissing(branch);
     expect(baseline).not.toHaveProperty('terminationMissing');
@@ -66,6 +98,11 @@ export function normalizeMarkerCallbackLog(baseline, branch) {
     if (entry.name === 'publishRecord' && previous.args[2]?.includes('termination')) {
       expect(previous.args[2]).not.toContain('terminationMissing');
       expect(entry.args[2]).toEqual([...previous.args[2], 'terminationMissing'].sort());
+      return { ...entry, args: entry.args.map((arg, n) => n === 2 ? previous.args[2] : arg) };
+    }
+    if (entry.name === 'publishRecord' && previous.args[2]?.includes('captures')) {
+      expect(previous.args[2]).not.toContain('captureDirectory');
+      expect(entry.args[2]).toEqual([...previous.args[2], 'captureDirectory'].sort());
       return { ...entry, args: entry.args.map((arg, n) => n === 2 ? previous.args[2] : arg) };
     }
     if (entry.name !== 'publishRecord' || !previous.args[2]?.includes('worker')) return entry;

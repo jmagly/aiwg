@@ -53,6 +53,7 @@ import { withWorkerPath, boundedPrivateRead } from './lib/worker-inputs.mjs';
 import { collectWorkerFinal } from './lib/worker-final.mjs';
 import { prepareWorkerRetry, workerRetryRecordFields } from './lib/worker-retry-evidence.mjs';
 import { settleWorkerTermination, terminationRemedy } from './lib/worker-termination.mjs';
+import { WorkerCaptureOwner, assertWorkerCapturePathsAvailable } from './lib/worker-capture.mjs';
 import { buildWorkerInvocationEnvironment } from './lib/worker-invocation-processes.mjs';
 import { launcherRecoveryEvidence, observeLauncherRecoveryOutcome, recordLauncherRecoveryHint } from './lib/launcher-recovery-evidence.mjs';
 export { observeLauncherRecoveryOutcome } from './lib/launcher-recovery-evidence.mjs';
@@ -435,6 +436,7 @@ async function launchOneWorker(owner, options) {
       'stdout.log', 'stdout.events.jsonl', 'stderr.log', '.launch-owner'].some(name => filename === join(runDir, name)))) {
     throw new Error('Worker output paths must be distinct from trusted metadata, capture files and artifact- paths');
   }
+  await assertWorkerCapturePathsAvailable(paths, inspect, { runDir, writableRoots: [invocation.cwd, ...writableRoots] });
   for (const filename of Object.values(paths)) {
     if (await inspect(filename, 'output')) throw new Error('Fresh worker output paths are required');
     if (!await inspect(dirname(filename), 'directory')) throw new Error('Worker output parent is missing');
@@ -634,7 +636,8 @@ async function launchOneWorker(owner, options) {
   const profile = inputs.drivers[invocation.selected.cli].qualification.adapter.invocationProfiles[invocation.selected.profileRef];
   const captures = { stdout: join(runDir, profile.health?.outputFraming === 'jsonl' ? 'stdout.events.jsonl' : 'stdout.log'),
     stderr: join(runDir, 'stderr.log') };
-  const writeRecord = options.publishRecord ?? publishWorkerRecord;
+  const captureOwner = new WorkerCaptureOwner({ runDir, paths, captures, inspect, invocationId });
+  const writeRecord = captureOwner.writer(options.publishRecord ?? publishWorkerRecord, publishWorkerRecord);
   const publishFailures = [];
   let publishing = Promise.resolve();
   // Each write must stay independent: one rejected publish must never block
@@ -702,7 +705,7 @@ async function launchOneWorker(owner, options) {
     // All captures (including the reserved final) open successfully BEFORE spawn.
     for (const filename of [...Object.values(paths), ...Object.values(captures)]) {
       const handle = await withWorkerPath(filename, target => (options.openCapture ?? open)(target, constants.O_RDWR | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600));
-      handles.push(handle);
+      handles.push(handle); await captureOwner.reserveOutput(filename);
     }
     // Recheck policy, prompt, installation and exact bindings after file preparation.
     inputs = await loadInputs();
@@ -905,6 +908,7 @@ async function launchOneWorker(owner, options) {
       await inspect(runDir, 'directory');
       await withWorkerPath(runDir, async target => { const handle = await open(target, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
         try { await handle.chmod(0o700); } finally { await handle.close(); } });
+      await captureOwner.finish();
     }
   }
 }
@@ -1546,7 +1550,8 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
   const profile = inputs.drivers[invocation.selected.cli].qualification.adapter.invocationProfiles[invocation.selected.profileRef];
   const captures = { stdout: join(runDir, profile.health?.outputFraming === 'jsonl' ? 'stdout.events.jsonl' : 'stdout.log'),
     stderr: join(runDir, 'stderr.log') };
-  const writeRecord = options.publishRecord ?? publishWorkerRecord;
+  const captureOwner = new WorkerCaptureOwner({ runDir, paths, captures, inspect, invocationId });
+  const writeRecord = captureOwner.writer(options.publishRecord ?? publishWorkerRecord, publishWorkerRecord);
   const publishFailures = [];
   let publishing = Promise.resolve();
   const artifactLifecycle = new WorkerArtifactLifecycle(invocation, invocationId);
@@ -1586,7 +1591,7 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
     // All captures (including the reserved final) open successfully BEFORE spawn.
     for (const filename of [...Object.values(paths), ...Object.values(captures)]) {
       const handle = await withWorkerPath(filename, target => (options.openCapture ?? open)(target, constants.O_RDWR | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600));
-      handles.push(handle);
+      handles.push(handle); await captureOwner.reserveOutput(filename);
     }
     // Recheck policy, prompt, installation and exact bindings after file preparation.
     inputs = await loadInputs();
@@ -1637,6 +1642,7 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
       await inspect(runDir, 'directory');
       await withWorkerPath(runDir, async target => { const handle = await open(target, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
         try { await handle.chmod(0o700); } finally { await handle.close(); } });
+      await captureOwner.finish();
     }
   }
 }

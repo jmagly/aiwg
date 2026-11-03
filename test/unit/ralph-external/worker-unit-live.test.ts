@@ -1,7 +1,8 @@
 // Real systemd cases clean up their own units and assert the manager has no failed workers.
 import { workerInvocationFixture } from '../../fixtures/worker-single-invocation.js';
 import { spawnSync as realSpawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { rmSync } from '../../helpers/worker-capture-cleanup.mjs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
