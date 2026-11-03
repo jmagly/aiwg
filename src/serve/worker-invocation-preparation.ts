@@ -1,5 +1,6 @@
 /** Validate and render a prepared invocation against trusted installation controls. */
 import path from 'node:path';
+import { directWorkerEnvironment } from '../config/worker-attribution.mjs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { validateWorkerArtifacts } from './worker-artifacts.mjs';
@@ -144,7 +145,8 @@ export async function prepareWorkerInvocation(invocation: WorkerResolvedInvocati
     // (worker-stdin-frame.mjs), so brief text never enters any argv.
     const deadline = qualification.ceilings?.wallSeconds === undefined ? ''
       : `timeout --signal=KILL ${quote(`${Math.min(result.health?.hardTimeoutSeconds ?? Infinity, result.limits.wallSeconds)}s`)} `;
-    const worker = `${deadline}env -i${environment ? ` ${environment}` : ''} ${result.argv.map(quote).join(' ')}`;
+    const markers = Object.entries(directWorkerEnvironment(result)).map(([name, value]) => `${name}=${quote(value)}`).join(' ');
+    const worker = `${deadline}env -i${environment ? ` ${environment}` : ''} ${markers} ${result.argv.map(quote).join(' ')}`;
     const outputs = `> ${quote(result.stdoutPath)} 2> ${quote(result.stderrPath)}`;
     if (result.stdin === 'brief-json') {
       const framer = fileURLToPath(new URL('./worker-stdin-frame.mjs', import.meta.url));

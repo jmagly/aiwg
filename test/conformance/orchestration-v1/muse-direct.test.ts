@@ -1,3 +1,4 @@
+import { workerMarkerNames } from '../../fixtures/worker-attribution.js';
 /** #2898: offline mappings only, never authenticated Muse qualification. */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -131,7 +132,8 @@ describe('Muse S1 offline profile and direct execution', () => {
     expect(invocation.shellCommand).not.toContain(f.payload);
     const shell = await execute(f, 'success', true), json = await execute(f, 'success');
     expect(shell.code).toBe(0); expect(json.code).toBe(0);
-    expect(shell.record).toEqual(json.record);
+    expect(json.record.envNames).toEqual(['AIWG_FAKE_WORKER_CONFIG']);
+    expect(shell.record).toEqual({ ...json.record, envNames: ['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames] });
     expect(shell.record).toMatchObject({ argv: invocation.argv.slice(2), cwd: f.cwd, brief: f.payload, stdinEof: true, stdinBytes: 0 });
     expect(shell.record.envNames).not.toContain('SYNTHETIC_SECRET');
     expect(f.validate(JSON.parse(owner.parseOutput(shell.stdout)!.text!))).toBe(true);

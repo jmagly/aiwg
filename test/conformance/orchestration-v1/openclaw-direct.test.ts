@@ -1,3 +1,4 @@
+import { workerMarkerNames } from '../../fixtures/worker-attribution.js';
 import { termAfterReady, TERM_READY } from '../../helpers/term-escalation.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
 /**
@@ -276,7 +277,7 @@ describe('T-OG-15 OpenClaw direct command contract', () => {
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
     expect(record).toMatchObject({ model: MODEL, thinking: effort, cwd: workdir, messageFile: invocation.briefPath, prompt: payload });
     expect(record.prompt).toContain(MARKER);
-    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG']);
+    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
     const stdout = await readFile(invocation.stdoutPath, 'utf8');
     const final = installed.owner.parseOutput(stdout);

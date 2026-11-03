@@ -329,7 +329,7 @@ describe('T-OG-15/20 one attached invocation without managed state', () => {
     expect(metadata).not.toContain('secret-environment-value');
     expect(metadata).not.toContain('unrelated-value');
     const invocation = JSON.parse(metadata);
-    expect(invocation.envNames).toEqual([...new Set([...f.plan.invocation!.envNames, 'AIWG_WORKER_INVOCATION_ID'])]);
+    expect(invocation.envNames).toEqual([...new Set([...f.plan.invocation!.envNames, 'AIWG_WORKER_INVOCATION_ID', 'AIWG_WORKER_WORKSPACE', 'AIWG_WORKER_GROUP'])]);
     expect(invocation.prompt.path).toBe(f.brief);
     expect(invocation.invocationDigest).toBe(qualificationDigest(f.plan.invocation));
     expect(invocation.planDigest).toBe(qualificationDigest(f.plan));

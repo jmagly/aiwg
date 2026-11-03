@@ -1,3 +1,4 @@
+import { workerMarkerNames, workerMarkerShell } from '../../fixtures/worker-attribution.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
 /**
  * #2912 (B-OG-48) Hermes headless CLI worker profile: offline S1 profile work.
@@ -297,7 +298,7 @@ describe('T-OG-15 Hermes direct command contract', () => {
       '--provider', invocation.selected.inferenceProvider, '-m', MODEL, '--reasoning', invocation.selected.effort.value]);
     expect(JSON.stringify(invocation.argv)).not.toContain(MARKER);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
-    expect(invocation.shellCommand).toBe(`cd ${quote(workdir)} && env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}" ${invocation.argv.map(quote).join(' ')}`
+    expect(invocation.shellCommand).toBe(`cd ${quote(workdir)} && env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}" ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')}`
       + ` < ${quote(invocation.briefPath)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     const { file, recordPath } = await fakeConfig(root, 'success');
     const result = await run('/bin/sh', ['-c', invocation.shellCommand!], { cwd: root,
@@ -308,7 +309,7 @@ describe('T-OG-15 Hermes direct command contract', () => {
     expect(record.query).toContain(MARKER);
     expect(record.argv).toEqual(invocation.argv.slice(2));
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
-    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG']);
+    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
     const stdoutText = await readFile(invocation.stdoutPath, 'utf8');
     const final = owner.parseOutput(stdoutText);

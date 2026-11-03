@@ -1,13 +1,19 @@
+export interface WorkerAttribution {
+  kind: 'unit' | 'unit-count' | 'invocation'; id: string; count: number;
+  attribution: 'attributed' | 'unknown' | 'conflicting'; workspace?: string; group?: string;
+}
 export interface HostResourceSample {
   /** Start of collection on the source host; absent on legacy/unavailable snapshots. */
   collectedAt?: string;
   supported: boolean; reason?: string; availMemGb?: number; load1?: number; cores?: number;
   loadRatio?: number; memPsiAvg10?: number; memPsiAvg60?: number; memPsiAvg300?: number;
+  workerAttributions?: WorkerAttribution[]; workerWorkspace?: string; workerUnknown?: number;
   workerGroups?: Record<string, number>;
   workers?: number; hostCliProcesses?: Record<string, number>; workerUnits?: number; freeDiskGb?: number;
   workerCountingSource?: 'systemd-units-and-marked-processes' | 'owned-process-fallback';
 }
 export interface WorkerCensus {
+  attributions?: WorkerAttribution[]; workspace?: string; unknown?: number;
   byGroup?: Record<string, number>;
   total: number; hostCliProcesses?: Record<string, number>; units?: number;
   source?: HostResourceSample['workerCountingSource'];
@@ -18,6 +24,7 @@ export interface HostResourceReaders {
   readDir?: (path: string) => string[];
   uid?: number;
   groupNames?: string[];
+  workspace?: string;
   coreCount?: () => number;
   countWorkers?: () => number | undefined | WorkerCensus;
   countWorkerUnits?: () => number | undefined;

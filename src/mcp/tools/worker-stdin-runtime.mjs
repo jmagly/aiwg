@@ -1,7 +1,15 @@
+// Prepare worker stdin and internal attribution for shell and spawned MCP transports.
+import { directWorkerEnvironment } from '../../config/worker-attribution.mjs';
 import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, rm, readdir, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+export function markWorkerServer(server, invocation, invocationId) {
+  if (!invocation?.cwd || !invocation?.selected?.group) return server;
+  return { ...server, env: { ...server.env,
+    ...directWorkerEnvironment({ ...invocation, ...(invocationId ? { invocationId } : {}) }) } };
+}
 
 /** Sweep old private directories only for dead conductors; PID reuse retains
  * them. Runtime files keep prompts out of git, but cannot isolate same-user workers. */
@@ -57,7 +65,11 @@ export async function launchPreparedShellWorker(invocation, { allowDegraded, con
     if (bytes !== null) {
       ({ stdinPath, cleanup } = await prepareWorkerStdin(bytes, stdinRuntimeRoot));
     }
+    const markers = directWorkerEnvironment({ ...invocation, ...(invocationId ? { invocationId } : {}) });
     const launch = await planDirectWorkerLaunch({ invocation, config, allowDegraded, name, live, readers,
+      env: { ...Object.fromEntries((invocation.envNames ?? []).filter(name => process.env[name] !== undefined)
+        .map(name => [name, process.env[name]])), ...markers },
+      envNames: [...new Set([...(invocation.envNames ?? []), ...Object.keys(markers)])],
       thresholdOverlay, memoryMaxGb, stdinPath, ownedGroup: true, isolation, admission, invocationId, dispatchGuard,
       spawn, spawnAsync, onSpawnAttempt: value => {
         attempt = value;

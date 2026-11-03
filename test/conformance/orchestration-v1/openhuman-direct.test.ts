@@ -1,3 +1,4 @@
+import { workerMarkerNames, workerMarkerShell } from '../../fixtures/worker-attribution.js';
 /**
  * #2911 (B-OG-47) OpenHuman promotion: offline S1 profile work.
  *
@@ -240,7 +241,7 @@ describe('T-OG-15 OpenHuman direct command contract', () => {
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
     const framer = path.resolve('src/serve/worker-stdin-frame.mjs');
     expect(invocation.shellCommand).toBe(`cd ${quote(workdir)} && env -i ${[process.execPath, framer, invocation.briefPath, MODEL, workdir].map(quote).join(' ')}`
-      + ` | env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}" ${invocation.argv.map(quote).join(' ')}`
+      + ` | env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}" ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')}`
       + ` > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     expect(invocation.shellCommand).not.toContain('< /dev/null');
     const { file, recordPath } = await fakeConfig(root, 'success');
@@ -254,7 +255,7 @@ describe('T-OG-15 OpenHuman direct command contract', () => {
     expect(record.stdinBytes).toBe(Buffer.byteLength(JSON.stringify({ message: payload, model_override: MODEL, cwd: workdir })));
     expect(record.argv).toEqual(invocation.argv.slice(2));
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
-    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG']);
+    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
     const final = installed.owner.parseOutput(await readFile(invocation.stdoutPath, 'utf8'));
     expect(final).toEqual({ response: `synthetic reply (${payload.length} chars)` });

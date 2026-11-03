@@ -6,6 +6,7 @@
     "test/unit/config/host-resource-report.test.ts",
     "test/unit/config/host-resource-groups.test.ts",
     "test/unit/config/host-resource-runtime.test.ts",
+    "test/unit/config/worker-attribution.test.ts",
     "test/unit/cli/doctor-resources.test.ts"
   ]
 }

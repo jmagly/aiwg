@@ -499,7 +499,7 @@ describe('prepared shell recovery authority', () => {
     const root = await tempRoot();
     const brief = Buffer.from('conductor brief');
     const { createHash } = await import('node:crypto');
-    const invocation = { briefPath: path.join(root, 'brief'), briefDigest: `sha256:${createHash('sha256').update(brief).digest('hex')}` };
+    const invocation = { cwd: root, selected: { group: 'reviews' }, envNames: [], briefPath: path.join(root, 'brief'), briefDigest: `sha256:${createHash('sha256').update(brief).digest('hex')}` };
     const admission = Object.freeze({ gated: true, token: Object.freeze({ id: 'reserved' }) });
     const dispatchGuard = { deadlineAtMs: 110, nowMs: () => 100 };
     const plan = vi.fn(async (options: any) => {
@@ -515,6 +515,7 @@ describe('prepared shell recovery authority', () => {
     expect(plan.mock.calls[0][0].admission).toBe(admission);
     expect(plan.mock.calls[0][0].invocationId).toBe('invocation');
     expect(plan.mock.calls[0][0].dispatchGuard).toBe(dispatchGuard);
+    expect(plan.mock.calls[0][0].env).toMatchObject({ AIWG_WORKER_INVOCATION_ID: 'invocation', AIWG_WORKER_WORKSPACE: root, AIWG_WORKER_GROUP: 'reviews' });
     expect(result).toMatchObject({ launched: false, launchAttempted: false });
     expect(await readdir(root)).toEqual([]);
   });

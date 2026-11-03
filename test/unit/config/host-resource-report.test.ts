@@ -117,12 +117,14 @@ describe('normalized host resource capacity', () => {
         if (!records[pid]) throw new Error('exited');
         return field === 'status' ? `Uid: ${records[pid][0]}\n` : records[pid][1];
       } };
-    expect(countWorkerProcesses(readers)).toEqual({ total: 5, hostCliProcesses: { codex: 2, muse: 2 }, units: 5,
+    expect(countWorkerProcesses(readers)).toEqual({ byGroup: {}, workspace: undefined, unknown: 5,
+      attributions: [{ kind: 'unit-count', id: '(unit identities unavailable)', count: 5, attribution: 'unknown' }], total: 5, hostCliProcesses: { codex: 2, muse: 2 }, units: 5,
       source: 'systemd-units-and-marked-processes' });
     const live = readLiveHostResources({ ...hostResourceReaders(), ...readers, countWorkers: undefined });
     expect(live).toMatchObject({ workers: 5, hostCliProcesses: { codex: 2, muse: 2 }, workerUnits: 5 });
     expect(countWorkerProcesses({ ...readers, countWorkerUnits: () => { throw new Error('no manager'); } })?.total).toBe(0);
-    expect(countWorkerProcesses({ ...readers, readDir: () => { throw new Error('no proc'); } })).toEqual({ total: 5, units: 5,
+    expect(countWorkerProcesses({ ...readers, readDir: () => { throw new Error('no proc'); } })).toEqual({
+      byGroup: {}, workspace: undefined, unknown: 5, attributions: [{ kind: 'unit-count', id: '(unit identities unavailable)', count: 5, attribution: 'unknown' }], total: 5, units: 5,
       source: 'systemd-units-and-marked-processes' });
     expect(countWorkerProcesses({ ...readers, countWorkerUnits: () => undefined, readDir: () => { throw new Error('no proc'); } })).toBeUndefined();
   });

@@ -7,5 +7,5 @@ import type { HandlerContext } from './types.js';
 export function sampleWorkerHostResources(ctx: Pick<HandlerContext, 'cwd' | 'args'>, readers?: HostResourceReaders) {
   const request = ctx.args[0] === 'resolve' ? parseWorkerCommandArgs(ctx.args.slice(1)) : undefined;
   const paths = request ? [ctx.cwd, request.workdir, path.dirname(request.final_output)] : [ctx.cwd];
-  return readLiveHostResources({ ...readers, paths });
+  return readLiveHostResources({ ...readers, paths, workspace: request?.workdir ?? ctx.cwd });
 }

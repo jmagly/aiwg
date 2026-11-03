@@ -53,7 +53,7 @@ import { withWorkerPath, boundedPrivateRead } from './lib/worker-inputs.mjs';
 import { collectWorkerFinal } from './lib/worker-final.mjs';
 import { verifyRetryPredecessor } from './lib/worker-retry-evidence.mjs';
 import { observeWorkerTermination, terminationRemedy } from './lib/worker-termination.mjs';
-import { buildWorkerInvocationEnvironment, WORKER_INVOCATION_MARKER } from './lib/worker-invocation-processes.mjs';
+import { buildWorkerInvocationEnvironment } from './lib/worker-invocation-processes.mjs';
 import { resolveRetryReference } from './lib/worker-launch-cli.mjs';
 import { launcherRecoveryEvidence, observeLauncherRecoveryOutcome, recordLauncherRecoveryHint } from './lib/launcher-recovery-evidence.mjs';
 export { observeLauncherRecoveryOutcome } from './lib/launcher-recovery-evidence.mjs';
@@ -695,7 +695,7 @@ async function launchOneWorker(owner, options) {
       executedArgvDigest: qualificationDigest(artifacts.argv),
       artifacts: (invocation.artifacts ?? []).map(artifact => ({ name: artifact.name,
         byteLength: Buffer.byteLength(artifact.content), sha256: bytesDigest(artifact.content) })),
-      envNames: [...new Set([...invocation.envNames, WORKER_INVOCATION_MARKER])], stdin: invocation.stdin,
+      envNames: buildWorkerInvocationEnvironment(invocation.envNames, invocationId, {}, invocation).envNames, stdin: invocation.stdin,
       prompt: { path: invocation.briefPath, digest: invocation.briefDigest }, cwd: invocation.cwd,
       worktree: { path: invocation.cwd, baseRevision: null }, paths, captures, outputFraming: profile.health?.outputFraming ?? 'opaque',
       health: invocation.health ?? null, transport: invocation.transport,
@@ -715,7 +715,7 @@ async function launchOneWorker(owner, options) {
       paths: await Promise.all([invocation.cwd, runDir].map(workerDispatchPath)) });
     if (!gate.ok) throw workerDispatchRefusal(gate);
     if (bytesDigest(await boundedPrivateRead(invocation.briefPath, 262144, inspect)) !== invocation.briefDigest) throw new Error('Worker prompt changed before spawn');
-    const environment = buildWorkerInvocationEnvironment(invocation.envNames, invocationId);
+    const environment = buildWorkerInvocationEnvironment(invocation.envNames, invocationId, process.env, invocation);
     const baselineContent = await sampleOwnedWorktreeContent(invocation.cwd, { files: options.healthArtifacts });
     // #2915 round 8 (D2, replaces the former "debit immediately before this
     // call" comment): the ledger debit now happens INSIDE the dispatch-
@@ -1575,7 +1575,7 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
       executedArgvDigest: qualificationDigest(artifacts.argv),
       artifacts: (invocation.artifacts ?? []).map(artifact => ({ name: artifact.name,
         byteLength: Buffer.byteLength(artifact.content), sha256: bytesDigest(artifact.content) })),
-      envNames: [...new Set([...invocation.envNames, WORKER_INVOCATION_MARKER])], stdin: invocation.stdin,
+      envNames: buildWorkerInvocationEnvironment(invocation.envNames, invocationId, {}, invocation).envNames, stdin: invocation.stdin,
       prompt: { path: invocation.briefPath, digest: invocation.briefDigest }, cwd: invocation.cwd,
       worktree: { path: invocation.cwd, baseRevision: null }, paths, captures, outputFraming: profile.health?.outputFraming ?? 'opaque',
       health: invocation.health ?? null, transport: invocation.transport,
@@ -1595,7 +1595,7 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
       paths: await Promise.all([invocation.cwd, runDir].map(workerDispatchPath)) });
     if (!localGate.ok) throw workerDispatchRefusal(localGate);
     if (bytesDigest(await boundedPrivateRead(invocation.briefPath, 262144, inspect)) !== invocation.briefDigest) throw new Error('Worker prompt changed before spawn');
-    const environment = buildWorkerInvocationEnvironment(invocation.envNames, invocationId);
+    const environment = buildWorkerInvocationEnvironment(invocation.envNames, invocationId, process.env, invocation);
     const baselineContent = await sampleOwnedWorktreeContent(invocation.cwd, { files: options.healthArtifacts });
     // The real `launchIsolatedWorker`, called with no `onDispatchCommit`
     // (never passed anywhere in this frozen function), is synchronous —
@@ -4969,6 +4969,11 @@ export function planDirectWorkerLaunch({
   // for the not-gated/disabled-CLI paths below, which must stay
   // synchronous and byte-for-byte legacy — passing `undefined` through to
   // `launchIsolatedWorker` is the dual-mode contract that keeps it so.
+  if (invocation?.cwd && invocation?.selected?.group) {
+    invocationId ??= invocation.invocationId ?? randomUUID();
+    const marked = buildWorkerInvocationEnvironment(envNames ?? [], invocationId, env ?? process.env, invocation);
+    envNames = marked.envNames; env = marked.env;
+  }
   let dispatchAttempt;
   const launch = (onDispatchCommit) => launchIsolatedWorker({ name, memoryMaxGb, command, args, cwd, logFile, stdinPath, stdoutPath, stderrPath,
     gate, config, allowDegraded, attached, ownedGroup,
