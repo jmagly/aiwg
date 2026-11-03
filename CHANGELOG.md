@@ -7,6 +7,10 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Dependencies
+
+- Require MCP client 2.3.0 for `@aiwg/flue` and document app overrides for the Flue 2.3.0 dependency advisories (#3821).
+
 ## [2026.11.0] - 2026-11-01
 
 ### Added

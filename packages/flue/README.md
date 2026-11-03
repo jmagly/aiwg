@@ -4,11 +4,25 @@
 > Use my app model and show which tool import is needed if a capability is missing.
 
 MIT bundle skills, specialist factories and remote/Node MCP helpers for Flue
-2.3.x. Peers are `@flue/runtime: 2.3.x`, `@modelcontextprotocol/client: 2.0.0`,
+2.3.x. Peers are `@flue/runtime: 2.3.x`, `@modelcontextprotocol/client: 2.3.0`,
 and `valibot: ^1.1.0`. Install alongside your own Flue toolchain.
 
+Add these overrides to your app's `package.json` before installing:
+
+```json
+{
+  "overrides": {
+    "@modelcontextprotocol/client": "$@modelcontextprotocol/client",
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "@modelcontextprotocol/server": "2.3.0"
+  }
+}
+```
+
+Flue 2.3.0 still pins the older client, which has a published denial-of-service advisory.
+
 ```sh
-npm install @aiwg/flue @flue/runtime@2.3.0 @modelcontextprotocol/client@2.0.0 'valibot@^1.1.0'
+npm install @aiwg/flue @flue/runtime@2.3.0 @modelcontextprotocol/client@2.3.0 'valibot@^1.1.0'
 aiwg use sdlc --provider flue --package
 ```
 

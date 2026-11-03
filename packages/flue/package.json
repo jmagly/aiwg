@@ -11,7 +11,7 @@
   },
   "peerDependencies": {
     "@flue/runtime": "2.3.x",
-    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/client": "2.3.0",
     "valibot": "^1.1.0"
   },
   "files": [
