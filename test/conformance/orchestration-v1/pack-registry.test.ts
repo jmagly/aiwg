@@ -59,6 +59,8 @@ describe('T-OG registry wiring gate (partial coverage is not release acceptance)
       'test/unit/smiths/parallelism-templates.test.ts',
       'test/unit/ralph-external/session-attempt.test.ts',
       'test/unit/ralph-external/ralph-group-cycle.test.ts',
+      'test/unit/ralph-external/snapshot-resilience.test.mjs',
+      'test/unit/ralph-external/orchestrator-resilience.test.mjs',
       'test/unit/config/worker-adoption.test.ts',
       'test/unit/config/worker-adoption-recovery.test.ts',
       'test/unit/config/worker-owner-lock.test.ts',
