@@ -10,14 +10,14 @@
 import { fileURLToPath } from 'node:url';
 import { EventEmitter } from 'events';
 import { execFileSync } from 'child_process';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readlinkSync, readdirSync } from 'fs';
-import { hostname } from 'node:os';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { constants } from 'node:fs';
 import { open, opendir, rename, unlink } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createWorkerHealthObserver } from './lib/worker-health.mjs';
+import { sampleWorkerProcIdentity } from './lib/worker-process-identity.mjs';
 
 // This module is loaded standalone in some contexts (e.g. staged/partial
 // installs, or copied in isolation for a test) without its sibling
@@ -70,20 +70,7 @@ if (importImpl) {
 
 /** Side-effect-free Linux sample. Unknown identity never grants signal authority. */
 export function sampleWorkerIdentity(pid) {
-  if (process.platform !== 'linux' || !Number.isSafeInteger(pid) || pid <= 0) return null;
-  try {
-    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
-    const fields = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/);
-    const uid = Number(/^Uid:\s+(\d+)/m.exec(readFileSync(`/proc/${pid}/status`, 'utf8'))?.[1]);
-    const bootId = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
-    const executable = readlinkSync(`/proc/${pid}/exe`);
-    if (!Number.isSafeInteger(uid) || !bootId || !fields[19]) return null;
-    return { pid, pgid: Number(fields[2]), uid, parentPid: Number(fields[1]), sessionId: Number(fields[3]),
-      host: hostname(), bootId, startTicks: fields[19], executable, state: fields[0],
-      // /proc stat fields 14/15 are utime/stime; 16/17 are cutime/cstime
-      // accumulated for waited-for children, including child-heavy CLIs.
-      cpuTicks: Number(fields[11]) + Number(fields[12]) + Number(fields[13]) + Number(fields[14]) };
-  } catch { return null; }
+  return sampleWorkerProcIdentity(pid);
 }
 
 export function sameWorkerIdentity(expected, actual) {

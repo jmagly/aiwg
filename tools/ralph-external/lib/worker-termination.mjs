@@ -29,15 +29,31 @@ export function observeWorkerTermination({ mode, native, workerExited, identity,
     // readable stat/cgroup links instead of failing closed on every
     // unreadable post-start process.
     if (error.code === 'ESRCH') {
-      // Exit-time callers get one scan, at most 2 s. An explicit deadline
-      // leaves the scan budget and retries to the recheck caller.
+      // A standalone observation gets one scan, at most 2 s. An explicit
+      // deadline leaves the shared budget and retries to its caller.
       return scan({ invocationId, startTicks: identity.startTicks, uid: identity.uid, now,
         deadline: deadline ?? now() + TERMINATION_BUDGET_MS,
         workerPid: identity.pid, workerPgid: identity.pgid, workerSession: identity.sessionId });
     }
     return { confirmed: false, missing: `empty owned process group (signal-0 returned ${error.code ?? 'unknown'})` };
   }
-  return { confirmed: false, missing: 'empty owned process group (signal-0 still finds members)' };
+  return { confirmed: false, missing: 'empty owned process group (signal-0 still finds members)', retryable: true };
+}
+
+// Share the exit-time budget across transient kernel observations; each scan
+// gets all remaining time so a large inventory is never restarted at 100 ms.
+export async function settleWorkerTermination({ now = () => performance.now(),
+  wait = ms => new Promise(resolve => setTimeout(resolve, ms)), ...options } = {}) {
+  const deadline = now() + TERMINATION_BUDGET_MS;
+  let evidence;
+  for (let attempt = 0; attempt < TERMINATION_MAX_ATTEMPTS; attempt++) {
+    if (evidence && now() >= deadline) return evidence;
+    evidence = observeWorkerTermination({ ...options, now, deadline });
+    if (evidence.confirmed || evidence.markerPresent || !evidence.retryable
+      || now() >= deadline || attempt === TERMINATION_MAX_ATTEMPTS - 1) return evidence;
+    await wait(Math.min(TERMINATION_ATTEMPT_MS, Math.max(0, deadline - now())));
+  }
+  return evidence;
 }
 
 export function terminationRemedy(result, runDir) {
@@ -79,7 +95,7 @@ export async function recheckWorkerTermination({ processRecord, exitRecord,
       catch { /* Unavailable is never empty. */ }
     }
     evidence = observe({ mode: processRecord.isolation, native, identity, invocationId: processRecord.invocationId,
-      deadline: Math.min(deadline, now() + TERMINATION_ATTEMPT_MS), now,
+      deadline, now,
       workerExited: Number.isInteger(exitRecord.exitCode) && exitRecord.exitCode >= 0 && exitRecord.exitCode <= 255
         || exitRecord.captureCoverage === 'complete' && exitRecord.workerTermination === 'confirmed' && /^SIG[A-Z0-9]+$/.test(exitRecord.signal ?? '') });
     if (evidence.confirmed || evidence.markerPresent || now() >= deadline || attempt === TERMINATION_MAX_ATTEMPTS - 1) return evidence;

@@ -4935,7 +4935,7 @@ describe('baseline equivalence (#2915 round 8, D6): frozen 8c812250d6 vs the bra
           expect(Object.keys(branchInvocation).sort()).toEqual(Object.keys(baselineInvocation).sort());
           const baselineExit = JSON.parse(await readFile(path.join(baseline.runDir, 'exit.json'), 'utf8'));
           const branchExit = JSON.parse(await readFile(path.join(branch.runDir, 'exit.json'), 'utf8'));
-          expect(Object.keys(branchExit).sort()).toEqual(Object.keys(baselineExit).sort());
+          expect(Object.keys(normalizeMarkerRunRecord('exit.json', baselineExit, branchExit)).sort()).toEqual(Object.keys(baselineExit).sort());
           // Never gated: no #2915 field, on either side.
           expect('attemptOutcome' in branchExit).toBe(false);
           expect('attemptOutcome' in baselineExit).toBe(false);
@@ -5348,6 +5348,7 @@ describe('baseline equivalence (#2915 round 8, D6), follow-up scenarios', () => 
   async function compareRunDirectories(dirA, dirB) {
     const [namesA, namesB] = await Promise.all([readdir(dirA), readdir(dirB)]);
     expect(namesB.sort(), `file set mismatch: ${dirA} vs ${dirB}`).toEqual(namesA.sort());
+    const branchExit = namesB.includes('exit.json') ? JSON.parse(await readFile(path.join(dirB, 'exit.json'), 'utf8')) : null;
     for (const name of namesA) {
       const [statA, statB] = await Promise.all([lstat(path.join(dirA, name)), lstat(path.join(dirB, name))]);
       expect(statB.mode & 0o777, `mode mismatch for ${name}`).toBe(statA.mode & 0o777);
@@ -5364,7 +5365,7 @@ describe('baseline equivalence (#2915 round 8, D6), follow-up scenarios', () => 
       ]);
       let parsedA; let parsedB; let bothJson = true;
       try { parsedA = JSON.parse(bytesA); parsedB = JSON.parse(bytesB); } catch { bothJson = false; }
-      if (bothJson && parsedA?.descendants === 'stopped') parsedA.descendants = 'none'; if (bothJson) expect(stripVolatile(normalizeMarkerRunRecord(name, parsedA, parsedB)), `JSON content mismatch for ${name}`).toEqual(stripVolatile(parsedA));
+      if (bothJson && parsedA?.descendants === 'stopped') parsedA.descendants = 'none'; if (bothJson) expect(stripVolatile(normalizeMarkerRunRecord(name, parsedA, parsedB, branchExit)), `JSON content mismatch for ${name}`).toEqual(stripVolatile(parsedA));
       else expect(bytesB, `byte content mismatch for ${name}`).toBe(bytesA);
     }
   }

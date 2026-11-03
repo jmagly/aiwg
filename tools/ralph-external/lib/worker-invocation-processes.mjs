@@ -101,12 +101,12 @@ export function scanWorkerInvocationProcesses({ invocationId, startTicks, uid = 
         // failures and unreadable/missing start times still cannot prove absence.
         if (gone(error)) continue;
         if (!sameUid) {
-          uncertain = unknown('unreadable same-uid process environment or ownership');
+          uncertain = { ...unknown('unreadable same-uid process environment or ownership'), retryable: true };
           continue;
         }
         if (!workerKnown) {
           if (!startedBeforeWorker(fs, path, startTicks)) {
-            uncertain = unknown('unreadable same-uid process environment or ownership');
+            uncertain = { ...unknown('unreadable same-uid process environment or ownership'), retryable: true };
           }
           continue;
         }
@@ -120,7 +120,7 @@ export function scanWorkerInvocationProcesses({ invocationId, startTicks, uid = 
           workerCgroup: resolvedWorkerCgroup, selfCgroup: resolvedSelfCgroup,
           now, deadline, ...(maxAncestryDepth === undefined ? {} : { maxDepth: maxAncestryDepth }) });
         if (verdict === 'possible-descendant') {
-          uncertain = unknown('unreadable same-uid process links to the worker (ancestry, session, group or cgroup)');
+          uncertain = { ...unknown('unreadable same-uid process links to the worker (ancestry, session, group or cgroup)'), retryable: true };
         }
       } finally { if (fd !== undefined) fs.closeSync(fd); }
     }

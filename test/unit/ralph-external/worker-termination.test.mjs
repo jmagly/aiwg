@@ -98,10 +98,12 @@ describe('T-OG-04 confirmed owned containment (#3674)', () => {
     const f = await fixture();
     const first = await f.attempt(1);
     const file = join(f.root, 'run-1/exit.json');
-    await writeFile(file, JSON.stringify({ ...first, termination: 'uncertain', descendants: 'unknown' }));
+    await writeFile(file, JSON.stringify({ ...first, termination: 'uncertain', descendants: 'unknown',
+      terminationMissing: 'historical uncertain scan', healthEvidence: { ...first.healthEvidence, terminationMissing: 'historical uncertain scan' } }));
     const retryOf = await reference(join(f.root, 'run-1'));
     expect(await f.attempt(2, { retryOf, checkDescendants: true })).toMatchObject({ termination: 'confirmed' });
-    expect(JSON.parse(await readFile(file, 'utf8'))).toMatchObject({ termination: 'confirmed', descendants: 'none' });
+    expect(JSON.parse(await readFile(file, 'utf8'))).toMatchObject({ termination: 'confirmed', descendants: 'none', terminationMissing: null,
+      healthEvidence: { terminationMissing: null } });
   });
 
   it.each(['native-sandbox', 'degraded'])('refuses an escaped setsid descendant in %s, including recheck', async mode => {
@@ -111,6 +113,8 @@ describe('T-OG-04 confirmed owned containment (#3674)', () => {
     expect(sampleWorkerIdentity(pid).pgid).toBe(pid);
     expect(first).toMatchObject({ exitCode: 0, workerTermination: 'confirmed', groupMembersRemaining: 0,
       termination: 'uncertain', descendants: 'unknown' });
+    expect(first.terminationMissing).toContain('same-uid process still carries invocation marker');
+    expect(first.healthEvidence.terminationMissing).toBe(first.terminationMissing);
     expect(await readFile(join(f.root, 'child.pid.env'), 'utf8')).toBe(first.invocationId);
     const retryOf = await reference(join(f.root, 'run-1'));
     await expect(f.attempt(2, { retryOf })).rejects.toThrow(/escaped-descendant evidence/);
@@ -166,7 +170,11 @@ describe('T-OG-04 confirmed owned containment (#3674)', () => {
   it('keeps an exited worker with unknown owned identity uncertain and names the required evidence', async () => {
     const f = await fixture();
     const first = await f.attempt(1, { sampleIdentity: () => null });
-    expect(first).toMatchObject({ exitCode: 0, termination: 'uncertain', descendants: 'unknown' });
+    expect(first).toMatchObject({ exitCode: 0, termination: 'uncertain', descendants: 'unknown',
+      terminationMissing: expect.stringContaining('launcher-owned process group identity') });
+    expect(first.healthEvidence.terminationMissing).toBe(first.terminationMissing);
+    expect(JSON.parse(await readFile(join(f.root, 'run-1/exit.json'), 'utf8')).terminationMissing).toBe(first.terminationMissing);
+    expect(JSON.parse(await readFile(join(f.root, 'run-1/health.json'), 'utf8')).evidence.terminationMissing).toBe(first.terminationMissing);
     await expect(verifyRetryPredecessor(await reference(join(f.root, 'run-1')), { inspect: inspectWorkerPath, checkDescendants: true }))
       .rejects.toThrow(/launcher-owned process group identity.*--check-descendants/);
   });

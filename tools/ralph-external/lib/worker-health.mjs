@@ -126,6 +126,7 @@ export function createWorkerHealthObserver(options = {}) {
   let sequence = 0, generation = options.observerGeneration ?? 0, steps = null, total = 0, lastCheck = started, maxGap = 0;
   let observed = null, activity = null, progress = null, heartbeat = null, handshakeAt = null, stalledAt = null;
   let state = 'launching', handshake = 'unobserved', confidence = 'unobserved', reasonCode = 'AWAITING_HANDSHAKE';
+  let terminationMissing = null;
   let termination = 'running', transitionCount = 0, live = null, disconnected = false, finalized = false;
   let terminal = null, fatalFailure = false, cpuTimeMs = null, contentDigest = options.contentDigest ?? null;
   const unavailable = new Set(profile.handshake === 'semantic' ? [] : ['semantic-start']);
@@ -350,6 +351,7 @@ export function createWorkerHealthObserver(options = {}) {
       if (finalized) return snapshot();
       for (const [id, cursor] of buffers) if (cursor.bytes.length || cursor.discarding) gap('MALFORMED_FRAME', { id });
       finalized = true; observed = now(); termination = result.termination ?? 'uncertain';
+      terminationMissing = result.terminationMissing ?? null;
       if (termination !== 'confirmed' || disconnected) {
         termination = 'uncertain';
         if (result.signal || result.exitCode != null && result.exitCode !== 0) transition(handshakeAt === null ? 'failed-to-start' : 'crashed', 'CRASH');
@@ -375,6 +377,7 @@ export function createWorkerHealthObserver(options = {}) {
       return Math.max(1, Math.min(...pending) - time);
     },
     evidence() { return { invocationId: binding.invocationId, sequence, observerGeneration: generation,
+      ...(terminationMissing ? { terminationMissing } : {}),
       lastWorkerHeartbeatAt: utc(heartbeat), cpuTimeMs, steps: windows.stepEnforcement === 'unavailable' ? null : steps,
       gaps: gaps.map(item => ({ ...item })), events: events.map(item => ({ ...item })) }; },
   };

@@ -256,6 +256,7 @@ describe('T-OG-23 ownership, bounds, unknowns and observer gaps', () => {
     const installed = await root(); await mkdir(path.join(installed, 'lib'), { mode: 0o700 });
     await cp('tools/ralph-external/process-monitor.mjs', path.join(installed, 'process-monitor.mjs'));
     await cp('tools/ralph-external/lib/worker-health.mjs', path.join(installed, 'lib/worker-health.mjs'));
+    await cp('tools/ralph-external/lib/worker-process-identity.mjs', path.join(installed, 'lib/worker-process-identity.mjs'));
     const module = await import(pathToFileURL(path.join(installed, 'process-monitor.mjs')).href);
     const directory = await fixture(); const report = await module.sampleWorkerStatus(options(directory));
     expect(report.exitCode).toBe(0); expect(module.formatWorkerStatus(report)).toContain('fixture-worker');
@@ -266,6 +267,7 @@ describe('T-OG-23 ownership, bounds, unknowns and observer gaps', () => {
     const installed = await root(); await mkdir(path.join(installed, 'lib'), { mode: 0o700 });
     await cp('tools/ralph-external/process-monitor.mjs', path.join(installed, 'process-monitor.mjs'));
     await cp('tools/ralph-external/lib/worker-health.mjs', path.join(installed, 'lib/worker-health.mjs'));
+    await cp('tools/ralph-external/lib/worker-process-identity.mjs', path.join(installed, 'lib/worker-process-identity.mjs'));
     const module = await import(pathToFileURL(path.join(installed, 'process-monitor.mjs')).href);
 
     const monitor = new module.ProcessMonitor({ projectRoot: installed });
