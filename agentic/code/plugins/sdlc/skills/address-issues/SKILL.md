@@ -297,8 +297,6 @@ Post the validated canonical markdown comment to the issue thread:
 ### Next Steps
 [What will happen in the next cycle]
 
----
-*Automated by AIWG Al — reply to this issue to provide feedback*
 ```
 
 If the posted status comment asks any human question/query, resolve and apply the configured human-interaction semantic role (#1726, #1789):
@@ -414,8 +412,6 @@ Unable to fully resolve this issue within 6 cycles.
 ### Recommendation
 [Specific guidance for human to unblock]
 
----
-*Automated by AIWG Al — human intervention recommended*
 ```
 
 ## Provider Configuration
