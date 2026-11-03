@@ -204,6 +204,7 @@ describe('T-OG-01 S1 complete candidate and restriction origins', () => {
   it.each([
     { guards: { allowedVisibility: ['listed', 'hidden'] } },
     { guards: { denySelfDelegation: false } },
+    { guards: { denyConductorWorkerExecution: false } },
     { guards: { requireExactModel: false } },
     { guards: { minimumIdentityEvidence: 'runtime-configured' } },
     { dataPolicy: { allowedProcessing: ['local', 'remote'] } },
@@ -215,7 +216,7 @@ describe('T-OG-01 S1 complete candidate and restriction origins', () => {
     const result = mergeWorkerSelection([
       { source: 'fixture:builtin', digest: workerConfigDigest(DEFAULT_WORKER_SELECTION), authority: 'builtin', policy: DEFAULT_WORKER_SELECTION },
       { source: 'fixture:project', digest: workerConfigDigest('strict'), authority: 'project', policy: {
-        guards: { allowedVisibility: ['listed'], denySelfDelegation: true, requireExactModel: true, minimumIdentityEvidence: 'backend-attested' },
+        guards: { allowedVisibility: ['listed'], denySelfDelegation: true, denyConductorWorkerExecution: true, requireExactModel: true, minimumIdentityEvidence: 'backend-attested' },
         dataPolicy: { allowedProcessing: ['local'], allowUnknown: false, allowProductImprovement: false, maxRetentionDays: 0 },
         freshness: { warnHours: 1, blockHours: 4 },
       } },
@@ -372,6 +373,8 @@ describe('T-OG-01/15 S1 config editing, input digests and read failures', () => 
     }
     const enabled = await fixture.loader.load(policy());
     expect(enabled.defaults.workerSelection).toEqual(DEFAULT_WORKER_SELECTION);
+    expect(enabled.defaults.workerSelection?.guards).not.toHaveProperty('denyConductorWorkerExecution');
+    expect(enabled.workerPolicyOrigins).not.toHaveProperty('/defaults/workerSelection/guards/denyConductorWorkerExecution');
     expect(await fixture.loader.load(policy())).toBe(enabled);
     expect(existsSync(join(fixture.root, '.aiwg'))).toBe(false);
   });

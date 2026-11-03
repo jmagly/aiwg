@@ -1,5 +1,5 @@
-// Refuse conductor references, glob reads and ancestor searches of declared local-only inputs.
-import { realpathSync, readFileSync, statSync } from 'node:fs';
+// Refuse local-only reads and direct execution of worker output by the conductor.
+import { realpathSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, relative, isAbsolute, sep, matchesGlob, basename } from 'node:path';
 
 // Literal project-relative files or directory subtrees; no globs, traversal or rule syntax.
@@ -144,7 +144,95 @@ function recursiveRoots(words) {
   return roots.length ? roots : ['.'];
 }
 
-export function conductorToolDenial(event, root, paths) {
+// Read Git's existing worktree metadata, never invoke Git or a worker-owned helper.
+// Retained worktrees stay untrusted after the worker stops, until integration.
+export function conductorWorkerTrees(root) {
+  const trees = [resolve(root, '.aiwg/working/worktrees')];
+  try {
+    let git = resolve(root, '.git');
+    if (!statSync(git).isDirectory()) {
+      git = resolve(root, readFileSync(git, 'utf8').trim().replace(/^gitdir: /, ''));
+    }
+    try { git = resolve(git, readFileSync(resolve(git, 'commondir'), 'utf8').trim()); } catch { /* Main checkout. */ }
+    for (const entry of readdirSync(resolve(git, 'worktrees'))) {
+      try {
+        const metadata = resolve(git, 'worktrees', entry);
+        const tree = dirname(resolve(metadata, readFileSync(resolve(metadata, 'gitdir'), 'utf8').trim()));
+        if (canonical(tree) !== canonical(root)) trees.push(tree);
+      } catch { /* A stale entry must not hide other registered workers. */ }
+    }
+  } catch { /* Projects without Git metadata still protect the standard worker directory. */ }
+  return [...new Set(trees)];
+}
+
+const workerExecutionDenial = 'AIWG: conductor must not execute or import worker-written code; use aiwg ralph-external --verify-worker instead';
+const runtime = /^(?:node(?:js)?|python(?:\d+(?:\.\d+)*)?|npm|npx|pnpm|yarn|bun|deno|vitest|jest|pytest|py\.test|mocha|ava|tap|tsx|ts-node|make|cmake|ctest|cargo|go|ruby|perl|php|java)$/;
+const shells = new Set(['sh', 'bash', 'dash', 'zsh']);
+const wrappers = new Set(['env', 'nice', 'timeout', 'systemd-run', 'sudo', 'command', 'exec', 'nohup']);
+const wrapperValues = new Set(['-n', '--adjustment', '-p', '--property', '-u', '--user', '-g', '--group',
+  '-C', '--chdir', '--working-directory', '--unit', '--description', '--slice', '--kill-after', '-k', '-s', '--signal']);
+
+function workerExecution(command, initialCwd, trees, depth = 0) {
+  if (depth > 4) return true;
+  const protectedTrees = trees.flatMap(tree => [resolve(tree), canonical(resolve(tree))]);
+  const copies = [];
+  let cwd = initialCwd;
+  const untrusted = candidate => {
+    const file = resolve(cwd, candidate.replace(/^file:\/\//, ''));
+    return [...protectedTrees, ...copies].some(base => contains(base, file) || contains(base, canonical(file)));
+  };
+  const references = value => (value.match(/[^\s"'`;&|<>()\[\]{},]+/g) ?? [])
+    .some(token => untrusted(token.split('=').at(-1)));
+  for (const words of shellCommands(command)) {
+    let index = 0;
+    while (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index]?.value ?? '')) index++;
+    let name = basename(words[index]?.value ?? '');
+    while (wrappers.has(name)) {
+      // Common resource/process wrappers confer no verification authority.
+      const wrapper = name;
+      index++;
+      while (index < words.length) {
+        const arg = words[index].value;
+        if (arg === '--') { index++; break; }
+        if (wrapper === 'env' && /^[A-Za-z_][A-Za-z0-9_]*=/.test(arg)) { index++; continue; }
+        if (!arg.startsWith('-')) break;
+        const [option, assigned] = arg.split('=');
+        const takesValue = wrapperValues.has(option) && !(wrapper === 'systemd-run' && option === '--user');
+        const value = assigned ?? (takesValue ? words[index + 1]?.value : undefined);
+        if (['-C', '--chdir', '--working-directory'].includes(option) && value) cwd = resolve(cwd, value);
+        index += takesValue && assigned === undefined ? 2 : 1;
+      }
+      if (wrapper === 'timeout') index++; // Duration follows timeout's options.
+      name = basename(words[index]?.value ?? '');
+    }
+    const args = words.slice(index + 1).map(word => word.value);
+    if (name === 'cd') {
+      const target = args.find(arg => arg !== '--' && arg !== '-P' && arg !== '-L');
+      if (target) cwd = resolve(cwd, target);
+      continue;
+    }
+    if (['cp', 'mv', 'install'].includes(name)) {
+      const operands = args.filter(arg => !arg.startsWith('-'));
+      const destination = operands.at(-1);
+      for (const source of operands.slice(0, -1)) if (destination && untrusted(source)) {
+        copies.push(resolve(cwd, destination), resolve(cwd, destination, basename(source)));
+      }
+      continue;
+    }
+    if (words[index]?.value.includes('/') && untrusted(words[index].value)) return true;
+    if (shells.has(name)) {
+      const inline = args.findIndex(arg => /^-[^-]*c/.test(arg));
+      if (inline >= 0 && args[inline + 1] !== undefined) {
+        if (workerExecution(args[inline + 1], cwd, [...protectedTrees, ...copies], depth + 1)) return true;
+        continue;
+      }
+    }
+    if ((runtime.test(name) || shells.has(name)) && (untrusted('.') || words.some(word => references(word.value)))) return true;
+  }
+  return false;
+}
+
+export function conductorToolDenial(event, root, paths, workerTrees = conductorWorkerTrees(root)) {
   const input = event.tool_input ?? {};
   const cwd = typeof event.cwd === 'string' && isAbsolute(event.cwd) ? event.cwd : root;
   const protectedPaths = paths.flatMap(file => [resolve(root, file), canonical(resolve(root, file))]);
@@ -155,6 +243,7 @@ export function conductorToolDenial(event, root, paths) {
   };
   if ([input.file_path, input.path].some(denied)) return 'AIWG: local-only task input is unavailable to this conductor';
   if (typeof input.command === 'string') {
+    if (workerTrees.length && workerExecution(input.command, cwd, workerTrees)) return workerExecutionDenial;
     // Covers literal/quoted paths, compound commands and common redirections. This is
     // deliberately conservative, not a shell interpreter or a filesystem sandbox.
     const command = input.command;
@@ -172,14 +261,14 @@ export function conductorToolDenial(event, root, paths) {
   return null;
 }
 
-export function runConductorDataHook(root, paths) {
+export function runConductorDataHook(root, paths, denyWorkerExecution = false) {
   try {
     const raw = readFileSync(0, 'utf8');
     if (Buffer.byteLength(raw) > 1024 * 1024) throw new Error('oversized event');
     const event = JSON.parse(raw);
     if (!event || typeof event !== 'object' || typeof event.tool_name !== 'string'
       || !event.tool_input || typeof event.tool_input !== 'object') throw new Error('invalid event');
-    const reason = conductorToolDenial(event, root, paths);
+    const reason = conductorToolDenial(event, root, paths, denyWorkerExecution ? conductorWorkerTrees(root) : []);
     if (reason) process.stdout.write(JSON.stringify({ hookSpecificOutput: {
       hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason,
     } }) + '\n');

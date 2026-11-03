@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { checkWorkerHealthReadiness } from '../../../tools/cli/doctor-worker-health.mjs';
 import { postDeploy as claudePostDeploy } from '../../../tools/agents/providers/claude.mjs';
 import { postDeploy as codexPostDeploy } from '../../../tools/agents/providers/codex.mjs';
+import { deployConductorDataGuard } from '../../../tools/agents/providers/conductor-data-guard.mjs';
 
 let root: string;
 const json = (file: string) => JSON.parse(readFileSync(path.join(root, file), 'utf8'));
@@ -92,6 +93,104 @@ describe('T-OG-01 conductor data guard provider deployment', () => {
     expect(denied.status, denied.stderr).toBe(0);
     expect(JSON.parse(denied.stdout).hookSpecificOutput.permissionDecision).toBe('deny');
     expect(denied.stdout).not.toContain('SYNTHETIC-PRIVATE-CONTENT');
+  });
+  it.each(['project', 'user'])('deploys opt-in execution checks from %s policy without local-only inputs', async source => {
+    rmSync(path.join(root, 'models.json'));
+    const configDir = source === 'project' ? root : path.join(root, 'user-config');
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(path.join(configDir, 'models.json'), JSON.stringify({ defaults: { workerSelection: {
+      guards: { denyConductorWorkerExecution: true },
+    } } }));
+    mkdirSync(path.join(root, '.aiwg'));
+    writeFileSync(path.join(root, '.aiwg/aiwg.config'), JSON.stringify({ parallelism: { worker_dispatch: true } }));
+    await claudePostDeploy(root, { contextFiles: false });
+    // Trees can be prepared after deployment; the hook reads the existing Git registry per event.
+    const tree = path.join(root, '.eval-control/worker-tree');
+    mkdirSync(path.join(tree, 'eval-work'), { recursive: true });
+    mkdirSync(path.join(root, '.git/worktrees/worker'), { recursive: true });
+    writeFileSync(path.join(root, '.git/worktrees/worker/gitdir'), path.join(tree, '.git') + '\n');
+    writeFileSync(path.join(tree, 'eval-work/reset.mjs'), 'throw new Error("MUST NEVER EXECUTE");');
+    const records = JSON.parse(readFileSync(new URL('../../fixtures/models/conductor-worker-commands.json', import.meta.url), 'utf8'));
+    for (const record of records) {
+      const replay = JSON.parse(JSON.stringify(record.event).replaceAll(record.root, root));
+      const denied = hook(replay);
+      expect(denied.status, denied.stderr).toBe(0);
+      expect(JSON.parse(denied.stdout).hookSpecificOutput).toMatchObject({
+        permissionDecision: 'deny', permissionDecisionReason: expect.stringContaining('aiwg ralph-external --verify-worker'),
+      });
+      expect(denied.stdout).not.toContain('MUST NEVER EXECUTE');
+    }
+    for (const command of ['git -C .eval-control/worker-tree diff', 'cat .eval-control/worker-tree/eval-work/reset.mjs',
+      'aiwg ralph-external --verify-worker --run-dir /private/run --check \'{"id":"unit","command":"/usr/bin/node","args":["test.mjs"]}\'']) {
+      const allowed = hook(event('Bash', { command }));
+      expect(allowed.status, allowed.stderr).toBe(0);
+      expect(allowed.stdout).toBe('');
+    }
+  });
+  it.each([undefined, false])('worker dispatch leaves settings and deploy output unchanged with guard %s', async enabled => {
+    rmSync(path.join(root, 'models.json'));
+    if (enabled !== undefined) writeFileSync(path.join(root, 'models.json'), JSON.stringify({ defaults: {
+      workerSelection: { guards: { denyConductorWorkerExecution: enabled } },
+    } }));
+    vi.stubEnv('AIWG_HOME', mkdtempSync(path.join(root, 'no-defaults-')));
+    mkdirSync(path.join(root, '.aiwg'));
+    writeFileSync(path.join(root, '.aiwg/aiwg.config'), JSON.stringify({ parallelism: { worker_dispatch: true } }));
+    mkdirSync(path.join(root, '.claude'));
+    const settings = '{ "permissions": { "allow": ["Bash(pwd)"] } }\n';
+    writeFileSync(path.join(root, '.claude/settings.json'), settings);
+    const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      expect(await deployConductorDataGuard(root, 'claude')).toEqual([]);
+      expect(readFileSync(path.join(root, '.claude/settings.json'), 'utf8')).toBe(settings);
+      expect(() => readFileSync(path.join(root, '.claude/hooks/aiwg-local-only.mjs'))).toThrow();
+      expect(output).not.toHaveBeenCalled();
+    } finally { output.mockRestore(); }
+  });
+  it.each([undefined, false])('local-only hook allows recorded execution when guard is %s', async enabled => {
+    const models = json('models.json');
+    if (enabled !== undefined) models.defaults.workerSelection.guards = { denyConductorWorkerExecution: enabled };
+    writeFileSync(path.join(root, 'models.json'), JSON.stringify(models));
+    await claudePostDeploy(root, { contextFiles: false });
+    mkdirSync(path.join(root, '.git/worktrees/worker'), { recursive: true });
+    writeFileSync(path.join(root, '.git/worktrees/worker/gitdir'), path.join(root, '.eval-control/worker-tree/.git'));
+    const records = JSON.parse(readFileSync(new URL('../../fixtures/models/conductor-worker-commands.json', import.meta.url), 'utf8'));
+    for (const record of records) {
+      const replay = JSON.parse(JSON.stringify(record.event).replaceAll(record.root, root));
+      const allowed = hook(replay);
+      expect(allowed.status, allowed.stderr).toBe(0);
+      expect(allowed.stdout, record.source).toBe('');
+    }
+    const denied = hook(event('Bash', { command: 'cat eval-work/local.txt' }));
+    expect(JSON.parse(denied.stdout).hookSpecificOutput.permissionDecision).toBe('deny');
+  });
+  it.each([undefined, false])('redeployment disables a previous execution opt-in when set to %s', async enabled => {
+    writeFileSync(path.join(root, 'models.json'), JSON.stringify({ defaults: { workerSelection: {
+      guards: { denyConductorWorkerExecution: true },
+    } } }));
+    await deployConductorDataGuard(root, 'claude');
+    const command = event('Bash', { command: 'node .aiwg/working/worktrees/worker/test.mjs' });
+    expect(JSON.parse(hook(command).stdout).hookSpecificOutput.permissionDecision).toBe('deny');
+    const settings = readFileSync(path.join(root, '.claude/settings.json'), 'utf8');
+    writeFileSync(path.join(root, 'models.json'), JSON.stringify({ defaults: { workerSelection: {
+      guards: enabled === undefined ? {} : { denyConductorWorkerExecution: enabled },
+    } } }));
+    await deployConductorDataGuard(root, 'claude', { dryRun: true });
+    expect(JSON.parse(hook(command).stdout).hookSpecificOutput.permissionDecision).toBe('deny');
+    await deployConductorDataGuard(root, 'claude');
+    const allowed = hook(command);
+    expect(allowed.status, allowed.stderr).toBe(0);
+    expect(allowed.stdout).toBe('');
+    expect(readFileSync(path.join(root, '.claude/settings.json'), 'utf8')).toBe(settings);
+  });
+  it('opt-in is independent of worker dispatch and ignored for Codex execution checks', async () => {
+    writeFileSync(path.join(root, 'models.json'), JSON.stringify({ defaults: { workerSelection: {
+      guards: { denyConductorWorkerExecution: true },
+    } } }));
+    await deployConductorDataGuard(root, 'codex');
+    expect(() => readFileSync(path.join(root, '.codex/rules/aiwg-local-only.rules'))).toThrow();
+    await deployConductorDataGuard(root, 'claude');
+    const denied = hook(event('Bash', { command: 'node .aiwg/working/worktrees/worker/test.mjs' }));
+    expect(JSON.parse(denied.stdout).hookSpecificOutput.permissionDecision).toBe('deny');
   });
   it('Codex emits forbidden explicit reader prefixes in project rules', async () => {
     await codexPostDeploy(root, { contextFiles: false });
