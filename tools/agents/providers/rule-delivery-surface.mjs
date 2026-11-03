@@ -19,6 +19,7 @@ import { inlineStartup, nativePathLoader, ruleDirectory } from './rule-projectio
 export const { parseRuleFrontmatter, inferRuleActivation, readCoreBody, validateCoreSet, formatRuleFrontmatterError } = await importImpl(import.meta.url, 'rules/activation.mjs');
 export const { resolveDeployVersion } = await importImpl(import.meta.url, 'providers/deploy-version.mjs');
 export const { trackTemporaryDirectory } = await importImpl(import.meta.url, 'utils/temporary-directory.js');
+const { outputDigest } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 export const { loadRulePinConfigs, installedRuleCapabilities, resolveRulePins } = await importImpl(import.meta.url, 'rules/pins.mjs');
 export const { guardRulesInlineBudget } = await importImpl(import.meta.url, 'rules/inline-budget.mjs');
 export const { userConfigFile } = await importImpl(import.meta.url, 'config/user-config-dir.mjs');
@@ -222,9 +223,11 @@ export function finishBindings(opts, provider) {
     const prior = priorSidecar && JSON.parse(priorSidecar.toString()).managed?.[path.basename(file)];
     // Check the pre-deploy claim too: a helper may have rewritten its sidecar
     // or overwritten an edit that preservation will restore after binding.
-    const editedBefore = prior && priorBytes && prior.hash !== `sha256:${contentHash(priorBytes)}`;
-    const emitted = opts.ownershipBefore && (!priorBytes || !priorBytes.equals(Buffer.from(content)));
-    const editedNow = (record || provider.name === 'flue') && record?.hash !== `sha256:${contentHash(content)}`;
+    // Snapshot entries may be digests rather than bytes (#3846).
+    const contentDigest = `sha256:${contentHash(content)}`;
+    const editedBefore = prior && priorBytes && prior.hash !== outputDigest(priorBytes);
+    const emitted = opts.ownershipBefore && (!priorBytes || outputDigest(priorBytes) !== contentDigest);
+    const editedNow = (record || provider.name === 'flue') && record?.hash !== contentDigest;
     if (editedBefore || !emitted && editedNow) {
       console.warn(`${provider.name}: keeping operator-edited binding target ${opts.logicalOutputPath?.(file) || file}`);
       continue;

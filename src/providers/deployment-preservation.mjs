@@ -54,6 +54,9 @@ export function preserveDeploymentOutputs(before, roots, opts = {}) {
   const restored = [];
   for (const [file, bytes] of before) {
     if (path.basename(file) === sidecar) continue;
+    // Snapshots keep bytes for receipt-claimed and receipt-adjacent files only;
+    // provider runtime data recorded by stat or digest is never restored (#3846).
+    if (!Buffer.isBuffer(bytes)) continue;
     const exists = fs.existsSync(file);
     if (!exists && opts.replacedSkillCopies?.has(file)) continue;
     const claim = claims.get(file);
