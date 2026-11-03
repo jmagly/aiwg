@@ -9,6 +9,8 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Fixed
 
+- Refuse flagless worker relaunches with open task predecessors and allow explicit brief/group corrections after verified owned-stop proof while preserving retry lineage (#3831).
+
 - Index-mode flat artifact pruning now checks each receipt's bundle owners,
   so upgrading verbalized-sampling removes its unchanged old
   `content-diversifier` agent even while writing-quality still ships that name

@@ -1,8 +1,9 @@
 // Authenticate predecessor records and optionally recheck owned descendant absence.
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { importImpl } from '../../_resolve-impl.mjs';
-import { lstat } from 'node:fs/promises';
-import { boundedPrivateRead } from './worker-inputs.mjs';
+import { lstat, readdir, realpath } from 'node:fs/promises';
+import { boundedPrivateRead, withWorkerPath } from './worker-inputs.mjs';
+import { resolveRetryReference } from './worker-launch-cli.mjs';
 import { realBeneath, stableTaskChainDigest, assertStopBeforeRetry, publishWorkerRecord, UNBOUND_RETRY_EVIDENCE_CODE } from '../session-launcher.mjs';
 import { recheckWorkerTermination } from './worker-termination.mjs';
 
@@ -16,7 +17,15 @@ async function matchesLegacyTask(record, plan) {
     brief: record.prompt.path, workdir: record.cwd, final_output: record.paths.final });
 }
 
-export async function verifyRetryPredecessor(retryOf, { newInvocationPath, inspect, workerWritableRoots, checkDescendants = false } = {}) {
+async function matchesTaskIdentity(record, plan) {
+  if (!record.prompt?.digest || !record.selected?.group || !await sameWorkspace(record.cwd, plan.request.workdir)) return false;
+  const oldPlan = { ...plan, request: { ...plan.request, group: record.selected.group },
+    invocation: { briefDigest: record.prompt.digest } };
+  const digest = await stableTaskChainDigest(oldPlan.request, oldPlan.invocation.briefDigest);
+  return (record.taskBindingDigest ?? record.taskDigest) === digest || await matchesLegacyTask(record, oldPlan);
+}
+
+export async function verifyRetryPredecessor(retryOf, { newInvocationPath, inspect, workerWritableRoots, checkDescendants = false, onVerified } = {}) {
   const fail = (reason) => {
     const error = new Error(`Retry predecessor evidence refused: ${reason}`);
     error.code = UNBOUND_RETRY_EVIDENCE_CODE;
@@ -68,6 +77,7 @@ export async function verifyRetryPredecessor(retryOf, { newInvocationPath, inspe
     fail('invocation.json identity does not match retryOf (or is not launcher-written)');
   }
   if (exitRecord?.invocationId !== prevId) fail('exit.json identity does not match retryOf');
+  let bindingDigest, correction;
   if (newInvocationPath !== undefined) {
     // #2915 review 4 (finding 4): the SAME stable task-chain identity
     // `launchOneWorker` publishes — role/task/group plus the brief CONTENT
@@ -79,7 +89,18 @@ export async function verifyRetryPredecessor(retryOf, { newInvocationPath, inspe
       newPlan = JSON.parse(newPlanBytes.toString('utf8'));
       newTaskDigest = await stableTaskChainDigest(newPlan.request, newPlan.invocation?.briefDigest ?? null);
     } catch { fail('new attempt plan is missing or invalid; cannot bind the retry to a task'); }
-    if (invocationRecord.taskDigest !== newTaskDigest && !await matchesLegacyTask(invocationRecord, newPlan)) fail('predecessor task does not match the new attempt (task-chain binding)');
+    bindingDigest = newTaskDigest;
+    if ((invocationRecord.taskBindingDigest ?? invocationRecord.taskDigest) !== newTaskDigest && !await matchesLegacyTask(invocationRecord, newPlan)) {
+      if (retryOf.correction !== true) fail('predecessor task does not match the new attempt (task-chain binding); use --retry-correction for an explicit brief/group correction');
+      if (!await matchesTaskIdentity(invocationRecord, newPlan)) {
+        fail('correction must retain the predecessor role, task and workspace (task-chain binding)');
+      }
+      const { qualificationDigest } = await importImpl(import.meta.url, 'models/qualification-digest.mjs');
+      correction = {
+        oldBriefDigest: invocationRecord.prompt.digest, newBriefDigest: newPlan.invocation.briefDigest,
+        oldGroupDigest: qualificationDigest(invocationRecord.selected.group), newGroupDigest: qualificationDigest(newPlan.request.group),
+      };
+    }
   }
   if (exitRecord.termination !== 'confirmed') {
     let evidence = null;
@@ -99,5 +120,60 @@ export async function verifyRetryPredecessor(retryOf, { newInvocationPath, inspe
     }
   }
   assertStopBeforeRetry(exitRecord, { expectedInvocationId: prevId });
+  onVerified?.({ previousAttemptId: prevId, taskDigest: invocationRecord.taskDigest,
+    taskBindingDigest: bindingDigest, ...(correction ? { retryCorrection: correction } : {}) });
   return exitRecord;
+}
+
+async function sameWorkspace(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string') return false;
+  try { return await realpath(left) === await realpath(right); }
+  catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+}
+
+// Existing capture siblings are the durable inventory, including captures from
+// older launchers. Brief and group changes cannot hide an open task predecessor.
+async function assertNoOpenPredecessor({ runDir, captureRoot, saved, inspect, retryOf, workerWritableRoots }) {
+  const taskDigest = await stableTaskChainDigest(saved.request, saved.invocation.briefDigest);
+  const roots = new Set([dirname(runDir), ...(captureRoot ? [captureRoot] : []), ...(retryOf ? [dirname(retryOf.runDir)] : [])]);
+  for (const root of roots) {
+    if (!await inspect(root, 'directory')) continue;
+    const entries = await withWorkerPath(root, target => readdir(target, { withFileTypes: true }));
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const previousDir = join(root, entry.name);
+      if (resolve(previousDir) === resolve(runDir)) continue;
+      const filename = join(previousDir, 'invocation.json');
+      if (!await inspect(filename, 'file')) continue;
+      const record = JSON.parse((await boundedPrivateRead(filename, 1048576, inspect, true, true)).toString('utf8'));
+      if (record.origin !== 'launcher' || ((record.taskBindingDigest ?? record.taskDigest) !== taskDigest
+        && !await matchesTaskIdentity(record, saved))) continue;
+      try {
+        // Reuse the authenticated owned-stop loader, including missing exits.
+        await verifyRetryPredecessor({ invocationId: record.invocationId, runDir: previousDir }, { inspect, workerWritableRoots });
+      } catch (cause) {
+        const error = new Error(`Worker launch refused: open predecessor ${record.invocationId} at ${previousDir}; termination is not confirmed. Retry with --retry-of-run-dir and owned-stop proof.`, { cause });
+        error.code = 'OPEN_TASK_PREDECESSOR';
+        error.previousAttemptId = record.invocationId;
+        error.runDir = previousDir;
+        throw error;
+      }
+    }
+  }
+}
+
+export async function prepareWorkerRetry(options, { saved, inspect, workerWritableRoots }) {
+  let evidence = null;
+  const retryOf = options.retryOf === undefined ? undefined : await resolveRetryReference(options.retryOf, { inspect });
+  if (retryOf !== undefined) {
+    await verifyRetryPredecessor(retryOf, { newInvocationPath: options.invocationPath, inspect, workerWritableRoots,
+      checkDescendants: options.checkDescendants, onVerified: value => { evidence = value; } });
+  }
+  await assertNoOpenPredecessor({ ...options, saved, inspect, retryOf, workerWritableRoots });
+  return evidence;
+}
+
+export function workerRetryRecordFields(evidence) {
+  return { ...(evidence ? { taskBindingDigest: evidence.taskBindingDigest,
+    ...(evidence.retryCorrection ? { retryCorrection: evidence.retryCorrection } : {}) } : {}) };
 }

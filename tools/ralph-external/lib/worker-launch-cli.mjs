@@ -13,6 +13,7 @@ export function parseWorkerLaunchArgs(args) {
     seen.add(flag);
     if (flag === '--launch-worker') continue;
     if (flag === '--check-descendants') { result.checkDescendants = true; continue; }
+    if (flag === '--retry-correction') continue;
     if (flag === '--allow-degraded-worker') { result.allowDegraded = true; continue; }
     // A run directory declares a retry; its launcher ID is derived before validation.
     const key = { '--invocation': 'invocationPath', '--run-dir': 'runDir',
@@ -25,13 +26,15 @@ export function parseWorkerLaunchArgs(args) {
     else result[key] = value;
   }
   if (!seen.has('--launch-worker') || !result.invocationPath || !result.runDir) {
-    throw new Error('Usage: ralph-external --launch-worker --invocation FILE --run-dir DIR [--allow-degraded-worker] [--check-descendants] [--retry-of-run-dir DIR [--retry-of ID]]');
+    throw new Error('Usage: ralph-external --launch-worker --invocation FILE --run-dir DIR [--allow-degraded-worker] [--check-descendants] [--retry-of-run-dir DIR [--retry-of ID] [--retry-correction]]');
   }
   if (retryOfInvocationId !== undefined && retryOfRunDir === undefined) {
     throw new Error('--retry-of and --retry-of-run-dir must be supplied together when an explicit ID is used');
   }
   if (result.checkDescendants && retryOfRunDir === undefined) throw new Error('--check-descendants requires --retry-of-run-dir');
+  if (seen.has('--retry-correction') && retryOfRunDir === undefined) throw new Error('--retry-correction requires --retry-of-run-dir');
   if (retryOfRunDir !== undefined) result.retryOf = { runDir: retryOfRunDir, ...(retryOfInvocationId === undefined ? {} : { invocationId: retryOfInvocationId }) };
+  if (seen.has('--retry-correction')) result.retryOf.correction = true;
   return result;
 }
 

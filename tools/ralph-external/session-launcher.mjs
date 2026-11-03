@@ -51,10 +51,9 @@ export { assertManagedWorkerLaunch } from './lib/managed-worker-attempt.mjs';
 import { buildSessionEnvironment } from './lib/session-environment.mjs';
 import { withWorkerPath, boundedPrivateRead } from './lib/worker-inputs.mjs';
 import { collectWorkerFinal } from './lib/worker-final.mjs';
-import { verifyRetryPredecessor } from './lib/worker-retry-evidence.mjs';
+import { prepareWorkerRetry, workerRetryRecordFields } from './lib/worker-retry-evidence.mjs';
 import { observeWorkerTermination, terminationRemedy } from './lib/worker-termination.mjs';
 import { buildWorkerInvocationEnvironment } from './lib/worker-invocation-processes.mjs';
-import { resolveRetryReference } from './lib/worker-launch-cli.mjs';
 import { launcherRecoveryEvidence, observeLauncherRecoveryOutcome, recordLauncherRecoveryHint } from './lib/launcher-recovery-evidence.mjs';
 export { observeLauncherRecoveryOutcome } from './lib/launcher-recovery-evidence.mjs';
 import { publishWorkerUnitExit, readRecordedWorkerUnitStop } from './lib/worker-unit-cleanup.mjs';
@@ -426,12 +425,8 @@ async function launchOneWorker(owner, options) {
   // `writableRoots` is already computed above for the run-directory check)
   // is what it takes to pass the SAME production-resolved roots into this
   // check too.
-  let verifiedPreviousAttemptId = null;
-  if (options?.retryOf !== undefined) {
-    const exitRecord = await verifyRetryPredecessor(await resolveRetryReference(options.retryOf, { inspect }),
-      { newInvocationPath: options?.invocationPath, inspect, workerWritableRoots: writableRoots, checkDescendants: options.checkDescendants });
-    verifiedPreviousAttemptId = exitRecord.invocationId;
-  }
+  options = { ...options, retryEvidence: await prepareWorkerRetry(options, { saved, inspect, workerWritableRoots: writableRoots }) };
+  const verifiedPreviousAttemptId = options.retryEvidence?.previousAttemptId ?? null;
   const paths = (await importImpl(import.meta.url, 'serve/worker-invocation-paths.js')).workerOutputPaths(invocation);
   if (new Set(Object.values(paths)).size !== Object.keys(paths).length || Object.values(paths).some(filename =>
     filename === options.invocationPath || filename === invocation.briefPath
@@ -517,7 +512,7 @@ async function launchOneWorker(owner, options) {
   // unconditionally here is exactly as safe as computing it conditionally
   // was unsafe — this file no longer has two places that both decide
   // "is this gated" and can disagree.
-  const taskDigest = await stableTaskChainDigest(saved.request, invocation.briefDigest);
+  const taskDigest = options.retryEvidence?.taskDigest ?? await stableTaskChainDigest(saved.request, invocation.briefDigest);
   const dispatchClockNow = () => options.scopedBreaker?.nowMs?.() ?? Number(process.hrtime.bigint()) / 1e6;
   const dispatchGuard = options.dispatchGuard ?? {
     nowMs: dispatchClockNow,
@@ -685,6 +680,7 @@ async function launchOneWorker(owner, options) {
       // owned, launcher-written, confirmed-terminal evidence for this exact
       // task — never from an unverified caller claim.
       previousAttemptId: verifiedPreviousAttemptId,
+      ...workerRetryRecordFields(options.retryEvidence),
       requestId: invocationId, taskDigest, role: saved.request.role,
       ...(options.managedAdmission ? { attempt: options.attempt } : {}),
       selected: invocation.selected, planDigest: qualificationDigest(saved), invocationDigest: qualificationDigest(invocation),
@@ -1565,7 +1561,8 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
     artifacts = await materializeWorkerArtifacts(invocation, runDir);
     const displayArgv = artifacts.argv.map((token, i) => i === 0 ? token : `<argument:${bytesDigest(token)}>`);
     await publish('invocation.json', { version: 1, origin: 'launcher', invocationId, attemptId: invocationId,
-      previousAttemptId: verifiedPreviousAttemptId ?? null, requestId: options.managedAdmission?.requestId ?? invocationId, taskDigest: qualificationDigest(saved.request), role: saved.request.role,
+      previousAttemptId: verifiedPreviousAttemptId ?? null, requestId: options.managedAdmission?.requestId ?? invocationId, taskDigest: options.retryEvidence?.taskDigest ?? qualificationDigest(saved.request), role: saved.request.role,
+      ...workerRetryRecordFields(options.retryEvidence),
       ...(options.managedAdmission ? { attempt: options.attempt } : {}),
       selected: invocation.selected, planDigest: qualificationDigest(saved), invocationDigest: qualificationDigest(invocation),
       policyDigest: invocation.policyDigest, catalogDigest: invocation.catalogDigest, profileDigest: invocation.profileDigest,

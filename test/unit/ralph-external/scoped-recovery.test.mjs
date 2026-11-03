@@ -2897,7 +2897,8 @@ describe('S1 direct-dispatch integration (offline, fake CLI binary)', () => {
       attempt += 1;
       return launcher.launchWorker({
         scopedBreaker: breaker,
-        invocationPath: await fx.freshPlan(), runDir: path.join(fx.root, `leak-run-${attempt}`),
+        // Independent task captures share the recovery scope, not retry lineage.
+        invocationPath: await fx.freshPlan(), runDir: path.join(await mkdtemp(path.join(fx.root, 'leak-task-')), `leak-run-${attempt}`),
         inputs: { snapshot: fx.f.snapshot, drivers }, now: fx.f.request.now,
         checkDispatch: () => ({ enabled: true, ok: true, failures: [] }),
         isolation: { mode: 'degraded', reason: 'synthetic unavailable manager' }, allowDegraded: true,
@@ -4850,15 +4851,17 @@ async function equivFixtureRoot() {
       const attemptFinal = path.join(root, `final-${planSeq}.json`);
       const configPath = path.join(root, `fake-${planSeq}.json`);
       const recordPath = path.join(root, `record-${planSeq}.json`); // unconditionally written by ralph-worker-cli.mjs
+      // Baseline/branch trials have independent capture inventories (#3831).
+      const capture = await mkdtemp(path.join(root, 'comparison-'));
       // Keep the real worker alive until ownership is recorded, even under load.
-      await writeFile(configPath, JSON.stringify({ scenario, recordPath, waitForIdentity: path.join(root, `run-${planSeq}`, 'process.json'), ...(forgeRealExitCode !== undefined ? { forgeRealExitCode } : {}) }));
+      await writeFile(configPath, JSON.stringify({ scenario, recordPath, waitForIdentity: path.join(capture, `run-${planSeq}`, 'process.json'), ...(forgeRealExitCode !== undefined ? { forgeRealExitCode } : {}) }));
       const request = { role: 'coding', task: 'implementation', group: 'workers', brief, workdir: cwd, final_output: attemptFinal };
       const resolve = side === 'baseline' ? resolveWorkerInvocationBaseline : resolveWorkerInvocation;
       const plan = await resolve(f.snapshot, request, drivers, f.request.now);
       expect(plan.invocation, JSON.stringify({ diagnostics: plan.diagnostics })).toBeDefined();
       const invocationPath = path.join(root, `plan-${planSeq}.json`);
       await writeFile(invocationPath, JSON.stringify(plan));
-      return { invocationPath, configPath, runDir: path.join(root, `run-${planSeq}`) };
+      return { invocationPath, configPath, runDir: path.join(capture, `run-${planSeq}`) };
     };
     return { f, root, drivers, freshPlan };
   }
