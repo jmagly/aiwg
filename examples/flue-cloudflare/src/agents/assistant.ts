@@ -1,9 +1,9 @@
 'use agent';
 import { useModel, useMcpConnection, useSkill, useSubagent } from '@flue/runtime';
 import { getCloudflareContext } from '@flue/runtime/cloudflare';
-import quickref from '@aiwg/flue/skills/sdlc-quickref/SKILL.md';
-import { codeReviewer } from '@aiwg/flue/specialists';
-import { aiwgConnection } from '../aiwg/tools.ts';
+import { sdlcQuickref as quickref } from '../aiwg/skills.ts';
+import { codeReviewer } from '../aiwg/specialists.ts';
+import { aiwgConnection, bindRemoteSpecialist } from '../aiwg/tools.ts';
 
 export function Assistant() {
   const { env } = getCloudflareContext();
@@ -12,7 +12,7 @@ export function Assistant() {
   useModel(model);
   useMcpConnection(connection);
   useSkill(quickref);
-  useSubagent(codeReviewer({ model, connection }));
+  useSubagent(bindRemoteSpecialist({ ...codeReviewer, model }, connection));
   return `Help with software development. Discover sdlc-quickref and show its
 rules with the remote AIWG tools. Activate the skill, delegate reviews to
 code-reviewer, and save findings using mcp__aiwg__artifact-write.

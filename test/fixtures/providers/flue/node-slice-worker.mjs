@@ -1,14 +1,47 @@
 // Drive the example's actual Assistant with keyless Pi responses across processes.
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
 import { readFile, writeFile, access } from 'node:fs/promises';
+import { registerHooks } from 'node:module';
+import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
 import { init, setProvider } from '@flue/runtime';
+import { buildPackagedSkill, parseSkillMarkdown } from '@flue/runtime/internal';
 import { start } from '@flue/runtime/node';
 import { fauxProvider, fauxAssistantMessage, fauxToolCall } from '@earendil-works/pi-ai';
-import { Assistant } from './src/agents/assistant.ts';
-import db from './src/db.ts';
 
 globalThis.fetch = () => { throw new Error('Network forbidden'); };
+// Plain Node needs the skill packaging that Flue's Vite Markdown plugin supplies.
+function collectFiles(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const file = path.join(directory, entry.name);
+    if (entry.isSymbolicLink()) throw new Error(`Cannot package skill symlink: ${file}`);
+    return entry.isDirectory() ? collectFiles(file) : entry.isFile() ? [file] : [];
+  }).sort();
+}
+registerHooks({
+  load(url, context, nextLoad) {
+    if (!url.endsWith('/SKILL.md')) return nextLoad(url, context);
+    const skillPath = fileURLToPath(url);
+    const directory = path.dirname(skillPath);
+    const { name, description } = parseSkillMarkdown(readFileSync(skillPath, 'utf8'), {
+      directoryName: path.basename(directory), path: skillPath,
+    });
+    const files = collectFiles(directory).map(file => ({
+      path: path.relative(directory, file).split(path.sep).join('/'),
+      content: new Uint8Array(readFileSync(file)),
+    }));
+    const packaged = buildPackagedSkill({ name, description, files });
+    return { format: 'module', shortCircuit: true, source: [
+      "import { createSkillReference } from '@flue/runtime/internal';",
+      `const directory = ${JSON.stringify(packaged)};`,
+      'export default createSkillReference(directory);',
+    ].join('\n') };
+  },
+});
+const { Assistant } = await import('./src/agents/assistant.ts');
+const { default: db } = await import('./src/db.ts');
 const fake = fauxProvider(); // Pi's createProvider with local stream functions only.
 setProvider(fake.provider);
 process.env.FLUE_MODEL = `${fake.provider.id}/${fake.getModel().id}`;
