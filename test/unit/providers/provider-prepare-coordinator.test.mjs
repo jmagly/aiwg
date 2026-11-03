@@ -381,4 +381,19 @@ describe('provider prepare subprocess coordinator', () => {
     expect(fs.readFileSync(h.trace, 'utf8').match(/start:0:/g)).toHaveLength(2);
     await session.dispose();
   });
+
+  it('allows the next provider to commit after an owning provider exhausts its stale retry', async () => {
+    const h = harness();
+    h.transaction.commit = plan => {
+      if (plan.order === 0) { const error = new Error('shared path changed'); error.code = 'AIWG_RULE_DEPLOYMENT_STALE'; throw error; }
+      return { order: plan.order };
+    };
+    const session = await prepareProviderDeployments({ srcRoot: h.root,
+      jobs: [0, 1].map(order => ({ order, provider: `p${order}`, target: h.root, args: [] })),
+      workerPath, workerEnv: { AIWG_COORDINATOR_TRACE: h.trace }, transaction: h.transaction });
+    try {
+      await expect(session.commit(0)).rejects.toThrow('shared path changed');
+      await expect(session.commit(1)).resolves.toEqual({ order: 1 });
+    } finally { await session.dispose(); }
+  });
 });

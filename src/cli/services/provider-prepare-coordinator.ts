@@ -9,6 +9,7 @@ export interface ProviderPreparationJob {
 }
 
 export interface ProviderPreparationSession {
+  run<T>(work: () => Promise<T>): Promise<T>;
   commit(index: number): Promise<unknown>;
   dispose(): Promise<void>;
 }

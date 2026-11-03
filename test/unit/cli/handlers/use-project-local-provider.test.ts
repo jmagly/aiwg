@@ -91,7 +91,7 @@ describe('aiwg use project-local provider bundles (#1717)', () => {
     state.dispose.mockReset();
     state.dispose.mockResolvedValue(undefined);
     state.prepare.mockReset();
-    state.prepare.mockResolvedValue({ commit: state.commit, dispose: state.dispose });
+    state.prepare.mockResolvedValue({ run: (work: () => Promise<unknown>) => work(), commit: state.commit, dispose: state.dispose });
     state.finalize.mockReset();
     state.finalize.mockResolvedValue(undefined);
   });

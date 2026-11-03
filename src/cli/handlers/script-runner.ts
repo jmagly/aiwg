@@ -17,6 +17,7 @@ import { Console } from 'node:console';
 import { Writable } from 'node:stream';
 import { writeSync } from 'node:fs';
 import { HandlerResult, ScriptRunner, ScriptRunnerOptions } from './types.js';
+import { providerDeploymentLockEnvironment } from '../../providers/deployment-lock.js';
 
 // Embedded deployers use process-wide console/environment APIs. Serialize the
 // complete invocation (including import), and restore them even after failure.
@@ -69,7 +70,7 @@ export class DefaultScriptRunner implements ScriptRunner {
       const stdio: StdioOptions = options.capture
         ? ['pipe', options.stdoutFd ?? 'pipe', 'pipe']
         : 'inherit';
-      const environment = { ...process.env, ...options.env };
+      const environment = { ...process.env, ...providerDeploymentLockEnvironment(), ...options.env };
       for (const name of options.omitEnv ?? []) delete environment[name];
       const child = spawn('node', [fullPath, ...args], {
         stdio,

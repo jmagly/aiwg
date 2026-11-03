@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { importImpl } from '../../_resolve-impl.mjs';
 const { refreshSettingsDigests } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
+const { withProviderDeploymentLock } = await importImpl(import.meta.url, 'providers/deployment-lock.js');
 import {
   contentHash,
   deploySkillsWithKernelRouting,
@@ -130,6 +131,15 @@ export function commitRuleDeploymentPlan(plan) {
 
 /** Stage and commit serially for existing provider callers. */
 export async function deployWithRuleDelivery(original, provider, deploy) {
+  const shared = [...Object.values(provider.paths), provider.kernelSkillsPath].some(dir => dir && path.isAbsolute(dir))
+    || (provider.name === 'codex' && (original.deployCommands || original.commandsOnly || original.deploySkills || original.skillsOnly));
+  if (shared && !original.ruleDelivery && !globalThis[PREPARATION_HOOK] && !original.dryRun && !original.previewReport) {
+    return withProviderDeploymentLock(() => deployWithRuleDeliveryUnlocked(original, provider, deploy));
+  }
+  return deployWithRuleDeliveryUnlocked(original, provider, deploy);
+}
+
+async function deployWithRuleDeliveryUnlocked(original, provider, deploy) {
   // Kernel source passes share the same selected rule set. Deploy their
   // skills directly; the final source projects rules and bindings across the
   // complete destination. Full passes retain staging for bound flow skills

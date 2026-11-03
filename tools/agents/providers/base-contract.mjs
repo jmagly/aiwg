@@ -1,5 +1,6 @@
 // Shared provider contract utilities.
 import { path } from './base-runtime.mjs';
+import { importImpl } from '../../_resolve-impl.mjs';
 
 
 // ============================================================================
@@ -110,7 +111,12 @@ export function injectBoundRules(content, source, opts = {}) {
  * kernel passes leave rule delivery to the final source in the invocation. */
 export async function withRuleDeployment(opts, provider, deploy) {
   if (opts.kernelOnly && opts.deferRuleProjection && provider.name !== 'warp'
-    && !globalThis[Symbol.for('aiwg.provider-preparation-hook.v1')]) return deploy(opts);
+    && !globalThis[Symbol.for('aiwg.provider-preparation-hook.v1')]) {
+    const shared = [...Object.values(provider.paths), provider.kernelSkillsPath].some(dir => dir && path.isAbsolute(dir));
+    if (!shared || opts.dryRun) return deploy(opts);
+    const { withProviderDeploymentLock } = await importImpl(import.meta.url, 'providers/deployment-lock.js');
+    return withProviderDeploymentLock(() => deploy(opts));
+  }
   const { deployWithRuleDelivery } = await import('./rule-delivery.mjs');
   return deployWithRuleDelivery(opts, provider, deploy);
 }
