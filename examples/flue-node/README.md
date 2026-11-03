@@ -21,7 +21,7 @@ matching `aiwg --version` (replace `<aiwg-version>`):
 
 ```sh
 npm ci
-npm install @aiwg/flue@<aiwg-version> @flue/runtime@2.3.0 @modelcontextprotocol/client@2.0.0 'valibot@^1.1.0'
+npm install @aiwg/flue@<aiwg-version> @flue/runtime@2.3.0 @modelcontextprotocol/client@2.3.0 'valibot@^1.1.0'
 aiwg use sdlc --provider flue --package
 npm run dev
 ```

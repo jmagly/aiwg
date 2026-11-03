@@ -16,9 +16,10 @@ The default tools run the installed `aiwg mcp serve` in the app's launch directo
 For another trusted project or executable, call `createAiwgTools({ cwd, command, args, env })`
 at app setup and mount the returned tools. Configuration belongs to the app,
 never to model tool inputs. The app needs AIWG installed on PATH, Node 24+, and
-the tested Flue 2.3.0 graph: Valibot, `@modelcontextprotocol/client` 2.0.0 and
+the tested Flue 2.3.0 graph: Valibot, `@modelcontextprotocol/client` 2.3.0 and
 its `/stdio` export. These are already present in the pinned lab graph; AIWG
 does not install dependencies or provide model credentials.
+For an existing app, use the [MCP overrides in the setup guide](../../../../docs/providers/flue.md#package-mode).
 
 Each call owns a stdio child and closes it on success or failure. Initialization
 has a 10-second deadline and observes cancellation; transport cleanup can take

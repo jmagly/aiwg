@@ -14,9 +14,16 @@
     "@flue/cli": "2.3.0",
     "@flue/runtime": "2.3.0",
     "@flue/vite": "2.3.0",
+    "@modelcontextprotocol/client": "2.3.0",
     "@cloudflare/vite-plugin": "1.65.0",
     "wrangler": "4.152.0",
     "hono": "4.13.13",
     "vite": "8.3.5"
+  },
+  "overrides": {
+    "@modelcontextprotocol/client": "$@modelcontextprotocol/client",
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "@modelcontextprotocol/server": "2.3.0",
+    "undici": "7.30.1"
   }
 }

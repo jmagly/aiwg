@@ -22,7 +22,7 @@ it('packs every typed export with exactly the declared peers and no third-party 
   expect(spawnSync('tar', ['-xzf', tarball, '-C', unpacked], { timeout: 60_000 }).status).toBe(0);
   const directory = path.join(unpacked, 'package');
   const pkg = JSON.parse(fs.readFileSync(path.join(directory, 'package.json'), 'utf8'));
-  expect(pkg.peerDependencies).toEqual({ '@flue/runtime': '2.3.x', '@modelcontextprotocol/client': '2.0.0', valibot: '^1.1.0' });
+  expect(pkg.peerDependencies).toEqual({ '@flue/runtime': '2.3.x', '@modelcontextprotocol/client': '2.3.0', valibot: '^1.1.0' });
   for (const key of ['dependencies', 'optionalDependencies', 'bundledDependencies', 'devDependencies']) expect(pkg[key]).toBeUndefined();
   expect(info.files.map((file: any) => file.path).join('\n')).not.toMatch(/(?:^|\/)node_modules\/|(?:vite|lightningcss|caniuse-lite)\//);
   expect(Object.keys(pkg.exports).filter(name => name.endsWith('/SKILL.md'))).toHaveLength(skills);
