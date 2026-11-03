@@ -80,6 +80,47 @@ describe('resolver host capacity', () => {
     ]), now: () => Date.parse(f.request.now) });
     expect(resolve(f)).toMatchObject({ status: 'blocked', slots: 0, resources: { measured: { workers: 2 } } });
   });
+  it('T-OG-01 keeps unrelated opaque workers out of a qualified review slot and diagnoses real blockers', () => {
+    const f = fixture();
+    const parallelism = f.snapshot.config.parallelism!;
+    parallelism.groups!.reviews = { ...structuredClone(parallelism.groups!.workers), maxParallel: 1 };
+    parallelism.groups!.reviews.members.forEach(member => { member.roles = ['reasoning']; });
+    f.snapshot.models.defaults.workerSelection!.roleGuidance!.reasoning = {
+      ...structuredClone(f.snapshot.models.defaults.workerSelection!.roleGuidance!.coding), groups: ['reviews'],
+    };
+    f.request.group = 'reviews';
+    f.request.role = 'reasoning';
+    f.request.taskClass = 'review';
+    const units = ['aiwg-worker-r17-3768a-123.service', 'aiwg-worker-r17-3769a-456.service'];
+    const sample = (processes: Parameters<typeof ownedWorkerReaders>[1]) => readLiveHostResources({
+      ...ownedWorkerReaders(units, processes), now: () => Date.parse(f.request.now),
+    });
+    f.snapshot.hostResources = sample([
+      { invocation: 'a', unit: units[0], workspace: '/other', group: 'reviews' },
+      { invocation: 'b', unit: units[1], workspace: '/synthetic', group: 'workers' },
+    ]);
+    expect(resolve(f)).toMatchObject({ status: 'eligible', slots: 1, selected: { group: 'reviews' } });
+    f.snapshot.hostResources = sample([]);
+    const groupBlocked = resolve(f);
+    expect(groupBlocked).toMatchObject({ status: 'blocked', diagnostics: [expect.objectContaining({
+      code: 'OG_HOST_ATTRIBUTION', message: expect.stringContaining('groups.reviews.maxParallel'),
+    })] });
+    expect(groupBlocked.diagnostics[0].message).toContain('docs/getting-started/worker-attribution.md');
+    parallelism.admission = { hostResources: { max_workers: 2 } };
+    const unknown = resolve(f);
+    expect(unknown).toMatchObject({ status: 'blocked', diagnostics: [expect.objectContaining({
+      code: 'OG_HOST_ATTRIBUTION', message: expect.stringContaining(units[0]),
+    })] });
+    expect(unknown.diagnostics[0].message).toContain(units[1]);
+    expect(unknown.exclusions.flatMap(row => row.diagnostics).map(row => row.code)).not.toContain('OG_ADAPTER_UNQUALIFIED');
+    delete parallelism.admission;
+    f.snapshot.hostResources = sample([{ invocation: 'a', unit: units[0], workspace: '/synthetic', group: 'reviews' },
+      { invocation: 'b', unit: units[1], workspace: '/other', group: 'reviews' }]);
+    expect(resolve(f)).toMatchObject({ status: 'blocked', diagnostics: [expect.objectContaining({
+      code: 'OG_HOST_CAPACITY', message: expect.stringContaining('groups.reviews.maxParallel'),
+    })] });
+  });
+
   it('samples the requested worktree and output filesystem rather than only the project cwd', () => {
     const seen: string[] = [];
     const readers = { ...hostResourceReaders(), statfsPath: (filename: string) => {

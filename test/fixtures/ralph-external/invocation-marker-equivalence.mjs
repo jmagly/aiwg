@@ -4,7 +4,7 @@ import { expect } from 'vitest';
 const marker = 'AIWG_WORKER_INVOCATION_ID';
 export function normalizeMarkerRunRecord(name, baseline, branch) {
   if (name === 'invocation.json') {
-    expect(branch.envNames).toEqual([...new Set([...baseline.envNames, marker])]);
+    expect(branch.envNames).toEqual([...new Set([...baseline.envNames, marker, 'AIWG_WORKER_WORKSPACE', 'AIWG_WORKER_GROUP'])]);
     // #3701 also intersects invocation limits with the configured health deadline.
     // Assert every changed byte before restoring the frozen representation below.
     const ceiling = baseline.health.hardTimeoutSeconds;

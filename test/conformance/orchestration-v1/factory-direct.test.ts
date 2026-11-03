@@ -1,3 +1,4 @@
+import { workerMarkerNames, workerMarkerShell } from '../../fixtures/worker-attribution.js';
 import { termAfterReady, TERM_READY } from '../../helpers/term-escalation.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
 /**
@@ -294,7 +295,7 @@ describe('T-OG-15 Factory direct command contract', () => {
     expect(JSON.stringify(plan)).not.toContain(MARKER);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
     expect(invocation.shellCommand).toBe(`cd ${quote(workdir)} && env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}"`
-      + ` ${invocation.argv.map(quote).join(' ')} < ${quote(brief)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
+      + ` ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')} < ${quote(brief)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     const { file, recordPath } = await fakeConfig(root, 'success');
     const result = await run('/bin/sh', ['-c', invocation.shellCommand!], { cwd: root,
       env: { PATH: process.env.PATH, AIWG_FAKE_WORKER_CONFIG: file, FACTORY_UNRELATED_SECRET: 'fk-synthetic-should-not-pass' } });
@@ -303,7 +304,7 @@ describe('T-OG-15 Factory direct command contract', () => {
     expect(record).toMatchObject({ model: MODEL, cwd: workdir, promptViaStdin: true, stdinEof: true });
     expect(record.brief).toContain(MARKER);
     expect(record.argv).toEqual(invocation.argv.slice(2));
-    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG']);
+    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
     const final = installed.owner.parseDirectFinal(await readFile(invocation.stdoutPath, 'utf8'));
     expect(final).toMatchObject({ type: 'result', subtype: 'success', is_error: false });

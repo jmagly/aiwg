@@ -1,5 +1,10 @@
 # Turn On Direct Worker Dispatch
 
+Unknown workers count against every group's cap and host capacity. Workers with
+workspace/group markers consume their own group's cap; workers attributed to
+another workspace consume host capacity only. For inspection and safe recovery,
+see [worker attribution and recovery](worker-attribution.md).
+
 > **First time using AIWG?** Begin with [Install, Connect, and Verify](install-connect-verify.md).
 
 For shared admission, fenced cancellation and recovery, see [Operate managed worker

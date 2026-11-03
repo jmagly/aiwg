@@ -283,7 +283,7 @@ export interface WorkerPolicyOrigin {
 export interface WorkerPolicyDiagnostic {
   /** When present, this diagnostic concerns only these roles. */
   roles?: string[];
-  code: 'OG_POLICY_RELAXATION' | 'OG_CONFIG_REFERENCE' | 'OG_EFFORT_DENIED' | 'OG_MODEL_UNAPPROVED' | 'OG_DATA_POLICY' | 'OG_PIN_MISMATCH' | 'OG_ADAPTER_UNQUALIFIED' | 'OG_BUDGET_UNMEASURABLE' | 'OG_NATIVE_SANDBOX_UNAVAILABLE' | 'OG_SANDBOX_EXTERNAL';
+  code: 'OG_HOST_ATTRIBUTION' | 'OG_HOST_CAPACITY' | 'OG_POLICY_RELAXATION' | 'OG_CONFIG_REFERENCE' | 'OG_EFFORT_DENIED' | 'OG_MODEL_UNAPPROVED' | 'OG_DATA_POLICY' | 'OG_PIN_MISMATCH' | 'OG_ADAPTER_UNQUALIFIED' | 'OG_BUDGET_UNMEASURABLE' | 'OG_NATIVE_SANDBOX_UNAVAILABLE' | 'OG_SANDBOX_EXTERNAL';
   pointer: string;
   message: string;
   /** Fixed, non-sensitive invocation check identifier. */

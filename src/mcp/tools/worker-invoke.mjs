@@ -177,7 +177,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { mcpError, mcpJson } from '../helpers.mjs';
 import { buildShellStopControl, waitForUnitTermination } from './worker-shell-control.mjs';
-import { launchPreparedShellWorker, sweepWorkerStdin } from './worker-stdin-runtime.mjs';
+import { launchPreparedShellWorker, sweepWorkerStdin, markWorkerServer } from './worker-stdin-runtime.mjs';
 // NOTE: no static import of ../../config/worker-context.js here. That
 // module is TypeScript: a literal relative import resolves under vitest
 // but throws ERR_MODULE_NOT_FOUND under raw node (e.g. `node
@@ -1032,6 +1032,7 @@ async function defaultLaunchMcpWorkerProcessBaseline(server, { allowDegraded, co
 }
 
 async function defaultLaunchMcpWorkerProcess(server, { allowDegraded, config, name, cwd, memoryMaxGb = DEFAULT_MCP_WORKER_MEMORY_MAX_GB, live, readers, thresholdOverlay, admission, invocation, invocationId, dispatchGuard }) {
+  server = markWorkerServer(server, invocation, invocationId);
   // #2915 round 8 (D6): see `defaultLaunchShellWorker`'s identical guard —
   // `admission` is only ever present when this attempt is actually gated.
   if (admission === undefined) {

@@ -26,6 +26,8 @@ writeFileSync(settings.recordPath, JSON.stringify({
   fixtureRevision, scenarioId: settings.scenarioId ?? scenario, scenario,
   argv, cwd: process.cwd(), stdin: readFileSync(0, 'utf8'),
   envNames: Object.keys(process.env).sort(), outputPaths,
+  ...(settings.recordWorkerAttribution ? { workerAttribution: Object.fromEntries(
+    ['AIWG_WORKER_INVOCATION_ID', 'AIWG_WORKER_WORKSPACE', 'AIWG_WORKER_GROUP'].map(name => [name, process.env[name]])) } : {}),
   ...(settings.permissions ? { permissions: await permissionChecks(settings.permissions) } : {}),
 }));
 

@@ -5,6 +5,7 @@ import { classifyUnreadableWorkerProcess, readProcCgroup } from './worker-invoca
 import { importImpl } from '../../_resolve-impl.mjs';
 const { WORKER_INVOCATION_MARKER } = await importImpl(import.meta.url, 'config/worker-invocation-marker.mjs');
 export { WORKER_INVOCATION_MARKER };
+const { workerAttributionEnvironment } = await importImpl(import.meta.url, 'config/worker-attribution.mjs');
 
 function startedBeforeWorker(fs, path, startTicks) {
   if (typeof startTicks !== 'string' || !/^\d+$/.test(startTicks)) return false;
@@ -23,14 +24,16 @@ function startedBeforeWorker(fs, path, startTicks) {
   finally { if (fd !== undefined) fs.closeSync(fd); }
 }
 
-export function buildWorkerInvocationEnvironment(envNames, invocationId, inherited = process.env) {
+export function buildWorkerInvocationEnvironment(envNames, invocationId, inherited = process.env, attribution) {
   if (typeof invocationId !== 'string' || !invocationId || invocationId.includes('\0')) {
     throw new Error('Worker environment requires a non-empty NUL-free invocation ID');
   }
-  const names = [...new Set([...envNames, WORKER_INVOCATION_MARKER])];
+  const markers = attribution ? workerAttributionEnvironment(invocationId, attribution.cwd, attribution.selected.group)
+    : { [WORKER_INVOCATION_MARKER]: invocationId };
+  const names = [...new Set([...envNames, ...Object.keys(markers)])];
   const env = Object.fromEntries(envNames.filter(name => inherited[name] !== undefined)
     .map(name => [name, inherited[name]]));
-  return { env: { ...env, [WORKER_INVOCATION_MARKER]: invocationId }, envNames: names };
+  return { env: { ...env, ...markers }, envNames: names };
 }
 
 export function scanWorkerInvocationProcesses({ invocationId, startTicks, uid = process.getuid?.(),

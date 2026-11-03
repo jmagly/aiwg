@@ -1,3 +1,4 @@
+import { workerMarkerNames } from '../../fixtures/worker-attribution.js';
 /**
  * #2901 (B-OG-36) GitHub Copilot CLI promotion: offline S1 profile work.
  *
@@ -279,7 +280,7 @@ describe('T-OG-15 Copilot direct command contract', () => {
     expect(record.brief).toContain(MARKER);
     expect(record.argv).toEqual(invocation.argv.slice(2));
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
-    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG']);
+    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
     // #2995 round 3 (item D): parseOutput (the installed extractFinal hook)
     // always returns null -- there is no evidenced answer field, so no

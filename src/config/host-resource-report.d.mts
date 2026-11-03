@@ -12,7 +12,7 @@ export interface HostResourceReport {
   slots: number;
   ok: boolean;
   limits: Array<{ threshold: string; slots: number }>;
-  failures: Array<{ signal: string; reason: string; actual?: number; threshold?: number }>;
+  failures: Array<{ signal: string; reason: string; code?: 'OG_HOST_ATTRIBUTION' | 'OG_HOST_CAPACITY'; actual?: number; threshold?: number }>;
   counting?: string;
   limitingThreshold?: string;
   groups: Array<{ group: string; maxParallel: number | null; slots: number | null; reason: string }>;

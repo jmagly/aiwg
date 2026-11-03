@@ -373,11 +373,11 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
               { threshold: 'request.maxParallel', limit: request.maxParallel, running: 0 }] });
           if (resources) {
             if (!plan.eligible.length) { plan.resources = resources; plan.slots = resources.slots; }
-            if (!resources.ok) deny('OG_ADAPTER_UNQUALIFIED', '/parallelism/admission/hostResources',
+            if (!resources.ok) deny(resources.failures.some(failure => failure.code === 'OG_HOST_ATTRIBUTION') ? 'OG_HOST_ATTRIBUTION' : 'OG_HOST_CAPACITY', '/parallelism/admission/hostResources',
               resources.failures.map(failure => `${failure.signal}: ${failure.reason}`).join('; '));
           }
           const effectiveMaxParallel = caps.length ? Math.min(...caps) : null;
-          if (effectiveMaxParallel === 0) deny('OG_ADAPTER_UNQUALIFIED', '/constraints/maxParallel', 'Current capacity ceiling is zero');
+          if (effectiveMaxParallel === 0) deny('OG_HOST_CAPACITY', '/constraints/maxParallel', 'Current capacity ceiling is zero');
           if (!reasons.some(reason => reason.blocking !== false)) plan.eligible.push({ ...tuple, cli: member.cli,
             inferenceProvider: row.llmProvider, modelKey: key, family: observation.family, identityEvidence: binding.identityEvidence,
             profile: binding.profile, transport,
@@ -404,7 +404,7 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
       ...(request.substitution && matchesChoice(plan.selected, request.substitution) ? { substitution: structuredClone(request.substitution) } : {}) };
   }
   if (!plan.selected && plan.resources?.slots === 0) {
-    block('OG_ADAPTER_UNQUALIFIED', '/parallelism/admission/hostResources',
+    block(plan.resources.failures.some(failure => failure.code === 'OG_HOST_ATTRIBUTION') ? 'OG_HOST_ATTRIBUTION' : 'OG_HOST_CAPACITY', '/parallelism/admission/hostResources',
       plan.resources.failures.map(failure => `${failure.signal}: ${failure.reason}`).join('; '));
   }
   plan.alternatives = plan.eligible.filter(tuple => tuple !== plan.selected);

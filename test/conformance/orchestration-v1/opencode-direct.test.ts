@@ -1,3 +1,4 @@
+import { workerMarkerNames } from '../../fixtures/worker-attribution.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
 /**
  * #2904 (B-OG-39) OpenCode promotion: offline S1 profile work.
@@ -348,7 +349,7 @@ describe('T-OG-15 OpenCode direct command contract', () => {
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
     // The marker DOES reach the fake, but only through the attached file.
     expect(record.brief).toContain(MARKER);
-    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG']);
+    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     const stdout = await readFile(invocation.stdoutPath, 'utf8');
     expect(owner.parseOutput(stdout)).toEqual({ text: `synthetic reply (${payload.length} chars)` });
     const events = stdout.trim().split('\n').map(line => JSON.parse(line));

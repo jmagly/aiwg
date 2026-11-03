@@ -1,3 +1,4 @@
+import { directWorkerEnvironment } from '../../../src/config/worker-attribution.mjs';
 import baseline from '../../fixtures/providers/worker-delivery-baseline.json';
 import { workerStdinBytes, workerStdinDocument } from '../../../src/serve/worker-stdin-frame.mjs';
 import { execFile } from 'node:child_process';
@@ -234,7 +235,7 @@ describe('S1 pure installed-path invocation preparation (T-OG-03/14/15/17)', () 
     const final = path.join(root, 'final output.json');
     const payload = `quotes ' " spaces 雪\n--leading-dash $(touch '${path.join(root, 'injected')}')`;
     await writeFile(brief, payload);
-    await writeFile(configPath, JSON.stringify({ recordPath, scenarioId: 'T-OG-15-exact-data', scenario: 'success' }));
+    await writeFile(configPath, JSON.stringify({ recordPath, scenarioId: 'T-OG-15-exact-data', scenario: 'success', recordWorkerAttribution: true }));
     await writeFile(path.join(root, 'models.json'), JSON.stringify(fixtureJson('shared-vectors.json').find((v: any) => v.id === 'direct-model-no-effort').value));
     await writeFile(path.join(root, 'aiwg.config'), JSON.stringify(fixtureJson('shared-vectors.json').find((v: any) => v.id === 'direct-config-no-managed-state').value));
     Object.assign(invocation, { cwd: root, briefPath: brief, stdoutPath: path.join(root, 'events.jsonl'), stderrPath: path.join(root, 'stderr.log'), finalPath: final,
@@ -249,6 +250,9 @@ describe('S1 pure installed-path invocation preparation (T-OG-03/14/15/17)', () 
       outputPaths: { final, '--final-output': final } });
     // POSIX sh may add PWD; the unrelated credential is never inherited.
     expect(record.envNames).toContain('AIWG_FAKE_WORKER_CONFIG');
+    expect(record.workerAttribution).toEqual(directWorkerEnvironment(invocation));
+    expect(record.workerAttribution.AIWG_WORKER_WORKSPACE).toBe(root);
+    expect(record.workerAttribution.AIWG_WORKER_GROUP).toBe(invocation.selected.group);
     expect(record.envNames).not.toContain('UNRELATED_SECRET');
     await expect(lstat(path.join(root, 'injected'))).rejects.toMatchObject({ code: 'ENOENT' });
     expect(await readdir(root)).not.toContain('.aiwg');
@@ -394,7 +398,8 @@ describe('T-OG-15 bundled delivery remains byte-identical', () => {
         briefPath: invocation.briefPath, finalPath: invocation.finalPath, finalOutput: invocation.finalPath } as any)[name] ?? `/preview/${name}`))];
     const prepared = await adapter.prepareWorkerInvocation(invocation, f.qualification);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
-    const worker = `env -i ${invocation.argv.map(quote).join(' ')}`;
+    const markers = Object.entries(directWorkerEnvironment(invocation)).map(([name, value]) => `${name}=${quote(value)}`).join(' ');
+    const worker = `env -i ${markers} ${invocation.argv.map(quote).join(' ')}`;
     const outputs = `> ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`;
     const expected = row.stdin === 'brief-json'
       ? `cd ${quote(invocation.cwd)} && env -i ${[process.execPath, path.resolve('src/serve/worker-stdin-frame.mjs'), invocation.briefPath, invocation.selected.model, invocation.cwd].map(quote).join(' ')} | ${worker} ${outputs}`

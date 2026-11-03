@@ -2,7 +2,7 @@
 import { readFileSync, readdirSync, statfsSync } from 'node:fs';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { WORKER_INVOCATION_MARKER } from './worker-invocation-marker.mjs';
+import { readWorkerAttribution, workerWorkspace } from './worker-attribution.mjs';
 const BYTES_PER_GB = 1024 ** 3;
 
 /**
@@ -73,6 +73,7 @@ function countWorkerProcesses({
   readDir = readdirSync,
   readText = path => readFileSync(path, 'utf8'),
   uid = process.getuid?.(),
+  workspace,
   groupNames = [],
   listWorkerUnits: readUnitList,
   countWorkerUnits: readUnitCount,
@@ -86,8 +87,10 @@ function countWorkerProcesses({
     if (Number.isInteger(counted) && counted >= 0) units = counted;
   } catch { /* Owned-process scanning remains available. */ }
   const source = units === undefined ? 'owned-process-fallback' : 'systemd-units-and-marked-processes';
-  // Reuse existing identities; UUID-only IDs carry no group evidence.
+  const currentWorkspace = workerWorkspace(workspace);
+  // Keep legacy unambiguous group names; explicit markers add workspace ownership.
   const identify = value => new Set(groupNames.filter(name => value === name || value.startsWith(`${name}-`)));
+  const unitEvidence = new Map([...(unitNames ?? [])].map(unit => [unit, new Set()]));
   const unitGroups = new Map([...(unitNames ?? [])].map(unit =>
     [unit, identify(unit.slice('aiwg-worker-'.length, -'.service'.length))]));
   let entries, procUnavailable = false;
@@ -97,9 +100,7 @@ function countWorkerProcesses({
     entries = []; procUnavailable = true;
   }
   const hostCliProcesses = { codex: 0, muse: 0 };
-  const invocations = new Set(), unitInvocations = new Set();
-  const invocationGroups = new Map();
-  const merge = (target, evidence) => { for (const name of evidence) target.add(name); };
+  const invocations = new Map();
   for (const entry of entries) {
     if (!/^\d+$/.test(entry)) continue;
     try {
@@ -112,27 +113,42 @@ function countWorkerProcesses({
       const comm = optional('comm').trim();
       if (comm === 'codex') hostCliProcesses.codex += 1;
       if (comm === 'muse-bin' || comm === 'muse') hostCliProcesses.muse += 1;
-      const marker = optional('environ').split('\0').find(field => field.startsWith(`${WORKER_INVOCATION_MARKER}=`));
-      const invocation = marker?.slice(WORKER_INVOCATION_MARKER.length + 1);
-      if (!invocation) continue;
-      invocations.add(invocation);
-      if (!invocationGroups.has(invocation)) invocationGroups.set(invocation, identify(invocation));
+      const evidence = readWorkerAttribution(optional('environ'));
+      if (!evidence.invocation) continue;
+      if (!invocations.has(evidence.invocation)) invocations.set(evidence.invocation,
+        { evidence: new Set(), groups: identify(evidence.invocation), units: new Set() });
+      const record = invocations.get(evidence.invocation);
+      if (evidence.workspace && evidence.group) record.evidence.add(JSON.stringify([evidence.workspace, evidence.group]));
       const cgroupUnits = optional('cgroup').match(/aiwg-worker-[^/\s]+\.service(?=\/|\s|$)/g) ?? [];
-      if (cgroupUnits.some(unit => unitNames ? unitNames.has(unit) : units > 0)) unitInvocations.add(invocation);
-      for (const unit of cgroupUnits.filter(unit => unitGroups.has(unit))) {
-        merge(unitGroups.get(unit), invocationGroups.get(invocation));
-      }
+      for (const unit of cgroupUnits.filter(unit => unitNames ? unitNames.has(unit) : units > 0)) record.units.add(unit);
     } catch { /* Processes may exit during the scan. */ }
   }
-  const byGroup = {};
-  for (const evidence of [...unitGroups.values(), ...[...invocationGroups]
-    .filter(([id]) => !unitInvocations.has(id)).map(([, evidence]) => evidence)]) {
-    if (evidence.size === 1) {
-      const [name] = evidence;
-      byGroup[name] = (byGroup[name] ?? 0) + 1;
+  for (const record of invocations.values()) {
+    for (const unit of record.units) {
+      if (unitEvidence.has(unit)) for (const evidence of record.evidence) unitEvidence.get(unit).add(evidence);
+      if (unitGroups.has(unit)) for (const name of record.groups) unitGroups.get(unit).add(name);
     }
   }
-  return { ...(groupNames.length ? { byGroup } : {}), total: (units ?? 0) + [...invocations].filter(id => !unitInvocations.has(id)).length,
+  const attributions = [];
+  const byGroup = {};
+  let unknown = 0;
+  const add = (kind, id, evidence, legacyGroups = new Set(), count = 1) => {
+    const identity = evidence.size === 1 ? JSON.parse([...evidence][0])
+      : !evidence.size && legacyGroups.size === 1 ? [null, [...legacyGroups][0]] : undefined;
+    const record = { kind, id, count, attribution: identity ? 'attributed' : evidence.size ? 'conflicting' : 'unknown',
+      ...(identity ? { ...(identity[0] ? { workspace: identity[0] } : {}), group: identity[1] } : {}) };
+    attributions.push(record);
+    if (!identity || (identity[0] && !currentWorkspace)) unknown += count;
+    if (identity && (!identity[0] || identity[0] === currentWorkspace)) {
+      byGroup[identity[1]] = (byGroup[identity[1]] ?? 0) + count;
+    }
+  };
+  for (const [unit, evidence] of unitEvidence) add('unit', unit, evidence, unitGroups.get(unit));
+  if (units > 0 && !unitNames) add('unit-count', '(unit identities unavailable)', new Set(), new Set(), units);
+  for (const [id, record] of invocations) if (!record.units.size) add('invocation', id, record.evidence, record.groups);
+  return { byGroup, attributions, workspace: currentWorkspace,
+    unknown,
+    total: (units ?? 0) + [...invocations.values()].filter(record => !record.units.size).length,
     ...(procUnavailable ? {} : { hostCliProcesses }), units, source };
 }
 
@@ -235,7 +251,8 @@ function readLiveHostResources(readers = {}) {
     memPsiAvg300: psi?.avg300,
     workers: typeof workers === 'object' ? workers?.total : workers,
     ...(typeof workers === 'object' ? { hostCliProcesses: workers?.hostCliProcesses, workerUnits: workers?.units,
-      workerCountingSource: workers?.source, workerGroups: workers?.byGroup } : {}),
+      workerCountingSource: workers?.source, workerGroups: workers?.byGroup, workerAttributions: workers?.attributions,
+      workerWorkspace: workers?.workspace, workerUnknown: workers?.unknown } : {}),
     freeDiskGb: sampleFreeDiskGb(readers),
   };
 }

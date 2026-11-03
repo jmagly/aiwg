@@ -1,3 +1,4 @@
+import { workerMarkerNames } from '../../fixtures/worker-attribution.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
 /**
  * #2906 (B-OG-41) Grok Build CLI promotion: offline S1 profile work.
@@ -310,7 +311,7 @@ describe('T-OG-15 Grok Build direct command contract', () => {
     expect(record.brief).toContain(MARKER);
     expect(record.argv).toEqual(invocation.argv.slice(2));
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
-    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG']);
+    expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
     const final = installed.owner.parseDirectFinal(await readFile(invocation.stdoutPath, 'utf8'));
     expect(final).toMatchObject({ stopReason: 'end_turn', text: expect.stringContaining(`synthetic reply (${payload.length} chars)`) });

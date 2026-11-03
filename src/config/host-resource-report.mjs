@@ -31,7 +31,8 @@ export function hostResourceReport({ config, live, readers, paths, thresholdOver
     throw new Error(`Unknown group "${group}"; configured groups: ${Object.keys(configured).join(', ') || '(none)'}`);
   }
   // Local collection and evaluation share one clock; supplied snapshots retain their source time.
-  const measured = live ?? readLiveHostResources({ ...readers, now, paths, groupNames: Object.keys(configured) });
+  const measured = live ?? readLiveHostResources({ ...readers, now, paths, workspace: readers?.workspace ?? paths?.[0],
+    groupNames: Object.keys(configured) });
   const evaluated = now();
   const origins = {};
   let thresholds;
@@ -82,8 +83,9 @@ export function hostResourceReport({ config, live, readers, paths, thresholdOver
     if (limit !== undefined && limit !== null) add(threshold, limit - running,
       'admission capacity exhausted or worker count unavailable');
   }
+  const unknown = measured.workerUnknown
+    ?? measured.workers - Object.values(measured.workerGroups ?? {}).reduce((sum, count) => sum + count, 0);
   const groups = Object.entries(configured).map(([id, settings]) => {
-    const unknown = measured.workers - Object.values(measured.workerGroups ?? {}).reduce((sum, count) => sum + count, 0);
     const running = (measured.workerGroups?.[id] ?? 0) + unknown;
     const candidates = [
       { threshold: `groups.${id}.maxParallel`, limit: settings.maxParallel },
@@ -101,10 +103,22 @@ export function hostResourceReport({ config, live, readers, paths, thresholdOver
     return { group: id, maxParallel: settings.maxParallel ?? null, slots,
       reason: threshold ? `${threshold}: ${reason}` : reason };
   });
+  // Capacity diagnostics retain inspectable census identities without environment contents.
+  const blockers = measured.workerAttributions ?? [];
+  for (const failure of failures) {
+    if (/workers|max_parallel|admission|groups\./.test(failure.signal)) {
+      failure.code = unknown > 0 && !failure.signal.endsWith('.enabled')
+        ? 'OG_HOST_ATTRIBUTION' : 'OG_HOST_CAPACITY';
+      if (!blockers.length) continue;
+      failure.reason += `; host workers=${measured.workers ?? 'unavailable'}, unattributed=${unknown ?? 'unavailable'}; counted: `
+        + (blockers.map(record => `${record.kind}:${record.id} (${record.attribution}${record.workspace ? `, ${record.workspace}/${record.group}` : ''})`).join(', ') || 'identities unavailable');
+      if (failure.code === 'OG_HOST_ATTRIBUTION') failure.reason += '; recovery: aiwg doctor --resources --json; see docs/getting-started/worker-attribution.md (relaunch through marked launch paths; never relabel another owner\'s jobs)';
+    }
+  }
   const slots = failures.length ? 0 : Math.min(...limits.map(limit => limit.slots));
   const limitingThreshold = failures[0]?.signal ?? [...limits].sort((a, b) => a.slots - b.slots)[0]?.threshold;
   return { measured, freshness: snapshot, thresholds, origins, slots, ok: slots > 0, limits, failures, groups, limitingThreshold,
     counting: 'current UID AIWG worker units plus distinct AIWG_WORKER_INVOCATION_ID markers outside those units; '
       + (measured.workerCountingSource === 'owned-process-fallback' ? 'systemd unavailable: owned-process fallback; ' : '')
-      + 'hostCliProcesses: exact codex/muse/muse-bin comm, informational, not used for admission; group attribution uses unambiguous configured prefixes in existing invocation markers or unit names; unattributed workers count against every group; tuple caps without attribution use owned worker total' };
+      + 'hostCliProcesses: exact codex/muse/muse-bin comm, informational, not used for admission; group attribution uses workspace/group markers or unambiguous configured prefixes in existing invocation markers or unit names; unattributed workers count against every group and host capacity; tuple caps without attribution use owned worker total' };
 }
