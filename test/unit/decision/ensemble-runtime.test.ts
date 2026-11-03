@@ -329,8 +329,12 @@ describe('D17 ensemble runtime (#2611)', () => {
       { name: 'cost', result: member => withAttempts(member, 0, 1, { inputTokens: 1, outputTokens: 1, costUsd: 0.000101 }), reason: 'budget-exhausted' },
       { name: 'unknown-cost', result: member => withAttempts(member, 0, 1, { inputTokens: 1, outputTokens: 1, costUsd: null }), reason: 'budget-exhausted' },
     ];
+    // Real timers: give these cases a deadline they cannot hit, so a loaded host
+    // cannot turn a dispatch or budget failure into a timeout. The timeout case
+    // above keeps the 10ms deadline under fake timers.
+    const untimed = smallPolicy({ ceilings: { ...policy.ceilings, deadlineMs: 60_000 } });
     for (const item of cases) {
-      const result = await executeDecisionEnsemble(policy, {
+      const result = await executeDecisionEnsemble(untimed, {
         enabled: true,
         invocationId: item.name,
         authorizeMember: () => true,
