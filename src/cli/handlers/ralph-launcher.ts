@@ -368,7 +368,7 @@ export async function launchExternalRalph(
     let identity;
     while (!identity && process.hrtime.bigint() < identityDeadline) {
       if ((child.exitCode !== null && child.exitCode !== undefined) || child.signalCode) break;
-      identity = capture.observe(sampleWorkerIdentity(pid));
+      identity = capture.observe(sampleWorkerIdentity(pid, { includeExited: true }));
       if (!identity) await new Promise(resolve => setTimeout(resolve, 10));
     }
     if (!identity?.bootId || !identity.startTicks || !Number.isSafeInteger(identity.uid)) {

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawn } from 'node:child_process';
 import { sampleWorkerProcIdentity } from '../../../tools/ralph-external/lib/worker-process-identity.mjs';
 import { observeWorkerTermination } from '../../../tools/ralph-external/lib/worker-termination.mjs';
 import { sampleWorkerIdentity } from '../../../tools/ralph-external/process-monitor.mjs';
@@ -59,4 +60,25 @@ describe('T-OG-04 kernel birth capture at exit (#3835)', () => {
       } };
       expect(sampleWorkerProcIdentity(123, { ...input, fs: injected })).toBeNull();
     });
+
+  // CI containers often run a PID 1 that never reaps orphans, so a killed
+  // descendant can stay a zombie indefinitely. Liveness callers must see it as
+  // gone; only spawn-time capture opts in to its identity.
+  it.runIf(process.platform === 'linux')('treats an unreaped zombie as gone unless exited identity is requested', async () => {
+    // `sleep 5` never waits for the orphaned `sleep 0`, which stays a zombie child of it.
+    const parent = spawn('sh', ['-c', 'sleep 0 & exec sleep 5'], { stdio: 'ignore' });
+    try {
+      let zombie = null;
+      for (let attempt = 0; attempt < 200 && zombie === null; attempt++) {
+        const children = fs.readFileSync(`/proc/${parent.pid}/task/${parent.pid}/children`, 'utf8').trim().split(/\s+/).filter(Boolean);
+        const candidate = Number(children[0]);
+        if (candidate && fs.readFileSync(`/proc/${candidate}/stat`, 'utf8').split(') ')[1]?.startsWith('Z')) zombie = candidate;
+        else await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      expect(zombie).not.toBeNull();
+      expect(sampleWorkerIdentity(zombie)).toBeNull();
+      expect(sampleWorkerIdentity(zombie, { includeExited: true })).toMatchObject({ pid: zombie, state: 'Z', executable: null });
+      expect(sampleWorkerIdentity(parent.pid)).toMatchObject({ pid: parent.pid, state: expect.stringMatching(/^[RS]$/) });
+    } finally { parent.kill('SIGKILL'); }
+  });
 });

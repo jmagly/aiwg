@@ -68,9 +68,16 @@ if (importImpl) {
   }
 }
 
-/** Side-effect-free Linux sample. Unknown identity never grants signal authority. */
-export function sampleWorkerIdentity(pid) {
-  return sampleWorkerProcIdentity(pid);
+/**
+ * Side-effect-free Linux sample. Unknown identity never grants signal authority.
+ * An exited, unreaped child (zombie without /proc/<pid>/exe) counts as gone, so
+ * liveness, group-member and ancestry checks never treat it as running. Only
+ * spawn-time identity capture passes `includeExited` to keep a fast-exiting
+ * worker's birth identity (#3835).
+ */
+export function sampleWorkerIdentity(pid, { includeExited = false } = {}) {
+  const identity = sampleWorkerProcIdentity(pid);
+  return identity && (includeExited || identity.executable !== null) ? identity : null;
 }
 
 export function sameWorkerIdentity(expected, actual) {
