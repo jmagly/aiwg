@@ -53,8 +53,15 @@ describe('T-OG-15 attempt capture preservation (#3832, partial)', () => {
     }
     await expect(verify(f, result.invocationId)).resolves.toMatchObject({ invocationId: result.invocationId });
     const first = exit.captureSeal.files[0].path;
-    await expect(writeFile(first, 'overwrite')).rejects.toMatchObject({ code: 'EACCES' });
-    await expect(unlink(first)).rejects.toMatchObject({ code: 'EACCES' });
+    if (process.getuid?.() === 0) {
+      // Root ignores the 0400/0500 bits (CI containers run tests as root), so the
+      // seal's protection there is detection: a rewritten snapshot fails verification.
+      await writeFile(first, 'overwrite');
+      await expect(verify(f, result.invocationId)).rejects.toThrow(/capture/i);
+    } else {
+      await expect(writeFile(first, 'overwrite')).rejects.toMatchObject({ code: 'EACCES' });
+      await expect(unlink(first)).rejects.toMatchObject({ code: 'EACCES' });
+    }
   });
 
   it.each(['run-directory', 'stdout', 'stderr', 'final'])('refuses second-attempt reuse of %s without predecessor linkage', async kind => {
