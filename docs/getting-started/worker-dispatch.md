@@ -516,6 +516,8 @@ memory. Status reads never launch probes, expire reservations, reset scopes, kil
 These records are diagnostic snapshots, not persisted breaker authority: a conductor restart still starts
 with closed scopes and retains the separate stop-before-retry checks.
 
+Before launching, the launcher checks existing captures in the run directory's parent (and the configured capture root) for an open predecessor in the same workspace, role and task. Changing the brief or group does not bypass this check. For an intentional correction, pass `--retry-of-run-dir DIR --retry-correction`; add `--check-descendants` to reconcile uncertain termination from owned process evidence. Only a confirmed stop permits the correction. The new invocation preserves `previousAttemptId` and the chain's task digest and records both old/new brief and group digests in `retryCorrection`.
+
 Automatic correction supports one narrow mechanical action: refresh the executable binding after
 launcher-observed `ENOENT`, with no process started and a confirmed predecessor stop. The owner reloads
 trusted installation inputs and re-resolves the same task. It retries only when the qualified absolute
