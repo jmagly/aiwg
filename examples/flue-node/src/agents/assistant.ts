@@ -1,15 +1,8 @@
 'use agent';
-import { readFileSync } from 'node:fs';
-import { defineSkill, useModel, useSkill, useTool } from '@flue/runtime';
+import { useModel, useSkill, useTool } from '@flue/runtime';
+import { sdlcQuickref as sdlc } from '../aiwg/skills.ts';
 import { aiwg_discover, aiwg_show, aiwg_artifact_write } from '../aiwg/tools.ts';
 import { useAiwgSpecialists } from '../aiwg/specialists.ts';
-
-// Mount deployed instructions explicitly: workspace discovery needs a sandbox.
-const sdlc = defineSkill({
-  name: 'sdlc-quickref',
-  description: 'Find AIWG software development workflows and their governing rules.',
-  instructions: readFileSync('.agents/skills/sdlc-quickref/SKILL.md', 'utf8'),
-});
 
 export function Assistant() {
   useModel(process.env.FLUE_MODEL || 'openrouter/anthropic/claude-haiku-4.5');

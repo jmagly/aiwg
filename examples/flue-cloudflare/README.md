@@ -6,20 +6,34 @@ Ask your coding assistant:
 > quickref and Code Reviewer, connect remote AIWG tools through Worker bindings,
 > and keep conversation state in Durable Object SQLite.
 
-Copy this directory into your project. Run **`aiwg use sdlc --provider flue
---package` first**, from the copied directory. Generated skills, context, tools
-and specialists are deliberately absent. The app imports a packaged skill and
-specialist and the generated remote connection; it requires no local MCP child.
-`@aiwg/flue` is not in this example's lockfile, so the locked toolchain installs
-before a release is published. Add the package that matches your AIWG version
-after `npm ci`. Maintainer tests use the locally packed package instead.
+Copy this directory into your project. The same agent supports **copy mode and
+package mode**. Deploy AIWG from the copied directory before starting the app;
+generated skills, context, tools and specialists are deliberately absent.
+The app imports the generated skill, specialist and remote connection modules;
+it requires no local MCP child. For package mode, install the locked toolchain
+first, then add `@aiwg/flue` matching `aiwg --version` (replace `<aiwg-version>`).
+Maintainer tests use the locally packed package instead.
 
 ```sh
-aiwg use sdlc --provider flue --package
 npm ci
-npm install @aiwg/flue@<aiwg-version>   # same version as `aiwg --version`
+npm install @aiwg/flue@<aiwg-version> @flue/runtime@2.3.0 @modelcontextprotocol/client@2.0.0 'valibot@^1.1.0'
+aiwg use sdlc --provider flue --package
 npm run dev
 ```
+
+For copy mode, no `@aiwg/flue` installation is needed:
+
+```sh
+npm ci
+aiwg use sdlc --provider flue
+npm run dev
+```
+
+The agent imports `sdlcQuickref` from generated `src/aiwg/skills.ts`. Copy mode
+uses a static import from `.agents/skills`; package mode uses
+`import sdlcQuickref from '@aiwg/flue/skills/sdlc-quickref/SKILL.md';` without
+creating local skill files. No agent edits are needed when switching modes.
+See [package mode](../../docs/providers/flue.md#package-mode) for details.
 
 Verified toolchain: `@flue/cli`, `@flue/runtime`, `@flue/vite` **2.3.0**,
 `@cloudflare/vite-plugin` **1.65.0**, Wrangler **4.152.0** (workerd
