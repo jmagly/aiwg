@@ -15,6 +15,7 @@ import {
 } from './rule-delivery.mjs';
 
 const { trackTemporaryDirectory } = await importImpl(import.meta.url, 'utils/temporary-directory.js');
+const { acquireProviderDeploymentLock } = await importImpl(import.meta.url, 'providers/deployment-lock.js');
 const { signalChild } = await importImpl(import.meta.url, 'process/signal-child.mjs');
 const DEFAULT_WORKER = fileURLToPath(new URL('./provider-prepare-worker.mjs', import.meta.url));
 const CHECKOUT_NEEDS_TS_TRANSFORM = !fs.existsSync(fileURLToPath(new URL('../../../dist/src', import.meta.url)));
@@ -183,12 +184,16 @@ export async function prepareProviderDeployments({
   const activeChildren = new Set();
   let pool;
   let poolDescriptor;
+  let releaseLock;
   try {
+    // Workers stage only; retain the shared lease through ordered promotion
+    // and finalization so another project cannot invalidate their snapshots.
+    releaseLock = await acquireProviderDeploymentLock();
     pool = transaction.createPool(srcRoot);
     poolDescriptor = transaction.describePool(pool);
   } catch (error) {
-    if (pool) transaction.disposePool(pool);
-    removeSession();
+    try { if (pool) transaction.disposePool(pool); removeSession(); }
+    finally { await releaseLock?.(); }
     throw error;
   }
   const prepared = new Array(jobs.length);
@@ -209,10 +214,12 @@ export async function prepareProviderDeployments({
   const cleanup = async () => {
     if (closed) return;
     closed = true;
-    await stopChildren();
-    for (const item of prepared) if (item?.plan && !item.committed) transaction.disposePlan(item.plan);
-    transaction.disposePool(pool);
-    removeSession();
+    try {
+      await stopChildren();
+      for (const item of prepared) if (item?.plan && !item.committed) transaction.disposePlan(item.plan);
+      transaction.disposePool(pool);
+      removeSession();
+    } finally { await releaseLock(); }
   };
   const prepareOne = async (index, attempt = 0) => {
     // Never start a worker once the session is closed: it would outlive
@@ -243,6 +250,7 @@ export async function prepareProviderDeployments({
   }
   return {
     get providers() { return jobs.map(job => job.provider); },
+    run(work) { return releaseLock.run(work); },
     async commit(index) {
       if (closed) throw new Error('Provider preparation session is closed');
       if (index !== nextCommit) throw new Error(`Provider plans must commit in order: expected ${nextCommit}, received ${index}`);
@@ -256,11 +264,8 @@ export async function prepareProviderDeployments({
           report = transaction.commit(item.plan);
         }
         item.committed = true;
-        nextCommit++;
         return report;
-      } catch (error) {
-        throw error;
-      }
+      } finally { nextCommit++; }
     },
     async dispose() { await cleanup(); },
   };

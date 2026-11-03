@@ -167,6 +167,21 @@ const { captureDeploymentOutputs, recordDeploymentOutputs, deploymentOutputRoots
 
 export async function main(args = process.argv.slice(2), internal = {}) {
   const cfg = parseArgs(args);
+  if (!cfg.help && !cfg.dryRun && !internal.preflightOnly && !internal.finalizeOnly
+    && !globalThis[Symbol.for('aiwg.provider-preparation-hook.v1')]) {
+    const provider = await loadProvider(cfg.provider);
+    const shared = [...Object.values(provider.paths), provider.kernelSkillsPath].some(dir => dir && path.isAbsolute(dir))
+      || provider.name === 'codex' || cfg.userScope || cfg.saveUser;
+    if (shared) {
+      const { withProviderDeploymentLock } = await importImpl(import.meta.url, 'providers/deployment-lock.js');
+      return withProviderDeploymentLock(() => mainUnlocked(args, internal));
+    }
+  }
+  return mainUnlocked(args, internal);
+}
+
+async function mainUnlocked(args, internal) {
+  const cfg = parseArgs(args);
   if (cfg.help) { printHelp(); return 0; }
   const modelCatalog = loadRuntimeModelCatalog(staticModelCatalog);
 

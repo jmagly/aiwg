@@ -25,6 +25,7 @@ import YAML from 'yaml';
 import { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 import { createScriptRunner } from './script-runner.js';
 import { finalizePreparedProvider, prepareProviderDeployments } from '../services/provider-prepare-coordinator.js';
+import { deployEachProvider, resultForProvider } from './use-provider-results.js';
 import { getFrameworkRoot, getVersionInfo } from '../../channel/manager.mjs';
 import { getRegistry } from '../../extensions/registry.js';
 import { registerDeployedExtensions } from '../../extensions/deployment-registration.js';
@@ -2815,10 +2816,11 @@ export class UseHandler implements CommandHandler {
       }
       const providerResults = [];
       for (const provider of providers) {
+        const providerResult = resultForProvider(coreResult, provider);
         const effectiveScope: DeploymentScope = provider === 'openclaw' || provider === 'openhuman'
           ? 'user'
           : requestedScope;
-        if (coreResult.exitCode === 0 && !dryRun) {
+        if (providerResult.exitCode === 0 && !dryRun) {
           try {
             const receiptOptions = {
               projectRoot: projectDir,
@@ -2849,8 +2851,8 @@ export class UseHandler implements CommandHandler {
           requestedBundles: [requestedBundle],
           contextOptOut,
           invocationStartedAt: dryRun ? undefined : startedAt,
-          deploymentExitCode: coreResult.exitCode,
-          deploymentMessage: coreResult.message,
+          deploymentExitCode: providerResult.exitCode,
+          deploymentMessage: providerResult.message,
           // A normal first deployment has no authenticated verifier handoff
           // yet, so receipt absence belongs in doctor/status rather than
           // degrading an otherwise successful `aiwg use` result.
@@ -3768,29 +3770,23 @@ export class UseHandler implements CommandHandler {
         let session: Awaited<ReturnType<typeof prepareProviderDeployments>> | undefined;
         try {
           session = await prepareProviderDeployments(frameworkRoot, preparedJobs);
-          for (const [order, requested] of providers.entries()) {
-            await session.commit(order);
+          return await session.run(() => deployEachProvider(providers, async (requested, order) => {
+            await session!.commit(order);
             const capability = randomUUID();
             this.preparedProviderContinuations.add(capability);
             try {
-              const result = await this.execute({ ...ctx, args: [framework, '--provider', requested, preparedFlag, capability, ...remainingArgs] });
-              if (result.exitCode !== 0) return result;
+              return await this.execute({ ...ctx, args: [framework, '--provider', requested, preparedFlag, capability, ...remainingArgs] });
             } finally {
               this.preparedProviderContinuations.delete(capability);
             }
-          }
-          return { exitCode: 0 };
+          }));
         } catch (error) {
           return { exitCode: 1, message: `Concurrent provider preparation failed: ${error instanceof Error ? error.message : String(error)}` };
         } finally {
           await session?.dispose();
         }
       }
-      for (const p of providers) {
-        const result = await this.execute({ ...ctx, args: [framework, '--provider', p, ...remainingArgs] });
-        if (result.exitCode !== 0) return result;
-      }
-      return { exitCode: 0 };
+      return deployEachProvider(providers, p => this.execute({ ...ctx, args: [framework, '--provider', p, ...remainingArgs] }));
     }
 
     const requestedProvider = providers[0];
