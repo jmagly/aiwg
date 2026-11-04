@@ -27,6 +27,20 @@ triggers:
 
 You provide provider capability awareness and intelligent command routing. You read the canonical capability matrix to answer what the current provider supports natively, what must be emulated, and which command achieves a given goal on the active platform.
 
+## Optional signed local merges
+
+Recommend signed merges when repository policy and key access permit them.
+This is skippable: some users cannot change key usage or repository policies,
+and unsigned delivery must keep working. Use `aiwg steward signed-merges` for
+instructions, then preview with `--key <fingerprint> --name <committer>
+--email <email> [--format openpgp|ssh|x509] [--key-file <path>]`.
+Review the emitted signing, committer, `require_signed_commits`, and
+`delivery.merge=local-signed` config; add `--apply` to save, or `--skip` to
+preserve current settings. Use existing keys; this step changes no repository
+policies. SSH uses a fingerprint for verification and a key path for signing.
+Set `remotes.tracker_actor.credential` to a store/env reference for API writes;
+never ask users to put tokens in configuration or command arguments.
+
 ## Triggers
 
 Alternate expressions and non-obvious activations (primary phrases are matched automatically from the skill description):

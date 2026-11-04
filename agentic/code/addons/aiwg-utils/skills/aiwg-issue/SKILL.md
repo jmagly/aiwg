@@ -174,23 +174,25 @@ obtain digest-bound authorization when requested, and make no write for a
 reject under the same project policy.
 
 ```bash
-aiwg discover "issue create" --type skill
-aiwg show skill issue-create --body
-aiwg run skill issue-create -- "<title>" --provider gitea --labels "bug"
+aiwg run skill issue-create -- plan --title '<title>' --body-file /tmp/issue.md
+# After reviewing the plan and any required digest-bound authorization:
+aiwg issues create --title '<title>' --body-file /tmp/issue.md
+aiwg issues comment <number> --body-file /tmp/comment.md
+aiwg issues close <number>
 ```
 
-Or use the tracker's web UI with the template. Both are valid.
+These writes use the configured external tracker (`remotes.issue_tracker` and
+`issue_provider`). Local-only projects retain local issue storage; use
+`--provider local` to select it explicitly. Multi-segment composition and
+`--authorize-policy <digest>` use the same policy plan as `issue-create`.
 
-For Gitea via MCP (if available):
-
-```yaml
-mcp__git-gitea__issue_write:
-  method: create
-  owner: roctinam
-  repo: aiwg
-  title: '<title>'
-  body: '<full body following bug-report.md template>'
-```
+Configure `remotes.tracker_actor.credential` with an existing sensitive-input
+reference: `{"store":"tracker-token"}` or `{"env":"PROJECT_TRACKER_TOKEN"}`.
+The HTTP client checks `/user` before every write, requires
+`tracker_actor.login` to match, and refuses `forbid_actors`. Configured
+credentials cannot be overridden with token flags. No token belongs in argv,
+logs, or issue bodies. Projects without an actor credential retain provider
+environment token discovery. PR delivery uses the same actor via `aiwg-pr`.
 
 ## After filing
 

@@ -1,6 +1,8 @@
 import type { ExternalIssueProvider, LocalIssueCommentIdMapping } from './types.js';
 import type { ExternalIssueCommentSnapshot, ExternalIssueSnapshot, LocalIssueExportSnapshot } from './sync.js';
 import { resolveSensitiveInput, type SensitiveInputDependencies, type SensitiveInputOptions } from '../auth/sensitive-input.js';
+import type { TrackerActorConfig } from '../config/aiwg-config.js';
+import { checkTrackerActor } from './tracker-policy.js';
 import { isInteractive } from '../cli/env.js';
 
 export interface LiveIssueClientOptions {
@@ -8,6 +10,7 @@ export interface LiveIssueClientOptions {
   repo: string;
   apiUrl?: string;
   token?: string;
+  actor?: TrackerActorConfig;
   fetchFn?: typeof fetch;
 }
 
@@ -98,6 +101,12 @@ export class LiveIssueClient {
     return comments.map((comment) => normalizeComment(comment));
   }
 
+  get provider(): ExternalIssueProvider { return this.options.provider; }
+
+  repositoryRequest<T>(method: string, suffix: string, body?: unknown): Promise<T> {
+    return this.request<T>(method, `${this.issuesPath().replace(/\/issues$/, '')}${suffix}`, body);
+  }
+
   private issuesPath(): string {
     return `/repos/${encodeURIComponent(this.owner)}/${encodeURIComponent(this.name)}/issues`;
   }
@@ -110,7 +119,14 @@ export class LiveIssueClient {
     return `${this.issuePath(externalId)}/comments`;
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async verifyActor(): Promise<void> {
+    if (!this.options.actor) return;
+    const user = await this.request<{ login?: string }>('GET', '/user');
+    checkTrackerActor(this.options.actor, user.login);
+  }
+
+  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    if (method !== 'GET') await this.verifyActor();
     const headers: Record<string, string> = {
       Accept: 'application/json',
     };
@@ -119,6 +135,7 @@ export class LiveIssueClient {
     try {
       const response = await this.fetchFn(`${this.baseUrl}${path}`, {
         method,
+        redirect: 'error',
         headers,
         body: body === undefined ? undefined : JSON.stringify(body),
       });
@@ -126,7 +143,10 @@ export class LiveIssueClient {
         const text = await response.text().catch(() => '');
         throw new Error(`${this.options.provider} issue API ${method} ${path} failed: ${response.status}${text ? ` ${redactSecrets(text, this.options.token)}` : ''}`);
       }
-      const result = await response.json() as T;
+      // Native HTTP responses may be empty (for example Gitea merge success).
+      // Preserve the injected fetch contract used by existing in-process clients.
+      const payload = typeof response.text === 'function' ? await response.text() : undefined;
+      const result = (payload === undefined ? await response.json() : payload.trim() ? JSON.parse(payload) : {}) as T;
       // A server can reflect request credentials in issue fields or comments.
       // Scrub them before they reach local storage or CLI output.
       if (!this.options.token) return result;

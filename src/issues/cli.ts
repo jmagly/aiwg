@@ -13,19 +13,21 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getFrameworkRoot } from '../channel/manager.mjs';
 import { readAiwgConfig } from '../config/aiwg-config.js';
+import { externalIssues } from './external-cli.js';
+import { trackerToken } from './tracker-policy.js';
 import { sensitiveInputOptions } from '../auth/sensitive-input.js';
 import {
   LocalIssueProviderCore,
   buildExternalIssueSnapshotFromLocal,
   buildLocalIssueConflictReport,
   createLiveIssueClient,
-  resolveLiveIssueToken,
   localIssueRoot,
   parseCommentIdMappings,
   parseExternalIssueSnapshot,
 } from './index.js';
 
 interface ParsedArgs {
+  cwd?: string;
   raw: string[];
   positional: string[];
   flags: Map<string, string | boolean>;
@@ -33,11 +35,13 @@ interface ParsedArgs {
 
 export async function main(args: string[], cwd = process.cwd()): Promise<void> {
   const parsed = parseArgs(args);
+  parsed.cwd = cwd;
   const subcommand = parsed.positional[0];
   const rest = parsed.positional.slice(1);
   if (parsed.flags.has('backend')) {
     throw new Error('aiwg issue commands use the local issue provider; --backend is not supported');
   }
+  if (await externalIssues(parsed, cwd, async () => ({ plan: await buildIssuePlan(parsed, cwd), composer: await loadIssueComposer() }))) return;
   const provider = stringFlag(parsed, 'provider');
   if (provider && provider !== 'local') {
     throw new Error(`aiwg issue is for local issue storage only; configured external trackers use their tracker tools (${provider})`);
@@ -97,7 +101,7 @@ async function handleInit(issues: LocalIssueProviderCore, args: ParsedArgs): Pro
   printJsonOrText(args, config, `Initialized local issues with prefix ${config.issue_key.prefix}`);
 }
 
-interface IssueCompositionModule {
+export interface IssueCompositionModule {
   planIssueDraft(draft: Record<string, unknown>, options?: Record<string, unknown>): Record<string, any>;
   executeIssuePlan(
     plan: Record<string, any>,
@@ -345,8 +349,9 @@ async function handleIndex(issues: LocalIssueProviderCore, rest: string[], args:
 
 async function liveClient(args: ParsedArgs, provider: 'gitea' | 'github') {
   const repo = requiredStringFlag(args, 'repo');
-  const token = await resolveLiveIssueToken(provider, sensitiveInputOptions(args.raw, 'token'));
-  return createLiveIssueClient({ provider, repo, apiUrl: stringFlag(args, 'api-url'), token });
+  const actor = (await readAiwgConfig(args.cwd ?? process.cwd()))?.remotes?.tracker_actor;
+  const token = await trackerToken(provider, actor, sensitiveInputOptions(args.raw, 'token'));
+  return createLiveIssueClient({ provider, repo, apiUrl: stringFlag(args, 'api-url'), token, actor });
 }
 
 function requiredStringFlag(args: ParsedArgs, flag: string): string {
@@ -430,6 +435,9 @@ function csvFlag(args: ParsedArgs, name: string): string[] {
 
 function printUsage(): void {
   console.log(`Usage:
+  aiwg issues create --title "..." --body-file path  (configured external tracker)
+  aiwg issues comment|close <number> [--body-file path]  (configured external tracker)
+  Use --provider local for local writes when an external tracker is configured.
   aiwg issue init [--prefix KEY] [--padding N]
   aiwg issue plan --title "..." [--body "..."] [--body-file path] [--json]
   aiwg issue new --title "..." [--body "..."] [--body-file path] [--authorize-policy DIGEST]

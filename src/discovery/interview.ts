@@ -173,7 +173,7 @@ export function interviewQuestions(context: InterviewContext, answers: SetupPlan
       add('capabilities', 'jev-options', 'Optional Jev settings as JSON: region, endpoint, verify. Verification sends a billable request at apply.',
         null, [null], '--region <r> --endpoint <url> --verify', 'policy', project.root, 'jev', true);
     }
-    add('capabilities', 'signing', 'Require signed delivery commits?', false, [true, false], '--require-signed-commits --signing-format --signing-key --signing-enforce', 'policy', project.root, undefined, true);
+    add('capabilities', 'signing', 'Optional: require signed delivery commits? Signed local merges are recommended where permitted; skip preserves unsigned delivery. Set up with aiwg steward signed-merges.', false, [true, false], '--require-signed-commits --signing-format --signing-key --signing-enforce', 'policy', project.root, undefined, true);
     add('capabilities', 'delivery', 'Delivery mode and branch protections.', { mode: 'pr-required', force_push_policy: 'never' },
       [false, { mode: 'pr-required', force_push_policy: 'never' }], '--delivery-mode --default-branch --require-ci-green --auto-close-issues --issue-comment-on-cycle --force-push-policy', 'policy', project.root, undefined, true);
     add('capabilities', 'tracker', 'Issue tracker provider and remotes.', null,

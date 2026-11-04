@@ -1,3 +1,4 @@
+import { validateDeliverySettings } from './delivery-validation.js';
 import { validateInstalled } from './installed-validation.js';
 import { preserveInstalledSelection } from './installed-selection.js';
 import { validateHitlPolicy } from '../policy/hitl-validation.js';
@@ -175,6 +176,8 @@ export interface SecondaryRemote {
 
 /** Which account/tool should perform tracker writes for deliveries. */
 export interface TrackerActorConfig {
+  /** Reference to the existing sensitive-input native store or environment source. */
+  credential?: { store: string; env?: never } | { env: string; store?: never };
   /** Forge login that should author issue/PR/comment/label writes. */
   login?: string;
   /** Tooling route to use for writes. */
@@ -841,6 +844,7 @@ export interface DeliveryConfig {
   default_branch?: string;
   branch_naming?: BranchNaming;
   merge_style?: MergeStyle;
+  merge?: 'local-signed' | 'local' | 'tracker';
   delete_branch_on_merge?: boolean;
   /** When true, agents must wait for CI green before declaring done. */
   require_ci_green?: boolean;
@@ -867,6 +871,7 @@ export interface ResolvedDelivery {
   default_branch: string;
   branch_naming: Required<BranchNaming>;
   merge_style: MergeStyle;
+  merge: 'local-signed' | 'local' | 'tracker';
   delete_branch_on_merge: boolean;
   require_ci_green: boolean;
   require_signed_commits: boolean;
@@ -908,6 +913,7 @@ export function resolveDelivery(delivery: DeliveryConfig | undefined): ResolvedD
       },
     },
     merge_style: delivery?.merge_style ?? 'rebase-merge',
+    merge: delivery?.merge ?? 'tracker',
     delete_branch_on_merge: delivery?.delete_branch_on_merge ?? true,
     require_ci_green: delivery?.require_ci_green ?? true,
     require_signed_commits: delivery?.require_signed_commits ?? false,
@@ -1851,6 +1857,7 @@ export async function readAiwgConfigCandidate(projectDir: string): Promise<AiwgC
   const threatAssessmentErrors = [
     ...validateThreatAssessmentConfig(parsed.security?.threatAssessment),
     ...validateProjectConfig(parsed.project),
+    ...validateDeliverySettings(parsed),
     ...validateParallelismConfig(parsed.parallelism),
     ...validateDecisionConfig(parsed.decision),
     ...validateRulePinCapabilities(parsed.rules, installedRuleCapabilities(loadRulePinConfigs(projectDir, parsed)), loadRulePinConfigs(projectDir, parsed).user.rules?.pin_groups),
@@ -1935,6 +1942,7 @@ async function writeAiwgConfigUnlocked(projectDir: string, config: AiwgConfig): 
   const threatAssessmentErrors = [
     ...validateThreatAssessmentConfig(config.security?.threatAssessment),
     ...validateProjectConfig(config.project),
+    ...validateDeliverySettings(config),
     ...validateParallelismConfig(config.parallelism),
     ...validateDecisionConfig(config.decision),
     ...validateRulePinCapabilities(config.rules, installedRuleCapabilities(loadRulePinConfigs(projectDir, config)), loadRulePinConfigs(projectDir, config).user.rules?.pin_groups),
