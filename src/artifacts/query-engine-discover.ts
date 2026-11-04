@@ -60,7 +60,9 @@ export async function discoverCapability(
     ? selectPrebuiltRelations(cwd) : undefined;
   const prebuiltRelations = prebuiltSelection?.reader ?? null;
 
-  if (resourceSource !== 'web' && (!params.graph || params.graph === 'framework')) {
+  // A valid prebuilt relationship package means the shipped index is current:
+  // never build a per-root framework index beside it (#3308, #2069 test).
+  if ((!prebuiltRelations || backend === 'local') && resourceSource !== 'web' && (!params.graph || params.graph === 'framework')) {
     const root = resolveFrameworkCorpusRoot(cwd) ?? aiwgRoot;
     if (root) {
       try {
