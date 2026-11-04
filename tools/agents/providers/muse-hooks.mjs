@@ -54,6 +54,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { importImpl } from '../../_resolve-impl.mjs';
 import { stripJsonComments } from './base.mjs';
+import { promptDiscoveryHook, deployPromptDiscovery } from './muse-prompt-discovery.mjs';
 import { resolveMuseXdgSkillsDir, museXdgSkillsDirRemediation } from './muse-paths.mjs';
 
 const { assertConfigDestination, writeConfigAtomic, writeConfigTransaction } = await importImpl(import.meta.url, 'mcp/config-file.mjs');
@@ -219,6 +220,7 @@ export const AIWG_MANAGED_HOOKS = [
       '`aiwg refresh --dry-run --quiet --provider muse > /dev/null`), or run `aiwg use --provider muse --no-hooks` ' +
       'to stop AIWG managing hooks for this project.',
   },
+  promptDiscoveryHook,
 ];
 
 /** Canonical group payloads keyed by hook id, for merge/prune identity. */
@@ -444,6 +446,8 @@ export function deployMuseHooks(targetDir, opts = {}) {
     return { hooksPath, changed, plan, wrote: false };
   }
 
+  assertMuseDirNotSymlink(path.dirname(hooksPath));
+  deployPromptDiscovery(targetDir);
   if (!changed) {
     log(`Muse hooks: ${hooksPath} already current; nothing to do.`);
     return { hooksPath, changed: false, plan: [], wrote: false };

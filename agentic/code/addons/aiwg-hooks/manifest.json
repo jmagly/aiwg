@@ -40,6 +40,12 @@
   ],
   "hooks": [
     {
+      "id": "aiwg-prompt-discovery",
+      "type": "executable",
+      "description": "Bounded prompt-time capability discovery and next steps",
+      "file": "hooks/aiwg-prompt-discovery.cjs"
+    },
+    {
       "id": "aiwg-trace",
       "type": "executable",
       "description": "Workflow trace capture for debugging and reproducibility",

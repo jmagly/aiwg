@@ -1,4 +1,4 @@
-import { selectPrebuiltRelations } from './relations.js';
+import { selectPrebuiltRelations, type PrebuiltSelection } from './relations.js';
 import { resolveFrameworkIndexRoot } from './framework-index-paths.js';
 import { extractRuleBindings } from './index-builder.js';
 import fs from "node:fs";
@@ -246,6 +246,7 @@ export function loadFortemiCoreExport(
   cwd: string,
   graph: GraphType = "project",
   sourcePaths?: FortemiCoreVerifiedSourcePaths,
+  prebuiltSelection?: PrebuiltSelection,
 ): FortemiCoreExportLoadResult {
   if (sourcePaths) {
     try {
@@ -300,7 +301,7 @@ export function loadFortemiCoreExport(
   }
   // A content-validated shipped corpus does not need the source metadata index.
   // This also avoids preferring a much larger locally materialized text cache.
-  if (graph === 'framework' && selectPrebuiltRelations(cwd).reader) {
+  if (graph === 'framework' && (prebuiltSelection ?? selectPrebuiltRelations(cwd)).reader) {
     const prebuilt = getFortemiCorePrebuiltStatus(graph, resolveFrameworkIndexRoot(cwd));
     if (prebuilt.built && !prebuilt.stale) {
       return { exported: JSON.parse(fs.readFileSync(prebuilt.exportPath, 'utf8')) as AiwgFortemiIndexExport };
@@ -435,8 +436,9 @@ export function loadFortemiCoreMetadataEntries(
   cwd: string,
   graph: GraphType = "project",
   sourcePaths?: FortemiCoreVerifiedSourcePaths,
+  prebuiltSelection?: PrebuiltSelection,
 ): FortemiCoreLoadResult {
-  const loaded = loadFortemiCoreExport(cwd, graph, sourcePaths);
+  const loaded = loadFortemiCoreExport(cwd, graph, sourcePaths, prebuiltSelection);
   if (!loaded.exported) return {
     entries: [],
     reason: loaded.reason,

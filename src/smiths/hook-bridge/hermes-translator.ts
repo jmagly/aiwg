@@ -13,6 +13,7 @@ import * as path from 'node:path';
 import { homedir } from 'node:os';
 import type { HookSource, TranslateOptions, TranslateResult } from './types.js';
 import { substituteEnvVars } from './shim.js';
+import { PROMPT_DISCOVERY_GAPS } from './prompt-discovery-gaps.js';
 
 const HERMES_EVENT_MAP: Record<string, string> = {
   PreToolUse: 'pre_tool',
@@ -74,7 +75,8 @@ export async function translateForHermes(
 
   if (source.degradeOn?.includes('hermes')) {
     result.skipped = true;
-    result.skipReason = 'degrade-on declared hermes';
+    result.skipReason = source.id === 'aiwg-prompt-discovery'
+      ? PROMPT_DISCOVERY_GAPS['hermes'] : 'degrade-on declared hermes';
     return result;
   }
 

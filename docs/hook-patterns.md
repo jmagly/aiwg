@@ -4,6 +4,53 @@
 **Version:** 2026.2.0
 **Status:** Active
 
+## Prompt-time discovery (#3858)
+
+> Review the authentication code for security issues.
+
+On Claude Code and Muse, each substantive prompt gives the assistant up to three
+AIWG candidates: type, name, a short capability, and relevance score. For example,
+its additional context can contain `skill security-review (0.92): Review code for
+security issues`, followed by the steps to inspect the candidate with
+`aiwg show <type> <name>`, fetch required rule bodies with
+`--rules --with-rule-bodies` / `--body`, and apply the instructions. Candidates are
+hints; the assistant still checks their instructions before acting.
+
+`aiwg use` installs the shared `aiwg-prompt-discovery.cjs` hook into Claude's
+`.claude/hooks/` and registers `UserPromptSubmit` in `.claude/settings.json`.
+Muse uses `.muse/hooks/` and its existing hooks.json/sidecar owner. Repeating
+installation updates managed entries while preserving your own hooks.
+
+Acknowledgements such as “yes”, “ok”, “go”, and “1”, short replies without an
+identified imperative, slash-command-only prompts (including command arguments),
+and empty prompts skip discovery. Matches below 0.20 produce no context.
+Injected text stays under 600 characters, allowing up to 100 characters per
+capability. Discovery uses the validated shipped relationship package and search
+metadata read-only, falling back to existing local metadata. It never rebuilds
+indexes, writes digest receipts, or assembles rule bodies at prompt time.
+Errors, missing runtimes/indexes, and timeouts exit successfully without output;
+the hook never edits or blocks your prompt. Normal installs use shipped prebuilt
+metadata without a per-root index; missing or invalid packages fall back to existing
+local metadata, leaving missing indexes untouched.
+
+Set `AIWG_PROMPT_DISCOVERY=0` (also `false` or `off`) in the harness environment to
+disable it. `AIWG_PROMPT_DISCOVERY_TIMEOUT_MS` adjusts the total budget (default
+1500 ms, maximum 10000 ms), including stdin and index work. Existing `--no-hooks`
+deployment controls continue to apply; the environment switch also disables
+already-installed hooks.
+
+| Provider | Prompt discovery delivery |
+|---|---|
+| Claude Code | UserPromptSubmit additionalContext |
+| Muse | UserPromptSubmit additionalContext via project hook owner |
+| Codex | Explicit gap: the bridge maps before_prompt but has no verified additionalContext injection contract |
+| Hermes | Explicit gap: the bridge returns an exit code without forwarding prompt JSON or injecting additionalContext |
+
+The canonical source declares these gaps with `degrade-on`; bridge deployment
+reports a skip reason instead of installing an ineffective prompt hook. Copilot,
+Grok Build, and Factory are also excluded pending a verified delivery path for
+this hook. A native event mapping alone does not establish context delivery.
+
 ## Overview
 
 Claude Code hooks enable AIWG to inject context dynamically and enforce quality gates without bloating CLAUDE.md. This guide covers PreToolUse context injection (#284) and extended timeout quality gates (#289).

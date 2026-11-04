@@ -11,6 +11,17 @@ You stay in the conversation with your AI tool. The agent translates your goal i
 
 The everyday AIWG user surface is the agent conversation. The CLI exists mostly so agents can call it; only a small set of commands (`aiwg use`, `aiwg wizard`, `aiwg doctor`, `aiwg status`, `aiwg refresh`) is meant for users to type directly. Discovery, lookup, indexing, loops, and orchestration are agent operations triggered by what you say in the chat.
 
+## Automatic discovery on a new prompt
+
+> Review the authentication code for security issues.
+
+With Claude Code or Muse hooks installed, AIWG gives the assistant up to three
+matching capabilities and the next steps: inspect the candidate, read its required
+rules, then apply it. You keep talking normally. Short acknowledgements and slash
+commands skip the lookup; errors and timeouts leave the conversation running.
+See [prompt-time hooks](../hook-patterns.md#prompt-time-discovery-3858) for the
+context example, opt-out, timeout setting, and explicit Codex/Hermes bridge gaps.
+
 ## The Pattern
 
 1. Describe your situation in ordinary words.

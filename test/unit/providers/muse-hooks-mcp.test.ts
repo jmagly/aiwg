@@ -119,7 +119,7 @@ describe('mergeManagedHooks (#228)', () => {
   });
 
   it('is a no-op when the canonical set is already installed', () => {
-    const canonical = { hooks: { SessionStart: [AIWG_MANAGED_HOOKS[0].group] } };
+    const canonical = { hooks: Object.fromEntries(AIWG_MANAGED_HOOKS.map(h => [h.event, [h.group]])) };
     const sidecar = {
       version: 1,
       hooks: [{ id: 'aiwg-session-start', event: 'SessionStart', group: AIWG_MANAGED_HOOKS[0].group }],
@@ -141,7 +141,7 @@ describe('mergeManagedHooks (#228)', () => {
     expect(doc.hooks.PreToolUse).toEqual([operatorGroup]);
     expect(doc.hooks.SessionStart).toHaveLength(1);
     // Operator event keeps its position ahead of the managed event.
-    expect(Object.keys(doc.hooks)).toEqual(['PreToolUse', 'SessionStart']);
+    expect(Object.keys(doc.hooks)).toEqual(['PreToolUse', 'SessionStart', 'UserPromptSubmit']);
   });
 
   it('repairs a drifted managed group recorded in the sidecar', () => {
@@ -328,7 +328,7 @@ describe('pruneMuseHooks (#228)', () => {
     fs.writeFileSync(hooksPath(target), JSON.stringify(doc, null, 2), 'utf8');
 
     const result = pruneMuseHooks(target, { quiet: true });
-    expect(result.pruned).toBe(1);
+    expect(result.pruned).toBe(AIWG_MANAGED_HOOKS.length);
     expect(result.wrote).toBe(true);
     const pruned = readJson(hooksPath(target));
     expect(pruned.hooks.SessionStart).toEqual([operatorGroup]);
@@ -340,7 +340,7 @@ describe('pruneMuseHooks (#228)', () => {
     deployMuseHooks(target, { quiet: true });
     const before = fs.readFileSync(hooksPath(target), 'utf8');
     const result = pruneMuseHooks(target, { dryRun: true, quiet: true });
-    expect(result.pruned).toBe(1);
+    expect(result.pruned).toBe(AIWG_MANAGED_HOOKS.length);
     expect(result.wrote).toBe(false);
     expect(fs.readFileSync(hooksPath(target), 'utf8')).toBe(before);
     expect(fs.existsSync(sidecarPath(target))).toBe(true);
