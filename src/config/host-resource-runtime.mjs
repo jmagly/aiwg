@@ -1,6 +1,7 @@
 // Linux host measurements shared by dispatch preflight and resource reports.
-import { readFileSync, readdirSync, statfsSync } from 'node:fs';
+import { accessSync, constants as fsConstants, lstatSync, readFileSync, readdirSync, statfsSync } from 'node:fs';
 import os from 'node:os';
+import { dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { readWorkerAttribution, workerWorkspace } from './worker-attribution.mjs';
 const BYTES_PER_GB = 1024 ** 3;
@@ -174,6 +175,31 @@ function toFreeDiskGb(disk) {
 }
 
 /**
+ * Pick the path to sample for a worker directory that may not exist yet,
+ * such as a final-output folder the launch creates (#3856). Mirrors the
+ * launcher's own rule (session-launcher.mjs workerDispatchPath): walk up only
+ * past missing entries to the nearest readable, searchable directory, and
+ * never settle on `/`. Anything else returns the original path so sampling
+ * still fails closed. Nothing is created.
+ */
+function nearestDispatchPathSync(filename, fsOps = {}) {
+  const lstat = fsOps.lstat ?? lstatSync;
+  const access = fsOps.access ?? accessSync;
+  let candidate = filename;
+  while (dirname(candidate) !== candidate) {
+    try {
+      if (!lstat(candidate).isDirectory()) return filename;
+      access(candidate, fsConstants.R_OK | fsConstants.X_OK);
+      return candidate;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') return filename;
+      candidate = dirname(candidate);
+    }
+  }
+  return filename;
+}
+
+/**
  * Sample free disk on the caller-supplied filesystem(s): `readers.paths`
  * names the actual evidence root and worktree, and the gate takes the
  * minimum across them. Any unreadable, non-finite or negative sample — or
@@ -310,4 +336,4 @@ function evaluateDispatchGate(live, thresholds) {
 }
 
 
-export { parseMemAvailableGb, parseMemoryPsi, parseLoadAverages, listWorkerUnits, countWorkerUnits, countWorkerProcesses, defaultCountWorkers, readLiveHostResources, evaluateDispatchGate };
+export { parseMemAvailableGb, parseMemoryPsi, parseLoadAverages, listWorkerUnits, countWorkerUnits, countWorkerProcesses, defaultCountWorkers, readLiveHostResources, evaluateDispatchGate, nearestDispatchPathSync };
