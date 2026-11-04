@@ -2,7 +2,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { VerifiedWebRelease } from '../resources/web-release.js';
-import { isCorpusBundleInstalled } from './framework-capabilities.js';
+import { isArtifactInstalled } from './query-engine-installation.js';
 import { extractMarkdownLinks, parseFlowDoc, parseFrontmatter } from './index-builder.js';
 import { buildRunHint, discoveryIdForEntry, normalizeIndexedPath } from './query-engine-entries.js';
 import { type ShowParams } from './query-engine-options.js';
@@ -112,7 +112,7 @@ export async function emitShowCard(
   const owner = normalizeIndexedPath(entry.path).match(/(?:^|\/)(?:agentic\/code|\.aiwg)\/(frameworks|addons|extensions)\/([^/]+)\//);
   const kind = owner ? ({ frameworks: 'framework', addons: 'addon', extensions: 'extension' } as const)[owner[1] as 'frameworks' | 'addons' | 'extensions'] : null;
   const installed = local && (owner && aiwgRoot
-    ? await isCorpusBundleInstalled(cwd, aiwgRoot, kind!, owner[2]) : true);
+    ? await isArtifactInstalled(cwd, aiwgRoot, entry, kind!, owner[2]) : true);
   const resources = local || release ? showResources(filePath, source, release) : [];
   const resource = params.resource ? resources.find(resource => resource.path === params.resource) : undefined;
   if (params.resource && !resource) throw new Error(`Unknown resource "${params.resource}". Resources: ${resources.map(resource => resource.path).join(', ') || '(none)'}`);
@@ -154,6 +154,8 @@ export async function emitShowCard(
       resources: `${command} --resources`, resource: resources.map(resource => `${command} --resource ${quote(resource.path)}`),
       body: `${command} --body`,
     },
+    ...(!installed ? { load_hint: `Read the component with \`${command} --body\`.`
+      + (owner ? ` Deploy it with \`aiwg use ${owner[2]}\`.` : '') } : {}),
     ...extra,
     ...(params.body || selected.length ? { content: params.body ? source : selected.join('\n') } : {}),
     ...(resource ? { resource: { ...resource, body: resourceBody! } } : {}),
@@ -170,6 +172,7 @@ export async function emitShowCard(
   }
   const lines = [`# ${card.type}: ${card.name}`, `ID: ${card.id}`, card.description,
     `Owner: ${card.capability ? `${card.capability.kind}:${card.capability.name}` : 'project/unowned'} | installed: ${card.installed}`, statsText(card.rule_stats as RuleStats)];
+  if (card.load_hint) lines.push(card.load_hint);
   if (pinNote) lines.push(pinNote);
   if ('activation' in card) lines.push(`Activation: ${card.activation} | enforcement: ${card.enforcement}`, `Bound targets: ${JSON.stringify(card.bound_to)}`);
   lines.push(contentNotice, bindings.text || RULE_CHECK_OBLIGATION, '\n## Outline', ...card.outline.map(section => `- ${section.heading} (${section.bytes} bytes, ${section.lines} lines)`),

@@ -1,6 +1,8 @@
 // Load and rank capability discovery candidates.
+import fs from 'node:fs';
+import path from 'node:path';
 import type { ResourceSource, VerifiedWebRelease } from '../resources/web-release.js';
-import { applyFacetFusion } from './discover-facets.js';
+import { applyFacetFusion, diagnoseFacetActivations } from './discover-facets.js';
 import { refreshFrameworkCapabilities, resolveFrameworkCorpusRoot } from './framework-capabilities.js';
 import { resolveFrameworkIndexRoot } from './framework-index-paths.js';
 import { loadGraphIndexFile, loadMetadataIndex } from './index-reader.js';
@@ -21,7 +23,7 @@ import { type DiscoverParams } from './query-engine-options.js';
 import { scoreEntryDetailed, type LexicalScoreDiagnostic } from './query-engine-scoring.js';
 import { emptyRuleStats, selectPrebuiltRelations } from './relations.js';
 import type { ArtifactIndex, GraphType, MetadataEntry } from './types.js';
-import { loadGlobalGraphConfigs } from './types.js';
+import { getGraphIndexDir, loadGlobalGraphConfigs } from './types.js';
 
 export async function discoverCapability(
   cwd: string,
@@ -45,6 +47,7 @@ export async function discoverCapability(
   // Source: prefer `framework` graph (built post-deploy), fall back to
   // project / codebase / legacy depending on what's available.
   let entries: MetadataEntry[] = [];
+  let localFramework: ArtifactIndex | null = null;
   const backend = params.backend ?? DEFAULT_ARTIFACT_SEARCH_BACKEND;
   let fortemiCoreDiscoveryScores: Map<string, number> | null = null;
   let resourceSource: ResourceSource = params.resourceSource ?? 'local';
@@ -53,14 +56,16 @@ export async function discoverCapability(
     | import('./fortemi-core-query-adapter.js').FortemiCoreVerifiedSourcePaths
     | undefined;
 
-  const prebuiltRelations = resourceSource !== 'web' && (!params.graph || params.graph === 'framework')
-    ? selectPrebuiltRelations(cwd).reader : null;
+  const prebuiltSelection = resourceSource !== 'web' && (!params.graph || params.graph === 'framework')
+    ? selectPrebuiltRelations(cwd) : undefined;
+  const prebuiltRelations = prebuiltSelection?.reader ?? null;
 
-  if ((!prebuiltRelations || backend === 'local') && resourceSource !== 'web' && (!params.graph || params.graph === 'framework')) {
+  if (resourceSource !== 'web' && (!params.graph || params.graph === 'framework')) {
     const root = resolveFrameworkCorpusRoot(cwd) ?? aiwgRoot;
     if (root) {
       try {
-        await refreshFrameworkCapabilities(root, backend === 'fortemi-core');
+        await refreshFrameworkCapabilities(root, false, { sourceDigest: prebuiltSelection?.sourceDigest });
+        if (resolveFrameworkCorpusRoot(root)) localFramework = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', 'framework');
       } catch (error) {
         console.error(`Warning: capability index refresh failed: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -112,12 +117,23 @@ export async function discoverCapability(
     const graphs = resourceSource === 'web'
       ? ['framework' as GraphType]
       : params.graph ? [params.graph] : defaultCapabilityGraphs(cwd);
-    const {
-      loadFortemiCoreMetadataEntries,
-      queryFortemiCoreAiwgDiscovery,
-    } = await import('./fortemi-core-query-adapter.js');
     let unavailableReason: string | undefined;
     for (const graph of graphs) {
+      // Discovery ranks metadata, not full document bodies. A reconciled local
+      // framework index avoids parsing the much larger fulltext export.
+      if (graph === 'framework' && localFramework) {
+        entries.push(...Object.values(localFramework.entries).map(entry => withIndexProvenance(entry, graph)));
+        continue;
+      }
+      if (resourceSource === 'local' && !params.graph && graph !== 'framework') {
+        const directory = getGraphIndexDir(cwd, graph);
+        if (!fs.existsSync(path.join(directory, 'metadata.json'))
+          && !fs.existsSync(path.join(path.dirname(directory), 'fortemi-core', graph, 'manifest.json'))) {
+          if (graph === 'project') entries.push(...(projectCapabilityFallback(cwd) ?? []));
+          continue;
+        }
+      }
+      const { loadFortemiCoreMetadataEntries, queryFortemiCoreAiwgDiscovery } = await import('./fortemi-core-query-adapter.js');
       const loaded = loadFortemiCoreMetadataEntries(cwd, graph, verifiedSourcePaths);
       if (loaded.reason && graph === 'project' && !params.graph) {
         const fallback = projectCapabilityFallback(cwd);
@@ -247,10 +263,12 @@ export async function discoverCapability(
   // fusion below can inject/lift curated capabilities into the top-K before
   // truncation — a capability that the lexical pass ranked outside `limit`
   // (or missed entirely) still surfaces when the query activates its facet.
+  const personaIdentitySuppressed = diagnoseFacetActivations(params.phrase).some(
+    activation => activation.facet === 'persona-identity' && activation.status === 'suppressed');
   const lexicalDiagnostics = new Map<string, LexicalScoreDiagnostic>();
   const legacyStrictScored = candidates
     .map(entry => {
-      const detailed = scoreEntryDetailed(entry, params.phrase);
+      const detailed = scoreEntryDetailed(entry, params.phrase, { personaIdentitySuppressed });
       const legacyScore = detailed.score;
       const fortemiScore = fortemiCoreDiscoveryScores?.get(entry.path) ?? 0;
       lexicalDiagnostics.set(entry.path, detailed.diagnostic);
@@ -274,8 +292,8 @@ export async function discoverCapability(
   // top-K instead of being out-scored by artifacts that merely mention the
   // word. Facet activation can also rescue an otherwise-empty strict pass.
   // #154 — a strict result anywhere in the corpus must not suppress relevant
-  // partial matches for a natural-language query. Score the relaxed pass on
-  // matched terms (unmatched terms do not divide the score), apply a noise
+  // partial matches for a natural-language query. Score the relaxed pass with
+  // query coverage (so weak hits cannot saturate), apply a noise
   // floor, and union it with strict matches before ranking. Word-boundary
   // token matching keeps this from resurrecting substring noise such as UX in
   // Linux.
@@ -283,7 +301,7 @@ export async function discoverCapability(
   const strictPaths = new Set(strictScored.map(result => result.entry.path));
   const combinedByPath = new Map(strictScored.map(result => [result.entry.path, result]));
   for (const entry of candidates) {
-    const detailed = scoreEntryDetailed(entry, params.phrase, { relaxOverlap: true });
+    const detailed = scoreEntryDetailed(entry, params.phrase, { relaxOverlap: true, personaIdentitySuppressed });
     if (detailed.score < RELAXED_MIN_SCORE) continue;
     const existing = combinedByPath.get(entry.path);
     if (!existing || detailed.score > existing.score) {
@@ -316,5 +334,5 @@ export async function discoverCapability(
   const queryTimeMs = Date.now() - startTime;
 
   await emitDiscoverResults({ cwd, params, types, limit, aiwgRoot, entries, backend, resourceSource,
-    resolvedWebRelease, prebuiltRelations, scored, relaxed, queryTimeMs, lexicalDiagnostics });
+    resolvedWebRelease, prebuiltRelations, prebuiltSelection, frameworkReconciled: Boolean(localFramework), scored, relaxed, queryTimeMs, lexicalDiagnostics });
 }

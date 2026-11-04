@@ -252,7 +252,7 @@ describe('prebuilt relationship selection', () => {
     expect(read).toHaveBeenCalledWith(release, guide, expect.objectContaining({ offline: true }));
   });
 
-  it('rebuilds modified rules through reconciliation and reports why, then reuses the receipt', async () => {
+  it('quietly rebuilds modified rules and reports fallback only in verbose mode', async () => {
     await refreshFrameworkCapabilities(root, false);
     const before = selectPrebuiltRelations(root).reader!.index;
     put(rule, fs.readFileSync(path.join(root, rule), 'utf8').replace('First summary.', 'Edited summary.'));
@@ -261,12 +261,24 @@ describe('prebuilt relationship selection', () => {
     const warn = vi.spyOn(console, 'error').mockImplementation(() => {});
     const reader = await ensureRelations(root);
     expect(build).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls.flat().join(' ')).toContain('source digest differs');
+    expect(warn).not.toHaveBeenCalled();
     expect(reader!.index.fingerprint).not.toEqual(before.fingerprint);
     expect(Object.values(reader!.index.rules)[0].summary).toBe('Edited summary.');
     await ensureRelations(root);
+    expect(warn).not.toHaveBeenCalled();
+    await ensureRelations(root, root, { verbose: true });
+    expect(warn.mock.calls.flat().join(' ')).toContain('source digest differs');
     expect(build).toHaveBeenCalledTimes(1);
     expect(checkPrebuiltRelations(root).join(' ')).toContain('source digest differs');
+  });
+
+
+  it('retains an actionable error when neither relationship index can be used', async () => {
+    put('package.json', '{"name":"aiwg","version":"2.0.0"}');
+    const refresh = await import('../../../src/artifacts/framework-capabilities.js');
+    vi.spyOn(refresh, 'refreshFrameworkCapabilities').mockResolvedValue();
+    fs.rmSync(path.join(getGraphIndexDir(root, 'framework'), 'relations.json'));
+    await expect(ensureRelations(root)).rejects.toThrow('no usable prebuilt or per-root index');
   });
 
   it('detects additions, deletions, same-size edits, version mismatch and corrupt tables', () => {

@@ -5,7 +5,7 @@ import { projectAiwgPath, projectControlPath } from '../config/project-artifacts
 import { recordTypeForEntry, stableRecordId } from './browser-export.js';
 import { loadGraphIndexFile } from './index-reader.js';
 import type { ArtifactIndex, GraphType, MetadataEntry, QueryResult } from './types.js';
-import { isOperationalShowType, OPERATIONAL_DISCOVERY_TYPES } from './types.js';
+import { getGraphIndexDir, isOperationalShowType, OPERATIONAL_DISCOVERY_TYPES } from './types.js';
 
 export function normalizeIndexedPath(entryPath: string): string {
   return entryPath.replace(/\\/g, '/');
@@ -76,18 +76,40 @@ export function withIndexProvenance(entry: MetadataEntry, graph: GraphType): Pro
 /** Keep existing project capabilities visible while their derived cache is unavailable. */
 export function projectCapabilityFallback(cwd: string): MetadataEntry[] | null {
   const index = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', 'project');
-  if (index) {
-    const entries = Object.values(index.entries).map((entry) => withIndexProvenance(entry, 'project'));
-    if (entries.length > 0) {
-      // One diagnostic per command, on stderr so JSON and skill bodies stay parseable.
-      console.error('Warning: project capability cache is unavailable or stale; using the local project index. Run `aiwg index sync` to repair the cache.');
-      return entries;
-    }
+  const receipt = path.join(getGraphIndexDir(cwd, 'project'), 'capability-warning.json');
+  if (index && Object.keys(index.entries).length) {
+    // Metadata fallback preserves every discovery candidate; results are intact.
+    try { fs.rmSync(receipt, { force: true }); } catch { /* read-only cache */ }
+    return Object.values(index.entries).map(entry => withIndexProvenance(entry, 'project'));
   }
-  if (['extensions', 'addons', 'frameworks', 'plugins', 'skills'].some(
-    (dir) => fs.existsSync(projectAiwgPath(cwd, dir)),
-  )) {
-    console.error('Warning: project capabilities could not be loaded: the cache is unavailable and the local project index is missing or empty. Run `aiwg index build --graph project` to repair discovery.');
+  const sources: string[] = [];
+  const scan = (directory: string): void => {
+    let children: fs.Dirent[];
+    try { children = fs.readdirSync(directory, { withFileTypes: true }); } catch { return; }
+    for (const child of children) {
+      if (child.name.startsWith('.') || child.isSymbolicLink()) continue;
+      const file = path.join(directory, child.name);
+      if (child.isDirectory()) scan(file);
+      else if (/\.(?:md|ya?ml|json)$/.test(child.name) && !['registry.json', 'manifest.json'].includes(child.name)) {
+        const stat = fs.statSync(file);
+        sources.push(`${file}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`);
+      }
+    }
+  };
+  for (const dir of ['extensions', 'addons', 'frameworks', 'plugins', 'skills']) scan(projectAiwgPath(cwd, dir));
+  if (sources.length) {
+    const state = JSON.stringify(sources.sort());
+    let previous = '';
+    try { previous = fs.readFileSync(receipt, 'utf8'); } catch { /* first degraded lookup */ }
+    if (previous !== state) {
+      console.error('Warning: project capabilities could not be loaded: the cache is unavailable and the local project index is missing or empty. Run `aiwg index build --graph project` to repair discovery.');
+      try {
+        fs.mkdirSync(path.dirname(receipt), { recursive: true });
+        fs.writeFileSync(receipt, state);
+      } catch { /* Diagnostics must also work with read-only caches. */ }
+    }
+  } else {
+    try { fs.rmSync(receipt, { force: true }); } catch { /* read-only cache */ }
   }
   return index ? [] : null;
 }

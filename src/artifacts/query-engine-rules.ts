@@ -2,7 +2,6 @@
 import { minimatch } from 'minimatch';
 import * as path from 'node:path';
 import { inferRuleActivation } from '../rules/activation.mjs';
-import { parseFrontmatter } from './index-builder.js';
 import { discoveryIdForEntry, normalizeIndexedPath } from './query-engine-entries.js';
 import { type ShowParams } from './query-engine-options.js';
 import { emptyRuleStats, type RelationsReader, type RelationTargetType, type RuleStats } from './relations.js';
@@ -168,7 +167,7 @@ export async function showBindings(
   })));
   // Parse the selected rule for reverse lookup, including corpus-only rules.
   const targets = target.type === 'rule' || target.type === 'behavior'
-    ? parseFrontmatter(content).data.bound_to : undefined;
+    ? (await import('./index-builder.js')).parseFrontmatter(content).data.bound_to : undefined;
   const boundTo = targets && typeof targets === 'object' && !Array.isArray(targets)
     ? Object.fromEntries(['skills', 'agents', 'flows'].flatMap(key => {
         const values = (targets as Record<string, unknown>)[key];

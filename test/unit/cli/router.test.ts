@@ -59,6 +59,17 @@ describe('router', () => {
     console.log = originalConsoleLog;
   });
 
+  it('routes discovery through the entry registry and can initialize all commands afterward', async () => {
+    const partial = await initRouter(true);
+    const handler = partial.handlerMap.get('discover')!;
+    const execute = vi.spyOn(handler, 'execute').mockResolvedValue({ exitCode: 0 });
+    try {
+      await run(['discover', 'session handoff']);
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ args: ['session handoff'] }));
+      expect((await initRouter()).handlerMap.has('help')).toBe(true);
+    } finally { execute.mockRestore(); }
+  });
+
   it('routes daemon status and help through the registered command table (#3758)', async () => {
     const registry = await initRouter();
     expect(registry.registry.resolveCommand('daemon')).toBe('daemon');

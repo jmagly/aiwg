@@ -1,7 +1,7 @@
 // Serve artifact bodies and metadata through the show surface.
 import * as path from 'node:path';
 import { loadProviderModelMetadata } from '../models/provider-models.js';
-import { isCorpusBundleInstalled } from './framework-capabilities.js';
+import { isArtifactInstalled } from './query-engine-installation.js';
 import { findCorpusArtifact } from './query-engine-corpus.js';
 import {
   buildRunHint,
@@ -79,8 +79,8 @@ export async function showArtifact(
           process.exit(1);
         }
         const localPin = corpusMatch.type === 'rule' ? (await import('../rules/pin-state.js')).rulePinState(cwd, aiwgRoot).rules.find(rule => rule.path === corpusMatch.path) : undefined;
-        const installed = await isCorpusBundleInstalled(
-          cwd, aiwgRoot, corpusMatch.bundleKind, corpusMatch.bundleId,
+        const installed = await isArtifactInstalled(
+          cwd, aiwgRoot, { path: corpusMatch.path, type: corpusMatch.type }, corpusMatch.bundleKind, corpusMatch.bundleId,
         );
         const installHint = installed
           ? 'The installed bundle is missing from this index. Run `aiwg index build --graph framework` to refresh it.'

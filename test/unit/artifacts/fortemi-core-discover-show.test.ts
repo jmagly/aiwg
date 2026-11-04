@@ -202,14 +202,13 @@ describe("Fortemi Core discover/show parity adapter (#1688)", () => {
         const found = readConsoleJson();
         expect(found.results[0].name).toBe('fortemi-roadmap-skill');
         expect(found.results[0].provenance).toEqual({ graph: 'project', scope: 'project' });
-        expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-        expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('using the local project index'));
+        expect(consoleErrorSpy).not.toHaveBeenCalled(); // Complete metadata preserves discovery.
         for (const name of ['fortemi-roadmap-skill', found.results[0].id]) {
           consoleSpy.mockClear();
           consoleErrorSpy.mockClear();
           await indexCliMain(['show', 'skill', name, '--body', '--json']);
           expect(readConsoleJson().content).toContain('Follow the required project roadmap procedure.');
-          expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+          expect(consoleErrorSpy).not.toHaveBeenCalled();
         }
       } finally {
         cwdSpy.mockRestore();
@@ -219,6 +218,7 @@ describe("Fortemi Core discover/show parity adapter (#1688)", () => {
 
   it.each(['missing', 'empty'])('warns when the project cache is absent and its index is %s', async (state) => {
     fs.mkdirSync(path.join(tmp, '.aiwg/extensions/existing/skills'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.aiwg/extensions/existing/skills/unindexed.md'), '# Unindexed skill');
     if (state === 'empty') writeProjectGraph(tmp, []);
     writeProjectGraph(tmp, [entry({
       path: 'agentic/code/addons/intake/skills/intake-wizard/SKILL.md',
@@ -234,7 +234,7 @@ describe("Fortemi Core discover/show parity adapter (#1688)", () => {
     consoleErrorSpy.mockClear();
     await showArtifact(tmp, { body: true, name: 'intake-wizard', json: true, backend: 'fortemi-core' });
     expect(readConsoleJson().content).toContain('Intake Wizard');
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy).not.toHaveBeenCalled(); // Same degraded source state was already reported.
   });
 
   it("refreshes the project Fortemi Core cache after index build", async () => {

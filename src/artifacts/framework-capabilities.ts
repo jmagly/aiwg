@@ -34,12 +34,12 @@ function gitHead(root: string): string {
  * receipt avoids rereading unchanged source contents and detects uncommitted
  * edits as well as manifest/package/HEAD changes.
  */
-function sourceFingerprint(root: string): string {
+function sourceFingerprint(root: string, sourceDigest?: string): string {
   const hash = createHash('sha256').update('framework-capabilities-v2');
   hash.update(path.resolve(root));
   try { hash.update(JSON.parse(readText(path.join(root, 'package.json'))).version ?? ''); } catch { /* fixture root */ }
   hash.update(gitHead(root));
-  hash.update(frameworkSourceDigest(root));
+  hash.update(sourceDigest ?? frameworkSourceDigest(root));
   for (const kind of CORPUS_KINDS) {
     const dir = path.join(root, 'agentic/code', kind);
     let entries: fs.Dirent[];
@@ -80,7 +80,7 @@ function readReceipt(file: string): CapabilityReceipt | null {
 export async function refreshFrameworkCapabilities(
   root: string,
   syncFortemi = true,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; sourceDigest?: string } = {},
 ): Promise<void> {
   const corpusRoot = resolveFrameworkCorpusRoot(root);
   if (!corpusRoot) return;
@@ -92,7 +92,7 @@ export async function refreshFrameworkCapabilities(
   const fortemiSignature = (): string => [
     'manifest.json', 'aiwg-fortemi-index-v2.json',
   ].map(file => fileSignature(path.join(fortemiDir, file))).join('|');
-  const source = sourceFingerprint(root);
+  const source = sourceFingerprint(root, options.sourceDigest);
   const current = (): CapabilityReceipt => ({
     source, index: fileSignature(metadataPath), relations: fileSignature(path.join(dir, 'relations.json')), ...(syncFortemi ? { fortemi: fortemiSignature() } : {}),
   });
@@ -152,6 +152,10 @@ export async function isCorpusBundleInstalled(
   const { readAiwgConfigCandidate } = await import('../config/aiwg-config.js');
   const config = await readAiwgConfigCandidate(cwd);
   if (!config) return false;
+  // Every normal deployment includes aiwg-utils, even when only the requested
+  // framework is recorded. Standard skills are loaded from the source corpus.
+  if (kind === 'addon' && id === 'aiwg-utils' && Object.values(config.installed).some(entry =>
+    Object.values(entry.deployedTo ?? {}).some(deployment => deployment.skipUtils !== true))) return true;
   if (config.installed[id] || (kind === 'framework' && config.installed.all)) return true;
   try {
     const manifest = JSON.parse(fs.readFileSync(

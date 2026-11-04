@@ -31,6 +31,7 @@
  * @implements #1623 (U3)
  */
 
+import { SESSION_FACETS } from './discover-session-facets.js';
 import type { MetadataEntry } from './types.js';
 
 export type FacetKind =
@@ -89,6 +90,7 @@ export interface FacetFusionResult {
  * metadata-completeness lint (empty triggers cannot recur).
  */
 export const DISCOVER_FACETS: FacetEntry[] = [
+  ...SESSION_FACETS,
   {
     facet: 'authoring-surface',
     label: 'Expansion authoring (extension / addon / framework)',

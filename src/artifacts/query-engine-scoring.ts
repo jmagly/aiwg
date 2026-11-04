@@ -74,14 +74,25 @@ export function tokenize(text: string): string[] {
 }
 
 
+const fieldTokenCache = new Map<string, string[]>();
+function fieldTokens(field: string): string[] {
+  let tokens = fieldTokenCache.get(field);
+  if (!tokens) {
+    tokens = tokenize(field);
+    fieldTokenCache.set(field, tokens);
+    if (fieldTokenCache.size > 20_000) fieldTokenCache.clear();
+  }
+  return tokens;
+}
+
 export function matchedFieldTokens(queryTokens: string[], field: string): string[] {
-  const fieldTokens = new Set(tokenize(field));
-  return queryTokens.filter(token => fieldTokens.has(token));
+  const available = new Set(fieldTokens(field));
+  return queryTokens.filter(token => available.has(token));
 }
 
 
 export function fieldContainsQuery(field: string, queryTokens: string[]): boolean {
-  return containsTokenSequence(tokenize(field), queryTokens);
+  return containsTokenSequence(fieldTokens(field), queryTokens);
 }
 
 
@@ -191,27 +202,22 @@ export interface DetailedScore {
 export function scoreEntryDetailed(
   entry: MetadataEntry,
   text: string,
-  opts: { relaxOverlap?: boolean } = {},
+  opts: { relaxOverlap?: boolean; personaIdentitySuppressed?: boolean } = {},
 ): DetailedScore {
-  const tokens = tokenize(text);
   // Field substring matching uses the stopword-stripped CONTENT phrase, not the
-  // raw query (#1581). Without this, a query that reduces to a single content
-  // token — e.g. "intake skill" or "find an intake skill" → ["intake"] — sets
-  // useMultiToken=false (1 token) and then fails the full-string `.includes()`
-  // checks because the raw phrase ("intake skill") isn't a substring of any
-  // field, while the one meaningful token is never matched. Joining the content
-  // tokens restores the invariant that a single content token IS the phrase, and
-  // for multi-token queries gives a tighter (content-only) phrase to match.
-  // Pure-stopword queries fall back to the raw text.
+  // raw query (#1581): a query that reduces to one content token ("intake skill"
+  // -> ["intake"]) must still match that token. Pure-stopword queries fall back
+  // to the raw text. Tokens are de-duplicated so a repeated word is credited once.
+  const tokens = [...new Set(tokenize(text))];
   const lower = tokens.length > 0 ? tokens.join(' ') : text.toLowerCase().trim();
   const rawLower = text.toLowerCase().trim();
-  const personaIdentitySuppressed = diagnoseFacetActivations(text).some(
+  const personaIdentitySuppressed = opts.personaIdentitySuppressed ?? diagnoseFacetActivations(text).some(
     (activation) =>
       activation.facet === 'persona-identity' && activation.status === 'suppressed',
   );
   let score = 0;
   const matches: LexicalMatchDiagnostic[] = [];
-  const creditedTokens = new Set<string>();
+  const creditedTokens = new Map<string, number>();
   const finish = (uncappedScore = score, cap = 1): DetailedScore => ({
     score: Math.min(uncappedScore, cap),
     diagnostic: {
@@ -234,27 +240,23 @@ export function scoreEntryDetailed(
     hits: string[],
     match: Omit<LexicalMatchDiagnostic, 'contribution' | 'matched_tokens' | 'query_token_coverage'>,
   ): void => {
-    const newlyMatched = hits.filter(token => !creditedTokens.has(token));
+    // Isolated trigger tokens need query coverage; coherent multiword triggers
+    // retain their weight. Later stronger fields can upgrade earlier weak hits.
+    const denominator = match.field === 'trigger' && hits.length === 1 ? Math.max(1, tokens.length) : 1;
+    const weight = contributionPerToken / denominator;
+    const newlyMatched = hits.filter(token => weight > (creditedTokens.get(token) ?? 0));
     if (newlyMatched.length === 0) return;
-    newlyMatched.forEach(token => creditedTokens.add(token));
-    addMatch(contributionPerToken * newlyMatched.length, {
+    const contribution = newlyMatched.reduce((sum, token) => sum + weight - (creditedTokens.get(token) ?? 0), 0);
+    newlyMatched.forEach(token => creditedTokens.set(token, weight));
+    addMatch(contribution, {
       ...match,
       matched_tokens: newlyMatched,
       query_token_coverage: tokens.length > 0 ? newlyMatched.length / tokens.length : 0,
     });
   };
 
-  // Exact-name floor (#1233) — if the query (normalized) exactly matches
-  // the entry's canonical name, this is the artifact the user is asking
-  // for and it must surface at the top regardless of how cluttered the
-  // rest of the corpus scoring gets. Hyphens, underscores, and whitespace
-  // are interchangeable in the comparison so `aiwg-doctor`, `aiwg doctor`,
-  // and `aiwg_doctor` all match a kernel skill with `name: aiwg-doctor`.
-  //
-  // Returns 1.001 (not 1.0) so an exact-name hit sorts above the many
-  // capped-at-1.0 substring matches that share generic words like "use".
-  // Display rounding (Math.round(score * 100) / 100) hides the offset, so
-  // the user still sees `score: 1.0` while sort order is preserved.
+  // Exact and near-name floors preserve deliberate artifact selection. The
+  // 1.001 offset sorts exact names above capped lexical matches (display: 1.0).
   if (entry.name) {
     const queryNorm = normalizeName(text);
     const nameNorm = normalizeName(entry.name);
@@ -313,7 +315,7 @@ export function scoreEntryDetailed(
   // phrase wins big; substring or token-overlap is still strong.
   if (triggersLower.length > 0) {
     for (const trigger of triggersLower) {
-      const triggerTokens = tokenize(trigger);
+      const triggerTokens = fieldTokens(trigger);
       const matchedTokens = tokens.filter((token) => triggerTokens.includes(token));
       const queryCoverage = tokens.length > 0 ? matchedTokens.length / tokens.length : 0;
       if (trigger === lower || trigger === rawLower) {
@@ -349,8 +351,8 @@ export function scoreEntryDetailed(
         const contribution = suppressedGenericPersona
           ? 0.24 * queryCoverage
           : triggerTokens.length > 1
-            ? Math.min(1, 0.75 + 0.25 * containedCoverage)
-            : 1;
+            ? (0.75 + 0.25 * containedCoverage) * queryCoverage
+            : queryCoverage;
         addMatch(contribution, {
           field: 'trigger',
           match: 'contained-phrase',

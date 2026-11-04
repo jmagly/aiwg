@@ -12,7 +12,6 @@
 import { ExtensionRegistry, getRegistry, createRegistry } from './registry.js';
 import { CapabilityIndex } from './capability-index.js';
 import { commandDefinitions } from './commands/definitions.js';
-import { allHandlers } from '../cli/handlers/index.js';
 import type { CommandHandler } from '../cli/handlers/types.js';
 
 /**
@@ -32,6 +31,9 @@ export interface LoaderOptions {
    * @default false
    */
   indexCapabilities?: boolean;
+
+  /** Trusted caller may load only the handlers needed for an entry command. */
+  handlers?: readonly CommandHandler[];
 }
 
 /**
@@ -77,6 +79,7 @@ export interface LoadedRegistry {
  */
 export async function loadRegistry(options?: LoaderOptions): Promise<LoadedRegistry> {
   const { registry = createRegistry(), indexCapabilities = false } = options || {};
+  const allHandlers = options?.handlers ?? (await import('../cli/handlers/index.js')).allHandlers;
 
   // Register all command definitions
   for (const definition of commandDefinitions) {
@@ -144,6 +147,7 @@ export async function getLoadedRegistry(): Promise<LoadedRegistry> {
   }
 
   // Already loaded - just build handler map
+  const { allHandlers } = await import('../cli/handlers/index.js');
   const handlerMap = linkHandlers(allHandlers);
 
   return {
