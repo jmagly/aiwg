@@ -1,4 +1,5 @@
 // Confirm owned containment is empty independently of semantic observer coverage.
+import { readdirSync, readFileSync } from 'node:fs';
 import { sampleWorkerIdentity, isSafeWorkerGroupTarget } from '../process-monitor.mjs';
 import { getWorkerIsolationStatus } from './worker-isolation-status.mjs';
 import { scanWorkerInvocationProcesses } from './worker-invocation-processes.mjs';
@@ -9,7 +10,7 @@ const TERMINATION_MAX_ATTEMPTS = 21;
 
 export function observeWorkerTermination({ mode, native, workerExited, identity,
   supervisor = sampleWorkerIdentity(process.pid), kill = process.kill, invocationId,
-  scan = scanWorkerInvocationProcesses, deadline, now = () => performance.now() } = {}) {
+  scan = scanWorkerInvocationProcesses, groupStates = sampleGroupStates, deadline, now = () => performance.now() } = {}) {
   if (mode === 'systemd-unit') {
     const exited = workerExited === true || [1, 2, 3].includes(native?.execMainCode);
     return { confirmed: exited && native?.active === false && native?.cgroupEmpty === true,
@@ -22,7 +23,17 @@ export function observeWorkerTermination({ mode, native, workerExited, identity,
     || !isSafeWorkerGroupTarget(identity.pgid, supervisor)) {
     return { confirmed: false, missing: 'launcher-owned process group identity on this host and boot' };
   }
-  try { kill(-identity.pgid, 0); }
+  let groupEmpty = false;
+  try {
+    kill(-identity.pgid, 0);
+    // Signal 0 also reaches zombies. A reaper that never waits (a container's
+    // PID 1) can leave killed members as zombies indefinitely; a group whose
+    // remaining members are all zombies has no live process (#3853).
+    // Absence from /proc is never proof; only observed zombies explaining
+    // signal 0, with no live or unreadable member, count as an empty group.
+    const states = groupStates(identity.pgid);
+    groupEmpty = !!states && states.zombies > 0 && states.live === 0 && states.unreadable === 0;
+  }
   catch (error) {
     // Pass the recorded leader so the marker scan can tell a parallel
     // hardened (non-dumpable) worker's tree apart from a genuine escapee via
@@ -37,7 +48,30 @@ export function observeWorkerTermination({ mode, native, workerExited, identity,
     }
     return { confirmed: false, missing: `empty owned process group (signal-0 returned ${error.code ?? 'unknown'})` };
   }
+  if (groupEmpty) {
+    return scan({ invocationId, startTicks: identity.startTicks, uid: identity.uid, now,
+      deadline: deadline ?? now() + TERMINATION_BUDGET_MS,
+      workerPid: identity.pid, workerPgid: identity.pgid, workerSession: identity.sessionId });
+  }
   return { confirmed: false, missing: 'empty owned process group (signal-0 still finds members)', retryable: true };
+}
+
+/** Count a process group's members by /proc state: zombies, live and unreadable. */
+export function sampleGroupStates(pgid) {
+  if (!Number.isSafeInteger(pgid) || pgid <= 0 || process.platform !== 'linux') return null;
+  const states = { zombies: 0, live: 0, unreadable: 0 };
+  let entries;
+  try { entries = readdirSync('/proc'); } catch { return null; }
+  for (const entry of entries) {
+    if (!/^\d+$/.test(entry)) continue;
+    let stat;
+    try { stat = readFileSync(`/proc/${entry}/stat`, 'utf8'); }
+    catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ESRCH') states.unreadable += 1; continue; }
+    const fields = stat.slice(stat.lastIndexOf(')') + 2).split(/\s+/);
+    if (Number(fields[2]) !== pgid) continue;
+    if (fields[0] === 'Z') states.zombies += 1; else states.live += 1;
+  }
+  return states;
 }
 
 // Share the exit-time budget across transient kernel observations; each scan
