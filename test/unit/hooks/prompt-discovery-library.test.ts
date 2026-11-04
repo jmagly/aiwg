@@ -118,7 +118,7 @@ it('injects candidates in a project with only a valid prebuilt package and no pe
   const runtime = new URL('../../../dist/src/artifacts/query-engine-discover.js', import.meta.url).href;
   fs.writeFileSync(path.join(moduleDir, 'query-engine-discover.js'), `export { discoverCapability } from ${JSON.stringify(runtime)};`);
   const hook = fileURLToPath(new URL('../../../agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs', import.meta.url));
-  const result = spawnSync(process.execPath, [hook], { cwd: project, encoding: 'utf8',
+  const result = spawnSync(process.execPath, [hook], { cwd: project, encoding: 'utf8', timeout: 10_000,
     env: { ...process.env, AIWG_PROMPT_DISCOVERY: '1' },
     input: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'Review authentication security' }),
   });
