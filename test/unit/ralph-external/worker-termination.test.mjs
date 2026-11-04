@@ -11,7 +11,7 @@ import { resolveWorkerInvocation } from '../../../src/serve/worker-invocation.js
 import { inspectWorkerPath } from '../../../src/serve/worker-invocation-paths.js';
 import { SessionLauncher, verifyRetryPredecessor } from '../../../tools/ralph-external/session-launcher.mjs';
 import { resolveRetryReference } from '../../../tools/ralph-external/lib/worker-launch-cli.mjs';
-import { observeWorkerTermination, recheckWorkerTermination } from '../../../tools/ralph-external/lib/worker-termination.mjs';
+import { observeWorkerTermination, recheckWorkerTermination, sampleGroupStates } from '../../../tools/ralph-external/lib/worker-termination.mjs';
 import { getWorkerIsolationStatus } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
 import { sampleWorkerIdentity } from '../../../tools/ralph-external/process-monitor.mjs';
 import { systemdClientFixture } from '../../fixtures/systemd-client.js';
@@ -134,6 +134,34 @@ describe('T-OG-04 confirmed owned containment (#3674)', () => {
       { ...base, kill: () => { throw Object.assign(new Error(), { code: 'EPERM' }); } },
       { ...base, identity: null }, { ...base, workerExited: false },
     ]) expect(observeWorkerTermination(evidence).confirmed).toBe(false);
+  });
+
+  it('treats a group whose observed members are all zombies as empty, and nothing weaker (#3853)', () => {
+    const supervisor = sampleWorkerIdentity(process.pid);
+    const identity = { ...supervisor, pid: 2147483646, pgid: 2147483646 };
+    const scan = vi.fn(() => ({ confirmed: true, missing: null }));
+    const base = { workerExited: true, identity, supervisor, invocationId: 'synthetic-zombie-invocation', kill: () => {}, scan };
+    expect(observeWorkerTermination({ ...base, groupStates: () => ({ zombies: 2, live: 0, unreadable: 0 }) }).confirmed).toBe(true);
+    expect(scan).toHaveBeenCalledTimes(1);
+    for (const groupStates of [() => ({ zombies: 0, live: 0, unreadable: 0 }), () => ({ zombies: 1, live: 1, unreadable: 0 }),
+      () => ({ zombies: 1, live: 0, unreadable: 1 }), () => null]) {
+      expect(observeWorkerTermination({ ...base, groupStates })).toMatchObject({ confirmed: false, retryable: true });
+    }
+    expect(scan).toHaveBeenCalledTimes(1);
+  });
+
+  it.runIf(process.platform === 'linux')('counts a real unreaped child as a zombie member of its group', async () => {
+    // The shell starts a child, then execs sleep, which never waits for it.
+    const leader = spawn('sh', ['-c', 'sleep 0 & exec sleep 5'], { detached: true, stdio: 'ignore' });
+    trackWorkerProcess(leader.pid);
+    try {
+      let states = null;
+      for (let i = 0; i < 50 && !(states?.zombies > 0); i++) {
+        await new Promise(resolve => setTimeout(resolve, 20));
+        states = sampleGroupStates(leader.pid);
+      }
+      expect(states).toMatchObject({ zombies: 1, live: 1 });
+    } finally { try { process.kill(-leader.pid, 'SIGKILL'); } catch {} }
   });
 
   it('requires unit exit, inactivity and a positively empty cgroup, independent of leader group', () => {
