@@ -140,6 +140,15 @@ describe('T-OG-23 pre-spawn boundaries and ownership', () => {
     }
   });
 
+  it('rejects relative launch paths at parse time, naming the flag (#3857)', () => {
+    const base = { '--invocation': '/plan.json', '--run-dir': '/run' };
+    for (const [flag, relative] of [['--invocation', 'plan.json'], ['--run-dir', '.eval-control/run'], ['--retry-of-run-dir', 'prev-run']] as const) {
+      const values: Record<string, string> = { ...base, [flag]: relative };
+      const args = ['--launch-worker', ...Object.entries(values).flat()];
+      expect(() => parseWorkerLaunchArgs(args)).toThrow(`${flag} must be an absolute path; relative paths are not resolved against cwd.`);
+    }
+  });
+
   it('#2915 step 4: explicit retry IDs require a run directory', () => {
     const args = ['--launch-worker', '--invocation', '/plan.json', '--run-dir', '/run'];
     expect(parseWorkerLaunchArgs(args)).not.toHaveProperty('retryOf');

@@ -28,6 +28,12 @@ export function parseWorkerLaunchArgs(args) {
   if (!seen.has('--launch-worker') || !result.invocationPath || !result.runDir) {
     throw new Error('Usage: ralph-external --launch-worker --invocation FILE --run-dir DIR [--allow-degraded-worker] [--check-descendants] [--retry-of-run-dir DIR [--retry-of ID] [--retry-correction]]');
   }
+  // #3857: reject relative paths here, naming the flag, before any launch work.
+  for (const [flag, value] of [['--invocation', result.invocationPath], ['--run-dir', result.runDir], ['--retry-of-run-dir', retryOfRunDir]]) {
+    if (value !== undefined && !isAbsolute(value)) {
+      throw new Error(`${flag} must be an absolute path; relative paths are not resolved against cwd.`);
+    }
+  }
   if (retryOfInvocationId !== undefined && retryOfRunDir === undefined) {
     throw new Error('--retry-of and --retry-of-run-dir must be supplied together when an explicit ID is used');
   }
