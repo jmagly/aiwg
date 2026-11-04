@@ -1,8 +1,8 @@
 // Create, list, and inspect lightweight workflow checkpoints in the configured artifact root.
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { boundedExecFileSync } from '../../process/bounded-child-process.mjs';
 import { resolveProjectAiwgDirForWrite } from '../../config/project-artifacts.js';
 import type { CommandHandler, HandlerResult } from './types.js';
 
@@ -109,9 +109,9 @@ export const checkpointHandler: CommandHandler = {
         if (ctx.dryRun) return { exitCode: 0, message: `Would create checkpoint in ${dir}`, rawOutput: true };
         let gitHead: string | undefined;
         try {
-          gitHead = execFileSync('git', ['rev-parse', '--verify', 'HEAD'], {
-            cwd: ctx.cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000,
-          }).trim();
+          gitHead = String(boundedExecFileSync('git', ['rev-parse', '--verify', 'HEAD'], 'quick', {
+            cwd: ctx.cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+          })).trim();
         } catch { /* Checkpoints also work outside git repositories. */ }
         const record: Checkpoint = {
           id: `ckpt_${randomUUID()}`, ...values, createdAt: new Date().toISOString(),

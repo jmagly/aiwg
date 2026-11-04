@@ -39,12 +39,12 @@ describe('checkpointHandler', () => {
 
   it('captures git HEAD when available', async () => {
     // A synthetic commit avoids depending on operator Git identity or signing settings.
-    execFileSync('git', ['init', '--quiet', project]);
-    const tree = execFileSync('git', ['hash-object', '-t', 'tree', '--stdin', '-w'], { cwd: project, input: '', encoding: 'utf8' }).trim();
+    execFileSync('git', ['init', '--quiet', project], { timeout: 10_000 });
+    const tree = execFileSync('git', ['hash-object', '-t', 'tree', '--stdin', '-w'], { cwd: project, input: '', encoding: 'utf8', timeout: 10_000 }).trim();
     const env = { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid',
       GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid' };
-    const head = execFileSync('git', ['-c', 'commit.gpgSign=false', 'commit-tree', tree, '-m', 'fixture'], { cwd: project, env, encoding: 'utf8' }).trim();
-    execFileSync('git', ['update-ref', 'HEAD', head], { cwd: project });
+    const head = execFileSync('git', ['-c', 'commit.gpgSign=false', 'commit-tree', tree, '-m', 'fixture'], { cwd: project, env, encoding: 'utf8', timeout: 10_000 }).trim();
+    execFileSync('git', ['update-ref', 'HEAD', head], { cwd: project, timeout: 10_000 });
     const id = await create();
     expect(JSON.parse((await run('recover', id, '--json')).message!).gitHead).toBe(head);
   });
