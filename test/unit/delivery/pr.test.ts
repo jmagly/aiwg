@@ -24,14 +24,14 @@ let tracker: Awaited<ReturnType<typeof fakeTracker>>;
 let config: any;
 let client: LiveIssueClient;
 let env: NodeJS.ProcessEnv;
-const git = (...args: string[]) => execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+const git = (...args: string[]) => execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10_000 }).trim();
 const save = () => writeFileSync(path.join(cwd, '.aiwg/aiwg.config'), JSON.stringify(config));
 function commit(name = 'change') { writeFileSync(path.join(cwd, name), name); git('add', name); git('commit', '-m', name); return git('rev-parse', 'HEAD'); }
 function signed() {
   const keyFile = path.join(root, 'fixture-signing-key');
-  execFileSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', keyFile], { env, stdio: 'pipe' });
+  execFileSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', keyFile], { env, stdio: 'pipe', timeout: 10_000 });
   const publicKey = readFileSync(`${keyFile}.pub`, 'utf8').trim();
-  const fingerprint = execFileSync('ssh-keygen', ['-lf', `${keyFile}.pub`], { env, encoding: 'utf8' }).split(' ')[1];
+  const fingerprint = execFileSync('ssh-keygen', ['-lf', `${keyFile}.pub`], { env, encoding: 'utf8', timeout: 10_000 }).split(' ')[1];
   const allowed = path.join(root, 'allowed-signers'); writeFileSync(allowed, `${identity.email} ${publicKey}\n`);
   git('config', 'gpg.format', 'ssh'); git('config', 'gpg.ssh.allowedSignersFile', allowed);
   git('config', 'user.signingkey', keyFile); git('config', 'commit.gpgsign', 'true');

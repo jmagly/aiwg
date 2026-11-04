@@ -2,7 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+const git = (...args) => execFileSync('git', args, { encoding: 'utf8', timeout: 10_000 }).trim();
 const head = git('rev-parse', 'HEAD');
 const parents = git('show', '-s', '--format=%P', head).split(' ');
 fs.writeFileSync('unexpected', 'hook');
