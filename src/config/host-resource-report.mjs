@@ -73,8 +73,13 @@ export function hostResourceReport({ config, live, readers, paths, thresholdOver
     'less than one core of load headroom');
   if (thresholds.max_workers !== undefined) add('max_workers', thresholds.max_workers - measured.workers,
     'running workers exhaust the host ceiling or cannot be counted');
+  // The project ceiling counts this workspace's attributed workers plus unattributed ones;
+  // workers attributed to another workspace consume host capacity (max_workers) only.
+  const attributed = Object.values(measured.workerGroups ?? {}).reduce((sum, count) => sum + count, 0);
+  const projectRunning = Number.isFinite(measured.workers) && measured.workerGroups && Number.isFinite(measured.workerUnknown)
+    ? Math.min(measured.workers, attributed + measured.workerUnknown) : measured.workers;
   const admission = [
-    { threshold: 'max_parallel_subagents', limit: parallelism?.max_parallel_subagents
+    { threshold: 'max_parallel_subagents', running: projectRunning, limit: parallelism?.max_parallel_subagents
       ?? (parallelism?.worker_dispatch ? getProviderParallelismDefaults(config?.providers?.[0]).max_parallel_subagents : undefined) },
     ...(caps ?? []),
   ];

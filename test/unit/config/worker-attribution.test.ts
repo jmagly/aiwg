@@ -27,6 +27,21 @@ describe('T-OG-01 worker workspace attribution', () => {
     expect(report.limits).toContainEqual({ threshold: 'max_workers', slots: 3 });
   });
 
+  it('keeps workers attributed to another workspace out of the project ceiling', () => {
+    const readers = ownedWorkerReaders(units, [
+      { invocation: 'opaque-a', unit: units[0], ...other }, { invocation: 'opaque-b', unit: units[1], ...other },
+    ]);
+    const capped = { parallelism: { ...config.parallelism, max_parallel_subagents: 2 } };
+    const report = hostResourceReport({ config: capped, readers, group: 'reviews' });
+    expect(report).toMatchObject({ ok: true, slots: 1, measured: { workers: 2, workerUnknown: 0 } });
+    expect(report.limits).toContainEqual({ threshold: 'max_parallel_subagents', slots: 2 });
+    expect(report.limits).toContainEqual({ threshold: 'max_workers', slots: 3 });
+    const local = hostResourceReport({ config: capped, readers: ownedWorkerReaders(units, [
+      { invocation: 'opaque-a', unit: units[0], ...other }, { invocation: 'opaque-b', unit: units[1], workspace: current.workspace, group: 'workers' },
+    ]), group: 'reviews' });
+    expect(local.limits).toContainEqual({ threshold: 'max_parallel_subagents', slots: 1 });
+  });
+
   it('counts opaque unknown units at the host ceiling and lists inspectable blockers', () => {
     const report = hostResourceReport({ config, readers: ownedWorkerReaders(units, []), group: 'reviews',
       thresholdOverlay: { max_workers: 2 } });
