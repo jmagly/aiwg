@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import { parseMemAvailableGb, parseLoadAverages, parseMemoryPsi, readLiveHostResources,
-  countWorkerUnits, defaultCountWorkers, evaluateDispatchGate } from '../../../src/config/host-resource-runtime.mjs';
+  countWorkerUnits, defaultCountWorkers, evaluateDispatchGate, nearestDispatchPathSync } from '../../../src/config/host-resource-runtime.mjs';
 import { resolveDispatchHostThresholds } from '../../../src/config/dispatch-thresholds-runtime.mjs';
 import { healthyHostResources, hostResourceReaders, ownedWorkerReaders } from '../../fixtures/host-resources.js';
 import { WORKER_INVOCATION_MARKER } from '../../../src/config/worker-invocation-marker.mjs';
@@ -31,6 +34,24 @@ describe('shared preflight measurement regressions', () => {
     }
     expect(readLiveHostResources({ ...hostResourceReaders(), paths: [] }).freeDiskGb).toBeUndefined();
     expect(readLiveHostResources({ ...hostResourceReaders(), paths: ['gone'], statfsPath: () => { throw new Error('gone'); } }).freeDiskGb).toBeUndefined();
+  });
+
+  it('picks the nearest usable ancestor of a not-yet-created worker folder, never / (#3856)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'aiwg-3856-'));
+    try {
+      expect(nearestDispatchPathSync(join(root, 'not', 'yet', 'created'))).toBe(root);
+      expect(nearestDispatchPathSync(root)).toBe(root);
+      // A file in the chain, a top-level path with only / above it, and a
+      // non-ENOENT error all keep the original path so sampling fails closed.
+      writeFileSync(join(root, 'file'), '');
+      expect(nearestDispatchPathSync(join(root, 'file', 'out'))).toBe(join(root, 'file', 'out'));
+      const topLevel = join('/', `${basename(root)}-absent`, 'out');
+      expect(nearestDispatchPathSync(topLevel)).toBe(topLevel);
+      const denied = join(root, 'missing');
+      expect(nearestDispatchPathSync(denied, { access: () => { throw Object.assign(new Error('denied'), { code: 'EACCES' }); } })).toBe(denied);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('counts only explicit running/activating AIWG service units and rejects failed enumeration', () => {

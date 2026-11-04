@@ -34,6 +34,7 @@ export interface HostResourceReaders {
   paths?: string[];
 }
 export function readLiveHostResources(readers?: HostResourceReaders): HostResourceSample;
+export function nearestDispatchPathSync(filename: string, fsOps?: { lstat?: (path: string) => { isDirectory(): boolean }; access?: (path: string, mode: number) => void }): string;
 export function countWorkerProcesses(readers?: HostResourceReaders): WorkerCensus | undefined;
 export function defaultCountWorkers(readers?: HostResourceReaders): number | undefined;
 export function countWorkerUnits(options?: { spawn?: (...args: any[]) => any }): number | undefined;

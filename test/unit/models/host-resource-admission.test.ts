@@ -135,6 +135,24 @@ describe('resolver host capacity', () => {
     expect(seen).toEqual(['/project']);
   });
 
+  it('samples a missing final-output folder on the filesystem it will land on, and fails closed with only / above it (#3856)', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'aiwg-3856-resolve-'));
+    roots.push(root);
+    const args = (finalOutput: string) => ['resolve', '--role', 'coding', '--task', 'implementation', '--group', 'workers',
+      '--brief', path.join(root, 'brief.md'), '--workdir', root, '--final-output', finalOutput];
+    const seen: string[] = [];
+    const readers = { ...hostResourceReaders(), statfsPath: (filename: string) => {
+      seen.push(filename);
+      if (filename !== root) throw Object.assign(new Error(filename), { code: 'ENOENT' });
+      return { bavail: 64, bsize: 1024 ** 3 };
+    } };
+    const live = sampleWorkerHostResources({ cwd: root, args: args(path.join(root, '.handoff', 'run-1', 'final.json')) }, readers);
+    expect(seen).toEqual([root, root, root]);
+    expect(live.freeDiskGb).toBe(64);
+    const absent = path.join('/', `${path.basename(root)}-absent`, 'out', 'final.json');
+    expect(sampleWorkerHostResources({ cwd: root, args: args(absent) }, readers).freeDiskGb).toBeUndefined();
+  });
+
   it('carries the same normalized report and subtracts running workers from configured caps', () => {
     const f = fixture();
     expect(resolve(f)).toMatchObject({ status: 'eligible', slots: 1, resources: { slots: 1, ok: true } });
