@@ -516,6 +516,11 @@
           ],
           "description": "How agents deliver code. direct = commit/push to default_branch; feature-branch = push branch, no PR; pr-required = branch + PR (default)"
         },
+        "merge": {
+          "type": "string",
+          "enum": ["local-signed", "local", "tracker"],
+          "description": "Merge execution route. Defaults to tracker; local-signed is optional and requires signing configuration."
+        },
         "default_branch": {
           "type": "string",
           "description": "Default branch name. Defaults to 'main'."
@@ -2486,6 +2491,16 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "credential": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "store": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+            "env": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+          },
+          "oneOf": [{ "required": ["store"], "properties": { "store": {} } }, { "required": ["env"], "properties": { "env": {} } }],
+          "description": "Sensitive-input reference only; never a literal token."
+        },
         "login": {
           "type": "string",
           "description": "Forge login that should author delivery writes."

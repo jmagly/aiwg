@@ -143,6 +143,7 @@ async function handleSteward(args: string[], ctx?: HandlerContext): Promise<void
   aiwg steward — Provider capability awareness and command routing
 
   Usage:
+    aiwg steward signed-merges [--apply|--skip]   Optional signed local merge setup
     aiwg steward decision-offload [--json]         Offline advisory readiness and adoption report
     aiwg steward capabilities --provider <name>   Capabilities for a specific provider
     aiwg steward capabilities --feature <name>    Provider support matrix for a feature
@@ -171,6 +172,11 @@ async function handleSteward(args: string[], ctx?: HandlerContext): Promise<void
     or human rationale escalates.
 `);
     return;
+  }
+
+  if (subcommand === 'signed-merges') {
+    const { stewardSignedMerges } = await import('./steward-signing.js');
+    return stewardSignedMerges(args.slice(1), ctx ? getProjectDir(ctx, args) : process.cwd());
   }
 
   if (subcommand === 'decision-offload') {

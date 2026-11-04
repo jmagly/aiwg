@@ -4,6 +4,11 @@ name: aiwg-pr
 platforms: [all]
 kernel: true
 description: AIWG-specific pull request delivery workflow for AIWG product/workspace changes; not the generic repository PR process
+script:
+  entrypoint: scripts/deliver.mjs
+  runtime: node
+  cwd: project-root
+  argsHint: open --title <title> --body-file <path> | merge <number>
 triggers:
   - "AIWG PR"
   - "AIWG delivery PR"
@@ -135,28 +140,50 @@ Closes #1262
 Closes #1263
 ```
 
-### 6. Push
+### 6. Commit, push, and open through configured identities
+
+For `pr-required`, use the runnable delivery step after verification. It commits
+already staged changes only when `--commit-message-file` is supplied; otherwise
+it ships the current branch commit. The configured `remotes.transport.helper`
+receives push arguments and owns the primary remote. Without a helper, ordinary
+Git push is used. Failures stop; there is no automatic force push.
 
 ```bash
-# For direct mode
-git push origin main
-
-# For feature-branch / pr-required
-git push origin fix/{issue-number}-{slug}
+aiwg run skill aiwg-pr -- open --title '<title>' --body-file /tmp/pr-body.md --commit-message-file /tmp/commit-message.txt
 ```
 
-### 7. Open the PR (only for pr-required mode)
+Use the repository PR template and include linked issues, changes, verification,
+and risk/rollback. `remotes.tracker_actor.credential` selects an existing
+sensitive-input reference (`{"store":"tracker-token"}` or
+`{"env":"PROJECT_TRACKER_TOKEN"}`). Before every API write, the API user must
+match `tracker_actor.login` and must not appear in `forbid_actors`. Tokens stay
+inside the HTTP client; never put tokens in argv or PR files.
 
-Use the template at `.gitea/pull_request_template.md` (or `.github/pull_request_template.md`). Required sections:
+For `direct` or `feature-branch`, follow the configured push helper and delivery
+policy without opening a PR.
 
-- **Summary**: what changed and why (one paragraph)
-- **Linked issues**: `Closes #N` (or `Refs #N`)
-- **Changes**: bullets of meaningful changes (not file count)
-- **Verification**: filled-in checklist showing typecheck/test/CI status
-- **Risk and rollback**: even if "low / git revert"
-- **Policy reminders**: delivery mode + no-attribution + CI-green-before-done
+### 7. Merge through the configured route
 
-The body should be **agent-readable**: clear sections, specific paths, no marketing speak.
+```bash
+aiwg run skill aiwg-pr -- merge <number>
+# Optional mirror; must be a configured secondary remote permitted by project handling:
+aiwg run skill aiwg-pr -- merge <number> --mirror <remote>
+```
+
+`delivery.merge` selects `tracker` (the default), `local`, or `local-signed`.
+Unsigned projects need no signing setup. Signed local merges are recommended
+where repository policy permits them: run `aiwg steward signed-merges` for a
+preview and setup instructions, or `--skip` to preserve current settings.
+Signing checks run only when commit signing is configured or required; a signed
+project must select a local route to verify the actual merge signature.
+
+Local routes require an open PR targeting the default branch, a branch base
+with the current main tree, and an unchanged PR head. They verify all branch
+signatures and author/committer identities when signing is enabled, create a
+`--no-ff` merge in a temporary worktree, require the head and merge trees to
+match, verify its signature when enabled, push through the helper, close the
+PR, and check the remote default branch equals the local merge. A failure after
+push may leave the PR open; inspect remote state before retrying.
 
 ### 8. Sync with current main before readiness (#2654)
 
@@ -187,11 +214,8 @@ project's local verification; CI status then applies to the post-merge run.
 
 A commit isn't done until CI is green. After push:
 
-```bash
-# Check the latest run on origin
-aiwg run skill aiwg-pr -- check-ci
-# (or manually inspect the tracker)
-```
+Inspect the latest run on the configured `remotes.ci` tracker. Where PRs do
+not run CI, this check applies to the post-merge run on the default branch.
 
 AIWG CI runs ~2 minutes. **Wait for it.** If it fails:
 

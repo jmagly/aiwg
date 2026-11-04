@@ -200,6 +200,7 @@ const ENUM_ALIAS_NOTES: Record<string, string> = {
 
 const ENUM_RULES: Record<string, readonly string[]> = {
   'delivery.mode': ['direct', 'feature-branch', 'pr-required'],
+  'delivery.merge': ['local-signed', 'local', 'tracker'],
   'delivery.merge_style': ['rebase-merge', 'squash', 'merge', 'fast-forward-only'],
   'delivery.force_push_policy': ['never', 'own-branch-only', 'allowed'],
   'delivery.signing.format': ['openpgp', 'ssh', 'x509'],
