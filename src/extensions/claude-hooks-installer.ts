@@ -43,6 +43,7 @@ const HOOK_SCRIPTS: ReadonlyArray<{
 }> = [
   { file: 'aiwg-permissions.cjs', events: { PermissionRequest: undefined } },
   { file: 'aiwg-session.cjs', events: { SessionStart: undefined } },
+  { file: 'aiwg-prompt-discovery.cjs', events: { UserPromptSubmit: undefined } },
   {
     file: 'aiwg-trace.cjs',
     events: { SubagentStart: 'start', SubagentStop: 'stop' },

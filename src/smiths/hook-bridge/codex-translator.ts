@@ -15,6 +15,7 @@ import * as path from 'node:path';
 import { homedir } from 'node:os';
 import type { HookSource, TranslateOptions, TranslateResult } from './types.js';
 import { substituteEnvVars } from './shim.js';
+import { PROMPT_DISCOVERY_GAPS } from './prompt-discovery-gaps.js';
 import { tomlString } from '../../mcp/toml-string.mjs';
 
 /** Codex-native event names (subset; extend when verified against codex-rs). */
@@ -110,7 +111,8 @@ export async function translateForCodex(
 
   if (source.degradeOn?.includes('codex')) {
     result.skipped = true;
-    result.skipReason = 'degrade-on declared codex';
+    result.skipReason = source.id === 'aiwg-prompt-discovery'
+      ? PROMPT_DISCOVERY_GAPS['codex'] : 'degrade-on declared codex';
     return result;
   }
 

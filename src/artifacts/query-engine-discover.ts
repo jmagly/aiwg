@@ -48,21 +48,21 @@ export async function discoverCapability(
   // project / codebase / legacy depending on what's available.
   let entries: MetadataEntry[] = [];
   let localFramework: ArtifactIndex | null = null;
-  const backend = params.backend ?? DEFAULT_ARTIFACT_SEARCH_BACKEND;
+  const backend = params.promptContext ? 'local' : params.backend ?? DEFAULT_ARTIFACT_SEARCH_BACKEND;
   let fortemiCoreDiscoveryScores: Map<string, number> | null = null;
-  let resourceSource: ResourceSource = params.resourceSource ?? 'local';
+  let resourceSource: ResourceSource = params.promptContext ? 'local' : params.resourceSource ?? 'local';
   let resolvedWebRelease: VerifiedWebRelease | undefined;
   let verifiedSourcePaths:
     | import('./fortemi-core-query-adapter.js').FortemiCoreVerifiedSourcePaths
     | undefined;
 
   const prebuiltSelection = resourceSource !== 'web' && (!params.graph || params.graph === 'framework')
-    ? selectPrebuiltRelations(cwd) : undefined;
+    ? selectPrebuiltRelations(cwd, cwd, !params.promptContext) : undefined;
   const prebuiltRelations = prebuiltSelection?.reader ?? null;
 
   // A valid prebuilt relationship package means the shipped index is current:
   // never build a per-root framework index beside it (#3308, #2069 test).
-  if ((!prebuiltRelations || backend === 'local') && resourceSource !== 'web' && (!params.graph || params.graph === 'framework')) {
+  if (!params.promptContext && (!prebuiltRelations || backend === 'local') && resourceSource !== 'web' && (!params.graph || params.graph === 'framework')) {
     const root = resolveFrameworkCorpusRoot(cwd) ?? aiwgRoot;
     if (root) {
       try {
@@ -236,6 +236,21 @@ export async function discoverCapability(
     }
   }
 
+  if (params.promptContext && prebuiltRelations) {
+    // Reuse the validated shipped export without refreshing or persisting receipts.
+    const { loadFortemiCoreMetadataEntries } = await import('./fortemi-core-query-adapter.js');
+    const loaded = loadFortemiCoreMetadataEntries(cwd, 'framework', undefined, prebuiltSelection);
+    if (loaded.entries.length) {
+      entries = entries.filter(entry => !('indexGraph' in entry && entry.indexGraph === 'framework'));
+      entries.push(...loaded.entries.map(entry => withIndexProvenance(entry, 'framework')));
+    }
+  }
+
+  if (entries.length === 0 && params.promptContext) {
+    console.log(JSON.stringify({ results: [] }));
+    return;
+  }
+
   if (entries.length === 0 && backend !== 'fortemi-core') {
     // Empty-index case (#1221). Surface a hint that explains the gap rather
     // than returning a bare zero-result envelope — the latter trains agents
@@ -334,6 +349,16 @@ export async function discoverCapability(
   }
 
   const queryTimeMs = Date.now() - startTime;
+
+  if (params.promptContext) {
+    console.log(JSON.stringify({ results: scored.map(({ entry, score }) => ({
+      type: entry.type, name: entry.name ?? discoveryIdForEntry(entry),
+      capability: entry.type === 'rule'
+        ? entry.ruleSummary || prebuiltRelations?.index.rules[discoveryIdForEntry(entry)]?.summary || entry.summary
+        : entry.capability ?? entry.summary, score,
+    })) }));
+    return;
+  }
 
   await emitDiscoverResults({ cwd, params, types, limit, aiwgRoot, entries, backend, resourceSource,
     resolvedWebRelease, prebuiltRelations, prebuiltSelection, frameworkReconciled: Boolean(localFramework), scored, relaxed, queryTimeMs, lexicalDiagnostics });
