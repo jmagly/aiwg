@@ -24,6 +24,8 @@ export interface QueryOptions {
 export interface DiscoverParams {
   /** Trusted host-only, default-off D27 observer. Shadow evidence never changes ranking. */
   shadowRoute?: DiscoveryShadowRoute;
+  /** Emit cache fallback diagnostics on stderr. */
+  verbose?: boolean;
   /** Search phrase (the user's capability description) */
   phrase: string;
   /** Restrict to specific types — defaults to the operational discovery surface */

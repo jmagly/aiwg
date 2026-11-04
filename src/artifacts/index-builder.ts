@@ -14,6 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { createHash } from 'crypto';
 import { load as loadYaml } from 'js-yaml';
+import { normalizeNamedCaptures } from '../config/index-graph-overrides.js';
 import { validateDecisionDocument } from '../decision/validate.js';
 import { parseDecisionJson, parseDecisionYaml } from '../decision/entry.js';
 import { validateGateDocument } from '../gates/schema.js';
@@ -705,9 +706,7 @@ function computeChecksum(content: string): string {
 /**
  * Convert Python-style named capture groups (?P<name>...) to JS-style (?<name>...)
  */
-export function normalizeNamedCaptures(pattern: string): string {
-  return pattern.replace(/\(\?P</g, '(?<');
-}
+export { normalizeNamedCaptures } from '../config/index-graph-overrides.js';
 
 /**
  * Build a MetadataEntry from filename regex captures instead of file content.

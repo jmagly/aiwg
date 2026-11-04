@@ -39,3 +39,8 @@ export function validateIndexGraphOverrides(overrides: unknown): string[] {
   }
   return errors;
 }
+
+/** Normalize graph filename patterns without loading artifact builders. */
+export function normalizeNamedCaptures(pattern: string): string {
+  return pattern.replace(/\(\?P</g, '(?<');
+}

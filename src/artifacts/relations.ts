@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getGraphIndexDir, type MetadataEntry } from './types.js';
-import { resolveFrameworkIndexRoot } from './framework-index-paths.js';
+import { resolveFrameworkCorpusRoot, resolveFrameworkIndexRoot } from './framework-index-paths.js';
 import { frameworkSourceDigest } from './framework-source-digest.js';
 import { createHash } from 'node:crypto';
 import { loadRulePinConfigs, resolveRulePins } from '../rules/pins.mjs';
@@ -125,7 +125,7 @@ export interface RelationsStamp {
   generated_at: string;
   checksums: { 'relations.json': string; 'bindings.json': string };
 }
-export interface PrebuiltSelection { reader: RelationsReader | null; reason?: string }
+export interface PrebuiltSelection { reader: RelationsReader | null; reason?: string; sourceDigest?: string }
 
 /** Validate the running root, never the root from which this module was loaded. */
 function selectPrebuiltRelationsSource(cwd: string, cacheSourceDigest = true): PrebuiltSelection {
@@ -136,7 +136,8 @@ function selectPrebuiltRelationsSource(cwd: string, cacheSourceDigest = true): P
     const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
     if (stamp.schema_version !== 'aiwg.relationships.prebuilt.v1') return { reader: null, reason: 'unsupported prebuilt relationship schema' };
     if (stamp.package_version !== pkg.version) return { reader: null, reason: 'prebuilt relationship package version differs' };
-    if (stamp.source_digest !== frameworkSourceDigest(root, cacheSourceDigest)) return { reader: null, reason: 'prebuilt relationship source digest differs (modified, added or removed corpus source)' };
+    const sourceDigest = frameworkSourceDigest(root, cacheSourceDigest);
+    if (stamp.source_digest !== sourceDigest) return { reader: null, sourceDigest, reason: 'prebuilt relationship source digest differs (modified, added or removed corpus source)' };
     const text = fs.readFileSync(path.join(dir, 'relations.json'), 'utf8');
     if (createHash('sha256').update(text).digest('hex') !== stamp.checksums['relations.json']) return { reader: null, reason: 'prebuilt relationship checksum differs' };
     const bindings = fs.readFileSync(path.join(dir, 'bindings.json'), 'utf8');
@@ -145,14 +146,14 @@ function selectPrebuiltRelationsSource(cwd: string, cacheSourceDigest = true): P
     if (index.version !== RELATIONS_VERSION || index.$schema !== RELATIONS_SCHEMA || !index.artifacts
       || index.fingerprint?.version !== RELATIONS_VERSION || !/^sha256:[a-f0-9]{64}$/.test(index.fingerprint.sources)
       || !index.rules || !index.targets || !index.capabilities || !index.aliases?.targets || !index.aliases.rules) return { reader: null, reason: 'unsupported prebuilt relationship table' };
-    return { reader: new RelationsReader(index) };
+    return { reader: new RelationsReader(index), sourceDigest };
   } catch { return { reader: null, reason: 'prebuilt relationship tables unavailable or corrupt' }; }
 }
 
 /** Apply local pins only after cache validation so policy errors cannot masquerade as cache misses. */
 export function selectPrebuiltRelations(cwd: string, pinCwd = cwd, cacheSourceDigest = true): PrebuiltSelection {
   const selected = selectPrebuiltRelationsSource(cwd, cacheSourceDigest);
-  return selected.reader ? { reader: readerWithPins(selected.reader.index, pinCwd) } : selected;
+  return selected.reader ? { ...selected, reader: readerWithPins(selected.reader.index, pinCwd) } : selected;
 }
 
 /** Synchronous read API: prebuilt first, then this root's built sidecar. */
@@ -161,16 +162,20 @@ export function loadRelations(cwd: string, pinCwd = cwd, cacheSourceDigest = tru
 }
 
 /** Read paths reconcile through the existing lock/receipt when prebuilt is stale. */
-export async function ensureRelations(cwd: string, pinCwd = cwd): Promise<RelationsReader | null> {
-  const selected = selectPrebuiltRelations(cwd, pinCwd);
+export async function ensureRelations(cwd: string, pinCwd = cwd, options: { verbose?: boolean; selection?: PrebuiltSelection; reconciled?: boolean } = {}): Promise<RelationsReader | null> {
+  const selected = options.selection ?? selectPrebuiltRelations(cwd, pinCwd);
   if (selected.reader) return selected.reader;
   const root = resolveFrameworkIndexRoot(cwd);
-  if (fs.existsSync(path.join(root, PREBUILT_RELATIONS_DIR, 'manifest.json'))) {
+  if ((options.verbose || process.argv.includes('--verbose') || process.argv.includes('--debug')
+    || ['debug', 'info'].includes(process.env.AIWG_LOG_LEVEL ?? ''))
+    && fs.existsSync(path.join(root, PREBUILT_RELATIONS_DIR, 'manifest.json'))) {
     console.error(`Relationship tables: ${selected.reason}; using the per-root index (rebuilding if stale).`);
   }
   const { refreshFrameworkCapabilities } = await import('./framework-capabilities.js');
-  await refreshFrameworkCapabilities(root, false);
-  return loadBuiltRelations(cwd, pinCwd);
+  if (!options.reconciled) await refreshFrameworkCapabilities(root, false);
+  const reader = loadBuiltRelations(cwd, pinCwd);
+  if (!reader && (resolveFrameworkCorpusRoot(root) || fs.existsSync(path.join(root, PREBUILT_RELATIONS_DIR, 'manifest.json')))) throw new Error('Relationship tables unavailable: no usable prebuilt or per-root index. Run `aiwg index build --graph framework`.');
+  return reader;
 }
 
 // Convenience entry points; use one loaded reader for a batch of lookups.

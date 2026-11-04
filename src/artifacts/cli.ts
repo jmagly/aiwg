@@ -30,7 +30,6 @@ import {
   loadGlobalGraphConfigs,
   orderedGraphEntries,
 } from './types.js';
-import { resolveIndexWorkers } from './index-preparation.js';
 import { SUPPORTED_VIEWS } from './corpus-views/renderers.js';
 import {
   parseResourceSelector,
@@ -585,6 +584,7 @@ async function handleBuild(args: string[]): Promise<void> {
     return;
   }
 
+  const { resolveIndexWorkers } = await import('./index-preparation.js');
   let workers: number | undefined;
   try {
     workers = resolveIndexWorkers(parseFlagValue(args, '--index-workers', 'Error: --index-workers requires a value'));
@@ -1674,7 +1674,7 @@ const DISCOVER_VALUE_FLAGS = new Set([
 async function handleDiscover(args: string[]): Promise<void> {
   const credentials = await prepareResourceCredentials(args);
   args = credentials.args;
-  const { discoverCapability } = await import('./query-engine.js');
+  const { discoverCapability } = await import('./query-engine-discover.js');
   const cwd = process.cwd();
 
   // Parse the positional phrase. Flags may appear before or after it — the
@@ -1756,6 +1756,7 @@ async function handleDiscover(args: string[]): Promise<void> {
     offline,
     webReleaseOptions,
     includePaths: false,
+    verbose: flags.includes('--verbose') || flags.includes('--debug'),
   });
 }
 

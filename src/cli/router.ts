@@ -27,6 +27,7 @@ import { maybeAppendSkillUsage } from './skill-usage.js';
 
 // Cached loaded registry
 let cachedRegistry: LoadedRegistry | null = null;
+let discoveryRegistry: LoadedRegistry | null = null;
 
 // Global hook registry and executor. Register built-in hooks at module
 // load time so they fire for every command without per-handler wiring.
@@ -42,7 +43,16 @@ hookRegistry.register(activityLogPostCommandHook);
  *
  * @returns Loaded registry with handlers
  */
-export async function initRouter(): Promise<LoadedRegistry> {
+export async function initRouter(discoveryOnly = false): Promise<LoadedRegistry> {
+  if (discoveryOnly && !cachedRegistry) {
+    if (!discoveryRegistry) {
+      // Keep normal dispatch, hooks and logging; avoid importing every command's
+      // implementation and schema validators for the session's first lookup.
+      const { discoverHandler, indexHandler } = await import('./handlers/subcommands-discovery.js');
+      discoveryRegistry = await loadRegistry({ handlers: [discoverHandler, indexHandler] });
+    }
+    return discoveryRegistry;
+  }
   if (!cachedRegistry) {
     cachedRegistry = await loadRegistry({ indexCapabilities: true });
   }
@@ -95,7 +105,7 @@ export async function run(
     return;
   }
   const started = process.hrtime.bigint();
-  const registry = await initRouter();
+  const registry = await initRouter(args[0] === 'discover' || args[0] === 'index' && args[1] === 'discover');
   // Normalize `help <command>` into the same non-executing help path.
   const routedArgs = args[0] === 'help' && args[1] && !args[1].startsWith('-')
     ? [args[1], ...args.slice(2), '--help']

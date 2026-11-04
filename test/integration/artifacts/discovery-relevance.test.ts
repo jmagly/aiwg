@@ -10,7 +10,7 @@ import { discoverCapability } from '../../../src/artifacts/query-engine.js';
 const repoRoot = path.resolve(import.meta.dirname, '../../..');
 const queries = parseDiscoveryRelevanceJsonl(fs.readFileSync(
   path.join(repoRoot, 'test/fixtures/artifacts/discovery-relevance.jsonl'), 'utf8',
-)).filter(query => query.id.startsWith('3067-'));
+)).filter(query => query.id.startsWith('3067-') || query.id.startsWith('3859-'));
 
 describe('plain-language discovery relevance against shipped skills and competing hits (#3067)', () => {
   let tmp: string;
@@ -27,12 +27,16 @@ describe('plain-language discovery relevance against shipped skills and competin
         name => `agentic/code/frameworks/sdlc-complete/skills/${name}/SKILL.md`,
       ),
       ...['new-project', 'add-template', 'steward', 'aiwg-issue',
-        'config-validator', 'feedback', ...fs.readdirSync(path.join(
+        'config-validator', 'feedback', 'checkpoint', 'add-agent', ...fs.readdirSync(path.join(
           repoRoot, 'agentic/code/addons/aiwg-utils/skills',
         )).filter(name => name.startsWith('aiwg-regenerate'))].map(
         name => `agentic/code/addons/aiwg-utils/skills/${name}/SKILL.md`,
       ),
       'agentic/code/addons/schema-governance/skills/schema-author/SKILL.md',
+      'agentic/code/addons/dataset-intelligence/skills/dataset-ingest/SKILL.md',
+      'agentic/code/addons/nlp-prod/skills/prompt-engineer/SKILL.md',
+      'agentic/code/addons/nlp-prod/agents/prompt-engineer.md',
+      'agentic/code/addons/testing-quality/skills/flaky-fix/SKILL.md',
       'agentic/code/addons/aiwg-utils/rules/skill-discovery.md',
     ];
     for (const source of sources) {
@@ -40,7 +44,7 @@ describe('plain-language discovery relevance against shipped skills and competin
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.copyFileSync(path.join(repoRoot, source), target);
     }
-    expect(queries).toHaveLength(3);
+    expect(queries).toHaveLength(6);
     await buildIndex(tmp, { graph: 'framework', force: true });
     syncFortemiCoreIndex(tmp, { graph: 'framework' });
   }, 60_000);

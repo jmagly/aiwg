@@ -14,6 +14,15 @@ import type { Extension, CommandMetadata } from '../../../src/extensions/types.j
 
 describe('loader', () => {
   describe('loadRegistry', () => {
+    it('accepts entry-command handlers without requiring the complete handler table', async () => {
+      const { discoverHandler } = await import('../../../src/cli/handlers/subcommands-discovery.js');
+      const result = await loadRegistry({ handlers: [discoverHandler] });
+      expect(result.registry.resolveCommand('discover')).toBe('discover');
+      expect([...result.handlerMap.keys()]).toEqual(['discover']);
+      // Partial entry initialization must not poison a later normal registry.
+      expect((await loadRegistry()).handlerMap.has('help')).toBe(true);
+    });
+
     it('should load command definitions into a new registry', async () => {
       const result = await loadRegistry();
 

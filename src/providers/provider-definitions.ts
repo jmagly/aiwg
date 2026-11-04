@@ -79,6 +79,11 @@ function assertNoDuplicateAliases(definitions: ProviderDefinition[]): void {
   }
 }
 
+/** Deployment paths do not require loading the optional capability corpus. */
+export function listProviderDeploymentLayouts(): Array<Pick<BuiltInSeed, 'paths' | 'smithPaths'>> {
+  return BUILT_IN_SEEDS.map(({ paths, smithPaths }) => ({ paths, smithPaths }));
+}
+
 export function listProviderDefinitions(): ProviderDefinition[] {
   if (!cachedRegistry) {
     const definitions = BUILT_IN_SEEDS.map(buildDefinition);

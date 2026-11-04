@@ -41,7 +41,7 @@ import { readFile, access, readdir } from 'fs/promises';
 import { createHash } from 'crypto';
 import { resolve, join, isAbsolute } from 'path';
 import type { ProjectLocalType } from '../extensions/manifest.js';
-import { normalizeNamedCaptures } from '../artifacts/index-builder.js';
+import { normalizeNamedCaptures } from './index-graph-overrides.js';
 import {
   getProviderDefinition,
   getProviderKernelSkillPath,
