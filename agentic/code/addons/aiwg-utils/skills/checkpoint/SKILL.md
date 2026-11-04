@@ -141,6 +141,6 @@ If the user's intent is ambiguous:
 
 ## References
 
-- @$AIWG_ROOT/src/cli/handlers/subcommands.ts — Checkpoint command handler
+- @$AIWG_ROOT/src/cli/handlers/checkpoint.ts — Checkpoint command handler
 - @$AIWG_ROOT/docs/cli-reference.md — CLI reference
 - @$AIWG_ROOT/agentic/code/addons/aiwg-utils/skills/snapshot/SKILL.md — Full workflow snapshots (compare to checkpoints)
