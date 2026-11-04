@@ -57,3 +57,27 @@ entry and disjunctively across entries. Overlapping matches deploy once.
 rules and per-provider startup bytes; budget failures preserve prior config and
 deployment. See [operator rule pins](configuration/aiwg-config.md#operator-rule-pins)
 for config shape, scope precedence, and budget behavior.
+
+## `aiwg checkpoint` — workflow resume positions
+
+```bash
+aiwg checkpoint create --name t1 --phase construction --step tests \
+  --artifact docs/plan.md --artifact src/feature.ts --note "Continue validation"
+aiwg checkpoint list [--json]
+aiwg checkpoint recover [<id|name>] [--json]
+```
+
+`create` prints the new ID and saves lightweight JSON under
+`<artifact_root>/checkpoints/<id>.json`. The root uses the same resolver as
+`aiwg artifacts path`, including `AIWG_ARTIFACTS_PATH` and `.aiwg-location`.
+Unavailable external roots fail without falling back to local storage.
+All create options are optional; supplied options require values. The record
+contains `id`, optional `name`, ISO `createdAt`, `cwd`, `gitHead` when available,
+optional `phase`, `step`, `note`, and an `artifacts` array.
+
+`list` shows newest first (`--json` returns an array, including `[]` when empty).
+`recover` defaults to newest; an ID takes precedence over a name, and duplicate
+names select the newest match. It prints the saved record and resume position
+without changing repository files or restoring Git HEAD. `--json` returns the
+record object. Empty recovery, unknown IDs, and missing option values fail
+without prompting.
