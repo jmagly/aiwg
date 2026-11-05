@@ -57,6 +57,8 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 - `@aiwg/flue` requires MCP client 2.3.0. The Flue example apps override the MCP client, MCP SDK, MCP server and undici to fixed releases (client and server 2.3.0, SDK 1.32.0, undici 7.30.1) for the Flue 2.3.0 dependency advisories. The setup guide documents the overrides an app needs (#3821, PR #3829).
 
+- `@aiwg/flue` declares `@earendil-works/pi-ai` and `@earendil-works/pi-agent-core` peers at `~1.4.0`. Flue 2.3.0 fails to load with pi 1.5.0 (released 2026-11-02), so fresh installs of `@aiwg/flue` 2026.11.0 broke with "does not provide an export named 'Type'". A fresh install now resolves pi 1.4.x (#3885).
+
 - `@fortemi/core` now uses AIWG's zod 4.6.7 through an npm override, which fixes GHSA-mrhx-c7xc-m3w5 (memory exhaustion on oversized constrained collections) in the zod 3 copy it carried. No `@fortemi/core` release supports zod 4 yet; the override goes once one does (#3774, PR #3880).
 
 - The CLI and VS Code extension move to glob 14 and minimatch 11, which fixes GHSA-3g3m-2fjr-6pw4 and GHSA-g3hv-75wg-m249. Sub-project lockfiles now get the 7-day release-age gate (#3855).
