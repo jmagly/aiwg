@@ -10,6 +10,8 @@
     "directory": "packages/flue"
   },
   "peerDependencies": {
+    "@earendil-works/pi-agent-core": "~1.4.0",
+    "@earendil-works/pi-ai": "~1.4.0",
     "@flue/runtime": "2.3.x",
     "@modelcontextprotocol/client": "2.3.0",
     "valibot": "^1.1.0"

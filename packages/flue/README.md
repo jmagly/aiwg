@@ -5,7 +5,9 @@
 
 MIT bundle skills, specialist factories and remote/Node MCP helpers for Flue
 2.3.x. Peers are `@flue/runtime: 2.3.x`, `@modelcontextprotocol/client: 2.3.0`,
-and `valibot: ^1.1.0`. Install alongside your own Flue toolchain.
+`valibot: ^1.1.0`, and `@earendil-works/pi-ai` and `@earendil-works/pi-agent-core`
+at `~1.4.0`. Flue 2.3.0 does not load with pi 1.5.0, so the pi peers keep a fresh
+install on 1.4.x. Install alongside your own Flue toolchain.
 
 Add these overrides to your app's `package.json` before installing:
 

@@ -82,7 +82,10 @@ aiwg remove sdlc
 
 Install `@aiwg/flue` alongside your app's `@flue/runtime@2.3.0` and Flue build
 plugin. The MIT package declares peers `@flue/runtime: 2.3.x`,
-`@modelcontextprotocol/client: 2.3.0`, and `valibot: ^1.1.0`. Vite and
+`@modelcontextprotocol/client: 2.3.0`, `valibot: ^1.1.0`, and
+`@earendil-works/pi-ai` and `@earendil-works/pi-agent-core` at `~1.4.0`.
+Flue 2.3.0 fails to load with pi 1.5.0 (`does not provide an export named
+'Type'`), so the pi peers keep a fresh install on 1.4.x. Vite and
 other build dependencies belong to the app. The first npm publication requires
 an operator bootstrap; later releases follow the normal trusted publishing path.
 

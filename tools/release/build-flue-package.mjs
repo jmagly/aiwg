@@ -14,7 +14,7 @@ export function buildFluePackage({ outputDir = path.join(root, 'dist/packages/fl
   const pkg = JSON.parse(fs.readFileSync(path.join(source, 'package.json'), 'utf8'));
   const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
   if (pkg.name !== '@aiwg/flue' || pkg.version !== version) throw new Error(`@aiwg/flue version ${pkg.version} must exactly match root ${version}`);
-  if (pkg.dependencies || pkg.optionalDependencies || JSON.stringify(pkg.peerDependencies) !== JSON.stringify({ '@flue/runtime': '2.3.x', '@modelcontextprotocol/client': '2.3.0', valibot: '^1.1.0' })) throw new Error('@aiwg/flue must declare exactly its Flue 2.3.x, MCP client 2.3.0 and Valibot ^1.1.0 peers');
+  if (pkg.dependencies || pkg.optionalDependencies || JSON.stringify(pkg.peerDependencies) !== JSON.stringify({ '@earendil-works/pi-agent-core': '~1.4.0', '@earendil-works/pi-ai': '~1.4.0', '@flue/runtime': '2.3.x', '@modelcontextprotocol/client': '2.3.0', valibot: '^1.1.0' })) throw new Error('@aiwg/flue must declare exactly its Flue 2.3.x, pi 1.4.x, MCP client 2.3.0 and Valibot ^1.1.0 peers');
   const { bundles, skills } = fluePackageSkills(root);
   fs.rmSync(outputDir, { recursive: true, force: true });
   fs.mkdirSync(outputDir, { recursive: true });
