@@ -193,6 +193,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.11.1-announcement",
     "releases/v2026.11.0-announcement",
     "releases/v2026.10.19-announcement",
     "releases/v2026.10.18-announcement",
@@ -1651,6 +1652,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.11.1-announcement",
+      "title": "v2026.11.1 — Find the Right Skill and Save Your Place",
+      "summary": "Skill suggestions for new requests in Claude Code and Muse, checkpoints for long work, more dependable worker runs, and optional signed local merges through the Steward.",
+      "file": "releases/v2026.11.1-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.11.0-announcement",

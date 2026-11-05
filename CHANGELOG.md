@@ -7,24 +7,87 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.1] - 2026-11-06
+
+### Added
+
+- Prompt-time discovery hook. When a new request arrives in Claude Code or Muse, a read-only `aiwg discover` runs and the top 3 matching skills, plus the steps to load them, are added to the model's context. It skips short acknowledgements, option picks and slash commands, gives up silently after 1.5 s (`AIWG_PROMPT_DISCOVERY_TIMEOUT_MS`), and can be turned off with `AIWG_PROMPT_DISCOVERY=0`. Codex and Hermes are not covered yet (#3858, PR #3877).
+
+- Delivery settings for PRs and merges. `aiwg run skill aiwg-pr` opens and merges pull requests. `delivery.merge` chooses `local-signed`, `local` or `tracker` (default `tracker`), and tracker actors can reference a credential by store name or environment variable. Signed merges stay optional: with signing configured and no merge route set, a merge stops and asks the Steward to set one (#3862, PR #3876).
+
+- `aiwg checkpoint create`, `list` and `recover` store lightweight checkpoint records under the artifact root's `checkpoints/` folder. `create` takes `--name`, `--phase`, `--step`, repeatable `--artifact` and `--note`, and records the working directory and git HEAD when available. `list` shows the newest first (`--json` for machine output). `recover` reports where to resume and never changes the repository (#3860, PR #3873).
+
+- Opt-in conductor guard for worker-written code. Set `defaults.workerSelection.guards.denyConductorWorkerExecution: true` in `models.json` and redeploy Claude. The conductor hook then denies shell commands that run or import code from a worker tree, and points to `aiwg ralph-external --verify-worker`. Reads of worker diffs stay allowed. The guard is off by default (#3833, PR #3841).
+
+### Changed
+
+- The kernel skill-discovery rule now requires `aiwg discover` for every new directive, not only requests that mention AIWG, a framework, or words such as skill or workflow. Continuations of a directive already discovered are exempt (#3861, PR #3875).
+
+- `aiwg discover` is faster, quieter and ranks results better (#3859, PR #3874). A lookup took about 2.8 s under load and now takes about 1 s; the 500 ms target is not yet met. The stale relationship-table notice no longer prints on every call (it shows with `--verbose`, and real index errors still appear). A single shared trigger word no longer scores as a full match. Deployed skills are reported as installed. Session-continuity and test-repair intents are recognized. A usable prebuilt index is kept as shipped, so `aiwg use` no longer writes a per-root framework index beside it.
+
+- Address-issues status and escalation comments no longer end with an "Automated by AIWG" footer (#3819).
+
 ### Fixed
 
-- Preserve exited worker birth identity, recheck transient termination evidence within the existing budget, and retain missing-proof diagnostics under load (#3835).
+- Worker termination under load: a fast-exiting worker is confirmed as stopped instead of reported as uncertain, and transient unreadable-process checks are retried within the existing 2 s budget. A process group whose members are all zombies counts as terminated, and unreaped zombies no longer count as running outside spawn-time identity capture. The reason a termination proof stays unconfirmed is kept in the exit record (#3835, #3840, #3842, #3854).
 
-- Refuse flagless worker relaunches with open task predecessors and allow explicit brief/group corrections after verified owned-stop proof while preserving retry lineage (#3831).
-- Add opt-in conductor worker-execution checks (default off): set `defaults.workerSelection.guards.denyConductorWorkerExecution: true` in `models.json` and redeploy Claude to deny worker tests/imports with `aiwg ralph-external --verify-worker` guidance while allowing diff reads (#3833).
-- Preserve read-only per-attempt worker capture snapshots with verified digests and refuse capture or deliverable path reuse (#3832).
+- A flagless relaunch of a task is refused while that task's earlier attempt is unconfirmed, and the refusal names the open predecessor (`OPEN_TASK_PREDECESSOR`). A brief or group change after a failed attempt goes through `--retry-correction`, which requires owned-stop proof and records the old and new brief and group digests (#3831, #3836).
 
-- Index-mode flat artifact pruning now checks each receipt's bundle owners,
-  so upgrading verbalized-sampling removes its unchanged old
-  `content-diversifier` agent even while writing-quality still ships that name
-  (#3807). Manual deletion is no longer needed for unchanged, recorded copies.
-  Shared paths survive while any recorded owner still ships the stem; edited,
-  operator-owned, unrecorded and copy-mode files remain preserved.
+- Each worker attempt's stdout, stderr and output files are copied into a read-only `.captures-<run>` directory, and their digests are recorded in `exit.json`. A retry or launch that would reuse an earlier attempt's capture or output path is refused, even after the old files are deleted (#3832, #3843).
+
+- `aiwg ralph-external --launch-worker` rejects a relative `--invocation`, `--run-dir` or `--retry-of-run-dir` when parsing the command, and the error names the flag. Before, the launch created a run folder and then failed with an unnamed stack trace (#3857, PR #3865).
+
+- `aiwg models resolve` no longer blocks every group with "free disk not detectable" when the final-output folder does not exist yet. It checks free space on the nearest existing folder the output will land on (#3856, PR #3864).
+
+- `parallelism.max_parallel_subagents` counts only this workspace's workers and unattributed ones, so workers from other projects no longer use up this project's ceiling. `max_workers` and tuple caps still count every worker (#3848, PR #3850).
+
+- Workers are attributed to their workspace and group. Workers from other projects count only against host capacity, and workers from another group count only against that group, so they stop taking this workspace's review slot. A blocked admission reports `OG_HOST_ATTRIBUTION` or `OG_HOST_CAPACITY` and lists the counted workers (#3779, PR #3824).
+
+- Parallel `aiwg use` runs from different projects serialize writes to shared user-home provider paths. A waiting run reports that it is waiting and gives up after 120 seconds. A multi-provider deployment continues after one provider fails and reports each provider's result (#3802, PR #3823).
+
+- `aiwg update all` no longer runs out of memory when the project root is the home directory. Ownership snapshots keep file bytes only where they are needed, and other provider data is recorded by file metadata (#3846, PR #3847).
+
+- Ralph loops keep running through unreadable snapshot files, which are recorded as partial-snapshot warnings, and through setup failures before the worker starts, which are retried once. A loop stops on a repeated identical failure. Prompt templates now ship in the npm package (#3792, PR #3818).
+
+- The Node Flue example no longer crashes at startup in package mode. Its skills load through generated imports (#3822, PR #3828).
+
+- Index-mode upgrades remove stale flat artifacts by their recorded bundle owner. Upgrading verbalized-sampling removes its unchanged old `content-diversifier` agent even while writing-quality still ships that name, so manual deletion is no longer needed for unchanged, recorded copies. A shared name survives while any recorded owner still ships it. Edited, operator-owned, unrecorded and copy-mode files are kept (#3807, PR #3830).
 
 ### Dependencies
 
-- Require MCP client 2.3.0 for `@aiwg/flue` and document app overrides for the Flue 2.3.0 dependency advisories (#3821).
+- `@aiwg/flue` requires MCP client 2.3.0. The Flue example apps override the MCP client, MCP SDK, MCP server and undici to fixed releases (client and server 2.3.0, SDK 1.32.0, undici 7.30.1) for the Flue 2.3.0 dependency advisories. The setup guide documents the overrides an app needs (#3821, PR #3829).
+
+- `@fortemi/core` now uses AIWG's zod 4.6.7 through an npm override, which fixes GHSA-mrhx-c7xc-m3w5 (memory exhaustion on oversized constrained collections) in the zod 3 copy it carried. No `@fortemi/core` release supports zod 4 yet; the override goes once one does (#3774, PR #3880).
+
+- The CLI and VS Code extension move to glob 14 and minimatch 11, which fixes GHSA-3g3m-2fjr-6pw4 and GHSA-g3hv-75wg-m249. Sub-project lockfiles now get the 7-day release-age gate (#3855).
+
+### Documentation
+
+- The workspace guide states the signed local merge policy for this repository and records the one accepted exception (#3839).
+
+- The workspace guide describes the tag-push release route that publishes to npm.
+
+- The worker attribution guide links to the Install, Connect, and Verify onboarding page, which fixes the documentation audience check on main (#3826).
+
+### CI/Testing
+
+- The worker launch tests' fake worker waits for ownership up to the launcher's hard timeout instead of a fixed 2 s, and reports the last record it saw when it gives up (#3878, PR #3879).
+
+- Package file budget raised from 8,000 to 8,800 files, because the shipped discovery corpus includes blog posts. Packed and unpacked size limits are unchanged. The crash marker used by the default tests is now written atomically (#3811).
+
+- The provider deployment test lane runs in two serial shards in CI, so each shard stays under the hang-report limit (#3812).
+
+- Package-install tests reuse the packaging job's npm cache (#3814).
+
+- The Gitea npm mirror exempts the four first-party packages from the release-age gate at their exact released version, so a mirror fetch right after a release no longer fails with ETARGET (#3813).
+
+- Bundle reconciliation CLI tests run in about 275 s instead of about 1,100 s on titan, with the same 15 cases (#3810, closes #3808).
+
+- The root-run unit suite asserts that capture-seal tampering is detected, since root ignores the read-only permissions (#3844).
+
+- The ENS-RUN-04 decision tests keep their non-timeout cases off the 10 ms real-time deadline (#3834).
+
+- The T-OG-13 registry pins the ralph resilience tests (#3825).
 
 ## [2026.11.0] - 2026-11-01
 
