@@ -22,7 +22,7 @@ export async function workerInvocationFixture({ stdin = 'closed', scenario = 'su
   const final = path.join(root, 'final.json');
   const configPath = path.join(root, 'fake.json');
   const recordPath = path.join(cwd, 'record.json');
-  await writeFile(configPath, JSON.stringify({ scenario, recordPath, ...(waitForIdentity ? { waitForIdentity: path.join(runDir, 'process.json') } : {}), ...(stdoutOnly ? { outputFlags: [] } : {}),
+  await writeFile(configPath, JSON.stringify({ scenario, recordPath, ...(waitForIdentity ? { waitForIdentity: path.join(runDir, 'process.json'), waitForIdentityMs: hardTimeoutSeconds * 1000 } : {}), ...(stdoutOnly ? { outputFlags: [] } : {}),
     ...(scenario === 'forge-exit' ? { forgeRunDir: runDir, forgeRealExitCode: forgeRealExitCode ?? 7 } : {}) }));
   vi.stubEnv('AIWG_FAKE_WORKER_CONFIG', configPath);
   vi.stubEnv('AIWG_SYNTHETIC_ALLOWED', 'secret-environment-value');

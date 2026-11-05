@@ -32,16 +32,25 @@ writeFileSync(settings.recordPath, JSON.stringify({
 }));
 
 // Selected containment tests keep the fake worker alive until kernel ownership is recorded.
+// The wait is readiness, not a latency check: callers pass the launcher's hard timeout
+// (waitForIdentityMs) so a loaded runner is not mistaken for a failed capture (#3878).
 if (settings.waitForIdentity) {
+  const limitMs = settings.waitForIdentityMs ?? 2000;
+  const deadline = Date.now() + limitMs;
   let owned = false;
-  for (let n = 0; n < 200 && !owned; n++) {
+  let last = 'no record read';
+  while (!owned && Date.now() < deadline) {
     try {
       const record = JSON.parse(readFileSync(settings.waitForIdentity, 'utf8'));
+      last = JSON.stringify({ workerPid: record.worker?.pid ?? null, identityObservation: record.identityObservation ?? null });
       owned = record.worker?.pid === process.pid && record.identityObservation === 'stable-owned-group';
-    } catch { /* The launcher may still be publishing the record. */ }
+    } catch (error) { last = `unreadable: ${error.code ?? error.message}`; /* The launcher may still be publishing the record. */ }
     if (!owned) await new Promise(resolve => setTimeout(resolve, 10));
   }
-  if (!owned) throw new Error('Synthetic worker ownership was not observed within two seconds');
+  if (!owned) {
+    process.stderr.write(`synthetic worker ${process.pid}: last process record ${last}\n`);
+    throw new Error(`Synthetic worker ownership was not observed within ${limitMs} ms`);
+  }
 }
 
 const final = JSON.stringify({ type: 'result', result: claims(settings.worker) });

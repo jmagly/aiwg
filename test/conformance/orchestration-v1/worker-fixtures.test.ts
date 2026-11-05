@@ -131,6 +131,24 @@ describe('S0 reusable fake CLI mechanics (T-OG-03/15; no provider qualification)
     }
   });
 
+  // #3878: the ownership wait honours the caller's limit and says what it last saw.
+  it('fails an unobserved ownership wait after waitForIdentityMs and reports the last record', async () => {
+    const settings = setup('success');
+    const processRecord = path.join(settings.root, 'process.json');
+    writeFileSync(settings.configPath, JSON.stringify({ ...JSON.parse(readFileSync(settings.configPath, 'utf8')),
+      waitForIdentity: processRecord, waitForIdentityMs: 300 }));
+    writeFileSync(processRecord, JSON.stringify({ worker: { pid: 1 }, identityObservation: 'no-stable-owned-group' }));
+    const running = launch('cli', settings);
+    running.child.stdin.end('synthetic input');
+    expect(await running.closed).toEqual({ code: 1, signal: null });
+    const { stdout, stderr, timedOut } = running.output();
+    expect(timedOut).toBe(false);
+    expect(stdout).toBe('');
+    expect(stderr).toContain('last process record {"workerPid":1,"identityObservation":"no-stable-owned-group"}');
+    expect(stderr).toContain('Synthetic worker ownership was not observed within 300 ms');
+    expect(existsSync(settings.final)).toBe(false);
+  });
+
   it('hangs after EOF until the fixture-owned watchdog terminates it', async () => {
     const settings = setup('hang');
     const running = launch('cli', settings, [], 1_500);
