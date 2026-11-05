@@ -553,5 +553,10 @@
     "tsx": "^4.23.12",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "@fortemi/core": {
+      "zod": "$zod"
+    }
   }
 }
