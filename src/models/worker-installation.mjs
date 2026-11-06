@@ -754,7 +754,7 @@ async function qualificationSignatureFailure(record, trust) {
  * This is historical evidence, not current launch authority; loadRecordedWorkerInstallations
  * performs binary/version/scope checks when dispatch actually requests a binding.
  */
-export async function inspectRecordedWorkerQualifications({ cwd, policy, parallelism }) {
+export async function inspectRecordedWorkerQualifications({ cwd, policy, parallelism, includeInputs = false }) {
   const filename = installationStorePath();
   await assertTrustedStore(filename, [cwd]);
   const { stored } = await readInstallationStore(filename);
@@ -776,7 +776,8 @@ export async function inspectRecordedWorkerQualifications({ cwd, policy, paralle
       if (!proof || ['scopeDigest', 'fixtureDigest', 'verifiedAt', 'evidenceRef'].some(key => proof[key] !== installation.evidence?.[key])) continue;
       if (await qualificationSignatureFailure(record, () => qualificationTrust(cwd))) continue;
       await assertWorkerInstallationEvidence({ ...installation, adapter, now: Date.now(), policy }, proof.scopeDigest);
-      results.push({ cli, provider: adapter.provider });
+      results.push({ cli, provider: adapter.provider, ...(includeInputs
+        ? { binding: structuredClone(binding), adapter: structuredClone(adapter), observations: structuredClone(record.modelObservations) } : {}) });
     } catch { /* Malformed, expired or unbound evidence is not qualification. */ }
   }
   return results.filter(row => results.filter(other => row.cli === other.cli).length === 1);

@@ -163,7 +163,18 @@ export function diagnoseWorkerHealthReadiness(snapshot: WorkerPlanSnapshot,
   }
   const sharedDiagnostics = new Map<string, WorkerHealthReadinessFinding>();
   for (const role of roles) {
-    const plan = resolveWorkerPlan(snapshot, { ...request, role: role as WorkerPlanRequest['role'] });
+    const roleRequest = { now: request.now, context: request.context, role,
+      taskClass: Object.entries(snapshot.models.defaults.workerSelection?.taskClasses ?? {})
+        .find(([, taskRole]) => taskRole === role)?.[0] };
+    let plan = resolveWorkerPlan(snapshot, roleRequest);
+    let pendingAuthorization = false;
+    if (!plan.selected && plan.exclusions.some(item => item.diagnostics.some(diagnostic =>
+      diagnostic.code === 'OG_MODEL_UNAPPROVED' && diagnostic.pointer === '/request/authority'))) {
+      // Counterfactual offline check only: never return a launch plan or grant authority.
+      const authorized = resolveWorkerPlan(snapshot, { ...roleRequest,
+        authority: { premiumAuthorized: true, maxAutoTier: 3 } });
+      if (authorized.selected) { plan = authorized; pendingAuthorization = true; }
+    }
     const isRequired = required.has(role as 'efficiency' | 'coding' | 'reasoning');
     const diagnostics = [
       ...plan.diagnostics.map(diagnostic => ({ diagnostic, members: membersFor(diagnostic.pointer, role) })),
@@ -225,10 +236,13 @@ export function diagnoseWorkerHealthReadiness(snapshot: WorkerPlanSnapshot,
           message: 'Profile has degraded or unobserved health coverage; progress and stop evidence may be unavailable.',
           nextAction: 'qualify-health-signals' }, [`${tuple.group}/${tuple.member}`]);
       }
-      add({ code: 'WORKER_ROLE_ELIGIBLE', status: 'ok', role,
+      add({ code: pendingAuthorization ? 'WORKER_ROLE_PENDING_AUTHORIZATION' : 'WORKER_ROLE_ELIGIBLE',
+        status: pendingAuthorization ? 'warn' : 'ok', role,
         pointer: `/defaults/workerSelection/roleGuidance/${role}`,
-        message: 'Policy route is eligible; launch still requires current installation and task qualification.',
-        nextAction: 'resolve-current-task' }, [`${tuple.group}/${tuple.member}`]);
+        message: pendingAuthorization
+          ? 'Role is ready pending authorization; --authorize-premium requires explicit operator confirmation before resolving a launch.'
+          : 'Policy route is eligible; launch still requires current installation and task qualification.',
+        nextAction: pendingAuthorization ? 'confirm-premium-with-operator' : 'resolve-current-task' }, [`${tuple.group}/${tuple.member}`]);
     } catch {
       if (isRequired) report.ready = false;
       add({ code: 'WORKER_HEALTH_UNQUALIFIED', status: isRequired ? 'error' : 'warn', role,

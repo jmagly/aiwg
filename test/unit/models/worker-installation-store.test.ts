@@ -47,6 +47,9 @@ describe('qualification store permission repair', () => {
     const fileReads = vi.spyOn(fs, 'readFile');
     reads.mockClear(); fileReads.mockClear();
     expect(await inspectRecordedWorkerQualifications(input)).toEqual([{ cli: 'codex', provider: 'codex' }]);
+    expect(await inspectRecordedWorkerQualifications({ ...input, includeInputs: true })).toEqual([
+      { cli: 'codex', provider: 'codex', binding: record.binding, adapter, observations: undefined },
+    ]);
     expect(spawn).not.toHaveBeenCalled();
     expect(reads.mock.calls.map(([name]) => String(name))).toContain(file);
     // Only public trust is needed to project historical qualifications.

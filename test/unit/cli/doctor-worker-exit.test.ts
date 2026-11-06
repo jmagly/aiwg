@@ -3,6 +3,7 @@ import { access, chmod, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { doctorWorkerCliFixture } from '../../helpers/doctor-worker-cli.js';
+import { installedHostResourceReaders } from '../../helpers/host-resource-handler.js';
 
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
@@ -13,6 +14,43 @@ async function fixture() {
 }
 
 describe('explicit doctor qualification exit status (#3690)', () => {
+  it('#3906 plain doctor recognizes qualified roles and reports premium authorization', async () => {
+    const f = await fixture();
+    const roles = ['efficiency', 'coding', 'reasoning'];
+    const doctorHealthFile = path.join(f.installed, 'tools/cli/doctor-worker-health.mjs');
+    const doctorHealth = await readFile(doctorHealthFile, 'utf8');
+    expect(doctorHealth).toContain('hostResources: readLiveHostResources({ paths: [cwd]');
+    await writeFile(doctorHealthFile, doctorHealth.replace('hostResources: readLiveHostResources({ paths: [cwd]',
+      `hostResources: readLiveHostResources({ ...${installedHostResourceReaders()}, paths: [cwd]`));
+    const configFile = path.join(f.project, '.aiwg/aiwg.config');
+    const config = JSON.parse(await readFile(configFile, 'utf8'));
+    config.parallelism.groups.workers.requiredRoles = roles;
+    config.parallelism.groups.workers.members[0].roles = roles;
+    await writeFile(configFile, JSON.stringify(config));
+    const modelsFile = path.join(f.project, 'models.json');
+    const models = JSON.parse(await readFile(modelsFile, 'utf8'));
+    for (const role of roles) models.defaults.workerSelection.roleGuidance[role] = {
+      ...models.defaults.workerSelection.roleGuidance.coding, tier: role === 'reasoning' ? 'premium' : 'standard' };
+    await writeFile(modelsFile, JSON.stringify(models));
+    const qualified = await f.run(['doctor', '--probe-workers', '--qualify', '--yes', '--json']);
+    expect(qualified.code, qualified.stdout + qualified.stderr).toBe(0);
+    expect(JSON.parse(qualified.stdout).qualification.status).toBe('recorded');
+    expect((await f.resolve()).code).toBe(0);
+    // Plain doctor must use offline evidence: a subsequent CLI probe would fail.
+    await writeFile(path.join(f.root, 'fake-bin/codex'), `#!${process.execPath}\nprocess.exit(91);\n`);
+    const result = await f.run(['doctor']);
+    expect(result.code, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).not.toContain('WORKER_ROLE_NOT_READY');
+    expect(result.stdout).toContain('WORKER_ROLE_PENDING_AUTHORIZATION');
+    expect(result.stdout).toContain('--authorize-premium requires explicit operator confirmation');
+    expect(result.stdout).toContain('⚠ Worker Health (reasoning): WORKER_ROLE_PENDING_AUTHORIZATION');
+    // Changing the configured model cannot borrow the previous model's approval.
+    config.parallelism.groups.workers.members[0].model = 'unqualified-model';
+    await writeFile(configFile, JSON.stringify(config));
+    const unqualified = await f.run(['doctor']);
+    expect(unqualified.stdout).toContain('✗ Worker Health (coding): WORKER_ROLE_NOT_READY');
+  });
+
   it.each([true, false])('fails for writable installed code (JSON: %s)', async json => {
     const f = await fixture();
     const manifest = path.join(f.installed, 'package.json');

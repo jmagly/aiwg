@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { diagnoseWorkerHealthReadiness, formatWorkerHealthReadinessFinding, workerHealthConfigurationFindings } from '../../../src/models/worker-health-readiness.js';
 import { unqualifiedWorkerRolesFixture, workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { workerConfigDigest, validateParallelismConfig } from '../../../src/config/aiwg-config.js';
+import { resolveWorkerPlan } from '../../../src/models/worker-plan.js';
 
 // T-OG-12 / #2913 S1: synthetic offline inputs, no credentials, inference,
 // spawned process, MC/admission store or fixture cleanup side effects.
@@ -85,6 +86,60 @@ const hazards: Array<{ name: string; seed: (f: Fixture) => void; code: string; p
 ];
 
 describe('T-OG-12 offline worker health readiness (S1 mapping)', () => {
+  it.each([false, true])('#3906 resolves qualified roles using the configured task classes (custom: %s)', custom => {
+    const f = fixture();
+    const roles = ['efficiency', 'coding', 'reasoning'] as const;
+    const group = f.snapshot.config.parallelism!.groups!.workers;
+    group.requiredRoles = [...roles];
+    group.members[0].roles = [...roles];
+    const policy = f.snapshot.models.defaults.workerSelection!;
+    for (const role of roles) policy.roleGuidance![role] = structuredClone(policy.roleGuidance!.coding);
+    if (custom) policy.taskClasses = { scan: 'efficiency', patch: 'coding', design: 'reasoning' };
+    // The public doctor request has no task class; a caller's extra task must not leak between roles.
+    const request = custom ? f.request : { now: f.request.now, context: f.request.context };
+    const before = workerConfigDigest(f.snapshot);
+    const report = diagnoseWorkerHealthReadiness(f.snapshot, request, paths);
+    expect(report.ready).toBe(true);
+    expect(report.findings.filter(row => row.code === 'WORKER_ROLE_NOT_READY')).toEqual([]);
+    expect(report.findings.filter(row => row.code === 'WORKER_ROLE_ELIGIBLE').map(row => row.role).sort()).toEqual([...roles].sort());
+    expect(workerConfigDigest(f.snapshot)).toBe(before);
+  });
+
+  it.each(['tier', 'pricing'] as const)('#3906 reports premium %s authority as pending operator confirmation', source => {
+    const f = fixture();
+    if (source === 'tier') f.snapshot.models.defaults.workerSelection!.roleGuidance!.coding.tier = 'premium';
+    else for (const row of f.snapshot.catalog.discovery!.instances!.codex.models) row.worker!.pricing.costClass = 'premium';
+    const before = workerConfigDigest(f.snapshot);
+    const report = diagnoseWorkerHealthReadiness(f.snapshot, { now: f.request.now, context: f.request.context }, paths);
+    expect(report.ready).toBe(true);
+    expect(report.findings.filter(row => row.status === 'error')).toEqual([]);
+    expect(report.findings).toContainEqual(expect.objectContaining({ role: 'coding', status: 'warn',
+      code: 'WORKER_ROLE_PENDING_AUTHORIZATION', message: expect.stringContaining('--authorize-premium requires explicit operator confirmation'),
+      nextAction: 'confirm-premium-with-operator' }));
+    expect(report.thresholds).toHaveLength(1);
+    expect(resolveWorkerPlan(f.snapshot, f.request).selected).toBeNull();
+    expect(workerConfigDigest(f.snapshot)).toBe(before);
+  });
+
+  it.each(['qualification', 'installation', 'effort', 'step-cap', 'flagship'] as const)(
+    '#3906 retains errors when premium authority is accompanied by a %s blocker', blocker => {
+      const f = fixture();
+      const guidance = f.snapshot.models.defaults.workerSelection!.roleGuidance!.coding;
+      guidance.tier = 'premium';
+      if (blocker === 'qualification') for (const row of f.snapshot.catalog.discovery!.instances!.codex.models) row.worker!.qualification.status = 'unqualified';
+      if (blocker === 'installation') f.snapshot.installations = {};
+      if (blocker === 'effort') { guidance.initialEffort = 'ultra'; guidance.effortLadder = ['ultra']; }
+      if (blocker === 'step-cap') {
+        f.snapshot.config.parallelism!.health = { requireStepCap: true };
+        f.snapshot.registry.providers.codex.workerAdapter!.invocationProfiles!['fixture-shell'].controls.stepCap.support = 'not-applicable';
+      }
+      if (blocker === 'flagship') guidance.tier = 'flagship';
+      const report = diagnoseWorkerHealthReadiness(f.snapshot, f.request, paths);
+      expect(report.ready).toBe(false);
+      expect(report.findings.filter(row => row.status === 'error')).not.toHaveLength(0);
+      expect(report.findings.filter(row => row.code === 'WORKER_ROLE_PENDING_AUTHORIZATION')).toEqual([]);
+    });
+
   it.each(hazards)('T-OG-12-health-14 reports full repair context for $name', hazard => {
     const f = fixture();
     // Make policy ownership explicit, as the real config loader does.
