@@ -1,6 +1,5 @@
 import { lstat, mkdir, open, readdir, readFile, realpath, rename } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { workspaceDirectoryMode, workspaceFileMode } from '../../utils/workspace-permissions.mjs';
 import { heldoutDigest, HeldoutError, heldoutRequest, heldoutReservationMicros, heldoutReservationTokens, validateHeldoutAttempt, validateHeldoutBundle, checkHeldoutSchema, HELDOUT_CAP_USD, HELDOUT_PORTFOLIO_CAP_USD } from './contract.js';
 import type { Digest, HeldoutApproval, HeldoutAttempt, HeldoutBundle, HeldoutEvent, HeldoutSummary } from './types.js';
 
@@ -142,11 +141,11 @@ export async function reconcileHeldoutBaseline(root: string, approval: HeldoutAp
 }
 /** Reject symlinked journal ancestors as well as leaves: spend cannot be redirected to another root. */
 export async function heldoutDirectory(path: string): Promise<void> {
-  await mkdir(path, { recursive: true, mode: workspaceDirectoryMode(path) });
+  await mkdir(path, { recursive: true, mode: 0o700 });
   if (await realpath(path) !== resolve(path)) throw new HeldoutError('artifact-symlink');
 }
 export async function writeHeldoutFile(path: string, value: unknown): Promise<void> {
-  const file = await open(path, 'wx', workspaceFileMode(path));
+  const file = await open(path, 'wx', 0o600);
   try { await file.writeFile(JSON.stringify(value) + '\n'); await file.sync(); } finally { await file.close(); }
   const directory = await open(dirname(path), 'r');
   try { await directory.sync(); } finally { await directory.close(); }

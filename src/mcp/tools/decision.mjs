@@ -84,7 +84,6 @@ const SYNTHETIC_SETUP = z.looseObject({
   files: z.record(z.string(), z.unknown()),
 });
 const ASK = z.looseObject({
-  ledger: z.string().startsWith('skipped:').optional(),
   schema: z.literal('aiwg-decision-ask/v1'),
   status: z.enum(['answered', 'fallback']),
   answer: z.union([z.string(), z.boolean(), number()]).nullable(),
