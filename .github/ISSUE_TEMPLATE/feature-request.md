@@ -1,5 +1,6 @@
 ---
 name: Feature Request
+description: Feature request issue template for proposing a capability, explaining motivation, alternatives, scope, and acceptance criteria.
 about: Propose a new capability or enhancement
 title: 'feat(<area>): <one-line summary>'
 labels: ['enhancement']

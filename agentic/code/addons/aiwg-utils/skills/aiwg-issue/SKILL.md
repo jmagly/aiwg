@@ -52,16 +52,22 @@ Non-triggers:
 - "address issues"
 - "process open issues"
 
-## Template selection
+## Output template
+
+The selected template is required. Fill every required section before filing;
+mark non-applicable optional fields with a reason and remove template instructions.
+
+### Template selection
 
 | Template | When to use | Path |
 |---|---|---|
-| `bug-report.md` | One concrete defect with a reproduction | `.gitea/ISSUE_TEMPLATE/bug-report.md` |
-| `feature-request.md` | A new capability or enhancement proposal | `.gitea/ISSUE_TEMPLATE/feature-request.md` |
-| `tester-report.md` | A single session that surfaced multiple findings | `.gitea/ISSUE_TEMPLATE/tester-report.md` |
-| `imported-report.md` | Mirroring an issue filed in a different tracker | `.gitea/ISSUE_TEMPLATE/imported-report.md` |
+| `bug-report.md` | One concrete defect with a reproduction | @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/bug-report.md |
+| `feature-request.md` | A new capability or enhancement proposal | @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/feature-request.md |
+| `tester-report.md` | A single session that surfaced multiple findings | @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/tester-report.md |
+| `imported-report.md` | Mirroring an issue filed in a different tracker | @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/imported-report.md |
 
-Templates exist in both `.gitea/ISSUE_TEMPLATE/` (for Gitea) and `.github/ISSUE_TEMPLATE/` (for the GitHub mirror). Pick the one matching the target tracker; the content is identical.
+These bundle templates are canonical. The repository `.gitea/ISSUE_TEMPLATE/` and
+`.github/ISSUE_TEMPLATE/` files are derived copies maintained by `npm run package-plugins`.
 
 ## The walkthrough
 
@@ -211,7 +217,7 @@ environment token discovery. PR delivery uses the same actor via `aiwg-pr`.
 ## Related
 
 - Skills: `aiwg-pr` (filing PRs), `steward-prep-delivery` (interactive walkthrough), `issue-create` (low-level filing), `issue-auto-sync` (commit↔issue linking)
-- Templates: `.gitea/ISSUE_TEMPLATE/`, `.github/ISSUE_TEMPLATE/`
+- Templates: required canonical bundle paths in "Output template" above
 - Docs: `CONTRIBUTING.md` (full contributor guide)
 - Rules: `delivery-policy`, `no-attribution`, `ops-issue-tracking`
 - Origin: #1269 (templates), #1264–#1268 (tester report sweep that motivated this)

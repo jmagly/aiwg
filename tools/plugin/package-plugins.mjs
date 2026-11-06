@@ -19,6 +19,7 @@ import os from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { importImpl } from '../_resolve-impl.mjs';
 import { rewritePublishedMarkdown, reportPluginLinks } from './plugin-links.mjs';
+import { syncIssueTemplateCopies } from './issue-template-copies.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +42,7 @@ const PLUGIN_CONFIGS = {
       skills: 'agentic/code/frameworks/sdlc-complete/skills'
     },
     extraCopy: [
+      { from: 'agentic/code/frameworks/sdlc-complete/templates/issue-comments', to: 'templates/issue-comments' },
       ...['threat-assessment.mjs', 'threat-assessment'].map(name => ({ from: `tools/security/${name}`, to: `tools/security/${name}` })),
       { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-architecture-evolution.playbook.yaml', to: 'flows/flow-architecture-evolution.playbook.yaml' },
       { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-release.playbook.yaml', to: 'flows/flow-release.playbook.yaml' }
@@ -240,7 +242,9 @@ Writing quality validation and AI pattern detection.
       { from: 'agentic/code/addons/aiwg-utils/rules/skill-discovery.md', to: 'rules/skill-discovery.md' },
       { from: 'agentic/code/addons/aiwg-utils/rules/skill-discovery-guidance.md', to: 'rules/skill-discovery-guidance.md' },
       { from: 'agentic/code/addons/aiwg-utils/rules/cli-secondary.md', to: 'rules/cli-secondary.md' },
-      { from: 'agentic/code/addons/aiwg-utils/templates/subagent-brief.md', to: 'templates/subagent-brief.md' }
+      { from: 'agentic/code/addons/aiwg-utils/templates/subagent-brief.md', to: 'templates/subagent-brief.md' },
+      { from: 'agentic/code/addons/aiwg-utils/templates/issues', to: 'templates/issues' },
+      { from: 'agentic/code/addons/aiwg-utils/templates/pull-requests', to: 'templates/pull-requests' }
     ],
     readme: `# AIWG Utilities
 
@@ -294,6 +298,7 @@ Core AIWG utilities for context regeneration and workspace management.
       skills: 'agentic/code/frameworks/sdlc-complete/skills'
     },
     extraCopy: [
+      { from: 'agentic/code/frameworks/sdlc-complete/templates/issue-comments', to: 'templates/issue-comments' },
       { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-architecture-evolution.playbook.yaml', to: 'flows/flow-architecture-evolution.playbook.yaml' },
       { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-release.playbook.yaml', to: 'flows/flow-release.playbook.yaml' }
     ],
@@ -1192,9 +1197,9 @@ function writeCodexMarketplaceManifest(options) {
 // rewrites and skill pruning. Only default Claude-owned paths are checked:
 // provider-native metadata and separately maintained templates are preserved.
 export function checkPackagedPlugins({ pluginsDir = PLUGINS_DIR,
-  marketplacePath = path.join(ROOT_DIR, '.claude-plugin/marketplace.json') } = {}) {
+  marketplacePath = path.join(ROOT_DIR, '.claude-plugin/marketplace.json'), trackerRoot = ROOT_DIR } = {}) {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-plugin-check-'));
-  const differences = [];
+  const differences = syncIssueTemplateCopies(trackerRoot, { check: true });
   function files(root) {
     if (!fs.existsSync(root)) return [];
     if (!fs.statSync(root).isDirectory()) return [''];
@@ -1338,6 +1343,7 @@ async function main() {
   }
 
   // Package for each (provider, plugin) combination
+  if (options.all) syncIssueTemplateCopies(ROOT_DIR, options);
   for (const provider of providersToRun) {
     for (const [name, config] of pluginsToPackage) {
       // Provider-specific bundles are not part of another provider's catalog.

@@ -21,6 +21,12 @@ triggers:
 
 You are helping a user (or yourself, as an autonomous agent) open a high-quality AIWG product/workspace pull request. The bar is set by the project's `delivery-policy` and `no-attribution` rules.
 
+## Output template
+
+Required: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/pull-requests/description.md.
+Fill every required section: Summary, Cause, Changes, Verification (exact commands
+and pass/fail counts), Related issues, and Risk and rollback before posting.
+
 ## Routing Boundary
 
 Use this skill only when the user is doing AIWG-specific delivery: AIWG repository work, an AIWG release/change PR, or any task that explicitly asks for AIWG delivery policy. Do not use `aiwg-pr` for ordinary repository pull request work. Generic requests like "open a PR for this repo", "create a pull request", or "review this PR" should use the host repository's normal git/Gitea/GitHub PR tools and templates unless the user names AIWG delivery.
@@ -152,8 +158,8 @@ Git push is used. Failures stop; there is no automatic force push.
 aiwg run skill aiwg-pr -- open --title '<title>' --body-file /tmp/pr-body.md --commit-message-file /tmp/commit-message.txt
 ```
 
-Use the repository PR template and include linked issues, changes, verification,
-and risk/rollback. `remotes.tracker_actor.credential` selects an existing
+Use the required output template above, including cause, linked issues, changes,
+verification commands and counts, and risk/rollback. `remotes.tracker_actor.credential` selects an existing
 sensitive-input reference (`{"store":"tracker-token"}` or
 `{"env":"PROJECT_TRACKER_TOKEN"}`). Before every API write, the API user must
 match `tracker_actor.login` and must not appear in `forbid_actors`. Tokens stay
@@ -249,7 +255,7 @@ If the verification gates fail and you can't fix them in 3 attempts, **escalate*
 ## Related
 
 - Skills: `aiwg-issue` (filing issues), `steward-prep-delivery` (interactive walkthrough), `issue-create` (low-level filing), `issue-auto-sync` (commit↔issue linking), `address-issues` (issue-driven loops)
-- Templates: `.gitea/pull_request_template.md`, `.github/pull_request_template.md`
+- Template: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/pull-requests/description.md
 - Docs: `CONTRIBUTING.md` (full contributor guide)
 - Rules: `delivery-policy` (kernel), `no-attribution` (kernel), `anti-laziness`, `dev-pipeline-safety`, `ci-green-before-done`
 - Origin: #1269 (templates), #1264–#1268 (tester report sweep that motivated this)

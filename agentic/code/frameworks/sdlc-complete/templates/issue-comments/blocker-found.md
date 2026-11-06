@@ -1,3 +1,8 @@
+---
+name: blocker-found
+description: Post a blocker found comment on an issue with cause, impact, attempted resolutions, recommended action, and escalation.
+---
+
 # Blocker Found Comment Template
 
 ## Blocker Alert

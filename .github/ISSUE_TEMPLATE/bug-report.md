@@ -1,5 +1,6 @@
 ---
 name: Bug Report
+description: Write a bug report issue with environment, exact reproduction commands, expected and actual behavior, and acceptance criteria.
 about: Report a defect with a clear reproduction
 title: 'bug(<area>): <one-line summary>'
 labels: ['bug']

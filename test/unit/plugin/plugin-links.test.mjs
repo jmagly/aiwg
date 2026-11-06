@@ -155,7 +155,7 @@ describe('plugin payload links (#3204)', () => {
     expect(all.status, all.stderr).toBe(0);
     const { parent } = fixture();
     for (const file of ['package.json', 'tools/_resolve-impl.mjs',
-      'tools/plugin/package-plugins.mjs', 'tools/plugin/plugin-links.mjs']) {
+      'tools/plugin/package-plugins.mjs', 'tools/plugin/plugin-links.mjs', 'tools/plugin/issue-template-copies.mjs']) {
       fs.mkdirSync(path.dirname(path.join(parent, file)), { recursive: true });
       fs.copyFileSync(path.resolve(file), path.join(parent, file));
     }
