@@ -1703,7 +1703,7 @@ async function handleDiscover(args: string[]): Promise<void> {
     console.error('Error: aiwg index discover requires a search phrase');
     console.log('');
     console.log(
-      'Usage: aiwg index discover "<phrase>" [--type <kinds>] [--limit N] [--json|--format json|text] [--pretty|--compact] [--graph <name>] [--backend local|fortemi-core] [--resource-source local|web|auto] [--aiwg-version <version|range|digest|channel>] [--offline]',
+      'Usage: aiwg index discover "<phrase>" [--type <kinds>] [--limit N] [--json|--format json|text] [--pretty|--compact] [--graph <name>] [--backend local|fortemi-core] [--resource-source local|web|auto] [--aiwg-version <version|range|digest|channel>] [--offline] [--no-build (read cached local metadata only)]',
     );
     console.log('');
     console.log('Examples:');
@@ -1756,6 +1756,7 @@ async function handleDiscover(args: string[]): Promise<void> {
     offline,
     webReleaseOptions,
     includePaths: false,
+    noBuild: flags.includes('--no-build'),
     verbose: flags.includes('--verbose') || flags.includes('--debug'),
   });
 }

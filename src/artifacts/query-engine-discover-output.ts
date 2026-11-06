@@ -22,7 +22,7 @@ import {
   statsText,
 } from './query-engine-rules.js';
 import { type LexicalScoreDiagnostic, tokenize } from './query-engine-scoring.js';
-import { ensureRelations, type RelationsReader, type PrebuiltSelection, type RelationTargetType } from './relations.js';
+import { ensureRelations, loadRelations, type RelationsReader, type PrebuiltSelection, type RelationTargetType } from './relations.js';
 import type { MetadataEntry, QueryResult } from './types.js';
 
 export interface DiscoverOutputContext {
@@ -82,7 +82,8 @@ export async function emitDiscoverResults(context: DiscoverOutputContext): Promi
     : null;
 
   const relations = resourceSource === 'local' && (!params.graph || params.graph === 'framework')
-    ? prebuiltRelations ?? await ensureRelations(cwd, cwd, { verbose: params.verbose, selection: prebuiltSelection, reconciled: frameworkReconciled }) : undefined;
+    ? prebuiltRelations ?? (params.noBuild ? loadRelations(cwd, cwd, false)
+      : await ensureRelations(cwd, cwd, { verbose: params.verbose, selection: prebuiltSelection, reconciled: frameworkReconciled })) : undefined;
   const governing = scored.map(result => compoundGoverningRules(entries, result.entry, relations ?? undefined, params.phrase));
   const responseRules = new Map<string, GoverningRule>();
   for (const item of governing.flat()) {
@@ -133,8 +134,7 @@ export async function emitDiscoverResults(context: DiscoverOutputContext): Promi
     };
   };
 
-  const { loadRelations } = await import('./relations.js');
-  const ruleRelations = relations ?? (resourceSource === 'local' ? loadRelations(cwd) ?? (aiwgRoot ? loadRelations(aiwgRoot, cwd) : null) : null);
+  const ruleRelations = relations ?? (resourceSource === 'local' ? loadRelations(cwd, cwd, !params.noBuild) ?? (aiwgRoot ? loadRelations(aiwgRoot, cwd, !params.noBuild) : null) : null);
   if (params.json) {
     const jsonIndent = params.jsonPretty === false ? undefined : 2;
     console.log(JSON.stringify({
