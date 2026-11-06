@@ -43,6 +43,7 @@ describe('required provider deployment lane', () => {
       'test/integration/guided-setup-walkthrough.test.ts',
       'test/integration/remove-deployment.test.ts',
       'test/integration/bundle-reconciliation-cli.test.ts',
+      'test/integration/refresh-managed-deployment.test.ts',
     ]);
     expect(deployment.test.include).toEqual(deploymentFiles);
     expect(deployment.test).toMatchObject({
