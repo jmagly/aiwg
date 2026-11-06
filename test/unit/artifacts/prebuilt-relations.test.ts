@@ -11,6 +11,9 @@ import { getGraphIndexDir, type ArtifactIndex } from '../../../src/artifacts/typ
 import { showArtifact, relationshipRules, relationshipRuleStats } from '../../../src/artifacts/query-engine.js';
 import { main as indexCliMain } from '../../../src/artifacts/cli.js';
 import { refreshFrameworkCapabilities } from '../../../src/artifacts/framework-capabilities.js';
+import { discoverCapability } from '../../../src/artifacts/query-engine-discover.js';
+import { buildAiwgFortemiIndexExport } from '../../../src/artifacts/browser-export.js';
+import { createHash } from 'node:crypto';
 
 let tmp: string;
 let root: string;
@@ -45,6 +48,66 @@ beforeEach(async () => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(tmp, { recursive: true, force: true }); });
 
 describe('prebuilt relationship selection', () => {
+  it('shows and discovers template relationships using only shipped tables and an empty index directory', async () => {
+    const templates = ['progress-update', 'blocker-found', 'feedback-needed', 'task-completed'];
+    const templatePaths = templates.map(name => `agentic/code/addons/example/templates/${name}.md`);
+    templates.forEach((name, i) => put(templatePaths[i], `# ${name}\n`));
+    put(skill, `---\nname: work\ndescription: Post a status update on an issue\n---\n# Work\n${templatePaths.map(file => `@${file}`).join('\n')}\n`);
+    for (const [directory, name] of [['agents', 'reviewer'], ['commands', 'update']]) {
+      put(`agentic/code/addons/example/${directory}/${name}.md`, `# ${name}\n${templatePaths.map(file => `@${file}`).join('\n')}\n`);
+    }
+    put('agentic/code/addons/example/flows/review-flow.yaml',
+      `apiVersion: flow.aiwg.io/v1\nkind: FlowPlaybook\nmetadata: { name: review-flow }\nspec: { description: Review work }\n${templatePaths.map(file => `# @${file}`).join('\n')}\n`);
+    await buildIndex(root, { graph: 'framework', quiet: true });
+    writeTables();
+    const exported = JSON.stringify(buildAiwgFortemiIndexExport(root, { graph: 'framework', schemaVersion: 'v2' }));
+    put('prebuilt/fortemi-core/framework/aiwg-fortemi-index-v2.json', exported);
+    put('prebuilt/fortemi-core/framework/manifest.json', JSON.stringify({
+      schema_version: 'aiwg.fortemi.prebuilt.v1', backend: 'fortemi-core', graph: 'framework',
+      export_path: 'aiwg-fortemi-index-v2.json', export_schema_version: 'aiwg.fortemi.index.export.v2',
+      export_checksum: createHash('sha256').update(exported).digest('hex'), item_count: JSON.parse(exported).items.length,
+    }));
+    const directory = getGraphIndexDir(root, 'framework');
+    fs.rmSync(directory, { recursive: true });
+    fs.mkdirSync(directory, { recursive: true });
+    const build = vi.spyOn(builder, 'buildIndex');
+    const read = vi.spyOn(fs, 'readFileSync');
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const show = async (type: string, name: string) => {
+      await showArtifact(root, { name, typeFilter: [type], json: true });
+      return JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+    };
+    const card = await show('skill', 'work');
+    expect(card.templates.map((item: any) => item.name).sort()).toEqual([...templates].sort());
+    for (const [type, name] of [['agent', 'reviewer'], ['command', 'update'], ['flow', 'review-flow']]) {
+      expect((await show(type, name)).templates.map((item: any) => item.name).sort()).toEqual([...templates].sort());
+    }
+    for (const item of card.templates) {
+      expect(item.show_command).toBe(`aiwg show template ${item.name}`);
+      const template = await show('template', item.name);
+      expect(template.used_by).toHaveLength(4);
+      expect(template.used_by).toContainEqual(expect.objectContaining({ name: 'work', type: 'skill', show_command: 'aiwg show skill work' }));
+    }
+    await showArtifact(root, { name: 'work', typeFilter: ['skill'] });
+    expect(String(log.mock.calls.at(-1)?.[0])).toContain('## Templates');
+    await showArtifact(root, { name: 'progress-update', typeFilter: ['template'] });
+    expect(String(log.mock.calls.at(-1)?.[0])).toContain('## Used by');
+    const discover = { phrase: 'post a status update on an issue', graph: 'framework' as const, json: true };
+    await discoverCapability(root, discover);
+    const results = JSON.parse(String(log.mock.calls.at(-1)?.[0])).results;
+    expect(results.find((item: any) => item.name === 'work').templates).toHaveLength(3);
+    await discoverCapability(root, { ...discover, includePaths: false });
+    const compact = JSON.parse(String(log.mock.calls.at(-1)?.[0])).results.find((item: any) => item.name === 'work');
+    expect(compact.templates.every((template: any) => !Object.hasOwn(template, 'path'))).toBe(true);
+    await discoverCapability(root, { ...discover, phrase: 'progress-update', typeFilter: ['template'] });
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0])).results[0].used_by.map((item: any) => item.name)).toContain('work');
+    await discoverCapability(root, { ...discover, json: false });
+    expect(log.mock.calls.flat().join('\n')).toContain('templates:');
+    expect(build).not.toHaveBeenCalled();
+    expect(read.mock.calls.some(([file]) => String(file).endsWith('/metadata.json'))).toBe(false);
+    expect(fs.existsSync(path.join(directory, 'metadata.json'))).toBe(false);
+  });
+
   it('applies project pins equally to prebuilt and built readers without changing canonical tables', () => {
     const project = path.join(tmp, 'project');
     fs.mkdirSync(path.join(project, '.aiwg'), { recursive: true });

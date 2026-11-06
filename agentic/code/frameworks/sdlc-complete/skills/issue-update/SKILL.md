@@ -29,7 +29,7 @@ commandHint:
 
 ## Output template
 
-For comments, the matching template is required; fill every required section before posting (mark non-applicable fields with a reason): progress/status — @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/progress-update.md; blocker — @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/blocker-found.md; feedback request — @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/feedback-needed.md.
+For comments, the matching template is required; fill every required section before posting (mark non-applicable fields with a reason): progress/status — @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/progress-update.md; blocker — @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/blocker-found.md; feedback request — @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/feedback-needed.md; task completion — @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/task-completed.md.
 
 ## Semantic Label Contract (#1789)
 

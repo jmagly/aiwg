@@ -30,6 +30,15 @@ beforeAll(async () => {
 afterAll(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(isolated, { recursive: true, force: true }); });
 
 describe('full corpus relationship golden', () => {
+  it('ships issue-update templates and their reverse ownership without a local index', async () => {
+    const selected = relations.selectPrebuiltRelations(corpus).reader!;
+    const skill = entries.find(entry => entry.type === 'skill' && entry.name === 'issue-update')!;
+    const templates = selected.templatesForTarget('skill', relationId(skill)).map(id => selected.index.templates![id]);
+    expect(templates.filter(template => template.path.includes('/issue-comments/')).map(template => template.name).sort())
+      .toEqual(['blocker-found', 'feedback-needed', 'progress-update', 'task-completed']);
+    for (const template of templates) expect(selected.targetsForTemplate(template.path)).toContainEqual({ type: 'skill', id: relationId(skill) });
+  });
+
   it('validates the full corpus sidecar against its registered schema', () => {
     const ajv = new Ajv2020({ strict: true, allErrors: true });
     addFormats(ajv);

@@ -7,7 +7,7 @@ import addFormats from 'ajv-formats';
 import { FRAMEWORK_RELATIONS_REVISION } from '../../../src/artifacts/framework-source-digest.js';
 import { buildIndex } from '../../../src/artifacts/index-builder.js';
 import { buildRelations, relationId, relationsFingerprint } from '../../../src/artifacts/relations-builder.js';
-import { loadBuiltRelations as loadRelations, rulesForTarget, targetsForRule, rulesForCapability, ruleStats } from '../../../src/artifacts/relations.js';
+import { loadBuiltRelations as loadRelations, RelationsReader, rulesForTarget, targetsForRule, rulesForCapability, ruleStats } from '../../../src/artifacts/relations.js';
 import { getGraphIndexDir, type ArtifactIndex } from '../../../src/artifacts/types.js';
 
 let root: string;
@@ -40,6 +40,38 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('framework relationship sidecar', () => {
+  it('deduplicates component/template dependencies, preserves ambiguous aliases and fingerprints template edits', async () => {
+    await build();
+    const entries = Object.values(metadata().entries).filter(entry => entry.type !== 'rule');
+    const template = { ...entries[0], type: 'template', path: `${bundle}/templates/form.md`, name: 'form', title: 'Form', dependencies: [], dependents: [] };
+    const duplicate = { ...template, path: 'agentic/code/addons/other/templates/form.md' };
+    const components = entries.map(entry => ({ ...entry, dependencies: [template.path, template.path] }));
+    const all = [...components, template, duplicate];
+    const index = buildRelations(all);
+    const reader = new RelationsReader(index);
+    for (const component of components) expect(reader.templatesForTarget(component.type as 'skill', relationId(component))).toEqual([relationId(template)]);
+    expect(reader.targetsForTemplate(relationId(template))).toHaveLength(4);
+    expect(reader.targetsForTemplate(relationId(duplicate))).toEqual([]);
+    expect(() => reader.targetsForTemplate('form')).toThrow('Ambiguous');
+    reader.targetsForTemplate(relationId(template)).length = 0;
+    expect(reader.targetsForTemplate(relationId(template))).toHaveLength(4);
+    expect(relationsFingerprint(all)).not.toEqual(relationsFingerprint([...components, { ...template, checksum: 'edited' }, duplicate]));
+    expect(buildRelations([...all].reverse())).toEqual(index);
+    delete index.templates;
+    delete index.aliases.templates;
+    expect(new RelationsReader(index).targetsForTemplate('form')).toEqual([]);
+  });
+
+  it('validates current and legacy schema fixtures and rejects malformed template edges', () => {
+    const ajv = new Ajv2020({ strict: true, allErrors: true });
+    addFormats(ajv);
+    const validate = ajv.compile(JSON.parse(fs.readFileSync('schemas/artifacts/relations.v1.schema.json', 'utf8')));
+    for (const [directory, expected] of [['valid', true], ['invalid', false]] as const) {
+      const base = `test/fixtures/artifacts/relations/${directory}`;
+      for (const file of fs.readdirSync(base)) expect(validate(JSON.parse(fs.readFileSync(path.join(base, file), 'utf8'))), file).toBe(expected);
+    }
+  });
+
   it('keeps the valid framework receipt fast path free of full metadata reads', async () => {
     await build();
     const before = fs.statSync(sidecar(), { bigint: true });

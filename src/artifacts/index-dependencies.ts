@@ -56,6 +56,13 @@ export function createDependencyResolver(entries: Record<string, MetadataEntry>)
       const local = `${sourceBundleRoot(source) ?? ''}|${dep}`;
       return (names.has(local) ? names.get(local) : names.get(dep)) ?? undefined;
     }
-    return entries[dep] ? dep : suffixes.get(dep) ?? undefined;
+    if (entries[dep]) return dep;
+    // A bare filename (`@CLAUDE.md`, `@AIWG.md`) names a project or sibling file, not
+    // any indexed file that happens to share the basename (for example a template).
+    if (!dep.includes('/')) {
+      const sibling = path.posix.join(path.posix.dirname(source), dep);
+      return entries[sibling] ? sibling : undefined;
+    }
+    return suffixes.get(dep) ?? undefined;
   };
 }

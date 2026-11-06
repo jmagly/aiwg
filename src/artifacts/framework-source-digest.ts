@@ -4,7 +4,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { BUILTIN_GRAPH_CONFIGS, INDEX_EXTRACTOR_VERSION, getGraphIndexDir } from './types.js';
 
-export const FRAMEWORK_RELATIONS_REVISION = 3;
+export const FRAMEWORK_RELATIONS_REVISION = 4;
 const REVISION = FRAMEWORK_RELATIONS_REVISION;
 const sha256 = (value: string | Buffer): string => createHash('sha256').update(value).digest('hex');
 interface SourceReceipt {

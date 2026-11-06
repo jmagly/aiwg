@@ -1,0 +1,48 @@
+{
+  "$schema": "https://aiwg.io/schemas/artifacts/relations.v1.schema.json",
+  "version": 1,
+  "generatedAt": "1970-01-01T00:00:00.000Z",
+  "fingerprint": {
+    "version": 1,
+    "sources": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "rules": {},
+  "targets": {
+    "skill:work-id": {
+      "name": "work",
+      "path": "agentic/code/addons/example/skills/work/SKILL.md",
+      "rules": [],
+      "rule_stats": {
+        "by_enforcement": {},
+        "by_activation": {},
+        "required_checks": 0
+      },
+      "templates": [
+        "form-id"
+      ]
+    }
+  },
+  "capabilities": {},
+  "aliases": {
+    "targets": {},
+    "rules": {},
+    "templates": {
+      "form": [
+        "form-id"
+      ]
+    }
+  },
+  "templates": {
+    "form-id": {
+      "name": "form",
+      "title": "Form",
+      "path": "agentic/code/addons/example/templates/form.md",
+      "used_by": [
+        {
+          "type": "template",
+          "id": "work-id"
+        }
+      ]
+    }
+  }
+}

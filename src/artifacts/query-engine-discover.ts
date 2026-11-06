@@ -22,7 +22,8 @@ import {
 } from './query-engine-entries.js';
 import { type DiscoverParams } from './query-engine-options.js';
 import { scoreEntryDetailed, type LexicalScoreDiagnostic } from './query-engine-scoring.js';
-import { emptyRuleStats, selectPrebuiltRelations } from './relations.js';
+import { emptyRuleStats, selectPrebuiltRelations, loadBuiltRelations } from './relations.js';
+import { templateRelationFields } from './query-engine-templates.js';
 import type { ArtifactIndex, GraphType, MetadataEntry } from './types.js';
 import { getGraphIndexDir, loadGlobalGraphConfigs } from './types.js';
 
@@ -374,8 +375,10 @@ export async function discoverCapability(
   const queryTimeMs = Date.now() - startTime;
 
   if (params.promptContext) {
+    const templateRelations = prebuiltRelations ?? loadBuiltRelations(cwd);
     console.log(JSON.stringify({ results: scored.map(({ entry, score }) => ({
       type: entry.type, name: entry.name ?? discoveryIdForEntry(entry),
+      ...templateRelationFields(entry, templateRelations, 3, false),
       capability: entry.type === 'rule'
         ? entry.ruleSummary || prebuiltRelations?.index.rules[discoveryIdForEntry(entry)]?.summary || entry.summary
         : entry.capability ?? entry.summary, score,

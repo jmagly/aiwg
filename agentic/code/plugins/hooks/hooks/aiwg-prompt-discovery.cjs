@@ -53,6 +53,10 @@ function contextFor(envelope, prompt) {
     .filter(r => typeof r?.score === 'number' && Number.isFinite(r.score) && r.score >= 0.20
       && /^[a-z][a-z-]{0,19}$/.test(r.type) && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,69}$/.test(r.name))
     .sort((a, b) => b.score - a.score).slice(0, 3);
+  const template = candidates.find(candidate => candidate.templates?.length)?.templates?.[0];
+  const templateHint = template && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,69}$/.test(template.name)
+    && /^aiwg show template [a-zA-Z0-9][a-zA-Z0-9_.:-]{0,149}$/.test(template.show_command)
+    ? `\nTemplate ${template.name}: ${template.show_command}` : '';
   // 0.70 excludes the UAT's unrelated 0.60/0.40 hits; retain today's top 3
   // only when at least one candidate supplies a stronger signal.
   // Muse UAT (2026-11-06): advisory wording was ignored; first-call wording was followed.
@@ -60,17 +64,21 @@ function contextFor(envelope, prompt) {
     const namedType = prompt.match(/\b(decision-definition|decision-ruleset|decision-binding|gate-pack|skill|agent|command|rule|schema|flow|runbook|template|behavior|hook|workflow)s?\b/i)?.[1].toLowerCase();
     const type = namedType === 'workflow' ? 'flow' : namedType;
     // Quote shell metacharacters and bound even a need made entirely of escapes.
-    const need = prompt.replace(/[\x00-\x1f\x7f]/g, ' ').replace(/\s+/g, ' ').slice(0, 220)
-      .replace(/["\\$`]/g, '\\$&');
-    return `Before any other tool call or answer, run: aiwg discover "${need}"${type ? ` --type ${type}` : ''} then answer from its result. Answering or declining without running it violates the skill-discovery rule.`;
+    let need = prompt.replace(/[\x00-\x1f\x7f]/g, ' ').replace(/\s+/g, ' ').slice(0, 220);
+    const instruction = () => `Before any other tool call or answer, run: aiwg discover "${need.replace(/["\\$`]/g, '\\$&')}"${type ? ` --type ${type}` : ''} then answer from its result. Answering or declining without running it violates the skill-discovery rule.${templateHint}`;
+    while (instruction().length > 599 && need.length) need = need.slice(0, -1);
+    return instruction();
   }
+  // Leave room for the template drill-in even when candidate names are long.
+  while (candidates.length > 1 && prefix.length + next.length + templateHint.length
+    + candidates.map(r => `${r.type} ${r.name} (${r.score.toFixed(2).slice(0, 6)}): `).join('\n').length > 599) candidates.pop();
   // Share the remaining space so long names cannot push total context past 599.
   const labels = candidates.map(r => `${r.type} ${r.name} (${r.score.toFixed(2).slice(0, 6)}): `);
-  const available = 599 - prefix.length - next.length - labels.join('\n').length;
+  const available = 599 - prefix.length - next.length - templateHint.length - labels.join('\n').length;
   const perCapability = Math.min(100, Math.max(0, Math.floor(available / (candidates.length || 1))));
   const rows = candidates.map((r, i) => labels[i] + clean(r.capability, perCapability));
   if (!rows.length) return '';
-  return prefix + rows.join('\n') + next;
+  return prefix + rows.join('\n') + templateHint + next;
 }
 
 async function main() {

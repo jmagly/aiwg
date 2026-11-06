@@ -24,6 +24,7 @@ import {
 import { type LexicalScoreDiagnostic, tokenize } from './query-engine-scoring.js';
 import { ensureRelations, loadRelations, type RelationsReader, type PrebuiltSelection, type RelationTargetType } from './relations.js';
 import type { MetadataEntry, QueryResult } from './types.js';
+import { templateRelationFields } from './query-engine-templates.js';
 
 export interface DiscoverOutputContext {
   cwd: string;
@@ -165,6 +166,7 @@ export async function emitDiscoverResults(context: DiscoverOutputContext): Promi
         type: r.entry.type,
         name: r.entry.name,
         title: r.entry.title,
+        ...templateRelationFields(r.entry, ruleRelations, 3, includePaths),
         score: Math.round(r.score * 100) / 100,
         ranking: rankingDiagnostic(r.entry, r.score, r.facetDiagnostics),
         ...governingRuleFields(governing[resultIndex]),
@@ -262,6 +264,9 @@ export async function emitDiscoverResults(context: DiscoverOutputContext): Promi
       `scope ${ranking.tie_breakers.scope}`,
     ].filter((part): part is string => Boolean(part));
     console.log(`   ranking: ${rankingParts.join('; ')}`);
+    for (const [key, items] of Object.entries(templateRelationFields(r.entry, ruleRelations, 3))) {
+      if (items?.length) console.log(`   ${key === 'templates' ? 'templates' : 'used by'}: ${items.map(item => `${item.name} (${item.show_command})`).join('; ')}`);
+    }
     if (governing[i].length) {
       console.log(`   ${statsText(governingRuleStats(governing[i]))}`);
       console.log(`   ${RULE_CHECK_OBLIGATION}`);

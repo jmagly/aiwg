@@ -79,6 +79,20 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     expect(context).toContain('-> apply.');
   });
 
+  it.each(['template hints', 'long template hints', 'unsafe template hints', 'weak template hints',
+    'weak long template hints ' + '"$`\\'.repeat(100)])('bounds and validates %s', async phrase => {
+    const result = await invoke(`Show ${phrase} for an issue update`);
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+    expect(context.length).toBeLessThan(600);
+    if (phrase.includes('unsafe')) expect(context).not.toContain('Template ');
+    else expect(context).toContain(`Template ${phrase.includes('long') ? 't'.repeat(70) : 'progress-update'}: aiwg show template`);
+    expect(context).not.toContain('second-template');
+    expect(context).not.toContain('touch');
+    if (phrase.includes('weak')) expect(context).toContain('Before any other tool call or answer, run: aiwg discover');
+  });
+
   it.each(['', ' ', 'yes', 'ok', 'go', '1', 'sounds good', 'please do', '/help', '/review authentication', '/aiwg:review authentication'])('skips continuation or harness command %j', async prompt => {
     expect(await invoke(prompt)).toMatchObject({ code: 0, stdout: '', stderr: '' });
   });
