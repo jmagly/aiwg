@@ -2,10 +2,13 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkpointHandler } from '../../../../src/cli/handlers/checkpoint.js';
+import { assertCheckpointRecord, CHECKPOINT_SCHEMA_ID } from '../../../../src/cli/handlers/checkpoint-record.js';
+import { SchemaValidator } from '../../../../src/schema/index.js';
 
+const repo = resolve(import.meta.dirname, '../../../..');
 let project: string;
 const run = (...args: string[]) => checkpointHandler.execute({
   args, rawArgs: ['checkpoint', ...args], cwd: project, frameworkRoot: project,
@@ -27,6 +30,46 @@ afterEach(async () => {
 });
 
 describe('checkpointHandler', () => {
+  it.each(['valid', 'invalid'])('checks all catalog-registered %s fixtures through the runtime validator', async kind => {
+    const domain = JSON.parse(await readFile(join(repo, 'schemas/catalog/domains/control-plane.json'), 'utf8'));
+    const contract = domain.artifacts.find((entry: { id: string }) => entry.id === CHECKPOINT_SCHEMA_ID);
+    expect(contract.owner.id).toBe('schema-artifacts');
+    expect(contract.compatibility.mode).toBe('backward');
+    expect(contract.fixtures[kind].length).toBeGreaterThan(0);
+    for (const path of contract.fixtures[kind]) {
+      const value: unknown = JSON.parse(await readFile(join(repo, path), 'utf8'));
+      const check = () => assertCheckpointRecord(value, path);
+      if (kind === 'valid') expect(check, path).not.toThrow();
+      else expect(check, path).toThrow(`Invalid checkpoint record: ${path}`);
+    }
+  });
+
+  it.each(['record.2026.11.1.json', 'record.minimal.json'])('loads the old-record shape from %s without migration', async fixture => {
+    const old = JSON.parse(await readFile(join(repo, 'test/fixtures/artifacts/checkpoints/valid', fixture), 'utf8'));
+    await mkdir(root(), { recursive: true });
+    const file = join(root(), `${old.id}.json`);
+    const bytes = `${JSON.stringify(old, null, 2)}\n`;
+    await writeFile(file, bytes);
+    expect(JSON.parse((await run('list', '--json')).message!)).toEqual([old]);
+    const recovered = await run('recover', old.id, '--json');
+    expect(recovered.exitCode).toBe(0);
+    expect(JSON.parse(recovered.message!)).toEqual(old);
+    expect((await run('recover', old.id)).message).toContain(`Resume in: ${old.cwd}`);
+    expect(await readFile(file, 'utf8')).toBe(bytes);
+  });
+
+  it('refuses to persist a plain record when schema validation fails', async () => {
+    const validation = vi.spyOn(SchemaValidator.prototype, 'validate').mockReturnValue({
+      valid: false, artifactId: CHECKPOINT_SCHEMA_ID, diagnostics: [],
+    });
+    try {
+      expect(await run('create')).toMatchObject({ exitCode: 1,
+        message: expect.stringContaining('Invalid checkpoint record: ckpt_') });
+      expect(validation).toHaveBeenCalledWith(CHECKPOINT_SCHEMA_ID, expect.objectContaining({ artifacts: [] }));
+      expect(await readdir(project)).toEqual([]);
+    } finally { validation.mockRestore(); }
+  });
+
   it('creates a named record with caller fields and no git requirement', async () => {
     const id = await create('--name', 't1', '--phase', 'p', '--step', 's',
       '--artifact', 'a.md', '--artifact', 'b.md', '--note', 'Continue here');

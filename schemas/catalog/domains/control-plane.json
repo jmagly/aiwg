@@ -150,6 +150,69 @@
           "boundary": "small framework relationship sidecar"
         }
       ]
+    },
+    {
+      "logicalName": "schemas.artifacts.checkpoint.record.v1",
+      "id": "https://aiwg.io/schemas/artifacts/checkpoint-record.v1.schema.json",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "stable",
+      "owner": {
+        "id": "schema-artifacts"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "schemas/artifacts/checkpoint-record.v1.schema.json"
+      },
+      "policy": {
+        "strict": true,
+        "remoteReferences": "deny",
+        "requireFixtures": true
+      },
+      "compatibility": {
+        "mode": "backward",
+        "baseline": "2026.11.1 checkpoint records (without handoff fields)"
+      },
+      "consumers": [
+        {
+          "id": "checkpoint-handler",
+          "boundary": "Create, list, and recover persisted checkpoint records",
+          "path": "src/cli/handlers/checkpoint.ts"
+        },
+        {
+          "id": "checkpoint-handoff",
+          "boundary": "Write checkpoint records beside handoff documents",
+          "path": "src/cli/handlers/checkpoint-handoff.ts"
+        }
+      ],
+      "fixtures": {
+        "valid": [
+          "test/fixtures/artifacts/checkpoints/valid/record.2026.11.1.json",
+          "test/fixtures/artifacts/checkpoints/valid/record.minimal.json",
+          "test/fixtures/artifacts/checkpoints/valid/record.handoff.json"
+        ],
+        "invalid": [
+          "test/fixtures/artifacts/checkpoints/invalid/record.missing-artifacts.json",
+          "test/fixtures/artifacts/checkpoints/invalid/record.invalid-date.json",
+          "test/fixtures/artifacts/checkpoints/invalid/record.non-string-artifact.json",
+          "test/fixtures/artifacts/checkpoints/invalid/record.unpaired-handoff.json",
+          "test/fixtures/artifacts/checkpoints/invalid/record.blank-handoff.json"
+        ]
+      },
+      "projections": [
+        {
+          "kind": "validator",
+          "path": "src/cli/handlers/checkpoint-record.ts",
+          "generated": false
+        },
+        {
+          "kind": "types",
+          "path": "src/cli/handlers/checkpoint-record.ts",
+          "generated": false
+        }
+      ]
     }
   ]
 }

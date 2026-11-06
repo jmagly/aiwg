@@ -58,11 +58,15 @@ rules and per-provider startup bytes; budget failures preserve prior config and
 deployment. See [operator rule pins](configuration/aiwg-config.md#operator-rule-pins)
 for config shape, scope precedence, and budget behavior.
 
-## `aiwg checkpoint` — workflow resume positions
+## `aiwg checkpoint` — workflow resume positions and session handoffs
 
 ```bash
 aiwg checkpoint create --name t1 --phase construction --step tests \
   --artifact docs/plan.md --artifact src/feature.ts --note "Continue validation"
+aiwg checkpoint create --handoff --name next-session \
+  --scope "Checkpoint feature; next session owns verification" \
+  --note "Implementation complete; tests pending" \
+  --todo "Run focused tests" --todo "Review diff" --constraint "Do not commit or push"
 aiwg checkpoint list [--json]
 aiwg checkpoint recover [<id|name>] [--json]
 ```
@@ -81,3 +85,20 @@ names select the newest match. It prints the saved record and resume position
 without changing repository files or restoring Git HEAD. `--json` returns the
 record object. Empty recovery, unknown IDs, and missing option values fail
 without prompting.
+
+`create --handoff` saves `<artifact_root>/checkpoints/<id>/checkpoint.json`
+with sibling `handoff.md` and `next-session-prompt.md`, recording their absolute
+paths as `handoffPath` and `nextSessionPromptPath`. It renders the shipped
+[handoff template](../agentic/code/addons/aiwg-utils/templates/checkpoint-handoff.md).
+`--scope` fills Scope and ownership; phase, step, and note fill State at handoff;
+repeatable `--todo` fills To do (ordered); repeatable `--constraint` fills Binding
+constraints; artifacts fill Links. Missing context stays as `[TODO: ...]`
+placeholders. Scope, todo, and constraint flags require `--handoff`; empty or
+missing flag values fail headlessly. `--handoff` itself takes no value.
+
+`list` marks handoff records in a Handoff column. `recover` prints their saved
+next-session prompt text and both document paths, without writing anything.
+JSON output retains the record format with the two paths. Existing flat
+checkpoints remain readable. Workflow checkpoint records currently have inline
+validation and no governed schema; other checkpoint schema families govern
+different data.

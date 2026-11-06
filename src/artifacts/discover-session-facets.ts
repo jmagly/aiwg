@@ -4,7 +4,8 @@ export const SESSION_FACETS: FacetEntry[] = [
   {
     facet: 'feature-domain', label: 'Session checkpoint and handoff',
     intents: ['resume conductor handoff', 'continue session handoff', 'write session handoff',
-      'create session handoff', 'resume interrupted work'],
+      'create session handoff', 'resume interrupted work', 'handoff',
+      'hand off to a new session', 'split this session', 'prepare a handoff for a new session'],
     capabilities: ['checkpoint'],
   },
   {

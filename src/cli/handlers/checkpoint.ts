@@ -5,29 +5,23 @@ import { join } from 'node:path';
 import { boundedExecFileSync } from '../../process/bounded-child-process.mjs';
 import { resolveProjectAiwgDirForWrite } from '../../config/project-artifacts.js';
 import type { CommandHandler, HandlerResult } from './types.js';
-
-interface Checkpoint {
-  id: string;
-  name?: string;
-  createdAt: string;
-  cwd: string;
-  gitHead?: string;
-  phase?: string;
-  step?: string;
-  artifacts: string[];
-  note?: string;
-}
+import { writeCheckpointHandoff } from './checkpoint-handoff.js';
+import { assertCheckpointRecord, type Checkpoint } from './checkpoint-record.js';
 
 const usage = [
   'aiwg checkpoint — Save or inspect a workflow resume position',
   '',
   'Usage:',
   '  aiwg checkpoint create [--name N] [--phase P] [--step S] [--artifact <path>]... [--note N]',
+  '    [--handoff [--scope S] [--todo T]... [--constraint C]...]',
   '  aiwg checkpoint list [--json]',
   '  aiwg checkpoint recover [<id|name>] [--json]',
   '',
   'Recover reports the saved record without changing the repository.',
   'Duplicate names select the newest matching checkpoint.',
+  'Handoffs include handoff.md and next-session-prompt.md; omitted sections have TODO placeholders.',
+  'Create is headless. Value flags require nonempty values; --scope/--todo/--constraint require --handoff.',
+  'Recover prints the saved prompt and both paths for handoffs; --json returns the record.',
 ].join('\n');
 
 function parse(args: string[]) {
@@ -35,17 +29,32 @@ function parse(args: string[]) {
   if (!['create', 'list', 'recover'].includes(action)) throw new Error(`Unknown checkpoint action: ${action ?? '(missing)'}\n${usage}`);
   const values: Record<string, string> = {};
   const artifacts: string[] = [];
+  const todos: string[] = [];
+  const constraints: string[] = [];
+  let scope: string | undefined;
+  let handoff = false;
   let lookup: string | undefined;
   let json = false;
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (arg === '--json' && action !== 'create') { json = true; continue; }
-    if (action === 'create' && /^--(name|phase|step|artifact|note)(=|$)/.test(arg)) {
+    if (arg === '--handoff' && action === 'create') {
+      if (handoff) throw new Error('--handoff may be given once');
+      handoff = true;
+      continue;
+    }
+    if (action === 'create' && /^--(name|phase|step|artifact|note|scope|todo|constraint)(=|$)/.test(arg)) {
       const eq = arg.indexOf('=');
       const key = arg.slice(2, eq < 0 ? undefined : eq);
       const value = eq < 0 ? rest[++i] : arg.slice(eq + 1);
-      if (!value || (eq < 0 && value.startsWith('-'))) throw new Error(`--${key} requires a value`);
+      if (!value?.trim() || (eq < 0 && value.startsWith('-'))) throw new Error(`--${key} requires a value`);
       if (key === 'artifact') artifacts.push(value);
+      else if (key === 'todo') todos.push(value);
+      else if (key === 'constraint') constraints.push(value);
+      else if (key === 'scope') {
+        if (scope !== undefined) throw new Error('--scope may be given once');
+        scope = value;
+      }
       else {
         if (key in values) throw new Error(`--${key} may be given once`);
         values[key] = value;
@@ -54,25 +63,26 @@ function parse(args: string[]) {
       lookup = arg;
     } else throw new Error(`Unexpected checkpoint argument: ${arg}`);
   }
-  return { action, values, artifacts, lookup, json };
+  if (!handoff && (scope !== undefined || todos.length || constraints.length)) {
+    throw new Error('--scope, --todo, and --constraint require --handoff');
+  }
+  return { action, values, artifacts, lookup, json, handoff, scope, todos, constraints };
 }
 
 async function records(dir: string): Promise<Checkpoint[]> {
   let files: string[];
-  try { files = await readdir(dir); }
+  try {
+    files = (await readdir(dir, { withFileTypes: true })).flatMap(entry =>
+      entry.isFile() && entry.name.endsWith('.json') ? [entry.name]
+        : entry.isDirectory() && entry.name.startsWith('ckpt_') ? [join(entry.name, 'checkpoint.json')] : []);
+  }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
     throw error;
   }
   const result = await Promise.all(files.filter(file => file.endsWith('.json')).map(async file => {
-    const record: Checkpoint = JSON.parse(await readFile(join(dir, file), 'utf8'));
-    if (!record || typeof record.id !== 'string' || typeof record.cwd !== 'string'
-      || typeof record.createdAt !== 'string' || !Number.isFinite(Date.parse(record.createdAt))
-      || !Array.isArray(record.artifacts) || !record.artifacts.every(path => typeof path === 'string')
-      || ['name', 'gitHead', 'phase', 'step', 'note'].some(key => {
-        const value = record[key as keyof Checkpoint];
-        return value !== undefined && typeof value !== 'string';
-      })) throw new Error(`Invalid checkpoint record: ${file}`);
+    const record: unknown = JSON.parse(await readFile(join(dir, file), 'utf8'));
+    assertCheckpointRecord(record, file);
     return record;
   }));
   return result.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id.localeCompare(a.id));
@@ -94,7 +104,7 @@ function resumeText(record: Checkpoint): string {
 export const checkpointHandler: CommandHandler = {
   id: 'checkpoint',
   name: 'Workflow Checkpoints',
-  description: 'Create, list, or recover a saved workflow position',
+  description: 'Create, list, or recover workflow positions and session handoffs',
   category: 'workspace',
   aliases: [],
   async help() { return { exitCode: 0, message: usage, rawOutput: true }; },
@@ -103,7 +113,7 @@ export const checkpointHandler: CommandHandler = {
       return { exitCode: 0, message: usage, rawOutput: true };
     }
     try {
-      const { action, values, artifacts, lookup, json } = parse(ctx.args);
+      const { action, values, artifacts, lookup, json, handoff, scope, todos, constraints } = parse(ctx.args);
       const dir = join(resolveProjectAiwgDirForWrite(ctx.cwd), 'checkpoints');
       if (action === 'create') {
         if (ctx.dryRun) return { exitCode: 0, message: `Would create checkpoint in ${dir}`, rawOutput: true };
@@ -117,8 +127,13 @@ export const checkpointHandler: CommandHandler = {
           id: `ckpt_${randomUUID()}`, ...values, createdAt: new Date().toISOString(),
           cwd: ctx.cwd, ...(gitHead ? { gitHead } : {}), artifacts,
         };
+        assertCheckpointRecord(record, record.id);
         await mkdir(dir, { recursive: true });
-        await writeFile(join(dir, `${record.id}.json`), `${JSON.stringify(record, null, 2)}\n`, { flag: 'wx' });
+        if (handoff) {
+          await writeCheckpointHandoff(ctx.frameworkRoot, dir, record, { scope, todos, constraints });
+        } else {
+          await writeFile(join(dir, `${record.id}.json`), `${JSON.stringify(record, null, 2)}\n`, { flag: 'wx' });
+        }
         return { exitCode: 0, message: record.id, rawOutput: true };
       }
       const all = await records(dir);
@@ -126,15 +141,20 @@ export const checkpointHandler: CommandHandler = {
         return {
           exitCode: 0, rawOutput: true,
           message: json ? JSON.stringify(all, null, 2) : all.length
-            ? ['ID\tName\tCreated\tPhase / Step', ...all.map(record =>
-              `${record.id}\t${record.name ?? '(unnamed)'}\t${record.createdAt}\t${record.phase ?? '-'} / ${record.step ?? '-'}`)].join('\n')
+            ? ['ID\tName\tCreated\tPhase / Step\tHandoff', ...all.map(record =>
+              `${record.id}\t${record.name ?? '(unnamed)'}\t${record.createdAt}\t${record.phase ?? '-'} / ${record.step ?? '-'}\t${record.handoffPath ? 'yes' : '-'}`)].join('\n')
             : 'No checkpoints found.',
         };
       }
       const record = lookup === undefined ? all[0]
         : all.find(record => record.id === lookup) ?? all.find(record => record.name === lookup);
       if (!record) throw new Error(lookup === undefined ? 'No checkpoints found.' : `Checkpoint not found: ${lookup}`);
-      return { exitCode: 0, message: json ? JSON.stringify(record, null, 2) : resumeText(record), rawOutput: true };
+      let message = json ? JSON.stringify(record, null, 2) : resumeText(record);
+      if (!json && record.handoffPath && record.nextSessionPromptPath) {
+        const prompt = await readFile(record.nextSessionPromptPath, 'utf8');
+        message += `\nHandoff: ${record.handoffPath}\nNext-session prompt: ${record.nextSessionPromptPath}\n\n${prompt}`;
+      }
+      return { exitCode: 0, message, rawOutput: true };
     } catch (error) {
       return { exitCode: 1, message: error instanceof Error ? error.message : String(error) };
     }

@@ -1,0 +1,9 @@
+{
+  "id": "ckpt_17849bf3-b861-470e-af25-b6ff683efc7c",
+  "name": "handoff",
+  "createdAt": "2026-11-06T12:00:00.000Z",
+  "cwd": "/synthetic/project",
+  "artifacts": ["docs/plan.md", "src/feature.ts"],
+  "handoffPath": "/synthetic/project/.aiwg/checkpoints/ckpt_17849bf3-b861-470e-af25-b6ff683efc7c/handoff.md",
+  "nextSessionPromptPath": "/synthetic/project/.aiwg/checkpoints/ckpt_17849bf3-b861-470e-af25-b6ff683efc7c/next-session-prompt.md"
+}
