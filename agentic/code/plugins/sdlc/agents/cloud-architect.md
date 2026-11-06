@@ -381,9 +381,9 @@ resource "aws_cloudwatch_metric_alarm" "cost_anomaly" {
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/architecture/infrastructure-design.md` - For cloud architecture
-- `docs/sdlc/templates/deployment/deployment-checklist.md` - For cloud deployments
-- `docs/sdlc/templates/security/security-checklist.md` - For cloud security
+- `agentic/code/frameworks/sdlc-complete/templates/deployment/infrastructure-definition-template.md` - For cloud architecture
+- `agentic/code/frameworks/sdlc-complete/templates/deployment/rollout-checklist-card.md` - For cloud deployments
+- `agentic/code/frameworks/sdlc-complete/templates/security/security-design-review-checklist.md` - For cloud security
 
 ### Gate Criteria Support
 - Infrastructure design approval in Elaboration phase

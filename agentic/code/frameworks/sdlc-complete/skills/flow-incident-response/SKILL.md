@@ -1911,16 +1911,16 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Incident Response Runbook: `templates/support/incident-response-runbook-template.md`
-- Escalation Matrix: `templates/support/escalation-matrix-template.md`
-- Post-Incident Review: `templates/support/post-incident-review-template.md`
+- Incident Response Runbook: `agentic/code/frameworks/sdlc-complete/templates/deployment/support-runbook-template.md`
+- Escalation Matrix: `agentic/code/frameworks/sdlc-complete/templates/governance/escalation-matrix-template.md`
+- Post-Incident Review: `agentic/code/frameworks/sdlc-complete/templates/management/sprint-retrospective-template.md`
 
 **Related Commands**:
 - Deployment: `commands/flow-deploy-to-production.md` (rollback procedures)
 - Regression Check: `@commands/regression-check.md` (baseline comparison)
 - Regression Bisect: `@commands/regression-bisect.md` (find introducing commit)
 - Hypercare: `commands/flow-hypercare-monitoring.md` (post-deployment monitoring)
-- Operational Readiness: `templates/deployment/operational-readiness-review-template.md`
+- Operational Readiness: `agentic/code/frameworks/sdlc-complete/templates/reliability/operational-readiness-review-template.md`
 
 **Related Agents**:
 - Regression Analyst: `@agents/regression-analyst.md` (deep regression analysis)

@@ -1,0 +1,21 @@
+# Acquisition inventory: replace placeholders and verify every collected hash.
+case_id: "{{case_id}}"
+target: "{{target}}"
+collector: "{{collector}}"
+authorization_ref: "{{authorization_ref}}"
+started_at: "{{started_at_utc}}"
+completed_at: "{{completed_at_utc}}"
+artifacts:
+  - evidence_id: "E-001"
+    filename: "{{filename}}"
+    original_path: "{{original_path}}"
+    stored_path: "{{stored_path}}"
+    collected_at: "{{collected_at_utc}}"
+    size_bytes: 0 # Replace with the measured byte count.
+    hash_algorithm: sha256
+    source_hash: "{{source_sha256}}"
+    collected_hash: "{{collected_sha256}}"
+    integrity_verified: false # Set true only after comparing hashes.
+    collection_method: "{{tool_and_version}}"
+    notes: "{{collection_notes}}"
+failures: [] # Record inaccessible, skipped or hash-mismatched artifacts.

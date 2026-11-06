@@ -596,6 +596,6 @@ segmentation_rules:
 
 ## References
 
-- Persona templates: templates/marketing/persona-template.md
+- Persona templates: templates/product-marketing/personas-template.md
 - Segmentation guide: docs/segmentation-guide.md
 - Data sources: .aiwg/marketing/config/data-sources.yaml

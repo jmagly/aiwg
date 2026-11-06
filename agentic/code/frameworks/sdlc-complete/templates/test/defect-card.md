@@ -535,10 +535,10 @@ Describe the fix implementation:
 
 ## Related Templates
 
-- `docs/sdlc/templates/test/test-case-card.md` - Create regression test for defect
-- `docs/sdlc/templates/test/test-suite-card.md` - Add regression test to appropriate suite
-- `docs/sdlc/templates/requirements/change-request-card.md` - Link defect to requirement change
-- `docs/sdlc/templates/implementation/task-slice-card.md` - Track fix implementation
+- `agentic/code/frameworks/sdlc-complete/templates/test/test-case-card.md` - Create regression test for defect
+- `agentic/code/frameworks/sdlc-complete/templates/test/test-suite-card.md` - Add regression test to appropriate suite
+- `agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md` - Link defect to requirement change
+- `agentic/code/frameworks/sdlc-complete/templates/implementation/task-slice-card.md` - Track fix implementation
 
 ## Defect Lifecycle
 

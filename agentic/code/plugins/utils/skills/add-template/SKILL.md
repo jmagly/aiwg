@@ -163,7 +163,7 @@ Or at root if no category:
 <target>/templates/<name>-template.md
 ```
 
-Manifest updated: `<target>/manifest.json` (or `templates/manifest.json` if present)
+Manifest updated: `<target>/manifest.json` (or `<target>/templates/manifest.json` if present)
 
 ## Output Format
 
@@ -189,14 +189,14 @@ Next Steps:
 
 ### Example 1: Architecture decision record
 
-**User**: "add template adr --to sdlc-complete --category architecture"
+**User**: "add template adr --to sdlc-complete --category governance"
 
 **Action**:
 ```bash
-aiwg add-template adr --to sdlc-complete --category architecture
+aiwg add-template adr --to sdlc-complete --category governance
 ```
 
-**Result**: `agentic/code/frameworks/sdlc-complete/templates/architecture/adr-template.md` scaffolded with standard ADR sections (Context, Decision, Consequences, Alternatives).
+**Result**: `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md` scaffolded with standard ADR sections (Context, Decision, Consequences, Alternatives).
 
 ### Example 2: Security threat model
 

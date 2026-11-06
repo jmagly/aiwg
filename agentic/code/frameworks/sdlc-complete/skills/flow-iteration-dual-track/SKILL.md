@@ -949,9 +949,9 @@ This orchestration succeeds when:
 ## References
 
 **Templates**:
-- Iteration Plan: `templates/planning/iteration-plan-template.md`
+- Iteration Plan: `agentic/code/frameworks/sdlc-complete/templates/management/iteration-plan-template.md`
 - Test Plan: `templates/test/iteration-test-plan-template.md`
-- Retrospective: `templates/quality/retrospective-template.md`
+- Retrospective: `agentic/code/frameworks/sdlc-complete/templates/management/sprint-retrospective-template.md`
 - Metrics: `metrics/delivery-metrics-catalog.md`
 
 **Workflows**:

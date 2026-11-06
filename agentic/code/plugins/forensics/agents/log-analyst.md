@@ -109,4 +109,4 @@ Each finding must distinguish:
 - `docs/agent-examples/log-analyst-examples.md` (`aiwg discover "log analyst worked examples"`)
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/docs/investigation-workflow.md
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/skills/sysops-forensics.md
-- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/log-analysis-findings.md
+- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/forensic-report.md

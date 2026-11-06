@@ -14,7 +14,7 @@
 
 ## Related templates
 
-- docs/sdlc/templates/deployment/deployment-plan-template.md
+- agentic/code/frameworks/sdlc-complete/templates/deployment/deployment-plan-template.md
 
 ## Toggle
 

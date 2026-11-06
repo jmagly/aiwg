@@ -77,9 +77,9 @@ For each installed framework, read its `contextContributions` from `manifest.jso
 ```json
 {
   "contextContributions": {
-    "hookFragment": "templates/project/AIWG-sdlc-fragment.md",
+    "hookFragment": "agentic/code/frameworks/sdlc-complete/templates/project/AIWG-sdlc-fragment.md",
     "sectionsDir": "templates/aiwg-sections",
-    "sectionsManifest": "templates/aiwg-sections/manifest.json",
+    "sectionsManifest": "agentic/code/frameworks/sdlc-complete/templates/aiwg-sections/manifest.json",
     "priority": 10
   }
 }

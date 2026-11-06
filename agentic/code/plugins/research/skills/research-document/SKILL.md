@@ -178,6 +178,6 @@ Avoids:
 
 - @$AIWG_ROOT/agentic/code/frameworks/research-complete/agents/documentation-agent.md - Documentation Agent
 - @$AIWG_ROOT/src/research/services/documentation-service.ts - Documentation implementation
-- @$AIWG_ROOT/agentic/code/frameworks/research-complete/templates/finding-template.md - Finding template
+- @$AIWG_ROOT/agentic/code/frameworks/research-complete/templates/reference-canonical.md - Finding template
 - @$AIWG_ROOT/agentic/code/addons/voice-framework/voices/technical-authority.md - Voice profile
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/rules/citation-policy.md - Citation requirements

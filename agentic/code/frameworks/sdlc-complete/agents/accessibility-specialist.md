@@ -403,9 +403,9 @@ class AccessibleTabs {
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/requirements/non-functional-requirements.md` - For accessibility requirements
-- `docs/sdlc/templates/testing/test-plan.md` - For accessibility testing
-- `docs/sdlc/templates/design/ui-specifications.md` - For accessible design
+- `agentic/code/frameworks/sdlc-complete/templates/requirements/supplementary-spec-template.md` - For accessibility requirements
+- `agentic/code/frameworks/sdlc-complete/templates/test/master-test-plan-template.md` - For accessibility testing
+- `agentic/code/frameworks/sdlc-complete/templates/ux/wireframe-specification-template.md` - For accessible design
 
 ### Gate Criteria Support
 - Accessibility requirements defined in Elaboration

@@ -16,7 +16,7 @@ Scan all fleet services for TLS certificate expiry and chain validity. Produce a
 
 Scan fleet documentation to discover all services using TLS:
 
-- Host profiles (`templates/host-profile.yaml`) — extract services with TLS ports
+- Host profiles (`agentic/code/extensions/sys/templates/host-profile.yaml`) — extract services with TLS ports
 - PKI hierarchy document (`templates/pki-hierarchy.yaml`) — identify CA-managed certs
 - `cert-lifecycle-record.yaml` files — enumerate tracked certificates
 

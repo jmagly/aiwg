@@ -15,7 +15,7 @@ Four templates that encode a battle-tested corpus convention:
 
 ## Why these are an extension, not the framework default
 
-research-complete's built-in `elaboration/templates/REF-XXX-template.md` is designed for:
+research-complete's built-in `agentic/code/frameworks/research-complete/elaboration/templates/REF-XXX-template.md` is designed for:
 
 - Workspace topology: `.aiwg/research/findings/REF-NNN.md`
 - FAIR-compliance focus (sections: FAIR Principles Compliance, Provenance, File Integrity)

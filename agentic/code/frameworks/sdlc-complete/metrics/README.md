@@ -146,7 +146,7 @@ Comprehensive metric definitions, collection methods, and targets for data-drive
 
 ### Step 2: Populate Measurement Plan
 
-1. Open `docs/sdlc/templates/management/measurement-plan-template.md`
+1. Open `agentic/code/frameworks/sdlc-complete/templates/management/measurement-plan-template.md`
 2. Copy metrics from relevant catalog (Delivery, Product, Quality, Operational)
 3. Specify data sources available in your environment
 4. Set targets based on team maturity and catalog benchmarks
@@ -223,19 +223,19 @@ Comprehensive metric definitions, collection methods, and targets for data-drive
 
 ### Measurement Plan Template
 
-**File**: `docs/sdlc/templates/management/measurement-plan-template.md`
+**File**: `agentic/code/frameworks/sdlc-complete/templates/management/measurement-plan-template.md`
 
 **Integration**: Appendix A provides starter metrics by phase. Full catalog references for detailed definitions.
 
 ### Status Assessment Template
 
-**File**: `docs/sdlc/templates/management/status-assessment-template.md`
+**File**: `agentic/code/frameworks/sdlc-complete/templates/management/status-assessment-template.md`
 
 **Integration**: Section 4 (Schedule/Effort) and Section 5 (Quality) include trend analysis examples using catalog metrics.
 
 ### Iteration Assessment Template
 
-**File**: `docs/sdlc/templates/management/iteration-assessment-template.md`
+**File**: `agentic/code/frameworks/sdlc-complete/templates/management/iteration-assessment-template.md`
 
 **Integration**: Section 3 (Adherence to Plan) compares planned vs actual velocity. Section 6 (Test Results) includes quality metrics.
 

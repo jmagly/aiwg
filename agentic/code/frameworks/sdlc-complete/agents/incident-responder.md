@@ -353,9 +353,9 @@ Thank you for your patience.
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/deployment/deployment-checklist.md` - For deployment incidents
-- `docs/sdlc/templates/deployment/rollback-procedures.md` - For rollback execution
-- `docs/sdlc/templates/monitoring/alerting-setup.md` - For incident detection
+- `agentic/code/frameworks/sdlc-complete/templates/deployment/rollout-checklist-card.md` - For deployment incidents
+- rollback steps in this document - For rollback execution
+- `agentic/code/frameworks/sdlc-complete/templates/reliability/alert-runbook-card.md` - For incident detection
 
 ### Gate Criteria Impact
 - Incidents may trigger gate re-evaluation

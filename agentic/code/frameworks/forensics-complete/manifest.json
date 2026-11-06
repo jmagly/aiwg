@@ -105,7 +105,7 @@
       "index": ".aiwg/forensics/index.md",
       "log": ".aiwg/forensics/.log.jsonl",
       "crossRefStyle": "at-mention",
-      "pageTemplate": "templates/forensics-finding.md",
+      "pageTemplate": "templates/forensic-report.md",
       "ingestRequires": [
         "provenance"
       ],

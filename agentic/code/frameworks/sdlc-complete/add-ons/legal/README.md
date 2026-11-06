@@ -160,7 +160,7 @@ The Legal add-on can be further specialized:
 | CustomerA SLA | 4.2 | Data in EU only | NFR-SEC-012 |
 | VendorB MSA | 2.1 | License attribution | REQ-LEGAL-003 |
 
-Use `add-ons/legal/templates/contract-requirements-traceability-matrix.md`
+Use `./templates/contract-requirements-traceability-matrix.md`
 ```
 
 ### Architecture Template

@@ -151,5 +151,5 @@ Next Steps:
 ## References
 
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/agents/recon-agent.md - Recon Agent
-- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/system-profile.md - Profile template
+- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/target-profile.md - Profile template
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/commands/forensics-triage.md - Next stage

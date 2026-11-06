@@ -15,9 +15,9 @@
 
 ## Related templates
 
-- docs/sdlc/templates/requirements/use-case-brief-template.md
-- docs/sdlc/templates/requirements/use-case-acceptance-template.md
-- docs/sdlc/templates/governance/decision-matrix-template.md
+- agentic/code/frameworks/sdlc-complete/templates/requirements/use-case-brief-template.md
+- agentic/code/frameworks/sdlc-complete/templates/requirements/use-case-acceptance-template.md
+- agentic/code/frameworks/sdlc-complete/templates/governance/decision-matrix-template.md
 
 ## Request
 

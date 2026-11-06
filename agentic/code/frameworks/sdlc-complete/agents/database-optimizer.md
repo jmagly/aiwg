@@ -390,9 +390,9 @@ async function queryDatabase(sql, params) {
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/architecture/database-design.md` - For schema design
-- `docs/sdlc/templates/deployment/migration-plan.md` - For migration execution
-- `docs/sdlc/templates/monitoring/performance-monitoring.md` - For query monitoring
+- `agentic/code/frameworks/sdlc-complete/templates/analysis-design/database-design-template.md` - For schema design
+- migration steps in this document - For migration execution
+- `agentic/code/frameworks/sdlc-complete/templates/reliability/sli-card.md` - For query monitoring
 
 ### Gate Criteria Support
 - Schema design review in Elaboration phase

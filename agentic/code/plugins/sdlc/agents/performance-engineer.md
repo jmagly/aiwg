@@ -246,9 +246,9 @@ getLCP(console.log);
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/requirements/non-functional-requirements.md` - For performance SLAs
-- `docs/sdlc/templates/testing/test-plan.md` - For load testing plans
-- `docs/sdlc/templates/architecture/technical-design.md` - For performance architecture
+- `agentic/code/frameworks/sdlc-complete/templates/requirements/supplementary-spec-template.md` - For performance SLAs
+- `agentic/code/frameworks/sdlc-complete/templates/test/master-test-plan-template.md` - For load testing plans
+- `agentic/code/frameworks/sdlc-complete/templates/analysis-design/software-architecture-doc-template.md` - For performance architecture
 
 ### Gate Criteria Support
 

@@ -399,4 +399,4 @@ severity:
 - Brand guidelines: .aiwg/marketing/brand/
 - Voice profiles: voice-framework addon
 - WCAG guidelines: https://www.w3.org/WAI/WCAG21/quickref/
-- Templates: templates/governance/brand-compliance-checklist.md
+- Templates: templates/governance/brand-compliance-checklist-template.md

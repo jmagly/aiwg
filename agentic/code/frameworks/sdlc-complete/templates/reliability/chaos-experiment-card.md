@@ -14,7 +14,7 @@
 
 ## Related templates
 
-- docs/sdlc/templates/reliability/chaos-experiment-plan-template.md
+- agentic/code/frameworks/sdlc-complete/templates/reliability/chaos-experiment-plan-template.md
 
 ## Hypothesis
 

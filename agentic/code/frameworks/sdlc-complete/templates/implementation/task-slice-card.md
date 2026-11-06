@@ -15,8 +15,8 @@
 
 ## Related templates
 
-- docs/sdlc/templates/test/use-case-test-card.md
-- docs/sdlc/templates/implementation/integration-test-spec-card.md
+- agentic/code/frameworks/sdlc-complete/templates/test/use-case-test-card.md
+- agentic/code/frameworks/sdlc-complete/templates/implementation/integration-test-spec-card.md
 
 ## Identifier
 

@@ -156,9 +156,9 @@ Generate the three core intake artifacts that define the project scope, solution
 
 | Artifact | Template | Output path |
 |----------|----------|-------------|
-| Intake Form | `templates/intake/intake-form-template.md` | `.aiwg/intake/intake-form.md` |
-| Solution Profile | `templates/intake/solution-profile-template.md` | `.aiwg/intake/solution-profile.md` |
-| Risk Screening | `templates/intake/risk-screening-template.md` | `.aiwg/intake/risk-screening.md` |
+| Intake Form | `agentic/code/frameworks/sdlc-complete/templates/intake/project-intake-template.md` | `.aiwg/intake/intake-form.md` |
+| Solution Profile | `agentic/code/frameworks/sdlc-complete/templates/intake/solution-profile-template.md` | `.aiwg/intake/solution-profile.md` |
+| Risk Screening | `agentic/code/frameworks/sdlc-complete/templates/management/risk-list-template.md` | `.aiwg/intake/risk-screening.md` |
 
 **Agent dispatch** (parallel where possible):
 

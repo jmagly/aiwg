@@ -393,11 +393,11 @@ Copy this template and customize for your project:
 
 ## Related Templates
 
-- `docs/sdlc/templates/management/iteration-plan-template.md` - Iteration planning and commitments
-- `docs/sdlc/templates/management/quality-assurance-plan-template.md` - Quality metrics and gates
-- `docs/sdlc/templates/test/test-evaluation-summary-template.md` - Test results verification
-- `docs/sdlc/templates/deployment/deployment-plan-template.md` - Operational readiness criteria
-- `docs/sdlc/templates/security/security-gate-criteria-card.md` - Security quality gates
+- `agentic/code/frameworks/sdlc-complete/templates/management/iteration-plan-template.md` - Iteration planning and commitments
+- `agentic/code/frameworks/sdlc-complete/templates/management/quality-assurance-plan-template.md` - Quality metrics and gates
+- `agentic/code/frameworks/sdlc-complete/templates/test/test-evaluation-summary-template.md` - Test results verification
+- `agentic/code/frameworks/sdlc-complete/templates/deployment/deployment-plan-template.md` - Operational readiness criteria
+- `agentic/code/frameworks/sdlc-complete/templates/deployment/automated-quality-gate-template.md` - Security quality gates
 
 ## Notes
 

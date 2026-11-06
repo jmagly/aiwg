@@ -524,6 +524,6 @@ output_config:
 
 ## References
 
-- Review templates: templates/governance/review-checklist.md
+- Review templates: templates/governance/content-audit-template.md
 - Conflict resolution guide: docs/conflict-resolution.md
 - Escalation procedures: docs/escalation-process.md

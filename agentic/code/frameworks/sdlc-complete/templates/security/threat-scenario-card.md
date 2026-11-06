@@ -14,8 +14,8 @@
 
 ## Related templates
 
-- docs/sdlc/templates/security/security-test-case-card.md
-- docs/sdlc/templates/security/control-implementation-card.md
+- agentic/code/frameworks/sdlc-complete/templates/security/security-test-case-card.md
+- agentic/code/frameworks/sdlc-complete/templates/security/control-implementation-card.md
 
 ## Identifier
 

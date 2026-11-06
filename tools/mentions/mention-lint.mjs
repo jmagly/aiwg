@@ -10,6 +10,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { lintTemplateReferences } from './template-lint.mjs';
 
 // Configuration
 const MENTION_PATTERN = /@[\w./-]+\.(?:md|ts|js|py|go|rs|java|tsx|jsx)/g;
@@ -200,7 +201,7 @@ const RULES = {
 // Find files to lint
 function findFiles(targetDir) {
   const files = [];
-  const extensions = ['.md', '.ts', '.js', '.tsx', '.jsx', '.py', '.go', '.rs', '.java'];
+  const extensions = ['.md', '.yaml', '.yml', '.json', '.ts', '.js', '.tsx', '.jsx', '.py', '.go', '.rs', '.java'];
 
   function walk(dir) {
     if (dir.includes('node_modules') || dir.includes('.git')) return;
@@ -250,7 +251,8 @@ function extractMentions(content) {
 function lintFile(filePath, targetDir, rules) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const mentions = extractMentions(content);
-  const issues = [];
+  const issues = !rules || rules.includes('ML007')
+    ? lintTemplateReferences(filePath, content, process.cwd()) : [];
 
   // Check for duplicates (ML006)
   const seen = new Map();
@@ -383,6 +385,7 @@ Rules:
   ML004  Deprecated path pattern (warning, auto-fix)
   ML005  Invalid ID format (warning, auto-fix)
   ML006  Duplicate mentions (info, auto-fix)
+  ML007  Template file does not exist (error; canonical bundle sources)
 
 Examples:
   aiwg mention-lint                    # Lint current directory

@@ -422,10 +422,10 @@ Signs that this test is unstable:
 
 ## Related Templates
 
-- `docs/sdlc/templates/test/test-suite-card.md` - Group related test cases
-- `docs/sdlc/templates/test/defect-card.md` - Track test failures
-- `docs/sdlc/templates/requirements/use-case-acceptance-template.md` - Acceptance criteria source
-- `docs/sdlc/templates/test/test-data-card.md` - Test data management (if separate card needed)
+- `agentic/code/frameworks/sdlc-complete/templates/test/test-suite-card.md` - Group related test cases
+- `agentic/code/frameworks/sdlc-complete/templates/test/defect-card.md` - Track test failures
+- `agentic/code/frameworks/sdlc-complete/templates/requirements/use-case-acceptance-template.md` - Acceptance criteria source
+- test data fields on the test case card - Test data management (if separate card needed)
 
 ## Examples
 

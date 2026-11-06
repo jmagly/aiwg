@@ -15,10 +15,10 @@
 
 ## Related Templates
 
-- docs/sdlc/templates/requirements/data-contract-template.md
-- docs/sdlc/templates/analysis-design/interface-contract-card.md
-- docs/sdlc/templates/analysis-design/component-design-card.md
-- docs/sdlc/templates/analysis-design/architecture-decision-record.md
+- agentic/code/frameworks/sdlc-complete/templates/requirements/data-contract-template.md
+- agentic/code/frameworks/sdlc-complete/templates/analysis-design/interface-contract-card.md
+- agentic/code/frameworks/sdlc-complete/templates/analysis-design/component-design-card.md
+- agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md
 
 ## Database Identity
 

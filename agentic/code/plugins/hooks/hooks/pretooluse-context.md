@@ -140,7 +140,7 @@ User: "Push changes to Gitea"
         },
         "handler": {
           "type": "additionalContext",
-          "content": "**AIWG Voice Profile (Technical Authority)**:\n\n1. **Active Voice**: Prefer active over passive\n   - Good: 'The system validates input'\n   - Avoid: 'Input is validated by the system'\n\n2. **Maintain Sophistication**: Preserve domain vocabulary\n   - Use precise technical terms\n   - Don't oversimplify for accessibility\n\n3. **Authenticity Markers**:\n   - Include opinions when appropriate\n   - Acknowledge trade-offs\n   - Vary sentence structure\n\n4. **Specificity**: Use exact metrics and concrete examples\n\nSee @$AIWG_ROOT/agentic/code/addons/voice-framework/voices/templates/technical-authority.md"
+          "content": "**AIWG Voice Profile (Technical Authority)**:\n\n1. **Active Voice**: Prefer active over passive\n   - Good: 'The system validates input'\n   - Avoid: 'Input is validated by the system'\n\n2. **Maintain Sophistication**: Preserve domain vocabulary\n   - Use precise technical terms\n   - Don't oversimplify for accessibility\n\n3. **Authenticity Markers**:\n   - Include opinions when appropriate\n   - Acknowledge trade-offs\n   - Vary sentence structure\n\n4. **Specificity**: Use exact metrics and concrete examples\n\nSee @$AIWG_ROOT/agentic/code/addons/voice-framework/voices/templates/technical-authority.yaml"
         }
       }
     ]

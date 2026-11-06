@@ -14,8 +14,8 @@
 
 ## Related templates
 
-- docs/sdlc/templates/reliability/sli-card.md
-- docs/sdlc/templates/deployment/runbook-entry-card.md
+- agentic/code/frameworks/sdlc-complete/templates/reliability/sli-card.md
+- agentic/code/frameworks/sdlc-complete/templates/deployment/runbook-entry-card.md
 
 ## Alert
 

@@ -15,8 +15,8 @@
 
 ## Related templates
 
-- docs/sdlc/templates/analysis-design/interface-contract-card.md
-- docs/sdlc/templates/requirements/use-case-acceptance-template.md
+- agentic/code/frameworks/sdlc-complete/templates/analysis-design/interface-contract-card.md
+- agentic/code/frameworks/sdlc-complete/templates/requirements/use-case-acceptance-template.md
 
 ## Endpoint / Interface
 

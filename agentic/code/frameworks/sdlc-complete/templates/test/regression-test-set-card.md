@@ -13,7 +13,7 @@
 
 ## Related templates
 
-- docs/sdlc/templates/test/iteration-test-plan-template.md
+- agentic/code/frameworks/sdlc-complete/templates/test/iteration-test-plan-template.md
 
 ## Scope
 

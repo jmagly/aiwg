@@ -583,4 +583,4 @@ escalation:
 
 - Approval tier definitions: .aiwg/marketing/config/approval-tiers.yaml
 - Escalation procedures: docs/escalation-process.md
-- Approval templates: templates/governance/approval-request.md
+- Approval templates: templates/governance/approval-workflow-template.md

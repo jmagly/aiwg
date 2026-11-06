@@ -185,9 +185,9 @@ Follow the thought-protocol / reasoning-sections / tao-loop rules (`@$AIWG_ROOT/
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/security/security-checklist.md` - For security reviews
-- `docs/sdlc/templates/architecture/security-architecture.md` - For security design
-- `docs/sdlc/templates/testing/security-testing.md` - For security test plans
+- `templates/security/security-design-review-checklist.md` - For security reviews
+- `templates/security/threat-model-template.md` - For security design
+- `templates/security/security-test-case-card.md` - For security test plans
 
 ### Gate Criteria Support
 - Security review in Construction phase

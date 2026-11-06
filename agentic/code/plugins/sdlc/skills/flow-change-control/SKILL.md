@@ -168,7 +168,7 @@ Based on your answers, I'll adjust:
        Create change request for: {change-description}
        Change Type: {scope|schedule|resource|technical|process|risk}
 
-       Document using template from $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/management/change-request-template.md:
+       Document using template from agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md:
 
        1. Change Request Summary
           - Change ID: {change-id}
@@ -348,7 +348,7 @@ Based on your answers, I'll adjust:
        - .aiwg/working/change-control/risk-impact-{id}.md
 
        Create comprehensive Impact Assessment using template:
-       $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/management/impact-assessment-template.md
+       agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md
 
        Structure:
        1. Executive Summary
@@ -507,7 +507,7 @@ Overall Impact: MEDIUM | Recommendation: APPROVE
        - Split decision → DEFERRED for more information
 
        Document CCB Meeting using template:
-       $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/management/ccb-meeting-notes-template.md
+       CCB meeting fields in this skill
 
        Include:
        1. Meeting Details
@@ -632,7 +632,7 @@ Conditions: Create ADR for API versioning strategy
        description="Document baseline update",
        prompt="""
        Create baseline update log using template:
-       $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/management/baseline-log-template.md
+       baseline update fields in this skill
 
        Document:
        1. Change Authorization
@@ -734,7 +734,7 @@ Conditions: Create ADR for API versioning strategy
           - Schedule/cost impact
           - Risk considerations
 
-       Use template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/management/stakeholder-communication-template.md
+       Use the inline format: stakeholder notification fields in this skill
 
        Save to: .aiwg/decisions/communications/COMM-{id}-{audience}.md
        """
@@ -1038,11 +1038,11 @@ Escalating to CCB...
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Change Request: `templates/management/change-request-template.md`
-- Impact Assessment: `templates/management/impact-assessment-template.md`
-- CCB Meeting Notes: `templates/management/ccb-meeting-notes-template.md`
-- Baseline Log: `templates/management/baseline-log-template.md`
-- Stakeholder Communication: `templates/management/stakeholder-communication-template.md`
+- Change Request: `agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md`
+- Impact Assessment: `agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md`
+- CCB Meeting Notes: CCB meeting fields in this skill
+- Baseline Log: baseline update fields in this skill
+- Stakeholder Communication: stakeholder notification fields in this skill
 - Work Package Card: `templates/management/work-package-card.md`
 
 **Related Flows**:

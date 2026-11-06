@@ -184,5 +184,5 @@ Key Findings:
 
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/agents/reporting-agent.md - Reporting Agent
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/forensic-report.md - Report template
-- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/executive-summary.md - Executive template
+- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/forensic-report.md - Executive template
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/commands/forensics-status.md - Investigation status

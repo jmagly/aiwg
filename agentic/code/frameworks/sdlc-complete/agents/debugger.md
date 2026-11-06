@@ -140,9 +140,9 @@ When invoked for debugging:
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/testing/test-plan.md` - For test failure debugging
-- `docs/sdlc/templates/architecture/technical-design.md` - For architectural debugging
-- `docs/sdlc/templates/deployment/deployment-checklist.md` - For deployment issues
+- `agentic/code/frameworks/sdlc-complete/templates/test/master-test-plan-template.md` - For test failure debugging
+- `agentic/code/frameworks/sdlc-complete/templates/analysis-design/software-architecture-doc-template.md` - For architectural debugging
+- `agentic/code/frameworks/sdlc-complete/templates/deployment/rollout-checklist-card.md` - For deployment issues
 
 ### Gate Criteria Support
 Help projects pass quality gates by:

@@ -14,8 +14,8 @@
 
 ## Related templates
 
-- docs/sdlc/templates/deployment/deployment-plan-template.md
-- docs/sdlc/templates/deployment/support-runbook-template.md
+- agentic/code/frameworks/sdlc-complete/templates/deployment/deployment-plan-template.md
+- agentic/code/frameworks/sdlc-complete/templates/deployment/support-runbook-template.md
 
 ## Pre-Checks
 

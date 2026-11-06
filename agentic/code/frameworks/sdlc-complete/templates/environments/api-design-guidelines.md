@@ -15,9 +15,9 @@
 
 ## Related Templates
 
-- docs/sdlc/templates/analysis-design/interface-contract-card.md
-- docs/sdlc/templates/security/security-requirements-template.md
-- docs/sdlc/templates/analysis-design/architecture-decision-record.md
+- agentic/code/frameworks/sdlc-complete/templates/analysis-design/interface-contract-card.md
+- agentic/code/frameworks/sdlc-complete/templates/security/security-requirements-template.md
+- agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md
 
 ## Purpose
 

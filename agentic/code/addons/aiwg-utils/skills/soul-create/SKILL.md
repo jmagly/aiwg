@@ -122,7 +122,7 @@ Output: SOUL.md with:
 User: "Create a soul from our technical-authority voice profile"
 
 Process:
-1. Read voice-framework/voices/templates/technical-authority.yaml
+1. Read agentic/code/addons/voice-framework/voices/templates/technical-authority.yaml
 2. Extract tone dimensions, vocabulary, perspective
 3. Expand into full identity (voice → who generates that voice)
 4. Generate complementary sections (worldview, opinions, boundaries)

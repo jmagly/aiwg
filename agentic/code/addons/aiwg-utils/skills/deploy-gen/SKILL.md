@@ -73,9 +73,9 @@ Choose appropriate templates based on analysis:
 
 | Runtime | Template |
 |---------|----------|
-| Node.js | `templates/deploy/docker/node.Dockerfile` |
-| Python | `templates/deploy/docker/python.Dockerfile` |
-| Go | `templates/deploy/docker/go.Dockerfile` |
+| Node.js | generated node.Dockerfile (use the Dockerfile example below) |
+| Python | generated python.Dockerfile (use the Dockerfile example below) |
+| Go | generated go.Dockerfile (use the Dockerfile example below) |
 
 ### 3. Configuration Generation
 

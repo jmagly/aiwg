@@ -15,10 +15,10 @@
 
 ## Related Templates
 
-- docs/sdlc/templates/requirements/data-contract-template.md
-- docs/sdlc/templates/requirements/use-case-acceptance-template.md
-- docs/sdlc/templates/analysis-design/sequence-diagram-template.md
-- docs/sdlc/templates/analysis-design/component-design-card.md
+- agentic/code/frameworks/sdlc-complete/templates/requirements/data-contract-template.md
+- agentic/code/frameworks/sdlc-complete/templates/requirements/use-case-acceptance-template.md
+- agentic/code/frameworks/sdlc-complete/templates/analysis-design/sequence-diagram-template.md
+- agentic/code/frameworks/sdlc-complete/templates/analysis-design/component-design-card.md
 
 ## Interface Identity
 

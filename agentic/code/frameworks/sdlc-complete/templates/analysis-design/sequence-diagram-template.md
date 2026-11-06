@@ -14,7 +14,7 @@
 
 ## Related templates
 
-- docs/sdlc/templates/analysis-design/interface-contract-card.md
+- agentic/code/frameworks/sdlc-complete/templates/analysis-design/interface-contract-card.md
 
 ## Scenario
 

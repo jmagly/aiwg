@@ -462,6 +462,6 @@ thresholds:
 
 ## References
 
-- ADR template: templates/analysis-design/adr-template.md
-- Decision matrix template: templates/management/decision-matrix.md
+- ADR template: agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md
+- Decision matrix template: agentic/code/frameworks/sdlc-complete/templates/governance/decision-matrix-template.md
 - Trade-off catalog: docs/common-tradeoffs.md

@@ -1,0 +1,19 @@
+# Acquisition custody trail: append each collection, transfer and verification.
+case_id: "{{case_id}}"
+authorization_ref: "{{authorization_ref}}"
+entries:
+  - entry_id: "T-001"
+    timestamp: "{{timestamp_utc}}"
+    action: collection # collection, transfer, verification or storage
+    evidence_ids: ["E-001"]
+    from: "{{source_person_or_location}}"
+    to: "{{recipient_person_or_location}}"
+    performed_by: "{{operator}}"
+    purpose: "{{purpose}}"
+    storage_location: "{{storage_location}}"
+    hash_algorithm: sha256
+    hash_before: "{{sha256_before}}"
+    hash_after: "{{sha256_after}}"
+    integrity_verified: false # Set true only after comparing hashes.
+    acknowledgment: "{{signature_or_confirmation_reference}}"
+    notes: "{{notes}}"

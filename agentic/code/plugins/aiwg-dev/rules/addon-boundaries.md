@@ -107,7 +107,7 @@ agentic/code/frameworks/<framework-name>/
 **REQUIRED**:
 ```
 agentic/code/addons/my-addon/schemas/my-schema.yaml
-agentic/code/addons/my-addon/templates/my-template.md
+agentic/code/addons/<addon>/templates/<template>.md
 agentic/code/addons/my-addon/rules/my-rule.md
 ```
 

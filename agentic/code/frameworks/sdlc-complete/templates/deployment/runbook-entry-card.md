@@ -14,7 +14,7 @@
 
 ## Related templates
 
-- docs/sdlc/templates/reliability/alert-runbook-card.md
+- agentic/code/frameworks/sdlc-complete/templates/reliability/alert-runbook-card.md
 
 ## Service/Component
 

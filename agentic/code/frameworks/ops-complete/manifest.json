@@ -11,9 +11,6 @@
     "templates"
   ],
   "contextContributions": {
-    "hookFragment": "templates/project/AIWG-ops-fragment.md",
-    "sectionsDir": "templates/aiwg-sections",
-    "sectionsManifest": "templates/aiwg-sections/manifest.json",
     "priority": 20,
     "description": "Ops framework context: runbooks, inventory, fleet management, operational workflows"
   },

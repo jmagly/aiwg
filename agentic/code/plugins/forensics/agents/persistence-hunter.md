@@ -112,4 +112,4 @@ cat /etc/cron.d/php-update
 - NIST SP 800-86: Section 3.3 — Examination
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/docs/investigation-workflow.md
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/skills/sysops-forensics.md
-- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/persistence-findings.md
+- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/forensic-report.md

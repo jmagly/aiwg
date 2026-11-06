@@ -14,7 +14,7 @@
 
 ## Related templates
 
-- docs/sdlc/templates/requirements/data-contract-template.md
+- agentic/code/frameworks/sdlc-complete/templates/requirements/data-contract-template.md
 
 ## Scope
 
