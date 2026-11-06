@@ -103,6 +103,7 @@ describe('Wave 5 SDLC lane a canonical rule delivery (#2945)', () => {
       devMode: true, checkOnStartup: false }));
     cliEnv = { TMPDIR: process.env.TMPDIR, TMP: process.env.TMP, TEMP: process.env.TEMP,
       PATH: process.env.PATH, HOME: home, USERPROFILE: home, AIWG_ROOT: repo, AIWG_CONFIG: config,
+      AIWG_ARTIFACTS_PATH: path.join(home, 'artifacts'),
       XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share'),
       XDG_CACHE_HOME: path.join(home, '.cache'), XDG_STATE_HOME: path.join(home, '.local/state'),
       AIWG_NO_UPDATE_CHECK: '1', NO_UPDATE_NOTIFIER: '1', CI: '1' };

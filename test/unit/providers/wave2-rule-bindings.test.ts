@@ -114,6 +114,7 @@ describe('Wave 2 canonical rule delivery (#2942)', () => {
     // Build the framework index in this isolated HOME so the result does not depend on test order.
     const discoverEnv = { TMPDIR: process.env.TMPDIR, TMP: process.env.TMP, TEMP: process.env.TEMP,
       PATH: process.env.PATH, HOME: home, AIWG_ROOT: repo,
+      AIWG_ARTIFACTS_PATH: path.join(home, 'artifacts'),
       XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share'),
       XDG_CACHE_HOME: path.join(home, '.cache'), XDG_STATE_HOME: path.join(home, '.local/state'),
       AIWG_NO_UPDATE_CHECK: '1', NO_UPDATE_NOTIFIER: '1', CI: '1' };

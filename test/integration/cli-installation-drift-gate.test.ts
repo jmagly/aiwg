@@ -36,7 +36,8 @@ function runCli(args: string[], configDir: string, cwd = REPO_ROOT) {
     cwd,
     encoding: 'utf8',
     timeout: 120_000,
-    env: { ...process.env, AIWG_CONFIG: configDir, NO_UPDATE_NOTIFIER: '1', AIWG_TELEMETRY_DISABLED: '1' },
+    env: { ...process.env, AIWG_CONFIG: configDir, AIWG_ARTIFACTS_PATH: path.join(configDir, 'artifacts'),
+      NO_UPDATE_NOTIFIER: '1', AIWG_TELEMETRY_DISABLED: '1' },
   });
   return { stdout: result.stdout ?? '', stderr: result.stderr ?? '', exitCode: result.status ?? 1 };
 }

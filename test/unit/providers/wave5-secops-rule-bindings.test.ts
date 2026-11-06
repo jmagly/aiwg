@@ -151,7 +151,7 @@ describe('Wave 5 secops canonical rule delivery (#2945)', () => {
   it('discovers each scoped rule in the top three from its natural-language need (U6)', () => {
     const home = path.join(root, 'discover-home');
     fs.mkdirSync(home);
-    const env = isolatedEnv(home);
+    const env = { ...isolatedEnv(home), AIWG_ARTIFACTS_PATH: path.join(home, 'artifacts') };
     // Discovery must never depend on another test having populated this HOME.
     // Shipped prebuilt tables cover read gates; cold builds have isolated tests.
     for (const { name, data } of rules.filter(rule => rule.data.activation !== 'kernel')) {
