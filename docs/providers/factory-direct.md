@@ -6,11 +6,13 @@ batch work to a separately-configured Droid account.
 
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-bound to
-`droid-cli 0.238.0` and documentation/help-evidenced only (`H`/`D` evidence
-grades — the `stream-json`/`json` event vocabulary is doc-sourced from
-docs.factory.com, not help-verified, because the installed CLI was never run
-with a prompt). It stays `unqualified` for dispatch until a human qualifier
-reviews a live run. The adapter
+`droid-cli 1.0.0`. The titan eval (2026-11-06) help-verified `--auto low`,
+`-m`, `-r`, `--cwd` and `-o stream-json`. The stdin brief was echoed as the
+first stream-json message. Live inference returned `402 No active subscription`;
+no successful live result is recorded. Live evidence remains pending, blocked
+by the subscription. The profile stays `unqualified`. The terminal result
+vocabulary remains documentation-sourced (`D`); help and stdin evidence (`H`)
+do not establish successful inference. The adapter
 (`tools/ralph-external/lib/factory-adapter.mjs`) renders:
 
 ```
@@ -19,8 +21,7 @@ droid exec [--auto low] -m <model> -r <effort> --cwd <workspace> \
 ```
 
 The brief always travels on stdin (no `prompt` argument is ever emitted);
-`exec --help`'s own Examples document reading the prompt from stdin when no
-`prompt` argument is given. `--auto low` is emitted only for the
+the 1.0.0 eval verified ingestion when no `prompt` argument is given. `--auto low` is emitted only for the
 `workspace-write` sandbox contract; the `read-only` contract omits `--auto`
 entirely, since the CLI's own no-flags default already is read-only.
 `--skip-permissions-unsafe` is never emitted by this profile.

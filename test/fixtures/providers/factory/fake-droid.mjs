@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Synthetic stand-in for `droid` 0.238.0 `exec` (roctinam/aiwg#2902).
+ * Synthetic stand-in for `droid` 1.0.0 `exec` (roctinam/aiwg#2902).
  * It implements only the help-evidenced surface used by the version-bound
  * direct-shell profile:
  *
@@ -44,7 +44,7 @@ if (!args.length || args[0] === '--help' || args[0] === '-h') {
   process.exit(0);
 }
 if (args[0] === '--version' || args[0] === '-v') {
-  process.stdout.write('0.238.0\n');
+  process.stdout.write('1.0.0\n');
   process.exit(0);
 }
 if (args[0] !== 'exec') fail(`unknown command '${args[0]}'`);

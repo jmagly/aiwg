@@ -35,16 +35,15 @@ const MODEL_MAP = {
 /**
  * Version-bound direct-worker surface (roctinam/aiwg#2902, B-OG-37).
  *
- * Qualified against droid-cli 0.238.0 `droid exec --help` (help/version
- * syntax only, captured on host 'noodle' 2026-10-10,
- * .aiwg/working/s1-scratch/cli-help/droid-0.238.0.txt; never live
- * qualification):
+ * Help-verified on titan with droid-cli 1.0.0 (2026-11-06 eval).
+ * Stdin brief echoed in the first stream-json message; live result pending
+ * (402 No active subscription). This is not live qualification:
  *
  *   droid exec [--auto low] -m M -r E --cwd W --output-format stream-json < briefPath
  *
  * `exec` is Droid's non-interactive mode ("Run non-interactively (for
  * scripts/automation)"); `-m/--model`, `-r/--reasoning-effort`, `--auto`,
- * `--cwd` and `-o/--output-format` are all `exec`-level flags on 0.238.0
+ * `--cwd` and `-o/--output-format` are all `exec`-level flags on 1.0.0
  * `exec --help`. There is no file-output flag (`-o` selects the *format*,
  * not a destination path): the final is read from the captured stdout
  * stream instead, never a separate file. There is no positional `prompt`
@@ -71,8 +70,8 @@ const MODEL_MAP = {
  * required and the CLI's per-model default is never inherited.
  *
  * `--output-format stream-json` and the terminal `json` object shape are
- * doc-sourced, not help-verified (the installed CLI was never run with a
- * prompt): https://docs.factory.com/droid-exec/overview documents
+ * doc-sourced; stdin ingestion alone does not verify a successful
+ * result: https://docs.factory.com/droid-exec/overview documents
  * `--output-format json` producing exactly one terminal object,
  * `{"type":"result","subtype":"success","is_error":false,"duration_ms":N,
  * "num_turns":N,"result":"...","session_id":"..."}`, and
@@ -97,7 +96,7 @@ const MODEL_MAP = {
  * Ralph-loop registry only; the direct worker profile loads through the
  * installed loader.
  */
-export const FACTORY_SUPPORTED_VERSIONS = Object.freeze(['0.238.0']);
+export const FACTORY_SUPPORTED_VERSIONS = Object.freeze(['1.0.0']);
 /** Union of every reasoning-effort label observed across models in
  * `exec --help`'s "Model details" section (including `none`, the sole
  * level for "Auto Model" and one of the levels for GPT-6 Sol/Luna and

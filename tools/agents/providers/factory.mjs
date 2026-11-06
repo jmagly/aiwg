@@ -710,95 +710,8 @@ export function enableFactoryCustomDroids(dryRun) {
 // Factory Hooks
 // ============================================================================
 
-/**
- * Deploy SessionStart hook for AIWG pre-flight checks.
- *
- * Writes a SessionStart hook to ~/.factory/settings.json that runs
- * `aiwg sync --dry-run --quiet` on every new session. Preserves
- * existing hooks and settings.
- */
-export function deployFactoryHooks(dryRun) {
-  const homeDir = process.env.HOME || process.env.USERPROFILE;
-  if (!homeDir) {
-    console.warn('Could not determine home directory, skipping Factory hooks configuration');
-    return;
-  }
-
-  const settingsDir = path.join(homeDir, '.factory');
-  const settingsPath = path.join(settingsDir, 'settings.json');
-
-  let settings = {};
-  let originalContent = '';
-  let hasExistingFile = false;
-
-  // Read existing settings if present
-  if (fs.existsSync(settingsPath)) {
-    hasExistingFile = true;
-    try {
-      originalContent = fs.readFileSync(settingsPath, 'utf8');
-      const jsonContent = stripJsonComments(originalContent);
-      settings = JSON.parse(jsonContent);
-    } catch (err) {
-      console.warn(`Warning: Could not parse Factory settings.json for hooks: ${err.message}`);
-      console.warn('Skipping hook deployment to avoid corrupting settings file.');
-      return;
-    }
-  }
-
-  // Define the AIWG pre-flight hook
-  const aiwgHook = {
-    type: 'command',
-    command: 'aiwg sync --dry-run --quiet'
-  };
-
-  const aiwgMatcher = {
-    matcher: '*',
-    hooks: [aiwgHook]
-  };
-
-  // Initialize hooks structure if missing
-  if (!settings.hooks) {
-    settings.hooks = {};
-  }
-  if (!settings.hooks.SessionStart) {
-    settings.hooks.SessionStart = [];
-  }
-
-  // Check if AIWG hook already exists (by command string)
-  const alreadyInstalled = settings.hooks.SessionStart.some(entry =>
-    entry.hooks?.some(h => h.command && h.command.includes('aiwg sync'))
-  );
-
-  if (alreadyInstalled) {
-    console.log('Factory SessionStart hook already installed for AIWG pre-flight');
-    return;
-  }
-
-  // Add the hook
-  settings.hooks.SessionStart.push(aiwgMatcher);
-
-  if (dryRun) {
-    console.log(`[dry-run] Would add SessionStart hook to ${settingsPath}`);
-    console.log(`[dry-run] Hook: aiwg sync --dry-run --quiet`);
-  } else {
-    if (!fs.existsSync(settingsDir)) {
-      fs.mkdirSync(settingsDir, { recursive: true });
-    }
-
-    // Parsed successfully, so the merge is safe to write back. It is written
-    // as canonical JSON, which drops operator comments and formatting, so
-    // keep a timestamped copy of a hand-edited user-global file first.
-    const updatedContent = JSON.stringify(settings, null, 2) + '\n';
-    if (hasExistingFile && originalContent !== JSON.stringify(JSON.parse(stripJsonComments(originalContent)), null, 2) + '\n') {
-      const backupPath = `${settingsPath}.aiwg-backup-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-      fs.copyFileSync(settingsPath, backupPath);
-      console.log(`Backed up ${settingsPath} to ${backupPath} (comments and formatting are not preserved)`);
-    }
-    fs.writeFileSync(settingsPath, updatedContent, 'utf8');
-    console.log(`Deployed SessionStart hook to ${settingsPath}`);
-    console.log('Hook: aiwg sync --dry-run --quiet (runs on every new Factory session)');
-  }
-}
+export { deployFactoryHooks } from './factory-hooks.mjs';
+import { deployFactoryHooks } from './factory-hooks.mjs';
 
 // ============================================================================
 // Post-Deployment
@@ -812,7 +725,7 @@ export async function postDeploy(targetDir, opts) {
   enableFactoryCustomDroids(opts.dryRun);
 
   // Deploy SessionStart hook for AIWG pre-flight checks
-  deployFactoryHooks(opts.dryRun);
+  if (opts.hooks !== false) await deployFactoryHooks(opts.dryRun, opts.scope === 'user' ? undefined : targetDir);
 
   // Create/update AGENTS.md if requested
   if (opts.createAgentsMd) {
@@ -901,7 +814,7 @@ export function generatePluginBundle(targetDir, opts) {
           hooks: [
             {
               type: 'command',
-              command: 'aiwg sync --dry-run --quiet'
+              command: 'aiwg refresh --dry-run --quiet'
             }
           ]
         }

@@ -1097,7 +1097,7 @@
         "id": "factory-direct",
         "provider": "factory",
         "adapterVersion": "1",
-        "supportedVersions": "0.238.0",
+        "supportedVersions": "1.0.0",
         "runtimeDriver": "installed:factory",
         "catalogAdapter": {
           "kind": "file",
@@ -1147,72 +1147,73 @@
         "invocationProfiles": {
           "direct-shell": {
             "transport": "shell",
-            "supportedVersions": "0.238.0",
+            "supportedVersions": "1.0.0",
             "controls": {
               "model": {
                 "support": "unqualified",
-                "mapping": "[-m/--model MODEL]; exact catalog model ID, never the CLI default (gpt-6-sol) or a generic alias",
-                "evidence": "H: droid-cli 0.238.0 exec --help documents -m/--model <id> (default: \"gpt-6-sol\"); unqualified until live model-pin evidence"
+                "mapping": "[-m/--model MODEL]; exact catalog model ID, never the CLI default or a generic alias",
+                "evidence": "H: droid-cli 1.0.0 exec --help documents -m/--model <id>; unqualified until live model-pin evidence"
               },
               "effort": {
                 "support": "unqualified",
                 "mapping": "[-r/--reasoning-effort LEVEL]; valid levels are model-dependent (exec --help 'Model details'); never the per-model default",
-                "evidence": "H: droid-cli 0.238.0 exec --help documents -r/--reasoning-effort <level> (defaults per model); unqualified until live evidence"
+                "evidence": "H: droid-cli 1.0.0 exec --help documents -r/--reasoning-effort <level> (defaults per model); unqualified until live evidence"
               },
               "sandbox": {
                 "support": "unqualified",
                 "mapping": "workspace-write -> [--auto low]; read-only -> no --auto flag (the CLI's own documented read-only default); --skip-permissions-unsafe and the medium/high --auto tiers are out of this contract's scope and are never emitted",
-                "evidence": "H: droid-cli 0.238.0 exec --help documents --auto <level> (low|medium|high), its 'Autonomy Levels' default read-only mode, and --skip-permissions-unsafe ('Bypass all checks - DANGEROUS!'); unqualified until live evidence"
+                "evidence": "H: droid-cli 1.0.0 exec --help documents --auto <level> (low|medium|high), its 'Autonomy Levels' default read-only mode, and --skip-permissions-unsafe ('Bypass all checks - DANGEROUS!'); unqualified until live evidence"
               },
               "approval": {
                 "support": "unqualified",
                 "mapping": "unavailable as a separate flag: exec is non-interactive by construction and --auto (the sandbox control) is the only permission gate",
-                "evidence": "H: droid-cli 0.238.0 exec --help documents exec as 'Run non-interactively (for scripts/automation)' with no approval-prompt flag; unqualified until live evidence"
+                "evidence": "H: prior droid-cli 0.238.0 exec --help documents exec as 'Run non-interactively (for scripts/automation)' with no approval-prompt flag; not reverified on 1.0.0, unqualified until live evidence"
               },
               "workdir": {
                 "support": "unqualified",
                 "mapping": "[--cwd W] conductor working root, plus the conductor process cwd",
-                "evidence": "H: droid-cli 0.238.0 exec --help documents --cwd <path>; unqualified until live evidence"
+                "evidence": "H: droid-cli 1.0.0 exec --help documents --cwd <path>; unqualified until live evidence"
               },
               "finalOutput": {
                 "support": "unqualified",
                 "mapping": "unavailable as a file target: no -o/output-file flag is documented for exec (-o/--output-format selects stream shape, not a destination); the final is the last type:\"result\" line of the captured --output-format stream-json stdout stream",
-                "evidence": "H: droid-cli 0.238.0 exec --help documents -o/--output-format <text|json|stream-json|stream-jsonrpc|acp> with no file-path argument; D: https://docs.factory.com/droid-exec/overview documents the terminal result object shape; unqualified until live evidence"
+                "evidence": "H: droid-cli 1.0.0 exec --help documents -o/--output-format <text|json|stream-json|stream-jsonrpc|acp> with no file-path argument; D: https://docs.factory.com/droid-exec/overview documents the terminal result object shape; unqualified until live evidence"
               },
               "stdin": {
                 "support": "unqualified",
                 "mapping": "brief-text: omitting the prompt argument makes exec read the prompt from stdin to EOF; brief text never enters argv, rendered commands or serialized plans",
-                "evidence": "H: droid-cli 0.238.0 exec --help's own Examples ('echo \"analyze code\" | droid exec', 'cat prompt.txt | droid exec --auto low'); unqualified until live evidence"
+                "evidence": "H: titan eval on droid-cli 1.0.0 verified stdin ingestion: the brief was echoed as the first stream-json message. Live result pending: blocked by 402 No active subscription; no successful inference recorded"
               },
               "structuredOutput": {
                 "support": "unqualified",
                 "mapping": "unavailable: no --output-schema-equivalent flag is documented for exec",
-                "evidence": "H: droid-cli 0.238.0 exec --help advertises no output-schema flag; unqualified until live evidence"
+                "evidence": "H: prior droid-cli 0.238.0 exec --help advertises no output-schema flag; not reverified on 1.0.0, unqualified until live evidence"
               },
               "stepCap": {
                 "support": "unqualified",
-                "mapping": "unavailable: no step or turn cap flag is evidenced on 0.238.0; deadline and output-byte bounds come from the invoking shell",
-                "evidence": "H: droid-cli 0.238.0 exec --help advertises no step-cap flag; unknown controls block tasks requiring them"
+                "mapping": "unavailable: no step or turn cap flag is evidenced on 1.0.0; deadline and output-byte bounds come from the invoking shell",
+                "evidence": "H: prior droid-cli 0.238.0 exec --help advertises no step-cap flag; unknown controls block tasks requiring them"
               },
               "trust": {
                 "support": "unqualified",
-                "mapping": "unknown: workspace-trust behaviour is not evidenced for non-interactive exec on 0.238.0",
-                "evidence": "H: droid-cli 0.238.0 exec --help documents no trust-prompt flag for exec; unqualified until live evidence"
+                "mapping": "unknown: workspace-trust behaviour is not evidenced for non-interactive exec on 1.0.0",
+                "evidence": "H: prior droid-cli 0.238.0 exec --help documents no trust-prompt flag for exec; not reverified on 1.0.0, unqualified until live evidence"
               },
               "children": {
                 "support": "unqualified",
                 "mapping": "controllable: --mission spawns worker sessions via factoryd (never emitted by this profile, which keeps every run single-agent)",
-                "evidence": "H: droid-cli 0.238.0 exec --help documents --mission/--worker-model/--validator-model as mission-mode only; the direct profile never emits them; unqualified until live evidence"
+                "evidence": "H: prior droid-cli 0.238.0 exec --help documents --mission/--worker-model/--validator-model as mission-mode only; the direct profile never emits them; not reverified on 1.0.0, unqualified until live evidence"
               },
               "fallback": {
                 "support": "unqualified",
                 "mapping": "unavailable: no non-mission fallback-model flag is documented for exec (--spec-model/--worker-model/--validator-model are mission-mode only)",
-                "evidence": "H: droid-cli 0.238.0 exec --help scopes --spec-model/--worker-model/--validator-model to --mission/--use-spec; unknown controls block tasks requiring them"
+                "evidence": "H: prior droid-cli 0.238.0 exec --help scopes --spec-model/--worker-model/--validator-model to --mission/--use-spec; unknown controls block tasks requiring them"
               }
             },
             "envAllowlist": ["FACTORY_API_KEY", "HOME", "PATH"],
             "pitfalls": [
               "Documentation/help and synthetic observations are not authenticated live qualification.",
+              "Titan 1.0.0 eval: --auto low, -m, -r, --cwd and -o stream-json are help-verified; stdin brief echoed in first stream-json message. Live result pending (blocked: 402 No active subscription); profile remains unqualified.",
               "Unknown model, effort, permission or required step mappings block dispatch.",
               "Native MCP/client, MSP/ACP, gateway and conversation capabilities do not establish worker authority.",
               "--skip-permissions-unsafe is Ralph-loop legacy and never part of the direct profile.",
@@ -1244,8 +1245,8 @@
                 {
                   "kind": "help",
                   "ref": "tools/ralph-external/lib/factory-adapter.mjs",
-                  "observedAt": "2026-10-10T00:00:00Z",
-                  "cliVersion": "0.238.0"
+                  "observedAt": "2026-11-06T00:00:00Z",
+                  "cliVersion": "1.0.0"
                 },
                 {
                   "kind": "documentation",
