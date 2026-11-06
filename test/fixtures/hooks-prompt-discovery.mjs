@@ -7,6 +7,13 @@ export async function discoverCapability(cwd, options) {
   if (options.phrase.includes('weak result')) return console.log(JSON.stringify({ results: [
     { type: 'skill', name: 'weak', capability: 'Low relevance', score: 0.19 },
   ] }));
+  if (options.phrase.includes('Jira CSV')) return console.log(JSON.stringify({ results: [
+    { type: 'template', name: 'rag.prompt', capability: 'Unrelated template', score: 0.60 },
+    { type: 'skill', name: 'dataset-trace', capability: 'Unrelated skill', score: 0.40 },
+  ] }));
+  if (options.phrase.includes('boundary score')) return console.log(JSON.stringify({ results: [
+    { type: 'skill', name: 'boundary', capability: 'Threshold candidate', score: Number(options.phrase.split(' ').at(-1)) },
+  ] }));
   if (options.limit !== 3 || !options.promptContext || !options.json || options.resourceSource !== 'local' || !options.offline) {
     throw new Error('Expected local, offline, top-three discovery');
   }

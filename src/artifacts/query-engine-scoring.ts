@@ -240,9 +240,10 @@ export function scoreEntryDetailed(
     hits: string[],
     match: Omit<LexicalMatchDiagnostic, 'contribution' | 'matched_tokens' | 'query_token_coverage'>,
   ): void => {
-    // Isolated trigger tokens need query coverage; coherent multiword triggers
-    // retain their weight. Later stronger fields can upgrade earlier weak hits.
-    const denominator = match.field === 'trigger' && hits.length === 1 ? Math.max(1, tokens.length) : 1;
+    // Sparse trigger overlap needs query coverage even with multiple hits:
+    // boilerplate tokens must not earn full weight in a long query.
+    const denominator = match.field === 'trigger' && (hits.length === 1 || hits.length < Math.ceil(tokens.length / 2))
+      ? Math.max(1, tokens.length) : 1;
     const weight = contributionPerToken / denominator;
     const newlyMatched = hits.filter(token => weight > (creditedTokens.get(token) ?? 0));
     if (newlyMatched.length === 0) return;
