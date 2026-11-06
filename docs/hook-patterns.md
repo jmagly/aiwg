@@ -8,7 +8,7 @@
 
 > Review the authentication code for security issues.
 
-On Claude Code and Muse, each substantive prompt gives the assistant up to three
+On Claude Code, Muse, and Codex 0.165, each substantive prompt gives the assistant up to three
 AIWG candidates: type, name, a short capability, and relevance score. For example,
 its additional context can contain `skill security-review (0.92): Review code for
 security issues`, followed by the steps to inspect the candidate with
@@ -19,7 +19,10 @@ hints; the assistant still checks their instructions before acting.
 `aiwg use` installs the shared `aiwg-prompt-discovery.cjs` hook into Claude's
 `.claude/hooks/` and registers `UserPromptSubmit` in `.claude/settings.json`.
 Muse uses `.muse/hooks/` and its existing hooks.json/sidecar owner. Repeating
-installation updates managed entries while preserving your own hooks.
+installation updates managed entries while preserving your own hooks. Codex
+uses `.codex/hooks/` and `.codex/hooks.json` through the existing hook bridge,
+including the kernel-only deployment used by `aiwg use all --provider codex`.
+It does not edit the user’s global Codex configuration.
 
 Acknowledgements such as “yes”, “ok”, “go”, and “1”, short replies without an
 identified imperative, slash-command-only prompts (including command arguments),
@@ -51,13 +54,56 @@ already-installed hooks.
 |---|---|
 | Claude Code | UserPromptSubmit additionalContext |
 | Muse | UserPromptSubmit additionalContext via project hook owner |
-| Codex | Explicit gap: the bridge maps before_prompt but has no verified additionalContext injection contract |
+| Codex 0.165 | UserPromptSubmit additionalContext via project `.codex/hooks.json` |
 | Hermes | Explicit gap: the bridge returns an exit code without forwarding prompt JSON or injecting additionalContext |
 
 The canonical source declares these gaps with `degrade-on`; bridge deployment
 reports a skip reason instead of installing an ineffective prompt hook. Copilot,
 Grok Build, and Factory are also excluded pending a verified delivery path for
 this hook. A native event mapping alone does not establish context delivery.
+
+## Codex 0.165 schema verification (#3888)
+
+The installed `codex-cli 0.165.0` reports `hooks stable true` from
+`codex features list`. Offline probes used an empty temporary `CODEX_HOME` and
+HOME, no credentials, a synthetic trusted project, and network calls denied by
+`strace -f -e inject=connect:error=ENETUNREACH -e inject=sendto:error=ENETUNREACH`.
+The binary's stdio app server (`initialize`, then `hooks/list` with
+`{"cwds":["<temporary-project>"]}`) established the following:
+
+- Both `<project>/.codex/hooks.json` and `$CODEX_HOME/hooks.json` are read.
+- JSON is `{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"node /path/to/hook.cjs","timeout":2}]}]}}`.
+- TOML uses `[[hooks.UserPromptSubmit]]`, followed by
+  `[[hooks.UserPromptSubmit.hooks]]`, `type = "command"`, and a shell `command`
+  string. Separate `args` on the matcher group are ineffective.
+- **Configuration keys are PascalCase**, matching Claude Code. A snake_case
+  `user_prompt_submit` key silently loads zero hooks in both JSON and TOML.
+  `hooks/list` reports the loaded hook's internal key with `user_prompt_submit`
+  and its API event name as `userPromptSubmit`. These are different namespaces.
+- All eleven canonical events were enumerated successfully, including distinct
+  `Stop` and `SessionEnd`, with no warnings or errors.
+- Project hooks require a trusted project; hook commands separately require
+  Codex hook trust/review. Deployment never grants that trust. The probe used
+  `--dangerously-bypass-hook-trust` only for its synthetic command.
+
+An unauthenticated `codex exec --ephemeral --skip-git-repo-check
+--dangerously-bypass-hook-trust --json` executed the project command and delivered
+`hook_event_name: "UserPromptSubmit"`, `prompt`, and `cwd` on stdin. Its JSON
+output used `hookSpecificOutput.hookEventName: "UserPromptSubmit"` and
+`hookSpecificOutput.additionalContext`; the same wire shape is embedded in the
+binary's `user-prompt-submit.command.output` schema. The embedded
+`pre-tool-use.command.output` schema declares `permissionDecision` and
+`permissionDecisionReason` inside `hookSpecificOutput`.
+A second run executed the deployed shared discovery script with a synthetic local
+discovery runtime and captured its candidate `additionalContext` JSON. Both runs
+were terminated after observing hook execution; no authenticated model turn or
+model-visible context was tested.
+A complete model turn requires the operator's authenticated session.
+
+The bridge keeps `Stop` distinct from `SessionEnd`. Its legacy TOML block helper
+rescues `[desktop]`, marketplace, plugin, and other user tables when a misplaced
+AIWG end marker encloses them. Project deployment leaves existing global TOML
+untouched; the helper is available for explicit managed-block replacement.
 
 ## Overview
 

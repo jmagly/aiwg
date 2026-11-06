@@ -4380,10 +4380,10 @@ export class UseHandler implements CommandHandler {
     // PUW-018 (#1119) cross-provider hook bridge — opt-in via
     // --enable-cross-provider-hooks. When enabled and at least one canonical
     // hook source exists at agentic/code/addons/aiwg-hooks/canonical/*.yaml,
-    // translate to provider-native artifacts (Codex TOML, Copilot JSON,
+    // translate to provider-native artifacts (Codex project JSON, Copilot JSON,
     // Factory shell, Hermes Python plugin). Per ADR-3 §7 autoInstall policy
     // this is opt-in.
-    if (remainingArgs.includes('--enable-cross-provider-hooks') && !dryRun) {
+    if (remainingArgs.includes('--enable-cross-provider-hooks') && !remainingArgs.includes('--no-hooks') && !dryRun) {
       try {
         const { loadHookSources, bridgeAll } = await import('../../smiths/hook-bridge/index.js');
         const { sources, errors } = await loadHookSources(frameworkRoot);

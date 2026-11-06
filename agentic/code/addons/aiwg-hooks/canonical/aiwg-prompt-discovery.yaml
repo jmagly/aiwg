@@ -3,6 +3,7 @@ description: Bounded prompt-time capability candidates and show/rules/apply guid
 events: [UserPromptSubmit]
 command: node
 args: ['$AIWG_ROOT/agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs']
+timeout: 2
 # These bridges map an event but cannot deliver additionalContext to the model.
 # Muse uses its project hook owner; Claude uses claude-hooks-installer.
-degrade-on: [codex, hermes, copilot, grok-build, factory]
+degrade-on: [hermes, copilot, grok-build, factory]

@@ -78,7 +78,7 @@ export async function bridgeAll(
       }
       try {
         const roots = [path.join(options.projectPath, '.factory/hooks'), path.join(options.projectPath, '.github/hooks'),
-          path.join(options.projectPath, '.grok/hooks'), path.join(process.env.CODEX_HOME || path.join(homedir(), '.codex'), 'config.toml'),
+          path.join(options.projectPath, '.grok/hooks'), path.join(options.projectPath, '.codex/hooks.json'), path.join(options.projectPath, '.codex/hooks'),
           path.join(homedir(), '.hermes/plugins')];
         const before = options.dryRun ? undefined : captureDeploymentOutputs(roots);
         const r = await translator(source, options);

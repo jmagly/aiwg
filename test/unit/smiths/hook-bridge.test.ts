@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { getStaticTOMLValue, parseTOML } from 'toml-eslint-parser';
 vi.mock('node:os', async importOriginal => {
   const actual = await importOriginal<typeof import('node:os')>();
   return { ...actual, homedir: vi.fn(() => actual.tmpdir()) };
@@ -25,6 +26,7 @@ import {
   translateForFactory,
   translateForHermes,
   bridgeAll,
+  loadHookSources,
   AIWG_ENV_VARS,
   NATIVE_ENV_VAR_MAP,
   TRANSLATORS,
@@ -110,68 +112,94 @@ describe('generateShimBash', () => {
   });
 });
 
+describe('loadHookSources', () => {
+  it('loads the full Codex event set, deadline and install-root script path', async () => {
+    const directory = path.join(tmpDir, 'agentic/code/addons/aiwg-hooks/canonical');
+    await fs.mkdir(directory, { recursive: true });
+    const events = ['PreToolUse', 'PostToolUse', 'UserPromptSubmit', 'SessionStart', 'SessionEnd',
+      'PermissionRequest', 'PreCompact', 'PostCompact', 'SubagentStart', 'SubagentStop', 'Stop'];
+    await fs.writeFile(path.join(directory, 'fixture.json'), JSON.stringify({
+      id: 'fixture', command: 'node', events, timeout: 2, args: ['$AIWG_ROOT/hook.cjs'],
+    }));
+    const loaded = await loadHookSources(tmpDir);
+    expect(loaded.errors).toEqual([]);
+    expect(loaded.sources).toHaveLength(1);
+    expect(loaded.sources[0]).toMatchObject({ events, timeout: 2, args: [path.join(tmpDir, 'hook.cjs')] });
+  });
+});
+
 describe('renderCodexHookToml', () => {
-  it('renders TOML hook entries with AIWG provenance', () => {
-    const toml = renderCodexHookToml(SAMPLE_HOOK);
-    expect(toml).toContain('[[hooks.before_tool]]');
-    expect(toml).toContain('command = "$CODEX_WORKSPACE/scripts/check-no-attribution.sh"');
-    expect(toml).toContain('args = ["--strict"]');
-    expect(toml).toContain('_aiwg_managed = true');
-    expect(toml).toContain('_aiwg_id = "no-attribution"');
+  it('renders the verified matcher group and typed command schema', () => {
+    const toml = renderCodexHookToml({ ...SAMPLE_HOOK, timeout: 2 });
+    const parsed = getStaticTOMLValue(parseTOML(toml)) as any;
+    expect(parsed.hooks.PreToolUse).toEqual([{ hooks: [{
+      type: 'command', command: '$CODEX_WORKSPACE/scripts/check-no-attribution.sh "--strict"',
+      timeout: 2, _aiwg_managed: true, _aiwg_id: 'no-attribution',
+    }] }]);
     expect(toml).toContain('safety-critical');
+    expect(toml).not.toContain('args =');
   });
 
-  it('skips events with no Codex mapping', () => {
-    const toml = renderCodexHookToml({
-      ...SAMPLE_HOOK,
-      events: ['UserPromptSubmit'],
-    });
-    expect(toml).toContain('[[hooks.before_prompt]]');
+  it.each(['PreToolUse', 'PostToolUse', 'UserPromptSubmit', 'SessionStart', 'SessionEnd',
+    'PermissionRequest', 'PreCompact', 'PostCompact', 'SubagentStart', 'SubagentStop', 'Stop'] as const)
+  ('renders the %s config key (runtime IDs use snake_case)', event => {
+    const parsed = getStaticTOMLValue(parseTOML(renderCodexHookToml({ ...SAMPLE_HOOK, events: [event] }))) as any;
+    expect(Object.keys(parsed.hooks)).toEqual([event]);
+  });
+
+  it('quotes arguments without evaluating shell command substitutions', () => {
+    const toml = renderCodexHookToml({ ...SAMPLE_HOOK, args: ['two words', '$(danger)', '`danger`', 'a"b'] });
+    const parsed = getStaticTOMLValue(parseTOML(toml)) as any;
+    expect(parsed.hooks.PreToolUse[0].hooks[0].command)
+      .toBe('$CODEX_WORKSPACE/scripts/check-no-attribution.sh "two words" "\\$(danger)" "\\`danger\\`" "a\\"b"');
   });
 });
 
 describe('injectCodexHookBlock', () => {
-  it('appends a fresh block to operator content', () => {
-    const r = injectCodexHookBlock('# operator config\nkey = "value"\n', '[[hooks.x]]\ncommand = "x"');
-    expect(r).toContain('# operator config');
-    expect(r).toContain('# >>> AIWG-managed hooks');
-    expect(r).toContain('# <<< AIWG-managed hooks');
+  const start = '# >>> AIWG-managed hooks (do not edit between markers)';
+  const end = '# <<< AIWG-managed hooks';
+  it('appends a fresh block while preserving operator content byte for byte', () => {
+    const original = '# operator config\nkey = "value"\n\n';
+    expect(injectCodexHookBlock(original, 'new content')).toBe(original + '\n' + start + '\nnew content\n' + end + '\n');
   });
 
-  it('replaces an existing AIWG block', () => {
-    // Note: the SPILLOVER_START marker includes a parenthetical
-    // ("(do not edit between markers)"); use the same exact string here.
-    const original = [
-      '# operator',
-      '# >>> AIWG-managed hooks (do not edit between markers)',
-      'stale-spillover',
-      '# <<< AIWG-managed hooks',
-      'footer',
-      '',
-    ].join('\n');
-    const r = injectCodexHookBlock(original, 'new content');
-    expect(r).toContain('new content');
-    expect(r).toContain('footer');
-    expect(r).toContain('# operator');
-    expect(r).not.toContain('stale-spillover');
+  it('replaces only the lines inside its markers and remains idempotent', () => {
+    const before = '# operator\n';
+    const after = '\n\n# footer\n[desktop]\nvalue = true\n';
+    const result = injectCodexHookBlock(before + start + '\nstale-spillover\n' + end + after, 'new content');
+    expect(result).toBe(before + start + '\nnew content\n' + end + after);
+    expect(injectCodexHookBlock(result, 'new content')).toBe(result);
+  });
+
+  it('does not treat marker text inside operator strings as a managed block', () => {
+    const original = `description = "${start}"\nfooter = "${end}"\n`;
+    const result = injectCodexHookBlock(original, 'new content');
+    expect(result.startsWith(original)).toBe(true);
+    expect(result).toContain(`\n${start}\nnew content\n${end}\n`);
+  });
+
+  it('repairs the titan layout by moving the end marker before user tables', () => {
+    const before = 'model = "example"\n\n';
+    const user = '# desktop preferences\n[desktop]\nnotifications = false\n\n[marketplaces.local]\nsource = "local"\n\n[plugins."example@local"]\nenabled = true\n';
+    const old = '[[hooks.before_tool]]\ncommand = "old"\n_aiwg_managed = true\n_aiwg_id = "old"\n';
+    const result = injectCodexHookBlock(before + start + '\n' + old + user + end + '\n# tail\n', 'new content');
+    expect(result).toBe(before + start + '\nnew content\n' + end + '\n' + user + '\n# tail\n');
+    expect(injectCodexHookBlock(result, 'new content')).toBe(result);
   });
 });
 
 describe('translateForCodex', () => {
-  it('writes config.toml with AIWG hook block', async () => {
+  it('writes project hooks.json with typed commands and no global config writes', async () => {
     const r = await translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir });
     expect(r.skipped).toBe(false);
-    expect(r.emittedPaths.length).toBeGreaterThan(0);
-    expect(r.emittedPaths[0]).toBe(path.join(homeOverride, '.codex/config.toml'));
-    const content = await fs.readFile(r.emittedPaths[0], 'utf8');
-    expect(content).toContain('[[hooks.before_tool]]');
+    expect(r.emittedPaths).toEqual([path.join(tmpDir, '.codex/hooks.json')]);
+    const parsed = JSON.parse(await fs.readFile(r.emittedPaths[0], 'utf8'));
+    expect(parsed.hooks.PreToolUse[0].hooks[0]).toMatchObject({ type: 'command', _aiwg_id: SAMPLE_HOOK.id });
+    expect(await fs.readdir(homeOverride)).toEqual([]);
   });
 
   it('honors degradeOn list', async () => {
-    const r = await translateForCodex(
-      { ...SAMPLE_HOOK, degradeOn: ['codex'] },
-      { projectPath: tmpDir },
-    );
+    const r = await translateForCodex({ ...SAMPLE_HOOK, degradeOn: ['codex'] }, { projectPath: tmpDir });
     expect(r.skipped).toBe(true);
     expect(r.skipReason).toContain('degrade-on');
   });
@@ -180,28 +208,58 @@ describe('translateForCodex', () => {
     const r = await translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir, dryRun: true });
     expect(r.skipped).toBe(false);
     expect(r.emittedPaths[0]).toContain('(dry-run)');
+    expect(await fs.readdir(tmpDir)).toEqual([]);
   });
 
-  it('backs up pre-existing config that has no AIWG signature', async () => {
-    const codexDir = path.join(homeOverride, '.codex');
-    const configPath = path.join(codexDir, 'config.toml');
-    const original = '# fake operator content for test\n';
-    await fs.mkdir(codexDir, { recursive: true });
-    await fs.writeFile(configPath, original, 'utf8');
+  it('backs up pre-existing project config and preserves operator and other managed hooks', async () => {
+    const directory = path.join(tmpDir, '.codex');
+    await fs.mkdir(directory);
+    const configPath = path.join(directory, 'hooks.json');
+    const operator = { type: 'command', command: 'echo operator' };
+    const original = JSON.stringify({ description: 'operator settings', hooks: { PreToolUse: [{ matcher: 'Shell', hooks: [operator] }] } });
+    await fs.writeFile(configPath, original);
     const r = await translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir });
-    expect(r.warnings.some((w) => w.includes('Backed up'))).toBe(true);
-    const backups = (await fs.readdir(codexDir)).filter(entry => entry.startsWith('config.toml.bak.'));
+    expect(r.warnings.some(w => w.includes('Backed up'))).toBe(true);
+    const backups = (await fs.readdir(directory)).filter(entry => entry.startsWith('hooks.json.bak.'));
     expect(backups).toHaveLength(1);
-    expect(await fs.readFile(path.join(codexDir, backups[0]), 'utf8')).toBe(original);
-    expect(await fs.readFile(configPath, 'utf8')).toContain(original);
+    expect(await fs.readFile(path.join(directory, backups[0]), 'utf8')).toBe(original);
+    const second = { ...SAMPLE_HOOK, id: 'second', events: ['Stop'] as const };
+    await translateForCodex({ ...second, events: [...second.events] }, { projectPath: tmpDir });
+    const once = await fs.readFile(configPath, 'utf8');
+    await translateForCodex({ ...second, events: [...second.events] }, { projectPath: tmpDir });
+    expect(await fs.readFile(configPath, 'utf8')).toBe(once);
+    const parsed = JSON.parse(once);
+    expect(parsed.description).toBe('operator settings');
+    expect(parsed.hooks.PreToolUse).toHaveLength(2);
+    expect(parsed.hooks.PreToolUse[0]).toEqual({ matcher: 'Shell', hooks: [operator] });
+    expect(parsed.hooks.Stop[0].hooks[0]._aiwg_id).toBe('second');
   });
 
-  it('honors CODEX_HOME without writing the default home config', async () => {
-    const codexDir = path.join(tmpDir, 'custom-codex-home');
-    vi.stubEnv('CODEX_HOME', codexDir);
-    const r = await translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir });
-    expect(r.emittedPaths).toEqual([path.join(codexDir, 'config.toml')]);
+  it('keeps custom CODEX_HOME content untouched', async () => {
+    const directory = path.join(homeOverride, '.codex');
+    await fs.mkdir(directory);
+    const configPath = path.join(directory, 'config.toml');
+    const original = '# operator settings\n[desktop]\nkey = true\n';
+    await fs.writeFile(configPath, original);
+    await translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir });
+    expect(await fs.readFile(configPath, 'utf8')).toBe(original);
+    expect(await fs.readdir(directory)).toEqual(['config.toml']);
+  });
+
+  it('refuses a project directory symlink instead of writing outside the project', async () => {
+    await fs.symlink(homeOverride, path.join(tmpDir, '.codex'));
+    await expect(translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir })).rejects.toThrow('symlinked Codex');
     expect(await fs.readdir(homeOverride)).toEqual([]);
+  });
+
+  it('refuses malformed hooks without overwriting them', async () => {
+    const directory = path.join(tmpDir, '.codex');
+    await fs.mkdir(directory);
+    const configPath = path.join(directory, 'hooks.json');
+    const original = '{"hooks":{"PreToolUse":"invalid"}}';
+    await fs.writeFile(configPath, original);
+    await expect(translateForCodex(SAMPLE_HOOK, { projectPath: tmpDir })).rejects.toThrow('Invalid Codex matcher');
+    expect(await fs.readFile(configPath, 'utf8')).toBe(original);
   });
 });
 

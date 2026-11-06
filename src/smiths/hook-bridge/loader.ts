@@ -27,6 +27,11 @@ const VALID_EVENTS = new Set<HookEvent>([
   'SessionStart',
   'SessionEnd',
   'Stop',
+  'PermissionRequest',
+  'PreCompact',
+  'PostCompact',
+  'SubagentStart',
+  'SubagentStop',
 ]);
 
 /**
@@ -55,6 +60,7 @@ function normalize(input: unknown, filePath: string): { source: HookSource | nul
     events,
     command: o.command,
     args: Array.isArray(o.args) ? o.args.filter((a): a is string => typeof a === 'string') : undefined,
+    timeout: typeof o.timeout === 'number' && Number.isFinite(o.timeout) && o.timeout > 0 ? o.timeout : undefined,
     safetyCritical: o['safety-critical'] === true || o.safetyCritical === true,
     degradeOn: Array.isArray(o['degrade-on'])
       ? (o['degrade-on'] as unknown[]).filter((p): p is string => typeof p === 'string')
@@ -124,7 +130,10 @@ export async function loadHookSources(
       errors.push(error);
       continue;
     }
-    if (source) sources.push(source);
+    if (source) {
+      const resolveRoot = (value: string) => value.replace(/\$AIWG_ROOT\b|\$\{AIWG_ROOT\}/g, () => frameworkRoot);
+      sources.push({ ...source, command: resolveRoot(source.command), args: source.args?.map(resolveRoot) });
+    }
   }
 
   return { sources, errors };
