@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { projectAiwgPath, projectControlPath } from '../config/project-artifacts.js';
 import { recordTypeForEntry, stableRecordId } from './browser-export.js';
 import { loadGraphIndexFile } from './index-reader.js';
+import { isIndexWritePermissionError } from './framework-capabilities.js';
 import type { ArtifactIndex, GraphType, MetadataEntry, QueryResult } from './types.js';
 import {
   getGraphIndexDir, isOperationalShowType, OPERATIONAL_DISCOVERY_TYPES,
@@ -75,42 +76,49 @@ export function withIndexProvenance(entry: MetadataEntry, graph: GraphType): Pro
   return { ...entry, indexGraph: graph, indexScope: graphScope(graph) };
 }
 
-const projectBuilds = new Map<string, Promise<boolean>>();
+interface ProjectPreparation { attempted: boolean; writeFailure?: unknown }
+const projectBuilds = new Map<string, Promise<ProjectPreparation>>();
 
 /** Best-effort first-use preparation through the CLI's builder; return whether a build was attempted. */
-export async function prepareProjectCapabilityIndex(cwd: string): Promise<boolean> {
+export async function prepareProjectCapabilityIndex(cwd: string, onWriteFailure?: (error: unknown) => void): Promise<boolean> {
   const directory = getGraphIndexDir(cwd, 'project');
   const pending = projectBuilds.get(directory);
-  if (pending) return pending;
-  const build = async (): Promise<boolean> => {
+  const build = async (): Promise<ProjectPreparation> => {
     let attempted = false;
+    let writeFailure: unknown;
     try {
       const index = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', 'project');
-      if (Object.keys(index?.entries ?? {}).length) return false;
+      if (Object.keys(index?.entries ?? {}).length) return { attempted };
+      loadUserGraphConfigs(cwd);
+      // Avoid the explicit builder's missing-root exit and repeated empty builds.
+      if (!GRAPH_CONFIGS.project.scanDirs.some(dir => fs.existsSync(resolveGraphScanDir(cwd, dir)))) return { attempted };
+      const { collectGraphIndexFiles } = await import('./index-files.js');
+      if (!(await collectGraphIndexFiles(cwd, 'project')).length) return { attempted };
       fs.accessSync(cwd, fs.constants.W_OK);
       let ancestor = directory;
       while (!fs.existsSync(ancestor)) ancestor = path.dirname(ancestor);
       fs.accessSync(ancestor, fs.constants.W_OK);
-      loadUserGraphConfigs(cwd);
-      // Avoid the explicit builder's missing-root exit and repeated empty builds.
-      if (!GRAPH_CONFIGS.project.scanDirs.some(dir => fs.existsSync(resolveGraphScanDir(cwd, dir)))) return false;
-      const { collectGraphIndexFiles } = await import('./index-files.js');
-      if (!(await collectGraphIndexFiles(cwd, 'project')).length) return false;
       const { buildIndex } = await import('./index-builder.js');
-      console.error('Building the project index for this workspace (first use)…');
       attempted = true;
       await buildIndex(cwd, { graph: 'project', quiet: true, explicit: false, lockWaitMs: 1000 });
       // Match CLI build's derived-cache publication without its stdout progress.
       const { syncFortemiCoreIndex } = await import('./fortemi-core-sync.js');
       syncFortemiCoreIndex(cwd, { graph: 'project' });
-    } catch {
+    } catch (error) {
+      if (isIndexWritePermissionError(error)) writeFailure = error;
       // The existing project fallback owns warnings and partial results.
     }
-    return attempted;
+    // Permission failures get a single query-level diagnostic, including cold starts.
+    if (attempted && !writeFailure) console.error('Building the project index for this workspace (first use)…');
+    return { attempted, writeFailure };
   };
-  const promise = build();
+  const promise = pending ?? build();
   projectBuilds.set(directory, promise);
-  try { return await promise; } finally { projectBuilds.delete(directory); }
+  try {
+    const result = await promise;
+    if (result.writeFailure) onWriteFailure?.(result.writeFailure);
+    return result.attempted;
+  } finally { projectBuilds.delete(directory); }
 }
 
 
