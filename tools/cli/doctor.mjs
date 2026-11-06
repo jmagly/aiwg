@@ -97,6 +97,7 @@ const { validateArtifactOutputs } = await importImpl(
   import.meta.url,
   'artifacts/output-policy.js'
 );
+import { createAgentSourceSizeCheck } from './doctor-agent-sizes.mjs';
 const { collectPackagedAgentInventory, diagnoseOversizedAgent } = await importImpl(
   import.meta.url,
   'agents/packaged-agent-inventory.js'
@@ -1023,6 +1024,7 @@ export async function runDoctor() {
   for (const provName of providersToCheck) {
     const provider = await loadProvider(provName);
     const label = PROVIDER_LABELS[provName] || provName;
+    const checkAgentSourceSize = createAgentSourceSizeCheck(AIWG_ROOT, process.cwd(), provName, packagedAgentInventory);
     if (!provider || !provider.paths) {
       // #270: under installation identity drift the provider inventory comes
       // from the stale canonical install, so name the drift instead of
@@ -1084,10 +1086,12 @@ export async function runDoctor() {
               const fstat = await fs.stat(path.join(agentsPath, f));
               if (fstat.isFile() && fstat.size > AGENT_DEF_CEILING) {
                 const content = await fs.readFile(path.join(agentsPath, f), 'utf8');
+                const sourcePaths = await checkAgentSourceSize(f, content);
                 oversized.push({
+                  sourcePaths,
                   name: f,
                   size: fstat.size,
-                  diagnosis: diagnoseOversizedAgent(
+                  diagnosis: sourcePaths.length ? 'at-source' : diagnoseOversizedAgent(
                     f,
                     content,
                     packagedAgentInventory,
@@ -1109,6 +1113,8 @@ export async function runDoctor() {
             const staleDeployment = oversized.filter(o => o.diagnosis === 'stale-deployment').length;
             const unmanagedLocal = oversized.filter(o => o.diagnosis === 'unmanaged-local').length;
             const diagnoses = [];
+            const atSource = oversized.flatMap(o => o.sourcePaths);
+            if (atSource.length) diagnoses.push(`over the 16 KB ceiling at source: ${[...new Set(atSource)].join(', ')} (fresh deployment produces identical bytes; externalize examples or shorten source)`);
             if (currentPackage > 0) {
               diagnoses.push(
                 `${currentPackage} also exceed the ceiling in current packaged sources (current upstream packaging issue; externalize examples to the catalog)`,

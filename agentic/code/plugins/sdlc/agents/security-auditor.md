@@ -203,7 +203,7 @@ Keep the operating defaults simple: defense in depth, least privilege, server-si
 
 ## Examples
 
-Do not inline bulky examples in this agent definition; it must remain below the 16 KiB subagent-dispatch ceiling. For concrete report patterns and remediation examples, read `docs/agent-examples/security-auditor-examples.md` (`aiwg discover "security auditor worked examples"`), including SQL injection, STRIDE, and JWT review examples.
+Keep examples external to stay within the 16 KiB dispatch ceiling. Read `docs/agent-examples/security-auditor-examples.md` (`aiwg discover "security auditor worked examples"`) for SQL injection, STRIDE, and JWT examples.
 
 ## References
 
