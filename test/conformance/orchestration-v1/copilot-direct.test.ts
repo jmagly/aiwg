@@ -34,6 +34,7 @@ import { createWorkerHealthObserver } from '../../../tools/ralph-external/lib/wo
 import { COPILOT_DIRECT_STDIN, COPILOT_FIXED_PROMPT, COPILOT_SUPPORTED_VERSIONS } from '../../../tools/ralph-external/lib/copilot-adapter.mjs';
 import { createProvider, loadInstalledWorkerAdapters } from '../../../src/models/worker-installation.mjs';
 import { SessionLauncher } from '../../../tools/ralph-external/session-launcher.mjs';
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { launchIsolatedWorker } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
 import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { fixtureJson } from '../mission-v1/worker-contract-fixtures.js';
@@ -310,14 +311,16 @@ describe('T-OG-15 Copilot direct command contract', () => {
     } finally { vi.unstubAllEnvs(); }
     expect(launches).toHaveLength(1);
     expect(JSON.stringify(launches)).not.toContain(MARKER);
-    expect(launches[0]).toMatchObject({ stdin: 'closed', args: plan.invocation!.argv.slice(1) });
+    const promptPath = path.join(workdir, `.handoff/worker-brief-${JSON.parse(await readFile(path.join(runDir, 'invocation.json'), 'utf8')).invocationId}/brief.md`);
+    expect(launches[0]).toMatchObject({ stdin: 'closed', args: plan.invocation!.argv.slice(1).map(token => token === plan.invocation!.briefPath ? promptPath : token) });
+    expect(await readFile(plan.invocation!.briefPath!, 'utf8')).toBe(payload);
     const files = await readdir(runDir);
     expect(files).toEqual(expect.arrayContaining(['invocation.json', 'process.json', 'exit.json']));
     for (const name of files.filter(item => item.endsWith('.json'))) {
       expect(await readFile(path.join(runDir, name), 'utf8'), name).not.toContain(MARKER);
     }
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
-    expect(record).toMatchObject({ cwd: workdir, brief: payload });
+    expect(record).toMatchObject({ cwd: workdir, brief: workerPromptBrief(payload, plan.invocation!.finalPath!).toString() });
   });
 
   it.each([

@@ -52,6 +52,7 @@ import { buildSessionEnvironment } from './lib/session-environment.mjs';
 import { withWorkerPath, boundedPrivateRead } from './lib/worker-inputs.mjs';
 import { collectWorkerFinal } from './lib/worker-final.mjs';
 import { workerRunDirectoryRefusal } from './lib/worker-run-directory-refusal.mjs';
+import { workerPromptBrief } from './lib/worker-prompt.mjs';
 import { prepareWorkerRetry, workerRetryRecordFields } from './lib/worker-retry-evidence.mjs';
 import { settleWorkerTermination, terminationRemedy } from './lib/worker-termination.mjs';
 import { WorkerCaptureOwner, assertWorkerCapturePathsAvailable } from './lib/worker-capture.mjs';
@@ -448,7 +449,7 @@ async function launchOneWorker(owner, options) {
   // Frame stdin before any spawn: brief-json delivers a conductor-built params
   // document on the stdin pipe, never brief text in argv (#2911).
   const { workerStdinBytes } = await importImpl(import.meta.url, 'serve/worker-stdin-frame.mjs');
-  const stdinBytes = workerStdinBytes(invocation, brief, inputs.drivers[invocation.selected.cli]);
+  const stdinBytes = workerStdinBytes(invocation, workerPromptBrief(brief, paths.final), inputs.drivers[invocation.selected.cli]);
   let gate = (options.checkDispatch ?? checkWorkerDispatch)({ config: inputs.snapshot.config,
     paths: await Promise.all([invocation.cwd, runDir].map(workerDispatchPath)) });
   if (!gate.ok) throw workerDispatchRefusal(gate);
@@ -668,7 +669,7 @@ async function launchOneWorker(owner, options) {
   let outcome;
   let artifacts;
   try {
-    artifacts = await materializeWorkerArtifacts(invocation, runDir);
+    artifacts = await materializeWorkerArtifacts(invocation, runDir, { brief, invocationId });
     const displayArgv = artifacts.argv.map((token, i) => i === 0 ? token : `<argument:${bytesDigest(token)}>`);
     // #2915 review 4 (finding 4): a STABLE task-chain identity, never the
     // raw request object — `qualificationDigest(saved.request)` included
@@ -694,7 +695,7 @@ async function launchOneWorker(owner, options) {
       // Retain the legacy digest binding while naming both argv stages explicitly.
       argvDigest: qualificationDigest(invocation.argv), placeholderArgvDigest: qualificationDigest(invocation.argv),
       executedArgvDigest: qualificationDigest(artifacts.argv),
-      artifacts: (invocation.artifacts ?? []).map(artifact => ({ name: artifact.name,
+      artifacts: artifacts.declarations.map(artifact => ({ name: artifact.name,
         byteLength: Buffer.byteLength(artifact.content), sha256: bytesDigest(artifact.content) })),
       envNames: buildWorkerInvocationEnvironment(invocation.envNames, invocationId, {}, invocation).envNames, stdin: invocation.stdin,
       prompt: { path: invocation.briefPath, digest: invocation.briefDigest }, cwd: invocation.cwd,
@@ -1568,7 +1569,7 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
   let artifacts;
   let managedSpawnAttempted = false;
   try {
-    artifacts = await materializeWorkerArtifacts(invocation, runDir);
+    artifacts = await materializeWorkerArtifacts(invocation, runDir, { brief: ctx.brief, invocationId });
     const displayArgv = artifacts.argv.map((token, i) => i === 0 ? token : `<argument:${bytesDigest(token)}>`);
     await publish('invocation.json', { version: 1, origin: 'launcher', invocationId, attemptId: invocationId,
       previousAttemptId: verifiedPreviousAttemptId ?? null, requestId: options.managedAdmission?.requestId ?? invocationId, taskDigest: options.retryEvidence?.taskDigest ?? qualificationDigest(saved.request), role: saved.request.role,
@@ -1580,7 +1581,7 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
       // Retain the legacy digest binding while naming both argv stages explicitly.
       argvDigest: qualificationDigest(invocation.argv), placeholderArgvDigest: qualificationDigest(invocation.argv),
       executedArgvDigest: qualificationDigest(artifacts.argv),
-      artifacts: (invocation.artifacts ?? []).map(artifact => ({ name: artifact.name,
+      artifacts: artifacts.declarations.map(artifact => ({ name: artifact.name,
         byteLength: Buffer.byteLength(artifact.content), sha256: bytesDigest(artifact.content) })),
       envNames: buildWorkerInvocationEnvironment(invocation.envNames, invocationId, {}, invocation).envNames, stdin: invocation.stdin,
       prompt: { path: invocation.briefPath, digest: invocation.briefDigest }, cwd: invocation.cwd,

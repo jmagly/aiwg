@@ -13,6 +13,7 @@ import { workerInvocationFixture } from '../../fixtures/worker-single-invocation
 import { qualificationDigest } from '../../../src/models/qualification-digest.mjs';
 import { resolveWorkerInvocation, revalidateWorkerInvocationPlan } from '../../../src/serve/worker-invocation.js';
 import { materializeWorkerArtifacts } from '../../../tools/ralph-external/session-launcher.mjs';
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { ScopedFailureBreaker } from '../../../tools/ralph-external/lib/consecutive-failure-circuit-breaker.mjs';
 import { launchIsolatedWorker } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
 
@@ -149,7 +150,7 @@ describe('T-OG-15 execution-time artifacts and adapter stdin (#3002/#2998)', () 
     expect(plan.invocation).toBeDefined();
     await writeFile(f.invocationPath, JSON.stringify(plan));
     await f.launch();
-    expect(JSON.parse(await readFile(f.recordPath, 'utf8')).stdin).toBe(agy.buildWorkerStdinFrame(f.prompt).toString());
+    expect(JSON.parse(await readFile(f.recordPath, 'utf8')).stdin).toBe(agy.buildWorkerStdinFrame(workerPromptBrief(f.prompt, f.final)).toString());
   });
 });
 

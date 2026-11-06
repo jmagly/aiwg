@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { publishWorkerRecord } from '../../../tools/ralph-external/session-launcher.mjs';
 import { qualificationDigest } from '../../../src/models/qualification-digest.mjs';
 import { workerStdinDocument } from '../../../src/serve/worker-stdin-frame.mjs';
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { CodexAdapter } from '../../../tools/ralph-external/lib/codex-adapter.mjs';
 import { FactoryDirectAdapter } from '../../../tools/ralph-external/lib/factory-adapter.mjs';
 import { PiDirectAdapter } from '../../../tools/ralph-external/lib/pi-adapter.mjs';
@@ -319,7 +320,8 @@ describe('T-OG-15/20 one attached invocation without managed state', () => {
     expect(record.cwd).toBe(f.cwd);
     // brief-json delivers the conductor-framed params document, never the raw brief (#2911).
     expect(record.stdin).toBe(stdin === 'closed' ? '' : stdin === 'brief-json'
-      ? workerStdinDocument({ brief: f.prompt, model: f.plan.invocation!.selected.model, cwd: f.cwd }) : f.prompt);
+      ? workerStdinDocument({ brief: workerPromptBrief(f.prompt, f.final), model: f.plan.invocation!.selected.model, cwd: f.cwd })
+      : workerPromptBrief(f.prompt, f.final).toString('utf8'));
     expect(record.envNames).toContain('AIWG_SYNTHETIC_ALLOWED');
     expect(record.envNames).not.toContain('AIWG_UNRELATED_SECRET');
     expect(record.argv).not.toContain('--dangerously-skip-permissions');

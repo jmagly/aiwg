@@ -23,7 +23,8 @@ async function fixture(scenario = 'structured-final-with-prose', writeProseFinal
   const brief = path.join(cwd, 'brief.md'), final = path.join(cwd, "final '雪\n.json");
   await writeFile(brief, `Write workerClaims JSON to ${final}. Report a brief prose summary afterward.`);
   const config = path.join(root, 'fake.json');
-  await writeFile(config, JSON.stringify({ scenario, structuredFinalPath: final, writeProseFinal }));
+  const recordPath = path.join(root, 'received.json');
+  await writeFile(config, JSON.stringify({ scenario, structuredFinalPath: final, writeProseFinal, recordPath }));
   vi.stubEnv('AIWG_FAKE_WORKER_CONFIG', config);
   vi.stubEnv('AIWG_RESOLVE_IMPL_FROM', 'src');
   const f = workerResolutionFixture(), owner = new CodexAdapter();
@@ -56,7 +57,7 @@ async function fixture(scenario = 'structured-final-with-prose', writeProseFinal
     inputs: { snapshot: f.snapshot, drivers }, now: f.request.now, scopedBreaker: null,
     checkDispatch: () => ({ enabled: true, ok: true, failures: [] }),
     isolation: { mode: 'degraded', reason: 'synthetic local child; no systemd' }, allowDegraded: true, ...extra });
-  return { final, brief, plan, request, resolve, launch, runDir, owner };
+  return { final, brief, plan, request, resolve, launch, runDir, owner, recordPath };
 }
 
 describe('T-OG-15 Codex worker final versus last-message capture (partial)', () => {
@@ -64,6 +65,9 @@ describe('T-OG-15 Codex worker final versus last-message capture (partial)', () 
     const f = await fixture(), result: any = await f.launch({ sampleIdentity: () => null });
     expect(result.exitCode).toBe(0);
     expect(result.errorCode).toBeFalsy();
+    const received = JSON.parse(await readFile(f.recordPath, 'utf8'));
+    expect(received.prompt).toContain(JSON.stringify(f.final));
+    expect(received.prompt).toContain('"version":1,"status":"completed"');
     const bytes = await readFile(f.final);
     const claims = await f.owner.parseWorkerFinal(bytes, { format: 'json',
       observation: { transport: 'shell', status: 'completed', termination: 'confirmed', exitCode: 0 } });
