@@ -251,6 +251,7 @@
       "status": "partial",
       "testFiles": [
         "test/unit/models/worker-health-readiness.test.ts",
+        "test/unit/models/worker-health-snapshot.test.ts",
         "test/unit/models/worker-direct-readiness.test.ts",
         "test/unit/models/worker-version-probe.test.ts",
         "test/unit/cli/handlers/models.test.ts",

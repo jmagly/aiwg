@@ -43,4 +43,8 @@ export function prepareWorkerInstallationStore(input: { workerWritableRoots: str
 /** Historical approvals only; no driver import, probe, auth read, or launch authority. */
 export function inspectRecordedWorkerQualifications(input: {
   cwd: string; policy: WorkerSelectionPolicy; parallelism: import('../config/aiwg-config.js').ParallelismConfig;
-}): Promise<Array<{ cli: string; provider: string }>>;
+  /** Include signed historical inputs for offline health projection, never launch authority. */
+  includeInputs?: boolean;
+}): Promise<Array<{ cli: string; provider: string; binding?: WorkerResolutionBinding;
+  adapter?: import('./provider-policy.js').WorkerAdapterMetadata;
+  observations?: import('./model-discovery.js').ProviderModelDiscovery }>>;

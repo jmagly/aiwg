@@ -47,11 +47,13 @@ export async function checkWorkerHealthReadiness({ config, configFailed, AIWG_RO
         workerSnapshotCatalog = catalog;
         workerSnapshotDigests = loader.getInputDigests();
         workerSnapshotRegistry = registry;
-        // Catalog observations do not attest a current installation. This offline
-        // projection deliberately withholds bindings; models resolve rechecks them.
-        const report = diagnoseWorkerHealthReadiness({ config, models,
+        const { recordedWorkerHealthSnapshot } = await importImpl(import.meta.url, 'models/worker-health-snapshot.js');
+        const { readLiveHostResources } = await importImpl(import.meta.url, 'config/host-resource-runtime.mjs');
+        const snapshot = await recordedWorkerHealthSnapshot({ config, models,
           modelDigests: workerSnapshotDigests, catalog,
-          registry, installations: {} }, {
+          registry, installations: {}, hostResources: readLiveHostResources({ paths: [cwd], workspace: cwd,
+            groupNames: Object.keys(config.parallelism.groups ?? {}) }) }, cwd);
+        const report = diagnoseWorkerHealthReadiness(snapshot, {
           now: new Date().toISOString(),
           context: { estimator: 'doctor-offline-context-v1', briefTokens: 0,
             inputTokens: 0, toolOutputAllowance: 0, reservedOutput: 0 },
@@ -65,7 +67,7 @@ export async function checkWorkerHealthReadiness({ config, configFailed, AIWG_RO
         if (report.findings.length > 32) check('Worker Health', 'warn',
           `${report.findings.length - 32} additional findings; narrow role/group scope with aiwg models resolve`);
         check('Worker Health Qualification', 'info',
-          'offline doctor cannot authorize onboarding or launch; qualify the installation/profile, then use aiwg models resolve for the actual task');
+          'offline doctor projects recorded qualifications only and cannot authorize onboarding or launch; use aiwg models resolve to recheck the current installation and actual task');
       }
     }
   } catch {
