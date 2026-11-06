@@ -1,12 +1,21 @@
 ---
 name: artifact-output-policy
-description: Preserve canonical AIWG artifacts and require policy-authorized opt-in for provider-native presentation destinations
+description: "Write governed outputs (issues, comments, PRs, reports, SDLC artifacts) from their discovered template, filling every required section; write the canonical artifact to the AIWG store first; provider-native destinations are explicit-only."
+summary: "Write governed outputs (issues, comments, PRs, reports, SDLC artifacts) from their discovered template, filling every required section; write the canonical artifact to the AIWG store first; provider-native destinations are explicit-only."
 enforcement: high
 scope: artifact-producing-workflows
 activation: kernel
 ---
 
 # Artifact Output Policy
+
+## Templates
+
+- Before a governed output, find and read its template: use the skill's "Output template" section or `aiwg discover "<output> template" --type template`.
+- Fill every required section with observed facts. Mark a non-applicable section with a reason; never drop it silently.
+- Write free-form only when no template exists, and say so.
+
+## Destinations
 
 Before any durable AIWG plan/review/report/SDLC artifact, MUST resolve `.aiwg/aiwg.config` `artifact_outputs`:
 

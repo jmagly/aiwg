@@ -1,7 +1,10 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   executeIssuePlan,
@@ -44,6 +47,44 @@ function adapter(route, options = {}) {
 }
 
 describe('policy-boundary-aware issue composition (#2072)', () => {
+  it('warns for missing bug sections and stays quiet for a complete body (#3932)', () => {
+    const template = readFileSync(new URL('../../../agentic/code/addons/aiwg-utils/templates/issues/bug-report.md', import.meta.url), 'utf8');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const body = template.replace(/^## Steps to reproduce.*$/m, '').replace(/^## Acceptance criteria.*$/m, '');
+      expect(planIssueDraft({ title: 'Bug', body }).disposition).toBe('single');
+      expect(warn).toHaveBeenCalledExactlyOnceWith('Template warning (bug-report.md): missing required sections: Steps to reproduce, Acceptance criteria');
+      warn.mockClear();
+      planIssueDraft({ title: 'Bug', body: template });
+      expect(warn).not.toHaveBeenCalled();
+      const feature = readFileSync(new URL('../../../agentic/code/addons/aiwg-utils/templates/issues/feature-request.md', import.meta.url), 'utf8');
+      planIssueDraft({ title: 'Feature', body: feature }, { template: 'feature-request' });
+      expect(warn).not.toHaveBeenCalled();
+      planIssueDraft({ title: 'Feature', type: 'feature', body: feature });
+      expect(warn).not.toHaveBeenCalled();
+    } finally { warn.mockRestore(); }
+  });
+
+  it('keeps skill CLI warnings on stderr and JSON output usable without stdin', () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'aiwg-template-compose-'));
+    const repo = fileURLToPath(new URL('../../../', import.meta.url));
+    const script = path.join(repo, 'agentic/code/frameworks/sdlc-complete/skills/issue-create/scripts/compose.mjs');
+    try {
+      for (const kind of ['bug-report', 'feature-request']) {
+        const template = readFileSync(path.join(repo, `agentic/code/addons/aiwg-utils/templates/issues/${kind}.md`), 'utf8');
+        for (const incomplete of [false, true]) {
+          const bodyFile = path.join(root, 'body.md');
+          writeFileSync(bodyFile, incomplete ? template.replace(/^## Acceptance criteria.*$/m, '') : template);
+          const result = spawnSync(process.execPath, [script, '--title', 'Fixture', '--body-file', bodyFile, '--template', kind, '--project-root', root],
+            { cwd: root, env: { ...process.env, AIWG_ROOT: repo }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 10_000 });
+          expect(result.status, result.stderr).toBe(0);
+          expect(JSON.parse(result.stdout).disposition).toBe('single');
+          expect(result.stderr).toBe(incomplete ? `Template warning (${kind}.md): missing required sections: Acceptance criteria\n` : '');
+        }
+      }
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
   it('keeps safe drafts atomic', () => {
     const plan = planIssueDraft({
       title: 'Improve empty-state copy',

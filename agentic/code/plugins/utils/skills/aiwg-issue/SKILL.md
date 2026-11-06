@@ -69,6 +69,10 @@ mark non-applicable optional fields with a reason and remove template instructio
 These bundle templates are canonical. The repository `.gitea/ISSUE_TEMPLATE/` and
 `.github/ISSUE_TEMPLATE/` files are derived copies maintained by `npm run package-plugins`.
 
+Compose through `issue-create` with `--template <kind|path>` matching the selected
+template (default: `bug-report`). Missing required headings produce an advisory
+stderr warning; the composer remains headless-safe.
+
 ## The walkthrough
 
 ### 1. Triage first

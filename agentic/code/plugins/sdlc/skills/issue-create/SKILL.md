@@ -23,8 +23,8 @@ Load referenced skills via `aiwg discover "<capability>"` then `aiwg show skill 
 
 ## Output template
 
-Use the required template for the issue kind and fill every required section
-before creating the issue; mark non-applicable optional fields with a reason.
+Use the required template for the issue kind and fill every required section; mark non-applicable fields with a reason.
+The composer warns on stderr without blocking; select `--template <kind|path>` (default: `bug-report`).
 
 - Bug: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/bug-report.md
 - Feature: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/feature-request.md
