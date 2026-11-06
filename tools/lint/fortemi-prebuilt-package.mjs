@@ -87,7 +87,7 @@ const exported = JSON.parse(exportText);
 // including 94 Testing Quality records for its conformance agents and flows.
 // Retain an explicit package budget with about 3% headroom for this corpus;
 // source-body, chunk, checksum, and per-record size checks remain independent.
-const maxExportBytes = Number.parseInt(process.env.AIWG_FORTEMI_PREBUILT_MAX_BYTES ?? '15000000', 10);
+const maxExportBytes = Number.parseInt(process.env.AIWG_FORTEMI_PREBUILT_MAX_BYTES ?? '16000000', 10);
 
 if (manifest.schema_version !== 'aiwg.fortemi.prebuilt.v1') {
   fail(`manifest schema_version is ${manifest.schema_version}`);

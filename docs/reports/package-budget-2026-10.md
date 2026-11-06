@@ -98,3 +98,17 @@ build:
 The unpacked size now has under 1% headroom. The next corpus growth will reach
 that limit, which needs its own measured review rather than another file-count
 raise.
+
+## Amendment — 2026-11-06 (template and flow links in the prebuilt index, #3929/#3930)
+
+#3929 made the index record the templates that skills, agents and flows use, and gave flows their dependencies, so templates surface with the components that need them. The operator directed (2026-11-06, #3930) that this template-to-asset mapping ship in the precomputed index package. The packaged Fortemi export grows accordingly.
+
+Measured on main 0b6134941 against 23d22a0de (`npm pack --dry-run --json`):
+
+| Metric | Before | After | Old limit | New limit |
+|---|---|---|---|---|
+| `prebuilt/fortemi-core/framework/aiwg-fortemi-index-v2.json` | 14,840,750 B | 15,396,290 B (+542 KiB) | 15,000,000 B | 16,000,000 B |
+| Unpacked package | ≈ 81,750 KiB | 82,278 KiB | 82,000 KiB | 83,500 KiB |
+| Packed package | — | 19,359 KiB | 23,000 KiB | unchanged |
+
+All other source growth in the range is about 17 KiB of rule and template text. The new limits leave room for #3930, which adds templates to the framework-relations package. Any further growth still needs review.
