@@ -1,7 +1,7 @@
 // Apply project settings and context after provider file deployment.
 import { importImpl } from '../../_resolve-impl.mjs';
 import { fileURLToPath } from 'node:url';
-import { initializeFrameworkWorkspace, resolveAiwgRoot } from './base.mjs';
+import { initializeFrameworkWorkspace } from './base.mjs';
 import { createAgentsMd } from './codex.mjs';
 import { deployConductorDataGuard } from './conductor-data-guard.mjs';
 
@@ -13,8 +13,8 @@ export async function postDeploy(targetDir, opts) {
   if (fullDeploy && opts.hooks !== false && opts.scope !== 'user') {
     const { installCodexPromptDiscovery } = await importImpl(import.meta.url, 'smiths/hook-bridge/codex-translator.js');
     const packageRoot = fileURLToPath(new URL('../../../', import.meta.url));
-    const frameworkRoot = resolveAiwgRoot(opts.srcRoot || packageRoot) || packageRoot;
-    await installCodexPromptDiscovery({ projectPath: targetDir, frameworkRoot, dryRun: opts.dryRun });
+    // Runtime hooks belong to this package, even when deploying an external bundle.
+    await installCodexPromptDiscovery({ projectPath: targetDir, frameworkRoot: packageRoot, dryRun: opts.dryRun });
   }
 
   if (opts.createAgentsMd) {

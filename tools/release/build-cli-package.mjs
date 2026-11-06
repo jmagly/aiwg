@@ -85,10 +85,11 @@ export async function buildCliPackage({ outputDir = defaultOutputDir } = {}) {
     path.join(outputDir, 'agentic', 'code', 'providers'),
     { recursive: true },
   );
-  // Fresh context generation needs the canonical compact core even without the corpus.
-  for (const source of cli.files.filter(file => file.startsWith('agentic/code/addons/aiwg-utils/rules/'))) {
+  // Context and provider hooks need their package-owned runtime even without the corpus.
+  for (const source of cli.files.filter(file => file.startsWith('agentic/code/addons/aiwg-utils/rules/')
+    || file.startsWith('agentic/code/addons/aiwg-hooks/'))) {
     await mkdir(path.dirname(path.join(outputDir, source)), { recursive: true });
-    await cp(path.join(repoRoot, source), path.join(outputDir, source));
+    await cp(path.join(repoRoot, source), path.join(outputDir, source), { recursive: true });
   }
   await mkdir(path.join(outputDir, 'schemas'), { recursive: true });
   for (const filename of ['lib/runtime.mjs', 'lib/validator.mjs', 'schemas/flow-graph.schema.json']) {

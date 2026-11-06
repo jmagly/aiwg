@@ -28,6 +28,16 @@ interface HookGroup {
   hooks: CommandHook[];
 }
 
+// Codex runs hooks in the session cwd, which may be below the hooks.json root.
+const PROMPT_DISCOVERY_LAUNCHER = [
+  'const fs=require("node:fs"),path=require("node:path");',
+  'for(let dir=process.cwd();;dir=path.dirname(dir)){',
+  'const script=path.join(dir,".codex/hooks/aiwg-prompt-discovery.cjs");',
+  'if(fs.existsSync(script)){require(script);break;}',
+  'if(path.dirname(dir)===dir)break;',
+  '}',
+].join('');
+
 function shellArgument(value: string, expandEnvironment = true): string {
   // Preserve environment references, but never evaluate argument substitutions.
   const escaped = value.replace(/[\\"`$]/g, '\\$&');
@@ -148,7 +158,7 @@ export async function translateForCodex(source: HookSource, options: TranslateOp
     if (!source.args?.[0]) throw new Error('Prompt discovery source is missing its shared script');
     await fs.mkdir(path.dirname(scriptPath), { recursive: true });
     await fs.copyFile(source.args[0], scriptPath);
-    source = { ...source, args: [scriptPath] };
+    source = { ...source, args: ['-e', PROMPT_DISCOVERY_LAUNCHER] };
   }
   for (const event of events) (hooks[event] ??= []).push({ hooks: [commandHook(source, promptHook)] });
   doc.hooks = hooks;

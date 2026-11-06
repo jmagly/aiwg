@@ -32,12 +32,19 @@ describe('prompt discovery provider delivery', () => {
     expect(groups).toHaveLength(2);
     expect(groups[0]).toEqual(operator);
     const script = path.join(projectPath, '.codex/hooks/aiwg-prompt-discovery.cjs');
-    expect(groups[1].hooks[0]).toEqual({ type: 'command', command: `node "${script}"`, timeout: 2,
+    expect(groups[1].hooks[0]).toEqual({ type: 'command', command: expect.stringMatching(/^node "-e" /), timeout: 2,
       _aiwg_managed: true, _aiwg_id: 'aiwg-prompt-discovery' });
+    expect(groups[1].hooks[0].command).not.toContain(projectPath);
     const shared = await readFile(path.join(root, 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs'), 'utf8');
     expect(await readFile(script, 'utf8')).toBe(shared);
     await unlink(script);
     await postDeployCodex(projectPath, { ...opts, srcRoot: path.join(root, 'agentic/code/addons/aiwg-hooks') });
+    expect(await readFile(script, 'utf8')).toBe(shared);
+    expect(await readFile(settings, 'utf8')).toBe(once);
+    const syntheticRoot = path.join(projectPath, 'synthetic-source');
+    await mkdir(syntheticRoot);
+    await unlink(script);
+    await postDeployCodex(projectPath, { ...opts, srcRoot: syntheticRoot });
     expect(await readFile(script, 'utf8')).toBe(shared);
     expect(await readFile(settings, 'utf8')).toBe(once);
   });
@@ -55,13 +62,14 @@ describe('prompt discovery provider delivery', () => {
     await access(path.join(projectPath, '.codex/hooks.json'));
   });
 
-  it('runs the registered Codex command with the shared context, skip and opt-out contract', async () => {
+  it.each(['.', 'nested'])('runs the registered Codex command from %s with the shared context, skip and opt-out contract', async subdirectory => {
     const loaded = await loadHookSources(root);
     expect(loaded.errors).toEqual([]);
     const source = loaded.sources.find(s => s.id === 'aiwg-prompt-discovery')!;
     expect(source.degradeOn).not.toContain('codex');
     const target = path.join(projectPath, 'project $AIWG_NOT_DEFINED with spaces');
-    await mkdir(target);
+    const cwd = path.join(target, subdirectory);
+    await mkdir(cwd, { recursive: true });
     const result = await translateForCodex(source, { projectPath: target });
     expect(result.skipped).toBe(false);
     const groups = JSON.parse(await readFile(result.emittedPaths[0], 'utf8')).hooks.UserPromptSubmit;
@@ -69,7 +77,7 @@ describe('prompt discovery provider delivery', () => {
     await mkdir(runtime, { recursive: true });
     await copyFile(path.join(root, 'test/fixtures/hooks-prompt-discovery.mjs'), path.join(runtime, 'query-engine-discover.js'));
     const invoke = (prompt: string, enabled = '1') => spawnSync(groups[0].hooks[0].command, {
-      cwd: target, shell: true, encoding: 'utf8', timeout: 5000,
+      cwd, shell: true, encoding: 'utf8', timeout: 5000,
       env: { ...process.env, AIWG_ROOT: path.join(projectPath, 'runtime'), AIWG_PROMPT_DISCOVERY: enabled },
       input: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt }),
     });

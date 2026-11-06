@@ -100,6 +100,29 @@ were terminated after observing hook execution; no authenticated model turn or
 model-visible context was tested.
 A complete model turn requires the operator's authenticated session.
 
+The round-two cwd probe used the installed `codex-cli 0.165.0` binary with
+temporary HOME and CODEX_HOME directories, no auth.json, and the same strace
+network denial above. It launched from a separate directory with `--no-daemon
+-C "<fixture>/project with spaces" exec --ephemeral --skip-git-repo-check
+--dangerously-bypass-hook-trust --json`. A synthetic UserPromptSubmit script
+recorded `process.cwd()`, stdin `cwd`, and CODEX/CLAUDE environment variables.
+Both cwd values equalled the `-C` directory; `node .codex/hooks/probe.cjs` ran
+successfully. With `-C "<fixture>/project with spaces/nested"` inside a trusted
+Git fixture, the parent project's hook still loaded, but both cwd values were
+the nested directory. Only the explicitly supplied CODEX_HOME was present among
+CODEX/CLAUDE variables: there was no injected project-root variable.
+
+Consequently, the generated discovery command uses `node -e` to find
+`.codex/hooks/aiwg-prompt-discovery.cjs` from the session cwd or its nearest
+ancestor, then requires it while preserving stdin and cwd. It embeds no project
+or package absolute path and works when a project is moved or opened below its
+root. The same offline probe executed this generated command successfully from
+both the fixture root and its nested directory on 2026-11-06.
+The default installer reads the canonical source and script from AIWG's
+own package, independently of an external or synthetic bundle's source root.
+The lightweight CLI stages and allowlists that source and the shared hook
+scripts even when the framework corpus is absent.
+
 The bridge keeps `Stop` distinct from `SessionEnd`. Its legacy TOML block helper
 rescues `[desktop]`, marketplace, plugin, and other user tables when a misplaced
 AIWG end marker encloses them. Project deployment leaves existing global TOML
