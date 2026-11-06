@@ -155,6 +155,7 @@ describe('Wave 5 addon rule delivery (#2945)', () => {
     fs.writeFileSync(path.join(config, 'channel.json'), JSON.stringify({ channel: 'edge', edgePath: repo, devMode: true, checkOnStartup: false }));
     const env = { TMPDIR: process.env.TMPDIR, TMP: process.env.TMP, TEMP: process.env.TEMP,
       PATH: process.env.PATH, HOME: home, AIWG_ROOT: repo, AIWG_CONFIG: config,
+      AIWG_ARTIFACTS_PATH: path.join(home, 'artifacts'),
       XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share'),
       XDG_CACHE_HOME: path.join(home, '.cache'), XDG_STATE_HOME: path.join(home, '.local/state'),
       AIWG_NO_UPDATE_CHECK: '1', NO_UPDATE_NOTIFIER: '1', CI: '1' };
