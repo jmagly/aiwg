@@ -9,6 +9,11 @@ import { FRAMEWORK_CORPUS_KINDS as CORPUS_KINDS, resolveFrameworkCorpusRoot } fr
 
 export { resolveFrameworkCorpusRoot } from './framework-index-paths.js';
 
+/** Permission failures allow query callers to serve existing indexes without writes. */
+export function isIndexWritePermissionError(error: unknown): boolean {
+  return ['EROFS', 'EACCES', 'EPERM'].includes((error as NodeJS.ErrnoException | null)?.code ?? '');
+}
+
 function readText(file: string): string {
   try { return fs.readFileSync(file, 'utf8'); } catch { return ''; }
 }

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { ResourceSource, VerifiedWebRelease } from '../resources/web-release.js';
 import { applyFacetFusion, diagnoseFacetActivations } from './discover-facets.js';
-import { refreshFrameworkCapabilities, resolveFrameworkCorpusRoot } from './framework-capabilities.js';
+import { isIndexWritePermissionError, refreshFrameworkCapabilities, resolveFrameworkCorpusRoot } from './framework-capabilities.js';
 import { resolveFrameworkIndexRoot } from './framework-index-paths.js';
 import { loadGraphIndexFile, loadMetadataIndex } from './index-reader.js';
 import { emitDiscoverResults } from './query-engine-discover-output.js';
@@ -33,6 +33,7 @@ export async function discoverCapability(
   loadGlobalGraphConfigs();
   const startTime = Date.now();
   const readOnly = Boolean(params.promptContext || params.noBuild);
+  let indexWriteFailure: 'framework' | 'project' | undefined;
   const types = params.typeFilter && params.typeFilter.length > 0
     ? params.typeFilter
     : DEFAULT_DISCOVER_TYPES;
@@ -71,14 +72,16 @@ export async function discoverCapability(
         await refreshFrameworkCapabilities(root, false, { sourceDigest: prebuiltSelection?.sourceDigest });
         if (resolveFrameworkCorpusRoot(root)) localFramework = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', 'framework');
       } catch (error) {
-        console.error(`Warning: capability index refresh failed: ${error instanceof Error ? error.message : String(error)}`);
+        if (isIndexWritePermissionError(error)) indexWriteFailure = 'framework';
+        else console.error(`Warning: capability index refresh failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   }
 
-  const projectBuildAttempted = !readOnly && resourceSource !== 'web' && (!params.graph || params.graph === 'project')
-    ? await prepareProjectCapabilityIndex(cwd) : false;
+  const projectBuildAttempted = !readOnly && !indexWriteFailure && resourceSource !== 'web' && (!params.graph || params.graph === 'project')
+    ? await prepareProjectCapabilityIndex(cwd, () => { indexWriteFailure = 'project'; }) : false;
 
+  if (indexWriteFailure && resourceSource === 'auto') resourceSource = 'local';
   if (resourceSource === 'auto') {
     const { loadFortemiCoreMetadataEntries } = await import('./fortemi-core-query-adapter.js');
     const localGraphs = params.graph ? [params.graph] : defaultCapabilityGraphs(cwd);
@@ -126,6 +129,13 @@ export async function discoverCapability(
       : params.graph ? [params.graph] : defaultCapabilityGraphs(cwd);
     let unavailableReason: string | undefined;
     for (const graph of graphs) {
+      if (indexWriteFailure) {
+        const index = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', graph);
+        if (Object.keys(index?.entries ?? {}).length) {
+          entries.push(...Object.values(index!.entries).map(entry => withIndexProvenance(entry, graph)));
+          continue;
+        }
+      }
       // Discovery ranks metadata, not full document bodies. A reconciled local
       // framework index avoids parsing the much larger fulltext export.
       if (graph === 'framework' && localFramework) {
@@ -136,17 +146,17 @@ export async function discoverCapability(
         const directory = getGraphIndexDir(cwd, graph);
         if (!fs.existsSync(path.join(directory, 'metadata.json'))
           && !fs.existsSync(path.join(path.dirname(directory), 'fortemi-core', graph, 'manifest.json'))) {
-          if (graph === 'project') entries.push(...(projectCapabilityFallback(cwd) ?? []));
+          if (graph === 'project' && !indexWriteFailure) entries.push(...(projectCapabilityFallback(cwd) ?? []));
           continue;
         }
       }
       const { loadFortemiCoreMetadataEntries, queryFortemiCoreAiwgDiscovery } = await import('./fortemi-core-query-adapter.js');
       const loaded = loadFortemiCoreMetadataEntries(cwd, graph, verifiedSourcePaths);
-      if (loaded.reason && graph === 'project' && (!params.graph || projectBuildAttempted)) {
+      if (loaded.reason && !indexWriteFailure && graph === 'project' && (!params.graph || projectBuildAttempted)) {
         entries.push(...(projectCapabilityFallback(cwd) ?? []));
         continue;
       }
-      if (loaded.sourceIndexNewer && resourceSource === 'local') {
+      if (loaded.sourceIndexNewer && resourceSource === 'local' && !indexWriteFailure) {
         // Do not silently omit a graph whose derived cache is stale. Rank its
         // current source metadata, without consulting scores from the old cache.
         const index = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', graph);
@@ -158,7 +168,7 @@ export async function discoverCapability(
       }
       if (loaded.reason) {
         unavailableReason ??= loaded.reason;
-        if (graph === 'framework' && !params.graph) {
+        if (graph === 'framework' && !params.graph && !indexWriteFailure) {
           console.error(`Warning: framework capabilities are unavailable: ${loaded.reason}`);
         }
       }
@@ -181,7 +191,7 @@ export async function discoverCapability(
         }
       }
     }
-    if (entries.length === 0 && unavailableReason && !projectBuildAttempted) {
+    if (entries.length === 0 && unavailableReason && !projectBuildAttempted && !indexWriteFailure) {
       if (params.json) {
         console.log(JSON.stringify({
           query: {
@@ -213,7 +223,7 @@ export async function discoverCapability(
   } else if (params.graph) {
     const idx = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', params.graph);
     if (idx) entries = Object.values(idx.entries).map((entry) => withIndexProvenance(entry, params.graph!));
-    if (!readOnly && params.graph === 'project' && !entries.length) projectCapabilityFallback(cwd);
+    if (!readOnly && !indexWriteFailure && params.graph === 'project' && !entries.length) projectCapabilityFallback(cwd);
   } else {
     // discover is EXCLUSIVELY the agentic-capability surface (#1545): source
     // the `framework` graph (deployed AIWG capabilities) + project-local
@@ -228,7 +238,7 @@ export async function discoverCapability(
     // (requirements, ADRs, …) out of results.
     const projIdx = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', 'project');
     if (projIdx) entries.push(...Object.values(projIdx.entries).map((entry) => withIndexProvenance(entry, 'project')));
-    if (!readOnly && !Object.keys(projIdx?.entries ?? {}).length) projectCapabilityFallback(cwd);
+    if (!readOnly && !indexWriteFailure && !Object.keys(projIdx?.entries ?? {}).length) projectCapabilityFallback(cwd);
     if (includeUser) {
       const userIdx = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', 'user');
       if (userIdx) entries.push(...Object.values(userIdx.entries).map((entry) => withIndexProvenance(entry, 'user')));
@@ -248,6 +258,15 @@ export async function discoverCapability(
       entries = entries.filter(entry => !('indexGraph' in entry && entry.indexGraph === 'framework'));
       entries.push(...loaded.entries.map(entry => withIndexProvenance(entry, 'framework')));
     }
+  }
+
+  if (indexWriteFailure) {
+    if (!entries.length) {
+      const location = indexWriteFailure === 'framework' ? 'XDG_DATA_HOME' : 'AIWG_ARTIFACTS_PATH';
+      console.error(`Error: the capability index needs a writable location. Set ${location} to a writable directory and run \`aiwg index build --graph ${indexWriteFailure}\`.`);
+      process.exit(1);
+    }
+    console.error('Warning: capability index storage is not writable; using the existing index. Results may be stale.');
   }
 
   if (entries.length === 0 && params.promptContext) {
@@ -364,6 +383,6 @@ export async function discoverCapability(
     return;
   }
 
-  await emitDiscoverResults({ cwd, params, types, limit, aiwgRoot, entries, backend, resourceSource,
+  await emitDiscoverResults({ cwd, params, indexStale: Boolean(indexWriteFailure), types, limit, aiwgRoot, entries, backend, resourceSource,
     resolvedWebRelease, prebuiltRelations, prebuiltSelection, frameworkReconciled: Boolean(localFramework), scored, relaxed, queryTimeMs, lexicalDiagnostics });
 }
