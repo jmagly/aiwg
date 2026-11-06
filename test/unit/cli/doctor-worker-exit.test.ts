@@ -14,7 +14,7 @@ async function fixture() {
 }
 
 describe('explicit doctor qualification exit status (#3690)', () => {
-  it('#3906 plain doctor recognizes qualified roles and reports premium authorization', async () => {
+  async function qualifiedFixture() {
     const f = await fixture();
     const roles = ['efficiency', 'coding', 'reasoning'];
     const doctorHealthFile = path.join(f.installed, 'tools/cli/doctor-worker-health.mjs');
@@ -36,6 +36,11 @@ describe('explicit doctor qualification exit status (#3690)', () => {
     expect(qualified.code, qualified.stdout + qualified.stderr).toBe(0);
     expect(JSON.parse(qualified.stdout).qualification.status).toBe('recorded');
     expect((await f.resolve()).code).toBe(0);
+    return { f, config, configFile };
+  }
+
+  it('#3906 plain doctor recognizes qualified roles and reports premium authorization', async () => {
+    const { f } = await qualifiedFixture();
     // Plain doctor must use offline evidence: a subsequent CLI probe would fail.
     await writeFile(path.join(f.root, 'fake-bin/codex'), `#!${process.execPath}\nprocess.exit(91);\n`);
     const result = await f.run(['doctor']);
@@ -44,7 +49,11 @@ describe('explicit doctor qualification exit status (#3690)', () => {
     expect(result.stdout).toContain('WORKER_ROLE_PENDING_AUTHORIZATION');
     expect(result.stdout).toContain('--authorize-premium requires explicit operator confirmation');
     expect(result.stdout).toContain('⚠ Worker Health (reasoning): WORKER_ROLE_PENDING_AUTHORIZATION');
-    // Changing the configured model cannot borrow the previous model's approval.
+  });
+
+  it('#3906 a changed configured model cannot borrow the previous model approval', async () => {
+    const { f, config, configFile } = await qualifiedFixture();
+    await writeFile(path.join(f.root, 'fake-bin/codex'), `#!${process.execPath}\nprocess.exit(91);\n`);
     config.parallelism.groups.workers.members[0].model = 'unqualified-model';
     await writeFile(configFile, JSON.stringify(config));
     const unqualified = await f.run(['doctor']);
