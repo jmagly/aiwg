@@ -28,10 +28,12 @@ describe('WP5 hook encoding', () => {
       args: [hostile, 'trailing\\', 'ordinary --strict'], events: ['PreToolUse'],
     });
     const parsed = getStaticTOMLValue(parseForESLint(output).ast);
-    expect(parsed).toEqual({ hooks: { before_tool: [{
-      command: hostile, args: [hostile, 'trailing\\', 'ordinary --strict'],
+    // Codex consumes one shell command inside a matcher group's hooks array.
+    const quotedHostile = '"' + hostile.split('\\').join('\\\\').split('"').join('\\"') + '"';
+    expect(parsed).toEqual({ hooks: { PreToolUse: [{ hooks: [{
+      type: 'command', command: `${hostile} ${quotedHostile} "trailing\\\\" "ordinary --strict"`,
       _aiwg_managed: true, _aiwg_id: hostile,
-    }] } });
+    }] }] } });
   });
 
   it.each([hostile, 'trailing\\', '"'.repeat(199) + '\\tail', 'line\u0085next\u2028next\u2029end'])(

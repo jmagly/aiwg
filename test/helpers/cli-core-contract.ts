@@ -34,6 +34,11 @@ export async function assertOfflinePluginDelivery(extracted: string, scratch: st
       if (provider === 'codex') {
         expect(startup).toContain('`.codex/rules/RULES-INDEX.md`');
         expect(await readFile(path.join(rules, 'RULES-INDEX.md'), 'utf8')).toContain('# Rule kernel index');
+        const hooks = JSON.parse(await readFile(path.join(project, '.codex/hooks.json'), 'utf8'));
+        expect(hooks.hooks.UserPromptSubmit[0].hooks[0].command).not.toContain(project);
+        const script = 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs';
+        expect(await readFile(path.join(project, '.codex/hooks/aiwg-prompt-discovery.cjs'), 'utf8'))
+          .toBe(await readFile(path.join(extracted, script), 'utf8'));
       }
       if (global) await expect(readdir(path.join(project, '.claude/agents'))).rejects.toThrow();
     }

@@ -227,6 +227,9 @@ describe('@aiwg/cli packaged web distribution', () => {
       expect(paths.some((entry) => entry.startsWith(prefix)), `${prefix} must not ship in @aiwg/cli`).toBe(false);
     }
     const allowedAgenticRuntime = [
+      // Prompt-discovery hook runtime for Codex and Muse deploys (#3888).
+      'agentic/code/addons/aiwg-hooks/canonical/aiwg-prompt-discovery.yaml',
+      'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs',
       'agentic/code/addons/aiwg-utils/rules/anti-laziness.md',
       'agentic/code/addons/aiwg-utils/rules/anti-laziness.core.md',
       'agentic/code/addons/composition-engine/lib/runtime.mjs',

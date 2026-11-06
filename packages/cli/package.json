@@ -27,6 +27,8 @@
     "THIRD_PARTY_NOTICES.md",
     "bin/",
     "agentic/code/providers/",
+    "agentic/code/addons/aiwg-hooks/canonical/aiwg-prompt-discovery.yaml",
+    "agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs",
     "agentic/code/addons/aiwg-utils/rules/anti-laziness.md",
     "agentic/code/addons/aiwg-utils/rules/anti-laziness.core.md",
     "agentic/code/addons/composition-engine/lib/runtime.mjs",

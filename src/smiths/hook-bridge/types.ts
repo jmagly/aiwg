@@ -9,7 +9,7 @@
 /**
  * Canonical AIWG hook event names. Per-provider translators map these to the
  * provider's native event taxonomy (Claude `PreToolUse`, OpenClaw
- * `before_tool_call`, Codex `pre_tool`, etc.).
+ * `before_tool_call`, Codex `PreToolUse`, etc.).
  *
  * Extending the enum requires an ADR amendment because every translator must
  * grow a mapping entry.
@@ -20,7 +20,12 @@ export type HookEvent =
   | 'UserPromptSubmit'
   | 'SessionStart'
   | 'SessionEnd'
-  | 'Stop';
+  | 'Stop'
+  | 'PermissionRequest'
+  | 'PreCompact'
+  | 'PostCompact'
+  | 'SubagentStart'
+  | 'SubagentStop';
 
 /**
  * Canonical exit code semantic (per ADR-3 §4). Translators map to provider
@@ -43,6 +48,8 @@ export interface HookSource {
   command: string;
   /** Optional command arguments (template strings using canonical env vars). */
   args?: string[];
+  /** Command deadline in seconds where supported by the provider. */
+  timeout?: number;
   /** Per ADR-3 / adr-override-shadow-policy.md — pin to priority 1; never auto-disable. */
   safetyCritical?: boolean;
   /** Provider IDs to skip emission for (rather than degrading silently). */
