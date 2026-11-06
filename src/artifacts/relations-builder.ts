@@ -8,6 +8,7 @@ import { resolveRuleBindingTarget } from './query-engine.js';
 import { Minimatch } from 'minimatch';
 import { FRAMEWORK_RELATIONS_REVISION } from './framework-source-digest.js';
 import { writeIndexFile } from './index-reader.js';
+import { createDependencyResolver } from './index-dependencies.js';
 import {
   RELATIONS_SCHEMA, RELATIONS_VERSION, RULE_TIERS, emptyRuleStats,
   type RelationsIndex, type RelationTargetType, type RuleStats,
@@ -34,9 +35,9 @@ function owner(entry: MetadataEntry): { id: string; kind: 'framework' | 'addon' 
   return { id: `${kind}:${match[2]}`, kind };
 }
 
-/** Only rule/action sources affect this projection; no full metadata serialization or file rereads. */
+/** Only rule/action/template sources affect this projection; no file rereads. */
 export function relationsFingerprint(entries: MetadataEntry[]): RelationsIndex['fingerprint'] {
-  const sources = entries.filter(entry => TARGET_TYPES.has(entry.type) || ['rule', 'behavior'].includes(entry.type))
+  const sources = entries.filter(entry => TARGET_TYPES.has(entry.type) || ['rule', 'behavior', 'template'].includes(entry.type))
     .map(entry => [entry.path, entry.checksum]).sort((a, b) => a[0].localeCompare(b[0]));
   return { version: RELATIONS_VERSION, sources: `sha256:${createHash('sha256').update(JSON.stringify({ projectionVersion: FRAMEWORK_RELATIONS_REVISION, extractorVersion: INDEX_EXTRACTOR_VERSION, sources })).digest('hex')}` };
 }
@@ -57,10 +58,10 @@ function statsFor(ids: string[], index: RelationsIndex): RuleStats {
 export function buildRelations(entries: MetadataEntry[]): RelationsIndex {
   const index: RelationsIndex = {
     $schema: RELATIONS_SCHEMA, version: RELATIONS_VERSION, generatedAt: '1970-01-01T00:00:00.000Z',
-    fingerprint: relationsFingerprint(entries), artifacts: {}, rules: {}, targets: {}, capabilities: {}, aliases: { targets: {}, rules: {} },
+    fingerprint: relationsFingerprint(entries), artifacts: {}, rules: {}, templates: {}, targets: {}, capabilities: {}, aliases: { targets: {}, rules: {}, templates: {} },
   };
   for (const entry of [...entries].sort((a, b) => a.path.localeCompare(b.path))) {
-    if (!TARGET_TYPES.has(entry.type) && !['rule', 'behavior'].includes(entry.type)) continue;
+    if (!TARGET_TYPES.has(entry.type) && !['rule', 'behavior', 'template'].includes(entry.type)) continue;
     const { path: sourcePath, type, name, title, kernel, script, governedPaths } = entry;
     index.artifacts![relationId(entry)] = { path: sourcePath, type, title, ...(name ? { name } : {}), ...(kernel ? { kernel } : {}), ...(script ? { script } : {}), ...(governedPaths ? { governedPaths } : {}) };
   }
@@ -157,7 +158,45 @@ export function buildRelations(entries: MetadataEntry[]): RelationsIndex {
     if (target.projected_from) index.aliases.targets[`skill:projected:${target.name}`] = [key];
     target.rule_stats = statsFor(target.rules, index);
   }
+  addTemplateRelations(entries, index);
   return index;
+}
+
+/** Project resolved index dependencies, including Markdown-link reverse edges. */
+function addTemplateRelations(entries: MetadataEntry[], index: RelationsIndex): void {
+  const byPath = Object.fromEntries(entries.map(entry => [entry.path, entry]));
+  const resolve = createDependencyResolver(byPath);
+  const templates = entries.filter(entry => entry.type === 'template').sort((a, b) => a.path.localeCompare(b.path));
+  const link = (component: MetadataEntry, template: MetadataEntry) => {
+    if (!TARGET_TYPES.has(component.type)) return;
+    const target = index.targets[`${component.type}:${relationId(component)}`];
+    const id = relationId(template);
+    const edges = target.templates ??= [];
+    if (edges.includes(id)) return;
+    edges.push(id);
+    index.templates![id].used_by.push({ type: component.type as RelationTargetType, id: relationId(component) });
+  };
+  for (const template of templates) {
+    const id = relationId(template);
+    index.templates![id] = { name: template.name ?? slug(template), path: template.path, title: template.title, used_by: [] };
+    for (const alias of new Set([template.name, slug(template), template.path].filter((value): value is string => !!value))) {
+      (index.aliases.templates![alias] ??= []).push(id);
+    }
+  }
+  for (const component of entries.filter(entry => TARGET_TYPES.has(entry.type))) {
+    for (const dependency of component.dependencies ?? []) {
+      const template = byPath[resolve(component.path, dependency) ?? ''];
+      if (template?.type === 'template') link(component, template);
+    }
+  }
+  for (const template of templates) for (const dependent of template.dependents ?? []) {
+    if (byPath[dependent]) link(byPath[dependent], template);
+  }
+  for (const target of Object.values(index.targets)) {
+    if (target.projected_from) target.templates = [...(index.targets[`${target.projected_from.type}:${target.projected_from.id}`].templates ?? [])];
+    target.templates?.sort();
+  }
+  for (const template of Object.values(index.templates!)) template.used_by.sort((a, b) => `${a.type}:${a.id}`.localeCompare(`${b.type}:${b.id}`));
 }
 
 export async function writeRelations(entries: Record<string, MetadataEntry>, cwd: string, indexDir: string, force = false, existingDir = indexDir): Promise<void> {

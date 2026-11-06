@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aiwg.io/schemas/artifacts/relations.v1.schema.json",
-  "title": "Framework rule relationship index v1",
+  "title": "Framework rule and template relationship index v1",
   "description": "Small derived framework sidecar. IDs are stable discover IDs; target keys are type:id. Projected flow skills use projected:<flow ID>. Fingerprints hash sorted source paths and content checksums. required_checks counts critical/high contracts, not mechanically enforced checks.",
   "type": "object",
   "additionalProperties": false,
@@ -53,6 +53,13 @@
       "type": "object",
       "additionalProperties": {
         "$ref": "#/$defs/target"
+      }
+    },
+    "templates": {
+      "description": "Template nodes and reverse uses-template lookup. Optional for v1 compatibility.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/template"
       }
     },
     "capabilities": {
@@ -133,6 +140,14 @@
             "uniqueItems": true
           }
         },
+        "templates": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" },
+            "uniqueItems": true
+          }
+        },
         "rules": {
           "type": "object",
           "additionalProperties": {
@@ -202,6 +217,21 @@
         },
         "id": {
           "type": "string"
+        }
+      }
+    },
+    "template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path", "title", "used_by"],
+      "properties": {
+        "name": { "type": "string" },
+        "path": { "type": "string" },
+        "title": { "type": "string" },
+        "used_by": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/edge" },
+          "uniqueItems": true
         }
       }
     },
@@ -355,6 +385,12 @@
         },
         "rule_stats": {
           "$ref": "#/$defs/stats"
+        },
+        "templates": {
+          "description": "Forward uses-template edges, as stable template IDs.",
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
         },
         "projected_from": {
           "$ref": "#/$defs/edge"

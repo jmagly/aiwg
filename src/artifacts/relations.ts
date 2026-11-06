@@ -39,17 +39,20 @@ export interface RelationsIndex {
   generatedAt: string;
   fingerprint: { version: number; sources: string };
   rules: Record<string, RelationRule>;
+  /** Template nodes with reverse uses-template edges; optional in older v1 tables. */
+  templates?: Record<string, { name: string; path: string; title: string; used_by: RelationTarget[] }>;
   targets: Record<string, {
     name: string;
     path: string;
     rules: string[];
     rule_stats: RuleStats;
+    templates?: string[];
     projected_from?: RelationTarget;
   }>;
   capabilities: Record<string, { kind: 'framework' | 'addon' | 'extension'; rules_by_tier: Record<RuleTier, string[]> }>;
   /** Pre-resolved aliases retain ambiguity rather than choosing an arbitrary artifact. */
   artifacts?: Record<string, Pick<MetadataEntry, 'path' | 'type' | 'name' | 'title' | 'kernel' | 'script' | 'governedPaths'>>;
-  aliases: { targets: Record<string, string[]>; rules: Record<string, string[]> };
+  aliases: { targets: Record<string, string[]>; rules: Record<string, string[]>; templates?: Record<string, string[]> };
 }
 
 export function emptyRuleStats(): RuleStats {
@@ -64,6 +67,17 @@ function lookupAlias(aliases: Record<string, string[]>, id: string): string | un
 
 export class RelationsReader {
   constructor(readonly index: RelationsIndex, readonly pinnedRuleIds: ReadonlySet<string> = new Set()) {}
+
+  templatesForTarget(type: RelationTargetType, id: string): string[] {
+    const key = `${type}:${id}`;
+    const resolved = Object.hasOwn(this.index.targets, key) ? key : lookupAlias(this.index.aliases.targets, key);
+    return [...(resolved ? this.index.targets[resolved]?.templates ?? [] : [])];
+  }
+
+  targetsForTemplate(id: string): RelationTarget[] {
+    const resolved = Object.hasOwn(this.index.templates ?? {}, id) ? id : lookupAlias(this.index.aliases.templates ?? {}, id);
+    return resolved ? (this.index.templates?.[resolved]?.used_by ?? []).map(target => ({ ...target })) : [];
+  }
 
   rulesForTarget(type: RelationTargetType, id: string): string[] {
     const key = `${type}:${id}`;

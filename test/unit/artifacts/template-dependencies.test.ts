@@ -90,6 +90,16 @@ describe('concrete template references', () => {
     expect(next.entries[`${addon}/templates/card.md`].dependents).toEqual([addonSource]);
   });
 
+  it('does not link a bare project filename to a same-named template', async () => {
+    write(`${bundle}/templates/project/CLAUDE.md`, '# CLAUDE.md template');
+    write(`${bundle}/skills/use-card/notes.md`, '# Sibling notes');
+    write(source, 'Read @CLAUDE.md and @AIWG.md for user configuration; see @notes.md.');
+    const { edges } = await index();
+    const upstream = (edges[source]?.upstream ?? []).map((edge: { path: string }) => edge.path);
+    expect(upstream).not.toContain(`${bundle}/templates/project/CLAUDE.md`);
+    expect(upstream).toContain(`${bundle}/skills/use-card/notes.md`);
+  });
+
   it('never turns an existing unindexed template into an edge', async () => {
     write('outside/templates/card.md', '# Outside');
     write(source, '$AIWG_ROOT/outside/templates/card.md');

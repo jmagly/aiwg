@@ -95,7 +95,7 @@ function prebuiltProject() {
   const entry = { type: 'skill', name: 'security-review', title: 'Security Review', path: skill,
     phase: '', tags: ['security'], created: '', updated: '', checksum: '',
     summary: 'Review authentication security', capability: 'Review authentication security',
-    dependencies: [], dependents: [] };
+    dependencies: ['agentic/code/addons/example/templates/review.md'], dependents: [] };
   const rulePath = 'agentic/code/addons/example/rules/security-gate.md';
   const ruleText = '---\nname: security-gate\nsummary: Require **security** review before delivery\nenforcement: high\nactivation: summary\n---\n# Security Gate\n**Enforcement Level**: HIGH **Scope**: All agents\n';
   fs.mkdirSync(path.dirname(path.join(runtimeRoot, rulePath)), { recursive: true });
@@ -108,7 +108,11 @@ function prebuiltProject() {
   fs.writeFileSync(path.join(directory, 'metadata.json'), JSON.stringify({
     version: '1', builtAt: '2026-01-01T00:00:00.000Z', entries: { [skill]: entry, [rulePath]: rule },
   }));
-  const tables = buildPrebuiltRelations(runtimeRoot, [entry, rule]);
+  const templatePath = 'agentic/code/addons/example/templates/review.md';
+  fs.mkdirSync(path.dirname(path.join(runtimeRoot, templatePath)), { recursive: true });
+  fs.writeFileSync(path.join(runtimeRoot, templatePath), '# Review Template\n');
+  const template = { ...entry, type: 'template', name: 'review', title: 'Review Template', path: templatePath, dependencies: [] };
+  const tables = buildPrebuiltRelations(runtimeRoot, [entry, rule, template]);
   for (const [file, text] of Object.entries(tables)) {
     const target = path.join(runtimeRoot, 'prebuilt/framework-relations', file);
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -143,7 +147,10 @@ it('injects candidates in a project with only a valid prebuilt package and no pe
   });
   expect(result.status).toBe(0);
   expect(result.stderr).toBe('');
-  expect(JSON.parse(result.stdout).hookSpecificOutput.additionalContext).toContain('skill security-review');
+  const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+  expect(context).toContain('skill security-review');
+  expect(context).toContain('Template review: aiwg show template review');
+  expect(context.length).toBeLessThan(600);
   expect(fs.existsSync(directory)).toBe(false);
 });
 
@@ -157,7 +164,9 @@ it('reads a prebuilt-only package without any filesystem writes, including diges
   const writes = ['writeFileSync', 'mkdirSync', 'renameSync'].map(method =>
     vi.spyOn(fs, method as 'writeFileSync'));
   await discoverCapability(project, { phrase: 'security-review', promptContext: true, limit: 3, json: true });
-  expect(JSON.parse(log.mock.calls[0][0]).results[0].name).toBe('security-review');
+  const candidate = JSON.parse(log.mock.calls[0][0]).results[0];
+  expect(candidate.name).toBe('security-review');
+  expect(candidate.templates).toEqual([expect.objectContaining({ name: 'review', show_command: 'aiwg show template review' })]);
   for (const write of writes) expect(write).not.toHaveBeenCalled();
   expect(snapshot()).toEqual(before);
   expect(fs.existsSync(directory)).toBe(false);

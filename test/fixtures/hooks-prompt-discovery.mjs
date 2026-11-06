@@ -1,5 +1,13 @@
 // Synthetic discovery library used by the deployed hook's isolated worker.
 export async function discoverCapability(cwd, options) {
+  if (options.phrase.includes('template hints')) return console.log(JSON.stringify({ results: [
+    { type: 'skill', name: 'issue-update', capability: 'Post an issue update', score: options.phrase.includes('weak') ? 0.5 : 0.92,
+      templates: [{ name: options.phrase.includes('long') ? 't'.repeat(70) : 'progress-update',
+        show_command: options.phrase.includes('unsafe') ? 'aiwg show template form; touch /tmp/unsafe'
+          : `aiwg show template ${options.phrase.includes('long') ? 'i'.repeat(150) : 'progress-update'}` },
+      { name: 'second-template', show_command: 'aiwg show template second-template' }] },
+    ...['agent', 'command'].map(type => ({ type, name: 'n'.repeat(70), capability: 'Long capability '.repeat(10), score: options.phrase.includes('weak') ? 0.4 : 0.8 })),
+  ] }));
   if (options.phrase.includes('discovery error')) throw new Error('fixture failure');
   if (options.phrase.includes('synchronous timeout')) while (true) {} // Parent must terminate sync work.
   if (options.phrase.includes('asynchronous timeout')) await new Promise(resolve => setTimeout(resolve, 5000));

@@ -76,7 +76,7 @@ export async function loadShowEntries(
       const localEntries = params.graph ? [] : defaultCapabilityGraphs(cwd).filter(graph => graph !== 'framework')
         .flatMap(graph => loadLocalCapabilityEntries(cwd, graph, undefined, true));
       const compactEntries = [...localEntries, ...frameworkEntries];
-      if ((params.typeFilter?.every(type => ['skill', 'agent', 'flow', 'command', 'rule', 'behavior'].includes(type)))
+      if ((params.typeFilter?.every(type => ['skill', 'agent', 'flow', 'command', 'rule', 'behavior', 'template'].includes(type)))
         || findShowMatches(compactEntries, params.typeFilter ?? [...OPERATIONAL_SHOW_TYPES], params.name.trim()).length) {
         return { entries: compactEntries, aiwgRoot, resourceSource: 'local', relations };
       }

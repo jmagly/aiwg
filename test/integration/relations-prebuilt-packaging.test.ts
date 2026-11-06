@@ -36,6 +36,24 @@ describe('shipped relationship tables', () => {
       expect(result.status, result.stderr).toBe(0);
       expect(JSON.parse(result.stdout).bound_rules.length).toBeGreaterThan(0);
       expect(result.stderr).not.toContain('source digest differs');
+      const cli = (args: string[]) => {
+        const response = boundedSpawnSync(process.execPath, [path.join(installed, 'bin/aiwg.mjs'), ...args, '--json'], 'long', {
+          cwd: tmp, encoding: 'utf8', maxBuffer: 1024 * 1024,
+          env: { ...process.env, HOME: path.join(tmp, 'home'), XDG_DATA_HOME: data,
+            XDG_CONFIG_HOME: path.join(tmp, 'config'), XDG_CACHE_HOME: path.join(tmp, 'cache'), AIWG_ROOT: installed },
+        });
+        expect(response.status, response.stderr).toBe(0);
+        return JSON.parse(response.stdout);
+      };
+      const skill = cli(['show', 'skill', 'issue-update']);
+      expect(skill.templates.map((template: any) => template.name)).toEqual(expect.arrayContaining([
+        'progress-update', 'blocker-found', 'feedback-needed', 'task-completed',
+      ]));
+      expect(cli(['show', 'template', 'progress-update']).used_by)
+        .toEqual(expect.arrayContaining([expect.objectContaining({ name: 'issue-update', type: 'skill' })]));
+      const found = cli(['discover', 'post a status update on an issue']).results.find((item: any) => item.name === 'issue-update');
+      expect(found.templates).toHaveLength(3);
+      expect(found.templates[0].show_command).toMatch(/^aiwg show template /);
       const files = fs.readdirSync(data, { recursive: true }).map(String);
       expect(files.some(file => file.endsWith('metadata.json'))).toBe(false);
     } finally { fs.rmSync(tmp, { recursive: true, force: true }); }

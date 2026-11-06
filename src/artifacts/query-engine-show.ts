@@ -14,6 +14,7 @@ import { findShowMatches } from './query-engine-matching.js';
 import { type ShowMetadataParams, type ShowParams } from './query-engine-options.js';
 import { showBindings } from './query-engine-rules.js';
 import { emitShowCard } from './query-engine-show-card.js';
+import { templateRelationFields } from './query-engine-templates.js';
 import { fortemiRecordForEntry, loadShowEntries, resolveMetadataPath } from './query-engine-show-load.js';
 import type { MetadataEntry } from './types.js';
 import { loadGlobalGraphConfigs, OPERATIONAL_SHOW_TYPES } from './types.js';
@@ -91,7 +92,7 @@ export async function showArtifact(
         const bindings = await showBindings(entries, fallbackEntry, content, params, rule => fs.readFile(resolveMetadataPath(cwd, aiwgRoot, rule), 'utf8'), relations);
         await emitShowCard(cwd, aiwgRoot, fallbackEntry,
           corpusMatch.path, content, params, bindings, { uninstalled: !installed, installed, hint: installHint,
-            ...(localPin ? { local_pin: localPin } : {}) }, true);
+            ...(localPin ? { local_pin: localPin } : {}), ...templateRelationFields(fallbackEntry, relations) }, true);
         return;
       }
     }
@@ -191,6 +192,7 @@ export async function showArtifact(
 
   const providerModels = resourceSource === 'local' ? await loadProviderModelMetadata(cwd, aiwgRoot) : null;
   await emitShowCard(cwd, aiwgRoot, entry, filePath, content, params, bindings, {
+    ...templateRelationFields(entry, relations),
     provenance: {
       graph: (entry as ProvenancedEntry).indexGraph ?? null,
       scope: (entry as ProvenancedEntry).indexScope ?? null,

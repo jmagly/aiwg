@@ -9,6 +9,7 @@ import { type ShowParams } from './query-engine-options.js';
 import { RULE_CHECK_OBLIGATION, statsText } from './query-engine-rules.js';
 import { emptyRuleStats, type RuleStats } from './relations.js';
 import type { MetadataEntry } from './types.js';
+import { templateRelationLines, type TemplateRelationDescriptor } from './query-engine-templates.js';
 
 /** Sections include their nested headings, stopping at the next peer/ancestor. */
 export function showSections(content: string) {
@@ -175,6 +176,7 @@ export async function emitShowCard(
   if (card.load_hint) lines.push(card.load_hint);
   if (pinNote) lines.push(pinNote);
   if ('activation' in card) lines.push(`Activation: ${card.activation} | enforcement: ${card.enforcement}`, `Bound targets: ${JSON.stringify(card.bound_to)}`);
+  lines.push(...templateRelationLines(extra as { templates?: TemplateRelationDescriptor[]; used_by?: TemplateRelationDescriptor[] }));
   lines.push(contentNotice, bindings.text || RULE_CHECK_OBLIGATION, '\n## Outline', ...card.outline.map(section => `- ${section.heading} (${section.bytes} bytes, ${section.lines} lines)`),
     '\n## Resources', ...resources.map(resource => `- ${resource.path} (${resource.bytes} bytes)`), '\n## Drill in',
     ...Object.values(card.drill_in).flat().map(command => `- ${command}`));
