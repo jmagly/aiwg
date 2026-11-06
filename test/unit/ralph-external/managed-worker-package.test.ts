@@ -35,7 +35,7 @@ describe('T-OG-14 packaged managed one-shot entry point', () => {
     await symlink(join(source, 'node_modules'), join(root, 'node_modules'), 'dir');
     const toolFiles = ['tools/_resolve-impl.mjs', 'tools/ralph-external/session-launcher.mjs',
       'tools/ralph-external/process-monitor.mjs', 'tools/scripts/resource-preflight.mjs',
-      ...['worker-inputs', 'worker-capture', 'worker-final', 'strict-worker-json', 'worker-launch-cli', 'managed-worker-attempt', 'session-attempt', 'worker-health', 'worker-process-identity', 'worker-artifacts', 'consecutive-failure-circuit-breaker', 'session-environment', 'launcher-recovery-evidence',
+      ...['worker-inputs', 'worker-capture', 'worker-final', 'strict-worker-json', 'worker-launch-cli', 'worker-run-directory-refusal', 'managed-worker-attempt', 'session-attempt', 'worker-health', 'worker-process-identity', 'worker-artifacts', 'consecutive-failure-circuit-breaker', 'session-environment', 'launcher-recovery-evidence',
         'worker-isolation', 'worker-isolation-args', 'worker-unit-cleanup', 'worker-native-sandbox', 'worker-isolation-status', 'worker-retry-evidence', 'worker-termination', 'worker-invocation-processes', 'worker-invocation-ancestry', 'worker-context', 'systemd-client', 'recovery-probe'].map(file => `tools/ralph-external/lib/${file}.mjs`)];
     for (const file of toolFiles) {
       expect(manifest.files.includes('tools/') || manifest.files.includes(file), file).toBe(true);

@@ -1,6 +1,6 @@
 // Exercise pre-spawn ownership, publication and signal authority boundaries.
 import { workerInvocationFixture } from '../../fixtures/worker-single-invocation.js';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { mkdtemp, mkdir, writeFile, readFile, lstat, symlink, readdir, open, rename } from 'node:fs/promises';
@@ -11,7 +11,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveWorkerInvocation, revalidateWorkerInvocationPlan } from '../../../src/serve/worker-invocation.js';
 import { signalOwnedWorker, publishWorkerRecord, beneath, realBeneath } from '../../../tools/ralph-external/session-launcher.mjs';
-import { parseWorkerLaunchArgs, workerExitCode } from '../../../tools/ralph-external/index.mjs';
+import { parseWorkerLaunchArgs, parseWorkerStatusArgs, workerExitCode } from '../../../tools/ralph-external/index.mjs';
 import { sampleWorkerIdentity } from '../../../tools/ralph-external/process-monitor.mjs';
 import { launchIsolatedWorker } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
 import { qualificationDigest } from '../../../src/models/qualification-digest.mjs';
@@ -138,6 +138,45 @@ describe('T-OG-23 pre-spawn boundaries and ownership', () => {
     for (const flag of ['--resume', '--provider', '--budget', '--dangerously-skip-permissions', '--launch-worker']) {
       expect(() => parseWorkerLaunchArgs([...args, flag])).toThrow();
     }
+  });
+
+  it.each(['--json', '--format', '--unknown'])('refuses %s with supported JSON status guidance', flag => {
+    const args = ['--launch-worker', '--invocation', '/plan.json', '--run-dir', '/run'];
+    expect(() => parseWorkerLaunchArgs([...args, flag])).toThrow(
+      `Unsupported worker launch option: ${flag}. Worker launch already emits JSON; for JSON status use aiwg ralph-external --status --workers --run-dir DIR --json separately. Run the resolved command unchanged.`);
+    expect(parseWorkerLaunchArgs(args)).toMatchObject({ invocationPath: '/plan.json', runDir: '/run' });
+    expect(parseWorkerStatusArgs(['--status', '--workers', '--run-dir', '/run', '--json']))
+      .toMatchObject({ runDir: '/run', json: true });
+  });
+
+  it('keeps the CLI unsupported-option refusal at exit 1 before reading the plan', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'aiwg-launch-refusal-')); roots.push(root);
+    const result = spawnSync(process.execPath, [path.resolve('tools/ralph-external/index.mjs'),
+      '--launch-worker', '--invocation', path.join(root, 'missing-plan.json'), '--run-dir', path.join(root, 'run'), '--json'],
+    { cwd: root, encoding: 'utf8', timeout: 15_000, env: { HOME: root, PATH: process.env.PATH, AIWG_RESOLVE_IMPL_FROM: 'dist' } });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain('Unsupported worker launch option: --json');
+    expect(result.stderr).toContain('Run the resolved command unchanged.');
+    expect(await readdir(root)).toEqual([]);
+  });
+
+  it.each([1, 7])('refuses a run directory with %i entries and preserves its contents', async count => {
+    const f = await fixture();
+    await mkdir(f.runDir, { mode: 0o700 });
+    const entries = ['a-plan.json', 'b-brief.md', 'c-notes', 'd-output', 'e-extra', 'f-hidden', 'g-hidden'].slice(0, count);
+    for (const entry of entries) await writeFile(path.join(f.runDir, entry), 'keep');
+    const error = await f.launch({ launchIsolated: f.launchSpy }).catch((failure: Error) => failure);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toContain('Worker run directory must be fresh, empty, private and owned. Unexpected entries:');
+    for (const entry of entries.slice(0, 5)) expect(error.message).toContain(JSON.stringify(entry));
+    for (const entry of entries.slice(5)) expect(error.message).not.toContain(entry);
+    if (count > 5) expect(error.message).toContain('(+2 more)');
+    expect(error.message).toContain('Keep the plan and other files outside the run dir, or pass a new run dir.');
+    expect(f.launchSpy).not.toHaveBeenCalled();
+    expect(await readdir(f.runDir)).toEqual(entries);
+    for (const entry of entries) expect(await readFile(path.join(f.runDir, entry), 'utf8')).toBe('keep');
   });
 
   it('rejects relative launch paths at parse time, naming the flag (#3857)', () => {

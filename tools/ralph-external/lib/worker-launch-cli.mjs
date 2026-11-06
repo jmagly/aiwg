@@ -18,7 +18,7 @@ export function parseWorkerLaunchArgs(args) {
     // A run directory declares a retry; its launcher ID is derived before validation.
     const key = { '--invocation': 'invocationPath', '--run-dir': 'runDir',
       '--retry-of': '__retryOfInvocationId', '--retry-of-run-dir': '__retryOfRunDir' }[flag];
-    if (!key) throw new Error(`Unsupported worker launch option: ${flag}`);
+    if (!key) throw new Error(`Unsupported worker launch option: ${flag}. Worker launch already emits JSON; for JSON status use aiwg ralph-external --status --workers --run-dir DIR --json separately. Run the resolved command unchanged.`);
     const value = args[++i];
     if (!value || value.startsWith('--')) throw new Error(`${flag} requires a value`);
     if (key === '__retryOfInvocationId') retryOfInvocationId = value;

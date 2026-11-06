@@ -51,6 +51,7 @@ export { assertManagedWorkerLaunch } from './lib/managed-worker-attempt.mjs';
 import { buildSessionEnvironment } from './lib/session-environment.mjs';
 import { withWorkerPath, boundedPrivateRead } from './lib/worker-inputs.mjs';
 import { collectWorkerFinal } from './lib/worker-final.mjs';
+import { workerRunDirectoryRefusal } from './lib/worker-run-directory-refusal.mjs';
 import { prepareWorkerRetry, workerRetryRecordFields } from './lib/worker-retry-evidence.mjs';
 import { settleWorkerTermination, terminationRemedy } from './lib/worker-termination.mjs';
 import { WorkerCaptureOwner, assertWorkerCapturePathsAvailable } from './lib/worker-capture.mjs';
@@ -406,8 +407,9 @@ async function launchOneWorker(owner, options) {
   const runExists = await inspect(runDir, 'directory');
   if (runExists) {
     const stat = await lstat(runDir);
-    if (stat.uid !== process.getuid() || (stat.mode & 0o077) || (await readdir(runDir)).length) {
-      throw new Error('Worker run directory must be fresh, empty, private and owned');
+    const entries = stat.uid === process.getuid() && !(stat.mode & 0o077) ? await readdir(runDir) : [];
+    if (stat.uid !== process.getuid() || (stat.mode & 0o077) || entries.length) {
+      throw new Error(workerRunDirectoryRefusal(entries));
     }
   }
   const writableRoots = inputs.drivers[invocation.selected.cli].qualification.installation?.workerWritableRoots ?? [invocation.cwd];
