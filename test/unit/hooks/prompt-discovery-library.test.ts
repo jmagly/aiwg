@@ -59,6 +59,25 @@ it('returns no candidates on a cold index without creating a cache', async () =>
   expect(fs.readdirSync(temporary)).toEqual([]);
 });
 
+it('does not saturate matches from disconnected boilerplate in notification-shaped noise', async () => {
+  const directory = getGraphIndexDir(temporary, 'framework');
+  fs.mkdirSync(directory, { recursive: true });
+  const entries = Object.fromEntries(['dispatch', 'status', 'continuation'].map(name => [name, {
+    type: 'skill', name, title: name, path: `skills/${name}/SKILL.md`, tags: [], summary: '',
+    capability: 'Orchestrate multi-agent teams',
+    triggers: ['run the greenfield team on this task', 'security review team'],
+  }]));
+  fs.writeFileSync(path.join(directory, 'metadata.json'), JSON.stringify({ entries }));
+  const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+  await discoverCapability(temporary, {
+    phrase: '[SYSTEM NOTIFICATION - NOT USER INPUT] <task-notification> Run completed. Read the security review output file and continue. </task-notification>',
+    promptContext: true, limit: 3,
+  });
+  const results = JSON.parse(log.mock.calls[0][0]).results;
+  expect(results).toHaveLength(3);
+  for (const result of results) expect(result.score).toBeLessThan(0.70);
+});
+
 // A normal project relies solely on the package's shipped tables and search export.
 function prebuiltProject() {
   const runtimeRoot = path.join(temporary, 'runtime');

@@ -82,6 +82,24 @@ describe('lexical confidence', () => {
     expect(generic.score).toBeLessThan(0.5);
     expect(scoreEntryDetailed(entry(), 'work').score).toBeGreaterThan(1);
   });
+  it.each(['trigger', 'capability', 'title', 'summary', 'tag', 'search_terms', 'path'])(
+    'weights sparse triggers by coverage while retaining descriptive %s matches', field => {
+      const text = 'task run review security output completed system notification input user file result';
+      const boilerplate = 'task review run security';
+      const fields = { triggers: field === 'trigger' ? [boilerplate] : [],
+        capability: field === 'capability' ? boilerplate : '',
+        title: field === 'title' ? boilerplate : '', summary: field === 'summary' ? boilerplate : '',
+        tags: field === 'tag' ? [boilerplate] : [], searchTerms: field === 'search_terms' ? [boilerplate] : [],
+        path: field === 'path' ? `skills/${boilerplate}/SKILL.md` : 'skills/work/SKILL.md' };
+      const result = scoreEntryDetailed(entry(fields), text, { relaxOverlap: true });
+      expect(result.score).toBeGreaterThan(0);
+      const fieldWeights = { trigger: 0.4 / 12, capability: 0.2, title: 0.24, summary: 0.04,
+        tag: 0.1, search_terms: 0.09, path: 0.03 };
+      expect(result.score).toBeCloseTo(4 * fieldWeights[field as keyof typeof fieldWeights]);
+      expect(result.diagnostic.matches).toEqual(expect.arrayContaining([
+        expect.objectContaining({ field, match: 'token-overlap', query_token_coverage: 4 / 12 }),
+      ]));
+    });
 });
 
 describe('actual provider deployment availability', () => {

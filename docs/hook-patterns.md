@@ -23,15 +23,23 @@ installation updates managed entries while preserving your own hooks.
 
 Acknowledgements such as “yes”, “ok”, “go”, and “1”, short replies without an
 identified imperative, slash-command-only prompts (including command arguments),
-and empty prompts skip discovery. Matches below 0.20 produce no context.
+empty prompts, and harness notifications/system turns (including task notifications,
+system reminders and tool-result echoes) skip discovery. Candidates still use the
+0.20 floor, but at least one must score 0.70 to inject the top three. This threshold
+excludes the unrelated 0.60/0.40 results observed in #3889 while retaining the
+existing strong 0.70–0.92 fixtures; it is a routing cutoff, not a probability.
+With no strong candidate, context contains only an instruction to run
+`aiwg discover "<need>"` (with `--type` for a named artifact type) and read the
+result before answering or declining. Strong candidate context also says:
+“If none fit, run aiwg discover before declining.”
 Injected text stays under 600 characters, allowing up to 100 characters per
 capability. Discovery uses the validated shipped relationship package and search
 metadata read-only, falling back to existing local metadata. It never rebuilds
 indexes, writes digest receipts, or assembles rule bodies at prompt time.
-Errors, missing runtimes/indexes, and timeouts exit successfully without output;
+Errors, missing runtimes, and timeouts exit successfully without output;
 the hook never edits or blocks your prompt. Normal installs use shipped prebuilt
 metadata without a per-root index; missing or invalid packages fall back to existing
-local metadata, leaving missing indexes untouched.
+local metadata. Missing indexes produce the discover instruction and stay untouched.
 
 Set `AIWG_PROMPT_DISCOVERY=0` (also `false` or `off`) in the harness environment to
 disable it. `AIWG_PROMPT_DISCOVERY_TIMEOUT_MS` adjusts the total budget (default

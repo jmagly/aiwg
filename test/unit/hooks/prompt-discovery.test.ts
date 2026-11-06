@@ -5,9 +5,11 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { deployPromptDiscovery } from '../../../tools/agents/providers/muse-prompt-discovery.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-const hook = path.join(root, 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs');
+const sourceHook = path.join(root, 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs');
+let hook: string;
 let temporary: string;
 beforeEach(async () => {
   temporary = await mkdtemp(path.join(tmpdir(), 'aiwg-prompt-'));
@@ -35,7 +37,14 @@ async function invoke(prompt: unknown, env: Record<string, string> = {}, raw?: s
   });
 }
 
-describe('prompt discovery', () => {
+describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
+  beforeEach(() => {
+    hook = sourceHook;
+    if (provider === 'Muse') {
+      deployPromptDiscovery(temporary);
+      hook = path.join(temporary, '.muse/hooks/aiwg-prompt-discovery.cjs');
+    }
+  });
   it('injects the top three candidates and show/rule bodies/apply guidance', async () => {
     const result = await invoke('Review the authentication code for security issues');
     expect(result.code).toBe(0);
@@ -50,6 +59,7 @@ describe('prompt discovery', () => {
     expect(output.additionalContext).not.toContain('fourth');
     expect(output.additionalContext).toContain('aiwg show <type> <name> -> fetch required rule bodies');
     expect(output.additionalContext).toContain('--rules --with-rule-bodies; --body) -> apply');
+    expect(output.additionalContext).toContain('If none fit, run aiwg discover before declining.');
     expect(output.additionalContext.length).toBeLessThan(600);
   });
 
@@ -83,7 +93,68 @@ describe('prompt discovery', () => {
     expect(result.elapsed).toBeLessThan(1200);
   });
 
-  it.each(['discovery error in runtime', 'empty result from discovery', 'weak result from discovery'])('fails open for %s', async prompt => {
+  it.each(['empty result from discovery', 'weak result from discovery',
+    'Is there an AIWG skill that turns Jira CSV exports into flame graphs?'])('requires discover before answering or declining for %s', async prompt => {
+    const result = await invoke(prompt);
+    expect(result).toMatchObject({ code: 0, stderr: '' });
+    const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+    expect(context).toContain(`Run aiwg discover "${prompt}"`);
+    expect(context).toContain('and read the result before answering or declining.');
+    expect(context).not.toMatch(/candidates|rag\.prompt|dataset-trace|Low relevance/);
+    expect(context.length).toBeLessThan(600);
+    if (prompt.includes('skill')) expect(context).toContain('--type skill');
+    else expect(context).not.toContain('--type');
+  });
+
+  it.each(['agent', 'command', 'rule', 'template', 'schema', 'flow', 'runbook', 'behavior', 'hook',
+    'decision-definition', 'decision-ruleset', 'decision-binding', 'gate-pack', 'workflow'])('preserves a named %s type in the discover instruction', async type => {
+    const result = await invoke(`Find AIWG ${type}s for Jira CSV flame graphs`);
+    const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+    expect(context).toContain(`--type ${type === 'workflow' ? 'flow' : type} and read the result`);
+    expect(context).not.toContain('AIWG candidates');
+  });
+
+  it.each([0.69, 0.70])('uses the strong threshold at boundary score %s', async score => {
+    const result = await invoke(`Discover boundary score ${score}`);
+    const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+    if (score < 0.70) {
+      expect(context).toMatch(/^Run aiwg discover/);
+      expect(context).not.toContain('Threshold candidate');
+    } else {
+      expect(context).toContain('skill boundary (0.70): Threshold candidate');
+      expect(context).toContain('If none fit, run aiwg discover before declining.');
+    }
+  });
+
+  it('quotes and bounds a long discover need containing shell metacharacters', async () => {
+    const result = await invoke('Find Jira CSV ' + '"$`\\'.repeat(200));
+    const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+    expect(context).toContain('\\"\\$\\`\\\\');
+    expect(context).toContain('read the result before answering or declining.');
+    expect(context.length).toBeLessThan(600);
+  });
+
+  it.each([
+    '[SYSTEM NOTIFICATION - NOT USER INPUT] Review the task output file now',
+    'Completed work: <task-notification>Read the output file</task-notification>',
+    '<system-reminder>Review the current todo list</system-reminder>',
+    '<tool_result>Review the security report</tool_result>',
+    '<tool-result tool="shell">Review the security report</tool-result>',
+  ])('skips harness notification or system text %j', async prompt => {
+    expect(await invoke(prompt)).toMatchObject({ code: 0, stdout: '', stderr: '' });
+  });
+
+  it.each([
+    { role: 'system' }, { role: 'tool' }, { message: { role: 'system' } },
+    { type: 'tool_result' }, { type: 'notification' }, { hook_event_name: 'PostToolUse' },
+  ])('skips a non-user envelope %j', async metadata => {
+    expect(await invoke(null, {}, JSON.stringify({
+      hook_event_name: 'UserPromptSubmit', prompt: 'Review the security report', ...metadata,
+    }))).toMatchObject({ code: 0, stdout: '', stderr: '' });
+  });
+
+  it('fails open for discovery errors', async () => {
+    const prompt = 'discovery error in runtime';
     expect(await invoke(prompt)).toMatchObject({ code: 0, stdout: '', stderr: '' });
   });
 
