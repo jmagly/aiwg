@@ -242,6 +242,8 @@ Writing quality validation and AI pattern detection.
       { from: 'agentic/code/addons/aiwg-utils/rules/skill-discovery.md', to: 'rules/skill-discovery.md' },
       { from: 'agentic/code/addons/aiwg-utils/rules/skill-discovery-guidance.md', to: 'rules/skill-discovery-guidance.md' },
       { from: 'agentic/code/addons/aiwg-utils/rules/cli-secondary.md', to: 'rules/cli-secondary.md' },
+      ...['artifact-output-policy', 'artifact-output-policy-guidance'].map(name =>
+        ({ from: `agentic/code/addons/aiwg-utils/rules/${name}.md`, to: `rules/${name}.md` })),
       { from: 'agentic/code/addons/aiwg-utils/templates/subagent-brief.md', to: 'templates/subagent-brief.md' },
       { from: 'agentic/code/addons/aiwg-utils/templates/issues', to: 'templates/issues' },
       { from: 'agentic/code/addons/aiwg-utils/templates/pull-requests', to: 'templates/pull-requests' }

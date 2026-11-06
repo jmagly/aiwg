@@ -81,6 +81,17 @@ it('opens and locally merges unsigned projects through the helper without signat
   expect(tracker.calls.find(call => call.path.endsWith('/pulls') && call.method === 'POST')?.body).toEqual({ title: 'Change', body: 'Verified', head: 'feature', base: 'main' });
 });
 
+it('warns for missing PR sections without blocking and stays quiet for complete bodies (#3932)', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const template = readFileSync(path.join(repoRoot, 'agentic/code/addons/aiwg-utils/templates/pull-requests/description.md'), 'utf8');
+  await openPr(cwd, config, client, { title: 'Change', body: template.replace(/^## Verification.*$/m, '') });
+  expect(warn).toHaveBeenCalledExactlyOnceWith('Template warning (description.md): missing required sections: Verification');
+  warn.mockClear();
+  await openPr(cwd, config, client, { title: 'Change', body: template });
+  expect(warn).not.toHaveBeenCalled();
+  expect(tracker.calls.filter(call => call.method === 'POST' && call.path.endsWith('/pulls'))).toHaveLength(2);
+});
+
 it('creates a signed staged commit and signed no-ff merge, verifying configured key and both identities', async () => {
   signed();
   writeFileSync(path.join(cwd, 'feature-file'), 'feature'); git('add', 'feature-file');

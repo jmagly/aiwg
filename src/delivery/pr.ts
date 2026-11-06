@@ -8,6 +8,7 @@ import { sensitiveInputOptions } from '../auth/sensitive-input.js';
 import { deliveryTracker } from './tracker.js';
 import { commitOptions, git, push, signingEnabled, verifyCommit } from './git.js';
 import type { LiveIssueClient } from '../issues/live.js';
+import { warnTemplateSections } from './template-sections.js';
 
 interface PullRequest {
   number: number;
@@ -27,6 +28,7 @@ export async function openPr(cwd: string, config: AiwgConfig, client: LiveIssueC
   const policy = resolveDelivery(config.delivery);
   if (policy.mode !== 'pr-required') throw new Error('Opening a PR requires delivery.mode=pr-required');
   if (!options.title) throw new Error('open requires --title');
+  warnTemplateSections(options.body ?? '', 'agentic/code/addons/aiwg-utils/templates/pull-requests/description.md');
   const remote = resolveRemotes(config.remotes).primary;
   const head = options.head ?? await git(cwd, 'symbolic-ref', '--short', 'HEAD');
   await git(cwd, 'check-ref-format', '--branch', head);

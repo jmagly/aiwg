@@ -73,7 +73,7 @@ Core meta-utility rules for agent coordination, context management, and platform
 **Full rule**: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/delivery-policy.md
 
 #### artifact-output-policy
-**Summary**: Durable AIWG artifacts remain canonical; provider-native presentation destinations require resolved project authorization and explicit selection by default.
+**Summary**: Write governed outputs (issues, comments, PRs, reports, SDLC artifacts) from their discovered template, filling every required section; write the canonical artifact to the AIWG store first; provider-native destinations are explicit-only.
 **Full rule**: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/rules/artifact-output-policy.md
 
 #### sdlc-right-sizing

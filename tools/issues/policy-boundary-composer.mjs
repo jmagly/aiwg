@@ -6,6 +6,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { assessThreat } from '../security/threat-assessment.mjs';
+import { importImpl } from '../_resolve-impl.mjs';
+
+const { warnTemplateSections } = await importImpl(import.meta.url, 'delivery/template-sections.js');
 
 const ACQUISITION_RULES = new Set([
   'third-party-execution',
@@ -153,6 +156,10 @@ export function planIssueDraft(draft, options = {}) {
   if (!draft || typeof draft.title !== 'string' || !draft.title.trim()) {
     throw new Error('Issue draft requires a non-empty title');
   }
+  const template = options.template ?? draft.template ?? (draft.type === 'feature' ? 'feature-request' : 'bug-report');
+  const templatePath = ['bug-report', 'feature-request', 'tester-report', 'imported-report'].includes(template)
+    ? `agentic/code/addons/aiwg-utils/templates/issues/${template}.md` : path.resolve(template);
+  warnTemplateSections(String(draft.body ?? ''), templatePath);
   const normalized = {
     title: draft.title.trim(),
     body: String(draft.body ?? '').trim(),
@@ -324,6 +331,7 @@ function parseArgs(argv) {
     if (arg === '--title') args.title = argv[++index] ?? '';
     else if (arg === '--body') args.body = argv[++index] ?? '';
     else if (arg === '--body-file') args.bodyFile = argv[++index] ?? '';
+    else if (arg === '--template') args.template = argv[++index] ?? 'bug-report';
     else if (arg === '--project-root') args.projectRoot = argv[++index] ?? process.cwd();
     else if (arg === '--labels') args.labels = (argv[++index] ?? '').split(',').map((item) => item.trim()).filter(Boolean);
     else if (arg === '--help' || arg === '-h') args.command = 'help';
@@ -334,7 +342,7 @@ function parseArgs(argv) {
 async function cli(argv) {
   const args = parseArgs([...argv]);
   if (args.command === 'help') {
-    console.log('Usage: policy-boundary-composer.mjs plan --title <title> [--body <text>|--body-file <path>] [--labels a,b] [--project-root <path>]');
+    console.log('Usage: policy-boundary-composer.mjs plan --title <title> [--body <text>|--body-file <path>] [--template <kind|path>] [--labels a,b] [--project-root <path>]');
     return;
   }
   if (args.command !== 'plan') throw new Error(`Unknown command '${args.command}'`);
@@ -346,7 +354,7 @@ async function cli(argv) {
   } catch {
     threatAssessment = undefined;
   }
-  const plan = planIssueDraft({ title: args.title, body, labels: args.labels }, { threatAssessment });
+  const plan = planIssueDraft({ title: args.title, body, labels: args.labels }, { threatAssessment, template: args.template });
   console.log(JSON.stringify(plan, null, 2));
   if (plan.disposition === 'blocked') process.exitCode = 2;
   else if (plan.authorizationRequired) process.exitCode = 3;
