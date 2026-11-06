@@ -50,6 +50,18 @@ const HOOK_SCRIPTS: ReadonlyArray<{
   },
 ];
 
+/** Canonical registrations shared by installation and the read-only drift check. */
+export function managedClaudeHooks(sourceFiles: readonly string[]) {
+  return HOOK_SCRIPTS.filter(({ file }) => sourceFiles.includes(file)).flatMap(({ file, events }) =>
+    Object.entries(events).map(([event, argument]) => ({
+      event,
+      script: path.posix.join('.claude', 'hooks', file),
+      hookId: file.replace(/\.(cjs|js)$/, ''),
+      command: `node ${path.posix.join('.claude', 'hooks', file)}${argument ? ` ${argument}` : ''}`,
+    })),
+  );
+}
+
 interface HookEntry {
   type: string;
   command: string;
@@ -272,67 +284,60 @@ export async function installAiwgHooks(opts: InstallOptions): Promise<InstallRes
     }
     settings.hooks = hooksObj;
 
-    for (const { file, events } of HOOK_SCRIPTS) {
-      if (!sourceFiles.includes(file)) continue;
+    for (const { event, script, hookId, command } of managedClaudeHooks(sourceFiles)) {
       // Claude Code parses hook commands as shell command strings. Keep the
       // embedded script path POSIX-style on every host: native Windows
       // backslashes are interpreted as escapes and collapse into a nonexistent
       // path such as `.claudehooksaiwg-session.cjs` (#133).
-      const script = path.posix.join('.claude', 'hooks', file);
-      const hookId = file.replace(/\.(cjs|js)$/, '');
+      if (!hooksObj[event]) hooksObj[event] = [];
+      const groups = hooksObj[event];
 
-      for (const [event, argument] of Object.entries(events)) {
-        const command = `node ${script}${argument ? ` ${argument}` : ''}`;
-        if (!hooksObj[event]) hooksObj[event] = [];
-        const groups = hooksObj[event];
-
-        // Find any existing AIWG-managed entry for this hookId and refresh
-        // its `command` to the current script path/extension. Required for
-        // users upgrading from pre-`.cjs` installs where the registered
-        // command still references `aiwg-{session,trace,permissions}.js` —
-        // those files no longer exist on disk after refresh, causing
-        // `MODULE_NOT_FOUND` at `node:internal/modules/cjs/loader` on every
-        // hook invocation. (Fixes regression report on Claude Code 2.1.157.)
-        // Match by `_aiwg_id` first, then by the script path. An entry invoking an
-        // AIWG-owned hook script without the managed tag is AIWG residue from an
-        // earlier install; appending a managed entry beside it registers the hook
-        // twice and runs it twice per event. Adopt it instead. (#2543)
-        let updated = false;
-        for (const group of groups) {
-          if (!Array.isArray(group.hooks)) continue;
-          for (const h of group.hooks) {
-            const sameId = h._aiwg_id === hookId;
-            const sameScript = typeof h.command === 'string' && h.command.includes(script);
-            if (!sameId && !sameScript) continue;
-            const adopting = !sameId && sameScript;
-            if (h.command !== command || h.type !== 'command' || h._aiwg_managed !== true || h._aiwg_id !== hookId) {
-              h.type = 'command';
-              h.command = command;
-              h._aiwg_managed = true;
-              h._aiwg_id = hookId;
-              result.warnings.push(
-                adopting
-                  ? `Adopted pre-existing untagged ${event} → ${hookId} entry instead of registering a duplicate`
-                  : `Refreshed stale ${event} → ${hookId} command path`,
-              );
-            }
-            updated = true;
+      // Find any existing AIWG-managed entry for this hookId and refresh
+      // its `command` to the current script path/extension. Required for
+      // users upgrading from pre-`.cjs` installs where the registered
+      // command still references `aiwg-{session,trace,permissions}.js` —
+      // those files no longer exist on disk after refresh, causing
+      // `MODULE_NOT_FOUND` at `node:internal/modules/cjs/loader` on every
+      // hook invocation. (Fixes regression report on Claude Code 2.1.157.)
+      // Match by `_aiwg_id` first, then by the script path. An entry invoking an
+      // AIWG-owned hook script without the managed tag is AIWG residue from an
+      // earlier install; appending a managed entry beside it registers the hook
+      // twice and runs it twice per event. Adopt it instead. (#2543)
+      let updated = false;
+      for (const group of groups) {
+        if (!Array.isArray(group.hooks)) continue;
+        for (const h of group.hooks) {
+          const sameId = h._aiwg_id === hookId;
+          const sameScript = typeof h.command === 'string' && h.command.includes(script);
+          if (!sameId && !sameScript) continue;
+          const adopting = !sameId && sameScript;
+          if (h.command !== command || h.type !== 'command' || h._aiwg_managed !== true || h._aiwg_id !== hookId) {
+            h.type = 'command';
+            h.command = command;
+            h._aiwg_managed = true;
+            h._aiwg_id = hookId;
+            result.warnings.push(
+              adopting
+                ? `Adopted pre-existing untagged ${event} → ${hookId} entry instead of registering a duplicate`
+                : `Refreshed stale ${event} → ${hookId} command path`,
+            );
           }
+          updated = true;
         }
-        if (updated) continue;
-
-        groups.push({
-          hooks: [
-            {
-              type: 'command',
-              command,
-              _aiwg_managed: true,
-              _aiwg_id: hookId,
-            },
-          ],
-        });
-        result.registeredEvents.push(`${event} → ${hookId}`);
       }
+      if (updated) continue;
+
+      groups.push({
+        hooks: [
+          {
+            type: 'command',
+            command,
+            _aiwg_managed: true,
+            _aiwg_id: hookId,
+          },
+        ],
+      });
+      result.registeredEvents.push(`${event} → ${hookId}`);
     }
   }
 

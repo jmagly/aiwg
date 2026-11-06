@@ -25,6 +25,7 @@ import { createUseHandler } from './use.js';
 import { automaticRemovalAllowed } from '../../providers/deployment-preservation.mjs';
 import { refreshDeclaredBundles } from './refresh-bundles.js';
 import { bundledRuleOutputNames } from './refresh-rule-inventory.js';
+import { checkManagedDeployment, type StaleManagedDeployment } from './refresh-managed-deployment.js';
 import { getFrameworkRoot } from '../../channel/manager.mjs';
 import { refreshAllPackages } from '../../packages/registry.js';
 import { resolveActiveProvider } from '../provider-resolution.js';
@@ -698,6 +699,7 @@ export const refreshHandler: CommandHandler = {
       ui.warn('--prune-tracked has no effect without --prune-other-providers; nothing was removed.');
     }
     let staleAgentRemovals: ProviderStaleAgentRemoval[] = [];
+    let staleManagedDeployments: StaleManagedDeployment[] = [];
     let trackedSkipped: ProviderStaleAgentRemoval[] = [];
     // A dry run still reports what a real run would remove. Skipping the pass
     // entirely meant `refresh --dry-run` printed "Checking for stale deployments..."
@@ -794,7 +796,7 @@ export const refreshHandler: CommandHandler = {
       try {
         const { getFrameworkRoot } = await import('../../channel/manager.mjs');
         const { join } = await import('path');
-        const config = await readAiwgConfig(process.cwd());
+        const config = await readAiwgConfig(ctx.cwd);
         if (config) {
           const MANIFEST_PATHS: Record<string, string> = {
             sdlc: 'agentic/code/frameworks/sdlc-complete/manifest.json',
@@ -803,6 +805,7 @@ export const refreshHandler: CommandHandler = {
             research: 'agentic/code/frameworks/research-complete/manifest.json',
           };
           const frameworkRoot = await getFrameworkRoot();
+          staleManagedDeployments = await checkManagedDeployment({ projectRoot: ctx.cwd, frameworkRoot, provider: detectedProvider, quiet });
           // Batch-hash manifests in parallel instead of serially awaiting each
           // one. For ~10 frameworks this cuts refresh latency from ~N*I/O to
           // max-single-I/O on a warm filesystem (#919 cleanup).
@@ -828,7 +831,7 @@ export const refreshHandler: CommandHandler = {
                 ? `Deployments current, but ${removed} stale artifact(s) would be removed — review the list above`
                 : `Deployments current, but ${removed} stale artifact(s) were removed this run — review the list above`);
             }
-          } else {
+          } else if (staleManagedDeployments.length === 0) {
             if (!quiet) ui.success('All deployments up to date');
           }
         } else {
@@ -918,6 +921,7 @@ export const refreshHandler: CommandHandler = {
         skipUpdate,
         channel: channel || undefined,
         staleAgentRemovals,
+        staleManagedDeployments,
         deploymentFailures,
         updateFailure,
       });
