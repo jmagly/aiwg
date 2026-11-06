@@ -17,6 +17,7 @@ import {
   isOrdinaryMemoryEntry,
   projectAllowsUserIndices,
   projectCapabilityFallback,
+  prepareProjectCapabilityIndex,
   withIndexProvenance,
 } from './query-engine-entries.js';
 import { type DiscoverParams } from './query-engine-options.js';
@@ -31,6 +32,7 @@ export async function discoverCapability(
 ): Promise<void> {
   loadGlobalGraphConfigs();
   const startTime = Date.now();
+  const readOnly = Boolean(params.promptContext || params.noBuild);
   const types = params.typeFilter && params.typeFilter.length > 0
     ? params.typeFilter
     : DEFAULT_DISCOVER_TYPES;
@@ -48,21 +50,21 @@ export async function discoverCapability(
   // project / codebase / legacy depending on what's available.
   let entries: MetadataEntry[] = [];
   let localFramework: ArtifactIndex | null = null;
-  const backend = params.promptContext ? 'local' : params.backend ?? DEFAULT_ARTIFACT_SEARCH_BACKEND;
+  const backend = readOnly ? 'local' : params.backend ?? DEFAULT_ARTIFACT_SEARCH_BACKEND;
   let fortemiCoreDiscoveryScores: Map<string, number> | null = null;
-  let resourceSource: ResourceSource = params.promptContext ? 'local' : params.resourceSource ?? 'local';
+  let resourceSource: ResourceSource = readOnly ? 'local' : params.resourceSource ?? 'local';
   let resolvedWebRelease: VerifiedWebRelease | undefined;
   let verifiedSourcePaths:
     | import('./fortemi-core-query-adapter.js').FortemiCoreVerifiedSourcePaths
     | undefined;
 
   const prebuiltSelection = resourceSource !== 'web' && (!params.graph || params.graph === 'framework')
-    ? selectPrebuiltRelations(cwd, cwd, !params.promptContext) : undefined;
+    ? selectPrebuiltRelations(cwd, cwd, !readOnly) : undefined;
   const prebuiltRelations = prebuiltSelection?.reader ?? null;
 
   // A valid prebuilt relationship package means the shipped index is current:
   // never build a per-root framework index beside it (#3308, #2069 test).
-  if (!params.promptContext && (!prebuiltRelations || backend === 'local') && resourceSource !== 'web' && (!params.graph || params.graph === 'framework')) {
+  if (!readOnly && (!prebuiltRelations || backend === 'local') && resourceSource !== 'web' && (!params.graph || params.graph === 'framework')) {
     const root = resolveFrameworkCorpusRoot(cwd) ?? aiwgRoot;
     if (root) {
       try {
@@ -73,6 +75,9 @@ export async function discoverCapability(
       }
     }
   }
+
+  const projectBuildAttempted = !readOnly && resourceSource !== 'web' && (!params.graph || params.graph === 'project')
+    ? await prepareProjectCapabilityIndex(cwd) : false;
 
   if (resourceSource === 'auto') {
     const { loadFortemiCoreMetadataEntries } = await import('./fortemi-core-query-adapter.js');
@@ -137,12 +142,9 @@ export async function discoverCapability(
       }
       const { loadFortemiCoreMetadataEntries, queryFortemiCoreAiwgDiscovery } = await import('./fortemi-core-query-adapter.js');
       const loaded = loadFortemiCoreMetadataEntries(cwd, graph, verifiedSourcePaths);
-      if (loaded.reason && graph === 'project' && !params.graph) {
-        const fallback = projectCapabilityFallback(cwd);
-        if (fallback) {
-          entries.push(...fallback);
-          continue;
-        }
+      if (loaded.reason && graph === 'project' && (!params.graph || projectBuildAttempted)) {
+        entries.push(...(projectCapabilityFallback(cwd) ?? []));
+        continue;
       }
       if (loaded.sourceIndexNewer && resourceSource === 'local') {
         // Do not silently omit a graph whose derived cache is stale. Rank its
@@ -179,7 +181,7 @@ export async function discoverCapability(
         }
       }
     }
-    if (entries.length === 0 && unavailableReason) {
+    if (entries.length === 0 && unavailableReason && !projectBuildAttempted) {
       if (params.json) {
         console.log(JSON.stringify({
           query: {
@@ -211,6 +213,7 @@ export async function discoverCapability(
   } else if (params.graph) {
     const idx = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', params.graph);
     if (idx) entries = Object.values(idx.entries).map((entry) => withIndexProvenance(entry, params.graph!));
+    if (!readOnly && params.graph === 'project' && !entries.length) projectCapabilityFallback(cwd);
   } else {
     // discover is EXCLUSIVELY the agentic-capability surface (#1545): source
     // the `framework` graph (deployed AIWG capabilities) + project-local
@@ -225,6 +228,7 @@ export async function discoverCapability(
     // (requirements, ADRs, …) out of results.
     const projIdx = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', 'project');
     if (projIdx) entries.push(...Object.values(projIdx.entries).map((entry) => withIndexProvenance(entry, 'project')));
+    if (!readOnly && !Object.keys(projIdx?.entries ?? {}).length) projectCapabilityFallback(cwd);
     if (includeUser) {
       const userIdx = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', 'user');
       if (userIdx) entries.push(...Object.values(userIdx.entries).map((entry) => withIndexProvenance(entry, 'user')));
@@ -236,7 +240,7 @@ export async function discoverCapability(
     }
   }
 
-  if (params.promptContext && prebuiltRelations) {
+  if (readOnly && prebuiltRelations) {
     // Reuse the validated shipped export without refreshing or persisting receipts.
     const { loadFortemiCoreMetadataEntries } = await import('./fortemi-core-query-adapter.js');
     const loaded = loadFortemiCoreMetadataEntries(cwd, 'framework', undefined, prebuiltSelection);
@@ -251,7 +255,7 @@ export async function discoverCapability(
     return;
   }
 
-  if (entries.length === 0 && backend !== 'fortemi-core') {
+  if (entries.length === 0 && backend !== 'fortemi-core' && !params.noBuild && !projectBuildAttempted) {
     // Empty-index case (#1221). Surface a hint that explains the gap rather
     // than returning a bare zero-result envelope — the latter trains agents
     // to conclude "AIWG doesn't have a skill for that" when in fact the

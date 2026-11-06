@@ -25,6 +25,8 @@ export interface DiscoverParams {
   /** Host hook only: read prebuilt/local metadata, omit writes, refresh and rule assembly.
    * Candidates are hints; callers must fetch governing rule bodies before apply. */
   promptContext?: boolean;
+  /** Read cached local metadata only, without builds, writes, or repair diagnostics. */
+  noBuild?: boolean;
   /** Trusted host-only, default-off D27 observer. Shadow evidence never changes ranking. */
   shadowRoute?: DiscoveryShadowRoute;
   /** Emit cache fallback diagnostics on stderr. */

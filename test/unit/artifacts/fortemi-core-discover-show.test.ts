@@ -9,6 +9,7 @@ import {
   showArtifact,
 } from "../../../src/artifacts/query-engine.js";
 import { buildIndex } from "../../../src/artifacts/index-builder.js";
+import * as indexBuilder from "../../../src/artifacts/index-builder.js";
 import { main as indexCliMain } from "../../../src/artifacts/cli.js";
 import { showDeps } from "../../../src/artifacts/dep-graph.js";
 import { showNeighbors } from "../../../src/artifacts/graph-query.js";
@@ -216,7 +217,8 @@ describe("Fortemi Core discover/show parity adapter (#1688)", () => {
     },
   );
 
-  it.each(['missing', 'empty'])('warns when the project cache is absent and its index is %s', async (state) => {
+  it.each(['missing', 'empty'])('warns when building the %s project index fails', async (state) => {
+    vi.spyOn(indexBuilder, 'buildIndex').mockRejectedValue(new Error('Synthetic build failure'));
     fs.mkdirSync(path.join(tmp, '.aiwg/extensions/existing/skills'), { recursive: true });
     fs.writeFileSync(path.join(tmp, '.aiwg/extensions/existing/skills/unindexed.md'), '# Unindexed skill');
     if (state === 'empty') writeProjectGraph(tmp, []);
@@ -228,7 +230,7 @@ describe("Fortemi Core discover/show parity adapter (#1688)", () => {
     consoleErrorSpy.mockClear();
     await discoverCapability(tmp, { phrase: 'intake', json: true });
     expect(readConsoleJson().results[0].name).toBe('intake-wizard');
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(2); // First-use notice, then existing fallback warning.
     expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('aiwg index build --graph project'));
     consoleSpy.mockClear();
     consoleErrorSpy.mockClear();
@@ -373,7 +375,7 @@ describe("Fortemi Core discover/show parity adapter (#1688)", () => {
       const resolveWeb = vi.spyOn(web, 'resolveWebRelease')
         .mockRejectedValue(new Error('Unexpected web resolution in offline discovery test'));
       const graph = explicitGraph ?? 'framework';
-      const old = entry({ name: 'retired-intake', title: 'Retired Intake' });
+      const old = entry({ path: 'agentic/code/frameworks/test/skills/retired-intake/SKILL.md', name: 'retired-intake', title: 'Retired Intake' });
       writeProjectGraph(tmp, [old], undefined, graph);
       syncFortemiCoreIndex(tmp, { graph });
       const current = entry({

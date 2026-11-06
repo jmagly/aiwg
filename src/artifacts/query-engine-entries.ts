@@ -1,11 +1,14 @@
 // Share entry identity, provenance, graph selection, and discovery ordering helpers.
-import * as fs from 'node:fs';
+import fs from 'node:fs';
 import * as path from 'node:path';
 import { projectAiwgPath, projectControlPath } from '../config/project-artifacts.js';
 import { recordTypeForEntry, stableRecordId } from './browser-export.js';
 import { loadGraphIndexFile } from './index-reader.js';
 import type { ArtifactIndex, GraphType, MetadataEntry, QueryResult } from './types.js';
-import { getGraphIndexDir, isOperationalShowType, OPERATIONAL_DISCOVERY_TYPES } from './types.js';
+import {
+  getGraphIndexDir, isOperationalShowType, OPERATIONAL_DISCOVERY_TYPES,
+  loadUserGraphConfigs, GRAPH_CONFIGS, resolveGraphScanDir,
+} from './types.js';
 
 export function normalizeIndexedPath(entryPath: string): string {
   return entryPath.replace(/\\/g, '/');
@@ -70,6 +73,44 @@ export function graphScope(graph: GraphType): ProvenancedEntry['indexScope'] {
 
 export function withIndexProvenance(entry: MetadataEntry, graph: GraphType): ProvenancedEntry {
   return { ...entry, indexGraph: graph, indexScope: graphScope(graph) };
+}
+
+const projectBuilds = new Map<string, Promise<boolean>>();
+
+/** Best-effort first-use preparation through the CLI's builder; return whether a build was attempted. */
+export async function prepareProjectCapabilityIndex(cwd: string): Promise<boolean> {
+  const directory = getGraphIndexDir(cwd, 'project');
+  const pending = projectBuilds.get(directory);
+  if (pending) return pending;
+  const build = async (): Promise<boolean> => {
+    let attempted = false;
+    try {
+      const index = loadGraphIndexFile<ArtifactIndex>(cwd, 'metadata.json', 'project');
+      if (Object.keys(index?.entries ?? {}).length) return false;
+      fs.accessSync(cwd, fs.constants.W_OK);
+      let ancestor = directory;
+      while (!fs.existsSync(ancestor)) ancestor = path.dirname(ancestor);
+      fs.accessSync(ancestor, fs.constants.W_OK);
+      loadUserGraphConfigs(cwd);
+      // Avoid the explicit builder's missing-root exit and repeated empty builds.
+      if (!GRAPH_CONFIGS.project.scanDirs.some(dir => fs.existsSync(resolveGraphScanDir(cwd, dir)))) return false;
+      const { collectGraphIndexFiles } = await import('./index-files.js');
+      if (!(await collectGraphIndexFiles(cwd, 'project')).length) return false;
+      const { buildIndex } = await import('./index-builder.js');
+      console.error('Building the project index for this workspace (first use)…');
+      attempted = true;
+      await buildIndex(cwd, { graph: 'project', quiet: true, explicit: false, lockWaitMs: 1000 });
+      // Match CLI build's derived-cache publication without its stdout progress.
+      const { syncFortemiCoreIndex } = await import('./fortemi-core-sync.js');
+      syncFortemiCoreIndex(cwd, { graph: 'project' });
+    } catch {
+      // The existing project fallback owns warnings and partial results.
+    }
+    return attempted;
+  };
+  const promise = build();
+  projectBuilds.set(directory, promise);
+  try { return await promise; } finally { projectBuilds.delete(directory); }
 }
 
 
