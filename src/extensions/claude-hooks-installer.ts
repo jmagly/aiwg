@@ -31,6 +31,7 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { captureDeploymentOutputs, recordDeploymentOutputs } from '../providers/deployment-ownership.mjs';
 import { mergeClaudeAttribution, undoClaudeAttribution } from './claude-attribution.js';
+import { managedHookScriptState } from './managed-hook-script-state.js';
 
 /**
  * Hook script → Claude Code hook event mapping.
@@ -229,6 +230,11 @@ export async function installAiwgHooks(opts: InstallOptions): Promise<InstallRes
     }
     const src = path.join(sourceHooksDir, file);
     const dst = path.join(claudeHooksDir, file);
+    const state = await managedHookScriptState(opts.projectPath, path.relative(opts.projectPath, dst), await fs.readFile(src));
+    if (state === 'operator-edited' || state === 'unreadable') {
+      result.warnings.push(`${dst}: kept (${state})`);
+      continue;
+    }
     if (opts.dryRun) {
       result.installedScripts.push(`${dst} (dry-run)`);
       continue;

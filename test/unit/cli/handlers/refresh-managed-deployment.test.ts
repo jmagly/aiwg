@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { checkManagedDeployment } from '../../../../src/cli/handlers/refresh-managed-deployment.js';
 import { installAiwgHooks, managedClaudeHooks } from '../../../../src/extensions/claude-hooks-installer.js';
 import { AIWG_MANAGED_HOOKS } from '../../../../src/extensions/muse-managed-hooks.js';
+import { installCodexPromptDiscovery } from '../../../../src/smiths/hook-bridge/codex-translator.js';
 import { refreshHandler } from '../../../../src/cli/handlers/refresh.js';
 import * as ui from '../../../../src/cli/ui.js';
 
@@ -34,11 +35,16 @@ function currentFixture(provider: string) {
       (hooks[event] ??= []).push({ hooks: [{ type: 'command', command, _aiwg_id: hookId, _aiwg_managed: true }] });
     }
     write('.claude/settings.json', { hooks, operatorSetting: true });
-  } else {
+  } else if (provider === 'muse') {
     for (const hook of AIWG_MANAGED_HOOKS) (hooks[hook.event] ??= []).push(hook.group);
     write('.muse/hooks.json', { hooks });
     write('.muse/.aiwg-hooks.json', { version: 1, hooks: AIWG_MANAGED_HOOKS });
   }
+  const ownedScripts = provider === 'claude'
+    ? [...new Set(managedClaudeHooks(scripts).map(hook => path.basename(hook.script)))]
+    : ['aiwg-prompt-discovery.cjs'];
+  for (const script of ownedScripts) write(`.${provider}/hooks/${script}`, fs.readFileSync(
+    path.join(frameworkRoot, 'agentic/code/addons/aiwg-hooks/hooks', script), 'utf8'));
   write(`.${provider}/rules/artifact-output-policy.md`, `<!-- aiwg:managed v${version} bundled -->\n# Current\n`);
 }
 
@@ -66,8 +72,9 @@ function check(provider: string, quiet = true) {
   return checkManagedDeployment({ projectRoot, frameworkRoot, provider, quiet });
 }
 
-function cli(provider: string, quiet = false) {
-  return execFileSync(process.execPath, [path.join(frameworkRoot, 'bin/aiwg.mjs'), 'refresh', '--dry-run',
+function cli(provider: string, quiet = false, dryRun = true) {
+  return execFileSync(process.execPath, [path.join(frameworkRoot, 'bin/aiwg.mjs'), 'refresh',
+    ...(dryRun ? ['--dry-run'] : ['--skip-update']),
     '--provider', provider, ...(quiet ? ['--quiet'] : [])], {
     cwd: projectRoot, encoding: 'utf8', timeout: 30_000,
     env: { ...process.env, AIWG_CONFIG: path.join(projectRoot, 'runtime-config'),
@@ -157,6 +164,123 @@ describe.each(['claude', 'muse'])('%s managed deployment drift', provider => {
     expect(report.staleManagedDeployments).toContainEqual(expect.objectContaining({ name: 'UserPromptSubmit → aiwg-prompt-discovery' }));
     expect(snapshot()).toEqual(before);
   });
+});
+
+describe.each(['claude', 'muse', 'codex'])('%s managed script bytes', provider => {
+  const script = `.${provider}/hooks/aiwg-prompt-discovery.cjs`;
+  const old = '// previous AIWG release\n';
+  const edited = '// operator customization\n';
+  const hash = (bytes: string) => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
+
+  async function fixture() {
+    currentFixture(provider);
+    if (provider === 'codex') await installCodexPromptDiscovery({ projectPath: projectRoot, frameworkRoot });
+    // Refresh just the declared addon, with no remote packages or npm update.
+    write('.aiwg/aiwg.config', { version: '1', providers: [provider], scripts: {}, installed: {
+      'aiwg-hooks': { version, deployedTo: { [provider]: {} } },
+    } });
+  }
+
+  function receipt(bytes: string) {
+    write(`.${provider}/hooks/.aiwg-manifest.json`, { managed: {
+      'aiwg-prompt-discovery.cjs': { hash: hash(bytes), kind: 'hook', owners: ['aiwg-hooks'] },
+    } });
+  }
+
+  it('dry-run reports old bytes and real refresh replaces them even with a current receipt', async () => {
+    await fixture();
+    const expected = fs.readFileSync(path.join(projectRoot, script), 'utf8');
+    write(script, old);
+    receipt(old);
+    const before = snapshot();
+    const output = cli(provider);
+    expect(output).toContain(`Stale deployment: outdated ${script}`);
+    expect(output).not.toContain('All deployments up to date');
+    expect(snapshot()).toEqual(before);
+    expect(await check(provider)).toContainEqual({ name: script, file: script, reason: 'outdated' });
+    cli(provider, false, false);
+    expect(fs.readFileSync(path.join(projectRoot, script), 'utf8')).toBe(expected);
+    expect(await check(provider)).toEqual([]);
+  });
+
+  it('accepts current bytes and leaves a dry run read-only', async () => {
+    await fixture();
+    receipt(fs.readFileSync(path.join(projectRoot, script), 'utf8'));
+    const before = snapshot();
+    expect(await check(provider)).toEqual([]);
+    expect(cli(provider)).toContain('All deployments up to date');
+    expect(snapshot()).toEqual(before);
+  });
+
+  it('checks every owned script, including legacy copies without receipts', async () => {
+    await fixture();
+    const files = fs.readdirSync(path.join(projectRoot, `.${provider}/hooks`)).filter(file => file.endsWith('.cjs'));
+    for (const file of files) write(`.${provider}/hooks/${file}`, old);
+    expect((await check(provider)).filter(item => item.reason === 'outdated').map(item => item.file).sort())
+      .toEqual(files.map(file => `.${provider}/hooks/${file}`).sort());
+    for (const file of files) fs.unlinkSync(path.join(projectRoot, `.${provider}/hooks/${file}`));
+    expect((await check(provider)).filter(item => item.reason === 'missing').map(item => item.file).sort())
+      .toEqual(files.map(file => `.${provider}/hooks/${file}`).sort());
+  });
+
+  it('names operator edits and preserves both the script and its original receipt during refresh', async () => {
+    await fixture();
+    receipt(old);
+    write(script, edited);
+    const before = snapshot();
+    const output = cli(provider);
+    expect(output).toContain(`operator-edited ${script}`);
+    expect(output).toContain('kept; review operator edits');
+    expect(output).not.toContain('All deployments up to date');
+    expect(snapshot()).toEqual(before);
+    cli(provider, false, false);
+    expect(fs.readFileSync(path.join(projectRoot, script), 'utf8')).toBe(edited);
+    const manifest = JSON.parse(fs.readFileSync(path.join(projectRoot, `.${provider}/hooks/.aiwg-manifest.json`), 'utf8'));
+    expect(manifest.managed['aiwg-prompt-discovery.cjs'].hash).toBe(hash(old));
+    expect(await check(provider)).toContainEqual({ name: script, file: script, reason: 'operator-edited' });
+  });
+});
+
+it('compares Codex against the resolved canonical script argument', async () => {
+  const packageRoot = path.join(projectRoot, 'package');
+  write('package/package.json', { version });
+  write('package/agentic/code/addons/aiwg-hooks/canonical/prompt.json', {
+    id: 'aiwg-prompt-discovery', command: 'node', events: ['UserPromptSubmit'],
+    args: ['$AIWG_ROOT/runtime/prompt.cjs'],
+  });
+  write('package/runtime/prompt.cjs', '// packaged hook bytes\n');
+  await installCodexPromptDiscovery({ projectPath: projectRoot, frameworkRoot: packageRoot });
+  expect(await checkManagedDeployment({ projectRoot, frameworkRoot: packageRoot, provider: 'codex', quiet: true })).toEqual([]);
+  write('.codex/hooks/aiwg-prompt-discovery.cjs', '// obsolete\n');
+  expect(await checkManagedDeployment({ projectRoot, frameworkRoot: packageRoot, provider: 'codex', quiet: true }))
+    .toEqual([{ name: '.codex/hooks/aiwg-prompt-discovery.cjs', file: '.codex/hooks/aiwg-prompt-discovery.cjs', reason: 'outdated' }]);
+});
+
+it.each(['.claude/.aiwg-manifest.json', '.aiwg/.aiwg-manifest.json'])('honors ancestor ownership in %s', async receipt => {
+  currentFixture('claude');
+  const script = '.claude/hooks/aiwg-prompt-discovery.cjs';
+  const name = receipt.startsWith('.aiwg/') ? script : 'hooks/aiwg-prompt-discovery.cjs';
+  write(receipt, { scope: receipt.startsWith('.aiwg/') ? 'project' : undefined, managed: {
+    [name]: { kind: 'hook', hash: 'sha256:previous-deployment', owners: ['aiwg-hooks'] },
+  } });
+  write(script, '// operator changes\n');
+  const result = await installAiwgHooks({ projectPath: projectRoot, frameworkRoot });
+  expect(result?.warnings).toContain(`${path.join(projectRoot, script)}: kept (operator-edited)`);
+  expect(fs.readFileSync(path.join(projectRoot, script), 'utf8')).toBe('// operator changes\n');
+  expect(await check('claude')).toEqual([{ name: script, file: script, reason: 'operator-edited' }]);
+});
+
+it('uses the nearest receipt when a newer deploy supersedes an ancestor claim', async () => {
+  currentFixture('claude');
+  const script = '.claude/hooks/aiwg-prompt-discovery.cjs';
+  write('.claude/.aiwg-manifest.json', { managed: {
+    'hooks/aiwg-prompt-discovery.cjs': { hash: 'sha256:older-ancestor-claim', kind: 'hook' },
+  } });
+  write('.claude/hooks/.aiwg-manifest.json', { managed: {
+    'aiwg-prompt-discovery.cjs': { kind: 'hook', hash: 'sha256:' + createHash('sha256')
+      .update(fs.readFileSync(path.join(projectRoot, script))).digest('hex') },
+  } });
+  expect(await check('claude')).toEqual([]);
 });
 
 it('scoped refresh uses the supplied project root and suppresses false success', async () => {
