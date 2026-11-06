@@ -5,7 +5,6 @@ import { statSync, readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { acquireWorkerWriteLock, workerWriteLock } from './worker-owner-lock.js';
-import { workspaceFileMode, preserveWorkspaceReplacement } from '../utils/workspace-permissions.mjs';
 export { acquireWorkerWriteLock, reclaimWorkerWriteLock, workerWriteLock } from './worker-owner-lock.js';
 
 const maintenance = new AsyncLocalStorage<boolean>();
@@ -17,19 +16,17 @@ export function workerDispatchBlocked(project: string): boolean {
     throw error;
   }
 }
-/** Credential-free configuration and policy artifacts; credential stores own their private writers. */
 export async function atomicConfigWrite(file: string, content: string, assertOwned?: () => void): Promise<void> {
   assertOwned?.();
   await mkdir(dirname(file), { recursive: true });
   const temporary = `${file}.${randomBytes(6).toString('hex')}.tmp`;
-  let mode = workspaceFileMode(file);
+  let mode = 0o600;
   try { mode = (await stat(file)).mode; } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
   try {
     assertOwned?.();
     await writeFile(temporary, content, { encoding: 'utf8', mode });
-    preserveWorkspaceReplacement(file, temporary);
     assertOwned?.();
     await rename(temporary, file);
   } finally { await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; }); }

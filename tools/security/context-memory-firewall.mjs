@@ -9,7 +9,6 @@ import { assessThreat } from './threat-assessment.mjs';
 import { PROVIDERS, SUPPORTED_PROVIDERS } from './context-memory-providers.mjs';
 import { importImpl } from '../_resolve-impl.mjs';
 const { classifyContextMemory } = await importImpl(import.meta.url, 'memory/firewall-classification.mjs');
-const { workspaceFileMode, preserveWorkspaceReplacement } = await importImpl(import.meta.url, 'utils/workspace-permissions.mjs');
 
 export const CONTEXT_FIREWALL_SCHEMA = 'aiwg.context-memory-firewall/v1';
 export const CONTEXT_FIREWALL_BASELINE_SCHEMA = 'aiwg.context-memory-firewall-baseline/v1';
@@ -609,9 +608,8 @@ export async function writeReviewBaseline(result, outputPath) {
   try {
     await fs.writeFile(temporary, `${JSON.stringify(baseline, null, 2)}\n`, {
       flag: 'wx',
-      mode: workspaceFileMode(absolute),
+      mode: 0o600,
     });
-    preserveWorkspaceReplacement(absolute, temporary);
     await fs.rename(temporary, absolute);
   } catch (error) {
     await fs.rm(temporary, { force: true });

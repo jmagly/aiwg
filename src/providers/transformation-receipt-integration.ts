@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { workspaceDirectoryMode, workspaceFileMode, preserveWorkspaceReplacement } from '../utils/workspace-permissions.mjs';
 import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -103,7 +102,7 @@ async function writeEvidenceState(
 ): Promise<string> {
   const provider = normalizeProviderDefinitionId(options.provider) ?? options.provider;
   const target = providerTransformationEvidenceStatePath(options.projectRoot, provider, options.scope);
-  await mkdir(path.dirname(target), { recursive: true, mode: workspaceDirectoryMode(path.dirname(target)) });
+  await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
   const temporary = path.join(path.dirname(target), `.${path.basename(target)}.${randomUUID()}.tmp`);
   const state: ProviderTransformationEvidenceState = {
     schemaVersion: PROVIDER_TRANSFORMATION_EVIDENCE_STATE_SCHEMA,
@@ -113,8 +112,7 @@ async function writeEvidenceState(
     disposition,
   };
   try {
-    await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, { encoding: 'utf8', mode: workspaceFileMode(target), flag: 'wx' });
-    preserveWorkspaceReplacement(target, temporary);
+    await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
     await rename(temporary, target);
   } catch (error) {
     await rm(temporary, { force: true }).catch(() => undefined);

@@ -2,7 +2,6 @@ import fs from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { groupSharedWorkspace, workspaceFileMode, preserveWorkspaceReplacement } from './workspace-permissions.mjs';
 
 // Extracted from MCP artifact access; default diagnostics and write semantics
 // remain compatible. Storage opts into hardlink refusal and root creation.
@@ -320,7 +319,7 @@ async function openArtifact(store, artifactPath, { write = false, append = false
       (write ? constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL
         : append ? constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT
         : constants.O_RDONLY)
-      | constants.O_NOFOLLOW | constants.O_NONBLOCK, append ? 0o666 : workspaceFileMode(fullPath));
+      | constants.O_NOFOLLOW | constants.O_NONBLOCK, append ? 0o666 : 0o600);
     await verify(file, { entry });
     transferred = true;
     return {
@@ -338,8 +337,7 @@ async function openArtifact(store, artifactPath, { write = false, append = false
         await verify(file, { entry });
         await verify(parent, parentOptions);
         await verifyDestination();
-        if (groupSharedWorkspace(store.root)) preserveWorkspaceReplacement(destination, entry, store.root);
-        else await file.chmod(finalMode);
+        await file.chmod(finalMode);
         await fs.rename(entry, destination);
       },
     };
@@ -412,7 +410,7 @@ async function openStaticArtifact(store, root, fullPath, { write, append, remove
   const finalMode = target ? Number(target.mode) & 0o7777 : 0o666 & ~process.umask();
   const handle = await fs.open(entry, (write ? constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL
     : append ? constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT
-    : constants.O_RDONLY) | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0), append ? 0o666 : workspaceFileMode(fullPath));
+    : constants.O_RDONLY) | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0), append ? 0o666 : 0o600);
   try {
     const opened = await handle.stat({ bigint: true });
     assertIdentity(opened);
@@ -452,8 +450,7 @@ async function openStaticArtifact(store, root, fullPath, { write, append, remove
         if (temporary.isSymbolicLink() || actual.nlink > 1 || temporary.nlink > 1
           || !sameIdentity(actual, temporary)
           || !sameIdentity(actual, opened)) throw new Error('Artifact changed during access');
-        if (groupSharedWorkspace(store.root)) preserveWorkspaceReplacement(fullPath, entry, store.root);
-        else await handle.chmod(finalMode);
+        await handle.chmod(finalMode);
         await fs.rename(entry, fullPath);
       },
     };

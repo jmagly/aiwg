@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { workspaceFileMode, preserveWorkspaceReplacement } from '../utils/workspace-permissions.mjs';
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { projectAiwgPath, projectAiwgWritePath } from '../config/project-artifacts.js';
@@ -190,9 +189,8 @@ export async function writeProviderTransformationReceipt(
   const temporary = `${destination}.${randomUUID()}.tmp`;
   try {
     await writeFile(temporary, `${JSON.stringify(receipt, null, 2)}\n`, {
-      encoding: 'utf8', mode: workspaceFileMode(destination), flag: 'wx',
+      encoding: 'utf8', mode: 0o600, flag: 'wx',
     });
-    preserveWorkspaceReplacement(destination, temporary);
     await rename(temporary, destination);
   } catch (error) {
     await rm(temporary, { force: true }).catch(() => undefined);

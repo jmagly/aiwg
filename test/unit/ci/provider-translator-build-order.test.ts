@@ -38,7 +38,7 @@ describe('provider translator steps run after the CLI build', () => {
         expect(read(entry.nodeScript)).toContain("await importImpl(import.meta.url, 'memory/firewall-classification.mjs')");
       } else {
         expect(entry.reason).toContain('#3732');
-        expect(read(entry.nodeScript)).toMatch(/import .*providers\/(?:codex|omp)\.mjs/);
+        expect(read(entry.nodeScript)).toMatch(/import .*providers\/(?:codex|omp|packaged-codex-agents)\.mjs/);
       }
       if (entry.npmScript) expect(scripts[entry.npmScript]).toBe(`node ${entry.nodeScript}`);
     }

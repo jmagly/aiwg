@@ -313,15 +313,14 @@ export async function saveLayerData(file, data, collection, layers, layering, ex
   // Without layering, `file` is whatever single directory the caller
   // configured (which may be a shared, group-readable organisation checkout
   // maintained directly, not a private identity directory): an existing file
-  // keeps its mode unless the persisted servers carry literal credentials.
-  // New credential-free files follow workspace policy; secrets always stay private.
+  // keeps its mode unless the persisted servers carry literal credentials,
+  // while a newly created file starts private at 0600.
   const info = layers ? null : await assertConfigDestination(file);
-  const sensitive = collection === 'servers'
+  const tighten = info && (info.mode & 0o077) !== 0 && collection === 'servers'
     && Object.values(persisted[collection] || {}).some(server => credentialPolicyViolations(server, 'references').length > 0);
-  const tighten = info && (info.mode & 0o077) !== 0 && sensitive;
   await writeConfigAtomic(file, JSON.stringify(persisted, null, 2) + '\n', layers
     ? { userScope: true, rejectSymlinkParents: true }
-    : { newFileMode: 0o600, rejectSymlinkParents: true, ...(sensitive ? { userScope: true } : {}), ...(tighten ? { mode: 0o600 } : {}) });
+    : { newFileMode: 0o600, rejectSymlinkParents: true, ...(tighten ? { mode: 0o600 } : {}) });
   if (tighten) {
     console.warn(`Warning: tightened MCP registry ${file} from ${(info.mode & 0o7777).toString(8).padStart(4, '0')} to 0600 because it contains literal credentials.`);
   }
