@@ -33,6 +33,7 @@ import { resolveWorkerInvocation, type WorkerInvocationDriver } from '../../../s
 import { CODEX_DIRECT_STDIN, CODEX_SUPPORTED_VERSIONS, CodexAdapter, summarizeCodexStream } from '../../../tools/ralph-external/lib/codex-adapter.mjs';
 import { createProvider, loadInstalledWorkerAdapters } from '../../../src/models/worker-installation.mjs';
 import { SessionLauncher } from '../../../tools/ralph-external/session-launcher.mjs';
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { launchIsolatedWorker } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
 import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { fixtureJson } from '../mission-v1/worker-contract-fixtures.js';
@@ -506,8 +507,9 @@ describe('T-OG-15 Codex direct command contract', () => {
       expect(await readFile(path.join(runDir, name), 'utf8'), name).not.toContain(MARKER);
     }
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
-    expect(record).toMatchObject({ stdinEof: true, stdinBytes: Buffer.byteLength(payload), cwd: workdir,
-      prompt: payload, promptViaStdin: true });
+    const prompt = workerPromptBrief(payload, plan.invocation!.finalPath!).toString();
+    expect(record).toMatchObject({ stdinEof: true, stdinBytes: Buffer.byteLength(prompt), cwd: workdir,
+      prompt, promptViaStdin: true });
   });
 
   it.each([

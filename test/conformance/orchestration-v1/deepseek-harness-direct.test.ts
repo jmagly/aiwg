@@ -12,6 +12,7 @@ import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.m
  * bundled profile stays unqualified (DH08).
  */
 import { SessionLauncher } from '../../../tools/ralph-external/session-launcher.mjs';
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { launchIsolatedWorker } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -274,7 +275,7 @@ describe('T-OG-15 DeepSeek Harness direct command contract', () => {
     expect(result.termination).toBe('confirmed');
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
     expect(record).toMatchObject({ model: MODEL, effort: EFFORT, sandbox: 'workspace-write', approval: 'never', cwd: workdir,
-      patchPath: path.join(runDir, 'artifact-dsh-patch'), brief: payload });
+      patchPath: path.join(runDir, 'artifact-dsh-patch'), brief: workerPromptBrief(payload, plan.invocation!.finalPath!).toString() });
     expect(existsSync(record.patchPath)).toBe(false);
     expect(record.argv).not.toContain(payload);
     expect(result.exitCode).toBe(0);

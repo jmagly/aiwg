@@ -28,6 +28,7 @@ import { workerStdinDocument } from '../../../src/serve/worker-stdin-frame.mjs';
 import { OPENHUMAN_CHAT_METHOD, OPENHUMAN_SUPPORTED_VERSIONS } from '../../../tools/ralph-external/lib/openhuman-adapter.mjs';
 import { createProvider, loadInstalledWorkerAdapters } from '../../../src/models/worker-installation.mjs';
 import { SessionLauncher } from '../../../tools/ralph-external/session-launcher.mjs';
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { launchIsolatedWorker } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
 import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { fixtureJson } from '../mission-v1/worker-contract-fixtures.js';
@@ -287,7 +288,7 @@ describe('T-OG-15 OpenHuman direct command contract', () => {
       expect(await readFile(path.join(runDir, name), 'utf8'), name).not.toContain(MARKER);
     }
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
-    expect(record).toMatchObject({ fromStdin: true, stdinEof: true, cwd: workdir, params: { message: payload, model_override: MODEL, cwd: workdir } });
+    expect(record).toMatchObject({ fromStdin: true, stdinEof: true, cwd: workdir, params: { message: workerPromptBrief(payload, plan.invocation!.finalPath!).toString(), model_override: MODEL, cwd: workdir } });
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
   });
 

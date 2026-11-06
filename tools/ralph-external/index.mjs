@@ -27,7 +27,7 @@ import { IterationAnalytics } from './iteration-analytics.mjs';
 import { EarlyStopping } from './early-stopping.mjs';
 import { CrossTaskLearner } from './cross-task-learner.mjs';
 import { watchWorkerStatus } from './process-monitor.mjs';
-import { parseWorkerLaunchArgs } from './lib/worker-launch-cli.mjs';
+import { parseWorkerLaunchArgs, workerFinalFailureMessage } from './lib/worker-launch-cli.mjs';
 export { parseWorkerLaunchArgs } from './lib/worker-launch-cli.mjs';
 
 /** Strict status-only grammar, before provider probes and state constructors. */
@@ -709,6 +709,8 @@ async function main() {
     try {
       const result = await launcher.launchWorker({ ...worker, ensureWorkerContext: true });
       console.log(JSON.stringify(result));
+      const finalFailure = workerFinalFailureMessage(result);
+      if (finalFailure) console.error(finalFailure);
       process.exitCode = workerExitCode(result);
     } catch (error) {
       if (error && error.code === 'OG_WORKER_CONTEXT_UNAVAILABLE') {

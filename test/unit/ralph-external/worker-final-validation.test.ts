@@ -1,7 +1,7 @@
 // Synthetic launcher regressions for workerClaims schema and artifact digests (#3675).
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { writeFileSync } from 'node:fs';
+import { unlinkSync, writeFileSync } from 'node:fs';
 import { readFile, symlink, writeFile } from 'node:fs/promises';
 import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import path from 'node:path';
@@ -11,6 +11,7 @@ import { workerInvocationFixture } from '../../fixtures/worker-single-invocation
 import { HermesAdapter } from '../../../tools/ralph-external/lib/hermes-adapter.mjs';
 import { CodexAdapter } from '../../../tools/ralph-external/lib/codex-adapter.mjs';
 import { ScopedFailureBreaker } from '../../../tools/ralph-external/lib/consecutive-failure-circuit-breaker.mjs';
+import { workerFinalFailureMessage } from '../../../tools/ralph-external/lib/worker-launch-cli.mjs';
 
 const roots: string[] = [];
 const breakers: ScopedFailureBreaker[] = [];
@@ -28,7 +29,7 @@ async function fixture(recovery: boolean, adapter = new CodexAdapter()) {
   f.drivers.codex.extractFinal = (text: string) => adapter.parseOutput(text);
   const parseFinal = vi.fn((output: any, options: any) => adapter.parseWorkerFinal(output, options));
   f.drivers.codex.parseWorkerFinal = parseFinal;
-  const launch = async (final: unknown, stdoutOnly = false, exitCode = 0, degraded = false) => {
+  const launch = async (final: unknown, stdoutOnly = false, exitCode = 0, degraded = false, missing = false) => {
     const bytes = typeof final === 'string' ? final : JSON.stringify(final);
     const child: any = new EventEmitter();
     child.stdout = new PassThrough(); child.stderr = new PassThrough(); child.unref = () => {};
@@ -37,6 +38,7 @@ async function fixture(recovery: boolean, adapter = new CodexAdapter()) {
       launchIsolated: () => {
         queueMicrotask(() => {
           writeFileSync(f.final, stdoutOnly ? '' : bytes);
+          if (missing) unlinkSync(f.final);
           child.stdout.end(stdoutOnly ? bytes : ''); child.stderr.end();
           child.emit('exit', exitCode, null); child.emit('close', exitCode, null);
         });
@@ -69,7 +71,43 @@ describe.each([false, true])('#3675 launcher final validation, recovery=%s', rec
     const { result, evidence, exit } = await f.launch('');
     expect(result.errorCode).toBe('FINAL_OUTPUT_INVALID');
     expect(exit.errorCode).toBe('FINAL_OUTPUT_INVALID');
+    expect(exit.finalOutputFailure).toMatchObject({ kind: 'missing-file', expectedPath: f.final, candidates: [] });
     expect(evidence).toBeNull();
+  });
+
+  it.each([false, true])('reports a missing final and root-level candidates (file removed: %s)', async missing => {
+    const f = await fixture(recovery);
+    const candidate = path.join(f.cwd, 'answer.json');
+    await writeFile(candidate, JSON.stringify({ facts: ['synthetic'], warning: '' }));
+    await symlink(candidate, path.join(f.cwd, 'linked.json'));
+    const { result, exit } = await f.launch('', false, 0, false, missing);
+    expect(result.errorCode).toBe('FINAL_OUTPUT_INVALID');
+    expect(exit.finalOutputFailure).toEqual(result.finalOutputFailure);
+    expect(exit.finalOutputFailure).toMatchObject({ kind: 'missing-file', expectedPath: f.final,
+      candidates: [{ path: candidate, location: 'worker-tree-root', candidate: true, verified: false }] });
+    expect(workerFinalFailureMessage(result)).toContain(candidate);
+    expect(workerFinalFailureMessage(result)).toContain('missing-file');
+    expect(await readFile(candidate, 'utf8')).toContain('facts');
+    expect(result.attemptOutcome).not.toBe('succeeded');
+  });
+
+  it('flags a possible wrong location without accepting a root-level wrapper', async () => {
+    const f = await fixture(recovery);
+    const candidate = path.join(f.cwd, path.basename(f.final));
+    await writeFile(candidate, JSON.stringify(valid()));
+    const { result, exit } = await f.launch('');
+    expect(exit.finalOutputFailure.kind).toBe('wrong-location');
+    expect(workerFinalFailureMessage(result)).toContain(candidate);
+    expect(result.errorCode).toBe('FINAL_OUTPUT_INVALID');
+    expect(await readFile(f.final, 'utf8')).toBe('');
+  });
+
+  it('names a task answer with no wrapper as wrong-shape', async () => {
+    const f = await fixture(recovery);
+    const { result, exit } = await f.launch({ facts: [], warning: '' });
+    expect(exit.finalOutputFailure).toMatchObject({ kind: 'wrong-shape', expectedPath: f.final });
+    expect(workerFinalFailureMessage(result)).toContain('wrong-shape');
+    expect(exit.finalOutputErrors).toContainEqual(expect.stringContaining('/version'));
   });
 
   it.each(malformed)('rejects $label with JSON pointers', async ({ final, pointers }) => {
@@ -99,9 +137,11 @@ describe.each([false, true])('#3675 launcher final validation, recovery=%s', rec
   it('accepts schema-valid claims whose artifact digest matches the file', async () => {
     const f = await fixture(recovery);
     await writeFile(path.join(f.cwd, 'answer.txt'), 'actual artifact');
-    const { result, evidence } = await f.launch({ ...valid(),
-      artifacts: [{ path: 'answer.txt', digest: digest('actual artifact'), change: 'created' }] });
+    const final = { ...valid(), artifacts: [{ path: 'answer.txt', digest: digest('actual artifact'), change: 'created' }] };
+    const { result, evidence } = await f.launch(final);
     expect(result.errorCode).toBeFalsy();
+    expect(await readFile(f.final, 'utf8')).toBe(JSON.stringify(final));
+    expect(result.finalOutputFailure).toBeUndefined();
     expect(evidence.terminalSuccess).toBe(true);
     expect(evidence.verified).toBe(false);
     expect(evidence.errors).toBeUndefined();

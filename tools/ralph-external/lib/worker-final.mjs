@@ -1,8 +1,8 @@
 // Collect workerClaims candidates only after schema and on-disk artifact validation.
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, open } from 'node:fs/promises';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { lstat, open, opendir } from 'node:fs/promises';
+import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 import { importImpl } from '../../_resolve-impl.mjs';
 import { boundedPrivateRead, withWorkerPath } from './worker-inputs.mjs';
 import { parseStrictWorkerJson } from './strict-worker-json.mjs';
@@ -15,6 +15,29 @@ const escapePointer = key => key.replace(/~/g, '~0').replace(/\//g, '~1');
 function schemaDiagnostic(error) {
   const match = /^(\/\S*) (must (?:have required|NOT have additional) propert(?:y|ies) '([^']+)'.*)$/.exec(error);
   return match ? `${match[1] === '/' ? '' : match[1]}/${escapePointer(match[3])} ${match[2]}` : error;
+}
+
+// Names only: bounded, nonrecursive discovery never reads or accepts worker candidates.
+async function rootCandidates(workdir, finalPath) {
+  const candidates = [];
+  let truncated = false, scanError = null;
+  try {
+    await withWorkerPath(workdir, async target => {
+      const root = await open(target, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+      try {
+        const entries = await opendir(`/proc/self/fd/${root.fd}`);
+        let scanned = 0;
+        for await (const entry of entries) {
+          if (++scanned > 256 || candidates.length === 32) { truncated = true; break; }
+          const path = join(workdir, entry.name);
+          if (entry.isFile() && path !== finalPath && /\.(json|jsonl|txt|md|ya?ml|csv)$/i.test(entry.name)) {
+            candidates.push({ path, location: 'worker-tree-root', candidate: true, verified: false });
+          }
+        }
+      } finally { await root.close(); }
+    });
+  } catch (error) { scanError = error.message; }
+  return { candidates: candidates.sort((a, b) => a.path.localeCompare(b.path)), truncated, scanError };
 }
 
 async function artifactErrors(claims, workdir) {
@@ -56,7 +79,7 @@ export async function collectWorkerFinal({ path, workdir, driver, output, invoca
     await importImpl(import.meta.url, 'mission-protocol/index.js');
   const scan = bytes => parseStrictWorkerJson(
     new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes), WORKER_MAX_NESTING_DEPTH);
-  let finalBytes, extracted = false, parsedClaims, parseError;
+  let finalBytes, extracted = false, parsedClaims, parseError, failureKind = 'invalid-file';
   const evidence = () => ({ invocationId, path, digest: finalBytes ? digest(finalBytes) : null,
     source: extracted ? 'adapter-extraction' : 'worker-output', candidate: true, verified: false });
   try {
@@ -65,6 +88,7 @@ export async function collectWorkerFinal({ path, workdir, driver, output, invoca
     await inspect(path, 'file');
     let claims;
     if (stat.size === 0 && driver.extractFinal) {
+      failureKind = output.length ? 'wrong-shape' : 'missing-file';
       claims = driver.extractFinal(output.toString('utf8'));
       if (claims === null || claims === undefined || claims.success === false) throw new Error('Missing or unsuccessful final extraction');
       const bytes = JSON.stringify({ invocationId, source: 'adapter-extraction', candidate: true, verified: false, result: claims });
@@ -72,7 +96,8 @@ export async function collectWorkerFinal({ path, workdir, driver, output, invoca
       await handle.writeFile(bytes); extracted = true;
     }
     finalBytes = await boundedPrivateRead(path, WORKER_MAX_JSON_BYTES, inspect, true);
-    if (!finalBytes.length) throw new Error('Missing final output');
+    if (!finalBytes.length) { failureKind = 'missing-file'; throw new Error('Missing final output'); }
+    failureKind = 'wrong-shape';
     if (extracted) {
       if (driver.parseWorkerFinal) {
         try {
@@ -110,7 +135,10 @@ export async function collectWorkerFinal({ path, workdir, driver, output, invoca
     if (!parseError) {
       const validation = validateWorkerPayload('workerClaims', claims);
       const errors = validation.errors.map(schemaDiagnostic);
-      if (validation.valid) errors.push(...await artifactErrors(claims, workdir));
+      if (validation.valid) {
+        failureKind = 'invalid-artifact';
+        errors.push(...await artifactErrors(claims, workdir));
+      }
       if (errors.length) {
         result.finalOutputErrors = errors;
         throw new Error('Invalid workerClaims');
@@ -118,13 +146,20 @@ export async function collectWorkerFinal({ path, workdir, driver, output, invoca
     }
   } catch (error) {
     result.errorCode ??= 'FINAL_OUTPUT_INVALID';
-    // Preserve the existing missing/empty-final failure: there is no
-    // candidate document (and therefore no schema pointer) to record.
-    if (!finalBytes?.length) throw error;
+    const found = await rootCandidates(workdir, path);
+    if (error.code === 'ENOENT') failureKind = 'missing-file';
+    if (failureKind === 'missing-file' && found.candidates.some(candidate => basename(candidate.path) === basename(path))) {
+      failureKind = 'wrong-location';
+    }
+    result.finalOutputFailure = { kind: failureKind, expectedPath: path,
+      message: `${failureKind}: final output at ${JSON.stringify(path)}: ${error.message}`,
+      ...found };
     // Adapter decoding uses assertValidWorkerPayload's existing rendered
     // diagnostics; retain its pointers when validation fails inside it.
     const schemaErrors = /^Invalid workerClaims: (.*)\.$/.exec(error.message)?.[1];
     result.finalOutputErrors ??= schemaErrors ? schemaErrors.split('; ').map(schemaDiagnostic) : [`/ ${error.message}`];
+    // No candidate document exists for a missing/empty final; retain diagnostics in exit.json.
+    if (!finalBytes?.length) throw error;
     await publish('final-evidence.json', { ...evidence(), terminalSuccess: false,
       errorCode: 'FINAL_OUTPUT_INVALID', errors: result.finalOutputErrors });
     throw error;

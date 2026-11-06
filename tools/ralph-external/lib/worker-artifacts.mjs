@@ -3,12 +3,14 @@ import { constants } from 'node:fs';
 import { open, mkdir, mkdtemp, lstat, readdir, unlink, rmdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { importImpl } from '../../_resolve-impl.mjs';
+import { workerPromptArtifacts } from './worker-prompt.mjs';
 
 const { validateWorkerArtifacts } = await importImpl(import.meta.url, 'serve/worker-artifacts.mjs');
 const directoryFlags = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
 const sameFile = (a, b) => a.dev === b.dev && a.ino === b.ino;
 
-export async function materializeWorkerArtifacts(invocation, runDir) {
+export async function materializeWorkerArtifacts(invocation, runDir, prompt) {
+  invocation = workerPromptArtifacts(invocation, prompt);
   const artifacts = validateWorkerArtifacts(invocation);
   const targets = new Map(artifacts.map(artifact => [artifact.name, artifact.location === 'workspace-relative'
     ? path.join(invocation.cwd, artifact.relativePath) : path.join(runDir, `artifact-${artifact.name}`)]));
@@ -172,7 +174,7 @@ export async function materializeWorkerArtifacts(invocation, runDir) {
       await handle.writeFile(artifact.content); await handle.sync();
       if (chain) await verifyPath(invocation.cwd, chain, leaf, identity);
     }
-    return { argv, cleanup };
+    return { argv, cleanup, declarations: artifacts };
   } catch (error) {
     try { await cleanup(); } catch (cleanupError) { throw new AggregateError([error, cleanupError], `${error.message}; worker artifact creation and cleanup failed`); }
     throw error;

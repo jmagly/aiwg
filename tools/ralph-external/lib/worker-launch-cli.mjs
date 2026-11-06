@@ -2,6 +2,15 @@
 import { join, isAbsolute } from 'node:path';
 import { boundedPrivateRead } from './worker-inputs.mjs';
 
+export function workerFinalFailureMessage(result) {
+  const failure = result.finalOutputFailure;
+  if (!failure) return null;
+  const candidates = failure.candidates.map(candidate => JSON.stringify(candidate.path)).join(', ') || '(none)';
+  return `FINAL_OUTPUT_INVALID: ${failure.message}. Unverified candidate artifacts: ${candidates}`
+    + (failure.truncated ? ' (scan truncated)' : '')
+    + (failure.scanError ? ` (scan failed: ${failure.scanError})` : '');
+}
+
 export function parseWorkerLaunchArgs(args) {
   const result = {};
   const seen = new Set();

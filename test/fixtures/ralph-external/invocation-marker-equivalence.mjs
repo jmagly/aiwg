@@ -50,6 +50,20 @@ function checkedTerminationEvidence(evidence, missing) {
 }
 
 export function normalizeMarkerRunRecord(name, baseline, branch, exitRecord) {
+  // #3882 adds precise diagnostics to the frozen fixture's empty-final failures.
+  if (name === 'exit.json' && branch.finalOutputFailure) {
+    const { finalOutputFailure: failure, finalOutputErrors, ...unchanged } = branch;
+    expect(baseline).not.toHaveProperty('finalOutputFailure');
+    expect(baseline).not.toHaveProperty('finalOutputErrors');
+    expect(baseline.errorCode).toBe('FINAL_OUTPUT_INVALID');
+    expect(finalOutputErrors).toEqual(['/ Missing or unsuccessful final extraction']);
+    expect(branch.captureSeal.files.map(file => file.source)).toContain(failure.expectedPath);
+    expect(readFileSync(failure.expectedPath).length).toBe(0);
+    expect(failure).toEqual({ kind: 'missing-file', expectedPath: failure.expectedPath,
+      message: `missing-file: final output at ${JSON.stringify(failure.expectedPath)}: Missing or unsuccessful final extraction`,
+      candidates: [], truncated: false, scanError: null });
+    branch = unchanged;
+  }
   branch = normalizeCaptureRecord(name, baseline, branch);
   if (name === 'exit.json') {
     const missing = expectedTerminationMissing(branch);
@@ -97,7 +111,9 @@ export function normalizeMarkerCallbackLog(baseline, branch) {
     const previous = baseline[index];
     if (entry.name === 'publishRecord' && previous.args[2]?.includes('termination')) {
       expect(previous.args[2]).not.toContain('terminationMissing');
-      expect(entry.args[2]).toEqual([...previous.args[2], 'terminationMissing'].sort());
+      expect(previous.args[2]).not.toContain('finalOutputFailure');
+      expect(previous.args[2]).not.toContain('finalOutputErrors');
+      expect(entry.args[2]).toEqual([...previous.args[2], 'terminationMissing', 'finalOutputErrors', 'finalOutputFailure'].sort());
       return { ...entry, args: entry.args.map((arg, n) => n === 2 ? previous.args[2] : arg) };
     }
     if (entry.name === 'publishRecord' && previous.args[2]?.includes('captures')) {

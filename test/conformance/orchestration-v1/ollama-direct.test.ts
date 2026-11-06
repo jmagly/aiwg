@@ -11,6 +11,7 @@ import { resolveWorkerInvocation } from '../../../src/serve/worker-invocation.js
 import { createProvider, loadInstalledWorkerAdapters, normalizeWorkerVersionBanner, compileWorkerVersionPattern } from '../../../src/models/worker-installation.mjs';
 import { workerStdinBytes } from '../../../src/serve/worker-stdin-frame.mjs';
 import { SessionLauncher } from '../../../tools/ralph-external/session-launcher.mjs';
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { launchIsolatedWorker } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
 import { APPROVED, MODULE, MODEL, FAKE_SERVER, children, scratch, run, startFakeServer,
   startRefusingEndpoint, installPackage, loadingRegistry, resolverFixture } from '../../fixtures/providers/ollama/harness.js';
@@ -364,7 +365,7 @@ describe('T-OG-15 local-http through the production resolver and installed-modul
       expect(JSON.stringify(launches[0].args)).not.toContain(MARKER);
       const record = JSON.parse(await readFile(server.recordPath, 'utf8'));
       expect(record).toMatchObject({ method: 'POST', path: '/api/generate',
-        body: { model: MODEL, prompt: payload, stream: false } });
+        body: { model: MODEL, prompt: workerPromptBrief(payload, invocation.finalPath!).toString(), stream: false } });
       expect(Object.keys(record.body).sort()).toEqual(['model', 'prompt', 'stream']);
       const final = await installed.owner.parseWorkerFinal(await readFile(invocation.stdoutPath), {
         format: 'json', observation: { transport: 'shell', status: 'completed', termination: 'confirmed', exitCode: 0 } });
