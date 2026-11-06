@@ -45,6 +45,34 @@ export async function workspaceLinkedFiles(projectPath: string): Promise<string[
 
 export async function diagnoseWorkspaceContext(projectPath: string): Promise<WorkspaceContextDiagnostic[]> {
   const diagnostics: WorkspaceContextDiagnostic[] = [];
+  const root = path.resolve(projectPath);
+  const scopes = new Map<string, Promise<string | null>>();
+  // Ordinary subdirectories share root policy; repository/project markers start a separate scope.
+  function directoryScope(directory: string): Promise<string | null> {
+    if (directory === root || !directory.startsWith(`${root}${path.sep}`)) return Promise.resolve(null);
+    let scope = scopes.get(directory);
+    if (!scope) {
+      scope = (async () => {
+        const markers = await Promise.all(['.git', '.aiwg/aiwg.config'].map(async (marker) => {
+          try { await fs.stat(path.join(directory, marker)); return true; } catch { return false; }
+        }));
+        return markers.some(Boolean)
+          ? path.relative(root, directory).replace(/\\/g, '/')
+          : directoryScope(path.dirname(directory));
+      })();
+      scopes.set(directory, scope);
+    }
+    return scope;
+  }
+  async function reportSourceDiagnostic(diagnostic: WorkspaceContextDiagnostic, sources: string[]): Promise<void> {
+    const sourceScopes = await Promise.all(sources.map((source) => directoryScope(path.dirname(path.resolve(root, source)))));
+    const nestedOnly = sourceScopes.length > 0 && sourceScopes.every((scope) => scope !== null);
+    diagnostics.push(nestedOnly ? {
+      ...diagnostic,
+      severity: diagnostic.severity === 'error' ? 'warning' : diagnostic.severity,
+      message: `Advisory for nested project(s) ${[...new Set(sourceScopes)].join(', ')}: ${diagnostic.message}`,
+    } : diagnostic);
+  }
   const { existing, notes } = await readAiwgOperatorNotes(projectPath);
   if (existing !== null && existing !== notes) diagnostics.push({
     severity: 'warning', code: 'duplicate-generated-context', path: '.aiwg/AIWG.md',
@@ -87,7 +115,7 @@ export async function diagnoseWorkspaceContext(projectPath: string): Promise<Wor
     }
   }
   for (const conflict of audit.conflicts) {
-    diagnostics.push({ severity: 'error', code: 'directive-conflict', message: `Conflicting duplicate directive group '${conflict.key}' appears in ${conflict.sources.map((source) => source.path).join(', ')}.` });
+    await reportSourceDiagnostic({ severity: 'error', code: 'directive-conflict', message: `Conflicting duplicate directive group '${conflict.key}' appears in ${conflict.sources.map((source) => source.path).join(', ')}.` }, conflict.sources.map((source) => source.path));
   }
   // One diagnostic per source pair, not one per duplicated line: a shared
   // pointer stub otherwise reports every line as a separate policy conflict
@@ -102,13 +130,13 @@ export async function diagnoseWorkspaceContext(projectPath: string): Promise<Wor
     const paths = pair.split(', ');
     const bodies = paths.map((item) => operatorBodies.get(item) ?? '');
     const wholeFileDuplicate = bodies.every((body) => body.length > 0 && body === bodies[0]);
-    diagnostics.push({
+    await reportSourceDiagnostic({
       severity: wholeFileDuplicate ? 'info' : 'warning',
       code: 'duplicate-directive',
       message: wholeFileDuplicate
         ? `${pair} carry identical operator content (${count} directive(s)); keep one copy or accept the shared stub.`
         : `${count} identical directive(s) duplicated across ${pair}.`,
-    });
+    }, paths);
   }
   for (const source of audit.sources) {
     if (!source.path.replace(/\\/g, '/').includes('/context/providers/') || !source.operatorContent.trim()) continue;
@@ -120,7 +148,7 @@ export async function diagnoseWorkspaceContext(projectPath: string): Promise<Wor
     });
   }
   for (const finding of audit.sensitiveFindings) {
-    diagnostics.push({ severity: 'error', code: 'possible-secret', message: 'Possible credential value found in context; remove it.', path: finding.path });
+    await reportSourceDiagnostic({ severity: 'error', code: 'possible-secret', message: `Possible credential value found in ${finding.path}; remove it.`, path: finding.path }, [finding.path]);
   }
   // #2512 — "points at WORKSPACE.md" is not the same as "carries current policy".
   // Without this, a workspace generated before the precedence correction reads

@@ -1289,12 +1289,14 @@ export function renderUseDeploymentResult(
     lines.push('    Unavailable — the framework index could not be read.');
   }
 
-  const visibleFindings = result.findings.filter((candidate) => candidate.severity !== 'info');
-  if (visibleFindings.length > 0) {
-    lines.push('', result.outcome === 'failed' ? 'Blocking findings' : 'Advisories');
-    for (const item of visibleFindings) {
-      lines.push(...wrapParagraph(`${item.provider}: ${item.message}`, width));
-      if (item.remediation) lines.push(...wrapParagraph(`Fix: ${item.remediation}`, width, '      '));
+  for (const severity of ['blocking', 'advisory'] as const) {
+    const visibleFindings = result.findings.filter((candidate) => candidate.severity === severity);
+    if (visibleFindings.length > 0) {
+      lines.push('', severity === 'blocking' ? 'Blocking findings' : 'Advisories');
+      for (const item of visibleFindings) {
+        lines.push(...wrapParagraph(`${item.provider}: ${item.message}`, width));
+        if (item.remediation) lines.push(...wrapParagraph(`Fix: ${item.remediation}`, width, '      '));
+      }
     }
   }
 
