@@ -302,9 +302,8 @@ Works with:
 
 ## Output Format
 
-Report progress in phases — **DISCOVERY** (files/sections found), **DECOMPOSITION**
-(strategy + sub-call count), **AGGREGATION** (intermediate results collected), and
-**SYNTHESIS** (final artifact written). On completion, emit an execution summary
+Report **DISCOVERY** (files/sections), **DECOMPOSITION** (strategy + sub-calls),
+**AGGREGATION** (intermediate results), and **SYNTHESIS** (final artifact). Emit a summary
 (files analyzed, sub-agents spawned, recursion depth, duration), cost metrics
 (total/sub-call tokens, cost vs baseline), and artifact paths (query-plan,
 intermediate dir, final-result.md).

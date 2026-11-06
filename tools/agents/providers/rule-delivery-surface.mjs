@@ -14,6 +14,7 @@ import {
   ruleEnforcementLevel,
 } from './base.mjs';
 import { resolveDeliveryRuleBindings } from './rule-binding-targets.mjs';
+import { boundRuleAnchor, renderBoundRulesPointer } from './bound-rules-pointer.mjs';
 import { inlineStartup, nativePathLoader, ruleDirectory } from './rule-projection.mjs';
 
 export const { parseRuleFrontmatter, inferRuleActivation, readCoreBody, validateCoreSet, formatRuleFrontmatterError } = await importImpl(import.meta.url, 'rules/activation.mjs');
@@ -202,7 +203,7 @@ export function finishBindings(opts, provider) {
   const files = [...new Set(roots.flatMap(walk))];
   const indexRel = provider.name === 'copilot' ? '.github/RULES-BOUND.md' : provider.name === 'flue' ? '.agents/.aiwg/RULES-BOUND.md' : `.${provider.name}/RULES-BOUND.md`;
   const indexFile = path.join(opts.target, indexRel);
-  const anchor = target => `${target.type}-${target.name}`.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  const anchor = boundRuleAnchor;
   const sections = new Map();
   const targetsBySource = new Map();
   for (const target of opts.ruleDelivery.targets) {
@@ -263,8 +264,7 @@ export function finishBindings(opts, provider) {
       const fetch = skill ? [...new Map(rules.map(rule => [rule.name, rule])).values()]
         .sort((a, b) => a.name.localeCompare(b.name))
         .map(rule => `${rule.summary}\nFetch and follow before governed work: \`aiwg show rule ${rule.name} --body\`.`).join('\n') : '';
-      return `${clean}${clean.endsWith('\n') ? '' : '\n'}\n<!-- AIWG:bound-rules:start -->\nRead and follow before governed work: ${identities.map(target =>
-        `\`${indexRel}#${anchor(target)}\``).join('; ')}.\n${fetch ? fetch + '\n' : ''}<!-- AIWG:bound-rules:end -->\n`;
+      return renderBoundRulesPointer(body, identities, indexRel, { fetch, compact: provider.name === 'codex' && !skill });
     };
     if (file.endsWith('.toml')) content = content.replace(/^developer_instructions = (".*")$/m, (_, value) => `developer_instructions = ${JSON.stringify(pointer(JSON.parse(value)))}`);
     else content = pointer(content);

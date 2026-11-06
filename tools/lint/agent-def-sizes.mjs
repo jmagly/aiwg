@@ -2,8 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { transformAgent } from '../agents/providers/codex.mjs';
-import { addManagedMarker } from '../agents/providers/base.mjs';
+import { createPackagedCodexRenderer } from '../agents/providers/packaged-codex-agents.mjs';
 
 export const AGENT_DEF_CEILING_BYTES = 16 * 1024;
 export const STEWARD_AGENT_TARGET_BYTES = 12 * 1024;
@@ -145,18 +144,14 @@ export async function scanPackagedCodexAgentDefSizes(options = {}) {
   const targetScanned = [];
   const targetViolations = [];
 
+  const render = await createPackagedCodexRenderer(rootDir);
   for (const [relDir, allMarkdownFiles] of sourceRoots) {
     const files = await listPackagedAgentSources(rootDir, relDir, allMarkdownFiles);
     for (const filePath of files) {
       const relPath = path.relative(rootDir, filePath);
       try {
         const source = await fs.readFile(filePath, 'utf8');
-        const rendered = addManagedMarker(
-          transformAgent(filePath, source, {}),
-          'lint',
-          'bundled',
-          'line-comment',
-        );
+        const rendered = render(filePath, source);
         const record = {
           agentId: agentIdFromFilename(path.basename(filePath)),
           path: relPath,
