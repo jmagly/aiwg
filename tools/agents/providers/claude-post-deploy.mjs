@@ -1,6 +1,7 @@
 // Apply project settings and context after provider file deployment.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { importImpl } from '../../_resolve-impl.mjs';
 import { initializeFrameworkWorkspace, ensureDir } from './base.mjs';
 import { deployHookFile } from './claude.mjs';
@@ -36,13 +37,16 @@ export async function postDeploy(targetDir, opts) {
 
   const addonPass = /(?:agentic\/code|\.aiwg)\/(?:addons|extensions)\//.test((opts.logicalInputPath?.(opts.srcRoot) || opts.srcRoot)?.replaceAll('\\', '/') || '');
 
-  // Reuse the settings owner's backup/atomic merge, independently of hooks.
-  if (opts.attribution !== false) {
+  // Full addon passes also refresh runtime scripts, using this package's source.
+  const fullDeploy = !opts.commandsOnly && !opts.rulesOnly && (!opts.skillsOnly || opts.kernelOnly === true);
+  const hooks = fullDeploy && opts.hooks === true && opts.scope !== 'user';
+  if (opts.attribution !== false || hooks) {
     const { installAiwgHooks } = await importImpl(import.meta.url, 'extensions/claude-hooks-installer.js');
     const { deploymentOwner } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
-    const result = await installAiwgHooks({ frameworkSlug: deploymentOwner(opts), claimUnchangedSettings: !addonPass, projectPath: targetDir, frameworkRoot: opts.srcRoot || targetDir,
-      attribution: opts.attribution !== false, hooks: false, dryRun: opts.dryRun });
-    if (!opts.dryRun && result) opts.writtenFiles?.push(result.settingsPath);
+    const result = await installAiwgHooks({ frameworkSlug: deploymentOwner(opts), claimUnchangedSettings: !addonPass, projectPath: targetDir,
+      frameworkRoot: fileURLToPath(new URL('../../../', import.meta.url)),
+      attribution: opts.attribution !== false, hooks, dryRun: opts.dryRun });
+    if (!opts.dryRun && result) opts.writtenFiles?.push(result.settingsPath, ...result.installedScripts);
     for (const warning of result?.warnings || []) console.warn(`Claude settings: ${warning}`);
   }
   await deployConductorDataGuard(targetDir, 'claude', opts);

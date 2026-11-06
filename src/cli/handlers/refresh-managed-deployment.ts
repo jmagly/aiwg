@@ -1,10 +1,12 @@
-// Detect managed hook registration drift and outdated deployed rule headers without writes.
+// Detect managed hook registration/script drift and outdated rule headers without writes.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { lt, valid } from 'semver';
 import { managedClaudeHooks } from '../../extensions/claude-hooks-installer.js';
 import { AIWG_MANAGED_HOOKS } from '../../extensions/muse-managed-hooks.js';
+import { managedHookScriptState } from '../../extensions/managed-hook-script-state.js';
+import { loadHookSources } from '../../smiths/hook-bridge/loader.js';
 import { parseJson } from '../../mcp/json-document.mjs';
 import { getProviderArtifactPathStrings } from '../../providers/provider-definitions.js';
 import * as ui from '../ui.js';
@@ -12,7 +14,7 @@ import * as ui from '../ui.js';
 export interface StaleManagedDeployment {
   name: string;
   file: string;
-  reason: 'missing' | 'outdated' | 'unreadable';
+  reason: 'missing' | 'outdated' | 'unreadable' | 'operator-edited';
 }
 
 interface HookGroup {
@@ -107,18 +109,47 @@ async function staleRules(projectRoot: string, provider: string, version: string
   return stale;
 }
 
+async function staleHookScripts(projectRoot: string, frameworkRoot: string, provider: string): Promise<StaleManagedDeployment[]> {
+  const source = path.join(frameworkRoot, 'agentic/code/addons/aiwg-hooks/hooks');
+  const scripts = new Map<string, string>();
+  if (provider === 'claude') {
+    let files: string[];
+    try { files = await fs.readdir(source); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error; }
+    for (const hook of managedClaudeHooks(files)) scripts.set(hook.script, path.join(source, path.basename(hook.script)));
+  } else if (provider === 'muse') {
+    scripts.set('.muse/hooks/aiwg-prompt-discovery.cjs', path.join(source, 'aiwg-prompt-discovery.cjs'));
+  } else if (provider === 'codex') {
+    // Match installCodexPromptDiscovery: resolve packaged canonical arguments,
+    // not the portable launcher command emitted into hooks.json.
+    const { sources, errors } = await loadHookSources(frameworkRoot);
+    if (errors.length) throw new Error(errors.join('\n'));
+    const hook = sources.find(entry => entry.id === 'aiwg-prompt-discovery');
+    if (hook?.args?.[0]) scripts.set('.codex/hooks/aiwg-prompt-discovery.cjs', hook.args[0]);
+  }
+  const stale: StaleManagedDeployment[] = [];
+  for (const [file, sourceFile] of scripts) {
+    // Each provider currently copies these bytes verbatim; registrations may
+    // transform commands independently (notably Codex's portable launcher).
+    const reason = await managedHookScriptState(projectRoot, file, await fs.readFile(sourceFile));
+    if (reason) stale.push({ name: file, file, reason });
+  }
+  return stale;
+}
+
 export async function checkManagedDeployment(options: {
   projectRoot: string; frameworkRoot: string; provider: string; quiet: boolean;
 }): Promise<StaleManagedDeployment[]> {
   const { projectRoot, frameworkRoot, provider, quiet } = options;
   const pkg = await readJson(path.join(frameworkRoot, 'package.json'));
-  const [hooks, rules] = await Promise.all([
+  const [hooks, scripts, rules] = await Promise.all([
     staleHooks(projectRoot, frameworkRoot, provider),
+    staleHookScripts(projectRoot, frameworkRoot, provider),
     typeof pkg.version === 'string' ? staleRules(projectRoot, provider, pkg.version) : [],
   ]);
-  const stale = [...hooks, ...rules].sort((a, b) => a.name.localeCompare(b.name));
+  const stale = [...hooks, ...scripts, ...rules].sort((a, b) => a.name.localeCompare(b.name));
   if (stale.length && !quiet) {
-    for (const item of stale) ui.warn(`Stale deployment: ${item.reason} ${item.name} — ${item.file}`);
+    for (const item of stale) ui.warn(`Stale deployment: ${item.reason} ${item.name} — ${item.file}${item.reason === 'operator-edited' ? ' (kept; review operator edits before redeploying)' : ''}`);
     ui.warn(`Fix this deployment: aiwg use all --provider ${provider}`);
   }
   return stale;
