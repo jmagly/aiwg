@@ -1,7 +1,7 @@
 // Detect group-shared workspaces and preserve their permissions across atomic replacement.
 import { chmodSync, lstatSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { boundedSpawnSync } from '../process/bounded-child-process.mjs';
 
 // ACL subprocesses must address the parent's pinned descriptors, not their own fd table.
 const aclPath = file => file.replace(/^\/proc\/self\/fd\//, `/proc/${process.pid}/fd/`);
@@ -21,7 +21,7 @@ function hasDefaultAcl(directory, info) {
 }
 
 export function readAcl(file) {
-  const result = spawnSync('getfacl', ['-cpn', '--', aclPath(file)], { encoding: 'utf8', timeout: 1000 });
+  const result = boundedSpawnSync('getfacl', ['-cpn', '--', aclPath(file)], 'quick', { encoding: 'utf8', timeout: 1000 });
   return result.status === 0 ? result.stdout : null;
 }
 
@@ -61,7 +61,7 @@ export function preserveWorkspaceReplacement(original, temporary, workspaceDirec
   chmodSync(temporary, info.mode & 0o777);
   const acl = readAcl(original);
   if (acl && /^mask::/m.test(acl)) {
-    const result = spawnSync('setfacl', ['--set-file=-', '--', aclPath(temporary)], {
+    const result = boundedSpawnSync('setfacl', ['--set-file=-', '--', aclPath(temporary)], 'quick', {
       input: acl, encoding: 'utf8', timeout: 1000,
     });
     if (result.status !== 0) throw new Error(`Cannot preserve workspace ACL: ${original}`);
