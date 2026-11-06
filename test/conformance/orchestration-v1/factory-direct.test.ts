@@ -32,7 +32,7 @@ import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { fixtureJson } from '../mission-v1/worker-contract-fixtures.js';
 
 const FAKE = path.resolve('test/fixtures/providers/factory/fake-droid.mjs');
-const VERSION = '0.238.0';
+const VERSION = '1.0.0';
 const MODEL = 'synthetic/factory-model';
 const MARKER = 'FACTORY-BRIEF-MARKER-5b1e7c';
 const MODULE = 'tools/ralph-external/lib/factory-adapter.mjs';
@@ -207,6 +207,8 @@ describe('Factory (Droid) version-bound profile (B-OG-37)', () => {
       qualification: { status: 'unqualified' } });
     const profile = adapter.invocationProfiles!['direct-shell'];
     expect(profile.supportedVersions).toBe(VERSION);
+    expect(profile.controls.stdin.evidence).toContain('first stream-json message');
+    expect(profile.pitfalls.join(' ')).toContain('402 No active subscription');
     expect(Object.keys(profile.controls).sort()).toEqual(['approval', 'children', 'effort', 'fallback', 'finalOutput', 'model',
       'sandbox', 'stdin', 'stepCap', 'structuredOutput', 'trust', 'workdir']);
     for (const [name, control] of Object.entries(profile.controls)) {
@@ -312,7 +314,7 @@ describe('T-OG-15 Factory direct command contract', () => {
 
   it.each([
     ['bundled unqualified profile', { qualify: false }, /unqualified/],
-    ['unsupported CLI version', { cliVersion: '0.238.1' }, /Worker CLI version is outside qualified profile/],
+    ['unsupported CLI version', { cliVersion: '0.238.0' }, /Worker CLI version is outside qualified profile/],
   ])('FD03 %s produces no launch command', async (_name, options, reason) => {
     const { plan } = await factoryPlan(options as any);
     expect(plan.invocation).toBeUndefined();

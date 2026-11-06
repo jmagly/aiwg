@@ -6,6 +6,7 @@ import { lt, valid } from 'semver';
 import { managedClaudeHooks } from '../../extensions/claude-hooks-installer.js';
 import { AIWG_MANAGED_HOOKS } from '../../extensions/muse-managed-hooks.js';
 import { managedHookScriptState } from '../../extensions/managed-hook-script-state.js';
+import { managedFactoryHooks } from '../../smiths/hook-bridge/factory-translator.js';
 import { loadHookSources } from '../../smiths/hook-bridge/loader.js';
 import { parseJson } from '../../mcp/json-document.mjs';
 import { getProviderArtifactPathStrings } from '../../providers/provider-definitions.js';
@@ -39,14 +40,23 @@ function groups(doc: Record<string, unknown>, event: string): HookGroup[] {
 }
 
 async function staleHooks(projectRoot: string, frameworkRoot: string, provider: string): Promise<StaleManagedDeployment[]> {
-  if (provider !== 'claude' && provider !== 'muse') return [];
-  const file = provider === 'claude' ? '.claude/settings.json' : '.muse/hooks.json';
+  if (!['claude', 'muse', 'factory'].includes(provider)) return [];
+  const file = provider === 'claude' ? '.claude/settings.json' : `.${provider}/hooks.json`;
   let doc;
   try { doc = await readJson(path.join(projectRoot, file)); }
   catch { return [{ name: `${provider} managed hooks`, file, reason: 'unreadable' }]; }
 
   const stale: StaleManagedDeployment[] = [];
-  if (provider === 'claude') {
+  if (provider === 'factory') {
+    for (const hook of managedFactoryHooks()) {
+      const candidates = groups(doc, hook.event).flatMap(group => Array.isArray(group?.hooks) ? group.hooks : [])
+        .filter(entry => entry && (entry._aiwg_id === hook.id || entry.command === hook.command));
+      if (!candidates.some(entry => entry.type === 'command' && entry.command === hook.command
+        && entry._aiwg_managed === true && entry._aiwg_id === hook.id)) {
+        stale.push({ name: `${hook.event} → ${hook.id}`, file, reason: candidates.length ? 'outdated' : 'missing' });
+      }
+    }
+  } else if (provider === 'claude') {
     const source = path.join(frameworkRoot, 'agentic/code/addons/aiwg-hooks/hooks');
     let sourceFiles: string[];
     try { sourceFiles = await fs.readdir(source); }
@@ -119,13 +129,13 @@ async function staleHookScripts(projectRoot: string, frameworkRoot: string, prov
     for (const hook of managedClaudeHooks(files)) scripts.set(hook.script, path.join(source, path.basename(hook.script)));
   } else if (provider === 'muse') {
     scripts.set('.muse/hooks/aiwg-prompt-discovery.cjs', path.join(source, 'aiwg-prompt-discovery.cjs'));
-  } else if (provider === 'codex') {
+  } else if (provider === 'codex' || provider === 'factory') {
     // Match installCodexPromptDiscovery: resolve packaged canonical arguments,
     // not the portable launcher command emitted into hooks.json.
     const { sources, errors } = await loadHookSources(frameworkRoot);
     if (errors.length) throw new Error(errors.join('\n'));
     const hook = sources.find(entry => entry.id === 'aiwg-prompt-discovery');
-    if (hook?.args?.[0]) scripts.set('.codex/hooks/aiwg-prompt-discovery.cjs', hook.args[0]);
+    if (hook?.args?.[0]) scripts.set(`.${provider}/hooks/aiwg-prompt-discovery.cjs`, hook.args[0]);
   }
   const stale: StaleManagedDeployment[] = [];
   for (const [file, sourceFile] of scripts) {

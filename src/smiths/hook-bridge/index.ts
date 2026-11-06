@@ -26,7 +26,7 @@ export { AIWG_ENV_VARS, NATIVE_ENV_VAR_MAP } from './types.js';
 export { substituteEnvVars, generateShimBash, EXIT_CODE_MAP } from './shim.js';
 export { translateForCodex, renderCodexHookToml, injectHookBlock as injectCodexHookBlock } from './codex-translator.js';
 export { translateForCopilot } from './copilot-translator.js';
-export { translateForFactory } from './factory-translator.js';
+export { translateForFactory, installFactoryPromptDiscovery } from './factory-translator.js';
 export { translateForHermes } from './hermes-translator.js';
 export { translateForGrokBuild, GROK_EVENT_MAP } from './grok-build-translator.js';
 export { loadHookSources } from './loader.js';
@@ -77,7 +77,7 @@ export async function bridgeAll(
         continue;
       }
       try {
-        const roots = [path.join(options.projectPath, '.factory/hooks'), path.join(options.projectPath, '.github/hooks'),
+        const roots = [path.join(options.projectPath, '.factory/hooks'), path.join(options.projectPath, '.factory/hooks.json'), path.join(options.projectPath, '.github/hooks'),
           path.join(options.projectPath, '.grok/hooks'), path.join(options.projectPath, '.codex/hooks.json'), path.join(options.projectPath, '.codex/hooks'),
           path.join(homedir(), '.hermes/plugins')];
         const before = options.dryRun ? undefined : captureDeploymentOutputs(roots);

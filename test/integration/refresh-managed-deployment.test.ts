@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { checkManagedDeployment } from '../../src/cli/handlers/refresh-managed-deployment.js';
 import { installAiwgHooks, managedClaudeHooks } from '../../src/extensions/claude-hooks-installer.js';
 import { AIWG_MANAGED_HOOKS } from '../../src/extensions/muse-managed-hooks.js';
+import { installFactoryPromptDiscovery, managedFactoryHooks } from '../../src/smiths/hook-bridge/factory-translator.js';
 import { installCodexPromptDiscovery } from '../../src/smiths/hook-bridge/codex-translator.js';
 import { refreshHandler } from '../../src/cli/handlers/refresh.js';
 import * as ui from '../../src/cli/ui.js';
@@ -35,6 +36,11 @@ function currentFixture(provider: string) {
       (hooks[event] ??= []).push({ hooks: [{ type: 'command', command, _aiwg_id: hookId, _aiwg_managed: true }] });
     }
     write('.claude/settings.json', { hooks, operatorSetting: true });
+  } else if (provider === 'factory') {
+    for (const hook of managedFactoryHooks()) (hooks[hook.event] ??= []).push({ hooks: [{
+      type: 'command', command: hook.command, _aiwg_id: hook.id, _aiwg_managed: true,
+    }] });
+    write('.factory/hooks.json', { hooks });
   } else if (provider === 'muse') {
     for (const hook of AIWG_MANAGED_HOOKS) (hooks[hook.event] ??= []).push(hook.group);
     write('.muse/hooks.json', { hooks });
@@ -49,7 +55,7 @@ function currentFixture(provider: string) {
 }
 
 function hookFile(provider: string) {
-  return provider === 'claude' ? '.claude/settings.json' : '.muse/hooks.json';
+  return provider === 'claude' ? '.claude/settings.json' : `.${provider}/hooks.json`;
 }
 
 function changeHooks(provider: string, change: (doc: any) => void) {
@@ -82,10 +88,14 @@ function cli(provider: string, quiet = false, dryRun = true) {
   });
 }
 
-beforeEach(() => { projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-managed-drift-')); });
-afterEach(() => { vi.restoreAllMocks(); fs.rmSync(projectRoot, { recursive: true, force: true }); });
+beforeEach(() => {
+  projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-managed-drift-'));
+  vi.stubEnv('HOME', path.join(projectRoot, 'home'));
+  vi.stubEnv('XDG_DATA_HOME', path.join(projectRoot, 'data'));
+});
+afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); fs.rmSync(projectRoot, { recursive: true, force: true }); });
 
-describe.each(['claude', 'muse'])('%s managed deployment drift', provider => {
+describe.each(['claude', 'muse', 'factory'])('%s managed deployment drift', provider => {
   it('names prompt discovery when its registration is missing despite current manifest state', async () => {
     currentFixture(provider);
     changeHooks(provider, doc => { delete doc.hooks.UserPromptSubmit; });
@@ -166,7 +176,7 @@ describe.each(['claude', 'muse'])('%s managed deployment drift', provider => {
   });
 });
 
-describe.each(['claude', 'muse', 'codex'])('%s managed script bytes', provider => {
+describe.each(['claude', 'muse', 'codex', 'factory'])('%s managed script bytes', provider => {
   const script = `.${provider}/hooks/aiwg-prompt-discovery.cjs`;
   const old = '// previous AIWG release\n';
   const edited = '// operator customization\n';
@@ -174,6 +184,7 @@ describe.each(['claude', 'muse', 'codex'])('%s managed script bytes', provider =
 
   async function fixture() {
     currentFixture(provider);
+    if (provider === 'factory') await installFactoryPromptDiscovery({ projectPath: projectRoot, frameworkRoot });
     if (provider === 'codex') await installCodexPromptDiscovery({ projectPath: projectRoot, frameworkRoot });
     // Refresh just the declared addon, with no remote packages or npm update.
     write('.aiwg/aiwg.config', { version: '1', providers: [provider], scripts: {}, installed: {
@@ -214,6 +225,10 @@ describe.each(['claude', 'muse', 'codex'])('%s managed script bytes', provider =
 
   it('checks every owned script, including legacy copies without receipts', async () => {
     await fixture();
+    // Model a legacy deployment: Factory's current installer creates receipts.
+    for (const receipt of [`.${provider}/hooks/.aiwg-manifest.json`, `.${provider}/.aiwg-manifest.json`]) {
+      fs.rmSync(path.join(projectRoot, receipt), { force: true });
+    }
     const files = fs.readdirSync(path.join(projectRoot, `.${provider}/hooks`)).filter(file => file.endsWith('.cjs'));
     for (const file of files) write(`.${provider}/hooks/${file}`, old);
     expect((await check(provider)).filter(item => item.reason === 'outdated').map(item => item.file).sort())

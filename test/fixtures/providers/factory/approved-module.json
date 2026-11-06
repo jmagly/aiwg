@@ -7,7 +7,7 @@
     "packageVersion": "1",
     "modulePath": "lib/factory-adapter.mjs",
     "interfaceVersion": 1,
-    "sha256": "sha256:eac48decb011b8a10971feef7e93dbb83daad2b809a7f74bfb8f278c9a942045",
+    "sha256": "sha256:5cdca998fc3da99a4cf220a8946f1399245d8c057f25e21335f40679c0e7dd7f",
     "adapterIds": [
       "factory-direct"
     ],

@@ -6,4 +6,4 @@ args: ['$AIWG_ROOT/agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cj
 timeout: 2
 # These bridges map an event but cannot deliver additionalContext to the model.
 # Muse uses its project hook owner; Claude uses claude-hooks-installer.
-degrade-on: [hermes, copilot, grok-build, factory]
+degrade-on: [hermes, copilot, grok-build]
