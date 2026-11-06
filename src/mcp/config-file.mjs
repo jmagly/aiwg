@@ -3,6 +3,7 @@ import { access, lstat, mkdir, open, readFile, realpath, rename, unlink } from '
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { constants } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { groupSharedWorkspace, preserveWorkspaceReplacement } from '../utils/workspace-permissions.mjs';
 import { getMcpInjectionDefinition, resolveMcpConfigPath } from '../providers/provider-definitions.mjs';
 
 export async function assertNoSymlinkParents(file, configRoot = dirname(resolve(file))) {
@@ -186,10 +187,11 @@ export function assertConfigObject(config, serversKey) {
 export async function writeConfigAtomic(file, content, { userScope = false, projectRoot, newFileMode, mode: restoreMode, rejectSymlinkParents = false, symlinkRoot } = {}) {
   if (rejectSymlinkParents) await assertNoSymlinkParents(file, symlinkRoot);
   const info = await assertConfigDestination(file, projectRoot);
-  const mode = restoreMode ?? (userScope ? 0o600 : info ? info.mode & 0o7777 : newFileMode ?? 0o666);
+  const shared = !userScope && restoreMode !== 0o600 && groupSharedWorkspace(dirname(file)) !== null;
+  const mode = restoreMode ?? (userScope ? 0o600 : info ? info.mode & 0o7777 : shared ? 0o666 : newFileMode ?? 0o666);
   // Restrict newly created parents for private settings, ownership and output files.
   // Recursive mkdir leaves every existing directory's permissions unchanged.
-  await mkdir(dirname(file), { recursive: true, mode: (mode & 0o077) === 0 ? 0o700 : undefined });
+  await mkdir(dirname(file), { recursive: true, mode: shared ? 0o777 : (mode & 0o077) === 0 ? 0o700 : undefined });
   const temporary = `${file}.${randomUUID()}.tmp`;
   let handle;
   let created = false;
@@ -197,12 +199,13 @@ export async function writeConfigAtomic(file, content, { userScope = false, proj
     handle = await open(temporary, 'wx', mode);
     created = true;
     await handle.writeFile(content, 'utf-8');
-    if (userScope || info || restoreMode !== undefined || newFileMode !== undefined) await handle.chmod(mode);
+    if (userScope || info || restoreMode !== undefined || (!shared && newFileMode !== undefined)) await handle.chmod(mode);
     await handle.sync();
     await handle.close();
     handle = undefined;
     if (rejectSymlinkParents) await assertNoSymlinkParents(file, symlinkRoot);
     await assertConfigDestination(file, projectRoot);
+    if (shared) preserveWorkspaceReplacement(file, temporary);
     await rename(temporary, file);
   } finally {
     try {

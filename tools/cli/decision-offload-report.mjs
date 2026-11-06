@@ -5,7 +5,15 @@ import { importImpl } from '../_resolve-impl.mjs';
 export async function collectDecisionOffloadReport(projectRoot) {
   try {
     const { buildDecisionOffloadSnapshot } = await importImpl(import.meta.url, 'decision/offload.js');
-    return await buildDecisionOffloadSnapshot({ projectRoot, frameworkRoot: fileURLToPath(new URL('../../', import.meta.url)) });
+    const { inspectDecisionRecording } = await importImpl(import.meta.url, 'decision/recording-health.js');
+    const snapshot = await buildDecisionOffloadSnapshot({ projectRoot, frameworkRoot: fileURLToPath(new URL('../../', import.meta.url)) });
+    const recording = await inspectDecisionRecording(projectRoot);
+    if (!recording.findings.length && (snapshot.opportunities?.organic?.ledgerRecordingUnknown ?? 0) + (snapshot.opportunities?.excluded?.ledgerRecordingUnknown ?? 0) > 0) {
+      recording.status = 'skipped';
+      recording.findings.push({ path: 'decision/ledger.jsonl', reason: 'past-recording-skipped-or-unknown',
+        repair: 'Inspect journal ownership, group and permissions; retry the ask after repair. A timed-out append may still complete.' });
+    }
+    return { ...snapshot, recording };
   } catch {
     // An unavailable reader must not be interpreted as healthy adoption, nor
     // leak exception details that can include private paths or stored values.
@@ -20,6 +28,12 @@ export function formatDecisionOffloadReport(snapshot) {
     return lines;
   }
   const calls = snapshot.calls?.organic;
+  for (const finding of snapshot.recording?.findings ?? []) {
+    lines.push(`  Recording skipped:${finding.reason} (${finding.path}). Repair: ${finding.repair}`);
+  }
+  if (snapshot.opportunities?.organic?.ledgerRecordingUnknown > 0 || snapshot.opportunities?.excluded?.ledgerRecordingUnknown > 0) {
+    lines.push('  Ledger recording skipped or completion unknown. Repair: inspect decision journal ownership, group and permissions; retry the ask after repair.');
+  }
   const opportunities = snapshot.opportunities?.organic;
   lines.push(`  Scope: ${snapshot.scope?.mode ?? 'unknown'}${snapshot.scope?.sessionId ? ` (${snapshot.scope.sessionId})` : ''}`);
   lines.push(`  Ask: ${snapshot.readiness?.ask?.state ?? 'unknown'}; evaluate: ${snapshot.readiness?.evaluate?.state ?? 'unknown'} (no probe)`);

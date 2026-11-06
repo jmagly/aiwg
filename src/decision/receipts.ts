@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { workspaceDirectoryMode, workspaceFileMode } from '../utils/workspace-permissions.mjs';
 import { link, mkdir, open, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../security/artifact-trust.js';
@@ -248,11 +249,11 @@ export class FileDecisionReceiptStore implements DecisionReceiptStore {
     }
   }
   private async persist(invocationId: string, receipt: DecisionReceipt): Promise<boolean> {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await mkdir(this.directory, { recursive: true, mode: workspaceDirectoryMode(this.directory) });
     const destination = this.pathFor(invocationId, receipt.revision);
     const temporary = `${destination}.${randomUUID()}.tmp`;
     try {
-      const file = await open(temporary, 'wx', 0o600);
+      const file = await open(temporary, 'wx', workspaceFileMode(destination));
       try { await file.writeFile(`${JSON.stringify({ receipt, mac: this.mac(receipt) })}\n`); await file.sync(); }
       finally { await file.close(); }
       await this.options.onPublish?.('before-link', receipt);

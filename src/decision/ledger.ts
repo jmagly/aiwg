@@ -54,8 +54,10 @@
  */
 
 import { randomUUID, createHash } from 'node:crypto';
+import { workspacePermissionsAllowed, preserveWorkspaceReplacement } from '../utils/workspace-permissions.mjs';
+import { createJournalDirectory, openJournalFile } from './journal-permissions.js';
 import { constants as fsConstants, createReadStream, existsSync } from 'node:fs';
-import { lstat, mkdir, open, readdir, rename, rm, type FileHandle } from 'node:fs/promises';
+import { lstat, open, readdir, rename, rm, type FileHandle } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { acquireDirectoryLock } from '../artifacts/prebuilt-build-lock.js';
@@ -419,7 +421,7 @@ async function ensurePrivateDecisionDir(projectRoot: string, warn: (message: str
   const artifactRoot = projectAiwgWritePath(projectRoot);
   const decisionDir = join(artifactRoot, DECISION_LEDGER_DIR_NAME);
   try {
-    await mkdir(decisionDir, { recursive: true, mode: LEDGER_DIR_MODE });
+    await createJournalDirectory(decisionDir, LEDGER_DIR_MODE);
   } catch (error) {
     warn(`warning: cannot create decision ledger directory: ${errorMessage(error)}`);
     return null;
@@ -458,7 +460,7 @@ async function ensurePrivateDecisionDir(projectRoot: string, warn: (message: str
  * with exactly one warning naming the reason.
  */
 async function openPrivateLedgerFile(ledgerPath: string, warn: (message: string) => void,
-  flags = fsConstants.O_APPEND | fsConstants.O_CREAT | fsConstants.O_WRONLY): Promise<FileHandle | null> {
+  flags = fsConstants.O_APPEND | fsConstants.O_CREAT | fsConstants.O_WRONLY, workspaceRoot = dirname(ledgerPath)): Promise<FileHandle | null> {
   try {
     const pre = await lstat(ledgerPath);
     if (pre.isSymbolicLink()) {
@@ -473,7 +475,7 @@ async function openPrivateLedgerFile(ledgerPath: string, warn: (message: string)
   }
   let handle: FileHandle;
   try {
-    handle = await open(ledgerPath, flags | (HAS_O_NOFOLLOW ? fsConstants.O_NOFOLLOW : 0), LEDGER_FILE_MODE);
+    handle = await openJournalFile(ledgerPath, flags | (HAS_O_NOFOLLOW ? fsConstants.O_NOFOLLOW : 0), LEDGER_FILE_MODE);
   } catch (error) {
     warn(`warning: cannot open decision ledger file: ${errorMessage(error)}`);
     return null;
@@ -497,7 +499,7 @@ async function openPrivateLedgerFile(ledgerPath: string, warn: (message: string)
         await handle.close();
         return null;
       }
-      if ((stat.mode & 0o077) !== 0) {
+      if (!workspacePermissionsAllowed(stat, workspaceRoot)) {
         warn('warning: decision ledger file has group or other permission bits set; skipping record');
         await handle.close();
         return null;
@@ -572,7 +574,7 @@ export async function appendDecisionLedgerRecord(record: DecisionLedgerRecord, o
   let handle: FileHandle | null = null;
   try {
     release = await lockDecisionLedger(decisionDir);
-    handle = await openPrivateLedgerFile(ledgerPath, warn);
+    handle = await openPrivateLedgerFile(ledgerPath, warn, undefined, dirname(decisionDir));
     if (!handle) return false;
     const prefix = (await needsLeadingNewline(ledgerPath)) ? '\n' : '';
     await writeFully(handle, Buffer.from(prefix + line, 'utf8'), options.writeChunk);
@@ -628,7 +630,7 @@ async function privateArchiveDirectory(root: string, target: string, create: boo
     current = join(current, part);
     if (create) {
       try {
-        await mkdir(current, { mode: LEDGER_DIR_MODE });
+        await createJournalDirectory(current, LEDGER_DIR_MODE);
         if (!IS_WINDOWS) await syncDirectory(dirname(current));
       }
       catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
@@ -639,7 +641,7 @@ async function privateArchiveDirectory(root: string, target: string, create: boo
     // archive/ is shared with the activity log and may already be readable.
     // Its decision/ subtree (and any nested directories) must be private.
     const modeMask = current === join(root, 'archive') ? 0o022 : 0o077;
-    if (!info.isDirectory() || (!IS_WINDOWS && (info.uid !== currentUid() || (info.mode & modeMask) !== 0))) {
+    if (!info.isDirectory() || (!IS_WINDOWS && (info.uid !== currentUid() || ((info.mode & modeMask) !== 0 && !workspacePermissionsAllowed(info, root))))) {
       throw new Error(`Unsafe decision archive directory (requires a private, owned real directory): ${current}`);
     }
   }
@@ -668,7 +670,7 @@ export async function rotateDecisionLedger(options: RotateDecisionLedgerOptions)
   const tempPath = join(decisionDir, `.ledger-${randomUUID()}.tmp`);
   let archiveCreated = false;
   try {
-    const live = await openPrivateLedgerFile(ledgerPath, fail, fsConstants.O_RDONLY | fsConstants.O_CREAT);
+    const live = await openPrivateLedgerFile(ledgerPath, fail, fsConstants.O_RDONLY | fsConstants.O_CREAT, artifactRoot);
     if (!live) throw new Error('Cannot read decision ledger');
     let content: Buffer;
     try { content = await live.readFile(); } finally { await live.close(); }
@@ -697,12 +699,13 @@ export async function rotateDecisionLedger(options: RotateDecisionLedgerOptions)
       malformed: lines.length - valid.length, archivePath: archived.length ? archivePath : null };
     if (!archived.length) return result;
     await privateArchiveDirectory(artifactRoot, dirname(archivePath), true);
-    const archive = await open(archivePath, 'wx', LEDGER_FILE_MODE);
+    const archive = await openJournalFile(archivePath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY, LEDGER_FILE_MODE);
     archiveCreated = true;
     try { await writeFully(archive, Buffer.concat(archived)); await archive.sync(); } finally { await archive.close(); }
     if (!IS_WINDOWS) await syncDirectory(dirname(archivePath));
-    const replacement = await open(tempPath, 'wx', LEDGER_FILE_MODE);
+    const replacement = await openJournalFile(tempPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY, LEDGER_FILE_MODE);
     try { await writeFully(replacement, Buffer.concat(kept)); await replacement.sync(); } finally { await replacement.close(); }
+    preserveWorkspaceReplacement(ledgerPath, tempPath);
     await rename(tempPath, ledgerPath);
     archiveCreated = false; // Both files now own their respective records.
     if (!IS_WINDOWS) await syncDirectory(decisionDir);
@@ -957,7 +960,7 @@ async function archiveLedgerPaths(artifactRoot: string, directory = join(artifac
     if (entry.isSymbolicLink()) throw new Error(`Unsafe decision archive symlink: ${target}`);
     if (entry.isDirectory()) paths.push(...await archiveLedgerPaths(artifactRoot, target));
     else if (entry.name.endsWith('.jsonl')) {
-      const handle = await openPrivateLedgerFile(target, message => { throw new Error(message); }, fsConstants.O_RDONLY);
+      const handle = await openPrivateLedgerFile(target, message => { throw new Error(message); }, fsConstants.O_RDONLY, artifactRoot);
       if (!handle) throw new Error(`Unsafe decision archive: ${target}`);
       await handle.close();
       paths.push(target);

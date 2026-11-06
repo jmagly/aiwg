@@ -26,6 +26,8 @@ import { scanStartupContext,
   SUBAGENT_MIN_WORKING_TOKENS,
 } from '../lint/claude-context-inventory.mjs';
 import { checkContextMemoryFirewall } from './doctor-context-firewall.mjs';
+import { checkWorkspaceAclMasks } from './doctor-workspace-permissions.mjs';
+const { projectAiwgPath } = await importImpl(import.meta.url, 'config/project-artifacts.js');
 import { runWorkerApprovalManagement, runWorkerProbe, toWorkerProbeRecord, WORKER_PROBE_EMPTY_MESSAGE } from './doctor-worker-probe.mjs';
 
 const { measureDeployedCoreRules } = await importImpl(import.meta.url, 'rules/activation.mjs');
@@ -2599,7 +2601,9 @@ export async function runDoctor() {
   } catch (error) { check('Rule pins', 'warn', error.message); }
 
   const decisionOffload = await collectDecisionOffloadReport(process.cwd());
-  for (const line of formatDecisionOffloadReport(decisionOffload)) check('Decision offload', 'info', line);
+  for (const line of formatDecisionOffloadReport(decisionOffload)) check('Decision offload', decisionOffload.recording?.status === 'skipped' ? 'warn' : 'info', line);
+  await checkWorkspaceAclMasks(projectAiwgPath(process.cwd()), check);
+  if (projectAiwgPath(process.cwd()) !== path.join(process.cwd(), '.aiwg')) await checkWorkspaceAclMasks(path.join(process.cwd(), '.aiwg'), check);
 
   // Print results
   console.log('');

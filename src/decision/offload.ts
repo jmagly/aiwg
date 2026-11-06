@@ -8,8 +8,11 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { workspacePermissionsAllowed } from '../utils/workspace-permissions.mjs';
+import { createJournalDirectory, openJournalFile } from './journal-permissions.js';
+import { recordCheckpointLedger } from './recording-health.js';
 import { constants as fsConstants, createReadStream } from 'node:fs';
-import { lstat, mkdir, open, type FileHandle } from 'node:fs/promises';
+import { lstat, type FileHandle } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import path from 'node:path';
 import { projectAiwgPath, projectAiwgWritePath } from '../config/project-artifacts.js';
@@ -268,20 +271,21 @@ export async function appendDecisionOpportunity(
   }
   let handle;
   try {
-    const directory = projectAiwgWritePath(projectRoot, 'decision');
+    const artifactRoot = projectAiwgWritePath(projectRoot);
+    const directory = path.join(artifactRoot, 'decision');
     const file = path.join(directory, OPPORTUNITY_FILE);
-    await mkdir(directory, { recursive: true, mode: DIR_MODE });
+    await createJournalDirectory(directory, DIR_MODE);
     const dirStat = await lstat(directory);
-    if (!dirStat.isDirectory() || dirStat.isSymbolicLink() || (dirStat.mode & 0o077) !== 0) throw new Error('unsafe opportunity directory');
+    if (!dirStat.isDirectory() || dirStat.isSymbolicLink() || !workspacePermissionsAllowed(dirStat, artifactRoot)) throw new Error('unsafe opportunity directory');
     try {
       const fileStat = await lstat(file);
-      if (!fileStat.isFile() || fileStat.isSymbolicLink() || fileStat.nlink !== 1 || (fileStat.mode & 0o077) !== 0) throw new Error('unsafe opportunity file');
+      if (!fileStat.isFile() || fileStat.isSymbolicLink() || fileStat.nlink !== 1 || !workspacePermissionsAllowed(fileStat, artifactRoot)) throw new Error('unsafe opportunity file');
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
-    handle = await open(file, fsConstants.O_APPEND | fsConstants.O_CREAT | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), FILE_MODE);
+    handle = await openJournalFile(file, fsConstants.O_APPEND | fsConstants.O_CREAT | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), FILE_MODE);
     const opened = await handle.stat();
-    if (!opened.isFile() || opened.nlink !== 1 || (opened.mode & 0o077) !== 0) throw new Error('unsafe opened opportunity file');
+    if (!opened.isFile() || opened.nlink !== 1 || !workspacePermissionsAllowed(opened, artifactRoot)) throw new Error('unsafe opened opportunity file');
     await writeFully(handle, Buffer.from(line, 'utf8'));
     return true;
   } catch (error) {
@@ -331,7 +335,7 @@ export async function runDecisionOffloadCheckpoint(
   let result: DecisionAskResult;
   try {
     const ask = options.ask ?? askDecision;
-    result = await ask(input, options.askRuntime ?? { cwd: options.projectRoot, env: options.env ?? process.env });
+    result = { ...await ask(input, options.askRuntime ?? { cwd: options.projectRoot, env: options.env ?? process.env }) };
   } catch (error) {
     const usage = error instanceof DecisionAskUsageError;
     const opportunity = recordFor(options, {
@@ -346,12 +350,12 @@ export async function runDecisionOffloadCheckpoint(
   }
   let ledger = null;
   try {
-    ledger = await (options.recordAsk ?? recordDecisionAsk)(input, result, {
+    ledger = await recordCheckpointLedger(input, result, {
       ...options,
       warn,
       caller: options.ledgerCaller === undefined ? safeCaller(options.caller) : options.ledgerCaller,
       id: () => correlationId,
-    });
+    }, options.recordAsk ?? recordDecisionAsk);
   } catch (error) {
     warn(`warning: failed to record decision ledger: ${error instanceof Error ? error.message : String(error)}`);
   }

@@ -5,6 +5,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { mkdir, writeFile, symlink, readlink, unlink, rm, readdir } from 'node:fs/promises';
 import { readFileSync, readlinkSync } from 'node:fs';
 import { projectControlPath } from './project-artifacts.js';
+import { workspaceFileMode } from '../utils/workspace-permissions.mjs';
 
 interface Owner { generation: string; host: string; pid: number; start: string | null; released?: boolean; proposalDigest?: string }
 export interface WorkerWriteLease {
@@ -82,8 +83,8 @@ export async function acquireWorkerWriteLock(project: string, block = false, pro
   await sweepOrphanedOwners(path);
   await mkdir(directory);
   try {
-    await writeFile(join(directory, 'owner.json'), JSON.stringify(owner), { mode: 0o600 });
-    if (block) await writeFile(join(directory, 'blocked'), 'Worker policy apply/recovery in progress.\n', { mode: 0o600 });
+    await writeFile(join(directory, 'owner.json'), JSON.stringify(owner), { mode: workspaceFileMode(join(directory, 'owner.json')) });
+    if (block) await writeFile(join(directory, 'blocked'), 'Worker policy apply/recovery in progress.\n', { mode: workspaceFileMode(join(directory, 'blocked')) });
     // No visible lock can exist without an owner, even if initialization is interrupted.
     await symlink(basename(directory), path);
   } catch (error) {
@@ -113,6 +114,6 @@ export async function reclaimWorkerWriteLock(project: string): Promise<WorkerWri
   }
   const result = lease(path, directory, owner);
   result.assertOwned();
-  await writeFile(join(directory, 'blocked'), 'Worker policy recovery in progress.\n', { mode: 0o600 });
+  await writeFile(join(directory, 'blocked'), 'Worker policy recovery in progress.\n', { mode: workspaceFileMode(join(directory, 'blocked')) });
   return result;
 }
