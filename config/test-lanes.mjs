@@ -56,6 +56,8 @@ export const deploymentFiles = [
   'test/integration/remove-deployment.test.ts',
   // Repeated real CLI updates read the same immutable corpus and source index.
   'test/integration/bundle-reconciliation-cli.test.ts',
+  // Spawns real `aiwg refresh` runs per provider; too slow for the parallel default lane (#3898 tests).
+  'test/integration/refresh-managed-deployment.test.ts',
 ];
 // CI splits the serial deployment lane into two hand-balanced shards so each
 // fits its time limit on slower shared runners. Each shard is still serial.
@@ -65,6 +67,7 @@ export const deploymentShards = [
     'test/integration/bundle-reconciliation-cli.test.ts',
     'test/integration/guided-setup-walkthrough.test.ts',
     'test/integration/hermes-deployment.test.ts',
+    'test/integration/refresh-managed-deployment.test.ts',
   ],
   [
     'test/integration/flue-deployment.test.ts',
