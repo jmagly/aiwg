@@ -134,7 +134,7 @@ function displayHelp(): void {
   ]);
 
   helpGroup('EVIDENCE', [
-    ['checkpoint create|list|recover', 'Save or inspect a workflow resume position'],
+    ['checkpoint create|list|recover', 'Save workflow positions or session handoffs (create --handoff)'],
     ['evidence export --output <dir>', 'Package portable activity, report, source, eval, and provenance evidence'],
     ['evidence verify <bundle>', 'Verify every member hash and the bundle checkpoint'],
     ['effect record|lookup|reconcile', 'Record, look up or reconcile a side effect in the signed effect ledger'],

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/artifacts/checkpoint-record.v1.schema.json",
+  "title": "AIWG CLI checkpoint record v1",
+  "description": "Saved resume position for aiwg checkpoint, including optional session handoff document paths. Distinct from agent-loop workflow checkpoints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "createdAt", "cwd", "artifacts"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "cwd": { "type": "string", "minLength": 1 },
+    "gitHead": { "type": "string" },
+    "phase": { "type": "string" },
+    "step": { "type": "string" },
+    "artifacts": { "type": "array", "items": { "type": "string" } },
+    "note": { "type": "string" },
+    "handoffPath": { "type": "string", "pattern": "\\S" },
+    "nextSessionPromptPath": { "type": "string", "pattern": "\\S" }
+  },
+  "dependentRequired": {
+    "handoffPath": ["nextSessionPromptPath"],
+    "nextSessionPromptPath": ["handoffPath"]
+  }
+}

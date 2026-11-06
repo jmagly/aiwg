@@ -55,6 +55,18 @@ describe('plain-language discovery relevance against shipped skills and competin
   });
 
   for (const backend of ['local', 'fortemi-core'] as const) {
+    it.each(['prepare a handoff for a new session', 'handoff',
+      'hand off to a new session', 'split this session'])(`${backend}: %s ranks checkpoint first`, async phrase => {
+      const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await discoverCapability(tmp, { phrase, backend, graph: 'framework', limit: 3, json: true });
+        const result = JSON.parse(output.mock.calls.map(call => call[0]).join(''));
+        expect(result.results[0]).toMatchObject({ type: 'skill', name: 'checkpoint' });
+      } finally {
+        output.mockRestore();
+      }
+    });
+
     it.each(queries)(`${backend}: $query returns its owning skill in the top three`, async query => {
       const output = vi.spyOn(console, 'log').mockImplementation(() => {});
       try {
