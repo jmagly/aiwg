@@ -3,13 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const promptDiscoveryHook = {
-  id: 'aiwg-prompt-discovery',
-  event: 'UserPromptSubmit',
-  group: { matcher: '*', hooks: [{ type: 'command', command: 'node .muse/hooks/aiwg-prompt-discovery.cjs', timeout: 2 }] },
-  reason: 'Inject strong AIWG candidates or require discover before answering or declining; skip system turns, bounded and fail open.',
-  removal: 'Set AIWG_PROMPT_DISCOVERY=0, or remove this group from .muse/hooks.json.',
-};
+import { importImpl } from '../../_resolve-impl.mjs';
+
+export const { promptDiscoveryHook } = await importImpl(import.meta.url, 'extensions/muse-managed-hooks.js');
 
 export function deployPromptDiscovery(targetDir) {
   const directory = path.join(targetDir, '.muse', 'hooks');
