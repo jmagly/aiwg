@@ -418,7 +418,7 @@ traceability:
 ## References
 
 - Requirements artifacts: .aiwg/requirements/
-- Traceability template: templates/management/traceability-matrix-template.md
+- Traceability template: agentic/code/frameworks/sdlc-complete/templates/management/traceability-matrix-template.csv
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/rules/artifact-discovery.md — Agent protocol for index usage
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/skills/artifact-lookup/SKILL.md — Artifact search skill
 - @$AIWG_ROOT/src/artifacts/cli.ts — CLI implementation

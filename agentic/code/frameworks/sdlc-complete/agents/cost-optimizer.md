@@ -92,9 +92,9 @@ Compact inline example — the ROI calculation a Docker-image optimization shoul
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/planning/iteration-plan.md` - Schedule optimization sprints
-- `docs/sdlc/templates/architecture/adr-template.md` - Document optimization decisions
-- `docs/sdlc/templates/deployment/deployment-plan.md` - Infrastructure changes
+- `agentic/code/frameworks/sdlc-complete/templates/management/iteration-plan-template.md` - Schedule optimization sprints
+- `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md` - Document optimization decisions
+- `agentic/code/frameworks/sdlc-complete/templates/deployment/deployment-plan-template.md` - Infrastructure changes
 
 ### Gate Criteria Support
 - Performance budget enforcement in Construction phase CI

@@ -492,7 +492,7 @@ regression_detected:
        6. Decision Rationale: {why GO or NO-GO}
        7. Conditions (if CONDITIONAL_GO): {what must be addressed}
 
-       Use template: $AIWG_ROOT/.../templates/deployment/deployment-plan-card.md
+       Use template: agentic/code/frameworks/sdlc-complete/templates/deployment/deployment-plan-template.md
 
        Output: .aiwg/deployment/deployment-readiness-report.md
        """
@@ -700,7 +700,7 @@ regression_detected:
        subagent_type="qa-engineer",
        description="Execute smoke tests on green environment",
        prompt="""
-       Read smoke test plan: $AIWG_ROOT/.../templates/test/smoke-test-checklist.md
+       Read smoke test plan: agentic/code/frameworks/sdlc-complete/templates/test/test-suite-card.md
 
        Execute critical path smoke tests:
        - [ ] API health endpoints (200 OK)
@@ -1249,7 +1249,7 @@ regression_detected:
        - Preserve all logs and metrics (deployment logs, SLO data, infrastructure snapshots, regression reports)
        - Schedule incident review meeting
 
-       Use template: $AIWG_ROOT/.../templates/deployment/incident-report-template.md
+       Use template: agentic/code/frameworks/ops-complete/templates/incident.md
 
        Output incident report: .aiwg/deployment/rollback-report-{version}.md
        """
@@ -1353,7 +1353,7 @@ regression_detected:
           - Reliability Engineer: {name, timestamp}
           - Operations Lead: {name, timestamp}
 
-       Use template: $AIWG_ROOT/.../templates/deployment/deployment-report-template.md
+       Use the deployment report fields listed above
 
        Output: .aiwg/reports/deployment-report-{version}.md
        """
@@ -1805,12 +1805,12 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Deployment Plan: `templates/deployment/deployment-plan-card.md`
-- Rollback Plan: `templates/deployment/rollback-plan-card.md`
-- SLO Definition: `templates/deployment/slo-definition-template.md`
-- Smoke Test Checklist: `templates/test/smoke-test-checklist.md`
-- Deployment Report: `templates/deployment/deployment-report-template.md`
-- Incident Report: `templates/deployment/incident-report-template.md`
+- Deployment Plan: `agentic/code/frameworks/sdlc-complete/templates/deployment/deployment-plan-template.md`
+- Rollback Plan: rollback steps in this skill
+- SLO Definition: `agentic/code/frameworks/sdlc-complete/templates/reliability/slo-sli-template.md`
+- Smoke Test Checklist: `agentic/code/frameworks/sdlc-complete/templates/test/test-suite-card.md`
+- Deployment Report: deployment report fields in this skill
+- Incident Report: `agentic/code/frameworks/ops-complete/templates/incident.md`
 
 **Gate Criteria**:
 - `flows/gate-criteria-by-phase.md` (Transition section)

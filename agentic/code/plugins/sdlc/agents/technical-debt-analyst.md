@@ -260,9 +260,9 @@ echo "Test-to-source ratio: $test_count / $src_count"
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/architecture/adr-template.md` - Document debt decisions as ADRs
-- `docs/sdlc/templates/planning/iteration-plan.md` - Schedule debt work in sprints
-- `docs/sdlc/templates/testing/test-strategy.md` - Address test debt systematically
+- `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md` - Document debt decisions as ADRs
+- `agentic/code/frameworks/sdlc-complete/templates/management/iteration-plan-template.md` - Schedule debt work in sprints
+- `agentic/code/frameworks/sdlc-complete/templates/test/test-strategy-template.md` - Address test debt systematically
 
 ### Gate Criteria Support
 - Complexity threshold enforcement in Construction phase

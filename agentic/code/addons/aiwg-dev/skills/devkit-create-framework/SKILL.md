@@ -116,7 +116,7 @@ Created:
   ✓ actors-and-templates.md
   ✓ agents/manifest.md
   ✓ commands/manifest.md
-  ✓ templates/manifest.json
+  ✓ <framework-root>/templates/manifest.json
   ✓ flows/<phase>.md (for each phase)
   ✓ metrics/tracking-catalog.md
   ✓ config/models.json

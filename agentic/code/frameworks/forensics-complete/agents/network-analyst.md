@@ -116,4 +116,4 @@ grep "91.108.4.12" /var/log/ufw.log | awk '{print $5}' | sort | uniq -c
 - NIST SP 800-86: Section 3.3 — Network Forensics
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/docs/investigation-workflow.md
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/skills/sysops-forensics.md
-- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/network-analysis-findings.md
+- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/forensic-report.md

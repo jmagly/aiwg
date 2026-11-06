@@ -80,13 +80,13 @@ These templates remain in `docs/sdlc/templates/security/` because they apply uni
 
 **Option 1: Update References (Recommended)**
 Update your project references to use new add-on paths:
-- Old: `docs/sdlc/templates/security/privacy-impact-assessment-template.md`
-- New: `docs/sdlc/add-ons/compliance/gdpr/templates/privacy-impact-assessment-template.md`
+- Old: `<project>/docs/sdlc/templates/security/privacy-impact-assessment-template.md`
+- New: `agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/privacy-impact-assessment-template.md`
 
 **Option 2: Symlinks (Temporary Compatibility)**
 If you can't update references immediately, create symlinks (Git doesn't support this, so local only):
 ```bash
-ln -s ../../add-ons/compliance/gdpr/templates/privacy-impact-assessment-template.md docs/sdlc/templates/security/privacy-impact-assessment-template.md
+ln -s "$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/privacy-impact-assessment-template.md" "$PROJECT_ROOT/docs/sdlc/templates/security/privacy-impact-assessment-template.md"
 ```
 
 **Option 3: Copy Templates (Not Recommended)**

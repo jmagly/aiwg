@@ -385,10 +385,10 @@ Define thresholds and conditions:
 
 ## Related Templates
 
-- `docs/sdlc/templates/test/test-case-card.md` - Individual test specifications
-- `docs/sdlc/templates/test/test-evaluation-summary-template.md` - Test results reporting
-- `docs/sdlc/templates/test/defect-card.md` - Track suite failures
-- `docs/sdlc/templates/deployment/deployment-plan-template.md` - Release gates and criteria
+- `agentic/code/frameworks/sdlc-complete/templates/test/test-case-card.md` - Individual test specifications
+- `agentic/code/frameworks/sdlc-complete/templates/test/test-evaluation-summary-template.md` - Test results reporting
+- `agentic/code/frameworks/sdlc-complete/templates/test/defect-card.md` - Track suite failures
+- `agentic/code/frameworks/sdlc-complete/templates/deployment/deployment-plan-template.md` - Release gates and criteria
 
 ## Examples
 

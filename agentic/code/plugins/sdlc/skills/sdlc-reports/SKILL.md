@@ -526,10 +526,10 @@ agents:
 
 ```yaml
 templates:
-  iteration: templates/management/iteration-report.md
-  phase: templates/management/phase-report.md
-  executive: templates/management/executive-summary.md
-  dashboard: templates/management/metrics-dashboard.md
+  iteration: agentic/code/frameworks/sdlc-complete/templates/management/iteration-assessment-template.md
+  phase: agentic/code/frameworks/sdlc-complete/templates/management/status-assessment-template.md
+  executive: agentic/code/frameworks/sdlc-complete/templates/management/status-assessment-template.md
+  dashboard: agentic/code/frameworks/sdlc-complete/templates/management/measurement-plan-template.md
 ```
 
 ### Metric Sources

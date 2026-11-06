@@ -10,7 +10,8 @@
     "commands",
     "config",
     "skills",
-    "docs"
+    "docs",
+    "templates"
   ],
   "ignore": [
     "manifest.json"

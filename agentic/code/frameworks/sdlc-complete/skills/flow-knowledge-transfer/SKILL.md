@@ -198,7 +198,7 @@ Based on your answers, I'll adjust:
        - Based on scope and gaps
        - Typical: 2-6 weeks
 
-       Use template if available: $AIWG_ROOT/templates/knowledge/knowledge-map-template.md
+       Use the inline format: knowledge map fields in this skill
 
        Output: .aiwg/knowledge/knowledge-map-{domain}.md
        """
@@ -242,7 +242,7 @@ Based on your answers, I'll adjust:
        - Availability constraints
        - {guidance if provided}
 
-       Use template if available: $AIWG_ROOT/templates/knowledge/transfer-plan-template.md
+       Use the inline format: transfer plan fields in this skill
 
        Output: .aiwg/knowledge/transfer-plan-{from}-to-{to}.md
        """
@@ -771,7 +771,7 @@ Based on your answers, I'll adjust:
        7. Residual Gaps (if any)
           - List with severity and remediation plan
 
-       Use template if available: $AIWG_ROOT/templates/knowledge/handover-checklist-template.md
+       Use the inline format: handover checklist in this skill
 
        Output: .aiwg/knowledge/handover-checklist-{domain}.md
        """
@@ -1052,11 +1052,11 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Knowledge Map: `templates/knowledge/knowledge-map-template.md`
-- Transfer Plan: `templates/knowledge/transfer-plan-template.md`
-- Shadowing Log: `templates/knowledge/shadowing-log-template.md`
-- Validation Checklist: `templates/knowledge/knowledge-validation-checklist.md`
-- Handover Checklist: `templates/knowledge/handover-checklist-template.md`
+- Knowledge Map: knowledge map fields in this skill
+- Transfer Plan: transfer plan fields in this skill
+- Shadowing Log: shadowing log fields in this skill
+- Validation Checklist: validation checklist in this skill
+- Handover Checklist: handover checklist in this skill
 
 **Related Commands**:
 - `team-roster` - Update team responsibilities

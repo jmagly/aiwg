@@ -479,4 +479,4 @@ priority_factors:
 
 - Test strategy: .aiwg/testing/test-strategy.md
 - Traceability matrix: .aiwg/reports/traceability-matrix.csv
-- Coverage templates: templates/test/coverage-report-template.md
+- Coverage templates: agentic/code/frameworks/sdlc-complete/templates/test/test-evaluation-summary-template.md

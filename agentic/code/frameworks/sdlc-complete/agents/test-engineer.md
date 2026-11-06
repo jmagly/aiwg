@@ -423,7 +423,7 @@ This anchor shows the Arrange-Act-Assert pattern, explicit assertions on both th
 
 ## References
 
-- @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/testing/test-plan-template.md — Test artifact template and use case structure
+- @agentic/code/frameworks/sdlc-complete/templates/test/master-test-plan-template.md — Test artifact template and use case structure
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/skills/generate-tests/SKILL.md
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/skills/flow-test-strategy-execution/SKILL.md
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/rules/executable-feedback.md

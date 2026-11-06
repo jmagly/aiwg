@@ -14,7 +14,7 @@
 
 ## Related templates
 
-- docs/sdlc/templates/security/threat-scenario-card.md
+- agentic/code/frameworks/sdlc-complete/templates/security/threat-scenario-card.md
 
 ## Scope
 

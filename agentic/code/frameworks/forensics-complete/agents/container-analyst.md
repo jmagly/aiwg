@@ -75,4 +75,4 @@ journalctl -u docker | grep "container create" | grep -A2 "2024-03-15T02"
 - MITRE ATT&CK Container Techniques: https://attack.mitre.org/matrices/enterprise/containers/
 - NIST SP 800-190: Application Container Security Guide
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/docs/investigation-workflow.md
-- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/container-analysis-findings.md
+- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/forensic-report.md

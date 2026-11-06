@@ -57,9 +57,9 @@ Each step below names a capability you must perform. Full sample scripts/queries
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/security/threat-model.md` - Threat modeling for compliance-sensitive flows
-- `docs/sdlc/templates/architecture/adr-template.md` - Document compliance design decisions
-- `docs/sdlc/templates/testing/test-strategy.md` - Compliance test plan integration
+- `agentic/code/frameworks/sdlc-complete/templates/security/threat-model-template.md` - Threat modeling for compliance-sensitive flows
+- `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md` - Document compliance design decisions
+- `agentic/code/frameworks/sdlc-complete/templates/test/test-strategy-template.md` - Compliance test plan integration
 
 ### Gate Criteria Support
 - Data classification review before any PII-handling code merges in Construction

@@ -621,6 +621,6 @@ alerts:
 
 ## References
 
-- Competitor template: templates/marketing/competitor-profile.md
-- Battle card template: templates/marketing/battle-card.md
+- Competitor template: templates/strategy/competitive-analysis-template.md
+- Battle card template: templates/sales-enablement/battlecard-template.md
 - Intelligence sources: .aiwg/marketing/config/intel-sources.yaml

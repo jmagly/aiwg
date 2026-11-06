@@ -1208,10 +1208,10 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Operational Readiness Review: `templates/deployment/operational-readiness-review-template.md`
-- SLO/SLI Definition: `templates/deployment/slo-sli-template.md`
-- Incident Response Runbook: `templates/support/incident-response-runbook-template.md`
-- Support Plan: `templates/support/support-plan-template.md`
+- Operational Readiness Review: `agentic/code/frameworks/sdlc-complete/templates/reliability/operational-readiness-review-template.md`
+- SLO/SLI Definition: `agentic/code/frameworks/sdlc-complete/templates/reliability/slo-sli-template.md`
+- Incident Response Runbook: `agentic/code/frameworks/sdlc-complete/templates/deployment/support-runbook-template.md`
+- Support Plan: `agentic/code/frameworks/sdlc-complete/templates/deployment/support-runbook-template.md`
 
 **Related Flows**:
 - Gate Check: `commands/flow-gate-check.md`

@@ -47,6 +47,8 @@ import { collectGraphIndexFiles, findArtifactFiles, indexPathFor, type ArtifactD
 import { acquireDirectoryLock } from './prebuilt-build-lock.js';
 import { graphIndexDigest, indexAdapterRegistry, recordIndexVerification, type IndexAdapter } from './index-adapters.js';
 import { loadMemoryRecord } from '../memory/maintenance-record.js';
+import { extractTemplateReferences, isTemplateReference } from './template-references.js';
+import { createDependencyResolver, extractFlowDependencies } from './index-dependencies.js';
 
 export interface BuildOptions {
   force?: boolean;
@@ -129,9 +131,9 @@ export function extractMentions(content: string): string[] {
   const pattern = /@(?:\$AIWG_ROOT\/)?(\.?aiwg\/[\w./-]+|[a-zA-Z][\w./-]+\.\w+)/g;
   let match;
   while ((match = pattern.exec(content)) !== null) {
-    mentions.add(match[1]);
+    if (!isTemplateReference(match[1])) mentions.add(match[1]);
   }
-  return Array.from(mentions);
+  return [...new Set([...mentions, ...extractTemplateReferences(content)])];
 }
 
 /**
@@ -842,6 +844,7 @@ export function parseFlowDoc(
   capability?: string;
   tags: string[];
   searchTerms: string[];
+  dependencies: string[];
 } | null {
   if (!/\.ya?ml$/i.test(filePath)) return null;
   let doc: unknown;
@@ -911,6 +914,7 @@ export function parseFlowDoc(
     capability,
     tags: labels,
     searchTerms: [...searchTerms],
+    dependencies: extractFlowDependencies(spec),
   };
 }
 
@@ -1002,7 +1006,7 @@ function extractIndexArtifact(job: IndexPreparationJob, bindingOnly: boolean, wa
   } };
   const tags = flow?.tags ?? decision?.tags ?? gatePack?.tags ?? (Array.isArray(data.tags) ? data.tags.map(String) : []);
   const summary = flow?.description ?? decision?.description ?? gatePack?.description ?? schemaDoc?.capability ?? runbook?.capability ?? extractSummary(data, body);
-  const dependencies = extractMentions(content);
+  const dependencies = [...new Set([...extractMentions(content), ...(flow?.dependencies ?? [])])];
   const markdownLinks = extractMarkdownLinks(content);
 
   // Discovery metadata (#1214, #1540, #1792) — meaningful for operational
@@ -1458,6 +1462,7 @@ async function buildIndexSnapshot(
 
   // Build tag reverse index
   for (const entry of Object.values(entries)) {
+    entry.dependents = []; // Recompute reverse edges even for reused incremental entries.
     for (const tag of entry.tags) {
       if (!tagIndex[tag]) tagIndex[tag] = [];
       tagIndex[tag].push(entry.path);
@@ -1466,19 +1471,14 @@ async function buildIndexSnapshot(
 
   // Build dependency graph and compute dependents
   let markdownLinkEdgeCount = 0;
-  const entryPaths = Object.keys(entries);
-  const dependencyPaths = new Map<string, string | undefined>();
+  const resolveDependency = createDependencyResolver(entries);
   for (const entry of Object.values(entries)) {
     if (!depGraph[entry.path]) {
       depGraph[entry.path] = { upstream: [], downstream: [] };
     }
 
     for (const dep of entry.dependencies) {
-      // Normalize: check if referenced path exists in the index
-      if (!dependencyPaths.has(dep)) {
-        dependencyPaths.set(dep, entryPaths.find(p => p === dep || p.endsWith(dep)));
-      }
-      const normalizedDep = dependencyPaths.get(dep);
+      const normalizedDep = resolveDependency(entry.path, dep);
       if (normalizedDep && normalizedDep !== entry.path) {
         addDependencyEdge(depGraph, entries, entry.path, normalizedDep, 'depends-on');
       }

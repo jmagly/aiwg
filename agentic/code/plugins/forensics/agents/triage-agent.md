@@ -249,4 +249,4 @@ Adapt triage commands to the target platform. The volatility order and the eight
 - NIST SP 800-86: Section 3.2 — Collection Phase
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/docs/investigation-workflow.md
 - @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/skills/sysops-forensics.md
-- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/triage-findings.md
+- @$AIWG_ROOT/agentic/code/frameworks/forensics-complete/templates/triage-summary.md

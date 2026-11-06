@@ -245,8 +245,8 @@ This option scored **XX/100** against evaluation criteria, exceeding the minimum
 - **SDLC Phase:** Elaboration, Construction
 - **Primary Agent:** @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/agents/architecture-designer.md
 - **Related Templates:**
-  - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/architecture/software-architecture-doc.md
-  - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/requirements/nfr-module.md
+  - @agentic/code/frameworks/sdlc-complete/templates/analysis-design/software-architecture-doc-template.md
+  - @agentic/code/frameworks/sdlc-complete/templates/requirements/supplementary-spec-template.md
 - **Version:** 2.0.0
 - **Last Updated:** 2026-01-25
 - **Change Summary:** Added Tree of Thoughts evaluation methodology per issue #97

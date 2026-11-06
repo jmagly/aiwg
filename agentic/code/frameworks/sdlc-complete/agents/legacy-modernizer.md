@@ -425,9 +425,9 @@ class LegacyUserAdapter {
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/architecture/migration-plan.md` - For migration strategy
-- `docs/sdlc/templates/risk/technical-debt-assessment.md` - For debt analysis
-- `docs/sdlc/templates/testing/test-plan.md` - For test coverage
+- migration steps in this document - For migration strategy
+- `agentic/code/frameworks/sdlc-complete/templates/management/risk-list-template.md` - For debt analysis
+- `agentic/code/frameworks/sdlc-complete/templates/test/master-test-plan-template.md` - For test coverage
 
 ### Gate Criteria Support
 - Migration strategy approval in Elaboration

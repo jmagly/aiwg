@@ -539,7 +539,7 @@ escalation:
 
 ## References
 
-- Incident response template: templates/operations/incident-template.md
-- Post-incident review template: templates/operations/pir-template.md
+- Incident response template: agentic/code/frameworks/sdlc-complete/templates/test/defect-card.md
+- Post-incident review template: agentic/code/frameworks/sdlc-complete/templates/management/sprint-retrospective-template.md
 - On-call schedule: .aiwg/team/on-call.yaml
 - Runbooks: .aiwg/deployment/runbooks/

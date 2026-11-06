@@ -214,7 +214,7 @@ Based on your answers, I'll adjust:
           - Business risks
           - Timeline risks
 
-       Use template: $AIWG_ROOT/templates/management/impact-assessment-template.md
+       Use template: agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md
 
        Save to: .aiwg/working/architecture-evolution/impact-assessment-draft.md
        """
@@ -297,7 +297,7 @@ Based on your answers, I'll adjust:
        - Feasibility assessment
 
        Create option matrix using template:
-       $AIWG_ROOT/templates/intake/option-matrix-template.md
+       agentic/code/frameworks/sdlc-complete/templates/intake/option-matrix-template.md
 
        Score each option on:
        - Cost (1-5, lower is better)
@@ -339,7 +339,7 @@ Task(
     - Option matrix (preferred option)
 
     Create comprehensive ADR using template:
-    $AIWG_ROOT/templates/analysis-design/architecture-decision-record-template.md
+    agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md
 
     Structure:
     1. Title: Clear, descriptive (e.g., "Migration from PostgreSQL to DynamoDB")
@@ -440,7 +440,7 @@ Task(
        prompt="""
        Based on breaking changes and chosen architecture option.
 
-       Use template: $AIWG_ROOT/templates/deployment/migration-plan-template.md
+       Use the inline format: migration plan fields in this skill
 
        Define migration strategy:
        - Pattern (Strangler Fig, Blue-Green, Canary, Big Bang)
@@ -473,7 +473,7 @@ Task(
        prompt="""
        Based on migration plan.
 
-       Use template: $AIWG_ROOT/templates/deployment/rollback-plan-template.md
+       Use the inline format: rollback steps in this skill
 
        Document:
        1. Rollback Triggers
@@ -880,10 +880,10 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- ADR: `templates/analysis-design/architecture-decision-record-template.md`
-- Impact Assessment: `templates/management/impact-assessment-template.md`
-- Migration Plan: `templates/deployment/migration-plan-template.md`
-- Rollback Plan: `templates/deployment/rollback-plan-template.md`
+- ADR: `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md`
+- Impact Assessment: `agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md`
+- Migration Plan: migration plan fields in this skill
+- Rollback Plan: rollback steps in this skill
 - Option Matrix: `templates/intake/option-matrix-template.md`
 
 **Related Flows**:

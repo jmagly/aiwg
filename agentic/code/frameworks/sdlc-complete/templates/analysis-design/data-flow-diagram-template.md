@@ -15,10 +15,10 @@
 
 ## Related Templates
 
-- docs/sdlc/templates/analysis-design/interface-contract-card.md
-- docs/sdlc/templates/analysis-design/database-design-template.md
-- docs/sdlc/templates/analysis-design/component-design-card.md
-- docs/sdlc/templates/security/threat-model-template.md
+- agentic/code/frameworks/sdlc-complete/templates/analysis-design/interface-contract-card.md
+- agentic/code/frameworks/sdlc-complete/templates/analysis-design/database-design-template.md
+- agentic/code/frameworks/sdlc-complete/templates/analysis-design/component-design-card.md
+- agentic/code/frameworks/sdlc-complete/templates/security/threat-model-template.md
 
 ## Diagram Purpose
 

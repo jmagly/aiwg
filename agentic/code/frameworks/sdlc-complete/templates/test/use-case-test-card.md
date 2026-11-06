@@ -14,7 +14,7 @@
 
 ## Related templates
 
-- docs/sdlc/templates/requirements/use-case-acceptance-template.md
+- agentic/code/frameworks/sdlc-complete/templates/requirements/use-case-acceptance-template.md
 
 ## Identifier
 

@@ -77,9 +77,9 @@ paths:
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/design/api-specifications.md` - For API design
-- `docs/sdlc/templates/testing/api-testing.md` - For API test plans
-- `docs/sdlc/templates/deployment/api-versioning.md` - For versioning strategy
+- `agentic/code/frameworks/sdlc-complete/templates/analysis-design/interface-contract-card.md` - For API design
+- `agentic/code/frameworks/sdlc-complete/templates/implementation/integration-test-spec-card.md` - For API test plans
+- `agentic/code/frameworks/sdlc-complete/templates/environments/api-design-guidelines.md` - For versioning strategy
 
 ### Gate Criteria Support
 - API specification complete in Elaboration

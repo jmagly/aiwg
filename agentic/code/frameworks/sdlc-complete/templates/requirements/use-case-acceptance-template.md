@@ -15,7 +15,7 @@
 
 ## Related templates
 
-- docs/sdlc/templates/requirements/use-case-brief-template.md
+- agentic/code/frameworks/sdlc-complete/templates/requirements/use-case-brief-template.md
 
 ## Identifier
 

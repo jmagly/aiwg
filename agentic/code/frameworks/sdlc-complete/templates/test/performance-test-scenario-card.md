@@ -14,7 +14,7 @@
 
 ## Related templates
 
-- docs/sdlc/templates/reliability/slo-sli-template.md
+- agentic/code/frameworks/sdlc-complete/templates/reliability/slo-sli-template.md
 
 ## Objective
 

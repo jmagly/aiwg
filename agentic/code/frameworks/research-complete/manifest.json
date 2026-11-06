@@ -92,7 +92,7 @@
       "index": ".aiwg/research/index.md",
       "log": ".aiwg/research/.log.jsonl",
       "crossRefStyle": "at-mention",
-      "pageTemplate": "templates/research-page.md",
+      "pageTemplate": "templates/reference-canonical.md",
       "ingestRequires": [
         "provenance",
         "grade-quality"

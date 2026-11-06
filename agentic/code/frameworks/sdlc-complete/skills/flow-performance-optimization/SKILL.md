@@ -955,11 +955,11 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- SLI Card: `templates/deployment/sli-card.md`
-- SLO Card: `templates/deployment/slo-card.md`
-- Performance Profile: `templates/analysis-design/performance-profile-card.md`
-- Load Test Plan: `templates/test/load-test-plan-template.md`
-- Performance Test Card: `templates/test/performance-test-card.md`
+- SLI Card: `agentic/code/frameworks/sdlc-complete/templates/reliability/sli-card.md`
+- SLO Card: `agentic/code/frameworks/sdlc-complete/templates/reliability/slo-sli-template.md`
+- Performance Profile: `agentic/code/frameworks/sdlc-complete/templates/test/performance-test-scenario-card.md`
+- Load Test Plan: `agentic/code/frameworks/sdlc-complete/templates/test/master-test-plan-template.md`
+- Performance Test Card: `agentic/code/frameworks/sdlc-complete/templates/test/performance-test-scenario-card.md`
 - Option Matrix: `templates/intake/option-matrix-template.md`
 
 **Related Flows**:

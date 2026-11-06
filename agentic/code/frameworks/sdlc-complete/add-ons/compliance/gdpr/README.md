@@ -115,7 +115,7 @@ Located in `templates/`:
 ```markdown
 ## Privacy by Design (GDPR Add-On)
 
-**If GDPR applies, complete `add-ons/compliance/gdpr/templates/privacy-by-design-checklist.md`**
+**If GDPR applies, complete `./templates/privacy-by-design-checklist.md`**
 
 **Key Architectural Decisions for Privacy:**
 - Data minimization: What data is NOT collected?
@@ -153,25 +153,25 @@ Located in `templates/`:
 ## Quick Start
 
 ### Step 1: Assess Applicability (5 minutes)
-Use `templates/dpia-trigger-assessment-checklist.md` to determine if GDPR applies to your project.
+Use `agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/dpia-trigger-assessment-checklist.md` to determine if GDPR applies to your project.
 
 ### Step 2: Identify Lawful Basis (30 minutes)
-Use `templates/lawful-basis-assessment-template.md` to select GDPR Article 6 lawful basis for each processing activity.
+Use `agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/lawful-basis-assessment-template.md` to select GDPR Article 6 lawful basis for each processing activity.
 
 ### Step 3: Complete DPIA (If Required) (2-4 hours)
-If trigger checklist indicates high risk, complete `templates/privacy-impact-assessment-template.md`.
+If trigger checklist indicates high risk, complete `agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/privacy-impact-assessment-template.md`.
 
 ### Step 4: Implement Privacy by Design (Throughout Development)
-Use `templates/privacy-by-design-checklist.md` during architecture and construction phases.
+Use `agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/privacy-by-design-checklist.md` during architecture and construction phases.
 
 ### Step 5: Implement Data Subject Rights (Construction)
-Use `templates/data-subject-rights-workflow-template.md` to build DSR endpoints.
+Use `agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/data-subject-rights-workflow-template.md` to build DSR endpoints.
 
 ### Step 6: Prepare for Compliance (Transition)
 Complete:
-- Data Processing Agreements (`templates/data-processing-agreement-template.md`)
-- Breach Notification Plan (`templates/breach-notification-plan-template.md`)
-- Data Retention Policy (`templates/data-retention-deletion-policy-template.md`)
+- Data Processing Agreements (`agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/data-processing-agreement-template.md`)
+- Breach Notification Plan (`agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/breach-notification-plan-template.md`)
+- Data Retention Policy (`agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/data-retention-deletion-policy-template.md`)
 
 ## Common Scenarios
 

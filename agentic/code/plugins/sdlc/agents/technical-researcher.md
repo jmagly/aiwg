@@ -326,9 +326,9 @@ Stripe - Best developer experience, comprehensive docs, fair pricing
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/requirements/technology-selection.md` - For tech decisions
-- `docs/sdlc/templates/architecture/technical-design.md` - For architectural decisions
-- `docs/sdlc/templates/risk/risk-assessment.md` - For risk analysis
+- `agentic/code/frameworks/sdlc-complete/templates/governance/decision-matrix-template.md` - For tech decisions
+- `agentic/code/frameworks/sdlc-complete/templates/analysis-design/software-architecture-doc-template.md` - For architectural decisions
+- `agentic/code/frameworks/sdlc-complete/templates/management/risk-list-template.md` - For risk analysis
 
 ### Gate Criteria Support
 - Technology selection decisions in Inception/Elaboration

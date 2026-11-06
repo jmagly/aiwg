@@ -273,7 +273,7 @@ quarterly_report:
 **Impact**: Password reset broken for ~40% of user base (Gmail users)
 
 **Files Changed**:
-- templates/email/password-reset.html (+5/-3)
+- <project-root>/templates/email/password-reset.html (+5/-3)
 
 **Fix**: HTML entity encoding for special characters
 
@@ -685,15 +685,15 @@ agents:
 ```yaml
 report_templates:
   incident:
-    template: templates/regression/incident-report.md
+    template: agentic/code/frameworks/sdlc-complete/templates/test/regression-report.md
     sections: [summary, timeline, root_cause, impact, prevention]
 
   sprint:
-    template: templates/regression/sprint-report.md
+    template: agentic/code/frameworks/sdlc-complete/templates/test/regression-report.md
     sections: [summary, inventory, metrics, recommendations]
 
   quarterly:
-    template: templates/regression/quarterly-report.md
+    template: agentic/code/frameworks/sdlc-complete/templates/test/regression-report.md
     sections: [executive, trends, strategic, investments]
 ```
 
@@ -723,6 +723,6 @@ aggregation_config:
 ## References
 
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/schemas/test/regression-report-schema.yaml
-- @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/regression/incident-report.md
+- @agentic/code/frameworks/sdlc-complete/templates/test/regression-report.md
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/agents/technical-writer.md
 - @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/agents/metrics-analyst.md

@@ -261,10 +261,10 @@ phase: inception
 
 **Current**:
 ```yaml
-template: templates/custom/my-template.md
+template: templates/custom/<template>.md
 ```
 
-**Problem**: File `templates/custom/my-template.md` not found
+**Problem**: File `templates/custom/<template>.md` not found
 
 **Fix Options**:
 1. Create the missing template file

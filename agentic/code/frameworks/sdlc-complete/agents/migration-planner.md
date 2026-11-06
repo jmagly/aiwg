@@ -69,9 +69,9 @@ Produce a Migration Plan document with these required sections: **Executive Summ
 ## Integration with SDLC Templates
 
 ### Reference These Templates
-- `docs/sdlc/templates/architecture/adr-template.md` - Document migration decision
-- `docs/sdlc/templates/deployment/deployment-plan.md` - Execution runbook
-- `docs/sdlc/templates/deployment/rollback-plan.md` - Rollback procedures
+- `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md` - Document migration decision
+- `agentic/code/frameworks/sdlc-complete/templates/deployment/deployment-plan-template.md` - Execution runbook
+- rollback steps in this document - Rollback procedures
 
 ### Gate Criteria Support
 - Migration plan review in Elaboration phase

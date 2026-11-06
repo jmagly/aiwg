@@ -487,7 +487,7 @@ agents:
 qa_config:
   channel_specs: .aiwg/marketing/config/channel-specs.yaml
   brand_rules: .aiwg/marketing/brand/
-  qa_templates: templates/governance/qa-checklist.md
+  qa_templates: templates/design-operations/design-qa-checklist-template.md
 ```
 
 ### Severity Levels
@@ -521,4 +521,4 @@ severity:
 
 - Channel specifications: .aiwg/marketing/config/channel-specs.yaml
 - Brand guidelines: .aiwg/marketing/brand/
-- QA templates: templates/governance/qa-checklist.md
+- QA templates: templates/design-operations/design-qa-checklist-template.md

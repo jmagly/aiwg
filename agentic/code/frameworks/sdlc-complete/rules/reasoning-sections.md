@@ -257,12 +257,12 @@ The following templates MUST include reasoning sections:
 
 | Template | Location |
 |----------|----------|
-| Use Case | `agentic/code/frameworks/sdlc-complete/templates/use-case.md` |
-| User Story | `agentic/code/frameworks/sdlc-complete/templates/user-story.md` |
-| ADR | `agentic/code/frameworks/sdlc-complete/templates/adr.md` |
-| Test Plan | `agentic/code/frameworks/sdlc-complete/templates/test-plan.md` |
-| Requirement | `agentic/code/frameworks/sdlc-complete/templates/requirement.md` |
-| Architecture | `agentic/code/frameworks/sdlc-complete/templates/architecture.md` |
+| Use Case | `agentic/code/frameworks/sdlc-complete/templates/requirements/use-case-spec-template.md` |
+| User Story | `agentic/code/frameworks/sdlc-complete/templates/requirements/user-story-card.md` |
+| ADR | `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md` |
+| Test Plan | `agentic/code/frameworks/sdlc-complete/templates/test/master-test-plan-template.md` |
+| Requirement | `agentic/code/frameworks/sdlc-complete/templates/requirements/stakeholder-request-card-template.md` |
+| Architecture | `agentic/code/frameworks/sdlc-complete/templates/analysis-design/software-architecture-doc-template.md` |
 
 ## Benefits
 
