@@ -2,7 +2,7 @@
 namespace: aiwg
 name: checkpoint
 platforms: [all]
-description: Create, list, or recover mid-workflow checkpoints so interrupted work resumes from a known-good position
+description: Create, list, or recover workflow checkpoints and prepare a handoff for a new session so interrupted work resumes from a known-good position
 ---
 
 # Checkpoint
@@ -18,6 +18,10 @@ Alternate expressions and non-obvious activations (primary phrases are matched a
 - "pick up where we left off" → recover from most recent checkpoint
 - "what checkpoints exist" → list checkpoints
 - "resume from checkpoint" → recover from specified or latest checkpoint
+- "handoff" → create a checkpoint with session handoff documents
+- "hand off to a new session" → create a checkpoint with session handoff documents
+- "split this session" → create a checkpoint with session handoff documents
+- "prepare a handoff for a new session" → create a checkpoint with session handoff documents
 
 ## Trigger Patterns Reference
 
@@ -25,6 +29,7 @@ Alternate expressions and non-obvious activations (primary phrases are matched a
 |---------|---------|--------|
 | Create (named) | "checkpoint this as iteration-3-complete" | Run `aiwg checkpoint create --name iteration-3-complete` |
 | Create (anonymous) | "create a checkpoint" | Run `aiwg checkpoint create` |
+| Handoff | "hand off to a new session" | Run `aiwg checkpoint create --handoff` with explicit context flags |
 | List | "show available checkpoints" | Run `aiwg checkpoint list` |
 | Recover (latest) | "recover from the last checkpoint" | Run `aiwg checkpoint recover` |
 | Recover (specific) | "recover checkpoint ckpt_7b2f1a" | Run `aiwg checkpoint recover ckpt_7b2f1a` |
@@ -47,6 +52,13 @@ When triggered:
    # Create — named
    aiwg checkpoint create --name <name>
 
+   # Prepare a new session, with ordered tasks and binding constraints
+   aiwg checkpoint create --handoff --name tests-next \
+     --scope "Checkpoint implementation; next session owns verification" \
+     --phase construction --step verification --note "Implementation complete; tests pending" \
+     --todo "Run focused tests" --todo "Review the diff" \
+     --constraint "Do not commit or push" --artifact docs/cli-reference.md
+
    # List all checkpoints
    aiwg checkpoint list
 
@@ -68,7 +80,23 @@ When triggered:
 
 4. **Automatic creation**: Agent loops create checkpoints automatically between iterations. Manual `create` supplements this for critical workflow milestones.
 
-5. **Storage**: Checkpoints are stored in `.aiwg/checkpoints/` as lightweight JSON files.
+5. **Storage**: Resolve the configured artifact root with `aiwg artifacts path --json --check-write`.
+   Plain checkpoints use `<artifact_root>/checkpoints/<id>.json`. Handoff checkpoints use
+   `<artifact_root>/checkpoints/<id>/checkpoint.json`, with sibling `handoff.md` and
+   `next-session-prompt.md`. The record includes `handoffPath` and `nextSessionPromptPath`.
+   The shipped template is `agentic/code/addons/aiwg-utils/templates/checkpoint-handoff.md`.
+   Existing flat records remain readable. This checkpoint format has inline validation,
+   with no governed schema in the schema catalog.
+
+   `--scope` fills Scope and ownership, `--note` plus `--phase`/`--step` fills State at handoff,
+   repeatable `--todo` fills To do (ordered), repeatable `--constraint` fills Binding constraints,
+   and repeatable `--artifact` fills Links. Omitted context stays as explicit `[TODO: ...]`
+   placeholders. `--scope`, `--todo`, and `--constraint` require `--handoff`; every value
+   flag requires a nonempty value. Creation is headless and never asks questions.
+
+   List marks handoffs in its Handoff column. Recover prints the next-session prompt
+   text and both document paths without writing files or restoring artifacts.
+   `list --json` and `recover --json` return checkpoint records, including the document paths.
 
 6. **Report the result** — on create, confirm the checkpoint ID and position; on recover, confirm which step the workflow will resume from.
 
@@ -117,7 +145,7 @@ ckpt_7b2f1a   iteration-3-complete     2026-03-30 09:55:02   Construction / iter
 aiwg checkpoint recover
 ```
 
-**Response**: "Recovering from most recent checkpoint `iteration-3-complete` (ckpt_7b2f1a). Resuming Construction phase, iteration 3, step 12/15. In-progress artifact `.aiwg/working/tests/integration-plan-draft.md` reloaded. Ready to continue."
+**Response**: "Checkpoint `iteration-3-complete` (ckpt_7b2f1a) records Construction phase, iteration 3, step 12/15 and artifact `.aiwg/working/tests/integration-plan-draft.md`. Inspect the current state before continuing."
 
 ### Example 4: Recover from a specific checkpoint
 
