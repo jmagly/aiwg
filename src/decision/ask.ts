@@ -72,6 +72,7 @@ export interface DecisionAskAggregate {
 }
 
 export interface DecisionAskResult {
+  ledger?: `skipped:${string}`;
   schema: 'aiwg-decision-ask/v1';
   status: 'answered' | 'fallback';
   answer: string | boolean | number | null;

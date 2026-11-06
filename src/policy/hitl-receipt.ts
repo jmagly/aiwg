@@ -1,5 +1,6 @@
 // Records a credential-free decision artifact through existing effect intent/reconcile receipts.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { workspaceDirectoryMode, workspaceFileMode } from '../utils/workspace-permissions.mjs';
 import { dirname, join } from 'node:path';
 import { projectAiwgWritePath, resolveProjectAiwgDirForWrite } from '../config/project-artifacts.js';
 import { recordIntent, reconcileEffect, type EffectLedger } from '../effects/ledger.js';
@@ -38,8 +39,8 @@ export async function recordHitlAuthorization(ledger: EffectLedger, action: unkn
   const root = resolveProjectAiwgDirForWrite(ledger.projectDir);
   const relativePath = join('effects', 'authorization', `${digest.slice(7)}.json`);
   const file = projectAiwgWritePath(ledger.projectDir, relativePath);
-  await mkdir(dirname(file), { recursive: true, mode: 0o700 });
-  try { await writeFile(file, bytes, { flag: 'wx', mode: 0o600 }); }
+  await mkdir(dirname(file), { recursive: true, mode: workspaceDirectoryMode(dirname(file)) });
+  try { await writeFile(file, bytes, { flag: 'wx', mode: workspaceFileMode(file) }); }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
     if (await readFile(file, 'utf8') !== bytes) throw new Error('HITL receipt identity conflict');

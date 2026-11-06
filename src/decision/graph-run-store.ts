@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { workspaceDirectoryMode, workspaceFileMode } from '../utils/workspace-permissions.mjs';
 import { mkdir, open, link, unlink, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from '../security/artifact-trust.js';
@@ -19,9 +20,9 @@ export class FileGraphRunReceiptStore {
   async create(id: string, receipt: GraphRunReceipt): Promise<void> {
     const destination = this.path(id);
     this.verify(receipt);
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await mkdir(this.directory, { recursive: true, mode: workspaceDirectoryMode(this.directory) });
     const temporary = join(this.directory, `.${randomUUID()}.tmp`);
-    const handle = await open(temporary, 'wx', 0o600);
+    const handle = await open(temporary, 'wx', workspaceFileMode(destination));
     try {
       await handle.writeFile(canonicalJson(receipt));
       await handle.sync();

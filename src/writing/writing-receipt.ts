@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { workspaceDirectoryMode, workspaceFileMode } from '../utils/workspace-permissions.mjs';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
@@ -227,7 +228,7 @@ export function writingReceiptPath(cwd: string, receiptId: string): string {
 export async function writeWritingReceipt(cwd: string, receiptInput: WritingReceipt): Promise<{ path: string; sha256: string }> {
   const receipt = validateWritingReceipt(receiptInput);
   const destination = writingReceiptPath(cwd, receipt.id);
-  await mkdir(dirname(destination), { recursive: true, mode: 0o700 });
+  await mkdir(dirname(destination), { recursive: true, mode: workspaceDirectoryMode(dirname(destination)) });
   const payload = JSON.stringify(receipt, null, 2) + '\n';
   const existing = await readFile(destination, 'utf8').catch(error => {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
@@ -241,9 +242,9 @@ export async function writeWritingReceipt(cwd: string, receiptInput: WritingRece
   const lock = `${destination}.lock`;
   let locked = false;
   try {
-    await mkdir(lock, { mode: 0o700 });
+    await mkdir(lock, { mode: workspaceDirectoryMode(dirname(destination)) });
     locked = true;
-    await writeFile(temporary, payload, { mode: 0o600, flag: 'wx' });
+    await writeFile(temporary, payload, { mode: workspaceFileMode(destination), flag: 'wx' });
     const raced = await readFile(destination, 'utf8').catch(error => {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw error;

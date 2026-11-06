@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { workspaceDirectoryMode, workspaceFileMode } from '../../utils/workspace-permissions.mjs';
 import { mkdir, open, readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CalibrationDigest, CalibrationGovernanceReceipt, CalibrationGovernanceReceiptDraft } from './types.js';
@@ -91,10 +92,10 @@ export class FileCalibrationGovernanceReceiptStore {
     if (receipt.sequence !== history.length + 1 || receipt.previousReceiptDigest !== (history.at(-1)?.digest ?? null)) {
       throw new CalibrationGovernanceReceiptError('receipt does not extend the current ledger head');
     }
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await mkdir(this.directory, { recursive: true, mode: workspaceDirectoryMode(this.directory) });
     const target = join(this.directory, `${String(receipt.sequence).padStart(12, '0')}.json`);
     let file;
-    try { file = await open(target, 'wx', 0o600); }
+    try { file = await open(target, 'wx', workspaceFileMode(target)); }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new CalibrationGovernanceReceiptError('receipt sequence was concurrently claimed');
       throw error;
