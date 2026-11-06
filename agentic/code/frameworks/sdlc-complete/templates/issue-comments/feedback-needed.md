@@ -1,3 +1,8 @@
+---
+name: feedback-needed
+description: Request feedback on an issue with context, completed work, review questions, blocking items, and requested reviewers.
+---
+
 # Feedback Needed Comment Template
 
 ## Request for Review

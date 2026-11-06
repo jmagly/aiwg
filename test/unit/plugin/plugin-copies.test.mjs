@@ -50,9 +50,12 @@ describe('generated plugin copies', () => {
     fs.symlinkSync(path.join(root, 'agentic/code/frameworks'), path.join(fixture, 'agentic/code/frameworks'));
     fs.symlinkSync(pluginsDir, path.join(fixture, 'agentic/code/plugins'));
     for (const file of ['package.json', '.claude-plugin/marketplace.json',
-      'tools/_resolve-impl.mjs', 'tools/plugin/package-plugins.mjs', 'tools/plugin/plugin-links.mjs', 'tools/security/threat-assessment.mjs']) {
+      'tools/_resolve-impl.mjs', 'tools/plugin/package-plugins.mjs', 'tools/plugin/plugin-links.mjs', 'tools/plugin/issue-template-copies.mjs', 'tools/security/threat-assessment.mjs']) {
       fs.mkdirSync(path.dirname(path.join(fixture, file)), { recursive: true });
       fs.copyFileSync(path.join(root, file), path.join(fixture, file));
+    }
+    for (const tracker of ['.gitea', '.github']) {
+      fs.cpSync(path.join(root, tracker, 'ISSUE_TEMPLATE'), path.join(fixture, tracker, 'ISSUE_TEMPLATE'), { recursive: true });
     }
     fs.cpSync(path.join(root, 'tools/security/threat-assessment'), path.join(fixture, 'tools/security/threat-assessment'), { recursive: true });
     const run = () => {
@@ -72,6 +75,17 @@ describe('generated plugin copies', () => {
     };
     const initial = run();
     expect(initial.status, initial.output).toBe(0);
+    for (const tracker of ['.gitea', '.github']) {
+      const file = `${tracker}/ISSUE_TEMPLATE/bug-report.md`;
+      const target = path.join(fixture, file);
+      const canonical = fs.readFileSync(target);
+      fs.appendFileSync(target, '\nstale tracker copy\n');
+      const drift = run();
+      expect(drift.status).toBe(1);
+      expect(drift.output).toContain(`Changed: ${file}`);
+      expect(fs.readFileSync(target)).not.toEqual(canonical);
+      fs.writeFileSync(target, canonical);
+    }
     const packaged = path.join(pluginsDir, 'line-memory/commands/line-memory.mjs');
     const before = fs.readFileSync(packaged);
     fs.appendFileSync(path.join(addons, 'line-memory/commands/line-memory.mjs'), '\n// canonical change\n');
@@ -84,6 +98,9 @@ describe('generated plugin copies', () => {
 
   it.each([
     'utils/skills/aiwg-language-map/SKILL.md',
+    'utils/templates/issues/bug-report.md',
+    'utils/templates/pull-requests/description.md',
+    'sdlc/templates/issue-comments/progress-update.md',
     'sdlc/tools/security/threat-assessment.mjs',
     'sdlc/tools/security/threat-assessment/negation.mjs',
     'line-memory/commands/line-memory.mjs',
@@ -95,6 +112,20 @@ describe('generated plugin copies', () => {
     const before = fs.readFileSync(target);
     expect(check()).toEqual([`Changed: agentic/code/plugins/${file}`]);
     expect(fs.readFileSync(target)).toEqual(before);
+  });
+
+  it.each(['.gitea', '.github'])('fails the existing copy lint for a stale %s issue form', tracker => {
+    const trackerRoot = path.join(temporary, 'tracker-repo');
+    fs.cpSync(path.join(root, 'agentic/code/addons/aiwg-utils/templates/issues'),
+      path.join(trackerRoot, 'agentic/code/addons/aiwg-utils/templates/issues'), { recursive: true });
+    for (const name of ['.gitea', '.github']) {
+      fs.cpSync(path.join(root, name, 'ISSUE_TEMPLATE'), path.join(trackerRoot, name, 'ISSUE_TEMPLATE'), { recursive: true });
+    }
+    const file = `${tracker}/ISSUE_TEMPLATE/bug-report.md`;
+    fs.appendFileSync(path.join(trackerRoot, file), '\nstale copy\n');
+    const before = fs.readFileSync(path.join(trackerRoot, file));
+    expect(checkPackagedPlugins({ pluginsDir, marketplacePath, trackerRoot })).toEqual([`Changed: ${file}`]);
+    expect(fs.readFileSync(path.join(trackerRoot, file))).toEqual(before);
   });
 
   it('detects missing generated files', () => {

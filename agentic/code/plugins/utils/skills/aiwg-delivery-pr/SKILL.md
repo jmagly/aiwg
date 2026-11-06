@@ -16,6 +16,12 @@ Use this skill only for AIWG product/workspace delivery where `.aiwg/aiwg.config
 
 This is an explicit alias for `aiwg-pr`. Existing `aiwg-pr` callers remain valid. Generic requests like "open a PR for this repo" should use the host repository's normal PR tooling and templates, not this AIWG-specific workflow, unless the repository is the AIWG product workspace or the operator explicitly asks for AIWG delivery policy.
 
+## Output template
+
+Required: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/pull-requests/description.md.
+Fill every required section: Summary, Cause, Changes, Verification (exact commands
+and pass/fail counts), Related issues, and Risk and rollback before posting.
+
 ## Route
 
 1. Read `aiwg-pr` with `aiwg show skill aiwg-pr --body`.

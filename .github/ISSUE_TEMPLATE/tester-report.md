@@ -1,5 +1,6 @@
 ---
 name: Tester Report (multi-finding)
+description: Write a tester report issue with session environment and multiple findings for triage into individual bug reports.
 about: Single session that surfaced multiple bugs — to be split during triage
 title: 'tester-report(<env>): <session summary>'
 labels: ['tester-report', 'triage']

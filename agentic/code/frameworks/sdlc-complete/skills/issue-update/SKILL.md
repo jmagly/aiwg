@@ -27,6 +27,10 @@ commandHint:
 
 # Issue Update
 
+## Output template
+
+For comments, the matching template is required; fill every required section before posting (mark non-applicable fields with a reason): progress/status — @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/progress-update.md; blocker — @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/blocker-found.md; feedback request — @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/feedback-needed.md.
+
 ## Semantic Label Contract (#1789)
 
 Resolve label mutations through `.aiwg/aiwg.config` `issues.labels` for the

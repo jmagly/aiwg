@@ -17,19 +17,19 @@ commandHint:
   modelTier: economy
 ---
 
-<!-- AIWG-SKILL-CALLOUT -->
-> **Skill access pattern (post-kernel-pivot, 2026.5+)**
->
-> Skill names referenced in this document are AIWG skills, **not slash commands**. Most are not kernel-listed and cannot be invoked as `/skill-name` by the platform. Reach them via:
->
-> ```bash
-> aiwg discover "<capability>"
-> aiwg show skill <name> --body
-> ```
->
-> Only kernel-listed skills (`aiwg-doctor`, `aiwg-refresh`, `aiwg-status`, `aiwg-help`, `use`, `steward`) are directly invokable as slash commands. See [skill-discovery rule](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/aiwg-utils/rules/skill-discovery.md).
-
 # Issue Create
+
+Load referenced skills via `aiwg discover "<capability>"` then `aiwg show skill <name> --body`; follow the [skill-discovery rule](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/aiwg-utils/rules/skill-discovery.md).
+
+## Output template
+
+Use the required template for the issue kind and fill every required section
+before creating the issue; mark non-applicable optional fields with a reason.
+
+- Bug: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/bug-report.md
+- Feature: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/feature-request.md
+- Tester findings: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/tester-report.md
+- Imported report: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/imported-report.md
 
 ## Semantic Label Contract (#1789)
 

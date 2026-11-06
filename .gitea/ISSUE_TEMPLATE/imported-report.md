@@ -1,5 +1,6 @@
 ---
 name: Imported Report (from another tracker)
+description: Import an issue report from another tracker, preserving the original source, reporter, current status, and follow-up actions.
 about: Mirror an issue from a different tracker (GitHub, Discord, email) for follow-up
 title: 'imported: <original title> (<source>#<number>)'
 labels: ['imported']

@@ -1,3 +1,8 @@
+---
+name: progress-update
+description: Post a status update on an issue using this progress update comment template: completed work, current tasks, next steps, blockers, and verification metrics.
+---
+
 # Progress Update Comment Template
 
 ## Progress Report
