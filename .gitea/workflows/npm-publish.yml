@@ -198,6 +198,10 @@ jobs:
         shell: bash
 
     steps:
+      # The clean-install check runs repo smoke scripts (tools/release/flue-package-smoke.mjs).
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
       - name: Wait for package propagation
         run: sleep 15
 
