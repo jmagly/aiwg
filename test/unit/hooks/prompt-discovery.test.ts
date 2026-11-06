@@ -57,9 +57,9 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     expect(output.additionalContext).toContain('Review code for security issues with actionable fixes');
     expect(output.additionalContext).not.toContain('**');
     expect(output.additionalContext).not.toContain('fourth');
-    expect(output.additionalContext).toContain('aiwg show <type> <name> -> fetch required rule bodies');
+    expect(output.additionalContext).toContain('First call: aiwg show <type> <name> (best fit)');
     expect(output.additionalContext).toContain('--rules --with-rule-bodies; --body) -> apply');
-    expect(output.additionalContext).toContain('If none fit, run aiwg discover before declining.');
+    expect(output.additionalContext).toContain('If none fit, run aiwg discover; never decline without it.');
     expect(output.additionalContext.length).toBeLessThan(600);
   });
 
@@ -98,8 +98,8 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     const result = await invoke(prompt);
     expect(result).toMatchObject({ code: 0, stderr: '' });
     const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
-    expect(context).toContain(`Run aiwg discover "${prompt}"`);
-    expect(context).toContain('and read the result before answering or declining.');
+    expect(context).toContain(`run: aiwg discover "${prompt}"`);
+    expect(context).toContain('then answer from its result. Answering or declining without running it violates the skill-discovery rule.');
     expect(context).not.toMatch(/candidates|rag\.prompt|dataset-trace|Low relevance/);
     expect(context.length).toBeLessThan(600);
     if (prompt.includes('skill')) expect(context).toContain('--type skill');
@@ -110,7 +110,7 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     'decision-definition', 'decision-ruleset', 'decision-binding', 'gate-pack', 'workflow'])('preserves a named %s type in the discover instruction', async type => {
     const result = await invoke(`Find AIWG ${type}s for Jira CSV flame graphs`);
     const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
-    expect(context).toContain(`--type ${type === 'workflow' ? 'flow' : type} and read the result`);
+    expect(context).toContain(`--type ${type === 'workflow' ? 'flow' : type} then answer from its result`);
     expect(context).not.toContain('AIWG candidates');
   });
 
@@ -118,11 +118,11 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     const result = await invoke(`Discover boundary score ${score}`);
     const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
     if (score < 0.70) {
-      expect(context).toMatch(/^Run aiwg discover/);
+      expect(context).toMatch(/^Before any other tool call or answer, run: aiwg discover/);
       expect(context).not.toContain('Threshold candidate');
     } else {
       expect(context).toContain('skill boundary (0.70): Threshold candidate');
-      expect(context).toContain('If none fit, run aiwg discover before declining.');
+      expect(context).toContain('If none fit, run aiwg discover; never decline without it.');
     }
   });
 
@@ -130,7 +130,7 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     const result = await invoke('Find Jira CSV ' + '"$`\\'.repeat(200));
     const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
     expect(context).toContain('\\"\\$\\`\\\\');
-    expect(context).toContain('read the result before answering or declining.');
+    expect(context).toContain('Before any other tool call or answer, run: aiwg discover');
     expect(context.length).toBeLessThan(600);
   });
 

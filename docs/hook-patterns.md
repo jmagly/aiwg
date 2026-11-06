@@ -32,9 +32,12 @@ system reminders and tool-result echoes) skip discovery. Candidates still use th
 excludes the unrelated 0.60/0.40 results observed in #3889 while retaining the
 existing strong 0.70–0.92 fixtures; it is a routing cutoff, not a probability.
 With no strong candidate, context contains only an instruction to run
-`aiwg discover "<need>"` (with `--type` for a named artifact type) and read the
-result before answering or declining. Strong candidate context also says:
-“If none fit, run aiwg discover before declining.”
+`aiwg discover "<need>"` (with `--type` for a named artifact type) before any
+other tool call or answer. Strong candidate context makes `aiwg show` for the best fit
+the first call, and also says:
+“If none fit, run aiwg discover; never decline without it.”
+The wording is directive because Muse ignored advisory wording in the 2026-11-06
+UAT and followed first-call wording.
 Injected text stays under 600 characters, allowing up to 100 characters per
 capability. Discovery uses the validated shipped relationship package and search
 metadata read-only, falling back to existing local metadata. It never rebuilds

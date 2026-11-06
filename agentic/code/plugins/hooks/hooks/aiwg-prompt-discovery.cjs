@@ -47,21 +47,22 @@ function contextFor(envelope, prompt) {
   const clean = (value, max) => typeof value === 'string'
     ? value.replace(/[\x00-\x1f\x7f]/g, ' ').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim().slice(0, max) : '';
   const prefix = 'AIWG candidates:\n';
-  const next = '\nNext: aiwg show <type> <name> -> fetch required rule bodies (--rules --with-rule-bodies; --body) -> apply.'
-    + '\nIf none fit, run aiwg discover before declining.';
+  const next = '\nFirst call: aiwg show <type> <name> (best fit) -> rules (--rules --with-rule-bodies; --body) -> apply.'
+    + '\nIf none fit, run aiwg discover; never decline without it.';
   const candidates = (Array.isArray(envelope?.results) ? envelope.results : [])
     .filter(r => typeof r?.score === 'number' && Number.isFinite(r.score) && r.score >= 0.20
       && /^[a-z][a-z-]{0,19}$/.test(r.type) && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,69}$/.test(r.name))
     .sort((a, b) => b.score - a.score).slice(0, 3);
   // 0.70 excludes the UAT's unrelated 0.60/0.40 hits; retain today's top 3
   // only when at least one candidate supplies a stronger signal.
+  // Muse UAT (2026-11-06): advisory wording was ignored; first-call wording was followed.
   if (!candidates.some(r => r.score >= 0.70)) {
     const namedType = prompt.match(/\b(decision-definition|decision-ruleset|decision-binding|gate-pack|skill|agent|command|rule|schema|flow|runbook|template|behavior|hook|workflow)s?\b/i)?.[1].toLowerCase();
     const type = namedType === 'workflow' ? 'flow' : namedType;
     // Quote shell metacharacters and bound even a need made entirely of escapes.
     const need = prompt.replace(/[\x00-\x1f\x7f]/g, ' ').replace(/\s+/g, ' ').slice(0, 220)
       .replace(/["\\$`]/g, '\\$&');
-    return `Run aiwg discover "${need}"${type ? ` --type ${type}` : ''} and read the result before answering or declining.`;
+    return `Before any other tool call or answer, run: aiwg discover "${need}"${type ? ` --type ${type}` : ''} then answer from its result. Answering or declining without running it violates the skill-discovery rule.`;
   }
   // Share the remaining space so long names cannot push total context past 599.
   const labels = candidates.map(r => `${r.type} ${r.name} (${r.score.toFixed(2).slice(0, 6)}): `);
