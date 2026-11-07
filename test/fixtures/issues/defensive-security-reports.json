@@ -1,0 +1,13 @@
+[
+  {
+    "title": "bug(context-pipeline): possible-secret flags a truncated example from AIWG's own devops-engineer template",
+    "body": "## Summary\n\nFalse positive in secret detection for AGENTS.md and AIWG.md.\n\n## Steps to reproduce\n\nThe detector flags a truncated placeholder from the devops-engineer template:\n\n```text\nAPI_KEY: AgCM9vN3x...\n```\n\n> Detector regex: API_KEY.* and secret.*\n\n## Expected behavior\n\nFix secret detection for AGENTS.md so placeholder examples remain valid documentation.\n\n## Acceptance criteria\n\n- [ ] Truncated API_KEY examples pass credential detection.\n- [ ] AGENTS.md and AIWG.md remain usable.",
+    "labels": ["bug"]
+  },
+  {
+    "title": "feat(authorization): signed authorization ledger",
+    "body": "## Problem\n\nSecret handling and authorization for CLAUDE.md need an auditable ledger.\n\n## Proposed solution\n\nAdd a signed authorization ledger for secret detection decisions in CLAUDE.md.\n\n## Acceptance criteria\n\n- [ ] Secret detection decisions include the draft digest.\n- [ ] Operator authorization binds to that digest.",
+    "type": "feature",
+    "labels": ["enhancement"]
+  }
+]

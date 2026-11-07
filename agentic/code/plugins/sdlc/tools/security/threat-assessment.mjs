@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { ACTIONS, BUILTIN_PACKS, BUILTIN_RULES, SEVERITIES, THREAT_ASSESSMENT_ENGINE_VERSION, THREAT_ASSESSMENT_LIMITS, THREAT_ASSESSMENT_SCHEMA_VERSION } from './threat-assessment/builtins.mjs';
 import { resolveThreatAssessmentPolicy } from './threat-assessment/policy.mjs';
 import { inferContext, SUPPRESSED_CONTEXTS } from './threat-assessment/context.mjs';
+import { clauseAt, requestPrefix } from './threat-assessment/negation.mjs';
 export { ACTIONS, BUILTIN_PROFILES, SEVERITIES, THREAT_ASSESSMENT_ENGINE_VERSION, THREAT_ASSESSMENT_LIMITS, THREAT_ASSESSMENT_SCHEMA_VERSION, THREAT_SURFACES } from './threat-assessment/builtins.mjs';
 export { resolveThreatAssessmentPolicy, validateThreatAssessmentConfig } from './threat-assessment/policy.mjs';
 export { SUPPRESSED_CONTEXTS } from './threat-assessment/context.mjs';
@@ -202,19 +203,45 @@ function actionForSeverity(severity, thresholds) {
   return action;
 }
 
-function mandatoryAction(activeFindings) {
+function credentialIntent(finding, parts) {
+  const text = parts.find(part => part.id === finding.partId)?.text ?? '';
+  const { start, end } = finding.occurrence;
+  const clause = clauseAt(text, start, end - start);
+  const prefix = requestPrefix(`${clause.before}${clause.match}`);
+  const access = /\b(?:read|print|dump|echo|cat|show|reveal|disclose|leak|send|upload|post|export|paste|copy|fetch)\b/i.test(prefix);
+  const lineStart = text.lastIndexOf('\n', start) + 1;
+  const lineEnd = text.indexOf('\n', end);
+  const line = text.slice(lineStart, lineEnd < 0 ? text.length : lineEnd);
+  const exfiltration = access && /\b(?:send|upload|post|paste|leak|exfiltrate)\b[^\n]*\b(?:https?:\/\/|url\b|public\b|external\b|remote\b)/i.test(line);
+  return { access, exfiltration };
+}
+
+function mandatoryAction(activeFindings, input, policy, parts) {
   const ids = new Set(activeFindings.map(finding => finding.ruleId));
+  const credentials = activeFindings.filter(finding => finding.ruleId === 'credential-or-env-probing');
+  const intents = credentials.map(finding => credentialIntent(finding, parts));
+  const maintainerDraft = input.surface === 'issue-body' && input.requestedAction === 'create-issue'
+    && input.actor?.trust === 'maintainer' && policy.profileName === 'balanced';
+  // Mentions in defensive drafts retain their severity/authorization gate, but
+  // cannot form an exfiltration combination solely by naming a protected file.
+  const protectedCredentialAccess = ids.has('sensitive-file-target')
+    && (!maintainerDraft || intents.some(intent => intent.access));
+  const credentialExfiltration = input.surface === 'issue-body' && intents.some(intent => intent.exfiltration);
+  const credentialCombination = credentials.length > 0
+    && (ids.has('instruction-override') || ids.has('third-party-execution') || protectedCredentialAccess
+      || credentialExfiltration);
+  if (credentialCombination) {
+    return { action: 'reject', ruleId: 'mandatory:credential-exfiltration-combination' };
+  }
   if (ids.has('claimed-authorization')) {
     return { action: 'require-authorization', ruleId: 'mandatory:claimed-authorization-adoption' };
   }
-  const credentialCombination = ids.has('credential-or-env-probing')
-    && (ids.has('instruction-override') || ids.has('third-party-execution') || ids.has('sensitive-file-target'));
   const supplyChainCombination = ids.has('third-party-execution')
     && (ids.has('floating-version') || ids.has('sensitive-file-target') || ids.has('security-framing-conflict'));
-  if (credentialCombination || supplyChainCombination) {
+  if (supplyChainCombination) {
     return {
       action: 'reject',
-      ruleId: credentialCombination ? 'mandatory:credential-exfiltration-combination' : 'mandatory:supply-chain-execution-combination',
+      ruleId: 'mandatory:supply-chain-execution-combination',
     };
   }
   return null;
@@ -338,7 +365,7 @@ export function assessThreat(input, rawConfig) {
     'informational',
   );
   let wouldAction = actionForSeverity(severity, policy.profile.thresholds ?? BUILTIN_PROFILES.balanced.thresholds);
-  const mandatory = mandatoryAction(active);
+  const mandatory = mandatoryAction(active, input, policy, bounded.parts);
   if (mandatory && ACTION_RANK[mandatory.action] > ACTION_RANK[wouldAction]) wouldAction = mandatory.action;
   if (!complete && ACTION_RANK['require-authorization'] > ACTION_RANK[wouldAction]) {
     wouldAction = 'require-authorization';
