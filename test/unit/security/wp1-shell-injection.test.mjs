@@ -86,8 +86,18 @@ console.log(JSON.stringify({ result, message: git(['log', '-1', '--format=%B']),
     }
   });
 
-  it.skipIf(!tmuxAvailable)('delivers literal multiline text through real tmux to a cat pane (75)', (ctx) => {
+  it.skipIf(!tmuxAvailable).each([40, 2000])('delivers literal multiline text through real tmux to a %i-column cat pane (75)', (width, ctx) => {
     const text = '-Enter\n' + payload();
+    const received = join(root, 'received.txt');
+    const paneScript = join(root, 'cat-pane.sh');
+    // Signal readiness after terminal setup, and completion only after cat closes its output.
+    writeFileSync(paneScript, `set -eu
+stty -echo
+tmux -S "$1" wait-for -S ready
+cat > "$2"
+tmux -S "$1" wait-for -S delivered
+exec cat
+`);
     const output = run(`const { TmuxManager } = await import(${JSON.stringify(moduleUrl('tools/daemon/tmux-manager.mjs'))});
 const socket = ${JSON.stringify(join(root, 'tmux.sock'))};
 const tmux = args => {
@@ -97,24 +107,23 @@ const tmux = args => {
 };
 let started = false;
 try {
-  tmux(['-f', '/dev/null', 'new-session', '-d', '-s', 'wp1', '-x', '2000', '-y', '50', 'cat']);
+  tmux(['-f', '/dev/null', 'new-session', '-d', '-s', 'wp1', '-x', ${JSON.stringify(String(width))}, '-y', '50',
+    'sh', ${JSON.stringify(paneScript)}, socket, ${JSON.stringify(received)}]);
   started = true;
+  tmux(['wait-for', 'ready']);
   process.env.TMUX = socket + ',0,0';
   const manager = new TmuxManager({ sessionName: 'wp1' });
   manager.sendToPane(0, ${JSON.stringify(text)});
-  let captured = '';
-  for (let i = 0; i < 100; i++) {
-    captured = tmux(['capture-pane', '-p', '-t', 'wp1:0.0']);
-    if (captured.includes(${JSON.stringify(text)})) break;
-    await new Promise(resolve => setTimeout(resolve, 20));
-  }
-  console.log(JSON.stringify({ captured }));
+  tmux(['send-keys', '-t', 'wp1:0.0', 'C-d']);
+  tmux(['wait-for', 'delivered']);
+  console.log(JSON.stringify({ delivered: true }));
 } catch (error) {
   if (!started && /Operation not permitted/.test(error.message)) console.log(JSON.stringify({ unavailable: error.message }));
   else throw error;
 } finally { if (started) tmux(['kill-server']); }`);
     if (output.unavailable) ctx.skip(output.unavailable);
-    expect(output.captured).toContain(text);
+    expect(output.delivered).toBe(true);
+    expect(readFileSync(received, 'utf8')).toBe(text + '\n');
     expectNoSideEffects();
   });
 
