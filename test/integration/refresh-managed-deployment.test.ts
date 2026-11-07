@@ -40,7 +40,7 @@ function currentFixture(provider: string) {
     for (const hook of managedFactoryHooks()) (hooks[hook.event] ??= []).push({ hooks: [{
       type: 'command', command: hook.command, _aiwg_id: hook.id, _aiwg_managed: true,
     }] });
-    write('.factory/hooks.json', { hooks });
+    write('.factory/hooks.json', { hooks }); // legacy nested shape; refresh still reads it (#3971)
   } else if (provider === 'muse') {
     for (const hook of AIWG_MANAGED_HOOKS) (hooks[hook.event] ??= []).push(hook.group);
     write('.muse/hooks.json', { hooks });
