@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import { loadDagLiveResolver } from '../../../src/decision/graph-live-qualification.js';
 // @ts-expect-error untyped trusted resolver module (digest-pinned, not compiled)
@@ -138,6 +140,25 @@ describe('shared bounded HTTPS core (offline transport seam)', () => {
 });
 
 describe('both live-run paths delegate to the one implementation (#2798)', () => {
+  it('loads the shared KV policy from an installed dist-only package', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'openbao-installed-'));
+    try {
+      await mkdir(join(dir, 'tools', 'decision'), { recursive: true });
+      await mkdir(join(dir, 'dist', 'src', 'decision'), { recursive: true });
+      await writeFile(join(dir, 'package.json'), '{"name":"aiwg","type":"module"}');
+      for (const relative of ['tools/_resolve-impl.mjs', 'tools/decision/openbao-kv-credential-resolver.mjs', 'tools/decision/jev-openbao-credential.mjs']) {
+        await copyFile(new URL(`../../../${relative}`, import.meta.url), join(dir, relative));
+      }
+      await copyFile(new URL('../../../src/decision/openbao-kv-resolver.mjs', import.meta.url), join(dir, 'dist', 'src', 'decision', 'openbao-kv-resolver.mjs'));
+      const script = 'const module=await import(process.argv[1]);process.stdout.write(typeof module.createOpenBaoKvResolver);';
+      const result = await promisify(execFile)(process.execPath, ['--input-type=module', '-e', script,
+        pathToFileURL(join(dir, 'tools', 'decision', 'openbao-kv-credential-resolver.mjs')).href], {
+        env: { PATH: process.env.PATH, HOME: dir, AIWG_RESOLVE_IMPL_FROM: 'dist' },
+      });
+      expect(result.stdout).toBe('function');
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
   it('invokes the host helper with identical argv through the D10 and D12 default providers', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'openbao-delegation-'));
     try {

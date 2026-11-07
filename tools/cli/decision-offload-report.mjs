@@ -28,6 +28,8 @@ export function formatDecisionOffloadReport(snapshot) {
   const opportunities = snapshot.opportunities?.organic;
   lines.push(`  Scope: ${snapshot.scope?.mode ?? 'unknown'}${snapshot.scope?.sessionId ? ` (${snapshot.scope.sessionId})` : ''}`);
   lines.push(`  Ask: ${snapshot.readiness?.ask?.state ?? 'unknown'}; evaluate: ${snapshot.readiness?.evaluate?.state ?? 'unknown'} (no probe)`);
+  const credential = snapshot.readiness?.ask;
+  if (credential?.source) lines.push(`  Credential source: ${credential.source}${credential.path ? `; path: ${credential.path}` : ''}`);
   lines.push(`  Completed calls: ${calls?.completed ?? 'unknown'}; answered: ${calls?.answered ?? 'unknown'}; fallback: ${calls?.fallback ?? 'unknown'}`);
   if (calls) {
     lines.push(`  Estimated LLM tokens avoided: ${calls.llmTokensAvoided}; Jev tokens: ${calls.jevTokens}`);

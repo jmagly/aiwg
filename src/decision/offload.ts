@@ -568,7 +568,7 @@ export async function buildDecisionOffloadSnapshot(options: BuildDecisionOffload
       since: sessionId ? null : since.toISOString(), windowHours: sessionId ? null : windowHours, generatedAt: now.toISOString() },
     readiness: {
       ask: { state: askReadinessState(askConfigured, latestTransportEvidence), configured: credential.configured,
-        enabled: credential.enabled, source: credential.source, probed: false },
+        enabled: credential.enabled, source: credential.source, ...(credential.path ? { path: credential.path } : {}), probed: false },
       evaluate: { state: evaluateState, enabled: enablement?.enabled ?? null,
         source: configReadable && enablement ? enablement.source : 'unknown', probed: false },
       observed: latestObserved ? {

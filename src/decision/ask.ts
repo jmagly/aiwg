@@ -1,4 +1,5 @@
 import { aggregateModalAnswers } from './ensemble/aggregate.js';
+import { JevReferenceUnavailable } from './openbao-runtime.js';
 import { readAiwgConfigCandidate } from '../config/aiwg-config.js';
 import { readFile } from 'node:fs/promises';
 import { JEV_ENDPOINT, JevDecisionAdapter } from './adapters/jev.js';
@@ -462,7 +463,7 @@ export async function askDecision(input: DecisionAskInput, options: DecisionAskR
   };
   let credential: Awaited<ReturnType<typeof lookupJevCredential>>;
   try { credential = await lookupJevCredential(options); }
-  catch { return finish('not-configured'); }
+  catch (error) { return finish(error instanceof JevReferenceUnavailable ? 'credential-unavailable' : 'not-configured'); }
   if (!credential?.enabled || !credential.token) return finish('not-configured');
   const def = definition(input);
   const rules = ruleset(def);

@@ -55,12 +55,55 @@ Token lookup order when running `ask`:
 
 1. env `JEV_API_KEY`,
 2. env `AIWG_DECISION_JEV_API_KEY`,
-3. the user credential file
+3. an OpenBao reference in project or user `decision.jev.credential` (project wins),
+4. the user credential file
    `${XDG_CONFIG_HOME:-~/.config}/aiwg/credentials/jev.json`
    (`{"token":"...","region":"us","endpoint"?:...}`, mode 0600, parent dir
    0700). Runtime uses the shared private-file checks: files owned by another
    user, group/other access, symlinks, nonregular files, and multiple hard links
    are refused. Existing JSON records, including optional `enabled`, remain valid.
+
+For a reference-only setup, add this to project `.aiwg/aiwg.config`, or the
+equivalent nested mapping in user `config.yaml`:
+
+```json
+{
+  "decision": {
+    "enabled": true,
+    "jev": {
+      "credential": {
+        "source": "openbao",
+        "addr": "https://bao.example.internal:8200",
+        "path": "kv_internal/data/typesafe/jev/api-key",
+        "field": "token",
+        "auth": { "method": "approle", "role": "aiwg-jev-reader" }
+      }
+    }
+  }
+}
+```
+
+Persist `addr` as the OpenBao HTTPS origin so workers need no OpenBao environment
+variables. A host `BAO_ADDR` overrides it. `BAO_CACERT` may name an additional
+trusted CA file; TLS verification cannot be disabled. Provision the
+AppRole IDs using the host native secret service (the same store API as effect
+keys), service `aiwg.openbao`, accounts
+`https://bao.example.internal:8200/aiwg-jev-reader:role-id` and
+`https://bao.example.internal:8200/aiwg-jev-reader:secret-id`. Account prefixes
+use the normalized origin (omit the default HTTPS port 443). Scoping IDs to
+the origin prevents a project reference from sending another host's AppRole
+IDs to a different server. Values never belong in the project configuration.
+The reader role needs exact-path KV v2 read access to the configured secret.
+
+Runtime logs in, reads that field, revokes its temporary OpenBao token, and
+caches the Jev key only in process memory. It never exports the key into child
+environments. CLI ask, MCP ask, and shared flow/mission offload checkpoints use
+this lookup. `aiwg doctor --decision-offload` reports `source: openbao` and the
+path without resolving the reference or probing either service. An unavailable
+reference returns `fallback: llm`, `reason: credential-unavailable`; it does not
+silently use a stale credential file. Set `decision.enabled` explicitly for
+reference-based use. To retire an existing `jev.json`, verify the reference
+first and remove the file yourself; this release provides no automatic migration.
 
 `setup` prints `aiwg-decision-jev-setup/v1` JSON:
 `{ configured, credentialSource: "file"|"env", region, verified?, model?,

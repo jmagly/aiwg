@@ -726,6 +726,21 @@
       ]
     },
     {
+      "id": "DEC-WORKER-06",
+      "path": "test/fixtures/decision/openbao-http.ts",
+      "origin": "repository-authored",
+      "author": "roctinam",
+      "date": "2026-11-07",
+      "permission": "MIT (repository LICENSE)",
+      "sanitization": "synthetic; no personal inputs",
+      "schemaVersion": "source-module",
+      "digest": "sha256:ca1b78bf3adff919e42399cff63cf6f87ea91180b0f53d24de6a3b9a031bdbfa",
+      "expectedOutcome": "loopback-only fake OpenBao HTTP server (memory-only tokens) used by Jev credential reference tests (#3871)",
+      "links": [
+        "JEV-16"
+      ]
+    },
+    {
       "id": "DEC-CONFORMANCE-01",
       "path": "test/fixtures/decision/conformance.json",
       "origin": "repository-authored",

@@ -20,12 +20,13 @@ import { readFile, writeFile, mkdir, access } from 'fs/promises';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { resolveUserConfigDir } from './user-config-dir.mjs';
+import type { DecisionConfig } from './decision-config.js';
 
 /**
  * Top-level user preferences schema
  */
 export interface UserConfigData {
-  decision?: { enabled?: boolean };
+  decision?: DecisionConfig;
   apiVersion: string;
   kind: string;
   defaults: {
@@ -362,12 +363,12 @@ export interface ValidationIssue {
 
 /**
  * Minimal YAML parser for flat/nested config files.
- * Handles the subset we use: scalars, nested objects (2 levels).
+ * Handles the subset we use: scalars, nested objects.
  * For complex YAML, users should use a full parser.
  */
 export function parseYamlSimple(content: string): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  let currentSection: string | null = null;
+  const sections = [{ indent: -1, value: result }];
 
   for (const line of content.split('\n')) {
     // Skip comments and empty lines
@@ -388,22 +389,15 @@ export function parseYamlSimple(content: string): Record<string, unknown> {
       throw new Error('Unsafe config key: prototype-related names are not allowed');
     }
 
-    if (indent === 0) {
-      if (rawValue === '' || rawValue === undefined) {
-        // Section header
-        currentSection = key;
-        if (!Object.hasOwn(result, key)) {
-          result[key] = {};
-        }
-      } else {
-        // Top-level key-value
-        currentSection = null;
-        result[key] = parseScalar(rawValue);
-      }
-    } else if (currentSection && indent >= 2) {
-      // Nested key under current section
-      const section = result[currentSection] as Record<string, unknown>;
-      section[key] = parseScalar(rawValue);
+    while (sections.length > 1 && sections.at(-1)!.indent >= indent) sections.pop();
+    const parent = sections.at(-1)!;
+    if (indent !== 0 && (indent < 2 || sections.length === 1)) continue;
+    if (rawValue === '') {
+      const section: Record<string, unknown> = {};
+      parent.value[key] = section;
+      sections.push({ indent, value: section });
+    } else {
+      parent.value[key] = parseScalar(rawValue);
     }
   }
 

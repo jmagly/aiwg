@@ -6,6 +6,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { JevCredentialError } from './adapters/jev.js';
 import { readPrivateValueFile } from '../auth/sensitive-input.js';
+import { readJevReference } from '../config/jev-credential-reference.js';
+import { JevReferenceUnavailable, resolveOpenBaoJev } from './openbao-runtime.js';
 
 export interface JevCredentialRecord {
   token: string;
@@ -15,7 +17,7 @@ export interface JevCredentialRecord {
 }
 
 export interface JevCredentialLookupResult {
-  source: 'env' | 'file';
+  source: 'env' | 'file' | 'openbao';
   token: string;
   region: string;
   endpoint?: string;
@@ -25,7 +27,8 @@ export interface JevCredentialLookupResult {
 export interface JevCredentialInspection {
   configured: boolean | null;
   enabled: boolean | null;
-  source: 'env' | 'file' | 'none' | 'unknown';
+  source: 'env' | 'file' | 'openbao' | 'none' | 'unknown';
+  path?: string;
 }
 
 export interface JevCredentialOptions {
@@ -103,6 +106,17 @@ export async function lookupJevCredential(options: JevCredentialOptions = {}): P
   const environment = env(options);
   const forced = environment.AIWG_DECISION_ENABLED;
   const envToken = environment.JEV_API_KEY?.trim() || environment.AIWG_DECISION_JEV_API_KEY?.trim();
+  if (!envToken) {
+    try {
+      const reference = readJevReference(options);
+      if (reference) {
+        const { enabled } = resolveDecisionEnablement(options);
+        return { source: 'openbao', token: enabled ? await resolveOpenBaoJev(reference, environment) : '', enabled,
+          region: environment.AIWG_DECISION_JEV_REGION?.trim() || JEV_DEFAULT_REGION,
+          ...(environment.AIWG_DECISION_JEV_ENDPOINT?.trim() ? { endpoint: environment.AIWG_DECISION_JEV_ENDPOINT.trim() } : {}) };
+      }
+    } catch { throw new JevReferenceUnavailable(); }
+  }
   const fileRecord = envToken && (forced === '0' || forced === '1') ? null : await readCredentialFile(options);
   const enablement = resolveDecisionEnablement(options);
   const enabled = enablement.source === 'default' ? fileRecord?.enabled === true : enablement.enabled;
@@ -121,6 +135,11 @@ export async function lookupJevCredential(options: JevCredentialOptions = {}): P
 /** Offline metadata-only inspection. Never probes Jev and never returns credential bytes. */
 export async function inspectJevCredential(options: JevCredentialOptions = {}): Promise<JevCredentialInspection> {
   try {
+    const environment = env(options);
+    if (!(environment.JEV_API_KEY?.trim() || environment.AIWG_DECISION_JEV_API_KEY?.trim())) {
+      const reference = readJevReference(options);
+      if (reference) return { configured: true, enabled: resolveDecisionEnablement(options).enabled, source: 'openbao', path: reference.path };
+    }
     const credential = await lookupJevCredential(options);
     if (!credential) return { configured: false, enabled: false, source: 'none' };
     return { configured: true, enabled: credential.enabled, source: credential.source };
