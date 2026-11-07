@@ -36,6 +36,24 @@ describe('local issue provider core', () => {
     await rm(projectRoot, { recursive: true, force: true });
   });
 
+  it('refuses uninitialized lists before rebuilding an empty index', async () => {
+    await expect(provider.listIssues()).rejects.toThrow(/not initialized.*aiwg issues init/i);
+    expect(existsSync(issuesRoot)).toBe(false);
+  });
+
+  it('does not mistake an orphaned index for initialized local storage', async () => {
+    await provider.init();
+    await rm(join(issuesRoot, 'config.json'));
+    await expect(provider.listIssues({ filter: { search: 'missing' } }))
+      .rejects.toThrow(/not initialized.*aiwg issues init/i);
+  });
+
+  it('surfaces invalid initialization config instead of returning an empty result', async () => {
+    await provider.init();
+    await writeFile(join(issuesRoot, 'config.json'), '{invalid json');
+    await expect(provider.listIssues()).rejects.toThrow(SyntaxError);
+  });
+
   it('initializes the local issue layout with configurable project prefix', async () => {
     const config = await provider.init({ prefix: 'docs', padding: 3 });
 

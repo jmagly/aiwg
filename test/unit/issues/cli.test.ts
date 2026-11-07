@@ -4,6 +4,8 @@ import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { main } from '../../../src/issues/cli.js';
 import { LocalIssueProviderCore } from '../../../src/issues/local.js';
+import { issueHandler } from '../../../src/cli/handlers/issues.js';
+import { trackerToken } from '../../../src/issues/tracker-policy.js';
 
 describe('issues/cli', () => {
   let root: string;
@@ -22,6 +24,74 @@ describe('issues/cli', () => {
     vi.unstubAllEnvs();
     await rm(root, { recursive: true, force: true });
   });
+
+  it.each([
+    ['list', '--limit', '3'],
+    ['list', '--state', 'all', '--search', 'dispatch ceiling'],
+    ['list', '--json'],
+    ['ls'],
+    ['create', '--title', 'Test', '--body', 'Ordinary body'],
+    ['new', '--title', 'Test', '--provider', 'local'],
+  ])('fails uninitialized commands with setup guidance: %j', async (...args) => {
+    const result = await issueHandler.execute({ args, rawArgs: ['issues', ...args], cwd: root, frameworkRoot: root });
+    expect(result.exitCode).not.toBe(0);
+    expect(result.message).toMatch(/not initialized.*aiwg issues init/i);
+    expect(output).toEqual([]);
+    await expect(readFile(join(root, '.aiwg/issues/index/issues.index.json'), 'utf8')).rejects.toThrow();
+    await expect(readFile(join(root, '.aiwg/issues/config.json'), 'utf8')).rejects.toThrow();
+  });
+
+  it('distinguishes successful empty local searches in text and JSON', async () => {
+    await main(['init'], root);
+    await main(['new', '--title', 'Existing issue'], root);
+    output = [];
+    await main(['list', '--search', 'no matching title'], root);
+    expect(output).toEqual(['No matching issues found.']);
+    output = [];
+    await main(['list', '--search', 'no matching title', '--json'], root);
+    expect(JSON.parse(output[0])).toEqual({ issues: [], nextCursor: null });
+  });
+
+  it('never treats local storage as a duplicate query of the configured external tracker', async () => {
+    await main(['init'], root);
+    await writeFile(join(root, '.aiwg/aiwg.config'), JSON.stringify({ version: '1.0', remotes: {
+      issue_tracker: 'https://tracker.example.test/acme/project.git', issue_provider: 'gitea',
+      tracker_actor: { login: 'fixture-maintainer' },
+    } }));
+    const fetchFn = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Unexpected request'));
+    await expect(main(['list', '--search', 'dispatch ceiling'], root))
+      .rejects.toThrow(/configured external tracker.*tracker tools/i);
+    await main(['list', '--provider', 'local', '--json'], root);
+    expect(JSON.parse(output.at(-1)!)).toEqual({ issues: [], nextCursor: null });
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('reports actor setup on an external create 401 without initializing local storage', async () => {
+    await mkdir(join(root, '.aiwg'));
+    await writeFile(join(root, '.aiwg/aiwg.config'), JSON.stringify({ version: '1.0', remotes: {
+      issue_tracker: 'https://tracker.example.test/acme/project.git', issue_provider: 'gitea',
+      tracker_actor: { login: 'fixture-maintainer' },
+    } }));
+    vi.stubEnv('AIWG_GITEA_TOKEN', undefined);
+    vi.stubEnv('GITEA_TOKEN', undefined);
+    const fetchFn = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) =>
+      new Response(JSON.stringify(String(url).endsWith('/user') ? { message: 'token required' } : []),
+        { status: String(url).endsWith('/user') ? 401 : 200 }));
+    const error = await main(['create', '--title', 'Test', '--body', 'Ordinary body'], root).catch(error => error);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toMatch(/fixture-maintainer.*remotes\.tracker_actor\.credential/);
+    expect(error.message).toContain('aiwg auth secret set');
+    expect(fetchFn.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true);
+    await expect(readFile(join(root, '.aiwg/issues/config.json'), 'utf8')).rejects.toThrow();
+  });
+
+  it.each([{ env: 'FIXTURE_ACTOR_TOKEN' }, { store: 'fixture-actor-token' }])(
+    'names the actor and setup when its configured credential is unavailable: %j', async credential => {
+      await expect(trackerToken('gitea', { login: 'fixture-maintainer', credential }, {}, {
+        environment: {}, isTTY: false, readStore: async () => null,
+      })).rejects.toThrow(/fixture-maintainer.*aiwg auth secret set.*remotes\.tracker_actor\.credential/);
+    },
+  );
 
   it('initializes, creates, lists, comments, shows, closes, and rebuilds local issues', async () => {
     await main(['init', '--prefix', 'DOCS'], root);
@@ -95,6 +165,7 @@ describe('issues/cli', () => {
     const plan = JSON.parse(output.at(-1) ?? '{}');
     expect(plan.disposition).toBe('split-authorization-required');
 
+    await main(['init'], root);
     output = [];
     await main([
       'new', '--title', 'Improve setup', '--body', body,

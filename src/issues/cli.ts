@@ -148,6 +148,7 @@ async function handleNew(issues: LocalIssueProviderCore, args: ParsedArgs, cwd: 
     throw new Error(`Issue draft requires explicit policy authorization. Review 'aiwg issue plan', then pass --authorize-policy ${plan.digest}. No issue was written.`);
   }
 
+  await issues.requireInitialized();
   const composer = await loadIssueComposer();
   const records = new Map<string, Awaited<ReturnType<LocalIssueProviderCore['createIssue']>>>();
   const adapter = {
@@ -222,6 +223,7 @@ async function handleList(issues: LocalIssueProviderCore, args: ParsedArgs): Pro
     console.log(JSON.stringify(result, null, 2));
     return;
   }
+  if (result.issues.length === 0) console.log('No matching issues found.');
   for (const issue of result.issues) {
     console.log(`${issue.id}\t${issue.status}\t${issue.priority}\t${issue.title}`);
   }

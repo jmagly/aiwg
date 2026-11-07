@@ -176,6 +176,27 @@ Example: jmagly#108–#112 → roctinam #1264–#1268 sweep (May 2026).
 
 ## Filing
 
+### Mapped control workspaces
+
+From a mapped `/srv/*-workspace`, resolve the target member from
+`config/repository-routing.yaml` `workTracker` and the workspace access manifest
+before duplicate detection or filing. Check the member's `read` permission for
+queries and `issue-comment` permission for tracker writes. Load that member's
+`.aiwg/aiwg.config`: its `remotes.issue_tracker`, `remotes.issue_provider`, and
+`remotes.tracker_actor.login` / `credential` govern the request. Never substitute
+the control workspace's remotes or the current default forge login.
+
+Go straight to that member's tracker through the configured tracker tools;
+local issue initialization in the control workspace is unnecessary. For the
+native create command, run it from the authorized member directory so it reads
+the member config. The CLI does not interpret `repository-routing.yaml` itself.
+Follow `issue-create` composition and authorization before writing.
+
+`aiwg issues list` queries local storage only; it refuses a configured external
+tracker unless `--provider local` is explicit. Search the member's external
+tracker with its tracker tools instead. A failed query (including missing init
+or HTTP 401) is a blocker to duplicate detection, never an empty result.
+
 Before any MCP, CLI, API, or web-UI write, discover and load the
 `issue-create` skill, then route the final title/body through its policy
 composition. Use the returned segment bodies exactly;
@@ -203,6 +224,12 @@ The HTTP client checks `/user` before every write, requires
 credentials cannot be overridden with token flags. No token belongs in argv,
 logs, or issue bodies. Projects without an actor credential retain provider
 environment token discovery. PR delivery uses the same actor via `aiwg-pr`.
+
+For a missing or rejected actor token, save a token belonging to the configured
+`tracker_actor.login` with `aiwg auth secret set <name> --value-stdin`, then set
+the member's `remotes.tracker_actor.credential` to `{"store":"<name>"}`. An env
+reference works when its named variable is supplied. Refresh an existing
+reference when configured; never switch to a different actor to bypass a 401.
 
 ## After filing
 
