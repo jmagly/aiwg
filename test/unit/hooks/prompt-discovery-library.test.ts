@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { getGraphIndexDir } from '../../../src/artifacts/types.js';
+import { frameworkSourceDigest } from '../../../src/artifacts/framework-source-digest.js';
 
 let temporary: string;
 beforeEach(() => {
@@ -127,6 +128,8 @@ function prebuiltProject() {
     schema_version: 'aiwg.fortemi.prebuilt.v1', backend: 'fortemi-core', graph: 'framework',
     export_path: 'aiwg-fortemi-index-v2.json', export_schema_version: 'aiwg.fortemi.index.export.v2',
     export_checksum: createHash('sha256').update(text).digest('hex'), item_count: exported.items.length,
+    // A current package/source identity keeps the prebuilt package fresh (#3914).
+    package_version: '1.0.0', source_digest: frameworkSourceDigest(runtimeRoot, false),
   }));
   fs.rmSync(path.join(temporary, 'XDG_DATA_HOME'), { recursive: true, force: true });
   return { project, directory, runtimeRoot };
