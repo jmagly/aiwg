@@ -3,7 +3,6 @@ export { prepareWorkerInstallationStore } from './worker-installation-store.mjs'
 /** Shared installed-worker qualification owner, also used by the Ralph compatibility facade. */
 import { spawn } from 'node:child_process';
 import { buildInstalledWorkerTransport } from './worker-artifact-binding.mjs';
-import { workerQualificationPolicyDiagnostic } from './worker-qualification-policy.js';
 import { open, realpath, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -839,6 +838,8 @@ export async function recordWorkerInstallation(instance, options) {
  * version, then load the same approved factory used by Ralph. */
 export async function loadRecordedWorkerInstallations({ registry, cwd, policy, parallelism, storePath, storeDigest, precheckPolicy }) {
   const { WorkerPolicyError, WorkerQualificationPolicyError, parseProviderModelCapabilities } = await import('./provider-policy.js');
+  // Compiled TS modules load lazily so the managed launcher's ESM-only import chain stays minimal (#3851).
+  const { workerQualificationPolicyDiagnostic } = await import('./worker-qualification-policy.js');
   const { qualificationDigest } = await import('./qualification-digest.mjs');
   // Only fixed stage codes, bounded indexes and signed policy-drift summaries leave this boundary.
   // Underlying errors can contain probe output, environment values or paths.
