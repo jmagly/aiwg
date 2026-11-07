@@ -65,7 +65,7 @@ describe('Factory user settings writers', () => {
     const written = JSON.parse(fs.readFileSync(settingsPath(), 'utf8'));
     expect(written).toMatchObject(operatorSettings);
     expect(written.hooks).toBeUndefined();
-    expect(JSON.parse(fs.readFileSync(path.join(home, '.factory/hooks.json'), 'utf8')).hooks.SessionStart).toHaveLength(1);
+    expect(JSON.parse(fs.readFileSync(path.join(home, '.factory/hooks.json'), 'utf8')).SessionStart).toHaveLength(1);
     const backups = fs.readdirSync(path.dirname(settingsPath())).filter((name) => name.includes('.aiwg-backup-'));
     expect(backups).toHaveLength(1);
     expect(fs.readFileSync(path.join(path.dirname(settingsPath()), backups[0]), 'utf8')).toBe(original);
