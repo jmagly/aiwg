@@ -1122,7 +1122,7 @@
           ],
           "stdin": "brief-text",
           "cwd": "${workspace}",
-          "envAllowlist": ["FACTORY_API_KEY", "HOME", "PATH"],
+          "envAllowlist": ["FACTORY_API_KEY", "HOME", "OPENROUTER_API_KEY", "PATH"],
           "versionArgv": [
             "--version"
           ],
@@ -1210,16 +1210,19 @@
                 "evidence": "H: prior droid-cli 0.238.0 exec --help scopes --spec-model/--worker-model/--validator-model to --mission/--use-spec; unknown controls block tasks requiring them"
               }
             },
-            "envAllowlist": ["FACTORY_API_KEY", "HOME", "PATH"],
+            "envAllowlist": ["FACTORY_API_KEY", "HOME", "OPENROUTER_API_KEY", "PATH"],
             "pitfalls": [
               "Documentation/help and synthetic observations are not authenticated live qualification.",
-              "Titan 1.0.0 eval: --auto low, -m, -r, --cwd and -o stream-json are help-verified; stdin brief echoed in first stream-json message. Live result pending (blocked: 402 No active subscription); profile remains unqualified.",
+              "Titan 1.0.0 eval (2026-11-06, BYOK custom model via OpenRouter): the brief on stdin returns the exact smoke reply in read-only mode and with --auto low; -m selects the custom model and the stream-json system event reports it. Catalog evidence stays H; live qualification is recorded only by aiwg doctor --probe-workers --qualify.",
+              "-r/--reasoning-effort is accepted but ignored for BYOK custom models: the system event reports reasoning_effort none, so effort is not enforceable on them.",
+              "droid relabels custom model IDs by display name: custom:<name>-2 is reported back as custom:<name>-0. Match the model by name, not by the numeric suffix.",
+              "Under --auto low a command above the tier ends the run with exit 1 and the error Exec ended early: insufficient permission to proceed; nothing runs.",
               "Unknown model, effort, permission or required step mappings block dispatch.",
               "Native MCP/client, MSP/ACP, gateway and conversation capabilities do not establish worker authority.",
               "--skip-permissions-unsafe is Ralph-loop legacy and never part of the direct profile.",
               "The stream-json/json event vocabulary (assistant/user/tool_call/tool_result/hook/error/result) is doc-sourced (docs.factory.com), not help-verified; it never promotes qualification status beyond unqualified.",
               "There is no -o/output-file flag on exec: the final is read from the captured stdout stream, never a separate file.",
-              "FACTORY_API_KEY must be present for auth; HOME locates ~/.factory/settings.json for persistent settings."
+              "Auth is the Factory account (FACTORY_API_KEY or keyring) or a BYOK customModels entry in ~/.factory/settings.json whose apiKey is an env reference; the launch env must carry that variable (OPENROUTER_API_KEY is allowlisted; a BYOK key under another name blocks with Custom model apiKey references the environment variable ... which is not set). HOME locates ~/.factory/settings.json."
             ],
             "health": {
               "version": 1,
