@@ -7,6 +7,7 @@ import { managedClaudeHooks } from '../../extensions/claude-hooks-installer.js';
 import { AIWG_MANAGED_HOOKS } from '../../extensions/muse-managed-hooks.js';
 import { managedHookScriptState } from '../../extensions/managed-hook-script-state.js';
 import { managedFactoryHooks } from '../../smiths/hook-bridge/factory-translator.js';
+import { readFactoryDocument } from '../../smiths/hook-bridge/factory-hook-config.js';
 import { loadHookSources } from '../../smiths/hook-bridge/loader.js';
 import { parseJson } from '../../mcp/json-document.mjs';
 import { getProviderArtifactPathStrings } from '../../providers/provider-definitions.js';
@@ -53,7 +54,8 @@ async function staleHooks(projectRoot: string, frameworkRoot: string, provider: 
   if (!['claude', 'muse', 'factory'].includes(provider)) return [];
   const file = provider === 'claude' ? '.claude/settings.json' : `.${provider}/hooks.json`;
   let doc;
-  try { doc = await readJson(path.join(projectRoot, file)); }
+  // Factory hooks.json is a top-level event map (older AIWG wrote it nested); normalize both (#3971).
+  try { doc = provider === 'factory' ? readFactoryDocument(path.join(projectRoot, file)) as Record<string, unknown> : await readJson(path.join(projectRoot, file)); }
   catch { return [{ name: `${provider} managed hooks`, file, reason: 'unreadable' }]; }
 
   const stale: StaleManagedDeployment[] = [];
