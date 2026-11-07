@@ -160,7 +160,7 @@ Create a local issue titled "Local task" with the body "Quick reminder"
 4. **`CLAUDE.md` "Issueing Configuration" block** — fallback for projects pre-dating either.
 5. **`local`** — default if nothing is configured.
 
-**Resolving from a workspace member** (the preferred path):
+**Resolving from a workspace member** (the preferred path; see [mapped control workspaces](references/provider-writes.md#mapped-control-workspaces) for `repository-routing.yaml` / `workTracker` routing without local initialization):
 
 ```ts
 import { authorizeWorkspaceOperation } from 'aiwg/config/workspace';

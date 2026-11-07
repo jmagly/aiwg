@@ -9,10 +9,13 @@ export interface ExternalArgs { raw: string[]; positional: string[]; flags: Map<
 export async function externalIssues(args: ExternalArgs, cwd: string,
   composition: () => Promise<{ plan: Record<string, any>; composer: IssueCompositionModule }>): Promise<boolean> {
   const [operation, number] = args.positional;
-  if (!['create', 'new', 'comment', 'close'].includes(operation) || args.flags.get('provider') === 'local') return false;
+  if (!['create', 'new', 'comment', 'close', 'list', 'ls'].includes(operation) || args.flags.get('provider') === 'local') return false;
   const config = await readAiwgConfig(cwd);
   if (!config || config.remotes?.issue_provider === 'local' || config.remotes?.issue_tracker === 'local') return false;
   if (!config.remotes?.issue_tracker && !['gitea', 'github'].includes(String(config.remotes?.issue_provider))) return false;
+  if (operation === 'list' || operation === 'ls') {
+    throw new Error('Cannot query the configured external tracker with aiwg issues list. Use its tracker tools for duplicate searches. For local storage, run aiwg issues init, then aiwg issues list --provider local.');
+  }
   const value = (key: string) => typeof args.flags.get(key) === 'string' ? args.flags.get(key) as string : undefined;
   if (value('provider') && value('provider') !== config.remotes?.issue_provider) throw new Error('--provider must match the configured tracker');
   const client = await deliveryTracker(cwd, config, { repo: value('repo'), apiUrl: value('api-url'), source: sensitiveInputOptions(args.raw, 'token') });

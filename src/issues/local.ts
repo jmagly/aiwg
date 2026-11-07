@@ -119,6 +119,10 @@ export class LocalIssueProviderCore implements LocalIssueProvider {
     this.lockManager = new LocalIssueLockManager(this.root);
   }
 
+  async requireInitialized(): Promise<void> {
+    await this.readConfig();
+  }
+
   async init(options: { prefix?: string; padding?: number } = {}): Promise<LocalIssueConfig> {
     await this.ensureLayout();
     const existing = await this.readConfigIfExists();
@@ -271,6 +275,7 @@ export class LocalIssueProviderCore implements LocalIssueProvider {
   }
 
   async listIssues(options: ListLocalIssuesOptions = {}): Promise<ListLocalIssuesResult> {
+    await this.requireInitialized();
     const index = await this.readIndexOrRebuild();
     const offset = options.cursor ? Number.parseInt(options.cursor, 10) : 0;
     const limit = options.limit ?? 50;
@@ -464,7 +469,7 @@ export class LocalIssueProviderCore implements LocalIssueProvider {
 
   private async readConfig(): Promise<LocalIssueConfig> {
     const config = await this.readConfigIfExists();
-    if (!config) throw new LocalIssueProviderError('local issues are not initialized');
+    if (!config) throw new LocalIssueProviderError('Local issue system is not initialized. Run aiwg issues init --prefix <PROJECT> to initialize local storage; use the target tracker tools for external issues.');
     return config;
   }
 

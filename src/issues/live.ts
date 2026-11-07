@@ -2,7 +2,7 @@ import type { ExternalIssueProvider, LocalIssueCommentIdMapping } from './types.
 import type { ExternalIssueCommentSnapshot, ExternalIssueSnapshot, LocalIssueExportSnapshot } from './sync.js';
 import { resolveSensitiveInput, type SensitiveInputDependencies, type SensitiveInputOptions } from '../auth/sensitive-input.js';
 import type { TrackerActorConfig } from '../config/aiwg-config.js';
-import { checkTrackerActor } from './tracker-policy.js';
+import { checkTrackerActor, trackerAuthenticationHint } from './tracker-policy.js';
 import { isInteractive } from '../cli/env.js';
 
 export interface LiveIssueClientOptions {
@@ -132,6 +132,7 @@ export class LiveIssueClient {
     };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (this.options.token) headers.Authorization = `Bearer ${this.options.token}`;
+    let authenticationFailed = false;
     try {
       const response = await this.fetchFn(`${this.baseUrl}${path}`, {
         method,
@@ -141,6 +142,7 @@ export class LiveIssueClient {
       });
       if (!response.ok) {
         const text = await response.text().catch(() => '');
+        authenticationFailed = response.status === 401;
         throw new Error(`${this.options.provider} issue API ${method} ${path} failed: ${response.status}${text ? ` ${redactSecrets(text, this.options.token)}` : ''}`);
       }
       // Native HTTP responses may be empty (for example Gitea merge success).
@@ -153,7 +155,12 @@ export class LiveIssueClient {
       const encodedToken = JSON.stringify(this.options.token).slice(1, -1);
       return JSON.parse(JSON.stringify(result).split(encodedToken).join('[REDACTED]')) as T;
     } catch (error) {
-      throw new Error(redactSecrets(error instanceof Error ? error.message : 'Live issue request failed', this.options.token));
+      // Append trusted setup instructions after scrubbing server text: the
+      // generic redactor also treats the command words "secret set" as data.
+      const hint = authenticationFailed && this.options.actor?.login
+        ? ` ${trackerAuthenticationHint(this.options.provider, this.options.actor)}` : '';
+      const safeHint = this.options.token ? hint.split(this.options.token).join('[REDACTED]') : hint;
+      throw new Error(redactSecrets(error instanceof Error ? error.message : 'Live issue request failed', this.options.token) + safeHint);
     }
   }
 }

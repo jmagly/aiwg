@@ -15,6 +15,21 @@ function jsonResponse(value: unknown, status = 200): Response {
 }
 
 describe('live issue sync clients', () => {
+  it.each(['gitea', 'github'] as const)('names the configured actor and token setup on %s 401s', async provider => {
+    const token = 'fixture-rejected-token';
+    const fetchFn = vi.fn(async () => jsonResponse({ message: `Rejected ${token}` }, 401));
+    const client = new LiveIssueClient({ provider, repo: 'acme/project', token,
+      actor: { login: 'fixture-maintainer' }, fetchFn: fetchFn as typeof fetch });
+    const error = await client.repositoryRequest('POST', '/issues', { title: 'Test' }).catch(error => error);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toContain('fixture-maintainer');
+    expect(error.message).toContain('remotes.tracker_actor.credential');
+    expect(error.message).toContain('aiwg auth secret set');
+    expect(error.message).toContain('401');
+    expect(error.message).not.toContain(token);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
   it('imports a GitHub issue and comments as an external snapshot', async () => {
     const fetchFn = vi.fn(async (url: string) => {
       if (url.endsWith('/repos/acme/project/issues/42/comments')) {

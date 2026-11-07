@@ -56,6 +56,14 @@ aiwg issue close PROJECT-0001 --reason "Done"
 aiwg issue index rebuild
 ```
 
+Local lists and creates require initialization with `aiwg issues init` and fail
+with setup guidance when it is missing. A successful empty list prints
+`No matching issues found.`; `--json` returns `{"issues":[],"nextCursor":null}`.
+With a configured external tracker, use its tracker tools for queries or select
+local storage explicitly with `--provider local`. Query failures never count as
+a successful duplicate check. For mapped control workspaces, resolve the target
+member and use its tracker config and actor directly, without local initialization.
+
 Every new local issue is policy-planned before its first write. Safe drafts
 remain one issue. Drafts that cross an enforced policy boundary are split into
 independently assessed issues with stable provenance markers, dependency order,

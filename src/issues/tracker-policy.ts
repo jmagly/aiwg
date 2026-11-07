@@ -9,7 +9,16 @@ export async function trackerToken(provider: ExternalIssueProvider, actor?: Trac
   if (actor?.credential && Object.keys(source).some(key => key !== 'prefix')) {
     throw new Error('Configured tracker_actor.credential cannot be overridden by token flags');
   }
-  return resolveLiveIssueToken(provider, actor?.credential ?? source, dependencies);
+  try {
+    return await resolveLiveIssueToken(provider, actor?.credential ?? source, dependencies);
+  } catch (error) {
+    if (!actor?.login) throw error;
+    throw new Error(`Cannot load tracker token. ${trackerAuthenticationHint(provider, actor)}`);
+  }
+}
+
+export function trackerAuthenticationHint(provider: ExternalIssueProvider, actor: TrackerActorConfig): string {
+  return `Authentication required for configured tracker_actor.login ${JSON.stringify(actor.login)}. Set up a ${provider} token belonging to this actor with aiwg auth secret set <name> --value-stdin, then set remotes.tracker_actor.credential to {"store":"<name>"} (or {"env":"TOKEN_ENV"} with that variable supplied). If a credential reference is already configured, refresh that source.`;
 }
 
 export function checkTrackerActor(actor: TrackerActorConfig, login: unknown): void {

@@ -1,5 +1,32 @@
 # Provider-specific issue writes
 
+## Mapped control workspaces
+
+For a mapped `/srv/*-workspace`, resolve `config/repository-routing.yaml`
+`workTracker` to the target member in the access manifest. Authorize `read` for
+duplicate searches and `issue-comment` for issue writes, then load the member's
+`.aiwg/aiwg.config`. Use its `remotes.issue_tracker`, `remotes.issue_provider`,
+and `remotes.tracker_actor` (including `login`, `credential`, and `forbid_actors`).
+The control workspace config and a default forge login cannot replace them.
+
+Query and file directly on the member's tracker through its tracker tools;
+do not initialize local issues in the control workspace to enable filing.
+For native `aiwg issues create`, use the authorized member directory as cwd;
+the CLI does not consume `repository-routing.yaml`. Preserve the composition
+and HITL gates in the parent skill before every write.
+
+`aiwg issues list` supports local storage only. A configured external tracker
+requires its tracker tools for duplicate searches; `--provider local` explicitly
+selects initialized local storage. Treat a failed query as a blocker, never as
+"no matching issues". A local-only project must run `aiwg issues init --prefix
+<PROJECT>` before listing or creating local issues.
+
+On HTTP 401, use a token belonging to the member's `tracker_actor.login`.
+Save it using `aiwg auth secret set <name> --value-stdin`, then configure
+`remotes.tracker_actor.credential` as `{"store":"<name>"}` (or an env reference
+whose variable is supplied). Refresh the configured source when already set.
+Verify `/user` matches the configured actor; never fall back to another login.
+
 ### Step 6: Create Issue (Provider-Specific)
 
 #### Gitea
