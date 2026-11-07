@@ -58,12 +58,31 @@ already-installed hooks.
 | Claude Code | UserPromptSubmit additionalContext |
 | Muse | UserPromptSubmit additionalContext via project hook owner |
 | Codex 0.165 | UserPromptSubmit additionalContext via project `.codex/hooks.json` |
+| Factory | UserPromptSubmit plain stdout context via project `.factory/hooks.json`; requires folder trust and a git commit |
 | Hermes | Explicit gap: the bridge returns an exit code without forwarding prompt JSON or injecting additionalContext |
 
 The canonical source declares these gaps with `degrade-on`; bridge deployment
-reports a skip reason instead of installing an ineffective prompt hook. Copilot,
-Grok Build, and Factory are also excluded pending a verified delivery path for
+reports a skip reason instead of installing an ineffective prompt hook. Copilot
+and Grok Build are also excluded pending a verified delivery path for
 this hook. A native event mapping alone does not establish context delivery.
+
+## Factory project hooks (#3976)
+
+Trust this folder in droid; project hooks load only in a git repository with at
+least one commit. After deploying, open interactive droid from the project root
+and trust the folder. If the project has no git history, initialize the repository
+and create its first commit before expecting project hooks to load.
+
+Factory registers AIWG hooks in `.factory/hooks.json` as a top-level event map.
+`UserPromptSubmit` delivers plain stdout context through the shared discovery
+script; `SessionStart` checks for updates. `aiwg use --provider factory` prints
+the next step when either prerequisite is missing or unverified, and `aiwg doctor`
+reports the same advisory. AIWG reads `~/.factory/settings.json` without changing
+it: `trustedFolders` is an object keyed by absolute folder path, and the exact
+project key establishes trust. A bounded `git rev-parse --verify HEAD` in the
+project checks for an existing commit. AIWG never grants trust or creates commits.
+These prerequisites apply to interactive project hooks; they do not establish
+prompt-hook support for `droid exec`.
 
 ## Codex 0.165 schema verification (#3888)
 

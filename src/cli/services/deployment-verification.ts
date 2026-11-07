@@ -928,7 +928,7 @@ export async function verifyProviderDeployment(
 
     const diagnostics = await diagnoseWorkspaceContext(options.projectRoot);
     for (const diagnostic of diagnostics) {
-      if (diagnostic.code === 'codex-prompt-discovery-trust') continue; // Doctor advisory; use appends its short next step.
+      if (['codex-prompt-discovery-trust', 'factory-hook-trust'].includes(diagnostic.code)) continue; // Doctor advisory; use appends its short next step.
       if (diagnostic.severity === 'info') continue;
       findings.push(finding(
         normalized,

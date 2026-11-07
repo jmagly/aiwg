@@ -17,6 +17,7 @@ import {
 import { BOOTSTRAP_AUTHORITY_SIGNATURE, WORKSPACE_PRECEDENCE_SIGNATURE, WORKSPACE_PRECEDENCE_SUPERSEDED } from './workspace-document.js';
 import { configuredProviders } from './workspace-migration.js';
 import { diagnoseCodexHookTrust } from '../hook-bridge/codex-trust.js';
+import { diagnoseFactoryHookTrust } from '../hook-bridge/factory-trust.js';
 
 import { maskCodeRegions } from './code-regions.js';
 export { maskCodeRegions } from './code-regions.js';
@@ -48,6 +49,8 @@ export async function diagnoseWorkspaceContext(projectPath: string): Promise<Wor
   const diagnostics: WorkspaceContextDiagnostic[] = [];
   const codexTrust = await diagnoseCodexHookTrust(projectPath);
   if (codexTrust) diagnostics.push(codexTrust);
+  const factoryTrust = await diagnoseFactoryHookTrust(projectPath);
+  if (factoryTrust) diagnostics.push(factoryTrust);
   const root = path.resolve(projectPath);
   const scopes = new Map<string, Promise<string | null>>();
   // Ordinary subdirectories share root policy; repository/project markers start a separate scope.
