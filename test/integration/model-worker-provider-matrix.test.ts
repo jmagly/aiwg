@@ -62,7 +62,7 @@ describe('model worker provider matrix', () => {
     {
       provider: 'factory',
       path: (root: string, role: string) => join(root, `.factory/droids/aiwg-model-${role}-worker.md`),
-      models: ['heavy', 'medium', 'light'],
+      models: ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
     },
     {
       provider: 'opencode',

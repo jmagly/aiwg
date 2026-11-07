@@ -83,13 +83,13 @@ Models are defined in `models.json` files with the following priority:
 
   "factory": {
     "reasoning": {
-      "model": "heavy"
+      "model": "claude-opus-5"
     },
     "coding": {
-      "model": "medium"
+      "model": "claude-sonnet-5"
     },
     "efficiency": {
-      "model": "light"
+      "model": "claude-haiku-4-5-20251001"
     }
   },
 

@@ -23,19 +23,19 @@
 
   "factory": {
     "reasoning": {
-      "model": "heavy",
+      "model": "claude-opus-5",
       "reasoningEffort": "high",
-      "description": "Factory Heavy policy lets the provider select its current high-reasoning model"
+      "description": "Claude Opus 5 - Factory droid 1.0 reasoning model ID"
     },
     "coding": {
-      "model": "medium",
+      "model": "claude-sonnet-5",
       "reasoningEffort": "medium",
-      "description": "Factory Medium policy lets the provider select its current coding model"
+      "description": "Claude Sonnet 5 - Factory droid 1.0 coding model ID"
     },
     "efficiency": {
-      "model": "light",
+      "model": "claude-haiku-4-5-20251001",
       "reasoningEffort": "low",
-      "description": "Factory Light policy lets the provider select its current low-cost model"
+      "description": "Claude Haiku 4.5 - Factory droid 1.0 efficiency model ID"
     }
   },
 
