@@ -53,19 +53,20 @@ async function fixture(time = now) {
     return { exitCode: 0, timedOut: false, health };
   }) };
   const owner = { projectRoot: root, stateManager, sessionLauncher };
-  const cycle = async () => {
+  const cycle = async (timeoutMs = 5000) => {
     state.currentIteration++;
     const dir = join(root, `cycle-${state.currentIteration}`); await mkdir(dir);
     return launchRalphCycle(owner, state, { prompt: 'parent prompt', outputPaths: { stdout: join(dir, 'stdout'), stderr: join(dir, 'stderr') },
-      iterationDir: dir, timeoutMs: 5000 });
+      iterationDir: dir, timeoutMs });
   };
   return { ...f, store, state, owner, cycle, health };
 }
 
 describe('T-OG-08/13 standalone Ralph group cycles', () => {
   it('executes the existing fake CLI through managed validation and writes fresh-attempt receipts', async () => {
-    vi.useRealTimers();
-    const f = await fixture(new Date().toISOString());
+    // Keep wall and monotonic clocks frozen while real child I/O runs. Success
+    // settles on child completion; deadline behavior is driven separately below.
+    const f = await fixture();
     const settings = join(root, 'fake.json');
     await writeFile(settings, JSON.stringify({ scenario: 'success', recordPath: join(root, 'work', 'record.json') }));
     vi.stubEnv('AIWG_FAKE_WORKER_CONFIG', settings);
@@ -78,14 +79,43 @@ describe('T-OG-08/13 standalone Ralph group cycles', () => {
     f.owner.sessionLauncher.launchWorker.mockImplementation(options => launcher.launchWorker({ ...options,
       isolation: { mode: 'degraded', reason: 'synthetic fixture' }, allowDegraded: true,
       checkDispatch: () => ({ enabled: true, ok: true, failures: [] }) }));
-    const result = await f.cycle();
+    // Even a tiny logical budget must not turn host scheduling latency into a failure.
+    const result = await f.cycle(1);
     expect(result.exitCode).toBe(0);
+    expect(result.timedOut).toBe(false);
+    const record = JSON.parse(await readFile(join(root, 'work', 'record.json'), 'utf8'));
+    expect(record).toMatchObject({ scenario: 'success', cwd: f.paths.workdir });
     expect(Object.keys(f.store.read().records)).toHaveLength(1);
     const receipt = JSON.parse(await readFile(join(root, 'cycle-1/worker-run/invocation.json'), 'utf8'));
     expect(receipt.attempt).toMatchObject({ kind: 'fresh', reason: 'one-shot-profile' });
     const recheck = JSON.parse(await readFile(join(root, 'cycle-1/worker-plan.json.attempt.json'), 'utf8'));
     expect(recheck).toMatchObject({ kind: 'fresh', changes: [], status: 'prepared' });
     expect(loadWorkerInputs.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('stops a pending group cycle only when its logical deadline expires', async () => {
+    const f = await fixture();
+    const launch = f.owner.sessionLauncher.launchWorker.getMockImplementation()!;
+    let started!: () => void;
+    const ready = new Promise<void>(resolve => { started = resolve; });
+    const stop = vi.fn();
+    Object.assign(f.owner.sessionLauncher, { workerStop: stop });
+    f.owner.sessionLauncher.launchWorker.mockImplementation(async options => {
+      const result = await launch(options);
+      return new Promise<any>(resolve => {
+        stop.mockImplementation(() => resolve({ ...result, exitCode: null, timedOut: true,
+          health: { ...f.health, state: 'hung', reasonCode: 'HARD_DEADLINE' } }));
+        started();
+      });
+    });
+    const pending = f.cycle();
+    await ready;
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(stop).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await pending).toMatchObject({ exitCode: null, timedOut: true });
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('re-resolves cycles and nested retries within one original task allowance and deadline', async () => {
