@@ -2,6 +2,7 @@ import { ContextWriteJournal } from '../../smiths/context-pipeline/context-file-
 import type { ContextPipelineOptions, ContextPipelineResult } from '../../smiths/context-pipeline/types.js';
 import { trackTemporaryDirectory } from '../../utils/temporary-directory.js';
 import { codexHookTrustNextStep, readCodexHookTrust } from '../../smiths/hook-bridge/codex-trust.js';
+import { factoryHookTrustNextStep, readFactoryHookTrust } from '../../smiths/hook-bridge/factory-trust.js';
 /**
  * Use Command Handler
  *
@@ -2888,6 +2889,11 @@ export class UseHandler implements CommandHandler {
     if (codexTrustStep) result.findings.push({
       id: 'codex-prompt-discovery-trust', provider: 'codex', severity: 'info', message: codexTrustStep,
     });
+    const factoryTrustStep = !dryRun && result.exitCode === 0 && requestedScope === 'project' && providers.includes('factory')
+      ? factoryHookTrustNextStep(await readFactoryHookTrust(projectDir)) : '';
+    if (factoryTrustStep) result.findings.push({
+      id: 'factory-hook-trust', provider: 'factory', severity: 'info', message: factoryTrustStep,
+    });
     if (json) {
       return { exitCode: result.exitCode, message: JSON.stringify(result, null, 2), rawOutput: true };
     }
@@ -2912,7 +2918,7 @@ export class UseHandler implements CommandHandler {
     });
     return {
       exitCode: result.exitCode,
-      message: [coreResult.message, rendered, ...(previewActions ? [...previewActions].sort() : []), codexTrustStep].filter(Boolean).join('\n'),
+      message: [coreResult.message, rendered, ...(previewActions ? [...previewActions].sort() : []), codexTrustStep, factoryTrustStep].filter(Boolean).join('\n'),
     };
   }
 
