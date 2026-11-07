@@ -193,6 +193,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.11.2-announcement",
     "releases/v2026.11.1-announcement",
     "releases/v2026.11.0-announcement",
     "releases/v2026.10.19-announcement",
@@ -1652,6 +1653,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.11.2-announcement",
+      "title": "v2026.11.2 — Hand Off Your Session and Find the Right Template",
+      "summary": "Session handoff documents, discoverable output templates, better skill suggestions, and prompt discovery fixes for Codex and Factory/droid.",
+      "file": "releases/v2026.11.2-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.11.1-announcement",
