@@ -15,12 +15,15 @@ let cliCompileCache: string | undefined;
 beforeAll(() => assertFreshCliBuild(ROOT));
 afterEach(() => { for (const dir of temporary.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 afterAll(() => { for (const dir of retained.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
-function setup(frameworkRoot = ROOT) {
+function setup(frameworkRoot = ROOT, freshHome = false) {
   if (!cliCompileCache) { cliCompileCache = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-bundle-bytecode-')); retained.push(cliCompileCache); }
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-bundle-cli-')); temporary.push(scratch);
   const project = path.join(scratch, 'project'), home = path.join(scratch, 'home');
-  fs.mkdirSync(project, { recursive: true }); fs.mkdirSync(path.join(home, '.aiwg'), { recursive: true });
-  fs.writeFileSync(path.join(home, '.aiwg/channel.json'), JSON.stringify({ channel: 'edge', edgePath: frameworkRoot, devMode: true, checkOnStartup: false }));
+  fs.mkdirSync(project, { recursive: true }); fs.mkdirSync(home, { recursive: true });
+  if (!freshHome) {
+    fs.mkdirSync(path.join(home, '.aiwg'), { recursive: true });
+    fs.writeFileSync(path.join(home, '.aiwg/channel.json'), JSON.stringify({ channel: 'edge', edgePath: frameworkRoot, devMode: true, checkOnStartup: false }));
+  }
   const env = { ...process.env, HOME: home, USERPROFILE: home, AIWG_CONFIG: path.join(home, '.aiwg'),
     XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share'),
     XDG_CACHE_HOME: path.join(home, '.cache'), XDG_STATE_HOME: path.join(home, '.state'),
@@ -55,6 +58,35 @@ function setup(frameworkRoot = ROOT) {
   };
   return { scratch, home, project, command, plans, readConfig, writeConfig, snapshot };
 }
+it('retains composed ownership after use all in a fresh HOME (#3924)', () => {
+  const { project, home, command, snapshot, readConfig } = setup(ROOT, true);
+  expect(fs.readdirSync(home)).toEqual([]);
+  const initialized = spawnSync('git', ['init', '-q'], { cwd: project,
+    env: { ...process.env, HOME: home, XDG_CONFIG_HOME: path.join(home, '.config') }, timeout: 10_000 });
+  expect(initialized.status).toBe(0);
+  command('use', 'all', '--provider', 'claude', '--quiet');
+  expect(readConfig().installed.all.deployedTo.claude).toMatchObject({ kernelOnly: true, skipUtils: false });
+  const before = snapshot();
+  const hooks = Object.fromEntries(Object.entries(before).filter(([file]) =>
+    file.startsWith('.claude/hooks/') || file === '.claude/settings.json'));
+  expect(Object.keys(hooks)).toContain('.claude/hooks/aiwg-prompt-discovery.cjs');
+  const receipts = Object.keys(before).filter(file => file.startsWith('.aiwg/frameworks/') && file.endsWith('.aiwg-manifest.json'));
+  expect(receipts).toContain('.aiwg/frameworks/.aiwg-manifest.json');
+  for (const args of [['--dry-run'], []]) {
+    const output = command('refresh', ...args, '--skip-update', '--provider', 'claude');
+    expect(output).not.toMatch(/Would remove|Would release|Removing \S+ for|Stale deployment:/);
+    expect(output).toContain('All deployments up to date');
+    const after = snapshot();
+    if (args.length) expect(after).toEqual(before);
+    expect(Object.fromEntries(Object.entries(after).filter(([file]) => file in hooks))).toEqual(hooks);
+    for (const file of receipts) {
+      const managed = JSON.parse(fs.readFileSync(path.join(project, file), 'utf8')).managed;
+      const previous = JSON.parse(Buffer.from(before[file], 'base64').toString()).managed;
+      expect(Object.keys(managed)).toEqual(Object.keys(previous));
+      for (const key of Object.keys(previous)) expect(managed[key].owners).toEqual(previous[key].owners);
+    }
+  }
+}, 600_000);
 function focusedSource() {
   if (!sourceFixture) { sourceFixture = bundleReconciliationSource(ROOT); retained.push(sourceFixture); }
   return sourceFixture;
