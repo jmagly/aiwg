@@ -34,6 +34,33 @@ export function median(values: number[]): number {
     : sorted[middle]!;
 }
 
+/** Compare adjacent measurements without depending on absolute host speed. */
+export function medianPairedRatio(numerators: number[], denominators: number[]): number {
+  if (numerators.length === 0 || numerators.length !== denominators.length) {
+    throw new Error('paired ratios require nonempty, equally sized samples');
+  }
+  return median(numerators.map((value, index) => value / denominators[index]!));
+}
+
+/** Amortize short-sample noise using this worker's CPU, excluding scheduler waits. */
+export function measureThreadCpuBatch<T>(
+  run: () => T,
+  minimumCpuMs = 250,
+  readCpu = () => process.threadCpuUsage(),
+): { value: T; cpuMs: number; operations: number } {
+  const started = readCpu();
+  let value: T;
+  let cpuMs = 0;
+  let operations = 0;
+  do {
+    value = run();
+    operations++;
+    const elapsed = readCpu();
+    cpuMs = (elapsed.user - started.user + elapsed.system - started.system) / 1000;
+  } while (cpuMs < minimumCpuMs);
+  return { value, cpuMs, operations };
+}
+
 export function summarizePairedTimings(samples: PairedTimingSample[]): PairedTimingSummary {
   if (samples.length === 0) throw new Error('paired timing summary requires at least one sample');
   const baselines = samples.map(sample => (sample.baselineBeforeMs + sample.baselineAfterMs) / 2);
