@@ -1,5 +1,7 @@
 # Sales Proposal
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `SLS-{PROJECT}-{NNNN}`
 **Proposal Number**: {PROP-NNNN}
 **Version**: 1.0
@@ -120,14 +122,14 @@ You've indicated success would look like:
 
 ## Implementation Approach
 
-### Project Timeline
+### Project Gates
 
-| Phase | Duration | Activities | Milestone |
+| Phase | Scope Units / Passes | Activities | Completion Gate |
 |-------|----------|------------|-----------|
-| Phase 1: {Name} | {Weeks} | {Activities} | {Deliverable} |
-| Phase 2: {Name} | {Weeks} | {Activities} | {Deliverable} |
-| Phase 3: {Name} | {Weeks} | {Activities} | {Deliverable} |
-| Phase 4: {Name} | {Weeks} | {Activities} | {Deliverable} |
+| Phase 1: {Name} | {Named deliverables, owner, review passes} | {Activities} | {Deliverable} |
+| Phase 2: {Name} | {Named deliverables, owner, review passes} | {Activities} | {Deliverable} |
+| Phase 3: {Name} | {Named deliverables, owner, review passes} | {Activities} | {Deliverable} |
+| Phase 4: {Name} | {Named deliverables, owner, review passes} | {Activities} | {Deliverable} |
 
 ### Your Team's Involvement
 
@@ -141,10 +143,10 @@ You've indicated success would look like:
 
 {Description of training included}
 
-| Session | Format | Duration | Participants |
+| Session | Format | Scope and Acceptance Gate | Participants |
 |---------|--------|----------|--------------|
-| {Training 1} | {Live/On-demand} | {Hours} | {Who} |
-| {Training 2} | {Live/On-demand} | {Hours} | {Who} |
+| {Training 1} | {Live/On-demand} | {Training topics and demonstrated proficiency check} | {Who} |
+| {Training 2} | {Live/On-demand} | {Training topics and demonstrated proficiency check} | {Who} |
 
 ---
 
@@ -283,14 +285,14 @@ This proposal is subject to {Your Company}'s standard [Terms of Service]({URL}).
 4. **Sign** the agreement
 5. **Begin** implementation
 
-### Timeline to Value
+### Gates to Value
 
-| Step | Timeline |
+| Step | Completion Gate |
 |------|----------|
-| Proposal approval | {Date} |
-| Contract execution | {Date} |
-| Kickoff meeting | {Date} |
-| Go-live | {Date} |
+| Proposal approval | [Acceptance checks for Proposal approval pass] |
+| Contract execution | [Acceptance checks for Contract execution pass] |
+| Kickoff meeting | [Acceptance checks for Kickoff meeting pass] |
+| Go-live | [Acceptance checks for Go-live pass] |
 
 ### Your Account Team
 

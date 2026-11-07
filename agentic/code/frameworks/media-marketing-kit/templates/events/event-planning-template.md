@@ -1,5 +1,7 @@
 # Event Planning Brief
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `EVT-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Approved | Planning | Active | Complete
@@ -138,27 +140,27 @@
 
 ### Speaker Deliverables
 
-| Deliverable | Due Date | Status |
+| Deliverable | Completion Gate | Status |
 |-------------|----------|--------|
-| Bio & headshot | {Date} | {Status} |
-| Session abstract | {Date} | {Status} |
-| Presentation slides | {Date} | {Status} |
-| A/V requirements | {Date} | {Status} |
+| Bio & headshot | [Acceptance checks for Bio & headshot pass] | {Status} |
+| Session abstract | [Acceptance checks for Session abstract pass] | {Status} |
+| Presentation slides | [Acceptance checks for Presentation slides pass] | {Status} |
+| A/V requirements | [Acceptance checks for A/V requirements pass] | {Status} |
 
 ---
 
 ## Marketing & Promotion
 
-### Promotional Timeline
+### Promotional Gates
 
-| Activity | Date | Owner | Status |
+| Activity | Completion Gate | Owner | Status |
 |----------|------|-------|--------|
-| Save the date | {Date} | {Name} | {Status} |
-| Registration open | {Date} | {Name} | {Status} |
-| Email campaign 1 | {Date} | {Name} | {Status} |
-| Social campaign launch | {Date} | {Name} | {Status} |
-| Email campaign 2 | {Date} | {Name} | {Status} |
-| Final push | {Date} | {Name} | {Status} |
+| Save the date | [Acceptance checks for Save the date pass] | {Name} | {Status} |
+| Registration open | [Acceptance checks for Registration open pass] | {Name} | {Status} |
+| Email campaign 1 | [Acceptance checks for Email campaign 1 pass] | {Name} | {Status} |
+| Social campaign launch | [Acceptance checks for Social campaign launch pass] | {Name} | {Status} |
+| Email campaign 2 | [Acceptance checks for Email campaign 2 pass] | {Name} | {Status} |
+| Final push | [Acceptance checks for Final push pass] | {Name} | {Status} |
 
 ### Promotional Channels
 
@@ -172,12 +174,12 @@
 
 ### Promotional Assets
 
-| Asset | Owner | Due Date | Status |
+| Asset | Owner | Completion Gate | Status |
 |-------|-------|----------|--------|
-| Event landing page | {Name} | {Date} | {Status} |
-| Email templates | {Name} | {Date} | {Status} |
-| Social graphics | {Name} | {Date} | {Status} |
-| Registration form | {Name} | {Date} | {Status} |
+| Event landing page | {Name} | [Acceptance checks for Event landing page pass] | {Status} |
+| Email templates | {Name} | [Acceptance checks for Email templates pass] | {Status} |
+| Social graphics | {Name} | [Acceptance checks for Social graphics pass] | {Status} |
+| Registration form | {Name} | [Acceptance checks for Registration form pass] | {Status} |
 
 ---
 
@@ -254,9 +256,9 @@
 
 ### Volunteer/Temp Staff
 
-| Role | Quantity | Hours | Source |
+| Role | Quantity | Operator-Committed Coverage | Source |
 |------|----------|-------|--------|
-| {Role} | {#} | {Hours} | {Agency/internal} |
+| {Role} | {#} | {Supplied event shifts and commitment source} | {Agency/internal} |
 
 ---
 
@@ -288,15 +290,15 @@
 
 ## Post-Event
 
-### Follow-Up Timeline
+### Follow-Up Gates
 
-| Activity | Timeline | Owner |
+| Activity | Completion Gate | Owner |
 |----------|----------|-------|
-| Thank you email | +1 day | {Name} |
-| Survey distribution | +2 days | {Name} |
-| Recording availability | +3-5 days | {Name} |
-| Sales follow-up | +5 days | {Name} |
-| Final report | +14 days | {Name} |
+| Thank you email | Attendee list and consent verified | {Name} |
+| Survey distribution | Survey reviewed and attendee segments verified | {Name} |
+| Recording availability | Recording edited, captioned, and approved | {Name} |
+| Sales follow-up | Leads qualified and assigned | {Name} |
+| Final report | Attendance, engagement, and budget reconciled | {Name} |
 
 ### Success Metrics
 

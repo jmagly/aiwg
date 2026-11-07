@@ -1,5 +1,7 @@
 # Trade Show Playbook
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `EVT-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Approved | Active
@@ -57,16 +59,16 @@
 
 ## Pre-Show Marketing
 
-### Promotion Timeline
+### Promotion Gates
 
-| Week | Activity | Owner |
+| Prerequisite Gate | Activity | Owner |
 |------|----------|-------|
-| T-8 | Save the date email | {Name} |
-| T-6 | Meeting scheduler open | {Name} |
-| T-4 | Social campaign launch | {Name} |
-| T-3 | Email 2: Booth preview | {Name} |
-| T-2 | Media outreach | {Name} |
-| T-1 | Final reminder | {Name} |
+| Event details confirmed | Save the date email | {Name} |
+| Meeting slots confirmed | Meeting scheduler open | {Name} |
+| Campaign assets approved | Social campaign launch | {Name} |
+| Booth layout and messaging approved | Email 2: Booth preview | {Name} |
+| Press materials approved | Media outreach | {Name} |
+| Attendee segments and event details verified | Final reminder | {Name} |
 
 ### Meeting Pre-Scheduling
 

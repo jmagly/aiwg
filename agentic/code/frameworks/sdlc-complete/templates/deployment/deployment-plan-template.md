@@ -33,10 +33,10 @@ Describe how the solution will be deployed, verified, and supported in target en
    - Load balancer readiness probe grace (connection draining window).
    - Per-process-type restart concurrency (`maxUnavailable`, `maxSurge` for k8s).
    - Verification that startup time measurement passes the < 10s NFR from the SAD.
-6. **Deployment Schedule**
-   - Timeline with milestones, freeze periods, and communication checkpoints.
+6. **Deployment Gates**
+   - Ordered rollout gates, responsible roles, and observable communication checkpoints. Record operator-supplied freeze windows separately with their source; do not generate work-duration estimates.
 7. **Deployment Steps**
-   - Detailed step-by-step procedure with responsible parties and expected duration.
+   - Detailed step-by-step procedure with responsible parties, prerequisites, scope units, and completion checks. Record measured service timings as observations, separate from planning.
 8. **Admin Tasks for This Release (12-Factor XII — Admin Processes)**
    - List every admin task required for this release (migrations, backfills, key rotations). Reference `templates/deployment/admin-processes-template.md`.
    - For each task: ADM-ID, category, ordering (pre-deploy / during / post-deploy), approval status, rollback procedure.

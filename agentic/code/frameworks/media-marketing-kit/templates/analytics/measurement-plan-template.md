@@ -1,5 +1,7 @@
 # Measurement Plan Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - ID: RPT-###
@@ -21,7 +23,7 @@
 
 - KPIs: N/A (this defines KPIs for other initiatives)
 - Budget: $[analytics tooling costs]
-- Timeline: start YYYY-MM-DD / end YYYY-MM-DD / milestones [implementation phases]
+- Scope Units: event inventory, instrumentation, validation; analyst and implementer; gates: validated event fixtures and reconciled metrics
 - Brand Compliance: N/A (internal planning document)
 - Legal Review: required (privacy compliance validation)
 - Performance: N/A (planning artifact)
@@ -59,11 +61,11 @@
 
 ### 2.1 Business Goals
 
-| Business Goal | Description | Owner | Timeline |
+| Business Goal | Description | Owner | Completion Gate |
 |---------------|-------------|-------|----------|
 | [e.g., "Increase MQLs by 25%"] | [Detailed description of what this means] | [Demand Gen Lead] | [Q1 2025] |
 | [e.g., "Improve CAC efficiency"] | [Description] | [Marketing Ops] | [Ongoing] |
-| [Goal 3] | [Description] | [Owner] | [Timeline] |
+| [Goal 3] | [Description] | [Owner] | [Evidence demonstrating the goal is met] |
 
 ### 2.2 Measurement Objectives
 
@@ -561,17 +563,17 @@ Incrementality testing validates whether marketing channels truly drive incremen
 
 ### 10.2 Optimization Priorities
 
-**High Priority** (implement immediately):
+**High Priority** (entry: broken tracking reproduced):
 
 - [e.g., "Fix broken conversion tracking on mobile web"]
 - [e.g., "Implement server-side tracking for cookieless users"]
 
-**Medium Priority** (implement within 3 months):
+**Medium Priority** (entry: foundation tracking checks pass):
 
 - [e.g., "Add incrementality testing for top 3 paid channels"]
 - [e.g., "Integrate offline conversion data from call tracking"]
 
-**Low Priority** (implement within 6-12 months):
+**Low Priority** (entry: integration and data quality checks pass):
 
 - [e.g., "Explore data clean rooms for cross-platform attribution"]
 - [e.g., "Build predictive LTV model for lead scoring"]
@@ -612,7 +614,7 @@ Incrementality testing validates whether marketing channels truly drive incremen
 
 ### 11.2 Implementation Checklist
 
-**Phase 1: Foundation** (Weeks 1-4)
+**Phase 1: Foundation** (gate: event inventory and tracking fixtures verified)
 
 - [ ] Define business goals and measurement objectives
 - [ ] Identify KPIs and define calculations
@@ -622,7 +624,7 @@ Incrementality testing validates whether marketing channels truly drive incremen
 - [ ] Configure GA4 with privacy controls
 - [ ] Set up server-side tracking (if applicable)
 
-**Phase 2: Integration** (Weeks 5-8)
+**Phase 2: Integration** (gate: source integrations reconciled)
 
 - [ ] Connect CRM to analytics platforms
 - [ ] Set up conversion tracking for key events
@@ -631,7 +633,7 @@ Incrementality testing validates whether marketing channels truly drive incremen
 - [ ] Configure attribution model
 - [ ] Set up data quality monitoring
 
-**Phase 3: Reporting** (Weeks 9-12)
+**Phase 3: Reporting** (gate: dashboards and stakeholder acceptance checks pass)
 
 - [ ] Build executive dashboard
 - [ ] Build campaign manager dashboard

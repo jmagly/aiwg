@@ -1,5 +1,7 @@
 # Legal Review Checklist Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ---
 
 **Document ID**: GOV-003
@@ -86,17 +88,17 @@ This checklist ensures marketing content complies with applicable laws, regulati
 
 ---
 
-### 1.2 Urgency and Timeline
+### 1.2 Review Scope and Operator Commitments
 
 **Publication Deadline**: [YYYY-MM-DD]
 **Legal Review Requested By**: [YYYY-MM-DD]
-**Turnaround Time Available**: [X business days]
+**Review Scope**: [Claims, assets, jurisdictions, reviewer roles, and acceptance checks]
 
 **Urgency Level**:
-- [ ] **Critical** (<24 hours) - Crisis response, time-sensitive regulatory
-- [ ] **High** (1-2 days) - Press release, major campaign launch
-- [ ] **Standard** (3-5 days) - Normal marketing content
-- [ ] **Low** (1-2 weeks) - Strategic documents, long-term planning
+- [ ] **Critical** (regulatory or crisis gate blocked) - Crisis response, time-sensitive regulatory
+- [ ] **High** (launch gate blocked) - Press release, major campaign launch
+- [ ] **Standard** (normal content review) - Normal marketing content
+- [ ] **Low** (strategic document review) - Strategic documents, long-term planning
 
 **Fast-Track Approval Requested**: [ ] Yes | [ ] No
 **Reason**: [If yes, explain business justification]

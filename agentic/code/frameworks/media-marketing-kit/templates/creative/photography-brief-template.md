@@ -1,5 +1,7 @@
 # Photography Brief
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `CRE-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Approved | Scheduled | Complete
@@ -218,7 +220,7 @@ Example: `acme_product2024_001_v1.jpg`
 | Requirement | Details |
 |-------------|---------|
 | Arrival time | {Time} |
-| Duration | {Hours needed} |
+| Coverage | {Required shots and operator-supplied booking window/source} |
 | Wardrobe changes | {Number} |
 | Special instructions | {Notes} |
 
@@ -279,12 +281,12 @@ Example: `acme_product2024_001_v1.jpg`
 
 ### Selection Process
 
-| Stage | Who Selects | Timeline |
+| Stage | Who Selects | Completion Gate |
 |-------|-------------|----------|
-| Initial selects | Photographer | +{X} days |
-| Narrow selects | {Team} | +{X} days |
-| Final selects | {Approver} | +{X} days |
-| Retouching | Photographer | +{X} days |
+| Initial selects | Photographer | Selection accepted before next pass |
+| Narrow selects | {Team} | Selection accepted before next pass |
+| Final selects | {Approver} | Selection accepted before next pass |
+| Retouching | Photographer | Selection accepted before next pass |
 
 ---
 
@@ -292,16 +294,16 @@ Example: `acme_product2024_001_v1.jpg`
 
 ### Review Stages
 
-| Stage | Reviewers | Turnaround |
+| Stage | Reviewers | Completion Gate |
 |-------|-----------|------------|
-| Shot review (on set) | {Who} | Same day |
-| Initial selects | {Who} | {Days} |
-| Final selects | {Who} | {Days} |
-| Retouched finals | {Who} | {Days} |
+| Shot review (on set) | {Who} | Required shot coverage approved before leaving set |
+| Initial selects | {Who} | Contact sheet reviewed against shot list |
+| Final selects | {Who} | Selected images approved for retouching |
+| Retouched finals | {Who} | Retouching and export specifications verified |
 
 ### Feedback Guidelines
 
-- Review within {X} business days
+- Resolve reviewer findings before final selection approval
 - Consolidated feedback from team
 - Specific, actionable notes
 - Reference shot numbers

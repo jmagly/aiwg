@@ -1,5 +1,7 @@
 # Campaign Performance Report Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - ID: RPT-###
@@ -21,7 +23,7 @@
 
 - KPIs: [Report covers actual performance vs targets for all campaign KPIs]
 - Budget: Allocated: $[amount] | Spent: $[amount] | Utilization: [%]
-- Timeline: start YYYY-MM-DD / end YYYY-MM-DD / milestones [campaign phases]
+- Observed Campaign Window: start YYYY-MM-DD / end YYYY-MM-DD / milestones [campaign phases]
 - Brand Compliance: N/A (internal report)
 - Legal Review: N/A (internal report)
 - Performance: [Summary of key results - e.g., "MQLs: 487 (97% of target), ROAS: 3.2x (160% of target)"]

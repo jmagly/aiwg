@@ -1,5 +1,7 @@
 # ROI Calculator Specification
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `SLS-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Development | Live

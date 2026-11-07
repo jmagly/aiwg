@@ -1,5 +1,7 @@
 # Project Scope Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Document Control
 
 | Field | Value |
@@ -29,9 +31,10 @@ governance:
   last_updated: "[YYYY-MM-DD]"
 
 timeline:
+  source: "[Operator-supplied commitment reference, or unset]"
   project_start: "[YYYY-MM-DD]"
   project_end: "[YYYY-MM-DD]"
-  duration_weeks: "[Number]"
+  scope_units: "[Named deliverables, roles, passes, and acceptance checks]"
   phase: "[Planning | Execution | Review | Complete]"
 
 budget:
@@ -61,7 +64,7 @@ budget:
 - [ ] Customer Engagement Program
 - [ ] Other: [Specify]
 
-**Project Duration**: [Start date] to [End date] ([X] weeks/months)
+**Project Scope**: [Named deliverables, owners, prerequisites, review passes, and completion gates]
 
 ### 1.2 Project Purpose
 
@@ -182,61 +185,61 @@ initiative, customer feedback, product roadmap, seasonal opportunity, etc.]
 
 ---
 
-## 3. Timeline and Milestones
+## 3. Scope and Gates
 
 ### 3.1 Project Phases
 
-**Phase 1: [Phase Name]** [Start Date] - [End Date] ([X] weeks)
+**Phase 1: [Phase Name]** [Entry gate] → [Completion check]; [Scope units / owner / review passes]
 
 **Objectives**: [What this phase accomplishes]
 
 **Key Milestones**:
 
-- [ ] [Milestone 1] - [Due: YYYY-MM-DD]
-- [ ] [Milestone 2] - [Due: YYYY-MM-DD]
-- [ ] [Milestone 3] - [Due: YYYY-MM-DD]
+- [ ] [Milestone 1] - [Deliverable acceptance check and owner]
+- [ ] [Milestone 2] - [Deliverable acceptance check and owner]
+- [ ] [Milestone 3] - [Deliverable acceptance check and owner]
 
 **Phase Completion Criteria**: [What must be done to exit this phase]
 
 ---
 
-**Phase 2: [Phase Name]** [Start Date] - [End Date] ([X] weeks)
+**Phase 2: [Phase Name]** [Entry gate] → [Completion check]; [Scope units / owner / review passes]
 
 **Objectives**: [What this phase accomplishes]
 
 **Key Milestones**:
 
-- [ ] [Milestone 1] - [Due: YYYY-MM-DD]
-- [ ] [Milestone 2] - [Due: YYYY-MM-DD]
-- [ ] [Milestone 3] - [Due: YYYY-MM-DD]
+- [ ] [Milestone 1] - [Deliverable acceptance check and owner]
+- [ ] [Milestone 2] - [Deliverable acceptance check and owner]
+- [ ] [Milestone 3] - [Deliverable acceptance check and owner]
 
 **Phase Completion Criteria**: [What must be done to exit this phase]
 
 ---
 
-**Phase 3: [Phase Name]** [Start Date] - [End Date] ([X] weeks)
+**Phase 3: [Phase Name]** [Entry gate] → [Completion check]; [Scope units / owner / review passes]
 
 **Objectives**: [What this phase accomplishes]
 
 **Key Milestones**:
 
-- [ ] [Milestone 1] - [Due: YYYY-MM-DD]
-- [ ] [Milestone 2] - [Due: YYYY-MM-DD]
-- [ ] [Milestone 3] - [Due: YYYY-MM-DD]
+- [ ] [Milestone 1] - [Deliverable acceptance check and owner]
+- [ ] [Milestone 2] - [Deliverable acceptance check and owner]
+- [ ] [Milestone 3] - [Deliverable acceptance check and owner]
 
 **Phase Completion Criteria**: [What must be done to exit this phase]
 
 ---
 
-**Phase 4: [Phase Name]** [Start Date] - [End Date] ([X] weeks)
+**Phase 4: [Phase Name]** [Entry gate] → [Completion check]; [Scope units / owner / review passes]
 
 **Objectives**: [What this phase accomplishes]
 
 **Key Milestones**:
 
-- [ ] [Milestone 1] - [Due: YYYY-MM-DD]
-- [ ] [Milestone 2] - [Due: YYYY-MM-DD]
-- [ ] [Milestone 3] - [Due: YYYY-MM-DD]
+- [ ] [Milestone 1] - [Deliverable acceptance check and owner]
+- [ ] [Milestone 2] - [Deliverable acceptance check and owner]
+- [ ] [Milestone 3] - [Deliverable acceptance check and owner]
 
 **Phase Completion Criteria**: [What must be done to exit this phase]
 
@@ -246,12 +249,12 @@ initiative, customer feedback, product roadmap, seasonal opportunity, etc.]
 
 **Critical Milestones**: [Milestones that cannot slip without impacting project]
 
-| Milestone | Date | Dependencies | Impact if Delayed |
+| Milestone | Completion Gate | Dependencies | Impact if Delayed |
 |-----------|------|--------------|-------------------|
-| [Milestone 1] | [YYYY-MM-DD] | [What must happen first] | [Consequence of delay] |
-| [Milestone 2] | [YYYY-MM-DD] | [What must happen first] | [Consequence of delay] |
-| [Milestone 3] | [YYYY-MM-DD] | [What must happen first] | [Consequence of delay] |
-| [Milestone 4] | [YYYY-MM-DD] | [What must happen first] | [Consequence of delay] |
+| [Milestone 1] | [Verification command or sign-off for milestone 1] | [What must happen first] | [Consequence of delay] |
+| [Milestone 2] | [Verification command or sign-off for milestone 2] | [What must happen first] | [Consequence of delay] |
+| [Milestone 3] | [Verification command or sign-off for milestone 3] | [What must happen first] | [Consequence of delay] |
+| [Milestone 4] | [Verification command or sign-off for milestone 4] | [What must happen first] | [Consequence of delay] |
 
 **Critical Path Risks**: [Risks to the critical path]
 
@@ -270,11 +273,10 @@ initiative, customer feedback, product roadmap, seasonal opportunity, etc.]
 - **[Milestone/Date]**: [Flexibility window - e.g., ±1 week]
 - **[Milestone/Date]**: [Flexibility window]
 
-**Schedule Buffer**: [Where buffer exists in schedule]
+**Correction Passes**: [Review passes reserved for failed acceptance checks]
 
 ```text
-[Describe where schedule contingency is built in and how much
-slack exists for unexpected delays]
+[Name gates that may require correction passes and the owner of each pass]
 ```
 
 ---
@@ -287,26 +289,26 @@ slack exists for unexpected delays]
 
 | Role | Name | Allocation | Responsibility |
 |------|------|------------|----------------|
-| Project Manager | [Name] | [% or hours/week] | [Overall coordination, timeline, budget] |
-| Project Sponsor | [Name] | [% or hours/week] | [Stakeholder management, approvals, escalation] |
+| Project Manager | [Name] | [Owned scope units and review passes] | [Overall coordination, timeline, budget] |
+| Project Sponsor | [Name] | [Owned scope units and review passes] | [Stakeholder management, approvals, escalation] |
 
 **Core Team**:
 
 | Role | Name | Allocation | Responsibility |
 |------|------|------------|----------------|
-| [Role] | [Name] | [% or hours/week] | [Key responsibilities] |
-| [Role] | [Name] | [% or hours/week] | [Key responsibilities] |
-| [Role] | [Name] | [% or hours/week] | [Key responsibilities] |
-| [Role] | [Name] | [% or hours/week] | [Key responsibilities] |
-| [Role] | [Name] | [% or hours/week] | [Key responsibilities] |
+| [Role] | [Name] | [Owned scope units and review passes] | [Key responsibilities] |
+| [Role] | [Name] | [Owned scope units and review passes] | [Key responsibilities] |
+| [Role] | [Name] | [Owned scope units and review passes] | [Key responsibilities] |
+| [Role] | [Name] | [Owned scope units and review passes] | [Key responsibilities] |
+| [Role] | [Name] | [Owned scope units and review passes] | [Key responsibilities] |
 
 **Extended Team**:
 
 | Role | Name | Allocation | Responsibility |
 |------|------|------------|----------------|
-| [Role] | [Name] | [% or hours/week] | [Key responsibilities] |
-| [Role] | [Name] | [% or hours/week] | [Key responsibilities] |
-| [Role] | [Name] | [% or hours/week] | [Key responsibilities] |
+| [Role] | [Name] | [Owned scope units and review passes] | [Key responsibilities] |
+| [Role] | [Name] | [Owned scope units and review passes] | [Key responsibilities] |
+| [Role] | [Name] | [Owned scope units and review passes] | [Key responsibilities] |
 
 **Subject Matter Experts**:
 
@@ -333,10 +335,10 @@ slack exists for unexpected delays]
 
 **Freelancers/Contractors**:
 
-| Resource | Skill | Duration | Rate | Availability |
+| Resource | Skill | Scope Units | Rate | Availability |
 |----------|-------|----------|------|--------------|
-| [Name/TBD] | [Copywriter, Designer, etc.] | [Hours/weeks] | $[Rate] | [Confirmed/TBD] |
-| [Name/TBD] | [Copywriter, Designer, etc.] | [Hours/weeks] | $[Rate] | [Confirmed/TBD] |
+| [Name/TBD] | [Copywriter, Designer, etc.] | [Deliverables and review passes] | $[Rate] | [Confirmed/TBD] |
+| [Name/TBD] | [Copywriter, Designer, etc.] | [Deliverables and review passes] | $[Rate] | [Confirmed/TBD] |
 
 ### 4.3 Technology and Tools
 
@@ -719,7 +721,7 @@ localization requirements]
 
 **Issue Escalation Criteria**:
 
-- **Critical**: [Definition - e.g., project-blocking, timeline impact >1 week]
+- **Critical**: [Definition - e.g., project-blocking, required acceptance gate blocked]
 - **High**: [Definition - e.g., significant impact, workaround available]
 - **Medium**: [Definition - e.g., minor impact, manageable]
 - **Low**: [Definition - e.g., cosmetic, future consideration]
@@ -832,7 +834,7 @@ localization requirements]
 
 - **Strategic Alignment**: Ensure project scope supports campaign objectives
 - **Deliverable Relevance**: Confirm deliverables map to audience and channel strategy
-- **Timeline Realism**: Validate timeline allows for quality creative and approvals
+- **Gate Readiness**: Validate scope, role coverage, and creative approval checks before handoff
 - **Integration Opportunities**: Identify ways to amplify impact through integration
 
 ---

@@ -122,7 +122,8 @@ Examples:
 **Budget**:
 - Development: `[ ] Unconstrained | [ ] Moderate | [ ] Tight | [ ] Zero (volunteer/personal)`
 - Infrastructure: `$ ___ /month or [ ] Free tier only | [ ] Cost-conscious | [ ] Scalable budget`
-- Timeline: `___ weeks/months to {milestone} or [ ] No deadline | [ ] Flexible | [ ] Fixed`
+- **Operator commitments**: `{supplied date/window, source, fixed/flexible; or none supplied}`. Never infer delivery dates or durations.
+- Scope units: `{named deliverables, owners, prerequisites, review passes, and acceptance gates}`
 
 ### Regulatory & Compliance
 
@@ -196,7 +197,7 @@ Examples:
 **What are you optimizing for?** (in your own words)
 ```
 Example answers:
-- "Need to launch in 4 weeks to meet fundraising deadline, quality can be improved post-launch"
+- "Operator supplied a fundraising deadline in 4 weeks (source: founder); launch scope is the investor demo, quality can be improved post-launch"
 - "Learning project to understand framework X, speed matters less than building it right"
 - "Business-critical tool, users can't work without it, reliability trumps new features"
 - "Open source reputation project, code quality and documentation critical, timeline flexible"
@@ -361,9 +362,9 @@ Examples:
 
 **Planned Framework Evolution**:
 - Current: `{list current framework components}`
-- 3 months: `{add/change if growth occurs}`
-- 6 months: `{add/change if assumptions validated}`
-- 12 months: `{add/change if scale/complexity increases}`
+- When user-growth trigger is met: `{add/change if growth occurs}`
+- When assumptions are validated: `{add/change if assumptions validated}`
+- When scale/complexity trigger is met: `{add/change if scale/complexity increases}`
 
 ---
 
@@ -390,7 +391,7 @@ Examples:
 - Quality: 0.15 (design matters, but functional is enough)
 - Reliability: 0.05 (occasional downtime OK, not business-critical)
 
-**Intent**: "Starting new project, need to ship in 2 weeks for job applications, can iterate on design later"
+**Intent**: "Starting new project, operator-supplied job application deadline in 2 weeks (source: applicant); scope: published portfolio and verified links, can iterate on design later"
 
 **Framework Application**:
 - Templates: Intake only (skip requirements, architecture, tests, security, deployment)
@@ -415,7 +416,7 @@ Examples:
 **Deployment**: On-premise (local server in warehouse)
 **Complexity**: 10k-100k LoC (existing brownfield), Node.js + PostgreSQL, moderate technical debt
 **Team**: 2 developers (part-time, 20hrs/week), 1 operations manager (requirements)
-**Budget**: $500/month (server maintenance), 6 months to major refactor
+**Budget**: $500/month (server maintenance), refactor scope: baseline, critical-path tests, incremental migration
 
 **Priorities** (weights):
 - Reliability: 0.40 (staff can't work if app is down)
@@ -496,7 +497,7 @@ The option matrix captures **intent and trade-offs** - the most nuanced, least o
 6. "What's the biggest risk you see in this project? How does that influence your priorities?"
 
 **Evolution questions (ask 1-2)**:
-7. "How do you expect this project to change in the next 6-12 months? What would trigger more structure?"
+7. "How do you expect this project to change when the next growth or capability trigger occurs? What would trigger more structure?"
 8. "If you had 10x the users/budget/team, what would you do differently? What's the growth limiting factor?"
 
 **Framework application questions (ask 1-2)**:
@@ -518,7 +519,7 @@ Remaining questions are for **clarifying factual gaps** (tech stack, deployment,
 ### Principle: Capture Intent, Not Prescribe Solutions
 
 **Good option matrix content** (captures what IS and intent):
-- "Personal blog, <100 readers, solo, need to ship in 2 weeks for job search"
+- "Personal blog, <100 readers, solo, operator-supplied job-search deadline in 2 weeks (source: applicant); scope: portfolio and verified links"
 - "Team split on microservices vs monolith - CTO wants flexibility, CEO wants simplicity"
 - "Willing to skip tests initially to launch fast, but non-negotiable on GDPR compliance"
 

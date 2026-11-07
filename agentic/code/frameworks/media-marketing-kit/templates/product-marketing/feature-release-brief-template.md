@@ -1,5 +1,7 @@
 # Feature Release Brief
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `PMK-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Approved | Released
@@ -187,13 +189,13 @@
 
 ## Rollout Plan
 
-### Availability
+### Scope and Gates
 
-| Segment | Availability | Date |
+| Segment | Availability | Completion Gate |
 |---------|--------------|------|
-| Beta users | {Status} | {Date} |
-| {Plan tier} | {Status} | {Date} |
-| All users | {Status} | {Date} |
+| Beta users | {Status} | {Segment acceptance checks pass; rollout owner approves} |
+| {Plan tier} | {Status} | {Segment acceptance checks pass; rollout owner approves} |
+| All users | {Status} | {Segment acceptance checks pass; rollout owner approves} |
 
 ### Migration / Upgrade
 
@@ -240,10 +242,10 @@
 
 ## Known Limitations
 
-| Limitation | Workaround | Planned Fix |
+| Limitation | Workaround | Fix Acceptance Gate |
 |------------|------------|-------------|
-| {Limitation 1} | {How to work around} | {Timeline} |
-| {Limitation 2} | {How to work around} | {Timeline} |
+| {Limitation 1} | {How to work around} | {Named fix scope, owner, and passing verification check} |
+| {Limitation 2} | {How to work around} | {Named fix scope, owner, and passing verification check} |
 
 ---
 

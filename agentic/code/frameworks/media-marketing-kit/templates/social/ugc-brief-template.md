@@ -1,5 +1,7 @@
 # User-Generated Content (UGC) Brief
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `SOC-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Active | Closed
@@ -23,14 +25,14 @@
 | Reach | {Number} |
 | Conversions | {Number} |
 
-### Timeline
+### Scope and Gates
 
-| Phase | Start | End |
+| Phase | Entry Gate | Completion Gate |
 |-------|-------|-----|
-| Promotion | {Date} | {Date} |
-| Submission window | {Date} | {Date} |
-| Selection/curation | {Date} | {Date} |
-| Publishing | {Date} | {Date} |
+| Promotion | [Prerequisites for Promotion verified] | [Acceptance checks for Promotion pass] |
+| Submission window | [Prerequisites for Submission window verified] | [Acceptance checks for Submission window pass] |
+| Selection/curation | [Prerequisites for Selection/curation verified] | [Acceptance checks for Selection/curation pass] |
+| Publishing | [Prerequisites for Publishing verified] | [Acceptance checks for Publishing pass] |
 
 ---
 

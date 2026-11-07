@@ -1,5 +1,7 @@
 # Creative Brief
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `CRE-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Approved | In Production | Complete
@@ -199,18 +201,18 @@ Link: {URL to brand guidelines}
 
 ---
 
-## Timeline
+## Scope and Gates
 
-| Milestone | Date |
+| Milestone | Completion Gate |
 |-----------|------|
-| Brief approval | {Date} |
-| Concept presentations | {Date} |
-| Concept approval | {Date} |
-| First draft | {Date} |
-| Feedback round 1 | {Date} |
-| Revisions | {Date} |
-| Final approval | {Date} |
-| Delivery | {Date} |
+| Brief approval | [Acceptance checks for Brief approval pass] |
+| Concept presentations | [Acceptance checks for Concept presentations pass] |
+| Concept approval | [Acceptance checks for Concept approval pass] |
+| First draft | [Acceptance checks for First draft pass] |
+| Feedback round 1 | [Acceptance checks for Feedback round 1 pass] |
+| Revisions | [Acceptance checks for Revisions pass] |
+| Final approval | [Acceptance checks for Final approval pass] |
+| Delivery | [Acceptance checks for Delivery pass] |
 
 ### Review Process
 

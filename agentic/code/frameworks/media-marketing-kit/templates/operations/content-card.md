@@ -1,5 +1,7 @@
 # Content Card
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - **ID**: `CNT-{project}-{number}` (e.g., CNT-Q1LAUNCH-045)
@@ -29,7 +31,7 @@
 
 - **KPIs**: [Target metrics: page views, time on page, scroll depth, CTA clicks, conversions, social shares, etc.]
 - **Budget**: $[amount] (if paid production - e.g., video, design, freelance writing)
-- **Timeline**: draft [YYYY-MM-DD] / review [YYYY-MM-DD] / publish [YYYY-MM-DD] / promotion end [YYYY-MM-DD]
+- **Scope Units**: [Deliverables, responsible roles, review passes, prerequisites, and completion gates]
 - **Channel**: [Primary channel: blog, YouTube, podcast, LinkedIn, email, gated landing page, etc.]
 - **Distribution**: [How content will be distributed: organic, paid social, email, syndication, etc.]
 - **Audience**: [Target segment/persona]
@@ -417,7 +419,7 @@
 
 ## Post-Publish Actions
 
-### Immediate (Day 1-7)
+### Initial Validation (entry: publication verified)
 
 - [ ] Monitor analytics for first 24 hours
 - [ ] Respond to comments/questions
@@ -426,7 +428,7 @@
 - [ ] Check for technical issues or broken links
 - [ ] Optimize based on initial performance data
 
-### Ongoing (Week 2-4)
+### Optimization (entry: initial analytics validated)
 
 - [ ] Weekly performance review
 - [ ] Respond to ongoing comments/discussion
@@ -434,7 +436,7 @@
 - [ ] Identify opportunities for repurposing
 - [ ] Track SEO ranking progress
 
-### Long-Term (30+ days)
+### Refresh (entry: performance review identifies update scope)
 
 - [ ] 30-day performance analysis
 - [ ] Update content if needed (refresh data, links)

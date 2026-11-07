@@ -1,5 +1,7 @@
 # Attribution Model Documentation Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - ID: RPT-###
@@ -21,7 +23,7 @@
 
 - KPIs: N/A (defines how KPIs are attributed, not the KPIs themselves)
 - Budget: $[analytics tooling costs for attribution]
-- Timeline: start YYYY-MM-DD / end YYYY-MM-DD / milestones [implementation, validation, rollout]
+- Scope Units: model specification, implementation, validation, rollout; analyst and reviewer; gates: reconciled attribution and approved model
 - Brand Compliance: N/A (internal methodology)
 - Legal Review: required (privacy compliance for data usage)
 - Performance: N/A (methodology documentation)

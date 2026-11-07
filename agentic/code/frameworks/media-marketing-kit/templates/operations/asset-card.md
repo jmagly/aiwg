@@ -1,5 +1,7 @@
 # Asset Card
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - **ID**: `AST-{project}-{number}` (e.g., AST-Q1LAUNCH-112)
@@ -29,7 +31,7 @@
 
 - **KPIs**: [Target metrics: views, engagement, click-through rate, shares, conversions driven]
 - **Budget**: $[production cost: creative fees, photography, video production, music licensing, talent, etc.]
-- **Timeline**: concept [YYYY-MM-DD] / draft [YYYY-MM-DD] / review [YYYY-MM-DD] / final [YYYY-MM-DD] / publish [YYYY-MM-DD]
+- **Scope Units**: [Deliverables, responsible roles, review passes, prerequisites, and completion gates]
 - **Channel**: [Where asset will be used: website, social, email, paid ads, print, events, etc.]
 - **Distribution**: [How asset will be distributed: organic, paid, owned, earned]
 - **Audience**: [Target segment/persona]
@@ -164,18 +166,18 @@
 
 ## Production Details
 
-### Production Timeline
+### Production Gates
 
-| Milestone | Date | Owner | Status |
+| Milestone | Completion Gate | Owner | Status |
 |-----------|------|-------|--------|
-| Concept/sketches | [YYYY-MM-DD] | [name] | [ ] |
-| First draft | [YYYY-MM-DD] | [name] | [ ] |
-| Internal review | [YYYY-MM-DD] | [name] | [ ] |
-| Revisions | [YYYY-MM-DD] | [name] | [ ] |
-| Brand review | [YYYY-MM-DD] | [name] | [ ] |
-| Legal review (if req) | [YYYY-MM-DD] | [name] | [ ] |
-| Final approval | [YYYY-MM-DD] | [name] | [ ] |
-| Delivery | [YYYY-MM-DD] | [name] | [ ] |
+| Concept/sketches | [Acceptance checks for Concept/sketches pass] | [name] | [ ] |
+| First draft | [Acceptance checks for First draft pass] | [name] | [ ] |
+| Internal review | [Acceptance checks for Internal review pass] | [name] | [ ] |
+| Revisions | [Acceptance checks for Revisions pass] | [name] | [ ] |
+| Brand review | [Acceptance checks for Brand review pass] | [name] | [ ] |
+| Legal review (if req) | [Acceptance checks for Legal review (if req) pass] | [name] | [ ] |
+| Final approval | [Acceptance checks for Final approval pass] | [name] | [ ] |
+| Delivery | [Acceptance checks for Delivery pass] | [name] | [ ] |
 
 ### Source Files
 

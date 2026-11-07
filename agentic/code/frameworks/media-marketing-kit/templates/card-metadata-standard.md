@@ -1,5 +1,7 @@
 # Card Metadata Standard (Media & Marketing Kit)
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates.
+
 ## Purpose
 
 Define a consistent metadata header for all marketing and media "card" templates so teams can assign ownership, maintain traceability, track campaign performance, and relate cards to their parent campaigns and artifacts.
@@ -15,7 +17,7 @@ This standard ensures consistency across campaign planning, content creation, as
 - Team: primary team (content, social, creative, etc.)
 - Stakeholders: key contacts (product, sales, leadership)
 - Status: draft | in-progress | review | approved | published | archived
-- Dates: created / updated / published / scheduled
+- Dates: created / updated / published (observed); scheduled only when supplied by an operator with a source
 - Campaign: parent campaign ID (if applicable)
 - Channel: distribution channel (blog, social, email, paid, etc.)
 - Audience: target segment or persona
@@ -27,7 +29,8 @@ This standard ensures consistency across campaign planning, content creation, as
 
 - KPIs: target metrics (views, clicks, conversions, engagement rate, etc.)
 - Budget: allocated spend (total or per-channel)
-- Timeline: start date / end date / key milestones
+- Scope Units: named deliverables / responsible roles / review passes / completion gates
+- Operator Commitments: supplied campaign/event dates and source, or unset
 - Brand Compliance: status (pending | approved | rejected | exempt)
 - Legal Review: status (pending | approved | conditional | exempt)
 - Performance: actual metrics vs targets (post-launch only)
@@ -88,7 +91,8 @@ This standard ensures consistency across campaign planning, content creation, as
 
 - KPIs: <target metrics: views, clicks, conversions, engagement rate, etc.>
 - Budget: $<amount> (<channel breakdown if multi-channel>)
-- Timeline: start <YYYY-MM-DD> / end <YYYY-MM-DD> / milestones <dates>
+- Scope Units: <deliverables, roles, passes, prerequisites, and acceptance checks>
+- Operator Commitments: <supplied dates/windows, source, fixed/flexible; or unset>
 - Brand Compliance: <pending/approved/rejected/exempt>
 - Legal Review: <pending/approved/conditional/exempt>
 - Performance: <actual metrics vs targets (post-launch only)>
@@ -125,7 +129,8 @@ This standard ensures consistency across campaign planning, content creation, as
 
 - KPIs: 10,000 impressions, 500 MQLs, 50 demos booked, 5% conversion rate
 - Budget: $50,000 (paid social: $20k, paid search: $15k, events: $10k, creative: $5k)
-- Timeline: start 2025-02-15 / end 2025-03-31 / milestones [launch 2025-02-15, mid-campaign review 2025-03-01, final report 2025-04-07]
+- Scope Units: campaign brief, channel assets, tracking validation, performance report; campaign manager owns approvals before launch
+- Operator Commitments: launch 2025-02-15, end 2025-03-31, review 2025-03-01, report 2025-04-07 (source: approved CAM-001 operator brief)
 - Brand Compliance: approved
 - Legal Review: approved
 - Performance: (to be updated post-launch)
@@ -161,7 +166,8 @@ This standard ensures consistency across campaign planning, content creation, as
 
 - KPIs: 5,000 page views, 10% scroll depth, 2% CTA click-through, 50 newsletter signups
 - Budget: $0 (organic content)
-- Timeline: start 2025-02-10 / end 2025-03-10 / milestones [publish 2025-02-10, social promotion 2025-02-10 to 2025-02-17, performance review 2025-03-10]
+- Scope Units: one blog post, featured image, social copy, performance review; writer and brand reviewer verify publication checks
+- Operator Commitments: publish 2025-02-10, promotion through 2025-02-17, review 2025-03-10 (source: approved editorial calendar)
 - Brand Compliance: approved
 - Legal Review: exempt (no legal claims or regulated content)
 - Performance: (to be updated post-publish)
@@ -197,7 +203,8 @@ This standard ensures consistency across campaign planning, content creation, as
 
 - KPIs: 50,000 views, 8,000 engagements, 500 click-throughs to landing page, 3% CTR
 - Budget: $8,000 (production: $5k, paid promotion: $3k)
-- Timeline: start 2025-02-15 / end 2025-03-15 / milestones [publish 2025-02-15, paid promo starts 2025-02-16, performance review 2025-03-01]
+- Scope Units: one demo video and paid cut; producer, brand and legal review passes complete before distribution
+- Operator Commitments: publish 2025-02-15, promotion 2025-02-16 through 2025-03-15, review 2025-03-01 (source: approved media booking)
 - Brand Compliance: approved
 - Legal Review: approved (music licensed, talent releases signed)
 - Performance: (to be updated post-publish)
@@ -233,7 +240,8 @@ This standard ensures consistency across campaign planning, content creation, as
 
 - KPIs: Target: 10k impressions, 500 MQLs, 50 demos, 5% conversion | Actual: 12.3k impressions, 487 MQLs, 62 demos, 6.1% conversion
 - Budget: Allocated: $50k | Spent: $48.2k (96% utilization)
-- Timeline: start 2025-02-15 / end 2025-03-31 / milestones [campaign ended 2025-03-31, report published 2025-04-07]
+- Scope Units: reconcile campaign metrics and budget; analyst verifies dashboard totals and reviewer accepts report
+- Observed Campaign Window: 2025-02-15 through 2025-03-31; report published 2025-04-07
 - Brand Compliance: N/A (internal report)
 - Legal Review: N/A (internal report)
 - Performance: MQLs: 97% of target, Demos: 124% of target, Conversion: 122% of target, ROMI: 3.2x
@@ -268,7 +276,8 @@ This standard ensures consistency across campaign planning, content creation, as
 
 - KPIs: N/A (this is a planning artifact, not a deliverable)
 - Budget: N/A (budget allocated at campaign and asset level)
-- Timeline: start N/A / end N/A / milestones [brief finalized 2025-01-12, assets due 2025-02-01]
+- Scope Units: creative concepts, selected direction, approved assets; creative director owns concept and final review gates
+- Operator Commitments: start N/A / end N/A / milestones [brief finalized 2025-01-12, assets due 2025-02-01] (source: approved CRE-009 operator brief)
 - Brand Compliance: approved (brief aligns with brand guidelines)
 - Legal Review: exempt (planning document)
 - Performance: N/A (not a published asset)
@@ -332,7 +341,7 @@ Use the Related field to create traceability:
 - Created: First draft date
 - Updated: Last edit date (update frequently)
 - Published: Public launch date
-- Scheduled: Planned publication date (before publish)
+- Scheduled: Operator-supplied publication date and source (leave unset when unknown)
 
 **Performance field**:
 

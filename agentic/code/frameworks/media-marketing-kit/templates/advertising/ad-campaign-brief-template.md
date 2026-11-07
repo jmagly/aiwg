@@ -1,5 +1,7 @@
 # Advertising Campaign Brief
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `ADV-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | In Review | Approved | Active | Complete
@@ -30,15 +32,15 @@
 | Agency fees | ${Amount} | {%} |
 | **Total** | **${Amount}** | **100%** |
 
-### Timeline
+### Scope and Gates
 
-| Phase | Start | End | Duration |
+| Phase | Scope Units | Responsible Role | Completion Gate |
 |-------|-------|-----|----------|
-| Planning | {Date} | {Date} | {Weeks} |
-| Creative development | {Date} | {Date} | {Weeks} |
-| Production | {Date} | {Date} | {Weeks} |
-| Campaign flight | {Date} | {Date} | {Weeks} |
-| Reporting | {Date} | {Date} | {Weeks} |
+| Planning | Brief and audience definition | Campaign lead | Brief approved |
+| Creative development | Concepts and copy variants | Creative lead | Direction approved |
+| Production | Channel asset set | Designer and reviewer | Specs and brand checks pass |
+| Campaign flight | Approved placements | Media buyer | Tracking verified before activation |
+| Reporting | Campaign analysis | Analyst | Metrics reconciled and reviewed |
 
 ---
 
@@ -176,12 +178,12 @@
 
 ### Creative Deliverables
 
-| Deliverable | Due Date | Owner |
+| Deliverable | Completion Gate | Owner |
 |-------------|----------|-------|
-| Creative brief | {Date} | {Name} |
-| Concepts | {Date} | {Name} |
-| First draft | {Date} | {Name} |
-| Final creative | {Date} | {Name} |
+| Creative brief | [Acceptance checks for Creative brief pass] | {Name} |
+| Concepts | [Acceptance checks for Concepts pass] | {Name} |
+| First draft | [Acceptance checks for First draft pass] | {Name} |
+| Final creative | [Acceptance checks for Final creative pass] | {Name} |
 
 ### Brand Guidelines
 

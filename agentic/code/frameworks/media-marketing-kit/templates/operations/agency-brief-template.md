@@ -1,5 +1,7 @@
 # Agency Brief Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Document Control
 
 | Field | Value |
@@ -38,7 +40,7 @@
 ## Marketing-Specific Metadata
 
 - **Budget**: $[total agency cost for this project]
-- **Timeline**: start [YYYY-MM-DD] / concepts due [YYYY-MM-DD] / final delivery [YYYY-MM-DD]
+- **Scope Units**: [Deliverables, responsible roles, review passes, prerequisites, and completion gates]
 - **Deliverables**: [High-level list - campaign concept, creative assets, media plan, etc.]
 - **Campaign**: CAM-{id} (parent campaign this agency work supports)
 - **Legal Review**: Pending | Approved | Conditional | N/A
@@ -76,7 +78,7 @@
 
 **Expected Investment**: $[budget range]
 
-**Timeline**: [Start date] to [End date] ([duration])
+**Scope Units**: [Named deliverables, review passes, and approval gates]
 
 ---
 
@@ -184,12 +186,12 @@
 2. [Secondary objective]
 3. [Tertiary objective]
 
-**Campaign Timeline**:
+**Campaign Scope and Gates**:
 
-- **Planning/Development**: [Dates]
-- **Launch**: [Date]
-- **Active Campaign**: [Dates]
-- **Post-Campaign Analysis**: [Date]
+- **Planning/Development**: [Brief, owners, and review passes defined]
+- **Launch**: [Assets and tracking verified; launch owner approves]
+- **Active Campaign**: [Approved placements and monitoring checks]
+- **Post-Campaign Analysis**: [Metrics and budget reconciled]
 
 **Campaign Budget**: $[total campaign budget - context for agency]
 
@@ -361,34 +363,34 @@ Agency is NOT responsible for:
 
 ---
 
-## 6. Timeline and Milestones
+## 6. Scope and Gates
 
-### 6.1 Project Timeline
+### 6.1 Scope and Roles
 
-**Project Kickoff**: [YYYY-MM-DD]
+**Entry Gate**: [Brief accepted and owners assigned]
 
-**Project Completion**: [YYYY-MM-DD]
+**Completion Gate**: [All deliverables accepted by client]
 
-**Total Duration**: [Weeks/months]
+**Scope Units**: [Deliverables, responsible roles, dependencies, and review passes]
 
 ### 6.2 Key Milestones
 
-| Phase | Milestone | Date | Deliverable | Owner | Status |
+| Phase | Milestone | Completion Gate | Deliverable | Owner | Status |
 |-------|-----------|------|-------------|-------|--------|
-| Kickoff | Brief submitted, kickoff meeting | [Date] | Alignment | Both | [ ] |
-| Strategy | Campaign concept presentation | [Date] | 2-3 concepts | Agency | [ ] |
-| Strategy | Concept selection | [Date] | Client decision | Client | [ ] |
-| Creative | Creative development | [Dates] | In-progress assets | Agency | [ ] |
-| Creative | Creative review | [Date] | Draft assets | Agency | [ ] |
-| Creative | Client feedback | [Date] | Consolidated feedback | Client | [ ] |
-| Creative | Revisions | [Date] | Revised assets | Agency | [ ] |
-| Approval | Final creative approval | [Date] | Sign-off | Client | [ ] |
-| Production | Final asset delivery | [Date] | All formats | Agency | [ ] |
-| Media | Media plan approval | [Date] | Media plan | Client | [ ] |
-| Media | Media trafficking | [Date] | Ads live | Agency | [ ] |
-| Launch | Campaign launch | [Date] | Campaign live | Both | [ ] |
-| Reporting | Mid-campaign report | [Date] | Performance data | Agency | [ ] |
-| Reporting | Final campaign report | [Date] | Full analysis | Agency | [ ] |
+| Kickoff | Brief submitted, kickoff meeting | [Acceptance checks for Kickoff pass] | Alignment | Both | [ ] |
+| Strategy | Campaign concept presentation | [Acceptance checks for Strategy pass] | 2-3 concepts | Agency | [ ] |
+| Strategy | Concept selection | [Acceptance checks for Strategy pass] | Client decision | Client | [ ] |
+| Creative | Creative development | [Acceptance checks for Creative pass] | In-progress assets | Agency | [ ] |
+| Creative | Creative review | [Acceptance checks for Creative pass] | Draft assets | Agency | [ ] |
+| Creative | Client feedback | [Acceptance checks for Creative pass] | Consolidated feedback | Client | [ ] |
+| Creative | Revisions | [Acceptance checks for Creative pass] | Revised assets | Agency | [ ] |
+| Approval | Final creative approval | [Acceptance checks for Approval pass] | Sign-off | Client | [ ] |
+| Production | Final asset delivery | [Acceptance checks for Production pass] | All formats | Agency | [ ] |
+| Media | Media plan approval | [Acceptance checks for Media pass] | Media plan | Client | [ ] |
+| Media | Media trafficking | [Acceptance checks for Media pass] | Ads live | Agency | [ ] |
+| Launch | Campaign launch | [Acceptance checks for Launch pass] | Campaign live | Both | [ ] |
+| Reporting | Mid-campaign report | [Acceptance checks for Reporting pass] | Performance data | Agency | [ ] |
+| Reporting | Final campaign report | [Acceptance checks for Reporting pass] | Full analysis | Agency | [ ] |
 
 ### 6.3 Critical Dates
 
@@ -402,8 +404,8 @@ Agency is NOT responsible for:
 
 **Revision Turnaround**:
 
-- **Agency to Client**: [How long agency has to deliver revisions - e.g., "5 business days"]
-- **Client to Agency**: [How long client has to provide feedback - e.g., "3 business days"]
+- **Agency to Client**: [Correction pass scope, owner, and acceptance checks]
+- **Client to Agency**: [Review pass scope, approver, and blocking findings]
 
 **Additional Revisions**: [Cost and process for revisions beyond included rounds]
 
@@ -564,18 +566,18 @@ Agency is NOT responsible for:
 
 ### 9.1 Agency Team Structure
 
-| Role | Name | Responsibility | Time Allocation |
+| Role | Name | Responsibility | Owned Scope Units / Passes |
 |------|------|----------------|-----------------|
-| Account Director | [Name] | Overall client relationship | [% or hours] |
-| Account Manager | [Name] | Day-to-day coordination | [% or hours] |
-| Creative Director | [Name] | Creative oversight | [% or hours] |
-| Art Director | [Name] | Visual execution | [% or hours] |
-| Copywriter | [Name] | Messaging and copy | [% or hours] |
-| Designer | [Name] | Design execution | [% or hours] |
-| Video Producer | [Name] | Video production | [% or hours] |
-| Media Planner | [Name] | Media strategy | [% or hours] |
-| Media Buyer | [Name] | Media execution | [% or hours] |
-| Analyst | [Name] | Reporting and optimization | [% or hours] |
+| Account Director | [Name] | Overall client relationship | [Named deliverables and review passes] |
+| Account Manager | [Name] | Day-to-day coordination | [Named deliverables and review passes] |
+| Creative Director | [Name] | Creative oversight | [Named deliverables and review passes] |
+| Art Director | [Name] | Visual execution | [Named deliverables and review passes] |
+| Copywriter | [Name] | Messaging and copy | [Named deliverables and review passes] |
+| Designer | [Name] | Design execution | [Named deliverables and review passes] |
+| Video Producer | [Name] | Video production | [Named deliverables and review passes] |
+| Media Planner | [Name] | Media strategy | [Named deliverables and review passes] |
+| Media Buyer | [Name] | Media execution | [Named deliverables and review passes] |
+| Analyst | [Name] | Reporting and optimization | [Named deliverables and review passes] |
 
 **Agency Responsibilities**:
 
@@ -628,7 +630,7 @@ Agency is NOT responsible for:
 **Response Time Expectations**:
 
 - **Agency to Client**: [e.g., "Respond within 24 business hours"]
-- **Client to Agency**: [e.g., "Provide feedback within 3 business days"]
+- **Client to Agency**: [Operator-supplied response SLA and source, or unset]
 
 **Escalation Path**:
 
@@ -646,23 +648,23 @@ Agency is NOT responsible for:
 **Concept Approval**:
 
 1. Agency presents 2-3 campaign concepts
-2. Client reviews and provides feedback (within [X] days)
+2. Client reviews and provides feedback (before the next approval gate)
 3. Agency refines selected concept
 4. Client approves final concept (sign-off required)
 
 **Creative Approval**:
 
 1. Agency delivers draft creative assets
-2. Client review cycle 1 (within [X] days)
+2. Client review cycle 1 (before the next approval gate)
 3. Agency revisions round 1
-4. Client review cycle 2 (within [X] days)
+4. Client review cycle 2 (before the next approval gate)
 5. Agency revisions round 2 (if needed)
 6. Client final approval (sign-off required)
 
 **Legal/Compliance Approval** (if required):
 
 1. Agency submits creative for legal review (at draft stage)
-2. Legal reviews and provides feedback (within [X] days)
+2. Legal reviews and provides feedback (before the next approval gate)
 3. Agency incorporates legal feedback
 4. Legal final approval before launch
 
@@ -682,7 +684,7 @@ Agency is NOT responsible for:
 
 **Feedback Format**: [Written document, annotated PDFs, collaborative tool]
 
-**Feedback Turnaround**: [Client provides feedback within [X] business days]
+**Feedback Gate**: [Client consolidates feedback before the correction pass]
 
 **Subjective vs. Objective**: [Encourage objective, criteria-based feedback aligned with brief]
 
@@ -704,7 +706,7 @@ Agency is NOT responsible for:
 
 - [Dependency 1 - e.g., "Brand guidelines by [date]"]
 - [Dependency 2 - e.g., "Product imagery by [date]"]
-- [Dependency 3 - e.g., "Legal approval within 3 business days"]
+- [Dependency 3 - e.g., "Legal sign-off before publication"]
 
 **External Dependencies**:
 
@@ -713,11 +715,11 @@ Agency is NOT responsible for:
 
 ### 11.3 Contingency Plans
 
-**If Timeline Slips**: [Contingency - reduce scope, extend timeline, add resources]
+**If a Gate Is Blocked**: [Contingency - resolve prerequisite, reduce scope, assign owner]
 
 **If Budget Exceeds**: [Contingency - reduce scope, secure additional budget, phase approach]
 
-**If Creative Isn't Approved**: [Contingency - alternative concepts, extend timeline]
+**If Creative Isn't Approved**: [Contingency - alternative concepts, correction pass]
 
 ---
 
@@ -792,8 +794,8 @@ Upon brief submission:
 
 1. [ ] Agency confirms receipt and understanding of brief - [Date]
 2. [ ] Kickoff meeting scheduled - [Date, time]
-3. [ ] Agency submits clarifying questions (if any) - [Deadline]
-4. [ ] Client provides answers/additional context - [Deadline]
+3. [ ] Agency submits clarifying questions (if any) - [Prerequisite gate and owner]
+4. [ ] Client provides answers/additional context - [Prerequisite gate and owner]
 5. [ ] Agency begins work on concept development - [Date]
 6. [ ] First milestone (concept presentation) - [Date]
 
@@ -805,7 +807,7 @@ Upon brief submission:
 
 - Provide comprehensive context - more is better than less
 - Be clear about must-have's vs. nice-to-have's
-- Set realistic timelines with buffer for approvals
+- Define scope units, review passes, and approval gates; record supplied commitments separately
 - Establish clear approval authority to avoid bottlenecks
 - Maintain regular communication throughout project
 - Document all decisions and changes in writing

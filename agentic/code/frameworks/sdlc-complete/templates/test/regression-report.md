@@ -345,14 +345,14 @@ Based on trend analysis, the following improvements are recommended:
    - **Rationale**: {Why is this important?}
    - **Action**: {What specific steps?}
    - **Owner**: {Who should implement?}
-   - **Timeline**: {When?}
+   - **Completion Gate**: {Observable acceptance check and prerequisite}
 
 <!-- EXAMPLE:
 1. **Expand test coverage for Authentication module**
    - **Rationale**: Authentication has 68% coverage but highest regression rate (42% of all regressions). Gap analysis shows session management and OAuth flows lack adequate test coverage.
    - **Action**: Add 25 new test cases covering session lifecycle, remember-me functionality, and OAuth edge cases. Target 90% coverage.
    - **Owner**: Test Engineer + Software Implementer (auth team)
-   - **Timeline**: Complete by end of Q1 2026
+   - **Completion Gate**: 25 session and OAuth tests pass; authentication coverage reaches 90%
 -->
 
 2. **{Recommendation 2}**
@@ -362,7 +362,7 @@ Based on trend analysis, the following improvements are recommended:
    - **Rationale**: 75% of regressions would have been caught by running existing regression suite before merge. Currently regression tests only run nightly.
    - **Action**: Configure CI to run priority P0/P1 regression tests on all PRs before merge approval. Subset runs in <10 minutes.
    - **Owner**: DevOps Engineer
-   - **Timeline**: Implement by 2026-02-01
+   - **Completion Gate**: P0/P1 smoke suite runs and blocks merge on a failing regression
 -->
 
 #### Medium Priority
@@ -374,7 +374,7 @@ Based on trend analysis, the following improvements are recommended:
    - **Rationale**: 17% of regressions caused by dependency upgrades (libraries, SDKs). Current process lacks systematic compatibility review.
    - **Action**: Create checklist for dependency upgrades including: changelog review, breaking change scan, staging validation, rollback plan.
    - **Owner**: Technical Lead
-   - **Timeline**: Document process by 2026-02-15
+   - **Completion Gate**: Upgrade checklist approved and validated against a fixture dependency upgrade
 -->
 
 #### Low Priority
@@ -386,7 +386,7 @@ Based on trend analysis, the following improvements are recommended:
    - **Rationale**: Production monitoring detected 2 regressions with fastest MTTD (0.8 days avg). Expanding monitoring could improve early detection.
    - **Action**: Add monitoring for key user flows (login success rate, checkout completion rate, API error rates) with automated alerts.
    - **Owner**: Reliability Engineer
-   - **Timeline**: Phase 1 by 2026-03-01
+   - **Completion Gate**: Login, checkout, and API-error alert rules pass synthetic failure checks
 -->
 
 ### Process Improvements
@@ -473,7 +473,7 @@ Before finalizing regression analysis report:
 - [ ] Trend analysis compares to previous period(s)
 - [ ] Common patterns identified
 - [ ] Recommendations specific and actionable
-- [ ] Recommendations have assigned owners and timelines
+- [ ] Recommendations have assigned owners, scope units, and completion gates
 - [ ] Process improvements mapped to root causes
 - [ ] Report reviewed by Test Architect or Quality Manager
 

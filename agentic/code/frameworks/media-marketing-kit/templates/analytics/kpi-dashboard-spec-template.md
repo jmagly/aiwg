@@ -1,5 +1,7 @@
 # KPI Dashboard Specification Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - ID: RPT-###
@@ -21,7 +23,7 @@
 
 - KPIs: N/A (this defines dashboard displaying KPIs)
 - Budget: $[dashboard tool licensing costs, development time]
-- Timeline: start YYYY-MM-DD / end YYYY-MM-DD / milestones [design, development, testing, launch]
+- Scope Units: dashboard design, data pipeline, testing, launch; designer and analyst; gates: metric reconciliation and approved views
 - Brand Compliance: N/A (internal tool)
 - Legal Review: N/A (internal tool, privacy-compliant data sources)
 - Performance: N/A (specification document)

@@ -1,5 +1,7 @@
 # Influencer Campaign Brief
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `SOC-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Sent | Active | Complete
@@ -46,18 +48,18 @@
 | {Story} | {Platform} | {Specs} | {Date} |
 | {Video} | {Platform} | {Specs} | {Date} |
 
-### Timeline
+### Scope and Gates
 
-| Phase | Date | Activity |
+| Phase | Completion Gate | Activity |
 |-------|------|----------|
-| Brief sent | {Date} | Creator receives brief |
-| Product/asset delivery | {Date} | Materials arrive |
-| Content creation | {Date} | Creator produces content |
-| Draft submission | {Date} | Content for review |
-| Revision (if needed) | {Date} | Feedback period |
-| Final approval | {Date} | Content approved |
+| Brief sent | [Acceptance checks for Brief sent pass] | Creator receives brief |
+| Product/asset delivery | [Acceptance checks for Product/asset delivery pass] | Materials arrive |
+| Content creation | [Acceptance checks for Content creation pass] | Creator produces content |
+| Draft submission | [Acceptance checks for Draft submission pass] | Content for review |
+| Revision (if needed) | [Acceptance checks for Revision (if needed) pass] | Feedback period |
+| Final approval | [Acceptance checks for Final approval pass] | Content approved |
 | Publish window | {Date range} | Content goes live |
-| Reporting | {Date} | Performance metrics due |
+| Reporting | [Acceptance checks for Reporting pass] | Performance metrics due |
 
 ---
 
@@ -216,19 +218,19 @@
 | Quality | Meets production standards |
 | Timing | Within publish window |
 
-### Feedback Timeline
+### Feedback Gates
 
-| Stage | Timeline |
+| Stage | Completion Gate |
 |-------|----------|
-| Initial review | {X} business days |
-| Feedback provided | {X} business days |
-| Revision review | {X} business days |
+| Initial review | {Reviewer acceptance check and responsible role} |
+| Feedback provided | {Reviewer acceptance check and responsible role} |
+| Revision review | {Reviewer acceptance check and responsible role} |
 
 ### Revision Policy
 
 - Up to {X} rounds of revisions included
 - Additional revisions: {Policy}
-- Revision turnaround: {X} business days
+- Revision turnaround: {Reviewer acceptance check and responsible role}
 
 ---
 
@@ -329,9 +331,9 @@ When brand uses content:
 
 | Role | Name | Email | Response Time |
 |------|------|-------|---------------|
-| Campaign Manager | {Name} | {Email} | {Hours} |
-| Creative Director | {Name} | {Email} | {Hours} |
-| Legal/Compliance | {Name} | {Email} | {Hours} |
+| Campaign Manager | {Name} | {Email} | {Operator-supplied availability and source} |
+| Creative Director | {Name} | {Email} | {Operator-supplied availability and source} |
+| Legal/Compliance | {Name} | {Email} | {Operator-supplied availability and source} |
 
 ### Emergency Contact
 

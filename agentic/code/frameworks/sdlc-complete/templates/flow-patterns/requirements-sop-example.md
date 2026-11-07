@@ -8,7 +8,7 @@ type: flow-command
 category: phase-transition
 trigger: ["transition to elaboration", "start requirements analysis"]
 complexity: medium
-estimated_duration: 45-90 minutes
+scope_units: [requirements-draft, stakeholder-review, refinement, approved-baseline]
 prerequisites:
   - vision-document
   - intake-form
@@ -619,14 +619,14 @@ Verifies:
 - Resolve traceability gaps
 - Update baseline and notify subscribers
 
-### 3. Expected Timeline
+### 3. Prerequisite Gates
 
 **Before Architecture Work**:
-- Stakeholder review: 2-3 days
-- Requirement refinements: 1-2 days
-- Baseline approval: 1 day
+- Stakeholder review: requirements draft available; stakeholder comments recorded
+- Requirement refinements: comments resolved and traceability checks pass
+- Baseline approval: designated approver accepts the refined requirements
 
-**Total Elapsed**: ~1 week from requirements draft to approved baseline
+**Completion Gate**: Approved baseline and resolved traceability gaps before architecture work; requirements analyst owns refinement and stakeholders own approval.
 
 ## Usage Notes
 

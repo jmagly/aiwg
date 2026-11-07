@@ -1,5 +1,7 @@
 # Webinar Brief
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `EVT-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Approved | Promoted | Complete
@@ -113,31 +115,31 @@ By the end of this webinar, attendees will:
 
 ## Promotion
 
-### Promotional Timeline
+### Promotional Gates
 
-| Week | Activities |
+| Prerequisite Gate | Activities |
 |------|------------|
-| T-4 weeks | Registration page live, initial announcement |
-| T-3 weeks | Email 1, social campaign launch |
-| T-2 weeks | Email 2, partner promotion |
-| T-1 week | Email 3, reminder campaign |
-| T-1 day | Final reminder email |
-| Day of | Last chance email |
-| T+1 day | Recording follow-up |
+| Topic, speakers, and registration flow verified | Registration page live, initial announcement |
+| Email and social assets approved | Email 1, social campaign launch |
+| Partner copy and recipient segments approved | Email 2, partner promotion |
+| Final slides and joining details verified | Email 3, reminder campaign |
+| Attendee reminder copy approved | Final reminder email |
+| Webinar platform and speakers ready | Last chance email |
+| Recording and permissions verified | Recording follow-up |
 
 ### Promotional Assets
 
-| Asset | Owner | Due Date | Status |
+| Asset | Owner | Completion Gate | Status |
 |-------|-------|----------|--------|
-| Registration page | {Name} | {Date} | {Status} |
-| Email series (4) | {Name} | {Date} | {Status} |
-| Social graphics | {Name} | {Date} | {Status} |
-| Blog post/preview | {Name} | {Date} | {Status} |
-| Partner email copy | {Name} | {Date} | {Status} |
+| Registration page | {Name} | [Acceptance checks for Registration page pass] | {Status} |
+| Email series (4) | {Name} | [Acceptance checks for Email series (4) pass] | {Status} |
+| Social graphics | {Name} | [Acceptance checks for Social graphics pass] | {Status} |
+| Blog post/preview | {Name} | [Acceptance checks for Blog post/preview pass] | {Status} |
+| Partner email copy | {Name} | [Acceptance checks for Partner email copy pass] | {Status} |
 
 ### Promotional Channels
 
-| Channel | Content | Timing |
+| Channel | Content | Completion Gate |
 |---------|---------|--------|
 | Email (house list) | {# sends} | {Dates} |
 | Social organic | {Platforms} | {Frequency} |
@@ -176,8 +178,8 @@ By the end of this webinar, attendees will:
 | Email | Timing | Content |
 |-------|--------|---------|
 | Confirmation | Immediate | Calendar invite, prep info |
-| Reminder 1 | T-1 week | Recap, add to calendar |
-| Reminder 2 | T-1 day | Final details, join link |
+| Reminder 1 | Final slides and joining details verified | Recap, add to calendar |
+| Reminder 2 | Attendee reminder copy approved | Final details, join link |
 | Day-of | T-1 hour | Join now |
 
 ---
@@ -315,19 +317,19 @@ By the end of this webinar, attendees will:
 
 ---
 
-## Timeline Checklist
+## Readiness Checklist
 
-### T-4 Weeks
+### Topic and Registration Gate
 - [ ] Topic and speakers confirmed
 - [ ] Registration page live
 - [ ] Initial promotion begins
 
-### T-2 Weeks
+### Draft and Promotion Gate
 - [ ] Slides first draft
 - [ ] Promotion in full swing
 - [ ] Tech check scheduled
 
-### T-1 Week
+### Final Content and Technical Gate
 - [ ] Slides finalized
 - [ ] Tech check completed
 - [ ] Reminder emails scheduled
@@ -338,12 +340,12 @@ By the end of this webinar, attendees will:
 - [ ] Execute webinar
 - [ ] Monitor chat/Q&A
 
-### T+1 Day
+### Recording and Lead Handoff Gate
 - [ ] Recording processed
 - [ ] Follow-up emails sent
 - [ ] Leads exported
 
-### T+1 Week
+### Reporting and Retrospective Gate
 - [ ] Performance report
 - [ ] Recording distributed
 - [ ] Retrospective completed

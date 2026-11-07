@@ -307,22 +307,22 @@ TTL: 24 hours (86400 seconds)
 
 ### Migration Plan
 
-**Phase 1**: Deploy JWT auth middleware (2 weeks)
+**Phase 1**: Deploy JWT auth middleware (gate: middleware compatibility tests pass)
 - Services support both old session-only and new JWT+session
 - Feature flag: `jwt_auth_enabled=false` (default)
 
-**Phase 2**: Enable JWT for 5% traffic (1 week)
+**Phase 2**: Enable JWT for 5% traffic (gate: prior phase verified)
 - Monitor error rates, latency
 - Collect feedback
 
-**Phase 3**: Ramp to 100% (2 weeks)
+**Phase 3**: Ramp to 100% (gate: middleware compatibility tests pass)
 - Gradual rollout: 5% → 25% → 50% → 100%
-- Each ramp waits 3 days, monitors metrics
+- Each ramp requires a representative traffic sample with auth error rate <0.1% and auth latency p95 <50ms before proceeding
 
-**Phase 4**: Remove old session-only code (1 week)
+**Phase 4**: Remove old session-only code (gate: prior phase verified)
 - Cleanup, documentation
 
-**Total Timeline**: 6 weeks
+**Completion Gate**: Four phases verified; legacy code removed only after full-traffic auth checks pass. Roles: auth implementer, security reviewer, test engineer, deployment owner.
 
 ### Key Implementation Decisions
 
@@ -531,7 +531,7 @@ This decision should be reviewed if:
 - Both positive and negative consequences documented honestly
 
 ### Actionable Implementation
-- Migration plan with timeline (6 weeks, 4 phases)
+- Migration plan with four sequential phases and measurable rollout gates
 - Code examples showing actual implementation
 - Testing strategy covering unit, integration, load tests
 

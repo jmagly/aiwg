@@ -1,5 +1,7 @@
 # Creative Asset Request
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `CRE-{PROJECT}-{NNNN}`
 **Request ID**: {REQ-NNNN}
 **Status**: New | Assigned | In Progress | Review | Complete
@@ -126,17 +128,17 @@
 
 ---
 
-## Timeline
+## Scope and Gates
 
-| Milestone | Date |
+| Milestone | Completion Gate |
 |-----------|------|
-| Request submitted | {Date} |
-| Assigned to designer | {Date} |
-| First draft | {Date} |
-| Feedback deadline | {Date} |
-| Revisions | {Date} |
-| Final approval | {Date} |
-| Delivery | {Date} |
+| Request submitted | Required brief and specifications supplied |
+| Assigned to designer | Designer acknowledges ownership |
+| First draft | Draft covers required formats and content |
+| Feedback consolidated | Blocking findings documented and assigned |
+| Revisions | Reviewer findings resolved or explicitly accepted |
+| Final approval | Approver sign-off recorded |
+| Delivery | Export files validated and accessible to requestor |
 
 ---
 
@@ -153,7 +155,7 @@
 ### Approval Process
 
 1. Designer completes first draft
-2. Requestor reviews within {X} days
+2. Requestor records consolidated feedback before the revision pass
 3. {X} rounds of revisions included
 4. Final approval from {approver}
 5. Delivery to requestor
@@ -163,7 +165,7 @@
 - Provide specific, actionable feedback
 - Reference specific elements
 - Consolidate feedback before submitting
-- Respond within {X} business days
+- Resolve blocking feedback before final approval
 
 ---
 
@@ -175,13 +177,13 @@
 |------|------|---------------|
 | Designer | {Name} | {Date} |
 
-### Estimated Hours
+### Scope Units and Passes
 
-| Task | Hours |
+| Task | Scope Units / Passes |
 |------|-------|
-| Design | {#} |
-| Revisions | {#} |
-| **Total** | **{#}** |
+| Design | {Named assets and designer; draft pass} |
+| Revisions | {Reviewer findings; correction passes to acceptance} |
+| **Completion Gate** | **All asset specifications verified and approver sign-off recorded** |
 
 ---
 
