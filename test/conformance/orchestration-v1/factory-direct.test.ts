@@ -208,7 +208,10 @@ describe('Factory (Droid) version-bound profile (B-OG-37)', () => {
     const profile = adapter.invocationProfiles!['direct-shell'];
     expect(profile.supportedVersions).toBe(VERSION);
     expect(profile.controls.stdin.evidence).toContain('first stream-json message');
-    expect(profile.pitfalls.join(' ')).toContain('402 No active subscription');
+    expect(profile.pitfalls.join(' ')).toContain('Titan 1.0.0 eval (2026-11-06, BYOK custom model via OpenRouter)');
+    expect(profile.pitfalls.join(' ')).toContain('-r/--reasoning-effort is accepted but ignored for BYOK custom models');
+    expect(profile.envAllowlist).toEqual(['FACTORY_API_KEY', 'HOME', 'OPENROUTER_API_KEY', 'PATH']);
+    expect(adapter.invocation.envAllowlist).toEqual(profile.envAllowlist);
     expect(Object.keys(profile.controls).sort()).toEqual(['approval', 'children', 'effort', 'fallback', 'finalOutput', 'model',
       'sandbox', 'stdin', 'stepCap', 'structuredOutput', 'trust', 'workdir']);
     for (const [name, control] of Object.entries(profile.controls)) {
