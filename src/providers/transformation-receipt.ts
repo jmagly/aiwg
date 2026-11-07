@@ -1,3 +1,4 @@
+import { workspaceFileMode, workspaceDirectoryMode, preserveReplacementMode } from '../storage/workspace-permissions.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -178,7 +179,7 @@ export async function writeProviderTransformationReceipt(
   const destination = projectAiwgWritePath(
     projectRoot, 'receipts', 'providers', `${receipt.provider}.${receipt.scope}.json`,
   );
-  await mkdir(path.dirname(destination), { recursive: true });
+  await mkdir(path.dirname(destination), { recursive: true, mode: workspaceDirectoryMode(path.dirname(destination)) });
   try {
     const existing = validateProviderTransformationReceipt(JSON.parse(await readFile(destination, 'utf8')));
     const semantic = (value: ProviderTransformationReceipt) => JSON.stringify({ ...value, generatedAt: undefined });
@@ -189,8 +190,9 @@ export async function writeProviderTransformationReceipt(
   const temporary = `${destination}.${randomUUID()}.tmp`;
   try {
     await writeFile(temporary, `${JSON.stringify(receipt, null, 2)}\n`, {
-      encoding: 'utf8', mode: 0o600, flag: 'wx',
+      encoding: 'utf8', mode: workspaceFileMode(destination), flag: 'wx',
     });
+    await preserveReplacementMode(temporary, destination);
     await rename(temporary, destination);
   } catch (error) {
     await rm(temporary, { force: true }).catch(() => undefined);

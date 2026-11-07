@@ -7,6 +7,7 @@
  * shared correlation id joins the two append-only journals.
  */
 
+import { workspaceFileMode, workspaceDirectoryMode, workspacePermissionsAllowed } from '../storage/workspace-permissions.js';
 import { randomUUID } from 'node:crypto';
 import { constants as fsConstants, createReadStream } from 'node:fs';
 import { lstat, mkdir, open, type FileHandle } from 'node:fs/promises';
@@ -33,8 +34,6 @@ import {
 export const DECISION_OPPORTUNITY_SCHEMA = 'aiwg-decision-opportunity/v1' as const;
 export const DECISION_OFFLOAD_SNAPSHOT_SCHEMA = 'aiwg-decision-offload-snapshot/v1' as const;
 const OPPORTUNITY_FILE = 'opportunities.jsonl';
-const DIR_MODE = 0o700;
-const FILE_MODE = 0o600;
 const MAX_OPPORTUNITY_RECORD_BYTES = 4000;
 export const DECISION_OPPORTUNITY_RECORD_TIMEOUT_MS = DECISION_LEDGER_RECORD_TIMEOUT_MS;
 const TIMED_OUT = Symbol('decision-offload-timeout');
@@ -270,18 +269,18 @@ export async function appendDecisionOpportunity(
   try {
     const directory = projectAiwgWritePath(projectRoot, 'decision');
     const file = path.join(directory, OPPORTUNITY_FILE);
-    await mkdir(directory, { recursive: true, mode: DIR_MODE });
+    await mkdir(directory, { recursive: true, mode: workspaceDirectoryMode(directory) });
     const dirStat = await lstat(directory);
-    if (!dirStat.isDirectory() || dirStat.isSymbolicLink() || (dirStat.mode & 0o077) !== 0) throw new Error('unsafe opportunity directory');
+    if (!dirStat.isDirectory() || dirStat.isSymbolicLink() || !workspacePermissionsAllowed(directory, dirStat)) throw new Error('unsafe opportunity directory');
     try {
       const fileStat = await lstat(file);
-      if (!fileStat.isFile() || fileStat.isSymbolicLink() || fileStat.nlink !== 1 || (fileStat.mode & 0o077) !== 0) throw new Error('unsafe opportunity file');
+      if (!fileStat.isFile() || fileStat.isSymbolicLink() || fileStat.nlink !== 1 || !workspacePermissionsAllowed(file, fileStat)) throw new Error('unsafe opportunity file');
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
-    handle = await open(file, fsConstants.O_APPEND | fsConstants.O_CREAT | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), FILE_MODE);
+    handle = await open(file, fsConstants.O_APPEND | fsConstants.O_CREAT | fsConstants.O_WRONLY | (fsConstants.O_NOFOLLOW ?? 0), workspaceFileMode(file));
     const opened = await handle.stat();
-    if (!opened.isFile() || opened.nlink !== 1 || (opened.mode & 0o077) !== 0) throw new Error('unsafe opened opportunity file');
+    if (!opened.isFile() || opened.nlink !== 1 || !workspacePermissionsAllowed(file, opened)) throw new Error('unsafe opened opportunity file');
     await writeFully(handle, Buffer.from(line, 'utf8'));
     return true;
   } catch (error) {

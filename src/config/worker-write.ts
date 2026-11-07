@@ -1,6 +1,7 @@
 // Shares atomic replacement and serialization across worker configuration owners.
+import { workspaceFileMode, preserveReplacementMode } from '../storage/workspace-permissions.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { mkdir, writeFile, rename, unlink, stat } from 'node:fs/promises';
+import { mkdir, writeFile, rename, unlink } from 'node:fs/promises';
 import { statSync, readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { dirname, join } from 'node:path';
@@ -20,13 +21,10 @@ export async function atomicConfigWrite(file: string, content: string, assertOwn
   assertOwned?.();
   await mkdir(dirname(file), { recursive: true });
   const temporary = `${file}.${randomBytes(6).toString('hex')}.tmp`;
-  let mode = 0o600;
-  try { mode = (await stat(file)).mode; } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-  }
   try {
     assertOwned?.();
-    await writeFile(temporary, content, { encoding: 'utf8', mode });
+    await writeFile(temporary, content, { encoding: 'utf8', mode: workspaceFileMode(file), flag: 'wx' });
+    await preserveReplacementMode(temporary, file);
     assertOwned?.();
     await rename(temporary, file);
   } finally { await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; }); }

@@ -245,7 +245,7 @@ describe('decisionHandler', () => {
       frameworkRoot: process.cwd(),
     });
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.message ?? '{}')).toMatchObject({ schema: 'aiwg-decision-ask/v1', status: 'fallback', reason: 'not-configured' });
+    expect(JSON.parse(result.message ?? '{}')).toMatchObject({ schema: 'aiwg-decision-ask/v1', status: 'fallback', reason: 'not-configured', ledgerRecorded: true });
     const ledger = await readFile(path.join(dir, '.aiwg', 'decision', 'ledger.jsonl'), 'utf8');
     expect(JSON.parse(ledger.trim())).toMatchObject({ provider: 'unknown' });
   });

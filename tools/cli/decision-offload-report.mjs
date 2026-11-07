@@ -2,10 +2,13 @@ import { fileURLToPath } from 'node:url';
 import { importImpl } from '../_resolve-impl.mjs';
 
 /** Offline inspection only: never probes a service or records an opportunity. */
-export async function collectDecisionOffloadReport(projectRoot) {
+export async function collectDecisionOffloadReport(projectRoot, { fix = false } = {}) {
   try {
     const { buildDecisionOffloadSnapshot } = await importImpl(import.meta.url, 'decision/offload.js');
-    return await buildDecisionOffloadSnapshot({ projectRoot, frameworkRoot: fileURLToPath(new URL('../../', import.meta.url)) });
+    const { inspectWorkspacePermissions } = await importImpl(import.meta.url, 'storage/workspace-permissions-health.js');
+    const permissions = await inspectWorkspacePermissions(projectRoot, fix);
+    const snapshot = await buildDecisionOffloadSnapshot({ projectRoot, frameworkRoot: fileURLToPath(new URL('../../', import.meta.url)) });
+    return { ...snapshot, permissions };
   } catch {
     // An unavailable reader must not be interpreted as healthy adoption, nor
     // leak exception details that can include private paths or stored values.
@@ -19,6 +22,8 @@ export function formatDecisionOffloadReport(snapshot) {
     lines.push('  Observation: unknown (report unavailable).');
     return lines;
   }
+  for (const journal of snapshot.permissions?.journals ?? []) lines.push(`  Journal permissions: ${journal.state} (${journal.path})`);
+  for (const finding of snapshot.permissions?.findings ?? []) lines.push(`  Permissions: ${finding.reason} (${finding.path}); ${finding.repaired ? 'repaired' : finding.repair}`);
   const calls = snapshot.calls?.organic;
   const opportunities = snapshot.opportunities?.organic;
   lines.push(`  Scope: ${snapshot.scope?.mode ?? 'unknown'}${snapshot.scope?.sessionId ? ` (${snapshot.scope.sessionId})` : ''}`);

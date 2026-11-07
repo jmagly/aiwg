@@ -739,7 +739,7 @@ export async function runDoctor() {
 
   if (options.resources) return runResourceDoctor(process.cwd(), options);
   if (options.decisionOffload) {
-    const decisionOffload = await collectDecisionOffloadReport(process.cwd());
+    const decisionOffload = await collectDecisionOffloadReport(process.cwd(), { fix: options.fix });
     const warnings = await readNativeSandboxWarnings(process.cwd()).catch(() => []);
     if (jsonMode) console.log(JSON.stringify({ decisionOffload, nativeSandboxWarnings: warnings }, null, 2));
     else {
