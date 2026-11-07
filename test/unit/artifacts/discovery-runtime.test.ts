@@ -93,9 +93,12 @@ describe('lexical confidence', () => {
         path: field === 'path' ? `skills/${boilerplate}/SKILL.md` : 'skills/work/SKILL.md' };
       const result = scoreEntryDetailed(entry(fields), text, { relaxOverlap: true });
       expect(result.score).toBeGreaterThan(0);
-      const fieldWeights = { trigger: 0.4 / 12, capability: 0.2, title: 0.24, summary: 0.04,
+      const fieldWeights = { trigger: 0.4, capability: 0.2, title: 0.24, summary: 0.04,
         tag: 0.1, search_terms: 0.09, path: 0.03 };
-      expect(result.score).toBeCloseTo(4 * fieldWeights[field as keyof typeof fieldWeights]);
+      // #3952: four of eight leading tokens cover 4/9 of the weighted query;
+      // descriptive fields must respect that confidence cap too.
+      expect(result.score).toBeCloseTo(Math.min(4 / 9, 4 * fieldWeights[field as keyof typeof fieldWeights]));
+      expect(result.score).toBeLessThan(0.70);
       expect(result.diagnostic.matches).toEqual(expect.arrayContaining([
         expect.objectContaining({ field, match: 'token-overlap', query_token_coverage: 4 / 12 }),
       ]));

@@ -1,5 +1,6 @@
 // Tokenize discovery phrases and score metadata matches with lexical diagnostics.
 import { diagnoseFacetActivations } from './discover-facets.js';
+import { verboseQueryProfile } from './query-engine-verbose.js';
 import type { MetadataEntry } from './types.js';
 
 export function containsTokenSequence(haystack: string[], needle: string[]): boolean {
@@ -209,6 +210,7 @@ export function scoreEntryDetailed(
   // -> ["intake"]) must still match that token. Pure-stopword queries fall back
   // to the raw text. Tokens are de-duplicated so a repeated word is credited once.
   const tokens = [...new Set(tokenize(text))];
+  const verbose = verboseQueryProfile(text, tokens, tokenize);
   const lower = tokens.length > 0 ? tokens.join(' ') : text.toLowerCase().trim();
   const rawLower = text.toLowerCase().trim();
   const personaIdentitySuppressed = opts.personaIdentitySuppressed ?? diagnoseFacetActivations(text).some(
@@ -218,7 +220,7 @@ export function scoreEntryDetailed(
   let score = 0;
   const matches: LexicalMatchDiagnostic[] = [];
   const creditedTokens = new Map<string, number>();
-  const finish = (uncappedScore = score, cap = 1): DetailedScore => ({
+  const finish = (uncappedScore = score, cap = verbose?.coverage(matches) ?? 1): DetailedScore => ({
     score: Math.min(uncappedScore, cap),
     diagnostic: {
       content_tokens: tokens,
@@ -232,6 +234,7 @@ export function scoreEntryDetailed(
     contribution: number,
     match: Omit<LexicalMatchDiagnostic, 'contribution'>,
   ): void => {
+    contribution *= verbose?.weight(match.matched_tokens ?? tokens) ?? 1;
     score += contribution;
     matches.push({ ...match, contribution });
   };
@@ -240,9 +243,9 @@ export function scoreEntryDetailed(
     hits: string[],
     match: Omit<LexicalMatchDiagnostic, 'contribution' | 'matched_tokens' | 'query_token_coverage'>,
   ): void => {
-    // Sparse trigger overlap needs query coverage even with multiple hits:
-    // boilerplate tokens must not earn full weight in a long query.
-    const denominator = match.field === 'trigger' && (hits.length === 1 || hits.length < Math.ceil(tokens.length / 2))
+    // Short queries discount sparse trigger overlap. Verbose queries instead
+    // apply token weights and the shared coverage cap across all fields.
+    const denominator = !verbose && match.field === 'trigger' && (hits.length === 1 || hits.length < Math.ceil(tokens.length / 2))
       ? Math.max(1, tokens.length) : 1;
     const weight = contributionPerToken / denominator;
     const newlyMatched = hits.filter(token => weight > (creditedTokens.get(token) ?? 0));
