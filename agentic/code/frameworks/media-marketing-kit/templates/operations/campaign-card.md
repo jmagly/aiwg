@@ -1,5 +1,7 @@
 # Campaign Card
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - **ID**: `CAM-{project}-{number}` (e.g., CAM-Q1LAUNCH-001)
@@ -29,7 +31,7 @@
 
 - **KPIs**: [Target metrics: impressions, clicks, conversions, MQLs, SQLs, engagement rate, etc.]
 - **Budget**: $[total] (breakdown: paid media $[X], content $[Y], creative $[Z], agency $[W])
-- **Timeline**: start [YYYY-MM-DD] / launch [YYYY-MM-DD] / end [YYYY-MM-DD] / milestones [dates]
+- **Scope Units**: [Deliverables, responsible roles, review passes, prerequisites, and completion gates]
 - **Channels**: [Primary channels: social, email, paid search, display, content, events, PR, partnerships]
 - **Audience**: [Primary target segment/persona]
 - **Brand Compliance**: Pending | Approved | Rejected | Exempt
@@ -167,11 +169,11 @@
 
 **Content Strategy**: [How content supports campaign funnel - awareness, consideration, conversion]
 
-## Timeline and Milestones
+## Scope and Gates
 
 ### Campaign Phases
 
-**Phase 1: Planning & Development** [Dates: YYYY-MM-DD to YYYY-MM-DD]
+**Phase 1: Planning & Development** [Entry: campaign intake accepted]
 
 - [ ] Campaign strategy approved
 - [ ] Budget allocated and approved
@@ -180,7 +182,7 @@
 - [ ] Media plan confirmed
 - [ ] Technology/platforms configured
 
-**Phase 2: Content & Asset Production** [Dates: YYYY-MM-DD to YYYY-MM-DD]
+**Phase 2: Content & Asset Production** [Entry: preceding phase checks pass]
 
 - [ ] Creative assets developed (AST-{ids})
 - [ ] Content pieces written/produced (CNT-{ids})
@@ -188,7 +190,7 @@
 - [ ] Legal review completed
 - [ ] Final stakeholder approval
 
-**Phase 3: Pre-Launch** [Dates: YYYY-MM-DD to YYYY-MM-DD]
+**Phase 3: Pre-Launch** [Entry: preceding phase checks pass]
 
 - [ ] Media placements booked
 - [ ] Email campaigns scheduled
@@ -197,7 +199,7 @@
 - [ ] Sales/partner enablement complete
 - [ ] Internal launch communications sent
 
-**Phase 4: Campaign Live** [Dates: YYYY-MM-DD to YYYY-MM-DD]
+**Phase 4: Campaign Live** [Entry: preceding phase checks pass]
 
 - [ ] Campaign launched
 - [ ] Daily/weekly monitoring
@@ -205,7 +207,7 @@
 - [ ] Stakeholder updates
 - [ ] Mid-campaign review (if applicable)
 
-**Phase 5: Post-Campaign** [Dates: YYYY-MM-DD to YYYY-MM-DD]
+**Phase 5: Post-Campaign** [Entry: preceding phase checks pass]
 
 - [ ] Campaign ended
 - [ ] Final data collection
@@ -215,15 +217,15 @@
 
 ### Key Milestones
 
-| Milestone | Date | Owner | Success Criteria | Status |
+| Milestone | Completion Gate | Owner | Success Criteria | Status |
 |-----------|------|-------|------------------|--------|
-| Strategy approved | [YYYY-MM-DD] | [name] | Strategy doc signed off | [ ] |
-| Creative approved | [YYYY-MM-DD] | [name] | Brand/legal approval | [ ] |
-| Assets ready | [YYYY-MM-DD] | [name] | All assets delivered | [ ] |
-| Launch | [YYYY-MM-DD] | [name] | Campaign live | [ ] |
-| Mid-point review | [YYYY-MM-DD] | [name] | Performance on track | [ ] |
-| Campaign end | [YYYY-MM-DD] | [name] | All activity stopped | [ ] |
-| Report published | [YYYY-MM-DD] | [name] | Final analysis shared | [ ] |
+| Strategy approved | [Acceptance checks for Strategy approved pass] | [name] | Strategy doc signed off | [ ] |
+| Creative approved | [Acceptance checks for Creative approved pass] | [name] | Brand/legal approval | [ ] |
+| Assets ready | [Acceptance checks for Assets ready pass] | [name] | All assets delivered | [ ] |
+| Launch | [Acceptance checks for Launch pass] | [name] | Campaign live | [ ] |
+| Mid-point review | [Acceptance checks for Mid-point review pass] | [name] | Performance on track | [ ] |
+| Campaign end | [Acceptance checks for Campaign end pass] | [name] | All activity stopped | [ ] |
+| Report published | [Acceptance checks for Report published pass] | [name] | Final analysis shared | [ ] |
 
 ## Success Metrics
 

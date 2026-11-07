@@ -1,5 +1,7 @@
 # Competitive Tracking Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - ID: RPT-###
@@ -21,7 +23,7 @@
 
 - KPIs: [Competitor share of voice, keyword overlap, ad spend estimates, content velocity]
 - Budget: $[competitive intelligence tooling costs]
-- Timeline: start YYYY-MM-DD / end N/A (ongoing monitoring) / milestones [quarterly deep-dives]
+- Scope Units: competitor inventory, evidence collection, reviewed comparison; analyst and reviewer; gates: sourced observations and accepted analysis
 - Brand Compliance: N/A (internal intelligence)
 - Legal Review: required (ensure ethical competitive intelligence practices)
 - Performance: N/A (intelligence gathering, not campaign execution)
@@ -351,7 +353,7 @@
 
 - [ ] Optimize for "category term" and "best [product]" keywords (currently underperforming)
 - [ ] Increase content production to maintain velocity advantage (15 posts/month)
-- [ ] Launch link-building campaign (target: 500 new referring domains in 6 months)
+- [ ] Launch link-building campaign (target: 500 new referring domains; gate: verified domain count reaches target)
 
 ---
 
@@ -721,13 +723,13 @@ SMB Focus ------+------ High Price
 
 ## 10. Strategic Recommendations
 
-### 10.1 Immediate Actions (Next 30 Days)
+### 10.1 Initial Actions (entry: competitive findings verified)
 
 **High Priority**:
 
 1. [ ] **Counter Competitor B brand bidding** - increase brand defense budget by $5k/month
 2. [ ] **Capitalize on Competitor A/B content slowdown** - increase blog production to 20 posts/month
-3. [ ] **Launch review campaign** - target 100 new G2 reviews in 30 days (close gap with Competitor A)
+3. [ ] **Launch review campaign** - target 100 new G2 reviews; gate: verified review count reaches target (close gap with Competitor A)
 
 **Medium Priority**:
 
@@ -735,7 +737,7 @@ SMB Focus ------+------ High Price
 5. [ ] **Optimize for "category term" keyword** - currently rank 8th, Competitor A is 1st
 6. [ ] **Monitor Competitor B pricing** - watch for further increases (elasticity testing?)
 
-### 10.2 90-Day Strategic Priorities
+### 10.2 Strategic Priorities (entry: positioning and channel briefs approved)
 
 **Competitive Positioning**:
 
@@ -747,7 +749,7 @@ SMB Focus ------+------ High Price
 
 - [ ] Increase LinkedIn ad spend to match Competitor B (currently 45 ads vs our 32)
 - [ ] Double down on long-tail keywords (low competition, high intent)
-- [ ] Launch link-building campaign (target: 500 new referring domains in 6 months)
+- [ ] Launch link-building campaign (target: 500 new referring domains; gate: verified domain count reaches target)
 
 **Product & Roadmap**:
 
@@ -755,7 +757,7 @@ SMB Focus ------+------ High Price
 - [ ] Address Core Feature 2 gap (Competitor A has superior implementation)
 - [ ] Maintain feature parity (monitor Competitor A/B product updates)
 
-### 10.3 Long-Term Strategic Initiatives (6-12 Months)
+### 10.3 Expansion Initiatives (entry: strategic experiments reviewed)
 
 **Market Expansion**:
 

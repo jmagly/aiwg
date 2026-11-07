@@ -1,5 +1,7 @@
 # PPC Account Audit
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `ADV-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Complete
@@ -27,13 +29,13 @@
 
 ### Top 5 Priorities
 
-| Priority | Issue | Impact | Effort |
+| Priority | Issue | Impact | Completion Gate |
 |----------|-------|--------|--------|
-| 1 | {Issue} | {High/Med/Low} | {High/Med/Low} |
-| 2 | {Issue} | {High/Med/Low} | {High/Med/Low} |
-| 3 | {Issue} | {High/Med/Low} | {High/Med/Low} |
-| 4 | {Issue} | {High/Med/Low} | {High/Med/Low} |
-| 5 | {Issue} | {High/Med/Low} | {High/Med/Low} |
+| 1 | {Issue} | {High/Med/Low} | {Named correction and passing verification check} |
+| 2 | {Issue} | {High/Med/Low} | {Named correction and passing verification check} |
+| 3 | {Issue} | {High/Med/Low} | {Named correction and passing verification check} |
+| 4 | {Issue} | {High/Med/Low} | {Named correction and passing verification check} |
+| 5 | {Issue} | {High/Med/Low} | {Named correction and passing verification check} |
 
 ### Estimated Impact
 

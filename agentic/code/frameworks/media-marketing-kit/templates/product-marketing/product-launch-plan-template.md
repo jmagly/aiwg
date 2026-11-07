@@ -1,5 +1,7 @@
 # Product Launch Plan
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `PMK-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Approved | Active | Complete
@@ -15,14 +17,14 @@
 
 {2-3 sentence summary of what's launching and why it matters}
 
-### Key Dates
+### Scope and Gates
 
-| Milestone | Date |
+| Milestone | Completion Gate |
 |-----------|------|
-| Internal launch | {Date} |
-| Soft launch / Beta | {Date} |
-| Public launch | {Date} |
-| PR embargo lift | {Date} |
+| Internal launch | Internal acceptance checks pass |
+| Soft launch / Beta | Internal feedback resolved; beta cohort approved |
+| Public launch | Beta checks pass; launch owner approves |
+| PR embargo lift | Operator-supplied embargo commitment confirmed by PR owner |
 
 ### Success Metrics
 
@@ -285,7 +287,7 @@ For {target customer} who {need}, {Product Name} is a {category} that {key benef
 
 ## Launch Day Checklist
 
-### Pre-Launch (T-7 days)
+### Pre-Launch (entry: assets and tracking approved)
 
 - [ ] All assets complete and approved
 - [ ] Website updates staged
@@ -397,7 +399,7 @@ For {target customer} who {need}, {Product Name} is a {category} that {key benef
 
 ## Appendix
 
-### A. Detailed Timeline
+### A. Detailed Dependency and Gate Plan
 
 {Gantt chart or detailed week-by-week breakdown}
 

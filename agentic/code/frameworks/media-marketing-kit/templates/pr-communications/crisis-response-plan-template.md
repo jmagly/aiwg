@@ -1,5 +1,7 @@
 # Crisis Response & Communications Plan
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - ID: PRS-007
@@ -43,7 +45,7 @@ A crisis is an unexpected event or situation that:
 - Handled by functional teams (support, engineering, product)
 - PR informed but not lead
 - Standard communication channels
-- Resolution timeline: Hours to 1 day
+- Resolution gate: issue contained and response owner verifies closure
 
 **Escalation**: If impacts grow or media inquiries received
 
@@ -65,7 +67,7 @@ A crisis is an unexpected event or situation that:
 - Holding statement within 2 hours
 - Full statement within 24 hours
 - Customer notification (if applicable)
-- Resolution timeline: 1-7 days
+- Resolution gate: remediation verified and stakeholder updates approved
 
 **Escalation**: If national media picks up, customer impact worsens, or legal exposure increases
 
@@ -92,7 +94,7 @@ A crisis is an unexpected event or situation that:
 - Media monitoring 24/7
 - Legal and regulatory notifications
 - Board informed within 2 hours
-- Resolution timeline: 1-4 weeks
+- Resolution gate: root cause contained, integrity verified, and recovery approved
 
 **Escalation**: Automatic board notification, potential outside counsel/crisis PR firm
 
@@ -118,7 +120,7 @@ A crisis is an unexpected event or situation that:
 - Legal counsel on-site
 - Regulatory notifications immediate
 - Customer support scaled massively
-- Resolution timeline: Weeks to months
+- Resolution gate: independent recovery review and executive sign-off complete
 
 ---
 
@@ -424,7 +426,7 @@ Media Contact:
 
 **Within 2 hours** (business hours):
 - Acknowledge receipt
-- Provide estimated response time
+- State the next response gate and owner; quote any operator-supplied response commitment
 - Offer spokesperson interview if appropriate
 
 **Within 24 hours**:
@@ -621,7 +623,7 @@ Standalone crisis response website activated when:
 
 ## Recovery & Reputation Repair
 
-### Short-Term Recovery (Days 1-7)
+### Containment and Restoration (entry: incident scope established)
 
 **Operational**:
 - [ ] Contain and remediate root cause
@@ -641,7 +643,7 @@ Standalone crisis response website activated when:
 - [ ] Remediation offers (credits, free services, monitoring)
 - [ ] Apology (if appropriate - CEO letter or video)
 
-### Mid-Term Recovery (Weeks 2-8)
+### Prevention and Validation (entry: service integrity verified)
 
 **Operational**:
 - [ ] Implement preventive measures
@@ -661,7 +663,7 @@ Standalone crisis response website activated when:
 - [ ] Third-party validation (audits, certifications)
 - [ ] Executive visibility (conference appearances, articles)
 
-### Long-Term Recovery (Months 3-12)
+### Sustained Recovery (entry: preventive controls and external review complete)
 
 **Operational**:
 - [ ] Comprehensive incident review

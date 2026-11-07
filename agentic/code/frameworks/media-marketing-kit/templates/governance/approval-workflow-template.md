@@ -1,5 +1,7 @@
 # Content Approval Workflow Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ---
 
 **Document ID**: GOV-001
@@ -132,26 +134,26 @@ This template establishes a standardized approval process for marketing content 
 
 ### 2.1 Workflow Tier Selection
 
-**Tier 1: Expedited Approval (24-48 hours)**
+**Tier 1: Expedited Approval (pre-approved scope)**
 - Pre-approved content types (e.g., social posts using existing assets)
 - Minor updates to existing content
 - Time-sensitive responses
 - **Required Approvers**: Content Lead + Brand Manager
 
-**Tier 2: Standard Approval (3-5 business days)**
+**Tier 2: Standard Approval (new content scope)**
 - New blog posts, emails, landing pages
 - Original creative campaigns
 - External publication submissions
 - **Required Approvers**: Content Lead → Brand Manager → Legal Review (if claims made) → Final Sign-off
 
-**Tier 3: Extended Approval (1-2 weeks)**
+**Tier 3: Extended Approval (cross-functional scope)**
 - Press releases
 - Executive thought leadership
 - Paid advertising campaigns
 - Partnership/co-marketing content
 - **Required Approvers**: Content Lead → Brand Manager → Legal → Executive Sponsor → Final Sign-off
 
-**Tier 4: Critical Approval (2+ weeks)**
+**Tier 4: Critical Approval (full approval scope)**
 - Crisis communications
 - Major product announcements
 - Regulatory/compliance content
@@ -164,16 +166,16 @@ This template establishes a standardized approval process for marketing content 
 
 ### 2.2 Approval Chain
 
-| Stage | Approver Name | Role | Approval Type | SLA | Status | Date | Notes |
+| Stage | Approver Name | Role | Approval Type | Completion Gate | Status | Observed Approval Date | Notes |
 |-------|---------------|------|---------------|-----|--------|------|-------|
-| 1 | [Name] | Content Lead | Required | 1 day | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
-| 2 | [Name] | Brand Manager | Required | 1 day | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
-| 3 | [Name] | Legal Review | Required/Optional | 2 days | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
-| 4 | [Name] | Subject Matter Expert | Optional | 1 day | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
-| 5 | [Name] | Executive Sponsor | Required | 2 days | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
-| 6 | [Name] | Final Sign-off | Required | 1 day | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
+| 1 | [Name] | Content Lead | Required | Reviewer sign-off recorded | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
+| 2 | [Name] | Brand Manager | Required | Reviewer sign-off recorded | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
+| 3 | [Name] | Legal Review | Required/Optional | Reviewer sign-off recorded | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
+| 4 | [Name] | Subject Matter Expert | Optional | Reviewer sign-off recorded | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
+| 5 | [Name] | Executive Sponsor | Required | Reviewer sign-off recorded | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
+| 6 | [Name] | Final Sign-off | Required | Reviewer sign-off recorded | [ ] Pending<br>[ ] Approved<br>[ ] Changes Requested<br>[ ] Rejected | [Date] | [Comments] |
 
-**Total Estimated Approval Time**: [X business days]
+**Required Approval Gates**: [Required roles and sign-offs, parallel review groups, and correction passes]
 
 ### 2.3 Parallel vs. Sequential Approval
 

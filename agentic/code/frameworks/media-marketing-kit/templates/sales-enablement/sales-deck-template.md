@@ -1,5 +1,7 @@
 # Sales Presentation Deck
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `SLS-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | In Review | Approved | Current
@@ -167,9 +169,9 @@
 | Element | Content |
 |---------|---------|
 | Headline | {Implementation headline} |
-| Timeline | {Typical implementation phases} |
+| Completion Gate | {Implementation scope units, owners, prerequisites, and acceptance checks} |
 | Support | {What's included} |
-| Visual | {Timeline graphic} |
+| Visual | {Dependency and acceptance gate diagram} |
 
 **Speaker notes**: {Address implementation concerns}
 
@@ -194,7 +196,7 @@
 |---------|---------|
 | Headline | {Action-oriented headline} |
 | Steps | {Clear next actions} |
-| Timeline | {Proposed timeline} |
+| Completion Gate | {Acceptance checks and required reviewer sign-offs} |
 | CTA | {Specific ask} |
 
 **Speaker notes**: {How to close the meeting}

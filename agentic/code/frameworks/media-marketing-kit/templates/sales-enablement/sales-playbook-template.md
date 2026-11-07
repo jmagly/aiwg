@@ -1,5 +1,7 @@
 # Sales Playbook
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `SLS-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Current
@@ -124,13 +126,13 @@ For {target customer} who {need/problem}, {Product Name} is a {category} that {k
 
 ### Stage Overview
 
-| Stage | Definition | Exit Criteria | Timeline |
+| Stage | Definition | Exit Criteria | Scope Units |
 |-------|------------|---------------|----------|
-| Prospecting | Identify opportunities | Meeting scheduled | Ongoing |
-| Discovery | Understand needs | Pain confirmed, budget qualified | 1-2 weeks |
-| Demo/Evaluation | Demonstrate value | Technical win | 2-4 weeks |
-| Proposal | Present solution | Verbal agreement | 1-2 weeks |
-| Negotiation | Finalize terms | Contract out | 1-2 weeks |
+| Prospecting | Identify opportunities | Meeting scheduled | Qualified account and meeting brief |
+| Discovery | Understand needs | Pain confirmed, budget qualified | One documented stage outcome with owner review |
+| Demo/Evaluation | Demonstrate value | Technical win | Demo and technical evaluation; acceptance checks reviewed |
+| Proposal | Present solution | Verbal agreement | One documented stage outcome with owner review |
+| Negotiation | Finalize terms | Contract out | One documented stage outcome with owner review |
 | Closed | Signed deal | Signature | - |
 
 ### Qualification Framework

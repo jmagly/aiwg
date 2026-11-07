@@ -104,7 +104,7 @@ If `--interactive` flag present:
    # {Flow Name} - Interactive Setup
 
    **Purpose**: {brief description of what this flow accomplishes}
-   **Typical Duration**: {estimated time}
+   **Scope Units**: {named artifacts, agent roles, review passes, and completion gates}
    **Key Outputs**: {main artifacts generated}
 
    **Context**: I'll ask 5-10 strategic questions to tailor this flow to your project's needs.
@@ -115,7 +115,7 @@ If `--interactive` flag present:
 
    **Question Categories**:
    - **Priority/Focus**: What matters most? (Security, Performance, Cost, Speed, Quality)
-   - **Constraints**: What are your main constraints? (Timeline, Budget, Team Skills, Compliance)
+   - **Constraints**: What are your main constraints? (Operator-supplied commitments, Budget, Team Skills, Compliance)
    - **Risk Awareness**: What keeps you up at night about this project?
    - **Team Context**: What are your team's strengths and gaps?
    - **Domain Specifics**: {flow-specific domain questions}
@@ -127,7 +127,7 @@ If `--interactive` flag present:
 
    Q2: What are your top priorities for the architecture? (Rank: Security, Performance, Maintainability, Cost)
 
-   Q3: What are your biggest constraints? (Timeline pressure, team skills, budget, compliance requirements)
+   Q3: What are your biggest constraints? (Operator-supplied commitments, team skills, budget, compliance requirements)
 
    Q4: What architectural risks concern you most? (Data migration, backward compatibility, integration complexity)
 
@@ -137,7 +137,7 @@ If `--interactive` flag present:
 
    Q7: Are there compliance or regulatory requirements? (If yes, specify: GDPR, HIPAA, SOC2, PCI-DSS, etc.)
 
-   Q8: What's your target timeline for this architecture evolution? (Weeks, Months, Ongoing)
+   Q8: Which deliverables and acceptance gates define this architecture evolution? Record any operator-supplied dates separately with their source; do not infer dates or durations.
    ```
 
 3. **Synthesize Guidance**:
@@ -148,7 +148,7 @@ If `--interactive` flag present:
    - Assign agents: {recommended agents based on team gaps from Q6}
    - Adapt templates: {template adjustments based on maturity from Q5}
    - Address compliance: {compliance focus from Q7}
-   - Adjust timeline: {activity scoping based on Q8}
+   - Define scope and gates: {deliverables and acceptance checks from Q8}; preserve supplied commitments separately
 
    Proceed with these adjustments? (yes/no)
    ```
@@ -156,7 +156,7 @@ If `--interactive` flag present:
 4. **Convert to Guidance String** (for internal use):
    ```bash
    # Synthesize answers into guidance string
-   GUIDANCE="Priorities: Security>Performance>Cost. Constraints: Tight timeline (3 months), team skills gap in DevOps. Risks: Data migration complexity, backward compatibility. Compliance: SOC2 audit required. Architecture maturity: Minimal docs, need comprehensive."
+   GUIDANCE="Priorities: Security>Performance>Cost. Constraints: Operator-supplied SOC2 audit in 3 months (source: user guidance); team skills gap in DevOps. Scope: architecture baseline, security review, migration validation; gates: reviewer approval and passing checks. Risks: Data migration complexity, backward compatibility. Compliance: SOC2 audit required. Architecture maturity: Minimal docs, need comprehensive."
 
    # Continue with guidance-influenced execution
    ```
@@ -315,7 +315,7 @@ fi
 2. What percentage of requirements do you estimate are understood? (0-25%, 25-50%, 50-75%, 75-100%)
 3. What are your biggest architectural unknowns? (Tech stack feasibility, integration complexity, performance, scalability)
 4. What's your team's size and composition? (Solo, 2-5 people, 5-10, 10+ with roles)
-5. How tight is your timeline for Elaboration? (Flexible, Target date, Hard deadline, Crisis mode)
+5. What deliverables and gates are required for Elaboration? Are there operator-supplied commitments to record with their source?
 6. What domain expertise does your team have? (Strong, Moderate, Learning, New to domain)
 7. Are there regulatory or compliance requirements? (None, GDPR, HIPAA, SOC2, PCI-DSS, Other)
 8. What's your testing maturity? (Comprehensive automated, Some tests, Manual only, No tests yet)
@@ -325,11 +325,11 @@ fi
 **Strategic Questions** (7 questions):
 1. What's driving this architecture change? (New requirements, Performance issues, Tech debt, Scaling needs, Security)
 2. What are your top priorities? (Rank: Security, Performance, Maintainability, Cost, Speed)
-3. What are your biggest constraints? (Timeline, Team skills, Budget, Compliance, Backward compatibility)
+3. What are your biggest constraints? (Operator-supplied commitments, Team skills, Budget, Compliance, Backward compatibility)
 4. What architectural risks concern you most? (Data migration, Breaking changes, Integration complexity, Performance regression)
 5. How mature is your current architecture documentation? (Comprehensive, Outdated, Minimal, None)
 6. What's your team's architecture review experience? (Expert, Intermediate, Learning, New)
-7. What's your target timeline for this evolution? (Weeks, Months, Ongoing)
+7. Which scope units, review passes, and completion gates are required for this evolution?
 
 ### flow-test-strategy-execution
 
@@ -351,7 +351,7 @@ fi
 5. What's your security tooling maturity? (Comprehensive SAST/DAST/SCA, Some tools, Manual review, None)
 6. What's your team's security expertise? (Dedicated security team, Security-aware developers, Learning, New)
 7. What's your incident response readiness? (Documented playbooks, Ad-hoc process, No process)
-8. What's your target timeline for this review? (Urgent <1 week, Normal 2-4 weeks, Comprehensive 1-2 months)
+8. What is the review scope and required coverage? (Critical paths, Changed components, Full architecture); record operator commitments separately.
 
 ### flow-performance-optimization
 

@@ -1,5 +1,7 @@
 # Vendor Brief Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Document Control
 
 | Field | Value |
@@ -37,7 +39,7 @@
 ## Marketing-Specific Metadata
 
 - **Budget**: $[total vendor cost]
-- **Timeline**: start [YYYY-MM-DD] / deliverables due [YYYY-MM-DD] / final approval [YYYY-MM-DD]
+- **Scope Units**: [Deliverables, responsible roles, review passes, prerequisites, and completion gates]
 - **Deliverables**: [List of expected deliverables - video, design assets, content, etc.]
 - **Campaign**: CAM-{id} (parent campaign this vendor work supports)
 - **Legal Review**: Pending | Approved | Conditional | N/A
@@ -193,28 +195,28 @@
 
 ---
 
-## 4. Timeline and Milestones
+## 4. Scope and Gates
 
 ### 4.1 Key Dates
 
-| Milestone | Date | Owner | Success Criteria | Status |
+| Milestone | Completion Gate | Owner | Success Criteria | Status |
 |-----------|------|-------|------------------|--------|
-| Brief submitted to vendor | [YYYY-MM-DD] | [Client] | Brief shared | [ ] |
-| Vendor kickoff meeting | [YYYY-MM-DD] | [Both] | Alignment confirmed | [ ] |
-| Concept/draft due | [YYYY-MM-DD] | [Vendor] | First version delivered | [ ] |
-| Client feedback provided | [YYYY-MM-DD] | [Client] | Feedback shared | [ ] |
-| Revisions due | [YYYY-MM-DD] | [Vendor] | Revisions delivered | [ ] |
-| Final approval | [YYYY-MM-DD] | [Client] | Client sign-off | [ ] |
-| Final deliverables | [YYYY-MM-DD] | [Vendor] | All files delivered | [ ] |
-| Invoice submitted | [YYYY-MM-DD] | [Vendor] | Invoice received | [ ] |
+| Brief submitted to vendor | [Acceptance checks for Brief submitted to vendor pass] | [Client] | Brief shared | [ ] |
+| Vendor kickoff meeting | [Acceptance checks for Vendor kickoff meeting pass] | [Both] | Alignment confirmed | [ ] |
+| Concept/draft due | [Acceptance checks for Concept/draft due pass] | [Vendor] | First version delivered | [ ] |
+| Client feedback provided | [Acceptance checks for Client feedback provided pass] | [Client] | Feedback shared | [ ] |
+| Revisions due | [Acceptance checks for Revisions due pass] | [Vendor] | Revisions delivered | [ ] |
+| Final approval | [Acceptance checks for Final approval pass] | [Client] | Client sign-off | [ ] |
+| Final deliverables | [Acceptance checks for Final deliverables pass] | [Vendor] | All files delivered | [ ] |
+| Invoice submitted | [Acceptance checks for Invoice submitted pass] | [Vendor] | Invoice received | [ ] |
 
-### 4.2 Project Timeline
+### 4.2 Scope and Roles
 
-**Project Start**: YYYY-MM-DD
+**Entry Gate**: [Brief accepted and vendor assigned]
 
-**Project End**: YYYY-MM-DD
+**Completion Gate**: [Files validated and client sign-off recorded]
 
-**Total Duration**: [Number of weeks]
+**Scope Units**: [Deliverables, roles, prerequisites, and review passes]
 
 **Critical Dates**: [Any fixed deadlines that cannot move - campaign launch, event date, etc.]
 
@@ -222,11 +224,11 @@
 
 **Included Revisions**: [Number of revision rounds included in budget - e.g., "2 rounds"]
 
-**Revision Turnaround**: [How quickly vendor must deliver revisions - e.g., "3 business days"]
+**Revision Gate**: [Named correction scope, vendor owner, and acceptance checks]
 
 **Additional Revisions**: [Cost/process for revisions beyond included - e.g., "Additional rounds at $X/hour"]
 
-**Approval Process**: [Who approves, how long approval takes, escalation path]
+**Approval Process**: [Approver, required acceptance checks, and escalation trigger]
 
 ---
 
@@ -403,7 +405,7 @@
 **Response Time Expectations**:
 
 - **Vendor to Client**: [e.g., "Respond to emails within 24 business hours"]
-- **Client to Vendor**: [e.g., "Provide feedback within 3 business days"]
+- **Client to Vendor**: [Operator-supplied response SLA and source, or unset]
 
 **Escalation Path**: [Who to contact if issues arise - names, titles, contact info]
 
@@ -498,7 +500,7 @@
 **Revision Process**:
 
 1. Client provides consolidated feedback via [method/tool]
-2. Vendor implements revisions within [timeframe]
+2. Vendor completes the correction pass before the next approval gate
 3. Client reviews and approves or requests additional changes
 4. Repeat until [number] revision rounds exhausted
 
@@ -541,7 +543,7 @@
 **Change Request Process**:
 
 1. [Step 1 - e.g., "Submit change request via email"]
-2. [Step 2 - e.g., "Vendor provides impact assessment (time, cost)"]
+2. [Step 2 - e.g., "Vendor provides impact assessment (scope units, passes, cost)"]
 3. [Step 3 - e.g., "Client approves or rejects"]
 4. [Step 4 - e.g., "Update brief and contract if approved"]
 

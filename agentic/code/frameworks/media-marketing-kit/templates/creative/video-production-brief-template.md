@@ -1,5 +1,7 @@
 # Video Production Brief
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `CRE-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Approved | In Production | Post | Complete
@@ -310,20 +312,20 @@ Secondary: {Alternative action}
 
 ### Review Points
 
-| Stage | Reviewers | Timeline |
+| Stage | Reviewers | Completion Gate |
 |-------|-----------|----------|
-| Script | {Names} | {Days} |
-| Storyboard | {Names} | {Days} |
-| Rough cut | {Names} | {Days} |
-| Fine cut | {Names} | {Days} |
-| Final | {Names} | {Days} |
+| Script | {Names} | [Acceptance checks for Script pass] |
+| Storyboard | {Names} | [Acceptance checks for Storyboard pass] |
+| Rough cut | {Names} | [Acceptance checks for Rough cut pass] |
+| Fine cut | {Names} | [Acceptance checks for Fine cut pass] |
+| Final | {Names} | [Acceptance checks for Final pass] |
 
 ### Feedback Guidelines
 
 - Specific, actionable feedback
 - Focus on {strategic/creative} alignment
 - Consolidate feedback before sharing
-- Turnaround within {X} business days
+- Resolve reviewer findings before the next cut is approved
 
 ---
 

@@ -1,5 +1,7 @@
 # Press Briefing Document Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - ID: PRS-004
@@ -307,7 +309,7 @@ methodology, or market dynamics.]*"
 - [Advantage 3 with supporting evidence]
 
 ### Limitations / Roadmap
-[Be honest about current limitations and timeline for addressing]
+[State current limitations, fix scope, prerequisites, and completion checks; cite supplied commitments separately]
 - [Current gap]: Planned for [Quarter/Year]
 - [Tradeoff made]: [Rationale for decision]
 
@@ -408,8 +410,8 @@ A: [Factual comparison focusing on differentiation, not disparagement]
 **Q: What's the ROI/payback period?**
 A: [Typical metrics from customers, variables affecting ROI]
 
-**Q: What's the implementation timeline?**
-A: [Typical deployment schedule, factors affecting duration]
+**Implementation gates** — Q: What is required for implementation?
+A: [Named deliverables, prerequisites, owner roles, and deployment acceptance checks; cite any operator-supplied commitments separately]
 
 ### Strategic
 

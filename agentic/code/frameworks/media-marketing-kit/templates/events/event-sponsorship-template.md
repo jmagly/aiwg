@@ -1,5 +1,7 @@
 # Event Sponsorship Brief
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 **Card ID**: `EVT-{PROJECT}-{NNNN}`
 **Version**: 1.0
 **Status**: Draft | Evaluating | Committed | Active | Complete
@@ -107,13 +109,13 @@
 
 ### Pre-Event
 
-| Activity | Timeline | Owner |
+| Activity | Completion Gate | Owner |
 |----------|----------|-------|
-| Social announcement | T-6 weeks | {Name} |
-| Email to prospects | T-4 weeks | {Name} |
-| Meeting scheduling | T-4 to T-1 weeks | {Name} |
-| Content preparation | T-3 weeks | {Name} |
-| Customer invitations | T-3 weeks | {Name} |
+| Social announcement | Sponsorship confirmed and copy approved | {Name} |
+| Email to prospects | Prospect list and copy approved | {Name} |
+| Meeting scheduling | Meeting slots and owner availability confirmed | {Name} |
+| Content preparation | Brief approved; required assets accepted | {Name} |
+| Customer invitations | Invitation list and messaging approved | {Name} |
 
 ### At-Event
 
@@ -127,12 +129,12 @@
 
 ### Post-Event
 
-| Activity | Timeline | Owner |
+| Activity | Completion Gate | Owner |
 |----------|----------|-------|
-| Lead follow-up | +1-3 days | {Name} |
-| Content syndication | +1 week | {Name} |
-| Social recap | +3 days | {Name} |
-| ROI reporting | +2 weeks | {Name} |
+| Lead follow-up | Leads qualified and assigned | {Name} |
+| Content syndication | Content and distribution permissions approved | {Name} |
+| Social recap | Recap assets and claims reviewed | {Name} |
+| ROI reporting | Costs and attributed outcomes reconciled | {Name} |
 
 ---
 
@@ -252,11 +254,11 @@
 
 ### Follow-Up Plan
 
-| Lead Type | Action | Timeline | Owner |
+| Lead Type | Action | Completion Gate | Owner |
 |-----------|--------|----------|-------|
-| Hot | {Action} | +1 day | {Name} |
-| Warm | {Action} | +3 days | {Name} |
-| Cool | {Action} | +1 week | {Name} |
+| Hot | {Action} | Lead consent and owner verified | {Name} |
+| Warm | {Action} | Interest qualified and owner assigned | {Name} |
+| Cool | {Action} | Nurture segment and next action approved | {Name} |
 
 ---
 

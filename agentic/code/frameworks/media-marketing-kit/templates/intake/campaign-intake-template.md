@@ -1,5 +1,7 @@
 # Campaign Intake Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Document Control
 
 | Field | Value |
@@ -32,6 +34,8 @@ priority:
   business_driver: "[Revenue | Brand | Compliance | Competitive | Other]"
 
 timeline:
+  source: "[Operator-supplied commitment reference, or unset]"
+  scope_units: "[Deliverables, owners, passes, and completion gates]"
   requested_start: "[YYYY-MM-DD]"
   requested_launch: "[YYYY-MM-DD]"
   requested_end: "[YYYY-MM-DD]"
@@ -97,42 +101,42 @@ or strategic initiatives that make this campaign necessary/timely]
 
 ---
 
-## 2. Timeline and Phases
+## 2. Scope and Gates
 
-### 2.1 Key Dates
+### 2.1 Delivery Gates
 
-| Milestone | Date | Owner | Status |
+| Milestone | Completion Gate | Owner | Status |
 |-----------|------|-------|--------|
-| Campaign Brief Approval | [YYYY-MM-DD] | [Name] | [ ] |
-| Creative Development Start | [YYYY-MM-DD] | [Name] | [ ] |
-| Content Production Complete | [YYYY-MM-DD] | [Name] | [ ] |
-| Internal Review Complete | [YYYY-MM-DD] | [Name] | [ ] |
-| Final Approval | [YYYY-MM-DD] | [Name] | [ ] |
-| Campaign Launch | [YYYY-MM-DD] | [Name] | [ ] |
-| Campaign End | [YYYY-MM-DD] | [Name] | [ ] |
-| Post-Campaign Analysis Due | [YYYY-MM-DD] | [Name] | [ ] |
+| Campaign Brief Approval | [Acceptance checks for Campaign Brief Approval pass] | [Name] | [ ] |
+| Creative Development Start | [Acceptance checks for Creative Development Start pass] | [Name] | [ ] |
+| Content Production Complete | [Acceptance checks for Content Production Complete pass] | [Name] | [ ] |
+| Internal Review Complete | [Acceptance checks for Internal Review Complete pass] | [Name] | [ ] |
+| Final Approval | [Acceptance checks for Final Approval pass] | [Name] | [ ] |
+| Campaign Launch | [Acceptance checks for Campaign Launch pass] | [Name] | [ ] |
+| Campaign End | [Acceptance checks for Campaign End pass] | [Name] | [ ] |
+| Post-Campaign Analysis Due | [Acceptance checks for Post-Campaign Analysis Due pass] | [Name] | [ ] |
 
 ### 2.2 Campaign Phases
 
-**Phase 1: Pre-Launch** [Dates]
+**Phase 1: Pre-Launch** [Required input verified; deliverable accepted]
 
 - [ ] [Activity]
 - [ ] [Activity]
 - [ ] [Activity]
 
-**Phase 2: Launch** [Dates]
+**Phase 2: Launch** [Required input verified; deliverable accepted]
 
 - [ ] [Activity]
 - [ ] [Activity]
 - [ ] [Activity]
 
-**Phase 3: Active Campaign** [Dates]
+**Phase 3: Active Campaign** [Required input verified; deliverable accepted]
 
 - [ ] [Activity]
 - [ ] [Activity]
 - [ ] [Activity]
 
-**Phase 4: Post-Campaign** [Dates]
+**Phase 4: Post-Campaign** [Required input verified; deliverable accepted]
 
 - [ ] [Activity]
 - [ ] [Activity]
@@ -475,7 +479,7 @@ and budget]
 - **Completeness Check**: Verify all required sections are filled with sufficient detail
 - **Stakeholder Validation**: Confirm all stakeholders are identified and available
 - **Budget Verification**: Ensure budget is approved and allocated in financial systems
-- **Timeline Feasibility**: Validate that timeline is realistic given scope and resources
+- **Gate Readiness**: Validate prerequisites, role coverage, and acceptance checks; escalate conflicts with supplied commitments
 - **Risk Assessment**: Identify any red flags that need escalation before proceeding
 
 ### For Campaign Strategist

@@ -158,7 +158,7 @@ List all viable alternatives and why they were not chosen:
 **Why Not Chosen**: [Specific reason this was rejected]
 
 <!-- EXAMPLE:
-**Why Not Chosen**: Lack of multi-document ACID transactions is a dealbreaker for financial operations. Team would require 2-3 months training to reach productivity. Cost 50% higher than PostgreSQL alternative.
+**Why Not Chosen**: Lack of multi-document ACID transactions is a dealbreaker for financial operations. Team requires transaction-model training and a validated data-access prototype before adoption. Cost 50% higher than PostgreSQL alternative.
 -->
 
 #### Alternative 2: [Name]
@@ -296,22 +296,22 @@ How does this affect day-to-day operations?
 **Migration Path**:
 
 <!-- EXAMPLE:
-1. Provision PostgreSQL RDS instance in dev environment (Week 1)
-2. Define initial schema and migration strategy (Week 1-2)
-3. Implement data access layer with ORM (Week 2-3)
-4. Migrate existing data from spreadsheets (Week 3)
-5. Deploy to staging and run load tests (Week 4)
-6. Production cutover with blue-green deployment (Week 5)
+1. Provision PostgreSQL RDS instance in dev environment (gate: dev instance accessible)
+2. Define initial schema and migration strategy (gate: schema reviewed)
+3. Implement data access layer with ORM (gate: data-access tests pass)
+4. Migrate existing data from spreadsheets (gate: migrated records reconciled)
+5. Deploy to staging and run load tests (gate: staging load tests pass)
+6. Production cutover with blue-green deployment (gate: cutover checks pass)
 -->
 
-**Timeline**:
+**Implementation Gates**:
 
 <!-- EXAMPLE:
-- Decision date: 2026-01-15
-- Implementation start: 2026-01-20
-- Staging deployment: 2026-02-10
-- Production cutover: 2026-02-17
-- Retrospective: 2026-03-01
+- Decision approval → provision development instance (platform owner)
+- Schema review → implement and test data access (database owner)
+- Data reconciliation → staging load tests (test engineer)
+- Passing staging checks → production cutover (deployment owner)
+- Verified cutover → retrospective and follow-up scope (decision owner)
 -->
 
 **Dependencies**:
@@ -329,7 +329,7 @@ How does this affect day-to-day operations?
 - All user data successfully migrated from spreadsheets
 - Query response time <100ms at p95
 - Zero data loss or corruption during migration
-- Team velocity unaffected 2 weeks post-migration
+- Data-access acceptance tests pass after migration
 - Incident count stable or decreased vs. previous solution
 -->
 

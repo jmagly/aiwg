@@ -8,7 +8,7 @@
 - Reviewers: Executive Orchestrator (docs/agents/sdlc/executive-orchestrator.md)
 - Team: `team`
 - Status: `draft/in-progress/blocked/approved/done`
-- Dates: created `YYYY-MM-DD` / updated `YYYY-MM-DD` / due `YYYY-MM-DD`
+- Dates: created `YYYY-MM-DD` / updated `YYYY-MM-DD`
 - Related: UC-`id`, REQ-`id`, DES-`id`
 - Links: `paths/urls`
 
@@ -28,6 +28,9 @@
 
 - Upstream inputs and downstream deliverables
 
-## Timeline
+## Delivery Gates
 
-- Start/end, checkpoints, and owners
+- Scope units and owners: `named deliverables and responsible roles`
+- Prerequisites and parallel work: `dependencies, independent units`
+- Review passes and completion gate: `checks required before handoff`
+- Operator commitments: `supplied date/window and source, or none; never infer`

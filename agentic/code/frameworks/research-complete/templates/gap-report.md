@@ -233,8 +233,8 @@ CRITICAL because:
 - [ ] Document gap in orchestrator SAD with explicit caution
 - [ ] Implement expertise-weighted voting as interim improvement
 - [ ] Track conflict resolution outcomes to build pilot data
-- [ ] Commission or conduct formal study (Q3 2026)
-- [ ] Revise orchestrator based on findings (Q4 2026)
+- [ ] Commission or conduct formal study (entry: pilot findings reviewed)
+- [ ] Revise orchestrator based on findings (entry: study findings validated)
 -->
 
 #### Gap 2: [Gap Name]
@@ -278,7 +278,7 @@ HIGH (not CRITICAL) because workaround functional but improvable.
 **Action Plan:**
 - [ ] Document heuristics in orchestrator codebase
 - [ ] Collect failure cases for pattern analysis
-- [ ] Conduct pilot study on AIWG dogfooding projects (Q2 2026)
+- [ ] Conduct pilot study on AIWG dogfooding projects (entry: protocol and case sample approved)
 - [ ] Propose decomposition framework based on pilot data
 -->
 
@@ -398,26 +398,26 @@ Risk: Medium (functional but potentially inefficient or brittle)
 **Option A: Commission External Research**
 - Target venue: [Conference/journal]
 - Potential collaborators: [Institutions/researchers]
-- Timeline: [Realistic timeline]
+- Scope and evidence gate: [Study deliverables, investigator/reviewer roles, passes, and acceptance checks]
 - Cost estimate: [Budget if applicable]
 
 <!-- EXAMPLE:
 - Target venue: ICLR 2027, AAMAS 2027
 - Potential collaborators: Stanford HAI, CMU, UC Berkeley
-- Timeline: 12-18 months from proposal to publication
+- Scope and evidence gate: Approved protocol → reproducible dataset → peer-reviewed analysis → submission package
 - Cost: $50K-$100K if funded research
 -->
 
 **Option B: Internal Pilot Study**
 - Methodology: [Approach for lightweight study]
 - Data source: [Where we get data]
-- Timeline: [Faster but less rigorous]
+- Scope and evidence gate: [Pilot cases, analysis passes, validity checks, and owner]
 - Validity: [Limitations of internal study]
 
 <!-- EXAMPLE:
 - Methodology: A/B test conflict resolution strategies on AIWG dogfooding projects
 - Data source: 50+ orchestration decisions from AIWG development
-- Timeline: 3-6 months
+- Scope and evidence gate: Analyze 50+ orchestration decisions; investigator and reviewer verify comparison and limitations
 - Validity: Limited generalizability, but actionable for AIWG-specific patterns
 -->
 
@@ -442,7 +442,7 @@ Risk: Medium (functional but potentially inefficient or brittle)
 Rationale:
 - Need immediate improvement (Option C workaround insufficient)
 - Pilot study provides data for better research design
-- Timeline: Pilot Q2 2026, external research Q3 2026-Q1 2027
+- Prerequisite gate: Reviewed pilot results and limitations inform the external research protocol
 -->
 
 #### Priority 2: [Next Priority]
@@ -451,7 +451,7 @@ Rationale:
 
 ### Research Agenda
 
-**Short-Term (0-6 months):**
+**Discovery Pass (entry: gap scope approved):**
 - [ ] [Research task 1]
 - [ ] [Research task 2]
 
@@ -461,7 +461,7 @@ Rationale:
 - [ ] Survey practitioners on multi-agent coordination challenges
 -->
 
-**Medium-Term (6-12 months):**
+**Validation Pass (entry: pilot dataset and practitioner feedback reviewed):**
 - [ ] [Research task 1]
 - [ ] [Research task 2]
 
@@ -472,7 +472,7 @@ Rationale:
 - [ ] Commission formal research for critical gaps
 -->
 
-**Long-Term (12-24 months):**
+**Integration Pass (entry: findings validated and limitations documented):**
 - [ ] [Research task 1]
 - [ ] [Research task 2]
 
@@ -485,17 +485,17 @@ Rationale:
 
 ### Success Metrics
 
-| Metric | Current | Target | Timeline |
+| Metric | Current | Target | Completion Gate |
 |--------|---------|--------|----------|
-| [Metric 1] | [Baseline] | [Goal] | [When] |
-| [Metric 2] | [Baseline] | [Goal] | [When] |
+| [Metric 1] | [Baseline] | [Goal] | [Observable evidence check] |
+| [Metric 2] | [Baseline] | [Goal] | [Observable evidence check] |
 
 <!-- EXAMPLE:
-| Metric | Current | Target | Timeline |
-| Critical gaps with no plan | 4 | 0 | Q3 2026 |
-| AIWG patterns with research backing | 60% | 85% | Q4 2026 |
-| Understudied areas investigated | 0 | 3 | Q2 2027 |
-| Community contributions | 0 | 2 papers | Q4 2027 |
+| Metric | Current | Target | Completion Gate |
+| Critical gaps with no plan | 4 | 0 | Each critical gap has an owner and accepted study scope |
+| AIWG patterns with research backing | 60% | 85% | Reviewed evidence linked to each supported pattern |
+| Understudied areas investigated | 0 | 3 | Three area analyses reviewed with limitations |
+| Community contributions | 0 | 2 papers | Two reproducible submission packages accepted by reviewers |
 -->
 
 ### Collaboration Opportunities
@@ -558,7 +558,7 @@ Rationale:
 3. Map coverage using extraction records
 4. Identify true gaps vs understudied areas
 5. Assess criticality based on AIWG needs
-6. Develop action plans with realistic timelines
+6. Develop action plans with named scope units, owners, prerequisite gates, and verification passes
 
 **Anti-patterns to avoid:**
 - Declaring "gap" without systematic search

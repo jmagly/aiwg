@@ -1,5 +1,7 @@
 # Monthly Marketing Report Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ## Metadata
 
 - ID: RPT-###
@@ -21,7 +23,7 @@
 
 - KPIs: [All marketing KPIs for the reporting month]
 - Budget: Allocated: $[monthly budget] | Spent: $[actual spend] | Utilization: [%]
-- Timeline: start YYYY-MM-01 / end YYYY-MM-[last day] / milestones [key campaign launches]
+- Observed Reporting Window: start YYYY-MM-01 / end YYYY-MM-[last day] / milestones [key campaign launches]
 - Brand Compliance: N/A (internal report)
 - Legal Review: N/A (internal report)
 - Performance: [Summary - e.g., "MQLs: 487 (97% of target), ROAS: 3.2x, Pipeline: $487k"]

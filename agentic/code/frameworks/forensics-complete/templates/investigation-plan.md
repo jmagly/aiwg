@@ -56,20 +56,20 @@
 
 ## Investigation Phases
 
-Check each phase as completed. Record actual time taken for retrospective calibration.
+Check each phase as completed. Name the evidence scope and verification gate; retain observed incident timestamps separately.
 
-| Phase | Description | Est. Time | Status | Actual Time |
+| Phase | Description | Scope Units | Status | Completion Gate |
 |-------|-------------|-----------|--------|-------------|
-| 1 | Initial Triage | `{{est_triage}}` | [ ] Not started | — |
-| 2 | User and Authentication Analysis | `{{est_auth}}` | [ ] Not started | — |
-| 3 | Process and Service Audit | `{{est_process}}` | [ ] Not started | — |
-| 4 | Persistence Mechanism Sweep | `{{est_persistence}}` | [ ] Not started | — |
-| 5 | Filesystem and Artifact Analysis | `{{est_filesystem}}` | [ ] Not started | — |
-| 6 | Network Forensics | `{{est_network}}` | [ ] Not started | — |
-| 7 | Log Analysis and Timeline | `{{est_logs}}` | [ ] Not started | — |
-| 8 | Container / Docker Audit | `{{est_containers}}` | [ ] Not started | — |
-| 9 | Evidence Collection and Preservation | `{{est_evidence}}` | [ ] Not started | — |
-| 10 | Reporting | `{{est_reporting}}` | [ ] Not started | — |
+| 1 | Initial Triage | `{{triage_scope}}` | [ ] Not started | `{{evidence_verified_or_not_applicable}}` |
+| 2 | User and Authentication Analysis | `{{auth_scope}}` | [ ] Not started | `{{evidence_verified_or_not_applicable}}` |
+| 3 | Process and Service Audit | `{{process_scope}}` | [ ] Not started | `{{evidence_verified_or_not_applicable}}` |
+| 4 | Persistence Mechanism Sweep | `{{persistence_scope}}` | [ ] Not started | `{{evidence_verified_or_not_applicable}}` |
+| 5 | Filesystem and Artifact Analysis | `{{filesystem_scope}}` | [ ] Not started | `{{evidence_verified_or_not_applicable}}` |
+| 6 | Network Forensics | `{{network_scope}}` | [ ] Not started | `{{evidence_verified_or_not_applicable}}` |
+| 7 | Log Analysis and Timeline | `{{logs_scope}}` | [ ] Not started | `{{evidence_verified_or_not_applicable}}` |
+| 8 | Container / Docker Audit | `{{containers_scope}}` | [ ] Not started | `{{evidence_verified_or_not_applicable}}` |
+| 9 | Evidence Collection and Preservation | `{{evidence_scope}}` | [ ] Not started | `{{evidence_verified_or_not_applicable}}` |
+| 10 | Reporting | `{{reporting_scope}}` | [ ] Not started | `{{evidence_verified_or_not_applicable}}` |
 
 ---
 
@@ -359,10 +359,10 @@ If any of the following are discovered, immediately pause investigation and noti
 
 ## Reporting Requirements
 
-| Deliverable | Format | Recipient | Due Date |
+| Deliverable | Format | Recipient | Handoff Gate |
 |-------------|--------|-----------|----------|
-| Preliminary findings | Verbal / brief written | `{{primary_recipient}}` | End of investigation day |
-| Draft forensic report | Markdown / PDF | `{{report_recipients}}` | `{{draft_due_date}}` |
-| Final forensic report | `{{report_format}}` | `{{report_recipients}}` | `{{final_due_date}}` |
-| IOC register | YAML + CSV | `{{ioc_recipients}}` | `{{ioc_due_date}}` |
-| Remediation plan | Markdown | `{{remediation_recipients}}` | `{{remediation_due_date}}` |
+| Preliminary findings | Verbal / brief written | `{{primary_recipient}}` | Triage findings verified |
+| Draft forensic report | Markdown / PDF | `{{report_recipients}}` | `{{evidence_index_verified}}` |
+| Final forensic report | `{{report_format}}` | `{{report_recipients}}` | `{{report_review_approved}}` |
+| IOC register | YAML + CSV | `{{ioc_recipients}}` | `{{ioc_validation_passed}}` |
+| Remediation plan | Markdown | `{{remediation_recipients}}` | `{{findings_prioritized_and_owned}}` |

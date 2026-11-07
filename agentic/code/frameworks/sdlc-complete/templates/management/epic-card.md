@@ -12,8 +12,9 @@
 - **Stakeholders**: List key business and technical stakeholders
 - **Created**: YYYY-MM-DD
 - **Last Updated**: YYYY-MM-DD
-- **Start Date**: YYYY-MM-DD (when work begins)
-- **Target Completion**: YYYY-MM-DD
+- **Entry Gate**: [Required upstream deliverables verified]
+- **Completion Gate**: [Acceptance checks and approver]
+- **Operator Commitments**: [Supplied date/window and source, or none; never infer]
 - **Priority**: Critical | High | Medium | Low
 - **Strategic Theme**: [Product area or business objective]
 - **Related**:
@@ -122,7 +123,7 @@ The smallest subset that delivers meaningful value:
 
 Large capabilities within this epic:
 
-| Feature ID | Feature Name | Priority | Status | Owner | Est. Sprints | Dependencies |
+| Feature ID | Feature Name | Priority | Status | Owner | Review Passes | Dependencies |
 |------------|--------------|----------|--------|-------|--------------|--------------|
 | FEAT-042 | Advanced filter UI | High | In Progress | Design Lead | 2 | None |
 | FEAT-043 | Search engine optimization | Critical | Done | Backend Lead | 3 | None |
@@ -133,61 +134,61 @@ Large capabilities within this epic:
 
 Smaller, implementable units:
 
-| Story ID | Story Title | Feature | Priority | Status | Story Points | Sprint |
+| Story ID | Story Title | Feature | Priority | Status | Acceptance Gate | Prerequisite |
 |----------|-------------|---------|----------|--------|--------------|--------|
-| US-142 | Location autocomplete | FEAT-042 | High | Done | 3 | Sprint 23 |
-| US-143 | Salary range filter | FEAT-042 | High | Done | 3 | Sprint 23 |
-| US-144 | Experience level filter | FEAT-042 | Medium | In Progress | 5 | Sprint 24 |
-| US-145 | Save search preferences | FEAT-044 | Medium | Backlog | 2 | Sprint 25 |
-| US-146 | Email search alerts | FEAT-044 | Low | Backlog | 5 | Sprint 26 |
+| US-142 | Location autocomplete | FEAT-042 | High | Done | Autocomplete test passes | None |
+| US-143 | Salary range filter | FEAT-042 | High | Done | Salary range test passes | None |
+| US-144 | Experience level filter | FEAT-042 | Medium | In Progress | Experience filter test passes | Filter UI |
+| US-145 | Save search preferences | FEAT-044 | Medium | Backlog | Saved preferences persist | Filter UI |
+| US-146 | Email search alerts | FEAT-044 | Low | Backlog | Alert delivery test passes | Saved preferences |
 
 **Total Stories**: 5 planned (2 complete, 1 in progress, 2 backlog)
-**Total Story Points**: 18 (6 complete, 5 in progress, 7 remaining)
+**Scope Units**: 5 independently verified stories; count acceptance gates met and pending.
 
 ### Epics Can Contain Epics
 
 For very large initiatives, break into sub-epics:
 
-| Sub-Epic ID | Title | Status | % Complete |
+| Sub-Epic ID | Title | Status | Gates Met / Total |
 |-------------|-------|--------|------------|
-| EP-PLATFORM-005.1 | Search UX Foundation | In Progress | 60% |
-| EP-PLATFORM-005.2 | Advanced Filters | Not Started | 0% |
-| EP-PLATFORM-005.3 | Search Personalization | Backlog | 0% |
+| EP-PLATFORM-005.1 | Search UX Foundation | In Progress | 3 / 5 |
+| EP-PLATFORM-005.2 | Advanced Filters | Not Started | 0 / 3 |
+| EP-PLATFORM-005.3 | Search Personalization | Backlog | 0 / 3 |
 
-## Timeline and Milestones
+## Scope and Delivery Gates
 
-### Estimated Duration
+### Scope, Roles, and Passes
 
-**Start Date**: YYYY-MM-DD
-**Target Completion**: YYYY-MM-DD
-**Duration**: X months / Y sprints
+**Scope Units**: [Named features and stories with acceptance checks]
+**Prerequisites**: [Upstream gates; identify units that can run in parallel]
+**Review Passes**: [Implementation, verification, and correction passes]
 
-**Estimated Effort**: [Story points or person-months]
-**Team Size**: [Number of people allocated]
+**Roles**: [Implementer, reviewer, test engineer, and rollout owner]
+**Team Size**: [Number of people or agents allocated]
 
-### Key Milestones
+### Key Delivery Gates
 
-| Milestone | Date | Deliverable | Success Criteria | Status |
+| Gate | Prerequisite | Deliverable | Success Criteria | Status |
 |-----------|------|-------------|------------------|--------|
-| Alpha Release | YYYY-MM-DD | Basic search with 3 filters | 100 internal users testing | Complete |
-| Beta Release | YYYY-MM-DD | Full filter set, saved searches | 1,000 beta users, <5% bug rate | In Progress |
-| GA Release | YYYY-MM-DD | Public launch with analytics | 50K searches/day, 4.0 rating | Planned |
+| Alpha Release | Core filter tests pass | Basic search with 3 filters | 100 internal users testing | Complete |
+| Beta Release | Alpha feedback resolved | Full filter set, saved searches | 1,000 beta users, <5% bug rate | In Progress |
+| GA Release | Beta acceptance checks pass | Public launch with analytics | 50K searches/day, 4.0 rating | Planned |
 
 ### Phased Rollout Plan
 
-**Phase 1: Internal (Week 1-2)**
+**Phase 1: Internal (entry: core filter tests pass)**
 
 - Audience: Internal employees and contractors
 - Features: Core search with location and salary filters
 - Goal: Validate functionality, gather feedback
 
-**Phase 2: Beta (Week 3-6)**
+**Phase 2: Beta (entry: internal feedback resolved)**
 
 - Audience: 10% of active users (invited)
 - Features: All filters, saved searches
 - Goal: Measure performance, refine UX
 
-**Phase 3: General Availability (Week 7+)**
+**Phase 3: General Availability (entry: beta acceptance checks pass)**
 
 - Audience: All users
 - Features: Complete epic scope
@@ -230,7 +231,7 @@ Third-party or cross-team dependencies:
 |------|-------------|--------|------------|-------------|
 | Search performance degrades at scale | Medium | High | Load testing, caching strategy | Degrade gracefully, queue searches |
 | User adoption lower than expected | Low | High | Beta testing, user research | Invest in onboarding, simplify UI |
-| Database migration fails | Low | Critical | Rollback plan, phased migration | Extend timeline, reduce scope |
+| Database migration fails | Low | Critical | Rollback plan, phased migration | Resolve migration blockers, reduce scope |
 
 ### Assumptions
 
@@ -319,20 +320,20 @@ Track key decisions and clarifications:
 
 ### Completion Metrics
 
-- **Features Complete**: 2/4 (50%)
-- **Stories Complete**: 2/5 (40%)
-- **Story Points Complete**: 6/18 (33%)
-- **Estimated Time Remaining**: 4 sprints
+- **Features Complete**: 1/4 (3 pending)
+- **Stories Complete**: 2/5 (3 pending)
+- **Acceptance Gates**: 2/5 met
+- **Remaining Scope**: Experience filter, saved preferences, email alerts
 
-### Burndown
+### Verification Passes
 
-| Sprint | Planned Story Points | Completed Story Points | Remaining |
+| Pass | Scope Reviewed | Gates Met | Pending Gates |
 |--------|----------------------|------------------------|-----------|
-| Sprint 22 | 6 | 6 | 12 |
-| Sprint 23 | 6 | 5 | 7 |
-| Sprint 24 | 6 | (in progress) | 7 |
+| Implementation | 5 stories | 1 | 4 |
+| Test and correction | 5 stories | 2 | 3 |
+| Integration | 3 pending stories | (in progress) | 3 |
 
-**Trend**: Slightly behind, may need 1 additional sprint
+**Next Gate**: Verify experience filter before saved-preferences integration; repeat correction pass for failing checks.
 
 ## Related Templates
 
@@ -347,9 +348,9 @@ Track key decisions and clarifications:
 ### For Product Owner / Product Manager
 
 - Define epic scope based on business value, not technical curiosity
-- Break large epics into smaller epics or features (aim for 2-6 months max)
+- Break large epics into smaller epics or features (each with independently verifiable acceptance gates)
 - Prioritize epics based on strategic goals and dependencies
-- Review epic progress monthly, adjust scope or timeline as needed
+- Review epic progress monthly, adjust scope or prerequisites as needed
 - Be ruthless about "Out of Scope" - say no to scope creep
 
 ### For Requirements Analyst
@@ -370,7 +371,7 @@ Track key decisions and clarifications:
 
 ### For Project Manager
 
-- Track epic progress against timeline and milestones
+- Track epic progress against scope units and delivery gates
 - Monitor dependencies and escalate blockers
 - Report epic status to stakeholders monthly
 - Adjust sprint planning based on epic priorities

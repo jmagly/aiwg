@@ -1,5 +1,7 @@
 # Content Audit Template
 
+> **Planning basis**: Plan work in scope units, roles, passes, and completion gates. Dates are operator-supplied commitments with a source (leave unset if unknown), or observed chronology; customer/event dates, media lengths, service timings, and measurement windows are separate from work estimates. See [Card Metadata Standard](../card-metadata-standard.md).
+
 ---
 
 **Document ID**: GOV-005
@@ -157,19 +159,19 @@ Example: "Preparing for product launch, need to ensure all existing content alig
 
 ---
 
-### 1.4 Audit Timeline
+### 1.4 Audit Gates
 
-| Phase | Start Date | End Date | Owner | Status |
+| Phase | Entry Gate | Completion Gate | Owner | Status |
 |-------|------------|----------|-------|--------|
-| Planning & Scoping | [YYYY-MM-DD] | [YYYY-MM-DD] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
-| Content Inventory | [YYYY-MM-DD] | [YYYY-MM-DD] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
-| Content Evaluation | [YYYY-MM-DD] | [YYYY-MM-DD] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
-| Recommendations | [YYYY-MM-DD] | [YYYY-MM-DD] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
-| Stakeholder Review | [YYYY-MM-DD] | [YYYY-MM-DD] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
-| Implementation Plan | [YYYY-MM-DD] | [YYYY-MM-DD] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
-| Final Report | [YYYY-MM-DD] | [YYYY-MM-DD] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
+| Planning & Scoping | [Prerequisites for Planning & Scoping verified] | [Acceptance checks for Planning & Scoping pass] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
+| Content Inventory | [Prerequisites for Content Inventory verified] | [Acceptance checks for Content Inventory pass] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
+| Content Evaluation | [Prerequisites for Content Evaluation verified] | [Acceptance checks for Content Evaluation pass] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
+| Recommendations | [Prerequisites for Recommendations verified] | [Acceptance checks for Recommendations pass] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
+| Stakeholder Review | [Prerequisites for Stakeholder Review verified] | [Acceptance checks for Stakeholder Review pass] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
+| Implementation Plan | [Prerequisites for Implementation Plan verified] | [Acceptance checks for Implementation Plan pass] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
+| Final Report | [Prerequisites for Final Report verified] | [Acceptance checks for Final Report pass] | [Name] | [ ] Not Started<br>[ ] In Progress<br>[ ] Complete |
 
-**Total Audit Duration**: [X weeks/months]
+**Audit Scope Units**: [Asset count, evaluator roles, review passes, and evidence checks]
 
 ---
 
@@ -353,9 +355,9 @@ Recommended Minimum Fields:
 - [ ] Duplicate or redundant content
 
 **Priority Updates** (High-Impact):
-| Title | URL | Score | Primary Issue | Effort | Impact | Priority |
+| Title | URL | Score | Primary Issue | Scope Units | Impact | Priority |
 |-------|-----|-------|---------------|--------|--------|----------|
-| [Title] | [URL] | [X.X] | [Issue] | [Low/Med/High] | [Low/Med/High] | [1-5] |
+| [Title] | [URL] | [X.X] | [Issue] | [Named asset updates and review passes] | [Low/Med/High] | [1-5] |
 
 **Update Recommendations**:
 ```text
@@ -572,9 +574,9 @@ Recommended Minimum Fields:
 - [ ] Product names/terminology outdated
 
 **Brand Update Priorities**:
-| Asset | Issue | Severity | Effort to Fix |
+| Asset | Issue | Severity | Scope Units to Fix |
 |-------|-------|----------|---------------|
-| [Title/URL] | [Old messaging] | [High / Med / Low] | [Low / Med / High] |
+| [Title/URL] | [Old messaging] | [High / Med / Low] | [Named asset updates and verification checks] |
 
 ---
 
@@ -678,31 +680,31 @@ Recommended Minimum Fields:
 
 ### 10.2 Prioritized Action Plan
 
-**Phase 1: Quick Wins (0-30 days)**
-| Action | Assets Affected | Owner | Effort | Impact | Deadline |
+**Phase 1: Bounded Corrections (entry: inventory verified)**
+| Action | Assets Affected | Owner | Scope Units | Impact | Completion Gate |
 |--------|-----------------|-------|--------|--------|----------|
-| [Action 1] | [X] | [Name] | [Low/Med/High] | [Low/Med/High] | [Date] |
+| [Action 1] | [X] | [Name] | [Named asset updates and review passes] | [Low/Med/High] | [Acceptance checks for affected assets pass] |
 
-**Phase 2: High-Impact Updates (30-90 days)**
-| Action | Assets Affected | Owner | Effort | Impact | Deadline |
+**Phase 2: High-Impact Updates (entry: priority findings accepted)**
+| Action | Assets Affected | Owner | Scope Units | Impact | Completion Gate |
 |--------|-----------------|-------|--------|--------|----------|
-| [Action 2] | [X] | [Name] | [Low/Med/High] | [Low/Med/High] | [Date] |
+| [Action 2] | [X] | [Name] | [Named asset updates and review passes] | [Low/Med/High] | [Acceptance checks for affected assets pass] |
 
-**Phase 3: Strategic Content Creation (90-180 days)**
-| Action | Assets Affected | Owner | Effort | Impact | Deadline |
+**Phase 3: Strategic Content Creation (entry: gap analysis approved)**
+| Action | Assets Affected | Owner | Scope Units | Impact | Completion Gate |
 |--------|-----------------|-------|--------|--------|----------|
-| [Action 3] | [X] | [Name] | [Low/Med/High] | [Low/Med/High] | [Date] |
+| [Action 3] | [X] | [Name] | [Named asset updates and review passes] | [Low/Med/High] | [Acceptance checks for affected assets pass] |
 
 ---
 
 ### 10.3 Resource Requirements
 
 **Team Resources Needed**:
-- Content Writers: [X hours/weeks]
-- SEO Specialist: [X hours/weeks]
-- Designers: [X hours/weeks]
-- Developers: [X hours/weeks]
-- Legal/Compliance: [X hours/weeks]
+- Content Writers: [Named assets/checks and review passes]
+- SEO Specialist: [Named assets/checks and review passes]
+- Designers: [Named assets/checks and review passes]
+- Developers: [Named assets/checks and review passes]
+- Legal/Compliance: [Named assets/checks and review passes]
 
 **Budget Required**:
 | Expense Category | Estimated Cost |
@@ -818,7 +820,7 @@ Recommended Minimum Fields:
 1. Audit overview and methodology
 2. Key findings and insights
 3. Recommendations and action plan
-4. Resource requirements and timeline
+4. Scope units, role assignments, and prerequisite gates
 5. Q&A and discussion
 6. Next steps and approvals
 
