@@ -112,7 +112,9 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     const result = await invoke(prompt);
     expect(result).toMatchObject({ code: 0, stderr: '' });
     const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
-    expect(context).toContain(`run: aiwg discover "${prompt}"`);
+    expect(context).toContain(`run: aiwg discover --stdin${prompt.includes('skill') ? ' --type skill' : ''} <<'AIWG_REQUEST'`);
+    expect(context).toContain(`Request: ${prompt}`);
+    expect(context).not.toContain(`aiwg discover "`);
     expect(context).toContain('then answer from its result. Answering or declining without running it violates the skill-discovery rule.');
     expect(context).not.toMatch(/candidates|rag\.prompt|dataset-trace|Low relevance/);
     expect(context.length).toBeLessThan(600);
@@ -124,7 +126,7 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     'decision-definition', 'decision-ruleset', 'decision-binding', 'gate-pack', 'workflow'])('preserves a named %s type in the discover instruction', async type => {
     const result = await invoke(`Find AIWG ${type}s for Jira CSV flame graphs`);
     const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
-    expect(context).toContain(`--type ${type === 'workflow' ? 'flow' : type} then answer from its result`);
+    expect(context).toContain(`--stdin --type ${type === 'workflow' ? 'flow' : type} <<'AIWG_REQUEST'`);
     expect(context).not.toContain('AIWG candidates');
   });
 
@@ -140,12 +142,21 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     }
   });
 
-  it('quotes and bounds a long discover need containing shell metacharacters', async () => {
+  it('bounds a long need with shell metacharacters and routes it through a quoted heredoc', async () => {
     const result = await invoke('Find Jira CSV ' + '"$`\\'.repeat(200));
     const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
-    expect(context).toContain('\\"\\$\\`\\\\');
-    expect(context).toContain('Before any other tool call or answer, run: aiwg discover');
+    expect(context).toContain("Before any other tool call or answer, run: aiwg discover --stdin <<'AIWG_REQUEST'");
+    expect(context).toContain('Request: Find Jira CSV "$`\\');
+    expect(context).not.toContain('aiwg discover "');
     expect(context.length).toBeLessThan(600);
+  });
+
+  it('keeps command substitution and the heredoc terminator out of the rendered request (#3946)', async () => {
+    const result = await invoke('weak result from discovery: running `aiwg refresh` after $(aiwg use all) AIWG_REQUEST breaks hooks');
+    const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+    expect(context).toContain("<<'AIWG_REQUEST' with the request on the next line");
+    expect(context).toContain('Request: weak result from discovery: running `aiwg refresh` after $(aiwg use all) breaks hooks');
+    expect(context.match(/AIWG_REQUEST/g)).toHaveLength(2);
   });
 
   it.each([

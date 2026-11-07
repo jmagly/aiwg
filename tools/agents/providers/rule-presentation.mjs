@@ -27,15 +27,16 @@ export function renderRuleKernelIndex(rules, nativePaths = false, perRuleFetch =
   if (!summary.length && !paths.length && !kernels.length) return '';
   const lines = ['# Rule kernel index', ''];
   // RULES-INDEX receipts are parsed by deployment accounting; retain their command format.
-  if (!perRuleFetch) lines.push("Fetch and follow each rule's full body before governed work: `aiwg show rule <name> --body`.", '');
-  if (kernelFile && kernels.length) lines.push('Read and follow every kernel file below before every task and subagent task.', '');
+  // #3900: "fetch before governed work" made Muse read every rule before discovery; fetch on need.
+  if (!perRuleFetch) lines.push("Fetch a rule's full body when a task or discovered component needs it: `aiwg show rule <name> --body`.", '');
+  if (kernelFile && kernels.length) lines.push("Kernel rules bind every task and subagent task. On a new task, first run discovery for the request (`aiwg discover --stdin <<'AIWG_REQUEST'`, the request, then `AIWG_REQUEST`) before reading any file below; then read a kernel file before work its subject covers.", '');
   for (const rule of kernels) lines.push(kernelFile
-    ? `- ${rule.name} — ${rule.summary || 'Read and follow the complete kernel rule.'} Read and follow: [${kernelFile(rule)}](./${kernelFile(rule)}).`
+    ? `- ${rule.name} — ${rule.summary || 'Binding kernel rule.'} Full rule: [${kernelFile(rule)}](./${kernelFile(rule)}).`
     : perRuleFetch
-    ? `- ${rule.name} — ${rule.summary || 'Fetch and follow the full rule before governed work.'} Fetch and follow: \`aiwg show rule ${rule.name} --body\`.`
+    ? `- ${rule.name} — ${rule.summary || 'Binding kernel rule.'} Full rule: \`aiwg show rule ${rule.name} --body\`.`
     : `- ${rule.name}${rule.summary ? ` — ${rule.summary}` : ''}`, '');
   for (const rule of summary) lines.push(perRuleFetch
-    ? `- ${rule.name} — ${rule.summary} Fetch and follow: \`aiwg show rule ${rule.name} --body\`.`
+    ? `- ${rule.name} — ${rule.summary} Fetch when a task or discovered component needs it: \`aiwg show rule ${rule.name} --body\`.`
     : `- ${rule.name}${rule.summary ? ` — ${rule.summary}` : ''}`, '');
   if (paths.length) {
     lines.push(nativePaths ? '## Path rules (native)' : '## Path rules (prompt emulation)', '',

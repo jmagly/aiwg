@@ -257,7 +257,7 @@ export function finishBindings(opts, provider) {
         const bound = opts.ruleDelivery.bindings.get(target.source) || [];
         const unique = [...new Map(bound.map(rule => [rule.name, rule])).values()].sort((a, b) => a.name.localeCompare(b.name));
         if (unique.length) sections.set(anchor(target), `## ${anchor(target)}\n\n` + unique.map(rule =>
-          `- ${rule.name} — ${rule.summary} Fetch and follow: \`aiwg show rule ${rule.name} --body\`.`).join('\n'));
+          `- ${rule.name} — ${rule.summary} Fetch when a task or discovered component needs it: \`aiwg show rule ${rule.name} --body\`.`).join('\n'));
       }
       // Skills must carry exact fetch commands themselves: a section pointer
       // alone loses the invocation contract in clean installs (#3473).
