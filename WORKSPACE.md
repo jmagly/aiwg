@@ -38,7 +38,8 @@ When a directive and an AIWG rule conflict, follow the rule and say plainly that
 
 - Before any agent or provider writes AIWG payload, run `aiwg artifacts path --json --check-write` and write beneath its `artifact_root`.
 - Treat `.aiwg/...` in skills and templates as a logical artifact path, not necessarily a repository-local filesystem path.
-- Only `aiwg.config`, `frameworks/registry.json`, and optional operator-only `AIWG.md` notes belong in the repository-local `.aiwg` control plane; generated framework context lives in root `AIWG.md`.
+- Configure an external artifact root with a path in `.aiwg-location`; `AIWG_ARTIFACTS_PATH` overrides that pointer.
+- With no external artifact root configured, repository-local `.aiwg` stores AIWG payload alongside control-plane files; generated framework context lives in root `AIWG.md`.
 - If the configured external artifact root is unavailable, stop with an actionable error; never fall back to repository-local payload.
 
 ### Linked Context

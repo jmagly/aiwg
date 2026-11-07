@@ -44,10 +44,10 @@ This project caps parallel agent fan-out (#1359):
 Delegation policy and model-worker selection: `aiwg show rule subagent-scoping`.
 After changing project parallelism with `aiwg config set/reset --project`, follow the emitted provider-specific regeneration commands and run `aiwg workspace-context doctor`.
 
-**Provider behavior (muse)**: delegation and per-worker model selection are unverified. Apply the rubric only where the active provider exposes those capabilities, and state any fallback explicitly. Tier enforcement (generated wrapper defaults): global-only; effort: not enforced per wrapper. Muse --model / --reasoning-effort; $XDG_CONFIG_HOME/muse/settings.json model supplies the model fallback. Session --model or settings.json model controls selection; per-agent pins are unverified. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.
 **Provider behavior (claude)**: native custom subagents can select the deployed model-worker wrapper. Verify the resolved model when provider or account policy may substitute it. Tier enforcement (generated wrapper defaults): pinned; effort: pinned via effort (high/medium/low by wrapper). Use AIWG wrappers or an explicit invocation model. Unpinned general-purpose agents inherit; CLAUDE_CODE_SUBAGENT_MODEL supplies a fallback and CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 can override pins. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.
-**Provider behavior (codex)**: native custom subagents can select the deployed model-worker wrapper. Verify the resolved model when provider or account policy may substitute it. Tier enforcement (generated wrapper defaults): pinned; effort: pinned via model_reasoning_effort (high/medium/low by wrapper). Native custom subagents carry explicit catalog model selectors. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.
 **Provider behavior (hermes)**: delegation is available, but model selection is global/run-scoped. Use the wrapper rubric for task selection while reporting that heterogeneous per-worker pinning is not enforced. Tier enforcement (generated wrapper defaults): global-only; effort: not enforced per wrapper. Hermes config.yaml: delegation.model / delegation.effort. All delegated workers share the provider delegation configuration. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.
+**Provider behavior (codex)**: native custom subagents can select the deployed model-worker wrapper. Verify the resolved model when provider or account policy may substitute it. Tier enforcement (generated wrapper defaults): pinned; effort: pinned via model_reasoning_effort (high/medium/low by wrapper). Native custom subagents carry explicit catalog model selectors. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.
+**Provider behavior (muse)**: delegation and per-worker model selection are unverified. Apply the rubric only where the active provider exposes those capabilities, and state any fallback explicitly. Tier enforcement (generated wrapper defaults): global-only; effort: not enforced per wrapper. Muse --model / --reasoning-effort; $XDG_CONFIG_HOME/muse/settings.json model supplies the model fallback. Session --model or settings.json model controls selection; per-agent pins are unverified. Explicit operator pins are preserved where supported. This is not a live resolved-model audit; provider/account policy may substitute models.
 
 **Direct worker dispatch**: on (`parallelism.worker_dispatch`).
 
@@ -57,7 +57,7 @@ Configured groups: harness (members: 2; clis: codex; roles: efficiency/coding/re
 
 A group above shown as configured, with excluded members or an uncovered required role listed, is a static config read — not a live eligibility verdict. Eligibility is resolved per (group, member, effort) tuple against the current catalog and request; see `aiwg models resolve` below to check a specific role/task/group.
 
-Cached model observations read at 2026-11-06T07:26:58.542Z; catalog fetchedAt: 2026-11-06T00:47:00.111Z (23998s old). Ages are measured at this read and grow afterward. This cache may differ from the resolver's current installation observations; no eligibility read is performed by context generation. Missing or ambiguous observations have unknown age.
+Cached model observations read at 2026-11-07T20:08:23.979Z; catalog fetchedAt: 2026-11-06T20:49:49.664Z (83914s old). Ages are measured at this read and grow afterward. This cache may differ from the resolver's current installation observations; no eligibility read is performed by context generation. Missing or ambiguous observations have unknown age.
 
 - harness cached observations: 0/2 members; observedAt: unknown; verifiedAt: unknown.
 - muse-external cached observations: 0/1 members; observedAt: unknown; verifiedAt: unknown.
@@ -85,7 +85,7 @@ This section is synthesized after template emission from the current workspace s
 
 ### Workspace Snapshot
 
-- Configured providers: muse, claude, codex, hermes
+- Configured providers: claude, hermes, codex, muse
 - Installed frameworks/addons: all, decision-engine, aiwg-dev
 - Recorded deployments: claude, codex, hermes, muse
 - Generated framework context: `AIWG.md`
