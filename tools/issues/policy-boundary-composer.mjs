@@ -37,6 +37,21 @@ function activeRuleIds(report) {
   return new Set(report.findings.filter((finding) => !finding.suppressed).map((finding) => finding.ruleId));
 }
 
+function blockingStatements(report) {
+  const rule = report.decision.matchedMandatoryRule;
+  const signals = rule === 'mandatory:credential-exfiltration-combination'
+    ? new Set([...PROTECTED_RULES, 'third-party-execution'])
+    : rule === 'mandatory:supply-chain-execution-combination'
+      ? new Set([...ACQUISITION_RULES, 'sensitive-file-target']) : null;
+  return report.findings.filter(finding => !finding.suppressed && (!signals || signals.has(finding.ruleId)))
+    .map(finding => ({
+      ruleId: finding.ruleId,
+      partId: finding.partId,
+      occurrence: finding.occurrence,
+      statement: finding.evidence,
+    }));
+}
+
 function assessDraft(draft, config, sourceId = 'draft') {
   return assessThreat({
     surface: 'issue-body',
@@ -216,6 +231,7 @@ export function planIssueDraft(draft, options = {}) {
       digest: originDigest,
       disposition: 'blocked',
       authorizationRequired: false,
+      blockingStatements: blockingStatements(assessment),
       blockingRule: assessment.decision.matchedMandatoryRule ?? assessment.decision.reason,
       originalAssessment: assessment,
       segments: [],
@@ -232,6 +248,7 @@ export function planIssueDraft(draft, options = {}) {
       digest: originDigest,
       disposition: 'blocked',
       authorizationRequired: false,
+      blockingStatements: blockingStatements(assessment),
       blockingRule: assessment.decision.matchedMandatoryRule ?? assessment.decision.reason,
       originalAssessment: assessment,
       segments: [],
@@ -265,7 +282,7 @@ function relatedBody(segment, created, index) {
 export async function executeIssuePlan(plan, adapter, options = {}) {
   if (!plan || plan.schema !== 'aiwg.issue-composition-plan.v1') throw new Error('Invalid issue composition plan');
   if (plan.disposition === 'blocked') {
-    return { status: 'blocked', digest: plan.digest, created: [], nextSegment: 0, blockingRule: plan.blockingRule };
+    return { status: 'blocked', digest: plan.digest, created: [], nextSegment: 0, blockingRule: plan.blockingRule, blockingStatements: plan.blockingStatements };
   }
   if (plan.authorizationRequired && options.authorizationDigest !== plan.digest) {
     return { status: 'authorization-required', digest: plan.digest, created: [], nextSegment: 0 };
