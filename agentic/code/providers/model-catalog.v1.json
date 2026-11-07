@@ -162,17 +162,17 @@
     "factory": {
       "roles": {
         "reasoning": {
-          "id": "heavy",
+          "id": "claude-opus-5",
           "status": "active",
           "observed": false
         },
         "coding": {
-          "id": "medium",
+          "id": "claude-sonnet-5",
           "status": "active",
           "observed": false
         },
         "efficiency": {
-          "id": "light",
+          "id": "claude-haiku-4-5-20251001",
           "status": "active",
           "observed": false
         }

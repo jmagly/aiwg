@@ -1079,7 +1079,7 @@
       "agent": "native",
       "skill": "informational",
       "globalChild": "native",
-      "identifierSyntax": "Factory model ID or Light/Medium/Heavy complexity",
+      "identifierSyntax": "Factory built-in model ID or custom BYOK model selector",
       "effortValues": [
         "low",
         "medium",

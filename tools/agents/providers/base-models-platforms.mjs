@@ -42,9 +42,9 @@ export function loadModelConfig(srcRoot) {
       efficiency: { model: 'claude-haiku-4-5' }
     },
     factory: {
-      reasoning: { model: 'heavy' },
-      coding: { model: 'medium' },
-      efficiency: { model: 'light' }
+      reasoning: { model: 'claude-opus-5' },
+      coding: { model: 'claude-sonnet-5' },
+      efficiency: { model: 'claude-haiku-4-5-20251001' }
     },
     shorthand: {
       'opus': 'claude-opus-5',

@@ -59,9 +59,9 @@ export const FACTORY_ADAPTER_MODELS = {
 // ---------------------------------------------------------------------------
 
 export const FACTORY_DEPLOY_MODELS = {
-  reasoning: 'heavy',
-  coding: 'medium',
-  efficiency: 'light',
+  reasoning: 'claude-opus-5',
+  coding: 'claude-sonnet-5',
+  efficiency: 'claude-haiku-4-5-20251001',
 } as const;
 
 export const DEFAULT_SHORTHAND = {

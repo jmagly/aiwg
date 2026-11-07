@@ -2,7 +2,7 @@
   "aiwg-model-reasoning-worker": {
     "name": "aiwg-model-reasoning-worker",
     "description": "Choose for architecture, synthesis, difficult analysis, and high-consequence review",
-    "model": "heavy",
+    "model": "claude-opus-5",
     "reasoningEffort": "high",
     "tools": [
       "Create",
@@ -16,7 +16,7 @@
   "aiwg-model-coding-worker": {
     "name": "aiwg-model-coding-worker",
     "description": "Choose for implementation, tests, debugging, and routine technical delivery",
-    "model": "medium",
+    "model": "claude-sonnet-5",
     "reasoningEffort": "medium",
     "tools": [
       "Create",
@@ -30,7 +30,7 @@
   "aiwg-model-efficiency-worker": {
     "name": "aiwg-model-efficiency-worker",
     "description": "Choose for discovery, inventory, focused edits, and bounded low-cost work",
-    "model": "light",
+    "model": "claude-haiku-4-5-20251001",
     "reasoningEffort": "low",
     "tools": [
       "Create",
@@ -44,7 +44,7 @@
   "aiwg-model-explorer": {
     "name": "aiwg-model-explorer",
     "description": "Choose to explore codebase, search files, inspect docs or logs, and return cited findings",
-    "model": "light",
+    "model": "claude-haiku-4-5-20251001",
     "reasoningEffort": "low",
     "tools": [
       "Execute",
@@ -57,7 +57,7 @@
   "aiwg-model-verifier": {
     "name": "aiwg-model-verifier",
     "description": "Choose for fresh-context verification and adversarial review using the supplied verification oracle",
-    "model": "medium",
+    "model": "claude-sonnet-5",
     "reasoningEffort": "medium",
     "tools": [
       "Execute",
