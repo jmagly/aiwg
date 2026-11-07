@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import { auditWorkspaceContext, diagnoseWorkspaceContext, migrateWorkspaceContext } from '../../../src/smiths/context-pipeline/workspace-context.js';
 import { isGeneratedRootContext, replaceBlock, stripGeneratedBlocks, PROVIDER_BOOTSTRAP_START, PROVIDER_BOOTSTRAP_END } from '../../../src/smiths/context-pipeline/workspace-context-shared.js';
 import { listProviderDefinitions } from '../../../src/providers/provider-definitions.js';
+import { sensitiveEvidence } from '../../../src/smiths/context-pipeline/workspace-audit.js';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 let root: string;
 beforeEach(async () => {
@@ -61,4 +64,68 @@ it('preserves standalone generated-comment quotations in the operator body', asy
   expect((await auditWorkspaceContext(root)).sources.find(s => s.path === 'AGENTS.md')?.operatorContent).toBe(prose.trim());
   await migrateWorkspaceContext(root, { apply: true, includeGeneratedContext: true });
   expect(await readFile(join(root, 'WORKSPACE.md'), 'utf8')).toContain(prose.trim());
+});
+
+it.each([
+  'AgCM9vN3x...', 'longerTruncatedValue...', 'longerTruncatedValue…',
+  'sk-...', 'xxxx', 'xxxxxxxxxxxxxxxx', '............', '...........a',
+  '<sealed-value>', '${API_KEY}', '***', 'example-value', 'placeholder-value',
+])('workspace audit ignores documentation placeholder %s (#3868)', (value) => {
+  expect(sensitiveEvidence(`API_KEY: ${value}`)).toEqual([]);
+  expect(sensitiveEvidence(`API_KEY: "${value}"`)).toEqual([]);
+});
+
+const syntheticToken = 'ghp_7Qm2Zp9Va4Nc8Rx1Hs6Wd3Yk5Lf0Bt2Ju9Ce';
+const cli = fileURLToPath(new URL('../../../bin/aiwg.mjs', import.meta.url));
+it('keeps scanning after a placeholder on the same deployed instruction line (#3868)', () => {
+  expect(sensitiveEvidence(`API_KEY: longerTruncatedValue…; token: ${syntheticToken}`)).toHaveLength(1);
+  expect(sensitiveEvidence(`token: ${syntheticToken}`)).toHaveLength(1);
+});
+
+function runCli(...args: string[]) {
+  return spawnSync(process.execPath, [cli, ...args], {
+    cwd: root, encoding: 'utf8', timeout: 15_000,
+    env: { ...process.env, AIWG_CONFIG: join(root, 'isolated-user-config') },
+  });
+}
+
+it('audits the deployed devops body in nested AGENTS.md without blocking doctor or regenerate (#3868)', async () => {
+  await migrateWorkspaceContext(root, { apply: true, includeGeneratedContext: true });
+  const agent = await readFile(new URL('../../../agentic/code/frameworks/sdlc-complete/agents/devops-engineer.md', import.meta.url), 'utf8');
+  expect(agent).toContain('API_KEY: AgCM9vN3x...');
+  await mkdir(join(root, 'repos/airflow'), { recursive: true });
+  await writeFile(join(root, 'repos/airflow/AGENTS.md'), `# Deployed agents\ndeveloper_instructions = ${JSON.stringify(agent)}\n`);
+  expect((await auditWorkspaceContext(root)).sensitiveFindings).toEqual([]);
+  expect((await diagnoseWorkspaceContext(root)).filter(d => d.code === 'possible-secret')).toEqual([]);
+  await expect(migrateWorkspaceContext(root, { dryRun: true })).resolves.toMatchObject({ dryRun: true });
+  for (const args of [['workspace-context', 'doctor'], ['regenerate', '--dry-run']]) {
+    const result = runCli(...args);
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout + result.stderr).not.toContain('possible-secret');
+  }
+});
+
+it.each(['AGENTS.md', 'WORKSPACE.md', 'repos/airflow/AGENTS.md'])('reports real token locations in %s after generated blocks (#3868)', async (file) => {
+  await migrateWorkspaceContext(root, { apply: true, includeGeneratedContext: true });
+  await mkdir(join(root, 'repos/airflow'), { recursive: true });
+  const prefix = file === 'WORKSPACE.md' ? await readFile(join(root, file), 'utf8') : '# Operator notes\n\n';
+  const content = prefix + '\n' + PROVIDER_BOOTSTRAP_START + '\nGenerated instructions\n' + PROVIDER_BOOTSTRAP_END
+    + `\n\ntoken: "${syntheticToken}"\n`;
+  // For WORKSPACE.md put the assignment inside its operator section.
+  const source = file === 'WORKSPACE.md' ? content.replace('<!-- AIWG:workspace-operator:end -->', '') + '<!-- AIWG:workspace-operator:end -->\n' : content;
+  await writeFile(join(root, file), source);
+  const line = source.split('\n').findIndex(text => text.includes(syntheticToken)) + 1;
+  const audit = await auditWorkspaceContext(root);
+  expect(audit.sensitiveFindings).toEqual([expect.objectContaining({ path: file, line })]);
+  const diagnostics = (await diagnoseWorkspaceContext(root)).filter(d => d.code === 'possible-secret');
+  expect(diagnostics).toEqual([expect.objectContaining({ message: expect.stringContaining(`${file}:${line}`) })]);
+  await expect(migrateWorkspaceContext(root, { dryRun: true })).rejects.toThrow(`${file}:${line}`);
+  for (const args of [['workspace-context', 'doctor'], ['regenerate', '--existing-project', '--dry-run']]) {
+    const result = runCli(...args);
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain(`${file}:${line}`);
+    expect(JSON.stringify({ findings: audit.sensitiveFindings, diagnostics, stdout: result.stdout, stderr: result.stderr })).not.toContain(syntheticToken);
+  }
 });

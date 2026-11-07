@@ -148,7 +148,8 @@ export async function diagnoseWorkspaceContext(projectPath: string): Promise<Wor
     });
   }
   for (const finding of audit.sensitiveFindings) {
-    await reportSourceDiagnostic({ severity: 'error', code: 'possible-secret', message: `Possible credential value found in ${finding.path}; remove it.`, path: finding.path }, [finding.path]);
+    const location = finding.line ? `${finding.path}:${finding.line}` : finding.path;
+    await reportSourceDiagnostic({ severity: 'error', code: 'possible-secret', message: `Possible credential value found in ${location}; remove it.`, path: finding.path }, [finding.path]);
   }
   // #2512 — "points at WORKSPACE.md" is not the same as "carries current policy".
   // Without this, a workspace generated before the precedence correction reads
