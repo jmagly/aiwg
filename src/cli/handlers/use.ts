@@ -1665,6 +1665,9 @@ export function validateUseOptions(args: string[], preparedCapabilities = new Se
     }
     if (USE_FLAGS_WITH_VALUES.has(arg)) {
       if (!args[i + 1] || args[i + 1].startsWith('-')) return `Missing value for option '${arg}'. See aiwg use --help.`;
+      if ((arg === '--provider' || arg === '--platform') && args[i + 1].includes(',')) {
+        return `Option '${arg}' accepts one provider. Use --providers for a comma-separated list. See aiwg use --help.`;
+      }
       i++;
     } else if (arg.startsWith('-') && !USE_BOOLEAN_FLAGS.has(arg)) {
       return `Unknown option '${arg}'. See aiwg use --help.`;
@@ -3072,10 +3075,13 @@ export class UseHandler implements CommandHandler {
       : null;
     const projectDir = getProjectDir(ctx, remainingArgs);
     let config = await readAiwgConfig(projectDir);
-    if (detectScope(remainingArgs) === 'project' && remainingArgs.includes('--scope')) {
+    // Validate the entire selection before auto-init can persist provider IDs (#3958).
+    {
       for (const requested of configuredGlobalProviders(remainingArgs, config)) {
         const resolved = await resolveProjectLocalProviderAdapter(projectDir, requested);
-        if (normalizeProviderDefinitionId(resolved.provider) === 'hermes') {
+        const provider = normalizeProviderDefinitionId(resolved.provider);
+        if (!provider) return { exitCode: 1, message: unsupportedProviderMessage(requested) ?? `Unknown provider: ${requested}` };
+        if (detectScope(remainingArgs) === 'project' && remainingArgs.includes('--scope') && provider === 'hermes') {
           return { exitCode: 1, message: "Hermes does not support --scope project: it discovers skills only under HERMES_HOME/skills (default ~/.hermes/skills). Use --scope user or an isolated HERMES_HOME profile shared with Hermes." };
         }
       }

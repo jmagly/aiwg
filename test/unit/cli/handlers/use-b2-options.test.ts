@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { countPiAgentFiles, useHandler, validateUseOptions } from '../../../../src/cli/handlers/use.js';
@@ -25,6 +26,38 @@ describe('use boundary validation', () => {
   it('only accepts internal continuation capabilities issued by this handler', () => {
     expect(validateUseOptions(['all', '--aiwg-provider-main-prepared', 'forged'])).toContain('Unknown option');
     expect(validateUseOptions(['all', '--aiwg-provider-main-prepared', 'issued'], new Set(['issued']))).toBeUndefined();
+  });
+
+  it.each(['--provider', '--platform'])('rejects comma lists for %s with actionable guidance (#3958)', flag => {
+    expect(validateUseOptions(['all', flag, 'claude,codex,muse'])).toContain('--providers');
+  });
+
+  it.each([
+    ['--provider', 'claude,codex,muse'],
+    ['--platform', 'claude,codex,muse'],
+    ['--provider', 'not-a-provider'],
+    ['--providers', 'claude,not-a-provider'],
+  ])('rejects %s %s before creating or changing config (#3958)', async (flag, value) => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'aiwg-use-invalid-provider-'));
+    const controlDir = path.join(dir, '.aiwg');
+    const configPath = path.join(controlDir, 'aiwg.config');
+    const execute = () => useHandler.execute({
+      args: ['all', flag, value, '--target', dir, '--no-context-files', '--no-hooks'],
+      rawArgs: [], cwd: dir, frameworkRoot: dir,
+    });
+    try {
+      const fresh = await execute();
+      expect(fresh.exitCode).not.toBe(0);
+      expect(existsSync(configPath)).toBe(false);
+      expect(existsSync(controlDir)).toBe(false);
+
+      await mkdir(controlDir);
+      const original = '{\n  "providers": ["claude"],\n  "installed": {}\n}\n';
+      await writeFile(configPath, original);
+      const existing = await execute();
+      expect(existing.exitCode).not.toBe(0);
+      expect(await readFile(configPath, 'utf8')).toBe(original);
+    } finally { await rm(dir, { recursive: true, force: true }); }
   });
 });
 
