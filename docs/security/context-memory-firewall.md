@@ -46,6 +46,15 @@ For managed deployments, the report includes both deployed bytes and current
 packaged-source bytes. A manifest digest mismatch is labeled `stale`; it cannot be
 hidden by an unchanged total byte count.
 
+`packagedDigestMatch` accepts identical source bytes or a verified deployment
+receipt: deployed bytes must match the receipt's `hash`, and the current packaged
+source must match its `sourceHash`. This accounts for provider frontmatter,
+managed markers, and bound rules without ignoring edits to those sections.
+Kernel skills use their per-skill `.aiwg-manifest.json` receipts and report
+`manifest-current` when their bytes match. Run `aiwg refresh` to add source hashes
+to older receipts; transformed files without that evidence remain unverified
+against the package. Generated context bridges have no single packaged source.
+
 Provider layouts come from the firewall's exported provider keys; doctor uses the
 same source. Unknown providers are reported as **not yet supported** and skipped,
 including in strict mode; supported siblings still scan. Missing baselines and

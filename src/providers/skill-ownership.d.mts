@@ -4,6 +4,7 @@ export interface ArtifactOwnershipRecord {
   frameworkSlug?: string;
   source?: string;
   sourcePath?: string;
+  sourceHash?: string;
   version?: string;
   kind?: string;
   settings?: Record<string, SettingsOwnershipRecord>;

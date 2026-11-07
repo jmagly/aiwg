@@ -236,11 +236,12 @@ export function updateSidecarManifest(dir, deployedEntries, opts) {
   const existing = readSidecarManifest(dir) || { managed: {} };
 
   for (const entry of deployedEntries) {
-    const { filename, hash, frameworkSlug, kind, sourcePath } = entry;
+    const { filename, hash, frameworkSlug, kind, sourcePath, sourceHash } = entry;
     const prior = existing.managed[filename];
     const digest = `sha256:${hash}`;
     const sidecarEntry = { ...(prior?.hash === digest ? prior : {}), hash: digest, source, version };
     if (sourcePath) sidecarEntry.sourcePath = sourcePath;
+    if (sourceHash) sidecarEntry.sourceHash = sourceHash;
     if (frameworkSlug) sidecarEntry.frameworkSlug = frameworkSlug;
     // `kind` marks artifacts whose lifecycle is governed elsewhere — currently
     // only `skill-command` wrappers, which follow their source skill (#2507).

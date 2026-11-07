@@ -153,7 +153,7 @@ function choosePackagedSource(record, inventory) {
     const scoped = candidates.filter((candidate) => `/${candidate.path}`.includes(needle));
     if (scoped.length === 1) return scoped[0];
   }
-  const digestMatches = candidates.filter((candidate) => candidate.digest === record.digest);
+  const digestMatches = candidates.filter((candidate) => candidate.digest === (record.manifest?.sourceHash ?? record.digest));
   if (digestMatches.length > 0) return digestMatches.sort((a, b) => a.path.localeCompare(b.path))[0];
   return candidates.length === 1 ? candidates[0] : null;
 }
@@ -271,7 +271,7 @@ async function collectCandidates(rootDir, providers, baselinePath) {
 }
 
 async function manifestForCandidate(candidate) {
-  if (!['agent', 'rule'].includes(candidate.category)) return null;
+  if (!['agent', 'rule', 'skill'].includes(candidate.category)) return null;
   const managed = await loadDeploymentManifest(path.dirname(candidate.absolutePath));
   return managed[path.basename(candidate.absolutePath)] ?? null;
 }
@@ -351,7 +351,9 @@ async function inspectCandidate(candidate, context) {
   candidate.manifest = manifest;
   const managed = await isManaged(candidate, buffer, manifest);
   const packaged = choosePackagedSource(candidate, packageInventory);
-  const packagedDigestMatch = Boolean(packaged?.digest && packaged.digest === digest);
+  // Verify transformed bytes against their receipt and its original package source.
+  const packagedDigestMatch = Boolean(packaged?.digest && (packaged.digest === digest
+    || (manifest?.hash === digest && manifest.sourceHash === packaged.digest)));
   const threat = contentScan
     ? poisoningSummary(content, candidate, managed)
     : { poisoning: false, signals: [], severity: 'informational', action: 'proceed' };
