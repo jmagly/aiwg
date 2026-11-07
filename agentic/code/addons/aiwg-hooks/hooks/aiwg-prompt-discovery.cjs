@@ -61,7 +61,9 @@ function contextFor(envelope, prompt) {
   // only when at least one candidate supplies a stronger signal.
   // Muse UAT (2026-11-06): advisory wording was ignored; first-call wording was followed.
   if (!candidates.some(r => r.score >= 0.70)) {
-    const namedType = prompt.match(/\b(decision-definition|decision-ruleset|decision-binding|gate-pack|skill|agent|command|rule|schema|flow|runbook|template|behavior|hook|workflow)s?\b/i)?.[1].toLowerCase();
+    // Restrict by type only when the request asks for an AIWG component of that type, not when a
+    // type word merely appears ("removes every managed Claude hook" is not a hook search).
+    const namedType = prompt.match(/\b(?:aiwg|is there an?|are there any|find|list|which|what)\s+(?:aiwg\s+)?(decision-definition|decision-ruleset|decision-binding|gate-pack|skill|agent|command|rule|schema|flow|runbook|template|behavior|hook|workflow)s?\b/i)?.[1].toLowerCase();
     const type = namedType === 'workflow' ? 'flow' : namedType;
     // The request goes through a quoted heredoc so the shell never expands it (#3946).
     // One line: multi-line wording lowered first-call compliance in harness UAT.
