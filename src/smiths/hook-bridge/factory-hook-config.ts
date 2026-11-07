@@ -14,9 +14,34 @@ export interface FactoryHook {
 export interface FactoryGroup { [key: string]: unknown; hooks: FactoryHook[] }
 export interface FactoryDocument { [key: string]: unknown; hooks?: Record<string, FactoryGroup[]> }
 
+// droid reads hooks.json as a top-level event map; only settings.json nests events under `hooks`.
+// Earlier AIWG releases wrote the nested shape into hooks.json, which droid ignored, so read both.
+function isHooksFile(file: string): boolean {
+  return path.basename(file) === 'hooks.json';
+}
+
+function fromHooksFile(raw: Record<string, unknown>): FactoryDocument {
+  const doc: FactoryDocument = {};
+  const events: Record<string, FactoryGroup[]> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (Array.isArray(value)) events[key] = value as FactoryGroup[];
+    else if (key !== 'hooks') doc[key] = value;
+  }
+  const nested = raw.hooks;
+  if (nested !== undefined) {
+    if (!nested || typeof nested !== 'object' || Array.isArray(nested)) return { ...doc, hooks: nested as never };
+    for (const [event, groups] of Object.entries(nested as Record<string, FactoryGroup[]>)) {
+      events[event] = Array.isArray(events[event]) && Array.isArray(groups) ? [...events[event], ...groups] : groups;
+    }
+  }
+  if (Object.keys(events).length) doc.hooks = events;
+  return doc;
+}
+
 export function readFactoryDocument(file: string): FactoryDocument {
   try {
-    const doc = parseJson(fs.readFileSync(file, 'utf8')) as FactoryDocument;
+    const raw = parseJson(fs.readFileSync(file, 'utf8')) as FactoryDocument;
+    const doc = raw && typeof raw === 'object' && !Array.isArray(raw) && isHooksFile(file) ? fromHooksFile(raw) : raw;
     if (!doc || typeof doc !== 'object' || Array.isArray(doc)
       || (doc.hooks !== undefined && (!doc.hooks || typeof doc.hooks !== 'object' || Array.isArray(doc.hooks)))) {
       throw new Error(`Invalid Factory hooks object: ${file}`);
@@ -35,7 +60,8 @@ export function readFactoryDocument(file: string): FactoryDocument {
 }
 
 export function writeFactoryDocument(file: string, doc: FactoryDocument): void {
-  const content = JSON.stringify(doc, null, 2) + '\n';
+  const { hooks, ...rest } = doc;
+  const content = JSON.stringify(isHooksFile(file) ? { ...rest, ...(hooks ?? {}) } : doc, null, 2) + '\n';
   if (fs.existsSync(file) && fs.readFileSync(file, 'utf8') === content) return;
   if (fs.existsSync(file)) {
     const original = fs.readFileSync(file, 'utf8');

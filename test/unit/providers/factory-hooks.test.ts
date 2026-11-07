@@ -37,10 +37,12 @@ describe('Factory hook installation', () => {
     await deployFactoryHooks(false, project);
     const doc = read(file);
     expect(doc.operatorSetting).toBe(42);
+    // droid reads hooks.json as a top-level event map; a nested `hooks` key is ignored by droid.
+    expect(doc.hooks).toBeUndefined();
     for (const hook of managedFactoryHooks()) {
-      expect(doc.hooks[hook.event]).toHaveLength(2);
-      expect(doc.hooks[hook.event][0]).toEqual(operator);
-      expect(doc.hooks[hook.event][1].hooks[0]).toMatchObject({
+      expect(doc[hook.event]).toHaveLength(2);
+      expect(doc[hook.event][0]).toEqual(operator);
+      expect(doc[hook.event][1].hooks[0]).toMatchObject({
         command: hook.command, _aiwg_id: hook.id, _aiwg_managed: true,
       });
     }
@@ -61,9 +63,9 @@ describe('Factory hook installation', () => {
     write(settings, { hooks: { SessionStart: [{ matcher: '*', hooks: [old] }], PreToolUse: [operator] } });
     await deployFactoryHooks(false, project);
     const user = read(path.join(home, '.factory/hooks.json'));
-    expect(user.hooks.SessionStart ?? []).toEqual([]);
-    expect(user.hooks.PreToolUse).toEqual([operator]);
-    expect(read(path.join(project, '.factory/hooks.json')).hooks.SessionStart.at(-1).hooks[0].command)
+    expect(user.SessionStart ?? []).toEqual([]);
+    expect(user.PreToolUse).toEqual([operator]);
+    expect(read(path.join(project, '.factory/hooks.json')).SessionStart.at(-1).hooks[0].command)
       .toBe('aiwg refresh --dry-run --quiet');
   });
 
@@ -78,8 +80,8 @@ describe('Factory hook installation', () => {
     expect(read(settings)).toEqual({ operatorSetting: 42, hooks: {
       SessionStart: [{ matcher: '*', hooks: operator.hooks }], UserPromptSubmit: [operator],
     } });
-    expect(read(file).hooks.SessionStart).toHaveLength(2);
-    expect(read(file).hooks.SessionStart[0]).toEqual(operator);
+    expect(read(file).SessionStart).toHaveLength(2);
+    expect(read(file).SessionStart[0]).toEqual(operator);
   });
 
   it('transfers other tagged AIWG entries out of settings even when hooks.json exists', async () => {
@@ -90,18 +92,18 @@ describe('Factory hook installation', () => {
     write(file, { hooks: { Stop: [operator] } });
     await deployFactoryHooks(false);
     expect(read(settings).hooks.Stop).toEqual([{ matcher: '*', hooks: operator.hooks }]);
-    expect(read(file).hooks.Stop).toEqual([operator, { matcher: '*', hooks: [managed] }]);
+    expect(read(file).Stop).toEqual([operator, { matcher: '*', hooks: [managed] }]);
   });
 
   it('copies user fallback hooks when creating hooks.json and migrates legacy hooks/hooks.json', async () => {
     write(path.join(home, '.factory/settings.json'), { hooks: { SessionStart: [{ hooks: [old] }], Stop: [operator] } });
     await deployFactoryHooks(false);
-    expect(read(path.join(home, '.factory/hooks.json')).hooks.Stop).toEqual([operator]);
+    expect(read(path.join(home, '.factory/hooks.json')).Stop).toEqual([operator]);
     const legacy = path.join(project, '.factory/hooks/hooks.json');
     write(legacy, { hooks: { UserPromptSubmit: [operator], SessionStart: [{ hooks: [old] }] } });
     await deployFactoryHooks(false, project);
-    expect(read(path.join(project, '.factory/hooks.json')).hooks.UserPromptSubmit[0]).toEqual(operator);
-    expect(read(path.join(project, '.factory/hooks.json')).hooks.SessionStart).toHaveLength(1);
+    expect(read(path.join(project, '.factory/hooks.json')).UserPromptSubmit[0]).toEqual(operator);
+    expect(read(path.join(project, '.factory/hooks.json')).SessionStart).toHaveLength(1);
     expect(fs.existsSync(legacy)).toBe(false);
   });
 
