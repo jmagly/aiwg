@@ -61,7 +61,14 @@ export function projectStartup(opts, provider, coreSection, indexFile) {
     if (provider.name !== 'flue' || coreSection) content = section(content, 'rule-core', coreSection.replace(/<!-- AIWG:(?:core-rules|rule-core):(?:start|end) -->\n?/g, '').trimEnd());
     const logical = opts.logicalOutputPath || (file => file);
     const location = path.relative(logical(opts.target), logical(indexFile)).replaceAll('\\', '/');
-    const hook = `${provider.name}: Before every task and subagent task, read and follow \`${location}\`; read every listed kernel file and fetch matching full rules before governed work.`;
+    let hook = `${provider.name}: Before every task and subagent task, read and follow \`${location}\`; read every listed kernel file and fetch matching full rules before governed work.`;
+    // droid exec runs no prompt hooks, so the Factory line carries discovery itself (#3942).
+    // The request goes through a quoted heredoc so the shell never expands it (#3946).
+    if (provider.name === 'factory') hook += " On every new request, your first tool call must be the shell command \`aiwg discover --stdin <<'AIWG_REQUEST'\` "
+      + "with the request text on the next lines and \`AIWG_REQUEST\` on the last line; never put request text in quotes on a command line. Answer from its result. "
+      + "Answering or declining without running it violates the skill-discovery rule. Use the \`aiwg\` CLI, not droid's built-in Skill tool. "
+      + "Before writing an issue, comment, PR, report or SDLC artifact, run the same heredoc command with \`--type template\` and \`<output> template\` as the text, "
+      + "read the chosen template with \`aiwg show template <name> --body\`, and fill every required section.";
     content = section(content, `rule-hook-${provider.name}`, hook);
     fs.mkdirSync(path.dirname(startup), { recursive: true });
     writeContextFileSync(startup, content);

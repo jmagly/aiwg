@@ -8,7 +8,8 @@ export const indexHandler: CommandHandler = {
   category: "index",
   aliases: [],
 
-  async help(): Promise<HandlerResult> {
+  async help(ctx: HandlerContext): Promise<HandlerResult> {
+    if (ctx.args[0] === "discover") return discoverHandler.help!(ctx);
     const { printIndexUsage } = await import("../../artifacts/cli.js");
     printIndexUsage();
     return { exitCode: 0 };
@@ -75,6 +76,12 @@ export const discoverHandler: CommandHandler = {
     "Find AIWG operational assets by capability — index-driven on-demand discovery",
   category: "index",
   aliases: [],
+
+  async help(): Promise<HandlerResult> {
+    const { printDiscoverUsage } = await import("../../artifacts/discover-cli-help.js");
+    printDiscoverUsage();
+    return { exitCode: 0 };
+  },
 
   async execute(ctx: HandlerContext): Promise<HandlerResult> {
     try {

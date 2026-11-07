@@ -1,7 +1,23 @@
-// Define the query, discover, and show parameter contracts.
+// Define query contracts and resolve discover input without shell interpretation.
 import type { ResourceSource, WebReleaseOptions } from '../resources/web-release.js';
 import type { DiscoveryShadowRoute } from './discovery-shadow.js';
 import type { GraphType } from './types.js';
+
+export async function readDiscoverPhrase(
+  positional: string[],
+  flags: string[],
+  input: AsyncIterable<string | Uint8Array> = process.stdin,
+): Promise<string> {
+  if (!flags.includes('--stdin')) return positional.join(' ').trim();
+  if (positional.length > 0) {
+    throw new Error('--stdin cannot be combined with a positional search phrase');
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of input) chunks.push(Buffer.from(chunk));
+  const phrase = Buffer.concat(chunks).toString('utf8').trim();
+  if (!phrase) throw new Error('--stdin requires a non-empty search phrase');
+  return phrase;
+}
 
 export interface QueryOptions {
   json?: boolean;
