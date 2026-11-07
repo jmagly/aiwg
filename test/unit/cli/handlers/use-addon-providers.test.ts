@@ -107,6 +107,16 @@ describe('bundled addon provider set (#3661)', () => {
     expect(Object.keys((await readAiwgConfig(project))!.installed['decision-engine'].deployedTo)).toEqual(['claude', 'muse']);
   });
 
+  it('bootstraps a comma list through --providers as separate providers (#3958)', async () => {
+    rmSync(join(project, '.aiwg'), { recursive: true, force: true });
+    const payload = await deploy('decision-engine', ['--providers', 'claude,codex,muse']);
+    expect(payload.providers.map((entry: { provider: string }) => entry.provider)).toEqual(providers);
+    const config = (await readAiwgConfig(project))!;
+    expect(config.providers).toEqual(providers);
+    expect(Object.keys(config.installed['decision-engine'].deployedTo)).toEqual(providers);
+    for (const provider of providers) expectSkill('decision-engine', provider);
+  });
+
   it('previews every provider without writing addon state or skills', async () => {
     const payload = await deploy('decision-engine', ['--dry-run']);
     expect(payload.dryRun).toBe(true);
