@@ -18,6 +18,11 @@ export function bundleProviders(installed: AiwgConfig['installed'], id: string, 
   return Object.keys(entry?.deployedTo ?? {}).filter(provider => !requested || requested.split(',').includes(provider));
 }
 
+function hasLegacyAllSelection(config: AiwgConfig, provider: string): boolean {
+  const flags = config.installed.all?.deployedTo[provider];
+  return provider !== 'flue' && flags !== undefined && flags.skipUtils === undefined && flags.kernelOnly === undefined;
+}
+
 export async function expectedBundleOwners(config: AiwgConfig, provider: string, frameworkRoot: string): Promise<Set<string>> {
   const selected = Object.keys(config.installed).filter(id => bundleProviders(config.installed, id, provider).length);
   const expected = new Set(selected.map(frameworkRegistryId));
@@ -26,7 +31,7 @@ export async function expectedBundleOwners(config: AiwgConfig, provider: string,
       || ['writing', 'general'].includes(id))) continue;
     const flags = config.installed[id].deployedTo[provider];
     if (id === 'all' && provider !== 'flue' && (flags.skipUtils !== undefined || flags.kernelOnly !== undefined)) {
-      expected.delete('all');
+      // The composed pass owns outputs as `all`; expanding its scope must retain that owner.
       for (const name of fs.readdirSync(path.join(frameworkRoot, 'agentic/code/frameworks'))) {
         if (fs.existsSync(path.join(frameworkRoot, 'agentic/code/frameworks', name, 'manifest.json'))) expected.add(frameworkRegistryId(name));
       }
@@ -89,7 +94,7 @@ export async function pruneUndeclaredBundles(project: string, config: AiwgConfig
     if (!getProviderArtifactPathStrings(provider)) continue;
     const selected = expected.get(provider)!;
     for (const owner of receiptOwners(project, provider)) {
-      if (hashPruned.has(`${provider}:${owner}`) || (selected.has('all') && provider !== 'flue') || selected.has(frameworkRegistryId(owner))) continue;
+      if (hashPruned.has(`${provider}:${owner}`) || hasLegacyAllSelection(config, provider) || selected.has(frameworkRegistryId(owner))) continue;
       const implicit = !history[provider]?.[frameworkRegistryId(owner)] && Object.values(history[provider] ?? {}).some(entry =>
         entry.produces?.includes(frameworkRegistryId(owner)) || entry.produces?.includes('*'));
       if (implicit) continue;
@@ -98,7 +103,7 @@ export async function pruneUndeclaredBundles(project: string, config: AiwgConfig
         continue;
       }
       const otherProviders = [...expected].filter(([other, owners]) => other !== provider
-        && (history[other]?.[frameworkRegistryId(owner)]?.copy || history[other]?.[frameworkRegistryId(owner)]?.package || owners.has(frameworkRegistryId(owner)) || other !== 'flue' && owners.has('all'))).map(([other]) => other);
+        && (history[other]?.[frameworkRegistryId(owner)]?.copy || history[other]?.[frameworkRegistryId(owner)]?.package || owners.has(frameworkRegistryId(owner)) || hasLegacyAllSelection(config, other))).map(([other]) => other);
       const sharedRoots = deployedSkillRoots(project, provider).filter(root => otherProviders.some(other => deployedSkillRoots(project, other).includes(root)));
       console.log(`${dryRun ? 'Would remove' : 'Removing'} ${bundleUseName(owner)} for ${provider}`);
       // A temporary historical record supplies context for the public per-bundle

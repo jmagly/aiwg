@@ -231,17 +231,19 @@ it('records copy-derived kernel scope and retains an all-framework declaration w
   }
   const { bundleDeploymentHistory } = await import('../../../../src/cli/handlers/bundle-deployment-mode.js');
   await recordBundleDeployment(root, 'all', 'claude', ['--no-utils'], root);
-  expect(bundleDeploymentHistory(root).claude.all).toEqual({ copy: false, skipUtils: true, kernelOnly: true, produces: ['sdlc-complete'] });
+  expect(bundleDeploymentHistory(root).claude.all).toEqual({ copy: false, skipUtils: true, kernelOnly: true, produces: ['all', 'sdlc-complete'] });
   await recordBundleDeployment(root, 'all', 'codex', ['--copy-all'], root);
   expect(bundleDeploymentHistory(root).codex.all).toMatchObject({ copy: true, skipUtils: false, kernelOnly: false });
   const config = emptyConfig(['claude']); config.installed.all = { deployedTo: { claude: { skipUtils: true, kernelOnly: true } } };
   const unchanged = skill('aiwg-utils', 'old-utils', false, 'claude');
   const edited = skill('aiwg-utils', 'edited-utils', true, 'claude');
   const keep = skill('sdlc-complete', 'sdlc', false, 'claude');
+  const composed = skill('all', 'composed-kernel', false, 'claude');
   expect(await pruneUndeclaredBundles(root, config, 'claude', false, root)).toBe(0);
   expect(fs.existsSync(unchanged)).toBe(false);
   expect(fs.readFileSync(edited, 'utf8')).toBe('operator edit');
   expect(fs.readFileSync(keep, 'utf8')).toBe('deployed');
+  expect(fs.readFileSync(composed, 'utf8')).toBe('deployed');
 });
 
 it('retains Flue’s composed all owner with recorded kernel flags', async () => {
@@ -251,6 +253,42 @@ it('retains Flue’s composed all owner with recorded kernel flags', async () =>
   expect(await expectedBundleOwners(config, 'flue', root)).toEqual(new Set(['all']));
   expect(await pruneUndeclaredBundles(root, config, 'flue', false, root)).toBe(0);
   expect(fs.readFileSync(file, 'utf8')).toBe('deployed');
+});
+
+it.each(['claude', 'codex'])('retains %s composed ownership without broadening a recorded kernel scope', async provider => {
+  for (const [group, id] of [['frameworks', 'sdlc-complete'], ['addons', 'aiwg-utils'], ['extensions', 'example']]) {
+    const dir = path.join(root, 'agentic/code', group, id); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'manifest.json'), '{}');
+  }
+  const config = emptyConfig([provider]);
+  config.installed.all = { deployedTo: { [provider]: { skipUtils: false, kernelOnly: true } } };
+  const composed = skill('all', 'composed-kernel', false, provider);
+  const addon = skill('aiwg-utils', 'utility', false, provider);
+  const extension = skill('example', 'old-extension', false, provider);
+  expect(await pruneUndeclaredBundles(root, config, provider, true, root)).toBe(0);
+  expect(fs.existsSync(composed)).toBe(true);
+  expect(console.log).not.toHaveBeenCalledWith(`Would remove all for ${provider}`);
+  expect(console.log).toHaveBeenCalledWith(`Would remove example for ${provider}`);
+  expect(await pruneUndeclaredBundles(root, config, provider, false, root)).toBe(0);
+  expect(fs.readFileSync(composed, 'utf8')).toBe('deployed');
+  expect(fs.readFileSync(addon, 'utf8')).toBe('deployed');
+  expect(fs.existsSync(extension)).toBe(false);
+  delete config.installed.all;
+  expect(await pruneUndeclaredBundles(root, config, provider, false, root)).toBe(0);
+  expect(fs.existsSync(composed)).toBe(false);
+});
+
+it('does not infer a shared extension owner from another provider’s recorded kernel selection', async () => {
+  for (const [group, id] of [['frameworks', 'sdlc-complete'], ['extensions', 'example']]) {
+    const dir = path.join(root, 'agentic/code', group, id); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'manifest.json'), '{}');
+  }
+  fs.mkdirSync(path.join(root, 'agentic/code/addons'), { recursive: true });
+  const shared = skill('example', 'old-extension');
+  const config = emptyConfig(['codex', 'flue']);
+  config.installed.all = { deployedTo: { codex: { skipUtils: false, kernelOnly: true } } };
+  expect(await pruneUndeclaredBundles(root, config, 'flue', false, root)).toBe(0);
+  expect(fs.existsSync(shared)).toBe(false);
 });
 
 it('removes recreated additive copies after a restricted deploy and leaves unknown scope alone', async () => {
