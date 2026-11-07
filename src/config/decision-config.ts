@@ -2,11 +2,13 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseYamlSimple } from './user-config.js';
 import { resolveUserConfigDir } from './user-config-dir.mjs';
+import { validateJevConfig, type JevOpenBaoReference } from './jev-credential-reference.js';
 
-/** Project decision settings. No credentials or provider setup lives here. */
+/** Project decision settings. Credential references may live here; values never do. */
 export interface DecisionConfig {
   /** Persistent runtime opt-in; environment overrides project, then user config. */
   enabled?: boolean;
+  jev?: { credential: JevOpenBaoReference };
   /** Ask sampling: product default 5 passes, escalating to twice that. */
   ask?: {
     passes?: number;
@@ -53,7 +55,7 @@ export interface DecisionEnablement {
 export function validateDecisionConfig(value: unknown): string[] {
   if (value === undefined) return [];
   if (!value || typeof value !== 'object' || Array.isArray(value)) return ['decision must be an object'];
-  const errors: string[] = [];
+  const errors: string[] = validateJevConfig((value as DecisionConfig).jev);
   const { enabled, ask, offload_report: report } = value as DecisionConfig;
   if (enabled !== undefined && typeof enabled !== 'boolean') errors.push('decision.enabled must be a boolean');
   if (report !== undefined) {
