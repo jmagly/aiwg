@@ -50,6 +50,41 @@ describe('doctor command probe behavior', () => {
   });
   afterEach(() => { vi.restoreAllMocks(); });
 
+  it.each([
+    { state: 'non-git workspace', inside: null, branchExists: false, status: 'info', message: 'not a git repository; branch check skipped' },
+    { state: 'bare repository', inside: 'false\n', branchExists: false, status: 'info', message: 'not a git worktree; branch check skipped' },
+    { state: 'remote-only default branch', inside: 'true\n', branchExists: false, status: 'info', message: "default_branch 'main' not found locally" },
+    { state: 'existing local default branch', inside: 'true\n', branchExists: true, status: 'ok', message: 'default_branch=main' },
+    { state: 'non-git workspace with invalid mode', inside: null, branchExists: false, mode: 'invalid', status: 'warn', message: 'mode=invalid' },
+  ])('reports Delivery Policy for a $state (#3911)', async ({ inside, branchExists, mode, status, message }) => {
+    const configPath = join(root, '.aiwg', 'aiwg.config');
+    writeFileSync(configPath, JSON.stringify({ delivery: { default_branch: 'main', mode } }));
+    mocks.execFile.mockImplementation((file, args) => {
+      if (file === 'git' && args.includes('--is-inside-work-tree')) {
+        if (inside === null) throw Object.assign(new Error('not a git repository'), { status: 128 });
+        return inside;
+      }
+      if (file === 'git' && args.includes('--verify')) {
+        if (!branchExists) throw Object.assign(new Error('missing local branch'), { status: 1 });
+        return 'synthetic-commit\n';
+      }
+      return '';
+    });
+    mocks.execFile.mockClear();
+    try {
+      await runDoctor();
+      const policy = console.log.mock.calls.map(([line]) => String(line))
+        .filter(line => line.includes('Delivery Policy:')).at(-1);
+      expect(policy).toContain(`${{ info: '○', ok: '✓', warn: '⚠' }[status]} Delivery Policy:`);
+      expect(policy).toContain(message);
+      const branchProbes = mocks.execFile.mock.calls.filter(([file, args]) => file === 'git' && args.includes('--verify'));
+      expect(branchProbes).toHaveLength(inside === 'true\n' ? 1 : 0);
+      if (branchProbes.length) expect(branchProbes[0][1]).toEqual(['-C', root, 'rev-parse', '--verify', '--quiet', 'main']);
+    } finally {
+      writeFileSync(configPath, JSON.stringify({ remotes: { primary: 'origin' } }));
+    }
+  });
+
   it.each([undefined, 'systemd-unit', 'native-sandbox'])(
     'reports native-sandbox isolation only for opted-in groups (%s), in text and JSON', async launchMode => {
       const configPath = join(root, '.aiwg', 'aiwg.config');
