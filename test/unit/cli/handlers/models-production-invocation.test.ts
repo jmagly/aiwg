@@ -247,6 +247,69 @@ describe('models resolve production installation loading', () => {
     await writeFile(storePath, storeBytes + '\n');
     await expect(recordedWorkerStdinBytes(input)).rejects.toThrow(/qualification/);
   });
+  it('#3851 names policy drift and the separately qualified worker tree until requalification', async () => {
+    const f = await productionFixture();
+    const store = path.join(f.configDir, 'worker-installations.json');
+    await writeFile(store, JSON.stringify({ version: 1, registrations: [f.record] }), { mode: 0o600 });
+    expect((await f.call()).result.exitCode).toBe(0);
+    const filename = path.join(f.cwd, 'models.json');
+    const models = JSON.parse(await readFile(filename, 'utf8'));
+    models.defaults.workerSelection.guards = { ...models.defaults.workerSelection.guards, denyConductorWorkerExecution: true };
+    await writeFile(filename, JSON.stringify(models));
+    const workerTree = f.record.installation.cwd;
+    const pointer = '/defaults/workerSelection/guards/denyConductorWorkerExecution';
+    for (const shared of [false, true]) {
+      if (shared) await writeFile(path.join(workerTree, 'models.json'), JSON.stringify(models));
+      const result = await f.call();
+      expect(result.result.exitCode).toBe(2);
+      expect(result.plan.invocation).toBeUndefined();
+      expect(result.plan.diagnostics).toContainEqual(expect.objectContaining({
+        code: 'OG_ADAPTER_UNQUALIFIED', pointer,
+        message: expect.stringContaining('Worker policy changed since qualification'),
+      }));
+      expect(result.output).toContain(pointer);
+      const message = result.plan.diagnostics.at(-1).message;
+      expect(message).toContain(workerTree);
+      expect(message).toContain('requalify the worker tree');
+      expect(message).toContain('aiwg doctor --probe-workers --qualify');
+    }
+    const loader = new ConfigLoader(f.cwd);
+    f.record.installation.policy = (await loader.load(f.snapshot.config.parallelism)).defaults.workerSelection;
+    f.record.installation.effectiveConfigDigest = qualificationDigest(f.record.installation.policy);
+    const scope = await f.owner.inspectWorkerInstallation(f.record.installation);
+    f.record.installation.evidence.scopeDigest = scope.scopeDigest;
+    f.record.adapter.invocationProfiles![f.record.binding.profile].installationQualification!.scopeDigest = scope.scopeDigest;
+    expect(await f.owner.recordWorkerInstallation({ ...f.record, projectDir: f.cwd })).toMatchObject({ status: 'ENABLED' });
+    const resolved = await f.call();
+    expect(resolved.result.exitCode, resolved.output).toBe(0);
+  });
+
+  it.each([
+    ['freshness', { blockHours: 100 }, '/freshness/blockHours'],
+    ['dataPolicy', { localOnlyPaths: ['synthetic-private-value'] }, '/dataPolicy/localOnlyPaths'],
+    ['taskClasses', { 'synthetic-private-key': 'coding' }, '/taskClasses'],
+  ])('#3851 explains %s drift without publishing policy values or dynamic keys', async (section, value, suffix) => {
+    const f = await productionFixture();
+    await writeFile(path.join(f.configDir, 'worker-installations.json'), JSON.stringify({ version: 1, registrations: [f.record] }), { mode: 0o600 });
+    const filename = path.join(f.cwd, 'models.json');
+    const models = JSON.parse(await readFile(filename, 'utf8'));
+    models.defaults.workerSelection[section as string] = value;
+    await writeFile(filename, JSON.stringify(models));
+    const result = await f.call();
+    expect(result.result.exitCode).toBe(2);
+    expect(result.plan.diagnostics).toContainEqual(expect.objectContaining({ code: 'OG_ADAPTER_UNQUALIFIED',
+      pointer: `/defaults/workerSelection${suffix}` }));
+    expect(result.output).not.toContain('synthetic-private');
+    expect(result.plan.diagnostics.at(-1).message).toContain(f.record.installation.cwd);
+    // Policy details are released only after the approval's signature is verified.
+    delete (f.record as any).signature;
+    await writeFile(path.join(f.configDir, 'worker-installations.json'), JSON.stringify({ version: 1, registrations: [f.record] }), { mode: 0o600 });
+    const unsigned = await f.call();
+    expect(unsigned.result.exitCode).toBe(2);
+    expect(unsigned.output).not.toContain(f.record.installation.cwd);
+    expect(unsigned.output).not.toContain('Worker policy changed');
+  });
+
   it('renders a qualified installed fake CLI through the production handler', async () => {
     const f = await productionFixture();
     await writeFile(path.join(f.configDir, 'worker-installations.json'), JSON.stringify({ version: 1, registrations: [f.record] }), { mode: 0o600 });

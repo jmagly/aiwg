@@ -18,7 +18,7 @@ import { prepareWorkerInvocation, type WorkerInvocationQualification } from './w
 export { prepareWorkerInvocation, mcpToolSchemaDigest, type WorkerInvocationQualification, type WorkerInstallationRequest } from './worker-invocation-preparation.js';
 import type { WorkerExecution, ParallelismConfig } from '../config/aiwg-config.js';
 import { isOperatorQualifiedWorkerAdapter, assertOperatorWorkerNativeArgv,
-  assertWorkerLaunchMode, WorkerRoleEffortError, requiredWorkerControls, isCanonicalWorkerModelKey, WorkerPolicyError, DEFAULT_WORKER_SELECTION } from '../models/provider-policy.js';
+  assertWorkerLaunchMode, WorkerRoleEffortError, WorkerQualificationPolicyError, requiredWorkerControls, isCanonicalWorkerModelKey, WorkerPolicyError, DEFAULT_WORKER_SELECTION } from '../models/provider-policy.js';
 
 /** Frozen per-attempt windows; parent/transport ceilings include time already spent. */
 export function resolveWorkerEffectiveHealth(config: ParallelismConfig['health'], input: {
@@ -394,9 +394,10 @@ export async function resolveWorkerInvocation(snapshot: WorkerPlanSnapshot, requ
   }
 }
 
-/** Public diagnostics contain fixed summaries or explicit typed request-path details. */
+/** Public diagnostics contain fixed summaries or explicit typed policy and path details. */
 export function workerInvocationDiagnostic(error: unknown, pointer: string,
   fallback: WorkerPolicyDiagnostic['code'] = 'OG_CONFIG_REFERENCE'): WorkerPolicyDiagnostic {
+  if (error instanceof WorkerQualificationPolicyError) return { code: error.code, pointer: error.pointer, message: error.message };
   if (error instanceof WorkerRoleEffortError) return { code: error.code, pointer: error.pointer, message: error.message };
   if (error instanceof WorkerPathScopeError || error instanceof WorkerRequestArgumentError) {
     return { code: error.code, pointer: error.pointer, message: error.message };

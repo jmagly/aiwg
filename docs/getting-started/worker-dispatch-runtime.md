@@ -70,7 +70,9 @@ When recorded installations are refused, `WorkerPolicyError` keeps the
 `binding-mismatch`, `effective-config-digest`, `evidence`, `environment-name`,
 `adapter-conflict`, `module-registration`, `binary-identity`, `scope-digest`, or
 `version`. The launcher includes these codes on stderr. Rejection details omit
-underlying error text, environment values, file contents, and filesystem paths.
+underlying error text, environment values, file contents, and filesystem paths,
+except that a policy mismatch names the signed approval's worker-tree path and
+changed policy pointers so you can requalify that tree.
 
 Doctor checks each observed configured member/role with a synthetic brief through
 the same nonlaunching invocation builder and native argument checks as resolution.
@@ -353,12 +355,20 @@ aiwg ralph-external --verify-worker --run-dir /absolute/private/runs/attempt-1 \
 
 The [conductor tool guard](../providers/conductor-local-only-inputs.md) offers opt-in
 execution checks (default `false`). Set
-`defaults.workerSelection.guards.denyConductorWorkerExecution: true` in project or
-user `models.json` and redeploy Claude to refuse direct worker tests and imports,
+`defaults.workerSelection.guards.denyConductorWorkerExecution: true` in the shared
+project policy (`models.json`) and redeploy Claude to refuse direct worker tests and imports,
 including resource-only `systemd-run` wrappers,
 with guidance to this verifier. `parallelism.worker_dispatch` alone does not
 enable the check. The guard is not a sandbox; strong enforcement
 requires the harness boundary. Worker diff and source inspection stay allowed.
+
+Worker trees qualified separately need the same guard flag in their project
+policy too. Qualification binds the full worker-selection policy, including this
+guard. After changing it, align the conductor and worker policies and run
+`aiwg doctor --probe-workers --qualify` in each separately qualified worker tree.
+Qualifying only the conductor does not refresh those approvals. Worker-tree
+invocation checks can pass while resolution from a conductor with a different
+policy remains blocked.
 
 Repeat `--check` for multiple checks. Each JSON object accepts `id`, an absolute
 `command` outside the worktree, and optional `args`, absolute `cwd` within the

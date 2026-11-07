@@ -3,6 +3,7 @@ export { prepareWorkerInstallationStore } from './worker-installation-store.mjs'
 /** Shared installed-worker qualification owner, also used by the Ralph compatibility facade. */
 import { spawn } from 'node:child_process';
 import { buildInstalledWorkerTransport } from './worker-artifact-binding.mjs';
+import { workerQualificationPolicyDiagnostic } from './worker-qualification-policy.js';
 import { open, realpath, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -837,15 +838,18 @@ export async function recordWorkerInstallation(instance, options) {
 /** Read recorded host authority, validate installation bytes and the current CLI
  * version, then load the same approved factory used by Ralph. */
 export async function loadRecordedWorkerInstallations({ registry, cwd, policy, parallelism, storePath, storeDigest, precheckPolicy }) {
-  const { WorkerPolicyError, parseProviderModelCapabilities } = await import('./provider-policy.js');
+  const { WorkerPolicyError, WorkerQualificationPolicyError, parseProviderModelCapabilities } = await import('./provider-policy.js');
   const { qualificationDigest } = await import('./qualification-digest.mjs');
-  // Only fixed stage codes and bounded record indexes may leave this boundary.
+  // Only fixed stage codes, bounded indexes and signed policy-drift summaries leave this boundary.
   // Underlying errors can contain probe output, environment values or paths.
   const rejections = [];
-  const fail = () => new WorkerPolicyError('OG_ADAPTER_UNQUALIFIED',
+  const fail = () => {
+    const mismatch = workerQualificationPolicyDiagnostic(rejections, stored?.registrations, policy);
+    return mismatch ? new WorkerQualificationPolicyError(mismatch, rejections) : new WorkerPolicyError('OG_ADAPTER_UNQUALIFIED',
     `Trusted installation qualification is required (${[...new Set(rejections.map(row => row.reason))].join(', ')})${rejections.some(row => row.reason.startsWith('signature-'))
       ? `. ${rejections.some(row => row.reason === 'signature-trust-unavailable') ? keyRecoveryMessage : requalifyMessage}` : ''}`,
     { rejections });
+  };
   let reason = 'store-binding';
   let filename;
   let stored, digest;

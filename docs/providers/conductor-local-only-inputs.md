@@ -51,7 +51,7 @@ escaped wildcard characters are literal. Operator permissions and hooks are
 preserved; malformed hook events are refused.
 
 Worker execution checks are **opt-in**, defaulting to `false`. Enable them in
-project or user `models.json` through the existing guards object:
+the shared project policy (`models.json`) through the existing guards object:
 
 ```json
 {
@@ -62,6 +62,14 @@ project or user `models.json` through the existing guards object:
   }
 }
 ```
+
+Worker trees qualified separately need this guard flag in their project policy
+too. Qualification binds the full worker-selection policy: after a change, align
+the conductor and worker policies, then run
+`aiwg doctor --probe-workers --qualify` in each separately qualified worker tree.
+Qualifying only the conductor cannot refresh worker-tree approvals. Passing
+invocation checks in a worker tree does not establish a match with the
+conductor's policy.
 
 Redeploy Claude with the normal `aiwg use` workflow. This installs the same hook
 even without local-only declarations; `parallelism.worker_dispatch` alone does
