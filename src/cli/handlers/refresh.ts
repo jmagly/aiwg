@@ -25,7 +25,7 @@ import { createUseHandler } from './use.js';
 import { automaticRemovalAllowed } from '../../providers/deployment-preservation.mjs';
 import { refreshDeclaredBundles } from './refresh-bundles.js';
 import { bundledRuleOutputNames } from './refresh-rule-inventory.js';
-import { checkManagedDeployment, type StaleManagedDeployment } from './refresh-managed-deployment.js';
+import { checkManagedDeployment, sourcePrebuiltIndexRepairHint, type StaleManagedDeployment } from './refresh-managed-deployment.js';
 import { getFrameworkRoot } from '../../channel/manager.mjs';
 import { refreshAllPackages } from '../../packages/registry.js';
 import { resolveActiveProvider } from '../provider-resolution.js';
@@ -882,6 +882,8 @@ export const refreshHandler: CommandHandler = {
     }
 
     // Step 5: Health check
+    const prebuiltIndexRepair = dryRun ? null : sourcePrebuiltIndexRepairHint(frameworkRoot);
+    if (prebuiltIndexRepair && !quiet) ui.warn(prebuiltIndexRepair);
     if (!quiet) ui.info(dryRun ? 'Would run health check...' : 'Running health check...');
     if (!dryRun) {
       const doctorResult = await runner.run('tools/cli/doctor.mjs', [], { capture: quiet });
@@ -924,6 +926,7 @@ export const refreshHandler: CommandHandler = {
         staleManagedDeployments,
         deploymentFailures,
         updateFailure,
+        prebuiltIndexRepair,
       });
       console.log(output);
     }

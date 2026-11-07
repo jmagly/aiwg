@@ -11,6 +11,16 @@ import { loadHookSources } from '../../smiths/hook-bridge/loader.js';
 import { parseJson } from '../../mcp/json-document.mjs';
 import { getProviderArtifactPathStrings } from '../../providers/provider-definitions.js';
 import * as ui from '../ui.js';
+import { getFortemiCorePrebuiltStatus } from '../../artifacts/fortemi-core-sync.js';
+import { fortemiCorePrebuiltRepairHint } from '../../artifacts/fortemi-core-prebuilt-freshness.js';
+import { inferInstallationMethod } from '../../installation/manager.mjs';
+
+export function sourcePrebuiltIndexRepairHint(frameworkRoot: string): string | null {
+  if (inferInstallationMethod(frameworkRoot) !== 'source') return null;
+  const status = getFortemiCorePrebuiltStatus('framework', frameworkRoot);
+  if (status.built && !status.stale) return null;
+  return `${status.reason ?? 'prebuilt framework index is missing'} — ${fortemiCorePrebuiltRepairHint(frameworkRoot)}`;
+}
 
 export interface StaleManagedDeployment {
   name: string;

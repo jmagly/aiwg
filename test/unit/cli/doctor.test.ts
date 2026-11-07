@@ -415,7 +415,9 @@ describe('doctor: Fortemi Core prebuilt index findings (#1697)', () => {
     expect(content).toContain('fortemi-core-index');
     expect(content).toContain('prebuilt framework index present');
     expect(content).toContain('prebuilt framework index is missing executable metadata');
-    expect(content).toContain('run "npm run release:fortemi-index" before release packaging');
+    expect(content).toContain('fortemiCorePrebuiltRepairHint');
+    expect(content).toContain('— ${repairHint}');
+    expect(content).not.toContain('before release packaging');
   });
 });
 
