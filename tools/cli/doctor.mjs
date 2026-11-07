@@ -2578,18 +2578,20 @@ export async function runDoctor() {
   try {
     const local = getFortemiCoreSyncStatus(process.cwd(), 'framework');
     const prebuilt = getFortemiCorePrebuiltStatus('framework');
+    const { fortemiCorePrebuiltRepairHint } = await importImpl(import.meta.url, 'artifacts/fortemi-core-prebuilt-freshness.js');
+    const repairHint = fortemiCorePrebuiltRepairHint(path.resolve(prebuilt.location, '../../..'));
     if (prebuilt.built && !prebuilt.stale) {
       const executable = getFortemiCoreExecutableSkillStatus('framework');
       if (executable.missing.length > 0) {
-        check('fortemi-core-index', 'warn', `prebuilt framework index is missing executable metadata for ${executable.missing.length} source skill(s): ${executable.missing.slice(0, 5).join(', ')} — run "npm run release:fortemi-index" before release packaging`);
+        check('fortemi-core-index', 'warn', `prebuilt framework index is missing executable metadata for ${executable.missing.length} source skill(s): ${executable.missing.slice(0, 5).join(', ')} — ${repairHint}`);
       } else {
         const localNote = local.built && !local.stale ? '; local cache also ready' : '';
         check('fortemi-core-index', 'ok', `prebuilt framework index present (${prebuilt.itemCount ?? 0} items; ${executable.packagedExecutableCount}/${executable.sourceExecutableCount} executable skills preserved${localNote})`);
       }
+    } else if (prebuilt.optedIn && prebuilt.stale) {
+      check('fortemi-core-index', 'warn', `${prebuilt.reason ?? 'prebuilt framework index is stale'} — ${repairHint}`);
     } else if (local.built && !local.stale) {
       check('fortemi-core-index', 'ok', `local framework cache ready (${local.itemCount ?? 0} items); prebuilt package index not present`);
-    } else if (prebuilt.optedIn && prebuilt.stale) {
-      check('fortemi-core-index', 'warn', `${prebuilt.reason ?? 'prebuilt framework index is stale'} — run "npm run release:fortemi-index" before release packaging`);
     } else {
       check('fortemi-core-index', 'info', 'no prebuilt framework index packaged; Fortemi discovery will require "aiwg index sync --backend fortemi-core --graph framework"');
     }

@@ -14,6 +14,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { HandlerContext } from '../../../../src/cli/handlers/types.js';
 import { refreshHandler } from '../../../../src/cli/handlers/refresh.js';
+import { getFrameworkRoot } from '../../../../src/channel/manager.mjs';
 
 const detected = vi.hoisted(() => ({ clis: [] as string[] }));
 
@@ -74,6 +75,7 @@ const savedProcessProvider = process.env.AIWG_TEST_PROCESS_PROVIDER;
 
 describe('aiwg refresh — worker dispatch opt-in hint (#3050)', () => {
   beforeEach(() => {
+    vi.mocked(getFrameworkRoot).mockResolvedValue('/mock/framework/root');
     process.env.AIWG_TEST_PROCESS_PROVIDER = 'codex';
     detected.clis = [];
     mockRun.mockResolvedValue({ exitCode: 0 });

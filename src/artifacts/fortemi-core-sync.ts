@@ -13,6 +13,7 @@ import {
 import type { ArtifactIndex } from "./types.js";
 import { loadGraphIndexFile, publishIndexFiles } from "./index-reader.js";
 import { getFrameworkIndexBaseDir } from './framework-index-paths.js';
+import { prebuiltFrameworkFreshnessReason } from './fortemi-core-prebuilt-freshness.js';
 
 export interface FortemiCoreSyncOptions {
   graph?: GraphType;
@@ -57,6 +58,8 @@ interface FortemiCorePrebuiltManifest {
   export_checksum: string;
   item_count: number;
   source_index_built_at: string | null;
+  package_version?: string;
+  source_digest?: string;
 }
 
 export interface FortemiCoreSyncStatus {
@@ -503,6 +506,7 @@ export function getFortemiCorePrebuiltStatus(
       } else if (!Array.isArray(exported.items) || exported.items.length !== prebuiltManifest.item_count) {
         reason = "prebuilt export item count does not match manifest";
       }
+      if (!reason && graph === 'framework') reason = prebuiltFrameworkFreshnessReason(path.resolve(dir, '../../..'), prebuiltManifest);
     } catch (err) {
       reason = `prebuilt export file is unreadable: ${err instanceof Error ? err.message : String(err)}`;
     }

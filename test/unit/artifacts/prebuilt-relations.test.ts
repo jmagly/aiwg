@@ -66,6 +66,8 @@ describe('prebuilt relationship selection', () => {
       schema_version: 'aiwg.fortemi.prebuilt.v1', backend: 'fortemi-core', graph: 'framework',
       export_path: 'aiwg-fortemi-index-v2.json', export_schema_version: 'aiwg.fortemi.index.export.v2',
       export_checksum: createHash('sha256').update(exported).digest('hex'), item_count: JSON.parse(exported).items.length,
+      package_version: JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version,
+      source_digest: frameworkSourceDigest(root, false),
     }));
     const directory = getGraphIndexDir(root, 'framework');
     fs.rmSync(directory, { recursive: true });
