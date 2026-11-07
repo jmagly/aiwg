@@ -125,7 +125,7 @@ describe('B1 rule delivery regressions', () => {
     ];
     expect(renderRuleKernelIndex(rules)).toBe([
       '# Rule kernel index', '',
-      "Fetch and follow each rule's full body before governed work: `aiwg show rule <name> --body`.", '',
+      "Fetch a rule's full body when a task or discovered component needs it: `aiwg show rule <name> --body`.", '',
       '- unsummarized', '', '- safety — Keep `literal` wording — including punctuation!', '',
       '- guide — Read guidance.', '',
     ].join('\n'));
@@ -137,8 +137,8 @@ describe('B1 rule delivery regressions', () => {
       { name: 'guide', tagged: true, activation: 'summary', summary: 'Read guidance.' },
     ], false, true)).toBe([
       '# Rule kernel index', '',
-      '- safety — Fetch and follow the full rule before governed work. Fetch and follow: `aiwg show rule safety --body`.', '',
-      '- guide — Read guidance. Fetch and follow: `aiwg show rule guide --body`.', '',
+      '- safety — Binding kernel rule. Full rule: `aiwg show rule safety --body`.', '',
+      '- guide — Read guidance. Fetch when a task or discovered component needs it: `aiwg show rule guide --body`.', '',
     ].join('\n'));
   });
 

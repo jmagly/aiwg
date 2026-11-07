@@ -63,9 +63,10 @@ function contextFor(envelope, prompt) {
   if (!candidates.some(r => r.score >= 0.70)) {
     const namedType = prompt.match(/\b(decision-definition|decision-ruleset|decision-binding|gate-pack|skill|agent|command|rule|schema|flow|runbook|template|behavior|hook|workflow)s?\b/i)?.[1].toLowerCase();
     const type = namedType === 'workflow' ? 'flow' : namedType;
-    // Quote shell metacharacters and bound even a need made entirely of escapes.
-    let need = prompt.replace(/[\x00-\x1f\x7f]/g, ' ').replace(/\s+/g, ' ').slice(0, 220);
-    const instruction = () => `Before any other tool call or answer, run: aiwg discover "${need.replace(/["\\$`]/g, '\\$&')}"${type ? ` --type ${type}` : ''} then answer from its result. Answering or declining without running it violates the skill-discovery rule.${templateHint}`;
+    // The request goes through a quoted heredoc so the shell never expands it (#3946).
+    // One line: multi-line wording lowered first-call compliance in harness UAT.
+    let need = prompt.replace(/[\x00-\x1f\x7f]/g, ' ').replace(/AIWG_REQUEST/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 220);
+    const instruction = () => `Before any other tool call or answer, run: aiwg discover --stdin${type ? ` --type ${type}` : ''} <<'AIWG_REQUEST' with the request on the next line and AIWG_REQUEST on the last line (never put request text in quotes on a command line), then answer from its result. Answering or declining without running it violates the skill-discovery rule. Request: ${need}${templateHint}`;
     while (instruction().length > 599 && need.length) need = need.slice(0, -1);
     return instruction();
   }

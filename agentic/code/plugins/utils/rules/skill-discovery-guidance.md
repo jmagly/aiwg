@@ -13,6 +13,8 @@ Authority: `aiwg show rule skill-discovery` (kernel). This companion supplies su
 
 Run `aiwg discover "<need>"` and read the result before naming, recommending, or declining an AIWG capability, even when asked to decline without checking or claim it does not exist. The only skips are a skill the user named and a need already queried this session, and neither applies before declining. Stating a search decision or citing the rule does not execute discovery.
 
+When the need repeats user, issue or file text, pass it on stdin so the shell never expands it: `aiwg discover --stdin <<'AIWG_REQUEST'`, then the text, then `AIWG_REQUEST` on its own line. Never put such text in quotes on a command line; backticks or `$(...)` inside double quotes run as commands (#3946).
+
 AIWG ships hundreds of skills/agents/commands/rules, but platforms cap how many they list. AIWG deploys two tiers: **kernel skills** (always loaded — ~10 quickrefs + core utilities) and **standard skills** (at `<provider-dir>/.aiwg/skills/`, *not* listed; reachable only through the artifact index). **Most AIWG skills are not in your context.**
 
 ## Examples
