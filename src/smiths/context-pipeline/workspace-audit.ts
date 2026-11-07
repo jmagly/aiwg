@@ -44,16 +44,43 @@ export function directivePolarity(directive: string): 'positive' | 'negative' {
 }
 
 export function sensitiveEvidence(content: string): string[] {
-  const findings: string[] = [];
-  for (const line of content.split('\n')) {
+  return sensitiveLineEvidence(content).map((finding) => finding.evidence);
+}
+
+function sensitiveLineEvidence(content: string): Array<{ line: number; evidence: string }> {
+  const findings: Array<{ line: number; evidence: string }> = [];
+  for (const [index, line] of content.split('\n').entries()) {
     if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(line)) {
-      findings.push(`private-key material (${sha256(line).slice(0, 12)})`);
+      findings.push({ line: index + 1, evidence: `private-key material (${sha256(line).slice(0, 12)})` });
     }
-    if (/\b(?:api[_-]?key|token|secret|password)\s*[:=]\s*(?!<|\$\{|\*{3}|example|placeholder)["']?[A-Za-z0-9_\-/.+=]{12,}/i.test(line)) {
-      findings.push(`credential-like assignment (${sha256(line).slice(0, 12)})`);
+    // Inspect whole values before applying the length threshold: ellipses and
+    // redaction characters are documentation, including inside quoted agent bodies.
+    const assignments = line.matchAll(/\b(?:api[_-]?key|token|secret|password)\s*[:=]\s*["']?([A-Za-z0-9_\-/.+=…*]+)/gi);
+    for (const [, value] of assignments) {
+      if (value.length < 12 || /(?:\.{3}|…)$/.test(value)
+        || /^(?:example|placeholder|\*{3})/i.test(value) || /^x+$/i.test(value)
+        || (value.match(/\./g)?.length ?? 0) > value.length / 2) continue;
+      findings.push({ line: index + 1, evidence: `credential-like assignment (${sha256(line).slice(0, 12)})` });
+      break;
     }
   }
   return findings;
+}
+
+function operatorContext(relativePath: string, content: string, preserveLines = false): string {
+  if (relativePath === 'WORKSPACE.md') {
+    const start = content.indexOf(WORKSPACE_OPERATOR_START);
+    const end = content.indexOf(WORKSPACE_OPERATOR_END);
+    if (start >= 0 && end > start) {
+      const offset = start + WORKSPACE_OPERATOR_START.length;
+      const body = content.slice(offset, end);
+      return preserveLines
+        ? '\n'.repeat(content.slice(0, offset).split('\n').length - 1) + stripGeneratedBlocks(body, true)
+        : body.trim();
+    }
+    return stripGeneratedBlocks(content, preserveLines);
+  }
+  return isGeneratedRootContext(relativePath, content) ? '' : stripGeneratedBlocks(content, preserveLines);
 }
 
 // Directory names the context-graph walk always skips, regardless of where
@@ -204,22 +231,14 @@ export async function auditWorkspaceContext(projectPath: string): Promise<Worksp
     ...await migratedProviderFiles(projectPath),
   ]);
   const sources: WorkspaceContextSource[] = [];
-  const sensitiveFindings: Array<{ path: string; evidence: string }> = [...extractedProject.sensitiveFindings];
+  const sensitiveFindings: WorkspaceContextAudit['sensitiveFindings'] = [...extractedProject.sensitiveFindings];
   for (const relativePath of [...candidates].sort((a, b) => a.localeCompare(b))) {
     const content = await readOptional(path.join(projectPath, relativePath));
     if (content === null) continue;
-    const operatorContent = relativePath === 'WORKSPACE.md'
-      ? (() => {
-          const start = content.indexOf(WORKSPACE_OPERATOR_START);
-          const end = content.indexOf(WORKSPACE_OPERATOR_END);
-          return start >= 0 && end > start
-            ? content.slice(start + WORKSPACE_OPERATOR_START.length, end).trim()
-            : stripGeneratedBlocks(content);
-        })()
-      : isGeneratedRootContext(relativePath, content)
-        ? ''
-        : stripGeneratedBlocks(content);
-    for (const evidence of sensitiveEvidence(operatorContent)) sensitiveFindings.push({ path: relativePath, evidence });
+    const operatorContent = operatorContext(relativePath, content);
+    for (const finding of sensitiveLineEvidence(operatorContext(relativePath, content, true))) {
+      sensitiveFindings.push({ path: relativePath, ...finding });
+    }
     sources.push({
       path: relativePath,
       provider: providerForPath(relativePath),

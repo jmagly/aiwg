@@ -184,7 +184,8 @@ export async function migrateWorkspaceContext(
   const audit = await auditWorkspaceContext(projectPath);
   const sensitiveFindingCount = audit.sensitiveFindings.length;
   if (sensitiveFindingCount > 0) {
-    throw new Error(`Migration refused: ${sensitiveFindingCount} possible secret/credential value(s) found. Remove them before migration.`);
+    const locations = audit.sensitiveFindings.map((finding) => finding.line ? `${finding.path}:${finding.line}` : finding.path);
+    throw new Error(`Migration refused: ${sensitiveFindingCount} possible secret/credential value(s) found in ${locations.join(', ')}. Remove them before migration.`);
   }
   if (audit.conflicts.length > 0 && !options.allowConflicts) {
     throw new Error(`Migration refused: ${audit.conflicts.length} ambiguous directive conflict(s). Review the deterministic audit or pass --allow-conflicts to preserve each source separately.`);
