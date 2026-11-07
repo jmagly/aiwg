@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { multilineSecrets, multilineSecretValue, strictScannerPatterns, syntheticSecrets } from '../../fixtures/sessions/redaction-secrets.js';
-import { median } from '../../helpers/cli-perf-policy.js';
+import { measureThreadCpuBatch, medianPairedRatio } from '../../helpers/cli-perf-policy.js';
 import { ImportCheckpointSchema, IntelligenceCandidateSchema, SessionRejectionDetailSchema } from '../../../src/sessions/contracts.js';
 import {
   SESSION_PROVIDER_IDS,
@@ -367,41 +367,33 @@ session_0123456789abcdef`;
     // flattening costs must not skew either side of the ratio.
     for (const entry of cases) expect(redactSessionText(entry.input).text).toBe(entry.expected);
 
-    // Scheduling pauses made a single wall-time ratio flaky (#3328). Count
-    // CPU on this Vitest worker thread, excluding waits and other threads.
-    // Interleave adjacent size pairs, alternating order to limit drift;
-    // five samples reject isolated outliers without hiding sustained slowdowns.
-    for (let sample = 0; sample < 5; sample++) {
+    // Thread CPU excludes scheduler waits. Batch for >=250 ms of CPU so a
+    // short lucky/unlucky run cannot dominate, then normalize by operation count.
+    // Keep pairs adjacent and alternate order to limit drift under shared load.
+    for (let sample = 0; sample < 7; sample++) {
       const order = sample % 2 === 0 ? cases : [...cases].reverse();
       for (const entry of order) {
-        const started = process.threadCpuUsage();
-        const result = redactSessionText(entry.input);
-        const elapsed = process.threadCpuUsage(started);
-        entry.samples.push((elapsed.user + elapsed.system) / 1000);
-        expect(result.text).toBe(entry.expected);
+        const batch = measureThreadCpuBatch(() => redactSessionText(entry.input));
+        entry.samples.push(batch.cpuMs / batch.operations);
+        expect(batch.value.text).toBe(entry.expected);
       }
     }
 
     // Doubling linear work should cost about 2x; quadratic suffix rescans
     // approach 4x. Check growth before the coarser ratio-to-baseline cap.
-    // Compare the fastest samples: contention on a shared runner (other test
-    // shards on the same cores) inflates even thread CPU time, and it only
-    // ever adds cost. A median still reached 3.003 in CI (run 90185) while the
-    // same code measures exactly 2.0x per doubling locally.
+    // A median of paired ratios rejects isolated contention. Independent minima
+    // can compare different host conditions; a ratio of medians also loses pairing.
     const maxGrowth = 3;
     for (const small of cases.filter((entry) => entry.recordSize === sizes[0])) {
       const large = cases.find((entry) => entry.recordSize === sizes[1] && entry.name === small.name)!;
-      const smallMs = Math.min(...small.samples);
-      const largeMs = Math.min(...large.samples);
-      expect(largeMs / smallMs, `${small.name} CPU growth (32 / 16 MiB; ${largeMs} / ${smallMs} ms)`)
+      expect(medianPairedRatio(large.samples, small.samples), `${small.name} CPU growth (32 / 16 MiB)`)
         .toBeLessThan(maxGrowth);
     }
     const maxSlowdown = 20;
     for (const recordSize of sizes.slice(1)) {
       const sameSize = cases.filter((entry) => entry.recordSize === recordSize);
-      const baselineMs = median(sameSize[0].samples);
       for (const entry of sameSize.slice(1)) {
-        expect(median(entry.samples) / baselineMs, `${entry.name} / benign baseline (${recordSize / 1024 / 1024} MiB)`)
+        expect(medianPairedRatio(entry.samples, sameSize[0].samples), `${entry.name} / benign baseline (${recordSize / 1024 / 1024} MiB)`)
           .toBeLessThan(maxSlowdown);
       }
     }
