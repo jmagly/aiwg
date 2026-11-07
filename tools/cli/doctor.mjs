@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { runResourceDoctor } from './doctor-resources.mjs';
 import { parseDoctorArgsOrExit } from './doctor-args.mjs';
+import { deliveryBranchInfo } from './doctor-delivery-branch.mjs';
 /**
  * AIWG Doctor Command
  * Checks installation health and diagnoses common issues
@@ -607,15 +608,6 @@ function hasSigningMaterial(signing) {
 
 function hasTrackerRemote(remotes) {
   return Boolean(remotes && (remotes.issue_tracker || remotes.primary));
-}
-
-function childProcessSucceeded(err) {
-  // err.code !== 'ETIMEDOUT' guards the same pattern as #3062 B/C finding
-  // 13: a surviving descendant holding the pipe can produce ETIMEDOUT
-  // with status 0 (the direct child itself exited fine) — status alone
-  // would then read a real timeout as the sandbox-EPERM-but-really-fine
-  // case this function exists to recognize.
-  return Boolean(err && err.code !== 'ETIMEDOUT' && err.status === 0);
 }
 
 async function fileExists(filePath) {
@@ -1956,24 +1948,12 @@ export async function runDoctor() {
 
         // default_branch existence — best effort, only when in a git repo
         const defaultBranch = d.default_branch || 'main';
-        try {
-          boundedExecFileSync('git', ['-C', projectDir, 'rev-parse', '--verify', '--quiet', defaultBranch], 'quick', {
-            stdio: 'pipe',
-          });
-        } catch (err) {
-          if (childProcessSucceeded(err)) {
-            // Some sandboxes surface a spawn EPERM even when git returned
-            // status 0 and stdout. Treat that as success; keep real failures.
-          } else {
-          // Branch may not exist locally on a fresh clone; downgrade to info, not error
-            issues.push(`default_branch '${defaultBranch}' not found locally (may be remote-only — this is informational)`);
-          }
-        }
+        const branchInfo = deliveryBranchInfo(projectDir, defaultBranch);
 
         if (issues.length === 0) {
           const mode = d.mode || 'pr-required';
           const merge = d.merge_style || 'rebase-merge';
-          check('Delivery Policy', 'ok', `mode=${mode} merge=${merge} default_branch=${defaultBranch}`);
+          check('Delivery Policy', branchInfo ? 'info' : 'ok', branchInfo ?? `mode=${mode} merge=${merge} default_branch=${defaultBranch}`);
         } else {
           check('Delivery Policy', 'warn', issues.join('; '));
         }
