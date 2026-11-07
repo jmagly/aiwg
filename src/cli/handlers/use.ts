@@ -1,6 +1,7 @@
 import { ContextWriteJournal } from '../../smiths/context-pipeline/context-file-safety.js';
 import type { ContextPipelineOptions, ContextPipelineResult } from '../../smiths/context-pipeline/types.js';
 import { trackTemporaryDirectory } from '../../utils/temporary-directory.js';
+import { codexHookTrustNextStep, readCodexHookTrust } from '../../smiths/hook-bridge/codex-trust.js';
 /**
  * Use Command Handler
  *
@@ -2879,6 +2880,11 @@ export class UseHandler implements CommandHandler {
       }
     }
 
+    const codexTrustStep = !dryRun && result.exitCode === 0 && requestedScope === 'project' && providers.includes('codex')
+      ? codexHookTrustNextStep(await readCodexHookTrust(projectDir)) : '';
+    if (codexTrustStep) result.findings.push({
+      id: 'codex-prompt-discovery-trust', provider: 'codex', severity: 'info', message: codexTrustStep,
+    });
     if (json) {
       return { exitCode: result.exitCode, message: JSON.stringify(result, null, 2), rawOutput: true };
     }
@@ -2903,7 +2909,7 @@ export class UseHandler implements CommandHandler {
     });
     return {
       exitCode: result.exitCode,
-      message: [coreResult.message, rendered, ...(previewActions ? [...previewActions].sort() : [])].filter(Boolean).join('\n'),
+      message: [coreResult.message, rendered, ...(previewActions ? [...previewActions].sort() : []), codexTrustStep].filter(Boolean).join('\n'),
     };
   }
 
