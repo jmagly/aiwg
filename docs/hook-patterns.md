@@ -67,6 +67,8 @@ this hook. A native event mapping alone does not establish context delivery.
 
 ## Codex 0.165 schema verification (#3888)
 
+Trust the project in Codex, then approve the AIWG hook when Codex asks; AIWG reads project trust from `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`) without changing it, and reports hook review as unknown because no documented offline approval signal is available.
+
 The installed `codex-cli 0.165.0` reports `hooks stable true` from
 `codex features list`. Offline probes used an empty temporary `CODEX_HOME` and
 HOME, no credentials, a synthetic trusted project, and network calls denied by
