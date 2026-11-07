@@ -74,6 +74,7 @@ export function deploySkillDir(skillDir, destDir, opts) {
         copyRecursive(srcPath, destPath);
       } else {
         let srcContent = fs.readFileSync(srcPath, 'utf8');
+        const sourceHash = `sha256:${contentHash(srcContent)}`;
 
         // Inject target platform into SKILL.md — replaces [all] token with [provider-name]
         if (entry.name === 'SKILL.md' && provider) {
@@ -93,6 +94,7 @@ export function deploySkillDir(skillDir, destDir, opts) {
         const relative = path.relative(destSkillDir, destPath);
         managed[relative] = {
           hash: `sha256:${contentHash(srcContent)}`,
+          sourceHash,
           source: opts.deploySource || 'bundled',
           version: opts.deployVersion || 'unknown',
           ...(frameworkSlug ? { frameworkSlug } : {}),

@@ -23,6 +23,7 @@ export function deployFiles(files, destDir, opts, transformFn) {
   // (#1169). Each value: { src, frameworkSlug }
   const seen = new Map();
   const actions = [];
+  const sourceHashes = new Map();
   // Collision report — one entry per detected cross-framework collision
   // (within-batch or against sidecar). Surfaced after the loop.
   const collisions = [];
@@ -45,7 +46,9 @@ export function deployFiles(files, destDir, opts, transformFn) {
 
     // Read and transform source content (needed for content-equality check
     // and the collision-vs-duplicate distinction)
-    const srcContent = injectBoundRules(fs.readFileSync(f, 'utf8'), f, opts);
+    const rawContent = fs.readFileSync(f, 'utf8');
+    sourceHashes.set(f, `sha256:${contentHash(rawContent)}`);
+    const srcContent = injectBoundRules(rawContent, f, opts);
     let transformedContent = transformFn ? transformFn(f, srcContent, opts) : srcContent;
 
     // Rule triggers are index metadata, not something the reading agent needs.
@@ -185,11 +188,11 @@ export function deployFiles(files, destDir, opts, transformFn) {
       if (dryRun) console.log(`[dry-run] deploy ${a.src} -> ${a.dest} (${a.reason})`);
       else writeFile(a.dest, a.content, false);
       if (verbose) console.log(`deployed ${path.basename(a.src)} -> ${path.relative(process.cwd(), opts.logicalOutputPath?.(a.dest) || a.dest)} (${a.reason})`);
-      deployedEntries.push({ filename: path.basename(a.dest), hash: a.hash, frameworkSlug: a.frameworkSlug, sourcePath: path.resolve(a.src) });
+      deployedEntries.push({ filename: path.basename(a.dest), hash: a.hash, sourceHash: sourceHashes.get(a.src), frameworkSlug: a.frameworkSlug, sourcePath: path.resolve(a.src) });
     } else if (a.type === 'skip') {
       if (verbose) console.log(`skip (${a.reason}): ${path.basename(a.dest)}`);
       // Preserve existing sidecar entries for skipped files
-      if (a.hash) deployedEntries.push({ filename: path.basename(a.dest), hash: a.hash, frameworkSlug: a.frameworkSlug, sourcePath: path.resolve(a.src) });
+      if (a.hash) deployedEntries.push({ filename: path.basename(a.dest), hash: a.hash, sourceHash: sourceHashes.get(a.src), frameworkSlug: a.frameworkSlug, sourcePath: path.resolve(a.src) });
     }
   }
 

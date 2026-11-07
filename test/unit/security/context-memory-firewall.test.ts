@@ -3,6 +3,9 @@ import { access, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { deployFiles } from '../../../tools/agents/providers/base-flat-artifacts.mjs';
+import { deploySkillsWithKernelRouting } from '../../../tools/agents/providers/base-kernel-skills.mjs';
+import { projectRules } from '../../../tools/agents/providers/rule-projection.mjs';
 
 import {
   CONTEXT_CATEGORIES,
@@ -22,6 +25,113 @@ async function write(root: string, relative: string, content: string) {
 }
 
 describe('context/memory firewall', () => {
+  async function deployedFixture(provider: string) {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-firewall-deployed-'));
+    const bundle = 'agentic/code/addons/demo';
+    const skill = join(root, bundle, 'skills/demo');
+    const agent = join(root, bundle, 'agents/reviewer.md');
+    const rule = join(root, bundle, 'rules/safe.md');
+    await write(root, `${bundle}/skills/demo/SKILL.md`,
+      '---\nname: demo\nkernel: true\nplatforms: [all]\n---\n# Demo\nReviewed skill.\n');
+    await write(root, `${bundle}/agents/reviewer.md`,
+      '---\nname: reviewer\nplatforms: [all]\n---\n# Reviewer\nReviewed agent.\n');
+    await write(root, `${bundle}/rules/safe.md`,
+      '---\nname: safe\ntriggers: [review]\n---\n# Safe\nReviewed rule.\n');
+    const opts = {
+      provider, deployVersion: '2026.11.2', srcRoot: root,
+      ruleDelivery: { bindings: new Map([[join(skill, 'SKILL.md'), [{ name: 'safe', summary: 'Review safely.' }]]]) },
+    };
+    const kernel = join(root, provider === 'codex' ? '.agents/skills' : '.claude/skills');
+    await mkdir(join(root, `.${provider}/agents`), { recursive: true });
+    await mkdir(join(root, `.${provider}/rules`), { recursive: true });
+    const deploy = () => {
+      deploySkillsWithKernelRouting([skill], join(root, `.${provider}/.aiwg/skills`), kernel, opts);
+      deployFiles([agent], join(root, `.${provider}/agents`), {
+        ...opts, injectPlatform: true, fileExtension: provider === 'codex' ? '.toml' : '.md',
+      }, provider === 'codex' ? (_file: string, body: string) => `developer_instructions = ${JSON.stringify(body)}\n` : undefined);
+      deployFiles([rule], join(root, `.${provider}/rules`), opts);
+    };
+    const scan = () => scanContextMemoryFirewall({ rootDir: root, packageRoot: root, providers: [provider], contentScan: false });
+    deploy();
+    return { root, skill, deployedSkill: join(kernel, 'demo/SKILL.md'), deploy, scan };
+  }
+
+  it.each(['claude', 'codex'])('matches packaged sources after %s deploy transforms and unchanged redeploy', async (provider) => {
+    const fixture = await deployedFixture(provider);
+    try {
+      for (let run = 0; run < 2; run++) {
+        const result = await fixture.scan();
+        const packaged = result.records.filter(record => record.packagedPath);
+        expect(packaged).toHaveLength(3);
+        for (const record of packaged) expect(record.packagedDigestMatch, record.path).toBe(true);
+        fixture.deploy();
+      }
+      // Refresh upgrades old receipts even when deployed bytes are unchanged.
+      for (const record of (await fixture.scan()).records) {
+        const receiptPath = join(fixture.root, dirname(record.path), '.aiwg-manifest.json');
+        const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+        for (const entry of Object.values(receipt.managed) as Array<{ sourceHash?: string }>) delete entry.sourceHash;
+        await writeFile(receiptPath, JSON.stringify(receipt));
+      }
+      for (const record of (await fixture.scan()).records) expect(record.packagedDigestMatch).toBe(false);
+      fixture.deploy();
+      for (const record of (await fixture.scan()).records) expect(record.packagedDigestMatch).toBe(true);
+      // A newer package must not validate a deployment of an older source.
+      await writeFile(join(fixture.skill, 'SKILL.md'), '# New package content\n');
+      const changedPackage = (await fixture.scan()).records.find(record => record.category === 'skill')!;
+      expect(changedPackage.packagedDigestMatch).toBe(false);
+      expect(changedPackage.deployedStatus).toBe('manifest-current');
+      for (const record of (await fixture.scan()).records) {
+        const file = join(fixture.root, record.path);
+        await writeFile(file, `${await readFile(file, 'utf8')}\nOperator edit\n`);
+      }
+      for (const record of (await fixture.scan()).records) {
+        expect(record.packagedDigestMatch, record.path).toBe(false);
+        expect(record.deployedStatus, record.path).toBe('stale');
+      }
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it.each(['claude', 'codex'])('verifies %s kernel manifests and detects edits to generated rule blocks', async (provider) => {
+    const fixture = await deployedFixture(provider);
+    try {
+      const current = (await fixture.scan()).records.find(record => record.category === 'skill')!;
+      expect(current.deployedStatus).toBe('manifest-current');
+      const content = await readFile(fixture.deployedSkill, 'utf8');
+      expect(content).toContain('<!-- AIWG:bound-rules:start -->');
+      await writeFile(fixture.deployedSkill, content.replace('Review safely.', 'Changed instruction.'));
+      fixture.deploy(); // Refresh must preserve the edit and the old receipt.
+      const changed = (await fixture.scan()).records.find(record => record.category === 'skill')!;
+      expect(changed.deployedStatus).toBe('stale');
+      expect(changed.reviewStatus).toBe('deployed-drift');
+      expect(changed.packagedDigestMatch).toBe(false);
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it('matches dependency path rules projected without a prior flat deployment receipt', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-firewall-projected-'));
+    try {
+      const source = 'agentic/code/addons/dependency/rules/scoped.md';
+      const content = '---\nactivation: paths\npaths: ["src/**"]\n---\n# Scoped rule\n';
+      await write(root, source, content);
+      projectRules({
+        target: root, contextFiles: false, deployVersion: '2026.11.2',
+        ruleDelivery: { rules: [{ file: join(root, source), name: 'scoped', content,
+          tagged: true, activation: 'paths', paths: ['src/**'] }] },
+      }, { name: 'claude', paths: { rules: '.claude/rules' } });
+      const result = await scanContextMemoryFirewall({ rootDir: root, packageRoot: root, providers: ['claude'], contentScan: false });
+      const rule = result.records.find(record => record.path === '.claude/rules/scoped.md')!;
+      expect(rule.deployedStatus).toBe('manifest-current');
+      expect(rule.packagedDigestMatch).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('attributes every context class and emits every trust label', async () => {
     const result = await scanContextMemoryFirewall({
       rootDir: FIXTURE,

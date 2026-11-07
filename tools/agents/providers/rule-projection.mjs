@@ -56,7 +56,13 @@ export function projectRules(opts, provider) {
   const tagged = rules.filter(rule => rule.tagged);
   const extension = provider.name === 'cursor' ? '.mdc' : '.md';
   const managed = content => addManagedMarker(content, opts.deployVersion, opts.deploySource || 'bundled');
-  const writeRule = (rule, content) => put(path.join(rulesDir, `${ruleName(rule, provider)}${extension}`), managed(content));
+  const deployedSources = new Map();
+  const writeRule = (rule, content) => {
+    const name = `${ruleName(rule, provider)}${extension}`;
+    put(path.join(rulesDir, name), managed(content));
+    // Keep the source before reference rewriting, pinning, and native transforms.
+    deployedSources.set(name, opts.ruleDelivery.rules.find(original => original.file === rule.file));
+  };
   for (const file of walk(rulesDir)) {
     if (/\.(md|mdc)$/.test(file) && /aiwg:managed/.test(read(file))) fs.rmSync(file);
   }
@@ -115,7 +121,9 @@ export function projectRules(opts, provider) {
   manifest.managed ||= {};
   for (const file of walk(rulesDir).filter(file => /\.(md|mdc)$/.test(file) && /aiwg:managed/.test(read(file)))) {
     const name = path.relative(rulesDir, file);
-    manifest.managed[name] = { ...manifest.managed[name], hash: `sha256:${contentHash(read(file))}` };
+    const source = deployedSources.get(name);
+    manifest.managed[name] = { ...manifest.managed[name], hash: `sha256:${contentHash(read(file))}`,
+      ...(source ? { sourceHash: `sha256:${contentHash(source.content)}` } : {}) };
   }
   for (const name of Object.keys(manifest.managed)) if (!fs.existsSync(path.join(rulesDir, name))) delete manifest.managed[name];
   put(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
