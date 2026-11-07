@@ -130,6 +130,13 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     expect(context).not.toContain('AIWG candidates');
   });
 
+  it('does not restrict the type when a type word only appears in the request (#3952)', async () => {
+    const result = await invoke('weak result from discovery: running aiwg refresh removes every managed Claude hook and rule');
+    const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+    expect(context).toContain("run: aiwg discover --stdin <<'AIWG_REQUEST'");
+    expect(context).not.toContain('--type');
+  });
+
   it.each([0.69, 0.70])('uses the strong threshold at boundary score %s', async score => {
     const result = await invoke(`Discover boundary score ${score}`);
     const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
