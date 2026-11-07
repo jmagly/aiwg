@@ -7,6 +7,62 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.2] - 2026-11-07
+
+### Added
+
+- Session handoff documents through `aiwg checkpoint create --handoff`. Add `--scope`, repeatable `--todo` and `--constraint`, and related `--artifact` paths to save a handoff and a short next-session prompt beside the checkpoint. Missing details stay marked for completion. `list` marks handoffs, and `recover` prints the prompt and document paths without changing files. Checkpoint records are validated on write and load; 2026.11.1 records still load. The updated checkpoint skill also ships in the plugin copy (#3903, PR #3920, PR #3922).
+
+- Discoverable bug, feature, tester and imported-report templates, plus a PR description template. Issue, comment and PR skills now point to their output templates, and the packaged CLI includes the helper needed to ship the issue-template copies (#3931, PR #3933, PR #3934).
+
+- Template links in `aiwg show`, `aiwg discover` and prompt-time suggestions. A component shows its Templates, a template shows Used by, and discovery lists up to three related templates. These links ship in the prebuilt package and work without a local index. Template and flow references are indexed across supported path forms, missing template targets fail mention lint, and broken references are corrected, including new custody-log, evidence-manifest and artist-profile templates. Bare filename mentions resolve only to sibling files, avoiding unrelated template matches. Package size budgets account for the added template links (#3929, #3930, PR #3937, PR #3938, PR #3941).
+
+- `aiwg discover` builds a missing or empty project index on first use and then answers from it. It prints a short notice when building. Prompt-hook lookups and `--no-build` stay read-only (#3890, PR #3893).
+
+### Changed
+
+- The output policy now requires issues, comments, PRs, reports and workflow artifacts to use their discovered template and fill every required section. Issue composition and PR delivery warn about missing required headings without blocking; optional sections stay optional (#3932, PR #3936).
+
+- Issue progress templates report acceptance criteria met and pending, verification, blockers and dependencies. They no longer request percentage-complete, effort or timeline estimates; observed timestamps remain (#3944, PR #3956).
+
+- Prompt-discovery instructions now ask for discovery as the first tool call and require a lookup before declining weak matches. Long requests give more weight to the leading intent and less to incidental words and code spans, so weak matches no longer appear certain. A fallback search restricts the component type only when the request asks for one, and hooks skip harness notifications and system turns (#3889, #3952, PR #3894, PR #3899, PR #3959, PR #3961).
+
+- Generated workspace guidance describes the resolved artifact location: repository-local `.aiwg` holds payload when no external root is configured, while `.aiwg-location` and `AIWG_ARTIFACTS_PATH` select an external root. This repository's provider context was also regenerated with the no-attribution rule, current providers and Muse's efficiency-only role scope (#3870, PR #3950, PR #3904).
+
+### Fixed
+
+- Codex prompt discovery now uses project `.codex/hooks.json` with the event names and context format Codex 0.165 reads. The packaged CLI supplies the hook, its launcher works from nested project directories without embedding an absolute project path, and managed-block repair preserves user sections. Deployment and workspace checks explain that the project must be trusted and the hook reviewed in Codex; AIWG does not grant trust or change global Codex settings (#3888, #3901, PR #3896, PR #3955).
+
+- Factory/droid hooks now live in `.factory/hooks.json` in droid's top-level event-map format. Refresh reads both the old and new shapes, migrates managed settings entries while preserving user hooks, and detects missing or outdated hooks. Interactive droid receives prompt discovery and a refresh preflight. Because `droid exec` runs no prompt hooks, its startup instruction calls for discovery first and reading the output template; the request travels safely through stdin. The direct-worker profile targets droid 1.0.0, passes an available `OPENROUTER_API_KEY` to custom-model workers, and uses supported model IDs instead of the rejected heavy/medium/light aliases. Custom-model overrides remain available (#3942, #3946, #3969, PR #3945, PR #3947, PR #3948, PR #3971, PR #3972, PR #3973).
+
+- Discovery-hook instructions send request text through `aiwg discover --stdin` using a quoted heredoc, so backticks and shell substitutions in a request stay data. Rules-index summaries tell the assistant to fetch a full rule when the task or discovered component needs it, after discovering the request, instead of opening every rule first (#3946, #3900, PR #3953).
+
+- Refresh detects missing or outdated managed hook registrations, hook script bytes and rule versions, names the affected items, and preserves recorded operator edits. Refresh after `aiwg use all` also keeps composed deployment ownership instead of releasing managed Claude hooks and the framework manifest (#3887, #3898, #3924, PR #3895, PR #3925, PR #3954).
+
+- Discovery can answer from an existing index when storage is read-only, with one warning and `stale: true` in JSON. Without a usable index it fails with guidance naming the writable location to set, instead of an uncaught permission error (#3902, PR #3907).
+
+- Source-git installs check the prebuilt index's package version and source digest, so an older index is reported as stale. Doctor and refresh, including quiet JSON output, give the checkout-specific rebuild command (#3914, PR #3963).
+
+- Shared setgid workspaces retain group access to non-secret configuration, receipts and firewall baselines, and decision journals accept group permissions when the group matches. Replacements preserve the original mode, secret files stay private, and doctor offers a permission report and explicit repair. The earlier ACL-probe implementation and its bounded-process follow-up were reverted; the replacement uses filesystem metadata without spawning subprocesses on the write path (#3912, #3869, PR #3923, PR #3926, PR #3928, PR #3960).
+
+- Context-firewall checks compare recorded source hashes for provider-transformed artifacts and read kernel-skill receipts, so refreshed managed skills verify and edited copies report stale (#3913, PR #3962).
+
+- Context checks ignore truncated, redacted and placeholder credential examples while retaining real-token detection. Doctor and migration refusals locate findings as path and line. Findings confined to nested repositories or AIWG projects are advisory for the parent workspace; root-scope findings keep their severity (#3868, #3891, PR #3951, PR #3897).
+
+- Compact bound-rule pointers and trimmed `security-auditor` and `rlm-agent` definitions keep those deployed Codex agents below the 16 KiB dispatch ceiling. Size lint measures deployed bytes, and doctor names oversized source renders instead of recommending a refresh that would write the same oversized definition (#3910, PR #3927).
+
+- Managed worker briefs name the exact final-output path and include a minimal `workerClaims` example. Invalid output reports whether the file is missing, misplaced, malformed or contains an invalid artifact, and lists possible root-level output filenames without trusting their contents. Launch refusals explain unsupported options and non-empty run directories, including how to correct the command (#3882, #3883, PR #3918, PR #3917).
+
+- Doctor resolves worker readiness using each role's mapped task class and existing qualification records. A role blocked only by premium authorization is a warning rather than a false not-ready error. Policy mismatches behind `OG_ADAPTER_UNQUALIFIED` name the changed policy, worker tree and recovery command. The worker installation loader also keeps the managed launcher's ESM-only import path loadable (#3906, #3851, PR #3919, PR #3967, PR #3970).
+
+- Issue queries and creation explain missing initialization, empty results and tracker authentication failures instead of silently succeeding or showing a raw 401. External queries do not fall back to local storage, and issue skills explain filing from mapped workspaces (#3915, PR #3964).
+
+- Defensive credential reports that merely name protected files need authorization under the balanced profile instead of being rejected as exfiltration. Actual credential-access or exfiltration instructions remain rejected, and blocked output lists the triggering statements (#3867, PR #3966).
+
+- Doctor reports delivery-branch availability as information in non-git workspaces and when the branch exists only remotely. Delivery configuration warnings remain (#3911, PR #3965).
+
+- Test reliability: isolate discovery indexes, align deployment lanes and Factory and prebuilt-index fixtures, split doctor cases, and stabilize group-cycle, redaction-growth and tmux-delivery checks under load. The npm mirror verification job checks out the repository before running its scripts (#3908, #3906, #3942, #3866, #3863, #3849, #3806, PR #3909, PR #3939, PR #3940, PR #3943, PR #3949, PR #3968, PR #3974, PR #3975, PR #3892).
+
 ## [2026.11.1] - 2026-11-06
 
 ### Added
