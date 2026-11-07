@@ -10,7 +10,7 @@ description: Post a status update on an issue using this progress update comment
 **Status**: In Progress
 **Updated by**: {agent_or_user}
 **Update date**: {timestamp}
-**Progress**: {percentage}% complete
+**Acceptance criteria**: {met} of {total} met
 
 ## Current Phase
 
@@ -30,7 +30,7 @@ description: Post a status update on an issue using this progress update comment
 
 ### Tests Added
 {if_applicable}
-- {test_description} - Coverage: {percentage}%
+- {test_description} - Acceptance criteria verified: {criterion_ids}
 
 ## Currently Working On
 
@@ -38,9 +38,9 @@ description: Post a status update on an issue using this progress update comment
 - [ ] 🔄 {task_1} - Status: {status_detail}
 - [ ] 🔄 {task_2} - Status: {status_detail}
 
-### Time Spent
-- This update period: {hours}
-- Total to date: {hours}
+### Acceptance Criteria Pending
+- [ ] {criterion_id}: {remaining_work_and_verification}
+- Passes completed: {count} - {verification_results}
 
 ## Upcoming Work
 
@@ -64,24 +64,23 @@ description: Post a status update on an issue using this progress update comment
 ## Metrics
 
 {if_applicable}
-- Code coverage: {percentage}%
+- Acceptance criteria verified: {met}/{total}
 - Tests passing: {count}/{total}
 - Issues resolved: {count}
 - PRs merged: {count}
 
-## Timeline Status
+## Blockers and Dependencies
 
-- Original estimate: {date_or_duration}
-- Current projection: {date_or_duration}
-- Status: {on_track|at_risk|delayed}
-- Variance: {delta_from_original}
+- Blocked criteria: {criterion_ids_or_none}
+- Required inputs: {dependencies_or_none}
+- Next verification gate: {check_or_command}
 
-{if_delayed_or_at_risk}
-### Timeline Concerns
-{explanation_of_delays_or_risks}
+{if_blocked_or_at_risk}
+### Blocker Concerns
+{explanation_of_blockers_or_risks}
 
 ### Mitigation Plan
-{plan_to_get_back_on_track}
+{plan_to_unblock_remaining_criteria}
 
 ## Dependencies
 
@@ -92,7 +91,7 @@ description: Post a status update on an issue using this progress update comment
 ### Waiting On
 {if_applicable}
 - ⏳ {dependency_1} - Blocked by #{issue_number}
-- ⏳ {dependency_2} - Expected: {date}
+- ⏳ {dependency_2} - Ready when: {observable_condition}
 
 ## Resource Needs
 
@@ -114,7 +113,7 @@ description: Post a status update on an issue using this progress update comment
 
 ## Next Update
 
-Expected: {date_or_timeline}
+Trigger: {acceptance_criterion_met_or_blocker_state_changed}
 
 ---
 
