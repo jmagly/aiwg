@@ -216,6 +216,15 @@ export class WorkerPolicyError extends Error {
   }
 }
 
+/** Only the trusted installation loader supplies this public policy-drift summary. */
+export class WorkerQualificationPolicyError extends WorkerPolicyError {
+  readonly pointer: string;
+  constructor(diagnostic: WorkerPolicyDiagnostic, rejections: NonNullable<WorkerPolicyError['details']>['rejections']) {
+    super('OG_ADAPTER_UNQUALIFIED', diagnostic.message, { rejections });
+    this.pointer = diagnostic.pointer;
+  }
+}
+
 export class WorkerRoleEffortError extends WorkerPolicyError {
   readonly pointer: string;
   constructor(role: string) {
