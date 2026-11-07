@@ -1,10 +1,39 @@
 import { describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { missingTemplateSections, warnTemplateSections } from '../../../src/delivery/template-sections.js';
 import { parseRuleFrontmatter } from '../../../src/rules/activation.mjs';
 import { renderRuleKernelIndex } from '../../../tools/agents/providers/rule-presentation.mjs';
 
 describe('template section advice (#3932)', () => {
+  const comments = new URL('../../../agentic/code/frameworks/sdlc-complete/templates/issue-comments/', import.meta.url);
+
+  it.each(readdirSync(comments).filter(file => file.endsWith('.md') && file !== 'README.md'))(
+    '%s uses scope instead of time and percentages (#3944)', file => {
+      const forbidden = /percentage|%|time spent|timeline|\{hours\}|\{time_estimate\}|\{delay_estimate\}|\{date_or_duration\}|\{date_or_timeline\}|Expected: \{date\}/i;
+      expect(readFileSync(new URL(file, comments), 'utf8')).not.toMatch(forbidden);
+    });
+
+  it('reports acceptance criteria met and pending and blockers (#3944)', () => {
+    const progress = readFileSync(new URL('progress-update.md', comments), 'utf8');
+    expect(progress).toContain('**Acceptance criteria**: {met} of {total} met');
+    expect(progress).toContain('### Acceptance Criteria Pending');
+    expect(progress).toContain('## Blockers and Dependencies');
+  });
+
+  it.each(['progress-update', 'blocker-found', 'feedback-needed', 'task-completed'])(
+    'accepts a complete %s body and still warns for a missing section (#3936)', name => {
+      const templatePath = `agentic/code/frameworks/sdlc-complete/templates/issue-comments/${name}.md`;
+      const template = readFileSync(new URL(`${name}.md`, comments), 'utf8');
+      const complete = template.replace(/\{[^{}]+\}/g, 'Observed scope and verification');
+      const warn = vi.fn();
+      expect(warnTemplateSections(complete, templatePath, warn)).toEqual([]);
+      expect(warn).not.toHaveBeenCalled();
+      const firstHeading = template.match(/^## (.+)$/m)![1];
+      expect(warnTemplateSections(complete.replace(`## ${firstHeading}\n`, ''), templatePath, warn))
+        .toEqual([firstHeading]);
+      expect(warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining(firstHeading));
+    });
+
   it('ignores optional sections, fenced examples and non-level-two headings', () => {
     const template = [
       '## Required', '## Suggested fix (optional but valued)',

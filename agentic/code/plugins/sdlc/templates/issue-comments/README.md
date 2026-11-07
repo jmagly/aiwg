@@ -63,7 +63,7 @@ These templates provide consistent, professional comments for issue tracking sys
 - Questions requiring answers
 - Label state for the `question` label while answers are outstanding
 - Blocking items (if any)
-- Timeline impact
+- Scope impact
 - Requested reviewers
 
 **Example usage**:
@@ -93,9 +93,9 @@ tracked questions on the issue are answered.
 - Blocker description (clear, specific)
 - Root cause (if known)
 - Impact assessment (immediate and downstream)
-- Risk level (technical, schedule, quality)
+- Risk level (technical, dependency, quality)
 - Attempted resolutions
-- Proposed solutions (with effort estimates)
+- Proposed solutions (scope units, agent roles, parallelism, and passes)
 - Recommended action
 - Work stopped (what's blocked)
 - Escalation path
@@ -127,7 +127,8 @@ tracked questions on the issue are answered.
 - Currently working on
 - Challenges and issues
 - Metrics (coverage, tests, etc.)
-- Timeline status
+- Acceptance criteria met and pending
+- Blockers and dependencies
 - Dependencies (completed and waiting on)
 - Decisions made
 - Questions needing clarification
@@ -137,6 +138,14 @@ tracked questions on the issue are answered.
 /issue-comment 17 --type progress
 # Auto-populates from recent commits and changes
 ```
+
+---
+
+## Progress Without Time Estimates
+
+Issue comments report acceptance criteria met and pending, verification passes, blockers,
+and dependency conditions. Record observed timestamps only; describe the next update or
+escalation by an observable condition, not a date estimate.
 
 ---
 
@@ -271,7 +280,7 @@ Ready for review and merge.
 - Specific questions
 - Context and background
 - Deliverables ready for review
-- Timeline constraints
+- Scope constraints and dependencies
 - Recommended reviewers
 
 **Example**:
@@ -288,7 +297,7 @@ Deliverables:
 - Architecture doc: .aiwg/architecture/sad.md (updated)
 - ADR: .aiwg/architecture/adr-017-issue-sync.md
 
-Timeline: Blocked for 2 days, impacts sprint goals.
+Blocked criteria: issue sync approval; waiting on architecture review.
 
 Reviewers: @architect, @tech-lead
 ```
@@ -320,7 +329,7 @@ Work Stopped:
 - Integration test development
 - CI pipeline testing
 
-Escalate to: @tech-lead if not resolved by EOD
+Escalate to: @tech-lead if the dependency verification fails
 ```
 
 ### Progress Updates
@@ -334,7 +343,7 @@ Escalate to: @tech-lead if not resolved by EOD
 
 **Example**:
 ```markdown
-## Progress Update (Week 2)
+## Progress Update (Verification Pass 2)
 
 ✅ Completed:
 - 3 commands implemented (8 files, 2000 LoC)
