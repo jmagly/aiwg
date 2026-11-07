@@ -23,7 +23,6 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   GRAPH_CONFIGS,
-  OPERATIONAL_DISCOVERY_TYPES,
   OPERATIONAL_SHOW_TYPES,
   isOperationalShowType,
   loadUserGraphConfigs,
@@ -39,6 +38,8 @@ import {
 } from '../resources/web-release.js';
 import { findPackageRoot } from '../cli/find-package-root.js';
 import { createResourceCredentialProvider, prepareResourceCredentials } from '../auth/resource-credentials.js';
+import { readDiscoverPhrase } from './query-engine-options.js';
+import { printDiscoverUsage } from './discover-cli-help.js';
 
 const MAX_RESOURCE_TRUST_ROOT_BYTES = 64 * 1024;
 
@@ -1672,6 +1673,10 @@ const DISCOVER_VALUE_FLAGS = new Set([
  * @implements #1214
  */
 async function handleDiscover(args: string[]): Promise<void> {
+  if (args.includes('--help') || args.includes('-h')) {
+    printDiscoverUsage();
+    return;
+  }
   const credentials = await prepareResourceCredentials(args);
   args = credentials.args;
   const { discoverCapability } = await import('./query-engine-discover.js');
@@ -1698,20 +1703,10 @@ async function handleDiscover(args: string[]): Promise<void> {
     }
   }
 
-  const phrase = textParts.join(' ').trim();
+  const phrase = await readDiscoverPhrase(textParts, flags);
   if (!phrase) {
     console.error('Error: aiwg index discover requires a search phrase');
-    console.log('');
-    console.log(
-      'Usage: aiwg index discover "<phrase>" [--type <kinds>] [--limit N] [--json|--format json|text] [--pretty|--compact] [--graph <name>] [--backend local|fortemi-core] [--resource-source local|web|auto] [--aiwg-version <version|range|digest|channel>] [--offline] [--no-build (read cached local metadata only)]',
-    );
-    console.log('');
-    console.log('Examples:');
-    console.log('  aiwg index discover "create intake"');
-    console.log('  aiwg index discover "deploy production" --limit 5');
-    console.log(`  aiwg index discover "audit security" --type ${OPERATIONAL_DISCOVERY_TYPES.join(',')}`);
-    console.log('  aiwg index discover "intake" --format json --pretty');
-    console.log('  aiwg discover "intake" --resource-source web --aiwg-version stable');
+    printDiscoverUsage();
     process.exit(1);
   }
 
