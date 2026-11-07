@@ -191,7 +191,7 @@ async function decisionAsk(ctx: HandlerContext): Promise<HandlerResult> {
   });
   if (!invocation.result) throw invocation.outcome === 'unknown' ? invocation.error : new Error('Decision ask was skipped');
   const result = invocation.result;
-  if (args.includes('--json')) return jsonResult(result);
+  if (args.includes('--json')) return jsonResult({ ...result, ledgerRecorded: invocation.opportunity.ledgerRecorded });
   if (result.status === 'fallback') return { exitCode: 0, message: `FALLBACK to LLM: ${result.reason}`, rawOutput: true };
   return { exitCode: 0, message: `${String(result.answer)} (confidence ${result.confidence?.toFixed(2) ?? 'unknown'}, ${result.model ?? 'unknown-model'})`, rawOutput: true };
 }

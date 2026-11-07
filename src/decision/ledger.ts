@@ -19,7 +19,7 @@
  * ACCIDENTAL hazard — a stray symlink, a hard link, loose permissions left
  * by another tool, a previous crash's partial write — all under the
  * assumption that the artifact root is owned and written by the SAME local
- * user running `aiwg`. It does not and cannot defend against a HOSTILE
+ * user running `aiwg`, or its stat-verified shared workspace group. It does not and cannot defend against a HOSTILE
  * process running as that same user: such a process already has read/write
  * access to everything the ledger could protect. Appenders, rotation and
  * readers share the existing cross-process directory-lock helper. There is
@@ -53,6 +53,7 @@
  * already waiting for the ledger lock can still complete after that deadline.
  */
 
+import { workspaceFileMode, workspaceDirectoryMode, workspacePermissionsAllowed, preserveReplacementMode } from '../storage/workspace-permissions.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { constants as fsConstants, createReadStream, existsSync } from 'node:fs';
 import { lstat, mkdir, open, readdir, rename, rm, type FileHandle } from 'node:fs/promises';
@@ -186,8 +187,6 @@ export const MAX_LEDGER_RECORD_BYTES = 4000;
 /** Bounds how long `recordDecisionAsk` waits on attribution resolution and the write. On timeout the outcome is reported as unknown, not "abandoned" — see the module doc comment. */
 export const DECISION_LEDGER_RECORD_TIMEOUT_MS = 250;
 
-const LEDGER_DIR_MODE = 0o700;
-const LEDGER_FILE_MODE = 0o600;
 const LEDGER_LOCK_TIMEOUT_MS = 30_000;
 const IS_WINDOWS = process.platform === 'win32';
 const HAS_O_NOFOLLOW = typeof fsConstants.O_NOFOLLOW === 'number';
@@ -412,14 +411,14 @@ function currentUid(): number | null {
 /**
  * Create (if needed) the owner-only `decision` directory and verify it is
  * safe to use: a real directory (not a symlink), and on POSIX owned by the
- * current user. An existing directory that fails either check is never
+ * current user or its stat-verified workspace group. An existing directory that fails either check is never
  * modified (no chmod) — recording is skipped.
  */
 async function ensurePrivateDecisionDir(projectRoot: string, warn: (message: string) => void): Promise<string | null> {
   const artifactRoot = projectAiwgWritePath(projectRoot);
   const decisionDir = join(artifactRoot, DECISION_LEDGER_DIR_NAME);
   try {
-    await mkdir(decisionDir, { recursive: true, mode: LEDGER_DIR_MODE });
+    await mkdir(decisionDir, { recursive: true, mode: workspaceDirectoryMode(decisionDir) });
   } catch (error) {
     warn(`warning: cannot create decision ledger directory: ${errorMessage(error)}`);
     return null;
@@ -437,7 +436,7 @@ async function ensurePrivateDecisionDir(projectRoot: string, warn: (message: str
   }
   if (!IS_WINDOWS) {
     const uid = currentUid();
-    if (uid !== null && stat.uid !== uid) {
+    if (uid !== null && stat.uid !== uid && !((stat.mode & 0o070) !== 0 && workspacePermissionsAllowed(decisionDir, stat))) {
       warn('warning: decision ledger directory is not owned by the current user; skipping record');
       return null;
     }
@@ -450,7 +449,7 @@ async function ensurePrivateDecisionDir(projectRoot: string, warn: (message: str
  * retention) and verify it is a regular file with exactly one hard link (rejects a
  * pre-planted hard link to an unrelated file, which `O_NOFOLLOW` alone does
  * not catch), and on POSIX owned by the current user with no group/other
- * permission bits. `O_NOFOLLOW` is applied when the platform defines it
+ * permission bits outside a matching shared workspace group. `O_NOFOLLOW` is applied when the platform defines it
  * (refusing a pre-planted symlink at open time on POSIX); on platforms
  * without it (Windows) a prior plain `lstat` is the only symlink check —
  * see the module doc comment on the trust boundary. A file that fails any
@@ -473,7 +472,7 @@ async function openPrivateLedgerFile(ledgerPath: string, warn: (message: string)
   }
   let handle: FileHandle;
   try {
-    handle = await open(ledgerPath, flags | (HAS_O_NOFOLLOW ? fsConstants.O_NOFOLLOW : 0), LEDGER_FILE_MODE);
+    handle = await open(ledgerPath, flags | (HAS_O_NOFOLLOW ? fsConstants.O_NOFOLLOW : 0), workspaceFileMode(ledgerPath));
   } catch (error) {
     warn(`warning: cannot open decision ledger file: ${errorMessage(error)}`);
     return null;
@@ -492,12 +491,12 @@ async function openPrivateLedgerFile(ledgerPath: string, warn: (message: string)
     }
     if (!IS_WINDOWS) {
       const uid = currentUid();
-      if (uid !== null && stat.uid !== uid) {
+      if (uid !== null && stat.uid !== uid && !((stat.mode & 0o070) !== 0 && workspacePermissionsAllowed(ledgerPath, stat))) {
         warn('warning: decision ledger file is not owned by the current user; skipping record');
         await handle.close();
         return null;
       }
-      if ((stat.mode & 0o077) !== 0) {
+      if (!workspacePermissionsAllowed(ledgerPath, stat)) {
         warn('warning: decision ledger file has group or other permission bits set; skipping record');
         await handle.close();
         return null;
@@ -628,7 +627,7 @@ async function privateArchiveDirectory(root: string, target: string, create: boo
     current = join(current, part);
     if (create) {
       try {
-        await mkdir(current, { mode: LEDGER_DIR_MODE });
+        await mkdir(current, { mode: workspaceDirectoryMode(current) });
         if (!IS_WINDOWS) await syncDirectory(dirname(current));
       }
       catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
@@ -637,9 +636,9 @@ async function privateArchiveDirectory(root: string, target: string, create: boo
     try { info = await lstat(current); }
     catch (error) { if (!create && (error as NodeJS.ErrnoException).code === 'ENOENT') return false; throw error; }
     // archive/ is shared with the activity log and may already be readable.
-    // Its decision/ subtree (and any nested directories) must be private.
+    // Its decision/ subtree must be private or match the shared workspace group.
     const modeMask = current === join(root, 'archive') ? 0o022 : 0o077;
-    if (!info.isDirectory() || (!IS_WINDOWS && (info.uid !== currentUid() || (info.mode & modeMask) !== 0))) {
+    if (!info.isDirectory() || (!IS_WINDOWS && ((info.uid !== currentUid() || (info.mode & modeMask) !== 0) && !((info.mode & 0o070) !== 0 && workspacePermissionsAllowed(current, info))))) {
       throw new Error(`Unsafe decision archive directory (requires a private, owned real directory): ${current}`);
     }
   }
@@ -697,12 +696,12 @@ export async function rotateDecisionLedger(options: RotateDecisionLedgerOptions)
       malformed: lines.length - valid.length, archivePath: archived.length ? archivePath : null };
     if (!archived.length) return result;
     await privateArchiveDirectory(artifactRoot, dirname(archivePath), true);
-    const archive = await open(archivePath, 'wx', LEDGER_FILE_MODE);
+    const archive = await open(archivePath, 'wx', workspaceFileMode(archivePath));
     archiveCreated = true;
     try { await writeFully(archive, Buffer.concat(archived)); await archive.sync(); } finally { await archive.close(); }
     if (!IS_WINDOWS) await syncDirectory(dirname(archivePath));
-    const replacement = await open(tempPath, 'wx', LEDGER_FILE_MODE);
-    try { await writeFully(replacement, Buffer.concat(kept)); await replacement.sync(); } finally { await replacement.close(); }
+    const replacement = await open(tempPath, 'wx', workspaceFileMode(ledgerPath));
+    try { await writeFully(replacement, Buffer.concat(kept)); await preserveReplacementMode(tempPath, ledgerPath); await replacement.sync(); } finally { await replacement.close(); }
     await rename(tempPath, ledgerPath);
     archiveCreated = false; // Both files now own their respective records.
     if (!IS_WINDOWS) await syncDirectory(decisionDir);

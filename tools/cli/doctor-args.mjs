@@ -25,7 +25,7 @@ const DOCTOR_VALUE_FLAGS = ['--provider', '--bundle', '--scope', '--context-base
 const DOCTOR_KNOWN_FLAGS = new Set([
   ...DOCTOR_VALUE_FLAGS,
   '--list-approvals', '--all-providers', '--probe-workers', '--qualify', '--yes', '--dry-run', '--no-budget-check', '--strict-context', '--json',
-  '--resources', '--decision-offload', '--deployment', '--user', '--verbose', '-v', '--project-local', '--quiet', '--help', '-h',
+  '--resources', '--decision-offload', '--fix', '--deployment', '--user', '--verbose', '-v', '--project-local', '--quiet', '--help', '-h',
 ]);
 
 // Refuse the first unknown `--flag` before the `--` terminator, skipping
@@ -86,10 +86,12 @@ function parseDoctorArgs(argv) {
   out.dryRun = hasDoctorFlagSwitch(argv, '--dry-run', DOCTOR_VALUE_FLAGS);
   out.json = hasDoctorFlagSwitch(argv, '--json', DOCTOR_VALUE_FLAGS);
   out.resources = hasDoctorFlagSwitch(argv, '--resources', DOCTOR_VALUE_FLAGS);
+  out.fix = hasDoctorFlagSwitch(argv, '--fix', DOCTOR_VALUE_FLAGS);
   out.decisionOffload = hasDoctorFlagSwitch(argv, '--decision-offload', DOCTOR_VALUE_FLAGS);
   out.noBudgetCheck = hasDoctorFlagSwitch(argv, '--no-budget-check', DOCTOR_VALUE_FLAGS);
   out.strictContext = hasDoctorFlagSwitch(argv, '--strict-context', DOCTOR_VALUE_FLAGS);
   assertNoUnknownDoctorFlags(argv);
+  if (out.fix && !out.decisionOffload) throw new Error('--fix requires --decision-offload');
   if (out.group !== undefined && !out.resources) throw new Error('--group requires --resources');
   // JSON is available for worker probes or the explicit offline offload report.
   if (out.json && !out.probeWorkers && !out.decisionOffload && !out.resources) {

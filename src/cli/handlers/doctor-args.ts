@@ -5,7 +5,7 @@ export function parsePublicDoctorFlags(args: string[]) {
   const valueFlags = ['--provider', '--bundle', '--scope', '--context-baseline', '--context-budget-tokens', '--cli', '--forget-approval', '--group'];
   const knownFlags = new Set([
     ...valueFlags, '--list-approvals', '--all-providers', '--probe-workers', '--qualify', '--yes', '--dry-run', '--no-budget-check', '--strict-context', '--json',
-    '--resources', '--decision-offload', '--deployment', '--user', '--verbose', '-v', '--project-local', '--quiet', '--help', '-h',
+    '--resources', '--decision-offload', '--fix', '--deployment', '--user', '--verbose', '-v', '--project-local', '--quiet', '--help', '-h',
   ]);
   const hasSwitch = (name: string): boolean => hasPositionalOrSwitch(args, name, valueFlags);
   const values = new Map<string, string | undefined>();
@@ -21,6 +21,7 @@ export function parsePublicDoctorFlags(args: string[]) {
       throw new Error(`Unknown flag: ${name}`);
     }
   }
+  if (hasSwitch('--fix') && !hasSwitch('--decision-offload')) throw new Error('--fix requires --decision-offload');
   if (values.get('--group') !== undefined && !hasSwitch('--resources')) throw new Error('--group requires --resources');
   if (hasSwitch('--resources') && (['--probe-workers', '--decision-offload', '--deployment', '--user', '--project-local'].some(hasSwitch) || values.get('--scope') !== undefined)) {
     throw new Error('--resources must run separately from other doctor modes');

@@ -266,11 +266,18 @@ recorded**; those are rejected with exit 2 (CLI) before any Jev call.
 **Trust boundary.** The ledger defends against accidental hazards — a stray
 symlink, a pre-planted hard link, loose permissions, a previous crash's
 partial write — under the assumption that the artifact root is owned and
-written by the *same local user* running `aiwg`. It is not a defense against
+written by the *same local user* running `aiwg`, or by its workspace group in
+a setgid directory that grants others no access. It is not a defense against
 a hostile process already running as that user. An existing file or directory
 that fails a safety check is **never modified** (no chmod, no truncation) —
 recording is skipped and reported once. Appenders, rotation and readers share
-a cross-process lock. Use `decision rotate` to archive older records;
+a cross-process lock. CLI `ask --json` includes `ledgerRecorded: true` after a
+successful append and `null` when recording could not be confirmed (including
+timeout). MCP output is unchanged. `doctor --decision-offload` and `status --probe`
+report journal permissions. `aiwg doctor --decision-offload --fix` explicitly
+repairs unsafe journal modes and collapsed group masks on known non-secret config,
+baseline, receipt, transcript and journal outputs; credential/key stores stay private.
+Use `decision rotate` to archive older records;
 `history`/`stats` tolerate a missing file (empty result).
 
 A ledger write failure, a slow/unavailable attribution lookup, or anything
@@ -388,9 +395,12 @@ beneath the artifact root resolved by `aiwg artifacts path`. `--to` accepts
 an artifact-relative or absolute `.jsonl` filename **within that same archive
 subtree**. Paths outside the resolved root or archive subtree, symlinked directories,
 and existing destination files are refused. New archive directories use
-`0700`, files use `0600`; existing decision archive directories must be private and
-owned by the current user. The shared `archive/` parent may be readable but
-must not be writable by other users. Ledger file safety checks also apply when reading
+`0700`, files use `0600` in private workspaces. In a setgid workspace closed to
+others, new non-secret directories/files request `0770`/`0660`, letting the default
+ACL and umask restrict them; replacement files retain the original mode via chmod.
+Group access is accepted only when the gid matches the workspace. Detection uses
+filesystem stat calls only. The shared `archive/` parent may be readable; group
+writes require this same shared-workspace policy. Ledger file safety checks also apply when reading
 archives. External artifact roots remain external; there is no local fallback.
 
 Appenders, rotation, and readers share `decision/ledger.lock` using the
