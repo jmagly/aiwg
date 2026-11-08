@@ -1,7 +1,7 @@
 ---
 description: Address selected issues via the address-issues skill (auto-detects the project tracker — gitea/github/local)
 category: project-management
-argument-hint: "<issue-id...> [--all-open] [--limit N] [--guidance \"...\"]"
+argument-hint: "<issue-id...> [--all-open] [--milestone <name> --dispatch workers] [--dry-run] [--limit N] [--guidance \"...\"]"
 allowed-tools: Bash, Read, Write, Edit
 model: claude-sonnet-5
 ---
@@ -27,6 +27,12 @@ Do not try to run `aiwg address-issues <id>` — invoke the skill above and foll
 it.
 
 ## Related
+
+For a milestone's bounded engineering issues, follow the skill's milestone mode:
+`--milestone <name> --dispatch workers`. It covers triage, bounded briefs, Tier 0
+dispatch, independent verification, policy-controlled signed delivery, closure,
+post-merge CI/fix-forward and cleanup. Add `--dry-run` to print the triage table
+and planned dispatch without creating worktrees or launching workers.
 
 - `issue-audit` — read-only backlog triage (`aiwg show skill issue-audit --body`)
 - `issue` — local `.aiwg/issues/` storage CLI (`aiwg issue --help`)

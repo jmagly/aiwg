@@ -126,6 +126,8 @@
       "status": "partial",
       "testFiles": [
         "test/unit/tools/resource-preflight.test.js",
+        "test/unit/skills/address-issues-milestone.test.ts",
+        "test/unit/skills/address-issues-milestone-discovery.test.ts",
         "test/unit/config/dispatch-thresholds.test.ts",
         "test/unit/testing/orchestration-changed-coverage.test.ts",
         "test/unit/serve/shared-host-scheduler-managed.test.ts",
