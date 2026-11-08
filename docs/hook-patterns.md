@@ -1,14 +1,14 @@
 # AIWG Hook Patterns
 
 **Issues:** #284, #289
-**Version:** 2026.2.0
+**Version:** 2026.11.3
 **Status:** Active
 
 ## Prompt-time discovery (#3858)
 
 > Review the authentication code for security issues.
 
-On Claude Code, Muse, and Codex 0.165, each substantive prompt gives the assistant up to three
+On Claude Code, Muse, Codex 0.165, and interactive Factory, each substantive prompt gives the assistant up to three
 AIWG candidates: type, name, a short capability, and relevance score. For example,
 its additional context can contain `skill security-review (0.92): Review code for
 security issues`, followed by the steps to inspect the candidate with
@@ -342,18 +342,115 @@ exit 0
 | Security scan | 5-10 min | Deep analysis |
 | Build verification | 3-5 min | Compilation check |
 
-## Cross-Platform Notes
+## Offline harness audit (#3935, 2026.11.3)
 
-Hook patterns are Claude Code-specific. For other platforms:
+Inventory date: 2026-11-07. This audit covers the issue's 18 named providers and
+the generic fallback. The registry also contains Flue, added separately; it is
+outside this issue's inventory. Sources: [provider registry](../src/providers/provider-definitions.ts),
+its `provider-seeds-{1,2,3}.ts` and `provider-context-contracts.ts` owners,
+the runtime [MCP registry](../src/providers/provider-definitions.mjs), and
+the existing [deployment adapters](../tools/agents/providers/).
+The MCP registry is not an alternative deployment inventory.
+Seed ownership: `provider-seeds-1.ts` owns antigravity, claude, codex, copilot,
+cursor, factory and grokbot; `provider-seeds-2.ts` owns deepseek-harness,
+grok-build, hermes, muse, opencode, openclaw, openhuman and omp;
+`provider-seeds-3.ts` owns pi, warp, windsurf and generic.
 
-| Platform | Equivalent | Notes |
-|----------|-----------|-------|
-| Claude Code | `.claude/settings.json` hooks | Full support |
-| GitHub Copilot | GitHub Actions | CI/CD based |
-| Cursor | `.cursor/` rules | No hook equivalent |
-| Warp | Warp workflows | Different mechanism |
+Paths below are project relative unless prefixed with `~/`. K = native kernel
+skills, B = bulk skill inventory; `use all` defaults to kernel deployment,
+so a B path can be absent until `--copy-all`. Rule files on non-native loaders
+are reached through the bootstrap's mandatory `RULES-INDEX` read.
+Pi and OMP retain their existing full-surface `use all` default; this audit uses
+each provider's public default without changing its deployment flags.
 
-See @docs/context-management-patterns.md for cross-platform context strategies.
+| Provider | Bootstrap | Rules | Skills (K; B) | Deployment owner (`tools/agents/providers/`) |
+|---|---|---|---|---|
+| antigravity | `AGENTS.md` | `.antigravity/rules` | `.agents/skills`; `.agents/.aiwg/skills` | `antigravity.mjs` |
+| claude | `CLAUDE.md` | `.claude/rules` | `.claude/skills`; `.claude/.aiwg/skills` | `claude.mjs` |
+| codex | `AGENTS.md` | `.codex/rules` | `.agents/skills`; `.codex/.aiwg/skills` | `codex.mjs` |
+| copilot | `.github/copilot-instructions.md`, `AGENTS.md` | `.github/instructions` (adapter); registry says `.github/copilot-rules` | `.github/skills`; `.github/.aiwg/skills` | `copilot.mjs` |
+| cursor | `AGENTS.md` | `.cursor/rules` | `.cursor/skills`; `.cursor/.aiwg/skills` | `cursor.mjs` |
+| deepseek-harness | `AGENTS.md` | `.deepseek-harness/rules` (projection fallback) | `.agents/skills` (K/B) | `deepseek-harness.mjs` |
+| factory | `AGENTS.md` | `.factory/rules` | `.factory/skills`; `.factory/.aiwg/skills` | `factory.mjs` |
+| grokbot | `AGENTS.md` (host dependent) | `.grokbot/rules` (projection fallback) | None by default; user copies require `AIWG_GROKBOT_SKILLS_DIR` | `grokbot.mjs` |
+| grok-build | `AGENTS.md` | `.grok/rules` | `.grok/skills`; `.grok/.aiwg/skills` (adapter) | `grok-build.mjs` |
+| hermes | `.hermes.md`, `AGENTS.md` | `.hermes/rules` | `~/.hermes/skills`; `~/.hermes/skills/.aiwg` (`HERMES_HOME` overrides) | `hermes.mjs` |
+| muse | `AGENTS.md` | `.muse/rules` | `.agents/skills`; `.agents/.aiwg/skills` (adapter) | `muse.mjs` |
+| opencode | `AGENTS.md` + `opencode.json` instructions | `.opencode/rule` | `.opencode/skill`; `.opencode/.aiwg/skill` | `opencode.mjs` |
+| openclaw | Active workspace `AGENTS.md` + `SOUL.md`; default `~/.openclaw/workspace` | `~/.openclaw/rules` | `~/.openclaw/skills/aiwg`; `~/.openclaw/.aiwg/skills` | `openclaw.mjs` |
+| openhuman | `AGENTS.md` (host dependent) | `~/.openhuman/.aiwg/rules` | `~/.openhuman/skills`; `~/.openhuman/.aiwg/skills` | `openhuman.mjs` |
+| pi | `AGENTS.md` | `.pi/rules` | `.agents/skills`; `.pi/.aiwg/skills` | `pi.mjs` |
+| omp | `.omp/AGENTS.md` | `.omp/rules` | `.agents/skills` (K/B) | `omp.mjs` |
+| warp | `WARP.md`, `AGENTS.md` | `.warp/rules` | `.warp/skills`; `.warp/.aiwg/skills` | `warp.mjs` |
+| windsurf | `AGENTS.md` | `.windsurf/rules` | `.windsurf/skills`; `.windsurf/.aiwg/skills` | `windsurf.mjs` |
+| generic | No native startup contract | `rules` (declared) | `skills` (declared; no native kernel) | No dedicated adapter |
+
+Hook support below means **AIWG prompt discovery delivery**, not merely an
+upstream event. Native = existing provider hook installer; bridge = existing
+canonical hook translator; none = no deployed prompt/context transport.
+Headless availability comes from repository adapters and provider docs, without
+executing any harness. Exec hook behavior stays unverified unless supplied UAT
+establishes it; interactive support does not establish exec support.
+
+| Provider | Prompt hook support / config | Exec/headless surface | Exec-mode prompt hooks | Static check | Live UAT status (operator supplied) |
+|---|---|---|---|---|---|
+| antigravity | None | `agy --print` | Unverified | Pass | Static only |
+| claude | Native: `.claude/settings.json` | `claude --print` | Unverified separately | Pass | p1/p2/p4 discover-first; p3 not supplied |
+| codex | Bridge: `.codex/hooks.json`; trust + review required | `codex exec` | Unverified separately | Pass | Discover at calls 2–8, after bootstrap reads; per-prompt scores not supplied |
+| copilot | None: bridge mapping excluded for prompt discovery | `copilot` noninteractive | Unverified | Pass | Static only |
+| cursor | None | `cursor-agent --print` | Unverified | Pass | Static only |
+| deepseek-harness | None | `dsh --profile headless` | Unverified | Pass | Static only |
+| factory | Bridge: `.factory/hooks.json`; trusted committed project | `droid exec` | **No prompt hooks** | Pass | Interactive hooks fire after #3971; exec relies on discovery/template rule |
+| grokbot | None | No evidenced CLI worker surface | N/A | Pass | Static only |
+| grok-build | None: bridge mapping excluded for prompt discovery | `grok --print` | Unverified | Pass | Static only |
+| hermes | None: bridge lacks prompt/context transport | `hermes` noninteractive | Unverified | Pass | Static only |
+| muse | Native project owner: `.muse/hooks.json` + sidecar | `muse exec` | Unverified separately | Pass | p2 discover-first; p1/p4 mixed; p3 not supplied |
+| opencode | None | `opencode run` | Unverified | Pass | Static only |
+| openclaw | None | `openclaw agent exec` | Unverified | Pass | Static only |
+| openhuman | None | `openhuman-core call` (one-shot RPC) | Unverified | Pass | Static only |
+| pi | None | `pi --print` | Unverified | Pass | Static only |
+| omp | None: extension bridge is not prompt-context delivery | `omp --print` | Unverified | Pass | Static only |
+| warp | None | `warp-terminal agent run` (Oz) | Unverified | Pass | Static only |
+| windsurf | None | Desktop provider; Devin CLI is a separate future target | N/A | Pass | Static only |
+| generic | None | N/A (host defined) | N/A | Rejected (expected) | No harness |
+
+Result: **18/18 named harnesses pass** the offline deployment/refresh check;
+the supplemental generic refusal check also passes (19 integration cases).
+
+Reproduce offline with the built CLI using
+[`harness-bootstrap-audit.test.ts`](../test/integration/harness-bootstrap-audit.test.ts)
+in the required deployment lane. Each case creates an `os.tmpdir()` project and
+isolated HOME/XDG tree, deploys `use all --provider <p>`, checks startup, the four
+requested rules (`skill-discovery` and `artifact-output-policy` kernel files;
+`anti-laziness` and `no-attribution` compact core bodies), skill paths and prompt hook config, then runs
+`refresh --dry-run --skip-update --provider <p>` and compares filesystem bytes
+and mtimes to check that the dry run is read-only. This does not run hooks or
+prove runtime discovery, template loading, or provider trust.
+
+Installed CLI/version collection and new live UAT are deferred: this worker is
+offline and prohibited from invoking provider CLIs. Supplied UAT above is
+historical input, not a fresh run or a complete per-prompt score. No tracker
+writes were made; the conductor owns issue filing and publication on #3935.
+
+Audit gaps retained for the conductor (fixes and issue filing are outside this
+worker's steps 1/2/5 scope):
+
+| Provider | File | Symptom |
+|---|---|---|
+| copilot, grok-build, hermes | `agentic/code/addons/aiwg-hooks/canonical/aiwg-prompt-discovery.yaml` | Explicit `degrade-on`: bridge event mappings do not deliver prompt candidates to model context. |
+| codex | `src/smiths/hook-bridge/codex-translator.ts` | Supplied UAT discovers at calls 2–8 after bootstrap; discover-first is not established. Trust/review remain runtime prerequisites. |
+| muse | `tools/agents/providers/muse-prompt-discovery.mjs` | Supplied p1/p4 discover-first results remain mixed. |
+| factory | `tools/agents/providers/factory-hooks.mjs` | Interactive registration does not run in `droid exec`; the bootstrap rule carries discovery/template use. |
+| openclaw | `src/providers/provider-context-contracts.ts` | Registry says no bootstrap targets, while the adapter writes active workspace `AGENTS.md`/`SOUL.md`. |
+| muse, grok-build | `src/providers/provider-seeds-2.ts` | Declared artifact skill root equals kernel root; bulk mirror lives under `.aiwg/skills` in the adapters. |
+| copilot | `src/providers/provider-seeds-1.ts` | Declares `.github/copilot-rules`, while the adapter projects kernel rules under native `.github/instructions`. |
+| generic | `tools/agents/deploy-agents.mjs` | Registry metadata exists, but there is no generic adapter; `use all --provider generic` is rejected. |
+
+Providers with no AIWG prompt installer are recorded as **none** in the matrix;
+that classification is not a claim that their upstream harness lacks all hooks.
+All exec-hook cells marked unverified and all missing per-prompt/template scores
+remain deferred to authorized live UAT. A current fresh deployment does not
+establish complete drift detection for arbitrary damaged deployments.
 
 ## References
 
