@@ -77,6 +77,22 @@ export async function executeDatasetCommand(ctx: HandlerContext, providedService
       exitCode: 1,
       message: `Unknown dataset action '${action ?? ""}'.`,
     };
+  if (action === "status" && !ids[0])
+    return {
+      exitCode: 1,
+      rawOutput: true,
+      message: presentDatasetResult({
+        schema: "aiwg.dataset-orchestration/v1",
+        action,
+        ok: false,
+        diagnostics: [{
+          code: "DATASET_ARGUMENT_REQUIRED",
+          message: "Missing required run ID. Usage: aiwg dataset status <run-id>",
+          boundary: "input",
+          retryable: false,
+        }],
+      }, ctx.args.includes("--json")),
+    };
   const s = providedService ?? service(ctx);
   let result: any;
   switch (action) {
@@ -167,6 +183,7 @@ export const datasetHandler: CommandHandler = {
         "source/plan: --file <json>",
         "preview: <source-id> [--count N] [--offline]",
         "ingest: <plan-id> --digest <sha256> --idempotency-key <key> [--approve id,id]",
+        "status <run-id>: Inspect one run by its required ID.",
         "All actions: --json for the canonical aiwg.dataset-orchestration/v1 envelope.",
       ].join("\n"),
     };
