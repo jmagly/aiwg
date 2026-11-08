@@ -1,6 +1,6 @@
 {
   "name": "hooks",
-  "version": "2026.11.2",
+  "version": "2026.11.3",
   "description": "Claude Code hooks for workflow tracing and observability.",
   "author": {
     "name": "AIWG Contributors",
