@@ -26,10 +26,10 @@ providers:
       probe_budget: { status: authorized, calls: 3, tokens: 30000, authorized_by: operator, authorized_at: "2026-10-07", hosts: [titan, noodle] }
       coverage:
         profile_issue: "roctinam/aiwg#2900"
-        source_date: "2026-10-08"
+        source_date: "2026-11-07"
         live_qualified: false
         sources:
-          - "host-help: claude 2.1.295 on titan (--version/--help only)"
+          - "host-help: claude 2.1.319 on titan (--version/--help/-p --help only)"
           - "tools/ralph-external/lib/claude-adapter.mjs"
     status: stable
     daemon_tier: unsupported

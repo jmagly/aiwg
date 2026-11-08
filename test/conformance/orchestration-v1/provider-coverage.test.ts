@@ -111,7 +111,7 @@ describe('T-OG-19 S1 registry coverage reconciliation (B-OG-47)', () => {
     for (const [id, row] of rows) {
       expect(row.coverage, id).toBeDefined();
       expect(row.coverage!.source_date, id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect([BASELINE_DATE, RECHECK_DATE, ...(id === 'flue' ? ['2026-10-30'] : [])], id).toContain(row.coverage!.source_date);
+      expect([BASELINE_DATE, RECHECK_DATE, ...(id === 'flue' ? ['2026-10-30'] : []), ...(id === 'claude' ? ['2026-11-07'] : [])], id).toContain(row.coverage!.source_date);
       expect(row.coverage!.sources.length, id).toBeGreaterThan(0);
       for (const source of row.coverage!.sources) {
         if (/^https?:/.test(source)) expect(source, id).toMatch(/^https:\/\//);

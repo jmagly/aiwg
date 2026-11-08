@@ -2,7 +2,7 @@
 /** Synthetic Claude Code grammar; never invokes a model or reads credentials. */
 import { readFileSync, writeFileSync } from 'node:fs';
 const argv = process.argv.slice(2);
-if (argv.includes('--version')) { console.log('2.1.295 (Claude Code)'); process.exit(0); }
+if (argv.includes('--version')) { console.log('2.1.319 (Claude Code)'); process.exit(0); }
 const config = JSON.parse(readFileSync(process.env.AIWG_FAKE_WORKER_CONFIG, 'utf8'));
 const value = flag => argv[argv.indexOf(flag) + 1];
 const scenario = config.scenario ?? 'success';

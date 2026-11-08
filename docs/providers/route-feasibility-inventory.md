@@ -114,7 +114,7 @@ excluded hosted rows were rechecked as recorded below.
 
 | Target | Scope | Profile issue | Evidence date | Live | Sources and recheck result |
 |---|---|---|---|---|---|
-| `claude` | IN | roctinam/aiwg#2900 | 2026-10-08 | no | H: installed help 2.1.295; `claude-adapter.mjs` |
+| `claude` | IN | roctinam/aiwg#2900 | 2026-11-07 | no | H: installed help 2.1.319; compatible range `>=2.1.295 <2.2.0` (#3845); `claude-adapter.mjs` |
 | `codex` | IN | roctinam/aiwg#2897 | 2026-10-08 | no | H: installed help 0.161.0; native `mcp-server` still not advertised |
 | `copilot` | IN | roctinam/aiwg#2901 | 2026-10-08 | no | D: [programmatic reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-programmatic-reference) still documents `-p`, `--model`, `--no-ask-user`, `--output-format=json`, `--allow-tool` |
 | `factory` | IN | roctinam/aiwg#2902 | 2026-10-07 | no | R: `factory-adapter.mjs` |

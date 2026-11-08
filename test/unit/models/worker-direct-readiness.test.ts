@@ -86,6 +86,9 @@ describe('T-OG-12 direct worker onboarding/readiness (#2894)', () => {
     ['codex', 'codex-cli 0.200.0'],
     ['codex', 'codex-cli 0.201.0'],
     ['codex', 'codex-cli 0.163.0-rc.1'],
+    ['claude', '2.1.294 (Claude Code)'],
+    ['claude', '2.2.0 (Claude Code)'],
+    ['claude', '2.1.319-rc.1 (Claude Code)'],
     ['muse', 'Muse Code 1.4.3 (1.4.3-R5018.1)'],
     ['muse', 'Muse Code 2.0.0 (2.0.0-R8000.1)'],
     ['muse', 'Muse Code 2.1.0 (2.1.0-R9000.1)'],
@@ -217,16 +220,16 @@ describe('T-OG-12 direct worker onboarding/readiness (#2894)', () => {
       code: 'WORKER_DIRECT_DISABLED', status: 'info', kind: 'dispatch', eligibility: 'blocked' }));
   });
 
-  it('T-OG-12-direct-07 honours the configured adapter binding, not the cli key', async () => {
+  it.each(['2.1.295', '2.1.317', '2.1.319', '2.1.999+build.1'])('T-OG-12-direct-07 honours the Claude %s adapter binding, not the cli key', async version => {
     const probeCwd = await scratchDir('aiwg-direct-cwd-');
-    const claudeExe = await fakeCli('2.1.295 (Claude Code)');
+    const claudeExe = await fakeCli(`${version} (Claude Code)`);
     // Key says codex but the binding says claude: the claude banner must match.
     const report = await diagnoseDirectWorkerReadiness({
       parallelism: parallelismWith({ codex: { ...codexCli(claudeExe), adapter: 'providers:claude' } }),
       registry: registry(), probe: probeDirectWorkerVersion, probeCwd,
     });
     expect(report.findings).toContainEqual(expect.objectContaining({ cli: 'codex', kind: 'install',
-      code: 'WORKER_DIRECT_READY', status: 'ok', installedVersion: '2.1.295', readiness: 'ready' }));
+      code: 'WORKER_DIRECT_READY', status: 'ok', installedVersion: version, readiness: 'ready' }));
   });
 
   it('T-OG-12-direct-08 resolves an explicit canonical binding and a custom workerAdapters id exactly', async () => {

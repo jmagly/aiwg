@@ -14,13 +14,13 @@ import { loadProviderModelCapabilities, qualifyWorkerInvocationProfile } from '.
 import { createProvider, loadInstalledWorkerAdapters } from '../../../src/models/worker-installation.mjs';
 import { prepareWorkerInvocation, resolveWorkerInvocation, type WorkerInvocationDriver } from '../../../src/serve/worker-invocation.js';
 // Deliberately preload legacy Claude: the direct installed ID must coexist.
-import { ClaudeAdapter } from '../../../tools/ralph-external/lib/claude-adapter.mjs';
+import { ClaudeAdapter, CLAUDE_SUPPORTED_VERSIONS } from '../../../tools/ralph-external/lib/claude-adapter.mjs';
 import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 
 const MODULE = 'tools/ralph-external/lib/claude-adapter.mjs';
 const FAKE = path.resolve('test/fixtures/providers/claude/fake-claude.mjs');
 const APPROVED = JSON.parse(readFileSync('test/fixtures/providers/claude/approved-module.json', 'utf8'));
-const VERSION = '2.1.295', MODEL = 'synthetic-claude-model', MARKER = 'CLAUDE-BRIEF-雪';
+const VERSION = '2.1.319', MODEL = 'synthetic-claude-model', MARKER = 'CLAUDE-BRIEF-雪';
 const roots: string[] = [], installRoots: string[] = [];
 const sha256 = (bytes: Buffer | string) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 let installed: { owner: any; ids: string[] };
@@ -171,7 +171,9 @@ describe('Claude direct CLI profile (#2900)', () => {
     expect(legacy.getName()).toBe('claude');
     expect(legacy.getBinary()).toBe('claude');
     const a = metadata();
-    expect(a).toMatchObject({ id: 'claude-direct', runtimeDriver: 'installed:claude', supportedVersions: VERSION, qualification: { status: 'unqualified' } });
+    expect(a).toMatchObject({ id: 'claude-direct', runtimeDriver: 'installed:claude', supportedVersions: '>=2.1.295 <2.2.0', qualification: { status: 'unqualified' } });
+    expect(CLAUDE_SUPPORTED_VERSIONS).toEqual([a.supportedVersions]);
+    expect(a.invocationProfiles!['direct-shell'].supportedVersions).toBe(a.supportedVersions);
     expect(a.invocation).toMatchObject({ stdin: 'brief-text', executable: 'claude' });
     expect(a.invocationProfiles!['direct-shell'].controls.approval.evidence).toContain('--permission-prompts');
   });
@@ -222,8 +224,16 @@ describe('Claude direct CLI profile (#2900)', () => {
   it('CD07 bundled metadata remains unqualified; unknown CLI versions never render', async () => {
     expect(() => qualifyWorkerInvocationProfile(metadata(), { profile: 'direct-shell', transport: 'shell', cliVersion: VERSION })).toThrow('unqualified');
     expect((await plan(false)).result.invocation).toBeUndefined();
-    expect((await plan(true, '2.1.296')).result.invocation).toBeUndefined();
+    expect((await plan(true, '2.2.0')).result.invocation).toBeUndefined();
   });
+  it.each(['2.1.295', '2.1.296', '2.1.317', '2.1.319', '2.1.320', '2.1.999+build.1'])(
+    'CD12 #3845 resolves compatible Claude patch %s through both version gates', async version => {
+      expect((await plan(true, version)).result.invocation).toBeDefined();
+    });
+  it.each(['2.1.294', '2.1.319-rc.1', '2.2.0', '3.0.0'])(
+    'CD13 #3845 blocks unsupported Claude version %s', async version => {
+      expect((await plan(true, version)).result.invocation).toBeUndefined();
+    });
   it('CD08 legacy session and analysis calls no longer inherit permission bypass', () => {
     for (const args of [installed.owner.buildSessionArgs({ prompt: 'synthetic', model: MODEL }), installed.owner.buildAnalysisArgs({ prompt: 'synthetic', model: MODEL })]) {
       expect(args).not.toContain('--dangerously-skip-permissions'); expect(args).toContain('dontAsk'); expect(args).toContain('none');

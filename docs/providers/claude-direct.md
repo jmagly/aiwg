@@ -1,8 +1,26 @@
 # Claude Code direct CLI profile
 
-Issue #2900; installed CLI `/home/roctinam/.local/bin/claude`, verified
-`2.1.295 (Claude Code)` on 2026-10-09 using only version/help commands.
+Issues #2900 and #3845; installed CLI `/home/roctinam/.local/bin/claude`, rechecked
+`2.1.319 (Claude Code)` on 2026-11-07 (America/New_York; 2026-11-08 UTC) using
+only `claude --version`, `claude --help` and `claude -p --help`.
 Help verifies syntax; fake tests verify mechanics. The registry stays **unqualified**.
+
+Both the adapter and `direct-shell` profile now use `>=2.1.295 <2.2.0`.
+The existing schema and semver loader already support comparator ranges (as used
+by Codex); Factory currently uses an exact version. The lower bound preserves the
+2.1.295 help-verified baseline; the next minor requires review. Offline resolver
+and readiness tests cover 2.1.317, the installed 2.1.319, later patches and build
+metadata, and reject older releases, prereleases and 2.2+. Only 2.1.319 was
+rechecked locally for this change; synthetic cases do not establish live support
+for every release in the range. Existing installation approval is still required.
+
+Every flag in the bundled argv template appears in both help modes, including
+`--print`, `--verbose`, `--effort`, `--permission-mode`, `--permission-prompts`,
+`--restricted`, `--safe-mode`, tool filters and the strict empty MCP configuration.
+The advertised effort and permission choices are unchanged. `--max-turns` remains
+absent. Help wording now describes `--disable-slash-commands` as disabling skills
+and commands, removes REPL from the restricted-mode examples and adds the print
+requirement to `--json-schema`; none requires an argv change.
 
 The driver requires an exact model ID and explicit effort. It uses stdin text to
 EOF, JSONL stdout, `dontAsk` plus `--permission-prompts none`, restricted file
@@ -56,18 +74,25 @@ Verbatim relevant lines from installed `claude --help`:
   --allowedTools, --allowed-tools <tools...>
       Comma or space-separated list of tool names to allow (e.g. "Bash(git *)
       Edit")
-  --disable-slash-commands              Disable all skills
+  --disable-slash-commands              Disable all skills and commands
   --disallowedTools, --disallowed-tools <tools...>
       Comma or space-separated list of tool names to deny (e.g. "Bash(git *)
       Edit")
   --effort <level>                      Effort level for the current session
                                         (low, medium, high, xhigh, max)
+  --fallback-model <model>              Enable automatic fallback to specified
+                                        model(s) when the default model is
+                                        overloaded or not available. Accepts a
+                                        comma-separated list to try each in
+                                        order. Re-tries the primary at the start
+                                        of each user turn.
   --input-format <format>               Input format (only works with --print):
                                         "text" (default), or "stream-json"
                                         (realtime streaming input) (choices:
                                         "text", "stream-json")
   --json-schema <schema>                JSON Schema for structured output
-                                        validation. Example:
+                                        validation (only works with --print).
+                                        Example:
                                         {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}
   --mcp-config <configs...>             Load MCP servers from JSON files or
                                         strings (space-separated)
@@ -108,19 +133,19 @@ Verbatim relevant lines from installed `claude --help`:
                                         shown).
   --restricted                          Restricted mode: removes the built-in
                                         tools that run commands or code (Bash,
-                                        PowerShell, REPL and the other
-                                        code-running tools) and WebFetch unless
-                                        --tools names them, and ignores user,
-                                        project and local settings files
-                                        (managed settings and --settings still
-                                        apply; add --strict-mcp-config to skip
-                                        MCP servers too). Also confines the file
-                                        tools to the working directories
-                                        (--add-dir included), refuses
-                                        bypassPermissions, and lets only a
-                                        person or the configured permission
-                                        handler approve writes to settings, git
-                                        and tool-configuration files.
+                                        PowerShell and the other code-running
+                                        tools) and WebFetch unless --tools names
+                                        them, and ignores user, project and
+                                        local settings files (managed settings
+                                        and --settings still apply; add
+                                        --strict-mcp-config to skip MCP servers
+                                        too). Also confines the file tools to
+                                        the working directories (--add-dir
+                                        included), refuses bypassPermissions,
+                                        and lets only a person or the configured
+                                        permission handler approve writes to
+                                        settings, git and tool-configuration
+                                        files.
   --safe-mode                           Start with all customizations
                                         (CLAUDE.md, skills, installed plugins,
                                         hooks, MCP servers, custom commands and
@@ -138,7 +163,9 @@ Verbatim relevant lines from installed `claude --help`:
                                         ignoring all other MCP configurations
   --tools <tools...>                    Specify the list of available tools from
                                         the built-in set. Use "" to disable all
-                                        tools, "default" to use all tools, or
-                                        specify tool names (e.g.
+                                        tools, "default" to use the default set,
+                                        or specify tool names (e.g.
                                         "Bash,Edit,Read").
+  --verbose                             Override verbose mode setting from
+                                        config
 ```
