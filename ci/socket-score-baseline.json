@@ -97,7 +97,7 @@
       "revalidateWhen": "Resource URL allowlisting or release distribution changes."
     },
     {
-      "package": "node-server",
+      "package": "@hono/node-server",
       "depth": "direct",
       "type": "networkAccess",
       "classification": "required-capability",
@@ -106,7 +106,7 @@
       "owner": "AIWG maintainers",
       "reviewedOn": "2026-10-25",
       "expiresOn": "2027-01-25",
-      "revalidateWhen": "node-server version changes (new artifact hash) or AIWG starts using the flagged capability differently.",
+      "revalidateWhen": "@hono/node-server version changes (new artifact hash) or AIWG starts using the flagged capability differently.",
       "reviewedVersion": "2.0.11",
       "evidenceFile": "package/dist/index.mjs"
     },

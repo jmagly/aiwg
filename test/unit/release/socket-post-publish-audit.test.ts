@@ -54,6 +54,19 @@ describe('Socket post-publish audit', () => {
     expect(result.findings.transitive[0].type).toBe('malware')
   })
 
+  it('matches scoped npm packages that Socket reports with a separate namespace', () => {
+    const scoped = { purl: 'pkg:npm/%40modelcontextprotocol/client@2.0.0', depth: 'transitive' }
+    const accepted = { ...baseline, reviewedCapabilityAlerts: [...baseline.reviewedCapabilityAlerts, {
+      package: '@modelcontextprotocol/client', depth: 'transitive', type: 'cve', classification: 'accepted-risk',
+      rationale: 'not reachable from AIWG', owner: 'maintainers', reviewedOn: '2026-08-01', expiresOn: '2026-12-01', reviewedVersion: '2.0.0'
+    }] }
+    const artifacts = [...rootsWith(), { inputPurl: scoped.purl, namespace: '@modelcontextprotocol', name: 'client', version: '2.0.0', alerts: [{ type: 'cve', severity: 'high', props: { cveId: 'CVE-2026-104850', ghsaId: 'GHSA-6qxp-vccf-f47h', url: 'https://github.com/advisories/GHSA-6qxp-vccf-f47h' } }] }]
+    const result = evaluateSocketArtifacts({ artifacts, baseline: accepted, components: [...roots, scoped], now: new Date('2026-08-14T00:00:00Z') })
+    expect(result.findings.transitive[0].package).toBe('@modelcontextprotocol/client')
+    expect(result.findings.blocking).toEqual([])
+    expect(result.status).toBe('pass')
+  })
+
   it('fails on material category regression', () => {
     const result = evaluateSocketArtifacts({ artifacts: rootsWith([], { ...scores, supplyChain: 0.46 }), baseline, components: roots, now: new Date('2026-08-14T00:00:00Z') })
     expect(result.status).toBe('fail')
