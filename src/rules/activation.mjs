@@ -98,22 +98,29 @@ export function coreBodyPath(ruleFile) {
   return ruleFile.replace(/\.md$/, '.core.md');
 }
 
+/** Normalize Markdown line endings before enforcing the canonical core-body budget. */
+function normalizeCoreBody(text) {
+  return text.replace(/\r\n?/g, '\n').trim();
+}
+
 /** Validate one core body's text. Returns error strings (empty when valid). */
 export function validateCoreBody(text, label = 'core body') {
   const errors = [];
-  const bytes = Buffer.byteLength(text, 'utf8');
-  if (!text.trim()) errors.push(`${label}: core body is empty`);
+  const body = normalizeCoreBody(text);
+  const bytes = Buffer.byteLength(body, 'utf8');
+  if (!body) errors.push(`${label}: core body is empty`);
   if (bytes > CORE_BODY_MAX_BYTES) errors.push(`${label}: core body is ${bytes} bytes; the per-body cap is ${CORE_BODY_MAX_BYTES} bytes`);
-  if (/^---\r?\n/.test(text)) errors.push(`${label}: core body must not carry frontmatter`);
-  if (AT_IMPORT.test(text)) errors.push(`${label}: core body must not contain an @ file reference/import; use a plain path or \`aiwg show rule <name>\``);
+  if (/^---\r?\n/.test(body)) errors.push(`${label}: core body must not carry frontmatter`);
+  if (AT_IMPORT.test(body)) errors.push(`${label}: core body must not contain an @ file reference/import; use a plain path or \`aiwg show rule <name>\``);
   return errors;
 }
 
 /** Validate the whole core set against the reserved budget. */
 export function validateCoreSet(bodies) {
-  const total = bodies.reduce((sum, item) => sum + Buffer.byteLength(item.text, 'utf8'), 0);
+  const measured = bodies.map(item => ({ name: item.name, bytes: Buffer.byteLength(normalizeCoreBody(item.text), 'utf8') }));
+  const total = measured.reduce((sum, item) => sum + item.bytes, 0);
   return total > CORE_TOTAL_MAX_BYTES
-    ? [`Core rules total ${total} bytes; the reserved core budget is ${CORE_TOTAL_MAX_BYTES} bytes (${bodies.map(item => `${item.name}: ${Buffer.byteLength(item.text, 'utf8')}`).join(', ')})`]
+    ? [`Core rules total ${total} bytes; the reserved core budget is ${CORE_TOTAL_MAX_BYTES} bytes (${measured.map(item => `${item.name}: ${item.bytes}`).join(', ')})`]
     : [];
 }
 
@@ -121,7 +128,7 @@ export function validateCoreSet(bodies) {
 export function readCoreBody(ruleFile) {
   const file = coreBodyPath(ruleFile);
   if (!existsSync(file)) throw new Error(`${ruleFile}: activation core requires a compact body file ${path.basename(file)}`);
-  const text = readFileSync(file, 'utf8').trim();
+  const text = normalizeCoreBody(readFileSync(file, 'utf8'));
   const errors = validateCoreBody(text, file);
   if (errors.length) throw new Error(errors.join('; '));
   return text;

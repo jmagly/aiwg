@@ -8,8 +8,9 @@ Core enforcement rules deployed with every AIWG installation. These rules apply 
 
 `no-attribution` (CRITICAL) and `anti-laziness` (HIGH) are owned by the
 aiwg-utils addon with `activation: core`. Every deploy mode includes their
-compact sibling `.core.md` bodies: at most 1024 bytes per body and 6144 bytes
-for the complete set. Full rules remain available through `aiwg show rule
+compact sibling `.core.md` bodies: at most 1024 UTF-8 bytes per body and 6144
+bytes for the complete set, measured after converting CRLF or CR line endings
+to LF and trimming surrounding whitespace. Full rules remain available through `aiwg show rule
 no-attribution` and `aiwg show rule anti-laziness`, without startup imports.
 
 Claude receives `.claude/rules/core-no-attribution.md`; Cursor receives

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, readFileSync, existsSync, readdirSync, mkdirSync, 
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { measureDeployedCoreRules } from '../../../src/rules/activation.mjs';
+import { CORE_BODY_MAX_BYTES, measureDeployedCoreRules, readCoreBody } from '../../../src/rules/activation.mjs';
 
 // Core rule class (#3450): compact bodies always injected into every harness.
 const repo = resolve(__dirname, '../../..');
@@ -11,9 +11,10 @@ const fixture = join(repo, 'test/fixtures/rule-delivery');
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach(root => rmSync(root, { recursive: true, force: true })));
 const walk = (dir: string): string[] => existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]) : [];
-const CORE = readFileSync(join(repo, 'agentic/code/addons/aiwg-utils/rules/anti-laziness.core.md'), 'utf8').trim();
+const RULES = join(repo, 'agentic/code/addons/aiwg-utils/rules');
+const CORE = readCoreBody(join(RULES, 'anti-laziness.md'));
 const MARKER = '# Core: Anti-Laziness';
-const NO_ATTRIBUTION = readFileSync(join(repo, 'agentic/code/addons/aiwg-utils/rules/no-attribution.core.md'), 'utf8').trim();
+const NO_ATTRIBUTION = readCoreBody(join(RULES, 'no-attribution.md'));
 const PROVIDER_FILES: Record<string, string[]> = {
   claude: ['.claude/rules/core-anti-laziness.md'],
   cursor: ['.cursor/rules/core-anti-laziness.mdc'],
@@ -73,6 +74,7 @@ describe('core rule delivery (#3450)', () => {
       const measured = measureDeployedCoreRules(provider === 'openclaw' ? join(root, 'home/.openclaw/workspace') : join(root, 'target'), provider);
       expect(measured.bodies.map(body => body.name).join(' ')).toContain('anti-laziness');
       expect(measured.bodies.map(body => body.name).join(' ')).toContain('no-attribution');
+      expect(measured.bodies.every(body => body.bytes <= CORE_BODY_MAX_BYTES)).toBe(true);
       expect(measured.bytes).toBeLessThanOrEqual(measured.limit);
     }, 120_000);
   }
