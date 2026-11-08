@@ -4,7 +4,7 @@ Applied-security enforcement rules for cryptographic primitive choices, chain-of
 
 ---
 
-## Tier 1 Rules (12 rules — applied cryptography, supply chain, language policy)
+## Tier 1 Rules (13 rules — applied cryptography, supply chain, language policy)
 
 ### HIGH
 
@@ -72,6 +72,13 @@ Applied-security enforcement rules for cryptographic primitive choices, chain-of
 
 ---
 
+## Host publishing
+
+### published-port-binding
+**Summary**: Require explicit bind addresses for Compose and docker run published ports; review wildcard exposure and both firewall families.
+**When to apply**: Changes to Compose ports, docker run publish options, or host-hardening reviews.
+**Full rule**: @$AIWG_ROOT/agentic/code/frameworks/security-engineering/rules/published-port-binding.md
+
 ## Quick Reference by Context
 
 | Task Type | Relevant Rules |
@@ -95,5 +102,5 @@ Future Tier 2 rules will cover authentication-factor architecture, degraded-mode
 
 ---
 
-*Generated from security-engineering framework — 12 rules in Tier 1*
+*Generated from security-engineering framework — 13 rules in Tier 1*
 *Full rule files: @$AIWG_ROOT/agentic/code/frameworks/security-engineering/rules/*

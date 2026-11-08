@@ -1,0 +1,6 @@
+Netid State Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+tcp LISTEN 0 4096 0.0.0.0:6379 0.0.0.0:* users:(("docker-proxy",pid=100,fd=4))
+tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=101,fd=3))
+tcp LISTEN 0 128 [::]:22 [::]:* users:(("sshd",pid=101,fd=4))
+tcp LISTEN 0 128 127.0.0.1:9090 0.0.0.0:* users:(("exporter",pid=102,fd=3))
+udp UNCONN 0 0 10.8.0.2:51820 0.0.0.0:* users:(("vpn",pid=103,fd=3))

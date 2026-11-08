@@ -14,6 +14,29 @@
     "templates": "templates",
     "rules": "rules"
   },
+  "skills": [
+    "cloud-forensics",
+    "container-forensics",
+    "evidence-preservation",
+    "exposure-analysis",
+    "forensics-acquire",
+    "forensics-hunt",
+    "forensics-investigate",
+    "forensics-ioc",
+    "forensics-profile",
+    "forensics-quickref",
+    "forensics-report",
+    "forensics-status",
+    "forensics-timeline",
+    "forensics-triage",
+    "ioc-extraction",
+    "linux-forensics",
+    "log-analysis",
+    "memory-forensics",
+    "sigma-hunting",
+    "supply-chain-forensics",
+    "target-profiling"
+  ],
   "workspace": {
     "subdirs": [
       "profiles",
@@ -40,7 +63,7 @@
     "last_updated": "2026-02-27",
     "total_agents": 13,
     "total_commands": 0,
-    "total_skills": 20,
+    "total_skills": 21,
     "total_rules": 4,
     "status": "active"
   },

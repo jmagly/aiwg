@@ -50,6 +50,8 @@ This is **not** a vulnerability scanner or pen-test framework. It is a thinking-
 | **Physical threats** | Threats STRIDE and OWASP Top 10 don't cover |
 | **DFIR readiness** | Preparing evidence handling, custody expectations, and handoff to forensics-complete |
 
+| **Host hardening** | Read-only host baseline, lockout-safe remediation plans and static published-port binds |
+
 ## Curated discovery phrases
 
 ### Cryptographic primitives
@@ -125,6 +127,23 @@ aiwg discover "incident response evidence"     # → dfir-readiness or forensics
 aiwg discover "chain of custody readiness"     # → dfir-readiness
 ```
 
+### Host hardening and firewall exposure
+
+```bash
+aiwg discover "system hardening"              # → host-hardening
+aiwg discover "firewall analysis"             # → forensics exposure-analysis
+aiwg discover "docker published ports"        # → exposure-analysis / published-port-binding
+```
+
+`host-hardening` reviews SSH key/console access, persistent default-deny,
+Docker/VPN ordering, datastore ACLs, exporter targets and audit retention.
+It produces dated backup requirements, diff-style plans and named health
+rechecks; it never applies host changes, even with an apply request. The static
+checker flags missing Compose/docker run bind addresses. `published-port-binding`
+governs repository changes. For post-deploy/monthly checks, consume fresh
+sanitized captures and alert on FAIL or UNKNOWN summaries through existing
+operator scheduling. `exposure-analysis` owns actual firewall reconstruction.
+
 ## Anti-patterns each skill rejects
 
 | Skill | Anti-patterns it identifies |
@@ -166,6 +185,7 @@ This framework ships 4 applied-cryptography rules into the rules index:
 - `no-key-reuse-across-purposes`
 - `no-adhoc-kdf`
 - `crypto-flag-verification`
+- `published-port-binding` — explicit Docker publish binds and exposure review
 
 These deploy via the standard rules-index pipeline.
 

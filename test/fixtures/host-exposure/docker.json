@@ -1,0 +1,13 @@
+[
+  {
+    "Name": "/queue",
+    "HostConfig": {
+      "NetworkMode": "bridge",
+      "PortBindings": { "6379/tcp": [{ "HostIp": "", "HostPort": "6379" }] }
+    },
+    "NetworkSettings": {
+      "Ports": { "6379/tcp": [{ "HostIp": "0.0.0.0", "HostPort": "6379" }] },
+      "Networks": { "bridge": { "IPAddress": "172.18.0.2", "GlobalIPv6Address": "" } }
+    }
+  }
+]

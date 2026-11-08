@@ -1,0 +1,11 @@
+services:
+  queue:
+    ports:
+      - "6379:6379"
+      - target: 9121
+        published: "9121"
+      - "127.0.0.1:6380:6379"
+      - "[::1]:6381:6379"
+      - target: 9122
+        published: "9122"
+        host_ip: 10.8.0.2
