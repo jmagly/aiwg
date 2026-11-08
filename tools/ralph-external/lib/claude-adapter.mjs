@@ -13,12 +13,12 @@ import { homedir } from 'os';
 import { ProviderAdapter, registerProvider } from './provider-adapter.mjs';
 import { classifyWorkerHealthFailure, healthEventMatchesBinding } from './worker-health.mjs';
 
-/** Help-only evidence: /home/roctinam/.local/bin/claude 2.1.295, 2026-10-09.
+/** Help-only evidence: /home/roctinam/.local/bin/claude 2.1.319, 2026-11-07.
  * Exact help excerpts and unavailable controls: docs/providers/claude-direct.md.
  * No inference or credential inspection was performed to establish this syntax.
  */
 export const interfaceVersion = 1;
-export const CLAUDE_SUPPORTED_VERSIONS = Object.freeze(['2.1.295']);
+export const CLAUDE_SUPPORTED_VERSIONS = Object.freeze(['>=2.1.295 <2.2.0']);
 export const CLAUDE_DIRECT_EFFORT_VALUES = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max']);
 // Named aliases --help documents (opus/sonnet/fable) plus other known moving
 // pointers: 'default', 'haiku', and the Max-plan 'opusplan' alias. None of

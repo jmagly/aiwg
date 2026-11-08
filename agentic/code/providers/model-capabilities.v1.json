@@ -256,7 +256,7 @@
         "id": "claude-direct",
         "provider": "claude",
         "adapterVersion": "1",
-        "supportedVersions": "2.1.295",
+        "supportedVersions": ">=2.1.295 <2.2.0",
         "runtimeDriver": "installed:claude",
         "catalogAdapter": {
           "kind": "file",
@@ -329,67 +329,67 @@
         "invocationProfiles": {
           "direct-shell": {
             "transport": "shell",
-            "supportedVersions": "2.1.295",
+            "supportedVersions": ">=2.1.295 <2.2.0",
             "controls": {
               "model": {
                 "support": "unqualified",
                 "mapping": "--model ${model}; moving aliases denied",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); --model <model>                       Model for the current session. Provide; full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); --model <model>                       Model for the current session. Provide; full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "effort": {
                 "support": "unqualified",
                 "mapping": "--effort ${effort}; explicit low/medium/high/xhigh/max",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); --effort <level>                      Effort level for the current session (low, medium, high, xhigh, max); full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); --effort <level>                      Effort level for the current session (low, medium, high, xhigh, max); full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "sandbox": {
                 "support": "unqualified",
                 "mapping": "partial: --restricted confines whitelisted file tools, scoped by --tools/--allowedTools (workspace-write: Read,Glob,Grep,Edit,Write; read-only: Read,Glob,Grep); OS sandbox unavailable in CLI, external boundary required",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); --restricted                          Restricted mode: removes the built-in tools that run commands or code; full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); --restricted                          Restricted mode: removes the built-in tools that run commands or code; full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "approval": {
                 "support": "unqualified",
                 "mapping": "--permission-mode dontAsk --permission-prompts none; prompting and bypass modes denied",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); --permission-prompts <target>         Who answers permission prompts with --print: \"host\" (the SDK host or --permission-prompt-tool) or \"none\" (nobody: anything that would prompt is denied automatically; the permission mode still decides everything else); full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); --permission-prompts <target>         Who answers permission prompts with --print: \"host\" (the SDK host or --permission-prompt-tool) or \"none\" (nobody: anything that would prompt is denied automatically; the permission mode still decides everything else); full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "workdir": {
                 "support": "unqualified",
                 "mapping": "spawn cwd from conductor; no invented --cwd flag",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); Usage: claude [options] [command] [prompt]; no workspace switch is emitted; full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); Usage: claude [options] [command] [prompt]; no workspace switch is emitted; full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "finalOutput": {
                 "support": "unqualified",
                 "mapping": "parse exactly one success result envelope from stdout; result JSON text or structured_output; exit-zero error fails",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); --output-format <format>              Output format (only works with --print): \"text\" (default), \"json\" (single result), or \"stream-json\" (realtime streaming); full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); --output-format <format>              Output format (only works with --print): \"text\" (default), \"json\" (single result), or \"stream-json\" (realtime streaming); full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "stdin": {
                 "support": "unqualified",
                 "mapping": "--input-format text; brief-text on stdin through EOF; never prompt argv",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); --input-format <format>               Input format (only works with --print): \"text\" (default), or \"stream-json\"; full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); --input-format <format>               Input format (only works with --print): \"text\" (default), or \"stream-json\"; full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "structuredOutput": {
                 "support": "unqualified",
                 "mapping": "unavailable in current renderer: CLI --json-schema exists but schema input is not passed to this driver",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); --json-schema <schema>                JSON Schema for structured output validation.; full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); --json-schema <schema>                JSON Schema for structured output validation (only works with --print).; full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "stepCap": {
                 "support": "unqualified",
                 "mapping": "unavailable: --max-turns is not listed by installed help; never emitted",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); No --max-turns line appears in claude 2.1.295 --help; full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); No --max-turns line appears in claude 2.1.319 --help or -p --help; full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "trust": {
                 "support": "unqualified",
                 "mapping": "--print --safe-mode --restricted --setting-sources \"\" --strict-mcp-config --mcp-config {\"mcpServers\":{}}; inherited customization disabled",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); --safe-mode                           Start with all customizations (CLAUDE.md, skills, installed plugins, hooks, MCP servers, custom commands and agents, output styles, workflows, custom themes, keybindings, and more) disabled; full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); --safe-mode                           Start with all customizations (CLAUDE.md, skills, installed plugins, hooks, MCP servers, custom commands and agents, output styles, workflows, custom themes, keybindings, and more) disabled; full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "children": {
                 "support": "unqualified",
                 "mapping": "--tools/--allowedTools Read,Glob,Grep,Edit,Write (workspace-write) or Read,Glob,Grep (read-only) --disallowedTools Agent,Task,Bash,PowerShell,REPL,WebFetch; no child/command tool or external MCP",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); --tools <tools...>                    Specify the list of available tools from the built-in set.; full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); --tools <tools...>                    Specify the list of available tools from the built-in set.; full verbatim excerpts: docs/providers/claude-direct.md"
               },
               "fallback": {
                 "support": "unqualified",
                 "mapping": "exact model; --safe-mode; never emit --fallback-model; model substitutions do not qualify the profile",
-                "evidence": "H: claude 2.1.295 --help (2026-10-09); --fallback-model <model>              Enable automatic fallback to specified model(s) when the default model is overloaded or not available.; full verbatim excerpts: docs/providers/claude-direct.md"
+                "evidence": "H: claude 2.1.319 --help and -p --help (2026-11-07); --fallback-model <model>              Enable automatic fallback to specified model(s) when the default model is overloaded or not available.; full verbatim excerpts: docs/providers/claude-direct.md"
               }
             },
             "envAllowlist": [
@@ -403,6 +403,7 @@
               "Final output is the captured .stdout JSONL stream, not a CLI-created finalPath file. Normalize with ClaudeAdapter.parseWorkerFinal before verification.",
               "Unavailable: renderer schema input, help-evidenced turn cap, native MCP reasoning worker. claude mcp serve exposes only debug/help/verbose and is a code-tools server.",
               "Commands, Agent/Task, inherited MCP, hooks, plugins and skills are disabled in this restricted file-tools profile.",
+              "Version policy: >=2.1.295 <2.2.0 preserves the earlier help-verified baseline and accepts compatible 2.1 patch updates; 2.1.319 help was rechecked on titan on 2026-11-07. Range/resolver tests cover 2.1.317 and 2.1.319 synthetically, not live inference. Older versions, prereleases and 2.2+ remain blocked.",
               "Bare mode is not used: installed help states it changes auth to API-key-only. No account or credential files were inspected."
             ],
             "health": {
@@ -429,8 +430,8 @@
                 {
                   "kind": "help",
                   "ref": "docs/providers/claude-direct.md",
-                  "observedAt": "2026-10-09T00:00:00Z",
-                  "cliVersion": "2.1.295"
+                  "observedAt": "2026-11-08T01:49:23Z",
+                  "cliVersion": "2.1.319"
                 },
                 {
                   "kind": "repository",
