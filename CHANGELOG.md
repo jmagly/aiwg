@@ -7,6 +7,36 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.3] - 2026-11-08
+
+### Added
+
+- Milestone delivery mode for `address-issues`. Ask for `--milestone <name> --dispatch workers` to triage the milestone, give workers bounded tasks, independently verify their changes, and follow the repository's delivery, issue closure and post-merge CI policy. Worker-brief and verification-checklist templates keep acceptance checks explicit. `--dry-run` previews the plan without launching workers or changing the repository or tracker (#3916, PR #3989).
+
+- Read-only firewall exposure analysis and host hardening assessment skills. They relate listeners, Docker published ports and firewall captures, flag missing port bind addresses, and report findings and recommendations without changing host rules or services. Incomplete or unsupported evidence stays unknown instead of proving a port closed (#3884, PR #3990).
+
+- Jev runtime credentials can use a `decision.jev.credential` OpenBao reference resolved at call time over verified HTTPS, with AppRole IDs in the native secret store and the session token kept in memory. Environment credentials take precedence, followed by the reference and then the existing file. An unavailable reference returns `credential-unavailable`; doctor reports the source and path without the value (#3871, PR #3983).
+
+- Factory/droid deployment and doctor now explain when project hooks need folder trust or a git repository with at least one commit. The checks are read-only and leave granting trust and creating commits to the user (#3976, PR #3984).
+
+### Changed
+
+- Planning cards and examples, intake options, regression and research gap reports, investigation plans, and media-marketing-kit templates now ask for scope, roles, passes, prerequisites and acceptance gates in place of time and effort estimates. Fields recording observed chronology or operator commitments remain (#3957, PR #3982).
+
+- This repository's context now explains that local artifact mode keeps payload in `.aiwg`, while `.aiwg-location` and `AIWG_ARTIFACTS_PATH` select an external root. Cached model observation context was also refreshed (PR #3980).
+
+### Fixed
+
+- `aiwg dataset status` rejects a missing run ID before looking up a run, instead of looking up `undefined` and returning `DATASET_RUN_NOT_FOUND`. The guide now shows `status <run-id>` (#3815, PR #3992).
+
+- `aiwg use` validates `--provider` and `--platform` before initializing configuration, so comma lists and unknown providers no longer leave an invalid provider entry behind. Comma-list errors point to `--providers`; project-local adapters are still supported (#3958, PR #3981).
+
+- The Claude direct-worker profile accepts CLI versions `>=2.1.295 <2.2.0` at both version checks, so a patch update such as 2.1.319 no longer fails the exact 2.1.295 pin (#3845, PR #3988).
+
+- The Socket audit baseline now records the review of the already-shipped glob 14.0.2 artifact, so its expected filesystem access and bundled in-memory cache calls no longer fail the post-publication audit against an older 13.0.6 review. Dependency versions are unchanged (#3979, PR #3985).
+
+- Test reliability: add an offline discovery-bootstrap and refresh audit across all 18 named harnesses, with a documented capability matrix and remaining gaps, and record runner headroom before coverage checks to help diagnose load-related failures (#3935, #3977, PR #3991, PR #3987).
+
 ## [2026.11.2] - 2026-11-07
 
 ### Added

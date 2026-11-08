@@ -193,6 +193,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.11.3-announcement",
     "releases/v2026.11.2-announcement",
     "releases/v2026.11.1-announcement",
     "releases/v2026.11.0-announcement",
@@ -1653,6 +1654,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.11.3-announcement",
+      "title": "v2026.11.3 — Plan Milestone Work and Review Host Exposure",
+      "summary": "Milestone issue delivery with a dry-run preview, read-only host exposure and hardening reviews, Factory hook guidance, and scope-focused planning templates.",
+      "file": "releases/v2026.11.3-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.11.2-announcement",
