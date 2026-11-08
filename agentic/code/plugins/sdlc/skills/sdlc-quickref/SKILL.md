@@ -72,7 +72,14 @@ aiwg discover "concept to inception"           # → flow-concept-to-inception
 
 ### Continuous workflows
 
+For a milestone of bounded issues, load `address-issues` and follow
+`--milestone <name> --dispatch workers [--dry-run]`. This is the first route for
+"get the engineering track going"; Delivery Track is for a full iteration.
+
 ```bash
+aiwg discover "work through this milestone with workers" # → address-issues (first; milestone mode)
+aiwg discover "work this milestone"            # → address-issues (milestone mode)
+aiwg discover "get the engineering track going" # → address-issues (milestone mode)
 aiwg discover "risk management cycle"          # → flow-risk-management-cycle (score 0.93)
 aiwg discover "execute test strategy"          # → flow-test-strategy-execution
 aiwg discover "performance optimization cycle" # → flow-performance-optimization

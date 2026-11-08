@@ -3,6 +3,7 @@ activation: summary
 summary: Choose the smallest SDLC workflow and artifact set justified by the change; reserve intake and phase ceremony for work whose scope warrants them.
 bound_to:
   skills:
+    - address-issues
     - flow-architecture-evolution
     - flow-change-control
     - flow-compliance-validation
@@ -110,6 +111,7 @@ For any work, ask: "what's the minimum that captures the decision and enables re
 |---|---|
 | Bug fix, small enhancement, docs typo, dependency bump | Commit. Maybe an issue. No ADR unless the fix encodes a non-obvious design choice. |
 | Small feature (single component, well-bounded) | Issue. ADR only if a non-trivial design decision is made. No intake. No phase gates. |
+| Milestone containing bounded engineering issues | `address-issues --milestone <name> --dispatch workers`; triage, briefs, independent checks, policy delivery and post-merge CI. |
 | Medium feature (cross-component, new public surface, security implications) | Issue. ADR. Plan document if helpful. Lightweight option matrix if multiple paths considered. Intake is optional, not default. |
 | Large feature / new addon / new framework / new track | Intake + ADR. Plan document. Use cases for the user-facing surface. Phase-gate discipline. |
 | Refactor crossing module boundaries / architectural shift | Full SDLC: intake + Inception phase + SAD + ADRs + phase gates. |
@@ -170,6 +172,13 @@ Resist the urge to convert every issue into an intake form. Issues are lower-fri
 
 ### Rule 6: Right-size BEFORE launching flows
 
+For "work through this milestone with workers", "work this milestone", or
+"get the engineering track going", prefer the **address-issues milestone mode**.
+Load `aiwg show skill address-issues --body`; use `--dry-run` for a triage and
+dispatch preview. Reserve Delivery Track for a requested full iteration with
+quality gates and iteration assessment. A handful of bounded issues needs the
+milestone loop; it does not by itself trigger intake or phase ceremony.
+
 Before invoking any SDLC flow command (`flow-inception-to-elaboration`, `flow-architecture-evolution`, etc.):
 
 1. Identify the actual change shape (Rule 1 table)
@@ -183,6 +192,7 @@ The `sdlc-orchestration` rule layers this step in explicitly.
 | User says | Interpret as |
 |---|---|
 | "fix this", "small change", "quick X", "just make it work" | Lightweight; commit + maybe issue |
+| "work this milestone", "get the engineering track going" | Address-issues milestone mode; workers within caps, then independent verification and CI |
 | "add feature X" without scope qualifier | Medium-default; one focused question if scope unclear |
 | "let's plan a new addon / framework / track" | Intake-worthy if substantial |
 | "start an intake for X" | Explicit invocation — do intake |

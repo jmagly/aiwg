@@ -43,6 +43,7 @@ const PLUGIN_CONFIGS = {
     },
     extraCopy: [
       { from: 'agentic/code/frameworks/sdlc-complete/templates/issue-comments', to: 'templates/issue-comments' },
+      ...['milestone-worker-brief.md', 'verification-oracle-checklist.md'].map(name => ({ from: `agentic/code/frameworks/sdlc-complete/templates/management/${name}`, to: `templates/management/${name}` })),
       ...['threat-assessment.mjs', 'threat-assessment'].map(name => ({ from: `tools/security/${name}`, to: `tools/security/${name}` })),
       { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-architecture-evolution.playbook.yaml', to: 'flows/flow-architecture-evolution.playbook.yaml' },
       { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-release.playbook.yaml', to: 'flows/flow-release.playbook.yaml' }
@@ -301,6 +302,7 @@ Core AIWG utilities for context regeneration and workspace management.
     },
     extraCopy: [
       { from: 'agentic/code/frameworks/sdlc-complete/templates/issue-comments', to: 'templates/issue-comments' },
+      ...['milestone-worker-brief.md', 'verification-oracle-checklist.md'].map(name => ({ from: `agentic/code/frameworks/sdlc-complete/templates/management/${name}`, to: `templates/management/${name}` })),
       { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-architecture-evolution.playbook.yaml', to: 'flows/flow-architecture-evolution.playbook.yaml' },
       { from: 'agentic/code/frameworks/sdlc-complete/flows/flow-release.playbook.yaml', to: 'flows/flow-release.playbook.yaml' }
     ],
