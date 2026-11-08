@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { parse } from 'yaml';
 import { collectHeadroom, formatHeadroom } from '../../../tools/ci/runner-headroom.mjs';
 
 describe('tools/ci/runner-headroom.mjs (#2553)', () => {
@@ -41,5 +43,17 @@ describe('tools/ci/runner-headroom.mjs (#2553)', () => {
       '  disk free                 1.00 GiB',
       '  inotify max_user_watches  8192',
     ]);
+  });
+});
+
+describe('CI Test job headroom placement (#3977)', () => {
+  it('records headroom before measured coverage and keeps the later step before the watcher tests', () => {
+    const workflow = parse(readFileSync('.gitea/workflows/ci.yml', 'utf8'));
+    const steps: Array<{ name?: string; run?: string }> = workflow.jobs.test.steps;
+    const headroom = steps.flatMap((step, index) => (step.run === 'node tools/ci/runner-headroom.mjs .' ? [index] : []));
+    const coverage = steps.findIndex(step => step.name === 'Enforce measured testing-quality and audit-foundation coverage');
+    expect(coverage).toBeGreaterThan(0);
+    expect(headroom.some(index => index < coverage)).toBe(true);
+    expect(headroom.some(index => index > coverage)).toBe(true);
   });
 });

@@ -134,6 +134,11 @@ jobs:
         # vendor profile and missing qualification cannot be reported as a pass.
         run: npm run lint:orchestration-packs
 
+      - name: Record runner headroom before coverage (#3977)
+        # Coverage spawns real fixture CLIs; record shared-host load before it can fail (#3866).
+        # Read-only; never fails. The later headroom step before the watcher test stays.
+        run: node tools/ci/runner-headroom.mjs .
+
       - name: Enforce measured testing-quality and audit-foundation coverage
         run: npm run test:coverage:testing-quality && npm run test:coverage:audit-foundations && npm run test:coverage:enforcement && npm run test:coverage:orchestration-changed
 
