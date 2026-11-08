@@ -58,6 +58,8 @@ export const deploymentFiles = [
   'test/integration/bundle-reconciliation-cli.test.ts',
   // Spawns real `aiwg refresh` runs per provider; too slow for the parallel default lane (#3898 tests).
   'test/integration/refresh-managed-deployment.test.ts',
+  // Offline #3935 inventory: built CLI deploy/refresh across the 18 harnesses.
+  'test/integration/harness-bootstrap-audit.test.ts',
 ];
 // CI splits the serial deployment lane into two hand-balanced shards so each
 // fits its time limit on slower shared runners. Each shard is still serial.
@@ -73,6 +75,7 @@ export const deploymentShards = [
     'test/integration/flue-deployment.test.ts',
     'test/integration/remove-deployment.test.ts',
     'test/integration/use-all-deployment.test.ts',
+    'test/integration/harness-bootstrap-audit.test.ts',
   ],
 ];
 // Exhaustive provider deployment matrices run before releases, while focused
