@@ -105,8 +105,14 @@ function artifactPurl(artifact) {
   return artifact.inputPurl ?? artifact.purl ?? (artifact.name && artifact.version ? npmPurl(artifact.name, artifact.version) : '')
 }
 
+// Socket returns npm scopes in a separate namespace field; keep the full scoped name so
+// baseline entries such as @modelcontextprotocol/client and @aiwg/cli can match.
 function packageName(artifact) {
-  return artifact.name ?? artifactPurl(artifact).replace(/^pkg:npm\//, '').replace(/@[^@/]+$/, '')
+  if (artifact.name) {
+    const scope = typeof artifact.namespace === 'string' && artifact.namespace ? artifact.namespace : ''
+    return scope ? `${scope.startsWith('@') ? scope : `@${scope}`}/${artifact.name}` : artifact.name
+  }
+  return decodeURIComponent(artifactPurl(artifact).replace(/^pkg:npm\//, '').replace(/@[^@/]+$/, ''))
 }
 
 // Socket sends empty strings for absent identifiers (for example cveId: "" on a
