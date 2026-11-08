@@ -234,6 +234,32 @@
       "revalidateWhen": "@fortemi/core publishes a zod 4 release, or AIWG starts passing untrusted input into Fortemi tool schemas.",
       "reviewedVersion": "3.25.76",
       "issue": "roctinam/aiwg#3577"
+    },
+    {
+      "package": "@modelcontextprotocol/client",
+      "depth": "transitive",
+      "type": "cve",
+      "classification": "accepted-risk",
+      "rationale": "CVE-2026-104850 / GHSA-6qxp-vccf-f47h (OAuth issuer binding) in @modelcontextprotocol/client 2.0.0, reached only through the @aiwg/flue peer @flue/runtime 2.3.0, which pins the client exactly. AIWG uses no MCP OAuth client (no authProvider, withOAuth, auth() or fetchToken()); the root @modelcontextprotocol/sdk resolves to a patched release. Waiting on a Flue runtime on client >= 2.2.0. Operator decision 2026-11-08.",
+      "owner": "AIWG maintainers",
+      "reviewedOn": "2026-11-08",
+      "expiresOn": "2027-01-07",
+      "revalidateWhen": "@flue/runtime publishes a release depending on @modelcontextprotocol/client >= 2.2.0, or AIWG starts using an MCP OAuth client.",
+      "reviewedVersion": "2.0.0",
+      "issue": "roctinam/aiwg#3809"
+    },
+    {
+      "package": "tslib",
+      "depth": "transitive",
+      "type": "unstableOwnership",
+      "classification": "accepted-risk",
+      "rationale": "Socket unstableOwnership flag on tslib 2.9.1 (published 2026-10-30 by microsoft1es, a listed maintainer), reached through @flue/runtime -> @earendil-works/pi-ai -> AWS SDK. Publisher is a known Microsoft account; no code or capability finding. Operator decision 2026-11-08.",
+      "owner": "AIWG maintainers",
+      "reviewedOn": "2026-11-08",
+      "expiresOn": "2027-01-07",
+      "revalidateWhen": "tslib publishes a new version, its maintainer list changes, or Socket reports a code or capability finding for it.",
+      "reviewedVersion": "2.9.1",
+      "issue": "roctinam/aiwg#3809"
     }
   ],
   "firstPartyPackages": [
