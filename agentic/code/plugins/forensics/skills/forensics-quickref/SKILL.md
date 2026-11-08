@@ -46,6 +46,8 @@ Digital forensics & incident response. RFC 3227-aligned triage, multi-source tim
 | **Threat hunting** | Sigma rule application across log sources |
 | **Reporting** | Investigation reports with evidence, timeline reconstruction |
 
+| **Host exposure** | Listener/firewall/Docker correlation, stale and over-broad rules, IPv6 and probe allowlists |
+
 ## Curated discovery phrases
 
 ### Triage & acquisition
@@ -66,6 +68,21 @@ aiwg discover "cloud forensics"                # → cloud-forensics (score 0.63
 aiwg discover "container forensics"            # → container-forensics
 aiwg discover "supply chain compromise"        # → supply-chain-forensics
 ```
+
+### Host exposure reconstruction
+
+```bash
+aiwg discover "firewall analysis"              # → exposure-analysis
+aiwg discover "docker published ports"         # → exposure-analysis
+```
+
+`exposure-analysis` is read-only. It correlates listeners, ordered host firewall
+rules, Docker DNAT/FORWARD paths, IPv4/IPv6 and probe-source allowlists. The
+bundled offline helper consumes sanitized captures and emits evidence hashes
+plus PASS/FAIL/UNKNOWN summaries for post-deploy and monthly operator checks.
+Unsupported native firewall semantics require manual review. Route preventive
+baseline and remediation recommendations to `security-engineering/host-hardening`;
+neither skill changes host firewall rules or services.
 
 ### Investigation orchestration
 

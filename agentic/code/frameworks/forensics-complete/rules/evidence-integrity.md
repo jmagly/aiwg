@@ -20,6 +20,7 @@ bound_to:
   skills:
     - cloud-forensics
     - container-forensics
+    - exposure-analysis
     - evidence-preservation
     - forensics-acquire
     - forensics-hunt

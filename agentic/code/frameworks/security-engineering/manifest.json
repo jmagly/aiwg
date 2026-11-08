@@ -15,6 +15,36 @@
     "templates": "templates",
     "rules": "rules"
   },
+  "skills": [
+    "auth-factor-design",
+    "banned-api-audit",
+    "binary-blob-audit",
+    "bun-release-age-gate",
+    "cargo-supply-chain-audit",
+    "chain-of-trust-design",
+    "ci-workflow-audit",
+    "committer-2fa-audit",
+    "confusable-unicode-audit",
+    "crypto-primitive-selection",
+    "degraded-mode-design",
+    "deprecation-policy",
+    "dfir-readiness",
+    "fuzzing-in-ci",
+    "host-hardening",
+    "npm-release-age-gate",
+    "npm-supply-chain-audit",
+    "physical-threat-modeling",
+    "pnpm-release-age-gate",
+    "sanitizer-in-ci",
+    "secret-handling-runtime",
+    "security-disclosure-track",
+    "security-engineering-quickref",
+    "security-report",
+    "strict-toolchain-audit",
+    "supply-chain-hardening-quickstart",
+    "supply-chain-trust",
+    "yarn-release-age-gate"
+  ],
   "workspace": {
     "subdirs": [
       "decisions",
@@ -44,8 +74,8 @@
     "last_updated": "2026-05-23",
     "total_agents": 0,
     "total_commands": 0,
-    "total_skills": 23,
-    "total_rules": 12,
+    "total_skills": 28,
+    "total_rules": 13,
     "status": "active"
   },
   "memory": {

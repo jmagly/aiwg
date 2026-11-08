@@ -1,0 +1,20 @@
+*nat
+:PREROUTING ACCEPT [0:0]
+:DOCKER - [0:0]
+-A PREROUTING -m addrtype --dst-type LOCAL -j DOCKER
+-A DOCKER -p tcp --dport 6379 -j DNAT --to-destination 172.18.0.2:6379
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:DOCKER - [0:0]
+:DOCKER-USER - [0:0]
+-A INPUT -p tcp --dport 6379 -j DROP
+-A INPUT -p tcp --dport 5432 -j ACCEPT
+-A INPUT -s 192.0.2.0/24 -j ACCEPT
+-A INPUT -p tcp --dport 22 -j ACCEPT
+-A INPUT -p tcp --dport 22 -j DROP
+-A FORWARD -j DOCKER-USER
+-A FORWARD -j DOCKER
+-A DOCKER -d 172.18.0.2/32 -p tcp --dport 6379 -j ACCEPT
+COMMIT

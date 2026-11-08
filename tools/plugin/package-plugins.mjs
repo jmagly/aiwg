@@ -338,6 +338,8 @@ Then install in Codex via the \`/plugins\` command or the repo marketplace.
       agents: 'agentic/code/frameworks/forensics-complete/agents',
       skills: 'agentic/code/frameworks/forensics-complete/skills'
     },
+    extraCopy: ['evidence-integrity', 'non-destructive'].map(name =>
+      ({ from: `agentic/code/frameworks/forensics-complete/rules/${name}.md`, to: `rules/${name}.md` })),
     readme: `# AIWG Forensics Complete
 
 Digital forensics and incident response framework with 14 specialized agents.
@@ -382,7 +384,8 @@ Digital forensics and incident response framework with 14 specialized agents.
       skills: 'agentic/code/frameworks/security-engineering/skills'
     },
     extraCopy: [
-      { from: 'agentic/code/frameworks/security-engineering/rules/ci-action-pinning.md', to: 'rules/ci-action-pinning.md' }
+      { from: 'agentic/code/frameworks/security-engineering/rules/ci-action-pinning.md', to: 'rules/ci-action-pinning.md' },
+      { from: 'agentic/code/frameworks/security-engineering/rules/published-port-binding.md', to: 'rules/published-port-binding.md' }
     ],
     readme: `# AIWG Security Engineering
 

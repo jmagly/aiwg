@@ -1,0 +1,4 @@
+Status: active
+6379/tcp DENY IN Anywhere
+5432/tcp ALLOW IN Anywhere
+Anywhere ALLOW IN 192.0.2.0/24
