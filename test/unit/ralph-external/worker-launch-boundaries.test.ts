@@ -1,4 +1,5 @@
 // Exercise pre-spawn ownership, publication and signal authority boundaries.
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 import { workerInvocationFixture } from '../../fixtures/worker-single-invocation.js';
 import { spawn, spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
@@ -17,6 +18,8 @@ import { launchIsolatedWorker } from '../../../tools/ralph-external/lib/worker-i
 import { qualificationDigest } from '../../../src/models/qualification-digest.mjs';
 import { ScopedFailureBreaker } from '../../../tools/ralph-external/lib/consecutive-failure-circuit-breaker.mjs';
 import { observeChildClose, stopAndReap } from '../../helpers/worker-lifecycle.mjs';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const roots: string[] = [];
 const breakers: ScopedFailureBreaker[] = [];
@@ -199,12 +202,9 @@ describe('T-OG-23 pre-spawn boundaries and ownership', () => {
 
   it('T-OG-14 rejects unsupported platforms before helper spawn', async () => {
     const f = await fixture();
-    const descriptor = Object.getOwnPropertyDescriptor(process, 'platform')!;
-    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
-    try {
-      await expect(f.launch({ launchIsolated: f.launchSpy })).rejects.toThrow(/qualified|plan|platform/);
-      expect(f.launchSpy).not.toHaveBeenCalled();
-    } finally { Object.defineProperty(process, 'platform', descriptor); }
+    simulatePlatform('win32');
+    await expect(f.launch({ launchIsolated: f.launchSpy })).rejects.toThrow(/qualified|plan|platform/);
+    expect(f.launchSpy).not.toHaveBeenCalled();
   });
 });
 

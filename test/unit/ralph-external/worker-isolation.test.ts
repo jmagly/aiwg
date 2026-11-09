@@ -1,3 +1,4 @@
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync, readdirSync, readlinkSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { spawnSync as realSpawnSync, spawn as realSpawn } from 'node:child_process';
@@ -15,6 +16,8 @@ import {
   proposeWorkerUnitName,
   stopWorkerUnit,
 } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const ENV = { PATH: '/usr/bin:/bin', HOME: '/home/conductor' };
 const roots: string[] = [];
@@ -199,15 +202,10 @@ describe('worker isolation detection', () => {
   });
 
   it('reports degraded off Linux', () => {
-    const platform = Object.getOwnPropertyDescriptor(process, 'platform');
-    Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true });
-    try {
-      const result = detectWorkerIsolation({ spawn: okSpawn });
-      expect(result.mode).toBe('degraded');
-      expect(result.reason).toContain('darwin');
-    } finally {
-      if (platform) Object.defineProperty(process, 'platform', platform);
-    }
+    simulatePlatform('darwin');
+    const result = detectWorkerIsolation({ spawn: okSpawn });
+    expect(result.mode).toBe('degraded');
+    expect(result.reason).toContain('darwin');
   });
 });
 

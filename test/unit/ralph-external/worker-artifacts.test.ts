@@ -1,3 +1,4 @@
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 /** Bounded execution-time artifact and invocation regression coverage. */
 import { mkdtemp, mkdir, writeFile, readFile, lstat, symlink, readdir, rename } from 'node:fs/promises';
 import { rm } from '../../helpers/worker-capture-cleanup.mjs';
@@ -16,6 +17,8 @@ import { materializeWorkerArtifacts } from '../../../tools/ralph-external/sessio
 import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { ScopedFailureBreaker } from '../../../tools/ralph-external/lib/consecutive-failure-circuit-breaker.mjs';
 import { launchIsolatedWorker } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const roots: string[] = [], breakers: ScopedFailureBreaker[] = [];
 afterEach(async () => {
@@ -339,17 +342,15 @@ describe('T-OG-15/23 workspace-relative artifacts (#2905)', () => {
     expect(await readdir(f.runDir)).toEqual([]);
   });
   it.each(['linux', 'darwin'])('materializes through Node alone on the %s path strategy', async platform => {
-    const f = await workspace(), descriptor = Object.getOwnPropertyDescriptor(process, 'platform')!;
+    const f = await workspace();
     const spawn = vi.spyOn(childProcess, 'spawnSync').mockImplementation(() => { throw new Error('external interpreter forbidden'); });
     syncBuiltinESMExports();
-    Object.defineProperty(process, 'platform', { ...descriptor, value: platform });
-    try {
-      const result = await materializeWorkerArtifacts(f, f.runDir);
-      expect(await readFile(result.argv[1], 'utf8')).toBe(f.artifacts[0].content);
-      await result.cleanup();
-      expect(await readdir(path.join(f.cwd, '.agents/skills'))).toEqual([]);
-      expect(spawn).not.toHaveBeenCalled();
-    } finally { Object.defineProperty(process, 'platform', descriptor); }
+    simulatePlatform(platform);
+    const result = await materializeWorkerArtifacts(f, f.runDir);
+    expect(await readFile(result.argv[1], 'utf8')).toBe(f.artifacts[0].content);
+    await result.cleanup();
+    expect(await readdir(path.join(f.cwd, '.agents/skills'))).toEqual([]);
+    expect(spawn).not.toHaveBeenCalled();
   });
   it('retains an unproven nonempty directory without deleting its entries', async () => {
     const f = await workspace(), original = fs.open;

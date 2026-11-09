@@ -1,3 +1,4 @@
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -8,6 +9,8 @@ import {
   installationFile,
   saveInstallationIdentity,
 } from '../../../src/installation/manager.mjs';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const temporary: string[] = [];
 function fixture() {
@@ -105,7 +108,7 @@ describe('installation copy inspection', () => {
     fs.mkdirSync(root, { recursive: true });
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'aiwg' }));
     fs.writeFileSync(executable, '@echo off\nexit /b 99\n');
-    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    simulatePlatform('win32');
     expect(inspectInstallationCopies({ ...f, homeDir: f.home, env: { PATH: prefix } })).toEqual([
       { root, executables: [executable], onPath: true, registered: false },
     ]);

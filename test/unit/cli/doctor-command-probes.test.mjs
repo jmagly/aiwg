@@ -1,7 +1,10 @@
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const mocks = vi.hoisted(() => ({ execFile: vi.fn(), spawn: vi.fn(), version: vi.fn(), copies: vi.fn() }));
 vi.mock('../../../src/process/bounded-child-process.mjs', async importOriginal => ({
@@ -164,7 +167,7 @@ describe('doctor command probe behavior', () => {
   });
 
   it.each(['linux', 'win32'])('runs both version and PATH probes with working %s launch arguments', async platform => {
-    vi.spyOn(process, 'platform', 'get').mockReturnValue(platform);
+    simulatePlatform(platform);
     vi.stubEnv('PATH', root);
     mocks.version.mockRejectedValue(new Error('version unavailable'));
     await runDoctor();

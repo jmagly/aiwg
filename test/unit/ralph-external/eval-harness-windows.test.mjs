@@ -1,3 +1,4 @@
+import { useWindowsSimulation } from '../../helpers/windows-simulation.mjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // eval-harness resolves bounded-child-process via importImpl, which prefers dist/
@@ -11,15 +12,12 @@ vi.mock('../../../src/process/bounded-child-process.mjs', () => ({ boundedExecFi
 import { EvalHarness } from '../../../tools/ralph-external/eval-harness.mjs';
 
 describe('EvalHarness Windows shell invocation', () => {
-  const platform = Object.getOwnPropertyDescriptor(process, 'platform');
-
+  useWindowsSimulation({ beforeEach, afterEach });
   beforeEach(() => {
-    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
     execFile.mockReturnValue('{"score":1,"pass_count":1,"total_count":1}');
   });
 
   afterEach(() => {
-    Object.defineProperty(process, 'platform', platform);
     vi.unstubAllEnvs();
   });
 

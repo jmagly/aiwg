@@ -1,3 +1,4 @@
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 /**
  * Regression tests for tools/cli/deploy.mjs
  *
@@ -13,6 +14,8 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const DEPLOY_SCRIPT = resolve(__dirname, '../../../tools/cli/deploy.mjs');
@@ -71,7 +74,7 @@ describe('tools/cli/deploy.mjs', () => {
       writeFileSync(resolve(root, 'aiwg.cmd'), '@ECHO off\n"%_prog%" "%dp0%\\entry.mjs" %*\n');
       writeFileSync(resolve(root, 'entry.mjs'), '');
       vi.stubEnv('PATH', root);
-      vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+      simulatePlatform('win32');
       vi.spyOn(console, 'log').mockImplementation(() => {});
       const framework = 'framework & $(touch injected)';
       const provider = 'provider "quoted"';

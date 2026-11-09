@@ -1,3 +1,4 @@
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 /** Stop-proof retention and post-write containment regressions with local fixtures. */
 import fs, { mkdtemp, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { rm } from '../../helpers/worker-capture-cleanup.mjs';
@@ -10,6 +11,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { workerInvocationFixture } from '../../fixtures/worker-single-invocation.js';
 import { ScopedFailureBreaker } from '../../../tools/ralph-external/lib/consecutive-failure-circuit-breaker.mjs';
 import { materializeWorkerArtifacts } from '../../../tools/ralph-external/lib/worker-artifacts.mjs';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const roots: string[] = [], breakers: ScopedFailureBreaker[] = [];
 afterEach(async () => {
@@ -80,18 +83,16 @@ describe('T-OG-15/23 artifact ownership and stop proof (#2905)', () => {
     expect(await readdir(path.join(moved, 'skills'))).toEqual([]);
   });
   it.each(['missing', 'replacement'])('retains and reports artifacts when the portable parent is %s', async scenario => {
-    const f = await workspace(), descriptor = Object.getOwnPropertyDescriptor(process, 'platform')!;
-    Object.defineProperty(process, 'platform', { ...descriptor, value: 'darwin' });
-    try {
-      const result = await materializeWorkerArtifacts(f, f.runDir);
-      const target = path.dirname(result.argv[1]), moved = path.join(f.root, 'relocated');
-      await rename(target, moved);
-      if (scenario === 'replacement') { await mkdir(target); await writeFile(path.join(target, 'SKILL.md'), 'unrelated'); }
-      await expect(result.cleanup()).rejects.toThrow(/cleanup failed/);
-      const retained = await readdir(f.runDir, { recursive: true });
-      const contents = await Promise.all(retained.map(name => readFile(path.join(f.runDir, name), 'utf8').catch(() => '')));
-      if (scenario === 'replacement') expect(contents).toContain('unrelated');
-      expect(await readFile(path.join(moved, 'SKILL.md'), 'utf8')).toBe(artifact.content);
-    } finally { Object.defineProperty(process, 'platform', descriptor); }
+    const f = await workspace();
+    simulatePlatform('darwin');
+    const result = await materializeWorkerArtifacts(f, f.runDir);
+    const target = path.dirname(result.argv[1]), moved = path.join(f.root, 'relocated');
+    await rename(target, moved);
+    if (scenario === 'replacement') { await mkdir(target); await writeFile(path.join(target, 'SKILL.md'), 'unrelated'); }
+    await expect(result.cleanup()).rejects.toThrow(/cleanup failed/);
+    const retained = await readdir(f.runDir, { recursive: true });
+    const contents = await Promise.all(retained.map(name => readFile(path.join(f.runDir, name), 'utf8').catch(() => '')));
+    if (scenario === 'replacement') expect(contents).toContain('unrelated');
+    expect(await readFile(path.join(moved, 'SKILL.md'), 'utf8')).toBe(artifact.content);
   });
 });
