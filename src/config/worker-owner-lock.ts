@@ -2,8 +2,8 @@
 import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { mkdir, writeFile, symlink, readlink, unlink, rm, readdir } from 'node:fs/promises';
-import { readFileSync, readlinkSync } from 'node:fs';
+import { link, mkdir, open, writeFile, symlink, unlink, rm, readdir } from 'node:fs/promises';
+import { lstatSync, readFileSync, readlinkSync, realpathSync } from 'node:fs';
 import { projectControlPath } from './project-artifacts.js';
 
 interface Owner { generation: string; host: string; pid: number; start: string | null; released?: boolean; proposalDigest?: string }
@@ -15,6 +15,68 @@ export interface WorkerWriteLease {
 }
 export const workerWriteLock = (project: string): string => projectControlPath(project, 'aiwg.config.apply-lock');
 const missing = (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOENT';
+function samePath(left: string, right: string): boolean {
+  const canonical = process.platform === 'win32' ? realpathSync.native : resolve;
+  return canonical(left) === canonical(right);
+}
+function lockDirectoryTarget(path: string): string {
+  const target = resolve(dirname(path), readlinkSync(path));
+  const targetGeneration = basename(target).slice(`${basename(path)}.`.length);
+  if (
+    !samePath(dirname(target), dirname(path)) ||
+    !basename(target).startsWith(`${basename(path)}.`) ||
+    !/^[a-f0-9-]{36}$/.test(targetGeneration)
+  ) throw new Error(`Invalid worker configuration lock target: ${target}`);
+  return target;
+}
+function generationValue(path: string): string {
+  const stat = lstatSync(path);
+  if (stat.isSymbolicLink()) return readlinkSync(path);
+  if (stat.isFile()) return readFileSync(path, 'utf8');
+  throw new Error(`Invalid worker lock generation record: ${path}`);
+}
+async function publishOwnerDirectory(directory: string, path: string): Promise<void> {
+  if (process.platform === 'win32') {
+    // Junctions preserve directory traversal without requiring symlink privilege.
+    await symlink(resolve(directory), path, 'junction');
+  } else {
+    await symlink(basename(directory), path);
+  }
+}
+async function publishGeneration(path: string, value: string): Promise<void> {
+  if (process.platform !== 'win32') return symlink(value, path);
+
+  // Publish a complete immutable record atomically. A Windows file symlink needs
+  // privilege, while a same-directory hard link is exclusive and works without it.
+  const temporary = join(dirname(path), `.worker-lock-record-${randomUUID()}.tmp`);
+  let temporaryCreated = false;
+  try {
+    const handle = await open(temporary, 'wx', 0o600);
+    temporaryCreated = true;
+    let writeError: unknown;
+    try { await handle.writeFile(value); await handle.sync(); }
+    catch (error) { writeError = error; }
+    try { await handle.close(); }
+    catch (error) {
+      if (writeError) throw new AggregateError([writeError, error], 'Could not close a worker lock record', { cause: writeError });
+      throw error;
+    }
+    if (writeError) throw writeError;
+    await link(temporary, path);
+  } catch (error) {
+    if (temporaryCreated) {
+      try { await unlink(temporary); }
+      catch (cleanupError) {
+        if (!missing(cleanupError)) throw new AggregateError([error, cleanupError], 'Could not clean up an unpublished worker lock record', { cause: error });
+      }
+    }
+    throw error;
+  }
+  try { await unlink(temporary); }
+  catch (error) {
+    if (!missing(error)) process.emitWarning(`Published worker lock record but could not remove its temporary hard-link name: ${String(error)}`, { code: 'AIWG_WORKER_LOCK_TEMP_CLEANUP' });
+  }
+}
 function processStart(pid: number): string | null {
   try {
     const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
@@ -33,10 +95,10 @@ function provablyDead(owner: Owner): boolean {
 }
 function latest(directory: string): Owner {
   let owner = JSON.parse(readFileSync(join(directory, 'owner.json'), 'utf8')) as Owner;
-  // Immutable successor links are a compare-and-swap: only one contender can claim a generation.
+  // Immutable successor records are a compare-and-swap: only one contender can claim a generation.
   for (;;) {
     if (!/^[a-f0-9-]{36}$/.test(owner.generation)) throw new Error('Invalid worker lock generation');
-    try { owner = JSON.parse(readlinkSync(join(directory, `next-${owner.generation}`))) as Owner; }
+    try { owner = JSON.parse(generationValue(join(directory, `next-${owner.generation}`))) as Owner; }
     catch (error) { if (missing(error)) return owner; throw error; }
   }
 }
@@ -50,7 +112,7 @@ async function sweepOrphanedOwners(path: string): Promise<void> {
     try { owner = latest(directory); } catch { continue; } // Incomplete or unreadable identities cannot prove death.
     if (!provablyDead(owner)) continue;
     try {
-      if (resolve(parent, await readlink(path)) === directory) continue;
+      if (samePath(lockDirectoryTarget(path), directory)) continue;
     } catch (error) { if (!missing(error)) throw error; }
     await rm(directory, { recursive: true, force: true });
   }
@@ -58,7 +120,7 @@ async function sweepOrphanedOwners(path: string): Promise<void> {
 function lease(path: string, directory: string, owner: Owner): WorkerWriteLease {
   const assertOwned = () => {
     try {
-      if (readlinkSync(path) === basename(directory) && latest(directory).generation === owner.generation) return;
+      if (samePath(lockDirectoryTarget(path), directory) && latest(directory).generation === owner.generation) return;
     } catch { /* Missing or replaced ownership must never authorize another write. */ }
     throw new Error(`Worker configuration lock ownership lost (${owner.generation}); dispatch remains closed at ${path}`);
   };
@@ -66,7 +128,7 @@ function lease(path: string, directory: string, owner: Owner): WorkerWriteLease 
     assertOwned();
     if (keepBlocked) {
       // A caught failure can be retried even while this embedding process stays alive.
-      await symlink(JSON.stringify({ ...identity(), released: true }), join(directory, `next-${owner.generation}`));
+      await publishGeneration(join(directory, `next-${owner.generation}`), JSON.stringify({ ...identity(), released: true }));
     } else {
       // A live owner cannot be reclaimed; unlink only while we still own this exact generation.
       await unlink(path);
@@ -85,7 +147,7 @@ export async function acquireWorkerWriteLock(project: string, block = false, pro
     await writeFile(join(directory, 'owner.json'), JSON.stringify(owner), { mode: 0o600 });
     if (block) await writeFile(join(directory, 'blocked'), 'Worker policy apply/recovery in progress.\n', { mode: 0o600 });
     // No visible lock can exist without an owner, even if initialization is interrupted.
-    await symlink(basename(directory), path);
+    await publishOwnerDirectory(directory, path);
   } catch (error) {
     await rm(directory, { recursive: true, force: true });
     if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error(`Worker configuration is locked: ${path}; use authorized recovery after its owner exits`);
@@ -98,7 +160,7 @@ export async function reclaimWorkerWriteLock(project: string): Promise<WorkerWri
   let directory: string;
   let previous: Owner;
   try {
-    directory = resolve(dirname(path), await readlink(path));
+    directory = lockDirectoryTarget(path);
     previous = latest(directory);
   } catch (error) {
     if (missing(error)) throw new Error(`No interrupted apply; nothing to recover at ${path}`);
@@ -106,7 +168,7 @@ export async function reclaimWorkerWriteLock(project: string): Promise<WorkerWri
   }
   if (!provablyDead(previous)) throw new Error(`Worker configuration is locked by a live or unverifiable owner (${previous.host}:${previous.pid}); ${path}`);
   const owner = identity();
-  try { await symlink(JSON.stringify(owner), join(directory, `next-${previous.generation}`)); }
+  try { await publishGeneration(join(directory, `next-${previous.generation}`), JSON.stringify(owner)); }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error(`Worker configuration is locked: another recovery claimed generation ${previous.generation}`);
     throw error;
