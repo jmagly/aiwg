@@ -77,10 +77,21 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
     f.cli('use', 'all', '--provider', provider,
       ...(definition.context.promptDiscovery?.optIn ? ['--enable-cross-provider-hooks'] : []));
 
-    const bootstraps: string[] = provider === 'openclaw'
-      ? ['~/.openclaw/workspace/AGENTS.md'] : definition.context.bootstrapTargets;
+    const bootstraps: string[] = definition.context.bootstrapTargets;
+    expect(bootstraps.length, 'registry must declare deployed bootstrap files').toBeGreaterThan(0);
+    if (provider === 'openclaw') {
+      const workspace = path.join(f.home, '.openclaw/workspace');
+      expect(bootstraps.map(f.resolve).sort()).toEqual(
+        fs.readdirSync(workspace).filter(file => file.endsWith('.md'))
+          .map(file => path.join(workspace, file)).sort());
+    }
     for (const file of bootstraps) {
       const text = f.read(file);
+      if (provider === 'openclaw' && path.basename(file) === 'SOUL.md') {
+        expect(text, file).toContain('<!-- AIWG Steward Identity -->');
+        expect(text, file).toContain('aiwg discover');
+        continue;
+      }
       expect.soft(text, file).toContain('WORKSPACE.md');
       expect.soft(text, file).toContain('AIWG.md');
       expect.soft(text, file).toMatch(/read|load|@WORKSPACE/i);
