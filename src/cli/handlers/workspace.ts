@@ -55,7 +55,7 @@ export const statusHandler: CommandHandler = {
   async execute(ctx: HandlerContext): Promise<HandlerResult> {
     if (ctx.args.includes('--probe')) {
       const projectRoot = statusProjectRoot(ctx.args, ctx.cwd ?? process.cwd());
-      const scope = detectScope(ctx.args);
+      const scope = ctx.args.includes('--scope') ? detectScope(ctx.args) : undefined;
       const probe = await buildDeploymentStatusProbe(projectRoot, ctx.frameworkRoot, {
         scope,
         provider: statusFlagValue(ctx.args, '--provider'),

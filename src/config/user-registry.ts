@@ -13,7 +13,8 @@
  */
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { homedir } from 'node:os';
 import type { DeployedArtifactCounts, InstalledEntry } from './aiwg-config.js';
 import { userScopeConfigPath } from '../cli/scope-resolver.js';
 
@@ -124,6 +125,13 @@ export async function inspectUserRegistry(): Promise<UserRegistryInspection> {
  */
 export async function readUserRegistry(): Promise<UserRegistry> {
   return (await inspectUserRegistry()).registry;
+}
+
+/** User receipts can describe project-relative provider trees only at HOME. */
+export async function homeDeploymentReceipts(projectRoot: string): Promise<Array<[string, InstalledEntry]>> {
+  if (resolve(projectRoot) !== resolve(homedir())) return [];
+  const registry = await readUserRegistry();
+  return Object.entries(registry.installed).map(([name, entry]) => [`user:${name}`, entry]);
 }
 
 /**

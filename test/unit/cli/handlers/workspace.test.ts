@@ -101,6 +101,13 @@ describe('statusHandler', () => {
     );
   });
 
+  it('lets an unqualified probe discover user deployments (#4028)', async () => {
+    await statusHandler.execute(makeCtx(['--probe', '--json']));
+    expect(mockBuildDeploymentStatusProbe).toHaveBeenCalledWith(
+      '/mock/cwd', '/mock/framework/root', { scope: undefined, provider: undefined, bundle: undefined },
+    );
+  });
+
   it('forwards an explicit probe root and deployment filters', async () => {
     await statusHandler.execute(makeCtx([
       '--probe', '/workspace', '--provider', 'codex', '--bundle', 'sdlc', '--scope', 'project', '--json',

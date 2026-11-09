@@ -195,4 +195,17 @@ describe('user-registry (#1156)', () => {
     expect(USER_REGISTRY_PATH_OVERRIDE_WARN).toContain('~/.aiwg/installed.json');
   });
 
+  it('makes user receipts available for home trees only (#4028)', async () => {
+    const { homeDeploymentReceipts, recordUserDeploy } = await import('../../../src/config/user-registry.js');
+    expect(await homeDeploymentReceipts(tmpDir)).toEqual([]);
+    expect(await homeDeploymentReceipts(os.homedir())).toEqual([]);
+    await recordUserDeploy({ framework: 'all', provider: 'claude', version: 'test', source: 'bundled',
+      counts: { agents: 0, commands: 0, skills: 26, rules: 12 } });
+    const receipts = await homeDeploymentReceipts(os.homedir());
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0][0]).toBe('user:all');
+    expect(receipts[0][1].deployedTo.claude.agents).toBe(0);
+    expect(await homeDeploymentReceipts(path.join(os.homedir(), 'project'))).toEqual([]);
+  });
+
 });
