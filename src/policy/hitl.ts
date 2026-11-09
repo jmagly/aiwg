@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { HITL_CATEGORIES, HITL_ENVIRONMENTS, type HitlAction, type HitlContext,
   type HitlLayer, type HitlProfile, type HitlResolution, type HitlSelector } from './hitl-types.js';
 import { validateHitlPolicy } from './hitl-validation.js';
+import { matchDurableAuthorization, unsafeDurableAction } from './hitl-durable.js';
 export type * from './hitl-types.js';
 
 export function hitlDigest(value: unknown): string {
@@ -21,9 +22,11 @@ export function validHitlAction(value: unknown): value is HitlAction {
 }
 function actionFieldsValid(a: HitlAction): boolean {
   const keys = ['category', 'repo', 'environment', 'resources', 'reversible', 'impact'];
-  const binding = ['actor', 'inputDigest'];
+  const binding = ['actor', 'inputDigest', 'target', 'verb'];
   return Object.keys(a).every(k => [...keys, ...binding].includes(k)) && keys.every(k => Object.hasOwn(a, k))
-    && (a.category !== 'repo.edit' || (binding.every(k => Object.hasOwn(a, k)) && typeof a.actor === 'string' && typeof a.inputDigest === 'string'))
+    && (a.category !== 'repo.edit' || (typeof a.actor === 'string' && typeof a.inputDigest === 'string'))
+    && (a.target === undefined || (typeof a.target === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:/@#=-]{0,255}$/.test(a.target)))
+    && (a.verb === undefined || (typeof a.verb === 'string' && /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(a.verb)))
     && (a.actor === undefined || (typeof a.actor === 'string' && identifier.test(a.actor)))
     && (a.inputDigest === undefined || (typeof a.inputDigest === 'string' && /^sha256:[a-f0-9]{64}$/.test(a.inputDigest)))
     && [a.category, a.repo, a.environment].every(x => typeof x === 'string' && identifier.test(x))
@@ -67,17 +70,21 @@ function grant(p: HitlProfile, a: HitlAction, now: number): boolean {
 }
 export function resolveHitlAuthorization(action: unknown, context: HitlContext): HitlResolution {
   const policyVersion = hitlPolicyVersion(context.layers);
+  let nearestGrant: HitlResolution['nearestGrant'];
   const result = (decision: HitlResolution['decision'], reason: string, provenance: HitlResolution['provenance'],
-    matchedProfile: string | null = null): HitlResolution => ({ decision, reason, policyVersion, matchedProfile, provenance });
+    matchedProfile: string | null = null): HitlResolution => ({ decision,
+      reason: nearestGrant && decision === 'escalate'
+        ? `${reason}; nearest-grant:${nearestGrant.grantId}; differing-fields:${nearestGrant.fields.join(',')}` : reason,
+      policyVersion, matchedProfile, provenance, ...(nearestGrant && decision === 'escalate' ? { nearestGrant } : {}) });
   if (context.platform) return result(context.platform === 'deny' ? 'deny' : 'escalate', 'platform-constraint', 'platform');
   if (!validHitlAction(action)) return result('escalate', 'invalid-action-descriptor', 'default');
-  if (!HITL_CATEGORIES.some(c => c === action.category) || !HITL_ENVIRONMENTS.some(e => e === action.environment)
-    || !action.reversible || action.impact === 'high') return result('escalate', 'safety-category-requires-explicit-review', 'platform');
+  if (unsafeDurableAction(action)) return result('escalate', 'safety-category-requires-explicit-review', 'platform');
   // Revalidate even when invoked directly with objects that bypassed the config loader.
   if (context.layers.some(l => validateHitlPolicy(l.policy).length)) return result('escalate', 'invalid-policy', 'default');
   if (context.layers.some(l => l.policy?.deny.some(s => selected(s, action)))) return result('deny', 'explicit-deny', 'explicit-deny');
   const now = Date.parse(context.now);
   if (!Number.isFinite(now)) return result('escalate', 'invalid-clock', 'default');
+  if (context.durableAuthorization?.failures.length) return result('escalate', 'authorization-ledger-invalid', 'default');
   const session = context.sessionAuthorization;
   if (session?.source === 'session-user') {
     const probe = { version: '1', enabled: true, reviewedAt: context.now, maxAgeSeconds: 1,
@@ -87,6 +94,31 @@ export function resolveHitlAuthorization(action: unknown, context: HitlContext):
     };
   }
   if (context.expectedPolicyVersion && policyVersion !== context.expectedPolicyVersion) return result('escalate', 'stale-policy-version', 'project-policy');
+  if (context.durableAuthorization) {
+    const durable = matchDurableAuthorization(action, context.durableAuthorization, now, glob);
+    nearestGrant = durable.nearest;
+    // An independent human grant needs no profile, but cannot bypass a governing review/revocation.
+    for (const { policy: p } of durable.match ? context.layers : []) {
+      if (!p) continue;
+      if (!p.enabled) return result('escalate', 'policy-revoked', 'project-policy');
+      if (now >= Date.parse(p.expiresAt)) return result('escalate', 'policy-expired', 'project-policy');
+      const reviewed = Date.parse(p.reviewedAt);
+      if (reviewed > now || now - reviewed >= p.maxAgeSeconds * 1000) return result('escalate', 'stale-policy-review', 'project-policy');
+      if (p.requireReview.some(s => selected(s, action))) return result('escalate', 'policy-requires-review', 'project-policy');
+    }
+    if (durable.match) {
+      const { grant: g, effectId, recordHash } = durable.match;
+      const policyExpiry = context.layers.flatMap(({ policy: p }) => p ? [Date.parse(p.expiresAt),
+        Date.parse(p.reviewedAt) + p.maxAgeSeconds * 1000] : []);
+      // Even until-revoked grants issue finite receipts; every consumption still reloads revocations.
+      const expiresAt = new Date(Math.min(g.expiresAt === 'until-revoked' ? now + 86400_000 : Date.parse(g.expiresAt), ...policyExpiry)).toISOString();
+      return { ...result('auto-authorized', 'durable-user-authorization', 'durable-user'), expiresAt,
+        authorizationGrant: { grantId: g.grantId, effectId, recordHash } };
+    }
+  }
+  if (!HITL_CATEGORIES.some(c => c === action.category) || !HITL_ENVIRONMENTS.some(e => e === action.environment)) {
+    return result('escalate', 'safety-category-requires-explicit-review', 'platform');
+  }
   if (!context.layers.length) return result('escalate', 'no-project-policy', 'default');
   let matched: string | null = null;
   let expires = Infinity;

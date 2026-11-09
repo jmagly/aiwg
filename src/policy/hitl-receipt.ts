@@ -9,15 +9,20 @@ import { fileDigestVerifier } from '../effects/verifiers/file.js';
 import { createVerifierRegistry } from '../effects/verifiers/registry.js';
 import { hitlDigest, resolveHitlAuthorization, validHitlAction } from './hitl.js';
 import { HITL_CATEGORIES, HITL_ENVIRONMENTS, type HitlContext } from './hitl-types.js';
+import { refreshDurableAuthorization } from './hitl-durable-store.js';
 
 /** Resolve again at receipt time. A preview result supplied by an agent is never trusted. */
 export async function recordHitlAuthorization(ledger: EffectLedger, action: unknown, context: HitlContext) {
+  context = await refreshDurableAuthorization(ledger, context);
   const resolution = resolveHitlAuthorization(action, context);
   const receipt = {
     kind: 'hitl-authorization', evaluatedAtDigest: hitlDigest(context.now),
     sessionGrantDigest: hitlDigest(context.sessionAuthorization ?? null), ...resolution,
     // Arbitrary user strings become digests, including paths, repo identity and profile names.
     matchedProfile: resolution.matchedProfile ? hitlDigest(resolution.matchedProfile) : null,
+    // Diagnostic grant IDs may be arbitrary strings; only verified grant links are stored verbatim.
+    ...(resolution.nearestGrant ? { nearestGrant: { ...resolution.nearestGrant, grantId: hitlDigest(resolution.nearestGrant.grantId) },
+      reason: 'durable-grant-scope-mismatch' } : {}),
     action: validHitlAction(action) ? {
       category: HITL_CATEGORIES.find(category => category === action.category) ?? 'restricted',
       descriptorDigest: hitlDigest(action), categoryDigest: hitlDigest(action.category),

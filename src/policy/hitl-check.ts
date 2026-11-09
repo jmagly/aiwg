@@ -7,6 +7,7 @@ import { recordHitlAuthorization } from './hitl-receipt.js';
 import { consumeHitlAuthorization, type HitlReceiptRef } from './hitl-consume.js';
 import { resolveHitlAuthorization, validHitlAction } from './hitl.js';
 import type { HitlAction, HitlContext, HitlResolution } from './hitl-types.js';
+import { refreshDurableAuthorization } from './hitl-durable-store.js';
 
 export interface HitlCheck extends HitlResolution {
   receipt?: { file: string; effectId: string };
@@ -56,8 +57,9 @@ export async function checkHitlAuthorization(projectDir: string, input: unknown,
     const loaded = await loadHitlLayers(projectDir);
     context = { ...context, layers: loaded.layers };
     const action = await canonicalHitlAction(loaded.projectDir, input);
+    const ledger = openLedger(await effectSession(loaded.projectDir, 'custom', { clock: () => Date.parse(context.now) }));
+    context = await refreshDurableAuthorization(ledger, context);
     if (options.receipt) {
-      const ledger = openLedger(await effectSession(loaded.projectDir, 'custom', { clock: () => Date.parse(context.now) }));
       const consumed = await consumeHitlAuthorization(ledger, action, context, options.receipt);
       return consumed.decision === 'auto-authorized' ? { ...consumed, receipt: options.receipt } : consumed;
     }
@@ -66,7 +68,6 @@ export async function checkHitlAuthorization(projectDir: string, input: unknown,
     // Reload policies and the clock at consumption time, including expiry and revocation.
     context = { ...context, now: options.now ?? new Date().toISOString(), layers: (await loadHitlLayers(projectDir)).layers,
       expectedPolicyVersion: options.expectedPolicyVersion ?? decision.policyVersion };
-    const ledger = openLedger(await effectSession(loaded.projectDir, 'custom', { clock: () => Date.parse(context.now) }));
     const recorded = await recordHitlAuthorization(ledger, action, context);
     if (recorded.resolution.decision !== 'auto-authorized') return recorded.resolution;
     if (recorded.reconciled.result.verification.result !== 'present') throw new Error('Unverified HITL receipt');

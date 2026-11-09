@@ -19,7 +19,7 @@ policy-override actions. Runtime validation also rejects those classes in scope
 names, unrestricted category/verb wildcards, restricted material and tokens.
 Categories and verbs are lowercase dotted or hyphenated names. Environments are
 bounded to local, development, test, testnet and staging. These descriptors do not
-classify an actual action: a future resolver must independently enforce the
+classify an actual action: the resolver independently enforces the
 human-authorization rule on host-classified actions.
 
 ## Signed storage API
@@ -78,6 +78,51 @@ external artifact root exits nonzero without falling back to local storage.
 
 There is no top-level `aiwg authorization` command.
 
+## Lookup before ask
+
+`aiwg config authorization check --action-file FILE [--target DIRECTORY]` reads
+the host's `custom` ledger on every check and again before receipt consumption.
+Integrity failures escalate even when a config profile could otherwise authorize.
+Platform restrictions, destructive/secret/production actions, high impact,
+irreversibility and all override classes (including `threat.override`) always
+retain review. Governing config denies and `requireReview` still apply.
+
+Scope matching uses exact category, verb, target, repo and environment equality,
+and requires every canonical resource path to match a resource glob. For existing
+action descriptors, target defaults to `repo:<repo>` and verb to the final dotted
+category component (`repo.edit` → `edit`). Hosts can supply explicit `target` and
+`verb` for other effect classes. The grant's `scope.targets` must include the
+target, `repo:<repo>`, and `workspace:<canonical-directory>` for the project and
+each governing config root. These workspace descriptors are exact absolute
+paths supplied by the host, never action-file authorization claims. A copied
+ledger cannot approve a different checkout just because it has the same repo name.
+
+Expired, future-created, revoked, superseded, tombstoned and exhausted grants do
+not match. A signed grant naming `revokes` invalidates that ID on the next check;
+the revocation record itself supplies no authority. Nonempty free-text conditions
+escalate because this resolver cannot prove them satisfied. `until-revoked`
+grants issue receipts lasting at most 24 hours; every consumption still rechecks
+revocation. Config policy expiry/freshness can shorten that receipt lifetime.
+
+Matching grants sort by `grantId`, then effect ID. If no grant matches and no
+independent profile authorizes, the escalation names the nearest grant and its
+differing fields, minimizing the number of differences with the same tie-break.
+Receipts carry `provenance: durable-user` and `authorizationGrant` containing
+`grantId`, `effectId` and `recordHash`; these links are bound by the signed receipt
+digest and compared again during consumption.
+
+Every successful durable receipt consumption appends a signed
+`x.aiwg.authorization-use` intent in the same ledger, linking the grant's ID,
+effect/hash and receipt effect. The existing `authorization-index` lock serializes
+consumption with grant writes and other consumers, so concurrent checks cannot
+overspend `maxUses`. A use reserves authorization, not evidence that the proposed
+action executed. A repeated receipt consumption spends another use. If recording
+a use fails, the check escalates; already-recorded uses remain spent. Purged use
+records make finite-use grants ineligible rather than replenishing their budget.
+Purged grant history makes remaining durable grants ineligible because a purged
+revocation could have removed an older grant's authority; config profiles retain
+their existing behavior.
+
 ## Compatibility and deferred consumers
 
 This is an additive v1 effect contract revision: old records, digests, identity
@@ -87,9 +132,9 @@ recognize the `authorizationGrant` predicate field; upgrade them before consumin
 can remove it; purged grants are excluded from the derived index. No existing
 `authorization.hitl` config is migrated or reinterpreted.
 
-Part 1 stores history, including expired and revoked records. Grant resolution,
-revocation/use effects and effective-use counting (#4001), native question capture
-(#4002), process wiring (#4003), and search/explain/status (#4004) are deferred to
-their owning issues. No stored grant currently changes a HITL decision. Optional
+Part 1 stores history, including expired and revoked records. Part 2 (#4001)
+resolves grants and counts uses through the existing authorization check. Native
+question capture (#4002), process wiring (#4003), and search/explain/status (#4004)
+remain deferred to their owning issues. Optional
 verbatim user phrases are omitted to preserve the effect ledger's existing raw
 payload restrictions; digests bind the question and user turn instead.
