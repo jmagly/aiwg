@@ -78,6 +78,56 @@ external artifact root exits nonzero without falling back to local storage.
 
 There is no top-level `aiwg authorization` command.
 
+## Native confirmation capture
+
+The AIWG MCP server exposes `aiwg_authorization_grant_request` in its core toolset
+on local stdio connections. It accepts a proposed scope, never a claimed approval:
+
+```json
+{
+  "categories": ["tracker.write"],
+  "targets": ["repo:roctinam/aiwg", "tracker:local"],
+  "environments": ["development"],
+  "resources": ["issues/**"],
+  "verbs": ["create"],
+  "maxImpact": "low",
+  "expiresAt": "until-revoked"
+}
+```
+
+Use the actual tracker target from the host-classified action descriptor.
+`expiresAt` may instead be a future UTC timestamp; optional `maxUses` bounds
+consumption. The server adds the canonical project and governing workspace
+targets, fixes reversibility and the safety exclusions, and leaves `conditions`
+empty. It validates the complete grant before asking, including prohibited
+classes and the requirement that until-revoked grants have low impact.
+
+The native form shows all scope fields, workspace bindings, impact, duration and
+use limit. Only `action: "accept"` with `content.confirm: "confirm"` from that
+elicitation records the signed grant and returns `{status: "recorded", grantId}`.
+Decline, cancel, malformed responses, transport errors and the 60-second timeout
+record nothing. Cancellation or an expiry reached while answering also refuses.
+Unknown arguments, including approval text or caller-supplied provenance, fail
+validation. Issue bodies, ordinary `ask-user` output and model messages create
+no grants. There is no CLI recording flag or text-reply recording fallback.
+
+Clients without form elicitation receive an actionable refusal: use the harness's
+native question tool to ask the user, then retry from a client supporting MCP
+form elicitation. That retry still needs its own explicit native confirmation.
+The restricted remote HTTP tool projection does not expose this writing tool.
+
+`grantedBy.kind` is human; its ID comes from trusted MCP request authentication's
+client ID when present, otherwise the MCP session ID. Stdio connections without
+a session ID receive a server-generated connection ID. These identify the
+confirming client/session, not a separately verified personal identity.
+`authenticationRef` names that session's elicitation event;
+`provenance.nativeEventRef` contains the actual outgoing JSON-RPC request ID.
+The server observes that ID at the public transport boundary, correlating
+concurrent elicitations with server-generated metadata. `questionDigest` hashes
+the exact displayed message; `userTurnDigest` hashes the JSON confirmation result.
+Only digests are stored, never raw question or answer text. Signing uses the
+existing project `custom` ledger and configured host key provider.
+
 ## Lookup before ask
 
 `aiwg config authorization check --action-file FILE [--target DIRECTORY]` reads
@@ -133,8 +183,9 @@ can remove it; purged grants are excluded from the derived index. No existing
 `authorization.hitl` config is migrated or reinterpreted.
 
 Part 1 stores history, including expired and revoked records. Part 2 (#4001)
-resolves grants and counts uses through the existing authorization check. Native
-question capture (#4002), process wiring (#4003), and search/explain/status (#4004)
-remain deferred to their owning issues. Optional
+resolves grants and counts uses through the existing authorization check. Part 3
+(#4002) captures grants through MCP form elicitation. Process wiring (#4003),
+search/explain/status (#4004), and harness hook capture (for example PostToolUse
+on a native question tool) remain deferred to their owning issues or follow-ups. Optional
 verbatim user phrases are omitted to preserve the effect ledger's existing raw
 payload restrictions; digests bind the question and user turn instead.
