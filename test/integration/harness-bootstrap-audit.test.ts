@@ -111,9 +111,14 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
       }
     }
 
-    // Copilot's adapter uses its native instructions directory; registry drift is recorded in the matrix.
-    const rules = provider === 'copilot' ? '.github/instructions'
-      : definition.paths.artifacts.rules || `.${provider}/rules`;
+    const rules = definition.paths.artifacts.rules || `.${provider}/rules`;
+    if (provider === 'copilot') {
+      expect.soft(rules).toBe('.github/instructions');
+      expect.soft(definition.paths.contextDiscovery.rules).toBe(rules);
+      expect.soft(definition.paths.artifacts.behaviors).toBe(rules);
+      expect.soft(definition.smithPaths.rules).toBe(rules);
+      expect.soft(fs.existsSync(f.resolve('.github/copilot-rules'))).toBe(false);
+    }
     const extension = provider === 'cursor' ? '.mdc' : '.md';
     for (const core of cores) {
       const body = fs.readFileSync(path.join(root, 'agentic/code/addons/aiwg-utils/rules', `${core}.core.md`), 'utf8').trim();

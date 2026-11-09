@@ -395,7 +395,7 @@ each provider's public default without changing its deployment flags.
 | antigravity | `AGENTS.md` | `.antigravity/rules` | `.agents/skills`; `.agents/.aiwg/skills` | `antigravity.mjs` |
 | claude | `CLAUDE.md` | `.claude/rules` | `.claude/skills`; `.claude/.aiwg/skills` | `claude.mjs` |
 | codex | `AGENTS.md` | `.codex/rules` | `.agents/skills`; `.codex/.aiwg/skills` | `codex.mjs` |
-| copilot | `.github/copilot-instructions.md`, `AGENTS.md` | `.github/instructions` (adapter); registry says `.github/copilot-rules` | `.github/skills`; `.github/.aiwg/skills` | `copilot.mjs` |
+| copilot | `.github/copilot-instructions.md`, `AGENTS.md` | `.github/instructions` | `.github/skills`; `.github/.aiwg/skills` | `copilot.mjs` |
 | cursor | `AGENTS.md` | `.cursor/rules` | `.cursor/skills`; `.cursor/.aiwg/skills` | `cursor.mjs` |
 | deepseek-harness | `AGENTS.md` | `.deepseek-harness/rules` (projection fallback) | `.agents/skills` (K/B) | `deepseek-harness.mjs` |
 | factory | `AGENTS.md` | `.factory/rules` | `.factory/skills`; `.factory/.aiwg/skills` | `factory.mjs` |
@@ -454,6 +454,9 @@ requested rules (`skill-discovery` and `artifact-output-policy` kernel files;
 and mtimes to check that the dry run is read-only. This does not run hooks or
 prove runtime discovery, template loading, or provider trust.
 
+Copilot rule checks use the registry path directly and assert agreement with
+context-discovery, behavior and smith rule paths at `.github/instructions` (#3993).
+
 The #3935 audit deferred CLI/version collection; #3996 inspected installed help
 and docs offline as recorded above. New live UAT remains deferred. Supplied UAT above is
 historical input, not a fresh run or a complete per-prompt score. No tracker
@@ -470,7 +473,6 @@ worker's steps 1/2/5 scope):
 | factory | `tools/agents/providers/factory-hooks.mjs` | Interactive registration does not run in `droid exec`; the bootstrap rule carries discovery/template use. |
 | openclaw | `src/providers/provider-context-contracts.ts` | Registry says no bootstrap targets, while the adapter writes active workspace `AGENTS.md`/`SOUL.md`. |
 | muse, grok-build | `src/providers/provider-seeds-2.ts` | Declared artifact skill root equals kernel root; bulk mirror lives under `.aiwg/skills` in the adapters. |
-| copilot | `src/providers/provider-seeds-1.ts` | Declares `.github/copilot-rules`, while the adapter projects kernel rules under native `.github/instructions`. |
 | generic | `tools/agents/deploy-agents.mjs` | Registry metadata exists, but there is no generic adapter; `use all --provider generic` is rejected. |
 
 Providers with no AIWG prompt installer are recorded as **none** in the matrix;
