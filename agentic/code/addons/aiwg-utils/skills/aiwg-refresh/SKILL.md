@@ -56,6 +56,9 @@ project without leaving the agentic session.
 
 ## Execution Steps
 
+Any removal list requires explicit human review of the listed removals before execution.
+Authorization lookup must never bypass that review, even with a receipt for other effects.
+
 ### Step 1: Show Current Status
 
 Run status check and report current state:

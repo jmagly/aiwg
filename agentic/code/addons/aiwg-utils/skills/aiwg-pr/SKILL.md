@@ -76,6 +76,24 @@ authorization, provider, or platform safeguards.
 
 ## The walkthrough
 
+### Lookup-before-ask
+
+Before asking the person to authorize a commit, push, PR write, merge or closure,
+MUST check each exact pending action from a private host-built action file:
+
+```bash
+aiwg config authorization check --action-file "$ACTION_FILE" --target "$TARGET_REPO"
+```
+
+Only `auto-authorized` with a receipt permits that action without asking. On
+`escalate`, keep today's prompt; on `deny`, retain the refusal. Errors, invalid
+output or a missing receipt retain review. Classify every actual effect using
+the resolved member's repo/target, workspace, environment, verb and all resources;
+remote tracker mutations are `tracker.write`. A grant for local edits never
+authorizes a push or merge. Recheck every changed action. Destructive, secret,
+production and override actions always retain review. Platform prompts are never bypassed.
+Delivery, signing/identity, repo access, threat-policy and CI gates remain required.
+
 ### 1. Find or file the issue first
 
 Every PR closes (or refs) an issue. If you don't have one:

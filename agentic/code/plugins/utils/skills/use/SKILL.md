@@ -32,6 +32,9 @@ Alternate expressions and non-obvious activations (primary phrases are matched a
 
 ## Behavior
 
+Any removal list requires explicit human review of the listed removals before execution.
+Authorization lookup must never bypass that review, even with a receipt for other effects.
+
 When triggered:
 
 1. **Extract intent**:

@@ -176,6 +176,24 @@ Example: jmagly#108–#112 → roctinam #1264–#1268 sweep (May 2026).
 
 ## Filing
 
+### Lookup-before-ask
+
+Before asking the person to authorize filing, commenting, cross-linking or closing,
+MUST check each exact pending action from a private host-built action file:
+
+```bash
+aiwg config authorization check --action-file "$ACTION_FILE" --target "$TARGET_REPO"
+```
+
+Only `auto-authorized` with a receipt permits that action without asking. On
+`escalate`, keep today's prompt; on `deny`, retain the refusal. Errors, invalid
+output or a missing receipt retain review. Use the resolved member's repo/target and
+workspace, real environment, verb and every affected resource; remote writes are
+`tracker.write` and need a scoped durable grant or explicit review. Recheck each
+changed action. Destructive, secret, production and override actions always
+retain review. Platform prompts are never bypassed. Composition/digest-bound
+threat authorization, repo access and delivery gates remain independent.
+
 ### Mapped control workspaces
 
 From a mapped `/srv/*-workspace`, resolve the target member from
