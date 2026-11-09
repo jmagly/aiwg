@@ -25,6 +25,8 @@ export interface RelationRule {
   type: 'rule' | 'behavior';
   activation: string | null;
   enforcement: string | null;
+  precedence?: string;
+  overridable?: boolean;
   summary: string;
   capability: string | null;
   paths?: string[];

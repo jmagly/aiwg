@@ -1,3 +1,6 @@
+import { resolveRulePrecedence } from '../rules/precedence.mjs';
+import { loadRulePinConfigs } from '../rules/pins.mjs';
+import { ruleOrderingAliases } from '../rules/project-precedence.js';
 // Render show metadata cards, sections, and companion resources.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -142,6 +145,8 @@ export async function emitShowCard(
     title: entry.title, path: filePath, description: String(data.description ?? data.summary ?? flow?.description ?? entry.capability ?? entry.ruleSummary ?? entry.summary ?? ''),
     capability: owner ? { kind, name: owner[2] } : null, installed, kernel: entry.kernel ?? false,
     ...(['rule', 'behavior'].includes(entry.type) ? {
+      ...resolveRulePrecedence({ ...data, name: entry.name, id: discoveryIdForEntry(entry) },
+        loadRulePinConfigs(cwd), ruleOrderingAliases(filePath, aiwgRoot ?? cwd, cwd)),
       activation: localPin ? 'kernel' : entry.activation ?? data.activation ?? null, enforcement: data.enforcement ?? entry.ruleEnforcement ?? null,
       bound_to: data.bound_to ?? entry.bound_to ?? {},
     } : {}),
@@ -175,7 +180,7 @@ export async function emitShowCard(
     `Owner: ${card.capability ? `${card.capability.kind}:${card.capability.name}` : 'project/unowned'} | installed: ${card.installed}`, statsText(card.rule_stats as RuleStats)];
   if (card.load_hint) lines.push(card.load_hint);
   if (pinNote) lines.push(pinNote);
-  if ('activation' in card) lines.push(`Activation: ${card.activation} | enforcement: ${card.enforcement}`, `Bound targets: ${JSON.stringify(card.bound_to)}`);
+  if ('activation' in card) lines.push(`Activation: ${card.activation} | enforcement: ${card.enforcement}`, `Precedence: ${card.precedence} | overridable: ${card.overridable} | source: ${card.precedence_source} | project context: ${card.project_context}`, `Bound targets: ${JSON.stringify(card.bound_to)}`);
   lines.push(...templateRelationLines(extra as { templates?: TemplateRelationDescriptor[]; used_by?: TemplateRelationDescriptor[] }));
   lines.push(contentNotice, bindings.text || RULE_CHECK_OBLIGATION, '\n## Outline', ...card.outline.map(section => `- ${section.heading} (${section.bytes} bytes, ${section.lines} lines)`),
     '\n## Resources', ...resources.map(resource => `- ${resource.path} (${resource.bytes} bytes)`), '\n## Drill in',

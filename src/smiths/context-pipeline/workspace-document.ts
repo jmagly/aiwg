@@ -1,3 +1,5 @@
+import { projectRulePrecedenceText } from '../../rules/project-precedence.js';
+import { RULE_PRECEDENCE_TEXT } from '../../rules/precedence.mjs';
 // Render and preserve the canonical WORKSPACE document and resident memory.
 import * as path from 'node:path';
 import { readAiwgConfigCandidate } from '../../config/aiwg-config.js';
@@ -117,6 +119,7 @@ export async function providerCopiesStatus(projectPath: string): Promise<Provide
 
 export function buildWorkspaceManagedBlock(projectPath: string, providerFiles: string[] = [], residentMemory = ''): string {
   const links = workspaceLinks(projectPath, providerFiles);
+  const ordering = projectRulePrecedenceText(projectPath);
   return [
     WORKSPACE_MANAGED_START,
     '',
@@ -141,6 +144,9 @@ export function buildWorkspaceManagedBlock(projectPath: string, providerFiles: s
     'The distinction in 1 vs 2 is capability versus preference. "This tool is unavailable" is a',
     'constraint. "Format commits this way" is a directive, and an AIWG rule on commit content wins.',
     'When a directive and an AIWG rule conflict, follow the rule and say plainly that you did.',
+    '',
+    RULE_PRECEDENCE_TEXT,
+    ...(ordering ? ['', ordering] : []),
     '',
     '### Ownership',
     '',

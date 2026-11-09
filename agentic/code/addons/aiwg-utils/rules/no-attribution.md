@@ -1,4 +1,6 @@
 ---
+precedence: critical
+overridable: false
 enforcement: critical
 triggers:
   - should I add a co-authored-by line

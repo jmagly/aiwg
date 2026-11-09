@@ -1,10 +1,12 @@
 /** Configurable lint guard only. Call with the complete projected startup set. */
+import { validateRulePrecedenceConfig } from './precedence.mjs';
+
 export const DEFAULT_RULES_INLINE_BUDGET_TOKENS = 64000;
 
 export function validateRulesConfig(rules) {
   if (rules === undefined) return [];
   if (rules === null || typeof rules !== 'object' || Array.isArray(rules)) return ['rules: must be an object'];
-  const errors = Object.keys(rules).filter(key => !['inline_budget_tokens', 'always_load', 'pin_groups'].includes(key)).map(key => `rules.${key}: unknown field`);
+  const errors = Object.keys(rules).filter(key => !['inline_budget_tokens', 'always_load', 'pin_groups', 'precedence'].includes(key)).map(key => `rules.${key}: unknown field`);
   if (rules.inline_budget_tokens !== undefined && (!Number.isSafeInteger(rules.inline_budget_tokens) || rules.inline_budget_tokens < 0)) {
     errors.push('rules.inline_budget_tokens: must be a non-negative safe integer');
   }
@@ -27,7 +29,7 @@ export function validateRulesConfig(rules) {
       if (selector.group !== undefined && selector.capabilities !== undefined) errors.push('rules.always_load: group and capabilities are mutually exclusive');
     }
   }
-  return errors;
+  return [...errors, ...validateRulePrecedenceConfig(rules.precedence)];
 }
 
 export function resolveRulesInlineBudget(config = {}, env = process.env) {

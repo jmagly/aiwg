@@ -18,11 +18,17 @@ describe('shared rule activation contract (#2938)', () => {
     expect(result.rule).toBeUndefined();
     expect(result.diagnostics.some(d => d.code === 'missing-activation')).toBe(false);
   });
-  it.each(['critical', 'high', 'block', 'unknown', undefined, 'MEDIUM', 'low'])('infers migration delivery for %j', enforcement => {
+  it.each(['critical', 'high', undefined, 'medium', 'low'])('infers migration delivery for %j', enforcement => {
     const result = validateRuleFrontmatter({ enforcement, paths: ['legacy/**'], scope: 'descriptive' });
     expect(result.rule?.activation).toBe(inferRuleActivation(enforcement));
     expect(result.rule?.tagged).toBe(false);
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ severity: 'warn', message: expect.stringContaining(inferRuleActivation(enforcement)) }));
+  });
+  it.each(['block', 'unknown', 'MEDIUM'])('rejects invalid legacy enforcement %s while reporting migration delivery', enforcement => {
+    const result = validateRuleFrontmatter({ enforcement });
+    expect(result.valid).toBe(false);
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ severity: 'error', message: expect.stringContaining('/enforcement') }));
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ severity: 'warn', code: 'missing-activation' }));
   });
   it('counts trimmed Unicode code points, including astral characters', () => {
     expect(validateRuleFrontmatter({ activation: 'summary', summary: `  ${'🦊'.repeat(240)}  ` }).rule?.summary).toBe('🦊'.repeat(240));

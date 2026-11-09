@@ -536,7 +536,8 @@ async function handleValidate(config: UserConfig, args: string[]): Promise<void>
   try {
     const { loadRulePinConfigs, installedRuleCapabilities, validateRulePinCapabilities } = await import('../rules/pins.mjs');
     const configs = loadRulePinConfigs(process.cwd(), undefined, config.getPath());
-    for (const message of validateRulePinCapabilities(configs.user.rules, installedRuleCapabilities(configs), configs.project.rules?.pin_groups)) {
+    const { validateProjectRulePrecedence } = await import('../rules/project-precedence.js');
+    for (const message of [...validateRulePinCapabilities(configs.user.rules, installedRuleCapabilities(configs), configs.project.rules?.pin_groups), ...validateProjectRulePrecedence(process.cwd(), configs.user, 'user', config.getPath())]) {
       issues.push({ file: 'aiwg.config', severity: 'error', message });
     }
   } catch (error) {
@@ -991,7 +992,8 @@ export async function setRuleConfigKey(cwd: string, source: 'project' | 'user', 
   let value: unknown;
   try { value = JSON.parse(raw); } catch { value = raw; }
   setDottedPath(configs.user as Record<string, unknown>, key, value);
-  const errors = validateRulePinCapabilities(configs.user.rules, installedRuleCapabilities(configs), configs.project.rules?.pin_groups);
+  const { validateProjectRulePrecedence } = await import('../rules/project-precedence.js');
+  const errors = [...validateRulePinCapabilities(configs.user.rules, installedRuleCapabilities(configs), configs.project.rules?.pin_groups), ...validateProjectRulePrecedence(cwd, configs.user, 'user', userConfigDir)];
   if (errors.length) throw new Error(errors.join('\n'));
   const file = rulePinConfigPath(cwd, 'user', userConfigDir);
   await mkdir(path.dirname(file), { recursive: true });

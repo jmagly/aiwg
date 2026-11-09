@@ -1,4 +1,6 @@
 ---
+precedence: critical
+overridable: true
 enforcement: critical
 triggers:
   - is this command destructive

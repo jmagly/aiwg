@@ -74,6 +74,7 @@ export function buildRelations(entries: MetadataEntry[]): RelationsIndex {
     index.rules[id] = {
       name: rule.name ?? slug(rule), path: rule.path, type: rule.type as 'rule' | 'behavior',
       activation: rule.activation ?? null, enforcement: rule.ruleEnforcement ?? null,
+      precedence: rule.rulePrecedence ?? 'medium', overridable: rule.ruleOverridable ?? true,
       summary: rule.ruleSummary ?? '', capability: capability?.id ?? null,
       ...(rule.rulePaths ? { paths: rule.rulePaths } : {}),
       ...(rule.triggers?.length ? { triggers: rule.triggers } : {}),

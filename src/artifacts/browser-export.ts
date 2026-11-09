@@ -736,6 +736,8 @@ function recordForEntry(
               ...(entry.activation ? { activation: entry.activation } : {}),
               ...(entry.bound_to ? { bound_to: entry.bound_to } : {}),
               ...(entry.ruleEnforcement ? { enforcement: entry.ruleEnforcement } : {}),
+              ...(entry.rulePrecedence ? { precedence: entry.rulePrecedence } : {}),
+              ...(entry.ruleOverridable === undefined ? {} : { overridable: entry.ruleOverridable }),
               ...(entry.rulePaths ? { paths: entry.rulePaths } : {}),
               ...(entry.governedPaths ? { aiwg_governed_paths: entry.governedPaths } : {}),
               ...(entry.ruleSummary !== undefined ? { summary: entry.ruleSummary } : {}),

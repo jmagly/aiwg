@@ -833,6 +833,10 @@ mirror on GitHub (tags pushed on release).
 - **Setup manifests** (separate language for installer addon): see
   [`setup-manifest.md`](./setup-manifest.md)
 
+## Rule precedence
+
+Optional `rules.precedence` sets per-rule tiers and named project-context exceptions; non-overridable rules refuse all overrides. See the [rule precedence reference](rule-precedence.md) for the schema, defaults, CLI examples and source visibility.
+
 ## Operator rule pins
 
 Use local pins when a binding or discovery lookup is too weak for a critical

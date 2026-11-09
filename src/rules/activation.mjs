@@ -51,6 +51,8 @@ export function validateRuleFrontmatter(data) {
       ...data,
       activation: tagged ? data.activation : inferRuleActivation(data.enforcement),
       tagged,
+      precedence: data.precedence ?? 'medium',
+      overridable: data.overridable ?? true,
       ...(typeof data.summary === 'string' ? { summary: data.summary.trim() } : {}),
       bound_to: { skills: [], agents: [], flows: [], ...data.bound_to },
     } } : {}),

@@ -302,6 +302,13 @@
             "null"
           ]
         },
+        "precedence": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "overridable": {
+          "type": "boolean"
+        },
         "summary": {
           "type": "string"
         },

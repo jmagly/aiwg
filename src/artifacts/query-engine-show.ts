@@ -12,7 +12,7 @@ import {
 } from './query-engine-entries.js';
 import { findShowMatches } from './query-engine-matching.js';
 import { type ShowMetadataParams, type ShowParams } from './query-engine-options.js';
-import { showBindings } from './query-engine-rules.js';
+import { showBindings, ruleOrderingFields } from './query-engine-rules.js';
 import { emitShowCard } from './query-engine-show-card.js';
 import { templateRelationFields } from './query-engine-templates.js';
 import { fortemiRecordForEntry, loadShowEntries, resolveMetadataPath } from './query-engine-show-load.js';
@@ -89,7 +89,7 @@ export async function showArtifact(
           ? `Run \`aiwg use ${corpusMatch.bundleId}\` to install this ${corpusMatch.bundleKind} into the workspace.`
           : 'Run `aiwg index build --graph framework` to refresh the artifact index.';
         const fallbackEntry = { path: path.relative(aiwgRoot, corpusMatch.path), type: corpusMatch.type, name: needle, title: needle } as MetadataEntry;
-        const bindings = await showBindings(entries, fallbackEntry, content, params, rule => fs.readFile(resolveMetadataPath(cwd, aiwgRoot, rule), 'utf8'), relations);
+        const bindings = await showBindings(entries, fallbackEntry, content, params, rule => fs.readFile(resolveMetadataPath(cwd, aiwgRoot, rule), 'utf8'), relations, rule => ruleOrderingFields(cwd, aiwgRoot ?? cwd, rule, resolveMetadataPath(cwd, aiwgRoot, rule)));
         await emitShowCard(cwd, aiwgRoot, fallbackEntry,
           corpusMatch.path, content, params, bindings, { uninstalled: !installed, installed, hint: installHint,
             ...(localPin ? { local_pin: localPin } : {}), ...templateRelationFields(fallbackEntry, relations) }, true);
@@ -188,7 +188,7 @@ export async function showArtifact(
       webReleaseOptions: params.webReleaseOptions, offline: params.offline,
     });
     return resolved.bytes.toString('utf8');
-  }, relations);
+  }, relations, rule => ruleOrderingFields(cwd, aiwgRoot ?? cwd, rule, resourceSource === 'local' ? resolvePath(rule) : undefined));
 
   const providerModels = resourceSource === 'local' ? await loadProviderModelMetadata(cwd, aiwgRoot) : null;
   await emitShowCard(cwd, aiwgRoot, entry, filePath, content, params, bindings, {

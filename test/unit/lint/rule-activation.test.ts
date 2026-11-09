@@ -30,6 +30,20 @@ describe('activation lint in the existing runner (#2938)', () => {
     await writeFile(join(dir, 'rules/example.md'), content);
     return runLint(dir, [ruleActivationRuleset], { respectGitignore: false, artifactEntries: entries, ci: true });
   };
+  it('warns only on detectable opposite directives sharing a declared subject and effective tier', async () => {
+    const source = (directive: string, tier = 'high', subject = 'commit attribution') =>
+      `---\nactivation: on-demand\nprecedence: ${tier}\nsubject: ${subject}\n---\n- ${directive}\n`;
+    await writeFile(join(dir, 'rules/first.md'), source('Always add attribution.'));
+    await writeFile(join(dir, 'rules/second.md'), source('Never add attribution.'));
+    const run = () => runLint(dir, [ruleActivationRuleset], { respectGitignore: false, artifactEntries: [] });
+    const result = await run();
+    expect(result.summary).toMatchObject({ passed: true, warnings: 1 });
+    expect(result.diagnostics[0].message).toMatch(/first.md.*second.md.*commit attribution.*high/);
+    await writeFile(join(dir, 'rules/second.md'), source('Never add attribution.', 'low'));
+    expect((await run()).summary.warnings).toBe(0);
+    await writeFile(join(dir, 'rules/second.md'), source('Never add attribution.', 'high', 'emails'));
+    expect((await run()).summary.warnings).toBe(0);
+  });
   it('is discoverable without a separate lint subsystem', async () => {
     expect((await discoverRulesets(dir, dir)).map(r => r.id)).toContain('rule-activation');
     const research = { ...ruleActivationRuleset, id: 'research', framework: 'research' };

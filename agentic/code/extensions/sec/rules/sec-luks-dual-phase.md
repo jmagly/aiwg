@@ -1,4 +1,6 @@
 ---
+precedence: critical
+overridable: true
 activation: kernel
 enforcement: critical
 ---

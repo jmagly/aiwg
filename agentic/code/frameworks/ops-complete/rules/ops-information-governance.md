@@ -1,4 +1,6 @@
 ---
+precedence: critical
+overridable: true
 enforcement: critical
 activation: kernel
 summary: Classify, minimize, redact, authorize the named sink, and attach retention metadata before any operational payload reaches a response or persistent destination.

@@ -1,4 +1,9 @@
 // Resolve governing rules and shape bound-rule checks and summaries.
+import fs from 'node:fs';
+import { parseRuleFrontmatter } from '../rules/activation.mjs';
+import { resolveRulePrecedence, type ResolvedRuleOrdering } from '../rules/precedence.mjs';
+import { loadRulePinConfigs } from '../rules/pins.mjs';
+import { ruleOrderingAliases } from '../rules/project-precedence.js';
 import { minimatch } from 'minimatch';
 import * as path from 'node:path';
 import { inferRuleActivation } from '../rules/activation.mjs';
@@ -36,7 +41,7 @@ export function relationshipRules(entries: MetadataEntry[], target: MetadataEntr
   const asMetadata = (id: string): MetadataEntry => {
     const rule = relations.index.rules[id];
     return { path: rule.path, type: rule.type, name: rule.name, activation: rule.activation ?? undefined,
-      bound_to: rule.bound_to, ruleSummary: rule.summary, ruleEnforcement: rule.enforcement ?? undefined, rulePaths: rule.paths, triggers: rule.triggers } as MetadataEntry;
+      bound_to: rule.bound_to, ruleSummary: rule.summary, ruleEnforcement: rule.enforcement ?? undefined, rulePrecedence: rule.precedence, ruleOverridable: rule.overridable, rulePaths: rule.paths, triggers: rule.triggers } as MetadataEntry;
   };
   const key = `${target.type}:${discoveryIdForEntry(target)}`;
   const shipped = Object.hasOwn(relations.index.targets, key)
@@ -54,7 +59,7 @@ export const RULE_CHECK_OBLIGATION = 'Before governed work, fetch and follow eve
 
 export function relationMetadata(relations: RelationsReader): MetadataEntry[] {
   return Object.values(relations.index.rules).map(rule => ({ path: rule.path, type: rule.type, name: rule.name,
-    activation: rule.activation ?? undefined, ruleSummary: rule.summary, ruleEnforcement: rule.enforcement ?? undefined,
+    activation: rule.activation ?? undefined, ruleSummary: rule.summary, ruleEnforcement: rule.enforcement ?? undefined, rulePrecedence: rule.precedence, ruleOverridable: rule.overridable,
     bound_to: rule.bound_to, rulePaths: rule.paths, triggers: rule.triggers } as MetadataEntry));
 }
 
@@ -108,8 +113,9 @@ export function compoundGoverningRules(entries: MetadataEntry[], target: Metadat
   return [...found.values()].sort((a, b) => (a.rule.name ?? a.rule.path).localeCompare(b.rule.name ?? b.rule.path) || a.rule.path.localeCompare(b.rule.path));
 }
 
-export function boundRuleDescriptor(rule: MetadataEntry) {
+export function boundRuleDescriptor(rule: MetadataEntry, ordering?: Partial<ResolvedRuleOrdering>) {
   return { name: rule.name ?? path.basename(rule.path, '.md'), activation: rule.activation ?? null, enforcement: rule.ruleEnforcement ?? null,
+    precedence: rule.rulePrecedence ?? 'medium', overridable: rule.ruleOverridable ?? true, precedence_source: 'rule', project_context: false, ...ordering,
     summary: (rule.ruleSummary ?? '').replace(/\s+/g, ' ').trim(), show_command: `aiwg show ${rule.type} ${rule.name ?? path.basename(rule.path, '.md')} --body` };
 }
 
@@ -125,9 +131,9 @@ export function governingRuleStats(governing: GoverningRule[]): RuleStats {
   return stats;
 }
 
-export function governingRuleFields(governing: GoverningRule[]) {
+export function governingRuleFields(governing: GoverningRule[], ordering?: (entry: MetadataEntry) => Partial<ResolvedRuleOrdering>) {
   if (!governing.length) return {};
-  return { bound_rules: governing.map(({ rule }) => boundRuleDescriptor(rule)), rule_stats: governingRuleStats(governing),
+  return { bound_rules: governing.map(({ rule }) => boundRuleDescriptor(rule, ordering?.(rule))), rule_stats: governingRuleStats(governing),
     required_rule_checks: governing.map(({ rule, applicability }) => ({ rule_id: discoveryIdForEntry(rule),
       applicability, fetch_command: `aiwg show ${rule.type} ${discoveryIdForEntry(rule)} --body` })), rule_check_obligation: RULE_CHECK_OBLIGATION };
 }
@@ -157,12 +163,12 @@ export function relationshipRuleStats(entries: MetadataEntry[], target: Metadata
 export async function showBindings(
   entries: MetadataEntry[], target: MetadataEntry, content: string, params: ShowParams,
   read: (entry: MetadataEntry) => Promise<string>,
-  relations?: RelationsReader,
+  relations?: RelationsReader, ordering?: (entry: MetadataEntry) => Partial<ResolvedRuleOrdering>,
 ): Promise<{ fields: Record<string, unknown>; text: string }> {
   const governing = compoundGoverningRules(entries, target, relations, '', false, false);
   const rules = governing.map(item => item.rule);
   const boundRules = await Promise.all(rules.map(async rule => ({
-    ...boundRuleDescriptor(rule),
+    ...boundRuleDescriptor(rule, ordering?.(rule)),
     ...((params.boundRuleBodies || params.withRuleBodies) ? { content: await read(rule) } : {}),
   })));
   // Parse the selected rule for reverse lookup, including corpus-only rules.
@@ -191,7 +197,7 @@ export async function showBindings(
     // Cards already print these stats in the header; body/section output has no header.
     const stats = params.body || params.sections?.length ? `${statsText(governingRuleStats(governing))}\n\n` : '';
     text += `\n## Bound rules\n\n${RULE_CHECK_OBLIGATION}\n\n${stats}` + boundRules.map(rule =>
-      `- **${rule.name}** [${rule.activation ?? 'unknown'} / ${rule.enforcement ?? 'unknown'}]: ${rule.summary} (\`${rule.show_command}\`)`
+      `- **${rule.name}** [${rule.activation ?? 'unknown'} / ${rule.enforcement ?? 'unknown'}; precedence ${rule.precedence}; overridable ${rule.overridable}; source ${rule.precedence_source}]: ${rule.summary} (\`${rule.show_command}\`)`
       + ('content' in rule ? `\n\n${rule.content}` : '')).join('\n') + '\n';
   }
   if (Object.keys(boundTo).length) {
@@ -200,9 +206,22 @@ export async function showBindings(
   }
   if (boundTargets.size) text += '\nResolved targets: ' + [...boundTargets.values()].map(target => `${target.type} ${target.name ?? target.id}`).join(', ') + '\n';
   return { fields: {
-    ...governingRuleFields(governing),
+    ...governingRuleFields(governing, ordering),
     ...(['rule', 'behavior'].includes(target.type) ? { bound_to: boundTo, bound_targets: [...boundTargets.values()] } : {}),
     ...(boundRules.length ? { bound_rules: boundRules } : {}),
     ...(Object.keys(boundTo).length ? { bound_to: boundTo } : {}),
   }, text };
+}
+
+/** Cards use canonical source when available, so a stale index cannot weaken a rule. */
+export function ruleOrderingFields(cwd: string, root: string, entry: MetadataEntry, file?: string): Partial<ResolvedRuleOrdering> {
+  if (!['rule', 'behavior'].includes(entry.type)) return {};
+  let ordering: { precedence?: unknown; overridable?: unknown } = { precedence: entry.rulePrecedence, overridable: entry.ruleOverridable };
+  if (file && fs.existsSync(file)) {
+    const parsed = parseRuleFrontmatter(fs.readFileSync(file, 'utf8'));
+    // Discovery preserves legacy binding syntax; ordering itself is validated below.
+    ordering = parsed.data && typeof parsed.data === 'object' ? parsed.data : {};
+  }
+  return resolveRulePrecedence({ ...ordering, name: entry.name, id: discoveryIdForEntry(entry) },
+    loadRulePinConfigs(cwd), ruleOrderingAliases(file ?? path.resolve(root, entry.path), root, cwd));
 }

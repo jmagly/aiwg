@@ -4,6 +4,31 @@ Core enforcement rules deployed with every AIWG installation. These rules apply 
 
 ---
 
+## Conflict ordering
+
+Rules declare `precedence: critical|high|medium|low` (default `medium`) and
+`overridable: true|false` (default `true`). These fields are independent of
+`activation` delivery and `enforcement` severity. A skill follows its bound
+rules; higher precedence wins between rules, and narrower scope wins at equal
+precedence. Name the followed rule when resolving a conflict.
+
+The shipped `no-attribution`, `anti-laziness` and `human-authorization` rules
+have critical precedence and `overridable: false`. Every ordering override of
+these rules is refused, including a same-tier assignment or project-context
+exception. Platform constraints remain absolute.
+
+Optional `rules.precedence` entries in `aiwg.config` set a rule's tier and/or
+allow project context to outrank that named overridable rule. `aiwg show rule`,
+`aiwg discover` rule cards and `aiwg rules list` display the effective ordering,
+overridability and override source. See [rule precedence configuration](../../../../../docs/configuration/rule-precedence.md).
+
+Rule lint rejects invalid metadata and warns about literal opposite directives
+(such as “Always add attribution” / “Never add attribution”) when rules declare
+the same `subject` (or `subjects` list) at the same effective precedence.
+This conservative check does not prove that other conflicts are absent.
+
+---
+
 ## Always-loaded core rules
 
 `no-attribution` (CRITICAL) and `anti-laziness` (HIGH) are owned by the

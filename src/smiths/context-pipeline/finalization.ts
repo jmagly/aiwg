@@ -1,3 +1,4 @@
+import { RULE_PRECEDENCE_TEXT } from '../../rules/precedence.mjs';
 import { maskCodeRegions } from './code-regions.js';
 import { assertSafeContextFile, writeContextFileSync } from './context-file-safety.js';
 /**
@@ -81,6 +82,10 @@ export async function buildContextFinalizationBlock(
     `- Installed frameworks/addons: ${formatList(installedNames)}`,
     `- Recorded deployments: ${formatList([...providerDeployments].sort())}`,
     '- Generated framework context: `AIWG.md`',
+    '',
+    '### Rule Precedence',
+    '',
+    RULE_PRECEDENCE_TEXT,
     '',
     '### Capability Routing',
     '',

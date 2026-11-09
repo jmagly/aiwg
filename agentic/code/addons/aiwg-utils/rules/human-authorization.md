@@ -1,4 +1,6 @@
 ---
+precedence: critical
+overridable: false
 enforcement: high
 id: human-authorization
 severity: HIGH

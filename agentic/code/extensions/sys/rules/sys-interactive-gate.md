@@ -1,4 +1,6 @@
 ---
+precedence: high
+overridable: true
 activation: kernel
 enforcement: high
 ---
