@@ -23,9 +23,12 @@ import type {
   ExecutorRegistry,
 } from './executor-registry.js';
 import { extractGraphMetadata } from '../flow/graph-metadata.js';
+import { autoRespondToA2AMission } from './mission-hitl.js';
+import type { PromptAuthorization } from '../a2a/hitl-authorization.js';
 import { extractHitlEnvelope } from '../a2a/hitl.js';
 
 export interface A2ATerminalObserverOptions {
+  authorization?: PromptAuthorization;
   fetch?: typeof fetch;
   pollIntervalMs?: number;
   maxPolls?: number;
@@ -54,8 +57,10 @@ export async function observeA2ATerminalState(
       protocolVersion: opts.protocolVersion ?? '0.3',
       ...(opts.selectedInterface ? { selectedInterface: opts.selectedInterface } : {}),
       acceptedPrompts: new Set(),
+      authorization: opts.authorization,
     };
   }
+  if (mission?.a2a && opts.authorization && !mission.a2a.authorization) mission.a2a.authorization = opts.authorization;
   try {
     const clientOpts: ConstructorParameters<typeof A2AClient>[0] = {
       baseUrl: executor.transportEndpoints.rest,
@@ -70,7 +75,7 @@ export async function observeA2ATerminalState(
     const client = new A2AClient(clientOpts);
 
     let task = initialTask;
-    emitNonTerminalProgress(registry, executor.executorId, missionId, task);
+    await emitNonTerminalProgress(registry, executor.executorId, missionId, task, opts);
 
     for (let attempt = 0; attempt <= (opts.maxPolls ?? DEFAULT_MAX_POLLS); attempt++) {
       if (isTerminalTaskState(task.status.state)) {
@@ -84,7 +89,7 @@ export async function observeA2ATerminalState(
       if (task.id !== initialTask.id || task.contextId !== initialTask.contextId) {
         throw new Error('A2A observer task binding changed');
       }
-      emitNonTerminalProgress(registry, executor.executorId, missionId, task);
+      await emitNonTerminalProgress(registry, executor.executorId, missionId, task, opts);
     }
 
     registry.failMission(
@@ -100,12 +105,13 @@ export async function observeA2ATerminalState(
   }
 }
 
-function emitNonTerminalProgress(
+async function emitNonTerminalProgress(
   registry: ExecutorRegistry,
   executorId: string,
   missionId: string,
-  task: Task
-): void {
+  task: Task,
+  opts: A2ATerminalObserverOptions,
+): Promise<void> {
   const state = task.status.state;
   if (state === 'working') {
     registry.handleEvent(makeEnvelope('mission.started', executorId, missionId, task, {
@@ -117,6 +123,7 @@ function emitNonTerminalProgress(
   }
   if (state === 'input-required') {
     const prompt = extractHitlEnvelope(task);
+    if (prompt?.ok && await autoRespondToA2AMission(registry, missionId, prompt.envelope.prompt_id, opts)) return;
     registry.handleEvent(makeEnvelope('mission.hitl_required', executorId, missionId, task, {
       state: 'hitl-required',
       a2a_task_id: task.id,

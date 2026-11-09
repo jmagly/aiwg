@@ -4,9 +4,11 @@ import Ajv from 'ajv';
 import { A2AClient, A2A_HITL_PROMPT_V1 } from '../a2a/client.js';
 import { buildHitlResponseMessage, extractHitlEnvelope } from '../a2a/hitl.js';
 import type { A2AProtocolVersion, JsonValue, NormalizedAgentInterface } from '../a2a/types.js';
+import { lookupPromptAuthorization, type PromptAuthorization, type PromptReceipt } from '../a2a/hitl-authorization.js';
 import type { ExecutorRegistry } from './executor-registry.js';
 
 export interface MissionA2ABinding {
+  authorization?: PromptAuthorization;
   instanceId: string;
   taskId: string;
   contextId?: string;
@@ -25,7 +27,7 @@ export async function respondToA2AMission(
   missionId: string,
   promptId: string,
   response: JsonValue,
-  opts: { fetch?: typeof fetch } = {},
+  opts: { fetch?: typeof fetch; automatic?: boolean } = {},
 ): Promise<Reply> {
   const mission = registry.getMission(missionId);
   const binding = mission?.a2a;
@@ -57,6 +59,14 @@ export async function respondToA2AMission(
     // The local mission API has no authenticated operator identity. Never
     // accept a caller-supplied name as authority for a restricted prompt.
     if (prompt.allowed_responders && !prompt.allowed_responders.includes('any')) return reply(403, 'authenticated_responder_required');
+    let authorization: PromptReceipt | undefined;
+    if (opts.automatic) {
+      const authorized = await lookupPromptAuthorization({ envelope: prompt, taskId: binding.taskId,
+        contextId: binding.contextId, authorization: binding.authorization });
+      if (!authorized) return reply(409, 'approval_requires_human');
+      response = authorized.response;
+      authorization = authorized.authorization;
+    }
     try {
       const validate = new Ajv({ allErrors: true, strict: true }).compile(prompt.response_schema as object);
       if ('$async' in validate && validate.$async === true) return reply(422, 'approval_schema_unsupported');
@@ -84,7 +94,8 @@ export async function respondToA2AMission(
     registry.handleEvent({
       event: 'mission.progress', executor_id: mission.executorId, mission_id: missionId,
       ts: new Date().toISOString(),
-      data: { action: 'hitl_response_accepted', hitl_id: promptId, a2a_task_id: binding.taskId },
+      data: { action: 'hitl_response_accepted', hitl_id: promptId, a2a_task_id: binding.taskId,
+        ...(authorization ? { authorization } : {}) },
     });
     return { status: 200, body: { ok: true } };
   } catch {
@@ -97,4 +108,13 @@ export async function respondToA2AMission(
 
 function reply(status: Reply['status'], error: string): Reply {
   return { status, body: { error } };
+}
+
+/** Called before publishing a mission prompt. The HTTP response route never sets automatic. */
+export async function autoRespondToA2AMission(registry: ExecutorRegistry, missionId: string,
+  promptId: string, opts: { fetch?: typeof fetch } = {}): Promise<boolean> {
+  const binding = registry.getMission(missionId)?.a2a;
+  if (binding?.acceptedPrompts.has(promptId)) return true;
+  const result = await respondToA2AMission(registry, missionId, promptId, null, { ...opts, automatic: true });
+  return result.status === 200;
 }

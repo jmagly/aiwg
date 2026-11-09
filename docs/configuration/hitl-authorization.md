@@ -22,8 +22,8 @@ native form. Only explicit acceptance saves a signed grant and returns its
 approval save nothing. The form includes the canonical workspace bindings; free
 text conditions are omitted. See [the grant contract](../contracts/authorization-grant.v1.md#native-confirmation-capture)
 for arguments, identity provenance and retry behavior. No CLI argument records a
-grant. Rule and skill integration (#4003) is listed below; search/explain/status
-(#4004) and harness question-hook capture remain deferred.
+grant. Rule, skill and executable process integration (#4003) are listed below;
+search/explain/status (#4004) and harness question-hook capture remain deferred.
 
 `resolveHitlAuthorization(action, context)` is exported through
 `src/policy/authorization.ts`; its implementation is in `src/policy/hitl.ts`.
@@ -260,3 +260,31 @@ cannot relabel them as file edits. Policy and threat-preflight overrides also
 remain restricted. Delivery, CI, repo capabilities, human objections, project
 trust and platform prompts remain independent. Recheck every changed action;
 a receipt is neither proof of action completion nor authority for later effects.
+
+
+## Process integration
+
+These rows cover executable code paths. A host binding describes the pending
+execution plan; executor prompt text, response schemas, issue content and model
+claims cannot supply that binding. The host binds the task, context, prompt ID,
+and digest of the entire envelope to an exact action and approval response.
+Only a fresh `auto-authorized` check with a signed receipt suppresses collection.
+Receipts remain in the existing effect ledger and their references accompany the
+accepted response in the audit/event log.
+
+| Process | Source inspected / integration | Coverage and limits |
+| --- | --- | --- |
+| Mission A2A approvals | `src/serve/mission-hitl.ts`, `src/serve/a2a-terminal-observer.ts` | Lookup before publishing `mission.hitl_required`; host-bound actions can answer without showing the prompt, with receipt/grant links in `mission.progress`. Missing grants or bindings preserve the prompt. Tests: `test/unit/serve/mission-hitl.test.ts`. |
+| Mission prompt delivery | `src/a2a/hitl-driver.ts`, `src/a2a/hitl-authorization.ts` | Lookup before `HitlDeliveryAdapter.collect`; host-only `PromptAuthorization` binds exact actions and responses. Receipt/grant links are recorded in the response audit entry. Restricted responders, changed bindings/schemas, expiry, missing receipts and unavailable checks retain existing handling. Tests: `test/unit/a2a/hitl-authorization.test.ts`. |
+| Agent loop / Ralph critical escalation | `tools/ralph-external/lib/intervention-system.mjs`, `overseer.mjs`, `escalation-handler.mjs`; `src/cli/handlers/ralph.ts` | Critical escalation checks the pending safety override and records the resolution before notifying the person. Resuming after a critical stop has unknown subsequent effects; overrides always escalate. There is no bounded safe automatic-resume happy path. Notification/review behavior remains unchanged. Tests: `test/unit/ralph-external/hitl-authorization.test.ts`. Agent-loop skill guidance is separate. |
+| GatePacks CLI | `src/cli/handlers/gates.ts`, `src/gates/driver.ts` | Pure offline evaluation/inspection; no programmatic human authorization prompt. No prompt or automatic-approval path was added. |
+| Flow gate runtime | `agentic/code/addons/composition-engine/lib/runtime.mjs` (`enforceAuthority`), `commands/composition-run.mjs`; `src/decision/graph-flow-adapter.ts` | Runtime approval checks are owned by `agentic/code/`, outside this code worker's permitted edits. Lookup-before-ask and its per-process tests are deferred to that owner. GatePack pass results do not authorize actions. |
+| Steward | `src/cli/handlers/steward.ts`, `steward-models.ts`, `steward-signing.ts`; `src/config/authorization-cli.ts` | Advice, previews and explicit apply/revoke operations; no runtime question collector. Premium confirmation remains advisory routing output. Signing and permission changes are policy edits and cannot become automatically authorized from repo-edit grants. No prompt was invented. |
+| Codex / Muse worker dispatch and admission | `src/mcp/tools/worker-invoke.mjs`, `src/models/worker-invocation-policy.ts`, `src/config/worker-activation-gate.ts`, `src/cli/handlers/mc-admission.ts` | No per-dispatch human question. Qualification, native permission controls and admission remain mandatory. A fresh fake local worker executes the public check in its actual workspace: the same project grant resolves with a receipt, while a copied ledger in another workspace escalates. Tests: `test/unit/policy/hitl-worker.test.ts`. Setup/qualification approval is distinct from approving a pending worker action. |
+
+The public serve dispatch payload currently carries an objective, not a trusted
+classification of each executor action. Such remote prompts therefore keep human
+review. Host integrations that already own the exact execution plan may pass
+`PromptAuthorization`; this object is never read from public dispatch payloads or
+A2A metadata. Extending executor action classification is deferred rather than
+inferring safe effects from natural language.
