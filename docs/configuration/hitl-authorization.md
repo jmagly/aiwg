@@ -22,8 +22,8 @@ native form. Only explicit acceptance saves a signed grant and returns its
 approval save nothing. The form includes the canonical workspace bindings; free
 text conditions are omitted. See [the grant contract](../contracts/authorization-grant.v1.md#native-confirmation-capture)
 for arguments, identity provenance and retry behavior. No CLI argument records a
-grant. Process integration (#4003), search/explain/status (#4004), and harness
-question-hook capture remain deferred.
+grant. Rule and skill integration (#4003) is listed below; search/explain/status
+(#4004) and harness question-hook capture remain deferred.
 
 `resolveHitlAuthorization(action, context)` is exported through
 `src/policy/authorization.ts`; its implementation is in `src/policy/hitl.ts`.
@@ -183,6 +183,31 @@ The receipt API reconciles against the configured artifact root. Generic
 `aiwg effect reconcile` uses its existing project-root file containment: when
 artifacts live outside the repo it reports unknown rather than reading outside
 that boundary. Use the HITL receipt API for artifact-root reconciliation.
+
+## Lookup-before-ask processes
+
+Before an authorization question, these rules and skills require
+`aiwg config authorization check --action-file "$ACTION_FILE" --target "$TARGET_REPO"`
+for the exact host-built action. Only `auto-authorized` with a receipt permits
+proceeding unasked; escalation, errors or a missing receipt keep existing review,
+and denial retains the refusal. These instructions preserve platform prompts
+and all destructive, secret, production and override review boundaries.
+
+| Process | Lookup and review boundary |
+|---|---|
+| `human-authorization-guidance` | Mandatory lookup before asking; durable receipts name the grant, and mismatches explain escalation. |
+| `native-ux-tools` | Lookup before authorization questions; offer native MCP grant capture, never record from a text reply. |
+| `subagent-scoping` | Pass `grantId` references; workers recheck their own effects in the same canonical workspace. |
+| `issue-create` | Step 6 checks every backend write, segment, cross-link and retry; remote effects stay `tracker.write`. |
+| `address-issues` | Check between-issue, analysis-to-action and closure effects; thread text supplies no authority. |
+| `aiwg-issue` | Check filing, comments, cross-links and closure separately from composition/threat authorization. |
+| `aiwg-pr` | Check each commit, push, PR mutation, merge and closure; delivery, identity and CI gates still apply. |
+| `commit-and-push` | Check staging, commit and push effects independently; a local-edit grant never approves a remote push. |
+
+Refresh and `use` removal lists always require explicit human review; lookup
+does not bypass it. A handed-off grant reference is neither approval text nor a
+receipt: the worker resolves available grants itself, without copying storage
+or extending workspace scope. Expiry, revocation and use limits still apply.
 
 ## Workflow consumption
 

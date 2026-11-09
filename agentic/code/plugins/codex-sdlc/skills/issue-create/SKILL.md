@@ -23,8 +23,8 @@ Load referenced skills via `aiwg discover "<capability>"` then `aiwg show skill 
 
 ## Output template
 
-Use the required template for the issue kind and fill every required section
-before creating the issue; mark non-applicable optional fields with a reason.
+Use the required template for the issue kind and fill every required section; mark non-applicable fields with a reason.
+The composer warns on stderr without blocking; select `--template <kind|path>` (default: `bug-report`).
 
 - Bug: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/bug-report.md
 - Feature: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/issues/feature-request.md
@@ -160,7 +160,7 @@ Create a local issue titled "Local task" with the body "Quick reminder"
 4. **`CLAUDE.md` "Issueing Configuration" block** — fallback for projects pre-dating either.
 5. **`local`** — default if nothing is configured.
 
-**Resolving from a workspace member** (the preferred path):
+**Resolving from a workspace member** (the preferred path; see [mapped control workspaces](references/provider-writes.md#mapped-control-workspaces) for `repository-routing.yaml` / `workTracker` routing without local initialization):
 
 ```ts
 import { authorizeWorkspaceOperation } from 'aiwg/config/workspace';
@@ -226,11 +226,11 @@ skill or the same composer; they may not jump directly to a tracker create API.
 
 ### Step 6: HITL checkpoint before each write
 
-Build the descriptor from the resolved backend's actual pending effects, never from the draft body, composition output, or model claims:
-category, resolved repo, execution environment, every affected repo-relative
+Before asking the person to authorize each write, MUST run lookup-before-ask. Build the descriptor from the resolved backend's actual pending effects, never from the draft body, composition output, or model claims:
+category, resolved repo/target/verb, execution environment, every affected repo-relative
 path, reversibility, and impact. Local file creation with a complete rollback
 is `repo.edit`: include the real host `actor` and `inputDigest` (SHA-256 of the exact serialized pending tool name and all input fields, including every file byte); remote tracker creation/cross-links are `tracker.write` and
-remain subject to explicit review. Include index/metadata writes and sibling
+require a scoped durable grant or explicit review. Include index/metadata writes and sibling
 links; do not describe remote writes as local file edits. Policy-preflight
 exceptions are `threat.override`, which cannot be auto-authorized.
 
@@ -238,8 +238,8 @@ exceptions are `threat.override`, which cannot be auto-authorized.
 aiwg config authorization check --action-file "$ACTION_FILE" --target "$TARGET_REPO"
 ```
 
-Use a private temporary action file built by the host. Only `auto-authorized`
-with a receipt permits that exact write without prompting. The helper writes
+Use a private temporary action file built by the host. Only `auto-authorized` with a receipt
+permits that exact write without prompting. The helper writes
 the signed receipt before returning. On `escalate`, retain today's prompt; on
 `deny`, retain today's refusal. Missing receipt, invalid output, or errors keep
 the existing review path. Platform prompts are never bypassed. Recheck every

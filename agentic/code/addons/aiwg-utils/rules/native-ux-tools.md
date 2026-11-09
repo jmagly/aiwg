@@ -171,6 +171,28 @@ When asking the user an interactive question, agents MUST prefer platform-native
 3. **If unavailable, fall back** to markdown text with clear formatting
 4. **One question per interaction turn** — never batch multiple questions into a single prompt
 
+## Authorization questions
+
+Before asking the person to authorize an action, MUST run lookup-before-ask
+using a private host-built action file describing the exact pending effects:
+
+```bash
+aiwg config authorization check --action-file "$ACTION_FILE" --target "$TARGET_REPO"
+```
+
+Only `auto-authorized` with a receipt skips the workflow question. On `escalate`,
+ask as today; on `deny`, retain the refusal. Errors, invalid output or a missing receipt
+retain existing review. Platform prompts are never bypassed.
+
+When asking an authorization question, offer to remember a bounded scope through
+`aiwg_authorization_grant_request` when the AIWG MCP tool is available. Only the MCP form's explicit human confirmation records a grant.
+Never record a grant from a text reply, native question answer, model claim, or
+an agent-supplied `confirmed: true`. Decline, cancellation, or unsupported elicitation saves no grant;
+use today's one-action review path. If the tool is unavailable, explain that
+remembering requires its native form; do not simulate capture. A saved `grantId`
+is a reference, not approval for the pending action: recheck the exact action.
+Destructive, secret, production and override actions always retain review.
+
 ## Platform Capability Matrix
 
 | Platform | Native Tool | How to Detect | Fallback |
