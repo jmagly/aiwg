@@ -39,8 +39,13 @@ export function templateRelationFields(entry: MetadataEntry, reader?: RelationsR
 }
 
 export function templateRelationLines(fields: ReturnType<typeof templateRelationFields>): string[] {
-  return Object.entries(fields).filter(([, items]) => items?.length).flatMap(([key, items]) => [
-    `\n## ${key === 'templates' ? 'Templates' : 'Used by'}`,
-    ...items!.map(item => `- ${item.name} (${item.type}): ${item.title} — \`${item.show_command}\``),
-  ]);
+  // Cards also carry strings such as run_hint and hint; only relations are lists.
+  return (['templates', 'used_by'] as const).flatMap(key => {
+    const items = fields[key];
+    if (!Array.isArray(items) || !items.length) return [];
+    return [
+      `\n## ${key === 'templates' ? 'Templates' : 'Used by'}`,
+      ...items.map(item => `- ${item.name} (${item.type}): ${item.title} — \`${item.show_command}\``),
+    ];
+  });
 }
