@@ -14,6 +14,9 @@
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 
+/** Project-only opt-in bulk mirror, shared by the registry and deployment adapter. */
+export const GROK_BUILD_STANDARD_SKILLS_PATH = '.grok/.aiwg/skills';
+
 export const GROK_HOME_ENV = 'GROK_HOME';
 
 export type GrokHomeResolution =

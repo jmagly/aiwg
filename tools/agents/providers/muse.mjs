@@ -50,6 +50,7 @@ import {
   museXdgSkillsDirRemediation,
 } from './muse-paths.mjs';
 import { importImpl } from '../../_resolve-impl.mjs';
+const { MUSE_STANDARD_SKILLS_PATH } = await importImpl(import.meta.url, 'providers/muse-paths.js');
 const { captureDeploymentOutputs, recordDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 import { assertMuseUserSettingsPath, deployMuseHooks, deployMuseMcp } from './muse-hooks.mjs';
 
@@ -72,7 +73,7 @@ export const kernelSkillsPath = '.agents/skills';
 
 // Opt-in standard-tier mirror (only with --copy-all): siblings of the
 // project skills root, never the user XDG root and never ~/.agents/skills.
-const STANDARD_MIRROR_SUBDIR = '.agents/.aiwg/skills';
+const STANDARD_MIRROR_SUBDIR = MUSE_STANDARD_SKILLS_PATH;
 
 export const support = {
   agents: 'indexed',

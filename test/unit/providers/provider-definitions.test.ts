@@ -135,7 +135,7 @@ describe('provider definition registry', () => {
     // Project skill root only; the user root resolves from XDG_CONFIG_HOME at
     // deploy time. Never advertise ~/.muse as a default skill root.
     expect(muse?.paths.kernelSkills).toBe('.agents/skills');
-    expect(muse?.paths.artifacts.skills).toBe('.agents/skills');
+    expect(muse?.paths.artifacts.skills).toBe('.agents/.aiwg/skills');
     expect(muse?.paths.deployTarget).toBe('mixed');
     expect(JSON.stringify(muse)).not.toContain('~/.muse');
     expect(muse?.paths.contextFiles.contextFile).toBe('AGENTS.md');

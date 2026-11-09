@@ -97,7 +97,7 @@ describe('grok-build provider definition', () => {
     expect(def?.displayName).toBe('Grok Build');
     expect(def?.status).toBe('experimental');
     expect(def?.aliases).toEqual([]);
-    expect(def?.paths.artifacts.skills).toBe('.grok/skills');
+    expect(def?.paths.artifacts.skills).toBe('.grok/.aiwg/skills');
     expect(def?.paths.kernelSkills).toBe('.grok/skills');
     expect(def?.paths.artifacts.agents).toBe('.grok/agents');
     expect(def?.paths.artifacts.rules).toBe('.grok/rules');

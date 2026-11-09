@@ -4,8 +4,8 @@
  * Muse Code's documented user skill root is `$XDG_CONFIG_HOME/muse/skills`
  * (default `~/.config/muse/skills` when XDG_CONFIG_HOME is unset). The
  * project skill root (`<repo>/.agents/skills`) is static provider metadata
- * on the `muse` skillNamespace; this module resolves only the XDG user root
- * at deploy time.
+ * on the `muse` skillNamespace; this module shares the project bulk mirror
+ * path and resolves the XDG user root at deploy time.
  *
  * Unlike Grok Bot (AIWG_GROKBOT_SKILLS_DIR, fail-closed until configured),
  * the Muse user root is documented, so an unset XDG_CONFIG_HOME falls back
@@ -22,6 +22,9 @@
 
 import { homedir } from 'node:os';
 import * as path from 'node:path';
+
+/** Project-only opt-in bulk mirror, shared by the registry and deployment adapter. */
+export const MUSE_STANDARD_SKILLS_PATH = '.agents/.aiwg/skills';
 
 /** Muse's documented user skills subtree below the XDG config root. */
 export const MUSE_XDG_SKILLS_SUBDIR = path.join('muse', 'skills');

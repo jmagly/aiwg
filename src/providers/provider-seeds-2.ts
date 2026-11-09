@@ -1,6 +1,8 @@
 // Built-in provider adapter definitions, preserving canonical registry order.
 import type { BuiltInSeed } from './provider-definition-schema.js';
 import { resolveHermesHomePath } from './hermes-home.js';
+import { GROK_BUILD_STANDARD_SKILLS_PATH } from './grok-build-paths.js';
+import { MUSE_STANDARD_SKILLS_PATH } from './muse-paths.js';
 
 export const BUILT_IN_SEEDS_2: BuiltInSeed[] = [
   {
@@ -29,7 +31,7 @@ export const BUILT_IN_SEEDS_2: BuiltInSeed[] = [
       artifacts: {
         agents: '.grok/agents',
         commands: null,
-        skills: '.grok/skills',
+        skills: GROK_BUILD_STANDARD_SKILLS_PATH,
         rules: '.grok/rules',
         behaviors: null,
       },
@@ -136,11 +138,11 @@ export const BUILT_IN_SEEDS_2: BuiltInSeed[] = [
     paths: {
       deployTarget: 'mixed',
       artifacts: {
-        // Skills are native; rule files are reached through the AGENTS.md
-        // hook. Agents and commands remain indexed through discover/show.
+        // Bulk skills use an opt-in mirror; kernel skills stay native. Rule files
+        // use the AGENTS.md hook. Agents/commands stay indexed via discover/show.
         agents: null,
         commands: null,
-        skills: '.agents/skills',
+        skills: MUSE_STANDARD_SKILLS_PATH,
         rules: '.muse/rules',
         behaviors: null,
       },

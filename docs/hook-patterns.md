@@ -400,9 +400,9 @@ each provider's public default without changing its deployment flags.
 | deepseek-harness | `AGENTS.md` | `.deepseek-harness/rules` (projection fallback) | `.agents/skills` (K/B) | `deepseek-harness.mjs` |
 | factory | `AGENTS.md` | `.factory/rules` | `.factory/skills`; `.factory/.aiwg/skills` | `factory.mjs` |
 | grokbot | `AGENTS.md` (host dependent) | `.grokbot/rules` (projection fallback) | None by default; user copies require `AIWG_GROKBOT_SKILLS_DIR` | `grokbot.mjs` |
-| grok-build | `AGENTS.md` | `.grok/rules` | `.grok/skills`; `.grok/.aiwg/skills` (adapter) | `grok-build.mjs` |
+| grok-build | `AGENTS.md` | `.grok/rules` | `.grok/skills`; `.grok/.aiwg/skills` | `grok-build.mjs` |
 | hermes | `.hermes.md`, `AGENTS.md` | `.hermes/rules` | `~/.hermes/skills`; `~/.hermes/skills/.aiwg` (`HERMES_HOME` overrides) | `hermes.mjs` |
-| muse | `AGENTS.md` | `.muse/rules` | `.agents/skills`; `.agents/.aiwg/skills` (adapter) | `muse.mjs` |
+| muse | `AGENTS.md` | `.muse/rules` | `.agents/skills`; `.agents/.aiwg/skills` | `muse.mjs` |
 | opencode | `AGENTS.md` + `opencode.json` instructions | `.opencode/rule` | `.opencode/skill`; `.opencode/.aiwg/skill` | `opencode.mjs` |
 | openclaw | Active workspace `AGENTS.md` + `SOUL.md`; default `~/.openclaw/workspace` | `~/.openclaw/rules` | `~/.openclaw/skills/aiwg`; `~/.openclaw/.aiwg/skills` | `openclaw.mjs` |
 | openhuman | `AGENTS.md` (host dependent) | `~/.openhuman/.aiwg/rules` | `~/.openhuman/skills`; `~/.openhuman/.aiwg/skills` | `openhuman.mjs` |
@@ -442,7 +442,10 @@ establishes it; interactive support does not establish exec support.
 | generic | None | N/A (host defined) | N/A | Rejected (expected) | No harness |
 
 Result: **18/18 named harnesses pass** the offline deployment/refresh check;
-the supplemental generic refusal check also passes (19 integration cases).
+the supplemental generic refusal check and two bulk routing checks also pass
+(21 integration cases). Muse and Grok Build share bulk-root constants between
+their registries and adapters (#3994); synthetic skills verify the opt-in mirror
+matches registry metadata while kernel skills remain in the native roots.
 
 Reproduce offline with the built CLI using
 [`harness-bootstrap-audit.test.ts`](../test/integration/harness-bootstrap-audit.test.ts)
@@ -472,7 +475,6 @@ worker's steps 1/2/5 scope):
 | muse | `tools/agents/providers/muse-prompt-discovery.mjs` | Supplied p1/p4 discover-first results remain mixed. |
 | factory | `tools/agents/providers/factory-hooks.mjs` | Interactive registration does not run in `droid exec`; the bootstrap rule carries discovery/template use. |
 | openclaw | `src/providers/provider-context-contracts.ts` | Registry says no bootstrap targets, while the adapter writes active workspace `AGENTS.md`/`SOUL.md`. |
-| muse, grok-build | `src/providers/provider-seeds-2.ts` | Declared artifact skill root equals kernel root; bulk mirror lives under `.aiwg/skills` in the adapters. |
 | generic | `tools/agents/deploy-agents.mjs` | Registry metadata exists, but there is no generic adapter; `use all --provider generic` is rejected. |
 
 Providers with no AIWG prompt installer are recorded as **none** in the matrix;

@@ -148,8 +148,7 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
       }
     }
     // Bulk roots are opt-in (--copy-all), but must never receive the native kernel quickref.
-    const bulk = provider === 'muse' ? '.agents/.aiwg/skills'
-      : provider === 'grok-build' ? '.grok/.aiwg/skills' : definition.paths.artifacts.skills;
+    const bulk = definition.paths.artifacts.skills;
     if (bulk && bulk !== definition.paths.kernelSkills) {
       expect.soft(fs.existsSync(f.resolve(`${bulk}/aiwg-utils-quickref/SKILL.md`)),
         'kernel quickref must not be duplicated in bulk skills').toBe(false);
@@ -179,6 +178,35 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
       .filter(file => before[file] !== after[file]).map(file => path.relative(scratch!, file));
     expect(changed, 'dry-run changed files or directories').toEqual([]);
   }, 240_000);
+});
+
+describe.each(['muse', 'grok-build'])('%s bulk skill registry contract (#3994)', provider => {
+  it('routes opt-in bulk skills to the declared artifact root and keeps kernel skills native', () => {
+    const f = fixture();
+    const sources = ['audit-kernel', 'audit-standard'].map((name, index) => {
+      const directory = path.join(scratch!, 'sources', name);
+      fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(path.join(directory, 'SKILL.md'),
+        `---\nname: ${name}\ndescription: Offline routing fixture\nkernel: ${index === 0}\n---\n\n${name}\n`);
+      return directory;
+    });
+    const registry = JSON.parse(f.run(['--input-type=module', '-e',
+      `import { getProviderDefinition } from ${JSON.stringify(path.join(root, 'dist/src/providers/provider-definitions.js'))};
+       console.log(JSON.stringify(getProviderDefinition(${JSON.stringify(provider)})));`]));
+    const deploy = (copyStandardSkills: boolean) => f.run(['--input-type=module', '-e',
+      `import { deploySkills } from ${JSON.stringify(path.join(root, 'tools/agents/providers', `${provider}.mjs`))};
+       deploySkills(${JSON.stringify(sources)}, ${JSON.stringify(f.project)},
+         { provider: ${JSON.stringify(provider)}, quiet: true, copyStandardSkills: ${copyStandardSkills} });`]);
+
+    deploy(false);
+    expect(f.read(`${registry.paths.kernelSkills}/audit-kernel/SKILL.md`)).toContain('audit-kernel');
+    expect(fs.existsSync(f.resolve(`${registry.paths.artifacts.skills}/audit-standard/SKILL.md`))).toBe(false);
+
+    deploy(true);
+    expect(f.read(`${registry.paths.artifacts.skills}/audit-standard/SKILL.md`)).toContain('audit-standard');
+    expect(fs.existsSync(f.resolve(`${registry.paths.artifacts.skills}/audit-kernel/SKILL.md`))).toBe(false);
+    expect(fs.existsSync(f.resolve(`${registry.paths.kernelSkills}/audit-standard/SKILL.md`))).toBe(false);
+  });
 });
 
 it('records generic as registry metadata without claiming a deployable harness', () => {
