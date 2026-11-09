@@ -36,15 +36,23 @@ describe('shipped relationship tables', () => {
       expect(result.status, result.stderr).toBe(0);
       expect(JSON.parse(result.stdout).bound_rules.length).toBeGreaterThan(0);
       expect(result.stderr).not.toContain('source digest differs');
-      const cli = (args: string[]) => {
-        const response = boundedSpawnSync(process.execPath, [path.join(installed, 'bin/aiwg.mjs'), ...args, '--json'], 'long', {
+      const cli = (args: string[], json = true) => {
+        const response = boundedSpawnSync(process.execPath, [path.join(installed, 'bin/aiwg.mjs'), ...args, ...(json ? ['--json'] : [])], 'long', {
           cwd: tmp, encoding: 'utf8', maxBuffer: 1024 * 1024,
           env: { ...process.env, HOME: path.join(tmp, 'home'), XDG_DATA_HOME: data,
             XDG_CONFIG_HOME: path.join(tmp, 'config'), XDG_CACHE_HOME: path.join(tmp, 'cache'), AIWG_ROOT: installed },
         });
         expect(response.status, response.stderr).toBe(0);
-        return JSON.parse(response.stdout);
+        return json ? JSON.parse(response.stdout) : response.stdout;
       };
+      // #4030: the text card must handle both template lists and a string run hint.
+      const create = cli(['show', 'skill', 'issue-create']);
+      expect(create.templates.length).toBeGreaterThan(0);
+      expect(typeof create.run_hint).toBe('string');
+      const createText = cli(['show', 'skill', 'issue-create'], false);
+      expect(createText).toContain('# skill: issue-create');
+      expect(createText).toContain('## Templates');
+      expect(cli(['show', 'skill', create.id], false)).toBe(createText);
       const skill = cli(['show', 'skill', 'issue-update']);
       expect(skill.templates.map((template: any) => template.name)).toEqual(expect.arrayContaining([
         'progress-update', 'blocker-found', 'feedback-needed', 'task-completed',
@@ -56,6 +64,32 @@ describe('shipped relationship tables', () => {
       expect(found.templates[0].show_command).toMatch(/^aiwg show template /);
       const files = fs.readdirSync(data, { recursive: true }).map(String);
       expect(files.some(file => file.endsWith('metadata.json'))).toBe(false);
+    } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  }, 60_000);
+
+  it('#4027 reads packaged docs runbook bodies by id from an external cwd', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-runbook-packed-'));
+    try {
+      const pack = boundedSpawnSync('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', tmp], 'long', {
+        cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+      });
+      expect(pack.status, pack.stderr).toBe(0);
+      const unpack = boundedSpawnSync('tar', ['-xzf', path.join(tmp, JSON.parse(pack.stdout)[0].filename), '-C', tmp], 'long', { encoding: 'utf8' });
+      expect(unpack.status, unpack.stderr).toBe(0);
+      const installed = path.join(tmp, 'package');
+      fs.symlinkSync(path.join(root, 'node_modules'), path.join(installed, 'node_modules'), 'dir');
+      const cli = (args: string[]) => {
+        const response = boundedSpawnSync(process.execPath, [path.join(installed, 'bin/aiwg.mjs'), ...args], 'long', {
+          cwd: tmp, encoding: 'utf8', maxBuffer: 1024 * 1024,
+          env: { ...process.env, HOME: path.join(tmp, 'home'), XDG_DATA_HOME: path.join(tmp, 'data'),
+            XDG_CONFIG_HOME: path.join(tmp, 'config'), XDG_CACHE_HOME: path.join(tmp, 'cache'), AIWG_ROOT: installed },
+        });
+        expect(response.status, response.stderr).toBe(0);
+        return response.stdout;
+      };
+      const runbook = JSON.parse(cli(['show', 'runbook', 'agentic-install-runbook', '--body', '--json']));
+      expect(runbook.path).toBe(path.join(installed, 'docs/agentic-install-runbook.md'));
+      expect(cli(['show', 'runbook', runbook.id, '--body'])).toBe(fs.readFileSync(runbook.path, 'utf8'));
     } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
   }, 60_000);
 });

@@ -26,7 +26,7 @@ import { getGraphIndexDir, OPERATIONAL_SHOW_TYPES } from './types.js';
 export function resolveMetadataPath(cwd: string, aiwgRoot: string | null, entry: MetadataEntry): string {
   if (path.isAbsolute(entry.path)) return entry.path;
   const normalizedPath = normalizeIndexedPath(entry.path);
-  if (aiwgRoot && normalizedPath.startsWith('agentic/code/')) {
+  if (aiwgRoot && ((entry as ProvenancedEntry).indexScope === 'packaged' || normalizedPath.startsWith('agentic/code/'))) {
     return path.join(aiwgRoot, normalizedPath);
   }
   if ((entry as ProvenancedEntry).indexScope === 'user' && normalizedPath.startsWith('~/.aiwg/')) {
