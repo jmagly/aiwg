@@ -163,12 +163,28 @@ Git fixture, the parent project's hook still loaded, but both cwd values were
 the nested directory. Only the explicitly supplied CODEX_HOME was present among
 CODEX/CLAUDE variables: there was no injected project-root variable.
 
-Consequently, the generated discovery command uses `node -e` to find
-`.codex/hooks/aiwg-prompt-discovery.cjs` from the session cwd or its nearest
-ancestor, then requires it while preserving stdin and cwd. It embeds no project
-or package absolute path and works when a project is moved or opened below its
-root. The same offline probe executed this generated command successfully from
-both the fixture root and its nested directory on 2026-11-06.
+As of #4033/#4037, Claude, Codex and Muse commands anchor to the deployment
+root and include the copied script's SHA-256. The inline Node loader reads and
+hashes the script, rejects redirected paths and non-regular files, and compiles
+those same verified bytes. It never searches ancestor directories. Project Claude
+hooks use `CLAUDE_PROJECT_DIR` with the deployment root as a fallback; Codex and
+Muse use the root written at deployment. User hooks use the absolute provider
+home (including an explicit `CODEX_HOME`), independently of the session cwd.
+Move a Codex or Muse project and redeploy its hooks to update the anchor.
+Path data is base64-encoded to preserve spaces, drive letters, backslashes and
+shell metacharacters across sh, cmd.exe and PowerShell; the script name and hash
+remain visible in the command. Redeployment changes the command when source
+bytes change, requiring a new Codex review; editing deployed bytes causes refusal.
+Refresh detects legacy registrations, and doctor warns about cwd-relative user
+commands. `aiwg use all --global --providers claude,codex,muse` rewrites them.
+
+An offline check of the installed `codex-cli 0.167.0` on 2026-11-09 used temporary
+HOME/CODEX_HOME directories and network-denied `app-server hooks/list`. Its
+exported `ConfiguredHookHandler` schema and loaded response accept `statusMessage`
+and report `AIWG prompt discovery`. The translator emits that label. The schema
+has no `name` or `description` field: the same probe confirmed those fields are
+ignored. A dedicated review-title field cannot be supplied on this version.
+
 The default installer reads the canonical source and script from AIWG's
 own package, independently of an external or synthetic bundle's source root.
 The lightweight CLI stages and allowlists that source and the shared hook

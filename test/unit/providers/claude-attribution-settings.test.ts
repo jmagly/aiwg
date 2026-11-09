@@ -43,8 +43,12 @@ describe('Claude provider attribution settings', () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     await deploy();
     expect((await settings(project)).attribution).toEqual(defaults);
-    expect(await settings(home)).toEqual({ attribution: { ...defaults, pr: 'Operator PR' }, other: true,
+    // User scope also installs AIWG's anchored user hooks (#4037); everything else is preserved exactly.
+    const { hooks, ...userSettings } = await settings(home);
+    expect(userSettings).toEqual({ attribution: { ...defaults, pr: 'Operator PR' }, other: true,
       aiwg: { attributionKeys: ['commit', 'sessionUrl'] } });
+    expect(Object.values(hooks).flat().flatMap((group: any) => group.hooks)
+      .every((hook: any) => hook._aiwg_managed === true && hook.command.startsWith('node -e '))).toBe(true);
     expect(warning).toHaveBeenCalledWith(expect.stringContaining('Preserved operator attribution.pr'));
     expect((await readdir(path.join(home, '.claude'))).filter(name => name.includes('.bak.'))).toHaveLength(1);
   });

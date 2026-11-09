@@ -377,10 +377,9 @@ async function mainUnlocked(args, internal) {
     if (preparationActive) return;
 
     // User settings are outside staging: write only after a real promotion.
-    if (provider.name === 'claude' && cfg.userScope && !cfg.dryRun && cfg.attribution !== false) {
-      const { installAiwgHooks } = await importImpl(import.meta.url, 'extensions/claude-hooks-installer.js');
-      const result = await installAiwgHooks({ projectPath: os.homedir(), frameworkRoot: srcRoot, hooks: false });
-      for (const warning of result?.warnings || []) console.warn(`Claude settings: ${warning}`);
+    if (cfg.userScope && !cfg.dryRun) {
+      const { installUserHooks } = await import('./providers/user-hooks.mjs');
+      await installUserHooks(provider.name, cfg);
     }
 
     const mirroredCommandCount = mirrorSkillsAsCommands(provider, cfg.target, srcRoot, opts);

@@ -14,7 +14,7 @@ export async function postDeploy(targetDir, opts) {
     const { installCodexPromptDiscovery } = await importImpl(import.meta.url, 'smiths/hook-bridge/codex-translator.js');
     const packageRoot = fileURLToPath(new URL('../../../', import.meta.url));
     // Runtime hooks belong to this package, even when deploying an external bundle.
-    await installCodexPromptDiscovery({ projectPath: targetDir, frameworkRoot: packageRoot, dryRun: opts.dryRun });
+    await installCodexPromptDiscovery({ projectPath: targetDir, commandRoot: opts.logicalOutputPath?.(targetDir), frameworkRoot: packageRoot, dryRun: opts.dryRun });
   }
 
   if (opts.createAgentsMd) {

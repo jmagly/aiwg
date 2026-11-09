@@ -27,6 +27,8 @@
  * .bak.<timestamp> file and restores it.
  */
 
+import { readFileSync } from 'node:fs';
+import { verifiedHookCommand } from './verified-hook-command.js';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { captureDeploymentOutputs, recordDeploymentOutputs } from '../providers/deployment-ownership.mjs';
@@ -52,13 +54,15 @@ const HOOK_SCRIPTS: ReadonlyArray<{
 ];
 
 /** Canonical registrations shared by installation and the read-only drift check. */
-export function managedClaudeHooks(sourceFiles: readonly string[]) {
+export function managedClaudeHooks(sourceFiles: readonly string[], root?: string, sourceDirectory?: string, scope?: 'project' | 'user') {
   return HOOK_SCRIPTS.filter(({ file }) => sourceFiles.includes(file)).flatMap(({ file, events }) =>
     Object.entries(events).map(([event, argument]) => ({
       event,
       script: path.posix.join('.claude', 'hooks', file),
       hookId: file.replace(/\.(cjs|js)$/, ''),
-      command: `node ${path.posix.join('.claude', 'hooks', file)}${argument ? ` ${argument}` : ''}`,
+      command: root && sourceDirectory
+        ? verifiedHookCommand(root, path.posix.join('.claude', 'hooks', file), readFileSync(path.join(sourceDirectory, file)), argument ? [argument] : [], scope)
+        : `node ${path.posix.join('.claude', 'hooks', file)}${argument ? ` ${argument}` : ''}`,
     })),
   );
 }
@@ -89,6 +93,9 @@ interface LegacyHookMatcher {
 }
 
 export interface InstallOptions {
+  /** Final root when script files are being prepared in a staging directory. */
+  commandRoot?: string;
+  scope?: 'project' | 'user';
   /** Deploy owner; standalone hook installation derives existing framework users. */
   frameworkSlug?: string;
   claimUnchangedSettings?: boolean;
@@ -290,11 +297,7 @@ export async function installAiwgHooks(opts: InstallOptions): Promise<InstallRes
     }
     settings.hooks = hooksObj;
 
-    for (const { event, script, hookId, command } of managedClaudeHooks(sourceFiles)) {
-      // Claude Code parses hook commands as shell command strings. Keep the
-      // embedded script path POSIX-style on every host: native Windows
-      // backslashes are interpreted as escapes and collapse into a nonexistent
-      // path such as `.claudehooksaiwg-session.cjs` (#133).
+    for (const { event, script, hookId, command } of managedClaudeHooks(sourceFiles, opts.commandRoot ?? opts.projectPath, sourceHooksDir, opts.scope)) {
       if (!hooksObj[event]) hooksObj[event] = [];
       const groups = hooksObj[event];
 

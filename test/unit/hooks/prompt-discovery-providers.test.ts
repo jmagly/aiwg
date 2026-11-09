@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadHookSources } from '../../../src/smiths/hook-bridge/loader.js';
+import { verifiedHookCommand } from '../../../src/extensions/verified-hook-command.js';
 import { spawnSync } from 'node:child_process';
 import { postDeploy as postDeployCodex } from '../../../tools/agents/providers/codex-post-deploy.mjs';
 import { translateForCodex } from '../../../src/smiths/hook-bridge/codex-translator.js';
@@ -66,7 +67,7 @@ describe('prompt discovery provider delivery', () => {
     expect(groups).toHaveLength(2);
     expect(groups[0]).toEqual(operator);
     const script = path.join(projectPath, '.codex/hooks/aiwg-prompt-discovery.cjs');
-    expect(groups[1].hooks[0]).toEqual({ type: 'command', command: expect.stringMatching(/^node "-e" /), timeout: 2,
+    expect(groups[1].hooks[0]).toEqual({ type: 'command', command: expect.stringMatching(/^node -e /), timeout: 2, statusMessage: 'AIWG prompt discovery',
       _aiwg_managed: true, _aiwg_id: 'aiwg-prompt-discovery' });
     expect(groups[1].hooks[0].command).not.toContain(projectPath);
     const shared = await readFile(path.join(root, 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs'), 'utf8');
@@ -134,7 +135,7 @@ describe('prompt discovery provider delivery', () => {
     const once = await readFile(settings, 'utf8');
     const registration = JSON.parse(once).hooks.UserPromptSubmit;
     expect(registration).toEqual([{ matcher: '*', hooks: [{
-      type: 'command', command: 'node .muse/hooks/aiwg-prompt-discovery.cjs', timeout: 2,
+      type: 'command', command: verifiedHookCommand(projectPath, '.muse/hooks/aiwg-prompt-discovery.cjs', await readFile(path.join(root, 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs'))), timeout: 2,
     }] }]);
     const script = path.join(projectPath, '.muse/hooks/aiwg-prompt-discovery.cjs');
     expect(await readFile(script, 'utf8')).toBe(await readFile(path.join(root,

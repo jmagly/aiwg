@@ -2152,7 +2152,7 @@ function removeGlobalBootstrapFlags(args: string[]): string[] {
   const valueFlags = new Set(['--provider', '--platform', '--providers', '--scope', '--target', '--prefix']);
   const booleanFlags = new Set([
     '--global', '--user', '--ci-hooks-enabled', '--no-project-local',
-    '--no-context-files', '--no-hooks', '--no-workspace-signals',
+    '--no-context-files', '--no-workspace-signals',
   ]);
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -3028,7 +3028,6 @@ export class UseHandler implements CommandHandler {
             '--target', stageRoot,
             ...(externalBundle ? [] : ['--no-project-local']),
             '--no-context-files',
-            '--no-hooks',
             '--no-workspace-signals',
           ];
           const result = await this.execute({ ...ctx, cwd: stageRoot, args: innerArgs });

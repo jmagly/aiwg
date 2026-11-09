@@ -54,7 +54,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { importImpl } from '../../_resolve-impl.mjs';
 import { stripJsonComments } from './base.mjs';
-import { deployPromptDiscovery } from './muse-prompt-discovery.mjs';
+import { museHooksForTarget, deployPromptDiscovery } from './muse-prompt-discovery.mjs';
 import { resolveMuseXdgSkillsDir, museXdgSkillsDirRemediation } from './muse-paths.mjs';
 
 const { AIWG_MANAGED_HOOKS } = await importImpl(import.meta.url, 'extensions/muse-managed-hooks.js');
@@ -185,9 +185,9 @@ export const MUSE_HOOK_EVENTS = [
 export { AIWG_MANAGED_HOOKS };
 
 /** Canonical group payloads keyed by hook id, for merge/prune identity. */
-function managedGroupsById() {
+function managedGroupsById(desired = AIWG_MANAGED_HOOKS) {
   const out = new Map();
-  for (const hook of AIWG_MANAGED_HOOKS) out.set(hook.id, { event: hook.event, group: hook.group });
+  for (const hook of desired) out.set(hook.id, { event: hook.event, group: hook.group });
   return out;
 }
 
@@ -306,13 +306,15 @@ function readHooksSidecar(sidecarPath) {
  * byte-identical to the canonical set) are preserved untouched. Managed
  * groups are replaced with the canonical payload, repairing drift.
  */
-export function mergeManagedHooks(existingDoc, sidecar) {
-  const byId = managedGroupsById();
+export function mergeManagedHooks(existingDoc, sidecar, desired = AIWG_MANAGED_HOOKS) {
+  const byId = managedGroupsById(desired);
+  const legacy = managedGroupsById();
   const recorded = new Map();
   for (const entry of sidecar.hooks || []) {
     if (entry && typeof entry.id === 'string') recorded.set(entry.id, entry);
   }
   const identities = managedIdentities(byId, recorded);
+  for (const [key, id] of managedIdentities(legacy, new Map())) identities.set(key, id);
 
   // A group is AIWG-managed when its identity matches the current set or a
   // sidecar-recorded payload. Returns the hook id or null.
@@ -323,7 +325,7 @@ export function mergeManagedHooks(existingDoc, sidecar) {
   const existingHooks = (existingDoc && existingDoc.hooks) || {};
 
   // Preserve original event order; managed events are refreshed in place.
-  const desiredEvents = new Set([...AIWG_MANAGED_HOOKS.map((h) => h.event)]);
+  const desiredEvents = new Set([...desired.map((h) => h.event)]);
   const eventOrder = [...Object.keys(existingHooks)];
   for (const event of desiredEvents) {
     if (!eventOrder.includes(event)) eventOrder.push(event);
@@ -341,7 +343,7 @@ export function mergeManagedHooks(existingDoc, sidecar) {
         operatorGroups.push(group);
       }
     }
-    const desiredHere = AIWG_MANAGED_HOOKS.filter((h) => h.event === event);
+    const desiredHere = desired.filter((h) => h.event === event);
     const nextGroups = [...operatorGroups];
     for (const hook of desiredHere) {
       nextGroups.push(hook.group);
@@ -368,10 +370,10 @@ export function mergeManagedHooks(existingDoc, sidecar) {
   return { doc: merged, changed, plan };
 }
 
-function buildHooksSidecar() {
+function buildHooksSidecar(desired = AIWG_MANAGED_HOOKS) {
   return {
     version: 1,
-    hooks: AIWG_MANAGED_HOOKS.map((h) => ({ id: h.id, event: h.event, group: h.group })),
+    hooks: desired.map((h) => ({ id: h.id, event: h.event, group: h.group })),
   };
 }
 
@@ -389,7 +391,7 @@ export function deployMuseHooks(targetDir, opts = {}) {
 
   const { doc: existingDoc, raw: existingRaw, existed } = readHooksDoc(hooksPath);
   const sidecar = readHooksSidecar(sidecarPath);
-  const { doc: merged, changed, plan } = mergeManagedHooks(existingDoc, sidecar);
+  const { doc: merged, changed, plan } = mergeManagedHooks(existingDoc, sidecar, museHooksForTarget(opts.logicalOutputPath?.(targetDir) || targetDir, opts.scope));
 
   const beforeText = existed ? existingRaw : '(no .muse/hooks.json — will be created)';
   const afterText = canonicalJson(merged);
@@ -418,7 +420,7 @@ export function deployMuseHooks(targetDir, opts = {}) {
   fs.mkdirSync(path.dirname(hooksPath), { recursive: true });
   const backupPath = backupIfHandEdited(hooksPath, existingDoc, existingRaw, existed);
   atomicWrite(hooksPath, afterText);
-  atomicWrite(sidecarPath, canonicalJson(buildHooksSidecar()));
+  atomicWrite(sidecarPath, canonicalJson(buildHooksSidecar(museHooksForTarget(opts.logicalOutputPath?.(targetDir) || targetDir, opts.scope))));
   log(`Muse hooks: merged ${plan.length} managed change(s) into ${hooksPath}`);
   if (backupPath) log(`  backup (comments/formatting not preserved): ${backupPath}`);
   for (const step of plan) log(`  ${step}`);

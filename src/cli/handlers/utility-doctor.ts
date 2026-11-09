@@ -1,5 +1,6 @@
 // Health diagnostics extracted from the utility handler collection.
 import fsp from 'fs/promises';
+import { diagnoseUserHookCommands } from '../../extensions/user-hook-diagnostics.js';
 import path from 'path';
 import { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 import { createScriptRunner } from './script-runner.js';
@@ -96,12 +97,14 @@ async function runUserScopeDoctor(verbose: boolean): Promise<HandlerResult> {
   lines.push(`Registry path: ${userRegistryPath()}`);
   lines.push('');
 
+  const hookWarnings = await diagnoseUserHookCommands();
+  lines.push(...hookWarnings.map(warning => `⚠ ${warning.message}`));
   if (frameworks.length === 0) {
     lines.push('No frameworks deployed at user scope. Run `aiwg use <fw> --scope user` to install.');
-    return { exitCode: 0, message: lines.join('\n') + '\n' };
+    return { exitCode: hookWarnings.length ? 1 : 0, message: lines.join('\n') + '\n' };
   }
 
-  let driftCount = 0;
+  let driftCount = hookWarnings.length;
   let limitedCount = 0;
 
   for (const [name, entry] of frameworks) {
