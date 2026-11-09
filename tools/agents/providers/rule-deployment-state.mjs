@@ -33,10 +33,11 @@ export function capturePreimage(file, ancestors = new Set()) {
   }
   if (stat.isFile()) return { kind: 'file', mode, digest: fileDigest(file) };
   if (stat.isDirectory()) return { kind: 'directory', mode, entries: fs.readdirSync(file).sort().map(name => [name, capturePreimage(path.join(file, name), new Set([...ancestors, path.resolve(file)]))]) };
-  throw new Error(`Unsupported deployment preimage: ${file}`);
+  // Runtime IPC and other opaque entries are sealed by type, never read/copied.
+  return { kind: 'special', mode, type: stat.mode & fs.constants.S_IFMT };
 }
-// cpSync materializes links; compare its output with the recursively resolved
-// content while retaining the original link-shaped preimage for commit drift.
+// Materialize regular content only. Retain link/special-shaped live preimages
+// for commit drift, but omit dangling links and opaque entries from the stage.
 export function materializeInput(from, to, ancestors = new Set(), parentReady = false) {
   let stat;
   try { stat = fs.statSync(from); } catch (error) {
@@ -55,11 +56,14 @@ export function materializeInput(from, to, ancestors = new Set(), parentReady = 
   } else if (stat.isFile()) {
     if (!parentReady) fs.mkdirSync(path.dirname(to), { recursive: true });
     fs.copyFileSync(from, to); fs.chmodSync(to, stat.mode & 0o7777);
-  } else throw new Error(`Unsupported deployment input: ${from}`);
+  }
 }
 export function materializedPreimage(state) {
   if (state.kind === 'symlink') return materializedPreimage(state.resolved);
-  if (state.kind === 'directory') return { ...state, entries: state.entries.map(([name, child]) => [name, materializedPreimage(child)]) };
+  if (state.kind === 'special') return { kind: 'missing' };
+  if (state.kind === 'directory') return { ...state, entries: state.entries
+    .map(([name, child]) => [name, materializedPreimage(child)])
+    .filter(([, child]) => child.kind !== 'missing') };
   return state;
 }
 export function snapshotPreimages(paths) {
@@ -232,6 +236,9 @@ export function validPreimageState(state) {
   if (!state || typeof state !== 'object' || Array.isArray(state) || typeof state.kind !== 'string') return false;
   if (state.kind === 'missing') return Object.keys(state).length === 1;
   if (!Number.isSafeInteger(state.mode) || state.mode < 0) return false;
+  if (state.kind === 'special') return Object.keys(state).length === 3 && Number.isSafeInteger(state.type)
+    && state.type === (state.type & fs.constants.S_IFMT)
+    && ![fs.constants.S_IFREG, fs.constants.S_IFDIR, fs.constants.S_IFLNK].includes(state.type);
   if (state.kind === 'file') return Object.keys(state).length === 3 && /^[a-f0-9]{64}$/.test(state.digest);
   if (state.kind === 'symlink') return Object.keys(state).length === 4 && typeof state.target === 'string' && validPreimageState(state.resolved);
   return state.kind === 'directory' && Object.keys(state).length === 3 && Array.isArray(state.entries) && state.entries.every(entry =>
