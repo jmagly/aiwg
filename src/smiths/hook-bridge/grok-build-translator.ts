@@ -2,6 +2,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import type { HookEvent, HookSource, TranslateOptions, TranslateResult } from './types.js';
+import { PROMPT_DISCOVERY_GAPS } from './prompt-discovery-gaps.js';
 
 export const GROK_EVENT_MAP: Partial<Record<HookEvent, string>> = {
   SessionStart: 'SessionStart',
@@ -21,7 +22,8 @@ export async function translateForGrokBuild(
   options: TranslateOptions,
 ): Promise<TranslateResult> {
   const result: TranslateResult = { provider: 'grok-build', emittedPaths: [], warnings: [], skipped: false };
-  if (source.degradeOn?.includes('grok-build')) return { ...result, skipped: true, skipReason: 'degrade-on declared grok-build' };
+  if (source.degradeOn?.includes('grok-build')) return { ...result, skipped: true,
+    skipReason: source.id === 'aiwg-prompt-discovery' ? PROMPT_DISCOVERY_GAPS['grok-build'] : 'degrade-on declared grok-build' };
   const id = safeId(source.id);
   if (!id) return { ...result, skipped: true, skipReason: 'hook id is not a safe Grok file name' };
   const mapped = source.events.map(event => GROK_EVENT_MAP[event]).filter((event): event is string => Boolean(event));

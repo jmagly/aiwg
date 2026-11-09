@@ -4,6 +4,7 @@ events: [UserPromptSubmit]
 command: node
 args: ['$AIWG_ROOT/agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs']
 timeout: 2
-# These bridges map an event but cannot deliver additionalContext to the model.
+# These bridges cannot inject prompt context; their startup rules require discovery.
 # Muse uses its project hook owner; Claude uses claude-hooks-installer.
-degrade-on: [hermes, copilot, grok-build]
+# Hermes uses pre_llm_call shell hooks with a native {context} response.
+degrade-on: [copilot, grok-build]

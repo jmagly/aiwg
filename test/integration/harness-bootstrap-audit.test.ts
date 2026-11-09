@@ -74,7 +74,8 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
     const definition = registry.find((item: { id: string }) => item.id === provider);
     expect(definition).toBeDefined();
     expect(fs.existsSync(path.join(root, 'tools/agents/providers', `${provider}.mjs`))).toBe(true);
-    f.cli('use', 'all', '--provider', provider);
+    f.cli('use', 'all', '--provider', provider,
+      ...(definition.context.promptDiscovery?.optIn ? ['--enable-cross-provider-hooks'] : []));
 
     const bootstraps: string[] = provider === 'openclaw'
       ? ['~/.openclaw/workspace/AGENTS.md'] : definition.context.bootstrapTargets;
@@ -86,6 +87,29 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
     }
     expect(f.read('WORKSPACE.md')).toContain('Precedence');
     expect(f.read('AIWG.md')).toContain('skill-discovery');
+    if (['copilot', 'grok-build', 'hermes'].includes(provider)) {
+      const delivery = definition.context.promptDiscovery;
+      expect(delivery).toBeDefined();
+      for (const file of delivery.files) expect(fs.existsSync(f.resolve(file)), file).toBe(true);
+      if (provider === 'hermes') {
+        expect(delivery.delivery).toBe('hook-bridge');
+        expect(delivery.optIn).toBe(true);
+        expect(delivery.event).toBe('pre_llm_call');
+        const doc = parseYaml(f.read(delivery.files[0]));
+        expect(doc.hooks[delivery.event]).toEqual([expect.objectContaining({
+          command: expect.stringContaining(delivery.files[1]), timeout: 2,
+        })]);
+        expect(f.read(delivery.files[1])).toBe(fs.readFileSync(path.join(root,
+          'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs'), 'utf8'));
+      } else {
+        expect(delivery.delivery).toBe('bootstrap-rule');
+        expect(bootstraps).toEqual(expect.arrayContaining(delivery.files));
+        for (const file of delivery.files) {
+          expect(f.read(file)).toContain("aiwg discover --stdin <<'AIWG_REQUEST'");
+          expect(f.read(file)).toContain('Before any other tool call or answer');
+        }
+      }
+    }
 
     // Copilot's adapter uses its native instructions directory; registry drift is recorded in the matrix.
     const rules = provider === 'copilot' ? '.github/instructions'
@@ -132,7 +156,7 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
       expect(JSON.stringify(entries)).toContain('aiwg-prompt-discovery');
       expect(f.read(`.${provider}/hooks/aiwg-prompt-discovery.cjs`)).toBe(
         fs.readFileSync(path.join(root, 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs'), 'utf8'));
-    } else {
+    } else if (provider !== 'hermes') {
       // Bridge event mappings without prompt/context transport must not install this hook.
       const files = fs.readdirSync(f.project, { recursive: true }) as string[];
       expect(files.filter(file => file.endsWith('aiwg-prompt-discovery.cjs'))).toEqual([]);

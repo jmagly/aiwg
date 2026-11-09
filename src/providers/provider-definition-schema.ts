@@ -70,6 +70,12 @@ export type ProviderContextContract = {
   includeSyntax: string | null;
   configRegistration: { file: string; key: string } | null;
   bootstrapTargets: string[];
+  promptDiscovery?: {
+    delivery: 'bootstrap-rule' | 'hook-bridge';
+    files: string[];
+    event?: string;
+    optIn?: boolean;
+  };
   maxContextBytes: number | null;
   recommendedMaxLines: number | null;
   nestedContext: boolean;
@@ -241,6 +247,12 @@ export const ProviderDefinitionSchema = z.object({
     includeSyntax: z.string().nullable(),
     configRegistration: z.object({ file: z.string().min(1), key: z.string().min(1) }).nullable(),
     bootstrapTargets: z.array(z.string().min(1)),
+    promptDiscovery: z.object({
+      delivery: z.enum(['bootstrap-rule', 'hook-bridge']),
+      files: z.array(z.string().min(1)).min(1),
+      event: z.string().min(1).optional(),
+      optIn: z.boolean().optional(),
+    }).optional(),
     maxContextBytes: integer().positive().nullable(),
     recommendedMaxLines: integer().positive().nullable(),
     nestedContext: z.boolean(),

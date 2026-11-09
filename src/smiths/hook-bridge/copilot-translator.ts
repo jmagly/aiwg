@@ -13,6 +13,7 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import type { HookSource, TranslateOptions, TranslateResult } from './types.js';
 import { substituteEnvVars } from './shim.js';
+import { PROMPT_DISCOVERY_GAPS } from './prompt-discovery-gaps.js';
 
 const COPILOT_EVENT_MAP: Record<string, string> = {
   PreToolUse: 'pre_tool_use',
@@ -36,7 +37,7 @@ export async function translateForCopilot(
 
   if (source.degradeOn?.includes('copilot')) {
     result.skipped = true;
-    result.skipReason = 'degrade-on declared copilot';
+    result.skipReason = source.id === 'aiwg-prompt-discovery' ? PROMPT_DISCOVERY_GAPS.copilot : 'degrade-on declared copilot';
     return result;
   }
 

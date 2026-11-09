@@ -20,6 +20,7 @@ import { translateForFactory } from './factory-translator.js';
 import { translateForHermes } from './hermes-translator.js';
 import { translateForGrokBuild } from './grok-build-translator.js';
 import { getProviderDefinition } from '../../providers/provider-definitions.js';
+import { resolveHermesHomePath } from '../../providers/hermes-home.js';
 
 export type { HookSource, HookEvent, HookExitSemantic, TranslateOptions, TranslateResult, ProviderTranslator } from './types.js';
 export { AIWG_ENV_VARS, NATIVE_ENV_VAR_MAP } from './types.js';
@@ -79,7 +80,8 @@ export async function bridgeAll(
       try {
         const roots = [path.join(options.projectPath, '.factory/hooks'), path.join(options.projectPath, '.factory/hooks.json'), path.join(options.projectPath, '.github/hooks'),
           path.join(options.projectPath, '.grok/hooks'), path.join(options.projectPath, '.codex/hooks.json'), path.join(options.projectPath, '.codex/hooks'),
-          path.join(homedir(), '.hermes/plugins')];
+          path.join(homedir(), '.hermes/plugins'), resolveHermesHomePath('config.yaml'), resolveHermesHomePath('agent-hooks'),
+          resolveHermesHomePath('.aiwg-manifest.json')];
         const before = options.dryRun ? undefined : captureDeploymentOutputs(roots);
         const r = await translator(source, options);
         if (before) recordDeploymentOutputs(before, roots, { frameworkSlug: 'aiwg-hooks', writtenFiles: r.emittedPaths });

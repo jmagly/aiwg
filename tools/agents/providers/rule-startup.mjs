@@ -2,6 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { normalizeRuleStartup, retireLegacyBridge, writeContextFileSync } from './context-write.mjs';
+import { importImpl } from '../../_resolve-impl.mjs';
+const { CONTEXT_CONTRACTS } = await importImpl(import.meta.url, 'providers/provider-context-contracts.js');
 const bootstrap = [
   '<!-- AIWG:provider-bootstrap:start -->', '',
   '# Provider workspace bootstrap', '',
@@ -62,6 +64,12 @@ export function projectStartup(opts, provider, coreSection, indexFile) {
     const logical = opts.logicalOutputPath || (file => file);
     const location = path.relative(logical(opts.target), logical(indexFile)).replaceAll('\\', '/');
     let hook = `${provider.name}: Before every task and subagent task, read and follow \`${location}\`; read every listed kernel file and fetch matching full rules before governed work.`;
+    if (CONTEXT_CONTRACTS[provider.name]?.promptDiscovery?.delivery === 'bootstrap-rule') {
+      hook += " Before any other tool call or answer on every new request, run `aiwg discover --stdin <<'AIWG_REQUEST'` "
+        + "with the request text on the next lines and `AIWG_REQUEST` alone on the last line; never put request text in quotes on a command line. "
+        + "Inspect the best candidate with `aiwg show <type> <name> --rules --with-rule-bodies`, read its instructions with `--body`, and apply them. "
+        + "Answering or declining without discovery violates the skill-discovery rule.";
+    }
     // droid exec runs no prompt hooks, so the Factory line carries discovery itself (#3942).
     // The request goes through a quoted heredoc so the shell never expands it (#3946).
     if (provider.name === 'factory') hook += " On every new request, your first tool call must be the shell command \`aiwg discover --stdin <<'AIWG_REQUEST'\` "
