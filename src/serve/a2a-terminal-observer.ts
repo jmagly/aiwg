@@ -123,7 +123,10 @@ async function emitNonTerminalProgress(
   }
   if (state === 'input-required') {
     const prompt = extractHitlEnvelope(task);
-    if (prompt?.ok && await autoRespondToA2AMission(registry, missionId, prompt.envelope.prompt_id, opts)) return;
+    // Only a configured host binding source can authorize automatically. Without one, publish the
+    // prompt synchronously as before, so the mission shows hitl-required when dispatch returns.
+    const bound = opts.authorization ?? registry.getMission(missionId)?.a2a?.authorization;
+    if (prompt?.ok && bound && await autoRespondToA2AMission(registry, missionId, prompt.envelope.prompt_id, opts)) return;
     registry.handleEvent(makeEnvelope('mission.hitl_required', executorId, missionId, task, {
       state: 'hitl-required',
       a2a_task_id: task.id,
