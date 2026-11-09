@@ -698,6 +698,7 @@ describe('T-OG-08 managed Flow value and usage binding', () => {
       const manifest = JSON.parse(readFileSync(resolve(packageName === 'aiwg' ? 'package.json' : 'packages/cli/package.json'), 'utf8'));
       const paths = [
         'agentic/code/addons/composition-engine/lib/runtime.mjs',
+        'agentic/code/addons/composition-engine/lib/authority.mjs',
         'agentic/code/addons/composition-engine/lib/validator.mjs',
         'agentic/code/addons/composition-engine/schemas/flow-graph.schema.json',
         'schemas/mission-v1.schema.json',

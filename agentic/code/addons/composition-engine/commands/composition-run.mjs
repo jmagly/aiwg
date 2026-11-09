@@ -91,6 +91,7 @@ export default async function compositionRun(args, context) {
         }
       : undefined;
     const report = await executeFlowGraph(manifest, {
+      projectDir: context.cwd,
       runId: option(args, '--run-id'),
       adapterId: adapter.id ?? 'external',
       workerMode: adapter.workerMode,
@@ -101,6 +102,7 @@ export default async function compositionRun(args, context) {
       allowedCapabilities: adapter.allowedCapabilities,
       allowedPermissions: adapter.allowedPermissions,
       approvedGates: adapter.approvedGates,
+      cancelledGates: adapter.cancelledGates,
       resumeFrom,
       saveCheckpoint,
     });

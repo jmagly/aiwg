@@ -30,7 +30,7 @@ export function admittedDecisionFlowAdapter(
 ): (request: GraphFlowRequest) => Promise<GraphFlowResponse> {
   return async request => {
     if (signal?.aborted) { ledger.cancel(); throw new DecisionGraphError('graph cancelled'); }
-    // Flow invokes a gate only after the host approved it. The gate dispatches
+    // Flow invokes a gate only after host approval or a signed HITL check. The gate dispatches
     // nothing, spends no decision budget and is not a decision observation.
     if (request.node.kind === 'gate' && request.node.sideEffectMode === 'none' && request.node.ref === undefined) {
       return { outputs: {}, attempts: 1, usage: { tokens: 0, costUsd: 0, timeMs: 0 } };

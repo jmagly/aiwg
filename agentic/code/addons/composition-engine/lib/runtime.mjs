@@ -6,6 +6,7 @@ import Ajv from 'ajv';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { validateFlowGraph } from './validator.mjs';
+import { createFlowAuthority } from './authority.mjs';
 
 const RESOURCE_KEYS = ['activations', 'tokens', 'costUsd', 'timeMs'];
 
@@ -514,9 +515,6 @@ export async function executeFlowGraph(manifest, options = {}) {
   const graphId = validation.normalized.identity.graphId;
   const runId = options.runId ?? `${graphId}:run`;
   const evaluatePredicate = options.evaluatePredicate ?? defaultPredicate;
-  const allowedCapabilities = new Set(options.allowedCapabilities ?? manifest.spec.capabilities.map((item) => item.id));
-  const allowedPermissions = new Set(options.allowedPermissions ?? manifest.spec.permissions);
-  const approvedGates = new Set(options.approvedGates ?? []);
   const nodeOrder = new Map(manifest.spec.nodes.map((node, index) => [node.id, index]));
   const nodes = new Map(manifest.spec.nodes.map((node) => [node.id, node]));
   const stateFields = new Map(manifest.spec.state.fields.map((field) => [field.name, field]));
@@ -624,26 +622,7 @@ export async function executeFlowGraph(manifest, options = {}) {
     }));
   }
 
-  function enforceAuthority(node) {
-    const missingCapability = node.capabilities.find((id) => !allowedCapabilities.has(id));
-    if (missingCapability) throw new FlowGraphRuntimeError('CAPABILITY_DENIED', `Node '${node.id}' is not authorized for capability '${missingCapability}'.`);
-    const missingPermission = node.permissions.find((id) => !allowedPermissions.has(id));
-    if (missingPermission) throw new FlowGraphRuntimeError('PERMISSION_DENIED', `Node '${node.id}' is not authorized for permission '${missingPermission}'.`);
-    if (node.kind === 'gate' && new Set(options.cancelledGates ?? []).has(node.id)) {
-      throw new FlowGraphRuntimeError('APPROVAL_CANCELLED', `Approval gate '${node.id}' was cancelled.`);
-    }
-    if (node.kind === 'gate' && !approvedGates.has(node.id)) {
-      throw new FlowGraphRuntimeError('APPROVAL_REQUIRED', `Gate '${node.id}' has not been approved.`);
-    }
-    if (node.sideEffectMode === 'approval-required') {
-      if (new Set(options.cancelledGates ?? []).has(node.approvalGate)) {
-        throw new FlowGraphRuntimeError('APPROVAL_CANCELLED', `Approval gate '${node.approvalGate}' was cancelled.`);
-      }
-      if (!approvedGates.has(node.approvalGate)) {
-        throw new FlowGraphRuntimeError('APPROVAL_REQUIRED', `Node '${node.id}' is waiting for approval gate '${node.approvalGate}'.`);
-      }
-    }
-  }
+  const enforceAuthority = createFlowAuthority(manifest, options, evidence, FlowGraphRuntimeError);
 
   function validateInputs(node, inputs) {
     if (!managed) return assertNoWorkerValues(inputs);
@@ -706,7 +685,7 @@ export async function executeFlowGraph(manifest, options = {}) {
   }
 
   async function invoke(node, activationTick, iteration = 1) {
-    enforceAuthority(node);
+    await enforceAuthority(node);
     const inputs = inputsFor(node);
     validateInputs(node, inputs);
     const inputSnapshot = clone(inputs);
@@ -997,8 +976,8 @@ export async function executeFlowGraph(manifest, options = {}) {
     for (const node of nodesToRun) recordJoinEvidence(joinFor(node.id));
     let settled;
     if (parallelEligible && managed) {
+      for (const node of nodesToRun) await enforceAuthority(node);
       const requests = nodesToRun.map((node) => {
-        enforceAuthority(node);
         const inputs = inputsFor(node);
         validateInputs(node, inputs);
         const requested = requestedResources(node);
@@ -1070,8 +1049,8 @@ export async function executeFlowGraph(manifest, options = {}) {
       }
       await persist();
     } else if (parallelEligible) {
+      for (const node of nodesToRun) await enforceAuthority(node);
       const requests = nodesToRun.map((node) => {
-        enforceAuthority(node);
         const inputs = inputsFor(node);
         validateInputs(node, inputs);
         const nodeRunId = `${runId}:${node.id}:${tick}:${iteration}`;
