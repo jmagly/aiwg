@@ -29,6 +29,8 @@ try { const gfs = _require('graceful-fs'); gfs.gracefulify(realFs); fs = realFs;
 import path from 'path';
 import { fileURLToPath } from 'node:url';
 import os from 'os';
+import { importImpl } from '../_resolve-impl.mjs';
+const { legacyCodexPromptOwner, outputDigest } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 import { getFrameworksForMode, normalizeDeploymentMode, getAddonSkillDirs, listSkillDirs, collectFrameworkArtifacts } from '../agents/providers/base.mjs';
 
 function parseArgs(args, homeDir) {
@@ -172,7 +174,19 @@ function deployPrompt(prompt, targetDir, opts) {
 
   // Check if prompt already exists
   if (fs.existsSync(destPath)) {
-    const existingContent = fs.readFileSync(destPath, 'utf8');
+    if (!fs.lstatSync(destPath).isFile()) return { action: 'skip', reason: 'protected' };
+    const bytes = fs.readFileSync(destPath);
+    const existingContent = bytes.toString('utf8');
+    let record;
+    try { record = JSON.parse(fs.readFileSync(path.join(targetDir, '.aiwg-manifest.json'), 'utf8')).managed?.[`${prompt.name}.md`]; } catch { /* legacy install */ }
+    // A recorded digest takes precedence over legacy evidence and markers:
+    // edited managed files and unknown same-named files stay protected.
+    const owned = record ? record.hash === outputDigest(bytes)
+      : legacyCodexPromptOwner(destPath, bytes) || /^(?:<!--\s*aiwg:managed\s|#\s*aiwg:managed\s)/m.test(existingContent);
+    if (!force && !owned) {
+      console.log(`  skip (operator-owned): ${prompt.name}`);
+      return { action: 'skip', reason: 'protected' };
+    }
     if (existingContent === prompt.content && !force) {
       console.log(`  skip (unchanged): ${prompt.name}`);
       return { action: 'skip', reason: 'unchanged' };

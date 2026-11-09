@@ -259,8 +259,9 @@ export async function prepareRuleDeployment(original, provider, deploy) {
       kernel = to;
     }
     // Codex's legacy prompt helper is home-global. Give it an isolated home and
-    // promote only its output after validation.
-    if (provider.name === 'codex' && (original.deployCommands || original.commandsOnly)) mount(path.join(os.homedir(), '.codex', 'prompts'), path.join(home, '.codex', 'prompts'));
+    // promote only its output after validation. Kernel upgrades also need the
+    // legacy prompt preimages so ownership can adopt known October bytes.
+    if (provider.name === 'codex' && (original.deployCommands || original.commandsOnly || original.kernelOnly)) mount(path.join(os.homedir(), '.codex', 'prompts'), path.join(home, '.codex', 'prompts'));
     let hermesLegacySkills;
     let legacyCodexSkills;
     if (provider.name === 'hermes') {

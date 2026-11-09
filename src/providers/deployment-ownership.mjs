@@ -58,6 +58,22 @@ const digestOf = entry => {
 export const outputDigest = entry => digestOf(entry);
 /** Content equality; a stat-only entry never equals a different entry. */
 export const sameOutput = (a, b) => a != null && b != null && (a === b || (digestOf(a) !== undefined && digestOf(a) === digestOf(b)));
+
+// v2026.10.0–v2026.10.19: deploy-prompts-codex.mjs emitted these exact
+// unmarked bytes (description frontmatter + trimmed command body, no final LF).
+// Sources: addons/{dataset-intelligence,schema-governance,aiwg-utils}/commands/
+// {dataset,schema,sessions}.md. Fixtures retain v2026.10.3 sources and outputs.
+const LEGACY_CODEX_PROMPTS = {
+  'aiwg-dataset.md': ['sha256:652469f0023144af5597cb6571f9ff498e5a11e5795de4074480f814dc106a87', 'dataset-intelligence'],
+  'aiwg-schema.md': ['sha256:65000b74de7149b70229f5c8409e2c6a6c4d5e45086f776e0db2ae8633c176f9', 'schema-governance'],
+  'aiwg-sessions.md': ['sha256:ad0591041932dbbb8a08a5d0e946490b2ef3e18a1b65f610df3555b6b67eb690', 'aiwg-utils'],
+};
+/** Recognize only historical bytes at their original Codex prompt names. */
+export function legacyCodexPromptOwner(file, entry) {
+  if (path.basename(path.dirname(file)) !== 'prompts' || path.basename(path.dirname(path.dirname(file))) !== '.codex') return undefined;
+  const known = LEGACY_CODEX_PROMPTS[path.basename(file)];
+  return known && known[0] === digestOf(entry) ? known[1] : undefined;
+}
 const bytesOf = (file, entry) => {
   if (entry == null || Buffer.isBuffer(entry)) return entry;
   throw new Error(`Deployment snapshot did not retain bytes for ${file}`);
@@ -270,10 +286,13 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
     if (path.basename(file) === SIDECAR || /(?:^|[/\\])aiwg\.config$/.test(file)
       || /(?:\.bak\.|\.aiwg-backup-)/.test(path.basename(file))) continue;
     if (preserved.has(file)) continue;
+    const legacyOwner = opts.provider === 'codex'
+      && !parse(before.get(path.join(path.dirname(file), SIDECAR))).managed?.[path.basename(file)]
+      && legacyCodexPromptOwner(file, before.get(file));
     const changed = !sameOutput(before.get(file), bytes);
     const declaration = declared.get(file);
     if (opts.onlyDeclared && !declaration) continue;
-    if (!changed && !declaration && !opts.writtenFiles?.includes(file)) continue;
+    if (!changed && !declaration && !legacyOwner && !opts.writtenFiles?.includes(file)) continue;
     // Existing integrity receipts that disagree with bytes never bless operator edits.
     if (declaration?.entry.hash && declaration.entry.hash !== digestOf(bytes)) continue;
     let skillRoot = path.dirname(file);
@@ -298,7 +317,7 @@ export function recordDeploymentOutputs(before, roots, opts = {}) {
       || skillReceipt.managed?.['SKILL.md']?.frameworkSlug;
     const generatedIndex = /^RULES-(?:INDEX|ONDEMAND)\.(?:md|mdc)$/.test(path.basename(file));
     const kind = generatedIndex ? 'rule-index' : current.kind || artifactKind(file);
-    const selectedOwner = opts.provider === 'flue' ? owner : sourceOwner || (opts.onlyDeclared ? current.owners?.[0] : owner);
+    const selectedOwner = opts.provider === 'flue' ? owner : sourceOwner || legacyOwner || (opts.onlyDeclared ? current.owners?.[0] : owner);
     if (!selectedOwner) {
       console.warn(`Ownership not recorded for ${file}: no framework owner resolved.`);
       continue;
