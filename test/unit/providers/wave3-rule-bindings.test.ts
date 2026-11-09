@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { buildIndex } from '../../../src/artifacts/index-builder.js';
 import { resolveRuleBindingTarget } from '../../../src/artifacts/query-engine.js';
+import { readCoreBody } from '../../../src/rules/activation.mjs';
 import type { ArtifactIndex } from '../../../src/artifacts/types.js';
 
 const repo = path.resolve(import.meta.dirname, '../../..');
@@ -163,7 +164,7 @@ describe('Wave 3 canonical orchestration rule delivery (#2943)', () => {
     for (const { name, data } of rules) {
       if (name === 'anti-laziness') {
         // Core delivery (#3450): the compact body is in startup context; the full rule is not.
-        expect(startup, provider).toContain(read(path.join(bundle, 'rules', 'anti-laziness.core.md')).trim());
+        expect(startup, provider).toContain(readCoreBody(path.join(bundle, 'rules', 'anti-laziness.md')));
         expect(startup, provider).toContain('aiwg show rule anti-laziness');
         expect(startup, provider).not.toContain(read(path.join(bundle, 'rules', 'anti-laziness.md')).split('\n').find(line => line.startsWith('# ')) + '\n\n**Enforcement');
         continue;

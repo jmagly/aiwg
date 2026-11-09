@@ -31,10 +31,31 @@ describe('core rule class (#3450)', () => {
     expect(validateCoreBody('')[0]).toMatch(/empty/);
   });
 
+  it('enforces the per-body cap on normalized UTF-8 text across line endings and whitespace', () => {
+    expect(Buffer.byteLength('é'.repeat(512), 'utf8')).toBe(1024);
+    expect(validateCoreBody('é'.repeat(512))).toEqual([]);
+    expect(validateCoreBody('é'.repeat(513))[0]).toMatch(/1026 bytes/);
+    expect(validateCoreBody(` \t\r\n${'x'.repeat(1024)}\r\n `)).toEqual([]);
+    expect(validateCoreBody(' \t\r\n ')).toContain('core body: core body is empty');
+
+    for (const newline of ['\n', '\r\n', '\r']) {
+      const atBoundary = `${'a'.repeat(511)}${newline}${'b'.repeat(512)}`;
+      const overBoundary = `${'a'.repeat(512)}${newline}${'b'.repeat(512)}`;
+      expect(validateCoreBody(atBoundary)).toEqual([]);
+      expect(validateCoreBody(overBoundary).join(' ')).toMatch(/1025 bytes/);
+    }
+  });
+
   it('enforces the reserved total', () => {
     const bodies = (count: number) => Array.from({ length: count }, (_, i) => ({ name: `r${i}`, text: 'z'.repeat(1024) }));
     expect(validateCoreSet(bodies(6))).toEqual([]);
     expect(validateCoreSet(bodies(7))[0]).toMatch(/reserved core budget is 6144 bytes/);
+
+    const crlfBoundary = `${'a'.repeat(511)}\r\n${'b'.repeat(512)}`;
+    const normalizedSet = Array.from({ length: 6 }, (_, i) => ({ name: `r${i}`, text: crlfBoundary }));
+    expect(validateCoreSet(normalizedSet)).toEqual([]);
+    normalizedSet[5].text += 'z';
+    expect(validateCoreSet(normalizedSet)[0]).toMatch(/Core rules total 6145 bytes/);
   });
 
   it('requires and reads the sibling body file', () => {
@@ -43,6 +64,12 @@ describe('core rule class (#3450)', () => {
     expect(() => readCoreBody(join(dir, 'a.md'))).toThrow(/requires a compact body file a\.core\.md/);
     writeFileSync(join(dir, 'a.core.md'), '# Core: A\n');
     expect(readCoreBody(join(dir, 'a.md'))).toBe('# Core: A');
+
+    writeFileSync(join(dir, 'a.core.md'), `\r\n${'x'.repeat(511)}\r\n${'y'.repeat(512)}\r\n`);
+    const body = readCoreBody(join(dir, 'a.md'));
+    expect(body).toBe(`${'x'.repeat(511)}\n${'y'.repeat(512)}`);
+    expect(body).not.toContain('\r');
+    expect(Buffer.byteLength(body, 'utf8')).toBe(CORE_BODY_MAX_BYTES);
   });
 
   it('lint requires a valid body for core rules and ignores the body file itself', () => {
@@ -52,6 +79,8 @@ describe('core rule class (#3450)', () => {
     const content = '---\nactivation: core\nsummary: Always do A.\n---\nfull';
     writeFileSync(rule, content);
     expect(lintRuleActivation(content, 'rules/a.md', dir, [], rule).map(d => d.message).join()).toMatch(/requires a compact body file/);
+    writeFileSync(join(dir, 'rules/a.core.md'), `${'x'.repeat(511)}\r\n${'y'.repeat(512)}`);
+    expect(lintRuleActivation(content, 'rules/a.md', dir, [], rule)).toEqual([]);
     writeFileSync(join(dir, 'rules/a.core.md'), 'x'.repeat(2000));
     expect(lintRuleActivation(content, 'rules/a.md', dir, [], rule).map(d => d.message).join()).toMatch(/per-body cap/);
     writeFileSync(join(dir, 'rules/a.core.md'), '# Core: A');
@@ -92,7 +121,17 @@ describe('core rule class (#3450)', () => {
     expect(validateRuleFrontmatter({ activation: 'core', enforcement: 'high' }).valid).toBe(true);
     expect(rule).toMatch(/^activation: core$/m);
     expect(rule).toMatch(/^enforcement: high$/m);
-    expect(readCoreBody(join(repo, 'agentic/code/addons/aiwg-utils/rules/anti-laziness.md'))).toContain('Core: Anti-Laziness');
+    const directory = join(repo, 'agentic/code/addons/aiwg-utils/rules');
+    const antiLaziness = readCoreBody(join(directory, 'anti-laziness.md'));
+    const noAttribution = readCoreBody(join(directory, 'no-attribution.md'));
+    expect(antiLaziness).toContain('Core: Anti-Laziness');
+    expect(Buffer.byteLength(antiLaziness, 'utf8')).toBeLessThanOrEqual(CORE_BODY_MAX_BYTES);
+    expect(validateCoreBody(antiLaziness)).toEqual([]);
+    expect(validateCoreBody(noAttribution)).toEqual([]);
+    expect(validateCoreSet([
+      { name: 'anti-laziness', text: antiLaziness },
+      { name: 'no-attribution', text: noAttribution },
+    ])).toEqual([]);
   });
 
   it('ships critical no-attribution with explicit coverage and provider precedence', () => {
