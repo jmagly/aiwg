@@ -16,6 +16,8 @@ import os from 'node:os';
 import fs from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import yaml from 'js-yaml';
+import { importImpl } from '../../_resolve-impl.mjs';
+const { GROK_BUILD_STANDARD_SKILLS_PATH } = await importImpl(import.meta.url, 'providers/grok-build-paths.js');
 import {
   withRuleDeployment,
   replaceBoundRulesBlock,
@@ -42,7 +44,7 @@ export const paths = {
 };
 export const kernelSkillsPath = '.grok/skills';
 /** Standard-tier opt-in mirror (`--copy-all`) lives under the project .aiwg tree. */
-export const standardSkillsPath = '.grok/.aiwg/skills';
+export const standardSkillsPath = GROK_BUILD_STANDARD_SKILLS_PATH;
 
 export const support = {
   agents: 'native',

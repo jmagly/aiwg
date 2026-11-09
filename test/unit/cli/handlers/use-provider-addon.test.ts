@@ -155,15 +155,17 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     const home = process.env.HOME!;
     const expected = {
       openclaw: { artifact: join(home, '.openclaw/.aiwg/skills'), kernel: join(home, '.openclaw/skills/aiwg'), user: join(home, '.openclaw/skills') },
-      muse: { artifact: '.agents/skills', kernel: '.agents/skills', user: join(process.env.XDG_CONFIG_HOME!, 'muse/skills') },
+      // Muse and Grok Build mirror bulk skills under .aiwg/skills; kernel skills and discovery stay native (#3994).
+      muse: { artifact: '.agents/.aiwg/skills', kernel: '.agents/skills', discovery: '.agents/skills', user: join(process.env.XDG_CONFIG_HOME!, 'muse/skills') },
       openhuman: { artifact: join(home, '.openhuman/.aiwg/skills'), kernel: join(home, '.openhuman/skills'), user: join(home, '.openhuman/skills') },
       grokbot: { artifact: process.env.AIWG_GROKBOT_SKILLS_DIR!, kernel: '', user: process.env.AIWG_GROKBOT_SKILLS_DIR! },
-      'grok-build': { artifact: '.grok/skills', kernel: '.grok/skills', user: join(process.env.GROK_HOME!, 'skills') },
+      'grok-build': { artifact: '.grok/.aiwg/skills', kernel: '.grok/skills', discovery: '.grok/skills', user: join(process.env.GROK_HOME!, 'skills') },
     };
     for (const [provider, roots] of Object.entries(expected)) {
       expect(getProviderArtifactPathStrings(provider)?.skills).toBe(roots.artifact);
       expect(getProviderKernelSkillPath(provider)).toBe(roots.kernel);
-      expect(getProviderContextDiscoveryPathStrings(provider)?.skills).toBe(provider === 'grokbot' ? '' : roots.artifact);
+      expect(getProviderContextDiscoveryPathStrings(provider)?.skills).toBe(
+        provider === 'grokbot' ? '' : 'discovery' in roots ? roots.discovery : roots.artifact);
       expect(candidateDeployedPaths(project, provider, 'skills/legacy/SKILL.md')).toEqual([
         join(isAbsolute(roots.artifact) ? roots.artifact : join(project, roots.artifact), 'legacy/SKILL.md'),
       ]);

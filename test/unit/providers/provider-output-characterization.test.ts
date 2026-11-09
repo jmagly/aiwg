@@ -131,16 +131,14 @@ const USE_PATH_GOLDENS = {
     },
     kernelSkills: resolveHermesHomePath('skills'),
   },
-  // #236: Muse Code — mixed deploy target; skill writer lands at the
-  // Muse-native project root (.agents/skills); no agents/commands/rules
-  // file surface (indexed via aiwg discover / aiwg show). The user root is
-  // XDG-resolved at deploy time, never a static golden path.
+  // Muse keeps kernels native and bulk skills in the opt-in project mirror (#3994).
+  // The user root is XDG-resolved at deploy time, never a static golden path.
   muse: {
     deployTarget: 'mixed',
     artifacts: {
       agents: null,
       commands: null,
-      skills: '.agents/skills',
+      skills: '.agents/.aiwg/skills',
       rules: '.muse/rules',
       behaviors: null,
     },
