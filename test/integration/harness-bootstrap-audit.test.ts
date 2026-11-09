@@ -10,7 +10,7 @@ import { parse as parseYaml } from 'yaml';
 const root = path.resolve(import.meta.dirname, '../..');
 const providers = ['antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness',
   'factory', 'grokbot', 'grok-build', 'hermes', 'muse', 'opencode', 'openclaw',
-  'openhuman', 'pi', 'omp', 'warp', 'windsurf'];
+  'openhuman', 'pi', 'omp', 'warp', 'windsurf', 'generic'];
 const kernels = ['skill-discovery', 'artifact-output-policy'];
 const cores = ['anti-laziness', 'no-attribution'];
 const hooks: Record<string, string> = {
@@ -74,6 +74,17 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
     const definition = registry.find((item: { id: string }) => item.id === provider);
     expect(definition).toBeDefined();
     expect(fs.existsSync(path.join(root, 'tools/agents/providers', `${provider}.mjs`))).toBe(true);
+    if (provider === 'generic') {
+      expect(definition.context.bootstrapTargets).toEqual(['AGENTS.md']);
+      expect(definition.context.support).toBe('degraded');
+      const adapter = JSON.parse(f.run(['--input-type=module', '-e',
+        `import { paths, kernelSkillsPath } from ${JSON.stringify(path.join(root, 'tools/agents/providers/generic.mjs'))};
+         console.log(JSON.stringify({ paths, kernelSkillsPath }));`]));
+      for (const [kind, directory] of Object.entries(adapter.paths)) {
+        expect(definition.paths.artifacts[kind], kind).toBe(directory);
+      }
+      expect(definition.paths.kernelSkills).toBe(adapter.kernelSkillsPath);
+    }
     f.cli('use', 'all', '--provider', provider,
       ...(definition.context.promptDiscovery?.optIn ? ['--enable-cross-provider-hooks'] : []));
 
@@ -220,11 +231,44 @@ describe.each(['muse', 'grok-build'])('%s bulk skill registry contract (#3994)',
   });
 });
 
-it('records generic as registry metadata without claiming a deployable harness', () => {
+it('generic deploys directly through the adapter CLI as well as public use', () => {
   const f = fixture();
-  const result = f.invoke([path.join(root, 'bin/aiwg.mjs'), 'use', 'all', '--provider', 'generic']);
-  expect(result.error).toBeUndefined();
-  expect(result.status).toBe(1);
-  expect(result.stdout + result.stderr).toContain('Unknown provider: generic');
-  expect(fs.existsSync(f.resolve('skills/aiwg-utils-quickref/SKILL.md'))).toBe(false);
+  const args = [path.join(root, 'tools/agents/deploy-agents.mjs'), '--provider', 'generic',
+    '--target', f.project, '--mode', 'all', '--kernel-only', '--quiet'];
+  const before = { ...snapshot(f.project), ...snapshot(f.home) };
+  f.run([...args, '--dry-run']);
+  expect({ ...snapshot(f.project), ...snapshot(f.home) }, 'fresh dry-run must not write destinations').toEqual(before);
+  f.run(args);
+  expect(f.read('AGENTS.md')).toContain('rules/RULES-INDEX.md');
+  expect(f.read('rules/skill-discovery.md')).toContain('aiwg discover');
+  const bootstrap = f.read('AGENTS.md');
+  f.run([...args, '--no-context-files']);
+  expect(f.read('AGENTS.md'), 'no-context-files must preserve the bootstrap').toBe(bootstrap);
+}, 240_000);
+
+it('generic copies portable agents, commands and opt-in skills from a synthetic framework', () => {
+  const f = fixture();
+  const source = path.join(scratch!, 'source');
+  const framework = path.join(source, 'agentic/code/frameworks/portable');
+  const put = (file: string, body: string) => {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, body);
+  };
+  put(path.join(source, 'package.json'), '{"name":"fixture","version":"1.0.0"}');
+  put(path.join(framework, 'manifest.json'), '{"id":"portable"}');
+  put(path.join(framework, 'agents/reviewer.md'), '# Portable reviewer\n');
+  put(path.join(framework, 'commands/review.md'), '# Portable review\n');
+  put(path.join(framework, 'skills/review/SKILL.md'), '---\nname: review\n---\n# Portable skill\n');
+  const args = [path.join(root, 'tools/agents/deploy-agents.mjs'), '--provider', 'generic',
+    '--source', source, '--target', f.project, '--mode', 'all', '--deploy-commands',
+    '--deploy-skills', '--skip-commands-migration', '--quiet'];
+  f.run(args);
+  expect(f.read('agents/reviewer.md')).toContain('# Portable reviewer');
+  expect(f.read('commands/review.md')).toContain('# Portable review');
+  expect(fs.existsSync(f.resolve('skills/review/SKILL.md'))).toBe(false);
+  f.run([...args, '--copy-all']);
+  expect(f.read('skills/review/SKILL.md')).toContain('# Portable skill');
+  put(f.resolve('agents/reviewer.md'), '# Operator reviewer\n');
+  f.run([...args, '--copy-all']);
+  expect(f.read('agents/reviewer.md')).toBe('# Operator reviewer\n');
 }, 240_000);

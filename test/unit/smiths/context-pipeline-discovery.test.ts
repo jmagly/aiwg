@@ -191,7 +191,9 @@ describe('provider policy', () => {
     expect(shouldEmitContextFiles('muse')).toBe(true);
     expect(shouldEmitContextFiles('openhuman')).toBe(true);
     expect(shouldEmitContextFiles('flue')).toBe(true);
-    expect(AGENTS_MD_PROVIDERS.size).toBe(15);
+    expect(shouldEmitContextFiles('generic')).toBe(true);
+    expect(AGENTS_MD_PROVIDERS.has('generic')).toBe(true);
+    expect(AGENTS_MD_PROVIDERS.size).toBe(16);
   });
 
   // #1437: claude is no longer skipped — it gets AIWG.md emission + CLAUDE.md hook
@@ -216,10 +218,10 @@ describe('provider policy', () => {
     expect(shouldEmitClaudeMdHook('openhuman')).toBe(false);
   });
 
-  it('emits root AIWG.md for generic', () => {
+  it('emits root AIWG.md and a portable AGENTS.md bridge for generic', () => {
     expect(shouldEmitContextFiles('generic')).toBe(true);
     expect(shouldEmitAiwgMd('generic')).toBe(true);
-    expect(shouldEmitAgentsMd('generic')).toBe(false);
+    expect(shouldEmitAgentsMd('generic')).toBe(true);
     expect(shouldEmitClaudeMdHook('generic')).toBe(false);
   });
 

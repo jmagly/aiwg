@@ -220,7 +220,7 @@ const USE_PATH_GOLDENS = {
       rules: 'rules',
       behaviors: null,
     },
-    kernelSkills: null,
+    kernelSkills: '.agents/skills',
   },
 } as const;
 

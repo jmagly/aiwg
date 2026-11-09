@@ -175,9 +175,9 @@ export const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
     verification: { method: 'AIWG Windsurf/Devin topology contract; provider-native rules retained', source: 'src/providers/provider-definitions.ts', lastVerified: VERIFIED_ON },
   },
   generic: {
-    startupFiles: [], precedence: ['host policy'], loadMode: 'unsupported', includeSyntax: null, configRegistration: null,
-    bootstrapTargets: [], maxContextBytes: null, recommendedMaxLines: null, nestedContext: false, support: 'unsupported',
-    verification: { method: 'No provider selected; no startup-file claim', source: 'src/providers/provider-definitions.ts', lastVerified: VERIFIED_ON },
+    startupFiles: ['AGENTS.md'], precedence: ['host policy'], loadMode: 'prose-directive', includeSyntax: null, configRegistration: null,
+    bootstrapTargets: ['AGENTS.md'], maxContextBytes: null, recommendedMaxLines: null, nestedContext: false, support: 'degraded',
+    verification: { method: 'Portable Markdown adapter; host must explicitly load AGENTS.md; no automatic startup-file claim', source: 'tools/agents/providers/generic.mjs', lastVerified: VERIFIED_ON },
   },
 };
 
