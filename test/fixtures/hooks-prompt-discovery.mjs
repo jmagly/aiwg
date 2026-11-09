@@ -1,5 +1,10 @@
 // Synthetic discovery library used by the deployed hook's isolated worker.
 export async function discoverCapability(cwd, options) {
+  if (options.phrase === 'write a test plan for the checkpoint command') return console.log(JSON.stringify({ results: [
+    { type: 'skill', name: 'checkpoint', capability: 'Save and restore session checkpoints', score: 0.95 },
+    { type: 'skill', name: 'artifact-lookup', capability: 'Search artifacts', score: 0.40 },
+    { type: 'skill', name: 'artifact-orchestration', capability: 'Generate artifacts', score: 0.30 },
+  ] }));
   if (options.phrase.includes('template hints')) return console.log(JSON.stringify({ results: [
     { type: 'skill', name: 'issue-update', capability: 'Post an issue update', score: options.phrase.includes('weak') ? 0.5 : 0.92,
       templates: [{ name: options.phrase.includes('long') ? 't'.repeat(70) : 'progress-update',

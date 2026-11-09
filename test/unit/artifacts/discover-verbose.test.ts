@@ -31,6 +31,42 @@ const entry = (overrides: Partial<MetadataEntry>): MetadataEntry => ({
 });
 
 describe('verbose discovery confidence (#3952)', () => {
+  it('ranks the named checkpoint command above generic test-plan matches (#4034)', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await discoverCapability(tmp, {
+      phrase: 'write a test plan for the checkpoint command', promptContext: true, limit: 3, offline: true,
+    });
+    const results = JSON.parse(String(log.mock.calls.at(-1)?.[0])).results;
+    expect(results[0]).toMatchObject({ type: 'skill', name: 'checkpoint' });
+    for (const row of results.filter((row: { name: string }) => row.name !== 'checkpoint')) {
+      expect(row.score).toBeLessThan(0.70);
+    }
+  });
+
+  it.each(['checkpoint', 'snapshot-save', 'test-helper'])(
+    'prefers a named %s skill and keeps generic tokens below the hook threshold', name => {
+      const phrase = `write a test plan for the ${name} skill`;
+      const named = scoreEntryDetailed(entry({ name, title: name }), phrase, { relaxOverlap: true });
+      const generic = scoreEntryDetailed(entry({
+        name: 'artifact-orchestration', title: 'Test Plan', capability: 'Write a test plan',
+        triggers: ['write test', 'test plan'], tags: ['test', 'plan'],
+      }), phrase, { relaxOverlap: true });
+      expect(named.score).toBeGreaterThan(generic.score);
+      expect(generic.score).toBeLessThan(0.70);
+    });
+
+  it.each([
+    ['`checkpoint` command', 0.25], ['command checkpoint', 0.25],
+    ['the skill named checkpoint', 0.20], ['the skill called checkpoint', 0.20], ['the skill checkpoint', 0.25],
+  ] as const)(
+    'recognizes explicit naming in %s without claiming full query coverage', (subject, coverage) => {
+      const result = scoreEntryDetailed(entry({ name: 'checkpoint' }), `write a test plan for ${subject}`);
+      expect(result.score).toBeGreaterThanOrEqual(0.70);
+      expect(result.diagnostic.matches).toEqual([expect.objectContaining({
+        field: 'name', match: 'contained-phrase', matched_tokens: ['checkpoint'], query_token_coverage: coverage,
+      })]);
+    });
+
   it('ranks issue filing above incidental hook and verification matches from the cold packaged index', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     await discoverCapability(tmp, { phrase: bugRequest, promptContext: true, limit: 3, offline: true });
@@ -69,12 +105,18 @@ describe('verbose discovery confidence (#3952)', () => {
     expect(score(owner)).toBeGreaterThanOrEqual(0.70);
   });
 
-  it.each(uatRequests)('keeps weak UAT matches below the hook threshold: %s', async phrase => {
+  it.each(uatRequests)('keeps unrelated UAT matches below the hook threshold: %s', async phrase => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     await discoverCapability(tmp, { phrase, promptContext: true, limit: 3, offline: true });
     const results = JSON.parse(String(log.mock.calls.at(-1)?.[0])).results;
     expect(results).toHaveLength(3);
-    for (const result of results) expect(result.score).toBeLessThan(0.70);
+    if (phrase.includes('checkpoint command')) {
+      expect(results[0]).toMatchObject({ type: 'skill', name: 'checkpoint' });
+      expect(results[0].score).toBeGreaterThanOrEqual(0.70);
+    }
+    for (const result of results.filter((row: { name: string }) => row.name !== 'checkpoint')) {
+      expect(result.score).toBeLessThan(0.70);
+    }
   });
 
   it('gives inline code less weight than the same trailing prose', () => {
@@ -85,12 +127,14 @@ describe('verbose discovery confidence (#3952)', () => {
     expect(score('`refresh managed hooks`')).toBeLessThan(score('refresh managed hooks'));
   });
 
-  it('makes the prompt hook request discovery when only weak matches exist', () => {
+  it.each([bugRequest, 'write a test plan for the checkpoint command'])(
+    'makes the prompt hook request discovery when only weak matches exist: %s', phrase => {
     vi.stubEnv('AIWG_ROOT', tmp);
     const directory = getGraphIndexDir(tmp, 'framework');
     fs.mkdirSync(directory, { recursive: true });
     fs.writeFileSync(path.join(directory, 'metadata.json'), JSON.stringify({ entries: {
-      noise: entry({ name: 'noise', title: 'Refresh fresh managed Claude hooks review full body' }),
+      noise: entry({ name: 'noise', title: 'Refresh fresh managed Claude hooks review full body',
+        capability: 'Write a test plan', triggers: ['write test', 'test plan'] }),
     } }));
     const moduleDir = path.join(tmp, 'dist/src/artifacts');
     fs.mkdirSync(moduleDir, { recursive: true });
@@ -101,10 +145,11 @@ describe('verbose discovery confidence (#3952)', () => {
       [path.join(repoRoot, 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs')], {
         cwd: tmp, encoding: 'utf8', timeout: 10_000,
         env: { ...process.env, AIWG_PROMPT_DISCOVERY: '1' },
-        input: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: bugRequest }),
+        input: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: phrase }),
       });
     expect(result.status, result.stderr).toBe(0);
     const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
     expect(context).toContain('Before any other tool call or answer, run: aiwg discover');
+    expect(context).not.toContain('AIWG candidates');
   });
 });

@@ -79,6 +79,13 @@ describe.each(['Claude', 'Muse'])('%s prompt discovery', provider => {
     expect(context).toContain('-> apply.');
   });
 
+  it('omits weak generic candidates alongside a relevant named checkpoint (#4034)', async () => {
+    const result = await invoke('write a test plan for the checkpoint command');
+    const context = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+    expect(context).toContain('skill checkpoint (0.95)');
+    expect(context).not.toMatch(/artifact-lookup|artifact-orchestration/);
+  });
+
   it.each(['template hints', 'long template hints', 'unsafe template hints', 'weak template hints',
     'weak long template hints ' + '"$`\\'.repeat(100)])('bounds and validates %s', async phrase => {
     const result = await invoke(`Show ${phrase} for an issue update`);

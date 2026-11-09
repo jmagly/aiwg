@@ -275,16 +275,16 @@ export function scoreEntryDetailed(
       });
       return finish(1.001, 1.001);
     }
-    if (nearNameMatch(text, entry.name)) {
+    if (nearNameMatch(text, entry.name) || verbose?.names(entry.name)) {
       matches.push({
         field: 'name',
-        match: 'near-name',
+        match: verbose?.names(entry.name) ? 'contained-phrase' : 'near-name',
         value: entry.name,
         contribution: 0.951,
-        matched_tokens: tokens,
-        query_token_coverage: 1,
+        matched_tokens: verbose?.names(entry.name) ? tokenize(entry.name) : tokens,
+        query_token_coverage: verbose?.names(entry.name) ? tokenize(entry.name).length / tokens.length : 1,
       });
-      return finish(0.951);
+      return finish(0.951, verbose?.names(entry.name) ? 0.951 : undefined);
     }
   }
 
