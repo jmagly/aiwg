@@ -84,7 +84,7 @@ export async function purgeEffect(ledger: EffectLedger, id: string, options: Pur
         previous = read.decoded.line.recordHash;
         const original = read.decoded.statement;
         if (original.predicate.effectId !== id || original.predicate.phase === 'tombstone') return read.text;
-        const { target: _target, context: _context, verification: _verification, failure: _failure, ...kept } = original.predicate;
+        const { target: _target, context: _context, verification: _verification, failure: _failure, authorizationGrant: _grant, ...kept } = original.predicate;
         const predicate: EffectPredicate = {
           ...kept,
           phase: 'tombstone',

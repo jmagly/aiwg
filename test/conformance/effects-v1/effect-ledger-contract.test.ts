@@ -31,6 +31,7 @@ const listDir = (kind: 'valid' | 'invalid') => readdirSync(path.join(rootDir, fi
 
 const ARTIFACTS: Record<string, string> = {
   'record.': 'effects.record',
+  'grant.': 'effects.authorization-grant',
   'checkpoint.': 'effects.checkpoint',
   'keyring.': 'effects.keyring',
   'verifier-result.': 'effects.verifier-result',
@@ -58,12 +59,12 @@ const decodePayload = (line: any) => Buffer.from(line.envelope.payload, 'base64'
 const withinWindow = (key: any, at: string) => at >= key.validFrom && (!key.validUntil || at < key.validUntil);
 
 describe('effect ledger v1 schema catalog', () => {
-  it('EFF-CAT-01 registers the effects domain with the four v1 authorities', () => {
+  it('EFF-CAT-01 registers the effects domain with the registered v1 authorities', () => {
     expect(compiled.valid, JSON.stringify(compiled.diagnostics)).toBe(true);
     expect(read('schemas/catalog/catalog.json').domains).toContain('domains/effects.json');
     expect(manifest.artifacts.map((entry: any) => entry.logicalName).sort()).toEqual(Object.values(ARTIFACTS).sort());
     expect(readdirSync(path.join(rootDir, 'schemas/effects')).sort()).toEqual([
-      'EffectCheckpoint.v1.schema.json', 'EffectKeyring.v1.schema.json', 'EffectRecord.v1.schema.json', 'EffectVerifierResult.v1.schema.json',
+      'AuthorizationGrant.v1.schema.json', 'EffectCheckpoint.v1.schema.json', 'EffectKeyring.v1.schema.json', 'EffectRecord.v1.schema.json', 'EffectVerifierResult.v1.schema.json',
     ]);
   });
 

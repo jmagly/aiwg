@@ -11,6 +11,7 @@ import addFormats from 'ajv-formats';
 import { integrityError } from './errors.js';
 
 export const EFFECT_SCHEMA_IDS = Object.freeze({
+  authorizationGrant: 'https://aiwg.io/schemas/authorization-grant.aiwg.io/v1',
   record: 'https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json',
   checkpoint: 'https://aiwg.io/schemas/effects/EffectCheckpoint.v1.schema.json',
   keyring: 'https://aiwg.io/schemas/effects/EffectKeyring.v1.schema.json',
@@ -20,6 +21,7 @@ export const EFFECT_SCHEMA_IDS = Object.freeze({
 export type EffectSchemaName = keyof typeof EFFECT_SCHEMA_IDS;
 
 const SCHEMA_FILES: Record<EffectSchemaName, string> = {
+  authorizationGrant: 'AuthorizationGrant.v1.schema.json',
   record: 'EffectRecord.v1.schema.json',
   checkpoint: 'EffectCheckpoint.v1.schema.json',
   keyring: 'EffectKeyring.v1.schema.json',

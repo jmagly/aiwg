@@ -1,0 +1,55 @@
+{
+  "apiVersion": "authorization-grant.aiwg.io/v1",
+  "grantId": "grant-issue-filing",
+  "scope": {
+    "categories": [
+      "tracker.write"
+    ],
+    "targets": [
+      "repo:example/repo",
+      "tracker:local"
+    ],
+    "environments": [
+      "development"
+    ],
+    "resources": [
+      "issues/**"
+    ],
+    "verbs": [
+      "create"
+    ]
+  },
+  "constraints": {
+    "reversible": true,
+    "maxImpact": "high",
+    "exclusions": [
+      "secrets",
+      "destructive",
+      "production",
+      "policy-override"
+    ],
+    "conditions": [
+      "Only in workspace example"
+    ],
+    "maxUses": 5
+  },
+  "grantedBy": {
+    "kind": "human",
+    "id": "operator@example.test",
+    "issuer": "test-host",
+    "authenticationRef": "local-login:operator"
+  },
+  "provenance": {
+    "provider": "test",
+    "sessionId": "session-1",
+    "userTurnDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "nativeEventRef": "question:1"
+  },
+  "questionDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "policyVersion": "policy-1",
+  "createdAt": "2026-09-24T10:00:00.000Z",
+  "expiresAt": "2026-09-25T10:00:00.000Z",
+  "revocation": {
+    "state": "active"
+  }
+}

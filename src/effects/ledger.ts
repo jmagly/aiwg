@@ -346,6 +346,7 @@ function basePredicate(intent: EffectPredicate, phase: EffectPhase, payloadDiges
 // ---------------------------------------------------------------------------
 
 export interface RecordIntentInput {
+  authorizationGrant?: import('./authorization-grant.js').AuthorizationGrant;
   kind: string;
   target: string;
   context: EffectContext;
@@ -376,6 +377,7 @@ export async function recordIntent(ledger: EffectLedger, input: RecordIntentInpu
       schemaVersion: RECORD_SCHEMA_VERSION, effectId: id, idDerivation: derivation, scope: ledger.scope,
       kind: input.kind, target: input.target, context: structuredClone(input.context), phase: 'intent',
       payloadDigest: input.payloadDigest, writer: ledger.writer, seq, prev, recordedAt, links: structuredClone(input.links ?? {}),
+      ...(input.authorizationGrant ? { authorizationGrant: structuredClone(input.authorizationGrant) } : {}),
     }),
   }, id);
   if (lost) return settle(lost);

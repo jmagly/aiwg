@@ -16,6 +16,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { canonicalJson, dssePae } from '../../../src/security/artifact-trust.js';
 import { reviewDigest } from '../../../src/decision/review/validate.js';
+import { buildGrantFixtures } from './build-grant-fixtures.js';
 
 export const FIXTURE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 export const STATEMENT_PAYLOAD_TYPE = 'application/vnd.in-toto+json';
@@ -186,6 +187,7 @@ export function buildEffectFixtures(): Map<string, string> {
   const keyB = fixtureKey('b');
   const files = new Map<string, string>();
   const put = (file: string, value: unknown) => files.set(file, `${JSON.stringify(value, null, 2)}\n`);
+  for (const [file, value] of buildGrantFixtures()) put(file, value);
 
   // Writer A: a verified tracker comment, then an unresolved-then-resolved PR merge (key B era).
   const a0 = statementFor({ vector: 'tracker-comment-cycle', phase: 'intent', writer: 'writer-a', seq: 0, prev: null,

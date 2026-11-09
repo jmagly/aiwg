@@ -32,6 +32,7 @@ const fixtureDir = 'test/fixtures/effects';
 const read = (file: string) => JSON.parse(readFileSync(join(fixtureDir, file), 'utf8'));
 const scope = { tenant: 'local', project: 'example/repo', subsystem: 'delivery' as const };
 const schemaFor = (name: string): EffectSchemaName => name.startsWith('record.') ? 'record'
+  : name.startsWith('grant.') ? 'authorizationGrant'
   : name.startsWith('checkpoint.') ? 'checkpoint' : name.startsWith('keyring.') ? 'keyring' : 'verifierResult';
 
 let projectDir: string;

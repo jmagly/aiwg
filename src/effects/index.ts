@@ -117,3 +117,7 @@ export {
   type DecisionLinkFailureReason,
   type DecisionLinkVerification,
 } from './decision-links.js';
+export { assertAuthorizationGrant, authorizationGrantIdentity } from './authorization-grant.js';
+export type { AuthorizationGrant } from './authorization-grant.js';
+export { readAuthorizationGrants, recordAuthorizationGrant, verifyAuthorizationGrants } from './authorization-store.js';
+export type { AuthorizationGrantRead, StoredAuthorizationGrant } from './authorization-store.js';

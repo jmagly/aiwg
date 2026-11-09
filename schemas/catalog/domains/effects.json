@@ -13,6 +13,50 @@
   },
   "artifacts": [
     {
+      "logicalName": "effects.authorization-grant",
+      "id": "https://aiwg.io/schemas/authorization-grant.aiwg.io/v1",
+      "version": "1.0.0",
+      "format": "json-schema",
+      "dialect": "https://json-schema.org/draft/2020-12/schema",
+      "lifecycle": "active",
+      "stability": "experimental",
+      "owner": {
+        "id": "aiwg-maintainers"
+      },
+      "authority": {
+        "kind": "canonical",
+        "path": "schemas/effects/AuthorizationGrant.v1.schema.json"
+      },
+      "compatibility": {
+        "mode": "backward"
+      },
+      "consumers": [
+        {
+          "id": "authorization-grant-store",
+          "boundary": "Bounded human grants inside signed x.aiwg.authorization-grant effect predicates",
+          "path": "src/effects/authorization-store.ts"
+        }
+      ],
+      "fixtures": {
+        "valid": [
+          "test/fixtures/effects/valid/grant.bounded.json",
+          "test/fixtures/effects/valid/grant.revoked.json",
+          "test/fixtures/effects/valid/grant.until-revoked.json"
+        ],
+        "invalid": [
+          "test/fixtures/effects/invalid/grant.agent.json",
+          "test/fixtures/effects/invalid/grant.high-impact.json",
+          "test/fixtures/effects/invalid/grant.irreversible.json",
+          "test/fixtures/effects/invalid/grant.missing-question.json",
+          "test/fixtures/effects/invalid/grant.production.json",
+          "test/fixtures/effects/invalid/grant.unbounded-medium.json"
+        ]
+      },
+      "publication": {
+        "public": true
+      }
+    },
+    {
       "logicalName": "effects.record",
       "id": "https://aiwg.io/schemas/effects/EffectRecord.v1.schema.json",
       "version": "1.0.0",

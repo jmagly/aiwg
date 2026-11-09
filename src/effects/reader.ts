@@ -6,6 +6,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { canonicalJson } from '../security/artifact-trust.js';
+import { authorizationGrantFailure } from './authorization-grant.js';
 import { integrityError } from './errors.js';
 import { checkSignature } from './keyring.js';
 import {
@@ -79,6 +80,8 @@ export function lineFailures(
   const failures: string[] = [];
   const { line, payload, statement } = decoded;
   const predicate = statement.predicate;
+  const grantFailure = authorizationGrantFailure(predicate);
+  if (grantFailure) failures.push(grantFailure);
   if (line.writer !== writer || predicate.writer !== writer) failures.push('writer-mismatch');
   if (line.seq !== index || predicate.seq !== index) failures.push('seq-mismatch');
   if (predicate.prev !== previousHash) failures.push('chain-broken');

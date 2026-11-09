@@ -5,10 +5,14 @@
  */
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { openEffectLedger } from '../../src/effects/ledger.js';
+import { staticKeyProvider } from '../../src/effects/keys.js';
+import { recordAuthorizationGrant, readAuthorizationGrants } from '../../src/effects/authorization-store.js';
+import { grantFixture } from '../fixtures/effects/build-grant-fixtures.js';
 
 const repo = resolve('.');
 const bin = resolve(repo, 'bin/aiwg.mjs');
@@ -18,8 +22,8 @@ const seed = createHash('sha256').update('aiwg-effect-cli-integration-test-key')
 let root = '';
 let project = '';
 
-function run(args: string[], cwd = project): { status: number | null; json: any; stdout: string } {
-  const result = spawnSync(process.execPath, [bin, 'effect', ...args], {
+function run(args: string[], cwd = project, command = 'effect'): { status: number | null; json: any; stdout: string } {
+  const result = spawnSync(process.execPath, [bin, command, ...args], {
     cwd, encoding: 'utf8', timeout: 60_000,
     env: {
       ...process.env, HOME: join(root, 'home'), USERPROFILE: join(root, 'home'), XDG_CONFIG_HOME: join(root, 'home', '.config'),
@@ -88,5 +92,28 @@ describe.skipIf(missingBuild)('aiwg effect via bin/aiwg.mjs', () => {
     const result = run(['--help']);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('aiwg effect record');
+  });
+
+  it('initializes a temporary keyring, stores a grant, and exits 6 after one signed byte is mutated', async () => {
+    const initialized = run(['keys', 'init', '--subsystem', 'custom']);
+    expect(initialized.status, initialized.stdout).toBe(0);
+    const ledger = openEffectLedger({ projectDir: project, scope: { tenant: 'local', project: 'example/repo', subsystem: 'custom' }, writer: 'grants', keyProvider: staticKeyProvider(seed) });
+    await recordAuthorizationGrant(ledger, grantFixture());
+    const intact = run(['authorization', 'verify'], project, 'config');
+    expect(intact.status, intact.stdout).toBe(0);
+    expect(intact.json).toMatchObject({ ok: true, grants: 1 });
+    const file = join(ledger.paths().segments, 'grants.jsonl');
+    const line = JSON.parse(readFileSync(file, 'utf8').trim());
+    const bytes = Buffer.from(line.envelope.payload, 'base64');
+    const offset = bytes.indexOf('tracker.write'); expect(offset).toBeGreaterThan(0);
+    bytes[offset] = 'b'.charCodeAt(0); line.envelope.payload = bytes.toString('base64');
+    writeFileSync(file, `${JSON.stringify(line)}\n`);
+    expect((await readAuthorizationGrants(ledger)).grants).toEqual([]);
+    const damaged = run(['authorization', 'verify'], project, 'config');
+    expect(damaged.status, damaged.stdout).toBe(6);
+    expect(damaged.json).toMatchObject({ ok: false, grants: 0 });
+    expect(damaged.stdout).not.toContain(seed);
+    expect(damaged.stdout).not.toContain('operator@example.test');
+    expect(run(['authorization', 'verify'], project, 'steward').status).toBe(6);
   });
 });
