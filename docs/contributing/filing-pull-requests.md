@@ -98,12 +98,30 @@ The AI is a tool. Tools don't sign their output.
 
 ### 7. Push
 
+For this repository, follow [WORKSPACE.md, "Commit identity and attribution"](../../WORKSPACE.md#commit-identity-and-attribution):
+author and committer must both be `Joseph Magly <1159087+jmagly@users.noreply.github.com>`,
+with a valid GPG signature from `25BEE160811F66FD6F7B1BF0454C68C4A2174CE9`.
+Merge locally with a signed `--no-ff` merge (the configured local merge helper is
+`aiwg run skill aiwg-pr -- merge <number>`), then push through `tools/git/push-origin-as-roctinam.sh`
+and close the PR. Never use the Gitea web button or merge API.
+
+The CI Test job checks identity, signatures and the push helper's attribution rules
+immediately after checkout on push events (#3838). It imports the public keys from
+`.gitea/keys/maintainers.asc` into a temporary `GNUPGHOME`, then checks only
+`before..after`, including side-branch commits. A missing or zero `before` uses
+the pushed head's first parent; a root head is checked alone. An unavailable
+nonzero base fails the check. Earlier history and the accepted #3837 exceptions
+are excluded when they precede the range. Every offending commit is reported
+with its SHA, author, committer and signature status before CI fails.
+Manual dispatch has no push range and skips this step. This detects violations
+after a push; disabling server-side merges remains a separate repository setting.
+
 ```bash
 # For direct mode
-git push origin main
+tools/git/push-origin-as-roctinam.sh main
 
 # For feature-branch / pr-required
-git push origin fix/{issue-number}-{slug}
+tools/git/push-origin-as-roctinam.sh fix/{issue-number}-{slug}
 ```
 
 ### 8. Open the PR (only for pr-required mode)

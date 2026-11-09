@@ -30,8 +30,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
         with:
-          # The changed-code coverage gate diffs HEAD against its parent (#3641).
-          fetch-depth: 2
+          # Identity gate needs the complete push range, including merge parents (#3838).
+          fetch-depth: 0
+
+      - name: Verify pushed commit identity and signatures (#3838)
+        if: gitea.event_name == 'push'
+        env:
+          AIWG_PUSH_BEFORE: ${{ gitea.event.before }}
+          AIWG_PUSH_AFTER: ${{ gitea.event.after }}
+        run: node tools/ci/check-commit-identity.mjs
 
       - name: Install dependencies
         # Plain `npm ci` (no --omit=optional). Sharp's prebuilt libvips
