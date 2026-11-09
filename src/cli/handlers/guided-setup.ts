@@ -82,7 +82,9 @@ export function parseGuidedSetupFlags(args: readonly string[], command: 'init' |
     throw new Error('--workspace, --monorepo, --package and --scan-roots are available on setup.');
   }
   // The strict helpers honor the bare -- terminator, including malformed later occurrences.
-  const enabled = NEW_FLAGS.some(name => value(name) !== undefined) || tokenStdin || verify || remove;
+  // Init opts into planning only through its documented selectors; Jev options are answers.
+  const enabled = command === 'init' ? ['--scope', '--intent', '--credential'].some(name => value(name) !== undefined)
+    : NEW_FLAGS.some(name => value(name) !== undefined) || tokenStdin || verify || remove;
   return { jev: jev ?? (remove ? 'decline' : undefined) ?? (tokenStdin || region || endpoint || verify ? 'enable' : undefined), jevOptions, scope, intent, monorepo, packageRoot, workspaces: workspaces.length ? workspaces : undefined,
     scanRoots: scanRoots.length ? scanRoots : undefined, credentials, enabled };
 }
