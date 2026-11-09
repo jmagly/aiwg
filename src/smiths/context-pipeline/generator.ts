@@ -354,7 +354,7 @@ export async function generate(opts: ContextPipelineOptions): Promise<ContextPip
   // AGENTS.md emission is gated on the provider's link-mechanism: codex/copilot/
   // cursor/windsurf/hermes/warp/factory/opencode use AGENTS.md as their bridge
   // to AIWG.md. Claude uses CLAUDE.md hook instead (#1437); openclaw is
-  // home-dir-only and 'generic' has no provider-local footprint.
+  // home-dir-only; generic emits a portable, host-loaded AGENTS.md bridge.
   if (opts.provider !== 'flue' && !opts.skip?.agentsMd && shouldEmitAgentsMd(opts.provider)) {
     const agentsMdPath = path.join(opts.projectPath, 'AGENTS.md');
     let canWrite = true;

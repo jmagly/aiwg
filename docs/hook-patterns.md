@@ -410,7 +410,7 @@ each provider's public default without changing its deployment flags.
 | omp | `.omp/AGENTS.md` | `.omp/rules` | `.agents/skills` (K/B) | `omp.mjs` |
 | warp | `WARP.md`, `AGENTS.md` | `.warp/rules` | `.warp/skills`; `.warp/.aiwg/skills` | `warp.mjs` |
 | windsurf | `AGENTS.md` | `.windsurf/rules` | `.windsurf/skills`; `.windsurf/.aiwg/skills` | `windsurf.mjs` |
-| generic | No native startup contract | `rules` (declared) | `skills` (declared; no native kernel) | No dedicated adapter |
+| generic | `AGENTS.md` (host must load explicitly) | `rules` | `.agents/skills` (host loaded); `skills` | `generic.mjs` (#3997) |
 
 Hook support below means **AIWG prompt discovery delivery**, not merely an
 upstream event. Native = existing provider hook installer; bridge = existing
@@ -439,13 +439,16 @@ establishes it; interactive support does not establish exec support.
 | omp | None: extension bridge is not prompt-context delivery | `omp --print` | Unverified | Pass | Static only |
 | warp | None | `warp-terminal agent run` (Oz) | Unverified | Pass | Static only |
 | windsurf | None | Desktop provider; Devin CLI is a separate future target | N/A | Pass | Static only |
-| generic | None | N/A (host defined) | N/A | Rejected (expected) | No harness |
+| generic | None | N/A (host defined) | N/A | Pass (#3997) | Portable adapter; no harness |
 
 Result: **18/18 named harnesses pass** the offline deployment/refresh check;
-the supplemental generic refusal check and two bulk routing checks also pass
-(21 integration cases). Muse and Grok Build share bulk-root constants between
-their registries and adapters (#3994); synthetic skills verify the opt-in mirror
-matches registry metadata while kernel skills remain in the native roots.
+the generic adapter also passes deployment/refresh and direct deployment checks
+(#3997), along with two bulk routing checks. Generic uses the shared Markdown rule
+projection and kernel skill router; its host must explicitly load `AGENTS.md` and
+skills. No automatic context loading, prompt hooks, or headless CLI is claimed.
+Muse and Grok Build share bulk-root constants between their registries and
+adapters (#3994); synthetic skills verify the opt-in mirror matches registry
+metadata while kernel skills remain in the native roots.
 
 Reproduce offline with the built CLI using
 [`harness-bootstrap-audit.test.ts`](../test/integration/harness-bootstrap-audit.test.ts)
@@ -481,7 +484,6 @@ worker's steps 1/2/5 scope):
 | codex | `src/smiths/hook-bridge/codex-translator.ts` | Supplied UAT discovers at calls 2–8 after bootstrap; discover-first is not established. Trust/review remain runtime prerequisites. |
 | muse | `tools/agents/providers/muse-prompt-discovery.mjs` | Supplied p1/p4 discover-first results remain mixed. |
 | factory | `tools/agents/providers/factory-hooks.mjs` | Interactive registration does not run in `droid exec`; the bootstrap rule carries discovery/template use. |
-| generic | `tools/agents/deploy-agents.mjs` | Registry metadata exists, but there is no generic adapter; `use all --provider generic` is rejected. |
 
 Providers with no AIWG prompt installer are recorded as **none** in the matrix;
 that classification is not a claim that their upstream harness lacks all hooks.

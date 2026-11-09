@@ -327,12 +327,12 @@ describe('project quickref generation and deployment (#1788)', () => {
     expect(existsSync(result.targetPath)).toBe(true);
   });
 
-  it('uses the generic skill surface as explicit emulation when no kernel target exists', async () => {
+  it('uses the generic adapter kernel skill surface (#3997)', async () => {
     const { projectDir } = await fixture();
     const result = await deployProjectQuickref(projectDir, 'generic');
 
-    expect(result.emulated).toBe(true);
-    expect(result.targetPath).toBe(join(projectDir, 'skills', result.skillName, 'SKILL.md'));
+    expect(result.emulated).toBe(false);
+    expect(result.targetPath).toBe(join(projectDir, '.agents', 'skills', result.skillName, 'SKILL.md'));
   });
 
   it('deploys Hermes quickrefs to the active HERMES_HOME skills surface', async () => {
@@ -361,7 +361,7 @@ describe('project quickref generation and deployment (#1788)', () => {
       openhuman: join(homeDir, '.openhuman', 'skills'),
       warp: join(projectDir, '.warp', 'skills'),
       windsurf: join(projectDir, '.windsurf', 'skills'),
-      generic: join(projectDir, 'skills'),
+      generic: join(projectDir, '.agents', 'skills'),
     };
 
     for (const [provider, root] of Object.entries(expectedRoots)) {
