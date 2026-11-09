@@ -20,6 +20,27 @@ export const PROVIDER_RULE_AUTHORITY = [
   '"Precedence" for the capability-versus-directive distinction.',
 ] as const;
 
+const PROSE_LOADING = [
+  "On a new task, first run discovery for the request (`aiwg discover --stdin <<'AIWG_REQUEST'`, the request, then `AIWG_REQUEST`) before any other tool call or answer. Pass the request literally on heredoc lines, never as a quoted command argument.",
+  '',
+  'After discovery, read and follow [WORKSPACE.md](./WORKSPACE.md) for project context.',
+  'Then read [AIWG.md](./AIWG.md) for AIWG discovery, quickrefs, and framework routing.',
+  '',
+  'These are explicit reading instructions. Plain Markdown links are not claimed to auto-load.',
+];
+
+function wrapProviderBootstrap(loading: string[]): string {
+  return [
+    PROVIDER_BOOTSTRAP_START, '', '# Provider workspace bootstrap', '',
+    ...loading, ...PROVIDER_RULE_AUTHORITY, '', PROVIDER_BOOTSTRAP_END,
+  ].join('\n');
+}
+
+// Rule projection can use a synthetic corpus without the provider capability matrix.
+export function buildRuleStartupBootstrapBlock(): string {
+  return wrapProviderBootstrap(PROSE_LOADING);
+}
+
 export function buildProviderBootstrapBlock(provider: Platform | string): string {
   const definition = getProviderDefinition(provider);
   const contract = definition?.context;
@@ -44,7 +65,6 @@ export function buildProviderBootstrapBlock(provider: Platform | string): string
   // is asserted here rather than left to be inferred once WORKSPACE.md loads.
   // A session directive that arrives later cannot claim precedence it was never
   // granted (#2512).
-  const authority = PROVIDER_RULE_AUTHORITY;
   // #227: Muse gets its own discover-first bridge text — Muse-native
   // instruction order (this AGENTS.md first, then WORKSPACE.md, then AIWG.md)
   // plus the trust-gated load caveat — instead of the generic prose-directive.
@@ -62,23 +82,9 @@ export function buildProviderBootstrapBlock(provider: Platform | string): string
           'WORKSPACE.md and AIWG.md are registered through the provider configuration.',
           'Read and follow WORKSPACE.md first; use AIWG.md second for AIWG discovery and routing.',
         ]
-      : [
-          'Read and follow [WORKSPACE.md](./WORKSPACE.md) first.',
-          'Then read [AIWG.md](./AIWG.md) for AIWG discovery, quickrefs, and framework routing.',
-          '',
-          'These are explicit reading instructions. Plain Markdown links are not claimed to auto-load.',
-        ];
+      : PROSE_LOADING;
 
-  return [
-    PROVIDER_BOOTSTRAP_START,
-    '',
-    '# Provider workspace bootstrap',
-    '',
-    ...loading,
-    ...authority,
-    '',
-    PROVIDER_BOOTSTRAP_END,
-  ].join('\n');
+  return wrapProviderBootstrap(loading);
 }
 
 export const PROVIDER_BOOTSTRAP_HEADING = '# Provider workspace bootstrap';

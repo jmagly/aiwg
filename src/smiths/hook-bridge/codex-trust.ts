@@ -10,7 +10,12 @@ export interface CodexHookTrust {
   hookReview: 'approved' | 'unreviewed' | 'unknown';
 }
 
-export const CODEX_HOOK_TRUST_NEXT_STEP = 'Trust this project in Codex, then approve the AIWG hook when Codex asks.';
+// Printed after deploy: one line that fits an 80-column terminal.
+export const CODEX_HOOK_TRUST_NEXT_STEP = 'Trust this project in Codex and approve its AIWG hook; codex exec needs both.';
+// Full explanation for doctor and docs (#4035).
+export const CODEX_EXEC_HOOK_TRUST_DETAIL = 'Codex 0.167 requires saved folder and hook trust for codex exec; a per-run -c project trust override '
+  + 'does not enable project hooks, even with --dangerously-bypass-hook-trust. '
+  + 'Review and save trust interactively for each worker worktree before automation; AIWG never grants trust.';
 
 export function codexHookTrustNextStep(trust: CodexHookTrust | null): string {
   return trust && (trust.project !== 'trusted' || trust.hookReview !== 'approved')
@@ -52,6 +57,6 @@ export async function diagnoseCodexHookTrust(projectPath: string): Promise<Works
     // Review state is never observable offline, so a trusted project is only advisory.
     severity: trust.project === 'trusted' ? 'info' : 'warning', code: 'codex-prompt-discovery-trust', path: '.codex/hooks.json',
     message: 'Codex prompt-discovery hook installed but inactive or unverified (untrusted project or unreviewed hook). '
-      + `Project trust: ${trust.project}; hook review: ${trust.hookReview}. ${nextStep}`,
+      + `Project trust: ${trust.project}; hook review: ${trust.hookReview}. ${nextStep} ${CODEX_EXEC_HOOK_TRUST_DETAIL}`,
   } : null;
 }

@@ -52,6 +52,28 @@ function deploy(root: string, provider: string, kernelOnly = true) {
 }
 
 describe('per-harness rule hooks (#3740)', () => {
+  it('keeps Codex deployment and regeneration discover-first without a prompt hook (#4036)', async () => {
+    const { root, target } = setup();
+    deploy(root, 'codex');
+    const index = read(path.join(target, '.codex/rules/RULES-INDEX.md'));
+    expect(index).toContain('On a new task, first run discovery for the request');
+    for (const regenerate of [false, true]) {
+      if (regenerate) {
+        const file = path.join(target, 'AGENTS.md');
+        fs.writeFileSync(file, read(file).replace(/On a new task[^\n]*\n\n/, '').replace('After discovery, read', 'Read'));
+        await generate({ projectPath: target, provider: 'codex', sections: [], detectExistingFiles: true });
+      }
+      const content = read(path.join(target, 'AGENTS.md'));
+      expect(content).toContain('On a new task, first run discovery for the request');
+      expect(content).toContain('before any other tool call or answer');
+      expect(content.indexOf('aiwg discover --stdin')).toBeLessThan(content.indexOf('[WORKSPACE.md]'));
+      expect(content).toContain('After discovery, read and follow [WORKSPACE.md]');
+      expect(content.match(/AIWG:rule-core:start/g)).toHaveLength(1);
+      expect(content).toContain('CORE_POLICY');
+      expect(content.match(/AIWG:rule-hook-codex:start/g)).toHaveLength(1);
+    }
+  });
+
   it.each(['copilot', 'grok-build'])('%s carries discover-first when prompt hooks cannot inject context (#3996)', provider => {
     const { target } = setup();
     const files = projectStartup({ target }, { name: provider }, '', path.join(target, 'rules/RULES-INDEX.md'));

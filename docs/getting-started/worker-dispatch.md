@@ -20,6 +20,8 @@ When it is off, AIWG's model-selected delegation rubric still applies — the ac
 its own native subagents. When it is on, AIWG can also place work directly onto other configured worker
 CLIs. See [local-only conductor inputs](../providers/conductor-local-only-inputs.md) before opening classified task files.
 
+Codex 0.167 workers cannot rely on project hooks in fresh worktrees: exec requires saved folder and hook trust, and the bundled `--ignore-user-config` profile skips the saved config. Per-run `-c` trust does not enable hooks. Follow the [Codex operator review and discovery fallback](../providers/codex-direct.md#project-hooks-in-codex-0167-4035-4036); AIWG never grants trust.
+
 ## What it costs
 
 Direct dispatch uses your **other accounts' quota**. If AIWG dispatches a task to Codex or Muse, that run

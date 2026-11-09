@@ -28,6 +28,46 @@ path (`output.resultPath` in the brief). Codex writes its last response to the
 separate `<final>.last-message` capture. The launcher validates the worker-written
 structured final; prose in the capture cannot satisfy that contract.
 
+## Project hooks in Codex 0.167 (#4035, #4036)
+
+The operator's 2026-11-09 harness audit reports that `codex exec` runs AIWG's
+project hook only with **saved folder and hook trust**. The per-run override
+`-c 'projects."<absolute-worktree>".trust_level="trusted"'` no longer enables
+project hooks, even together with `--dangerously-bypass-hook-trust`. Sandbox
+and approval flags do not establish hook trust. This differs from the
+[0.165 probes](../hook-patterns.md#codex-0165-schema-verification-3888).
+
+For an operator-approved automation run, open the exact worker worktree in
+interactive Codex, review the folder, save its trust, and approve the reviewed
+AIWG hook when prompted. Then use that same Codex home and worktree for exec.
+Repeat this review for each fresh worktree; trusting the parent checkout does
+not establish trust for a new worktree. AIWG deploy and doctor only advise;
+they never persist trust or approve hooks.
+
+**Worker limitation:** `aiwg models resolve` emits no hook-enabling trust
+flags. The bundled direct-worker profile shown above uses `--ignore-user-config`,
+which skips the saved config, so that profile cannot promise project hooks even
+after interactive review. Do not change its reviewed launch flags ad hoc or
+rely on hooks in unattended fresh worktrees. The deployed `AGENTS.md` therefore
+requires discovery as the first tool call, followed by `WORKSPACE.md`, `AIWG.md`
+and the per-harness rule index. This fallback also applies when hooks are absent.
+
+### Supplied harness audit: 2026-11-09
+
+The #4035 audit of `codex-cli 0.167.0` reported **0** session-log context items
+with `"hook":true` for per-run trust plus bypass; all context items had
+`"hook":false`. After interactive folder and hook approval, the same exec
+reported **1** item with `"hook":true`. The #4036 no-hook p1/p2 runs discovered
+at calls 1–4 across four runs, after bootstrap reads in the failing cases.
+These are operator-supplied observations, not a new live verification of this fix;
+raw session logs and a post-fix p1/p2 rerun remain with the conductor.
+
+For a reviewed live rerun, record the exact CLI version, command, trust setup,
+session identifier and the count of context items whose `hook` field is `true`
+from that run's Codex session JSONL. Count `false` items too and record the first
+tool call for p1/p2. `codex exec --json` stdout alone does not prove hook context
+was delivered. Do not select an unrelated session by its latest timestamp.
+
 ## Manual smoke run
 
 The conductor runs this once, by hand, after `codex` is installed, to record
