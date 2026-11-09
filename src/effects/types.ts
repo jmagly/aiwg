@@ -139,6 +139,7 @@ export interface EffectPredicate {
   failure?: EffectFailure;
   tombstone?: EffectTombstone;
   links: EffectLinks;
+  authorizationGrant?: import('./authorization-grant.js').AuthorizationGrant;
 }
 
 export interface EffectStatement {

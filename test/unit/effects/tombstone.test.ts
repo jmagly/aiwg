@@ -19,6 +19,8 @@ import {
   writeCheckpoint,
 } from '../../../src/effects/index.js';
 import { comment, harness, present, type Harness } from './helpers.js';
+import { grantFixture } from '../../fixtures/effects/build-grant-fixtures.js';
+import { recordAuthorizationGrant, readAuthorizationGrants, verifyAuthorizationGrants } from '../../../src/effects/authorization-store.js';
 
 const DAY = 86_400_000;
 function lifecycle(retentionMs = DAY): DecisionLifecyclePolicy {
@@ -35,6 +37,23 @@ const root = () => join(h.dir, '.aiwg', 'effects', 'delivery');
 const segment = (writer: string) => readFileSync(join(root(), 'segments', `${writer}.jsonl`), 'utf8');
 
 describe('tombstones', () => {
+  it('purges signed grant descriptors without retaining them in tombstones or the rebuilt index', async () => {
+    const ledger = h.ledger();
+    const receipt = await recordAuthorizationGrant(ledger, grantFixture());
+    await recordOutcome(ledger, receipt.effectId, { phase: 'completed', payloadDigest: receipt.payloadDigest, verification: present('x.aiwg.authorization-grant') });
+    h.clock.advance(2 * DAY);
+    await purgeEffect(ledger, receipt.effectId, { lifecycle: lifecycle() });
+    expect((await verifyLedger(ledger)).ok).toBe(true);
+    expect(segment('writer-a')).not.toContain('authorizationGrant');
+    for (const line of segment('writer-a').trim().split('\n')) {
+      const decoded = Buffer.from(JSON.parse(line).envelope.payload, 'base64').toString('utf8');
+      expect(decoded).not.toContain('operator@example.test');
+      expect(decoded).not.toContain('authorizationGrant');
+    }
+    expect((await readAuthorizationGrants(ledger)).grants).toEqual([]);
+    expect((await verifyAuthorizationGrants(ledger)).indexChanged).toBe(true);
+    expect(JSON.parse(readFileSync(join(root(), 'authorization-index.json'), 'utf8')).entries).toEqual([]);
+  });
   it('EFF-TOMB-01 after a purge the chain and checkpoint still verify and lookup returns the tombstone without a body', async () => {
     const ledger = h.ledger();
     const first = await recordIntent(ledger, comment(1));

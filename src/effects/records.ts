@@ -9,6 +9,7 @@
  */
 
 import { canonicalJson, decodeBase64, dssePae } from '../security/artifact-trust.js';
+import { authorizationGrantFailure } from './authorization-grant.js';
 import { integrityError } from './errors.js';
 import { effectIdDerivation, sha256Digest } from './identity.js';
 import type { LedgerSigningKey } from './keys.js';
@@ -50,6 +51,8 @@ export function recordHashFor(payload: Uint8Array): string {
 export function signSegmentLine(statement: EffectStatement, key: LedgerSigningKey, recordHash?: string): EffectSegmentLine {
   assertDigestOnly(statement);
   assertEffectSchema('record', statement);
+  const grantFailure = authorizationGrantFailure(statement.predicate);
+  if (grantFailure) throw integrityError(grantFailure);
   const payload = Buffer.from(canonicalJson(statement), 'utf8');
   const line: EffectSegmentLine = {
     schemaVersion: SEGMENT_LINE_SCHEMA_VERSION,

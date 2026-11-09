@@ -16,6 +16,9 @@ export const authorizationUsage = `aiwg config authorization (also aiwg steward 
   enable --policy-file FILE [--target DIRECTORY]
   revoke [--profile NAME] [--target DIRECTORY]
   receipt --action-file FILE [--target DIRECTORY]
+  verify [--target DIRECTORY]
+Verify checks signed grant records and rebuilds/diffs their private descriptor index;
+integrity failures exit 6. Missing indexes are rebuilt from verified records.
 Preview is read-only. Receipt writes the decision to the existing signed effect ledger;
 it does not perform the proposed action. Check writes a verified receipt before returning
 auto-authorized; failures escalate. Action files must be host-classified descriptors,
@@ -37,6 +40,16 @@ export async function authorizationCli(args: string[], cwd = process.cwd()): Pro
     flags[rest[i]] = rest[i + 1];
   }
   const target = resolve(getProjectDir({ cwd }, rest));
+  if (operation === 'verify') {
+    const { effectSession } = await import('../effects/host.js');
+    const { openEffectLedger } = await import('../effects/ledger.js');
+    const { verifyAuthorizationGrants } = await import('../effects/authorization-store.js');
+    const session = await effectSession(target, 'custom');
+    const result = await verifyAuthorizationGrants(openEffectLedger({ projectDir: target, scope: session.scope, writer: 'cli' }));
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) throw new AiwgError({ code: 'ERR_AUTHORIZATION_INTEGRITY', message: 'Authorization ledger verification failed', exitCode: result.exitCode });
+    return;
+  }
   if (operation === 'inspect' || operation === 'validate') {
     const loaded = await loadHitlLayers(target);
     console.log(JSON.stringify(operation === 'inspect' ? loaded : { valid: true, layers: loaded.layers.length }, null, 2));

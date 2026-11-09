@@ -258,12 +258,18 @@
           ]
         },
         "recordedAt": { "$ref": "#/$defs/timestamp" },
+        "authorizationGrant": { "$ref": "https://aiwg.io/schemas/authorization-grant.aiwg.io/v1" },
         "verification": { "$ref": "#/$defs/verification" },
         "failure": { "$ref": "#/$defs/failure" },
         "tombstone": { "$ref": "#/$defs/tombstone" },
         "links": { "$ref": "#/$defs/links" }
       },
       "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "x.aiwg.authorization-grant" }, "phase": { "const": "intent" } } },
+          "then": { "required": ["authorizationGrant"], "properties": { "authorizationGrant": true } },
+          "else": { "properties": { "authorizationGrant": false } }
+        },
         {
           "if": { "properties": { "idDerivation": { "const": "d13.review/v1" } } },
           "then": {

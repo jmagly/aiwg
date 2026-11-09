@@ -649,3 +649,13 @@ recovery, modelled on the D16 quota-lock recovery
   HMAC migration, key independence and reviews persisted before the ledger;
   `test/conformance/decision-v1/review-effect-crash.test.ts` is the
   killed-process crash matrix.
+
+## Authorization grants (#4000)
+
+Grants use the internal extension kind `x.aiwg.authorization-grant` (like
+`x.aiwg.ledger-lock-recovery`): a grant has no external effect for a verifier to
+check, so it is not a core kind. It carries a bounded human grant inside the
+signed predicate and binds its canonical digest to `payloadDigest`. See
+[Authorization grant v1](authorization-grant.v1.md) for the schema, storage API,
+derived private index and `aiwg config authorization verify` command. Existing
+effect signatures, keyrings, hash chains and artifact routing apply unchanged.
