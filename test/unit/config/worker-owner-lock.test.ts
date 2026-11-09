@@ -1,4 +1,5 @@
 // Covers empty recovery and conservative cleanup of unpublished worker lock owners.
+import { createJunction, usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 import { mkdtemp, link, mkdir, writeFile, readFile, readlink, readdir, unlink, symlink, rm } from 'node:fs/promises';
 import { existsSync, lstatSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
@@ -6,6 +7,8 @@ import { basename, dirname, join, relative, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { acquireWorkerWriteLock, reclaimWorkerWriteLock, workerWriteLock } from '../../../src/config/worker-owner-lock.js';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const fsFailures = vi.hoisted(() => ({
   link: undefined as Error | undefined, temporaryUnlink: undefined as Error | undefined,
@@ -40,14 +43,12 @@ vi.mock('node:fs/promises', async importOriginal => {
   };
 });
 
-const realPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!;
 function emulateWindows() {
-  Object.defineProperty(process, 'platform', { ...realPlatform, value: 'win32' });
+  simulatePlatform('win32');
 }
 
 const roots: string[] = [];
 afterEach(async () => {
-  Object.defineProperty(process, 'platform', realPlatform);
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
   fsFailures.link = undefined;
@@ -67,7 +68,7 @@ async function fixture() {
 
 async function createDirectoryPointer(directory: string, path: string) {
   await mkdir(dirname(path), { recursive: true });
-  if (process.platform === 'win32') await symlink(resolve(directory), path, 'junction');
+  if (process.platform === 'win32') createJunction(directory, path);
   else await symlink(relative(dirname(path), directory), path);
 }
 

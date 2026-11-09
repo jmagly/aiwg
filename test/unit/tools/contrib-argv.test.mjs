@@ -1,3 +1,4 @@
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -25,6 +26,8 @@ import { applyConflictChoice, pushToOrigin } from '../../../tools/contrib/sync-u
 import { isBranchPushed, pushBranch } from '../../../tools/contrib/create-pr.mjs';
 import { getGitStatus } from '../../../tools/contrib/status-contribution.mjs';
 import { runMarkdownLint, checkManifestSync } from '../../../tools/contrib/lib/quality-validator.mjs';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const branch = 'contrib/user/feature; echo injected $(id)';
 const remote = 'remote with spaces; echo injected';
@@ -169,7 +172,7 @@ describe('contribution commands keep data in argv (#142)', () => {
     const extension = editor.includes('.bat') ? '.bat' : '.cmd';
     const executable = path.join(root, `code${extension}`);
     writeFileSync(executable, '@echo editor launcher');
-    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    simulatePlatform('win32');
     vi.stubEnv('PATH', root);
     vi.stubEnv('PATHEXT', '.CMD;.BAT;.EXE;.COM');
     vi.stubEnv('ComSpec', 'C:\\Windows\\System32\\custom-cmd.exe');
@@ -197,7 +200,7 @@ describe('contribution commands keep data in argv (#142)', () => {
   ])('opens a literal Windows conflict operand %j (#3117)', (firstFile, escaped) => {
     const executable = path.join(root, 'code.cmd');
     writeFileSync(executable, '@echo editor launcher');
-    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    simulatePlatform('win32');
     vi.stubEnv('EDITOR', executable);
     vi.stubEnv('ComSpec', 'cmd.exe');
 
@@ -213,7 +216,7 @@ describe('contribution commands keep data in argv (#142)', () => {
     const executable = path.join(root, 'notepad.exe');
     writeFileSync(executable, '');
     writeFileSync(path.join(root, 'notepad.cmd'), '@echo editor launcher');
-    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    simulatePlatform('win32');
     vi.stubEnv('PATH', root);
     vi.stubEnv('PATHEXT', '.CMD;.EXE;.COM');
     vi.stubEnv('ComSpec', 'custom-cmd.exe');
@@ -230,7 +233,7 @@ describe('contribution commands keep data in argv (#142)', () => {
     mkdirSync(tools);
     const executable = path.join(tools, 'code.cmd');
     writeFileSync(executable, '@echo editor launcher');
-    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    simulatePlatform('win32');
     vi.stubEnv('EDITOR', 'tools\\code --wait');
     vi.stubEnv('PATH', '');
     vi.stubEnv('PATHEXT', '.EXE;.CMD');
@@ -297,7 +300,7 @@ describe('contribution commands keep data in argv (#142)', () => {
     writeFileSync(entry, '');
     writeFileSync(path.join(root, 'npm.cmd'), '@ECHO off\n"%_prog%" "%dp0%\\node_modules\\npm\\bin\\npm-cli.js" %*\n');
     vi.stubEnv('PATH', root);
-    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    simulatePlatform('win32');
     expect(runMarkdownLint(root).passed).toBe(true);
     expect(execFile).toHaveBeenLastCalledWith(process.execPath, [entry, 'exec', 'markdownlint-cli2', '**/*.md'], 'network', options(root, 'network'));
   });

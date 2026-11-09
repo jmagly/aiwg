@@ -1,4 +1,5 @@
 // Hook commands must bind deployed bytes and resolve independently of the session cwd.
+import { assertWindowsCommandSafe, usePlatformSimulation, windowsPath } from '../../helpers/windows-simulation.mjs';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -9,12 +10,12 @@ import { installAiwgHooks } from '../../../src/extensions/claude-hooks-installer
 import { translateForCodex } from '../../../src/smiths/hook-bridge/codex-translator.js';
 import { deployMuseHooks } from '../../../tools/agents/providers/muse-hooks.mjs';
 
+const simulatePlatform = usePlatformSimulation({ afterEach });
+
 let root: string;
-const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
 const frameworkRoot = path.resolve(import.meta.dirname, '../../..');
 beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), 'aiwg-hook-command-')); });
 afterEach(async () => {
-  Object.defineProperty(process, 'platform', platform);
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
   await fs.rm(root, { recursive: true, force: true });
@@ -61,7 +62,7 @@ it.each(['claude', 'codex', 'muse'].flatMap(provider => ['project', 'user'].map(
 
 it.each(['claude', 'codex', 'muse'].flatMap(provider => ['project', 'user'].map(scope => ({ provider, scope }))))
 ('generates shell-safe $provider $scope commands on emulated win32', async ({ provider, scope }) => {
-  Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
+  simulatePlatform('win32');
   const target = path.join(root, 'User Profile $dollar `tick` %percent%');
   vi.stubEnv('USERPROFILE', scope === 'user' ? target : path.join(root, 'other-home'));
   const command = await install(provider, target);
@@ -71,17 +72,19 @@ it.each(['claude', 'codex', 'muse'].flatMap(provider => ['project', 'user'].map(
   expect(config.relative).toBe(`.${provider}/hooks/aiwg-prompt-discovery.cjs`);
   expect(config.projectEnv).toBe(provider === 'claude' && scope === 'project' ? 'CLAUDE_PROJECT_DIR' : '');
   expect(command).not.toMatch(/[$`%\\]/);
+  assertWindowsCommandSafe(command);
 });
 
 it('preserves drive letters, backslashes and shell metacharacters without expansion', async () => {
   const { verifiedHookCommand } = await import('../../../src/extensions/verified-hook-command.js');
-  Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
-  const home = 'C:\\Users\\A Space $HOME %USERPROFILE% `tick`';
+  simulatePlatform('win32');
+  const home = windowsPath('C', 'Users', 'A Space $HOME %USERPROFILE% `tick`');
   vi.stubEnv('USERPROFILE', home);
   const command = verifiedHookCommand(home, '.claude/hooks/aiwg-trace.cjs', Buffer.from('fixture'), ['start']);
   const config = JSON.parse(Buffer.from(/Buffer.from\('([^']+)'/.exec(command)![1], 'base64').toString());
   expect(config).toEqual({ anchor: home, relative: '.claude/hooks/aiwg-trace.cjs', args: ['start'], projectEnv: '' });
   expect(command).not.toMatch(/[$`%\\]/);
+  assertWindowsCommandSafe(command);
 });
 
 it.each(['claude', 'muse'])('doctor flags relative %s user hooks and clears the warning after redeployment', async provider => {

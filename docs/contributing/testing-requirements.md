@@ -166,6 +166,56 @@ For a direct Vitest run with a caller-owned private `TMPDIR`, run
 `npm run lint:tmpdir-leaks -- --dir "$TMPDIR"` afterward. This standalone
 checker reports entries and never removes them.
 
+## Windows simulation on Linux
+
+Import `test/helpers/windows-simulation.mjs` from either `.ts` or `.mjs` tests.
+Use `withWindows(fn, { profile })` for one synchronous or asynchronous call, or
+`withPlatform('darwin', fn)` / `withPlatform('linux', fn)` for other branches.
+These restore the original property descriptor even when the callback throws or
+rejects. For an entire describe block, register the Vitest hooks:
+
+```ts
+import { beforeEach, afterEach, describe } from 'vitest';
+import { useWindowsSimulation } from '../../helpers/windows-simulation.mjs';
+
+describe('Windows behavior', () => {
+  useWindowsSimulation({ beforeEach, afterEach }, { profile: 'C:\\Users\\Test User' });
+  // Tests see win32, the simulated environment and os.homedir().
+});
+```
+
+For individual tests needing activation partway through setup, register
+`const simulatePlatform = usePlatformSimulation({ afterEach })` once, then call
+`simulatePlatform('win32', { profile })`. Its teardown unwinds repeated overrides.
+Keep these tests serial within each worker; concurrent tests share process state.
+The guard in `test/unit/testing/windows-simulation-guard.test.mjs` rejects direct
+platform overrides, including overrides embedded in child-process source strings.
+The helper has no Vitest dependency, so child snippets can import `withWindows` too.
+
+Windows simulation sets USERPROFILE, HOMEDRIVE/HOMEPATH, APPDATA, LOCALAPPDATA,
+TEMP/TMP and stubs both default and named `os.homedir()` imports. The default
+profile is the current USERPROFILE or home; pass a Windows-shaped profile for
+pure path tests. `os.tmpdir()` stays on the host temp directory so real fixtures
+can still use `mkdtemp`. All overridden values are restored after the scope.
+Use `windowsPath('C', 'Program Files', 'AIWG')` and
+`uncPath('server', 'share', 'folder with spaces')` to build Windows strings.
+Use `createJunction(target, link)` for real filesystem fixtures: it resolves an
+absolute target and passes `'junction'`, matching staged provider references.
+
+`assertWindowsCommandSafe(command)` checks portable literal hook/launcher
+commands: double quotes protect path operands; single quotes alone do not quote
+for cmd.exe; `%VAR%` expands even inside cmd.exe quotes; PowerShell expands
+`$VAR` in double quotes and interprets backticks. Encode path data containing
+these characters, as `verifiedHookCommand` does. The assertion conservatively
+requires quoting all Windows path operands and rejects shell control syntax.
+
+Simulation does not change Node's default `path` implementation (use
+`path.win32` for pure Windows paths). Native `os.platform()` and separately
+spawned processes still report the host OS. It does not emulate NTFS permissions or junction
+semantics, or execute real cmd.exe/PowerShell parsing. On Linux the junction is
+a directory symlink. Command assertions check a portable subset; they are not a
+shell parser or a substitute for future tests on a Windows runner.
+
 ## Default shard balance and release infrastructure tests
 
 The four default CI shards use Vitest's native `--shard=INDEX/COUNT` interface

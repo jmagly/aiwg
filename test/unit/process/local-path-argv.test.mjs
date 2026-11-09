@@ -154,8 +154,13 @@ console.log(JSON.stringify({ ...result, available: String(result.available) }));
     const cwd = join(root, 'workspace');
     mkdirSync(cwd);
     const output = run(`const { MigrationTool } = await import(${JSON.stringify(moduleUrl('tools/workspace/migration-tool.mjs'))});
-Object.defineProperty(process, 'platform', { value: 'win32' });
-console.log(JSON.stringify(await new MigrationTool(${JSON.stringify(cwd)}).checkDiskSpace()));`, cwd);
+const { withWindows } = await import(${JSON.stringify(moduleUrl('test/helpers/windows-simulation.mjs'))});
+const { deepStrictEqual } = await import('node:assert/strict');
+const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+await withWindows(async () => {
+  console.log(JSON.stringify(await new MigrationTool(${JSON.stringify(cwd)}).checkDiskSpace()));
+});
+deepStrictEqual(Object.getOwnPropertyDescriptor(process, 'platform'), originalPlatform);`, cwd);
 
     expect(calls()).toEqual([{ command: 'fsutil', args: ['volume', 'diskfree', '/'] }]);
     expect(JSON.parse(output)).toMatchObject({ passed: true, available: 4096000, required: 0 });

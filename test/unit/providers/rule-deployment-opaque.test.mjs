@@ -1,4 +1,5 @@
 // Verify provider runtime entries stay outside staged deployment output.
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -15,10 +16,11 @@ import {
 } from '../../../tools/agents/providers/rule-deployment-state.mjs';
 import { createStagedDirectoryReference } from '../../../tools/agents/providers/staged-directory-reference.mjs';
 
+const simulatePlatform = usePlatformSimulation({ afterEach });
+
 const roots = [], plans = [], servers = [];
-const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+const nativePlatform = process.platform;
 afterEach(async () => {
-  Object.defineProperty(process, 'platform', platformDescriptor);
   vi.restoreAllMocks();
   plans.splice(0).forEach(disposeRuleDeploymentPlan);
   for (const server of servers.splice(0)) await new Promise(resolve => server.close(resolve));
@@ -65,7 +67,7 @@ function dangling(f, windows = false) {
   fs.mkdirSync(dir);
   const link = path.join(dir, 'latest');
   if (windows) {
-    Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'win32' });
+    simulatePlatform('win32');
     const spy = vi.spyOn(fs, 'symlinkSync');
     createStagedDirectoryReference(path.join(dir, 'missing directory'), link);
     expect(spy).toHaveBeenCalledWith(path.resolve(dir, 'missing directory'), link, 'junction');
@@ -118,7 +120,7 @@ describe('opaque provider entries (#4026)', () => {
           isFile: () => false, isDirectory: () => false, isSymbolicLink: () => false };
       });
     }
-    if (windows) Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'win32' });
+    if (windows) simulatePlatform('win32');
     const state = capturePreimage(opaque);
     expect(state).toMatchObject({ kind: 'special', type: 0 });
     expect(validPreimageState(state)).toBe(true);
@@ -131,7 +133,7 @@ describe('opaque provider entries (#4026)', () => {
   });
 
   // Real Unix socket/FIFO fixtures require POSIX; Windows opaque handling is exercised below.
-  it.runIf(platformDescriptor.value !== 'win32').each([false, true])('deploys while IPC is listening and preserves the socket (emulated win32: %s)', async windows => {
+  it.runIf(nativePlatform !== 'win32').each([false, true])('deploys while IPC is listening and preserves the socket (emulated win32: %s)', async windows => {
     const f = fixture('codex'), ipc = path.join(f.mounted, 'ipc');
     fs.mkdirSync(ipc);
     const socket = path.join(ipc, 'ipc.sock'), server = net.createServer(client => client.end('alive'));
@@ -139,7 +141,7 @@ describe('opaque provider entries (#4026)', () => {
     server.listen(socket);
     await once(server, 'listening');
     const before = fs.lstatSync(socket, { bigint: true });
-    if (windows) Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'win32' });
+    if (windows) simulatePlatform('win32');
     const plan = await prepare(f, stage => {
       expect(capturePreimage(path.join(stage, 'ipc', 'ipc.sock'))).toEqual({ kind: 'missing' });
     });
@@ -156,7 +158,7 @@ describe('opaque provider entries (#4026)', () => {
     expect(fs.readFileSync(path.join(f.mounted, 'rules', 'generated.md'), 'utf8')).toBe('generated');
   });
 
-  it.runIf(platformDescriptor.value !== 'win32')('records a FIFO without reading or copying it and accepts a transferred plan', async () => {
+  it.runIf(nativePlatform !== 'win32')('records a FIFO without reading or copying it and accepts a transferred plan', async () => {
     const f = fixture('codex'), fifo = path.join(f.mounted, 'runtime.pipe');
     execFileSync('mkfifo', [fifo], { timeout: 10_000 });
     const before = fs.lstatSync(fifo, { bigint: true });
@@ -177,7 +179,7 @@ describe('opaque provider entries (#4026)', () => {
     expect(fs.readFileSync(path.join(f.target, 'AGENTS.md'), 'utf8')).toContain('updated');
   });
 
-  it.runIf(platformDescriptor.value !== 'win32')('detects replacement of an opaque entry before promoting any output', async () => {
+  it.runIf(nativePlatform !== 'win32')('detects replacement of an opaque entry before promoting any output', async () => {
     const f = fixture('codex'), fifo = path.join(f.mounted, 'runtime.pipe');
     execFileSync('mkfifo', [fifo], { timeout: 10_000 });
     const plan = await prepare(f);
@@ -188,7 +190,7 @@ describe('opaque provider entries (#4026)', () => {
     expect(fs.readFileSync(path.join(f.target, 'AGENTS.md'), 'utf8')).toBe('original');
   });
 
-  it.runIf(platformDescriptor.value !== 'win32')('keeps normalization consistent for nested links to missing and special entries', () => {
+  it.runIf(nativePlatform !== 'win32')('keeps normalization consistent for nested links to missing and special entries', () => {
     const f = fixture('codex');
     const pipe = path.join(f.mounted, 'pipe');
     execFileSync('mkfifo', [pipe], { timeout: 10_000 });

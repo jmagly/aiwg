@@ -1,3 +1,4 @@
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 import { useFixtureProcesses } from '../../helpers/fixture-processes.mjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { copyFileSync, chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -10,6 +11,8 @@ import { GiteaTracker } from '../../../tools/ralph-external/gitea-tracker.mjs';
 import { EvalHarness } from '../../../tools/ralph-external/eval-harness.mjs';
 import { MultiLoopStateManager } from '../../../tools/ralph/state-manager-sync.mjs';
 import { ProviderWatcher } from '../../../tools/daemon/provider-watcher.mjs';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const trackFixture = useFixtureProcesses();
 
@@ -121,22 +124,17 @@ describe('remaining CodeQL shell callers in tools', () => {
   });
 
   it.each(['linux', 'win32'])('keeps npm watcher package names literal on %s', async platform => {
-    const descriptor = Object.getOwnPropertyDescriptor(process, 'platform');
     const watcher = new ProviderWatcher({ stateDir: join(root, 'watcher') });
     const state = { lastSeenVersions: {} };
     if (platform === 'win32') {
       writeFileSync(join(root, 'npm.cmd'), '@ECHO off\n"%_prog%" "%dp0%\\npm" %*\n');
       vi.stubEnv('PATH', root);
     }
-    Object.defineProperty(process, 'platform', { value: platform, configurable: true });
-    try {
-      expect(await watcher.checkNpm('fixture', { url: payload }, state)).toEqual(expect.objectContaining({ newVersion: '1.2.3' }));
-      expect(calls()).toEqual([{ tool: 'npm', args: ['view', payload, 'version', 'dist-tags', '--json'], input: '' }]);
-      expect(state.lastSeenVersions[`npm:${payload}`]).toBe('1.2.3');
-      expect(existsSync(join(root, 'injected'))).toBe(false);
-    } finally {
-      Object.defineProperty(process, 'platform', descriptor);
-    }
+    simulatePlatform(platform);
+    expect(await watcher.checkNpm('fixture', { url: payload }, state)).toEqual(expect.objectContaining({ newVersion: '1.2.3' }));
+    expect(calls()).toEqual([{ tool: 'npm', args: ['view', payload, 'version', 'dist-tags', '--json'], input: '' }]);
+    expect(state.lastSeenVersions[`npm:${payload}`]).toBe('1.2.3');
+    expect(existsSync(join(root, 'injected'))).toBe(false);
   });
 
   it('passes the Ralph abort loop pattern as one git argument', () => {

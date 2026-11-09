@@ -1,3 +1,4 @@
+import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -37,6 +38,8 @@ import { OpenClawAdapter } from '../../../src/skills/adapters/openclaw.js';
 import { ClawHubAdapter } from '../../../src/skills/adapters/clawhub.js';
 import { checkForUpdates } from '../../../src/update/checker.mjs';
 import { runtimeInfoHandler } from '../../../src/cli/handlers/runtime-info.js';
+
+const simulatePlatform = usePlatformSimulation({ afterEach });
 
 const summary = {
   environment: { os: 'Linux', osVersion: 'test', arch: 'x64', shell: '/bin/sh' },
@@ -235,7 +238,7 @@ describe('bounded argv callers', () => {
     await writeFile(entry, '');
     await writeFile(join(dir, 'openclaw.cmd'), '@ECHO off\n"%_prog%" "%dp0%\\openclaw.mjs" %*\n');
     vi.stubEnv('PATH', dir);
-    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    simulatePlatform('win32');
     mocks.execFile.mockReturnValue('[]');
     const adapter = new OpenClawAdapter();
     expect(await adapter.isAvailable()).toBe(true);
@@ -277,7 +280,7 @@ describe('bounded argv callers', () => {
     await writeFile(entry, '');
     await writeFile(join(dir, 'clawhub.cmd'), '@ECHO off\n"%_prog%" "%dp0%\\clawhub.mjs" %*\n');
     vi.stubEnv('PATH', dir);
-    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+    simulatePlatform('win32');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
     mocks.execFile.mockReturnValue('[]');
     const adapter = new ClawHubAdapter();
