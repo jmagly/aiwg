@@ -170,9 +170,31 @@
         "idempotencyKey": { "type": "string", "minLength": 1 },
         "approvalGate": { "$ref": "#/definitions/id" },
         "scope": { "$ref": "#/definitions/observationScope" },
+        "hitlAction": { "$ref": "#/definitions/hitlAction" },
         "retry": { "$ref": "#/definitions/retryPolicy" },
         "fallback": { "$ref": "#/definitions/fallbackPolicy" },
         "ceilings": { "$ref": "#/definitions/ceilings" }
+      },
+      "allOf": [
+        { "if": { "required": ["hitlAction"] }, "then": { "properties": { "kind": { "const": "gate" } } } }
+      ]
+    },
+    "hitlAction": {
+      "description": "Host-authored classification of the exact pending execution plan. Never populate from node inputs, worker output or model text; unknown effects retain human review.",
+      "type": "object",
+      "required": ["category", "repo", "environment", "resources", "reversible", "impact"],
+      "additionalProperties": false,
+      "properties": {
+        "category": { "type": "string", "minLength": 1 },
+        "repo": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "environment": { "type": "string", "minLength": 1 },
+        "resources": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "verb": { "type": "string", "minLength": 1 },
+        "reversible": { "type": "boolean" },
+        "impact": { "enum": ["low", "medium", "high"] },
+        "actor": { "type": "string", "minLength": 1 },
+        "inputDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
       }
     },
     "inputBinding": {

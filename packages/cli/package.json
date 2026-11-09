@@ -32,6 +32,7 @@
     "agentic/code/addons/aiwg-utils/rules/anti-laziness.md",
     "agentic/code/addons/aiwg-utils/rules/anti-laziness.core.md",
     "agentic/code/addons/composition-engine/lib/runtime.mjs",
+    "agentic/code/addons/composition-engine/lib/authority.mjs",
     "agentic/code/addons/composition-engine/lib/validator.mjs",
     "agentic/code/addons/composition-engine/schemas/flow-graph.schema.json",
     "schemas/security/",
