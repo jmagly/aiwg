@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import type { HandlerContext } from '../../../../src/cli/handlers/types.js';
@@ -62,9 +62,7 @@ vi.mock('../../../../src/cli/prompt-utils.js', async (importOriginal) => {
 });
 
 function makeTmpDir(): string {
-  const dir = join(tmpdir(), `aiwg-init-test-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  return mkdtempSync(join(tmpdir(), 'aiwg-init-test-'));
 }
 
 function makeCtx(tmpDir: string, args: string[] = []): HandlerContext {
@@ -119,6 +117,45 @@ describe('initHandler', () => {
   });
 
   describe('--non-interactive mode', () => {
+    it.each([true, false])('--jev decline keeps baseline init with dryRun=%s', async dryRun => {
+      const { initHandler } = await import('../../../../src/cli/handlers/init.js');
+      const ui = await import('../../../../src/cli/ui.js');
+      const providers = ['claude', 'codex', 'muse', 'pi', 'opencode'];
+      const args = ['--providers', providers.join(','), '--default-scripts', 'true',
+        '--custom-scripts', 'false', '--jev', 'decline', '--worker-dispatch', 'decline', '--non-interactive'];
+      if (dryRun) args.push('--dry-run');
+      const result = await initHandler.execute({ ...makeCtx(tmpDir, args), dryRun });
+      expect(result.exitCode).toBe(0);
+      expect(result.message ?? '').not.toContain('Guided setup');
+      if (dryRun) {
+        expect(ui.dim).toHaveBeenCalledWith(expect.stringContaining(`Would create ${join(tmpDir, '.aiwg', 'aiwg.config')}`));
+        expect(existsSync(join(tmpDir, '.aiwg'))).toBe(false);
+      } else {
+        const { readAiwgConfig } = await import('../../../../src/config/aiwg-config.js');
+        expect(await readAiwgConfig(tmpDir)).toMatchObject({ providers, setup: { worker_dispatch_offer: 'declined' } });
+      }
+    });
+
+    it.each([
+      ['--scope', 'project', true], ['--intent', 'docs', true], ['--credential', 'codex=env:CODEX_KEY', true],
+      ['--jev', 'decline', false], ['--jev', 'defer', false], ['--jev', 'enable', false],
+      ['--region', 'eu', false], ['--endpoint', 'https://example.test', false],
+      ['--verify', undefined, false], ['--remove', undefined, false], ['--token-stdin', undefined, false],
+      ['--providers', 'claude,codex', false], ['--default-scripts', 'true', false],
+      ['--custom-scripts', 'false', false], ['--script', 'check=npm test', false],
+      ['--worker-dispatch', 'decline', false], ['--force', undefined, false],
+      ['--non-interactive', undefined, false], ['--yes', undefined, false], ['--dry-run', undefined, false],
+    ] as const)('pins guided mode selection for %s %s', async (flag, value, enabled) => {
+      const { parseGuidedSetupFlags } = await import('../../../../src/cli/handlers/guided-setup.js');
+      const args = value === undefined ? [flag] : [flag, value];
+      expect(parseGuidedSetupFlags(args, 'init').enabled).toBe(enabled);
+      if (value !== undefined) expect(parseGuidedSetupFlags([`${flag}=${value}`], 'init').enabled).toBe(enabled);
+      expect(parseGuidedSetupFlags(['--', ...args], 'init').enabled).toBe(false);
+      if (['--jev', '--region', '--endpoint', '--verify', '--remove', '--token-stdin'].includes(flag)) {
+        expect(parseGuidedSetupFlags(args, 'setup').enabled).toBe(true);
+      }
+    });
+
     it('honors the use bootstrap context opt-out', async () => {
       const { initHandler } = await import('../../../../src/cli/handlers/init.js');
       const result = await initHandler.execute(makeCtx(tmpDir, ['--non-interactive', '--no-context-files']));

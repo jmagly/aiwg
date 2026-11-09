@@ -116,7 +116,7 @@ describe('guided setup review and apply', () => {
     });
 
   it('removes Jev through the existing owner without resolving any API input', async () => {
-    await initHandler.execute(harness.ctx(['--remove', '--yes']));
+    await initHandler.execute(harness.ctx(['--scope', 'project', '--remove', '--yes']));
     const plan: SetupPlan = JSON.parse(readFileSync(planPath(), 'utf8'));
     // Focus this saved-plan apply on the explicitly requested integration.
     plan.actions = plan.actions.filter(action => action.kind === 'configure-jev');
@@ -127,7 +127,7 @@ describe('guided setup review and apply', () => {
     expect(setupJev).toHaveBeenCalledWith({ token: undefined, verify: false, remove: true }, expect.any(Object));
     expect(input).not.toHaveBeenCalled();
     // A later decline must not resurrect the previous removal action.
-    await initHandler.execute(harness.ctx(['--jev', 'decline', '--yes']));
+    await initHandler.execute(harness.ctx(['--scope', 'project', '--jev', 'decline', '--yes']));
     const declined: SetupPlan = JSON.parse(readFileSync(planPath(), 'utf8'));
     expect(declined.actions.some(action => action.kind === 'configure-jev')).toBe(false);
   });
