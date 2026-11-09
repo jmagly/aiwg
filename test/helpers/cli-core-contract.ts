@@ -4,6 +4,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { expect } from 'vitest';
 import { createExternalPluginProject, listFixtureEntries } from './cli-package-fixtures.js';
+import { readCoreBody } from '../../src/rules/activation.mjs';
 
 export async function assertOfflinePluginDelivery(extracted: string, scratch: string, baseEnv: NodeJS.ProcessEnv) {
   const canonical = path.resolve(import.meta.dirname, '../../agentic/code/addons/aiwg-utils/rules');
@@ -11,7 +12,7 @@ export async function assertOfflinePluginDelivery(extracted: string, scratch: st
     expect(await readFile(path.join(extracted, 'agentic/code/addons/aiwg-utils/rules', name), 'utf8'))
       .toBe(await readFile(path.join(canonical, name), 'utf8'));
   }
-  const core = (await readFile(path.join(canonical, 'anti-laziness.core.md'), 'utf8')).trim();
+  const core = readCoreBody(path.join(canonical, 'anti-laziness.md'));
   const env = { ...baseEnv, HOME: scratch, USERPROFILE: scratch, AIWG_CONFIG: path.join(scratch, 'config'),
     XDG_CACHE_HOME: path.join(scratch, 'cache'), XDG_CONFIG_HOME: path.join(scratch, 'config'),
     XDG_DATA_HOME: path.join(scratch, 'data'), XDG_STATE_HOME: path.join(scratch, 'state') };

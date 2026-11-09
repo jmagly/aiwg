@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { readCoreBody } from '../../../src/rules/activation.mjs';
 
 const run = promisify(execFile);
 const repo = path.resolve(__dirname, '../../..');
@@ -12,8 +13,8 @@ const surfaces: Record<string, string> = {
   copilot: '.github/copilot-instructions.md', factory: 'AGENTS.md', opencode: 'AGENTS.md',
   windsurf: 'AGENTS.md', antigravity: 'AGENTS.md', muse: 'AGENTS.md', omp: '.omp/AGENTS.md', 'grok-build': 'AGENTS.md',
 };
-const core = fs.readFileSync(path.join(repo, 'agentic/code/addons/aiwg-utils/rules/anti-laziness.core.md'), 'utf8').trim();
-const noAttribution = fs.readFileSync(path.join(repo, 'agentic/code/addons/aiwg-utils/rules/no-attribution.core.md'), 'utf8').trim();
+const core = readCoreBody(path.join(repo, 'agentic/code/addons/aiwg-utils/rules/anti-laziness.md'));
+const noAttribution = readCoreBody(path.join(repo, 'agentic/code/addons/aiwg-utils/rules/no-attribution.md'));
 afterAll(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
 function setup() {
   // Each root is created directly under TMPDIR and removed after the suite;
