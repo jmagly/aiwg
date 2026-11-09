@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtempSync } from '../../../helpers/temp-dir.js';
 import { tmpdir } from 'node:os';
+import { captureSyncStdinCall, capturedSyncStdin } from '../../../helpers/sync-stdin.js';
 import { EventEmitter } from 'node:events';
 import { dirname, join } from 'node:path';
 import type { HandlerContext } from '../../../../src/cli/handlers/types.js';
@@ -89,7 +90,7 @@ vi.mock('../../../../src/cli/env.js', () => ({
 }));
 
 vi.mock('child_process', () => ({
-  spawnSync: mockSpawnSync,
+  spawnSync: (...args: unknown[]) => captureSyncStdinCall(mockSpawnSync, args),
   spawn: mockSpawn,
 }));
 
@@ -743,9 +744,9 @@ describe('sessionHandler.execute — headless prompt (#3062)', () => {
     expect(launch![1]).not.toContain('hello there');
     expect(launch![2]).toMatchObject({
       timeout: expect.any(Number),
-      stdio: ['pipe', 'inherit', 'inherit'],
-      input: 'hello there',
+      stdio: [expect.any(Number), 'inherit', 'inherit'],
     });
+    expect(capturedSyncStdin(launch![2])).toBe('hello there');
   });
 
   it('runs headless when --prompt is given even with a terminal attached (#3062 rule 4)', async () => {
@@ -754,7 +755,7 @@ describe('sessionHandler.execute — headless prompt (#3062)', () => {
     expect(result.exitCode).toBe(0);
     const launch = mockSpawnSync.mock.calls.find(([command]) => command === 'claude');
     expect(launch![1]).toEqual(['--print', '--input-format', 'text']);
-    expect(launch![2]).toMatchObject({ input: 'hi' });
+    expect(capturedSyncStdin(launch![2])).toBe('hi');
   });
 
   it('reads the prompt from --prompt-file, delivered over stdin', async () => {
@@ -767,7 +768,7 @@ describe('sessionHandler.execute — headless prompt (#3062)', () => {
       expect(result.exitCode).toBe(0);
       const launch = mockSpawnSync.mock.calls.find(([command]) => command === 'claude');
       expect(launch![1]).toEqual(['--print', '--input-format', 'text']);
-      expect(launch![2]).toMatchObject({ input: 'file prompt text' });
+      expect(capturedSyncStdin(launch![2])).toBe('file prompt text');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -844,7 +845,7 @@ describe('sessionHandler.execute — headless prompt (#3062)', () => {
     const result = await sessionHandler.execute(makeCtx(['--prompt', 'mcp']));
     expect(result.exitCode).toBe(0);
     const launch = mockSpawnSync.mock.calls.find(([command]) => command === 'claude');
-    expect(launch![2]).toMatchObject({ input: 'mcp' });
+    expect(capturedSyncStdin(launch![2])).toBe('mcp');
     const mcpInjectCall = mockSpawnSync.mock.calls.find(
       ([, args]) => Array.isArray(args) && args.includes('mcp') && args.includes('inject'),
     );
@@ -865,7 +866,7 @@ describe('sessionHandler.execute — headless prompt (#3062)', () => {
       const result = await sessionHandler.execute(makeCtx(['--prompt-file', file]));
       expect(result.exitCode).toBe(0);
       const launch = mockSpawnSync.mock.calls.find(([command]) => command === 'claude');
-      expect(launch![2]).toMatchObject({ input: 'mcp' });
+      expect(capturedSyncStdin(launch![2])).toBe('mcp');
       const mcpInjectCall = mockSpawnSync.mock.calls.find(
         ([, args]) => Array.isArray(args) && args.includes('mcp') && args.includes('inject'),
       );

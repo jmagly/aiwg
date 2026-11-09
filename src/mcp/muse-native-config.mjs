@@ -22,6 +22,7 @@ function deepEqual(a, b) {
 function inspectMuseCli(env) {
   const result = spawnSync('muse', ['--version'], {
     env: helperEnvironment(env),
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: MUSE_VERSION_TIMEOUT_MS,
     killSignal: 'SIGKILL',

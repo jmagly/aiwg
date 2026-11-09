@@ -243,6 +243,7 @@ export function runGrokInspect(
     const args = argSets[i]!;
     const wantsJson = args.length > 1 && args[1] === '--json';
     const result = spawnSync(binary, [...args], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       env,
       cwd,

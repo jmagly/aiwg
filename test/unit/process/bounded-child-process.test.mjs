@@ -139,7 +139,7 @@ describe('boundedSpawnSync — stdin is never inherited', () => {
     expect(result.stdout?.trim()).toBe('EOF');
   });
 
-  it('leaves stdin alone when the caller supplies `input`', () => {
+  it('delivers input when the caller supplies `input`', () => {
     const result = boundedSpawnSync('node', [readStdinScript], 'quick', {
       input: 'hello-from-input',
       encoding: 'utf8',
@@ -182,15 +182,12 @@ describe('boundedSpawnSync — stdin is never inherited', () => {
     }
   });
 
-  it('leaves `stdio: "pipe"` (default-equivalent) alone', () => {
+  it('normalizes `stdio: "pipe"` (default-equivalent) to immediate EOF', () => {
     const result = boundedSpawnSync('node', [readStdinScript], 'quick', {
       stdio: 'pipe',
       encoding: 'utf8',
     });
-    // Nothing is written to the child's stdin, so a 'pipe' stdin (unlike
-    // 'ignore') simply never delivers any bytes — still an EOF read, but
-    // for a different reason than the normalization under test; the point
-    // here is only that this call does not hang or error.
+    // No input means stdin is ignored, so the child sees EOF.
     expect(result.stdout?.trim()).toBe('EOF');
   });
 
