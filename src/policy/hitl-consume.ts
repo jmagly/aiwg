@@ -8,15 +8,26 @@ import { fileDigestVerifier } from '../effects/verifiers/file.js';
 import { runVerifier } from '../effects/verifiers/registry.js';
 import { hitlDigest, resolveHitlAuthorization, validHitlAction } from './hitl.js';
 import type { HitlContext, HitlResolution } from './hitl-types.js';
+import { ensureLedgerDirectories, withLedgerLock } from '../effects/store.js';
+import { recordDurableUse, refreshDurableAuthorization } from './hitl-durable-store.js';
 
 export interface HitlReceiptRef { file: string; effectId: string }
 
 /** Receipt existence is historical evidence; only this fresh comparison authorizes dispatch. */
 export async function consumeHitlAuthorization(ledger: EffectLedger, action: unknown, context: HitlContext,
   reference: HitlReceiptRef): Promise<HitlResolution> {
+  await ensureLedgerDirectories(ledger.paths());
+  return withLedgerLock(ledger.paths(), 'authorization-index', ledger.lockTimeoutMs,
+    () => consumeCurrentAuthorization(ledger, action, context, reference));
+}
+
+async function consumeCurrentAuthorization(ledger: EffectLedger, action: unknown, context: HitlContext,
+  reference: HitlReceiptRef): Promise<HitlResolution> {
+  context = await refreshDurableAuthorization(ledger, context);
   const resolution = resolveHitlAuthorization(action, context);
   const refuse = (reason: string): HitlResolution => ({ ...resolution, decision: 'escalate', reason });
   if (!validHitlAction(action)) return refuse('invalid-action-descriptor');
+  if (context.durableAuthorization?.failures.length) return resolution;
   const effect = await lookupEffect(ledger, reference.effectId);
   const intent = effect.records.find(record => record.phase === 'intent');
   if (effect.kind !== 'file.digest' || effect.tombstoned || effect.result !== 'present' || !intent
@@ -43,5 +54,8 @@ export async function consumeHitlAuthorization(ledger: EffectLedger, action: unk
   if (receipt.policyVersion !== resolution.policyVersion || receipt.sessionGrantDigest !== hitlDigest(context.sessionAuthorization ?? null)) {
     return refuse('stale-policy-version');
   }
+  if (receipt.provenance !== resolution.provenance
+    || JSON.stringify(receipt.authorizationGrant) !== JSON.stringify(resolution.authorizationGrant)) return refuse('approval-grant-mismatch');
+  if (resolution.provenance === 'durable-user') await recordDurableUse(ledger, resolution, reference.effectId);
   return resolution;
 }

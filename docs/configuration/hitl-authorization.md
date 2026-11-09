@@ -25,8 +25,10 @@ Precedence, highest first:
 1. Platform constraints and safety boundaries.
 2. Explicit denies from any governing config, including expired/revoked policies.
 3. Bounded, unexpired authorization from the user in the current session.
-4. Durable project grants, subject to freshness, expiry and `requireReview`.
-5. Escalate by default.
+4. Verified durable human grants from the effect ledger, subject to scope, expiry,
+   revocation, use limits and governing config review restrictions.
+5. Project config profiles, subject to freshness, expiry and `requireReview`.
+6. Escalate by default.
 
 `requireReview` prevents durable grants from approving matching actions. A direct,
 scoped session authorization can satisfy that review; it cannot override an
@@ -36,10 +38,13 @@ and blanket phrases such as “all work approved” confer no authorization.
 
 Secret access, destructive/irreversible actions, production, high impact, policy
 overrides and threat-preflight overrides cannot receive automatic approval,
-including via session grants. Grant categories are restricted to `repo.read`,
-`repo.edit`, `docs.edit`, `test.run` and `testnet.configure`. Grant environments
+including via session grants. Config profile categories are restricted to `repo.read`,
+`repo.edit`, `docs.edit`, `test.run` and `testnet.configure`. Profile environments
 are restricted to `local`, `development`, `test` and `testnet`. The schema and
-resolver both enforce these restrictions. An escalation requires the existing
+resolver both enforce these profile restrictions. Signed durable grants support
+additional bounded categories and staging environments under the same safety
+boundaries; see [Authorization grant v1](../contracts/authorization-grant.v1.md#lookup-before-ask).
+An escalation requires the existing
 explicit human review process and any platform prompts remain authoritative.
 
 Every proposed action must describe all affected repo-relative resource paths,
@@ -157,8 +162,9 @@ policy version, safe category/environment labels, action/scope digests, decision
 reason, matched-profile digest,
 config-origin digests and session-grant provenance. Arbitrary caller strings are
 hashed; credentials and issue text are never copied into receipts. It requires
-the existing host-configured effect signing key. No new effect kind, key store or
-schema family is introduced. Completion verifies the decision artifact exists;
+the existing host-configured effect signing key. Receipts use `file.digest`;
+durable consumption records a vendor use intent in the same ledger. No new key
+store or schema family is introduced. Completion verifies the decision artifact exists;
 it does not mean the proposed action executed or was authorized by a human.
 
 The receipt API reconciles against the configured artifact root. Generic
@@ -178,8 +184,16 @@ aiwg config authorization check --action-file action.json --target /path/to/repo
 confirmation. It canonicalizes paths (including new leaves and symlinks),
 rejects escapes, conservatively classifies protected policy/secret paths,
 reloads the policy and clock, and writes and reconciles the signed HITL receipt
-before returning. Invalid config, unavailable signing, or an unverified receipt
-escalates. It never executes the proposed action. Malformed JSON/CLI errors also
+before returning. Before asking, it reads verified durable grants in the existing
+`custom` effect ledger, matches the exact target, repo, canonical workspace roots,
+environment, category, verb and all resources, and returns `provenance: durable-user`
+with the grant ID and its effect/hash link in the receipt when a grant matches.
+Expired, revoked, purged and exhausted grants never supply approval. If neither
+a grant nor a profile matches, the response names the nearest grant and the fields
+that differed. Revocation is read again at the next check, including when an old
+receipt is supplied; successful consumption spends one signed use under the
+existing ledger lock. Ledger integrity failures, invalid config, unavailable signing,
+or an unverified receipt escalate. It never executes the proposed action. Malformed JSON/CLI errors also
 retain the consumer's existing human review path.
 
 The action file is a **host trust boundary**, not an authorization source. The
@@ -202,8 +216,9 @@ or prompt. Any enabled ancestor/member layer activates the gate. Policy-loading
 errors fail closed; enabled policies retain exact actor/input receipt checks. Other
 native provider permission prompts are not intercepted or answered.
 
-Tracker mutations, dependency installation and destructive operations are
-outside the shipped grant categories. They keep review; a grant for `repo.edit`
+Tracker mutations and dependency installation are outside the config profile
+categories and require separately scoped human grants or explicit review.
+Destructive operations always keep review; a grant for `repo.edit`
 cannot relabel them as file edits. Policy and threat-preflight overrides also
 remain restricted. Delivery, CI, repo capabilities, human objections, project
 trust and platform prompts remain independent. Recheck every changed action;

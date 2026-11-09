@@ -22,7 +22,9 @@ integrity failures exit 6. Missing indexes are rebuilt from verified records.
 Preview is read-only. Receipt writes the decision to the existing signed effect ledger;
 it does not perform the proposed action. Check writes a verified receipt before returning
 auto-authorized; failures escalate. Action files must be host-classified descriptors,
-never issue/model output. Action files cannot supply session authorization. Platform prompts remain authoritative.`;
+never issue/model output. Check looks up verified durable grants before asking and
+reports the nearest grant's differing fields when scope does not match.
+Action files cannot supply session authorization. Platform prompts remain authoritative.`;
 const usageError = (message: string) => new AiwgError({ code: 'ERR_AUTHORIZATION_USAGE', message, exitCode: EXIT_CODES.USAGE });
 async function jsonFile(file: string): Promise<unknown> {
   try { return JSON.parse(await readFile(file, 'utf8')); }
