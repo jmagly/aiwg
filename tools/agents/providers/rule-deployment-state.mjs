@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { resolveAiwgRoot } from './base.mjs';
 import { fileDigest, resolveProjectAiwgDir, trackTemporaryDirectory } from './rule-delivery-surface.mjs';
+import { createStagedDirectoryReference } from './staged-directory-reference.mjs';
 
 // Plans contain only JSON values and a scratch directory. The preparing process
 // owns that directory until disposal; cross-process transfer needs a separate lease.
@@ -161,7 +162,7 @@ export function createRuleDeploymentInputPool(srcRoot) {
       }
       for (const rel of ['tools', 'dist', 'node_modules', 'src']) {
         const from = path.join(corpusRoot, rel), to = path.join(snapshotRoot, rel);
-        if (fs.existsSync(from)) { fs.symlinkSync(from, to, 'dir'); trustedExec.push(from); }
+        if (fs.existsSync(from)) { createStagedDirectoryReference(from, to); trustedExec.push(from); }
       }
     }
     setPoolWritable(snapshotRoot, false);

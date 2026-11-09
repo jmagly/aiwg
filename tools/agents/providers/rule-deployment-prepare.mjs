@@ -48,6 +48,7 @@ import { inlineStartup, projectRules } from './rule-projection.mjs';
 const { captureDeploymentOutputs, recordDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 const { preserveDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-preservation.mjs');
 import { retireInlineStartup } from './rule-startup.mjs';
+import { createStagedDirectoryReference } from './staged-directory-reference.mjs';
 
 /** Stage only provider/context output, never the user's source tree. On failure
  * no staged output (including skills and behaviors) reaches the prior deployment. */
@@ -130,7 +131,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
       // The projector helpers execute installed code but receive the snapshot as data.
       for (const rel of ['tools', 'dist', 'node_modules', 'src']) {
         const from = path.join(corpusRoot, rel), to = path.join(snapshotRoot, rel);
-        if (fs.existsSync(from)) fs.symlinkSync(from, to, 'dir');
+        if (fs.existsSync(from)) createStagedDirectoryReference(from, to);
       }
     }
     // Keep standalone fixture/bundle snapshots from inheriting the installed
