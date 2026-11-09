@@ -229,11 +229,12 @@ function withoutInheritedStdin(options) {
 /** Deliver synchronous input without Node's sandbox-sensitive stdin pipe (#4032). */
 function withSyncStdin(options, run) {
   if (options.input === undefined) return run(options);
+  // Never fall back to Node's synchronous input pipe: in sandboxes it blocks the
+  // child until the timeout. Without writable temp storage the call fails fast;
+  // boundedSpawnSync turns this into a returned error, as spawnSync does.
   let directory;
-  // Without writable temp storage, keep Node's own input pipe rather than fail:
-  // the wrappers must not throw where the native API does not.
   try { directory = mkdtempSync(join(tmpdir(), 'aiwg-sync-stdin-')); }
-  catch { return run(options); }
+  catch (error) { throw Object.assign(error, { aiwgStdinTempUnavailable: true }); }
   let fd;
   try {
     const filename = join(directory, 'stdin');
@@ -385,7 +386,14 @@ export function boundedSpawnSync(command, args, tier, options) {
   assertValidTier(tier);
   const boundMs = effectiveTimeoutMs(tier, options);
   const nodeOptions = toNodeOptions(options, boundMs);
-  const result = withSyncStdin(nodeOptions, prepared => nodeSpawnSync(command, args, prepared));
+  let result;
+  try {
+    result = withSyncStdin(nodeOptions, prepared => nodeSpawnSync(command, args, prepared));
+  } catch (error) {
+    // Like spawnSync, report a missing temp directory for input as a returned error; other throws propagate.
+    if (!error?.aiwgStdinTempUnavailable) throw error;
+    result = { pid: 0, output: [null, null, null], stdout: null, stderr: null, status: null, signal: null, error };
+  }
   enrichTimeoutError(result.error, { description: describeCommand(command, args), tier, boundMs, signal: result.signal });
   return result;
 }
