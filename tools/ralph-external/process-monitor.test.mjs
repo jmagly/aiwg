@@ -459,7 +459,7 @@ test('process metrics use exact RSS units and an argument-vector command', t => 
   assert.deepEqual(monitor.getProcessHealth('metrics'), {
     pid: process.pid, cpu: 12.5, memory: 64, uptime: 90, status: 'sleeping',
   });
-  assert.deepEqual(calls, [['ps', ['-p', String(process.pid), '-o', '%cpu,rss,etime,stat', '--no-headers'], { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' }]]);
+  assert.deepEqual(calls, [['ps', ['-p', String(process.pid), '-o', '%cpu,rss,etime,stat', '--no-headers'], { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL', stdio: ['ignore', 'pipe', 'pipe'] }]]);
 });
 
 for (const [name, row, expected] of [
