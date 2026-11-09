@@ -542,12 +542,13 @@ async function deploySelected(opts) {
   // sit inert on disk (no discover-first, no rule routing — the agent treats
   // `address-issues` as a generic query). Preserves operator content outside
   // the AIWG-managed section.
+  // Include kernel-only skill passes: both workspace files are startup context.
   // Run once, only from the batch whose srcRoot actually contains the framework
   // template (the repo/framework root). `aiwg use` invokes deploy() once per
   // framework AND per addon with different srcRoots; addon batches would warn
   // "template not found". The idempotent skip in createAgentsMdFromTemplate also
   // guards against double-injection across batches.
-  if (!commandsOnly && !skillsOnly && !rulesOnly) {
+  if (!commandsOnly && !rulesOnly && (!skillsOnly || opts.kernelOnly)) {
     const templatePath = path.join(
       srcRoot, 'agentic', 'code', 'frameworks', 'sdlc-complete', 'templates', 'openclaw', 'AGENTS.md.aiwg-template',
     );

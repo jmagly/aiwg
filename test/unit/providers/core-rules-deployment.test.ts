@@ -51,6 +51,28 @@ function fixtureSource(root: string, bodies: Record<string, string> = { 'fixture
 }
 
 describe('core rule delivery (#3450)', () => {
+  it('OpenClaw kernel-only deploy retains its workspace identity and operator content', () => {
+    const root = tempRoot();
+    const source = fixtureSource(root);
+    const templates = join(source, 'agentic/code/frameworks/sdlc-complete/templates/openclaw');
+    mkdirSync(templates, { recursive: true });
+    writeFileSync(join(templates, 'AGENTS.md.aiwg-template'), '<!-- AIWG SDLC Framework Integration -->\nFixture bridge.\n');
+    writeFileSync(join(templates, 'SOUL.md.aiwg-template'), '<!-- AIWG Steward Identity -->\nUse aiwg discover.\n');
+    const workspace = join(root, 'home/.openclaw/workspace');
+    mkdirSync(workspace, { recursive: true });
+    const soul = join(workspace, 'SOUL.md');
+    writeFileSync(soul, '# Operator identity\n');
+    const opts = { kernelOnly: true, skillsOnly: true, rulesOnly: false, deploySkills: true };
+    run(source, join(root, 'target'), 'openclaw', opts);
+    const first = readFileSync(soul, 'utf8');
+    expect(first).toContain('# Operator identity');
+    expect(first).toContain('<!-- AIWG Steward Identity -->');
+    expect(first).toContain('aiwg discover');
+    run(source, join(root, 'target'), 'openclaw', opts);
+    expect(readFileSync(soul, 'utf8')).toBe(first);
+    expect(readFileSync(join(workspace, 'AGENTS.md'), 'utf8')).toContain('WORKSPACE.md');
+  }, 90_000);
+
   for (const provider of Object.keys(PROVIDER_FILES)) {
     it(`${provider}: a deploy mode without sdlc-complete still delivers the anti-laziness core body`, () => {
       const root = tempRoot();

@@ -404,7 +404,7 @@ each provider's public default without changing its deployment flags.
 | hermes | `.hermes.md`, `AGENTS.md` | `.hermes/rules` | `~/.hermes/skills`; `~/.hermes/skills/.aiwg` (`HERMES_HOME` overrides) | `hermes.mjs` |
 | muse | `AGENTS.md` | `.muse/rules` | `.agents/skills`; `.agents/.aiwg/skills` | `muse.mjs` |
 | opencode | `AGENTS.md` + `opencode.json` instructions | `.opencode/rule` | `.opencode/skill`; `.opencode/.aiwg/skill` | `opencode.mjs` |
-| openclaw | Active workspace `AGENTS.md` + `SOUL.md`; default `~/.openclaw/workspace` | `~/.openclaw/rules` | `~/.openclaw/skills/aiwg`; `~/.openclaw/.aiwg/skills` | `openclaw.mjs` |
+| openclaw | Registry declares `~/.openclaw/workspace/AGENTS.md` + `~/.openclaw/workspace/SOUL.md` (default active workspace); adapter resolves profile/config overrides | `~/.openclaw/rules` | `~/.openclaw/skills/aiwg`; `~/.openclaw/.aiwg/skills` | `openclaw.mjs` |
 | openhuman | `AGENTS.md` (host dependent) | `~/.openhuman/.aiwg/rules` | `~/.openhuman/skills`; `~/.openhuman/.aiwg/skills` | `openhuman.mjs` |
 | pi | `AGENTS.md` | `.pi/rules` | `.agents/skills`; `.pi/.aiwg/skills` | `pi.mjs` |
 | omp | `.omp/AGENTS.md` | `.omp/rules` | `.agents/skills` (K/B) | `omp.mjs` |
@@ -460,6 +460,13 @@ prove runtime discovery, template loading, or provider trust.
 Copilot rule checks use the registry path directly and assert agreement with
 context-discovery, behavior and smith rule paths at `.github/instructions` (#3993).
 
+OpenClaw's default active-workspace bootstrap targets are declared in the registry
+and compared with the deployed Markdown files (#3995). The audit checks the
+`AGENTS.md` project-context bridge and the `SOUL.md` steward identity/discovery
+guidance. Both files deploy in the default kernel-only mode as well as full
+deployment. Profile/config workspace overrides remain owned by the deployment
+adapter; this audit uses the isolated HOME default.
+
 The #3935 audit deferred CLI/version collection; #3996 inspected installed help
 and docs offline as recorded above. New live UAT remains deferred. Supplied UAT above is
 historical input, not a fresh run or a complete per-prompt score. No tracker
@@ -474,7 +481,6 @@ worker's steps 1/2/5 scope):
 | codex | `src/smiths/hook-bridge/codex-translator.ts` | Supplied UAT discovers at calls 2–8 after bootstrap; discover-first is not established. Trust/review remain runtime prerequisites. |
 | muse | `tools/agents/providers/muse-prompt-discovery.mjs` | Supplied p1/p4 discover-first results remain mixed. |
 | factory | `tools/agents/providers/factory-hooks.mjs` | Interactive registration does not run in `droid exec`; the bootstrap rule carries discovery/template use. |
-| openclaw | `src/providers/provider-context-contracts.ts` | Registry says no bootstrap targets, while the adapter writes active workspace `AGENTS.md`/`SOUL.md`. |
 | generic | `tools/agents/deploy-agents.mjs` | Registry metadata exists, but there is no generic adapter; `use all --provider generic` is rejected. |
 
 Providers with no AIWG prompt installer are recorded as **none** in the matrix;

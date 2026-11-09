@@ -68,6 +68,13 @@ describe('provider definition registry', () => {
     }
   });
 
+  it('declares both OpenClaw default active-workspace bootstrap files', () => {
+    expect(getProviderDefinition('openclaw')?.context.bootstrapTargets).toEqual([
+      '~/.openclaw/workspace/AGENTS.md',
+      '~/.openclaw/workspace/SOUL.md',
+    ]);
+  });
+
   it('normalizes existing provider aliases through definition data', () => {
     expect(normalizeProviderDefinitionId('claude-code')).toBe('claude');
     expect(normalizeProviderDefinitionId('openai')).toBe('codex');

@@ -129,7 +129,9 @@ export const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
   openclaw: {
     startupFiles: ['~/.openclaw/config.yaml'], precedence: ['provider/system', 'home configuration'],
     loadMode: 'unsupported', includeSyntax: null, configRegistration: null,
-    bootstrapTargets: [], maxContextBytes: null, recommendedMaxLines: null, nestedContext: false, support: 'degraded',
+    // Default active workspace; the deployment adapter resolves profile/config overrides.
+    bootstrapTargets: ['~/.openclaw/workspace/AGENTS.md', '~/.openclaw/workspace/SOUL.md'],
+    maxContextBytes: null, recommendedMaxLines: null, nestedContext: false, support: 'degraded',
     verification: { method: 'AIWG home-scope adapter contract; no verified project startup file', source: 'agentic/code/providers/capability-matrix.yaml', lastVerified: VERIFIED_ON },
   },
   openhuman: {
