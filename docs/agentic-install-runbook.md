@@ -163,6 +163,14 @@ the lightweight `WORKSPACE.md`/`AIWG.md`/provider bootstrap files in the
 current project. In additional projects, run
 `aiwg regenerate --provider <name>` to create those context-only hooks.
 
+The same applies when the current directory is `$HOME`: a second project-scope
+`aiwg use all` in the home folder is **not required**. `aiwg status --probe --json`
+uses the user registry when no project deployments are recorded, and verifies
+the user assets and current directory's context hooks. An explicit
+`--scope project` inspects only project deployments; `--scope user` inspects only
+user deployments. In a new directory without context hooks, the probe directs
+you to `aiwg regenerate --provider <name>`.
+
 Use `--scope user` instead when an additive project deployment is intentional:
 
 ```bash

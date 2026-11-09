@@ -526,6 +526,11 @@ async function buildWorkspaceStatus(projectRoot) {
 }
 
 async function buildVerificationProbe(projectRoot) {
+  const { deploymentProbeScope } = await importImpl(import.meta.url, 'cli/services/deployment-probe-scope.js');
+  if (await deploymentProbeScope(projectRoot) === 'user') {
+    const { buildDeploymentStatusProbe } = await importImpl(import.meta.url, 'cli/services/deployment-verification.js');
+    return buildDeploymentStatusProbe(projectRoot, packageRoot, { scope: 'user' });
+  }
   const workspace = await buildWorkspaceStatus(projectRoot);
   const frameworkCount = workspace.frameworks.length;
   const providerCount = workspace.providerDeployments.length;

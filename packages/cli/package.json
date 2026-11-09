@@ -42,6 +42,7 @@
     "schemas/models/",
     "vscode-extension/schemas/aiwg.config.v1.json",
     "dist/src/",
+    "dist/src/cli/services/deployment-probe-scope.js",
     "!dist/**/*.d.ts",
     "!dist/**/*.map",
     "dist/src/api/index.d.ts",

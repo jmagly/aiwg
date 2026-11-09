@@ -24,6 +24,7 @@ import {
   providerContextContract,
 } from '../../smiths/context-pipeline/workspace-context.js';
 import { USER_SCOPE_PATHS } from '../scope-resolver.js';
+import { deploymentProbeNextCommand, deploymentProbeScope } from './deployment-probe-scope.js';
 
 export type DeploymentScope = 'project' | 'user';
 export type DeploymentOutcome =
@@ -543,16 +544,6 @@ async function collectRegistryFindings(
         `Installed state records artifacts for '${bundle}', but no managed artifacts were found for ${provider}.`,
         `Re-run aiwg use ${bundle} --provider ${provider} to repair the managed deployment.`,
         { bundle, recordedTotal, actualTotal },
-      ));
-    }
-
-    if (useUserRegistry && !projectRecord) {
-      findings.push(finding(
-        provider,
-        `project-registry-missing:${bundle}`,
-        'advisory',
-        `Project registry does not describe the additive user-scope deployment for '${bundle}'.`,
-        'Run aiwg status --probe --json from the originating project to inspect both registries.',
       ));
     }
   }
@@ -1156,7 +1147,8 @@ export async function buildDeploymentStatusProbe(
   frameworkRoot = process.env.AIWG_ROOT || projectRoot,
   filters: { provider?: string; bundle?: string; scope?: DeploymentScope } = {},
 ): Promise<Record<string, unknown>> {
-  const result = await verifyConfiguredDeployments(projectRoot, filters, frameworkRoot);
+  const scope = await deploymentProbeScope(projectRoot, filters.scope);
+  const result = await verifyConfiguredDeployments(projectRoot, { ...filters, scope }, frameworkRoot);
   const notConfigured = result.requestedBundles.length === 0
     && result.findings.length > 0
     && result.findings.every((item) => item.id === 'deployment-not-configured');
@@ -1188,7 +1180,7 @@ export async function buildDeploymentStatusProbe(
           ? 'Choose a provider and bundle to configure AIWG for this project.'
           : 'Repair the blocking deployment findings, then run this probe again.',
       command: 'aiwg status --probe --json',
-      next_command: engaged ? null : notConfigured ? 'aiwg wizard --dry-run' : 'aiwg doctor --deployment',
+      next_command: deploymentProbeNextCommand(result, engaged, notConfigured),
     },
     provider_deployments: result.providers,
     deployment_verification: result,

@@ -31,6 +31,7 @@ import { checkContextMemoryFirewall } from './doctor-context-firewall.mjs';
 import { runWorkerApprovalManagement, runWorkerProbe, toWorkerProbeRecord, WORKER_PROBE_EMPTY_MESSAGE } from './doctor-worker-probe.mjs';
 
 const { measureDeployedCoreRules } = await importImpl(import.meta.url, 'rules/activation.mjs');
+const { homeDeploymentReceipts } = await importImpl(import.meta.url, 'config/user-registry.js');
 
 const { getFrameworkRoot, getPackageRoot, getVersionInfo, loadConfig, resolveMcpServerEntrypointPath } = await importImpl(
   import.meta.url,
@@ -980,6 +981,7 @@ export async function runDoctor() {
   } catch {
     workerSectionsConfigFailed = true;
   }
+  const userDeployments = await homeDeploymentReceipts(process.cwd());
   for (const warning of nativeSandboxWarnings(workerSectionsConfig, process.cwd())) {
     check('Native sandbox isolation', 'warn', warning.message);
   }
@@ -1033,7 +1035,7 @@ export async function runDoctor() {
     // is reported instead of rendering as healthy.
     // Deployment receipts describe the selected surface, including kernel-only
     // installs. Source/index inventory is not a count of deployed agent files.
-    const deployments = Object.entries(workerSectionsConfig?.installed ?? {})
+    const deployments = [...Object.entries(workerSectionsConfig?.installed ?? {}), ...userDeployments]
       .filter(([, entry]) => entry?.deployedTo?.[provName]);
     const claimingAgents = deployments
       .filter(([, entry]) => entry.deployedTo[provName].agents > 0);
