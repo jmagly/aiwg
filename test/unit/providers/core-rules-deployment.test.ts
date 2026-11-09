@@ -127,7 +127,7 @@ describe('core rule delivery (#3450)', () => {
     expect(aiwg).not.toContain('FIXTURE_KERNEL_BODY');
     expect(readFileSync(join(root, 'target/.codex/rules/fixture-kernel.md'), 'utf8')).toContain('FIXTURE_KERNEL_BODY');
     expect(aiwg).not.toContain('FULL_fixture-core_BODY');
-    expect(readFileSync(join(root, 'target/AGENTS.md'), 'utf8')).toContain('Read and follow');
+    expect(readFileSync(join(root, 'target/AGENTS.md'), 'utf8')).toContain('After discovery, read and follow [WORKSPACE.md]');
   }, 90_000);
 
   it('hermes keeps core inline even though it is not CRITICAL, and survives index spill pressure', () => {

@@ -356,7 +356,7 @@ describe('activation-selected provider deployment (#2939)', () => {
       // bundles. The provider bootstrap and selected contracts still survive.
       if (provider === 'hermes') {
         expect(content).not.toContain('Never fabricate citations, DOIs, URLs, or page numbers.');
-        expect(content).toContain('Read and follow [WORKSPACE.md]');
+        expect(content).toContain('After discovery, read and follow [WORKSPACE.md]');
         expect(content).not.toContain('### Rule: anti-laziness');
       }
       if (provider === 'codex') expect(Buffer.byteLength(readFileSync(join(root, 'target/AGENTS.md'), 'utf8'))).toBeLessThan(32768);

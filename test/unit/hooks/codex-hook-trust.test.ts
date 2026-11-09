@@ -15,7 +15,7 @@ import { UseHandler } from '../../../src/cli/handlers/use.js';
 let root: string;
 let project: string;
 let config: string;
-const nextStep = 'Trust this project in Codex, then approve the AIWG hook when Codex asks.';
+const nextStep = 'Trust this project in Codex and approve its AIWG hook; codex exec needs both.';
 
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'aiwg-codex-trust-'));
@@ -88,6 +88,22 @@ it('requires both project and hook trust before suppressing advice', () => {
   expect(codexTrust.codexHookTrustNextStep({ project: 'untrusted', hookReview: 'approved' })).toBe(nextStep);
   expect(codexTrust.codexHookTrustNextStep({ project: 'trusted', hookReview: 'unreviewed' })).toBe(nextStep);
   expect(codexTrust.codexHookTrustNextStep(null)).toBe('');
+});
+
+it('deploy advice names the saved-trust prerequisite for Codex exec 0.167 (#4035)', () => {
+  const advice = codexTrust.codexHookTrustNextStep({ project: 'untrusted', hookReview: 'unknown' });
+  expect(advice).toContain('codex exec');
+  // Deploy output stays readable at 80 columns; the full explanation is in doctor and docs.
+  expect(advice.length).toBeLessThanOrEqual(80);
+  const detail = codexTrust.CODEX_EXEC_HOOK_TRUST_DETAIL;
+  expect(detail).toContain('saved folder and hook trust');
+  expect(detail).toContain('per-run -c');
+  expect(detail).toContain('does not enable project hooks');
+});
+
+it('doctor explains the Codex exec trust limitation in full (#4035)', async () => {
+  const diagnostic = await codexTrust.diagnoseCodexHookTrust(project);
+  expect(diagnostic?.message).toContain(codexTrust.CODEX_EXEC_HOOK_TRUST_DETAIL);
 });
 
 it('parses quoted TOML paths and ignores trust for other projects and project-local config', async () => {

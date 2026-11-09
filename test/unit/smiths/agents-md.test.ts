@@ -2,6 +2,11 @@
 import { describe, it, expect } from 'vitest';
 import { buildAgentsMd } from '../../../src/smiths/context-pipeline/index.js';
 import type { ContextPipelineOptions } from '../../../src/smiths/context-pipeline/index.js';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { auditWorkspaceContext } from '../../../src/smiths/context-pipeline/workspace-audit.js';
+import { stageMigrationWrites } from '../../../src/smiths/context-pipeline/workspace-migration.js';
 
 describe('buildAgentsMd', () => {
   const baseOpts: ContextPipelineOptions = {
@@ -26,6 +31,29 @@ describe('buildAgentsMd', () => {
     expect(content).toContain('<!-- AIWG:provider-bootstrap:start -->');
     expect(content).not.toContain('## Framework Context');
     expect(content).toContain('[AIWG.md](./AIWG.md)');
+  });
+
+  it('requires discovery before any context read even without prompt hooks (#4036)', async () => {
+    const { content } = await buildAgentsMd(baseOpts);
+    expect(content).toContain('On a new task, first run discovery for the request');
+    expect(content).toContain("aiwg discover --stdin <<'AIWG_REQUEST'");
+    expect(content).toContain('before any other tool call or answer');
+    expect(content.indexOf('aiwg discover --stdin')).toBeLessThan(content.indexOf('[WORKSPACE.md]'));
+    expect(content).toContain('After discovery, read and follow [WORKSPACE.md]');
+    expect(content).toContain('Then read [AIWG.md]');
+  });
+
+  it('uses the discovery-first bridge for shared-provider migration (#4036)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-shared-bootstrap-'));
+    try {
+      await mkdir(join(root, '.aiwg'));
+      await writeFile(join(root, '.aiwg/aiwg.config'), JSON.stringify({ providers: ['codex', 'hermes'] }));
+      const writes = await stageMigrationWrites(root, await auditWorkspaceContext(root));
+      const content = writes.get('AGENTS.md')!;
+      expect(content).toContain('On a new task, first run discovery for the request');
+      expect(content.indexOf('aiwg discover --stdin')).toBeLessThan(content.indexOf('[WORKSPACE.md]'));
+      expect(content).toContain('AIWG rules deployed to this project are binding');
+    } finally { await rm(root, { recursive: true, force: true }); }
   });
 
   it('emits the AIWG signature comment', async () => {

@@ -68,6 +68,8 @@ This deploys to:
 > AIWG prunes its own legacy entries from `~/.codex/skills/` to prevent duplicate
 > discovery.
 
+**Codex 0.167 hooks:** `codex exec` requires saved folder and hook trust; a per-run `-c` project-trust override does not enable hooks, even with `--dangerously-bypass-hook-trust`. AIWG never grants trust. See [operator review, worker limitations and session-log audit](../../providers/codex-direct.md#project-hooks-in-codex-0167-4035-4036).
+
 ### 3. Deploy commands and skills separately (optional)
 
 ```bash

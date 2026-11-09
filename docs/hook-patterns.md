@@ -113,7 +113,7 @@ prompt-hook support for `droid exec`.
 
 ## Codex 0.165 schema verification (#3888)
 
-Trust the project in Codex, then approve the AIWG hook when Codex asks; AIWG reads project trust from `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`) without changing it, and reports hook review as unknown because no documented offline approval signal is available.
+Trust the project in Codex, then approve the AIWG hook when Codex asks; AIWG reads project trust from `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`) without changing it, and reports hook review as unknown because no documented offline approval signal is available. **0.167 update:** exec requires saved folder and hook trust; per-run `-c` trust plus `--dangerously-bypass-hook-trust` no longer enables project hooks. See the [2026-11-09 session-log audit and worker limitation](providers/codex-direct.md#project-hooks-in-codex-0167-4035-4036); the probes below describe 0.165 only.
 
 The installed `codex-cli 0.165.0` reports `hooks stable true` from
 `codex features list`. Offline probes used an empty temporary `CODEX_HOME` and
@@ -439,7 +439,7 @@ establishes it; interactive support does not establish exec support.
 |---|---|---|---|---|---|
 | antigravity | None | `agy --print` | Unverified | Pass | Static only |
 | claude | Native: `.claude/settings.json` | `claude --print` | Unverified separately | Pass | p1/p2/p4 discover-first; p3 not supplied |
-| codex | Bridge: `.codex/hooks.json`; trust + review required | `codex exec` | Unverified separately | Pass | Discover at calls 2–8, after bootstrap reads; per-prompt scores not supplied |
+| codex | Bridge: `.codex/hooks.json`; saved folder + hook trust required | `codex exec` | 0.167 supplied logs: 0 hook items with per-run trust; 1 after saved trust | Pass | 2026-11-09 no-hook discovery at calls 1–4; post-#4036 p1/p2 rerun deferred |
 | copilot | Bootstrap rule: `.github/copilot-instructions.md` | `copilot` noninteractive | Bootstrap directive; runtime unverified | Pass | Static only |
 | cursor | None | `cursor-agent --print` | Unverified | Pass | Static only |
 | deepseek-harness | None | `dsh --profile headless` | Unverified | Pass | Static only |
@@ -497,7 +497,7 @@ worker's steps 1/2/5 scope):
 | Provider | File | Symptom |
 |---|---|---|
 | copilot, grok-build | `tools/agents/providers/rule-startup.mjs` | #3996 delivers a discover-first bootstrap rule; automatic prompt-context injection is not documented. |
-| codex | `src/smiths/hook-bridge/codex-translator.ts` | Supplied UAT discovers at calls 2–8 after bootstrap; discover-first is not established. Trust/review remain runtime prerequisites. |
+| codex | `src/smiths/context-pipeline/workspace-bootstrap.ts` | #4036 aligns bootstrap and index with discovery first; post-fix p1/p2 UAT remains deferred. #4035 records saved-trust prerequisites and session-log observations above. |
 | muse | `tools/agents/providers/muse-prompt-discovery.mjs` | Supplied p1/p4 discover-first results remain mixed. |
 | factory | `tools/agents/providers/factory-hooks.mjs` | Interactive registration does not run in `droid exec`; the bootstrap rule carries discovery/template use. |
 
