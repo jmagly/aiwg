@@ -7,12 +7,13 @@ import { path } from './base-runtime.mjs';
  * Returns { frontmatter: string, body: string, metadata: object }
  */
 export function parseFrontmatter(content) {
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   if (!fmMatch) {
     return { frontmatter: null, body: content, metadata: {} };
   }
 
-  const [, frontmatter, body] = fmMatch;
+  const [, rawFrontmatter, body] = fmMatch;
+  const frontmatter = rawFrontmatter.replace(/\r\n/g, '\n');
 
   // Parse simple YAML key-value pairs
   const metadata = {};
