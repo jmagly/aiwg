@@ -13,6 +13,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import {
   installAiwgHooks,
+  managedClaudeHooks,
   restoreSettingsBackup,
 } from '../../../src/extensions/claude-hooks-installer.js';
 
@@ -38,6 +39,11 @@ async function makeAddonHooks(root: string): Promise<void> {
   for (const file of ['aiwg-permissions.cjs', 'aiwg-session.cjs', 'aiwg-trace.cjs']) {
     await fs.writeFile(path.join(dir, file), '#!/usr/bin/env node\n', 'utf8');
   }
+}
+
+function expectedCommand(event: string) {
+  return managedClaudeHooks(['aiwg-session.cjs', 'aiwg-permissions.cjs', 'aiwg-trace.cjs'], projectPath,
+    path.join(frameworkRoot, 'agentic/code/addons/aiwg-hooks/hooks')).find(hook => hook.event === event)!.command;
 }
 
 async function readSettings(): Promise<{ hooks?: HooksField; [k: string]: unknown }> {
@@ -151,7 +157,7 @@ describe('Claude hook upgrades', () => {
       .flatMap((group) => group.hooks)
       .find((hook) => hook._aiwg_id === 'aiwg-session');
 
-    expect(sessionEntry?.command).toBe('node .claude/hooks/aiwg-session.cjs');
+    expect(sessionEntry?.command).toBe(expectedCommand('SessionStart'));
     expect(result?.warnings).toContain(
       'Refreshed stale SessionStart → aiwg-session command path',
     );
@@ -192,10 +198,10 @@ describe('Claude hook upgrades', () => {
         .find((hook) => hook._aiwg_id === 'aiwg-trace')?.command;
 
     expect(traceCommand('SubagentStart')).toBe(
-      'node .claude/hooks/aiwg-trace.cjs start',
+      expectedCommand('SubagentStart'),
     );
     expect(traceCommand('SubagentStop')).toBe(
-      'node .claude/hooks/aiwg-trace.cjs stop',
+      expectedCommand('SubagentStop'),
     );
     expect(
       result?.warnings.filter((warning) => warning.includes('Refreshed stale')),

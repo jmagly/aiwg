@@ -76,6 +76,11 @@ export interface TranslateResult {
  * directories and detect dry-run mode.
  */
 export interface TranslateOptions {
+  /** Final root when artifacts are prepared in a staging directory. */
+  commandRoot?: string;
+  scope?: 'project' | 'user';
+  /** Explicit Codex user home when CODEX_HOME overrides ~/.codex. */
+  hookDirectory?: string;
   /** Project root absolute path */
   projectPath: string;
   /** Don't write files; describe what would happen */

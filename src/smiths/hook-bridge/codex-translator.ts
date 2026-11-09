@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import type { HookSource, TranslateOptions, TranslateResult } from './types.js';
 import { substituteEnvVars } from './shim.js';
 import { loadHookSources } from './loader.js';
+import { verifiedHookCommand } from '../../extensions/verified-hook-command.js';
 import { tomlString } from '../../mcp/toml-string.mjs';
 
 // Verified with the installed 0.165.0 app-server hooks/list. Config keys use
@@ -28,16 +29,6 @@ interface HookGroup {
   hooks: CommandHook[];
 }
 
-// Codex runs hooks in the session cwd, which may be below the hooks.json root.
-const PROMPT_DISCOVERY_LAUNCHER = [
-  'const fs=require("node:fs"),path=require("node:path");',
-  'for(let dir=process.cwd();;dir=path.dirname(dir)){',
-  'const script=path.join(dir,".codex/hooks/aiwg-prompt-discovery.cjs");',
-  'if(fs.existsSync(script)){require(script);break;}',
-  'if(path.dirname(dir)===dir)break;',
-  '}',
-].join('');
-
 function shellArgument(value: string, expandEnvironment = true): string {
   // Preserve environment references, but never evaluate argument substitutions.
   const escaped = value.replace(/[\\"`$]/g, '\\$&');
@@ -46,9 +37,9 @@ function shellArgument(value: string, expandEnvironment = true): string {
   return `"${argument}"`;
 }
 
-function commandHook(source: HookSource, literalArgs = false): CommandHook {
+function commandHook(source: HookSource): CommandHook {
   const command = substituteEnvVars(source.command, 'codex');
-  const args = (source.args || []).map(a => shellArgument(substituteEnvVars(a, 'codex'), !literalArgs));
+  const args = (source.args || []).map(a => shellArgument(substituteEnvVars(a, 'codex')));
   return {
     type: 'command', command: [command, ...args].join(' '),
     ...(source.timeout === undefined ? {} : { timeout: source.timeout }),
@@ -121,7 +112,7 @@ export async function translateForCodex(source: HookSource, options: TranslateOp
   }
   const events = source.events.filter(event => CODEX_EVENTS.has(event));
   if (!events.length) return { ...result, skipped: true, skipReason: 'no Codex-mapped events' };
-  const directory = path.join(options.projectPath, '.codex');
+  const directory = options.hookDirectory ?? path.join(options.projectPath, '.codex');
   const configPath = path.join(directory, 'hooks.json');
   const promptHook = source.id === 'aiwg-prompt-discovery';
   const scriptPath = path.join(directory, 'hooks', 'aiwg-prompt-discovery.cjs');
@@ -158,9 +149,14 @@ export async function translateForCodex(source: HookSource, options: TranslateOp
     if (!source.args?.[0]) throw new Error('Prompt discovery source is missing its shared script');
     await fs.mkdir(path.dirname(scriptPath), { recursive: true });
     await fs.copyFile(source.args[0], scriptPath);
-    source = { ...source, args: ['-e', PROMPT_DISCOVERY_LAUNCHER] };
   }
-  for (const event of events) (hooks[event] ??= []).push({ hooks: [commandHook(source, promptHook)] });
+  const hook = commandHook(source);
+  if (promptHook) {
+    const anchor = options.hookDirectory ? directory : options.commandRoot ?? options.projectPath;
+    hook.command = verifiedHookCommand(anchor, path.relative(options.hookDirectory ? directory : options.projectPath, scriptPath).replaceAll('\\', '/'), await fs.readFile(scriptPath), [], options.scope);
+    hook.statusMessage = 'AIWG prompt discovery';
+  }
+  for (const event of events) (hooks[event] ??= []).push({ hooks: [hook] });
   doc.hooks = hooks;
   await fs.mkdir(directory, { recursive: true });
   if (existing && !managed) {

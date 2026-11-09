@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { installAiwgHooks } from '../../../src/extensions/claude-hooks-installer.js';
+import { installAiwgHooks, managedClaudeHooks } from '../../../src/extensions/claude-hooks-installer.js';
 
 const frameworkRoot = fileURLToPath(new URL('../../../', import.meta.url));
 let projectPath: string;
@@ -27,7 +27,7 @@ it('deploys and registers prompt discovery idempotently alongside operator hooks
   const groups = JSON.parse(once).hooks.UserPromptSubmit;
   expect(groups).toContainEqual(operator);
   expect(groups.flatMap((g: { hooks: unknown[] }) => g.hooks)).toContainEqual({
-    type: 'command', command: 'node .claude/hooks/aiwg-prompt-discovery.cjs',
+    type: 'command', command: managedClaudeHooks(['aiwg-prompt-discovery.cjs'], projectPath, path.join(frameworkRoot, 'agentic/code/addons/aiwg-hooks/hooks'))[0].command,
     _aiwg_managed: true, _aiwg_id: 'aiwg-prompt-discovery',
   });
   expect(groups).toHaveLength(2);

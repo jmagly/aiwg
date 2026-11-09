@@ -16,6 +16,7 @@ import {
 } from './workspace-context-shared.js';
 import { BOOTSTRAP_AUTHORITY_SIGNATURE, WORKSPACE_PRECEDENCE_SIGNATURE, WORKSPACE_PRECEDENCE_SUPERSEDED } from './workspace-document.js';
 import { configuredProviders } from './workspace-migration.js';
+import { diagnoseUserHookCommands } from '../../extensions/user-hook-diagnostics.js';
 import { diagnoseCodexHookTrust } from '../hook-bridge/codex-trust.js';
 import { diagnoseFactoryHookTrust } from '../hook-bridge/factory-trust.js';
 
@@ -46,7 +47,7 @@ export async function workspaceLinkedFiles(projectPath: string): Promise<string[
 }
 
 export async function diagnoseWorkspaceContext(projectPath: string): Promise<WorkspaceContextDiagnostic[]> {
-  const diagnostics: WorkspaceContextDiagnostic[] = [];
+  const diagnostics: WorkspaceContextDiagnostic[] = await diagnoseUserHookCommands();
   const codexTrust = await diagnoseCodexHookTrust(projectPath);
   if (codexTrust) diagnostics.push(codexTrust);
   const factoryTrust = await diagnoseFactoryHookTrust(projectPath);

@@ -1,3 +1,5 @@
+import { verifiedHookCommand } from './verified-hook-command.js';
+
 // Canonical Muse hook registrations shared by deployment and read-only drift checks.
 export const promptDiscoveryHook = {
   id: 'aiwg-prompt-discovery',
@@ -50,3 +52,14 @@ export const AIWG_MANAGED_HOOKS = [
   promptDiscoveryHook,
 ];
 
+
+/** Resolve registrations against the final deployment root, never the session cwd. */
+export function managedMuseHooks(root: string, bytes: Buffer, scope?: 'project' | 'user') {
+  return AIWG_MANAGED_HOOKS.map(hook => hook.id === promptDiscoveryHook.id ? {
+    ...hook, group: { ...hook.group, hooks: [{ ...hook.group.hooks[0],
+      command: verifiedHookCommand(root, '.muse/hooks/aiwg-prompt-discovery.cjs', bytes, [], scope),
+    }] },
+  } : process.platform === 'win32' ? { ...hook, group: { ...hook.group,
+    hooks: hook.group.hooks.map(entry => ({ ...entry, command: entry.command.replace('> /dev/null', '> NUL') })),
+  } } : hook);
+}

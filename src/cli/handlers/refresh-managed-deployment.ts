@@ -4,7 +4,8 @@ import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { lt, valid } from 'semver';
 import { managedClaudeHooks } from '../../extensions/claude-hooks-installer.js';
-import { AIWG_MANAGED_HOOKS } from '../../extensions/muse-managed-hooks.js';
+import { verifiedHookCommand } from '../../extensions/verified-hook-command.js';
+import { managedMuseHooks } from '../../extensions/muse-managed-hooks.js';
 import { managedHookScriptState } from '../../extensions/managed-hook-script-state.js';
 import { managedFactoryHooks } from '../../smiths/hook-bridge/factory-translator.js';
 import { readFactoryDocument } from '../../smiths/hook-bridge/factory-hook-config.js';
@@ -31,7 +32,7 @@ export interface StaleManagedDeployment {
 
 interface HookGroup {
   matcher?: string;
-  hooks?: Array<{ type?: string; command?: string; _aiwg_id?: string; _aiwg_managed?: boolean }>;
+  hooks?: Array<{ type?: string; command?: string; statusMessage?: string; _aiwg_id?: string; _aiwg_managed?: boolean }>;
 }
 
 async function readJson(file: string): Promise<Record<string, unknown>> {
@@ -51,7 +52,7 @@ function groups(doc: Record<string, unknown>, event: string): HookGroup[] {
 }
 
 async function staleHooks(projectRoot: string, frameworkRoot: string, provider: string): Promise<StaleManagedDeployment[]> {
-  if (!['claude', 'muse', 'factory'].includes(provider)) return [];
+  if (!['claude', 'muse', 'factory', 'codex'].includes(provider)) return [];
   const file = provider === 'claude' ? '.claude/settings.json' : `.${provider}/hooks.json`;
   let doc;
   // Factory hooks.json is a top-level event map (older AIWG wrote it nested); normalize both (#3971).
@@ -59,7 +60,15 @@ async function staleHooks(projectRoot: string, frameworkRoot: string, provider: 
   catch { return [{ name: `${provider} managed hooks`, file, reason: 'unreadable' }]; }
 
   const stale: StaleManagedDeployment[] = [];
-  if (provider === 'factory') {
+  if (provider === 'codex') {
+    const { sources } = await loadHookSources(frameworkRoot);
+    const source = sources.find(hook => hook.id === 'aiwg-prompt-discovery');
+    if (!source?.args?.[0]) return [];
+    const expected = verifiedHookCommand(projectRoot, '.codex/hooks/aiwg-prompt-discovery.cjs', await fs.readFile(source.args[0]));
+    const candidates = groups(doc, 'UserPromptSubmit').flatMap(group => group.hooks || [])
+      .filter(hook => hook._aiwg_id === source.id);
+    if (!candidates.some(hook => hook.command === expected && hook.statusMessage === 'AIWG prompt discovery')) stale.push({ name: `UserPromptSubmit → ${source.id}`, file, reason: candidates.length ? 'outdated' : 'missing' });
+  } else if (provider === 'factory') {
     for (const hook of managedFactoryHooks()) {
       const candidates = groups(doc, hook.event).flatMap(group => Array.isArray(group?.hooks) ? group.hooks : [])
         .filter(entry => entry && (entry._aiwg_id === hook.id || entry.command === hook.command));
@@ -76,7 +85,7 @@ async function staleHooks(projectRoot: string, frameworkRoot: string, provider: 
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
       throw error;
     }
-    for (const hook of managedClaudeHooks(sourceFiles)) {
+    for (const hook of managedClaudeHooks(sourceFiles, projectRoot, source)) {
       const candidates = groups(doc, hook.event).flatMap(group =>
         Array.isArray(group?.hooks) ? group.hooks : [])
         .filter(entry => entry && (entry._aiwg_id === hook.hookId ||
@@ -93,7 +102,7 @@ async function staleHooks(projectRoot: string, frameworkRoot: string, provider: 
       const sidecar = await readJson(path.join(projectRoot, '.muse/.aiwg-hooks.json'));
       if (Array.isArray(sidecar.hooks)) recorded = sidecar.hooks;
     } catch { /* The live document still proves canonical registrations without a sidecar. */ }
-    for (const hook of AIWG_MANAGED_HOOKS) {
+    for (const hook of managedMuseHooks(projectRoot, await fs.readFile(path.join(frameworkRoot, 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs')))) {
       const deployed = groups(doc, hook.event);
       if (deployed.some(group => isDeepStrictEqual(group, hook.group))) continue;
       const previous = recorded.find(entry => entry?.id === hook.id);

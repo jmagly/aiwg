@@ -99,7 +99,9 @@ assert.deepEqual(['exit', 'SIGINT', 'SIGTERM'].map(signal => process.listenerCou
     const previews: string[][] = [];
     const counts: number[] = [];
     for (const mode of ['subprocess', 'embedded']) {
-      const base = path.join(scratch, mode);
+      // Same absolute path for both modes: deployed hook commands embed the anchored project path.
+      const base = path.join(scratch, 'run');
+      fs.rmSync(base, { recursive: true, force: true });
       const project = path.join(base, 'project');
       const home = path.join(base, 'home');
       fs.mkdirSync(project, { recursive: true });

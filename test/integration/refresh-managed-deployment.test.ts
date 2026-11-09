@@ -3,11 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { checkManagedDeployment } from '../../src/cli/handlers/refresh-managed-deployment.js';
 import { installAiwgHooks, managedClaudeHooks } from '../../src/extensions/claude-hooks-installer.js';
-import { AIWG_MANAGED_HOOKS } from '../../src/extensions/muse-managed-hooks.js';
+import { managedMuseHooks } from '../../src/extensions/muse-managed-hooks.js';
 import { installFactoryPromptDiscovery, managedFactoryHooks } from '../../src/smiths/hook-bridge/factory-translator.js';
 import { installCodexPromptDiscovery } from '../../src/smiths/hook-bridge/codex-translator.js';
 import { refreshHandler } from '../../src/cli/handlers/refresh.js';
@@ -32,7 +32,7 @@ function currentFixture(provider: string) {
   } });
   const hooks: Record<string, object[]> = {};
   if (provider === 'claude') {
-    for (const { event, hookId, command } of managedClaudeHooks(scripts)) {
+    for (const { event, hookId, command } of managedClaudeHooks(scripts, projectRoot, path.join(frameworkRoot, 'agentic/code/addons/aiwg-hooks/hooks'))) {
       (hooks[event] ??= []).push({ hooks: [{ type: 'command', command, _aiwg_id: hookId, _aiwg_managed: true }] });
     }
     write('.claude/settings.json', { hooks, operatorSetting: true });
@@ -42,6 +42,7 @@ function currentFixture(provider: string) {
     }] });
     write('.factory/hooks.json', { hooks }); // legacy nested shape; refresh still reads it (#3971)
   } else if (provider === 'muse') {
+    const AIWG_MANAGED_HOOKS = managedMuseHooks(projectRoot, fs.readFileSync(path.join(frameworkRoot, 'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs')));
     for (const hook of AIWG_MANAGED_HOOKS) (hooks[hook.event] ??= []).push(hook.group);
     write('.muse/hooks.json', { hooks });
     write('.muse/.aiwg-hooks.json', { version: 1, hooks: AIWG_MANAGED_HOOKS });
@@ -317,3 +318,42 @@ it('accepts Claude registrations with the matcher preserved by the installer', a
   await installAiwgHooks({ projectPath: projectRoot, frameworkRoot, attribution: false });
   expect(await check('claude')).toEqual([]);
 });
+
+
+it('detects and rewrites the legacy Codex ancestor loader without duplicating hooks', async () => {
+  await installCodexPromptDiscovery({ projectPath: projectRoot, frameworkRoot });
+  changeHooks('codex', doc => { doc.hooks.UserPromptSubmit[0].hooks[0].command = 'node -e ancestor-walk'; });
+  expect(await check('codex')).toContainEqual(expect.objectContaining({
+    name: 'UserPromptSubmit → aiwg-prompt-discovery', reason: 'outdated',
+  }));
+  await installCodexPromptDiscovery({ projectPath: projectRoot, frameworkRoot });
+  expect(await check('codex')).toEqual([]);
+  const hooks = JSON.parse(fs.readFileSync(path.join(projectRoot, '.codex/hooks.json'), 'utf8')).hooks;
+  expect(hooks.UserPromptSubmit).toHaveLength(1);
+});
+
+it('global bootstrap installs verified Claude and Muse scripts that run from an unrelated project', () => {
+  const home = process.env.HOME!;
+  execFileSync(process.execPath, [path.join(frameworkRoot, 'bin/aiwg.mjs'), 'use', 'all', '--global',
+    '--providers', 'claude,muse', '--target', projectRoot, '--quiet'], {
+    cwd: projectRoot, encoding: 'utf8', timeout: 180_000, maxBuffer: 8 * 1024 * 1024,
+    env: { ...process.env, USERPROFILE: home, AIWG_NO_UPDATE_CHECK: '1', NO_UPDATE_NOTIFIER: '1' },
+  });
+  const other = path.join(projectRoot, 'unrelated project');
+  fs.mkdirSync(other);
+  for (const provider of ['claude', 'muse']) {
+    const file = path.join(home, `.${provider}`, provider === 'claude' ? 'settings.json' : 'hooks.json');
+    const doc = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const commands = Object.values(doc.hooks).flatMap((groups: any) => groups.flatMap((group: any) => group.hooks))
+      .filter((hook: any) => hook.command.startsWith('node '));
+    expect(commands).toHaveLength(provider === 'claude' ? 5 : 1);
+    for (const hook of commands) {
+      expect(hook.command).toMatch(/[a-f0-9]{64}/);
+      const output = execSync(hook.command, {
+        cwd: other, input: '{}', encoding: 'utf8', timeout: 10_000,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: other, AIWG_PROMPT_DISCOVERY: '0' },
+      });
+      expect(output).not.toContain('Cannot find module');
+    }
+  }
+}, 210_000);

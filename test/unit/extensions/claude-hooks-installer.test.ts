@@ -13,6 +13,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import {
   installAiwgHooks,
+  managedClaudeHooks,
   restoreSettingsBackup,
 } from '../../../src/extensions/claude-hooks-installer.js';
 
@@ -38,6 +39,11 @@ async function makeAddonHooks(root: string): Promise<void> {
   for (const file of ['aiwg-permissions.cjs', 'aiwg-session.cjs', 'aiwg-trace.cjs']) {
     await fs.writeFile(path.join(dir, file), '#!/usr/bin/env node\n', 'utf8');
   }
+}
+
+function expectedCommand(event: string) {
+  return managedClaudeHooks(['aiwg-session.cjs', 'aiwg-permissions.cjs', 'aiwg-trace.cjs'], projectPath,
+    path.join(frameworkRoot, 'agentic/code/addons/aiwg-hooks/hooks')).find(hook => hook.event === event)!.command;
 }
 
 async function readSettings(): Promise<{ hooks?: HooksField; [k: string]: unknown }> {
@@ -103,7 +109,7 @@ describe('installAiwgHooks', () => {
           expect(h._aiwg_managed).toBe(true);
           expect(typeof h._aiwg_id).toBe('string');
           expect(h.type).toBe('command');
-          expect(h.command).toMatch(/^node \.claude\/hooks\/aiwg-/);
+          expect(h.command).toMatch(/^node -e /);
           expect(h.command).not.toContain('\\');
         }
       }
@@ -115,10 +121,10 @@ describe('installAiwgHooks', () => {
         ?.flatMap((group) => group.hooks)
         .find((hook) => hook._aiwg_id === hookId)?.command;
     expect(commandFor('SubagentStart', 'aiwg-trace')).toBe(
-      'node .claude/hooks/aiwg-trace.cjs start',
+      expectedCommand('SubagentStart'),
     );
     expect(commandFor('SubagentStop', 'aiwg-trace')).toBe(
-      'node .claude/hooks/aiwg-trace.cjs stop',
+      expectedCommand('SubagentStop'),
     );
   });
 

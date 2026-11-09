@@ -43,7 +43,7 @@ export async function postDeploy(targetDir, opts) {
   if (opts.attribution !== false || hooks) {
     const { installAiwgHooks } = await importImpl(import.meta.url, 'extensions/claude-hooks-installer.js');
     const { deploymentOwner } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
-    const result = await installAiwgHooks({ frameworkSlug: deploymentOwner(opts), claimUnchangedSettings: !addonPass, projectPath: targetDir,
+    const result = await installAiwgHooks({ frameworkSlug: deploymentOwner(opts), claimUnchangedSettings: !addonPass, projectPath: targetDir, commandRoot: opts.logicalOutputPath?.(targetDir),
       frameworkRoot: fileURLToPath(new URL('../../../', import.meta.url)),
       attribution: opts.attribution !== false, hooks, dryRun: opts.dryRun });
     if (!opts.dryRun && result) opts.writtenFiles?.push(result.settingsPath, ...result.installedScripts);
