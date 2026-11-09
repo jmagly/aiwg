@@ -1545,6 +1545,7 @@ export async function runDoctor() {
   const probeCommand = (name, args, expectStdout = null, validateStdout = null) => {
     try {
       const r = spawnSync(aiwgProbe.file, [...aiwgProbe.prefix, ...args], {
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         // Framework discovery can legitimately take longer than ten seconds
         // while the release suite is concurrently packing and rebuilding

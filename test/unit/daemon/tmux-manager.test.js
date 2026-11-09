@@ -60,7 +60,7 @@ describe('TmuxManager', () => {
       });
 
       expect(tmux.isTmuxAvailable()).toBe(true);
-      expect(execFileSync).toHaveBeenCalledWith('tmux', ['-V'], { stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
+      expect(execFileSync).toHaveBeenCalledWith('tmux', ['-V'], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' });
     });
 
     it('should return false when tmux is not available', () => {
@@ -85,7 +85,7 @@ describe('TmuxManager', () => {
       expect(tmux.sessionExists()).toBe(true);
       expect(execFileSync).toHaveBeenCalledWith(
         'tmux', ['has-session', '-t', 'aiwg-daemon'],
-        { stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' }
+        { stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
 
@@ -111,7 +111,7 @@ describe('TmuxManager', () => {
 
       expect(execFileSync).toHaveBeenCalledWith(
         'tmux', ['has-session', '-t', 'custom'],
-        { stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' }
+        { stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
   });
@@ -140,10 +140,10 @@ describe('TmuxManager', () => {
       expect(calls[1][1]).toEqual(['has-session', '-t', 'aiwg-daemon']);
       // Call 2: new-session
       expect(calls[2][1]).toEqual(['new-session', '-d', '-s', 'aiwg-daemon', '-x', '200', '-y', '50', 'echo "Chat pane ready"']);
-      expect(calls[2][2]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
+      expect(calls[2][2]).toEqual({ stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' });
       // Call 3: split-window with 30% status pane
       expect(calls[3][1]).toEqual(['split-window', '-t', 'aiwg-daemon', '-v', '-p', '30', 'echo "Status pane ready"']);
-      expect(calls[3][2]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
+      expect(calls[3][2]).toEqual({ stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' });
       // Call 4: select-pane
       expect(calls[4][1]).toEqual(['select-pane', '-t', 'aiwg-daemon:0.0']);
     });
@@ -390,7 +390,7 @@ describe('TmuxManager', () => {
         ['send-keys', '-t', 'aiwg-daemon:0.0', '-l', '--', 'test command'],
         ['send-keys', '-t', 'aiwg-daemon:0.0', 'Enter'],
       ]);
-      expect(sendCall[2]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
+      expect(sendCall[2]).toEqual({ stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' });
     });
 
     it('should send text without Enter when specified', () => {
@@ -401,14 +401,14 @@ describe('TmuxManager', () => {
       expect(execFileSync.mock.calls.filter(c => c[1][0] === 'send-keys').map(c => c[1])).toEqual([
         ['send-keys', '-t', 'aiwg-daemon:0.1', '-l', '--', 'partial text'],
       ]);
-      expect(sendCall[2]).toEqual({ stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' });
+      expect(sendCall[2]).toEqual({ stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' });
     });
 
     it('should pass quotes and key names as literal text', () => {
       tmux.sendToPane(0, 'text with "quotes" Enter C-c', false);
       expect(execFileSync).toHaveBeenCalledWith(
         'tmux', ['send-keys', '-t', 'aiwg-daemon:0.0', '-l', '--', 'text with "quotes" Enter C-c'],
-        { stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' }
+        { stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
 
@@ -690,7 +690,7 @@ describe('TmuxManager', () => {
 
       expect(execFileSync).toHaveBeenCalledWith(
         'tmux', ['kill-session', '-t', 'aiwg-daemon'],
-        { stdio: 'pipe', timeout: 30000, killSignal: 'SIGKILL' }
+        { stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
 
@@ -771,7 +771,7 @@ describe('TmuxManager', () => {
 
       expect(execFileSync).toHaveBeenCalledWith(
         'tmux', ['list-sessions', '-F', '#{session_name}:#{session_windows}:#{session_attached}'],
-        { stdio: 'pipe', encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' }
+        { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
 

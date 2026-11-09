@@ -55,8 +55,9 @@ describe('shared preflight measurement regressions', () => {
   });
 
   it('counts only explicit running/activating AIWG service units and rejects failed enumeration', () => {
-    expect(countWorkerUnits({ spawn: (cmd, args) => {
+    expect(countWorkerUnits({ spawn: (cmd, args, options) => {
       expect(cmd).toBe('systemctl'); expect(args).toContain('--state=running,activating');
+      expect(options.stdio).toEqual(['ignore', 'pipe', 'pipe']);
       return { status: 0, stdout: 'aiwg-worker-one.service loaded active running\nother.service active\naiwg-worker-two.service loaded activating\n' };
     } })).toBe(2);
     expect(countWorkerUnits({ spawn: () => ({ status: 0 }) })).toBe(0);

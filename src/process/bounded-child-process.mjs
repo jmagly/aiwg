@@ -10,6 +10,10 @@
  * normal Node `ETIMEDOUT` error/result with a message that names the
  * command, tier and bound.
  *
+ * Stdin defaults to ignore. Synchronous `input` is delivered through a private
+ * mode-0600 temporary file descriptor, closed and removed after each call.
+ * This avoids synchronous stdin pipes that fail in Codex sandboxes (#4032).
+ *
  * Tiers (see `SYNC_PROCESS_TIER_BOUNDS_MS`):
  *   - `quick`   30s  — local queries: git status/rev-parse/config, version
  *                      probes, `which`/`where`, `df`, tmux queries.
@@ -75,6 +79,9 @@ import {
   execFileSync as nodeExecFileSync,
   spawnSync as nodeSpawnSync,
 } from 'node:child_process';
+import { closeSync, mkdtempSync, openSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { signalChild } from './signal-child.mjs';
 
 /** Env var that raises or disables the `long` tier bound. `0` disables it (no timeout). */
@@ -208,45 +215,40 @@ function isParentStdinDescriptor(value) {
   return value === 'inherit' || value === 0 || value === process.stdin;
 }
 
-/**
- * A bounded call never inherits stdin; stdout/stderr may still be inherited
- * for progress output. When the caller supplies `input`, an inherited
- * stdin form is normalized to `'pipe'` instead of `'ignore'` — `input`
- * needs a real pipe to deliver its payload through, and `'ignore'` would
- * silently drop it (#3062 B/C finding 9). `options` is otherwise left
- * untouched when stdin was not going to be inherited anyway.
- *
- * @param {Record<string, unknown>} options
- * @returns {Record<string, unknown>}
- */
+/** Normalize stdin without changing output streams or caller-owned options. */
 function withoutInheritedStdin(options) {
-  if (options.input !== undefined) {
-    // `input` needs stdin to actually be a pipe to deliver its payload —
-    // a caller-specified inherited-stdin form in `stdio[0]` must not win
-    // over that (#3062 B/C finding 9: an earlier version returned
-    // `options` completely untouched here, so `input` combined with
-    // `stdio: 'inherit'`/fd `0`/`process.stdin` could still leave stdin
-    // connected to the parent's real stdin instead of the pipe `input`
-    // is written to). stdout/stderr and the payload itself are untouched.
-    if (options.stdio === 'inherit') {
-      return { ...options, stdio: ['pipe', 'inherit', 'inherit'] };
-    }
-    if (Array.isArray(options.stdio) && isParentStdinDescriptor(options.stdio[0])) {
-      const stdio = options.stdio.slice();
-      stdio[0] = 'pipe';
-      return { ...options, stdio };
-    }
-    return options;
+  const stdio = Array.isArray(options.stdio)
+    ? options.stdio.slice()
+    : [options.stdio, options.stdio ?? 'pipe', options.stdio ?? 'pipe'];
+  if (stdio[0] == null || stdio[0] === 'pipe' || stdio[0] === 'overlapped' || isParentStdinDescriptor(stdio[0])) {
+    stdio[0] = options.input === undefined ? 'ignore' : 'pipe';
   }
-  if (options.stdio === 'inherit') {
-    return { ...options, stdio: ['ignore', 'inherit', 'inherit'] };
+  return { ...options, stdio };
+}
+
+/** Deliver synchronous input without Node's sandbox-sensitive stdin pipe (#4032). */
+function withSyncStdin(options, run) {
+  if (options.input === undefined) return run(options);
+  let directory;
+  // Without writable temp storage, keep Node's own input pipe rather than fail:
+  // the wrappers must not throw where the native API does not.
+  try { directory = mkdtempSync(join(tmpdir(), 'aiwg-sync-stdin-')); }
+  catch { return run(options); }
+  let fd;
+  try {
+    const filename = join(directory, 'stdin');
+    writeFileSync(filename, options.input, {
+      flag: 'wx', mode: 0o600, encoding: options.encoding ?? 'utf8',
+    });
+    fd = openSync(filename, 'r');
+    const { input: _input, ...nodeOptions } = options;
+    nodeOptions.stdio = options.stdio.slice();
+    nodeOptions.stdio[0] = fd;
+    return run(nodeOptions);
+  } finally {
+    try { if (fd !== undefined) closeSync(fd); }
+    finally { rmSync(directory, { recursive: true, force: true }); }
   }
-  if (Array.isArray(options.stdio) && isParentStdinDescriptor(options.stdio[0])) {
-    const stdio = options.stdio.slice();
-    stdio[0] = 'ignore';
-    return { ...options, stdio };
-  }
-  return options;
 }
 
 /**
@@ -328,7 +330,7 @@ export function boundedExecSync(command, tier, options) {
   const boundMs = effectiveTimeoutMs(tier, options);
   const nodeOptions = toNodeOptions(options, boundMs);
   try {
-    return nodeExecSync(command, nodeOptions);
+    return withSyncStdin(nodeOptions, prepared => nodeExecSync(command, prepared));
   } catch (error) {
     throw enrichTimeoutError(error, { description: command, tier, boundMs });
   }
@@ -351,7 +353,7 @@ export function boundedExecFileSync(file, args, tier, options) {
   const boundMs = effectiveTimeoutMs(tier, options);
   const nodeOptions = toNodeOptions(options, boundMs);
   try {
-    return nodeExecFileSync(file, args, nodeOptions);
+    return withSyncStdin(nodeOptions, prepared => nodeExecFileSync(file, args, prepared));
   } catch (error) {
     throw enrichTimeoutError(error, { description: describeCommand(file, args), tier, boundMs });
   }
@@ -383,7 +385,7 @@ export function boundedSpawnSync(command, args, tier, options) {
   assertValidTier(tier);
   const boundMs = effectiveTimeoutMs(tier, options);
   const nodeOptions = toNodeOptions(options, boundMs);
-  const result = nodeSpawnSync(command, args, nodeOptions);
+  const result = withSyncStdin(nodeOptions, prepared => nodeSpawnSync(command, args, prepared));
   enrichTimeoutError(result.error, { description: describeCommand(command, args), tier, boundMs, signal: result.signal });
   return result;
 }

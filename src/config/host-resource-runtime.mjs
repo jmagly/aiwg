@@ -58,7 +58,7 @@ function listWorkerUnits({ spawn = spawnSync } = {}) {
   try {
     const result = spawn('systemctl', ['--user', 'list-units', '--type=service',
       '--state=running,activating', '--no-legend', '--plain', 'aiwg-worker-*'],
-    { encoding: 'utf8', timeout: 1000 });
+    { encoding: 'utf8', timeout: 1000, stdio: ['ignore', 'pipe', 'pipe'] });
     if (result.error || result.status !== 0) return undefined;
     return [...new Set(String(result.stdout ?? '').split('\n')
       .map(line => /^(aiwg-worker-[^\s]+\.service)\s/.exec(line.trim())?.[1]).filter(Boolean))];

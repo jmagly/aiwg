@@ -174,6 +174,10 @@ describe('doctor command probe behavior', () => {
       encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'],
     });
     expect(mocks.execFile).toHaveBeenCalledWith(file, [...prefix, '--version'], 'quick', { stdio: 'ignore' });
+    expect(mocks.spawn).toHaveBeenCalled();
+    for (const [, , options] of mocks.spawn.mock.calls) {
+      expect(options.stdio).toEqual(['ignore', 'pipe', 'pipe']);
+    }
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('AIWG Version: aiwg 1.0.0'));
     expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('aiwg installed but may not be in your PATH'));
     expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Installation Copies:'));

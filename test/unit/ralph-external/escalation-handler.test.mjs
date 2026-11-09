@@ -252,7 +252,7 @@ describe('EscalationHandler', () => {
           expect.stringContaining('WARNING'),
           expect.stringContaining('Test warning'),
         ]),
-        { timeout: 30000, killSignal: 'SIGKILL' }
+        { stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
 
@@ -271,7 +271,7 @@ describe('EscalationHandler', () => {
       expect(spawnSync).toHaveBeenCalledWith(
         'notify-send',
         expect.arrayContaining(['--urgency', 'critical']),
-        { timeout: 30000, killSignal: 'SIGKILL' }
+        { stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, killSignal: 'SIGKILL' }
       );
     });
 

@@ -616,6 +616,14 @@ See [Agent Loop Guide](../../agent-loop-guide.md) for full documentation.
 
 ## Troubleshooting
 
+**Discovery stalls or synchronous helpers report `EPERM` in the Linux sandbox?**
+AIWG's bounded synchronous helpers ignore stdin when no input is supplied and
+pass supplied input through a private mode-0600 temporary file descriptor. The
+file and descriptor are cleaned up after the call, including on errors and
+timeouts. This avoids the synchronous stdin pipe failure reported in #4032;
+discovery does not need sandbox escalation for that failure. A writable system
+temporary directory is required for calls that supply input.
+
 **Natural language not working?** Run regenerate:
 ```text
 /aiwg-regenerate
