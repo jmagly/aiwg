@@ -234,7 +234,7 @@ Open question: which Fortemi release will provide patched native-v4 schemas and 
 
 ### Tests and fixtures
 
-- [test/fixtures/mcp/tool-json-schema.v3.json](../../test/fixtures/mcp/tool-json-schema.v3.json) — Pre-migration baseline for all 88 MCP tools.
+- [test/fixtures/mcp/tool-json-schema.v3.json](../../test/fixtures/mcp/tool-json-schema.v3.json) — Pre-migration baseline for 88 MCP tools, plus the additive native-confirmation grant tool (#4002).
 - [test/unit/extensions/manifest.test.ts](../../test/unit/extensions/manifest.test.ts) — Manifest traversal and diagnostic regressions.
 - [test/unit/extensions/project-quickref.test.ts](../../test/unit/extensions/project-quickref.test.ts) — Quickref traversal and default independence regressions.
 - [test/unit/extensions/zod-validation.test.ts](../../test/unit/extensions/zod-validation.test.ts) — Numeric, timestamp and URL behavior regressions.

@@ -22,6 +22,7 @@ import { registerWriterProfileResources } from './tools/writer-profiles.mjs';
 import { registerDiscoveryTools } from './tools/discovery.mjs';
 import { registerCommandRunTool } from './tools/command-run.mjs';
 import { registerInteractionTools } from './tools/interaction.mjs';
+import { registerAuthorizationTools } from './tools/authorization.mjs';
 import { parseToolsets, registerOptInToolsets, KNOWN_TOOLSETS } from './tools/subsystems.mjs';
 import { AIWG_ROOT, findProjectRoot, resolveProjectAiwgDir } from './helpers.mjs';
 import { pinContainedRoot as pinArtifactRoot, openContainedFile as openArtifact, readContainedFile, listContainedFiles, validateContainedPath } from '../utils/contained-filesystem.mjs';
@@ -155,6 +156,7 @@ export async function createServer(options = {}) {
   // store. Callers select other projects explicitly via `project_dir`.
   const artifactEnv = { ...process.env };
   const trustedProjectRoot = await fs.realpath(options.projectDir ?? process.cwd());
+  registerAuthorizationTools(server, { projectRoot: trustedProjectRoot });
   const trustedArtifactRoot = await resolveProjectAiwgDir(trustedProjectRoot, { env: artifactEnv });
   const startupStore = options.artifactStore ?? await pinArtifactRoot(trustedArtifactRoot, trustedProjectRoot);
   const trustedStore = startupStore.root;

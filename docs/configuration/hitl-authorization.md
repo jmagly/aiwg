@@ -13,6 +13,18 @@ pr-required`) and configure HITL separately. Leave threat assessment enabled.
 
 ## Resolver and precedence
 
+Durable human grants can be captured through the AIWG MCP server's core
+`aiwg_authorization_grant_request` tool. The agent proposes categories, targets,
+environments, resources, verbs, impact, expiry (or `until-revoked`) and optional
+`maxUses`. The server validates the scope and asks the person to confirm it in a
+native form. Only explicit acceptance saves a signed grant and returns its
+`grantId`. Decline, cancellation, timeout, unsupported clients and text claiming
+approval save nothing. The form includes the canonical workspace bindings; free
+text conditions are omitted. See [the grant contract](../contracts/authorization-grant.v1.md#native-confirmation-capture)
+for arguments, identity provenance and retry behavior. No CLI argument records a
+grant. Process integration (#4003), search/explain/status (#4004), and harness
+question-hook capture remain deferred.
+
 `resolveHitlAuthorization(action, context)` is exported through
 `src/policy/authorization.ts`; its implementation is in `src/policy/hitl.ts`.
 It returns `decision`, `reason`, `policyVersion`, `matchedProfile` and `provenance`.

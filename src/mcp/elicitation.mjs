@@ -40,6 +40,36 @@ export function clientSupportsFormElicitation(mcpServer) {
   }
 }
 
+// Observe actual outgoing JSON-RPC IDs without depending on SDK private counters.
+const elicitationTransports = new WeakMap();
+export async function elicitWithRequestId(mcpServer, params, options) {
+  const transport = mcpServer.server.transport;
+  if (!transport) throw new Error('Elicitation requires a connected transport');
+  let pending = elicitationTransports.get(transport);
+  if (!pending) {
+    pending = new Map();
+    const send = transport.send.bind(transport);
+    transport.send = (message, ...rest) => {
+      if (message.method === 'elicitation/create') {
+        const capture = pending.get(message.params?._meta?.['aiwg.io/authorization-event']);
+        if (capture) capture.requestId = message.id;
+      }
+      return send(message, ...rest);
+    };
+    elicitationTransports.set(transport, pending);
+  }
+  const event = params._meta['aiwg.io/authorization-event'];
+  const capture = {};
+  pending.set(event, capture);
+  try {
+    const result = await mcpServer.server.elicitInput(params, options);
+    if (capture.requestId === undefined) throw new Error('Missing elicitation request ID');
+    return { result, requestId: String(capture.requestId) };
+  } finally {
+    pending.delete(event);
+  }
+}
+
 /**
  * Build a restricted JSON-schema (MCP elicitation `requestedSchema`) for a
  * single- or multi-select choice over the given options.

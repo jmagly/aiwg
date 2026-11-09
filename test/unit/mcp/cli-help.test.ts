@@ -55,6 +55,7 @@ describe('MCP capability help', () => {
       expect(Number(output.match(/OPT-IN TOOLSETS \((\d+) additional tools/)?.[1])).toBe(names.size);
       for (const name of KNOWN_TOOLSETS) expect(output).toMatch(new RegExp(`^  ${name} +`, 'm'));
       expect(output).toContain('ask-user');
+      expect(output).toContain('aiwg_authorization_grant_request');
     } finally {
       await server.close();
     }
