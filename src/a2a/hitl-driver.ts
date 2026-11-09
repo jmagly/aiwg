@@ -48,11 +48,13 @@ import {
   validateResponseStructurally,
 } from './hitl.js';
 import type { JsonValue, StreamEvent } from './types.js';
+import { collectAuthorizedHitlResponse, type PromptAuthorization, type PromptReceipt } from './hitl-authorization.js';
 import { digestDecisionContext } from '../audit/operator-decision.js';
 
 // ── Audit log surface ──────────────────────────────────────────────────
 
 export interface HitlAuditEntry {
+  authorization?: PromptReceipt;
   /** ISO 8601 timestamp at the moment the decision was finalized. */
   decided_at: string;
   /** Operator identity (delivery adapter's view — CLI uses $USER, etc.). */
@@ -200,6 +202,7 @@ function formatAjvError(err: any): string {
 // ── Driver ─────────────────────────────────────────────────────────────
 
 export interface DriveHitlOptions {
+  authorization?: PromptAuthorization;
   client: A2AClient;
   taskId: string;
   adapter: HitlDeliveryAdapter;
@@ -246,6 +249,7 @@ export async function driveHitlPromptsForTask(opts: DriveHitlOptions): Promise<v
       const ctx = inferEventContext(event);
       await driveOnePrompt({
         envelope,
+        authorization: opts.authorization,
         client: opts.client,
         adapter: opts.adapter,
         auditLog,
@@ -270,6 +274,7 @@ export async function driveHitlPromptsForTask(opts: DriveHitlOptions): Promise<v
  * notification webhook receiver in #1256).
  */
 export async function driveOnePrompt(opts: {
+  authorization?: PromptAuthorization;
   envelope: HitlPromptEnvelope;
   client: Pick<A2AClient, 'sendMessage'>;
   adapter: HitlDeliveryAdapter;
@@ -319,12 +324,9 @@ export async function driveOnePrompt(opts: {
   try {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       let response: JsonValue;
+      let authorization: PromptReceipt | undefined;
       try {
-        response = await opts.adapter.collect(opts.envelope, {
-          ...(opts.taskId !== undefined ? { taskId: opts.taskId } : {}),
-          ...(opts.contextId !== undefined ? { contextId: opts.contextId } : {}),
-          signal: controller.signal,
-        });
+        ({ response, authorization } = await collectAuthorizedHitlResponse(opts, controller.signal));
       } catch (err) {
         if (controller.signal.aborted) {
           await auditLog.append({
@@ -416,6 +418,7 @@ export async function driveOnePrompt(opts: {
         ...(opts.taskId !== undefined ? { task_id: opts.taskId } : {}),
         ...(opts.contextId !== undefined ? { context_id: opts.contextId } : {}),
         outcome: 'responded',
+        ...(authorization ? { authorization } : {}),
         response_digest: digestDecisionContext(response),
         duration_ms: Date.now() - startedAt,
       });

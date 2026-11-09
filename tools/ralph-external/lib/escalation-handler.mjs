@@ -46,6 +46,7 @@ export class EscalationHandler {
    * @param {boolean} [options.enableNotifications=true] - Enable desktop notifications
    */
   constructor(options = {}) {
+    this.projectRoot = options.projectRoot || process.cwd();
     this.giteaTokenPath = options.giteaTokenPath || '~/.config/gitea/token';
     this.giteaUrl = options.giteaUrl || 'https://git.integrolabs.net/api/v1';
     this.repo = options.repo || 'roctinam/ai-writing-guide';
@@ -68,6 +69,19 @@ export class EscalationHandler {
       timestamp: new Date().toISOString(),
       channels: [],
     };
+
+    // Continuing after a critical safety stop overrides the overseer, with unknown subsequent effects.
+    if (level === ESCALATION_LEVELS.CRITICAL || level === ESCALATION_LEVELS.EMERGENCY || typeof level === 'object') {
+      try {
+        const { checkHitlAuthorization } = await importImpl(import.meta.url, 'policy/hitl-check.js');
+        escalation.authorization = await checkHitlAuthorization(this.projectRoot, {
+          category: 'policy.override', repo: this.repo, environment: 'local',
+          resources: ['.aiwg/ralph-external'], verb: 'resume', reversible: false, impact: 'high',
+        });
+      } catch {
+        escalation.authorization = { decision: 'escalate', reason: 'authorization-check-unavailable' };
+      }
+    }
 
     // Desktop notification (non-blocking)
     if (this.enableNotifications) {

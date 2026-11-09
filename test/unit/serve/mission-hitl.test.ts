@@ -128,3 +128,34 @@ describe('mission A2A approval routing', () => {
     release(); expect((await pending).status).toBe(200);
   });
 });
+
+// #4003: lookup occurs before the observer exposes a mission approval prompt.
+import { observeA2ATerminalState } from '../../../src/serve/a2a-terminal-observer.js';
+import { mkdir, writeFile, rm } from 'node:fs/promises';
+import { emptyConfig } from '../../../src/config/aiwg-config.js';
+import { boundApproval, processGrant } from '../../fixtures/policy/process-authorization.js';
+
+it.each([true, false])('mission observer looks up a grant before emitting HITL (grant=%s)', async present => {
+  const s = setup();
+  const projectDir = join(testState, present ? 'with-grant' : 'without-grant');
+  await mkdir(join(projectDir, '.aiwg'), { recursive: true });
+  await writeFile(join(projectDir, '.aiwg/aiwg.config'), JSON.stringify(emptyConfig()));
+  vi.stubEnv('NODE_ENV', 'test'); vi.stubEnv('AIWG_EFFECT_LEDGER_TEST_KEY', 'a'.repeat(64));
+  try {
+    if (present) await processGrant(projectDir);
+    const authorization = { projectDir, bindings: new Map([[promptId, boundApproval(s.prompt as any)]]) };
+    const events: any[] = [];
+    s.registry.on('mission:state_change', event => events.push(event));
+    const fetcher = async (...args: Parameters<typeof s.fetcher>) => {
+      if (args[1]?.method === 'POST') s.task.status.state = 'completed';
+      return s.fetcher(...args);
+    };
+    await observeA2ATerminalState(s.registry, s.registry.getRegistration(s.mission.executorId)!,
+      'mission', 'instance', decodeTask('0.3', s.task), { fetch: fetcher, maxPolls: 1, pollIntervalMs: 1, authorization } as any);
+    expect(s.sent).toHaveLength(present ? 1 : 0);
+    expect(events.some(e => e.state === 'hitl-required')).toBe(!present);
+    if (present) expect(s.mission.recentEvents).toEqual(expect.arrayContaining([expect.objectContaining({
+      data: expect.objectContaining({ authorization: expect.objectContaining({ receipt: expect.objectContaining({ effectId: expect.any(String) }) }) }),
+    })]));
+  } finally { vi.unstubAllEnvs(); await rm(projectDir, { recursive: true, force: true }); }
+});
