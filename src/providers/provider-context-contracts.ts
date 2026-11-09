@@ -1,6 +1,7 @@
 // Built-in provider startup contracts used by the shared context graph.
 import type { Platform } from '../agents/types.js';
 import type { ProviderContextContract } from './provider-definition-schema.js';
+import { resolveHermesHomePath } from './hermes-home.js';
 
 const VERIFIED_ON = '2026-07-21';
 
@@ -37,6 +38,7 @@ export const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
     verification: { method: 'official AGENTS.md discovery chain; no Markdown include claimed', source: 'https://developers.openai.com/codex/guides/agents-md', lastVerified: VERIFIED_ON },
   },
   copilot: {
+    promptDiscovery: { delivery: 'bootstrap-rule', files: ['.github/copilot-instructions.md'] },
     startupFiles: ['.github/copilot-instructions.md', 'AGENTS.md', 'CLAUDE.md'], precedence: ['personal', 'repository', 'organization; CLI combines applicable files'],
     loadMode: 'native-include', includeSyntax: '@WORKSPACE.md\n@AIWG.md', configRegistration: null,
     bootstrapTargets: ['.github/copilot-instructions.md', 'AGENTS.md'], maxContextBytes: null, recommendedMaxLines: null, nestedContext: true, support: 'supported',
@@ -77,6 +79,7 @@ export const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
     },
   },
   'grok-build': {
+    promptDiscovery: { delivery: 'bootstrap-rule', files: ['AGENTS.md'] },
     // config.toml is configuration (MCP/plugins/permissions), not a startup/context file.
     // Hierarchical instructions: AGENTS.md + .grok/rules/*.md, root-to-cwd, deeper wins.
     startupFiles: ['AGENTS.md', '.grok/rules/*.md'],
@@ -95,6 +98,9 @@ export const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
     },
   },
   hermes: {
+    promptDiscovery: { delivery: 'hook-bridge', event: 'pre_llm_call', optIn: true, files: [
+      resolveHermesHomePath('config.yaml'), resolveHermesHomePath('agent-hooks', 'aiwg-prompt-discovery.cjs'),
+    ] },
     startupFiles: ['.hermes.md', 'AGENTS.md'], precedence: ['provider/system', '.hermes.md', 'AGENTS.md'],
     loadMode: 'prose-directive', includeSyntax: null, configRegistration: null,
     bootstrapTargets: ['.hermes.md', 'AGENTS.md'], maxContextBytes: null, recommendedMaxLines: 30, nestedContext: false, support: 'degraded',

@@ -94,10 +94,12 @@ async function main() {
     chunks.push(chunk);
   }
   const event = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  if (event.hook_event_name && event.hook_event_name !== 'UserPromptSubmit') return finish();
+  const hermes = event.hook_event_name === 'pre_llm_call';
+  if (event.hook_event_name && event.hook_event_name !== 'UserPromptSubmit' && !hermes) return finish();
   if ([event.role, event.message?.role].some(role => role && role !== 'user')
     || /^(system|notification|tool[_-]result)$/.test(event.type || '')) return finish();
-  const prompt = typeof event.prompt === 'string' ? event.prompt.trim() : '';
+  const text = hermes ? event.extra?.user_message : event.prompt;
+  const prompt = typeof text === 'string' ? text.trim() : '';
   if (!shouldDiscover(prompt)) return finish();
   const moduleUrl = runtimeModule();
   if (!moduleUrl || Date.now() >= deadline) return finish();
@@ -119,12 +121,12 @@ async function main() {
     })().catch(() => process.exit(0));
   `, {
     eval: true, stdout: true, stderr: true,
-    workerData: { moduleUrl, prompt, cwd: process.cwd() },
+    workerData: { moduleUrl, prompt, cwd: hermes && typeof event.cwd === 'string' ? event.cwd : process.cwd() },
   });
   worker.on('message', envelope => {
     if (Date.now() >= deadline) return finish();
     const context = contextFor(envelope, prompt);
-    if (context) process.stdout.write(JSON.stringify({
+    if (context) process.stdout.write(JSON.stringify(hermes ? { context } : {
       hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: context },
     }) + '\n', finish);
     else finish();

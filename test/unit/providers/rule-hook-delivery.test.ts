@@ -52,7 +52,20 @@ function deploy(root: string, provider: string, kernelOnly = true) {
 }
 
 describe('per-harness rule hooks (#3740)', () => {
-  it.each([...Object.keys(inlineStartup), 'openclaw'])('%s adds exec discovery and templates only to the Factory hook (#3942)', provider => {
+  it.each(['copilot', 'grok-build'])('%s carries discover-first when prompt hooks cannot inject context (#3996)', provider => {
+    const { target } = setup();
+    const files = projectStartup({ target }, { name: provider }, '', path.join(target, 'rules/RULES-INDEX.md'));
+    for (const file of files) {
+      expect(read(file)).toContain("aiwg discover --stdin <<'AIWG_REQUEST'");
+      expect(read(file)).toContain('Before any other tool call or answer');
+      expect(read(file)).toContain('aiwg show <type> <name>');
+      expect(read(file)).toContain('--rules --with-rule-bodies');
+      projectStartup({ target }, { name: provider }, '', path.join(target, 'rules/RULES-INDEX.md'));
+      expect(read(file).match(/Before any other tool call or answer/g)).toHaveLength(1);
+    }
+  });
+
+  it.each([...Object.keys(inlineStartup), 'openclaw'])('%s preserves rule routing and the Factory template instruction (#3942, #3996)', provider => {
     const { target } = setup();
     const indexFile = path.join(target, `.${provider}/rules/RULES-INDEX.md`);
     const files = projectStartup({ target, activeWorkspace: target }, { name: provider }, '', indexFile);
@@ -60,7 +73,8 @@ describe('per-harness rule hooks (#3740)', () => {
       const location = `.${provider}/rules/RULES-INDEX.md`;
       const original = `${provider}: Before every task and subagent task, read and follow \`${location}\`; read every listed kernel file and fetch matching full rules before governed work.`;
       const hook = read(file).split(`<!-- AIWG:rule-hook-${provider}:start -->\n`)[1].split(`\n<!-- AIWG:rule-hook-${provider}:end -->`)[0];
-      expect(hook).toBe(original + (provider === 'factory' ? factoryInstructions : ''));
+      if (['copilot', 'grok-build'].includes(provider)) expect(hook.startsWith(original)).toBe(true);
+      else expect(hook).toBe(original + (provider === 'factory' ? factoryInstructions : ''));
       if (provider === 'factory') {
         expect(hook).toContain("aiwg discover --stdin <<'AIWG_REQUEST'");
         expect(hook).toContain('never put request text in quotes on a command line');

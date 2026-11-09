@@ -31,6 +31,18 @@ const CURRENT_PLATFORM_IDS = [
 ];
 
 describe('provider definition registry', () => {
+  it('declares the deployed prompt discovery delivery paths (#3996)', () => {
+    for (const id of ['copilot', 'grok-build']) {
+      const definition = getProviderDefinition(id)!;
+      expect(definition.context).toMatchObject({ promptDiscovery: {
+        delivery: 'bootstrap-rule', files: [id === 'copilot' ? '.github/copilot-instructions.md' : 'AGENTS.md'],
+      } });
+    }
+    expect(getProviderDefinition('hermes')!.context).toMatchObject({ promptDiscovery: {
+      delivery: 'hook-bridge', event: 'pre_llm_call', optIn: true,
+    } });
+  });
+
   it('has a valid definition for every current Platform value', () => {
     const definitions = validateProviderDefinitionRegistry();
 

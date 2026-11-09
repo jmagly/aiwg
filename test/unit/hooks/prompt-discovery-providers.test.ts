@@ -9,7 +9,10 @@ import { spawnSync } from 'node:child_process';
 import { postDeploy as postDeployCodex } from '../../../tools/agents/providers/codex-post-deploy.mjs';
 import { translateForCodex } from '../../../src/smiths/hook-bridge/codex-translator.js';
 import { translateForHermes } from '../../../src/smiths/hook-bridge/hermes-translator.js';
+import { translateForCopilot } from '../../../src/smiths/hook-bridge/copilot-translator.js';
+import { translateForGrokBuild } from '../../../src/smiths/hook-bridge/grok-build-translator.js';
 import { deployMuseHooks, pruneMuseHooks } from '../../../tools/agents/providers/muse-hooks.mjs';
+import { parse as parseYaml } from 'yaml';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 let projectPath: string;
@@ -20,6 +23,37 @@ beforeEach(async () => {
 afterEach(async () => { vi.unstubAllEnvs(); await rm(projectPath, { recursive: true, force: true }); });
 
 describe('prompt discovery provider delivery', () => {
+  it.each([['copilot', translateForCopilot], ['grok-build', translateForGrokBuild]] as const)(
+    '%s reports its bootstrap fallback instead of emitting an ineffective prompt hook', async (provider, translate) => {
+      const { sources } = await loadHookSources(root);
+      const result = await translate(sources.find(source => source.id === 'aiwg-prompt-discovery')!, { projectPath });
+      expect(result.skipped).toBe(true);
+      expect(result.emittedPaths).toEqual([]);
+      expect(result.skipReason).toContain('bootstrap rule');
+      expect(await readFile(path.join(root, 'docs/hook-patterns.md'), 'utf8')).toContain(`| ${provider} | Bootstrap rule:`);
+    });
+
+  it.each(['dry-run', 'malformed config', 'malformed hooks', 'malformed entries', 'symlink'])(
+    'Hermes %s leaves operator configuration untouched', async scenario => {
+      const home = path.join(projectPath, 'profile');
+      vi.stubEnv('HERMES_HOME', home);
+      await mkdir(home);
+      const config = path.join(home, 'config.yaml');
+      const text = scenario === 'malformed config' ? 'hooks: [' : scenario === 'malformed hooks' ? 'hooks: false\n'
+        : scenario === 'malformed entries' ? 'hooks:\n  pre_llm_call: false\n' : '# Operator\nmodel: keep\n';
+      await writeFile(config, text);
+      const { sources } = await loadHookSources(root);
+      const source = sources.find(source => source.id === 'aiwg-prompt-discovery')!;
+      if (scenario === 'symlink') {
+        const { symlink } = await import('node:fs/promises');
+        await symlink(path.join(projectPath, 'elsewhere'), path.join(home, 'agent-hooks'));
+      }
+      if (scenario === 'dry-run') await translateForHermes(source, { projectPath, dryRun: true });
+      else await expect(translateForHermes(source, { projectPath })).rejects.toThrow(/Invalid Hermes|symlinked Hermes/);
+      expect(await readFile(config, 'utf8')).toBe(text);
+      await expect(access(path.join(home, 'agent-hooks/aiwg-prompt-discovery.cjs'))).rejects.toThrow();
+    });
+
   it('registers the Codex prompt hook by default, preserving operator hooks and repairing the script', async () => {
     const settings = path.join(projectPath, '.codex/hooks.json');
     await mkdir(path.dirname(settings), { recursive: true });
@@ -118,20 +152,53 @@ describe('prompt discovery provider delivery', () => {
     await expect(access(path.join(projectPath, '.muse'))).rejects.toThrow();
   });
 
-  it.each([
-    ['hermes', translateForHermes, 'exit code'],
-  ] as const)('reports the %s context injection gap without writing native config', async (provider, translate, reason) => {
+  it('delivers Hermes pre_llm_call context through the documented shell-hook protocol (#3996)', async () => {
+    const home = path.join(projectPath, 'profile');
+    vi.stubEnv('HERMES_HOME', home);
+    await mkdir(home);
+    const config = path.join(home, 'config.yaml');
+    await writeFile(config, '# Operator config\nmodel: operator-model\nhooks_auto_accept: false\nhooks:\n  pre_llm_call:\n    - command: operator-hook\n');
     const loaded = await loadHookSources(root);
     expect(loaded.errors).toEqual([]);
-    const source = loaded.sources.find(s => s.id === 'aiwg-prompt-discovery');
-    expect(source?.events).toEqual(['UserPromptSubmit']);
-    expect(source?.degradeOn).toContain(provider);
-    const result = await translate(source!, { projectPath });
-    expect(result.skipped).toBe(true);
-    expect(result.emittedPaths).toEqual([]);
-    expect(result.skipReason).toContain(reason);
-    expect(result.skipReason).toContain('additionalContext');
-    const docs = await readFile(path.join(root, 'docs/hook-patterns.md'), 'utf8');
-    expect(docs).toContain('| Hermes | Explicit gap:');
+    const source = loaded.sources.find(s => s.id === 'aiwg-prompt-discovery')!;
+    expect(source.degradeOn).not.toContain('hermes');
+    const result = await translateForHermes(source, { projectPath });
+    expect(result.skipped).toBe(false);
+    const once = await readFile(config, 'utf8');
+    expect(once).toContain('# Operator config');
+    const doc = parseYaml(once);
+    expect(doc.model).toBe('operator-model');
+    expect(doc.hooks_auto_accept).toBe(false);
+    expect(doc.hooks.pre_llm_call).toHaveLength(2);
+    expect(doc.hooks.pre_llm_call[0].command).toBe('operator-hook');
+    const entry = doc.hooks.pre_llm_call[1];
+    const script = path.join(home, 'agent-hooks/aiwg-prompt-discovery.cjs');
+    expect(entry.command).toContain(script);
+    expect(entry.timeout).toBe(2);
+    expect(result.emittedPaths).toEqual(expect.arrayContaining([script, config]));
+    const runtime = path.join(projectPath, 'dist/src/artifacts');
+    await mkdir(runtime, { recursive: true });
+    await copyFile(path.join(root, 'test/fixtures/hooks-prompt-discovery.mjs'), path.join(runtime, 'query-engine-discover.js'));
+    const invoke = (user_message: string, enabled = '1', hook_event_name = 'pre_llm_call') => spawnSync(process.execPath, [script], {
+      cwd: projectPath, encoding: 'utf8', timeout: 5000,
+      input: JSON.stringify({ hook_event_name, cwd: projectPath, extra: { user_message } }),
+      env: { ...process.env, AIWG_ROOT: projectPath, AIWG_PROMPT_DISCOVERY: enabled },
+    });
+    const run = invoke('Review the login code for authentication issues');
+    expect(run.status).toBe(0);
+    expect(run.stderr).toBe('');
+    expect(JSON.parse(run.stdout).context).toContain('skill security-review');
+    expect(JSON.parse(run.stdout).context.length).toBeLessThan(600);
+    for (const run of [invoke('ok'), invoke('Review authentication', '0'), invoke('Review authentication', '1', 'post_tool_call')]) {
+      expect(run.status).toBe(0); expect(run.stdout).toBe(''); expect(run.stderr).toBe('');
+    }
+    await unlink(script);
+    await translateForHermes(source, { projectPath });
+    await access(script);
+    expect(await readFile(config, 'utf8')).toBe(once);
+    await writeFile(script, '// Operator edit\n');
+    const edited = await translateForHermes(source, { projectPath });
+    expect(edited.warnings.join(' ')).toContain('operator-edited');
+    expect(await readFile(script, 'utf8')).toBe('// Operator edit\n');
   });
 });

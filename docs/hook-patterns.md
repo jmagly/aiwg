@@ -1,14 +1,14 @@
 # AIWG Hook Patterns
 
 **Issues:** #284, #289
-**Version:** 2026.11.3
+**Version:** 2026.11.4
 **Status:** Active
 
 ## Prompt-time discovery (#3858)
 
 > Review the authentication code for security issues.
 
-On Claude Code, Muse, Codex 0.165, and interactive Factory, each substantive prompt gives the assistant up to three
+On Claude Code, Muse, Codex 0.165, Hermes, and interactive Factory, each substantive prompt gives the assistant up to three
 AIWG candidates: type, name, a short capability, and relevance score. For example,
 its additional context can contain `skill security-review (0.92): Review code for
 security issues`, followed by the steps to inspect the candidate with
@@ -59,12 +59,39 @@ already-installed hooks.
 | Muse | UserPromptSubmit additionalContext via project hook owner |
 | Codex 0.165 | UserPromptSubmit additionalContext via project `.codex/hooks.json` |
 | Factory | UserPromptSubmit plain stdout context via project `.factory/hooks.json`; requires folder trust and a git commit |
-| Hermes | Explicit gap: the bridge returns an exit code without forwarding prompt JSON or injecting additionalContext |
+| Hermes | Opt-in `pre_llm_call` shell hook in `$HERMES_HOME/config.yaml`, returning native `{context}`; requires command consent |
+| Copilot | Discover-first bootstrap rule in `.github/copilot-instructions.md` |
+| Grok Build | Discover-first bootstrap rule in `AGENTS.md` |
 
-The canonical source declares these gaps with `degrade-on`; bridge deployment
-reports a skip reason instead of installing an ineffective prompt hook. Copilot
-and Grok Build are also excluded pending a verified delivery path for
-this hook. A native event mapping alone does not establish context delivery.
+The canonical source retains `degrade-on` for Copilot and Grok Build: their
+bootstrap rules require `aiwg discover --stdin` before any other tool call or
+answer, then `aiwg show` with rule bodies and application. These rules obtain
+candidates through discovery; they do not inject ranked candidates automatically.
+
+## Offline delivery evidence (#3996)
+
+Installed help/docs were inspected offline on 2026-11-08; no prompt runs were made:
+
+- Copilot 1.0.105: `copilot --help`, `copilot help hooks` (unknown topic), and
+  the installed `@github/copilot/README.md` document no prompt-context injection
+  contract. `--no-custom-instructions` explicitly disables instruction loading;
+  the fallback requires custom instructions to remain enabled.
+- Grok 1.0.77: installed binary's bundled Hooks documentation, extracted with
+  `strings`, says allowing `UserPromptSubmit` stdout is discarded, with no
+  `additionalContext`. Tool-event context is too late for prompt discovery.
+- Hermes checkout `dce1e9b375`: installed `website/docs/user-guide/features/hooks.md`, “Shell Hooks”
+  and “JSON wire protocol”, documents `pre_llm_call`, stdin `extra.user_message`,
+  and stdout `{context}`. The existing bridge copies the shared bounded script
+  to `$HERMES_HOME/agent-hooks/aiwg-prompt-discovery.cjs` and merges that event
+  into `config.yaml`. Use `aiwg use all --provider hermes --enable-cross-provider-hooks`;
+  the existing bridge stays opt-in and `--no-hooks` suppresses it. Commands, comments and consent
+  settings are preserved. Approve the command in Hermes; AIWG does not set
+  `hooks_auto_accept`. Safe mode and denied/unapproved hooks prevent delivery.
+  Hermes help failed because its dependency environment needs repair; installed
+  docs establish this contract, with runtime UAT deferred.
+
+`context.promptDiscovery` in the provider registry records delivery files,
+the Hermes event and opt-in; the isolated harness audit checks the deployed bytes.
 
 ## Factory project hooks (#3976)
 
@@ -397,13 +424,13 @@ establishes it; interactive support does not establish exec support.
 | antigravity | None | `agy --print` | Unverified | Pass | Static only |
 | claude | Native: `.claude/settings.json` | `claude --print` | Unverified separately | Pass | p1/p2/p4 discover-first; p3 not supplied |
 | codex | Bridge: `.codex/hooks.json`; trust + review required | `codex exec` | Unverified separately | Pass | Discover at calls 2–8, after bootstrap reads; per-prompt scores not supplied |
-| copilot | None: bridge mapping excluded for prompt discovery | `copilot` noninteractive | Unverified | Pass | Static only |
+| copilot | Bootstrap rule: `.github/copilot-instructions.md` | `copilot` noninteractive | Bootstrap directive; runtime unverified | Pass | Static only |
 | cursor | None | `cursor-agent --print` | Unverified | Pass | Static only |
 | deepseek-harness | None | `dsh --profile headless` | Unverified | Pass | Static only |
 | factory | Bridge: `.factory/hooks.json`; trusted committed project | `droid exec` | **No prompt hooks** | Pass | Interactive hooks fire after #3971; exec relies on discovery/template rule |
 | grokbot | None | No evidenced CLI worker surface | N/A | Pass | Static only |
-| grok-build | None: bridge mapping excluded for prompt discovery | `grok --print` | Unverified | Pass | Static only |
-| hermes | None: bridge lacks prompt/context transport | `hermes` noninteractive | Unverified | Pass | Static only |
+| grok-build | Bootstrap rule: `AGENTS.md` | `grok --print` | Submit stdout discarded; bootstrap directive | Pass | Static only |
+| hermes | Opt-in bridge: `$HERMES_HOME/config.yaml` `pre_llm_call` shell hook | `hermes` noninteractive | Documented CLI + gateway; consent required; runtime unverified | Pass | Static only |
 | muse | Native project owner: `.muse/hooks.json` + sidecar | `muse exec` | Unverified separately | Pass | p2 discover-first; p1/p4 mixed; p3 not supplied |
 | opencode | None | `opencode run` | Unverified | Pass | Static only |
 | openclaw | None | `openclaw agent exec` | Unverified | Pass | Static only |
@@ -427,8 +454,8 @@ requested rules (`skill-discovery` and `artifact-output-policy` kernel files;
 and mtimes to check that the dry run is read-only. This does not run hooks or
 prove runtime discovery, template loading, or provider trust.
 
-Installed CLI/version collection and new live UAT are deferred: this worker is
-offline and prohibited from invoking provider CLIs. Supplied UAT above is
+The #3935 audit deferred CLI/version collection; #3996 inspected installed help
+and docs offline as recorded above. New live UAT remains deferred. Supplied UAT above is
 historical input, not a fresh run or a complete per-prompt score. No tracker
 writes were made; the conductor owns issue filing and publication on #3935.
 
@@ -437,7 +464,7 @@ worker's steps 1/2/5 scope):
 
 | Provider | File | Symptom |
 |---|---|---|
-| copilot, grok-build, hermes | `agentic/code/addons/aiwg-hooks/canonical/aiwg-prompt-discovery.yaml` | Explicit `degrade-on`: bridge event mappings do not deliver prompt candidates to model context. |
+| copilot, grok-build | `tools/agents/providers/rule-startup.mjs` | #3996 delivers a discover-first bootstrap rule; automatic prompt-context injection is not documented. |
 | codex | `src/smiths/hook-bridge/codex-translator.ts` | Supplied UAT discovers at calls 2–8 after bootstrap; discover-first is not established. Trust/review remain runtime prerequisites. |
 | muse | `tools/agents/providers/muse-prompt-discovery.mjs` | Supplied p1/p4 discover-first results remain mixed. |
 | factory | `tools/agents/providers/factory-hooks.mjs` | Interactive registration does not run in `droid exec`; the bootstrap rule carries discovery/template use. |

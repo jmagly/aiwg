@@ -1,4 +1,5 @@
 /**
+ * Prompt discovery uses documented pre_llm_call shell hooks and native context JSON.
  * Hermes hook translator — emits a Python plugin stub at
  * ~/.hermes/plugins/<id>.py that registers itself with Hermes' Python
  * plugin system and shells out to the AIWG hook command.
@@ -13,7 +14,7 @@ import * as path from 'node:path';
 import { homedir } from 'node:os';
 import type { HookSource, TranslateOptions, TranslateResult } from './types.js';
 import { substituteEnvVars } from './shim.js';
-import { PROMPT_DISCOVERY_GAPS } from './prompt-discovery-gaps.js';
+import { translateHermesPromptDiscovery } from './hermes-prompt-discovery.js';
 
 const HERMES_EVENT_MAP: Record<string, string> = {
   PreToolUse: 'pre_tool',
@@ -75,10 +76,10 @@ export async function translateForHermes(
 
   if (source.degradeOn?.includes('hermes')) {
     result.skipped = true;
-    result.skipReason = source.id === 'aiwg-prompt-discovery'
-      ? PROMPT_DISCOVERY_GAPS['hermes'] : 'degrade-on declared hermes';
+    result.skipReason = 'degrade-on declared hermes';
     return result;
   }
+  if (source.id === 'aiwg-prompt-discovery') return translateHermesPromptDiscovery(source, options);
 
   const events = source.events
     .map((e) => HERMES_EVENT_MAP[e])
