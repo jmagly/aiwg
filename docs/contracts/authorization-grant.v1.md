@@ -184,8 +184,9 @@ can remove it; purged grants are excluded from the derived index. No existing
 
 Part 1 stores history, including expired and revoked records. Part 2 (#4001)
 resolves grants and counts uses through the existing authorization check. Part 3
-(#4002) captures grants through MCP form elicitation. Process wiring (#4003),
-search/explain/status (#4004), and harness hook capture (for example PostToolUse
-on a native question tool) remain deferred to their owning issues or follow-ups. Optional
+(#4002) captures grants through MCP form elicitation. Operator search/explain/status and CLI revocation are specified in the
+[authorization ledger contract](authorization-ledger.v1.md). Process wiring (#4003)
+builds on these APIs. Harness hook capture (for example PostToolUse on a native
+question tool) remains deferred to its owning follow-up. Optional
 verbatim user phrases are omitted to preserve the effect ledger's existing raw
 payload restrictions; digests bind the question and user turn instead.

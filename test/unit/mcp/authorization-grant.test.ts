@@ -60,6 +60,29 @@ afterEach(async () => {
 });
 
 describe('native confirmed authorization grants (#4002)', () => {
+  it('offers read-only list/search/explain lookup without native elicitation or ledger mutation', async () => {
+    await connect(); await call();
+    const path = join((await ledger()).paths().segments, 'cli.jsonl');
+    const before = await readFile(path, 'utf8'); const asked = questions.length;
+    const tools = (await client.listTools()).tools;
+    expect(tools.find(t => t.name === 'aiwg_authorization_grant_lookup')?.annotations?.readOnlyHint).toBe(true);
+    const lookup = async (arguments_: any) => {
+      const result: any = await client.callTool({ name: 'aiwg_authorization_grant_lookup', arguments: arguments_ });
+      return { result, value: result.isError ? null : JSON.parse(result.content[0].text) };
+    };
+    expect((await lookup({ operation: 'list', status: 'active' })).value.grants).toHaveLength(1);
+    expect((await lookup({ operation: 'search', query: 'create issues' })).value.matches).toHaveLength(1);
+    expect((await lookup({ operation: 'explain', action: { category: 'tracker.write', repo: 'roctinam/aiwg',
+      target: 'tracker:local', verb: 'create', environment: 'development', resources: ['issues/new'], reversible: true, impact: 'low' } })).value)
+      .toMatchObject({ decision: 'auto-authorized', matchingGrant: { grant: { grantId: expect.any(String) } } });
+    expect((await lookup({ operation: 'explain', action: { confirmed: true } })).value.decision).toBe('escalate');
+    expect((await lookup({ operation: 'search', query: '   ' })).result.isError).toBe(true);
+    expect((await lookup({ operation: 'revoke', grantId: 'any' })).result.isError).toBe(true);
+    expect((await lookup({ operation: 'list', confirmed: true })).result.isError).toBe(true);
+    expect((await lookup({ operation: 'list', query: 'issues' })).result.isError).toBe(true);
+    expect((await lookup({ operation: 'search' })).result.isError).toBe(true);
+    expect(await readFile(path, 'utf8')).toBe(before); expect(questions).toHaveLength(asked);
+  });
   it('confirms always allowing AIWG issue filing, signs the grant and auto-authorizes a matching CLI check', async () => {
     await connect();
     expect((await client.listTools()).tools.map(t => t.name)).toContain(tool);

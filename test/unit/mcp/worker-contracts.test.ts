@@ -162,7 +162,7 @@ describe('native Zod MCP schema contracts', () => {
     root = undefined;
   });
 
-  it('preserves all 89 registered input and output JSON Schemas', async () => {
+  it('preserves all 90 registered input and output JSON Schemas', async () => {
     root = mkdtempSync(join(tmpdir(), 'aiwg-mcp-schema-contract-'));
     mkdirSync(join(root, '.aiwg'));
     projectRoot.mockResolvedValue(root);
@@ -172,7 +172,7 @@ describe('native Zod MCP schema contracts', () => {
     const server = await createServer();
     try {
       const listed = await server.server._requestHandlers.get('tools/list')({ method: 'tools/list' }, {});
-      expect(listed.tools).toHaveLength(89);
+      expect(listed.tools).toHaveLength(90);
       const shapes = server._registeredTools;
       expect(shapes['worker-invoke'].inputSchema.shape.invocation_id.safeParse('00000000-0000-0000-0000-000000000001').success).toBe(true);
       expect(shapes['sandbox-fleet-reconcile-preview'].inputSchema.shape.before_revision.safeParse(Number.MAX_SAFE_INTEGER + 1).success).toBe(true);

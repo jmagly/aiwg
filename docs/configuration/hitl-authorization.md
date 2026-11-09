@@ -22,8 +22,9 @@ native form. Only explicit acceptance saves a signed grant and returns its
 approval save nothing. The form includes the canonical workspace bindings; free
 text conditions are omitted. See [the grant contract](../contracts/authorization-grant.v1.md#native-confirmation-capture)
 for arguments, identity provenance and retry behavior. No CLI argument records a
-grant. Rule, skill and executable process integration (#4003) are listed below;
-search/explain/status (#4004) and harness question-hook capture remain deferred.
+new positive grant. Rule, skill and executable process integration (#4003) are listed below;
+operator search/explain/status is described below. Harness question-hook capture
+remains deferred.
 
 `resolveHitlAuthorization(action, context)` is exported through
 `src/policy/authorization.ts`; its implementation is in `src/policy/hitl.ts`.
@@ -288,3 +289,37 @@ review. Host integrations that already own the exact execution plan may pass
 `PromptAuthorization`; this object is never read from public dispatch payloads or
 A2A metadata. Extending executor action classification is deferred rather than
 inferring safe effects from natural language.
+
+## Finding and auditing durable grants
+
+Use the existing operator surface (also `aiwg steward authorization`):
+
+```bash
+aiwg config authorization list --active --json
+aiwg config authorization show GRANT_ID
+aiwg config authorization search "create issues development"
+aiwg config authorization explain --action-file action.json
+aiwg config authorization revoke GRANT_ID
+aiwg config authorization verify
+```
+
+`list --expired` and `list --revoked` expose historical records. Search returns
+up to 20 deterministic token/field matches with reasons. Explain uses the same
+matcher, canonical paths, governing policy and use accounting as the resolver;
+it shows the matching or nearest grant and safety escalation without recording
+receipts or consuming uses. Only `check` supplies workflow authorization receipts.
+Revoking a grant appends a signed removal record and takes effect on the next
+check, including receipt reuse. Legacy `revoke --profile NAME` still removes a
+config profile; grant revocation does not remove independent config authority.
+
+`aiwg status --probe` and `aiwg doctor` report active, expiring-soon and unverifiable
+grants plus index drift without repairing storage. Expiring-soon means the inclusive
+next seven days (`AUTHORIZATION_EXPIRING_SOON_MS`); active is an inventory state,
+not an action authorization. Unknown unverifiable counts appear as `null` in JSON.
+`verify` repairs the derived index; ledger damage still fails verification.
+
+Harnesses without a shell can use the read-only MCP
+`aiwg_authorization_grant_lookup` tool with `operation: list`, `search`, or `explain`.
+It never captures approval or revokes grants. See the
+[authorization ledger contract](../contracts/authorization-ledger.v1.md) for
+fields, ranking, revocation lineage and failure behavior.

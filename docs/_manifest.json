@@ -54,6 +54,7 @@
     "architecture/adr-effect-ledger",
     "contracts/effect-ledger.v1",
     "contracts/authorization-grant.v1",
+    "contracts/authorization-ledger.v1",
     "install/web-backed-resources",
     "install/non-interactive",
     "quickstart",
@@ -1226,6 +1227,13 @@
       "title": "Authorization Grant Contract v1",
       "summary": "Signed durable human grants in the effect ledger: schema, prohibited classes, storage and verify",
       "file": "contracts/authorization-grant.v1.md",
+      "parent": "reference"
+    },
+    {
+      "id": "contracts/authorization-ledger.v1",
+      "title": "Authorization Ledger Contract v1",
+      "summary": "Verified grant lookup, deterministic explanations, signed revocation and read-only health reporting",
+      "file": "contracts/authorization-ledger.v1.md",
       "parent": "reference"
     },
     {

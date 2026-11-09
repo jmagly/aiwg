@@ -34,7 +34,7 @@ function actionFieldsValid(a: HitlAction): boolean {
     && typeof a.reversible === 'boolean' && ['low', 'medium', 'high'].includes(a.impact);
 }
 /** Deliberately small glob language: * within a segment; ** crosses directories; ? one character. */
-function glob(pattern: string, path: string): boolean {
+export function glob(pattern: string, path: string): boolean {
   // Memoized matching bounds work by pattern length × path length, without regex backtracking.
   const memo = new Map<string, boolean>();
   const match = (i: number, j: number): boolean => {

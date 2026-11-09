@@ -58,6 +58,7 @@
     "tools/ralph-external/lib/behavior-registry.mjs",
     "tools/warp/warp-content.mjs",
     "tools/cli/decision-offload-report.mjs",
+    "tools/cli/authorization-health.mjs",
     "tools/cli/workspace-status.mjs",
     "tools/ralph-external/session-launcher.mjs",
     "tools/ralph-external/process-monitor.mjs",

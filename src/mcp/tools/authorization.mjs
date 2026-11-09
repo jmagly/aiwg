@@ -11,10 +11,10 @@ const proposalSchema = z.strictObject({
 });
 const reply = (value, isError = false) => ({ content: [{ type: 'text', text: JSON.stringify(value) }], ...(isError ? { isError } : {}) });
 
-async function captureApi() {
+async function authorizationApi(module) {
   // Shipped dist has the compiled module beside this file's tree; a source checkout uses dist/.
-  for (const location of [new URL('../../policy/authorization-capture.js', import.meta.url),
-    new URL('../../../dist/src/policy/authorization-capture.js', import.meta.url)]) {
+  for (const location of [new URL(`../../policy/${module}.js`, import.meta.url),
+    new URL(`../../../dist/src/policy/${module}.js`, import.meta.url)]) {
     try { await access(location); } catch { continue; }
     return import(location.href);
   }
@@ -22,6 +22,29 @@ async function captureApi() {
 }
 
 export function registerAuthorizationTools(server, { projectRoot }) {
+  const lookupSchema = z.strictObject({
+    operation: z.enum(['list', 'search', 'explain']), status: z.enum(['active', 'expired', 'revoked']).optional(),
+    query: z.string().min(1).max(4096).optional(), action: z.record(z.string(), z.unknown()).optional(),
+  });
+  server.registerTool('aiwg_authorization_grant_lookup', {
+    title: 'Inspect durable authorization grants',
+    description: 'Read verified grants: list, deterministic token search with match reasons, or explain a host-classified action. Never records grants, revocations, receipts or uses.',
+    inputSchema: lookupSchema,
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  }, async args => {
+    try {
+      const input = lookupSchema.parse(args);
+      const field = { list: 'status', search: 'query', explain: 'action' }[input.operation];
+      if (Object.keys(input).some(key => key !== 'operation' && key !== field)
+        || (input.operation !== 'list' && input[field] === undefined)) throw new Error('Invalid lookup fields');
+      const api = await authorizationApi('authorization-operations');
+      return reply(input.operation === 'list' ? await api.listAuthorizationGrants(projectRoot, input.status)
+        : input.operation === 'search' ? await api.searchAuthorizationGrants(projectRoot, input.query)
+        : await api.explainAuthorization(projectRoot, input.action));
+    } catch {
+      return reply({ status: 'unavailable', reason: 'invalid-query-or-authorization-ledger-unavailable' }, true);
+    }
+  });
   const connectionId = `mcp-session:${randomUUID()}`;
   server.registerTool('aiwg_authorization_grant_request', {
     title: 'Request a durable human authorization grant',
@@ -31,7 +54,7 @@ export function registerAuthorizationTools(server, { projectRoot }) {
   }, async (args, extra) => {
     try {
       const proposal = proposalSchema.parse(args);
-      const api = await captureApi();
+      const api = await authorizationApi('authorization-capture');
       const sessionId = extra?.sessionId ?? connectionId;
       const identity = { sessionId, id: extra?.authInfo?.clientId ?? `session:${sessionId}` };
       const { grant, question } = await api.prepareAuthorizationGrant(projectRoot, proposal, identity);

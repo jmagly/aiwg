@@ -20,6 +20,7 @@
  */
 
 import fs from 'fs/promises';
+import { readAuthorizationHealth } from './authorization-health.mjs';
 import { importImpl } from '../_resolve-impl.mjs';
 import { collectDecisionOffloadReport, formatDecisionOffloadReport } from './decision-offload-report.mjs';
 import { existsSync } from 'fs';
@@ -547,6 +548,7 @@ async function buildVerificationProbe(projectRoot) {
 
   return {
     schema: 'aiwg.status.probe.v1',
+    authorization: await readAuthorizationHealth(projectRoot),
     nativeSandboxWarnings: workspace.nativeSandboxWarnings,
     rule_pins: workspace.rule_pins,
     generated_at: new Date().toISOString(),
