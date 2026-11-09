@@ -121,7 +121,9 @@ export function assertContract(card: any, bundle: string, kind: Kind, pinned = f
   expect(card.required_rule_checks).toEqual([{ rule_id: ruleId,
     applicability: [`bound:${kind}:${card.id}`], fetch_command: `aiwg show rule ${ruleId} --body` }]);
   expect(card.bound_rules).toEqual([{ name: `${bundle}-policy`, activation: pinned && bundle === 'amber' ? 'kernel' : 'bound',
-    enforcement: 'high', summary: `Follow ${bundle} policy.`, show_command: `aiwg show rule ${bundle}-policy --body` }]);
+    enforcement: 'high', summary: `Follow ${bundle} policy.`, show_command: `aiwg show rule ${bundle}-policy --body`,
+    // Rule ordering metadata (#3986): fixture rules declare none, so they take the defaults.
+    precedence: 'medium', overridable: true, precedence_source: 'rule', project_context: false }]);
   expect(card.rule_stats.required_checks).toBe(1);
 }
 
