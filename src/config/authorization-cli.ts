@@ -7,6 +7,7 @@ import { ensureAuthorization, loadHitlLayers } from '../policy/hitl-config.js';
 import { resolveHitlAuthorization } from '../policy/hitl.js';
 import { validateHitlPolicy } from '../policy/hitl-validation.js';
 import { checkHitlAuthorization } from '../policy/hitl-check.js';
+import { listAuthorizationGrants, showAuthorizationGrant, searchAuthorizationGrants, explainAuthorization, revokeAuthorizationGrant, type GrantStatus } from '../policy/authorization-operations.js';
 import type { HitlPolicy } from '../policy/hitl-types.js';
 
 export const authorizationUsage = `aiwg config authorization (also aiwg steward authorization)
@@ -16,7 +17,14 @@ export const authorizationUsage = `aiwg config authorization (also aiwg steward 
   enable --policy-file FILE [--target DIRECTORY]
   revoke [--profile NAME] [--target DIRECTORY]
   receipt --action-file FILE [--target DIRECTORY]
+  list [--active|--expired|--revoked] [--target DIRECTORY]
+  show <grantId> | search "<text>" [--target DIRECTORY]
+  explain --action-file FILE [--target DIRECTORY]
+  revoke <grantId> [--target DIRECTORY]
   verify [--target DIRECTORY]
+All operations accept --json; operator lookup output is JSON by default.
+Search ranks up to 20 matches by token/field overlap, then grant/effect ID.
+Explain is read-only: no receipts, uses, or index repairs.
 Verify checks signed grant records and rebuilds/diffs their private descriptor index;
 integrity failures exit 6. Missing indexes are rebuilt from verified records.
 Preview is read-only. Receipt writes the decision to the existing signed effect ledger;
@@ -33,15 +41,38 @@ async function jsonFile(file: string): Promise<unknown> {
 export async function authorizationCli(args: string[], cwd = process.cwd()): Promise<void> {
   if (!args.length || args.includes('--help') || args[0] === 'help') { console.log(authorizationUsage); return; }
   const [operation, ...rest] = args;
+  let operand: string | undefined;
+  if (['show', 'search', 'revoke'].includes(operation) && rest[0] && !rest[0].startsWith('--')) operand = rest.shift();
   const flags: Record<string, string> = {};
   const allowed = ['--target', ...(operation === 'enable' ? ['--policy-file'] : []),
-    ...(['preview', 'receipt', 'check'].includes(operation) ? ['--action-file'] : []),
+    ...(['preview', 'receipt', 'check', 'explain'].includes(operation) ? ['--action-file'] : []),
     ...(operation === 'check' ? ['--receipt-file', '--effect-id'] : []), ...(operation === 'revoke' ? ['--profile'] : [])];
-  for (let i = 0; i < rest.length; i += 2) {
+  for (let i = 0; i < rest.length; i++) {
+    if (['--json', ...(operation === 'list' ? ['--active', '--expired', '--revoked'] : [])].includes(rest[i])) {
+      if (flags[rest[i]]) throw usageError('Invalid authorization option');
+      flags[rest[i]] = 'true'; continue;
+    }
     if (!allowed.includes(rest[i]) || !rest[i + 1] || rest[i + 1].startsWith('--') || flags[rest[i]]) throw usageError('Invalid authorization option');
-    flags[rest[i]] = rest[i + 1];
+    flags[rest[i]] = rest[i + 1]; i++;
   }
   const target = resolve(getProjectDir({ cwd }, rest));
+  if (['list', 'show', 'search', 'explain'].includes(operation) || (operation === 'revoke' && operand)) {
+    let result: unknown;
+    if (operation === 'list') {
+      const selected = ['active', 'expired', 'revoked'].filter(s => flags[`--${s}`]);
+      if (selected.length > 1) throw usageError('Choose one grant status filter');
+      result = await listAuthorizationGrants(target, selected[0] as GrantStatus | undefined);
+    } else if (operation === 'explain') {
+      if (!flags['--action-file']) throw usageError('--action-file is required');
+      result = await explainAuthorization(target, await jsonFile(resolve(cwd, flags['--action-file'])));
+    } else {
+      if (!operand) throw usageError('A grant ID or search text is required');
+      if (operation === 'revoke' && flags['--profile']) throw usageError('Grant ID and --profile cannot be combined');
+      result = operation === 'show' ? await showAuthorizationGrant(target, operand)
+        : operation === 'search' ? await searchAuthorizationGrants(target, operand) : await revokeAuthorizationGrant(target, operand);
+    }
+    console.log(JSON.stringify(result, null, 2)); return;
+  }
   if (operation === 'verify') {
     const { effectSession } = await import('../effects/host.js');
     const { openEffectLedger } = await import('../effects/ledger.js');

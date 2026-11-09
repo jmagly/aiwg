@@ -162,3 +162,22 @@ This rule applies universally across all AI coding platforms:
 - Any agent that modifies files, manages artifacts, or takes actions with lasting effects
 
 Authorization is not a platform feature. It is an agent responsibility.
+
+## Operator grant inspection
+
+Use `aiwg config authorization list [--active|--expired|--revoked]`,
+`show GRANT_ID`, and `search "create issues"` to find signed grant history.
+`explain --action-file FILE` reports the deterministic matching or nearest grant,
+differing fields and safety escalation without writing receipts or consuming uses.
+Use `check --action-file FILE` before action; explain output is diagnostic.
+All operations support `--target DIRECTORY` and `--json`, and are also available
+under `aiwg steward authorization`.
+
+`revoke GRANT_ID` appends a signed removal record; the next check honors it.
+`verify` audits signed history and repairs the derived index. Config-profile
+revocation remains `revoke --profile NAME`; it is separate from grant revocation.
+`aiwg status --probe` and `aiwg doctor` report active, expiring-soon (next seven
+days), unverifiable grants and index drift. Never infer action permission from
+an active inventory count. Shell-free harnesses can use the read-only
+`aiwg_authorization_grant_lookup` MCP tool (list/search/explain). Capturing a new
+grant still requires native confirmation through `aiwg_authorization_grant_request`.

@@ -56,6 +56,7 @@ describe('MCP capability help', () => {
       for (const name of KNOWN_TOOLSETS) expect(output).toMatch(new RegExp(`^  ${name} +`, 'm'));
       expect(output).toContain('ask-user');
       expect(output).toContain('aiwg_authorization_grant_request');
+      expect(output).toContain('aiwg_authorization_grant_lookup');
     } finally {
       await server.close();
     }

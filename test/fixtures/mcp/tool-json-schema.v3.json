@@ -3213,5 +3213,42 @@
       ],
       "additionalProperties": false
     }
+  },
+  "aiwg_authorization_grant_lookup": {
+    "input": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "list",
+            "search",
+            "explain"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "expired",
+            "revoked"
+          ]
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "action": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    }
   }
 }

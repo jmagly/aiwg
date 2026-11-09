@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { checkAuthorizationHealth } from './authorization-health.mjs';
 import { runResourceDoctor } from './doctor-resources.mjs';
 import { parseDoctorArgsOrExit } from './doctor-args.mjs';
 import { deliveryBranchInfo } from './doctor-delivery-branch.mjs';
@@ -2551,6 +2552,8 @@ export async function runDoctor() {
   } catch {
     // Non-fatal — never break doctor on the durable-index probe.
   }
+
+  await checkAuthorizationHealth(process.cwd(), check);
 
   // 13c. Fortemi Core prebuilt framework index (#1697) — release packages
   // should include this cache so Fortemi-backed discovery can answer framework

@@ -86,6 +86,18 @@ export async function recordAuthorizationGrant(ledger: EffectLedger, value: unkn
   });
 }
 
+/** Inspect derived index drift without creating directories, repairing files or acquiring signing keys. */
+export async function inspectAuthorizationIndex(ledger: EffectLedger, read: AuthorizationGrantRead) {
+  try {
+    const stat = await lstat(indexPath(ledger));
+    if (!stat.isFile() || (stat.mode & 0o077) !== 0) return 'drift' as const;
+    return await readFile(indexPath(ledger), 'utf8') === indexBytes(ledger, read.grants) ? 'current' as const : 'drift' as const;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return read.grants.length ? 'missing' as const : 'absent' as const;
+    throw error;
+  }
+}
+
 /** Rebuild and compare the index, retaining a nonzero result for damage found before repair. */
 export async function verifyAuthorizationGrants(ledger: EffectLedger) {
   const paths = ledger.paths();

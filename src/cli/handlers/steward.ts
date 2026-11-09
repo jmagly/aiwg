@@ -154,7 +154,7 @@ async function handleSteward(args: string[], ctx?: HandlerContext): Promise<void
     aiwg steward models --route --capability-type <agent|skill|rule|workflow>
       --capability <id> --assignment <text> [--provider <name>] [--json]
                                                   Emit a capability-bound wrapper launch envelope
-    aiwg steward authorization                    Bounded HITL policy: inspect/validate/preview/enable/revoke
+    aiwg steward authorization                    HITL policy and grants: inspect/validate/preview/enable/revoke/list/show/search/explain/verify
     aiwg steward permissions audit                Find normalized-model errors and legacy grants
     aiwg steward permissions migrate --dry-run    Preview legacy permission normalization
     aiwg steward permissions migrate --apply      Back up and atomically normalize config
