@@ -152,7 +152,7 @@ describe('prebuilt relationship selection', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     await showArtifact(root, { name: 'work', typeFilter: ['skill'], json: true });
     const shown = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
-    expect(shown.bound_rules).toEqual([{ name: 'first', activation: 'bound', enforcement: 'high', summary: 'First summary.', show_command: 'aiwg show rule first --body' }]);
+    expect(shown.bound_rules).toEqual([{ name: 'first', activation: 'bound', enforcement: 'high', precedence: 'medium', overridable: true, precedence_source: 'rule', project_context: false, summary: 'First summary.', show_command: 'aiwg show rule first --body' }]);
     expect(build).not.toHaveBeenCalled();
     expect(read.mock.calls.some(([file]) => String(file).endsWith('metadata.json'))).toBe(false);
     expect(fs.existsSync(path.join(getGraphIndexDir(root, 'framework'), 'metadata.json'))).toBe(false);
@@ -194,7 +194,7 @@ describe('prebuilt relationship selection', () => {
     if (type === 'skill') {
       expect(text).toContain('rules: 1 high · activation: 1 bound · 1 required checks');
       expect(text.indexOf('rules:')).toBeLessThan(text.indexOf('## Bound rules'));
-      expect(text).toContain('**first** [bound / high]: First summary. (`aiwg show rule first --body`)');
+      expect(text).toContain('**first** [bound / high; precedence medium; overridable true; source rule]: First summary. (`aiwg show rule first --body`)');
       expect(text).toContain(card.rule_check_obligation);
       expect(text.slice(text.indexOf('## Bound rules'))).not.toContain('rules: 1 high');
     }

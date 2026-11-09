@@ -1,4 +1,6 @@
 ---
+precedence: critical
+overridable: false
 activation: core
 summary: "Complete authorized implementation and verification; fix root causes without deleting tests, weakening assertions, hiding failures, or removing features to pass."
 enforcement: high

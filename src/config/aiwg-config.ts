@@ -1854,12 +1854,15 @@ export async function readAiwgConfigCandidate(projectDir: string): Promise<AiwgC
     throw new Error(`Invalid .aiwg/aiwg.config:\n${authorizationErrors.map(item => item.message).join('\n')}`);
   }
 
+  // Lazy: rule precedence loads the rule schema, which config readers should not pay for.
+  const { validateProjectRulePrecedence } = await import('../rules/project-precedence.js');
   const threatAssessmentErrors = [
     ...validateThreatAssessmentConfig(parsed.security?.threatAssessment),
     ...validateProjectConfig(parsed.project),
     ...validateDeliverySettings(parsed),
     ...validateParallelismConfig(parsed.parallelism),
     ...validateDecisionConfig(parsed.decision),
+    ...validateProjectRulePrecedence(projectDir, parsed),
     ...validateRulePinCapabilities(parsed.rules, installedRuleCapabilities(loadRulePinConfigs(projectDir, parsed)), loadRulePinConfigs(projectDir, parsed).user.rules?.pin_groups),
   ];
   if (threatAssessmentErrors.length > 0) {
@@ -1939,12 +1942,15 @@ async function writeAiwgConfigUnlocked(projectDir: string, config: AiwgConfig): 
     config = { ...config, rules: { ...config.rules, pin_groups: pinGroups, always_load: selectors } };
     console.warn(`Uninstalled ${removed.join(', ')}: their rules leave the effective pinned set; retired project capability selectors/groups. User pins remain visible as inactive warnings.`);
   }
+  // Lazy: rule precedence loads the rule schema, which config readers should not pay for.
+  const { validateProjectRulePrecedence } = await import('../rules/project-precedence.js');
   const threatAssessmentErrors = [
     ...validateThreatAssessmentConfig(config.security?.threatAssessment),
     ...validateProjectConfig(config.project),
     ...validateDeliverySettings(config),
     ...validateParallelismConfig(config.parallelism),
     ...validateDecisionConfig(config.decision),
+    ...validateProjectRulePrecedence(projectDir, config),
     ...validateRulePinCapabilities(config.rules, installedRuleCapabilities(loadRulePinConfigs(projectDir, config)), loadRulePinConfigs(projectDir, config).user.rules?.pin_groups),
   ];
   if (threatAssessmentErrors.length > 0) {

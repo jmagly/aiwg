@@ -1,3 +1,5 @@
+import { resolveRulePrecedence } from './precedence.mjs';
+import { ruleOrderingAliases } from './project-precedence.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadRelations } from '../artifacts/relations.js';
@@ -110,6 +112,7 @@ export async function ruleInventory(cwd: string, root: string, options: Inventor
     return [{ id: stableId, name: rule.name, capability: cap, source: rule.path, summary: parsed.rule.summary ?? null,
       configured: installed, configured_by: configuredBy, applicable: installed ? 'conditional' : 'not-configured',
       canonical_activation: canonical, effective_activation: installed ? effective : null,
+      ...resolveRulePrecedence({ ...parsed.rule, name: rule.name, id: stableId ?? undefined }, selected, ruleOrderingAliases(rule.path, root, cwd)),
       enforcement, pin_reasons: pin?.matches ?? [],
       bindings: relation ? relation[1].targets : null, binding_evidence: relation ? 'relationship-index' : 'unknown', bound_to: parsed.rule.bound_to, paths: parsed.rule.paths ?? [],
       fetch_command: stableId ? `aiwg show rule ${stableId} --body` : null,

@@ -1,5 +1,5 @@
 ---
-enforcement: block
+enforcement: critical
 activation: bound
 summary: "Require an independent named human to approve the exact artifact hash before civic publication or external action; retain the review record and blocking findings."
 bound_to:

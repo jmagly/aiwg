@@ -19,21 +19,21 @@
   },
   {
     "rule": "agentic/code/addons/civic-action/rules/civic-safety.md",
-    "enforcement": "block",
+    "enforcement": "critical",
     "activation": "bound",
-    "reason": "BLOCK civic restrictions govern every indexed civic workflow and role before acquisition or action."
+    "reason": "CRITICAL civic restrictions govern every indexed civic workflow and role before acquisition or action."
   },
   {
     "rule": "agentic/code/addons/civic-action/rules/publication-human-review.md",
-    "enforcement": "block",
+    "enforcement": "critical",
     "activation": "bound",
-    "reason": "BLOCK publication gates are delivered to all civic workflows and roles before external actions."
+    "reason": "CRITICAL publication gates are delivered to all civic workflows and roles before external actions."
   },
   {
     "rule": "agentic/code/addons/civic-action/rules/source-and-claim-integrity.md",
-    "enforcement": "block",
+    "enforcement": "critical",
     "activation": "bound",
-    "reason": "BLOCK claim integrity applies to civic evidence processing and publication across all civic artifacts."
+    "reason": "CRITICAL claim integrity applies to civic evidence processing and publication across all civic artifacts."
   },
   {
     "rule": "agentic/code/addons/color-palette/rules/color-output-format.md",
@@ -67,9 +67,9 @@
   },
   {
     "rule": "agentic/code/addons/network-analysis/rules/network-analysis-safety.md",
-    "enforcement": "block",
+    "enforcement": "critical",
     "activation": "bound",
-    "reason": "BLOCK capture and disclosure safety is scoped to the indexed network-capture analysis skill."
+    "reason": "CRITICAL capture and disclosure safety is scoped to the indexed network-capture analysis skill."
   },
   {
     "rule": "agentic/code/addons/prose-integration/rules/prose-bridge.md",

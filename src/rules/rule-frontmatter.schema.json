@@ -9,6 +9,21 @@
   ],
   "additionalProperties": true,
   "properties": {
+    "precedence": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "default": "medium",
+      "description": "Conflict ordering, using RULE_PIN_TIERS vocabulary; independent of enforcement and activation."
+    },
+    "overridable": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether project or user ordering may override this rule."
+    },
+    "enforcement": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"]
+    },
     "activation": {
       "type": "string",
       "enum": [

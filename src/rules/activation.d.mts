@@ -4,6 +4,8 @@ export interface RuleBindings { skills: string[]; agents: string[]; flows: strin
 export interface RuleFrontmatter extends Record<string, unknown> {
   activation: RuleActivation;
   tagged: boolean;
+  precedence: 'critical' | 'high' | 'medium' | 'low';
+  overridable: boolean;
   summary?: string;
   bound_to: RuleBindings;
   paths?: string[];

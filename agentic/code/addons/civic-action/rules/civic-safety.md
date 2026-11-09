@@ -1,5 +1,5 @@
 ---
-enforcement: block
+enforcement: critical
 activation: bound
 summary: "Fail closed on unresolved civic access or consent; prohibit covert recording, bypass, targeting, threats, and impersonation; minimize personal data."
 bound_to:

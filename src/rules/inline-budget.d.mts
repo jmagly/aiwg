@@ -1,6 +1,7 @@
 import type { RuleDiagnostic } from './activation.mjs';
 export interface RulePinSelector { rules?: string[]; enforcement?: Array<'critical' | 'high' | 'medium' | 'low'>; capabilities?: string[]; group?: string; all?: true }
-export interface RulesConfig { inline_budget_tokens?: number; always_load?: RulePinSelector[]; pin_groups?: Record<string, string[]> }
+export interface RulePrecedenceOverride { tier?: 'critical' | 'high' | 'medium' | 'low'; project_context?: boolean }
+export interface RulesConfig { precedence?: Record<string, RulePrecedenceOverride>; inline_budget_tokens?: number; always_load?: RulePinSelector[]; pin_groups?: Record<string, string[]> }
 export interface InlineBudgetConfig { rules?: RulesConfig }
 export interface StartupContributor { path: string; bytes?: number; content?: string }
 export interface InlineBudgetReport {

@@ -13,6 +13,7 @@ import {
 } from './query-engine-entries.js';
 import { type DiscoverParams } from './query-engine-options.js';
 import {
+  ruleOrderingFields,
   boundRuleDescriptor,
   compoundGoverningRules,
   type GoverningRule,
@@ -87,13 +88,14 @@ export async function emitDiscoverResults(context: DiscoverOutputContext): Promi
   const relations = resourceSource === 'local' && (!params.graph || params.graph === 'framework')
     ? prebuiltRelations ?? (readOnly ? loadRelations(cwd, cwd, false)
       : await ensureRelations(cwd, cwd, { verbose: params.verbose, selection: prebuiltSelection, reconciled: frameworkReconciled })) : undefined;
+  const orderingFor = (entry: MetadataEntry) => ruleOrderingFields(cwd, aiwgRoot ?? cwd, entry, resourceSource === 'local' ? resolvePath(entry) : undefined);
   const governing = scored.map(result => compoundGoverningRules(entries, result.entry, relations ?? undefined, params.phrase));
   const responseRules = new Map<string, GoverningRule>();
   for (const item of governing.flat()) {
     const key = `${item.rule.type}:${item.rule.path}`, prior = responseRules.get(key);
     responseRules.set(key, { rule: item.rule, applicability: [...new Set([...(prior?.applicability ?? []), ...item.applicability])] });
   }
-  const responseFields = governingRuleFields([...responseRules.values()]);
+  const responseFields = governingRuleFields([...responseRules.values()], orderingFor);
   const responseRuleStats = governingRuleStats([...responseRules.values()]);
   const includePaths = params.includePaths ?? true;
   const facetActivations = diagnoseFacetActivations(params.phrase);
@@ -166,10 +168,11 @@ export async function emitDiscoverResults(context: DiscoverOutputContext): Promi
         type: r.entry.type,
         name: r.entry.name,
         title: r.entry.title,
+        ...orderingFor(r.entry),
         ...templateRelationFields(r.entry, ruleRelations, 3, includePaths),
         score: Math.round(r.score * 100) / 100,
         ranking: rankingDiagnostic(r.entry, r.score, r.facetDiagnostics),
-        ...governingRuleFields(governing[resultIndex]),
+        ...governingRuleFields(governing[resultIndex], orderingFor),
         triggers: r.entry.triggers ?? [],
         capability: r.entry.capability ?? r.entry.summary,
         kernel: r.entry.kernel ?? false,
@@ -244,6 +247,8 @@ export async function emitDiscoverResults(context: DiscoverOutputContext): Promi
     const topTrigger = topTriggerMatch?.value ??
       (r.entry.triggers && r.entry.triggers.length > 0 ? r.entry.triggers[0] : '');
     console.log(`${i + 1}. ${r.entry.title}`);
+    const ordering = orderingFor(r.entry);
+    if ('precedence' in ordering) console.log(`   precedence: ${ordering.precedence} | overridable: ${ordering.overridable} | source: ${ordering.precedence_source} | project context: ${ordering.project_context}`);
     console.log(`   type: ${r.entry.type}  score: ${score}${flags ? `  flags: ${flags}` : ''}`);
     console.log(`   ${includePaths ? 'path' : 'id'}: ${locator}`);
     if (r.entry.name) {

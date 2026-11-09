@@ -1,4 +1,6 @@
 ---
+precedence: high
+overridable: true
 enforcement: high
 triggers:
   - "which library should I use"

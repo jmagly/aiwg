@@ -1,5 +1,5 @@
 ---
-enforcement: block
+enforcement: critical
 activation: bound
 summary: "Link each material civic claim to a source and selector, separate evidence dimensions, preserve uncertainty, and append corrections without rewriting history."
 bound_to:

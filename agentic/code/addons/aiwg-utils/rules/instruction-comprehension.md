@@ -1,4 +1,6 @@
 ---
+precedence: high
+overridable: true
 enforcement: high
 triggers:
   - "what did the user actually ask for"

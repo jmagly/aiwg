@@ -1,4 +1,6 @@
 ---
+precedence: high
+overridable: true
 name: artifact-output-policy
 description: "Write governed outputs (issues, comments, PRs, reports, SDLC artifacts) from their discovered template, filling every required section; write the canonical artifact to the AIWG store first; provider-native destinations are explicit-only."
 summary: "Write governed outputs (issues, comments, PRs, reports, SDLC artifacts) from their discovered template, filling every required section; write the canonical artifact to the AIWG store first; provider-native destinations are explicit-only."

@@ -26,6 +26,7 @@ describe('governing rule pin parity (#3768)', () => {
     expect(shown.fields.required_rule_checks).toEqual(checks);
     expect(discovered.required_rule_checks).toEqual(checks);
     expect(discovered.bound_rules).toEqual([{ name: 'policy', activation: 'kernel', enforcement: 'high',
+      precedence: 'medium', overridable: true, precedence_source: 'rule', project_context: false,
       summary: 'Require approval.', show_command: 'aiwg show rule policy --body' }]);
     expect(discovered.bound_rules).toEqual(shown.fields.bound_rules);
     expect(discovered.rule_stats).toEqual({ by_enforcement: { high: 1 }, by_activation: { kernel: 1 }, required_checks: 1 });

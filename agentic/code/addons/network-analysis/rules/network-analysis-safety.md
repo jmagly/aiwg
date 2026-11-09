@@ -4,7 +4,7 @@ summary: "Require bounded capture authority and separate disclosure approval; an
 bound_to:
   skills:
     - analyze-network-capture
-enforcement: block
+enforcement: critical
 ---
 
 # Network analysis safety

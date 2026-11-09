@@ -1,4 +1,6 @@
 ---
+precedence: critical
+overridable: true
 enforcement: critical
 triggers:
   - how do I handle a token safely

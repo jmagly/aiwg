@@ -1,3 +1,4 @@
+import { lintRuleConflicts } from './rule-conflicts.js';
 /**
  * Lint Runner
  *
@@ -106,6 +107,8 @@ async function runRule(
       }
     }
   }
+
+  if (rule.checks.some(check => check.type === 'rule-activation')) diagnostics.push(...lintRuleConflicts(targetDir, matchingFiles, projectRoot));
 
   // Run per-file checks
   for (const file of matchingFiles) {

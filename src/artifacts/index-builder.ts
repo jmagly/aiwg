@@ -97,7 +97,7 @@ export function parseFrontmatter(content: string): { data: Record<string, unknow
 }
 
 /** Read the target rule schema tolerantly while older rules remain untagged. */
-export function extractRuleBindings(data: Record<string, unknown>, body = ''): Pick<MetadataEntry, 'activation' | 'bound_to' | 'ruleSummary' | 'ruleEnforcement' | 'rulePaths'> {
+export function extractRuleBindings(data: Record<string, unknown>, body = ''): Pick<MetadataEntry, 'activation' | 'bound_to' | 'ruleSummary' | 'ruleEnforcement' | 'rulePaths' | 'rulePrecedence' | 'ruleOverridable'> {
   const bound_to: NonNullable<MetadataEntry['bound_to']> = {};
   const raw = data.bound_to;
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
@@ -112,6 +112,8 @@ export function extractRuleBindings(data: Record<string, unknown>, body = ''): P
   const enforcement = typeof data.enforcement === 'string' ? data.enforcement
     : body.match(/^\*\*Enforcement Level\*\*:\s*([A-Za-z]+)/m)?.[1];
   return {
+    rulePrecedence: typeof data.precedence === 'string' ? data.precedence : 'medium',
+    ruleOverridable: typeof data.overridable === 'boolean' ? data.overridable : true,
     ...(enforcement ? { ruleEnforcement: enforcement.trim().toLowerCase() } : {}),
     ...(Array.isArray(data.paths) ? { rulePaths: data.paths.filter((value): value is string => typeof value === 'string') } : {}),
     ...(typeof data.activation === 'string' ? { activation: data.activation } : {}),

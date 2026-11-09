@@ -54,8 +54,8 @@ describe('bound rule expansion', () => {
   it('returns each binding once, across all target types, without rule bodies by default (U4)', async () => {
     const skill = await show('work', 'skill');
     expect(skill.bound_rules).toEqual([
-      { name: 'first', activation: 'bound', enforcement: null, summary: 'Follow the first rule.', show_command: 'aiwg show rule first --body' },
-      { name: 'second', activation: 'summary', enforcement: null, summary: 'Follow the second rule.', show_command: 'aiwg show rule second --body' },
+      { name: 'first', activation: 'bound', enforcement: null, precedence: 'medium', overridable: true, precedence_source: 'rule', project_context: false, summary: 'Follow the first rule.', show_command: 'aiwg show rule first --body' },
+      { name: 'second', activation: 'summary', enforcement: null, precedence: 'medium', overridable: true, precedence_source: 'rule', project_context: false, summary: 'Follow the second rule.', show_command: 'aiwg show rule second --body' },
     ]);
     for (const [name, type] of [['worker', 'agent'], ['workflow', 'flow']]) {
       expect((await show(name, type)).bound_rules).toEqual([skill.bound_rules[0]]);
@@ -86,13 +86,13 @@ describe('bound rule expansion', () => {
     expect(value).toMatchObject({ type: 'skill', outline: [{ heading: 'Unbound', level: 1, bytes: plain.length, lines: 3 }], resources: [] });
   });
   it('reads absent and malformed declarations tolerantly', () => {
-    expect(extractRuleBindings({})).toEqual({});
-    expect(extractRuleBindings({ bound_to: { skills: 'work', agents: [null, 4, '', 'worker'] } })).toEqual({ bound_to: { agents: ['worker'] } });
+    expect(extractRuleBindings({})).toEqual({ rulePrecedence: 'medium', ruleOverridable: true });
+    expect(extractRuleBindings({ bound_to: { skills: 'work', agents: [null, 4, '', 'worker'] } })).toEqual({ rulePrecedence: 'medium', ruleOverridable: true, bound_to: { agents: ['worker'] } });
   });
   it('exports binding metadata for the default Fortemi backend', () => {
     const exported = buildAiwgFortemiIndexExport(root, { graph: 'project', schemaVersion: 'v2' });
     const rule = exported.items.find(record => record.name === 'first')!;
-    expect(rule.search?.frontmatter).toMatchObject({ activation: 'bound', summary: 'Follow the first rule.', bound_to: { skills: ['work'] } });
+    expect(rule.search?.frontmatter).toMatchObject({ activation: 'bound', precedence: 'medium', overridable: true, summary: 'Follow the first rule.', bound_to: { skills: ['work'] } });
   });
   it('expands bindings after a Fortemi export round trip', async () => {
     const expected = (await show('work', 'skill')).bound_rules;

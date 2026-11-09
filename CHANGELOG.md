@@ -7,6 +7,10 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Added
+
+- Per-rule `precedence` and `overridable` metadata, schema validation for existing `enforcement`, optional `rules.precedence` project ordering with refusal of non-overridable overrides, generated rule/skill conflict guidance, ordering visibility in show/discover/rules, and conservative declared-subject conflict warnings (#3986).
+
 ## [2026.11.3] - 2026-11-08
 
 ### Added

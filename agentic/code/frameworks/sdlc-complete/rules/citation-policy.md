@@ -1,4 +1,6 @@
 ---
+precedence: critical
+overridable: true
 enforcement: critical
 activation: "kernel"
 enforcedBy:

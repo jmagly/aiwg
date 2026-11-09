@@ -1239,6 +1239,26 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "precedence": {
+          "type": "object",
+          "description": "Per-rule ordering overrides. Non-overridable rules reject every override; rule IDs must resolve unambiguously.",
+          "propertyNames": {
+            "minLength": 1,
+            "not": { "enum": ["__proto__", "prototype", "constructor"] }
+          },
+          "additionalProperties": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "tier": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+              "project_context": {
+                "type": "boolean",
+                "description": "Explicitly allow WORKSPACE.md project context to outrank this rule."
+              }
+            }
+          }
+        },
         "inline_budget_tokens": {
           "type": "integer",
           "minimum": 0,
