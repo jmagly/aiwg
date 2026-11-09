@@ -10,7 +10,7 @@ import { discoverCapability } from '../../../src/artifacts/query-engine.js';
 const repoRoot = path.resolve(import.meta.dirname, '../../..');
 const queries = parseDiscoveryRelevanceJsonl(fs.readFileSync(
   path.join(repoRoot, 'test/fixtures/artifacts/discovery-relevance.jsonl'), 'utf8',
-)).filter(query => query.id.startsWith('3067-') || query.id.startsWith('3859-'));
+)).filter(query => /^(3067|3859|4034)-/.test(query.id));
 
 describe('plain-language discovery relevance against shipped skills and competing hits (#3067)', () => {
   let tmp: string;
@@ -22,7 +22,7 @@ describe('plain-language discovery relevance against shipped skills and competin
     // Keep real metadata for the owning skills and the competing hits from
     // #3067. Do not copy the entire documentation/schema corpus into this test.
     const sources = [
-      ...['address-issues', 'issue-planner', 'artifact-orchestration',
+      ...['address-issues', 'issue-planner', 'artifact-orchestration', 'artifact-lookup',
         'flow-architecture-evolution', 'flow-inception-to-elaboration'].map(
         name => `agentic/code/frameworks/sdlc-complete/skills/${name}/SKILL.md`,
       ),
@@ -44,7 +44,7 @@ describe('plain-language discovery relevance against shipped skills and competin
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.copyFileSync(path.join(repoRoot, source), target);
     }
-    expect(queries).toHaveLength(6);
+    expect(queries).toHaveLength(7);
     await buildIndex(tmp, { graph: 'framework', force: true });
     syncFortemiCoreIndex(tmp, { graph: 'framework' });
   }, 60_000);

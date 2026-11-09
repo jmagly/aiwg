@@ -49,18 +49,18 @@ function contextFor(envelope, prompt) {
   const prefix = 'AIWG candidates:\n';
   const next = '\nFirst call: aiwg show <type> <name> (best fit) -> rules (--rules --with-rule-bodies; --body) -> apply.'
     + '\nIf none fit, run aiwg discover; never decline without it.';
-  const candidates = (Array.isArray(envelope?.results) ? envelope.results : [])
+  let candidates = (Array.isArray(envelope?.results) ? envelope.results : [])
     .filter(r => typeof r?.score === 'number' && Number.isFinite(r.score) && r.score >= 0.20
       && /^[a-z][a-z-]{0,19}$/.test(r.type) && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,69}$/.test(r.name))
     .sort((a, b) => b.score - a.score).slice(0, 3);
-  const template = candidates.find(candidate => candidate.templates?.length)?.templates?.[0];
+  const strong = candidates.filter(r => r.score >= 0.70);
+  const template = (strong.length ? strong : candidates).find(candidate => candidate.templates?.length)?.templates?.[0];
   const templateHint = template && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,69}$/.test(template.name)
     && /^aiwg show template [a-zA-Z0-9][a-zA-Z0-9_.:-]{0,149}$/.test(template.show_command)
     ? `\nTemplate ${template.name}: ${template.show_command}` : '';
-  // 0.70 excludes the UAT's unrelated 0.60/0.40 hits; retain today's top 3
-  // only when at least one candidate supplies a stronger signal.
+  // 0.70 excludes weak hits; each displayed candidate must supply a strong signal.
   // Muse UAT (2026-11-06): advisory wording was ignored; first-call wording was followed.
-  if (!candidates.some(r => r.score >= 0.70)) {
+  if (!strong.length) {
     // Restrict by type only when the request asks for an AIWG component of that type, not when a
     // type word merely appears ("removes every managed Claude hook" is not a hook search).
     const namedType = prompt.match(/\b(?:aiwg|is there an?|are there any|find|list|which|what)\s+(?:aiwg\s+)?(decision-definition|decision-ruleset|decision-binding|gate-pack|skill|agent|command|rule|schema|flow|runbook|template|behavior|hook|workflow)s?\b/i)?.[1].toLowerCase();
@@ -72,6 +72,7 @@ function contextFor(envelope, prompt) {
     while (instruction().length > 599 && need.length) need = need.slice(0, -1);
     return instruction();
   }
+  candidates = strong;
   // Leave room for the template drill-in even when candidate names are long.
   while (candidates.length > 1 && prefix.length + next.length + templateHint.length
     + candidates.map(r => `${r.type} ${r.name} (${r.score.toFixed(2).slice(0, 6)}): `).join('\n').length > 599) candidates.pop();
