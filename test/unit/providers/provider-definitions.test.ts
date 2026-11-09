@@ -213,6 +213,14 @@ describe('provider definition registry', () => {
     expect(getProviderDefinition('openhuman')?.smithPaths.skills).toBe('~/.openhuman/skills');
   });
 
+  it('uses native Copilot instructions for deploy, discovery and smith rule paths', () => {
+    const copilot = getProviderDefinition('copilot')!;
+    expect(copilot.paths.artifacts.rules).toBe('.github/instructions');
+    expect(copilot.paths.artifacts.behaviors).toBe('.github/instructions');
+    expect(copilot.paths.contextDiscovery.rules).toBe('.github/instructions');
+    expect(copilot.smithPaths.rules).toBe('.github/instructions');
+  });
+
   it('models context-discovery paths separately where regenerate differs from deploy paths', () => {
     expect(getProviderDefinition('pi')?.paths.artifacts.rules).toBe('.pi/rules');
     expect(getProviderDefinition('pi')?.paths.contextDiscovery.rules).toBeNull();
@@ -220,8 +228,6 @@ describe('provider definition registry', () => {
     expect(getProviderDefinition('hermes')?.paths.contextDiscovery.rules).toBeNull();
     expect(getProviderDefinition('codex')?.paths.artifacts.skills).toBe('.codex/.aiwg/skills');
     expect(getProviderDefinition('codex')?.paths.contextDiscovery.skills).toBe('.agents/skills');
-    expect(getProviderDefinition('copilot')?.paths.artifacts.rules).toBe('.github/copilot-rules');
-    expect(getProviderDefinition('copilot')?.paths.contextDiscovery.rules).toBe('.github/instructions');
     expect(getProviderDefinition('openhuman')?.paths.artifacts.agents).toBeNull();
     expect(getProviderDefinition('openhuman')?.paths.contextDiscovery.agents).toBe('.agents/agents');
   });
