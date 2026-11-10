@@ -1,0 +1,7 @@
+{"type": "available_commands", "tools": [], "commands": []}
+{"type": "thought", "data": "Reasoning omitted."}
+{"type": "text", "data": "Fixture answer."}
+{"type": "usage", "usage": {"input_tokens": 15979, "output_tokens": 549, "cache_read_input_tokens": 10112, "cache_creation_input_tokens": 0, "reasoning_tokens": 470}}
+{"type": "tool_call", "toolCallId": "call-fixture", "title": "Synthetic command", "kind": "execute", "status": "pending", "toolName": "run_terminal_command", "rawInput": {"command": "aiwg discover --stdin", "description": "Synthetic discovery"}, "content": [], "locations": []}
+{"type": "tool_call_update", "toolCallId": "call-fixture", "status": null, "content": [], "rawOutput": null, "locations": []}
+{"type": "end", "stopReason": "end_turn", "usage": {"input_tokens": 24208, "cache_read_input_tokens": 127872, "cache_creation_input_tokens": 0, "output_tokens": 3568, "reasoning_tokens": 3093, "total_tokens": 155648}, "num_turns": 5, "total_cost_usd": 0.0454784, "total_cost_usd_ticks": 454784000, "modelUsage": {"grok-4.7-build": {"inputTokens": 24208, "outputTokens": 3568, "cacheReadInputTokens": 127872, "cacheCreationInputTokens": 0, "modelCalls": 5, "costUSD": 0.0454784}}, "cwd": "/synthetic/project", "sessionId": "session-fixture", "requestId": "request-fixture"}
