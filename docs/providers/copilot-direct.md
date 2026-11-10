@@ -3,6 +3,42 @@
 This is the lightweight CLI profile for dispatching `copilot` (GitHub
 Copilot CLI) as a direct worker.
 
+## Bring your own key
+
+> Use my OpenRouter key with Copilot CLI and qwen/qwen3.8-27b. Show the
+> settings and ask before a paid verification run.
+
+The operator's 2026-11-09 live run verified these environment settings:
+
+```sh
+export COPILOT_PROVIDER_BASE_URL=https://openrouter.ai/api/v1
+export COPILOT_PROVIDER_TYPE=openai
+export COPILOT_MODEL=qwen/qwen3.8-27b
+```
+
+Inject the key into `COPILOT_PROVIDER_API_KEY` through the child environment,
+or set `COPILOT_PROVIDER_API_KEY_COMMAND` to a secret-store command that
+returns the key directly to the harness. The command contains only a secret
+reference, never the key. Use one credential source for the run.
+Follow `aiwg show rule token-security --body`: disable tracing, keep secrets
+scoped to the child at point of use and discard on exit. Never put keys on
+argv, in deployed AIWG files, harness config, logs or receipts. BYOK runs bill
+the user's key; paid runs need explicit operator approval, including verification.
+
+After approval and secure injection:
+
+```sh
+copilot -p 'Reply with exactly: byok-ok' --no-ask-user
+```
+
+Check the reply and the Copilot harness log/session for the resolved model
+`qwen/qwen3.8-27b` through the configured OpenRouter endpoint. Retain only
+harness version, model and result. Accepted settings or a correct reply alone
+do not verify routing. This manual route does not qualify the AIWG worker
+parser or modify its cleared-environment profile.
+
+## Direct-worker contract
+
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-bound to
 `copilot 1.0.95` and help-evidenced only (`H:` evidence grade, captured from
@@ -64,24 +100,24 @@ CLIs with no evidenced event grammar), and `parseOutput` enforces only the
 one evidenced contract: every non-empty stdout line must be a JSON object.
 Completion is exit-code gated only.
 
-## Manual smoke run — currently BLOCKED on authentication
+## GitHub-account smoke run (2026-10-10): BLOCKED on authentication
 
 **Live evidence from the conductor (host `noodle`, `copilot` 1.0.95,
 2026-10-10): a `COPILOT_GITHUB_TOKEN` holding a classic `ghp_` personal
 access token exits 1 with stderr `Classic Personal Access Tokens (ghp_) are
 not supported by Copilot` and EMPTY stdout.** A fine-grained PAT with
 Copilot access, or a prior `copilot login`/`gh auth login`, is required
-before this smoke run can proceed. As of this writing the smoke run is
-blocked on obtaining supported credentials, so the real `--output-format
-json` event stream remains unobserved — every control in this profile's
-registry entry stays `unqualified` for exactly that reason.
+before that GitHub-account smoke run can proceed. That run was blocked;
+the BYOK route above was verified separately on 2026-11-09. It does not
+establish the AIWG direct-worker JSON event contract; the registry controls
+remain `unqualified`.
 
 The conductor runs the command below once, by hand, after `copilot` is
 installed and logged in with a supported credential, to record a pass/fail
 and the observed CLI version on the tracking issue. It is not part of
-default CI. GitHub Copilot CLI uses GitHub-account models — there is no
-OpenRouter key to inject, and the run depends entirely on the host's
-existing `copilot` login state (never put a token on argv; auth is detected
+default CI; paid runs require explicit operator approval. This older example
+uses GitHub-account models and the host's existing `copilot` login state
+(never put a token on argv; auth is detected
 from the CLI's own stored session, `COPILOT_GITHUB_TOKEN`/`GH_TOKEN`/
 `GITHUB_TOKEN`, or `copilot login`).
 

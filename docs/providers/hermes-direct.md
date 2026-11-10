@@ -4,6 +4,35 @@ This is the lightweight CLI profile for dispatching `hermes` as a direct
 worker (not the session-import tooling documented in
 [`hermes-sessions.md`](./hermes-sessions.md)).
 
+## Bring your own key
+
+> Use my OpenRouter key with Hermes and qwen/qwen3.8-27b. Explain the settings
+> and cost, then wait for my approval before a verification call.
+
+The operator's 2026-11-09 live run verified `OPENROUTER_API_KEY` from the
+environment with `--provider openrouter -m qwen/qwen3.8-27b`. Select the
+provider explicitly; `auto` can choose a different credential and model.
+Follow `aiwg show rule token-security --body`: inject the key from the
+environment or a secret-store command at point of use with tracing disabled.
+Never put keys in argv, deployed AIWG files, harness config, logs or receipts;
+scope the credential to the child and discard it on exit. BYOK runs bill the
+user's key; paid runs need explicit operator approval, including verification.
+
+After approval, with the key securely injected into the child environment:
+
+```sh
+printf '%s\n' 'Reply with exactly: byok-ok' | hermes chat \
+  --query-file - --oneshot --quiet --ignore-user-config --ignore-rules --source tool \
+  --provider openrouter -m qwen/qwen3.8-27b
+```
+
+Check both the reply and the Hermes harness log/session for the resolved model
+`qwen/qwen3.8-27b` under OpenRouter. Record only the harness version, model and
+result. A correct reply alone does not verify routing. These manual settings
+do not change the AIWG direct-worker environment allowlist or dispatch status.
+
+## Direct-worker contract
+
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-observed
 against the installed `hermes 0.21.6+387.gdce1e9b`, per-user install at

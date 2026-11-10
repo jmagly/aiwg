@@ -93,6 +93,14 @@ providers:
 
   codex:
     display_name: OpenAI Codex
+    byok:
+      status: documented
+      settings:
+        - 'Harness config.toml: model_provider and model select a model_providers entry with base_url, env_key and wire_api = "responses".'
+        - 'env_key names an environment variable; inject its value from the environment or a secret-store command only.'
+      verification: 'After approval, send "Reply with exactly: byok-ok" and check the Codex session log for the resolved model and provider.'
+      notes: 'Custom providers require the Responses API; OpenRouter compatibility with the requested model is unverified. Do not copy a Chat Completions configuration.'
+      docs: docs/agents/providers/codex.md#wire-protocol
     route_feasibility:
       scope: in
       identity: runtime-configured-only
@@ -176,6 +184,16 @@ providers:
 
   copilot:
     display_name: GitHub Copilot
+    byok:
+      status: verified
+      settings:
+        - 'COPILOT_PROVIDER_BASE_URL=https://openrouter.ai/api/v1'
+        - 'COPILOT_PROVIDER_TYPE=openai'
+        - 'COPILOT_MODEL=qwen/qwen3.8-27b'
+        - 'Key: COPILOT_PROVIDER_API_KEY environment variable or COPILOT_PROVIDER_API_KEY_COMMAND secret-store command.'
+      verification: 'After approval, send "Reply with exactly: byok-ok" and check the Copilot harness log/session for the resolved model qwen/qwen3.8-27b.'
+      notes: 'Operator live run, 2026-11-09 (#4054); harness BYOK settings do not qualify the AIWG direct-worker parser or its cleared-environment profile.'
+      docs: docs/providers/copilot-direct.md#bring-your-own-key
     aliases:
       - github-copilot
     route_feasibility:
@@ -226,6 +244,14 @@ providers:
 
   factory:
     display_name: Factory AI
+    byok:
+      status: verified
+      settings:
+        - 'Harness-owned BYOK custom models: select the exact registered custom: model ID with droid exec -m <custom-model-id>.'
+        - 'Use only harness-supported environment or secret-store command injection at point of use; if the installed harness requires a plaintext apiKey in settings.json, stop and choose a secure route with the operator.'
+      verification: 'After approval, send "Reply with exactly: byok-ok" on stdin and inspect the Droid session for the resolved model and reasoning_effort none.'
+      notes: 'Operator live run, 2026-11-09 (#4054): -r reasoning effort is ignored for custom models. Copy the custom: selector from the harness model listing, not the upstream API ID or display name. #3969: heavy/medium/light aliases are rejected; use full built-in IDs for built-in models.'
+      docs: docs/providers/factory-direct.md#bring-your-own-key
     aliases:
       - factory-ai
     route_feasibility:
@@ -327,6 +353,14 @@ providers:
 
   opencode:
     display_name: OpenCode
+    byok:
+      status: verified
+      settings:
+        - 'Key: OPENROUTER_API_KEY environment variable; OpenRouter provider is harness-owned.'
+        - 'Model: opencode run -m openrouter/qwen/qwen3.8-27b (provider-prefixed model selector).'
+      verification: 'After approval, send "Reply with exactly: byok-ok" and inspect the OpenCode log/session for the resolved model qwen/qwen3.8-27b under openrouter.'
+      notes: 'Operator live run, 2026-11-09 (#4054); this guidance does not change AIWG worker environment allowlists or qualify direct dispatch.'
+      docs: docs/providers/opencode-direct.md#bring-your-own-key
     route_feasibility:
       scope: in
       identity: runtime-configured-only
@@ -600,6 +634,14 @@ providers:
 
   hermes:
     display_name: Hermes
+    byok:
+      status: verified
+      settings:
+        - 'Key: OPENROUTER_API_KEY environment variable.'
+        - 'Provider/model: hermes chat --provider openrouter -m qwen/qwen3.8-27b; never rely on auto provider selection.'
+      verification: 'After approval, send "Reply with exactly: byok-ok" and inspect the Hermes log/session for the resolved model qwen/qwen3.8-27b under openrouter.'
+      notes: 'Operator live run, 2026-11-09 (#4054); manual CLI guidance does not change the AIWG direct-worker cleared environment or its dispatch status.'
+      docs: docs/providers/hermes-direct.md#bring-your-own-key
     route_feasibility:
       scope: in
       identity: runtime-configured-only
@@ -654,6 +696,13 @@ providers:
 
   muse:
     display_name: Muse Code
+    byok:
+      status: unverified
+      settings:
+        - 'Muse --provider / --model and harness settings select catalog models; an OpenRouter key setting is unverified. Do not invent an environment variable or endpoint flag.'
+      verification: 'First confirm upstream BYOK support without a paid call; after explicit approval of a supported route, send "Reply with exactly: byok-ok" and check the Muse session log for the resolved model.'
+      notes: 'Existing Muse notes cover the Meta model catalog only. Offer a verified Hermes, OpenCode or Copilot route when OpenRouter is required.'
+      docs: docs/agents/providers/muse.md
     route_feasibility:
       scope: in
       identity: runtime-configured-only
