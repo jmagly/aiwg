@@ -64,7 +64,7 @@ export function isOperatorQualifiedWorkerAdapter(adapter: WorkerAdapterMetadata)
 
 /** Bundled renderers with an independently checked native direct baseline. */
 export function hasOperatorWorkerNativeRenderer(adapter: WorkerAdapterMetadata): boolean {
-  return isOperatorQualifiedWorkerAdapter(adapter) && ['codex', 'muse'].includes(adapter.provider)
+  return isOperatorQualifiedWorkerAdapter(adapter) && ['codex', 'muse', 'factory'].includes(adapter.provider)
     && adapter.invocation.kind === 'process';
 }
 
@@ -93,6 +93,27 @@ export function assertOperatorWorkerNativeArgv(adapter: WorkerAdapterMetadata, a
   };
   const sandbox = permissions?.sandbox ?? 'workspace-write';
   if (!['read-only', 'workspace-write', 'external'].includes(sandbox)) throw new Error('Requested sandbox has no verified native renderer');
+  if (adapter.provider === 'factory') {
+    if (sandbox === 'external' || (permissions?.approval ?? 'never') !== 'never') {
+      throw new Error('Factory direct worker requires native sandbox and never approval');
+    }
+    requirePair('-m', selected.model);
+    requirePair('--output-format', 'stream-json');
+    const cwd = args[args.indexOf('--cwd') + 1];
+    if (!args.includes('--cwd') || !cwd?.startsWith('/') || cwd.includes('\0')) {
+      throw new Error('Factory direct worker requires an absolute workspace');
+    }
+    if (selected.effort.value === null && !selected.model.startsWith('custom:')) {
+      throw new Error('Factory built-in models require explicit effort');
+    }
+    const expected = ['exec', ...(sandbox === 'workspace-write' ? ['--auto', 'low'] : []),
+      '-m', selected.model, ...(selected.effort.value === null ? [] : ['-r', selected.effort.value]),
+      '--cwd', cwd, '--output-format', 'stream-json'];
+    if (args.length !== expected.length || args.some((value, index) => value !== expected[index])) {
+      throw new Error('Factory native worker controls could be overridden');
+    }
+    return;
+  }
   if (adapter.provider === 'muse') {
     requirePair('--provider', 'meta');
     requirePair('--model', selected.model);

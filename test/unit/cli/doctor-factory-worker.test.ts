@@ -76,6 +76,53 @@ it('accepts Factory through the existing project CLI configuration command', asy
   expect(JSON.parse(await readFile(file, 'utf8')).parallelism.clis.factory).toMatchObject(installation);
 });
 
+it.each([true, false])('discovers BYOK settings before qualification and never retains literal keys (refresh: %s)', async refresh => {
+  const f = await fixture('no-observation');
+  const model = 'custom:AIWG-OpenRouter-Qwen-3.8-27B';
+  const file = path.join(f.project, '.aiwg/aiwg.config');
+  const config = JSON.parse(await readFile(file, 'utf8'));
+  config.parallelism.groups.workers.members[0].model = model;
+  await writeFile(file, JSON.stringify(config));
+  await writeFile(path.join(f.project, 'models.json'), JSON.stringify({ defaults: { workerSelection: {
+    roleGuidance: { coding: { groups: ['workers'], tier: 'standard', initialEffort: null,
+      effortLadder: [], allowNotApplicableEffort: true } },
+    guards: { denySelfDelegation: false }, dataPolicy: { allowUnknown: true },
+  } } }));
+  await mkdir(path.join(f.root, '.factory'));
+  const literal = 'synthetic-literal-factory-key-never-retain';
+  await writeFile(path.join(f.root, '.factory/settings.json'), JSON.stringify({ customModels: [{
+    model: 'qwen/qwen3.8-27b', displayName: 'AIWG OpenRouter Qwen 3.8 27B',
+    baseUrl: 'https://openrouter.ai/api/v1', provider: 'generic-chat-completion-api',
+    maxOutputTokens: 8192, apiKey: literal, api_key: literal,
+  }] }));
+  const refreshed = refresh ? await f.run(['models', 'refresh', '--provider', 'factory', '--json'])
+    : { code: 0, stdout: '', stderr: '' };
+  expect(refreshed.code, refreshed.stdout + refreshed.stderr).toBe(0);
+  const cache = refresh ? await readFile(path.join(f.root, '.cache/aiwg/model-catalog.v1.json'), 'utf8') : '';
+  if (refresh) expect(JSON.parse(cache).discovery.providers.factory.models).toContainEqual(expect.objectContaining({
+    id: model, apiModelId: model, llmProvider: 'openrouter', worker: expect.objectContaining({
+      runtimeVersion: '1.0.0', accountScope: 'synthetic-account', effortSupport: 'not-applicable',
+    }),
+  }));
+  const result = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'factory', '--yes', '--json']);
+  expect(result.code, result.stdout + result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout).qualification).toMatchObject({ status: 'recorded', results: [{
+    cli: 'factory', status: 'qualified', models: [model], invocationChecks: [{ effort: null, status: 'passed' }],
+  }] });
+  const receipts = await readFile(path.join(f.config, 'worker-installations.json'), 'utf8');
+  for (const output of [refreshed.stdout, refreshed.stderr, cache, result.stdout, result.stderr, receipts]) {
+    expect(output).not.toContain(literal);
+    expect(output).not.toMatch(/"(?:apiKey|api_key)"\s*:/);
+  }
+  const calls = (await readFile(path.join(f.root, 'fake-bin/calls.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+  expect(calls.every(args => args.join(' ') === '--version')).toBe(true);
+  await rm(path.join(f.root, '.factory/settings.json'));
+  const removed = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'factory', '--yes', '--json']);
+  expect(removed.code).toBe(1);
+  expect(JSON.parse(removed.stdout).qualification.results[0].message).toContain('No exact current Factory model observations');
+  expect(JSON.parse(removed.stdout).qualification.results[0].message).toContain('~/.factory/settings.json');
+});
+
 it('reports an absent CLI as an install blocker only when --cli targets it', async () => {
   const f = await fixture('missing-droid');
   const result = await f.run(['doctor', '--probe-workers', '--qualify', '--yes', '--json']);

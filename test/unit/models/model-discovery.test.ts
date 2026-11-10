@@ -107,7 +107,7 @@ describe('dynamic model catalog', () => {
     expect(Object.values(PROVIDER_DISCOVERY_DECISIONS)
       .filter(decision => decision.status === 'native')
       .map(decision => decision.provider)
-      .sort()).toEqual(['codex', 'grok-build', 'muse', 'ollama', 'omp', 'openclaw', 'opencode', 'pi']);
+      .sort()).toEqual(['codex', 'factory', 'grok-build', 'muse', 'ollama', 'omp', 'openclaw', 'opencode', 'pi']);
   });
 
   it('maps enumerated models to semantic roles without inventing identifiers', () => {

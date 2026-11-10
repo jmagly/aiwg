@@ -52,9 +52,9 @@ export const PROVIDER_DISCOVERY_DECISIONS: Record<string, ProviderDiscoveryDecis
   },
   factory: {
     provider: 'factory',
-    status: 'unsupported',
-    interface: null,
-    reason: 'Droid exposes model selection through policy and interactive surfaces, but no documented non-interactive model-list command.',
+    status: 'native',
+    interface: 'bounded customModels fields from ~/.factory/settings.json; droid --version',
+    reason: 'Configured BYOK custom selectors are observable locally; built-in plan models have no documented non-interactive model-list command and stay static.',
     documentation: 'https://docs.factory.ai/cli/configuration/models',
   },
   grokbot: {
@@ -787,6 +787,10 @@ export async function resolveDynamicModelCatalog(
     muse: () => discoverMuseCatalogModels({
       ...options.muse, catalogDir: options.muse?.catalogDir ?? join(homeDir, MUSE_CATALOG_DIR), now: options.now,
     }),
+    factory: async () => {
+      const { discoverProjectFactoryModels } = await import('./factory-models.js');
+      return discoverProjectFactoryModels(options.inventory.projectDir, { homeDir, runner: options.runner, now: options.now });
+    },
     opencode: () => discoverOpenCodeModels(),
     openclaw: () => discoverOpenClawModels(),
     pi: () => discoverPiModels(),
