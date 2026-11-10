@@ -341,6 +341,8 @@ export class ClaudeAdapter extends ProviderAdapter {
  * inherited from ProviderAdapter.
  */
 export class ClaudeDirectAdapter extends ClaudeAdapter {
+  getName() { return 'claude-direct'; }
+
   async parseWorkerFinal(output, options = {}) {
     // MCP envelopes retain the shared strict parser. Every other input must be
     // Claude's own stream-json transcript with a validated terminal result: the

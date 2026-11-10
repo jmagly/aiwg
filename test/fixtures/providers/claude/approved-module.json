@@ -7,7 +7,7 @@
     "packageVersion": "1",
     "modulePath": "lib/claude-adapter.mjs",
     "interfaceVersion": 1,
-    "sha256": "sha256:5f45a8d7819e5520f8770cf74c23dae533a950cdfdf27780c707ef6796557fe9",
+    "sha256": "sha256:098ec70364d13cd3f7a5a9b51cec50986f581e9a6e24a3885fa63119c61d2a22",
     "adapterIds": [
       "claude-direct"
     ],

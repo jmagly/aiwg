@@ -928,7 +928,13 @@ export async function loadRecordedWorkerInstallations({ registry, cwd, policy, p
       await assertTrustedStore(filename, installation.workerWritableRoots);
       reason = 'adapter-metadata';
       const candidateRegistry = structuredClone(resolvedRegistry);
-      if (candidateRegistry.providers[adapter.id]) candidateRegistry.providers[adapter.id].workerAdapter = adapter;
+      // Match qualification's provider lookup without making a -direct ID canonical.
+      const provider = candidateRegistry.providers[adapter.provider];
+      const reference = parallelism?.clis?.[cli]?.adapter ?? `providers:${cli}`;
+      const providerId = isOperatorQualifiedWorkerAdapter(adapter)
+        && (provider?.workerAdapter ?? provider?.workerHealthAdapter)?.id === adapter.id
+        && reference === `providers:${adapter.provider}` ? adapter.provider : adapter.id;
+      if (candidateRegistry.providers[providerId]) candidateRegistry.providers[providerId].workerAdapter = adapter;
       else { candidateRegistry.workerAdapters ??= {}; candidateRegistry.workerAdapters[adapter.id] = adapter; }
       parseProviderModelCapabilities(candidateRegistry);
       // The loader validates package identity, bytes and static exports BEFORE import.
