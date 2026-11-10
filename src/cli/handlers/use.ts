@@ -3,6 +3,7 @@ import type { ContextPipelineOptions, ContextPipelineResult } from '../../smiths
 import { trackTemporaryDirectory } from '../../utils/temporary-directory.js';
 import { codexHookTrustNextStep, readCodexHookTrust } from '../../smiths/hook-bridge/codex-trust.js';
 import { factoryHookTrustNextStep, readFactoryHookTrust } from '../../smiths/hook-bridge/factory-trust.js';
+import { hermesHookAcceptanceNextStep, readHermesHookAcceptance } from '../../smiths/hook-bridge/hermes-trust.js';
 /**
  * Use Command Handler
  *
@@ -2894,6 +2895,11 @@ export class UseHandler implements CommandHandler {
     if (factoryTrustStep) result.findings.push({
       id: 'factory-hook-trust', provider: 'factory', severity: 'info', message: factoryTrustStep,
     });
+    const hermesAcceptanceStep = !dryRun && result.exitCode === 0 && providers.includes('hermes')
+      ? hermesHookAcceptanceNextStep(await readHermesHookAcceptance()) : '';
+    if (hermesAcceptanceStep) result.findings.push({
+      id: 'hermes-prompt-discovery-acceptance', provider: 'hermes', severity: 'info', message: hermesAcceptanceStep,
+    });
     if (json) {
       return { exitCode: result.exitCode, message: JSON.stringify(result, null, 2), rawOutput: true };
     }
@@ -2918,7 +2924,7 @@ export class UseHandler implements CommandHandler {
     });
     return {
       exitCode: result.exitCode,
-      message: [coreResult.message, rendered, ...(previewActions ? [...previewActions].sort() : []), codexTrustStep, factoryTrustStep].filter(Boolean).join('\n'),
+      message: [coreResult.message, rendered, ...(previewActions ? [...previewActions].sort() : []), codexTrustStep, factoryTrustStep, hermesAcceptanceStep].filter(Boolean).join('\n'),
     };
   }
 

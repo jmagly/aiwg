@@ -5,6 +5,8 @@ import { isMap, isSeq, parseDocument } from 'yaml';
 import { resolveHermesHomePath } from '../../providers/hermes-home.js';
 import { captureDeploymentOutputs, recordDeploymentOutputs } from '../../providers/deployment-ownership.mjs';
 import { managedHookScriptState } from '../../extensions/managed-hook-script-state.js';
+import { verifiedHookCommand } from '../../extensions/verified-hook-command.js';
+import { hermesHookAcceptanceNextStep, readHermesHookAcceptance } from './hermes-trust.js';
 import type { HookSource, TranslateOptions, TranslateResult } from './types.js';
 
 export async function translateHermesPromptDiscovery(source: HookSource, options: TranslateOptions): Promise<TranslateResult> {
@@ -33,8 +35,10 @@ export async function translateHermesPromptDiscovery(source: HookSource, options
   if (!isSeq(entries) || entries.items.some(entry => !isMap(entry) || typeof entry.get('command') !== 'string')) {
     throw new Error('Invalid Hermes pre_llm_call hooks');
   }
-  const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
-  const registration = { command: `node ${quote(script)}`, timeout: source.timeout ?? 2,
+  const sourceScript = source.args?.[0];
+  if (!sourceScript) throw new Error('Missing shared prompt discovery script');
+  const bytes = await fs.readFile(sourceScript);
+  const registration = { command: verifiedHookCommand(home, 'agent-hooks/aiwg-prompt-discovery.cjs', bytes, [], 'user'), timeout: source.timeout ?? 2,
     _aiwg_managed: true, _aiwg_id: source.id };
   const managed = entries.items.filter(entry => isMap(entry) && entry.get('_aiwg_managed') === true && entry.get('_aiwg_id') === source.id);
   const current = managed[0];
@@ -43,9 +47,6 @@ export async function translateHermesPromptDiscovery(source: HookSource, options
     entries.items = entries.items.filter(entry => !managed.includes(entry));
     entries.add(doc.createNode(registration));
   }
-  const sourceScript = source.args?.[0];
-  if (!sourceScript) throw new Error('Missing shared prompt discovery script');
-  const bytes = await fs.readFile(sourceScript);
   const roots = [config, directory, path.join(home, '.aiwg-manifest.json')];
   const before = captureDeploymentOutputs(roots);
   const state = await managedHookScriptState(home, path.relative(home, script), bytes);
@@ -59,7 +60,8 @@ export async function translateHermesPromptDiscovery(source: HookSource, options
   if (text !== original) await fs.writeFile(config, text);
   result.emittedPaths.push(config);
   recordDeploymentOutputs(before, roots, { frameworkSlug: 'aiwg-hooks', claimUnchangedSettings: false, writtenFiles: result.emittedPaths });
-  result.warnings.push('Hermes pre_llm_call hook configured; approve the command in Hermes before use. Consent and safe mode are unchanged.');
+  const nextStep = hermesHookAcceptanceNextStep(await readHermesHookAcceptance());
+  if (nextStep) result.warnings.push(nextStep);
   return result;
 }
 

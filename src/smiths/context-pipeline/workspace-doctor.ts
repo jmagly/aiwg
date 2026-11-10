@@ -19,6 +19,7 @@ import { configuredProviders } from './workspace-migration.js';
 import { diagnoseUserHookCommands } from '../../extensions/user-hook-diagnostics.js';
 import { diagnoseCodexHookTrust } from '../hook-bridge/codex-trust.js';
 import { diagnoseFactoryHookTrust } from '../hook-bridge/factory-trust.js';
+import { diagnoseHermesHookAcceptance } from '../hook-bridge/hermes-trust.js';
 
 import { maskCodeRegions } from './code-regions.js';
 export { maskCodeRegions } from './code-regions.js';
@@ -52,6 +53,8 @@ export async function diagnoseWorkspaceContext(projectPath: string): Promise<Wor
   if (codexTrust) diagnostics.push(codexTrust);
   const factoryTrust = await diagnoseFactoryHookTrust(projectPath);
   if (factoryTrust) diagnostics.push(factoryTrust);
+  const hermesAcceptance = await diagnoseHermesHookAcceptance();
+  if (hermesAcceptance) diagnostics.push(hermesAcceptance);
   const root = path.resolve(projectPath);
   const scopes = new Map<string, Promise<string | null>>();
   // Ordinary subdirectories share root policy; repository/project markers start a separate scope.

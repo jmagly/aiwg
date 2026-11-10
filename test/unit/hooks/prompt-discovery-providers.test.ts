@@ -14,6 +14,8 @@ import { translateForCopilot } from '../../../src/smiths/hook-bridge/copilot-tra
 import { translateForGrokBuild } from '../../../src/smiths/hook-bridge/grok-build-translator.js';
 import { deployMuseHooks, pruneMuseHooks } from '../../../tools/agents/providers/muse-hooks.mjs';
 import { parse as parseYaml } from 'yaml';
+import { diagnoseWorkspaceContext } from '../../../src/smiths/context-pipeline/workspace-doctor.js';
+import { withWindows, windowsPath, assertWindowsCommandSafe } from '../../helpers/windows-simulation.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 let projectPath: string;
@@ -174,14 +176,16 @@ describe('prompt discovery provider delivery', () => {
     expect(doc.hooks.pre_llm_call[0].command).toBe('operator-hook');
     const entry = doc.hooks.pre_llm_call[1];
     const script = path.join(home, 'agent-hooks/aiwg-prompt-discovery.cjs');
-    expect(entry.command).toContain(script);
+    expect(entry.command).toBe(verifiedHookCommand(home, 'agent-hooks/aiwg-prompt-discovery.cjs', await readFile(script), [], 'user'));
+    expect(result.warnings).toContain('Accept the Hermes hook (--accept-hooks); see aiwg doctor.');
+    expect(result.warnings.every(line => `  hook-bridge hermes: ${line}`.length <= 80)).toBe(true);
     expect(entry.timeout).toBe(2);
     expect(result.emittedPaths).toEqual(expect.arrayContaining([script, config]));
     const runtime = path.join(projectPath, 'dist/src/artifacts');
     await mkdir(runtime, { recursive: true });
     await copyFile(path.join(root, 'test/fixtures/hooks-prompt-discovery.mjs'), path.join(runtime, 'query-engine-discover.js'));
-    const invoke = (user_message: string, enabled = '1', hook_event_name = 'pre_llm_call') => spawnSync(process.execPath, [script], {
-      cwd: projectPath, encoding: 'utf8', timeout: 5000,
+    const invoke = (user_message: string, enabled = '1', hook_event_name = 'pre_llm_call') => spawnSync(entry.command, {
+      shell: true, cwd: projectPath, encoding: 'utf8', timeout: 5000,
       input: JSON.stringify({ hook_event_name, cwd: projectPath, extra: { user_message } }),
       env: { ...process.env, AIWG_ROOT: projectPath, AIWG_PROMPT_DISCOVERY: enabled },
     });
@@ -198,8 +202,100 @@ describe('prompt discovery provider delivery', () => {
     await access(script);
     expect(await readFile(config, 'utf8')).toBe(once);
     await writeFile(script, '// Operator edit\n');
+    const changed = invoke('Review authentication');
+    expect(changed.status).not.toBe(0);
+    expect(changed.stderr).toContain('AIWG hook changed; redeploy and review');
     const edited = await translateForHermes(source, { projectPath });
     expect(edited.warnings.join(' ')).toContain('operator-edited');
     expect(await readFile(script, 'utf8')).toBe('// Operator edit\n');
   });
+});
+
+it('renders the Hermes command safely on emulated Windows (#4055)', async () => {
+  const home = path.join(projectPath, 'Hermes $HOME %USERPROFILE% `tick`');
+  vi.stubEnv('HERMES_HOME', home);
+  const { sources } = await loadHookSources(root);
+  await withWindows(async () => {
+    await translateForHermes(sources.find(s => s.id === 'aiwg-prompt-discovery')!, { projectPath });
+    const entry = parseYaml(await readFile(path.join(home, 'config.yaml'), 'utf8')).hooks.pre_llm_call[0];
+    assertWindowsCommandSafe(entry.command);
+    const data = /Buffer.from\('([^']+)','base64'\)/.exec(entry.command)![1];
+    expect(JSON.parse(Buffer.from(data, 'base64').toString())).toEqual({
+      anchor: path.win32.resolve(home), relative: 'agent-hooks/aiwg-prompt-discovery.cjs', args: [], projectEnv: '',
+    });
+  }, { profile: windowsPath('C', 'Users', 'Test User') });
+});
+
+it('changes the Hermes acceptance command only when reviewed source bytes change', async () => {
+  const home = path.join(projectPath, 'hermes');
+  vi.stubEnv('HERMES_HOME', home);
+  const source = path.join(projectPath, 'fixture.cjs');
+  const hook = { id: 'aiwg-prompt-discovery', description: 'fixture', events: ['UserPromptSubmit' as const], command: 'node', args: [source] };
+  const install = async (bytes: string) => {
+    await writeFile(source, bytes);
+    await translateForHermes(hook, { projectPath });
+    return parseYaml(await readFile(path.join(home, 'config.yaml'), 'utf8')).hooks.pre_llm_call[0].command;
+  };
+  const first = await install('process.stdout.write("first");');
+  expect(await install('process.stdout.write("first");')).toBe(first);
+  const second = await install('process.stdout.write("second");');
+  expect(second).not.toBe(first);
+  const run = (command: string) => spawnSync(command, { shell: true, cwd: projectPath, encoding: 'utf8', timeout: 5000 });
+  expect(run(first).status).not.toBe(0);
+  expect(run(second).stdout).toBe('second');
+});
+
+it.each(['missing', 'accepted', 'wrong-command', 'wrong-event', 'empty-allowlist', 'malformed', 'unreadable', 'auto-accept', 'missing-script', 'unmanaged'])
+('doctor reads Hermes hook acceptance without writing (%s)', async state => {
+  const home = path.join(projectPath, 'hermes-home');
+  vi.stubEnv('HERMES_HOME', home);
+  await mkdir(path.join(home, 'agent-hooks'), { recursive: true });
+  const script = path.join(home, 'agent-hooks/aiwg-prompt-discovery.cjs');
+  const bytes = Buffer.from('// fixture\n');
+  await writeFile(script, bytes);
+  const command = verifiedHookCommand(home, 'agent-hooks/aiwg-prompt-discovery.cjs', bytes, [], 'user');
+  const config = path.join(home, 'config.yaml');
+  const text = `# Operator\nhooks_auto_accept: ${state === 'auto-accept'}\nhooks:\n  pre_llm_call:\n    - command: ${JSON.stringify(command)}\n      _aiwg_managed: ${state !== 'unmanaged'}\n      _aiwg_id: aiwg-prompt-discovery\n`;
+  await writeFile(config, text);
+  const allowlist = path.join(home, 'shell-hooks-allowlist.json');
+  const approvals = state === 'malformed' ? 'invalid' : JSON.stringify({ approvals: state === 'empty-allowlist' ? [] : [null, {
+    event: state === 'wrong-event' ? 'post_tool_call' : 'pre_llm_call',
+    command: state === 'wrong-command' ? command + ' ' : command,
+  }] });
+  if (state === 'unreadable') await mkdir(allowlist);
+  else if (!['missing', 'auto-accept'].includes(state)) await writeFile(allowlist, approvals);
+  if (state === 'missing-script') await unlink(script);
+  const diagnostics = await diagnoseWorkspaceContext(projectPath);
+  const diagnostic = diagnostics.find(item => item.code === 'hermes-prompt-discovery-acceptance');
+  const silent = ['accepted', 'auto-accept', 'missing-script', 'unmanaged'].includes(state);
+  expect(Boolean(diagnostic)).toBe(!silent);
+  if (diagnostic) {
+    expect(diagnostic.path).toBe(config);
+    for (const option of ['TTY prompt', '--accept-hooks', 'HERMES_ACCEPT_HOOKS=1', 'hooks_auto_accept: true']) {
+      expect(diagnostic.message).toContain(option);
+    }
+    expect(diagnostic.message).toContain(['malformed', 'unreadable'].includes(state) ? 'unverified' : 'not accepted');
+  }
+  expect(await readFile(config, 'utf8')).toBe(text);
+  if (['missing', 'auto-accept'].includes(state)) await expect(access(allowlist)).rejects.toThrow();
+  else if (state === 'unreadable') await expect(readFile(allowlist)).rejects.toMatchObject({ code: 'EISDIR' });
+  else expect(await readFile(allowlist, 'utf8')).toBe(approvals);
+});
+
+it('shows all acceptance options through doctor --scope user without granting consent', async () => {
+  const home = path.join(projectPath, 'doctor-hermes-home');
+  vi.stubEnv('HERMES_HOME', home);
+  vi.stubEnv('AIWG_USER_REGISTRY_PATH', path.join(projectPath, 'registry.json'));
+  const { sources } = await loadHookSources(root);
+  await translateForHermes(sources.find(s => s.id === 'aiwg-prompt-discovery')!, { projectPath });
+  const config = path.join(home, 'config.yaml');
+  const original = await readFile(config, 'utf8');
+  const { doctorHandler } = await import('../../../src/cli/handlers/utility-doctor.js');
+  const result = await doctorHandler.execute({ args: ['--scope', 'user'], rawArgs: ['doctor', '--scope', 'user'], cwd: projectPath, frameworkRoot: root });
+  expect(result.message).toContain('Hermes prompt-discovery hook deployed but not accepted');
+  for (const option of ['TTY prompt', '--accept-hooks', 'HERMES_ACCEPT_HOOKS=1', 'hooks_auto_accept: true']) {
+    expect(result.message).toContain(option);
+  }
+  expect(await readFile(config, 'utf8')).toBe(original);
+  await expect(access(path.join(home, 'shell-hooks-allowlist.json'))).rejects.toThrow();
 });
