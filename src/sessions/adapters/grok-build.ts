@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { basename, extname } from 'node:path';
 import type { GrokBuildCliOptions } from '../grok-build-cli.js';
 import { canFallbackGrokNative, withGrokCliFallback } from './grok-build-fallback.js';
@@ -22,11 +23,12 @@ import {
   grokBuildNativeSessionId,
   grokBuildNativeEnabled,
   parseGrokBuildNativeCursor,
+  nativeRecordPrefixes,
   readGrokBuildNativeChatHistory,
   toGrokBuildNativeRecord,
 } from './grok-build-native.js';
 
-export const GROK_BUILD_ADAPTER_VERSION = '1.1.0';
+export const GROK_BUILD_ADAPTER_VERSION = '1.2.0';
 export const GROK_BUILD_CLI_EXPORT_SCHEMA_VERSION = '1.0.0';
 export const GROK_BUILD_CLI_EXPORT_LOCATOR_CLASS = 'grok-build-cli-markdown-export';
 
@@ -49,6 +51,8 @@ export class GrokBuildSessionAdapter implements SessionSourceAdapter {
   readonly provider = 'grok-build' as const;
   readonly adapterVersion = GROK_BUILD_ADAPTER_VERSION;
   readonly disposition = 'implemented' as const;
+  // Compaction rewrites chat history; native cursors validate the retained projection.
+  readonly sourceContinuity = 'snapshot' as const;
   get supportedOperations() {
     return grokBuildNativeEnabled() ? ['discover', 'inspect', 'stream'] as const : ['inspect', 'stream'] as const;
   }
@@ -110,25 +114,46 @@ export class GrokBuildSessionAdapter implements SessionSourceAdapter {
         return;
       }
       const sessionId = grokBuildNativeSessionId(source.locator)!;
-      const start = parseGrokBuildNativeCursor(cursor?.value);
+      const prefixes = nativeRecordPrefixes(native.records);
+      const acquisition = native.records[0]?.record.acquisition === 'grok-build-native-updates' ? 'updates' : 'chat';
+      const saved = cursor?.value?.match(/^grok-native:(chat|updates):(\d+):([a-f0-9]{64})$/);
+      const start = parseGrokBuildNativeCursor(saved?.[2] ?? cursor?.value);
+      if (start > native.records.length || (saved && (saved[1] !== acquisition || saved[3] !== prefixes[start]))) {
+        throw new SessionContractError('SCHEMA_DRIFT', 'Grok Build native checkpoint projection changed; use a separate source and `grok export` for review.');
+      }
       let outputIndex = 0;
       for (const entry of native.records) {
         const position = outputIndex;
         outputIndex += 1;
         if (position < start) continue;
         const record = toGrokBuildNativeRecord(sessionId, entry);
-        record.sourceCursor = String(outputIndex);
+        record.sourceCursor = `grok-native:${acquisition}:${outputIndex}:${prefixes[outputIndex]}`;
         yield record;
       }
       return;
     }
-    const parsed = await this.readSource(source);
-    const start = parseCursor(cursor?.value);
+    const saved = cursor?.value?.match(/^grok-export:(\d+):([a-f0-9]{64})$/);
+    const start = parseCursor(saved?.[1] ?? cursor?.value);
+    const hash = createHash('sha256');
     let outputIndex = 0;
+    for await (const record of this.exportRecords(source)) {
+      hash.update(JSON.stringify(record) + '\n');
+      outputIndex += 1;
+      const digest = hash.copy().digest('hex');
+      if (outputIndex === start && saved && digest !== saved[2]) {
+        throw new SessionContractError('SCHEMA_DRIFT', 'Grok Build export checkpoint prefix changed; review and import a separate export source.');
+      }
+      if (outputIndex <= start) continue;
+      yield { ...record, sourceCursor: `grok-export:${outputIndex}:${digest}` };
+    }
+    if (start > outputIndex) throw new SessionContractError('SCHEMA_DRIFT', 'Grok Build export checkpoint is beyond the retained transcript; use a separate export source.');
+  }
+
+  private async *exportRecords(source: SelectedSource): AsyncIterable<ProviderRecord> {
+    const parsed = await this.readSource(source);
     for (const [sequence, block] of parsed.blocks.entries()) {
       if (block.heading === 'Tools') {
         for (const tool of parseTools(block.text, sequence)) {
-          if (outputIndex++ < start) continue;
           yield {
             nativeSessionId: parsed.sessionId,
             nativeEventId: undefined,
@@ -144,7 +169,6 @@ export class GrokBuildSessionAdapter implements SessionSourceAdapter {
         }
         continue;
       }
-      if (outputIndex++ < start) continue;
       yield {
         nativeSessionId: parsed.sessionId,
         nativeEventId: undefined,
@@ -160,14 +184,14 @@ export class GrokBuildSessionAdapter implements SessionSourceAdapter {
   }
 
   private async fallbackRecords(source: SelectedSource, cursor?: string): Promise<ProviderRecord[]> {
-    const start = parseCursor(cursor);
+    const saved = cursor?.match(/^(\d+):([a-f0-9]{64})$/);
+    const start = parseCursor(saved?.[1] ?? cursor);
     if (!this.cliFallback) throw new SessionContractError('UNSUPPORTED_OPERATION', 'Grok Build CLI fallback is unavailable; use an explicit `grok export`.');
     return withGrokCliFallback(source, this.cliFallback, async selected => {
       const records: ProviderRecord[] = [];
-      let index = start;
-      for await (const record of this.stream(selected, { value: String(start) })) {
+      for await (const record of this.stream(selected, { value: saved ? `grok-export:${cursor}` : String(start) })) {
         const extensions = record.extensions ?? {};
-        records.push({ ...record, sourceCursor: `grok-cli:${++index}`, extensions: { ...extensions,
+        records.push({ ...record, sourceCursor: record.sourceCursor!.replace('grok-export:', 'grok-cli:'), extensions: { ...extensions,
           provenance: { ...(extensions.provenance as Record<string, unknown>), nativeFallback: true },
         } });
       }

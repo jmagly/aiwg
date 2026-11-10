@@ -24,7 +24,7 @@ export function normalizeSessionBatch(
   const events = records.map((record, index): SessionEvent => {
     const sessionId = stableSessionId(request.source.provider, request.source.sourceId, record.nativeSessionId);
     const native = sanitizeNativeExtensions(record.extensions ?? {});
-    const lineage = request.source.provider === 'codex' && native.value.lineage
+    const lineage = ['codex', 'grok-build'].includes(request.source.provider) && native.value.lineage
       ? { lineage: native.value.lineage } : {};
     const images = extractEventImages({
       searchableText: record.text,

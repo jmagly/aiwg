@@ -1,0 +1,7 @@
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted context."}],"synthetic_reason":"compaction_meta"}
+{"type":"user","content":[{"type":"text","text":"<user_query>\nList three facts about the Rhine in one line each.\n</user_query>"}]}
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted context."}],"synthetic_reason":"compaction_meta"}
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted context."}],"synthetic_reason":"system_reminder"}
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted context."}],"synthetic_reason":"system_reminder"}
+{"type":"user","content":[{"type":"text","text":"<user_query>\nWhat was the code word?\n</user_query>"}],"prompt_index":2}
+{"type":"assistant","content":"ORCHID","model_id":"grok-4.7-build","reasoning_effort":"high"}
