@@ -51,12 +51,14 @@ export async function auditWithPendingScans({
 
   while (true) {
     let error = null
+    let notQueriedPurls = []
     try {
       const queried = new Set(requested)
       const retained = artifacts.filter(item => item._type !== 'summary' && !wasQueried(item, queried))
       const results = await fetchArtifacts({
         ...fetchOptions, components: requested.map(purl => ({ purl })),
         now, sleep, log, quotaDeadline, deadline,
+        onNotQueried: purls => { notQueriedPurls = purls },
         onBatch: received => {
           artifacts = [...retained, ...received]
           return evaluate({ artifacts, baseline, components, now: new Date(now()) }).status !== 'fail'
@@ -66,14 +68,15 @@ export async function auditWithPendingScans({
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause)
     }
-    report = evaluate({ artifacts, baseline, components, now: new Date(now()) })
+    report = evaluate({ artifacts, baseline, components, notQueriedPurls, now: new Date(now()) })
     if (error) {
       report.findings.unavailable.unshift({ purl: '*', reason: error })
       report.summary.unavailable = report.findings.unavailable.length
       if (report.status !== 'fail') report.status = 'unavailable'
     }
     const pendingPurls = report.status === 'unavailable' && !error ? pendingReleasePurls(report, version) : []
-    const attempt = { attempt: attempts.length + 1, queriedPurls: requested, evaluatedAt: new Date(now()).toISOString(), status: report.status, pendingPurls, nextRetryAt: null }
+    const queriedPurls = requested.filter(purl => !notQueriedPurls.includes(purl))
+    const attempt = { attempt: attempts.length + 1, queriedPurls, evaluatedAt: new Date(now()).toISOString(), status: report.status, pendingPurls, nextRetryAt: null }
     attempts.push(attempt)
     if (!pendingPurls.length) {
       log(`Socket scan attempt ${attempt.attempt}: ${report.status}; next retry: none`)

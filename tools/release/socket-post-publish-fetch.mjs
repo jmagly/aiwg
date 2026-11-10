@@ -38,6 +38,7 @@ export async function fetchArtifacts({
   now = Date.now,
   quotaDeadline = paceQuotaMs > 0 ? now() + paceQuotaMs : null,
   onBatch = () => true,
+  onNotQueried = () => {},
   sleep = ms => new Promise(resolveDelay => setTimeout(resolveDelay, ms)),
   log = message => console.error(message)
 }) {
@@ -74,7 +75,10 @@ export async function fetchArtifacts({
       if (!line.trim()) continue
       try { all.push(JSON.parse(line)) } catch { throw new Error('Socket API returned malformed NDJSON') }
     }
-    if (!onBatch(all)) break
+    if (!onBatch(all)) {
+      onNotQueried(components.slice(offset + batchSize).map(({ purl }) => purl))
+      break
+    }
   }
   return all
 }

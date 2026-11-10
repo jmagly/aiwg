@@ -146,6 +146,48 @@ describe('Socket published-scan retry', () => {
     expect(clock.logs[0]).toContain('attempt 1: fail; next retry: none')
   })
 
+  it.each([
+    { name: 'blocking alert', artifact: { ...ready(), alerts: [{ type: 'newRisk', severity: 'high' }] } },
+    { name: 'score regression', artifact: { ...ready(), name: 'aiwg', score: { quality: 0.5 } } },
+    { name: 'validation error', artifact: { ...ready(), alerts: [{ type: 'notice', file: 123 }] } }
+  ])('reports the 386 unsent cargo PURLs as not-queried after a $name', async ({ artifact }) => {
+    const npm = [root, ...Array.from({ length: 499 }, (_, i) => ({ purl: `pkg:npm/p${i}@1.0.0`, depth: 'transitive' }))]
+    const cargo = Array.from({ length: 386 }, (_, i) => ({ purl: `pkg:cargo/c${i}@1.0.0`, depth: 'transitive' }))
+    // Omit a PURL that was sent, to distinguish it from the unsent cargo batch.
+    const clock = harness(() => [artifact, ...npm.slice(2).map(item => ready(item.purl))])
+    const report = await auditWithPendingScans({ ...clock.options, components: [...npm, ...cargo] })
+    expect(clock.requests).toEqual([npm.map(item => item.purl)])
+    expect(clock.sleeps).toEqual([])
+    expect(report.status).toBe('fail')
+    expect(report.summary).toMatchObject({ componentsRequested: 886, componentsReturned: 499, unavailable: 387, notQueried: 386 })
+    expect(report.findings.unavailable).toEqual([
+      { purl: npm[1].purl, reason: 'missing-response' },
+      ...cargo.map(({ purl }) => ({ purl, reason: 'not-queried', note: 'Fetching stopped after a failing batch to save quota.' }))
+    ])
+    expect(report.scanWait.attempts[0].queriedPurls).toEqual(npm.map(item => item.purl))
+  })
+
+  it.each([2, 3])('tracks only batches after failing batch %i as not-queried', async failingBatch => {
+    const components = [root, cli, third]
+    const clock = harness((attempt, purls) => purls.map(purl => ({
+      ...ready(purl), alerts: attempt === failingBatch ? [{ type: 'newRisk', severity: 'high' }] : []
+    })))
+    const report = await auditWithPendingScans({ ...clock.options, batchSize: 1, components })
+    expect(report.status).toBe('fail')
+    expect(clock.requests).toEqual(components.slice(0, failingBatch).map(({ purl }) => [purl]))
+    expect(report.summary).toMatchObject({ componentsReturned: failingBatch, unavailable: 3 - failingBatch, notQueried: 3 - failingBatch })
+    expect(report.findings.unavailable.map(item => item.purl)).toEqual(components.slice(failingBatch).map(item => item.purl))
+  })
+
+  it('continues fetching after an incomplete batch and leaves sent omissions as missing-response', async () => {
+    const clock = harness(attempt => attempt === 1 ? [] : [ready(cli.purl)])
+    const report = await auditWithPendingScans({ ...clock.options, batchSize: 1, components: [root, cli] })
+    expect(clock.requests).toEqual([[root.purl], [cli.purl]])
+    expect(report.status).toBe('unavailable')
+    expect(report.summary).toMatchObject({ unavailable: 1, notQueried: 0 })
+    expect(report.findings.unavailable).toEqual([{ purl: root.purl, reason: 'missing-response' }])
+  })
+
   it('preserves wait history and completed findings when a retry request fails', async () => {
     const clock = harness(attempt => {
       if (attempt > 1) throw new Error('synthetic transport failure')
