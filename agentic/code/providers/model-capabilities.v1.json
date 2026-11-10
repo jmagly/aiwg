@@ -2637,6 +2637,8 @@
             "--output-format",
             "streaming-json",
             "--no-subagents",
+            "--disallowed-tools",
+            "workflow",
             "--no-plan",
             "--no-alt-screen",
             "--disable-web-search"
@@ -2702,7 +2704,7 @@
               },
               "finalOutput": {
                 "support": "unqualified",
-                "mapping": "stdout --output-format streaming-json (NDJSON, one ACP session update per line); the final 'end' event's stopReason plus concatenated 'text' chunks form the answer; no separate output-file flag is evidenced. NOTE: the SEPARATE, pre-existing src/providers/grok-build-headless.ts transport and its shared tools/ralph-external/lib/worker-health.mjs generic branch use a different, older message/result event shape and --output-format json (a single JSON object); this direct-shell profile's own observeHealthEvent/parseDirectFinal handle only the streaming-json/ACP shape and never touch that other path.",
+                "mapping": "stdout --output-format streaming-json (NDJSON, one ACP session update per line); the final 'end' event's stopReason plus concatenated 'text' chunks form the answer; no separate output-file flag is evidenced. The separate src/providers/grok-build-headless.ts transport now defaults to streaming-json with captured 1.0.77 parser contracts; this direct-shell profile retains its own observeHealthEvent/parseDirectFinal.",
                 "evidence": "H: grok 1.0.50 (c58f321264ba, stable) --help, captured 2026-10-10 (.aiwg/working/s1-scratch/cli-help/grok-1.0.50.txt); plus the installed binary's own bundled docs (strings-read, never live qualification; full extracts preserved in docs/providers/grok-build-cli-evidence.md) ('--output-format <OUTPUT_FORMAT> ... streaming-json: NDJSON: one ACP session update per line, the agent's native format'; bundled output-format doc gives the full event vocabulary and a worked example, preserved in the evidence file, confirming 'json' is a single object with text/stopReason/sessionId/requestId/usage fields -- NOT the message/result shape -- and 'streaming-json' is the ACP-derived text/thought/tool_call/tool_call_update/usage/plan/available_commands/end/error vocabulary)"
               },
               "stdin": {
@@ -2727,8 +2729,8 @@
               },
               "children": {
                 "support": "unqualified",
-                "mapping": "--no-subagents (disables subagent spawning; denies hidden fan-out)",
-                "evidence": "H: grok 1.0.50 (c58f321264ba, stable) --help, captured 2026-10-10 (.aiwg/working/s1-scratch/cli-help/grok-1.0.50.txt); plus the installed binary's own bundled docs (strings-read, never live qualification; full extracts preserved in docs/providers/grok-build-cli-evidence.md) ('--no-subagents Disable subagent spawning')"
+                "mapping": "--no-subagents --disallowed-tools workflow (1.0.77 capture: workflow can spawn children despite --no-subagents; combined argv tested in grok-build-direct.test.ts; live-verified on 1.0.77 2026-11-10: no spawn_subagent or workflow call and no subagent records)",
+                "evidence": "H: grok 1.0.50 (c58f321264ba, stable) --help, captured 2026-10-10 (.aiwg/working/s1-scratch/cli-help/grok-1.0.50.txt); plus the installed binary's own bundled docs (strings-read, never live qualification; full extracts preserved in docs/providers/grok-build-cli-evidence.md) ('--no-subagents Disable subagent spawning'); 2026-11-10 1.0.77 capture correction: test/fixtures/providers/grok-build/captured-20261110/permissions.json replayed by test/unit/providers/grok-build-headless.test.ts demonstrates workflow bypass; both flags required in rendered argv"
               },
               "fallback": {
                 "support": "unqualified",
@@ -2745,10 +2747,11 @@
               "Documentation/help and synthetic observations are not authenticated live qualification.",
               "Unknown model, effort, permission or required step mappings block dispatch.",
               "Native MCP/client, MSP/ACP, gateway and conversation capabilities do not establish worker authority.",
-              "The separate, pre-existing src/providers/grok-build-headless.ts transport and the generic grok-build branch in tools/ralph-external/lib/worker-health.mjs use --output-format json and an older message/result event shape; this profile's streaming-json/ACP grammar is independent and does not change that path or its consumers.",
+              "The separate src/providers/grok-build-headless.ts transport defaults to streaming-json and also parses captured json and streaming-messages-json; this direct profile retains its independent streaming-json parser.",
               "No --no-ask-user-equivalent flag is listed in the captured root --help for this version (an internal no-ask-user arg name exists in the compiled binary's own strings but is not printed help text), so it is never emitted; whether an ask_user_question tool call blocks indefinitely under dontAsk in a non-interactive run is unqualified, not invented away.",
               "--always-approve and --permission-mode bypassPermissions are never emitted; a scoped --allow/--deny rule value, or the model/effort value, starting with '-' or containing whitespace/control characters is refused by the driver before argv is built.",
               "Permission-mode and sandbox-profile semantics are quoted directly from the installed binary's own bundled documentation (see docs/providers/grok-build-cli-evidence.md for the full extracts, strings command and binary version/hash); where that documentation does not settle a question (e.g. ask_user_question behavior under dontAsk), the control stays unqualified rather than assumed safe.",
+              "1.0.77 captured permissions (2026-11-10): default headless cancels spawn_subagent and workflow because a headless run cannot ask for approval; --allow spawn_subagent did not cover them. --permission-mode auto ran them, but AIWG keeps its existing permission defaults. Evidence: test/fixtures/providers/grok-build/captured-20261110/permissions.json; test/unit/providers/grok-build-headless.test.ts. ACP authMethods, logged-in session/new, end_turn usage, compact notifications and cancelled/MidTurnAbort are replayed in grok-build-acp.test.ts; live ACP dispatch qualification remains deferred. Native -w creates standalone copies under ~/.grok/worktrees/<slug>/<name>, not git worktrees; ownership/recovery list parsing is tested in grok-build-dispatch.test.ts. The combined flags were verified live on 1.0.77 (2026-11-10: no spawn_subagent or workflow call, no subagent records); compatibility with the older pinned 1.0.50 direct profile remains unverified.",
               "Live qualification is an open S1 blocker: this profile has been exercised only against --help/--version/subcommand --help plus strings-read bundled docs, never a live prompted run. The smoke command in docs/providers/grok-build-direct.md is the first live check and needs an XAI_API_KEY (or cached grok login) from the operator."
             ],
             "health": {

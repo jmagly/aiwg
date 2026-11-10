@@ -1,0 +1,21 @@
+[
+  {
+    "id": "capwt-0000000000000001",
+    "path": "/home/synthetic/.grok/worktrees/synthetic-project/capwt",
+    "source_repo": "/tmp/synthetic-project",
+    "repo_name": "synthetic-project",
+    "kind": "fork",
+    "creation_mode": "standalone",
+    "git_ref": "HEAD",
+    "head_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "session_id": "pager-000000000001",
+    "creator_pid": 12345,
+    "created_at": 1794302480,
+    "last_accessed_at": 1794302480,
+    "status": "alive",
+    "metadata": {
+      "label": "capwt",
+      "user_provided": false
+    }
+  }
+]

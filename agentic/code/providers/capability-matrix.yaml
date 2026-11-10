@@ -583,7 +583,7 @@ providers:
       scope: in
       identity: runtime-configured-only
       evidence: R
-      channel: "grok -p --output-format streaming-json; 1.0.77 adds --no-auto-update; bounded parser (model/effort pins unverified by captures)"
+      channel: "grok -p --output-format streaming-json; 1.0.77 captures: headless/ACP parser contracts, workflow fan-out bypass; combined deny flags rendered (live enforcement and model/effort pins unverified)"
       fanout: unknown
       probe_budget: { status: authorized, calls: 3, tokens: 30000, authorized_by: operator, authorized_at: "2026-10-07", hosts: [titan, noodle] }
       coverage:
@@ -592,13 +592,30 @@ providers:
         live_qualified: false
         sources:
           - "src/providers/grok-build-headless.ts"
+          - "test/unit/providers/grok-build-headless.test.ts"
+          - "test/unit/providers/grok-build-acp.test.ts"
+          - "test/unit/providers/grok-build-dispatch.test.ts"
+          - "test/conformance/orchestration-v1/grok-build-direct.test.ts"
     status: experimental
     # xAI Grok Build CLI/TUI. Distinct from Grok Bot (`grokbot`).
     # #2577: every claim and its limits are recorded in
     # docs/providers/grok-build-native-agents.md (1.0.77 evidence table).
     # Captured headless shapes: test/unit/providers/grok-build-headless.test.ts.
-    # Agent compilation, native fan-out/worktrees and ACP remain unverified by
-    # these captures; pre-existing synthetic tests establish AIWG behavior only.
+    # 2026-11-10 1.0.77: captured-20261110 fixtures replayed by the tests above.
+    # Default headless cancels spawn_subagent/workflow: "a headless run cannot ask
+    # for approval". --allow spawn_subagent did not cover them; permission-mode auto
+    # ran them. AIWG permission defaults stay unchanged (no automatic approval).
+    # --no-subagents alone still permits workflow-spawned children. All AIWG leaf
+    # argv builders also deny workflow with --disallowed-tools workflow; combined
+    # live flag enforcement is unverified, so route_feasibility.fanout stays unknown.
+    # Native -w is a standalone copy under ~/.grok/worktrees/<slug>/<name>, NOT a
+    # git worktree; list --json ownership/recovery metadata parsing is fixture-backed
+    # in grok-build-dispatch.test.ts. AIWG isolation still uses its own detached Git
+    # worktree and never edits the user's working files (synthetic dispatch test).
+    # ACP authMethods, logged-in session/new amid _x.ai/* notifications, end_turn
+    # _meta usage, compact/summary notifications and cancelled/MidTurnAbort are
+    # fixture-backed in grok-build-acp.test.ts; live ACP dispatch remains deferred.
+    # Agent compilation/native frontmatter and resident lifecycle remain unverified.
     daemon_tier: unsupported
     daemon_pty_adapter: false
     artifact_paths:
@@ -615,7 +632,7 @@ providers:
       mcp: true            # fixture-backed config only: grok-build-native-integration.test.ts; live MCP unverified
       behaviors: false     # unverified: needs behavior registration/execution capture
       mission_control: false # unverified: needs mission lifecycle capture
-      daemon: false        # unverified: ACP is separate and needs agent-stdio capture
+      daemon: false        # deferred: ACP frame replay is not resident lifecycle qualification (grok-build-acp.test.ts)
     emulation:
       cron: null
       agent_teams: aiwg-mc

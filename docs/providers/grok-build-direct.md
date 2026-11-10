@@ -23,7 +23,7 @@ renders:
 ```
 grok --prompt-file <briefPath> -m <model> --reasoning-effort <effort> \
   --permission-mode dontAsk --sandbox <profile> --cwd <workspace> \
-  --output-format streaming-json --no-subagents --no-plan \
+  --output-format streaming-json --no-subagents --disallowed-tools workflow --no-plan \
   --no-alt-screen --disable-web-search \
   [--allow <rule> ...] [--deny <rule> ...]
 ```
@@ -34,18 +34,27 @@ text/JSON; `--prompt-file <PATH>` ("Single-turn prompt from a file") is a
 standalone single-turn trigger, so this profile uses it alone and never
 emits `-p`.
 
-**`--permission-mode dontAsk` is the one non-prompting, non-bypass mode.**
+The 2026-11-10 1.0.77 [capture replay tests](../../test/unit/providers/grok-build-headless.test.ts)
+show `workflow` spawning two children despite `--no-subagents`. This profile
+also emits `--disallowed-tools workflow`; [conformance tests](../../test/conformance/orchestration-v1/grok-build-direct.test.ts)
+check both the template and rendered argv. Combined live enforcement and
+compatibility with the older pinned 1.0.50 profile remain unverified.
+
+**`--permission-mode dontAsk` remains the profile's fixed permission mode.**
 Root `--help` lists `[possible values: default, acceptEdits, auto, dontAsk,
 bypassPermissions, plan]`. The installed binary's own bundled
 permission-modes documentation (read via `strings`, not invented)
-describes each: `default` prompts interactively (would hang headless);
+describes each: `default` prompts interactively; 1.0.77 headless captures cancel
+approval-requiring `spawn_subagent` and `workflow` calls with “a headless run
+cannot ask for approval”, including a spawn attempt with `--allow spawn_subagent`.
+`--permission-mode auto` ran these tools in the captures; AIWG keeps its defaults.
 `acceptEdits` only auto-approves file edits, other tool calls may still
 prompt; `plan` is a planning mode (its exact execution behavior is unverified); `bypassPermissions` ("always-approve") is
 the blanket bypass this profile must never select (same family as
 `--always-approve`, also never emitted). `dontAsk` ("Only pre-approved
 tools and built-in read-only handling" / "Strict CI allowlists" / "denies
-whatever it would have to prompt for") is the only mode that is both
-non-interactive and non-bypass, so it is fixed and never parameterized.
+whatever it would have to prompt for") is
+documented for strict allowlists, so this profile fixes it and never parameterizes it.
 Because `dontAsk` denies anything not pre-approved, a write-capable run
 needs explicit `--allow`/`--deny` rules (e.g. `Edit`, `Bash(git *)`) from
 the resolved permission tuple; a rule starting with `-`, containing a
@@ -136,7 +145,7 @@ d=$(mktemp -d) && cd "$d"
 echo 'Reply with exactly: grok-smoke-ok' > brief.md
 XAI_API_KEY="$XAI_API_KEY" grok --prompt-file brief.md -m "$MODEL" \
   --reasoning-effort low --permission-mode dontAsk --sandbox read-only \
-  --cwd "$d" --output-format streaming-json --no-subagents --no-plan \
+  --cwd "$d" --output-format streaming-json --no-subagents --disallowed-tools workflow --no-plan \
   --no-alt-screen --disable-web-search </dev/null
 echo "exit=$?"
 ```

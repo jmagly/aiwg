@@ -10,6 +10,24 @@ function fake(script: string) {
 }
 
 describe('Grok Build bounded headless transport', () => {
+  it('records captured headless permission failures and the workflow bypass without auto-approving', () => {
+    const cases = JSON.parse(readFileSync(new URL('../../fixtures/providers/grok-build/captured-20261110/permissions.json', import.meta.url), 'utf8'));
+    for (const index of [0, 1, 2]) {
+      expect(cases[index].stderr).toContain('a headless run cannot ask for approval');
+      expect(cases[index].records[1]).toMatchObject({ type: 'tool_result', is_error: true });
+    }
+    expect(cases[1].flags).toEqual(['--allow', 'spawn_subagent']);
+    expect(cases[2].records[0].name).toBe('workflow');
+    expect(cases[3].flags).toEqual(['--no-subagents', '--permission-mode', 'auto']);
+    expect(cases[3].records[1].content).toMatchObject({ type: 'Workflow' });
+    const children = JSON.parse(readFileSync(new URL('../../fixtures/providers/grok-build/captured-20261110/workflow-children.json', import.meta.url), 'utf8'));
+    expect(children).toHaveLength(2);
+    expect(new Set(children.map((child: { parent_session_id: string }) => child.parent_session_id)).size).toBe(1);
+    expect(new Set(children.map((child: { child_session_id: string }) => child.child_session_id)).size).toBe(2);
+    expect(cases[4].records.filter((record: { type: string }) => record.type === 'tool_result')
+      .map((record: { content: { type: string } }) => record.content.type)).toEqual(['SubagentCompleted', 'SubagentCompleted']);
+  });
+
   it.each([true, false])('accepts whole-turn usage without treating it as terminal (end present: %s)', async hasEnd => {
     const frames = [
       { type: 'text', data: 'ok' },
@@ -73,7 +91,8 @@ describe('Grok Build bounded headless transport', () => {
     const result = await runGrokHeadless({
       ...fake('process.stdout.write(process.argv.join(" "))'), prompt: 'hello', format: 'plain', disableSubagents: true,
     });
-    expect(result.text).toContain('--no-subagents -p hello');
+    expect(result.text).toContain('--no-subagents --disallowed-tools workflow -p hello');
+    expect(result.text).not.toContain('--permission-mode auto');
   });
 
   it('parses JSON result and propagates JSON errors', async () => {

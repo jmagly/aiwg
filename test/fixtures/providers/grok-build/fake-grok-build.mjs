@@ -5,7 +5,7 @@
  *
  *   grok --prompt-file <path> -m <model> --reasoning-effort <effort>
  *     --permission-mode dontAsk --sandbox <profile> --cwd <dir>
- *     --output-format streaming-json --no-subagents --no-plan
+ *     --output-format streaming-json --no-subagents --disallowed-tools workflow --no-plan
  *     --no-alt-screen --disable-web-search [--allow <rule>]... [--deny <rule>]...
  *   grok --version
  *
@@ -57,6 +57,7 @@ while (index < args.length) {
   else if (arg === '--disable-web-search') { disableWebSearch = true; index += 1; }
   else if (arg === '--allow') { allowRules.push(args[index + 1] ?? fail('missing value for --allow')); index += 2; }
   else if (arg === '--deny') { denyRules.push(args[index + 1] ?? fail('missing value for --deny')); index += 2; }
+  else if (arg === '--disallowed-tools') { denyRules.push(args[index + 1] ?? fail('missing value for --disallowed-tools')); index += 2; }
   else if (arg === '--always-approve' || arg === '-p' || arg === '--single' || arg === '--prompt-json') {
     fail(`refused: not part of the direct profile (${arg})`);
   } else fail(`unrecognized argument '${arg}'`);
@@ -83,6 +84,7 @@ if (!SANDBOX_VALUES.includes(sandbox)) fail(`error: sandbox profile resolve fail
 if (!['read-only', 'workspace'].includes(sandbox)) fail(`refused: sandbox profile '${sandbox}' is outside the direct profile's allowlist (read-only, workspace)`);
 if (!cwd) fail('--cwd is required');
 if (outputFormat !== 'streaming-json') fail("--output-format must be 'streaming-json' for the direct profile");
+if (noSubagents && !denyRules.includes('workflow')) fail('--no-subagents also requires --disallowed-tools workflow');
 
 let brief;
 try { brief = readFileSync(promptFile, 'utf8'); } catch { fail(`prompt-file not readable: ${promptFile}`); }
