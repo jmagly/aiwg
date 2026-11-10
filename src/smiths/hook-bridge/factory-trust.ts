@@ -14,7 +14,7 @@ export interface FactoryHookTrust {
   gitCommit: boolean;
 }
 
-export const FACTORY_HOOK_TRUST_NEXT_STEP = 'Trust this folder in droid; project hooks load only in a git repository with at least one commit.';
+export const FACTORY_HOOK_TRUST_NEXT_STEP = 'Trust this folder in droid; hooks need a git repo with at least one commit.';
 
 export function factoryHookTrustNextStep(trust: FactoryHookTrust | null): string {
   return trust && (trust.project !== 'trusted' || !trust.gitCommit) ? FACTORY_HOOK_TRUST_NEXT_STEP : '';
@@ -43,7 +43,7 @@ export async function readFactoryHookTrust(projectPath: string): Promise<Factory
     // Missing, unreadable, or malformed settings cannot establish trust.
   }
   try {
-    await execFileAsync('git', ['rev-parse', '--verify', 'HEAD'], {
+    await execFileAsync('git', ['rev-parse', '--verify', 'HEAD^{commit}'], {
       cwd: root, timeout: 2000, maxBuffer: 4096, windowsHide: true,
     });
     trust.gitCommit = true;

@@ -1157,8 +1157,8 @@
               },
               "effort": {
                 "support": "unqualified",
-                "mapping": "[-r/--reasoning-effort LEVEL]; valid levels are model-dependent (exec --help 'Model details'); never the per-model default",
-                "evidence": "H: droid-cli 1.0.0 exec --help documents -r/--reasoning-effort <level> (defaults per model); unqualified until live evidence"
+                "mapping": "[-r/--reasoning-effort LEVEL]; valid levels are model-dependent (exec --help 'Model details'); never the per-model default. Not enforceable for BYOK custom models: -r is ignored and the session reports reasoning_effort: none",
+                "evidence": "H: droid-cli 1.0.0 exec --help documents -r/--reasoning-effort <level> (defaults per model); BYOK custom models ignore it (reasoning_effort: none), so effort is not enforceable; unqualified until live evidence"
               },
               "sandbox": {
                 "support": "unqualified",

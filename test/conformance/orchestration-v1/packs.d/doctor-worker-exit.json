@@ -1,5 +1,8 @@
 {
   "T-OG-12": {
-    "testFiles": ["test/unit/cli/doctor-worker-exit.test.ts"]
+    "testFiles": [
+      "test/unit/cli/doctor-worker-exit.test.ts",
+      "test/unit/cli/doctor-factory-worker.test.ts"
+    ]
   }
 }

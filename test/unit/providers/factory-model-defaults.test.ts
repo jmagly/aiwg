@@ -4,6 +4,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { loadProviderModelCapabilities } from '../../../src/models/provider-policy.js';
 import { loadProviderModelCatalog } from '../../../src/models/catalog-policy.js';
 import { MODEL_WRAPPER_DEFINITIONS } from '../../../src/models/wrapper-definitions.js';
 import { loadModelConfig } from '../../../tools/agents/providers/base.mjs';
@@ -23,6 +24,15 @@ afterEach(async () => {
 });
 
 describe('Factory droid 1.0 model defaults', () => {
+  it('records the BYOK effort limitation at the direct worker effort declaration', () => {
+    const adapter = loadProviderModelCapabilities().providers.factory.workerHealthAdapter!;
+    const effort = adapter.invocationProfiles!['direct-shell'].controls.effort;
+    expect(effort.support).toBe('unqualified');
+    expect(effort.mapping).toContain('Not enforceable for BYOK custom models');
+    expect(effort.mapping).toContain('reasoning_effort: none');
+    expect(effort.evidence).toContain('not enforceable');
+    expect(adapter.qualification.status).toBe('unqualified');
+  });
   it('catalog roles use concrete droid IDs rather than tier aliases', () => {
     const roles = loadProviderModelCatalog().providers.factory.roles;
     for (const [role, model] of Object.entries(models)) {

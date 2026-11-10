@@ -111,10 +111,35 @@ script; `SessionStart` checks for updates. `aiwg use --provider factory` prints
 the next step when either prerequisite is missing or unverified, and `aiwg doctor`
 reports the same advisory. AIWG reads `~/.factory/settings.json` without changing
 it: `trustedFolders` is an object keyed by absolute folder path, and the exact
-project key establishes trust. A bounded `git rev-parse --verify HEAD` in the
-project checks for an existing commit. AIWG never grants trust or creates commits.
+project key establishes trust. A bounded `git rev-parse --verify HEAD^{commit}` in the
+project checks for an existing commit (`HEAD^{commit}`, so a non-commit object
+does not satisfy the check). AIWG never grants trust or creates commits.
 These prerequisites apply to interactive project hooks; they do not establish
 prompt-hook support for `droid exec`.
+
+The deploy next step stays on one line: "Trust this folder in droid; hooks need a
+git repo with at least one commit." Doctor includes the trust state and whether
+the local commit check succeeded.
+
+To configure Factory as a project worker CLI, use the existing project setting:
+
+```bash
+aiwg config set --project parallelism.clis.factory '{"adapter":"providers:factory","accountScope":"local-account","quotaScope":"factory-account"}'
+aiwg doctor --probe-workers --qualify --cli factory
+```
+
+Worker dispatch must be enabled (`parallelism.worker_dispatch: true`), and an
+enabled `parallelism.groups` member must select `cli: factory` and the exact
+model ID from your Factory plan or BYOK configuration. Headless qualification
+uses `--yes` for operator confirmation. Doctor reports missing droid, missing
+model configuration, or missing current model observations before recording an
+approval. It does not check subscription entitlement offline, read credentials,
+or run a model turn. Droid has no documented non-interactive model-list command;
+AIWG cannot infer plan/BYOK availability from an installed binary or API key.
+
+Reasoning effort is **not enforceable for BYOK custom models**: droid accepts
+`-r` but ignores it, and the session reports `reasoning_effort: none`. An effort
+flag or an installation approval does not prove that the requested effort ran.
 
 ## Codex 0.165 schema verification (#3888)
 
