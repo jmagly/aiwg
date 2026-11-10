@@ -17,7 +17,7 @@ export interface DiscoverFactoryOptions {
   now?: () => Date;
 }
 const MAX_CONFIG_BYTES = 1024 * 1024;
-const MODEL_FIELDS = new Set(['', 'customModels', 'model', 'displayName', 'baseUrl', 'provider', 'maxOutputTokens']);
+const MODEL_FIELDS = new Set(['', 'customModels', 'model', 'displayName', 'baseUrl', 'provider', 'maxOutputTokens', 'maxContextLimit']);
 
 async function readSettings(filename: string): Promise<unknown> {
   const file = await open(filename, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -79,22 +79,25 @@ export async function discoverFactoryModels(options: DiscoverFactoryOptions = {}
     const invalid = () => diagnostics.push(`Factory /customModels/${index}: malformed model fields or unknown inference provider.`);
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) { invalid(); continue; }
     const row = entry as Record<string, unknown>;
-    const { model, displayName, provider, baseUrl, maxOutputTokens } = row;
+    const { model, displayName, provider, baseUrl, maxOutputTokens, maxContextLimit } = row;
     if (typeof model !== 'string' || !model.trim() || /\s/.test(model)
       || typeof displayName !== 'string' || !displayName.trim() || displayName !== displayName.trim()
       || /[\x00-\x1f\x7f]/.test(displayName) || typeof provider !== 'string'
-      || (maxOutputTokens !== undefined && (!Number.isSafeInteger(maxOutputTokens) || (maxOutputTokens as number) < 1))) { invalid(); continue; }
+      || (maxOutputTokens !== undefined && (!Number.isSafeInteger(maxOutputTokens) || (maxOutputTokens as number) < 1))
+      || (maxContextLimit !== undefined && (!Number.isSafeInteger(maxContextLimit) || (maxContextLimit as number) < 1))) { invalid(); continue; }
     const llmProvider = inferenceProvider(provider, baseUrl);
     if (!llmProvider) { invalid(); continue; }
     const id = `custom:${displayName.replace(/ /g, '-')}`;
-    const facts = { id, model, displayName, llmProvider, maxOutputTokens: maxOutputTokens ?? null };
+    const facts = { id, model, displayName, llmProvider, maxOutputTokens: maxOutputTokens ?? null,
+      maxContextLimit: maxContextLimit ?? null };
     const worker = buildWorkerObservation({ cliId: options.cliId ?? 'factory', source,
       pointer: `/customModels/${index}`, runtimeVersion: version, observedAt,
       accountScope: 'local-account', accountBinding: options.accountBinding,
       contentDigest: discoveryDigest(JSON.stringify(facts)) }, {
       modelId: id, family: 'unknown', visibility: 'listed', lifecycle: 'active',
+      contextTokens: maxContextLimit as number | undefined,
       maxOutputTokens: maxOutputTokens as number | undefined, effortSupport: 'not-applicable',
-      provenanceFields: ['/apiModelId', '/llmProvider', '/displayName'],
+      provenanceFields: ['/apiModelId', '/llmProvider', '/displayName', '/contextTokens:maxContextLimit'],
     });
     // apiModelId is the executable Droid selector required by qualification and
     // invocation, not the upstream API id. Preserve the latter as config provenance.
