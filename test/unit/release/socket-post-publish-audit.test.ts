@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 
-import { componentsFromCargoLock, componentsFromLock, evaluateSocketArtifacts, fetchArtifacts, SOCKET_PURL_BATCH_SIZE } from '../../../tools/release/socket-post-publish-audit.mjs'
+import { componentsFromCargoLock, componentsFromLock, evaluateSocketArtifacts, fetchArtifacts, reportMarkdown, SOCKET_PURL_BATCH_SIZE } from '../../../tools/release/socket-post-publish-audit.mjs'
 
 const liveArtifacts = readFileSync(new URL('../../fixtures/release/socket-live-npm.ndjson', import.meta.url), 'utf8')
   .trim().split('\n').map(line => JSON.parse(line))
@@ -78,6 +78,31 @@ describe('Socket post-publish audit', () => {
     const result = evaluateSocketArtifacts({ artifacts, baseline, components: roots, now: new Date('2026-08-14T00:00:00Z') })
     expect(result.status).toBe('unavailable')
     expect(result.findings.unavailable.length).toBeGreaterThan(1)
+  })
+
+  it('counts not-queried results within unavailable without changing status rules', () => {
+    const result = evaluateSocketArtifacts({ artifacts: [], baseline, components: roots, notQueriedPurls: [roots[1].purl] })
+    expect(result.status).toBe('unavailable')
+    expect(result.summary).toMatchObject({ componentsRequested: 2, componentsReturned: 0, unavailable: 2, notQueried: 1 })
+    expect(result.findings.unavailable).toEqual([
+      { purl: roots[0].purl, reason: 'missing-response' },
+      { purl: roots[1].purl, reason: 'not-queried', note: 'Fetching stopped after a failing batch to save quota.' }
+    ])
+    expect(JSON.parse(JSON.stringify(result)).summary.notQueried).toBe(1)
+    const markdown = reportMarkdown(result, '2026.11.5')
+    expect(markdown).toContain('| Unavailable/incomplete results | 2 |')
+    expect(markdown).toContain('| Not queried | 1 |')
+    expect(markdown).toContain('Fetching stopped after a failing batch to save quota.')
+  })
+
+  it('counts only requested PURLs with no returned artifact as not-queried', () => {
+    const result = evaluateSocketArtifacts({
+      artifacts: rootsWith(), baseline, components: [...roots, roots[1]],
+      notQueriedPurls: [roots[0].purl, 'pkg:cargo/outside-inventory@1.0.0']
+    })
+    expect(result.status).toBe('pass')
+    expect(result.summary).toMatchObject({ componentsRequested: 2, componentsReturned: 2, unavailable: 0, notQueried: 0 })
+    expect(reportMarkdown(result, '2026.11.5')).toContain('| Not queried | 0 |')
   })
 
   it('requires expired capability reviews to be renewed', () => {

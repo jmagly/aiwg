@@ -206,7 +206,7 @@ function isoDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value ?? '') ? value : null
 }
 
-export function evaluateSocketArtifacts({ artifacts, baseline, components, now = new Date() }) {
+export function evaluateSocketArtifacts({ artifacts, baseline, components, notQueriedPurls = [], now = new Date() }) {
   const componentsByPurl = new Map()
   for (const component of components) {
     const matches = componentsByPurl.get(component.purl) ?? []
@@ -312,8 +312,11 @@ export function evaluateSocketArtifacts({ artifacts, baseline, components, now =
     }
   }
 
+  const notQueried = new Set(notQueriedPurls)
   for (const purl of requested) {
-    if (!returned.has(purl)) unavailable.push({ purl, reason: 'missing-response' })
+    if (!returned.has(purl)) unavailable.push(notQueried.has(purl)
+      ? { purl, reason: 'not-queried', note: 'Fetching stopped after a failing batch to save quota.' }
+      : { purl, reason: 'missing-response' })
   }
 
   const blocking = findings.filter(finding => {
@@ -336,6 +339,7 @@ export function evaluateSocketArtifacts({ artifacts, baseline, components, now =
       blockingFindings: blocking.length,
       scoreRegressions: scoreRegressions.length,
       unavailable: unavailable.length,
+      notQueried: unavailable.filter(item => item.reason === 'not-queried').length,
       validationErrors: validationErrors.length
     },
     findings: {
@@ -349,7 +353,7 @@ export function evaluateSocketArtifacts({ artifacts, baseline, components, now =
   }
 }
 
-function reportMarkdown(report, version, organization = 'AIWG') {
+export function reportMarkdown(report, version, organization = 'AIWG') {
   const rows = [
     '# Socket post-publish audit', '',
     `- Release: \`${version}\``,
@@ -363,8 +367,10 @@ function reportMarkdown(report, version, organization = 'AIWG') {
     `| Transitive alerts | ${report.summary.transitiveAlerts} |`,
     `| Blocking findings | ${report.summary.blockingFindings} |`,
     `| Material score regressions | ${report.summary.scoreRegressions} |`,
-    `| Unavailable/incomplete results | ${report.summary.unavailable} |`, ''
+    `| Unavailable/incomplete results | ${report.summary.unavailable} |`,
+    `| Not queried | ${report.summary.notQueried} |`, ''
   ]
+  if (report.summary.notQueried) rows.push('Fetching stopped after a failing batch to save quota. Not-queried PURLs are included in unavailable/incomplete results.', '')
   if (report.status === 'unavailable') rows.push('The scanner did not return complete evidence. This run is not a clean result and must be retried or investigated.', '')
   if (report.findings.blocking.length) {
     rows.push('## Blocking findings', '')
