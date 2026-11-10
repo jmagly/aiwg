@@ -36,7 +36,7 @@ export default p => {
   return () => { end(); appendFileSync(events, 'teardown\\n'); };
 };
 `);
-      const names = ['test/integration/use-all-deployment.test.ts', 'test/integration/hermes-deployment.test.ts', 'test/integration/bundle-reconciliation-cli.test.ts', 'test/integration/project-local-deploy.test.ts', 'test/unit/mutable-fixture.test.ts'];
+      const names = ['test/integration/use-all-deployment.test.ts', 'test/integration/hermes-deployment.test.ts', 'test/integration/bundle-reconciliation-cli.test.ts', 'test/integration/bundle-reconciliation-codex-cli.test.ts', 'test/integration/project-local-deploy.test.ts', 'test/unit/mutable-fixture.test.ts'];
       for (const name of names) {
         const target = path.join(dir, name); fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.writeFileSync(target, `
@@ -72,11 +72,12 @@ export default { root, cacheDir: join(root, '.vite'), test: {
       expect(run.state.getUnhandledErrors()).toEqual([]);
       expect(fs.readFileSync(events, 'utf8').trim().split('\n')).toEqual(['prebuilt', 'cache', 'teardown']);
       const results = names.map(name => JSON.parse(fs.readFileSync(path.join(dir, name + '.json'), 'utf8')));
-      for (const item of results.slice(0, 3)) expect(item).toMatchObject({ binding: expect.any(String), framework: expect.any(String), source: fs.realpathSync(root) });
+      for (const item of results.slice(0, 4)) expect(item).toMatchObject({ binding: expect.any(String), framework: expect.any(String), source: fs.realpathSync(root) });
       expect(results[0].binding).toBe(results[1].binding);
       expect(results[0].binding).toBe(results[2].binding);
-      expect(results[3]).toMatchObject({ binding: null, framework: expect.any(String) });
-      expect(results[4]).toEqual({ binding: null, framework: null, source: null });
+      expect(results[0].binding).toBe(results[3].binding);
+      expect(results[4]).toMatchObject({ binding: null, framework: expect.any(String) });
+      expect(results[5]).toEqual({ binding: null, framework: null, source: null });
       expect(fs.existsSync(path.dirname(path.dirname(results[0].binding)))).toBe(false);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   }, 200_000);

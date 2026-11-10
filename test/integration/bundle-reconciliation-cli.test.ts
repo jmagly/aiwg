@@ -1,63 +1,13 @@
-// Pin the public launcher and implementation resolver to this checkout's compiled CLI.
+// Exercise Claude and provider-neutral reconciliation through the built public CLI.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { expect, it } from 'vitest';
 import { assertFreshCliBuild } from '../helpers/compiled-cli-freshness.js';
-import { bundleReconciliationSource } from '../helpers/bundle-reconciliation-source.js';
-import { afterAll, afterEach, beforeAll, expect, it } from 'vitest';
-const ROOT = path.resolve(import.meta.dirname, '../..');
-const temporary: string[] = [];
-const retained: string[] = [];
-const baselines = new Map<string, { fixture: ReturnType<typeof setup>; saved: string }>();
-let sourceFixture: string | undefined;
-let cliCompileCache: string | undefined;
-beforeAll(() => assertFreshCliBuild(ROOT));
-afterEach(() => { for (const dir of temporary.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
-afterAll(() => { for (const dir of retained.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
-function setup(frameworkRoot = ROOT, freshHome = false) {
-  if (!cliCompileCache) { cliCompileCache = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-bundle-bytecode-')); retained.push(cliCompileCache); }
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-bundle-cli-')); temporary.push(scratch);
-  const project = path.join(scratch, 'project'), home = path.join(scratch, 'home');
-  fs.mkdirSync(project, { recursive: true }); fs.mkdirSync(home, { recursive: true });
-  if (!freshHome) {
-    fs.mkdirSync(path.join(home, '.aiwg'), { recursive: true });
-    fs.writeFileSync(path.join(home, '.aiwg/channel.json'), JSON.stringify({ channel: 'edge', edgePath: frameworkRoot, devMode: true, checkOnStartup: false }));
-  }
-  const env = { ...process.env, HOME: home, USERPROFILE: home, AIWG_CONFIG: path.join(home, '.aiwg'),
-    XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share'),
-    XDG_CACHE_HOME: path.join(home, '.cache'), XDG_STATE_HOME: path.join(home, '.state'),
-    AIWG_ROOT: frameworkRoot, AIWG_RESOLVE_IMPL_FROM: 'dist', AIWG_SKIP_ACTIVITY_LOG: '1', NO_UPDATE_NOTIFIER: '1' };
-  for (const key of ['AIWG_ARTIFACTS_PATH', 'AIWG_PROJECT_ARTIFACTS_PATH', 'AIWG_PROJECT_AIWG_DIR', 'AIWG_USER_REGISTRY_PATH']) delete env[key];
-  // Cache compilation in this run's TMPDIR; every CLI still starts a fresh process.
-  Object.assign(env, { NODE_COMPILE_CACHE: cliCompileCache }); delete env.NODE_DISABLE_COMPILE_CACHE;
-  // The reduced corpus owns its indexes; the lane's immutable cache is for ROOT.
-  if (frameworkRoot !== ROOT) Object.assign(env, {
-    AIWG_RULE_BINDING_INDEX_CACHE: path.join(frameworkRoot, '.cache/bindings'),
-    AIWG_FRAMEWORK_INDEX_CACHE: path.join(frameworkRoot, '.cache/framework'),
-    AIWG_FRAMEWORK_INDEX_CACHE_SOURCE: frameworkRoot,
-  });
-  const command = (...args: string[]) => {
-    const result = spawnSync(process.execPath, [path.join(ROOT, 'bin/aiwg.mjs'), ...args], {
-      cwd: project, env, encoding: 'utf8', timeout: 600_000, maxBuffer: 16 * 1024 * 1024,
-    });
-    expect(result.status, `${result.stdout}\n${result.stderr}\n${result.error || ''}`).toBe(0);
-    expect(result.stderr).not.toContain('Source checkout detected');
-    if (args[0] === 'use' && args.includes('--json')) {
-      expect(JSON.parse(result.stdout).frameworkRoot).toBe(frameworkRoot);
-      expect(fs.realpathSync(path.join(frameworkRoot, 'dist'))).toBe(path.join(ROOT, 'dist'));
-    }
-    return `${result.stdout}\n${result.stderr}`;
-  };
-  const readConfig = () => JSON.parse(fs.readFileSync(path.join(project, '.aiwg/aiwg.config'), 'utf8'));
-  const writeConfig = (config: unknown) => fs.writeFileSync(path.join(project, '.aiwg/aiwg.config'), JSON.stringify(config, null, 2));
-  const plans = (provider: string) => ['refresh', 'update'].map(action => command(action, '--dry-run', '--provider', provider, action === 'update' ? '--skip-check' : '--skip-update'));
-  const snapshot = () => {
-    const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]);
-    return Object.fromEntries(walk(project).map(file => [path.relative(project, file), fs.readFileSync(file).toString('base64')]));
-  };
-  return { scratch, home, project, command, plans, readConfig, writeConfig, snapshot };
-}
+import { ROOT, temporary, setup, focusedSource, sdlcSetup } from '../helpers/bundle-reconciliation-cli.js';
+import { registerProviderReconciliation } from '../helpers/bundle-reconciliation-provider-cases.js';
+
 it('retains composed ownership after use all in a fresh HOME (#3924)', () => {
   const { project, home, command, snapshot, readConfig } = setup(ROOT, true);
   expect(fs.readdirSync(home)).toEqual([]);
@@ -87,87 +37,8 @@ it('retains composed ownership after use all in a fresh HOME (#3924)', () => {
     }
   }
 }, 600_000);
-function focusedSource() {
-  if (!sourceFixture) { sourceFixture = bundleReconciliationSource(ROOT); retained.push(sourceFixture); }
-  return sourceFixture;
-}
-// Restore project AND isolated HOME at their original absolute paths.
-function restoreBaseline(key: string) {
-  const existing = baselines.get(key);
-  if (existing) {
-    for (const name of ['project', 'home'] as const) {
-      fs.rmSync(existing.fixture[name], { recursive: true, force: true });
-      fs.cpSync(path.join(existing.saved, name), existing.fixture[name], { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
-    }
-    return existing.fixture;
-  }
-  return undefined;
-}
-function saveBaseline(key: string, fixture: ReturnType<typeof setup>) {
-  const saved = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-bundle-baseline-')); retained.push(saved);
-  for (const name of ['project', 'home'] as const) fs.cpSync(fixture[name], path.join(saved, name), { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
-  baselines.set(key, { fixture, saved });
-  return fixture;
-}
-// Build lazily inside the existing case timeout; beforeAll stays a freshness check.
-function sdlcSetup(provider: string, fullCorpus = false) {
-  const key = `${provider}:${fullCorpus}`;
-  const existing = restoreBaseline(key);
-  if (existing) return existing;
-  const fixture = setup(fullCorpus ? ROOT : focusedSource());
-  temporary.splice(temporary.indexOf(fixture.scratch), 1); retained.push(fixture.scratch);
-  fixture.command('use', 'sdlc', '--provider', provider, '--no-project-local', '--yes', ...(fullCorpus ? ['--json'] : []));
-  return saveBaseline(key, fixture);
-}
-function voiceSetup(provider: string, fixture: ReturnType<typeof setup>) {
-  const key = `voice:${provider}`;
-  if (restoreBaseline(key)) return;
-  fixture.command('use', 'voice-framework', '--provider', provider, '--declare');
-  fixture.command('use', 'voice-framework', '--provider', provider, '--yes');
-  saveBaseline(key, fixture);
-}
-it.each(['codex', 'claude'].flatMap(provider => [false, true].map(declared => ({ provider, declared }))))(
-  'preserves edited voice bytes and original ownership across updates ($provider, declared=$declared)', ({ provider, declared }) => {
-    // Keep the real framework, voice additive pass and all 19 kernel skills.
-    // The complete addon/extension corpus is covered by the cases below.
-    const fixture = sdlcSetup(provider);
-    const { project, command, readConfig, writeConfig } = fixture;
-    expect(readConfig().installed.sdlc.deployedTo[provider].skills).toBe(19);
-    voiceSetup(provider, fixture);
-    const skills = provider === 'codex' ? '.agents/skills' : '.claude/.aiwg/skills';
-    const file = path.join(project, skills, 'voice-create/SKILL.md');
-    const unchanged = path.join(project, skills, 'voice-apply/SKILL.md');
-    const receipt = () => JSON.parse(fs.readFileSync(path.join(path.dirname(file), '.aiwg-manifest.json'), 'utf8')).managed['SKILL.md'];
-    const originalHash = receipt().hash;
-    const edited = fs.readFileSync(file, 'utf8') + '\n# operator note\n';
-    fs.writeFileSync(file, edited);
-    const update = () => {
-      const output = command('update', '--skip-check', '--provider', provider);
-      expect(fs.existsSync(file), output).toBe(true);
-      expect(fs.readFileSync(file, 'utf8')).toBe(edited);
-      expect(receipt().hash).toBe(originalHash);
-      expect(receipt().owners).toEqual(['voice-framework']);
-      expect(readConfig().installed.sdlc.deployedTo[provider].skills).toBe(19);
-      expect(output).toMatch(/voice-create.*(?:operator-edited|modified or unverifiable)/);
-    };
-    if (declared) { update(); update(); }
-    const config = readConfig(); delete config.installed['voice-framework']; writeConfig(config);
-    update();
-    expect(fs.existsSync(unchanged)).toBe(false);
-    update();
-    expect(fs.existsSync(unchanged)).toBe(false);
-  }, 600_000,
-);
-it.each(['claude', 'codex'])('keeps every additive owner after real use sdlc for %s', provider => {
-  const { plans, readConfig, snapshot } = sdlcSetup(provider, true);
-  expect(Object.keys(readConfig().installed)).toEqual(['sdlc']);
-  const before = snapshot();
-  for (const output of plans(provider)) {
-    expect(output).not.toMatch(/Would remove|Removing \S+ for|stale AIWG-managed files/);
-    expect(output).toContain(`aiwg use sdlc --provider ${provider}`);
-  }
-  expect(snapshot()).toEqual(before);
-}, 600_000);
+registerProviderReconciliation('claude');
+
 it('plans exactly the dropped explicit voice bundle through refresh and update', () => {
   const { project, command, plans, readConfig, writeConfig, snapshot } = sdlcSetup('claude', true);
   command('use', 'voice-framework', '--provider', 'claude', '--declare');
@@ -248,36 +119,6 @@ it.each([false, true])('persists mode, updates unchanged standard copies, and ke
     for (const output of plans('claude')) expect(output).not.toMatch(/^Would remove \S+ for claude$/m);
     command('refresh', '--skip-update', '--provider', 'claude');
     expect(providerSnapshot()).toEqual(copied);
-  }
-}, 600_000);
-
-it.each(['claude', 'codex'])('prunes only unchanged utils after a recorded --no-utils deploy (%s)', provider => {
-  const { project, command, plans, readConfig, writeConfig } = sdlcSetup(provider, true);
-  const skills = provider === 'codex' ? '.agents/skills' : '.claude/skills';
-  const unchanged = path.join(project, skills, 'aiwg-help/SKILL.md');
-  const edited = path.join(project, skills, 'aiwg-status/SKILL.md');
-  const framework = path.join(project, skills, 'sdlc-quickref/SKILL.md');
-  const frameworkBytes = fs.readFileSync(framework, 'utf8');
-  fs.writeFileSync(edited, fs.readFileSync(edited, 'utf8') + '\nOperator note\n');
-  const editedBytes = fs.readFileSync(edited, 'utf8');
-  command('use', 'sdlc', '--provider', provider, '--no-project-local', '--no-utils', '--yes');
-  expect(readConfig().installed.sdlc.deployedTo[provider]).toMatchObject({ skipUtils: true, kernelOnly: false });
-  expect(fs.existsSync(unchanged)).toBe(true);
-  const known = readConfig();
-  const unknown = structuredClone(known);
-  delete unknown.installed.sdlc.deployedTo[provider].skipUtils;
-  delete unknown.installed.sdlc.deployedTo[provider].kernelOnly;
-  writeConfig(unknown);
-  for (const output of plans(provider)) expect(output).not.toContain(`Would remove aiwg-utils for ${provider}`);
-  expect(fs.existsSync(unchanged)).toBe(true);
-  writeConfig(known);
-  for (const output of plans(provider)) expect(output).toContain(`Would remove aiwg-utils for ${provider}`);
-  for (const [action, flag] of [['update', '--skip-check'], ['refresh', '--skip-update']]) {
-    command(action, flag, '--provider', provider);
-    expect(fs.existsSync(unchanged)).toBe(false);
-    expect(fs.readFileSync(edited, 'utf8')).toBe(editedBytes);
-    expect(fs.readFileSync(framework, 'utf8')).toBe(frameworkBytes);
-    expect(readConfig().installed.sdlc.deployedTo[provider].skipUtils).toBe(true);
   }
 }, 600_000);
 
