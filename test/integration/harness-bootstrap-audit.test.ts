@@ -118,9 +118,14 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
         expect(delivery.optIn).toBe(true);
         expect(delivery.event).toBe('pre_llm_call');
         const doc = parseYaml(f.read(delivery.files[0]));
-        expect(doc.hooks[delivery.event]).toEqual([expect.objectContaining({
-          command: expect.stringContaining(delivery.files[1]), timeout: 2,
-        })]);
+        expect(doc.hooks[delivery.event]).toEqual([expect.objectContaining({ timeout: 2 })]);
+        // #4055: the command is the anchored loader, bound to the script path and its SHA-256.
+        const command: string = doc.hooks[delivery.event][0].command;
+        const encoded = command.match(/Buffer\.from\('([A-Za-z0-9+/=]+)','base64'\)/)?.[1];
+        expect(encoded, command).toBeDefined();
+        const loader = JSON.parse(Buffer.from(encoded!, 'base64').toString());
+        expect(path.resolve(loader.anchor, loader.relative)).toBe(f.resolve(delivery.files[1]));
+        expect(command).toContain(createHash('sha256').update(fs.readFileSync(f.resolve(delivery.files[1]))).digest('hex'));
         expect(f.read(delivery.files[1])).toBe(fs.readFileSync(path.join(root,
           'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs'), 'utf8'));
       } else {

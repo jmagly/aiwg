@@ -31,6 +31,10 @@ retains its home-based skill discovery; a project directory is not a skill root.
 
 ## Architecture
 
+The optional prompt-discovery hook requires explicit Hermes acceptance: the TTY prompt,
+`--accept-hooks`, `HERMES_ACCEPT_HOOKS=1` or `hooks_auto_accept: true`. AIWG never grants it.
+See [hook acceptance and re-acceptance](../../integrations/hermes-quickstart.md#prompt-discovery-hook-acceptance).
+
 When the optional MCP sidecar is enabled, the AIWG–Hermes seam is a single MCP connection. Hermes can sit upstream of any messaging platform or editor that Hermes itself supports — AIWG doesn't need to know about those upstream surfaces.
 
 ```

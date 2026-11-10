@@ -29,6 +29,26 @@ npm install -g aiwg
 aiwg use all --provider hermes
 ```
 
+### Prompt-discovery hook acceptance
+
+Deploy the optional hook with `aiwg use all --provider hermes --enable-cross-provider-hooks`.
+It registers `pre_llm_call` in `$HERMES_HOME/config.yaml` (default `~/.hermes` on
+Linux/macOS) and provides discovery context before Hermes answers capability questions.
+Hermes skips the hook until you review and accept its command at the TTY prompt,
+or explicitly opt in with `--accept-hooks`, `HERMES_ACCEPT_HOOKS=1` or
+`hooks_auto_accept: true`. AIWG never enables acceptance for you; existing consent
+settings and safe mode remain in effect.
+
+Deploy prints a short next step. `aiwg doctor` (also `--scope user`) checks the exact
+`pre_llm_call` command against `$HERMES_HOME/shell-hooks-allowlist.json` and existing
+`hooks_auto_accept` config. Unreadable acceptance state produces an advisory.
+Use the same `HERMES_HOME` for deployment, doctor and Hermes.
+
+The command anchors the script path and checks its fingerprint before execution.
+Changing script bytes blocks the old command; redeployment produces a new command
+that Hermes must accept again because its allowlist compares the exact event and
+command strings. See [hook patterns](../hook-patterns.md) for the wire protocol.
+
 Try one small task immediately after verification:
 
 > "Review this project's README and getting-started docs for unclear positioning, missing setup steps, or unsupported claims. Save the three highest-priority fixes with file references and a recommended next edit at .aiwg/marketing/brand/audit/readme-review.md. Leave the reviewed files unchanged."

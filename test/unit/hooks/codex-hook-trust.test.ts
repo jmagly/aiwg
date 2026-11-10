@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { diagnoseWorkspaceContext } from '../../../src/smiths/context-pipeline/workspace-doctor.js';
 import type { HandlerResult } from '../../../src/cli/handlers/types.js';
+import { parse as parseYaml } from 'yaml';
+import { translateForHermes } from '../../../src/smiths/hook-bridge/hermes-translator.js';
 import * as codexTrust from '../../../src/smiths/hook-bridge/codex-trust.js';
 
 vi.mock('../../../src/cli/services/deployment-verification.js', { spy: true });
@@ -135,4 +137,36 @@ it.each(['registration', 'script'])('does not advise without the installed %s', 
   expect(await codexTrust.readCodexHookTrust(project)).toBeNull();
   expect(await diagnoseWorkspaceContext(project))
     .not.toContainEqual(expect.objectContaining({ code: 'codex-prompt-discovery-trust' }));
+});
+
+it.each(['unaccepted', 'accepted', 'absent'].flatMap(state => [false, true].map(json => ({ state, json }))))
+('prints one short Hermes deploy next step only when needed (%j)', async ({ state, json }) => {
+  const home = path.join(root, 'hermes-home');
+  vi.stubEnv('HERMES_HOME', home);
+  const source = path.join(root, 'fixture.cjs');
+  await writeFile(source, '// fixture\n');
+  if (state !== 'absent') await translateForHermes({ id: 'aiwg-prompt-discovery', description: 'fixture', events: ['UserPromptSubmit'],
+    command: 'node', args: [source] }, { projectPath: project });
+  if (state === 'accepted') {
+    const command = parseYaml(await readFile(path.join(home, 'config.yaml'), 'utf8')).hooks.pre_llm_call[0].command;
+    await writeFile(path.join(home, 'shell-hooks-allowlist.json'), JSON.stringify({ approvals: [{ event: 'pre_llm_call', command }] }));
+  }
+  const frameworkRoot = path.join(root, 'source');
+  await mkdir(frameworkRoot);
+  await writeFile(path.join(frameworkRoot, 'package.json'), '{"name":"aiwg","version":"1.0.0"}');
+  vi.mocked(verifyProviderDeployment).mockResolvedValue({
+    provider: 'hermes', scope: 'user', outcome: 'ready', restartRequired: false,
+    restartAction: null, restartReason: null, reloadPolicy: 'live-refresh', reloadFallback: null,
+    counts: { agents: 0, commands: 0, skills: 0, rules: 0, behaviors: 0 }, phases: [], findings: [],
+  });
+  const handler = new UseHandler();
+  vi.spyOn(handler as unknown as { executeCore(): Promise<HandlerResult> }, 'executeCore').mockResolvedValue({ exitCode: 0 });
+  const args = ['all', '--provider', 'hermes', '--scope', 'user', ...(json ? ['--json'] : [])];
+  const result = await handler.execute({ cwd: project, frameworkRoot, args, rawArgs: ['use', ...args] });
+  const advice = 'Accept the Hermes hook (--accept-hooks); see aiwg doctor.';
+  expect(advice.length).toBeLessThanOrEqual(80);
+  if (json) expect(JSON.parse(result.message!).findings.filter((item: { id: string }) => item.id === 'hermes-prompt-discovery-acceptance'))
+    .toEqual(state === 'unaccepted' ? [expect.objectContaining({ message: advice })] : []);
+  else expect(result.message?.trimEnd().endsWith(advice)).toBe(state === 'unaccepted');
+  expect(result.message?.split(advice)).toHaveLength(state === 'unaccepted' ? 2 : 1);
 });

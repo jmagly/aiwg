@@ -85,8 +85,13 @@ Installed help/docs were inspected offline on 2026-11-08; no prompt runs were ma
   to `$HERMES_HOME/agent-hooks/aiwg-prompt-discovery.cjs` and merges that event
   into `config.yaml`. Use `aiwg use all --provider hermes --enable-cross-provider-hooks`;
   the existing bridge stays opt-in and `--no-hooks` suppresses it. Commands, comments and consent
-  settings are preserved. Approve the command in Hermes; AIWG does not set
-  `hooks_auto_accept`. Safe mode and denied/unapproved hooks prevent delivery.
+  settings are preserved. Accept at the TTY prompt, or opt in with `--accept-hooks`,
+  `HERMES_ACCEPT_HOOKS=1` or `hooks_auto_accept: true`; AIWG never sets acceptance.
+  Deploy prints a short next step; `aiwg doctor` reports unaccepted or unverified hooks.
+  The anchored, fingerprint-checked command changes when script bytes change on redeploy;
+  Hermes matches the exact event and command string, so review and accept it again.
+  See [Hermes setup](./integrations/hermes-quickstart.md#prompt-discovery-hook-acceptance).
+  Safe mode and denied/unapproved hooks prevent delivery.
   Hermes help failed because its dependency environment needs repair; installed
   docs establish this contract, with runtime UAT deferred.
 

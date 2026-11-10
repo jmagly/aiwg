@@ -1,6 +1,7 @@
 // Health diagnostics extracted from the utility handler collection.
 import fsp from 'fs/promises';
 import { diagnoseUserHookCommands } from '../../extensions/user-hook-diagnostics.js';
+import { diagnoseHermesHookAcceptance } from '../../smiths/hook-bridge/hermes-trust.js';
 import path from 'path';
 import { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 import { createScriptRunner } from './script-runner.js';
@@ -99,6 +100,8 @@ async function runUserScopeDoctor(verbose: boolean): Promise<HandlerResult> {
 
   const hookWarnings = await diagnoseUserHookCommands();
   lines.push(...hookWarnings.map(warning => `⚠ ${warning.message}`));
+  const hermesAcceptance = await diagnoseHermesHookAcceptance();
+  if (hermesAcceptance) lines.push(`⚠ ${hermesAcceptance.message}`);
   if (frameworks.length === 0) {
     lines.push('No frameworks deployed at user scope. Run `aiwg use <fw> --scope user` to install.');
     return { exitCode: hookWarnings.length ? 1 : 0, message: lines.join('\n') + '\n' };
