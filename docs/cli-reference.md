@@ -102,3 +102,14 @@ JSON output retains the record format with the two paths. Existing flat
 checkpoints remain readable. Workflow checkpoint records currently have inline
 validation and no governed schema; other checkpoint schema families govern
 different data.
+
+
+## Grok Build provider operations
+
+Use `--provider grok-build` for the Grok Build CLI, `grokbot` for Grok Bot;
+Grok web Build is separate. Existing `use`, `build-verify`, `refresh`, `remove`,
+and `sessions grok-list|grok-search|grok-export` routes are documented in the
+[provider reference](https://github.com/jmagly/aiwg/blob/main/docs/agents/providers/grok-build.md). The opt-in smoke and local
+schema drift comparison are maintenance scripts, not new top-level CLI commands;
+see the [qualification gate](providers/grok-build-qualification.md). Linux
+1.0.77 captures exist; Windows PowerShell and WSL PUWs remain deferred.

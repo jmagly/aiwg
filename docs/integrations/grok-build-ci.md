@@ -31,7 +31,7 @@ The deploy creates the project instruction bridge and kernel skills in
 `.grok/skills`. Standard skills remain accessible through `aiwg discover` and
 `aiwg show`; the AIWG installation must remain available throughout the job.
 The experimental provider deploys qualified native model-worker agent files;
-rules remain deferred. Live agent execution remains behind the
+trusted `.grok/rules/*` loading is observed in the supplied 1.0.77 capture. Live agent execution remains behind the
 [stable-promotion evidence gate](../providers/grok-build-qualification.md).
 
 The provider-neutral [build-verify](build-verify.md) command uses the common
@@ -77,3 +77,8 @@ Checked 2026-09-20:
 - [Headless and scripting](https://docs.x.ai/build/cli/headless-scripting): prompt/output flags and disabling auto-update checks.
 - [Enterprise deployment](https://docs.x.ai/build/enterprise): API-key authentication and headless permission modes.
 - [Settings](https://docs.x.ai/build/settings): `.grok` project configuration and `GROK_HOME` user scope.
+
+
+For release checks, use the [read-only opt-in smoke and drift comparison](../providers/grok-build-qualification.md).
+The smoke runs version/inspection/AIWG verification only; it never starts a model.
+Its auth mode is presence/declaration evidence, not a credential validation.

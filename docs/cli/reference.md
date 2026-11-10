@@ -897,7 +897,7 @@ reload are shown with `--verbose`.
 | OpenAI/Codex   | `codex`         | `.codex/agents/`, `~/.codex/prompts/`, `.agents/skills/`, `.codex/rules/`                                             | —         |
 | OpenCode       | `opencode`      | `.opencode/agent/`, `.opencode/commands/`, `.opencode/skill/`, `.opencode/rule/`                                      | —         |
 | Grok Bot       | `grokbot`      | `AGENTS.md` bridge; optional configured user skills root                                                       | —         |
-| Grok Build (experimental) | `grok-build` | `WORKSPACE.md` via `AGENTS.md`, `.grok/agents/`, `.grok/skills/`, `$GROK_HOME/skills/`; [qualification](../providers/grok-build-qualification.md) | Trust-gated MCP/hooks |
+| Grok Build (experimental) | `grok-build` | `WORKSPACE.md` via `AGENTS.md`, `.grok/agents/`, `.grok/skills/`, `$GROK_HOME/skills/`; [qualification](../providers/grok-build-qualification.md) | Trust-gated MCP/hooks; Linux 1.0.77 captures, Windows/WSL deferred; distinct from Grok Bot and Grok web Build |
 | Hermes         | `hermes`       | `~/.hermes/skills/`, `AGENTS.md` (lean)                                                                        | —         |
 | OpenClaw       | `openclaw`      | `~/.openclaw/agents/`, `~/.openclaw/commands/`, `~/.openclaw/skills/`, `~/.openclaw/rules/`, `~/.openclaw/behaviors/` | ✓         |
 | OpenHuman      | `openhuman`     | `~/.openhuman/skills/`, `~/.openhuman/.aiwg/rules/`, optional `~/.openhuman/agents/aiwg_*.toml`, project `AGENTS.md`  | —         |

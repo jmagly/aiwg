@@ -1,0 +1,11 @@
+  └ Project trusted: yes
+  Project Instructions (7)
+  └ AGENTS.md (project, ~832 tokens)
+  └ .grok/rules/RULES-INDEX.md (project, ~1439 tokens)
+  └ .grok/rules/artifact-output-policy.md (project, ~381 tokens)
+  └ .grok/rules/human-authorization.md (project, ~690 tokens)
+  └ .grok/rules/instruction-comprehension.md (project, ~568 tokens)
+  └ .grok/rules/research-before-decision.md (project, ~531 tokens)
+  └ .grok/rules/skill-discovery.md (project, ~772 tokens)
+  Skills (57)
+  └ aiwg-utils-quickref               project

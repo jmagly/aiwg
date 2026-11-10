@@ -3,6 +3,11 @@
 AIWG can opt into Grok Build's native project surfaces without treating Grok as
 a Claude or Codex compatibility target.
 
+The supplied [1.0.77 Linux capture](../providers/grok-build-evidence/2026-11-09.md)
+lists no MCP servers and only user Claude-compatible hooks. Native AIWG MCP
+connection/tool calls and hook invocation remain fixture-backed pending captures;
+the procedures below describe adapter support, not live qualification.
+
 ## MCP configuration
 
 Register a server in the AIWG MCP registry, then inject it into the reviewed

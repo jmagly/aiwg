@@ -1,0 +1,13 @@
+{
+  "text": "synthetic",
+  "stopReason": "synthetic",
+  "sessionId": "synthetic",
+  "requestId": "synthetic",
+  "cwd": "synthetic",
+  "thought": "synthetic",
+  "usage": {},
+  "num_turns": 0,
+  "total_cost_usd": 0,
+  "total_cost_usd_ticks": 0,
+  "modelUsage": {}
+}

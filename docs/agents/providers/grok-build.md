@@ -9,11 +9,13 @@ stable_id: aiwg.agent-reference.provider.grok-build
 Grok Build is xAI's coding-agent CLI, provider ID `grok-build`. It is distinct
 from `grokbot` (the desktop Bot integration) and the Grok web Build experience.
 The AIWG adapter is **experimental** until the [qualification gate](../../providers/grok-build-qualification.md)
-has four-platform evidence. Install the released CLI using the reviewed
+has Linux, Windows PowerShell and WSL evidence. The supplied 2026-11-09
+Linux capture uses **1.0.77**; it does not complete that lifecycle matrix.
+See the [native-surface evidence inventory](../../providers/grok-build-evidence/2026-11-09.md). Install the released CLI using the reviewed
 [upstream installation instructions](https://github.com/xai-org/grok-build#installing-the-released-binary),
 then confirm `grok --version` before deploying AIWG.
 
-The 2026-10-26 public-source review covers commit
+The historical 2026-10-26 public-source review covers commit
 `2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8`. The relied-on CLI flags,
 instruction/skill paths, and InspectReport fields remain compatible.
 Streaming JSON adds whole-turn `usage` frames without `messageId` or
@@ -31,6 +33,7 @@ is available; see [model discovery](../../providers/grok-build-models.md).
 | User skills | `$GROK_HOME/skills/<name>/SKILL.md` (default home resolved by Grok Build) |
 | Native agents | `.grok/agents/<name>.md` model-worker wrappers; inspect before trusting live dispatch |
 | MCP and hooks | Project `.grok/config.toml` sidecar; review/trust activation separately |
+| Trust and permissions | Untrusted folders load no project instructions; trust reviewed projects; `--allow "Bash(aiwg *)"` is a bounded command rule |
 | Sessions | Documented `grok export` Markdown, see [sessions](../../providers/grok-build-sessions.md) |
 | Models | Native discovery and role resolution, see [models](../../providers/grok-build-models.md) |
 
@@ -43,7 +46,7 @@ aiwg use all --provider grok-build --scope project --dry-run
 aiwg use all --provider grok-build --scope project
 aiwg regenerate --workspace --provider grok-build
 aiwg build-verify --provider grok-build
-grok inspect --json
+grok inspect
 ```
 
 `aiwg build-verify` requires Grok's live inspection of the generated
@@ -75,7 +78,7 @@ deployment, preview `aiwg remove grok-build --provider grok-build --dry-run`,
 then run the same command without `--dry-run` after reviewing its targets.
 The provider removal verifies unchanged generated files against the installed
 source and preserves modified or unverifiable files. Keep operator-owned `.grok`
-content and context files. If discovery fails, compare `grok inspect --json`
+content and context files. If discovery fails, confirm the folder is trusted, then compare `grok inspect`
 with the AIWG deployment receipt, check the configured `GROK_HOME`, and restart
 the Grok Build session. The [qualification matrix](../../providers/grok-build-qualification.md)
 has update and rollback checks.
