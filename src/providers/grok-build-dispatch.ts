@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { readAiwgConfig, resolveParallelism } from '../config/aiwg-config.js';
 import { runGrokHeadless, type GrokHeadlessOptions, type GrokHeadlessResult } from './grok-build-headless.js';
@@ -104,6 +104,50 @@ export interface GrokWorktreeRecord {
   baseCommit: string;
   createdAt: string;
   recovery: string;
+}
+
+/** Native `grok -w` copies are separate from AIWG's detached Git worktrees. */
+export interface GrokNativeWorktreeRecord {
+  id: string;
+  path: string;
+  source_repo: string;
+  repo_name: string;
+  kind: string;
+  creation_mode: 'standalone';
+  git_ref: string;
+  head_commit: string;
+  /** Ownership handle (pager-*), not the Grok conversation session UUID. */
+  session_id: string;
+  creator_pid: number;
+  created_at: number;
+  last_accessed_at: number;
+  status: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** Parse captured list metadata only; never create, remove or enter a native copy. */
+export function parseGrokNativeWorktreeList(json: string): GrokNativeWorktreeRecord[] {
+  const invalid = (): never => { throw new Error('Invalid Grok Build worktree list: expected standalone copy ownership metadata'); };
+  let rows: unknown;
+  try { rows = JSON.parse(json); } catch { return invalid(); }
+  if (!Array.isArray(rows)) return invalid();
+  return rows.map(value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return invalid();
+    const row = value as Record<string, unknown>;
+    for (const key of ['id', 'path', 'source_repo', 'repo_name', 'kind', 'git_ref', 'head_commit', 'session_id', 'status']) {
+      if (typeof row[key] !== 'string' || !row[key] || (row[key] as string).includes('\0')) return invalid();
+    }
+    const path = row.path as string;
+    const source = row.source_repo as string;
+    const offset = relative(source, path);
+    if (row.creation_mode !== 'standalone' || !isAbsolute(path) || !isAbsolute(source)
+      || !offset || (!isAbsolute(offset) && offset !== '..' && !offset.startsWith(`..${sep}`))
+      || !/^[0-9a-f]{40}$/i.test(row.head_commit as string)
+      || !Number.isSafeInteger(row.creator_pid) || (row.creator_pid as number) < 1
+      || !['created_at', 'last_accessed_at'].every(key => typeof row[key] === 'number' && Number.isFinite(row[key]) && row[key] >= 0)
+      || (row.metadata !== undefined && (!row.metadata || typeof row.metadata !== 'object' || Array.isArray(row.metadata)))) return invalid();
+    return row as unknown as GrokNativeWorktreeRecord;
+  });
 }
 
 async function gitOut(cwd: string, ...args: string[]): Promise<string> {
@@ -230,7 +274,7 @@ export class GrokBuildDispatcher {
     this.active += 1;
     try {
       const worktree = options.isolate ? await prepareGrokWorktree(options.projectRoot) : undefined;
-      // Grok's internal autonomous subagent fan-out has no documented hard
+      // Grok's internal autonomous subagent/workflow fan-out has no documented hard
       // project cap. Disable it in AIWG-controlled headless workers so every
       // parallel worker consumes one dispatcher slot. Interactive Grok use
       // remains outside this bounded API and must not be claimed as enforced.

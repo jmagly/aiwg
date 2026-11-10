@@ -230,6 +230,8 @@
         "--output-format",
         "streaming-json",
         "--no-subagents",
+        "--disallowed-tools",
+        "workflow",
         "--no-plan",
         "--no-alt-screen",
         "--disable-web-search"

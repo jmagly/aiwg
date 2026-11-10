@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GrokBuildDispatcher, acquireGrokProjectSlot, prepareGrokWorktree } from '../../../src/providers/grok-build-dispatch.js';
+import { GrokBuildDispatcher, acquireGrokProjectSlot, prepareGrokWorktree, parseGrokNativeWorktreeList } from '../../../src/providers/grok-build-dispatch.js';
 
 function cleanRepo(): string {
   const root = mkdtempSync(join(tmpdir(), 'aiwg-grok-source-'));
@@ -17,6 +17,37 @@ function cleanRepo(): string {
 }
 
 describe('Grok Build governed dispatch', () => {
+  it('parses captured standalone copy ownership without treating it as a Git worktree', () => {
+    const fixture = (name: string) => readFileSync(new URL(`../../fixtures/providers/grok-build/captured-20261110/${name}`, import.meta.url), 'utf8');
+    const wire = fixture('worktree-list.json');
+    expect(parseGrokNativeWorktreeList(wire)).toEqual(JSON.parse(wire));
+    const [copy] = parseGrokNativeWorktreeList(wire);
+    expect(copy).toMatchObject({ creation_mode: 'standalone', kind: 'fork', source_repo: '/tmp/synthetic-project',
+      path: '/home/synthetic/.grok/worktrees/synthetic-project/capwt', session_id: 'pager-000000000001', creator_pid: 12345, status: 'alive' });
+    expect(fixture('git-worktree-before.txt')).toBe(fixture('git-worktree-after.txt'));
+    expect(() => parseGrokNativeWorktreeList('{}')).toThrow(/worktree list/);
+    for (const patch of [{ path: copy.source_repo }, { creator_pid: '123' }, { session_id: null }, { creation_mode: 'git' }]) {
+      expect(() => parseGrokNativeWorktreeList(JSON.stringify([{ ...copy, ...patch }]))).toThrow(/worktree list/);
+    }
+    expect(parseGrokNativeWorktreeList('[]')).toEqual([]);
+  });
+
+  it('renders both fan-out guards for a resolved project cap of one', async () => {
+    const root = cleanRepo();
+    try {
+      mkdirSync(join(root, '.aiwg'));
+      writeFileSync(join(root, '.aiwg', 'aiwg.config'), JSON.stringify({ parallelism: { max_parallel_subagents: 1 } }));
+      const dispatcher = await GrokBuildDispatcher.forProject(root);
+      const { result } = await dispatcher.dispatch({ projectRoot: root, prompt: 'offline argv',
+        command: process.execPath, prefixArgs: ['-e', 'console.log(JSON.stringify({type:"text",data:process.argv.slice(1)}));console.log(JSON.stringify({type:"end",stopReason:"end_turn"}))', '--'],
+        authorize: () => true, budgetRemaining: () => true });
+      const argv = result.events[0].data as string[];
+      expect(argv.slice(argv.indexOf('--no-subagents'), argv.indexOf('--no-subagents') + 3))
+        .toEqual(['--no-subagents', '--disallowed-tools', 'workflow']);
+      expect(argv).not.toContain('auto');
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
   it('dispatches the documented ACP fixture and releases its slot after rejecting legacy frames', async () => {
     // Keep dispatch slots inside the fixture so removing it cleans all state.
     const root = cleanRepo();
@@ -134,7 +165,7 @@ describe('Grok Build governed dispatch', () => {
       const message=JSON.parse(line);
       if(message.method==='initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{authMethods:[{id:'xai.api_key'}]}}));
       if(message.method==='authenticate') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{}}));
-      if(message.method==='session/new') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{sessionId:process.argv.includes('--no-subagents')?'acp-fixture':'missing-cap-flag'}}));
+      if(message.method==='session/new') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{sessionId:process.argv.join(' ').includes('--no-subagents --disallowed-tools workflow')?'acp-fixture':'missing-cap-flag'}}));
       if(message.method==='session/prompt') console.log(JSON.stringify({jsonrpc:'2.0',id:message.id,result:{stopReason:'end_turn'}}));
     })`;
     try {

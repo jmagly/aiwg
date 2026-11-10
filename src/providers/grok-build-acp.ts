@@ -42,7 +42,7 @@ export class GrokAcpClient {
     this.timeoutMs = Math.min(Math.max(options.timeoutMs ?? 30_000, 1), 120_000);
     this.maxStderrBytes = options.maxStderrBytes ?? 1024 * 1024;
     this.onUpdate = options.onUpdate;
-    this.child = spawn(options.command ?? 'grok', [...(options.prefixArgs ?? []), '--no-auto-update', ...(options.disableSubagents ? ['--no-subagents'] : []), 'agent', 'stdio'], {
+    this.child = spawn(options.command ?? 'grok', [...(options.prefixArgs ?? []), '--no-auto-update', ...(options.disableSubagents ? ['--no-subagents', '--disallowed-tools', 'workflow'] : []), 'agent', 'stdio'], {
       cwd: options.cwd, env: this.env, stdio: ['pipe', 'pipe', 'pipe'], shell: false,
     });
     this.child.on('error', error => this.failAll(new Error(`Grok ACP launch failed: ${error.message}`)));
@@ -86,7 +86,7 @@ export class GrokAcpClient {
       let message: Record<string, unknown>;
       try { message = JSON.parse(line) as Record<string, unknown>; }
       catch { this.failAll(new Error('Invalid Grok ACP JSON-RPC message')); this.close(); return; }
-      if (message.method === 'session/update') {
+      if (message.method === 'session/update' || message.method === '_x.ai/session_notification') {
         const params = message.params as Record<string, unknown> | undefined;
         const update = params?.update as Record<string, unknown> | undefined;
         if (update) {
@@ -132,7 +132,7 @@ export class GrokAcpClient {
   async initialize(): Promise<{ authMethod: string; sessionId: string }> {
     const init = await this.request('initialize', {
       protocolVersion: 1,
-      clientCapabilities: { fs: { readTextFile: true, writeTextFile: true }, terminal: true },
+      clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
     });
     const methods = Array.isArray(init.authMethods)
       ? init.authMethods.map(item => (item as Record<string, unknown>).id) : [];
@@ -144,14 +144,19 @@ export class GrokAcpClient {
         : 'no supported non-interactive method was offered';
       throw new Error(`Grok ACP authentication unavailable: ${reason}`);
     }
-    await this.request('authenticate', { methodId: authMethod, _meta: { headless: true } });
+    // Captured 1.0.77 advertises the active cached login in initialize; it
+    // proceeds straight to session/new without an authenticate round trip.
+    const meta = init._meta as Record<string, unknown> | undefined;
+    if (authMethod !== 'cached_token' || meta?.defaultAuthMethodId !== 'cached_token') {
+      await this.request('authenticate', { methodId: authMethod, _meta: { headless: true } });
+    }
     const session = await this.request('session/new', { cwd: this.cwd, mcpServers: [] });
     if (typeof session.sessionId !== 'string' || !session.sessionId) throw new Error('Grok ACP session/new returned no sessionId');
     this.sessionId = session.sessionId;
     return { authMethod, sessionId: session.sessionId };
   }
 
-  async prompt(prompt: string, signal?: AbortSignal): Promise<{ text: string; stopReason?: string }> {
+  async prompt(prompt: string, signal?: AbortSignal): Promise<{ text: string; stopReason?: string; _meta?: Record<string, unknown> }> {
     if (!this.sessionId) throw new Error('Grok ACP session is not initialized');
     if (!prompt.trim()) throw new Error('Grok ACP prompt is required');
     const aborted = (): Error => Object.assign(new Error('Grok ACP prompt aborted'), { name: 'AbortError' });
@@ -168,7 +173,10 @@ export class GrokAcpClient {
       // completion response; give the pipe a bounded settling window.
       await new Promise(resolve => setTimeout(resolve, 150));
       if (abortRequested || signal?.aborted) throw aborted();
-      return { text: this.text.trim(), ...(typeof result.stopReason === 'string' ? { stopReason: result.stopReason } : {}) };
+      const meta = result._meta && typeof result._meta === 'object' && !Array.isArray(result._meta)
+        ? JSON.parse(redactGrokOutput(JSON.stringify(result._meta), this.env)) as Record<string, unknown> : undefined;
+      return { text: this.text.trim(), ...(typeof result.stopReason === 'string' ? { stopReason: result.stopReason } : {}),
+        ...(meta ? { _meta: meta } : {}) };
     } catch (error) {
       if (abortRequested || signal?.aborted) throw aborted();
       throw error;

@@ -76,6 +76,7 @@
     "integrations/grokbot-native-surfaces-evidence",
     "integrations/grok-build-quickstart",
     "providers/grok-build-qualification",
+    "providers/grok-build-native-agents",
     "providers/grok-build-evidence/2026-11-09",
     "releases/grok-build-qualification-notes",
     "migration/grok-build-from-claude-workaround",
@@ -851,6 +852,13 @@
       "summary": "Grok Build 1.0.77 Linux evidence; separate from Grok Bot and Grok web Build",
       "file": "integrations/grok-build-quickstart.md",
       "parent": "integrations"
+    },
+    {
+      "id": "providers/grok-build-native-agents",
+      "title": "Grok Build native agents and automation",
+      "summary": "Captured headless permissions, fan-out guards, ACP contracts and standalone worktree metadata",
+      "file": "providers/grok-build-native-agents.md",
+      "parent": "providers"
     },
     {
       "id": "providers/grok-build-qualification",

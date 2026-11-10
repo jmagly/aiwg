@@ -217,7 +217,7 @@ describe('Grok Build version-bound profile (B-OG-41)', () => {
       qualification: { status: 'unqualified' } });
     expect(adapter.invocation.argv).toEqual(['--prompt-file', '${brief}', '-m', '${model}', '--reasoning-effort', '${effort}',
       '--permission-mode', 'dontAsk', '--sandbox', '${sandbox}', '--cwd', '${workspace}', '--output-format', 'streaming-json',
-      '--no-subagents', '--no-plan', '--no-alt-screen', '--disable-web-search']);
+      '--no-subagents', '--disallowed-tools', 'workflow', '--no-plan', '--no-alt-screen', '--disable-web-search']);
     expect(adapter.invocation.argv.join(' ')).not.toMatch(/always-approve|bypassPermissions|allow-all|yolo/);
     const profile = adapter.invocationProfiles!['direct-shell'];
     expect(profile.supportedVersions).toBe(VERSION);
@@ -248,7 +248,7 @@ describe('Grok Build version-bound profile (B-OG-41)', () => {
       { selected: { model: MODEL, effort: { value: 'medium' } }, cwd: '/w', briefPath: '/w/brief.md' },
       null, { sandbox: 'workspace-write', allowRules: ['Edit'] })).toEqual(['--prompt-file', '/w/brief.md',
       '-m', MODEL, '--reasoning-effort', 'medium', '--permission-mode', 'dontAsk', '--sandbox', 'workspace',
-      '--cwd', '/w', '--output-format', 'streaming-json', '--no-subagents', '--no-plan', '--no-alt-screen',
+      '--cwd', '/w', '--output-format', 'streaming-json', '--no-subagents', '--disallowed-tools', 'workflow', '--no-plan', '--no-alt-screen',
       '--disable-web-search', '--allow', 'Edit']);
     expect(GROK_BUILD_DIRECT_STDIN).toBe('closed');
   });

@@ -1,0 +1,18 @@
+[
+  {
+    "subagent_id": "019abc00-0000-7000-8000-000000000012",
+    "parent_session_id": "019abc00-0000-7000-a000-000000000013",
+    "child_session_id": "019abc00-0000-7000-8000-000000000012",
+    "subagent_type": "general-purpose",
+    "status": "cancelled",
+    "child_cwd": "/tmp/synthetic-project"
+  },
+  {
+    "subagent_id": "019abc00-0000-7000-9000-000000000014",
+    "parent_session_id": "019abc00-0000-7000-a000-000000000013",
+    "child_session_id": "019abc00-0000-7000-9000-000000000014",
+    "subagent_type": "general-purpose",
+    "status": "cancelled",
+    "child_cwd": "/tmp/synthetic-project"
+  }
+]

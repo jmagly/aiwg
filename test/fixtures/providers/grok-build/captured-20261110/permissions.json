@@ -1,0 +1,164 @@
+[
+  {
+    "source": "cli/subagents-on.out",
+    "flags": [],
+    "stderr": "permission required: Count files in src/ was not run, as a headless run cannot ask for approval\n",
+    "records": [
+      {
+        "type": "tool_use",
+        "id": "call-019abc00-0000-4000-8000-00000000000b-0",
+        "name": "spawn_subagent"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call-019abc00-0000-4000-8000-00000000000b-0",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "User cancelled the execution for tool `spawn_subagent`"
+            }
+          }
+        ],
+        "is_error": true
+      }
+    ]
+  },
+  {
+    "source": "cli/subagents-on-allowed.out",
+    "flags": [
+      "--allow",
+      "spawn_subagent"
+    ],
+    "stderr": "permission required: Count files in src/ was not run, as a headless run cannot ask for approval\n",
+    "records": [
+      {
+        "type": "tool_use",
+        "id": "call-019abc00-0000-4000-b000-00000000000c-0",
+        "name": "spawn_subagent"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call-019abc00-0000-4000-b000-00000000000c-0",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "User cancelled the execution for tool `spawn_subagent`"
+            }
+          }
+        ],
+        "is_error": true
+      }
+    ]
+  },
+  {
+    "source": "cli/subagents-off.out",
+    "flags": [
+      "--no-subagents"
+    ],
+    "stderr": "permission required: Creating workflow 'count-src-docs' was not run, as a headless run cannot ask for approval\n",
+    "records": [
+      {
+        "type": "tool_use",
+        "id": "call-019abc00-0000-4000-8000-00000000000d-3",
+        "name": "workflow"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call-019abc00-0000-4000-8000-00000000000d-3",
+        "content": [
+          {
+            "type": "content",
+            "content": {
+              "type": "text",
+              "text": "User cancelled the execution for tool `workflow`"
+            }
+          }
+        ],
+        "is_error": true
+      }
+    ]
+  },
+  {
+    "source": "cli/subagents-off-auto.out",
+    "flags": [
+      "--no-subagents",
+      "--permission-mode",
+      "auto"
+    ],
+    "stderr": "Error: max turns reached\n",
+    "records": [
+      {
+        "type": "tool_use",
+        "id": "call-019abc00-0000-4000-9000-00000000000e-1",
+        "name": "workflow"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call-019abc00-0000-4000-9000-00000000000e-1",
+        "content": {
+          "type": "Workflow",
+          "run_id": "wf_019abc00000070008000000000000001",
+          "task_id": "wf_019abc00000070008000000000000001",
+          "name": "count-src-docs"
+        },
+        "is_error": false
+      }
+    ]
+  },
+  {
+    "source": "cli/subagents-on-auto.out",
+    "flags": [
+      "--permission-mode",
+      "auto"
+    ],
+    "stderr": "",
+    "records": [
+      {
+        "type": "tool_use",
+        "id": "call-019abc00-0000-4000-b000-00000000000f-0",
+        "name": "spawn_subagent"
+      },
+      {
+        "type": "tool_use",
+        "id": "call-019abc00-0000-4000-b000-00000000000f-1",
+        "name": "spawn_subagent"
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call-019abc00-0000-4000-b000-00000000000f-0",
+        "content": {
+          "type": "SubagentCompleted",
+          "output": "src=3",
+          "subagent_id": "019abc00-0000-7000-9000-000000000010",
+          "subagent_type": "general-purpose",
+          "tool_calls": 1,
+          "turns": 1,
+          "duration_ms": 2948,
+          "worktree_path": null,
+          "resume_from_hint": "019abc00-0000-7000-9000-000000000010"
+        },
+        "is_error": false
+      },
+      {
+        "type": "tool_result",
+        "tool_use_id": "call-019abc00-0000-4000-b000-00000000000f-1",
+        "content": {
+          "type": "SubagentCompleted",
+          "output": "docs=1",
+          "subagent_id": "019abc00-0000-7000-9000-000000000011",
+          "subagent_type": "general-purpose",
+          "tool_calls": 1,
+          "turns": 1,
+          "duration_ms": 2897,
+          "worktree_path": null,
+          "resume_from_hint": "019abc00-0000-7000-9000-000000000011"
+        },
+        "is_error": false
+      }
+    ]
+  }
+]

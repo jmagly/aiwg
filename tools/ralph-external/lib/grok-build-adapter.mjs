@@ -9,7 +9,7 @@
  *
  *   grok --prompt-file ${briefPath} -m ${model} --reasoning-effort ${effort} \
  *     --permission-mode dontAsk --sandbox ${sandbox} --cwd ${workspace} \
- *     --output-format streaming-json --no-subagents --no-plan \
+ *     --output-format streaming-json --no-subagents --disallowed-tools workflow --no-plan \
  *     --no-alt-screen --disable-web-search \
  *     [--allow <rule> ...] [--deny <rule> ...]
  *
@@ -62,8 +62,9 @@
  * Untrusted-surface denial: `--disable-web-search` ("Disable web search and
  * web fetch tools") removes the one evidenced built-in external-network
  * tool so the AIWG `worker-invoke` bridge remains the one MCP/tool route
- * this profile authorizes; `--no-subagents` ("Disable subagent spawning")
- * denies hidden fan-out (ADR-OG-09); `--no-plan` keeps the run in direct
+ * this profile authorizes; `--no-subagents --disallowed-tools workflow`
+ * closes the captured 1.0.77 workflow bypass of --no-subagents (ADR-OG-09).
+ * Combined live enforcement remains unverified; `--no-plan` keeps the run in direct
  * execution rather than plan-only mode. `--no-alt-screen` is also emitted
  * per the conductor's headless invariant list even though single-turn
  * `--prompt-file` runs never open the TUI.
@@ -241,6 +242,7 @@ export class GrokBuildAdapter extends ProviderAdapter {
       '--cwd', cwd,
       '--output-format', 'streaming-json',
       '--no-subagents',
+      '--disallowed-tools', 'workflow',
       '--no-plan',
       '--no-alt-screen',
       '--disable-web-search',
