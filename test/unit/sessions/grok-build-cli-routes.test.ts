@@ -13,6 +13,10 @@ import { sessionsHandler } from '../../../src/cli/handlers/sessions.js';
 
 const ID = '0199a111-1111-7111-8111-111111111111';
 const roots: string[] = [];
+const resultEnvelope = { text: 'private output', thought: '', stopReason: 'end_turn', sessionId: ID, requestId: 'request-fixture', cwd: '/synthetic/workspace', usage: {}, modelUsage: {}, num_turns: 1, total_cost_usd: 0, total_cost_usd_ticks: 0 };
+const endEnvelope = { ...resultEnvelope, type: 'end' };
+delete (endEnvelope as Partial<typeof resultEnvelope>).text;
+delete (endEnvelope as Partial<typeof resultEnvelope>).thought;
 afterEach(async () => {
   vi.restoreAllMocks();
   const { rm } = await import('node:fs/promises');
@@ -127,23 +131,23 @@ describe('documented Grok Build CLI routes', () => {
 
   it('reads documented headless JSON and streaming JSON IDs without retaining content', async () => {
     const root = await workspace();
-    expect(parseGrokHeadlessSessionId(JSON.stringify({ sessionId: ID, result: 'sensitive' }), 'json')).toBe(ID);
+    expect(parseGrokHeadlessSessionId(JSON.stringify(resultEnvelope), 'json')).toBe(ID);
     const transcript = join(root, 'headless.jsonl');
-    await writeFile(transcript, `${JSON.stringify({ type: 'start', sessionId: ID })}\n${JSON.stringify({ type: 'end', sessionId: ID, text: 'private' })}\n`);
+    await writeFile(transcript, `${JSON.stringify({ type: 'available_commands', tools: [], commands: [] })}\n${JSON.stringify(endEnvelope)}\n`);
     expect(await grokHeadlessSessionIdFromFile(transcript, 'streaming-json')).toBe(ID);
     const linked = join(root, 'linked.jsonl');
     await symlink(transcript, linked);
     await expect(grokHeadlessSessionIdFromFile(linked, 'streaming-json'))
       .rejects.toMatchObject({ code: 'SOURCE_SYMLINK' });
-    expect(() => parseGrokHeadlessSessionId('{}', 'json')).toThrowError(/one consistent sessionId/);
-    expect(() => parseGrokHeadlessSessionId(`${JSON.stringify({ sessionId: ID })}\n${JSON.stringify({ sessionId: '0199a222-2222-7222-8222-222222222222' })}`, 'streaming-json'))
-      .toThrowError(/one consistent sessionId/);
+    expect(() => parseGrokHeadlessSessionId('{}', 'json')).toThrowError(/one consistent sessionId|unrecognized Grok Build/);
+    expect(() => parseGrokHeadlessSessionId(`${JSON.stringify(endEnvelope)}\n${JSON.stringify({ ...endEnvelope, sessionId: '0199a222-2222-7222-8222-222222222222' })}`, 'streaming-json'))
+      .toThrowError(/one consistent sessionId|unrecognized Grok Build/);
   });
 
   it('exposes a redacted ID-only headless command envelope', async () => {
     const root = await workspace();
     const input = join(root, 'headless.json');
-    await writeFile(input, JSON.stringify({ sessionId: ID, result: 'private output' }));
+    await writeFile(input, JSON.stringify(resultEnvelope));
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const result = await sessionsHandler.execute({
       args: ['grok-id', input, '--format', 'json', '--json'],

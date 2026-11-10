@@ -279,7 +279,7 @@
           "SCHEMA_DRIFT"
         ],
         "exceptions": {
-          "discovery": "disabled by default; AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 opts in to unqualified synthetic v1 native discovery with an explicitly authorized --grok-root; no released-binary schema or version range is qualified; documented CLI export ingest remains available without opt-in"
+          "discovery": "CLI list/search/export captured on 1.0.77; native text/tool projection requires AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1, exact AIWG_GROK_BUILD_NATIVE_VERSION=1.0.77, summary chat_format_version 1 and an authorized --grok-root; ACP, compaction, fork/resume, subagents and attachment ownership remain unqualified; unknown native schema requires CLI export fallback"
         }
       }
     },

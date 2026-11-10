@@ -1,1 +1,1 @@
-{"schemaVersion":1,"sessionId":"0199b333-3333-7333-8333-333333333333","seq":0,"role":"user","content":"Another workspace session; must never attach elsewhere.","timestamp":1785153800}
+{"type": "user", "content": [{"type": "text", "text": "Another workspace session; must never attach elsewhere."}], "prompt_index": 0}

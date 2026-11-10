@@ -1119,7 +1119,7 @@ async function importSource(
                     : isGrokbot
                       ? new GrokbotSessionAdapter(limits)
                       : isGrokBuild
-                        ? new GrokBuildSessionAdapter(limits)
+                        ? new GrokBuildSessionAdapter(limits, undefined, { cwd: ctx.cwd, binary: args.values.get('--grok-bin') })
                       : isMuse
                         ? new MuseSessionAdapter(limits)
                       : isPi

@@ -18,7 +18,7 @@ async function run(args: string[]) {
 }
 
 it.each([false, true])('labels native availability and explains the boundary with opt-in %s', async enabled => {
-  if (enabled) vi.stubEnv(optIn, '1');
+  if (enabled) { vi.stubEnv(optIn, '1'); vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.77'); }
   const { result, output } = await run(['sources']);
   expect(result.exitCode).toBe(0);
   const provider = output.data.providers.find((item: { provider: string }) => item.provider === 'grok-build');
@@ -43,7 +43,7 @@ it('rejects an explicitly selected native file without opt-in and explains how t
 });
 
 it('keeps explicit native fixture import available with opt-in', async () => {
-  vi.stubEnv(optIn, '1');
+  vi.stubEnv(optIn, '1'); vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.77');
   const { result, output } = await run(['import', native, '--provider', 'grok-build',
     '--source-id', 'native-fixture', '--workspace', process.cwd(), '--dry-run']);
   expect(result.exitCode).toBe(0);

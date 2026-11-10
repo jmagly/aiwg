@@ -5,6 +5,7 @@ import { delimiter, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import { promisify } from 'node:util';
 import { resolveGrokHomeResult } from '../providers/grok-build-paths.js';
 import { SessionContractError } from './contracts.js';
+import { validateGrokHeadlessEnvelope, parseGrokSessionIds } from './grok-build-cli-output.js';
 import { validateGrokBuildMarkdown } from './adapters/grok-build.js';
 
 const execFile = promisify(execFileCallback);
@@ -26,7 +27,7 @@ export async function grokBuildList(options: GrokBuildCliOptions, limit = 20): P
     throw new SessionContractError('INVALID_ARGUMENT', 'Grok Build list limit must be 1..500');
   }
   const stdout = await runGrok(options, ['sessions', 'list', '--limit', String(limit)]);
-  return parseSessionIds(stdout, 'list');
+  return parseGrokSessionIds(stdout, 'list');
 }
 
 export async function grokBuildSearch(options: GrokBuildCliOptions, query: string, limit = 20): Promise<string[]> {
@@ -37,7 +38,7 @@ export async function grokBuildSearch(options: GrokBuildCliOptions, query: strin
     throw new SessionContractError('INVALID_ARGUMENT', 'Grok Build search limit must be 1..500');
   }
   const stdout = await runGrok(options, ['sessions', 'search', query, '--limit', String(limit)]);
-  return parseSessionIds(stdout, 'search');
+  return parseGrokSessionIds(stdout, 'search');
 }
 
 export async function grokBuildExport(
@@ -85,6 +86,7 @@ export function parseGrokHeadlessSessionId(output: string, format: 'json' | 'str
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       throw new SessionContractError('SCHEMA_DRIFT', 'Grok Build headless event must be an object');
     }
+    validateGrokHeadlessEnvelope(value as Record<string, unknown>, format);
     const id = (value as Record<string, unknown>).sessionId;
     if (id !== undefined) {
       if (typeof id !== 'string' || !UUID.test(id)) {
@@ -232,31 +234,6 @@ async function isExecutableFile(path: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function parseSessionIds(stdout: string, mode: 'list' | 'search'): string[] {
-  const ids: string[] = [];
-  let recognized = false;
-  for (const line of stdout.split(/\r?\n/)) {
-    if (!line.trim()) continue;
-    if (line === 'No sessions found.' || line.startsWith('SESSION ID ') || line.startsWith('Label: ')
-      || line === '(no label)' || /^Total: \d+$/.test(line)) {
-      recognized = true;
-      continue;
-    }
-    const id = /^([0-9a-f-]{36})(?:\s|$)/i.exec(line)?.[1];
-    if (id && UUID.test(id)) {
-      ids.push(id.toLowerCase());
-      recognized = true;
-      continue;
-    }
-    if (mode === 'search' && /^  \S/.test(line) && recognized) continue;
-    throw new SessionContractError('SCHEMA_DRIFT', `unrecognized Grok Build ${mode} output; check CLI version`);
-  }
-  if (!recognized) {
-    throw new SessionContractError('SCHEMA_DRIFT', `empty Grok Build ${mode} output; check CLI version`);
-  }
-  return [...new Set(ids)];
 }
 
 async function safeDirectory(input: string): Promise<string> {

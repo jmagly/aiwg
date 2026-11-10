@@ -1,0 +1,10 @@
+{
+  "chat_format_version": 1,
+  "info": {
+    "id": "0199b111-1111-7111-8111-111111111111",
+    "cwd": "/synthetic/grok-workspace"
+  },
+  "created_at": "2026-11-09T22:48:04Z",
+  "updated_at": "2026-11-09T22:54:29Z",
+  "current_model_id": "grok-4.7"
+}

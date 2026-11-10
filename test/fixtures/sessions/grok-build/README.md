@@ -15,21 +15,17 @@ lineage, subagents, attachments, snapshots, and tool results. Tests assert that
 AIWG reports those fields as unavailable rather than reconstructing them. These
 synthetic exports do not claim to qualify those omitted native scenarios.
 
-Released-binary `$GROK_HOME/sessions` captures are absent. Native parsing is
-experimental and disabled by default; `AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1`
-opts in to the synthetic fixtures below. No released-binary schema or version
-range is qualified.
+## Released-binary projection
 
-## Synthetic native store fixtures (unqualified)
+See [captured-1.0.77](captured-1.0.77/README.md) for sanitized TUI and headless
+CLI captures and native text/tool record shapes from 2026-11-09. These supersede
+the earlier invented native record contract. Direct native projection requires
+`AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1` and exact
+`AIWG_GROK_BUILD_NATIVE_VERSION=1.0.77`, plus an authorized root. Missing scenario
+captures remain deferred as listed there; the older `coverage.json` continues
+to describe synthetic CLI loss assertions, not released native qualification.
 
-`native-layout/` reproduces only the *documented directory layout*
-`<sessions>/<url-encoded cwd>/<uuid>/chat_history.jsonl` (operator observation,
-2026-10-17), never observed record bytes. The `chat_history.jsonl` record shape
-(`schemaVersion: 1` with `sessionId`/`seq`/`role`/`content`, optional
-`timestamp`/`toolName`/`toolCallId`/`id`) and `native-active-sessions.json`
-(`schemaVersion: 1` with `sessionId`/`cwd`/`lastHeartbeatAt`) are AIWG-defined
-synthetic v1 contracts: real stores were never inspected, so anything outside
-these shapes fails closed and no compatibility with released binaries is claimed.
-`session_search.sqlite` is present only as an enumeration decoy (empty, never
-opened). Tests copy or rebuild this layout under `os.tmpdir()/mkdtemp`
-with the encoded cwd derived from the test workspace.
+`native-layout/` uses the observed chat record shapes with synthetic content and
+matching `summary.json`. `session_search.sqlite` is an empty enumeration decoy,
+never opened. `native-active-sessions.json` is still an AIWG-defined synthetic
+registry fixture; no released-binary live-detection compatibility is claimed.

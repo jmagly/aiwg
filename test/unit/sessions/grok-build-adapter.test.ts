@@ -232,7 +232,7 @@ describeWithSqlite('Grok Build adapter repository conformance', () => {
   });
 
   it('imports a native chat_history source with stable identity and idempotent replay', async () => {
-    vi.stubEnv('AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL', '1');
+    vi.stubEnv('AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL', '1'); vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.77');
     const adapter = new GrokBuildSessionAdapter();
     const locator = resolve(
       nativeLayoutRoot, '%2Fsynthetic%2Fgrok-workspace',
