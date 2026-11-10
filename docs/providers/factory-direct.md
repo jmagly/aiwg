@@ -40,6 +40,44 @@ session reports `reasoning_effort none`. Do not claim `-r high` enforced high
 reasoning. Record only harness version, resolved model, effort and result.
 This does not change the direct-worker profile's qualification status.
 
+### Local custom-model discovery
+
+`aiwg models refresh` discovers BYOK models from `$HOME/.factory/settings.json`
+without a model turn or endpoint request. AIWG bounds the file read and parses
+only `customModels` model-selection fields: `model`, `displayName`, `baseUrl`,
+`provider` and `maxOutputTokens`. Credential fields (`apiKey`, `api_key`) are
+dropped during parsing: their values are never inspected, expanded, hashed,
+logged or included in observations, caches, doctor output or approval receipts.
+Discovery does not check whether a key exists or works. Keep using secure
+environment injection as described above. `settings.json` is the locally
+documented custom-model source; no undocumented `config.json` fallback is used.
+
+For the verified display-name form, Droid's selector is `custom:` followed by
+the display name with spaces replaced by hyphens. For example,
+`AIWG OpenRouter Qwen 3.8 27B` becomes
+`custom:AIWG-OpenRouter-Qwen-3.8-27B`. AIWG adds no numeric suffix and rejects
+ambiguous display names. The catalog's older suffix-relabeling caveat describes
+runtime reporting; confirm the selector against your installed Droid version.
+Observations use this exact executable selector for both `id` and `apiModelId`;
+the upstream `model` is retained separately in configuration provenance.
+`llmProvider` reflects the endpoint host (`openrouter` for `openrouter.ai`),
+rather than treating `generic-chat-completion-api` as an inference provider.
+
+Discovery records the settings source, observation time and `droid --version`.
+Refresh binds a single configured Factory installation's accountScope label;
+`aiwg doctor --probe-workers --qualify --cli factory` rereads custom-model
+settings using the targeted installation's probed version and configured
+accountScope (default `local-account`). Approval remains an explicit doctor
+step. Labels do not detect login changes or prove account entitlement. BYOK
+effort is `not-applicable`; use role guidance with `initialEffort: null`,
+`effortLadder: []` and `allowNotApplicableEffort: true`. The custom invocation
+omits `-r` rather than claiming it enforces reasoning effort. Other unknown
+facts, including context size and data-use policy, remain unknown.
+
+Built-in Factory plan models have no non-interactive listing command. Their
+static catalog pins remain available and are never promoted to observations
+by reading custom-model settings.
+
 ## Direct-worker contract
 
 The bundled `direct-shell` invocation profile in

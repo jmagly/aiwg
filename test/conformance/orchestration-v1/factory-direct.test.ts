@@ -346,6 +346,9 @@ describe('T-OG-15 Factory direct command contract', () => {
       .toThrow(/auto-selection/);
     expect(() => owner.buildWorkerArgs({ ...input, selected: { model: MODEL, effort: { value: null } } }, null, {}))
       .toThrow(/explicit qualified reasoning effort/);
+    expect(owner.buildWorkerArgs({ ...input, selected: { model: 'custom:AIWG-OpenRouter-Qwen-3.8-27B',
+      effort: { support: 'not-applicable', value: null } } }, null, { sandbox: 'read-only' })).toEqual(
+      ['exec', '-m', 'custom:AIWG-OpenRouter-Qwen-3.8-27B', '--cwd', '/w', '--output-format', 'stream-json']);
     // `exec --help`'s "Model details" lists `none` as a valid reasoning
     // level for several models (e.g. GPT-6 Sol/Luna); it must be accepted,
     // not just the seven other levels.

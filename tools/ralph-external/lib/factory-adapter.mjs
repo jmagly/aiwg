@@ -203,7 +203,8 @@ export class FactoryAdapter extends ProviderAdapter {
       throw new Error(`Factory worker requires an explicit observed model, not the CLI's own auto-selection '${model}'`);
     }
     const effort = invocation?.selected?.effort?.value ?? null;
-    if (effort === null || !FACTORY_DIRECT_EFFORT_VALUES.includes(effort)) {
+    const customNoEffort = model.startsWith('custom:') && invocation?.selected?.effort?.support === 'not-applicable' && effort === null;
+    if (!customNoEffort && (effort === null || !FACTORY_DIRECT_EFFORT_VALUES.includes(effort))) {
       throw new Error('Factory worker requires an explicit qualified reasoning effort (never a CLI default)');
     }
     const sandbox = permissions?.sandbox ?? 'workspace-write';
@@ -225,7 +226,7 @@ export class FactoryAdapter extends ProviderAdapter {
     const auto = FACTORY_SANDBOX_TO_AUTO[sandbox];
     const args = ['exec'];
     if (auto) args.push('--auto', auto);
-    args.push('-m', model, '-r', effort, '--cwd', cwd, '--output-format', 'stream-json');
+    args.push('-m', model, ...(customNoEffort ? [] : ['-r', effort]), '--cwd', cwd, '--output-format', 'stream-json');
     return args;
   }
 

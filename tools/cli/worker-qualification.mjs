@@ -185,7 +185,7 @@ export async function checkRecordedWorkerInvocationBuilds({ projectDir, config, 
 }
 
 /** Factory has no offline entitlement probe; name local blockers without reading credentials. */
-async function factoryQualificationBlockers(targets, config, registry) {
+async function factoryQualificationBlockers(targets, config, registry, observations) {
   const results = [];
   for (const target of targets) {
     const [namespace, id] = (config.parallelism.clis?.[target.cli]?.adapter ?? `providers:${target.cli}`).split(':');
@@ -197,14 +197,19 @@ async function factoryQualificationBlockers(targets, config, registry) {
       message = 'No Factory worker model is configured; configure a Factory plan or BYOK custom model, then add its exact model ID to an enabled parallelism.groups member.';
     } else {
       let observed;
-      try {
+      if (target.models.some(member => member.model.startsWith('custom:'))) {
+        const { discoverFactoryModels } = await importImpl(import.meta.url, 'models/factory-models.js');
+        observed = await discoverFactoryModels({ command: target.executable, cliId: target.cli,
+          runtimeVersion: target.version, accountBinding: target.accountScope });
+        observations.set(target.cli, observed);
+      } else try {
         const cache = JSON.parse(await fs.readFile(path.join(homedir(), '.cache/aiwg/model-catalog.v1.json'), 'utf8'));
         observed = cache.discovery?.instances?.[target.cli] ?? cache.discovery?.providers?.factory;
       } catch { /* No current model observations; do not infer account entitlement. */ }
       const missing = [...new Set(target.models.map(member => member.model))].filter(model =>
         !observed?.models?.some(entry => entry.id === model && entry.apiModelId === model && entry.llmProvider
           && entry.worker?.runtimeVersion === target.version && entry.worker?.accountScope === target.accountScope));
-      if (missing.length) message = `No exact current Factory model observations for ${missing.join(', ')}. Configure a Factory plan or BYOK custom model and supply current model discovery for this CLI version and accountScope before qualification; droid has no non-interactive model-list command.`;
+      if (missing.length) message = `No exact current Factory model observations for ${missing.join(', ')}. Configure a Factory plan or BYOK custom model for this CLI version and accountScope. BYOK custom models are discovered from ~/.factory/settings.json; built-in plan models have no non-interactive model-list command.`;
     }
     if (message) results.push({ cli: target.cli, status: 'failed',
       message: `${message} Account/plan availability is not checked offline.` });
@@ -229,7 +234,8 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
   // configured-but-absent CLIs must not fail a run that qualifies the installed ones.
   const results = cli ? section.installFindings.filter(row => row.readiness === 'not-ready' && row.cli === cli)
     .map(row => ({ cli: row.cli, status: 'failed', code: row.code, message: row.message })) : [];
-  const blockers = await factoryQualificationBlockers(targets, config, registry);
+  const factoryObservations = new Map();
+  const blockers = await factoryQualificationBlockers(targets, config, registry, factoryObservations);
   results.push(...blockers);
   ready = ready.filter(row => !blockers.some(blocker => blocker.cli === row.cli));
   if (!ready.length) return { status: 'failed', accountScopeNotice, targets, results, message: 'No configured worker CLIs ready for qualification; no qualification was recorded.' };
@@ -286,7 +292,7 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
       const driver = host.createProvider(adapter.id);
       const executable = await executablePath(row.executable);
       const accountScope = cliConfig.accountScope ?? 'local-account';
-      let observed;
+      let observed = factoryObservations.get(row.cli);
       // These are existing read-only catalog interfaces, never inference calls.
       if (adapter.provider === 'codex') observed = await discovery.discoverCodexDebugModels(executable, undefined, { accountBinding: accountScope, runtimeVersion: row.installedVersion });
       else if (adapter.provider === 'muse') observed = await discovery.discoverMuseCatalogModels({ accountBinding: accountScope, runtimeVersion: row.installedVersion });
