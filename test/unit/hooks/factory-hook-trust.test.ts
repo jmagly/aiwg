@@ -4,7 +4,7 @@ import { chmod, copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:f
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { diagnoseWorkspaceContext } from '../../../src/smiths/context-pipeline/workspace-doctor.js';
-import { readFactoryHookTrust } from '../../../src/smiths/hook-bridge/factory-trust.js';
+import { FACTORY_HOOK_TRUST_NEXT_STEP, readFactoryHookTrust } from '../../../src/smiths/hook-bridge/factory-trust.js';
 import type { HandlerResult } from '../../../src/cli/handlers/types.js';
 
 vi.mock('../../../src/cli/services/deployment-verification.js', { spy: true });
@@ -14,7 +14,7 @@ import { UseHandler } from '../../../src/cli/handlers/use.js';
 let root: string;
 let project: string;
 let config: string;
-const nextStep = 'Trust this folder in droid; project hooks load only in a git repository with at least one commit.';
+const nextStep = 'Trust this folder in droid; hooks need a git repo with at least one commit.';
 
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'aiwg-factory-trust-'));
@@ -42,6 +42,12 @@ afterEach(async () => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
   await rm(root, { recursive: true, force: true });
+});
+
+it('keeps the deploy next step on one line within 80 columns', () => {
+  expect(FACTORY_HOOK_TRUST_NEXT_STEP).toBe(nextStep);
+  expect(nextStep.length).toBeLessThanOrEqual(80);
+  expect(nextStep).not.toMatch(/[\r\n]/);
 });
 
 it.each(['trusted', 'untrusted', 'missing-config'])('doctor advises for %s without a git commit', async state => {
@@ -94,8 +100,8 @@ it('bounds a hung git probe and leaves its prerequisite unverified', async () =>
   expect(Date.now() - started).toBeLessThan(5000);
 });
 
-it('handles an unborn HEAD as a missing commit', async () => {
-  await writeFile(path.join(project, '.fixture-head'), 'unborn');
+it.each(['unborn', 'non-commit'])('handles %s HEAD as a missing commit', async state => {
+  await writeFile(path.join(project, '.fixture-head'), state);
   expect(await readFactoryHookTrust(project)).toEqual({ project: 'unknown', gitCommit: false });
 });
 
