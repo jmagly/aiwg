@@ -73,7 +73,7 @@ export async function recordedWorkerStdinBytes({ filename, workspace, cli, adapt
   const { loadRecordedWorkerInstallations } = await import('../models/worker-installation.mjs');
   const { loadProviderModelCapabilities } = await import('../models/provider-policy.js');
   const { drivers } = await loadRecordedWorkerInstallations({ registry: loadProviderModelCapabilities(),
-    cwd: workspace, policy, storePath, storeDigest });
+    cwd: workspace, policy, cli, storePath, storeDigest });
   const driver = drivers[cli];
   if (!driver || driver.qualification.adapterId !== adapterId
     || driver.qualification.adapter.invocation.stdin !== 'adapter-frame'

@@ -7,6 +7,8 @@ export function loadRecordedWorkerInstallations(input: {
   cwd: string;
   policy?: WorkerSelectionPolicy;
   parallelism?: import('../config/aiwg-config.js').ParallelismConfig;
+  /** Restrict revalidation to a CLI already selected by a bound invocation. */
+  cli?: string;
   storePath?: string;
   storeDigest?: string;
   /** Request validation after store presence, before recorded policy/adapter checks. */

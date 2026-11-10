@@ -5582,6 +5582,8 @@ describe('review 11 populated default driver equivalence', () => {
         const adapter = f.snapshot.registry.providers.codex.workerAdapter!;
         adapter.id = 'codex';
         const binding = f.snapshot.installations.codex;
+        f.snapshot.config.parallelism!.clis = { codex: { adapter: 'providers:codex',
+          accountScope: binding.accountScope, quotaScope: 'fixture' } };
         // The installed executable is Node; give its fake CLI an exact version
         // response so the current loader can recheck the recorded approval.
         adapter.invocation.versionArgv = ['-e', `console.log(${JSON.stringify(binding.cliVersion)})`];
