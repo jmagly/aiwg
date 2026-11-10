@@ -12,6 +12,11 @@ import {
 const REPO_ROOT = resolve(__dirname, '../..');
 const roots: string[] = [];
 const roles = ['reasoning', 'coding', 'efficiency'] as const;
+// Each deploy is a real child process capped at DEPLOY_CHILD_TIMEOUT_MS; the
+// test timeout must cover every deploy it runs plus assertion headroom.
+const DEPLOY_CHILD_TIMEOUT_MS = 60_000;
+const SINGLE_DEPLOY_TEST_TIMEOUT_MS = DEPLOY_CHILD_TIMEOUT_MS + 15_000;
+const DOUBLE_DEPLOY_TEST_TIMEOUT_MS = 2 * DEPLOY_CHILD_TIMEOUT_MS + 15_000;
 
 function deploy(provider: string, target: string, home: string, dryRun = false, source?: string): string {
   return execFileSync(process.execPath, [
@@ -24,7 +29,7 @@ function deploy(provider: string, target: string, home: string, dryRun = false, 
     '--verbose',
     ...(source ? ['--source', source] : []),
     ...(dryRun ? ['--dry-run'] : []),
-  ], { timeout: 60_000,
+  ], { timeout: DEPLOY_CHILD_TIMEOUT_MS,
     cwd: REPO_ROOT,
     env: { ...process.env, HOME: home, USERPROFILE: home, HERMES_HOME: join(home, '.hermes'),
       XDG_DATA_HOME: join(home, 'data'), XDG_CONFIG_HOME: join(home, 'config') },
@@ -90,7 +95,7 @@ describe('model worker provider matrix', () => {
       expect(content).toContain('aiwg show');
       expect(dryRun).toContain(file.replace(target, join(root, 'dry-run')));
     }
-  });
+  }, DOUBLE_DEPLOY_TEST_TIMEOUT_MS);
 
   it('emits OpenHuman semantic model hints for all three workers', async () => {
     const root = mkdtempSync(join(tmpdir(), 'aiwg-openhuman-workers-'));
@@ -117,7 +122,7 @@ describe('model worker provider matrix', () => {
     } finally {
       delete process.env.OPENHUMAN_HOME;
     }
-  });
+  }, SINGLE_DEPLOY_TEST_TIMEOUT_MS);
 
   it.each(['openclaw', 'warp', 'windsurf', 'hermes'])('%s declares inherited/global or unsupported degradation without false exact pins', async provider => {
     const root = mkdtempSync(join(tmpdir(), 'aiwg-degraded-workers-'));
@@ -180,5 +185,5 @@ describe('model worker provider matrix', () => {
       expect(hermes.length).toBeLessThanOrEqual(19000);
       expect(hermes).not.toContain('<!-- AIWG:bound-rules:start -->');
     }
-  });
+  }, SINGLE_DEPLOY_TEST_TIMEOUT_MS);
 });
