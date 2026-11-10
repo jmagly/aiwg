@@ -152,7 +152,7 @@ function observer() {
 describe('Claude direct CLI profile (#2900)', () => {
   it('CD01 pins installed bytes and coexists with the preloaded legacy adapter', () => {
     expect(APPROVED.source).toBe(MODULE); expect(sha256(readFileSync(MODULE))).toBe(APPROVED.entry.sha256);
-    expect(installed.ids).toEqual(['claude-direct']); expect(installed.owner.getName()).toBe('claude');
+    expect(installed.ids).toEqual(['claude-direct']); expect(installed.owner.getName()).toBe(metadata().id);
     // The install fixture copies provider-adapter.mjs (to satisfy the
     // installed loader's own relative resolution of its dependency closure),
     // and that copy's module-load side effect re-imports claude-adapter.mjs
