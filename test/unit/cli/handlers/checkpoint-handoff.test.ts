@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkpointHandler } from '../../../../src/cli/handlers/checkpoint.js';
+import { parseFrontmatter } from '../../../../src/artifacts/index-builder.js';
 import { writeCheckpointHandoff } from '../../../../src/cli/handlers/checkpoint-handoff.js';
 
 const repo = resolve(import.meta.dirname, '../../../..');
@@ -40,6 +41,42 @@ afterEach(async () => {
 });
 
 describe('checkpoint handoffs', () => {
+  it('declares handoff metadata and routes natural requests through the checkpoint skill', async () => {
+    const template = await readFile(join(repo, 'agentic/code/addons/aiwg-utils/templates/checkpoint-handoff.md'), 'utf8');
+    expect(parseFrontmatter(template).data).toMatchObject({
+      name: 'checkpoint-handoff', description: expect.stringContaining('aiwg checkpoint create --handoff'),
+    });
+    const quickref = await readFile(join(repo, 'agentic/code/addons/aiwg-utils/skills/aiwg-utils-quickref/SKILL.md'), 'utf8');
+    for (const phrase of ['handoff', 'hand off to a new session', 'prepare a handoff',
+      '`checkpoint`', 'aiwg checkpoint create --handoff', 'aiwg checkpoint recover']) {
+      expect(quickref).toContain(phrase);
+    }
+  });
+
+  it('renders both documents byte-identically with or without template front matter', async () => {
+    const framework = join(project, 'framework');
+    const templates = join(framework, 'agentic/code/addons/aiwg-utils/templates');
+    await mkdir(templates, { recursive: true });
+    await mkdir(root(), { recursive: true });
+    const shipped = await readFile(join(repo, 'agentic/code/addons/aiwg-utils/templates/checkpoint-handoff.md'), 'utf8');
+    const body = parseFrontmatter(shipped).body;
+    const saved = { id: 'ckpt_bytes', name: 'next', createdAt: '2026-11-09T12:00:00.000Z',
+      cwd: project, artifacts: ['docs/plan.md'], phase: 'construction', step: 'verify', note: 'Ready' };
+    const input = { scope: 'Feature', todos: ['Run tests'], constraints: ['No commits'] };
+    const render = async (template: string) => {
+      await writeFile(join(templates, 'checkpoint-handoff.md'), template);
+      await writeCheckpointHandoff(framework, root(), { ...saved }, input);
+      const dir = join(root(), saved.id);
+      const bytes = await Promise.all(['handoff.md', 'next-session-prompt.md'].map(file => readFile(join(dir, file))));
+      await rm(dir, { recursive: true });
+      return bytes;
+    };
+    const before = await render(body);
+    const after = await render(`---\nname: checkpoint-handoff\ndescription: Session handoff\n---\n${body}`);
+    expect(after).toEqual(before);
+    expect(after[0].toString()).toMatch(/^# Session handoff\n/);
+  });
+
   it.each([
     { artifacts: [], links: '- [TODO: Link relevant artifacts and references.]' },
     { artifacts: ['docs/plan.md', 'src/feature.ts'], links: '- docs/plan.md\n- src/feature.ts' },

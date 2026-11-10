@@ -47,6 +47,8 @@ import { collectGraphIndexFiles, findArtifactFiles, indexPathFor, type ArtifactD
 import { acquireDirectoryLock } from './prebuilt-build-lock.js';
 import { graphIndexDigest, indexAdapterRegistry, recordIndexVerification, type IndexAdapter } from './index-adapters.js';
 import { loadMemoryRecord } from '../memory/maintenance-record.js';
+import { extractCapability } from './index-capability.js';
+export { extractCapability } from './index-capability.js';
 import { extractTemplateReferences, isTemplateReference } from './template-references.js';
 import { createDependencyResolver, extractFlowDependencies } from './index-dependencies.js';
 
@@ -640,30 +642,6 @@ export function extractTriggers(body: string, frontmatter?: Record<string, unkno
 }
 
 /**
- * Extract a capability summary for a skill/agent/command/rule.
- *
- * Prefers the frontmatter `description` field (used uniformly across
- * AIWG SKILL.md / agent files). Falls back to the first non-heading
- * paragraph of the body. Capped at 240 chars so the index stays
- * token-tight when surfaced via `aiwg index discover`.
- *
- * @implements #1214
- */
-export function extractCapability(data: Record<string, unknown>, body: string): string | undefined {
-  if (typeof data.description === 'string' && data.description.trim().length > 0) {
-    return data.description.trim().slice(0, 240);
-  }
-  // Fallback: first non-empty paragraph that isn't a heading.
-  const stripped = body.replace(/^---\n[\s\S]*?\n---\n/, '');
-  for (const block of stripped.split(/\n\s*\n/)) {
-    const trimmed = block.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    return trimmed.replace(/\s+/g, ' ').slice(0, 240);
-  }
-  return undefined;
-}
-
-/**
  * Extract a SkillScriptSpec from skill frontmatter (#1227).
  *
  * The `script:` block is optional — only skills with a backing executable
@@ -1020,7 +998,7 @@ function extractIndexArtifact(job: IndexPreparationJob, bindingOnly: boolean, wa
   // Declarative processes have no trigger phrases — they rely on their
   // capability and structure-aware search terms.
   const triggers = isDiscoverable && !flow ? extractTriggers(body, data) : undefined;
-  const capability = flow?.capability ?? decision?.capability ?? gatePack?.capability ?? schemaDoc?.capability ?? runbook?.capability ?? (isDiscoverable ? extractCapability(data, body) : undefined);
+  const capability = flow?.capability ?? decision?.capability ?? gatePack?.capability ?? schemaDoc?.capability ?? runbook?.capability ?? (isDiscoverable ? extractCapability(data, body, type === 'template' ? extractCanonicalName(data, relativePath) : undefined) : undefined);
   const kind = flow?.kind ?? decision?.kind ?? gatePack?.kind ?? runbook?.kind;
   const sourceType = runbook && physicalType !== 'runbook' ? physicalType : undefined;
   const searchTerms = flow?.searchTerms ?? decision?.searchTerms ?? gatePack?.searchTerms ?? schemaDoc?.searchTerms ?? runbook?.searchTerms;

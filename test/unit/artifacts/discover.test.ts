@@ -214,8 +214,8 @@ describe('extractCapability', () => {
     expect(cap!.length).toBeLessThanOrEqual(240);
   });
 
-  it('returns undefined when neither description nor body has prose', () => {
-    expect(extractCapability({}, '# Just headings\n\n## More headings')).toBeUndefined();
+  it('falls back to title text when the body has only headings', () => {
+    expect(extractCapability({}, '# Just headings\n\n## More headings')).toBe('Just headings');
   });
 });
 

@@ -67,6 +67,13 @@ Pair with the `aiwg-steward` agent (always-deployed) for orchestrated repair: he
 
 **Discovery commands stay direct** — `aiwg discover`, `aiwg show`, `aiwg list`, `aiwg version`, `aiwg runtime-info`, status/info subcommands. They have no paired "priming skill" because they ARE the priming entry points.
 
+### Session handoff
+
+"handoff", "hand off to a new session", or "prepare a handoff" → `checkpoint` skill
+(`aiwg show skill checkpoint --body`), `--handoff` flow:
+`aiwg checkpoint create --handoff --name <n> --scope <scope> --todo <task> --constraint <rule> --artifact <path>`.
+Resume with `aiwg checkpoint recover <n>`.
+
 ### Status intent disambiguation
 
 Route these phrases carefully:

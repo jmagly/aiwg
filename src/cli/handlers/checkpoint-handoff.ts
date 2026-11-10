@@ -36,7 +36,8 @@ export async function writeCheckpointHandoff(
     links: record.artifacts.length ? record.artifacts.map(path => `- ${path}`).join('\n')
       : '- [TODO: Link relevant artifacts and references.]',
   };
-  const handoff = template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => fields[key] ?? match);
+  const body = template.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+  const handoff = body.replace(/\{\{(\w+)\}\}/g, (match, key: string) => fields[key] ?? match);
   const prompt = [
     `Continue checkpoint ${record.id}${record.name ? ` (${record.name})` : ''} in ${record.cwd}.`,
     'Read WORKSPACE.md and AIWG.md if present, then read the handoff:',
