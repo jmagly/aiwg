@@ -5,6 +5,36 @@ worker (not the Ralph-loop session driver documented in
 [`opencode-sessions.md`](./opencode-sessions.md), which covers deployment
 and transcript handling).
 
+## Bring your own key
+
+> Use my OpenRouter key with OpenCode and qwen/qwen3.8-27b. Show the settings
+> and wait for approval before spending on a verification call.
+
+The operator's 2026-11-09 live run verified the OpenRouter provider using
+`OPENROUTER_API_KEY` from the environment and the model selector
+`openrouter/qwen/qwen3.8-27b`. The leading `openrouter/` identifies the harness
+provider; the upstream model ID is `qwen/qwen3.8-27b`.
+Follow `aiwg show rule token-security --body`: environment or secret-store
+command injection only, scoped to the child at point of use, with tracing
+disabled and credentials discarded on exit. Never put keys on argv, in
+deployed AIWG files, harness config, logs or receipts. BYOK runs bill the user's
+key; paid runs need explicit operator approval, including verification.
+
+After approval, with the key securely injected into the child environment:
+
+```sh
+opencode run --format json -m openrouter/qwen/qwen3.8-27b \
+  'Reply with exactly: byok-ok' </dev/null
+```
+
+Check the reply and the OpenCode harness log/session for the resolved model
+`qwen/qwen3.8-27b` with provider `openrouter`. A correct reply alone is not a
+model check. Retain only harness version, model and result. This manual CLI
+example does not change AIWG's attached-brief worker profile or its environment
+allowlist; do not add an effort variant unless the model declares it.
+
+## Direct-worker contract
+
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-bound to
 `opencode 2.0.26` and help-evidenced only (`H:` evidence grade, captured

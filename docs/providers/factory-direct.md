@@ -4,13 +4,51 @@ This is the lightweight CLI profile for dispatching `droid` as a direct
 worker. It is unrelated to the `droid-bridge` MCP addon, which delegates
 batch work to a separately-configured Droid account.
 
+## Bring your own key
+
+> Use my OpenRouter key with Factory Droid through a BYOK custom model. Show
+> the exact model selector and safe key injection before asking to run it.
+
+The operator's 2026-11-09 live run verified BYOK custom models. Register/select
+the model through the harness-owned custom-model settings, using the exact
+`custom:` identifier shown by Droid's model listing. A display name or upstream
+API ID is not necessarily the CLI selector; do not manufacture the suffix or
+index, or assume `qwen/qwen3.8-27b` is itself a valid Droid selector. Existing
+[droid model fields](https://github.com/jmagly/aiwg/blob/main/docs/agents/providers/factory.md#key-fields) require a full
+model ID. The #3969 fix replaced rejected `heavy`/`medium`/`light` tier aliases
+with full built-in IDs (`claude-opus-5`, `claude-sonnet-5`,
+`claude-haiku-4-5-20251001`); see [model configuration](../configuration/model-configuration.md).
+Those built-in IDs are separate from BYOK custom selectors; confirm the
+installed harness listing before choosing an ID.
+
+Follow `aiwg show rule token-security --body`: keys come only from environment
+or a secret-store command at point of use, scoped to the child, with tracing
+disabled and credentials discarded on exit. Never place a key in argv,
+deployed AIWG files, droid definitions, harness config (including `apiKey` in
+`settings.json`), logs or receipts. Confirm the installed harness can consume
+the secret without persisting it; if it requires a plaintext key in settings,
+stop and choose a supported secure route with the operator. AIWG neither stores
+keys nor supplies a new injection mechanism. `FACTORY_API_KEY` authenticates
+Factory itself; it is not the OpenRouter inference key.
+BYOK runs bill the user's key; paid runs need explicit operator approval.
+
+After approval and secure injection, send the one-line prompt
+`Reply with exactly: byok-ok` on stdin to `droid exec -m <custom-model-id>`.
+Inspect the harness log/session for the resolved model matching the registered
+upstream model. For custom models `-r` reasoning effort is ignored: the live
+session reports `reasoning_effort none`. Do not claim `-r high` enforced high
+reasoning. Record only harness version, resolved model, effort and result.
+This does not change the direct-worker profile's qualification status.
+
+## Direct-worker contract
+
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-bound to
 `droid-cli 1.0.0`. The titan eval (2026-11-06) help-verified `--auto low`,
 `-m`, `-r`, `--cwd` and `-o stream-json`. The stdin brief was echoed as the
-first stream-json message. Live inference returned `402 No active subscription`;
-no successful live result is recorded. Live evidence remains pending, blocked
-by the subscription. The profile stays `unqualified`. The terminal result
+first stream-json message. That eval's built-in-model inference returned
+`402 No active subscription`; the later BYOK run above uses a separate custom
+model route. The direct profile stays `unqualified`. The terminal result
 vocabulary remains documentation-sourced (`D`); help and stdin evidence (`H`)
 do not establish successful inference. The adapter
 (`tools/ralph-external/lib/factory-adapter.mjs`) renders:

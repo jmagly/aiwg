@@ -4,6 +4,33 @@ This page distinguishes provider-native features, AIWG-implemented features,
 and external integrations. The machine-readable source is
 `agentic/code/providers/capability-matrix.yaml`.
 
+## Bring your own key
+
+> Use my OpenRouter key with Hermes, OpenCode, Factory Droid or Copilot CLI.
+> Explain the harness settings and verification before asking to spend.
+
+The existing steward skill answers this request through each provider's `byok`
+entry, also shown by `aiwg steward capabilities --provider <harness>`.
+AIWG stores no keys. Follow `aiwg show rule token-security --body`: inject
+credentials from environment or a secret-store command at point of use,
+disable tracing and discard them on child exit. Never put keys on argv, in
+deployed AIWG files, harness config, logs or receipts. BYOK runs bill the user's
+key; paid runs need explicit operator approval, even for a one-line check.
+
+| Harness | Settings and support | Verification after approval |
+|---|---|---|
+| [Hermes](./hermes-direct.md#bring-your-own-key) | Verified 2026-11-09: `OPENROUTER_API_KEY`; `--provider openrouter -m qwen/qwen3.8-27b` | Send `Reply with exactly: byok-ok`; check harness log/session for OpenRouter and resolved model |
+| [OpenCode](./opencode-direct.md#bring-your-own-key) | Verified 2026-11-09: `OPENROUTER_API_KEY`; `-m openrouter/qwen/qwen3.8-27b` | Same one-line prompt; check session provider and resolved model |
+| [Factory Droid](./factory-direct.md#bring-your-own-key) | Verified custom-model BYOK; exact registered `custom:` ID; secure injection must be supported by the installed harness | Same prompt on stdin; inspect resolved model and `reasoning_effort none` (`-r` ignored for custom models) |
+| [Copilot CLI](./copilot-direct.md#bring-your-own-key) | Verified 2026-11-09: `COPILOT_PROVIDER_BASE_URL=https://openrouter.ai/api/v1`, `COPILOT_PROVIDER_TYPE=openai`, `COPILOT_MODEL=qwen/qwen3.8-27b`; key via `COPILOT_PROVIDER_API_KEY` or `COPILOT_PROVIDER_API_KEY_COMMAND` | Same prompt; check harness log/session for resolved model and endpoint |
+| [Codex](https://github.com/jmagly/aiwg/blob/main/docs/agents/providers/codex.md#wire-protocol) | Documented custom `model_providers` with `base_url`, `env_key`, `wire_api = "responses"`; OpenRouter/model compatibility unverified | Confirm Responses API compatibility first; after approval, same prompt and session resolved-model check |
+| [Muse](https://github.com/jmagly/aiwg/blob/main/docs/agents/providers/muse.md) | OpenRouter BYOK unverified; existing notes cover Meta catalog selection only | Confirm supported credential/provider settings first; after approval, same prompt and session resolved-model check |
+
+These are manual harness configuration notes from operator runs, not automated
+paid calls or changes to the direct-worker profiles and their environment
+allowlists. A correct reply or an accepted model flag alone does not establish
+which model ran. Keep only harness version, model and result in a receipt.
+
 ## Status meanings
 
 - **Native**: the provider owns the feature and exposes it in the active tool

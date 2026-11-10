@@ -136,6 +136,13 @@ export interface RouteFeasibility {
 
 export interface ProviderCapabilities {
   display_name: string;
+  byok?: {
+    status: 'verified' | 'documented' | 'unverified';
+    settings: string[];
+    verification: string;
+    notes: string;
+    docs: string;
+  };
   aliases?: string[];
   route_feasibility?: RouteFeasibility;
   status: ProviderStatus;

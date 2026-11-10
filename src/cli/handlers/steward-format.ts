@@ -75,6 +75,18 @@ export function formatProvider(
   lines.push(`  Daemon:   ${provider.daemon_tier}${provider.daemon_pty_adapter ? ' (+ pty-adapter)' : ''}`);
   lines.push(`  ${'─'.repeat(60)}`);
 
+  if (provider.byok) {
+    const byok = provider.byok;
+    lines.push(`\n  Bring your own key (BYOK): ${byok.status}`);
+    for (const setting of byok.settings) lines.push(`    ${setting}`);
+    lines.push(`    Verify: ${byok.verification}`);
+    lines.push(`    ${byok.notes}`);
+    lines.push('    Security: aiwg show rule token-security --body; environment or secret-store command only.');
+    lines.push('    Never place keys on argv, in deployed AIWG files, harness config, logs or receipts; never print keys.');
+    lines.push("    Spend: BYOK runs bill the user's key; paid runs need explicit operator approval.");
+    lines.push(`    Docs: ${byok.docs}`);
+  }
+
   const featureKeys = Object.keys(matrix.features) as FeatureKey[];
   for (const featureId of featureKeys) {
     const isNative = provider.native_features?.[featureId] === true;

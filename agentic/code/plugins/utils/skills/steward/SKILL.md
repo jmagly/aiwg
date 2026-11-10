@@ -3,8 +3,12 @@ namespace: aiwg
 name: steward
 platforms: [all]
 kernel: true
-description: Provide provider capability awareness and route commands by answering what the current provider supports natively vs must emulate
+description: Provide provider capability awareness, BYOK harness settings and verification, and route commands for native vs emulated support
 triggers:
+  - "bring your own key"
+  - "BYOK provider settings"
+  - "use my OpenRouter key with Hermes"
+  - "use my provider key with a harness"
   - "set up worker onboarding"
   - "worker onboarding readiness"
   - "help me choose what to use"
@@ -220,6 +224,27 @@ the `decision-offload` rule:
    the Jev quickstart:
 
    `@$AIWG_ROOT/docs/decision/jev-quickstart.md`
+
+## Bring Your Own Key
+
+For "use my <provider> key with <harness>" (for example "use my OpenRouter key with Hermes"),
+route to `aiwg steward capabilities --provider <harness>` and the `byok` entry in
+`agentic/code/providers/capability-matrix.yaml`. Map Droid to `factory`, and distinguish
+the inference provider (OpenRouter) from the harness (Hermes, OpenCode, Factory, Copilot,
+Codex or Muse). Return the harness-specific provider/base URL, model selector, credential
+environment variable or secret-store command, and verification step from that entry.
+Follow its provider-doc link for model-ID quirks; do not invent flags or key settings
+for unverified routes. These are harness settings, not a new AIWG command.
+
+Read `aiwg show rule token-security --body` before credential guidance. Keys enter only
+via environment or a secret-store command at point of use, with shell tracing disabled;
+never ask for a key in chat or put one on argv, in deployed AIWG files, harness config,
+logs or receipts. Keep credentials scoped to the child process and discard on exit.
+AIWG does not store or manage keys. Explain that BYOK runs bill the user's key and
+paid runs need explicit operator approval, including a verification run; setup alone
+does not authorize spending. After approval, use a one-line "Reply with exactly: byok-ok"
+prompt and inspect the harness log/session for the resolved model. A reply or accepted
+flag alone is insufficient. Report only model, harness version and result, never keys.
 
 ## Behavior
 
