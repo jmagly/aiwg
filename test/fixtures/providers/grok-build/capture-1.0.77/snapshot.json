@@ -1,0 +1,45 @@
+{
+  "version": "1.0.77",
+  "bannerRevision": "50ca579fa996",
+  "capturedAt": "2026-11-09",
+  "platform": "linux",
+  "source": "grok-build-captures-20261109/README.md and cli/{version.txt,headless-json.out,headless-streaming-json.out}",
+  "helpTokens": [
+    "--no-auto-update",
+    "--output-format",
+    "--allow",
+    "--max-turns",
+    "-p",
+    "plain",
+    "json",
+    "streaming-json",
+    "streaming-messages-json"
+  ],
+  "jsonResultKeys": [
+    "cwd",
+    "modelUsage",
+    "num_turns",
+    "requestId",
+    "sessionId",
+    "stopReason",
+    "text",
+    "thought",
+    "total_cost_usd",
+    "total_cost_usd_ticks",
+    "usage"
+  ],
+  "streamingEventTypes": [
+    "available_commands",
+    "end",
+    "text",
+    "thought",
+    "tool_call",
+    "tool_call_update",
+    "usage"
+  ],
+  "missingEvidence": [
+    "Full CLI --help capture",
+    "Config/InspectReport JSON schema capture",
+    "1.0.77 public source commit and internal SOURCE_REV mapping"
+  ]
+}

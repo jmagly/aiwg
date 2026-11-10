@@ -15,14 +15,9 @@ export const checks = ['clean-install', 'existing-config', 'update', 'deploy', '
 
 function fail(message) { throw new Error(message); }
 function readJson(file) { return JSON.parse(readFileSync(file, 'utf8')); }
-function run(command, args, cwd) {
-  const result = spawnSync(command, args, {
-    cwd, encoding: 'utf8', timeout: 30_000, maxBuffer: 2_000_000,
-    shell: process.platform === 'win32',
-    killSignal: 'SIGKILL',
-  });
-  if (result.error || result.status !== 0) fail(`${command} ${args.join(' ')} failed; inspect the local command output (it is intentionally not copied into the receipt)`);
-  return result.stdout.trim();
+function execute(command, args, cwd, env = process.env) {
+  return spawnSync(command, args, { cwd, env, encoding: 'utf8', timeout: 30_000, maxBuffer: 2_000_000,
+    stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' && /\.(cmd|bat)$/i.test(command), killSignal: 'SIGKILL' });
 }
 
 export function validateContract(contract) {
@@ -32,6 +27,8 @@ export function validateContract(contract) {
   if (!/^[0-9a-f]{40}$/.test(contract.upstreamSourceRevision)) fail('Contract needs a full upstream SOURCE_REV');
   for (const [name, claim] of Object.entries(contract.surfaces ?? {})) {
     if (!['native', 'unsupported', 'deferred'].includes(claim.status)) fail(`Unclassified surface: ${name}`);
+    if (claim.status === 'native' && !['live-evidenced', 'fixture-backed', 'deferred'].includes(claim.qualification?.kind)) fail(`Native surface lacks evidence classification: ${name}`);
+    if (claim.status === 'native' && claim.qualification.kind !== 'live-evidenced' && !claim.qualification.reason) fail(`Fixture-backed/deferred surface lacks missing evidence: ${name}`);
     if (claim.status !== 'native' && !claim.reason) fail(`Deferred/unsupported surface lacks reason: ${name}`);
   }
   if (!contract.surfaces?.instructions || !contract.surfaces?.skills) fail('Instruction and skill surfaces must be classified');
@@ -65,6 +62,11 @@ export function verifyPromotion(contract, receipts, providerStatus, repositoryRo
   validateContract(contract);
   const errors = [];
   if (providerStatus !== 'stable') return { ready: false, gated: false, errors: [] };
+  if (contract.capturedRelease?.version !== contract.releasedVersion) errors.push('Reviewed source release pin differs from captured release; needs current source review before promotion');
+  for (const [name, claim] of Object.entries(contract.surfaces)) {
+    if (claim.status === 'native' && (claim.qualification?.kind !== 'live-evidenced'
+      || !hasReviewableEvidence(claim.qualification?.reference, repositoryRoot))) errors.push(`${name}: native claim lacks live evidence for captured release`);
+  }
   for (const platform of platforms) {
     const matching = receipts.filter(r => r?.schema === receiptSchema && r.platform === platform
       && r.version === contract.releasedVersion && r.publicSourceCommit === contract.publicSourceCommit
@@ -103,40 +105,102 @@ function providerStatus(contract) {
   return match[1];
 }
 
-function smoke(args, contract) {
+/** Read-only smoke: inspection is projected onto known fields, never copied verbatim. */
+export function collectSmoke({ env = process.env, cwd = process.cwd(), contract = readJson(contractPath), execute: invoke = execute } = {}) {
+  const skip = reason => ({ provider: 'grok-build', status: 'skipped', reason });
+  if (env.AIWG_GROK_BUILD_LIVE_SMOKE !== '1') return skip('Set AIWG_GROK_BUILD_LIVE_SMOKE=1 explicitly');
+  const authenticationMode = env.XAI_API_KEY ? 'api-key-environment'
+    : ['interactive', 'managed'].includes(env.AIWG_GROK_BUILD_AUTH_MODE) ? env.AIWG_GROK_BUILD_AUTH_MODE : null;
+  if (!authenticationMode) return skip('Login unavailable or undeclared; set AIWG_GROK_BUILD_AUTH_MODE after login');
+  const failed = reason => ({ provider: 'grok-build', status: 'failed', reason });
+  const binary = env.AIWG_GROK_BUILD_BIN || 'grok';
+  const versionResult = invoke(binary, ['--version'], cwd, env);
+  if (versionResult.error?.code === 'ENOENT') return skip('Grok Build binary unavailable');
+  if (versionResult.error || versionResult.status !== 0) return failed('Version probe failed');
+  const version = versionResult.stdout?.match(/\b(\d+\.\d+\.\d+)\b/)?.[1];
+  if (version !== contract.capturedRelease?.version) return failed('Installed version differs from captured release');
+  const inspection = invoke(binary, ['inspect'], cwd, env);
+  if (inspection.error || inspection.status !== 0) {
+    if (/login|log in|authenticat/i.test(inspection.stderr || '')) return skip('Grok Build login unavailable');
+    return failed('Inspection failed; inspect local output privately');
+  }
+  const raw = inspection.stdout || '';
+  // Only known deployed project paths/names survive. Drop user paths, config, prompts, IDs and arbitrary values.
+  const instructions = [...new Set([...raw.matchAll(/(?:^|[\\/\s])((?:AGENTS\.md|\.grok[\\/]rules[\\/][a-z0-9_-]+\.md))(?=\s|$)/gim)].map(m => m[1].replaceAll('\\', '/')))];
+  const skills = [...new Set([...raw.matchAll(/└\s+((?:aiwg-[a-z0-9-]+))\s+project\b/g)].map(m => m[1]))];
+  const inspectOutput = { projectTrusted: /Project trusted:\s*yes/i.test(raw), instructions, skills };
+  if (env.XAI_API_KEY && JSON.stringify(inspectOutput).includes(env.XAI_API_KEY)) return failed('Inspection contains credential material');
+  if (!inspectOutput.projectTrusted || !instructions.includes('AGENTS.md') || !skills.length) return failed('Trusted project instructions and AIWG project skills required');
+  const verification = invoke('aiwg', ['build-verify', '--provider', 'grok-build'], cwd, env);
+  let parsed;
+  try { parsed = JSON.parse(verification.stdout); } catch { return failed('Invalid provider receipt'); }
+  if (verification.error || verification.status !== 0 || !parsed || parsed.schema !== 'aiwg.build.verify.v1'
+    || parsed.provider !== 'grok-build' || parsed.status !== 'ready') return failed('Expected Grok Build provider receipt is not ready');
+  return {
+    schema: receiptSchema, provider: 'grok-build', status: 'passed', platform: platformName(), osRelease: osRelease(), version,
+    recordedAt: new Date().toISOString(), authenticationMode,
+    authenticationEvidence: 'environment presence or operator declaration; no credential/model validation',
+    inspect: 'pass', inspectOutput, buildVerify: 'ready',
+    deployedSurfaces: { instructions, skills, rules: instructions.filter(p => p.startsWith('.grok/rules/')) },
+    expectedProviderReceipt: { schema: parsed.schema, provider: parsed.provider, status: parsed.status },
+    surfaces: { instructions: 'pass', skills: 'pass' }, evidence: {},
+    checks: Object.fromEntries(checks.map(name => [name, 'pending'])),
+  };
+}
+
+export function smoke(args, contract, options = {}) {
+  const result = collectSmoke({ ...options, contract });
+  if (result.status === 'skipped') return result;
+  if (result.status === 'failed') { process.exitCode = 1; return result; }
   const index = args.indexOf('--output');
   if (index < 0 || !args[index + 1]) fail('smoke requires --output <receipt.json>');
   const target = resolve(args[index + 1]);
-  if (existsSync(target)) fail('Refusing to replace an existing qualification receipt');
-  const cwd = process.cwd();
-  for (const file of ['WORKSPACE.md', 'AIWG.md', 'AGENTS.md']) if (!existsSync(join(cwd, file))) fail(`Missing generated context: ${file}`);
-  const agents = readFileSync(join(cwd, 'AGENTS.md'), 'utf8');
-  if (agents.indexOf('WORKSPACE.md') < 0 || agents.indexOf('AIWG.md') < agents.indexOf('WORKSPACE.md')) fail('AGENTS.md does not load canonical WORKSPACE.md before AIWG.md');
-  const versionText = run('grok', ['--version'], cwd);
-  const version = versionText.match(/\b(\d+\.\d+\.\d+)\b/)?.[1];
-  if (version !== contract.releasedVersion) fail(`Expected released Grok Build ${contract.releasedVersion}, observed ${version || 'unknown'}`);
-  const inspect = run('grok', ['inspect', '--json'], cwd);
-  let parsed;
-  try { parsed = JSON.parse(inspect); } catch { fail('grok inspect --json did not return JSON'); }
-  if (!Array.isArray(parsed.projectInstructions) || !Array.isArray(parsed.skills)) fail('InspectReport instruction/skill shape changed');
-  const hasInstructions = parsed.projectInstructions.some(v => /(^|[\\/])AGENTS\.md$/.test(String(v.path ?? '')));
-  const hasSkills = parsed.skills.some(v => /aiwg/i.test(String(v.name ?? v.source?.path ?? '')));
-  if (!hasInstructions || !hasSkills) fail('grok inspect does not report deployed AGENTS.md and AIWG skills');
-  const verification = JSON.parse(run('aiwg', ['build-verify', '--provider', 'grok-build'], cwd));
-  if (verification.status !== 'ready') fail('aiwg build-verify is not ready');
-  const receipt = {
-    schema: receiptSchema, platform: platformName(), version,
-    publicSourceCommit: contract.publicSourceCommit, upstreamSourceRevision: contract.upstreamSourceRevision,
-    recordedAt: new Date().toISOString(),
-    authenticationMode: process.env.XAI_API_KEY ? 'api-key-environment' : 'unverified',
-    inspect: 'pass', buildVerify: 'ready',
-    surfaces: { instructions: 'pass', skills: 'pass' },
-    evidence: {},
-    // Manual PUW results are added by the operator after running the documented matrix.
-    checks: Object.fromEntries(checks.map(name => [name, 'pending'])),
+  writeFileSync(target, `${JSON.stringify(result, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+  return { status: result.status, platform: result.platform, version: result.version };
+}
+
+/** Compare the observed CLI vocabulary and schema signature, without invoking a model. */
+export function compareCaptureSnapshot(snapshot, observed) {
+  const changes = [];
+  const missing = [];
+  if (observed.version !== snapshot.version) changes.push('version');
+  if (typeof observed.help !== 'string') missing.push('CLI help');
+  else for (const token of snapshot.helpTokens) {
+    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (!new RegExp(`(^|[^a-z0-9_-])${escaped}(?=$|[^a-z0-9_-])`, 'm').test(observed.help)) changes.push(`CLI help: ${token}`);
+  }
+  const compare = (label, expected, actual) => {
+    if (!actual) { missing.push(label); return; }
+    if (JSON.stringify([...new Set(actual)].sort()) !== JSON.stringify([...expected].sort())) changes.push(label);
   };
-  writeFileSync(target, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
-  return { receipt: target, platform: receipt.platform, version, inspect: receipt.inspect, buildVerify: receipt.buildVerify };
+  compare('headless JSON keys', snapshot.jsonResultKeys, observed.json && Object.keys(observed.json));
+  compare('streaming event types', snapshot.streamingEventTypes, observed.events?.map(event => event.type));
+  return { status: changes.length ? 'drift' : missing.length ? 'partial' : 'current', changes, missing,
+    contract: 'docs/providers/grok-build-qualification.json; docs/providers/grok-build-cli-evidence.md' };
+}
+
+function captureDrift(args) {
+  const value = flag => {
+    const index = args.indexOf(flag);
+    if (index < 0) return undefined;
+    if (!args[index + 1] || args[index + 1].startsWith('--')) fail(`Missing value for ${flag}`);
+    return args[index + 1];
+  };
+  const snapshot = readJson(join(root, 'test/fixtures/providers/grok-build/capture-1.0.77/snapshot.json'));
+  const fromFile = flag => value(flag) ? readFileSync(resolve(value(flag)), 'utf8') : undefined;
+  const version = fromFile('--version-file') ?? execute(process.env.AIWG_GROK_BUILD_BIN || 'grok', ['--version']).stdout;
+  const help = fromFile('--help-file') ?? execute(process.env.AIWG_GROK_BUILD_BIN || 'grok', ['--help']).stdout;
+  const json = fromFile('--json-file');
+  const stream = fromFile('--stream-file');
+  let jsonSample, events;
+  try {
+    jsonSample = json ? JSON.parse(json) : undefined;
+    events = stream ? stream.trim().split(/\r?\n/).map(line => JSON.parse(line)) : undefined;
+  } catch { fail('Invalid capture JSON; review sample privately (content omitted)'); }
+  const result = compareCaptureSnapshot(snapshot, { version: version?.match(/\b(\d+\.\d+\.\d+)\b/)?.[1], help,
+    json: jsonSample, events });
+  if (result.status !== 'current') process.exitCode = 1;
+  return result;
 }
 
 export function verifyUpstreamDrift(contract, publicCommit, sourceRevision) {
@@ -169,8 +233,9 @@ async function main() {
     const result = verifyPromotion(contract, receipts, providerStatus(contract));
     console.log(JSON.stringify(result));
     if (result.errors.length) process.exitCode = 1;
-  } else if (mode === 'drift') console.log(JSON.stringify(await drift(contract)));
-  else fail('Usage: grok-build-qualification.mjs <smoke --output FILE|gate [--evidence-dir DIR]|drift>');
+  } else if (mode === 'drift' && args.includes('--capture')) console.log(JSON.stringify(captureDrift(args)));
+  else if (mode === 'drift') console.log(JSON.stringify(await drift(contract)));
+  else fail('Usage: grok-build-qualification.mjs <smoke --output FILE|gate [--evidence-dir DIR]|drift [--capture --version-file FILE --help-file FILE --json-file FILE --stream-file FILE]>');
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

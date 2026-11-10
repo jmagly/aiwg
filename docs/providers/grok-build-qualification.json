@@ -8,16 +8,30 @@
     "Public source contract review for #3609; releasedVersion remains 1.0.38. This is not binary build provenance or new live qualification evidence.",
     "CLI flags and InspectReport fields remain compatible. Whole-turn usage frames and optional MCP bearer_token_file are additive. External auth with a custom models endpoint now owns the model catalog; automatic discovery for that configuration is deferred rather than reporting stale config aliases."
   ],
+  "capturedRelease": {
+    "version": "1.0.77",
+    "bannerRevision": "50ca579fa996",
+    "capturedAt": "2026-11-09",
+    "platform": "linux",
+    "reference": "docs/providers/grok-build-evidence/2026-11-09.md",
+    "sourceMapping": "Deferred: needs full 1.0.77 public source commit and internal SOURCE_REV; banner revision is not build provenance"
+  },
   "surfaces": {
-    "instructions": { "status": "native" },
-    "skills": { "status": "native" },
-    "mcp": { "status": "native" },
-    "hooks": { "status": "native" },
-    "sessions": { "status": "native" },
-    "models": { "status": "native" },
-    "headless": { "status": "native" },
-    "acp": { "status": "native" },
-    "subagents": { "status": "native" },
-    "worktrees": { "status": "native" }
+    "commands": { "status": "unsupported", "reason": "Provider registry has no native AIWG command projection; use skills/discovery" },
+    "behaviors": { "status": "unsupported", "reason": "Provider registry has no native AIWG behavior projection" },
+    "compatibility": { "status": "deferred", "reason": "Needs isolated 1.0.77 .agents/skills and Claude-compatible discovery/precedence capture; native deployment must not depend on it" },
+    "instructions": { "status": "native", "qualification": { "kind": "live-evidenced", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "AGENTS.md in trusted project; untrusted project loads none" } },
+    "rules": { "status": "native", "qualification": { "kind": "live-evidenced", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "Trusted project .grok/rules loaded" } },
+    "trust": { "status": "native", "qualification": { "kind": "live-evidenced", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "Untrusted project loads no instructions" } },
+    "permissions": { "status": "native", "qualification": { "kind": "live-evidenced", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "--allow Bash(aiwg *) used in headless captures" } },
+    "skills": { "status": "native", "qualification": { "kind": "live-evidenced", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "AIWG project skills listed; discover-first behavior observed" } },
+    "mcp": { "status": "native", "qualification": { "kind": "fixture-backed", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "needs 1.0.77 AIWG MCP connect/tool-call capture; inspect lists no MCP servers" } },
+    "hooks": { "status": "native", "qualification": { "kind": "fixture-backed", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "needs 1.0.77 native AIWG hook invocation capture; user Claude hooks listed only" } },
+    "sessions": { "status": "native", "qualification": { "kind": "live-evidenced", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "sessions list/search/export and native store captured; export omits tool output" } },
+    "models": { "status": "native", "qualification": { "kind": "fixture-backed", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "needs 1.0.77 catalog, explicit model/effort and resolved-model capture" } },
+    "headless": { "status": "native", "qualification": { "kind": "live-evidenced", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "plain/json/streaming-json/streaming-messages-json with Bash(aiwg *)" } },
+    "acp": { "status": "native", "qualification": { "kind": "fixture-backed", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "needs 1.0.77 credentialed ACP initialize/auth/session capture; streaming events alone do not prove ACP" } },
+    "subagents": { "status": "native", "qualification": { "kind": "fixture-backed", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "needs 1.0.77 native agent dispatch and resolved model capture" } },
+    "worktrees": { "status": "native", "qualification": { "kind": "fixture-backed", "reference": "docs/providers/grok-build-evidence/2026-11-09.md", "reason": "needs 1.0.77 native worktree create/isolate/cleanup capture" } }
   }
 }

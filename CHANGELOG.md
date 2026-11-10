@@ -9,6 +9,8 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ### Added
 
+- Grok Build 1.0.77 Linux capture inventory, opt-in inspection smoke and local CLI/schema drift comparison; stable promotion still requires Windows PowerShell/WSL and native-surface evidence. Grok Bot and Grok web Build remain separate products (#2580, release 2026.11.4).
+
 - Per-rule `precedence` and `overridable` metadata, schema validation for existing `enforcement`, optional `rules.precedence` project ordering with refusal of non-overridable overrides, generated rule/skill conflict guidance, ordering visibility in show/discover/rules, and conservative declared-subject conflict warnings (#3986).
 
 ## [2026.11.3] - 2026-11-08

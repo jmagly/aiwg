@@ -76,6 +76,8 @@
     "integrations/grokbot-native-surfaces-evidence",
     "integrations/grok-build-quickstart",
     "providers/grok-build-qualification",
+    "providers/grok-build-evidence/2026-11-09",
+    "releases/grok-build-qualification-notes",
     "migration/grok-build-from-claude-workaround",
     "integrations/grokbot-linux-puw",
     "integrations/muse-linux-puw",
@@ -840,6 +842,20 @@
       "summary": "Evidence and automation gates for optional Grok Bot native integrations",
       "file": "integrations/grokbot-native-surfaces-evidence.md",
       "parent": "integrations"
+    },
+    {
+      "id": "integrations/grok-build-quickstart",
+      "title": "Grok Build CLI",
+      "summary": "Grok Build 1.0.77 Linux evidence; separate from Grok Bot and Grok web Build",
+      "file": "integrations/grok-build-quickstart.md",
+      "parent": "integrations"
+    },
+    {
+      "id": "providers/grok-build-qualification",
+      "title": "Grok Build qualification",
+      "summary": "Native-surface evidence and deferred Windows PowerShell/WSL promotion checks",
+      "file": "providers/grok-build-qualification.md",
+      "parent": "providers"
     },
     {
       "id": "integrations/muse-quickstart",
@@ -4359,6 +4375,13 @@
       "title": "Migrate Grok Bot from Cursor Workaround",
       "summary": "Move Grok fleets to --provider grokbot; keep Cursor IDE on cursor",
       "file": "migration/grokbot-from-cursor-workaround.md",
+      "parent": "reference"
+    },
+    {
+      "id": "migration/grok-build-from-claude-workaround",
+      "title": "Migrate Grok Build from Claude Workaround",
+      "summary": "Move Grok Build projects from a temporary --provider claude deployment to grok-build",
+      "file": "migration/grok-build-from-claude-workaround.md",
       "parent": "reference"
     },
     {

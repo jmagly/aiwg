@@ -272,3 +272,20 @@ and: `3. XAI_API_KEY -- fallback when no session token is active.`
 named in the registry's `envAllowlist` (`["XAI_API_KEY", "HOME"]`); only
 the variable *name* is allowlisted for pass-through, never a value
 rendered into argv or logs.
+
+
+## Supplied 1.0.77 capture update (2026-11-09)
+
+The [Linux capture review](grok-build-evidence/2026-11-09.md) supersedes older
+flag assumptions for **1.0.77**: `--no-auto-update` is present in the captured
+headless command, alongside `--allow "Bash(aiwg *)"`, `--max-turns 6`, and the
+four `--output-format` values. No new CLI or model invocation was performed.
+
+The single-result key set includes `cwd` and `thought` as well as usage, cost,
+turn count and session/request metadata. Observed streaming types are `text`,
+`thought`, `tool_call`, `tool_call_update`, `available_commands`, `usage`, and
+`end`. The [structural snapshot](../../test/fixtures/providers/grok-build/capture-1.0.77/snapshot.json)
+backs an offline schema comparison; it does not substitute for full CLI help,
+config/InspectReport JSON schemas, ACP negotiation, or negative transport cases.
+The [drift procedure](grok-build-qualification.md#clischema-drift-check-and-proposed-scheduling)
+keeps those missing captures explicit and proposes operator-approved scheduling.
