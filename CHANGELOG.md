@@ -7,11 +7,47 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.4] - 2026-11-09
+
 ### Added
 
-- Grok Build 1.0.77 Linux capture inventory, opt-in inspection smoke and local CLI/schema drift comparison; stable promotion still requires Windows PowerShell/WSL and native-surface evidence. Grok Bot and Grok web Build remain separate products (#2580, release 2026.11.4).
+- Saved approvals through signed authorization grants. In an MCP client with form confirmation, review and confirm a bounded scope once; supported rules, skills, mission approvals and flow gates check for a matching grant before asking again and record a receipt when it applies. Grants stay bound to the repository, workspace, resources, actions, environment, lifetime and use limits. Secret, destructive, production and policy-override actions still require review, and unavailable or unverifiable grants keep the human prompt. `aiwg config authorization` adds list, show, search, explain, revoke and verify, with read-only MCP inspection and status/doctor health reports. Revocation takes effect at the next check. Mission approval prompts remain synchronous when no host authorization binding is configured (#4000, #4001, #4002, #4003, #4004, PR #4013, PR #4014, PR #4015, PR #4016, PR #4022, PR #4023, PR #4024, PR #4038, PR #4039).
 
-- Per-rule `precedence` and `overridable` metadata, schema validation for existing `enforcement`, optional `rules.precedence` project ordering with refusal of non-overridable overrides, generated rule/skill conflict guidance, ordering visibility in show/discover/rules, and conservative declared-subject conflict warnings (#3986).
+- Grok Build support preview based on Linux CLI 1.0.77 captures. Headless output readers handle plain, JSON and both streaming formats, including errors, stop reasons, usage and truncated streams. Session list, search, export and import use the public CLI; an experimental native reader requires an exact 1.0.77 opt-in and falls back to CLI export, whose tool-output omission is recorded. New provider guides, an opt-in inspection smoke and local CLI/schema comparison explain the supported paths. Stable promotion remains deferred pending Windows PowerShell/WSL checks and remaining native-surface captures, including ACP, compaction, resumed/forked lineage, subagents, attachments/snapshots, native headless stores and cross-version drift. Grok Bot and Grok web Build remain separate products (#2577, #2578, #2580, PR #4057, PR #4058, PR #4059).
+
+### Changed
+
+- Rules can declare precedence and whether projects may override them. Optional `rules.precedence` project settings reorder named overridable rules; attempts to override protected rules fail by name. Show, discovery and generated guidance expose the ordering and declared-subject conflict warnings so users can understand which rule applies. Existing enforcement metadata is also validated (#3986, PR #4006).
+
+- Hermes can receive prompt-discovery context through an opt-in hook bridge. Copilot and Grok Build receive discover-first startup guidance because they have no documented prompt-context hook. Copilot's registered rule location now matches its native `.github/instructions` deployment path. The shared harness audit checks these delivery paths alongside OpenCode and the other providers (#3996, #3993, PR #4007, PR #4008).
+
+### Fixed
+
+- Windows deployments accept CRLF agent frontmatter and normalize core-rule bodies before size checks, keeping the existing size limits. Provider staging and worker-owner locks use junctions without requiring symlink privileges, with hard-link publication for lock generation records. These four fixes came from GitHub contributor @GoryGrey (GitHub PR #410, GitHub PR #411, GitHub PR #412, GitHub PR #413; PR #4017, PR #4018, PR #4019, PR #4020).
+
+- Codex sandbox commands no longer stall on synchronous stdin pipes: bounded subprocesses ignore unused stdin and pass input through private temporary files. If temporary storage is unavailable, they fail promptly instead of falling back to the hanging pipe. Codex startup instructions now agree with discover-first guidance, and deployment, doctor and the hook guide explain the saved folder and hook trust required by Codex 0.167, including worker worktrees. AIWG does not grant that trust (#4032, #4035, #4036, PR #4043, PR #4048, PR #4049).
+
+- Discovery ranks explicitly named commands and skills above generic task words, and prompt hooks show only strong matches. Handoff requests route to the checkpoint skill, the handoff template has a useful description, and unfilled placeholders no longer appear as capabilities (#4034, #4053, PR #4045, PR #4060).
+
+- Upgrades adopt unchanged AIWG Codex prompts from 2026.10.x without `--force` when they exactly match the recorded output; edited and unknown prompts stay protected (#4031, PR #4047).
+
+- Global-only user-scope installations are recognized by `aiwg status --probe`, deployment checks and doctor, avoiding false not-configured and half-deployed reports (#4028, PR #4046).
+
+- `aiwg init --jev decline` no longer starts guided planning. Only the documented `--scope`, `--intent` and `--credential` selectors choose that mode (#4029, PR #4044).
+
+- `aiwg use` preserves dangling symlinks and junctions in provider homes instead of reporting a false input-change error. Sockets, FIFOs and other special files are treated as opaque entries and never copied; real changes during deployment still stop promotion (#4025, #4026, PR #4041).
+
+- `aiwg show` reads packaged bodies from the AIWG installation instead of the current project, and skill cards such as `issue-create` render by name without crashing on a non-list relation (#4027, #4030, PR #4040).
+
+- The generic provider now deploys portable Markdown through the shared lifecycle, with the host responsible for loading `AGENTS.md`. OpenClaw declares and writes both `AGENTS.md` and `SOUL.md`, including kernel-only installs. Muse and Grok Build share their adapters' actual bulk-skill roots so registry paths match deployed files (#3997, #3995, #3994, PR #4011, PR #4010, PR #4009).
+
+- Test and CI reliability: align bound-rule and process-metric expectations, exercise Windows lock publication on Linux, centralize Windows simulation with automatic restoration, and check pushed commit identity and signatures in CI (#3986, #4020, #4032, #4050, #3838, PR #4012, PR #4021, PR #4051, PR #4052, PR #4056).
+
+### Security
+
+- Managed Claude, Codex and Muse hook commands load scripts from anchored project or provider-home paths and verify their SHA-256 before execution. User-scope hooks work from any directory, Codex requires another review after script changes, and refresh/doctor detect stale registrations (#4033, #4037, PR #4042).
+
+- Socket audit matching preserves npm package scopes, so scoped findings match their reviewed baseline entries. Two existing Flue runtime findings now have accepted-risk reviews expiring January 7, 2027, with revalidation on relevant dependency changes: the MCP client OAuth CVE on a path AIWG does not use, and the tslib ownership alert for a listed Microsoft maintainer. Dependency versions are unchanged (#3809, PR #3999, PR #4005).
 
 ## [2026.11.3] - 2026-11-08
 
