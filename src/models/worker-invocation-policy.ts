@@ -97,6 +97,9 @@ export function assertOperatorWorkerNativeArgv(adapter: WorkerAdapterMetadata, a
     if (sandbox === 'external' || (permissions?.approval ?? 'never') !== 'never') {
       throw new Error('Factory direct worker requires native sandbox and never approval');
     }
+    if (selected.model.startsWith('custom:') && (selected.model.trim() !== selected.model || !/^custom:[^\s\x00-\x1f\x7f]+-\d+$/.test(selected.model))) {
+      throw new Error('Factory custom model selector requires a safe normalized name and numeric suffix');
+    }
     requirePair('-m', selected.model);
     requirePair('--output-format', 'stream-json');
     const cwd = args[args.indexOf('--cwd') + 1];

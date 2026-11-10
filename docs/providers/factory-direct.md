@@ -66,12 +66,18 @@ settings provenance; it does not subtract output tokens again. If omitted,
 `/worker/contextTokens`, even after the worker qualifies. Invalid limits reject
 that model entry. Refresh the catalog after changing the setting.
 
-For the verified display-name form, Droid's selector is `custom:` followed by
-the display name with spaces replaced by hyphens. For example,
-`AIWG OpenRouter Qwen 3.8 27B` becomes
-`custom:AIWG-OpenRouter-Qwen-3.8-27B`. AIWG adds no numeric suffix and rejects
-ambiguous display names. The catalog's older suffix-relabeling caveat describes
-runtime reporting; confirm the selector against your installed Droid version.
+Droid 1.0.0's `Available custom models` output (operator capture, 2026-11-10)
+shows the executable selector as `custom:<normalizedName>-<k>`, with spaces in
+the display name replaced by hyphens. For example, `AIWG OpenRouter Qwen 3.8 27B`
+becomes `custom:AIWG-OpenRouter-Qwen-3.8-27B-0`. The rejected unsuffixed selector
+and the listing are preserved in the
+[sanitized output fixture](https://github.com/jmagly/aiwg/blob/main/test/fixtures/providers/factory/invalid-custom-model.txt).
+The three distinct names at settings indexes 0, 1 and 2 all have suffix `-0`:
+`k` counts earlier entries with the same normalized name, rather than the array
+index. Repeated identical display names receive `-1`, `-2`, and so on; distinct
+display names that normalize to the same name remain ambiguous and are rejected,
+as are unsafe names. Confirm selectors against your installed Droid version;
+the catalog's suffix-relabeling caveat concerns runtime reporting.
 Observations use this exact executable selector for both `id` and `apiModelId`;
 the upstream `model` is retained separately in configuration provenance.
 `llmProvider` reflects the endpoint host (`openrouter` for `openrouter.ai`),

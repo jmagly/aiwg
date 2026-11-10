@@ -1,0 +1,6 @@
+Invalid model: custom:AIWG-OpenRouter-Qwen-3.8-27B
+...
+Available custom models:
+  custom:AIWG-OpenRouter-Haiku-4.5-0 (AIWG OpenRouter Haiku 4.5), custom:AIWG-OpenRouter-GPT-OSS-120B-0 (AIWG OpenRouter GPT-OSS 120B), custom:AIWG-OpenRouter-Qwen-3.8-27B-0 (AIWG OpenRouter Qwen 3.8 27B)
+
+Note: Custom models are loaded from ~/.factory/settings.json

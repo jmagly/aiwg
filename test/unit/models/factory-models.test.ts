@@ -10,7 +10,7 @@ import { discoverFactoryModels } from '../../../src/models/factory-models.js';
 
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
-const id = 'custom:AIWG-OpenRouter-Qwen-3.8-27B';
+const id = 'custom:AIWG-OpenRouter-Qwen-3.8-27B-0';
 const row = { model: 'qwen/qwen3.8-27b', displayName: 'AIWG OpenRouter Qwen 3.8 27B',
   baseUrl: 'https://openrouter.ai/api/v1', provider: 'generic-chat-completion-api', maxOutputTokens: 8192 };
 async function fixture(customModels: unknown) {
@@ -47,6 +47,35 @@ it('observes custom selectors with runtime provenance while preserving static pl
   expect(observed.models[0].worker!.provenance[0].source).toContain('.factory/settings.json#/customModels/0');
   expect(validateWorkerCatalogDiscovery(result.discovery)).toEqual([]);
   expect(f.runner).toHaveBeenCalledOnce();
+});
+
+it('matches the sanitized droid 1.0.0 invalid-model listing: unique names all use -0', async () => {
+  const displayNames = ['AIWG OpenRouter Haiku 4.5', 'AIWG OpenRouter GPT-OSS 120B', row.displayName];
+  const f = await fixture(displayNames.map(displayName => ({ ...row, displayName })));
+  const observed = await discoverFactoryModels({ homeDir: f.root, runtimeVersion: '1.0.0' });
+  const output = await readFile(new URL('../../fixtures/providers/factory/invalid-custom-model.txt', import.meta.url), 'utf8');
+  const listed = [...output.split('Available custom models:')[1].matchAll(/custom:([^ ()\n]+)/g)]
+    .map(match => `custom:${match[1]}`);
+  expect(listed).toEqual(['custom:AIWG-OpenRouter-Haiku-4.5-0', 'custom:AIWG-OpenRouter-GPT-OSS-120B-0', id]);
+  expect(observed.errorKind).toBeUndefined();
+  expect(observed.models.map(model => model.id)).toEqual(listed);
+  expect(observed.models.map(model => model.apiModelId)).toEqual(listed);
+});
+
+it('numbers repeated display names independently of their array position', async () => {
+  const f = await fixture([row, { ...row, displayName: 'Other model' }, { ...row, model: 'other/upstream' }, row]);
+  const observed = await discoverFactoryModels({ homeDir: f.root, runtimeVersion: '1.0.0' });
+  expect(observed.errorKind).toBeUndefined();
+  expect(observed.models.map(model => model.id)).toEqual([id, 'custom:Other-model-0',
+    'custom:AIWG-OpenRouter-Qwen-3.8-27B-1', 'custom:AIWG-OpenRouter-Qwen-3.8-27B-2']);
+  expect(observed.models.every(model => model.apiModelId === model.id)).toBe(true);
+});
+
+it('counts earlier same-name settings entries even when their other fields are invalid', async () => {
+  const f = await fixture([{ ...row, maxOutputTokens: -1 }, row]);
+  const observed = await discoverFactoryModels({ homeDir: f.root, runtimeVersion: '1.0.0' });
+  expect(observed.errorKind).toBe('invalid-output');
+  expect(observed.models.map(model => model.id)).toEqual(['custom:AIWG-OpenRouter-Qwen-3.8-27B-1']);
 });
 
 it.each([1, 131072, Number.MAX_SAFE_INTEGER])('records maxContextLimit %s as reported input context with provenance', async maxContextLimit => {
