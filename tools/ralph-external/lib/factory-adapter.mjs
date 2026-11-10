@@ -202,6 +202,9 @@ export class FactoryAdapter extends ProviderAdapter {
     if (FACTORY_RESERVED_MODEL_VALUES.includes(model.toLowerCase())) {
       throw new Error(`Factory worker requires an explicit observed model, not the CLI's own auto-selection '${model}'`);
     }
+    if (model.startsWith('custom:') && (model.trim() !== model || !/^custom:[^\s\x00-\x1f\x7f]+-\d+$/.test(model))) {
+      throw new Error('Factory custom model selector requires a safe normalized name and numeric suffix');
+    }
     const effort = invocation?.selected?.effort?.value ?? null;
     const customNoEffort = model.startsWith('custom:') && invocation?.selected?.effort?.support === 'not-applicable' && effort === null;
     if (!customNoEffort && (effort === null || !FACTORY_DIRECT_EFFORT_VALUES.includes(effort))) {

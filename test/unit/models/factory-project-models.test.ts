@@ -32,7 +32,7 @@ it.each(['single', 'disabled', 'multiple', 'implicit', 'empty', 'missing'] as co
     expect(readAiwgConfig).toHaveBeenCalledWith(root);
     expect(runner).toHaveBeenCalledWith(bound ? '/synthetic/droid' : 'droid', ['--version'], expect.any(Object));
     expect(observed.errorKind).toBeUndefined();
-    expect(observed.models).toMatchObject([{ id: 'custom:Synthetic', worker: {
+    expect(observed.models).toMatchObject([{ id: 'custom:Synthetic-0', worker: {
       cliId: mode === 'single' ? 'byok' : 'factory',
       accountScope: mode === 'single' ? 'synthetic-account' : 'local-account',
     } }]);

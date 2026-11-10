@@ -75,11 +75,16 @@ export async function discoverFactoryModels(options: DiscoverFactoryOptions = {}
   if (rows === undefined && settings && typeof settings === 'object' && !Array.isArray(settings)) return result;
   if (!Array.isArray(rows) || rows.length > 1024) return { ...result, errorKind: 'invalid-output', error: 'Factory /customModels: expected bounded array.' };
   const diagnostics: string[] = [];
+  const nameCounts = new Map<string, number>();
   for (const [index, entry] of rows.entries()) {
     const invalid = () => diagnostics.push(`Factory /customModels/${index}: malformed model fields or unknown inference provider.`);
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) { invalid(); continue; }
     const row = entry as Record<string, unknown>;
     const { model, displayName, provider, baseUrl, maxOutputTokens, maxContextLimit } = row;
+    // Droid counts prior entries with this normalized name, not array indexes.
+    const normalizedName = typeof displayName === 'string' ? displayName.replace(/ /g, '-') : '';
+    const occurrence = nameCounts.get(normalizedName) ?? 0;
+    nameCounts.set(normalizedName, occurrence + 1);
     if (typeof model !== 'string' || !model.trim() || /\s/.test(model)
       || typeof displayName !== 'string' || !displayName.trim() || displayName !== displayName.trim()
       || /[\x00-\x1f\x7f]/.test(displayName) || typeof provider !== 'string'
@@ -87,7 +92,7 @@ export async function discoverFactoryModels(options: DiscoverFactoryOptions = {}
       || (maxContextLimit !== undefined && (!Number.isSafeInteger(maxContextLimit) || (maxContextLimit as number) < 1))) { invalid(); continue; }
     const llmProvider = inferenceProvider(provider, baseUrl);
     if (!llmProvider) { invalid(); continue; }
-    const id = `custom:${displayName.replace(/ /g, '-')}`;
+    const id = `custom:${normalizedName}-${occurrence}`;
     const facts = { id, model, displayName, llmProvider, maxOutputTokens: maxOutputTokens ?? null,
       maxContextLimit: maxContextLimit ?? null };
     const worker = buildWorkerObservation({ cliId: options.cliId ?? 'factory', source,
@@ -106,10 +111,14 @@ export async function discoverFactoryModels(options: DiscoverFactoryOptions = {}
       selected: {}, constraints: [], diagnostics: [] };
     result.policy.selected[`customModels.${index}.model`] = { value: model, source, scope: 'user', precedence: 1 };
   }
-  const duplicates = new Set(result.models.filter((row, index, all) => all.findIndex(other => other.id === row.id) !== index).map(row => row.id));
-  if (duplicates.size) {
+  // Identical display names are numbered; distinct spellings that normalize to
+  // the same name remain ambiguous and are withheld together.
+  const ambiguousNames = new Set(result.models.filter(row => result.models.some(other =>
+    other.displayName !== row.displayName && other.displayName!.replace(/ /g, '-') === row.displayName!.replace(/ /g, '-')))
+    .map(row => row.displayName!.replace(/ /g, '-')));
+  if (ambiguousNames.size) {
     diagnostics.push('Factory custom model display names produce ambiguous selectors.');
-    result.models = result.models.filter(row => !duplicates.has(row.id));
+    result.models = result.models.filter(row => !ambiguousNames.has(row.displayName!.replace(/ /g, '-')));
   }
   if (diagnostics.length) { result.errorKind = 'invalid-output'; result.error = diagnostics.join('; '); }
   return result;

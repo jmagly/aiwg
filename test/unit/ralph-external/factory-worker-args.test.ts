@@ -8,7 +8,7 @@ const adapter = new FactoryAdapter();
 const metadata = structuredClone(loadProviderModelCapabilities().providers.factory.workerHealthAdapter!);
 metadata.qualification = { status: 'qualified', evidenceRef: WORKER_OPERATOR_APPROVAL,
   fixtureDigest: `sha256:${'1'.repeat(64)}`, verifiedAt: '2026-11-10T00:00:00Z' };
-const custom = { model: 'custom:Synthetic', effort: { support: 'not-applicable', value: null } };
+const custom = { model: 'custom:Synthetic-0', effort: { support: 'not-applicable', value: null } };
 const builtin = { model: 'synthetic-model', effort: { support: 'explicit', value: 'high' } };
 const invocation = (selected: unknown) => ({ selected, cwd: '/synthetic/work', brief: 'Synthetic brief' });
 const tail = ['--cwd', '/synthetic/work', '--output-format', 'stream-json'];
@@ -20,6 +20,22 @@ describe('Factory custom-model effort rendering', () => {
       '-m', custom.model, ...tail]);
     expect(args).not.toContain('-r');
     expect(() => assertOperatorWorkerNativeArgv(metadata, ['droid', ...args], custom, { sandbox })).not.toThrow();
+  });
+
+  it.each(['custom:Synthetic', 'custom:Synthetic-x', 'custom:bad name-0', 'custom:bad\nname-0', 'custom:-0', 'custom:Synthetic-0\n'])(
+    'rejects an unsuffixed or unsafe custom selector at both boundaries: %s', model => {
+      const selected = { ...custom, model };
+      expect(() => adapter.buildWorkerArgs(invocation(selected), {}, { sandbox: 'read-only' }))
+        .toThrow(/custom.*selector/i);
+      expect(() => assertOperatorWorkerNativeArgv(metadata, ['droid', 'exec', '-m', model, ...tail],
+        selected, { sandbox: 'read-only' })).toThrow(/custom.*selector/i);
+    });
+
+  it('preserves the duplicate-name suffix in the rendered -m argument', () => {
+    const selected = { ...custom, model: 'custom:Synthetic-1' };
+    const args = adapter.buildWorkerArgs(invocation(selected), {}, { sandbox: 'read-only' });
+    expect(args).toEqual(['exec', '-m', 'custom:Synthetic-1', ...tail]);
+    expect(() => assertOperatorWorkerNativeArgv(metadata, ['droid', ...args], selected, { sandbox: 'read-only' })).not.toThrow();
   });
 
   it.each([builtin, { ...builtin, model: custom.model },

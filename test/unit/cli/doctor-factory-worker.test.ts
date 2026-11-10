@@ -78,7 +78,7 @@ it('accepts Factory through the existing project CLI configuration command', asy
 
 it.each([true, false])('discovers BYOK settings before qualification and never retains literal keys (refresh: %s)', async refresh => {
   const f = await fixture('no-observation');
-  const model = 'custom:AIWG-OpenRouter-Qwen-3.8-27B';
+  const model = 'custom:AIWG-OpenRouter-Qwen-3.8-27B-0';
   const file = path.join(f.project, '.aiwg/aiwg.config');
   const config = JSON.parse(await readFile(file, 'utf8'));
   config.parallelism.groups.workers.members[0].model = model;
@@ -120,6 +120,8 @@ it.each([true, false])('discovers BYOK settings before qualification and never r
   expect(resolved.code, resolved.stdout + resolved.stderr).toBe(0);
   expect(JSON.parse(resolved.stdout).invocation).toMatchObject({ readiness: 'launchable',
     selected: { model, effort: { support: 'not-applicable', value: null } } });
+  const argv = JSON.parse(resolved.stdout).invocation.argv;
+  expect(argv[argv.indexOf('-m') + 1]).toBe(model);
   expect(resolved.stdout + resolved.stderr).not.toContain(literal);
   await rm(path.join(f.root, '.factory/settings.json'));
   const removed = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'factory', '--yes', '--json']);
