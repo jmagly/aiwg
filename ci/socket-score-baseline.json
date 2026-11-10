@@ -13,7 +13,7 @@
       "socketUpgradeAvailable"
     ],
     "reviewOwner": "AIWG maintainers",
-    "reviewExpiresOn": "2026-11-14"
+    "reviewExpiresOn": "2027-02-14"
   },
   "packages": {
     "aiwg": {
@@ -33,7 +33,7 @@
         "quality": 1,
         "maintenance": 0.95,
         "vulnerability": 1,
-        "license": 1
+        "license": 0.7
       }
     }
   },
