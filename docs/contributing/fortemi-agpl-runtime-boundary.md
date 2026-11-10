@@ -54,6 +54,12 @@ The AGPL network clause is conditional. Ordinary local CLI execution is not inhe
    - otherwise introduce a separately installed, separately executed service/worker with a documented stable protocol and parity tests;
    - otherwise license the combined distribution under terms confirmed compatible by qualified counsel.
 
+## Licensing intent and supply-chain license score (2026-11-10)
+
+AIWG-authored code is MIT on purpose. Teams that build their own implementations bundle AIWG concepts and often remix AIWG itself; MIT lets them do that with minimal obligation. Copyleft obligations stay on the more concrete products, Fortemi and Bytecask (AGPL-3.0-only), where the line between a customer's implementation and the product is clearer. The operator confirmed this intent on 2026-11-10.
+
+Both `aiwg` and `@aiwg/cli` declare the Fortemi production dependency, so the Socket post-publish audit scores both at license 0.7. That score accurately reports this documented boundary. `ci/socket-score-baseline.json` records 0.7 for both packages (`@aiwg/cli` since 2026-11-10, #4064). It is not a change to any license or a new compliance claim; the combined-work question above stays open.
+
 ## Compliance checklist
 
 For every release while this boundary exists:
