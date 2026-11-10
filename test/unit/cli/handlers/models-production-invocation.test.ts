@@ -23,7 +23,7 @@ const modelsHandler = createModelsHandler({ load: loadWorkerInputs });
 const roots: string[] = [];
 afterEach(async () => { vi.restoreAllMocks(); vi.unstubAllEnvs(); for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 
-async function productionFixture(adapterFrame = false) {
+async function productionFixture(adapterFrame = false, cliId?: string) {
   vi.stubEnv('AIWG_RESOLVE_IMPL_FROM', 'src');
   const root = mkdtempSync(path.join(os.tmpdir(), 'aiwg-production-worker-')); roots.push(root);
   const cwd = path.join(root, 'project');
@@ -39,7 +39,7 @@ async function productionFixture(adapterFrame = false) {
   const f = workerResolutionFixture();
   const now = new Date().toISOString();
   f.snapshot.hostResources!.collectedAt = now;
-  const id = `fixture-${path.basename(root).toLowerCase()}`;
+  const id = `fixture-${path.basename(root).toLowerCase()}`; cliId ??= id;
   const adapter = f.snapshot.registry.providers.codex.workerAdapter!;
   adapter.id = id; adapter.runtimeDriver = `installed:${id}`;
   adapter.qualification.verifiedAt = now;
@@ -49,15 +49,15 @@ async function productionFixture(adapterFrame = false) {
   if (adapterFrame) adapter.invocation.stdin = 'adapter-frame';
   delete f.snapshot.registry.providers.codex.workerAdapter;
   f.snapshot.registry.workerAdapters = { [id]: adapter };
-  f.snapshot.installations = { [id]: binding };
-  f.snapshot.config.parallelism!.groups!.workers.members.forEach(member => { member.cli = id; });
-  f.snapshot.config.parallelism!.clis = { [id]: { adapter: `workerAdapters:${id}`, accountScope: binding.accountScope, quotaScope: 'fixture' } };
+  f.snapshot.installations = { [cliId]: binding };
+  f.snapshot.config.parallelism!.groups!.workers.members.forEach(member => { member.cli = cliId; });
+  f.snapshot.config.parallelism!.clis = { [cliId]: { adapter: `workerAdapters:${id}`, accountScope: binding.accountScope, quotaScope: 'fixture' } };
   const discovery = f.snapshot.catalog.discovery!.instances!.codex;
   for (const row of discovery.models) {
-    row.worker!.cliId = id; row.worker!.observedAt = now; row.worker!.fetchedAt = now; row.worker!.verifiedAt = now;
+    row.worker!.cliId = cliId; row.worker!.observedAt = now; row.worker!.fetchedAt = now; row.worker!.verifiedAt = now;
     row.worker!.qualification.verifiedAt = now;
   }
-  discovery.observedAt = now; f.snapshot.catalog.discovery!.instances = { [id]: discovery };
+  discovery.observedAt = now; f.snapshot.catalog.discovery!.instances = { [cliId]: discovery };
   await writeFile(path.join(cwd, '.aiwg/aiwg.config'), JSON.stringify(f.snapshot.config));
   await writeFile(path.join(cwd, 'models.json'), JSON.stringify({ defaults: { workerSelection: f.projectPolicy } }));
   await writeFile(path.join(frameworkRoot, 'agentic/code/providers/model-catalog.v1.json'), JSON.stringify(f.snapshot.catalog));
@@ -101,7 +101,7 @@ async function productionFixture(adapterFrame = false) {
   const brief = path.join(cwd, 'brief.txt'); await writeFile(brief, 'Do the synthetic task.');
   const finalPath = path.join(workdir, 'final.json');
   const signing = await workerSigningFixture(root, cwd);
-  const record = signing.sign({ cli: id, binding, adapter, installation });
+  const record = signing.sign({ cli: cliId, binding, adapter, installation });
   const call = async (handler = modelsHandler) => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     const args = ['resolve', '--role=coding', '--group=workers', '--task=implementation', `--brief=${brief}`, `--workdir=${workdir}`, `--final-output=${finalPath}`, '--format=json'];
@@ -112,6 +112,31 @@ async function productionFixture(adapterFrame = false) {
 }
 
 describe('models resolve production installation loading', () => {
+  it.each([true, false])('#4073 resolves Factory in B without validating A Codex/Muse approvals (drift: %s)', async drift => {
+    const f = await productionFixture(false, 'factory');
+    const projectA = path.join(path.dirname(f.cwd), 'project-a');
+    await mkdir(projectA);
+    const records = await Promise.all(['codex', 'muse'].map(async cli => {
+      const record = structuredClone(f.record);
+      record.cli = cli; record.installation.cwd = projectA;
+      record.installation.policy = drift ? { ...record.installation.policy, roleGuidance: {} } : record.installation.policy;
+      record.installation.effectiveConfigDigest = qualificationDigest(record.installation.policy);
+      const { scopeDigest } = await f.owner.inspectWorkerInstallation(record.installation);
+      record.installation.evidence.scopeDigest = record.adapter.invocationProfiles![record.binding.profile].installationQualification!.scopeDigest = scopeDigest;
+      return f.signing.sign(record);
+    }));
+    await writeFile(path.join(f.configDir, 'worker-installations.json'), JSON.stringify({ version: 1,
+      registrations: [...records, f.record] }), { mode: 0o600 });
+    const resolved = await f.call();
+    expect(resolved.result.exitCode, resolved.output).toBe(0);
+    expect(resolved.plan.invocation.selected.cli).toBe('factory');
+    const loaded = await loadRecordedWorkerInstallations({ registry: f.snapshot.registry, cwd: f.cwd,
+      policy: f.record.installation.policy, parallelism: f.snapshot.config.parallelism });
+    expect(Object.keys(loaded.installations)).toEqual(['factory']);
+    expect(Object.keys(loaded.drivers)).toEqual(['factory']);
+    expect(loaded.qualificationFailures).toEqual({});
+  });
+
   it('T-OG-15 keeps PATH prefixes eligible while rejecting executable and other environment drift', async () => {
     const f = await productionFixture();
     const { adapter, installation, binding } = f.record;

@@ -134,6 +134,43 @@ describe('qualification store permission repair', () => {
     expect(`${error.stack}${JSON.stringify(error)}`).not.toContain(privateText);
   });
 
+  it.each([
+    { configured: undefined, cli: undefined, drift: true },
+    { configured: ['codex'], cli: undefined, drift: true },
+    { configured: ['factory'], cli: undefined, drift: false },
+    { configured: [], cli: undefined, drift: false },
+    { configured: null, cli: undefined, drift: false },
+    { configured: undefined, cli: 'codex', drift: true },
+    { configured: undefined, cli: 'factory', drift: false },
+    { configured: ['factory'], cli: 'codex', drift: false },
+  ])('#4073 scopes shared-store policy checks ($configured, $cli)', async ({ configured, cli, drift }) => {
+    const root = mkdtempSync(path.join(tmpdir(), 'aiwg-shared-worker-store-')); roots.push(root);
+    const projectA = path.join(root, 'project-a'); const cwd = path.join(root, 'project-b');
+    const store = path.join(root, 'store');
+    await Promise.all([fs.mkdir(projectA), fs.mkdir(cwd), fs.mkdir(store, { mode: 0o700 })]);
+    vi.stubEnv('AIWG_CONFIG', store);
+    const policy = structuredClone(DEFAULT_WORKER_SELECTION);
+    const oldPolicy = { ...policy, roleGuidance: {} };
+    const signing = await workerSigningFixture(root, cwd);
+    const record = signing.sign({ cli: 'codex', binding: { boundary: null }, adapter: {}, installation: {
+      cwd: projectA, boundary: null, policy: oldPolicy, effectiveConfigDigest: qualificationDigest(oldPolicy),
+    } });
+    await fs.writeFile(path.join(store, 'worker-installations.json'),
+      JSON.stringify({ version: 1, registrations: [record] }), { mode: 0o600 });
+    const parallelism = configured === undefined ? undefined : configured === null ? {} : { clis: Object.fromEntries(configured.map(id =>
+      [id, { adapter: `providers:${id}`, accountScope: 'fixture', quotaScope: 'fixture' }])) };
+    const error = await loadRecordedWorkerInstallations({ registry: loadProviderModelCapabilities(), cwd,
+      policy, parallelism, cli }).catch(error => error);
+    expect(error).toMatchObject({ code: 'OG_ADAPTER_UNQUALIFIED', details: { rejections: [
+      { registration: drift ? 0 : null, reason: drift ? 'effective-config-digest' : 'no-records' },
+    ] } });
+    if (drift) {
+      expect(error.message).toContain('Worker policy changed since qualification');
+      expect(error.message).toContain(projectA);
+      expect(error.message).toContain('requalify the worker tree');
+    } else expect(error.message).not.toContain(projectA);
+  });
+
   it('keeps null registration failures inside the scoped diagnostic boundary', async () => {
     const root = mkdtempSync(path.join(tmpdir(), 'aiwg-null-registration-')); roots.push(root);
     const cwd = path.join(root, 'project'); const store = path.join(root, 'store');
@@ -142,6 +179,17 @@ describe('qualification store permission repair', () => {
     await fs.writeFile(path.join(store, 'worker-installations.json'), JSON.stringify({ version: 1, registrations: [null] }), { mode: 0o600 });
     await expect(loadRecordedWorkerInstallations({ registry: loadProviderModelCapabilities(), cwd }))
       .rejects.toMatchObject({ code: 'OG_ADAPTER_UNQUALIFIED', details: { rejections: [{ registration: 0, reason: 'record-identity' }] } });
+  });
+
+  it.each([null, { cli: { toString: {} } }])('#4073 excludes malformed identities outside configured CLIs (%j)', async record => {
+    const root = mkdtempSync(path.join(tmpdir(), 'aiwg-unconfigured-worker-')); roots.push(root);
+    const cwd = path.join(root, 'project'); const store = path.join(root, 'store');
+    await fs.mkdir(cwd); await fs.mkdir(store, { mode: 0o700 });
+    vi.stubEnv('AIWG_CONFIG', store);
+    await fs.writeFile(path.join(store, 'worker-installations.json'),
+      JSON.stringify({ version: 1, registrations: [record] }), { mode: 0o600 });
+    await expect(loadRecordedWorkerInstallations({ registry: loadProviderModelCapabilities(), cwd, parallelism: { clis: {} } }))
+      .rejects.toMatchObject({ code: 'OG_ADAPTER_UNQUALIFIED', details: { rejections: [{ registration: null, reason: 'no-records' }] } });
   });
 
   it.each([0o775, 0o777])('refuses repair beneath a writable ancestor (%s)', async mode => {

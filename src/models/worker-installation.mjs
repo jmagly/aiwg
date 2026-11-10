@@ -836,7 +836,7 @@ export async function recordWorkerInstallation(instance, options) {
 
 /** Read recorded host authority, validate installation bytes and the current CLI
  * version, then load the same approved factory used by Ralph. */
-export async function loadRecordedWorkerInstallations({ registry, cwd, policy, parallelism, storePath, storeDigest, precheckPolicy }) {
+export async function loadRecordedWorkerInstallations({ registry, cwd, policy, parallelism, cli: requestedCli, storePath, storeDigest, precheckPolicy }) {
   const { WorkerPolicyError, WorkerQualificationPolicyError, parseProviderModelCapabilities } = await import('./provider-policy.js');
   // Compiled TS modules load lazily so the managed launcher's ESM-only import chain stays minimal (#3851).
   const { workerQualificationPolicyDiagnostic } = await import('./worker-qualification-policy.js');
@@ -890,6 +890,9 @@ export async function loadRecordedWorkerInstallations({ registry, cwd, policy, p
     if (prior === undefined || workspaces[prior] !== requestedWorkspace) selected.set(record?.cli, index);
   }
   for (const [registration, record] of stored.registrations.entries()) {
+    // Shared-store registrations outside this request cannot grant authority or block it.
+    if ((parallelism && !Object.keys(parallelism.clis ?? {}).includes(record?.cli))
+      || (requestedCli !== undefined && record?.cli !== requestedCli)) continue;
     reason = 'record-identity';
     try {
       const { cli, binding, adapter } = record;

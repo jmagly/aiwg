@@ -2,15 +2,17 @@
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import { materializeWorkerArtifacts } from '../../../tools/ralph-external/lib/worker-artifacts.mjs';
 import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
-import { workerStdinBytes } from '../../../src/serve/worker-stdin-frame.mjs';
+import { recordedWorkerStdinBytes, workerStdinBytes } from '../../../src/serve/worker-stdin-frame.mjs';
+import * as installations from '../../../src/models/worker-installation.mjs';
 import { validateWorkerPayload } from '../../../src/mission-protocol/index.js';
 
 const roots: string[] = [];
-afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
+afterEach(async () => { vi.restoreAllMocks(); for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 const finalPath = '/worker tree/.handoff/final "雪\n.json';
 function assertContract(text: string) {
   expect(text).toContain(JSON.stringify(finalPath));
@@ -21,6 +23,31 @@ function assertContract(text: string) {
 }
 
 describe('worker launch final-output preamble', () => {
+  it('#4073 reloads only the bound CLI for framing and retains adapter, scope and brief checks', async () => {
+    const workspace = await mkdtemp(path.join(os.tmpdir(), 'aiwg-bound-worker-frame-')); roots.push(workspace);
+    const filename = path.join(workspace, 'brief.md');
+    const brief = 'Task body'; await writeFile(filename, brief);
+    const digest = (value: string) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+    const input = { filename, workspace, cli: 'factory', adapterId: 'fixture-factory', scopeDigest: digest('scope'),
+      briefDigest: digest(brief), storePath: path.join(workspace, 'host-store.json'), storeDigest: digest('store'),
+      policy: undefined, model: 'synthetic' };
+    const load = vi.spyOn(installations, 'loadRecordedWorkerInstallations').mockResolvedValue({
+      registry: {}, installations: {}, observations: {}, drivers: { factory: {
+        qualification: { adapterId: input.adapterId, adapter: { invocation: { stdin: 'adapter-frame' } },
+          installation: { evidence: { scopeDigest: input.scopeDigest } } },
+        buildWorkerStdinFrame: (bytes: Buffer) => JSON.stringify({ message: bytes.toString() }),
+      } },
+    } as any);
+    expect(JSON.parse((await recordedWorkerStdinBytes(input))!.toString())).toEqual({ message: brief });
+    expect(load).toHaveBeenCalledWith(expect.objectContaining({ cwd: workspace, cli: 'factory',
+      storePath: input.storePath, storeDigest: input.storeDigest, policy: input.policy }));
+    for (const changed of [{ cli: 'codex' }, { adapterId: 'other' }, { scopeDigest: digest('other') }]) {
+      await expect(recordedWorkerStdinBytes({ ...input, ...changed })).rejects.toThrow('Adapter stdin binding changed');
+    }
+    await writeFile(filename, 'Changed task');
+    await expect(recordedWorkerStdinBytes(input)).rejects.toThrow('Adapter stdin brief changed');
+  });
+
   it.each(['brief-text', 'brief-json', 'adapter-frame'])('delivers the path and schema-valid wrapper via %s', stdin => {
     const prompt = workerPromptBrief(Buffer.from('Task body'), finalPath);
     const bytes = workerStdinBytes({ stdin, cwd: '/worker', selected: { model: 'synthetic' } }, prompt,
