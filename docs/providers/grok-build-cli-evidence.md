@@ -1,5 +1,14 @@
 # Grok Build CLI 1.0.50 — preserved evidence extracts (#2906)
 
+Current headless update (#2577, 2026-11-09): supplied 1.0.77 captures accept
+`--no-auto-update`, so the bounded headless transport restores that switch.
+It now also parses `streaming-messages-json` separately from `streaming-json`.
+The [sanitized excerpts](../../test/fixtures/providers/grok-build/headless-1.0.77/README.md)
+and [replay tests](../../test/unit/providers/grok-build-headless.test.ts) cover
+the observed successful stream and cancelled JSON/message results. See the
+[claim dispositions](grok-build-native-agents.md) for limits. Historical 1.0.50
+flag observations below do not override this later captured invocation.
+
 This file preserves the exact documentation extracts the `grok-build`
 direct-shell profile's safety claims rely on, so they are independently
 checkable rather than taken on an agent's paraphrase.

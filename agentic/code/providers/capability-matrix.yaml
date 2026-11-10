@@ -549,7 +549,7 @@ providers:
       scope: in
       identity: runtime-configured-only
       evidence: R
-      channel: "grok -p --output-format streaming-json; bounded parser + model/effort pinning"
+      channel: "grok -p --output-format streaming-json; 1.0.77 adds --no-auto-update; bounded parser (model/effort pins unverified by captures)"
       fanout: unknown
       probe_budget: { status: authorized, calls: 3, tokens: 30000, authorized_by: operator, authorized_at: "2026-10-07", hosts: [titan, noodle] }
       coverage:
@@ -560,35 +560,32 @@ providers:
           - "src/providers/grok-build-headless.ts"
     status: experimental
     # xAI Grok Build CLI/TUI. Distinct from Grok Bot (`grokbot`).
-    # #2577: fixture-backed native subagents and background tasks; see
-    # test/unit/providers/grok-build-provider.test.ts and
-    # test/unit/providers/grok-build-dispatch.test.ts. MCP is independently
-    # covered by test/unit/providers/grok-build-native-integration.test.ts.
-    # Headless and ACP protocol contracts are tested in grok-build-headless.test.ts
-    # and grok-build-acp.test.ts. ACP does not establish a daemon lifecycle.
-    # No fixture supports native cron, multi-agent teams, mission control,
-    # or AIWG behavior registration; those claims remain false.
+    # #2577: every claim and its limits are recorded in
+    # docs/providers/grok-build-native-agents.md (1.0.77 evidence table).
+    # Captured headless shapes: test/unit/providers/grok-build-headless.test.ts.
+    # Agent compilation, native fan-out/worktrees and ACP remain unverified by
+    # these captures; pre-existing synthetic tests establish AIWG behavior only.
     daemon_tier: unsupported
     daemon_pty_adapter: false
     artifact_paths:
-      agents: .grok/agents/  # qualified AIWG model workers only
+      agents: .grok/agents/  # writer path; native frontmatter unverified by captures
       commands: null
       skills: .grok/skills/
       skills_cross_agent: .grok/.aiwg/skills/  # --copy-all opt-in mirror
       rules: "Indexed: aiwg show rule + AGENTS.md / host .grok/rules (AIWG writer deferred #2577)"
       behaviors: null
     native_features:
-      cron: false
-      agent_teams: false # independent subagents do not imply native team orchestration
-      tasks: true        # native background subagents/tasks
-      mcp: true
-      behaviors: false
-      mission_control: false
-      daemon: false
+      cron: false          # unverified: needs recurring-loop execution capture
+      agent_teams: false   # unverified: needs team lifecycle capture
+      tasks: false         # unverified: headless tool calls do not prove background task lifecycle
+      mcp: true            # fixture-backed config only: grok-build-native-integration.test.ts; live MCP unverified
+      behaviors: false     # unverified: needs behavior registration/execution capture
+      mission_control: false # unverified: needs mission lifecycle capture
+      daemon: false        # unverified: ACP is separate and needs agent-stdio capture
     emulation:
       cron: null
       agent_teams: aiwg-mc
-      tasks: native
+      tasks: aiwg-mc
       mcp: null
       behaviors: aiwg-mc
       mission_control: aiwg-mc
