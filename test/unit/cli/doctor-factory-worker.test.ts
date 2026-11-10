@@ -93,7 +93,7 @@ it.each([true, false])('discovers BYOK settings before qualification and never r
   await writeFile(path.join(f.root, '.factory/settings.json'), JSON.stringify({ customModels: [{
     model: 'qwen/qwen3.8-27b', displayName: 'AIWG OpenRouter Qwen 3.8 27B',
     baseUrl: 'https://openrouter.ai/api/v1', provider: 'generic-chat-completion-api',
-    maxOutputTokens: 8192, apiKey: literal, api_key: literal,
+    maxOutputTokens: 8192, maxContextLimit: 131072, apiKey: literal, api_key: literal,
   }] }));
   const refreshed = refresh ? await f.run(['models', 'refresh', '--provider', 'factory', '--json'])
     : { code: 0, stdout: '', stderr: '' };
@@ -101,7 +101,7 @@ it.each([true, false])('discovers BYOK settings before qualification and never r
   const cache = refresh ? await readFile(path.join(f.root, '.cache/aiwg/model-catalog.v1.json'), 'utf8') : '';
   if (refresh) expect(JSON.parse(cache).discovery.providers.factory.models).toContainEqual(expect.objectContaining({
     id: model, apiModelId: model, llmProvider: 'openrouter', worker: expect.objectContaining({
-      runtimeVersion: '1.0.0', accountScope: 'synthetic-account', effortSupport: 'not-applicable',
+      runtimeVersion: '1.0.0', accountScope: 'synthetic-account', effortSupport: 'not-applicable', contextTokens: 131072,
     }),
   }));
   const result = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'factory', '--yes', '--json']);
@@ -116,6 +116,11 @@ it.each([true, false])('discovers BYOK settings before qualification and never r
   }
   const calls = (await readFile(path.join(f.root, 'fake-bin/calls.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
   expect(calls.every(args => args.join(' ') === '--version')).toBe(true);
+  const resolved = await f.resolve();
+  expect(resolved.code, resolved.stdout + resolved.stderr).toBe(0);
+  expect(JSON.parse(resolved.stdout).invocation).toMatchObject({ readiness: 'launchable',
+    selected: { model, effort: { support: 'not-applicable', value: null } } });
+  expect(resolved.stdout + resolved.stderr).not.toContain(literal);
   await rm(path.join(f.root, '.factory/settings.json'));
   const removed = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'factory', '--yes', '--json']);
   expect(removed.code).toBe(1);

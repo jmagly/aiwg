@@ -49,15 +49,43 @@ it('observes custom selectors with runtime provenance while preserving static pl
   expect(f.runner).toHaveBeenCalledOnce();
 });
 
+it.each([1, 131072, Number.MAX_SAFE_INTEGER])('records maxContextLimit %s as reported input context with provenance', async maxContextLimit => {
+  const f = await fixture([{ ...row, maxContextLimit }]);
+  const result = await f.refresh();
+  const observed = result.discovery!.providers.factory;
+  expect(observed.models[0].worker).toMatchObject({ contextTokens: maxContextLimit, maxOutputTokens: 8192 });
+  expect(observed.models[0].worker!.provenance).toContainEqual(expect.objectContaining({
+    source: `${join(f.root, '.factory/settings.json')}#/customModels/0`, kind: 'native', confidence: 'reported',
+    fields: expect.arrayContaining(['/contextTokens', '/contextTokens:maxContextLimit']),
+  }));
+  expect(validateWorkerCatalogDiscovery(result.discovery)).toEqual([]);
+  expect(JSON.parse(await readFile(f.cacheFile, 'utf8')).discovery.providers.factory.models[0].worker.contextTokens)
+    .toBe(maxContextLimit);
+});
+
+it('changes the evidence digest when the configured context limit changes or disappears', async () => {
+  const f = await fixture([]);
+  const digests: string[] = [];
+  for (const maxContextLimit of [131072, 262144, undefined]) {
+    await writeFile(join(f.root, '.factory/settings.json'), JSON.stringify({ customModels: [{ ...row, maxContextLimit }] }));
+    const observed = await discoverFactoryModels({ homeDir: f.root, runtimeVersion: '1.0.0',
+      now: () => new Date('2026-11-10T15:00:00Z') });
+    expect(observed.models[0].worker!.contextTokens).toBe(maxContextLimit ?? null);
+    digests.push(observed.models[0].worker!.evidenceDigest!);
+  }
+  expect(new Set(digests).size).toBe(3);
+});
+
 it.each(['apiKey', 'api_key'])('discards %s before observation and cache digests', async field => {
   const literal = 'synthetic-key-must-never-leave-config';
-  const f = await fixture([{ ...row, [field]: literal }]);
+  const configured = { ...row, maxContextLimit: 131072 };
+  const f = await fixture([{ ...configured, [field]: literal }]);
   const first = await f.refresh();
   expect(first.discovery!.providers.factory.models).toHaveLength(1);
   const text = await readFile(f.cacheFile, 'utf8');
   expect(JSON.stringify(first) + text).not.toContain(literal);
   expect(text).not.toMatch(/apiKey|api_key/);
-  await writeFile(join(f.root, '.factory/settings.json'), JSON.stringify({ customModels: [{ ...row, [field]: '${MISSING_SECRET}' }] }));
+  await writeFile(join(f.root, '.factory/settings.json'), JSON.stringify({ customModels: [{ ...configured, [field]: '${MISSING_SECRET}' }] }));
   const second = await f.refresh();
   expect(second.discovery!.providers.factory.models[0].worker!.evidenceDigest)
     .toBe(first.discovery!.providers.factory.models[0].worker!.evidenceDigest);
@@ -121,6 +149,12 @@ it.each([
   ['padded name', { displayName: ' padded ' }], ['control in name', { displayName: 'bad\u0000name' }],
   ['non-string provider', { provider: null }],
   ['fractional limit', { maxOutputTokens: 1.5 }], ['zero limit', { maxOutputTokens: 0 }],
+  ['null context limit', { maxContextLimit: null }], ['string context limit', { maxContextLimit: '131072' }],
+  ['boolean context limit', { maxContextLimit: true }], ['object context limit', { maxContextLimit: {} }],
+  ['array context limit', { maxContextLimit: [] }], ['zero context limit', { maxContextLimit: 0 }],
+  ['negative context limit', { maxContextLimit: -1 }], ['fractional context limit', { maxContextLimit: 1.5 }],
+  ['unsafe context limit', { maxContextLimit: Number.MAX_SAFE_INTEGER + 1 }],
+  ['overflowing context limit', { maxContextLimit: 1e100 }],
 ] as const)('rejects %s with an indexed diagnostic while preserving valid siblings', async (_label, patch) => {
   const invalid = patch && typeof patch === 'object' && !Array.isArray(patch) ? { ...row, ...patch } : patch;
   const f = await fixture([row, invalid]);

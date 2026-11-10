@@ -42,15 +42,29 @@ This does not change the direct-worker profile's qualification status.
 
 ### Local custom-model discovery
 
+> Make my Factory BYOK model ready for worker selection. Check its documented
+> input context limit and configure my coding role for models without selectable
+> reasoning effort, then show me the resolved worker command.
+
 `aiwg models refresh` discovers BYOK models from `$HOME/.factory/settings.json`
 without a model turn or endpoint request. AIWG bounds the file read and parses
 only `customModels` model-selection fields: `model`, `displayName`, `baseUrl`,
-`provider` and `maxOutputTokens`. Credential fields (`apiKey`, `api_key`) are
+`provider`, `maxOutputTokens` and `maxContextLimit`. Credential fields (`apiKey`, `api_key`) are
 dropped during parsing: their values are never inspected, expanded, hashed,
 logged or included in observations, caches, doctor output or approval receipts.
 Discovery does not check whether a key exists or works. Keep using secure
 environment injection as described above. `settings.json` is the locally
 documented custom-model source; no undocumented `config.json` fallback is used.
+
+Set `maxContextLimit` in Droid's custom model entry before using
+`aiwg models resolve`. Factory's [BYOK documentation](https://docs.factory.com/cli/byok/overview)
+defines it as the input-token context window. If the provider's window also
+counts output tokens, set it to that window minus `maxOutputTokens`. AIWG
+records the configured positive safe integer directly as `contextTokens`, with
+settings provenance; it does not subtract output tokens again. If omitted,
+`contextTokens` stays null and resolve blocks with `OG_MODEL_UNAPPROVED` at
+`/worker/contextTokens`, even after the worker qualifies. Invalid limits reject
+that model entry. Refresh the catalog after changing the setting.
 
 For the verified display-name form, Droid's selector is `custom:` followed by
 the display name with spaces replaced by hyphens. For example,
@@ -69,10 +83,13 @@ Refresh binds a single configured Factory installation's accountScope label;
 settings using the targeted installation's probed version and configured
 accountScope (default `local-account`). Approval remains an explicit doctor
 step. Labels do not detect login changes or prove account entitlement. BYOK
-effort is `not-applicable`; use role guidance with `initialEffort: null`,
-`effortLadder: []` and `allowNotApplicableEffort: true`. The custom invocation
+effort is `not-applicable`; in `models.json`, set
+`defaults.workerSelection.roleGuidance.<role>` for the role that selects these
+models to `initialEffort: null`, `effortLadder: []` and
+`allowNotApplicableEffort: true`. The custom invocation
 omits `-r` rather than claiming it enforces reasoning effort. Other unknown
-facts, including context size and data-use policy, remain unknown.
+facts, including data-use policy and context size when no limit is configured,
+remain unknown.
 
 Built-in Factory plan models have no non-interactive listing command. Their
 static catalog pins remain available and are never promoted to observations
