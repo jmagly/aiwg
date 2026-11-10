@@ -3,6 +3,7 @@ import { boundedSpawnSync } from '../../src/process/bounded-child-process.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { AiwgFortemiRecord } from '../../src/artifacts/browser-export.js';
 import { assertContract, assertRuleBytes, boundRuleFixture, bundles, kinds } from '../helpers/bound-rule-surfaces.js';
 
 const root = path.resolve(import.meta.dirname, '../..');
@@ -25,6 +26,12 @@ describe('shipped relationship tables', () => {
       const filename = JSON.parse(pack.stdout)[0].filename;
       const unpack = boundedSpawnSync('tar', ['-xzf', path.join(tmp, filename), '-C', tmp], 'long', { encoding: 'utf8' });
       expect(unpack.status, unpack.stderr).toBe(0);
+      const exported = JSON.parse(fs.readFileSync(path.join(installed,
+        'prebuilt/fortemi-core/framework/aiwg-fortemi-index-v2.json'), 'utf8'));
+      const templates = (exported.items as AiwgFortemiRecord[]).filter(item => item.search?.type === 'template');
+      expect(templates.length).toBeGreaterThan(100);
+      expect(templates.filter(item => !item.search?.capability?.trim()
+        || /\{\{[^}]*\}\}|^\s*#/.test(item.search.capability)).map(item => item.source.path)).toEqual([]);
       // Offline runtime dependencies; package contents come from the packed manifest above.
       fs.symlinkSync(path.join(root, 'node_modules'), path.join(installed, 'node_modules'), 'dir');
       const data = path.join(tmp, 'data');
@@ -62,6 +69,14 @@ describe('shipped relationship tables', () => {
       const found = cli(['discover', 'post a status update on an issue']).results.find((item: any) => item.name === 'issue-update');
       expect(found.templates).toHaveLength(3);
       expect(found.templates[0].show_command).toMatch(/^aiwg show template /);
+      const handoff = cli(['show', 'template', 'checkpoint-handoff']);
+      expect(handoff.description).toContain('aiwg checkpoint create --handoff');
+      expect(handoff.description).not.toContain('{{');
+      const handoffText = cli(['show', 'template', 'checkpoint-handoff'], false);
+      expect(handoffText).toContain('aiwg checkpoint create --handoff');
+      const discoveredHandoff = cli(['discover', 'session handoff']).results
+        .find((item: any) => item.name === 'checkpoint-handoff');
+      expect(discoveredHandoff.capability).toBe(handoff.description);
       const files = fs.readdirSync(data, { recursive: true }).map(String);
       expect(files.some(file => file.endsWith('metadata.json'))).toBe(false);
     } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
