@@ -373,6 +373,7 @@
     "providers/antigravity",
     "providers/deepseek-harness",
     "providers/deepseek-harness-sessions",
+    "providers/grok-build-sessions",
     "providers/omp",
     "providers/omp-verification",
     "providers/omp-sessions",
@@ -2918,6 +2919,13 @@
       "title": "DeepSeek Harness Session Import",
       "summary": "Authorized, bounded import of native raw session-v2 JSONL",
       "file": "providers/deepseek-harness-sessions.md",
+      "parent": "providers"
+    },
+    {
+      "id": "providers/grok-build-sessions",
+      "title": "Grok Build Session Ingestion",
+      "summary": "CLI exports and exact-version native resume, lineage and compaction imports",
+      "file": "providers/grok-build-sessions.md",
       "parent": "providers"
     },
     {

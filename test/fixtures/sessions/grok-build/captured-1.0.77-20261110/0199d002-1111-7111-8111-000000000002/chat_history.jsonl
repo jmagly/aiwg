@@ -1,0 +1,8 @@
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted context."}],"synthetic_reason":"system_reminder"}
+{"type":"user","content":[{"type":"text","text":"<user_query>\nReply with exactly the word ALPHA.\n</user_query>"}],"prompt_index":0}
+{"type":"assistant","content":"ALPHA","model_id":"grok-4.6-build","reasoning_effort":"high"}
+{"type":"user","content":[{"type":"text","text":"<user_query>\nWhat word did you reply with before? Reply with that word and then BETA.\n</user_query>"}],"prompt_index":1}
+{"type":"assistant","content":"ALPHA BETA","model_id":"grok-4.6-build","reasoning_effort":"high"}
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted context."}],"synthetic_reason":"system_reminder"}
+{"type":"user","content":[{"type":"text","text":"<user_query>\nReply with exactly GAMMA.\n</user_query>"}],"prompt_index":2}
+{"type":"assistant","content":"GAMMA","model_id":"grok-4.6-build","reasoning_effort":"high"}

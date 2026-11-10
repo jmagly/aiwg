@@ -1,4 +1,5 @@
 // Bounded native projection pinned to the captured Grok Build 1.0.77 store.
+import { createHash } from 'node:crypto';
 import { lstat, opendir, readFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, parse, resolve } from 'node:path';
 import { z } from 'zod';
@@ -20,7 +21,7 @@ import {
   type ReaderLimits,
 } from '../readers.js';
 
-import { nativeDrift, parseNativeSummary, projectNativeLine, nativeProjectionRecord, type NativeProjection } from './grok-build-native-records.js';
+import { nativeDrift, parseNativeSummary, projectNativeLine, nativeProjectionRecord, projectNativeUpdate, type NativeProjection, type NativeMetadata, type NativeLineage } from './grok-build-native-records.js';
 
 export const GROK_BUILD_NATIVE_SCHEMA_VERSION = '1.0.0';
 export const GROK_BUILD_NATIVE_SCHEMA_MAJOR = 1;
@@ -177,13 +178,17 @@ export async function readGrokBuildNativeChatHistory(
   }, limits);
   let metadata: unknown;
   try { metadata = JSON.parse(summary.value); } catch { nativeDrift(); }
-  const sessionMetadata = parseNativeSummary(metadata, sessionId, cwd);
+  const sessionMetadata: NativeMetadata = parseNativeSummary(metadata, sessionId, cwd);
+  const subagents = await readNativeSubagents(source, sessionId, limits);
+  if (subagents.length) sessionMetadata.lineage = { ...sessionMetadata.lineage, subagents };
   const input = await streamBoundedJsonLines({ selectedPath: source.locator, allowedRoots: source.authorizedScope.allowedRoots }, { consistency: 'complete', limits });
   const records: Array<{ record: NativeProjection; line: BoundedJsonRecord }> = [];
   const calls = new Set<string>();
   const results = new Set<string>();
   let promptIndex = -1;
+  let compacted = false;
   for await (const line of input) {
+    if ((line.value as { synthetic_reason?: string } | null)?.synthetic_reason === 'compaction_meta') compacted = true;
     const projected = projectNativeLine(line, cwd, sessionMetadata);
     const raw = line.value as { prompt_index?: number };
     if (raw.prompt_index !== undefined) {
@@ -203,8 +208,108 @@ export async function readGrokBuildNativeChatHistory(
       records.push(entry);
     }
   }
+  const updates = await readNativeUpdates(source, sessionId, cwd, sessionMetadata, records, compacted, limits);
+  if (updates) return { records: updates, incompleteTail: false };
   if (records.length === 0) throw new SessionContractError('MALFORMED_SOURCE', 'Grok Build native chat history is empty; use `grok export <session-id> <session-id>.md`.');
   return { records, incompleteTail: input.incompleteTail };
+}
+
+/** Read optional siblings with the same bounded authorization and symlink policy. */
+async function nativeSibling(source: SelectedSource, path: string, limits?: Partial<ReaderLimits>) {
+  try { await rejectNativeSymlinks(path); } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+  const input = await readBoundedText({ selectedPath: path, allowedRoots: source.authorizedScope.allowedRoots }, limits);
+  try { return JSON.parse(input.value) as unknown; } catch { nativeDrift(); }
+}
+const subagentSchema = z.looseObject({
+  subagent_id: z.string().uuid(), parent_session_id: z.string().uuid().optional(),
+  child_session_id: z.string().uuid().optional(), status: z.enum(['running', 'completed', 'cancelled', 'failed']).optional(),
+});
+const outputSchema = z.strictObject({ schema_version: z.literal(1), output: z.string() });
+async function readNativeSubagents(source: SelectedSource, sessionId: string, limits?: Partial<ReaderLimits>) {
+  const path = resolve(dirname(source.locator), 'subagents');
+  try { await rejectNativeSymlinks(path); } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
+  const directory = await opendir(path);
+  const names: string[] = [];
+  for await (const entry of directory) {
+    if (!UUID.test(entry.name)) nativeDrift();
+    if (entry.isSymbolicLink()) throw new SessionContractError('SOURCE_SYMLINK', 'Grok Build subagent paths cannot contain symlinks');
+    if (!entry.isDirectory()) nativeDrift();
+    if (names.length >= (limits?.maxRecords ?? GROK_BUILD_NATIVE_DISCOVERY_MAX_FILES)) {
+      throw new SessionContractError('RESOURCE_LIMIT_EXCEEDED', 'Grok Build subagent metadata exceeds maxRecords');
+    }
+    names.push(entry.name);
+  }
+  const subagents: NonNullable<NativeLineage['subagents']> = [];
+  for (const name of names.sort()) {
+    const meta = subagentSchema.safeParse(await nativeSibling(source, resolve(path, name, 'meta.json'), limits));
+    if (!meta.success || meta.data.subagent_id.toLowerCase() !== name.toLowerCase()
+      || (meta.data.parent_session_id !== undefined && meta.data.parent_session_id.toLowerCase() !== sessionId)
+      || meta.data.child_session_id?.toLowerCase() === sessionId) nativeDrift();
+    const value = await nativeSibling(source, resolve(path, name, 'output.json'), limits);
+    const output = value === undefined ? undefined : outputSchema.safeParse(value);
+    if (output && !output.success) nativeDrift();
+    subagents.push({ subagentId: meta.data.subagent_id.toLowerCase(),
+      ...(meta.data.parent_session_id ? { parentSessionId: meta.data.parent_session_id.toLowerCase() } : {}),
+      ...(meta.data.child_session_id ? { childSessionId: meta.data.child_session_id.toLowerCase() } : {}),
+      ...(meta.data.status ? { status: meta.data.status } : {}),
+      ...(output?.success ? { output: output.data.output } : {}) });
+  }
+  return subagents;
+}
+async function readNativeUpdates(
+  source: SelectedSource, sessionId: string, cwd: string, metadata: NativeMetadata,
+  history: Array<{ record: NativeProjection; line: BoundedJsonRecord }>, compacted: boolean, limits?: Partial<ReaderLimits>,
+) {
+  const path = resolve(dirname(source.locator), 'updates.jsonl');
+  try { await rejectNativeSymlinks(path); } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      // A compacted history alone cannot recover the removed turns.
+      if (compacted) nativeDrift();
+      return null;
+    }
+    throw error;
+  }
+  const input = await streamBoundedJsonLines({ selectedPath: path, allowedRoots: source.authorizedScope.allowedRoots }, { consistency: 'complete', limits });
+  const records: Array<{ record: NativeProjection; line: BoundedJsonRecord }> = [];
+  let hasTools = history.some(entry => entry.record.kind !== 'message');
+  let hasCompaction = false;
+  let nextPromptIndex = 0;
+  for await (const line of input) {
+    const entry = projectNativeUpdate(line, sessionId, cwd, metadata);
+    const type = (line.value as { params: { update: { sessionUpdate: string } } }).params.update.sessionUpdate;
+    if (type === 'user_message_chunk') {
+      const meta = (line.value as { params: { update: { _meta?: { hostTurn?: boolean; promptIndex?: number } } } }).params.update._meta;
+      if (!meta?.hostTurn) {
+        if (meta?.promptIndex !== nextPromptIndex) nativeDrift();
+        nextPromptIndex += 1;
+      }
+    }
+    if (type === 'tool_call' || type === 'tool_call_update') hasTools = true;
+    if (entry) {
+      if (entry.record.kind === 'compaction') hasCompaction = true;
+      records.push(entry);
+    }
+  }
+  // Compacted tool histories need a qualified update-tool projection; never drop calls.
+  if ((compacted && (!hasCompaction || nextPromptIndex === 0)) || (hasTools && (compacted || hasCompaction))) nativeDrift();
+  return hasTools || !records.length ? null : records;
+}
+
+/** Hash only stable source evidence, excluding mutable summary and subagent status. */
+export function nativeRecordPrefixes(records: Array<{ record: NativeProjection; line: BoundedJsonRecord }>): string[] {
+  const hash = createHash('sha256');
+  const prefixes = [hash.copy().digest('hex')];
+  for (const { record, line } of records) {
+    hash.update(JSON.stringify([record.sequence, record.kind, record.acquisition, line.value]) + '\n');
+    prefixes.push(hash.copy().digest('hex'));
+  }
+  return prefixes;
 }
 
 /** Authorize native identity/path before a caller may use the CLI fallback. */

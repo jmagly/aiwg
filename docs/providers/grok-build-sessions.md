@@ -36,8 +36,8 @@ headings or malformed blocks fail with `MALFORMED_SOURCE` or `SCHEMA_DRIFT`.
 Message Markdown can resemble section headings; retain rejected exports for
 review rather than guessing their structure. Replaying the same source is
 deterministic; the existing importer uses stable identities and checkpoints
-for idempotent import. Adapter version 1.1.0 separates the captured native
-projection from the previous synthetic reader's checkpoints.
+for idempotent import. Adapter version 1.2.0 separates the extended native projection and checked
+cursors from older checkpoints; use a separate source when migrating.
 
 **The CLI export omits tool output.** It also omits event timestamps, model,
 Grok version, cwd, compaction, parent/child lineage, subagents, attachments and
@@ -54,7 +54,8 @@ those would further increase privacy exposure and requires ownership evidence.
 
 ## Experimental native projection: exact 1.0.77 only
 
-The 2026-11-09 Grok Build 1.0.77 capture establishes a TUI store layout of
+The 2026-11-09 interactive and 2026-11-10 headless/ACP captures of Grok Build
+1.0.77 establish the store layout of
 `$GROK_HOME/sessions/<url-encoded cwd>/<session-id>/`. Direct reads remain
 experimental and require **both** variables for every discovery/import/refresh
 or tail operation:
@@ -76,15 +77,58 @@ session ID/cwd and `chat_format_version: 1`.
 The reader projects observed text user/assistant records, assistant tool calls
 and `tool_result` records from `chat_history.jsonl`. Per-record model IDs are
 preserved when present; cwd, the pinned version, session creation/update times
-and the summary current model ID are recorded in provenance. Session timestamp
-epoch milliseconds survive existing string/path redaction; raw cwd and timestamp
-strings remain subject to that privacy policy.
-No per-event timestamp is exposed by these captured records. Stable event IDs
-come from source positions, not invented provider IDs. System content, synthetic
-system reminders and reasoning records are omitted with a provenance loss
-report. No attachment, snapshot, events, updates, resource-state or credential
-files are opened. Partial trailing JSON and corrupt complete records both fail closed; live
-partial-store semantics have not been captured.
+and the summary current model ID are recorded in provenance. Explicit
+`summary.json` `session_kind` values become provenance `sessionKind`. The
+interactive 2026-11-09 and ACP summaries omit that field; their kind remains
+unknown. Absence is never converted to `interactive` or `headless`.
+
+Session timestamp epoch milliseconds survive existing string/path redaction;
+raw cwd and timestamp strings remain subject to that privacy policy. Native chat
+records expose no per-event timestamp. Stable event IDs use source positions,
+without claiming provider event IDs. System content, synthetic system reminders,
+compaction context and encrypted reasoning are excluded with a loss report.
+Attachment, snapshot, resource-state and credential files are never opened.
+
+### Resume, fork and subagent lineage
+
+Same-ID resumes append turns to the existing session. Forks preserve the explicit
+`parent_session_id` and `forked_at` as `lineage.parentSessionId` and
+`lineage.forkedAt`, including copied history under the new session identity.
+Lineage survives normalization on both events and session extensions.
+
+The reader also authorizes bounded, symlink-checked
+`subagents/<uuid>/meta.json` and optional `output.json` siblings. It records a
+sorted `lineage.subagents` list on the parent, retaining only exposed subagent,
+parent and child IDs, status and output. Child session directories are discovered
+normally. Their captured summaries omit parent IDs; the relationship remains on
+the parent's metadata rather than being invented on the child. Missing output
+or optional metadata fields stay absent; a missing/malformed `meta.json` fails
+closed. Subagent output can contain private file contents and receives the
+existing content redaction policy on normalized extensions.
+
+### Compaction and checkpoints
+
+Compaction rewrites `chat_history.jsonl` with `compaction_meta` context. For
+text-only sessions with a sibling `updates.jsonl`, AIWG projects the retained
+`user_message_chunk` and `agent_message_chunk` records from that log, including
+`/compact`. It uses this projection before and after compaction so original turns
+keep their identities. It never combines those turns with the shortened chat
+history. Streaming chunks remain separate events. Exposed update timestamps and
+model IDs are retained; none are inferred for missing fields.
+
+`auto_compact_completed` becomes one `compaction` event with token counts in
+its extensions. Known housekeeping/thought updates are excluded. Checkpoints
+validate a digest of the retained projected prefix, independent of mutable
+summary metadata; appending turns resumes once, and changed or truncated
+projected history fails with `SCHEMA_DRIFT`. The adapter treats the primary
+history file as a snapshot because compaction can rewrite or replace it.
+
+A compacted history without the retained update log fails closed, as does a
+compacted tool session: the supplied compaction capture qualifies text turns
+only. Uncompacted tool sessions retain the chat projection. Truncated JSON,
+unknown chat/update types, invalid lineage and missing `summary.json` fail with
+`SCHEMA_DRIFT`; use `grok export <session-id> <session-id>.md` for review/import.
+No partial tail is silently imported.
 
 An unknown native record or changed summary format fails closed. Explicit CLI
 imports with the experimental opt-in automatically fall back to bounded public
@@ -95,8 +139,9 @@ owner-only export is removed after validation/import, and provenance records
 `nativeFallback: true` and the CLI tool-output limitation. Unknown CLI output
 still fails with `SCHEMA_DRIFT`.
 
-Fallback checkpoints use a separate `grok-cli:` cursor so replay retains CLI
-acquisition. An existing native checkpoint rejects an acquisition change with
+Export checkpoints validate the transcript prefix with a `grok-export:` cursor.
+Fallback checkpoints use a separate `grok-cli:` prefix with the same digest check
+so replay retains CLI acquisition. An existing native checkpoint rejects an acquisition change with
 `SCHEMA_DRIFT`; restart using a separate CLI export source. Direct adapter API
 callers supply CLI options to enable automatic fallback; otherwise the error
 provides the explicit export/import route.
@@ -110,13 +155,19 @@ projections of the supplied released-binary captures. System prompt text, local
 paths, user/host identifiers and session/request/tool IDs are removed or replaced.
 Public harness revision: `4247f661689354b831191f11eeeac8424993fe3d`.
 
-The earlier `coverage.json` describes synthetic loss assertions only. Real TUI
-CLI/native text/tool shapes and headless result/stream envelopes are covered.
-ACP, compaction, resumed/forked lineage, subagents, attachment/snapshot ownership,
-Windows paths, native headless stores, active registry and cross-version drift
-still need captures. Synthetic partial/corrupt mutations test rejection; no
-capture of a live interrupted/corrupted native store was supplied. None of these
-missing scenarios is claimed qualified by the 1.0.77 text/tool projection.
+The earlier `coverage.json` describes synthetic loss assertions only. The
+[captured-1.0.77-20261110 fixtures](../../test/fixtures/sessions/grok-build/captured-1.0.77-20261110/README.md)
+add headless same-ID resumes, fork metadata, two subagent metadata/output pairs
+with separate child stores, and ACP-backed compaction with retained turns and
+recall. Regression tests exercise deterministic replay, repository checkpoints,
+and sanitized partial/corrupt mutations. These mutations are not captures of a
+live corrupted store.
+
+Deferred: TUI-only features not captured, attachments and snapshot ownership,
+compaction involving tools, Windows paths, native active registry and
+cross-version drift. The absence of session kind or child-summary parent fields
+is recorded as missing evidence, not filled from transcript prose. ACP transport
+setup, cancellation and worktree management are outside session-store ingestion.
 
 Reference contracts: [sessions](https://docs.x.ai/build/features/sessions) and
 [headless scripting](https://docs.x.ai/build/cli/headless-scripting). This change
