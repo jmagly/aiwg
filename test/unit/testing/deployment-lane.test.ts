@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs';
+import fs, { readFileSync } from 'node:fs';
+import os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -8,6 +10,7 @@ import packaging from '../../../config/vitest.packaging.config.js';
 import releaseSlow from '../../../config/vitest.release-slow.config.js';
 import uatConfig from '../../../config/vitest.uat.config.js';
 import { deploymentFiles, deploymentShards, packagingFiles, releaseSlowFiles } from '../../../config/test-lanes.mjs';
+import { bundleReconciliationSource } from '../../helpers/bundle-reconciliation-source.js';
 
 const root = path.resolve(import.meta.dirname, '../../..');
 
@@ -43,6 +46,7 @@ describe('required provider deployment lane', () => {
       'test/integration/guided-setup-walkthrough.test.ts',
       'test/integration/remove-deployment.test.ts',
       'test/integration/bundle-reconciliation-cli.test.ts',
+      'test/integration/bundle-reconciliation-codex-cli.test.ts',
       'test/integration/refresh-managed-deployment.test.ts',
       'test/integration/harness-bootstrap-audit.test.ts',
     ]);
@@ -71,6 +75,41 @@ describe('required provider deployment lane', () => {
     expect(deploymentLaneFiles('2')).toEqual(deploymentShards[1]);
     for (const invalid of ['0', '3', 'x', '1.5']) {
       expect(() => deploymentLaneFiles(invalid)).toThrow(/AIWG_DEPLOYMENT_SHARD must be 1-2/);
+    }
+  });
+
+  it('keeps the expensive provider reconciliation suites on different shards (#4063)', () => {
+    const files = ['bundle-reconciliation-cli', 'bundle-reconciliation-codex-cli']
+      .map(name => `test/integration/${name}.test.ts`);
+    const shards = files.map(file => deploymentShards.findIndex(shard => shard.includes(file)));
+    expect(shards.every(index => index >= 0)).toBe(true);
+    expect(new Set(shards).size).toBe(2);
+  });
+
+  it.each([false, true])('isolates unrelated doctor probes from reconciliation (full corpus: %s)', fullCorpus => {
+    const source = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-reconciliation-fixture-'));
+    let fixture: string | undefined;
+    try {
+      for (const dir of ['agentic/code/addons/ordinary', 'agentic/code/extensions/last', 'tools/cli']) {
+        fs.mkdirSync(path.join(source, dir), { recursive: true });
+      }
+      const manifest = 'agentic/code/addons/ordinary/manifest.json';
+      fs.writeFileSync(path.join(source, manifest), '{"id":"ordinary"}\n');
+      fs.writeFileSync(path.join(source, 'agentic/code/extensions/last/manifest.json'), '{}');
+      fs.writeFileSync(path.join(source, 'package.json'), '{"name":"aiwg"}');
+      const doctor = 'tools/cli/doctor.mjs';
+      const original = 'throw new Error("unrelated discovery probe executed");\n';
+      fs.writeFileSync(path.join(source, doctor), original);
+      fixture = bundleReconciliationSource(source, fullCorpus);
+      expect(fs.readFileSync(path.join(source, doctor), 'utf8')).toBe(original);
+      expect(execFileSync(process.execPath, [path.join(fixture, doctor)], {
+        encoding: 'utf8', timeout: 10_000,
+      })).toContain('Reconciliation fixture: doctor covered separately');
+      expect(JSON.parse(fs.readFileSync(path.join(fixture, manifest), 'utf8')).explicitInstall)
+        .toBe(fullCorpus ? undefined : true);
+    } finally {
+      if (fixture) fs.rmSync(fixture, { recursive: true, force: true });
+      fs.rmSync(source, { recursive: true, force: true });
     }
   });
 
