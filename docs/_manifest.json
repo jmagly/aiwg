@@ -197,6 +197,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.11.4-announcement",
     "releases/v2026.11.3-announcement",
     "releases/v2026.11.2-announcement",
     "releases/v2026.11.1-announcement",
@@ -1686,6 +1687,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.11.4-announcement",
+      "title": "v2026.11.4 — Save Approvals and Work Across More AI Tools",
+      "summary": "Saved approvals with confirmed scopes, Windows fixes from @GoryGrey, a Grok Build preview, and more reliable AI tool setup and discovery.",
+      "file": "releases/v2026.11.4-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.11.3-announcement",
