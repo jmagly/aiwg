@@ -1,2 +1,2 @@
-{"schemaVersion":1,"sessionId":"0199b222-2222-7222-8222-222222222222","seq":0,"role":"user","content":"Second synthetic session.","timestamp":1785153700}
-{"schemaVersion":1,"sessionId":"0199b222-2222-7222-8222-222222222222","seq":1,"role":"assistant","content":"Acknowledged.","timestamp":1785153701}
+{"type": "user", "content": [{"type": "text", "text": "Second synthetic session."}], "prompt_index": 0}
+{"type": "assistant", "content": "Acknowledged.", "model_id": "grok-4.7-build"}

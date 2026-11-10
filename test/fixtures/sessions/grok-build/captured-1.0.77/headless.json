@@ -1,0 +1,29 @@
+{
+  "text": "Synthetic response.",
+  "stopReason": "cancelled",
+  "sessionId": "0199c111-1111-7111-8111-111111111111",
+  "requestId": "request-fixture",
+  "cwd": "/synthetic/workspace",
+  "thought": "",
+  "usage": {
+    "input_tokens": 17741,
+    "cache_read_input_tokens": 36096,
+    "cache_creation_input_tokens": 0,
+    "output_tokens": 1165,
+    "reasoning_tokens": 930,
+    "total_tokens": 55002
+  },
+  "num_turns": 2,
+  "total_cost_usd": 0.0205768,
+  "total_cost_usd_ticks": 205768000,
+  "modelUsage": {
+    "grok-4.7-build": {
+      "inputTokens": 17741,
+      "outputTokens": 1165,
+      "cacheReadInputTokens": 36096,
+      "cacheCreationInputTokens": 0,
+      "modelCalls": 2,
+      "costUSD": 0.0205768
+    }
+  }
+}

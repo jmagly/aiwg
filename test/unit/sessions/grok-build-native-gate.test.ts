@@ -85,7 +85,7 @@ it('reports why workspace discovery needs CLI export even with an authorized nat
 
 it('enables the existing synthetic fixture only with opt-in and blocks reads after revocation', async () => {
   const adapter = new GrokBuildSessionAdapter();
-  vi.stubEnv(optIn, '1');
+  vi.stubEnv(optIn, '1'); vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.77');
   expect(adapter.supportedOperations).toEqual(['discover', 'inspect', 'stream']);
   expect(adapter.acquisitionModes).toEqual(['manual-export', 'jsonl']);
   expect(await collect(adapter.stream(source))).toHaveLength(4);

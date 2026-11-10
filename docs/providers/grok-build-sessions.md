@@ -1,19 +1,9 @@
 # Grok Build session ingestion
 
-> "Find my Grok Build sessions for this workspace, export the session I choose,
-> and import its transcript into AIWG. Explain what the export leaves out."
+AIWG registers `grok-build` separately from `grokbot`. Prefer Grok Build's public
+CLI for workspace discovery and transcript export:
 
-The assistant can use the documented CLI path below. Native storage ingestion
-is experimental, unqualified, and disabled by default. No released Grok Build
-version is qualified for native ingestion. AIWG registers `grok-build`
-separately from `grokbot`.
-
-## Command reference: documented CLI export
-
-The `sessions` command can call the public Grok Build CLI and return only session
-IDs, keeping private titles, prompt snippets, and CLI diagnostics out of its JSON response:
-
-```bash
+```sh
 aiwg sessions grok-list --workspace "$PWD" --json
 aiwg sessions grok-search "query" --workspace "$PWD" --json
 aiwg sessions grok-export <session-id> --workspace "$PWD" --out /authorized/exports
@@ -21,117 +11,113 @@ aiwg sessions import /authorized/exports/<session-id>.md \
   --provider grok-build --source-id grok-build-<session-id> --workspace "$PWD"
 ```
 
-The commands invoke `grok --no-auto-update` without a shell, cap output at 2 MB
-and execution at 15 seconds, reject unsafe or symlinked `$GROK_HOME` and output
-roots, and never overwrite an existing export. `--grok-bin` accepts an absolute
-operator-selected executable path. The export is written with owner-only file
-permissions. CLI listing/search remains Grok's workspace-scoped behavior;
-AIWG does not inspect its native session store on this path.
+These routes call `grok --no-auto-update sessions list`, `sessions search
+<query>`, and `export <id>`, without a shell or model invocation. They honor
+`$GROK_HOME` (default `~/.grok`), reject unsafe roots and symlink components, bound
+execution to 15 seconds and output to 2 MB, and return only session IDs from
+list/search. `--grok-bin` selects an absolute executable. Exports use exclusive,
+owner-only `<session-id>.md` files; existing files are never overwritten.
+AIWG never reads Grok Bot or Cursor stores through this adapter.
 
-For a session ID from a separately captured headless run, use `aiwg sessions
-grok-id <file> --format json|streaming-json`. It reads a bounded regular file,
-requires one consistent UUID `sessionId`, and returns only the ID. It does not
-run a prompt or include headless response content in its output.
+To extract an ID from an already captured headless run, use `aiwg sessions
+grok-id <file> --format json|streaming-json`. This reads a bounded regular file
+and validates the captured output grammar and one consistent UUID. It does not
+run a prompt. Unknown list/search rows, result envelopes or streaming event
+types fail closed with `SCHEMA_DRIFT`; inspect the CLI version before retrying.
+The captured stream has `available_commands`, `text`, `thought`, `usage`,
+`tool_call`, `tool_call_update`, and a final `end` event carrying the session ID.
 
-Equivalent direct Grok CLI commands are:
+## CLI export and privacy
 
-```bash
-grok sessions list
-grok sessions search "query"
-grok export <session-id> <session-id>.md
-```
+`grok export <id> <file>` produces Markdown with exact `## User`, `## Assistant`,
+and `## Tools` sections. AIWG imports prompts, assistant output, and tool command
+summaries, including multiline commands. Keep the UUID as the filename. Unknown
+headings or malformed blocks fail with `MALFORMED_SOURCE` or `SCHEMA_DRIFT`.
+Message Markdown can resemble section headings; retain rejected exports for
+review rather than guessing their structure. Replaying the same source is
+deterministic; the existing importer uses stable identities and checkpoints
+for idempotent import. Adapter version 1.1.0 separates the captured native
+projection from the previous synthetic reader's checkpoints.
 
-Keep the UUID session ID as the export filename. AIWG uses it as native
-identity, parses only the documented CLI Markdown headings (`User`,
-`Assistant`, and `Tools`), and fails with `MALFORMED_SOURCE` or `SCHEMA_DRIFT`
-when the filename or export shape changes. Reimporting the same file is
-deterministic and idempotent. Unknown top-level `##` headings and malformed or
-oversized tool blocks fail closed before a CLI export is written or imported.
-Because raw message text can itself contain Markdown headings, this
-conservative check can reject a legitimate transcript; retain the original
-export for review rather than silently treating an unfamiliar section as data.
+**The CLI export omits tool output.** It also omits event timestamps, model,
+Grok version, cwd, compaction, parent/child lineage, subagents, attachments and
+snapshots. AIWG records these limits in `native.grok-build` provenance and leaves
+unavailable fields unknown. A durable `toolOutputAvailable: false` flag records
+the CLI omission even after metadata redaction. AIWG does not infer lineage from
+transcript prose.
 
-Grok Build resolves its own storage under `$GROK_HOME/sessions` (default
-`~/.grok/sessions`). AIWG does not read that tree by default. Use `grok sessions
-list` or `search` for discovery and `grok export` for acquisition. Experimental
-native access requires the separate opt-in and explicit roots below; it does
-not follow session-store symlink escapes or inspect Grok Bot and Cursor stores.
+Imported sessions can contain private prompts, tool commands, file content,
+source code, secrets, attachment names and local paths. Native tool results can
+contain complete file contents. Review sources before import and restrict root
+authorization. AIWG does not import attachment or file-snapshot bytes; acquiring
+those would further increase privacy exposure and requires ownership evidence.
 
-## Export limits and privacy
+## Experimental native projection: exact 1.0.77 only
 
-The CLI Markdown export contains prompts, assistant output, and compact tool
-call summaries. It does not expose timestamps, model or Grok version, working
-directory, tool results, compaction records, parent/child lineage, subagent
-records, attachments, or file snapshots. AIWG leaves those fields unknown and
-records the loss in `native.grok-build` provenance; it does not infer them.
-
-Prompts, assistant output, tool summaries, attachment names, and file paths can
-still contain private source code, personal data, secrets, or workspace
-structure. Review the Markdown before importing it and authorize only its
-containing directory. Native snapshots and tool output would increase that
-privacy exposure substantially. The experimental reader imports native message
-content, including tool output, so review the source before opting in. It does
-not acquire attachment bytes or file snapshots and does not claim to qualify
-their ownership or compaction, lineage, or subagent semantics.
-
-## Verification evidence
-
-The conformance fixtures under `test/fixtures/sessions/grok-build/` are
-sanitized synthetic CLI Markdown projections aligned to public harness revision
-`4247f661689354b831191f11eeeac8424993fe3d`. Their `coverage.json` maps
-TUI, headless, ACP, compaction, resume/fork, subagent, attachments/snapshots,
-partial, and corrupt cases, and marks native-only evidence as missing. These
-are not claimed as captures from a released binary. The adapter tests cover exact
-heading parsing, prompts, assistant output, tool calls, native identity,
-provenance, unavailable fields, changed output, unsupported native/Cursor
-locators, symlink escape rejection, deterministic replay, and idempotency.
-
-## Experimental native discovery: synthetic v1 only
-
-> "I understand this native schema is synthetic and unqualified. Opt in for
-> this command, discover sessions only under the root I authorize, and preview
-> the import before I confirm it."
-
-Set `AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1` for **each** native operation,
-including discovery, inspection, import, refresh, and tail. Only the exact value
-`1` enables it; an unset variable, `0`, or `true` leaves it disabled. Root
-authorization alone does not opt in. Without the opt-in, `sessions sources`
-advertises CLI export only, workspace discovery reports
-`GROK_BUILD_NATIVE_EXPERIMENTAL_DISABLED`, and native reads fail with
-`UNSUPPORTED_OPERATION` plus the opt-in and CLI-export alternative.
+The 2026-11-09 Grok Build 1.0.77 capture establishes a TUI store layout of
+`$GROK_HOME/sessions/<url-encoded cwd>/<session-id>/`. Direct reads remain
+experimental and require **both** variables for every discovery/import/refresh
+or tail operation:
 
 ```sh
-AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 \
-aiwg sessions discover --workspace /work/project \
-  --expected-providers grok-build --grok-root /home/operator/.grok/sessions --json
-AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 \
-aiwg sessions import-discovered --workspace /work/project --dry-run --json
-AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 \
-aiwg sessions import-discovered --workspace /work/project --confirm --json
+AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 AIWG_GROK_BUILD_NATIVE_VERSION=1.0.77 \
+aiwg sessions discover --workspace /work/project --expected-providers grok-build \
+  --grok-root /authorized/grok-home/sessions --json
 ```
 
-With the opt-in, `sessions sources` reports
-`GROK_BUILD_NATIVE_EXPERIMENTAL_ENABLED`, native discovery and JSONL acquisition;
-the warning still states that no released-binary schema or version range is
-qualified. This opt-in enables fixture development, not a claim of released
-Grok Build compatibility. Sanitized captures from a released binary are still
-required before native ingestion can be promoted to qualified support.
+The version pin is an operator assertion about the source binary, not a live
+binary probe. No other version string or range enables native reads. Authorize
+only the sessions directory with `--grok-root`; an opt-in grants no filesystem
+access. Symlinked roots/components and filesystem roots are rejected. Discovery
+matches the encoded cwd against the authorized workspace and ignores unrelated
+stores and files. Native reads require a sibling `summary.json` with matching
+session ID/cwd and `chat_format_version: 1`.
 
-`--grok-root` authorizes the sessions directory itself (never Grok home, `$HOME`,
-`GROK_HOME`, or `--provider-home`). Discovery enumerates only the documented two
-levels and the exact `chat_history.jsonl` filename, ignores `session_search.sqlite`
-and unrelated files, and never runs `grok export`. The url-encoded cwd directory
-is decoded exactly once and matched against the authorized workspace; other
-workspaces never attach. Only `chat_history.jsonl` records in the synthetic v1
-shape (`schemaVersion: 1` with `sessionId`/`seq`/`role`/`content`) import — real
-store bytes were never inspected, so anything else fails closed.
+The reader projects observed text user/assistant records, assistant tool calls
+and `tool_result` records from `chat_history.jsonl`. Per-record model IDs are
+preserved when present; cwd, the pinned version, session creation/update times
+and the summary current model ID are recorded in provenance. Session timestamp
+epoch milliseconds survive existing string/path redaction; raw cwd and timestamp
+strings remain subject to that privacy policy.
+No per-event timestamp is exposed by these captured records. Stable event IDs
+come from source positions, not invented provider IDs. System content, synthetic
+system reminders and reasoning records are omitted with a provenance loss
+report. No attachment, snapshot, events, updates, resource-state or credential
+files are opened. Partial trailing JSON and corrupt complete records both fail closed; live
+partial-store semantics have not been captured.
 
-With the same experimental opt-in, `--grok-active-sessions` optionally
-authorizes the synthetic `active_sessions.json` schema (read-only,
-bounded) for live detection. Presence plus a fresh `lastHeartbeatAt` (120-second
-ceiling) reports `active`; anything else reports `unknown`. This is
-provider-reported activity, not a verified running process, and it is advisory
-manifest data outside the manifest identity hash. Authorizing the sessions root
-never grants its parent: a sibling registry file is unread without the explicit
-file flag. Fixtures live under `test/fixtures/sessions/grok-build/native-layout/`
-and `native-active-sessions.json` (see that directory's README).
+An unknown native record or changed summary format fails closed. Explicit CLI
+imports with the experimental opt-in automatically fall back to bounded public
+CLI export when native parsing is unavailable, including an absent/changed
+version pin. The selected file must belong to the configured `$GROK_HOME/sessions`
+store; mismatched homes and unsafe paths never trigger export. The temporary
+owner-only export is removed after validation/import, and provenance records
+`nativeFallback: true` and the CLI tool-output limitation. Unknown CLI output
+still fails with `SCHEMA_DRIFT`.
+
+Fallback checkpoints use a separate `grok-cli:` cursor so replay retains CLI
+acquisition. An existing native checkpoint rejects an acquisition change with
+`SCHEMA_DRIFT`; restart using a separate CLI export source. Direct adapter API
+callers supply CLI options to enable automatic fallback; otherwise the error
+provides the explicit export/import route.
+The legacy optional `--grok-active-sessions` registry remains synthetic and
+unqualified; it is not evidence of released-binary live detection.
+
+## Evidence and deferred coverage
+
+`test/fixtures/sessions/grok-build/captured-1.0.77/` contains small sanitized
+projections of the supplied released-binary captures. System prompt text, local
+paths, user/host identifiers and session/request/tool IDs are removed or replaced.
+Public harness revision: `4247f661689354b831191f11eeeac8424993fe3d`.
+
+The earlier `coverage.json` describes synthetic loss assertions only. Real TUI
+CLI/native text/tool shapes and headless result/stream envelopes are covered.
+ACP, compaction, resumed/forked lineage, subagents, attachment/snapshot ownership,
+Windows paths, native headless stores, active registry and cross-version drift
+still need captures. Synthetic partial/corrupt mutations test rejection; no
+capture of a live interrupted/corrupted native store was supplied. None of these
+missing scenarios is claimed qualified by the 1.0.77 text/tool projection.
+
+Reference contracts: [sessions](https://docs.x.ai/build/features/sessions) and
+[headless scripting](https://docs.x.ai/build/cli/headless-scripting). This change
+uses the supplied offline captures and does not run Grok or a model.

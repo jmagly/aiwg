@@ -1,14 +1,13 @@
-// Native Grok Build session-store reader (synthetic schema v1; real stores never inspected).
-import { opendir, readFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+// Bounded native projection pinned to the captured Grok Build 1.0.77 store.
+import { lstat, opendir, readFile } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, parse, resolve } from 'node:path';
 import { z } from 'zod';
-import { integer, number } from '../../schema/zod-validation.mjs';
+import { number } from '../../schema/zod-validation.mjs';
 import {
   schemaIssueDetail,
   schemaRejectionDetail,
   SessionContractError,
   assertSupportedSchemaMajor,
-  type ProviderRecord,
   type SelectedSource,
   type SourceDescriptor,
 } from '../contracts.js';
@@ -17,8 +16,11 @@ import { authorizeSourceFile } from '../policy.js';
 import {
   streamBoundedJsonLines,
   type BoundedJsonRecord,
+  readBoundedText,
   type ReaderLimits,
 } from '../readers.js';
+
+import { nativeDrift, parseNativeSummary, projectNativeLine, nativeProjectionRecord, type NativeProjection } from './grok-build-native-records.js';
 
 export const GROK_BUILD_NATIVE_SCHEMA_VERSION = '1.0.0';
 export const GROK_BUILD_NATIVE_SCHEMA_MAJOR = 1;
@@ -30,7 +32,8 @@ export const GROK_BUILD_NATIVE_DISCOVERY_MAX_FILES = 10_000;
 const ACTIVE_SESSIONS_MAX_BYTES = 1024 * 1024;
 
 export function grokBuildNativeEnabled(): boolean {
-  return process.env.AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL === '1';
+  return process.env.AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL === '1'
+    && process.env.AIWG_GROK_BUILD_NATIVE_VERSION === '1.0.77';
 }
 
 /** One availability message for native readers, discovery and CLI capability reports. */
@@ -38,11 +41,11 @@ export function grokBuildNativeAvailability() {
   const enabled = grokBuildNativeEnabled();
   return {
     reasonCode: enabled ? 'GROK_BUILD_NATIVE_EXPERIMENTAL_ENABLED' : 'GROK_BUILD_NATIVE_EXPERIMENTAL_DISABLED',
-    remediation: `Grok Build native ingestion is experimental and ${enabled ? 'enabled but' : 'disabled by default because it is'} `
-      + 'unqualified: no released-binary schema or version range is qualified. '
-      + 'AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 opts in to synthetic v1 chat_history.jsonl and active_sessions.json only; '
-      + 'authorize the sessions root separately with --grok-root and the optional registry file with --grok-active-sessions. '
-      + 'Use `grok export <session-id> <session-id>.md` and import the authorized Markdown file for the documented CLI path.',
+    remediation: `Grok Build native ingestion is experimental and ${enabled ? 'enabled for the captured subset; other scenarios remain' : 'disabled and'} unqualified. `
+      + 'AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL=1 and AIWG_GROK_BUILD_NATIVE_VERSION=1.0.77 are both required; '
+      + 'only exact 1.0.77 text/tool records with chat_format_version 1 are supported. '
+      + 'Authorize the sessions root separately with --grok-root. '
+      + 'Unknown versions or schemas must fall back to `grok export <session-id> <session-id>.md` and import the authorized Markdown file.',
   };
 }
 
@@ -53,23 +56,6 @@ export function assertGrokBuildNativeEnabled(): void {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-// Synthetic native record shape (v1): one JSON object per line. Real
-// chat_history.jsonl schemas are unqualified (real stores are never read),
-// so any record outside this shape fails closed with SCHEMA_DRIFT.
-const NativeRecordSchema = z.looseObject({
-  schemaVersion: z.union([z.string(), z.number()]),
-  sessionId: z.string().regex(UUID),
-  seq: integer().nonnegative(),
-  role: z.enum(['user', 'assistant', 'tool']),
-  content: z.string(),
-  timestamp: number().optional(),
-  toolName: z.string().min(1).optional(),
-  toolCallId: z.string().optional(),
-  id: z.string().min(1).optional(),
-});
-
-type NativeRecord = z.infer<typeof NativeRecordSchema>;
 
 const ActiveSessionsSchema = z.looseObject({
   schemaVersion: z.union([z.string(), z.number()]),
@@ -112,6 +98,7 @@ export async function* discoverGrokBuildNativeChatHistories(
   maxFiles = GROK_BUILD_NATIVE_DISCOVERY_MAX_FILES,
 ): AsyncGenerator<SourceDescriptor> {
   assertGrokBuildNativeEnabled();
+  await assertSafeNativeRoot(root);
   const resolved = resolve(root);
   let workspaces;
   try {
@@ -178,112 +165,76 @@ export async function grokBuildSourceWorkspaceMatch(
 export async function readGrokBuildNativeChatHistory(
   source: SelectedSource,
   limits?: Partial<ReaderLimits>,
-): Promise<{ records: Array<{ record: NativeRecord; line: BoundedJsonRecord }>; incompleteTail: boolean }> {
+): Promise<{ records: Array<{ record: NativeProjection; line: BoundedJsonRecord }>; incompleteTail: boolean }> {
   assertGrokBuildNativeEnabled();
-  const sessionId = grokBuildNativeSessionId(source.locator);
-  if (source.locatorClass !== GROK_BUILD_NATIVE_LOCATOR_CLASS || !sessionId) {
-    throw new SessionContractError(
-      'SOURCE_NOT_AUTHORIZED',
-      'Grok Build native source must be an explicitly authorized chat_history.jsonl path',
-    );
+  const { sessionId, cwd } = await authorizeGrokBuildNativeSource(source);
+  try { await rejectNativeSymlinks(resolve(dirname(source.locator), 'summary.json')); } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') nativeDrift();
+    throw error;
   }
-  await authorizeSourceFile({
-    selectedPath: source.locator,
-    allowedRoots: source.authorizedScope.allowedRoots,
-  });
-  const input = await streamBoundedJsonLines({
-    selectedPath: source.locator,
-    allowedRoots: source.authorizedScope.allowedRoots,
-  }, { consistency: 'provisional', limits });
-  const records: Array<{ record: NativeRecord; line: BoundedJsonRecord }> = [];
-  let lastSeq = -1;
+  const summary = await readBoundedText({
+    selectedPath: resolve(dirname(source.locator), 'summary.json'), allowedRoots: source.authorizedScope.allowedRoots,
+  }, limits);
+  let metadata: unknown;
+  try { metadata = JSON.parse(summary.value); } catch { nativeDrift(); }
+  const sessionMetadata = parseNativeSummary(metadata, sessionId, cwd);
+  const input = await streamBoundedJsonLines({ selectedPath: source.locator, allowedRoots: source.authorizedScope.allowedRoots }, { consistency: 'complete', limits });
+  const records: Array<{ record: NativeProjection; line: BoundedJsonRecord }> = [];
+  const calls = new Set<string>();
+  const results = new Set<string>();
+  let promptIndex = -1;
   for await (const line of input) {
-    const parsed = NativeRecordSchema.safeParse(line.value);
-    if (!parsed.success) {
-      throw new SessionContractError(
-        'SCHEMA_DRIFT',
-        'unrecognized Grok Build native chat_history.jsonl record',
-        schemaRejectionDetail(parsed.error),
-      );
+    const projected = projectNativeLine(line, cwd, sessionMetadata);
+    const raw = line.value as { prompt_index?: number };
+    if (raw.prompt_index !== undefined) {
+      if (raw.prompt_index <= promptIndex) nativeDrift();
+      promptIndex = raw.prompt_index;
     }
-    assertSupportedSchemaMajor(declaredSchema(parsed.data.schemaVersion), GROK_BUILD_NATIVE_SCHEMA_MAJOR);
-    if (parsed.data.sessionId.toLowerCase() !== sessionId) {
-      throw new SessionContractError(
-        'SCHEMA_DRIFT',
-        'Grok Build native record session does not match its session directory',
-        schemaIssueDetail('sessionId'),
-      );
+    for (const entry of projected) {
+      const { kind, toolCallId } = entry.record;
+      if (kind === 'tool-call' && toolCallId) {
+        if (calls.has(toolCallId)) nativeDrift();
+        calls.add(toolCallId);
+      }
+      if (kind === 'tool-result' && toolCallId) {
+        if (!calls.has(toolCallId) || results.has(toolCallId)) nativeDrift();
+        results.add(toolCallId);
+      }
+      records.push(entry);
     }
-    if (parsed.data.seq <= lastSeq) {
-      throw new SessionContractError(
-        'SCHEMA_DRIFT',
-        'Grok Build native chat history sequence is not strictly increasing',
-        schemaIssueDetail('seq'),
-      );
-    }
-    lastSeq = parsed.data.seq;
-    if (parsed.data.role === 'tool' && !parsed.data.toolName) {
-      throw new SessionContractError(
-        'SCHEMA_DRIFT',
-        'Grok Build native tool record is missing its tool name',
-        schemaIssueDetail('toolName'),
-      );
-    }
-    records.push({ record: parsed.data, line });
   }
-  if (records.length === 0) {
-    throw new SessionContractError(
-      'MALFORMED_SOURCE',
-      'Grok Build native chat history is empty',
-      schemaIssueDetail('<root>'),
-    );
-  }
+  if (records.length === 0) throw new SessionContractError('MALFORMED_SOURCE', 'Grok Build native chat history is empty; use `grok export <session-id> <session-id>.md`.');
   return { records, incompleteTail: input.incompleteTail };
 }
 
-export function toGrokBuildNativeRecord(
-  sessionId: string,
-  entry: { record: NativeRecord; line: BoundedJsonRecord },
-): ProviderRecord {
-  const { record, line } = entry;
-  const occurredAt = timestamp(record.timestamp);
-  const nativeEventId = record.id ?? `${sessionId}:${record.seq}`;
-  const common = {
-    lifecycle: 'unknown-at-import',
-    provenance: {
-      product: 'grok-build',
-      acquisition: GROK_BUILD_NATIVE_LOCATOR_CLASS,
-      sourceSchema: GROK_BUILD_NATIVE_SCHEMA_VERSION,
-      nativeStoreInspected: true,
-    },
-    identity: { nativeSessionIdKnown: true, nativeEventIdKnown: true },
-  };
-  if (record.role === 'tool') {
-    return {
-      nativeSessionId: sessionId,
-      nativeEventId,
-      sequence: line.sequence * 1_000,
-      kind: 'tool-call',
-      role: 'tool',
-      toolName: record.toolName,
-      toolCallId: record.toolCallId,
-      occurredAt,
-      text: record.content,
-      rawReference: { locatorClass: GROK_BUILD_NATIVE_LOCATOR_CLASS, sequence: line.sequence },
-      extensions: common,
-    };
+/** Authorize native identity/path before a caller may use the CLI fallback. */
+export async function authorizeGrokBuildNativeSource(source: SelectedSource): Promise<{ sessionId: string; cwd: string }> {
+  const sessionId = grokBuildNativeSessionId(source.locator);
+  if (source.locatorClass !== GROK_BUILD_NATIVE_LOCATOR_CLASS || !sessionId
+    || basename(source.locator) !== GROK_BUILD_NATIVE_SESSION_FILENAME) {
+    throw new SessionContractError('SOURCE_NOT_AUTHORIZED', 'Grok Build native source must be an explicitly authorized chat_history.jsonl path');
   }
-  return {
-    nativeSessionId: sessionId,
-    nativeEventId,
-    sequence: line.sequence * 1_000,
-    kind: 'message',
-    role: record.role,
-    occurredAt,
-    text: record.content,
-    rawReference: { locatorClass: GROK_BUILD_NATIVE_LOCATOR_CLASS, sequence: line.sequence },
-    extensions: common,
-  };
+  await authorizeSourceFile({ selectedPath: source.locator, allowedRoots: source.authorizedScope.allowedRoots });
+  for (const root of source.authorizedScope.allowedRoots) await assertSafeNativeRoot(root);
+  await rejectNativeSymlinks(source.locator);
+  const cwd = decodeGrokBuildWorkspaceDir(dirname(dirname(source.locator)).split('/').pop() ?? '');
+  if (!cwd) nativeDrift();
+  return { sessionId, cwd };
+}
+
+export const toGrokBuildNativeRecord = nativeProjectionRecord;
+
+async function rejectNativeSymlinks(input: string): Promise<void> {
+  let current = resolve(input);
+  while (current !== parse(current).root) {
+    if ((await lstat(current)).isSymbolicLink()) throw new SessionContractError('SOURCE_SYMLINK', 'Grok Build native paths cannot contain symlinks');
+    current = dirname(current);
+  }
+}
+async function assertSafeNativeRoot(root: string): Promise<void> {
+  if (!isAbsolute(root) || resolve(root) === parse(resolve(root)).root) throw new SessionContractError('SOURCE_NOT_AUTHORIZED', 'Grok Build sessions root must be an absolute non-root directory');
+  await rejectNativeSymlinks(root);
+  if (!(await lstat(root)).isDirectory()) throw new SessionContractError('SOURCE_NOT_AUTHORIZED', 'Grok Build sessions root must be a directory');
 }
 
 /** Read and validate active_sessions.json (read-only, bounded); throws on misuse. */
@@ -352,16 +303,12 @@ export function parseGrokBuildNativeCursor(value?: string): number {
   if (!/^\d+$/.test(value)) {
     throw new SessionContractError('SCHEMA_DRIFT', 'invalid Grok Build native cursor', schemaIssueDetail('cursor'));
   }
-  return Number(value);
+  const cursor = Number(value);
+  if (!Number.isSafeInteger(cursor)) throw new SessionContractError('SCHEMA_DRIFT', 'invalid Grok Build native cursor', schemaIssueDetail('cursor'));
+  return cursor;
 }
 
 function declaredSchema(value: unknown): string {
   if (typeof value === 'number') return `${value}.0.0`;
   return /^\d+$/.test(String(value)) ? `${value}.0.0` : String(value);
-}
-
-function timestamp(value?: number): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  const date = new Date(value < 10_000_000_000 ? value * 1_000 : value);
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }

@@ -1,0 +1,4 @@
+{"type": "user", "content": [{"type": "text", "text": "Inspect the synthetic project."}], "prompt_index": 0}
+{"type": "assistant", "content": "I inspected the project and found one deterministic result.", "tool_calls": [{"id": "call-fixture", "name": "run_terminal_command", "arguments": "{\"command\":\"echo synthetic\",\"description\":\"Synthetic command\"}"}], "model_id": "grok-4.7-build", "model_fingerprint": "fp_fixture", "reasoning_effort": "high"}
+{"type": "tool_result", "tool_call_id": "call-fixture", "content": "Synthetic output."}
+{"type": "user", "content": [{"type": "text", "text": "Summarize the result."}], "prompt_index": 1}

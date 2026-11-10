@@ -1,4 +1,4 @@
-{"schemaVersion":1,"sessionId":"0199b111-1111-7111-8111-111111111111","seq":0,"role":"user","content":"Inspect the synthetic project.","timestamp":1785153600}
-{"schemaVersion":1,"sessionId":"0199b111-1111-7111-8111-111111111111","seq":1,"role":"assistant","content":"I inspected the project and found one deterministic result.","timestamp":1785153601}
-{"schemaVersion":1,"sessionId":"0199b111-1111-7111-8111-111111111111","seq":2,"role":"tool","content":"Read: /synthetic/README.md","timestamp":1785153602,"toolName":"Read","toolCallId":"call-1"}
-{"schemaVersion":1,"sessionId":"0199b111-1111-7111-8111-111111111111","seq":3,"role":"user","content":"Summarize the result.","timestamp":1785153603}
+{"type": "user", "content": [{"type": "text", "text": "Inspect the synthetic project."}], "prompt_index": 0}
+{"type": "assistant", "content": "I inspected the project and found one deterministic result.", "model_id": "grok-4.7-build"}
+{"type": "assistant", "content": "", "tool_calls": [{"id": "call-1", "name": "Read", "arguments": "Read: /synthetic/README.md"}]}
+{"type": "user", "content": [{"type": "text", "text": "Summarize the result."}], "prompt_index": 3}

@@ -64,6 +64,9 @@ export async function tailFixture(root: string, entry = tailFixtures[0]) {
     initial = lines.slice(0, -1).join('\n') + '\n';
     full = lines.join('\n') + '\n';
   }
+  if (provider === 'grok-build' && locatorClass === 'grok-build-native-chat-history') {
+    await writeFile(resolve(dirname(locator), 'summary.json'), await readFile(resolve('test/fixtures/sessions', dirname(relative), 'summary.json'), 'utf8'));
+  }
   await writeFile(locator, full);
   const adapter = createSessionAdapterRegistry().get(provider);
   const selectedSource: SelectedSource = { provider, sourceId: provider === 'generic' ? 'generic-fixture-v1' : `tail-${provider}`, locatorClass, locator,

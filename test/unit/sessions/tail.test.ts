@@ -15,7 +15,7 @@ const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 
 describeWithSqlite('session tail', () => {
-  beforeEach(() => vi.stubEnv('AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL', '1'));
+  beforeEach(() => { vi.stubEnv('AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL', '1'); vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.77'); });
   afterEach(() => vi.unstubAllEnvs());
   it('covers every adapter advertising stream', () => {
     expect(tailFixtures.map(entry => entry[0]).sort()).toEqual(createSessionAdapterRegistry().list()

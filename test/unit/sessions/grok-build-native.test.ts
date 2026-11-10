@@ -1,4 +1,4 @@
-// Exercise synthetic native fixtures only with the experimental opt-in.
+// Exercise captured native shapes with the experimental opt-in and exact version pin.
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -13,7 +13,7 @@ import {
 const fixturesRoot = resolve('test/fixtures/sessions/grok-build');
 const nativeLayoutRoot = resolve(fixturesRoot, 'native-layout');
 const roots: string[] = [];
-beforeEach(() => vi.stubEnv('AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL', '1'));
+beforeEach(() => { vi.stubEnv('AIWG_GROK_BUILD_NATIVE_EXPERIMENTAL', '1'); vi.stubEnv('AIWG_GROK_BUILD_NATIVE_VERSION', '1.0.77'); });
 afterEach(async () => {
   vi.unstubAllEnvs();
   const { rm } = await import('node:fs/promises');
@@ -58,14 +58,15 @@ describe('Grok Build native chat_history discovery', () => {
       const directory = join(sessionsRoot, encodeURIComponent(entry.workspace), entry.sessionId);
       await mkdir(directory, { recursive: true });
       await write(join(directory, 'chat_history.jsonl'), entry.lines.join('\n') + '\n');
+      await write(join(directory, 'summary.json'), JSON.stringify({ chat_format_version: 1, info: { id: entry.sessionId, cwd: entry.workspace }, created_at: '2026-11-09T00:00:00Z', updated_at: '2026-11-09T00:01:00Z', current_model_id: 'grok-4.7' }));
     }
     return sessionsRoot;
   }
 
-  function nativeLines(sessionId: string, suffix = ''): string[] {
+  function nativeLines(_sessionId: string, suffix = ''): string[] {
     return [
-      `{"schemaVersion":1,"sessionId":"${sessionId}","seq":0,"role":"user","content":"user${suffix}","timestamp":1785153600}`,
-      `{"schemaVersion":1,"sessionId":"${sessionId}","seq":1,"role":"assistant","content":"assistant${suffix}","timestamp":1785153601}`,
+      JSON.stringify({ type: 'user', content: [{ type: 'text', text: `user${suffix}` }], prompt_index: 0 }),
+      JSON.stringify({ type: 'assistant', content: `assistant${suffix}`, model_id: 'grok-4.7-build' }),
     ];
   }
 
@@ -101,7 +102,7 @@ describe('Grok Build native chat_history discovery', () => {
       .rejects.toMatchObject({ code: 'RESOURCE_LIMIT_EXCEEDED' });
   });
 
-  it('inspects and streams native records with stable identity, timestamps, and cursors', async () => {
+  it('inspects and streams native records with stable identity, unknown event timestamps, and cursors', async () => {
     const source = nativeSource(sessionALocator, [nativeLayoutRoot]);
     await expect(native.inspect(source)).resolves.toEqual({
       sourceSchemaVersion: GROK_BUILD_NATIVE_SCHEMA_VERSION,
@@ -118,7 +119,7 @@ describe('Grok Build native chat_history discovery', () => {
     expect(records[0]).toMatchObject({
       nativeSessionId: sessionA,
       nativeEventId: `${sessionA}:0`,
-      occurredAt: new Date(1785153600 * 1000).toISOString(),
+      occurredAt: undefined,
       text: 'Inspect the synthetic project.',
       extensions: {
         provenance: {
@@ -130,47 +131,31 @@ describe('Grok Build native chat_history discovery', () => {
     });
     expect(records[2]).toMatchObject({ toolName: 'Read', toolCallId: 'call-1' });
     const resumed = await collect(native.stream(source, { value: '2' }));
-    expect(resumed.map((record) => record.nativeEventId)).toEqual([`${sessionA}:2`, `${sessionA}:3`]);
+    expect(resumed.map((record) => record.nativeEventId)).toEqual([`${sessionA}:2001`, `${sessionA}:3000`]);
     expect(await collect(native.stream(source))).toEqual(records);
   });
 
-  it('fails closed on session mismatch, unknown schemas, unordered, and tool records', async () => {
+  it('fails closed on metadata mismatch, unknown formats, unordered prompts and malformed tools', async () => {
     const sessionsRoot = await buildLayout([]);
     const { mkdir, writeFile: write } = await import('node:fs/promises');
-    const encoded = encodeURIComponent('/synthetic/ws');
-    const cases: Array<{ sessionId: string; lines: string[]; code: string }> = [
-      {
-        sessionId: sessionA,
-        lines: [`{"schemaVersion":1,"sessionId":"0199b999-9999-7999-8999-999999999999","seq":0,"role":"user","content":"x"}`],
-        code: 'SCHEMA_DRIFT',
-      },
-      {
-        sessionId: sessionA,
-        lines: [`{"schemaVersion":999,"sessionId":"${sessionA}","seq":0,"role":"user","content":"x"}`],
-        code: 'UNKNOWN_SCHEMA_MAJOR',
-      },
-      {
-        sessionId: sessionA,
-        lines: [
-          `{"schemaVersion":1,"sessionId":"${sessionA}","seq":1,"role":"user","content":"x"}`,
-          `{"schemaVersion":1,"sessionId":"${sessionA}","seq":1,"role":"user","content":"y"}`,
-        ],
-        code: 'SCHEMA_DRIFT',
-      },
-      {
-        sessionId: sessionA,
-        lines: [`{"schemaVersion":1,"sessionId":"${sessionA}","seq":0,"role":"tool","content":"x"}`],
-        code: 'SCHEMA_DRIFT',
-      },
-      { sessionId: sessionA, lines: ['not json'], code: 'MALFORMED_SOURCE' },
+    const directory = join(sessionsRoot, encodeURIComponent('/synthetic/ws'), sessionA);
+    await mkdir(directory, { recursive: true });
+    const locator = join(directory, 'chat_history.jsonl');
+    const summary = { chat_format_version: 1, info: { id: sessionA, cwd: '/synthetic/ws' }, created_at: '2026-11-09T00:00:00Z', updated_at: '2026-11-09T00:01:00Z', current_model_id: 'grok-4.7' };
+    const cases = [
+      { summary: { ...summary, info: { ...summary.info, id: '0199b999-9999-7999-8999-999999999999' } }, lines: nativeLines(sessionA) },
+      { summary: { ...summary, chat_format_version: 999 }, lines: nativeLines(sessionA) },
+      { summary, lines: [nativeLines(sessionA)[0], nativeLines(sessionA)[0]] },
+      { summary, lines: [JSON.stringify({ type: 'assistant', content: '', tool_calls: [{ id: 'call-fixture', arguments: '{}' }] })] },
+      { summary, lines: [JSON.stringify({ type: 'tool_result', tool_call_id: 'orphan', content: 'unowned result' })] },
+      { summary, lines: [JSON.stringify({ schemaVersion: 1, sessionId: sessionA, seq: 0, role: 'user', content: 'obsolete invented schema' })] },
+      { summary, lines: ['not json'], code: 'SCHEMA_DRIFT' },
     ];
     for (const [index, item] of cases.entries()) {
-      const directory = join(sessionsRoot, encoded, `${sessionA.slice(0, 24)}${String(index).padStart(12, '0')}`);
-      await mkdir(directory, { recursive: true });
-      const locator = join(directory, 'chat_history.jsonl');
+      await write(join(directory, 'summary.json'), JSON.stringify(item.summary));
       await write(locator, item.lines.join('\n') + '\n');
       await expect(native.inspect(nativeSource(locator, [sessionsRoot])), `case ${index}`)
-        .rejects.toMatchObject({ code: item.code });
+        .rejects.toMatchObject({ code: item.code ?? 'SCHEMA_DRIFT' });
     }
   });
 

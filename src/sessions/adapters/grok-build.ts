@@ -1,4 +1,6 @@
 import { basename, extname } from 'node:path';
+import type { GrokBuildCliOptions } from '../grok-build-cli.js';
+import { canFallbackGrokNative, withGrokCliFallback } from './grok-build-fallback.js';
 import {
   SessionContractError,
   schemaIssueDetail,
@@ -24,7 +26,7 @@ import {
   toGrokBuildNativeRecord,
 } from './grok-build-native.js';
 
-export const GROK_BUILD_ADAPTER_VERSION = '1.0.0';
+export const GROK_BUILD_ADAPTER_VERSION = '1.1.0';
 export const GROK_BUILD_CLI_EXPORT_SCHEMA_VERSION = '1.0.0';
 export const GROK_BUILD_CLI_EXPORT_LOCATOR_CLASS = 'grok-build-cli-markdown-export';
 
@@ -39,9 +41,9 @@ interface ExportBlock {
  * opt-in and an explicitly authorized sessions root (`--grok-root`).
  *
  * The public export contract is intentionally lossy. Native reads use the
- * synthetic v1 schema in grok-build-native.ts (real stores were never
- * inspected); anything outside it fails closed. This adapter never invokes
- * `grok export` automatically: CLI export remains operator-selected.
+ * captured 1.0.77 projection in grok-build-native.ts; anything outside
+ * the observed schema fails closed. Explicit CLI imports supply bounded CLI
+ * options to fall back to export; direct API callers may supply the same options.
  */
 export class GrokBuildSessionAdapter implements SessionSourceAdapter {
   readonly provider = 'grok-build' as const;
@@ -57,6 +59,7 @@ export class GrokBuildSessionAdapter implements SessionSourceAdapter {
   constructor(
     private readonly limits?: Partial<ReaderLimits>,
     private readonly maxFiles = GROK_BUILD_NATIVE_DISCOVERY_MAX_FILES,
+    private readonly cliFallback?: GrokBuildCliOptions,
   ) {}
 
   async *discover(scope: AuthorizedScope): AsyncIterable<SourceDescriptor> {
@@ -74,7 +77,11 @@ export class GrokBuildSessionAdapter implements SessionSourceAdapter {
 
   async inspect(source: SelectedSource): Promise<SourceProbe> {
     if (source.locatorClass === GROK_BUILD_NATIVE_LOCATOR_CLASS) {
-      const native = await readGrokBuildNativeChatHistory(source, this.limits);
+      let native;
+      try { native = await readGrokBuildNativeChatHistory(source, this.limits); } catch (error) {
+        if (!canFallbackGrokNative(error, this.cliFallback)) throw error;
+        return withGrokCliFallback(source, this.cliFallback!, selected => this.inspect(selected));
+      }
       return {
         sourceSchemaVersion: GROK_BUILD_NATIVE_SCHEMA_VERSION,
         consistency: native.incompleteTail ? 'provisional' : 'complete',
@@ -91,16 +98,18 @@ export class GrokBuildSessionAdapter implements SessionSourceAdapter {
 
   async *stream(source: SelectedSource, cursor?: ImportCursor): AsyncIterable<ProviderRecord> {
     if (source.locatorClass === GROK_BUILD_NATIVE_LOCATOR_CLASS) {
-      // The experimental gate answers first, so a disabled gate never reports a locator error.
-      assertGrokBuildNativeEnabled();
-      const sessionId = grokBuildNativeSessionId(source.locator);
-      if (!sessionId) {
-        throw new SessionContractError(
-          'SOURCE_NOT_AUTHORIZED',
-          'Grok Build native source must be an explicitly authorized chat_history.jsonl path',
-        );
+      if (cursor?.value.startsWith('grok-cli:')) {
+        yield* await this.fallbackRecords(source, cursor.value.slice('grok-cli:'.length));
+        return;
       }
-      const native = await readGrokBuildNativeChatHistory(source, this.limits);
+      let native;
+      try { native = await readGrokBuildNativeChatHistory(source, this.limits); } catch (error) {
+        if (!canFallbackGrokNative(error, this.cliFallback)) throw error;
+        if (cursor?.value && cursor.value !== '0') throw new SessionContractError('SCHEMA_DRIFT', 'Grok Build acquisition changed after a native checkpoint; restart with a separate CLI export source.');
+        yield* await this.fallbackRecords(source);
+        return;
+      }
+      const sessionId = grokBuildNativeSessionId(source.locator)!;
       const start = parseGrokBuildNativeCursor(cursor?.value);
       let outputIndex = 0;
       for (const entry of native.records) {
@@ -148,6 +157,22 @@ export class GrokBuildSessionAdapter implements SessionSourceAdapter {
         extensions: provenance(source, parsed.sessionId, block.heading),
       };
     }
+  }
+
+  private async fallbackRecords(source: SelectedSource, cursor?: string): Promise<ProviderRecord[]> {
+    const start = parseCursor(cursor);
+    if (!this.cliFallback) throw new SessionContractError('UNSUPPORTED_OPERATION', 'Grok Build CLI fallback is unavailable; use an explicit `grok export`.');
+    return withGrokCliFallback(source, this.cliFallback, async selected => {
+      const records: ProviderRecord[] = [];
+      let index = start;
+      for await (const record of this.stream(selected, { value: String(start) })) {
+        const extensions = record.extensions ?? {};
+        records.push({ ...record, sourceCursor: `grok-cli:${++index}`, extensions: { ...extensions,
+          provenance: { ...(extensions.provenance as Record<string, unknown>), nativeFallback: true },
+        } });
+      }
+      return records;
+    });
   }
 
   private async readSource(source: SelectedSource): Promise<{
@@ -215,7 +240,7 @@ function parseBlocks(value: string): ExportBlock[] {
     } else if (/^##\s+/.test(line)) {
       throw new SessionContractError(
         'SCHEMA_DRIFT',
-        `unknown Grok Build CLI export heading: ${line}`,
+        'unknown Grok Build CLI export heading; check the source CLI version',
         schemaIssueDetail('headings'),
       );
     } else if (current) {
@@ -237,29 +262,21 @@ function parseTools(text: string, blockSequence: number): Array<{
   name: string;
   text: string;
 }> {
-  const lines = text.split('\n').filter((line) => line.trim());
-  if (lines.length === 0 || lines.length > 1_000) {
-    throw new SessionContractError(
-      'SCHEMA_DRIFT',
-      'Grok Build tools block has no summaries or exceeds 1,000 summaries',
-      schemaIssueDetail('tools'),
-    );
+  const summaries: string[] = [];
+  for (const line of text.split('\n')) {
+    if (/^- .+/.test(line)) summaries.push(line.slice(2));
+    else if (summaries.length) summaries[summaries.length - 1] += `\n${line}`;
+    else if (line.trim()) {
+      throw new SessionContractError('SCHEMA_DRIFT', 'unrecognized Grok Build tool summary', schemaIssueDetail('tools'));
+    }
   }
-  return lines.map((line, index) => {
-    const match = /^- (.+)$/.exec(line);
-    if (!match) {
-      throw new SessionContractError(
-        'SCHEMA_DRIFT',
-        `unrecognized Grok Build tool summary: ${line}`,
-        schemaIssueDetail('tools'),
-      );
-    }
-    const summary = match[1];
+  if (!summaries.length || summaries.length > 1_000) {
+    throw new SessionContractError('SCHEMA_DRIFT', 'Grok Build tools block has no summaries or exceeds 1,000 summaries', schemaIssueDetail('tools'));
+  }
+  return summaries.map((summary, index) => {
     const name = summary.split(/:| \(/, 1)[0]?.trim();
-    if (!name) {
-      throw new SessionContractError('SCHEMA_DRIFT', 'empty Grok Build tool summary', schemaIssueDetail('tools'));
-    }
-    return { sequence: blockSequence * 1_000 + index, name, text: summary };
+    if (!name) throw new SessionContractError('SCHEMA_DRIFT', 'empty Grok Build tool summary', schemaIssueDetail('tools'));
+    return { sequence: blockSequence * 1_000 + index, name, text: summary.trimEnd() };
   });
 }
 
@@ -277,6 +294,7 @@ function provenance(
       sourceSchema: GROK_BUILD_CLI_EXPORT_SCHEMA_VERSION,
       heading,
       nativeStoreInspected: false,
+      toolOutputAvailable: false,
       originalFilename: basename(source.locator),
     },
     identity: {
