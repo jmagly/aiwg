@@ -1,3 +1,4 @@
+import { shellCaptureBody } from '../../fixtures/shell-capture-command.js';
 import { workerMarkerNames, workerMarkerShell } from '../../fixtures/worker-attribution.js';
 import { termAfterReady, TERM_READY } from '../../helpers/term-escalation.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
@@ -292,7 +293,7 @@ describe('T-OG-15 Cursor direct command contract', () => {
     expect(invocation.shellCommand).not.toContain(MARKER);
     expect(JSON.stringify(plan)).not.toContain(MARKER);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
-    expect(invocation.shellCommand).toBe(`cd ${quote(workdir)} && env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}"`
+    expect(shellCaptureBody(invocation)).toBe(`cd ${quote(workdir)} && env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}"`
       + ` ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')} < ${quote(brief)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     const { file, recordPath } = await fakeConfig(root, 'success');
     const result = await run('/bin/sh', ['-c', invocation.shellCommand!], { cwd: root,

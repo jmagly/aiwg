@@ -4,7 +4,8 @@
   ],
   "T-OG-15": [
     "test/conformance/orchestration-v1/codex-direct.test.ts",
-    "test/conformance/orchestration-v1/codex-final-capture.test.ts"
+    "test/conformance/orchestration-v1/codex-final-capture.test.ts",
+    "test/conformance/orchestration-v1/shell-capture-preservation.test.ts"
   ],
   "T-OG-20": [
     "test/conformance/orchestration-v1/codex-direct.test.ts"

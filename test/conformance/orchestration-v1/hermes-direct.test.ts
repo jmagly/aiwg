@@ -1,3 +1,4 @@
+import { shellCaptureBody } from '../../fixtures/shell-capture-command.js';
 import { workerMarkerNames, workerMarkerShell } from '../../fixtures/worker-attribution.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
 /**
@@ -299,7 +300,7 @@ describe('T-OG-15 Hermes direct command contract', () => {
       '--provider', invocation.selected.inferenceProvider, '-m', MODEL, '--reasoning', invocation.selected.effort.value]);
     expect(JSON.stringify(invocation.argv)).not.toContain(MARKER);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
-    expect(invocation.shellCommand).toBe(`cd ${quote(workdir)} && env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}" ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')}`
+    expect(shellCaptureBody(invocation)).toBe(`cd ${quote(workdir)} && env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}" ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')}`
       + ` < ${quote(invocation.briefPath)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     const { file, recordPath } = await fakeConfig(root, 'success');
     const result = await run('/bin/sh', ['-c', invocation.shellCommand!], { cwd: root,
@@ -321,7 +322,7 @@ describe('T-OG-15 Hermes direct command contract', () => {
 
   it('HD02b end to end through the real rendered command: a leading startup diagnostic on stdout still lets parseWorkerFinal accept the valid final beneath it; garbage preamble and diagnostic-only output still fail', async () => {
     const { plan, root } = await hermesPlan();
-    const invocation = plan.invocation!;
+    let invocation = plan.invocation!;
     const okRun = await fakeConfig(root, 'diagnostic-then-success');
     const okResult = await run('/bin/sh', ['-c', invocation.shellCommand!], { cwd: root, env: { PATH: process.env.PATH!, AIWG_FAKE_WORKER_CONFIG: okRun.file } });
     expect(okResult.code, okResult.stderr).toBe(0);
@@ -330,6 +331,7 @@ describe('T-OG-15 Hermes direct command contract', () => {
     await expect(owner.parseWorkerFinal(okStdout, { observation: { status: 'completed', termination: 'confirmed', transport: 'shell', exitCode: 0 } }))
       .resolves.toMatchObject({ status: 'completed' });
 
+    invocation = (await hermesPlan()).plan.invocation!;
     const garbageRun = await fakeConfig(root, 'diagnostic-garbage-preamble');
     const garbageResult = await run('/bin/sh', ['-c', invocation.shellCommand!], { cwd: root, env: { PATH: process.env.PATH!, AIWG_FAKE_WORKER_CONFIG: garbageRun.file } });
     expect(garbageResult.code, garbageResult.stderr).toBe(0);
@@ -337,6 +339,7 @@ describe('T-OG-15 Hermes direct command contract', () => {
     await expect(owner.parseWorkerFinal(garbageStdout, { observation: { status: 'completed', termination: 'confirmed', transport: 'shell', exitCode: 0 } }))
       .rejects.toThrow();
 
+    invocation = (await hermesPlan()).plan.invocation!;
     const onlyRun = await fakeConfig(root, 'diagnostic-only');
     const onlyResult = await run('/bin/sh', ['-c', invocation.shellCommand!], { cwd: root, env: { PATH: process.env.PATH!, AIWG_FAKE_WORKER_CONFIG: onlyRun.file } });
     expect(onlyResult.code, onlyResult.stderr).toBe(0);

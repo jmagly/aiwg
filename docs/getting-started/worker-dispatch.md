@@ -429,6 +429,12 @@ aiwg models resolve --role maintenance --task maintenance --group maintenance \
 
 No Mission/MC state, daemon, scheduler or activation marker is needed for this direct handoff.
 
+The rendered Tier 0 shell command checks predecessors and reserves final, stdout, stderr and provider capture paths before starting the CLI. Existing files or earlier attempt reservations cause refusal; stdout/stderr also use shell noclobber. Re-resolving after changing the brief or group cannot overwrite a previous attempt. Keep the entire rendered command, including its preflight guard, when copying it; the brief stays in its file and travels through stdin.
+
+Raw shell attempts leave a private `.shell-<task hash>` reservation beside the final and `.launch-owner` sidecars on output paths. Their termination remains unknown, so another raw command for the same workspace, role and task in that output parent refuses even with new output names. Retain these records and outputs; do not delete reservations to bypass an uncertain predecessor. The guard also refuses open launcher predecessors found in that parent. Separate output parents are separate predecessor inventories, as with launcher capture roots. To retry deliberately after checking the earlier attempt, resolve again with `--final-output` in a new directory; that directory starts its own inventory while the earlier attempt's outputs stay intact.
+
+Raw handoffs preserve outputs through reservations; the one-shot launcher additionally creates read-only capture snapshots and authenticated termination evidence (see “Direct-path recovery evidence and status” below). Raw reservations provide no protection against an unconfined same-user process deliberately changing files. Shell exit zero alone does not establish final validity or task acceptance.
+
 ## Worker artifacts and deliverable handoff
 
 The launcher adds the absolute final-output path and a minimal seven-field `workerClaims` example to the launch brief. Write that wrapper at the declared path, and put task-specific data (such as `{facts, warning}`) in a separate artifact. `FINAL_OUTPUT_INVALID` leaves `exit.json.finalOutputFailure` and the CLI diagnostic naming the failure kind, expected path and unverified root-level candidates; candidate discovery never accepts an answer or repairs the launch. A `wrong-location` diagnosis flags a possible misplaced same-named file, not proof of its contents. Scans are bounded and report truncation or errors.
