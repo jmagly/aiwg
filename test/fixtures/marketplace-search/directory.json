@@ -1,0 +1,8 @@
+{
+  "lastUpdated": "2026-10-01T00:00:00Z",
+  "plugins": [
+    { "name": "ux-suite", "marketplace": "studio", "description": "UI/UX design and development agents", "checks": { "review": { "by": { "type": "anthropic" } } } },
+    { "name": "directory-only", "marketplace": "partners", "description": "UI/UX design agents", "checks": { "review": { "by": { "type": "partner" } } } },
+    { "name": "ux-suite", "marketplace": "community", "checks": { "review": { "by": { "type": "none" } } } }
+  ]
+}

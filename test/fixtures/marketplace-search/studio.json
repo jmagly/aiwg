@@ -1,0 +1,7 @@
+{
+  "name": "studio",
+  "plugins": [
+    { "name": "ux-suite", "description": "UI/UX design and development agents", "category": "design", "keywords": ["accessibility", "interface"] },
+    { "name": "layout-kit", "description": "UI/UX design helpers", "category": "design" }
+  ]
+}

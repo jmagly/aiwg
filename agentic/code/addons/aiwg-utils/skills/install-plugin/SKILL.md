@@ -67,6 +67,15 @@ When triggered:
 
 3. **Report the result** — name the installed marketplace wrapper and confirm which agents, skills, commands, and rules were deployed and where.
 
+## Finding third-party plugins
+
+For a capability request without a selected plugin, use
+[plugin-search](../plugin-search/SKILL.md):
+`aiwg marketplace search "<capability>" --plugins` reads configured local
+marketplaces and caches without installing anything. The four packages below
+are AIWG's packages, not a complete directory of third-party plugins. Use the
+provider's installer for third-party results; search does not extend this backend.
+
 ## Available Marketplace Packages
 
 | Package | Payload | Use Case |

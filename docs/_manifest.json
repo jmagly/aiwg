@@ -143,6 +143,7 @@
     "uhp-client",
     "security/uhp-client-threat-model",
     "plugin-marketplace-guide",
+    "plugin-search",
     "daemon-guide",
     "soul-md-guide",
     "messaging-guide",
@@ -1306,9 +1307,16 @@
       "parent": "reference"
     },
     {
+      "id": "plugin-search",
+      "title": "Search Marketplace Plugins",
+      "summary": "Search configured local marketplaces and compare dated plugin signals",
+      "file": "plugin-search.md",
+      "parent": "reference"
+    },
+    {
       "id": "plugin-marketplace-guide",
       "title": "Plugin Marketplace",
-      "summary": "Install and manage plugins",
+      "summary": "Search cached marketplaces, compare plugin signals, and manage plugins",
       "file": "plugin-marketplace-guide.md",
       "parent": "reference"
     },

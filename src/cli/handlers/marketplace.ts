@@ -8,6 +8,7 @@
  * @implements #2009
  */
 
+import { handlePluginSearch } from './marketplace-plugin-search.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { sensitiveInputOptions } from '../../auth/sensitive-input.js';
@@ -38,6 +39,7 @@ const USAGE = [
   'Usage:',
   '  aiwg marketplace add <catalog-git-url> [--ref <tag-or-sha>]',
   '  aiwg marketplace search <query>          Search packages and signed catalogs',
+  '  aiwg marketplace search <query> --plugins [--provider all|claude|codex] [--max-age-days 30] [--json]',
   '  aiwg marketplace info <package>           Show provenance and catalog observations',
   '  aiwg marketplace install <url|package>    Install and lock direct Git or catalog package',
   '  aiwg marketplace verify <package|lock>    Verify cached content and receipts offline',
@@ -102,7 +104,7 @@ export const marketplaceHandler: CommandHandler = {
     const subcommand = ctx.args[0];
     if (!subcommand) return { exitCode: 0, message: USAGE };
     if (subcommand === 'add') return handleAdd(ctx);
-    if (subcommand === 'search') return handleSearch(ctx);
+    if (subcommand === 'search') return ctx.args.includes('--plugins') ? handlePluginSearch(ctx) : handleSearch(ctx);
     if (subcommand === 'info') return handleInfo(ctx);
     if (subcommand === 'install') return handleInstall(ctx);
     if (subcommand === 'verify') return handleVerify(ctx);
