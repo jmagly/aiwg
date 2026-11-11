@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { removeSkillCopy } from '../../../tools/agents/providers/skill-copy-prune.mjs';
-import { deploySkillsWithKernelRouting } from '../../../tools/agents/providers/base-kernel-skills.mjs';
+import { deploySkillsWithKernelRouting, pruneStaleAiwgSkills } from '../../../tools/agents/providers/base-kernel-skills.mjs';
 import { captureDeploymentOutputs } from '../../../src/providers/deployment-ownership.mjs';
 import { preserveDeploymentOutputs } from '../../../src/providers/deployment-preservation.mjs';
 let root: string;
@@ -25,6 +25,28 @@ function replacement() {
   fs.writeFileSync(path.join(dir, 'SKILL.md'), 'new tier');
   return dir;
 }
+it.each(['selected', 'foreign', 'shared', 'legacy'])('a named bundle prunes only its own stale kernel skill (%s)', kind => {
+  const source = path.join(root, '.aiwg/addons/demo');
+  const current = path.join(source, 'skills/current');
+  fs.mkdirSync(current, { recursive: true });
+  fs.writeFileSync(path.join(current, 'SKILL.md'), '---\nname: current\nkernel: true\nplatforms: [all]\n---\nCurrent kernel\n');
+  const kernel = path.join(root, 'kernel');
+  const dir = skill(kind !== 'legacy');
+  if (kind !== 'legacy') {
+    const receiptFile = path.join(dir, '.aiwg-manifest.json');
+    const receipt = JSON.parse(fs.readFileSync(receiptFile, 'utf8'));
+    receipt.managed['SKILL.md'].owners = kind === 'selected' ? ['demo'] : kind === 'shared' ? ['demo', 'other'] : ['other'];
+    fs.writeFileSync(receiptFile, JSON.stringify(receipt));
+  }
+  fs.mkdirSync(kernel);
+  const retired = path.join(kernel, 'retired');
+  fs.renameSync(dir, retired);
+  const opts = { bundleOnly: true, srcRoot: source, frameworkSlug: 'demo', provider: 'claude', copyMode: false };
+  deploySkillsWithKernelRouting([current], path.join(root, 'standard'), kernel, opts);
+  pruneStaleAiwgSkills(kernel, [], opts);
+  expect(fs.existsSync(path.join(kernel, 'current/SKILL.md'))).toBe(true);
+  expect(fs.existsSync(retired)).toBe(kind !== 'selected');
+});
 it('deletes a legacy marker-only directory only in index mode', () => {
   const dir = skill(false);
   expect(removeSkillCopy(dir, { copyMode: true })).toBe(false);

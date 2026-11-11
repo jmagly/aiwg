@@ -48,6 +48,21 @@ function writeSidecar(names: string[]) {
 }
 
 describe('#1627 artifactStem', () => {
+  it('limits a single-bundle prune to its own stale outputs (#4087)', async () => {
+    const { pruneStaleAiwgFiles } = await importBase();
+    for (const name of ['retired.md', 'foreign.md', 'shared.md', 'unattributed.md']) writeManaged(name);
+    const file = path.join(dir, '.aiwg-manifest.json');
+    const receipt = JSON.parse(fs.readFileSync(file, 'utf8'));
+    receipt.managed['retired.md'].owners = ['selected'];
+    receipt.managed['foreign.md'].owners = ['other'];
+    receipt.managed['shared.md'].owners = ['selected', 'other'];
+    fs.writeFileSync(file, JSON.stringify(receipt));
+    const opts = { onlyOwner: 'selected', ownerStems: new Map([['selected', new Set()]]) };
+    expect(pruneStaleAiwgFiles(dir, new Set(), { ...opts, dryRun: true })).toEqual([path.join(dir, 'retired.md')]);
+    expect(pruneStaleAiwgFiles(dir, new Set(), opts)).toEqual([path.join(dir, 'retired.md')]);
+    for (const name of ['foreign.md', 'shared.md', 'unattributed.md']) expect(fs.existsSync(path.join(dir, name))).toBe(true);
+  });
+
   it('strips provider extension variants to a common stem', async () => {
     const base = await importBase();
     expect(base.artifactStem('foo.md')).toBe('foo');

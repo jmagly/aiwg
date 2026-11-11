@@ -2,6 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { importImpl } from '../../_resolve-impl.mjs';
+const { deploymentOwner } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 export function removeSkillCopy(dir, opts = {}) {
   const copyMode = opts.copyMode ?? opts.copyStandardSkills;
   if (copyMode && !opts.tierMove) return false;
@@ -17,12 +19,22 @@ export function removeSkillCopy(dir, opts = {}) {
   let receipt;
   try { receipt = JSON.parse(fs.readFileSync(path.join(dir, '.aiwg-manifest.json'), 'utf8')); }
   catch (error) {
+    if (opts.bundleOnly) return false;
     // Only a missing receipt may use legacy ownership. An invalid receipt must
     // not turn an edited copy into a marker-only deletion candidate.
     if (error.code !== 'ENOENT') return keep('unverifiable ownership');
     if (copyMode || !fs.existsSync(path.join(dir, '.aiwg-managed'))) return keep('unverifiable ownership');
     if (!opts.dryRun) fs.rmSync(dir, { recursive: true, force: true });
     return true;
+  }
+  if (opts.bundleOnly) {
+    const record = receipt?.managed?.['SKILL.md'];
+    const owners = record?.owners || (record?.frameworkSlug ? [record.frameworkSlug] : []);
+    const logical = opts.logicalInputPath || (file => file);
+    const selectedRoot = path.resolve(logical(opts.srcRoot));
+    const source = receipt?.skillSource && path.resolve(logical(receipt.skillSource));
+    const ownSource = source && source.startsWith(`${selectedRoot}${path.sep}`);
+    if (owners.length ? owners.some(owner => owner !== deploymentOwner(opts)) : !ownSource) return false;
   }
   if (!receipt?.managed?.['SKILL.md']?.hash) return keep('unverifiable ownership');
   const walk = root => fs.readdirSync(root, { withFileTypes: true }).flatMap(entry => {

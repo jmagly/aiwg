@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { frameworkRegistryId } from '../config/framework-aliases.js';
+import { deploymentOwner } from './deployment-ownership.mjs';
 const hash = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const parse = bytes => { try { return JSON.parse(bytes?.toString() || '{}'); } catch { return {}; } };
 const sidecar = '.aiwg-manifest.json';
@@ -48,10 +49,27 @@ export function preserveDeploymentOutputs(before, roots, opts = {}) {
     const base = receipt.scope === 'project' && file === path.join(opts.target, '.aiwg', sidecar) ? opts.target : path.dirname(file);
     for (const [name, record] of Object.entries(receipt.managed || {})) {
       const target = path.resolve(base, name);
-      if (target.startsWith(`${base}${path.sep}`)) claims.set(target, { record, file, name });
+      if (target.startsWith(`${base}${path.sep}`)) claims.set(target, { record, file, name, target });
     }
   }
   const restored = [];
+  const owner = deploymentOwner(opts);
+  const sharedIndex = file => /^RULES-(?:INDEX|ONDEMAND|BOUND)\.(?:md|mdc)$/.test(path.basename(file))
+    || context.has(path.basename(file)) || path.basename(file) === '.windsurfrules'
+    // Flue's app modules describe every selected bundle, even in a scoped pass.
+    || opts.provider === 'flue' && ['skills.ts', 'specialists.ts', 'tools.ts', 'remote-specialist.js', 'remote-specialist.d.ts']
+      .some(name => file === path.join(opts.target, 'src/aiwg', name));
+  const foreign = (file, record) => {
+    if (opts.force) {
+      const claim = claims.get(file);
+      const current = claim && parse(fs.existsSync(claim.file) ? fs.readFileSync(claim.file) : null);
+      const source = current?.skillSource || current?.managed?.[claim?.name]?.sourcePath;
+      const logical = opts.logicalInputPath || (file => file);
+      if (source && logical(source).startsWith(`${logical(opts.srcRoot)}${path.sep}`)) return false;
+    }
+    const owners = record?.owners || (record?.frameworkSlug ? [record.frameworkSlug] : []);
+    return opts.bundleOnly && !sharedIndex(file) && (owners.length !== 1 || owners[0] !== owner);
+  };
   for (const [file, bytes] of before) {
     if (path.basename(file) === sidecar) continue;
     // Snapshots keep bytes for receipt-claimed and receipt-adjacent files only;
@@ -60,18 +78,41 @@ export function preserveDeploymentOutputs(before, roots, opts = {}) {
     const exists = fs.existsSync(file);
     if (!exists && opts.replacedSkillCopies?.has(file)) continue;
     const claim = claims.get(file);
-    const edited = claim?.record.hash && claim.record.hash !== hash(bytes) && !context.has(path.basename(file)) && claim.record.kind !== 'settings';
+    // A named bundle's transaction cannot rewrite or retire another owner's
+    // payload, including older marker-only kernel rules and shared settings.
+    const outOfScope = foreign(file, claim?.record);
+    const edited = claim && (claim.record.hash ? claim.record.hash !== hash(bytes) : opts.bundleOnly)
+      && !context.has(path.basename(file)) && claim.record.kind !== 'settings';
     const owners = claim?.record.owners || (claim?.record.frameworkSlug ? [claim.record.frameworkSlug] : []);
     const currentOwner = (opts.srcRoot || '').replaceAll('\\', '/').match(/(?:agentic\/code|\.aiwg)\/(?:frameworks|addons|extensions)\/([^/]+)/)?.[1] || frameworkRegistryId(opts.mode || '');
     const copy = (opts.copyMode ?? opts.copyStandardSkills) || owners.some(owner => providerCopyMode(opts.target, opts.provider, owner, opts.config, currentOwner));
-    if (!(edited || !exists && copy) || exists && fs.readFileSync(file).equals(bytes)) continue;
+    const retire = opts.copyMode === false && opts.retiredRuleFiles?.has(file);
+    if (!(outOfScope || edited || !exists && copy && !retire) || exists && fs.readFileSync(file).equals(bytes)) continue;
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, bytes);
     if (edited) console.warn(`${opts.logicalOutputPath?.(file) || file}: kept (operator-edited)`);
     restored.push(claim);
   }
+  if (opts.bundleOnly) {
+    opts.writtenFiles = opts.writtenFiles?.filter(file => !before.has(file) || !foreign(file, claims.get(file)?.record));
+    // Keep foreign ownership records verbatim. A rewritten sidecar must never
+    // turn an unchanged kernel payload into an output of the selected addon.
+    for (const [file, previous] of receipts) {
+      if (opts.replacedSkillCopies?.has(file) && !fs.existsSync(file)) continue;
+      const current = parse(fs.existsSync(file) ? fs.readFileSync(file) : null);
+      current.managed ||= {};
+      const base = previous.scope === 'project' && file === path.join(opts.target, '.aiwg', sidecar) ? opts.target : path.dirname(file);
+      for (const [name, record] of Object.entries(previous.managed || {})) {
+        if (foreign(path.resolve(base, name), record)) current.managed[name] = record;
+      }
+      const exclusivelyForeign = [previous.managed || {}, current.managed].every(managed =>
+        Object.entries(managed).every(([name, record]) => foreign(path.resolve(base, name), record)));
+      writeReceipt(file, exclusivelyForeign ? before.get(file) : `${JSON.stringify(current, null, 2)}\n`);
+    }
+  }
   // Keep the old digest for protected payloads: a later run must still detect edits.
   for (const claim of restored.filter(Boolean)) {
+    if (foreign(claim.target, claim.record)) continue;
     const { managed: _managed, ...metadata } = receipts.get(claim.file) || {};
     const receipt = { ...metadata, ...parse(fs.existsSync(claim.file) ? fs.readFileSync(claim.file) : null) };
     receipt.managed ??= {};

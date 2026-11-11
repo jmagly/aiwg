@@ -299,6 +299,7 @@ async function mainUnlocked(args, internal) {
     allowOverBudget: cfg.allowOverBudget === true,
     kernelOnly: cfg.kernelOnly,
     deferRuleProjection: cfg.deferRuleProjection,
+    bundleOnly: cfg.bundleOnly,
     additionalSources: cfg.additionalSources,
     filter: cfg.filter,
     filterRole: cfg.filterRole,

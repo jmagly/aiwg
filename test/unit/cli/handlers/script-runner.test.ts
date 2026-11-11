@@ -50,6 +50,23 @@ describe('DefaultScriptRunner', () => {
     expect(warn).toHaveBeenCalledExactlyOnceWith(warning);
   });
 
+  it.each([false, true])('reports captured critical-rule retirement even with suppressed console output (subprocess=%s)', async subprocess => {
+    const warning = 'Removing /project/.claude/rules/retired.md (critical rule retired because the selected deployment no longer projects its source at this path)';
+    const file = deployer(`
+      export async function main() {
+        console.warn(${JSON.stringify(warning)});
+        console.error('unrelated diagnostic');
+        return 0;
+      }
+      if (process.argv[1].endsWith('/deploy-agents.mjs')) await main();
+    `);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const result = await runner.run(file, [], { capture: true, ...(subprocess ? { timeout: 10_000 } : {}) });
+    expect(result.exitCode).toBe(0);
+    expect(stderr).toHaveBeenCalledExactlyOnceWith(`${warning}\n`);
+  });
+
   it('reuses the deployment module, captures preview stdout and bounds stderr', async () => {
     const file = deployer(`
       let calls = 0;

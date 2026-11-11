@@ -1,7 +1,9 @@
 /** Preserve projector-owned rules while pruning stale legacy flat artifacts. */
 import fs from 'node:fs';
 import path from 'node:path';
-import { computeArtifactInventory, computeAllSkillNames, pruneStaleAiwgFiles, resolveAiwgRoot } from './base.mjs';
+import { artifactStem, computeArtifactInventory, computeAllSkillNames, listMdFiles, listSkillDirs, pruneStaleAiwgFiles, resolveAiwgRoot } from './base.mjs';
+import { importImpl } from '../../_resolve-impl.mjs';
+const { deploymentOwner } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 
 /**
  * After a deploy, prune AIWG-managed flat artifacts (agents/commands/rules)
@@ -9,9 +11,9 @@ import { computeArtifactInventory, computeAllSkillNames, pruneStaleAiwgFiles, re
  *
  * Safety boundaries:
  *   - Runs ONLY for AIWG framework/addon deploys (default source = AIWG root,
- *     or `--source` under `<aiwgRoot>/agentic/code`). Project-local bundle
- *     deploys (`--source <bundle>`) are skipped so a bundle's just-deployed
- *     artifacts are never mistaken for stale framework files.
+ *     or `--source` under `<aiwgRoot>/agentic/code`). A named bundle pass
+ *     instead compares only its own recorded outputs with its source tree,
+ *     including project-local sources.
  *   - `pruneStaleAiwgFiles` itself only removes files whose AIWG
  *     receipt hash matches their bytes AND whose recorded owners no longer
  *     ship the stem. Without bundle identity, it uses the global source set.
@@ -52,12 +54,12 @@ export function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explici
   if (opts.skillsOnly && !opts.kernelOnly) return; // skills run their own prune in the provider
 
   const aiwgRoot = resolveAiwgRoot(srcRoot);
-  if (!aiwgRoot) return; // no AIWG tree → bundle/standalone deploy; never prune
+  if (!aiwgRoot && !opts.bundleOnly) return; // standalone deploy without an ownership scope
 
   // Gate: only framework/addon deploys are eligible. A default deploy (no
   // --source) sources from the AIWG root. An explicit --source is eligible
   // only when it lives under <aiwgRoot>/agentic/code (bundled fw/addon).
-  if (explicitSource) {
+  if (explicitSource && !opts.bundleOnly) {
     const codeRoot = path.join(aiwgRoot, 'agentic', 'code');
     const rel = path.relative(codeRoot, path.resolve(explicitSource));
     const underCode = !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
@@ -103,7 +105,10 @@ export function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explici
     if (!relPath) continue;                 // type not file-deployed by provider
     if (relPath.endsWith('.md')) continue;  // aggregate file (e.g. AGENTS.md)
 
-    const inventory = computeArtifactInventory(srcRoot, type);
+    const onlyOwner = opts.bundleOnly ? deploymentOwner(opts) : undefined;
+    const selectedStems = onlyOwner && new Set(listMdFiles(path.join(srcRoot, type)).map(file => artifactStem(path.basename(file))));
+    const inventory = onlyOwner ? { stems: selectedStems, ownerStems: new Map([[onlyOwner, selectedStems]]) }
+      : computeArtifactInventory(srcRoot, type);
     if (!inventory) continue;               // no global desired set → skip
 
     const destDir = path.isAbsolute(relPath) ? relPath : path.join(target, relPath);
@@ -113,14 +118,21 @@ export function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explici
       const receipt = path.join(destDir, '.aiwg-manifest.json');
       if (fs.existsSync(receipt) && JSON.parse(fs.readFileSync(receipt, 'utf8')).delivery) continue;
     }
+    let skillCommandStems = null;
+    if (type === 'commands') {
+      skillCommandStems = onlyOwner
+        ? new Set(listSkillDirs(path.join(srcRoot, 'skills')).map(file => path.basename(file)))
+        : computeAllSkillNames(srcRoot);
+    }
     const removed = pruneStaleAiwgFiles(destDir, inventory.stems, {
       ownerStems: inventory.ownerStems,
+      onlyOwner,
       dryRun: opts.dryRun,
       verbose: opts.verbose,
       // Retire wrappers whose source skill no longer ships (#2511). Only the
       // command directory holds them; the kernel-only branch returns earlier,
       // so a bulk install still cannot touch wrappers it did not write.
-      skillCommandStems: type === 'commands' ? computeAllSkillNames(srcRoot) : null,
+      skillCommandStems,
     });
     if (removed.length > 0 && !opts.quiet) {
       console.log(`  Pruned: ${removed.length} stale AIWG ${type} file${removed.length === 1 ? '' : 's'}`);

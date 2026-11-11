@@ -17,7 +17,14 @@ const bundleOwner = source => extractFrameworkSlug(source) || source.replaceAll(
 export const deploymentOwner = opts => {
   const names = { sdlc: 'sdlc-complete', marketing: 'media-marketing-kit', mmk: 'media-marketing-kit',
     research: 'research-complete', forensics: 'forensics-complete', dfir: 'forensics-complete', validation: 'validation-complete', ops: 'ops-complete', general: 'writing-quality' };
-  return opts.frameworkSlug || bundleOwner(`${opts.logicalInputPath?.(opts.srcRoot) || opts.srcRoot}/manifest.json`) || names[opts.mode] || opts.mode;
+  const source = opts.logicalInputPath?.(opts.srcRoot) || opts.srcRoot;
+  let scopedOwner;
+  if (opts.bundleOnly && opts.srcRoot) {
+    const file = path.join(opts.srcRoot, 'manifest.json');
+    const manifest = parse(fs.existsSync(file) ? fs.readFileSync(file) : null);
+    scopedOwner = typeof manifest.id === 'string' && manifest.id ? manifest.id : path.resolve(source);
+  }
+  return opts.frameworkSlug || bundleOwner(`${source}/manifest.json`) || scopedOwner || names[opts.mode] || opts.mode;
 };
 
 /** Only provider output surfaces, never arbitrary project source directories. */

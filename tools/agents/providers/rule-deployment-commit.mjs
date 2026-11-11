@@ -22,6 +22,7 @@ import {
   walk,
 } from './rule-delivery-surface.mjs';
 import { prepareRuleDeployment } from './rule-deployment-prepare.mjs';
+import { ruleRemovalReason } from './rule-projection.mjs';
 import {
   captureAnchors,
   capturePreimage,
@@ -82,6 +83,8 @@ export function commitRuleDeploymentPlan(plan) {
       promoteDirectories(to, from, rel => delegated(from, rel));
       const after = new Set(walk(to).map(file => path.relative(to, file)).filter(rel => !delegated(from, rel)));
       for (const rel of before.keys()) if (!delegated(from, rel) && !after.has(rel)) {
+        const reason = ruleRemovalReason(path.join(from, rel));
+        if (reason) console.warn(`Removing ${path.join(from, rel)}${reason}`);
         fs.rmSync(path.join(from, rel), { force: true });
         // A pruned managed skill must disappear as a directory too. Remove
         // only empty parents absent from the staged result; preserve siblings.

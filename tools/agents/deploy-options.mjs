@@ -29,6 +29,7 @@ export function parseArgs(args = process.argv.slice(2)) {
     reportOnly: true,
     kernelOnly: false,
     deferRuleProjection: false,
+    bundleOnly: false,
     ruleSelectionMode: null,
     additionalSources: [],
     filter: null,           // Glob pattern for agent names
@@ -99,6 +100,7 @@ export function parseArgs(args = process.argv.slice(2)) {
     else if (a === '--kernel-only') cfg.kernelOnly = true;
     // Internal use orchestration: the final source owns rule presentation.
     else if (a === '--defer-rule-projection') cfg.deferRuleProjection = true;
+    else if (a === '--bundle-only') cfg.bundleOnly = true;
     else if (a === '--deploy-behaviors') cfg.deployBehaviors = true;
     else if (a === '--filter' && args[i + 1]) cfg.filter = args[++i];
     else if (a === '--filter-role' && args[i + 1]) cfg.filterRole = args[++i];

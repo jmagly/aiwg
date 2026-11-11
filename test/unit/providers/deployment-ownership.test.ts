@@ -9,7 +9,7 @@ import { ContextWriteJournal, writeContextFileSync } from '../../../src/smiths/c
 import { recordManagedCommands } from '../../../src/plugin/command-ownership.js';
 import { collectOwnedDirectory } from '../../../src/providers/transformation-receipt-outputs.js';
 import { mirrorArtifactDir } from '../../../src/cli/user-scope-mirror.js';
-import { captureDeploymentOutputs, recordDeploymentOutputs } from '../../../src/providers/deployment-ownership.mjs';
+import { captureDeploymentOutputs, deploymentOwner, recordDeploymentOutputs } from '../../../src/providers/deployment-ownership.mjs';
 
 let root: string;
 const digest = (value: string) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -24,6 +24,17 @@ afterEach(() => { fs.rmSync(root, { force: true, recursive: true }); });
 const record = (before: Map<string, Buffer>, mode = 'sdlc') => recordDeploymentOutputs(before, [root], { mode });
 
 describe('deploy-wide sidecar ownership', () => {
+  it('gives externally stored named bundles their own identity instead of the all-kernel owner (#4087)', () => {
+    const source = path.join(root, 'external/addon');
+    write('external/addon/manifest.json', { id: 'external-addon' });
+    expect(deploymentOwner({ srcRoot: source, mode: 'all', bundleOnly: true })).toBe('external-addon');
+    fs.rmSync(path.join(source, 'manifest.json'));
+    const snapshot = path.join(root, 'snapshot');
+    expect(deploymentOwner({ srcRoot: snapshot, mode: 'all', bundleOnly: true,
+      logicalInputPath: () => source })).toBe(source);
+    expect(deploymentOwner({ srcRoot: source, mode: 'all' })).toBe('all');
+  });
+
   it('records copied Cloudflare helper files with project preimages for Flue removal', () => {
     const before = captureDeploymentOutputs([root]);
     const names = ['src/aiwg/remote-specialist.js', 'src/aiwg/remote-specialist.d.ts'];
