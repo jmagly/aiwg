@@ -1267,6 +1267,7 @@ function firstFailureLine(message: string | undefined): string {
 
 async function deployOneProjectLocalBundle(opts: {
   bundle: ProjectLocalBundle;
+  bundleOnly?: boolean;
   ctx: HandlerContext;
   frameworkRoot: string;
   provider: string;
@@ -1326,6 +1327,7 @@ async function deployOneProjectLocalBundle(opts: {
       // whose desired set is the packaged framework corpus — deletes every
       // project-local agent in the same run that re-deployed it.
       '--deploy-source', 'project-local',
+      ...(opts.bundleOnly ? ['--bundle-only'] : []),
       '--deploy-version', projectLocalDeployVersion(bundle),
       ...modelArgs,
     ];
@@ -1500,6 +1502,7 @@ async function deployProjectLocalBundles(opts: {
     }
 
     const result = await deployOneProjectLocalBundle({
+      bundleOnly: Boolean(onlyBundleId),
       bundle, ctx: await projectLocalDeploymentContext(ctx, projectDir, bundle.id, provider, Boolean(onlyBundleId)), frameworkRoot, provider, target, dryRun, verbose, quiet, modelArgs,
     });
 
@@ -3481,7 +3484,7 @@ export class UseHandler implements CommandHandler {
         }
 
         const runner = createUseScriptRunner(frameworkRoot);
-        const addonBaseArgs = ['--deploy-commands', '--deploy-skills', '--deploy-rules'];
+        const addonBaseArgs = ['--deploy-commands', '--deploy-skills', '--deploy-rules', '--bundle-only'];
         if (remainingArgs.includes('--allow-over-budget')) addonBaseArgs.push('--allow-over-budget');
         if (addonScope === 'user') addonBaseArgs.push('--scope', 'user');
         // An explicitly selected upstream addon must be self-contained in the

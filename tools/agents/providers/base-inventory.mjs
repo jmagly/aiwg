@@ -244,6 +244,7 @@ export function pruneStaleAiwgFiles(destDir, desiredStems, opts = {}) {
     const record = managed[name];
     const owners = [record?.frameworkSlug, ...(Array.isArray(record?.owners) ? record.owners : [])]
       .filter(owner => typeof owner === 'string' && owner.length > 0);
+    if (opts.onlyOwner && (!owners.length || owners.some(owner => owner !== opts.onlyOwner))) continue;
     // Wrappers belong to the skill inventory below, not the command inventory.
     const ownerAware = opts.ownerStems instanceof Map && owners.length > 0 && record?.kind !== 'skill-command';
     if (ownerAware ? owners.some(owner => opts.ownerStems.get(owner)?.has(stem)) : desired.has(stem)) continue;
@@ -275,7 +276,8 @@ export function pruneStaleAiwgFiles(destDir, desiredStems, opts = {}) {
     }
     removed.push(target);
     if (dryRun) {
-      if (verbose) console.log(`[dry-run] would prune stale AIWG artifact: ${path.relative(process.cwd(), target)}`);
+      if (opts.onlyOwner) console.log(`[dry-run] Would remove ${target} (recorded owner ${opts.onlyOwner} no longer ships this artifact)`);
+      else if (verbose) console.log(`[dry-run] would prune stale AIWG artifact: ${path.relative(process.cwd(), target)}`);
       continue;
     }
     try {

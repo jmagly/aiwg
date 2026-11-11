@@ -10,9 +10,17 @@ import { writeContextFileSync } from './context-write.mjs';
 export { inlineStartup } from './rule-startup.mjs';
 const { parseRuleFrontmatter } = await importImpl(import.meta.url, 'rules/activation.mjs');
 const { renderCoreStartup } = await importImpl(import.meta.url, 'rules/core-startup.mjs');
+const { deploymentOwner } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 const read = file => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
 const walk = dir => fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry =>
   entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]) : [];
+const deployedRule = file => parseRuleFrontmatter(read(file).replace(/^<!-- aiwg:managed[^\n]*-->\r?\n/, ''));
+export function ruleRemovalReason(file) {
+  if (!/[/\\](?:rules|rule|instructions)[/\\].*\.(?:md|mdc)$/.test(file)) return '';
+  const parsed = deployedRule(file);
+  const level = parsed.data?.enforcement === 'critical' ? 'critical rule' : 'rule';
+  return ` (${level} retired because the selected deployment no longer projects its source at this path)`;
+}
 const put = (file, content) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, content); };
 export const nativeRuleLoader = name => ['claude', 'cursor', 'grok-build', 'windsurf', 'opencode'].includes(name);
 export const nativePathLoader = name => ['claude', 'cursor', 'windsurf'].includes(name);
@@ -57,18 +65,44 @@ export function projectRules(opts, provider) {
   const extension = provider.name === 'cursor' ? '.mdc' : '.md';
   const managed = content => addManagedMarker(content, opts.deployVersion, opts.deploySource || 'bundled');
   const deployedSources = new Map();
+  const owner = deploymentOwner(opts);
+  const selectedSource = rule => !opts.bundleOnly || rule.file.startsWith(`${opts.srcRoot}${path.sep}`);
+  const manifestPath = path.join(rulesDir, '.aiwg-manifest.json');
+  const manifest = fs.existsSync(manifestPath) ? JSON.parse(read(manifestPath)) : { managed: {} };
+  const previousManaged = opts.ownershipBefore
+    ? JSON.parse(opts.ownershipBefore.get(manifestPath)?.toString() || '{}').managed || {} : { ...manifest.managed };
+  const owned = file => {
+    const name = path.relative(rulesDir, file);
+    const record = previousManaged[name];
+    const owners = record?.owners || (record?.frameworkSlug ? [record.frameworkSlug] : []);
+    const newSource = opts.ownershipBefore?.has(file) ? undefined : manifest.managed?.[name]?.sourcePath;
+    return owners.length === 1 && owners[0] === owner || Boolean(newSource?.startsWith(`${opts.srcRoot}${path.sep}`));
+  };
+  // Retained native contracts also stay reachable through non-native loaders.
+  // Older deployments can carry kernel rules whose original source has moved.
+  if (opts.bundleOnly) for (const file of walk(rulesDir)) {
+    if (!/\.(md|mdc)$/.test(file) || owned(file)) continue;
+    const parsed = deployedRule(file);
+    if (!parsed.valid || !parsed.rule?.tagged) continue;
+    const name = parsed.data.name || path.basename(file, path.extname(file));
+    if (['kernel', 'paths'].includes(parsed.rule.activation)
+      && !rules.some(rule => rule.name === name)) rules.push({ ...parsed.rule, name, file, content: read(file), body: parsed.body });
+  }
   const writeRule = (rule, content) => {
+    if (!selectedSource(rule)) return;
     const name = `${ruleName(rule, provider)}${extension}`;
+    if (opts.bundleOnly && opts.ownershipBefore?.has(path.join(rulesDir, name)) && !owned(path.join(rulesDir, name)) && !opts.force) return;
     put(path.join(rulesDir, name), managed(content));
     // Keep the source before reference rewriting, pinning, and native transforms.
     deployedSources.set(name, opts.ruleDelivery.rules.find(original => original.file === rule.file));
   };
   for (const file of walk(rulesDir)) {
-    if (/\.(md|mdc)$/.test(file) && /aiwg:managed/.test(read(file))) fs.rmSync(file);
+    if (/\.(md|mdc)$/.test(file) && /aiwg:managed/.test(read(file)) && (!opts.bundleOnly || owned(file))) fs.rmSync(file);
   }
   const cores = [...new Map(tagged.filter(rule => rule.activation === 'core').map(rule => [rule.name, rule])).values()];
   if (['claude', 'cursor'].includes(provider.name)) {
     for (const rule of cores) {
+      if (!selectedSource(rule)) continue;
       const dest = path.join(rulesDir, `core-${path.basename(rule.file, '.md')}${extension}`);
       if (fs.existsSync(dest) && !/aiwg:managed/.test(read(dest)) && !opts.force) {
         console.warn(`Unmanaged core rule left in place: ${dest}. Re-run with --force to replace it.`);
@@ -110,9 +144,7 @@ export function projectRules(opts, provider) {
   const startups = projectStartup(opts, provider, coreSection, indexFile);
   registerOpenCode(opts, provider, rulesDir);
   fs.rmSync(path.join(rulesDir, '.aiwg-rules-budget.json'), { force: true });
-  const manifestPath = path.join(rulesDir, '.aiwg-manifest.json');
-  const manifest = fs.existsSync(manifestPath) ? JSON.parse(read(manifestPath)) : { managed: {} };
-  manifest.ruleSources = rules.map(rule => rule.file);
+  manifest.ruleSources = opts.ruleDelivery.rules.map(rule => rule.file);
   const logical = opts.logicalOutputPath || (file => file);
   const relative = file => path.relative(logical(opts.target), logical(file)).replaceAll('\\', '/');
   manifest.delivery = { projectFromRules: path.relative(logical(rulesDir), logical(opts.target)),
@@ -122,9 +154,12 @@ export function projectRules(opts, provider) {
   for (const file of walk(rulesDir).filter(file => /\.(md|mdc)$/.test(file) && /aiwg:managed/.test(read(file)))) {
     const name = path.relative(rulesDir, file);
     const source = deployedSources.get(name);
+    if (opts.bundleOnly && !source && !/^(?:RULES-INDEX|RULES-ONDEMAND)\./.test(name)) continue;
     manifest.managed[name] = { ...manifest.managed[name], hash: `sha256:${contentHash(read(file))}`,
       ...(source ? { sourceHash: `sha256:${contentHash(source.content)}` } : {}) };
   }
   for (const name of Object.keys(manifest.managed)) if (!fs.existsSync(path.join(rulesDir, name))) delete manifest.managed[name];
+  if (opts.bundleOnly) opts.retiredRuleFiles = new Set([...(opts.ownershipBefore?.keys() || [])].filter(file =>
+    file.startsWith(`${rulesDir}${path.sep}`) && owned(file) && !fs.existsSync(file)));
   put(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }

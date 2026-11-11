@@ -14,11 +14,76 @@ import { writeCodexSkillMetadata } from '../../../tools/skills/codex-skill-metad
 import { deploySkillDir } from '../../../tools/agents/providers/base-skill-copy.mjs';
 // @ts-expect-error provider tool module
 import { deploySkillsWithKernelRouting } from '../../../tools/agents/providers/base-kernel-skills.mjs';
+// @ts-expect-error provider tool module
+import { prepareRuleDeployment, commitRuleDeploymentPlan } from '../../../tools/agents/providers/rule-delivery.mjs';
 let root: string;
 const write = (file: string, bytes: string) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, bytes); };
 const hash = (bytes: string) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-mode-')); vi.spyOn(console, 'warn').mockImplementation(() => {}); });
 afterEach(() => { vi.restoreAllMocks(); fs.rmSync(root, { recursive: true, force: true }); });
+it('keeps foreign kernel receipts byte-identical during a named addon deploy', () => {
+  const file = path.join(root, '.claude/skills/kernel/SKILL.md');
+  const receipt = path.join(path.dirname(file), '.aiwg-manifest.json');
+  const metadata = JSON.stringify({ managed: { 'SKILL.md': { hash: hash('original'), owners: ['kernel'] } } });
+  const before = new Map([[file, Buffer.from('original')], [receipt, Buffer.from(metadata)]]);
+  write(file, 'unrelated binding rewrite');
+  write(receipt, JSON.stringify({ managed: { 'SKILL.md': { hash: hash('unrelated binding rewrite'), owners: ['addon'] } } }));
+  preserveDeploymentOutputs(before, [root], { target: root, provider: 'claude', frameworkSlug: 'addon', bundleOnly: true });
+  expect(fs.readFileSync(file, 'utf8')).toBe('original');
+  expect(fs.readFileSync(receipt, 'utf8')).toBe(metadata);
+});
+it.each(['skills.ts', 'specialists.ts'])('refreshes shared Flue %s across owners while retaining operator edits', name => {
+  const file = path.join(root, 'src/aiwg', name);
+  const receipt = path.join(root, '.aiwg/.aiwg-manifest.json');
+  const record = { hash: hash('first bundle'), owners: ['first'], kind: 'generated' };
+  const metadata = JSON.stringify({ scope: 'project', managed: { [`src/aiwg/${name}`]: record } });
+  const before = new Map([[file, Buffer.from('first bundle')], [receipt, Buffer.from(metadata)]]);
+  const opts = { target: root, provider: 'flue', frameworkSlug: 'second', bundleOnly: true, writtenFiles: [file] };
+  write(file, 'all selected bundles'); write(receipt, metadata);
+  preserveDeploymentOutputs(before, [root], opts);
+  expect(fs.readFileSync(file, 'utf8')).toBe('all selected bundles');
+  expect(opts.writtenFiles).toContain(file);
+  before.set(file, Buffer.from('operator edit'));
+  write(file, 'next generation');
+  preserveDeploymentOutputs(before, [root], opts);
+  expect(fs.readFileSync(file, 'utf8')).toBe('operator edit');
+  expect(JSON.parse(fs.readFileSync(receipt, 'utf8')).managed[`src/aiwg/${name}`]).toEqual(record);
+});
+it.each([false, true])('single-bundle projection scopes retirement, retains explicit copies and explains critical removals (copy=%s)', async copy => {
+  const source = path.join(root, '.aiwg/addons/demo');
+  const target = path.join(root, 'project');
+  const rules = path.join(target, '.claude/rules');
+  const current = path.join(source, 'rules/current.md');
+  const text = '<!-- aiwg:managed v2026.11.1 bundled -->\n---\nactivation: kernel\nenforcement: critical\n---\nOriginal\n';
+  write(current, '---\nname: current\nactivation: kernel\n---\nCurrent\n');
+  const records = Object.fromEntries([
+    ['retired.md', ['demo']], ['foreign.md', ['other']], ['shared.md', ['demo', 'other']], ['edited.md', ['demo']],
+  ].map(([name, owners]) => {
+    write(path.join(rules, name as string), text + (name === 'edited.md' ? 'Operator edit\n' : ''));
+    return [name, { hash: hash(text), owners }];
+  }));
+  write(path.join(rules, '.aiwg-manifest.json'), JSON.stringify({ managed: records }));
+  const opts = { srcRoot: source, target, provider: 'claude', mode: 'all', frameworkSlug: 'demo',
+    bundleOnly: true, copyMode: copy, deployRules: true, contextFiles: false,
+    ruleSources: [current], bindingEntries: [], pinConfigs: { project: {}, user: {} } };
+  const provider = { name: 'claude', paths: { rules: '.claude/rules' } };
+  const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+  await prepareRuleDeployment({ ...opts, dryRun: true }, provider, async () => {});
+  expect(output.mock.calls.flat().join('\n').includes(`Would remove ${path.join(rules, 'retired.md')} (critical rule retired because`)).toBe(!copy);
+  expect(fs.existsSync(path.join(rules, 'retired.md'))).toBe(true);
+  commitRuleDeploymentPlan(await prepareRuleDeployment(opts, provider, async () => {}));
+  expect(vi.mocked(console.warn).mock.calls.flat().join('\n').includes(`Removing ${path.join(rules, 'retired.md')} (critical rule retired because`)).toBe(!copy);
+  expect(fs.existsSync(path.join(rules, 'retired.md'))).toBe(copy);
+  for (const name of ['foreign.md', 'shared.md', 'edited.md']) {
+    expect(fs.readFileSync(path.join(rules, name), 'utf8')).toBe(text + (name === 'edited.md' ? 'Operator edit\n' : ''));
+  }
+  const receipt = JSON.parse(fs.readFileSync(path.join(rules, '.aiwg-manifest.json'), 'utf8'));
+  expect(receipt.managed['retired.md']).toEqual(copy ? records['retired.md'] : undefined);
+  expect(receipt.managed['foreign.md']).toEqual(records['foreign.md']);
+  expect(receipt.managed['shared.md']).toEqual(records['shared.md']);
+  expect(receipt.managed['edited.md']).toEqual(records['edited.md']);
+  expect(receipt.managed['current.md'].owners).toEqual(['demo']);
+});
 it.each([false, true])('stale refresh pruning keeps edits and follows copy=%s, including cross-provider trees', async copy => {
   const project = path.join(root, 'project'), corpus = path.join(root, 'corpus');
   write(path.join(corpus, 'package.json'), '{"version":"2026.10.19"}');

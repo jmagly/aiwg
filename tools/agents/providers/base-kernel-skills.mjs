@@ -2,7 +2,7 @@
 import { removeSkillCopy } from './skill-copy-prune.mjs';
 import { fs, path } from './base-runtime.mjs';
 import { parseFrontmatter } from './base-frontmatter.mjs';
-import { ensureDir } from './base-files.mjs';
+import { ensureDir, listSkillDirs } from './base-files.mjs';
 import { deploySkillDir, pruneMissingStandardSkills } from './base-skill-copy.mjs';
 
 
@@ -322,9 +322,12 @@ export function computeAllKernelNames(srcRoot) {
 export function pruneStaleAiwgSkills(kernelDestDir, desiredKernelNames, opts = {}) {
   if ((opts.copyMode ?? opts.copyStandardSkills) || !kernelDestDir || !fs.existsSync(kernelDestDir)) return 0;
   // No global desired set — skip pruning rather than delete everything (#123).
-  if (desiredKernelNames == null) return 0;
+  if (desiredKernelNames == null && !opts.bundleOnly) return 0;
   if (opts.dryRun) return 0;
-  const desired = new Set(desiredKernelNames);
+  const desired = new Set(desiredKernelNames || []);
+  if (opts.bundleOnly) for (const dir of listSkillDirs(path.join(opts.srcRoot, 'skills')).filter(isKernelSkill)) {
+    desired.add(path.basename(dir));
+  }
   let pruned = 0;
   for (const entry of fs.readdirSync(kernelDestDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;

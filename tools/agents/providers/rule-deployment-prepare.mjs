@@ -44,7 +44,7 @@ import {
   stagedCleanups,
   verifyInputPool,
 } from './rule-deployment-state.mjs';
-import { inlineStartup, projectRules } from './rule-projection.mjs';
+import { ruleRemovalReason, inlineStartup, projectRules } from './rule-projection.mjs';
 const { captureDeploymentOutputs, recordDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-ownership.mjs');
 const { preserveDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-preservation.mjs');
 import { retireInlineStartup } from './rule-startup.mjs';
@@ -427,7 +427,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
           const file = path.join(to, rel);
           if (before.get(rel) !== fileDigest(file)) console.log(`[dry-run] Would write ${normalize(file)}`);
         }
-        for (const rel of before.keys()) if (!delegated(from, rel) && !after.has(rel)) console.log(`[dry-run] Would remove ${path.join(from, rel)}`);
+        for (const rel of before.keys()) if (!delegated(from, rel) && !after.has(rel)) console.log(`[dry-run] Would remove ${path.join(from, rel)}${ruleRemovalReason(path.join(from, rel))}`);
       }
       for (const name of rootNames) {
         const file = path.join(stage, name);
