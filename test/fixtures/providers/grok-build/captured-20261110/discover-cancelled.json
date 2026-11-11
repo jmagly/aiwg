@@ -1,0 +1,149 @@
+{
+  "source": "grok-build-captures-20261110b/cli/smoke-in-aiwg-project.out",
+  "binaryVersion": "1.0.77",
+  "exitCode": 0,
+  "events": [
+    {
+      "type": "text",
+      "data": "Running"
+    },
+    {
+      "type": "text",
+      "data": " discovery"
+    },
+    {
+      "type": "text",
+      "data": " for"
+    },
+    {
+      "type": "text",
+      "data": " this"
+    },
+    {
+      "type": "text",
+      "data": " request"
+    },
+    {
+      "type": "text",
+      "data": ","
+    },
+    {
+      "type": "text",
+      "data": " then"
+    },
+    {
+      "type": "text",
+      "data": " I’ll"
+    },
+    {
+      "type": "text",
+      "data": " reply"
+    },
+    {
+      "type": "text",
+      "data": " with"
+    },
+    {
+      "type": "text",
+      "data": " the"
+    },
+    {
+      "type": "text",
+      "data": " exact"
+    },
+    {
+      "type": "text",
+      "data": " string"
+    },
+    {
+      "type": "text",
+      "data": " you"
+    },
+    {
+      "type": "text",
+      "data": " asked"
+    },
+    {
+      "type": "text",
+      "data": " for"
+    },
+    {
+      "type": "text",
+      "data": "."
+    },
+    {
+      "type": "tool_call",
+      "toolCallId": "synthetic-discover-call",
+      "title": "run_terminal_command",
+      "kind": "execute",
+      "status": "pending",
+      "toolName": "run_terminal_command",
+      "rawInput": {
+        "command": "aiwg discover --stdin <<'AIWG_REQUEST'\nReply with exactly: grok-smoke-ok\nAIWG_REQUEST",
+        "description": "Discover AIWG skills for smoke request"
+      },
+      "content": [],
+      "locations": []
+    },
+    {
+      "type": "tool_call_update",
+      "toolCallId": "synthetic-discover-call",
+      "status": null,
+      "content": [
+        {
+          "type": "content",
+          "content": {
+            "type": "text",
+            "text": "Discover AIWG skills for smoke request"
+          }
+        }
+      ],
+      "rawOutput": null,
+      "locations": []
+    },
+    {
+      "type": "tool_call_update",
+      "toolCallId": "synthetic-discover-call",
+      "status": "failed",
+      "content": [
+        {
+          "type": "content",
+          "content": {
+            "type": "text",
+            "text": "User cancelled the execution for tool `run_terminal_command`"
+          }
+        }
+      ],
+      "rawOutput": null,
+      "locations": []
+    },
+    {
+      "type": "end",
+      "stopReason": "cancelled",
+      "sessionId": "synthetic-session",
+      "requestId": "synthetic-request",
+      "cwd": "/synthetic/project",
+      "usage": {
+        "input_tokens": 24872,
+        "cache_read_input_tokens": 1280,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 333,
+        "reasoning_tokens": 267,
+        "total_tokens": 26485
+      },
+      "num_turns": 1,
+      "total_cost_usd": 0.01780988,
+      "total_cost_usd_ticks": 178098800,
+      "modelUsage": {
+        "grok-4.6-build": {
+          "inputTokens": 24872,
+          "outputTokens": 333,
+          "cacheReadInputTokens": 1280,
+          "cacheCreationInputTokens": 0,
+          "modelCalls": 1,
+          "costUSD": 0.01780988
+        }
+      }
+    }
+  ]
+}

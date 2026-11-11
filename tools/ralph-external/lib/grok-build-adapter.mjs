@@ -246,6 +246,7 @@ export class GrokBuildAdapter extends ProviderAdapter {
       '--no-plan',
       '--no-alt-screen',
       '--disable-web-search',
+      '--allow', 'Bash(aiwg discover *)',
     ];
     for (const pattern of allowRules) args.push('--allow', pattern);
     for (const pattern of denyRules) args.push('--deny', pattern);

@@ -37,8 +37,9 @@ emits `-p`.
 The 2026-11-10 1.0.77 [capture replay tests](../../test/unit/providers/grok-build-headless.test.ts)
 show `workflow` spawning two children despite `--no-subagents`. This profile
 also emits `--disallowed-tools workflow`; [conformance tests](../../test/conformance/orchestration-v1/grok-build-direct.test.ts)
-check both the template and rendered argv. Combined live enforcement and
-compatibility with the older pinned 1.0.50 profile remain unverified.
+check both the template and rendered argv. A live 1.0.77 run with both flags
+(2026-11-10) made no `spawn_subagent` or `workflow` call. Compatibility with the
+older pinned 1.0.50 profile remains unverified.
 
 **`--permission-mode dontAsk` remains the profile's fixed permission mode.**
 Root `--help` lists `[possible values: default, acceptEdits, auto, dontAsk,
@@ -145,10 +146,27 @@ d=$(mktemp -d) && cd "$d"
 echo 'Reply with exactly: grok-smoke-ok' > brief.md
 XAI_API_KEY="$XAI_API_KEY" grok --prompt-file brief.md -m "$MODEL" \
   --reasoning-effort low --permission-mode dontAsk --sandbox read-only \
+  --allow "Bash(aiwg discover *)" \
   --cwd "$d" --output-format streaming-json --no-subagents --disallowed-tools workflow --no-plan \
   --no-alt-screen --disable-web-search </dev/null
 echo "exit=$?"
 ```
+
+AIWG-deployed projects require discovery before the reply. Without a pre-allow,
+1.0.77 cancels `aiwg discover --stdin` because headless approval is unavailable,
+even under `dontAsk` and with exit code 0. The sanitized captured stream is
+`test/fixtures/providers/grok-build/captured-20261110/discover-cancelled.json`.
+All AIWG-built Grok worker invocations now include `--allow "Bash(aiwg discover *)"`.
+
+The bundled Grok **Permissions and safety → Rule Matching Reference → Bash Rules**
+documents whole-command globs and requires each chained segment to be allowed.
+The space before `*` limits this rule to the `aiwg discover` subcommand with
+arguments, including `--stdin`; it does not grant other AIWG subcommands or
+unrelated shell commands. A live 1.0.77 smoke in an AIWG-deployed project with
+this exact rule (2026-11-10) ran `aiwg discover`, ended `end_turn` and returned the
+exact reply.
+Permission modes, sandbox profiles and explicit deny rules retain their existing
+behavior. Never substitute `--always-approve` or `--permission-mode auto` for this rule.
 
 `</dev/null` is deliberate: stdin is never used by this profile, so
 closing it removes any chance of waiting on a terminal that will never

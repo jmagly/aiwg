@@ -25,6 +25,20 @@ function client(script = responder, env: NodeJS.ProcessEnv = { ...process.env, X
 }
 
 describe('Grok Build ACP contract', () => {
+  it.each([false, true])('pre-allows only discovery in ACP argv (disableSubagents=%s)', async disableSubagents => {
+    const script = `process.stderr.write(JSON.stringify(process.argv.slice(1)));` + responder;
+    const acp = new GrokAcpClient({ cwd: tmpdir(), command: process.execPath, prefixArgs: ['-e', script, '--'],
+      env: {}, timeoutMs: 2_000, disableSubagents });
+    try {
+      await acp.initialize();
+      const args: string[] = JSON.parse(acp.stderr);
+      expect(args.flatMap((arg, index) => arg === '--allow' ? [args[index + 1]] : [])).toEqual(['Bash(aiwg discover *)']);
+      expect(args.slice(-2)).toEqual(['agent', 'stdio']);
+      expect(args).not.toContain('--always-approve');
+      expect(args).not.toContain('--permission-mode');
+    } finally { acp.close(); }
+  });
+
   it.each(['acp', 'acp-compact'])('replays captured 1.0.77 %s authentication, notifications and completion metadata', async capture => {
     const rows = readFileSync(new URL(`../../fixtures/providers/grok-build/captured-20261110/${capture}-frames.jsonl`, import.meta.url), 'utf8')
       .trim().split('\n').map(line => JSON.parse(line));

@@ -217,7 +217,7 @@ describe('Grok Build version-bound profile (B-OG-41)', () => {
       qualification: { status: 'unqualified' } });
     expect(adapter.invocation.argv).toEqual(['--prompt-file', '${brief}', '-m', '${model}', '--reasoning-effort', '${effort}',
       '--permission-mode', 'dontAsk', '--sandbox', '${sandbox}', '--cwd', '${workspace}', '--output-format', 'streaming-json',
-      '--no-subagents', '--disallowed-tools', 'workflow', '--no-plan', '--no-alt-screen', '--disable-web-search']);
+      '--no-subagents', '--disallowed-tools', 'workflow', '--no-plan', '--no-alt-screen', '--disable-web-search', '--allow', 'Bash(aiwg discover *)']);
     expect(adapter.invocation.argv.join(' ')).not.toMatch(/always-approve|bypassPermissions|allow-all|yolo/);
     const profile = adapter.invocationProfiles!['direct-shell'];
     expect(profile.supportedVersions).toBe(VERSION);
@@ -249,7 +249,7 @@ describe('Grok Build version-bound profile (B-OG-41)', () => {
       null, { sandbox: 'workspace-write', allowRules: ['Edit'] })).toEqual(['--prompt-file', '/w/brief.md',
       '-m', MODEL, '--reasoning-effort', 'medium', '--permission-mode', 'dontAsk', '--sandbox', 'workspace',
       '--cwd', '/w', '--output-format', 'streaming-json', '--no-subagents', '--disallowed-tools', 'workflow', '--no-plan', '--no-alt-screen',
-      '--disable-web-search', '--allow', 'Edit']);
+      '--disable-web-search', '--allow', 'Bash(aiwg discover *)', '--allow', 'Edit']);
     expect(GROK_BUILD_DIRECT_STDIN).toBe('closed');
   });
 
@@ -306,7 +306,7 @@ describe('T-OG-15 Grok Build direct command contract', () => {
     expect(result.code, result.stderr).toBe(0);
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
     expect(record).toMatchObject({ model: MODEL, effort: 'medium', cwd: workdir, outputFormat: 'streaming-json',
-      permissionMode: 'dontAsk', sandbox: 'workspace', noSubagents: true, noPlan: true, disableWebSearch: true, allowRules: ['Edit'] });
+      permissionMode: 'dontAsk', sandbox: 'workspace', noSubagents: true, noPlan: true, disableWebSearch: true, allowRules: ['Bash(aiwg discover *)', 'Edit'] });
     expect(record.brief).toBe(payload);
     expect(record.brief).toContain(MARKER);
     expect(record.argv).toEqual(invocation.argv.slice(2));
