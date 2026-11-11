@@ -40,6 +40,33 @@ The default type is `extension`; the default starter is `skill`. The aliases
 `new-extension`, `new-addon`, `new-framework`, `new-plugin`, and `new-provider`
 select their corresponding type.
 
+## Addon flows
+
+After `aiwg new-bundle ux-studio --type addon`, add a `flows/` directory
+and set `addonConfig.entry.flows` to `"flows/"` in its manifest. Each
+`flows/<name>.yaml` uses the existing `flow.aiwg.io/v1` metalanguage with
+`kind: FlowCapability`, `metadata.name`, and a schema-valid `spec` including
+`description`, `version`, `inputs`, and `outputs`. Custom relative entry
+directories and `.yml` files are also supported.
+
+Optionally declare a top-level `flows: ["<metadata.name>"]` inventory;
+legacy `addonConfig.flows` is also accepted. A skill alone remains type `skill`.
+
+Rebuild and inspect the authored flow from the project root:
+
+```bash
+aiwg index build --graph project
+aiwg discover "<metadata.name>" --type flow
+aiwg show flow <metadata.name>
+aiwg list --project-local
+```
+
+The flow card shows `Owner: addon:ux-studio`; the project-local list reports
+flow names and counts. Use `validate-addon` to check flow YAML, its existing
+schema, inventory, and discovery before deploying or promoting the addon.
+See `docs/customization/project-local-quickstart.md` (Addon flows)
+for a complete manifest fragment and FlowCapability example.
+
 ## Safety
 
 - Use `--dry-run` before scaffolding when the target or layout is uncertain.

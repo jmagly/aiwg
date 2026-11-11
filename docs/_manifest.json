@@ -2805,7 +2805,7 @@
     {
       "id": "customization/project-local-quickstart",
       "title": "Project-Local Quickstart",
-      "summary": "Create and validate a project-local bundle",
+      "summary": "Create and validate project-local bundles with skills, agents, rules, and flows",
       "file": "customization/project-local-quickstart.md",
       "parent": "customization"
     },

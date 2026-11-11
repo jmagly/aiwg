@@ -10,11 +10,16 @@
  * @source @src/artifacts/index-builder.ts
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { parseFlowDoc, parseRunbookDoc, buildIndex } from '../../../src/artifacts/index-builder.js';
+import { main } from '../../../src/artifacts/cli.js';
+import { discoverCapability } from '../../../src/artifacts/query-engine-discover.js';
+import { showArtifact } from '../../../src/artifacts/query-engine-show.js';
+import { listHandler } from '../../../src/cli/handlers/subcommands-list.js';
+import { discoverProjectLocalBundles } from '../../../src/extensions/project-local-discovery.js';
 import { INDEX_DIR } from '../../../src/artifacts/types.js';
 
 const CAPABILITY_YAML = `apiVersion: workflow.aiwg.io/v1
@@ -134,9 +139,63 @@ describe('buildIndex classifies Flow documents (#1540)', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-flow-index-'));
+    for (const key of ['HOME', 'XDG_DATA_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME']) {
+      vi.stubEnv(key, path.join(tmpDir, key));
+    }
+    for (const key of ['AIWG_ARTIFACTS_PATH', 'AIWG_PROJECT_ARTIFACTS_PATH', 'AIWG_PROJECT_AIWG_DIR', 'AIWG_PROJECT_LOCAL_PATHS']) vi.stubEnv(key, '');
+    vi.stubEnv('AIWG_ROOT', path.join(tmpDir, 'runtime'));
+    vi.spyOn(console, 'log').mockImplementation(() => {});
   });
   afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it.each([
+    { location: 'local', entry: 'flows/', backend: 'local' as const },
+    { location: 'relocated', entry: 'processes/ux/', backend: 'local' as const },
+    { location: 'local', entry: 'flows/', backend: 'fortemi-core' as const },
+    { location: 'relocated', entry: 'processes/ux/', backend: 'fortemi-core' as const },
+  ])('discovers and lists an addon flow with ownership ($location root, $backend, #4089)', async ({ location, entry, backend }) => {
+    const artifactRoot = path.join(tmpDir, location === 'local' ? '.aiwg' : 'private-artifacts');
+    if (location === 'relocated') fs.writeFileSync(path.join(tmpDir, '.aiwg-location'), 'private-artifacts\n');
+    const bundle = path.join(artifactRoot, 'addons', 'ux-studio');
+    fs.mkdirSync(path.join(bundle, entry), { recursive: true });
+    fs.writeFileSync(path.join(bundle, 'manifest.json'), JSON.stringify({
+      id: 'ux-studio', type: 'addon', name: 'UX Studio', version: '2026.11.6',
+      description: 'Redesign screens', manifestVersion: '1', platforms: { claude: 'full' },
+      keywords: ['ux'], deployment: { pathTemplate: '.{platform}/skills/{id}.md' },
+      addonConfig: { entry: { flows: entry } },
+    }));
+    fs.writeFileSync(path.join(bundle, entry, 'screen-redesign.yaml'), [
+      'apiVersion: flow.aiwg.io/v1', 'kind: FlowCapability', 'metadata:',
+      '  name: screen-redesign', 'spec:', '  description: Redesign a screen with UX proposals',
+      '  version: "1.0.0"', '  inputs: []', '  outputs: []', '  agent: ux-studio-orchestrator', '',
+    ].join('\n'));
+    fs.writeFileSync(path.join(bundle, entry, 'unrelated.yaml'), 'apiVersion: v1\nkind: Pod\n');
+    fs.writeFileSync(path.join(bundle, entry, 'broken.yaml'), ': [unbalanced');
+    fs.symlinkSync(path.join(bundle, entry, 'screen-redesign.yaml'), path.join(bundle, entry, 'linked.yaml'));
+    expect((await discoverProjectLocalBundles(tmpDir)).errors).toEqual([]);
+    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(tmpDir);
+    await main(['build', '--graph', 'project']);
+    cwd.mockRestore();
+    vi.mocked(console.log).mockClear();
+    await discoverCapability(tmpDir, { phrase: 'redesign a screen ux proposals', graph: 'project',
+      typeFilter: ['flow'], backend, json: true });
+    const result = JSON.parse(String(vi.mocked(console.log).mock.calls.at(-1)?.[0]));
+    expect(result.results).toEqual([expect.objectContaining({ name: 'screen-redesign', type: 'flow' })]);
+    vi.mocked(console.log).mockClear();
+    await discoverCapability(tmpDir, { phrase: 'screen-redesign', typeFilter: ['flow'], backend, json: true });
+    const defaultGraphResult = JSON.parse(String(vi.mocked(console.log).mock.calls.at(-1)?.[0]));
+    expect(defaultGraphResult.results).toEqual([expect.objectContaining({ name: 'screen-redesign', type: 'flow' })]);
+    vi.mocked(console.log).mockClear();
+    await showArtifact(tmpDir, { name: 'screen-redesign', typeFilter: ['flow'], graph: 'project', backend: 'local' });
+    expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('Owner: addon:ux-studio');
+    const listed = await listHandler.execute({ cwd: tmpDir, args: ['--project-local'], rawArgs: ['list', '--project-local'] });
+    expect(listed.message).toContain('ux-studio [project] [addon]');
+    expect(listed.message).toContain('Flows (1): screen-redesign');
+    expect(listed.message).not.toContain('Validation errors');
   });
 
   it('indexes a Flow YAML as type "flow" with discoverable name + capability', async () => {
