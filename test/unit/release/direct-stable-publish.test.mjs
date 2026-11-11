@@ -34,6 +34,91 @@ describe('direct stable exact tarball publication',()=>{
  it('blocks a successful publish when an observed registry identity disagrees',async()=>{const {dir,packages}=fixture(),f=fake(packages,{badIdentity:true});await expect(publish({directory:dir,version:'2026.10.4',receipt:path.join(dir,'receipt'),spawn:f.spawn,sleep:async()=>{}})).rejects.toThrow(/identity mismatch/);expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(1);});
 });
 
+describe('retained artifact listing consistency',()=>{
+ it.each([1,6])('verifies the uploaded archive after %s empty listings',async emptyListings=>{
+   const f=recoveryFixture(),listings=[],waits=[];
+   f.client.listRunArtifacts=async args=>{
+     listings.push(args);
+     return {items:listings.length<=emptyListings?[{...f.artifact,name:'unrelated-artifact'}]:[f.artifact],complete:true};
+   };
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async ms=>{waits.push(ms);}})).resolves.toBeUndefined();
+   expect(listings).toEqual(Array(emptyListings+1).fill({repository,runId:f.run.id}));
+   expect(waits).toHaveLength(emptyListings);
+   expect(waits.every(ms=>ms>0)).toBe(true);
+   expect(waits.reduce((sum,ms)=>sum+ms,0)).toBeLessThanOrEqual(60000);
+ });
+ it('fails with the existing missing-artifact message and attempt count after bounded polling',async()=>{
+   const f=recoveryFixture(),waits=[];let listings=0,downloads=0;
+   f.client.listRunArtifacts=async()=>{listings++;return {items:[],complete:true};};
+   f.client.downloadArtifact=async()=>{downloads++;throw new Error('must not download');};
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async ms=>{waits.push(ms);}}))
+     .rejects.toThrow('Missing retained stable package artifact after 7 attempts');
+   expect(listings).toBe(7);expect(waits).toHaveLength(6);
+   expect(waits.reduce((sum,ms)=>sum+ms,0)).toBe(60000);
+   expect(downloads).toBe(0);
+ });
+ it('verifies immediately visible retention without waiting or listing again',async()=>{
+   const f=recoveryFixture();let listings=0;
+   f.client.listRunArtifacts=async()=>{listings++;return {items:[f.artifact],complete:true};};
+   await verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async()=>{throw new Error('must not wait');}});
+   expect(listings).toBe(1);
+ });
+ it.each([
+   ['duplicate',artifact=>[artifact,{...artifact,id:45}]],
+   ['expired',artifact=>[{...artifact,expired:true}]],
+   ['wrong run',artifact=>[{...artifact,workflow_run:{id:99}}]],
+   ['missing expiry status',artifact=>[{...artifact,expired:undefined}]],
+ ])('rejects %s retention immediately',async(_name,items)=>{
+   const f=recoveryFixture();let listings=0;
+   f.client.listRunArtifacts=async()=>{listings++;return {items:items(f.artifact),complete:true};};
+   f.client.downloadArtifact=async()=>{throw new Error('must not download');};
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async()=>{throw new Error('must not wait');}}))
+     .rejects.toThrow('Missing retained stable package artifact after 1 attempt');
+   expect(listings).toBe(1);
+ });
+ it.each([
+   {items:[],complete:false},
+   {items:[],complete:true,totalCount:1},
+ ])('rejects incomplete listings without polling %j',async page=>{
+   const f=recoveryFixture();let listings=0;
+   f.client.listRunArtifacts=async()=>{listings++;return page;};
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async()=>{throw new Error('must not wait');}}))
+     .rejects.toThrow('Incomplete retained artifact collection');
+   expect(listings).toBe(1);
+ });
+ it('propagates artifact API failures without polling',async()=>{
+   const f=recoveryFixture();let listings=0;
+   f.client.listRunArtifacts=async()=>{listings++;throw new Error('synthetic API failure');};
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async()=>{throw new Error('must not wait');}}))
+     .rejects.toThrow('synthetic API failure');
+   expect(listings).toBe(1);
+ });
+ it('still rejects a retained archive digest mismatch after a delayed listing',async()=>{
+   const f=recoveryFixture();let listings=0;
+   f.artifact.digest=`sha256:${'0'.repeat(64)}`;
+   f.client.listRunArtifacts=async()=>({items:++listings===1?[]:[f.artifact],complete:true});
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async()=>{}}))
+     .rejects.toThrow('Retained archive digest mismatch');
+   expect(listings).toBe(2);
+ });
+ it('still rejects retained tarball corruption after a delayed listing',async()=>{
+   const f=recoveryFixture({changed:true});let listings=0;
+   f.client.listRunArtifacts=async()=>({items:++listings===1?[]:[f.artifact],complete:true});
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async()=>{}}))
+     .rejects.toThrow('Tarball changed for @aiwg/cockpit');
+   expect(listings).toBe(2);
+ });
+ it('still rejects self-consistent retained packages that differ from the local smoke-tested bytes',async()=>{
+   const f=recoveryFixture(),local=fixture(f.version),pkg=local.packages.find(p=>p.package==='@aiwg/cockpit');
+   const bytes=Buffer.from('different local smoke-tested cockpit');
+   fs.writeFileSync(path.join(local.dir,pkg.filename),bytes);
+   pkg.sha256=createHash('sha256').update(bytes).digest('hex');
+   fs.writeFileSync(path.join(local.dir,'installed-smoke.json'),JSON.stringify({pass:true,packages:local.packages}));
+   await expect(verifyRetention({...f.options,directory:local.dir,attempt:1}))
+     .rejects.toThrow('Retained package mismatch for @aiwg/cockpit');
+ });
+});
+
 const recoveryCommit = 'a'.repeat(40), repository = 'jmagly/aiwg';
 function recoveryFixture({ retained = true, legacy = false, attempt = 2, changed = false, corrupt = false, partial = false, omit, nested = legacy } = {}) {
  const version='2026.10.9', original=fixture(version), directory=fs.mkdtempSync(path.join(os.tmpdir(),'aiwg-recovered-release-'));roots.push(directory);

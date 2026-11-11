@@ -131,10 +131,19 @@ export async function prepareRecovery({ directory, version, repository, commit, 
 
 // Upload-artifact only errors if *none* of its paths match. Verify the actual
 // retained ZIP, including all four smoke-bound digests, before npm can publish.
-export async function verifyRetention({ directory, version, repository, runId, attempt, client, spawn = boundedSpawnSync }) {
+export async function verifyRetention({ directory, version, repository, runId, attempt, client, spawn = boundedSpawnSync, sleep = pause }) {
   const packages = validateInputs(directory, version);
-  const artifacts = pageItems(await client.listRunArtifacts({ repository, runId })).filter(item => item.name === `stable-packages-${runId}-${attempt}` && item.expired === false && item.workflow_run?.id === runId);
-  if (artifacts.length !== 1) throw new Error('Missing retained stable package artifact');
+  // Upload completion can precede listing visibility; retry absence for at most
+  // 60 seconds of backoff, but reject visible invalid evidence immediately.
+  const delays = [1000, 2000, 4000, 8000, 15000, 30000];
+  let listed, polls = 0;
+  do {
+    if (polls > 0) await sleep(delays[polls - 1]);
+    listed = pageItems(await client.listRunArtifacts({ repository, runId })).filter(item => item.name === `stable-packages-${runId}-${attempt}`);
+    polls++;
+  } while (listed.length === 0 && polls <= delays.length);
+  const artifacts = listed.filter(item => item.expired === false && item.workflow_run?.id === runId);
+  if (artifacts.length !== 1) throw new Error(`Missing retained stable package artifact after ${polls} ${polls === 1 ? 'attempt' : 'attempts'}`);
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-retention-check-'));
   try {
     const retained = await extractedArtifact(client, repository, artifacts[0], temp, spawn);
