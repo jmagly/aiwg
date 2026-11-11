@@ -198,6 +198,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.11.5-announcement",
     "releases/v2026.11.4-announcement",
     "releases/v2026.11.3-announcement",
     "releases/v2026.11.2-announcement",
@@ -1696,6 +1697,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.11.5-announcement",
+      "title": "v2026.11.5 — Keep Your Project Rules and Use More Worker Tools",
+      "summary": "Single-addon deployments preserve other bundles' rules, Factory BYOK and Copilot workers receive fixes, Grok gains worker discovery and native agents, and project-local skills load correctly.",
+      "file": "releases/v2026.11.5-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.11.4-announcement",
