@@ -442,7 +442,7 @@ describe('@aiwg/cli packaged web distribution', () => {
   }, 120_000);
 
   it.each([
-    ['claude', '.claude/agents', '.claude/.aiwg/skills', '.claude/rules', '.md'],
+    ['claude', '.claude/agents', '.claude/skills', '.claude/rules', '.md'],
     ['codex', '.codex/agents', '.agents/skills', '.codex/rules', '.toml'],
   ])('installs 11 external artifacts for %s at project scope and refreshes indices (#2008)', async (
     provider,

@@ -483,10 +483,9 @@ describe('project-local deploy integration (#1046)', () => {
   // for project-local bundles. The default deploy mode (#1217) is no-copy +
   // index-driven discovery, which assumes upstream skills at $AIWG_ROOT.
   // Project-local bundles live under the project's .aiwg/ tree and aren't in
-  // the framework graph, so without --copy-all their skills never reach the
-  // standard-tier sequestered path and become unreachable from both the
-  // platform and the index.
-  it('PL-COPY-ALL: project-local skills land at <provider>/.aiwg/skills/ via aiwg use', () => {
+  // the framework graph. Copying them to the provider's native skill root
+  // makes them available directly (#4086).
+  it('PL-COPY-ALL: project-local skills land at the native skill root via aiwg use', () => {
     const aiwgBin = path.join(REPO_ROOT, 'bin/aiwg.mjs');
 
     // Minimal aiwg.config so `aiwg use` doesn't try to run init wizard
@@ -535,12 +534,10 @@ describe('project-local deploy integration (#1046)', () => {
 
     expect(result.status, `aiwg use stdout:\n${result.stdout}`).toBe(0);
 
-    // The project-local bundle's skill must land at the standard-tier
-    // sequestered path — this is what was broken before the fix.
+    // Project-local skills must be loaded from the provider's native root (#4086).
     const projectLocalSkill = path.join(
       env.projectDir,
       '.claude',
-      '.aiwg',
       'skills',
       'demo-skill',
       'SKILL.md',
@@ -645,7 +642,7 @@ describe('project-local deploy integration (#1046)', () => {
 
         const skillRoot = provider === 'codex'
           ? path.join(roundTripEnv.projectDir, '.agents', 'skills')
-          : path.join(roundTripEnv.projectDir, '.claude', '.aiwg', 'skills');
+          : path.join(roundTripEnv.projectDir, '.claude', 'skills');
         const skills = wrapper
           ? ['bt6-issue-steward', 'bt6-merge-train', 'bt6-pr-audit', 'bt6-provider-review', 'bt6-queue-audit']
           : ['demo-skill'];
@@ -674,7 +671,7 @@ describe('project-local deploy integration (#1046)', () => {
       expect(deploy.stdout).not.toMatch(/missing skill support asset/);
       expect(deploy.status, deploy.stdout).toBe(0);
 
-      const skillRoot = path.join(dirEnv.projectDir, '.claude', '.aiwg', 'skills', 'dir-asset-skill');
+      const skillRoot = path.join(dirEnv.projectDir, '.claude', 'skills', 'dir-asset-skill');
       expect(existsSync(path.join(skillRoot, 'SKILL.md'))).toBe(true);
       for (const ref of ['templates/pack/a.md', 'templates/pack/nested/b.md', 'scripts/bin/run.sh']) {
         expect(existsSync(path.join(skillRoot, ref)), `missing deployed asset: ${ref}`).toBe(true);
