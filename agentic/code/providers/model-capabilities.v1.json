@@ -700,7 +700,7 @@
         "id": "copilot",
         "provider": "copilot",
         "adapterVersion": "1",
-        "supportedVersions": "1.0.95",
+        "supportedVersions": "1.0.106",
         "runtimeDriver": "installed:copilot",
         "catalogAdapter": {
           "kind": "file",
@@ -711,10 +711,6 @@
           "kind": "process",
           "executable": "copilot",
           "argv": [
-            "-p",
-            "Follow the instructions in the attached file exactly.",
-            "--attachment",
-            "${brief}",
             "--model",
             "${model}",
             "--reasoning-effort",
@@ -727,9 +723,9 @@
             "--no-custom-instructions",
             "--disable-builtin-mcps"
           ],
-          "stdin": "closed",
+          "stdin": "brief-text",
           "cwd": "${workspace}",
-          "envAllowlist": ["PATH"],
+          "envAllowlist": ["PATH", "COPILOT_PROVIDER_BASE_URL", "COPILOT_PROVIDER_TYPE", "COPILOT_MODEL", "COPILOT_PROVIDER_API_KEY", "COPILOT_PROVIDER_API_KEY_COMMAND"],
           "versionArgv": [
             "--version"
           ],
@@ -754,7 +750,7 @@
         "invocationProfiles": {
           "direct-shell": {
             "transport": "shell",
-            "supportedVersions": "1.0.95",
+            "supportedVersions": "1.0.106",
             "controls": {
               "model": {
                 "support": "unqualified",
@@ -783,18 +779,18 @@
               },
               "finalOutput": {
                 "support": "unqualified",
-                "mapping": "stdout --output-format json (JSONL, one JSON object per line); no output-file flag carries the agent's final answer (--usage-output-file is usage statistics only and is not wired here)",
-                "evidence": "H: copilot 1.0.95 --help / `copilot help <topic>`, captured 2026-10-10 (.aiwg/working/s1-scratch/cli-help/copilot-1.0.95.txt; never live qualification) ('--output-format <format> Output format: ... 'json' (JSONL, one JSON object per line)'; '--usage-output-file <file> Write final usage statistics as JSON')"
+                "mapping": "stdout JSONL: extract the last assistant.message data.content after assistant.turn_end/assistant.idle; reject malformed or error-shaped streams, then validate workerClaims against trusted process termination",
+                "evidence": "L: copilot 1.0.106 BYOK OpenRouter qwen/qwen3.8-27b, 2026-11-10 (#4088); sanitized captures test/fixtures/providers/copilot/copilot-stdin-only.jsonl and copilot-stdin.jsonl; model.call_final_result.data.isByok=true; single-turn stdin-only exact reply without tools"
               },
               "stdin": {
                 "support": "unqualified",
-                "mapping": "unavailable for the brief: -p/--prompt <text> only accepts inline argv text; the brief instead rides on --attachment <path> as a file, with -p fixed to a content-free instruction",
-                "evidence": "H: copilot 1.0.95 --help / `copilot help <topic>`, captured 2026-10-10 (.aiwg/working/s1-scratch/cli-help/copilot-1.0.95.txt; never live qualification) ('-p, --prompt <text> Execute a prompt in non-interactive mode'; '--attachment <path> Attach a file (image or native document) to the initial prompt; only valid in non-interactive mode')"
+                "mapping": "brief-text: pipe the brief to EOF with no -p/--prompt or --attachment; 1.0.106 rejects Markdown attachments and ignores stdin when -p is present",
+                "evidence": "L: copilot 1.0.106 BYOK OpenRouter qwen/qwen3.8-27b, 2026-11-10 (#4088); sanitized captures test/fixtures/providers/copilot/copilot-stdin-only.jsonl and copilot-stdin.jsonl; model.call_final_result.data.isByok=true; single-turn stdin-only exact reply without tools"
               },
               "structuredOutput": {
                 "support": "unqualified",
-                "mapping": "unavailable: no output-schema flag is evidenced, and the --output-format json JSONL event vocabulary itself is not documented in --help; no event field name is invented",
-                "evidence": "H: copilot 1.0.95 --help / `copilot help <topic>`, captured 2026-10-10 (.aiwg/working/s1-scratch/cli-help/copilot-1.0.95.txt; never live qualification)"
+                "mapping": "No output-schema flag is evidenced; assistant.message data.content is validated by the shared strict workerClaims parser",
+                "evidence": "L: copilot 1.0.106 BYOK OpenRouter qwen/qwen3.8-27b, 2026-11-10 (#4088); sanitized captures test/fixtures/providers/copilot/copilot-stdin-only.jsonl and copilot-stdin.jsonl; model.call_final_result.data.isByok=true; single-turn stdin-only exact reply without tools"
               },
               "stepCap": {
                 "support": "unqualified",
@@ -817,15 +813,15 @@
                 "evidence": "H: copilot 1.0.95 --help / `copilot help <topic>`, captured 2026-10-10 (.aiwg/working/s1-scratch/cli-help/copilot-1.0.95.txt; never live qualification) ('--auto-tier <preference> Set the Auto routing profile')"
               }
             },
-            "envAllowlist": ["PATH"],
+            "envAllowlist": ["PATH", "COPILOT_PROVIDER_BASE_URL", "COPILOT_PROVIDER_TYPE", "COPILOT_MODEL", "COPILOT_PROVIDER_API_KEY", "COPILOT_PROVIDER_API_KEY_COMMAND"],
             "pitfalls": [
               "Documentation/help and synthetic observations are not authenticated live qualification.",
               "Unknown model, effort, permission or required step mappings block dispatch.",
               "Native MCP/client, MSP/ACP, gateway and conversation capabilities do not establish worker authority.",
-              "The --output-format json JSONL event-type vocabulary is not documented in --help, and the installed binary is a compiled per-architecture native package with no readable bundled source (unlike e.g. Pi's JS bundle); no event-level health signal is evidenced, so observeHealthEvent always returns null and completion is exit-code gated only, EXCEPT one conservative guard: a line with a top-level 'type: \"error\"' or non-null 'error' field always fails the final, even at exit 0 (defensive synthetic-shape check, not an observed Copilot event).",
+              "Captured 1.0.106 assistant.message data.content supplies the final answer after assistant.turn_end/assistant.idle. Health remains process-only with no event-level health signal evidenced for progress; error-shaped lines fail even at exit zero.",
               "--allow-all-tools/--allow-all/--yolo are never emitted; a tool outside the resolved --allow-tool scope may still require interactive confirmation a non-interactive run cannot answer, and whether that fails closed or hangs is unqualified without a live run.",
               "--sandbox's OS-level command sandbox depends on host prerequisites (bwrap/slirp4netns/iptables on Linux) not probed here; this profile never emits it and relies on the CLI's default path restriction instead.",
-              "Live qualification is an open S1 blocker: this profile has been exercised only against --help/--version/subcommand --help; the smoke command in docs/providers/copilot-direct.md is the first live check. Live attempt evidence (host noodle, 2026-10-10): COPILOT_GITHUB_TOKEN set to a classic ghp_ PAT exits 1 with 'Classic Personal Access Tokens (ghp_) are not supported by Copilot' on stderr and EMPTY stdout; a fine-grained PAT or prior copilot/gh login is required and the smoke run remains blocked on that."
+              "The 1.0.95 help-only attachment path is superseded by the 1.0.106 stdin-only BYOK capture (#4088). The old GitHub-account run on 2026-10-10 remains recorded as blocked: Classic Personal Access Tokens (ghp_) are not supported by Copilot. Other required controls remain unqualified."
             ],
             "health": {
               "version": 1,
@@ -834,7 +830,7 @@
               "signalParser": "provider-copilot-health-v1",
               "sessionLogLocator": null,
               "progressEvidence": [],
-              "stopEvidence": "owned process identity and observed exit; the JSONL stream carries no evidenced error-event vocabulary, so completion is exit-code gated only, except a conservative guard that fails any line shaped 'type: \"error\"' or carrying a non-null top-level 'error' field even at exit 0",
+              "stopEvidence": "host-observed process exit and termination plus strict workerClaims validation of the settled assistant.message answer; error-shaped streams fail even at exit zero",
               "fixtureRef": "test/fixtures/providers/copilot/health/manifest.json",
               "qualifiedAt": null,
               "statusOperation": null,
@@ -842,7 +838,8 @@
               "coverage": "degraded",
               "qualificationTarget": "process-only",
               "evidenceGrades": [
-                "H"
+                "H",
+                "D"
               ],
               "provenance": [
                 {
@@ -850,6 +847,12 @@
                   "ref": ".aiwg/working/s1-scratch/cli-help/copilot-1.0.95.txt",
                   "observedAt": "2026-10-10T00:00:00Z",
                   "cliVersion": "1.0.95"
+                },
+                {
+                  "kind": "documentation",
+                  "ref": "docs/providers/copilot-direct.md",
+                  "observedAt": "2026-11-10T23:12:29Z",
+                  "cliVersion": "1.0.106"
                 }
               ],
               "qualificationOwner": "B-OG-36",

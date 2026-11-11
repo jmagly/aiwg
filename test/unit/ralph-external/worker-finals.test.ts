@@ -6,6 +6,8 @@ import { CursorDirectAdapter } from '../../../tools/ralph-external/lib/cursor-ad
 import { OpenClawAdapter } from '../../../tools/ralph-external/lib/openclaw-adapter.mjs';
 import { WarpAdapter } from '../../../tools/ralph-external/lib/warp-adapter.mjs';
 import { CopilotAdapter } from '../../../tools/ralph-external/lib/copilot-adapter.mjs';
+import { readFileSync } from 'node:fs';
+import { loadProviderModelCapabilities } from '../../../src/models/provider-policy.js';
 
 class FixtureAdapter extends ProviderAdapter {}
 const adapter = new FixtureAdapter();
@@ -195,10 +197,96 @@ describe('#2915 parseWorkerAttemptFinal reuses per-CLI extraction (no per-adapte
     await expect(adapter.parseWorkerFinal(valid, { observation: { transport: 'shell', status: 'completed', termination: 'uncertain', exitCode: 0 } })).rejects.toThrow();
   });
 
-  it('warp and copilot never verify any final: supportsAttemptVerification() is false and parseWorkerAttemptFinal always refuses', async () => {
-    for (const adapter of [new WarpAdapter(), new CopilotAdapter() as unknown as InstanceType<typeof ProviderAdapter>]) {
+  it('warp never verifies a final without an evidenced answer field', async () => {
+    for (const adapter of [new WarpAdapter()]) {
       expect(adapter.supportsAttemptVerification()).toBe(false);
       await expect(adapter.parseWorkerAttemptFinal('anything', { observation: attemptObservation(true) })).rejects.toThrow();
     }
+  });
+});
+
+describe('Copilot 1.0.106 captured stdin contract (#4088)', () => {
+  const copilot = new CopilotAdapter();
+  const capture = (name = 'copilot-stdin-only') => readFileSync(`test/fixtures/providers/copilot/${name}.jsonl`, 'utf8');
+  const stream = (text: unknown = JSON.stringify(claims())) => [
+    { type: 'assistant.message', data: { content: text, toolRequests: [], turnId: '0' } },
+    { type: 'assistant.turn_end', data: { turnId: '0' } },
+    { type: 'assistant.idle', data: {} },
+  ].map(value => JSON.stringify(value)).join('\n');
+
+  it('renders the brief on stdin with no prompt or attachment and pins the observed release', () => {
+    const profile = loadProviderModelCapabilities().providers.copilot.workerHealthAdapter!;
+    expect(profile.supportedVersions).toBe('1.0.106');
+    expect(profile.invocation.stdin).toBe('brief-text');
+    const argv = copilot.buildWorkerArgs({ briefPath: '/tmp/brief.md', cwd: '/tmp',
+      selected: { model: 'qwen/qwen3.8-27b', effort: { value: 'low' } } }, null, { allowTools: ['write'] });
+    for (const token of ['-p', '--prompt', '--attachment', '/tmp/brief.md']) expect(argv).not.toContain(token);
+    expect(profile.invocation.argv).not.toContain('-p');
+    expect(profile.invocation.argv).not.toContain('--attachment');
+  });
+
+  it.each(['copilot-stdin-only', 'copilot-stdin'])('extracts the last assistant.message from sanitized %s capture', name => {
+    expect(copilot.parseOutput(capture(name))).toMatchObject({ text: 'copilot-smoke-ok' });
+    expect(copilot.parseDirectFinal(capture(name))).toMatchObject({ text: 'copilot-smoke-ok' });
+  });
+
+  it('records BYOK and the single-turn tool-free stdin-only reply', () => {
+    const events = capture().trim().split('\n').map(line => JSON.parse(line));
+    expect(events.filter(event => event.type === 'assistant.message')).toHaveLength(1);
+    expect(events.find(event => event.type === 'assistant.message').data.toolRequests).toEqual([]);
+    expect(events.find(event => event.type === 'model.call_final_result').data).toEqual({
+      model: 'qwen/qwen3.8-27b', isByok: true, result: 'success' });
+  });
+
+  it('validates claims through both normal and attempt entry points, including byte input', async () => {
+    expect(copilot.supportsAttemptVerification()).toBe(true);
+    await expect(copilot.parseWorkerFinal(Buffer.from(stream()), { observation: shell })).resolves.toEqual(claims());
+    await expect(copilot.parseWorkerAttemptFinal(stream(), { observation: { transport: 'shell',
+      status: 'completed', attemptOutcome: 'succeeded', exitCode: 0 } })).resolves.toEqual(claims());
+    await expect(copilot.parseWorkerFinal(stream(), { observation: { ...shell, exitCode: 1 } })).rejects.toThrow();
+    await expect(copilot.parseWorkerFinal(stream(), { observation: { ...shell, termination: 'uncertain' } })).rejects.toThrow();
+    await expect(copilot.parseWorkerFinal(capture(), { observation: shell })).rejects.toThrow();
+    await expect(copilot.parseWorkerFinal(stream(JSON.stringify({ ...claims(), execution: {} })), { observation: shell })).rejects.toThrow();
+    await expect(copilot.parseWorkerFinal('{}', { observation: mcp, format: 'mcp' })).rejects.toThrow();
+  });
+
+  it.each([
+    '', '{}', '[]', 'null', '{', 'prose',
+    JSON.stringify({ type: 'assistant.message', data: { content: 'unfinished' } }),
+    stream(''), stream(null), stream(42), stream(' ') ,
+    stream() + '\n{"type":"error"}', stream() + '\n{"error":"failed"}',
+    stream() + '\n{"type":"result","exitCode":1}',
+    stream() + '\n{"type":"model.call_final_result","data":{"result":"error"}}',
+    stream() + '\n{"type":"assistant.turn_start","data":{"turnId":"1"}}',
+    stream() + '\n{"type":"assistant.message","data":{"content":"unfinished"}}',
+    stream() + '\n{"type":"assistant.message_delta","data":{"deltaContent":"unfinished"}}',
+    stream().replace('"toolRequests":[]', '"toolRequests":[{"name":"bash"}]'),
+  ])('rejects malformed, error-shaped, unfinished or tool-request finals %#', output => {
+    expect(copilot.parseOutput(output)).toBeNull();
+  });
+
+  it('enforces stream bounds and UTF-8 before extracting claims', async () => {
+    await expect(copilot.parseWorkerFinal(Buffer.from([0xc3, 0x28]), { observation: shell })).rejects.toThrow();
+    await expect(copilot.parseWorkerFinal(stream(), { observation: shell, maxOutputBytes: 10 })).rejects.toThrow();
+    expect(copilot.parseOutput(' '.repeat(10 * 1024 * 1024 + 1))).toBeNull();
+  });
+
+  it.each([0, -1, 1.5, 11 * 1024 * 1024])('rejects invalid stream bound %s', async maxOutputBytes => {
+    await expect(copilot.parseWorkerFinal(stream(), { observation: shell, maxOutputBytes })).rejects.toThrow(/bound/);
+  });
+
+  it('rejects invalid input types, duplicate keys, malformed Unicode and partial terminals', async () => {
+    expect(copilot.parseOutput(null)).toBeNull();
+    expect(copilot.parseOutput('\uD800')).toBeNull();
+    expect(copilot.parseOutput(stream().replace('"toolRequests":[]', '"toolRequests":[],"content":"forged"'))).toBeNull();
+    expect(copilot.parseOutput(stream().replace(',"toolRequests":[]', ''))).toBeNull();
+    expect(copilot.parseOutput(stream().split('\n')[1])).toBeNull();
+    const message = stream().split('\n')[0];
+    expect(copilot.parseOutput(message + '\n{"type":"assistant.turn_end","data":{"turnId":"wrong"}}')).toBeNull();
+    expect(copilot.parseOutput(message + '\n{"type":"assistant.idle","data":{}}')).toEqual({ text: JSON.stringify(claims()) });
+    await expect(copilot.parseWorkerFinal({}, { observation: shell })).rejects.toThrow();
+    await expect(copilot.parseWorkerFinal('\uD800', { observation: shell })).rejects.toThrow(/UTF-8/);
+    await expect(copilot.parseWorkerFinal('{}', { observation: shell })).rejects.toThrow(/settled/);
+    await expect(copilot.parseWorkerFinal(stream(), { observation: shell })).resolves.toEqual(claims());
   });
 });

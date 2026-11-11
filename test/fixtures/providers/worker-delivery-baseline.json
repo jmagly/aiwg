@@ -1,5 +1,5 @@
 {
-  "note": "Synthetic shared renderer characterization captured before #2991/#3002/#2998; excludes the two intentionally changed provider deliveries. Codex last-message capture intentionally separated from the structured final in #3657; other rows unchanged. No live CLI or credentials.",
+  "note": "Synthetic shared renderer characterization captured before #2991/#3002/#2998; excludes the two intentionally changed provider deliveries. Codex last-message capture intentionally separated from the structured final in #3657; Copilot uses the captured 1.0.106 stdin-only delivery in #4088; other rows unchanged. No live CLI or credentials.",
   "rows": [
     {
       "provider": "claude",
@@ -65,10 +65,6 @@
       "provider": "copilot",
       "field": "workerHealthAdapter",
       "argv": [
-        "-p",
-        "Follow the instructions in the attached file exactly.",
-        "--attachment",
-        "${brief}",
         "--model",
         "${model}",
         "--reasoning-effort",
@@ -81,7 +77,7 @@
         "--no-custom-instructions",
         "--disable-builtin-mcps"
       ],
-      "stdin": "closed"
+      "stdin": "brief-text"
     },
     {
       "provider": "cursor",

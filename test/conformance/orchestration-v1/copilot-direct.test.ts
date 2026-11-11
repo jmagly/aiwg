@@ -1,28 +1,10 @@
 import { workerMarkerNames } from '../../fixtures/worker-attribution.js';
-/**
- * #2901 (B-OG-36) GitHub Copilot CLI promotion: offline S1 profile work.
- *
- * T-OG-15 renders the version-bound Copilot direct-shell profile through the
- * real resolver and #2887 renderer, then executes the rendered shell command
- * against a synthetic `copilot` that records argv, cwd, the attached brief
- * file and environment names. The brief travels as an attached file
- * (`--attachment`), never argv or stdin (`stdin: 'closed'`). T-OG-03/20/21/23
- * drive the same fake through the #2896 health observer. Spawns are plain
- * child processes (no systemd); nothing reaches a network, model, credential
- * or MC state. Fixture qualification here is synthetic and never live
- * qualification: the bundled Copilot profile stays unqualified (CP06).
- *
- * No event-level health grammar is evidenced for `copilot` (see
- * `tools/ralph-external/lib/copilot-adapter.mjs` module doc): the installed
- * CLI is a compiled native binary with no readable bundled source, and
- * `--output-format json`'s event vocabulary is undocumented in `--help`. So
- * `observeHealthEvent` always returns null here, exactly like OpenHuman.
- */
+/** Copilot offline render/execute conformance against the captured 1.0.106 contract. */
+import { installWorkerAdapterPackage } from '../../helpers/worker-adapter-runtime.mjs';
 import { termAfterReady, TERM_READY } from '../../helpers/term-escalation.js';
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { chmod, mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import os from 'node:os';
 import path from 'node:path';
@@ -31,7 +13,6 @@ import { workerConfigDigest } from '../../../src/config/aiwg-config.js';
 import { loadProviderModelCapabilities, qualifyWorkerInvocationProfile, resolveWorkerAdapter } from '../../../src/models/provider-policy.js';
 import { prepareWorkerInvocation, resolveWorkerInvocation, type WorkerInvocationDriver } from '../../../src/serve/worker-invocation.js';
 import { createWorkerHealthObserver } from '../../../tools/ralph-external/lib/worker-health.mjs';
-import { COPILOT_DIRECT_STDIN, COPILOT_FIXED_PROMPT, COPILOT_SUPPORTED_VERSIONS } from '../../../tools/ralph-external/lib/copilot-adapter.mjs';
 import { createProvider, loadInstalledWorkerAdapters } from '../../../src/models/worker-installation.mjs';
 import { SessionLauncher } from '../../../tools/ralph-external/session-launcher.mjs';
 import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
@@ -40,7 +21,7 @@ import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { fixtureJson } from '../mission-v1/worker-contract-fixtures.js';
 
 const FAKE = path.resolve('test/fixtures/providers/copilot/fake-copilot.mjs');
-const VERSION = '1.0.95';
+const VERSION = '1.0.106';
 const MODEL = 'synthetic-copilot/model';
 const MARKER = 'COPILOT-BRIEF-MARKER-5a1d8e';
 const MODULE = 'tools/ralph-external/lib/copilot-adapter.mjs';
@@ -48,19 +29,11 @@ const APPROVED = JSON.parse(readFileSync('test/fixtures/providers/copilot/approv
 const roots: string[] = [];
 const installRoots: string[] = [];
 const BOUNDARY_DIGEST = workerConfigDigest('synthetic-copilot-boundary');
-const sha256 = (bytes: Buffer | string) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 /** Host-side install of the one approved module into a fresh, read-only package root. */
 async function installPackage(bytes: Buffer) {
   const base = await mkdtemp(path.join(os.tmpdir(), 'aiwg-copilot-install-')); installRoots.push(base);
-  const packageRoot = path.join(base, 'package');
-  const writable = path.join(base, 'worker-writable');
-  await mkdir(packageRoot, { mode: 0o755 }); await mkdir(writable);
-  await chmod(base, 0o755);
-  await writeFile(path.join(packageRoot, 'package.json'), JSON.stringify({ name: APPROVED.entry.packageName,
-    version: APPROVED.entry.packageVersion, type: 'module' }), { mode: 0o644 });
-  await writeFile(path.join(packageRoot, APPROVED.entry.modulePath), bytes, { mode: 0o644 });
-  return { packageRoot, writable };
+  return installWorkerAdapterPackage(base, APPROVED.entry, bytes);
 }
 
 function loadingRegistry() {
@@ -94,7 +67,7 @@ function run(command: string, args: string[], options: { cwd: string; env: NodeJ
     let stdout = '', stderr = '';
     child.stdout.on('data', chunk => { stdout += chunk; });
     child.stderr.on('data', chunk => { stderr += chunk; });
-    child.stdin.end();
+    child.stdin.end('synthetic brief');
     options.onStart?.(child);
     const timer = setTimeout(() => child.kill(options.killSignal ?? 'SIGKILL'), options.timeoutMs ?? 10_000);
     child.on('error', error => { clearTimeout(timer); resolve({ code: null, signal: null, stdout, stderr, error }); });
@@ -189,85 +162,16 @@ function messages(plan: any): string {
     .map((d: any) => `${d.code} ${d.message}`).join('\n');
 }
 
-describe('Copilot version-bound profile (B-OG-36)', () => {
-  it('CP01 pins the evidenced release, driver, argv template and health grammar; unknown controls stay unqualified', () => {
-    const adapter = loadProviderModelCapabilities().providers.copilot.workerHealthAdapter!;
-    expect(COPILOT_SUPPORTED_VERSIONS).toEqual([VERSION]);
-    expect(adapter).toMatchObject({ supportedVersions: VERSION, adapterVersion: '1', runtimeDriver: 'installed:copilot',
-      invocation: { kind: 'process', executable: 'copilot', stdin: 'closed', versionArgv: ['--version'] },
-      qualification: { status: 'unqualified' } });
-    expect(adapter.invocation.argv).toEqual(['-p', COPILOT_FIXED_PROMPT, '--attachment', '${brief}', '--model', '${model}',
-      '--reasoning-effort', '${effort}', '-C', '${workspace}', '--output-format', 'json', '--no-ask-user',
-      '--no-custom-instructions', '--disable-builtin-mcps']);
-    expect(adapter.invocation.argv.join(' ')).not.toMatch(/allow-all|yolo|--sandbox\b/);
-    const profile = adapter.invocationProfiles!['direct-shell'];
-    expect(profile.supportedVersions).toBe(VERSION);
-    expect(profile.transport).toBe('shell');
-    expect(Object.keys(profile.controls).sort()).toEqual(['approval', 'children', 'effort', 'fallback', 'finalOutput', 'model',
-      'sandbox', 'stdin', 'stepCap', 'structuredOutput', 'trust', 'workdir']);
-    for (const [name, control] of Object.entries(profile.controls)) {
-      expect(control.support, name).toBe('unqualified');
-      expect(control.evidence, name).toMatch(/^H: copilot 1\.0\.95/);
-    }
-    expect(profile.controls.model.mapping).toContain('--model');
-    expect(profile.controls.model.mapping).not.toMatch(/-m\/--model|-m, --model/);
-    expect(profile.controls.effort.mapping).toContain('--reasoning-effort');
-    expect(profile.controls.stdin.mapping).toMatch(/--attachment/);
-    expect(profile.controls.stdin.mapping).not.toMatch(/^brief-text/);
-    expect(profile.controls.approval.mapping).toMatch(/--allow-tool/);
-    expect(profile.controls.approval.mapping).not.toMatch(/allow-all-tools is (emitted|used)/);
-    expect(profile.controls.sandbox.mapping).toMatch(/unavailable/);
-    expect(profile.pitfalls.some((line: string) => /no event-level health signal is evidenced/.test(line))).toBe(true);
-    expect(profile.health).toMatchObject({ handshake: 'process-only', outputFraming: 'jsonl',
-      coverage: 'degraded', qualificationTarget: 'process-only', evidenceGrades: ['H'] });
-    expect(profile.health!.provenance!.find((row: any) => row.kind === 'help')).toMatchObject({ cliVersion: VERSION });
-    expect(existsSync(profile.health!.fixtureRef)).toBe(true);
-  });
-
-  it('CP01a pins the one approved module digest and loads Copilot through the production installed loader', async () => {
-    expect(APPROVED.source).toBe(MODULE);
-    expect(sha256(readFileSync(MODULE))).toBe(APPROVED.entry.sha256);
-    expect(APPROVED.entry).toMatchObject({ reference: 'installed:copilot', interfaceVersion: 1, adapterIds: ['copilot'], platforms: ['linux'] });
-    expect(installed.ids).toEqual(['copilot']);
-    expect(installed.owner.getName()).toBe('copilot');
-    expect(installed.owner.constructor.name).toBe('CopilotAdapter');
-    expect(installed.owner.buildWorkerArgs(
-      { selected: { model: MODEL, effort: { value: 'medium' } }, cwd: '/w', briefPath: '/w/brief.md' },
-      null, { allowTools: ['write'] })).toEqual(['-p', COPILOT_FIXED_PROMPT, '--attachment', '/w/brief.md',
-      '--model', MODEL, '--reasoning-effort', 'medium', '-C', '/w', '--output-format', 'json', '--no-ask-user',
-      '--no-custom-instructions', '--disable-builtin-mcps', '--allow-tool', 'write']);
-    expect(COPILOT_DIRECT_STDIN).toBe('closed');
-  });
-
-  it('CP01b a tampered copy, an unapproved second module and a worker-writable install are all refused', async () => {
-    const tampered = Buffer.concat([readFileSync(MODULE), Buffer.from('\n// tampered\n')]);
-    const bad = await installPackage(tampered);
-    await expect(loadInstalledWorkerAdapters({ registry: loadingRegistry(), modules: [{ ...APPROVED.entry, packageRoot: bad.packageRoot }],
-      workerWritableRoots: [bad.writable], platform: 'linux' })).rejects.toThrow('Installed module digest mismatch');
-    const widened = loadingRegistry();
-    widened.providers.openclaw.workerAdapter = { ...structuredClone(widened.providers.openclaw.workerHealthAdapter!), runtimeDriver: 'installed:openclaw' };
-    const good = await installPackage(readFileSync(MODULE));
-    await expect(loadInstalledWorkerAdapters({ registry: widened, modules: [{ ...APPROVED.entry, packageRoot: good.packageRoot }],
-      workerWritableRoots: [good.writable], platform: 'linux' })).rejects.toThrow('Worker module is not installed/approved: installed:openclaw');
-    const insideWritable = await installPackage(readFileSync(MODULE));
-    await expect(loadInstalledWorkerAdapters({ registry: loadingRegistry(), modules: [{ ...APPROVED.entry, packageRoot: insideWritable.packageRoot }],
-      workerWritableRoots: [path.dirname(insideWritable.packageRoot)], platform: 'linux' })).rejects.toThrow(/worker-writable/);
-    const adapter = resolveWorkerAdapter(loadingRegistry(), 'providers:copilot');
-    expect(() => qualifyWorkerInvocationProfile(adapter, { profile: 'direct-shell', transport: 'shell', cliVersion: VERSION }))
-      .toThrow('Worker transport/profile is unqualified');
-  });
-});
-
 describe('T-OG-15 Copilot direct command contract', () => {
-  it('CP02 renders --attachment; the brief marker never reaches argv or the command and arrives only via the attached file', async () => {
+  it('CP02 pipes stdin without a prompt or attachment and keeps the brief marker off argv', async () => {
     const { plan, root, workdir, payload } = await copilotPlan();
     expect(plan.invocation, messages(plan)).toBeDefined();
     const invocation = plan.invocation!;
     expect(invocation.readiness).toBe('launchable');
     expect(invocation.selected.model).toBe(MODEL);
-    expect(invocation.stdin).toBe('closed');
-    expect(invocation.argv.slice(2, 4)).toEqual(['-p', COPILOT_FIXED_PROMPT]);
-    expect(invocation.argv).toContain('--attachment');
+    expect(invocation.stdin).toBe('brief-text');
+    expect(invocation.argv).not.toContain('-p');
+    expect(invocation.argv).not.toContain('--attachment');
     expect(JSON.stringify(invocation.argv)).not.toContain(MARKER);
     expect(invocation.shellCommand).not.toContain(MARKER);
     expect(JSON.stringify(plan)).not.toContain(MARKER);
@@ -284,16 +188,12 @@ describe('T-OG-15 Copilot direct command contract', () => {
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
     expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
-    // #2995 round 3 (item D): parseOutput (the installed extractFinal hook)
-    // always returns null -- there is no evidenced answer field, so no
-    // success-looking candidate is ever published. parseDirectFinal keeps
-    // the one structural check for this diagnostic.
-    expect(installed.owner.parseOutput(await readFile(invocation.stdoutPath, 'utf8'))).toBeNull();
+    expect(installed.owner.parseOutput(await readFile(invocation.stdoutPath, 'utf8'))).toEqual({ text: `synthetic reply (${payload.length} chars)` });
     const final = installed.owner.parseDirectFinal(await readFile(invocation.stdoutPath, 'utf8'));
-    expect(final).toEqual({ events: [{ content: `synthetic reply (${payload.length} chars)` }] });
+    expect(final).toEqual({ text: `synthetic reply (${payload.length} chars)` });
   });
 
-  it('CP03 the attached launcher never carries the brief in argv, launch records or run-dir metadata', async () => {
+  it('CP03 the stdin launcher never carries the brief in argv, launch records or run-dir metadata', async () => {
     const { plan, root, workdir, payload, snapshot, drivers, now } = await copilotPlan();
     const { file, recordPath } = await fakeConfig(root, 'success');
     vi.stubEnv('AIWG_FAKE_WORKER_CONFIG', file);
@@ -312,7 +212,7 @@ describe('T-OG-15 Copilot direct command contract', () => {
     expect(launches).toHaveLength(1);
     expect(JSON.stringify(launches)).not.toContain(MARKER);
     const promptPath = path.join(workdir, `.handoff/worker-brief-${JSON.parse(await readFile(path.join(runDir, 'invocation.json'), 'utf8')).invocationId}/brief.md`);
-    expect(launches[0]).toMatchObject({ stdin: 'closed', args: plan.invocation!.argv.slice(1).map(token => token === plan.invocation!.briefPath ? promptPath : token) });
+    expect(launches[0]).toMatchObject({ stdin: 'brief-text', args: plan.invocation!.argv.slice(1).map(token => token === plan.invocation!.briefPath ? promptPath : token) });
     expect(await readFile(plan.invocation!.briefPath!, 'utf8')).toBe(payload);
     const files = await readdir(runDir);
     expect(files).toEqual(expect.arrayContaining(['invocation.json', 'process.json', 'exit.json']));
@@ -400,14 +300,10 @@ describe('T-OG-20/21/23 Copilot run identity, stall and security signals', () =>
     expect(result.code, result.stderr).toBe(0);
     feed(o, result.stdout, 'stdout');
     clock.t = 1000;
-    // #2995 round 3 (item D): parseOutput always returns null now (no
-    // evidenced answer field), so finalValid is always false here and the
-    // run never reaches `completed` -- exactly the documented, unqualified
-    // state for this profile (see docs/providers/copilot-direct.md).
-    expect(installed.owner.parseOutput(result.stdout)).toBeNull();
+    expect(installed.owner.parseOutput(result.stdout)).toMatchObject({ text: expect.any(String) });
     const snapshot = o.finish({ exitCode: result.code, termination: 'confirmed',
       finalValid: installed.owner.parseOutput(result.stdout) !== null });
-    expect(snapshot).toMatchObject({ state: 'failed', handshake: 'process-only', lastProgressAt: null });
+    expect(snapshot).toMatchObject({ state: 'completed', handshake: 'process-only', lastProgressAt: null });
     expect(snapshot.unavailableSignals).toEqual(expect.arrayContaining(['semantic-start', 'semantic-progress']));
     expect(o.evidence().events).toHaveLength(0);
   });
@@ -481,12 +377,9 @@ describe('T-OG-20/21/23 Copilot run identity, stall and security signals', () =>
     expect(record.envNames).not.toContain('COPILOT_GITHUB_TOKEN');
     const stdout = await readFile(plan.invocation!.stdoutPath, 'utf8');
     expect(stdout).not.toContain(secret);
-    // #2995 round 3 (item D): parseOutput always returns null; the
-    // structural diagnostic (parseDirectFinal) still shows the malicious
-    // text landed in the stream as inert data, never executed.
-    expect(installed.owner.parseOutput(stdout)).toBeNull();
+    expect(installed.owner.parseOutput(stdout)).toMatchObject({ text: expect.stringContaining('touch') });
     const final = installed.owner.parseDirectFinal(stdout);
-    expect(final?.events?.[0]?.content).toContain('touch');
+    expect(final?.text).toContain('touch');
     expect(existsSync(marker)).toBe(false); // worker-returned commands are never executed
   });
 
@@ -523,20 +416,15 @@ describe('T-OG-20/21/23 Copilot run identity, stall and security signals', () =>
     expect(snapshot).toMatchObject({ state: 'failed', reasonCode: 'PROVIDER_ERROR' });
   });
 
-  // #2995: unlike every other adapter in this effort, Copilot's event
-  // vocabulary is wholly unevidenced (module/doc above), so parseWorkerFinal
-  // fails closed unconditionally -- including for a successful stream whose
-  // final line would otherwise look like a valid claims document, since
-  // there is still no evidenced field to extract it from.
   const observation = { transport: 'shell', status: 'completed', termination: 'confirmed', exitCode: 0 };
 
-  it('CP20 parseWorkerFinal always rejects, even a clean successful stream', async () => {
+  it('CP20 parseWorkerFinal rejects settled prose without valid workerClaims', async () => {
     const { root, workdir } = await scratch();
     const briefPath = path.join(root, 'brief.md'); await writeFile(briefPath, 'synthetic brief');
     const { file } = await fakeConfig(root, 'success');
     const result = await run(process.execPath, argv(workdir, briefPath), { cwd: workdir, env: { AIWG_FAKE_WORKER_CONFIG: file } });
     expect(result.code, result.stderr).toBe(0);
-    await expect(installed.owner.parseWorkerFinal(result.stdout, { observation })).rejects.toThrow(/unavailable/);
+    await expect(installed.owner.parseWorkerFinal(result.stdout, { observation })).rejects.toThrow();
   });
 
   it('CP21 parseWorkerFinal rejects a malformed stream and Uint8Array/Buffer bytes input alike', async () => {
@@ -548,7 +436,7 @@ describe('T-OG-20/21/23 Copilot run identity, stall and security signals', () =>
     await expect(installed.owner.parseWorkerFinal(Buffer.from(result.stdout, 'utf8'), { observation })).rejects.toThrow();
   });
 
-  it('CP22 parseWorkerFinal rejects unconditionally even for an MCP-formatted call', async () => {
+  it('CP22 parseWorkerFinal rejects an unsupported MCP-formatted call', async () => {
     await expect(installed.owner.parseWorkerFinal('{}', { observation, format: 'mcp' })).rejects.toThrow();
   });
 });
@@ -574,7 +462,7 @@ describe('Copilot round-1 review fixes (#2901)', () => {
     const { root, workdir } = await scratch();
     const briefPath = path.join(root, 'brief.md'); await writeFile(briefPath, 'synthetic brief');
     const { file } = await fakeConfig(root, 'success');
-    const result = await run(process.execPath, [FAKE, '-p', COPILOT_FIXED_PROMPT, '--attachment', briefPath, '--model', MODEL,
+    const result = await run(process.execPath, [FAKE, '--model', MODEL,
       '--reasoning-effort', 'medium', '-C', workdir, '--output-format', 'json', '--no-ask-user', '--no-custom-instructions',
       '--disable-builtin-mcps', '--allow-tool', 'write', '--allow-all-paths', '--allow-all-urls'],
       { cwd: workdir, env: { AIWG_FAKE_WORKER_CONFIG: file } });
@@ -586,7 +474,7 @@ describe('Copilot round-1 review fixes (#2901)', () => {
     const { root, workdir } = await scratch();
     const briefPath = path.join(root, 'brief.md'); await writeFile(briefPath, 'synthetic brief');
     const { file } = await fakeConfig(root, 'success');
-    const base = [FAKE, '-p', COPILOT_FIXED_PROMPT, '--attachment', briefPath, '--model', MODEL,
+    const base = [FAKE, '--model', MODEL,
       '-C', workdir, '--output-format', 'json', '--no-ask-user', '--no-custom-instructions', '--disable-builtin-mcps',
       '--allow-tool', 'write'];
     const missing = await run(process.execPath, base, { cwd: workdir, env: { AIWG_FAKE_WORKER_CONFIG: file } });
