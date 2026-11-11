@@ -1,9 +1,11 @@
 {
   "T-OG-03": [
-    "test/conformance/orchestration-v1/copilot-direct.test.ts"
+    "test/conformance/orchestration-v1/copilot-direct.test.ts",
+    "test/conformance/orchestration-v1/copilot-contract.test.ts"
   ],
   "T-OG-15": [
-    "test/conformance/orchestration-v1/copilot-direct.test.ts"
+    "test/conformance/orchestration-v1/copilot-direct.test.ts",
+    "test/conformance/orchestration-v1/copilot-contract.test.ts"
   ],
   "T-OG-20": [
     "test/conformance/orchestration-v1/copilot-direct.test.ts"

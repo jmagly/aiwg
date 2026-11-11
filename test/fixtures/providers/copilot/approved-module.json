@@ -5,9 +5,9 @@
     "reference": "installed:copilot",
     "packageName": "@aiwg/copilot-worker",
     "packageVersion": "1",
-    "modulePath": "copilot-adapter.mjs",
+    "modulePath": "lib/copilot-adapter.mjs",
     "interfaceVersion": 1,
-    "sha256": "sha256:5e2a9750b1b195dff5999f89748da6c7c1094f3f98322de2de5bae16fe69911a",
+    "sha256": "sha256:f3d7537a03fdfcef877591420664d25a259e2425bfa0468f6a563f5849721a41",
     "adapterIds": ["copilot"],
     "platforms": ["linux"]
   }

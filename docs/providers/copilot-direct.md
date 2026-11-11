@@ -28,7 +28,7 @@ the user's key; paid runs need explicit operator approval, including verificatio
 After approval and secure injection:
 
 ```sh
-copilot -p 'Reply with exactly: byok-ok' --no-ask-user
+printf '%s\n' 'Reply with exactly: byok-ok' | copilot --model qwen/qwen3.8-27b --no-ask-user
 ```
 
 Check the reply and the Copilot harness log/session for the resolved model
@@ -39,158 +39,103 @@ parser or modify its cleared-environment profile.
 
 ## Direct-worker contract
 
-The bundled `direct-shell` invocation profile in
-`agentic/code/providers/model-capabilities.v1.json` is version-bound to
-`copilot 1.0.95` and help-evidenced only (`H:` evidence grade, captured from
-`copilot --help` and `copilot help sandbox|permissions|config|environment`
-on host `noodle`, 2026-10-10;
-`.aiwg/working/s1-scratch/cli-help/copilot-1.0.95.txt`). It stays
-`unqualified` for dispatch until a human qualifier reviews a live run. The
-adapter (`tools/ralph-external/lib/copilot-adapter.mjs`) renders:
-
-```
-copilot -p "Follow the instructions in the attached file exactly." \
-  --attachment <briefPath> --model <model> --reasoning-effort <effort> \
-  -C <workspace> --output-format json --no-ask-user \
-  --no-custom-instructions --disable-builtin-mcps \
-  [--allow-tool <pattern> ...] [--deny-tool <pattern> ...]
-```
-
-**The brief rides on `--attachment`, never argv text or stdin.**
-`-p/--prompt <text>` only accepts inline argv text ("Execute a prompt in
-non-interactive mode") — there is no `--prompt-file` flag and no documented
-stdin path for the main prompt. This profile fixes `-p` to a short,
-content-free instruction and attaches the real brief as a file via
-`--attachment <path>` ("Attach a file (image or native document) to the
-initial prompt; only valid in non-interactive mode"), mirroring the
-OpenCode `-f`/`--file` attached-file pattern. **An attachment only proves
-the file reached the process; it does not prove the model treats its
-contents as instructions the way stdin or a prompt would** — that is what
-the manual smoke run below checks.
-
-**Tool-approval prompts and the `ask_user` tool are two separate
-non-interactive controls.** `--no-ask-user` disables the agent's own
-`ask_user` tool. Separately, `--help` states `--allow-all-tools` is
-"required for non-interactive mode" — but per this issue's implementation
-notes, this profile never emits `--allow-all-tools`/`--allow-all`/`--yolo`.
-It only emits scoped `--allow-tool`/`--deny-tool` tokens from the resolved
-permission tuple. **Whether a tool outside that scoped allow-list fails
-closed or blocks indefinitely in a non-interactive run is not evidenced
-from `--help` alone** and stays unqualified pending a live run.
-
-**No per-call OS sandbox flag is safely evidenced.** Root `copilot --help`
-lists no `--sandbox` flag in its Options — only `copilot help sandbox`
-prose mentions one, and enabling it needs host prerequisites (`bwrap`,
-`slirp4netns`, `iptables`, `nf_tables` on Linux) this profile does not
-probe. It is never emitted (and `--allow-all-paths` is never emitted
-either); the profile relies on the CLI's own default path restriction
-(cwd, PATH directories, the temp directory, the user profile).
-`capabilities.sandboxModes` is therefore `["external"]`.
-
-**The CLI's own JSONL event vocabulary is not documented, and there is no
-readable source to fall back to.** `--output-format json` is "JSONL, one
-JSON object per line" per `--help`, but no field names are documented
-anywhere in `--help`. Unlike some other CLIs in this effort (e.g. Pi, whose
-bundled JS chunks are readable), the installed `@github/copilot` package is
-a ~180 MB compiled, per-architecture native binary — there is no bundled
-JS to read statically, and a live/prompted run is out of scope for this
-profile's qualification. `observeHealthEvent` therefore always returns
-`null` (same pattern as `openhuman-adapter.mjs`/`factory-adapter.mjs` for
-CLIs with no evidenced event grammar), and `parseOutput` enforces only the
-one evidenced contract: every non-empty stdout line must be a JSON object.
-Completion is exit-code gated only.
-
-## GitHub-account smoke run (2026-10-10): BLOCKED on authentication
-
-**Live evidence from the conductor (host `noodle`, `copilot` 1.0.95,
-2026-10-10): a `COPILOT_GITHUB_TOKEN` holding a classic `ghp_` personal
-access token exits 1 with stderr `Classic Personal Access Tokens (ghp_) are
-not supported by Copilot` and EMPTY stdout.** A fine-grained PAT with
-Copilot access, or a prior `copilot login`/`gh auth login`, is required
-before that GitHub-account smoke run can proceed. That run was blocked;
-the BYOK route above was verified separately on 2026-11-09. It does not
-establish the AIWG direct-worker JSON event contract; the registry controls
-remain `unqualified`.
-
-The conductor runs the command below once, by hand, after `copilot` is
-installed and logged in with a supported credential, to record a pass/fail
-and the observed CLI version on the tracking issue. It is not part of
-default CI; paid runs require explicit operator approval. This older example
-uses GitHub-account models and the host's existing `copilot` login state
-(never put a token on argv; auth is detected
-from the CLI's own stored session, `COPILOT_GITHUB_TOKEN`/`GH_TOKEN`/
-`GITHUB_TOKEN`, or `copilot login`).
+The bundled `direct-shell` profile in
+`agentic/code/providers/model-capabilities.v1.json` supports Copilot CLI
+**1.0.106**, based on the 2026-11-10 BYOK OpenRouter run with
+`qwen/qwen3.8-27b` (#4088). The adapter renders this invocation.
 
 ```sh
-MODEL="<exact observed model id>"   # e.g. from `copilot --model` examples; never 'auto'
-d=$(mktemp -d) && cd "$d"
-echo 'Reply with exactly: copilot-smoke-ok' > brief.md
-copilot -p 'Follow the instructions in the attached file exactly.' \
-  --attachment brief.md --model "$MODEL" --reasoning-effort low \
-  -C "$d" --output-format json --no-ask-user --no-custom-instructions \
-  --disable-builtin-mcps --allow-tool 'write' </dev/null
-echo "exit=$?"
+copilot --model "$MODEL" --reasoning-effort "$EFFORT" \
+  -C "$WORKSPACE" --output-format json --no-ask-user \
+  --no-custom-instructions --disable-builtin-mcps \
+  --allow-tool write < "$BRIEF"
 ```
 
-`</dev/null` is deliberate: stdin is never used by this profile, so closing
-it removes any chance of waiting on a terminal that will never answer.
-`--allow-tool 'write'` is included so that IF the agent invokes a
-file-write tool, it does not block on a tool-approval prompt — it is not
-evidenced from `--help` that any tool permission is required just to emit
-a text response at all; widen the pattern only if the smoke prompt needs
-another tool kind.
+The brief is piped to stdin and read to EOF. Its contents stay off argv.
+Omit `-p`/`--prompt` and `--attachment`. The 1.0.95 help-only attachment
+path is **superseded**. Copilot 1.0.106 rejects `brief.md` with
+`--attachment file type not supported (must be an image or native document): brief.md`.
+When `-p` accompanies piped stdin, the capture shows the model looking for
+missing instructions and using `bash`, `bash`, then `view` to read the brief
+from the working directory. Stdin alone produced a single-turn exact reply
+with an empty `toolRequests` array.
 
-### Reading the result
+The adapter keeps model and reasoning effort explicit, refuses `auto` and
+generic Ralph aliases, and binds the workspace with `-C`. Scoped
+`--allow-tool` and optional repeated `--deny-tool` patterns carry the
+resolved permissions. `--no-ask-user` disables the agent's question tool.
+The profile uses an externally enforced sandbox boundary. Its controls
+retain their existing unqualified status for dispatch. The capture covers
+the stdin and answer contract, while tool approval outside the scoped
+allow-list and other workspace-loading surfaces still need verification.
 
-- **Exit code**: `echo "exit=$?"` must print `exit=0`. Any non-zero exit is
-  a fail.
-- **Every stdout line is a JSON object, and no line is error-shaped**:
-  `--output-format json` promises "JSONL, one JSON object per line." Check
-  framing properly — parse each line on its own (a line-count comparison is
-  not enough: `{} {}` on one line still splits into parseable values):
-  ```sh
-  while IFS= read -r line; do
-    [ -n "$line" ] || continue
-    printf '%s' "$line" | jq -e -s 'length == 1 and (.[0] | type == "object" and .type != "error" and (.error == null))' >/dev/null \
-      || { echo "FAIL: not one clean JSON object per line"; break; }
-  done < out.jsonl
-  ```
-  Any line that fails to parse, parses to something other than a JSON
-  object, has a top-level `type: "error"`, or carries a non-null top-level
-  `error` field, is a fail (the adapter's `parseOutput` already rejects all
-  of these — see `tools/ralph-external/lib/copilot-adapter.mjs`). No other
-  specific field name is required or checked; the event vocabulary itself
-  is unqualified.
-- **No hang on a tool-approval prompt**: the run must exit on its own
-  within a short bound. A process that keeps running past the prompt's
-  expected completion window is a fail — it most likely means a tool
-  outside `--allow-tool`'s scope needed approval that non-interactive mode
-  could not grant.
-- **Reply content**: read the stdout JSON for the literal reply
-  `copilot-smoke-ok` (field name TBD from this run — record whichever key
-  held it). Record on the issue to seed the real field name for a future,
-  authorized qualification pass.
+The cleared child environment allows `PATH` and the five BYOK variables
+listed above, including `COPILOT_PROVIDER_API_KEY` and
+`COPILOT_PROVIDER_API_KEY_COMMAND`. The successful capture records
+`model.call_final_result.data` with `isByok: true`, model
+`qwen/qwen3.8-27b` and result `success`.
 
-Record the installed `copilot --version` output, the command above, and
-the pass/fail outcome (exit code + JSONL validity + no error-shaped lines +
-reply content) on the tracking issue. This manual run is evidence only; it
-never marks the registry profile as qualified for automated dispatch.
+### Captured answer contract
 
-## `parseWorkerFinal` fails closed (#2995)
+`--output-format json` emits JSONL, one JSON object per line. Extract the
+last `assistant.message` event's `data.content`, trim surrounding whitespace,
+and require a subsequent terminal `assistant.turn_end` or `assistant.idle`.
+The final message must contain text and an empty `data.toolRequests` array.
+A new turn, message fragment, user message or tool execution invalidates the
+previous candidate until another settled assistant message arrives.
+`model.call_final_result.data.result` is a status string. The answer lives
+in `assistant.message.data.content`.
 
-Every other direct profile in this effort (OpenCode, Pi, OMP, Factory,
-Cursor) overrides `parseWorkerFinal` to extract its own final answer text
-from its strict event rule and hand that text to the shared strict
-`workerClaims` parser, so a real run can report health `completed`.
-Copilot's `parseWorkerFinal` cannot do the same: as documented above, the
-JSONL event vocabulary is wholly unevidenced (compiled binary, no readable
-source, live qualification blocked on credentials), so `parseOutput()`
-can only prove "every line is a clean JSON object" — it has no way to name
-which field, if any, holds the model's final answer. Inventing a field
-name here would be exactly the kind of unevidenced grammar this profile
-otherwise refuses to guess. `parseWorkerFinal` therefore throws
-unconditionally (`OG_CONTRACT_UNSUPPORTED`), including for an MCP
-envelope, since this profile has no evidenced MCP transport either: a real
-Copilot run will continue to report health `failed`/not-`completed` until
-a qualified run observes the event stream and this is revisited with a
-named field.
+Malformed JSONL, duplicate JSON keys, non-object lines, error-shaped lines
+(`type: "error"` or a non-null top-level `error`), unsuccessful model-call
+results and nonzero result exits fail extraction. The adapter bounds output
+to 10 MiB and validates UTF-8. `parseOutput` and `parseDirectFinal` return
+`{ text }` for a settled candidate. `parseWorkerFinal` then applies the
+existing strict `workerClaims` parser and trusted process-termination checks.
+A smoke reply is plain text. A dispatched worker must supply the requested
+claims JSON as its answer. Attempt verification uses the same extraction
+and the existing attempt-terminal assertion. MCP final transport remains
+unsupported by this direct-shell profile.
+
+Health observation stays process-only. Terminal events identify a settled
+answer within the stream. Host-observed process exit and termination provide
+the completion evidence used by strict claims validation.
+
+Sanitized excerpts from the supplied raw captures are retained in
+`test/fixtures/providers/copilot/copilot-stdin-only.jsonl` and
+`test/fixtures/providers/copilot/copilot-stdin.jsonl`. The excerpts preserve
+event shapes and replace temporary paths and identifiers. The attachment
+rejection is retained in `test/fixtures/providers/copilot/attachment-rejected.txt`.
+
+## GitHub-account smoke run (2026-10-10) — BLOCKED on authentication
+
+The old GitHub-account run on host `noodle`, Copilot 1.0.95, used a
+`COPILOT_GITHUB_TOKEN` holding a classic `ghp_` personal access token. It
+exited 1 with stderr `Classic Personal Access Tokens (ghp_) are not supported by Copilot`
+and empty stdout. That run remains blocked on authentication. The BYOK
+route was verified separately on 2026-11-09 and its stdin-only direct-worker
+contract was captured on 2026-11-10. This preserves conformance CP19's
+recorded auth-failure evidence.
+
+## Manual stdin smoke
+
+After approval and secure child-environment injection, run this command
+with the selected exact model and scoped tool permission.
+
+```sh
+MODEL=qwen/qwen3.8-27b
+d=$(mktemp -d)
+printf '%s\n' 'Reply with exactly: copilot-smoke-ok' 'Do not use any tools.' > "$d/brief.md"
+cat "$d/brief.md" | copilot --model "$MODEL" --reasoning-effort low \
+  -C "$d" --output-format json --no-ask-user --no-custom-instructions \
+  --disable-builtin-mcps --allow-tool write > "$d/out.jsonl" 2> "$d/err"
+printf 'exit=%s\n' "$?"
+```
+
+Expect exit zero, valid JSONL, one `assistant.message` with trimmed
+`data.content` equal to `copilot-smoke-ok`, empty `data.toolRequests`, and
+terminal `assistant.turn_end`/`assistant.idle` events. Check that
+`model.call_final_result.data` records the expected model, `isByok: true`
+and `result: "success"`. Record version, model and result on the tracking
+issue after an authorized run. Default tests replay sanitized captures and
+execute a fake local CLI.
