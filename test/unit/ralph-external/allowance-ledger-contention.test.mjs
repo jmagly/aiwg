@@ -1,6 +1,6 @@
 // Deterministic filesystem-work bounds for allowance-ledger contention (#4081).
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, rm, mkdir, rename, symlink, open, lstat, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, rename, symlink, open, lstat, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { constants } from 'node:fs';
@@ -115,7 +115,28 @@ describe('pinned ledger directory operations', () => {
         }
         throw new Error('callback failed');
       })).rejects.toThrow('callback failed');
-      await expect(lstat(pinned)).rejects.toMatchObject({ code: 'ENOENT' });
+      await expectHandleReleased(pinned, root);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  // The pinned path is /proc/self/fd/<n>/. Once closed, the process may reuse <n> for
+  // any file (ENOTDIR) or directory, so closure means it no longer resolves to root.
+  it('treats a reused descriptor number as released, not as the pinned directory', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-ledger-pin-reuse-'));
+    let pinned;
+    try {
+      await workerInputs.withWorkerDirectory(root, async withPath => { pinned = await withPath(root, target => target); });
+      const occupant = join(root, 'occupant');
+      await writeFile(occupant, 'x');
+      const handle = await open(occupant, 'r');
+      try { await expectHandleReleased(pinned, root); } finally { await handle.close(); }
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 });
+
+async function expectHandleReleased(pinned, root) {
+  const rootInode = (await stat(root)).ino;
+  const after = await stat(pinned).catch(error => ({ error }));
+  if ('error' in after) expect(['ENOENT', 'ENOTDIR']).toContain(after.error.code);
+  else expect(after.ino).not.toBe(rootInode);
+}
