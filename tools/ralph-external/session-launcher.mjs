@@ -1144,7 +1144,8 @@ async function captureOneWorker(owner, ctx) {
     // Require positive kernel evidence of owned containment being empty.
     const terminationEvidence = outcome.mode !== 'systemd-unit' && child.pid === undefined
       ? { confirmed: true, missing: null } : await settleWorkerTermination({ mode: outcome.mode, native,
-        workerExited: sawExit, identity, supervisor, invocationId });
+        workerExited: sawExit, identity, supervisor, invocationId,
+        detachedPid: !hasTransport && outcome.ownedGroup === true ? child.pid : undefined });
     const confirmed = terminationEvidence.confirmed;
     // `worker-exit.json`/`worker-identity.json` are written into a directory
     // the worker itself can reach (same UID, no filesystem confinement), so a
@@ -1819,7 +1820,8 @@ async function captureOneWorkerBaseline(owner, ctx) {
     const members = identity ? sampleWorkerGroup(identity.pgid) : null;
     const terminationEvidence = outcome.mode !== 'systemd-unit' && child.pid === undefined
       ? { confirmed: true, missing: null } : await settleWorkerTermination({ mode: outcome.mode, native,
-        workerExited: sawExit, identity, supervisor, invocationId });
+        workerExited: sawExit, identity, supervisor, invocationId,
+        detachedPid: !hasTransport && outcome.ownedGroup === true ? child.pid : undefined });
     const confirmed = terminationEvidence.confirmed;
     const workerExit = hasTransport ? await transportRecord('worker-exit.json') : null;
     if (!identity && hasTransport && nativeSupervisor) {

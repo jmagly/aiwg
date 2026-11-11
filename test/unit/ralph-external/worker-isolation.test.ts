@@ -384,7 +384,7 @@ describe('launchIsolatedWorker gate-then-launch', () => {
     expect(asyncCalls).toBe(0);
   });
 
-  it('refuses silent unconfined launch and requires explicit degraded opt-in', () => {
+  it.each([true, false])('requires degraded opt-in and records detached spawn evidence (%s)', ownedGroup => {
     const degraded = { mode: 'degraded', reason: 'no user manager here' } as const;
     const refused = launchIsolatedWorker({
       name: 'x', memoryMaxGb: 1, command: '/bin/true', gate: passingGate, isolation: degraded,
@@ -395,13 +395,14 @@ describe('launchIsolatedWorker gate-then-launch', () => {
     const calls: string[][] = [];
     const allowed = launchIsolatedWorker({
       name: 'x', memoryMaxGb: 1, command: '/bin/true', args: ['--help'],
-      gate: passingGate, isolation: degraded, allowDegraded: true,
-      spawnAsync: ((binary: string, argv: string[]) => {
+      gate: passingGate, isolation: degraded, allowDegraded: true, ownedGroup,
+      spawnAsync: ((binary: string, argv: string[], options: any) => {
+        expect(options.detached).toBe(ownedGroup);
         calls.push([binary, ...argv]);
         return { pid: 4242, once: () => {} };
       }) as never,
     });
-    expect(allowed).toMatchObject({ launched: true, mode: 'degraded' });
+    expect(allowed).toMatchObject({ launched: true, mode: 'degraded', ownedGroup });
     expect(allowed.diagnostic).toContain('without resource confinement');
     expect(calls).toEqual([['/bin/true', '--help']]);
   });

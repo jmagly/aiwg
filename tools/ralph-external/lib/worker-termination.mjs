@@ -8,7 +8,7 @@ const TERMINATION_BUDGET_MS = 2000;
 const TERMINATION_ATTEMPT_MS = 100;
 const TERMINATION_MAX_ATTEMPTS = 21;
 
-export function observeWorkerTermination({ mode, native, workerExited, identity,
+export function observeWorkerTermination({ mode, native, workerExited, identity, detachedPid,
   supervisor = sampleWorkerIdentity(process.pid), kill = process.kill, invocationId,
   scan = scanWorkerInvocationProcesses, groupStates = sampleGroupStates, deadline, now = () => performance.now() } = {}) {
   if (mode === 'systemd-unit') {
@@ -18,20 +18,33 @@ export function observeWorkerTermination({ mode, native, workerExited, identity,
         ? 'unit inactive evidence' : native?.cgroupEmpty !== true ? 'empty unit cgroup (TasksCurrent=0)' : null };
   }
   if (!workerExited) return { confirmed: false, missing: 'launcher-observed worker exit' };
-  if (!identity || identity.pid !== identity.pgid || identity.uid !== process.getuid?.()
-    || !supervisor || identity.host !== supervisor.host || identity.bootId !== supervisor.bootId
-    || !isSafeWorkerGroupTarget(identity.pgid, supervisor)) {
+  // A successful detached spawn establishes pgid=pid even if /proc vanished
+  // before capture. This is read-only containment evidence, never a recovered
+  // birth identity or signal authority. The launcher's birth is a conservative
+  // lower bound for descendants; without worker birth, unreadable processes
+  // retain the scan's stricter fail-closed handling (no ancestry exclusions).
+  const group = identity ?? (Number.isSafeInteger(detachedPid) && supervisor?.pid === process.pid
+    && /^\d+$/.test(supervisor.startTicks ?? '') ? {
+      pid: detachedPid, pgid: detachedPid, uid: supervisor.uid,
+      host: supervisor.host, bootId: supervisor.bootId, startTicks: supervisor.startTicks,
+    } : null);
+  if (!group || group.pid !== group.pgid || group.uid !== process.getuid?.()
+    || !supervisor || group.host !== supervisor.host || group.bootId !== supervisor.bootId
+    || !isSafeWorkerGroupTarget(group.pgid, supervisor)) {
     return { confirmed: false, missing: 'launcher-owned process group identity on this host and boot' };
   }
+  const scanOptions = { invocationId, startTicks: group.startTicks, uid: group.uid, now,
+    deadline: deadline ?? now() + TERMINATION_BUDGET_MS,
+    ...(identity ? { workerPid: identity.pid, workerPgid: identity.pgid, workerSession: identity.sessionId } : {}) };
   let groupEmpty = false;
   try {
-    kill(-identity.pgid, 0);
+    kill(-group.pgid, 0);
     // Signal 0 also reaches zombies. A reaper that never waits (a container's
     // PID 1) can leave killed members as zombies indefinitely; a group whose
     // remaining members are all zombies has no live process (#3853).
     // Absence from /proc is never proof; only observed zombies explaining
     // signal 0, with no live or unreadable member, count as an empty group.
-    const states = groupStates(identity.pgid);
+    const states = groupStates(group.pgid);
     groupEmpty = !!states && states.zombies > 0 && states.live === 0 && states.unreadable === 0;
   }
   catch (error) {
@@ -42,16 +55,12 @@ export function observeWorkerTermination({ mode, native, workerExited, identity,
     if (error.code === 'ESRCH') {
       // A standalone observation gets one scan, at most 2 s. An explicit
       // deadline leaves the shared budget and retries to its caller.
-      return scan({ invocationId, startTicks: identity.startTicks, uid: identity.uid, now,
-        deadline: deadline ?? now() + TERMINATION_BUDGET_MS,
-        workerPid: identity.pid, workerPgid: identity.pgid, workerSession: identity.sessionId });
+      return scan(scanOptions);
     }
     return { confirmed: false, missing: `empty owned process group (signal-0 returned ${error.code ?? 'unknown'})` };
   }
   if (groupEmpty) {
-    return scan({ invocationId, startTicks: identity.startTicks, uid: identity.uid, now,
-      deadline: deadline ?? now() + TERMINATION_BUDGET_MS,
-      workerPid: identity.pid, workerPgid: identity.pgid, workerSession: identity.sessionId });
+    return scan(scanOptions);
   }
   return { confirmed: false, missing: 'empty owned process group (signal-0 still finds members)', retryable: true };
 }

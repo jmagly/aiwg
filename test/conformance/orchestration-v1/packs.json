@@ -339,6 +339,7 @@
       "testFiles": [
         "test/conformance/orchestration-v1/direct-lifecycle.test.ts",
         "test/unit/ralph-external/session-launcher-direct-dispatch.test.ts",
+        "test/unit/ralph-external/launcher-recovery-evidence.test.mjs",
         "test/unit/ralph-external/worker-isolation.test.ts",
         "test/unit/tools/resource-preflight.test.js"
       ],
