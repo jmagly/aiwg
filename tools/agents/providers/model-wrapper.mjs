@@ -47,8 +47,7 @@ export function withModelWrapper(provider, translate) {
     const mapped = translate(source, normalized, opts);
     const notice = `AIWG wrapper tier: ${tier}; catalog role: ${role}. `
       + `Tier enforcement: ${enforcement}; effort: ${nativeEffort ? `pinned (${nativeEffort})` : 'not enforced per wrapper'}. `
-      + (pin ? `Model selector: ${pin}.` : 'The automatic selector is not a model pin. Model control is inherited or informational; stop unless the conductor confirms the required non-flagship session.')
-      + (provider === 'grok-build' ? ' Native-agent tier enforcement remains gated by #2577; not enforced.' : '');
+      + (pin ? `Model selector: ${pin}.` : 'The automatic selector is not a model pin. Model control is inherited or informational; stop unless the conductor confirms the required non-flagship session.');
     if (provider === 'codex') {
       let output = mapped.replace(/^model = .*$/m, `model = ${JSON.stringify(pin)}`);
       if (!pin) throw new Error(`${source}: Codex wrapper needs a catalog model pin`);
@@ -62,7 +61,7 @@ export function withModelWrapper(provider, translate) {
     if (!target) return `${mapped.trim()}\n\n${notice}\n`;
     const metadata = target.metadata;
     if (pin) metadata[controls.model] = pin;
-    else if (!override || provider !== 'grok-build') delete metadata.model;
+    else delete metadata.model;
     // Portable input aliases are not provider controls. Emit only the resolved native field.
     for (const key of ['effort', 'model-effort', 'model_reasoning_effort', 'reasoningEffort', 'thinkingLevel']) {
       if (key !== controls.effort || !nativeEffort) delete metadata[key];
@@ -83,8 +82,6 @@ export function withModelWrapper(provider, translate) {
     const nativeHeader = mapped.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/)?.[1] ?? '';
     const nativeTools = nativeHeader.match(/^tools:[^\n]*(?:\n[ \t]+- [^\n]*)*/m)?.[0];
     if (nativeTools) header = header.replace(/^tools:[^\n]*(?:\n[ \t]+- [^\n]*)*/m, () => nativeTools);
-    // Keep Grok's quoted native model selector, including operator-supplied IDs.
-    if (provider === 'grok-build' && metadata.model) header = header.replace(/^model: .*$/m, `model: ${JSON.stringify(metadata.model)}`);
     return `---\n${header}---\n\n${notice}\n\n${target.body.trim()}\n`;
   };
 }

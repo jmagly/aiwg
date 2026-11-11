@@ -37,6 +37,18 @@ terminal event and accounting with exit code 0. Thoughts, signatures and command
 inventories are omitted; tool/session/request ids and cwd are synthetic. The
 request is the harmless smoke prompt, with no system prompts or user/host names.
 The broader `--allow "Bash(aiwg *)"` succeeded in `cli/agent-probe-allow.out`;
-`Bash(aiwg discover *)` is the narrower rule selected from the bundled Bash
-matching documentation, not a claim of live verification. Headless tests replay
+`Bash(aiwg discover *)` is the narrower rule from the bundled Bash matching
+documentation; a live 1.0.77 smoke in an AIWG project with it ended `end_turn`
+with the exact reply (2026-11-10, `cli/smoke-narrow-allow.out`). Headless tests replay
 the failure and exercise a fake permission gate; ACP/direct tests check argv.
+
+- `native-agents.json`: selected fields from the 2026-11-10 set-b
+  `cli/inspect-with-probe.json` and `cli/agent-probe{,-badmodel}.out`.
+  Project discovery retains name/description/source; each probe retains only
+  the session init model. The invalid selector is normalized to `invalid-model`.
+  Paths are synthetic; IDs, prompts, reasoning, tools, account fields and
+  unrelated agent inventories are omitted. The operator README records the
+  valid frontmatter selector as `grok-4.6`. Both sessions stayed on `grok-4.7`.
+  These observations establish ignored model frontmatter, not a successful
+  task or native tool permission mapping. Replayed by
+  `test/unit/providers/grok-build-provider.test.ts`.

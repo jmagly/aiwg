@@ -32,7 +32,7 @@ function deploy(provider: string, target: string, home: string, dryRun = false, 
   ], { timeout: DEPLOY_CHILD_TIMEOUT_MS,
     cwd: REPO_ROOT,
     env: { ...process.env, HOME: home, USERPROFILE: home, HERMES_HOME: join(home, '.hermes'),
-      XDG_DATA_HOME: join(home, 'data'), XDG_CONFIG_HOME: join(home, 'config') },
+      GROK_HOME: join(home, '.grok'), XDG_DATA_HOME: join(home, 'data'), XDG_CONFIG_HOME: join(home, 'config') },
     encoding: 'utf8',
   });
 }
@@ -124,10 +124,23 @@ describe('model worker provider matrix', () => {
     }
   }, SINGLE_DEPLOY_TEST_TIMEOUT_MS);
 
-  it.each(['openclaw', 'warp', 'windsurf', 'hermes'])('%s declares inherited/global or unsupported degradation without false exact pins', async provider => {
+  it.each(['openclaw', 'warp', 'windsurf', 'hermes', 'grok-build'])('%s declares inherited/global or unsupported degradation without false exact pins', async provider => {
     const root = mkdtempSync(join(tmpdir(), 'aiwg-degraded-workers-'));
     roots.push(root);
     const home = join(root, 'home');
+
+    if (provider === 'grok-build') {
+      const target = join(root, 'grok-build');
+      deploy(provider, target, home, false, join(REPO_ROOT, 'agentic/code/addons/aiwg-utils'));
+      for (const role of roles) {
+        const content = await readFile(join(target, `.grok/agents/aiwg-model-${role}-worker.md`), 'utf8');
+        expect(content).not.toMatch(/^model:/m);
+        expect(content).toContain(`AIWG model role: ${role}`);
+        expect(content).toContain('Tier enforcement: inherited');
+        expect(content).not.toMatch(/^tools:/m);
+        expect(content).toContain('-m');
+      }
+    }
 
     if (provider === 'openclaw') {
       const openclawTarget = join(root, 'openclaw');

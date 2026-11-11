@@ -4,8 +4,8 @@ import { withModelWrapper } from './model-wrapper.mjs';
  * Project skills under `.grok/skills`; user home via $GROK_HOME (default ~/.grok).
  * Distinct from grokbot. No bare `grok` alias.
  *
- * Native agent compilation is deliberately limited to the three AIWG model
- * workers until the wider corpus has a qualified Grok tool mapping (#2577).
+ * Native agents use captured name/description frontmatter and a body prompt.
+ * Grok 1.0.77 ignores model frontmatter; worker CLI -m controls model selection.
  * Rules are written to .grok/rules and loaded by Grok alongside AGENTS.md.
  *
  * @issue #2575
@@ -24,6 +24,10 @@ import {
   createAgentsMdFromTemplate,
   deploySkillsWithKernelRouting,
   collectFrameworkArtifacts,
+  getAddonAgentFiles,
+  filterAgentFiles,
+  listMdFiles,
+  toKebabCase,
   getAddonSkillDirs,
   injectPlatformInContent,
   isKernelSkill,
@@ -138,9 +142,7 @@ export function deploySkills(skillDirs, targetDir, opts = {}) {
   });
 }
 
-const WORKER_ROLES = new Set(['reasoning', 'coding', 'efficiency']);
 const ROLE_FROM_ALIAS = { opus: 'reasoning', sonnet: 'coding', haiku: 'efficiency' };
-const GROK_TOOLS = new Set(['Bash', 'Read', 'Write', 'Edit', 'Grep', 'Glob']);
 
 /** Grok agent files accept a small YAML frontmatter subset, not AIWG metadata. */
 export const compileGrokAgent = withModelWrapper('grok-build', translateAgent);
@@ -151,42 +153,34 @@ function translateAgent(source, content, opts = {}) {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
     throw new Error(`${source}: invalid agent frontmatter`);
   }
-  const name = metadata.name;
+  const name = toKebabCase(metadata.name || path.basename(source, '.md'));
   const role = metadata['model-role'] || ROLE_FROM_ALIAS[metadata.model];
-  if (!/^aiwg-model-((reasoning|coding|efficiency)-worker|explorer|verifier)$/.test(String(name)) || !WORKER_ROLES.has(role)) {
-    throw new Error(`${source}: Grok Build native compilation currently supports only the five AIWG model wrappers; use aiwg show agent for other roles`);
-  }
   if (typeof metadata.description !== 'string' || !metadata.description.trim()) {
     throw new Error(`${source}: agent description is required`);
   }
-  const tools = metadata.tools;
-  if (!Array.isArray(tools) || tools.some(tool => !GROK_TOOLS.has(tool))) {
-    throw new Error(`${source}: unsupported Grok Build tool mapping; supported tools: ${[...GROK_TOOLS].join(', ')}`);
-  }
+  // Portable tier aliases are intent. Exact pins cannot be honored in Grok agents.
   const sourceModel = String(metadata.model || '').trim();
-  if (sourceModel && !ROLE_FROM_ALIAS[sourceModel] && sourceModel !== 'inherit') {
-    throw new Error(`${source}: exact model pin '${sourceModel}' is not a qualified Grok Build selector; configure --${role}-model with a discovered Grok model`);
-  }
-  const configuredModel = opts[`${role}Model`] || opts.modelsConfig?.['grok-build']?.[role]?.model;
-  if (configuredModel && (typeof configuredModel !== 'string' || /^(configured\/|inherit$)/.test(configuredModel))) {
-    throw new Error(`${source}: unresolved Grok Build ${role} model; configure --${role}-model with a discovered selector`);
+  const configuredModel = metadata['model-override'] || opts[`${role}Model`]
+    || opts.modelsConfig?.['grok-build']?.[role]?.model;
+  if (configuredModel || (sourceModel && !ROLE_FROM_ALIAS[sourceModel] && sourceModel !== 'inherit')) {
+    throw new Error(`${source}: exact model pin is unsupported in Grok Build agents: frontmatter model is ignored. Select a model with -m in the worker CLI invocation instead.`);
   }
   const header = [
     '---',
     `name: ${name}`,
     `description: ${JSON.stringify(metadata.description)}`,
-    `tools: ${tools.join(', ')}`,
-    ...(configuredModel ? [`model: ${JSON.stringify(configuredModel)}`] : []),
     '---',
   ];
-  const intent = configuredModel
-    ? `AIWG model role: ${role}; exact Grok Build selector: ${configuredModel}.`
-    : `AIWG model role: ${role}; no exact Grok Build model is configured. This agent inherits the parent model. Configure --${role}-model after native model discovery to pin this role.`;
+  const intent = [
+    ...(role ? [`AIWG model role: ${role}.`] : []),
+    ...(metadata['model-tier'] ? [`AIWG model tier intent: ${metadata['model-tier']}.`] : []),
+    'Grok Build frontmatter model is ignored; this agent inherits the session model. Role and tier intent do not pin a model. Select the worker model with -m in the CLI invocation.',
+  ].join(' ');
   return `${header.join('\n')}\n\n${intent}\n\n${match[2].trim()}\n`;
 }
 
 export function deployAgents(agentFiles, targetDir, opts = {}) {
-  const selected = agentFiles.filter(file => /^aiwg-model-((reasoning|coding|efficiency)-worker|explorer|verifier)\.md$/.test(path.basename(file)));
+  const selected = filterAgentFiles(agentFiles, opts);
   const dir = assertSafeNativeDirectory(targetDir, paths.agents);
   for (const source of selected) {
     const dest = path.join(dir, path.basename(source));
@@ -298,7 +292,7 @@ export function uninstall(target, opts = {}) {
     }
     manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     for (const [name, record] of Object.entries(manifest.managed ?? {})) {
-      if (path.basename(name) !== name || !/^aiwg-model-((reasoning|coding|efficiency)-worker|explorer|verifier)\.md$/.test(name)) continue;
+      if (path.basename(name) !== name || !name.endsWith('.md')) continue;
       const file = path.join(agentsDir, name);
       const relative = path.relative(root, file);
       if (!fs.existsSync(file) || fs.lstatSync(file).isSymbolicLink() || !fs.lstatSync(file).isFile()) {
@@ -352,7 +346,7 @@ export async function postDeploy(target, opts = {}) {
     console.log(
       `Grok Build (experimental): kernel skills → ${kernelSkillsPath}; ` +
         `standard skills index-driven (opt-in mirror → ${standardSkillsPath} with --copy-all); ` +
-        `model-worker agents → ${paths.agents}; rules → ${paths.rules}; user home → ${home || '(unresolved GROK_HOME)'}. ` +
+        `agents → ${paths.agents}; rules → ${paths.rules}; user home → ${home || '(unresolved GROK_HOME)'}. ` +
         'Distinct from grokbot.',
     );
   }
@@ -371,23 +365,20 @@ async function deploySelected(opts) {
   if (opts.createAgentsMd || (!opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly)) {
     assertSafeAgentsMd(opts.target);
   }
-  const aiwgRoot = resolveAiwgRoot(opts.srcRoot) || opts.srcRoot;
   const skillDirs = [...getAddonSkillDirs(opts.srcRoot)];
-  skillDirs.push(
-    ...collectFrameworkArtifacts(opts.srcRoot, mode, {
-      includeAgents: false,
-      includeCommands: false,
-      includeSkills: true,
-      includeRules: false,
-    }).skills,
-  );
+  const artifacts = collectFrameworkArtifacts(opts.srcRoot, mode, {
+    includeAgents: true,
+    includeCommands: false,
+    includeSkills: true,
+    includeRules: false,
+  });
+  skillDirs.push(...artifacts.skills);
   let count = 0;
   if (!opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly) {
-    const workerDir = path.join(aiwgRoot, 'agentic', 'code', 'addons', 'aiwg-utils', 'agents');
-    const workers = ['reasoning-worker', 'coding-worker', 'efficiency-worker', 'explorer', 'verifier']
-      .map(role => path.join(workerDir, `aiwg-model-${role}.md`))
-      .filter(file => fs.existsSync(file));
-    count += deployAgents(workers, opts.target, opts).filter(action => action.type === 'deploy').length;
+    // Use the same frozen source root as skills/frameworks, including direct bundles.
+    const agents = [...getAddonAgentFiles(opts.srcRoot), ...artifacts.agents,
+      ...listMdFiles(path.join(opts.srcRoot, 'agents'))];
+    count += deployAgents(agents, opts.target, opts).filter(action => action.type === 'deploy').length;
   }
   if (!opts.commandsOnly && !opts.rulesOnly) {
     const result = deploySkills(skillDirs, opts.target, opts);

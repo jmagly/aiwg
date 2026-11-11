@@ -22,7 +22,9 @@ corpus beyond the deployed kernel skills.
 - Config only (not startup context): `.grok/config.toml`
 - User home: `$GROK_HOME` (default `~/.grok`) — skills under `$GROK_HOME/skills/`
 
-AIWG emits the qualified reasoning, coding, and efficiency model-worker agents under `.grok/agents/`.
-Other AIWG agents remain discoverable through `aiwg discover` and `aiwg show agent` until their native mappings are qualified.
+AIWG deploys agent roles, including the five model-worker wrappers, under `.grok/agents/`.
+Grok Build 1.0.77 discovers project agents with name/description frontmatter and a body prompt.
+Its frontmatter model is ignored: role/tier intent is informational and agents inherit the session model.
+Select AIWG worker models with CLI `-m`. Tool restrictions in the prompt are instructions, not native permission controls.
 
 This bridge is distinct from Grok Bot (`grokbot` / `AIWG_GROKBOT_SKILLS_DIR`).

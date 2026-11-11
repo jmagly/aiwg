@@ -48,7 +48,7 @@ function expectedCapabilities(provider: string, readOnly: boolean) {
   if (provider === 'antigravity') return { tools: readOnly ? ['view_file', 'grep_search', 'run_command']
     : ['run_command', 'view_file', 'write_to_file', 'replace_file_content', 'grep_search'] };
   if (provider === 'omp') return { tools: tools.map(tool => tool.toLowerCase()) };
-  if (provider === 'grok-build') return { tools: tools.join(', ') };
+  if (provider === 'grok-build') return { tools: undefined };
   if (provider === 'windsurf') return { capabilities: tools };
   return { tools };
 }
@@ -168,17 +168,18 @@ describe('model wrapper provider translations', () => {
     }
   });
 
-  it('Grok Build keeps its gated configured selector and refuses an unqualified source pin', async () => {
+  it('Grok Build rejects ignored exact pins and keeps selection on worker CLI -m', async () => {
     const { translate } = await translator('grok-build');
     const input = requireSource('aiwg-model-coding-worker');
     expect(() => translate(source('aiwg-model-coding-worker'),
       input.replace(/^model:.*$/m, 'model: vendor/future-model-v42'), { modelCatalog: catalog, quiet: true }))
-      .toThrow(/exact model pin.*not a qualified Grok Build selector/);
-    const output = translate(source('aiwg-model-coding-worker'), input,
-      { codingModel: 'vendor/future-model-v42', modelCatalog: catalog, quiet: true });
-    expect(metadata(output).model).toBe('vendor/future-model-v42');
-    for (const key of effortKeys) expect(metadata(output)[key]).toBeUndefined();
-    expect(output).toContain('Native-agent tier enforcement remains gated by #2577; not enforced.');
+      .toThrow(/exact model pin.*-m/);
+    expect(() => translate(source('aiwg-model-coding-worker'), input,
+      { codingModel: 'vendor/future-model-v42', modelCatalog: catalog, quiet: true })).toThrow(/-m/);
+    const output = translate(source('aiwg-model-coding-worker'), input, { modelCatalog: catalog, quiet: true });
+    expect(Object.keys(metadata(output))).toEqual(['name', 'description']);
+    expect(output).toContain('frontmatter model is ignored');
+    expect(output).toContain('Tier enforcement: inherited');
   });
 
   it.each(references)('%s has a reference translation, without native wrapper pin controls', async provider => {

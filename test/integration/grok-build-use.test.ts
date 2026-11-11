@@ -133,7 +133,7 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     const userRegistry = path.join(home, '.aiwg', 'installed.json');
 
     const useArgs = [
-      'use', 'sdlc',
+      'use', 'all',
       '--provider', 'grok-build',
       '--target', project,
       '--scope', 'user',
@@ -177,10 +177,15 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     expect(projectSkills.length).toBeLessThan(80);
     // No full-corpus dump into the standard mirror without --copy-all.
     expect(existsSync(path.join(project, '.grok', '.aiwg', 'skills'))).toBe(false);
-    // Qualified native agent writer deploys the model-worker wrappers (#2577).
+    // Full deployment includes ordinary roles and all five model wrappers (#2577).
     const projectAgents = path.join(project, '.grok', 'agents');
     expect(existsSync(projectAgents)).toBe(true);
-    expect(readdirSync(projectAgents).filter(name => name.endsWith('.md')).length).toBeGreaterThan(0);
+    expect(readdirSync(projectAgents).filter(name => name.endsWith('.md')).length).toBeGreaterThan(5);
+    for (const name of ['test-engineer', 'aiwg-model-reasoning-worker', 'aiwg-model-coding-worker', 'aiwg-model-efficiency-worker', 'aiwg-model-explorer', 'aiwg-model-verifier']) {
+      const content = readFileSync(path.join(projectAgents, `${name}.md`), 'utf8');
+      expect(content).not.toMatch(/^model:/m);
+      expect(readFileSync(path.join(grokHome, 'agents', `${name}.md`), 'utf8')).toBe(content);
+    }
     assertStartupRuleDelivery(project, 'grok-build', readFileSync(path.join(project, 'AGENTS.md'), 'utf8'), '.grok/rules');
 
     // User-scope mirror via $GROK_HOME/skills
@@ -197,7 +202,7 @@ describe('aiwg use grok-build e2e (#2575)', () => {
         entries?: { skills?: string[] };
       }> }>;
     };
-    const recorded = registry.installed?.sdlc?.deployedTo?.['grok-build'];
+    const recorded = registry.installed?.all?.deployedTo?.['grok-build'];
     expect(recorded?.skills).toBeGreaterThan(0);
     expect(recorded?.entries?.skills?.length).toBeGreaterThan(0);
 
@@ -271,6 +276,6 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     expect(readFileSync(operatorUserSkill, 'utf8')).toBe('# Operator-owned user skill\n');
     expect(readFileSync(path.join(project, '.grok', 'config.toml'), 'utf8')).toBe(operatorConfig);
     expect(existsSync(path.join(project, 'AGENTS.md'))).toBe(true);
-    expect(JSON.parse(readFileSync(path.join(project, '.aiwg', 'aiwg.config'), 'utf8')).installed?.sdlc).toBeUndefined();
+    expect(JSON.parse(readFileSync(path.join(project, '.aiwg', 'aiwg.config'), 'utf8')).installed?.all).toBeUndefined();
   }, 180_000);
 });
