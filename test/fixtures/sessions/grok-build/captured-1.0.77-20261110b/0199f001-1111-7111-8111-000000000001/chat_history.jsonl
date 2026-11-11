@@ -1,0 +1,10 @@
+{"type":"system","content":"Synthetic omitted system context."}
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted compaction_meta context."}],"synthetic_reason":"compaction_meta"}
+{"type":"user","content":[{"type":"text","text":"<user_query>\nRemember the code word TULIP. Reply with just OK. Do not run any tools.\n</user_query>"}]}
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted compaction_meta context."}],"synthetic_reason":"compaction_meta"}
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted system_reminder context."}],"synthetic_reason":"system_reminder"}
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted system_reminder context."}],"synthetic_reason":"system_reminder"}
+{"type":"user","content":[{"type":"text","text":"Synthetic omitted system_reminder context."}],"synthetic_reason":"system_reminder"}
+{"type":"user","content":[{"type":"text","text":"<user_query>\nWhat was the code word? Reply with just the word. Do not run any tools.\n</user_query>"}],"prompt_index":1}
+{"type":"reasoning","id":"reasoning-fixture","summary":[],"encrypted_content":"synthetic-omitted","status":"completed"}
+{"type":"assistant","content":"TULIP","model_id":"grok-4.7-build","model_fingerprint":"fp_synthetic","reasoning_effort":"high"}

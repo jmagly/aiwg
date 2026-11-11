@@ -21,7 +21,7 @@ import {
   type ReaderLimits,
 } from '../readers.js';
 
-import { nativeDrift, parseNativeSummary, projectNativeLine, nativeProjectionRecord, projectNativeUpdate, type NativeProjection, type NativeMetadata, type NativeLineage } from './grok-build-native-records.js';
+import { nativeDrift, parseNativeSummary, parseNativeCompactionCheckpoint, projectNativeLine, nativeProjectionRecord, projectNativeUpdate, type NativeProjection, type NativeMetadata, type NativeLineage } from './grok-build-native-records.js';
 
 export const GROK_BUILD_NATIVE_SCHEMA_VERSION = '1.0.0';
 export const GROK_BUILD_NATIVE_SCHEMA_MAJOR = 1;
@@ -280,9 +280,18 @@ async function readNativeUpdates(
   let hasTools = history.some(entry => entry.record.kind !== 'message');
   let hasCompaction = false;
   let nextPromptIndex = 0;
+  let checkpoint: ReturnType<typeof parseNativeCompactionCheckpoint> | undefined;
+  const checkpointIds = new Set<string>();
   for await (const line of input) {
     const entry = projectNativeUpdate(line, sessionId, cwd, metadata);
-    const type = (line.value as { params: { update: { sessionUpdate: string } } }).params.update.sessionUpdate;
+    const update = (line.value as { params: { update: { sessionUpdate: string } } }).params.update;
+    const type = update.sessionUpdate;
+    if (type === 'compaction_checkpoint') {
+      const parsed = parseNativeCompactionCheckpoint(update);
+      if (checkpoint || checkpointIds.has(parsed.checkpointId) || parsed.promptIndexAtCompaction !== nextPromptIndex) nativeDrift();
+      checkpoint = parsed;
+      checkpointIds.add(parsed.checkpointId);
+    }
     if (type === 'user_message_chunk') {
       const meta = (line.value as { params: { update: { _meta?: { hostTurn?: boolean; promptIndex?: number } } } }).params.update._meta;
       if (!meta?.hostTurn) {
@@ -292,12 +301,19 @@ async function readNativeUpdates(
     }
     if (type === 'tool_call' || type === 'tool_call_update') hasTools = true;
     if (entry) {
-      if (entry.record.kind === 'compaction') hasCompaction = true;
+      if (entry.record.kind === 'compaction') {
+        hasCompaction = true;
+        if (checkpoint) {
+          if (checkpoint.promptIndexAtCompaction !== nextPromptIndex) nativeDrift();
+          entry.record.compaction = { ...entry.record.compaction!, ...checkpoint };
+          checkpoint = undefined;
+        }
+      }
       records.push(entry);
     }
   }
   // Compacted tool histories need a qualified update-tool projection; never drop calls.
-  if ((compacted && (!hasCompaction || nextPromptIndex === 0)) || (hasTools && (compacted || hasCompaction))) nativeDrift();
+  if (checkpoint || (compacted && (!hasCompaction || nextPromptIndex === 0)) || (hasTools && (compacted || hasCompaction))) nativeDrift();
   return hasTools || !records.length ? null : records;
 }
 
@@ -306,7 +322,8 @@ export function nativeRecordPrefixes(records: Array<{ record: NativeProjection; 
   const hash = createHash('sha256');
   const prefixes = [hash.copy().digest('hex')];
   for (const { record, line } of records) {
-    hash.update(JSON.stringify([record.sequence, record.kind, record.acquisition, line.value]) + '\n');
+    hash.update(JSON.stringify([record.sequence, record.kind, record.acquisition, line.value,
+      ...(record.compaction?.checkpointId ? [record.compaction] : [])]) + '\n');
     prefixes.push(hash.copy().digest('hex'));
   }
   return prefixes;
