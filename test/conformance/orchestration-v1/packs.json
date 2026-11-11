@@ -456,7 +456,8 @@
         "test/conformance/orchestration-v1/worker-health-stall.test.ts",
         "test/unit/ralph-external/worker-health.test.ts",
         "test/unit/lint/orchestration-guidance.test.ts",
-        "test/unit/ralph-external/scoped-recovery.test.mjs"
+        "test/unit/ralph-external/scoped-recovery.test.mjs",
+        "test/unit/ralph-external/allowance-ledger-contention.test.mjs"
       ],
       "remaining": "S1 exact stall math, synthetic clocks, bounded content fingerprints and uncertain stop only, plus check-in cadence/threshold/remediation guidance mapping (#2914); automated retry/fallback and managed runtime remain S2+ with their existing owners."
     },

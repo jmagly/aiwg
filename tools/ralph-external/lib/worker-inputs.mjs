@@ -1,7 +1,7 @@
 // Read bounded worker inputs through pinned, no-follow directory handles.
 import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
-import { isAbsolute } from 'node:path';
+import { basename, dirname, isAbsolute } from 'node:path';
 
 // Linux directory handles pin each ancestor. O_NOFOLLOW on a pathname alone
 // cannot protect an ancestor that the worker replaces after inspection.
@@ -17,6 +17,25 @@ export async function withWorkerPath(filename, operation) {
     }
     return await operation(`/proc/self/fd/${directory.fd}/${leaf ?? '.'}`);
   } finally { await directory.close(); }
+}
+
+// Reuse one pinned directory for a batch of direct-child operations. Every
+// ancestor and the directory itself are still opened with O_NOFOLLOW;
+// callers retain the leaf operation's own no-follow/exclusive-create checks.
+export async function withWorkerDirectory(directory, operation) {
+  return withWorkerPath(directory, async anchored => {
+    const handle = await open(anchored, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+    try {
+      return await operation(async (filename, action) => {
+        if (filename.includes('\0') || filename.split('/').includes('..')
+          || (filename !== directory && dirname(filename) !== directory)) {
+          throw new Error('Invalid worker path outside pinned directory');
+        }
+        const leaf = filename === directory ? '.' : basename(filename);
+        return action(`/proc/self/fd/${handle.fd}/${leaf}`);
+      });
+    } finally { await handle.close(); }
+  });
 }
 
 // #2915 review 4 (finding 4): `privateOutput: true` REPAIRS a loose mode
