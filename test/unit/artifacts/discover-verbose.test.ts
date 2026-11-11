@@ -31,6 +31,22 @@ const entry = (overrides: Partial<MetadataEntry>): MetadataEntry => ({
 });
 
 describe('verbose discovery confidence (#3952)', () => {
+  it('finds named UX agents without path activation for the offline slash-query repro (#4082)', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await discoverCapability(tmp, {
+      phrase: 'search all marketplaces for the highest rated UI/UX design/devloipment agent suite',
+      typeFilter: ['agent'], noBuild: true, json: true, limit: 3, offline: true,
+    });
+    const response = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+    expect(response.results.some((row: { name: string }) => ['UX Lead', 'Product Designer'].includes(row.name))).toBe(true);
+    for (const row of response.results) {
+      expect(row.title).toBe(row.name);
+      for (const check of row.required_rule_checks ?? []) {
+        expect(check.applicability.some((reason: string) => reason.startsWith('path:'))).toBe(false);
+      }
+    }
+  });
+
   it('ranks the named checkpoint command above generic test-plan matches (#4034)', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     await discoverCapability(tmp, {

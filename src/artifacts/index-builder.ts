@@ -201,7 +201,8 @@ function addDependencyEdge(
 /**
  * Extract title from content (first # heading or frontmatter title)
  */
-function extractTitle(data: Record<string, unknown>, body: string): string {
+function extractTitle(data: Record<string, unknown>, body: string, type?: string): string {
+  if (type === 'agent' && typeof data.name === 'string' && data.name.trim()) return data.name.trim();
   if (typeof data.title === 'string') return data.title;
   const headingMatch = body.match(/^#\s+(.+)$/m);
   return headingMatch ? headingMatch[1].trim() : 'Untitled';
@@ -969,7 +970,7 @@ function extractIndexArtifact(job: IndexPreparationJob, bindingOnly: boolean, wa
   const physicalType = inferType({ ...data, type: undefined }, relativePath);
   const runbook = flow || decision || gatePack ? null : parseRunbookDoc(data, body, relativePath);
   const schemaDoc = inferredType === 'schema' ? parseSchemaDoc(content, relativePath) : null;
-  const title = flow?.name ?? decision?.name ?? gatePack?.name ?? schemaDoc?.title ?? extractTitle(data, body);
+  const title = flow?.name ?? decision?.name ?? gatePack?.name ?? schemaDoc?.title ?? extractTitle(data, body, inferredType);
   const phase = typeof data.phase === 'string' ? data.phase : inferPhase(relativePath);
   const type = flow?.type ?? decision?.type ?? gatePack?.type ?? (runbook ? 'runbook' : inferredType);
   // Binding resolution consumes only identity and title. Keep the same canonical
