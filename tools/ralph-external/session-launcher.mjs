@@ -49,7 +49,7 @@ import { ScopedFailureBreaker, attributeFailureScope } from './lib/consecutive-f
 import { assertManagedWorkerLaunch, validateManagedAttempt } from './lib/managed-worker-attempt.mjs';
 export { assertManagedWorkerLaunch } from './lib/managed-worker-attempt.mjs';
 import { buildSessionEnvironment } from './lib/session-environment.mjs';
-import { withWorkerPath, boundedPrivateRead } from './lib/worker-inputs.mjs';
+import { withWorkerPath, withWorkerDirectory, boundedPrivateRead } from './lib/worker-inputs.mjs';
 import { collectWorkerFinal } from './lib/worker-final.mjs';
 import { workerRunDirectoryRefusal } from './lib/worker-run-directory-refusal.mjs';
 import { workerPromptBrief } from './lib/worker-prompt.mjs';
@@ -2303,10 +2303,10 @@ function strictLedgerJson(text) {
  * (someone else already created it) -- never throws for that one case, so
  * callers can treat "lost the create race" as an ordinary branch rather
  * than an exception. */
-async function createLedgerFileExclusive(dir, name, content) {
+async function createLedgerFileExclusive(dir, name, content, withPath) {
   let handle;
   try {
-    handle = await withWorkerPath(join(dir, name), target =>
+    handle = await withPath(join(dir, name), target =>
       open(target, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600));
   } catch (error) {
     if (error.code === 'EEXIST') return false;
@@ -2356,13 +2356,13 @@ const LEDGER_POLICY_LINK_RECHECK_ATTEMPTS = 4;
  * (attempt/correction slots and their `.charged` markers) keeps the
  * unconditional nlink-1 rule -- nothing ever legitimately double-links
  * them. */
-async function statLedgerChainEntry(dir, name) {
+async function statLedgerChainEntry(dir, name, withPath = withWorkerPath) {
   const target = join(dir, name);
-  let stat = await withWorkerPath(target, t => lstat(t));
+  let stat = await withPath(target, t => lstat(t));
   if (name === 'policy') {
     for (let attempt = 0; attempt < LEDGER_POLICY_LINK_RECHECK_ATTEMPTS && stat.nlink === 2; attempt += 1) {
       await new Promise(resolve => setTimeout(resolve, LEDGER_POLICY_LINK_RECHECK_MS));
-      stat = await withWorkerPath(target, t => lstat(t));
+      stat = await withPath(target, t => lstat(t));
     }
   }
   return stat;
@@ -2482,9 +2482,9 @@ const CORRECTION_CHARGED_NAME_RE = /^correction-([1-9][0-9]*)\.charged$/;
  * whatever `policy` already pinned -- a correction reserved moments after
  * its attempt handle re-runs this against the CURRENT directory contents,
  * never trusting that nothing changed since the attempt's own reserve. */
-async function validateLedgerChainDirectory(dir, policy) {
+async function validateLedgerChainDirectory(dir, policy, withPath) {
   let entries;
-  try { entries = await withWorkerPath(dir, target => readdir(target)); }
+  try { entries = await withPath(dir, target => readdir(target)); }
   catch (error) { if (error.code === 'ENOENT') return; throw error; }
   if (entries.length > LEDGER_DIR_MAX_ENTRIES) {
     ledgerFail(LEDGER_RECORD_INVALID_CODE, 'Allowance ledger directory has more entries than expected');
@@ -2506,7 +2506,7 @@ async function validateLedgerChainDirectory(dir, policy) {
       }
     }
     let stat;
-    try { stat = await statLedgerChainEntry(dir, name); }
+    try { stat = await statLedgerChainEntry(dir, name, withPath); }
     catch (error) { ledgerFail(LEDGER_RECORD_INVALID_CODE, `Allowance ledger entry '${name}' is not inspectable (${error.message})`); }
     if (!stat.isFile() || stat.uid !== process.getuid() || (stat.mode & 0o777) !== 0o600) {
       ledgerFail(LEDGER_RECORD_INVALID_CODE, `Allowance ledger entry '${name}' is not a canonical conductor-owned 0600 regular file`);
@@ -2584,7 +2584,7 @@ async function ensureLedgerChain({ captureRoot, taskChainDigest, maxAttempts, af
   }
   for (const parent of parents.reverse()) await syncLedgerDirectory(parent);
   const policy = await ensureLedgerPolicy(dir, ledgerRoot, taskChainDigest, maxAttempts, afterPolicyWrite);
-  await validateLedgerChainDirectory(dir, policy);
+  await withWorkerDirectory(dir, withPath => validateLedgerChainDirectory(dir, policy, withPath));
   return { dir, policy };
 }
 
@@ -2601,11 +2601,11 @@ async function ensureLedgerChain({ captureRoot, taskChainDigest, maxAttempts, af
  * crit-round8 D1: "Lowest-free scanning is safe for the ceiling, not a
  * snapshot of availability"). Returns the won slot number, or `null` once
  * both passes find nothing free. */
-async function reserveLedgerSlotFile(dir, prefix, ceiling, invocationId, { beforeRescan } = {}) {
+async function reserveLedgerSlotFile(dir, prefix, ceiling, invocationId, { beforeRescan, withPath }) {
   for (let pass = 0; pass < 2; pass += 1) {
     for (let n = 1; n <= ceiling; n += 1) {
       // eslint-disable-next-line no-await-in-loop
-      if (await createLedgerFileExclusive(dir, `${prefix}-${n}`, invocationId)) return n;
+      if (await createLedgerFileExclusive(dir, `${prefix}-${n}`, invocationId, withPath)) return n;
     }
     if (pass === 0 && beforeRescan) await beforeRescan();
   }
@@ -2859,7 +2859,8 @@ export async function reserveDirectWorkerAllowance({ captureRoot, taskChainDiges
       dir: null, maxAttempts: chain.maxAttempts });
   }
   const { dir, policy } = await ensureLedgerChain({ captureRoot, taskChainDigest, maxAttempts, afterPolicyWrite });
-  const n = await reserveLedgerSlotFile(dir, 'attempt', policy.maxAttempts, invocationId, { beforeRescan: rescan });
+  const n = await withWorkerDirectory(dir, withPath =>
+    reserveLedgerSlotFile(dir, 'attempt', policy.maxAttempts, invocationId, { beforeRescan: rescan, withPath }));
   if (n == null) {
     const occupied = await describeOccupiedLedgerSlots(dir, 'attempt', policy.maxAttempts);
     ledgerFail(ALLOWANCE_EXHAUSTED_CODE, `Task-chain allowance exhausted (${policy.maxAttempts} attempt(s)); occupied: ${occupied}`);
@@ -3033,8 +3034,10 @@ export async function reserveLedgerCorrection({ ledger, reasonCode,
     const chain = _inProcessLedgerChains.get(ledger.taskChainDigest);
     n = chain ? reserveLedgerSlotInProcess(chain.corrections, ceiling, ledger.invocationId) : null;
   } else {
-    await validateLedgerChainDirectory(ledger.dir, { maxAttempts: ledger.maxAttempts, maxCorrections: ceiling });
-    n = await reserveLedgerSlotFile(ledger.dir, 'correction', ceiling, ledger.invocationId);
+    await withWorkerDirectory(ledger.dir, withPath =>
+      validateLedgerChainDirectory(ledger.dir, { maxAttempts: ledger.maxAttempts, maxCorrections: ceiling }, withPath));
+    n = await withWorkerDirectory(ledger.dir, withPath =>
+      reserveLedgerSlotFile(ledger.dir, 'correction', ceiling, ledger.invocationId, { withPath }));
   }
   if (n == null) return startupCorrectionGate({ correctionsUsed: ceiling, reasonCode });
   if (afterCorrectionReserved) await afterCorrectionReserved();
