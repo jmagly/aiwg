@@ -339,7 +339,7 @@ export async function resolveWorkerInvocation(snapshot: WorkerPlanSnapshot, requ
       health: effectiveHealth,
     };
     const invocationQualification: WorkerInvocationQualification = { ...qualification, now: Date.parse(now),
-      ceilings: request.ceilings,
+      ceilings: request.ceilings, task: request.task,
       policy: plan.policy, permissions: tuple.permissions, role: request.role, modelObservation: observation,
       expectedDigests: { policyDigest, catalogDigest: plan.digests.catalogDigest, profileDigest: plan.digests.profileDigest, briefDigest },
       requiredControls: controls };

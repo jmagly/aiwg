@@ -151,9 +151,10 @@ async function assertNoOpenPredecessor({ runDir, captureRoot, saved, inspect, re
       const filename = join(previousDir, 'invocation.json');
       if (!await inspect(filename, 'file')) continue;
       const record = JSON.parse((await boundedPrivateRead(filename, 1048576, inspect, true, true)).toString('utf8'));
-      if (record.origin !== 'launcher' || ((record.taskBindingDigest ?? record.taskDigest) !== taskDigest
+      if (!['launcher', 'shell-handoff'].includes(record.origin) || ((record.taskBindingDigest ?? record.taskDigest) !== taskDigest
         && !await matchesTaskIdentity(record, saved))) continue;
       try {
+        if (record.origin === 'shell-handoff') throw new Error('Raw shell predecessor termination is unknown');
         // Reuse the authenticated owned-stop loader, including missing exits.
         await verifyRetryPredecessor({ invocationId: record.invocationId, runDir: previousDir }, { inspect, workerWritableRoots });
       } catch (cause) {

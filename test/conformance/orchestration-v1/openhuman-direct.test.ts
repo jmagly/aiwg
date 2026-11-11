@@ -1,3 +1,4 @@
+import { shellCaptureBody } from '../../fixtures/shell-capture-command.js';
 import { workerMarkerNames, workerMarkerShell } from '../../fixtures/worker-attribution.js';
 /**
  * #2911 (B-OG-47) OpenHuman promotion: offline S1 profile work.
@@ -242,7 +243,7 @@ describe('T-OG-15 OpenHuman direct command contract', () => {
     expect(JSON.stringify(plan)).not.toContain(MARKER);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
     const framer = path.resolve('src/serve/worker-stdin-frame.mjs');
-    expect(invocation.shellCommand).toBe(`cd ${quote(workdir)} && env -i ${[process.execPath, framer, invocation.briefPath, MODEL, workdir].map(quote).join(' ')}`
+    expect(shellCaptureBody(invocation)).toBe(`cd ${quote(workdir)} && env -i ${[process.execPath, framer, invocation.briefPath, MODEL, workdir].map(quote).join(' ')}`
       + ` | env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}" ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')}`
       + ` > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     expect(invocation.shellCommand).not.toContain('< /dev/null');

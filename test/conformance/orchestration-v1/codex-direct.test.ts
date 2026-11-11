@@ -1,3 +1,4 @@
+import { shellCaptureBody } from '../../fixtures/shell-capture-command.js';
 import { workerMarkerNames, workerMarkerShell } from '../../fixtures/worker-attribution.js';
 import { termAfterReady, TERM_READY } from '../../helpers/term-escalation.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
@@ -358,7 +359,7 @@ describe('T-OG-15 Codex direct command contract', () => {
     // The resolved plan carries no brief text either (paths and digests only).
     expect(JSON.stringify(plan)).not.toContain(MARKER);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
-    expect(invocation.shellCommand).toBe(`cd ${quote(workdir)} && env -i PATH="\${PATH-}" AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}"`
+    expect(shellCaptureBody(invocation)).toBe(`cd ${quote(workdir)} && env -i PATH="\${PATH-}" AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}"`
       + ` ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')} < ${quote(brief)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     expect(invocation.shellCommand).not.toContain('< /dev/null');
     const { file, recordPath } = await fakeConfig(root, 'success');

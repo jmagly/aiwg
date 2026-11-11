@@ -1,5 +1,7 @@
 /** Validate and render a prepared invocation against trusted installation controls. */
 import path from 'node:path';
+import { findPackageRoot } from '../cli/find-package-root.js';
+import { workerOutputPaths } from './worker-invocation-paths.js';
 import { directWorkerEnvironment } from '../config/worker-attribution.mjs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +31,7 @@ export function mcpToolSchemaDigest(schema: unknown): string {
 export interface WorkerInvocationQualification extends ParametersContext {
   /** Explicit task restrictions from the same request used to resolve the plan. */
   ceilings?: WorkerResolutionCeilings;
+  task?: string;
   installation?: WorkerInstallationRequest;
   /** Host store bytes bound by the recorded-installation loader, never a brief/cwd lookup. */
   stdinFramerBinding?: { storePath: string; storeDigest: string };
@@ -168,6 +171,16 @@ export async function prepareWorkerInvocation(invocation: WorkerResolvedInvocati
     } else {
       throw new Error(`Unsupported worker stdin mode: ${result.stdin}`);
     }
+    const root = findPackageRoot(path.dirname(fileURLToPath(import.meta.url)));
+    if (!root) throw new Error('Worker shell handoff requires the installed AIWG package root');
+    const guard = path.join(root, 'tools/ralph-external/lib/worker-shell-capture.mjs');
+    const binding = { request: { role: qualification.role, task: qualification.task ?? null,
+      group: result.selected.group, workdir: result.cwd },
+      invocation: { cwd: result.cwd, briefPath: result.briefPath, briefDigest: result.briefDigest, stdin: result.stdin, selected: result.selected },
+      paths: workerOutputPaths(result) };
+    // Reserve every output before shell redirection or vendor-owned final writes.
+    // Noclobber also protects stream files created between reservation and exec.
+    result.shellCommand = `${[process.execPath, guard, JSON.stringify(binding)].map(quote).join(' ')} && (set -C; ${result.shellCommand})`;
   } else {
     const binding = result.mcp!;
     for (const key of ['serverRef', 'tool', 'inputSchemaDigest', 'outputSchemaDigest', 'sessionIsolation']) {

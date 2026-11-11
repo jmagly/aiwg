@@ -1,3 +1,4 @@
+import { shellCaptureBody } from '../../fixtures/shell-capture-command.js';
 import { directWorkerEnvironment } from '../../../src/config/worker-attribution.mjs';
 import baseline from '../../fixtures/providers/worker-delivery-baseline.json';
 import { workerStdinBytes, workerStdinDocument } from '../../../src/serve/worker-stdin-frame.mjs';
@@ -238,7 +239,7 @@ describe('S1 pure installed-path invocation preparation (T-OG-03/14/15/17)', () 
     await writeFile(configPath, JSON.stringify({ recordPath, scenarioId: 'T-OG-15-exact-data', scenario: 'success', recordWorkerAttribution: true }));
     await writeFile(path.join(root, 'models.json'), JSON.stringify(fixtureJson('shared-vectors.json').find((v: any) => v.id === 'direct-model-no-effort').value));
     await writeFile(path.join(root, 'aiwg.config'), JSON.stringify(fixtureJson('shared-vectors.json').find((v: any) => v.id === 'direct-config-no-managed-state').value));
-    Object.assign(invocation, { cwd: root, briefPath: brief, stdoutPath: path.join(root, 'events.jsonl'), stderrPath: path.join(root, 'stderr.log'), finalPath: final,
+    Object.assign(invocation, { briefDigest: `sha256:${createHash('sha256').update(payload).digest('hex')}`, cwd: root, briefPath: brief, stdoutPath: path.join(root, 'events.jsonl'), stderrPath: path.join(root, 'stderr.log'), finalPath: final,
       argv: [process.execPath, path.resolve('test/fixtures/ralph-worker-cli.mjs'), '--model', invocation.selected.model, '--final-output', final, '--', payload],
       shellCommand: `touch '${path.join(root, 'injected')}'`, envNames: ['AIWG_FAKE_WORKER_CONFIG'] });
     profile.envAllowlist = ['AIWG_FAKE_WORKER_CONFIG'];
@@ -404,7 +405,7 @@ describe('T-OG-15 bundled delivery remains byte-identical', () => {
     const expected = row.stdin === 'brief-json'
       ? `cd ${quote(invocation.cwd)} && env -i ${[process.execPath, path.resolve('src/serve/worker-stdin-frame.mjs'), invocation.briefPath, invocation.selected.model, invocation.cwd].map(quote).join(' ')} | ${worker} ${outputs}`
       : `cd ${quote(invocation.cwd)} && ${worker} ${row.stdin === 'closed' ? '< /dev/null' : `< ${quote(invocation.briefPath)}`} ${outputs}`;
-    expect(prepared.shellCommand).toBe(expected);
+    expect(shellCaptureBody(prepared, { role: f.qualification.role, task: null })).toBe(expected);
     const brief = Buffer.from('synthetic 雪\nbrief');
     const bytes = row.stdin === 'closed' ? null : row.stdin === 'brief-text' ? brief
       : Buffer.from(workerStdinDocument({ brief, model: invocation.selected.model, cwd: invocation.cwd }));
