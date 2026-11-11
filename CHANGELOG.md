@@ -7,6 +7,50 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.5] - 2026-11-11
+
+### Added
+
+- Bring-your-own-key (BYOK) guidance in the steward and provider capability matrix. Ask to use your own provider key with a harness to get its settings, model selector and verification steps. Hermes, OpenCode, Copilot and Factory guidance includes observed routes; Codex and Muse compatibility remains unverified. Guidance keeps credentials in a child environment or secret-store command, out of configuration and logs, and requires approval before paid verification. A reply alone does not verify the selected provider or model (#4054, PR #4066).
+
+### Changed
+
+- Grok Build deployments now write ordinary AIWG agents and model-worker wrappers to `.grok/agents/*.md`, with native name/description frontmatter and body prompts, and preserve them during cleanup. Grok Build 1.0.77 ignores agent `model:` frontmatter, so deployment omits those pins; role/tier intent is informational and worker model selection stays explicit on CLI `-m`. User-agent discovery and other uncaptured live surfaces remain experimental (#2577, PR #4100).
+
+### Fixed
+
+- Deploying one addon scopes deployment, rule replacement and stale pruning to that bundle's owned outputs. Other bundles' payloads and receipts survive, including the critical `sys-hardware-safety` and `sys-interactive-gate` rules that a single project-local addon deployment could previously delete. Critical rule retirement reports its reason. Shared Flue skill imports still regenerate from all selected bundles, and managed hook scripts still refresh (#4087, PR #4094).
+
+- Project-local addon manifests accept the typed addon flags and inventories required by validation, and new-bundle starters satisfy that contract. Invalid manifests report their validation error instead of becoming an unexplained unknown target. Project-local skills, including their references, deploy to native provider skill roots such as `.claude/skills/<name>/`, where Claude Code loads them, and survive bundled-kernel cleanup (#4085, #4086, PR #4097, PR #4098).
+
+- Factory BYOK model discovery reads bounded custom-model selection fields from Droid's own settings, drops credential fields during parsing and records observations with the probed Droid version, configured account scope and actual endpoint provider. Built-in plan models remain static. The configured `maxContextLimit` becomes the observed input context limit with provenance; an absent limit remains unknown and blocks resolution. Custom models omit unsupported reasoning effort, with documented role settings for opting into not-applicable effort (#3976, PR #4072, PR #4079).
+
+- Factory custom model selectors use Droid 1.0.0's `custom:<normalized-display-name>-<occurrence>` form. The suffix counts earlier matching names rather than the settings array index; ambiguous normalized names are rejected. The invocation boundary rejects the invalid unsuffixed form that previously stopped a qualified BYOK worker before inference. Qualification reports missing Droid, missing Factory/BYOK model configuration or missing current observations before confirmation or writes. Absent CLIs only fail explicitly targeted qualification, and the compact hook-trust notice checks for a real commit (#3976, PR #4068, PR #4080).
+
+- Worker installation loading ignores recorded approvals for CLIs the current project does not configure, preventing another project's policy drift from blocking its selected worker; stdin framing loads only its bound CLI. Qualified direct adapters resolve through the configured provider's worker/health binding, including `providers:factory`, and the Claude adapter identifies itself as `claude-direct`. Selected installations retain signature, digest, trust, drift and workspace checks (#4073, #4076, PR #4075, PR #4078).
+
+- Copilot CLI 1.0.106 workers receive briefs through stdin without `-p` or Markdown `--attachment`, keeping request text off argv. Final extraction reads the last settled `assistant.message.data.content`, requires terminal turn events and no pending tool requests, and rejects malformed, error or unsuccessful output before strict worker-claims validation. The profile targets 1.0.106, allows the documented BYOK environment variables and replays sanitized captures with a fake CLI. Process termination and existing qualification requirements remain in place (#4088, PR #4092).
+
+- Grok Build worker commands pre-allow only `Bash(aiwg discover *)`, allowing discover-first startup in AIWG projects without the headless approval cancellation that could return exit zero. They also pair `--no-subagents` with `--disallowed-tools workflow`, because the workflow tool could still spawn children with the first flag alone. Captured ACP initialize/session/end-turn usage/cancel frames and standalone worktree ownership listings have offline replay coverage; permission defaults and explicit deny rules stay in force (#2577, #4093, PR #4071, PR #4099).
+
+- Experimental Grok Build 1.0.77 native session imports preserve same-ID resumes, explicit fork parent/time metadata and exposed parent-side subagent relationships. Retained update logs preserve text-turn identities across compaction without combining them with rewritten chat history. ACP and TUI compaction records are supported; validated TUI checkpoints contribute checkpoint IDs and prompt indexes without opening referenced files. Prefix digests support deterministic replay and appended turns while rejecting changed, truncated or malformed histories. Missing session kinds stay unknown. Exact-version opt-in, CLI-export fallback and privacy limits remain; compacted tool sessions, attachment/snapshot bytes and other uncaptured live features stay deferred (#2578, PR #4070, PR #4101).
+
+- Free-text discovery queries containing `/` stay lexical instead of supplying path context and activating unrelated path rules. Explicit governed paths still activate their rules. Agent titles use frontmatter names, and the extractor revision forces indexes to refresh (#4082, PR #4095).
+
+- Missing repository-access manifests now name the canonical `.aiwg/aiwg.config` workspace/repos blocks, legacy YAML fallbacks and `aiwg repo-access add` recovery command. The guide explains that registration writes to an existing canonical config (#4083, PR #4096).
+
+- Detached workers that exit before process-group identity capture can be confirmed terminated only when detached-spawn evidence, an empty process group and a bounded descendant scan agree. This permits an authorized retry after an uncaptured exit while still blocking retries when descendants may remain (#4077, PR #4090).
+
+- Allowance-ledger admissions reuse pinned directory handles rather than repeatedly traversing every ancestor, retaining traversal protection, entry checks, exclusive creation, fsync and bounded rescans. The 65-of-70 admission assertion stays intact. Handle-release tests compare directory identity instead of assuming a closed descriptor path cannot be reused, including deterministic descriptor reuse coverage (#4081, PR #4091, PR #4102).
+
+- Socket post-publication audits distinguish `not-queried` components after an early failing batch from missing responses, with counts and explanations in JSON and Markdown; both still count as unavailable. The reviewed `@aiwg/cli` license-score baseline is 0.7, matching `aiwg` and their existing Fortemi dependency. The licensing boundary record clarifies the operator's MIT intent for AIWG and the concrete products' copyleft obligations; no dependency version or license changes (#4064, PR #4069, PR #4074).
+
+- Deployment test shards are rebalanced, Codex reconciliation cases have their own file, and unrelated doctor probes are isolated from reconciliation fixtures, retaining the original assertions while reducing shared-runner timeout pressure (#4063, PR #4067).
+
+### Security
+
+- Hermes prompt-discovery hooks use the fingerprint-checked loader. Deployment names the pending hook-acceptance step, and doctor reads Hermes's allowlist to explain acceptance options without granting consent. Changed managed scripts require acceptance again before Hermes runs them (#4055, PR #4065).
+
 ## [2026.11.4] - 2026-11-09
 
 ### Added
