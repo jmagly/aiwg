@@ -36,8 +36,9 @@ headings or malformed blocks fail with `MALFORMED_SOURCE` or `SCHEMA_DRIFT`.
 Message Markdown can resemble section headings; retain rejected exports for
 review rather than guessing their structure. Replaying the same source is
 deterministic; the existing importer uses stable identities and checkpoints
-for idempotent import. Adapter version 1.2.0 separates the extended native projection and checked
-cursors from older checkpoints; use a separate source when migrating.
+for idempotent import. Adapter version 1.3.0 adds TUI checkpoint metadata to the
+extended native projection and checked cursors; use a separate source when
+migrating from older adapter versions.
 
 **The CLI export omits tool output.** It also omits event timestamps, model,
 Grok version, cwd, compaction, parent/child lineage, subagents, attachments and
@@ -54,7 +55,7 @@ those would further increase privacy exposure and requires ownership evidence.
 
 ## Experimental native projection: exact 1.0.77 only
 
-The 2026-11-09 interactive and 2026-11-10 headless/ACP captures of Grok Build
+The 2026-11-09 interactive and 2026-11-10 headless/ACP/TUI captures of Grok Build
 1.0.77 establish the store layout of
 `$GROK_HOME/sessions/<url-encoded cwd>/<session-id>/`. Direct reads remain
 experimental and require **both** variables for every discovery/import/refresh
@@ -79,8 +80,9 @@ and `tool_result` records from `chat_history.jsonl`. Per-record model IDs are
 preserved when present; cwd, the pinned version, session creation/update times
 and the summary current model ID are recorded in provenance. Explicit
 `summary.json` `session_kind` values become provenance `sessionKind`. The
-interactive 2026-11-09 and ACP summaries omit that field; their kind remains
-unknown. Absence is never converted to `interactive` or `headless`.
+interactive 2026-11-09, ACP and set-b TUI summaries omit that field; their kind
+remains unknown. Explicit null also means unknown. Neither absence nor null is
+converted to `interactive` or `headless`.
 
 Session timestamp epoch milliseconds survive existing string/path redaction;
 raw cwd and timestamp strings remain subject to that privacy policy. Native chat
@@ -111,17 +113,24 @@ existing content redaction policy on normalized extensions.
 Compaction rewrites `chat_history.jsonl` with `compaction_meta` context. For
 text-only sessions with a sibling `updates.jsonl`, AIWG projects the retained
 `user_message_chunk` and `agent_message_chunk` records from that log, including
-`/compact`. It uses this projection before and after compaction so original turns
-keep their identities. It never combines those turns with the shortened chat
+`/compact` when exposed. The set-b TUI capture has no `/compact` message update;
+AIWG does not invent one. It uses this projection before and after compaction so
+original turns keep their identities. It never combines those turns with the shortened chat
 history. Streaming chunks remain separate events. Exposed update timestamps and
 model IDs are retained; none are inferred for missing fields.
 
 `auto_compact_completed` becomes one `compaction` event with token counts in
-its extensions. Known housekeeping/thought updates are excluded. Checkpoints
-validate a digest of the retained projected prefix, independent of mutable
+its extensions. The TUI's preceding `compaction_checkpoint` contributes only
+`checkpointId` and `promptIndexAtCompaction` to that event. Its schema, UUID,
+timestamp and relative file reference are validated; the referenced file is
+never opened. The prompt index must match the retained prompt prefix. Malformed,
+duplicate or unfinished checkpoints fail closed. ACP logs without this checkpoint
+retain their existing projection. Known housekeeping/thought updates are
+excluded. Checkpoints validate a digest of the retained projected prefix, independent of mutable
 summary metadata; appending turns resumes once, and changed or truncated
-projected history fails with `SCHEMA_DRIFT`. The adapter treats the primary
-history file as a snapshot because compaction can rewrite or replace it.
+projected history or TUI checkpoint identity fails with `SCHEMA_DRIFT`. The
+adapter treats the primary history file as a snapshot because compaction can
+rewrite or replace it.
 
 A compacted history without the retained update log fails closed, as does a
 compacted tool session: the supplied compaction capture qualifies text turns
@@ -163,7 +172,17 @@ recall. Regression tests exercise deterministic replay, repository checkpoints,
 and sanitized partial/corrupt mutations. These mutations are not captures of a
 live corrupted store.
 
-Deferred: TUI-only features not captured, attachments and snapshot ownership,
+The [set-b TUI fixtures](../../test/fixtures/sessions/grok-build/captured-1.0.77-20261110b/README.md)
+add an unknown-kind session with `compaction_meta`, `compaction_checkpoint`,
+`prompt_index_at_compaction`, `auto_compact_completed` and recall. Tests cover
+the original prefix, rewritten history, appended recall and idempotent replay.
+
+The set-b headless `--prompt-json` image attempt did not reach the model and
+stored no image block in `chat_history.jsonl`. There is no headless attachment
+record to qualify in 1.0.77; accepting an image input does not establish native
+attachment persistence. TUI attachments remain deferred.
+
+Deferred: uncaptured TUI features, attachments and snapshot ownership,
 compaction involving tools, Windows paths, native active registry and
 cross-version drift. The absence of session kind or child-summary parent fields
 is recorded as missing evidence, not filled from transcript prose. ACP transport

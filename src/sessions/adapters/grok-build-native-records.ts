@@ -15,7 +15,7 @@ const summarySchema = z.looseObject({
   chat_format_version: z.literal(1),
   info: z.strictObject({ id: z.string().uuid(), cwd: z.string().min(1) }),
   created_at: z.string(), updated_at: z.string(), current_model_id: z.string(),
-  session_kind: z.enum(['headless', 'interactive', 'subagent']).optional(),
+  session_kind: z.enum(['headless', 'interactive', 'subagent']).nullish(),
   parent_session_id: z.string().uuid().optional(), forked_at: z.string().optional(),
 });
 export interface NativeProjection {
@@ -32,7 +32,7 @@ export interface NativeProjection {
   currentModelId: string;
   sessionKind?: string;
   lineage?: NativeLineage;
-  compaction?: { tokensBefore: number; tokensAfter: number };
+  compaction?: { tokensBefore: number; tokensAfter: number; checkpointId?: string; promptIndexAtCompaction?: number };
   acquisition?: string;
   occurredAt?: string;
 }
@@ -105,6 +105,18 @@ const compactUpdate = z.strictObject({
   tokens_before: z.number().int().nonnegative(), tokens_after: z.number().int().nonnegative(),
   summary_preview: z.string().nullable(),
 });
+const checkpointUpdate = z.strictObject({
+  sessionUpdate: z.literal('compaction_checkpoint'), checkpoint_id: z.string().uuid(),
+  prompt_index_at_compaction: z.number().int().nonnegative(), checkpoint_file: z.string(),
+  schema_version: z.literal(1), created_at: z.string(),
+});
+/** Validate checkpoint references without opening their private context files. */
+export function parseNativeCompactionCheckpoint(value: unknown) {
+  const parsed = checkpointUpdate.safeParse(value);
+  if (!parsed.success || !Number.isFinite(Date.parse(parsed.data.created_at))
+    || parsed.data.checkpoint_file !== `compaction_checkpoints/${parsed.data.checkpoint_id}.json`) nativeDrift();
+  return { checkpointId: parsed.data.checkpoint_id.toLowerCase(), promptIndexAtCompaction: parsed.data.prompt_index_at_compaction };
+}
 const omittedUpdates = new Set(['agent_thought_chunk', 'turn_completed', 'hook_execution', 'background_tasks',
   'compaction_checkpoint', 'subagent_spawned', 'subagent_finished', 'workflow_updated']);
 

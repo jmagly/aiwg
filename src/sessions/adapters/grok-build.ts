@@ -28,7 +28,7 @@ import {
   toGrokBuildNativeRecord,
 } from './grok-build-native.js';
 
-export const GROK_BUILD_ADAPTER_VERSION = '1.2.0';
+export const GROK_BUILD_ADAPTER_VERSION = '1.3.0';
 export const GROK_BUILD_CLI_EXPORT_SCHEMA_VERSION = '1.0.0';
 export const GROK_BUILD_CLI_EXPORT_LOCATOR_CLASS = 'grok-build-cli-markdown-export';
 
