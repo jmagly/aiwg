@@ -10,6 +10,8 @@ describe('repoAccessHandler', () => {
   let projectDir: string;
 
   beforeEach(async () => {
+    vi.stubEnv('AIWG_WORKSPACE', '');
+    vi.stubEnv('AIWG_ARTIFACTS_PATH', '');
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'aiwg-repo-access-handler-'));
     projectDir = path.join(tmpDir, 'project');
     await fs.mkdir(path.join(projectDir, '.aiwg', 'ops', 'security'), { recursive: true });
@@ -33,6 +35,7 @@ describe('repoAccessHandler', () => {
   afterEach(async () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   function makeCtx(args: string[]): HandlerContext {
@@ -76,6 +79,54 @@ describe('repoAccessHandler', () => {
 
     expect(result.exitCode).toBe(1);
     expect(log.mock.calls.map(([line]) => String(line)).join('\n')).toContain('DENY write');
+  });
+
+  it.each([false, true])('names canonical config and registration when no manifest exists (config present: %s)', async (configPresent) => {
+    await fs.rm(path.join(projectDir, '.aiwg', 'ops'), { recursive: true });
+    if (configPresent) {
+      await fs.writeFile(
+        path.join(projectDir, '.aiwg', 'aiwg.config'),
+        JSON.stringify({ version: '1', providers: ['claude'], installed: {}, scripts: {} }),
+      );
+    }
+
+    const result = await repoAccessHandler.execute(makeCtx([
+      'check', '--path', '../handoff', '--action', 'issue-comment',
+    ]));
+
+    expect(result.exitCode).toBe(2);
+    expect(result.message).toContain('.aiwg/aiwg.config');
+    expect(result.message).toContain('workspace');
+    expect(result.message).toContain('repos');
+    expect(result.message).toContain('aiwg repo-access add');
+    expect(result.message).toContain('.aiwg/ops/security/repo-access.manifest.yaml');
+    expect(result.message).toContain('.aiwg/security/repo-access.manifest.yaml');
+  });
+
+  it.each([false, true])('checks canonical repos permissions (legacy present: %s)', async (legacyPresent) => {
+    if (!legacyPresent) {
+      await fs.rm(path.join(projectDir, '.aiwg', 'ops'), { recursive: true });
+    }
+    await fs.writeFile(
+      path.join(projectDir, '.aiwg', 'aiwg.config'),
+      JSON.stringify({
+        workspace: { name: 'canonical', root: '..' },
+        repos: [{ name: 'handoff', path: './handoff', allowed: ['read', 'issue-comment'] }],
+      }),
+    );
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const check = (target: string, action: string) => repoAccessHandler.execute(makeCtx([
+      'check', '--path', target, '--action', action,
+    ]));
+
+    expect((await check('../handoff', 'issue-comment')).exitCode).toBe(0);
+    expect((await check('../handoff', 'write')).exitCode).toBe(1);
+    // Legacy YAML grants write here; the canonical config leaves it unlisted.
+    expect((await check('.', 'write')).exitCode).toBe(1);
+    const output = log.mock.calls.map(([line]) => String(line)).join('\n');
+    expect(output).toContain('ALLOW issue-comment');
+    expect(output).toContain('DENY write');
   });
 
   it('explains unlisted paths without mutating state', async () => {

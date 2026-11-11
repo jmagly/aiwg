@@ -160,7 +160,9 @@ export function loadRepoAccessManifest(startDir = process.cwd()): RepoAccessMani
   const manifestPath = findRepoAccessManifest(startDir);
   if (!manifestPath) {
     throw new Error(
-      `Repo access manifest not found. Expected ${REPO_ACCESS_MANIFEST_PATHS.join(' or ')}`
+      'Repo access manifest not found. Expected .aiwg/aiwg.config workspace + repos blocks (canonical). '
+      + `Legacy compatibility fallbacks: ${REPO_ACCESS_MANIFEST_PATHS.join(' or ')}. `
+      + 'Register a repo with aiwg repo-access add --path <repo-or-file> --name <name> --allow read,write.'
     );
   }
   const workspaceProjectRoot = findProjectRootFromManifest(manifestPath);

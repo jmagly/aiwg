@@ -108,6 +108,18 @@ aiwg repo-access check --path /srv/ops/sysops --action write
 tracker route, config path, and drift. `check` exits `0` for allowed, `1` for
 denied, and `2` for invalid manifests or usage.
 
+If no manifest is configured, `check` exits `2` and names the canonical
+`.aiwg/aiwg.config` `workspace` + `repos` blocks, the legacy YAML fallbacks,
+and the registration command. With operator authorization, register the repo
+in an existing project config:
+
+```bash
+aiwg repo-access add --path /srv/ops/sysops --name sysops --allow read,issue-comment
+```
+
+`add` writes `repos` entries to `.aiwg/aiwg.config`; it does not create a legacy
+YAML manifest. The config must already exist. Grant only the authorized actions.
+
 ## Legacy manifest compatibility
 
 Existing YAML manifests remain supported when the nearest workspace config does
