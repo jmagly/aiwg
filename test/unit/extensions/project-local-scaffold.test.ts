@@ -12,6 +12,8 @@ import { PROJECT_AIWG_LOCATION_FILE } from '../../../src/config/project-artifact
 import { scaffoldProjectLocalBundle } from '../../../src/extensions/project-local-scaffold.js';
 import { BundleManifestSchema } from '../../../src/extensions/manifest.js';
 import { PROJECT_LOCAL_SEARCH_PATHS_ENV } from '../../../src/extensions/project-local-paths.js';
+import YAML from 'yaml';
+import { listHandler } from '../../../src/cli/handlers/subcommands-list.js';
 
 const ARTIFACT_ENV_KEYS = [
   'AIWG_ARTIFACTS_PATH',
@@ -89,6 +91,60 @@ describe('scaffoldProjectLocalBundle (#1050)', () => {
     expect(manifest.type).toBe('addon');
     expect(manifest.addonConfig).toBeDefined();
     expect(BundleManifestSchema.safeParse(manifest).success).toBe(true);
+  });
+
+  it.each(['agent', 'skill'] as const)('creates an addon %s starter that passes the validate-addon contract and list (#4085)', async starter => {
+    const result = await scaffoldProjectLocalBundle({ type: 'addon', name: 'ux-studio', starter, projectDir });
+    const manifest = JSON.parse(readFileSync(join(result.bundlePath, 'manifest.json'), 'utf-8'));
+    expect(BundleManifestSchema.parse(manifest)).toMatchObject(manifest);
+    // validate-addon Process 2: CalVer and explicit boolean flags.
+    expect(manifest.version).toMatch(/^[1-9]\d{3}\.(?:[1-9]|1[0-2])\.(?:0|[1-9]\d*)$/);
+    expect(manifest.core).toBe(false);
+    expect(manifest.autoInstall).toBe(false);
+    expect(readFileSync(join(result.bundlePath, 'README.md'), 'utf-8').trim()).not.toBe('');
+    // Process 4/5: declared inventory and entry paths must identify the created files.
+    expect(manifest.agents).toEqual(starter === 'agent' ? ['ux-studio'] : []);
+    expect(manifest.skills).toEqual(starter === 'skill' ? ['ux-studio-skill'] : []);
+    expect(manifest.addonConfig.entry).toEqual(starter === 'agent' ? { agents: 'agents/' } : { skills: 'skills/' });
+    const artifact = starter === 'agent' ? 'agents/ux-studio.md' : 'skills/ux-studio-skill/SKILL.md';
+    const body = readFileSync(join(result.bundlePath, artifact), 'utf-8');
+    const frontmatter = YAML.parse(body.split('---')[1]);
+    expect(frontmatter.name).toBe(starter === 'agent' ? 'ux-studio' : 'ux-studio-skill');
+    expect(frontmatter.description).toBeTruthy();
+    if (starter === 'agent') {
+      expect(frontmatter.model).toBeTruthy();
+      expect(frontmatter.tools.length).toBeGreaterThan(0);
+    } else {
+      expect(body).toMatch(/^## (?:Behavior|Process)$/m);
+    }
+    expect(body).not.toContain('@.aiwg/');
+    const listed = await listHandler.execute({ cwd: projectDir, args: ['--project-local'], rawArgs: ['list', '--project-local'] });
+    expect(listed.exitCode).toBe(0);
+    expect(listed.message).toContain('Project-local bundles (1)');
+    expect(listed.message).toContain('ux-studio [project] [addon]');
+    expect(listed.message).not.toContain('Validation errors');
+  });
+
+  it('lists an addon following validate-addon after adding its documented fields (#4085)', async () => {
+    const result = await scaffoldProjectLocalBundle({ type: 'addon', name: 'ux-studio', projectDir });
+    const manifestPath = join(result.bundlePath, 'manifest.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+    writeFileSync(manifestPath, JSON.stringify({ ...manifest, core: false, autoInstall: false,
+      agents: [], skills: ['ux-studio-skill'] }));
+    const listed = await listHandler.execute({ cwd: projectDir, args: ['--project-local'], rawArgs: ['list', '--project-local'] });
+    expect(listed.message).toContain('Project-local bundles (1)');
+    expect(listed.message).not.toContain('Validation errors');
+  });
+
+  it('registers and indexes an addon rule starter and keeps dry-run file lists accurate (#4085)', async () => {
+    const options = { type: 'addon' as const, name: 'policy', starter: 'rule' as const, projectDir };
+    const preview = await scaffoldProjectLocalBundle({ ...options, dryRun: true });
+    const result = await scaffoldProjectLocalBundle(options);
+    expect(result.filesCreated).toEqual(preview.filesCreated);
+    const manifest = BundleManifestSchema.parse(JSON.parse(readFileSync(join(result.bundlePath, 'manifest.json'), 'utf-8')));
+    expect(manifest.rules).toEqual(['policy']);
+    expect(manifest.addonConfig?.entry).toEqual({ rules: 'rules/' });
+    expect(readFileSync(join(result.bundlePath, 'rules/RULES-INDEX.md'), 'utf-8')).toContain('[policy](policy.md)');
   });
 
   it('creates framework bundle with frameworkConfig and src/ stub', async () => {

@@ -65,6 +65,30 @@ export interface DiscoveryOptions {
   allowSymlinks?: boolean;
 }
 
+/** Format rejected target diagnostics using the same roots as discovery. */
+export function formatProjectLocalTargetErrors(
+  projectDir: string,
+  target: string,
+  discovery: ProjectLocalDiscoveryResult,
+): string | undefined {
+  const candidates = resolveProjectLocalSearchRoots(projectDir).flatMap(root =>
+    PROJECT_LOCAL_SCAN_DIRS.flatMap(dir => {
+      const bundlePath = join(root.rootPath, dir, target);
+      return [bundlePath, projectLocalDisplayPath(projectDir, bundlePath, root)];
+    }),
+  );
+  const errors = discovery.errors.filter(error => error.severity === 'error'
+    && (error.bundleId === target || candidates.some(candidate => {
+      const errorPath = error.path.split(sep).join('/');
+      const candidatePath = candidate.split(sep).join('/');
+      return errorPath === candidatePath || errorPath.startsWith(`${candidatePath}/`);
+    })));
+  if (errors.length === 0) return undefined;
+  return `Error: Project-local bundle '${target}' failed manifest validation:\n`
+    + errors.map(error => `  ${error.path}\n    ${error.field}: expected ${error.expected}, got ${error.actual}`
+      + (error.hint ? `\n    hint: ${error.hint}` : '')).join('\n');
+}
+
 /**
  * Scan all project-local `.aiwg/<type>/` directories for bundles. Returns
  * a structured result with bundles, errors, and counts. Missing directories
@@ -297,7 +321,11 @@ export async function loadAndValidateManifest(
 
   const result = BundleManifestSchema.safeParse(parsed);
   if (!result.success) {
-    return { errors: zodErrorToValidationErrors(result.error, manifestPath, parsed) };
+    const id = BundleManifestSchema.shape.id.safeParse(
+      parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>).id : undefined,
+    );
+    return { errors: zodErrorToValidationErrors(result.error, manifestPath, parsed)
+      .map(error => id.success ? { ...error, bundleId: id.data } : error) };
   }
 
   const manifest = result.data;

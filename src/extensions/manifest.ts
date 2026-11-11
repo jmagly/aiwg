@@ -285,6 +285,13 @@ export const BundleManifestSchema = z.strictObject({
   license: z.string().max(64).optional(),
   repository: url().max(512).optional(),
 
+  // Addon inventory/flags use the same top-level shape as validate-addon and
+  // upstream manifests. Nested *Config declarations remain supported.
+  ...ArtifactListsSchema.shape,
+  core: z.boolean().optional(),
+  autoInstall: z.boolean().optional(),
+  devOnly: z.boolean().optional(),
+
   // Type-discriminated nested config (exactly one matches `type`)
   addonConfig: AddonConfigSchema.optional(),
   frameworkConfig: FrameworkConfigSchema.optional(),
@@ -338,6 +345,8 @@ export type BundleManifest = z.infer<typeof BundleManifestSchema>;
 // ============================================
 
 export interface ManifestValidationError {
+  /** Readable bundle identity retained even when other manifest fields fail. */
+  bundleId?: string;
   /** Filesystem path of the manifest.json */
   path: string;
   /** Dot-path within the manifest (e.g., "addonConfig.entry.skills") */

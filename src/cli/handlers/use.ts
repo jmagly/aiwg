@@ -57,6 +57,7 @@ import {
 } from '../../smiths/skillsmith/collision-detector.js';
 import {
   discoverProjectLocalBundles,
+  formatProjectLocalTargetErrors,
   type ProjectLocalBundle,
 } from '../../extensions/project-local-discovery.js';
 import { PROJECT_LOCAL_TYPE_TO_DIR } from '../../extensions/project-local-paths.js';
@@ -3449,7 +3450,7 @@ export class UseHandler implements CommandHandler {
       }
       return {
         exitCode: 1,
-        message: `Error: Unknown target '${framework}'\nFrameworks: ${VALID_FRAMEWORKS.join(', ')}\n\n'all' deploys the kernel surface (kernel skills, kernel and core rules, behaviors).\nFor a single addon, run 'aiwg list' to see available addons.\nFor extensions (sys, net, it, sec, stream, dev), see $AIWG_ROOT/agentic/code/extensions/.\nFor project-local artifacts, run 'aiwg list --project-local'.\nRun 'aiwg help' for usage information.`,
+        message: formatProjectLocalTargetErrors(projectDir, framework, discovery) ?? `Error: Unknown target '${framework}'\nFrameworks: ${VALID_FRAMEWORKS.join(', ')}\n\n'all' deploys the kernel surface (kernel skills, kernel and core rules, behaviors).\nFor a single addon, run 'aiwg list' to see available addons.\nFor extensions (sys, net, it, sec, stream, dev), see $AIWG_ROOT/agentic/code/extensions/.\nFor project-local artifacts, run 'aiwg list --project-local'.\nRun 'aiwg help' for usage information.`,
       };
     }
 
