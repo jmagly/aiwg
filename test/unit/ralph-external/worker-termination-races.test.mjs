@@ -138,3 +138,57 @@ describe('T-OG-04 bounded exit-time settlement (#3835)', () => {
     expect(wait).not.toHaveBeenCalled();
   });
 });
+
+describe('T-OG-04 detached spawn evidence without a captured birth (#4077)', () => {
+  function uncaptured() {
+    const { input, base } = exitFixture();
+    const scan = vi.fn(options => scanWorkerInvocationProcesses({ ...input, ...options }));
+    return { input, scan, options: { ...base, identity: null, detachedPid: 456,
+      supervisor: { ...base.supervisor, startTicks: '100' }, scan } };
+  }
+
+  it('proves empty containment with the launcher birth as a conservative scan bound', () => {
+    const { options, scan } = uncaptured();
+    const kill = vi.fn(options.kill);
+    expect(termination.observeWorkerTermination({ ...options, kill })).toEqual({ confirmed: true, missing: null });
+    expect(kill).toHaveBeenCalledExactlyOnceWith(-456, 0);
+    expect(scan).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ startTicks: '100', uid: process.getuid() }));
+    expect(scan.mock.calls[0][0]).not.toHaveProperty('workerPid');
+  });
+
+  it.each(['marker', 'unreadable', 'count', 'bytes', 'deadline'])(
+    'keeps possible descendants uncertain when the scan finds %s', reason => {
+      const { input, options } = uncaptured();
+      if (reason === 'marker') fs.writeFileSync(join(input.procRoot, '123/environ'), `${WORKER_INVOCATION_MARKER}=race\0`);
+      const denied = { ...fs, openSync: (filename, ...args) => {
+        if (filename.endsWith('/environ')) throw error('EACCES');
+        return fs.openSync(filename, ...args);
+      } };
+      const scan = data => scanWorkerInvocationProcesses({ ...input, ...data,
+        ...(reason === 'unreadable' ? { fs: denied } : {}),
+        ...(reason === 'count' ? { maxEntries: 0 } : {}),
+        ...(reason === 'bytes' ? { maxEnvironmentBytes: 1 } : {}),
+        ...(reason === 'deadline' ? { now: () => data.deadline } : {}) });
+      expect(termination.observeWorkerTermination({ ...options, scan })).toMatchObject({ confirmed: false });
+    });
+
+  it('requires an observed exit, detached PID, safe group and launcher birth', () => {
+    const { options, scan } = uncaptured();
+    for (const missing of [
+      { workerExited: false }, { detachedPid: undefined }, { detachedPid: 1 }, { detachedPid: process.pid },
+      { detachedPid: options.supervisor.pgid }, { detachedPid: 1.5 }, { supervisor: null },
+      { supervisor: { ...options.supervisor, pid: 456 } },
+      { supervisor: { ...options.supervisor, startTicks: null } },
+      { supervisor: { ...options.supervisor, uid: process.getuid() + 1 } },
+    ]) expect(termination.observeWorkerTermination({ ...options, ...missing })).toMatchObject({ confirmed: false });
+    expect(scan).not.toHaveBeenCalled();
+  });
+
+  it.each(['live', 'EPERM'])('refuses a %s group without a birth sample', reason => {
+    const { options, scan } = uncaptured();
+    const kill = () => { if (reason === 'EPERM') throw error(reason); };
+    expect(termination.observeWorkerTermination({ ...options, kill,
+      groupStates: () => ({ live: 1, zombies: 0, unreadable: 0 }) })).toMatchObject({ confirmed: false });
+    expect(scan).not.toHaveBeenCalled();
+  });
+});

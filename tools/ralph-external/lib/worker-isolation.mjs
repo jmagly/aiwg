@@ -249,6 +249,7 @@ export function launchIsolatedWorker({
         const outcome = {
           launched: Number.isInteger(child.pid) && child.pid > 0,
           mode: detected.mode, child, pid: child.pid,
+          ownedGroup: ownedGroup === true,
           ...(attached ? { transportSupervisor: true } : {}),
           diagnostic: nativeSandbox ? 'Native CLI sandbox boundary; no cgroup resource confinement' : `launched without resource confinement: ${detected.reason}`,
           gate: resolvedGate,

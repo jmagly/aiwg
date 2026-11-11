@@ -25,7 +25,7 @@ afterEach(async () => {
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 
-async function fixture(mode = 'degraded', scenario = 'empty', recovery = true) {
+async function fixture(mode = 'degraded', scenario = 'empty', recovery = true, ownedGroup = false) {
   const root = await mkdtemp(join(tmpdir(), 'aiwg-termination-')); roots.push(root);
   const work = join(root, 'work'); await mkdir(work);
   const brief = join(root, 'brief'); await writeFile(brief, 'Synthetic termination task.');
@@ -42,7 +42,7 @@ async function fixture(mode = 'degraded', scenario = 'empty', recovery = true) {
     const child = spawn(options.command, options.args,
       { cwd: options.cwd, env: options.env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
     trackWorkerProcess(child.pid);
-    return { mode, child };
+    return { mode, child, ownedGroup };
   };
   const attempt = async (n, extra = {}) => {
     const plan = await resolveWorkerInvocation(f.snapshot, { role: 'coding', task: 'implementation', group: 'workers',
@@ -93,6 +93,29 @@ describe('T-OG-04 confirmed owned containment (#3674)', () => {
     await expect(verifyRetryPredecessor(retryOf, { inspect: inspectWorkerPath, workerWritableRoots: [f.work], checkDescendants: true }))
       .rejects.toThrow(/signal-0 still finds members.*--check-descendants/);
     expect(JSON.parse(await readFile(join(f.root, 'run-1/exit.json'), 'utf8')).termination).toBe('uncertain');
+  });
+
+  it.each([true, false])('confirms an uncaptured detached worker with empty containment (recovery %s)', async recovery => {
+    const f = await fixture('degraded', 'empty', recovery, true);
+    const first = await f.attempt(1, { sampleIdentity: () => null });
+    expect(first).toMatchObject({ workerTermination: 'confirmed', termination: 'confirmed', descendants: 'none' });
+    expect(JSON.parse(await readFile(join(f.root, 'run-1/process.json'), 'utf8')))
+      .toMatchObject({ worker: null, ownership: 'unknown' });
+    const retryOf = await reference(join(f.root, 'run-1'));
+    expect(await f.attempt(2, { retryOf, sampleIdentity: () => null })).toMatchObject({ termination: 'confirmed' });
+  });
+
+  it.each(['live', 'escaped'])('blocks retry after an uncaptured detached worker leaves a %s descendant', async scenario => {
+    const f = await fixture('degraded', scenario, true, true);
+    const first = await f.attempt(1, { sampleIdentity: () => null });
+    descendants.push(Number(await readFile(join(f.root, 'child.pid'), 'utf8')));
+    expect(first).toMatchObject({ workerTermination: 'confirmed', termination: 'uncertain', descendants: 'unknown' });
+    expect(first.terminationMissing).toContain(scenario === 'live' ? 'signal-0 still finds members' : 'still carries invocation marker');
+    expect(JSON.parse(await readFile(join(f.root, 'run-1/process.json'), 'utf8')))
+      .toMatchObject({ worker: null, ownership: 'unknown' });
+    await expect(f.attempt(2)).rejects.toMatchObject({ code: 'OPEN_TASK_PREDECESSOR' });
+    await expect(f.attempt(3, { retryOf: await reference(join(f.root, 'run-1')) }))
+      .rejects.toMatchObject({ code: 'UNCERTAIN_TERMINATION' });
   });
 
   it('reconciles historical uncertain empty-group evidence before linking a retry', async () => {

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { rm } from '../../helpers/worker-capture-cleanup.mjs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -51,7 +51,7 @@ async function fixture() {
     extractFinal: () => null };
   f.snapshot.installations.codex.boundary = driver.qualification.boundary;
   const drivers = { codex: driver };
-  return { root, f, drivers, async run(breaker, n, { backend = 'vendor', nativeError = null, upstreamFailure = false, task = `independent synthetic task ${n}`, maxAttempts = 3 } = {}) {
+  return { root, f, drivers, async run(breaker, n, { backend = 'vendor', nativeError = null, upstreamFailure = false, task = `independent synthetic task ${n}`, maxAttempts = 3, sampleIdentity } = {}) {
     upstream = upstreamFailure;
     f.snapshot.config.parallelism.retry = { maxAttempts };
     for (const model of f.snapshot.catalog.discovery.instances.codex.models) model.llmProvider = backend;
@@ -64,9 +64,10 @@ async function fixture() {
     await writeFile(invocationPath, JSON.stringify(plan));
     const result = await new SessionLauncher().launchWorker({ invocationPath, runDir: join(root, `run-${n}`),
       inputs: { snapshot: f.snapshot, drivers }, now: f.request.now, scopedBreaker: breaker,
+      sampleIdentity,
       isolation: { mode: 'degraded', reason: 'synthetic manager' }, allowDegraded: true,
       checkDispatch: () => ({ enabled: true, ok: true, failures: [] }),
-      launchIsolated: ({ command, args, cwd: workdir, onDispatchCommit }) => (async () => {
+      launchIsolated: ({ command, args, cwd: workdir, env, onDispatchCommit }) => (async () => {
         await onDispatchCommit();
         if (nativeError) {
           // Model the OS spawn error event, outside either worker stream.
@@ -80,7 +81,7 @@ async function fixture() {
           });
           return { mode: 'degraded', child };
         }
-        return { mode: 'degraded', child: spawn(command, args, { cwd: workdir, detached: true, stdio: ['ignore', 'pipe', 'pipe'] }) };
+        return { mode: 'degraded', ownedGroup: true, child: spawn(command, args, { cwd: workdir, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] }) };
       })() });
     expect(result.attemptOutcome).toBe('failed');
     return result;
@@ -255,6 +256,26 @@ describe('T-OG-16/22 launcher-owned provider evidence', () => {
     expect(breaker.snapshot().scopes.every(scope => scope.state === 'closed')).toBe(true);
     expect(breaker.snapshot().attemptsObserved).toBe(2);
     await expect(fx.run(breaker, 3, { task: 'same task retry', maxAttempts: 2 }))
+      .rejects.toMatchObject({ code: 'ALLOWANCE_EXHAUSTED' });
+  });
+
+  it('T-OG-16 permits the charged retry when the worker exits before group identity capture', async () => {
+    vi.stubEnv('AIWG_RESOLVE_IMPL_FROM', 'src');
+    const breaker = breakerAt();
+    const fx = await fixture();
+    // Reproduce an unavailable /proc birth sample deterministically, independent of host load.
+    const sampleIdentity = vi.fn(() => null);
+    const first = await fx.run(breaker, 1, { task: 'early exit retry', maxAttempts: 2, sampleIdentity });
+    expect(sampleIdentity).toHaveBeenCalled();
+    expect(JSON.parse(await readFile(join(fx.root, 'run-1/process.json'), 'utf8')))
+      .toMatchObject({ worker: null, ownership: 'unknown', identityObservation: 'no-stable-owned-group' });
+    expect(first).toMatchObject({ exitCode: 1, workerTermination: 'confirmed', termination: 'confirmed',
+      descendants: 'none', health: { state: 'failed-to-start' } });
+    expect(await fx.run(breaker, 2, { task: 'early exit retry', maxAttempts: 2, sampleIdentity }))
+      .toMatchObject({ termination: 'confirmed' });
+    expect(breaker.snapshot().attemptsObserved).toBe(2);
+    expect(breaker.snapshot().scopes.every(scope => scope.state === 'closed')).toBe(true);
+    await expect(fx.run(breaker, 3, { task: 'early exit retry', maxAttempts: 2 }))
       .rejects.toMatchObject({ code: 'ALLOWANCE_EXHAUSTED' });
   });
 
