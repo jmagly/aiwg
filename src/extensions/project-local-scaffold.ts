@@ -52,11 +52,12 @@ const NAME_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
 function buildManifest(opts: ScaffoldOptions): Record<string, unknown> {
   const { type, name, description = `Project-local ${type} '${name}'` } = opts;
+  const now = new Date();
   const base: Record<string, unknown> = {
     id: name,
     type,
     name,
-    version: '0.1.0',
+    version: `${now.getUTCFullYear()}.${now.getUTCMonth() + 1}.0`,
     description,
     manifestVersion: '1',
     platforms: { claude: 'full' },
@@ -64,7 +65,14 @@ function buildManifest(opts: ScaffoldOptions): Record<string, unknown> {
     deployment: { pathTemplate: '.{platform}/skills/{id}.md' },
   };
   if (type === 'addon') {
-    base['addonConfig'] = { entry: { skills: 'skills/' } };
+    const starter = opts.starter ?? 'skill';
+    const kind = starter === 'agent' ? 'agents' : starter === 'rule' ? 'rules' : 'skills';
+    base['core'] = false;
+    base['autoInstall'] = false;
+    base['agents'] = starter === 'agent' ? [name] : [];
+    base['skills'] = starter === 'skill' ? [`${name}-skill`] : [];
+    base['rules'] = starter === 'rule' ? [name] : [];
+    base['addonConfig'] = { entry: starter === 'minimal' ? {} : { [kind]: `${kind}/` } };
   } else if (type === 'framework') {
     base['frameworkConfig'] = { path: 'src/' };
   } else if (type === 'plugin') {
@@ -135,7 +143,7 @@ Keep this directory shaped like upstream so \`aiwg promote\` works.
 ## Customization tips
 
 - Edit \`manifest.json\` to set a real \`description\`, bump \`version\` to
-  \`1.0.0\` when stable, and add platforms beyond \`claude\` if needed.
+  the next CalVer patch when changed, and add platforms beyond \`claude\` if needed.
 - Add new artifacts under \`skills/\`, \`rules/\`, \`agents/\`, or \`commands/\`
   per AIWG conventions.
 - Use \`@\`-references for cross-artifact links: \`@$AIWG_ROOT/...\` for
@@ -166,7 +174,7 @@ Replace this body with the workflow your skill performs.
 
 Describe the trigger conditions for this skill.
 
-## Steps
+## Process
 
 1. Step one
 2. Step two
@@ -194,13 +202,15 @@ State when this rule fires and what action it requires.
 `;
 
 const STARTER_AGENT = (name: string) => `---
-name: ${name}-agent
+name: ${name}
 description: Starter agent for the ${name} project-local bundle.
+model: haiku
+tools: [Read, Glob, Grep]
 model-role: efficiency
 model-tier: economy
 ---
 
-# ${name}-agent
+# ${name}
 
 You are a specialist for [domain]. Customize this body with the agent's
 focus, allowed tools, and termination conditions.
@@ -238,7 +248,7 @@ export async function scaffoldProjectLocalBundle(
       options.starter ?? (options.type === 'framework' || options.type === 'plugin' || options.type === 'provider' ? 'minimal' : 'skill');
     const filesCreated: string[] = ['manifest.json', 'README.md'];
     if (starter === 'skill') filesCreated.push(`skills/${options.name}-skill/SKILL.md`);
-    else if (starter === 'rule') filesCreated.push(`rules/${options.name}.md`);
+    else if (starter === 'rule') filesCreated.push(`rules/${options.name}.md`, 'rules/RULES-INDEX.md');
     else if (starter === 'agent') filesCreated.push(`agents/${options.name}.md`);
     if (options.type === 'framework') filesCreated.push('src/.gitkeep');
     if (options.type === 'plugin') filesCreated.push('payload/.gitkeep');
@@ -276,6 +286,8 @@ export async function scaffoldProjectLocalBundle(
     await mkdir(rulesDir, { recursive: true });
     await writeFile(join(rulesDir, `${options.name}.md`), STARTER_RULE(options.name), 'utf-8');
     filesCreated.push(`rules/${options.name}.md`);
+    await writeFile(join(rulesDir, 'RULES-INDEX.md'), `# Rules Index\n\n- [${options.name}](${options.name}.md)\n`, 'utf-8');
+    filesCreated.push('rules/RULES-INDEX.md');
   } else if (starter === 'agent') {
     const agentsDir = join(bundlePath, 'agents');
     await mkdir(agentsDir, { recursive: true });

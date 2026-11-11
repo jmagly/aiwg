@@ -33,8 +33,9 @@ You check an entire AIWG addon directory for completeness and release readiness,
 
 1. **Locate the addon**:
    - If path given: use it
-   - If name given: find `agentic/code/addons/<name>/manifest.json`
+   - If name given: check project-local `addons/<name>/manifest.json` under the configured artifact root and `agentic/code/addons/<name>/manifest.json`; if both exist, require an explicit path
    - If current directory: look for `manifest.json` in cwd or walk up to nearest addon root
+   - Treat the located directory as the source root throughout this validation, including placement checks
 
 2. **Read and validate `manifest.json`**:
    - File exists at addon root
@@ -42,9 +43,11 @@ You check an entire AIWG addon directory for completeness and release readiness,
    - Required fields present: `id`, `type`, `name`, `version`, `description`
    - `type` equals `"addon"`
    - `version` follows CalVer format (`YYYY.M.PATCH`, no leading zeros)
-   - `core` field present (boolean)
-   - `autoInstall` field present (boolean)
+   - `core` field present (boolean; accept legacy `addonConfig.core` when absent at top level)
+   - `autoInstall` field present (boolean; accept legacy `addonConfig.autoInstall` when absent at top level)
    - If `devOnly: true`: confirm this is intentional (it excludes from `aiwg use all`)
+   - For project-local addons, also run `aiwg list --project-local` from the project root and check this manifest's diagnostics against the canonical bundle schema (`src/extensions/manifest.ts`). It requires `manifestVersion`, `platforms`, `keywords`, `deployment`, and `addonConfig` in addition to the common fields above. Preserve unknown-field and type errors; do not invent extra manifest fields to satisfy this skill.
+   - Resolve artifact inventories from the top-level `skills`, `agents`, and `rules` arrays, falling back to the corresponding `addonConfig` arrays for legacy manifests. Resolve directories from `addonConfig.entry` (or legacy `entry`), defaulting to `skills/`, `agents/`, and `rules/`. Apply these inventories and paths in steps 4–6.
 
 3. **Check `README.md`**:
    - File exists at addon root
@@ -73,7 +76,7 @@ You check an entire AIWG addon directory for completeness and release readiness,
 
 7. **Check for placement violations**:
    - Search corresponding provider directories (`.claude/skills/`, `.github/agents/`, etc.) for any files whose names match this addon's artifacts
-   - For each match: verify a source file exists in `agentic/code/`
+   - For each match: verify a source file exists under the located addon source root (project-local or `agentic/code/`)
    - Flag any deployed files with no source as violations
 
 8. **Check for `.aiwg/` references in addon artifacts**:

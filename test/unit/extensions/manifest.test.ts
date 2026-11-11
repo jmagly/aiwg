@@ -57,6 +57,12 @@ describe('BundleManifestSchema', () => {
       expect(result.success).toBe(true);
     });
 
+    it('accepts the top-level addon fields documented by validate-addon (#4085)', () => {
+      const manifest = { ...baseValid(), core: false, autoInstall: false,
+        agents: ['reviewer'], skills: ['review'], rules: ['review-policy'] };
+      expect(BundleManifestSchema.parse(manifest)).toMatchObject(manifest);
+    });
+
     it('accepts a minimal valid framework manifest', () => {
       const m = baseValid();
       m.type = 'framework';
@@ -82,6 +88,13 @@ describe('BundleManifestSchema', () => {
   });
 
   describe('strict validation', () => {
+    it.each([
+      { core: 'false' }, { autoInstall: 0 }, { agents: 'reviewer' },
+      { agents: [1] }, { skills: [false] }, { rules: 'review-policy' },
+    ])('rejects malformed addon inventory or flags: %j (#4085)', fields => {
+      expect(BundleManifestSchema.safeParse({ ...baseValid(), ...fields }).success).toBe(false);
+    });
+
     it('rejects unknown top-level keys', () => {
       const m = { ...baseValid(), unknownField: 'oops' };
       expect(BundleManifestSchema.safeParse(m).success).toBe(false);
