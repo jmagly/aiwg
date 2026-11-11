@@ -77,6 +77,7 @@ const bundleNamePattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 // ============================================
 
 const ArtifactListsSchema = z.object({
+  flows: z.array(z.string()).max(200).optional(),
   agents: z.array(z.string()).max(200).optional(),
   skills: z.array(z.string()).max(500).optional(),
   rules: z.array(z.string()).max(200).optional(),
@@ -89,6 +90,7 @@ const ArtifactListsSchema = z.object({
 });
 
 const EntryPathsSchema = z.strictObject({
+  flows: safeRelativePath.optional(),
   agents: safeRelativePath.optional(),
   skills: safeRelativePath.optional(),
   rules: safeRelativePath.optional(),

@@ -244,6 +244,65 @@ A bundle whose deploy fails for any of these reasons records no deployment, and
 `aiwg doctor` reports it under `Project-local artifacts → Deployment`. Re-run
 `aiwg use <bundle>` to see the specific reason.
 
+## Addon flows
+
+Project-local addons can publish processes as flows for capability discovery.
+Start with `aiwg new-bundle ux-studio --type addon`, then add this entry to
+the generated manifest (preserve its other fields):
+
+```json
+{
+  "addonConfig": {
+    "entry": {
+      "skills": "skills/",
+      "flows": "flows/"
+    }
+  },
+  "flows": ["screen-redesign"]
+}
+```
+
+`flows` is an optional inventory of document `metadata.name` values;
+`addonConfig.flows` remains accepted as a nested inventory. Entry paths are
+relative to the addon root and follow the same traversal restrictions as
+skills and agents. Custom flow directories and `.yml` files also work.
+
+Create `.aiwg/addons/ux-studio/flows/screen-redesign.yaml`:
+
+```yaml
+apiVersion: flow.aiwg.io/v1
+kind: FlowCapability
+metadata:
+  name: screen-redesign
+spec:
+  description: Redesign a screen with UX proposals
+  version: "1.0.0"
+  inputs:
+    - name: screen
+      type: string
+      required: true
+  outputs:
+    - name: proposals
+      type: array
+```
+
+This uses the existing
+[FlowCapability schema](https://github.com/jmagly/aiwg/blob/main/agentic/code/addons/aiwg-utils/workflow/schemas/workflow-capability.schema.json).
+Rebuild discovery after adding or editing flows:
+
+```bash
+aiwg index build --graph project
+aiwg discover "redesign a screen ux proposals" --type flow
+aiwg show flow screen-redesign
+aiwg list --project-local
+```
+
+Discovery returns `screen-redesign` as type `flow`; its metadata card shows
+`Owner: addon:ux-studio`, and the project-local list reports
+`Flows (1): screen-redesign`. Use the `validate-addon` skill to check the YAML,
+schema, inventory, and discovery. A process authored only as a skill remains
+type `skill`; add a flow document to make it discoverable with `--type flow`.
+
 ## Script-backed skills
 
 > "Run my project check skill against src/ from the project root."

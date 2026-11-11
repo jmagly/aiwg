@@ -1,4 +1,8 @@
 // Focused subcommand handlers preserving the public facade.
+import { readFileSync } from 'node:fs';
+import { basename, extname } from 'node:path';
+import { findArtifactFiles } from '../../artifacts/index-files.js';
+import { parseFlowDoc } from '../../artifacts/index-builder.js';
 import type { HandlerResult } from "./types.js";
 import { discoverProjectLocalBundles } from "../../extensions/project-local-discovery.js";
 import { buildUpstreamRegistry } from "../../extensions/upstream-registry.js";
@@ -28,7 +32,16 @@ export function formatProjectLocalOnly(
   for (const b of result.bundles) {
     output += `  ${b.id} [project] [${b.type}] v${b.manifest.version}\n`;
     output += `    Path: ${b.localPath}\n`;
-    output += `    Description: ${b.manifest.description.slice(0, 80)}${b.manifest.description.length > 80 ? '...' : ''}\n\n`;
+    output += `    Description: ${b.manifest.description.slice(0, 80)}${b.manifest.description.length > 80 ? '...' : ''}\n`;
+    // Match project graph classification, including custom flow entry directories.
+    const flows = findArtifactFiles(b.artifactPath, ['.yaml', '.yml']).flatMap(file => {
+      try {
+        const flow = parseFlowDoc(readFileSync(file, 'utf8'), file);
+        return flow?.type === 'flow' ? [flow.name ?? basename(file, extname(file))] : [];
+      } catch { return []; }
+    }).sort();
+    if (flows.length) output += `    Flows (${flows.length}): ${flows.join(', ')}\n`;
+    output += '\n';
   }
 
   if (result.errors.length > 0) {

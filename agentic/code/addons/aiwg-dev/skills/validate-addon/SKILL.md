@@ -47,7 +47,7 @@ You check an entire AIWG addon directory for completeness and release readiness,
    - `autoInstall` field present (boolean; accept legacy `addonConfig.autoInstall` when absent at top level)
    - If `devOnly: true`: confirm this is intentional (it excludes from `aiwg use all`)
    - For project-local addons, also run `aiwg list --project-local` from the project root and check this manifest's diagnostics against the canonical bundle schema (`src/extensions/manifest.ts`). It requires `manifestVersion`, `platforms`, `keywords`, `deployment`, and `addonConfig` in addition to the common fields above. Preserve unknown-field and type errors; do not invent extra manifest fields to satisfy this skill.
-   - Resolve artifact inventories from the top-level `skills`, `agents`, and `rules` arrays, falling back to the corresponding `addonConfig` arrays for legacy manifests. Resolve directories from `addonConfig.entry` (or legacy `entry`), defaulting to `skills/`, `agents/`, and `rules/`. Apply these inventories and paths in steps 4–6.
+   - Resolve artifact inventories from the top-level `skills`, `agents`, `rules`, and `flows` arrays, falling back to the corresponding `addonConfig` arrays for legacy manifests. Resolve directories from `addonConfig.entry` (or legacy `entry`), defaulting to `skills/`, `agents/`, `rules/`, and `flows/`. Apply these inventories and paths in steps 4–7.
 
 3. **Check `README.md`**:
    - File exists at addon root
@@ -74,16 +74,25 @@ You check an entire AIWG addon directory for completeness and release readiness,
    - `RULES-INDEX.md` exists in `rules/`
    - Rule name appears in `RULES-INDEX.md`
 
-7. **Check for placement violations**:
+7. **Validate flows**:
+   - Resolve the flow directory from `addonConfig.entry.flows` (or legacy `entry.flows`), defaulting to `flows/`
+   - Read each `.yaml` or `.yml` flow document in that directory, including nested directories; do not follow symlinks
+   - Validate `FlowCapability` documents (`apiVersion: flow.aiwg.io/v1`) against the existing `$AIWG_ROOT/agentic/code/addons/aiwg-utils/workflow/schemas/workflow-capability.schema.json`; use the corresponding existing workflow schema for other Flow kinds and accepted legacy aliases
+   - Require `metadata.name` and the schema-required `spec` fields; report malformed YAML or schema failures as blocking issues
+   - If a `flows` inventory is declared (top-level first, then `addonConfig.flows`), match each name to `metadata.name`; collect missing declarations and orphaned documents. If no inventory is declared, enumerate the flow directory
+   - For project-local addons, from the project root run `aiwg index build --graph project`, then `aiwg discover "<metadata.name>" --type flow` and `aiwg show flow <metadata.name>`; verify the flow is found and its card shows `Owner: addon:<id>`
+   - Include a `Flows (<count>)` section with each flow name and PASS/FAIL status in the report
+
+8. **Check for placement violations**:
    - Search corresponding provider directories (`.claude/skills/`, `.github/agents/`, etc.) for any files whose names match this addon's artifacts
    - For each match: verify a source file exists under the located addon source root (project-local or `agentic/code/`)
    - Flag any deployed files with no source as violations
 
-8. **Check for `.aiwg/` references in addon artifacts**:
+9. **Check for `.aiwg/` references in addon artifacts**:
    - Search all SKILL.md, agent `.md`, and command `.md` files under the addon for `@.aiwg/` path references
    - Flag any found: these only resolve inside the AIWG repository itself
 
-9. **Compile report**:
+10. **Compile report**:
 
    ```
    Addon Validation: <addon-name> v<version>
@@ -112,6 +121,9 @@ You check an entire AIWG addon directory for completeness and release readiness,
      PASS  component-completeness: rule file present, in RULES-INDEX.md
      FAIL  addon-boundaries: not found in RULES-INDEX.md
 
+   Flows (1 found):
+     PASS  screen-redesign: valid FlowCapability, discoverable as flow
+
    Placement violations:
      PASS  no orphaned deployed files found
 
@@ -128,7 +140,7 @@ You check an entire AIWG addon directory for completeness and release readiness,
      none
    ```
 
-10. **Report result**: Surface the structured report to the user. Highlight blocking issues in the summary line. For each failure, include the specific remediation step.
+11. **Report result**: Surface the structured report to the user. Highlight blocking issues in the summary line. For each failure, include the specific remediation step.
 
 ## Examples
 
@@ -146,6 +158,7 @@ README:            PASS
 Skills (3):        PASS (all present and complete)
 Agents (0):        PASS
 Rules (4):         PASS (all present and in RULES-INDEX.md)
+Flows (0):         PASS
 Placement:         PASS (no violations)
 .aiwg/ refs:       PASS
 

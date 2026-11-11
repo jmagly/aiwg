@@ -63,6 +63,13 @@ describe('BundleManifestSchema', () => {
       expect(BundleManifestSchema.parse(manifest)).toMatchObject(manifest);
     });
 
+    it.each(['top-level', 'nested'])('accepts %s flow inventory and an addon flows entry (#4089)', location => {
+      const inventory = { flows: ['screen-redesign'] };
+      const manifest = { ...baseValid(), ...(location === 'top-level' ? inventory : {}),
+        addonConfig: { entry: { flows: 'flows/' }, ...(location === 'nested' ? inventory : {}) } };
+      expect(BundleManifestSchema.parse(manifest)).toMatchObject(manifest);
+    });
+
     it('accepts a minimal valid framework manifest', () => {
       const m = baseValid();
       m.type = 'framework';
@@ -91,8 +98,13 @@ describe('BundleManifestSchema', () => {
     it.each([
       { core: 'false' }, { autoInstall: 0 }, { agents: 'reviewer' },
       { agents: [1] }, { skills: [false] }, { rules: 'review-policy' },
+      { flows: 'redesign' }, { flows: [1] },
     ])('rejects malformed addon inventory or flags: %j (#4085)', fields => {
       expect(BundleManifestSchema.safeParse({ ...baseValid(), ...fields }).success).toBe(false);
+    });
+
+    it.each(['../flows', '/flows', 'flows/../../private'])('rejects unsafe flow entry %s (#4089)', flows => {
+      expect(BundleManifestSchema.safeParse({ ...baseValid(), addonConfig: { entry: { flows } } }).success).toBe(false);
     });
 
     it('rejects unknown top-level keys', () => {
