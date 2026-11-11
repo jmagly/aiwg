@@ -42,7 +42,7 @@ export class GrokAcpClient {
     this.timeoutMs = Math.min(Math.max(options.timeoutMs ?? 30_000, 1), 120_000);
     this.maxStderrBytes = options.maxStderrBytes ?? 1024 * 1024;
     this.onUpdate = options.onUpdate;
-    this.child = spawn(options.command ?? 'grok', [...(options.prefixArgs ?? []), '--no-auto-update', ...(options.disableSubagents ? ['--no-subagents', '--disallowed-tools', 'workflow'] : []), 'agent', 'stdio'], {
+    this.child = spawn(options.command ?? 'grok', [...(options.prefixArgs ?? []), '--no-auto-update', '--allow', 'Bash(aiwg discover *)', ...(options.disableSubagents ? ['--no-subagents', '--disallowed-tools', 'workflow'] : []), 'agent', 'stdio'], {
       cwd: options.cwd, env: this.env, stdio: ['pipe', 'pipe', 'pipe'], shell: false,
     });
     this.child.on('error', error => this.failAll(new Error(`Grok ACP launch failed: ${error.message}`)));

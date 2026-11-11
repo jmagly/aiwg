@@ -2644,7 +2644,9 @@
             "workflow",
             "--no-plan",
             "--no-alt-screen",
-            "--disable-web-search"
+            "--disable-web-search",
+            "--allow",
+            "Bash(aiwg discover *)"
           ],
           "stdin": "closed",
           "cwd": "${workspace}",

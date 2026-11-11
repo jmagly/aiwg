@@ -106,7 +106,7 @@ export async function runGrokHeadless(options: GrokHeadlessOptions): Promise<Gro
   const maxBytes = Math.min(Math.max(options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT, 1024), DEFAULT_MAX_OUTPUT);
   const env = options.env ?? process.env;
   // 1.0.77: workflow can spawn children even when spawn_subagent is disabled.
-  const args = [...(options.prefixArgs ?? []), '--no-auto-update', ...(options.disableSubagents ? ['--no-subagents', '--disallowed-tools', 'workflow'] : []), '-p', options.prompt, '--output-format', format];
+  const args = [...(options.prefixArgs ?? []), '--no-auto-update', '--allow', 'Bash(aiwg discover *)', ...(options.disableSubagents ? ['--no-subagents', '--disallowed-tools', 'workflow'] : []), '-p', options.prompt, '--output-format', format];
   const streaming = format === 'streaming-json' || format === 'streaming-messages-json';
   return new Promise((resolve, reject) => {
     const child = spawn(options.command ?? 'grok', args, {

@@ -7,7 +7,7 @@
     "packageVersion": "1",
     "modulePath": "lib/grok-build-adapter.mjs",
     "interfaceVersion": 1,
-    "sha256": "sha256:c72de06148a8f6b716e9d13cc8d0cf41d3b6a48b5b26a30ace64a221c9dade9a",
+    "sha256": "sha256:a1b294b779b09c617bdb0328100f0218f15373c246ccb8aff9cbdf76ed54c743",
     "adapterIds": ["grok-build"],
     "platforms": ["linux"]
   }

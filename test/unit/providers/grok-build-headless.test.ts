@@ -10,6 +10,42 @@ function fake(script: string) {
 }
 
 describe('Grok Build bounded headless transport', () => {
+  it('rejects the captured AIWG discovery cancellation despite exit zero', async () => {
+    const capture = JSON.parse(readFileSync(new URL('../../fixtures/providers/grok-build/captured-20261110/discover-cancelled.json', import.meta.url), 'utf8'));
+    const wire = capture.events.map((event: unknown) => JSON.stringify(event)).join('\n') + '\n';
+    const error = await runGrokHeadless({ ...fake(`process.stdout.write(${JSON.stringify(wire)})`), prompt: 'offline replay', env: {} })
+      .catch(error => error);
+    expect(error.result).toMatchObject({ exitCode: capture.exitCode, stopReason: 'cancelled', events: capture.events });
+    const { GrokBuildAdapter } = await import('../../../tools/ralph-external/lib/grok-build-adapter.mjs');
+    expect(new GrokBuildAdapter().parseDirectFinal(wire)).toBeNull();
+  });
+
+  it.each([false, true])('pre-allows discovery in headless argv (disableSubagents=%s)', async disableSubagents => {
+    const capture = JSON.parse(readFileSync(new URL('../../fixtures/providers/grok-build/captured-20261110/discover-cancelled.json', import.meta.url), 'utf8'));
+    // The fake models only the permission gate; it never executes the captured shell command.
+    const script = `const args=process.argv.slice(1);const rules=args.flatMap((a,i)=>a==='--allow'?[args[i+1]]:[]);
+const events=rules.length===1 && rules[0]==='Bash(aiwg discover *)'
+ ? [{type:'text',data:'grok-smoke-ok'},{type:'end',stopReason:'end_turn'}] : ${JSON.stringify(capture.events)};
+for(const event of events)console.log(JSON.stringify(event));`;
+    const result = await runGrokHeadless({ ...fake(script), prompt: 'offline replay', disableSubagents, env: {} });
+    expect(result).toMatchObject({ exitCode: 0, stopReason: 'end_turn' });
+    expect(result.events[0]).toEqual({ type: 'text', data: 'grok-smoke-ok' });
+  });
+
+  it.each(['read-only', 'workspace-write'])('pre-allows only discovery in the direct profile and %s adapter argv', async sandbox => {
+    const { GrokBuildAdapter } = await import('../../../tools/ralph-external/lib/grok-build-adapter.mjs');
+    const { loadProviderModelCapabilities } = await import('../../../src/models/provider-policy.js');
+    const profile = loadProviderModelCapabilities().providers['grok-build'].workerHealthAdapter!;
+    const args = new GrokBuildAdapter().buildWorkerArgs({ selected: { model: 'synthetic-grok/model', effort: { value: 'low' } },
+      cwd: '/synthetic/project', briefPath: '/synthetic/brief.md' }, null, { sandbox, denyRules: ['Bash(aiwg discover *)'] });
+    for (const argv of [profile.invocation.argv, args]) {
+      expect(argv.flatMap((arg: string, index: number) => arg === '--allow' ? [argv[index + 1]] : [])).toEqual(['Bash(aiwg discover *)']);
+      expect(argv).not.toContain('--always-approve');
+      expect(argv[argv.indexOf('--permission-mode') + 1]).toBe('dontAsk');
+    }
+    expect(args.slice(-2)).toEqual(['--deny', 'Bash(aiwg discover *)']);
+  });
+
   it('records captured headless permission failures and the workflow bypass without auto-approving', () => {
     const cases = JSON.parse(readFileSync(new URL('../../fixtures/providers/grok-build/captured-20261110/permissions.json', import.meta.url), 'utf8'));
     for (const index of [0, 1, 2]) {
