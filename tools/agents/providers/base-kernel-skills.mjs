@@ -2,7 +2,7 @@
 import { removeSkillCopy } from './skill-copy-prune.mjs';
 import { fs, path } from './base-runtime.mjs';
 import { parseFrontmatter } from './base-frontmatter.mjs';
-import { ensureDir, listSkillDirs } from './base-files.mjs';
+import { ensureDir, listSkillDirs, readSidecarManifest } from './base-files.mjs';
 import { deploySkillDir, pruneMissingStandardSkills } from './base-skill-copy.mjs';
 
 
@@ -30,7 +30,8 @@ export function isKernelSkill(skillDir) {
  * Deploy skills with kernel-vs-standard routing (#1212/#1216/#1217).
  *
  * Partitions `skillDirs` into kernel skills (frontmatter `kernel: true`)
- * and standard skills.
+ * and standard skills. Project-local skills use the native kernel destination
+ * too, so the provider can load them without a framework-index lookup (#4086).
  *
  * **Kernel skills** copy to `kernelDestDir` (platform-native dir,
  * always-loaded by the platform). Small set: currently 24 skills spanning
@@ -88,7 +89,7 @@ export function deploySkillsWithKernelRouting(
   const kernel = [];
   const standard = [];
   for (const dir of skillDirs) {
-    if (kernelDestDir && isKernelSkill(dir)) kernel.push(dir);
+    if (kernelDestDir && (opts?.deploySource === 'project-local' || isKernelSkill(dir))) kernel.push(dir);
     else standard.push(dir);
   }
 
@@ -332,6 +333,8 @@ export function pruneStaleAiwgSkills(kernelDestDir, desiredKernelNames, opts = {
   for (const entry of fs.readdirSync(kernelDestDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     if (desired.has(entry.name)) continue;
+    // The bundled corpus cannot declare project-local skills obsolete (#4086).
+    if (readSidecarManifest(path.join(kernelDestDir, entry.name))?.managed?.['SKILL.md']?.source === 'project-local') continue;
 
     const skillMd = path.join(kernelDestDir, entry.name, 'SKILL.md');
     if (!fs.existsSync(skillMd)) continue;

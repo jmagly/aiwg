@@ -80,8 +80,8 @@ it.each([false, true])('persists mode, updates unchanged standard copies, and ke
   expect(readConfig().installed['local-mode'].deployedTo.claude).toEqual(copy ? { copy: true } : {});
   command('update', '--skip-check', '--provider', 'claude');
   expect(readConfig().installed['local-mode'].deployedTo.claude.copy).toBe(copy);
-  const current = path.join(project, '.claude/.aiwg/skills/mode-current/SKILL.md');
-  const edited = path.join(project, '.claude/.aiwg/skills/mode-edited/SKILL.md');
+  const current = path.join(project, '.claude/skills/mode-current/SKILL.md');
+  const edited = path.join(project, '.claude/skills/mode-edited/SKILL.md');
   expect(fs.readFileSync(current, 'utf8')).toContain('Revision 1');
   fs.writeFileSync(edited, 'Operator-edited skill\n');
   command('use', 'sdlc', '--provider', 'claude', '--yes', '--json', ...(copy ? ['--copy-all'] : []));

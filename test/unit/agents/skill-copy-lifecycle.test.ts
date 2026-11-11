@@ -6,6 +6,7 @@ import {
   deploySkillDir,
   sameSkillOwner,
   deploySkillsWithKernelRouting,
+  pruneStaleAiwgSkills,
   readSidecarManifest,
   writeSidecarManifest,
 } from '../../../tools/agents/providers/base.mjs';
@@ -39,6 +40,23 @@ describe('shared skill copier ownership and stale files (#3035)', () => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it.each([false, true])('routes local skills to the native root and retains them during bundled kernel cleanup (copy=%s, #4086)', copyMode => {
+    const local = join(root, 'project/.aiwg/addons/local/skills/demo');
+    write(join(local, 'SKILL.md'), '---\nname: demo\ndescription: Local skill\n---\nRead `references/recipe.md`.\n');
+    write(join(local, 'references/recipe.md'), 'local recipe\n');
+    const native = join(root, 'project/.claude/skills');
+    const options = { provider: 'claude', deploySource: 'project-local', copyStandardSkills: true, copyMode };
+    // Seed the old tier to verify that a redeploy safely replaces it.
+    deploySkillDir(local, destination, options);
+    deploySkillsWithKernelRouting([local], destination, native, options);
+    expect(readFileSync(join(native, 'demo/references/recipe.md'), 'utf8')).toBe('local recipe\n');
+    expect(existsSync(join(destination, 'demo'))).toBe(false);
+    deploySkillDir(skill('addons', 'utils', 'retired'), native, { deploySource: 'bundled' });
+    expect(pruneStaleAiwgSkills(native, [], { copyMode: false })).toBe(1);
+    expect(existsSync(join(native, 'retired'))).toBe(false);
+    expect(existsSync(join(native, 'demo/SKILL.md'))).toBe(true);
   });
 
   for (const name of ['cleanup-audit', 'doc-sync', 'sdlc-accelerate', 'doc-consolidate']) {

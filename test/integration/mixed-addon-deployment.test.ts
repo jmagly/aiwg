@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { recordManagedCopy } from '../helpers/managed-copy-fixture.js';
@@ -118,6 +118,47 @@ describe('mixed agent and skill addon deployment', () => {
       expect(fs.existsSync(path.join(rules, 'addon-policy.md'))).toBe(false);
     }
   }, 240_000);
+
+  it('loads project-local addon skills and references from the native Claude root (#4086)', async () => {
+    const addon = path.join(projectDir, '.aiwg/addons/ux-studio');
+    const skill = path.join(addon, 'skills/ux-live-verify');
+    await mkdir(path.join(skill, 'references'), { recursive: true });
+    await mkdir(path.join(addon, 'agents'), { recursive: true });
+    await writeFile(path.join(addon, 'manifest.json'), JSON.stringify({
+      id: 'ux-studio', type: 'addon', name: 'UX Studio', version: '1.0.0',
+      description: 'Project-local addon regression fixture', manifestVersion: '1',
+      platforms: { claude: 'full' }, keywords: ['test'],
+      deployment: { pathTemplate: '.{platform}/skills/{id}.md' },
+      addonConfig: { entry: { skills: 'skills/', agents: 'agents/' } },
+    }));
+    await writeFile(path.join(skill, 'SKILL.md'),
+      '---\nname: ux-live-verify\ndescription: Verify local UX\n---\n\nRead `references/tool-map.md`.\n');
+    await writeFile(path.join(skill, 'references/tool-map.md'), '# Local tool map\n');
+    await writeFile(path.join(addon, 'agents/ux-studio-orchestrator.md'),
+      '---\nname: ux-studio-orchestrator\ndescription: Local UX agent\nmodel: claude-sonnet-4-6\ntools: Read\n---\n\n# UX Studio\n');
+    const handler = new UseHandler();
+    const localContext = context('ux-studio');
+    const nativeSkill = path.join(projectDir, '.claude/skills/ux-live-verify');
+    const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      const preview = await handler.execute({ ...localContext, args: [...localContext.args, '--dry-run'] });
+      expect(preview.exitCode, preview.message).toBe(0);
+      expect(preview.message).toContain(path.join(nativeSkill, 'SKILL.md'));
+      expect(preview.message).toContain(path.join(nativeSkill, 'references/tool-map.md'));
+      expect(preview.message).not.toContain('.claude/.aiwg/skills/ux-live-verify');
+      await expect(readFile(path.join(nativeSkill, 'SKILL.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally { output.mockRestore(); }
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const deployed = await handler.execute(localContext);
+      expect(deployed.exitCode, deployed.message).toBe(0);
+      expect(await readFile(path.join(nativeSkill, 'SKILL.md'), 'utf8')).toContain('name: ux-live-verify');
+      expect(await readFile(path.join(nativeSkill, 'references/tool-map.md'), 'utf8')).toBe('# Local tool map\n');
+    }
+    expect(await readFile(path.join(projectDir, '.claude/agents/ux-studio-orchestrator.md'), 'utf8')).toContain('# UX Studio');
+    await expect(readFile(path.join(projectDir, '.claude/.aiwg/skills/ux-live-verify/SKILL.md')))
+      .rejects.toMatchObject({ code: 'ENOENT' });
+  }, 180_000);
 
   it('copies complete skill trees and persists installed records', async () => {
     const handler = new UseHandler();

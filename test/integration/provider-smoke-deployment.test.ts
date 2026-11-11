@@ -113,8 +113,8 @@ describe('provider deployment smoke', () => {
         expect(readFileSync(path.join(project, '.opencode/rule/RULES-INDEX.md'), 'utf8')).toContain('# Rule kernel index');
         return;
       }
-      assertSkill(project, skills);
       const native = `.${provider}`;
+      assertSkill(project, provider === 'codex' ? skills : `${native}/skills`);
       const agentDir = path.join(project, native, provider === 'factory' ? 'droids' : 'agents');
       expect(hasBody(agentDir, 'Run the synthetic agent check.'), agentDir).toBe(true);
       const ruleDir = path.join(project, native, 'rules');
