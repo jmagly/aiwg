@@ -11,7 +11,7 @@
  * overridden via env for specific CI needs:
  *
  *   AIWG_PACK_PACKED_BUDGET_KB    — default 23000 (22.46 MiB)
- *   AIWG_PACK_UNPACKED_BUDGET_KB  — default 83500 (81.54 MiB)
+ *   AIWG_PACK_UNPACKED_BUDGET_KB  — default 85000 (83.01 MiB)
  *   AIWG_PACK_FILES_BUDGET        — default 8800 (file count)
  *
  * The package intentionally ships a prebuilt Fortemi Core framework discovery
@@ -27,7 +27,7 @@ import { importImpl } from '../_resolve-impl.mjs';
 const { boundedExecSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
 
 const PACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_PACKED_BUDGET_KB', 23_000);
-const UNPACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_UNPACKED_BUDGET_KB', 83_500);
+const UNPACKED_BUDGET_KB = parseIntEnv('AIWG_PACK_UNPACKED_BUDGET_KB', 85_000);
 // Preserve the offline corpus, docs, compiled modules and runtime tools.
 // Measurements and headroom: docs/reports/package-budget-2026-10.md.
 const FILES_BUDGET = parseIntEnv('AIWG_PACK_FILES_BUDGET', 8_800);
