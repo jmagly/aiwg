@@ -56,6 +56,56 @@ async function discover(phrase: string, json = true) {
   return json ? JSON.parse(String(log.mock.calls.at(-1)?.[0])) : log.mock.calls.map(call => call[0]).join('\n');
 }
 describe('compound action discovery (#3292)', () => {
+  async function discoverDesignAgents(json = true) {
+    const agents = [
+      ['ux-lead', 'UX Lead', 'Oversees user experience strategy, ensuring designs meet usability and accessibility standards', '# Responsibilities'],
+      ['product-designer', 'Product Designer', 'Crafts user experience flows, interface designs, and interaction specs', '## Your Workflow'],
+      ['ai-ml-engineer', 'AI/ML Engineer', 'Builds machine learning models and data pipelines', '# Your Role'],
+      ['django-expert', 'Django Expert', 'Develops Python web applications with Django', '# Your Role'],
+      ['architecture-designer', 'Architecture Designer', 'Plans system architecture and infrastructure', '# Your Process'],
+      ['claude-reference', 'Claude Code Operational Reference', 'Reference for command line tools and marketplaces', '# Reference'],
+    ];
+    for (const [slug, name, description, heading] of agents) {
+      put(`agents/${slug}.md`, `---\nname: ${name}\ndescription: ${description}\n---\n${heading}\n`);
+    }
+    put('rules/banned-apis.md', '---\nname: banned-apis\nactivation: paths\npaths: ["**/*"]\n---\n# Banned APIs\n');
+    await buildIndex(root, { graph: 'project', quiet: true });
+    log.mockClear();
+    await discoverCapability(root, {
+      phrase: 'search all marketplaces for the highest rated UI/UX design/devloipment agent suite',
+      typeFilter: ['agent'], graph: 'project', backend: 'local', json, limit: 6,
+    });
+    return json ? JSON.parse(String(log.mock.calls.at(-1)?.[0])) : log.mock.calls.map(call => call[0]).join('\n');
+  }
+
+  it('keeps slash-containing agent requests free of path rule activation (#4082)', async () => {
+    const response = await discoverDesignAgents();
+    expect(response.results.length).toBeGreaterThan(0);
+    for (const row of response.results) {
+      expect(row.required_rule_checks ?? []).toEqual([]);
+    }
+    expect(response.rule_stats.required_checks).toBe(0);
+  });
+
+  it('ranks UX agents in the top three for slash-containing free text (#4082)', async () => {
+    const response = await discoverDesignAgents();
+    expect(response.results.slice(0, 3).map((row: any) => row.name))
+      .toEqual(expect.arrayContaining(['UX Lead']));
+    expect(response.results.some((row: any) => row.name === 'Product Designer')).toBe(true);
+  });
+
+  it('uses agent names for indexed and rendered titles instead of body headings (#4082)', async () => {
+    const response = await discoverDesignAgents();
+    const index = JSON.parse(fs.readFileSync(path.join(getGraphIndexDir(root, 'project'), 'metadata.json'), 'utf8')) as ArtifactIndex;
+    for (const agent of Object.values(index.entries).filter(entry => entry.type === 'agent')) {
+      expect(agent.title).toBe(agent.name);
+    }
+    for (const row of response.results) expect(row.title).toBe(row.name);
+    const text = await discoverDesignAgents(false);
+    expect(text).toMatch(/\d+\. UX Lead\n/);
+    expect(text).not.toMatch(/\d+\. (Responsibilities|Your Role|Your Process|Your Workflow)\n/);
+  });
+
   it('attaches bound/path/trigger rules once, excludes kernel, and gives explicit fetch-before-work checks', () => {
     const rules = compoundGoverningRules(entries, target('work'), undefined, 'secure work and approval request in src/secure/key.ts');
     expect(rules.map(item => item.rule.name)).toEqual(['bound', 'paths', 'trigger']);
@@ -87,9 +137,11 @@ describe('compound action discovery (#3292)', () => {
     expect(fields.rule_stats).toEqual({ by_enforcement: counts('enforcement'), by_activation: counts('activation'), required_checks: attached.length });
     expect(fields.required_rule_checks).toHaveLength(attached.length);
   });
-  it('matches query paths and governed action paths, without substring triggers or unrelated path fetches', () => {
-    expect(compoundGoverningRules(entries, target('unbound'), undefined, 'edit src/secure/key.ts').map(item => item.rule.name)).toEqual(['paths']);
-    expect(compoundGoverningRules(entries, target('unbound'), undefined, 'edit src\\secure\\key.ts').map(item => item.rule.name)).toEqual(['paths']);
+  it('matches governed action paths, while query prose never supplies path context', () => {
+    const governed = { ...target('unbound'), governedPaths: ['src/secure/key.ts'] };
+    expect(compoundGoverningRules(entries, governed).map(item => item.rule.name)).toEqual(['paths']);
+    expect(compoundGoverningRules(entries, target('unbound'), undefined, 'edit src/secure/key.ts')).toEqual([]);
+    expect(compoundGoverningRules(entries, target('unbound'), undefined, 'edit src\\secure\\key.ts')).toEqual([]);
     expect(compoundGoverningRules(entries, target('unbound'), undefined, 'approval requester edits docs/index.md')).toEqual([]);
     expect(compoundGoverningRules(entries, target('unbound'), undefined, 'approval requester then approval request').map(item => item.rule.name)).toEqual(['trigger']);
     expect(compoundGoverningRules(entries, target('work')).map(item => item.rule.name)).toEqual(['bound', 'paths']);

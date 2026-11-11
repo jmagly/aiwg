@@ -11,6 +11,21 @@ const entry = (type: string, name: string, extra: Partial<MetadataEntry> = {}): 
 });
 
 describe('governing rule pin parity (#3768)', () => {
+  it.each(['UI/UX', 'design/development', 'design/devloipment', './src/key.ts', '/src/key.ts', 'src/key.ts', 'src\\key.ts'])(
+    'does not activate path rules from free-text %s (#4082)', phrase => {
+      const target = entry('agent', 'UX Lead');
+      const rule = entry('rule', 'banned-apis', { activation: 'paths', rulePaths: ['**/*'] });
+      const entries = [target, rule];
+      for (const reader of [undefined, new RelationsReader(buildRelations(entries))]) {
+        expect(compoundGoverningRules(entries, target, reader, phrase)).toEqual([]);
+        const governed = { ...target, governedPaths: ['src/key.ts'] };
+        expect(compoundGoverningRules(entries, governed, reader, phrase)).toEqual([
+          { rule, applicability: ['path:src/key.ts'] },
+        ]);
+      }
+    },
+  );
+
   it.each(['skill', 'agent', 'flow'] as const)('keeps the pinned %s contract identical in discover and show', async type => {
     const target = entry(type, 'work');
     const rule = entry('rule', 'policy', { activation: 'bound', ruleEnforcement: 'high',

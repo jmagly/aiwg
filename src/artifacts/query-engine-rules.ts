@@ -88,12 +88,12 @@ export function compoundGoverningRules(entries: MetadataEntry[], target: Metadat
   }
   if (includeMatches) {
     const query = phrase.toLowerCase();
-    const queryPaths = (phrase.replace(/\\/g, '/').match(/[\w@./*?-]+/g) ?? []).map(value => value.replace(/[.,;:!?]+$/, ''));
     const corpus = relations ? relationMetadata(relations) : [];
     const rules = new Map([...corpus, ...entries.filter(entry => ['rule', 'behavior'].includes(entry.type))]
       .map(rule => [`${rule.type}:${rule.path}`, rule]));
     for (const rule of rules.values()) {
-      for (const glob of rule.rulePaths ?? []) for (const candidate of [...queryPaths.filter(value => /[./*?]/.test(value) || value === glob), ...(target.governedPaths ?? [])]) {
+      // Search prose is never path context; only declared governed paths activate path rules.
+      for (const glob of rule.rulePaths ?? []) for (const candidate of target.governedPaths ?? []) {
         if (minimatch(candidate, glob, { dot: true, nonegate: true, nocomment: true })
           || ((target.governedPaths ?? []).includes(candidate) && minimatch(glob, candidate, { dot: true, nonegate: true, nocomment: true }))) add(rule, `path:${candidate}`);
       }
