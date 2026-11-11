@@ -112,3 +112,18 @@ Measured on main 0b6134941 against 23d22a0de (`npm pack --dry-run --json`):
 | Packed package | — | 19,359 KiB | 23,000 KiB | unchanged |
 
 All other source growth in the range is about 17 KiB of rule and template text. The new limits leave room for #3930, which adds templates to the framework-relations package. Any further growth still needs review.
+
+## Amendment — 2026-11-11 (2026.11.6 Wave 1 features)
+
+Main CI run 103559 (main c3e1020bf) failed the package lifecycle budget: unpacked 81.58 MiB against 81.54 MiB (83,500 KiB). The growth since the 2026-11-06 amendment is intentional shipped content: the 2026.11.5 fixes and the 2026.11.6 Wave 1 features, among them the `plugin-search` skill and guide (#4084), project-local flow registration (#4089), Grok Build agent deployment and capture fixtures (#4100, #4101), the Factory, Copilot and BYOK provider guidance (#4066, #4072, #4092), and the matching index entries.
+
+Measured on main c3e1020bf (`node tools/cli/check-install-size.mjs --verbose`):
+
+| Metric | Value | Old limit | New limit |
+|---|---|---|---|
+| Unpacked package | 81.58 MiB (≈83,540 KiB) | 83,500 KiB | 85,000 KiB |
+| Packed package | 19,618 KiB | 23,000 KiB | unchanged |
+| Files | 8,165 | 8,800 | unchanged |
+
+The new limit leaves about 1.4 MiB of headroom, similar to the previous amendment. Any further growth still needs review.
+
