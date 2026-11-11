@@ -112,7 +112,7 @@ export function wrapperEnforcementReport(provider: string, artifact?: DeployedWr
   const details: Record<string, string> = {
     claude: 'Use AIWG wrappers or an explicit invocation model. Unpinned general-purpose agents inherit; CLAUDE_CODE_SUBAGENT_MODEL supplies a fallback and CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 can override pins.',
     omp: 'Native model and thinkingLevel fields can pin exact operator role models; configured/* catalog entries are placeholders.',
-    'grok-build': 'Not enforced: native-agent model translation remains gated by #2577; configured selectors do not establish tier enforcement.',
+    'grok-build': 'Grok Build 1.0.77: frontmatter model is ignored; agents inherit the session model. Select worker models with CLI -m; role/tier intent is informational.',
     openclaw: 'Markdown wrapper mirrors do not set native subagents.model or per-spawn overrides.',
     openhuman: 'User harness wrappers carry semantic model hints; project wrappers omit model. Neither is an exact pin.',
     antigravity: 'Wrapper mirrors do not project native CLI model/effort flags.',

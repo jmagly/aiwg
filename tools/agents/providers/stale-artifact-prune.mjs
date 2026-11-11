@@ -51,7 +51,7 @@ export function bulkInstallOwnsFlatArtifacts(target) {
 
 export function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explicitSource) {
   if (opts.copyMode ?? opts.copyStandardSkills) return;
-  if (opts.skillsOnly && !opts.kernelOnly) return; // skills run their own prune in the provider
+  if (opts.skillsOnly && (!opts.kernelOnly || provider.name === 'grok-build')) return; // skills run their own prune in the provider
 
   const aiwgRoot = resolveAiwgRoot(srcRoot);
   if (!aiwgRoot && !opts.bundleOnly) return; // standalone deploy without an ownership scope
@@ -66,7 +66,9 @@ export function pruneStaleAiwgArtifacts(provider, target, srcRoot, opts, explici
     if (!underCode) return; // project-local bundle / external source → skip
   }
 
-  if (opts.kernelOnly) {
+  // Grok bulk mode writes native agents; reconcile against the corpus below,
+  // rather than treating its newly deployed agents as obsolete bulk output.
+  if (opts.kernelOnly && provider.name !== 'grok-build') {
     // Kernel-only delivers skills and rules. The empty desired set below
     // applies only to bulk agents/commands left by
     // the pre-#152 bulk default, when the bulk install is the only thing this

@@ -341,6 +341,21 @@ describe('#2508 kernel-only flat prune is gated on bundle ownership', () => {
     );
   }
 
+  it.each([false, true])('Grok bulk reconciles agent inventory and explicit skills-only leaves it alone (%s)', async skillsOnly => {
+    const { pruneStaleAiwgArtifacts } = await import('../../../tools/agents/providers/stale-artifact-prune.mjs');
+    const agents = path.join(dir, '.grok/agents');
+    fs.mkdirSync(agents, { recursive: true });
+    for (const name of ['test-engineer', 'retired-agent']) {
+      const file = path.join(agents, `${name}.md`);
+      fs.writeFileSync(file, MARKER + name);
+      recordManagedCopy(file);
+    }
+    pruneStaleAiwgArtifacts({ name: 'grok-build', paths: { agents: '.grok/agents' } }, dir, REPO_ROOT,
+      { kernelOnly: true, skillsOnly, quiet: true }, null);
+    expect(fs.existsSync(path.join(agents, 'test-engineer.md'))).toBe(true);
+    expect(fs.existsSync(path.join(agents, 'retired-agent.md'))).toBe(skillsOnly);
+  });
+
   it('allows the migration prune when only the bulk install is recorded', async () => {
     const mod = await importDeployAgents();
     writeConfig({ all: { deployedTo: {} } });

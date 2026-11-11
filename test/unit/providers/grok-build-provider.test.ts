@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, win32 } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { load as loadYaml } from 'js-yaml';
 
 import {
   GROK_HOME_ENV,
@@ -16,6 +17,7 @@ import {
   normalizeProviderDefinitionId,
   validateProviderDefinitionRegistry,
 } from '../../../src/providers/provider-definitions.js';
+import { validateGrokInspectReport } from '../../../src/providers/grok-build-inspect.js';
 import { providerContextContract } from '../../../src/smiths/context-pipeline/workspace-context.js';
 import {
   deploySkills,
@@ -219,17 +221,40 @@ describe('grok-build writer dry-run', () => {
     expect(rendered).toContain('AIWG model role: coding');
     expect(rendered).not.toContain('model: sonnet');
     expect(rendered).not.toContain('model-tier:');
-    expect(rendered).toContain('tools: Bash, Read');
+    expect(rendered).toContain('AIWG model tier intent: standard');
+    expect(loadYaml(rendered.split('---')[1])).toEqual({ name: 'aiwg-model-coding-worker', description: 'Coding worker' });
     const actions = deployAgents([source], project, { dryRun: false, quiet: true, deployVersion: 'test' });
     expect(actions.some((action: { type: string }) => action.type === 'deploy')).toBe(true);
     expect(readFileSync(join(project, '.grok', 'agents', 'aiwg-model-coding-worker.md'), 'utf8')).toContain('Do the scoped task.');
-    expect(compileGrokAgent(source, readFileSync(source, 'utf8'), { codingModel: 'grok-build' })).toContain('model: "grok-build"');
+    expect(() => compileGrokAgent(source, readFileSync(source, 'utf8'), { codingModel: 'grok-4.6' })).toThrow(/-m/);
   });
 
-  it('rejects exact foreign model pins and unsupported tools with diagnostics', () => {
+  it('rejects exact agent model pins with CLI guidance', () => {
     const basic = '---\nname: aiwg-model-reasoning-worker\ndescription: Reasoning worker\nmodel-role: reasoning\ntools:\n  - Read\n---\n\nThink.\n';
     expect(() => compileGrokAgent('worker.md', basic.replace('model-role:', 'model: claude-opus-4-7\nmodel-role:'))).toThrow(/exact model pin/);
-    expect(() => compileGrokAgent('worker.md', basic.replace('  - Read', '  - SecretTool'))).toThrow(/unsupported Grok Build tool/);
+    expect(() => compileGrokAgent('worker.md', basic, { modelsConfig: { 'grok-build': { reasoning: { model: 'grok-4.6' } } } })).toThrow(/-m/);
+    expect(() => compileGrokAgent('worker.md', basic.replace('model-role:', 'model-override: grok-4.6\nmodel-role:'))).toThrow(/-m/);
+  });
+
+  it('compiles ordinary AIWG agents using the captured project-agent format', () => {
+    const captured = JSON.parse(readFileSync(join(repoRoot, 'test/fixtures/providers/grok-build/captured-20261110/native-agents.json'), 'utf8'));
+    expect(validateGrokInspectReport(captured, { agentNames: ['aiwg-capture-probe'] })).toEqual([]);
+    expect(captured.agents[0].source).toEqual({ type: 'project', path: '/project/.grok/agents/aiwg-capture-probe.md' });
+    expect(captured.probes.map((probe: { sessionModel: string }) => probe.sessionModel)).toEqual(['grok-4.7', 'grok-4.7']);
+    const source = '---\nname: Test Engineer\ndescription: Tests scoped changes\nmodel: sonnet\nmodel-role: coding\nmodel-tier: standard\ntools: Read, MultiEdit, WebFetch\n---\n\nKeep this complete prompt.\n';
+    const rendered = compileGrokAgent('test-engineer.md', source);
+    expect(loadYaml(rendered.split('---')[1])).toEqual({ name: 'test-engineer', description: 'Tests scoped changes' });
+    expect(rendered).toContain('Keep this complete prompt.');
+    expect(rendered).toContain('AIWG model role: coding');
+    expect(rendered).toContain('AIWG model tier intent: standard');
+    expect(rendered).toContain('frontmatter model is ignored');
+    expect(rendered).toContain('-m');
+    const project = temporaryRoot('aiwg-grok-general-agent-');
+    const file = join(project, 'test-engineer.md');
+    writeFileSync(file, source);
+    deployAgents([file], project, { quiet: true, deployVersion: 'test' });
+    expect(readFileSync(join(project, '.grok/agents/test-engineer.md'), 'utf8')).toContain('Keep this complete prompt.');
+    expect(uninstall(project, { srcRoot: repoRoot, dryRun: false }).removed).toContain('.grok/agents/test-engineer.md');
   });
 
   it('creates AGENTS.md bridge mentioning discover/show and GROK_HOME', () => {
@@ -242,7 +267,7 @@ describe('grok-build writer dry-run', () => {
     expect(agents).toContain('.grok/skills');
     expect(agents).not.toContain('.cursor');
     expect(agents).toContain('distinct from Grok Bot');
-    expect(agents).toContain('qualified reasoning, coding, and efficiency');
+    expect(agents).toContain('frontmatter model is ignored');
   });
 
   it('deploys kernel skills to .grok/skills and leaves standard index-driven', () => {
@@ -288,7 +313,7 @@ describe('grok-build writer dry-run', () => {
 });
 
 describe('grok-build kernel-only dry-run', () => {
-  it('plans far fewer than the full corpus under --kernel-only', () => {
+  it.each([false, true])('limits skills while retaining agents unless --skills-only is explicit (%s)', skillsOnly => {
     const target = temporaryRoot('aiwg-grok-kernel-only-');
     const result = spawnSync(
       process.execPath,
@@ -300,14 +325,18 @@ describe('grok-build kernel-only dry-run', () => {
         '--dry-run',
         '--quiet',
         '--kernel-only',
+        ...(skillsOnly ? ['--skills-only'] : []),
       ],
-      { cwd: repoRoot, encoding: 'utf8', timeout: 120_000 },
+      { cwd: repoRoot, encoding: 'utf8', timeout: 120_000,
+        env: { ...process.env, HOME: target, USERPROFILE: target, GROK_HOME: join(target, '.grok-home') } },
     );
     expect(result.status).toBe(0);
     const out = `${result.stdout || ''}${result.stderr || ''}`;
     const skillLines = out.split('\n').filter((line) =>
       // #3471 uses the shared transaction planner for kernel rule delivery.
       line.includes('[dry-run] Would write') && line.endsWith('/SKILL.md') && line.includes('.grok/skills/'));
+    expect(out.includes('.grok/agents/test-engineer.md')).toBe(!skillsOnly);
+    expect(out.includes('.grok/agents/aiwg-model-coding-worker.md')).toBe(!skillsOnly);
     // Full corpus was ~525; kernel-only should be the kernel set (tens, not hundreds).
     expect(skillLines.length).toBeGreaterThan(0);
     expect(skillLines.length).toBeLessThan(80);

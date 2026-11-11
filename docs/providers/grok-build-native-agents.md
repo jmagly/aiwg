@@ -1,35 +1,44 @@
 # Grok Build native agents and automation (#2577)
 
-The 2026-11-09 and 2026-11-10 Grok Build 1.0.77 captures establish the headless,
-ACP frame and standalone-copy contracts below. Tests replay sanitized captures
+The 2026-11-09 and 2026-11-10 Grok Build 1.0.77 captures establish project-agent
+discovery, ignored model frontmatter, headless, ACP frame and standalone-copy contracts below. Tests replay sanitized captures
 offline. The provider stays experimental; live ACP dispatch qualification and
 combined fan-out flag enforcement remain deferred.
 
 | Matrix claim | Evidence and disposition for 1.0.77 |
 |---|---|
-| Headless transport | [Captured shape fixtures](../../test/fixtures/providers/grok-build/headless-1.0.77/README.md), replayed by [headless tests](../../test/unit/providers/grok-build-headless.test.ts): successful streaming-json; cancelled JSON and message stream; synthetic plain, success, truncation, error, timeout, abort and background-process vectors. No new model runs. |
+| Headless transport | [Captured shape fixtures](https://github.com/jmagly/aiwg/blob/main/test/fixtures/providers/grok-build/headless-1.0.77/README.md), replayed by [headless tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-headless.test.ts): successful streaming-json; cancelled JSON and message stream; synthetic plain, success, truncation, error, timeout, abort and background-process vectors. No new model runs. |
 | `agent_teams: false` | Unverified: needs native team creation, communication and teardown capture. Independent tools/subagents do not establish teams. |
 | `tasks: false` | Unverified: needs native background task submission, status, completion and cancellation capture. Regression test “does not advertise native background tasks from headless tool events” keeps routing conservative. |
 | `cron: false` / loops | Unverified: needs recurring execution and cancellation capture; neither follows from background tasks. |
 | `mission_control: false` | Unverified: needs native mission lifecycle capture. `aiwg-mc` emulation names AIWG orchestration, not a Grok native capability. |
-| `daemon: false`, unsupported tier | Deferred: resident lifecycle is unverified. [ACP tests](../../test/unit/providers/grok-build-acp.test.ts) replay initialize/authMethods, logged-in session creation amid `_x.ai/*` notifications, prompt completion with `_meta` usage, cancellation and compact/summary notifications. Frame replay does not qualify live ACP dispatch. |
-| `mcp: true` | [Native integration tests](../../test/unit/providers/grok-build-native-integration.test.ts) cover AIWG TOML rendering, ownership and fake inspect/doctor behavior. Live server connection and tool execution remain unverified by these captures. |
+| `daemon: false`, unsupported tier | Deferred: resident lifecycle is unverified. [ACP tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-acp.test.ts) replay initialize/authMethods, logged-in session creation amid `_x.ai/*` notifications, prompt completion with `_meta` usage, cancellation and compact/summary notifications. Frame replay does not qualify live ACP dispatch. |
+| `mcp: true` | [Native integration tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-native-integration.test.ts) cover AIWG TOML rendering, ownership and fake inspect/doctor behavior. Live server connection and tool execution remain unverified by these captures. |
 | `behaviors: false` | Unverified: needs native registration, trigger and execution capture. |
-| Agent paths and role compilation | [Writer tests](../../test/unit/providers/grok-build-provider.test.ts) cover local role/body/tool mapping and rejected foreign pins. Native `.grok/agents/` and `$GROK_HOME/agents/` loading/frontmatter need an inspect plus execution capture before qualification. |
-| Context, rules and skills paths | Writer and [inspect tests](../../test/unit/providers/grok-build-inspect.test.ts) cover AIWG files. Supplied trusted/untrusted inspect captures establish AGENTS.md and rules loading; nested precedence and cross-agent mirrors remain unverified here. |
-| Parallelism | [Headless tests](../../test/unit/providers/grok-build-headless.test.ts) replay default permission cancellations and the `workflow` bypass with two child ownership records. [Dispatch tests](../../test/unit/providers/grok-build-dispatch.test.ts) test cap-one headless/ACP argv and shared admission slots. [Direct profile tests](../../test/conformance/orchestration-v1/grok-build-direct.test.ts) assert both guards in profile and rendered argv. Combined live enforcement is unverified. |
-| Native worktrees | [Dispatch tests](../../test/unit/providers/grok-build-dispatch.test.ts) parse captured `grok worktree list --json` ownership/recovery metadata and compare unchanged Git worktree listings. Native `-w` creates standalone copies, distinct from AIWG's tested detached Git worktrees. Native dispatch/recovery automation is deferred. |
-| Headless permissions | [Headless tests](../../test/unit/providers/grok-build-headless.test.ts) assert captured cancellations of `spawn_subagent` and `workflow`: “a headless run cannot ask for approval”. `--allow spawn_subagent` did not cover them; `--permission-mode auto` ran them. AIWG retains its permission defaults. |
+| Agent paths and role compilation | [Writer tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-provider.test.ts) replay [set-b excerpts](https://github.com/jmagly/aiwg/blob/main/test/fixtures/providers/grok-build/captured-20261110/native-agents.json): `grok inspect` lists `.grok/agents/*.md` as `source.type: project`; valid and invalid frontmatter model pins leave the session on its default model. AIWG emits only `name`, `description` and a body prompt. [Use integration](https://github.com/jmagly/aiwg/blob/main/test/integration/grok-build-use.test.ts) tests full deployment and `$GROK_HOME/agents/` mirroring offline; native user-agent discovery remains unverified. |
+| Context, rules and skills paths | Writer and [inspect tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-inspect.test.ts) cover AIWG files. Supplied trusted/untrusted inspect captures establish AGENTS.md and rules loading; nested precedence and cross-agent mirrors remain unverified here. |
+| Parallelism | [Headless tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-headless.test.ts) replay default permission cancellations and the `workflow` bypass with two child ownership records. [Dispatch tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-dispatch.test.ts) test cap-one headless/ACP argv and shared admission slots. [Direct profile tests](https://github.com/jmagly/aiwg/blob/main/test/conformance/orchestration-v1/grok-build-direct.test.ts) assert both guards in profile and rendered argv. Combined live enforcement is unverified. |
+| Native worktrees | [Dispatch tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-dispatch.test.ts) parse captured `grok worktree list --json` ownership/recovery metadata and compare unchanged Git worktree listings. Native `-w` creates standalone copies, distinct from AIWG's tested detached Git worktrees. Native dispatch/recovery automation is deferred. |
+| Headless permissions | [Headless tests](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-headless.test.ts) assert captured cancellations of `spawn_subagent` and `workflow`: “a headless run cannot ask for approval”. `--allow spawn_subagent` did not cover them; `--permission-mode auto` ran them. AIWG retains its permission defaults. |
 | Other row fields | Experimental status, mixed deployment, full-inject hook fallback, no hook file, no @ links and no aggregated output are AIWG configuration choices covered by writer tests; native equivalents are unverified. Model/effort pinning in route feasibility remains unverified by these captures. |
 
-AIWG's existing writer deploys three model-worker roles to `.grok/agents/`: reasoning,
-coding, and efficiency. Native discovery of this mapping is unverified here.
-Other AIWG roles stay available through `aiwg discover` and `aiwg show agent`
-until their tool and frontmatter mappings are qualified. The writer preserves
-AIWG role intent in the agent body. Without a discovered, explicitly configured
-Grok model for a role, it omits `model` and the agent inherits the parent model.
-An exact foreign model pin or unsupported tool mapping fails with a diagnostic
-instead of silently broadening the agent's permissions.
+`aiwg use all --provider grok-build` deploys ordinary AIWG agents and all five
+model wrappers to `.grok/agents/`. Framework, addon and direct-bundle sources
+use the existing collectors and respect agent filters. `--scope user` also
+mirrors them to `$GROK_HOME/agents/`; that mirror is tested offline.
+Bulk mode limits skills to the kernel without suppressing native agents; an
+explicit `--skills-only` still skips agents.
+
+Role/tier intent and the complete prompt are preserved in the body.
+Grok Build 1.0.77 ignores frontmatter `model:` even for an invalid value.
+AIWG therefore emits no agent model pins, tools or effort controls. Exact
+source pins, `model-override`, and configured role-model pins fail with guidance
+to use CLI `-m` in worker invocations. Portable aliases such as `sonnet` retain
+role intent only. [Worker matrix tests](https://github.com/jmagly/aiwg/blob/main/test/integration/model-worker-provider-matrix.test.ts)
+cover Grok's inherited degradation; [direct profile tests](https://github.com/jmagly/aiwg/blob/main/test/conformance/orchestration-v1/grok-build-direct.test.ts)
+keep explicit model selection on worker argv.
+Prompt instructions, including explorer/verifier read-only boundaries, do not
+enforce native tool permissions. Native tool allowlists remain unverified.
 
 The AIWG headless transport invokes `grok --no-auto-update -p <prompt>
 --output-format streaming-json` by default. It also parses `plain`, `json`, and
@@ -43,7 +52,7 @@ stream event, including one without a trailing newline, so background work canno
 hang the caller. Complete single JSON results also start a bounded drain; plain
 output requires process exit or the hard timeout. Cleanup escalates TERM to KILL.
 The separate ACP client uses `grok --no-auto-update agent stdio`. The
-[2026-11-10 fixtures](../../test/fixtures/providers/grok-build/captured-20261110/README.md)
+[2026-11-10 fixtures](https://github.com/jmagly/aiwg/blob/main/test/fixtures/providers/grok-build/captured-20261110/README.md)
 advertise `cached_token` and `grok.com`; an already logged-in session proceeds
 straight to `session/new` when `_meta.defaultAuthMethodId` is `cached_token`.
 Explicit `xai.api_key` selection remains synthetic: it requires `XAI_API_KEY`

@@ -615,11 +615,15 @@ providers:
     # ACP authMethods, logged-in session/new amid _x.ai/* notifications, end_turn
     # _meta usage, compact/summary notifications and cancelled/MidTurnAbort are
     # fixture-backed in grok-build-acp.test.ts; live ACP dispatch remains deferred.
-    # Agent compilation/native frontmatter and resident lifecycle remain unverified.
+    # 2026-11-10 set-b: project .grok/agents/*.md discovery and ignored model pins
+    # replayed by grok-build-provider.test.ts with captured-20261110/native-agents.json.
+    # Only name/description frontmatter is emitted; role/tier intent lives in the
+    # body, not model pins. User-scope mirroring is offline-tested in grok-build-use.test.ts.
+    # Resident lifecycle remains unverified.
     daemon_tier: unsupported
     daemon_pty_adapter: false
     artifact_paths:
-      agents: .grok/agents/  # writer path; native frontmatter unverified by captures
+      agents: .grok/agents/  # captured project discovery; grok-build-provider.test.ts
       commands: null
       skills: .grok/skills/
       skills_cross_agent: .grok/.aiwg/skills/  # --copy-all opt-in mirror

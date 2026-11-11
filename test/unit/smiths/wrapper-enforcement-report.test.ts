@@ -31,8 +31,8 @@ describe('per-provider wrapper enforcement report', () => {
     const text = await report(['claude', 'codex', 'grok-build', 'hermes']);
     expect(text.match(/Tier enforcement \(generated wrapper defaults\):/g)).toHaveLength(4);
     expect(text).toContain('CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 can override pins');
-    expect(text).toContain('gated by #2577');
-    expect(text).toContain('Not enforced');
+    expect(text).toContain('Grok Build 1.0.77: frontmatter model is ignored; agents inherit the session model');
+    expect(text).toContain('role/tier intent is informational');
     expect(text).toContain('global-only');
     expect(text).toContain('Explicit operator pins are preserved where supported');
   });

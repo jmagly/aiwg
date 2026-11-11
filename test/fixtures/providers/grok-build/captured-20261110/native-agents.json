@@ -1,0 +1,25 @@
+{
+  "grokVersion": "1.0.77",
+  "agents": [
+    {
+      "name": "aiwg-capture-probe",
+      "description": "Capture probe for native agent discovery. Replies with a fixed token.",
+      "source": {
+        "type": "project",
+        "path": "/project/.grok/agents/aiwg-capture-probe.md"
+      }
+    }
+  ],
+  "probes": [
+    {
+      "capture": "agent-probe.out",
+      "frontmatterModel": "grok-4.6",
+      "sessionModel": "grok-4.7"
+    },
+    {
+      "capture": "agent-probe-badmodel.out",
+      "frontmatterModel": "invalid-model",
+      "sessionModel": "grok-4.7"
+    }
+  ]
+}

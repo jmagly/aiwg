@@ -2602,7 +2602,7 @@
       "skill": "inherited",
       "globalChild": "native",
       "identifierSyntax": "Provider-local alias from grok inspect and $GROK_HOME config; distinct from API model id",
-      "inheritance": "Agent and skill roles resolve through the session model unless a validated Grok Build alias is selected",
+      "inheritance": "Agents inherit the session model: Grok Build 1.0.77 ignores agent frontmatter model. AIWG role/tier intent is informational; select worker models with CLI -m. Fixture-backed test: test/unit/providers/grok-build-provider.test.ts. Skill roles inherit the session model.",
       "invalidPinFallback": "Report the unavailable alias; use the sole discovered model only when exactly one is available",
       "configTarget": "$GROK_HOME/config.toml [models] and [model.<alias>] (read-only discovery)",
       "artifactFormat": "Grok Build model alias",

@@ -20,7 +20,7 @@ of a running worker. Provider or account policy can substitute a model.
 | Hermes | global-only, delegation configuration | not enforced |
 | Grokbot | global-only; no verified AIWG-owned model setting | not enforced |
 | Muse | global-only, session `--model` or `settings.json` `model` | not enforced |
-| Grok Build | inherited; tier enforcement gated by #2577 | not enforced |
+| Grok Build | inherited: Grok Build 1.0.77 ignores agent frontmatter `model:`; select worker models with `-m` | not enforced |
 
 The native wrapper fields above are distinct from headless CLI invocation
 flags. A provider can support explicit CLI models without consuming model

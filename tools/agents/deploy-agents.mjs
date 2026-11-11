@@ -292,7 +292,8 @@ async function mainUnlocked(args, internal) {
     deployRules: !cfg.deferRuleProjection && (cfg.kernelOnly || cfg.deployRules),
     deployBehaviors: cfg.kernelOnly ? false : cfg.deployBehaviors,
     commandsOnly: cfg.commandsOnly,
-    skillsOnly: cfg.skillsOnly || cfg.kernelOnly,
+    // Grok bulk deployment includes native agents alongside kernel skills (#2577).
+    skillsOnly: cfg.skillsOnly || (cfg.kernelOnly && provider.name !== 'grok-build'),
     rulesOnly: cfg.rulesOnly,
     strict: cfg.strict,
     reportOnly: cfg.reportOnly,
@@ -392,7 +393,7 @@ async function mainUnlocked(args, internal) {
     // or removed (the flat-file analogue of the skills holistic prune). #1627.
     pruneStaleAiwgArtifacts(provider, cfg.target, srcRoot, opts, cfg.source);
 
-    if (!['claude', 'codex', 'cursor', 'hermes', 'warp', 'openclaw'].includes(provider.name) && !opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly) {
+    if (!opts.kernelOnly && !['claude', 'codex', 'cursor', 'hermes', 'warp', 'openclaw'].includes(provider.name) && !opts.commandsOnly && !opts.skillsOnly && !opts.rulesOnly) {
       const behaviorDirs = collectBehaviorDirs(srcRoot);
       const behaviorCount = deployEmulatedBehaviors(behaviorDirs, provider.name, cfg.target, opts);
       if (behaviorCount > 0 && !cfg.quiet) {

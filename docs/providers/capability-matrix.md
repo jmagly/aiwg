@@ -4,6 +4,14 @@ This page distinguishes provider-native features, AIWG-implemented features,
 and external integrations. The machine-readable source is
 `agentic/code/providers/capability-matrix.yaml`.
 
+Grok Build 1.0.77 project agents load from `.grok/agents/*.md`; AIWG deploys
+ordinary roles and model wrappers with `name`/`description` frontmatter and a
+body prompt. Agent `model:` is ignored, so role/tier intent is informational;
+worker model selection stays on CLI `-m`. The
+[fixture-backed writer test](https://github.com/jmagly/aiwg/blob/main/test/unit/providers/grok-build-provider.test.ts)
+and [native-agent evidence inventory](./grok-build-native-agents.md) record the
+observations and the remaining limits, including unverified user-agent discovery.
+
 ## Bring your own key
 
 > Use my OpenRouter key with Hermes, OpenCode, Factory Droid or Copilot CLI.
