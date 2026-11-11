@@ -1,26 +1,27 @@
-// Wait for newly published AIWG scans while preserving completed evidence and policy failures.
+// Wait for pending requested scans while preserving completed evidence and policy failures.
 import { fetchArtifacts } from './socket-post-publish-fetch.mjs'
 
 export const SOCKET_SCAN_WAIT_MS = 75 * 60_000
 const RELEASE_PACKAGES = ['pkg:npm/aiwg', 'pkg:npm/%40aiwg/cli', 'pkg:npm/%40aiwg/cockpit', 'pkg:npm/%40aiwg/flue']
-const PENDING_REASONS = new Set(['pendingScan', 'notFound'])
 
 // Socket may return encoded (%40aiwg) or decoded (@aiwg) PURLs; compare decoded forms.
 const normalize = purl => { try { return decodeURIComponent(String(purl)) } catch { return String(purl) } }
 
-function pendingReleasePurls(report, version) {
-  // Map each decoded release PURL to the canonical (queried) form used for re-queries.
-  const canonical = new Map(RELEASE_PACKAGES.map(base => `${base}@${encodeURIComponent(version)}`).map(purl => [normalize(purl), purl]))
-  const releasePurls = new Set(canonical.keys())
+function pendingRequestedPurls(report, components, version) {
+  // Map each decoded requested PURL to its canonical form for re-queries.
+  const canonical = new Map(components.map(({ purl }) => [normalize(purl), purl]))
+  const releasePurls = new Set(RELEASE_PACKAGES.map(base => normalize(`${base}@${encodeURIComponent(version)}`)))
   const unavailable = report.findings.unavailable
-  // Wait only while every unavailable entry is an exact-release AIWG PURL that Socket reports as
-  // pending. A Socket purlError also yields a missing-response entry for the same PURL; that is
-  // accepted only when the same PURL has an explicit pending reason.
-  const pending = new Set(unavailable.filter(item => PENDING_REASONS.has(item.reason)).map(item => normalize(item.purl)))
+  const isPending = item => canonical.has(normalize(item.purl)) && (
+    item.reason === 'pendingScan' || (item.reason === 'notFound' && releasePurls.has(normalize(item.purl)))
+  )
+  // Every unavailable entry must be explicitly pending; notFound remains retryable only for
+  // this release. Socket purlError records also produce missing-response entries, accepted
+  // only when the same requested PURL has an explicit pending reason.
+  const pending = new Set(unavailable.filter(isPending).map(item => normalize(item.purl)))
   const retryable = unavailable.length > 0 && unavailable.every(item => {
     const purl = normalize(item.purl)
-    if (!releasePurls.has(purl)) return false
-    if (PENDING_REASONS.has(item.reason)) return true
+    if (isPending(item)) return true
     return item.reason === 'missing-response' && pending.has(purl)
   })
   return retryable ? [...pending].map(purl => canonical.get(purl)) : []
@@ -74,7 +75,7 @@ export async function auditWithPendingScans({
       report.summary.unavailable = report.findings.unavailable.length
       if (report.status !== 'fail') report.status = 'unavailable'
     }
-    const pendingPurls = report.status === 'unavailable' && !error ? pendingReleasePurls(report, version) : []
+    const pendingPurls = report.status === 'unavailable' && !error ? pendingRequestedPurls(report, components, version) : []
     const queriedPurls = requested.filter(purl => !notQueriedPurls.includes(purl))
     const attempt = { attempt: attempts.length + 1, queriedPurls, evaluatedAt: new Date(now()).toISOString(), status: report.status, pendingPurls, nextRetryAt: null }
     attempts.push(attempt)

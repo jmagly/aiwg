@@ -7,6 +7,9 @@ const version = '2026.10.19'
 const root = { purl: `pkg:npm/aiwg@${version}`, depth: 'direct' }
 const cli = { purl: `pkg:npm/%40aiwg/cli@${version}`, depth: 'direct' }
 const third = { purl: 'pkg:npm/example@1.0.0', depth: 'transitive' }
+const cargo = { purl: 'pkg:cargo/example@1.0.0', depth: 'transitive' }
+const scoped = { purl: 'pkg:npm/%40example/client@1.0.0', depth: 'transitive' }
+const oldRelease = { ...root, purl: 'pkg:npm/aiwg@2026.10.17' }
 const baseline = {
   policy: { materialScoreDrop: 0.1, blockingSeverities: ['high', 'critical'] },
   packages: { aiwg: { scores: { quality: 1 } } },
@@ -34,6 +37,21 @@ function harness(respond: (attempt: number, purls: string[]) => unknown[]) {
 }
 
 describe('Socket published-scan retry', () => {
+  it.each([third, cargo, scoped, oldRelease])('retries requested pendingScan $purl while preserving completed evidence', async component => {
+    const decoded = decodeURIComponent(component.purl)
+    const completed = { ...ready(), alerts: [{ type: 'notice', severity: 'low' }] }
+    const clock = harness(attempt => attempt === 1 ? [completed, pending(decoded), pending(cli.purl)]
+      : attempt === 2 ? [purlError(decoded), ready(cli.purl)] : [ready(component.purl)])
+    const report = await auditWithPendingScans({ ...clock.options, components: [root, component, cli, component] })
+    expect(report.status).toBe('pass')
+    expect(clock.requests).toEqual([[root.purl, component.purl, cli.purl], [component.purl, cli.purl], [component.purl]])
+    expect(clock.sleeps).toEqual([60_000, 120_000])
+    expect(report.summary).toMatchObject({ componentsRequested: 3, componentsReturned: 3, unavailable: 0 })
+    expect(report.findings.direct).toHaveLength(1)
+    expect(report.scanWait).toMatchObject({ waitedMs: 180_000, purls: [component.purl, cli.purl], finalStatus: 'pass' })
+    expect(report.scanWait.attempts.map(attempt => attempt.pendingPurls)).toEqual([[component.purl, cli.purl], [component.purl], []])
+  })
+
   it.each(['pendingScan', 'notFound'])('retries an explicit %s release PURL and preserves completed evidence', async reason => {
     const artifact = { ...ready(third.purl), alerts: [{ type: 'notice', severity: 'low' }] }
     const clock = harness(attempt => attempt === 1 ? [pending(root.purl, reason), ready(cli.purl), artifact] : [ready()])
@@ -69,19 +87,19 @@ describe('Socket published-scan retry', () => {
     expect(clock.sleeps).toEqual([])
   })
 
-  it('bounds pending scans to 75 minutes and records every attempt on exhaustion', async () => {
-    const clock = harness(() => [pending()])
-    const report = await auditWithPendingScans({ ...clock.options, components: [root] })
+  it.each([root, third, cargo])('bounds pending scans for $purl to 75 minutes and records every attempt on exhaustion', async component => {
+    const clock = harness(() => [pending(component.purl)])
+    const report = await auditWithPendingScans({ ...clock.options, components: [component] })
     expect(report.status).toBe('unavailable')
     expect(clock.sleeps.reduce((sum, ms) => sum + ms, 0)).toBe(SOCKET_SCAN_WAIT_MS)
     expect(clock.sleeps.slice(0, 4)).toEqual([60_000, 120_000, 240_000, 300_000])
     expect(clock.sleeps.every(ms => ms <= 300_000)).toBe(true)
-    expect(report.scanWait).toMatchObject({ waitedMs: SOCKET_SCAN_WAIT_MS, purls: [root.purl], finalStatus: 'unavailable' })
-    expect(report.findings.unavailable).toEqual([{ purl: root.purl, reason: 'pendingScan' }])
+    expect(report.scanWait).toMatchObject({ waitedMs: SOCKET_SCAN_WAIT_MS, purls: [component.purl], finalStatus: 'unavailable' })
+    expect(report.findings.unavailable).toEqual([{ purl: component.purl, reason: 'pendingScan' }])
     expect(report.scanWait.attempts).toHaveLength(clock.requests.length)
     expect(clock.requests.length).toBeGreaterThan(10)
     report.scanWait.attempts.forEach((attempt, index) => {
-      expect(attempt).toMatchObject({ attempt: index + 1, queriedPurls: [root.purl], pendingPurls: [root.purl], status: 'unavailable' })
+      expect(attempt).toMatchObject({ attempt: index + 1, queriedPurls: [component.purl], pendingPurls: [component.purl], status: 'unavailable' })
       expect(Date.parse(attempt.nextRetryAt)).toBeLessThanOrEqual(Date.parse(report.scanWait.deadline))
     })
     expect(scanWaitMarkdown(report.scanWait)).toContain('Waited: 75 minutes')
@@ -93,8 +111,8 @@ describe('Socket published-scan retry', () => {
     { name: 'score regression', artifact: { ...ready(), name: 'aiwg', score: { quality: 0.5 } } },
     { name: 'validation error', artifact: { ...ready(), alerts: [{ type: 'notice', file: 123 }] } }
   ])('fails immediately on a $name alongside a pending scan', async ({ artifact }) => {
-    const clock = harness(() => [artifact, pending(cli.purl)])
-    const report = await auditWithPendingScans({ ...clock.options, components: [root, cli] })
+    const clock = harness(() => [artifact, pending(third.purl)])
+    const report = await auditWithPendingScans({ ...clock.options, components: [root, third] })
     expect(report.status).toBe('fail')
     expect(clock.requests).toHaveLength(1)
     expect(clock.sleeps).toEqual([])
@@ -103,7 +121,8 @@ describe('Socket published-scan retry', () => {
 
   it.each([
     { name: 'third-party notFound', components: [third], artifacts: [pending(third.purl, 'notFound')] },
-    { name: 'old AIWG version', components: [{ ...root, purl: 'pkg:npm/aiwg@2026.10.17' }], artifacts: [pending('pkg:npm/aiwg@2026.10.17')] },
+    { name: 'old AIWG version notFound', components: [oldRelease], artifacts: [pending(oldRelease.purl, 'notFound')] },
+    { name: 'unrequested pending scan', components: [root], artifacts: [ready(), pending(third.purl)] },
     { name: 'bare missing response', components: [root], artifacts: [] },
     { name: 'pending release plus a third-party miss', components: [root, third], artifacts: [pending(), pending(third.purl, 'notFound')] }
   ])('leaves $name unavailable without waiting', async ({ components, artifacts }) => {
@@ -201,8 +220,8 @@ describe('Socket published-scan retry', () => {
     expect(report.scanWait.attempts).toHaveLength(2)
   })
 
-  it('caps quota pacing during a scan retry at the shared scan deadline', async () => {
-    const clock = harness(() => [pending()])
+  it.each([root, third, cargo])('caps quota pacing for $purl at the shared scan deadline', async component => {
+    const clock = harness(() => [pending(component.purl)])
     let posts = 0
     const fetchImpl = async (url: URL | string, init?: { body?: string }) => {
       if (String(url).endsWith('/quota')) return { ok: true, json: async () => ({ nextWindowRefresh: new Date(clock.now() + 80 * 60_000).toISOString() }) } as never
@@ -210,15 +229,15 @@ describe('Socket published-scan retry', () => {
       if (posts > 1) return { ok: false, status: 429 } as never
       return clock.options.fetchImpl(url, init)
     }
-    const report = await auditWithPendingScans({ ...clock.options, fetchImpl, paceQuotaMs: 120 * 60_000, components: [root] })
+    const report = await auditWithPendingScans({ ...clock.options, fetchImpl, paceQuotaMs: 120 * 60_000, components: [component] })
     expect(report.status).toBe('unavailable')
     expect(report.scanWait.waitedMs).toBeLessThanOrEqual(SOCKET_SCAN_WAIT_MS)
     expect(clock.sleeps.every(ms => ms < 60 * 60_000)).toBe(true)
     expect(report.findings.unavailable[0].reason).toContain('HTTP 429')
   })
 
-  it('keeps the original quota deadline across successive scan retries', async () => {
-    const clock = harness(() => [pending()])
+  it.each([root, third, cargo])('keeps the original quota deadline across successive retries for $purl', async component => {
+    const clock = harness(() => [pending(component.purl)])
     const startedAt = clock.now()
     let posts = 0
     let quotaQueries = 0
@@ -230,10 +249,10 @@ describe('Socket published-scan retry', () => {
       }
       posts += 1
       if (posts === 1 || posts === 3) return clock.options.fetchImpl(url, init)
-      if (clock.now() >= startedAt + 7 * 60_000) return { ok: true, text: async () => JSON.stringify(ready()) } as never
+      if (clock.now() >= startedAt + 7 * 60_000) return { ok: true, text: async () => JSON.stringify(ready(component.purl)) } as never
       return { ok: false, status: 429 } as never
     }
-    const report = await auditWithPendingScans({ ...clock.options, fetchImpl, paceQuotaMs: 5 * 60_000, components: [root] })
+    const report = await auditWithPendingScans({ ...clock.options, fetchImpl, paceQuotaMs: 5 * 60_000, components: [component] })
     expect(report.status).toBe('unavailable')
     expect(clock.sleeps).toEqual([60_000, 185_000, 120_000, 1000, 2000, 3000])
     expect(report.scanWait.attempts).toHaveLength(3)
