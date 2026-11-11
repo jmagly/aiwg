@@ -90,6 +90,9 @@ describe('version launcher entrypoint', () => {
   });
 
   it.each([
+    { args: ['marketplace', 'search', 'design', '--plugins'], expected: true },
+    { args: ['market', 'search', 'design', '--plugins', '--json'], expected: true },
+    { args: ['marketplace', 'search', 'design'], expected: false },
     { args: ['memory', 'audit'], expected: true },
     { args: ['memory', 'plan', '--out', 'plan.json'], expected: true },
     { args: ['memory', 'apply', '--plan', 'plan.json', '--preview'], expected: true },

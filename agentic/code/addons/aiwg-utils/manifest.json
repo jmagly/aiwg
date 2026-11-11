@@ -143,7 +143,8 @@
     "context-firewall",
     "harness-memory-maintenance",
     "session-explore",
-    "session-harvest"
+    "session-harvest",
+    "plugin-search"
   ],
   "rules": [
     "no-attribution",

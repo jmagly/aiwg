@@ -1,0 +1,7 @@
+{
+  "name": "community",
+  "plugins": [
+    { "name": "ux-suite", "description": "UI/UX design community agents", "keywords": ["prototyping"] },
+    { "name": "unrelated", "description": "Database migration" }
+  ]
+}

@@ -4,6 +4,8 @@
 **Version:** 2026.2.0
 **Status:** Active
 
+Search across configured local marketplaces with the [plugin-search guide](plugin-search.md).
+
 ## Overview
 
 This guide documents the AIWG plugin marketplace distribution system for Claude Code. In AIWG vocabulary, a plugin is a marketplace delivery wrapper around an extension, addon, or framework payload. The marketplace provides pre-packaged, versioned wrappers that users can install with a single command.

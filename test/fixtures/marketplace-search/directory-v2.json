@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "fetchedAt": "2026-10-01T00:00:00Z",
+  "listings": [
+    {
+      "id": "plugin_studio",
+      "name": "UX Studio Display Name",
+      "summary": "UI/UX design implementation",
+      "release": { "version": "1.1.0" },
+      "source": { "type": "directory", "repository": { "url": "https://github.com/example/studio", "path": "plugins/ux-suite" } },
+      "checks": { "review": { "state": "done", "by": { "type": "anthropic" } } }
+    },
+    {
+      "id": "plugin_independent",
+      "name": "Independent UI/UX Design",
+      "summary": "UI/UX design for interfaces",
+      "source": { "type": "directory", "repository": { "url": "https://github.com/example/independent" } },
+      "checks": { "review": { "state": "done", "by": { "type": "partner" } } }
+    }
+  ],
+  "entryNames": { "plugin_studio": "ux-suite", "plugin_independent": "independent" },
+  "entryNameClaims": {
+    "plugin_studio": { "repositoryKey": "example/studio", "lastSeen": "2026-10-01T00:00:00Z" }
+  }
+}
