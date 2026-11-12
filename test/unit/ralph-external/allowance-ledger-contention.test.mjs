@@ -137,12 +137,13 @@ describe('pinned ledger directory operations', () => {
   });
 });
 
-// Open directory handles until one takes the released descriptor number from /proc/self/fd/<n>/.
+// Try to take the released descriptor number from /proc/self/fd/<n>/ with directory handles, so
+// the reuse case runs on every quiet run. Best effort: if another open in this process already
+// took <n> (CI run 103867), the number is reused anyway and expectHandleReleased covers that.
 async function occupyDescriptor(pinned, directory) {
   const wanted = Number(/\/proc\/self\/fd\/(\d+)/.exec(pinned)?.[1]);
   const handles = [];
   for (let i = 0; i < 64 && !handles.some(handle => handle.fd === wanted); i++) handles.push(await open(directory, 'r'));
-  expect(handles.map(handle => handle.fd)).toContain(wanted);
   return handles;
 }
 
