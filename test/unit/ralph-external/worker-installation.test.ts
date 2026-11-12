@@ -462,7 +462,13 @@ describe('T-OG-10/17 synthetic forbidden effects for every enabled profile and p
     const expected = { writes: ['allowed', 'denied', 'denied'], endpointDecisions: ['denied', 'denied', 'allowed'], connectionsEstablished: 0,
       socketAttempts: [{ endpoint: 'tcp://127.0.0.1:1', outcome: expect.stringMatching(/^(ECONNREFUSED|EPERM|EACCES)$/) }] };
     if (transport === 'shell') {
-      await exec('/bin/sh', ['-c', prepared.shellCommand], { cwd: f.cwd, timeout: 5_000, env: f.request.environment });
+      // Since #4106 the rendered command starts a Node capture wrapper before the worker, so a
+      // loaded CI host needs more than 5 s (CI run 103915). Stay under the 30 s test timeout and report the cause.
+      try { await exec('/bin/sh', ['-c', prepared.shellCommand], { cwd: f.cwd, timeout: 20_000, env: f.request.environment }); }
+      catch (error: any) {
+        const stderr = await readFile(path.join(f.cwd, 'stderr'), 'utf8').catch(() => '<no stderr file>');
+        throw new Error(`shell handoff failed: code=${error.code} signal=${error.signal} killed=${error.killed}; stderr: ${stderr.slice(0, 2000)}`);
+      }
       expect(JSON.parse(await readFile(recordPath, 'utf8'))).toMatchObject({ scenarioId, permissions: expected });
     } else {
       const child = spawn(f.request.executable, [...flags, mcp], { cwd: f.cwd, env: f.request.environment, stdio: 'pipe' });
