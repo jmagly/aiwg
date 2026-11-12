@@ -81,7 +81,10 @@ describe('pinned ledger directory operations', () => {
       });
       expect(await readFile(join(moved, 'attempt-1'), 'utf8')).toBe('owned');
       await expect(lstat(join(outside, 'attempt-1'))).rejects.toMatchObject({ code: 'ENOENT' });
-      await expect(lstat(pinned)).rejects.toMatchObject({ code: 'ENOENT' });
+      // The pinned chain directory now lives at `moved`. Its descriptor number may be reused by
+      // another open (CI run 103829 saw a directory there), so occupy it deterministically.
+      const handles = await occupyDescriptor(pinned, outside);
+      try { await expectHandleReleased(pinned, moved); } finally { for (const handle of handles) await handle.close(); }
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
@@ -133,6 +136,15 @@ describe('pinned ledger directory operations', () => {
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 });
+
+// Open directory handles until one takes the released descriptor number from /proc/self/fd/<n>/.
+async function occupyDescriptor(pinned, directory) {
+  const wanted = Number(/\/proc\/self\/fd\/(\d+)/.exec(pinned)?.[1]);
+  const handles = [];
+  for (let i = 0; i < 64 && !handles.some(handle => handle.fd === wanted); i++) handles.push(await open(directory, 'r'));
+  expect(handles.map(handle => handle.fd)).toContain(wanted);
+  return handles;
+}
 
 async function expectHandleReleased(pinned, root) {
   const rootInode = (await stat(root)).ino;
