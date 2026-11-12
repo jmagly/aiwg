@@ -144,6 +144,10 @@ describe('T-OG-01 conductor worker integration gate (#4116)', () => {
       `cat tee ${tree}/answer.json README.md`,
       'cp trusted.json answer.json', `cp ${tree}/answer.json ${tree}/review.json`,
       `aiwg ralph-external --verify-worker --run-dir /private/run --artifact ${tree}/answer.json --deliverable ${root}/answer.json --check '{}'`,
+      // #4122: saving AIWG's own resolve output is not a worker-byte transfer, even when it names worker paths.
+      `aiwg models resolve --brief ${tree}/.handoff/brief.md --workdir ${tree} --final-output ${tree}/.handoff/final-1.json --format json > ${root}/plan-1.json`,
+      `aiwg models resolve --brief ${tree}/.handoff/brief.md --workdir ${tree} --format json | tee ${root}/plan-1.json`,
+      `cd ${tree} && aiwg models resolve --brief .handoff/brief.md --workdir ${tree} --format json > ${root}/plan-1.json`,
     ]) expect(conductorToolDenial(tool(command, root), root, []), command).toBeNull();
     expect(conductorToolDenial(tool(`cp ${tree}/answer.json answer.json`, root), root, [], [])).toBeNull();
   });

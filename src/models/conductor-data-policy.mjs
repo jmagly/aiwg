@@ -248,9 +248,11 @@ function workerExecution(command, initialCwd, trees, depth = 0) {
       name = basename(words[index]?.value ?? '');
     }
     const args = words.slice(index + 1).map(word => word.value);
-    const workerSource = pipedSource || words.some((word, cursor) => !word.operator
+    // AIWG's own output (resolve plans, status JSON) is product output even when its
+    // arguments name worker-tree paths; only worker file bytes are transfer sources (#4122).
+    const workerSource = name !== 'aiwg' && (pipedSource || words.some((word, cursor) => !word.operator
       && (untrusted(word.value) || globReferences(word, cwd, protectedTrees))
-      && !['>', '>>'].includes(words[cursor - 1]?.value));
+      && !['>', '>>'].includes(words[cursor - 1]?.value)));
     pipedSource = pipe && workerSource;
     if (name === 'cd') {
       const target = args.find(arg => arg !== '--' && arg !== '-P' && arg !== '-L');
