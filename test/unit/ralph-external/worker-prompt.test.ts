@@ -23,6 +23,23 @@ function assertContract(text: string) {
 }
 
 describe('worker launch final-output preamble', () => {
+  it('#4113 shows a schema-valid item for every array a worker may fill', () => {
+    const text = workerPromptBrief('Task body', finalPath).toString();
+    const item = (prefix: string) => {
+      const line = text.split('\n').find(candidate => candidate.startsWith(prefix));
+      expect(line, prefix).toBeDefined();
+      return JSON.parse(line!.replace('<64 lowercase hex characters>', 'a'.repeat(64)));
+    };
+    const base = JSON.parse(text.split('\n').find(line => line.startsWith('{"version":'))!);
+    const payload = { ...base, claims: [item('{"id":')], artifacts: [item('{"path":')], checks: [item('{"checkId":')],
+      limitations: ['Synthetic task only'] };
+    expect(validateWorkerPayload('workerClaims', payload)).toMatchObject({ valid: true });
+    // The #2918 Amendment 10 smoke worker wrote claims and checks as strings; that must stay invalid.
+    expect(validateWorkerPayload('workerClaims', { ...payload, claims: ['Wrote the final'], checks: ['JSON valid'] }))
+      .toMatchObject({ valid: false });
+    expect(text).toContain('Each limitation is a plain string');
+  });
+
   it('#4073 reloads only the bound CLI for framing and retains adapter, scope and brief checks', async () => {
     const workspace = await mkdtemp(path.join(os.tmpdir(), 'aiwg-bound-worker-frame-')); roots.push(workspace);
     const filename = path.join(workspace, 'brief.md');
