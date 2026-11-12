@@ -628,7 +628,7 @@ CORE TOOLS (19, always registered):
   aiwg_authorization_grant_lookup   Read-only list/search/explain of signed grants
   aiwg_authorization_grant_request  Save a bounded grant only after native form confirmation
 
-OPT-IN TOOLSETS (71 additional tools, including explicit workers):
+OPT-IN TOOLSETS (72 additional tools, including explicit workers):
   flows          flow-list / flow-show / flow-run
   missions       mission-guide / mission-dispatch / mission-status / worker-resolve
   memory         memory-* and reflections-* storage operations
@@ -641,7 +641,7 @@ OPT-IN TOOLSETS (71 additional tools, including explicit workers):
   ops            status / list / use / push
   sandbox        fleet inventory / mutation / reconciliation and governed activity
   decision       validation / evaluation / rules / features / calibration
-  workers        worker-invoke (explicit opt-in; all excludes workers)
+  workers        worker-invoke, worker-verify-deliver (explicit opt-in; all excludes workers)
 
 Enable opt-in tools:
   AIWG_MCP_TOOLSETS=flows,missions,memory,kb,ralph,sandbox aiwg mcp serve
