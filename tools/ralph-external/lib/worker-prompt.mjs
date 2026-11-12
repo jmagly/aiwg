@@ -10,9 +10,9 @@ Allowed status: completed, partial, blocked, failed. Keep all seven fields; add 
 Put the answer in summary or a separate task artifact. For each listed artifact use
 {"path":"answer.json","digest":"sha256:<64 lowercase hex characters>","change":"created"}
 with a real digest and a file beneath the worker tree. Each claim and check is an object, never a string:
-{"id":"claim-1","text":"What you did or found","evidence":[]}
+{"id":"claim-1","text":"What you did or found","evidence":[{"ref":"answer.json","digest":"sha256:<64 lowercase hex characters>"}]}
 {"checkId":"check-1","exitCode":0,"evidence":{"ref":"answer.json","digest":"sha256:<64 lowercase hex characters>"},"environment":"worker tree"}
-Each limitation is a plain string. Empty collections are allowed.
+Evidence items use "ref", not "path". Each limitation is a plain string. Empty collections are allowed.
 Keep this JSON separate from stdout, stderr and last-message captures. A file at the worker-tree root
 does not satisfy a different declared final-output path. Worker claims remain unverified.
 

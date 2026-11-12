@@ -28,7 +28,7 @@ describe('worker launch final-output preamble', () => {
     const item = (prefix: string) => {
       const line = text.split('\n').find(candidate => candidate.startsWith(prefix));
       expect(line, prefix).toBeDefined();
-      return JSON.parse(line!.replace('<64 lowercase hex characters>', 'a'.repeat(64)));
+      return JSON.parse(line!.replaceAll('<64 lowercase hex characters>', 'a'.repeat(64)));
     };
     const base = JSON.parse(text.split('\n').find(line => line.startsWith('{"version":'))!);
     const payload = { ...base, claims: [item('{"id":')], artifacts: [item('{"path":')], checks: [item('{"checkId":')],
@@ -38,6 +38,11 @@ describe('worker launch final-output preamble', () => {
     expect(validateWorkerPayload('workerClaims', { ...payload, claims: ['Wrote the final'], checks: ['JSON valid'] }))
       .toMatchObject({ valid: false });
     expect(text).toContain('Each limitation is a plain string');
+    // #2918 Amendment 10b direct-02: a worker copied the artifact {path, digest} shape into claim evidence.
+    expect(payload.claims[0].evidence).toHaveLength(1);
+    const pathEvidence = { ...payload, claims: [{ ...payload.claims[0], evidence: [{ path: 'answer.json', digest: `sha256:${'a'.repeat(64)}` }] }] };
+    expect(validateWorkerPayload('workerClaims', pathEvidence)).toMatchObject({ valid: false });
+    expect(text).toContain('Evidence items use "ref", not "path"');
   });
 
   it('#4073 reloads only the bound CLI for framing and retains adapter, scope and brief checks', async () => {
