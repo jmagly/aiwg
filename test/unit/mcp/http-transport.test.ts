@@ -196,3 +196,17 @@ it('cleans up a warm server if the loopback port is already occupied', async () 
   expect(service.listener.listening).toBe(true);
   await session();
 });
+
+it('refuses remote workers HTTP binds even with the general remote override', async () => {
+  await expect(startHttpServer({ host: '0.0.0.0', allowRemoteBind: true, toolsets: 'workers' })).rejects.toThrow('localhost');
+});
+
+it('advertises the narrow verify-and-deliver endpoint on authenticated workers HTTP', async () => {
+  await launch(['--toolsets', 'workers', '--tools', 'worker-verify-deliver']);
+  const id = await session();
+  const listed = await request({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, { 'Mcp-Session-Id': id });
+  expect(listed.status).toBe(200);
+  expect(listed.text).toContain('"name":"worker-verify-deliver"');
+  expect(listed.text).not.toContain('"name":"worker-invoke"');
+  expect(listed.text).not.toContain('"name":"artifact-write"');
+});

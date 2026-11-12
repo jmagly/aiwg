@@ -156,6 +156,7 @@
  * @issues #2892, #2896 (review reference, not reused as-is)
  */
 
+import { registerWorkerVerifyDeliverTool } from './worker-verify-deliver.mjs';
 import { workerFailureDiagnostics } from './worker-failure-diagnostics.mjs';
 import { signalChild } from '../../process/signal-child.mjs';
 import { z } from 'zod';
@@ -1661,6 +1662,10 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
     return;
   }
   const servedRootReal = await resolveServedProjectRoot(options.projectRoot);
+  registerWorkerVerifyDeliverTool(server, { projectRoot: servedRootReal,
+    assertPath: candidate => assertServedPath(servedRootReal, candidate),
+    verify: async input => (await loadRalphExternal('lib/worker-verification-cli.mjs')).verifyWorkerRun(input),
+  });
   await sweepWorkerStdin(options.stdinRuntimeRoot);
   // Pinned once, here, at registration — never re-resolved per request, and
   // never re-derived from `process.cwd()` (#2892 B1).

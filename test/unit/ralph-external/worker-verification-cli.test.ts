@@ -41,11 +41,11 @@ function fixture(mode = 'enforced') {
     writeFileSync(path.join(clients, command), `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(path.join(clients, 'client.mjs'))} "$@"\n`, { mode: 0o700 });
   }
   const check = (code = 'console.log("checked")') => JSON.stringify({ id: 'unit', command: process.execPath, args: ['-e', code] });
-  const invoke = (extra: string[] = ['--check', check()]) => {
-    const result = spawnSync(process.execPath, ['--import', inputsFixture, path.join(repo, 'tools/ralph-external/index.mjs'),
-      '--verify-worker', '--run-dir', run, '--json', ...extra], {
+  const invoke = (extra: string[] = ['--check', check()], mcp = false) => {
+    const result = spawnSync(process.execPath, ['--import', inputsFixture, path.join(repo, mcp ? 'test/fixtures/ralph-external/mcp-verify-deliver.mjs' : 'tools/ralph-external/index.mjs'),
+      '--verify-worker', ...(extra.includes('--delivery-status') ? [] : ['--run-dir', run]), '--json', ...extra], {
       cwd: worktree, timeout: 15_000, encoding: 'utf8',
-      env: { HOME: root, PATH: clients + path.delimiter + process.env.PATH, AIWG_RESOLVE_IMPL_FROM: 'dist' },
+      env: { NODE_ENV: 'test', AIWG_EFFECT_LEDGER_TEST_KEY: '42'.repeat(32), HOME: root, PATH: clients + path.delimiter + process.env.PATH, AIWG_RESOLVE_IMPL_FROM: 'dist' },
     });
     expect(result.error).toBeUndefined();
     expect(result.stdout, result.stderr).not.toBe('');
@@ -77,7 +77,11 @@ describe('T-OG-04 installed CLI trusted verification', () => {
     const result = f.invoke(['--check', f.check(), '--deliverable', deliverable]);
     expect(result.status, result.stderr).toBe(0);
     expect(result.output.status).toBe('accepted');
+    expect(result.output.deliveryRecord).toMatchObject({ phase: 'completed', recordHash: expect.stringMatching(/^sha256:/) });
     expect(readFileSync(deliverable)).toEqual(readFileSync(f.artifact));
+    expect(f.invoke(['--delivery-status', '--deliverable', deliverable]).output).toMatchObject({ verified: true, invocationId: 'previous-1' });
+    writeFileSync(deliverable, 'later edit');
+    expect(f.invoke(['--delivery-status', '--deliverable', deliverable]).output.verified).toBe(false);
   });
 
   it.each(['unavailable', 'enforced'])('never delivers a non-accepted artifact (%s)', mode => {
@@ -86,6 +90,26 @@ describe('T-OG-04 installed CLI trusted verification', () => {
     const result = f.invoke(['--check', f.check('process.exit(7)'), '--deliverable', deliverable]);
     expect(result.output.status).toBe(mode === 'unavailable' ? 'blocked' : 'rejected');
     expect(existsSync(deliverable)).toBe(false);
+  });
+
+  it.each(['accepted', 'rejected', 'blocked'])('MCP delivery publishes and records only accepted bytes (%s)', status => {
+    const f = fixture(status === 'blocked' ? 'unavailable' : 'enforced');
+    const deliverable = path.join(f.root, 'answer.json');
+    writeFileSync(deliverable, 'previous');
+    const result = f.invoke(['--check', f.check(status === 'rejected' ? 'process.exit(7)' : 'console.log("check")'), '--deliverable', deliverable], true);
+    expect(result.output).toMatchObject({ status });
+    expect(readFileSync(deliverable, 'utf8')).toBe(status === 'accepted' ? readFileSync(f.artifact, 'utf8') : 'previous');
+    if (status === 'accepted') expect(result.output.deliveryRecord.phase).toBe('completed');
+    else expect(result.output.deliveryRecord).toBeUndefined();
+  });
+
+  it('MCP delivery refuses a source changed after acceptance and before publish', () => {
+    const f = fixture(), deliverable = path.join(f.root, 'answer.json');
+    writeFileSync(deliverable, 'previous');
+    const result = f.invoke(['--check', f.check(), '--deliverable', deliverable, '--mutate-after-acceptance', '--fixture-artifact', f.artifact], true);
+    expect(result.status).toBe(1);
+    expect(result.output.findings.join(' ')).toContain('artifact digest changed');
+    expect(readFileSync(deliverable, 'utf8')).toBe('previous');
   });
 
   it('checks sealed capture digests before executing protected checks (#3832)', async () => {

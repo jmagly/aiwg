@@ -3250,5 +3250,90 @@
       ],
       "additionalProperties": false
     }
+  },
+  "worker-verify-deliver": {
+    "input": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "run_dir": {
+          "type": "string",
+          "maxLength": 4096,
+          "format": "starts_with",
+          "pattern": "^\\/.*"
+        },
+        "artifact_path": {
+          "type": "string",
+          "maxLength": 4096,
+          "format": "starts_with",
+          "pattern": "^\\/.*"
+        },
+        "deliverable_path": {
+          "type": "string",
+          "maxLength": 4096,
+          "format": "starts_with",
+          "pattern": "^\\/.*"
+        },
+        "checks": {
+          "minItems": 1,
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "command": {
+                "type": "string",
+                "maxLength": 4096,
+                "format": "starts_with",
+                "pattern": "^\\/.*"
+              },
+              "args": {
+                "maxItems": 256,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 65536
+                }
+              },
+              "cwd": {
+                "type": "string",
+                "maxLength": 4096,
+                "format": "starts_with",
+                "pattern": "^\\/.*"
+              },
+              "envNames": {
+                "maxItems": 128,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                }
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 86400000
+              }
+            },
+            "required": [
+              "id",
+              "command"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "run_dir",
+        "deliverable_path",
+        "checks"
+      ],
+      "additionalProperties": false
+    }
   }
 }

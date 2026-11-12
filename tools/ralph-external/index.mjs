@@ -366,6 +366,7 @@ USAGE:
   ralph-external --resume [options]
   ralph-external --status
   ralph-external --abort
+  ralph-external --run-conductor --conductor-root ABS_DIR --deliverable ABS_PATH [--bind ABS_DIR] [--setenv NAME] -- COMMAND [ARG...]
   ralph-external --verify-worker --run-dir DIR --check JSON [--artifact ABS_FILE] [--deliverable ABS_FILE] [--json]
   ralph-external --launch-worker --invocation FILE --run-dir DIR [--retry-of-run-dir DIR [--retry-correction]] [--allow-degraded-worker]
                           Exit 0: confirmed success. Exit 1: confirmed failure
@@ -678,8 +679,12 @@ export function workerExitCode(result) {
 /**
  * Main entry point
  */
-async function main() {
-  const args = process.argv.slice(2);
+export async function main(args = process.argv.slice(2)) {
+  if (args.includes('--run-conductor')) {
+    const { runConductorCli } = await import('./lib/conductor-isolation.mjs');
+    process.exitCode = await runConductorCli(args);
+    return;
+  }
   if (args.includes('--workers')) {
     try { process.exitCode = await watchWorkerStatus(parseWorkerStatusArgs(args)); }
     catch (error) {

@@ -26,3 +26,15 @@ it('permits CLI-looking artifact content because artifact-write does not spawn a
   await expect(tool.handler(args, extra)).resolves.toBe('written');
   expect(handler).toHaveBeenCalledWith(args, extra);
 });
+
+it('exposes only verify-and-deliver from workers over HTTP and preserves check argv as data', async () => {
+  const policy = remoteToolPolicy('/fixture/project');
+  const handler = vi.fn().mockResolvedValue('accepted');
+  const schema = z.object({ checks: z.array(z.object({ args: z.array(z.string()) })) });
+  const tool = policy.configureTool('worker-verify-deliver', { inputSchema: schema }, handler);
+  expect(tool).toBeDefined();
+  expect(remoteToolPolicy('/fixture/project', undefined, { verifiedDeliveryOnly: true }).configureTool('artifact-write', { inputSchema: schema }, handler)).toBeUndefined();
+  expect(policy.configureTool('worker-invoke', { inputSchema: schema }, handler)).toBeUndefined();
+  await tool!.handler({ checks: [{ args: ['--test'] }] }, { signal: new AbortController().signal });
+  expect(handler).toHaveBeenCalledOnce();
+});

@@ -1,4 +1,5 @@
 // Expose the installed trusted verifier through the existing worker-run CLI.
+import { prepareDeliveryRecord, lookupDeliveryRecord } from './worker-delivery-record.mjs';
 import { createHash } from 'node:crypto';
 import { closeSync, lstatSync, mkdtempSync, readSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, relative, sep, isAbsolute, join } from 'node:path';
@@ -9,7 +10,7 @@ import { verifyRetryPredecessor } from '../session-launcher.mjs';
 import { pinArtifact, resolveWorktreeRoot, verifyWorkerArtifact } from './trusted-verification.mjs';
 import { missingRequiredCapabilities, probeVerificationIsolationCapabilities } from './verification-isolation.mjs';
 
-const usage = 'Usage: ralph-external --verify-worker --run-dir ABS_DIR --check JSON [--check JSON] [--artifact ABS_FILE] [--deliverable ABS_FILE] [--check-descendants] [--json]';
+const usage = 'Usage: ralph-external --verify-worker --run-dir ABS_DIR --check JSON [--check JSON] [--artifact ABS_FILE] [--deliverable ABS_FILE] [--check-descendants] [--json] (lookup: --verify-worker --delivery-status --deliverable ABS_FILE --json)';
 const checkKeys = new Set(['id', 'command', 'args', 'cwd', 'envNames', 'timeoutMs']);
 const absolute = value => typeof value === 'string' && isAbsolute(value) && !value.includes('\0');
 
@@ -22,6 +23,7 @@ export function parseWorkerVerificationArgs(args) {
     seen.add(flag);
     if (flag === '--verify-worker') continue;
     if (flag === '--check-descendants') { result.checkDescendants = true; continue; }
+    if (flag === '--delivery-status') { result.deliveryStatus = true; continue; }
     if (flag === '--json') { result.json = true; continue; }
     if (!['--run-dir', '--artifact', '--deliverable', '--check'].includes(flag)) throw new Error(`Unsupported verification option: ${flag}`);
     const value = args[++i];
@@ -43,7 +45,7 @@ export function parseWorkerVerificationArgs(args) {
     }
     result.checks.push(check);
   }
-  if (!seen.has('--verify-worker') || !result.runDir || !result.checks.length) throw new Error(usage);
+  if (!seen.has('--verify-worker') || (result.deliveryStatus ? !result.deliverablePath || result.runDir || result.checks.length || result.artifactPath || result.checkDescendants : !result.runDir || !result.checks.length)) throw new Error(usage);
   return result;
 }
 
@@ -82,7 +84,7 @@ export function deliverVerifiedArtifact(result, { artifactPath, deliverablePath,
   } finally { rmSync(staging, { recursive: true, force: true }); }
 }
 
-export async function verifyWorkerRun({ runDir, checks, artifactPath, deliverablePath, checkDescendants = false }) {
+export async function verifyWorkerRun({ runDir, checks, artifactPath, deliverablePath, checkDescendants = false, projectDir = process.cwd() }, { prepareRecord = prepareDeliveryRecord } = {}) {
   const { inspectWorkerPath: inspect } = await importImpl(import.meta.url, 'serve/worker-invocation-paths.js');
   const record = JSON.parse((await boundedPrivateRead(join(runDir, 'invocation.json'), 1048576, inspect, true, true)).toString('utf8'));
   const worktreeRoot = record.worktree?.path;
@@ -91,7 +93,7 @@ export async function verifyWorkerRun({ runDir, checks, artifactPath, deliverabl
   // Independently loaded installed qualifications own writable roots; the record
   // being authenticated cannot declare the only roots used to authenticate it.
   const { loadWorkerInputs } = await importImpl(import.meta.url, 'cli/handlers/models.js');
-  const inputs = await loadWorkerInputs({ cwd: process.cwd(), args: [], rawArgs: [],
+  const inputs = await loadWorkerInputs({ cwd: projectDir, args: [], rawArgs: [],
     frameworkRoot: fileURLToPath(new URL('../../../', import.meta.url)) });
   const writableRoots = Object.values(inputs.drivers).flatMap(driver => driver.qualification.installation?.workerWritableRoots ?? []);
   if (!writableRoots.length) throw new Error('Trusted worker installation writable roots are required; run verification from the configured conductor project');
@@ -110,14 +112,25 @@ export async function verifyWorkerRun({ runDir, checks, artifactPath, deliverabl
   // their binaries, never a manifest, PATH search, directory or worker claim.
   const result = verifyWorkerArtifact({ worktreeRoot, artifactPath, checks,
     allowedCheckBinaries: checks.map(check => check.command), runnerRef });
-  deliverVerifiedArtifact(result, { artifactPath, deliverablePath, worktreeRoot, writableRoots });
+  if (result.status === 'accepted' && deliverablePath) {
+    const complete = await prepareRecord(projectDir, { artifactDigest: result.artifactDigest, deliverablePath,
+      verifierId: result.verifierId, runDir, invocationId: record.invocationId });
+    deliverVerifiedArtifact(result, { artifactPath, deliverablePath, worktreeRoot, writableRoots });
+    result.deliveryRecord = await complete();
+  }
   return result;
 }
 
 export async function runWorkerVerificationCli(args, { stdout = console.log, stderr = console.error } = {}) {
   let result;
   try {
-    result = await verifyWorkerRun(parseWorkerVerificationArgs(args));
+    const request = parseWorkerVerificationArgs(args);
+    if (request.deliveryStatus) {
+      const delivery = await lookupDeliveryRecord(process.cwd(), request.deliverablePath);
+      stdout(args.includes('--json') ? JSON.stringify(delivery) : `Deliverable: ${delivery.verified ? 'verified' : 'unverified'}`);
+      return delivery.verified ? 0 : 1;
+    }
+    result = await verifyWorkerRun(request);
   } catch (error) {
     result = { status: 'rejected', verifierId: 'trusted-verification@1', runnerRef: new URL('./trusted-verification.mjs', import.meta.url).href,
       artifactDigest: null, evidence: [], findings: [error.message], errorCode: 'VERIFICATION_REQUEST_FAILED',

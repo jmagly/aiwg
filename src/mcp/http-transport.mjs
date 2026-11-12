@@ -38,6 +38,8 @@ async function readBody(request, response) {
 export async function startHttpServer(options) {
   const host = options.host === '[::1]' ? '::1' : options.host ?? '127.0.0.1';
   const loopback = host === '127.0.0.1' || host === '::1' || host === 'localhost';
+  const workersEnabled = String(options.toolsets ?? '').split(',').map(value => value.trim()).includes('workers');
+  if (!loopback && workersEnabled) throw new Error('The workers toolset requires a localhost HTTP bind');
   if (!loopback && !options.allowRemoteBind) {
     throw new Error('A non-loopback --host requires --allow-remote-bind');
   }
@@ -58,7 +60,7 @@ export async function startHttpServer(options) {
   let closing = false;
   let stopPromise;
   const buildServer = async () => {
-    const policy = remoteToolPolicy(projectDir, options.tools);
+    const policy = remoteToolPolicy(projectDir, options.tools, { verifiedDeliveryOnly: workersEnabled });
     const mcp = await createServer({ projectDir, artifactStore, toolsets: options.toolsets ?? '', configureTool: policy.configureTool });
     try { policy.validate(); } catch (error) { await mcp.close(); throw error; }
     policies.set(mcp, policy);
