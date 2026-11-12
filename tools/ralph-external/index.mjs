@@ -366,7 +366,7 @@ USAGE:
   ralph-external --resume [options]
   ralph-external --status
   ralph-external --abort
-  ralph-external --verify-worker --run-dir DIR --check JSON [--check JSON] [--json]
+  ralph-external --verify-worker --run-dir DIR --check JSON [--artifact ABS_FILE] [--deliverable ABS_FILE] [--json]
   ralph-external --launch-worker --invocation FILE --run-dir DIR [--retry-of-run-dir DIR [--retry-correction]] [--allow-degraded-worker]
                           Exit 0: confirmed success. Exit 1: confirmed failure
                           (error, timeout, or a confirmed stop with a

@@ -1,13 +1,15 @@
 // Expose the installed trusted verifier through the existing worker-run CLI.
-import { isAbsolute, join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { closeSync, lstatSync, mkdtempSync, readSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { basename, dirname, relative, sep, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { importImpl } from '../../_resolve-impl.mjs';
 import { boundedPrivateRead } from './worker-inputs.mjs';
 import { verifyRetryPredecessor } from '../session-launcher.mjs';
-import { verifyWorkerArtifact } from './trusted-verification.mjs';
+import { pinArtifact, resolveWorktreeRoot, verifyWorkerArtifact } from './trusted-verification.mjs';
 import { missingRequiredCapabilities, probeVerificationIsolationCapabilities } from './verification-isolation.mjs';
 
-const usage = 'Usage: ralph-external --verify-worker --run-dir ABS_DIR --check JSON [--check JSON] [--artifact ABS_FILE] [--check-descendants] [--json]';
+const usage = 'Usage: ralph-external --verify-worker --run-dir ABS_DIR --check JSON [--check JSON] [--artifact ABS_FILE] [--deliverable ABS_FILE] [--check-descendants] [--json]';
 const checkKeys = new Set(['id', 'command', 'args', 'cwd', 'envNames', 'timeoutMs']);
 const absolute = value => typeof value === 'string' && isAbsolute(value) && !value.includes('\0');
 
@@ -21,12 +23,12 @@ export function parseWorkerVerificationArgs(args) {
     if (flag === '--verify-worker') continue;
     if (flag === '--check-descendants') { result.checkDescendants = true; continue; }
     if (flag === '--json') { result.json = true; continue; }
-    if (!['--run-dir', '--artifact', '--check'].includes(flag)) throw new Error(`Unsupported verification option: ${flag}`);
+    if (!['--run-dir', '--artifact', '--deliverable', '--check'].includes(flag)) throw new Error(`Unsupported verification option: ${flag}`);
     const value = args[++i];
     if (!value || value.startsWith('--')) throw new Error(`${flag} requires a value`);
     if (flag !== '--check') {
       if (!absolute(value)) throw new Error(`${flag} requires an absolute NUL-free path`);
-      result[flag === '--run-dir' ? 'runDir' : 'artifactPath'] = value;
+      result[flag === '--run-dir' ? 'runDir' : flag === '--artifact' ? 'artifactPath' : 'deliverablePath'] = value;
       continue;
     }
     if (Buffer.byteLength(value) > 65536 || result.checks.length >= 32) throw new Error('Protected check input exceeds bounds');
@@ -45,7 +47,42 @@ export function parseWorkerVerificationArgs(args) {
   return result;
 }
 
-export async function verifyWorkerRun({ runDir, checks, artifactPath, checkDescendants = false }) {
+// Publish only bytes matching this verifier call's acceptance; logs are never authority.
+export function deliverVerifiedArtifact(result, { artifactPath, deliverablePath, worktreeRoot, writableRoots = [] }) {
+  if (result.status !== 'accepted' || !deliverablePath) return;
+  const root = resolveWorktreeRoot(worktreeRoot);
+  const parent = realpathSync(dirname(deliverablePath));
+  const destination = join(parent, basename(deliverablePath));
+  for (const tree of [root, ...writableRoots]) {
+    const rel = relative(realpathSync(tree), destination);
+    if (rel === '' || rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel)) {
+      throw new Error('--deliverable must be outside worker-writable roots');
+    }
+  }
+  let existing;
+  try { existing = lstatSync(destination); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (existing && (!existing.isFile() || existing.nlink !== 1)) throw new Error('--deliverable must be a regular non-linked file or an absent path');
+  const pinned = pinArtifact(root, artifactPath);
+  let bytes;
+  try {
+    // Bounded by pinArtifact's size limit, plus one byte to detect growth.
+    const buffer = Buffer.alloc(pinned.stat.size + 1);
+    let offset = 0, count;
+    while (offset < buffer.length && (count = readSync(pinned.fd, buffer, offset, buffer.length - offset, offset)) > 0) offset += count;
+    bytes = buffer.subarray(0, offset);
+    if (`sha256:${createHash('sha256').update(bytes).digest('hex')}` !== result.artifactDigest) {
+      throw new Error('artifact digest changed after acceptance; refusing --deliverable');
+    }
+  } finally { closeSync(pinned.fd); }
+  const staging = mkdtempSync(join(parent, '.aiwg-deliver-'));
+  try {
+    const staged = join(staging, 'artifact');
+    writeFileSync(staged, bytes, { flag: 'wx', mode: 0o600 });
+    renameSync(staged, destination);
+  } finally { rmSync(staging, { recursive: true, force: true }); }
+}
+
+export async function verifyWorkerRun({ runDir, checks, artifactPath, deliverablePath, checkDescendants = false }) {
   const { inspectWorkerPath: inspect } = await importImpl(import.meta.url, 'serve/worker-invocation-paths.js');
   const record = JSON.parse((await boundedPrivateRead(join(runDir, 'invocation.json'), 1048576, inspect, true, true)).toString('utf8'));
   const worktreeRoot = record.worktree?.path;
@@ -71,8 +108,10 @@ export async function verifyWorkerRun({ runDir, checks, artifactPath, checkDesce
   }
   // CLI arguments are conductor-owned protected definitions. Register exactly
   // their binaries, never a manifest, PATH search, directory or worker claim.
-  return verifyWorkerArtifact({ worktreeRoot, artifactPath, checks,
+  const result = verifyWorkerArtifact({ worktreeRoot, artifactPath, checks,
     allowedCheckBinaries: checks.map(check => check.command), runnerRef });
+  deliverVerifiedArtifact(result, { artifactPath, deliverablePath, worktreeRoot, writableRoots });
+  return result;
 }
 
 export async function runWorkerVerificationCli(args, { stdout = console.log, stderr = console.error } = {}) {

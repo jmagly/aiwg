@@ -80,6 +80,6 @@ export async function deployConductorDataGuard(targetDir, provider, opts = {}) {
     fs.mkdirSync(path.dirname(rulesPath), { recursive: true });
     fs.writeFileSync(rulesPath, lines.join('\n') + '\n');
   }
-  console.log(`Conductor guard (${provider}): ${paths.join(', ')}${executionGuard ? '; worker execution checks enabled' : ''}; shell coverage is limited.`);
+  console.log(`Conductor guard (${provider}): ${paths.join(', ')}${executionGuard ? '; worker execution/integration checks enabled' : ''}; shell coverage is limited.`);
   return paths;
 }

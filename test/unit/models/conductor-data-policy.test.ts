@@ -48,6 +48,8 @@ describe('T-OG-01 conductor worker execution guard (#3833)', () => {
     './.eval-control/worker-tree/check.sh',
     'cp .eval-control/worker-tree/eval-work/test.py copied.py; python3 copied.py',
     'node .aiwg/working/worktrees/task/test.mjs',
+    'echo x | node .eval-control/worker-tree/test.mjs',
+    'false || node .eval-control/worker-tree/test.mjs',
     'aiwg ralph-external --verify-worker; node .eval-control/worker-tree/test.mjs',
   ])('denies worker execution: %s', command => {
     const { root } = workerFixture();
@@ -60,7 +62,6 @@ describe('T-OG-01 conductor worker execution guard (#3833)', () => {
     'timeout 10s git -C .eval-control/worker-tree diff',
     'cat .eval-control/worker-tree/eval-work/reset.mjs',
     'sha256sum .eval-control/worker-tree/eval-work/reset.test.mjs',
-    'cp .eval-control/worker-tree/eval-work/reset.mjs eval-work/reset.mjs',
     'node trusted-check.mjs',
     'node .eval-control/worker-tree-other/check.mjs',
     'aiwg models resolve --workdir .eval-control/worker-tree --format shell',
@@ -90,6 +91,74 @@ describe('T-OG-01 conductor worker execution guard (#3833)', () => {
     expect(conductorWorkerTrees(conductor)).toContain(tree);
     expect(conductorWorkerTrees(conductor)).not.toContain(conductor);
     expect(conductorToolDenial(tool(`python3 ${tree}/check.py`, conductor), conductor, [])).toMatch(/--verify-worker/);
+  });
+});
+
+describe('T-OG-01 conductor worker integration gate (#4116)', () => {
+  it.each(['blocked', 'rejected', 'never-run'])('refuses integration after verification was %s', status => {
+    const { root, tree } = workerFixture();
+    writeFileSync(path.join(tree, 'answer.json'), '{"answer":42}');
+    // Worker-final validation and a logged verification claim cannot authorize copying.
+    const run = path.join(root, 'runs/attempt');
+    mkdirSync(run, { recursive: true });
+    writeFileSync(path.join(run, 'final-evidence.json'), JSON.stringify({ terminalSuccess: true }));
+    if (status !== 'never-run') writeFileSync(path.join(run, 'verification.json'), JSON.stringify({
+      status, artifactDigest: null, errorCode: 'ISOLATION_UNAVAILABLE',
+    }));
+    expect(conductorToolDenial(tool(`cp "${tree}/answer.json" eval-work/answer.json`, root), root, []))
+      .toMatch(/integrat.*aiwg ralph-external --verify-worker.*--deliverable/);
+  });
+  it.each([
+    'cp -f .eval-control/worker-tree/answer.json answer.json',
+    'cp -- .eval-control/worker-tree/answer.json answer.json',
+    'cp --target-directory eval-work .eval-control/worker-tree/answer.json',
+    'cp .eval-control/*/answer.json answer.json',
+    'cp -r .eval-control/worker-* ./copies',
+    'cp -r .eval-control ./copies',
+    'rsync --exclude=ignored .eval-control/worker-tree/ ./copies',
+    'rsync --exclude ignored .eval-control/worker-tree/ ./copies',
+    'cat .eval-control/worker-tree/answer.json | cp /dev/stdin answer.json',
+
+    'mv .eval-control/worker-tree/answer.json answer.json',
+    'install -m 644 .eval-control/worker-tree/answer.json answer.json',
+    'rsync -a .eval-control/worker-tree/answer.json ./',
+    'cp -t eval-work .eval-control/worker-tree/answer.json',
+    'cp --target-directory=eval-work .eval-control/worker-tree/answer.json',
+    'cat .eval-control/worker-tree/answer.json > answer.json',
+    'cat < .eval-control/worker-tree/answer.json >> answer.json',
+    'cat .eval-control/worker-tree/answer.json | tee answer.json',
+    'tee answer.json < .eval-control/worker-tree/answer.json',
+    'cd .eval-control/worker-tree && cp answer.json ../../answer.json',
+    'env -C .eval-control/worker-tree cp answer.json ../../answer.json',
+    'sh -c "cp .eval-control/worker-tree/answer.json answer.json"',
+    'cp -r .eval-control/worker-tree/eval-work ./eval-work',
+  ])('refuses a worker byte transfer: %s', command => {
+    const { root } = workerFixture();
+    expect(conductorToolDenial(tool(command, root), root, [])).toMatch(/--verify-worker/);
+  });
+  it('allows reading, conductor copies, worker-local copies, and verifier-owned delivery', () => {
+    const { root, tree } = workerFixture();
+    for (const command of [
+      `cat ${tree}/answer.json`, `cat < ${tree}/answer.json`, `cat ${tree}/answer.json | head`, `cat ${tree}/answer.json | tee`,
+      `false || cat ${tree}/answer.json`, `sh -c 'cat ${tree}/answer.json'`,
+      `cat tee ${tree}/answer.json README.md`,
+      'cp trusted.json answer.json', `cp ${tree}/answer.json ${tree}/review.json`,
+      `aiwg ralph-external --verify-worker --run-dir /private/run --artifact ${tree}/answer.json --deliverable ${root}/answer.json --check '{}'`,
+    ]) expect(conductorToolDenial(tool(command, root), root, []), command).toBeNull();
+    expect(conductorToolDenial(tool(`cp ${tree}/answer.json answer.json`, root), root, [], [])).toBeNull();
+  });
+  it('protects Write/Edit worker targets and aliases without matching content', () => {
+    const { root, tree } = workerFixture();
+    symlinkSync(tree, path.join(root, 'alias'));
+    for (const tool_name of ['Write', 'Edit', 'MultiEdit']) {
+      expect(conductorToolDenial({ tool_name, tool_input: { file_path: 'alias/answer.json' }, cwd: root }, root, []))
+        .toMatch(/--verify-worker/);
+    }
+    expect(conductorToolDenial({ tool_name: 'Write', tool_input: { file_path: 'answer.json', content: 'worker bytes' }, cwd: root }, root, [])).toBeNull();
+    // Rule 9 has the conductor write the worker brief under the worker tree's .handoff/ before launch.
+    expect(conductorToolDenial({ tool_name: 'Write', tool_input: { file_path: `${tree}/.handoff/brief.md`, content: 'brief' }, cwd: root }, root, [])).toBeNull();
+    expect(conductorToolDenial({ tool_name: 'Write', tool_input: { file_path: 'alias/.handoff/brief.md', content: 'brief' }, cwd: root }, root, [])).toBeNull();
+    expect(conductorToolDenial({ tool_name: 'Edit', tool_input: { file_path: `${tree}/.handoffx/brief.md` }, cwd: root }, root, [])).toMatch(/--verify-worker/);
   });
 });
 

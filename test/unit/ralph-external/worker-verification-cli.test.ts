@@ -1,15 +1,16 @@
 // Exercise the installed worker CLI with synthetic launcher records and clients.
 import { afterEach, describe, expect, it } from 'vitest';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, symlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, symlinkSync } from 'node:fs';
 import { rmSync } from '../../helpers/worker-capture-cleanup.mjs';
 import { WorkerCaptureOwner } from '../../../tools/ralph-external/lib/worker-capture.mjs';
 import { publishWorkerRecord } from '../../../tools/ralph-external/session-launcher.mjs';
 import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseWorkerVerificationArgs } from '../../../tools/ralph-external/lib/worker-verification-cli.mjs';
+import { deliverVerifiedArtifact, parseWorkerVerificationArgs } from '../../../tools/ralph-external/lib/worker-verification-cli.mjs';
 import { parseWorkerLaunchArgs, resolveRetryReference } from '../../../tools/ralph-external/lib/worker-launch-cli.mjs';
 import { verifyRetryPredecessor } from '../../../tools/ralph-external/session-launcher.mjs';
 import { sampleWorkerIdentity } from '../../../tools/ralph-external/process-monitor.mjs';
@@ -68,6 +69,23 @@ describe('T-OG-04 installed CLI trusted verification', () => {
     expect(result.output.treeDigest).toMatch(/^fd-tree:sha256:/);
     expect(result.output.evidence).toHaveLength(1);
     expect(result.output.runnerRef).toBe(new URL('../../../tools/ralph-external/lib/trusted-verification.mjs', import.meta.url).href);
+  });
+
+  it('copies only the verifier-accepted digest to --deliverable', () => {
+    const f = fixture();
+    const deliverable = path.join(f.root, 'answer.json');
+    const result = f.invoke(['--check', f.check(), '--deliverable', deliverable]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.output.status).toBe('accepted');
+    expect(readFileSync(deliverable)).toEqual(readFileSync(f.artifact));
+  });
+
+  it.each(['unavailable', 'enforced'])('never delivers a non-accepted artifact (%s)', mode => {
+    const f = fixture(mode);
+    const deliverable = path.join(f.root, 'answer.json');
+    const result = f.invoke(['--check', f.check('process.exit(7)'), '--deliverable', deliverable]);
+    expect(result.output.status).toBe(mode === 'unavailable' ? 'blocked' : 'rejected');
+    expect(existsSync(deliverable)).toBe(false);
   });
 
   it('checks sealed capture digests before executing protected checks (#3832)', async () => {
@@ -185,6 +203,47 @@ describe('T-OG-04 installed CLI trusted verification', () => {
     expect(() => parseWorkerVerificationArgs([...args, '--allow-degraded-worker'])).toThrow(/Unsupported/);
     expect(() => parseWorkerVerificationArgs([...args.slice(0, -1), JSON.stringify({ id: 'unsafe', command: process.execPath, allowDegradedIsolation: true })])).toThrow(/overrides/);
     expect(() => parseWorkerVerificationArgs(args.slice(0, -2))).toThrow(/Usage/);
+  });
+});
+
+describe('T-OG-04 accepted artifact delivery', () => {
+  const accepted = (artifact: string) => ({ status: 'accepted', artifactDigest: `sha256:${createHash('sha256').update(readFileSync(artifact)).digest('hex')}` });
+  it('publishes precisely the accepted bytes, replacing an existing conductor file', () => {
+    const f = fixture();
+    const deliverablePath = path.join(f.root, 'answer.json');
+    writeFileSync(deliverablePath, 'previous');
+    deliverVerifiedArtifact(accepted(f.artifact), { ...f, worktreeRoot: f.worktree, artifactPath: f.artifact, deliverablePath });
+    expect(readFileSync(deliverablePath)).toEqual(readFileSync(f.artifact));
+  });
+  it('refuses post-acceptance mutation and preserves the destination', () => {
+    const f = fixture(), result = accepted(f.artifact);
+    const deliverablePath = path.join(f.root, 'answer.json');
+    writeFileSync(deliverablePath, 'previous');
+    writeFileSync(f.artifact, 'changed');
+    expect(() => deliverVerifiedArtifact(result, { worktreeRoot: f.worktree, artifactPath: f.artifact, deliverablePath })).toThrow(/digest changed/);
+    expect(readFileSync(deliverablePath, 'utf8')).toBe('previous');
+  });
+  it.each(['blocked', 'rejected'])('never publishes %s bytes, even with a forged matching digest', status => {
+    const f = fixture();
+    const deliverablePath = path.join(f.root, 'answer.json');
+    deliverVerifiedArtifact({ ...accepted(f.artifact), status }, { worktreeRoot: f.worktree, artifactPath: f.artifact, deliverablePath });
+    expect(existsSync(deliverablePath)).toBe(false);
+    deliverVerifiedArtifact(accepted(f.artifact), { worktreeRoot: f.worktree, artifactPath: f.artifact });
+  });
+  it('refuses worker-writable destinations and symlink/hardlink or directory destinations', () => {
+    const f = fixture(), result = accepted(f.artifact);
+    const deliverablePath = path.join(f.root, 'answer.json');
+    const options = { worktreeRoot: f.worktree, artifactPath: f.artifact, deliverablePath };
+    expect(() => deliverVerifiedArtifact(result, { ...options, deliverablePath: f.artifact })).toThrow(/outside worker-writable/);
+    expect(() => deliverVerifiedArtifact(result, { ...options, writableRoots: [f.root] })).toThrow(/outside worker-writable/);
+    symlinkSync(f.artifact, deliverablePath);
+    expect(() => deliverVerifiedArtifact(result, options)).toThrow(/non-linked/);
+    rmSync(deliverablePath);
+    linkSync(f.artifact, deliverablePath);
+    expect(() => deliverVerifiedArtifact(result, options)).toThrow(/non-linked/);
+    rmSync(deliverablePath);
+    mkdirSync(deliverablePath);
+    expect(() => deliverVerifiedArtifact(result, options)).toThrow(/non-linked/);
   });
 });
 
