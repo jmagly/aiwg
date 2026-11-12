@@ -386,7 +386,10 @@ export async function revalidateWorkerInvocationPlan(saved: WorkerCommandPlan, s
   if (!current.invocation || current.status !== 'eligible'
     || Date.parse(saved.invocation.expiresAt) > Date.parse(current.invocation.expiresAt)
     || qualificationDigest({ ...current.invocation, expiresAt: saved.invocation.expiresAt }) !== qualificationDigest(saved.invocation)) {
-    throw new WorkerPolicyError('OG_PIN_MISMATCH', 'Saved invocation differs from current qualified plan; resolve again');
+    // Kept in step with src/serve/worker-invocation.ts (#4125) so the equivalence tests compare
+    // the same refusal text.
+    throw new WorkerPolicyError('OG_PIN_MISMATCH', 'Saved invocation differs from current qualified plan; resolve again'
+      + ' from the conductor project directory you launch from (a plan resolved elsewhere, such as in the worker tree, never matches)');
   }
   return structuredClone(saved.invocation);
 }

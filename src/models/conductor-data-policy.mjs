@@ -54,6 +54,8 @@ function shellCommands(command, retainTransfers = false) {
       word();
       let operator = char;
       if (command[index + 1] === char) operator += command[++index];
+      // `2>&1` / `<&3` duplicate a descriptor; the following word is a descriptor, not a path.
+      else if (/[<>]/.test(char) && command[index + 1] === '&') operator += command[++index];
       words.push({ value: operator, operator: true });
     } else if (/[;&|<>()`\n]/.test(char)) end();
     else if (/\s/.test(char)) word();
@@ -250,9 +252,12 @@ function workerExecution(command, initialCwd, trees, depth = 0) {
     const args = words.slice(index + 1).map(word => word.value);
     // AIWG's own output (resolve plans, status JSON) is product output even when its
     // arguments name worker-tree paths; only worker file bytes are transfer sources (#4122).
+    // The command name and option flags are not paths, even when cwd is inside a worker tree.
     const workerSource = name !== 'aiwg' && (pipedSource || words.some((word, cursor) => !word.operator
+      && cursor > index && !word.value.startsWith('-')
       && (untrusted(word.value) || globReferences(word, cwd, protectedTrees))
-      && !['>', '>>'].includes(words[cursor - 1]?.value)));
+      && !['>', '>>', '>&', '<&'].includes(words[cursor - 1]?.value)
+      && !(/^\d+$/.test(word.value) && /^[<>]/.test(words[cursor + 1]?.value ?? ''))));
     pipedSource = pipe && workerSource;
     if (name === 'cd') {
       const target = args.find(arg => arg !== '--' && arg !== '-P' && arg !== '-L');

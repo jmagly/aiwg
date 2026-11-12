@@ -108,6 +108,11 @@ describe('T-OG-15 per-task ceiling commands (#3701)', () => {
     tampered.invocation.limits.tokens++;
     await expect(revalidateWorkerInvocationPlan(tampered, f.snapshot, f.drivers, f.now))
       .rejects.toMatchObject({ code: 'OG_PIN_MISMATCH' });
+    // A plan resolved under another project configuration says how to recover (#2918 direct-02, #4125).
+    const otherProject = structuredClone(saved);
+    otherProject.digests.resolvedModelsDigest = `sha256:${'0'.repeat(64)}`;
+    await expect(revalidateWorkerInvocationPlan(otherProject, f.snapshot, f.drivers, f.now))
+      .rejects.toMatchObject({ code: 'OG_PIN_MISMATCH', message: expect.stringContaining('resolve again from the conductor project directory you launch from') });
     saved.request.ceilings.tokens = 5001;
     await expect(revalidateWorkerInvocationPlan(saved, f.snapshot, f.drivers, f.now))
       .rejects.toMatchObject({ code: 'OG_PIN_MISMATCH' });

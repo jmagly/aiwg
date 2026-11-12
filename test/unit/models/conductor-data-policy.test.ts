@@ -151,6 +151,16 @@ describe('T-OG-01 conductor worker integration gate (#4116)', () => {
     ]) expect(conductorToolDenial(tool(command, root), root, []), command).toBeNull();
     expect(conductorToolDenial(tool(`cp ${tree}/answer.json answer.json`, root), root, [], [])).toBeNull();
   });
+  it('treats descriptor duplication and the command name as non-paths when cwd is a worker tree', () => {
+    const { root, tree } = workerFixture();
+    // #2918 Amendment 10d direct-02: the conductor's shell stayed in the worker tree after `cd`.
+    for (const command of [
+      `aiwg models resolve --brief .handoff/brief.md --workdir ${tree} --format json 2>&1 | tee ${root}/plan-1.json`,
+      `aiwg models resolve --workdir ${tree} --format json > ${root}/plan-1.json 2>&1`,
+    ]) expect(conductorToolDenial(tool(command, tree), root, []), command).toBeNull();
+    for (const command of [`cat answer.json 2>&1 | tee ${root}/answer.json`, `cp answer.json ${root}/answer.json`, `cat answer.json > ${root}/answer.json`])
+      expect(conductorToolDenial(tool(command, tree), root, []), command).toMatch(/--verify-worker/);
+  });
   it('protects Write/Edit worker targets and aliases without matching content', () => {
     const { root, tree } = workerFixture();
     symlinkSync(tree, path.join(root, 'alias'));
