@@ -256,7 +256,9 @@ export function probeVerificationIsolationCapabilities({ spawn = spawnSync, forc
   const argv = ['systemd-run', '--user', '--pipe', '--wait', '--quiet', `--unit=${unit}`,
     '-p', 'NoNewPrivileges=yes', '-p', 'ProtectHome=tmpfs', '-p', 'PrivateTmp=yes',
     '-p', 'PrivateUsers=yes', '-p', 'PrivateNetwork=yes',
-    '-p', 'ReadOnlyPaths=/', '-p', `ReadWritePaths=${scratchDir}`,
+    // BindPaths= keeps the granted directory visible through ProtectHome=tmpfs/PrivateTmp=yes;
+    // without it an enforcing host fails the unit with 226/NAMESPACE (noodle, #4128).
+    '-p', 'ReadOnlyPaths=/', '-p', `BindPaths=${scratchDir}`, '-p', `ReadWritePaths=${scratchDir}`,
     '--', '/bin/sh', '-c',
     'echo NONEWPRIVS:$(grep -c "NoNewPrivs:\\s1" /proc/self/status);' +
     'echo NETNS:$(readlink /proc/self/ns/net);' +
@@ -401,9 +403,12 @@ export function buildVerificationExtraProperties({ worktreeRootReal, outputDirRe
   }
   const properties = ['NoNewPrivileges=yes', 'PrivateUsers=yes'];
   if (capabilities.writeConfinement === 'enforced') {
-    properties.push('ReadOnlyPaths=/', `ReadWritePaths=${worktreeRootReal}`);
-    if (outputDirReal) properties.push(`ReadWritePaths=${outputDirReal}`);
-    for (const extra of readWritePaths) properties.push(`ReadWritePaths=${extra}`);
+    // Bind each granted path into the unit's namespace so it survives ProtectHome=tmpfs and
+    // PrivateTmp=yes (worktrees usually live under /home); ReadWritePaths= alone fails there (#4128).
+    properties.push('ReadOnlyPaths=/');
+    for (const granted of [worktreeRootReal, outputDirReal, ...readWritePaths].filter(Boolean)) {
+      properties.push(`BindPaths=${granted}`, `ReadWritePaths=${granted}`);
+    }
   }
   if (capabilities.homeReadIsolation === 'enforced') properties.push('ProtectHome=tmpfs');
   if (capabilities.tmpIsolation === 'enforced') properties.push('PrivateTmp=yes');

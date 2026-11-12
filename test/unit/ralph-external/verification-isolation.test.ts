@@ -178,6 +178,9 @@ describe('verification client environment and read-isolation reporting', () => {
       expect(args).toContain('ProtectHome=tmpfs');
       expect(args).toContain('PrivateTmp=yes');
       expect(args).toContain('ReadOnlyPaths=/');
+      // #4128: the probe scratch dir must be bound into the namespace, or PrivateTmp hides it (226/NAMESPACE).
+      const scratch = args.find(arg => arg.startsWith('ReadWritePaths='))?.slice('ReadWritePaths='.length);
+      if (scratch) expect(args).toContain(`BindPaths=${scratch}`);
       expect(args.some(arg => arg.startsWith('InaccessiblePaths=') || arg.startsWith('TemporaryFileSystem='))).toBe(false);
       return { status: 0, stdout: '', stderr: '', error: null };
     });
@@ -381,6 +384,9 @@ describe('B1 (round 2): a launch requests EXACTLY the property set the probe pro
     expect(properties).toContain('ReadOnlyPaths=/');
     expect(properties).toContain('ReadWritePaths=/tmp/wt');
     expect(properties).toContain('ReadWritePaths=/tmp/out');
+    // #4128: every granted path is also bound, so ProtectHome=tmpfs/PrivateTmp=yes cannot hide it.
+    expect(properties).toContain('BindPaths=/tmp/wt');
+    expect(properties).toContain('BindPaths=/tmp/out');
     expect(properties).toContain('ProtectHome=tmpfs');
     expect(properties).toContain('PrivateTmp=yes');
     expect(properties).toContain('PrivateNetwork=yes');
