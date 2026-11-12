@@ -127,6 +127,24 @@ describe('T-OG-01 conductor data guard provider deployment', () => {
       expect(allowed.stdout).toBe('');
     }
   });
+  it.each(['blocked', 'never-run'])('deployed hook refuses integration with verification %s', async status => {
+    writeFileSync(path.join(root, 'models.json'), JSON.stringify({ defaults: { workerSelection: {
+      guards: { denyConductorWorkerExecution: true },
+    } } }));
+    await deployConductorDataGuard(root, 'claude');
+    const tree = path.join(root, '.aiwg/working/worktrees/task');
+    mkdirSync(tree, { recursive: true });
+    writeFileSync(path.join(tree, 'answer.json'), '{"answer":42}');
+    if (status === 'blocked') writeFileSync(path.join(root, 'verification.json'), JSON.stringify({ status, artifactDigest: null }));
+    for (const command of [`cp ${tree}/answer.json eval-work/answer.json`, `cat ${tree}/answer.json | tee eval-work/answer.json`]) {
+      const denied = hook(event('Bash', { command }));
+      expect(denied.status, denied.stderr).toBe(0);
+      expect(denied.stdout, command).toContain('--verify-worker');
+      expect(JSON.parse(denied.stdout).hookSpecificOutput.permissionDecision).toBe('deny');
+    }
+    expect(hook(event('Write', { file_path: path.join(tree, 'answer.json'), content: 'changed' })).stdout).toContain('--verify-worker');
+    expect(hook(event('Bash', { command: `cat ${tree}/answer.json` })).stdout).toBe('');
+  });
   it.each([undefined, false])('worker dispatch leaves settings and deploy output unchanged with guard %s', async enabled => {
     rmSync(path.join(root, 'models.json'));
     if (enabled !== undefined) writeFileSync(path.join(root, 'models.json'), JSON.stringify({ defaults: {

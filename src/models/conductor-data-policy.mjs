@@ -1,4 +1,4 @@
-// Refuse local-only reads and direct execution of worker output by the conductor.
+// Refuse local-only reads and unverified worker execution/integration by the conductor.
 import { realpathSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, relative, isAbsolute, sep, matchesGlob, basename } from 'node:path';
 
@@ -27,7 +27,7 @@ const contains = (base, file) => relative(base, file) === ''
 
 // Retain quoting for glob characters, but never execute shell expansions or substitutions.
 const literalPattern = value => value.replace(/[*?\[\]{}()!+@]/g, char => char === ']' ? ']' : `[${char}]`);
-function shellCommands(command) {
+function shellCommands(command, retainTransfers = false) {
   const commands = [];
   let words = [], value = '', pattern = '', glob = false, quote = null;
   const word = () => {
@@ -50,7 +50,12 @@ function shellCommands(command) {
       if (char === quote) quote = null;
       else append(char, false);
     } else if (char === "'" || char === '"') quote = char;
-    else if (/[;&|<>()`\n]/.test(char)) end();
+    else if (retainTransfers && /[|<>]/.test(char)) {
+      word();
+      let operator = char;
+      if (command[index + 1] === char) operator += command[++index];
+      words.push({ value: operator, operator: true });
+    } else if (/[;&|<>()`\n]/.test(char)) end();
     else if (/\s/.test(char)) word();
     else append(char, true);
   }
@@ -166,14 +171,50 @@ export function conductorWorkerTrees(root) {
 }
 
 const workerExecutionDenial = 'AIWG: conductor must not execute or import worker-written code; use aiwg ralph-external --verify-worker instead';
+const workerIntegrationDenial = 'AIWG: conductor must not integrate unverified worker bytes, execute or import worker-written code, or edit worker paths; use aiwg ralph-external --verify-worker --run-dir ABS_DIR --artifact ABS_FILE --check JSON --deliverable ABS_FILE. Only accepted bytes are delivered; blocked/rejected results never authorize integration. Shell coverage is limited; Write/Edit content copied from a Read is not detected.';
 const runtime = /^(?:node(?:js)?|python(?:\d+(?:\.\d+)*)?|npm|npx|pnpm|yarn|bun|deno|vitest|jest|pytest|py\.test|mocha|ava|tap|tsx|ts-node|make|cmake|ctest|cargo|go|ruby|perl|php|java)$/;
 const shells = new Set(['sh', 'bash', 'dash', 'zsh']);
 const wrappers = new Set(['env', 'nice', 'timeout', 'systemd-run', 'sudo', 'command', 'exec', 'nohup']);
 const wrapperValues = new Set(['-n', '--adjustment', '-p', '--property', '-u', '--user', '-g', '--group',
   '-C', '--chdir', '--working-directory', '--unit', '--description', '--slice', '--kill-after', '-k', '-s', '--signal']);
 
+// Recognize transfer operands without interpreting expansions or running worker code.
+function transferPaths(args) {
+  const operands = [];
+  let target, options = true;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (options && arg === '--') { options = false; continue; }
+    if (options && arg.startsWith('-')) {
+      const [option, assigned] = arg.split('=');
+      if (['-t', '--target-directory'].includes(option)) target = assigned ?? args[++i];
+      else if (['-m', '--mode', '-o', '--owner', '-g', '--group', '--suffix', '-S', '-e', '--rsh', '--exclude', '--include'].includes(option)
+        && assigned === undefined) i++;
+      continue;
+    }
+    operands.push(arg);
+  }
+  return { sources: target ? operands : operands.slice(0, -1), destination: target ?? operands.at(-1) };
+}
+
+// Preserve command boundaries for execution checks and carry data only across pipes.
+function transferCommands(command) {
+  const result = [];
+  for (const group of shellCommands(command, true)) {
+    let words = [];
+    for (const token of group) {
+      if (token.operator && ['|', '||'].includes(token.value)) {
+        if (words.length) result.push({ words, pipe: token.value === '|' });
+        words = [];
+      } else words.push(token);
+    }
+    if (words.length) result.push({ words, pipe: false });
+  }
+  return result;
+}
+
 function workerExecution(command, initialCwd, trees, depth = 0) {
-  if (depth > 4) return true;
+  if (depth > 4) return workerExecutionDenial;
   const protectedTrees = trees.flatMap(tree => [resolve(tree), canonical(resolve(tree))]);
   const copies = [];
   let cwd = initialCwd;
@@ -183,7 +224,8 @@ function workerExecution(command, initialCwd, trees, depth = 0) {
   };
   const references = value => (value.match(/[^\s"'`;&|<>()\[\]{},]+/g) ?? [])
     .some(token => untrusted(token.split('=').at(-1)));
-  for (const words of shellCommands(command)) {
+  let pipedSource = false;
+  for (const { words, pipe } of transferCommands(command)) {
     let index = 0;
     while (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index]?.value ?? '')) index++;
     let name = basename(words[index]?.value ?? '');
@@ -206,30 +248,44 @@ function workerExecution(command, initialCwd, trees, depth = 0) {
       name = basename(words[index]?.value ?? '');
     }
     const args = words.slice(index + 1).map(word => word.value);
+    const workerSource = pipedSource || words.some((word, cursor) => !word.operator
+      && (untrusted(word.value) || globReferences(word, cwd, protectedTrees))
+      && !['>', '>>'].includes(words[cursor - 1]?.value));
+    pipedSource = pipe && workerSource;
     if (name === 'cd') {
       const target = args.find(arg => arg !== '--' && arg !== '-P' && arg !== '-L');
       if (target) cwd = resolve(cwd, target);
       continue;
     }
-    if (['cp', 'mv', 'install'].includes(name)) {
-      const operands = args.filter(arg => !arg.startsWith('-'));
-      const destination = operands.at(-1);
-      for (const source of operands.slice(0, -1)) if (destination && untrusted(source)) {
+    if (['cp', 'mv', 'install', 'rsync'].includes(name)) {
+      const { sources, destination } = transferPaths(args);
+      // Globs and directory operands cannot establish an accepted single-file digest.
+      if (destination && !untrusted(destination) && (workerSource || sources.some(source =>
+        protectedTrees.some(tree => contains(canonical(resolve(cwd, source)), tree))))) return workerIntegrationDenial;
+      for (const source of sources) if (destination && untrusted(source)) {
         copies.push(resolve(cwd, destination), resolve(cwd, destination, basename(source)));
       }
       continue;
     }
-    if (words[index]?.value.includes('/') && untrusted(words[index].value)) return true;
+    // Keep a pipeline together so `cat worker | tee dest` and input redirection
+    // carry the worker source through to the destination. Never inspect contents.
+    const output = words.some((word, cursor) => ['>', '>>'].includes(word.value)
+      && words[cursor + 1] && !untrusted(words[cursor + 1].value));
+    const tee = name === 'tee' && words.slice(index + 1)
+      .some(arg => !arg.operator && !arg.value.startsWith('-') && !untrusted(arg.value));
+    if (workerSource && (output || tee) && !(name === 'aiwg' && args.includes('--verify-worker'))) return workerIntegrationDenial;
+    if (words[index]?.value.includes('/') && untrusted(words[index].value)) return workerExecutionDenial;
     if (shells.has(name)) {
       const inline = args.findIndex(arg => /^-[^-]*c/.test(arg));
       if (inline >= 0 && args[inline + 1] !== undefined) {
-        if (workerExecution(args[inline + 1], cwd, [...protectedTrees, ...copies], depth + 1)) return true;
+        const reason = workerExecution(args[inline + 1], cwd, [...protectedTrees, ...copies], depth + 1);
+        if (reason) return reason;
         continue;
       }
     }
-    if ((runtime.test(name) || shells.has(name)) && (untrusted('.') || words.some(word => references(word.value)))) return true;
+    if ((runtime.test(name) || shells.has(name)) && (untrusted('.') || words.some(word => references(word.value)))) return workerExecutionDenial;
   }
-  return false;
+  return null;
 }
 
 export function conductorToolDenial(event, root, paths, workerTrees = conductorWorkerTrees(root)) {
@@ -242,8 +298,14 @@ export function conductorToolDenial(event, root, paths, workerTrees = conductorW
     return protectedPaths.some(base => contains(base, file) || contains(base, canonical(file)));
   };
   if ([input.file_path, input.path].some(denied)) return 'AIWG: local-only task input is unavailable to this conductor';
+  if (workerTrees.length && ['Write', 'Edit', 'MultiEdit'].includes(event.tool_name)
+    && [input.file_path, input.path].some(candidate => typeof candidate === 'string'
+      && workerTrees.some(tree => contains(canonical(resolve(tree)), canonical(resolve(cwd, candidate)))
+        // Rule 9: the conductor writes the worker brief under the worker tree's .handoff/ before launch.
+        && !contains(canonical(resolve(tree, '.handoff')), canonical(resolve(cwd, candidate)))))) return workerIntegrationDenial;
   if (typeof input.command === 'string') {
-    if (workerTrees.length && workerExecution(input.command, cwd, workerTrees)) return workerExecutionDenial;
+    const reason = workerTrees.length && workerExecution(input.command, cwd, workerTrees);
+    if (reason) return reason;
     // Covers literal/quoted paths, compound commands and common redirections. This is
     // deliberately conservative, not a shell interpreter or a filesystem sandbox.
     const command = input.command;
