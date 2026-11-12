@@ -4755,7 +4755,8 @@ describe('allowance ledger: cross-instance probes', () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  }, 60_000);
+    // ~0.4 s on titan; the shared build01 runner took over 60 s (CI run 104028: imports 126 s for the file).
+  }, 180_000);
 });
 
 // ---------------------------------------------------------------------------

@@ -70,8 +70,9 @@ describe('T-OG-05/06 Ralph CLI dispatch and recovery boundaries', () => {
     await invoke(['--resume', '--allow-exhausted-resume', '--max-iterations', '2', '--budget', '1.5',
       '--max-total-tokens', '100', '--exploration-quota', '2', '--budget-stop-policy', 'budget-wins',
       '--log-file', path.join(root, 'run.log')]);
-    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
-    await vi.waitFor(() => expect(readFileSync(path.join(root, 'run.log'), 'utf8')).toContain('Loop ID: fixture'));
+    // vi.waitFor defaults to 1 s; the shared build01 runner needed longer to flush the log (CI run 104028).
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0), { timeout: 10_000 });
+    await vi.waitFor(() => expect(readFileSync(path.join(root, 'run.log'), 'utf8')).toContain('Loop ID: fixture'), { timeout: 10_000 });
     expect(doubles.resume).toHaveBeenCalledWith({ allowExhaustedResume: true, maxIterations: 2,
       budgetPerIteration: 1.5, budgetLimits: { total_tokens: 100 }, explorationQuota: { enabled: true, k: 2 },
       budgetStopPolicy: 'budget-wins' });
