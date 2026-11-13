@@ -6,7 +6,7 @@ import { probeVerificationIsolationCapabilities } from './verification-isolation
 import { buildSystemdClientEnv, CONNECTION_NAMES, isClientControlVariable, resolveSystemdRun } from './systemd-client.mjs';
 
 const required = ['writeConfinement', 'homeReadIsolation', 'tmpIsolation'];
-const usage = 'Usage: ralph-external --run-conductor --conductor-root ABS_DIR --deliverable ABS_PATH [--bind ABS_DIR] [--bind-ro ABS_DIR] [--setenv NAME] -- COMMAND [ARG...]';
+const usage = 'Usage: ralph-external --run-conductor --conductor-root ABS_DIR --deliverable ABS_PATH [--bind ABS_DIR] [--bind-ro ABS_DIR] [--setenv NAME] [--max-runtime-seconds N] -- COMMAND [ARG...]';
 function safePath(value) {
   // systemd path lists interpret whitespace, colons, backslashes and specifiers.
   if (typeof value !== 'string' || !path.isAbsolute(value) || /[\s:%\\\x00-\x1f"']/.test(value) || path.normalize(value) !== value) throw new Error('Conductor grants require normalized absolute paths without systemd metacharacters');
@@ -23,9 +23,12 @@ export function parseConductorArgs(args) {
     const flag = args[i];
     if (flag === '--run-conductor') continue;
     if (flag === '--') { result.command = args.slice(i + 1); break; }
-    if (!['--conductor-root', '--deliverable', '--bind', '--bind-ro', '--setenv'].includes(flag)) throw new Error(`Unsupported conductor option: ${flag}`);
+    if (!['--conductor-root', '--deliverable', '--bind', '--bind-ro', '--setenv', '--max-runtime-seconds'].includes(flag)) throw new Error(`Unsupported conductor option: ${flag}`);
     const value = args[++i];
-    if (flag === '--setenv') result.envNames.push(safeEnv(value));
+    if (flag === '--max-runtime-seconds') {
+      if (!/^[1-9][0-9]{0,6}$/.test(value ?? '')) throw new Error('--max-runtime-seconds requires a positive integer');
+      result.maxRuntimeSeconds = Number(value);
+    } else if (flag === '--setenv') result.envNames.push(safeEnv(value));
     else {
       safePath(value);
       if (flag === '--conductor-root') {
@@ -45,10 +48,16 @@ export function buildConductorArgs(options) {
   if (grants.some(grant => deliverables.some(deliverable => grant === deliverable || grant.startsWith(deliverable + '/')))) throw new Error('Writable grants cannot overlap or sit inside protected deliverables');
   if (grants.some(grant => readOnlyBinds.some(readOnly => grant === readOnly || grant.startsWith(readOnly + '/')))) throw new Error('Writable grants cannot overlap or sit inside read-only binds');
   const args = ['--user', '--pipe', '--wait', '--collect', '--quiet'];
+  // A named unit lets the caller stop it from outside; killing systemd-run alone leaves it running.
+  if (options.unitName !== undefined) {
+    if (!/^aiwg-conductor-[A-Za-z0-9_-]{1,80}$/.test(options.unitName)) throw new Error('Invalid conductor unit name');
+    args.push(`--unit=${options.unitName}`);
+  }
   const properties = ['NoNewPrivileges=yes', 'ProtectHome=tmpfs', 'PrivateTmp=yes', 'ReadOnlyPaths=/',
     'InaccessiblePaths=/run/user /run/dbus',
     'UnsetEnvironment=DBUS_SESSION_BUS_ADDRESS SYSTEMD_BUS_ADDRESS XDG_RUNTIME_DIR',
     `WorkingDirectory=${options.conductorRoot}`];
+  if (options.maxRuntimeSeconds !== undefined) properties.push(`RuntimeMaxSec=${options.maxRuntimeSeconds}`);
   for (const grant of new Set(grants)) properties.push(`BindPaths=${grant}`, `ReadWritePaths=${grant}`);
   for (const grant of new Set(readOnlyBinds)) properties.push(`BindReadOnlyPaths=${grant}`);
   for (const deliverable of deliverables) properties.push(`ReadOnlyPaths=${deliverable}`);
@@ -65,10 +74,30 @@ export function runConductor(options, { probe = probeVerificationIsolationCapabi
   const capabilities = probe();
   const missing = required.filter(name => capabilities?.[name] !== 'enforced');
   if (capabilities?.mode !== 'systemd-unit' || missing.length) throw new Error(`ISOLATION_UNAVAILABLE: conductor requires enforced write, home-read and tmp isolation (${missing.join(', ')}); use a namespace-enabled host (#4128). No degraded mode is supported.`);
-  const args = buildConductorArgs(options);
-  const result = spawn(resolveRun(), args, { stdio: 'inherit', env: buildSystemdClientEnv({ env, envNames: options.envNames ?? [] }) });
-  if (result.error) throw result.error;
-  return Number.isInteger(result.status) ? result.status : 1;
+  const unitName = options.unitName ?? `aiwg-conductor-${process.pid}-${Date.now()}`;
+  const args = buildConductorArgs({ ...options, unitName });
+  // spawnSync blocks the event loop, so a terminating signal sent to our process group is queued
+  // here instead of killing this wrapper; systemd-run exits on it, and we then stop the unit, which
+  // would otherwise keep the conductor running unsupervised.
+  const received = [];
+  const onSignal = signal => { received.push(signal); };
+  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, onSignal);
+  try {
+    const result = spawn(resolveRun(), args, { stdio: 'inherit', env: buildSystemdClientEnv({ env, envNames: options.envNames ?? [] }) });
+    stopConductorUnit(unitName, { spawn, env });
+    if (result.error) throw result.error;
+    if (received.length) return 128 + (received[0] === 'SIGINT' ? 2 : received[0] === 'SIGHUP' ? 1 : 15);
+    return Number.isInteger(result.status) ? result.status : 1;
+  } finally {
+    for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.removeListener(signal, onSignal);
+  }
+}
+
+// Best effort and idempotent: a finished --collect unit is already gone.
+export function stopConductorUnit(unitName, { spawn = spawnSync, env = process.env } = {}) {
+  const result = spawn('systemctl', ['--user', 'stop', unitName], { stdio: 'ignore', timeout: 30_000,
+    env: buildSystemdClientEnv({ env, envNames: [] }) });
+  return !result.error && result.status === 0;
 }
 export async function runConductorCli(args, { run = runConductor, stderr = console.error } = {}) {
   try {
