@@ -269,7 +269,7 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
     const transport = permissions.transport;
     if (request.transport === 'mcp' && permissions.launchMode === 'native-sandbox') {
       const reason = diagnostic('OG_POLICY_RELAXATION', `/parallelism/groups/${groupId}/execution/launchMode`,
-        'MCP worker-invoke does not support native-sandbox isolation. Use models resolve --transport shell and the shell launcher, or select a group with systemd-unit isolation.');
+        '--transport mcp selects an MCP-server worker, which native-sandbox groups do not support. Resolve with --transport shell, then launch with --launch-worker, or from a confined conductor with MCP worker-invoke transport "shell"; or select a group with systemd-unit isolation.');
       for (const member of group.members ?? []) plan.exclusions.push({ group: groupId, member: member.id, model: member.model, effort: null, diagnostics: [reason] });
       if (request.group === groupId) plan.diagnostics.push(reason);
       continue;
