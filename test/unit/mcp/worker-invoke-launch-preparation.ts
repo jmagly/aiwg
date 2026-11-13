@@ -4,6 +4,7 @@ import { stat } from 'node:fs/promises';
 import { expect, it, vi } from 'vitest';
 import { ScopedFailureBreaker } from '../../../tools/ralph-external/lib/consecutive-failure-circuit-breaker.mjs';
 import { systemdClientFixture } from '../../fixtures/systemd-client.js';
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 
 type LaunchHarness = {
   root: string;
@@ -43,7 +44,8 @@ export function registerSystemdLaunchPreparationTests<H extends LaunchHarness>({
         const property = args.find(arg => arg.startsWith('StandardInputFile='))!;
         stdinPath = property.slice('StandardInputFile='.length);
         const frame = JSON.parse(readFileSync(stdinPath, 'utf8'));
-        expect(frame).toEqual({ message: 'private worker brief', model_override: 'synthetic/a%b', cwd: h.work });
+        // #4156: the shell brief carries the launcher's final-output contract.
+        expect(frame).toEqual({ message: workerPromptBrief('private worker brief', h.input.final_output).toString('utf8'), model_override: 'synthetic/a%b', cwd: h.work });
         expect(args.join(' ')).not.toContain('private worker brief');
         expect(readFileSync(stdinPath).length).toBeGreaterThan(0);
         return { status: 0, stdout: '', stderr: '' };

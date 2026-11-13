@@ -29,6 +29,7 @@ import { workerSigningFixture } from '../../helpers/worker-qualification-signing
 import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { systemdClientFixture } from '../../fixtures/systemd-client.js';
 import { registerSystemdLaunchPreparationTests } from './worker-invoke-launch-preparation.js';
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { detectWorkerIsolation } from '../../../tools/ralph-external/lib/worker-isolation.mjs';
 import { workerInputSchema, workerOutputSchema } from '../../fixtures/ralph-worker-protocol.mjs';
 import { parseToolsets, registerOptInToolsets, KNOWN_TOOLSETS } from '../../../src/mcp/tools/subsystems.mjs';
@@ -3186,7 +3187,8 @@ summary: JSON.stringify({ params, stdinPath: process.platform === 'linux' ? read
     expect(result.status, JSON.stringify(result)).toBe('completed');
     expect(result.termination).toBe('confirmed');
     const frame = JSON.parse(result.result.claims.summary);
-    expect(frame.params).toEqual({ message: 'private worker brief', model_override: 'synthetic/a%b', cwd: h.work });
+    // #4156: the shell brief carries the launcher's final-output contract.
+    expect(frame.params).toEqual({ message: workerPromptBrief('private worker brief', h.input.final_output).toString('utf8'), model_override: 'synthetic/a%b', cwd: h.work });
     expect((await stat(h.input.final_output)).mode & 0o777).toBe(0o600);
     expect(frame.stdinPath.startsWith(h.work + path.sep)).toBe(false);
     await expect(stat(frame.stdinPath)).rejects.toMatchObject({ code: 'ENOENT' });
@@ -5056,7 +5058,7 @@ describe('disabled dispatch equals main through the full #2915 round 8 (D6) scen
   // case (see describe-block comment): proven ONCE, not per-scenario.
   // -------------------------------------------------------------------------
   it('scenario: audited brief-json preparation supplies a private params file on both sides', async () => {
-    async function runOne(registerFn: any, isolation: any) {
+    async function runOne(registerFn: any, isolation: any, contract: boolean) {
       const root = await tempRoot();
       const work = path.join(root, 'work'); await mkdir(work);
       const briefPath = path.join(root, 'brief.md'); await writeFile(briefPath, 'private brief content');
@@ -5092,14 +5094,15 @@ describe('disabled dispatch equals main through the full #2915 round 8 (D6) scen
         const body = JSON.parse(result.content[0].text);
         expect(body.status, JSON.stringify(body)).toBe('completed');
         expect(launch).toHaveBeenCalledOnce();
-        expect(framed).toEqual({ message: 'private brief content', model_override: 'synthetic/a%b', cwd: work });
+        // Intended divergence from the frozen baseline (#4156): current dispatch adds the final-output contract.
+        expect(framed).toEqual({ message: contract ? workerPromptBrief('private brief content', finalOutput).toString('utf8') : 'private brief content', model_override: 'synthetic/a%b', cwd: work });
         expect(existsSync(framedPath)).toBe(false);
         return body;
       } finally { launch.mockRestore(); }
     }
     const baselineIsolation = await import('../../fixtures/ralph-recovery-baseline/worker-isolation.mjs');
-    const baseline = await runOne(workerInvokeBaseline.registerWorkerInvokeToolset, baselineIsolation);
-    const branch = await runOne(registerProductionToolset, workerIsolation);
+    const baseline = await runOne(workerInvokeBaseline.registerWorkerInvokeToolset, baselineIsolation, false);
+    const branch = await runOne(registerProductionToolset, workerIsolation, true);
     expect(branch.status).toBe(baseline.status);
     expect(branch.termination).toBe(baseline.termination);
   }, 20000);

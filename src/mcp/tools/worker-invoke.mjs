@@ -636,6 +636,16 @@ export function shellFinalFormat(rawOutput) {
   }
 }
 
+/** systemd collects a unit that exits successfully, so the legacy dispatch path cannot observe a
+ * clean exit (#4157). Name the owned-capture route instead of a misleading contract error. */
+export function unobservedSystemdExit(invocation, outcome) {
+  if (invocation?.isolation !== 'systemd-unit' || outcome?.termination !== 'confirmed' || outcome.exitCode !== null
+    || outcome.timedOut || outcome.stopped || outcome.neverExecuted) return null;
+  return { code: 'OG_WORKER_EXIT_UNOBSERVED',
+    message: 'The systemd worker unit ended but its exit status could not be observed (systemd collects units that exit successfully); its result is unknown and the worker tree is retained.',
+    remedy: 'Pass run_dir to worker-invoke so the launcher owns capture and records the exit status and final output.' };
+}
+
 export function servedWorkerInputsContext(servedRoot) {
   return { cwd: servedRoot, args: [], rawArgs: [], frameworkRoot: findOwnPackageRoot() };
 }
@@ -2085,6 +2095,8 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
             status: registry.get(entry.invocationId)?.cancelRequested ? 'cancelled' : 'failed',
             diagnostics: [outcome.timedOut ? 'worker deadline exceeded; termination confirmed' : 'worker stopped; termination confirmed'] });
         }
+        const unobserved1 = unobservedSystemdExit(invocation, outcome);
+        if (unobserved1) return registry.markTerminal(entry.invocationId, { status: 'failed', termination: 'confirmed', diagnostics: [unobserved1] });
         try { rawOutput = await readBoundedFile(invocation.finalPath, invocation.maxOutputBytes, root); } catch {
           return registry.markTerminal(entry.invocationId, { status: 'failed', termination: 'confirmed', diagnostics: ['worker final output was not written'] });
         }
@@ -2523,6 +2535,11 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
           return registry.markTerminal(entry.invocationId, { control: null, termination: 'confirmed',
             status: registry.get(entry.invocationId)?.cancelRequested ? 'cancelled' : 'failed',
             diagnostics: [outcome.timedOut ? 'worker deadline exceeded; termination confirmed' : 'worker stopped; termination confirmed'] });
+        }
+        const unobserved2 = unobservedSystemdExit(invocation, outcome);
+        if (unobserved2) {
+          settleRecovery({ kind: 'failed', confirmedStop });
+          return registry.markTerminal(entry.invocationId, { status: 'failed', termination: 'confirmed', diagnostics: [unobserved2] });
         }
         try { rawOutput = await readBoundedFile(invocation.finalPath, invocation.maxOutputBytes, root); } catch {
           // #2915 review 5 (finding 1a): a confirmed clean exit that never

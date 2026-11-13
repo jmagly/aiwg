@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { servedWorkerInputsContext, shellFinalFormat } from '../../../src/mcp/tools/worker-invoke.mjs';
+import { servedWorkerInputsContext, shellFinalFormat, unobservedSystemdExit } from '../../../src/mcp/tools/worker-invoke.mjs';
 import { sampleWorkerHostResources } from '../../../src/cli/handlers/models-resource-sample.js';
 
 const roots: string[] = [];
@@ -46,5 +46,23 @@ describe('shellFinalFormat (#4151)', () => {
     expect(shellFinalFormat(`${JSON.stringify({ type: 'message', text: 'x' })}\n${JSON.stringify({ type: 'result', result: claims })}\n`)).toBe('jsonl');
     expect(shellFinalFormat('not json')).toBe('jsonl');
     expect(shellFinalFormat('[1]')).toBe('jsonl');
+  });
+});
+
+describe('unobservedSystemdExit (#4157)', () => {
+  const systemd = { isolation: 'systemd-unit' };
+  it('names the owned-capture route when a confirmed systemd unit has no observable exit status', () => {
+    const d = unobservedSystemdExit(systemd, { termination: 'confirmed', exitCode: null });
+    expect(d).toMatchObject({ code: 'OG_WORKER_EXIT_UNOBSERVED' });
+    expect(d!.remedy).toContain('run_dir');
+  });
+  it('stays out of the way for observed exits, stops, timeouts, never-executed units and other isolation', () => {
+    expect(unobservedSystemdExit(systemd, { termination: 'confirmed', exitCode: 0 })).toBeNull();
+    expect(unobservedSystemdExit(systemd, { termination: 'confirmed', exitCode: 1 })).toBeNull();
+    expect(unobservedSystemdExit(systemd, { termination: 'uncertain', exitCode: null })).toBeNull();
+    expect(unobservedSystemdExit(systemd, { termination: 'confirmed', exitCode: null, timedOut: true })).toBeNull();
+    expect(unobservedSystemdExit(systemd, { termination: 'confirmed', exitCode: null, stopped: true })).toBeNull();
+    expect(unobservedSystemdExit(systemd, { termination: 'confirmed', exitCode: null, neverExecuted: true })).toBeNull();
+    expect(unobservedSystemdExit({ isolation: 'degraded' }, { termination: 'confirmed', exitCode: null })).toBeNull();
   });
 });

@@ -24,7 +24,8 @@ function setup({ bytes, plan }: { bytes: Buffer | null; plan: (options: any) => 
   const root = mkdtempSync(path.join(tmpdir(), 'aiwg-stdin-native-')); roots.push(root);
   const planDirectWorkerLaunch = vi.fn(plan);
   const deps = {
-    loadRalphExternal: async () => ({ planDirectWorkerLaunch }),
+    loadRalphExternal: async (relative: string) => relative === 'session-launcher.mjs' ? { planDirectWorkerLaunch }
+      : import(path.resolve('tools/ralph-external', relative)),
     readBoundedFile: async () => brief,
     importImpl: async () => ({ workerStdinBytes: () => bytes }),
     describeGateFailures: () => 'gate',
@@ -80,5 +81,40 @@ describe('launchPreparedShellWorker native-sandbox (#4136)', () => {
     expect(planned.isolation).toEqual({ mode: 'systemd-unit' });
     expect(planned.attached).toBeUndefined();
     expect(result.ownedGroup).toBe(false);
+  });
+});
+
+describe('launchPreparedShellWorker brief contract (#4156)', () => {
+  it('frames the stdin brief with the launcher final-output contract', async () => {
+    const f = setup({ bytes: null, plan: async () => ({ launched: false, blocked: true }) });
+    const seen: Buffer[] = [];
+    f.deps.importImpl = async () => ({ workerStdinBytes: (_inv: any, prompt: Buffer) => { seen.push(prompt); return null; } });
+    f.invocation.isolation = 'systemd-unit';
+    f.invocation.finalPath = path.join(f.invocation.cwd, '.handoff', 'final.json');
+    await launchPreparedShellWorker(f.invocation, f.options, f.deps);
+    const text = seen[0].toString('utf8');
+    expect(text).toContain('[Worker final-output contract]');
+    expect(text).toContain(JSON.stringify(f.invocation.finalPath));
+    expect(text).toContain('Task body');
+  });
+
+  it('gives a closed-stdin --prompt-file profile a derived brief carrying the contract', async () => {
+    const { readFileSync } = await import('node:fs');
+    const f = setup({ bytes: null, plan: async () => ({ launched: false, blocked: true }) });
+    f.invocation.isolation = 'systemd-unit';
+    f.invocation.stdin = 'closed';
+    f.invocation.finalPath = path.join(f.invocation.cwd, '.handoff', 'final.json');
+    f.invocation.argv = ['/usr/bin/muse', 'exec', '--prompt-file', f.invocation.briefPath];
+    await launchPreparedShellWorker(f.invocation, f.options, f.deps);
+    const argv: string[] = f.planDirectWorkerLaunch.mock.calls[0][0].invocation.argv;
+    const derived = argv[3];
+    expect(derived).not.toBe(f.invocation.briefPath);
+    expect(derived.startsWith(path.join(f.invocation.cwd, '.handoff', 'worker-brief-inv-1'))).toBe(true);
+    const text = readFileSync(derived, 'utf8');
+    expect(text).toContain('[Worker final-output contract]');
+    expect(text).toContain('Task body');
+    // The quarantine sits beside the worker tree (same filesystem) and is removed after a refused launch.
+    const { readdirSync } = await import('node:fs');
+    expect(readdirSync(path.dirname(f.invocation.cwd)).filter((name: string) => name.startsWith('.aiwg-worker-artifacts-'))).toEqual([]);
   });
 });
