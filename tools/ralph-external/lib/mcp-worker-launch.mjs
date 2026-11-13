@@ -4,6 +4,12 @@ import { join } from 'node:path';
 import { SessionLauncher, planDirectWorkerLaunch } from '../session-launcher.mjs';
 import { checkWorkerDispatch, launchIsolatedWorker } from './worker-isolation.mjs';
 
+// The capture owner's attached launch connects stdio itself, so the planner must not default capture
+// paths from the invocation; systemd-run refuses attached mode with redirects (#4157).
+function attachedInvocation(invocation) {
+  return { ...invocation, stdoutPath: undefined, stderrPath: undefined, briefPath: undefined };
+}
+
 export async function launchMcpShellWorker(invocation, { plan, invocationId, releaseOutput, runDir, servedRoot,
   loadInputs, now, onRunDir, memoryMaxGb = 2, allowDegraded, admission, dispatchGuard,
   live, readers, thresholdOverlay, isolation, spawn, spawnAsync }) {
@@ -28,7 +34,7 @@ export async function launchMcpShellWorker(invocation, { plan, invocationId, rel
       // The MCP bridge retains its single recovery admission and leaf dispatch guard.
       launch = await (admission === undefined
         ? launchIsolatedWorker({ ...options, spawn, spawnAsync, onSpawnAttempt })
-        : planDirectWorkerLaunch({ ...options, invocation, invocationId, admission, dispatchGuard,
+        : planDirectWorkerLaunch({ ...options, invocation: options.attached ? attachedInvocation(invocation) : invocation, invocationId, admission, dispatchGuard,
           live, readers, thresholdOverlay, spawn, spawnAsync, onSpawnAttempt }));
       launch.child?.once('close', (exitCode, signalCode) => {
         launch.spawnObservation = { closed: true, exitCode, signalCode };

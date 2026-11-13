@@ -104,6 +104,24 @@ it('passes borrowed admission and its dispatch guard to the direct planner after
   await expect(result.cleanup()).resolves.toBe(h.launch);
 });
 
+it('#4157 strips invocation capture paths from an attached owner launch on the admission path', async () => {
+  const h = await harness();
+  Object.assign(h.invocation, { stdoutPath: '/w/out', stderrPath: '/w/err', briefPath: '/w/brief.md', stdin: 'brief-text' });
+  doubles.launch.mockImplementation(async (owner, options) => {
+    await options.launchIsolated({ ...h.spawnOptions, attached: true });
+    owner.workerStop = h.stop;
+    owner.emit('launched');
+    return new Promise(() => {});
+  });
+  await h.start({ admission: { reservationId: 'attached' }, memoryMaxGb: 4 });
+  const passed = doubles.direct.mock.calls[0][0].invocation;
+  expect(passed).toMatchObject({ id: 'synthetic-invocation', stdin: 'brief-text' });
+  expect(passed.stdoutPath).toBeUndefined();
+  expect(passed.stderrPath).toBeUndefined();
+  expect(passed.briefPath).toBeUndefined();
+  expect(h.invocation.stdoutPath).toBe('/w/out');
+});
+
 it('uses isolated launch without admission and retains close as observation only', async () => {
   const h = await harness();
   const result = await h.start();
