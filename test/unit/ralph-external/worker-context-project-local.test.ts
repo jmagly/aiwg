@@ -16,6 +16,7 @@ it.each(['codex', 'muse'])('T-OG-04 deploys only %s in the worker tree with a re
   writeFileSync(configFile, JSON.stringify(config));
   chmodSync(home, 0o555);
   let deploys = 0;
+  const deployScratch: string[] = [];
   const env = { PATH: process.env.PATH, HOME: home, USERPROFILE: home,
     XDG_CONFIG_HOME: home, XDG_CACHE_HOME: home, XDG_DATA_HOME: home, XDG_STATE_HOME: home,
     AIWG_CONFIG: path.join(home, '.aiwg'), CI: '1', NO_UPDATE_NOTIFIER: '1',
@@ -29,6 +30,8 @@ it.each(['codex', 'muse'])('T-OG-04 deploys only %s in the worker tree with a re
           if (bin === 'git') return spawnSync(bin, argv, { ...options, env, timeout: 30000 });
           deploys++;
           expect(argv).toEqual(['use', 'all', '--provider', provider, '--scope', 'project', '--target', work, '--yes']);
+          deployScratch.push(path.basename(path.dirname(String(options.env?.XDG_DATA_HOME ?? ''))));
+          expect(String(options.env?.XDG_DATA_HOME ?? '').startsWith(work)).toBe(false);
           return spawnSync(process.execPath, [path.resolve('bin/aiwg.mjs'), ...argv], { ...options,
             env: { ...env, ...Object.fromEntries(Object.entries(options.env ?? {}).filter(([name]) =>
               ['HOME', 'USERPROFILE', 'AIWG_CONFIG', 'AIWG_USER_REGISTRY_PATH', 'AIWG_ARTIFACTS_PATH', 'AIWG_PROJECT_AIWG_DIR', 'CODEX_HOME', 'HERMES_HOME'].includes(name) || name.startsWith('XDG_'))) }, timeout: 180000 });
@@ -44,6 +47,10 @@ it.each(['codex', 'muse'])('T-OG-04 deploys only %s in the worker tree with a re
     expect(Object.keys(deployed.installed.all.deployedTo)).toEqual([provider]);
     const afterDeploy = readFileSync(configFile, 'utf8');
     expect(readdirSync(work)).not.toContain('.hermes');
+    // #4150: regenerable deploy data (the framework index) stays out of the worker tree.
+    expect(readdirSync(path.join(work, '.aiwg'))).not.toContain('data');
+    expect(readdirSync(path.join(work, '.aiwg'))).not.toContain('cache');
+    expect(readdirSync(tmpdir()).filter(name => name.startsWith('aiwg-worker-deploy-') && deployScratch.includes(name))).toEqual([]);
     expect(await ensure()).toMatchObject({ ensured: false, providers: [provider] });
     expect(readFileSync(configFile, 'utf8')).toBe(afterDeploy);
     expect(deploys).toBe(1);
