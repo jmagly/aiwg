@@ -178,6 +178,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { mcpError, mcpJson } from '../helpers.mjs';
 import { buildShellStopControl, waitForUnitTermination } from './worker-shell-control.mjs';
+import { recordedShellLauncher } from './worker-recorded-launch.mjs';
 import { launchPreparedShellWorker, sweepWorkerStdin, markWorkerServer } from './worker-stdin-runtime.mjs';
 // NOTE: no static import of ../../config/worker-context.js here. That
 // module is TypeScript: a literal relative import resolves under vitest
@@ -667,7 +668,7 @@ async function loadWorkerContextModule() {
  * provider's bootstrap is missing; an unmappable CLI refuses with the
  * typed diagnostic, since no deploy could target it. */
 async function ensureWorkerContextForInvocation({ invocation, config }) {
-  const { ensureWorkerContextBootstrap, mapCliToProviderId, resolveWorkerContextProvidersFromConfig, WorkerContextBootstrapError } =
+  const { ensureWorkerContextBootstrap, mapCliToProviderId, WorkerContextBootstrapError } =
     await loadWorkerContextModule();
   const cli = invocation?.selected?.cli;
   const mapped = mapCliToProviderId(cli, config?.parallelism);
@@ -678,13 +679,7 @@ async function ensureWorkerContextForInvocation({ invocation, config }) {
       { workdir: invocation?.cwd },
     );
   }
-  let providers = [mapped.provider];
-  try {
-    providers = [...new Set([...resolveWorkerContextProvidersFromConfig(config).providers, mapped.provider])];
-  } catch {
-    providers = [mapped.provider];
-  }
-  return ensureWorkerContextBootstrap({ workdir: invocation?.cwd, provider: mapped.provider, providers });
+  return ensureWorkerContextBootstrap({ workdir: invocation?.cwd, provider: mapped.provider, providers: [mapped.provider], projectLocal: true });
 }
 
 /** Refuse a failed bootstrap ensure as a typed blocked diagnostic that
@@ -734,7 +729,7 @@ async function defaultLaunchShellWorkerBaseline(invocation, { memoryMaxGb = DEFA
         return launchIsolatedWorker({
           command: invocation?.argv?.[0], args: invocation?.argv?.slice(1) ?? [], cwd,
           stdoutPath: invocation?.stdoutPath, stderrPath: invocation?.stderrPath, envNames: invocation?.envNames,
-          ...launchOptions, gate,
+          ...launchOptions, workerGroup: invocation?.selected?.group, gate,
         });
       },
     };
@@ -1596,6 +1591,7 @@ async function defaultCallMcpWorker(mcpBinding, server, options = {}) {
 function publicStatus(entry, healthHook) {
   const base = {
     invocationId: entry.invocationId,
+    run_dir: entry.run_dir ?? null,
     requestId: entry.requestId,
     status: entry.status ?? (entry.terminalAt === null ? 'running' : 'uncertain'),
     termination: entry.termination ?? 'running',
@@ -1626,6 +1622,7 @@ const inputSchema = z.strictObject({
   // authorized reconciliation operation on this SAME handler (never a
   // mailbox file, never a new breaker) — see `reconcileStopped` below.
   operation: z.enum(['run', 'status', 'cancel', 'reconcile_stopped', 'reset_recovery_scope']),
+  run_dir: z.string().startsWith('/').max(4096).refine(value => !value.includes('\0')).optional(),
   invocation_id: invocationUuid().optional(),
   scope_id: z.string().min(1).max(512).optional(),
   request_id: z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/).optional(),
@@ -1678,7 +1675,10 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
   const ttlMs = options.ttlMs ?? resolveServerTerminalTtlMs();
   const registry = options.registry ?? createInvocationRegistry({ now: options.now, maxActive, ttlMs });
   const loadWorkerInputsImpl = options.loadWorkerInputs ?? defaultLoadWorkerInputs;
-  const launchShellWorkerImpl = options.launchShellWorker ?? defaultLaunchShellWorker;
+  const recordedShell = recordedShellLauncher({ loadRalphExternal, loadInputs: () => loadWorkerInputsImpl(servedRootReal),
+    assertPath: candidate => assertServedPath(servedRootReal, candidate), registry, now: options.now ?? (() => new Date()) });
+  const launchShellWorkerImpl = options.launchShellWorker ?? ((invocation, context) => recordedShell.requested(invocation)
+    ? recordedShell.launch(invocation, context) : defaultLaunchShellWorker(invocation, context));
   const callMcpWorkerImpl = options.callMcpWorker ?? defaultCallMcpWorker;
   // Both continuations use the audited observer and hardened stop controls.
   const waitForUnitTerminationOverride = options.waitForUnitTermination;
@@ -1815,17 +1815,13 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
       const root = await servedRoot();
       const { snapshot, drivers } = await loadWorkerInputsImpl(root);
       const { resolveWorkerInvocation } = await loadServeWorkerInvocation();
-      const plan = await resolveWorkerInvocation(snapshot, request, drivers, now().toISOString());
+      let plan = await resolveWorkerInvocation(snapshot, request, drivers, now().toISOString());
+      plan = await recordedShell.bindPlan(plan, { resolve: resolveWorkerInvocation, snapshot, drivers, at: now().toISOString(), invocationId: entry.invocationId, input });
       if (plan.invocation?.readiness !== 'launchable') {
         return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: plan.diagnostics ?? [] });
       }
-      if (plan.invocation.isolation === 'native-sandbox') {
-        return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: [{
-          code: 'OG_POLICY_RELAXATION', pointer: '/worker/isolation',
-          message: 'MCP worker-invoke run does not support pinned native-sandbox isolation',
-        }] });
-      }
       prefix = { root, snapshot, drivers, invocation: plan.invocation };
+      recordedShell.prepare(plan.invocation, { plan, input, invocationId: entry.invocationId, releaseOutput: cleanupReservation });
     } catch (error) {
       return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: [error.message] });
     }
@@ -2025,7 +2021,7 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
         // M2: a live stop handle for the duration of this call, so an
         // explicit `cancel` can actually stop the isolated unit / kill the
         // child, not just record that cancellation was requested.
-        const control = buildShellStopControl(launch, {
+        const control = launch.control ?? buildShellStopControl(launch, {
           waitForUnit: (waitForUnitTerminationOverride ?? waitForUnitTerminationBaseline),
           stopUnit: options.stopWorkerUnit,
           killUnit: options.killWorkerUnit,
@@ -2410,7 +2406,7 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
         // "remaining from right now" so time already spent launching is
         // never double-counted.
         let deadlineMs = Math.max(0, deadlineAtMs - deadlineClockNow());
-        const control = buildShellStopControl(launch, {
+        const control = launch.control ?? buildShellStopControl(launch, {
           waitForUnit: (unit, budgetMs, observerOptions) => (waitForUnitTerminationOverride ?? waitForUnitTermination)(unit,
             budgetMs, { ...observerOptions, clock: deadlineClockNow }),
           nowMs: deadlineClockNow,

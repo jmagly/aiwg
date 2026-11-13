@@ -63,6 +63,36 @@ it('reports unit errors and signal exits without accepting degradation', () => {
   expect(() => runConductor(options, { probe: () => ({ mode: 'degraded' }) })).toThrow('ISOLATION_UNAVAILABLE');
 });
 
+it('T-OG-04 adds read-only binds without a writable grant and refuses writable descendants', () => {
+  const parsed = parseConductorArgs(['--run-conductor', '--conductor-root', '/srv/conductor',
+    '--deliverable', '/srv/conductor/deliver', '--bind-ro', '/home/test/.local', '--', '/bin/sh']);
+  expect(parsed.readOnlyBinds).toEqual(['/home/test/.local']);
+  const args = buildConductorArgs(parsed);
+  expect(args).toContain('BindReadOnlyPaths=/home/test/.local');
+  expect(args).not.toContain('BindPaths=/home/test/.local');
+  expect(args).not.toContain('ReadWritePaths=/home/test/.local');
+  for (const readOnlyBinds of [['/srv/conductor'], ['/srv'], ['/run/user'], ['/srv/non canonical']]) {
+    expect(() => buildConductorArgs({ ...options, readOnlyBinds })).toThrow();
+  }
+});
+
+it('T-OG-04 validates canonical read-only directories before dispatch', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'aiwg-conductor-ro-'));
+  const control = path.join(root, 'control'), install = path.join(root, 'install');
+  mkdirSync(control); mkdirSync(install); mkdirSync(path.join(control, 'deliver'));
+  symlinkSync(install, path.join(root, 'link'));
+  const run = vi.fn(() => 0), stderr = vi.fn();
+  const base = ['--run-conductor', '--conductor-root', control, '--deliverable', path.join(control, 'deliver')];
+  try {
+    expect(await runConductorCli([...base, '--bind-ro', install, '--', 'true'], { run, stderr })).toBe(0);
+    run.mockClear();
+    for (const dir of [path.join(root, 'link'), path.join(root, 'missing')]) {
+      expect(await runConductorCli([...base, '--bind-ro', dir, '--', 'true'], { run, stderr })).toBe(1);
+    }
+    expect(run).not.toHaveBeenCalled();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 it('dispatches conductor mode before interpreting flags in the conductor argv', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'aiwg-conductor-dispatch-'));
   try {

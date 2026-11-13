@@ -76,7 +76,7 @@ describe('ensureWorkerContextForLaunch: cli mapping, one-pass deploy set, typed 
     parallelism: { clis: { codex: { adapter: 'providers:codex' } }, groups: {} },
   };
 
-  it('maps the worker CLI and deploys the union set in one ensure call', async () => {
+  it('maps the worker CLI and deploys only its provider in one project-local ensure call', async () => {
     const seen: Array<Record<string, unknown>> = [];
     const outcome = await ensureWorkerContextForLaunch({
       workdir: '/w', cli: 'codex', config, resolveFromConfig: REAL_UNION,
@@ -87,7 +87,7 @@ describe('ensureWorkerContextForLaunch: cli mapping, one-pass deploy set, typed 
       },
     });
     expect(seen).toHaveLength(1);
-    expect(seen[0]).toMatchObject({ workdir: '/w', provider: 'codex', providers: ['muse', 'codex'] });
+    expect(seen[0]).toMatchObject({ workdir: '/w', provider: 'codex', providers: ['codex'], projectLocal: true });
     expect(outcome).toMatchObject({ ensured: true, provider: 'codex', skipped: [] });
   });
 
@@ -128,7 +128,7 @@ describe('ensureWorkerContextForLaunch: cli mapping, one-pass deploy set, typed 
     await expect(ensureWorkerContextForLaunch({ workdir: dir, repoRoot: dir, cli: 'codex',
       readConfig: async () => config, resolveFromConfig: REAL_UNION, mapCli: async () => ({ provider: 'codex' }),
       ensureFn, statusFn, deployFn, skipWorktreeFn,
-    })).resolves.toMatchObject({ provider: 'codex', providers: ['muse', 'codex'] });
+    })).resolves.toMatchObject({ provider: 'codex', providers: ['codex'] });
     expect(ensureFn).toHaveBeenCalledWith(expect.objectContaining({ statusFn, deployFn, skipWorktreeFn }));
   });
 });

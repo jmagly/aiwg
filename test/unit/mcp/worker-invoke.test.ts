@@ -1630,7 +1630,7 @@ describe('run/status/cancel lifecycle (shell transport, injected launch)', () =>
       stdin: 'closed', envNames: [],
     });
     const launchShellWorker = vi.fn(async invocation => {
-      expect(invocation.isolation).toBe('systemd-unit');
+      expect(invocation.isolation).toBe(launchMode);
       const claims = { version: 1, status: 'completed', summary: 'Synthetic result.', claims: [], artifacts: [], checks: [], limitations: [] };
       await writeFile(invocation.finalPath, JSON.stringify({ type: 'result', result: claims }));
       return { launched: true, mode: 'systemd-unit', unit: 'synthetic.service' };
@@ -1649,16 +1649,8 @@ describe('run/status/cancel lifecycle (shell transport, injected launch)', () =>
     const body = JSON.parse(result.content[0].text);
     expect(body.termination).toBe('confirmed');
     expect(registry.canStart()).toBe(true);
-    if (launchMode === 'native-sandbox') {
-      expect(body.status).toBe('blocked');
-      expect(body.diagnostics).toEqual([{ code: 'OG_POLICY_RELAXATION', pointer: '/worker/isolation',
-        message: 'MCP worker-invoke run does not support pinned native-sandbox isolation' }]);
-      expect(launchShellWorker).not.toHaveBeenCalled();
-      expect(existsSync(finalOutput)).toBe(false);
-    } else {
-      expect(launchShellWorker).toHaveBeenCalledOnce();
-      expect(body.status, JSON.stringify(body)).toBe('completed');
-    }
+    expect(launchShellWorker).toHaveBeenCalledOnce();
+    expect(body.status, JSON.stringify(body)).toBe('completed');
   });
 
   it('resolves, launches, parses the fixture CLI final, and reports completed', async () => {

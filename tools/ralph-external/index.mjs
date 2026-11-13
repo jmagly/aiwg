@@ -366,7 +366,7 @@ USAGE:
   ralph-external --resume [options]
   ralph-external --status
   ralph-external --abort
-  ralph-external --run-conductor --conductor-root ABS_DIR --deliverable ABS_PATH [--bind ABS_DIR] [--setenv NAME] -- COMMAND [ARG...]
+  ralph-external --run-conductor --conductor-root ABS_DIR --deliverable ABS_PATH [--bind ABS_DIR] [--bind-ro ABS_DIR] [--setenv NAME] -- COMMAND [ARG...]
   ralph-external --verify-worker --run-dir DIR --check JSON [--artifact ABS_FILE] [--deliverable ABS_FILE] [--json]
   ralph-external --launch-worker --invocation FILE --run-dir DIR [--retry-of-run-dir DIR [--retry-correction]] [--allow-degraded-worker]
                           Exit 0: confirmed success. Exit 1: confirmed failure

@@ -21,18 +21,18 @@ export function remoteToolPolicy(projectDir, tools, { verifiedDeliveryOnly = fal
   let active = 0;
   return {
     configureTool(name, config, handler) {
-      const allowed = name === 'discover' || name.endsWith('-show') || (name === 'artifact-write' && !verifiedDeliveryOnly) || name === 'worker-verify-deliver';
+      const allowed = name === 'discover' || name.endsWith('-show') || (name === 'artifact-write' && !verifiedDeliveryOnly) || name === 'worker-verify-deliver' || name === 'worker-invoke';
       if (!allowed || (selected && !selected.has(name))) return undefined;
       exposed.add(name);
       const shape = config.inputSchema?.shape ?? {};
       const inputSchema = z.strictObject(Object.fromEntries(
-        Object.entries(shape).filter(([key]) => !scopeFields.has(key)),
+        Object.entries(shape).filter(([key]) => !scopeFields.has(key) || (name === 'worker-invoke' && key === 'workdir')),
       ));
       return { config: { ...config, inputSchema }, handler: async (args, extra) => {
         extra.signal.throwIfAborted();
         // CLI-backed cards must not reinterpret data values as scope/source flags.
         // artifact-write uses openArtifact directly and spawns no CLI.
-        if (name !== 'artifact-write' && name !== 'worker-verify-deliver' && containsCliOption(args)) {
+        if (name !== 'artifact-write' && name !== 'worker-verify-deliver' && name !== 'worker-invoke' && containsCliOption(args)) {
           throw new Error('Tool arguments must not contain CLI options');
         }
         active++;
@@ -44,7 +44,7 @@ export function remoteToolPolicy(projectDir, tools, { verifiedDeliveryOnly = fal
     drain: () => Promise.allSettled([...children]),
     validate() {
       if (selected && [...selected].some(name => !exposed.has(name))) {
-        throw new Error('--tools must name only available discover, *-show artifact-write or worker-verify-deliver tools; enable required --toolsets explicitly');
+        throw new Error('--tools must name only available discover, *-show, artifact-write, worker-invoke or worker-verify-deliver tools; enable required --toolsets explicitly');
       }
     },
   };

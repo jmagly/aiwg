@@ -27,14 +27,17 @@ it('permits CLI-looking artifact content because artifact-write does not spawn a
   expect(handler).toHaveBeenCalledWith(args, extra);
 });
 
-it('exposes only verify-and-deliver from workers over HTTP and preserves check argv as data', async () => {
+it('exposes invoke and verify-and-deliver over HTTP and preserves their structured data', async () => {
   const policy = remoteToolPolicy('/fixture/project');
   const handler = vi.fn().mockResolvedValue('accepted');
   const schema = z.object({ checks: z.array(z.object({ args: z.array(z.string()) })) });
   const tool = policy.configureTool('worker-verify-deliver', { inputSchema: schema }, handler);
   expect(tool).toBeDefined();
   expect(remoteToolPolicy('/fixture/project', undefined, { verifiedDeliveryOnly: true }).configureTool('artifact-write', { inputSchema: schema }, handler)).toBeUndefined();
-  expect(policy.configureTool('worker-invoke', { inputSchema: schema }, handler)).toBeUndefined();
+  const invoke = policy.configureTool('worker-invoke', { inputSchema: z.object({ workdir: z.string(), project_dir: z.string().optional(), brief: z.string() }) }, handler)!;
+  expect(invoke.config.inputSchema.safeParse({ workdir: '/fixture/project/work', brief: '--literal' }).success).toBe(true);
+  expect(invoke.config.inputSchema.safeParse({ workdir: '/fixture/project/work', brief: 'task', project_dir: '/outside' }).success).toBe(false);
+  await invoke.handler({ workdir: '/fixture/project/work', brief: '--literal' }, { signal: new AbortController().signal });
   await tool!.handler({ checks: [{ args: ['--test'] }] }, { signal: new AbortController().signal });
-  expect(handler).toHaveBeenCalledOnce();
+  expect(handler).toHaveBeenCalledTimes(2);
 });

@@ -71,6 +71,7 @@
     "tools/ralph-external/lib/trusted-verification.mjs",
     "tools/ralph-external/lib/verification-isolation.mjs",
     "tools/ralph-external/lib/worker-delivery-record.mjs",
+    "tools/ralph-external/lib/mcp-worker-launch.mjs",
     "tools/ralph-external/lib/worker-capture.mjs",
     "tools/ralph-external/lib/worker-launch-cli.mjs",
     "tools/ralph-external/lib/worker-run-directory-refusal.mjs",

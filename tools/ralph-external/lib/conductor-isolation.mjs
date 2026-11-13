@@ -6,7 +6,7 @@ import { probeVerificationIsolationCapabilities } from './verification-isolation
 import { buildSystemdClientEnv, CONNECTION_NAMES, isClientControlVariable, resolveSystemdRun } from './systemd-client.mjs';
 
 const required = ['writeConfinement', 'homeReadIsolation', 'tmpIsolation'];
-const usage = 'Usage: ralph-external --run-conductor --conductor-root ABS_DIR --deliverable ABS_PATH [--bind ABS_DIR] [--setenv NAME] -- COMMAND [ARG...]';
+const usage = 'Usage: ralph-external --run-conductor --conductor-root ABS_DIR --deliverable ABS_PATH [--bind ABS_DIR] [--bind-ro ABS_DIR] [--setenv NAME] -- COMMAND [ARG...]';
 function safePath(value) {
   // systemd path lists interpret whitespace, colons, backslashes and specifiers.
   if (typeof value !== 'string' || !path.isAbsolute(value) || /[\s:%\\\x00-\x1f"']/.test(value) || path.normalize(value) !== value) throw new Error('Conductor grants require normalized absolute paths without systemd metacharacters');
@@ -18,12 +18,12 @@ function safeEnv(name) {
   return name;
 }
 export function parseConductorArgs(args) {
-  const result = { binds: [], deliverables: [], envNames: [], command: [] };
+  const result = { binds: [], readOnlyBinds: [], deliverables: [], envNames: [], command: [] };
   for (let i = 0; i < args.length; i++) {
     const flag = args[i];
     if (flag === '--run-conductor') continue;
     if (flag === '--') { result.command = args.slice(i + 1); break; }
-    if (!['--conductor-root', '--deliverable', '--bind', '--setenv'].includes(flag)) throw new Error(`Unsupported conductor option: ${flag}`);
+    if (!['--conductor-root', '--deliverable', '--bind', '--bind-ro', '--setenv'].includes(flag)) throw new Error(`Unsupported conductor option: ${flag}`);
     const value = args[++i];
     if (flag === '--setenv') result.envNames.push(safeEnv(value));
     else {
@@ -31,7 +31,7 @@ export function parseConductorArgs(args) {
       if (flag === '--conductor-root') {
         if (result.conductorRoot) throw new Error('Duplicate --conductor-root');
         result.conductorRoot = value;
-      } else result[flag === '--bind' ? 'binds' : 'deliverables'].push(value);
+      } else result[flag === '--bind' ? 'binds' : flag === '--bind-ro' ? 'readOnlyBinds' : 'deliverables'].push(value);
     }
   }
   if (!result.conductorRoot || !result.deliverables.length || !result.command.length) throw new Error(usage);
@@ -39,15 +39,18 @@ export function parseConductorArgs(args) {
 }
 export function buildConductorArgs(options) {
   const grants = [options.conductorRoot, ...(options.binds ?? [])].map(safePath);
+  const readOnlyBinds = (options.readOnlyBinds ?? []).map(safePath);
   const deliverables = options.deliverables.map(safePath);
   if (!deliverables.length || !options.command.length) throw new Error(usage);
   if (grants.some(grant => deliverables.some(deliverable => grant === deliverable || grant.startsWith(deliverable + '/')))) throw new Error('Writable grants cannot overlap or sit inside protected deliverables');
+  if (grants.some(grant => readOnlyBinds.some(readOnly => grant === readOnly || grant.startsWith(readOnly + '/')))) throw new Error('Writable grants cannot overlap or sit inside read-only binds');
   const args = ['--user', '--pipe', '--wait', '--collect', '--quiet'];
   const properties = ['NoNewPrivileges=yes', 'ProtectHome=tmpfs', 'PrivateTmp=yes', 'ReadOnlyPaths=/',
     'InaccessiblePaths=/run/user /run/dbus',
     'UnsetEnvironment=DBUS_SESSION_BUS_ADDRESS SYSTEMD_BUS_ADDRESS XDG_RUNTIME_DIR',
     `WorkingDirectory=${options.conductorRoot}`];
   for (const grant of new Set(grants)) properties.push(`BindPaths=${grant}`, `ReadWritePaths=${grant}`);
+  for (const grant of new Set(readOnlyBinds)) properties.push(`BindReadOnlyPaths=${grant}`);
   for (const deliverable of deliverables) properties.push(`ReadOnlyPaths=${deliverable}`);
   for (const property of properties) args.push('-p', property);
   for (const name of options.envNames ?? []) args.push(`--setenv=${safeEnv(name)}`);
@@ -70,7 +73,7 @@ export function runConductor(options, { probe = probeVerificationIsolationCapabi
 export async function runConductorCli(args, { run = runConductor, stderr = console.error } = {}) {
   try {
     const options = parseConductorArgs(args);
-    for (const grant of [options.conductorRoot, ...options.binds]) {
+    for (const grant of [options.conductorRoot, ...options.binds, ...options.readOnlyBinds]) {
       if (realpathSync(grant) !== grant || !statSync(grant).isDirectory()) throw new Error('Conductor binds require existing canonical directories');
     }
     for (const deliverable of options.deliverables) {

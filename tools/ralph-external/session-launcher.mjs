@@ -500,7 +500,7 @@ async function launchOneWorker(owner, options) {
   // themselves; pre-spawn refusals above never reach this point. Global
   // dispatch AND per-CLI enablement are checked inside `admitDirectWorker`
   // before any breaker construction (#2915 final review, finding 1).
-  const invocationId = invocation.invocationId ?? randomUUID();
+  const invocationId = invocation.invocationId ?? options.invocationId ?? randomUUID();
   // #2915 review 4 (finding 8): computed ONCE, before admission, so the
   // SAME digest both gates the allowance reservation here and is published
   // into invocation.json below — never recomputed from a possibly-stale
@@ -1544,7 +1544,7 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
   if (runStat.uid !== process.getuid()) throw new Error('Worker run directory must be conductor-owned');
   await withWorkerPath(runDir, async target => { const handle = await open(target, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
     try { await handle.chmod(0o700); } finally { await handle.close(); } });
-  const invocationId = invocation.invocationId ?? (options.managedAdmission ? options.managedInvocationId : randomUUID());
+  const invocationId = invocation.invocationId ?? options.invocationId ?? (options.managedAdmission ? options.managedInvocationId : randomUUID());
   if (options.managedAdmission && invocationId !== options.managedInvocationId) throw new Error('Worker artifact invocation id differs from managed admission');
   const reservation = await withWorkerPath(join(runDir, '.launch-owner'), target => open(target, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600));
   try { await reservation.writeFile(invocationId); await reservation.sync(); } finally { await reservation.close(); }
@@ -4910,7 +4910,7 @@ export function planDirectWorkerLaunch({
   proposeUnit,
   kind,
   attached = false,
-  ownedGroup = false, onSpawnAttempt,
+  ownedGroup = false, onSpawnAttempt, runDir,
   // #2892: forwarded only when explicitly given, so every existing caller
   // (which omits it) keeps #2895's own `attached` default (`stdin: 'closed'`
   // -> stdio[0] 'ignore') unchanged. An MCP stdio worker passes `'open'` to
@@ -4963,7 +4963,7 @@ export function planDirectWorkerLaunch({
   // comment. Omitted by every existing caller today.
   dispatchGuard,
 } = {}) {
-  if (invocation?.stdin === 'brief-json' && stdinPath === undefined) {
+  if (invocation?.stdin === 'brief-json' && stdinPath === undefined && !runDir) {
     throw new Error('brief-json stdin requires an explicit conductor-framed params file (stdinPath)');
   }
   // #2915 final (step 6, compatibility): the dispatch switch is consulted
@@ -4993,7 +4993,7 @@ export function planDirectWorkerLaunch({
   }
   let dispatchAttempt;
   const launch = (onDispatchCommit) => launchIsolatedWorker({ name, memoryMaxGb, command, args, cwd, logFile, stdinPath, stdoutPath, stderrPath,
-    gate, config, allowDegraded, attached, ownedGroup,
+    gate, config, allowDegraded, attached, ownedGroup, runDir, workerGroup: invocation?.selected?.group,
     onSpawnAttempt: onDispatchCommit ? value => { dispatchAttempt = value; onSpawnAttempt?.(value); } : onSpawnAttempt,
     ...(envNames !== undefined ? { envNames } : {}), ...(env !== undefined ? { env } : {}),
     ...(isolation !== undefined ? { isolation } : {}), ...(spawn !== undefined ? { spawn } : {}),
