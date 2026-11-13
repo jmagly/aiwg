@@ -65,8 +65,9 @@ export async function launchPreparedShellWorker(invocation, { allowDegraded, con
     const { workerPromptBrief } = await loadRalphExternal('lib/worker-prompt.mjs');
     if (invocation.stdin === 'closed' && (invocation.argv ?? []).includes(invocation.briefPath)) {
       const { materializeWorkerArtifacts } = await loadRalphExternal('lib/worker-artifacts.mjs');
-      // The materializer keeps its quarantine outside every worker-writable root.
-      const artifactRoot = await mkdtemp(path.join(tmpdir(), 'aiwg-worker-artifacts-'));
+      // The materializer needs its quarantine outside the worker tree but on the same filesystem
+      // (atomic rename; /tmp is often a separate tmpfs), so it sits beside the worker tree.
+      const artifactRoot = await mkdtemp(path.join(path.dirname(invocation.cwd), '.aiwg-worker-artifacts-'));
       cleanup = () => rm(artifactRoot, { recursive: true, force: true });
       const materialized = await materializeWorkerArtifacts(invocation, artifactRoot,
         { brief, invocationId: invocationId ?? invocation.invocationId ?? randomUUID() });

@@ -113,5 +113,8 @@ describe('launchPreparedShellWorker brief contract (#4156)', () => {
     const text = readFileSync(derived, 'utf8');
     expect(text).toContain('[Worker final-output contract]');
     expect(text).toContain('Task body');
+    // The quarantine sits beside the worker tree (same filesystem) and is removed after a refused launch.
+    const { readdirSync } = await import('node:fs');
+    expect(readdirSync(path.dirname(f.invocation.cwd)).filter((name: string) => name.startsWith('.aiwg-worker-artifacts-'))).toEqual([]);
   });
 });
