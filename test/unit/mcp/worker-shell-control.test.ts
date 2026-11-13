@@ -509,7 +509,8 @@ describe('prepared shell recovery authority', () => {
     });
     const result = await launchPreparedShellWorker(invocation,
       { memoryMaxGb: 1, servedRoot: root, stdinRuntimeRoot: root, admission, invocationId: 'invocation', dispatchGuard },
-      { loadRalphExternal: async () => ({ planDirectWorkerLaunch: plan }), readBoundedFile: async () => brief,
+      { loadRalphExternal: async (relative: string) => relative === 'session-launcher.mjs' ? { planDirectWorkerLaunch: plan }
+        : import(path.resolve('tools/ralph-external', relative)), readBoundedFile: async () => brief,
         importImpl: async () => ({ workerStdinBytes: () => brief }), describeGateFailures: () => 'refused' });
     expect(plan).toHaveBeenCalledOnce();
     expect(plan.mock.calls[0][0].admission).toBe(admission);

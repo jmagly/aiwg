@@ -1,6 +1,6 @@
 // Prepare worker stdin and internal attribution for shell and spawned MCP transports.
 import { directWorkerEnvironment } from '../../config/worker-attribution.mjs';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, rm, readdir, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -60,10 +60,25 @@ export async function launchPreparedShellWorker(invocation, { allowDegraded, con
       throw new Error('Worker prompt digest changed');
     }
     const { workerStdinBytes } = await importImpl('serve/worker-stdin-frame.mjs');
+    // Same final-output contract the launcher adds (#4156): stdin profiles get the wrapped brief, and
+    // file-based profiles get a derived brief through the launcher's own artifact materializer.
+    const { workerPromptBrief } = await loadRalphExternal('lib/worker-prompt.mjs');
+    if (invocation.stdin === 'closed' && (invocation.argv ?? []).includes(invocation.briefPath)) {
+      const { materializeWorkerArtifacts } = await loadRalphExternal('lib/worker-artifacts.mjs');
+      // The materializer keeps its quarantine outside every worker-writable root.
+      const artifactRoot = await mkdtemp(path.join(tmpdir(), 'aiwg-worker-artifacts-'));
+      cleanup = () => rm(artifactRoot, { recursive: true, force: true });
+      const materialized = await materializeWorkerArtifacts(invocation, artifactRoot,
+        { brief, invocationId: invocationId ?? invocation.invocationId ?? randomUUID() });
+      invocation = { ...invocation, argv: materialized.argv };
+    }
     let stdinPath;
-    const bytes = workerStdinBytes(invocation, brief, driver);
+    const bytes = workerStdinBytes(invocation, workerPromptBrief(brief, invocation.finalPath), driver);
     if (bytes !== null) {
-      ({ stdinPath, cleanup } = await prepareWorkerStdin(bytes, stdinRuntimeRoot));
+      const artifactCleanup = cleanup;
+      const prepared = await prepareWorkerStdin(bytes, stdinRuntimeRoot);
+      stdinPath = prepared.stdinPath;
+      cleanup = () => Promise.all([prepared.cleanup(), artifactCleanup()]);
     }
     const markers = directWorkerEnvironment({ ...invocation, ...(invocationId ? { invocationId } : {}) });
     const launch = await planDirectWorkerLaunch({ invocation, config, allowDegraded, name, live, readers,
