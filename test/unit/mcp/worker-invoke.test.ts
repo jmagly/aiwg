@@ -1151,6 +1151,38 @@ describe('cancellation and uncertain-run capacity (#2892 M2)', () => {
     expect(runBody.termination).toBe('confirmed');
   });
 
+  it('#4151: a shell worker final written as plain workerClaims JSON (real worker shape) completes', async () => {
+    const root = await tempRoot();
+    const work = path.join(root, 'work'); await mkdir(work);
+    const briefPath = path.join(root, 'brief.md'); await writeFile(briefPath, 'hello');
+    const finalPath = path.join(work, 'final.json');
+    const f = buildFixture(root, 'shell');
+    const tools = new Map<string, any>();
+    const registry = createInvocationRegistry();
+    const child: any = new EventEmitter();
+    child.pid = 123457;
+    child.kill = () => true;
+    await registerWorkerInvokeToolset({ registerTool(name: string, config: any, handler: any) { tools.set(name, { config, handler }); } }, {
+      projectRoot: root, registry, workerWorktreesRoot: work,
+      loadWorkerInputs: async () => ({ snapshot: f.snapshot, drivers: f.drivers }),
+      launchShellWorker: async () => ({ launched: true, mode: 'degraded', child }),
+      now: () => new Date(f.now),
+    });
+    const call = tools.get('worker-invoke').handler;
+    const runPromise = call({
+      operation: 'run', request_id: 'plain-final', role: 'coding', task: 'implementation', group: 'workers',
+      brief: briefPath, workdir: work, final_output: finalPath, transport: 'shell',
+    });
+    const [pendingEntry] = registry.values().filter((e: any) => e.requestId === 'plain-final');
+    await waitFor(() => registry.get(pendingEntry.invocationId)?.control != null);
+    const claims = { version: 1, status: 'completed', summary: 'ok', claims: [], artifacts: [], checks: [], limitations: [] };
+    await writeFile(finalPath, `${JSON.stringify(claims, null, 2)}\n`);
+    child.emit('close', 0);
+    const body = JSON.parse((await runPromise).content[0].text);
+    expect(body.diagnostics ?? []).not.toContainEqual(expect.objectContaining({ code: 'OG_CONTRACT_INVALID' }));
+    expect(body.status, JSON.stringify(body)).toBe('completed');
+  });
+
   it('cancel on an invocation with no live control handle still marks the run cancelled, not completed', async () => {
     const root = await tempRoot();
     const work = path.join(root, 'work'); await mkdir(work);

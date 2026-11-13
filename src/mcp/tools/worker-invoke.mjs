@@ -621,6 +621,21 @@ async function defaultLoadWorkerInputs(servedRoot) {
 /** Same context shape as the launcher's in-process loader. A bare `resolve`
  * subcommand made the host-resource sampler parse a request with no flags
  * and fail every real launch with `Missing role` (#4148). */
+/** A shell worker's final file holds either plain workerClaims JSON (what
+ * real workers write, and what the launcher's own final collection reads) or
+ * a JSONL result stream. Parsing plain claims as JSONL rejected every real
+ * worker final with OG_CONTRACT_INVALID (#4151). The adapter still performs
+ * the strict decode and schema validation for either framing. */
+export function shellFinalFormat(rawOutput) {
+  try {
+    const text = typeof rawOutput === 'string' ? rawOutput : Buffer.from(rawOutput).toString('utf8');
+    const value = JSON.parse(text);
+    return value && typeof value === 'object' && !Array.isArray(value) && !Object.hasOwn(value, 'type') ? 'json' : 'jsonl';
+  } catch {
+    return 'jsonl';
+  }
+}
+
 export function servedWorkerInputsContext(servedRoot) {
   return { cwd: servedRoot, args: [], rawArgs: [], frameworkRoot: findOwnPackageRoot() };
 }
@@ -2122,7 +2137,7 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
       let claims;
       try {
         claims = await new (class extends ProviderAdapter {})().parseWorkerFinal(rawOutput, {
-          format: invocation.transport === 'shell' ? 'jsonl' : 'mcp', observation, maxOutputBytes: invocation.maxOutputBytes,
+          format: invocation.transport === 'shell' ? shellFinalFormat(rawOutput) : 'mcp', observation, maxOutputBytes: invocation.maxOutputBytes,
         });
       } catch (error) {
         // M5: bounded, fixed-vocabulary diagnostic only — never the raw
@@ -2679,7 +2694,7 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
       let claims;
       try {
         claims = await new (class extends ProviderAdapter {})().parseWorkerFinal(rawOutput, {
-          format: invocation.transport === 'shell' ? 'jsonl' : 'mcp', observation, maxOutputBytes: invocation.maxOutputBytes,
+          format: invocation.transport === 'shell' ? shellFinalFormat(rawOutput) : 'mcp', observation, maxOutputBytes: invocation.maxOutputBytes,
         });
       } catch (error) {
         // #2915 review 5 (finding 1a): the strict parse itself rejected the

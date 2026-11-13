@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { servedWorkerInputsContext } from '../../../src/mcp/tools/worker-invoke.mjs';
+import { servedWorkerInputsContext, shellFinalFormat } from '../../../src/mcp/tools/worker-invoke.mjs';
 import { sampleWorkerHostResources } from '../../../src/cli/handlers/models-resource-sample.js';
 
 const roots: string[] = [];
@@ -31,5 +31,20 @@ describe('servedWorkerInputsContext (#4148)', () => {
     const root = mkdtempSync(path.join(tmpdir(), 'aiwg-4148-'));
     roots.push(root);
     expect(() => sampleWorkerHostResources({ cwd: root, args: ['resolve'] })).toThrow('Missing role');
+  });
+});
+
+describe('shellFinalFormat (#4151)', () => {
+  const claims = { version: 1, status: 'completed', summary: 'ok', claims: [], artifacts: [], checks: [], limitations: [] };
+  it('reads plain claims JSON, including pretty-printed, as json', () => {
+    expect(shellFinalFormat(JSON.stringify(claims))).toBe('json');
+    expect(shellFinalFormat(`${JSON.stringify(claims, null, 2)}\n`)).toBe('json');
+    expect(shellFinalFormat(Buffer.from(JSON.stringify(claims)))).toBe('json');
+  });
+  it('keeps result streams and anything unparseable on the strict jsonl path', () => {
+    expect(shellFinalFormat(`${JSON.stringify({ type: 'result', result: claims })}\n`)).toBe('jsonl');
+    expect(shellFinalFormat(`${JSON.stringify({ type: 'message', text: 'x' })}\n${JSON.stringify({ type: 'result', result: claims })}\n`)).toBe('jsonl');
+    expect(shellFinalFormat('not json')).toBe('jsonl');
+    expect(shellFinalFormat('[1]')).toBe('jsonl');
   });
 });

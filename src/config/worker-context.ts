@@ -14,7 +14,8 @@
  * pass an already-loaded config object instead.
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import {
@@ -323,11 +324,14 @@ export interface EnsureWorkerContextBootstrapOptions {
 }
 
 /** Keep CLI bootstrap state and caches local to a launch-time context deploy. */
-export function workerContextDeployEnv(workdir: string, env = process.env): NodeJS.ProcessEnv {
+export function workerContextDeployEnv(workdir: string, env = process.env, scratch?: string): NodeJS.ProcessEnv {
   const local = path.join(workdir, '.aiwg');
+  // Data and cache hold regenerable deploy output (the framework search index
+  // alone exceeds 100 MB). Inside the worker tree they break the verifier's
+  // tree digest, so a scratch directory outside the tree takes them (#4150).
   return { ...env, HOME: workdir, USERPROFILE: workdir, AIWG_CONFIG: local,
-    XDG_CONFIG_HOME: path.join(local, 'config'), XDG_CACHE_HOME: path.join(local, 'cache'),
-    XDG_DATA_HOME: path.join(local, 'data'), XDG_STATE_HOME: path.join(local, 'state'),
+    XDG_CONFIG_HOME: path.join(local, 'config'), XDG_CACHE_HOME: path.join(scratch ?? local, 'cache'),
+    XDG_DATA_HOME: path.join(scratch ?? local, 'data'), XDG_STATE_HOME: path.join(local, 'state'),
     AIWG_USER_REGISTRY_PATH: path.join(local, 'installed.json'),
     AIWG_ARTIFACTS_PATH: local, AIWG_PROJECT_AIWG_DIR: local,
     CODEX_HOME: path.join(workdir, '.codex'), HERMES_HOME: path.join(workdir, '.hermes') };
@@ -394,8 +398,14 @@ export async function ensureWorkerContextBootstrap(
         { provider, workdir },
       );
     }
-    const result = spawn(bin, argv, { cwd: workdir, encoding: 'utf8', timeout: timeoutMs,
-      ...(options.projectLocal ? { env: workerContextDeployEnv(workdir) } : {}) });
+    const scratch = options.projectLocal ? mkdtempSync(path.join(tmpdir(), 'aiwg-worker-deploy-')) : undefined;
+    let result;
+    try {
+      result = spawn(bin, argv, { cwd: workdir, encoding: 'utf8', timeout: timeoutMs,
+        ...(options.projectLocal ? { env: workerContextDeployEnv(workdir, process.env, scratch) } : {}) });
+    } finally {
+      if (scratch) rmSync(scratch, { recursive: true, force: true });
+    }
     if ((result as { error?: Error }).error) {
       throw new WorkerContextBootstrapError(
         `worker context deploy failed to run (${(result as { error?: Error }).error?.message});`
