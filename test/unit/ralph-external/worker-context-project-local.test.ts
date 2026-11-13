@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { expect, it } from 'vitest';
 import { ensureWorkerContextForLaunch } from '../../../tools/ralph-external/lib/worker-context.mjs';
-import { ensureWorkerContextBootstrap, workerContextBootstrapStatus } from '../../../src/config/worker-context.js';
+import { ensureWorkerContextBootstrap, workerContextBootstrapStatus, workerContextDeployEnv } from '../../../src/config/worker-context.js';
 
 it.each(['codex', 'muse'])('T-OG-04 deploys only %s in the worker tree with a read-only HOME, then skips', async provider => {
   const scratch = mkdtempSync(path.join(tmpdir(), 'aiwg-local-context-'));
@@ -59,3 +59,11 @@ it.each(['codex', 'muse'])('T-OG-04 deploys only %s in the worker tree with a re
     rmSync(scratch, { recursive: true, force: true });
   }
 }, 240000);
+
+it('#4150 keeps deploy data and cache in the scratch directory when one is given, else in the worker tree', () => {
+  const work = '/work/tree', scratch = '/tmp/aiwg-worker-deploy-x';
+  const scoped = workerContextDeployEnv(work, {}, scratch);
+  expect(scoped).toMatchObject({ XDG_DATA_HOME: '/tmp/aiwg-worker-deploy-x/data', XDG_CACHE_HOME: '/tmp/aiwg-worker-deploy-x/cache',
+    XDG_CONFIG_HOME: '/work/tree/.aiwg/config', XDG_STATE_HOME: '/work/tree/.aiwg/state', AIWG_CONFIG: '/work/tree/.aiwg', HOME: work });
+  expect(workerContextDeployEnv(work, {})).toMatchObject({ XDG_DATA_HOME: '/work/tree/.aiwg/data', XDG_CACHE_HOME: '/work/tree/.aiwg/cache' });
+});
