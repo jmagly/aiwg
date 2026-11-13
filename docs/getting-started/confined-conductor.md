@@ -65,8 +65,10 @@ resolves the selection on the external server before launch. Keep the MCP
 session ID for subsequent `worker-invoke`
 calls with `operation: "status"` and `invocation_id` set to the returned `invocationId`.
 Native shell workers return an absolute `run_dir` in the run response and status.
-For systemd shell workers, supply `run_dir` to select the owned-capture path;
-omitting it retains the legacy dispatch path, which has no run record.
+Always supply `run_dir` for shell workers. It selects the owned-capture path, where the
+launcher records the exit status and final output. Without it, a systemd worker's clean exit
+cannot be observed (systemd collects units that exit successfully): the run ends
+`OG_WORKER_EXIT_UNOBSERVED` with the worker tree retained.
 Pass it unchanged to `worker-verify-deliver` after confirmed termination. Optionally
 choose an absolute `run_dir` in the served project when invoking the worker; its
 parent must exist and the directory must be absent or empty, private and owned.
