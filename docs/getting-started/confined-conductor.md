@@ -23,6 +23,12 @@ directories and the AIWG build: these get `BindReadOnlyPaths=` and remain readab
 without becoming writable. Writable grants cannot equal or sit inside a read-only
 bind. Network remains enabled for APIs and localhost MCP.
 
+The confined unit is named `aiwg-conductor-<pid>-<time>`. When `systemd-run` returns for any
+reason, including a SIGTERM, SIGINT or SIGHUP sent to the wrapper's process group, the wrapper
+stops that unit from outside, so a supervisor's timeout cannot leave the conductor running.
+Add `--max-runtime-seconds N` (`RuntimeMaxSec=`) as a hard cap that holds even if the wrapper
+itself is killed with SIGKILL.
+
 Pass real paths for every grant. When `$HOME` or an install directory is a symlink
 from `/home` to `/srv`, resolve it with `realpath` in the operator shell and pass
 the resulting `/srv/...` path; symlink spellings are refused.

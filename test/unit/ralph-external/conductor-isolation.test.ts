@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildConductorArgs, parseConductorArgs, runConductor } from '../../../tools/ralph-external/lib/conductor-isolation.mjs';
+import { buildConductorArgs, parseConductorArgs, runConductor, stopConductorUnit } from '../../../tools/ralph-external/lib/conductor-isolation.mjs';
 
 const options = { conductorRoot: '/srv/conductor', deliverables: ['/srv/conductor/deliver'], binds: ['/home/test/.codex'], envNames: ['API_KEY'], command: ['/bin/sh', '-c', 'true'] };
 const enforced = { mode: 'systemd-unit', writeConfinement: 'enforced', homeReadIsolation: 'enforced', tmpIsolation: 'enforced' };
@@ -23,6 +23,34 @@ describe('T-OG-04 confined conductor', () => {
     expect(runConductor(options, { probe: () => enforced, spawn, resolveRun: () => '/usr/bin/systemd-run', env: { API_KEY: 'synthetic-value' } })).toBe(0);
     expect(spawn.mock.calls[0][1].join(' ')).not.toContain('synthetic-value');
     expect(spawn.mock.calls[0][2].env.API_KEY).toBe('synthetic-value');
+  });
+  it('names the unit, caps runtime and stops the unit from outside after systemd-run returns', () => {
+    // Killing systemd-run alone leaves a --pipe --wait unit running (noodle, 2026-11-12).
+    const spawn = vi.fn(() => ({ status: 0 }));
+    expect(runConductor({ ...options, maxRuntimeSeconds: 1200, unitName: 'aiwg-conductor-test-1' }, { probe: () => enforced, spawn, resolveRun: () => '/usr/bin/systemd-run', env: {} })).toBe(0);
+    const runArgs = spawn.mock.calls[0][1];
+    expect(runArgs).toContain('--unit=aiwg-conductor-test-1');
+    expect(runArgs).toContain('RuntimeMaxSec=1200');
+    expect(spawn.mock.calls[1][0]).toBe('systemctl');
+    expect(spawn.mock.calls[1][1]).toEqual(['--user', 'stop', 'aiwg-conductor-test-1']);
+  });
+  it('generates a unit name by default and reports a signal received while systemd-run ran', () => {
+    const listenersBefore = process.listenerCount('SIGTERM');
+    const spawn = vi.fn((command: string) => { if (command !== 'systemctl') process.emit('SIGTERM' as any); return { status: 0, signal: null }; });
+    expect(runConductor(options, { probe: () => enforced, spawn, resolveRun: () => '/usr/bin/systemd-run', env: {} })).toBe(143);
+    const unit = spawn.mock.calls[0][1].find((arg: string) => arg.startsWith('--unit='))!.slice('--unit='.length);
+    expect(unit).toMatch(/^aiwg-conductor-\d+-\d+$/);
+    expect(spawn.mock.calls[1][1]).toEqual(['--user', 'stop', unit]);
+    expect(process.listenerCount('SIGTERM')).toBe(listenersBefore); // handlers removed in finally
+  });
+  it('refuses bad runtime caps and unit names; stop is best effort', () => {
+    for (const value of ['0', '-1', '1.5', 'x', '']) {
+      expect(() => parseConductorArgs(['--run-conductor', '--conductor-root', '/srv/c', '--deliverable', '/srv/c/d', '--max-runtime-seconds', value, '--', '/bin/sh'])).toThrow(/positive integer/);
+    }
+    expect(parseConductorArgs(['--run-conductor', '--conductor-root', '/srv/c', '--deliverable', '/srv/c/d', '--max-runtime-seconds', '900', '--', '/bin/sh']).maxRuntimeSeconds).toBe(900);
+    expect(() => buildConductorArgs({ ...options, unitName: 'other-unit' })).toThrow(/Invalid conductor unit name/);
+    expect(stopConductorUnit('aiwg-conductor-x', { spawn: vi.fn(() => ({ status: 5 })) as any })).toBe(false);
+    expect(stopConductorUnit('aiwg-conductor-x', { spawn: vi.fn(() => ({ status: 0 })) as any })).toBe(true);
   });
   it('parses repeated grants and rejects bus bindings, environment assignments and degraded flags', () => {
     expect(parseConductorArgs(['--run-conductor', '--conductor-root', '/srv/conductor', '--deliverable', '/srv/conductor/deliver', '--bind', '/home/test/.codex', '--setenv', 'API_KEY', '--', '/bin/sh'])).toMatchObject({ ...options, command: ['/bin/sh'] });
