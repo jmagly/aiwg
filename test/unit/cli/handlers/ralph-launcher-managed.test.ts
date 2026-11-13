@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   abortLoop, buildArgs, cancelManagedRalph, cleanupCompletedLoop, cleanupRegistry,
-  launchExternalRalph, loadLauncherRegistry, resumeLoop, saveLauncherRegistry,
+  MANAGED_IDENTITY_BUDGET_MS, launchExternalRalph, loadLauncherRegistry, resumeLoop, saveLauncherRegistry,
 } from '../../../../src/cli/handlers/ralph-launcher.js';
 
 const mocks = vi.hoisted(() => ({ spawn: vi.fn() }));
@@ -108,7 +108,23 @@ describe('T-OG-06 managed Ralph process fencing', () => {
     writeFileSync(join(tools, 'identity.json'), 'null');
     const before = process.hrtime.bigint();
     await expect(launch()).rejects.toThrow(/identity unavailable/);
-    expect(Number(process.hrtime.bigint() - before) / 1e6).toBeLessThan(2000);
+    expect(Number(process.hrtime.bigint() - before) / 1e6).toBeLessThan(MANAGED_IDENTITY_BUDGET_MS + 1500);
+  });
+
+  it('#4153 captures a stable identity when a loaded host delays sampling past 250 ms', async () => {
+    writeFileSync(join(tools, 'process-monitor.mjs'), `
+      import { readFileSync } from 'node:fs';
+      let calls = 0;
+      export function sampleWorkerIdentity() {
+        if (calls++ === 0) { const until = Date.now() + 300; while (Date.now() < until) {} }
+        return JSON.parse(readFileSync(new URL('./identity.json', import.meta.url), 'utf8'));
+      }
+      export function createWorkerIdentityCapture() { let previous; return { observe(current) {
+        const stable = previous && current && JSON.stringify(previous) === JSON.stringify(current); previous = current; return stable ? current : null;
+      } }; }
+    `);
+    const launched = await launch();
+    expect(launched.execution).toMatchObject({ pid: 12345, startedAt: 'synthetic-boot:123:1000' });
   });
 
   it.each(['generation', 'request', 'pid', 'birth'])('rejects a mismatched %s without signalling', async mismatch => {

@@ -43,10 +43,12 @@ afterEach(async () => {
 });
 
 // Every wait has a failure bound; logical health deadlines never use wall time.
+// The bound only catches hangs: spawning the fixture CLI took over 5 s on a
+// loaded CI runner (#4153), so it sits well under the 30 s test timeout instead.
 function bounded<T>(promise: Promise<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   return Promise.race([promise, new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('Fixture wait exceeded 5s')), 5000);
+    timer = setTimeout(() => reject(new Error('Fixture wait exceeded 20s')), 20000);
   })]).finally(() => clearTimeout(timer));
 }
 
