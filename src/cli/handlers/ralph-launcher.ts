@@ -33,6 +33,9 @@ import { getProviderConfig } from '../agent-spawn.js';
 import { AiwgError, EXIT_CODES } from '../errors.js';
 import { projectAiwgPath } from '../../config/project-artifacts.js';
 
+/** Wall budget for capturing a managed Ralph child's stable identity (#4153). */
+export const MANAGED_IDENTITY_BUDGET_MS = 2000;
+
 /**
  * Options for launching an external agent loop
  */
@@ -363,8 +366,12 @@ export async function launchExternalRalph(
   let managedAdmission: LoopRegistryEntry['managedAdmission'];
   if (options.managedAdmission) {
     const { sampleWorkerIdentity, createWorkerIdentityCapture } = await import(join(frameworkRoot, 'tools', 'ralph-external', 'process-monitor.mjs'));
-    const capture = createWorkerIdentityCapture({ timeoutMs: 250 });
-    const identityDeadline = process.hrtime.bigint() + 250_000_000n;
+    // Two stable samples are needed. A loaded host can delay the 10 ms poll by
+    // hundreds of milliseconds, so a 250 ms window failed healthy launches
+    // (#4153). The child's own exit is checked every pass, so a wider window
+    // cannot bind a reused PID.
+    const capture = createWorkerIdentityCapture({ timeoutMs: MANAGED_IDENTITY_BUDGET_MS });
+    const identityDeadline = process.hrtime.bigint() + BigInt(MANAGED_IDENTITY_BUDGET_MS) * 1_000_000n;
     let identity;
     while (!identity && process.hrtime.bigint() < identityDeadline) {
       if ((child.exitCode !== null && child.exitCode !== undefined) || child.signalCode) break;
