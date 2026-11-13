@@ -210,3 +210,28 @@ it('advertises the narrow verify-and-deliver endpoint on authenticated workers H
   expect(listed.text).not.toContain('"name":"worker-invoke"');
   expect(listed.text).not.toContain('"name":"artifact-write"');
 });
+
+it('serves worker launch and status on the authenticated localhost workers listener', async () => {
+  await launch(['--toolsets', 'workers']);
+  await error(401, 'Unauthorized', initialize, { Authorization: '' });
+  const id = await session();
+  const headers = { 'Mcp-Session-Id': id };
+  const payload = (text: string) => JSON.parse(text.startsWith('event:') ? text.split('\n').find(line => line.startsWith('data:'))!.slice(5) : text);
+  const listed = await request({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, headers);
+  const list = payload(listed.text).result.tools;
+  const invoke = list.find((tool: { name: string }) => tool.name === 'worker-invoke');
+  expect(invoke.inputSchema.properties.workdir).toBeDefined();
+  expect(invoke.inputSchema.properties.project_dir).toBeUndefined();
+  expect(list.some((tool: { name: string }) => tool.name === 'worker-verify-deliver')).toBe(true);
+  expect(list.some((tool: { name: string }) => tool.name === 'artifact-write')).toBe(false);
+  const status = { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'worker-invoke', arguments: { operation: 'status' } } };
+  await error(401, 'Unauthorized', status, { ...headers, Authorization: 'Bearer wrong' });
+  const observed = await request(status, headers);
+  expect(observed.status).toBe(200);
+  expect(payload(observed.text).result.isError).not.toBe(true);
+  const refused = await request({ ...status, id: 4, params: { name: 'worker-invoke', arguments: {
+    operation: 'run', request_id: 'outside', role: 'coding', task: 'implementation', group: 'workers',
+    workdir: '/outside', brief: '/outside/brief', final_output: '/outside/final', transport: 'shell',
+  } } }, headers);
+  expect(payload(refused.text).result.isError).toBe(true);
+});

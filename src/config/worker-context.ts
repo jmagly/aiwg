@@ -281,7 +281,8 @@ export async function syncWorkerContextProviders(
 
 /**
  * Canonical one-pass deploy argv: a single `aiwg use all` invocation
- * covering every listed provider. Never one deploy per provider:
+ * covering every listed provider, or explicitly selecting one project-local
+ * launch provider. Never one deploy per provider in a union preparation:
  * per-provider invocations rewrite AGENTS.md piecemeal and clobber each
  * other's rule sections, while one pass keeps them all. No `--providers`
  * flag: it feeds only the global bootstrap and the orchestrated
@@ -292,10 +293,14 @@ export async function syncWorkerContextProviders(
  * single pass reads the union back from the worktree config.
  */
 export function buildWorkerContextDeployArgs(
-  { providers, target }: { providers: string[]; target: string },
+  { providers, target, selectedProvider }: { providers: string[]; target: string; selectedProvider?: string },
 ): string[] {
   // Fail fast on a hostile list; the synced worktree config carries the set.
   validateExplicitWorkerContextProviders(providers);
+  if (selectedProvider !== undefined) {
+    validateExplicitWorkerContextProviders([selectedProvider]);
+    return ['use', 'all', '--provider', selectedProvider, '--scope', 'project', '--target', target, '--yes'];
+  }
   return ['use', 'all', '--target', target, '--yes'];
 }
 
@@ -306,6 +311,8 @@ export interface EnsureWorkerContextBootstrapOptions {
   provider: string;
   /** Wider set for the one-pass deploy; defaults to `[provider]`. */
   providers?: string[];
+  /** Launch-time deploys select just this worker and refuse user-scope providers. */
+  projectLocal?: boolean;
   aiwgBin?: string;
   spawn?: typeof spawnSync;
   timeoutMs?: number;
@@ -315,9 +322,21 @@ export interface EnsureWorkerContextBootstrapOptions {
   skipWorktreeFn?: (opts: { workdir: string }) => string[];
 }
 
+/** Keep CLI bootstrap state and caches local to a launch-time context deploy. */
+export function workerContextDeployEnv(workdir: string, env = process.env): NodeJS.ProcessEnv {
+  const local = path.join(workdir, '.aiwg');
+  return { ...env, HOME: workdir, USERPROFILE: workdir, AIWG_CONFIG: local,
+    XDG_CONFIG_HOME: path.join(local, 'config'), XDG_CACHE_HOME: path.join(local, 'cache'),
+    XDG_DATA_HOME: path.join(local, 'data'), XDG_STATE_HOME: path.join(local, 'state'),
+    AIWG_USER_REGISTRY_PATH: path.join(local, 'installed.json'),
+    AIWG_ARTIFACTS_PATH: local, AIWG_PROJECT_AIWG_DIR: local,
+    CODEX_HOME: path.join(workdir, '.codex'), HERMES_HOME: path.join(workdir, '.hermes') };
+}
+
 /**
  * Ensure a worker workdir carries its CLI's AIWG bootstrap before launch.
- * Present: no-op. Missing: sync the union set into the workdir config,
+ * Present: no-op. Missing: select one provider for projectLocal launches;
+ * otherwise sync the union set into the workdir config,
  * then exactly one `aiwg use all` pass into the workdir (never anywhere
  * else), then re-verify. Impossible (no binary, failed deploy, still
  * missing afterwards): throw `WorkerContextBootstrapError` naming the
@@ -353,7 +372,7 @@ export async function ensureWorkerContextBootstrap(
   const sync = options.syncFn ?? syncWorkerContextProviders;
   let synced: { providers: string[]; updated: boolean };
   try {
-    synced = await sync({ workdir, providers });
+    synced = options.projectLocal ? { providers: [provider], updated: false } : await sync({ workdir, providers });
   } catch (error) {
     if (error instanceof WorkerContextBootstrapError) throw error;
     throw new WorkerContextBootstrapError(
@@ -362,7 +381,8 @@ export async function ensureWorkerContextBootstrap(
       { provider, workdir },
     );
   }
-  const argv = buildWorkerContextDeployArgs({ providers: synced.providers, target: workdir });
+  const argv = buildWorkerContextDeployArgs({ providers: synced.providers, target: workdir,
+    ...(options.projectLocal ? { selectedProvider: provider } : {}) });
   const deploy = options.deployFn ?? (({ worktreePath, providers: deployProviders, aiwgBin: bin }: { worktreePath: string; providers: string[]; aiwgBin: string }) => {
     // worktreePath IS the worker workdir by construction: the only
     // `--target` ever passed is `workdir` above, and the spawn cwd is the
@@ -374,7 +394,8 @@ export async function ensureWorkerContextBootstrap(
         { provider, workdir },
       );
     }
-    const result = spawn(bin, argv, { cwd: workdir, encoding: 'utf8', timeout: timeoutMs });
+    const result = spawn(bin, argv, { cwd: workdir, encoding: 'utf8', timeout: timeoutMs,
+      ...(options.projectLocal ? { env: workerContextDeployEnv(workdir) } : {}) });
     if ((result as { error?: Error }).error) {
       throw new WorkerContextBootstrapError(
         `worker context deploy failed to run (${(result as { error?: Error }).error?.message});`

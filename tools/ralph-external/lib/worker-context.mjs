@@ -68,7 +68,7 @@ export async function resolveWorkerContextProviders({ repoRoot, providers = null
  * Ensure a worker workdir carries its CLI's AIWG bootstrap before launch.
  * Resolves the worker CLI to its provider (from the project config, so
  * orchestration CLIs map through the registry), checks presence, and
- * deploys through the same one-pass helper when missing. The deploy
+ * deploys only that provider with project scope when missing. The deploy
  * target is always exactly `workdir` — never anywhere else.
  *
  * Injectable for synthetic tests: `ensureFn` stubs the whole ensure,
@@ -116,13 +116,13 @@ export async function ensureWorkerContextForLaunch({
     );
   }
   const provider = mapped.provider;
-  const deployProviders = resolved ? [...new Set([...resolved.providers, provider])] : [provider];
+  const deployProviders = [provider];
   const ensure = ensureFn ?? (async (opts) => {
     const { ensureWorkerContextBootstrap } = await importImpl(import.meta.url, 'config/worker-context.js');
     return ensureWorkerContextBootstrap(opts);
   });
   const outcome = await ensure({
-    workdir, provider, providers: deployProviders, aiwgBin,
+    workdir, provider, providers: deployProviders, projectLocal: true, aiwgBin,
     ...(statusFn ? { statusFn } : {}),
     ...(deployFn ? { deployFn } : {}),
     ...(skipWorktreeFn ? { skipWorktreeFn } : {}),

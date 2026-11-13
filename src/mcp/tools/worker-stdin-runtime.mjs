@@ -70,19 +70,30 @@ export async function launchPreparedShellWorker(invocation, { allowDegraded, con
       env: { ...Object.fromEntries((invocation.envNames ?? []).filter(name => process.env[name] !== undefined)
         .map(name => [name, process.env[name]])), ...markers },
       envNames: [...new Set([...(invocation.envNames ?? []), ...Object.keys(markers)])],
-      thresholdOverlay, memoryMaxGb, stdinPath, ownedGroup: true, isolation, admission, invocationId, dispatchGuard,
+      thresholdOverlay, memoryMaxGb, stdinPath, ownedGroup: true,
+      isolation: invocation.isolation === 'native-sandbox' ? { mode: 'native-sandbox' } : isolation,
+      ...(invocation.isolation === 'native-sandbox' ? { attached: true, stdin: bytes === null ? 'closed' : 'open' } : {}),
+      admission, invocationId, dispatchGuard,
       spawn, spawnAsync, onSpawnAttempt: value => {
         attempt = value;
         value.child?.once('close', (exitCode, signalCode) => { Object.assign(value, { closed: true, exitCode, signalCode }); });
       },
     });
+    if (launch.mode === 'native-sandbox' && launch.child) {
+      // The native CLI owns its sandbox; the existing owned-group wrapper
+      // supplies stdin and stop authority outside the conductor unit.
+      launch.child.stdout?.resume();
+      launch.child.stderr?.resume();
+      launch.child.stdin?.on('error', () => {});
+      launch.child.stdin?.end(bytes ?? undefined);
+    }
     const launchAttempted = !!(attempt?.unit || attempt?.pid);
     if (!launch.launched && !launchAttempted) await cleanup();
-    return { ...launch, launchAttempted, spawnObservation: attempt, ownedGroup: launch.mode === 'degraded' && !!launch.pid, cleanup,
+    return { ...launch, launchAttempted, spawnObservation: attempt, ownedGroup: ['degraded', 'native-sandbox'].includes(launch.mode) && !!launch.pid, cleanup,
       diagnostic: launch.diagnostic ?? describeGateFailures(launch.failures) };
   } catch (error) {
     if (attempt?.unit || attempt?.pid) {
-      return { ...attempt, spawnObservation: attempt, ownedGroup: attempt.mode === 'degraded', launched: false, launchAttempted: true, cleanup, diagnostic: error.message };
+      return { ...attempt, spawnObservation: attempt, ownedGroup: ['degraded', 'native-sandbox'].includes(attempt.mode), launched: false, launchAttempted: true, cleanup, diagnostic: error.message };
     }
     error.workerNotLaunched = true;
     await cleanup();

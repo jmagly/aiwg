@@ -2965,6 +2965,12 @@
     "input": {
       "type": "object",
       "properties": {
+        "run_dir": {
+          "type": "string",
+          "format": "starts_with",
+          "pattern": "^\\/.*",
+          "maxLength": 4096
+        },
         "operation": {
           "type": "string",
           "enum": [

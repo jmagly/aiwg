@@ -1,9 +1,12 @@
 // Supply synthetic installed qualification roots to the offline CLI subprocess.
 import { registerHooks } from 'node:module';
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export async function loadWorkerInputs() {
+export async function loadWorkerInputs(options) {
+  if (process.env.AIWG_CONDUCTOR_PROBE_INPUTS) {
+    return (await import(pathToFileURL(process.env.AIWG_CONDUCTOR_PROBE_INPUTS).href)).loadWorkerInputs(options);
+  }
   const roots = JSON.parse(readFileSync(new URL('./qualified-roots.json', import.meta.url), 'utf8'));
   return { drivers: { fixture: { qualification: { installation: { workerWritableRoots: roots } } } } };
 }
