@@ -615,7 +615,14 @@ async function loadRalphExternal(relativeFromToolsRoot) {
  * in-process instead of shelling out to `aiwg models resolve`. */
 async function defaultLoadWorkerInputs(servedRoot) {
   const { loadWorkerInputs } = await loadModelsHandlerInternals();
-  return loadWorkerInputs({ cwd: servedRoot, args: ['resolve'], rawArgs: ['models', 'resolve'], frameworkRoot: findOwnPackageRoot() });
+  return loadWorkerInputs(servedWorkerInputsContext(servedRoot));
+}
+
+/** Same context shape as the launcher's in-process loader. A bare `resolve`
+ * subcommand made the host-resource sampler parse a request with no flags
+ * and fail every real launch with `Missing role` (#4148). */
+export function servedWorkerInputsContext(servedRoot) {
+  return { cwd: servedRoot, args: [], rawArgs: [], frameworkRoot: findOwnPackageRoot() };
 }
 
 /** #2892 D1: the registry's default `maxActive` respects the project's own
