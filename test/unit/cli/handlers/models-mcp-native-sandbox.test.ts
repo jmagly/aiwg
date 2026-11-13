@@ -41,7 +41,7 @@ it('T-OG-17 excludes a native-sandbox Codex group from models resolve --transpor
   expect(plan.exclusions).toHaveLength(2);
   expect(plan.diagnostics).toContainEqual({ code: 'OG_POLICY_RELAXATION',
     pointer: '/parallelism/groups/workers/execution/launchMode',
-    message: expect.stringMatching(/MCP worker-invoke.*native-sandbox.*--transport shell.*systemd-unit/),
+    message: expect.stringMatching(/--transport mcp selects an MCP-server worker.*native-sandbox.*--transport shell.*worker-invoke transport "shell".*systemd-unit/),
   });
   expect(buildInvocation).not.toHaveBeenCalled();
   expect(resolveWorkerPlan(f.snapshot, { ...f.request, transport: 'shell' }).status).toBe('eligible');

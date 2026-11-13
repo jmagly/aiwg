@@ -59,7 +59,8 @@ executing the conductor. Never grant manager sockets through another path.
 
 Inside the unit, call `worker-invoke` with `operation: "run"` and the bounded
 brief's `role`, `task`, `group`, `brief`, `workdir`, `final_output`, `request_id`
-and selected worker `transport` (normally `"shell"` for a CLI worker). The tool
+and selected worker `transport` (normally `"shell"` for a CLI worker). Preflight the tuple with `aiwg models resolve ... --transport shell`;
+`--transport mcp` selects an MCP-server worker and is refused for native-sandbox groups. The tool
 resolves the selection on the external server before launch. Keep the MCP
 session ID for subsequent `worker-invoke`
 calls with `operation: "status"` and `invocation_id` set to the returned `invocationId`.
@@ -82,6 +83,9 @@ Call `worker-verify-deliver` with `run_dir`, `deliverable_path`, optional
 `artifact_path`, and a nonempty `checks` array. Each check has a unique `id`, an
 absolute `command`, and optional `args`, `cwd`, `envNames`, `timeoutMs`. These
 checks belong to conductor policy; worker claims and manifests never define them.
+Derive them from the task's done criteria: each stated requirement, including edge and
+rejection cases, needs a check that fails if it is missed. The worker's own tests alone
+are not enough, because they share the worker's reading of the task.
 All artifact/run/destination paths are constrained to the served project root.
 Use existing launcher-owned run records and confirmed-stop evidence. Workers
 must have independently qualified writable roots; deliverables must be outside
