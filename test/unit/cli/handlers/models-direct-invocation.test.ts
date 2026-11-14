@@ -381,6 +381,26 @@ describe('T-OG-15 models resolve direct invocation', () => {
     expect(result.plan.invocation).toMatchObject({ readiness: 'preparatory', briefDigest: null });
   });
 
+  it('#4161 names a missing brief instead of an adapter failure when the driver needs brief content', async () => {
+    const f = await fixture();
+    const original = f.drivers.codex.buildInvocation;
+    f.drivers.codex.buildInvocation = async (input: any) => {
+      if (!input.brief) throw new Error('driver requires brief content');
+      return original(input);
+    };
+    await rm(f.request.brief);
+    const missing = await resolveWorkerInvocation(f.snapshot, f.request, f.drivers, f.now);
+    expect(missing.invocation).toBeUndefined();
+    expect(missing.diagnostics).toContainEqual(expect.objectContaining({ code: 'OG_CONFIG_REFERENCE', reason: 'brief_missing',
+      pointer: '/request/brief', message: expect.stringContaining('brief file does not exist') }));
+    expect(missing.diagnostics.some(d => d.code === 'OG_ADAPTER_UNQUALIFIED')).toBe(false);
+    // A present brief with a failing driver is still an adapter build failure.
+    await writeFile(f.request.brief, f.payload);
+    f.drivers.codex.buildInvocation = async () => { throw new Error('broken driver'); };
+    const broken = await resolveWorkerInvocation(f.snapshot, f.request, f.drivers, f.now);
+    expect(broken.diagnostics).toContainEqual(expect.objectContaining({ code: 'OG_ADAPTER_UNQUALIFIED', pointer: '/invocation/buildInvocation' }));
+  });
+
   it.each(['--unknown=x', '--constructor=x', '--__proto__=x', '--toString=x', '--valueOf=x', '--hasOwnProperty=x', '--transport=acp', '--format=fish', '--group=workers; touch injected'])('rejects %s before loading', async flag => {
     const load = vi.fn(); const handler = createModelsHandler({ load });
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});

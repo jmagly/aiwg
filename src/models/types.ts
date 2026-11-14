@@ -288,7 +288,7 @@ export interface WorkerPolicyDiagnostic {
   pointer: string;
   message: string;
   /** Fixed, non-sensitive invocation check identifier. */
-  reason?: 'invocation_build_failed' | 'native_argv_invalid' | 'invocation_prepare_failed' | 'qualified_workspace_mismatch' | 'installation_recheck_unavailable';
+  reason?: 'invocation_build_failed' | 'native_argv_invalid' | 'invocation_prepare_failed' | 'qualified_workspace_mismatch' | 'installation_recheck_unavailable' | 'brief_missing';
   /** Diagnostics block by default; optional evidence conflicts are advisory. */
   blocking?: boolean;
   origins?: WorkerPolicyOrigin[];

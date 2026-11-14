@@ -108,6 +108,8 @@ const invocationChecks = {
     message: 'Worker invocation preparation failed; check installation evidence, policy, paths and environment, then qualify again.' },
   installation_recheck_unavailable: { pointer: '/invocation/prepareWorkerInvocation',
     message: 'The selected profile requires an installation recheck, but the installed driver has no preparation method. Restore the qualified driver and qualify again.' },
+  brief_missing: { pointer: '/request/brief',
+    message: 'The brief file does not exist, and the selected worker adapter needs its content to build the invocation. Write the brief, then resolve again.' },
   qualified_workspace_mismatch: { pointer: '/request/workdir',
     message: 'Worker workdir differs from the qualified workspace. Use the qualified workspace or run aiwg doctor --probe-workers --qualify from the requested workdir.' },
 } satisfies Record<NonNullable<WorkerPolicyDiagnostic['reason']>, { pointer: string; message: string }>;
@@ -306,9 +308,17 @@ export async function resolveWorkerInvocation(snapshot: WorkerPlanSnapshot, requ
       stepEnforcement: controls.includes('stepCap') ? profile.controls.stepCap.support as 'native' | 'external' : 'unavailable' as const };
     let effectiveHealth = resolveWorkerEffectiveHealth(healthConfig, healthInput);
     const invocationId = expected?.invocationId ?? randomUUID();
-    const transport = await buildWorkerInvocationTransport(driver, { invocationId, selected: structuredClone(selected), permissions: structuredClone(tuple.permissions),
-      cwd: request.workdir, briefPath: request.brief, brief: bytes?.toString('utf8') ?? '', finalPath, limits: structuredClone(limits),
-      health: structuredClone(effectiveHealth), role: request.role });
+    let transport: Awaited<ReturnType<typeof buildWorkerInvocationTransport>>;
+    try {
+      transport = await buildWorkerInvocationTransport(driver, { invocationId, selected: structuredClone(selected), permissions: structuredClone(tuple.permissions),
+        cwd: request.workdir, briefPath: request.brief, brief: bytes?.toString('utf8') ?? '', finalPath, limits: structuredClone(limits),
+        health: structuredClone(effectiveHealth), role: request.role });
+    } catch (error) {
+      // A driver that needs the brief cannot build without it; name the missing file, not the adapter (#4161).
+      if (bytes !== null || !(error instanceof WorkerInvocationCheckError) || error.reason !== 'invocation_build_failed') throw error;
+      pointer = '/request/brief';
+      throw new WorkerInvocationCheckError('OG_CONFIG_REFERENCE', 'brief_missing');
+    }
     for (const output of Object.values(workerOutputPaths({ ...transport, selected, transport: tuple.transport, finalPath, stdoutPath, stderrPath }))) {
       await inspectPath(output, 'output');
       if (path.resolve(request.brief) === output) throw new Error('Brief and output paths must be distinct');

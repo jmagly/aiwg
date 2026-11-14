@@ -125,7 +125,10 @@ worktree reports `qualified_workspace_mismatch` at `/request/workdir`; qualify
 from that worktree before resolving there. Build and preparation failures include
 fixed `reason` identifiers (`invocation_build_failed`, `native_argv_invalid`, or
 `invocation_prepare_failed`) and pointers to the failing invocation stage, in both
-JSON plans and shell-mode refusals. Internal error text remains redacted.
+JSON plans and shell-mode refusals. Internal error text remains redacted. When the brief
+file does not exist yet and the selected adapter needs its content, resolution reports
+`OG_CONFIG_REFERENCE` with reason `brief_missing` at `/request/brief`: write the brief, then
+resolve again. Adapters that can build without it still return a preparatory plan.
 
 Shell commands use `env -i` and pass only names from the qualified profile.
 Process profiles retain PATH; Codex includes `env -i CODEX_HOME="${CODEX_HOME-}" HOME="${HOME-}" PATH="${PATH-}"`.
