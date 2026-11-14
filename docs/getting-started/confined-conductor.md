@@ -75,7 +75,10 @@ parent must exist and the directory must be absent or empty, private and owned.
 The launcher refuses run metadata inside any qualified worker-writable root. The server must
 remain outside the unit: it launches workers with their selected native sandbox
 or systemd isolation. Launching a worker CLI or `--launch-worker` inside the
-conductor unit nests sandboxes and cannot reach the hidden user-manager bus.
+conductor unit nests sandboxes and cannot reach the hidden user-manager bus. The unit sets
+`AIWG_CONFINED_CONDUCTOR=1`, and `--launch-worker` refuses there with
+`OG_CONFINED_LAUNCH_REFUSED` before any worker starts; this guards against mistakes and is
+not a security boundary.
 The served project must contain the brief, prepared worker worktree and final
 output path. Worker context deployment selects only that worker's provider,
 uses project scope and keeps deploy-time state in the worker tree; an already

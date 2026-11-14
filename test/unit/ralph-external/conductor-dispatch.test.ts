@@ -17,3 +17,22 @@ it('keeps invalid worker-status requests on their existing diagnostic path', asy
   expect(process.exitCode).toBe(1); expect(run).not.toHaveBeenCalled();
   expect(stderr).toHaveBeenCalled();
 });
+
+it('#4163 refuses --launch-worker inside a confined conductor unit before parsing or launching', async () => {
+  const stderr = vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.stubEnv('AIWG_CONFINED_CONDUCTOR', '1');
+  try {
+    await main(['--launch-worker', '--invocation', '/synthetic/plan.json', '--run-dir', '/synthetic/run']);
+    expect(process.exitCode).toBe(2);
+    expect(stderr).toHaveBeenCalledWith(expect.stringMatching(/^OG_CONFINED_LAUNCH_REFUSED/));
+  } finally { vi.unstubAllEnvs(); }
+});
+
+it('#4163 leaves --launch-worker to its normal argument checks outside a confined unit', async () => {
+  const stderr = vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.stubEnv('AIWG_CONFINED_CONDUCTOR', '');
+  try {
+    await expect(main(['--launch-worker'])).rejects.toThrow(/^Usage: ralph-external --launch-worker/);
+  } finally { vi.unstubAllEnvs(); }
+  expect(stderr.mock.calls.flat().join(' ')).not.toContain('OG_CONFINED_LAUNCH_REFUSED');
+});

@@ -9,6 +9,7 @@ describe('T-OG-04 confined conductor', () => {
     for (const property of ['BindPaths=/srv/conductor', 'BindPaths=/home/test/.codex', 'ReadOnlyPaths=/srv/conductor/deliver', 'ProtectHome=tmpfs', 'PrivateTmp=yes', 'NoNewPrivileges=yes', 'InaccessiblePaths=/run/user /run/dbus']) expect(args).toContain(property);
     expect(args).toContain('--pipe'); expect(args).toContain('--wait');
     expect(args).toContain('--setenv=API_KEY');
+    expect(args).toContain('--setenv=AIWG_CONFINED_CONDUCTOR=1');
     expect(args.join(' ')).toContain('UnsetEnvironment=DBUS_SESSION_BUS_ADDRESS SYSTEMD_BUS_ADDRESS XDG_RUNTIME_DIR');
     expect(args.join(' ')).not.toContain('PrivateNetwork=yes');
     expect(args.join(' ')).toContain('systemctl');
@@ -127,4 +128,23 @@ it('dispatches conductor mode before interpreting flags in the conductor argv', 
     const result = spawnSync(process.execPath, [fileURLToPath(new URL('../../../tools/ralph-external/index.mjs', import.meta.url)), '--run-conductor', '--conductor-root', 'relative', '--deliverable', '/absolute/deliver', '--', '/bin/sh', '--workers'], { cwd: root, env: { HOME: root, PATH: process.env.PATH }, encoding: 'utf8', timeout: 30_000 });
     expect(result.status).toBe(1); expect(result.stderr).toContain('Conductor grants require normalized absolute paths');
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+describe('#4163 --launch-worker inside a confined conductor unit', () => {
+  it('refuses with the MCP route when the unit marker is set, and stays silent otherwise', async () => {
+    const { confinedConductorLaunchRefusal } = await import('../../../tools/ralph-external/lib/worker-launch-cli.mjs');
+    const message = confinedConductorLaunchRefusal({ AIWG_CONFINED_CONDUCTOR: '1' });
+    expect(message).toMatch(/^OG_CONFINED_LAUNCH_REFUSED/);
+    expect(message).toContain('worker-invoke');
+    expect(message).toContain('run_dir');
+    expect(confinedConductorLaunchRefusal({})).toBeNull();
+    expect(confinedConductorLaunchRefusal({ AIWG_CONFINED_CONDUCTOR: '0' })).toBeNull();
+  });
+
+  it('exits 2 from the CLI before parsing or launching', () => {
+    const r = spawnSync(process.execPath, ['tools/ralph-external/index.mjs', '--launch-worker', '--invocation', '/nope/plan.json', '--run-dir', '/nope/run'],
+      { env: { ...process.env, AIWG_CONFINED_CONDUCTOR: '1' }, encoding: 'utf8', timeout: 30000 });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('OG_CONFINED_LAUNCH_REFUSED');
+  });
 });

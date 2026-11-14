@@ -63,6 +63,8 @@ export function buildConductorArgs(options) {
   for (const deliverable of deliverables) properties.push(`ReadOnlyPaths=${deliverable}`);
   for (const property of properties) args.push('-p', property);
   for (const name of options.envNames ?? []) args.push(`--setenv=${safeEnv(name)}`);
+  // Marks the unit so --launch-worker refuses here instead of nesting a worker sandbox (#4163).
+  args.push('--setenv=AIWG_CONFINED_CONDUCTOR=1');
   // An assertion in the actual profile, before any conductor code runs. This
   // also catches accidental runtime grants if the profile changes in future.
   args.push('--', '/bin/sh', '-c',
