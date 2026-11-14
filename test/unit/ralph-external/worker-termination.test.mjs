@@ -207,6 +207,17 @@ describe('T-OG-04 confirmed owned containment (#3674)', () => {
     expect(observeWorkerTermination({ mode: 'systemd-unit', workerExited: true, native: status('ActiveState=unknown\n') }).confirmed).toBe(false);
   });
 
+  it('#4158 treats a garbage-collected successful unit as an empty cgroup only with exit evidence', () => {
+    const clients = systemdClientFixture(); roots.push(clients.root); vi.stubEnv('PATH', clients.root);
+    const status = (extra = '') => getWorkerIsolationStatus('synthetic-collected', { spawn: () => ({ status: 0,
+      stdout: `ActiveState=inactive\nResult=success\nMemoryMax=infinity\nLoadState=not-found\nMainPID=0\nControlGroup=\n${extra}` }) });
+    expect(status().cgroupEmpty).toBe(true);
+    expect(observeWorkerTermination({ mode: 'systemd-unit', workerExited: true, native: status() }).confirmed).toBe(true);
+    expect(observeWorkerTermination({ mode: 'systemd-unit', native: status() }).confirmed).toBe(false);
+    expect(status('MainPID=42\n').cgroupEmpty).toBeUndefined();
+    expect(status('TasksCurrent=1\n').cgroupEmpty).toBeUndefined();
+  });
+
   it.each(['empty', 'populated', 'missing', 'denied'])('reads recursive cgroup evidence conservatively: %s', state => {
     const clients = systemdClientFixture(); roots.push(clients.root); vi.stubEnv('PATH', clients.root);
     const native = getWorkerIsolationStatus('synthetic-unit', { spawn: () => ({ status: 0,
