@@ -27,7 +27,7 @@ import { IterationAnalytics } from './iteration-analytics.mjs';
 import { EarlyStopping } from './early-stopping.mjs';
 import { CrossTaskLearner } from './cross-task-learner.mjs';
 import { watchWorkerStatus } from './process-monitor.mjs';
-import { parseWorkerLaunchArgs, workerFinalFailureMessage } from './lib/worker-launch-cli.mjs';
+import { confinedConductorLaunchRefusal, parseWorkerLaunchArgs, workerFinalFailureMessage } from './lib/worker-launch-cli.mjs';
 export { parseWorkerLaunchArgs } from './lib/worker-launch-cli.mjs';
 
 /** Strict status-only grammar, before provider probes and state constructors. */
@@ -703,6 +703,8 @@ export async function main(args = process.argv.slice(2)) {
   }
   // Dispatch before legacy parsing, provider probing or stateful constructors.
   if (args.includes('--launch-worker')) {
+    const refusal = confinedConductorLaunchRefusal();
+    if (refusal) { console.error(refusal); process.exitCode = 2; return; }
     const { SessionLauncher } = await import('./session-launcher.mjs');
     const worker = parseWorkerLaunchArgs(args);
     const launcher = new SessionLauncher();

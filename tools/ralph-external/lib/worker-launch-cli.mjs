@@ -11,6 +11,14 @@ export function workerFinalFailureMessage(result) {
     + (failure.scanError ? ` (scan failed: ${failure.scanError})` : '');
 }
 
+/** Rule 9 step 9: never nest --launch-worker inside the confined conductor unit (#4163). A
+ * guardrail for honest mistakes, not a security boundary: the nested sandbox fails either way. */
+export function confinedConductorLaunchRefusal(env = process.env) {
+  if (env.AIWG_CONFINED_CONDUCTOR !== '1') return null;
+  return 'OG_CONFINED_LAUNCH_REFUSED: --launch-worker cannot run inside a confined conductor unit (its worker sandbox would nest and fail). '
+    + 'Launch workers with the aiwg MCP worker-invoke tool (operation "run", transport "shell", run_dir) and follow them with operation "status". No worker was started.';
+}
+
 export function parseWorkerLaunchArgs(args) {
   const result = {};
   const seen = new Set();
