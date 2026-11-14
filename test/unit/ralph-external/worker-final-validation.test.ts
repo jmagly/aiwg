@@ -167,6 +167,15 @@ describe.each([false, true])('#3675 launcher final validation, recovery=%s', rec
     expect(evidence.errors[0]).toContain('Duplicate');
   });
 
+  it('#4158 uses a worker-written workerClaims final as written when the adapter extractor would reshape it', async () => {
+    const f = await fixture(recovery);
+    // Muse-style extraction parses the vendor JSONL event stream and would discard plain claims.
+    f.drivers.codex.extractFinal = () => ({ events: [], text: null });
+    const { result, evidence } = await f.launch(JSON.stringify(valid()));
+    expect(result.errorCode ?? null).toBeNull();
+    expect(evidence).toMatchObject({ source: 'worker-output', terminalSuccess: true });
+  });
+
   it('validates the schema after stdout extraction too', async () => {
     const f = await fixture(recovery);
     f.drivers.codex.extractFinal = (text: string) => JSON.parse(text).result;

@@ -109,7 +109,9 @@ describe('MAJOR regression (#2895): systemd-unit mode has real stop authority', 
       // (checked via getWorkerIsolationStatus inside finish()); issuing the
       // stop request is not itself proof of termination.
       expect(['confirmed', 'uncertain']).toContain(result.termination);
-      if (result.termination === 'confirmed') expect(result.descendants).toBe('stopped');
+      // The launcher reports descendants 'none' once termination is confirmed (session-launcher result);
+      // a stopped, collected unit became confirmable with #4158.
+      if (result.termination === 'confirmed') expect(result.descendants).toBe('none');
     } finally {
       spawnSync('systemctl', ['--user', 'stop', unit], { timeout: 10000 });
       spawnSync('systemctl', ['--user', 'reset-failed', unit], { timeout: 10000 });

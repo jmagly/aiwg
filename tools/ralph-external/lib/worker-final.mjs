@@ -130,7 +130,10 @@ export async function collectWorkerFinal({ path, workdir, driver, output, invoca
       }
     } else {
       const decoded = scan(finalBytes);
-      claims = driver.extractFinal ? driver.extractFinal(finalBytes.toString('utf8')) : decoded;
+      // A worker-written final that is already workerClaims is used as written. Adapter extraction
+      // (for example Muse's JSONL event parser) applies only to vendor-shaped files (#4158).
+      claims = driver.extractFinal && !validateWorkerPayload('workerClaims', decoded).valid
+        ? driver.extractFinal(finalBytes.toString('utf8')) : decoded;
     }
     if (!parseError) {
       const validation = validateWorkerPayload('workerClaims', claims);

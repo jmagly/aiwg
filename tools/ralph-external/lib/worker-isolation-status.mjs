@@ -9,6 +9,9 @@ function emptyCgroup(fields, readCgroup) {
   if (!['inactive', 'failed'].includes(fields.ActiveState)) return false;
   // A loaded inactive unit can have released its cgroup entirely.
   if (fields.LoadState === 'loaded' && fields.ControlGroup === '') return true;
+  // systemd garbage-collects a unit that exited successfully once it is inactive and its cgroup is
+  // released; the same not-found/inactive/MainPID=0 shape parseShellUnitStatus accepts (#4158).
+  if (fields.LoadState === 'not-found' && fields.MainPID === '0' && (fields.ControlGroup ?? '') === '') return true;
   const group = fields.ControlGroup;
   if (!group?.startsWith('/') || group === '/' || group.split('/').includes('..')) return false;
   try { return /^populated 0$/m.test(readCgroup(`/sys/fs/cgroup${group}/cgroup.events`, 'utf8')); }
