@@ -3,8 +3,8 @@
  *
  * Parses CLI tool help output to extract tool definitions.
  *
- * @architecture @.aiwg/architecture/mcpsmith-architecture.md - Section 5.1
- * @implements @.aiwg/architecture/decisions/ADR-014-mcpsmith-mcp-server-generator.md
+ * @architecture @docs/smithing/mcpsmith.md
+ * @implements @docs/smithing/mcpsmith.md
  */
 
 import { spawn } from 'child_process';

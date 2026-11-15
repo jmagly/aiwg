@@ -1,25 +1,36 @@
 # Artifact Index and Manifest Loading — Internals
 
-> **Status**: Active — 2026.5.x
+> **Status**: Active — 2026.11.x
 > **Companion to**: [`discovery-and-kernel-skills.md`](../discovery-and-kernel-skills.md) (operator-facing flow)
 > **Reference**: epics [#1212](https://git.integrolabs.net/roctinam/aiwg/issues/1212), [#1217](https://git.integrolabs.net/roctinam/aiwg/issues/1217), [#1218](https://git.integrolabs.net/roctinam/aiwg/issues/1218), [#426](https://git.integrolabs.net/roctinam/aiwg/issues/426), [#726](https://git.integrolabs.net/roctinam/aiwg/issues/726), [#1044](https://git.integrolabs.net/roctinam/aiwg/issues/1044)
 
 The discovery-and-kernel-skills guide explains *how to use* `aiwg discover` and `aiwg show`. This doc explains *where the data lives and how it gets there* — the index file layout, the manifest-driven graph configuration system, and the search/load pipeline. Read this when debugging stale results, adding a new graph, or implementing an integration that touches the index directly.
 
+For CLI context and runtime boundaries, start with [CLI architecture](cli/index.md).
+The [discovery internals](cli/discovery.md) page covers current ranking, shipped
+Fortemi Core exports, relationship tables and metadata-card drill-ins. The
+materialized JSON indexes below remain relevant to local builds and fallbacks;
+they are not a claim that every default query builds five files.
+
 ## Index file locations
 
-Index artifacts are partitioned into **graphs**. Each graph has its own scan roots, file-type filters, and output directory. The output is always the same five files; the location depends on whether the graph is **shared** (one copy per machine) or **project-local** (one copy per workspace).
+Index artifacts are partitioned into **graphs**. Each graph has its own scan roots, file-type filters, and output directory. The legacy/materialized JSON output uses the five files below; the location depends on whether the graph is **shared** (one copy per machine) or **project-local** (one copy per workspace).
 
 ### Resolution rule
 
-From `src/artifacts/types.ts:678` (`getGraphIndexDir`):
+From `getGraphIndexDir` in `src/artifacts/types.ts` and `getFrameworkIndexBaseDir` in `src/artifacts/framework-index-paths.ts`:
 
 | Graph type | Output directory |
 |---|---|
-| `framework` (`shared: true`) | `$XDG_DATA_HOME/aiwg/index/framework/` (defaults to `~/.local/share/aiwg/index/framework/`) |
-| Any other graph (`shared: false`) | `{cwd}/.aiwg/.index/<graph>/` |
+| `framework` | `$XDG_DATA_HOME/aiwg/index/roots/<sha256-of-canonical-runtime-root>/framework/` |
+| Other non-shared graphs | `<resolved-artifact-root>/.index/<graph>/` (normally `{cwd}/.aiwg/.index/<graph>/`) |
+| Other shared graphs | `$XDG_DATA_HOME/aiwg/index/<graph>/` |
 
-The base name `.aiwg/.index` is the `INDEX_DIR` constant in `src/artifacts/types.ts:280`. Note the leading dot — the index directory is sibling to `.aiwg/` artifacts but hidden from `aiwg activity-log` style listings.
+`XDG_DATA_HOME` defaults to `~/.local/share`. The framework root key prevents
+multiple AIWG installations from sharing stale metadata. Non-shared graph roots
+follow `AIWG_ARTIFACTS_PATH` / `.aiwg-location` resolution. Shipped packages also
+carry verified Fortemi Core exports and framework relations under `prebuilt/`;
+a valid shipped package avoids a redundant framework rebuild in the default path.
 
 ### The five files in every graph directory
 
@@ -37,7 +48,7 @@ From `BUILTIN_GRAPH_CONFIGS` (`src/artifacts/types.ts:418`):
 
 | Graph | `shared` | `defaultBuild` | Scan roots | Output |
 |---|---|---|---|---|
-| `framework` | `true` | `false` | `agentic/code/{frameworks,addons,extensions,agents,behaviors}`, `docs/` | `~/.local/share/aiwg/index/framework/` |
+| `framework` | `true` | `false` | `agentic/code/{frameworks,addons,extensions,agents,behaviors}`, `docs/` | `$XDG_DATA_HOME/aiwg/index/roots/<root-key>/framework/` |
 | `project` | `false` | `true` | `.aiwg/` | `.aiwg/.index/project/` |
 | `codebase` | `false` | `true` | `src/`, `test/`, `tools/` | `.aiwg/.index/codebase/` |
 
@@ -50,7 +61,7 @@ The `project` and `codebase` graphs rebuild incrementally after every commit via
 
 ## Manifest-driven graph configuration
 
-The set of graphs is not hard-coded beyond the three built-ins. Frameworks/addons can declare their own graphs in their `manifest.json`, and operators can declare graphs in `.aiwg/config.yaml`. The merge order is built-in → module-declared → user-declared; nothing can override a built-in name.
+The set of graphs is not hard-coded beyond the three built-ins. Frameworks/addons can declare their own graphs in their `manifest.json`, and operators can declare `index.graphs` in `.aiwg/aiwg.config` (JSON). The merge order is built-in → module-declared → user-declared; nothing can override a built-in name.
 
 ### Module-declared graphs
 
@@ -71,7 +82,7 @@ First module wins on name collisions among modules. Built-ins are never overridd
 
 ### User-declared graphs
 
-`loadUserGraphConfigs()` at `src/artifacts/types.ts:625` layers `.aiwg/config.yaml` graph definitions on top. Operator config overrides module-declared graphs but still cannot override built-ins.
+`loadUserGraphConfigs()` in `src/artifacts/types.ts` layers project `.aiwg/aiwg.config` graph definitions on top. Legacy `.aiwg/config.yaml` remains a deprecated fallback. Operator config overrides module-declared graphs but still cannot override built-ins.
 
 ### Bundle manifests (project-local artifacts)
 
@@ -84,7 +95,7 @@ A separate Zod schema in `src/extensions/manifest.ts` validates project-local co
 | `MAX_KEYWORDS_PER_MANIFEST` | 50 | Discovery keyword cap |
 | `MAX_OVERRIDES_PER_MANIFEST` | 20 | Shadowing cap |
 
-The bundle manifest schema is documented in `.aiwg/architecture/design-manifest-schema.md` (#1044). Validation is enforced by `aiwg list --project-local` and `aiwg doctor --project-local`.
+The [bundle authoring guide](cli/extending-cli.md#manifest-contract) links the executable schema and its limits. Validation is enforced by `aiwg list --project-local` and `aiwg doctor --project-local`.
 
 ### Safety-critical override flag
 
@@ -155,7 +166,7 @@ Authoritative source paths for every piece of the index/manifest pipeline:
                  ▼
 ┌──────────────────── METADATA SOURCES (merged) ─────────────────────┐
 │                                                                     │
-│  ~/.local/share/aiwg/index/framework/    ← shared, framework graph  │
+│  $XDG_DATA_HOME/aiwg/index/roots/<root-key>/framework/    ← shared, framework graph  │
 │      metadata.json   dependencies.json   tags.json                  │
 │      stats.json      checksum-manifest.json                         │
 │                                                                     │
@@ -202,7 +213,7 @@ Both `discover` and `show` return paths anchored to `$AIWG_ROOT` for framework a
 |---|---|
 | `aiwg discover` returns stale results | `aiwg index stats --graph <name>` to confirm timestamps; `aiwg index build --graph <name> --force` if recent edits aren't reflected |
 | Discover returns nothing for a known skill | Confirm the skill's scanDir is in the graph's `scanDirs`; check `agentic/code/<framework>/manifest.json` `index.graphs` if a custom graph is expected |
-| Framework graph empty after first install | `aiwg index build --graph framework` — confirm `~/.local/share/aiwg/index/framework/metadata.json` is non-empty |
+| Framework graph empty after first install | `aiwg index build --graph framework` — confirm `$XDG_DATA_HOME/aiwg/index/roots/<root-key>/framework/metadata.json` is non-empty |
 | Project-local bundle not appearing | `aiwg doctor --project-local` (validates manifest); confirm content bundles are under `.aiwg/{extensions,addons,frameworks}/<name>/` and marketplace wrappers are under `.aiwg/plugins/<name>/` |
 | Safety-critical denylist hit | `src/extensions/upstream-registry.ts` — confirm upstream `manifest.json` carries `safety-critical: true` and the project-local manifest lacks the required `overrides:` |
 

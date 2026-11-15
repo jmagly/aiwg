@@ -2,7 +2,7 @@
  * context-pipeline — canonical workspace graph and provider adapter generator.
  *
  * Implements the cross-platform context delivery pipeline defined in
- * `.aiwg/architecture/adr-workspace-context-graph.md`. Emits a project graph:
+ * `docs/configuration/workspace-context.md`. Emits a project graph:
  *
  * - WORKSPACE.md — protected provider-neutral project/operator context
  * - AIWG.md — generated framework/discovery context

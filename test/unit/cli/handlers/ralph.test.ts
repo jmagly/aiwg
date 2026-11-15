@@ -7,7 +7,7 @@
  * - Internal scripts (--internal flag) via createScriptRunner()
  *
  * @source @src/cli/handlers/ralph.ts
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @issue #33, #275
  */
 

@@ -1,8 +1,8 @@
 /**
  * Type definitions for Toolsmith feature
  *
- * @architecture @.aiwg/architecture/decisions/ADR-014-toolsmith-feature-architecture.md
- * @architecture @.aiwg/architecture/toolsmith-implementation-spec.md
+ * @architecture @docs/smithing/toolsmith.md
+ * @architecture @docs/smithing/toolsmith.md
  */
 
 /**

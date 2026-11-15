@@ -17,8 +17,8 @@ Phase 1 (Foundation) is complete with the following components:
 ## Architecture
 
 See architecture documentation:
-- `@.aiwg/architecture/mcpsmith-architecture.md` - Complete architecture specification
-- `@.aiwg/architecture/decisions/ADR-014-mcpsmith-mcp-server-generator.md` - Architecture decision record
+- `@docs/smithing/mcpsmith.md` - Complete architecture specification
+- `@docs/smithing/mcpsmith.md` - Architecture decision record
 - `@.aiwg/planning/smiths-implementation-roadmap.md` - Implementation roadmap
 
 ## Usage Example

@@ -3,7 +3,7 @@
  *
  * Displays comprehensive CLI help information.
  *
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @source @src/cli/router.ts
  * @issue #33
  */
@@ -11,7 +11,7 @@
 import type { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 import * as ui from '../ui.js';
 import { maybePrintCommunityFooter } from '../../community/footer.js';
-import { listProviderDefinitions } from '../../providers/provider-definitions.js';
+import { generateProviderHelp } from '../help-generator.js';
 import { getCommandIds } from '../../extensions/commands/definitions.js';
 
 /**
@@ -183,8 +183,7 @@ function displayHelp(): void {
 
   ui.rule();
   ui.blank();
-  const providers = listProviderDefinitions().filter(({ id }) => id !== 'generic');
-  console.log(`  ${ui.dimText('Providers:')} ${providers.length} — ${providers.map(({ id, status }) => status === 'experimental' ? `${id} (experimental)` : id).join(', ')} (default: claude; aliases: agy → antigravity, devin → windsurf, oh-my-pi → omp)`);
+  console.log(`  ${generateProviderHelp()}`);
   ui.blank();
   console.log(`  ${ui.dimText('Examples:')}`);
   console.log(`    aiwg use sdlc                   ${ui.dimText('Install SDLC framework')}`);

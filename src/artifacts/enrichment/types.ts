@@ -6,7 +6,7 @@
  * `aiwg index query` when enrichment is present.
  *
  * @implements #1204
- * @see .aiwg/architecture/adr-rlm-index-features-impl-plan.md
+ * @see docs/architecture/index-and-manifest-loading.md
  */
 
 export interface SemanticFields {

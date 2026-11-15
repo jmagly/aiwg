@@ -4,7 +4,7 @@
  * Tests the extension registry for storing, indexing, and querying extensions.
  *
  * @source @src/extensions/registry.ts
- * @architecture @.aiwg/architecture/unified-extension-schema.md
+ * @architecture @docs/architecture/cli/extending-cli.md
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';

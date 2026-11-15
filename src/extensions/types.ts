@@ -5,7 +5,7 @@
  * hooks, tools, and MCP servers. Enables dynamic discovery, semantic search,
  * and unified help generation.
  *
- * @architecture @.aiwg/architecture/unified-extension-schema.md
+ * @architecture @docs/architecture/cli/extending-cli.md
  * @version 1.0.0
  */
 

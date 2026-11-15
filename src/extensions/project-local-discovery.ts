@@ -6,8 +6,8 @@
  * deployment side effects.
  *
  * @implements #1034
- * @architecture .aiwg/architecture/adr-aiwg-directory-layout.md (#1039)
- * @architecture .aiwg/architecture/design-manifest-schema.md (#1044)
+ * @architecture docs/architecture/cli/extending-cli.md (#1039)
+ * @architecture docs/project-local/manifest-reference.md (#1044)
  */
 
 import { readFile, readdir, lstat, stat, access, realpath } from 'fs/promises';

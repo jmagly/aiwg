@@ -3,14 +3,14 @@
  *
  * Validates `.aiwg/{extensions,addons,frameworks,plugins,providers}/<name>/manifest.json`
  * for project-local artifact bundles. Implements the design in
- * `.aiwg/architecture/design-manifest-schema.md` (#1044).
+ * `docs/project-local/manifest-reference.md` (#1044).
  *
  * Layered above the per-artifact Extension type validation in `validation.ts`:
  * the bundle manifest declares the bundle (a directory containing artifacts);
  * the existing schemas validate individual artifact bodies inside the bundle.
  *
  * @implements #1044
- * @architecture .aiwg/architecture/design-manifest-schema.md
+ * @architecture docs/project-local/manifest-reference.md
  */
 
 import { z } from 'zod';

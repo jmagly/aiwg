@@ -4,7 +4,7 @@
  * Displays version and channel information for the AIWG installation.
  * Supports --verbose / --json for full environment fingerprint (Phase 4.5 #925).
  *
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @source @src/cli/router.ts
  * @issue #33, #925
  */

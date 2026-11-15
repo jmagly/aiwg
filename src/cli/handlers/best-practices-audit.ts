@@ -12,7 +12,7 @@
  * Pattern matches src/cli/handlers/sdlc-accelerate.ts — same agent-spawn
  * conventions, same provider gating, same --params / --dangerous handling.
  *
- * @architecture @.aiwg/architecture/decisions/ADR-023-contributor-discovery-convention.md
+ * @architecture @docs/contributing/contributor-quickstart.md
  * @issue #943
  */
 

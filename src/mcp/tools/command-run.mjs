@@ -11,7 +11,7 @@
  *   - `shell: false` enforced in spawn
  *   - Destructive commands require `confirmed: true`
  *
- * @architecture @.aiwg/architecture/sketch-hermes-mcp-parity.md DD-4
+ * @architecture @docs/cli/agent-usage.md
  * @issues #1312 (S1)
  * @rules @token-security, @anti-laziness
  */

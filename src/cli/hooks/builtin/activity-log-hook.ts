@@ -11,7 +11,7 @@
  * Failures are non-blocking: if the entry can't be written, we log to
  * stderr and let the primary command's success stand.
  *
- * @design @.aiwg/architecture/storage-design.md
+ * @design @docs/storage/overview.md
  * @issue #934
  * @issue #978
  */

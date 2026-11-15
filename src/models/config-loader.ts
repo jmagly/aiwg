@@ -3,8 +3,8 @@ import { workerDispatchBlocked, isWorkerMaintenance, workerRecoveryDiagnostic } 
  * Model Configuration Loader
  * Loads and merges model configurations from multiple sources with proper precedence
  *
- * @implements @.aiwg/architecture/ADR-015-enhanced-model-selection.md
- * @architecture @.aiwg/architecture/enhanced-model-selection-design.md
+ * @implements @docs/models/supported-models.md
+ * @architecture @docs/models/supported-models.md
  */
 
 import { readFile } from 'fs/promises';

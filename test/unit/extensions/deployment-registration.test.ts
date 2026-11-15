@@ -4,7 +4,7 @@
  * Tests for registering deployed agents and skills in the extension registry.
  *
  * @implements #56, #57
- * @architecture @.aiwg/architecture/unified-extension-schema.md
+ * @architecture @docs/architecture/cli/extending-cli.md
  * @tests @src/extensions/deployment-registration.ts
  */
 

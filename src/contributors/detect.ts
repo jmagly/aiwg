@@ -5,7 +5,7 @@
  * Determines whether the contributor's framework is *in use* on this project,
  * not just installed. Pure I/O — no code execution.
  *
- * @architecture @.aiwg/architecture/decisions/ADR-023-contributor-discovery-convention.md
+ * @architecture @docs/contributing/contributor-quickstart.md
  * @issue #938
  */
 

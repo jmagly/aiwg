@@ -9,7 +9,7 @@
  *   migrate <subsystem> — copy entries from one backend to another
  *   import-corpus       — ingest the local research corpus through a storage backend
  *
- * @design @.aiwg/architecture/storage-design.md (§7)
+ * @design @docs/storage/overview.md
  * @issue #934
  * @issue #954
  * @issue #955
@@ -313,5 +313,5 @@ Examples:
   aiwg storage import-corpus --to obsidian:~/vault --dry-run
   aiwg storage import-corpus --server fortemi-enterprise
 
-See @.aiwg/architecture/storage-design.md for the design.`);
+See @docs/storage/overview.md for the design.`);
 }

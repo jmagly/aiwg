@@ -11,7 +11,7 @@
  * backend, byte-identical to the legacy `echo >> .aiwg/activity.log`
  * pattern documented in the activity-log skill.
  *
- * @design @.aiwg/architecture/storage-design.md (§4, §8.2)
+ * @design @docs/storage/overview.md
  * @issue #934
  * @issue #964
  */

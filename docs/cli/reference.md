@@ -182,10 +182,12 @@ See each command's own section below for its full headless argument details.
 - [Documentation Commands](#documentation-commands)
 - [SDLC Orchestration Commands](#sdlc-orchestration-commands)
 - [Index Commands](#index-commands)
+- [Decision Ask](#decision-ask)
 - [Effect Ledger Commands](#effect-ledger-commands)
 - [Configuration Commands](#configuration-commands)
 - [Agentic Tools (RLM)](#agentic-tools-rlm)
 - [Addon Commands](#addon-commands)
+- [Addon CLI namespaces](#addon-cli-namespaces-cli_commands)
 - [Storage Commands](#storage-commands)
 - [Ops Commands](#ops-commands)
 
@@ -5270,6 +5272,45 @@ version, the command reports `needs-rebuild` instead of silently falling back.
 
 ---
 
+## Decision Ask
+
+`aiwg decision ask` performs a bounded yes/no, choices or numeric-scale decision
+through the configured decision-offload checkpoint. It can use the configured
+external service and return a fallback for the calling model to handle.
+
+```bash
+aiwg decision ask --question "Is this change ready?" --yes-no --json
+aiwg decision ask --question "Choose a route" --choices fast,review,defer --context-file context.txt --json
+aiwg decision ask --question "Rate clarity" --scale 1-5 --context-stdin --json < context.txt
+```
+
+Select exactly one answer mode: `--yes-no`, `--choices <comma-separated-values>`,
+or `--scale <low-high>`. Supply a nonempty `--question`. Context comes from at most
+one of `--context <text>`, `--context-file <path>` or `--context-stdin` (32 KiB cap).
+
+| Option | Meaning |
+|---|---|
+| `--threshold <0..1>` | Confidence/agreement threshold; default 0.8 |
+| `--timeout-ms <n>` | Bound service time for the request |
+| `--passes <n>` | Initial sampling count; default five |
+| `--escalation-passes <n>` | Escalation sampling count; defaults to twice the initial count |
+| `--provider <id>` | Explicit caller provider attribution |
+| `--session <id>` | Explicit session attribution |
+| `--caller <tag>` | Caller attribution; session/caller accept bounded identifiers |
+| `--record-text` | Opt in to question/context text retention |
+| `--json` | Return structured answer/fallback plus `ledgerRecorded` |
+
+Answered and fallback results both return exit zero. A fallback is not an answer;
+it tells the calling model to continue. Usage errors return two and are not
+recorded; other handler errors return one. Completed calls append to the decision
+ledger; text is omitted unless opted in. See [ledger retention](#decision-ledger-retention).
+
+Source: [`decisionAsk`](../../src/cli/handlers/decision.ts),
+[`ask.ts`](../../src/decision/ask.ts). The [CLI architecture](../architecture/cli/index.md)
+shows the optional-service boundary.
+
+---
+
 ## Decision Ledger Retention
 
 The existing `aiwg decision` family owns completed-call retention and offline
@@ -6005,6 +6046,40 @@ edit --print-path` always works headless, with or without a terminal.
 
 ---
 
+### config authorization check
+
+Resolve a host-classified action against human authorization policy and verified
+durable grants. This command checks permission and records/consumes a signed
+receipt where applicable; it does not execute the proposed action.
+
+```bash
+aiwg config authorization check --action-file action.json --json
+aiwg config authorization check --action-file action.json --receipt-file receipt.json --effect-id <id> --target <project> --json
+```
+
+The same surface is available as `aiwg steward authorization check`.
+
+| Option | Meaning |
+|---|---|
+| `--action-file <file>` | Required JSON host-classified action descriptor |
+| `--receipt-file <file>` | Existing receipt to verify/consume; requires `--effect-id` |
+| `--effect-id <id>` | Effect identity paired with the receipt file |
+| `--target <directory>` | Project whose layered policy and ledger apply |
+| `--json` | Accepted explicitly; output is JSON by default |
+
+Action files must come from the trusted host classifier, not issue text or model
+output; they cannot supply session authorization. Platform prompts remain
+authoritative. `auto-authorized` requires a verified receipt. Unavailable checks
+or failures escalate to the existing review path. Read the returned decision;
+successful command execution alone does not authorize an action.
+
+Use `preview --action-file <file>` for read-only policy inspection and
+`explain --action-file <file>` for read-only grant matching. `check` can write the
+signed ledger. Source: [`authorizationCli`](../../src/config/authorization-cli.ts)
+and [`checkHitlAuthorization`](../../src/policy/hitl-check.ts).
+
+---
+
 ## Agentic Tools (RLM)
 
 Recursive Language Model utilities for processing content larger than a
@@ -6216,6 +6291,50 @@ shipped manifest and evidence are labeled synthetic conformance and keep the
 empirical quality/efficiency claim gate blocked.
 
 ## Extension System
+
+### Addon CLI namespaces (`cli_commands`)
+
+Addon-shaped bundles contribute `aiwg <namespace> <subcommand> [args]` through
+manifest `cli_commands`; they do not add a built-in command definition.
+
+```json
+{
+  "cli_commands": {
+    "namespace": "my-addon",
+    "description": "Project tools",
+    "entry": "commands/",
+    "subcommands": {
+      "check": { "file": "check.mjs", "description": "Check project state" }
+    }
+  }
+}
+```
+
+This is a manifest fragment. For a complete valid bundle, follow the
+[worked skill/rule/CLI example](../architecture/cli/extending-cli.md#worked-example).
+Deploy with `aiwg use <bundle>`, then run `aiwg my-addon check` or
+`aiwg my-addon --help` for namespace help.
+
+`CliCommandsSchema` requires a kebab-case namespace (1–64 characters), a description
+(1–512), and a nonempty subcommand map. `entry` defaults to `commands/` and must
+stay relative to the bundle without parent traversal. Subcommand keys are
+kebab-case (1–64); each has a `.mjs` file and description. Registration currently
+requires a local module basename even though the schema path grammar allows
+nested `.mjs` paths. Optional `hook_event` accepts `Stop`, `SessionStart`,
+`SessionEnd`, `PreToolUse`, `PostToolUse`, or `FeatureComplete`; the last is not
+auto-installed as a background hook.
+
+Modules default-export `(args, context)` and may return `{exitCode, message}`.
+They run **inside the CLI process with the user's permissions and no sandbox**;
+only install trusted bundles. Built-in IDs and aliases always win name clashes.
+Registration lives under the resolved artifact root in `cli-extensions.json`.
+In-project sources are project-root-relative; external absolute sources require
+redeployment after relocation. Doctor warns on missing directories. See
+[portability and trust](../architecture/cli/extending-cli.md#portable-cli-registration)
+and the [manifest reference](../project-local/manifest-reference.md).
+
+Source: [`CliCommandsSchema`](../../src/extensions/manifest.ts),
+[`registerCliCommands` / `tryExecuteCliExtension`](../../src/cli/cli-extension-loader.ts).
 
 ### Unified Extension Schema
 

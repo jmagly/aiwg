@@ -6,7 +6,7 @@
  * runs detection on each candidate. Returns kept records and skipped entries
  * with reasons. Failures of one contributor never abort discovery.
  *
- * @architecture @.aiwg/architecture/decisions/ADR-023-contributor-discovery-convention.md
+ * @architecture @docs/contributing/contributor-quickstart.md
  * @issue #938
  */
 

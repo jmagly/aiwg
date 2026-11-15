@@ -2,13 +2,14 @@
  * Help Generator
  *
  * Dynamically generates CLI help text from the extension registry.
- * Replaces hardcoded displayHelp() with registry-driven approach.
+ * Shares provider help between the launcher and command handler.
  *
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @tests @test/unit/cli/help-generator.test.ts
  * @version 1.0.0
  */
 
+import { listProviderDefinitions } from '../providers/provider-definitions.js';
 import type { ExtensionRegistry } from '../extensions/registry.js';
 import type { Extension } from '../extensions/types.js';
 import type { CommandCategory } from './handlers/types.js';
@@ -93,15 +94,7 @@ export function generateHelp(registry: ExtensionRegistry): string {
 
   // Platform options
   lines.push('Platform Options (--provider):');
-  lines.push('  claude                Claude Code (default)');
-  lines.push('  copilot               GitHub Copilot');
-  lines.push('  factory               Factory AI');
-  lines.push('  codex / openai        OpenAI Codex');
-  lines.push('  cursor                Cursor IDE');
-  lines.push('  opencode              OpenCode');
-  lines.push('  warp                  Warp Terminal');
-  lines.push('  devin                 Devin Desktop');
-  lines.push('  windsurf              Deprecated alias for devin');
+  lines.push(`  ${generateProviderHelp()}`);
   lines.push('');
 
   // Examples
@@ -197,4 +190,10 @@ function formatCommandName(cmd: Extension): string {
 
   // Show command name with first alias
   return `${cmd.id}, ${aliases[0]}`;
+}
+
+/** Provider list shared by both production help paths, including generic. */
+export function generateProviderHelp(): string {
+  const providers = listProviderDefinitions();
+  return `Providers: ${providers.length} — ${providers.map(({ id, status }) => status === 'experimental' ? `${id} (experimental)` : id).join(', ')} (default: claude; aliases: agy → antigravity, devin → windsurf, oh-my-pi → omp, openai → codex)`;
 }

@@ -4,7 +4,7 @@
  * Handlers for utility commands including card prefilling, contribution workflow,
  * metadata validation, health diagnostics, and update checking.
  *
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @source @src/cli/router.ts
  * @tests @test/unit/cli/handlers/utilities.test.ts
  * @issue #33, #342

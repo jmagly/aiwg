@@ -2,18 +2,19 @@
  * Project-Local Doctor Section
  *
  * Builds the "Project-local artifacts" section for `aiwg doctor` output
- * per the spec at @.aiwg/architecture/design-doctor-log-promote.md (#1049).
+ * per the spec at @docs/customization/project-local-lifecycle.md (#1049).
  *
  * Pure function over (projectDir, frameworkRoot) — returns a string. The
  * doctor handler in src/cli/handlers/utilities.ts is responsible for
  * printing it. Section is fully suppressed when no project-local dirs
  * are present.
  *
- * @design @.aiwg/architecture/design-doctor-log-promote.md
+ * @design @docs/customization/project-local-lifecycle.md
  * @implements #1037
  */
 
 import { join } from 'path';
+import { cliExtensionSourceWarnings } from '../cli/cli-extension-paths.js';
 import { readFile, readdir } from 'fs/promises';
 import { discoverProjectLocalBundles } from './project-local-discovery.js';
 import { parseRuleFrontmatter, formatRuleFrontmatterError } from '../rules/activation.mjs';
@@ -130,6 +131,7 @@ export async function buildProjectLocalDoctorSection(
   const { projectDir, frameworkRoot, config, quiet = false } = opts;
 
   const discovery = await discoverProjectLocalBundles(projectDir);
+  const cliWarnings = await cliExtensionSourceWarnings(projectDir);
   const quickrefAudit = await auditProjectQuickref(projectDir, config?.providers ?? []);
   const quickrefErrors = [...quickrefAudit.errors];
   if (quickrefAudit.exists) {
@@ -146,11 +148,13 @@ export async function buildProjectLocalDoctorSection(
   }
 
   // No project-local content → no section at all
-  if (discovery.isEmpty && discovery.errors.length === 0 && !quickrefAudit.exists && quickrefErrors.length === 0) {
+  if (discovery.isEmpty && discovery.errors.length === 0 && !quickrefAudit.exists && quickrefErrors.length === 0 && cliWarnings.length === 0) {
     return { output: '', validationErrors: 0, denylistViolations: 0, driftCount: 0, undeployedCount: 0, hasFailures: false };
   }
 
   const lines: string[] = ['', '── Project-local artifacts ────────────────────────────────────'];
+
+  for (const warning of cliWarnings) lines.push(`  ⚠ ${warning}`);
 
   // Counts
   if (!quiet) {

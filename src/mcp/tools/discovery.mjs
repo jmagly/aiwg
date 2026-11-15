@@ -17,7 +17,7 @@
  *
  * All are global-allowed (#1311) — work without a project root.
  *
- * @architecture @.aiwg/architecture/sketch-hermes-mcp-parity.md
+ * @architecture @docs/cli/agent-usage.md
  * @issues #1311 (scope split), #1313 (discover + pairs), #1320 (rule-list/show)
  */
 

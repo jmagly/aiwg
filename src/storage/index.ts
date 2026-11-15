@@ -6,7 +6,7 @@
  * subsystem, and memoizes the adapter instance for the lifetime of the
  * process.
  *
- * @design @.aiwg/architecture/storage-design.md
+ * @design @docs/storage/overview.md
  * @issue #934
  * @issue #953
  */

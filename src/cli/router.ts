@@ -6,7 +6,7 @@
  * Integrates hook system for lifecycle events.
  *
  * @implements @.aiwg/requirements/use-cases/UC-004-extension-system.md
- * @architecture @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @architecture @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @tests @test/unit/cli/router.test.ts
  * @issue #33
  * @issue #58

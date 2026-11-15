@@ -4,7 +4,7 @@
  * Tests Zod schemas for all extension types with valid and invalid cases.
  *
  * @source @src/extensions/validation.ts
- * @architecture @.aiwg/architecture/unified-extension-schema.md
+ * @architecture @docs/architecture/cli/extending-cli.md
  * @requirement @.aiwg/requirements/use-cases/UC-003-extension-validation.md
  */
 

@@ -124,7 +124,7 @@ export interface InstalledEntry {
   /**
    * Project-local-only fields (set when `source === 'project-local'`).
    *
-   * Per @.aiwg/architecture/adr-unified-registry-shape.md (ADR companion to
+   * Per @docs/architecture/cli/adr-001-unified-extension-registry.md (ADR companion to
    * #1035). These three fields MUST be present together when source is
    * `'project-local'` and SHOULD be absent otherwise.
    */
@@ -139,7 +139,7 @@ export interface InstalledEntry {
    * Hashes of source artifacts at deploy time, keyed by source-relative path
    * (e.g., "rules/my-rule.md", "skills/my-skill/SKILL.md"). Used by
    * `aiwg remove` to detect pristine vs. mutated vs. replaced deployed
-   * files per the design at @.aiwg/architecture/design-aiwg-remove-revert.md.
+   * files per the design at @docs/customization/project-local-lifecycle.md.
    *
    * Optional — older entries without this field fall back to "always-prompt"
    * remove behavior until the next `aiwg use` re-records them.

@@ -3,8 +3,8 @@
  *
  * Generates complete MCP servers from analyzer results.
  *
- * @architecture @.aiwg/architecture/mcpsmith-architecture.md - Section 5.5
- * @implements @.aiwg/architecture/decisions/ADR-014-mcpsmith-mcp-server-generator.md
+ * @architecture @docs/smithing/mcpsmith.md
+ * @implements @docs/smithing/mcpsmith.md
  */
 
 import fs from 'fs/promises';

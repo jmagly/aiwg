@@ -7,7 +7,7 @@
  * previously-enriched artifact.
  *
  * @implements #1204
- * @see .aiwg/architecture/adr-rlm-index-features-impl-plan.md
+ * @see docs/architecture/index-and-manifest-loading.md
  */
 
 export const ENRICHMENT_PROMPT = `Read the artifact below. Return JSON matching this schema exactly:

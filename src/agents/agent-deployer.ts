@@ -4,7 +4,7 @@
  * Core deployment engine for multi-platform agent deployment.
  *
  * @implements @.aiwg/requirements/use-cases/UC-002-deploy-sdlc-framework.md
- * @architecture @.aiwg/architecture/software-architecture-doc.md - Section 2.1 CLI Entry Point
+ * @architecture @docs/architecture/cli/index.md
  * @nfr @.aiwg/requirements/nfr-modules/performance.md - NFR-PERF-002 (<10s deployment)
  * @tests @test/unit/agents/agent-deployer.test.ts
  * @depends @src/agents/agent-validator.ts

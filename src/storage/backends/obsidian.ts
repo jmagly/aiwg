@@ -24,7 +24,7 @@
  *   - Does NOT implement `query()` — Obsidian's search is not exposed
  *     via the CLI as of research date
  *
- * @design @.aiwg/architecture/storage-design.md (§5.2)
+ * @design @docs/storage/overview.md
  * @issue #934
  * @issue #957
  */

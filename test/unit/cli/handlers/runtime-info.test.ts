@@ -4,7 +4,7 @@
  * Unit tests for runtime environment discovery and tool catalog management.
  *
  * @source @src/cli/handlers/runtime-info.ts
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @issue #33
  */
 

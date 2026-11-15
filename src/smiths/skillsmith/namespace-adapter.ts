@@ -2,7 +2,7 @@
  * Namespace-aware Skill Deployment Adapter
  *
  * Implements per-platform namespace deployment strategy per ADR:
- * .aiwg/architecture/adr-skill-namespace-strategy.md
+ * docs/migration/skill-namespace-migration.md
  *
  * Platform groups:
  *   Group A (deep-recursion): Claude Code, Cursor, Codex, OpenCode, OpenClaw
