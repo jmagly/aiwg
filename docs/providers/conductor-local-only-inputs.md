@@ -24,6 +24,14 @@ Paths are literal, slash-separated, project-relative names using letters, digits
 `_ . @ + , -`. Absolute paths, globs, spaces and `.`/`..` components are rejected.
 Files and all descendants of declared directory paths are protected.
 
+Confined conductors launched with `--run-conductor` mask existing declared paths
+under their conductor root with systemd `InaccessiblePaths=`. Before dispatch,
+MCP `worker-invoke` checks the prepared workdir (and an MCP server's configured
+workdir) for those paths and refuses exposure with `LOCAL_ONLY_PATH_EXPOSED`,
+listing names only. A tuple with qualified catalog `dataUse.processing: "local"`
+remains allowed, including local Ollama or LM Studio inference; a CLI name or a
+data class named `local-only` alone does not establish local processing.
+
 Deploy the project's Claude or Codex provider with the normal `aiwg use` workflow
 **before opening task inputs**, then inspect worker readiness in `aiwg doctor`.
 Deployment collects the union of base, named-class, group and template paths,
