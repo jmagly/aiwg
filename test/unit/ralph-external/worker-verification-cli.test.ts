@@ -26,24 +26,25 @@ function fixture(mode = 'enforced') {
   const worktree = path.join(root, 'worker'), run = path.join(root, 'run'), clients = path.join(root, 'clients');
   for (const dir of [worktree, run, clients]) mkdirSync(dir, { mode: 0o700 });
   mkdirSync(path.join(clients, 'proc'));
-  const artifact = path.join(worktree, 'final.json');
+  const artifact = path.join(worktree, 'artifact.json'), final = path.join(worktree, 'final.json');
   const inputsFixture = path.join(clients, 'inputs.mjs');
   copyFileSync(path.join(repo, 'test/fixtures/ralph-external/verification-inputs.mjs'), inputsFixture);
   writeFileSync(path.join(clients, 'qualified-roots.json'), JSON.stringify([worktree]));
   writeFileSync(artifact, '{"status":"completed"}');
+  writeFileSync(final, 'Worker handoff');
   const writeRecord = (name: string, value: unknown) => writeFileSync(path.join(run, name), JSON.stringify(value), { mode: 0o600 });
   writeFileSync(path.join(run, '.launch-owner'), 'previous-1', { mode: 0o600 });
-  writeRecord('invocation.json', { origin: 'launcher', invocationId: 'previous-1', worktree: { path: worktree }, paths: { final: artifact } });
-  writeRecord('exit.json', { invocationId: 'previous-1', termination: 'confirmed' });
+  writeRecord('invocation.json', { origin: 'launcher', invocationId: 'previous-1', worktree: { path: worktree }, paths: { final } });
+  writeRecord('exit.json', { invocationId: 'previous-1', termination: 'confirmed', endedAt: new Date().toISOString() });
   copyFileSync(path.join(repo, 'test/fixtures/ralph-external/verification-systemd.mjs'), path.join(clients, 'client.mjs'));
   writeFileSync(path.join(clients, 'mode.txt'), mode);
   for (const command of ['systemd-run', 'systemctl']) {
     writeFileSync(path.join(clients, command), `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(path.join(clients, 'client.mjs'))} "$@"\n`, { mode: 0o700 });
   }
-  const check = (code = 'console.log("checked")') => JSON.stringify({ id: 'unit', command: process.execPath, args: ['-e', code] });
-  const invoke = (extra: string[] = ['--check', check()], mcp = false) => {
+  const check = (code = 'if (JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).status !== "completed") process.exit(1)') => JSON.stringify({ id: 'unit', command: process.execPath, args: ['-e', code, artifact] });
+  const invoke = (extra: string[] = ['--check', check()], mcp = false, artifactPath: string | null = artifact) => {
     const result = spawnSync(process.execPath, ['--import', inputsFixture, path.join(repo, mcp ? 'test/fixtures/ralph-external/mcp-verify-deliver.mjs' : 'tools/ralph-external/index.mjs'),
-      '--verify-worker', ...(extra.includes('--delivery-status') ? [] : ['--run-dir', run]), '--json', ...extra], {
+      '--verify-worker', ...(extra.includes('--delivery-status') ? [] : ['--run-dir', run, ...(artifactPath ? ['--artifact', artifactPath] : [])]), '--json', ...extra], {
       cwd: worktree, timeout: 15_000, encoding: 'utf8',
       env: { NODE_ENV: 'test', AIWG_EFFECT_LEDGER_TEST_KEY: '42'.repeat(32), HOME: root, PATH: clients + path.delimiter + process.env.PATH, AIWG_RESOLVE_IMPL_FROM: 'dist' },
     });
@@ -55,6 +56,24 @@ function fixture(mode = 'enforced') {
 }
 
 describe('T-OG-04 installed CLI trusted verification', () => {
+  it.each([false, true])('forwards every typed publication refusal before executing checks (MCP: %s)', mcp => {
+    const f = fixture(), deliverable = path.join(f.root, 'answer.json'), marker = path.join(f.worktree, 'check-ran');
+    const check = f.check(`require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'ran')`);
+    const request = ['--check', check, '--deliverable', deliverable];
+    for (const artifactPath of [null, path.join(f.worktree, 'final.json')]) {
+      const result = f.invoke(request, mcp, artifactPath);
+      expect(result.output).toMatchObject({ status: 'rejected', errorCode: 'ARTIFACT_REQUIRED', evidence: [] });
+    }
+    rmSync(path.join(f.run, 'exit.json'));
+    expect(f.invoke(request, mcp).output.errorCode).toBe('EXIT_EVIDENCE_MISSING');
+    f.writeRecord('exit.json', { invocationId: 'previous-1', termination: 'confirmed', endedAt: new Date(Date.now() - 10000).toISOString() });
+    expect(f.invoke(request, mcp).output.errorCode).toBe('ARTIFACT_CHANGED_AFTER_EXIT');
+    f.writeRecord('exit.json', { invocationId: 'previous-1', termination: 'confirmed', endedAt: new Date().toISOString() });
+    const probe = JSON.stringify({ id: 'exists', command: '/usr/bin/test', args: ['-f', f.artifact] });
+    expect(f.invoke(['--check', probe, '--deliverable', deliverable], mcp).output.errorCode).toBe('CHECKS_CONTENT_FREE');
+    expect(existsSync(marker)).toBe(false);
+    expect(existsSync(deliverable)).toBe(false);
+  });
   it('accepts protected checks and binds artifact/tree digests using the installed verifier', () => {
     const f = fixture();
     // A task checkout cannot replace the CLI's installed implementation.

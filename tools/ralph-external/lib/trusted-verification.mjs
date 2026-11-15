@@ -445,7 +445,7 @@ function digestOf(bytes) {
 }
 
 /** Digest the artifact pinned at `pinned.fd` (read via the fd, never by re-opening the path). */
-function digestArtifactFd(pinned) {
+export function digestArtifactFd(pinned) {
   const size = pinned.stat.size;
   assertArtifactSize(size);
   const current = fstatSync(pinned.fd);
@@ -857,6 +857,7 @@ export function verifyWorkerArtifact({
   outputDirReal,
   verifierId = 'trusted-verification@1',
   runnerRef = null,
+  guardArtifact,
 } = {}) {
   let worktreeRootReal;
   try {
@@ -878,13 +879,13 @@ export function verifyWorkerArtifact({
   }
 
   try {
-    return verifyWorkerArtifactPinned({ worktreeRootReal, artifactPath, checks, allowedCheckBinaries, outputDirReal, verifierId, runnerRef, pinnedRoot });
+    return verifyWorkerArtifactPinned({ worktreeRootReal, artifactPath, checks, allowedCheckBinaries, outputDirReal, verifierId, runnerRef, pinnedRoot, guardArtifact });
   } finally {
     closeSync(pinnedRoot.fd);
   }
 }
 
-function verifyWorkerArtifactPinned({ worktreeRootReal, artifactPath, checks, allowedCheckBinaries, outputDirReal, verifierId, runnerRef, pinnedRoot }) {
+function verifyWorkerArtifactPinned({ worktreeRootReal, artifactPath, checks, allowedCheckBinaries, outputDirReal, verifierId, runnerRef, pinnedRoot, guardArtifact }) {
   let preCheckArtifact;
   try {
     preCheckArtifact = pinArtifact(worktreeRootReal, artifactPath);
@@ -895,10 +896,11 @@ function verifyWorkerArtifactPinned({ worktreeRootReal, artifactPath, checks, al
   try {
     preDigest = digestArtifactFd(preCheckArtifact);
   } catch (error) {
-    return rejected(verifierId, runnerRef, [`artifact digest failed: ${error.message}`], 'hashing the artifact');
-  } finally {
     closeSync(preCheckArtifact.fd);
+    return rejected(verifierId, runnerRef, [`artifact digest failed: ${error.message}`], 'hashing the artifact');
   }
+  try { guardArtifact?.(preCheckArtifact, preDigest); }
+  finally { closeSync(preCheckArtifact.fd); }
 
   // M3: a tree-digest FAILURE must reject, never be silently treated as "we
   // don't know, so assume unchanged" — fail closed before any check runs.

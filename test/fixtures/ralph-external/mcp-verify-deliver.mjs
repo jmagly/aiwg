@@ -14,6 +14,6 @@ registerWorkerVerifyDeliverTool({ registerTool(_name, _config, callback) { handl
   } }),
 });
 const checks = args.flatMap((arg, index) => arg === '--check' ? [JSON.parse(args[index + 1])] : []);
-const response = await handler({ run_dir: value('--run-dir'), deliverable_path: value('--deliverable'), checks });
+const response = await handler({ run_dir: value('--run-dir'), artifact_path: args.includes('--artifact') ? value('--artifact') : undefined, deliverable_path: value('--deliverable'), checks });
 console.log(response.isError ? JSON.stringify({ status: 'rejected', findings: [response.content[0].text] }) : response.content[0].text);
 process.exitCode = response.isError ? 1 : 0;
