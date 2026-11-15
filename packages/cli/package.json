@@ -89,6 +89,8 @@
     "tools/ralph-external/lib/worker-invocation-processes.mjs",
     "tools/ralph-external/lib/worker-invocation-ancestry.mjs",
     "tools/ralph-external/lib/worker-context.mjs",
+    "tools/ralph-external/lib/worktree-preparation.mjs",
+    "tools/ralph-external/lib/worker-local-only-paths.mjs",
     "tools/ralph-external/lib/systemd-client.mjs",
     "tools/ralph-external/lib/consecutive-failure-circuit-breaker.mjs",
     "tools/ralph-external/lib/launcher-recovery-evidence.mjs",

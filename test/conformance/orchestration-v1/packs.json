@@ -100,6 +100,7 @@
         "test/unit/ralph-external/worker-finals.test.ts",
         "test/unit/mission-protocol/worker-results.test.ts",
         "test/unit/ralph-external/worktree-preparation.test.ts",
+        "test/unit/ralph-external/worktree-local-only-paths.test.ts",
         "test/unit/ralph-external/trusted-verification.test.ts",
         "test/unit/ralph-external/worker-verification-cli.test.ts",
         "test/unit/ralph-external/conductor-isolation.test.ts",

@@ -39,6 +39,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { excludeWorkerLocalOnlyPaths } from './worker-local-only-paths.mjs';
 import {
   defaultDeployWorkerContext,
   listDeployDirtiedBridges,
@@ -290,7 +291,7 @@ export function resolveBaseDigest({ repoRoot, revision = 'HEAD', spawn = spawnSy
  * @param {(cmd: string, args: string[], opts: object) => object} [options.spawn=spawnSync]
  * @param {(repoRoot: string) => Promise<object|null>} [options.contextReadConfig] - Injectable config loader (defaults to `readAiwgConfig`).
  * @param {(config: object) => object} [options.contextResolveFromConfig] - Injectable union resolver (defaults to the src-side pure function).
- * @returns {Promise<{created: boolean, blocked?: boolean, conflicts?: Array, path?: string, baseDigest?: string, context?: object}>}
+ * @returns {Promise<{created: boolean, blocked?: boolean, conflicts?: Array, path?: string, baseDigest?: string, context?: object, excludedLocalOnlyPaths?: string[]}>}
  */
 export async function prepareWorkerWorktree({
   repoRoot,
@@ -345,22 +346,23 @@ export async function prepareWorkerWorktree({
     if (finalMode !== 0o700) {
       throw new Error(`refusing worktree ${worktreePath}: expected mode 0700 after git worktree add, got ${finalMode.toString(8)}`);
     }
-    // #3685: a fresh worktree contains only tracked files, so deployed
-    // provider context (.codex/, .claude/, .muse/, .agents/, AGENTS.md rule
-    // sections) is missing until the conductor deploys it. Default on for
-    // Tier 0; pass deployContext:false only to test worktree mechanics.
-    let context = { deployed: false, providers: [], skippedBridges: [] };
-    if (deployContext) {
-      // The union needs `readAiwgConfig` (async): an explicit list wins
-      // verbatim, otherwise the config providers plus orchestration CLIs.
-      // Deploying a guessed set would leave the worker with the wrong (or
-      // no) context, so resolution failure throws before anything is made.
-      const { providers } = await resolveWorkerContextProviders({
-        repoRoot, providers: contextProviders,
-        ...(contextReadConfig ? { readConfig: contextReadConfig } : {}),
-        ...(contextResolveFromConfig ? { resolveFromConfig: contextResolveFromConfig } : {}),
-      });
-      try {
+    try {
+      const excludedLocalOnlyPaths = await excludeWorkerLocalOnlyPaths({ repoRoot, worktreePath, spawn, timeoutMs });
+      // #3685: a fresh worktree contains only tracked files, so deployed
+      // provider context (.codex/, .claude/, .muse/, .agents/, AGENTS.md rule
+      // sections) is missing until the conductor deploys it. Default on for
+      // Tier 0; pass deployContext:false only to test worktree mechanics.
+      let context = { deployed: false, providers: [], skippedBridges: [] };
+      if (deployContext) {
+        // The union needs `readAiwgConfig` (async): an explicit list wins
+        // verbatim, otherwise the config providers plus orchestration CLIs.
+        // Deploying a guessed set would leave the worker with the wrong (or
+        // no) context, so resolution failure throws before anything is made.
+        const { providers } = await resolveWorkerContextProviders({
+          repoRoot, providers: contextProviders,
+          ...(contextReadConfig ? { readConfig: contextReadConfig } : {}),
+          ...(contextResolveFromConfig ? { resolveFromConfig: contextResolveFromConfig } : {}),
+        });
         const deploy = deployContextFn ?? defaultDeployWorkerContext;
         await deploy({ worktreePath, repoRoot, providers, aiwgBin, spawn, timeoutMs });
         // Keep the deploy's tracked-bridge edits out of the worker diff:
@@ -373,16 +375,15 @@ export async function prepareWorkerWorktree({
         const verify = verifyContextFn ?? verifyWorkerContextSections;
         verify({ worktreePath, providers });
         context = { deployed: true, providers, skippedBridges: dirtied };
-      } catch (error) {
-        // Leave no worktree behind (same contract as the git-failure path)
-        // and release the claim; the original deploy/verify error wins.
-        try {
-          runGit(['worktree', 'remove', '--force', worktreePath], { cwd: repoRoot, spawn, timeoutMs });
-        } catch { /* best-effort cleanup; report the deploy failure, not this */ }
-        throw error;
       }
+      return { created: true, path: worktreePath, baseDigest, ownerId, context, excludedLocalOnlyPaths };
+    } catch (error) {
+      // Policy, exclusion and context failures leave no worker tree or claim.
+      try {
+        runGit(['worktree', 'remove', '--force', worktreePath], { cwd: repoRoot, spawn, timeoutMs });
+      } catch { /* best-effort cleanup; report the preparation failure */ }
+      throw error;
     }
-    return { created: true, path: worktreePath, baseDigest, ownerId, context };
   } catch (error) {
     registry.release(ownerId);
     throw error;

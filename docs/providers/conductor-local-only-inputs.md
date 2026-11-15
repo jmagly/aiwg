@@ -24,6 +24,10 @@ Paths are literal, slash-separated, project-relative names using letters, digits
 `_ . @ + , -`. Absolute paths, globs, spaces and `.`/`..` components are rejected.
 Files and all descendants of declared directory paths are protected.
 
+Conductor-owned worker worktree preparation removes existing declared local-only
+paths before context deploy, marks tracked files skip-worktree to keep diffs clean,
+and reports the sorted project-relative paths in `excludedLocalOnlyPaths`.
+
 Confined conductors launched with `--run-conductor` mask existing declared paths
 under their conductor root with systemd `InaccessiblePaths=`. Before dispatch,
 MCP `worker-invoke` checks the prepared workdir (and an MCP server's configured
