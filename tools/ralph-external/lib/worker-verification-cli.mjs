@@ -1,5 +1,6 @@
 // Expose the installed trusted verifier through the existing worker-run CLI.
 import { prepareDeliveryRecord, lookupDeliveryRecord } from './worker-delivery-record.mjs';
+import { deliverTypedStop } from './typed-stop-delivery.mjs';
 import { createHash } from 'node:crypto';
 import { closeSync, lstatSync, mkdtempSync, readSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, relative, sep, isAbsolute, join } from 'node:path';
@@ -84,7 +85,9 @@ export function deliverVerifiedArtifact(result, { artifactPath, deliverablePath,
   } finally { rmSync(staging, { recursive: true, force: true }); }
 }
 
-export async function verifyWorkerRun({ runDir, checks, artifactPath, deliverablePath, checkDescendants = false, projectDir = process.cwd() }, { prepareRecord = prepareDeliveryRecord } = {}) {
+export async function verifyWorkerRun(request, { prepareRecord = prepareDeliveryRecord } = {}) {
+  if (Object.hasOwn(request, 'typedStop')) return deliverTypedStop(request, { prepareRecord });
+  let { runDir, checks, artifactPath, deliverablePath, checkDescendants = false, projectDir = process.cwd() } = request;
   const { inspectWorkerPath: inspect } = await importImpl(import.meta.url, 'serve/worker-invocation-paths.js');
   const record = JSON.parse((await boundedPrivateRead(join(runDir, 'invocation.json'), 1048576, inspect, true, true)).toString('utf8'));
   const worktreeRoot = record.worktree?.path;

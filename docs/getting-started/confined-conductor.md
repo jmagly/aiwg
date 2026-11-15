@@ -122,6 +122,40 @@ completed receipt; the helper reports them unverified. Installed CLI/server code
 must remain outside conductor-writable grants (use an external artifact root when
 necessary). The ledger proves recorded delivery, not that the checks were sufficient.
 
+## Publishing a typed stop
+
+When policy or transport selection requires stopping before any worker launch,
+call the same `worker-verify-deliver` tool with this alternative request:
+
+```json
+{
+  "deliverable_path": "/absolute/project/control/deliver/answer.json",
+  "typed_stop": {
+    "status": "blocked",
+    "code": "NO_ELIGIBLE_FALLBACK",
+    "blocking_rule": "No eligible worker satisfies the required local transport policy.",
+    "launch_count": 0
+  }
+}
+```
+
+Use `denied` or `blocked`, an uppercase code matching `[A-Z][A-Z0-9_]{2,63}`,
+and a nonempty `blocking_rule` of at most 2000 characters. Optional `reason` and
+`uncertainty_statement` strings allow at most 4000 characters each. Do not include
+`run_dir`, `artifact_path`, or `checks`; invalid or mixed requests are refused
+with `TYPED_STOP_INVALID`.
+
+The external server publishes only the validated stop object as sorted-key JSON
+with a trailing newline, outside configured worker-writable roots, using an
+atomic rename. A prior delivery record for the destination (including an
+unfinished intent) refuses the stop, even if the file changed or disappeared.
+A typed stop also prevents later worker publication to that destination. The
+signed receipt has `kind: "typed-stop"`, verifier `typed-stop@1`, and no worker
+invocation ID. The delivery-status command above reports `verified: true` and
+`kind: "typed-stop"` only while the published bytes match that completed receipt.
+Its verification confirms publication of the refusal; it does not establish
+the policy claim independently.
+
 Confinement covers declared paths, not other conductor behavior, remote effects,
 or unprotected output. An operator or another host process can still alter files.
 File-only bind mounts may retain the old inode after server replacement: protect

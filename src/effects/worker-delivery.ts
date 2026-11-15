@@ -7,21 +7,44 @@ import { sha256Digest } from './identity.js';
 import { recordIntent, recordOutcome, type EffectLedger } from './ledger.js';
 import { readAllSegments, readKeyring, lineFailures } from './reader.js';
 import { verifyLedger } from './verify.js';
+import { ensureLedgerDirectories, withLedgerLock } from './store.js';
 
-export interface WorkerDelivery {
+interface DeliveryBytes {
   artifactDigest: string;
   deliverablePath: string;
   verifierId: string;
-  runDir: string;
-  invocationId: string;
 }
+export type WorkerDelivery = DeliveryBytes & (
+  { kind?: 'worker'; runDir: string; invocationId: string }
+  | { kind: 'typed-stop'; verifierId: 'typed-stop@1'; runDir?: never; invocationId?: never }
+);
 const canonicalDestination = async (destination: string) => join(await realpath(dirname(destination)), basename(destination));
+
+/** A signed intent reserves the path even if publication crashed or bytes changed. */
+async function reserveDelivery(ledger: EffectLedger, delivery: WorkerDelivery, target: string) {
+  const paths = ledger.paths();
+  await ensureLedgerDirectories(paths);
+  return withLedgerLock(paths, 'worker-delivery', ledger.lockTimeoutMs, async () => {
+    if (!(await verifyLedger(ledger, { checkIndex: false })).ok) throw new Error('Delivery ledger integrity failed; publication refused');
+    const records = (await readAllSegments(paths)).flatMap(segment => segment.lines.flatMap(line => line.decoded ? [line.decoded] : []));
+    const conflict = records.some(({ statement: { predicate: p } }) => p.kind === 'file.digest' && p.target === `file:${target}`
+      && typeof p.context?.deliveryId === 'string' && (delivery.kind === 'typed-stop' || p.context?.kind === 'typed-stop'));
+    if (conflict) throw Object.assign(new Error('TYPED_STOP_CONFLICT: a delivery record already exists for this path'), { code: 'TYPED_STOP_CONFLICT' });
+    const context: Record<string, string> = { artifactDigest: delivery.artifactDigest, verifierId: delivery.verifierId,
+      deliverablePath: target, deliveryId: randomUUID() };
+    if (delivery.kind) context.kind = delivery.kind;
+    if (delivery.kind !== 'typed-stop') { context.runDir = delivery.runDir; context.invocationId = delivery.invocationId; }
+    return recordIntent(ledger, { kind: 'file.digest', target: `file:${target}`, context, payloadDigest: delivery.artifactDigest });
+  });
+}
 
 /** Persist intent before publication, then complete only after the digest-checked rename. */
 export async function prepareWorkerDelivery(ledger: EffectLedger, delivery: WorkerDelivery) {
+  if (delivery.kind === 'typed-stop' && (delivery.verifierId !== 'typed-stop@1' || 'runDir' in delivery || 'invocationId' in delivery)) {
+    throw Object.assign(new Error('TYPED_STOP_INVALID: typed stops cannot have worker lineage'), { code: 'TYPED_STOP_INVALID' });
+  }
   const target = await canonicalDestination(delivery.deliverablePath);
-  const context = { ...delivery, deliverablePath: target, deliveryId: randomUUID() };
-  const intent = await recordIntent(ledger, { kind: 'file.digest', target: `file:${target}`, context, payloadDigest: delivery.artifactDigest });
+  const intent = await reserveDelivery(ledger, delivery, target);
   return async () => {
     if (sha256Digest(await readFile(target)) !== delivery.artifactDigest) throw new Error('Published deliverable digest does not match acceptance; delivery record refused');
     return recordOutcome(ledger, intent.effectId, { phase: 'completed', payloadDigest: delivery.artifactDigest,
@@ -50,7 +73,9 @@ export async function lookupWorkerDelivery(ledger: EffectLedger, deliverablePath
   const match = records.reverse().find(({ statement: { predicate: p } }) => p.kind === 'file.digest' && p.phase === 'completed'
     && p.target === `file:${target}` && p.payloadDigest === artifactDigest && p.context?.artifactDigest === artifactDigest
     && typeof p.context?.deliveryId === 'string' && typeof p.context?.verifierId === 'string'
-    && typeof p.context?.runDir === 'string' && typeof p.context?.invocationId === 'string');
+    && (p.context?.kind === 'typed-stop'
+      ? p.context.verifierId === 'typed-stop@1' && !('runDir' in p.context) && !('invocationId' in p.context)
+      : typeof p.context?.runDir === 'string' && typeof p.context?.invocationId === 'string'));
   if (!match) return { verified: false, deliverablePath: target, artifactDigest, reason: 'matching-delivery-missing' };
   return { verified: true, ...match.statement.predicate.context, recordHash: match.line.recordHash };
 }

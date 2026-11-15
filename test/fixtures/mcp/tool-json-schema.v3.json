@@ -3261,85 +3261,148 @@
     "input": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "type": "object",
-      "properties": {
-        "run_dir": {
-          "type": "string",
-          "maxLength": 4096,
-          "format": "starts_with",
-          "pattern": "^\\/.*"
-        },
-        "artifact_path": {
-          "type": "string",
-          "maxLength": 4096,
-          "format": "starts_with",
-          "pattern": "^\\/.*"
-        },
-        "deliverable_path": {
-          "type": "string",
-          "maxLength": 4096,
-          "format": "starts_with",
-          "pattern": "^\\/.*"
-        },
-        "checks": {
-          "minItems": 1,
-          "maxItems": 32,
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 256
-              },
-              "command": {
-                "type": "string",
-                "maxLength": 4096,
-                "format": "starts_with",
-                "pattern": "^\\/.*"
-              },
-              "args": {
-                "maxItems": 256,
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "maxLength": 65536
-                }
-              },
-              "cwd": {
-                "type": "string",
-                "maxLength": 4096,
-                "format": "starts_with",
-                "pattern": "^\\/.*"
-              },
-              "envNames": {
-                "maxItems": 128,
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
-                }
-              },
-              "timeoutMs": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "maximum": 86400000
-              }
+      "properties": {},
+      "additionalProperties": true,
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "run_dir": {
+              "type": "string",
+              "maxLength": 4096,
+              "format": "starts_with",
+              "pattern": "^\\/.*"
             },
-            "required": [
-              "id",
-              "command"
-            ],
-            "additionalProperties": false
-          }
+            "artifact_path": {
+              "type": "string",
+              "maxLength": 4096,
+              "format": "starts_with",
+              "pattern": "^\\/.*"
+            },
+            "deliverable_path": {
+              "type": "string",
+              "maxLength": 4096,
+              "format": "starts_with",
+              "pattern": "^\\/.*"
+            },
+            "checks": {
+              "minItems": 1,
+              "maxItems": 32,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "command": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "format": "starts_with",
+                    "pattern": "^\\/.*"
+                  },
+                  "args": {
+                    "maxItems": 256,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 65536
+                    }
+                  },
+                  "cwd": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "format": "starts_with",
+                    "pattern": "^\\/.*"
+                  },
+                  "envNames": {
+                    "maxItems": 128,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                    }
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 86400000
+                  }
+                },
+                "required": [
+                  "id",
+                  "command"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "run_dir",
+            "deliverable_path",
+            "checks"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "deliverable_path": {
+              "type": "string",
+              "maxLength": 4096,
+              "format": "starts_with",
+              "pattern": "^\\/.*"
+            },
+            "typed_stop": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "denied",
+                    "blocked"
+                  ]
+                },
+                "code": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+                },
+                "blocking_rule": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "launch_count": {
+                  "type": "number",
+                  "const": 0
+                },
+                "uncertainty_statement": {
+                  "type": "string",
+                  "maxLength": 4000
+                },
+                "reason": {
+                  "type": "string",
+                  "maxLength": 4000
+                }
+              },
+              "required": [
+                "status",
+                "code",
+                "blocking_rule",
+                "launch_count"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "deliverable_path",
+            "typed_stop"
+          ],
+          "additionalProperties": false
         }
-      },
-      "required": [
-        "run_dir",
-        "deliverable_path",
-        "checks"
-      ],
-      "additionalProperties": false
+      ]
     }
   }
 }
