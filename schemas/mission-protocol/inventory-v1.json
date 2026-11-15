@@ -2648,6 +2648,19 @@
       "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
     },
     {
+      "path": "test/unit/mcp/worker-local-only-preflight.test.ts",
+      "owner": "test/unit",
+      "role": "fixture-or-test",
+      "currentVersion": "mission.aiwg.io/v1",
+      "statusVocabulary": [
+        "unknown",
+        "working"
+      ],
+      "serialization": "typescript/javascript",
+      "migrationAction": "retain",
+      "migrationReason": "Compatibility fixture or test remains to prove legacy reads and mixed-version behavior."
+    },
+    {
       "path": "test/unit/mission-protocol/canonical-codecs.test.ts",
       "owner": "test/unit",
       "role": "fixture-or-test",
