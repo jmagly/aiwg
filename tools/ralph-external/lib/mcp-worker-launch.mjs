@@ -27,7 +27,7 @@ export async function launchMcpShellWorker(invocation, { plan, invocationId, rel
   const started = new Promise(resolve => { resolveStarted = resolve; });
   owner.once('launched', () => resolveStarted(launch));
   const completion = owner.launchWorker({ invocationPath, invocationId, runDir, loadInputs, now: () => now().toISOString(),
-    memoryMaxGb, allowDegraded, scopedBreaker: null, isolation,
+    projectRoot: servedRoot, memoryMaxGb, allowDegraded, scopedBreaker: null, isolation,
     checkDispatch: options => checkWorkerDispatch({ ...options, live, readers, thresholdOverlay }),
     launchIsolated: async options => {
       const onSpawnAttempt = value => { attempt = value; };

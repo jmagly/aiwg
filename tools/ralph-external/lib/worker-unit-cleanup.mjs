@@ -25,10 +25,18 @@ export function resetRecordedWorkerUnit(outcome, native, { spawn = spawnSync, lo
   try {
     const client = resolveSystemdClient('systemctl');
     const options = { encoding: 'utf8', timeout: 500, killSignal: 'SIGKILL', env: buildSystemdClientEnv({ envNames: [] }) };
-    const shown = spawn(client, ['--user', 'show', '-p', 'Description', '--value', '--', owner.unit], options);
+    const shown = spawn(client, ['--user', 'show', '-p', 'LoadState', '-p', 'Description', '--', owner.unit], options);
     if (shown.error || shown.status !== 0) throw new Error(shown.error?.message ?? (String(shown.stderr ?? '').trim() || 'ownership query failed'));
+    const properties = Object.fromEntries(String(shown.stdout ?? '').trim().split('\n').map(line => {
+      const separator = line.indexOf('=');
+      return [line.slice(0, separator), line.slice(separator + 1)];
+    }));
+    if (properties.LoadState === 'not-found') {
+      owners.delete(outcome?.child ?? outcome);
+      return true;
+    }
     // A failed submission may have collided with somebody else's existing unit.
-    if (String(shown.stdout ?? '').trim() !== owner.description) {
+    if (properties.Description !== owner.description) {
       owners.delete(outcome?.child ?? outcome);
       throw new Error('unit ownership does not match this launch');
     }

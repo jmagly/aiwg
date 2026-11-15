@@ -482,6 +482,7 @@
       "status": "partial",
       "testFiles": [
         "test/unit/ralph-external/worker-single-invocation.test.ts",
+        "test/unit/ralph-external/worker-run-directory.test.ts",
         "test/conformance/orchestration-v1/worker-health-security.test.ts",
         "test/conformance/orchestration-v1/worker-status.test.ts"
       ],
