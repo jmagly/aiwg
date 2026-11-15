@@ -23,7 +23,7 @@ if (run.status !== 'completed') {
 } else {
   const verification = decode(await tools.get('worker-verify-deliver')({ run_dir: run.run_dir,
     artifact_path: path.join(work, 'artifact.txt'), deliverable_path: path.join(project, 'answer.txt'),
-    checks: [{ id: 'protected', command: process.execPath, args: ['-e', outcome === 'rejected' ? 'process.exit(7)' : 'process.exit(0)'] }] }));
+    checks: [{ id: 'protected', command: process.execPath, args: ['-e', outcome === 'rejected' ? 'process.exit(7)' : 'if (require("node:fs").readFileSync(process.argv[1], "utf8") !== "accepted-worker-bytes") process.exit(1)', path.join(work, 'artifact.txt')] }] }));
   const records = Object.fromEntries(['invocation.json', 'exit.json', 'worker-exit.json', 'final-evidence.json']
     .map(name => [name, JSON.parse(readFileSync(path.join(run.run_dir, name), 'utf8'))]));
   console.log(JSON.stringify({ run, status, verification, records, owner: readFileSync(path.join(run.run_dir, '.launch-owner'), 'utf8'),

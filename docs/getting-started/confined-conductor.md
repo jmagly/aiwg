@@ -91,7 +91,7 @@ output path. Worker context deployment selects only that worker's provider,
 uses project scope and keeps deploy-time state in the worker tree; an already
 present provider bootstrap skips deployment.
 
-Call `worker-verify-deliver` with `run_dir`, `deliverable_path`, optional
+Call `worker-verify-deliver` with `run_dir`, `deliverable_path`, explicit
 `artifact_path`, and a nonempty `checks` array. Each check has a unique `id`, an
 absolute `command`, and optional `args`, `cwd`, `envNames`, `timeoutMs`. These
 checks belong to conductor policy; worker claims and manifests never define them.
@@ -103,6 +103,25 @@ Use existing launcher-owned run records and confirmed-stop evidence. Workers
 must have independently qualified writable roots; deliverables must be outside
 those roots. Workers launched by the external server use their normal worker
 isolation; the confinement wrapper does not change their sandbox policy.
+
+Publication has three requirements, enforced before any protected check runs:
+
+- Name the actual deliverable with `artifact_path` (CLI: `--artifact`). The worker
+  final or handoff wrapper cannot be published, even when named explicitly or
+  through another path (`ARTIFACT_REQUIRED`). Verification without publication
+  may still default to the worker final.
+- The artifact must already exist at the worker's confirmed exit. Launcher
+  `exit.json` must contain an ISO `endedAt` (`EXIT_EVIDENCE_MISSING`). Neither
+  the artifact's change time nor modification time may exceed that timestamp
+  by more than two seconds. If the worker final claims a digest for the chosen
+  artifact, its bytes must match (`ARTIFACT_CHANGED_AFTER_EXIT`).
+- Include at least one content check referencing the artifact path, basename,
+  or a containing directory in its arguments (`CHECKS_CONTENT_FREE`). The
+  narrow filter treats `test`, `[`, `stat`, `ls`, `true`, `file`, and `wc` with
+  only path/flag arguments as content-free. A check whose arguments mention
+  none of those artifact references is also content-free. Node, jq, or Python
+  checks that inspect artifact contents can qualify. This filter cannot prove
+  that a check asserts the task's done criteria; the conductor still owns that.
 
 Native shell launches and shell calls supplying `run_dir` use the same one-shot launcher and capture owner as
 `--launch-worker`: `invocation.json`, `.launch-owner`, kernel termination records,
