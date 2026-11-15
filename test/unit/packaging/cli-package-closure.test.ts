@@ -102,6 +102,7 @@ describe('CLI package dependency closure (default lane)', () => {
     const manifest = JSON.parse(await readFile(path.join(root, 'packages/cli/package.json'), 'utf8'));
     const result = inspectCliPackageClosure(root, manifest.files);
     expect(result.visited).toContain('tools/ralph-external/lib/worker-context.mjs');
+    expect(result.visited).toContain('tools/ralph-external/lib/worker-local-only-paths.mjs');
     expect(result.visited).toContain('dist/src/cli/router.js');
     expect(result.visited).toContain('tools/providers/pi-bridge-policy.mjs');
     expect(result.visited).toContain('dist/src/policy/hitl-config.js');
