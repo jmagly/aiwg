@@ -68,6 +68,7 @@
     "tools/ralph-external/lib/worker-final.mjs",
     "tools/ralph-external/lib/worker-prompt.mjs",
     "tools/ralph-external/lib/worker-verification-cli.mjs",
+    "tools/ralph-external/lib/typed-stop-delivery.mjs",
     "tools/ralph-external/lib/trusted-verification.mjs",
     "tools/ralph-external/lib/verification-isolation.mjs",
     "tools/ralph-external/lib/worker-delivery-record.mjs",
