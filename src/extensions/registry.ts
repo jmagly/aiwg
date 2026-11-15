@@ -4,7 +4,7 @@
  * Provides efficient storage, indexing, and retrieval of AIWG extensions.
  * Supports O(1) lookup by ID, type-based indexing, and command alias resolution.
  *
- * @architecture @.aiwg/architecture/unified-extension-schema.md
+ * @architecture @docs/architecture/cli/extending-cli.md
  * @tests @test/unit/extensions/registry.test.ts
  * @version 1.0.0
  */

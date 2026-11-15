@@ -5,7 +5,7 @@
  * keyed by kind so future consumers register their schema without forking the
  * discovery module.
  *
- * @architecture @.aiwg/architecture/decisions/ADR-023-contributor-discovery-convention.md
+ * @architecture @docs/contributing/contributor-quickstart.md
  * @issue #938
  */
 

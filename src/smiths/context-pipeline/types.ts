@@ -7,7 +7,7 @@
  * - AIWG.md      — generated framework context
  * - provider startup files — minimal adapters that load WORKSPACE.md, then AIWG.md
  *
- * Per ADR-1 (.aiwg/architecture/adr-agents-md-aggregation.md). NOT part of agentsmith;
+ * Per ADR-1 (docs/configuration/workspace-context.md). NOT part of agentsmith;
  * agentsmith creates subagent personas, this module assembles cross-platform context.
  */
 

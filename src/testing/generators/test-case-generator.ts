@@ -6,7 +6,7 @@
  *
  * @module src/testing/generators/test-case-generator
  * @implements @.aiwg/requirements/use-cases/UC-009-generate-test-artifacts.md
- * @architecture @.aiwg/architecture/software-architecture-doc.md - Section 5.3 TestGenerator
+ * @architecture @docs/architecture/cli/index.md
  * @nfr @.aiwg/requirements/nfr-modules/performance.md - NFR-TEST-01 (<10min for 100 reqs)
  * @tests @test/unit/testing/test-case-generator.test.ts
  * @depends @src/testing/generators/use-case-parser.ts

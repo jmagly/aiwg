@@ -6,7 +6,7 @@
  * best-practices-audit, ...) by shipping `<framework>/<kind>/contributor.md`
  * files. The aggregator discovers, validates, and runs detection against them.
  *
- * @architecture @.aiwg/architecture/decisions/ADR-023-contributor-discovery-convention.md
+ * @architecture @docs/contributing/contributor-quickstart.md
  * @issue #938
  */
 

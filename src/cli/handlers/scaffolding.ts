@@ -4,7 +4,7 @@
  * Handlers for code generation and project scaffolding commands.
  * Each handler delegates to existing scripts in tools/scaffolding/.
  *
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @tests @test/unit/cli/handlers/scaffolding.test.ts
  * @issue #33
  */
@@ -67,7 +67,7 @@ class AddCommandHandler extends ScaffoldingHandler {
       '\x1b[33m⚠ DEPRECATED:\x1b[0m `aiwg add-command` is deprecated. ' +
       'Use `aiwg add-skill` instead.\n' +
       '  Commands are now generated from skills at deploy time.\n' +
-      '  See: .aiwg/architecture/adr-skills-canonical-extension-type.md\n'
+      '  See: docs/extensions/extension-types.md\n'
     );
     return super.execute(ctx);
   }

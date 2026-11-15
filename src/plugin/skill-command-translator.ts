@@ -8,7 +8,7 @@
  * Skills are the canonical source format; commands are deployment artifacts.
  * See ADR: Skills as the Canonical Extension Type.
  *
- * @implements .aiwg/architecture/adr-skills-canonical-extension-type.md
+ * @implements docs/extensions/extension-types.md
  * @issue #550
  */
 

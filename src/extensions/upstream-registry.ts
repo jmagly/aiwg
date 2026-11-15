@@ -10,7 +10,7 @@
  *
  * Consumed by the shadow resolver (#1036) to detect collisions between project-
  * local bundles and upstream artifacts and apply the override / safety-critical
- * denylist policy from `.aiwg/architecture/adr-override-shadow-policy.md`.
+ * denylist policy from `docs/customization/project-local-lifecycle.md`.
  *
  * @implements #1036
  */

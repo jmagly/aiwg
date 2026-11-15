@@ -3,8 +3,8 @@
  *
  * Types for MCP server generation from various sources.
  *
- * @architecture @.aiwg/architecture/mcpsmith-architecture.md
- * @implements @.aiwg/architecture/decisions/ADR-014-mcpsmith-mcp-server-generator.md
+ * @architecture @docs/smithing/mcpsmith.md
+ * @implements @docs/smithing/mcpsmith.md
  */
 
 // ============================================

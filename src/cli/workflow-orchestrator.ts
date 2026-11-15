@@ -5,7 +5,7 @@
  * Supports batch processing, watch mode, auto-fix, and multiple output formats.
  *
  * @implements @.aiwg/requirements/use-cases/UC-001-validate-ai-generated-content.md
- * @architecture @.aiwg/architecture/software-architecture-doc.md - Section 4.2 Core Orchestrator
+ * @architecture @docs/architecture/cli/index.md
  * @tests @test/unit/cli/workflow-orchestrator.test.ts
  * @depends @src/writing/validation-engine.ts
  * @depends @src/writing/prompt-optimizer.ts

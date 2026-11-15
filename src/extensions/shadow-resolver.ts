@@ -2,7 +2,7 @@
  * Shadow Resolver
  *
  * Implements the override / shadow-resolution policy from
- * `.aiwg/architecture/adr-override-shadow-policy.md` (#1041) for project-local
+ * `docs/customization/project-local-lifecycle.md` (#1041) for project-local
  * artifact bundles deployed via `aiwg use` / `aiwg refresh`.
  *
  * Resolves the seven cases from ADR §4:

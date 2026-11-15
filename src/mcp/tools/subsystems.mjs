@@ -9,7 +9,7 @@
  * Default toolset enabled: `core` (already registered by discovery.mjs +
  * command-run.mjs in server.mjs).
  *
- * @architecture @.aiwg/architecture/sketch-hermes-mcp-parity.md DD-3
+ * @architecture @docs/cli/agent-usage.md
  * @issues #1322 (memory) #1323 (kb) #1324 (provenance) #1325 (activity-log)
  *         #1326 (index) #1327 (ralph) #1328 (ops) #1331 (mc) #1332 (dispatch)
  */

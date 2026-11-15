@@ -4,8 +4,8 @@
  * Defines Extension objects for all CLI commands. Maps command handlers to the
  * unified Extension schema for discovery, semantic search, and help generation.
  *
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
- * @architecture @.aiwg/architecture/unified-extension-schema.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
+ * @architecture @docs/architecture/cli/extending-cli.md
  * @source @src/cli/handlers/index.ts
  * @tests @test/unit/extensions/commands/definitions.test.ts
  * @issue #42

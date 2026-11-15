@@ -4,7 +4,7 @@
  * Tests for MCP, catalog, plugin, and other subcommand handlers.
  *
  * @source @src/cli/handlers/subcommands.ts
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @issue #33
  */
 

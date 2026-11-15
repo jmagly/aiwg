@@ -18,7 +18,7 @@
  * Design notes:
  *  - Facets are *curated*, not learned — appropriate at this corpus size and
  *    portable across all 10 providers (no embedding store, no fine-tuned
- *    router). See `.aiwg/architecture/adr-steward-feature-discoverability.md`.
+ *    router). See `docs/architecture/cli/discovery.md`.
  *  - Mapped capabilities are matched against an entry's canonical `name`
  *    (falling back to the path basename / parent-dir slug), so the table lists
  *    names — not paths — and survives bundle moves.

@@ -5,7 +5,7 @@
  * capability indexes for fast lookup.
  *
  * @implements @.aiwg/requirements/use-cases/UC-004-extension-system.md
- * @architecture @.aiwg/architecture/unified-extension-schema.md
+ * @architecture @docs/architecture/cli/extending-cli.md
  * @tests @test/unit/extensions/loader.test.ts
  */
 

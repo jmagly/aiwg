@@ -5,7 +5,7 @@
  * Follows MCP 2025-11-25 specification.
  *
  * @see https://modelcontextprotocol.io/specification/2025-11-25
- * @architecture @.aiwg/architecture/software-architecture-doc.md - Section 2.1 CLI Layer
+ * @architecture @docs/architecture/cli/index.md
  * @reference @docs/references/REF-066-mcp-specification-2025.md
  * @cli @docs/cli/agent-usage.md - mcp serve command
  * @frameworks @agentic/code/frameworks/sdlc-complete/

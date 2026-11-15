@@ -4,7 +4,7 @@ import { getFrameworkRoot } from "../../channel/manager.mjs";
 /**
  * Promote handler — graduate a project-local bundle to upstream or to a
  * private corpus path. Implements the design at
- * @.aiwg/architecture/design-doctor-log-promote.md (#1049).
+ * @docs/customization/project-local-lifecycle.md (#1049).
  *
  * Usage:
  *   aiwg promote <name>                          # default: --to upstream

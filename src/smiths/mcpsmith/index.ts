@@ -8,8 +8,8 @@
  * - Natural language descriptions
  *
  * @module smiths/mcpsmith
- * @architecture @.aiwg/architecture/mcpsmith-architecture.md
- * @implements @.aiwg/architecture/decisions/ADR-014-mcpsmith-mcp-server-generator.md
+ * @architecture @docs/smithing/mcpsmith.md
+ * @implements @docs/smithing/mcpsmith.md
  */
 
 export * from './types.js';

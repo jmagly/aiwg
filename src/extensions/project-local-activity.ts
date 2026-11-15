@@ -10,7 +10,7 @@
  * per-event entries (per-bundle, per-provider) at finer granularity, as
  * specified by the design doc.
  *
- * @design @.aiwg/architecture/design-doctor-log-promote.md
+ * @design @docs/customization/project-local-lifecycle.md
  * @implements #1037
  * @issue #1049
  */

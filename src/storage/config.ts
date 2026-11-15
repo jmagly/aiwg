@@ -9,7 +9,7 @@
  * `schemas/storage/storage.config.v1.schema.json`; the lightweight path here
  * avoids loading the full catalog during storage bootstrap.
  *
- * @design @.aiwg/architecture/storage-design.md
+ * @design @docs/storage/overview.md
  * @issue #934
  * @issue #953
  */

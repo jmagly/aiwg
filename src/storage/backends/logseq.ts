@@ -27,7 +27,7 @@
  *   journals/YYYY_MM_DD.md    journal entries
  *   logseq/*                  REFUSED (Logseq config)
  *
- * @design @.aiwg/architecture/storage-design.md (§5.3)
+ * @design @docs/storage/overview.md
  * @issue #934
  * @issue #958
  */

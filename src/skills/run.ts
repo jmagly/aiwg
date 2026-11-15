@@ -183,17 +183,6 @@ export async function runSkill(opts: RunSkillOptions): Promise<number> {
     ...(aiwgRoot ? { AIWG_ROOT: aiwgRoot } : {}),
     ...opts.env,
   };
-  // Native source owner shares the same indexed script declaration and project CWD.
-  if (entry.path.replaceAll('\\', '/').endsWith('agentic/code/frameworks/sdlc-complete/skills/issue-audit/SKILL.md')
-    && entry.script.entrypoint === 'scripts/audit.mjs') {
-    const audit = await import('../issues/audit-cli.js');
-    return audit.main(opts.args, runCwd, { env });
-  }
-  if (/agentic\/code\/(addons\/aiwg-utils|plugins\/utils)\/skills\/aiwg-pr\/SKILL\.md$/.test(entry.path.replaceAll('\\', '/'))
-    && entry.script.entrypoint === 'scripts/deliver.mjs') {
-    const delivery = await import('../delivery/pr.js');
-    return delivery.main(opts.args, runCwd);
-  }
   const fullArgs = [...invocation.prefixArgs, entrypointPath, ...opts.args];
   return new Promise<number>((resolve) => {
     const child = spawn(invocation.command, fullArgs, {

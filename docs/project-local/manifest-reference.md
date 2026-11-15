@@ -13,7 +13,7 @@ description: Pointer to the canonical bundle manifest schema.
 
 | Source | What it contains |
 |--------|------------------|
-| [`design-manifest-schema.md`](https://github.com/jmagly/aiwg/blob/main/.aiwg/architecture/design-manifest-schema.md) | Full schema design (#1044) |
+| [Extending the CLI](../architecture/cli/extending-cli.md#manifest-contract) | Bundle contract and worked example |
 | [`src/extensions/manifest.ts`](../../src/extensions/manifest.ts) | Zod schema (executable contract) |
 | [`src/extensions/types.ts`](../../src/extensions/types.ts) | TypeScript types |
 
@@ -41,9 +41,10 @@ For each `type`, the matching nested config is required:
 | `addon` | `addonConfig` |
 | `framework` | `frameworkConfig` |
 | `plugin` | `pluginConfig` |
+| `provider` | `providerConfig` with `extends` |
 
 Path-traversal in `entry` paths (`../../etc`) is refused at validation
-time. The manifest must be ≤ 64 KB. See the schema design for the full
+time. The manifest must be ≤ 64 KB. See the executable schema for the full
 constraint set.
 
 ## Addon-contributed CLI commands
@@ -68,10 +69,23 @@ without adding a one-off command to AIWG core:
 ```
 
 Each module exports a default async function accepting `(args, context)`.
-Paths must remain within the bundle and use `.mjs` modules. Plugin wrappers
+Paths must remain within the bundle and use local basename `.mjs` modules. Plugin wrappers
 may instead place this block in the manifest at their validated addon payload.
 `aiwg use <bundle>` registers the namespace in
-`.aiwg/cli-extensions.json`.
+`cli-extensions.json` under the resolved artifact root (normally `.aiwg/`).
+
+**Trust boundary:** CLI modules are dynamically imported and run inside the AIWG
+process with the invoking user's permissions, with **no sandbox**. Only install
+bundles you trust. Built-in commands and aliases always win namespace clashes.
+Path validation does not restrict what a loaded module can do.
+
+Sources inside the project are registered relative to the project root, not the
+registry's parent directory. External sources retain absolute paths; re-run
+`aiwg use <bundle>` after moving those sources or cloning to another machine.
+Relative parent traversal and symlink escapes are rejected. Doctor warns about
+missing source directories, including stale committed registries. See
+[portable registration](../architecture/cli/extending-cli.md#portable-cli-registration)
+for the format and removal limits.
 
 ## Generate a valid manifest automatically
 

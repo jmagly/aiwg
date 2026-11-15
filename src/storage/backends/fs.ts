@@ -5,7 +5,7 @@
  * overrides from `storage.config`. Output is byte-identical to the
  * pre-abstraction direct-fs calls so consumer migrations stay safe.
  *
- * @design @.aiwg/architecture/storage-design.md (§5.1)
+ * @design @docs/storage/overview.md
  * @issue #934
  * @issue #956
  */

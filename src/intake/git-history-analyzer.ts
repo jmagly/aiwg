@@ -6,7 +6,7 @@
  *
  * @module src/intake/git-history-analyzer
  * @implements @.aiwg/requirements/use-cases/UC-003-generate-intake-from-codebase.md
- * @architecture @.aiwg/architecture/software-architecture-doc.md - Section 5.2 Intake Coordinator
+ * @architecture @docs/architecture/cli/index.md
  * @tests @test/unit/intake/git-history-analyzer.test.ts
  * @command @.claude/commands/intake-from-codebase.md
  * @agent @agentic/code/frameworks/sdlc-complete/agents/intake-coordinator.md

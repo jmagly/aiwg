@@ -5,7 +5,7 @@
  * Uses external Ralph supervisor for crash-resilient background execution.
  * Falls back to internal scripts when --internal flag is used.
  *
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @implements @.aiwg/working/issue-ralph-external-completion.md
  * @tests @test/unit/cli/handlers/ralph.test.ts
  * @issue #33, #275

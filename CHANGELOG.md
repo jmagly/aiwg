@@ -7,6 +7,16 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Added
+
+- CLI architecture with C4 views, five source-linked runtime sequences, an extensibility guide with a runnable bundle example and explicit in-process trust boundary, and provider/deployment and discovery internals. Retire the old architecture overview in favour of the current 2026.11.x map; document addon `cli_commands`, `decision ask` and `config authorization check` in the reference (#4177–#4180, #4184).
+
+### Fixed
+
+- Launcher and handler help share the provider registry listing, including all 20 provider IDs. The help generator now supplies production provider help (#4182).
+- Script-bearing skills dispatch from their declared runtime, entrypoint and CWD, including the existing issue-audit and aiwg-pr native bridge scripts, without skill-specific runner paths (#4183).
+- CLI namespace registrations use project-relative sources for in-project bundles, retain external absolute sources, reject traversal and symlink escapes, and report missing source directories through project-local doctor (#4185).
+
 ## [2026.11.5] - 2026-11-11
 
 ### Added

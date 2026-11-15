@@ -1,7 +1,7 @@
 /**
  * AIWG MCP Server — Shared Helpers
  *
- * @architecture @.aiwg/architecture/sketch-hermes-mcp-parity.md
+ * @architecture @docs/cli/agent-usage.md
  * @issues #1311 (scope split), #1312 (command-run), #1313 (discover + pairs)
  */
 
