@@ -2,8 +2,8 @@ import type { FlagshipAuthority } from './tiers.js';
 /**
  * TypeScript types for Enhanced Model Selection System (Phase 1)
  *
- * @implements @.aiwg/architecture/ADR-015-enhanced-model-selection.md
- * @architecture @.aiwg/architecture/enhanced-model-selection-design.md
+ * @implements @docs/models/supported-models.md
+ * @architecture @docs/models/supported-models.md
  */
 
 /**

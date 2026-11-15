@@ -2,7 +2,7 @@
  * Tests for Help Generator
  *
  * @source @src/cli/help-generator.ts
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -31,7 +31,7 @@ describe('generateHelp', () => {
       expect(help).toContain('Platform Options');
       expect(help).toContain('copilot');
       expect(help).toContain('factory');
-      expect(help).toContain('openai');
+      expect(help).toContain('openai → codex');
       expect(help).toContain('windsurf');
       expect(help).toContain('cursor');
       expect(help).toContain('opencode');

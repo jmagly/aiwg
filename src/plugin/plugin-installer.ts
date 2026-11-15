@@ -15,8 +15,8 @@
  *
  * @module src/plugin/plugin-installer
  * @implements @.aiwg/requirements/use-cases/UC-010-rollback-plugin-installation.md
- * @architecture @.aiwg/architecture/software-architecture-doc.md - Section 5.1 PluginManager
- * @adr @.aiwg/architecture/decisions/ADR-006-plugin-rollback-strategy.md
+ * @architecture @docs/architecture/cli/index.md
+ * @adr @docs/plugin-marketplace-guide.md
  * @nfr @.aiwg/requirements/nfr-modules/reliability.md - NFR-REL-002 (zero data loss)
  * @tests @test/unit/plugin/plugin-installer.test.ts
  * @depends @src/plugin/metadata-validator.ts

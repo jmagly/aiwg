@@ -24,7 +24,7 @@ import { getProviderDefinition, listProviderDefinitions } from '../../providers/
  * Providers that receive AGENTS.md emission at project root.
  *
  * Sources kept in sync:
- * - ADR-1 §3 default-on rollout (`.aiwg/architecture/adr-agents-md-aggregation.md`)
+ * - ADR-1 §3 default-on rollout (`docs/configuration/workspace-context.md`)
  * - ADR-1 §4 per-provider variants table (file-name + twin-file emission)
  */
 export const AGENTS_MD_PROVIDERS: ReadonlySet<Platform> = new Set(

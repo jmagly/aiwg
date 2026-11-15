@@ -3,7 +3,7 @@
  *
  * Generates agents following the 10 Golden Rules from the Agent Design Bible.
  *
- * @architecture @.aiwg/architecture/software-architecture-doc.md
+ * @architecture @docs/architecture/cli/index.md
  */
 
 import type {

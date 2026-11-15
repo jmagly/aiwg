@@ -5,7 +5,7 @@
  * `resolveStorage(subsystem)` to obtain a backend-specific adapter
  * conforming to `StorageAdapter`.
  *
- * @design @.aiwg/architecture/storage-design.md
+ * @design @docs/storage/overview.md
  * @schema @schemas/storage/storage.config.v1.schema.json
  * @issue #934
  * @issue #953

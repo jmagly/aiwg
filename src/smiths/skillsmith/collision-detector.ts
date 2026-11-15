@@ -88,7 +88,7 @@ const PLATFORM_BUILTINS: Record<string, string[]> = {
 // IS the canonical slug for the doctor skill (the bare `doctor` collides with
 // Claude's built-in). Slash commands and shell CLI commands live on different
 // surfaces and do not actually conflict at runtime.
-// See: docs/migration/skill-namespace-migration.md, .aiwg/architecture/adr-skill-namespace-strategy.md
+// See: docs/migration/skill-namespace-migration.md, docs/migration/skill-namespace-migration.md
 
 // ============================================
 // Ownership Attribution

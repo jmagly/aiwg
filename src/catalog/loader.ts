@@ -8,7 +8,7 @@
  *
  * Merge priority: custom > discovered > builtin
  *
- * @implements @.aiwg/architecture/enhanced-model-selection-design.md#9-model-catalog-system
+ * @implements @docs/models/supported-models.md
  * @module src/catalog/loader
  */
 

@@ -6,7 +6,7 @@
  * - info: Show detailed model information
  * - search: Search models by query
  *
- * @implements @.aiwg/architecture/enhanced-model-selection-design.md#9-model-catalog-system
+ * @implements @docs/models/supported-models.md
  * @module src/catalog/cli
  */
 

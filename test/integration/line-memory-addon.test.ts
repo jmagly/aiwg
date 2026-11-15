@@ -123,6 +123,7 @@ describe('line-memory addon deployment', () => {
       await readFile(path.join(projectDir, '.aiwg', 'cli-extensions.json'), 'utf8'),
     );
     expect(registry['custom-memory'].subcommands.ping.file).toBe('ping.mjs');
-    expect(registry['custom-memory'].source).toBe(path.join(payloadDir, 'commands'));
+    // `aiwg use` records project-relative sources so a committed registry is portable (#4189).
+    expect(registry['custom-memory'].source).toBe(path.relative(projectDir, path.join(payloadDir, 'commands')));
   }, 90_000);
 });

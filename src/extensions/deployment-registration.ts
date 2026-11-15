@@ -5,7 +5,7 @@
  * and registers them in the extension registry for discovery.
  *
  * @implements #56, #57
- * @architecture @.aiwg/architecture/unified-extension-schema.md
+ * @architecture @docs/architecture/cli/extending-cli.md
  * @tests @test/unit/extensions/deployment-registration.test.ts
  */
 

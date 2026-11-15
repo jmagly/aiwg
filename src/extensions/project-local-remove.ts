@@ -2,14 +2,14 @@
  * Project-Local Bundle Remove
  *
  * Reverts a project-local bundle's deployed artifacts from provider paths
- * per the case table in `.aiwg/architecture/design-aiwg-remove-revert.md`
+ * per the case table in `docs/customization/project-local-lifecycle.md`
  * (#1048). Reads artifactHashes from the registry to detect pristine vs
  * mutated vs replaced files.
  *
  * Source under `.aiwg/<type>/<name>/` is NEVER deleted (load-bearing
  * invariant — `--force` does not change this).
  *
- * @design @.aiwg/architecture/design-aiwg-remove-revert.md
+ * @design @docs/customization/project-local-lifecycle.md
  * @implements #1037
  */
 
@@ -295,7 +295,7 @@ function resolveOwnership(
 
 /**
  * Remove a project-local bundle's deploys per the design at
- * `.aiwg/architecture/design-aiwg-remove-revert.md`.
+ * `docs/customization/project-local-lifecycle.md`.
  *
  * Pure function over (config, projectDir, opts). The caller is responsible
  * for persisting the returned (mutated) config.

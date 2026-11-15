@@ -6,7 +6,7 @@
  * order does not affect the resulting hash.
  *
  * @implements #1203
- * @see .aiwg/architecture/adr-rlm-index-features-impl-plan.md
+ * @see docs/architecture/index-and-manifest-loading.md
  */
 
 import { createHash } from 'node:crypto';

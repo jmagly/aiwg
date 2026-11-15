@@ -214,7 +214,7 @@ const FAST_HELP_TEXT = `
     --use-stable                 Switch back to stable npm package
 ────────────────────────────────────────────────────────
 
-  Providers: 12 — claude (default), codex, copilot, cursor, factory, hermes, opencode, openclaw, openhuman, pi, warp, windsurf (alias: devin)
+  {{PROVIDERS}}
 
   Examples:
     aiwg use sdlc                   Install SDLC framework
@@ -227,10 +227,11 @@ const FAST_HELP_TEXT = `
     aiwg refresh                    Pull latest + redeploy frameworks
 `;
 
-function maybeHandleFastHelp(args) {
+async function maybeHandleFastHelp(args) {
   if (args.length !== 1) return false;
   if (!['help', '--help', '-help', '-h'].includes(args[0])) return false;
-  process.stdout.write(`${FAST_HELP_TEXT}\n`);
+  const { generateProviderHelp } = await import('../dist/src/cli/help-generator.js');
+  process.stdout.write(`${FAST_HELP_TEXT.replace('{{PROVIDERS}}', generateProviderHelp())}\n`);
   return true;
 }
 
@@ -382,7 +383,7 @@ if (indexRefresh || readOnlyReport) {
 if (maybeHandleFastVersion(cliArgs)) {
   process.exit(0);
 }
-if (maybeHandleFastHelp(cliArgs)) {
+if (await maybeHandleFastHelp(cliArgs)) {
   process.exit(0);
 }
 

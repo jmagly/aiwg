@@ -5,7 +5,7 @@
  * capability indexing, and loading functionality for all extension types.
  *
  * @implements @.aiwg/requirements/use-cases/UC-004-extension-system.md
- * @architecture @.aiwg/architecture/unified-extension-schema.md
+ * @architecture @docs/architecture/cli/extending-cli.md
  */
 
 // Core types

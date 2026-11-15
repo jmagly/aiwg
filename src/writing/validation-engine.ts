@@ -5,7 +5,7 @@
  * Pattern matches and legacy scores do not establish human or machine authorship.
  *
  * @implements @.aiwg/requirements/use-cases/UC-001-validate-ai-generated-content.md
- * @architecture @.aiwg/architecture/software-architecture-doc.md - Section 5.1 WritingValidator
+ * @architecture @docs/architecture/cli/index.md
  * @nfr @.aiwg/requirements/nfr-modules/performance.md - NFR-PERF-001 (<60s validation)
  * @nfr @.aiwg/requirements/nfr-modules/accuracy.md - NFR-ACC-001 (<5% false positives)
  * @tests @test/unit/writing/validation-engine.test.ts

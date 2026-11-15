@@ -31,7 +31,7 @@
  *     because Fortemi's MCP surface does not document a direct delete
  *     tool (immutability + versioning is core to the design).
  *
- * @design @.aiwg/architecture/storage-design.md (§5.6)
+ * @design @docs/storage/overview.md
  * @issue #934
  * @issue #961
  * @issue #972

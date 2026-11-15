@@ -1,7 +1,7 @@
 /**
  * Task Model
  * @implements UC-001, UC-002
- * @architecture .aiwg/architecture/software-architecture-doc.md
+ * @architecture docs/architecture/cli/index.md
  */
 
 export interface Task {

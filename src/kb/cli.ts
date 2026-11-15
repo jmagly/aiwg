@@ -13,7 +13,7 @@
  *   put <path>          Write stdin contents to an entry (creates parents)
  *   delete <path>       Delete an entry (no-op if missing)
  *
- * @design @.aiwg/architecture/storage-design.md (§4, §5)
+ * @design @docs/storage/overview.md
  * @issue #934
  * @issue #965
  */

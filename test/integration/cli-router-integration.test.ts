@@ -7,7 +7,7 @@
  * the legacy router.
  *
  * @implements @.aiwg/requirements/use-cases/UC-004-extension-system.md
- * @architecture @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @architecture @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @source @src/cli/router.ts
  * @tests Integration tests for registry-based CLI routing
  * @issue #33 - Unified extension system

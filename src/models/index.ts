@@ -7,8 +7,8 @@
  * - Hierarchical configuration (default < user < project < agent)
  * - Backwards compatibility with v1 configs
  *
- * @implements @.aiwg/architecture/ADR-015-enhanced-model-selection.md
- * @architecture @.aiwg/architecture/enhanced-model-selection-design.md
+ * @implements @docs/models/supported-models.md
+ * @architecture @docs/models/supported-models.md
  *
  * @module models
  */

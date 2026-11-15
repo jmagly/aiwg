@@ -2,8 +2,8 @@
  * Model Resolver
  * Resolves agent names and roles to concrete model identifiers using tier system
  *
- * @implements @.aiwg/architecture/ADR-015-enhanced-model-selection.md
- * @architecture @.aiwg/architecture/enhanced-model-selection-design.md
+ * @implements @docs/models/supported-models.md
+ * @architecture @docs/models/supported-models.md
  */
 
 import { normalizeModelTier, TIER_ORDER, flagshipElected, isFlagshipModel } from './tiers.js';

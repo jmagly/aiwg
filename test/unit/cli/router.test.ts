@@ -6,7 +6,7 @@
  *
  * @implements @.aiwg/requirements/use-cases/UC-004-extension-system.md
  * @source @src/cli/router.ts
- * @architecture @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @architecture @docs/architecture/cli/adr-001-unified-extension-registry.md
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

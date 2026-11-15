@@ -2,7 +2,7 @@
  * CapabilityIndex - Capability-based extension discovery system
  *
  * @implements @.aiwg/requirements/use-cases/UC-004-extension-system.md
- * @architecture @.aiwg/architecture/software-architecture-doc.md
+ * @architecture @docs/architecture/cli/index.md
  * @tests @test/unit/extensions/capability-index.test.ts
  */
 

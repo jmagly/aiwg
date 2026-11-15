@@ -2,11 +2,11 @@
  * Project-Local Bundle Promotion (Graduate)
  *
  * Operationalizes the identical-form portability invariant from
- * @.aiwg/architecture/adr-identical-form-portability.md (#1038): a
+ * @docs/customization/project-local-lifecycle.md (#1038): a
  * project-local bundle should graduate to upstream (or to a private
  * corpus path) by byte-identical copy.
  *
- * Per the design at @.aiwg/architecture/design-doctor-log-promote.md
+ * Per the design at @docs/customization/project-local-lifecycle.md
  * (#1049), promote performs:
  *   1. Pre-flight checks (bundle exists, manifest valid, no project-
  *      local @-refs, destination doesn't exist, identical-form layout)
@@ -17,7 +17,7 @@
  *   6. Optional --cleanup: remove .aiwg/<type>/<name>/ source
  *   7. Activity log entry
  *
- * @design @.aiwg/architecture/design-doctor-log-promote.md
+ * @design @docs/customization/project-local-lifecycle.md
  * @implements #1037
  */
 

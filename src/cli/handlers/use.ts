@@ -10,7 +10,7 @@ import { hermesHookAcceptanceNextStep, readHermesHookAcceptance } from '../../sm
  * Deploys AIWG frameworks (SDLC, Marketing, Writing) to the current project.
  * After deployment, registers deployed extensions in the extension registry.
  *
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @implements #56, #57
  * @source @src/cli/router.ts
  * @issue #33
@@ -110,7 +110,7 @@ let machineReadableUseDepth = 0;
 // rule-delivery transaction. Other built-ins retain their serial deploy path.
 const PREPARABLE_BUILTIN_PROVIDERS = new Set(['claude', 'codex', 'cursor', 'hermes', 'pi', 'warp']);
 // Context-pipeline: emits WORKSPACE.md + AIWG.md + provider adapters last.
-// for non-Claude providers per ADR-1 (.aiwg/architecture/adr-agents-md-aggregation.md).
+// for non-Claude providers per ADR-1 (docs/configuration/workspace-context.md).
 // Distinct from agentsmith (which creates subagent personas).
 import {
   generate as generateContextFiles,

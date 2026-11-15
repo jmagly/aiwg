@@ -14,6 +14,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import * as ui from './ui.js';
+import { portableCliExtensionSource, resolveCliExtensionSource } from './cli-extension-paths.js';
 import { projectAiwgPath, resolveProjectAiwgDir } from '../config/project-artifacts.js';
 
 /**
@@ -111,9 +112,7 @@ export async function registerCliCommands(
   if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(namespace)) {
     throw new Error(`Invalid CLI namespace: ${namespace}`);
   }
-  if (!source || !path.isAbsolute(source)) {
-    throw new Error('CLI extension source must be an absolute path.');
-  }
+  const portableSource = await portableCliExtensionSource(cwd, source);
   if (Object.keys(subcommands).length === 0) {
     throw new Error(`CLI namespace '${namespace}' declares no subcommands.`);
   }
@@ -133,7 +132,7 @@ export async function registerCliCommands(
     }
   }
   const existing = await readRegistry(cwd) ?? {};
-  existing[namespace] = { source, description, subcommands };
+  existing[namespace] = { source: portableSource, description, subcommands };
   await writeRegistry(cwd, existing);
 }
 
@@ -232,7 +231,20 @@ export async function tryExecuteCliExtension(
   }
 
   // Resolve the mjs file path
-  const mjsPath = path.resolve(ns.source, path.basename(sub.file));
+  let mjsPath: string;
+  try {
+    const source = await resolveCliExtensionSource(cwd, ns.source);
+    if (!/^[a-zA-Z0-9_-]+\.mjs$/.test(sub.file)) throw new Error('Expected a local .mjs file.');
+    mjsPath = path.resolve(source, sub.file);
+    const relative = path.relative(await fs.realpath(source), await fs.realpath(mjsPath));
+    if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      throw new Error('CLI extension module escapes its source directory.');
+    }
+  } catch (error) {
+    const message = (error as Error).message;
+    ui.error(message);
+    return { exitCode: 1, message };
+  }
 
   try {
     await fs.access(mjsPath);

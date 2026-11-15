@@ -8,7 +8,7 @@
  * The output is byte-identical-shaped to upstream addon directories so
  * `aiwg promote` can graduate it without any rewrite.
  *
- * @design @.aiwg/architecture/adr-identical-form-portability.md (#1038)
+ * @design @docs/customization/project-local-lifecycle.md (#1038)
  * @implements #1050
  */
 

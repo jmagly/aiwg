@@ -3,7 +3,7 @@
  *
  * Aggregates all extracted command handlers for registry-based routing.
  *
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @tests @test/unit/cli/handlers/index.test.ts
  * @issue #42
  */

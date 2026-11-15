@@ -9,7 +9,7 @@
  * provider's unrestricted-mode flag, and --params for arbitrary provider-specific
  * args. IDE-integrated providers (copilot, cursor, etc.) receive guidance instead.
  *
- * @implements @.aiwg/architecture/decisions/ADR-001-unified-extension-system.md
+ * @implements @docs/architecture/cli/adr-001-unified-extension-registry.md
  * @issue #485
  */
 

@@ -5,7 +5,7 @@
  * error messages. Ensures extension manifests conform to the unified schema.
  *
  * @implements @.aiwg/requirements/use-cases/UC-003-extension-validation.md
- * @architecture @.aiwg/architecture/unified-extension-schema.md
+ * @architecture @docs/architecture/cli/extending-cli.md
  * @tests @test/unit/extensions/validation.test.ts
  * @version 1.0.0
  */

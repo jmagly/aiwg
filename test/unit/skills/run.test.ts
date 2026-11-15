@@ -112,13 +112,13 @@ afterEach(async () => {
 });
 
 describe('runSkill — project-root CWD invariant (#1227)', () => {
-  it('runs the indexed native issue-audit executor by name and stable ID (#2211)', async () => {
+  it('runs the declared issue-audit script by name and stable ID (#4183)', async () => {
     const skillPath = 'agentic/code/frameworks/sdlc-complete/skills/issue-audit/SKILL.md';
     const script = { entrypoint: 'scripts/audit.mjs', runtime: 'node', cwd: 'project-root' as const };
     const dir = path.join(aiwgRoot, path.dirname(skillPath));
     await fs.mkdir(path.join(dir, 'scripts'), { recursive: true });
-    // A spawned script would fail; native execution must resolve the existing source owner.
-    await fs.writeFile(path.join(dir, script.entrypoint), 'process.exitCode = 99;');
+    await fs.writeFile(path.join(dir, script.entrypoint),
+      "import { appendFileSync } from 'node:fs'; appendFileSync('audit-runs.txt', process.argv.slice(2).join(' ') + '\\n');");
     const entry = { path: skillPath, type: 'skill', name: 'issue-audit', phase: 'meta', title: 'Issue Audit',
       tags: [], created: '', updated: '', checksum: 'aaaa', summary: '', dependencies: [], dependents: [], script } satisfies MetadataEntry;
     await buildIndex({ [skillPath]: entry });
@@ -127,7 +127,7 @@ describe('runSkill — project-root CWD invariant (#1227)', () => {
       expect(await runSkill({ cwd: projectDir, name: 'issue-audit', args: ['--help'] })).toBe(0);
       const id = stableRecordId(recordTypeForEntry(entry, 'v2'), skillPath);
       expect(await runSkill({ cwd: projectDir, name: id, args: ['--help'] })).toBe(0);
-      expect(log).toHaveBeenCalledWith(expect.stringContaining('checkpoint'));
+      expect(await fs.readFile(path.join(projectDir, 'audit-runs.txt'), 'utf8')).toBe('--help\n--help\n');
     } finally { log.mockRestore(); }
   });
 

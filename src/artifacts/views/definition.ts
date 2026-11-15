@@ -2,7 +2,7 @@
  * View definition parser and validator.
  *
  * @implements #1207
- * @see .aiwg/architecture/adr-rlm-index-features-impl-plan.md
+ * @see docs/architecture/index-and-manifest-loading.md
  */
 
 import { load as loadYaml, dump as dumpYaml } from 'js-yaml';
