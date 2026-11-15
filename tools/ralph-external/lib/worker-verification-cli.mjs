@@ -1,5 +1,6 @@
 // Expose the installed trusted verifier through the existing worker-run CLI.
 import { prepareDeliveryRecord, lookupDeliveryRecord } from './worker-delivery-record.mjs';
+import { deliverTypedStop } from './typed-stop-delivery.mjs';
 import { createHash } from 'node:crypto';
 import { closeSync, lstatSync, mkdtempSync, readSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, relative, sep, isAbsolute, join } from 'node:path';
@@ -86,6 +87,7 @@ export function deliverVerifiedArtifact(result, { artifactPath, deliverablePath,
 }
 
 export async function verifyWorkerRun(request, dependencies = {}) {
+  if (Object.hasOwn(request, 'typedStop')) return deliverTypedStop(request, { prepareRecord: dependencies.prepareRecord ?? prepareDeliveryRecord });
   try { return await verifyWorkerRunRequest(request, dependencies); }
   catch (error) {
     if (!(error instanceof WorkerDeliveryRefusal)) throw error;

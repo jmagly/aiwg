@@ -25,7 +25,9 @@ export function remoteToolPolicy(projectDir, tools, { verifiedDeliveryOnly = fal
       if (!allowed || (selected && !selected.has(name))) return undefined;
       exposed.add(name);
       const shape = config.inputSchema?.shape ?? {};
-      const inputSchema = z.strictObject(Object.fromEntries(
+      // This tool's strict publication union already excludes every scope
+      // override; reconstructing its shape would discard union validation.
+      const inputSchema = name === 'worker-verify-deliver' ? config.inputSchema : z.strictObject(Object.fromEntries(
         Object.entries(shape).filter(([key]) => !scopeFields.has(key) || (name === 'worker-invoke' && key === 'workdir')),
       ));
       return { config: { ...config, inputSchema }, handler: async (args, extra) => {
