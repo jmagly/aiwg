@@ -63,10 +63,36 @@ describe('T-OG-04 confined conductor', () => {
 
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { runConductorCli } from '../../../tools/ralph-external/lib/conductor-isolation.mjs';
+it('T-OG-04 masks configured existing local-only files and directories, retaining property order', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'aiwg-conductor-local-'));
+  try {
+    mkdirSync(path.join(root, 'deliver'));
+    mkdirSync(path.join(root, 'private-inputs'));
+    writeFileSync(path.join(root, 'local.txt'), 'synthetic-private-contents');
+    writeFileSync(path.join(root, 'models.json'), JSON.stringify({ defaults: { workerSelection: {
+      dataClasses: { 'local-only': { allowedProcessing: ['local'], localOnlyPaths: ['local.txt', 'private-inputs', 'absent'] } },
+    } } }));
+    const run = vi.fn(opts => {
+      const args = buildConductorArgs(opts);
+      const masks = args.filter(arg => arg.startsWith('InaccessiblePaths='));
+      expect(masks).toEqual(['InaccessiblePaths=/run/user /run/dbus',
+        `InaccessiblePaths=${root}/local.txt`, `InaccessiblePaths=${root}/private-inputs`]);
+      expect(args.indexOf(`InaccessiblePaths=${root}/local.txt`)).toBeGreaterThan(args.indexOf(`ReadOnlyPaths=${root}/deliver`));
+      expect(args.join(' ')).not.toContain('synthetic-private-contents');
+      return 0;
+    });
+    expect(await runConductorCli(['--run-conductor', '--conductor-root', root,
+      '--deliverable', path.join(root, 'deliver'), '--', 'true'], { run })).toBe(0);
+    expect(run).toHaveBeenCalledOnce();
+    expect(buildConductorArgs({ ...options, conductorRoot: root }).filter(arg => arg.startsWith('InaccessiblePaths=')))
+      .toEqual(['InaccessiblePaths=/run/user /run/dbus']);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 it('validates real grants and existing deliverables before dispatch without launching a real unit', async () => {
   const root = mkdtempSync(path.join(tmpdir(), 'aiwg-conductor-args-'));
   const deliver = path.join(root, 'deliver'); mkdirSync(deliver);

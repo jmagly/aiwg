@@ -239,10 +239,34 @@ describe('MINOR regression (#2895): beneath() resolves symlinks, not just lexica
     expect(f.launchSpy).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])('creates missing in-project run parents privately with recovery disabled=%s', async disabled => {
+    const f = await fixture();
+    const parent = path.join(f.root, 'worker-runs', 'nested');
+    const runDir = path.join(parent, 'attempt-1');
+    const configPath = path.join(f.root, 'fake.json');
+    const config = JSON.parse(await readFile(configPath, 'utf8'));
+    await writeFile(configPath, JSON.stringify({ ...config, waitForIdentity: path.join(runDir, 'process.json'), waitForIdentityMs: 30000 }));
+    const result = await f.launch({ runDir, projectRoot: f.root, ...(disabled ? { scopedBreaker: null } : {}) });
+    expect(result).toMatchObject({ exitCode: 0, termination: 'confirmed' });
+    for (const dir of [path.dirname(parent), parent, runDir]) {
+      expect((await lstat(dir)).mode & 0o777).toBe(0o700);
+    }
+    expect(JSON.parse(await readFile(path.join(runDir, 'exit.json'), 'utf8')).exitCode).toBe(0);
+  });
+
+  it('refuses a symlinked component in a missing in-project parent before spawn', async () => {
+    const f = await fixture();
+    await symlink(f.cwd, path.join(f.root, 'worker-runs'));
+    await expect(f.launch({ runDir: path.join(f.root, 'worker-runs', 'nested', 'run'),
+      projectRoot: f.root, launchIsolated: f.launchSpy })).rejects.toThrow(/symlink/i);
+    expect(f.launchSpy).not.toHaveBeenCalled();
+    await expect(lstat(path.join(f.cwd, 'nested'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('a missing run directory parent fails before spawn with an actionable error', async () => {
     const f = await fixture();
     const runDir = path.join(f.root, 'missing-parent', 'attempt-1');
-    await expect(f.launch({ runDir, launchIsolated: f.launchSpy }))
+    await expect(f.launch({ runDir, projectRoot: f.cwd, launchIsolated: f.launchSpy }))
       .rejects.toThrow(/run directory parent does not exist: .*missing-parent; create it \(mode 0700\)/);
     expect(f.launchSpy).not.toHaveBeenCalled();
   });

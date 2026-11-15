@@ -23,6 +23,13 @@ directories and the AIWG build: these get `BindReadOnlyPaths=` and remain readab
 without becoming writable. Writable grants cannot equal or sit inside a read-only
 bind. Network remains enabled for APIs and localhost MCP.
 
+The launcher loads the conductor root's existing model and parallelism data policy,
+including inherited `localOnlyPaths`, and adds `InaccessiblePaths=` for each existing
+declared file or directory under that root. These paths are hidden from shell
+commands as well as native reads. MCP `worker-invoke` also refuses a prepared tree
+containing a declared path unless the selected tuple has qualified local processing
+facts; the refusal names paths with `LOCAL_ONLY_PATH_EXPOSED` without reading contents.
+
 The confined unit is named `aiwg-conductor-<pid>-<time>`. When `systemd-run` returns for any
 reason, including a SIGTERM, SIGINT or SIGHUP sent to the wrapper's process group, the wrapper
 stops that unit from outside, so a supervisor's timeout cannot leave the conductor running.

@@ -25,7 +25,7 @@ function setup(kind = 'unit') {
   const owner = createWorkerUnitOwner('aiwg-worker-owned-1', kind);
   const outcome = owner.track({ mode: 'systemd-unit', unit: 'aiwg-worker-owned-1' });
   const description = owner.properties[0]?.slice('Description='.length);
-  const spawn = vi.fn((_binary: string, args: string[]) => ({ status: 0, stdout: args.includes('show') ? description : '', stderr: '' }));
+  const spawn = vi.fn((_binary: string, args: string[]) => ({ status: 0, stdout: args.includes('show') ? `LoadState=loaded\nDescription=${description}\n` : '', stderr: '' }));
   return { client, owner, outcome, description, spawn, log: vi.fn() };
 }
 
@@ -52,6 +52,20 @@ describe('owned unit result cleanup', () => {
     expect(f.log).not.toHaveBeenCalled();
     resetRecordedWorkerUnit(f.outcome, native, f);
     expect(f.spawn).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps stop evidence without warning or reset when the manager collected the unit', () => {
+    const f = setup();
+    f.spawn.mockReturnValue({ status: 0, stdout: 'Description=\nLoadState=not-found\n', stderr: '' });
+    const stopped = recordWorkerUnitStop(f.outcome, { ...native, result: 'success', execMainStatus: 0 },
+      { termination: 'confirmed', delivered: true }, f);
+    expect(readRecordedWorkerUnitStop(f.outcome)).toEqual(stopped);
+    expect(readRecordedWorkerUnitStop(f.outcome, { native: true })).toMatchObject({ result: 'success', execMainStatus: 0 });
+    expect(f.spawn).toHaveBeenCalledExactlyOnceWith(f.client.systemctl,
+      ['--user', 'show', '-p', 'LoadState', '-p', 'Description', '--', f.outcome.unit], expect.any(Object));
+    resetRecordedWorkerUnit(f.outcome, native, f);
+    expect(f.spawn).toHaveBeenCalledTimes(1);
+    expect(f.log).not.toHaveBeenCalled();
   });
 
   it('retains status on a failed write so a later successful recording can clean it', async () => {
@@ -84,7 +98,7 @@ describe('owned unit result cleanup', () => {
 
   it('refuses same-name foreign units, including failed async submissions', async () => {
     const f = setup();
-    f.spawn.mockReturnValue({ status: 0, stdout: 'some other launcher', stderr: '' });
+    f.spawn.mockReturnValue({ status: 0, stdout: 'LoadState=loaded\nDescription=some other launcher\n', stderr: '' });
     await publishWorkerUnitExit(async () => {}, f.outcome, native, {}, f);
     expect(f.spawn).toHaveBeenCalledTimes(1);
     expect(f.log).toHaveBeenCalledWith(expect.stringContaining('ownership does not match'));
@@ -98,7 +112,7 @@ describe('owned unit result cleanup', () => {
     if (failure.startsWith('query')) f.spawn.mockReturnValue({ status: 1, stdout: '', stderr: 'query failed',
       ...(failure === 'query-error' ? { error: new Error('timeout') } : {}) } as any);
     if (failure.startsWith('reset') || failure === 'logger-throw') f.spawn.mockImplementation((_binary, args) => args.includes('show')
-      ? { status: 0, stdout: f.description, stderr: '' }
+      ? { status: 0, stdout: `LoadState=loaded\nDescription=${f.description}\n`, stderr: '' }
       : { status: 1, stdout: '', stderr: 'reset failed', ...(failure === 'reset-error' ? { error: new Error('timeout') } : {}) } as any);
     let recorded: any;
     const result = { exitCode: 7, errorCode: 'PROVIDER_ERROR' };
@@ -129,7 +143,7 @@ describe('owned unit result cleanup', () => {
 
   it('retires ownership after a confirmed mismatch', () => {
     const f = setup();
-    f.spawn.mockReturnValueOnce({ status: 0, stdout: 'foreign description', stderr: '' });
+    f.spawn.mockReturnValueOnce({ status: 0, stdout: 'LoadState=loaded\nDescription=foreign description\n', stderr: '' });
     resetRecordedWorkerUnit(f.outcome, native, f);
     resetRecordedWorkerUnit(f.outcome, native, f);
     expect(f.spawn).toHaveBeenCalledTimes(1);
@@ -179,7 +193,7 @@ describe('owned unit result cleanup', () => {
     const f = setup();
     const owner = createWorkerUnitOwner('--all', 'unit');
     const outcome = owner.track({});
-    f.spawn.mockImplementation((_binary, args) => ({ status: 0, stdout: args.includes('show') ? owner.properties[0].slice('Description='.length) : '', stderr: '' }));
+    f.spawn.mockImplementation((_binary, args) => ({ status: 0, stdout: args.includes('show') ? `LoadState=loaded\n${owner.properties[0]}\n` : '', stderr: '' }));
     await publishWorkerUnitExit(async () => {}, outcome, native, {}, f);
     expect(f.spawn.mock.calls[0][1].slice(-2)).toEqual(['--', '--all']);
     expect(f.spawn.mock.calls[1][1]).toEqual(['--user', 'reset-failed', '--', '--all']);
@@ -232,7 +246,7 @@ describe('owned unit result cleanup', () => {
 
   it('does not cache a stop result when reset did not verify ownership', () => {
     const f = setup();
-    f.spawn.mockReturnValue({ status: 0, stdout: 'foreign description', stderr: '' });
+    f.spawn.mockReturnValue({ status: 0, stdout: 'LoadState=loaded\nDescription=foreign description\n', stderr: '' });
     recordWorkerUnitStop(f.outcome, native, { termination: 'confirmed' }, f);
     expect(readRecordedWorkerUnitStop(f.outcome)).toBeNull();
   });
@@ -272,7 +286,7 @@ describe('owned unit result cleanup', () => {
       spawn, spawnAsync: (_binary: string, args: string[]) => {
         description = args.find(arg => arg.startsWith('Description='))!.slice('Description='.length); return child;
       } });
-    f.spawn.mockImplementation((_binary, args) => ({ status: 0, stdout: args.includes('show') ? description : '', stderr: '' }));
+    f.spawn.mockImplementation((_binary, args) => ({ status: 0, stdout: args.includes('show') ? `LoadState=loaded\nDescription=${description}\n` : '', stderr: '' }));
     await publishWorkerUnitExit(async () => {}, outcome, native, {}, f);
     expect(f.spawn).toHaveBeenCalledTimes(2);
   });
@@ -304,7 +318,7 @@ describe('owned unit result cleanup', () => {
     writeFileSync(path.join(client.root, 'client.js'), `
       const fs = require('node:fs');
       if (process.argv.includes('reset-failed')) fs.writeFileSync(${JSON.stringify(path.join(f.root, 'at-reset.json'))}, fs.readFileSync(${JSON.stringify(path.join(f.runDir, 'exit.json'))}));
-      else console.log(${JSON.stringify(description)});
+      else console.log(${JSON.stringify("LoadState=loaded\nDescription=" + description)});
     `);
     child.stdout.end(); child.stderr.end(); child.emit('exit', null, 'SIGKILL'); child.emit('close');
     const result = await done;

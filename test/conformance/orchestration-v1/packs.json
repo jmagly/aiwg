@@ -377,6 +377,7 @@
         "test/unit/ralph-external/worker-finals.test.ts",
         "test/unit/mission-protocol/worker-results.test.ts",
         "test/unit/mcp/worker-invoke.test.ts",
+        "test/unit/mcp/worker-local-only-preflight.test.ts",
         "test/unit/mcp/worker-native-shell.test.ts",
         "test/unit/mcp/worker-launch-record.test.ts",
         "test/unit/ralph-external/worker-overflow.test.ts",
@@ -481,6 +482,7 @@
       "status": "partial",
       "testFiles": [
         "test/unit/ralph-external/worker-single-invocation.test.ts",
+        "test/unit/ralph-external/worker-run-directory.test.ts",
         "test/conformance/orchestration-v1/worker-health-security.test.ts",
         "test/conformance/orchestration-v1/worker-status.test.ts"
       ],

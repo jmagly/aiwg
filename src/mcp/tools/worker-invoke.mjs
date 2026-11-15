@@ -158,6 +158,7 @@
 
 import { registerWorkerVerifyDeliverTool } from './worker-verify-deliver.mjs';
 import { workerFailureDiagnostics } from './worker-failure-diagnostics.mjs';
+import { workerLocalOnlyPreflight } from './worker-local-only-preflight.mjs';
 import { signalChild } from '../../process/signal-child.mjs';
 import { z } from 'zod';
 
@@ -1876,6 +1877,11 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
         return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: [toWorkerContextDiagnostic(error)] });
       }
     }
+
+    try {
+      const diagnostic = await workerLocalOnlyPreflight({ root, snapshot, invocation, drivers });
+      if (diagnostic) return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: [diagnostic] });
+    } catch (error) { return markTerminal({ status: 'blocked', termination: 'confirmed', diagnostics: [error.message] }); }
 
     // =========================================================================
     // #2915 round 8 (D6): ONE decision, immediately after the prefix, from
