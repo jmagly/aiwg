@@ -52,6 +52,7 @@ import { buildSessionEnvironment } from './lib/session-environment.mjs';
 import { withWorkerPath, withWorkerDirectory, boundedPrivateRead } from './lib/worker-inputs.mjs';
 import { collectWorkerFinal } from './lib/worker-final.mjs';
 import { workerRunDirectoryRefusal } from './lib/worker-run-directory-refusal.mjs';
+import { createAttemptRunDirectory } from './lib/worker-run-directory.mjs';
 import { workerPromptBrief } from './lib/worker-prompt.mjs';
 import { prepareWorkerRetry, workerRetryRecordFields } from './lib/worker-retry-evidence.mjs';
 import { settleWorkerTermination, terminationRemedy } from './lib/worker-termination.mjs';
@@ -349,14 +350,6 @@ function workerLaunchRefusal(outcome) {
 // Neither worker output nor a caller-supplied result can populate this context.
 const directStartupCorrectionContext = new WeakMap();
 
-// Each attempt directory is created exclusively; its parent is the conductor's job.
-async function createAttemptRunDirectory(runDir) {
-  try { await mkdir(runDir, { mode: 0o700 }); } catch (error) {
-    if (error?.code === 'ENOENT') throw new Error(`Worker run directory parent does not exist: ${dirname(runDir)}; create it (mode 0700) before launch`);
-    throw error;
-  }
-}
-
 async function launchOneWorker(owner, options) {
   const { inspectWorkerPath: inspect, revalidateWorkerInvocationPlan: validatePlan } = await importImpl(import.meta.url, 'serve/worker-invocation.js');
   // Forward the saved-plan path: invocation identity is verified against it (#2905).
@@ -618,7 +611,7 @@ async function launchOneWorker(owner, options) {
   // the reservation exactly like every other pre-spawn exit, never leak it
   // by throwing before the big try/catch below is reached.
   try {
-    if (!runExists) await createAttemptRunDirectory(runDir); // exclusive attempt: no recursive creation or reuse
+    if (!runExists) await createAttemptRunDirectory(runDir, options.projectRoot); // exclusive attempt
     const runStat = await lstat(runDir);
     if (runStat.uid !== process.getuid()) throw new Error('Worker run directory must be conductor-owned');
     await withWorkerPath(runDir, async target => { const handle = await open(target, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
@@ -1539,7 +1532,7 @@ async function launchOneWorkerBaseline(owner, options, ctx) {
     loadInputs, validate, inspect, clock, qualificationDigest } = ctx;
   let inputs = ctx.inputs;
   let localGate = gate;
-  if (!runExists) await createAttemptRunDirectory(runDir); // exclusive attempt: no recursive creation or reuse
+  if (!runExists) await createAttemptRunDirectory(runDir, options.projectRoot); // exclusive attempt
   const runStat = await lstat(runDir);
   if (runStat.uid !== process.getuid()) throw new Error('Worker run directory must be conductor-owned');
   await withWorkerPath(runDir, async target => { const handle = await open(target, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
