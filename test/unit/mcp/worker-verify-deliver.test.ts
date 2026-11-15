@@ -31,6 +31,14 @@ describe('T-OG-04 MCP verify and deliver', () => {
     expect((await handler({ ...request, deliverable_path: '/outside' })).isError).toBe(true);
     expect(verify).not.toHaveBeenCalled();
   });
+  it.each(['ARTIFACT_REQUIRED', 'ARTIFACT_CHANGED_AFTER_EXIT', 'EXIT_EVIDENCE_MISSING', 'CHECKS_CONTENT_FREE'])('forwards typed refusal %s unchanged', async errorCode => {
+    const { handler, verify } = await setup('rejected');
+    const refusal = { status: 'rejected', errorCode, findings: [`${errorCode}: refused before checks`] };
+    verify.mockResolvedValueOnce(refusal);
+    expect(JSON.parse((await handler(request)).content[0].text)).toEqual(refusal);
+    verify.mockRejectedValueOnce(Error(`${errorCode}: refused before checks`));
+    expect((await handler(request)).content[0].text).toContain(`${errorCode}: refused before checks`);
+  });
   const stop = { status: 'denied', code: 'POLICY_DENIED', blocking_rule: 'Policy forbids this launch.', launch_count: 0 };
   it('dispatches a zero-worker stop through the same installed verifier', async () => {
     const { handler, verify } = await setup('accepted');

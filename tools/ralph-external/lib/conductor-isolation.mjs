@@ -4,6 +4,9 @@ import { realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { probeVerificationIsolationCapabilities } from './verification-isolation.mjs';
 import { buildSystemdClientEnv, CONNECTION_NAMES, isClientControlVariable, resolveSystemdRun } from './systemd-client.mjs';
+import { importImpl } from '../../_resolve-impl.mjs';
+
+const { collectLocalOnlyPaths } = await importImpl(import.meta.url, 'models/conductor-data-policy.mjs');
 
 const required = ['writeConfinement', 'homeReadIsolation', 'tmpIsolation'];
 const usage = 'Usage: ralph-external --run-conductor --conductor-root ABS_DIR --deliverable ABS_PATH [--bind ABS_DIR] [--bind-ro ABS_DIR] [--setenv NAME] [--max-runtime-seconds N] -- COMMAND [ARG...]';
@@ -61,6 +64,13 @@ export function buildConductorArgs(options) {
   for (const grant of new Set(grants)) properties.push(`BindPaths=${grant}`, `ReadWritePaths=${grant}`);
   for (const grant of new Set(readOnlyBinds)) properties.push(`BindReadOnlyPaths=${grant}`);
   for (const deliverable of deliverables) properties.push(`ReadOnlyPaths=${deliverable}`);
+  for (const file of collectLocalOnlyPaths({ dataPolicy: { localOnlyPaths: options.localOnlyPaths ?? [] } })) {
+    const target = safePath(path.resolve(options.conductorRoot, file));
+    try {
+      const info = statSync(target);
+      if (info.isFile() || info.isDirectory()) properties.push(`InaccessiblePaths=${target}`);
+    } catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error; }
+  }
   for (const property of properties) args.push('-p', property);
   for (const name of options.envNames ?? []) args.push(`--setenv=${safeEnv(name)}`);
   // Marks the unit so --launch-worker refuses here instead of nesting a worker sandbox (#4163).
@@ -111,6 +121,11 @@ export async function runConductorCli(args, { run = runConductor, stderr = conso
       if (realpathSync(deliverable) !== deliverable) throw new Error('Deliverables must exist and be canonical; create the protected directory before launch');
       if (![options.conductorRoot, ...options.binds].some(grant => deliverable === grant || deliverable.startsWith(grant + '/'))) throw new Error('Deliverables must be beneath a granted directory');
     }
+    const { readAiwgConfig } = await importImpl(import.meta.url, 'config/aiwg-config.js');
+    const { ConfigLoader } = await importImpl(import.meta.url, 'models/config-loader.js');
+    const config = await readAiwgConfig(options.conductorRoot);
+    const models = await new ConfigLoader(options.conductorRoot).load(config?.parallelism);
+    options.localOnlyPaths = collectLocalOnlyPaths(models.defaults.workerSelection, config?.parallelism);
     return run(options);
   } catch (error) { stderr(error.message); return 1; }
 }

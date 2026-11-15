@@ -199,6 +199,9 @@ harness sandbox**, using Claude Code `sandbox.excludedCommands` or an unsandboxe
 provide isolation. Never nest sandboxes: a CLI sandbox inside a conductor
 sandbox fails.
 
+Missing run-directory parents inside the conductor project root are created with mode 0700; symlinked components are refused, and missing parents outside the project must be created before launch.
+If systemd has already collected an owned worker unit, cleanup succeeds without a reset or warning and retains confirmed stop evidence; loaded units still require a matching launch Description.
+
 If the worker's actual sandbox mechanism fails on the host and you choose to
 disable it for trusted tasks, explicitly opt in through a separate group. Merge
 this example with your existing configuration; keep the

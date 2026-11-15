@@ -10,6 +10,7 @@ import { boundedPrivateRead } from './worker-inputs.mjs';
 import { verifyRetryPredecessor } from '../session-launcher.mjs';
 import { pinArtifact, resolveWorktreeRoot, verifyWorkerArtifact } from './trusted-verification.mjs';
 import { missingRequiredCapabilities, probeVerificationIsolationCapabilities } from './verification-isolation.mjs';
+import { WorkerDeliveryRefusal, requireDeliveryArtifact, readDeliveryExit, prepareWorkerDeliveryGuard } from './worker-delivery-guards.mjs';
 
 const usage = 'Usage: ralph-external --verify-worker --run-dir ABS_DIR --check JSON [--check JSON] [--artifact ABS_FILE] [--deliverable ABS_FILE] [--check-descendants] [--json] (lookup: --verify-worker --delivery-status --deliverable ABS_FILE --json)';
 const checkKeys = new Set(['id', 'command', 'args', 'cwd', 'envNames', 'timeoutMs']);
@@ -85,12 +86,22 @@ export function deliverVerifiedArtifact(result, { artifactPath, deliverablePath,
   } finally { rmSync(staging, { recursive: true, force: true }); }
 }
 
-export async function verifyWorkerRun(request, { prepareRecord = prepareDeliveryRecord } = {}) {
-  if (Object.hasOwn(request, 'typedStop')) return deliverTypedStop(request, { prepareRecord });
-  let { runDir, checks, artifactPath, deliverablePath, checkDescendants = false, projectDir = process.cwd() } = request;
+export async function verifyWorkerRun(request, dependencies = {}) {
+  if (Object.hasOwn(request, 'typedStop')) return deliverTypedStop(request, { prepareRecord: dependencies.prepareRecord ?? prepareDeliveryRecord });
+  try { return await verifyWorkerRunRequest(request, dependencies); }
+  catch (error) {
+    if (!(error instanceof WorkerDeliveryRefusal)) throw error;
+    return { status: 'rejected', verifierId: 'trusted-verification@1', runnerRef: new URL('./trusted-verification.mjs', import.meta.url).href,
+      artifactDigest: null, evidence: [], findings: [error.message], errorCode: error.code,
+      controlledContext: 'publication request refused before protected checks', isolation: { mode: 'n/a', degraded: [] } };
+  }
+}
+
+async function verifyWorkerRunRequest({ runDir, checks, artifactPath, deliverablePath, checkDescendants = false, projectDir = process.cwd() }, { prepareRecord = prepareDeliveryRecord } = {}) {
   const { inspectWorkerPath: inspect } = await importImpl(import.meta.url, 'serve/worker-invocation-paths.js');
   const record = JSON.parse((await boundedPrivateRead(join(runDir, 'invocation.json'), 1048576, inspect, true, true)).toString('utf8'));
   const worktreeRoot = record.worktree?.path;
+  if (deliverablePath) requireDeliveryArtifact(artifactPath, record.paths?.final);
   artifactPath ??= record.paths?.final;
   if (!absolute(worktreeRoot) || !absolute(artifactPath)) throw new Error('Launcher record requires absolute worktree and artifact paths');
   // Independently loaded installed qualifications own writable roots; the record
@@ -102,7 +113,9 @@ export async function verifyWorkerRun(request, { prepareRecord = prepareDelivery
   if (!writableRoots.length) throw new Error('Trusted worker installation writable roots are required; run verification from the configured conductor project');
   // Reuse the launcher's owned-record and confirmed-stop checks. Never run checks
   // concurrently with a worker, or read check definitions out of worker metadata.
+  const exit = deliverablePath ? await readDeliveryExit(runDir, inspect) : null;
   await verifyRetryPredecessor({ runDir, invocationId: record.invocationId }, { inspect, workerWritableRoots: [worktreeRoot, ...writableRoots], checkDescendants });
+  const guardArtifact = deliverablePath ? await prepareWorkerDeliveryGuard({ worktreeRoot, artifactPath, finalPath: record.paths?.final, checks, exit, inspect }) : undefined;
   const capabilities = probeVerificationIsolationCapabilities();
   const missing = missingRequiredCapabilities(capabilities);
   const runnerRef = new URL('./trusted-verification.mjs', import.meta.url).href;
@@ -113,7 +126,7 @@ export async function verifyWorkerRun(request, { prepareRecord = prepareDelivery
   }
   // CLI arguments are conductor-owned protected definitions. Register exactly
   // their binaries, never a manifest, PATH search, directory or worker claim.
-  const result = verifyWorkerArtifact({ worktreeRoot, artifactPath, checks,
+  const result = verifyWorkerArtifact({ worktreeRoot, artifactPath, checks, guardArtifact,
     allowedCheckBinaries: checks.map(check => check.command), runnerRef });
   if (result.status === 'accepted' && deliverablePath) {
     const complete = await prepareRecord(projectDir, { artifactDigest: result.artifactDigest, deliverablePath,
