@@ -22,7 +22,7 @@ import { buildUpstreamRegistry } from './upstream-registry.js';
 import { resolveShadows } from './shadow-resolver.js';
 import { checkBundleManifestIgnored } from './project-local-gitignore.js';
 import { sha256OfFileRawAndNormalized } from './managed-marker.js';
-import type { ProjectLocalType } from './manifest.js';
+import { formatManifestValidationError, type ProjectLocalType } from './manifest.js';
 import type { AiwgConfig } from '../config/aiwg-config.js';
 import { projectAiwgPath } from '../config/project-artifacts.js';
 import { projectRelativePathIfInside } from './project-local-paths.js';
@@ -203,7 +203,7 @@ export async function buildProjectLocalDoctorSection(
   } else {
     lines.push(`  Validation: ✗ ${validationErrors} error${validationErrors === 1 ? '' : 's'}`);
     for (const e of discovery.errors.slice(0, 10)) {
-      lines.push(`    ✗ ${e.path}: ${e.field} — ${e.actual}`);
+      lines.push(`    ✗ ${e.path}: ${formatManifestValidationError(e)}`);
     }
     const quickrefShown = quickrefErrors.slice(0, Math.max(0, 10 - discovery.errors.length));
     for (const error of quickrefShown) {

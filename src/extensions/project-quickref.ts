@@ -20,7 +20,7 @@ import { resolveHermesHome } from '../providers/hermes-home.js';
 import { OPERATIONAL_SHOW_TYPES } from '../artifacts/types.js';
 import { projectAiwgPath } from '../config/project-artifacts.js';
 import { appendAiwgSourceTrackBlock } from './project-local-gitignore.js';
-import { discoverProjectLocalBundles } from './project-local-discovery.js';
+import { discoverProjectQuickrefBundles } from './project-quickref-discovery.js';
 import { enumerateBundleArtifacts } from './shadow-resolver.js';
 
 const OWNERSHIP_MARKER = '.aiwg-project-quickref.json';
@@ -252,19 +252,14 @@ export async function resolveProjectQuickref(projectDir: string): Promise<Projec
   }
 
   const managed = await loadManagedConfig(projectDir);
-  const discovery = await discoverProjectLocalBundles(projectDir);
-  if (discovery.errors.length > 0) {
-    throw new Error(discovery.errors.map(error =>
-      `${error.path}: ${error.field}: ${error.actual}`
-    ).join('\n'));
-  }
+  const discovery = await discoverProjectQuickrefBundles(projectDir);
   if (!managed.config && discovery.bundles.length === 0) {
-    return { exists: false, sourcePath: managed.path, provenance: 'managed', warnings: [] };
+    return { exists: false, sourcePath: managed.path, provenance: 'managed', warnings: discovery.warnings };
   }
 
   const config = managed.config ?? ProjectQuickrefConfigSchema.parse({ version: '1' });
   const excluded = new Set(config.discovery.excludeBundles.map(id => id.toLowerCase()));
-  const warnings: string[] = [];
+  const warnings = discovery.warnings;
   const candidates: Array<{ order: number; type: string; id: string; entry: ProjectQuickref['entries'][number] }> = [];
 
   if (config.discovery.enabled) {

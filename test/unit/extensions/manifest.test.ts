@@ -5,8 +5,10 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import { z } from 'zod';
 import {
   BundleManifestSchema,
+  formatManifestValidationError,
   zodErrorToValidationErrors,
   MANIFEST_MAX_BYTES,
   MAX_BUNDLES_PER_PROJECT,
@@ -232,6 +234,58 @@ describe('BundleManifestSchema', () => {
   });
 
   describe('zodErrorToValidationErrors', () => {
+    it.each([
+      ['BigInt', 42n, '42'],
+      ['circular object', (() => { const value = { self: {} }; value.self = value; return value; })(), '[object Object]'],
+    ])('safely reports a rejected %s enum input', (_name, value, actual) => {
+      const input = { ...baseValid(), platforms: { pi: value } };
+      const result = BundleManifestSchema.safeParse(input);
+      if (result.success) throw new Error('Invalid platform value must be rejected');
+      expect(zodErrorToValidationErrors(result.error, '/manifest.json', input)).toEqual([
+        expect.objectContaining({ field: 'platforms.pi', actual }),
+      ]);
+    });
+
+    it('falls back to the issue message when an invalid_value issue lacks values', () => {
+      const error = new z.ZodError([{
+        code: 'invalid_value', path: ['platforms', 'pi'], values: ['full'],
+        message: 'Synthetic enum validation error',
+      }]);
+      Reflect.deleteProperty(error.issues[0], 'values');
+      expect(zodErrorToValidationErrors(error, '/manifest.json', { platforms: { pi: 'bad' } })).toEqual([
+        expect.objectContaining({ expected: 'Synthetic enum validation error', actual: '"bad"' }),
+      ]);
+    });
+
+    it('includes remediation hints in the shared diagnostic format', () => {
+      const error = {
+        path: '/manifest.json', field: 'type', expected: 'extension', actual: 'addon',
+        severity: 'error' as const, hint: 'Match the directory type',
+      };
+      expect(formatManifestValidationError(error)).toBe(
+        'type: expected extension, got addon; hint: Match the directory type',
+      );
+      expect(formatManifestValidationError({ ...error, hint: undefined })).toBe(
+        'type: expected extension, got addon',
+      );
+    });
+
+    it.each(['skills-as-agents', null, 42, { mode: 'full' }, ['full']])(
+      'reports received enum input %j and allowed values (#4192)', value => {
+        const m = { ...baseValid(), platforms: { pi: value } };
+        const result = BundleManifestSchema.safeParse(m);
+        expect(result.success).toBe(false);
+        if (result.success) throw new Error('Invalid platform value must be rejected');
+        expect(result.error.issues[0].code).toBe('invalid_value');
+        expect(zodErrorToValidationErrors(result.error, '/path/to/manifest.json', m)).toEqual([
+          expect.objectContaining({
+            field: 'platforms.pi', actual: JSON.stringify(value),
+            expected: 'one of "full"|"partial"|"experimental"|"none"',
+          }),
+        ]);
+      },
+    );
+
     it('converts a Zod error to structured ManifestValidationError[]', () => {
       const m = baseValid();
       delete m.id;

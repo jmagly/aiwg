@@ -71,11 +71,13 @@ provider exposes the corresponding surface:
 | OpenClaw | native | native | native | native | native |
 | OpenHuman | indexed | indexed | native | indexed | indexed |
 | Oh My Pi | native | native prompts | native | native | extension bridge |
-| Pi Coding Agent | skills-as-agents | native prompts | native | AGENTS.md | extension bridge |
+| Pi Coding Agent | skills (agent emulation) | native prompts | native | AGENTS.md | extension bridge |
 | Warp Terminal | aggregated | conventional | native | aggregated | - |
 | Devin Desktop | aggregated | native | native | native | - |
 
 **Legend**:
+
+- Pi agent emulation is declared with `"pi": "partial"` or `"pi": "full"` in the manifest; see [platform support levels](../project-local/manifest-reference.md#platform-support-levels).
 - **native** - Platform auto-discovers artifacts in standard directories
 - **conventional** - AIWG directory convention (platform reads on request)
 - **aggregated** - Single-file compilation + discrete files for compatibility
