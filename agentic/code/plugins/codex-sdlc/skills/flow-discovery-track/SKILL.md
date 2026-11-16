@@ -177,7 +177,7 @@ Based on your answers, I'll adjust:
 
        For each request found or simulated (create 3-5 if none exist):
 
-       Use template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/requirements/stakeholder-request-card.md
+       Use template: agentic/code/frameworks/sdlc-complete/templates/requirements/stakeholder-request-card-template.md
 
        Document:
        - Request ID and title
@@ -323,7 +323,7 @@ Based on your answers, I'll adjust:
        prompt="""
        Read use-case brief: .aiwg/working/discovery/iteration-{N}/briefs/use-case-{id}.md
 
-       Use template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/test/acceptance-test-card.md
+       Use template: agentic/code/frameworks/sdlc-complete/templates/requirements/use-case-acceptance-template.md
 
        Create acceptance test card:
 
@@ -416,7 +416,7 @@ Based on your answers, I'll adjust:
        user to know schema terminology. An opt-out requires an ephemeral internal
        boundary, owner, rationale, and review date.
 
-       Use template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/analysis-design/data-contract-card.md
+       Use template: agentic/code/frameworks/sdlc-complete/templates/requirements/data-contract-template.md
 
        Define data contract:
 
@@ -466,7 +466,7 @@ Based on your answers, I'll adjust:
        Interface: {api-name}
        Related use cases: {use-case-ids}
 
-       Use template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/analysis-design/interface-card.md
+       Use template: agentic/code/frameworks/sdlc-complete/templates/analysis-design/interface-contract-card.md
 
        Define interface specification:
 
@@ -554,7 +554,7 @@ Based on your answers, I'll adjust:
        Time box: {hours} hours
        Success criteria: {criteria}
 
-       Use template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/analysis-design/spike-card.md
+       Use the inline format: experiment fields in this skill
 
        Conduct investigation:
 
@@ -649,7 +649,7 @@ Task(
 
     For each significant decision:
 
-    Use template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/analysis-design/architecture-decision-record-template.md
+    Use template: agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md
 
     Create ADR documenting:
     1. Status: Proposed | Accepted
@@ -996,13 +996,13 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Stakeholder Request: `templates/requirements/stakeholder-request-card.md`
+- Stakeholder Request: `agentic/code/frameworks/sdlc-complete/templates/requirements/stakeholder-request-card-template.md`
 - Use-Case Brief: `templates/requirements/use-case-brief-template.md`
-- Acceptance Test: `templates/test/acceptance-test-card.md`
-- Data Contract: `templates/analysis-design/data-contract-card.md`
-- Interface Card: `templates/analysis-design/interface-card.md`
-- Spike Card: `templates/analysis-design/spike-card.md`
-- ADR: `templates/analysis-design/architecture-decision-record-template.md`
+- Acceptance Test: `agentic/code/frameworks/sdlc-complete/templates/requirements/use-case-acceptance-template.md`
+- Data Contract: `agentic/code/frameworks/sdlc-complete/templates/requirements/data-contract-template.md`
+- Interface Card: `agentic/code/frameworks/sdlc-complete/templates/analysis-design/interface-contract-card.md`
+- Spike Card: experiment fields in this skill
+- ADR: `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md`
 
 **Flows**:
 - Handoff Checklist: `flows/handoff-checklist-template.md`

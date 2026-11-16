@@ -963,12 +963,12 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Dependency Map: `templates/analysis-design/dependency-map-template.md`
-- Integration Contract: `templates/analysis-design/integration-contract-template.md`
-- Blocker Card: `templates/management/blocker-card.md`
-- Escalation Matrix: `templates/management/escalation-matrix-template.md`
-- Sync Agenda: `templates/management/cross-team-sync-agenda-template.md`
-- Demo Agenda: `templates/management/demo-agenda-template.md`
+- Dependency Map: `agentic/code/frameworks/sdlc-complete/templates/management/dependency-card.md`
+- Integration Contract: `agentic/code/frameworks/sdlc-complete/templates/analysis-design/interface-contract-card.md`
+- Blocker Card: blocker fields in this skill
+- Escalation Matrix: `agentic/code/frameworks/sdlc-complete/templates/governance/escalation-matrix-template.md`
+- Sync Agenda: sync agenda in this skill
+- Demo Agenda: demo agenda in this skill
 
 **Related Flows**:
 - `flow-risk-management-cycle.md` (for dependency risks)

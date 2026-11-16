@@ -10,6 +10,10 @@ description: Manage architecture changes with impact analysis, ADR generation, m
 
 Manage architecture changes with impact analysis, ADR generation, and migration planning.
 
+## Output template
+
+Use the decision record for accepted architecture decisions and the change card for change requests: @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md; @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Triggers
 
 
@@ -543,7 +547,7 @@ migration_strategies:
 
 ## References
 
-- ADR template: templates/analysis-design/adr-template.md
-- Impact analysis template: templates/analysis-design/impact-analysis.md
-- Migration guide template: templates/deployment/migration-guide.md
+- ADR template: agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md
+- Impact analysis template: agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md
+- Migration guide template: migration steps in this skill
 - Architecture diagram: .aiwg/architecture/diagrams/

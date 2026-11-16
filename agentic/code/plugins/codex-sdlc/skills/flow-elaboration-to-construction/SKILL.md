@@ -366,7 +366,7 @@ Based on your answers, I'll adjust:
        - Code review process
        - Deployment process
 
-       Template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/management/development-case-template.md
+       Template: agentic/code/frameworks/sdlc-complete/templates/environments/development-case-template.md
 
        Save to: .aiwg/planning/development-process-guide.md
        """
@@ -1009,11 +1009,11 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Development Case: `templates/management/development-case-template.md`
+- Development Case: `agentic/code/frameworks/sdlc-complete/templates/environments/development-case-template.md`
 - Iteration Plan: `templates/management/iteration-plan-template.md`
-- Programming Guidelines: `templates/environment/programming-guidelines-template.md`
-- Design Guidelines: `templates/environment/design-guidelines-template.md`
-- Test Guidelines: `templates/environment/test-guidelines-template.md`
+- Programming Guidelines: `agentic/code/frameworks/sdlc-complete/templates/environments/programming-guidelines-template.md`
+- Design Guidelines: `agentic/code/frameworks/sdlc-complete/templates/environments/design-guidelines-template.md`
+- Test Guidelines: `agentic/code/frameworks/sdlc-complete/templates/environments/test-guidelines-template.md`
 
 **Gate Criteria**:
 - `flows/gate-criteria-by-phase.md` (Construction section)

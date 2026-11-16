@@ -22,6 +22,10 @@ description: Validate phase gate criteria with multi-agent review and generate p
 
 Validate phase gate criteria with multi-agent review and generate pass/fail reports.
 
+## Output template
+
+Required for the gate audit record; retain phase-specific criteria: @$AIWG_ROOT/agentic/code/addons/testing-quality/templates/gate-audit-record.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Triggers
 
 

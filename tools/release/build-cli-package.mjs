@@ -97,6 +97,10 @@ export async function buildCliPackage({ outputDir = defaultOutputDir } = {}) {
     await mkdir(path.dirname(path.join(outputDir, source)), { recursive: true });
     await cp(path.join(repoRoot, source), path.join(outputDir, source));
   }
+  // Writing diagnostics load their dated pattern catalogue at import time (#4138).
+  const writingCatalogue = path.join('agentic', 'code', 'addons', 'writing-quality', 'skills', 'ai-pattern-detection', 'references', 'current-patterns.json');
+  await mkdir(path.dirname(path.join(outputDir, writingCatalogue)), { recursive: true });
+  await cp(path.join(repoRoot, writingCatalogue), path.join(outputDir, writingCatalogue));
   await cp(path.join(repoRoot, 'schemas', 'mission-v1.schema.json'), path.join(outputDir, 'schemas', 'mission-v1.schema.json'));
   await cp(path.join(repoRoot, 'schemas', 'models'), path.join(outputDir, 'schemas', 'models'), { recursive: true });
   // The package manifest is the sole tool inventory, including directory entries.

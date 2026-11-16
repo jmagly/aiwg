@@ -1368,12 +1368,12 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Requirements Matrix: `templates/compliance/compliance-requirements-matrix-template.md`
-- Control Mapping: `templates/compliance/control-mapping-template.md`
-- Gap Analysis: `templates/compliance/gap-analysis-template.md`
-- Evidence Checklist: `templates/compliance/evidence-collection-checklist-template.md`
-- Attestation: `templates/compliance/compliance-attestation-template.md`
-- Control Testing: `templates/compliance/control-testing-template.md`
+- Requirements Matrix: requirements matrix fields in this skill
+- Control Mapping: control mapping fields in this skill
+- Gap Analysis: gap analysis fields in this skill
+- Evidence Checklist: evidence collection fields in this skill
+- Attestation: attestation fields in this skill
+- Control Testing: control testing fields in this skill
 
 **Framework Guidance**:
 - GDPR: `add-ons/gdpr-compliance/`

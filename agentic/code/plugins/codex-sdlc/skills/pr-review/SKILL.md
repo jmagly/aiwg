@@ -18,6 +18,10 @@ commandHint:
 
 ---
 
+## Output template
+
+Required for the human-readable code-review findings report: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/code-review-findings.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Provider Resolution
 
 Don't assume GitHub. The PR API to use is determined by the project's `.aiwg/aiwg.config` `remotes.primary` (#994):

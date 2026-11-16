@@ -940,12 +940,12 @@ This orchestration succeeds when:
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Team Roster: `templates/management/team-roster-template.md`
-- Onboarding Plan: `templates/management/onboarding-plan-template.md`
-- Buddy Assignment: `templates/management/buddy-assignment-card.md`
-- Training Schedule: `templates/knowledge/training-schedule-card.md`
+- Team Roster: team roster fields in this skill
+- Onboarding Plan: onboarding plan fields in this skill
+- Buddy Assignment: buddy assignment fields in this skill
+- Training Schedule: training schedule fields in this skill
 - Work Package: `templates/management/work-package-card.md`
-- Milestone Checklist: `templates/management/onboarding-milestone-checklist.md`
+- Milestone Checklist: milestone checklist in this skill
 
 **Related Flows**:
 - `flow-team-coordination` - Ongoing team management

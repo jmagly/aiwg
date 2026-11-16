@@ -1,6 +1,11 @@
 ---
 name: blocker-found
 description: Post a blocker found comment on an issue with cause, impact, attempted resolutions, recommended action, and escalation.
+outputKind: issue.comment.blocker
+aliases:
+  - blocker comment
+  - blocker found
+  - issue comment blocker
 ---
 
 # Blocker Found Comment Template
@@ -37,11 +42,11 @@ Under investigation. Initial observations:
 {if_applicable}
 - Blocks: #{issue_numbers}
 - Affects: {phases_or_components}
-- Timeline impact: {delay_estimate}
+- Scope impact: {blocked_acceptance_criteria}
 
 ### Risk Level
 - **Technical Risk**: {low|medium|high|critical}
-- **Schedule Risk**: {low|medium|high|critical}
+- **Dependency Risk**: {low|medium|high|critical}
 - **Quality Risk**: {low|medium|high|critical}
 
 ## Attempted Resolutions
@@ -54,14 +59,14 @@ Under investigation. Initial observations:
 
 ### Option 1: {solution_name}
 - **Description**: {detailed_description}
-- **Effort**: {time_estimate}
+- **Effort**: {scope_units_agent_roles_parallelism_and_passes}
 - **Risk**: {risk_assessment}
 - **Trade-offs**: {pros_and_cons}
 
 ### Option 2: {solution_name}
 {if_applicable}
 - **Description**: {detailed_description}
-- **Effort**: {time_estimate}
+- **Effort**: {scope_units_agent_roles_parallelism_and_passes}
 - **Risk**: {risk_assessment}
 - **Trade-offs**: {pros_and_cons}
 
@@ -81,7 +86,7 @@ Under investigation. Initial observations:
 {if_applicable}
 - Level 1: {contact_or_team}
 - Level 2: {contact_or_team}
-- Escalate if not resolved by: {date_or_timeline}
+- Escalate when: {failed_verification_or_unresolved_dependency_condition}
 
 ## Work Stopped
 

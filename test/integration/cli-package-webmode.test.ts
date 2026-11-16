@@ -235,6 +235,8 @@ describe('@aiwg/cli packaged web distribution', () => {
       'agentic/code/addons/composition-engine/lib/runtime.mjs',
       'agentic/code/addons/composition-engine/lib/validator.mjs',
       'agentic/code/addons/composition-engine/schemas/flow-graph.schema.json',
+      // Dated pattern catalogue read by writing diagnostics at import time (#4138).
+      'agentic/code/addons/writing-quality/skills/ai-pattern-detection/references/current-patterns.json',
     ];
     expect(paths.filter((entry) => entry.startsWith('agentic/')).filter(
       (entry) => !entry.startsWith('agentic/code/providers/') && !allowedAgenticRuntime.includes(entry),

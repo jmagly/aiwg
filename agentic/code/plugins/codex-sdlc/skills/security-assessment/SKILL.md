@@ -15,6 +15,10 @@ triggers:
 
 Execute threat modeling, vulnerability scanning, and security control validation.
 
+## Output template
+
+Required for each human-readable security finding: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/security-finding.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Triggers
 
 

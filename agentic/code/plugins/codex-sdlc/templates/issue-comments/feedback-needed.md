@@ -65,12 +65,12 @@ the configured resume condition.
 - {blocker_1}: {description_and_impact}
 - {blocker_2}: {description_and_impact}
 
-## Timeline Impact
+## Scope Impact
 
 {if_applicable}
-- Current estimate: {timeline}
-- Waiting since: {date}
-- Impact if delayed: {impact_description}
+- Acceptance criteria awaiting feedback: {criterion_ids}
+- Work that can proceed independently: {scope_units_or_none}
+- Work blocked pending feedback: {blocked_scope_and_dependencies}
 
 ## Requested Reviewers
 
