@@ -119,9 +119,17 @@ Publication has three requirements, enforced before any protected check runs:
   or a containing directory in its arguments (`CHECKS_CONTENT_FREE`). The
   narrow filter treats `test`, `[`, `stat`, `ls`, `true`, `file`, and `wc` with
   only path/flag arguments as content-free. A check whose arguments mention
-  none of those artifact references is also content-free. Node, jq, or Python
-  checks that inspect artifact contents can qualify. This filter cannot prove
-  that a check asserts the task's done criteria; the conductor still owns that.
+  none of those artifact references is also content-free. Known-empty forms
+  also include `grep`/`rg` with only `.`, `^`, `$`, `.*`, or an empty pattern;
+  `python`/`python3`/`py` with `-m json.tool` or `-mjson.tool`; plain `jq .`
+  and `jq empty`; `node -c`/`node --check` before the script operand;
+  and direct `wc` calls without a comparison.
+  Bare `test`/`[` existence, file, size, and readability probes (`-e/-f/-s/-r`)
+  do not qualify. Assertions such as `jq -e '.severity == "high"'`,
+  `grep -q 'whitespace'`, Node test files, and Python scripts with assertions
+  can qualify when they reference the artifact. The guard rejects known-empty
+  patterns; it does not certify content or prove that checks assert the task's
+  done criteria. The conductor still owns those checks.
 
 Native shell launches and shell calls supplying `run_dir` use the same one-shot launcher and capture owner as
 `--launch-worker`: `invocation.json`, `.launch-owner`, kernel termination records,
@@ -170,6 +178,14 @@ and a nonempty `blocking_rule` of at most 2000 characters. Optional `reason` and
 `uncertainty_statement` strings allow at most 4000 characters each. Do not include
 `run_dir`, `artifact_path`, or `checks`; invalid or mixed requests are refused
 with `TYPED_STOP_INVALID`.
+
+The server checks `launch_count` against cumulative `worker-invoke` launches
+recorded in this MCP server session, including entries removed from its status
+registry. An undercount returns `TYPED_STOP_LAUNCH_MISMATCH` before publication.
+A typed stop can only be published before any worker launch in this session;
+after a launch, the conductor must retry the worker or publish a verified
+worker artifact. The schema requires `launch_count: 0`; a positive value does
+not make a post-launch typed stop valid.
 
 The external server publishes only the validated stop object as sorted-key JSON
 with a trailing newline, outside configured worker-writable roots, using an

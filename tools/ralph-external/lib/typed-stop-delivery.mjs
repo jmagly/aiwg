@@ -20,12 +20,19 @@ function destinationFor(deliverablePath, writableRoots) {
   return destination;
 }
 
-export async function deliverTypedStop(input, { prepareRecord = prepareDeliveryRecord } = {}) {
+export async function deliverTypedStop(input, { prepareRecord = prepareDeliveryRecord, recordedLaunches = () => 0 } = {}) {
   const { projectDir = process.cwd(), ...request } = input;
   const { typedStopDeliverySchema, invalidTypedStop } = await importImpl(import.meta.url, 'mcp/tools/worker-verify-deliver-schema.mjs');
   const parsed = typedStopDeliverySchema.safeParse(request);
   if (!parsed.success) throw invalidTypedStop(parsed.error.message);
   const { deliverablePath, typedStop } = parsed.data;
+  const assertLaunchCount = () => {
+    const count = recordedLaunches();
+    if (typedStop.launch_count < count) throw Object.assign(new Error(
+      `TYPED_STOP_LAUNCH_MISMATCH: launch_count ${typedStop.launch_count} is below ${count} recorded worker-invoke launches. A typed stop can only be published before any worker launch in this session; after a launch, the conductor must retry the worker or publish a verified worker artifact.`),
+    { code: 'TYPED_STOP_LAUNCH_MISMATCH' });
+  };
+  assertLaunchCount();
   const { loadWorkerInputs } = await importImpl(import.meta.url, 'cli/handlers/models.js');
   const inputs = await loadWorkerInputs({ cwd: projectDir, args: [], rawArgs: [],
     frameworkRoot: fileURLToPath(new URL('../../../', import.meta.url)) });
@@ -33,9 +40,11 @@ export async function deliverTypedStop(input, { prepareRecord = prepareDeliveryR
   const destination = destinationFor(deliverablePath, writableRoots);
   const bytes = Buffer.from(JSON.stringify(Object.fromEntries(Object.entries(typedStop).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0))) + '\n');
   const artifactDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+  assertLaunchCount();
   const complete = await prepareRecord(projectDir, { kind: 'typed-stop', verifierId: 'typed-stop@1', artifactDigest, deliverablePath: destination });
   // Recheck after signing, before the same-directory atomic rename.
   destinationFor(destination, writableRoots);
+  assertLaunchCount();
   const staging = mkdtempSync(join(dirname(destination), '.aiwg-deliver-'));
   try {
     const staged = join(staging, 'typed-stop');

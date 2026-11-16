@@ -452,6 +452,8 @@ After confirming the worker stopped, inspect the candidate as data and independe
 
 For enforced integration, the operator runs `aiwg ralph-external --run-conductor --conductor-root ABS_DIR --deliverable ABS_DIR -- <conductor argv>` and starts the existing localhost HTTP MCP server outside the unit with `--toolsets workers`. Call `worker-verify-deliver` with conductor-defined checks; accepted bytes are rechecked at publish time and recorded in the signed effect ledger. The conductor cannot write declared deliverables or reach the user-manager bus. Hosts without enforced write/home/tmp namespaces (#4128) fail closed with no degraded override. Protect the containing deliverable directory and keep ledger keys/storage outside writable grants. Check current bytes with `--verify-worker --delivery-status --deliverable ABS_FILE --json`; missing records or later edits are unverified. Hooks have incomplete coverage for pasted/interpreter writes. See [enforced delivery setup, host requirements and limits](confined-conductor.md).
 
+Malformed worker publications return `PUBLICATION_INVALID` with a remedy for each missing or unknown key (for example, `run_dir is required for a worker publication`). Requests containing `typed_stop` use `TYPED_STOP_INVALID` for malformed or mixed fields. Typed stops require `launch_count: 0` and can only be published before any worker launch in the MCP server session; a recorded launch returns `TYPED_STOP_LAUNCH_MISMATCH`. After a launch, retry the worker or publish a verified worker artifact.
+
 ## Qualify the installed CLIs
 
 > "Qualify the installed helpers in this worktree."

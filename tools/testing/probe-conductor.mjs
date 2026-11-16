@@ -110,7 +110,7 @@ const worker = JSON.parse(response.result.content[0].text);
 if (worker.status !== 'completed' || !worker.run_dir) throw new Error('MCP launch failed: ' + JSON.stringify(worker));
 fs.writeFileSync(process.argv[2], JSON.stringify({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: {
   name: 'worker-verify-deliver', arguments: { run_dir: worker.run_dir, artifact_path: process.argv[3], deliverable_path: process.argv[4],
-  checks: [{ id: 'shell-check', command: '/bin/sh', args: ['-c', ':'] }] } } }));
+  checks: [{ id: 'content-check', command: '/usr/bin/grep', args: ['-qx', 'accepted-probe-bytes', process.argv[3]] }] } } }));
 `)} ${quote(path.join(control, 'worker-result'))} ${quote(path.join(control, 'call.json'))} ${quote(artifact)} ${quote(destination)}
 post -H "Mcp-Session-Id: $session" --data-binary @${quote(path.join(control, 'call.json'))} > ${quote(path.join(control, 'result'))}
 [ "$(cat ${quote(destination)})" = accepted-probe-bytes ]

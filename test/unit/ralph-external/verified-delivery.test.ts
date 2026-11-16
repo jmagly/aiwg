@@ -135,6 +135,41 @@ describe('T-OG-04 verified publication and receipt ordering', () => {
     expect((await verifyWorkerRun({ ...request(), checks })).status).toBe('accepted');
     expect(fake.verify).toHaveBeenCalledOnce();
   });
+  it.each(['grep', 'rg'].flatMap(command => ['', '.', '^', '$', '.*'].map(pattern => [command, pattern])))
+  ('refuses %s with only the empty-content pattern %j (#4204)', async (command, pattern) => {
+    await refused({ ...request(), checks: [{ id: 'pattern', command: `/usr/bin/${command}`, args: [pattern, artifact] }] }, 'CHECKS_CONTENT_FREE');
+  });
+  it.each([
+    ['grep', ['-q', '-e', '.']], ['rg', ['--regexp=.*']], ['grep', ['-qe.']], ['rg', ['--', '^']],
+    ['python3', ['-m', 'json.tool']], ['python', ['-m', 'json.tool']], ['py', ['-m', 'json.tool']],
+    ...['python', 'python3', 'py'].map(command => [command, ['-mjson.tool']]),
+    ['jq', ['.']], ['jq', ['empty']], ['node', ['-c']], ['node', ['--check']], ['wc', ['-c']],
+    ['node', ['--no-warnings', '-c']], ['node', ['--no-warnings', '--check']],
+    ...['test', '['].flatMap(command => ['-e', '-f', '-s', '-r'].map(flag => [command, [flag]])),
+  ] as [string, string[]][])('refuses known-empty %s %j (#4204)', async (command, args) => {
+    await refused({ ...request(), checks: [{ id: 'empty', command: `/usr/bin/${command}`,
+      args: [...args, artifact, ...(command === '[' ? [']'] : [])] }] }, 'CHECKS_CONTENT_FREE');
+  });
+  it('refuses the issue #4204 existence and JSON syntax check set together', async () => {
+    await refused({ ...request(), checks: [
+      { id: 'answer-json-exists', command: '/usr/bin/test', args: ['-f', artifact] },
+      { id: 'answer-json-valid', command: '/usr/bin/python3', args: ['-m', 'json.tool', artifact] },
+    ] }, 'CHECKS_CONTENT_FREE');
+  });
+  it.each([
+    ['jq', ['-e', '.severity == "high"']], ['grep', ['-q', 'whitespace']],
+    ['rg', ['-q', '-e', 'whitespace']], ['node', ['test-file.js']],
+    ['node', ['assert.js', '-c']], ['node', ['assert.js', '--check']],
+    ['node', ['--no-warnings', 'assert.js', '-c']], ['node', ['--', '--check']],
+    ['python3', ['-c', 'import json, sys; assert json.load(open(sys.argv[1]))["severity"] == "high"']],
+    ['python', ['assert-answer.py']],
+  ] as [string, string[]][])('accepts real assertion %s %j alongside an empty check', async (command, args) => {
+    expect((await verifyWorkerRun({ ...request(), checks: [
+      { id: 'empty', command: '/usr/bin/grep', args: ['.', artifact] },
+      { id: 'assertion', command: `/usr/bin/${command}`, args: [...args, artifact] },
+    ] })).status).toBe('accepted');
+    expect(fake.verify).toHaveBeenCalledOnce();
+  });
   it('classifies probe paths with spaces and argument-less checks as content-free', () => {
     expect(isContentFreeCheck({ command: '/usr/bin/wc', args: ['-c', path.join(worker, 'artifact with spaces.txt')] }, path.join(worker, 'artifact with spaces.txt'))).toBe(true);
     expect(isContentFreeCheck({ command: process.execPath }, artifact)).toBe(true);

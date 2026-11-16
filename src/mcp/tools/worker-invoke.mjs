@@ -157,6 +157,7 @@
  */
 
 import { registerWorkerVerifyDeliverTool } from './worker-verify-deliver.mjs';
+import { createWorkerLaunchLedger } from './worker-launch-ledger.mjs';
 import { workerFailureDiagnostics } from './worker-failure-diagnostics.mjs';
 import { workerLocalOnlyPreflight } from './worker-local-only-preflight.mjs';
 import { signalChild } from '../../process/signal-child.mjs';
@@ -1692,9 +1693,10 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
     return;
   }
   const servedRootReal = await resolveServedProjectRoot(options.projectRoot);
+  const launches = createWorkerLaunchLedger();
   registerWorkerVerifyDeliverTool(server, { projectRoot: servedRootReal,
     assertPath: candidate => assertServedPath(servedRootReal, candidate),
-    verify: async input => (await loadRalphExternal('lib/worker-verification-cli.mjs')).verifyWorkerRun(input),
+    verify: async input => (await loadRalphExternal('lib/worker-verification-cli.mjs')).verifyWorkerRun(input, { recordedLaunches: launches.count }),
   });
   await sweepWorkerStdin(options.stdinRuntimeRoot);
   // Pinned once, here, at registration — never re-resolved per request, and
@@ -1710,9 +1712,9 @@ export async function registerWorkerInvokeToolset(server, options = {}) {
   const loadWorkerInputsImpl = options.loadWorkerInputs ?? defaultLoadWorkerInputs;
   const recordedShell = recordedShellLauncher({ loadRalphExternal, loadInputs: () => loadWorkerInputsImpl(servedRootReal),
     assertPath: candidate => assertServedPath(servedRootReal, candidate), registry, now: options.now ?? (() => new Date()) });
-  const launchShellWorkerImpl = options.launchShellWorker ?? ((invocation, context) => recordedShell.requested(invocation)
-    ? recordedShell.launch(invocation, context) : defaultLaunchShellWorker(invocation, context));
-  const callMcpWorkerImpl = options.callMcpWorker ?? defaultCallMcpWorker;
+  const launchShellWorkerImpl = launches.track(options.launchShellWorker ?? ((invocation, context) => recordedShell.requested(invocation)
+    ? recordedShell.launch(invocation, context) : defaultLaunchShellWorker(invocation, context)), 'shell');
+  const callMcpWorkerImpl = launches.track(options.callMcpWorker ?? defaultCallMcpWorker, 'mcp');
   // Both continuations use the audited observer and hardened stop controls.
   const waitForUnitTerminationOverride = options.waitForUnitTermination;
   // #2915 review 5 ("a second worker over unresolved execution"): the

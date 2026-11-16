@@ -45,6 +45,27 @@ describe('T-OG-04 zero-worker typed-stop publication', () => {
     inputs.roots = [];
     expect((await publish()).status).toBe('accepted');
   });
+  it('refuses an undercount after one recorded launch before signing (#4205)', async () => {
+    writeFileSync(destination, 'previous');
+    const prepareRecord = vi.fn();
+    await expect(verifyWorkerRun(request(), { prepareRecord, recordedLaunches: () => 1 }))
+      .rejects.toMatchObject({ code: 'TYPED_STOP_LAUNCH_MISMATCH', message: expect.stringContaining(
+        'A typed stop can only be published before any worker launch in this session; after a launch, the conductor must retry the worker or publish a verified worker artifact.') });
+    expect(prepareRecord).not.toHaveBeenCalled();
+    expect(readFileSync(destination, 'utf8')).toBe('previous');
+  });
+  it('accepts an explicitly empty recorded launch ledger', async () => {
+    expect((await verifyWorkerRun(request(), { recordedLaunches: () => 0,
+      prepareRecord: async (_project: string, metadata: any) => prepareWorkerDelivery(h.ledger(), metadata) })).status).toBe('accepted');
+  });
+  it('rechecks launches recorded while the signed intent was pending', async () => {
+    let launches = 0;
+    const complete = vi.fn();
+    await expect(verifyWorkerRun(request(), { recordedLaunches: () => launches,
+      prepareRecord: async () => { launches++; return complete; } })).rejects.toMatchObject({ code: 'TYPED_STOP_LAUNCH_MISMATCH' });
+    expect(complete).not.toHaveBeenCalled();
+    expect(existsSync(destination)).toBe(false);
+  });
   it.each(['symlink', 'hardlink', 'directory', 'writable', 'parent-alias'])('refuses unsafe destination %s before a signed intent', async kind => {
     const source = join(worker, 'source'); writeFileSync(source, 'worker');
     if (kind === 'symlink') symlinkSync(source, destination);

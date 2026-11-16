@@ -61,16 +61,16 @@ it.each(['accepted', 'blocked', 'rejected'])('T-OG-17 MCP launch returns owned r
   } finally { rmSync(root, { recursive: true, force: true }); }
 }, 30000);
 
-async function localHarness() {
+async function localHarness(registry = createInvocationRegistry(), recovery = true) {
   const root = mkdtempSync(path.join(tmpdir(), 'aiwg-mcp-owned-'));
   const work = path.join(root, '.aiwg', 'working', 'worktrees', 'worker');
   mkdirSync(work, { recursive: true });
   writeFileSync(path.join(root, 'brief.md'), 'Synthetic private brief');
   const tools = new Map<string, any>();
-  const registry = createInvocationRegistry();
   await registerWorkerInvokeToolset({ registerTool(name, _schema, handler) { tools.set(name, handler); } }, {
     projectRoot: root, ensureWorkerContext: false, registry,
     loadWorkerInputs: () => loadWorkerInputs({ cwd: root }),
+    ...(recovery ? {} : { scopedBreaker: null }),
     gateInputs: { live: { supported: true, availMemGb: 64, load1: 0.1, cores: 8, loadRatio: 0.05,
       memPsiAvg10: 0, memPsiAvg60: 0, memPsiAvg300: 0, workers: 0, freeDiskGb: 100 } },
   });
@@ -80,8 +80,31 @@ async function localHarness() {
   };
   const input = { operation: 'run', request_id: 'owned-run', role: 'coding', task: 'implementation', group: 'workers',
     transport: 'shell', brief: path.join(root, 'brief.md'), workdir: work, final_output: path.join(work, 'claims.json') };
-  return { root, work, registry, call, input };
+  return { root, work, registry, call, input, tools };
 }
+
+it.each([false, true])('T-OG-17 refuses a zero-launch stop after a recorded worker (recovery=%s) (#4205)', async recovery => {
+  let now = Date.now();
+  const h = await localHarness(createInvocationRegistry({ now: () => now, ttlMs: 1000 }), recovery);
+  try {
+    writeFileSync(path.join(h.root, 'codex'), readFileSync(path.join(fixtures, 'mcp-recorded-worker.mjs'), 'utf8')
+      .replace('#!/usr/bin/env node', `#!${process.execPath}`), { mode: 0o700 });
+    const launched = await h.call(h.input);
+    expect(launched).toMatchObject({ status: 'completed', termination: 'confirmed' });
+    now += 2000;
+    h.registry.prune();
+    // Recovery may retain entries with unresolved bookkeeping. The baseline
+    // lane proves that pruning terminal entries cannot erase launch history.
+    if (!recovery) expect(h.registry.size).toBe(0);
+    const destination = path.join(h.root, 'stop.json');
+    writeFileSync(destination, 'previous');
+    const response = await h.tools.get('worker-verify-deliver')({ deliverable_path: destination,
+      typed_stop: { status: 'blocked', code: 'ARTIFACT_INTEGRITY_VIOLATION', blocking_rule: 'Publication was refused.', launch_count: 0 } });
+    expect(response.isError).toBe(true);
+    expect(JSON.parse(response.content[0].text)).toMatchObject({ status: 'rejected', errorCode: 'TYPED_STOP_LAUNCH_MISMATCH' });
+    expect(readFileSync(destination, 'utf8')).toBe('previous');
+  } finally { rmSync(h.root, { recursive: true, force: true }); }
+});
 
 it.each(['outside', 'worker', 'occupied', 'symlink', 'relative'])('T-OG-17 refuses unsafe run_dir %s before dispatch', async kind => {
   const h = await localHarness();
