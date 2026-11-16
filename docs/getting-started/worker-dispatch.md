@@ -226,7 +226,9 @@ your local bindings; replace them if these CLIs use different accounts or share 
 }
 ```
 
-**`models.json` (project root):**
+**`models.json` (project root):** Omitted provider tiers inherit shipped defaults
+through user configuration; this worker-selection-only file preserves Claude pins.
+See [model configuration merge semantics](../configuration/model-configuration.md#configuration-file-location).
 
 ```json
 {

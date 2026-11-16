@@ -58,6 +58,9 @@ Models are defined in `models.json` files with the following priority:
 2. **User-level**: `~/.config/aiwg/models.json`
 3. **AIWG defaults**: `agentic/code/frameworks/sdlc-complete/config/models.json`
 
+Deployment merges AIWG defaults ← user ← project recursively: omitted provider tiers (`claude`, `factory`, `windsurf`), `shorthand` and `*_shorthand` entries inherit. Plain objects merge; a null, array, or scalar override of an inherited object is ignored with a warning naming the key and source file. Other explicit values replace lower-priority values.
+A project containing only `defaults.workerSelection` keeps shipped Claude pins. Setting `claude.coding.model` overrides that pin and retains other roles. `_source` lists applied layers in merge order; CLI flags still win.
+
 ## Configuration File Format
 
 ```json
@@ -131,9 +134,9 @@ transforms preserve it instead of rewriting it as a coding model. Omitted model
 metadata retains the legacy coding default during deployment.
 
 Claude deployments compile bare aliases by default. A source agent that says
-`model: sonnet` deploys to `.claude/agents/` as `model: claude-sonnet-5` (the
-`claude.coding.model` tier in `models.json`; `opus` → `claude-opus-5`,
-`haiku` → `claude-haiku-4-5`). A bare alias would otherwise inherit the parent
+`model: sonnet` deploys to `.claude/agents/` as `model: claude-sonnet-5-5` (the
+`claude.coding.model` tier in `models.json`; `opus` → `claude-opus-5-5`,
+`haiku` → `claude-haiku-5-5`). A bare alias would otherwise inherit the parent
 session's variant, and under a 1M-context parent every subagent dispatch then
 hits the usage-credit gate (#1442, #2563). Source frontmatter stays
 provider-neutral; already-pinned ids, `inherit`, and explicit `sonnet[1m]` /
@@ -376,7 +379,7 @@ When deploying agents, models are determined in this order (highest to lowest pr
 2. **Project `models.json`** (in current directory)
 3. **User `~/.config/aiwg/models.json`**
 4. **AIWG defaults** (`agentic/code/frameworks/sdlc-complete/config/models.json`)
-5. **Hardcoded fallbacks** (in deploy script)
+5. **Bundled model catalog** (if shipped defaults are unavailable)
 
 ## Verifying Configuration
 
@@ -390,7 +393,7 @@ aiwg use sdlc --provider factory
 # Model config loaded from: <source>
 ```
 
-The source will indicate which configuration file was used:
+The source lists the merged configuration files in application order:
 - `project (./models.json)`
 - `user (~/.config/aiwg/models.json)`
 - `AIWG defaults (...)`

@@ -28,6 +28,7 @@ import {
 } from 'fs';
 import { join, dirname } from 'path';
 import { randomUUID } from 'crypto';
+import { loadModelConfig } from '../agents/providers/base-models-platforms.mjs';
 
 /**
  * @typedef {Object} LoopConfiguration
@@ -349,10 +350,10 @@ export class ExternalMultiLoopStateManager {
         filesModified: [],
         giteaIntegration: config.giteaIntegration || null,
         config: {
-          // #1450 P0: pin claude-sonnet-5 (explicit ID); 'opus' bare alias under a
+          // #1450 P0: use the configured coding pin; 'opus' bare alias under a
           // 1M-context parent hits credit gate on most plans. Budget bumped to
           // 5.0 to clear cache-creation cost (~$1.60 sonnet / ~$3.90 opus).
-          model: config.model ?? 'claude-sonnet-5',
+          model: config.model ?? loadModelConfig().claude.coding.model,
           budgetPerIteration: config.budgetPerIteration ?? 5.0,
           timeoutMinutes: config.timeoutMinutes ?? 60,
           mcpConfig: config.mcpConfig ?? null,

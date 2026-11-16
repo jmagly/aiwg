@@ -1,68 +1,107 @@
 // Shared provider models platforms utilities.
+import { fileURLToPath } from 'node:url';
 import { resolveAiwgRoot } from './base-inventory.mjs';
-import { fs, os, path, yaml } from './base-runtime.mjs';
+import { createRequire, fs, os, path, yaml } from './base-runtime.mjs';
 
 
 // ============================================================================
 // Model Configuration
 // ============================================================================
 
+const isPlainObject = value => value !== null && typeof value === 'object'
+  && Object.getPrototypeOf(value) === Object.prototype;
+
+/** Merge plain objects; malformed overrides cannot erase inherited object fields. */
+function mergeModelConfig(base, layer, source, prefix = '') {
+  const merged = { ...base };
+  for (const [key, value] of Object.entries(layer)) {
+    if (['_source', '__proto__', 'constructor', 'prototype'].includes(key)) continue;
+    const field = prefix ? `${prefix}.${key}` : key;
+    if (isPlainObject(base[key]) && !isPlainObject(value)) {
+      console.warn(`Warning: Ignoring non-object models.json key "${field}" at ${source}; keeping inherited object`);
+      continue;
+    }
+    merged[key] = isPlainObject(value)
+      ? mergeModelConfig(isPlainObject(base[key]) ? base[key] : {}, value, source, field)
+      : value;
+  }
+  return merged;
+}
+
 /**
- * Load model configuration from models.json
- * Priority: Project models.json > User ~/.config/aiwg/models.json > AIWG defaults
+ * Merge model configuration: AIWG defaults ← user ← project.
+ * Omitted fields inherit; object fields require object overrides. _source lists applied layers.
  */
 export function loadModelConfig(srcRoot) {
-  // An addon/framework/bundle `--source` is not the AIWG root, so resolve the
-  // shipped defaults through the corpus root; otherwise addon deploys fell
-  // through to the hardcoded fallback and deployed bare aliases (#2563).
+  // Bundle sources are not corpus roots. If no corpus can be found, read the
+  // defaults shipped beside this loader before falling back to the catalog.
   const aiwgRoot = (srcRoot && resolveAiwgRoot(srcRoot)) || srcRoot;
-  const locations = [
-    { path: path.join(process.cwd(), 'models.json'), label: 'project' },
-    { path: path.join(process.env.HOME || process.env.USERPROFILE, '.config', 'aiwg', 'models.json'), label: 'user' },
-    { path: path.join(aiwgRoot, 'agentic', 'code', 'frameworks', 'sdlc-complete', 'config', 'models.json'), label: 'AIWG defaults' }
-  ];
-
-  for (const loc of locations) {
-    if (fs.existsSync(loc.path)) {
-      try {
-        const config = JSON.parse(fs.readFileSync(loc.path, 'utf8'));
-        config._source = `${loc.label} (${loc.path})`;
-        return config;
-      } catch (err) {
-        console.warn(`Warning: Could not parse models.json at ${loc.path}: ${err.message}`);
+  const shippedPath = 'agentic/code/frameworks/sdlc-complete/config/models.json';
+  const bundledPath = new URL(`../../../${shippedPath}`, import.meta.url);
+  const defaultPaths = [...new Set([
+    ...(aiwgRoot ? [path.join(aiwgRoot, shippedPath)] : []),
+    fileURLToPath(bundledPath),
+  ])];
+  function readConfig(file) {
+    if (!fs.existsSync(file)) return null;
+    try {
+      const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        throw new Error('expected a JSON object');
       }
+      return config;
+    } catch (err) {
+      console.warn(`Warning: Could not parse models.json at ${file}: ${err.message}`);
+      return null;
     }
   }
 
-  // Fallback to hardcoded defaults if no config found
-  return {
-    claude: {
-      reasoning: { model: 'claude-opus-5' },
-      coding: { model: 'claude-sonnet-5' },
-      efficiency: { model: 'claude-haiku-4-5' }
-    },
-    factory: {
-      reasoning: { model: 'claude-opus-5' },
-      coding: { model: 'claude-sonnet-5' },
-      efficiency: { model: 'claude-haiku-4-5-20251001' }
-    },
-    shorthand: {
-      'opus': 'claude-opus-5',
-      'sonnet': 'claude-sonnet-5',
-      'haiku': 'claude-haiku-4-5',
-      'inherit': 'inherit'
-    },
-    claude_shorthand: {
-      'opus': 'opus',
-      'opus-1m': 'opus[1m]',
-      'opus[1m]': 'opus[1m]',
-      'sonnet': 'sonnet',
-      'sonnet-1m': 'sonnet[1m]',
-      'sonnet[1m]': 'sonnet[1m]',
-      'haiku': 'haiku',
-      'inherit': 'inherit'
+  let config;
+  const sources = [];
+  for (const file of defaultPaths) {
+    config = readConfig(file);
+    if (config) {
+      sources.push(`AIWG defaults (${file})`);
+      break;
     }
-  };
+  }
+  if (!config) {
+    const catalog = createRequire(import.meta.url)('../../../agentic/code/providers/model-catalog.v1.json');
+    config = {};
+    for (const provider of ['claude', 'factory']) {
+      config[provider] = Object.fromEntries(Object.entries(catalog.providers[provider].roles)
+        .map(([role, entry]) => [role, { model: entry.id }]));
+    }
+    // Windsurf's catalog currently has only "inherited" placeholders. Until it
+    // supplies concrete IDs, use Factory's API pins, matching shipped Windsurf.
+    config.windsurf = Object.fromEntries(Object.entries(config.factory).map(([role, entry]) => {
+      const id = catalog.providers.windsurf?.roles?.[role]?.id;
+      return [role, { model: typeof id === 'string' && id.trim() && id !== 'inherited' ? id : entry.model }];
+    }));
+    config.shorthand = { inherit: 'inherit' };
+    config.claude_shorthand = { inherit: 'inherit' };
+    for (const [alias, role] of Object.entries({ opus: 'reasoning', sonnet: 'coding', haiku: 'efficiency' })) {
+      config.shorthand[alias] = config.claude[role].model;
+      config.claude_shorthand[alias] = alias;
+      if (alias !== 'haiku') {
+        config.claude_shorthand[`${alias}-1m`] = `${alias}[1m]`;
+        config.claude_shorthand[`${alias}[1m]`] = `${alias}[1m]`;
+      }
+    }
+    sources.push('model catalog (fallback)');
+  }
+  const homeDir = process.env.HOME || process.env.USERPROFILE || os.homedir();
+  for (const loc of [
+    { path: path.join(homeDir, '.config', 'aiwg', 'models.json'), label: 'user' },
+    { path: path.join(process.cwd(), 'models.json'), label: 'project' },
+  ]) {
+    const layer = readConfig(loc.path);
+    if (layer) {
+      config = mergeModelConfig(config, layer, loc.path);
+      sources.push(`${loc.label} (${loc.path})`);
+    }
+  }
+  return { ...config, _source: sources.join(' ← ') };
 }
 
 
