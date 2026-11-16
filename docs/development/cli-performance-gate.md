@@ -97,3 +97,65 @@ Validation commands:
 Additional targeted validation passed 50 provider/runner unit tests, 173
 neighbouring handler/provider/equivalence tests, and 63 provider integration
 checks (file locations, deployment verification and Codex listing budget).
+
+## Update staging (#4132)
+
+An update lazily creates one immutable provider input pool per source corpus and
+releases it when its redeploy loop finishes, including on failure. Serial
+framework/addon passes reuse that snapshot. Provider output, project configuration,
+local sources and live-source drift checks remain transaction-specific. A later
+update creates a new snapshot, so changed installed inputs are consumed normally.
+Standalone `use` retains its existing lifecycle. The pool remains sealed and
+validated before projection and promotion; pooled binding targets are already
+frozen and do not need another discovered-input copy.
+
+This bounds corpus materialization to one copy per corpus per update, rather
+than one per provider pass. It is a work bound, not a filesystem time deadline.
+The subprocess troubleshooting path (`AIWG_DEPLOY_SUBPROCESS=1`) retains isolated
+per-process snapshots; it cannot share the process-local update pool.
+
+Node's `aiwg.provider-staging` diagnostics channel publishes
+`prepare-provider-staging` events with `durationMs`, `provider`, `source` and
+`status` (`prepared` or `failed`). `snapshot-provider-inputs` events measure pool
+creation with `status` (`succeeded` or `failed`). Both event types report the
+resolved corpus root as `source`, including bundle-scoped passes, so snapshot
+and prepare measurements correlate. Snapshot creation is included in the first prepare duration; do not
+add those two durations together. Subscribe from a Node preload to collect
+per-call measurements without synchronous event-file flushing inside the phase:
+
+```js
+import { channel } from 'node:diagnostics_channel';
+const events = [];
+channel('aiwg.provider-staging').subscribe(event => events.push(event));
+process.on('exit', () => process.stderr.write(`${JSON.stringify(events)}\n`));
+```
+
+Build with `npm run build:cli`, then use `NODE_OPTIONS=--import=<preload>` for
+`node <checkout>/bin/aiwg.mjs update --skip-check --provider codex`. Measure in a
+temporary project with `sdlc` installed and a temporary HOME/XDG environment;
+set `NO_UPDATE_NOTIFIER=1` to disable the background network check.
+
+The regression tests use an instrumented copier and synthetic Codex agents.
+They assert one corpus copy across unchanged passes, a new snapshot for the
+next update, disposal on failure, rejection of source drift, and byte-identical
+fresh/changed output including ownership receipts. They use no time assertions.
+
+A Linux x86_64 / Node 24.22.1 sample on 2026-11-16 used the same isolated
+project and HOME before and after the change (`sdlc` installed, built CLI,
+`update --skip-check --provider codex`, no background update check). An ESM
+loader timed each prepare call and counted corpus materialization calls. These
+are single samples on a shared host with uncontrolled outside workloads.
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| Update wall time | 129.64 s | 96.61 s |
+| Prepare calls | 53 | 53 |
+| Total prepare time | 88.82 s | 56.91 s |
+| Prepare min / median / max | 1.109 / 1.646 / 3.511 s | 0.931 / 1.006 / 3.072 s |
+| Corpus copies | 53 | 1 |
+
+Each corpus contains 4,658 files / 32,095,689 bytes. Avoiding 52 extra copies
+eliminates 242,216 copied files and 1,668,975,828 copied bytes, plus their chmod
+and cleanup operations. This is expected to help Windows filesystem latency;
+Windows timings remain unmeasured. Junction handling from #4019 is unchanged.
+Live-source and sealed-pool hashing still run for each transaction.

@@ -49,10 +49,17 @@ const { captureDeploymentOutputs, recordDeploymentOutputs } = await importImpl(i
 const { preserveDeploymentOutputs } = await importImpl(import.meta.url, 'providers/deployment-preservation.mjs');
 import { retireInlineStartup } from './rule-startup.mjs';
 import { createStagedDirectoryReference } from './staged-directory-reference.mjs';
+import { measureProviderStaging, sessionInputPool } from './rule-deployment-input-session.mjs';
 
 /** Stage only provider/context output, never the user's source tree. On failure
  * no staged output (including skills and behaviors) reaches the prior deployment. */
 export async function prepareRuleDeployment(original, provider, deploy) {
+  return measureProviderStaging(original, provider, () => prepareWithInputs({
+    ...original, inputPool: original.inputPool || sessionInputPool(original.srcRoot),
+  }, provider, deploy));
+}
+
+async function prepareWithInputs(original, provider, deploy) {
   const budgetEnv = { ...process.env };
   const ruleDir = path.isAbsolute(provider.paths.rules || '') ? provider.paths.rules : path.join(original.target, provider.paths.rules || `.${provider.name}/rules`);
   const manifestFile = path.join(ruleDir, '.aiwg-manifest.json');
@@ -323,7 +330,7 @@ export async function prepareRuleDeployment(original, provider, deploy) {
     const remappedBindings = new Map();
     for (const entry of delivery.targets) {
       const source = path.resolve(entry.source);
-      const alreadyFrozen = source.startsWith(`${temp}${path.sep}`);
+      const alreadyFrozen = source.startsWith(`${temp}${path.sep}`) || Boolean(pool && source.startsWith(`${pool.snapshotRoot}${path.sep}`));
       if (!alreadyFrozen) {
         const state = capturePreimage(source);
         const to = path.join(temp, 'discovered-input', String(sourceMappings.length), path.basename(source));
