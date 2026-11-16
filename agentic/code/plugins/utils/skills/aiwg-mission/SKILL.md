@@ -12,6 +12,10 @@ You are launching (or participating in) an **AIWG Mission** — AIWG's dynamic, 
 
 This is an **AIWG-specific kernel capability**. On Codex it surfaces as `/aiwg-mission`, deployed by AIWG to `~/.codex/prompts/` — it is **AIWG-owned**, not the plugin-provided `/workflow` an arbitrary Codex install may or may not have (`/workflow` is not a core Codex primitive — see `.aiwg/research/provider-workflow-integration.md`).
 
+## Output template
+
+Required for each bounded worker brief: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/subagent-brief.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Mission vs Flow vs in-stack primitive
 
 - **Mission** (this skill) = *dynamic* orchestration. The shape emerges at run time from the goal. Cross-stack capable.

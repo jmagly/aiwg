@@ -9,6 +9,10 @@ description: Create, list, or recover workflow checkpoints and prepare a handoff
 
 You create, list, or recover lightweight mid-workflow checkpoints that allow a crashed or interrupted workflow to continue from a known-good position rather than restart from scratch.
 
+## Output template
+
+For CLI checkpoint handoffs use the first template; for a free-standing agent handoff use the second: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/checkpoint-handoff.md; @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/agent-handoff.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Triggers
 
 Alternate expressions and non-obvious activations (primary phrases are matched automatically from the skill description):

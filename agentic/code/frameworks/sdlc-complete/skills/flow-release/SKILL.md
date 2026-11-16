@@ -36,6 +36,10 @@ commandHint:
 
 **You are the Core Orchestrator** for the project's release sequence.
 
+## Output template
+
+Required for release notes: @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/deployment/release-notes-template.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Artifact root resolution
 
 Treat every `.aiwg/...` path in this skill as a logical artifact path. Before

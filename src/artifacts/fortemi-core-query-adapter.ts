@@ -412,6 +412,8 @@ function entryFromRecord(record: AiwgFortemiRecord): MetadataEntry {
           relationship.target_id,
       ),
     triggers: record.search?.triggers,
+    ...(artifactTypeFromRecord(record) === 'template' && typeof indexedFrontmatter.outputKind === 'string'
+      ? { outputKind: indexedFrontmatter.outputKind } : {}),
     capability: record.search?.capability,
     searchTerms: Array.isArray(indexedSearchTerms)
       ? indexedSearchTerms.filter((term): term is string => typeof term === "string")

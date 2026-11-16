@@ -1,6 +1,11 @@
 ---
 name: blocker-found
 description: Post a blocker found comment on an issue with cause, impact, attempted resolutions, recommended action, and escalation.
+outputKind: issue.comment.blocker
+aliases:
+  - blocker comment
+  - blocker found
+  - issue comment blocker
 ---
 
 # Blocker Found Comment Template

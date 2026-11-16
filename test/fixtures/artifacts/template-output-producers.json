@@ -1,0 +1,92 @@
+{
+  "agentic/code/addons/aiwg-utils/skills/commit-and-push/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/commit-message.md"
+  ],
+  "agentic/code/addons/aiwg-utils/skills/parallel-dispatch/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/subagent-brief.md"
+  ],
+  "agentic/code/addons/aiwg-utils/skills/aiwg-mission/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/subagent-brief.md"
+  ],
+  "agentic/code/addons/aiwg-utils/skills/checkpoint/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/checkpoint-handoff.md",
+    "agentic/code/addons/aiwg-utils/templates/agent-handoff.md"
+  ],
+  "agentic/code/addons/aiwg-utils/skills/project-status/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/stakeholder-status-report.md"
+  ],
+  "agentic/code/addons/testing-quality/skills/flaky-detect/SKILL.md": [
+    "agentic/code/addons/testing-quality/templates/ci-failure-report.md"
+  ],
+  "agentic/code/addons/testing-quality/skills/flaky-fix/SKILL.md": [
+    "agentic/code/addons/testing-quality/templates/ci-failure-report.md"
+  ],
+  "agentic/code/addons/testing-quality/skills/test-conformance/SKILL.md": [
+    "agentic/code/addons/testing-quality/templates/conformance-report.md",
+    "agentic/code/addons/testing-quality/templates/experiment-amendment.md",
+    "agentic/code/addons/testing-quality/templates/gate-audit-record.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/issue-comment/SKILL.md": [
+    "agentic/code/frameworks/sdlc-complete/templates/issue-comments/progress-update.md",
+    "agentic/code/frameworks/sdlc-complete/templates/issue-comments/blocker-found.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/issue-close/SKILL.md": [
+    "agentic/code/frameworks/sdlc-complete/templates/issue-comments/task-completed.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/pr-review/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/code-review-findings.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/security-assessment/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/security-finding.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/security-audit/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/security-finding.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/gate-evaluation/SKILL.md": [
+    "agentic/code/addons/testing-quality/templates/gate-audit-record.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/flow-gate-check/SKILL.md": [
+    "agentic/code/addons/testing-quality/templates/gate-audit-record.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/architecture-evolution/SKILL.md": [
+    "agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md",
+    "agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/flow-architecture-evolution/SKILL.md": [
+    "agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md",
+    "agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/flow-change-control/SKILL.md": [
+    "agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/flow-incident-response/SKILL.md": [
+    "agentic/code/frameworks/ops-complete/templates/incident.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/flow-handoff-checklist/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/agent-handoff.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/flow-release/SKILL.md": [
+    "agentic/code/frameworks/sdlc-complete/templates/deployment/release-notes-template.md"
+  ],
+  "agentic/code/addons/aiwg-utils/skills/aiwg-pr/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/pull-requests/description.md"
+  ],
+  "agentic/code/addons/aiwg-utils/skills/aiwg-delivery-pr/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/pull-requests/description.md"
+  ],
+  "agentic/code/addons/aiwg-utils/skills/aiwg-issue/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/issues/bug-report.md",
+    "agentic/code/addons/aiwg-utils/templates/issues/feature-request.md",
+    "agentic/code/addons/aiwg-utils/templates/issues/imported-report.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/issue-create/SKILL.md": [
+    "agentic/code/addons/aiwg-utils/templates/issues/bug-report.md",
+    "agentic/code/addons/aiwg-utils/templates/issues/feature-request.md",
+    "agentic/code/addons/aiwg-utils/templates/issues/imported-report.md"
+  ],
+  "agentic/code/frameworks/sdlc-complete/skills/issue-update/SKILL.md": [
+    "agentic/code/frameworks/sdlc-complete/templates/issue-comments/progress-update.md",
+    "agentic/code/frameworks/sdlc-complete/templates/issue-comments/blocker-found.md",
+    "agentic/code/frameworks/sdlc-complete/templates/issue-comments/task-completed.md"
+  ]
+}

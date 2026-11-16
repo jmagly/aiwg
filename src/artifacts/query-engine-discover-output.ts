@@ -167,6 +167,7 @@ export async function emitDiscoverResults(context: DiscoverOutputContext): Promi
         ...(includePaths ? { path: resolvePath(r.entry) } : {}),
         type: r.entry.type,
         name: r.entry.name,
+        ...(r.entry.outputKind ? { outputKind: r.entry.outputKind } : {}),
         title: r.entry.title,
         ...orderingFor(r.entry),
         ...templateRelationFields(r.entry, ruleRelations, 3, includePaths),

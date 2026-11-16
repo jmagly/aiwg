@@ -1,3 +1,10 @@
+---
+name: release-notes-template
+outputKind: release-notes
+aliases:
+  - release notes
+---
+
 # Release Notes Template
 
 ## Purpose

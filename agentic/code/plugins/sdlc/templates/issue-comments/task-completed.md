@@ -1,3 +1,12 @@
+---
+name: task-completed
+outputKind: issue.comment.completed
+aliases:
+  - issue completion comment
+  - task completed
+  - issue comment completed
+---
+
 # Task Completed Comment Template
 
 ## Completion Notice

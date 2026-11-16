@@ -14,6 +14,10 @@ commandHint:
 
 # Issue Close
 
+## Output template
+
+Required for the task completion comment: @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/task-completed.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Semantic Label Contract (#1789)
 
 Before closure, resolve lifecycle, blocked, review/approval, and

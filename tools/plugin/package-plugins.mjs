@@ -246,6 +246,8 @@ Writing quality validation and AI pattern detection.
       ...['artifact-output-policy', 'artifact-output-policy-guidance'].map(name =>
         ({ from: `agentic/code/addons/aiwg-utils/rules/${name}.md`, to: `rules/${name}.md` })),
       { from: 'agentic/code/addons/aiwg-utils/templates/subagent-brief.md', to: 'templates/subagent-brief.md' },
+      ...['checkpoint-handoff', 'commit-message', 'agent-handoff', 'stakeholder-status-report', 'security-finding', 'code-review-findings'].map(name =>
+        ({ from: `agentic/code/addons/aiwg-utils/templates/${name}.md`, to: `templates/${name}.md` })),
       { from: 'agentic/code/addons/aiwg-utils/templates/issues', to: 'templates/issues' },
       { from: 'agentic/code/addons/aiwg-utils/templates/pull-requests', to: 'templates/pull-requests' }
     ],

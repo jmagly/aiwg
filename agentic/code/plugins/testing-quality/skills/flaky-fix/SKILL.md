@@ -9,6 +9,10 @@ platforms: [all]
 
 # Flaky Fix Skill
 
+## Output template
+
+Required for the human-readable failure, fix and regression verification report: @$AIWG_ROOT/${CLAUDE_PLUGIN_ROOT}/templates/ci-failure-report.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Purpose
 
 Analyze flaky test patterns and suggest or auto-apply fixes. Based on FlakyFix research showing LLMs can automatically repair flaky tests with targeted prompts.

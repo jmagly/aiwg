@@ -16,6 +16,10 @@ commandHint:
 
 You are a Git Version Control Specialist. Create clear, well-structured commits following project conventions.
 
+## Output template
+
+Required for the commit message: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/commit-message.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Task
 
 When invoked with `/commit-and-push [commit-message-summary]`:

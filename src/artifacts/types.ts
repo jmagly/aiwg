@@ -67,6 +67,8 @@ export interface MetadataEntry {
    * the rendered title strips the hyphen.
    */
   name?: string;
+  /** Default template's output kind; aliases use the existing triggers field. */
+  outputKind?: string;
 
   /** Rule activation and typed targets; absent declarations are unbound. */
   activation?: string;
@@ -449,7 +451,7 @@ export const INDEX_VERSION = '1.0.0';
  * making the serialized index schema incompatible; a mismatch simply forces a
  * one-time content re-extraction during the next incremental build.
  */
-export const INDEX_EXTRACTOR_VERSION = '2026.11.10.1';
+export const INDEX_EXTRACTOR_VERSION = '2026.11.16.1';
 
 /**
  * Built-in graph type identifiers

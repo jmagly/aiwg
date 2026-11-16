@@ -32,6 +32,10 @@ commandHint:
 
 # Project Status (Cross-Framework Aggregator)
 
+## Output template
+
+When producing a stakeholder status report, use this template around the observed contributor blocks; preserve the established JSON response contract: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/stakeholder-status-report.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Task
 
 Produce a unified status report covering every installed framework, addon, or

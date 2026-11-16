@@ -4,6 +4,10 @@ description: Feature request issue template for proposing a capability, explaini
 about: Propose a new capability or enhancement
 title: 'feat(<area>): <one-line summary>'
 labels: ['enhancement']
+outputKind: issue.feature
+aliases:
+  - feature request issue
+  - feature request
 ---
 
 ## Motivation

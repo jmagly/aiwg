@@ -5,6 +5,11 @@ triggers:
   - pull request description
   - write a PR description
   - draft a pull request body
+outputKind: pull-request
+aliases:
+  - pull request description
+  - pull request
+  - PR
 ---
 
 # Pull Request Description
