@@ -236,8 +236,8 @@ function messages(plan: any): string {
 describe('OpenCode version-bound profile (B-OG-39)', () => {
   it('OC01 pins the evidenced release, driver, template and health grammar; unknown controls stay unqualified', () => {
     const adapter = loadProviderModelCapabilities().providers.opencode.workerHealthAdapter!;
-    expect(OPENCODE_SUPPORTED_VERSIONS).toEqual([VERSION]);
-    expect(adapter).toMatchObject({ supportedVersions: VERSION, adapterVersion: '1',
+    expect(OPENCODE_SUPPORTED_VERSIONS).toEqual(['>=1.18.0 <2.0.0', '>=2.0.26 <3.0.0']);
+    expect(adapter).toMatchObject({ supportedVersions: OPENCODE_SUPPORTED_VERSIONS.join(' || '), adapterVersion: '1',
       runtimeDriver: 'installed:opencode',
       catalogAdapter: { kind: 'file', locator: 'agentic/code/providers/model-catalog.v1.json' },
       invocation: { kind: 'process', executable: 'opencode', stdin: 'closed', versionArgv: ['--version'] },
@@ -246,7 +246,7 @@ describe('OpenCode version-bound profile (B-OG-39)', () => {
       'Follow the instructions in the attached file exactly.']);
     expect(adapter.invocation.argv.join(' ')).not.toMatch(/--auto|bypass|dangerous|--effort/);
     const profile = adapter.invocationProfiles!['direct-shell'];
-    expect(profile.supportedVersions).toBe(VERSION);
+    expect(profile.supportedVersions).toBe(OPENCODE_SUPPORTED_VERSIONS.join(' || '));
     expect(profile.transport).toBe('shell');
     expect(profile.mcp).toBeUndefined();
     expect(Object.keys(profile.controls).sort()).toEqual(['approval', 'children', 'effort', 'fallback', 'finalOutput', 'model',
@@ -283,7 +283,7 @@ describe('OpenCode version-bound profile (B-OG-39)', () => {
     expect(installed.owner.getName()).toBe('opencode-direct');
     expect(installed.owner.constructor.name).toBe('OpenCodeDirectAdapter');
     expect(installed.owner.buildWorkerArgs(
-      { selected: { model: MODEL, effort: { value: null } }, cwd: '/w', briefPath: '/w/brief.md' }, null, {}))
+      { cliVersion: VERSION, selected: { model: MODEL, effort: { value: null } }, cwd: '/w', briefPath: '/w/brief.md' }, null, {}))
       .toEqual(['run', '--format', 'json', '-m', MODEL, '-f', '/w/brief.md', OPENCODE_FIXED_MESSAGE]);
     expect(OPENCODE_DIRECT_STDIN).toBe('closed');
   });
@@ -294,7 +294,7 @@ describe('OpenCode version-bound profile (B-OG-39)', () => {
     let error: any;
     try {
       await inspectWorkerInstallation(installed.owner, { adapter, platform: 'linux', profile: 'direct-shell',
-        cliVersion: adapter.supportedVersions, workerWritableRoots: [], effectiveConfigDigest: `sha256:${'a'.repeat(64)}`,
+        cliVersion: VERSION, workerWritableRoots: [], effectiveConfigDigest: `sha256:${'a'.repeat(64)}`,
         accountScope: 'synthetic', boundary: null, cwd: '/tmp' });
     } catch (e) { error = e; }
     // Before this fix, this threw 'Unsupported installation identity/platform'
@@ -371,7 +371,7 @@ describe('T-OG-15 OpenCode direct command contract', () => {
   });
 
   it('OC04 the driver argv maps an explicit effort to #<variant>, refuses malformed effort/alias/path', () => {
-    const input = { selected: { model: MODEL, effort: { value: null } }, cwd: '/w', briefPath: '/w/brief.md' };
+    const input = { cliVersion: VERSION, selected: { model: MODEL, effort: { value: null } }, cwd: '/w', briefPath: '/w/brief.md' };
     expect(owner.buildWorkerArgs(input, null, {})).toEqual(['run', '--format', 'json', '-m', MODEL, '-f', '/w/brief.md', OPENCODE_FIXED_MESSAGE]);
     // An explicit effort is a reasoning-effort variant id, appended as #<effort>.
     expect(owner.buildWorkerArgs({ ...input, selected: { ...input.selected, effort: { value: 'high' } } }, null, {}))
@@ -408,7 +408,7 @@ describe('T-OG-20 OpenCode run identity and signals', () => {
   const profile = () => loadProviderModelCapabilities().providers.opencode.workerHealthAdapter!.invocationProfiles!['direct-shell'];
   const BRIEF = 'synthetic brief';
   const argv = (briefPath: string) => [FAKE, ...owner.buildWorkerArgs(
-    { selected: { model: MODEL, effort: { value: null } }, cwd: '/unused', briefPath }, profile(), {})];
+    { cliVersion: VERSION, selected: { model: MODEL, effort: { value: null } }, cwd: '/unused', briefPath }, profile(), {})];
   const source = { kind: 'stdout' as const, id: 'stdout', generation: 0, offset: 0 };
   const observer = (clock: { t: number }) => owner.createHealthObserver({ provider: 'opencode',
     profile: { health: health() }, invocationId: 'opencode-fixture', now: () => clock.t, wallNow: () => 0, startedAt: 0 });

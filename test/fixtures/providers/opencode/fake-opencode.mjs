@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Synthetic stand-in for `opencode` 2.0.26 `run` (roctinam/aiwg#2904).
+ * Synthetic stand-in for `opencode` 1.19/2.0.26 `run` (roctinam/aiwg#2904).
  * It implements only the help-evidenced surface used by the version-bound
  * direct-shell profile:
  *
@@ -84,12 +84,17 @@ if (runArgs[0] === '--help' || runArgs[0] === '-h') {
 const FIXED_MESSAGE = 'Follow the instructions in the attached file exactly.';
 let format = null;
 let model = null;
+let variant = null;
 let file = null;
 let message = null;
 for (let i = 0; i < runArgs.length;) {
   const arg = runArgs[i];
   const value = (name) => runArgs[i + 1] ?? fail(`missing value for ${name}`);
   if (arg === '-m' || arg === '--model') { model = value(arg); i += 2; }
+  else if (arg === '--variant') {
+    if (config.cliVersion?.startsWith('1.') !== true) fail('--variant requires the 1.x fixture');
+    variant = value(arg); i += 2;
+  }
   else if (arg === '--format') { format = value(arg); i += 2; }
   else if (arg === '-f' || arg === '--file') { file = value(arg); i += 2; }
   else if (arg === '--auto') { fail('--auto is a disallowed permission bypass for this fixture'); }
@@ -110,7 +115,7 @@ if (message !== FIXED_MESSAGE) {
 let brief;
 try { brief = readFileSync(file, 'utf8'); } catch (error) { fail(`cannot read -f attachment ${file}: ${error.message}`); }
 
-record({ model, format, file, message, brief, jsonStream: format === 'json' });
+record({ model, variant, format, file, message, brief, jsonStream: format === 'json' });
 
 const line = (event) => process.stdout.write(`${JSON.stringify(event)}\n`);
 const handshake = () => line({ type: 'step_start', sessionID: SESSION, part: {} });
