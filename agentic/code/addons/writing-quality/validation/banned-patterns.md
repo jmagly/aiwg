@@ -40,7 +40,8 @@ These phrases do not identify AI-generated content. Review meaning in context; r
 - game-changing
 - paradigm shift
 - synergy/synergistic
-- leverage/leveraging (as a verb)
+Leverage/leveraging are dated lexical markers, reported only in clusters by
+`ai-pattern-detection/references/current-patterns.json`.
 - utilize (just use "use")
 - facilitate (usually unnecessary)
 

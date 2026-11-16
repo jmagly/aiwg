@@ -16,7 +16,53 @@ The Writing Quality addon provides content validation and writing improvement ca
 
 These are editorial preferences, not evidence of human or AI authorship. Apply only the requirements chosen by the author or project; other phrase and structure suggestions are advisory. Preserve quotations, code, literal terms, inventories, checklists, questionnaires, intentional punctuation, necessary uncertainty and domain terminology. A flagged phrase can be retained with a reason. Zero highlights and numeric scores are not publication gates. Never invent metrics, experiences, opinions or failures to satisfy a style marker.
 
-`WritingValidationEngine.diagnose(content, options)` and the exported `diagnoseWriting` API return contextual diagnostics with UTF-16 spans, explanations and reasoned exceptions, with `publicationGate: false`. The Python scanner in `skills/ai-pattern-detection/scripts/` remains a legacy regex implementation; it does not implement that API. Its `authenticity_score` and `grade`, and the legacy validator’s `score`, `authenticityScore` and `aiPatternScore`, are deprecated heuristic compatibility output. Existing numeric fields and calculations remain available; they are not human-authorship probabilities or quality guarantees.
+`WritingValidationEngine.diagnose(content, options)` and the exported `diagnoseWriting` API return contextual diagnostics with UTF-16 spans, explanations and reasoned exceptions, with `publicationGate: false`. The Python scanner in `skills/ai-pattern-detection/scripts/` does not implement that API. Its `authenticity_score` and `grade`, and the legacy validator’s `score`, `authenticityScore` and `aiPatternScore`, are deprecated heuristic compatibility output. Numeric fields remain available; they are not human-authorship probabilities or quality guarantees.
+
+## Current Scanner Coverage (November 2026)
+
+The Python scanner, validation engine and contextual diagnostics detect local
+`not … but`, `X, not Y`, `rather than`, negated evidence/proof/substitute assertions,
+listed antonym pairs across a comma, significance labels and self-explaining
+asides, empty openers, and generic engagement questions. New findings carry
+canonical rule IDs and cut/check/watch tiers (critical/warning/info in validation).
+They are editing suggestions. Adjacent-sentence mirroring, moral endings,
+fragment runs, clustered colon reveals and campaign comparisons await #4140.
+
+The shared [dated catalogue](skills/ai-pattern-detection/references/current-patterns.json)
+contains the 2023, 2024–25, 2026, copula and spectral lexical sets; next review is
+2027-02-12. Two markers in a paragraph or four in a file trigger a lexical finding
+per affected paragraph. Spectral-only clusters are watch tier. Lone leverage and
+enhance do not trigger findings. Contextual diagnostics retain the existing single
+delve and figurative rich-tapestry prompts when no cluster replaces them; explicit
+author phrase rules and exceptions still apply. Literal textile descriptions are
+exempt from the default rich-tapestry prompt.
+
+All three surfaces protect front matter, headings (including Setext), image alt
+text, fenced/inline/indented code, quoted passages, tables, comments and inventory
+lines before matching. Offsets still refer to the original source. Local contrasts
+are suppressed when both operands contain numbers within six tokens of the
+comparison divider, or a reason (`because`, `while`) or correction cue occurs
+inside or within four tokens of the match without a semicolon/colon boundary.
+A date elsewhere in a sentence does not exempt it: “It is not just the score in
+2026.” still produces a finding. These are proximity heuristics, not semantic proof.
+Precise passives and standalone em dashes, colons and semicolons produce no finding.
+All three surfaces recognize a narrow rhetorical adjective triad with either
+comma style; real inventories remain unflagged. Python calls it `three_item_list`;
+validation and contextual diagnostics call it `struct_three_items` (watch tier).
+
+Python `position` is a zero-based Unicode code-point offset and `column` is a
+one-based code-point column. Validation `location.start/end` and contextual
+diagnostic `start/end` are zero-based UTF-16 code-unit offsets (end exclusive);
+validation `column` is a one-based UTF-16 column. All source lines are one-based.
+ASCII positions agree across surfaces. In `🧵 Thoughts?`, Python reports position
+2, column 3; both TypeScript surfaces start at 3 and validation reports column 4.
+The astral character occupies one Python code point and two UTF-16 code units.
+
+Compatibility penalties use prose rates rather than raw document counts. Python
+deductions are per 100 prose words. Validation severity deductions and its
+phrase-density component use rates per 50 prose words. Repeating
+the same prose in additional paragraphs does not increase those penalties merely
+because the document is longer. The contextual API has no score.
 
 ## Components
 

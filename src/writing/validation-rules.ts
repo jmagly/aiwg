@@ -8,6 +8,7 @@
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { rhetoricalTriad } from './current-patterns.js';
 
 export type ValidationContext = 'academic' | 'technical' | 'executive' | 'casual';
 export type RuleType = 'banned_phrase' | 'ai_pattern' | 'authenticity_marker' | 'formulaic_structure';
@@ -440,10 +441,10 @@ export class ValidationRuleLoader {
       {
         id: 'struct_three_items',
         type: 'formulaic_structure',
-        pattern: /\b(\w+),\s+(\w+),\s+and\s+(\w+)\b/g,
+        pattern: rhetoricalTriad,
         severity: 'info',
-        message: 'Three-item list detected',
-        suggestion: 'Consider using 2, 4, or no list',
+        message: 'Rhetorical three-item predicate detected',
+        suggestion: 'Replace generic claims with supported details; retain real inventories',
         category: 'Lists'
       }
     ];

@@ -107,6 +107,40 @@ thresholds, so exclusions are measured even before new structural checks arrive.
 
 ## Scanner adapters and shrinking gaps
 
+### D2 results (#4138 / #4139)
+
+Each cell shows initial → current recall. Fixtures and editorial labels are
+unchanged. All three surfaces now recover 30/56 locations (53.6%), with zero
+findings on wholly negative files (previously Python 16, validation 8, diagnostics
+1). This is a fixture result, not an estimate of real-world recall or precision.
+
+| Pattern | Python | Validation | Diagnostics |
+|---|---|---|---|
+| `antithesis-pair` | 0/3 → 3/3 | 0/3 → 3/3 | 0/3 → 3/3 |
+| `aphorism-ending` | 0/4 → 0/4 | 0/4 → 0/4 | 0/4 → 0/4 |
+| `colon-reveal` | 0/4 → 0/4 | 0/4 → 0/4 | 0/4 → 0/4 |
+| `contrast-not-but` | 0/3 → 3/3 | 0/3 → 3/3 | 0/3 → 3/3 |
+| `contrast-x-not-y` | 0/3 → 3/3 | 0/3 → 3/3 | 0/3 → 3/3 |
+| `engagement-bait` | 0/3 → 3/3 | 0/3 → 3/3 | 0/3 → 3/3 |
+| `fragment-run` | 0/3 → 0/3 | 0/3 → 0/3 | 0/3 → 0/3 |
+| `labelled-significance` | 0/6 → 6/6 | 0/6 → 6/6 | 0/6 → 6/6 |
+| `lexical-cluster` | 0/3 → 3/3 | 0/3 → 3/3 | 0/3 → 3/3 |
+| `mirrored-sentences` | 0/3 → 0/3 | 0/3 → 0/3 | 0/3 → 0/3 |
+| `negate-then-assert` | 0/3 → 3/3 | 0/3 → 3/3 | 0/3 → 3/3 |
+| `rather-than` | 0/3 → 3/3 | 0/3 → 3/3 | 0/3 → 3/3 |
+| `repeated-phrase` | 0/3 → 0/3 | 0/3 → 0/3 | 0/3 → 0/3 |
+| `repeated-sentence` | 0/3 → 0/3 | 0/3 → 0/3 | 0/3 → 0/3 |
+| `shared-skeleton` | 0/6 → 0/6 | 0/6 → 0/6 | 0/6 → 0/6 |
+| `throat-clearing` | 0/3 → 3/3 | 0/3 → 3/3 | 0/3 → 3/3 |
+
+The gap multiset shrank from 197 to 78: 90 recovered locations and all 29 #4139
+unexpected-finding allowances were removed. The remaining 42 sentence-sequence,
+moral-ending and clustered-colon misses and 36 campaign misses retain `issue:
+"#4138"`, with `plannedBy: "#4140"` identifying their planned implementation.
+No allowance was added. #4138 stays open: the reproduction now finds the local
+contrast, antonym pair and aside, but moral endings, fragment runs and colon
+clustering remain #4140 work. #4139 has no remaining gaps and can close.
+
 `test/unit/writing/quality-corpus.test.ts` runs in the default Vitest lane through
 `config/vitest.config.js`; no new lane or registration is needed. It exercises:
 
@@ -120,9 +154,9 @@ thresholds, so exclusions are measured even before new structural checks arrive.
 3. `diagnoseWritingBatch`, one isolated campaign or standalone file at a time.
 
 Legacy severities map mechanically: critical → cut, warning → check, info → watch.
-Contextual diagnostics currently expose no tier, so their advisory findings map to
-check. Native rule IDs are retained. Later scanner changes should expose canonical
-IDs and tiers through these adapters; do not implement missing detectors in tests.
+Contextual diagnostics expose tiers for current patterns; legacy advisory findings
+without a tier map to check. Native rule IDs are retained. The adapter reads
+scanner-owned tiers; it implements no missing detectors.
 The engine and Python scanner currently offer no structural campaign API, so those
 expected findings remain misses. Their adapters must call the shipped campaign
 entry point when #4140 introduces it. No detector from the reference is used as an
@@ -130,7 +164,9 @@ oracle, and neither a model nor a network call is involved. Python 3 is required
 
 `known-gaps.json` version 1 stores an explicit multiset of deviations. Each entry
 has `surface`, `fixture`, `kind` (`miss` or `flag`), `pattern`, `tier`, `line`,
-`scope`, and the closing `issue` (#4138, #4139 or #4140). Repeated entries represent
+`scope`, and the originating `issue` (#4138, #4139 or #4140). Optional `plannedBy`
+names the planned fixer without removing the originating issue's open gap.
+Repeated entries represent
 distinct occurrences on the same line, including six legitimate passive statements.
 A `miss` is an annotated TP the scanner failed to return. A `flag` is any unexpected
 finding; the baseline does not pretend these are desired editorial annotations.
