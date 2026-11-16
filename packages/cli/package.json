@@ -35,6 +35,7 @@
     "agentic/code/addons/composition-engine/lib/authority.mjs",
     "agentic/code/addons/composition-engine/lib/validator.mjs",
     "agentic/code/addons/composition-engine/schemas/flow-graph.schema.json",
+    "agentic/code/addons/writing-quality/skills/ai-pattern-detection/references/current-patterns.json",
     "schemas/security/",
     "schemas/decision/",
     "schemas/dataset/",

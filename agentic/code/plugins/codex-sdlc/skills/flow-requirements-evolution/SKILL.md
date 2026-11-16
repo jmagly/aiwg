@@ -978,9 +978,9 @@ This orchestration succeeds when:
 **Templates** (via $AIWG_ROOT):
 - Vision: `templates/requirements/vision-template.md`
 - Use Case: `templates/requirements/use-case-spec-template.md`
-- Change Request: `templates/requirements/change-request-template.md`
-- Supplemental Spec: `templates/requirements/supplemental-specification-template.md`
-- Traceability Matrix: `templates/management/traceability-matrix-template.md`
+- Change Request: `agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md`
+- Supplemental Spec: `agentic/code/frameworks/sdlc-complete/templates/requirements/supplementary-spec-template.md`
+- Traceability Matrix: `agentic/code/frameworks/sdlc-complete/templates/management/traceability-matrix-template.csv`
 
 **Gate Criteria**:
 - `flows/gate-criteria-by-phase.md`

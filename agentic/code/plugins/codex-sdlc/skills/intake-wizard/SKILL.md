@@ -1784,4 +1784,4 @@ Rules:
 
 - Intake templates: `agentic/code/frameworks/sdlc-complete/templates/.aiwg/intake/`
 - Flow orchestration: `commands/flow-concept-to-inception.md`
-- Profile definitions: `templates/.aiwg/intake/solution-profile-template.md`
+- Profile definitions: `agentic/code/frameworks/sdlc-complete/templates/intake/solution-profile-template.md`

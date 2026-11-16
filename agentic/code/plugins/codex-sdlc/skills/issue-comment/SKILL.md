@@ -14,6 +14,10 @@ commandHint:
 
 # Issue Comment
 
+## Output template
+
+Use the matching issue progress or blocker comment template: @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/progress-update.md; @$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/issue-comments/blocker-found.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Semantic Label Contract (#1789)
 
 When a comment requests human action, resolve the configured

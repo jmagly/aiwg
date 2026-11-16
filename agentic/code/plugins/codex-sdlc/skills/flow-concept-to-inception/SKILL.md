@@ -460,7 +460,7 @@ Based on your answers, I'll adjust:
        description="Conduct privacy impact assessment",
        prompt="""
        Read data classification.
-       Read template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/security/privacy-impact-assessment-template.md
+       Read template: agentic/code/frameworks/sdlc-complete/add-ons/compliance/gdpr/templates/privacy-impact-assessment-template.md
 
        Assess privacy requirements:
        - PII handling
@@ -572,7 +572,7 @@ Task(
     description="Create critical ADRs",
     prompt="""
     Read architecture sketch and technology choices.
-    Read template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/analysis-design/architecture-decision-record-template.md
+    Read template: agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md
 
     Create at least 3 ADRs for Inception:
 
@@ -922,7 +922,7 @@ This orchestration succeeds when:
 - Risk List: `templates/management/risk-list-template.md`
 - Use Case Brief: `templates/requirements/use-case-brief-template.md`
 - Data Classification: `templates/security/data-classification-template.md`
-- ADR: `templates/analysis-design/architecture-decision-record-template.md`
+- ADR: `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md`
 - Option Matrix: `templates/intake/option-matrix-template.md`
 
 **Gate Criteria**:

@@ -304,7 +304,7 @@ Based on your answers, I'll adjust:
        4. Team Assignments (placeholder for user to fill)
        5. Schedule (4-8 weeks broken into phases)
 
-       Use template: $AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/planning/phase-plan-template.md
+       Use template: agentic/code/frameworks/sdlc-complete/templates/management/software-development-plan-template.md
 
        Output: .aiwg/planning/architecture-baseline-plan.md
        """
@@ -656,7 +656,7 @@ Create .aiwg/archive/$(date +%Y-%m)/sad-$(date +%Y-%m-%d)/audit-trail.md:
 
 **Purpose**: Document 3-5 major architectural decisions identified in SAD
 
-**Template**: `$AIWG_ROOT/agentic/code/frameworks/sdlc-complete/templates/analysis-design/architecture-decision-record-template.md`
+**Template**: `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md`
 
 **Your Actions**:
 
@@ -1267,9 +1267,9 @@ This orchestration succeeds when:
 
 **Templates** (via $AIWG_ROOT):
 - Software Architecture Doc: `templates/analysis-design/software-architecture-doc-template.md`
-- ADR: `templates/analysis-design/architecture-decision-record-template.md`
+- ADR: `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md`
 - Use Case: `templates/requirements/use-case-spec-template.md`
-- Supplemental Spec: `templates/requirements/supplemental-specification-template.md`
+- Supplemental Spec: `agentic/code/frameworks/sdlc-complete/templates/requirements/supplementary-spec-template.md`
 - Master Test Plan: `templates/test/master-test-plan-template.md`
 - Risk List: `templates/management/risk-list-template.md`
 

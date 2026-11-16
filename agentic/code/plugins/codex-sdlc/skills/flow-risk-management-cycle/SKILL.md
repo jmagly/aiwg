@@ -554,7 +554,7 @@ Based on your answers, I'll adjust:
        - Update risk status (RETIRED | MITIGATED | ESCALATE)
        - Create ADR if architecture change needed
 
-       Spike Card Template: $AIWG_ROOT/.../templates/analysis-design/spike-card-template.md
+       Spike Card Template: experiment fields in this skill
 
        Document:
        - Hypothesis and success criteria
@@ -1183,8 +1183,8 @@ This orchestration succeeds when:
 
 **Templates** (via $AIWG_ROOT):
 - Risk List: `templates/management/risk-list-template.md`
-- Spike Card: `templates/analysis-design/spike-card-template.md`
-- Architecture Decision Record: `templates/analysis-design/architecture-decision-record-template.md`
+- Spike Card: experiment fields in this skill
+- Architecture Decision Record: `agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md`
 
 **Gate Criteria**:
 - `flows/gate-criteria-by-phase.md` (risk criteria per phase)

@@ -1003,10 +1003,10 @@ Adjusting to create only 2 new actions (down from 3)
 ## References
 
 **Templates** (via $AIWG_ROOT):
-- Retrospective: `templates/management/retrospective-template.md`
-- Action Tracker: `templates/management/action-item-tracker.md`
-- Work Package: `templates/management/work-package-card-template.md`
-- Lessons Learned: `templates/management/lessons-learned-card.md`
+- Retrospective: `agentic/code/frameworks/sdlc-complete/templates/management/sprint-retrospective-template.md`
+- Action Tracker: action tracking fields in this skill
+- Work Package: `agentic/code/frameworks/sdlc-complete/templates/management/work-package-card.md`
+- Lessons Learned: lessons learned fields in this skill
 
 **Retrospective Formats**:
 - Agile Retrospectives by Derby & Larsen
