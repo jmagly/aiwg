@@ -657,6 +657,11 @@ inventory and failed-gate diagnostics remain in `validation.json`.
 
 The optional Gitea mirror is a manual tag-bound dispatch after npmjs publication.
 It verifies all four public package identities before mirroring the same bytes.
+Before publication, retention verification retries an absent artifact listing and
+download HTTP 404s independently, each with seven attempts and at most 60 seconds
+of backoff. Digest mismatches, extraction failures and other download errors fail
+immediately. A persistent download 404 names the artifact and attempt count; use
+the same-tag recovery dispatch below after checking artifact availability.
 For GitHub recovery, dispatch the same signed tag:
 
 ```bash

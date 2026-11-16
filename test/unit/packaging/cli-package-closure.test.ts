@@ -21,6 +21,22 @@ async function fixture(files: Record<string, string>) {
 const CLOSURE_WALK_TIMEOUT_MS = 120_000;
 
 describe('CLI package dependency closure (default lane)', () => {
+  it('includes every exported types target in the public package files', async () => {
+    const root = path.resolve(import.meta.dirname, '../../..');
+    const manifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+    function typesTargets(value: unknown, inTypes = false): string[] {
+      if (typeof value === 'string') return inTypes ? [value] : [];
+      if (!value || typeof value !== 'object') return [];
+      return Object.entries(value).flatMap(([key, child]) => typesTargets(child, inTypes || key === 'types'));
+    }
+    const targets = typesTargets(manifest.exports);
+    expect(targets.length).toBeGreaterThan(0);
+    for (const target of targets) {
+      expect(isCliPackageFile(target.replace(/^\.\//, ''), manifest.files),
+        `${target} from package.json exports is absent from files`).toBe(true);
+    }
+  });
+
   it.each([
     "import './missing.mjs';",
     "export { value } from './missing.mjs';",

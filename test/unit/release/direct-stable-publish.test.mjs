@@ -34,6 +34,52 @@ describe('direct stable exact tarball publication',()=>{
  it('blocks a successful publish when an observed registry identity disagrees',async()=>{const {dir,packages}=fixture(),f=fake(packages,{badIdentity:true});await expect(publish({directory:dir,version:'2026.10.4',receipt:path.join(dir,'receipt'),spawn:f.spawn,sleep:async()=>{}})).rejects.toThrow(/identity mismatch/);expect(f.calls.filter(a=>a[0]==='publish')).toHaveLength(1);});
 });
 
+describe('retained artifact download consistency',()=>{
+ it.each([1,6])('retries %s download 404s after a visible listing',async misses=>{
+   const f=recoveryFixture(),download=f.client.downloadArtifact,waits=[];let downloads=0,listings=0;
+   f.client.listRunArtifacts=async()=>{listings++;return {items:[f.artifact],complete:true};};
+   f.client.downloadArtifact=async args=>{
+     if(++downloads<=misses)throw Object.assign(new Error('GitHub artifact download returned HTTP 404'),{status:404});
+     return download(args);
+   };
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async ms=>{waits.push(ms);}})).resolves.toBeUndefined();
+   expect(downloads).toBe(misses+1);expect(listings).toBe(1);
+   expect(waits).toEqual([1000,2000,4000,8000,15000,30000].slice(0,misses));
+ });
+ it('retries a transient download 404 in the same-tag recovery lane',async()=>{
+   const f=recoveryFixture();f.seed();const download=f.client.downloadArtifact,waits=[];let downloads=0;
+   f.client.downloadArtifact=async args=>{if(++downloads===1)throw Object.assign(new Error('GitHub artifact download returned HTTP 404'),{status:404});return download(args);};
+   expect((await prepareRecovery({...f.options,sleep:async ms=>{waits.push(ms);}})).recovered).toBe(true);
+   expect(downloads).toBe(2);expect(waits).toEqual([1000]);
+ });
+ it('names the artifact and attempts after persistent download 404s',async()=>{
+   const f=recoveryFixture(),waits=[];let downloads=0;
+   f.client.downloadArtifact=async()=>{downloads++;throw Object.assign(new Error('GitHub artifact download returned HTTP 404'),{status:404});};
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async ms=>{waits.push(ms);}}))
+     .rejects.toThrow(`Retained artifact ${f.artifact.name} (ID 44) download returned HTTP 404 after 7 attempts`);
+   expect(downloads).toBe(7);
+   expect(waits).toEqual([1000,2000,4000,8000,15000,30000]);
+   expect(waits.reduce((sum,ms)=>sum+ms,0)).toBe(60000);
+ });
+ it.each([['GitHub artifact download returned HTTP 403',403],['GitHub artifact download returned HTTP 500',500],['GitHub evidence request failed',undefined],['GitHub artifact download returned HTTP 404',undefined]])('does not retry %s (status %s)',async (message,status)=>{
+   const f=recoveryFixture();let downloads=0;
+   f.client.downloadArtifact=async()=>{downloads++;throw Object.assign(new Error(message),status===undefined?{}:{status});};
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,sleep:async()=>{throw new Error('must not wait');}}))
+     .rejects.toThrow(message);
+   expect(downloads).toBe(1);
+ });
+ it.each(['digest','extraction'])('does not retry a %s failure after downloading',async failure=>{
+   const f=recoveryFixture(),download=f.client.downloadArtifact;let downloads=0,extractions=0;
+   f.client.downloadArtifact=async args=>{downloads++;return download(args);};
+   if(failure==='digest')f.artifact.digest=`sha256:${'0'.repeat(64)}`;
+   await expect(verifyRetention({...f.options,directory:f.original.dir,attempt:1,
+     spawn:()=>{extractions++;return {status:1,stderr:'synthetic extraction failure'};},
+     sleep:async()=>{throw new Error('must not wait');}}))
+     .rejects.toThrow(failure==='digest'?'Retained archive digest mismatch':'Retained archive extraction failed');
+   expect(downloads).toBe(1);expect(extractions).toBe(failure==='digest'?0:1);
+ });
+});
+
 describe('retained artifact listing consistency',()=>{
  it.each([1,6])('verifies the uploaded archive after %s empty listings',async emptyListings=>{
    const f=recoveryFixture(),listings=[],waits=[];

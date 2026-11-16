@@ -235,6 +235,7 @@
     "dist/src/resources/index.d.ts",
     "dist/src/resources/web-release.d.ts",
     "dist/src/dataset/**/*.d.ts",
+    "dist/src/governance/**/*.d.ts",
     "tools/",
     "!tools/benchmarks/",
     "!tools/ci/",
