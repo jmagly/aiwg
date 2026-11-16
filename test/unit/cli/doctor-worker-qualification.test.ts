@@ -470,7 +470,7 @@ if (process.argv[2] === 'seed') {
       launchIsolated: () => { spawned = true; throw new Error('Unexpected worker spawn'); } });
     throw new Error('Expected invalid run directory refusal');
   } catch (error) {
-    if (error.message !== 'Worker run directory must be fresh, empty, private and owned') throw error;
+    if (!error.message.startsWith('Worker run directory must be fresh, empty, private and owned. Pass a run_dir path that does not exist yet')) throw error;
   }
   console.log(JSON.stringify({ loaded, spawned }));
 }
