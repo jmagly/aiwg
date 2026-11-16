@@ -96,6 +96,15 @@ function canonical(value) {
 
 const unordered = (values) => values.map(canonical).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
 
+// Names the records a re-export removed or added (canonical JSON, bounded) so CI shows the change (#4217).
+export function describeRecordChange(before, after, limit = 4096) {
+  const asList = (value) => (Array.isArray(value) ? value : [value]).map((item) => JSON.stringify(canonical(item)));
+  const was = asList(before), now = asList(after);
+  const removed = was.filter((item) => !now.includes(item)), added = now.filter((item) => !was.includes(item));
+  const text = `removed=[${removed.join(',')}] added=[${added.join(',')}]`;
+  return text.length > limit ? `${text.slice(0, limit)}... (${text.length} chars)` : text;
+}
+
 export async function verifySessionReexport(source, reexported) {
   const validation = await validateFullV1ShardArchive(reexported);
   assert(validation.valid, `native re-export contract: ${validation.errors.join('; ')}`);
@@ -106,8 +115,10 @@ export async function verifySessionReexport(source, reexported) {
   assert(isDeepStrictEqual(unordered(manifest.components), unordered(actual.components)), 'native component inventory mismatch');
   for (const name of Object.keys(manifest.checksums)) {
     assert(after.has(name), `native re-export missing ${name}`);
-    assert(isDeepStrictEqual(unordered(records(before, name)), unordered(records(after, name))),
-      `native semantic re-export changed ${name}`);
+    const was = records(before, name), now = records(after, name);
+    if (!isDeepStrictEqual(Array.isArray(was) ? unordered(was) : canonical(was), Array.isArray(now) ? unordered(now) : canonical(now))) {
+      assert(false, `native semantic re-export changed ${name}: ${describeRecordChange(was, now)}`);
+    }
   }
 }
 
