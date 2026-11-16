@@ -1,0 +1,1154 @@
+{
+  "version": 1,
+  "groups": {
+    "release": {
+      "notes": "Three channels of one campaign."
+    },
+    "distinct": {
+      "notes": "Three distinct releases with different openers and closers."
+    },
+    "phrase": {
+      "notes": "Eight shared words inside different sentences; unique openers and closers."
+    }
+  },
+  "files": {
+    "positives/contrast.md": {
+      "source": "synthetic",
+      "notes": "Negated alternatives add no corrective context; includes not-just-but.",
+      "labels": [
+        {
+          "pattern": "contrast-not-but",
+          "tier": "cut",
+          "line": 1,
+          "quote": "The file was not stale, but the cache was.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "contrast-not-but",
+          "tier": "cut",
+          "line": 3,
+          "quote": "This is not just a patch but a promise.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "contrast-not-but",
+          "tier": "cut",
+          "line": 5,
+          "quote": "This is not a tool but a habit.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/x-not-y.md": {
+      "source": "mixed: reference voice-quality fixtures @4a2f318 and synthetic additions; see notes",
+      "notes": "First excerpt reused verbatim from reference positives/contrast.md; remaining cases synthetic.",
+      "labels": [
+        {
+          "pattern": "contrast-x-not-y",
+          "tier": "cut",
+          "line": 1,
+          "quote": "Read the line, not the score.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "contrast-x-not-y",
+          "tier": "cut",
+          "line": 3,
+          "quote": "Keep the fact, not the flourish.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "contrast-x-not-y",
+          "tier": "cut",
+          "line": 5,
+          "quote": "Ship the result, not the ritual.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/rather-than.md": {
+      "source": "mixed: reference voice-quality fixtures @4a2f318 and synthetic additions; see notes",
+      "notes": "Unmotivated comparisons; first excerpt reused from reference positives/contrast.md.",
+      "labels": [
+        {
+          "pattern": "rather-than",
+          "tier": "check",
+          "line": 1,
+          "quote": "Teams use the tracker rather than email.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "rather-than",
+          "tier": "check",
+          "line": 3,
+          "quote": "Read the result rather than the ritual.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "rather-than",
+          "tier": "check",
+          "line": 5,
+          "quote": "Choose the facts rather than the flourish.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/mirrored.md": {
+      "source": "synthetic",
+      "notes": "Adjacent assertions repeat a subject around negation. Label anchors the second sentence.",
+      "labels": [
+        {
+          "pattern": "mirrored-sentences",
+          "tier": "cut",
+          "line": 1,
+          "quote": "The tool does repeat.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "mirrored-sentences",
+          "tier": "cut",
+          "line": 3,
+          "quote": "A score does reassure.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "mirrored-sentences",
+          "tier": "cut",
+          "line": 5,
+          "quote": "The agent does comply.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/endings.md": {
+      "source": "synthetic",
+      "notes": "Each short paragraph-final imperative merely repeats its paragraph; no new identifier or fact.",
+      "labels": [
+        {
+          "pattern": "aphorism-ending",
+          "tier": "cut",
+          "line": 1,
+          "quote": "Always test the switch.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "aphorism-ending",
+          "tier": "cut",
+          "line": 3,
+          "quote": "Remember the cache.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "aphorism-ending",
+          "tier": "cut",
+          "line": 5,
+          "quote": "Never forget the record.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/colons.md": {
+      "source": "mixed: reference voice-quality fixtures @4a2f318 and synthetic additions; see notes",
+      "notes": "Four reveals reach the reference file cluster threshold; excerpts reused from reference positives/colon-clusters.md.",
+      "labels": [
+        {
+          "pattern": "colon-reveal",
+          "tier": "watch",
+          "line": 1,
+          "quote": ": the message, read back ",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "colon-reveal",
+          "tier": "watch",
+          "line": 1,
+          "quote": ": send once.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "colon-reveal",
+          "tier": "watch",
+          "line": 3,
+          "quote": ": a result counts only af",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "colon-reveal",
+          "tier": "watch",
+          "line": 5,
+          "quote": ": run it once.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/fragments.md": {
+      "source": "mixed: reference voice-quality fixtures @4a2f318 and synthetic additions; see notes",
+      "notes": "Three consecutive sentences under five words; first two reused from reference fixtures.",
+      "labels": [
+        {
+          "pattern": "fragment-run",
+          "tier": "check",
+          "line": 1,
+          "quote": "Nothing stopped. Fixed. Always test it.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "fragment-run",
+          "tier": "check",
+          "line": 3,
+          "quote": "This is slower. Less noise. Fewer retries.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "fragment-run",
+          "tier": "check",
+          "line": 5,
+          "quote": "Ready. Waiting. Done.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "aphorism-ending",
+          "tier": "cut",
+          "line": 1,
+          "quote": "Always test it.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/labels.md": {
+      "source": "mixed: reference voice-quality fixtures @4a2f318 and synthetic additions; see notes",
+      "notes": "Performative labels; first paragraph reused from reference positives/endings-and-labels.md.",
+      "labels": [
+        {
+          "pattern": "labelled-significance",
+          "tier": "cut",
+          "line": 1,
+          "quote": "The bug: the cache was shared between workers. Workers wrote into it without locks.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "labelled-significance",
+          "tier": "cut",
+          "line": 3,
+          "quote": "Why it matters: the worker now reads the record before publishing.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "labelled-significance",
+          "tier": "cut",
+          "line": 5,
+          "quote": "The takeaway: the switch now stops the publisher.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/throat.md": {
+      "source": "mixed: reference voice-quality fixtures @4a2f318 and synthetic additions; see notes",
+      "notes": "Empty openers; reference phrase variants.",
+      "labels": [
+        {
+          "pattern": "throat-clearing",
+          "tier": "cut",
+          "line": 1,
+          "quote": "Here's the thing: most agents skip the check.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "throat-clearing",
+          "tier": "cut",
+          "line": 3,
+          "quote": "Let's dive in. The worker now reads the record before publishing.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "throat-clearing",
+          "tier": "cut",
+          "line": 5,
+          "quote": "Full stop. The switch now stops the publisher.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/engagement.md": {
+      "source": "synthetic",
+      "notes": "Generic solicitation without a concrete question.",
+      "labels": [
+        {
+          "pattern": "engagement-bait",
+          "tier": "cut",
+          "line": 1,
+          "quote": "What do you think?",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "engagement-bait",
+          "tier": "cut",
+          "line": 3,
+          "quote": "Thoughts?",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "engagement-bait",
+          "tier": "cut",
+          "line": 5,
+          "quote": "What's your take?",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/lexical.md": {
+      "source": "mixed: reference voice-quality fixtures @4a2f318 and synthetic additions; see notes",
+      "notes": "2023, 2024\u201325 and 2026 clusters. Last paragraph reused verbatim from reference positives/lexical.md.",
+      "labels": [
+        {
+          "pattern": "lexical-cluster",
+          "tier": "check",
+          "line": 1,
+          "quote": "We delve into a rich tapestry of meticulous detail.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "lexical-cluster",
+          "tier": "check",
+          "line": 3,
+          "quote": "We enhance the pipeline, fostering valuable insights.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "lexical-cluster",
+          "tier": "check",
+          "line": 5,
+          "quote": "We leverage a multifaceted approach to enhance the pipeline.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/contrast.md": {
+      "source": "synthetic",
+      "notes": "Legitimate factual usage, boundary case or concrete question; no editing findings expected.",
+      "labels": [
+        {
+          "pattern": "contrast-not-but",
+          "tier": null,
+          "line": 1,
+          "quote": "Correction: not 2026.11.3; the release notes say 2026.11.4.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "contrast-not-but",
+          "tier": null,
+          "line": 3,
+          "quote": "The cache was not shared. Each worker kept its own copy of the cache.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "contrast-not-but",
+          "tier": null,
+          "line": 5,
+          "quote": "The file is not found when its parent directory is missing.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/x-not-y.md": {
+      "source": "synthetic",
+      "notes": "Legitimate factual usage, boundary case or concrete question; no editing findings expected.",
+      "labels": [
+        {
+          "pattern": "contrast-x-not-y",
+          "tier": null,
+          "line": 1,
+          "quote": "Earlier I said port 80. Use port 443, not port 80; the release notes correct that value.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "contrast-x-not-y",
+          "tier": null,
+          "line": 3,
+          "quote": "The file is missing, not yet restored from backup.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "contrast-x-not-y",
+          "tier": null,
+          "line": 5,
+          "quote": "The test did not finish because the process exited with code 2.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/rather-than.md": {
+      "source": "synthetic",
+      "notes": "Legitimate factual usage, boundary case or concrete question; no editing findings expected.",
+      "labels": [
+        {
+          "pattern": "rather-than",
+          "tier": null,
+          "line": 1,
+          "quote": "Use port 443 rather than port 80 because the server accepts TLS only.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "rather-than",
+          "tier": null,
+          "line": 3,
+          "quote": "The migration uses a copy rather than a rename because the filesystems differ.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "rather-than",
+          "tier": null,
+          "line": 5,
+          "quote": "Keep a local copy rather than a remote link while the network is unavailable.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/mirrored.md": {
+      "source": "synthetic",
+      "notes": "Legitimate factual usage, boundary case or concrete question; no editing findings expected.",
+      "labels": [
+        {
+          "pattern": "mirrored-sentences",
+          "tier": null,
+          "line": 1,
+          "quote": "The worker does not retry after code 2. The publisher waits for a new approval.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "mirrored-sentences",
+          "tier": null,
+          "line": 3,
+          "quote": "A cache entry expires after 30 seconds. A record remains for 90 days.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "mirrored-sentences",
+          "tier": null,
+          "line": 5,
+          "quote": "The script reads the switch. The agent does not bypass a missing switch.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/endings.md": {
+      "source": "synthetic",
+      "notes": "Legitimate factual usage, boundary case or concrete question; no editing findings expected.",
+      "labels": [
+        {
+          "pattern": "aphorism-ending",
+          "tier": null,
+          "line": 1,
+          "quote": "The worker reads the switch before publishing. The check takes 12ms.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "aphorism-ending",
+          "tier": null,
+          "line": 3,
+          "quote": "The token is stored in a private file and is never printed.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "aphorism-ending",
+          "tier": null,
+          "line": 5,
+          "quote": "The record is rejected when a link is missing.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/colons.md": {
+      "source": "synthetic",
+      "notes": "Legitimate factual usage, boundary case or concrete question; no editing findings expected.",
+      "labels": [
+        {
+          "pattern": "colon-reveal",
+          "tier": null,
+          "line": 1,
+          "quote": "The release ships to four destinations: X, LinkedIn, Telegram, and Discord.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "colon-reveal",
+          "tier": null,
+          "line": 3,
+          "quote": "Keep the scope small: one repo, one branch, one check.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "colon-reveal",
+          "tier": null,
+          "line": 5,
+          "quote": "The next check starts at 10:30.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/fragments.md": {
+      "source": "synthetic",
+      "notes": "Legitimate factual usage, boundary case or concrete question; no editing findings expected.",
+      "labels": [
+        {
+          "pattern": "fragment-run",
+          "tier": null,
+          "line": 1,
+          "quote": "Ready. The worker waits for the approval record.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "fragment-run",
+          "tier": null,
+          "line": 3,
+          "quote": "The worker waits for the approval record. Done.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "fragment-run",
+          "tier": null,
+          "line": 5,
+          "quote": "Ready. Waiting.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/labels.md": {
+      "source": "synthetic",
+      "notes": "Legitimate factual usage, boundary case or concrete question; no editing findings expected.",
+      "labels": [
+        {
+          "pattern": "labelled-significance",
+          "tier": null,
+          "line": 1,
+          "quote": "Error: ENOENT",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "labelled-significance",
+          "tier": null,
+          "line": 3,
+          "quote": "Version: 2026.11.4",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "labelled-significance",
+          "tier": null,
+          "line": 5,
+          "quote": "Cache entries expire after 30 seconds.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/throat.md": {
+      "source": "synthetic",
+      "notes": "Legitimate factual usage, boundary case or concrete question; no editing findings expected.",
+      "labels": [
+        {
+          "pattern": "throat-clearing",
+          "tier": null,
+          "line": 1,
+          "quote": "The worker starts by reading the switch.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "throat-clearing",
+          "tier": null,
+          "line": 3,
+          "quote": "A full stop terminates a sentence in this parser.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "throat-clearing",
+          "tier": null,
+          "line": 5,
+          "quote": "The diver entered the pool at 10:30.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/engagement.md": {
+      "source": "synthetic",
+      "notes": "Legitimate factual usage, boundary case or concrete question; no editing findings expected.",
+      "labels": [
+        {
+          "pattern": "engagement-bait",
+          "tier": null,
+          "line": 1,
+          "quote": "Which exit code did the worker return?",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "engagement-bait",
+          "tier": null,
+          "line": 3,
+          "quote": "Can you reproduce this with version 2026.11.4?",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "engagement-bait",
+          "tier": null,
+          "line": 5,
+          "quote": "Does the record contain the expected link?",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/lexical-1.md": {
+      "source": "synthetic",
+      "notes": "One marker alone is below the cluster threshold.",
+      "labels": [
+        {
+          "pattern": "lexical-cluster",
+          "tier": null,
+          "line": 1,
+          "quote": "Teams leverage the cache.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/lexical-2.md": {
+      "source": "synthetic",
+      "notes": "One marker alone is below the cluster threshold.",
+      "labels": [
+        {
+          "pattern": "lexical-cluster",
+          "tier": null,
+          "line": 1,
+          "quote": "This command will enhance the image contrast.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/lexical-3.md": {
+      "source": "synthetic",
+      "notes": "One marker alone is below the cluster threshold.",
+      "labels": [
+        {
+          "pattern": "lexical-cluster",
+          "tier": null,
+          "line": 1,
+          "quote": "The textile has a rich tapestry border.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/markdown.md": {
+      "source": "reference negatives/code-headers-frontmatter.md @4a2f318",
+      "notes": "Front matter, header, inline/fenced/indented code, alt text, quote, table and comment; protected regions.",
+      "labels": [
+        {
+          "pattern": "contrast-not-but",
+          "tier": null,
+          "line": 6,
+          "quote": "# Not a tool, but a habit",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "rather-than",
+          "tier": null,
+          "line": 3,
+          "quote": "Rather than email",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "throat-clearing",
+          "tier": null,
+          "line": 11,
+          "quote": "let's dive in",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "engagement-bait",
+          "tier": null,
+          "line": 22,
+          "quote": "What do you think?",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "labelled-significance",
+          "tier": null,
+          "line": 3,
+          "quote": "The bug: none.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "contrast-x-not-y",
+          "tier": null,
+          "line": 14,
+          "quote": "![It is not a logo",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/passives.md": {
+      "source": "issue #4139 reproduction",
+      "notes": "Precise passives from #4139; all scanner findings are false positives.",
+      "labels": []
+    },
+    "campaign/x-thread.md": {
+      "source": "reference campaign/x-thread.md @4a2f318",
+      "notes": "Three channels of one campaign.",
+      "labels": [
+        {
+          "pattern": "shared-skeleton",
+          "tier": "check",
+          "line": 3,
+          "quote": "AIWG 2026.11.4 is out.",
+          "expected": true,
+          "scope": "cross"
+        },
+        {
+          "pattern": "repeated-sentence",
+          "tier": "cut",
+          "line": 5,
+          "quote": "Approve a task once and the agent remembers it.",
+          "expected": true,
+          "scope": "cross"
+        },
+        {
+          "pattern": "shared-skeleton",
+          "tier": "check",
+          "line": 5,
+          "quote": "Approve a task once and the agent remembers it.",
+          "expected": true,
+          "scope": "cross"
+        }
+      ],
+      "group": "release"
+    },
+    "campaign/linkedin.md": {
+      "source": "reference campaign/linkedin.md @4a2f318",
+      "notes": "Three channels of one campaign.",
+      "labels": [
+        {
+          "pattern": "shared-skeleton",
+          "tier": "check",
+          "line": 3,
+          "quote": "AIWG 2026.11.5 is out.",
+          "expected": true,
+          "scope": "cross"
+        },
+        {
+          "pattern": "repeated-sentence",
+          "tier": "cut",
+          "line": 5,
+          "quote": "Approve a task once and the agent remembers it.",
+          "expected": true,
+          "scope": "cross"
+        },
+        {
+          "pattern": "shared-skeleton",
+          "tier": "check",
+          "line": 5,
+          "quote": "Approve a task once and the agent remembers it.",
+          "expected": true,
+          "scope": "cross"
+        }
+      ],
+      "group": "release"
+    },
+    "campaign/telegram.md": {
+      "source": "reference campaign/telegram.md @4a2f318",
+      "notes": "Three channels of one campaign.",
+      "labels": [
+        {
+          "pattern": "shared-skeleton",
+          "tier": "check",
+          "line": 3,
+          "quote": "AIWG 2026.11.6 is out.",
+          "expected": true,
+          "scope": "cross"
+        },
+        {
+          "pattern": "repeated-sentence",
+          "tier": "cut",
+          "line": 5,
+          "quote": "Approve a task once and the agent remembers it.",
+          "expected": true,
+          "scope": "cross"
+        },
+        {
+          "pattern": "shared-skeleton",
+          "tier": "check",
+          "line": 5,
+          "quote": "Approve a task once and the agent remembers it.",
+          "expected": true,
+          "scope": "cross"
+        }
+      ],
+      "group": "release"
+    },
+    "negatives/cross-clean/a.md": {
+      "source": "reference negatives/cross-clean/a.md @4a2f318",
+      "notes": "Three distinct releases with different openers and closers.",
+      "labels": [
+        {
+          "pattern": "shared-skeleton",
+          "tier": null,
+          "line": 3,
+          "quote": "Saved approvals ship in AIWG 2026.11.4 and keep secrets behind a prompt.",
+          "expected": false,
+          "scope": "cross"
+        },
+        {
+          "pattern": "repeated-sentence",
+          "tier": null,
+          "line": 3,
+          "quote": "Saved approvals ship in AIWG 2026.11.4 and keep secrets behind a prompt.",
+          "expected": false,
+          "scope": "cross"
+        },
+        {
+          "pattern": "repeated-phrase",
+          "tier": null,
+          "line": 3,
+          "quote": "Saved approvals ship in AIWG 2026.11.4 and keep secrets behind a prompt.",
+          "expected": false,
+          "scope": "cross"
+        }
+      ],
+      "group": "distinct"
+    },
+    "negatives/cross-clean/b.md": {
+      "source": "reference negatives/cross-clean/b.md @4a2f318",
+      "notes": "Three distinct releases with different openers and closers.",
+      "labels": [
+        {
+          "pattern": "shared-skeleton",
+          "tier": null,
+          "line": 3,
+          "quote": "Windows fixes ship in the same release, from a community contributor's four pull requests.",
+          "expected": false,
+          "scope": "cross"
+        },
+        {
+          "pattern": "repeated-sentence",
+          "tier": null,
+          "line": 3,
+          "quote": "Windows fixes ship in the same release, from a community contributor's four pull requests.",
+          "expected": false,
+          "scope": "cross"
+        },
+        {
+          "pattern": "repeated-phrase",
+          "tier": null,
+          "line": 3,
+          "quote": "Windows fixes ship in the same release, from a community contributor's four pull requests.",
+          "expected": false,
+          "scope": "cross"
+        }
+      ],
+      "group": "distinct"
+    },
+    "negatives/cross-clean/c.md": {
+      "source": "reference negatives/cross-clean/c.md @4a2f318",
+      "notes": "Three distinct releases with different openers and closers.",
+      "labels": [
+        {
+          "pattern": "shared-skeleton",
+          "tier": null,
+          "line": 3,
+          "quote": "The kill switch now stops the publisher when its check script goes missing.",
+          "expected": false,
+          "scope": "cross"
+        },
+        {
+          "pattern": "repeated-sentence",
+          "tier": null,
+          "line": 3,
+          "quote": "The kill switch now stops the publisher when its check script goes missing.",
+          "expected": false,
+          "scope": "cross"
+        },
+        {
+          "pattern": "repeated-phrase",
+          "tier": null,
+          "line": 3,
+          "quote": "The kill switch now stops the publisher when its check script goes missing.",
+          "expected": false,
+          "scope": "cross"
+        }
+      ],
+      "group": "distinct"
+    },
+    "campaign-phrase/x.md": {
+      "source": "synthetic",
+      "notes": "Eight shared words inside different sentences; unique openers and closers.",
+      "labels": [
+        {
+          "pattern": "repeated-phrase",
+          "tier": "check",
+          "line": 3,
+          "quote": "X readers can approve a task once and the agent remembers it during x checks.",
+          "expected": true,
+          "scope": "cross"
+        }
+      ],
+      "group": "phrase"
+    },
+    "campaign-phrase/linkedin.md": {
+      "source": "synthetic",
+      "notes": "Eight shared words inside different sentences; unique openers and closers.",
+      "labels": [
+        {
+          "pattern": "repeated-phrase",
+          "tier": "check",
+          "line": 3,
+          "quote": "Linkedin readers can approve a task once and the agent remembers it during linkedin checks.",
+          "expected": true,
+          "scope": "cross"
+        }
+      ],
+      "group": "phrase"
+    },
+    "campaign-phrase/telegram.md": {
+      "source": "synthetic",
+      "notes": "Eight shared words inside different sentences; unique openers and closers.",
+      "labels": [
+        {
+          "pattern": "repeated-phrase",
+          "tier": "check",
+          "line": 3,
+          "quote": "Telegram readers can approve a task once and the agent remembers it during telegram checks.",
+          "expected": true,
+          "scope": "cross"
+        }
+      ],
+      "group": "phrase"
+    },
+    "negatives/list.md": {
+      "source": "synthetic",
+      "notes": "Real inventory with Oxford comma, and a colon before a Markdown list.",
+      "labels": []
+    },
+    "positives/negate-assert.md": {
+      "source": "mixed: reference positives/contrast.md @4a2f318 (first paragraph); synthetic remainder",
+      "notes": "Negated copula followed by a replacement assertion, without a stated misconception.",
+      "labels": [
+        {
+          "pattern": "negate-then-assert",
+          "tier": "check",
+          "line": 1,
+          "quote": "Being signed in is not evidence of being signed in as the right account.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "negate-then-assert",
+          "tier": "check",
+          "line": 3,
+          "quote": "The score is not a substitute for reading the record.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "negate-then-assert",
+          "tier": "check",
+          "line": 5,
+          "quote": "A green check is not proof of the correct account.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/antithesis.md": {
+      "source": "mixed: #4138 reproduction (first paragraph); synthetic remainder",
+      "notes": "Mirrored antonym pairs across a comma.",
+      "labels": [
+        {
+          "pattern": "antithesis-pair",
+          "tier": "cut",
+          "line": 1,
+          "quote": "quiet release note, loud relief",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "antithesis-pair",
+          "tier": "cut",
+          "line": 3,
+          "quote": "short check, long shadow",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "antithesis-pair",
+          "tier": "cut",
+          "line": 5,
+          "quote": "small patch, big promise",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/negate-assert.md": {
+      "source": "synthetic",
+      "notes": "Precise correction or factual technical statement; no rhetorical pair.",
+      "labels": [
+        {
+          "pattern": "negate-then-assert",
+          "tier": null,
+          "line": 1,
+          "quote": "Correction: not 2026.11.3; the release notes say 2026.11.4.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "negate-then-assert",
+          "tier": null,
+          "line": 3,
+          "quote": "The cache was not shared. Each worker kept its own copy of the cache.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "negate-then-assert",
+          "tier": null,
+          "line": 5,
+          "quote": "The file is not found when its parent directory is missing.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/antithesis.md": {
+      "source": "synthetic",
+      "notes": "Precise correction or factual technical statement; no rhetorical pair.",
+      "labels": [
+        {
+          "pattern": "antithesis-pair",
+          "tier": null,
+          "line": 1,
+          "quote": "The worker does not retry after code 2. The publisher waits for a new approval.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "antithesis-pair",
+          "tier": null,
+          "line": 3,
+          "quote": "A cache entry expires after 30 seconds. A record remains for 90 days.",
+          "expected": false,
+          "scope": "file"
+        },
+        {
+          "pattern": "antithesis-pair",
+          "tier": null,
+          "line": 5,
+          "quote": "The script reads the switch. The agent does not bypass a missing switch.",
+          "expected": false,
+          "scope": "file"
+        }
+      ]
+    },
+    "positives/asides.md": {
+      "source": "reference positives/mirrored-and-aside.md @4a2f318",
+      "notes": "Self-explaining asides from November drafts; label covers the aside, not the factual prefix.",
+      "labels": [
+        {
+          "pattern": "labelled-significance",
+          "tier": "cut",
+          "line": 1,
+          "quote": "which is the part I'd keep too.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "labelled-significance",
+          "tier": "cut",
+          "line": 3,
+          "quote": "It still asks about secrets and prod, which is the part I'd keep too.",
+          "expected": true,
+          "scope": "file"
+        },
+        {
+          "pattern": "labelled-significance",
+          "tier": "cut",
+          "line": 5,
+          "quote": "That is the other half of the first decision.",
+          "expected": true,
+          "scope": "file"
+        }
+      ]
+    },
+    "negatives/legacy-regions.md": {
+      "source": "synthetic, shaped like #4139 reproduction",
+      "notes": "Legacy markers in front matter, headings, alt text, fenced and inline code. Four heading dashes reach the legacy scanner threshold. No prose findings expected.",
+      "labels": []
+    }
+  }
+}
