@@ -34,7 +34,9 @@
 #   6. Verifies package-lock.json version matches (CI check:versions / npm ci gate)
 #   7. Verifies CHANGELOG.md has an entry for [<version>]
 #   8. Verifies docs/releases/v<version>-announcement.md exists
+#  8a. Requires a clean worktree so the slow lane tests the replayed/tagged HEAD
 #  8b. Builds the CLI and requires the release infrastructure test lane to pass
+#  8c. Requires five independent package replays to meet the ≥95% match threshold
 #   9. Verifies the AIWG release-signing key is available locally
 #  10. Verifies the release-signing key is published in .gitea/keys/maintainers.asc
 #  11. Creates the signed tag with `git tag -s -u <release-key-fingerprint>`
@@ -226,6 +228,15 @@ EOF
 fi
 echo "  [8/13] Announcement file OK"
 
+# ---------------------------------------------------------------------------
+# 8a. Bind local release checks to the committed tree replayed before signing.
+# ---------------------------------------------------------------------------
+if [ -n "$(git status --porcelain)" ]; then
+  echo "FAIL: Release checks require a clean worktree; commit release preparation first." >&2
+  exit 1
+fi
+echo "  [8a/13] Worktree clean"
+
 # Required before either an RC or stable tag can be created. Run before any
 # signing-key lookup so failed infrastructure checks do not open the keyring.
 npm run build:cli
@@ -239,6 +250,12 @@ if [ -f examples/flue-cloudflare/package-lock.json ]; then
 fi
 node tools/ci/run-with-hang-report.mjs --timeout 30m -- npm run test:release-slow
 echo "  [8b/13] Release infrastructure lane passed"
+
+# ---------------------------------------------------------------------------
+# 8c. Replay the published package surfaces before accessing signing keys.
+# ---------------------------------------------------------------------------
+node tools/release/reproducibility-replay.mjs --version "$TAG_VERSION" --runs 5 --include cockpit
+echo "  [8c/13] Five-run release reproducibility gate passed"
 
 # ---------------------------------------------------------------------------
 # 7b. Source the signing key from the configured vault into an ephemeral keyring.
