@@ -61,6 +61,7 @@ import {
   type ProjectLocalBundle,
 } from '../../extensions/project-local-discovery.js';
 import { PROJECT_LOCAL_TYPE_TO_DIR } from '../../extensions/project-local-paths.js';
+import { formatManifestValidationError } from '../../extensions/manifest.js';
 import { buildUpstreamRegistry } from '../../extensions/upstream-registry.js';
 import {
   resolveShadows,
@@ -1422,8 +1423,8 @@ async function deployProjectLocalBundles(opts: {
 
   const discovery = await discoverProjectLocalBundles(projectDir);
 
-  if (discovery.errors.length > 0 && !quiet) {
-    ui.warn(`Project-local discovery surfaced ${discovery.errors.length} validation error(s) — run 'aiwg list --project-local' for details`);
+  for (const error of discovery.errors) {
+    ui.warn(`${error.path}: ${formatManifestValidationError(error)} — run 'aiwg list --project-local' for details`);
   }
 
   const targetBundles = onlyBundleId
@@ -3416,7 +3417,7 @@ export class UseHandler implements CommandHandler {
           }
         }
 
-        if (totalDeployed > 0 && totalFailed === 0 && !dryRunSingle) {
+        if (totalDeployed > 0 && !dryRunSingle) {
           try {
             await rebuildExternalBundleIndex(projectDir, 'project', verboseSingle);
             if (scopeSingle === 'user') {

@@ -363,6 +363,20 @@ export interface ManifestValidationError {
   severity: 'error' | 'warning';
 }
 
+/** Format a field diagnostic consistently with `aiwg list --project-local`. */
+export function formatManifestValidationError(error: ManifestValidationError): string {
+  return `${error.field}: expected ${error.expected}, got ${error.actual}`
+    + (error.hint ? `; hint: ${error.hint}` : '');
+}
+
+function stringifyManifestValue(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
+
 /**
  * Convert a Zod error into the structured ManifestValidationError shape used
  * by discovery and `aiwg validate-metadata`.
@@ -393,14 +407,15 @@ export function zodErrorToValidationErrors(
       const keys = issue.keys.map((key) => `"${String(key)}"`).join(', ');
       actual = `unknown key(s): ${keys}`;
     }
-    if (issue.code === 'invalid_type' && hasInput) {
+    if ((issue.code === 'invalid_type' || issue.code === 'invalid_value') && hasInput) {
       let value: unknown = input;
       for (const segment of issue.path) {
         value = value !== null && typeof value === 'object' && Object.hasOwn(value, segment)
           ? (value as Record<PropertyKey, unknown>)[segment] : undefined;
       }
-      // Emit only the former type classification, never rejected values.
-      actual = value === null ? 'null' : Array.isArray(value) ? 'array'
+      // Enum diagnostics need the rejected value; type errors retain their classification.
+      actual = issue.code === 'invalid_value' ? stringifyManifestValue(value)
+        : value === null ? 'null' : Array.isArray(value) ? 'array'
         : typeof value === 'number' && Number.isNaN(value) ? 'nan'
         : (issue.expected as string) === 'int' && typeof value === 'number' ? 'float'
         : typeof value;
@@ -408,7 +423,9 @@ export function zodErrorToValidationErrors(
     return {
       path: manifestPath,
       field: issue.path.join('.') || '(root)',
-      expected: issue.message,
+      expected: issue.code === 'invalid_value' && Array.isArray(issue.values)
+        ? `one of ${issue.values.map(stringifyManifestValue).join('|')}`
+        : issue.message,
       actual,
       severity: 'error',
     };

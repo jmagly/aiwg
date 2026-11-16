@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'fs';
+import { mkdtempSync, rmSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { createHash } from 'crypto';
@@ -135,6 +135,31 @@ describe('project-local-doctor (DC-1)', () => {
     });
     expect(r.output).toBe('');
     expect(r.hasFailures).toBe(false);
+  });
+
+  it('names the rejected platform value and allowed values (#4192)', async () => {
+    writeBundle(projectDir, 'broken');
+    const path = join(projectDir, '.aiwg/extensions/broken/manifest.json');
+    const manifest = JSON.parse(readFileSync(path, 'utf8'));
+    manifest.platforms.pi = 'skills-as-agents';
+    writeFileSync(path, JSON.stringify(manifest));
+    const result = await buildProjectLocalDoctorSection({ projectDir, frameworkRoot, config: null });
+    expect(result.hasFailures).toBe(true);
+    expect(result.output).toContain(
+      `${path}: platforms.pi: expected one of "full"|"partial"|"experimental"|"none", got "skills-as-agents"`,
+    );
+    expect(result.output).not.toContain('expected Invalid option: expected');
+  });
+
+  it('includes remediation hints for rejected bundles', async () => {
+    writeBundle(projectDir, 'valid');
+    const path = join(projectDir, '.aiwg/extensions/linked');
+    symlinkSync(join(projectDir, '.aiwg/extensions/valid'), path, 'dir');
+    const result = await buildProjectLocalDoctorSection({ projectDir, frameworkRoot, config: null });
+    expect(result.hasFailures).toBe(true);
+    expect(result.output).toContain(
+      `${path}: (bundle directory): expected regular directory, got symlink; hint: Pass --allow-symlinks to opt in`,
+    );
   });
 
   it('validates project quickref generation and configured-provider deployment', async () => {

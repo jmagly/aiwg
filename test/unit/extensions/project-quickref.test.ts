@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -144,7 +144,7 @@ describe('project quickref generation and deployment (#1788)', () => {
     expect(existsSync(projectAiwgPath(projectDir, 'generated', 'project-quickref', 'definition.json'))).toBe(true);
   });
 
-  it('sorts discovered bundles deterministically and fails closed on discovery errors', async () => {
+  it('sorts validated bundles deterministically and warns about invalid siblings (#4191)', async () => {
     const root = await mkdtemp(join(tmpdir(), 'aiwg-project-quickref-sort-'));
     roots.push(root);
     const projectDir = join(root, 'project');
@@ -156,7 +156,49 @@ describe('project quickref generation and deployment (#1788)', () => {
     const invalid = projectAiwgPath(projectDir, 'extensions', 'broken');
     await mkdir(invalid, { recursive: true });
     await writeFile(join(invalid, 'manifest.json'), '{"id":"broken"}');
-    await expect(resolveProjectQuickref(projectDir)).rejects.toThrow(/broken/);
+    const partial = await resolveProjectQuickref(projectDir);
+    expect(partial.definition).toEqual(resolved.definition);
+    expect(partial.warnings).toEqual(expect.arrayContaining([
+      expect.stringContaining(`${join(invalid, 'manifest.json')}: type: expected`),
+    ]));
+  });
+
+  it('retains enum diagnostics even when no valid bundles remain (#4192)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-project-quickref-invalid-'));
+    roots.push(root);
+    const projectDir = join(root, 'project');
+    await writeBundle(projectDir, 'broken');
+    const path = projectAiwgPath(projectDir, 'extensions', 'broken', 'manifest.json');
+    const manifest = JSON.parse(await readFile(path, 'utf8'));
+    manifest.platforms.pi = 'skills-as-agents';
+    await writeFile(path, JSON.stringify(manifest));
+    const resolved = await resolveProjectQuickref(projectDir);
+    expect(resolved.exists).toBe(false);
+    expect(resolved.definition).toBeUndefined();
+    expect(resolved.warnings).toEqual([
+      `${path}: platforms.pi: expected one of "full"|"partial"|"experimental"|"none", got "skills-as-agents"`,
+    ]);
+  });
+
+  it('still rejects an invalid managed quickref configuration', async () => {
+    const { projectDir } = await fixture();
+    await rm(projectAiwgPath(projectDir, 'quickref.json'));
+    await writeBundle(projectDir, 'valid');
+    const path = projectAiwgPath(projectDir, 'quickref.config.json');
+    await writeFile(path, JSON.stringify({ version: 'invalid' }));
+    await expect(resolveProjectQuickref(projectDir)).rejects.toThrow(path);
+  });
+
+  it('includes remediation hints once in quickref warnings', async () => {
+    const { projectDir } = await fixture();
+    await rm(projectAiwgPath(projectDir, 'quickref.json'));
+    await writeBundle(projectDir, 'valid');
+    const path = projectAiwgPath(projectDir, 'extensions', 'linked');
+    await symlink(projectAiwgPath(projectDir, 'extensions', 'valid'), path, 'dir');
+    const result = await resolveProjectQuickref(projectDir);
+    expect(result.warnings).toEqual([
+      `${path}: (bundle directory): expected regular directory, got symlink; hint: Pass --allow-symlinks to opt in (per #1042 threat model T3)`,
+    ]);
   });
 
   it('enumerates plugin payload capabilities once through the validated artifact path', async () => {

@@ -47,6 +47,20 @@ Path-traversal in `entry` paths (`../../etc`) is refused at validation
 time. The manifest must be ≤ 64 KB. See the executable schema for the full
 constraint set.
 
+## Platform support levels
+
+Each `platforms` value must be `full`, `partial`, `experimental`, or `none`.
+These values declare the bundle's support level for a provider, not its
+deployment format.
+
+Pi's skills-as-agents deployment uses `"pi": "partial"` or `"pi": "full"`,
+according to the bundle's support coverage. `skills-as-agents` describes how
+agents are delivered; it is not a valid manifest value. For example:
+
+```json
+"platforms": { "claude": "full", "pi": "partial" }
+```
+
 ## Addon-contributed CLI commands
 
 Addon-shaped project-local bundles can register an expandable CLI namespace
