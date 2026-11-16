@@ -44,6 +44,37 @@ afterEach(() => {
 });
 
 describe('serial deployment input reuse', () => {
+  it.each([false, true])('previews without reading or copying unrelated corpus inputs (session %s)', async pooled => {
+    const unrelated = path.join(source, 'unrelated.bin');
+    write(unrelated, Buffer.alloc(1024));
+    const before = tree(target);
+    const read = vi.spyOn(fs, 'readFileSync');
+    const copy = vi.spyOn(fs, 'copyFileSync');
+    const logs = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const events = [];
+    const timings = channel('aiwg.provider-staging');
+    const listener = event => events.push(event);
+    timings.subscribe(listener);
+    try {
+      const preview = () => deployWithRuleDelivery({ ...options(), dryRun: true }, provider, deploy);
+      if (pooled) await withDeploymentInputSession(preview);
+      else await preview();
+      expect(read.mock.calls.some(([file]) => file === unrelated)).toBe(false);
+      expect(copy).not.toHaveBeenCalled();
+      expect(events.map(event => event.phase)).toEqual(['prepare-provider-staging']);
+      expect(logs.mock.calls.map(([line]) => line)).toEqual([
+        `[dry-run] Would write ${path.join(target, '.codex/agents/demo.md')}`,
+        `[dry-run] Would write ${path.join(target, '.codex/rules/.aiwg-manifest.json')}`,
+        `[dry-run] Would write ${path.join(target, '.codex/rules/RULES-INDEX.md')}`,
+        `[dry-run] Would write ${path.join(target, '.agents/skills/demo/resource.bin')}`,
+        `[dry-run] Would write ${path.join(target, 'AGENTS.md')}`,
+        expect.stringMatching(/^\[dry-run\] Planned codex deployment: \d+ startup bytes; no output promoted\.$/),
+      ]);
+      expect(tree(target)).toEqual(before);
+      expect(fs.readFileSync(unrelated)).toEqual(Buffer.alloc(1024));
+    } finally { timings.unsubscribe(listener); }
+  });
+
   it.each([false, true])('correlates resolved corpus sources and snapshot status (failure %s)', async fail => {
     const bundle = path.join(source, 'agentic/code/addons/demo');
     fs.mkdirSync(bundle, { recursive: true });
