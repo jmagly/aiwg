@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { packTarGz, unpackTarGz } from '@fortemi/core';
 import {
-  digest, validateReceiptSchema, validateSessionPair, verifyApiObservations, verifySessionArchive, verifySessionReexport, describeRecordChange, isDestinationDefaultEmbeddingConfig,
+  digest, validateReceiptSchema, validateSessionPair, verifyApiObservations, verifySessionArchive, verifySessionReexport, describeRecordChange, seededEmbeddingDefaultFiles,
 } from '../../../tools/ci/verify-aiwg-fortemi-session-receipt.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
@@ -116,37 +116,50 @@ describe('session full-v1 receipt bindings (offline)', () => {
     expect(describeRecordChange([], [{ text: 'x'.repeat(100) }], 40)).toMatch(/^removed=\[\] added=\[\{"text":"x+\.\.\. \(\d+ chars\)$/);
   });
 
-  // Fortemi's seeded default embedding configuration, as returned by run 108354 (#4217).
-  const destinationDefault = {"benchmark_scores":{"context_length":8192,"mteb_classification":0.723,"mteb_clustering":0.491,"mteb_retrieval":0.537},"chunk_overlap":200,"chunk_size":1500,"content_types":[],"created_at":"2026-11-16T21:46:35.075Z","default_truncate_dim":256,"description":"Default embedding configuration using nomic-embed-text (768 dimensions)","dimension":768,"document_composition":{},"hnsw_ef_construction":64,"hnsw_m":16,"id":"01a1e653-82c5-7229-baba-96997c774000","is_available":true,"is_default":true,"ivfflat_lists":100,"limitations":["Large model size (~1GB)"],"matryoshka_dims":[768,512,256,128,64],"model":"nomic-embed-text","name":"default","provider":"ollama","provider_config":{},"recommended_for":["general-search","long-documents","semantic-dedup"],"strengths":["long-context","symmetric","general-purpose"],"supports_mrl":true,"updated_at":"2026-11-16T21:46:35.075Z"};
+  // Fortemi's seeded embedding defaults, as returned by runs 108354 and 108411 (#4217); the set is linked to the config.
+  const destinationConfig = {"benchmark_scores":{"context_length":8192,"mteb_classification":0.723,"mteb_clustering":0.491,"mteb_retrieval":0.537},"chunk_overlap":200,"chunk_size":1500,"content_types":[],"created_at":"2026-11-16T21:46:35.075Z","default_truncate_dim":256,"description":"Default embedding configuration using nomic-embed-text (768 dimensions)","dimension":768,"document_composition":{},"hnsw_ef_construction":64,"hnsw_m":16,"id":"01a1e653-82c5-7229-baba-96997c774000","is_available":true,"is_default":true,"ivfflat_lists":100,"limitations":["Large model size (~1GB)"],"matryoshka_dims":[768,512,256,128,64],"model":"nomic-embed-text","name":"default","provider":"ollama","provider_config":{},"recommended_for":["general-search","long-documents","semantic-dedup"],"strengths":["long-context","symmetric","general-purpose"],"supports_mrl":true,"updated_at":"2026-11-16T21:46:35.075Z"};
+  const destinationSet = {"agent_metadata":{},"auto_embed_rules":{},"auto_refresh":true,"created_at":"2026-11-16T23:12:13.952Z","created_by":null,"criteria":{"exclude_archived":true,"include_all":true},"description":"Primary embedding set containing all notes. Used for general semantic search.","document_count":6,"embedding_config_id":"01a1e653-82c5-7229-baba-96997c774000","embedding_count":0,"embeddings_current":true,"id":"01a1e6a1-f61c-72c2-a72d-40d2ffb06ede","index_size_bytes":0,"index_status":"pending","index_type":"hnsw","is_active":true,"is_system":true,"keywords":["all","general","default","everything","global"],"last_indexed_at":null,"last_refresh_at":null,"mode":"auto","name":"Default","purpose":"Provides semantic search across the entire knowledge base.","refresh_interval":"1 day","set_type":"filter","slug":"default","truncate_dim":null,"updated_at":"2026-11-16T23:12:22.502Z","usage_hints":"Use this set for general queries when you want to search all content. This is the default set used when no specific set is specified."};
+  const noteIds = jsonLines('notes.jsonl').map((note) => note.id);
+  const members = noteIds.map((noteId) => ({ embedding_set_id: destinationSet.id, note_id: noteId, membership_type: 'auto', added_at: '2026-11-16T23:12:13.952Z', added_by: null }));
 
-  it('allows only the destination default embedding config as a re-export addition (#4217)', () => {
-    expect(isDestinationDefaultEmbeddingConfig('embedding_configs.json', [], [destinationDefault])).toBe(true);
-    expect(isDestinationDefaultEmbeddingConfig('embedding_configs.json', [], [{ ...destinationDefault, is_default: false }])).toBe(false);
-    expect(isDestinationDefaultEmbeddingConfig('embedding_configs.json', [], [destinationDefault, destinationDefault])).toBe(false);
-    expect(isDestinationDefaultEmbeddingConfig('embedding_configs.json', [{ name: 'source' }], [destinationDefault])).toBe(false);
-    expect(isDestinationDefaultEmbeddingConfig('embedding_sets.json', [], [destinationDefault])).toBe(false);
+  function seededReexport(overrides: Record<string, unknown[]> = {}) {
+    const changed = new Map(files);
+    const manifest = JSON.parse(Buffer.from(files.get('manifest.json')!).toString());
+    const content: Record<string, unknown[]> = {
+      'embedding_configs.json': [destinationConfig], 'embedding_sets.json': [destinationSet],
+      'embedding_set_members.jsonl': members, 'embeddings.jsonl': [], ...overrides,
+    };
+    for (const [name, rows] of Object.entries(content)) {
+      const bytes = Buffer.from(name.endsWith('.jsonl') ? rows.map((row) => JSON.stringify(row)).join('\n') : JSON.stringify(rows));
+      changed.set(name, bytes);
+      manifest.checksums[name] = digest(bytes);
+      manifest.counts[name.replace(/\.jsonl?$/, '')] = rows.length;
+    }
+    changed.set('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    return packTarGz(changed);
+  }
+
+  it('names the files Fortemi seeded embedding defaults explain (#4217)', () => {
+    const read = (rows: Record<string, unknown[]>) => (side: string, name: string) => (side === 'before' ? [] : rows[name] ?? []);
+    const ids = new Set(noteIds);
+    expect([...seededEmbeddingDefaultFiles(read({ 'embedding_configs.json': [destinationConfig], 'embedding_sets.json': [destinationSet], 'embedding_set_members.jsonl': members }), ids)].sort())
+      .toEqual(['embedding_configs.json', 'embedding_set_members.jsonl', 'embedding_sets.json']);
+    expect(seededEmbeddingDefaultFiles(read({ 'embedding_configs.json': [{ ...destinationConfig, is_default: false }] }), ids).size).toBe(0);
+    expect(seededEmbeddingDefaultFiles(read({ 'embeddings.jsonl': [{ id: 'e1' }] }), ids).size).toBe(0);
+    expect(seededEmbeddingDefaultFiles((side, name) => (name === 'embedding_configs.json' ? [{ name: 'source' }] : side === 'before' ? [] : [destinationConfig]), ids).size).toBe(0);
   });
 
-  it('accepts a re-export that only adds the destination default embedding config', async () => {
-    const changed = new Map(files);
-    const bytes = Buffer.from(JSON.stringify([destinationDefault]));
-    changed.set('embedding_configs.json', bytes);
-    const manifest = JSON.parse(Buffer.from(files.get('manifest.json')!).toString());
-    manifest.checksums['embedding_configs.json'] = digest(bytes);
-    manifest.counts.embedding_configs = 1;
-    changed.set('manifest.json', Buffer.from(JSON.stringify(manifest)));
-    await expect(verifySessionReexport(archive, packTarGz(changed))).resolves.toBeUndefined();
+  it('accepts a re-export that only adds Fortemi seeded embedding defaults', async () => {
+    await expect(verifySessionReexport(archive, seededReexport())).resolves.toBeUndefined();
   });
 
-  it('still rejects a re-export that adds a non-default embedding config', async () => {
-    const changed = new Map(files);
-    const bytes = Buffer.from(JSON.stringify([{ ...destinationDefault, is_default: false }]));
-    changed.set('embedding_configs.json', bytes);
-    const manifest = JSON.parse(Buffer.from(files.get('manifest.json')!).toString());
-    manifest.checksums['embedding_configs.json'] = digest(bytes);
-    manifest.counts.embedding_configs = 1;
-    changed.set('manifest.json', Buffer.from(JSON.stringify(manifest)));
-    await expect(verifySessionReexport(archive, packTarGz(changed))).rejects.toThrow(/changed embedding_configs\.json/);
+  it.each([
+    ['a membership for a note the shard does not hold', { 'embedding_set_members.jsonl': [...members, { ...members[0], note_id: '00000000-0000-0000-0000-000000000000' }] }],
+    ['a non-system set', { 'embedding_sets.json': [{ ...destinationSet, is_system: false }] }],
+    ['a set linked to another config', { 'embedding_sets.json': [{ ...destinationSet, embedding_config_id: '00000000-0000-0000-0000-000000000001' }] }],
+    ['a non-default config', { 'embedding_configs.json': [{ ...destinationConfig, is_default: false }] }],
+  ])('still rejects %s', async (_label, overrides) => {
+    await expect(verifySessionReexport(archive, seededReexport(overrides as Record<string, unknown[]>))).rejects.toThrow(/native semantic re-export changed embedding_/);
   });
 
   it('includes the record change in the re-export failure message', async () => {
