@@ -1,3 +1,4 @@
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { workerMarkerNames } from '../../fixtures/worker-attribution.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
 /**
@@ -344,14 +345,14 @@ describe('T-OG-15 OpenCode direct command contract', () => {
       env: { PATH: process.env.PATH, AIWG_FAKE_WORKER_CONFIG: file, OPENCODE_UNRELATED_SECRET: '[REDACTED]' } });
     expect(result.code, result.stderr).toBe(0);
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
-    expect(record).toMatchObject({ model: MODEL, format: 'json', message: OPENCODE_FIXED_MESSAGE, file: brief, brief: payload, cwd: workdir });
-    expect(record.argv).toEqual(invocation.argv.slice(2));
+    expect(record).toMatchObject({ model: MODEL, format: 'json', message: OPENCODE_FIXED_MESSAGE, file: `${invocation.finalPath}.worker-brief`, brief: workerPromptBrief(payload, invocation.finalPath!).toString(), cwd: workdir });
+    expect(record.argv).toEqual(invocation.argv.slice(2).map(token => token === invocation.briefPath ? `${invocation.finalPath}.worker-brief` : token));
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
     // The marker DOES reach the fake, but only through the attached file.
     expect(record.brief).toContain(MARKER);
     expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     const stdout = await readFile(invocation.stdoutPath, 'utf8');
-    expect(owner.parseOutput(stdout)).toEqual({ text: `synthetic reply (${payload.length} chars)` });
+    expect(owner.parseOutput(stdout)).toEqual({ text: `synthetic reply (${workerPromptBrief(payload, invocation.finalPath!).toString().length} chars)` });
     const events = stdout.trim().split('\n').map(line => JSON.parse(line));
     expect(events.map(event => owner.observeHealthEvent(event, { kind: 'stdout', id: 'stdout', generation: 0, offset: 0 },
       { invocationId: 'oc02' })?.kind ?? null)).toEqual(['setup', 'activity', 'terminal']);

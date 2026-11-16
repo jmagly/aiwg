@@ -182,15 +182,15 @@ describe('T-OG-15 Copilot direct command contract', () => {
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
     expect(record).toMatchObject({ model: MODEL, effort: 'medium', cwd: workdir, outputFormat: 'json',
       noAskUser: true, noCustomInstructions: true, disableBuiltinMcps: true, allowTools: ['write'] });
-    expect(record.brief).toBe(payload);
+    expect(record.brief).toBe(workerPromptBrief(payload, invocation.finalPath!).toString());
     expect(record.brief).toContain(MARKER);
     expect(record.argv).toEqual(invocation.argv.slice(2));
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
     expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
-    expect(installed.owner.parseOutput(await readFile(invocation.stdoutPath, 'utf8'))).toEqual({ text: `synthetic reply (${payload.length} chars)` });
+    expect(installed.owner.parseOutput(await readFile(invocation.stdoutPath, 'utf8'))).toEqual({ text: `synthetic reply (${workerPromptBrief(payload, invocation.finalPath!).toString().length} chars)` });
     const final = installed.owner.parseDirectFinal(await readFile(invocation.stdoutPath, 'utf8'));
-    expect(final).toEqual({ text: `synthetic reply (${payload.length} chars)` });
+    expect(final).toEqual({ text: `synthetic reply (${workerPromptBrief(payload, invocation.finalPath!).toString().length} chars)` });
   });
 
   it('CP03 the stdin launcher never carries the brief in argv, launch records or run-dir metadata', async () => {

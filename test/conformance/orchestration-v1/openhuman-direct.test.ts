@@ -242,8 +242,8 @@ describe('T-OG-15 OpenHuman direct command contract', () => {
     expect(invocation.shellCommand).not.toContain(MARKER);
     expect(JSON.stringify(plan)).not.toContain(MARKER);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
-    const framer = path.resolve('src/serve/worker-stdin-frame.mjs');
-    expect(shellCaptureBody(invocation)).toBe(`cd ${quote(workdir)} && env -i ${[process.execPath, framer, invocation.briefPath, MODEL, workdir].map(quote).join(' ')}`
+    const framer = path.resolve('src/serve/worker-shell-prompt.mjs');
+    expect(shellCaptureBody(invocation)).toBe(`cd ${quote(workdir)} && env -i ${[process.execPath, framer, '--brief-json', path.resolve('.'), invocation.briefPath, invocation.briefDigest!, invocation.finalPath, MODEL, workdir].map(quote).join(' ')}`
       + ` | env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}" ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')}`
       + ` > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     expect(invocation.shellCommand).not.toContain('< /dev/null');
@@ -253,15 +253,15 @@ describe('T-OG-15 OpenHuman direct command contract', () => {
     expect(result.code, result.stderr).toBe(0);
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
     expect(record).toMatchObject({ method: OPENHUMAN_CHAT_METHOD, model: MODEL, cwd: workdir, fromStdin: true,
-      stdinEof: true, params: { message: payload, model_override: MODEL, cwd: workdir } });
+      stdinEof: true, params: { message: workerPromptBrief(payload, invocation.finalPath!).toString(), model_override: MODEL, cwd: workdir } });
     expect(record.params.message).toContain(MARKER);
-    expect(record.stdinBytes).toBe(Buffer.byteLength(JSON.stringify({ message: payload, model_override: MODEL, cwd: workdir })));
+    expect(record.stdinBytes).toBe(Buffer.byteLength(JSON.stringify({ message: workerPromptBrief(payload, invocation.finalPath!).toString(), model_override: MODEL, cwd: workdir })));
     expect(record.argv).toEqual(invocation.argv.slice(2));
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
     expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
     const final = installed.owner.parseOutput(await readFile(invocation.stdoutPath, 'utf8'));
-    expect(final).toEqual({ response: `synthetic reply (${payload.length} chars)` });
+    expect(final).toEqual({ response: `synthetic reply (${workerPromptBrief(payload, invocation.finalPath!).toString().length} chars)` });
   });
 
   it('OD03 the attached launcher frames stdin; unit/launch and run-dir metadata never carry the brief', async () => {

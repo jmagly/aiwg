@@ -1,3 +1,4 @@
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
 /** #2900: offline Claude CLI profile mechanics, never live qualification.
  * T-OG-03/10/14/15/19/20/23 are partial: no model, account or MC access.
@@ -189,7 +190,7 @@ describe('Claude direct CLI profile (#2900)', () => {
     expect(f.code, f.stderr).toBe(0); expect(f.invocation.stdin).toBe('brief-text');
     expect(JSON.stringify(f.result)).not.toContain(MARKER);
     const record = JSON.parse(await readFile(f.record, 'utf8'));
-    expect(record).toMatchObject({ cwd: f.workdir, brief: f.payload, stdinEof: true, argv: f.invocation.argv.slice(2) });
+    expect(record).toMatchObject({ cwd: f.workdir, brief: workerPromptBrief(f.payload, f.invocation.finalPath!).toString(), stdinEof: true, argv: f.invocation.argv.slice(2) });
     expect(record.envNames).not.toContain('UNRELATED_SECRET'); expect(existsSync(path.join(f.root, 'injected'))).toBe(false);
     expect(record.argv).toEqual((metadata().invocation as any).argv.map((arg: string) => arg.replace('${model}', MODEL).replace('${effort}', 'medium')));
     vi.stubEnv('AIWG_RESOLVE_IMPL_FROM', 'src');

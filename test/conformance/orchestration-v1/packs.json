@@ -317,6 +317,7 @@
       ],
       "status": "partial",
       "testFiles": [
+        "test/conformance/orchestration-v1/worker-shell-prompt.test.ts",
         "test/unit/serve/worker-command-ceilings.test.ts",
         "test/conformance/orchestration-v1/opencode-versions.test.ts",
         "test/unit/models/opencode-worker-model.test.ts",

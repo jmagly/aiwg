@@ -1,3 +1,4 @@
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { shellCaptureBody } from '../../fixtures/shell-capture-command.js';
 import { directWorkerEnvironment } from '../../../src/config/worker-attribution.mjs';
 import baseline from '../../fixtures/providers/worker-delivery-baseline.json';
@@ -247,7 +248,7 @@ describe('S1 pure installed-path invocation preparation (T-OG-03/14/15/17)', () 
     await exec('/bin/sh', ['-c', rendered.shellCommand], { cwd: root, timeout: 5_000,
       env: { AIWG_FAKE_WORKER_CONFIG: configPath, UNRELATED_SECRET: 'synthetic-secret-not-forwarded' } });
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
-    expect(record).toMatchObject({ scenarioId: 'T-OG-15-exact-data', argv: invocation.argv.slice(2), cwd: root, stdin: payload,
+    expect(record).toMatchObject({ scenarioId: 'T-OG-15-exact-data', argv: invocation.argv.slice(2), cwd: root, stdin: workerPromptBrief(payload, final).toString(),
       outputPaths: { final, '--final-output': final } });
     // POSIX sh may add PWD; the unrelated credential is never inherited.
     expect(record.envNames).toContain('AIWG_FAKE_WORKER_CONFIG');
@@ -400,11 +401,12 @@ describe('T-OG-15 bundled delivery remains byte-identical', () => {
     const prepared = await adapter.prepareWorkerInvocation(invocation, f.qualification);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
     const markers = Object.entries(directWorkerEnvironment(invocation)).map(([name, value]) => `${name}=${quote(value)}`).join(' ');
-    const worker = `env -i ${markers} ${invocation.argv.map(quote).join(' ')}`;
+    const promptPath = `${invocation.finalPath}.worker-brief`;
+    const worker = `env -i ${markers} ${invocation.argv.map(token => token === invocation.briefPath ? promptPath : token).map(quote).join(' ')}`;
     const outputs = `> ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`;
     const expected = row.stdin === 'brief-json'
-      ? `cd ${quote(invocation.cwd)} && env -i ${[process.execPath, path.resolve('src/serve/worker-stdin-frame.mjs'), invocation.briefPath, invocation.selected.model, invocation.cwd].map(quote).join(' ')} | ${worker} ${outputs}`
-      : `cd ${quote(invocation.cwd)} && ${worker} ${row.stdin === 'closed' ? '< /dev/null' : `< ${quote(invocation.briefPath)}`} ${outputs}`;
+      ? `cd ${quote(invocation.cwd)} && env -i ${[process.execPath, path.resolve('src/serve/worker-shell-prompt.mjs'), '--brief-json', path.resolve('.'), invocation.briefPath, invocation.briefDigest!, invocation.finalPath, invocation.selected.model, invocation.cwd].map(quote).join(' ')} | ${worker} ${outputs}`
+      : `cd ${quote(invocation.cwd)} && ${worker} ${row.stdin === 'closed' ? '< /dev/null' : `< ${quote(promptPath)}`} ${outputs}`;
     expect(shellCaptureBody(prepared, { role: f.qualification.role, task: null })).toBe(expected);
     const brief = Buffer.from('synthetic 雪\nbrief');
     const bytes = row.stdin === 'closed' ? null : row.stdin === 'brief-text' ? brief

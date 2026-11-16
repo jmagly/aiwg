@@ -63,6 +63,21 @@ describe('raw shell capture preflight', () => {
     await expect(readFile(`${binding.paths.final}.launch-owner`)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
+  it('refuses a changed closed-stdin prompt-file brief before reserving any path', async () => {
+    const { binding, root } = await fixture();
+    binding.invocation.stdin = 'closed';
+    const paths = { ...binding.paths, workerBrief: `${binding.paths.final}.worker-brief` };
+    await writeFile(binding.invocation.briefPath, 'changed');
+    await expect(reserveShellWorkerCapture({ ...binding, paths })).rejects.toThrow(/prompt digest changed/);
+    for (const filename of Object.values(paths)) {
+      await expect(readFile(`${filename}.launch-owner`)).rejects.toMatchObject({ code: 'ENOENT' });
+    }
+    const key = createHash('sha256').update(JSON.stringify([
+      binding.request.role, binding.request.task, binding.invocation.cwd,
+    ])).digest('hex');
+    await expect(readFile(path.join(root, `.shell-${key}`, 'invocation.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('refuses missing output parents and aliased outputs', async () => {
     const { binding, root } = await fixture();
     binding.paths.final = path.join(root, 'missing', 'final.json');

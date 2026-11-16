@@ -1,3 +1,4 @@
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { shellCaptureBody } from '../../fixtures/shell-capture-command.js';
 import { workerMarkerNames, workerMarkerShell } from '../../fixtures/worker-attribution.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
@@ -301,13 +302,13 @@ describe('T-OG-15 Hermes direct command contract', () => {
     expect(JSON.stringify(invocation.argv)).not.toContain(MARKER);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
     expect(shellCaptureBody(invocation)).toBe(`cd ${quote(workdir)} && env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}" ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')}`
-      + ` < ${quote(invocation.briefPath)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
+      + ` < ${quote(`${invocation.finalPath}.worker-brief`)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     const { file, recordPath } = await fakeConfig(root, 'success');
     const result = await run('/bin/sh', ['-c', invocation.shellCommand!], { cwd: root,
       env: { PATH: process.env.PATH!, AIWG_FAKE_WORKER_CONFIG: file, HERMES_UNRELATED_SECRET: 'sk-synthetic-should-not-pass' } });
     expect(result.code, result.stderr).toBe(0);
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
-    expect(record).toMatchObject({ query: payload, model: MODEL, provider: PROVIDER });
+    expect(record).toMatchObject({ query: workerPromptBrief(payload, invocation.finalPath!).toString(), model: MODEL, provider: PROVIDER });
     expect(record.query).toContain(MARKER);
     expect(record.argv).toEqual(invocation.argv.slice(2));
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
@@ -317,7 +318,7 @@ describe('T-OG-15 Hermes direct command contract', () => {
     const final = owner.parseOutput(stdoutText);
     expect(final?.response).toContain('"status":"completed"');
     const claims = JSON.parse(stdoutText);
-    expect(claims).toMatchObject({ version: 1, status: 'completed', summary: `synthetic reply (${payload.length} chars)` });
+    expect(claims).toMatchObject({ version: 1, status: 'completed', summary: `synthetic reply (${workerPromptBrief(payload, invocation.finalPath!).toString().length} chars)` });
   });
 
   it('HD02b end to end through the real rendered command: a leading startup diagnostic on stdout still lets parseWorkerFinal accept the valid final beneath it; garbage preamble and diagnostic-only output still fail', async () => {

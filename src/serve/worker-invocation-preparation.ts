@@ -4,8 +4,10 @@ import { findPackageRoot } from '../cli/find-package-root.js';
 import { workerOutputPaths } from './worker-invocation-paths.js';
 import { directWorkerEnvironment } from '../config/worker-attribution.mjs';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { validateWorkerArtifacts } from './worker-artifacts.mjs';
+import { shellWorkerPromptPath, shellWorkerArtifactsRefusal } from './worker-shell-prompt.mjs';
 import { assertValidWorkerPayload } from '../mission-protocol/codecs.js';
 import type { WorkerResolvedInvocation } from '../mission-protocol/types.js';
 import type { WorkerExecution } from '../config/aiwg-config.js';
@@ -26,6 +28,12 @@ import { qualifyWorkerInvocationProfile, assertOperatorWorkerNativeArgv, assertW
  */
 export function mcpToolSchemaDigest(schema: unknown): string {
   return `sha256:${createHash('sha256').update(JSON.stringify(schema)).digest('hex')}`;
+}
+
+/** JSON plans retain launcher/MCP support; only raw shell artifact delivery is refused. */
+export class WorkerShellArtifactsError extends WorkerPolicyError {
+  readonly pointer = '/request/format';
+  constructor() { super('OG_ADAPTER_UNQUALIFIED', shellWorkerArtifactsRefusal); }
 }
 
 export interface WorkerInvocationQualification extends ParametersContext {
@@ -149,38 +157,49 @@ export async function prepareWorkerInvocation(invocation: WorkerResolvedInvocati
     const deadline = qualification.ceilings?.wallSeconds === undefined ? ''
       : `timeout --signal=KILL ${quote(`${Math.min(result.health?.hardTimeoutSeconds ?? Infinity, result.limits.wallSeconds)}s`)} `;
     const markers = Object.entries(directWorkerEnvironment(result)).map(([name, value]) => `${name}=${quote(value)}`).join(' ');
-    const worker = `${deadline}env -i${environment ? ` ${environment}` : ''} ${markers} ${result.argv.map(quote).join(' ')}`;
-    const outputs = `> ${quote(result.stdoutPath)} 2> ${quote(result.stderrPath)}`;
-    if (result.stdin === 'brief-json') {
-      const framer = fileURLToPath(new URL('./worker-stdin-frame.mjs', import.meta.url));
-      const frame = [process.execPath, framer, result.briefPath, result.selected.model, result.cwd].map(quote).join(' ');
-      result.shellCommand = `cd ${quote(result.cwd)} && env -i ${frame} | ${worker} ${outputs}`;
-    } else if (result.stdin === 'adapter-frame') {
-      const binding = qualification.stdinFramerBinding;
-      if (!binding || !absolute(binding.storePath) || !/^sha256:[a-f0-9]{64}$/.test(binding.storeDigest)) {
-        throw new Error('Adapter stdin framer requires a trusted installation binding');
-      }
-      const framer = fileURLToPath(new URL('./worker-stdin-frame.mjs', import.meta.url));
-      const frame = [process.execPath, framer, '--adapter-frame', result.briefPath, result.cwd,
-        result.selected.cli, qualification.adapterId, result.selected.qualificationDigest, result.briefDigest!,
-        binding.storePath, binding.storeDigest, JSON.stringify(qualification.policy ?? null), result.selected.model].map(quote).join(' ');
-      result.shellCommand = `cd ${quote(result.cwd)} && env -i${environment ? ` ${environment}` : ''} ${frame} | ${worker} ${outputs}`;
-    } else if (result.stdin === 'closed' || result.stdin === 'brief-text') {
-      const stdin = result.stdin === 'closed' ? '< /dev/null' : `< ${quote(result.briefPath)}`;
-      result.shellCommand = `cd ${quote(result.cwd)} && ${worker} ${stdin} ${outputs}`;
-    } else {
-      throw new Error(`Unsupported worker stdin mode: ${result.stdin}`);
-    }
     const root = findPackageRoot(path.dirname(fileURLToPath(import.meta.url)));
     if (!root) throw new Error('Worker shell handoff requires the installed AIWG package root');
-    const guard = path.join(root, 'tools/ralph-external/lib/worker-shell-capture.mjs');
-    const binding = { request: { role: qualification.role, task: qualification.task ?? null,
-      group: result.selected.group, workdir: result.cwd },
-      invocation: { cwd: result.cwd, briefPath: result.briefPath, briefDigest: result.briefDigest, stdin: result.stdin, selected: result.selected },
-      paths: workerOutputPaths(result) };
-    // Reserve every output before shell redirection or vendor-owned final writes.
-    // Noclobber also protects stream files created between reservation and exec.
-    result.shellCommand = `${[process.execPath, guard, JSON.stringify(binding)].map(quote).join(' ')} && (set -C; ${result.shellCommand})`;
+    const promptPath = shellWorkerPromptPath(result.finalPath);
+    // Saved plans must revalidate identically through source and compiled loaders.
+    const promptModule = 'src/serve/worker-shell-prompt.mjs';
+    const promptRuntime = path.join(root, existsSync(path.join(root, promptModule)) ? promptModule : `dist/${promptModule}`);
+    if (result.artifacts?.length) {
+      // Raw execution has no launcher-owned artifact cleanup or workspace lifecycle.
+      result.shellCommand = [process.execPath, promptRuntime, '--refuse-artifacts', root].map(quote).join(' ');
+    } else {
+      const argv = result.argv.map(token => token === result.briefPath ? promptPath : token);
+      const worker = `${deadline}env -i${environment ? ` ${environment}` : ''} ${markers} ${argv.map(quote).join(' ')}`;
+      const outputs = `> ${quote(result.stdoutPath)} 2> ${quote(result.stderrPath)}`;
+      if (result.stdin === 'brief-json') {
+        const frame = [process.execPath, promptRuntime, '--brief-json', root, result.briefPath, result.briefDigest ?? '', result.finalPath, result.selected.model, result.cwd].map(quote).join(' ');
+        result.shellCommand = `cd ${quote(result.cwd)} && env -i ${frame} | ${worker} ${outputs}`;
+      } else if (result.stdin === 'adapter-frame') {
+        const binding = qualification.stdinFramerBinding;
+        if (!binding || !absolute(binding.storePath) || !/^sha256:[a-f0-9]{64}$/.test(binding.storeDigest)) {
+          throw new Error('Adapter stdin framer requires a trusted installation binding');
+        }
+        const frame = [process.execPath, promptRuntime, '--adapter-frame', root, result.briefPath, result.cwd,
+          result.selected.cli, qualification.adapterId, result.selected.qualificationDigest, result.briefDigest!,
+          binding.storePath, binding.storeDigest, JSON.stringify(qualification.policy ?? null), result.selected.model, result.finalPath].map(quote).join(' ');
+        result.shellCommand = `cd ${quote(result.cwd)} && env -i${environment ? ` ${environment}` : ''} ${frame} | ${worker} ${outputs}`;
+      } else if (result.stdin === 'closed' || result.stdin === 'brief-text') {
+        const stdin = result.stdin === 'closed' ? '< /dev/null' : `< ${quote(promptPath)}`;
+        result.shellCommand = `cd ${quote(result.cwd)} && ${worker} ${stdin} ${outputs}`;
+      } else {
+        throw new Error(`Unsupported worker stdin mode: ${result.stdin}`);
+      }
+      const guard = path.join(root, 'tools/ralph-external/lib/worker-shell-capture.mjs');
+      // Closed probes with no task input need neither a brief file nor a derived prompt.
+      const needsPrompt = result.stdin !== 'closed' || result.argv.includes(result.briefPath);
+      const binding = { request: { role: qualification.role, task: qualification.task ?? null,
+        group: result.selected.group, workdir: result.cwd },
+        invocation: { cwd: result.cwd, briefPath: result.briefPath, briefDigest: result.briefDigest, stdin: result.stdin, selected: result.selected },
+        paths: { ...workerOutputPaths(result), ...(needsPrompt ? { workerBrief: promptPath } : {}) } };
+      // Reserve every output before shell redirection or vendor-owned final writes.
+      // Noclobber also protects stream files created between reservation and exec.
+      const stage = needsPrompt ? [process.execPath, promptRuntime, '--stage', root, result.briefPath, result.briefDigest ?? '', result.finalPath].map(quote).join(' ') + ' && ' : '';
+      result.shellCommand = `${[process.execPath, guard, JSON.stringify(binding)].map(quote).join(' ')} && ${stage}(set -C; ${result.shellCommand})`;
+    }
   } else {
     const binding = result.mcp!;
     for (const key of ['serverRef', 'tool', 'inputSchemaDigest', 'outputSchemaDigest', 'sessionIsolation']) {

@@ -1,3 +1,4 @@
+import { workerPromptBrief } from '../../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { copyNode } from '../../../helpers/copy-node.js';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -338,7 +339,7 @@ describe('T-OG-15 models resolve direct invocation', () => {
     await writeFile(config, JSON.stringify({ recordPath: record, scenario: 'success' }));
     await execute('/bin/sh', ['-c', shell.output], { env: { AIWG_FAKE_WORKER_CONFIG: config, UNRELATED_SECRET: 'not-forwarded' }, timeout: 5000 });
     expect(JSON.parse(await readFile(record, 'utf8'))).toMatchObject({ argv: invocation.argv.slice(2), cwd: f.request.workdir,
-      stdin: f.payload, outputPaths: { final: invocation.finalPath } });
+      stdin: workerPromptBrief(f.payload, invocation.finalPath).toString(), outputPaths: { final: invocation.finalPath } });
     expect(JSON.parse(await readFile(record, 'utf8')).envNames).not.toContain('UNRELATED_SECRET');
     await expect(readFile(path.join(f.root, 'injected'))).rejects.toMatchObject({ code: 'ENOENT' });
   });

@@ -360,7 +360,7 @@ describe('T-OG-15 Codex direct command contract', () => {
     expect(JSON.stringify(plan)).not.toContain(MARKER);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
     expect(shellCaptureBody(invocation)).toBe(`cd ${quote(workdir)} && env -i PATH="\${PATH-}" AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}"`
-      + ` ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')} < ${quote(brief)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
+      + ` ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')} < ${quote(`${invocation.finalPath}.worker-brief`)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     expect(invocation.shellCommand).not.toContain('< /dev/null');
     const { file, recordPath } = await fakeConfig(root, 'success');
     const result = await run('/bin/sh', ['-c', invocation.shellCommand!], { cwd: root,
@@ -369,14 +369,14 @@ describe('T-OG-15 Codex direct command contract', () => {
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
     expect(record).toMatchObject({ noDaemon: true, ignoreUserConfig: true, model: MODEL, effort: 'medium',
       sandbox: 'workspace-write', approval: 'never', workdir, skipGitRepoCheck: true, jsonStream: true, cwd: workdir,
-      outputFile: `${invocation.finalPath}.last-message`, stdinEof: true, stdinBytes: Buffer.byteLength(payload), promptViaStdin: true });
-    expect(record.prompt).toBe(payload);
+      outputFile: `${invocation.finalPath}.last-message`, stdinEof: true, stdinBytes: workerPromptBrief(payload, invocation.finalPath!).byteLength, promptViaStdin: true });
+    expect(record.prompt).toBe(workerPromptBrief(payload, invocation.finalPath!).toString());
     expect(record.argv).toEqual(invocation.argv.slice(2));
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
     expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames, 'PATH']);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
     const final = owner.parseOutput(await readFile(`${invocation.finalPath}.last-message`, 'utf8'));
-    expect(final).toEqual({ response: `synthetic reply (${payload.length} chars)` });
+    expect(final).toEqual({ response: `synthetic reply (${workerPromptBrief(payload, invocation.finalPath!).toString().length} chars)` });
     const events = (await readFile(invocation.stdoutPath, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
     expect(events.map(event => owner.observeHealthEvent(event, { kind: 'stdout', id: 'stdout', generation: 0, offset: 0 },
       { invocationId: 'cx02', sessionId: THREAD })?.kind ?? null))
