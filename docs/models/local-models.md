@@ -2,6 +2,90 @@
 
 Running LLMs locally for AIWG workflows. Covers Ollama, llama.cpp, and vLLM; quantization trade-offs; hardware sizing; and how to connect local models to AIWG via OpenAI-compatible APIs.
 
+## Endpoint-backed direct workers (#4193)
+
+Declare models under the CLI installation in `.aiwg/aiwg.config`. The executable
+must already configure its harness to use this same endpoint, for example an
+operator-owned Codex wrapper with a custom `model_providers` entry. AIWG uses the
+CLI's existing adapter and passes the exact model selector with `-m` for Codex.
+The declaration does not configure or verify the wrapper's backend routing.
+
+```json
+{
+  "parallelism": {
+    "worker_dispatch": true,
+    "clis": {
+      "local-codex": {
+        "adapter": "providers:codex",
+        "executable": "/opt/workers/codex-local",
+        "accountScope": "self-hosted",
+        "quotaScope": "local-gpu",
+        "localModels": {
+          "endpoint": "http://127.0.0.1:8010/v1",
+          "authEnv": "LOCAL_MODEL_API_KEY",
+          "timeoutMs": 3000,
+          "models": [{
+            "id": "my-coder",
+            "checkpoint": "my-coder-q4-revision-12",
+            "family": "my-coder",
+            "contextTokens": 32768,
+            "maxOutputTokens": 4096,
+            "efforts": ["medium"]
+          }]
+        }
+      }
+    },
+    "groups": {
+      "local": {
+        "maxParallel": 1,
+        "members": [{ "id": "coder", "cli": "local-codex", "model": "my-coder", "roles": ["coding"] }],
+        "execution": { "transport": "shell", "sandbox": "workspace-write", "approval": "never" }
+      }
+    }
+  }
+}
+```
+
+Omit `authEnv` for an unauthenticated server. Otherwise it names an environment
+variable containing a bearer credential; never put the value in configuration or
+URLs. AIWG neither reads credential files nor logs the value. The wrapper owns
+inference authentication independently. Declare `efforts` only when the wrapper
+and checkpoint support those controls; omission reports effort as not applicable.
+Limits, family, and checkpoint are operator declarations, not inferred capabilities.
+
+`aiwg models refresh --json` observes declared sources with bounded
+`GET <endpoint>/models` requests. CLIs with `localModels` use their endpoints;
+other vendor CLIs retain normal discovery. Mixed projects store both kinds of
+observation in one catalog cache. A project with only local sources contacts only
+those endpoints. `aiwg models sources --json` reads cached observations without
+HTTP requests; local instances are reused only while their declaration digest matches.
+Discovery records only declared IDs present in the endpoint response as accessible;
+missing IDs, downtime, timeouts, unauthorized responses, and malformed payloads
+produce typed unavailable observations. Redirects are refused, responses are
+limited to 1 MiB, and timeouts default to 3 seconds (maximum 30 seconds).
+Loopback hosts are allowed; other self-hosted hosts require an exact hostname in
+`localModels.allowedHosts`. URL credentials, queries, and fragments are refused.
+
+Then run `aiwg doctor --probe-workers --qualify --yes --cli local-codex` to observe
+again and approve accessible `(cli, model, role)` tuples through the existing signed
+installation receipts. Configure `models.json` role guidance for group `local`,
+then use `aiwg models resolve --role coding --task implementation --group local
+--brief /absolute/brief.txt --workdir /absolute/tree --final-output /absolute/result.json
+--transport shell --format shell`. Changing a declaration requires requalification.
+No inference or model benchmark is performed by observation or qualification.
+
+Observations carry source `local-endpoint`, endpoint URL, checkpoint label, and
+`dataUse.processing: "local"`. Locality means the operator declares this CLI path
+self-hosted. `/models` proves presence; it does not attest checkpoint bytes,
+backend identity, offline operation, telemetry, retention, or wrapper routing.
+Audit the wrapper/server configuration before declaring local processing.
+Product-improvement and retention facts remain unknown. For unknown facts, the
+existing `dataPolicy.allowUnknown` policy still applies. With
+`dataPolicy.allowedProcessing: ["local"]`, only local-processing observations
+are eligible. Qualified local observations also satisfy the local-only path
+preflight; unavailable or unqualified observations cannot authorize dispatch.
+
+
 ---
 
 ## When to Use This Guide

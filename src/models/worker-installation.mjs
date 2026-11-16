@@ -768,6 +768,7 @@ export async function inspectRecordedWorkerQualifications({ cwd, policy, paralle
       if (!configured || configured.enabled === false || !/^[a-z][a-z0-9-]{0,62}$/.test(cli)
         || await realpath(installation.cwd) !== workspace
         || qualificationDigest(policy) !== installation.effectiveConfigDigest
+        || (installation.localModelsDigest || configured.localModels) && installation.localModelsDigest !== qualificationDigest(configured.localModels ?? null)
         || configured.adapter !== `providers:${adapter.provider}` && configured.adapter !== adapter.id
         || configured.accountScope !== binding.accountScope
         || binding.profile !== installation.profile || binding.cliVersion !== installation.cliVersion
@@ -915,6 +916,7 @@ export async function loadRecordedWorkerInstallations({ registry, cwd, policy, p
       if (binding.profile !== installation.profile || binding.cliVersion !== installation.cliVersion
         || binding.accountScope !== installation.accountScope
         || qualificationDigest(binding.boundary) !== qualificationDigest(installation.boundary)) throw fail();
+      if (parallelism && (installation.localModelsDigest || parallelism.clis?.[cli]?.localModels) && installation.localModelsDigest !== qualificationDigest(parallelism.clis?.[cli]?.localModels ?? null)) throw fail();
       reason = 'effective-config-digest';
       if (qualificationDigest(policy) !== installation.effectiveConfigDigest) throw fail();
       reason = 'evidence';

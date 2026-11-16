@@ -44,12 +44,12 @@ const DiscoveredWorkerModelSchema = z.looseObject({
   if (efforts.length !== observed.length || new Set(observed).size !== observed.length || efforts.some(e => !observed.includes(e))) context.addIssue({ code: 'custom', path: ['worker', 'efforts'], message: 'Conflicting effort evidence' });
 });
 const ProviderDiscoverySchema = z.looseObject({
-  provider: z.string(), source: z.enum(['native', 'cache', 'remote', 'static']), observedAt: dateTime({ offset: true }),
+  provider: z.string(), source: z.enum(['native', 'cache', 'remote', 'static', 'local-endpoint']), observedAt: dateTime({ offset: true }),
   runtimeVersion: z.string().optional(), accountScope: z.enum(['local-account', 'local-runtime', 'public-feed', 'static']),
   accountBinding: z.string().min(1).optional(), models: z.array(DiscoveredWorkerModelSchema),
 });
 const DiscoverySchema = z.strictObject({
-  source: z.enum(['native', 'cache', 'remote', 'static']), upstreamSource: z.enum(['native', 'remote', 'static']).optional(),
+  source: z.enum(['native', 'cache', 'remote', 'static', 'local-endpoint']), upstreamSource: z.enum(['native', 'remote', 'static', 'local-endpoint']).optional(),
   fetchedAt: dateTime({ offset: true }), remoteUrl: url().optional(), remoteError: z.string().optional(),
   inventorySignature: z.string().optional(), providers: z.record(z.string(), ProviderDiscoverySchema),
   instances: z.record(z.string(), ProviderDiscoverySchema).optional(),

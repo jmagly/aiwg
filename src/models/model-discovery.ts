@@ -10,8 +10,9 @@ import { constants } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { stripVTControlCharacters } from 'node:util';
 import type { ProviderInventory } from '../providers/provider-inventory.js';
+import { mergeLocalEndpointCatalog, usesVendorDiscovery, hasOnlyLocalModelSources } from './local-endpoint-models.js';
 
-export type ModelCatalogSource = 'native' | 'remote' | 'cache' | 'static';
+export type ModelCatalogSource = 'native' | 'remote' | 'cache' | 'static' | 'local-endpoint';
 
 export interface ProviderDiscoveryDecision {
   provider: string;
@@ -217,6 +218,7 @@ export interface DynamicModelCatalog {
 }
 
 export interface ModelDiscoveryOptions {
+  parallelism?: import('../config/worker-parallelism.js').WorkerParallelism;
   aiwgRoot: string;
   inventory: ProviderInventory;
   homeDir?: string;
@@ -729,7 +731,7 @@ export async function resolveDynamicModelCatalog(
     && (!options.muse?.accountBinding || cached.discovery?.providers.muse?.accountBinding === options.muse.accountBinding)
     && isFresh(cached, now, options.ttlMs ?? DEFAULT_TTL_MS, signature)
   ) {
-    return {
+    return mergeLocalEndpointCatalog({
       ...cached,
       discovery: cached.discovery
         ? {
@@ -740,11 +742,11 @@ export async function resolveDynamicModelCatalog(
             : cached.discovery.source,
         }
         : undefined,
-    };
+    }, options, cached);
   }
 
   if (!options.allowNetwork && !options.nativeDiscoverers) {
-    return {
+    return mergeLocalEndpointCatalog({
       ...staticCatalog,
       discovery: {
         source: 'static',
@@ -753,10 +755,10 @@ export async function resolveDynamicModelCatalog(
         providers: {},
         ...(staticCatalog.discovery?.instances ? { instances: staticCatalog.discovery.instances } : {}),
       },
-    };
+    }, options, cached);
   }
 
-  const remoteUrl = options.remoteUrl ?? process.env.AIWG_MODEL_CATALOG_URL;
+  const remoteUrl = hasOnlyLocalModelSources(options) ? undefined : options.remoteUrl ?? process.env.AIWG_MODEL_CATALOG_URL;
   let catalog = staticCatalog;
   let source: ModelCatalogSource = 'static';
   let remoteError: string | undefined;
@@ -802,6 +804,7 @@ export async function resolveDynamicModelCatalog(
   };
   const providerDiscovery: Record<string, ProviderModelDiscovery> = {};
   for (const provider of available) {
+    if (!usesVendorDiscovery(provider, options)) continue;
     const discoverer = nativeDiscoverers[provider];
     if (discoverer) {
       try {
@@ -897,6 +900,7 @@ export async function resolveDynamicModelCatalog(
   for (const entry of Object.values(providerDiscovery)) {
     resolved = recordAccountInstance(resolved, discoveryInstanceId(entry), entry);
   }
+  resolved = await mergeLocalEndpointCatalog(resolved, options, cached);
   await atomicWrite(cacheFile, `${JSON.stringify(resolved, null, 2)}\n`);
   return resolved;
 }

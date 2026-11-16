@@ -9,6 +9,7 @@ import { isCanonicalWorkerModelKey, loadProviderModelCapabilities, resolveWorker
 import { resolveDispatchHostThresholds } from './dispatch-thresholds-runtime.mjs';
 import type { DispatchHostThresholds } from './aiwg-config.js';
 import type { ParallelismConfig } from './aiwg-config.js';
+import { localModelsUrl } from '../models/local-endpoint-models.js';
 import { expandWorkerGroupTemplates } from './worker-group-templates.js';
 
 export interface WorkerInstallation {
@@ -16,6 +17,7 @@ export interface WorkerInstallation {
   enabled?: boolean;
   executable?: string;
   endpoint?: string;
+  localModels?: import('../models/local-endpoint-models.js').LocalModelSource;
   accountScope: string;
   quotaScope: string;
   credentialRef?: string;
@@ -120,6 +122,10 @@ export function validateParallelismConfig(value: unknown): string[] {
   const error = (pointer: string, message: string): void => { errors.push(`OG_CONFIG_REFERENCE /parallelism/${pointer}: ${message}`); };
   const builtinIds = new Set<string>(PROVIDER_IDS.filter(id => id !== 'generic'));
   for (const [id, installation] of Object.entries(policy.clis ?? {})) {
+    if (installation.localModels) {
+      try { localModelsUrl(installation.localModels); } catch { error(`clis/${id}/localModels/endpoint`, 'Requires a credential-free HTTP endpoint on loopback or allowedHosts'); }
+      if (new Set(installation.localModels.models.map(model => model.id)).size !== installation.localModels.models.length) error(`clis/${id}/localModels/models`, 'Duplicate model ID');
+    }
     if (installation.adapter.startsWith('providers:') && !builtinIds.has(installation.adapter.slice(10))) error(`clis/${id}/adapter`, 'Unknown provider binding');
   }
   for (const [id, group] of Object.entries(policy.groups ?? {})) {
