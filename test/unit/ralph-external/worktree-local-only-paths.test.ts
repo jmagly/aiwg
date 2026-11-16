@@ -78,7 +78,7 @@ it('T-OG-04 removes directory subtrees, including untracked children, without fo
   symlinkSync(outside, path.join(f.repoRoot, 'private', 'link'));
   f.policy(['private/nested/input.txt', 'private', 'absent']); f.seal();
   const spawn: typeof spawnSync = ((command: string, args: string[], options: any) => {
-    const result = spawnSync(command, args, options);
+    const result = spawnSync(command, args, { ...options, timeout: 30_000 });
     if (args[0] === 'worktree' && args[1] === 'add' && result.status === 0) {
       writeFileSync(path.join(args[3], 'private', 'untracked.txt'), 'untracked fixture');
     }
@@ -151,7 +151,7 @@ it('T-OG-04 fails closed when skip-worktree fails, before removing local inputs'
       expect(existsSync(path.join(workerPath, 'local.txt'))).toBe(true);
       return { status: 1, stderr: 'synthetic index failure' };
     }
-    return spawnSync(command, args, options);
+    return spawnSync(command, args, { ...options, timeout: 30_000 });
   }) as typeof spawnSync;
   await expect(prepareWorkerWorktree({ ...f.options, spawn })).rejects.toThrow(/synthetic index failure/);
   expect(workerPath).not.toBe('');

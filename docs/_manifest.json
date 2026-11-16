@@ -382,6 +382,7 @@
     "providers/omp-sessions",
     "providers/pi-sessions",
     "project-local/overview",
+    "project-local/manifest-reference",
     "mcp/profiles",
     "mcp/codex-profiles",
     "configuration/setup-manifest",
@@ -2985,6 +2986,13 @@
       "title": "Project-Local Overview",
       "summary": "Per-project bundles",
       "file": "project-local/overview.md",
+      "parent": "customization"
+    },
+    {
+      "id": "project-local/manifest-reference",
+      "title": "Project-Local Manifest Reference",
+      "summary": "Manifest fields for project-local bundles, including CLI commands",
+      "file": "project-local/manifest-reference.md",
       "parent": "customization"
     },
     {
