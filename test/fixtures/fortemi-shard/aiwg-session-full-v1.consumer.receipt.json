@@ -75,7 +75,7 @@
     },
     "fortemi": {
       "repository": "https://git.integrolabs.net/Fortemi/fortemi.git",
-      "commit": "2e812aa66ba108a824475a97b1ddba4d1412dec7",
+      "commit": "e7d114a80b9eeb643685d43ab1ca14cd44875dd0",
       "status": "pending",
       "reason": "Native Docker consumer verification and the main CI run are pending; no consumer success is claimed."
     }
