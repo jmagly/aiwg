@@ -1312,7 +1312,7 @@
         "id": "opencode-direct",
         "provider": "opencode",
         "adapterVersion": "1",
-        "supportedVersions": "2.0.26",
+        "supportedVersions": ">=1.18.0 <2.0.0 || >=2.0.26 <3.0.0",
         "runtimeDriver": "installed:opencode",
         "catalogAdapter": {
           "kind": "file",
@@ -1359,27 +1359,27 @@
         "invocationProfiles": {
           "direct-shell": {
             "transport": "shell",
-            "supportedVersions": "2.0.26",
+            "supportedVersions": ">=1.18.0 <2.0.0 || >=2.0.26 <3.0.0",
             "controls": {
               "model": {
                 "support": "unqualified",
-                "mapping": "-m/--model (opencode run --help: '--model, -m string  Model to use in the format provider/model#variant')",
-                "evidence": "H: opencode 2.0.26 `opencode run --help` (captured 2026-10-10, .aiwg/working/s1-scratch/cli-help/opencode-2.0.26.txt)"
+                "mapping": "1.x: -m/--model provider/model with separate --variant <effort>; 2.x: -m/--model (opencode run --help: '--model, -m string  Model to use in the format provider/model#variant')",
+                "evidence": "H: opencode 2.0.26 `opencode run --help` (captured 2026-10-10, .aiwg/working/s1-scratch/cli-help/opencode-2.0.26.txt); H: opencode 1.19.0 `opencode run --help` (titan, 2026-11-15): -m, --model  model to use in the format of provider/model; --variant  model variant (provider-specific reasoning effort, e.g., high, max, minimal)"
               },
               "effort": {
                 "support": "unqualified",
-                "mapping": "explicit effort maps to a #<variant> suffix on --model (provider/model#variant); binary disassembly of the installed CLI (the variant-builder, minified as qU(model, manual)) shows variant ids are drawn directly from each model's own capabilities.supports.reasoning_effort list (e.g. low/medium/high), or fixed ids \"max\"/\"high\" for extended-thinking models exposing max_thinking_budget instead; the valid id set is model-specific and not enumerated here, so this adapter appends a syntactically valid id and the real CLI refuses one a given model does not expose",
-                "evidence": "R: conductor binary disassembly of the installed opencode 2.0.26 CLI (variant-builder function, host 'noodle', 2026-10-09), confirming H: opencode 2.0.26 `opencode run --help` ('--model, -m string  Model to use in the format provider/model#variant')"
+                "mapping": "1.x explicit effort maps to --variant <effort>; 2.x explicit effort maps to a #<variant> suffix on --model (provider/model#variant); binary disassembly of the installed CLI (the variant-builder, minified as qU(model, manual)) shows variant ids are drawn directly from each model's own capabilities.supports.reasoning_effort list (e.g. low/medium/high), or fixed ids \"max\"/\"high\" for extended-thinking models exposing max_thinking_budget instead; the valid id set is model-specific and not enumerated here, so this adapter appends a syntactically valid id and the real CLI refuses one a given model does not expose",
+                "evidence": "R: conductor binary disassembly of the installed opencode 2.0.26 CLI (variant-builder function, host 'noodle', 2026-10-09), confirming H: opencode 2.0.26 `opencode run --help` ('--model, -m string  Model to use in the format provider/model#variant'); H: opencode 1.19.0 `opencode run --help` (titan, 2026-11-15): --variant  model variant (provider-specific reasoning effort, e.g., high, max, minimal)"
               },
               "sandbox": {
                 "support": "unqualified",
                 "mapping": "unavailable: no scoped sandbox flag on 'run'; the only permission-adjacent flag is --auto, a blanket approval bypass this profile never emits",
-                "evidence": "H: opencode 2.0.26 `opencode run --help` ('--auto  Auto-approve permissions that are not explicitly denied')"
+                "evidence": "H: opencode 2.0.26 `opencode run --help` ('--auto  Auto-approve permissions that are not explicitly denied'); H: opencode 1.19.0 `opencode run --help` (titan, 2026-11-15): --auto  auto-approve permissions that are not explicitly denied"
               },
               "approval": {
                 "support": "unqualified",
                 "mapping": "--auto ('Auto-approve permissions that are not explicitly denied') is a blanket bypass and is refused by policy; what a permission request does without --auto in non-interactive `run` is not independently confirmed: binary disassembly shows a shared permission.asked/permission.replied protocol where an unanswered request resolves to a \"reject\" outcome (`_===\"once\"||_===\"always\"?_:\"reject\"`, with requestPermission(...).catch(()=>{return}) on no responder), but that path is traced through the ACP/session-protocol layer, not reproduced against plain `run`, so this stays unavailable rather than asserted",
-                "evidence": "R: conductor binary disassembly of the installed opencode 2.0.26 CLI (permission.asked/permission.replied reject-on-no-answer pattern, host 'noodle', 2026-10-09), confirming H: opencode 2.0.26 `opencode run --help`"
+                "evidence": "R: conductor binary disassembly of the installed opencode 2.0.26 CLI (permission.asked/permission.replied reject-on-no-answer pattern, host 'noodle', 2026-10-09), confirming H: opencode 2.0.26 `opencode run --help`; H: opencode 1.19.0 `opencode run --help` (titan, 2026-11-15): --auto  auto-approve permissions that are not explicitly denied"
               },
               "workdir": {
                 "support": "unqualified",
@@ -1389,7 +1389,7 @@
               "finalOutput": {
                 "support": "unqualified",
                 "mapping": "no --output/-o flag and no positive whole-run terminal event (binary disassembly: the run loop returns silently on session.execution.succeeded, in any mode); the final answer is the captured stdout --format json JSONL stream, accepted only when every line parses, no error event occurs, any present step_finish says \"stop\", and at least one text part has a recorded part.time.end (or a stop step_finish substitutes for that) -- a live 2.0.26 run confirmed a clean single-text-event stream with no step_start/step_finish at all",
-                "evidence": "H: opencode 2.0.26 `opencode run --help` ('--format choice  Output format (choices: default, json)')"
+                "evidence": "H: opencode 2.0.26 `opencode run --help` ('--format choice  Output format (choices: default, json)'); H: opencode 1.19.0 `opencode run --help` (titan, 2026-11-15): --format  default|json"
               },
               "stdin": {
                 "support": "unqualified",

@@ -7,7 +7,7 @@
     "packageVersion": "1",
     "modulePath": "lib/opencode-adapter.mjs",
     "interfaceVersion": 1,
-    "sha256": "sha256:4148792ac2b14c0ea8209d936eced6b0c67588b5306f3d9610899f5aebdeb12c",
+    "sha256": "sha256:a4dbf9d87e6d132bb43ec36e57634cac2817886f983ecc5ae27411460acef353",
     "adapterIds": [
       "opencode-direct"
     ],

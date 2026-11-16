@@ -201,7 +201,7 @@ export async function prepareInstalledWorkerInvocation(instance, invocation, qua
       const expectedArtifacts = typeof instance.buildWorkerArtifacts === 'function'
         ? instance.buildWorkerArtifacts({ ...driverInput, permissions: qualification.permissions }) : undefined;
       if (JSON.stringify(expectedArtifacts) !== JSON.stringify(result.artifacts)) throw new WorkerPolicyError('OG_PIN_MISMATCH', 'Worker artifacts differ from authorized driver mapping');
-      const workerArgs = instance.buildWorkerArgs(driverInput, profile, qualification.permissions);
+      const workerArgs = instance.buildWorkerArgs({ ...driverInput, cliVersion: qualification.cliVersion }, profile, qualification.permissions);
       if (!isOperatorQualifiedWorkerAdapter(qualification.adapter)) assertWorkerControlArgv(profile, workerArgs);
       const expected = [scope.binary.realpath, ...workerArgs];
       if (JSON.stringify(expected) !== JSON.stringify(result.argv)
@@ -285,7 +285,7 @@ export async function inspectWorkerInstallation(instance, request) {
   let controlArgv = null;
   if (!operatorApproved && Object.values(profile.controls).some(hasControlArgvMapping)) {
     if (!request.invocation) throw new Error('Worker control qualification requires representative argv invocation');
-    controlArgv = instance.buildWorkerArgs(structuredClone(request.invocation), profile, request.permissions);
+    controlArgv = instance.buildWorkerArgs({ ...structuredClone(request.invocation), cliVersion }, profile, request.permissions);
     assertWorkerControlArgv(profile, controlArgv);
   }
   const environment = request.environment ?? {};
@@ -1004,7 +1004,7 @@ export async function loadRecordedWorkerInstallations({ registry, cwd, policy, p
         ...(typeof instance.buildWorkerStdinFrame === 'function'
           ? { buildWorkerStdinFrame: (brief, invocation) => instance.buildWorkerStdinFrame(brief, invocation) } : {}),
         buildInvocation: async input => profile.transport === 'shell'
-          ? buildInstalledWorkerTransport(instance, input, profile, adapter.invocation, scope.binary.realpath, installation.environment)
+          ? buildInstalledWorkerTransport(instance, { ...input, cliVersion: binding.cliVersion }, profile, adapter.invocation, scope.binary.realpath, installation.environment)
           : instance.buildInvocation(input),
         prepareWorkerInvocation: (invocation, qualification) => prepareInstalledWorkerInvocation(instance, invocation, qualification),
         ...(mcpRegistry ? { mcpRegistry, mcpProfile: record.mcpProfile } : {}),

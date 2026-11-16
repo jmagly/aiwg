@@ -317,6 +317,7 @@
       "status": "partial",
       "testFiles": [
         "test/unit/serve/worker-command-ceilings.test.ts",
+        "test/conformance/orchestration-v1/opencode-versions.test.ts",
         "test/unit/ralph-external/worker-single-invocation.test.ts",
         "test/unit/ralph-external/worker-capture-sealing.test.ts",
         "test/unit/ralph-external/worker-final-validation.test.ts",
