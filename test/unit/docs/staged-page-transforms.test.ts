@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error untyped build helper
-import { deriveSummary, repositoryLinks, withDerivedSummary } from '../../../tools/docs/staged-page-transforms.mjs';
+import { deriveSummary, excludedPageLinks, repositoryLinks, withDerivedSummary } from '../../../tools/docs/staged-page-transforms.mjs';
 
 describe('staged documentation page transforms', () => {
   it('derives a summary from the first prose paragraph, skipping structure', () => {
@@ -58,5 +58,21 @@ describe('staged documentation page transforms', () => {
     );
     expect(repositoryLinks('[fixture](../../test/fixtures/x.md)', 'decision'))
       .toBe('[fixture](https://github.com/jmagly/aiwg/blob/main/test/fixtures/x.md)');
+  });
+  it('points links to excluded-but-existing pages at the repository and leaves others alone', () => {
+    const excluded = new Set(['architecture/cli/index.md', 'discovery-and-kernel-skills.md']);
+    const options = {
+      isExcluded: (page: string) => excluded.has(page),
+      existsInSource: (page: string) => page !== 'architecture/cli/missing.md',
+    };
+    expect(excludedPageLinks('[a](../architecture/cli/index.md#flows)', 'cli', options))
+      .toBe('[a](https://github.com/jmagly/aiwg/blob/main/docs/architecture/cli/index.md#flows)');
+    expect(excludedPageLinks('[k](discovery-and-kernel-skills.md)', '.', options))
+      .toBe('[k](https://github.com/jmagly/aiwg/blob/main/docs/discovery-and-kernel-skills.md)');
+    // Public pages, external URLs and pages missing from source keep failing strict validation.
+    expect(excludedPageLinks('[p](../project-local/overview.md)', 'cli', options)).toBe('[p](../project-local/overview.md)');
+    expect(excludedPageLinks('[e](https://example.com/x.md)', 'cli', options)).toBe('[e](https://example.com/x.md)');
+    const missing = { ...options, isExcluded: () => true, existsInSource: () => false };
+    expect(excludedPageLinks('[m](../architecture/cli/missing.md)', 'cli', missing)).toBe('[m](../architecture/cli/missing.md)');
   });
 });

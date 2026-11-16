@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -9,7 +10,7 @@ import {
   isPublicUserDocument,
   rewritePublicUserCommands,
 } from './public-command-policy.mjs';
-import { repositoryLinks, withDerivedSummary } from './staged-page-transforms.mjs';
+import { excludedPageLinks, repositoryLinks, withDerivedSummary } from './staged-page-transforms.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const docs = path.join(root, 'docs');
@@ -83,10 +84,17 @@ for (const filename of await markdownFiles(output)) {
 // from its first paragraph. A relative link that leaves docs/ (to source,
 // tests or addon docs) cannot resolve on the site, so point it at the
 // repository. Both apply to the staged copies; the source files are unchanged.
+const siteExcludes = [...new Set([...policy.exclude,
+  ...(JSON.parse(await readFile(path.join(docs, '_manifest.json'), 'utf8')).exclude || [])])];
+const isExcluded = (relative) => siteExcludes.some((entry) => {
+  const page = entry.endsWith('.md') ? entry : `${entry}.md`;
+  return relative === page || relative === entry || relative.startsWith(`${entry}/`);
+});
+const existsInSource = (relative) => existsSync(path.join(docs, relative));
 for (const filename of await markdownFiles(output)) {
   const content = await readFile(filename, 'utf8');
   const relativeDirectory = path.dirname(path.relative(output, filename));
-  const staged = withDerivedSummary(repositoryLinks(content, relativeDirectory));
+  const staged = withDerivedSummary(excludedPageLinks(repositoryLinks(content, relativeDirectory), relativeDirectory, { isExcluded, existsInSource }));
   if (staged !== content) await writeFile(filename, staged, 'utf8');
 }
 

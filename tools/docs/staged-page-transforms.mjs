@@ -6,6 +6,9 @@
 //
 // Repository links: a relative link that leaves docs/ (to source, tests or
 // addon docs) cannot resolve on the site, so point it at the repository.
+//
+// Excluded-page links: a link to a page kept out of the public site points at
+// the repository copy of that page.
 
 import path from 'node:path';
 
@@ -18,6 +21,20 @@ export function repositoryLinks(content, relativeDirectory) {
     const resolved = path.posix.normalize(path.posix.join('docs', directory, target));
     if (resolved.startsWith('docs/') || resolved.startsWith('../')) return match;
     return `](${REPOSITORY_BLOB}${resolved}${anchor})`;
+  });
+}
+
+/**
+ * Rewrite relative links to pages that exist in docs/ but are excluded from the
+ * public site (contributor or agent-only material) to repository URLs, so
+ * strict link validation still fails on links whose target does not exist.
+ */
+export function excludedPageLinks(content, relativeDirectory, { isExcluded, existsInSource }) {
+  const directory = relativeDirectory.split(path.sep).join('/');
+  return content.replace(/\]\((?!https?:|mailto:|#|\/)([^)\s#]+\.md)(#[^)\s]*)?\)/g, (match, target, anchor = '') => {
+    const resolved = path.posix.normalize(path.posix.join(directory, target));
+    if (resolved.startsWith('../') || !isExcluded(resolved) || !existsInSource(resolved)) return match;
+    return `](${REPOSITORY_BLOB}docs/${resolved}${anchor})`;
   });
 }
 
