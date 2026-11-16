@@ -10,6 +10,7 @@ export async function copyWorkerAdapterRuntime(base, packageRoot) {
   }
   await mkdir(join(base, 'src/models'), { recursive: true, mode: 0o755 });
   await copyFile(resolve('src/models/qualification-digest.mjs'), join(base, 'src/models/qualification-digest.mjs'));
+  await writeFile(join(base, 'src/models/opencode-worker-model.mjs'), `export * from ${JSON.stringify(resolve('src/models/opencode-worker-model.mjs'))};\n`);
 }
 
 /** Install a provider module with the shared strict-claims runtime in a synthetic package. */

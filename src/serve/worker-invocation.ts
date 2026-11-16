@@ -92,7 +92,7 @@ export interface WorkerInvocationDriver {
   prepareWorkerInvocation?(invocation: WorkerResolvedInvocation, qualification: WorkerInvocationQualification): Promise<WorkerResolvedInvocation>;
   /** Must use the installed qualified driver, not legacy session defaults or template eval. */
   buildInvocation(input: {
-    invocationId?: string; selected: WorkerResolvedInvocation['selected']; permissions: WorkerExecution;
+    invocationId?: string; cliVersion?: string; selected: WorkerResolvedInvocation['selected']; permissions: WorkerExecution;
     cwd: string; briefPath: string; brief: string; finalPath: string;
     limits: WorkerResolvedInvocation['limits'];
     health: WorkerEffectiveHealth; role?: string;
@@ -126,7 +126,7 @@ export async function buildWorkerInvocationTransport(driver: Pick<WorkerInvocati
   input: Parameters<WorkerInvocationDriver['buildInvocation']>[0]): ReturnType<WorkerInvocationDriver['buildInvocation']> {
   assertWorkerLaunchMode(driver.qualification.adapter, input.permissions);
   let transport: Awaited<ReturnType<WorkerInvocationDriver['buildInvocation']>>;
-  try { transport = await driver.buildInvocation(input); }
+  try { transport = await driver.buildInvocation({ ...input, cliVersion: driver.qualification.cliVersion }); }
   catch (error) {
     throw new WorkerInvocationCheckError(error instanceof WorkerPolicyError ? error.code : 'OG_ADAPTER_UNQUALIFIED', 'invocation_build_failed');
   }

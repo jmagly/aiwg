@@ -28,6 +28,8 @@
 
 /**
  * Version-bound direct-worker surface (roctinam/aiwg#2904, B-OG-39).
+ * npm 1.x uses separate --variant (1.19.0 help, titan, 2026-11-15);
+ * installer 2.x uses #variant. Other flags and qualification stay unchanged.
  *
  * Qualified against OpenCode CLI 2.0.26 `opencode --help` / `opencode run
  * --help` (help/version syntax captured on host 'noodle' 2026-10-10; see
@@ -91,7 +93,9 @@
 import { ProviderAdapter, registerProvider } from './provider-adapter.mjs';
 import { classifyWorkerHealthFailure, healthEventMatchesBinding } from './worker-health.mjs';
 
-export const OPENCODE_SUPPORTED_VERSIONS = Object.freeze(['2.0.26']);
+import { importImpl } from '../../_resolve-impl.mjs';
+const { opencodeWorkerModelArgs, OPENCODE_SUPPORTED_VERSIONS } = await importImpl(import.meta.url, 'models/opencode-worker-model.mjs');
+export { OPENCODE_SUPPORTED_VERSIONS };
 /** Stdin is confirmed unsupported by the compiled v2.0.26 `run` chunk (see
  * module doc); the brief travels via `-f`/`--file` instead. */
 export const OPENCODE_DIRECT_STDIN = 'closed';
@@ -186,7 +190,7 @@ export class OpenCodeAdapter extends ProviderAdapter {
   /**
    * Driver-owned argv after the binary for the version-bound direct-shell
    * profile. Every control is explicit: exact observed model via `-m`
-   * (with an explicit effort appended as `#<variant>`, see module doc),
+   * (with effort as `--variant` on 1.x or `#<variant>` on 2.x),
    * `--format json` for the evidenced JSONL stream, and the brief as an
    * attached file via `-f` (no stdin transport is evidenced; see the
    * module doc comment) — the positional argument is always the fixed,
@@ -194,7 +198,7 @@ export class OpenCodeAdapter extends ProviderAdapter {
    * externally-enforced is refused rather than guessed, since it has no
    * evidenced CLI mapping.
    *
-   * @param {{ selected?: { model?: unknown, effort?: { value?: unknown } }, cwd?: unknown, briefPath?: unknown }} invocation
+   * @param {{ cliVersion?: string, selected?: { model?: unknown, effort?: { value?: unknown } }, cwd?: unknown, briefPath?: unknown }} invocation
    * @param {unknown} _profile
    * @param {{ sandbox?: unknown }} [permissions]
    * @returns {string[]}
@@ -207,18 +211,16 @@ export class OpenCodeAdapter extends ProviderAdapter {
     if (OPENCODE_GENERIC_ALIASES.includes(model.toLowerCase())) {
       throw new Error(`OpenCode worker requires an exact observed model, not the generic alias '${model}'`);
     }
-    // #variant is a reasoning-effort selector (binary-evidenced; see module
+    // #variant (2.x) / --variant (1.x) selects reasoning effort (see module
     // doc), but the valid id set is model-specific and not enumerated here,
     // so a syntactically valid id is appended. Whether the real CLI refuses
     // an undeclared id or silently falls back is unverified (effort stays
     // unqualified).
     const effort = invocation?.selected?.effort?.value ?? null;
-    let modelToken = model;
     if (effort !== null) {
       if (typeof effort !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(effort)) {
         throw new Error('OpenCode worker effort must be a plain variant id (no "#", "/", whitespace or control characters)');
       }
-      modelToken = `${model}#${effort}`;
     }
     const sandbox = permissions?.sandbox ?? 'external';
     if (!OPENCODE_DIRECT_SANDBOX_MODES.includes(sandbox)) {
@@ -234,7 +236,7 @@ export class OpenCodeAdapter extends ProviderAdapter {
     if (typeof briefPath !== 'string' || !briefPath.startsWith('/') || briefPath.includes('\0')) {
       throw new Error('OpenCode worker requires an absolute brief-file path');
     }
-    return ['run', '--format', 'json', '-m', modelToken, '-f', briefPath, OPENCODE_FIXED_MESSAGE];
+    return ['run', '--format', 'json', ...opencodeWorkerModelArgs(model, effort, invocation.cliVersion), '-f', briefPath, OPENCODE_FIXED_MESSAGE];
   }
 
   /** No evidenced stdin abort channel for `opencode run`. */

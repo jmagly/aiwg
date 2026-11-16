@@ -26,7 +26,7 @@ curl -fsSL https://ollama.com/install.sh | sh
 ollama pull qwen2.5-coder:14b
 
 # Install OpenCode (the recommended agentic platform for local model use)
-npm install -g opencode
+npm install -g opencode-ai
 
 # Configure OpenCode to use your local Ollama instance
 # Create opencode.json in your project root:
@@ -65,9 +65,13 @@ AIWG requires an **agentic platform** — a tool with file editing, shell execut
 
 OpenCode natively supports multiple model backends including Ollama and any OpenAI-compatible endpoint. No proxy required.
 
+The direct worker adapter supports two distribution lines: npm `opencode-ai` versions `>=1.18.0 <2.0.0` (including 1.19.x), and the official installer/GitHub releases versions `>=2.0.26 <3.0.0`. The official installer places the 2.x binary at `~/.opencode/bin/opencode`; npm supplies the separate 1.x line. Check `command -v opencode` and `opencode --version` to identify the selected installation.
+
+Effort uses `--model provider/model --variant <effort>` on 1.x and `--model provider/model#<effort>` on 2.x. The 1.19.0 help was captured on titan on 2026-11-15; the 2.0.26 help was captured on noodle on 2026-10-10. Version support does not establish installation qualification: existing model, permission and sandbox checks still apply.
+
 ```bash
 # Install
-npm install -g opencode
+npm install -g opencode-ai
 
 # Configure with Ollama in opencode.json
 {
