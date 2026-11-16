@@ -207,6 +207,9 @@ export interface WorkerModelObservation {
   runtimeVersion: string;
   accountScope: string;
   endpointFingerprint: string;
+  endpoint?: string;
+  checkpoint?: string;
+  unavailableReason?: import('./local-endpoint-models.js').LocalUnavailableReason;
   observedAt: string;
   verifiedAt: string;
   releaseDate: string | null;

@@ -867,3 +867,8 @@ not qualify live providers or introduce a managed evidence framework.
 #3121 adds Flue to provider-coverage.json as an OUT app target only, with no
 worker adapter or invocation profile (#3120 D6). Existing frozen schema
 fragments and their manifest digests are unchanged.
+
+#4193 amends the CLI declaration with optional `localModels` and the observation
+fragment with endpoint, checkpoint and typed unavailable reasons. Manifest digests
+are updated; strict exact-match validation remains unchanged. Local processing
+is an operator-declared self-hosted path, not backend attestation.

@@ -303,7 +303,7 @@ async function effectiveCatalog(
   } : undefined;
   return resolveDynamicModelCatalog({
     aiwgRoot,
-    inventory,
+    inventory, parallelism: (await readAiwgConfig(target))?.parallelism,
     allowNetwork,
     forceRefresh: allowNetwork,
     ...(nativeDiscoverers ? { nativeDiscoverers } : {}),

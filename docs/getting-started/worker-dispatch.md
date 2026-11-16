@@ -1,5 +1,14 @@
 # Turn On Direct Worker Dispatch
 
+Self-hosted OpenAI-compatible models can be declared under
+`parallelism.clis.<cli>.localModels` with an endpoint and exact model/checkpoint
+labels. Refresh observes `GET /models`; doctor qualification signs accessible
+model/role tuples, and resolve renders the CLI adapter launch. These observations
+report local processing for `dataPolicy.allowedProcessing: ["local"]` and the
+local-only path preflight. See [endpoint-backed direct workers](../models/local-models.md#endpoint-backed-direct-workers-4193)
+for configuration, environment-variable authentication, host limits, and privacy.
+
+
 Unknown workers count against every group's cap and host capacity. Workers with
 workspace/group markers consume their own group's cap; workers attributed to
 another workspace consume host capacity only. For inspection and safe recovery,

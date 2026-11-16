@@ -188,6 +188,7 @@ export async function checkRecordedWorkerInvocationBuilds({ projectDir, config, 
 async function factoryQualificationBlockers(targets, config, registry, observations) {
   const results = [];
   for (const target of targets) {
+    if (config.parallelism.clis?.[target.cli]?.localModels) continue;
     const [namespace, id] = (config.parallelism.clis?.[target.cli]?.adapter ?? `providers:${target.cli}`).split(':');
     const adapter = namespace === 'providers'
       ? registry.providers[id]?.workerAdapter ?? registry.providers[id]?.workerHealthAdapter : registry.workerAdapters?.[id];
@@ -293,11 +294,15 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
       const executable = await executablePath(row.executable);
       const accountScope = cliConfig.accountScope ?? 'local-account';
       let observed = factoryObservations.get(row.cli);
+      if (cliConfig.localModels) {
+        const { discoverLocalEndpointModels } = await importImpl(import.meta.url, 'models/local-endpoint-models.js');
+        observed = await discoverLocalEndpointModels({ cli: row.cli, provider: adapter.provider, source: cliConfig.localModels, runtimeVersion: row.installedVersion, accountBinding: accountScope });
+      }
       // These are existing read-only catalog interfaces, never inference calls.
-      if (adapter.provider === 'codex') observed = await discovery.discoverCodexDebugModels(executable, undefined, { accountBinding: accountScope, runtimeVersion: row.installedVersion });
-      else if (adapter.provider === 'muse') observed = await discovery.discoverMuseCatalogModels({ accountBinding: accountScope, runtimeVersion: row.installedVersion });
+      if (!cliConfig.localModels && adapter.provider === 'codex') observed = await discovery.discoverCodexDebugModels(executable, undefined, { accountBinding: accountScope, runtimeVersion: row.installedVersion });
+      else if (!cliConfig.localModels && adapter.provider === 'muse') observed = await discovery.discoverMuseCatalogModels({ accountBinding: accountScope, runtimeVersion: row.installedVersion });
       // Other providers can reuse previously discovered observations. No auth files are read.
-      if (!observed?.models?.length) {
+      if (!cliConfig.localModels && !observed?.models?.length) {
         try {
           const cache = JSON.parse(await fs.readFile(path.join(homedir(), '.cache/aiwg/model-catalog.v1.json'), 'utf8'));
           observed = cache.discovery?.instances?.[row.cli] ?? cache.discovery?.providers?.[adapter.provider];
@@ -308,7 +313,7 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
       const missing = [];
       for (const model of new Set(configured.map(member => member.model))) {
         const found = observed?.models?.find(entry => entry.id === model && entry.apiModelId === model && entry.llmProvider && entry.worker);
-        if (!found) { missing.push(model); continue; }
+        if (!found || found.worker.availability !== 'accessible') { missing.push(model); continue; }
         const approved = structuredClone(found);
         // Keep catalog facts and their timestamps. Approval cannot renew stale discovery,
         // invent context limits/data policy, or upgrade backend identity.
@@ -326,6 +331,7 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
       const installation = { ...trusted, adapter, profile, cliVersion: row.installedVersion,
         executable, now: Date.now(), cwd: projectDir, workerWritableRoots: [projectDir], environment: Object.fromEntries(adapter.invocationProfiles[profile].envAllowlist
           .filter(name => process.env[name] !== undefined).map(name => [name, process.env[name]])),
+        localModelsDigest: workerConfigDigest(cliConfig.localModels ?? null),
         effectiveConfigDigest: workerConfigDigest(policy), accountScope, policy, permissions: {},
         boundary: { kind: 'native', identity: 'operator-approved-cli', digest: workerConfigDigest(adapter.invocation), controls: [] } };
       const codexSandboxChecks = [];
@@ -360,7 +366,7 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
       const result = await host.recordWorkerInstallation(driver, { cli: row.cli, installation, projectDir,
         binding: { cliVersion: row.installedVersion, profile, accountScope,
           endpointFingerprint: `local-cli:${row.cli}`, identityEvidence: 'runtime-configured' },
-        modelObservations: { provider: adapter.provider, source: 'native', observedAt: observed?.observedAt ?? verifiedAt,
+        modelObservations: { provider: adapter.provider, source: observed?.source ?? 'native', observedAt: observed?.observedAt ?? verifiedAt,
           runtimeVersion: row.installedVersion, accountScope: 'local-account', accountBinding: accountScope, models: approvedModels } });
       if (result.status !== 'ENABLED') throw new Error(result.reason);
       results.push({ cli: row.cli, status: 'qualified', models: approvedModels.map(model => model.id), invocationChecks,

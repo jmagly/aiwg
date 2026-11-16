@@ -10,7 +10,8 @@ import { fixtureJson } from '../../conformance/mission-v1/worker-contract-fixtur
 import { qualificationDigest } from '../../../src/models/qualification-digest.mjs';
 import { requiredWorkerControls, loadProviderModelCapabilities, resolveWorkerAdapter, WORKER_OPERATOR_APPROVAL } from '../../../src/models/provider-policy.js';
 import { inspectWorkerInstallation, recordWorkerInstallation, workerNegativeFixtureDigest,
-  workerNegativeFixtureSuite, loadRecordedWorkerInstallations, loadInstalledWorkerAdapters, createProvider } from '../../../src/models/worker-installation.mjs';
+  workerNegativeFixtureSuite, loadRecordedWorkerInstallations, inspectRecordedWorkerQualifications,
+  loadInstalledWorkerAdapters, createProvider } from '../../../src/models/worker-installation.mjs';
 import { doctorWorkerCliFixture } from '../../helpers/doctor-worker-cli.js';
 import { writeExecutable } from '../../helpers/write-executable.js';
 import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
@@ -66,6 +67,53 @@ async function fixture() {
 function qualificationDigestRaw(value: string) { return `sha256:${createHash('sha256').update(value).digest('hex')}`; }
 
 describe('recorded approval maintenance', () => {
+  it.each([
+    { name: 'legacy approval without a declaration', recorded: false, current: 'absent', accepted: true },
+    { name: 'matching declaration', recorded: true, current: 'matching', accepted: true },
+    { name: 'changed endpoint', recorded: true, current: 'endpoint', accepted: false },
+    { name: 'changed checkpoint', recorded: true, current: 'checkpoint', accepted: false },
+    { name: 'added declaration', recorded: false, current: 'matching', accepted: false },
+    { name: 'removed declaration', recorded: true, current: 'absent', accepted: false },
+    { name: 'no parallelism supplied', recorded: true, current: 'unconfigured', accepted: true },
+  ])('binds local model declarations in signed approvals: $name (T-OG-03/12)', async ({ recorded, current, accepted }) => {
+    const f = await fixture();
+    const source = { endpoint: 'http://127.0.0.1:1234/v1', models: [{ id: 'fixture-model', checkpoint: 'fixture-q4-r1' }] };
+    // Use the existing synthetic installed driver so accepted declarations must
+    // pass the complete loader, including binary identity and version checks.
+    const adapterId = `fixture-local-${current}`;
+    f.installation.adapter.id = adapterId;
+    f.installation.modules[0].adapterIds = [adapterId];
+    f.instance.getName = () => adapterId;
+    const driver = `export const interfaceVersion = 1; export function register(factory) { factory('${adapterId}', () => ({ getName: () => '${adapterId}', parseOutput: value => value })); }`;
+    await writeFile(path.join(f.installation.modules[0].packageRoot, 'driver.mjs'), driver, { mode: 0o644 });
+    f.installation.modules[0].sha256 = qualificationDigestRaw(driver);
+    f.installation.policy = {};
+    f.installation.effectiveConfigDigest = qualificationDigest(f.installation.policy);
+    if (recorded) f.installation.localModelsDigest = qualificationDigest(source);
+    f.installation.evidence.scopeDigest = (await inspectWorkerInstallation(f.instance, f.installation)).scopeDigest;
+    vi.stubEnv('SYNTHETIC_SETTING', 'fixture-value');
+    expect(await recordWorkerInstallation(f.instance, { cli: 'fixture', binding: f.binding, installation: f.installation }))
+      .toMatchObject({ status: 'ENABLED' });
+    const configured = structuredClone(source);
+    if (current === 'endpoint') configured.endpoint = 'http://127.0.0.1:4321/v1';
+    if (current === 'checkpoint') configured.models[0].checkpoint = 'other-revision';
+    const parallelism = current === 'unconfigured' ? undefined : { clis: { fixture: {
+      adapter: 'providers:codex', accountScope: 'synthetic-account', quotaScope: 'synthetic-quota',
+      ...(current !== 'absent' ? { localModels: configured } : {}),
+    } } };
+    const input = { registry: loadProviderModelCapabilities(), cwd: f.cwd, policy: f.installation.policy, parallelism };
+    expect(await inspectRecordedWorkerQualifications(input)).toEqual(accepted && parallelism
+      ? [{ cli: 'fixture', provider: 'codex' }] : []);
+    if (accepted) {
+      const loaded = await loadRecordedWorkerInstallations(input);
+      expect(Object.keys(loaded.installations)).toEqual(['fixture']);
+      expect(loaded.qualificationFailures).toEqual({});
+    } else {
+      await expect(loadRecordedWorkerInstallations(input)).rejects.toMatchObject({ code: 'OG_ADAPTER_UNQUALIFIED',
+        details: { rejections: [{ registration: 0, reason: 'binding-mismatch' }] } });
+    }
+  });
+
   it.each(['factory', 'claude'] as const)('#4076 records and reloads providers:%s with its -direct adapter', async cli => {
     const f = await doctorWorkerCliFixture(); roots.push(f.root);
     const version = cli === 'factory' ? '1.0.0' : '2.1.319';

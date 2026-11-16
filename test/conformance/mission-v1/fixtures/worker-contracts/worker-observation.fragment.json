@@ -26,6 +26,9 @@
       "type": "string",
       "minLength": 1
     },
+    "endpoint": { "type": "string", "format": "uri" },
+    "checkpoint": { "type": "string", "minLength": 1 },
+    "unavailableReason": { "enum": ["endpoint-down", "timeout", "unauthorized", "model-missing", "invalid-response", "host-denied", "auth-env-missing"] },
     "endpointFingerprint": {
       "type": "string",
       "minLength": 1
