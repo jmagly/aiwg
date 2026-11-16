@@ -119,7 +119,7 @@
     "usage": "This file defines default model mappings used by AIWG deployment scripts",
     "customization": "Users can modify these values to use different models or versions",
     "location": "Place custom models.json in project root to override defaults",
-    "precedence": "Project models.json > User ~/.config/aiwg/models.json > AIWG defaults",
+    "precedence": "Merge AIWG defaults <- User ~/.config/aiwg/models.json <- Project models.json recursively; omitted keys inherit, plain objects merge, non-object overrides of objects are ignored with a warning; other explicit values replace",
     "documentation": "See docs/configuration/model-configuration.md for details",
     "flagship": "Flagship models (claude-fable-5-1, gpt-6-astra) are never assigned to a role by default. They are available only through explicit user election (e.g. --reasoning-model fable or --reasoning-model astra). See epic #2642.",
     "claudeLongContext": "Claude Code documents sonnet and sonnet[1m] as separate selectors. AIWG deploys pinned model IDs (claude-sonnet-5-5 etc.) because a bare alias inherits a 1M-context parent and subagent dispatch then hits the usage-credit gate (#1442, #2563); opt into 1M with --coding-model sonnet[1m] or sonnet-1m."

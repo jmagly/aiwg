@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { loadModelConfig } from '../agents/providers/base-models-platforms.mjs';
 import { checkAuthorizationHealth } from './authorization-health.mjs';
 import { runResourceDoctor } from './doctor-resources.mjs';
 import { parseDoctorArgsOrExit } from './doctor-args.mjs';
@@ -2303,16 +2304,21 @@ export async function runDoctor() {
       'model-capabilities.v1.json',
     );
     const registry = JSON.parse(await fs.readFile(registryPath, 'utf-8'));
+    const tiers = loadModelConfig(AIWG_ROOT).claude;
     const PINNED_MAP = {
-      sonnet: 'claude-sonnet-5',
-      opus:   'claude-opus-5',
-      haiku:  'claude-haiku-4-5',
+      sonnet: tiers?.coding?.model,
+      opus: tiers?.reasoning?.model,
+      haiku: tiers?.efficiency?.model,
     };
     for (const provName of providersToCheck) {
       const capability = registry.providers?.[provName];
       if (!capability) continue;
       const provider = await loadProvider(provName);
       const label = PROVIDER_LABELS[provName] || provName;
+      if (provName === 'claude' && Object.values(PINNED_MAP).some(id => typeof id !== 'string' || !id.trim())) {
+        check(`${label} Model Policy`, 'warn', 'Claude tiers cannot be resolved; check claude reasoning/coding/efficiency model values in models.json');
+        continue;
+      }
       const dir = resolveProviderPath(provider?.paths?.agents);
       const aliases = [];
       let modeled = 0;

@@ -41,6 +41,7 @@ const _require = createRequire(import.meta.url);
 let fs;
 try { const gfs = _require('graceful-fs'); gfs.gracefulify(realFs); fs = realFs; } catch { fs = realFs; }
 import path from 'path';
+import { loadModelConfig } from './providers/base-models-platforms.mjs';
 
 // ============================================================================
 // CONFIGURATION
@@ -140,44 +141,6 @@ function listSkillDirs(dir) {
     .readdirSync(dir, { withFileTypes: true })
     .filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'SKILL.md')))
     .map((e) => path.join(dir, e.name));
-}
-
-/**
- * Load model configuration from models.json
- */
-function loadModelConfig(srcRoot) {
-  const locations = [
-    { path: path.join(process.cwd(), 'models.json'), label: 'project' },
-    { path: path.join(process.env.HOME || process.env.USERPROFILE, '.config', 'aiwg', 'models.json'), label: 'user' },
-    { path: path.join(srcRoot, 'agentic', 'code', 'frameworks', 'sdlc-complete', 'config', 'models.json'), label: 'AIWG defaults' }
-  ];
-
-  for (const loc of locations) {
-    if (fs.existsSync(loc.path)) {
-      try {
-        const config = JSON.parse(fs.readFileSync(loc.path, 'utf8'));
-        config._source = `${loc.label} (${loc.path})`;
-        return config;
-      } catch (err) {
-        console.warn(`Warning: Could not parse models.json at ${loc.path}: ${err.message}`);
-      }
-    }
-  }
-
-  // Fallback to hardcoded defaults
-  return {
-    windsurf: {
-      reasoning: { model: 'claude-opus-5' },
-      coding: { model: 'claude-sonnet-5' },
-      efficiency: { model: 'claude-haiku-4-5' }
-    },
-    shorthand: {
-      opus: 'claude-opus-5',
-      sonnet: 'claude-sonnet-5',
-      haiku: 'claude-haiku-4-5'
-    },
-    _source: 'built-in defaults'
-  };
 }
 
 // ============================================================================
