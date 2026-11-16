@@ -1,0 +1,1975 @@
+{
+  "version": 1,
+  "gaps": [
+    {
+      "surface": "python",
+      "fixture": "positives/contrast.md",
+      "kind": "miss",
+      "pattern": "contrast-not-but",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/contrast.md",
+      "kind": "miss",
+      "pattern": "contrast-not-but",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/contrast.md",
+      "kind": "miss",
+      "pattern": "contrast-not-but",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/x-not-y.md",
+      "kind": "miss",
+      "pattern": "contrast-x-not-y",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/x-not-y.md",
+      "kind": "miss",
+      "pattern": "contrast-x-not-y",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/x-not-y.md",
+      "kind": "miss",
+      "pattern": "contrast-x-not-y",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/rather-than.md",
+      "kind": "miss",
+      "pattern": "rather-than",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/rather-than.md",
+      "kind": "miss",
+      "pattern": "rather-than",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/rather-than.md",
+      "kind": "miss",
+      "pattern": "rather-than",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/mirrored.md",
+      "kind": "miss",
+      "pattern": "mirrored-sentences",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/mirrored.md",
+      "kind": "miss",
+      "pattern": "mirrored-sentences",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/mirrored.md",
+      "kind": "miss",
+      "pattern": "mirrored-sentences",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/endings.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/endings.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/endings.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "fragment-run",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "fragment-run",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "fragment-run",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/labels.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/labels.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/labels.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/throat.md",
+      "kind": "miss",
+      "pattern": "throat-clearing",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/throat.md",
+      "kind": "miss",
+      "pattern": "throat-clearing",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/throat.md",
+      "kind": "miss",
+      "pattern": "throat-clearing",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/engagement.md",
+      "kind": "miss",
+      "pattern": "engagement-bait",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/engagement.md",
+      "kind": "miss",
+      "pattern": "engagement-bait",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/engagement.md",
+      "kind": "miss",
+      "pattern": "engagement-bait",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/lexical.md",
+      "kind": "miss",
+      "pattern": "lexical-cluster",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/lexical.md",
+      "kind": "miss",
+      "pattern": "lexical-cluster",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/lexical.md",
+      "kind": "miss",
+      "pattern": "lexical-cluster",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "pattern": "\\bleverag(e|ing)\\b",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "positives/lexical.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "\\bleverag(e|ing)\\b",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/lexical-1.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "passive_voice",
+      "tier": "watch",
+      "line": 3,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/passives.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "passive_voice",
+      "tier": "watch",
+      "line": 3,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/passives.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "passive_voice",
+      "tier": "watch",
+      "line": 3,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/passives.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "passive_voice",
+      "tier": "watch",
+      "line": 3,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/passives.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "passive_voice",
+      "tier": "watch",
+      "line": 3,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/passives.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "passive_voice",
+      "tier": "watch",
+      "line": 3,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/passives.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign/x-thread.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign/x-thread.md",
+      "kind": "miss",
+      "pattern": "repeated-sentence",
+      "tier": "cut",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign/x-thread.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign/linkedin.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign/linkedin.md",
+      "kind": "miss",
+      "pattern": "repeated-sentence",
+      "tier": "cut",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign/linkedin.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign/telegram.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign/telegram.md",
+      "kind": "miss",
+      "pattern": "repeated-sentence",
+      "tier": "cut",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign/telegram.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign-phrase/x.md",
+      "kind": "miss",
+      "pattern": "repeated-phrase",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign-phrase/linkedin.md",
+      "kind": "miss",
+      "pattern": "repeated-phrase",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "campaign-phrase/telegram.md",
+      "kind": "miss",
+      "pattern": "repeated-phrase",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/negate-assert.md",
+      "kind": "miss",
+      "pattern": "negate-then-assert",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/negate-assert.md",
+      "kind": "miss",
+      "pattern": "negate-then-assert",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/negate-assert.md",
+      "kind": "miss",
+      "pattern": "negate-then-assert",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/antithesis.md",
+      "kind": "miss",
+      "pattern": "antithesis-pair",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/antithesis.md",
+      "kind": "miss",
+      "pattern": "antithesis-pair",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/antithesis.md",
+      "kind": "miss",
+      "pattern": "antithesis-pair",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/asides.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/asides.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "python",
+      "fixture": "positives/asides.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "pattern": "\\bleverag(e|ing)\\b",
+      "tier": "cut",
+      "line": 2,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "\\bleverag(e|ing)\\b",
+      "tier": "cut",
+      "line": 6,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "\\bleverag(e|ing)\\b",
+      "tier": "cut",
+      "line": 10,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "\\bleverag(e|ing)\\b",
+      "tier": "cut",
+      "line": 13,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "\\bleverag(e|ing)\\b",
+      "tier": "cut",
+      "line": 16,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "em_dash_overuse",
+      "tier": "watch",
+      "line": 5,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "em_dash_overuse",
+      "tier": "watch",
+      "line": 6,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "em_dash_overuse",
+      "tier": "watch",
+      "line": 7,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "em_dash_overuse",
+      "tier": "watch",
+      "line": 8,
+      "scope": "file",
+      "surface": "python",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/contrast.md",
+      "kind": "miss",
+      "pattern": "contrast-not-but",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/contrast.md",
+      "kind": "miss",
+      "pattern": "contrast-not-but",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/contrast.md",
+      "kind": "miss",
+      "pattern": "contrast-not-but",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/x-not-y.md",
+      "kind": "miss",
+      "pattern": "contrast-x-not-y",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/x-not-y.md",
+      "kind": "miss",
+      "pattern": "contrast-x-not-y",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/x-not-y.md",
+      "kind": "miss",
+      "pattern": "contrast-x-not-y",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/rather-than.md",
+      "kind": "miss",
+      "pattern": "rather-than",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/rather-than.md",
+      "kind": "miss",
+      "pattern": "rather-than",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/rather-than.md",
+      "kind": "miss",
+      "pattern": "rather-than",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/mirrored.md",
+      "kind": "miss",
+      "pattern": "mirrored-sentences",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/mirrored.md",
+      "kind": "miss",
+      "pattern": "mirrored-sentences",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/mirrored.md",
+      "kind": "miss",
+      "pattern": "mirrored-sentences",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/endings.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/endings.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/endings.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "fragment-run",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "fragment-run",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "fragment-run",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/labels.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/labels.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/labels.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/throat.md",
+      "kind": "miss",
+      "pattern": "throat-clearing",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/throat.md",
+      "kind": "miss",
+      "pattern": "throat-clearing",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/throat.md",
+      "kind": "miss",
+      "pattern": "throat-clearing",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/engagement.md",
+      "kind": "miss",
+      "pattern": "engagement-bait",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/engagement.md",
+      "kind": "miss",
+      "pattern": "engagement-bait",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/engagement.md",
+      "kind": "miss",
+      "pattern": "engagement-bait",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/lexical.md",
+      "kind": "miss",
+      "pattern": "lexical-cluster",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/lexical.md",
+      "kind": "miss",
+      "pattern": "lexical-cluster",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/lexical.md",
+      "kind": "miss",
+      "pattern": "lexical-cluster",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "pattern": "banned_phrase_leverage_leveraging",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "surface": "validation",
+      "fixture": "positives/lexical.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "struct_three_items",
+      "tier": "watch",
+      "line": 1,
+      "scope": "file",
+      "surface": "validation",
+      "fixture": "negatives/colons.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "banned_phrase_leverage_leveraging",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "surface": "validation",
+      "fixture": "negatives/lexical-1.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign/x-thread.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign/x-thread.md",
+      "kind": "miss",
+      "pattern": "repeated-sentence",
+      "tier": "cut",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign/x-thread.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign/linkedin.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign/linkedin.md",
+      "kind": "miss",
+      "pattern": "repeated-sentence",
+      "tier": "cut",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign/linkedin.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign/telegram.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign/telegram.md",
+      "kind": "miss",
+      "pattern": "repeated-sentence",
+      "tier": "cut",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign/telegram.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign-phrase/x.md",
+      "kind": "miss",
+      "pattern": "repeated-phrase",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign-phrase/linkedin.md",
+      "kind": "miss",
+      "pattern": "repeated-phrase",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "validation",
+      "fixture": "campaign-phrase/telegram.md",
+      "kind": "miss",
+      "pattern": "repeated-phrase",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "pattern": "struct_three_items",
+      "tier": "watch",
+      "line": 1,
+      "scope": "file",
+      "surface": "validation",
+      "fixture": "negatives/list.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/negate-assert.md",
+      "kind": "miss",
+      "pattern": "negate-then-assert",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/negate-assert.md",
+      "kind": "miss",
+      "pattern": "negate-then-assert",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/negate-assert.md",
+      "kind": "miss",
+      "pattern": "negate-then-assert",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/antithesis.md",
+      "kind": "miss",
+      "pattern": "antithesis-pair",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/antithesis.md",
+      "kind": "miss",
+      "pattern": "antithesis-pair",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/antithesis.md",
+      "kind": "miss",
+      "pattern": "antithesis-pair",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/asides.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/asides.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "validation",
+      "fixture": "positives/asides.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "pattern": "banned_phrase_leverage_leveraging",
+      "tier": "cut",
+      "line": 2,
+      "scope": "file",
+      "surface": "validation",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "banned_phrase_leverage_leveraging",
+      "tier": "cut",
+      "line": 6,
+      "scope": "file",
+      "surface": "validation",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "banned_phrase_leverage_leveraging",
+      "tier": "cut",
+      "line": 10,
+      "scope": "file",
+      "surface": "validation",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "banned_phrase_leverage_leveraging",
+      "tier": "cut",
+      "line": 13,
+      "scope": "file",
+      "surface": "validation",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "banned_phrase_leverage_leveraging",
+      "tier": "cut",
+      "line": 16,
+      "scope": "file",
+      "surface": "validation",
+      "fixture": "negatives/legacy-regions.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/contrast.md",
+      "kind": "miss",
+      "pattern": "contrast-not-but",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/contrast.md",
+      "kind": "miss",
+      "pattern": "contrast-not-but",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/contrast.md",
+      "kind": "miss",
+      "pattern": "contrast-not-but",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/x-not-y.md",
+      "kind": "miss",
+      "pattern": "contrast-x-not-y",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/x-not-y.md",
+      "kind": "miss",
+      "pattern": "contrast-x-not-y",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/x-not-y.md",
+      "kind": "miss",
+      "pattern": "contrast-x-not-y",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/rather-than.md",
+      "kind": "miss",
+      "pattern": "rather-than",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/rather-than.md",
+      "kind": "miss",
+      "pattern": "rather-than",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/rather-than.md",
+      "kind": "miss",
+      "pattern": "rather-than",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/mirrored.md",
+      "kind": "miss",
+      "pattern": "mirrored-sentences",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/mirrored.md",
+      "kind": "miss",
+      "pattern": "mirrored-sentences",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/mirrored.md",
+      "kind": "miss",
+      "pattern": "mirrored-sentences",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/endings.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/endings.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/endings.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/colons.md",
+      "kind": "miss",
+      "pattern": "colon-reveal",
+      "tier": "watch",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "fragment-run",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "fragment-run",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "fragment-run",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/fragments.md",
+      "kind": "miss",
+      "pattern": "aphorism-ending",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/labels.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/labels.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/labels.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/throat.md",
+      "kind": "miss",
+      "pattern": "throat-clearing",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/throat.md",
+      "kind": "miss",
+      "pattern": "throat-clearing",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/throat.md",
+      "kind": "miss",
+      "pattern": "throat-clearing",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/engagement.md",
+      "kind": "miss",
+      "pattern": "engagement-bait",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/engagement.md",
+      "kind": "miss",
+      "pattern": "engagement-bait",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/engagement.md",
+      "kind": "miss",
+      "pattern": "engagement-bait",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/lexical.md",
+      "kind": "miss",
+      "pattern": "lexical-cluster",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/lexical.md",
+      "kind": "miss",
+      "pattern": "lexical-cluster",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/lexical.md",
+      "kind": "miss",
+      "pattern": "lexical-cluster",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "pattern": "phrase:delve",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "surface": "diagnostics",
+      "fixture": "positives/lexical.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "phrase:rich-tapestry",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "surface": "diagnostics",
+      "fixture": "positives/lexical.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "pattern": "phrase:rich-tapestry",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "surface": "diagnostics",
+      "fixture": "negatives/lexical-3.md",
+      "kind": "flag",
+      "issue": "#4139"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign/x-thread.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign/x-thread.md",
+      "kind": "miss",
+      "pattern": "repeated-sentence",
+      "tier": "cut",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign/x-thread.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign/linkedin.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign/linkedin.md",
+      "kind": "miss",
+      "pattern": "repeated-sentence",
+      "tier": "cut",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign/linkedin.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign/telegram.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign/telegram.md",
+      "kind": "miss",
+      "pattern": "repeated-sentence",
+      "tier": "cut",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign/telegram.md",
+      "kind": "miss",
+      "pattern": "shared-skeleton",
+      "tier": "check",
+      "line": 5,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign-phrase/x.md",
+      "kind": "miss",
+      "pattern": "repeated-phrase",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign-phrase/linkedin.md",
+      "kind": "miss",
+      "pattern": "repeated-phrase",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "campaign-phrase/telegram.md",
+      "kind": "miss",
+      "pattern": "repeated-phrase",
+      "tier": "check",
+      "line": 3,
+      "scope": "cross",
+      "issue": "#4140"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/negate-assert.md",
+      "kind": "miss",
+      "pattern": "negate-then-assert",
+      "tier": "check",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/negate-assert.md",
+      "kind": "miss",
+      "pattern": "negate-then-assert",
+      "tier": "check",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/negate-assert.md",
+      "kind": "miss",
+      "pattern": "negate-then-assert",
+      "tier": "check",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/antithesis.md",
+      "kind": "miss",
+      "pattern": "antithesis-pair",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/antithesis.md",
+      "kind": "miss",
+      "pattern": "antithesis-pair",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/antithesis.md",
+      "kind": "miss",
+      "pattern": "antithesis-pair",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/asides.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 1,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/asides.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 3,
+      "scope": "file",
+      "issue": "#4138"
+    },
+    {
+      "surface": "diagnostics",
+      "fixture": "positives/asides.md",
+      "kind": "miss",
+      "pattern": "labelled-significance",
+      "tier": "cut",
+      "line": 5,
+      "scope": "file",
+      "issue": "#4138"
+    }
+  ]
+}
