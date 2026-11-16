@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiwg.io/schemas/dataset/service-binding.v1.schema.json",
+  "title": "Qualified dataset service binding v1",
+  "oneOf": [
+    { "$ref": "#/$defs/selection" },
+    { "$ref": "#/$defs/descriptor" }
+  ],
+  "$defs": {
+    "contract": { "const": "aiwg.dataset.service-binding/v1" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$" },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "digest": {
+      "type": "object", "additionalProperties": false, "required": ["algorithm", "value"],
+      "properties": { "algorithm": { "const": "sha256" }, "value": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+    },
+    "component": {
+      "type": "object", "additionalProperties": false, "required": ["id", "version", "packageDigest"],
+      "properties": { "id": { "$ref": "#/$defs/id" }, "version": { "$ref": "#/$defs/version" }, "packageDigest": { "$ref": "#/$defs/digest" } }
+    },
+    "capability": {
+      "type": "object", "additionalProperties": false, "required": ["name", "version"],
+      "properties": { "name": { "$ref": "#/$defs/id" }, "version": { "$ref": "#/$defs/version" } }
+    },
+    "selection": {
+      "type": "object", "additionalProperties": false, "required": ["contractVersion", "kind", "id", "version", "descriptorDigest"],
+      "properties": {
+        "contractVersion": { "$ref": "#/$defs/contract" }, "kind": { "const": "DatasetBindingSelection" },
+        "id": { "$ref": "#/$defs/id" }, "version": { "$ref": "#/$defs/version" }, "descriptorDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "descriptor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contractVersion", "kind", "id", "version", "datasetContractVersion", "adapterContractVersion", "adapter", "adapterManifestDigest", "backend", "capabilities", "limits", "qualification"],
+      "properties": {
+        "contractVersion": { "$ref": "#/$defs/contract" }, "kind": { "const": "DatasetServiceBinding" },
+        "id": { "$ref": "#/$defs/id" }, "version": { "$ref": "#/$defs/version" },
+        "datasetContractVersion": { "const": "aiwg.dataset/v1" }, "adapterContractVersion": { "const": "aiwg.dataset.adapter/v1" },
+        "adapter": { "$ref": "#/$defs/component" }, "adapterManifestDigest": { "$ref": "#/$defs/digest" }, "backend": { "$ref": "#/$defs/component" },
+        "capabilities": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/capability" } },
+        "limits": {
+          "type": "object", "additionalProperties": false, "required": ["maxRecords", "maxBytes", "maxRecordBytes", "timeoutMs"],
+          "properties": {
+            "maxRecords": { "type": "integer", "minimum": 1, "maximum": 10000 },
+            "maxBytes": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+            "maxRecordBytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+            "timeoutMs": { "type": "integer", "minimum": 1, "maximum": 30000 }
+          }
+        },
+        "qualification": {
+          "type": "object", "additionalProperties": false, "required": ["fixtureRevision", "cells"],
+          "properties": {
+            "fixtureRevision": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "cells": {
+              "type": "array", "minItems": 5, "maxItems": 5,
+              "items": {
+                "type": "object", "additionalProperties": false, "required": ["name", "passed", "evidence"],
+                "properties": {
+                  "name": { "enum": ["admission", "capability-version", "cancellation-resume", "replay", "receipt-mismatch"] },
+                  "passed": { "type": "boolean" },
+                  "evidence": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

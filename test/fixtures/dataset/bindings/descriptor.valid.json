@@ -1,0 +1,88 @@
+{
+  "contractVersion": "aiwg.dataset.service-binding/v1",
+  "kind": "DatasetServiceBinding",
+  "id": "fixture.preservation-native",
+  "version": "1.0.0",
+  "datasetContractVersion": "aiwg.dataset/v1",
+  "adapterContractVersion": "aiwg.dataset.adapter/v1",
+  "adapter": {
+    "id": "fixture.package",
+    "version": "1.0.0",
+    "packageDigest": {
+      "algorithm": "sha256",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "adapterManifestDigest": {
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "backend": {
+    "id": "fortemi-core",
+    "version": "1.0.0",
+    "packageDigest": {
+      "algorithm": "sha256",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "capabilities": [
+    {
+      "name": "package-preservation",
+      "version": "1.0.0"
+    },
+    {
+      "name": "native-graph",
+      "version": "1.0.0"
+    },
+    {
+      "name": "native-membership",
+      "version": "1.0.0"
+    }
+  ],
+  "limits": {
+    "maxRecords": 2,
+    "maxBytes": 4096,
+    "maxRecordBytes": 2048,
+    "timeoutMs": 1000
+  },
+  "qualification": {
+    "fixtureRevision": "dataset-bindings-v1",
+    "cells": [
+      {
+        "name": "admission",
+        "passed": true,
+        "evidence": [
+          "test/unit/dataset/service-bindings.test.ts"
+        ]
+      },
+      {
+        "name": "capability-version",
+        "passed": true,
+        "evidence": [
+          "test/unit/dataset/service-bindings.test.ts"
+        ]
+      },
+      {
+        "name": "cancellation-resume",
+        "passed": true,
+        "evidence": [
+          "test/unit/dataset/service-bindings.test.ts"
+        ]
+      },
+      {
+        "name": "replay",
+        "passed": true,
+        "evidence": [
+          "test/unit/dataset/service-bindings.test.ts"
+        ]
+      },
+      {
+        "name": "receipt-mismatch",
+        "passed": true,
+        "evidence": [
+          "test/unit/dataset/service-bindings.test.ts"
+        ]
+      }
+    ]
+  }
+}

@@ -5,6 +5,7 @@ import { FileDatasetOrchestrationRepository } from "../../dataset/file-orchestra
 import { LocalDatasetExecutionBackend } from "../../dataset/local-execution-backend.js";
 import { DatasetOrchestrationService } from "../../dataset/orchestration-service.js";
 import { presentDatasetResult } from "../../dataset/presentation.js";
+import { datasetBindingRegistry, type DatasetBindingRegistry } from "../../dataset/service-binding-registry.js";
 import type { CommandHandler, HandlerContext, HandlerResult } from "./types.js";
 
 export const DATASET_ACTIONS = [
@@ -29,6 +30,7 @@ function option(args: readonly string[], name: string) {
 function positions(args: readonly string[]) {
   const values = new Set([
     "--file",
+    "--binding",
     "--count",
     "--digest",
     "--idempotency-key",
@@ -52,7 +54,12 @@ function input(ctx: HandlerContext) {
     throw new Error("DATASET_INPUT_REQUIRED: --file <json> is required");
   return JSON.parse(readFileSync(resolve(ctx.cwd, file), "utf8")) as any;
 }
-function service(ctx: HandlerContext) {
+export function createDatasetCliService(ctx: HandlerContext, bindings: DatasetBindingRegistry = datasetBindingRegistry) {
+  const selected = ctx.args.filter(arg => arg === "--binding").length;
+  const bindingFile = option(ctx.args, "--binding");
+  if (selected && (selected !== 1 || !bindingFile || bindingFile.startsWith("--")))
+    throw new Error("DATASET_BINDING_SELECTION_REQUIRED: --binding <json>");
+  const binding = bindingFile ? bindings.select(JSON.parse(readFileSync(resolve(ctx.cwd, bindingFile), "utf8"))) : undefined;
   const registry = createBuiltinAdapterRegistry();
   return new DatasetOrchestrationService(
     new FileDatasetOrchestrationRepository(ctx.cwd),
@@ -67,6 +74,7 @@ function service(ctx: HandlerContext) {
         return adapter;
       },
       localBackend: new LocalDatasetExecutionBackend(),
+      ...binding,
     },
   );
 }
@@ -93,7 +101,7 @@ export async function executeDatasetCommand(ctx: HandlerContext, providedService
         }],
       }, ctx.args.includes("--json")),
     };
-  const s = providedService ?? service(ctx);
+  const s = providedService ?? createDatasetCliService(ctx);
   let result: any;
   switch (action) {
     case "source":
@@ -184,6 +192,7 @@ export const datasetHandler: CommandHandler = {
         "preview: <source-id> [--count N] [--offline]",
         "ingest: <plan-id> --digest <sha256> --idempotency-key <key> [--approve id,id]",
         "status <run-id>: Inspect one run by its required ID.",
+        "All actions: --binding <json> explicitly selects a pre-registered qualified service binding.",
         "All actions: --json for the canonical aiwg.dataset-orchestration/v1 envelope.",
       ].join("\n"),
     };

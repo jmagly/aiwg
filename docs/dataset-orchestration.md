@@ -9,3 +9,5 @@ Plans bind source/revision identity, adapter and configuration digest, schemas, 
 `--offline` rejects network adapters before configuration or backend initialization. Fortemi is unavailable unless a compatible transport is explicitly injected; the currently pinned dependency is not treated as implementing newer Fortemi contracts. Fortemi receipts are verified inputs only, while AIWG remains the canonical ledger authority.
 
 Run `aiwg dataset --help` for the complete action list.
+
+Use `--binding selection.json` to select a pre-registered qualified adapter/backend pair. See the [versioned service binding contract](contracts/dataset-service-bindings-v1.md) for trusted registration, exact capability admission, qualification fixtures, and deployment acceptance limits. Omitting the selector preserves the built-in/local defaults.
