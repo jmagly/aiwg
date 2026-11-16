@@ -61,6 +61,18 @@ describe('Fortemi shard conformance workflow', () => {
     expect(workflow).toContain('docker image rm -f "$DB_IMAGE"')
   })
 
+  it('builds the test database from a private legacy-builder context and keeps the checkout clean (#4200)', () => {
+    const start = workflow.indexOf('- name: Build pinned Fortemi test database')
+    const end = workflow.indexOf('- name: Start isolated Fortemi test database')
+    const step = workflow.slice(start, end)
+    expect(start).toBeGreaterThan(-1)
+    expect(step).toContain('install -m 0755 "$CONSUMER/build/init-extensions.sh" "$CONTEXT/build/init-extensions.sh"')
+    expect(step).toContain("sed 's|^COPY --chmod=0755 build/init-extensions.sh |COPY build/init-extensions.sh |'")
+    expect(step).toContain('-f "$CONTEXT/Dockerfile.testdb"')
+    expect(step).not.toMatch(/-f \/tmp\/aiwg-fortemi-consumer\/build\/Dockerfile\.testdb/)
+    expect(step.indexOf('docker build')).toBeLessThan(step.indexOf('test -z "$(git -C "$CONSUMER" status --porcelain)"'))
+  })
+
   it('adds the session source, fixture, verifier and API harness triggers', () => {
     for (const path of ['src/sessions/**', 'src/cli/handlers/sessions.ts',
       'test/fixtures/sessions/**', 'tools/ci/verify-aiwg-fortemi-session-receipt.mjs',

@@ -127,10 +127,27 @@ jobs:
           set -euo pipefail
           DB_IMAGE="aiwg-fortemi-testdb:${GITHUB_RUN_ID}"
           echo "DB_IMAGE=${DB_IMAGE}" >> "$GITHUB_ENV"
+          # The job container has the legacy builder only (no buildx), which
+          # rejects `COPY --chmod`. Build from a private context holding the
+          # one file the Dockerfile copies, with its mode set on the copy, so
+          # the pinned checkout stays clean for receipt verification.
+          CONSUMER=/tmp/aiwg-fortemi-consumer
+          CONTEXT="$(mktemp -d)"
+          test "$(grep -cE '^[[:space:]]*(COPY|ADD)[[:space:]]' "$CONSUMER/build/Dockerfile.testdb")" = 1
+          mkdir -p "$CONTEXT/build"
+          install -m 0755 "$CONSUMER/build/init-extensions.sh" "$CONTEXT/build/init-extensions.sh"
+          sed 's|^COPY --chmod=0755 build/init-extensions.sh |COPY build/init-extensions.sh |' \
+            "$CONSUMER/build/Dockerfile.testdb" > "$CONTEXT/Dockerfile.testdb"
+          if grep -q -- '--chmod' "$CONTEXT/Dockerfile.testdb"; then
+            echo 'Fortemi testdb Dockerfile has an unexpected --chmod COPY' >&2
+            exit 1
+          fi
           docker build \
-            -f /tmp/aiwg-fortemi-consumer/build/Dockerfile.testdb \
+            -f "$CONTEXT/Dockerfile.testdb" \
             -t "$DB_IMAGE" \
-            /tmp/aiwg-fortemi-consumer
+            "$CONTEXT"
+          rm -rf "$CONTEXT"
+          test -z "$(git -C "$CONSUMER" status --porcelain)"
 
       - name: Start isolated Fortemi test database
         shell: bash
