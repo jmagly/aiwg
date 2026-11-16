@@ -1,0 +1,37 @@
+{
+  "contractVersion": "aiwg.dataset/v1",
+  "kind": "CapabilityProfile",
+  "id": "profile:preservation-native",
+  "capabilities": [
+    {
+      "name": "package-preservation",
+      "requirement": "required",
+      "acceptedVersions": [
+        "1.0.0"
+      ],
+      "degradation": {
+        "action": "fail"
+      }
+    },
+    {
+      "name": "native-graph",
+      "requirement": "required",
+      "acceptedVersions": [
+        "1.0.0"
+      ],
+      "degradation": {
+        "action": "fail"
+      }
+    },
+    {
+      "name": "native-membership",
+      "requirement": "required",
+      "acceptedVersions": [
+        "1.0.0"
+      ],
+      "degradation": {
+        "action": "fail"
+      }
+    }
+  ]
+}

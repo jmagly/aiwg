@@ -83,6 +83,7 @@ export interface ExecutionResult {
 }
 export interface DatasetExecutionBackend {
   readonly id: string;
+  readonly locality?: "local" | "remote";
   capabilities(): readonly { name: string; version: string }[];
   execute(request: ExecutionRequest): Promise<ExecutionResult>;
 }
@@ -90,5 +91,6 @@ export interface DatasetOrchestrationDependencies {
   adapter(id: string, version: string): DatasetSourceAdapter;
   localBackend: DatasetExecutionBackend;
   fortemiBackend?: DatasetExecutionBackend;
+  selectBackend?(id?: string): DatasetExecutionBackend;
   now?: () => string;
 }

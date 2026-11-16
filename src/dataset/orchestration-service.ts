@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { selectDatasetBackend } from "./backend-selection.js";
+import { bindingReceiptCheckpoints, verifyBindingCheckpointReceipt } from "./service-binding-checkpoints.js";
 import {
   computeProcessingPlanDigest,
   computeRunReceiptDigest,
@@ -195,7 +197,7 @@ export class DatasetOrchestrationService {
     profile: CapabilityProfile;
     schemas: ProcessingPlan["schemas"];
     policy: ProcessingPlan["policy"];
-    backend?: "local" | "fortemi-core";
+    backend?: string;
     fallback?: "local";
     estimates?: ProcessingPlan["estimates"];
     approvals?: ProcessingPlan["approvals"];
@@ -207,10 +209,7 @@ export class DatasetOrchestrationService {
   }) {
     try {
       const c = await this.context(input.sourceId, input.offline);
-      let backend =
-        input.backend === "fortemi-core"
-          ? this.deps.fortemiBackend
-          : this.deps.localBackend;
+      const backend = selectDatasetBackend(this.deps, input.backend);
       if (!backend)
         throw new DatasetOrchestrationError(
           "DATASET_FORTEMI_UNAVAILABLE",
@@ -245,7 +244,7 @@ export class DatasetOrchestrationService {
         capabilityDecision: decision,
         policy: input.policy,
         execution: {
-          locality: backend.id === "local" ? "local" : "remote",
+          locality: backend.locality ?? (backend.id === "local" ? "local" : "remote"),
           backend: backend.id,
           ...(input.fallback ? { fallback: input.fallback } : {}),
         },
@@ -340,10 +339,7 @@ export class DatasetOrchestrationService {
           "Source revision, adapter, or configuration changed after planning",
           "plan",
         );
-      const backend =
-        plan.execution.backend === "fortemi-core"
-          ? this.deps.fortemiBackend
-          : this.deps.localBackend;
+      const backend = selectDatasetBackend(this.deps, plan.execution.backend);
       if (!backend)
         throw new DatasetOrchestrationError(
           "DATASET_FORTEMI_UNAVAILABLE",
@@ -404,6 +400,7 @@ export class DatasetOrchestrationService {
         createdAt: this.now(),
         receiptDigest: sha256Digest("pending"),
         diagnosticCodes: result.diagnostics.map((v) => v.code),
+        ...bindingReceiptCheckpoints(backend.id, c.source.checkpoint, result),
       };
       const receipt = {
         ...receiptDraft,
@@ -475,7 +472,7 @@ export class DatasetOrchestrationService {
       const valid =
         computeRunReceiptDigest(run.receipt).value ===
           run.receipt.receiptDigest.value &&
-        run.receipt.planDigest.value === run.planDigest.value;
+        run.receipt.planDigest.value === run.planDigest.value && await verifyBindingCheckpointReceipt(run, this.repo);
       return valid
         ? ok("verify", { runId, valid })
         : fail(

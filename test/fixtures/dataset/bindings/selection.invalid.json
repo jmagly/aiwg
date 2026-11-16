@@ -1,0 +1,11 @@
+{
+  "contractVersion": "aiwg.dataset.service-binding/v1",
+  "kind": "DatasetBindingSelection",
+  "id": "fixture.preservation-native",
+  "version": "1.0.0",
+  "descriptorDigest": {
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "module": "./dataset-supplied.mjs"
+}
