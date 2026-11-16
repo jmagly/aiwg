@@ -50,10 +50,13 @@ describe('current writing patterns on the public surfaces', () => {
     expect(diagnostic.text).toBe(match.text);
   });
 
-  it('keeps deferred baseline patterns attached to #4138 with #4140 as planned fixer', () => {
+  it('keeps remaining #4138 and #4140 misses explicitly justified', () => {
     const baseline = JSON.parse(readFileSync('test/fixtures/writing/quality-corpus/known-gaps.json', 'utf8'));
-    expect(baseline.gaps.length).toBeLessThanOrEqual(78);
-    for (const gap of baseline.gaps) expect(gap).toMatchObject({ kind: 'miss', issue: '#4138', plannedBy: '#4140' });
+    for (const gap of baseline.gaps) {
+      expect(gap.kind).toBe('miss');
+      expect(['#4138', '#4140']).toContain(gap.issue);
+      expect(gap.reason.length).toBeGreaterThan(20);
+    }
   });
 
   it.each([

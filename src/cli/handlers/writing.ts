@@ -12,8 +12,10 @@ import { resolveProjectAiwgDirForWrite } from '../../config/project-artifacts.js
 import { readAiwgConfig } from '../../config/aiwg-config.js';
 import { resolveArtifactOutputs, recordArtifactOutputProvenance } from '../../artifacts/output-policy.js';
 import type { WritingChannel } from '../../writing/channel-packs.js';
+import { campaignReport } from '../../writing/campaign-report.js';
 
 async function execute(ctx: HandlerContext): Promise<HandlerResult> {
+  if (ctx.args.includes('--cross')) return { exitCode: 0, rawOutput: true, message: await campaignReport(ctx.cwd, ctx.args) };
   const [action, ...args] = ctx.args;
   if (!['plan', 'proofread'].includes(action)) throw new Error('Expected writing plan or proofread');
   const flags: Record<string, string> = {};
@@ -90,9 +92,10 @@ export const writingHandler: CommandHandler = {
   async help() { return { exitCode: 0, rawOutput: true, message: [
     'aiwg writing plan --brief <brief.json> --profile <id> [--channel article|social|email|engineering|conversation] [--output <new-file>]',
     'aiwg writing proofread --brief <brief.json> --profile <id> [--correction <id>]... [--output <new-file>]',
+    'aiwg writing --cross [--json] <file-or-dir>...  Review one campaign without writing files',
     'Proofreading applies listed author-authorized corrections (all by default), without a model or voice rewrite.',
     'Canonical output and a receipt are written first. Optional local exports require a new file and project-policy allowance.',
     'Mode selections are inspected; this command does not claim provider response interception or publication approval.',
   ].join('\n') }; },
-  async execute(ctx) { try { return await execute(ctx); } catch { return { exitCode: 1, message: 'Writing operation failed. Check the brief, profile, correction IDs, output destination and artifact policy. Private source text is omitted; any completed canonical artifacts remain available.' }; } },
+  async execute(ctx) { try { return await execute(ctx); } catch (error) { if (error instanceof RangeError && error.message.startsWith('Campaign exceeds')) return { exitCode: 1, message: error.message }; return { exitCode: 1, message: 'Writing operation failed. Check the brief, profile, correction IDs, output destination and artifact policy. Private source text is omitted; any completed canonical artifacts remain available.' }; } },
 };

@@ -1,0 +1,104 @@
+// Detect paragraph and sentence sequences while retaining original source offsets.
+import type { CurrentPatternFinding, PatternTier } from './current-patterns.js';
+
+export const words = (s: string): string[] => s.toLowerCase().match(/[a-z0-9]+(?:['’-][a-z0-9]+)*/g) ?? [];
+export const stopWords = new Set(('a an the of to in on for and or but is are was were be it its this that these those with as at by from not no so if we you i they he she our your their there here than then also about into over under out up down can will would should could has have had do does did just only more most very all any each some which who what when where how why num them his her me my').split(' '));
+export interface ProseSentence { start: number; end: number; text: string; tokens: string[] }
+export interface ProseParagraph { start: number; end: number; sentences: ProseSentence[] }
+const abbreviations = new Set('e.g i.e vs etc approx cf eg ie dr mr mrs ms st no fig al'.split(' '));
+
+export function proseParagraphs(prose: string): ProseParagraph[] {
+  const paragraphs: ProseParagraph[] = [];
+  // A wholly masked line is a boundary, including a heading between two prose lines.
+  for (const block of prose.matchAll(/[^\n]*(?:\n|$)/g)) {
+    if (!block[0]) continue;
+    if (!block[0].replace(/[\s\u0001]/g, '')) continue;
+    const previous = paragraphs.at(-1);
+    if (previous && previous.end === block.index) previous.end += block[0].length;
+    else paragraphs.push({ start: block.index!, end: block.index! + block[0].length, sentences: [] });
+  }
+  for (const p of paragraphs) {
+    const text = prose.slice(p.start, p.end);
+    let from = 0;
+    const push = (end: number) => {
+      const raw = text.slice(from, end);
+      const trimmed = raw.replace(/^[\s\u0001]+|[\s\u0001]+$/g, '');
+      if (words(trimmed).length) {
+        const start = p.start + from + raw.search(/[^\s\u0001]/);
+        p.sentences.push({ start, end: start + trimmed.length, text: trimmed, tokens: words(trimmed) });
+      }
+      from = end;
+    };
+    for (const m of text.matchAll(/[.!?]+/g)) {
+      const end = m.index! + m[0].length;
+      if (end < text.length && !/\s/.test(text[end])) continue;
+      const word = text.slice(from, m.index).match(/([a-z][a-z.]*)$/i)?.[1].toLowerCase();
+      if (m[0] === '.' && word && (abbreviations.has(word) || /^(?:[a-z]\.)+[a-z]$/.test(word))) continue;
+      push(end);
+    }
+    push(text.length);
+  }
+  return paragraphs;
+}
+
+export function structuralPatterns(prose: string, antonyms: string[][]): CurrentPatternFinding[] {
+  const out: CurrentPatternFinding[] = [];
+  const emit = (ruleId: string, tier: PatternTier, s: Pick<ProseSentence, 'start' | 'end'>, explanation: string, suggestion: string) => {
+    out.push({ ruleId, tier, start: s.start, end: s.end, explanation, suggestion });
+  };
+  for (const p of proseParagraphs(prose)) {
+    const sentences = p.sentences;
+    for (let i = 1; i < sentences.length; i++) {
+      const a = sentences[i - 1], b = sentences[i];
+      // A shared subject alone is insufficient: predicates must align after removing
+      // a single negation, or differ by exactly one catalogued antonym.
+      const normalize = (s: ProseSentence) => words(s.text.replace(/n['’]t\b/gi, ' not'));
+      const left = normalize(a), right = normalize(b);
+      const negated = (tokens: string[]) => tokens.includes('not') || tokens.includes('never');
+      const positive = (tokens: string[]) => tokens.filter(t => t !== 'not' && t !== 'never');
+      const x = positive(left), y = positive(right);
+      const differences = x.map((token, index) => token === y[index] ? -1 : index).filter(index => index >= 0);
+      const polarityFlip = negated(left) !== negated(right) && differences.length === 0;
+      const antonymFlip = negated(left) === negated(right) && differences.length === 1 && differences[0] >= 2
+        && antonyms.some(pair => pair.includes(x[differences[0]]) && pair.includes(y[differences[0]]));
+      if (x.length >= 3 && x.length === y.length && x[0] === y[0] && x[1] === y[1] && (polarityFlip || antonymFlip)) {
+        emit('mirrored-sentences', 'cut', b, 'Parallel predicates contrast through a polarity flip or a listed antonym.', 'Combine the useful claim into one sentence; retain deliberate parallelism with a reason.');
+      }
+    }
+    let run: ProseSentence[] = [];
+    const flush = () => {
+      if (run.length >= 4 && new Set(run.map(s => s.tokens.join(' '))).size > 1) emit('fragment-run', 'check', { start: run[0].start, end: run.at(-1)!.end }, 'Four or more consecutive statements contain fewer than five words.', 'Join fragments to explain the reason or result.');
+      run = [];
+    };
+    for (const s of sentences) {
+      const label = s.text.match(/^([^:]+):/);
+      if (s.tokens.length <= 4 && !/\?$/.test(s.text) && !(label && words(label[1]).length <= 3)) run.push(s);
+      else flush();
+      // A reveal withholds its complement, then supplies a short final punchline.
+      // Mere colon frequency, another diagnostic, or a technical definition is insufficient.
+      const colon = s.text.indexOf(':');
+      if (colon < 0 || colon !== s.text.lastIndexOf(':') || /[\d\u0001`\[\]{};,]/.test(s.text) || !/[.!]$/.test(s.text)) continue;
+      const before = s.text.slice(0, colon), after = s.text.slice(colon + 1).trim();
+      const setup = words(before), punchline = words(after);
+      const withheld = /\b(?:is|are|was|were)$/.test(before.trim())
+        || /\b(?:has|had|have|makes|made|holds|held|offers|offered|reveals|revealed|leaves|left) (?:a|an|one|this|that) (?:[a-z]+ ){0,2}[a-z]+$/i.test(before.trim());
+      // Require a simple subject/predicate shape, protecting nominal definitions
+      // such as 'request identifier' or 'shared memory' after the colon.
+      const subject = /^(?:the|a|an)$/.test(punchline[0]) ? 1 : 0;
+      const predicate = punchline[subject + 1] ?? '';
+      const clause = (subject === 1 || /^(?:it|this|that|we|you|they|he|she|nothing|everything)$/.test(punchline[0]))
+        && /^(?:is|are|was|were|can|will|must|has|had|does|[a-z]+(?:s|ed))$/.test(predicate);
+      if (clause && setup.length >= 4 && setup.length <= 12 && punchline.length >= 2 && punchline.length <= 10
+        && withheld && !/^(?:["“]|[-*+]|\u0001)/.test(after) && !/\b(?:and|or)\b|:|[?!]/i.test(after)) {
+        emit('colon-reveal', 'watch', { start: s.start + colon, end: s.start + colon + 1 },
+          'A short setup withholds a complement until a sentence-final punchline.', 'State the subject and consequence directly; retain real lists, labels and code introductions.');
+      }
+    }
+    flush();
+    const last = sentences.at(-1);
+    if (!last || last.tokens.length < 3 || last.tokens.length > 10 || /[\d\u0001@/]|[?:]$/.test(last.text)) continue;
+    const moral = /^(?:(?:always|never|remember)\b|the (?:point|lesson|moral)\b|(?:that's|that is|it's|it is|this is) the (?:point|lesson|moral)\b)/i.test(last.text);
+    if (moral) emit('aphorism-ending', 'cut', last, 'A short paragraph-final sentence opens with an explicit moral or lesson.', 'End on the last useful fact, or develop the claim with supported detail.');
+  }
+  return out;
+}

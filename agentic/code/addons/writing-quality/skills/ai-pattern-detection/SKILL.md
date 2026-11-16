@@ -54,8 +54,57 @@ adjective triad with or without the Oxford comma: `three_item_list` in Python,
 
 Front matter, headings, image alt text, code, quotations, comments, tables and
 inventory lines are protected. Passive voice and standalone punctuation are not
-findings. Moral endings, fragment runs, adjacent-sentence mirroring, clustered
-colon reveals and campaign comparisons remain deferred to #4140.
+findings.
+
+### Structural and Campaign Checks
+
+Paragraph-final explicit moral/lesson openers (3–10 words) are cut tier; generic
+subjects alone never trigger a closer finding. Numbers, identifiers and protected
+spans suppress moral findings. Adjacent sentences sharing the first two tokens
+must have parallel predicates with an aligned polarity flip or one listed antonym
+(cut). Different predicates sharing a negated opener are insufficient. Four
+consecutive statements of 1–4 words in one paragraph form a check-tier fragment
+run. Questions and identical-sentence-only runs are excluded. Headings, blank
+lines and protected whole lines break sequences; wrapped prose lines do not.
+
+Colon reveals are watch tier only for a short setup that withholds a complement
+and a short sentence-final punchline. Mere colon frequency and neighboring
+findings never suffice. Lists, definitions, digits/citations, code and quotation
+introductions are excluded. Ambiguous technical introductions remain unflagged.
+
+Use one campaign set for cross-document comparison:
+
+```bash
+aiwg writing --cross --json linkedin.md telegram.md x-thread.md
+python3 -I scripts/pattern_scanner.py --cross campaign/
+python3 -I scripts/pattern_scanner.py --cross --report campaign/
+```
+
+The existing `aiwg writing` entry point emits a readable report by default and
+JSON with `--json`; Python emits JSON by default and readable output with
+`--report`. Each finding includes a tier, source location and suggested fix.
+Campaign rules detect six-word repeated sentences (cut), eight-word runs shared
+by at least three documents (check), and three-word opening/closing skeletons
+shared by at least three documents (check). Numbers and versions normalize only
+for skeletons; phrase runs exclude sentences already reported as repeated.
+Every affected occurrence is reported, with related document locations.
+
+The APIs are `diagnoseWritingBatch(documents, { cross: true })` and
+`engine.validateBatch(files, context, { cross: true })`. IDs must be unique;
+missing campaign files fail the scan. Sets over 200 documents fail with an
+explicit size error; split larger sets. Related-location output can still grow
+with repetition inside an allowed set. A single-document campaign may report
+repeated sentences; phrases and skeletons require distinct documents.
+
+These checks are heuristic. Short generic statements and factual technical
+negations remain residuals for review; explicit moral openers can be useful
+instructions. The original #4138 paragraph has only two short trailing sentences,
+so it does not meet the four-sentence fragment threshold. Its colon introduces a
+conditional/list and its moral contains a protected quotation, so these are
+explicitly scoped out. Its mirrored comma pair is detected as `antithesis-pair`.
+A standalone “it doesn't anymore” is a factual correction rather than a sufficient
+negate/assert trigger. The reproduction still flags the aside, antonym pair,
+negated evidence and negated alternative on all three surfaces.
 
 ### Contextual Patterns (Check Frequency)
 
@@ -110,7 +159,7 @@ When generating or reviewing content:
 The Python `scripts/pattern_scanner.py` is a **legacy regex scanner**, not the contextual diagnostic implementation. It:
 - Counts pattern frequencies
 - Labels matches with pattern IDs, tiers, source line/column and legacy severity categories; these are advisory absent a user rule
-- Generates contextual replacement suggestions for the current local patterns
+- Generates replacement suggestions for local, structural and campaign patterns
 - Preserves the deprecated numeric `authenticity_score` (0–100) and `grade` for compatibility, with prose-rate penalties and a deprecation notice; neither measures authorship or publication readiness
 
 For contextual programmatic review, use `WritingValidationEngine.diagnose(content, options)` or the exported `diagnoseWriting` API. Results include UTF-16 spans, context, explanations and reasoned exceptions. They carry `publicationGate: false`. The Python scanner does not implement these context or exception fields.
@@ -118,7 +167,8 @@ For contextual programmatic review, use `WritingValidationEngine.diagnose(conten
 Python `position` counts Unicode code points from zero; its `column` counts code
 points from one. Validation `location.start/end` and diagnostic `start/end` count
 UTF-16 code units from zero, with exclusive ends; validation `column` counts
-UTF-16 units from one. Lines start at one on every surface. ASCII offsets agree.
+UTF-16 units from one. Lines start at one on every surface. These units also apply to structural and
+campaign findings and their related source lines. ASCII offsets agree.
 For `🧵 Thoughts?`, Python gives position 2 and column 3; TypeScript gives start 3
 and validation column 4, because the astral character occupies two UTF-16 units.
 

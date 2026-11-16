@@ -18,10 +18,14 @@ import { existsSync } from 'fs';
 import { ValidationRuleLoader, RuleSet, ValidationContext, Severity } from './validation-rules.js';
 import { loadScoringConfig, getScoringConfig } from './scoring-config-loader.js';
 import { diagnoseWriting, type DiagnosticOptions, type ContextualDiagnosticResult } from './contextual-diagnostics.js';
-import { currentPatternIssues, rhetoricalTriad } from './current-patterns.js';
+import { currentPatternIssues, rhetoricalTriad, type CurrentPatternFinding } from './current-patterns.js';
+import { validateCampaign } from './validation-campaign.js';
 import { maskProse } from './prose-mask.js';
 
 export interface ValidationIssue {
+  scope?: 'file' | 'cross';
+  tier?: 'cut' | 'check' | 'watch';
+  related?: Array<{ documentId: string; line: number }>;
   type: 'banned_phrase' | 'ai_pattern' | 'missing_authenticity' | 'formulaic_structure';
   severity: Severity;
   message: string;
@@ -116,7 +120,7 @@ export class WritingValidationEngine {
   /**
    * Validate content and return comprehensive results
    */
-  async validate(content: string, context?: ValidationContext): Promise<ValidationResult> {
+  async validate(content: string, context?: ValidationContext, campaign: CurrentPatternFinding[] = []): Promise<ValidationResult> {
     await this.initialize();
 
     const issues: ValidationIssue[] = [];
@@ -125,7 +129,7 @@ export class WritingValidationEngine {
     issues.push(...this.detectBannedPhrases(content, context));
     issues.push(...this.detectAIPatterns(content, context));
     issues.push(...this.detectFormulicStructures(content));
-    issues.push(...currentPatternIssues(content));
+    issues.push(...currentPatternIssues(content, campaign));
 
     // Analyze authenticity
     const authenticityAnalysis = this.analyzeAuthenticity(content);
@@ -180,8 +184,9 @@ export class WritingValidationEngine {
    */
   async validateBatch(
     files: string[],
-    context?: ValidationContext
+    context?: ValidationContext, options: { cross?: boolean } = {}
   ): Promise<Map<string, ValidationResult>> {
+    if (options.cross) return validateCampaign(this, files, context);
     const results = new Map<string, ValidationResult>();
 
     // Process in parallel

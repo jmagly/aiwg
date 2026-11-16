@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { scanCurrentPatterns, type PatternTier } from './current-patterns.js';
 import { maskProse, protectedRegions } from './prose-mask.js';
+import { scanCampaignPatterns, type CampaignFinding } from './campaign-patterns.js';
 
 /** Offsets use JavaScript UTF-16 code units, so content.slice(start, end) is exact. */
 export interface WritingSpan { start: number; end: number }
@@ -21,6 +22,8 @@ export interface WritingException extends WritingSpan {
   reason: string;
 }
 export interface ContextualDiagnostic extends WritingSpan {
+  scope?: 'file' | 'cross';
+  related?: Array<{ documentId: string; line: number }>;
   id: string;
   ruleId: string;
   text: string;
@@ -35,6 +38,8 @@ export interface ContextualDiagnostic extends WritingSpan {
   tier?: PatternTier;
 }
 export interface DiagnosticOptions {
+  /** Compare sentence repetition, eight-word runs and boundary skeletons in a batch. */
+  cross?: boolean;
   language?: string;
   rules?: DiagnosticRule[];
   /** Explicit user rules override defaults by ID; disabled rules suppress the default. */
@@ -106,7 +111,7 @@ export function diagnoseWriting(content: string, options: DiagnosticOptions = {}
   return diagnoseDocument(content, options);
 }
 
-function diagnoseDocument(content: string, options: DiagnosticOptions, priorParagraphs = new Map<string, string>(), documentId = ''): ContextualDiagnosticResult {
+function diagnoseDocument(content: string, options: DiagnosticOptions, priorParagraphs = new Map<string, string>(), documentId = '', campaign: CampaignFinding[] = []): ContextualDiagnosticResult {
   const contentHash = writingContentHash(content);
   const language = options.language ?? 'en';
   const notices: string[] = [];
@@ -132,10 +137,11 @@ function diagnoseDocument(content: string, options: DiagnosticOptions, priorPara
       confidence: { kind: 'heuristic', calibrated: false }, resolution: exception ? 'retained' : 'review', ...(exception ? { reason: exception.reason } : {}), ...(rule.tier ? { tier: rule.tier } : {}) });
   };
   const current = language.split('-')[0] === 'en' ? scanCurrentPatterns(maskProse(content, contexts.filter(c => c.context !== 'prose').map(c => ({ ...c, context: 'code' as const })))) : [];
-  for (const f of current) {
+  for (const f of [...current, ...campaign]) {
     const override = rules.get(f.ruleId);
     if (override?.enabled === false) continue;
     emit(f, override ?? { id: f.ruleId, phrase: '', authority: 'advisory', explanation: f.explanation, suggestion: f.suggestion, tier: f.tier }, 'prose');
+    if ('scope' in f) Object.assign(diagnostics.at(-1)!, { scope: f.scope, related: f.related });
   }
   for (const rule of rules.values()) {
     if (rule.enabled === false || rule.id.startsWith('repetition:')) continue;
@@ -165,7 +171,8 @@ function diagnoseDocument(content: string, options: DiagnosticOptions, priorPara
     const span = { start: match.index!, end: match.index! + match[0].length };
     if (contextAt(span, contexts, true) !== 'prose') continue;
     const priorDocument = priorParagraphs.get(text);
-    if (seen.has(text) || priorDocument !== undefined) emit(span, repetitionOverride ?? { ...repetitionRule, explanation: priorDocument !== undefined && priorDocument !== documentId ? `This paragraph also occurs in document ${priorDocument}; repetition may be intentional.` : repetitionRule.explanation }, 'prose');
+    const coveredByCampaign = campaign.some(f => f.ruleId === 'repeated-sentence' && f.start >= span.start && f.end <= span.end);
+    if (!coveredByCampaign && (seen.has(text) || priorDocument !== undefined)) emit(span, repetitionOverride ?? { ...repetitionRule, explanation: priorDocument !== undefined && priorDocument !== documentId ? `This paragraph also occurs in document ${priorDocument}; repetition may be intentional.` : repetitionRule.explanation }, 'prose');
     seen.add(text);
     if (priorDocument === undefined) priorParagraphs.set(text, documentId);
   }
@@ -183,9 +190,10 @@ function diagnoseDocument(content: string, options: DiagnosticOptions, priorPara
 export function diagnoseWritingBatch(documents: Array<{ id: string; content: string }>, options: DiagnosticOptions = {}): Map<string, ContextualDiagnosticResult> {
   const results = new Map<string, ContextualDiagnosticResult>();
   const seen = new Map<string, string>();
+  const campaign = options.cross ? scanCampaignPatterns(documents.map(d => ({ ...d, content: maskProse(d.content, (options.contexts ?? []).filter(c => c.context !== 'prose').map(c => ({ ...c, context: 'code' as const }))) }))) : undefined;
   for (const document of documents) {
     if (results.has(document.id)) throw new Error(`Duplicate document ID: ${document.id}`);
-    const result = diagnoseDocument(document.content, options, seen, document.id);
+    const result = diagnoseDocument(document.content, options, seen, document.id, campaign?.get(document.id));
     results.set(document.id, result);
   }
   return results;

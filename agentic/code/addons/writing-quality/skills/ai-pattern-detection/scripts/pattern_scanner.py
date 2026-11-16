@@ -15,6 +15,7 @@ Output:
 import re
 import json
 import sys
+import runpy
 from pathlib import Path
 from collections import Counter
 from typing import NamedTuple
@@ -24,6 +25,8 @@ CATALOGUE = json.loads((Path(__file__).resolve().parents[1] /
 FIXES = {rule['id']: rule['fix'] for rule in CATALOGUE['rules']}
 FIXES.update({'antithesis-pair': 'Keep the fact and drop the mirrored half.',
               'lexical-cluster': 'Replace vague markers with the specific action or fact.'})
+STRUCTURAL = runpy.run_path(str(Path(__file__).with_name('structural_patterns.py')))
+FIXES.update(STRUCTURAL['FIXES'])
 
 # Legacy high-priority phrase patterns; matches do not identify authorship
 CRITICAL_PATTERNS = [
@@ -193,7 +196,7 @@ def grounded_comparison(text: str, start: int, end: int) -> bool:
 
 
 def current_matches(text: str):
-    """Local patterns only; sentence-sequence and campaign checks await #4140."""
+    """Local editorial patterns on masked prose."""
     text = text.replace('’', "'").replace('‘', "'")
     severity = {'cut': 'critical', 'check': 'warning', 'watch': 'info'}
     paragraphs = list(re.finditer(r'\S[^\n]*(?:\n(?!\s*\n)[^\n]+)*', text))
@@ -241,7 +244,8 @@ def scan_text(text: str) -> dict:
     source = text
     text = mask_prose(text)
     word_count = len(re.findall(r'\b\w+\b', text))
-    matches = list(current_matches(text))
+    local_matches = list(current_matches(text))
+    matches = list(local_matches)
 
     # Check critical patterns
     for pattern in CRITICAL_PATTERNS:
@@ -287,6 +291,8 @@ def scan_text(text: str) -> dict:
                         severity="info"
                     ))
 
+    matches.extend(STRUCTURAL['structural_matches'](text.replace('’', "'").replace('‘', "'"), CATALOGUE['antonyms'], PatternMatch))
+
     # Calculate deprecated compatibility heuristic (not an authorship or quality measure)
     critical_count = sum(1 for m in matches if m.severity == "critical")
     warning_count = sum(1 for m in matches if m.severity == "warning")
@@ -316,6 +322,7 @@ def scan_text(text: str) -> dict:
             {
                 "text": source[m.position:m.position + len(m.match)],
                 "pattern": m.pattern,
+                "scope": "file",
                 "severity": m.severity,
                 "tier": {"critical": "cut", "warning": "check", "info": "watch"}[m.severity],
                 "position": m.position,
@@ -347,11 +354,34 @@ def _score_to_grade(score: int) -> str:
 
 def main():
     """CLI entry point."""
+    if '--cross' in sys.argv[1:]:
+        args = sys.argv[1:]
+        readable = '--report' in args
+        paths = [arg for arg in args if arg not in ('--cross', '--json', '--report')]
+        if not paths or any(arg.startswith('-') for arg in paths):
+            raise SystemExit('Usage: pattern_scanner.py --cross [--json|--report] <file-or-dir>...')
+        files = sorted({file.resolve() for item in paths for file in
+                        (Path(item).rglob('*.md') if Path(item).is_dir() else [Path(item)])})
+        if len(files) > 200:
+            raise SystemExit('Campaign exceeds 200 documents; split it into smaller campaign sets.')
+        sources = {}
+        for file in files:
+            with file.open(encoding='utf-8', newline='') as stream:
+                sources[str(file)] = stream.read()
+        result = scan_campaign(sources)
+        if readable:
+            for file, report in result.items():
+                for m in report['matches']:
+                    print(f"{file}:{m['line']}:{m['column']} [{m['tier']}] {m['pattern']}: {m['suggestion']}")
+        else:
+            print(json.dumps(result, indent=2))
+        return
     if len(sys.argv) < 2 or sys.argv[1] in ('--help', '-h'):
         print(__doc__)
         print("Options:")
         print("  <file>           Path to file to scan")
         print("  --text 'text'    Inline text to scan")
+        print("  --cross [--report] <file-or-dir>...  Compare one campaign (JSON by default)")
         print("  --help, -h       Show this help message")
         sys.exit(0)
 
@@ -367,6 +397,23 @@ def main():
 
     result = scan_text(text)
     print(json.dumps(result, indent=2))
+
+
+def scan_campaign(sources: dict) -> dict:
+    """Scan an explicit {document_id: source} campaign, including local findings."""
+    cross = STRUCTURAL['campaign_matches'](sources, mask_prose)
+    reports = {name: scan_text(text) for name, text in sources.items()}
+    for name, report in reports.items():
+        report['matches'].extend(cross[name])
+        report['matches'].sort(key=lambda m: (m['position'], m['pattern']))
+        for m in cross[name]:
+            report['summary'][m['severity']] += 1
+            report['summary']['total'] += 1
+        summary = report['summary']
+        penalty = (summary['critical'] * 10 + summary['warning'] * 3 + summary['info']) * 100 / max(report['word_count'], 1)
+        report['authenticity_score'] = max(0, min(100, 100 - penalty))
+        report['grade'] = _score_to_grade(report['authenticity_score'])
+    return reports
 
 
 if __name__ == "__main__":

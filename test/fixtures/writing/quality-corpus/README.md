@@ -40,9 +40,10 @@ Each file records `source`, an editorial explanation in `notes`, and `labels`:
 - Negative labels are targeted near misses for the named pattern. A file with no
   positive labels is wholly negative: any emitted finding counts as a false flag.
 
-Tiers and cluster thresholds follow the reference catalogue: colon reveals are
-watch tier with four in one file; lexical markers require two in a paragraph or
-four in a file. Lexical negatives live in separate files to test isolated markers.
+Annotations retain the reference catalogue tiers and original examples. D3
+deliberately narrows structural checks for precision: colon reveals remain watch
+tier but require a reveal shape, and fragment runs require four statements.
+Lexical markers require two in a paragraph or four in a file. Lexical negatives live in separate files to test isolated markers.
 Campaign positives cover a shared thesis sentence, opening/closing skeletons,
 and an eight-word run inside otherwise different sentences. Campaign negatives
 are distinct releases. Three channel locations count as three examples of a
@@ -107,7 +108,7 @@ thresholds, so exclusions are measured even before new structural checks arrive.
 
 ## Scanner adapters and shrinking gaps
 
-### D2 results (#4138 / #4139)
+### D2 results (#4138 / #4139, historical)
 
 Each cell shows initial → current recall. Fixtures and editorial labels are
 unchanged. All three surfaces now recover 30/56 locations (53.6%), with zero
@@ -133,20 +134,81 @@ findings on wholly negative files (previously Python 16, validation 8, diagnosti
 | `shared-skeleton` | 0/6 → 0/6 | 0/6 → 0/6 | 0/6 → 0/6 |
 | `throat-clearing` | 0/3 → 3/3 | 0/3 → 3/3 | 0/3 → 3/3 |
 
-The gap multiset shrank from 197 to 78: 90 recovered locations and all 29 #4139
-unexpected-finding allowances were removed. The remaining 42 sentence-sequence,
-moral-ending and clustered-colon misses and 36 campaign misses retain `issue:
-"#4138"`, with `plannedBy: "#4140"` identifying their planned implementation.
-No allowance was added. #4138 stays open: the reproduction now finds the local
-contrast, antonym pair and aside, but moral endings, fragment runs and colon
-clustering remain #4140 work. #4139 has no remaining gaps and can close.
+D2 reduced the gap multiset from 197 to 78: 90 recovered locations and all 29
+#4139 unexpected-finding allowances were removed, with no added allowance.
+
+### D3 results (#4138 / #4140)
+
+All three surfaces recover **46/56 annotated locations (82.1%)**, with zero
+findings on wholly negative corpus files. Round 1 recovered 56/56 but overflagged
+ordinary technical prose. Round 2 keeps precision constraints and retains 30
+existing misses (10 per surface), each with a reason in `known-gaps.json`. These
+are retained origin/main entries, not new allowances. No fixtures or labels change.
+
+| Pattern | D2 recall (each surface) | Round 1 | Round 2 |
+|---|---:|---:|---:|
+| `aphorism-ending` | 0/4 | 4/4 | 4/4 |
+| `colon-reveal` | 0/4 | 4/4 | 0/4 |
+| `fragment-run` | 0/3 | 3/3 | 0/3 |
+| `mirrored-sentences` | 0/3 | 3/3 | 0/3 |
+| `repeated-phrase` | 0/3 | 3/3 | 3/3 |
+| `repeated-sentence` | 0/3 | 3/3 | 3/3 |
+| `shared-skeleton` | 0/6 | 6/6 | 6/6 |
+| `antithesis-pair` | 3/3 | 3/3 | 3/3 |
+| `contrast-not-but` | 3/3 | 3/3 | 3/3 |
+| `contrast-x-not-y` | 3/3 | 3/3 | 3/3 |
+| `engagement-bait` | 3/3 | 3/3 | 3/3 |
+| `labelled-significance` | 6/6 | 6/6 | 6/6 |
+| `lexical-cluster` | 3/3 | 3/3 | 3/3 |
+| `negate-then-assert` | 3/3 | 3/3 | 3/3 |
+| `rather-than` | 3/3 | 3/3 | 3/3 |
+| `throat-clearing` | 3/3 | 3/3 | 3/3 |
+
+Remaining gaps are deliberate precision limits:
+
+- `positives/mirrored.md`, lines 1/3/5: predicates differ without an aligned
+  polarity flip or a listed antonym. A shared opener and negation alone cannot
+  distinguish factual pairs. Parallel predicate contrasts have separate tests.
+- `positives/colons.md`, lines 1 (two annotations), 3 and 5: protected quotation,
+  no unambiguous withheld complement, or a command introduction. Frequency and
+  neighboring patterns no longer turn technical colons into reveals.
+- `positives/fragments.md`, lines 1/3/5: three short statements; four are required
+  to protect runbook staccato. The explicit moral on line 1 is still detected.
+
+### #4138 acceptance disposition
+
+The reproduction detects the self-explaining aside, comma antonym pair, negated
+evidence and negated alternative on all three surfaces. Standalone “it doesn't
+anymore” is a factual correction. Its final two short sentences do not meet the
+four-statement fragment threshold. Its colon introduces a conditional/list and
+its moral contains a protected quotation, so neither is reported. These scope
+limits deliberately take precedence over literal recall of every requested form.
+All rules have positive and negative regression cases through public surfaces.
+The release changelog is left to release preparation, per the round-2 brief.
+
+Short generic statements and factual technical negations remain heuristic
+residuals. Only explicit moral/lesson openers trigger closers; sentences containing
+protected material are excluded. Mirroring requires aligned predicate contrast.
+Colon reveals require a short setup ending in a withheld complement and a short
+final punchline; lists, definitions, digits/citations and protected material are
+excluded. These rules cannot judge semantic contribution.
+Campaign comparisons require six-word repeated sentences, eight-word runs in
+three documents, or three-word boundary skeletons in three documents. Only
+skeletons normalize numbers and versions. Campaign size is capped at 200 documents;
+records are indexed once per document, and grouping appends without copying prior
+occurrences. A 200-document synthetic test covers both scanners with a generous
+ten-second bound per scanner. Validation explicitly masks prose before comparison.
+
+TypeScript structural and campaign spans count UTF-16 code units; Python positions
+and columns count Unicode code points. Positions start at zero, columns and source
+lines at one. Related locations contain one-based source lines. These conventions
+match the D2 local rules; ASCII positions agree across surfaces.
 
 `test/unit/writing/quality-corpus.test.ts` runs in the default Vitest lane through
 `config/vitest.config.js`; no new lane or registration is needed. It exercises:
 
-1. The shipped Python `scan_text`, in an isolated Python process. A constructor
-   observer retains pattern IDs omitted by its legacy public JSON; matching,
-   frequency thresholds and returned findings remain the scanner's own behavior.
+1. The shipped Python `scan_text` and `scan_campaign`, in an isolated Python
+   process, reading public JSON including native pattern IDs and scopes.
 2. `WritingValidationEngine.validate` with rules loaded from this repository,
    including its existing markdown rules. The generic `missing_authenticity`
    specificity notice is excluded because it is not a pattern finding. Other
@@ -157,9 +219,10 @@ Legacy severities map mechanically: critical → cut, warning → check, info �
 Contextual diagnostics expose tiers for current patterns; legacy advisory findings
 without a tier map to check. Native rule IDs are retained. The adapter reads
 scanner-owned tiers; it implements no missing detectors.
-The engine and Python scanner currently offer no structural campaign API, so those
-expected findings remain misses. Their adapters must call the shipped campaign
-entry point when #4140 introduces it. No detector from the reference is used as an
+Campaign adapters call Python `scan_campaign`, validation
+`validateBatch(files, context, { cross: true })`, and diagnostics
+`diagnoseWritingBatch(documents, { cross: true })`. Each group is isolated; default
+single-file scans do not compare unrelated fixtures. No detector from the reference is used as an
 oracle, and neither a model nor a network call is involved. Python 3 is required.
 
 `known-gaps.json` version 1 stores an explicit multiset of deviations. Each entry
@@ -190,4 +253,5 @@ Regression demonstration: removing the validation allowance for
 `positives/contrast.md` line 1 produces a failing fixture comparison with an added
 `contrast-not-but` miss. The entry was restored. Adding a stale allowance likewise
 fails. The suite also checks the comparator against a new negative flag and a
-fixed-but-listed gap. Scanner logic and existing tests remain unchanged.
+fixed-but-listed gap. Remaining misses retain their original issue tags and have
+explicit precision reasons; new unexpected findings remain disallowed.

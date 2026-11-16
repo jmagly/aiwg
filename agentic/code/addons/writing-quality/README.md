@@ -25,8 +25,46 @@ The Python scanner, validation engine and contextual diagnostics detect local
 listed antonym pairs across a comma, significance labels and self-explaining
 asides, empty openers, and generic engagement questions. New findings carry
 canonical rule IDs and cut/check/watch tiers (critical/warning/info in validation).
-They are editing suggestions. Adjacent-sentence mirroring, moral endings,
-fragment runs, clustered colon reveals and campaign comparisons await #4140.
+They are editing suggestions. Sentence-sequence checks cover adjacent parallel
+predicates with the same first two words and either a polarity flip or one listed
+antonym (cut), paragraph-final explicit moral/lesson openers of 3–10 words (cut),
+and four consecutive sentences of 1–4 words (check). Generic factual closers are
+not detected. Moral candidates containing protected spans, numbers or identifiers
+are excluded. Colon reveals are watch tier: a short setup withholds its complement,
+then supplies a short sentence-final punchline. Frequency never triggers a colon
+finding. Lists, definitions, digits/citations, code and quotation introductions
+are excluded; ambiguous technical introductions remain unflagged.
+
+Fragment review excludes questions and runs made entirely of one identical
+sentence; exact repetition is handled by campaign comparison. This preserves
+questionnaire punctuation and keeps repetition distinct from staccato rhythm.
+
+Campaign mode compares repeated sentences of six or more words (cut), eight-word
+runs shared by three documents (check), and opening/closing three-word skeletons
+shared by three documents (check). Numbers and versions normalize only for
+skeletons. Repeated sentences suppress overlapping phrase findings; findings
+identify every affected document, including the first. Compare one campaign at a
+time; unrelated campaigns can share legitimate vocabulary. Campaigns are capped
+at 200 documents; split larger sets before scanning. This bounds document count,
+not the number of findings or related occurrences in a repetitive campaign.
+
+```bash
+aiwg writing --cross linkedin.md telegram.md x-thread.md
+aiwg writing --cross --json campaign/
+python3 -I skills/ai-pattern-detection/scripts/pattern_scanner.py --cross --report campaign/
+```
+
+Python defaults to JSON; omit `--report` for structured campaign output.
+Programmatic callers use `diagnoseWritingBatch(documents, { cross: true })` or
+`engine.validateBatch(files, context, { cross: true })`. Defaults preserve existing
+single-document checks and exact paragraph repetition in contextual batches.
+These are heuristics: short generic statements and factual technical negations
+remain residuals for author review. Explicit moral openers can carry useful
+instructions; the scanner cannot judge meaning. Mirroring requires an aligned
+predicate contrast; sharing an opener and negation with different verbs is
+insufficient.
+Sentence boundaries handle common abbreviations and versions but cannot parse
+all prose. These checks do not identify authorship.
 
 The shared [dated catalogue](skills/ai-pattern-detection/references/current-patterns.json)
 contains the 2023, 2024–25, 2026, copula and spectral lexical sets; next review is
@@ -53,7 +91,8 @@ validation and contextual diagnostics call it `struct_three_items` (watch tier).
 Python `position` is a zero-based Unicode code-point offset and `column` is a
 one-based code-point column. Validation `location.start/end` and contextual
 diagnostic `start/end` are zero-based UTF-16 code-unit offsets (end exclusive);
-validation `column` is a one-based UTF-16 column. All source lines are one-based.
+validation `column` is a one-based UTF-16 column. All source lines are one-based. These units apply to local, structural and
+campaign findings, including related source lines.
 ASCII positions agree across surfaces. In `🧵 Thoughts?`, Python reports position
 2, column 3; both TypeScript surfaces start at 3 and validation reports column 4.
 The astral character occupies one Python code point and two UTF-16 code units.
