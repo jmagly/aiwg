@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { packTarGz, unpackTarGz } from '@fortemi/core';
 import {
-  digest, validateReceiptSchema, validateSessionPair, verifyApiObservations, verifySessionArchive, verifySessionReexport, describeRecordChange,
+  digest, validateReceiptSchema, validateSessionPair, verifyApiObservations, verifySessionArchive, verifySessionReexport, describeRecordChange, isDestinationDefaultEmbeddingConfig,
 } from '../../../tools/ci/verify-aiwg-fortemi-session-receipt.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
@@ -114,6 +114,39 @@ describe('session full-v1 receipt bindings (offline)', () => {
       .toBe('removed=[] added=[{"dimension":768,"model":"seeded-model","name":"default"}]');
     expect(describeRecordChange([{ id: 1 }, { id: 2 }], [{ id: 2 }])).toBe('removed=[{"id":1}] added=[]');
     expect(describeRecordChange([], [{ text: 'x'.repeat(100) }], 40)).toMatch(/^removed=\[\] added=\[\{"text":"x+\.\.\. \(\d+ chars\)$/);
+  });
+
+  // Fortemi's seeded default embedding configuration, as returned by run 108354 (#4217).
+  const destinationDefault = {"benchmark_scores":{"context_length":8192,"mteb_classification":0.723,"mteb_clustering":0.491,"mteb_retrieval":0.537},"chunk_overlap":200,"chunk_size":1500,"content_types":[],"created_at":"2026-11-16T21:46:35.075Z","default_truncate_dim":256,"description":"Default embedding configuration using nomic-embed-text (768 dimensions)","dimension":768,"document_composition":{},"hnsw_ef_construction":64,"hnsw_m":16,"id":"01a1e653-82c5-7229-baba-96997c774000","is_available":true,"is_default":true,"ivfflat_lists":100,"limitations":["Large model size (~1GB)"],"matryoshka_dims":[768,512,256,128,64],"model":"nomic-embed-text","name":"default","provider":"ollama","provider_config":{},"recommended_for":["general-search","long-documents","semantic-dedup"],"strengths":["long-context","symmetric","general-purpose"],"supports_mrl":true,"updated_at":"2026-11-16T21:46:35.075Z"};
+
+  it('allows only the destination default embedding config as a re-export addition (#4217)', () => {
+    expect(isDestinationDefaultEmbeddingConfig('embedding_configs.json', [], [destinationDefault])).toBe(true);
+    expect(isDestinationDefaultEmbeddingConfig('embedding_configs.json', [], [{ ...destinationDefault, is_default: false }])).toBe(false);
+    expect(isDestinationDefaultEmbeddingConfig('embedding_configs.json', [], [destinationDefault, destinationDefault])).toBe(false);
+    expect(isDestinationDefaultEmbeddingConfig('embedding_configs.json', [{ name: 'source' }], [destinationDefault])).toBe(false);
+    expect(isDestinationDefaultEmbeddingConfig('embedding_sets.json', [], [destinationDefault])).toBe(false);
+  });
+
+  it('accepts a re-export that only adds the destination default embedding config', async () => {
+    const changed = new Map(files);
+    const bytes = Buffer.from(JSON.stringify([destinationDefault]));
+    changed.set('embedding_configs.json', bytes);
+    const manifest = JSON.parse(Buffer.from(files.get('manifest.json')!).toString());
+    manifest.checksums['embedding_configs.json'] = digest(bytes);
+    manifest.counts.embedding_configs = 1;
+    changed.set('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    await expect(verifySessionReexport(archive, packTarGz(changed))).resolves.toBeUndefined();
+  });
+
+  it('still rejects a re-export that adds a non-default embedding config', async () => {
+    const changed = new Map(files);
+    const bytes = Buffer.from(JSON.stringify([{ ...destinationDefault, is_default: false }]));
+    changed.set('embedding_configs.json', bytes);
+    const manifest = JSON.parse(Buffer.from(files.get('manifest.json')!).toString());
+    manifest.checksums['embedding_configs.json'] = digest(bytes);
+    manifest.counts.embedding_configs = 1;
+    changed.set('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    await expect(verifySessionReexport(archive, packTarGz(changed))).rejects.toThrow(/changed embedding_configs\.json/);
   });
 
   it('includes the record change in the re-export failure message', async () => {

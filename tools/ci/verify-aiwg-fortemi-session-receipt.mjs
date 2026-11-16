@@ -105,6 +105,15 @@ export function describeRecordChange(before, after, limit = 4096) {
   return text.length > limit ? `${text.slice(0, limit)}... (${text.length} chars)` : text;
 }
 
+// The only tolerated re-export difference (#4217): a Fortemi destination database seeds its own default
+// embedding configuration, which a shard that carries none gets back on re-export. Exactly one added
+// record, flagged is_default, and only when the source file is empty; anything else still fails.
+export function isDestinationDefaultEmbeddingConfig(name, before, after) {
+  return name === 'embedding_configs.json' && Array.isArray(before) && before.length === 0
+    && Array.isArray(after) && after.length === 1 && after[0] !== null && typeof after[0] === 'object'
+    && after[0].is_default === true;
+}
+
 export async function verifySessionReexport(source, reexported) {
   const validation = await validateFullV1ShardArchive(reexported);
   assert(validation.valid, `native re-export contract: ${validation.errors.join('; ')}`);
@@ -116,6 +125,7 @@ export async function verifySessionReexport(source, reexported) {
   for (const name of Object.keys(manifest.checksums)) {
     assert(after.has(name), `native re-export missing ${name}`);
     const was = records(before, name), now = records(after, name);
+    if (isDestinationDefaultEmbeddingConfig(name, was, now)) continue;
     if (!isDeepStrictEqual(Array.isArray(was) ? unordered(was) : canonical(was), Array.isArray(now) ? unordered(now) : canonical(now))) {
       assert(false, `native semantic re-export changed ${name}: ${describeRecordChange(was, now)}`);
     }
