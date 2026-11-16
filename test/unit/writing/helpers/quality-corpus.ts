@@ -23,26 +23,15 @@ export const textOf = (fixture: string) => readFileSync(path.join(fixtureRoot, f
 export const findingKey = (f: Omit<Finding, 'tier'> & { tier: Tier | null }) => JSON.stringify([f.pattern, f.tier, f.line, f.scope]);
 export const gapKey = (g: Gap) => JSON.stringify([g.surface, g.fixture, g.kind, findingKey(g)]);
 
-// The legacy Python JSON omits pattern IDs. Observe its own PatternMatch constructor
-// to retain those IDs without reproducing regex matching or changing scanner behavior.
+// Call only shipped scanner entry points; campaign groups stay isolated.
 const pythonAdapter = `
 import json, runpy, sys
 module = runpy.run_path(sys.argv[1], run_name='corpus_adapter')
-scan = module['scan_text']
-globals_ = scan.__globals__
-original = globals_['PatternMatch']
-records = []
-def record(*args, **kwargs):
-    match = original(*args, **kwargs)
-    records.append(match._asdict())
-    return match
-globals_['PatternMatch'] = record
-out = {}
-for name, text in json.load(sys.stdin).items():
-    records.clear()
-    result = scan(text)
-    assert len(records) == len(result['matches'])
-    out[name] = list(records)
+data = json.load(sys.stdin)
+out = {name: module['scan_text'](text)['matches'] for name, text in data['sources'].items()}
+for files in data['campaigns']:
+    reports = module['scan_campaign']({name: data['sources'][name] for name in files})
+    out.update({name: report['matches'] for name, report in reports.items()})
 print(json.dumps(out))
 `;
 
@@ -52,13 +41,13 @@ export async function scanCorpus(): Promise<Record<Surface, Record<string, Findi
   const output: Record<Surface, Record<string, Finding[]>> = { python: {}, validation: {}, diagnostics: {} };
   const python = JSON.parse(execFileSync('python3', ['-I', '-c', pythonAdapter,
     path.join(repo, 'agentic/code/addons/writing-quality/skills/ai-pattern-detection/scripts/pattern_scanner.py')],
-  { input: JSON.stringify(sources), encoding: 'utf8', timeout: 30_000, maxBuffer: 4 * 1024 * 1024 })) as Record<string,
-    Array<{ pattern: string; severity: keyof typeof severityTier; position: number }>>;
+  { input: JSON.stringify({ sources, campaigns: Object.keys(corpus.groups).map(group => Object.keys(corpus.files).filter(f => corpus.files[f].group === group)) }), encoding: 'utf8', timeout: 30_000, maxBuffer: 4 * 1024 * 1024 })) as Record<string,
+    Array<{ pattern: string; severity: keyof typeof severityTier; position: number; scope: 'file' | 'cross' }>>;
   const engine = new WritingValidationEngine(repo);
   for (const [file, text] of Object.entries(sources)) {
     output.python[file] = python[file].map(f => ({ pattern: f.pattern, tier: severityTier[f.severity],
       // Python offsets count Unicode code points, unlike JavaScript offsets.
-      line: Array.from(text).slice(0, f.position).filter(c => c === '\n').length + 1, scope: 'file' }));
+      line: Array.from(text).slice(0, f.position).filter(c => c === '\n').length + 1, scope: f.scope }));
     const result = await engine.validate(text);
     output.validation[file] = result.issues.filter(f => f.type !== 'missing_authenticity').map(f => ({ pattern: f.ruleId ?? `unidentified:${f.type}`, tier: severityTier[f.severity], line: f.location.line, scope: 'file' }));
   }
@@ -69,10 +58,14 @@ export async function scanCorpus(): Promise<Record<Surface, Record<string, Findi
     sets.set(group, [...(sets.get(group) ?? []), file]);
   }
   for (const files of sets.values()) {
-    const results = diagnoseWritingBatch(files.map(id => ({ id, content: sources[id] })));
+    if (corpus.files[files[0]].group) {
+      const results = await engine.validateBatch(files.map(f => path.join(fixtureRoot, f)), undefined, { cross: true });
+      for (const file of files) output.validation[file] = results.get(path.join(fixtureRoot, file))!.issues.filter(f => f.type !== 'missing_authenticity').map(f => ({ pattern: f.ruleId ?? `unidentified:${f.type}`, tier: severityTier[f.severity], line: f.location.line, scope: f.scope ?? 'file' }));
+    }
+    const results = diagnoseWritingBatch(files.map(id => ({ id, content: sources[id] })), { cross: !!corpus.files[files[0]].group });
     for (const file of files) output.diagnostics[file] = results.get(file)!.diagnostics.map(f => ({
       pattern: f.ruleId, tier: f.tier ?? 'check', line: lineAt(sources[file], f.start),
-      scope: f.explanation.includes('also occurs in document') ? 'cross' : 'file',
+      scope: f.scope ?? (f.explanation.includes('also occurs in document') ? 'cross' : 'file'),
     }));
   }
   return output;

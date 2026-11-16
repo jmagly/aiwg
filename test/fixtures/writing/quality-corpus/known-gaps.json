@@ -10,7 +10,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Different predicates without a listed antonym or an aligned polarity flip; shared openers alone are insufficient."
     },
     {
       "surface": "python",
@@ -21,7 +22,8 @@
       "line": 3,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Different predicates without a listed antonym or an aligned polarity flip; shared openers alone are insufficient."
     },
     {
       "surface": "python",
@@ -32,40 +34,8 @@
       "line": 5,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "positives/endings.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 1,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "positives/endings.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 3,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "positives/endings.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 5,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Different predicates without a listed antonym or an aligned polarity flip; shared openers alone are insufficient."
     },
     {
       "surface": "python",
@@ -76,7 +46,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "python",
@@ -87,7 +58,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "python",
@@ -98,7 +70,8 @@
       "line": 3,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "python",
@@ -109,7 +82,8 @@
       "line": 5,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "python",
@@ -120,7 +94,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
     },
     {
       "surface": "python",
@@ -131,7 +106,8 @@
       "line": 3,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
     },
     {
       "surface": "python",
@@ -142,150 +118,8 @@
       "line": 5,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "positives/fragments.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 1,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign/x-thread.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign/x-thread.md",
-      "kind": "miss",
-      "pattern": "repeated-sentence",
-      "tier": "cut",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign/x-thread.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign/linkedin.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign/linkedin.md",
-      "kind": "miss",
-      "pattern": "repeated-sentence",
-      "tier": "cut",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign/linkedin.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign/telegram.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign/telegram.md",
-      "kind": "miss",
-      "pattern": "repeated-sentence",
-      "tier": "cut",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign/telegram.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign-phrase/x.md",
-      "kind": "miss",
-      "pattern": "repeated-phrase",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign-phrase/linkedin.md",
-      "kind": "miss",
-      "pattern": "repeated-phrase",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "python",
-      "fixture": "campaign-phrase/telegram.md",
-      "kind": "miss",
-      "pattern": "repeated-phrase",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
     },
     {
       "surface": "validation",
@@ -296,7 +130,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Different predicates without a listed antonym or an aligned polarity flip; shared openers alone are insufficient."
     },
     {
       "surface": "validation",
@@ -307,7 +142,8 @@
       "line": 3,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Different predicates without a listed antonym or an aligned polarity flip; shared openers alone are insufficient."
     },
     {
       "surface": "validation",
@@ -318,40 +154,8 @@
       "line": 5,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "positives/endings.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 1,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "positives/endings.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 3,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "positives/endings.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 5,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Different predicates without a listed antonym or an aligned polarity flip; shared openers alone are insufficient."
     },
     {
       "surface": "validation",
@@ -362,7 +166,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "validation",
@@ -373,7 +178,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "validation",
@@ -384,7 +190,8 @@
       "line": 3,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "validation",
@@ -395,7 +202,8 @@
       "line": 5,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "validation",
@@ -406,7 +214,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
     },
     {
       "surface": "validation",
@@ -417,7 +226,8 @@
       "line": 3,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
     },
     {
       "surface": "validation",
@@ -428,150 +238,8 @@
       "line": 5,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "positives/fragments.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 1,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign/x-thread.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign/x-thread.md",
-      "kind": "miss",
-      "pattern": "repeated-sentence",
-      "tier": "cut",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign/x-thread.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign/linkedin.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign/linkedin.md",
-      "kind": "miss",
-      "pattern": "repeated-sentence",
-      "tier": "cut",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign/linkedin.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign/telegram.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign/telegram.md",
-      "kind": "miss",
-      "pattern": "repeated-sentence",
-      "tier": "cut",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign/telegram.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign-phrase/x.md",
-      "kind": "miss",
-      "pattern": "repeated-phrase",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign-phrase/linkedin.md",
-      "kind": "miss",
-      "pattern": "repeated-phrase",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "validation",
-      "fixture": "campaign-phrase/telegram.md",
-      "kind": "miss",
-      "pattern": "repeated-phrase",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
     },
     {
       "surface": "diagnostics",
@@ -582,7 +250,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Different predicates without a listed antonym or an aligned polarity flip; shared openers alone are insufficient."
     },
     {
       "surface": "diagnostics",
@@ -593,7 +262,8 @@
       "line": 3,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Different predicates without a listed antonym or an aligned polarity flip; shared openers alone are insufficient."
     },
     {
       "surface": "diagnostics",
@@ -604,40 +274,8 @@
       "line": 5,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "positives/endings.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 1,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "positives/endings.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 3,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "positives/endings.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 5,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Different predicates without a listed antonym or an aligned polarity flip; shared openers alone are insufficient."
     },
     {
       "surface": "diagnostics",
@@ -648,7 +286,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "diagnostics",
@@ -659,7 +298,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "diagnostics",
@@ -670,7 +310,8 @@
       "line": 3,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "diagnostics",
@@ -681,7 +322,8 @@
       "line": 5,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
     },
     {
       "surface": "diagnostics",
@@ -692,7 +334,8 @@
       "line": 1,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
     },
     {
       "surface": "diagnostics",
@@ -703,7 +346,8 @@
       "line": 3,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
     },
     {
       "surface": "diagnostics",
@@ -714,150 +358,8 @@
       "line": 5,
       "scope": "file",
       "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "positives/fragments.md",
-      "kind": "miss",
-      "pattern": "aphorism-ending",
-      "tier": "cut",
-      "line": 1,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign/x-thread.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign/x-thread.md",
-      "kind": "miss",
-      "pattern": "repeated-sentence",
-      "tier": "cut",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign/x-thread.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign/linkedin.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign/linkedin.md",
-      "kind": "miss",
-      "pattern": "repeated-sentence",
-      "tier": "cut",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign/linkedin.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign/telegram.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign/telegram.md",
-      "kind": "miss",
-      "pattern": "repeated-sentence",
-      "tier": "cut",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign/telegram.md",
-      "kind": "miss",
-      "pattern": "shared-skeleton",
-      "tier": "check",
-      "line": 5,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign-phrase/x.md",
-      "kind": "miss",
-      "pattern": "repeated-phrase",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign-phrase/linkedin.md",
-      "kind": "miss",
-      "pattern": "repeated-phrase",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "campaign-phrase/telegram.md",
-      "kind": "miss",
-      "pattern": "repeated-phrase",
-      "tier": "check",
-      "line": 3,
-      "scope": "cross",
-      "issue": "#4138",
-      "plannedBy": "#4140"
+      "plannedBy": "#4140",
+      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
     }
   ]
 }

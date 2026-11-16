@@ -28,6 +28,28 @@ async function setup() {
 }
 
 describe('writing CLI canonical proofread consumer', () => {
+  it('reviews a campaign through the existing flag in readable and JSON formats', async () => {
+    const cwd = await mkdtemp(path.join(tmpdir(), 'writing-cross-cli-')); roots.push(cwd);
+    const sentence = 'Approve a task once and the agent remembers it.';
+    for (const name of ['a', 'b', 'c']) await writeFile(path.join(cwd, `${name}.md`), sentence);
+    const run = (args: string[]) => writingHandler.execute({ cwd, frameworkRoot: cwd, args, rawArgs: ['writing', ...args], dryRun: false });
+    const report = await run(['--cross', cwd]);
+    expect(report.exitCode).toBe(0);
+    expect(report.message).toContain('[cut] repeated-sentence');
+    expect(report.message).toContain('a.md:1:1');
+    const json = await run(['--cross', '--json', cwd]);
+    expect(json.exitCode).toBe(0);
+    const results = JSON.parse(json.message!);
+    expect(Object.keys(results)).toHaveLength(3);
+    expect(results[path.join(cwd, 'a.md')].diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ ruleId: 'repeated-sentence', tier: 'cut', scope: 'cross' })]));
+    const findings = results[path.join(cwd, 'a.md')].diagnostics;
+    expect(new Set(findings.map((f: { id: string }) => f.id)).size).toBe(findings.length);
+    expect((await run(['--cross'])).exitCode).toBe(1);
+    expect((await run(['--cross', '--unknown', cwd])).exitCode).toBe(1);
+    for (let index = 0; index < 198; index++) await writeFile(path.join(cwd, `overflow-${index}.md`), 'Unique document.');
+    expect(await run(['--cross', cwd])).toMatchObject({ exitCode: 1, message: 'Campaign exceeds 200 documents; split it into smaller campaign sets.' });
+    expect((await writingHandler.help({ cwd, frameworkRoot: cwd, args: [], rawArgs: [], dryRun: false })).message).toContain('writing --cross');
+  });
   it('applies an authorized correction, writes canonical output/receipt and exports explicitly', async () => {
     const { cwd, text, file, run } = await setup();
     await mkdir(path.join(cwd, 'canonical'));

@@ -1,7 +1,7 @@
 {
   "reviewed": "2026-11-12",
   "nextReview": "2027-02-12",
-  "note": "Local editorial heuristics for #4138, based on the November voice-quality catalogue. Not authorship evidence. Sentence-sequence and campaign checks belong to #4140.",
+  "note": "Editorial heuristics for #4138 and #4140, based on the November voice-quality catalogue. Not authorship evidence. Sequence and campaign rules supplement local clauses.",
   "rules": [
     {
       "id": "contrast-not-but",
@@ -52,6 +52,15 @@
       "message": "Generic engagement prompt.",
       "fix": "Ask a concrete question with something to answer, or end with the information."
     }
+  ],
+  "structuralRules": [
+    { "id": "mirrored-sentences", "tier": "cut", "scope": "file", "trigger": "Adjacent sentences share the first two tokens and aligned predicates; exactly one polarity flip or listed antonym supplies a real contrast. Different verbs with a negated opener are insufficient.", "fix": "Combine the useful claim; retain deliberate parallelism with a reason." },
+    { "id": "aphorism-ending", "tier": "cut", "scope": "file", "trigger": "Paragraph-final explicit moral/lesson opener of 3–10 words; exclude numbers, identifiers and protected spans. Generic closers are not detected.", "fix": "End on the last useful fact or support the claim." },
+    { "id": "colon-reveal", "tier": "watch", "scope": "file", "trigger": "Setup of 4–12 words ending in a withheld complement, then a sentence-final punchline of 2–10 words. Frequency never triggers a finding. Exclude lists/definitions, digits/citations and protected material.", "fix": "State the subject and consequence directly." },
+    { "id": "fragment-run", "tier": "check", "scope": "file", "trigger": "At least four consecutive statements with 1–4 words in one prose paragraph; questions break runs and identical-sentence-only runs are excluded.", "fix": "Join fragments to explain the reason or result." },
+    { "id": "repeated-sentence", "tier": "cut", "scope": "cross", "trigger": "At least six words repeated within an explicit campaign; case and punctuation are ignored, numbers are retained.", "fix": "Write each channel from its relevant facts." },
+    { "id": "repeated-phrase", "tier": "check", "scope": "cross", "trigger": "An eight-word run inside one sentence shared by at least three distinct documents; overlapping runs merge, affected sentences receive one phrase finding, repeated sentences are excluded.", "fix": "Rewrite the shared run for the reader and channel." },
+    { "id": "shared-skeleton", "tier": "check", "scope": "cross", "trigger": "First or last three words of the first or last prose sentence shared by three distinct documents, including a content word; numbers and versions normalize to num.", "fix": "Lead or close with the useful change for this channel." }
   ],
   "antonyms": [
     ["quiet", "loud"], ["fast", "slow"], ["cheap", "expensive"],

@@ -2,6 +2,7 @@
 import { createRequire } from 'node:module';
 import type patternData from '../../agentic/code/addons/writing-quality/skills/ai-pattern-detection/references/current-patterns.json';
 import { maskProse } from './prose-mask.js';
+import { structuralPatterns } from './structural-patterns.js';
 
 const require = createRequire(import.meta.url);
 const resource = 'agentic/code/addons/writing-quality/skills/ai-pattern-detection/references/current-patterns.json';
@@ -15,6 +16,8 @@ const catalogue: typeof patternData = (() => {
 
 export type PatternTier = 'cut' | 'check' | 'watch';
 export interface CurrentPatternFinding {
+  scope?: 'file' | 'cross';
+  related?: Array<{ documentId: string; line: number }>;
   ruleId: string; tier: PatternTier; start: number; end: number;
   explanation: string; suggestion: string;
 }
@@ -61,7 +64,7 @@ export function scanCurrentPatterns(content: string): CurrentPatternFinding[] {
   for (const p of lexical) if (p.hits >= catalogue.lexicon.paragraphMinHits || total >= catalogue.lexicon.fileMinHits) {
     emit('lexical-cluster', p.tier, p.start, p.end, 'Dated lexical markers cluster in this prose.', 'Replace vague markers with the specific action or fact.');
   }
-  // Local clauses only: sentence-sequence checks remain in #4140.
+  // Clause checks retain the existing protected-region boundaries.
   for (const sentence of prose.matchAll(/[^.!?\n\u0001]+(?:[.!?]+|(?=[\n\u0001]|$))/g)) {
     const text = sentence[0];
     const contrast = /\bnot\s+[^.!?;:\n]{1,100}?,?\s+but\b/i.test(text);
@@ -85,18 +88,21 @@ export function scanCurrentPatterns(content: string): CurrentPatternFinding[] {
       }
     }
   }
+  findings.push(...structuralPatterns(prose, catalogue.antonyms));
   return findings.sort((a, b) => a.start - b.start || a.ruleId.localeCompare(b.ruleId));
 }
 
 /** Adapt local findings to the existing validation issue contract. */
-export function currentPatternIssues(content: string) {
+export function currentPatternIssues(content: string, campaign: CurrentPatternFinding[] = []) {
   const severity = { cut: 'critical', check: 'warning', watch: 'info' } as const;
   // Validation already emits triads through its existing structural rule loader.
-  return scanCurrentPatterns(content).filter(f => f.ruleId !== 'struct_three_items').map(f => ({
+  return [...scanCurrentPatterns(content), ...campaign].filter(f => f.ruleId !== 'struct_three_items').map(f => ({
     type: 'formulaic_structure' as const, severity: severity[f.tier], ruleId: f.ruleId,
+    tier: f.tier,
     message: f.explanation, suggestion: f.suggestion,
     location: { start: f.start, end: f.end, line: content.slice(0, f.start).split('\n').length,
       column: f.start - content.lastIndexOf('\n', f.start - 1) },
     context: content.slice(f.start, f.end),
+    ...(f.scope === 'cross' ? { scope: f.scope, related: f.related } : {}),
   }));
 }
