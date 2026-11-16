@@ -105,13 +105,30 @@ export function describeRecordChange(before, after, limit = 4096) {
   return text.length > limit ? `${text.slice(0, limit)}... (${text.length} chars)` : text;
 }
 
-// The only tolerated re-export difference (#4217): a Fortemi destination database seeds its own default
-// embedding configuration, which a shard that carries none gets back on re-export. Exactly one added
-// record, flagged is_default, and only when the source file is empty; anything else still fails.
-export function isDestinationDefaultEmbeddingConfig(name, before, after) {
-  return name === 'embedding_configs.json' && Array.isArray(before) && before.length === 0
-    && Array.isArray(after) && after.length === 1 && after[0] !== null && typeof after[0] === 'object'
-    && after[0].is_default === true;
+// Tolerated re-export differences (#4217): a Fortemi destination database seeds its own embedding
+// infrastructure, which a shard that carries none gets back on re-export. Only when all four embedding
+// files are empty in the source may the re-export add: at most one default config (is_default), at most
+// one system default set (is_system, slug "default") linked to that config, memberships of that set for
+// notes the shard already holds, and no embeddings. Returns the file names those additions explain.
+export const SEEDED_EMBEDDING_FILES = ['embedding_configs.json', 'embedding_sets.json', 'embedding_set_members.jsonl', 'embeddings.jsonl'];
+export function seededEmbeddingDefaultFiles(read, noteIds) {
+  const before = Object.fromEntries(SEEDED_EMBEDDING_FILES.map((name) => [name, read('before', name)]));
+  const after = Object.fromEntries(SEEDED_EMBEDDING_FILES.map((name) => [name, read('after', name)]));
+  const list = (value) => (Array.isArray(value) ? value : null);
+  if (!SEEDED_EMBEDDING_FILES.every((name) => list(before[name])?.length === 0)) return new Set();
+  const configs = list(after['embedding_configs.json']), sets = list(after['embedding_sets.json']);
+  const members = list(after['embedding_set_members.jsonl']), embeddings = list(after['embeddings.jsonl']);
+  if (!configs || !sets || !members || !embeddings || embeddings.length !== 0) return new Set();
+  if (configs.length > 1 || sets.length > 1) return new Set();
+  const config = configs[0], set = sets[0];
+  if (config && config.is_default !== true) return new Set();
+  if (set && (set.is_system !== true || set.slug !== 'default' || !config || set.embedding_config_id !== config.id)) return new Set();
+  const seen = new Set();
+  for (const member of members) {
+    if (!set || member?.embedding_set_id !== set.id || !noteIds.has(member.note_id) || seen.has(member.note_id)) return new Set();
+    seen.add(member.note_id);
+  }
+  return new Set(SEEDED_EMBEDDING_FILES.slice(0, 3).filter((name) => (after[name] ?? []).length > 0));
 }
 
 export async function verifySessionReexport(source, reexported) {
@@ -122,14 +139,19 @@ export async function verifySessionReexport(source, reexported) {
   const actual = JSON.parse(Buffer.from(after.get('manifest.json')).toString());
   assert(actual.profile === 'full-v1' && actual.version === '2.0.0', 'native re-export tuple mismatch');
   assert(isDeepStrictEqual(unordered(manifest.components), unordered(actual.components)), 'native component inventory mismatch');
+  const noteIds = new Set((records(before, 'notes.jsonl') ?? []).map((note) => note?.id));
+  const seeded = seededEmbeddingDefaultFiles((side, name) => (side === 'before' ? before : after).has(name)
+    ? records(side === 'before' ? before : after, name) : null, noteIds);
+  const failures = [];
   for (const name of Object.keys(manifest.checksums)) {
-    assert(after.has(name), `native re-export missing ${name}`);
+    if (!after.has(name)) { failures.push(`native re-export missing ${name}`); continue; }
+    if (seeded.has(name)) continue;
     const was = records(before, name), now = records(after, name);
-    if (isDestinationDefaultEmbeddingConfig(name, was, now)) continue;
     if (!isDeepStrictEqual(Array.isArray(was) ? unordered(was) : canonical(was), Array.isArray(now) ? unordered(now) : canonical(now))) {
-      assert(false, `native semantic re-export changed ${name}: ${describeRecordChange(was, now)}`);
+      failures.push(`native semantic re-export changed ${name}: ${describeRecordChange(was, now)}`);
     }
   }
+  assert(failures.length === 0, failures.join('\n'));
 }
 
 export function verifyApiObservations(archive, observations) {
