@@ -10,6 +10,7 @@ import { bundleCopyArgs } from './bundle-deployment-mode.js';
 import { bundleProviders, pruneUndeclaredBundles, pruneAfterScopedDeployments } from './bundle-reconciliation.js';
 import { readAiwgConfig } from '../../config/aiwg-config.js';
 import { withInstalledSelection } from '../../config/installed-selection.js';
+import { withDeploymentInputSession } from '../../providers/deployment-input-session.mjs';
 
 import { REGISTRY_ID_TO_USE_NAME } from '../../config/framework-aliases.js';
 
@@ -152,18 +153,28 @@ export const updateHandler: CommandHandler = {
     // Step 3: Re-deploy each installed framework
     const results: Array<{ framework: string; exitCode: number }> = [];
 
-    for (const { fw, args } of deployments) {
-      console.log(`Re-deploying ${fw}...`);
-      const deploy = () => useFrameworkHandler.execute({
-        ...ctx,
-        args: [fw, ...args],
-      });
-      const result = await (deployAll ? deploy() : withInstalledSelection(ctx.cwd, installed, deploy));
-      results.push({ framework: fw, exitCode: result.exitCode });
+    // One immutable corpus per update; target/config inputs remain per-pass.
+    let cleanupFailed = false;
+    try {
+      await withDeploymentInputSession(async () => {
+        for (const { fw, args } of deployments) {
+          console.log(`Re-deploying ${fw}...`);
+          const deploy = () => useFrameworkHandler.execute({
+            ...ctx,
+            args: [fw, ...args],
+          });
+          const result = await (deployAll ? deploy() : withInstalledSelection(ctx.cwd, installed, deploy));
+          results.push({ framework: fw, exitCode: result.exitCode });
 
-      if (result.exitCode !== 0) {
-        console.error(`Warning: Failed to re-deploy ${fw}: ${result.message || `exit ${result.exitCode}`}`);
-      }
+          if (result.exitCode !== 0) {
+            console.error(`Warning: Failed to re-deploy ${fw}: ${result.message || `exit ${result.exitCode}`}`);
+          }
+        }
+      });
+    } catch (error) {
+      if (results.length !== deployments.length) throw error;
+      cleanupFailed = true;
+      console.error(`Warning: Deployment input cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     if (!deployAll) pruneFailures += await pruneAfterScopedDeployments(ctx.cwd, await readAiwgConfig(ctx.cwd), providerArgs[1], ctx.frameworkRoot);
@@ -183,9 +194,10 @@ export const updateHandler: CommandHandler = {
     console.log(`Updated: ${succeeded.length}/${results.length}`);
 
     return {
-      exitCode: failed.length > 0 || pruneFailures ? 1 : 0,
+      exitCode: failed.length > 0 || pruneFailures || cleanupFailed ? 1 : 0,
       message: failed.length > 0
         ? `Some frameworks failed to update: ${failed.map(f => f.framework).join(', ')}`
+        : cleanupFailed ? 'Deployment input cleanup failed'
         : `Successfully updated ${succeeded.length} framework(s)`,
     };
   },

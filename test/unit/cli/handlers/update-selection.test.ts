@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { emptyConfig, writeAiwgConfig } from '../../../../src/config/aiwg-config.js';
 import { updateHandler } from '../../../../src/cli/handlers/utilities.js';
+import { deploymentSessionInput } from '../../../../src/providers/deployment-input-session.mjs';
 import type { HandlerContext } from '../../../../src/cli/handlers/types.js';
 const { deploy, update } = vi.hoisted(() => ({ deploy: vi.fn(), update: vi.fn() }));
 vi.mock('../../../../src/update/service.mjs', async importOriginal => {
@@ -51,11 +52,51 @@ describe('update installed authority', () => {
     expect(output(log)).toContain('Skipped legacy registry frameworks: sdlc-complete, media-marketing-kit');
     expect(await fs.readFile(path.join(root, '.aiwg/aiwg.config'), 'utf8')).toBe(before);
   });
+  it('shares staging inputs across the update and releases them before the next update', async () => {
+    await config({ sdlc: entry, marketing: entry });
+    ctx.args.push('--provider', 'codex');
+    const create = vi.fn(() => ({}));
+    const dispose = vi.fn();
+    const inputs: unknown[] = [];
+    deploy.mockImplementation(async () => {
+      inputs.push(deploymentSessionInput('corpus', create, dispose));
+      return { exitCode: 0 };
+    });
+    expect((await updateHandler.execute(ctx)).exitCode).toBe(0);
+    expect(inputs[0]).toBeDefined();
+    expect(inputs[0]).toBe(inputs[1]);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect((await updateHandler.execute(ctx)).exitCode).toBe(0);
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(dispose).toHaveBeenCalledTimes(2);
+    expect(inputs[2]).not.toBe(inputs[0]);
+  });
   it('treats an empty installed block as authoritative', async () => {
     const before = await config({});
     await updateHandler.execute(ctx);
     expect(deploy).not.toHaveBeenCalled();
     expect(await fs.readFile(path.join(root, '.aiwg/aiwg.config'), 'utf8')).toBe(before);
+  });
+  it.each([0, 1])('keeps the per-framework summary when cleanup fails (deploy exit %i)', async exitCode => {
+    await config({ sdlc: entry, marketing: entry });
+    ctx.args.push('--provider', 'codex');
+    const warning = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const dispose = vi.fn(() => { throw new Error('synthetic cleanup failure'); });
+    deploy.mockImplementation(async () => {
+      deploymentSessionInput('corpus', () => ({}), dispose);
+      return { exitCode: deploy.mock.calls.length === 1 ? exitCode : 0, message: 'synthetic deploy result' };
+    });
+    const result = await updateHandler.execute(ctx);
+    expect(result.exitCode).toBe(1);
+    expect(result.message).toContain(exitCode ? 'Some frameworks failed to update: sdlc' : 'Deployment input cleanup failed');
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(deploy).toHaveBeenCalledTimes(2);
+    expect(output(warning)).toContain('Warning: Deployment input cleanup failed: Failed to dispose deployment inputs');
+    expect(output(log)).toContain('Update Summary:');
+    expect(output(log)).toContain(`sdlc: ${exitCode ? 'FAILED' : 'updated'}`);
+    expect(output(log)).toContain('marketing: updated');
+    expect(output(log)).toContain(`Updated: ${exitCode ? 1 : 2}/2`);
   });
   it('reports legacy fallback only when installed is absent', async () => {
     await config();
