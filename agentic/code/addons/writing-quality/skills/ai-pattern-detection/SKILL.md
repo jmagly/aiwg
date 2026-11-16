@@ -35,12 +35,27 @@ These phrases can be uninformative in some contexts; none identifies content as 
 4. **Performative Language**: "aims to provide", "strives to achieve", "designed to enhance"
 5. **Academic Passive**: "It has been observed that...", "It can be argued that..."
 
-### Structural Patterns (Flag When Overused)
+### Current Local Patterns
 
-1. **Three-item lists**: "reliable, scalable, and secure"
-2. **Em-dash overuse**: Multiple em-dashes in a paragraph
-3. **Identical paragraph structure**: Topic → 3 points → conclusion repeated
-4. **Balanced hedging**: "While X has challenges, it also offers opportunities"
+The scanners detect local contrasts (`not … but`, `X, not Y`, `rather than`),
+negated evidence/proof/substitute assertions, listed antonym pairs, significance
+labels and asides, empty openers, and generic engagement prompts. Findings are
+editing guidance with rule IDs, tiers and suggested changes. Numeric comparisons
+are suppressed when both operands have numbers within six tokens of the divider.
+Reasons (`because`, `while`) and correction cues suppress a match only inside it
+or within four tokens, without crossing a semicolon/colon. An unrelated date does
+not suppress “It is not just the score in 2026.” Proximity remains a heuristic.
+
+The dated `references/current-patterns.json` list requires two lexical markers in
+one paragraph or four in a file; lone leverage/enhance are ignored. Spectral-only
+clusters use watch tier. All three surfaces recognize a narrow rhetorical
+adjective triad with or without the Oxford comma: `three_item_list` in Python,
+`struct_three_items` in validation and diagnostics (watch tier). Inventories remain valid.
+
+Front matter, headings, image alt text, code, quotations, comments, tables and
+inventory lines are protected. Passive voice and standalone punctuation are not
+findings. Moral endings, fragment runs, adjacent-sentence mirroring, clustered
+colon reveals and campaign comparisons remain deferred to #4140.
 
 ### Contextual Patterns (Check Frequency)
 
@@ -94,11 +109,18 @@ When generating or reviewing content:
 
 The Python `scripts/pattern_scanner.py` is a **legacy regex scanner**, not the contextual diagnostic implementation. It:
 - Counts pattern frequencies
-- Labels matches using legacy severity categories; these are advisory absent a user rule
-- Generates replacement suggestions
-- Preserves the deprecated numeric `authenticity_score` (0–100) and `grade` for compatibility, with a deprecation notice; neither measures authorship or publication readiness
+- Labels matches with pattern IDs, tiers, source line/column and legacy severity categories; these are advisory absent a user rule
+- Generates contextual replacement suggestions for the current local patterns
+- Preserves the deprecated numeric `authenticity_score` (0–100) and `grade` for compatibility, with prose-rate penalties and a deprecation notice; neither measures authorship or publication readiness
 
 For contextual programmatic review, use `WritingValidationEngine.diagnose(content, options)` or the exported `diagnoseWriting` API. Results include UTF-16 spans, context, explanations and reasoned exceptions. They carry `publicationGate: false`. The Python scanner does not implement these context or exception fields.
+
+Python `position` counts Unicode code points from zero; its `column` counts code
+points from one. Validation `location.start/end` and diagnostic `start/end` count
+UTF-16 code units from zero, with exclusive ends; validation `column` counts
+UTF-16 units from one. Lines start at one on every surface. ASCII offsets agree.
+For `🧵 Thoughts?`, Python gives position 2 and column 3; TypeScript gives start 3
+and validation column 4, because the astral character occupies two UTF-16 units.
 
 ## Integration
 

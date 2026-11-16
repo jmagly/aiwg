@@ -18,6 +18,8 @@ import { existsSync } from 'fs';
 import { ValidationRuleLoader, RuleSet, ValidationContext, Severity } from './validation-rules.js';
 import { loadScoringConfig, getScoringConfig } from './scoring-config-loader.js';
 import { diagnoseWriting, type DiagnosticOptions, type ContextualDiagnosticResult } from './contextual-diagnostics.js';
+import { currentPatternIssues, rhetoricalTriad } from './current-patterns.js';
+import { maskProse } from './prose-mask.js';
 
 export interface ValidationIssue {
   type: 'banned_phrase' | 'ai_pattern' | 'missing_authenticity' | 'formulaic_structure';
@@ -123,6 +125,7 @@ export class WritingValidationEngine {
     issues.push(...this.detectBannedPhrases(content, context));
     issues.push(...this.detectAIPatterns(content, context));
     issues.push(...this.detectFormulicStructures(content));
+    issues.push(...currentPatternIssues(content));
 
     // Analyze authenticity
     const authenticityAnalysis = this.analyzeAuthenticity(content);
@@ -297,6 +300,7 @@ export class WritingValidationEngine {
    * Analyze content for authenticity markers
    */
   analyzeAuthenticity(content: string): AuthenticityAnalysis {
+    content = maskProse(content);
     const humanMarkers: string[] = [];
     const aiTells: string[] = [];
     const missingMarkers: string[] = [];
@@ -325,7 +329,7 @@ export class WritingValidationEngine {
       { pattern: /\b(comprehensive|robust|innovative|optimal|best-in-class)\b/gi, name: 'vague intensifiers' },
       { pattern: /\b(it is important to note|it is worth noting|it should be mentioned)\b/gi, name: 'throat-clearing phrases' },
       { pattern: /\b(may help to|can serve to|has the potential to)\b/gi, name: 'excessive hedging' },
-      { pattern: /\b(\w+, \w+, and \w+)\b/g, name: 'three-item lists' }
+      { pattern: rhetoricalTriad, name: 'three-item lists' }
     ];
 
     for (const { pattern, name } of aiTellPatterns) {
@@ -465,7 +469,7 @@ export class WritingValidationEngine {
     }> = [];
 
     const regex = typeof pattern === 'string' ? new RegExp(pattern, 'gi') : pattern;
-    const lines = content.split('\n');
+    const lines = maskProse(content).split('\n');
 
     let absolutePos = 0;
 
@@ -480,7 +484,7 @@ export class WritingValidationEngine {
         // Extract context (surrounding text)
         const contextStart = Math.max(0, (match.index || 0) - 30);
         const contextEnd = Math.min(line.length, (match.index || 0) + match[0].length + 30);
-        const context = line.substring(contextStart, contextEnd);
+        const context = content.slice(absolutePos + contextStart, absolutePos + contextEnd);
 
         matches.push({
           match: match[0],
@@ -510,13 +514,13 @@ export class WritingValidationEngine {
     const infoCount = issues.filter(i => i.severity === 'info').length;
 
     // Count words and sentences
-    const words = content.split(/\s+/).filter(w => w.length > 0);
-    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const words = maskProse(content).replace(/\u0001/g, ' ').split(/\s+/).filter(w => w.length > 0);
+    const sentences = maskProse(content).replace(/\u0001/g, ' ').split(/[.!?]+/).filter(s => s.trim().length > 0);
 
     // Calculate AI pattern score (0-100, higher = more AI-like)
     const config = getScoringConfig();
     const aiPatternCount = issues.filter(i => i.type === 'ai_pattern' || i.type === 'banned_phrase').length;
-    const aiPatternScore = Math.min(100, (aiPatternCount / Math.max(1, words.length / 100)) * config.issueScoring.aiPatternNormalizer);
+    const aiPatternScore = Math.min(100, (aiPatternCount * 50 / Math.max(1, words.length)) * config.issueScoring.aiPatternNormalizer);
 
     return {
       totalIssues: issues.length,
@@ -537,10 +541,10 @@ export class WritingValidationEngine {
     let score = authenticityAnalysis.score;
 
     // Deduct for critical issues (heavy penalty)
-    score -= summary.criticalCount * config.issueScoring.criticalPenalty;
+    score -= summary.criticalCount * 50 / Math.max(1, summary.wordCount) * config.issueScoring.criticalPenalty;
 
     // Deduct for warnings (moderate penalty)
-    score -= summary.warningCount * config.issueScoring.warningPenalty;
+    score -= summary.warningCount * 50 / Math.max(1, summary.wordCount) * config.issueScoring.warningPenalty;
 
     // Deduct for high AI pattern score
     score -= summary.aiPatternScore * config.issueScoring.aiPatternMultiplier;

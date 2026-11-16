@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { scanCurrentPatterns, type PatternTier } from './current-patterns.js';
+import { maskProse, protectedRegions } from './prose-mask.js';
 
 /** Offsets use JavaScript UTF-16 code units, so content.slice(start, end) is exact. */
 export interface WritingSpan { start: number; end: number }
@@ -11,6 +13,7 @@ export interface DiagnosticRule {
   suggestion: string;
   authority: 'advisory' | 'user';
   enabled?: boolean;
+  tier?: PatternTier;
 }
 export interface WritingException extends WritingSpan {
   ruleId: string;
@@ -29,6 +32,7 @@ export interface ContextualDiagnostic extends WritingSpan {
   confidence: { kind: 'heuristic'; calibrated: false };
   resolution: 'review' | 'retained';
   reason?: string;
+  tier?: PatternTier;
 }
 export interface DiagnosticOptions {
   language?: string;
@@ -107,7 +111,7 @@ function diagnoseDocument(content: string, options: DiagnosticOptions, priorPara
   const language = options.language ?? 'en';
   const notices: string[] = [];
   const diagnostics: ContextualDiagnostic[] = [];
-  const contexts = [...(options.contexts ?? []), ...protectedContexts(content)];
+  const contexts = [...(options.contexts ?? []), ...protectedContexts(content), ...protectedRegions(content)];
   if (contexts.some(s => !validSpan(s, content.length))) throw new Error('Invalid context span');
   const rules = new Map<string, DiagnosticRule>();
   if (language.split('-')[0] === 'en') for (const rule of DEFAULT_RULES) rules.set(rule.id, rule);
@@ -125,8 +129,14 @@ function diagnoseDocument(content: string, options: DiagnosticOptions, priorPara
     const exception = exceptions.find(e => e.contentHash === contentHash && e.ruleId === rule.id && e.start === span.start && e.end === span.end);
     diagnostics.push({ ...span, id: `${rule.id}:${span.start}:${span.end}`, ruleId: rule.id, text: content.slice(span.start, span.end), context,
       explanation: rule.explanation, suggestion: rule.suggestion, authority: rule.authority,
-      confidence: { kind: 'heuristic', calibrated: false }, resolution: exception ? 'retained' : 'review', ...(exception ? { reason: exception.reason } : {}) });
+      confidence: { kind: 'heuristic', calibrated: false }, resolution: exception ? 'retained' : 'review', ...(exception ? { reason: exception.reason } : {}), ...(rule.tier ? { tier: rule.tier } : {}) });
   };
+  const current = language.split('-')[0] === 'en' ? scanCurrentPatterns(maskProse(content, contexts.filter(c => c.context !== 'prose').map(c => ({ ...c, context: 'code' as const })))) : [];
+  for (const f of current) {
+    const override = rules.get(f.ruleId);
+    if (override?.enabled === false) continue;
+    emit(f, override ?? { id: f.ruleId, phrase: '', authority: 'advisory', explanation: f.explanation, suggestion: f.suggestion, tier: f.tier }, 'prose');
+  }
   for (const rule of rules.values()) {
     if (rule.enabled === false || rule.id.startsWith('repetition:')) continue;
     const escaped = rule.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -134,8 +144,15 @@ function diagnoseDocument(content: string, options: DiagnosticOptions, priorPara
     for (const match of content.matchAll(pattern)) {
       const span = { start: match.index!, end: match.index! + match[0].length };
       const context = contextAt(span, contexts);
+      if (current.some(f => f.ruleId === rule.id && span.start < f.end && span.end > f.start)) continue;
       if (context === 'code' || context === 'quote') continue;
       if (rule.authority === 'advisory' && (context !== 'prose' || options.terminology?.some(t => t.toLocaleLowerCase() === match[0].toLocaleLowerCase()))) continue;
+      if (rule.authority === 'advisory' && ['phrase:delve', 'phrase:rich-tapestry'].includes(rule.id)) {
+        const paragraphStart = content.lastIndexOf('\n\n', span.start);
+        if (current.some(f => f.ruleId === 'lexical-cluster' && content.lastIndexOf('\n\n', f.start) === paragraphStart)) continue;
+        const paragraph = content.slice(paragraphStart < 0 ? 0 : paragraphStart + 2, content.indexOf('\n\n', span.end) < 0 ? content.length : content.indexOf('\n\n', span.end));
+        if (rule.id === 'phrase:rich-tapestry' && /\b(?:textile|woven|weaving|cloth|fabric|border)\b/i.test(paragraph)) continue;
+      }
       emit(span, rule, context);
     }
   }

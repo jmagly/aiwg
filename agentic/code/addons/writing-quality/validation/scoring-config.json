@@ -22,11 +22,11 @@
   "issueScoring": {
     "criticalPenalty": {
       "value": 10,
-      "description": "Legacy points per high-priority match; advisory unless an applicable user rule requires it"
+      "description": "Legacy penalty weighted by critical matches per 50 prose words; advisory unless an applicable user rule requires it"
     },
     "warningPenalty": {
       "value": 3,
-      "description": "Points deducted per warning-level issue (minor patterns, style concerns)"
+      "description": "Legacy penalty weighted by warning matches per 50 prose words"
     },
     "aiPatternMultiplier": {
       "value": 0.5,
@@ -34,7 +34,7 @@
     },
     "aiPatternNormalizer": {
       "value": 20,
-      "description": "Normalizer for AI pattern density calculation: (patternCount / (wordCount/100)) * normalizer. Higher = stricter."
+      "description": "Normalizer for legacy pattern density: (patternCount * 50 / max(1, proseWordCount)) * normalizer. Higher = stricter; not calibrated."
     }
   },
 

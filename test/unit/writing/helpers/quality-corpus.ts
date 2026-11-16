@@ -12,7 +12,7 @@ export interface Label extends Omit<Finding, 'tier'> { tier: Tier | null; quote:
 export interface Fixture { source: string; notes: string; labels: Label[]; group?: string }
 export interface Corpus { version: number; groups: Record<string, { notes: string }>; files: Record<string, Fixture> }
 export type Surface = 'python' | 'validation' | 'diagnostics';
-export interface Gap extends Finding { fixture: string; surface: Surface; kind: 'miss' | 'flag'; issue: '#4138' | '#4139' | '#4140' }
+export interface Gap extends Finding { fixture: string; surface: Surface; kind: 'miss' | 'flag'; issue: '#4138' | '#4139' | '#4140'; plannedBy?: '#4140' }
 export const repo = fileURLToPath(new URL('../../../../', import.meta.url));
 export const fixtureRoot = path.join(repo, 'test/fixtures/writing/quality-corpus');
 export const corpus = JSON.parse(readFileSync(path.join(fixtureRoot, 'expected.json'), 'utf8')) as Corpus;
@@ -71,7 +71,7 @@ export async function scanCorpus(): Promise<Record<Surface, Record<string, Findi
   for (const files of sets.values()) {
     const results = diagnoseWritingBatch(files.map(id => ({ id, content: sources[id] })));
     for (const file of files) output.diagnostics[file] = results.get(file)!.diagnostics.map(f => ({
-      pattern: f.ruleId, tier: 'check', line: lineAt(sources[file], f.start),
+      pattern: f.ruleId, tier: f.tier ?? 'check', line: lineAt(sources[file], f.start),
       scope: f.explanation.includes('also occurs in document') ? 'cross' : 'file',
     }));
   }
