@@ -17,7 +17,9 @@ concurrency:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
+    # Repository-private label on the titan-aiwg runner only, so this job never
+    # lands on the shared one-slot build01 runner (#4129).
+    runs-on: aiwg-ci
     # npm 10.8.2 in the Node 20 image cannot validate packages signed after
     # npm's registry-key rotation. Keep the signature hard gate on the same
     # digest-pinned npm 11 runtime used by the publication workflow.
