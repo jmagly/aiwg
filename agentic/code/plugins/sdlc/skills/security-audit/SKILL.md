@@ -11,6 +11,10 @@ commandHint:
 
 Perform comprehensive security assessment
 
+## Output template
+
+Required for each human-readable security finding: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/security-finding.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Instructions
 
 Perform a systematic security audit following these steps:

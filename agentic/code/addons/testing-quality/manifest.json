@@ -50,6 +50,9 @@
     "test-conformance-evidence"
   ],
   "templates": [
+    "ci-failure-report",
+    "experiment-amendment",
+    "gate-audit-record",
     "protocol-review",
     "test-review",
     "conformance-report",

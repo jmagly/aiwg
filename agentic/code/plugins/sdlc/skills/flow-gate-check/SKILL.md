@@ -22,6 +22,10 @@ commandHint:
 
 **You are the Core Orchestrator** for SDLC phase gate validation.
 
+## Output template
+
+Required for the gate audit record; retain phase-specific criteria: @$AIWG_ROOT/agentic/code/addons/testing-quality/templates/gate-audit-record.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Your Role
 
 **You orchestrate multi-agent workflows. You do NOT execute bash scripts.**

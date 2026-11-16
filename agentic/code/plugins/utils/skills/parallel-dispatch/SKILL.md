@@ -9,6 +9,10 @@ description: Launch multiple agents concurrently, collect their results, and han
 
 Generic parallel agent orchestration utility for launching multiple agents concurrently.
 
+## Output template
+
+Required for each bounded worker brief: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/subagent-brief.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Triggers
 
 

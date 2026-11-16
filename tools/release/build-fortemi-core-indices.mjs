@@ -84,11 +84,13 @@ try {
       const executableFrontmatter = item.search.frontmatter?.aiwg_script
         ? { aiwg_script: item.search.frontmatter.aiwg_script }
         : {};
+      const outputKind = item.search.frontmatter?.outputKind;
       item.search.body = searchText;
       // The prebuilt export intentionally drops general frontmatter to stay
-      // compact, but aiwg_script is runtime metadata rather than search-only
-      // decoration. `aiwg run skill` needs it when no local index exists.
-      item.search.frontmatter = executableFrontmatter;
+      // compact, retaining runtime script metadata and default output kinds
+      // needed by executable skills and template discovery without a local index.
+      item.search.frontmatter = { ...executableFrontmatter,
+        ...(typeof outputKind === 'string' ? { outputKind } : {}) };
     }
     delete item.chunks;
   }

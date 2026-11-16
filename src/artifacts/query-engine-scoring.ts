@@ -1,5 +1,6 @@
 // Tokenize discovery phrases and score metadata matches with lexical diagnostics.
 import { diagnoseFacetActivations } from './discover-facets.js';
+import { matchTemplateOutputKind } from './template-output-kind.js';
 import { verboseQueryProfile } from './query-engine-verbose.js';
 import type { MetadataEntry } from './types.js';
 
@@ -17,7 +18,6 @@ export function containsTokenSequence(haystack: string[], needle: string[]): boo
   }
   return false;
 }
-
 
 /**
  * Stop-words to drop when tokenizing a discovery phrase. Keep short —
@@ -58,7 +58,6 @@ export const SCORE_STOPWORDS = new Set([
   'template', 'templates',
 ]);
 
-
 /**
  * Tokenize a query phrase into lowercased keywords for multi-word
  * scoring. Splits on whitespace and punctuation; drops stopwords and
@@ -73,7 +72,6 @@ export function tokenize(text: string): string[] {
       ? token.slice(0, -1)
       : token);
 }
-
 
 const fieldTokenCache = new Map<string, string[]>();
 function fieldTokens(field: string): string[] {
@@ -91,11 +89,9 @@ export function matchedFieldTokens(queryTokens: string[], field: string): string
   return queryTokens.filter(token => available.has(token));
 }
 
-
 export function fieldContainsQuery(field: string, queryTokens: string[]): boolean {
   return containsTokenSequence(fieldTokens(field), queryTokens);
 }
-
 
 /**
  * Score a metadata entry against a keyword query.
@@ -120,7 +116,6 @@ export function fieldContainsQuery(field: string, queryTokens: string[]): boolea
 export function normalizeName(s: string): string {
   return s.toLowerCase().replace(/[-_\s]+/g, ' ').trim();
 }
-
 
 export function damerauLevenshteinAtMostOne(a: string, b: string): boolean {
   if (a === b) return true;
@@ -160,7 +155,6 @@ export function damerauLevenshteinAtMostOne(a: string, b: string): boolean {
   return true;
 }
 
-
 export function nearNameMatch(query: string, name: string): boolean {
   const queryParts = normalizeName(query).split(/\s+/).filter(Boolean);
   const nameParts = normalizeName(name).split(/\s+/).filter(Boolean);
@@ -174,16 +168,14 @@ export function nearNameMatch(query: string, name: string): boolean {
   });
 }
 
-
 export interface LexicalMatchDiagnostic {
-  field: 'name' | 'trigger' | 'capability' | 'title' | 'tag' | 'search_terms' | 'kind' | 'source_type' | 'summary' | 'path' | 'type';
+  field: 'output_kind' | 'name' | 'trigger' | 'capability' | 'title' | 'tag' | 'search_terms' | 'kind' | 'source_type' | 'summary' | 'path' | 'type';
   match: 'exact' | 'near-name' | 'contained-phrase' | 'token-overlap';
   value?: string;
   contribution: number;
   matched_tokens?: string[];
   query_token_coverage?: number;
 }
-
 
 export interface LexicalScoreDiagnostic {
   content_tokens: string[];
@@ -193,17 +185,15 @@ export interface LexicalScoreDiagnostic {
   matches: LexicalMatchDiagnostic[];
 }
 
-
 export interface DetailedScore {
   score: number;
   diagnostic: LexicalScoreDiagnostic;
 }
 
-
 export function scoreEntryDetailed(
   entry: MetadataEntry,
   text: string,
-  opts: { relaxOverlap?: boolean; personaIdentitySuppressed?: boolean } = {},
+  opts: { relaxOverlap?: boolean; personaIdentitySuppressed?: boolean; typeFilter?: string[] } = {},
 ): DetailedScore {
   // Field substring matching uses the stopword-stripped CONTENT phrase, not the
   // raw query (#1581): a query that reduces to one content token ("intake skill"
@@ -258,6 +248,13 @@ export function scoreEntryDetailed(
       query_token_coverage: tokens.length > 0 ? newlyMatched.length / tokens.length : 0,
     });
   };
+
+  const outputKindMatch = opts.typeFilter?.includes('template') ? matchTemplateOutputKind(entry, text) : undefined;
+  if (outputKindMatch) {
+    matches.push({ field: 'output_kind', match: 'exact', value: outputKindMatch,
+      contribution: 1.002, matched_tokens: tokens, query_token_coverage: 1 });
+    return finish(1.002, 1.002);
+  }
 
   // Exact and near-name floors preserve deliberate artifact selection. The
   // 1.001 offset sorts exact names above capped lexical matches (display: 1.0).
@@ -493,7 +490,6 @@ export function scoreEntryDetailed(
   return finish();
 }
 
-
-export function scoreEntry(entry: MetadataEntry, text: string, opts: { relaxOverlap?: boolean } = {}): number {
+export function scoreEntry(entry: MetadataEntry, text: string, opts: { relaxOverlap?: boolean; typeFilter?: string[] } = {}): number {
   return scoreEntryDetailed(entry, text, opts).score;
 }

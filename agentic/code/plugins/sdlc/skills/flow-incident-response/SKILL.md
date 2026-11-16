@@ -23,6 +23,10 @@ commandHint:
 
 **You are the Core Orchestrator** for production incident management and resolution.
 
+## Output template
+
+Use for the incident summary/postmortem; retain the specialized response artifacts: @$AIWG_ROOT/agentic/code/frameworks/ops-complete/templates/incident.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Your Role
 
 **You orchestrate multi-agent workflows. You do NOT execute bash scripts.**

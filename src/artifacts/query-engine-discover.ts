@@ -309,7 +309,7 @@ export async function discoverCapability(
   const lexicalDiagnostics = new Map<string, LexicalScoreDiagnostic>();
   const legacyStrictScored = candidates
     .map(entry => {
-      const detailed = scoreEntryDetailed(entry, params.phrase, { personaIdentitySuppressed });
+      const detailed = scoreEntryDetailed(entry, params.phrase, { personaIdentitySuppressed, typeFilter: params.typeFilter });
       const legacyScore = detailed.score;
       const fortemiScore = fortemiCoreDiscoveryScores?.get(entry.path) ?? 0;
       lexicalDiagnostics.set(entry.path, detailed.diagnostic);
@@ -342,7 +342,7 @@ export async function discoverCapability(
   const strictPaths = new Set(strictScored.map(result => result.entry.path));
   const combinedByPath = new Map(strictScored.map(result => [result.entry.path, result]));
   for (const entry of candidates) {
-    const detailed = scoreEntryDetailed(entry, params.phrase, { relaxOverlap: true, personaIdentitySuppressed });
+    const detailed = scoreEntryDetailed(entry, params.phrase, { relaxOverlap: true, personaIdentitySuppressed, typeFilter: params.typeFilter });
     if (detailed.score < RELAXED_MIN_SCORE) continue;
     const existing = combinedByPath.get(entry.path);
     if (!existing || detailed.score > existing.score) {

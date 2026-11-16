@@ -11,3 +11,5 @@ The detailed discovery, retrieval, and kernel verification guide is now
 
 This compatibility pointer remains for older links. General users can simply
 describe the outcome they want and, optionally, name a stable AIWG asset ID.
+
+Default output formats and their discovery phrases: [Output templates](output-templates.md).

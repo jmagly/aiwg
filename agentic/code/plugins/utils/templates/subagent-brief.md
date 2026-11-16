@@ -1,6 +1,11 @@
 ---
 name: subagent-brief
 description: Reusable bounded wrapper brief using the existing worker and review contracts
+outputKind: worker-brief
+aliases:
+  - subagent worker delegation brief
+  - worker brief
+  - delegation brief
 ---
 
 # Subagent brief

@@ -22,6 +22,10 @@ commandHint:
 
 **You are the Core Orchestrator** for validating and executing handoffs between SDLC phases and tracks.
 
+## Output template
+
+For the accompanying agent handoff note use this template; retain the transition checklist: @$AIWG_ROOT/agentic/code/addons/aiwg-utils/templates/agent-handoff.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Threat-assessment gate
 
 Before signoff or packaging, resolve the active workspace member's

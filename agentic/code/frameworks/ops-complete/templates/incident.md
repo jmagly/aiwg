@@ -1,3 +1,12 @@
+---
+name: incident
+outputKind: report.incident
+aliases:
+  - incident postmortem
+  - incident report
+  - incident
+---
+
 # Incident Report: {Title}
 
 ## Summary

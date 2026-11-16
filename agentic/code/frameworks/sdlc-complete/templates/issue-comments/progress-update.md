@@ -1,6 +1,12 @@
 ---
 name: progress-update
-description: Post a status update on an issue using this progress update comment template: completed work, current tasks, next steps, blockers, and verification metrics.
+description: "Post a status update on an issue using this progress update comment template: completed work, current tasks, next steps, blockers, and verification metrics."
+outputKind: issue.comment.progress
+aliases:
+  - issue progress update comment
+  - status update
+  - progress update
+  - issue comment progress
 ---
 
 # Progress Update Comment Template

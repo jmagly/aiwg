@@ -1,3 +1,11 @@
+---
+outputKind: decision-record
+aliases:
+  - architecture decision record
+  - decision record
+  - ADR
+---
+
 # Architecture Decision Record (ADR)
 
 ## Metadata

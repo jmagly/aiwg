@@ -178,6 +178,17 @@
   ],
   "templates": [
     "subagent-brief",
+    "commit-message",
+    "agent-handoff",
+    "checkpoint-handoff",
+    "stakeholder-status-report",
+    "security-finding",
+    "code-review-findings",
+    "issues/bug-report",
+    "issues/feature-request",
+    "issues/imported-report",
+    "issues/tester-report",
+    "pull-requests/description",
     "devkit/addon-manifest",
     "devkit/framework-manifest",
     "devkit/extension-manifest"

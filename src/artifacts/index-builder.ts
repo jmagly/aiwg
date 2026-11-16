@@ -1032,6 +1032,7 @@ function extractIndexArtifact(job: IndexPreparationJob, bindingOnly: boolean, wa
     ...(markdownLinks.length > 0 ? { markdownLinks } : {}),
     dependents: [], // Computed after all entries are processed
     ...(name ? { name } : {}),
+    ...(type === 'template' && typeof data.outputKind === 'string' && data.outputKind.trim() ? { outputKind: data.outputKind.trim() } : {}),
     ...(triggers && triggers.length > 0 ? { triggers } : {}),
     ...(capability ? { capability } : {}),
     ...(searchTerms && searchTerms.length > 0 ? { searchTerms } : {}),

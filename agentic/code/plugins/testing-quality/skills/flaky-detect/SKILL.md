@@ -22,6 +22,10 @@ platforms: [all]
 
 # Flaky Detect Skill
 
+## Output template
+
+Required for the human-readable CI failure or flaky-test report: @$AIWG_ROOT/${CLAUDE_PLUGIN_ROOT}/templates/ci-failure-report.md. Fill every required section; explain non-applicable fields and unrun checks.
+
 ## Purpose
 
 Identify flaky tests (tests that pass and fail non-deterministically) by analyzing CI history, execution patterns, and test characteristics. Google research shows 4.56% of tests are flaky, costing millions in developer productivity.

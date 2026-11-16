@@ -4,6 +4,11 @@ description: Write a bug report issue with environment, exact reproduction comma
 about: Report a defect with a clear reproduction
 title: 'bug(<area>): <one-line summary>'
 labels: ['bug']
+outputKind: issue.bug
+aliases:
+  - bug report issue
+  - bug report
+  - bug issue
 ---
 
 ## TL;DR

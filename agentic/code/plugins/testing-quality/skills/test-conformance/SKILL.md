@@ -34,3 +34,7 @@ evidence rule](../../rules/test-conformance-evidence.md) before making conforman
 Do not present inventory candidates as confirmed defects, passing cases as proof of oracle quality, or optional missing
 discovery as proven registration. Use `test-platform-research` for a platform adapter/template or additional tooling
 recommendation.
+
+## Output template
+
+Use the conformance report for the assessment; when amending an experiment/protocol or recording its gate decision, use the amendment or gate audit template respectively: @$AIWG_ROOT/${CLAUDE_PLUGIN_ROOT}/templates/conformance-report.md; @$AIWG_ROOT/${CLAUDE_PLUGIN_ROOT}/templates/experiment-amendment.md; @$AIWG_ROOT/${CLAUDE_PLUGIN_ROOT}/templates/gate-audit-record.md. Fill every required section; explain non-applicable fields and unrun checks.

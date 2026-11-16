@@ -1,3 +1,12 @@
+---
+name: change-request-card
+outputKind: change-request
+aliases:
+  - infrastructure or host change request
+  - change request
+  - host change request
+---
+
 # Change Request Card
 
 ## Metadata

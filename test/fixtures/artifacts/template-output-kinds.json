@@ -1,0 +1,187 @@
+[
+  {
+    "outputKind": "issue.bug",
+    "path": "agentic/code/addons/aiwg-utils/templates/issues/bug-report.md",
+    "phrases": [
+      "bug report issue",
+      "bug report",
+      "bug issue"
+    ]
+  },
+  {
+    "outputKind": "issue.feature",
+    "path": "agentic/code/addons/aiwg-utils/templates/issues/feature-request.md",
+    "phrases": [
+      "feature request issue",
+      "feature request"
+    ]
+  },
+  {
+    "outputKind": "issue.imported",
+    "path": "agentic/code/addons/aiwg-utils/templates/issues/imported-report.md",
+    "phrases": [
+      "imported issue",
+      "imported report"
+    ]
+  },
+  {
+    "outputKind": "issue.comment.progress",
+    "path": "agentic/code/frameworks/sdlc-complete/templates/issue-comments/progress-update.md",
+    "phrases": [
+      "issue progress update comment",
+      "status update",
+      "progress update",
+      "issue comment progress"
+    ]
+  },
+  {
+    "outputKind": "issue.comment.blocker",
+    "path": "agentic/code/frameworks/sdlc-complete/templates/issue-comments/blocker-found.md",
+    "phrases": [
+      "blocker comment",
+      "blocker found",
+      "issue comment blocker"
+    ]
+  },
+  {
+    "outputKind": "issue.comment.completed",
+    "path": "agentic/code/frameworks/sdlc-complete/templates/issue-comments/task-completed.md",
+    "phrases": [
+      "issue completion comment",
+      "task completed",
+      "issue comment completed"
+    ]
+  },
+  {
+    "outputKind": "pull-request",
+    "path": "agentic/code/addons/aiwg-utils/templates/pull-requests/description.md",
+    "phrases": [
+      "pull request description",
+      "pull request",
+      "PR"
+    ]
+  },
+  {
+    "outputKind": "commit-message",
+    "path": "agentic/code/addons/aiwg-utils/templates/commit-message.md",
+    "phrases": [
+      "commit message",
+      "commit"
+    ]
+  },
+  {
+    "outputKind": "worker-brief",
+    "path": "agentic/code/addons/aiwg-utils/templates/subagent-brief.md",
+    "phrases": [
+      "subagent worker delegation brief",
+      "worker brief",
+      "delegation brief"
+    ]
+  },
+  {
+    "outputKind": "report.ci-failure",
+    "path": "agentic/code/addons/testing-quality/templates/ci-failure-report.md",
+    "phrases": [
+      "flaky test or CI failure report",
+      "CI failure report",
+      "flaky test report"
+    ]
+  },
+  {
+    "outputKind": "experiment.amendment",
+    "path": "agentic/code/addons/testing-quality/templates/experiment-amendment.md",
+    "phrases": [
+      "experiment protocol amendment",
+      "experiment amendment",
+      "protocol amendment"
+    ]
+  },
+  {
+    "outputKind": "report.audit",
+    "path": "agentic/code/addons/testing-quality/templates/gate-audit-record.md",
+    "phrases": [
+      "evaluation gate audit record",
+      "gate audit record",
+      "audit report",
+      "audit record"
+    ]
+  },
+  {
+    "outputKind": "handoff",
+    "path": "agentic/code/addons/aiwg-utils/templates/agent-handoff.md",
+    "phrases": [
+      "agent handoff note",
+      "agent handoff",
+      "handoff"
+    ]
+  },
+  {
+    "outputKind": "report.status",
+    "path": "agentic/code/addons/aiwg-utils/templates/stakeholder-status-report.md",
+    "phrases": [
+      "status report for stakeholders",
+      "status report",
+      "stakeholder status report"
+    ]
+  },
+  {
+    "outputKind": "report.review",
+    "path": "agentic/code/addons/aiwg-utils/templates/code-review-findings.md",
+    "phrases": [
+      "code review findings report",
+      "code review findings",
+      "review report"
+    ]
+  },
+  {
+    "outputKind": "report.security",
+    "path": "agentic/code/addons/aiwg-utils/templates/security-finding.md",
+    "phrases": [
+      "security finding report",
+      "security finding",
+      "security report"
+    ]
+  },
+  {
+    "outputKind": "report.incident",
+    "path": "agentic/code/frameworks/ops-complete/templates/incident.md",
+    "phrases": [
+      "incident postmortem",
+      "incident report",
+      "incident"
+    ]
+  },
+  {
+    "outputKind": "decision-record",
+    "path": "agentic/code/frameworks/sdlc-complete/templates/governance/adr-template.md",
+    "phrases": [
+      "architecture decision record",
+      "decision record",
+      "ADR"
+    ]
+  },
+  {
+    "outputKind": "change-request",
+    "path": "agentic/code/frameworks/sdlc-complete/templates/configuration/change-request-card.md",
+    "phrases": [
+      "infrastructure or host change request",
+      "change request",
+      "host change request"
+    ]
+  },
+  {
+    "outputKind": "release-notes",
+    "path": "agentic/code/frameworks/sdlc-complete/templates/deployment/release-notes-template.md",
+    "phrases": [
+      "release notes"
+    ]
+  },
+  {
+    "outputKind": "handoff.checkpoint",
+    "path": "agentic/code/addons/aiwg-utils/templates/checkpoint-handoff.md",
+    "phrases": [
+      "checkpoint handoff",
+      "session handoff"
+    ]
+  }
+]

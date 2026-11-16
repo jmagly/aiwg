@@ -4,6 +4,10 @@ description: Import an issue report from another tracker, preserving the origina
 about: Mirror an issue from a different tracker (GitHub, Discord, email) for follow-up
 title: 'imported: <original title> (<source>#<number>)'
 labels: ['imported']
+outputKind: issue.imported
+aliases:
+  - imported issue
+  - imported report
 ---
 
 > **Imported from**: <source link> (e.g. `jmagly/aiwg#123`)
