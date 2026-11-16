@@ -44,7 +44,12 @@ else process.exit(90);
     guards: { denySelfDelegation: false }, dataPolicy: { allowUnknown: true } } } }));
   const brief = path.join(project, 'brief.txt');
   await writeFile(brief, 'Synthetic brief.');
-  const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, HOME: root, USERPROFILE: root,
+  // Host CLIs that doctor inspects (e.g. a real opencode) may write to TMPDIR; keep the child's
+  // temp directory inside the fixture root so it is removed with it (#4195).
+  const tmp = path.join(root, 'tmp');
+  await mkdir(tmp, { recursive: true });
+  const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+    TMPDIR: tmp, TMP: tmp, TEMP: tmp, HOME: root, USERPROFILE: root,
     XDG_CONFIG_HOME: path.join(root, 'xdg-config'), XDG_DATA_HOME: path.join(root, 'data'),
     XDG_CACHE_HOME: path.join(root, 'cache'), XDG_STATE_HOME: path.join(root, 'state'),
     AIWG_CONFIG: config, AIWG_HOME: installed, AIWG_ROOT: installed, AIWG_RESOLVE_IMPL_FROM: 'dist',
