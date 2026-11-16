@@ -1,3 +1,4 @@
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { workerMarkerNames } from '../../fixtures/worker-attribution.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
 /**
@@ -307,14 +308,14 @@ describe('T-OG-15 Grok Build direct command contract', () => {
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
     expect(record).toMatchObject({ model: MODEL, effort: 'medium', cwd: workdir, outputFormat: 'streaming-json',
       permissionMode: 'dontAsk', sandbox: 'workspace', noSubagents: true, noPlan: true, disableWebSearch: true, allowRules: ['Bash(aiwg discover *)', 'Edit'] });
-    expect(record.brief).toBe(payload);
+    expect(record.brief).toBe(workerPromptBrief(payload, invocation.finalPath!).toString());
     expect(record.brief).toContain(MARKER);
-    expect(record.argv).toEqual(invocation.argv.slice(2));
+    expect(record.argv).toEqual(invocation.argv.slice(2).map(token => token === invocation.briefPath ? `${invocation.finalPath}.worker-brief` : token));
     expect(JSON.stringify(record.argv)).not.toContain(MARKER);
     expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
     const final = installed.owner.parseDirectFinal(await readFile(invocation.stdoutPath, 'utf8'));
-    expect(final).toMatchObject({ stopReason: 'end_turn', text: expect.stringContaining(`synthetic reply (${payload.length} chars)`) });
+    expect(final).toMatchObject({ stopReason: 'end_turn', text: expect.stringContaining(`synthetic reply (${workerPromptBrief(payload, invocation.finalPath!).toString().length} chars)`) });
   });
 
   it.each([

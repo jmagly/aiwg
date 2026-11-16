@@ -21,7 +21,7 @@ export async function reserveShellWorkerCapture({ request, invocation, paths }) 
     if (await inspect(filename, 'output')) throw new Error('Fresh worker output paths are required');
     if (!await inspect(dirname(filename), 'directory')) throw new Error('Worker output parent is missing');
   }
-  if (invocation.stdin !== 'closed') {
+  if (invocation.stdin !== 'closed' || paths.workerBrief) {
     const brief = await boundedPrivateRead(invocation.briefPath, 262144, inspect);
     if (`sha256:${createHash('sha256').update(brief).digest('hex')}` !== invocation.briefDigest) {
       throw new Error('Worker prompt digest changed; resolve again');

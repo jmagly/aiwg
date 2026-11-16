@@ -1,3 +1,4 @@
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { workerMarkerNames } from '../../fixtures/worker-attribution.js';
 import { termAfterReady, TERM_READY } from '../../helpers/term-escalation.js';
 import { copyWorkerAdapterRuntime } from '../../helpers/worker-adapter-runtime.mjs';
@@ -275,7 +276,7 @@ describe('T-OG-15 OpenClaw direct command contract', () => {
       env: { PATH: process.env.PATH!, AIWG_FAKE_WORKER_CONFIG: file, OPENCLAW_UNRELATED_SECRET: 'sk-synthetic-should-not-pass' } });
     expect(result.code, result.stderr).toBe(0);
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
-    expect(record).toMatchObject({ model: MODEL, thinking: effort, cwd: workdir, messageFile: invocation.briefPath, prompt: payload });
+    expect(record).toMatchObject({ model: MODEL, thinking: effort, cwd: workdir, messageFile: `${invocation.finalPath}.worker-brief`, prompt: workerPromptBrief(payload, invocation.finalPath!).toString() });
     expect(record.prompt).toContain(MARKER);
     expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);
     expect(existsSync(path.join(root, 'injected'))).toBe(false);
@@ -283,12 +284,12 @@ describe('T-OG-15 OpenClaw direct command contract', () => {
     const final = installed.owner.parseOutput(stdout);
     expect(final).not.toBeNull();
     expect(final).toMatchObject({ ok: true, status: 'ok' });
-    expect(JSON.parse(final!.final)).toMatchObject({ summary: `synthetic reply (${payload.length} chars)` });
+    expect(JSON.parse(final!.final)).toMatchObject({ summary: `synthetic reply (${workerPromptBrief(payload, invocation.finalPath!).toString().length} chars)` });
     vi.stubEnv('AIWG_RESOLVE_IMPL_FROM', 'src');
     try {
       const claims = await installed.owner.parseWorkerFinal(stdout,
         { observation: { transport: 'shell', status: 'completed', termination: 'confirmed', exitCode: 0 } });
-      expect(claims).toMatchObject({ status: 'completed', summary: `synthetic reply (${payload.length} chars)` });
+      expect(claims).toMatchObject({ status: 'completed', summary: `synthetic reply (${workerPromptBrief(payload, invocation.finalPath!).toString().length} chars)` });
     } finally { vi.unstubAllEnvs(); }
   });
 

@@ -1,3 +1,4 @@
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { shellCaptureBody } from '../../fixtures/shell-capture-command.js';
 import { workerMarkerNames, workerMarkerShell } from '../../fixtures/worker-attribution.js';
 import { termAfterReady, TERM_READY } from '../../helpers/term-escalation.js';
@@ -294,7 +295,7 @@ describe('T-OG-15 Cursor direct command contract', () => {
     expect(JSON.stringify(plan)).not.toContain(MARKER);
     const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
     expect(shellCaptureBody(invocation)).toBe(`cd ${quote(workdir)} && env -i AIWG_FAKE_WORKER_CONFIG="\${AIWG_FAKE_WORKER_CONFIG-}"`
-      + ` ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')} < ${quote(brief)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
+      + ` ${workerMarkerShell(invocation)} ${invocation.argv.map(quote).join(' ')} < ${quote(`${invocation.finalPath}.worker-brief`)} > ${quote(invocation.stdoutPath)} 2> ${quote(invocation.stderrPath)}`);
     const { file, recordPath } = await fakeConfig(root, 'success');
     const result = await run('/bin/sh', ['-c', invocation.shellCommand!], { cwd: root,
       env: { PATH: process.env.PATH, AIWG_FAKE_WORKER_CONFIG: file, CURSOR_UNRELATED_SECRET: 'fk-synthetic-should-not-pass' } });
@@ -302,6 +303,7 @@ describe('T-OG-15 Cursor direct command contract', () => {
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
     expect(record).toMatchObject({ workspace: workdir, promptViaStdin: true, stdinEof: true, trust: true, approveMcps: false });
     expect(record.model).toContain(MODEL);
+    expect(record.brief).toBe(workerPromptBrief(payload, invocation.finalPath!).toString());
     expect(record.brief).toContain(MARKER);
     expect(record.argv).toEqual(invocation.argv.slice(2));
     expect(record.envNames.filter((name: string) => !['PWD', 'SHLVL', '_'].includes(name))).toEqual(['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames]);

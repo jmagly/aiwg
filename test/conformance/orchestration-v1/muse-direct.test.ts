@@ -1,3 +1,4 @@
+import { workerPromptBrief } from '../../../tools/ralph-external/lib/worker-prompt.mjs';
 import { workerMarkerNames } from '../../fixtures/worker-attribution.js';
 /** #2898: offline mappings only, never authenticated Muse qualification. */
 import { spawn } from 'node:child_process';
@@ -133,8 +134,8 @@ describe('Muse S1 offline profile and direct execution', () => {
     const shell = await execute(f, 'success', true), json = await execute(f, 'success');
     expect(shell.code).toBe(0); expect(json.code).toBe(0);
     expect(json.record.envNames).toEqual(['AIWG_FAKE_WORKER_CONFIG']);
-    expect(shell.record).toEqual({ ...json.record, envNames: ['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames] });
-    expect(shell.record).toMatchObject({ argv: invocation.argv.slice(2), cwd: f.cwd, brief: f.payload, stdinEof: true, stdinBytes: 0 });
+    expect(shell.record).toEqual({ ...json.record, argv: json.record.argv.map((token: string) => token === f.request.brief ? `${invocation.finalPath}.worker-brief` : token), brief: workerPromptBrief(f.payload, invocation.finalPath!).toString(), envNames: ['AIWG_FAKE_WORKER_CONFIG', ...workerMarkerNames] });
+    expect(shell.record).toMatchObject({ argv: invocation.argv.slice(2).map(token => token === f.request.brief ? `${invocation.finalPath}.worker-brief` : token), cwd: f.cwd, brief: workerPromptBrief(f.payload, invocation.finalPath!).toString(), stdinEof: true, stdinBytes: 0 });
     expect(shell.record.envNames).not.toContain('SYNTHETIC_SECRET');
     expect(f.validate(JSON.parse(owner.parseOutput(shell.stdout)!.text!))).toBe(true);
     expect(existsSync(path.join(f.root, 'injected'))).toBe(false);

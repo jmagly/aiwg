@@ -14,7 +14,7 @@ import { assertValidWorkerPayload } from '../mission-protocol/codecs.js';
 import type { WorkerResolvedInvocation, WorkerEffectiveHealth } from '../mission-protocol/types.js';
 import type { WorkerPolicyDiagnostic } from '../models/types.js';
 import { qualificationDigest } from '../models/qualification-digest.mjs';
-import { prepareWorkerInvocation, type WorkerInvocationQualification } from './worker-invocation-preparation.js';
+import { prepareWorkerInvocation, WorkerShellArtifactsError, type WorkerInvocationQualification } from './worker-invocation-preparation.js';
 export { prepareWorkerInvocation, mcpToolSchemaDigest, type WorkerInvocationQualification, type WorkerInstallationRequest } from './worker-invocation-preparation.js';
 import type { WorkerExecution, ParallelismConfig } from '../config/aiwg-config.js';
 import { isOperatorQualifiedWorkerAdapter, assertOperatorWorkerNativeArgv,
@@ -386,6 +386,7 @@ export async function resolveWorkerInvocation(snapshot: WorkerPlanSnapshot, requ
       };
       await driver.mcpRegistry.assertWorkerQualified(profile.mcp!.serverRef, input);
     }
+    if (request.format === 'shell' && prepared.transport === 'shell' && prepared.artifacts?.length) throw new WorkerShellArtifactsError();
     plan.invocation = prepared;
     pointer = '/request/brief';
     const rechecked = await readBrief(request.brief);
@@ -412,7 +413,7 @@ export function workerInvocationDiagnostic(error: unknown, pointer: string,
   fallback: WorkerPolicyDiagnostic['code'] = 'OG_CONFIG_REFERENCE'): WorkerPolicyDiagnostic {
   if (error instanceof WorkerQualificationPolicyError) return { code: error.code, pointer: error.pointer, message: error.message };
   if (error instanceof WorkerRoleEffortError) return { code: error.code, pointer: error.pointer, message: error.message };
-  if (error instanceof WorkerPathScopeError || error instanceof WorkerRequestArgumentError) {
+  if (error instanceof WorkerPathScopeError || error instanceof WorkerRequestArgumentError || error instanceof WorkerShellArtifactsError) {
     return { code: error.code, pointer: error.pointer, message: error.message };
   }
   if (error instanceof WorkerInvocationCheckError) return { code: error.code, reason: error.reason, ...invocationChecks[error.reason] };
