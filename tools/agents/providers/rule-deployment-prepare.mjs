@@ -50,12 +50,13 @@ const { preserveDeploymentOutputs } = await importImpl(import.meta.url, 'provide
 import { retireInlineStartup } from './rule-startup.mjs';
 import { createStagedDirectoryReference } from './staged-directory-reference.mjs';
 import { measureProviderStaging, sessionInputPool } from './rule-deployment-input-session.mjs';
+import { corpusInputPlan } from './rule-deployment-corpus-inputs.mjs';
 
 /** Stage only provider/context output, never the user's source tree. On failure
  * no staged output (including skills and behaviors) reaches the prior deployment. */
 export async function prepareRuleDeployment(original, provider, deploy) {
   return measureProviderStaging(original, provider, () => prepareWithInputs({
-    ...original, inputPool: original.inputPool || sessionInputPool(original.srcRoot),
+    ...original, inputPool: original.dryRun ? undefined : original.inputPool || sessionInputPool(original.srcRoot),
   }, provider, deploy));
 }
 
@@ -85,7 +86,8 @@ async function prepareWithInputs(original, provider, deploy) {
   const localSources = Object.values(projectConfig.installed || {}).filter(entry => entry?.localPath)
     .map(entry => path.resolve(original.target, entry.localPath));
   const selectedRules = collectDeploymentRuleSources({ ...original, previousRuleSources: previous.ruleSources || [] });
-  const initialPreimages = [...(pool ? pool.preimages : snapshotPreimages([sourceTree, path.join(corpusRoot, 'prebuilt', 'framework-relations'), path.join(corpusRoot, 'package.json'), path.join(corpusRoot, 'schemas')])), ...snapshotPreimages([path.join(corpusRoot, '.aiwg', '.index'),
+  const corpusInputs = corpusInputPlan(original, corpusRoot, sourceTree, pool);
+  const initialPreimages = [...corpusInputs.preimages, ...snapshotPreimages([path.join(corpusRoot, '.aiwg', '.index'),
     manifestFile, path.join(original.target, '.aiwg', 'aiwg.config'), path.join(original.target, '.aiwg', 'AIWG.md'), path.join(original.target, '.aiwg', 'skills'), path.join(original.target, '.aiwg-location'), ...projectGraphFiles, ...userGraphFiles, ...localSources,
     ...(path.resolve(original.srcRoot) === path.resolve(corpusRoot) ? [] : [original.srcRoot]), ...(original.additionalSources || []), ...selectedRules, ...selectedRules.map(file => path.dirname(file)),
     userConfigFile('aiwg.config'), process.env.AIWG_USER_REGISTRY_PATH || userConfigFile('installed.json'),
@@ -121,14 +123,14 @@ async function prepareWithInputs(original, provider, deploy) {
   const priorArtifacts = process.env.AIWG_ARTIFACTS_PATH;
   const priorXdgData = process.env.XDG_DATA_HOME;
   try {
-    const snapshotRoot = pool ? pool.snapshotRoot : path.join(temp, 'input');
+    const snapshotRoot = corpusInputs.snapshotRoot(temp);
     const treeRelative = path.relative(corpusRoot, sourceTree);
     const isCorpusTree = treeRelative === path.join('agentic', 'code');
     const snapshotTree = isCorpusTree ? path.join(snapshotRoot, 'agentic', 'code') : snapshotRoot;
-    if (!pool) { fs.mkdirSync(path.dirname(snapshotTree), { recursive: true }); materializeInput(sourceTree, snapshotTree); }
+    if (corpusInputs.snapshotRequired) { fs.mkdirSync(path.dirname(snapshotTree), { recursive: true }); materializeInput(sourceTree, snapshotTree); }
     const expectedTree = initialPreimages.find(item => item.path === path.resolve(sourceTree));
-    if (!pool && JSON.stringify(capturePreimage(snapshotTree)) !== JSON.stringify(materializedPreimage(expectedTree.state))) throw new Error('Source changed while preparing immutable snapshot');
-    if (isCorpusTree && !pool) {
+    if (corpusInputs.snapshotRequired && JSON.stringify(capturePreimage(snapshotTree)) !== JSON.stringify(materializedPreimage(expectedTree.state))) throw new Error('Source changed while preparing immutable snapshot');
+    if (isCorpusTree && corpusInputs.snapshotRequired) {
       for (const rel of ['package.json', 'prebuilt', 'schemas']) {
         const from = path.join(corpusRoot, rel), to = path.join(snapshotRoot, rel);
         if (fs.existsSync(from)) materializeInput(from, to);
@@ -330,7 +332,7 @@ async function prepareWithInputs(original, provider, deploy) {
     const remappedBindings = new Map();
     for (const entry of delivery.targets) {
       const source = path.resolve(entry.source);
-      const alreadyFrozen = source.startsWith(`${temp}${path.sep}`) || Boolean(pool && source.startsWith(`${pool.snapshotRoot}${path.sep}`));
+      const alreadyFrozen = corpusInputs.isLiveInput(source) || source.startsWith(`${temp}${path.sep}`) || Boolean(pool && source.startsWith(`${pool.snapshotRoot}${path.sep}`));
       if (!alreadyFrozen) {
         const state = capturePreimage(source);
         const to = path.join(temp, 'discovered-input', String(sourceMappings.length), path.basename(source));
