@@ -46,6 +46,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { loadRecoveryModuleGraph } from '../../helpers/recovery-module-graph.mjs';
 import { reapedWorkerSpawn as directSpawn } from '../../helpers/reaped-worker-spawn.mjs';
+import { slowIdentityPublication, finalCaptureEvidence } from '../../helpers/scoped-recovery-evidence.mjs';
 import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { systemdClientFixture } from '../../fixtures/systemd-client.js';
 import { parseLedgerReleaseArgs } from '../../../tools/ralph-external/index.mjs';
@@ -4855,8 +4856,8 @@ async function equivFixtureRoot() {
       const recordPath = path.join(root, `record-${planSeq}.json`); // unconditionally written by ralph-worker-cli.mjs
       // Baseline/branch trials have independent capture inventories (#3831).
       const capture = await mkdtemp(path.join(root, 'comparison-'));
-      // Keep the real worker alive until ownership is recorded, even under load.
-      await writeFile(configPath, JSON.stringify({ scenario, recordPath, waitForIdentity: path.join(capture, `run-${planSeq}`, 'process.json'), ...(forgeRealExitCode !== undefined ? { forgeRealExitCode } : {}) }));
+      // Readiness uses the launcher's hard deadline; the fixture's 2 s default can expire under load (#4144).
+      await writeFile(configPath, JSON.stringify({ scenario, recordPath, waitForIdentity: path.join(capture, `run-${planSeq}`, 'process.json'), waitForIdentityMs: f.snapshot.config.parallelism.health.hardTimeoutSeconds * 1000, ...(forgeRealExitCode !== undefined ? { forgeRealExitCode } : {}) }));
       const request = { role: 'coding', task: 'implementation', group: 'workers', brief, workdir: cwd, final_output: attemptFinal };
       const resolve = side === 'baseline' ? resolveWorkerInvocationBaseline : resolveWorkerInvocation;
       const plan = await resolve(f.snapshot, request, drivers, f.request.now);
@@ -5083,6 +5084,7 @@ describe('baseline equivalence (#2915 round 8, D6): frozen 8c812250d6 vs the bra
   // baseline run on an independent `SessionLauncherBaseline` instance.
   it('a gated launch followed by a not-gated launch on the SAME reused instance matches the frozen baseline: listeners, handles, metadata and callback arguments', async () => {
     const fx = await equivFixtureRoot();
+    let passed = false;
     try {
       const sigtermBefore = process.listenerCount('SIGTERM');
       const sigintBefore = process.listenerCount('SIGINT');
@@ -5128,6 +5130,7 @@ describe('baseline equivalence (#2915 round 8, D6): frozen 8c812250d6 vs the bra
       vi.stubEnv('AIWG_FAKE_WORKER_CONFIG', notGatedAttempt.configPath);
       const notGatedResult = await launcher.launchWorker({
         invocationPath: notGatedAttempt.invocationPath, runDir: notGatedAttempt.runDir,
+        publishRecord: slowIdentityPublication(notGatedAttempt.configPath), // #4144: ownership arrives after the fixture's old 2 s limit.
         inputs: { snapshot: fx.f.snapshot, drivers: fx.drivers }, now: fx.f.request.now,
         checkDispatch: () => ({ enabled: false, ok: true, failures: [] }),
         isolation: { mode: 'degraded', reason: 'synthetic unavailable manager' }, allowDegraded: true,
@@ -5159,6 +5162,7 @@ describe('baseline equivalence (#2915 round 8, D6): frozen 8c812250d6 vs the bra
       vi.stubEnv('AIWG_FAKE_WORKER_CONFIG', baselineAttempt.configPath);
       const baselineResult = await baselineLauncher.launchWorker({
         invocationPath: baselineAttempt.invocationPath, runDir: baselineAttempt.runDir,
+        publishRecord: slowIdentityPublication(baselineAttempt.configPath),
         inputs: { snapshot: fx.f.snapshot, drivers: fx.drivers }, now: fx.f.request.now,
         checkDispatch: () => ({ enabled: false, ok: true, failures: [] }),
         isolation: { mode: 'degraded', reason: 'synthetic unavailable manager' }, allowDegraded: true,
@@ -5171,7 +5175,11 @@ describe('baseline equivalence (#2915 round 8, D6): frozen 8c812250d6 vs the bra
       // shape is IDENTICAL to the independent frozen baseline's --
       // genuinely proving the earlier gated run left no residue, not just
       // that `Object.keys()` happens to match.
-      expect(normalizeResult(notGatedResult)).toEqual({ ...normalizeResult(baselineResult), termination: 'confirmed', descendants: 'none' });
+      const evidence = await finalCaptureEvidence(notGatedAttempt, baselineAttempt);
+      expect([notGatedResult, baselineResult], evidence).toEqual([
+        expect.objectContaining({ exitCode: 0, errorCode: null }), expect.objectContaining({ exitCode: 0, errorCode: null }),
+      ]);
+      expect(normalizeResult(notGatedResult), evidence).toEqual({ ...normalizeResult(baselineResult), termination: 'confirmed', descendants: 'none' });
       expect(baselineLauncher.lastAttemptResult).toBeUndefined(); // origin/main never had this field at all
       // GH #366 adds exactly one launch option, `workerGroup`, so the
       // launcher can re-check the native-sandbox opt-in.
@@ -5190,8 +5198,10 @@ describe('baseline equivalence (#2915 round 8, D6): frozen 8c812250d6 vs the bra
       expect(keysAfterNotGatedOnSameInstance).toEqual(Object.keys(baselineLauncher).sort());
       expect(keysAfterGatedLaunch).toEqual(keysAfterNotGatedOnSameInstance); // unchanged across the second (not-gated) call
       expect(keysAfterGatedLaunch).not.toEqual(keysBeforeAnyLaunch); // sanity: a launch DOES add base keys (workerLaunchPending)
+      passed = true;
     } finally {
-      await rm(fx.root, { recursive: true, force: true });
+      if (passed) await rm(fx.root, { recursive: true, force: true });
+      else console.error(`#4144 failed comparison evidence retained at ${fx.root}`);
     }
   });
 
