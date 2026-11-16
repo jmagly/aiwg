@@ -1,5 +1,5 @@
 // Admits trusted, preloaded adapter/backend pairs and pins their CLI execution identity.
-import { satisfies } from 'semver'
+import { contractRangeIncludes } from './contract-range.js'
 import type { AdapterReadEvent, DatasetSourceAdapter } from './adapter-types.js'
 import { DATASET_ADAPTER_CONTRACT_VERSION } from './adapter-types.js'
 import { validateCheckpoint } from './adapter-sdk.js'
@@ -23,7 +23,7 @@ const expectedOffers = (descriptor: DatasetServiceBinding) => [...descriptor.cap
 
 function assertRegistration({ descriptor: d, adapter, backend, backendIdentity }: Registration) {
   const manifest = adapter.describe()
-  if (manifest.contractVersion !== DATASET_ADAPTER_CONTRACT_VERSION || !satisfies('1.0.0', manifest.datasetContractRange)
+  if (manifest.contractVersion !== DATASET_ADAPTER_CONTRACT_VERSION || !contractRangeIncludes('1.0.0', manifest.datasetContractRange)
     || d.datasetContractVersion !== DATASET_CONTRACT_VERSION || d.adapterContractVersion !== manifest.contractVersion
     || manifest.id !== d.adapter.id || manifest.version !== d.adapter.version
     || !same(manifest.packageDigest, d.adapter.packageDigest) || !same(datasetDigest(manifest), d.adapterManifestDigest)

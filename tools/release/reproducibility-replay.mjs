@@ -4,10 +4,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { resolveProjectAiwgDirForWrite } from '../../src/config/project-artifacts-runtime.mjs';
+import { importImpl } from '../_resolve-impl.mjs';
+
+const { boundedSpawnSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
 
 export const RUNS = 5;
 export const THRESHOLD = 0.95;
@@ -22,8 +24,9 @@ const surfaces = [
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const readJson = file => JSON.parse(fs.readFileSync(file, 'utf8'));
 const same = values => new Set(values).size === 1;
-function command(executable, args, { cwd = ROOT, env = process.env, input, timeout = 15 * 60_000 } = {}) {
-  const result = spawnSync(executable, args, { cwd, env, input, timeout, killSignal: 'SIGKILL',
+// Builds and packs run in the `long` tier (10 min, raised with AIWG_SYNC_LONG_TIMEOUT_MS); `timeout` may only lower it.
+function command(executable, args, { cwd = ROOT, env = process.env, input, timeout } = {}) {
+  const result = boundedSpawnSync(executable, args, 'long', { cwd, env, input, timeout,
     encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (result.error || result.status !== 0) {
     throw new Error(`${executable} ${args.slice(0, 2).join(' ')} failed: ${result.error?.message ?? result.stderr ?? result.status}`);
