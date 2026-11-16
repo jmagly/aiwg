@@ -84,7 +84,7 @@ export function createGithubEvidenceTransport({ token, approvalIssue, fetchImpl 
         if (target.protocol !== 'https:' || !(target.hostname === 'github.com' || target.hostname.endsWith('.githubusercontent.com') || target.hostname.endsWith('.blob.core.windows.net')) || target.username || target.password) throw new Error('Untrusted artifact redirect');
         response = await request(target.href, { binary: true, authenticated: false });
       }
-      if (!response.ok) throw new Error(`GitHub artifact download returned HTTP ${response.status}`);
+      if (!response.ok) throw Object.assign(new Error(`GitHub artifact download returned HTTP ${response.status}`), { status: response.status });
       const declared = Number(response.headers.get('content-length'));
       if (Number.isFinite(declared) && declared > MAX_ARCHIVE) throw new Error('GitHub artifact exceeds archive size limit');
       const chunks = []; let size = 0;

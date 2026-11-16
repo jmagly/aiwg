@@ -16,6 +16,7 @@ const sha256 = file => createHash('sha256').update(fs.readFileSync(file)).digest
 const registry = 'https://registry.npmjs.org';
 const workflowPath = '.github/workflows/npm-publish.yml';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+const retentionDelays = [1000, 2000, 4000, 8000, 15000, 30000];
 function registryView(name, version, spawn, env) {
   const result = spawn('npm', ['view', `${name}@${version}`, '--json', '--registry', registry, '--prefer-online', '--fetch-retries=0', '--fetch-timeout=10000'], 'long',
     { env, encoding: 'utf8', timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
@@ -33,8 +34,22 @@ function pageItems(page) {
   if (!page || page.complete !== true || !Array.isArray(page.items) || (page.totalCount !== undefined && page.totalCount !== page.items.length)) throw new Error('Incomplete retained artifact collection');
   return page.items;
 }
-async function extractedArtifact(client, repository, artifact, destination, spawn, legacy = false) {
-  const { archivePath } = await client.downloadArtifact({ repository, artifactId: artifact.id, destination });
+async function extractedArtifact(client, repository, artifact, destination, spawn, legacy = false, sleep) {
+  let downloaded;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      downloaded = await client.downloadArtifact({ repository, artifactId: artifact.id, destination });
+      break;
+    } catch (error) {
+      // Only the transport's download 404 (error.status) denotes archive visibility lag.
+      if (!sleep || error?.status !== 404) throw error;
+      if (attempt === retentionDelays.length) {
+        throw new Error(`Retained artifact ${artifact.name} (ID ${artifact.id}) download returned HTTP 404 after ${attempt + 1} attempts`, { cause: error });
+      }
+      await sleep(retentionDelays[attempt]);
+    }
+  }
+  const { archivePath } = downloaded;
   if (artifact.digest && artifact.digest !== `sha256:${sha256(archivePath)}`) throw new Error('Retained archive digest mismatch');
   const extracted = path.join(destination, 'extracted'); fs.mkdirSync(extracted);
   const result = spawn('python3', ['-I', '-S', path.join(import.meta.dirname, 'extract-release-archive.py'), extracted, ...(legacy ? ['--legacy-stable-package'] : [])], 'long',
@@ -54,7 +69,7 @@ function smokeRecords(directory, version) {
 
 // Authenticated evidence may come from an earlier failed attempt or a separate
 // tag-bound dispatch. A failed signing step does not invalidate successful smoke tests.
-export async function retainedPackages({ client, repository, commit, tag, runId, attempt, destination, version, spawn = boundedSpawnSync }) {
+export async function retainedPackages({ client, repository, commit, tag, runId, attempt, destination, version, spawn = boundedSpawnSync, sleep = pause }) {
   const runs = pageItems(await client.listWorkflowRuns({ repository, workflow: 'npm-publish.yml', branch: tag, commit }));
   const retained = [];
   // The earliest retained attempt supplied the bytes originally published.
@@ -75,7 +90,7 @@ export async function retainedPackages({ client, repository, commit, tag, runId,
         && required.every(name => successful(job, name))
         && (successful(job, 'Pack and smoke-test exact npm surfaces') || successful(job, 'Recover published registry tarballs'))).length !== 1) throw new Error('Untrusted retained smoke-test steps');
       const download = path.join(destination, String(artifact.id)); fs.mkdirSync(download);
-      const directory = await extractedArtifact(client, repository, artifact, download, spawn, true);
+      const directory = await extractedArtifact(client, repository, artifact, download, spawn, true, sleep);
       const smoke = fs.existsSync(path.join(directory, 'installed-smoke.json')) ? smokeRecords(directory, version) : null;
       retained.push({ directory, smoke, artifact_id: artifact.id });
       return retained;
@@ -95,13 +110,13 @@ async function registryBytes(metadata, fetchImpl) {
 }
 
 export async function prepareRecovery({ directory, version, repository, commit, tag, runId, attempt, client,
-  spawn = boundedSpawnSync, env = process.env, fetchImpl = globalThis.fetch, smoke = smokeTarballs }) {
+  spawn = boundedSpawnSync, env = process.env, fetchImpl = globalThis.fetch, smoke = smokeTarballs, sleep = pause }) {
   if (tag !== `v${version}` || !/^[a-f0-9]{40}$/.test(commit ?? '') || !/^\d{4}\.\d+\.\d+$/.test(version)) throw new Error('Invalid recovery tag/commit identity');
   const metadata = SURFACES.map(surface => registryView(surface.name, version, spawn, env));
   if (metadata.every(item => item === null)) return { recovered: false };
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-stable-recovery-'));
   try {
-    const retained = await retainedPackages({ client, repository, commit, tag, runId, attempt, destination: temp, version, spawn });
+    const retained = await retainedPackages({ client, repository, commit, tag, runId, attempt, destination: temp, version, spawn, sleep });
     const stage = path.join(temp, 'packages'); fs.mkdirSync(stage);
     for (const [index, surface] of SURFACES.entries()) {
       const filename = `${surface.stem}-${version}.tgz`, file = path.join(stage, filename);
@@ -135,18 +150,17 @@ export async function verifyRetention({ directory, version, repository, runId, a
   const packages = validateInputs(directory, version);
   // Upload completion can precede listing visibility; retry absence for at most
   // 60 seconds of backoff, but reject visible invalid evidence immediately.
-  const delays = [1000, 2000, 4000, 8000, 15000, 30000];
   let listed, polls = 0;
   do {
-    if (polls > 0) await sleep(delays[polls - 1]);
+    if (polls > 0) await sleep(retentionDelays[polls - 1]);
     listed = pageItems(await client.listRunArtifacts({ repository, runId })).filter(item => item.name === `stable-packages-${runId}-${attempt}`);
     polls++;
-  } while (listed.length === 0 && polls <= delays.length);
+  } while (listed.length === 0 && polls <= retentionDelays.length);
   const artifacts = listed.filter(item => item.expired === false && item.workflow_run?.id === runId);
   if (artifacts.length !== 1) throw new Error(`Missing retained stable package artifact after ${polls} ${polls === 1 ? 'attempt' : 'attempts'}`);
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-retention-check-'));
   try {
-    const retained = await extractedArtifact(client, repository, artifacts[0], temp, spawn);
+    const retained = await extractedArtifact(client, repository, artifacts[0], temp, spawn, false, sleep);
     const actual = validateInputs(retained, version);
     for (const item of packages) if (actual.find(x => x.name === item.name)?.sha256 !== item.sha256) throw new Error(`Retained package mismatch for ${item.name}`);
   } finally { fs.rmSync(temp, { recursive: true, force: true }); }
