@@ -199,6 +199,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.11.6-announcement",
     "releases/v2026.11.5-announcement",
     "releases/v2026.11.4-announcement",
     "releases/v2026.11.3-announcement",
@@ -1706,6 +1707,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.11.6-announcement",
+      "title": "v2026.11.6 — Use Local Models and Check Work Before Delivery",
+      "summary": "Run workers with self-hosted models, check finished files before delivery, keep local-only files out of cloud work, and adapt AIWG with documented commands and bundles.",
+      "file": "releases/v2026.11.6-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.11.5-announcement",
