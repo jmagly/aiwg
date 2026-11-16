@@ -71,8 +71,8 @@
     },
     "fortemi": {
       "repository": "https://git.integrolabs.net/Fortemi/fortemi.git",
-      "commit": "2e812aa66ba108a824475a97b1ddba4d1412dec7",
-      "implementation_commit": "c93742d7c75b481621b821f4584304289eb364d5",
+      "commit": "e7d114a80b9eeb643685d43ab1ca14cd44875dd0",
+      "implementation_commit": "336df3ed834be581d1a0f0a3d252fb48e723b987",
       "fixture": {
         "path": "tests/fixtures/shards/external/aiwg-2026.7.13/aiwg-full-v1.shard",
         "sha256": "df87edc5725e3f0c8d95d8d4328c64a263e9b021520a127d9df5b7301c2afee5",
@@ -80,7 +80,7 @@
       },
       "runtime_receipt": {
         "path": "tests/fixtures/shards/external/schema-2-runtime.implementation-receipt.json",
-        "sha256": "29f5e7cca66aec38baba0d7e58da1f5f6cc8520995f290831bc949bde1de1647"
+        "sha256": "88a11341f6cd120a937974babc83539d7837548fbceaf4bb2dd23c9e9f19fbca"
       },
       "clean_destination": true,
       "semantic_reexport": true,
