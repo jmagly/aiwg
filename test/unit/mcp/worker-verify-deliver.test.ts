@@ -82,9 +82,11 @@ describe('T-OG-04 MCP verify and deliver', () => {
       await client.callTool({ name: advertised.name, arguments: request });
       await client.callTool({ name: advertised.name, arguments: { deliverable_path: request.deliverable_path, typed_stop: stop } });
       expect(verify).toHaveBeenCalledTimes(2);
-      for (const input of [{ ...request, typed_stop: stop }, { ...request, project_dir: '/outside' }, { deliverable_path: request.deliverable_path, typed_stop: { ...stop, launch_count: 1 } }]) {
+      expect(advertised.description).toMatch(/PUBLICATION_INVALID.*TYPED_STOP_INVALID.*launch_count is checked.*TYPED_STOP_LAUNCH_MISMATCH/);
+      expect(advertised.description).toContain('A typed stop can only be published before any worker launch in this session; after a launch, the conductor must retry the worker or publish a verified worker artifact.');
+      for (const [input, code] of [[{ ...request, typed_stop: stop }, 'TYPED_STOP_INVALID'], [{ ...request, project_dir: '/outside' }, 'PUBLICATION_INVALID'], [{ deliverable_path: request.deliverable_path, typed_stop: { ...stop, launch_count: 1 } }, 'TYPED_STOP_INVALID']] as const) {
         const refused = await client.callTool({ name: advertised.name, arguments: input });
-        expect(refused).toMatchObject({ isError: true, content: [expect.objectContaining({ text: expect.stringContaining('TYPED_STOP_INVALID') })] });
+        expect(refused).toMatchObject({ isError: true, content: [expect.objectContaining({ text: expect.stringContaining(code) })] });
       }
       expect(verify).toHaveBeenCalledTimes(2);
     } finally { await client.close(); await server.close(); }

@@ -87,7 +87,7 @@ export function deliverVerifiedArtifact(result, { artifactPath, deliverablePath,
 }
 
 export async function verifyWorkerRun(request, dependencies = {}) {
-  if (Object.hasOwn(request, 'typedStop')) return deliverTypedStop(request, { prepareRecord: dependencies.prepareRecord ?? prepareDeliveryRecord });
+  if (Object.hasOwn(request, 'typedStop')) return deliverTypedStop(request, { ...dependencies, prepareRecord: dependencies.prepareRecord ?? prepareDeliveryRecord });
   try { return await verifyWorkerRunRequest(request, dependencies); }
   catch (error) {
     if (!(error instanceof WorkerDeliveryRefusal)) throw error;

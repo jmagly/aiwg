@@ -34,6 +34,51 @@ export async function readDeliveryExit(runDir, inspect) {
 }
 
 const probes = new Set(['test', '[', 'stat', 'ls', 'true', 'file', 'wc']);
+const emptyPatterns = new Set(['', '.', '^', '$', '.*']);
+const searchValueOptions = new Set(['-m', '--max-count', '-A', '--after-context', '-B', '--before-context', '-C', '--context',
+  '-g', '--glob', '--iglob', '-t', '--type', '-T', '--type-not', '--include', '--exclude', '--exclude-dir']);
+
+function searchPatterns(args) {
+  const patterns = [];
+  const operands = [];
+  let options = true;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (options && arg === '--') { options = false; continue; }
+    if (options && (arg === '-f' || arg === '--file' || /^-f.|^--file=/.test(arg))) return null;
+    if (options && (arg === '-e' || arg === '--regexp')) { patterns.push(args[++i]); continue; }
+    if (options && arg.startsWith('--regexp=')) { patterns.push(arg.slice(9)); continue; }
+    if (options && /^-[^-]*e/.test(arg)) { patterns.push(arg.slice(arg.indexOf('e') + 1) || args[++i]); continue; }
+    if (options && searchValueOptions.has(arg)) { i++; continue; }
+    if (options && arg.startsWith('-')) continue;
+    operands.push(arg);
+  }
+  return patterns.length ? patterns : operands.slice(0, 1);
+}
+
+function knownEmptyCheck(command, args) {
+  if (command === 'grep' || command === 'rg') {
+    const patterns = searchPatterns(args);
+    return patterns?.length > 0 && patterns.every(pattern => typeof pattern === 'string' && emptyPatterns.has(pattern));
+  }
+  if (/^(?:py|python(?:\d+(?:\.\d+)*)?)$/.test(command)) {
+    return args.some((arg, i) => arg === '-mjson.tool' || arg === '-m' && args[i + 1] === 'json.tool');
+  }
+  if (command === 'node' || command === 'nodejs') {
+    for (const arg of args) {
+      // After the script operand or --, these spellings are script arguments.
+      if (arg === '--' || arg === '-' || !arg.startsWith('-')) return false;
+      if (arg === '-c' || arg === '--check') return true;
+    }
+    return false;
+  }
+  if (command === 'jq') {
+    const filter = args.find(arg => !arg.startsWith('-'));
+    const exitStatus = args.some(arg => arg === '--exit-status' || /^-[^-]*e/.test(arg));
+    return filter === 'empty' || filter === '.' && !exitStatus;
+  }
+  return command === 'wc'; // A direct wc invocation prints counts without comparing them.
+}
 // This is a narrow argv heuristic, not proof that a check asserts correctness.
 // Probe binaries with only path/flag operands cannot qualify. Other checks
 // must mention the artifact, its basename, or a containing directory in args.
@@ -41,6 +86,7 @@ export function isContentFreeCheck(check, artifactPath) {
   const args = check.args ?? [];
   let command = check.command;
   try { command = realpathSync(command); } catch { /* The verifier refuses unavailable binaries. */ }
+  if ([basename(check.command), basename(command)].some(name => knownEmptyCheck(name, args))) return true;
   const pathOrFlag = arg => arg.startsWith('-') || isAbsolute(arg) || arg === basename(artifactPath) || !/[;&|<>$`"'(){}]/.test(arg);
   if ((probes.has(basename(check.command)) || probes.has(basename(command))) && args.every(pathOrFlag)) return true;
   const references = [artifactPath, basename(artifactPath)];
@@ -84,7 +130,7 @@ export async function prepareWorkerDeliveryGuard({ worktreeRoot, artifactPath, f
       refuse('ARTIFACT_CHANGED_AFTER_EXIT', 'artifact changed while checking exit evidence');
     }
     if (!checks.some(check => !isContentFreeCheck(check, pinned.realPath))) {
-      refuse('CHECKS_CONTENT_FREE', 'publication requires a content check referencing the artifact path, basename, or containing directory');
+      refuse('CHECKS_CONTENT_FREE', 'publication requires at least one check beyond known content-free probes, referencing the artifact path, basename, or containing directory');
     }
   };
   // Refuse before probing isolation, then repeat on the verifier's exact pin.
