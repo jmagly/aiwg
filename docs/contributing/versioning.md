@@ -354,6 +354,40 @@ signed manifests, and trusted sequence state intact.
 
 ## Release Gates
 
+The local five-run [replay gate](../../tools/release/reproducibility-replay.mjs)
+implements flow-release's bound `reproducibility-validation` rule for ci_cd
+artifacts. Step 8c of `cut-tag.sh` runs it before signing: five clean snapshots of
+HEAD rebuild the CLI, stage CLI/Flue, and use normal `npm pack` lifecycles for
+`aiwg`, `@aiwg/cli`, `@aiwg/flue`, and `@aiwg/cockpit` (`--include cockpit`).
+Each package and the aggregate must have ≥95% of the union of packaged files
+byte-identical across all five runs; missing files count as differences. Tarball
+SHA-256 digests are also compared, with archive variance reported separately.
+Each run has a fresh HOME and npm cache. The hermetic packages reuse the existing
+workspace `node_modules` and always pack offline; Cockpit's builder-owned per-run
+`npm ci` is the exception, with network enabled only for its pack. Temporary
+builds are removed. Standalone commands do not tag:
+
+```bash
+# Hermetic evidence: aiwg, @aiwg/cli, @aiwg/flue; no network.
+node tools/release/reproducibility-replay.mjs --version 2026.11.7 --runs 5
+# Cut gate evidence: all four packages, including Cockpit's builder-owned install.
+node tools/release/reproducibility-replay.mjs --version 2026.11.7 --runs 5 --include cockpit
+```
+The run count is fixed. Python 3 reads tar members without extracting them.
+Evidence goes to `<artifact_root>/releases/evidence/<version>/reproducibility/`
+(`report.json` and `summary.md`), using the resolver behind
+`aiwg artifacts path --json --check-write`. Reports retain commit SHA, manifest
+versions, Node/npm versions, timestamps, run durations, all file/tarball digests,
+match percentages (`match_rate` is a fraction; `threshold: 0.95` maps to
+`threshold_percent: 95`), and differing files with inferred sources (timestamps,
+ordering, build IDs, paths, or explicitly unclassified variation). The passed
+version labels evidence; it does not change package versions. Commit version
+preparation before the release replay; `cut-tag.sh` requires a clean
+`git status --porcelain` before step 8b. Both commands write the same evidence
+location, recording their included packages; the cut replaces hermetic-only
+evidence with all-package evidence. A failed build or result below threshold
+exits non-zero and stops the cut; investigate the retained reasons before retrying.
+
 In addition to the four steps above, the following CI workflows act as **release gates** — a failure on any of these blocks the release.
 
 | Gate                                           | Workflow                                                                                                                  | Trigger                               | What it proves                                                                                                                                                                                      |
