@@ -7,6 +7,68 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.7] - 2026-11-16
+
+### Added
+
+- Default output templates declare an `outputKind` and short aliases, so template-filtered discovery ranks the matching kind first, including queries ending in “template”; unfiltered discovery retains exact-name priority. Eight new templates cover commit messages, CI failure and flaky-test reports, agent handoffs, stakeholder status reports, security findings, code-review findings, experiment amendments and gate audit records. Producing skills name their templates, manifests list them, and coverage checks protect first-place defaults for common outputs including PR descriptions and worker briefs (#4134, PR #4232).
+
+- Qualified dataset service bindings let `aiwg dataset` select registered source adapters and execution backends through `--binding` using the versioned v1 contract. Registration checks backend identity, version, package digest, capability offers and qualification; selection requires exact negotiated capabilities, refuses missing preservation or graph/membership support before execution without local-record fallback, and binds checkpoint receipts to before/after checkpoints. Bindings use preloaded trusted instances and never import code from dataset input; the built-in route remains the default (#3816, PR #4223).
+
+- Annotated writing-quality corpus fixtures cover machine-sounding structural patterns and legitimate headers, front matter, code, inventories, alt text, list colons, corrections and precise passives. Regression checks reject new misses, false positives and obsolete known-gap entries, so the documented gap baseline can only shrink (#4142, PR #4224).
+
+- Cross-sentence writing checks detect moral or lesson endings, colon reveals, fragment runs, mirrored sentences, repeated phrases and sentences, and shared sentence skeletons across the Python scanner, validation and contextual diagnostics. Campaign review through `--cross` compares repetition across up to 200 documents with indexed comparisons; structural detectors skip ordinary lists, definitions, citations and code. Combined recall reaches 46/56 annotated patterns on the #4142 corpus fixtures, with remaining gaps documented; this measures fixture recall, not real-world precision. The added structural checks produce no findings on the 140 repository documents checked outside that corpus (#4140, #4138, PR #4245).
+
+- Release tag cuts require five package packing runs from clean HEAD snapshots, with separate HOME and npm caches, before signing keys are touched. Per-file SHA-256 comparisons require at least 95% identical files across all five runs for each of the four published packages and overall; reports also compare tarball digests and record runs, commit, tool versions and differing-file classifications under the release evidence directory. The tag route requires a clean tree before its slow lane; replay children use bounded timeouts (#3820, PR #4220, PR #4229).
+
+### Changed
+
+- `aiwg update` shares one immutable provider-input snapshot per corpus across redeploy passes, eliminating repeated corpus copies while retaining per-pass output/config staging and drift checks with byte-identical deployment output. Cleanup preserves the original deployment error; disposal failure after otherwise successful passes prints the framework summary, warns and exits 1, and snapshot/prepare events correlate status and resolved source (#4132, PR #4225).
+
+- Dry-run provider previews read live inputs without creating or pooling corpus snapshots, while still staging outputs to compute the exact plan and writing no deployment changes. Real deployments retain immutable snapshots and drift checks (#4237, PR #4244).
+
+- Conductor guidance names `aiwg doctor --resources` for local host checks and reserves SSH for work on another machine. It requires retries for recoverable refusals within `max_attempts`, typed stops only for real blockers, content checks for every done criterion, event records after actions and final-output files under `.handoff/`; conductors must never write launcher or worker records (#4206, #4207, PR #4209).
+
+- The CI Test job uses the repository-private `aiwg-ci` runner label to avoid the slower shared build01 runner and its timeouts (#4129, PR #4218).
+
+- Writing-quality work #4141/#4137 moves to 2026.11.8; remaining corpus gaps stay documented under #4138.
+
+### Fixed
+
+- Rendered shell worker handoffs carry the exact final-output path and strict workerClaims wrapper on stdin, prompt-file, brief-JSON and adapter-frame routes. A reserved contract-bearing prompt is staged beside the final output and its bytes are rechecked; closed-stdin prompt-file bindings verify the brief digest before reservation, and briefs stay off argv. Artifact-only profiles that require workspace materialization refuse raw shell rendering with a typed error naming the launcher and MCP `worker-invoke` alternatives (#4133, PR #4222).
+
+- Refusals for pre-created worker run directories tell the conductor to supply a nonexistent path so the launcher can create a private directory with mode 0700 (PR #4202).
+
+- Worker publication requests with missing or unknown keys report `PUBLICATION_INVALID` with a remedy for each key; malformed typed stops retain `TYPED_STOP_INVALID`, selected by the request discriminator (#4203, PR #4212).
+
+- Content-check guards reject known-empty grep/rg patterns, `python -m json.tool`, `jq .`/`jq empty`, Node syntax checks, bare existence probes and `wc` without a comparison. Real assertions remain accepted; the guard rejects known-empty forms without certifying content, and the conductor probe now checks delivered bytes (#4204, PR #4212).
+
+- Typed-stop publication refuses with `TYPED_STOP_LAUNCH_MISMATCH` after the MCP session has recorded any worker launch, and directs the conductor to retry the worker or publish a verified artifact (#4205, PR #4212).
+
+- Model configuration merges shipped defaults, user settings and project settings, preserving pinned Claude tiers when a project `models.json` sets only part of the configuration. Invalid null/array/scalar replacements for shipped objects warn with the key and source file; Windsurf uses the shared loader. Doctor hints derive from resolved tiers, hardcoded fallbacks derive from the shipped catalog, Ralph defaults derive the coding pin, and Factory defaults have drift coverage (#4186, #4187, PR #4219).
+
+- Invalid sibling project-local bundles produce warnings without preventing valid bundles from contributing quickrefs or refreshing discovery after deployment (#4191, PR #4211).
+
+- Bundle enum-validation errors show the received and allowed values through a shared safe formatter used by use, list, quickref and doctor; the manifest reference lists allowed platform values (#4192, PR #4211).
+
+- Writing scanners mask non-prose headers, front matter and code and avoid flagging annotated inventories and precise passives. Local contrast/antithesis, negate-then-assert, rather-than, labelled significance, lexical clusters, throat-clearing, engagement bait and rhetorical-triad detectors run on all three surfaces, limit grounding suppression to numbers or reasons within the comparison, and use length-independent scores. This stage raises recall from 0/56 to 30/56 annotated #4142 fixture patterns with no findings on corpus negatives, before the structural checks above (#4139, #4138, PR #4233).
+
+- Regenerated Codex SDLC plugin copies include current canonical skills and output-template references (#4232, PR #4236).
+
+- The installed `@aiwg/cli` package ships the dated writing-pattern catalogue required by diagnostics (#4233, PR #4236).
+
+- Dataset service-binding range validation uses a dependency-free, fail-closed checker instead of importing `semver`, preserving the public entry's AJV-only dependency contract (PR #4229).
+
+- Release artifact retention and same-tag recovery retry download HTTP 404s with bounded backoff of seven attempts over 60 seconds. Persistent 404s name the artifact and attempt count; other transport statuses, digest mismatches and extraction failures still fail immediately (#4201, PR #4215).
+
+- Published governance exports include their TypeScript declarations, fixing TS7016 for consumers; packaging coverage checks every exported `types` target against the package file allowlist (#4208, PR #4215).
+
+- Fortemi shard/session conformance pins the consumer to `e7d114a8`, with compatible pinned PostGIS and poppler-utils packages and updated runtime/session receipts. Legacy Docker builds use a private context with the required executable mode instead of unsupported `COPY --chmod`, reject unexpected COPY/ADD changes and keep the pinned checkout clean (#4200, PR #4210, PR #4213).
+
+- Fortemi session re-export comparisons report bounded canonical removed/added records, compare object-valued JSON canonically and list all failing files together. When the source shard has no embedding data, verification accepts only seeded default infrastructure: at most one default embedding config, at most one system `default` set linked to it and memberships for notes in the shard, with no embeddings; other differences still fail (#4217, #4200, PR #4230, PR #4238, PR #4243).
+
+- Scoped-recovery fake workers use the launch deadline as their ownership-readiness budget, preventing slow process-identity publication from causing premature exits and `FINAL_OUTPUT_INVALID`. Regression coverage delays publication on both launches, preserves failed-run directories and reports exit/process/final/stderr evidence (#4144, PR #4231).
+
 ## [2026.11.6] - 2026-11-15
 
 ### Added

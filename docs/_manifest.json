@@ -199,6 +199,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.11.7-announcement",
     "releases/v2026.11.6-announcement",
     "releases/v2026.11.5-announcement",
     "releases/v2026.11.4-announcement",
@@ -1707,6 +1708,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.11.7-announcement",
+      "title": "v2026.11.7 — Clearer Handoffs and More Useful Writing Help",
+      "summary": "Give workers clear result instructions, find the right templates, catch more machine-sounding writing, and spend less time copying files during updates and previews.",
+      "file": "releases/v2026.11.7-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.11.6-announcement",
