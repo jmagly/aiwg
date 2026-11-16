@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { packTarGz, unpackTarGz } from '@fortemi/core';
 import {
-  digest, validateReceiptSchema, validateSessionPair, verifyApiObservations, verifySessionArchive, verifySessionReexport,
+  digest, validateReceiptSchema, validateSessionPair, verifyApiObservations, verifySessionArchive, verifySessionReexport, describeRecordChange,
 } from '../../../tools/ci/verify-aiwg-fortemi-session-receipt.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
@@ -107,6 +107,25 @@ describe('session full-v1 receipt bindings (offline)', () => {
     manifest.checksums['notes.jsonl'] = digest(bytes);
     changed.set('manifest.json', Buffer.from(JSON.stringify(manifest)));
     await expect(verifySessionReexport(archive, packTarGz(changed))).rejects.toThrow(/notes.jsonl/);
+  });
+
+  it('names the records a re-export removed or added (#4217)', () => {
+    expect(describeRecordChange([], [{ name: 'default', model: 'seeded-model', dimension: 768 }]))
+      .toBe('removed=[] added=[{"dimension":768,"model":"seeded-model","name":"default"}]');
+    expect(describeRecordChange([{ id: 1 }, { id: 2 }], [{ id: 2 }])).toBe('removed=[{"id":1}] added=[]');
+    expect(describeRecordChange([], [{ text: 'x'.repeat(100) }], 40)).toMatch(/^removed=\[\] added=\[\{"text":"x+\.\.\. \(\d+ chars\)$/);
+  });
+
+  it('includes the record change in the re-export failure message', async () => {
+    const changed = new Map(files);
+    const notes = jsonLines('notes.jsonl');
+    notes.find((note) => note.metadata.aiwg_source.record_type === 'aiwg.session-event').original_content = 'Lost analysis';
+    const bytes = Buffer.from(notes.map((note) => JSON.stringify(note)).join('\n'));
+    changed.set('notes.jsonl', bytes);
+    const manifest = JSON.parse(Buffer.from(files.get('manifest.json')!).toString());
+    manifest.checksums['notes.jsonl'] = digest(bytes);
+    changed.set('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    await expect(verifySessionReexport(archive, packTarGz(changed))).rejects.toThrow(/changed notes\.jsonl: removed=\[.+\] added=\[.+Lost analysis/);
   });
 });
 
