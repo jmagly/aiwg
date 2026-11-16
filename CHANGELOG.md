@@ -7,15 +7,81 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.6] - 2026-11-15
+
 ### Added
 
 - CLI architecture with C4 views, five source-linked runtime sequences, an extensibility guide with a runnable bundle example and explicit in-process trust boundary, and provider/deployment and discovery internals. Retire the old architecture overview in favour of the current 2026.11.x map; document addon `cli_commands`, `decision ask` and `config authorization check` in the reference (#4177–#4180, #4184).
+
+- Direct workers can use declared self-hosted open-weight models through a CLI's OpenAI-compatible endpoint. `parallelism.clis.<cli>.localModels` supplies endpoint, model IDs and checkpoint labels, optional environment-based authentication and an explicit host allowlist. Discovery makes bounded, redirect-free `GET /models` requests, records typed unavailability and local-processing observations, and shares the catalog/cache with vendor sources. Existing signed `(cli, model, role)` qualification, resolution, local-only preflight and concurrency limits apply. Presence and locality declarations do not attest checkpoint bytes, backend routing, telemetry or retention; observation and qualification perform no inference (#4193).
+
+- Read-only cached plugin search through `aiwg marketplace search <query> --plugins` and a discoverable plugin-search skill that hands installation off to install-plugin. Results rank configured marketplace manifests and local caches using dated signals and warn about stale data; search does not fetch, install or change configuration. Codex search support remains deferred (#4084, PR #4109).
+
+- Project-local addons can declare `flows`; flow files are indexed for `aiwg discover --type flow`, and addon validation and `aiwg list --project-local` recognize the inventory using the existing flow schema (#4089, PR #4110).
+
+- Enforced conductor delivery through `aiwg ralph-external --run-conductor`: a systemd user unit protects deliverable paths, hides home and masks the service-manager bus. A localhost MCP `worker-verify-deliver` tool publishes only verifier-accepted, digest-rechecked bytes and records signed delivery receipts; delivery-status checks the current digest against its receipt. Hosts without enforced user-unit namespaces refuse the run instead of degrading isolation (#4131, PR #4135).
+
+- Zero-worker refusals can be delivered through `worker-verify-deliver` using a mutually exclusive `typed_stop` request with `denied` or `blocked` status, a code, blocking rule and `launch_count: 0`. The server publishes canonical JSON under the existing placement rules, signs a typed-stop receipt and reports it through delivery-status; typed stops and worker deliveries cannot replace one another at the same path. The CLI package includes the delivery helper (#4166, PR #4175).
+
+### Changed
+
+- Worker briefs carry every done criterion, and conductor verification checks derive from those criteria, including edge and rejection cases; the worker's own tests alone do not establish acceptance. MCP transport diagnostics distinguish an MCP-server worker from a shell worker launched through MCP `worker-invoke` (#2918, #4147, PR #4155).
+
+- Rule 9 documents the enforced delivery path, confined-conductor restrictions, local-only masking and worktree exclusions, content-directed verification, explicit worker-written artifacts, private run-directory creation and zero-worker typed-stop publication (#4116, #4131, #4136, #4147, #4163, #4165–#4169, #4171, PR #4188, PR #4190).
+
+- The default unpacked package budget increases from 83,500 KiB to 85,000 KiB for the intentional 2026.11.6 content growth; packed-size and file-count limits stay unchanged (PR #4111).
 
 ### Fixed
 
 - Launcher and handler help share the provider registry listing, including all 20 provider IDs. The help generator now supplies production provider help (#4182).
 - Script-bearing skills dispatch from their declared runtime, entrypoint and CWD, including the existing issue-audit and aiwg-pr native bridge scripts, without skill-specific runner paths (#4183).
 - CLI namespace registrations use project-relative sources for in-project bundles, retain external absolute sources, reject traversal and symlink escapes, and report missing source directories through project-local doctor (#4185).
+
+- Worker delivery requires an explicit artifact distinct from the final-output wrapper, launcher exit evidence, an artifact written before confirmed exit and a digest matching any worker artifact claim. Missing artifacts, post-exit changes and check sets containing only existence/metadata probes or no artifact-directed content check are refused before protected checks; guards repeat against the verifier's pinned descriptor. The CLI package includes the guard helper (#4165, #4167, #4168, PR #4174).
+
+- Worker artifact integration requires accepted verification. The conductor guard rejects unverified copies, moves, installs, rsync, redirections and tee transfers, and edits to worker paths outside the handoff brief. `--verify-worker --deliverable` re-pins the accepted artifact, checks its digest and atomically publishes it outside worker-writable roots; blocked and rejected results do not deliver (#4116, PR #4120).
+
+- Conductor guards allow AIWG's own resolve output to be saved through redirection or tee even when arguments or the current directory name a worker tree. Command names, option flags and descriptor duplication are no longer mistaken for transfer sources; worker-file transfers remain guarded. Pin-mismatch refusals explain that plans must be resolved again from the conductor project directory used by the launcher (#4122, #4125, PR #4123, PR #4126).
+
+- Configured `dataPolicy.localOnlyPaths` are hidden inside confined conductor units and checked before MCP worker dispatch. Launches exposing them through worker trees, MCP workdirs, symlink aliases or planned artifacts refuse with `LOCAL_ONLY_PATH_EXPOSED` unless the selected tuple has qualified local-processing facts. Prepared disposable worker trees remove these paths before context deployment, mark tracked exclusions skip-worktree, reject symlinked components and report `excludedLocalOnlyPaths`, allowing cloud work without including the protected files (#4169, PR #4173, PR #4190).
+
+- Confined conductors can launch and inspect workers through the bearer-authenticated localhost workers MCP listener outside their unit. MCP launches create or accept launcher-owned run directories, pass them through verified delivery, and deploy context project-locally for the selected provider. `--bind-ro` exposes CLI installation directories read-only; artifact-write remains disabled on the listener (#4136, PR #4143).
+
+- Stopping a confined conductor's wrapper also stops its named systemd unit, preventing supervisor termination from leaving the conductor running. `--max-runtime-seconds` supplies a unit-level runtime cap that also holds if the wrapper is killed (#4145, PR #4146).
+
+- `--launch-worker` refuses inside a confined conductor with `OG_CONFINED_LAUNCH_REFUSED` before starting a worker and points to MCP `worker-invoke`, avoiding a nested sandbox failure (#4163, PR #4164).
+
+- Verification sandboxes bind granted paths as well as marking them writable, so worktrees and scratch directories remain available when home and temporary directories are hidden. Protected checks retain write, home-read, temporary-directory and network isolation (#4128, PR #4130).
+
+- Tier 0 shell handoffs reserve final and stream paths, refuse existing finals and unresolved predecessor attempts for the same task in that output parent, and use non-clobbering stream capture. Repeated resolved commands cannot overwrite the earlier worker's evidence; brief text stays off argv (#4106, PR #4112).
+
+- The final-output contract includes schema-valid claim, check and claim-evidence examples, distinguishes evidence `{ref,digest}` from artifact `{path,digest}` items, and states that limitations are strings, preventing workers from copying invalid item shapes (#4113, #4115, PR #4114, PR #4117).
+
+- MCP `worker-invoke` loads worker inputs without a bare resolve subcommand, fixing the `Missing role` error on real launches (#4148, PR #4149).
+
+- Shell worker final files containing plain workerClaims JSON are parsed directly instead of as vendor JSONL events, including systemd owned captures. Vendor-shaped output still uses the selected driver's extractor (#4151, #4158, PR #4152, PR #4160).
+
+- Worker context deployment keeps its temporary data/cache index outside the worker tree and removes the scratch directory afterwards, preventing a generated index from exceeding the verifier's tree digest limits (#4150, PR #4152).
+
+- Legacy MCP shell launches receive the launcher's final-output contract through stdin or an atomically materialized prompt file on the worker tree's filesystem. Attached systemd owner launches clear inherited stdin/stdout/stderr capture paths; unobservable legacy exits report `OG_WORKER_EXIT_UNOBSERVED` with the owned `run_dir` remedy instead of a contract error (#4156, #4157, PR #4159).
+
+- Successfully collected systemd worker units count as an empty cgroup only with the required exit evidence, allowing owned capture to confirm termination. Cleanup recognizes `LoadState=not-found` as already collected instead of an ownership mismatch (#4158, #4170, PR #4160, PR #4172).
+
+- MCP worker invocation creates missing run-directory parents inside the conductor project with mode 0700 and rejects symlinked or non-directory components. Missing parents outside the project still refuse (#4171, PR #4172).
+
+- Missing worker briefs report `OG_CONFIG_REFERENCE` with `brief_missing` at `/request/brief` rather than an unqualified-adapter error. Adapters that can build preparatory plans without a brief retain that behavior; real driver failures remain adapter errors (#4161, PR #4162).
+
+- OpenCode workers qualify on both npm `opencode-ai` versions `>=1.18.0 <2.0.0` and official-installer versions `>=2.0.26 <3.0.0`. The qualified installation version selects `--variant <effort>` on 1.x or the `provider/model#<effort>` selector on 2.x; existing permission, model and sandbox checks remain (#4193).
+
+- Managed Ralph identity capture allows a 2-second sampling window and checks child exit on each pass, avoiding false launch failures on loaded hosts; the liveness-chaos fixture's hang allowance increases within its test timeout (#4153, PR #4154).
+
+- Release retention verification retries artifact listings with bounded backoff during API visibility lag, while still rejecting missing, duplicate, expired or mismatched retained artifacts (#4104, PR #4107).
+
+- Socket post-publication audits retry pending third-party components within the existing bounded wait, retaining completed findings, quota pacing and status rules (#4105, PR #4108).
+
+- Public doc staging rewrites links to existing pages excluded from the docsite to repository URLs while keeping missing-page links invalid. The project-local manifest reference is registered under Customization, fixing strict-link failures introduced by the architecture documentation (PR #4189, PR #4194).
+
+- Test reliability: pinned-handle release checks compare directory identity and tolerate descriptor reuse; shell handoffs and shared-runner waits gain bounded headroom and useful failure diagnostics; local-only worktree child processes receive explicit timeouts. Doctor fixture children keep TMPDIR/TMP/TEMP inside their disposable fixture root, preventing installed host CLIs from leaking scratch files into the test lane (#4081, #4195, PR #4119, PR #4121, PR #4124, PR #4127, PR #4194).
 
 ## [2026.11.5] - 2026-11-11
 
