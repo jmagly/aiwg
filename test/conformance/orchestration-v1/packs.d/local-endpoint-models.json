@@ -1,8 +1,8 @@
 {
   "T-OG-03": {
-    "testFiles": ["test/unit/models/local-endpoint-models.test.ts", "test/unit/cli/doctor-local-models.test.ts"]
+    "testFiles": ["test/unit/models/local-endpoint-models.test.ts", "test/unit/cli/doctor-local-models.test.ts", "test/unit/config/local-models.test.ts", "test/unit/models/worker-installation-recording.test.ts"]
   },
   "T-OG-12": {
-    "testFiles": ["test/unit/cli/doctor-local-models.test.ts"]
+    "testFiles": ["test/unit/cli/doctor-local-models.test.ts", "test/unit/config/local-models.test.ts", "test/unit/models/worker-installation-recording.test.ts"]
   }
 }
