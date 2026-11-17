@@ -1,7 +1,7 @@
 // Local editorial pattern matching shared by validation and contextual diagnostics.
 import { createRequire } from 'node:module';
 import type patternData from './current-patterns.catalogue.json';
-import { maskProse } from './prose-mask.js';
+import { maskProse, protectedRegions } from './prose-mask.js';
 import { structuralPatterns } from './structural-patterns.js';
 
 const require = createRequire(import.meta.url);
@@ -84,7 +84,7 @@ export function scanCurrentPatterns(content: string): CurrentPatternFinding[] {
       }
     }
   }
-  findings.push(...structuralPatterns(prose, catalogue.antonyms));
+  findings.push(...structuralPatterns(prose, catalogue.antonyms, maskProse(content, protectedRegions(content).filter(r => r.context !== 'quote'))));
   return findings.sort((a, b) => a.start - b.start || a.ruleId.localeCompare(b.ruleId));
 }
 

@@ -136,7 +136,8 @@ function diagnoseDocument(content: string, options: DiagnosticOptions, priorPara
       explanation: rule.explanation, suggestion: rule.suggestion, authority: rule.authority,
       confidence: { kind: 'heuristic', calibrated: false }, resolution: exception ? 'retained' : 'review', ...(exception ? { reason: exception.reason } : {}), ...(rule.tier ? { tier: rule.tier } : {}) });
   };
-  const current = language.split('-')[0] === 'en' ? scanCurrentPatterns(maskProse(content, contexts.filter(c => c.context !== 'prose').map(c => ({ ...c, context: 'code' as const })))) : [];
+  // The shared scanner masks automatic quotations; explicit caller contexts stay protected.
+  const current = language.split('-')[0] === 'en' ? scanCurrentPatterns(maskProse(content, contexts.filter(c => c.context !== 'prose' && (c.context !== 'quote' || options.contexts?.includes(c))).map(c => ({ ...c, context: 'code' as const })))) : [];
   for (const f of [...current, ...campaign]) {
     const override = rules.get(f.ruleId);
     if (override?.enabled === false) continue;

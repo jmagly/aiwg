@@ -27,7 +27,7 @@
     {
       "id": "negate-then-assert",
       "tier": "check",
-      "pattern": "\\b(?:(?:is|are|was|were)\\s+not|isn't|aren't)\\s+(?:evidence|proof|a substitute|a replacement|the same|enough|just|only|about)\\b|\\b(?:it|this|that)\\s+does\\s+not\\s+(?:mean|prove|imply)\\b",
+      "pattern": "\\b(?:(?:is|are|was|were)\\s+not|isn't|aren't)\\s+(?:evidence|proof|a substitute|a replacement|the same|enough|just|only|about)\\b|\\b(?:it|this|that)\\s+does\\s+not\\s+(?:mean|prove|imply)\\b|\\bit\\s+(?:doesn't|does not)\\s+anymore\\b",
       "message": "Negated assertion frames the claim.",
       "fix": "State the positive claim, retaining negation when it corrects a misconception."
     },
@@ -55,9 +55,9 @@
   ],
   "structuralRules": [
     { "id": "mirrored-sentences", "tier": "cut", "scope": "file", "trigger": "Adjacent sentences share the first two tokens and aligned predicates; exactly one polarity flip or listed antonym supplies a real contrast. Different verbs with a negated opener are insufficient.", "fix": "Combine the useful claim; retain deliberate parallelism with a reason." },
-    { "id": "aphorism-ending", "tier": "cut", "scope": "file", "trigger": "Paragraph-final explicit moral/lesson opener of 3–10 words; exclude numbers, identifiers and protected spans. Generic closers are not detected.", "fix": "End on the last useful fact or support the claim." },
-    { "id": "colon-reveal", "tier": "watch", "scope": "file", "trigger": "Setup of 4–12 words ending in a withheld complement, then a sentence-final punchline of 2–10 words. Frequency never triggers a finding. Exclude lists/definitions, digits/citations and protected material.", "fix": "State the subject and consequence directly." },
-    { "id": "fragment-run", "tier": "check", "scope": "file", "trigger": "At least four consecutive statements with 1–4 words in one prose paragraph; questions break runs and identical-sentence-only runs are excluded.", "fix": "Join fragments to explain the reason or result." },
+    { "id": "aphorism-ending", "tier": "cut", "scope": "file", "trigger": "Paragraph-final explicit moral/lesson opener of 3–10 words; allow quoted scenario names inside authored prose but exclude numbers, identifiers, code and wholly quoted statements. Generic closers are not detected.", "fix": "End on the last useful fact or support the claim." },
+    { "id": "colon-reveal", "tier": "watch", "scope": "file", "trigger": "Setup of 4–12 words ending in a withheld complement, then a sentence-final punchline of 2–10 words. Also detect a withheld defect followed by an if-clause and a short consequence (at most 16 words after the colon). Frequency never triggers a finding. Exclude lists/definitions, digits/citations and protected material.", "fix": "State the subject and consequence directly." },
+    { "id": "fragment-run", "tier": "check", "scope": "file", "trigger": "At least four consecutive statements with 1–4 words in one prose paragraph; questions break runs and identical-sentence-only runs are excluded. Also detect a short consequence, a one-word repair and a final explicit moral; the consequence may follow a conditional comma.", "fix": "Join fragments to explain the reason or result." },
     { "id": "repeated-sentence", "tier": "cut", "scope": "cross", "trigger": "At least six words repeated within an explicit campaign; case and punctuation are ignored, numbers are retained.", "fix": "Write each channel from its relevant facts." },
     { "id": "repeated-phrase", "tier": "check", "scope": "cross", "trigger": "An eight-word run inside one sentence shared by at least three distinct documents; overlapping runs merge, affected sentences receive one phrase finding, repeated sentences are excluded.", "fix": "Rewrite the shared run for the reader and channel." },
     { "id": "shared-skeleton", "tier": "check", "scope": "cross", "trigger": "First or last three words of the first or last prose sentence shared by three distinct documents, including a content word; numbers and versions normalize to num.", "fix": "Lead or close with the useful change for this channel." }

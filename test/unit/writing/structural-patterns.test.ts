@@ -28,6 +28,7 @@ describe('structural sequence checks', () => {
   it.each([
     ['The queue stalled. Always check the queue.', ['aphorism-ending']],
     ['The queue stalled. This is the lesson.', ['aphorism-ending']],
+    ['The queue stalled. That’s the lesson.', ['aphorism-ending']],
     ['The worker does not choose. The worker does obey.', []],
     ['The worker does not retry. The worker does log.', []],
     ['The worker does not retry. The worker does retry.', ['mirrored-sentences']],
@@ -67,6 +68,22 @@ describe('structural sequence checks', () => {
     ['The command takes five parameters: alpha, beta, gamma.', []],
     ['The next check starts at 10:30. Always check version 2.', []],
     ['`Always test the switch case.`', []],
+    ['Nothing stopped. Fixed. Always test it.', ['fragment-run', 'aphorism-ending']],
+    ['Nothing stopped. Fixed. Always test it.\n', ['fragment-run', 'aphorism-ending']],
+    ['It failed. Nothing stopped. Fixed. Always test it.', ['fragment-run', 'aphorism-ending']],
+    ['It failed. Patched. Remember the missing switch.', ['fragment-run', 'aphorism-ending']],
+    ['The queue failed. Repaired. Never trust the switch.', ['fragment-run', 'aphorism-ending']],
+    ['It stopped. Resolved. The lesson is clear.', ['fragment-run', 'aphorism-ending']],
+    ['We repaired the switch. Always test the “switch is gone” case.', ['aphorism-ending']],
+    ['Always test the `switch is gone` case.', []],
+    ['"Always test the switch case."', []],
+    ['«Always test the switch case.»', []],
+    ['> Always test the "switch is gone" case.', []],
+    ['The worker had one bug: if the switch vanished, nothing stopped.', ['colon-reveal']],
+    ['The worker had one bug: if the switch vanished, nothing stopped and nothing logged.', []],
+    ['The worker had one bug: if `switch` vanished, nothing stopped.', []],
+    ['The worker had one bug: if the switch vanished, nothing stopped at 10:30.', []],
+    ['The worker has one field: if present, the identifier is required.', []],
   ] as Array<[string, string[]]>)('agrees on structural rules: %s', async (content, patterns) => {
     const matches = python(content);
     const diagnostics = diagnoseWriting(content).diagnostics;
@@ -82,7 +99,33 @@ describe('structural sequence checks', () => {
     }
   });
 
-  it('scopes the original #4138 reproduction to the stated sentence threshold', async () => {
+  it.each([
+    ['negate-then-assert', "It doesn't anymore.", 'It does not support this alias.'],
+    ['negate-then-assert', 'Being signed in is not evidence of the right account.', 'Being signed in identifies the account.'],
+    ['contrast-x-not-y', 'Read the capability line, not just the score.', 'Read the capability line alongside the score.'],
+    ['antithesis-pair', 'Quiet release note, loud relief.', 'Quiet release note, short summary.'],
+    ['aphorism-ending', 'We repaired the switch. Always test the "switch is gone" case.', 'We repaired the switch. The "switch is gone" case passes.'],
+    ['colon-reveal', 'Our kill switch had one bug: if the switch itself went missing, nothing stopped.', 'The worker has one requirement: approval, review and testing.'],
+    ['fragment-run', 'Nothing stopped. Fixed. Always test the "switch is gone" case.', 'Nothing stopped. Fixed. The next test passed.'],
+    ['labelled-significance', "It still asks, which is the part I'd keep too.", 'It still asks when the account changes.'],
+  ])('reviews #4138 %s with a positive and a negative on every surface', async (pattern, positive, negative) => {
+    for (const [content, expected] of [[positive, true], [negative, false]] as const) {
+      expect(python(content).some(f => f.pattern === pattern), `python: ${content}`).toBe(expected);
+      expect(diagnoseWriting(content).diagnostics.some(f => f.ruleId === pattern), `diagnostics: ${content}`).toBe(expected);
+      expect((await new WritingValidationEngine(process.cwd()).validate(content)).issues.some(f => f.ruleId === pattern), `validation: ${content}`).toBe(expected);
+    }
+  });
+
+  it('retains explicit quote contexts and exceptions around a moral containing a scenario name', () => {
+    const content = 'Always test the "switch is gone" case.';
+    const finding = diagnoseWriting(content).diagnostics.find(d => d.ruleId === 'aphorism-ending')!;
+    expect(finding).toMatchObject({ text: content, context: 'prose', start: 0, end: content.length });
+    expect(diagnoseWriting(content, { contexts: [{ start: 0, end: content.length, context: 'quote' }] }).diagnostics).toEqual([]);
+    expect(diagnoseWriting(content, { exceptions: [{ ruleId: finding.ruleId, start: finding.start, end: finding.end,
+      contentHash: writingContentHash(content), reason: 'Required operator test instruction.' }] }).diagnostics[0]).toMatchObject({ resolution: 'retained' });
+  });
+
+  it('reports every requested pattern in the original #4138 reproduction', async () => {
     const content = `approve it once and the agent stops asking. it still asks about secrets and prod, which is the part i'd keep too
 
 installing one addon used to be able to delete another addon's rules, safety ones included. it doesn't anymore. quiet release note, loud relief
@@ -92,11 +135,8 @@ our kill switch had one bug: if the switch itself went missing, nothing stopped.
 Being signed in is not evidence of being signed in as the right account. Read the capability line, not just the score.`;
     const patterns = python(content).map(m => m.pattern);
     expect(patterns).toEqual(expect.arrayContaining(['labelled-significance', 'antithesis-pair', 'negate-then-assert', 'contrast-x-not-y']));
-    // The colon introduces a conditional clause/list; the moral embeds protected quoted material.
-    expect(patterns).not.toContain('colon-reveal');
-    expect(patterns).not.toContain('aphorism-ending');
-    // Only two short sentences follow the long colon sentence. Four are required.
-    expect(patterns).not.toContain('fragment-run');
+    expect(patterns).toEqual(expect.arrayContaining(['colon-reveal', 'aphorism-ending', 'fragment-run']));
+    expect(python(content).some(m => m.pattern === 'negate-then-assert' && m.text === "it doesn't anymore")).toBe(true);
     expect(diagnoseWriting(content).diagnostics.map(f => f.ruleId).sort()).toEqual([...patterns].sort());
     expect((await new WritingValidationEngine(process.cwd()).validate(content)).issues.filter(f => f.type !== 'missing_authenticity').map(f => f.ruleId).sort()).toEqual([...patterns].sort());
   });
