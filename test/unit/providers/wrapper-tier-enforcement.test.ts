@@ -34,7 +34,8 @@ describe('wrapper tier and effort enforcement', () => {
         ...(provider === 'omp' ? { [`${wrapper.role}Model`]: `fixture/${wrapper.role}` } : {}) };
       const output = fields(provider, translate('fixture.md', source(wrapper.name), opts));
       const entry = catalog.providers[provider as keyof typeof catalog.providers]!;
-      const fallback = provider === 'cursor' && wrapper.tier === 'economy';
+      // Cursor falls back to the standard/coding pin only while its economy role is `auto` (never dispatched).
+      const fallback = provider === 'cursor' && wrapper.tier === 'economy' && entry.roles.efficiency.id === 'auto';
       const expected = provider === 'omp' ? `fixture/${wrapper.role}`
         : entry.tiers?.[fallback ? 'standard' : wrapper.tier].id ?? entry.roles[fallback ? 'coding' : wrapper.role].id;
       expect(output.model).toBe(expected);
