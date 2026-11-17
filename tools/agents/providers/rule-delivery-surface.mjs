@@ -354,7 +354,7 @@ export function warpRuleContent(content) {
 }
 
 export function startupFiles(opts, provider) {
-  const bridgeNames = { claude: ['CLAUDE.md'], cursor: ['AGENTS.md'], codex: ['AGENTS.md'], hermes: ['AGENTS.md', '.hermes.md'], pi: ['AGENTS.md'], warp: ['WARP.md'], openclaw: [] };
+  const bridgeNames = { claude: ['CLAUDE.md'], cursor: ['AGENTS.md'], codex: ['AGENTS.md'], hermes: ['AGENTS.md', '.hermes.md'], pi: ['AGENTS.md'], warp: ['WARP.md'], openclaw: ['AGENTS.md'] };
   const paths = ['AIWG.md', 'WORKSPACE.md', ...(bridgeNames[provider.name] || ['AGENTS.md']), inlineStartup[provider.name]].filter(Boolean).map(name => path.join(opts.target, name));
   if (opts.activeWorkspace) paths.push(path.join(opts.activeWorkspace, 'AGENTS.md'));
   {

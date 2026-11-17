@@ -233,6 +233,7 @@ async function prepareWithInputs(original, provider, deploy) {
     fs.mkdirSync(path.join(stage, '.aiwg'), { recursive: true });
     if (fs.existsSync(projectSnapshot)) materializeInput(projectSnapshot, path.join(stage, '.aiwg', 'aiwg.config'));
     const rootNames = ['opencode.json', ...GENERATED_CONTEXT_NAMES, ...OPERATOR_CONTEXT_NAMES, '.aiwg/frameworks/registry.json'];
+    if (provider.name === 'openclaw' && original.contextFiles !== false) rootNames.push('SOUL.md');
     if (provider.deploymentFiles) rootNames.push(...provider.deploymentFiles(target));
     if (provider.name === 'windsurf') rootNames.push('.windsurfrules');
     for (const framework of getFrameworksForMode(original.srcRoot, original.mode)) {

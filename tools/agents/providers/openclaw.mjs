@@ -25,6 +25,7 @@ let fs;
 try { const gfs = _require('graceful-fs'); gfs.gracefulify(realFs); fs = realFs; } catch { fs = realFs; }
 import path from 'path';
 import os from 'os';
+import { openClawContextWorkspaces } from './openclaw-context.mjs';
 import {
   withRuleDeployment,
   ensureDir,
@@ -553,19 +554,20 @@ async function deploySelected(opts) {
       srcRoot, 'agentic', 'code', 'frameworks', 'sdlc-complete', 'templates', 'openclaw', 'AGENTS.md.aiwg-template',
     );
     if (fs.existsSync(templatePath)) {
-      const workspace = opts.activeWorkspace || resolveOpenClawWorkspace();
-      ensureDir(workspace, dryRun);
-      if (verbose || !opts.quiet) {
-        console.log(`\nBridging AIWG context into ${path.join(workspace, 'AGENTS.md')} + SOUL.md (#1562/#1572)...`);
+      for (const workspace of openClawContextWorkspaces(opts, opts.activeWorkspace || resolveOpenClawWorkspace())) {
+        ensureDir(workspace, dryRun);
+        if (verbose || !opts.quiet) {
+          console.log(`\nBridging AIWG context into ${path.join(workspace, 'AGENTS.md')} + SOUL.md (#1562/#1572)...`);
+        }
+        // AGENTS.md = methodology/rules; SOUL.md = the AIWG Steward identity (the
+        // discover-first reflex baked in as *who the agent is*, which a weak model
+        // adopts far more reliably than a rules appendix). Both update in place.
+        createAgentsMdFromTemplate(workspace, srcRoot, 'openclaw/AGENTS.md.aiwg-template', dryRun);
+        createManagedMdFromTemplate(workspace, 'SOUL.md', srcRoot, 'openclaw/SOUL.md.aiwg-template', dryRun, {
+          sectionMarker: '<!-- AIWG Steward Identity -->',
+          legacyHeading: '## AIWG Steward',
+        });
       }
-      // AGENTS.md = methodology/rules; SOUL.md = the AIWG Steward identity (the
-      // discover-first reflex baked in as *who the agent is*, which a weak model
-      // adopts far more reliably than a rules appendix). Both update in place.
-      createAgentsMdFromTemplate(workspace, srcRoot, 'openclaw/AGENTS.md.aiwg-template', dryRun);
-      createManagedMdFromTemplate(workspace, 'SOUL.md', srcRoot, 'openclaw/SOUL.md.aiwg-template', dryRun, {
-        sectionMarker: '<!-- AIWG Steward Identity -->',
-        legacyHeading: '## AIWG Steward',
-      });
     }
   }
 

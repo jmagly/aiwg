@@ -50,7 +50,8 @@ export function projectStartup(opts, provider, coreSection, indexFile) {
   const file = provider.name === 'openclaw' ? path.join(opts.activeWorkspace, 'AGENTS.md')
     : path.join(opts.target, owner || 'AGENTS.md');
   retireInlineStartup(opts, provider, file);
-  const files = provider.name === 'hermes' ? [file, path.join(opts.target, '.hermes.md')] : [file];
+  const files = provider.name === 'hermes' ? [file, path.join(opts.target, '.hermes.md')]
+    : provider.name === 'openclaw' ? [...new Set([file, path.join(opts.target, 'AGENTS.md')])] : [file];
   for (const startup of files) {
     let content = provider.name === 'flue' ? read(startup) : normalizeRuleStartup(read(startup), bootstrap, path.basename(startup) === 'AGENTS.md');
     if (provider.name !== 'flue' || coreSection) content = section(content, 'rule-core', coreSection.replace(/<!-- AIWG:(?:core-rules|rule-core):(?:start|end) -->\n?/g, '').trimEnd());
