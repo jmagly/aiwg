@@ -141,23 +141,24 @@
     "cursor": {
       "roles": {
         "reasoning": {
-          "id": "claude-4.6-opus-high-thinking",
-          "status": "unverified",
-          "observed": false
+          "id": "claude-opus-5-thinking-high",
+          "status": "active",
+          "observed": true
         },
         "coding": {
-          "id": "claude-4.6-sonnet",
-          "status": "unverified",
-          "observed": false
+          "id": "gpt-5.3-codex-high",
+          "status": "active",
+          "observed": true
         },
         "efficiency": {
-          "id": "auto",
-          "status": "unverified",
-          "observed": false
+          "id": "composer-2.5",
+          "status": "active",
+          "observed": true
         }
       },
       "sourceUrl": "https://cursor.com/docs/models",
-      "verifiedAt": "2026-07-20"
+      "verifiedAt": "2026-11-17",
+      "evidence": "Source: live cursor-agent 2026.11.13-eacade1 --list-models on 2026-11-17 (models.txt); account-offered IDs observed, not dispatch qualification. See docs/providers/cursor-direct.md#live-observations-2026-11-17."
     },
     "factory": {
       "roles": {

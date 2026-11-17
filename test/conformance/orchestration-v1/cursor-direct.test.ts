@@ -34,10 +34,8 @@ import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { fixtureJson } from '../mission-v1/worker-contract-fixtures.js';
 
 const FAKE = path.resolve('test/fixtures/providers/cursor/fake-cursor-agent.mjs');
-// Semver-normalized (SE4: the raw `--version` banner `2026.10.01-e373342`
-// has a leading-zero day-of-month and is not valid semver; see
-// tools/ralph-external/lib/cursor-adapter.mjs module doc).
-const VERSION = '2026.10.1-e373342';
+// Current observed release; historical leading-zero banners still require SE4 normalization.
+const VERSION = '2026.11.13-eacade1';
 const MODEL = 'synthetic/cursor-model';
 const MARKER = 'CURSOR-BRIEF-MARKER-7a2d9f';
 const MODULE = 'tools/ralph-external/lib/cursor-adapter.mjs';
@@ -289,7 +287,8 @@ describe('T-OG-15 Cursor direct command contract', () => {
     expect(invocation.readiness).toBe('launchable');
     expect(invocation.stdin).toBe('brief-text');
     expect(invocation.argv.slice(2)).toEqual(['-p', '--output-format', 'stream-json', '--trust', '--sandbox', 'enabled',
-      '--workspace', workdir, '--model', `${MODEL}[effort=${invocation.selected.effort.value}]`]);
+      '--workspace', workdir, '--model', MODEL]);
+    expect(invocation.argv[invocation.argv.indexOf('--model') + 1]).not.toContain('['); // bracket regression
     expect(JSON.stringify(invocation.argv)).not.toContain(MARKER);
     expect(invocation.shellCommand).not.toContain(MARKER);
     expect(JSON.stringify(plan)).not.toContain(MARKER);
@@ -302,7 +301,7 @@ describe('T-OG-15 Cursor direct command contract', () => {
     expect(result.code, result.stderr).toBe(0);
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
     expect(record).toMatchObject({ workspace: workdir, promptViaStdin: true, stdinEof: true, trust: true, approveMcps: false });
-    expect(record.model).toContain(MODEL);
+    expect(record.model).toBe(MODEL);
     expect(record.brief).toBe(workerPromptBrief(payload, invocation.finalPath!).toString());
     expect(record.brief).toContain(MARKER);
     expect(record.argv).toEqual(invocation.argv.slice(2));
@@ -327,12 +326,12 @@ describe('T-OG-15 Cursor direct command contract', () => {
     const input = { brief: `"; rm -rf / #\n--model evil ${MARKER}`, cwd: '/w', selected: { model: MODEL, effort: { value: 'low' } } };
     const argv = owner.buildWorkerArgs(input, null, { sandbox: 'workspace-write', approval: 'never' });
     expect(argv).toEqual(['-p', '--output-format', 'stream-json', '--trust', '--sandbox', 'enabled',
-      '--workspace', '/w', '--model', `${MODEL}[effort=low]`]);
+      '--workspace', '/w', '--model', MODEL]);
     expect(argv.join(' ')).not.toContain(MARKER);
     expect(argv.join(' ')).not.toMatch(/-f\b|--force|--yolo|--auto-review|--approve-mcps|(^|\s)-m(\s|$)/);
     expect(owner.buildWorkerArgs(input, null, { sandbox: 'read-only', approval: 'never' })).toEqual(
       ['-p', '--output-format', 'stream-json', '--trust', '--sandbox', 'enabled', '--mode', 'ask',
-        '--workspace', '/w', '--model', `${MODEL}[effort=low]`]);
+        '--workspace', '/w', '--model', MODEL]);
     expect(() => owner.buildWorkerArgs({ ...input, selected: { model: 'opus', effort: { value: 'low' } } }, null, {}))
       .toThrow(/generic alias/);
     // fix round 1 (roctinam/aiwg#2903 item 5): probes accepted 'auto'/'default'
@@ -354,6 +353,8 @@ describe('T-OG-15 Cursor direct command contract', () => {
     expect(() => owner.buildWorkerArgs(input, null, { sandbox: 'workspace-write', approval: 'on-request' })).toThrow(/approval is not a qualified/);
     expect(() => owner.buildWorkerArgs({ ...input, cwd: 'relative' }, null, { sandbox: 'workspace-write', approval: 'never' })).toThrow(/absolute/);
     expect(() => owner.buildWorkerArgs({ ...input, selected: { model: '', effort: { value: 'low' } } }, null, {})).toThrow(/explicit model/);
+    for (const model of ['bad[effort=low]', 'bad]', 'bad"', 'bad\0'])
+      expect(() => owner.buildWorkerArgs({ ...input, selected: { ...input.selected, model } }, null, {})).toThrow(/explicit model/);
     expect(owner.getAbortInput()).toBeNull();
   });
 });
@@ -361,7 +362,7 @@ describe('T-OG-15 Cursor direct command contract', () => {
 describe('T-OG-03/20/21/23 Cursor run identity, stall and security signals', () => {
   const health = () => loadProviderModelCapabilities().providers.cursor.workerHealthAdapter!.invocationProfiles!['direct-shell'].health!;
   const argv = () => [FAKE, '-p', '--output-format', 'stream-json', '--trust', '--sandbox', 'enabled',
-    '--workspace', '/w', '--model', `${MODEL}[effort=low]`];
+    '--workspace', '/w', '--model', MODEL];
   const owner = () => installed.owner;
   const stdoutSource = { kind: 'stdout', id: 'stdout', generation: 0, offset: 0 };
 
@@ -376,12 +377,12 @@ describe('T-OG-03/20/21/23 Cursor run identity, stall and security signals', () 
     const { root, workdir } = await scratch();
     const { file } = await fakeConfig(root, 'success');
     const withApproveMcps = await run(process.execPath, [FAKE, '-p', '--output-format', 'stream-json', '--trust', '--sandbox', 'enabled',
-      '--approve-mcps', '--workspace', workdir, '--model', `${MODEL}[effort=low]`],
+      '--approve-mcps', '--workspace', workdir, '--model', MODEL],
       { cwd: workdir, stdinData: 'brief', env: { AIWG_FAKE_WORKER_CONFIG: file } });
     expect(withApproveMcps.code).not.toBe(0);
     expect(withApproveMcps.stderr).toMatch(/refused/);
     const withShortM = await run(process.execPath, [FAKE, '-p', '--output-format', 'stream-json', '--trust', '--sandbox', 'enabled',
-      '-m', `${MODEL}[effort=low]`, '--workspace', workdir],
+      '-m', MODEL, '--workspace', workdir],
       { cwd: workdir, stdinData: 'brief', env: { AIWG_FAKE_WORKER_CONFIG: file } });
     expect(withShortM.code).not.toBe(0);
     expect(withShortM.stderr).toMatch(/refused/);

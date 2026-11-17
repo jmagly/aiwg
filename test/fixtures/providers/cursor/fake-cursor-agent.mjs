@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Synthetic stand-in for `cursor-agent` 2026.10.01-e373342 (roctinam/aiwg#2903).
+ * Synthetic stand-in for `cursor-agent` 2026.11.13-eacade1 (roctinam/aiwg#2903).
  * It implements only the help-evidenced surface used by the version-bound
  * direct-shell profile:
  *
  *   cursor-agent -p --output-format stream-json --trust --sandbox enabled \
- *     [--mode ask] --workspace W --model "MODEL[effort=E]" < brief
+ *     [--mode ask] --workspace W --model MODEL < brief
  *
  * --approve-mcps, -m, -f/--force, --yolo and --sandbox disabled are refused.
  *   cursor-agent --version | --help
@@ -50,7 +50,7 @@ if (!args.length || args[0] === '--help' || args[0] === '-h') {
   process.exit(0);
 }
 if (args[0] === '--version' || args[0] === '-v') {
-  process.stdout.write('2026.10.01-e373342\n');
+  process.stdout.write('2026.11.13-eacade1\n');
   process.exit(0);
 }
 if (args[0] !== '-p' && args[0] !== '--print') fail(`unknown command '${args[0]}'`);
@@ -86,6 +86,8 @@ for (let i = 1; i < args.length;) {
 if (mode !== null && !['plan', 'ask'].includes(mode)) fail(`invalid --mode: ${mode}`);
 if (sandbox !== null && !['enabled', 'disabled'].includes(sandbox)) fail(`invalid --sandbox: ${sandbox}`);
 if (!trust) fail('workspace is untrusted and no TTY is available to answer the trust prompt');
+
+if (model?.includes('[')) fail(`Cannot use this model: ${model}`);
 
 if (Array.isArray(config.knownModels) && !config.knownModels.includes(model)) {
   fail(`model_not_found: ${model ?? '(no model)'}`);

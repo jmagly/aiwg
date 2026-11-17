@@ -25,10 +25,25 @@ describe('wrapper enforcement', () => {
   });
 
   it('falls back from an auto economy selection to the standard coding pin', () => {
-    const pin = resolveWrapperPin('cursor', efficiency);
+    const catalog = structuredClone(loadProviderModelCatalog());
+    catalog.providers.cursor.roles.efficiency.id = 'auto';
+    const pin = resolveWrapperPin('cursor', efficiency, { catalog });
     expect(pin).toMatchObject({ tier: 'standard', role: 'coding', enforcement: 'pinned' });
     expect(pin.model).not.toBe('auto');
     expect(pin.effort).toBeUndefined();
+  });
+
+  it('pins the observed Cursor efficiency model without a fallback', () => {
+    const catalog = loadProviderModelCatalog();
+    const cursor = catalog.providers.cursor;
+    expect(cursor.verifiedAt).toBe('2026-11-17');
+    expect(Object.values(cursor.roles).every(row => row.observed)).toBe(true);
+    expect(Object.fromEntries(Object.entries(cursor.roles).map(([role, row]) => [role, row.id]))).toEqual({
+      reasoning: 'claude-opus-5-thinking-high', coding: 'gpt-5.3-codex-high', efficiency: 'composer-2.5',
+    });
+    expect(resolveWrapperPin('cursor', efficiency, { catalog })).toMatchObject({
+      tier: 'economy', role: 'efficiency', model: 'composer-2.5', enforcement: 'pinned',
+    });
   });
 
   it('does not apply the standard fallback when an explicit override is given', () => {
