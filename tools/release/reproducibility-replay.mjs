@@ -152,9 +152,13 @@ export function parsePackIdentity(text, name, version) {
   }
   return info[0];
 }
+export const runCheckoutPath = temp => path.join(temp, 'run');
 function packRun({ workspace, snapshot, temp, index, selected }) {
   const started_at = new Date().toISOString(), start = performance.now();
-  const root = path.join(temp, `run-${index}`), output = path.join(temp, `packs-${index}`);
+  // Every run builds from the same checkout path: the Cockpit web build derives its stage and lock paths
+  // from its location, and Rollup's absolute module IDs change the bundle when that path changes. Runs are
+  // sequential and the checkout is removed after each, so the path is the only shared state.
+  const root = runCheckoutPath(temp), output = path.join(temp, `packs-${index}`);
   fs.mkdirSync(root); fs.mkdirSync(output);
   const record = { run: index, started_at, packages: {}, pass: false };
   try {

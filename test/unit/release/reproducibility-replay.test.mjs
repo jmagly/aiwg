@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
-import { inspectTarball, comparePackage, evaluateReplay, replayExitCode, runReplay,
+import { inspectTarball, comparePackage, evaluateReplay, replayExitCode, runReplay, runCheckoutPath,
   isolatedEnv, packEnv, parsePackIdentity } from '../../../tools/release/reproducibility-replay.mjs';
 
 const roots = [];
@@ -159,5 +159,13 @@ console.error(report.reasons.join('\\n')); process.exitCode=replayExitCode(repor
     expect(gate).toBeLessThan(source.indexOf('\nif [ "$AIWG_RELEASE_SIGN_FROM_VAULT" = "1" ]'));
     expect(gate).toBeLessThan(source.indexOf('\ngit "${GIT_TAG_GPG_OPTS[@]}" tag -s'));
     expect(source).toContain('set -euo pipefail');
+  });
+});
+
+describe('replay checkout path', () => {
+  it('uses one checkout path for every run so path-derived build state stays stable', () => {
+    const temp = path.join(os.tmpdir(), 'aiwg-reproducibility-fixture');
+    expect(runCheckoutPath(temp)).toBe(path.join(temp, 'run'));
+    expect(new Set([1, 2, 3, 4, 5].map(() => runCheckoutPath(temp))).size).toBe(1);
   });
 });
