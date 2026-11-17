@@ -1,0 +1,87 @@
+{
+  "reviewed": "2026-11-12",
+  "nextReview": "2027-02-12",
+  "note": "Editorial heuristics for #4138 and #4140, based on the November voice-quality catalogue. Not authorship evidence. Sequence and campaign rules supplement local clauses.",
+  "rules": [
+    {
+      "id": "contrast-not-but",
+      "tier": "cut",
+      "pattern": "\\bnot\\s+[^.!?;:\\n]{1,100}?,?\\s+but\\b",
+      "message": "Negated alternative before but.",
+      "fix": "State the positive claim; retain a negated alternative when it corrects a stated belief."
+    },
+    {
+      "id": "contrast-x-not-y",
+      "tier": "cut",
+      "pattern": ",\\s+not\\s+(?!(?:yet|now|sure|necessarily|really|enough|all|in|if|when|because|until|any|clear|certain|true|quite|going|at all|be|do|need)\\b)[\\w'-]+(?:\\s+[\\w'-]+){0,4}",
+      "message": "A clause ends with a negated alternative.",
+      "fix": "Keep the useful claim; retain the alternative only when the reader needs the correction."
+    },
+    {
+      "id": "rather-than",
+      "tier": "check",
+      "pattern": "\\brather\\s+than\\b",
+      "message": "Comparison without a stated reason.",
+      "fix": "Name the action, or explain why the alternative was a real option."
+    },
+    {
+      "id": "negate-then-assert",
+      "tier": "check",
+      "pattern": "\\b(?:(?:is|are|was|were)\\s+not|isn't|aren't)\\s+(?:evidence|proof|a substitute|a replacement|the same|enough|just|only|about)\\b|\\b(?:it|this|that)\\s+does\\s+not\\s+(?:mean|prove|imply)\\b",
+      "message": "Negated assertion frames the claim.",
+      "fix": "State the positive claim, retaining negation when it corrects a misconception."
+    },
+    {
+      "id": "labelled-significance",
+      "tier": "cut",
+      "pattern": "(?:^|[.!?]\\s+|\\n)\\s*(?:why (?:it|this|that) (?:matters|helps)|why you should care|what (?:changed|this means(?: for you)?|that means|you get)|the (?:bug|takeaway|point|lesson|catch|upshot|real (?:question|point|story))|bottom line|the short version)\\s*:|\\b(?:(?:which|that) is the (?:part|thing|bit|point|half) (?:i'd|i would) (?:keep|say|add)(?: too)?|(?:that|this) is the (?:other|real|whole|hard) (?:half|part|point|story|thing))\\b",
+      "message": "A label or aside announces significance.",
+      "fix": "Explain the circumstance and consequence together; deleting only the label is insufficient."
+    },
+    {
+      "id": "throat-clearing",
+      "tier": "cut",
+      "pattern": "\\b(?:here'?s the (?:thing|deal|kicker|catch|twist)|here'?s why|let'?s (?:dive|dig|jump) (?:in|into)|let'?s (?:be|get) (?:honest|real|clear)|without further ado|buckle up|picture this|spoiler alert|let me explain)\\b|\\bfull stop\\.",
+      "message": "Empty opener delays the content.",
+      "fix": "Start with the useful information."
+    },
+    {
+      "id": "engagement-bait",
+      "tier": "cut",
+      "pattern": "\\b(?:what do you think|agree|thoughts|am i wrong|what'?s your take)\\?|\\b(?:drop a comment|comment below|tag someone who|let me know (?:in the comments|what you think))\\b",
+      "message": "Generic engagement prompt.",
+      "fix": "Ask a concrete question with something to answer, or end with the information."
+    }
+  ],
+  "structuralRules": [
+    { "id": "mirrored-sentences", "tier": "cut", "scope": "file", "trigger": "Adjacent sentences share the first two tokens and aligned predicates; exactly one polarity flip or listed antonym supplies a real contrast. Different verbs with a negated opener are insufficient.", "fix": "Combine the useful claim; retain deliberate parallelism with a reason." },
+    { "id": "aphorism-ending", "tier": "cut", "scope": "file", "trigger": "Paragraph-final explicit moral/lesson opener of 3–10 words; exclude numbers, identifiers and protected spans. Generic closers are not detected.", "fix": "End on the last useful fact or support the claim." },
+    { "id": "colon-reveal", "tier": "watch", "scope": "file", "trigger": "Setup of 4–12 words ending in a withheld complement, then a sentence-final punchline of 2–10 words. Frequency never triggers a finding. Exclude lists/definitions, digits/citations and protected material.", "fix": "State the subject and consequence directly." },
+    { "id": "fragment-run", "tier": "check", "scope": "file", "trigger": "At least four consecutive statements with 1–4 words in one prose paragraph; questions break runs and identical-sentence-only runs are excluded.", "fix": "Join fragments to explain the reason or result." },
+    { "id": "repeated-sentence", "tier": "cut", "scope": "cross", "trigger": "At least six words repeated within an explicit campaign; case and punctuation are ignored, numbers are retained.", "fix": "Write each channel from its relevant facts." },
+    { "id": "repeated-phrase", "tier": "check", "scope": "cross", "trigger": "An eight-word run inside one sentence shared by at least three distinct documents; overlapping runs merge, affected sentences receive one phrase finding, repeated sentences are excluded.", "fix": "Rewrite the shared run for the reader and channel." },
+    { "id": "shared-skeleton", "tier": "check", "scope": "cross", "trigger": "First or last three words of the first or last prose sentence shared by three distinct documents, including a content word; numbers and versions normalize to num.", "fix": "Lead or close with the useful change for this channel." }
+  ],
+  "antonyms": [
+    ["quiet", "loud"], ["fast", "slow"], ["cheap", "expensive"],
+    ["simple", "complex"], ["easy", "hard"], ["safe", "unsafe"],
+    ["big", "small"], ["large", "small"], ["new", "old"],
+    ["public", "private"], ["local", "remote"], ["manual", "automatic"],
+    ["short", "long"], ["early", "late"], ["good", "bad"],
+    ["real", "fake"], ["open", "closed"], ["visible", "hidden"],
+    ["cold", "hot"], ["dark", "bright"], ["strong", "weak"],
+    ["clean", "dirty"], ["working", "broken"], ["fixed", "broken"]
+  ],
+  "lexicon": {
+    "paragraphMinHits": 2,
+    "fileMinHits": 4,
+    "sets": [
+      { "name": "2023", "tier": "check", "words": ["delve", "delves", "delved", "delving", "tapestry", "testament", "pivotal", "crucial", "meticulous"] },
+      { "name": "2024-25", "tier": "check", "words": ["enhance", "enhances", "enhanced", "enhancing", "fostering", "showcasing", "highlighting", "valuable insights"] },
+      { "name": "2026", "tier": "check", "words": ["leverage", "leverages", "leveraged", "leveraging", "multifaceted"] },
+      { "name": "copula-avoidance", "tier": "check", "words": ["serves as", "stands as", "boasts", "acts as", "functions as"] },
+      { "name": "spectral-technical", "tier": "watch", "words": ["quiet", "hum", "echo"] }
+    ]
+  },
+  "triadPattern": "\\b(?:is|are|was|were)\\s+(?:fast|reliable|secure|efficient|scalable|robust|innovative|flexible|powerful),\\s+(?:fast|reliable|secure|efficient|scalable|robust|innovative|flexible|powerful),?\\s+and\\s+(?:fast|reliable|secure|efficient|scalable|robust|innovative|flexible|powerful)(?![\\w-]|\\s*,)"
+}

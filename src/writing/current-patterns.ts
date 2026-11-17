@@ -1,18 +1,14 @@
 // Local editorial pattern matching shared by validation and contextual diagnostics.
 import { createRequire } from 'node:module';
-import type patternData from '../../agentic/code/addons/writing-quality/skills/ai-pattern-detection/references/current-patterns.json';
+import type patternData from './current-patterns.catalogue.json';
 import { maskProse } from './prose-mask.js';
 import { structuralPatterns } from './structural-patterns.js';
 
 const require = createRequire(import.meta.url);
-const resource = 'agentic/code/addons/writing-quality/skills/ai-pattern-detection/references/current-patterns.json';
-const catalogue: typeof patternData = (() => {
-  try { return require(`../../${resource}`); }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'MODULE_NOT_FOUND') throw error;
-    return require(`../../../${resource}`); // Compiled dist/src/writing location.
-  }
-})();
+// Package-local copy of the writing-quality addon catalogue (the addon file stays canonical for the
+// Python scanner; test/unit/writing/catalogue-sync.test.ts keeps the two identical). Every package
+// built from dist/src ships it, so no install needs agentic/code at import time.
+const catalogue: typeof patternData = require('./current-patterns.catalogue.json');
 
 export type PatternTier = 'cut' | 'check' | 'watch';
 export interface CurrentPatternFinding {
