@@ -471,7 +471,7 @@ establishes it; interactive support does not establish exec support.
 | claude | Native: `.claude/settings.json` | `claude --print` | Unverified separately | Pass | p1/p2/p4 discover-first; p3 not supplied |
 | codex | Bridge: `.codex/hooks.json`; saved folder + hook trust required | `codex exec` | 0.167 supplied logs: 0 hook items with per-run trust; 1 after saved trust | Pass | 2026-11-09 no-hook discovery at calls 1–4; post-#4036 p1/p2 rerun deferred |
 | copilot | Bootstrap rule: `.github/copilot-instructions.md` | `copilot` noninteractive | Bootstrap directive; runtime unverified | Pass | Static only |
-| cursor | None | `cursor-agent --print` | Unverified | Pass | Static only |
+| cursor | None (upstream `beforeSubmitPrompt` accepts `additional_context` in CLI 2026.11.13; deployment tracked in #4251) | `cursor-agent --print` | Not deployed | Pass | 2026-11-17, CLI 2026.11.13 (model Auto), fresh `aiwg use all --provider cursor`: p1/p2/p4 discover first (first tool call), p2 correct decline, p3 answered without tools with the discovery-first order, p4 bug-report template via `aiwg-issue` |
 | deepseek-harness | None | `dsh --profile headless` | Unverified | Pass | Static only |
 | factory | Bridge: `.factory/hooks.json`; trusted committed project | `droid exec` | **No prompt hooks** | Pass | Interactive hooks fire after #3971; exec relies on discovery/template rule |
 | grokbot | None | No evidenced CLI worker surface | N/A | Pass | Static only |
