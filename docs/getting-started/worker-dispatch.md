@@ -22,7 +22,7 @@ dispatch](managed-worker-dispatch.md).
 ## What it does
 
 AIWG can dispatch bounded pieces of work directly to other AI CLIs installed on your machine (for example
-Codex or Muse), instead of only delegating inside the single provider session you are talking to. This is
+Codex, Muse or Cursor), instead of only delegating inside the single provider session you are talking to. This is
 controlled by one setting: `parallelism.worker_dispatch` in `.aiwg/aiwg.config`. It is off by default.
 
 When it is off, AIWG's model-selected delegation rubric still applies — the active provider delegates to
@@ -31,9 +31,16 @@ CLIs. See [local-only conductor inputs](../providers/conductor-local-only-inputs
 
 Codex 0.167 workers cannot rely on project hooks in fresh worktrees: exec requires saved folder and hook trust, and the bundled `--ignore-user-config` profile skips the saved config. Per-run `-c` trust does not enable hooks. Follow the [Codex operator review and discovery fallback](../providers/codex-direct.md#project-hooks-in-codex-0167-4035-4036); AIWG never grants trust.
 
+Cursor's [direct-worker profile](../providers/cursor-direct.md) supports `cursor-agent 2026.11.13-eacade1`.
+Approve it with `aiwg doctor --probe-workers --qualify --cli cursor`, then resolve with `--transport shell --format shell`.
+Select the exact listed model ID including its effort variant (for example, `gpt-5.3-codex-high`); never append bracket effort overrides.
+Models such as `composer-2.5` have no separate effort selector; effort remains validated metadata.
+Cursor renders read-only and workspace-write shell invocations; groups use the default launch mode since configuration reserves `launchMode: "native-sandbox"` for Codex.
+On hosts with `kernel.apparmor_restrict_unprivileged_userns=1`, `cursorsandbox` needs a host AppArmor profile allowing user namespaces; retain `--sandbox enabled`.
+
 ## What it costs
 
-Direct dispatch uses your **other accounts' quota**. If AIWG dispatches a task to Codex or Muse, that run
+Direct dispatch uses your **other accounts' quota**. If AIWG dispatches a task to Codex, Muse or Cursor, that run
 consumes that tool's own API/account usage — not the provider session you started from. Review the
 parallelism caps and worker configuration before enabling it on a shared or metered account.
 

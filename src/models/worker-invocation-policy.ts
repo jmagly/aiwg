@@ -64,7 +64,7 @@ export function isOperatorQualifiedWorkerAdapter(adapter: WorkerAdapterMetadata)
 
 /** Bundled renderers with an independently checked native direct baseline. */
 export function hasOperatorWorkerNativeRenderer(adapter: WorkerAdapterMetadata): boolean {
-  return isOperatorQualifiedWorkerAdapter(adapter) && ['codex', 'muse', 'factory'].includes(adapter.provider)
+  return isOperatorQualifiedWorkerAdapter(adapter) && ['codex', 'muse', 'factory', 'cursor'].includes(adapter.provider)
     && adapter.invocation.kind === 'process';
 }
 
@@ -93,6 +93,26 @@ export function assertOperatorWorkerNativeArgv(adapter: WorkerAdapterMetadata, a
   };
   const sandbox = permissions?.sandbox ?? 'workspace-write';
   if (!['read-only', 'workspace-write', 'external'].includes(sandbox)) throw new Error('Requested sandbox has no verified native renderer');
+  if (adapter.provider === 'cursor') {
+    if (sandbox === 'external' || (permissions?.approval ?? 'never') !== 'never') {
+      throw new Error('Cursor direct worker requires native sandbox and never approval');
+    }
+    if (!selected.model || /[\0[\]"]/.test(selected.model)
+      || ['opus', 'sonnet', 'haiku', 'auto', 'default'].includes(selected.model.toLowerCase())
+      || selected.effort.value === null || !/^[A-Za-z0-9_.-]+$/.test(selected.effort.value)) {
+      throw new Error('Cursor direct worker requires an exact model ID and explicit effort metadata');
+    }
+    const cwd = args[args.indexOf('--workspace') + 1];
+    if (!args.includes('--workspace') || !cwd?.startsWith('/') || cwd.includes('\0')) {
+      throw new Error('Cursor direct worker requires an absolute workspace');
+    }
+    const expected = ['-p', '--output-format', 'stream-json', '--trust', '--sandbox', 'enabled',
+      ...(sandbox === 'read-only' ? ['--mode', 'ask'] : []), '--workspace', cwd, '--model', selected.model];
+    if (args.length !== expected.length || args.some((value, index) => value !== expected[index])) {
+      throw new Error('Cursor native worker controls could be overridden');
+    }
+    return;
+  }
   if (adapter.provider === 'factory') {
     if (sandbox === 'external' || (permissions?.approval ?? 'never') !== 'never') {
       throw new Error('Factory direct worker requires native sandbox and never approval');
