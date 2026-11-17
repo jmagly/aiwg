@@ -59,16 +59,17 @@ findings.
 ### Structural and Campaign Checks
 
 Paragraph-final explicit moral/lesson openers (3–10 words) are cut tier; generic
-subjects alone never trigger a closer finding. Numbers, identifiers and protected
-spans suppress moral findings. Adjacent sentences sharing the first two tokens
+subjects alone never trigger a closer finding. Numbers, identifiers and code
+suppress moral findings; quoted scenario names within authored prose are allowed. Adjacent sentences sharing the first two tokens
 must have parallel predicates with an aligned polarity flip or one listed antonym
 (cut). Different predicates sharing a negated opener are insufficient. Four
 consecutive statements of 1–4 words in one paragraph form a check-tier fragment
 run. Questions and identical-sentence-only runs are excluded. Headings, blank
 lines and protected whole lines break sequences; wrapped prose lines do not.
 
-Colon reveals are watch tier only for a short setup that withholds a complement
-and a short sentence-final punchline. Mere colon frequency and neighboring
+Colon reveals are watch tier for a short setup that withholds a complement
+and a short sentence-final punchline, or an explicit defect revealed through
+a conditional consequence. Mere colon frequency and neighboring
 findings never suffice. Lists, definitions, digits/citations, code and quotation
 introductions are excluded. Ambiguous technical introductions remain unflagged.
 
@@ -96,15 +97,26 @@ explicit size error; split larger sets. Related-location output can still grow
 with repetition inside an allowed set. A single-document campaign may report
 repeated sentences; phrases and skeletons require distinct documents.
 
+The #4138 reproduction also detects a withheld defect followed by an `if`
+condition and a short consequence (`one bug: if …, nothing stopped`). The
+conditional and consequence together may contain up to sixteen words; ordinary
+lists, definitions, code and numeric references stay excluded.
+
+A short consequence, a one-word repair (`fixed`, `patched`, `repaired` or
+`resolved`) and a final explicit moral also form a fragment run. The consequence
+may be the final comma clause of a longer sentence. This covers `nothing stopped.
+fixed. always test …` while preserving the four-statement threshold for generic
+staccato. Moral endings allow a quoted scenario name within authored prose
+(`always test the "switch is gone" case`); entirely quoted text and inline code
+remain protected. The negate/assert category includes the short corrective
+frame `it doesn't anymore` (also `it does not anymore`).
+
 These checks are heuristic. Short generic statements and factual technical
-negations remain residuals for review; explicit moral openers can be useful
-instructions. The original #4138 paragraph has only two short trailing sentences,
-so it does not meet the four-sentence fragment threshold. Its colon introduces a
-conditional/list and its moral contains a protected quotation, so these are
-explicitly scoped out. Its mirrored comma pair is detected as `antithesis-pair`.
-A standalone “it doesn't anymore” is a factual correction rather than a sufficient
-negate/assert trigger. The reproduction still flags the aside, antonym pair,
-negated evidence and negated alternative on all three surfaces.
+negations remain residuals for review; explicit moral openers and short
+corrections can be useful instructions. Findings call for contextual review.
+The reproduction produces all six requested categories across Python,
+validation and contextual diagnostics, with the comma pair reported as
+`antithesis-pair` and the aside as `labelled-significance`.
 
 ### Contextual Patterns (Check Frequency)
 

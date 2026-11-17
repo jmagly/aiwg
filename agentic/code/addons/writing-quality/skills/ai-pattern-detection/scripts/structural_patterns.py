@@ -54,7 +54,8 @@ def paragraphs(prose):
     return blocks
 
 
-def structural_matches(prose, antonyms, match_type):
+def structural_matches(prose, antonyms, match_type, quoted_prose=None):
+    quoted_prose = prose if quoted_prose is None else quoted_prose
     out = []
     def emit(rule, sentence, tier):
         out.append(match_type(rule, prose[sentence['start']:sentence['end']], sentence['start'], SEVERITY[tier]))
@@ -81,7 +82,7 @@ def structural_matches(prose, antonyms, match_type):
             else:
                 flush()
             text = s['text']
-            if text.count(':') != 1 or re.search(r'[\d\x01`\[\]{};,]', text) or not re.search(r'[.!]$', text):
+            if text.count(':') != 1 or re.search(r'[\d\x01`\[\]{};]', text) or not re.search(r'[.!]$', text):
                 continue
             before, after = text.split(':')
             after = after.strip()
@@ -90,19 +91,28 @@ def structural_matches(prose, antonyms, match_type):
             subject = 1 if punchline and punchline[0] in ('the', 'a', 'an') else 0
             predicate = punchline[subject + 1] if len(punchline) > subject + 1 else ''
             clause = punchline and (subject == 1 or punchline[0] in ('it', 'this', 'that', 'we', 'you', 'they', 'he', 'she', 'nothing', 'everything')) and re.fullmatch(r'(?:is|are|was|were|can|will|must|has|had|does|[a-z]+(?:s|ed))', predicate)
-            if clause and 4 <= len(words(before)) <= 12 and 2 <= len(words(after)) <= 10 and withheld and not re.search(r'^(?:["“]|[-*+]|\x01)', after) and not re.search(r'\b(?:and|or)\b|:|[?!]', after, re.I):
+            conditional = re.match(r'^if\b[^,;:]+,\s*(?:nothing|everything|it|this|that|the [a-z]+)\s+(?:[a-z]+(?:s|ed)|is|was|can|will)\b', after, re.I) and not re.search(r'\b(?:and|or)\b|[?!]', after, re.I) and len(punchline) <= 16
+            if conditional and re.search(r'\b(?:bug|defect|flaw|failure|problem)$', before.strip(), re.I) and 4 <= len(words(before)) <= 12 and withheld:
+                pos = s['start'] + len(before)
+                emit('colon-reveal', {'start': pos, 'end': pos + 1}, 'watch')
+            if clause and ',' not in after and 4 <= len(words(before)) <= 12 and 2 <= len(words(after)) <= 10 and withheld and not re.search(r'^(?:["“]|[-*+]|\x01)', after) and not re.search(r'\b(?:and|or)\b|:|[?!]', after, re.I):
                 pos = s['start'] + len(before)
                 emit('colon-reveal', {'start': pos, 'end': pos + 1}, 'watch')
         flush()
         if not seq:
             continue
         last = seq[-1]
-        text = last['text']
-        if not 3 <= len(last['tokens']) <= 10 or re.search(r'[\d\x01@/]|[?:]$', text):
+        text = quoted_prose[last['start']:last['end']].replace('’', "'").replace('‘', "'")
+        if not 3 <= len(words(text)) <= 10 or re.search(r'[\d\x01@/]|[?:]$', text):
             continue
         moral = re.match(r"^(?:(?:always|never|remember)\b|the (?:point|lesson|moral)\b|(?:that's|that is|it's|it is|this is) the (?:point|lesson|moral)\b)", text, re.I)
         if moral:
             emit('aphorism-ending', last, 'cut')
+            if len(seq) >= 3 and not any(m.pattern == 'fragment-run' and m.position + len(m.match) == last['end'] for m in out) and re.fullmatch(r'(?:fixed|patched|repaired|resolved)[.!]', seq[-2]['text'], re.I):
+                consequence = seq[-3]
+                tail = consequence['text'].split(',')[-1].lstrip()
+                if 1 <= len(words(tail)) <= 4 and not re.search(r'[?:\x01]', tail):
+                    emit('fragment-run', {'start': consequence['end'] - len(tail), 'end': last['end']}, 'check')
     return out
 
 

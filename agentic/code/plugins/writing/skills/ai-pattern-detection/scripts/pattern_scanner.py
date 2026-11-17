@@ -117,7 +117,7 @@ class PatternMatch(NamedTuple):
     severity: str
 
 
-def mask_prose(text: str) -> str:
+def mask_prose(text: str, protect_quotes=True) -> str:
     """Protect Markdown and quotations while retaining code-point offsets."""
     chars = list(text)
 
@@ -170,10 +170,12 @@ def mask_prose(text: str) -> str:
             indented = False
         if re.match(r'\s*(?:[-*+] |\d+[.)] )', raw):
             hide(line.start(), line.end())
-    for pattern in [r'(`+)(?!`)(?:[^`]|(?!\1)`)*?\1(?!`)',
-                    r'!\[[^\]\n]*\](?:\([^\n]*?\)|\[[^\]\n]*\])',
-                    r'(?:!?\[[^\]\n]*\])?\((?:https?://)[^\s)]*\)|https?://[^\s<>]+',
-                    r'“[^”]*”|"[^"\n]+"|«[^»]*»']:
+    patterns = [r'(`+)(?!`)(?:[^`]|(?!\1)`)*?\1(?!`)',
+                r'!\[[^\]\n]*\](?:\([^\n]*?\)|\[[^\]\n]*\])',
+                r'(?:!?\[[^\]\n]*\])?\((?:https?://)[^\s)]*\)|https?://[^\s<>]+']
+    if protect_quotes:
+        patterns.append(r'“[^”]*”|"[^"\n]+"|«[^»]*»')
+    for pattern in patterns:
         for match in re.finditer(pattern, text):
             hide(match.start(), match.end())
     return ''.join(chars)
@@ -291,7 +293,7 @@ def scan_text(text: str) -> dict:
                         severity="info"
                     ))
 
-    matches.extend(STRUCTURAL['structural_matches'](text.replace('’', "'").replace('‘', "'"), CATALOGUE['antonyms'], PatternMatch))
+    matches.extend(STRUCTURAL['structural_matches'](text.replace('’', "'").replace('‘', "'"), CATALOGUE['antonyms'], PatternMatch, mask_prose(source, protect_quotes=False)))
 
     # Calculate deprecated compatibility heuristic (not an authorship or quality measure)
     critical_count = sum(1 for m in matches if m.severity == "critical")

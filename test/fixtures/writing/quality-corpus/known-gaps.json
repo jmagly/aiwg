@@ -91,18 +91,6 @@
       "kind": "miss",
       "pattern": "fragment-run",
       "tier": "check",
-      "line": 1,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140",
-      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
-    },
-    {
-      "surface": "python",
-      "fixture": "positives/fragments.md",
-      "kind": "miss",
-      "pattern": "fragment-run",
-      "tier": "check",
       "line": 3,
       "scope": "file",
       "issue": "#4138",
@@ -211,18 +199,6 @@
       "kind": "miss",
       "pattern": "fragment-run",
       "tier": "check",
-      "line": 1,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140",
-      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
-    },
-    {
-      "surface": "validation",
-      "fixture": "positives/fragments.md",
-      "kind": "miss",
-      "pattern": "fragment-run",
-      "tier": "check",
       "line": 3,
       "scope": "file",
       "issue": "#4138",
@@ -324,18 +300,6 @@
       "issue": "#4138",
       "plannedBy": "#4140",
       "reason": "No unambiguous withheld complement followed by a short punchline; lists, protected spans and technical introductions remain unflagged."
-    },
-    {
-      "surface": "diagnostics",
-      "fixture": "positives/fragments.md",
-      "kind": "miss",
-      "pattern": "fragment-run",
-      "tier": "check",
-      "line": 1,
-      "scope": "file",
-      "issue": "#4138",
-      "plannedBy": "#4140",
-      "reason": "Only three short statements; four are required to protect ordinary runbook staccato."
     },
     {
       "surface": "diagnostics",

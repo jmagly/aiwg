@@ -139,7 +139,7 @@ D2 reduced the gap multiset from 197 to 78: 90 recovered locations and all 29
 
 ### D3 results (#4138 / #4140)
 
-All three surfaces recover **46/56 annotated locations (82.1%)**, with zero
+D3 recovered **46/56 annotated locations (82.1%)**, with zero
 findings on wholly negative corpus files. Round 1 recovered 56/56 but overflagged
 ordinary technical prose. Round 2 keeps precision constraints and retains 30
 existing misses (10 per surface), each with a reason in `known-gaps.json`. These
@@ -172,26 +172,33 @@ Remaining gaps are deliberate precision limits:
 - `positives/colons.md`, lines 1 (two annotations), 3 and 5: protected quotation,
   no unambiguous withheld complement, or a command introduction. Frequency and
   neighboring patterns no longer turn technical colons into reveals.
-- `positives/fragments.md`, lines 1/3/5: three short statements; four are required
-  to protect runbook staccato. The explicit moral on line 1 is still detected.
+- `positives/fragments.md`, lines 3/5: three generic short statements; four are
+  required to protect runbook staccato. The consequence/repair/moral on line 1
+  is now detected under #4138; its three surface-specific gap entries were removed.
 
 ### #4138 acceptance disposition
 
-The reproduction detects the self-explaining aside, comma antonym pair, negated
-evidence and negated alternative on all three surfaces. Standalone “it doesn't
-anymore” is a factual correction. Its final two short sentences do not meet the
-four-statement fragment threshold. Its colon introduces a conditional/list and
-its moral contains a protected quotation, so neither is reported. These scope
-limits deliberately take precedence over literal recall of every requested form.
-All rules have positive and negative regression cases through public surfaces.
-The release changelog is left to release preparation, per the round-2 brief.
+The reproduction now detects every requested category on all three surfaces:
+self-explaining aside, comma antonym pair, negated evidence and alternative,
+short “it doesn't anymore” correction, conditional defect reveal, a
+consequence/repair/moral fragment run, and the moral containing a quoted
+scenario name. Positive and negative regression cases exercise each category.
+The release changelog records the fix.
+
+Current corpus recall is **47/56 (83.9%) per surface**, with zero findings on
+wholly negative files and 27 retained misses (nine per surface). Fixtures and
+labels are unchanged. The fragment on `positives/fragments.md` line 1 is the
+only newly recovered annotated location; other residual gaps stay documented.
 
 Short generic statements and factual technical negations remain heuristic
-residuals. Only explicit moral/lesson openers trigger closers; sentences containing
-protected material are excluded. Mirroring requires aligned predicate contrast.
-Colon reveals require a short setup ending in a withheld complement and a short
-final punchline; lists, definitions, digits/citations and protected material are
-excluded. These rules cannot judge semantic contribution.
+residuals. Only explicit moral/lesson openers trigger closers; quoted scenario
+names within the author's moral are allowed, while whole quotes and code stay
+protected. Mirroring requires aligned predicate contrast. Colon reveals require
+a withheld complement and a short final punchline or a conditional defect and
+consequence; lists, definitions, digits/citations and protected material are
+excluded. Generic fragment runs still require four statements; a short
+consequence, one-word repair and explicit moral also qualify. These rules cannot
+judge semantic contribution.
 Campaign comparisons require six-word repeated sentences, eight-word runs in
 three documents, or three-word boundary skeletons in three documents. Only
 skeletons normalize numbers and versions. Campaign size is capped at 200 documents;

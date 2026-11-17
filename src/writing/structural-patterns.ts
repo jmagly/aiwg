@@ -41,7 +41,7 @@ export function proseParagraphs(prose: string): ProseParagraph[] {
   return paragraphs;
 }
 
-export function structuralPatterns(prose: string, antonyms: string[][]): CurrentPatternFinding[] {
+export function structuralPatterns(prose: string, antonyms: string[][], quotedProse = prose): CurrentPatternFinding[] {
   const out: CurrentPatternFinding[] = [];
   const emit = (ruleId: string, tier: PatternTier, s: Pick<ProseSentence, 'start' | 'end'>, explanation: string, suggestion: string) => {
     out.push({ ruleId, tier, start: s.start, end: s.end, explanation, suggestion });
@@ -77,7 +77,7 @@ export function structuralPatterns(prose: string, antonyms: string[][]): Current
       // A reveal withholds its complement, then supplies a short final punchline.
       // Mere colon frequency, another diagnostic, or a technical definition is insufficient.
       const colon = s.text.indexOf(':');
-      if (colon < 0 || colon !== s.text.lastIndexOf(':') || /[\d\u0001`\[\]{};,]/.test(s.text) || !/[.!]$/.test(s.text)) continue;
+      if (colon < 0 || colon !== s.text.lastIndexOf(':') || /[\d\u0001`\[\]{};]/.test(s.text) || !/[.!]$/.test(s.text)) continue;
       const before = s.text.slice(0, colon), after = s.text.slice(colon + 1).trim();
       const setup = words(before), punchline = words(after);
       const withheld = /\b(?:is|are|was|were)$/.test(before.trim())
@@ -88,7 +88,13 @@ export function structuralPatterns(prose: string, antonyms: string[][]): Current
       const predicate = punchline[subject + 1] ?? '';
       const clause = (subject === 1 || /^(?:it|this|that|we|you|they|he|she|nothing|everything)$/.test(punchline[0]))
         && /^(?:is|are|was|were|can|will|must|has|had|does|[a-z]+(?:s|ed))$/.test(predicate);
-      if (clause && setup.length >= 4 && setup.length <= 12 && punchline.length >= 2 && punchline.length <= 10
+      const conditional = /^if\b[^,;:]+,\s*(?:nothing|everything|it|this|that|the [a-z]+)\s+(?:[a-z]+(?:s|ed)|is|was|can|will)\b/i.test(after)
+        && !/\b(?:and|or)\b|[?!]/i.test(after) && punchline.length <= 16;
+      if (conditional && /\b(?:bug|defect|flaw|failure|problem)$/i.test(before.trim()) && setup.length >= 4 && setup.length <= 12 && withheld) {
+        emit('colon-reveal', 'watch', { start: s.start + colon, end: s.start + colon + 1 },
+          'A short setup reveals its defect through a conditional consequence.', 'State the defect and consequence together.');
+      }
+      if (clause && !after.includes(',') && setup.length >= 4 && setup.length <= 12 && punchline.length >= 2 && punchline.length <= 10
         && withheld && !/^(?:["“]|[-*+]|\u0001)/.test(after) && !/\b(?:and|or)\b|:|[?!]/i.test(after)) {
         emit('colon-reveal', 'watch', { start: s.start + colon, end: s.start + colon + 1 },
           'A short setup withholds a complement until a sentence-final punchline.', 'State the subject and consequence directly; retain real lists, labels and code introductions.');
@@ -96,9 +102,22 @@ export function structuralPatterns(prose: string, antonyms: string[][]): Current
     }
     flush();
     const last = sentences.at(-1);
-    if (!last || last.tokens.length < 3 || last.tokens.length > 10 || /[\d\u0001@/]|[?:]$/.test(last.text)) continue;
-    const moral = /^(?:(?:always|never|remember)\b|the (?:point|lesson|moral)\b|(?:that's|that is|it's|it is|this is) the (?:point|lesson|moral)\b)/i.test(last.text);
-    if (moral) emit('aphorism-ending', 'cut', last, 'A short paragraph-final sentence opens with an explicit moral or lesson.', 'End on the last useful fact, or develop the claim with supported detail.');
+    if (!last) continue;
+    // Quoted scenario names may sit inside an authored moral; code stays masked.
+    const ending = quotedProse.slice(last.start, last.end).replace(/[‘’]/g, "'");
+    if (words(ending).length < 3 || words(ending).length > 10 || /[\d\u0001@/]|[?:]$/.test(ending)) continue;
+    const moral = /^(?:(?:always|never|remember)\b|the (?:point|lesson|moral)\b|(?:that's|that is|it's|it is|this is) the (?:point|lesson|moral)\b)/i.test(ending);
+    if (moral) {
+      emit('aphorism-ending', 'cut', last, 'A short paragraph-final sentence opens with an explicit moral or lesson.', 'End on the last useful fact, or develop the claim with supported detail.');
+      const [consequence, repair] = sentences.slice(-3, -1);
+      if (sentences.length >= 3 && !out.some(f => f.ruleId === 'fragment-run' && f.end === last.end) && /^(?:fixed|patched|repaired|resolved)[.!]$/i.test(repair.text)) {
+        const tail = consequence.text.split(',').at(-1)!.trimStart();
+        if (words(tail).length >= 1 && words(tail).length <= 4 && !/[?:\u0001]/.test(tail)) {
+          emit('fragment-run', 'check', { start: consequence.end - tail.length, end: last.end },
+            'A short consequence and one-word repair lead into a moral ending.', 'Join the consequence, repair and test into a supported explanation.');
+        }
+      }
+    }
   }
   return out;
 }
