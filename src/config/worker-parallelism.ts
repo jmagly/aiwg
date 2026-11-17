@@ -17,6 +17,7 @@ export interface WorkerInstallation {
   enabled?: boolean;
   executable?: string;
   endpoint?: string;
+  modelLimits?: Record<string, { contextTokens: number; maxOutputTokens?: number }>;
   localModels?: import('../models/local-endpoint-models.js').LocalModelSource;
   accountScope: string;
   quotaScope: string;

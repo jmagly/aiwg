@@ -77,6 +77,68 @@ an earlier failure and vice versa.
 
 ## Live observations (2026-11-17)
 
+### Model discovery and approval
+
+`aiwg models refresh` observes `cursor-agent --list-models` through the
+bounded discovery runner (15-second timeout) and stores observations in
+the shared model catalog cache. When one Cursor installation is configured,
+refresh uses its executable and accountScope label. Qualification also
+reads the current list directly for each Cursor installation, unless
+`localModels` is configured. An absent selector or a failed list command
+cannot be approved from an older cache.
+
+The parser accepts `id - name` rows, removes zero-width characters and
+trailing parenthetical notes from display names, and ignores the header,
+blank lines and CLI usage tip. Malformed rows produce diagnostics without
+echoing their contents. Command failures produce redacted diagnostics.
+`auto` (and `default`, if listed) remains observable but unavailable for
+worker approval.
+
+Observations retain the exact listed selector as both `id` and `apiModelId`.
+`llmProvider: cursor` identifies the Cursor gateway; upstream vendor and
+family are not attested by this text list. Family, pricing and data-use facts stay unknown. A named effort suffix such as
+`-high` or `-xhigh-fast` supplies only that selector's effort; unsuffixed
+models do not gain an invented effort. Self-delegation remains unknown.
+Model discovery does not itself qualify a worker or establish model fidelity.
+
+A standalone, case-sensitive `1M` token in a display name supplies
+`contextTokens: 1000000`, with provenance `/contextTokens:display-name-1M`.
+No other name-derived sizes are inferred. Cursor exposes no structured context
+or output limits; its stream init event reports only the display name.
+Operators can declare exact-selector limits in `.aiwg/aiwg.config`:
+
+```json
+{
+  "parallelism": {
+    "clis": {
+      "cursor": {
+        "adapter": "providers:cursor",
+        "accountScope": "local-account",
+        "quotaScope": "cursor-account",
+        "modelLimits": {
+          "gpt-5.3-codex-high": {
+            "contextTokens": 200000,
+            "maxOutputTokens": 16000
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+The example limits illustrate operator declarations; they are not verified
+Cursor limits. Use limits confirmed for your account and selector. Each entry
+requires a positive safe-integer `contextTokens`; `maxOutputTokens` is optional.
+Operator limits override the display-name value and carry provenance
+`/parallelism/clis/cursor/modelLimits`. Refresh discovery and requalify after
+changing them. With neither source, context remains null and resolution refuses,
+naming `parallelism.clis.cursor.modelLimits["<model id>"].contextTokens`.
+An unreported output limit remains null; the resolver still checks the full
+request against the context window.
+
+### Captured smoke observations
+
 The conductor supplied `help.txt`, `models.txt`, `smoke-bracket-err.txt`,
 `smoke-plain.jsonl` and `smoke-mcp.jsonl` for CLI
 `2026.11.13-eacade1`. This worker read those captures without invoking the

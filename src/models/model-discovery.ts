@@ -46,9 +46,9 @@ export const PROVIDER_DISCOVERY_DECISIONS: Record<string, ProviderDiscoveryDecis
   },
   cursor: {
     provider: 'cursor',
-    status: 'unsupported',
-    interface: null,
-    reason: 'Cursor CLI exposes editor and agent launch controls but no documented machine-readable model enumeration surface.',
+    status: 'native',
+    interface: 'cursor-agent --list-models',
+    reason: 'The read-only account list reports exact Cursor selectors; automatic selectors are observed but unavailable for workers.',
     documentation: 'https://docs.cursor.com/en/cli/reference/parameters',
   },
   factory: {
@@ -789,6 +789,7 @@ export async function resolveDynamicModelCatalog(
     muse: () => discoverMuseCatalogModels({
       ...options.muse, catalogDir: options.muse?.catalogDir ?? join(homeDir, MUSE_CATALOG_DIR), now: options.now,
     }),
+    cursor: async () => (await import('./cursor-models.js')).discoverProjectCursorModels(options),
     factory: async () => {
       const { discoverProjectFactoryModels } = await import('./factory-models.js');
       return discoverProjectFactoryModels(options.inventory.projectDir, { homeDir, runner: options.runner, now: options.now });

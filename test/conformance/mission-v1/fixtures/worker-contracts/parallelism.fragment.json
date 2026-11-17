@@ -482,6 +482,19 @@
           "minLength": 1,
           "format": "uri"
         },
+        "modelLimits": {
+          "type": "object",
+          "propertyNames": { "type": "string", "minLength": 1 },
+          "description": "Operator-declared per-selector limits for CLI model discovery; overrides provider display-name limits.",
+          "additionalProperties": {
+            "type": "object", "additionalProperties": false,
+            "required": ["contextTokens"],
+            "properties": {
+              "contextTokens": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+              "maxOutputTokens": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+            }
+          }
+        },
         "localModels": {
           "type": "object",
           "additionalProperties": false,

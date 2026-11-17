@@ -1,0 +1,8 @@
+{
+  "T-OG-03": {
+    "testFiles": ["test/unit/models/cursor-models.test.ts", "test/unit/models/cursor-worker-qualification.test.ts"]
+  },
+  "T-OG-12": {
+    "testFiles": ["test/unit/models/cursor-models.test.ts", "test/unit/models/cursor-worker-qualification.test.ts"]
+  }
+}

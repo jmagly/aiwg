@@ -301,8 +301,9 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
       // These are existing read-only catalog interfaces, never inference calls.
       if (!cliConfig.localModels && adapter.provider === 'codex') observed = await discovery.discoverCodexDebugModels(executable, undefined, { accountBinding: accountScope, runtimeVersion: row.installedVersion });
       else if (!cliConfig.localModels && adapter.provider === 'muse') observed = await discovery.discoverMuseCatalogModels({ accountBinding: accountScope, runtimeVersion: row.installedVersion });
+      else if (!cliConfig.localModels && adapter.provider === 'cursor') observed = await (await importImpl(import.meta.url, 'models/cursor-models.js')).discoverCursorListModels(executable, undefined, { cliId: row.cli, accountBinding: accountScope, runtimeVersion: row.installedVersion, modelLimits: cliConfig.modelLimits });
       // Other providers can reuse previously discovered observations. No auth files are read.
-      if (!cliConfig.localModels && !observed?.models?.length) {
+      if (!cliConfig.localModels && adapter.provider !== 'cursor' && !observed?.models?.length) {
         try {
           const cache = JSON.parse(await fs.readFile(path.join(homedir(), '.cache/aiwg/model-catalog.v1.json'), 'utf8'));
           observed = cache.discovery?.instances?.[row.cli] ?? cache.discovery?.providers?.[adapter.provider];
@@ -332,6 +333,7 @@ export async function qualifyProbedWorkers({ projectDir, packageRoot, config, re
         executable, now: Date.now(), cwd: projectDir, workerWritableRoots: [projectDir], environment: Object.fromEntries(adapter.invocationProfiles[profile].envAllowlist
           .filter(name => process.env[name] !== undefined).map(name => [name, process.env[name]])),
         localModelsDigest: workerConfigDigest(cliConfig.localModels ?? null),
+        ...(cliConfig.modelLimits ? { modelLimitsDigest: workerConfigDigest(cliConfig.modelLimits) } : {}),
         effectiveConfigDigest: workerConfigDigest(policy), accountScope, policy, permissions: {},
         boundary: { kind: 'native', identity: 'operator-approved-cli', digest: workerConfigDigest(adapter.invocation), controls: [] } };
       const codexSandboxChecks = [];
