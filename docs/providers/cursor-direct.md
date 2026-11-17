@@ -1,15 +1,19 @@
 # Cursor Agent direct-worker profile (B-OG-38, #2903)
 
 This is the lightweight CLI profile for dispatching `cursor-agent` as a
-direct worker.
+direct worker alongside Codex and Muse.
 
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-bound to
 `cursor-agent 2026.11.13-eacade1`. Help, the live account model list and
 manual smoke runs were observed on 2026-11-17. Earlier `H`/`D` evidence
 includes help and an installed-module bundle read on `noodle` for
-2026.10.01-e373342. The profile stays `unqualified` for dispatch until a
-human qualifier reviews a live run. The adapter
+2026.10.01-e373342. The bundled profile stays `unqualified`. After operator
+approval with `aiwg doctor --probe-workers --qualify --cli cursor`, its process
+invocation uses the trusted native renderer on the same terms as Codex, Muse
+and Factory. Default direct-shell resolution adds no required controls;
+explicit extra controls still need qualified mappings. No capability or
+per-control qualification is inferred from that approval. The adapter
 (`tools/ralph-external/lib/cursor-adapter.mjs`) renders:
 
 ```
@@ -37,6 +41,17 @@ documented "(read-only)" mode) is additionally emitted only for the
 remaining documented prompt (workspace trust) cannot block a
 non-interactive run. `-f/--force`, `--yolo`, `--auto-review` and
 `--approve-mcps` are never emitted.
+
+Operator-qualified Cursor passes the shared `native-sandbox` renderer gate
+only for `read-only` or `workspace-write` shell invocations, subject to the
+host prerequisite below. Group configuration still limits
+`launchMode: "native-sandbox"` to Codex; Cursor groups use the default launch
+mode. External sandbox and MCP transport remain excluded from the shared
+native launch-mode gate. Cursor's renderer also rejects external sandbox
+with the default launch mode. The existing child-agent guard still applies:
+where child control is unavailable, dispatch requires the same explicit
+`defaults.workerSelection.guards.denySelfDelegation: false` policy as Codex;
+that policy permits uncontrolled children without qualifying their behavior.
 
 **`--approve-mcps` is a bypass, not a convenience.** An installed-module
 bundle read on noodle (`8192.index.js`) shows it sets `ignoreApprovals:
