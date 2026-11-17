@@ -77,6 +77,14 @@ export interface WorkspaceDirectiveConflict {
   sources: Array<{ path: string; directive: string }>;
 }
 
+export interface ContextWalkTruncation {
+  bound: 'depth' | 'directories';
+  limit: number;
+  path: string;
+  subtree: string;
+  visitedDirectories: number;
+}
+
 export interface WorkspaceContextAudit {
   version: 1;
   projectPath: string;
@@ -90,6 +98,7 @@ export interface WorkspaceContextAudit {
   /** True when the nested-instruction-file walk hit its depth or directory-count
    * bound before finishing (#277) — the context graph may be incomplete. */
   contextWalkTruncated: boolean;
+  contextWalkTruncations?: ContextWalkTruncation[];
   plan: {
     neutralSources: string[];
     providerSources: string[];

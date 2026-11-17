@@ -93,7 +93,9 @@ export async function diagnoseWorkspaceContext(projectPath: string): Promise<Wor
     diagnostics.push({
       severity: 'info',
       code: 'context-walk-truncated',
-      message: 'Nested-instruction-file walk stopped early (depth/entry bound reached, or the root looks like $HOME or has no project markers); the context graph may be incomplete.',
+      message: `Nested-instruction-file walk stopped early: ${audit.contextWalkTruncations?.map((hit) =>
+        `${hit.bound}=${hit.limit} reached at ${hit.path}; busiest subtree ${hit.subtree} (${hit.visitedDirectories} visited directories)`
+      ).join('; ')}; the context graph may be incomplete.`,
     });
   }
   const workspacePath = path.join(projectPath, 'WORKSPACE.md');
@@ -132,8 +134,19 @@ export async function diagnoseWorkspaceContext(projectPath: string): Promise<Wor
   // and degrades the workspace over content that agrees with itself (#2558).
   const duplicatesByPair = new Map<string, number>();
   for (const overlap of audit.identical) {
-    const key = overlap.sources.join(', ');
-    duplicatesByPair.set(key, (duplicatesByPair.get(key) ?? 0) + overlap.directives.length);
+    // Shared boilerplate in independent repositories is outside a single load scope.
+    const byScope = new Map<string | null, string[]>();
+    for (const source of overlap.sources) {
+      const scope = await directoryScope(path.dirname(path.resolve(root, source)));
+      const paths = byScope.get(scope) ?? [];
+      paths.push(source);
+      byScope.set(scope, paths);
+    }
+    for (const paths of byScope.values()) {
+      if (paths.length < 2) continue;
+      const key = paths.join(', ');
+      duplicatesByPair.set(key, (duplicatesByPair.get(key) ?? 0) + overlap.directives.length);
+    }
   }
   const operatorBodies = new Map(audit.sources.map((source) => [source.path, source.operatorContent.trim()]));
   for (const [pair, count] of duplicatesByPair) {
