@@ -281,10 +281,19 @@ describe('model wrapper provider translations', () => {
 
   it('uses the standard catalog pin when Cursor economy would select auto', async () => {
     const { translate } = await translator('cursor');
-    const output = translate(source('aiwg-model-explorer'), requireSource('aiwg-model-explorer'), { modelCatalog: catalog });
+    const autoEconomy = structuredClone(catalog);
+    autoEconomy.providers.cursor.roles.efficiency = { ...autoEconomy.providers.cursor.roles.efficiency, id: 'auto' };
+    const output = translate(source('aiwg-model-explorer'), requireSource('aiwg-model-explorer'), { modelCatalog: autoEconomy });
     const fields = metadata(output);
-    expect(fields.model).toBe(catalog.providers.cursor.tiers?.standard.id ?? catalog.providers.cursor.roles.coding.id);
+    expect(fields.model).toBe(autoEconomy.providers.cursor.tiers?.standard.id ?? autoEconomy.providers.cursor.roles.coding.id);
     expect(fields['model-tier']).toBe('standard');
+  });
+
+  it('pins the catalog economy model when Cursor economy is a listed model', async () => {
+    const { translate } = await translator('cursor');
+    const output = translate(source('aiwg-model-explorer'), requireSource('aiwg-model-explorer'), { modelCatalog: catalog });
+    expect(catalog.providers.cursor.roles.efficiency.id).not.toBe('auto');
+    expect(metadata(output).model).toBe(catalog.providers.cursor.roles.efficiency.id);
   });
 });
 
