@@ -891,7 +891,7 @@
         "id": "cursor-direct",
         "provider": "cursor",
         "adapterVersion": "1",
-        "supportedVersions": "2026.10.1-e373342",
+        "supportedVersions": "2026.11.13-eacade1",
         "runtimeDriver": "installed:cursor",
         "catalogAdapter": {
           "kind": "file",
@@ -946,67 +946,67 @@
         "invocationProfiles": {
           "direct-shell": {
             "transport": "shell",
-            "supportedVersions": "2026.10.1-e373342",
+            "supportedVersions": "2026.11.13-eacade1",
             "controls": {
               "model": {
                 "support": "unqualified",
-                "mapping": "[--model MODEL[effort=E]]; exact catalog model ID with the embedded bracket effort override, never a generic alias, never the CLI's own auto-selection ('auto'/'default'); the captured --help documents only --model, no -m short alias",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help documents --model <model> (no -m alias) and its bracket-override syntax; unqualified until live model-pin evidence"
+                "mapping": "[--model MODEL]; exact catalog model ID including its effort variant, never a generic alias, never the CLI's own auto-selection ('auto'/'default'); the captured --help documents only --model, no -m short alias",
+                "evidence": "H: cursor-agent 2026.11.13-eacade1 --help and live --list-models observed 2026-11-17; composer-2.5 stdin smoke exited 0 with one success result; dispatch remains unqualified pending human review of a live run"
               },
               "effort": {
                 "support": "unqualified",
-                "mapping": "embedded in --model as MODEL[effort=E]; valid levels are account/backend-scoped (parameterizedModels is fetched from the Cursor backend), never a CLI default",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help documents the bracket-override example 'claude-opus-4-8[context=1m,effort=high,fast=false]'; D: installed-module bundle read on noodle (~/.local/share/cursor-agent/versions/2026.10.01-e373342/7000.index.js), never executed shows parameterizedModels is fetched remotely; unqualified until live evidence"
+                "mapping": "select the exact catalog model ID encoding effort, e.g. gpt-5.3-codex-high; never append bracket overrides; composer-2.5 has no separate effort selector",
+                "evidence": "H: 2026.11.13-eacade1 help still advertises parameterized bracket overrides, but the live list encodes effort in IDs; observed 2026-11-17: claude-sonnet-5-thinking-high[effort=low] rejected with plain-text Cannot use this model, exit 1 and no JSON"
               },
               "sandbox": {
                 "support": "unqualified",
                 "mapping": "both contracts emit [--sandbox enabled] (never --sandbox disabled); read-only additionally emits [--mode ask] (the CLI's own documented read-only mode) on top of --sandbox enabled; -f/--force, --yolo, --auto-review and --approve-mcps are out of this contract's scope and are never emitted (--approve-mcps is a bypass, not a non-approval convenience; see pitfalls)",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help documents --sandbox <enabled|disabled>, --mode <plan|ask> ('ask: ... (read-only)') and -f/--force/--yolo/--auto-review/--approve-mcps; D: installed-module bundle read on noodle (~/.local/share/cursor-agent/versions/2026.10.01-e373342/7000.index.js and 8192.index.js), never executed, shows sandboxMode:\"enabled\" pairs with approvalMode:\"allowlist\" and --approve-mcps sets ignoreApprovals:true on the MCP approval source; unqualified until live evidence"
+                "evidence": "H: cursor-agent 2026.11.13-eacade1 --help documents --sandbox <enabled|disabled>, --mode <plan|ask> ('ask: ... (read-only)') and -f/--force/--yolo/--auto-review/--approve-mcps; D: installed-module bundle read on noodle (~/.local/share/cursor-agent/versions/2026.10.01-e373342/7000.index.js and 8192.index.js), never executed, shows sandboxMode:\"enabled\" pairs with approvalMode:\"allowlist\" and --approve-mcps sets ignoreApprovals:true on the MCP approval source; Observed 2026-11-17: composer-2.5 smoke with --sandbox enabled exited 0 on titan after host AppArmor setup; read-only mode is help-evidenced only; dispatch unqualified pending human review"
               },
               "approval": {
                 "support": "unqualified",
                 "mapping": "unavailable as a separate flag: --sandbox/--mode are the only non-bypass permission gates; the direct profile never emits -f/--force, --yolo, --auto-review or --approve-mcps",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help documents no non-bypass approval-policy flag; unqualified until live evidence"
+                "evidence": "H: cursor-agent 2026.11.13-eacade1 --help documents no non-bypass approval-policy flag; Observed 2026-11-17: unapproved project MCP server never ran; smoke exited 0 without error or interaction_query events; dispatch unqualified pending human review"
               },
               "workdir": {
                 "support": "unqualified",
                 "mapping": "[--workspace W] conductor working root, plus the conductor process cwd",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help documents --workspace <path-or-name>; unqualified until live evidence"
+                "evidence": "H: cursor-agent 2026.11.13-eacade1 --help documents --workspace <path-or-name>; Observed 2026-11-17: smoke system/init cwd matched the supplied temporary workspace; dispatch unqualified pending human review"
               },
               "finalOutput": {
                 "support": "unqualified",
                 "mapping": "unavailable as a file target: no output-file flag is documented; the final is the last type:\"result\" line of the captured --output-format stream-json stdout stream",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help documents --output-format <text|json|stream-json> with no file-path argument; D: installed-module bundle read on noodle (~/.local/share/cursor-agent/versions/2026.10.01-e373342/7000.index.js), never executed shows the single terminal result object shape; unqualified until live evidence"
+                "evidence": "H: cursor-agent 2026.11.13-eacade1 --help documents --output-format <text|json|stream-json> with no file-path argument; D: installed-module bundle read on noodle (~/.local/share/cursor-agent/versions/2026.10.01-e373342/7000.index.js), never executed shows the single terminal result object shape; Observed 2026-11-17: plain-model smoke emitted exactly one result with subtype success, is_error false and result cursor-smoke-ok, exit 0; dispatch unqualified pending human review"
               },
               "stdin": {
                 "support": "unqualified",
                 "mapping": "brief-text: omitting the prompt argument makes the CLI read the prompt from stdin to EOF; brief text never enters argv, rendered commands or serialized plans",
-                "evidence": "D: installed-module bundle read on noodle (~/.local/share/cursor-agent/versions/2026.10.01-e373342/7000.index.js), never executed shows the prompt-building function reads stdin to EOF only when no positional prompt argument is supplied; unqualified until live evidence"
+                "evidence": "D: installed-module bundle read on noodle (~/.local/share/cursor-agent/versions/2026.10.01-e373342/7000.index.js), never executed shows the prompt-building function reads stdin to EOF only when no positional prompt argument is supplied; Observed 2026-11-17: brief piped on stdin with no positional prompt produced cursor-smoke-ok, exit 0; dispatch unqualified pending human review"
               },
               "structuredOutput": {
                 "support": "unqualified",
                 "mapping": "unavailable: no output-schema flag is documented",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help advertises no output-schema flag; unqualified until live evidence"
+                "evidence": "H: cursor-agent 2026.11.13-eacade1 --help advertises no output-schema flag; unqualified until live evidence"
               },
               "stepCap": {
                 "support": "unqualified",
                 "mapping": "unavailable: no step or turn cap flag is evidenced; deadline and output-byte bounds come from the invoking shell",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help advertises no step-cap flag; unknown controls block tasks requiring them"
+                "evidence": "H: cursor-agent 2026.11.13-eacade1 --help advertises no step-cap flag; unknown controls block tasks requiring them"
               },
               "trust": {
                 "support": "unqualified",
                 "mapping": "always emitted: [--trust] removes the only documented workspace-trust prompt so the non-interactive run cannot block on it",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help documents --trust ('Trust the current workspace without prompting'); unqualified until live evidence"
+                "evidence": "H: cursor-agent 2026.11.13-eacade1 --help documents --trust ('Trust the current workspace without prompting'); Observed 2026-11-17: --trust smoke completed with no interaction_query or error events; dispatch unqualified pending human review"
               },
               "children": {
                 "support": "unqualified",
                 "mapping": "unknown: no subagent/child-process fan-out flag is documented for -p",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help documents no child-process flag for -p; unqualified until live evidence"
+                "evidence": "H: cursor-agent 2026.11.13-eacade1 --help documents no child-process flag for -p; unqualified until live evidence"
               },
               "fallback": {
                 "support": "unqualified",
                 "mapping": "unavailable: no fallback-model flag is documented",
-                "evidence": "H: cursor-agent 2026.10.01-e373342 --help advertises no fallback-model flag; unknown controls block tasks requiring them"
+                "evidence": "H: cursor-agent 2026.11.13-eacade1 --help advertises no fallback-model flag; unknown controls block tasks requiring them"
               }
             },
             "envAllowlist": [
@@ -1015,16 +1015,17 @@
               "PATH"
             ],
             "pitfalls": [
-              "Documentation/help and synthetic observations are not authenticated live qualification.",
+              "Help, live model list and smoke observations from 2026-11-17 are recorded in docs/providers/cursor-direct.md; dispatch remains unqualified pending human review of a live run.",
               "Unknown model, effort, permission or required step mappings block dispatch.",
+              "On hosts with kernel.apparmor_restrict_unprivileged_userns=1, cursorsandbox needs a host AppArmor profile; without it the CLI reports Sandbox mode is enabled but not available in plain text and exits non-zero.",
               "Native MCP/client, MSP/ACP, gateway and conversation capabilities do not establish worker authority.",
               "-f/--force, --yolo and --auto-review are never part of the direct profile; none was ever shipped as a new argv-prompt path.",
               "--approve-mcps is a BYPASS, not a harmless convenience: it sets ignoreApprovals:true on the MCP approval source (installed-module bundle read, 8192.index.js), which is folded with --force/--yolo into one upstream bypass flag. Without it, an MCP server not already recorded as approved fails its load() call and is skipped; the run continues without that server's tools. It is never emitted by this profile.",
               "This version's non-interactive path has no type:\"error\" terminal event: a thrown error writes plain text and exits non-zero with no JSON result line at all; a missing terminal plus a non-zero exit is the failure signal here. Defensively, ANY type:\"error\" event or non-null top-level error field fails the stream regardless of position, including after an earlier success.",
               "A type:\"interaction_query\" line means the CLI is waiting for an approval answer this profile cannot supply; treated as fatal regardless of position (before or after a success line), never as a pending success.",
               "The template placeholder ${mode} documents the conditional --mode ask that read-only additionally emits on top of --sandbox enabled; it is omitted entirely for workspace-write, never rendered as an empty token.",
-              "CURSOR_API_KEY must be present for auth (there is no login on the evidenced host); HOME locates ~/.cursor for persistent settings.",
-              "SE4: the raw `cursor-agent --version` banner is `2026.10.01-e373342` (leading-zero day-of-month), which is not valid semver; supportedVersions here is the semver-normalized `2026.10.1-e373342` and a caller must apply the same normalization to the live version string before qualification, or a correct installation is unconditionally refused."
+              "Auth may use CURSOR_API_KEY or an existing login (live smoke used login); HOME locates ~/.cursor for persistent settings.",
+              "SE4: historical raw banner 2026.10.01-e373342 needs semver normalization to 2026.10.1-e373342; current supported version 2026.11.13-eacade1 needs no normalization."
             ],
             "health": {
               "version": 1,
@@ -1050,8 +1051,8 @@
                 {
                   "kind": "help",
                   "ref": "tools/ralph-external/lib/cursor-adapter.mjs",
-                  "observedAt": "2026-10-10T00:00:00Z",
-                  "cliVersion": "2026.10.1-e373342"
+                  "observedAt": "2026-11-17T00:00:00Z",
+                  "cliVersion": "2026.11.13-eacade1"
                 },
                 {
                   "kind": "repository",

@@ -5,25 +5,32 @@ direct worker.
 
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-bound to
-`cursor-agent 2026.10.01-e373342` and documentation/help-evidenced only
-(`H`/`D` evidence grades — the `D` evidence is an installed-module bundle
-read on host `noodle`, never executed with a prompt). It stays
-`unqualified` for dispatch until a human qualifier reviews a live run. The
-adapter (`tools/ralph-external/lib/cursor-adapter.mjs`) renders:
+`cursor-agent 2026.11.13-eacade1`. Help, the live account model list and
+manual smoke runs were observed on 2026-11-17. Earlier `H`/`D` evidence
+includes help and an installed-module bundle read on `noodle` for
+2026.10.01-e373342. The profile stays `unqualified` for dispatch until a
+human qualifier reviews a live run. The adapter
+(`tools/ralph-external/lib/cursor-adapter.mjs`) renders:
 
 ```
 cursor-agent -p --output-format stream-json --trust --sandbox enabled \
-  [--mode ask] --workspace <workspace> \
-  --model '<model>[effort=<effort>]' < <brief>
+  [--mode ask] --workspace <workspace> --model <catalog-model-id> < <brief>
 ```
 
 The brief always travels on stdin (no prompt argument is ever emitted); the
 installed-module bundle's prompt-building code reads stdin to EOF only when
-no positional prompt argument is given. Effort has no standalone flag: the
-CLI's own `--model` help text documents the bracket-override syntax
-(`'claude-opus-4-8[context=1m,effort=high,fast=false]'`), so effort is
-embedded in the single `--model` token (the captured `--help` documents
-only the long form; there is no `-m` short alias). `--sandbox enabled` is
+no positional prompt argument is given. Effort is expressed by selecting
+an exact model ID from `cursor-agent --list-models`, such as
+`gpt-5.3-codex-high`; the adapter passes it unchanged. The 2026.11.13 help
+still advertises bracket overrides for “parameterized models”, but a live
+`--model 'claude-sonnet-5-thinking-high[effort=low]'` was rejected with
+`Cannot use this model`, exit 1 and no JSON. The profile therefore never
+appends brackets to listed IDs. `composer-2.5` offers no separate effort
+selector; requested effort is validated metadata, not an independent CLI
+control. Generic aliases and automatic selectors (`auto`, `default`)
+remain forbidden for direct workers, even though the live list offers
+`auto`. The captured help documents only `--model`, with no `-m` alias.
+`--sandbox enabled` is
 always emitted (never `--sandbox disabled`); `--mode ask` (the CLI's own
 documented "(read-only)" mode) is additionally emitted only for the
 `read-only` sandbox contract. `--trust` is always emitted so the one
@@ -53,19 +60,55 @@ in any position in the stream, including strictly after an earlier
 affirmative success, since a later clean-looking event must never repair
 an earlier failure and vice versa.
 
+## Live observations (2026-11-17)
+
+The conductor supplied `help.txt`, `models.txt`, `smoke-bracket-err.txt`,
+`smoke-plain.jsonl` and `smoke-mcp.jsonl` for CLI
+`2026.11.13-eacade1`. This worker read those captures without invoking the
+live CLI. They establish these bounded observations:
+
+- The account list offers the catalog role models: reasoning
+  `claude-opus-5-thinking-high`, coding `gpt-5.3-codex-high`, and efficiency
+  `composer-2.5`. These entries are observed with `verifiedAt: 2026-11-17`;
+  model-list presence does not establish resolved-model or effort fidelity.
+- The bracket invocation above failed with exit 1 and no JSON.
+- The plain `composer-2.5` invocation, with `-p --output-format stream-json
+  --trust --sandbox enabled` and its brief on stdin, exited 0. Exactly one
+  terminal had `type: result`, `subtype: success`, `is_error: false` and
+  `result: cursor-smoke-ok`; no error or `interaction_query` events appeared.
+- With an unapproved project `.cursor/mcp.json` server, the server never
+  ran and the smoke exited 0, with the same success shape and
+  `result: cursor-mcp-ok` (the separate MCP prompt's requested reply).
+  No error or `interaction_query` events appeared. This supports the
+  profile's omission of `--approve-mcps` for an unapproved server.
+
+These smoke observations do not cover a full writing worker or qualify
+unobserved permission, fallback or child-process behavior. Human review
+of a live dispatch remains pending.
+
+### Host AppArmor prerequisite
+
+On hosts with `kernel.apparmor_restrict_unprivileged_userns=1`, the
+`cursorsandbox` executable needs a host AppArmor profile allowing its user
+namespace sandbox. Titan needed this profile before the successful smoke
+runs; it is now installed there. Without the required host support, the
+CLI fails with plain text beginning `Sandbox mode is enabled but not
+available…` and a non-zero exit, with no successful JSON terminal. Arrange
+the host profile before retrying; retain `--sandbox enabled`.
+
 ## Manual smoke run
 
 The conductor runs this once, by hand, after `cursor-agent` is installed
-and `CURSOR_API_KEY` is exported in the environment, to record a pass/fail
+and authenticated (existing login or `CURSOR_API_KEY`), to record a pass/fail
 and the observed CLI version on the tracking issue. It is not part of
 default CI and performs exactly one live, billable call.
 
 ```sh
 d=$(mktemp -d) && cd "$d" || exit 1
-MODEL="sonnet-4-thinking"
+MODEL="composer-2.5"
 echo 'Reply with exactly: cursor-smoke-ok' \
   | cursor-agent -p --output-format stream-json --trust \
-    --sandbox enabled --workspace "$d" --model "${MODEL}[effort=low]" \
+    --sandbox enabled --workspace "$d" --model "$MODEL" \
     > out.jsonl ; echo "exit=$?"
 ```
 

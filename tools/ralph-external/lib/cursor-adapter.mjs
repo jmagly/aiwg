@@ -13,13 +13,13 @@ import { classifyWorkerHealthFailure, healthEventMatchesBinding } from './worker
 /**
  * Version-bound direct-worker surface (roctinam/aiwg#2903, B-OG-38).
  *
- * Qualified against cursor-agent 2026.10.01-e373342 `--help` (help/version
- * syntax only, captured on host 'noodle' 2026-10-10,
- * .aiwg/working/s1-scratch/cli-help/cursor-agent-2026.10.01-e373342.txt;
- * never live qualification):
+ * Observed against cursor-agent 2026.11.13-eacade1 on 2026-11-17:
+ * --help, --list-models, plain-model stdin smoke and unapproved-MCP smoke.
+ * Earlier bundle analysis used 2026.10.01-e373342 on noodle. These
+ * observations do not qualify dispatch; a human must review a live run:
  *
  *   cursor-agent -p --output-format stream-json --trust --sandbox enabled \
- *     [--mode ask] --workspace W --model "MODEL[effort=E]" < briefPath
+ *     [--mode ask] --workspace W --model MODEL < briefPath
  *
  * `-p/--print` is the headless entry point ("Print responses to console
  * (for scripts or non-interactive use). Has access to all tools, including
@@ -59,17 +59,14 @@ import { classifyWorkerHealthFailure, healthEventMatchesBinding } from './worker
  * the help-evidenced-by-absence safe choice, and a fresh conductor
  * workdir has no project-scoped MCP config to begin with.
  *
- * Effort has no standalone flag: the `--model` help text documents the
- * only mechanism — "Parameterized models accept quoted bracket overrides,
- * e.g. 'claude-opus-4-8[context=1m,effort=high,fast=false]'" — so the
- * resolved effort is embedded in the single `--model` token as
- * `${model}[effort=${effort}]` (one argv entry, never split across argv or
- * passed through a shell). Valid per-model effort values are
- * account/backend-scoped (the bundled installed-module read on noodle
- * shows `parameterizedModels` is fetched from the Cursor backend, and
- * `--list-models` itself requires authentication); this profile requires a
- * non-empty, injection-safe effort string but does not claim a fixed enum
- * — an unqualified claim, never an invented one.
+ * Effort has no standalone flag: select the exact catalog model ID whose
+ * name encodes the desired effort (e.g. gpt-5.3-codex-high). Although
+ * 2026.11.13 --help still advertises bracket overrides for parameterized
+ * models, the live CLI rejects the bracket form for listed models:
+ * claude-sonnet-5-thinking-high[effort=low] exits 1 with "Cannot use this
+ * model" and no JSON. Never append an override to a catalog ID. Models
+ * such as composer-2.5 expose no separate effort selector; the requested
+ * effort remains validated metadata, not an additional CLI control.
  *
  * Sandbox: `--sandbox enabled` is emitted for BOTH sandbox contracts (the
  * bundled installed-module read on noodle shows `sandboxMode:"enabled"`
@@ -123,18 +120,17 @@ import { classifyWorkerHealthFailure, healthEventMatchesBinding } from './worker
  * in src/models/provider-policy.ts, shared code this profile does not
  * change) reject a leading-zero numeric identifier as invalid, so that
  * literal string can never satisfy a version range. Every version string
- * this profile pins for qualification purposes therefore uses the
- * semver-normalized form `2026.10.1-e373342` (same numeric value, no
- * leading zero); a real caller must strip the leading zero from the raw
+ * that historical profile pinned therefore used the semver-normalized
+ * form `2026.10.1-e373342` (same numeric value, no leading zero). The
+ * current 2026.11.13-eacade1 needs no normalization; callers strip any
+ * leading zero from historical raw
  * `--version` output the same way before calling
  * `qualifyWorkerInvocationProfile`, or a correct installation is
- * unconditionally refused. No shared normalization utility exists yet.
+ * unconditionally refused.
  */
-export const CURSOR_SUPPORTED_VERSIONS = Object.freeze(['2026.10.1-e373342']);
-/** Per-model effort values are account/backend-scoped and unqualified
- * (module doc above); only the bracket-override mechanism is evidenced, not
- * a fixed enum. A non-empty, bracket/quote/control-char-free string is
- * required so the embedded `[effort=...]` override stays well-formed. */
+export const CURSOR_SUPPORTED_VERSIONS = Object.freeze(['2026.11.13-eacade1']);
+/** Validate requested effort metadata; the selected catalog model ID
+ * carries any CLI-supported effort variant (module doc above). */
 export const CURSOR_DIRECT_EFFORT_PATTERN = /^[A-Za-z0-9_.-]+$/;
 export const CURSOR_DIRECT_SANDBOX_MODES = Object.freeze(['read-only', 'workspace-write']);
 /** No approval-prompt enum is documented; the only accepted request is
@@ -147,12 +143,11 @@ export const CURSOR_DIRECT_STDIN = 'brief-text';
 /** There is no generic Ralph-loop alias table for Cursor; any bare role
  * name is refused by the direct profile exactly like an unqualified model. */
 const CURSOR_GENERIC_ALIASES = Object.freeze(['opus', 'sonnet', 'haiku']);
-/** `--model` help text documents no "auto"/CLI-selects-for-you token the
- * way Codex/Factory do, but fix round 1 (roctinam/aiwg#2903) found probes
+/** The live list includes "auto", but direct workers require an exact
+ * observed model. Fix round 1 (roctinam/aiwg#2903) found probes
  * accepted the common auto-selection sentinels `auto` and `default`
- * unchecked. Refused defensively, case-insensitively, even without a
- * documented CLI-side meaning for either token, because an explicit-model
- * invariant must not depend on the CLI happening to reject them itself. */
+ * unchecked. Refused defensively, case-insensitively, because the exact
+ * model invariant must not depend on the CLI rejecting them itself. */
 const CURSOR_RESERVED_MODEL_VALUES = Object.freeze(['auto', 'default']);
 
 export class CursorAdapter extends ProviderAdapter {
@@ -230,7 +225,7 @@ export class CursorAdapter extends ProviderAdapter {
   /**
    * Driver-owned argv after the binary for the version-bound direct-shell
    * profile (module doc above). Every control is explicit: exact observed
-   * model with the embedded bracket effort override, `--sandbox enabled`
+   * model ID (including any effort variant), `--sandbox enabled`
    * for both sandbox contracts plus `--mode ask` for read-only (never
    * `-f/--force`/`--yolo`/`--auto-review`/`--approve-mcps`), the conductor
    * workspace as `--workspace`, `--trust` to remove the one remaining
@@ -276,7 +271,7 @@ export class CursorAdapter extends ProviderAdapter {
     }
     const args = ['-p', '--output-format', 'stream-json', '--trust', '--sandbox', 'enabled'];
     if (sandbox === 'read-only') args.push('--mode', 'ask');
-    args.push('--workspace', cwd, '--model', `${model}[effort=${effort}]`);
+    args.push('--workspace', cwd, '--model', model);
     return args;
   }
 
