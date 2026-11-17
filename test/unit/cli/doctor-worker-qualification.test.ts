@@ -339,6 +339,12 @@ else console.log(JSON.stringify({models:[]}));
     const configPath = path.join(f.project, '.aiwg/aiwg.config');
     const config = JSON.parse(await readFile(configPath, 'utf8'));
     if (mixed) config.parallelism.groups.enforcing = structuredClone(config.parallelism.groups.workers);
+    if (mixed) {
+      const modelsPath = path.join(f.project, 'models.json');
+      const models = JSON.parse(await readFile(modelsPath, 'utf8'));
+      models.defaults.workerSelection.roleGuidance.coding.groups.push('enforcing');
+      await writeFile(modelsPath, JSON.stringify(models));
+    }
     config.parallelism.groups.workers.execution.sandbox = 'external';
     await writeFile(configPath, JSON.stringify(config));
     if (cli === 'codex' && !mixed) {
@@ -351,6 +357,7 @@ else console.log(JSON.stringify({models:[]}));
     expect(qualified.code, qualified.stdout + qualified.stderr).toBe(0);
     const report = JSON.parse(qualified.stdout);
     expect(report.qualification.results[0].status).toBe('qualified');
+    expect(report.workerPolicyDiagnostics).toEqual([]);
     if (cli === 'codex') expect(report.qualification.results[0].codexSandboxChecks).toEqual([
       expect.objectContaining({ cli, group: 'workers', status: 'skipped' }),
       ...(mixed ? [expect.objectContaining({ cli, group: 'enforcing', status: 'passed' })] : []),

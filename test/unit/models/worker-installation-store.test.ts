@@ -54,6 +54,13 @@ describe('qualification store permission repair', () => {
     expect(reads.mock.calls.map(([name]) => String(name))).toContain(file);
     // Only public trust is needed to project historical qualifications.
     expect([...reads.mock.calls, ...fileReads.mock.calls].map(([name]) => String(name))).not.toContain(signing.keyPath);
+    const diagnostics: any[] = [];
+    expect(await inspectRecordedWorkerQualifications({ ...input,
+      policy: { ...DEFAULT_WORKER_SELECTION, roleGuidance: {} }, diagnostics } as any)).toEqual([]);
+    expect(diagnostics).toEqual([expect.objectContaining({
+      message: expect.stringContaining('Worker policy changed since qualification'),
+    })]);
+    expect(diagnostics[0].message).toContain('aiwg doctor --probe-workers --qualify');
     record.installation.evidence.verifiedAt = '2000-01-01T00:00:00.000Z';
     await write();
     expect(await inspectRecordedWorkerQualifications(input)).toEqual([]);

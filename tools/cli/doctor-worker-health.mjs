@@ -8,6 +8,12 @@ export async function checkWorkerHealthReadiness({ config, configFailed, AIWG_RO
   for (const finding of wrapperTextFindings(await collectWrapperEnforcement({ projectDir: cwd, config, packageRoot: AIWG_ROOT }))) {
     check(finding.name, finding.status, finding.message);
   }
+  if (!configFailed && config?.parallelism) {
+    const { collectWorkerPolicyDiagnostics } = await import('./doctor-worker-policy.mjs');
+    for (const diagnostic of await collectWorkerPolicyDiagnostics(cwd, config, { requiredRoles: false })) {
+      check('Worker Policy', 'warn', `${diagnostic.code} ${diagnostic.pointer}: ${diagnostic.message}`);
+    }
+  }
   const { validateParallelismConfig } = await importImpl(import.meta.url, 'config/aiwg-config.js');
   let workerSnapshotModels = null;
   let workerSnapshotCatalog = null;

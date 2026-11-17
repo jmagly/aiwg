@@ -754,7 +754,7 @@ async function qualificationSignatureFailure(record, trust) {
  * This is historical evidence, not current launch authority; loadRecordedWorkerInstallations
  * performs binary/version/scope checks when dispatch actually requests a binding.
  */
-export async function inspectRecordedWorkerQualifications({ cwd, policy, parallelism, includeInputs = false }) {
+export async function inspectRecordedWorkerQualifications({ cwd, policy, parallelism, includeInputs = false, diagnostics = [] }) {
   const filename = installationStorePath();
   await assertTrustedStore(filename, [cwd]);
   const { stored } = await readInstallationStore(filename);
@@ -767,7 +767,6 @@ export async function inspectRecordedWorkerQualifications({ cwd, policy, paralle
       const configured = parallelism?.clis?.[cli];
       if (!configured || configured.enabled === false || !/^[a-z][a-z0-9-]{0,62}$/.test(cli)
         || await realpath(installation.cwd) !== workspace
-        || qualificationDigest(policy) !== installation.effectiveConfigDigest
         || (installation.localModelsDigest || configured.localModels) && installation.localModelsDigest !== qualificationDigest(configured.localModels ?? null)
         || (installation.modelLimitsDigest || configured.modelLimits) && installation.modelLimitsDigest !== qualificationDigest(configured.modelLimits ?? null)
         || configured.adapter !== `providers:${adapter.provider}` && configured.adapter !== adapter.id
@@ -777,6 +776,11 @@ export async function inspectRecordedWorkerQualifications({ cwd, policy, paralle
       const proof = adapter.invocationProfiles?.[binding.profile]?.installationQualification;
       if (!proof || ['scopeDigest', 'fixtureDigest', 'verifiedAt', 'evidenceRef'].some(key => proof[key] !== installation.evidence?.[key])) continue;
       if (await qualificationSignatureFailure(record, () => qualificationTrust(cwd))) continue;
+      if (qualificationDigest(policy) !== installation.effectiveConfigDigest) {
+        const { workerQualificationPolicyDiagnostic } = await import('./worker-qualification-policy.js');
+        diagnostics.push(workerQualificationPolicyDiagnostic([{ registration: 0, reason: 'effective-config-digest' }], [record], policy));
+        continue;
+      }
       await assertWorkerInstallationEvidence({ ...installation, adapter, now: Date.now(), policy }, proof.scopeDigest);
       results.push({ cli, provider: adapter.provider, ...(includeInputs
         ? { binding: structuredClone(binding), adapter: structuredClone(adapter), observations: structuredClone(record.modelObservations) } : {}) });
