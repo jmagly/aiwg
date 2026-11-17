@@ -15,7 +15,7 @@ const kernels = ['skill-discovery', 'artifact-output-policy'];
 const cores = ['anti-laziness', 'no-attribution'];
 const hooks: Record<string, string> = {
   claude: '.claude/settings.json', codex: '.codex/hooks.json',
-  muse: '.muse/hooks.json', factory: '.factory/hooks.json',
+  muse: '.muse/hooks.json', factory: '.factory/hooks.json', cursor: '.cursor/hooks.json',
 };
 let scratch: string | undefined;
 afterEach(() => {
@@ -182,7 +182,8 @@ describe.each(providers)('%s offline harness bootstrap audit', provider => {
     }
     if (hooks[provider]) {
       const doc = JSON.parse(f.read(hooks[provider]));
-      const entries = provider === 'factory' ? doc.UserPromptSubmit : doc.hooks.UserPromptSubmit;
+      const entries = provider === 'cursor' ? doc.hooks.beforeSubmitPrompt
+        : provider === 'factory' ? doc.UserPromptSubmit : doc.hooks.UserPromptSubmit;
       expect(entries).toBeInstanceOf(Array);
       expect(JSON.stringify(entries)).toContain('aiwg-prompt-discovery');
       expect(f.read(`.${provider}/hooks/aiwg-prompt-discovery.cjs`)).toBe(

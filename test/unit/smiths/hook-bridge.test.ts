@@ -335,7 +335,7 @@ describe('bridgeAll', () => {
 
 describe('TRANSLATORS registry + AIWG_ENV_VARS exports', () => {
   it('exposes the bridge providers', () => {
-    expect(Object.keys(TRANSLATORS).sort()).toEqual(['codex', 'copilot', 'factory', 'grok-build', 'hermes']);
+    expect(Object.keys(TRANSLATORS).sort()).toEqual(['codex', 'copilot', 'cursor', 'factory', 'grok-build', 'hermes']);
   });
 
   it('exposes canonical env-var constants', () => {
