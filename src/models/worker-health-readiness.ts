@@ -1,4 +1,5 @@
 /** Offline S1 health readiness projection; never launch authority or a probe. */
+import { workerWiringDiagnostics } from './worker-wiring-diagnostics.js';
 import { homedir } from 'node:os';
 import { collectLocalOnlyPaths } from './conductor-data-policy.mjs';
 import { isAbsolute, join, resolve } from 'node:path';
@@ -144,6 +145,9 @@ export function diagnoseWorkerHealthReadiness(snapshot: WorkerPlanSnapshot,
       message: 'Managed admission and health enforcement are deferred to S2+; this check covers direct readiness.',
       nextAction: 'use-direct-checkpoint', role: null });
     return report;
+  }
+  for (const diagnostic of workerWiringDiagnostics(p, snapshot.models.defaults.workerSelection)) {
+    add({ ...diagnostic, status: 'warn', role: null, nextAction: 'review-worker-configuration' });
   }
   const enabledGroups = Object.values(p?.groups ?? {});
   const required = new Set(enabledGroups.flatMap(group => group.requiredRoles ?? []));

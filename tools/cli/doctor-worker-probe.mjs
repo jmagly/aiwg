@@ -106,9 +106,13 @@ export async function runWorkerProbe(projectDir, options, workerConfig) {
       }
     }
   }
+  const { collectWorkerPolicyDiagnostics } = await import('./doctor-worker-policy.mjs');
+  payload.workerPolicyDiagnostics = await collectWorkerPolicyDiagnostics(projectDir, workerConfig);
+  if (payload.workerPolicyDiagnostics.some(row => row.blocking !== false)) exitCode = 1;
   if (options.json !== false) process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   else {
     for (const finding of wrapperTextFindings(payload.wrapperEnforcement)) console.log(`${finding.name}: ${finding.message}`);
+    for (const diagnostic of payload.workerPolicyDiagnostics) console.log(`Worker Policy: ${diagnostic.code} ${diagnostic.pointer}: ${diagnostic.message}`);
     for (const warning of payload.nativeSandboxWarnings) console.log(`Warning: ${warning.message}`);
     for (const worker of workers) console.log(`Direct Worker ${worker.cli}: ${worker.reason}`);
     if (payload.sandboxChecks?.length) console.log(`Worker sandbox checks: ${JSON.stringify(payload.sandboxChecks)}`);

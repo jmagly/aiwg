@@ -1,0 +1,9 @@
+{
+  "T-OG-12": {
+    "testFiles": [
+      "test/unit/models/worker-policy-diagnostics.test.ts",
+      "test/unit/cli/doctor-worker-policy.test.ts",
+      "test/unit/config/worker-guidance-warning.test.ts"
+    ]
+  }
+}

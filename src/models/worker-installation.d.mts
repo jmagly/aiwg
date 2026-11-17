@@ -47,6 +47,8 @@ export function inspectRecordedWorkerQualifications(input: {
   cwd: string; policy: WorkerSelectionPolicy; parallelism: import('../config/aiwg-config.js').ParallelismConfig;
   /** Include signed historical inputs for offline health projection, never launch authority. */
   includeInputs?: boolean;
+  /** Signed policy drift only; rejected records never grant authority. */
+  diagnostics?: import('./types.js').WorkerPolicyDiagnostic[];
 }): Promise<Array<{ cli: string; provider: string; binding?: WorkerResolutionBinding;
   adapter?: import('./provider-policy.js').WorkerAdapterMetadata;
   observations?: import('./model-discovery.js').ProviderModelDiscovery }>>;

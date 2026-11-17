@@ -237,9 +237,10 @@ export function resolveWorkerPlan(snapshot: WorkerPlanSnapshot, request: WorkerP
   const guidance = role ? ownWorkerRoleGuidance(policy, role) : undefined;
   if (!role || !guidance) block('OG_CONFIG_REFERENCE', '/defaults/workerSelection/roleGuidance', 'Requested role has no guidance');
   if (request.member && !request.group) block('OG_CONFIG_REFERENCE', '/request/member', 'Group-local member pins require a group');
-  if (request.group && !guidance?.groups.includes(request.group)) block('OG_CONFIG_REFERENCE', '/request/group', 'Group is outside role guidance');
+  if (request.group && !guidance?.groups.includes(request.group)) block('OG_CONFIG_REFERENCE', '/request/group', `Group is outside role guidance. Edit models.json: add ${JSON.stringify(request.group)} to defaults.workerSelection.roleGuidance.${role}.groups.`);
   if ([request.maxParallel, snapshot.constraints?.maxParallel].some(value => value !== undefined && (!Number.isSafeInteger(value) || value < 0))) block('OG_CONFIG_REFERENCE', '/request/maxParallel', 'Capacity ceilings must be nonnegative integers');
   plan.diagnostics.push(...workerReviewLineageDiagnostics(request));
+  if (plan.diagnostics.some(diagnostic => diagnostic.code === 'OG_CONFIG_REFERENCE')) return plan;
   const candidateGroups = request.group ? [request.group] : guidance?.groups ?? [];
   const unqualifiedGroups = new Set(qualificationGaps.map(gapGroup));
   const qualifiedGroups = candidateGroups.filter(groupId => !unqualifiedGroups.has(groupId));
