@@ -7,6 +7,7 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { getStaticTOMLValue, parseTOML } from 'toml-eslint-parser';
 import { getUserStateDir } from '../../config/user-state.js';
+import { workerVersionProbeEnvironment } from '../../models/worker-installation.mjs';
 import type { WorkspaceContextDiagnostic } from '../context-pipeline/workspace-context-shared.js';
 
 const execFileAsync = promisify(execFile);
@@ -81,8 +82,9 @@ async function codexHookAdvisoryAlreadyShown(projectPath: string): Promise<boole
 
 async function detectedCodexVersion(projectPath: string): Promise<string> {
   try {
+    // Cleared environment: the probe needs only PATH, never setup inputs or credentials.
     const { stdout } = await execFileAsync('codex', ['--version'], {
-      cwd: path.resolve(projectPath), timeout: 2000, maxBuffer: 4096, windowsHide: true,
+      cwd: path.resolve(projectPath), env: workerVersionProbeEnvironment(), timeout: 2000, maxBuffer: 4096, windowsHide: true,
     });
     return /^codex-cli (\d+\.\d+\.\d+(?:[-+][\w.-]+)?)\s*$/.exec(stdout.trim())?.[1] ?? 'unknown';
   } catch {
