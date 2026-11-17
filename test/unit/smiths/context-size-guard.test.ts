@@ -5,7 +5,7 @@ import * as os from 'node:os';
 import { execFileWithCapture as execFileSync } from '../../helpers/exec-file-capture.js';
 import { parseRuleFrontmatter, readCoreBody } from '../../../src/rules/activation.mjs';
 import { generate, AGENTS_MD_PROVIDERS } from '../../../src/smiths/context-pipeline/index.js';
-import { readRuleDeliveryContext } from '../../helpers/rule-delivery-context.js';
+import { assertRuleStartupHook, readRuleDeliveryContext } from '../../helpers/rule-delivery-context.js';
 import { listProviderDefinitions } from '../../../src/providers/provider-definitions.js';
 
 const {
@@ -188,7 +188,7 @@ describe('generated bridges with full configuration', () => {
         if (parsed.rule?.activation === 'kernel') kernels++;
         if (parsed.rule?.activation === 'core' && provider !== 'claude') expect(bridge).toContain(readCoreBody(file));
       }
-      if (provider !== 'claude') expect(bridge).toContain(`${provider}: Before every task and subagent task, read and follow \`.${provider}/rules/RULES-INDEX.md\``);
+      if (provider !== 'claude') assertRuleStartupHook(bridge, provider, `.${provider}/rules/RULES-INDEX.md`);
     }
     expect(kernels).toBeGreaterThan(0);
     const lint = execFileSync('npm', ['run', 'lint:context-sizes', '--', '--root', project], {

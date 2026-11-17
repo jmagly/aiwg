@@ -58,6 +58,7 @@ export function projectStartup(opts, provider, coreSection, indexFile) {
     const logical = opts.logicalOutputPath || (file => file);
     const location = path.relative(logical(opts.target), logical(indexFile)).replaceAll('\\', '/');
     let hook = `${provider.name}: Before every task and subagent task, read and follow \`${location}\`; read every listed kernel file and fetch matching full rules before governed work.`;
+    if (['codex', 'muse'].includes(provider.name)) hook = `${provider.name}: On every new directive, including subagent tasks, run \`aiwg discover\` as the first information-gathering call, before tool-based context reads. After discovery, read and follow \`${location}\`; read every listed kernel file and fetch matching full rules before governed work.`;
     if (CONTEXT_CONTRACTS[provider.name]?.promptDiscovery?.delivery === 'bootstrap-rule') {
       hook += " Before any other tool call or answer on every new request, run `aiwg discover --stdin <<'AIWG_REQUEST'` "
         + "with the request text on the next lines and `AIWG_REQUEST` alone on the last line; never put request text in quotes on a command line. "

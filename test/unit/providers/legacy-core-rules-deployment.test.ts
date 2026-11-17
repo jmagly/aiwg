@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { assertRuleStartupHook } from '../../helpers/rule-delivery-context.js';
 import { readCoreBody } from '../../../src/rules/activation.mjs';
 
 const run = promisify(execFile);
@@ -43,11 +44,11 @@ describe('legacy provider core projection (#3457)', () => {
       expect(block.split('<!-- AIWG:rule-core:end -->')[0]).not.toMatch(/<!-- AIWG:[\w-]+:(?:start|end) -->/);
       expect(content).not.toContain('agent-friendly-code');
       const dir = provider === 'copilot' ? '.github/instructions' : provider === 'opencode' ? '.opencode/rule' : provider === 'grok-build' ? '.grok/rules' : `.${provider}/rules`;
-      expect(content).toContain(`${provider}: Before every task and subagent task, read and follow \`${dir}/RULES-INDEX.md\``);
+      assertRuleStartupHook(content, provider, `${dir}/RULES-INDEX.md`);
       const body = fs.readFileSync(path.join(repo, 'agentic/code/addons/aiwg-utils/rules/skill-discovery.md'), 'utf8').replace(/^---\n[\s\S]*?\n---\s*/, '').trim();
       expect(fs.readFileSync(path.join(target, dir, 'skill-discovery.md'), 'utf8')).toContain('Run `aiwg discover');
       expect(content).not.toContain(body);
-      expect(content.indexOf('## Core rules')).toBeLessThan(content.indexOf(`${provider}: Before every task`));
+      expect(content.indexOf('## Core rules')).toBeLessThan(content.indexOf(`<!-- AIWG:rule-hook-${provider}:start -->`));
     }, 120_000);
   }
 
@@ -60,7 +61,7 @@ describe('legacy provider core projection (#3457)', () => {
       expect(startup).toContain(core);
       expect(startup).toContain(noAttribution);
       const dir = provider === 'copilot' ? '.github/instructions' : provider === 'opencode' ? '.opencode/rule' : provider === 'grok-build' ? '.grok/rules' : `.${provider}/rules`;
-      expect(startup).toContain(`${provider}: Before every task and subagent task, read and follow \`${dir}/RULES-INDEX.md\``);
+      assertRuleStartupHook(startup, provider, `${dir}/RULES-INDEX.md`);
       expect(fs.readFileSync(path.join(target, dir, 'skill-discovery.md'), 'utf8')).toContain('Run `aiwg discover');
       expect(startup).not.toContain('## Rule: skill-discovery');
       const config = JSON.parse(fs.readFileSync(path.join(target, '.aiwg/aiwg.config'), 'utf8'));

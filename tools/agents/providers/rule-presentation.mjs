@@ -29,7 +29,7 @@ export function renderRuleKernelIndex(rules, nativePaths = false, perRuleFetch =
   // RULES-INDEX receipts are parsed by deployment accounting; retain their command format.
   // #3900: "fetch before governed work" made Muse read every rule before discovery; fetch on need.
   if (!perRuleFetch) lines.push("Fetch a rule's full body when a task or discovered component needs it: `aiwg show rule <name> --body`.", '');
-  if (kernelFile && kernels.length) lines.push("Kernel rules bind every task and subagent task. On a new task, first run discovery for the request (`aiwg discover --stdin <<'AIWG_REQUEST'`, the request, then `AIWG_REQUEST`) before reading any file below; then read a kernel file before work its subject covers.", '');
+  if (kernelFile && kernels.length) lines.push("Kernel rules bind every task and subagent task. On a new task, first run discovery for the request (`aiwg discover --stdin <<'AIWG_REQUEST'`, the request, then `AIWG_REQUEST`) before reading any file below; then read a kernel file before work its subject covers. For AIWG lookup, never open `.agents/skills/**` or `agentic/code/**`, including a discovered skill's mirror file or a template. After discover, use `aiwg show <type> <name>` and its drill-ins (`--section`, `--rules --with-rule-bodies`, `--body`); read required rules before governed work.", '');
   for (const rule of kernels) lines.push(kernelFile
     ? `- ${rule.name} — ${rule.summary || 'Binding kernel rule.'} Full rule: [${kernelFile(rule)}](./${kernelFile(rule)}).`
     : perRuleFetch

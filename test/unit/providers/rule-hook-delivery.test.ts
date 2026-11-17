@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileWithCapture as execFileSync } from '../../helpers/exec-file-capture.js';
-import { readRuleDeliveryContext } from '../../helpers/rule-delivery-context.js';
+import { assertRuleStartupHook, readRuleDeliveryContext } from '../../helpers/rule-delivery-context.js';
 import { generate } from '../../../src/smiths/context-pipeline/index.js';
 import { inlineStartup, projectStartup } from '../../../tools/agents/providers/rule-startup.mjs';
 
@@ -95,7 +95,8 @@ describe('per-harness rule hooks (#3740)', () => {
       const location = `.${provider}/rules/RULES-INDEX.md`;
       const original = `${provider}: Before every task and subagent task, read and follow \`${location}\`; read every listed kernel file and fetch matching full rules before governed work.`;
       const hook = read(file).split(`<!-- AIWG:rule-hook-${provider}:start -->\n`)[1].split(`\n<!-- AIWG:rule-hook-${provider}:end -->`)[0];
-      if (['copilot', 'grok-build'].includes(provider)) expect(hook.startsWith(original)).toBe(true);
+      if (['codex', 'muse'].includes(provider)) assertRuleStartupHook(read(file), provider, location);
+      else if (['copilot', 'grok-build'].includes(provider)) expect(hook.startsWith(original)).toBe(true);
       else expect(hook).toBe(original + (provider === 'factory' ? factoryInstructions : ''));
       if (provider === 'factory') {
         expect(hook).toContain("aiwg discover --stdin <<'AIWG_REQUEST'");
@@ -246,7 +247,7 @@ describe('per-harness rule hooks (#3740)', () => {
     const bridge = path.join(target, 'AGENTS.md'), kernel = path.join(target, `.${provider}/rules/fixture-kernel.md`);
     const original = read(bridge), body = read(kernel);
     readRuleDeliveryContext(report, provider);
-    if (mutation === 'drop hook') fs.writeFileSync(bridge, original.replace(new RegExp(`${provider}: Before every task[^\\n]*`, 'g'), ''));
+    if (mutation === 'drop hook') fs.writeFileSync(bridge, original.replace(new RegExp(`${provider}: (?:Before every task|On every new directive)[^\\n]*`, 'g'), ''));
     if (mutation === 'drop kernel file') fs.rmSync(kernel);
     if (mutation === 'inline kernel body') fs.writeFileSync(bridge, original + '\n' + body.replace(/^---\n[\s\S]*?\n---\s*/, ''));
     expect(() => readRuleDeliveryContext(report, provider)).toThrow();

@@ -27,6 +27,8 @@ const PROSE_LOADING = [
   'Then read [AIWG.md](./AIWG.md) for AIWG discovery, quickrefs, and framework routing.',
   '',
   'These are explicit reading instructions. Plain Markdown links are not claimed to auto-load.',
+  '',
+  "For AIWG lookup, never open `.agents/skills/**` or `agentic/code/**`, including a discovered skill's mirror file or a template. After discover, use `aiwg show <type> <name>` and its drill-ins (`--section`, `--rules --with-rule-bodies`, `--body`); read required rules before governed work.",
 ];
 
 function wrapProviderBootstrap(loading: string[]): string {
@@ -66,7 +68,7 @@ export function buildProviderBootstrapBlock(provider: Platform | string): string
   // A session directive that arrives later cannot claim precedence it was never
   // granted (#2512).
   // #227: Muse gets its own discover-first bridge text — Muse-native
-  // instruction order (this AGENTS.md first, then WORKSPACE.md, then AIWG.md)
+  // instruction order (discovery, then WORKSPACE.md, then AIWG.md)
   // plus the trust-gated load caveat — instead of the generic prose-directive.
   const loading = provider === 'muse'
     ? [buildMuseBridgeText()]
