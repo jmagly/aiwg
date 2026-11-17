@@ -26,6 +26,7 @@ import { automaticRemovalAllowed } from '../../providers/deployment-preservation
 import { refreshDeclaredBundles } from './refresh-bundles.js';
 import { bundledRuleOutputNames } from './refresh-rule-inventory.js';
 import { checkManagedDeployment, sourcePrebuiltIndexRepairHint, type StaleManagedDeployment } from './refresh-managed-deployment.js';
+import { refreshUserHooksOrWarn } from './refresh-user-hooks.js';
 import { getFrameworkRoot } from '../../channel/manager.mjs';
 import { refreshAllPackages } from '../../packages/registry.js';
 import { resolveActiveProvider } from '../provider-resolution.js';
@@ -638,6 +639,8 @@ export const refreshHandler: CommandHandler = {
     } else {
       if (!quiet) ui.dim('  Skipping package update (--skip-update)');
     }
+
+    await refreshUserHooksOrWarn({ frameworkRoot, provider: detectedProvider, dryRun, quiet });
 
     // Step 4: Re-deploy frameworks. Both the default form and --all mean
     // "all installed", never the `aiwg use all` expansion meta-target. This

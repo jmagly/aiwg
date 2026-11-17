@@ -48,7 +48,7 @@ export async function workspaceLinkedFiles(projectPath: string): Promise<string[
 }
 
 export async function diagnoseWorkspaceContext(projectPath: string): Promise<WorkspaceContextDiagnostic[]> {
-  const diagnostics: WorkspaceContextDiagnostic[] = await diagnoseUserHookCommands();
+  const diagnostics: WorkspaceContextDiagnostic[] = await diagnoseUserHookCommands(projectPath);
   const codexTrust = await diagnoseCodexHookTrust(projectPath);
   if (codexTrust) diagnostics.push(codexTrust);
   const factoryTrust = await diagnoseFactoryHookTrust(projectPath);
