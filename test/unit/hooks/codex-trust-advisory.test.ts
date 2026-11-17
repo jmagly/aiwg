@@ -30,7 +30,6 @@ beforeEach(async () => {
   vi.stubEnv('CODEX_HOME', codexHome);
   vi.stubEnv('XDG_STATE_HOME', state);
   vi.stubEnv('PATH', `${bin}${path.delimiter}${process.env.PATH}`);
-  vi.stubEnv('AIWG_TEST_CODEX_VERSION', 'codex-cli 0.169.0\n');
   await copyFile(path.resolve('test/fixtures/providers/codex/version-cli.cjs'), path.join(bin, 'codex'));
   await chmod(path.join(bin, 'codex'), 0o755);
   config = path.join(codexHome, 'config.toml');
@@ -138,8 +137,18 @@ it('shows the detected Codex version rather than a pinned release', async () => 
 });
 
 it.each(['fail', 'unexpected banner'])('reports an unknown version when the probe returns %s', async banner => {
-  vi.stubEnv('AIWG_TEST_CODEX_VERSION', banner);
+  await writeFile(path.join(root, 'bin/codex-version.txt'), banner);
   expect((await diagnoseCodexHookTrust(project))?.message).toContain('Detected Codex version: unknown');
+});
+
+it('runs the version probe with a cleared environment', async () => {
+  vi.stubEnv('AIWG_TEST_SENSITIVE_INPUT', 'must-not-reach-probe');
+  expect((await diagnoseCodexHookTrust(project))?.message).toContain('Detected Codex version: 0.169.0');
+  const seen = JSON.parse(await readFile(path.join(root, 'bin/codex-env-seen.json'), 'utf8')) as string[];
+  expect(seen).toContain('PATH');
+  expect(seen).not.toContain('AIWG_TEST_SENSITIVE_INPUT');
+  expect(seen).not.toContain('HOME');
+  expect(seen).not.toContain('CODEX_HOME');
 });
 
 it('keeps advising if the local notice marker cannot be written', async () => {
