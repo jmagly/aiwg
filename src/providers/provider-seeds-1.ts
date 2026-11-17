@@ -242,7 +242,7 @@ export const BUILT_IN_SEEDS_1: BuiltInSeed[] = [
     },
     adapters: {
       agentFormat: 'cursor-json',
-      hookBridge: null,
+      hookBridge: 'cursor',
       mcpInjection: 'cursor',
       contextAggregation: 'agents-md',
       ruleFormat: 'mdc',

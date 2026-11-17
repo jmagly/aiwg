@@ -45,6 +45,9 @@ export const CONTEXT_CONTRACTS: Record<Platform, ProviderContextContract> = {
     verification: { method: 'official Copilot CLI custom-instruction imports', source: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions', lastVerified: VERIFIED_ON },
   },
   cursor: {
+    promptDiscovery: { delivery: 'hook-bridge', event: 'beforeSubmitPrompt', files: [
+      '.cursor/hooks.json', '.cursor/hooks/aiwg-prompt-discovery.cjs',
+    ] },
     startupFiles: ['AGENTS.md', 'CLAUDE.md', '.cursor/rules/*.mdc'], precedence: ['provider/system', 'project rules', 'root AGENTS.md'],
     loadMode: 'prose-directive', includeSyntax: null, configRegistration: null,
     bootstrapTargets: ['AGENTS.md'], maxContextBytes: null, recommendedMaxLines: 500, nestedContext: false, support: 'supported',

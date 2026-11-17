@@ -1,3 +1,4 @@
+import { deployCursorPromptDiscovery } from './cursor-prompt-discovery.mjs';
 import { withModelWrapper } from './model-wrapper.mjs';
 /**
  * Cursor IDE Provider
@@ -410,6 +411,7 @@ export function deployCursorConfigTemplates(targetDir, srcRoot, opts) {
 
 export async function postDeploy(targetDir, opts) {
   initializeFrameworkWorkspace(targetDir, opts.mode, opts.dryRun, opts.srcRoot);
+  await deployCursorPromptDiscovery(targetDir, opts);
 
   if (opts.createAgentsMd) {
     if (opts.contextFiles !== false) createAgentsMd(targetDir, opts.srcRoot, opts.dryRun);

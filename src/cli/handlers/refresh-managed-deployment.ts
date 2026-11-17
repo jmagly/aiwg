@@ -7,6 +7,7 @@ import { managedClaudeHooks } from '../../extensions/claude-hooks-installer.js';
 import { verifiedHookCommand } from '../../extensions/verified-hook-command.js';
 import { managedMuseHooks } from '../../extensions/muse-managed-hooks.js';
 import { managedHookScriptState } from '../../extensions/managed-hook-script-state.js';
+import { managedCursorPromptHook } from '../../smiths/hook-bridge/cursor-translator.js';
 import { managedFactoryHooks } from '../../smiths/hook-bridge/factory-translator.js';
 import { readFactoryDocument } from '../../smiths/hook-bridge/factory-hook-config.js';
 import { loadHookSources } from '../../smiths/hook-bridge/loader.js';
@@ -52,7 +53,7 @@ function groups(doc: Record<string, unknown>, event: string): HookGroup[] {
 }
 
 async function staleHooks(projectRoot: string, frameworkRoot: string, provider: string): Promise<StaleManagedDeployment[]> {
-  if (!['claude', 'muse', 'factory', 'codex'].includes(provider)) return [];
+  if (!['claude', 'muse', 'factory', 'codex', 'cursor'].includes(provider)) return [];
   const file = provider === 'claude' ? '.claude/settings.json' : `.${provider}/hooks.json`;
   let doc;
   // Factory hooks.json is a top-level event map (older AIWG wrote it nested); normalize both (#3971).
@@ -60,7 +61,16 @@ async function staleHooks(projectRoot: string, frameworkRoot: string, provider: 
   catch { return [{ name: `${provider} managed hooks`, file, reason: 'unreadable' }]; }
 
   const stale: StaleManagedDeployment[] = [];
-  if (provider === 'codex') {
+  if (provider === 'cursor') {
+    const expected = managedCursorPromptHook(projectRoot, await fs.readFile(path.join(frameworkRoot,
+      'agentic/code/addons/aiwg-hooks/hooks/aiwg-prompt-discovery.cjs')));
+    const hooks = (doc.hooks as Record<string, unknown> | undefined)?.beforeSubmitPrompt;
+    const candidates = Array.isArray(hooks) ? hooks.filter(hook => hook?._aiwg_id === expected._aiwg_id) : [];
+    if (!candidates.some(hook => hook.type === expected.type && hook.command === expected.command
+      && hook.timeout === expected.timeout && hook._aiwg_managed === true)) {
+      stale.push({ name: `beforeSubmitPrompt → ${expected._aiwg_id}`, file, reason: candidates.length ? 'outdated' : 'missing' });
+    }
+  } else if (provider === 'codex') {
     const { sources } = await loadHookSources(frameworkRoot);
     const source = sources.find(hook => hook.id === 'aiwg-prompt-discovery');
     if (!source?.args?.[0]) return [];
@@ -150,7 +160,7 @@ async function staleHookScripts(projectRoot: string, frameworkRoot: string, prov
     for (const hook of managedClaudeHooks(files)) scripts.set(hook.script, path.join(source, path.basename(hook.script)));
   } else if (provider === 'muse') {
     scripts.set('.muse/hooks/aiwg-prompt-discovery.cjs', path.join(source, 'aiwg-prompt-discovery.cjs'));
-  } else if (provider === 'codex' || provider === 'factory') {
+  } else if (provider === 'codex' || provider === 'factory' || provider === 'cursor') {
     // Match installCodexPromptDiscovery: resolve packaged canonical arguments,
     // not the portable launcher command emitted into hooks.json.
     const { sources, errors } = await loadHookSources(frameworkRoot);
