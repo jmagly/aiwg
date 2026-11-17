@@ -147,13 +147,13 @@ describe('workspace context scope boundaries (#3891)', () => {
     expect(doctor.stdout).not.toContain(sentinel);
   });
 
-  it('names both repositories for cross-repository duplicates and conflicts', async () => {
+  it('names both repositories for cross-repository conflicts without flagging shared directives (#4263)', async () => {
     const { projectRoot } = await fixture();
     for (const name of ['one', 'two']) await addMarker(path.join(projectRoot, 'repos', name), '.git directory');
     await writeFile(path.join(projectRoot, 'repos/one/CLAUDE.md'), `${shared}\nUse consistent formatting.\n`);
     await writeFile(path.join(projectRoot, 'repos/two/CLAUDE.md'), `${shared}\nNever use consistent formatting.\n`);
     const diagnostics = (await diagnoseWorkspaceContext(projectRoot)).filter((item) => contextCodes.has(item.code));
-    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.map((item) => item.code)).toEqual(['directive-conflict']);
     for (const diagnostic of diagnostics) {
       expect(diagnostic.severity).toBe('warning');
       expect(diagnostic.message).toContain('repos/one');

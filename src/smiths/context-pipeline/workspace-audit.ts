@@ -18,14 +18,25 @@ import {
   WorkspaceContextRouting,
   WorkspaceContextSource,
   WorkspaceDirectiveOverlap,
+  ContextWalkTruncation,
 } from './workspace-context-shared.js';
 import { providerForPath } from './workspace-document.js';
 import { extractExistingProjectContext } from './workspace-extraction.js';
 import { projectOutputPath } from './workspace-migration.js';
 
 export function directives(content: string): string[] {
-  return [...new Set(content
-    .split('\n')
+  const lines = content.split('\n');
+  return [...new Set(lines
+    .filter((line, index) => {
+      const trimmed = line.trim();
+      // Markdown structure and canonical context bridges are not operator policy.
+      if (/^#{1,6}\s|^(?:[-*_]\s*){3,}$|^=+$/.test(trimmed)) return false;
+      if (/^\s*(?:=+|-+)\s*$/.test(lines[index + 1] ?? '')) return false;
+      if (/^@(?:\.\/|\.aiwg\/)?(?:AIWG|WORKSPACE|AGENTS|CLAUDE|WARP)\.md\s*$/.test(trimmed)) return false;
+      if (/^Read and follow \[WORKSPACE\.md\]\(\.\/WORKSPACE\.md\) first\.$/.test(trimmed)) return false;
+      if (/^Then read \[AIWG\.md\]\(\.\/AIWG\.md\) for AIWG discovery, quickrefs, and framework routing\.$/.test(trimmed)) return false;
+      return true;
+    })
     .map((line) => line.replace(/^\s*[-*+]\s+/, '').replace(/^#+\s+/, '').trim())
     .filter((line) => line.length >= 8 && !line.startsWith('<!--') && !/^https?:\/\//i.test(line)))];
 }
@@ -88,7 +99,9 @@ function operatorContext(relativePath: string, content: string, preserveLines = 
 // content (#277, pre-existing) plus two reserved, self-identifying names
 // that are never legitimately a real project directory.
 export const CONTEXT_WALK_ALWAYS_IGNORED_DIR_NAMES = new Set([
-  '.git', 'node_modules', 'dist', 'build', 'coverage', '.aiwg',
+  '.git', 'node_modules', 'dist', 'build', 'coverage', '.aiwg', '.index',
+  // These files were already excluded after traversal; prune their entire trees.
+  'fixtures', 'templates',
 ]);
 
 // Cache/registry directory names that are only skipped when the walk root
@@ -164,6 +177,7 @@ export const CONTEXT_WALK_MAX_DIRECTORIES = readPositiveIntEnv('AIWG_CONTEXT_WAL
 export interface NestedInstructionFilesResult {
   files: string[];
   truncated: boolean;
+  truncations: ContextWalkTruncation[];
 }
 
 export async function nestedInstructionFiles(projectPath: string): Promise<NestedInstructionFilesResult> {
@@ -178,13 +192,20 @@ export async function nestedInstructionFiles(projectPath: string): Promise<Neste
   const isHomeDirectory = path.resolve(projectPath) === path.resolve(homedir());
   const maxDepth = isHomeDirectory ? 1 : CONTEXT_WALK_MAX_DEPTH;
   let visitedDirectories = 0;
-  let truncated = false;
+  const bounds = new Map<ContextWalkTruncation['bound'], { limit: number; path: string }>();
+  const subtreeVisits = new Map<string, number>();
   async function walk(directory: string, depth: number): Promise<void> {
     if (depth > maxDepth || visitedDirectories >= CONTEXT_WALK_MAX_DIRECTORIES) {
-      truncated = true;
+      const bound = depth > maxDepth ? 'depth' : 'directories';
+      if (!bounds.has(bound)) bounds.set(bound, {
+        limit: bound === 'depth' ? maxDepth : CONTEXT_WALK_MAX_DIRECTORIES,
+        path: path.relative(projectPath, directory).replace(/\\/g, '/'),
+      });
       return;
     }
     visitedDirectories += 1;
+    const subtree = path.relative(projectPath, directory).split(path.sep)[0];
+    if (subtree) subtreeVisits.set(subtree, (subtreeVisits.get(subtree) ?? 0) + 1);
     let entries;
     try { entries = await fs.readdir(directory, { withFileTypes: true }); } catch { return; }
     for (const entry of entries) {
@@ -206,7 +227,11 @@ export async function nestedInstructionFiles(projectPath: string): Promise<Neste
     }
   }
   await walk(projectPath, 1);
-  return { files: found.sort((a, b) => a.localeCompare(b)), truncated };
+  const busiest = [...subtreeVisits].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  const truncations = [...bounds].map(([bound, detail]) => ({
+    bound, ...detail, subtree: busiest?.[0] ?? '.', visitedDirectories: busiest?.[1] ?? visitedDirectories,
+  }));
+  return { files: found.sort((a, b) => a.localeCompare(b)), truncated: bounds.size > 0, truncations };
 }
 
 export async function migratedProviderFiles(projectPath: string): Promise<string[]> {
@@ -321,6 +346,7 @@ export async function auditWorkspaceContext(projectPath: string): Promise<Worksp
     conflicts,
     sensitiveFindings,
     contextWalkTruncated: nested.truncated,
+    contextWalkTruncations: nested.truncations,
     plan: {
       routing,
       scopeReview,
