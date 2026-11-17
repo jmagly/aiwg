@@ -5,6 +5,21 @@ import { expect } from 'vitest';
 import { parseRuleFrontmatter } from '../../src/rules/activation.mjs';
 import { projectOnDemandReferences } from '../../tools/agents/providers/rule-presentation.mjs';
 
+/** Keep the complete rule-loading contract while checking discovery comes first. */
+export function assertRuleStartupHook(startup: string, provider: string, index: string): void {
+  if (['codex', 'muse'].includes(provider)) {
+    const hook = startup.split(`<!-- AIWG:rule-hook-${provider}:start -->`)[1]?.split('<!-- AIWG:rule-hook-')[0] || '';
+    expect(hook, `${provider}: discovery hook`).toContain(`${provider}: On every new directive, including subagent tasks, run`);
+    expect(hook).toContain('as the first information-gathering call, before tool-based context reads');
+    expect(hook).toContain('After discovery, read and follow');
+    expect(hook).toContain('read every listed kernel file and fetch matching full rules before governed work');
+    expect(hook).toContain(`read and follow \`${index}\``);
+    expect(hook.indexOf('aiwg discover')).toBeLessThan(hook.indexOf(index));
+  } else {
+    expect(startup).toContain(`${provider}: Before every task and subagent task, read and follow \`${index}\``);
+  }
+}
+
 export function readRuleDeliveryContext(report: { contributors: Array<{ path: string }>; pins?: Array<{ name: string }> }, provider: string): string {
   const files = report.contributors.map(file => file.path);
   const manifests = [...new Set(files.filter(file => /[/\\](?:rules|rule|instructions)[/\\]/.test(file))
@@ -21,8 +36,7 @@ export function readRuleDeliveryContext(report: { contributors: Array<{ path: st
     const startup = startupFiles.map(read).join('\n');
     if (!['claude', 'cursor'].includes(provider)) {
       for (const file of startupFiles) {
-        expect(read(file), `${provider}: hook in ${file}`).toContain(`${provider}: Before every task and subagent task, read and follow`);
-        expect(read(file)).toContain(path.relative(projectRoot, entryPoint).replaceAll('\\', '/'));
+        assertRuleStartupHook(read(file), provider, path.relative(projectRoot, entryPoint).replaceAll('\\', '/'));
       }
     }
     const assertLoaded = (file: string) => {
@@ -68,7 +82,7 @@ export function assertStartupRuleDelivery(root: string, provider: string, startu
     expect(startup.split(`<!-- AIWG:${owner}:start -->`), `${provider}: one ${owner}`).toHaveLength(2);
     expect(startup.split(`<!-- AIWG:${owner}:end -->`), `${provider}: complete ${owner}`).toHaveLength(2);
   }
-  expect(startup).toContain(`${provider}: Before every task and subagent task, read and follow \`${rulesDir}/RULES-INDEX.md\``);
+  assertRuleStartupHook(startup, provider, `${rulesDir}/RULES-INDEX.md`);
   const contributors = Object.keys(manifest.managed).map(name => ({ path: path.join(directory, name) }));
   readRuleDeliveryContext({ contributors }, provider);
   return fs.readFileSync(path.join(directory, 'RULES-INDEX.md'), 'utf8');

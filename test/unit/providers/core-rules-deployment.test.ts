@@ -123,7 +123,7 @@ describe('core rule delivery (#3450)', () => {
     run(fixtureSource(root), join(root, 'target'), 'codex', { mode: 'all' });
     const aiwg = readFileSync(join(root, 'target/AGENTS.md'), 'utf8');
     expect(aiwg.indexOf('## Core rules')).toBeGreaterThan(-1);
-    expect(aiwg.indexOf('FIXTURE_CORE_BODY')).toBeLessThan(aiwg.indexOf('codex: Before every task'));
+    expect(aiwg.indexOf('FIXTURE_CORE_BODY')).toBeLessThan(aiwg.indexOf('<!-- AIWG:rule-hook-codex:start -->'));
     expect(aiwg).not.toContain('FIXTURE_KERNEL_BODY');
     expect(readFileSync(join(root, 'target/.codex/rules/fixture-kernel.md'), 'utf8')).toContain('FIXTURE_KERNEL_BODY');
     expect(aiwg).not.toContain('FULL_fixture-core_BODY');

@@ -70,6 +70,26 @@ describe('B1 rule delivery regressions', () => {
     }, 90_000);
   }
 
+  it.each(['codex', 'muse', 'antigravity'])('%s: startup and index forbid discovered mirror reads (#4234)', provider => {
+    const { source, target } = setup();
+    deploy(source, target, provider);
+    const startup = fs.readFileSync(path.join(target, 'AGENTS.md'), 'utf8');
+    const index = fs.readFileSync(path.join(target, `.${provider}/rules/RULES-INDEX.md`), 'utf8');
+    const rendered = renderRuleKernelIndex([{ name: 'fixture-kernel', tagged: true, activation: 'kernel' }],
+      false, true, (rule: { name: string }) => `${rule.name}.md`);
+    for (const text of [startup, index, rendered]) {
+      expect(text).toContain('never open `.agents/skills/**` or `agentic/code/**`');
+      expect(text).toContain("including a discovered skill's mirror file or a template");
+      expect(text).toContain('After discover, use `aiwg show <type> <name>` and its drill-ins');
+    }
+    if (provider !== 'antigravity') {
+      const hook = startup.split(`<!-- AIWG:rule-hook-${provider}:start -->`)[1];
+      expect(hook).toContain('first information-gathering call');
+      expect(hook.indexOf('aiwg discover')).toBeLessThan(hook.indexOf('RULES-INDEX.md'));
+      expect(hook).toContain('After discovery, read and follow');
+    }
+  }, 90_000);
+
   it('preserves an unmanaged core file with an advisory, then replaces it under --force', () => {
     const { source, target } = setup();
     const file = path.join(target, '.claude/rules/core-core-policy.md');
