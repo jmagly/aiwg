@@ -1,6 +1,6 @@
 // Keep Codex trust advice read-only and visible through the public deploy/doctor owners.
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { diagnoseWorkspaceContext } from '../../../src/smiths/context-pipeline/workspace-doctor.js';
@@ -27,9 +27,15 @@ beforeEach(async () => {
   vi.stubEnv('HOME', home);
   vi.stubEnv('CODEX_HOME', codexHome);
   vi.stubEnv('XDG_DATA_HOME', path.join(root, 'data'));
+  vi.stubEnv('XDG_STATE_HOME', path.join(root, 'state'));
   vi.stubEnv('AIWG_USER_REGISTRY_PATH', path.join(root, 'registry.json'));
   await mkdir(home);
   await mkdir(codexHome);
+  const bin = path.join(root, 'bin');
+  await mkdir(bin);
+  await copyFile(path.resolve('test/fixtures/providers/codex/version-cli.cjs'), path.join(bin, 'codex'));
+  await chmod(path.join(bin, 'codex'), 0o755);
+  vi.stubEnv('PATH', `${bin}${path.delimiter}${process.env.PATH}`);
   config = path.join(codexHome, 'config.toml');
   await mkdir(path.join(project, '.codex/hooks'), { recursive: true });
   await writeFile(path.join(project, '.codex/hooks/aiwg-prompt-discovery.cjs'), '// fixture\n');
