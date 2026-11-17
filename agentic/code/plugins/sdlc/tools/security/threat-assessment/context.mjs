@@ -34,7 +34,7 @@ function sentenceAt(text, index, length) {
   const endMatch = /[.!?;](?:\s|$)|\n/.exec(after);
   const end = endMatch ? index + length + endMatch.index : text.length;
   const leading = text.slice(start, index).replace(SENTENCE_LEAD_MARKERS, '').trimStart();
-  return { text: text.slice(start, end), leading };
+  return { text: text.slice(start, end), leading, trailing: text.slice(index + length, end) };
 }
 
 /** True when the match sits inside a fenced code block (``` or ~~~). */
@@ -67,7 +67,7 @@ function insideHyphenatedIdentifier(text, index, length) {
   return wordBefore || wordAfter;
 }
 
-export function inferContext(text, index, explicit, length = 0, ruleId = '') {
+export function inferContext(text, index, explicit, length = 0, ruleId = '', surface = '') {
   if (explicit) return explicit;
   if (insideFence(text, index)) return 'quoted';
   if (length > 0 && insideHyphenatedIdentifier(text, index, length)) return 'documentation';
@@ -95,6 +95,15 @@ export function inferContext(text, index, explicit, length = 0, ruleId = '') {
   }
   const leading = requestPrefix(clause.before).replace(SENTENCE_LEAD_MARKERS, '').trimStart();
   if (IMPERATIVE_LEAD.test(`${leading}${clause.match}`) || REQUEST_CUE.test(leading)) return 'requested';
+  if (ruleId === 'sensitive-file-target' && surface === 'outbound-maintainer-comment') {
+    // Maintainer reports name files as subjects. Require a request rather than
+    // treating an unrecognized reporting verb ("loaded", "reached") as intent.
+    const indirect = /\b(?:(?:can|could|would|will)\s+you|(?:the\s+fix\s+is|you\s+need|i\s+want\s+you)\s+to)\s+(.+)$/i.exec(leading);
+    const trailing = requestPrefix(sentence.trailing).replace(/^[\s`"'*:,]*(?:and\s+)?/i, '');
+    if ((indirect && IMPERATIVE_LEAD.test(indirect[1])) || IMPERATIVE_LEAD.test(trailing)
+      || /\b(?:must|should|needs?\s+to|has\s+to)\s+be\s+(?:read|opened|edited|modified|changed|sent|uploaded|deleted|removed|updated)\b/i.test(trailing)) return 'requested';
+    return 'descriptive';
+  }
   if (DESCRIPTIVE_CUE.test(sentence.text)) return 'descriptive';
   return 'requested';
 }
