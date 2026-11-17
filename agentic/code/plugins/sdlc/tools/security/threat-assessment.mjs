@@ -319,7 +319,7 @@ export function assessThreat(input, rawConfig) {
         }
         const match = occurrence.match;
         const paragraph = paragraphAt(part.text, match.index, match[0].length);
-        const context = inferContext(part.text, match.index, part.context, match[0].length, rule.id);
+        const context = inferContext(part.text, match.index, part.context, match[0].length, rule.id, input.surface);
         const suppressed = SUPPRESSED_CONTEXTS.includes(context);
         findings.push({
           ruleId: rule.id,
