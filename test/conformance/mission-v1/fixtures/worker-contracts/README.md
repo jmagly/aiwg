@@ -53,6 +53,15 @@ extension round trips; other consumers advertise no worker support in
 
 ## Disposition and consumer ownership
 
+### Cursor per-model limits amendment
+
+The existing CLI definition adds optional `modelLimits` with required positive
+safe-integer `contextTokens` and optional positive safe-integer `maxOutputTokens`
+per exact selector. Cursor discovery records operator provenance and lets these
+values override a standalone display-name `1M` limit; other sizes remain unknown.
+The parallelism fragment and manifest digest are amended together. Strict
+production-owner equality remains enforced; no schema family is added.
+
 ### #3833 opt-in conductor execution guard amendment
 
 The worker-selection guard adds `denyConductorWorkerExecution` (boolean, default

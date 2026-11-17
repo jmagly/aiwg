@@ -75,12 +75,15 @@ describe('recorded approval maintenance', () => {
     { name: 'added declaration', recorded: false, current: 'matching', accepted: false },
     { name: 'removed declaration', recorded: true, current: 'absent', accepted: false },
     { name: 'no parallelism supplied', recorded: true, current: 'unconfigured', accepted: true },
-  ])('binds local model declarations in signed approvals: $name (T-OG-03/12)', async ({ recorded, current, accepted }) => {
+  ].flatMap(testCase => ['localModels', 'modelLimits'].map(kind => ({ ...testCase, kind }))))
+  ('binds $kind declarations in signed approvals: $name (T-OG-03/12)', async ({ recorded, current, accepted, kind }) => {
     const f = await fixture();
-    const source = { endpoint: 'http://127.0.0.1:1234/v1', models: [{ id: 'fixture-model', checkpoint: 'fixture-q4-r1' }] };
+    const source: any = kind === 'localModels'
+      ? { endpoint: 'http://127.0.0.1:1234/v1', models: [{ id: 'fixture-model', checkpoint: 'fixture-q4-r1' }] }
+      : { 'fixture-model': { contextTokens: 32000, maxOutputTokens: 4000 } };
     // Use the existing synthetic installed driver so accepted declarations must
     // pass the complete loader, including binary identity and version checks.
-    const adapterId = `fixture-local-${current}`;
+    const adapterId = `fixture-${kind.toLowerCase()}-${current}`;
     f.installation.adapter.id = adapterId;
     f.installation.modules[0].adapterIds = [adapterId];
     f.instance.getName = () => adapterId;
@@ -89,17 +92,22 @@ describe('recorded approval maintenance', () => {
     f.installation.modules[0].sha256 = qualificationDigestRaw(driver);
     f.installation.policy = {};
     f.installation.effectiveConfigDigest = qualificationDigest(f.installation.policy);
-    if (recorded) f.installation.localModelsDigest = qualificationDigest(source);
+    if (recorded) f.installation[`${kind}Digest`] = qualificationDigest(source);
     f.installation.evidence.scopeDigest = (await inspectWorkerInstallation(f.instance, f.installation)).scopeDigest;
     vi.stubEnv('SYNTHETIC_SETTING', 'fixture-value');
     expect(await recordWorkerInstallation(f.instance, { cli: 'fixture', binding: f.binding, installation: f.installation }))
       .toMatchObject({ status: 'ENABLED' });
     const configured = structuredClone(source);
-    if (current === 'endpoint') configured.endpoint = 'http://127.0.0.1:4321/v1';
-    if (current === 'checkpoint') configured.models[0].checkpoint = 'other-revision';
+    if (kind === 'localModels') {
+      if (current === 'endpoint') configured.endpoint = 'http://127.0.0.1:4321/v1';
+      if (current === 'checkpoint') configured.models[0].checkpoint = 'other-revision';
+    } else {
+      if (current === 'endpoint') configured['fixture-model'].contextTokens = 64000;
+      if (current === 'checkpoint') configured['fixture-model'].maxOutputTokens = 8000;
+    }
     const parallelism = current === 'unconfigured' ? undefined : { clis: { fixture: {
       adapter: 'providers:codex', accountScope: 'synthetic-account', quotaScope: 'synthetic-quota',
-      ...(current !== 'absent' ? { localModels: configured } : {}),
+      ...(current !== 'absent' ? { [kind]: configured } : {}),
     } } };
     const input = { registry: loadProviderModelCapabilities(), cwd: f.cwd, policy: f.installation.policy, parallelism };
     expect(await inspectRecordedWorkerQualifications(input)).toEqual(accepted && parallelism

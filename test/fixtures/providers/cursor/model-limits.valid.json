@@ -1,0 +1,9 @@
+{
+  "gpt-5.3-codex-high": {
+    "contextTokens": 200000,
+    "maxOutputTokens": 16000
+  },
+  "claude-opus-5-thinking-high": {
+    "contextTokens": 250000
+  }
+}

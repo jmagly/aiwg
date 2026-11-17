@@ -440,7 +440,7 @@ export function validateWorkerPolicyRoute(input: {
   if (input.context && !workerContextHeadroom(input.context, observation).fits) {
     const missing = [observation.contextTokens === null ? 'contextTokens' : ''].filter(Boolean);
     deny('OG_MODEL_UNAPPROVED', '/worker/contextTokens', missing.length
-      ? `Bounded context and output cannot be checked: catalog does not report a qualified ${missing.join(', ')} limit. Refresh discovery with reported limits; operator approval does not invent limits.`
+      ? `Bounded context and output cannot be checked: catalog does not report a qualified ${missing.join(', ')} limit. Refresh discovery with reported limits; operator approval does not invent limits.${input.inferenceProvider === 'cursor' ? ` Set parallelism.clis.${observation.cliId}.modelLimits["${input.selectedModel}"].contextTokens and refresh discovery/requalify.` : ''}`
       : 'Bounded context and output do not fit qualified limits; reduce the request context or reserved output.');
   }
   if (input.context && observation.contextTokens !== null && observation.maxOutputTokens === null) {

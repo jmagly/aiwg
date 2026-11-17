@@ -1,0 +1,55 @@
+[
+  null,
+  [],
+  {
+    "x": {}
+  },
+  {
+    "x": {
+      "contextTokens": 0
+    }
+  },
+  {
+    "x": {
+      "contextTokens": -1
+    }
+  },
+  {
+    "x": {
+      "contextTokens": 1.5
+    }
+  },
+  {
+    "x": {
+      "contextTokens": "1000"
+    }
+  },
+  {
+    "x": {
+      "contextTokens": 9007199254740992
+    }
+  },
+  {
+    "x": {
+      "contextTokens": 32000,
+      "maxOutputTokens": 0
+    }
+  },
+  {
+    "x": {
+      "contextTokens": 32000,
+      "maxOutputTokens": 1.5
+    }
+  },
+  {
+    "x": {
+      "contextTokens": 32000,
+      "extra": true
+    }
+  },
+  {
+    "": {
+      "contextTokens": 32000
+    }
+  }
+]
