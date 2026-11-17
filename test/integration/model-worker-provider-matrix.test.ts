@@ -61,8 +61,8 @@ describe('model worker provider matrix', () => {
     {
       provider: 'cursor',
       path: (root: string, role: string) => join(root, `.cursor/agents/aiwg-model-${role}-worker.md`),
-      // Efficiency uses the standard catalog pin; Cursor's `auto` is never emitted (#2649).
-      models: ['claude-4.6-opus-high-thinking', 'claude-4.6-sonnet', 'claude-4.6-sonnet'],
+      // Catalog pins from the 2026.11.13 CLI listing (#4254); efficiency is a listed model, and `auto` is never emitted (#2649).
+      models: ['claude-opus-5-thinking-high', 'gpt-5.3-codex-high', 'composer-2.5'],
     },
     {
       provider: 'factory',
