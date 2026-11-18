@@ -13,7 +13,7 @@
     "@flue/runtime": "2.3.0",
     "@flue/vite": "2.3.0",
     "@modelcontextprotocol/client": "2.3.0",
-    "hono": "4.13.13",
+    "hono": "4.13.17",
     "valibot": "1.5.0",
     "vite": "8.3.5"
   },

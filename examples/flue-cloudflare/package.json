@@ -17,7 +17,7 @@
     "@modelcontextprotocol/client": "2.3.0",
     "@cloudflare/vite-plugin": "1.65.0",
     "wrangler": "4.152.0",
-    "hono": "4.13.13",
+    "hono": "4.13.17",
     "vite": "8.3.5"
   },
   "overrides": {

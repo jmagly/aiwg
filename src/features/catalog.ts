@@ -89,8 +89,8 @@ export const FEATURE_CATALOG: FeatureDefinition[] = [
     description: 'HTTP/WebSocket server for the daemon web UI and ralph-external bridge',
     packages: ['hono', '@hono/node-server', 'ws'],
     packageSpecs: {
-      hono: '4.12.31',
-      '@hono/node-server': '2.1.5',
+      hono: '4.13.17',
+      '@hono/node-server': '2.1.6',
       ws: '8.21.1',
     },
     enables: [

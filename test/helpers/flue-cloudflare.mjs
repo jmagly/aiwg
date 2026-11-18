@@ -85,7 +85,7 @@ export async function prepareCloudflare(dependencyProject) {
 }
 
 export const cloudflareVersions = { '@flue/cli': '2.3.0', '@flue/runtime': '2.3.0', '@flue/vite': '2.3.0',
-  '@cloudflare/vite-plugin': '1.65.0', wrangler: '4.152.0', vite: '8.3.5', hono: '4.13.13', workerd: '1.20261019.1' };
+  '@cloudflare/vite-plugin': '1.65.0', wrangler: '4.152.0', vite: '8.3.5', hono: '4.13.17', workerd: '1.20261019.1' };
 export function verifyCloudflareDependencies(project) {
   const dependencies = path.resolve(project, 'node_modules');
   if (!fs.existsSync(dependencies)) throw new Error('Provision the locked examples/flue-cloudflare dependencies, or set AIWG_FLUE_CF_DEPENDENCIES. This check never installs packages.');

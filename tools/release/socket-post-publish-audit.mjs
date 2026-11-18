@@ -143,7 +143,8 @@ function normalizeEvidence(artifact, alert, component) {
     confidenceRationale: firstValue(alert.confidenceRationale, value.confidenceRationale),
     advisoryId: firstValue(alert.advisoryId, value.advisoryId, alert.cve, value.cve, alert.ghsa, value.ghsa, alert.rustsec, value.rustsec, present(props?.cveId) ? props.cveId : null, present(props?.ghsaId) ? props.ghsaId : null),
     advisoryUrl: firstValue(alert.url, value.url, alert.advisoryUrl, value.advisoryUrl, props?.url),
-    firstPatchedVersion: firstValue(alert.firstPatchedVersion, value.firstPatchedVersion, alert.fixedVersion, value.fixedVersion, props?.firstPatchedVersionIdentifier)
+    // An empty identifier means the advisory has no patched release yet.
+    firstPatchedVersion: firstValue(alert.firstPatchedVersion, value.firstPatchedVersion, alert.fixedVersion, value.fixedVersion, present(props?.firstPatchedVersionIdentifier) ? props.firstPatchedVersionIdentifier : null)
   }
 }
 
