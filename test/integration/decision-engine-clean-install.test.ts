@@ -268,7 +268,7 @@ describe('decision-engine clean install from the packed tarball', () => {
   }, 180_000);
 
   it('deploys the addon by name and runs the deployed dispatcher on the fixture request', async () => {
-    ok(aiwg(['use', 'decision-engine', '--provider', 'claude']));
+    ok(aiwg(['use', 'decision-engine', '--provider', 'claude', '--copy-all']));
     const script = path.join(consumer, SKILL, 'scripts', 'decision-evaluate.mjs');
     expect(existsSync(script)).toBe(true);
     expect(existsSync(path.join(consumer, SKILL, 'scripts', 'runtime-root.mjs'))).toBe(true);

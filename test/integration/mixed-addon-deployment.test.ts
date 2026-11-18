@@ -11,7 +11,7 @@ let projectDir: string;
 
 function context(addon: string) {
   return {
-    args: [addon, '--target', projectDir, '--provider', 'claude'],
+    args: [addon, '--copy-all', '--target', projectDir, '--provider', 'claude'],
     rawArgs: ['use', addon, '--target', projectDir, '--provider', 'claude'],
     cwd: projectDir,
     frameworkRoot: path.resolve(__dirname, '../..'),
@@ -91,7 +91,7 @@ describe('mixed agent and skill addon deployment', () => {
     expect(preview).not.toMatch(/Would (?:remove|write).*sys-(?:hardware-safety|interactive-gate)/);
     expect(preview).not.toContain('Would write ' + path.join(projectDir, '.claude/settings.json'));
     for (const file of before.keys()) expect(preview).not.toContain(`Would write ${file}`);
-    expect(preview).toContain(`Would remove ${path.join(agents, 'selected-retired.md')}`);
+    expect(preview).not.toContain(`Would remove ${path.join(agents, 'selected-retired.md')}`);
     expect(preview).not.toContain(`Would remove ${path.join(agents, 'foreign-retired.md')}`);
     cli('use', addon, '--provider', 'claude', '--quiet');
     for (const [file, bytes] of before) {
@@ -104,7 +104,7 @@ describe('mixed agent and skill addon deployment', () => {
         if (!/^RULES-(?:INDEX|ONDEMAND)\./.test(name)) expect(after.managed[name], `${file}/${name}`).toEqual(record);
       }
     }
-    expect(fs.existsSync(path.join(agents, 'selected-retired.md'))).toBe(false);
+    expect(fs.existsSync(path.join(agents, 'selected-retired.md'))).toBe(true);
     expect(fs.existsSync(path.join(agents, 'foreign-retired.md'))).toBe(true);
     const index = fs.readFileSync(path.join(rules, 'RULES-INDEX.md'), 'utf8');
     for (const name of ['sys-hardware-safety', 'sys-interactive-gate']) expect(index).toContain(name);

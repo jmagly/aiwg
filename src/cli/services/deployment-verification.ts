@@ -24,7 +24,7 @@ import {
   providerContextContract,
 } from '../../smiths/context-pipeline/workspace-context.js';
 import { USER_SCOPE_PATHS } from '../scope-resolver.js';
-import { deploymentProbeNextCommand, deploymentProbeScope } from './deployment-probe-scope.js';
+import { deploymentProbeNextCommand, deploymentProbeScope, deploymentIndexesOnly } from './deployment-probe-scope.js';
 
 export type DeploymentScope = 'project' | 'user';
 export type DeploymentOutcome =
@@ -656,7 +656,8 @@ export async function verifyProviderDeployment(
     const kernelCount = await countEntries(kernelPath);
     if (kernelPath && kernelPath !== resolvedSkillsPath) counts.skills += kernelCount;
     const artifactTotal = Object.values(counts).reduce((sum, value) => sum + value, 0);
-    if (artifactTotal === 0 && !(normalized === 'flue' && await hasFluePackageDeployment(options.projectRoot))) {
+    if (artifactTotal === 0 && !await deploymentIndexesOnly(options.projectRoot, normalized, options.requestedBundles, options.scope)
+      && !(normalized === 'flue' && await hasFluePackageDeployment(options.projectRoot))) {
       // Bridge-only providers (e.g. grokbot project scope without skills env)
       // intentionally have null native artifact dirs and land AGENTS.md instead.
       const bridgeName = definition.paths.configFile || definition.paths.contextFiles?.contextFile;

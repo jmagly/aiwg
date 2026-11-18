@@ -342,3 +342,17 @@ it('keeps historical project-local package hashes after Flue is undeclared', asy
   expect(fs.readFileSync(file, 'utf8')).toBe('deployed');
   expect(console.log).toHaveBeenCalledWith(expect.stringContaining('kept (package mode)'));
 });
+
+it('retains prior implicit copies for review when switching a framework to discovery (#4279)', async () => {
+  for (const [group, id] of [['frameworks', 'sdlc-complete'], ['addons', 'aiwg-utils'], ['extensions', 'legacy-extension']]) {
+    const dir = path.join(root, 'agentic/code', group, id); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'manifest.json'), '{}');
+  }
+  const file = skill('legacy-extension', 'legacy-copy', false, 'claude');
+  await recordBundleDeployment(root, 'sdlc', 'claude', ['--copy-all'], root);
+  await recordBundleDeployment(root, 'sdlc', 'claude', [], root);
+  const config = emptyConfig(['claude']);
+  config.installed.sdlc = { deployedTo: { claude: { copy: false, kernelOnly: true } } };
+  expect(await pruneUndeclaredBundles(root, config, 'claude', false, root)).toBe(0);
+  expect(fs.readFileSync(file, 'utf8')).toBe('deployed');
+});

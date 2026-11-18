@@ -101,6 +101,7 @@ export function voiceSetup(provider: string, fixture: ReturnType<typeof setup>) 
   const key = `voice:${provider}`;
   if (restoreBaseline(key)) return;
   fixture.command('use', 'voice-framework', '--provider', provider, '--declare');
+  fixture.command('use', 'voice-framework', '--provider', provider, '--copy-all', '--yes');
   fixture.command('use', 'voice-framework', '--provider', provider, '--yes');
   saveBaseline(key, fixture);
 }

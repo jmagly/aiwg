@@ -44,6 +44,14 @@ describe('use rule selection snapshot', () => {
     expect(Object.keys(config('all').installed).sort()).toEqual(['media-marketing-kit', 'sdlc-complete']);
   });
 
+  it('carries named discovery selections through additive passes before installation is saved', () => {
+    const before = readFileSync(configFile, 'utf8');
+    const selected = config('sdlc', ['--discovery-only']);
+    expect(selected?.installed).toEqual({ 'sdlc-complete': { source: 'bundled' } });
+    expect(readFileSync(configFile, 'utf8')).toBe(before);
+    expect(config('all', ['--discovery-only'])).toBeUndefined();
+  });
+
   it('preserves existing installation metadata and operator rule pins', () => {
     const installed = { 'sdlc-complete': { source: 'bundled', installedAt: '2026-01-01', deployedTo: { claude: { rules: 2 } } },
       marketing: { source: 'bundled' } };

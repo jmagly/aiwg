@@ -317,6 +317,7 @@ export async function deploySkills(targetDir, srcRoot, opts) {
   console.log(`Deploying skills to ${crossAgentSkillsDir} (.agents/skills — codex-scanned path)...`);
 
   const args = ['--source', srcRoot, '--target', crossAgentSkillsDir];
+  if (opts.discoveryOnly) args.push('--preserve-copies');
   // Overflow past Codex's startup listing cap lands here instead of being
   // deployed over the cap (#2561); the index still reaches these skills.
   args.push('--standard-target', path.join(targetDir, ...paths.skills.split('/').filter(Boolean)));

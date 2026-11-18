@@ -18,7 +18,7 @@ export function bundleCopyArgs(installed: AiwgConfig['installed'], id: string, p
   return [...(flags?.copy === true ? ['--copy-all'] : []), ...(flags?.skipUtils === true ? ['--no-utils'] : []),
     ...(provider === 'flue' && flags?.package === true ? ['--package'] : [])];
 }
-export async function recordBundleDeployment(project: string, id: string, provider: string, args: string[], frameworkRoot?: string): Promise<void> {
+export async function recordBundleDeployment(project: string, id: string, provider: string, args: string[], frameworkRoot?: string, previousConfig?: AiwgConfig): Promise<void> {
   const { expectedBundleOwners } = await import('./bundle-reconciliation.js');
   const { getFrameworkRoot } = await import('../../channel/manager.mjs');
   const flags = bundleDeploymentScope(id, provider, args);
@@ -28,7 +28,14 @@ export async function recordBundleDeployment(project: string, id: string, provid
   const receipt = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { scope: 'project', managed: {} };
   receipt.bundleDeployments ??= {};
   receipt.bundleDeployments[provider] ??= {};
-  receipt.bundleDeployments[provider][frameworkRegistryId(id)] = { copy: args.includes('--copy-all') || args.includes('--copy-standard-skills'), ...flags, ...(provider === 'flue' ? { package: args.includes('--package') } : {}), produces };
+  const copy = args.includes('--copy-all') || args.includes('--copy-standard-skills');
+  if (!copy) {
+    // Preserve the prior footprint until the operator reviews removal, including pre-receipt installs.
+    produces.push(...receipt.bundleDeployments[provider][frameworkRegistryId(id)]?.produces ?? []);
+    const prior = Object.entries(previousConfig?.installed ?? {}).find(([key]) => frameworkRegistryId(key) === frameworkRegistryId(id));
+    if (prior) produces.push(...await expectedBundleOwners({ installed: { [prior[0]]: prior[1] } } as AiwgConfig, provider, frameworkRoot ?? await getFrameworkRoot()));
+  }
+  receipt.bundleDeployments[provider][frameworkRegistryId(id)] = { copy, ...flags, ...(provider === 'flue' ? { package: args.includes('--package') } : {}), produces: [...new Set(produces)].sort() };
   fs.mkdirSync(path.dirname(file), { recursive: true });
   writeContextFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`);
 }
@@ -42,16 +49,16 @@ export function markBundleReconciled(project: string, id: string, provider: stri
   writeContextFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`);
 }
 
-// Local/support bundles copy physically in index mode too; only operator flags prohibit cleanup.
-export function copyCleanupArgs(args: string[]): string[] {
-  return args.includes('--copy-all') || args.includes('--copy-standard-skills') ? [] : ['--index-mode'];
+// Resolve each provider pass from explicit or recorded bundle intent.
+export function bundleProviderCopyArgs(args: string[]): string[] {
+  return args.includes('--copy-all') || args.includes('--copy-standard-skills') ? ['--copy-all'] : ['--discovery-only'];
 }
 
 // Framework passes retain a separately declared local bundle's provider mode.
 export async function projectLocalDeploymentContext(ctx: HandlerContext, project: string, id: string, provider: string, explicit: boolean): Promise<HandlerContext> {
   if (explicit) return ctx;
   const installed = (await readAiwgConfig(project))?.installed;
-  if (!installed?.[id]?.deployedTo[provider]) return ctx;
+  if (installed?.[id]?.deployedTo[provider]?.copy === undefined) return ctx;
   return { ...ctx, args: [...ctx.args.filter(arg => !['--copy-all', '--copy-standard-skills'].includes(arg)), ...bundleCopyArgs(installed, id, provider)] };
 }
 
@@ -61,7 +68,6 @@ export function projectLocalCopyMode(config: AiwgConfig, id: string, provider: s
 }
 
 // Match the effective framework gates used by the deployment pass.
-export function bundleDeploymentScope(id: string, provider: string, args: string[]) {
-  return { skipUtils: args.includes('--no-utils'), kernelOnly: id === 'all' && !['pi', 'omp'].includes(provider)
-    && !args.includes('--copy-all') && !args.includes('--copy-standard-skills') };
+export function bundleDeploymentScope(_id: string, _provider: string, args: string[]) {
+  return { skipUtils: args.includes('--no-utils'), kernelOnly: !args.includes('--copy-all') && !args.includes('--copy-standard-skills') };
 }

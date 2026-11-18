@@ -113,8 +113,8 @@ export async function emitShowCard(
     if (matches.length !== 1) throw new Error(`${matches.length ? 'Ambiguous' : 'Unknown'} heading "${heading}". Headings: ${sections.map(section => section.heading).join(', ') || '(none)'}`);
     return matches[0].text;
   });
-  const owner = normalizeIndexedPath(entry.path).match(/(?:^|\/)(?:agentic\/code|\.aiwg)\/(frameworks|addons|extensions)\/([^/]+)\//);
-  const kind = owner ? ({ frameworks: 'framework', addons: 'addon', extensions: 'extension' } as const)[owner[1] as 'frameworks' | 'addons' | 'extensions'] : null;
+  const owner = normalizeIndexedPath(entry.path).match(/(?:^|\/)(?:agentic\/code|\.aiwg)\/(frameworks|addons|extensions|plugins)\/([^/]+)\//);
+  const kind = owner ? ({ frameworks: 'framework', addons: 'addon', extensions: 'extension', plugins: 'plugin' } as const)[owner[1] as 'frameworks' | 'addons' | 'extensions' | 'plugins'] : null;
   const installed = local && (owner && aiwgRoot
     ? await isArtifactInstalled(cwd, aiwgRoot, entry, kind!, owner[2]) : true);
   const resources = local || release ? showResources(filePath, source, release) : [];
@@ -161,7 +161,7 @@ export async function emitShowCard(
       body: `${command} --body`,
     },
     ...(!installed ? { load_hint: `Read the component with \`${command} --body\`.`
-      + (owner ? ` Deploy it with \`aiwg use ${owner[2]}\`.` : '') } : {}),
+      + (owner ? ` Request provider copies with \`aiwg use ${owner[2]} --copy\`.` : '') } : {}),
     ...extra,
     ...(params.body || selected.length ? { content: params.body ? source : selected.join('\n') } : {}),
     ...(resource ? { resource: { ...resource, body: resourceBody! } } : {}),

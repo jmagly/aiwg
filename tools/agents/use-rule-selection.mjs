@@ -5,7 +5,7 @@ import { importImpl } from '../_resolve-impl.mjs';
 const { loadRulePinConfigs } = await importImpl(import.meta.url, 'rules/pins.mjs');
 
 export function useRuleSelectionConfig(cfg, srcRoot) {
-  if (!cfg.ruleSelectionMode || cfg.kernelOnly) return undefined;
+  if (!cfg.ruleSelectionMode || cfg.kernelOnly && !(cfg.discoveryOnly && cfg.ruleSelectionMode !== 'all')) return undefined;
   const root = resolveAiwgRoot(srcRoot) || srcRoot;
   const frameworks = getFrameworksForMode(root, cfg.ruleSelectionMode);
   if (!frameworks.length) return undefined;

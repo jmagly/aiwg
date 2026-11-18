@@ -119,7 +119,7 @@ describe('B3 use deployment plumbing', () => {
 
   it('uses the source package version for addon skills, rules and generated indexes (#3459)', () => {
     const cwd = path.join(scratch, 'addon');
-    const result = run(cwd, ['aiwg-utils', '--provider', 'claude', '--force', '--no-hooks', '--no-context-files']);
+    const result = run(cwd, ['aiwg-utils', '--copy-all', '--provider', 'claude', '--force', '--no-hooks', '--no-context-files']);
     expect(result.code, result.output).toBe(0);
     let markers = 0;
     for (const name of Object.keys(inventory(path.join(cwd, '.claude')))) {
@@ -144,7 +144,7 @@ describe('B3 use deployment plumbing', () => {
     writeFileSync(configPath, JSON.stringify({ version: '1', providers, installed: {}, scripts: {} }));
     const kernel = run(cwd, ['all', '--quiet']);
     expect(kernel.code, kernel.output).toBe(0);
-    const addon = run(cwd, ['decision-engine']);
+    const addon = run(cwd, ['decision-engine', '--copy-all']);
     expect(addon.code, addon.output).toBe(0);
     expect(addon.output).not.toMatch(/^\s*ERROR\s*$/m);
     expect(addon.output).not.toContain('Installed-state record is missing');

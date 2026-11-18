@@ -177,14 +177,14 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     expect(projectSkills.length).toBeLessThan(80);
     // No full-corpus dump into the standard mirror without --copy-all.
     expect(existsSync(path.join(project, '.grok', '.aiwg', 'skills'))).toBe(false);
-    // Full deployment includes ordinary roles and all five model wrappers (#2577).
+    // Default deployments expose native agent definitions through discovery.
     const projectAgents = path.join(project, '.grok', 'agents');
-    expect(existsSync(projectAgents)).toBe(true);
-    expect(readdirSync(projectAgents).filter(name => name.endsWith('.md')).length).toBeGreaterThan(5);
+    expect(existsSync(projectAgents)).toBe(false);
     for (const name of ['test-engineer', 'aiwg-model-reasoning-worker', 'aiwg-model-coding-worker', 'aiwg-model-efficiency-worker', 'aiwg-model-explorer', 'aiwg-model-verifier']) {
-      const content = readFileSync(path.join(projectAgents, `${name}.md`), 'utf8');
-      expect(content).not.toMatch(/^model:/m);
-      expect(readFileSync(path.join(grokHome, 'agents', `${name}.md`), 'utf8')).toBe(content);
+      const shown = runUse(['show', 'agent', name, '--json'], useEnv, project);
+      expect(shown.status, shown.stderr || shown.stdout).toBe(0);
+      expect(shown.json?.installed).toBe(false);
+      expect(existsSync(path.join(grokHome, 'agents', `${name}.md`))).toBe(false);
     }
     assertStartupRuleDelivery(project, 'grok-build', readFileSync(path.join(project, 'AGENTS.md'), 'utf8'), '.grok/rules');
 
@@ -271,7 +271,7 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     const removal = runRemoval(['remove', 'grok-build', '--provider', 'grok-build'], useEnv, project);
     expect(removal.status, removal.stderr).toBe(0);
     expect(existsSync(managedSkill)).toBe(false);
-    expect(readdirSync(projectAgents).filter(name => name.endsWith('.md'))).toHaveLength(0);
+    expect(existsSync(projectAgents) ? readdirSync(projectAgents).filter(name => name.endsWith('.md')) : []).toHaveLength(0);
     expect(readFileSync(operatorProjectSkill, 'utf8')).toBe('# Operator-owned project skill\n');
     expect(readFileSync(operatorUserSkill, 'utf8')).toBe('# Operator-owned user skill\n');
     expect(readFileSync(path.join(project, '.grok', 'config.toml'), 'utf8')).toBe(operatorConfig);

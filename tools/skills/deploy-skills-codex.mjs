@@ -134,6 +134,7 @@ function parseArgs(args, homeDir) {
     else if (a === '--dry-run') cfg.dryRun = true;
     else if (a === '--force') cfg.force = true;
     else if (a === '--index-mode') cfg.indexMode = true;
+    else if (a === '--preserve-copies') cfg.preserveCopies = true;
     else if (a === '--copy-all' || a === '--copy-standard-skills') cfg.copyStandardSkills = true;
     else if (a === '--listing-cap' && args[i + 1]) { cfg.listingCap = Math.max(0, Number(args[++i]) || 0); cfg.listingCapExplicit = true; }
     else if (a === '--standard-target' && args[i + 1]) cfg.standardTarget = path.resolve(args[++i]);
@@ -407,7 +408,7 @@ export async function main(args = process.argv.slice(2), internal = {}) {
   // skills can delete the kernel skills installed by the preceding full-root
   // Codex pass, leaving `.agents/skills/` empty while `aiwg use` still exits 0.
   let totalPruned = 0;
-  if ((!copyStandardSkills || cfg.indexMode) && fs.existsSync(target)) {
+  if (!cfg.preserveCopies && (!copyStandardSkills || cfg.indexMode) && fs.existsSync(target)) {
     const targetEntries = fs.readdirSync(target, { withFileTypes: true });
     for (const entry of targetEntries) {
       if (!entry.isDirectory()) continue;

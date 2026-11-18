@@ -85,8 +85,9 @@ export function preserveDeploymentOutputs(before, roots, opts = {}) {
       && !context.has(path.basename(file)) && claim.record.kind !== 'settings';
     const owners = claim?.record.owners || (claim?.record.frameworkSlug ? [claim.record.frameworkSlug] : []);
     const currentOwner = (opts.srcRoot || '').replaceAll('\\', '/').match(/(?:agentic\/code|\.aiwg)\/(?:frameworks|addons|extensions)\/([^/]+)/)?.[1] || frameworkRegistryId(opts.mode || '');
-    const copy = (opts.copyMode ?? opts.copyStandardSkills) || owners.some(owner => providerCopyMode(opts.target, opts.provider, owner, opts.config, currentOwner));
-    const retire = opts.copyMode === false && opts.retiredRuleFiles?.has(file);
+    const keepCopies = (opts.copyMode ?? opts.copyStandardSkills) && !(opts.discoveryOnly && claim?.record?.kind === 'rule');
+    const copy = keepCopies || owners.some(owner => providerCopyMode(opts.target, opts.provider, owner, opts.config, currentOwner));
+    const retire = (opts.copyMode === false || opts.discoveryOnly) && opts.retiredRuleFiles?.has(file);
     if (!(outOfScope || edited || !exists && copy && !retire) || exists && fs.readFileSync(file).equals(bytes)) continue;
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, bytes);

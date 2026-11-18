@@ -454,7 +454,7 @@ describe('@aiwg/cli packaged web distribution', () => {
     const project = path.join(tempRoot, `project-scope-${provider}`);
     await createExternalPluginProject(project);
     const deployed = await runCli([
-      'use', 'bt6-maintainer', '--provider', provider, '--scope', 'project', '--target', project,
+      'use', 'bt6-maintainer', '--provider', provider, '--scope', 'project', '--target', project, '--copy-all',
     ], project);
     expect(deployed.code, `${deployed.stdout}\n${deployed.stderr}`).toBe(0);
     expect(await listFixtureEntries(path.join(project, agentsDir))).toHaveLength(5);
@@ -473,7 +473,7 @@ describe('@aiwg/cli packaged web distribution', () => {
     const project = path.join(tempRoot, 'global-scope-project');
     await createExternalPluginProject(project);
     const deployed = await runCli([
-      'use', 'bt6-maintainer', '--provider', 'claude', '--global', '--target', project,
+      'use', 'bt6-maintainer', '--provider', 'claude', '--global', '--target', project, '--copy-all',
     ], project);
     expect(deployed.code, `${deployed.stdout}\n${deployed.stderr}`).toBe(0);
     await expect(readdir(path.join(project, '.claude', 'agents'))).rejects.toThrow();

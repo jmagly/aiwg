@@ -89,7 +89,7 @@ export function deploySkillsWithKernelRouting(
   const kernel = [];
   const standard = [];
   for (const dir of skillDirs) {
-    if (kernelDestDir && (opts?.deploySource === 'project-local' || isKernelSkill(dir))) kernel.push(dir);
+    if (kernelDestDir && ((!opts?.discoveryOnly && opts?.deploySource === 'project-local') || isKernelSkill(dir))) kernel.push(dir);
     else standard.push(dir);
   }
 

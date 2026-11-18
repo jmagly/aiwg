@@ -26,7 +26,7 @@ function bundle(id: string, platforms: Record<string, string>): void {
 }
 
 function invoke(args: string[]) {
-  const result = spawnSync(process.execPath, [join(repository, 'bin/aiwg.mjs'), ...args], {
+  const result = spawnSync(process.execPath, [join(repository, 'bin/aiwg.mjs'), ...args, ...(args[0] === 'use' ? ['--copy-all'] : [])], {
     cwd: project, env: environment, encoding: 'utf8', timeout: 90_000,
   });
   if (result.error) throw result.error;

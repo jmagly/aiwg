@@ -259,7 +259,7 @@ export const newBundleHandler: CommandHandler = {
         console.log(`     then sync search cache: aiwg index sync --graph project`);
         console.log(`     then:                   aiwg discover "${positional}"`);
       }
-      console.log(`  4. Deploy:  aiwg use ${positional}`);
+      console.log(`  4. Bundle ${indexedOk ? 'indexed' : 'created'}; run aiwg use ${positional} --copy only if you want provider copies.`);
       console.log(`  5. Inspect: aiwg doctor --project-local`);
       console.log(`  6. When mature, promote:  aiwg promote ${positional}`);
 

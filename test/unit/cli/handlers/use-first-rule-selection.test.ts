@@ -112,7 +112,7 @@ describe('first framework rule selection (#3786)', () => {
   it.each([false, true])('records no installation after a failed additive pass (existing config: %s)', async existing => {
     if (existing) await writeAiwgConfig(project, emptyConfig(['claude']));
     state.failSource = 'agentic/code/extensions/extra-extension';
-    const result = await deploy('sdlc');
+    const result = await deploy('sdlc', ['--copy-all']);
     expect(result.exitCode, result.message).not.toBe(0);
     expect(result.message).toContain('Synthetic additive deployment failure');
     expect(state.calls.some(args => args.includes(path.join(state.source, state.failSource)))).toBe(true);

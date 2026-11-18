@@ -24,7 +24,7 @@ function skill(body: string): void {
 }
 function use(provider: string) {
   const result = spawnSync(process.execPath, [join(repository, 'bin/aiwg.mjs'),
-    'use', 'repro-addon', '--provider', provider, '--verbose'], {
+    'use', 'repro-addon', '--copy-all', '--provider', provider, '--verbose'], {
     cwd: project, env: environment, encoding: 'utf8', timeout: 90_000,
   });
   if (result.error) throw result.error;

@@ -227,7 +227,7 @@ describe.skipIf(!GIT_INIT_AVAILABLE)('Provider File Locations', () => {
         // Optional addon sweeps belong to use-all-deployment, not this smoke test.
         execFileSync(
           process.execPath,
-          [path.join(REPO_ROOT, 'bin/aiwg.mjs'), 'use', 'sdlc', '--no-utils', '--provider', 'codex', '--target', projectDir],
+          [path.join(REPO_ROOT, 'bin/aiwg.mjs'), 'use', 'sdlc', '--no-utils', '--provider', 'codex', '--target', projectDir, '--copy-all'],
           { timeout: 150_000, cwd: REPO_ROOT, env, encoding: 'utf-8' }
         );
 
