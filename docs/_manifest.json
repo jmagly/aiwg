@@ -199,6 +199,7 @@
     "references/REF-003-agentic-development-antipatterns",
     "references/REF-066-mcp-specification-2025",
     "releases",
+    "releases/v2026.11.8-announcement",
     "releases/v2026.11.7-announcement",
     "releases/v2026.11.6-announcement",
     "releases/v2026.11.5-announcement",
@@ -1708,6 +1709,13 @@
       "title": "Releases",
       "summary": "Release notes and changelog",
       "collapsed": true
+    },
+    {
+      "id": "releases/v2026.11.8-announcement",
+      "title": "v2026.11.8 — Cursor as a Worker and Steadier Setup",
+      "summary": "Hand work to Cursor alongside Codex and Muse, catch worker setup problems before dispatch, look skills up before reading files, and fix several setup issues across Claude, Codex and OpenClaw.",
+      "file": "releases/v2026.11.8-announcement.md",
+      "parent": "releases"
     },
     {
       "id": "releases/v2026.11.7-announcement",
