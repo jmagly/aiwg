@@ -41,3 +41,6 @@ export function getSource(source: MarketplaceSourceId): MarketplaceSource {
 export function listRegisteredSources(): MarketplaceSourceId[] {
   return Array.from(adapters.keys());
 }
+
+// Discovery-only sources share this registry; installing them is outside search's scope.
+export { publicSearchAdapters as marketplaceSearchAdapters } from './sources/public-search.js';

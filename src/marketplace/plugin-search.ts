@@ -1,17 +1,19 @@
-// Read provider-owned plugin manifests and caches without fetching or changing state.
+// Search local provider data and opt-in public snapshots through one ranking contract.
+import { appendPublicSearch, rankPluginResults, REFRESH_COMMAND, type PublicSearchOptions } from './public-search.js';
+import type { SearchSignal, SearchSourceId } from './types.js';
 import { normalizeDirectoryListing, pluginRepository, repositoryKey } from './plugin-directory.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
 type RecordValue = Record<string, unknown>;
-export interface Signal<T> { value: T | null; asOf: string | null }
+export interface Signal<T> { value: T | null; asOf: string | null; source?: string }
 export interface PluginSearchResult {
   id: string;
   name: string;
   marketplace: string | null;
   repository: string | null;
-  provider: 'claude';
+  provider: 'claude' | SearchSourceId;
   description: string;
   category: string | null;
   keywords: string[];
@@ -20,13 +22,15 @@ export interface PluginSearchResult {
   installs: Signal<number>;
   review: Signal<'anthropic' | 'partner' | 'none'>;
   matchedTerms: string[];
-  installSkill: 'install-plugin';
+  signals?: Record<string, SearchSignal>;
+  installSkill: 'install-plugin' | null;
   installHelp: string;
 }
 export interface PluginSearchReport {
   query: string;
   marketplaces: { name: string; provider: string; manifest: string; asOf: string | null }[];
   results: PluginSearchResult[];
+  coverage: { source: string; status: 'searched' | 'skipped'; mode: 'local' | 'cache' | 'refresh' | 'none'; reason: string; asOf: string | null }[];
   warnings: string[];
   ranking: string;
 }
@@ -53,12 +57,21 @@ export function searchProviderPlugins(query: string, options: {
   if (!Number.isFinite(maxAgeDays) || maxAgeDays < 0) throw new Error('--max-age-days must be a non-negative number');
   const report: PluginSearchReport = {
     query, marketplaces: [], results: [], warnings: [],
-    ranking: 'Matched terms, review tier (anthropic > partner > none/unknown), installs, cache date; descending. Signals are observations, not ratings or capability measurements.',
+    coverage: [
+      { source: 'codex', status: 'skipped', mode: 'none', asOf: null, reason: 'Local manifest contract deferred (#783)' },
+      ...['cursor', 'clawhub', 'hermes', 'pulsemcp', 'glama', 'docker-mcp'].map(source => ({
+        source, status: 'skipped' as const, mode: 'none' as const, asOf: null, reason: 'Public search adapter not implemented',
+      })),
+    ],
+    ranking: 'Matched terms, review tier (anthropic > partner > none/unknown), installs, cache date; descending. Stars, versions and other signals are displayed separately, never treated as installs or review tiers. Signals are observations, not ratings or capability measurements.',
   };
   const provider = options.provider ?? 'all';
   if (!['all', 'claude', 'codex'].includes(provider)) throw new Error('Plugin search supports --provider all, claude or codex');
-  if (provider !== 'claude') report.warnings.push('Codex marketplace.json search deferred pending a stable local manifest/configuration contract (#783). Other provider formats are not yet supported.');
-  if (provider === 'codex') return report;
+  if (provider !== 'claude') report.warnings.push('Codex marketplace.json search deferred pending a stable local manifest/configuration contract (#783). See source coverage for public adapters and skipped provider formats.');
+  if (provider === 'codex') {
+    report.coverage.push({ source: 'claude', status: 'skipped', mode: 'none', asOf: null, reason: 'Excluded by --provider codex' });
+    return report;
+  }
   const base = path.join(options.claudeConfigDir ?? process.env.CLAUDE_CONFIG_DIR
     ?? path.join(options.home ?? os.homedir(), '.claude'), 'plugins');
   const now = options.now ?? Date.now();
@@ -78,7 +91,7 @@ export function searchProviderPlugins(query: string, options: {
     if (!timestamp) report.warnings.push(`Cache date unknown: ${file}`);
     else if (Date.parse(timestamp) > now) report.warnings.push(`Cache date is in the future: ${file} (as of ${timestamp})`);
     else if (now - Date.parse(timestamp) > maxAgeDays * 86_400_000) {
-      report.warnings.push(`Stale cache: ${file} (as of ${timestamp}; maximum age ${maxAgeDays} days)`);
+      report.warnings.push(`Stale cache: ${file} (as of ${timestamp}; maximum age ${maxAgeDays} days); run ${REFRESH_COMMAND}. Claude provider-owned caches require a refresh through Claude`);
     }
   }
   const results = new Map<string, PluginSearchResult>();
@@ -107,7 +120,7 @@ export function searchProviderPlugins(query: string, options: {
       sources: [...new Set([...(previous?.sources ?? []), source])],
       cacheAsOf: observedAt ?? previous?.cacheAsOf ?? null,
       installs: previous?.installs ?? { value: null, asOf: null },
-      review: review ? { value: review, asOf: observedAt } : previous?.review ?? { value: null, asOf: null },
+      review: review ? { value: review, asOf: observedAt, source } : previous?.review ?? { value: null, asOf: null },
       matchedTerms: [], installSkill: 'install-plugin',
       installHelp: 'aiwg show skill install-plugin',
     });
@@ -156,21 +169,23 @@ export function searchProviderPlugins(query: string, options: {
       const result = results.get(id);
       const installs = entry.unique_installs;
       if (result && typeof installs === 'number' && Number.isSafeInteger(installs) && installs >= 0) {
-        result.installs = { value: installs, asOf: asOf(entry) ?? timestamp };
+        result.installs = { value: installs, asOf: asOf(entry) ?? timestamp, source: countsFile };
       }
     }
   }
-  const terms = [...new Set(query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])];
-  const tier = (result: PluginSearchResult): number => ({ anthropic: 2, partner: 1, none: 0 })[result.review.value ?? 'none'];
-  report.results = [...results.values()].filter(result => {
-    const text = [result.name, result.description, result.category, ...result.keywords].join(' ').toLowerCase();
-    result.matchedTerms = terms.filter(term => text.includes(term));
-    return terms.length > 0 && result.matchedTerms.length > 0;
-  }).sort((a, b) => b.matchedTerms.length - a.matchedTerms.length || tier(b) - tier(a)
-    || (b.installs.value ?? -1) - (a.installs.value ?? -1)
-    || Date.parse(b.cacheAsOf ?? '1970-01-01') - Date.parse(a.cacheAsOf ?? '1970-01-01')
-    || a.id.localeCompare(b.id));
+  report.results = [...results.values()];
+  rankPluginResults(report);
+  report.coverage.push({ source: 'claude', status: registry || directory ? 'searched' : 'skipped', mode: 'local', asOf: null,
+    reason: registry || directory ? 'Local configured manifests and directory cache only; see marketplaces and warnings for unavailable files' : 'No local manifests or directory cache' });
   if (!registry && !directory) report.warnings.push('No local Claude marketplace manifests or directory cache found; nothing was fetched.');
+  return report;
+}
+
+export async function searchMarketplacePlugins(query: string, options: PublicSearchOptions = {}): Promise<PluginSearchReport> {
+  const report = searchProviderPlugins(query, options);
+  if (options.refresh) report.warnings = report.warnings.filter(warning => !warning.includes('nothing was fetched'));
+  await appendPublicSearch(report, options);
+  rankPluginResults(report);
   return report;
 }
 
@@ -181,10 +196,17 @@ export function formatPluginSearch(report: PluginSearchReport): string {
     'Plugin / ID | Marketplace | Installs (as of) | Review (as of) | Cache as of | Description'];
   for (const result of report.results) lines.push([
     clean(result.marketplace ? result.id : `${result.name} / ${result.id}`), clean(result.marketplace ?? 'unknown'),
-    `${result.installs.value ?? 'unknown'} (${result.installs.asOf ?? 'unknown'})`,
-    `${result.review.value ?? 'unknown'} (${result.review.asOf ?? 'unknown'})`, result.cacheAsOf ?? 'unknown', clean(result.description),
+    `${result.installs.value ?? 'unknown'} (${result.installs.asOf ?? 'unknown'}; source ${clean(result.installs.source ?? 'unknown')})`,
+    `${result.review.value ?? 'unknown'} (${result.review.asOf ?? 'unknown'}; source ${clean(result.review.source ?? 'unknown')})`, result.cacheAsOf ?? 'unknown', clean(result.description),
   ].join(' | '));
   if (!report.results.length) lines.push('No results found.');
-  lines.push(report.ranking, 'Installation guidance for a selected ID: aiwg show skill install-plugin');
+  lines.push('Source coverage:');
+  for (const source of report.coverage) lines.push(`${clean(source.source)}: ${source.status} (${source.mode}, as of ${source.asOf ?? 'unknown'}): ${clean(source.reason)}`);
+  for (const result of report.results) {
+    for (const [name, signal] of Object.entries(result.signals ?? {})) {
+      lines.push(`${clean(result.id)} ${clean(name)}: ${clean(String(signal.value ?? 'unknown'))} (as of ${signal.asOf ?? 'unknown'}; source ${clean(signal.source)})`);
+    }
+  }
+  lines.push(report.ranking, 'Installation guidance for a selected Claude ID: aiwg show skill install-plugin. Public results: consult the source.');
   return lines.join('\n');
 }

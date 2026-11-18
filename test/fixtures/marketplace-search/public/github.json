@@ -1,0 +1,23 @@
+{
+  "total_count": 2,
+  "incomplete_results": false,
+  "items": [
+    {
+      "full_name": "example/social-tools",
+      "description": "Social media automation skills and MCP tools",
+      "html_url": "https://github.com/example/social-tools",
+      "stargazers_count": 42,
+      "license": { "spdx_id": "MIT" },
+      "pushed_at": "2026-11-16T10:00:00Z",
+      "topics": ["social", "media", "skills"]
+    },
+    {
+      "full_name": "example/unknown-social",
+      "description": "Social media experiments",
+      "stargazers_count": -1,
+      "license": null,
+      "pushed_at": "invalid",
+      "topics": []
+    }
+  ]
+}
