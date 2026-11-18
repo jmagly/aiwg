@@ -1,0 +1,7 @@
+apiVersion: workspace.aiwg.io/v1
+kind: WorkspaceSpec
+metadata:
+  name: aiwg-workspace
+repos:
+  - name: aiwg.io
+    path: repos/aiwg.io

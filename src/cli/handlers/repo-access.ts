@@ -2,10 +2,12 @@ import type { CommandHandler, HandlerContext, HandlerResult } from './types.js';
 import {
   checkRepoAccess,
   findRepoEntry,
+  findRepoAccessManifest,
   formatRepoAccessEntry,
   loadRepoAccessManifest,
   type RepoAccessAction,
 } from '../../policy/repo-access.js';
+import { workspaceSpecEdit, WORKSPACE_SPEC_PATH } from '../../policy/repo-access-workspace-spec.js';
 import { resolveWorkspace } from '../../config/workspace.js';
 import {
   getProjectDir,
@@ -39,6 +41,7 @@ function usage(): string {
 
   Manifest:
     .aiwg/aiwg.config workspace + repos blocks (preferred)
+    config/workspace.yaml + config/repository-routing.yaml (itops)
     .aiwg/ops/security/repo-access.manifest.yaml
     .aiwg/security/repo-access.manifest.yaml (fallback)
 `;
@@ -78,6 +81,10 @@ async function addRepo(ctx: HandlerContext, args: string[]): Promise<HandlerResu
   }
 
   const projectDir = getProjectDir(ctx, args);
+  const manifestPath = findRepoAccessManifest(projectDir);
+  if (manifestPath?.replace(/\\/g, '/').endsWith(`/${WORKSPACE_SPEC_PATH}`)) {
+    return { exitCode: 2, message: workspaceSpecEdit(manifestPath, name, nodePath.resolve(projectDir, repoPath), allowed) };
+  }
   const config = await readAiwgConfig(projectDir);
   if (!config) return { exitCode: 2, message: `No .aiwg/aiwg.config found in ${projectDir}` };
 
@@ -107,6 +114,10 @@ async function removeRepo(ctx: HandlerContext, args: string[]): Promise<HandlerR
   if (!name) return { exitCode: 2, message: 'repo-access remove requires --name <name>' };
 
   const projectDir = getProjectDir(ctx, args);
+  const manifestPath = findRepoAccessManifest(projectDir);
+  if (manifestPath?.replace(/\\/g, '/').endsWith(`/${WORKSPACE_SPEC_PATH}`)) {
+    return { exitCode: 2, message: workspaceSpecEdit(manifestPath, name) };
+  }
   const config = await readAiwgConfig(projectDir);
   if (!config) return { exitCode: 2, message: `No .aiwg/aiwg.config found in ${projectDir}` };
 
@@ -145,6 +156,9 @@ async function auditRepos(ctx: HandlerContext, args: string[]): Promise<HandlerR
   let children: string[] = [];
   try {
     children = readdirSync(root);
+    if (manifest?.source === 'workspace-spec' && existsSync(nodePath.join(root, 'repos'))) {
+      children.push(...readdirSync(nodePath.join(root, 'repos')).map(child => nodePath.join('repos', child)));
+    }
   } catch {
     return { exitCode: 2, message: `Cannot read workspace root: ${root}` };
   }
@@ -187,7 +201,7 @@ async function handleRepoAccess(ctx: HandlerContext): Promise<HandlerResult> {
     return { exitCode: 0 };
   }
 
-  // add/remove write .aiwg/aiwg.config directly and must work before any manifest
+  // Canonical add/remove must work before any manifest
   // exists — registering the first repo is exactly the bootstrap case (#2531).
   if (subcommand === 'add') return await addRepo(ctx, args);
   if (subcommand === 'remove') return await removeRepo(ctx, args);

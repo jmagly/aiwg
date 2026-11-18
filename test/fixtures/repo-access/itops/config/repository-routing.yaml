@@ -1,0 +1,6 @@
+repositories:
+  - name: aiwg.io
+    path: repos/aiwg.io
+  - name: docs
+    path: repos/docs
+    allowed: [read]

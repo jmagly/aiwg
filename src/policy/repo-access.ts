@@ -7,6 +7,7 @@ import {
   type WorkspaceRepoAction,
 } from '../config/aiwg-config.js';
 import { resolveProjectAiwgDir } from '../config/project-artifacts.js';
+import { mergeSpecRepos, readWorkspaceSpec, workspaceSpecPath, WORKSPACE_SPEC_PATH } from './repo-access-workspace-spec.js';
 
 export const REPO_ACCESS_MANIFEST_PATHS = [
   '.aiwg/ops/security/repo-access.manifest.yaml',
@@ -30,7 +31,7 @@ export interface RepoAccessEntry {
 export interface RepoAccessManifest {
   version: string;
   path: string;
-  source: 'workspace-config' | 'legacy-manifest';
+  source: 'workspace-config' | 'workspace-spec' | 'legacy-manifest';
   /** Repository containing the workspace config (before workspace.root). */
   workspaceProjectRoot: string;
   projectRoot: string;
@@ -55,6 +56,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function findProjectRootFromManifest(manifestPath: string): string {
   const normalized = manifestPath.replace(/\\/g, '/');
+  if (normalized.endsWith('/config/workspace.yaml')) return resolve(dirname(manifestPath), '..');
   if (normalized.endsWith('/.aiwg/aiwg.config')) {
     return resolve(dirname(manifestPath), '..');
   }
@@ -80,6 +82,8 @@ export function findRepoAccessManifest(startDir = process.cwd()): string | null 
       const parsed = JSON.parse(readFileSync(explicitConfig, 'utf8')) as Record<string, unknown>;
       if (Array.isArray(parsed.repos)) return explicitConfig;
     }
+    const spec = workspaceSpecPath(expanded);
+    if (spec) return spec;
   }
 
   let current = resolve(startDir);
@@ -104,6 +108,8 @@ export function findRepoAccessManifest(startDir = process.cwd()): string | null 
             const parent = JSON.parse(readFileSync(parentConfig, 'utf8')) as Record<string, unknown>;
             if (Array.isArray(parent.repos)) return parentConfig;
           }
+          const spec = workspaceSpecPath(workspaceRoot);
+          if (spec) return spec;
         }
       } catch {
         // Fail closed: a malformed nearer config must not silently fall through
@@ -111,6 +117,8 @@ export function findRepoAccessManifest(startDir = process.cwd()): string | null 
         return workspaceConfig;
       }
     }
+    const spec = workspaceSpecPath(current);
+    if (spec) return spec;
     for (const manifestRel of REPO_ACCESS_MANIFEST_PATHS) {
       const candidate = resolve(current, manifestRel);
       if (existsSync(candidate)) return candidate;
@@ -161,11 +169,21 @@ export function loadRepoAccessManifest(startDir = process.cwd()): RepoAccessMani
   if (!manifestPath) {
     throw new Error(
       'Repo access manifest not found. Expected .aiwg/aiwg.config workspace + repos blocks (canonical). '
+      + `Itops workspace source: ${WORKSPACE_SPEC_PATH} + config/repository-routing.yaml. `
       + `Legacy compatibility fallbacks: ${REPO_ACCESS_MANIFEST_PATHS.join(' or ')}. `
       + 'Register a repo with aiwg repo-access add --path <repo-or-file> --name <name> --allow read,write.'
     );
   }
   const workspaceProjectRoot = findProjectRootFromManifest(manifestPath);
+  if (manifestPath.replace(/\\/g, '/').endsWith(`/${WORKSPACE_SPEC_PATH}`)) {
+    const spec = readWorkspaceSpec(manifestPath);
+    return {
+      version: '1', path: manifestPath, source: 'workspace-spec',
+      workspaceProjectRoot, projectRoot: workspaceProjectRoot,
+      workspaceName: spec.workspaceName, defaultPolicy: 'deny',
+      repos: mergeSpecRepos(spec.repos.map((entry, index) => normalizeRepoEntry(entry, index, workspaceProjectRoot))),
+    };
+  }
   const isWorkspaceConfig = manifestPath.endsWith('/.aiwg/aiwg.config')
     || manifestPath.endsWith('\\.aiwg\\aiwg.config');
   const raw = isWorkspaceConfig
