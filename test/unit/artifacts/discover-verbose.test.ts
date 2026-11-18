@@ -31,6 +31,15 @@ const entry = (overrides: Partial<MetadataEntry>): MetadataEntry => ({
 });
 
 describe('verbose discovery confidence (#3952)', () => {
+  const issueQueries = fs.readFileSync(path.join(repoRoot, 'test/fixtures/artifacts/discovery-relevance.jsonl'), 'utf8')
+    .trim().split('\n').map(line => JSON.parse(line)).filter(row => row.id.startsWith('4283-'));
+  it.each(issueQueries)('$id: finds issue filing in the shipped corpus', async ({ query }) => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await discoverCapability(tmp, { phrase: query, noBuild: true, json: true, limit: 3, offline: true });
+    const results = JSON.parse(String(log.mock.calls.at(-1)?.[0])).results;
+    expect(results.map((row: { name: string }) => row.name)).toContain('aiwg-issue');
+  });
+
   it('finds named UX agents without path activation for the offline slash-query repro (#4082)', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     await discoverCapability(tmp, {

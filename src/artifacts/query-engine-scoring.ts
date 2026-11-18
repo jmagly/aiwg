@@ -2,6 +2,7 @@
 import { diagnoseFacetActivations } from './discover-facets.js';
 import { matchTemplateOutputKind } from './template-output-kind.js';
 import { verboseQueryProfile } from './query-engine-verbose.js';
+import { skillNameIntent } from './query-engine-name-intent.js';
 import type { MetadataEntry } from './types.js';
 
 export function containsTokenSequence(haystack: string[], needle: string[]): boolean {
@@ -31,14 +32,8 @@ export function containsTokenSequence(haystack: string[], needle: string[]): boo
 //      ceil(n/2), so a verbose query raises the bar above what the genuinely
 //      relevant short-match artifact can clear, and the (hits/n) term dilutes
 //      every score. Dropping filler collapses the query to its content tokens.
-//   2. AIWG meta-type nouns ('aiwg', 'skill', 'agent', 'command', 'rule',
-//      'flow', 'workflow') — in a discover query these carry zero discriminating
-//      signal (every result IS an aiwg skill/agent/…; the TYPE is filtered via
-//      --type). The content word after them is what matters
-//      ("…skill that handles >intake forms<"). Keeping them surfaces incidental
-//      junk matches (any artifact mentioning "skill"/"aiwg") above the real one.
-// Only the query is tokenized here — entry fields are substring-matched — so this
-// never changes what text an artifact exposes, only how the query is reduced.
+//   2. AIWG meta-type nouns are incidental in general field matching.
+//      Compound skill-name intent separately preserves discriminating AIWG names.
 export const SCORE_STOPWORDS = new Set([
   // articles / conjunctions / prepositions / copula
   'the', 'a', 'an', 'and', 'or', 'of', 'for', 'to', 'in', 'on',
@@ -372,6 +367,13 @@ export function scoreEntryDetailed(
         }
       }
     }
+  }
+
+  const nameIntent = entry.type === 'skill' && entry.name ? skillNameIntent(entry.name, text, tokenize) : [];
+  if (nameIntent.length && (!verbose || verbose.weight(nameIntent.filter(token => tokens.includes(token))) === 1)) {
+    matches.push({ field: 'name', match: 'token-overlap', value: entry.name, contribution: 1.0006,
+      matched_tokens: nameIntent, query_token_coverage: nameIntent.filter(token => tokens.includes(token)).length / Math.max(1, tokens.length) });
+    return finish(1.0006, 1.0006);
   }
 
   // Capability description (2x weight) — full phrase first, then tokens

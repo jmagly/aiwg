@@ -1,0 +1,20 @@
+{
+  "skills": [
+    { "name": "post-scorer", "title": "Post Scorer", "description": "Score a LinkedIn post. Use for score my post or review my post." },
+    { "name": "seo-audit", "title": "SEO Audit", "description": "Diagnose technical search engine optimization issues." }
+  ],
+  "queries": [
+    { "query": "score a social media post before publishing", "expected": "post-scorer" },
+    { "query": "seo audit for a docs site", "expected": "seo-audit" }
+  ],
+  "competitors": [
+    { "name": "social-media-post", "title": "Social Media Post Template", "type": "template", "description": "Score a social media post before publishing." },
+    { "name": "skill-quality-rubric", "title": "SKILL.md quality rubric", "type": "skill", "description": "Score a social media post before publishing." },
+    { "name": "quality-review", "title": "Quality Review", "type": "skill", "description": "Score a social media post before publishing." },
+    { "name": "publication-review", "title": "Publication Review", "type": "skill", "description": "Score a social media post before publishing." },
+    { "name": "social-media-specialist", "title": "Social Media Specialist", "type": "agent", "description": "Score social media posts before publishing." },
+    { "name": "generated-docs-audit", "title": "Generated Docs Audit", "type": "skill", "description": "SEO audit for a docs site." },
+    { "name": "doc-consolidate", "title": "Doc Consolidate", "type": "skill", "description": "SEO audit for a docs site." },
+    { "name": "site-architecture", "title": "Site Architecture", "type": "skill", "description": "SEO audit for a docs site." }
+  ]
+}
