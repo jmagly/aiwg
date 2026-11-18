@@ -67,6 +67,24 @@ describe('Socket post-publish audit', () => {
     expect(result.status).toBe('pass')
   })
 
+  it('treats an empty firstPatchedVersionIdentifier as no fix available, so a reviewed CVE without a fix passes', () => {
+    const glob = { purl: 'pkg:npm/picomatch@4.0.7', depth: 'transitive' }
+    const alert = { type: 'cve', severity: 'high', props: { cveId: 'CVE-2026-112366', ghsaId: 'GHSA-fc5q-39xc-vjpf',
+      url: 'https://github.com/advisories/GHSA-fc5q-39xc-vjpf', firstPatchedVersionIdentifier: '' } }
+    const artifacts = [...rootsWith(), { inputPurl: glob.purl, name: 'picomatch', version: '4.0.7', alerts: [alert] }]
+    const unreviewed = evaluateSocketArtifacts({ artifacts, baseline, components: [...roots, glob], now: new Date('2026-11-18T00:00:00Z') })
+    expect(unreviewed.findings.blocking[0].evidenceErrors).toEqual([])
+    expect(unreviewed.findings.blocking[0].evidence.firstPatchedVersion).toBeNull()
+    expect(unreviewed.status).toBe('fail')
+    const accepted = { ...baseline, reviewedCapabilityAlerts: [...baseline.reviewedCapabilityAlerts, {
+      package: 'picomatch', depth: 'transitive', type: 'cve', classification: 'accepted-risk',
+      rationale: 'build-tool glob patterns only; no upstream fix', owner: 'maintainers', reviewedOn: '2026-11-18', expiresOn: '2026-12-18', reviewedVersion: '4.0.7'
+    }] }
+    const result = evaluateSocketArtifacts({ artifacts, baseline: accepted, components: [...roots, glob], now: new Date('2026-11-18T00:00:00Z') })
+    expect(result.findings.blocking).toEqual([])
+    expect(result.status).toBe('pass')
+  })
+
   it('fails on material category regression', () => {
     const result = evaluateSocketArtifacts({ artifacts: rootsWith([], { ...scores, supplyChain: 0.46 }), baseline, components: roots, now: new Date('2026-08-14T00:00:00Z') })
     expect(result.status).toBe('fail')

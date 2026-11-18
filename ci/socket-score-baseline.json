@@ -236,6 +236,19 @@
       "issue": "roctinam/aiwg#3577"
     },
     {
+      "package": "picomatch",
+      "depth": "transitive",
+      "type": "cve",
+      "classification": "accepted-risk",
+      "rationale": "GHSA-fc5q-39xc-vjpf / CVE-2026-112366 (ReDoS via attacker-supplied single-branch repeated extglob patterns) in picomatch 4.0.7, the latest release; no patched version is published (upstream fix micromatch/picomatch#194 is unreleased). AIWG reaches picomatch only through build and test tooling (vitest, vite, tinyglobby, @flue/vite in the Flue examples), where glob patterns come from project configuration, never from untrusted input; the published packages do not depend on it.",
+      "owner": "AIWG maintainers",
+      "reviewedOn": "2026-11-18",
+      "expiresOn": "2026-12-18",
+      "revalidateWhen": "picomatch publishes a patched release (bump immediately), or AIWG passes user-supplied glob patterns to picomatch at runtime.",
+      "reviewedVersion": "4.0.7",
+      "issue": "roctinam/aiwg#4292"
+    },
+    {
       "package": "@modelcontextprotocol/client",
       "depth": "transitive",
       "type": "cve",
