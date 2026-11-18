@@ -13,6 +13,45 @@ policy.
 
 ## Complete workflow
 
+### Import a repository as an index-only project addon
+
+Use the existing `skills import` command to collect a repository's
+`skills/*/SKILL.md` trees into `.aiwg/addons/<addon>/`:
+
+```bash
+aiwg skills import ./marketingskills --into community-marketing --ref <commit> --dry-run
+aiwg skills import ./marketingskills --into community-marketing --ref <commit>
+aiwg skills import ./social-media-skills --into community-marketing --ref <commit>
+aiwg skills import --refresh community-marketing --dry-run
+aiwg skills import --refresh community-marketing
+```
+
+Sources may be public, credential-free Git URLs or local Git repositories.
+Local imports read committed content, including root licenses; uncommitted
+files are omitted. Omit `--ref` to resolve HEAD once and record its full commit
+ID. `--only 'social-*'` selects skill directory names (or `skills/<name>`).
+Imports append to an existing addon and list every skill in its manifest.
+
+Preflight prints collision rename proposals, scripts/binaries, dangling local
+references, and added/modified/removed file paths before project writes.
+Collisions use a repository-prefixed local name, retained in `upstream.renames`;
+only the skill directory and frontmatter name change. References in the body
+are retained for review. Tests, tooling, scripts directories, and dependencies
+are excluded. Script files outside those directories are copied as inert
+bytes and reported. Imported scripts are never executed.
+
+Root `LICENSE*`, `COPYING*`, and `NOTICE*` files are preserved under
+`licenses/<repository-key>/`. Missing root licenses, unsafe trees, or invalid
+skill metadata stop the import. The project index and its Fortemi discovery
+cache are refreshed automatically; skills remain `installed: false` until an
+explicit deployment. This mode never writes provider directories.
+
+Refresh reads the recorded commits and reapplies saved selections and renames.
+Use its dry-run diff to review restoration of changed or deleted local skill
+files. For an addon with one upstream, `--ref <revision>` explicitly repins that
+source while retaining the selected skill names. Other addon files are kept.
+`--json` emits a preflight JSON record followed by a result record (JSONL).
+
 Portable AIWG source skills use `platforms: [all]`, so explicit copies also
 work with newly added providers. Enumerate providers only when a skill
 requires a specific native tool, and document that dependency in its body.
