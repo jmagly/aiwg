@@ -1637,7 +1637,7 @@ See [cross-platform overview](docs/integrations/cross-platform-overview.md) for 
 |---|---|---|---|---|
 | Claude Code | `aiwg use all --provider claude` | `CLAUDE.md` | Skills, commands, hooks, MCP config | Best fit for rich AIWG provider packaging. See [Claude quickstart](docs/integrations/claude-code-quickstart.md). |
 | Codex | `aiwg use all --provider codex` | `AGENTS.md` | Global prompts, project skills, MCP config | Uses AGENTS.md bootstrap plus `.agents/skills/`. See [Codex quickstart](docs/integrations/codex-quickstart.md). |
-| Cursor | `aiwg use all --provider cursor` | Rules and skills | `.cursor/rules/*.mdc`, `.cursor/skills/*/SKILL.md` | Cursor rules are native; some assets remain conventional. See [Cursor quickstart](docs/integrations/cursor-quickstart.md). |
+| Cursor | `aiwg use all --provider cursor` | Rules and skills | `.cursor/rules/*.mdc`, `.cursor/skills/*/SKILL.md`, `.cursor/hooks.json` | Cursor rules are native; the prompt-discovery hook runs where Cursor runs project hooks. Cursor can also be a direct worker alongside Codex and Muse. See [Cursor quickstart](docs/integrations/cursor-quickstart.md). |
 | OpenCode | `aiwg use all --provider opencode` | Agent/rule context | Provider-local agents, commands, rules | Good for lightweight terminal workflows. |
 | GitHub Copilot | `aiwg use all --provider copilot` | `.github` assets | Prompts, instructions, agents, MCP config | Uses `.github/prompts/*.prompt.md`, `.github/instructions/*.instructions.md`, and `.github/agents/*.agent.md`. |
 | Devin Desktop | `aiwg use all --provider devin` | `AGENTS.md` | Rules and workflows | Formerly Windsurf; `windsurf` remains the provider id and `devin` is its alias. See [quickstart](docs/integrations/windsurf-quickstart.md). |

@@ -7,6 +7,42 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+## [2026.11.8] - 2026-11-17
+
+### Added
+
+- Cursor Agent is a qualified direct worker alongside Codex and Muse. Worker qualification runs `cursor-agent --list-models` through the bounded runner, approves only exact listed models (never `auto`), and `aiwg models refresh` caches the result. Context limits come from trusted sources only: a display name with a standalone `1M` token, or an operator-declared `parallelism.clis.<cli>.modelLimits` entry in the governed config schema, which overrides the name; with neither, resolution refuses and names the key to set. Cursor's bundled direct-shell renderer is trusted like Codex's under a strict exact-argv check (native sandbox, never-approval, exact model, absolute workspace). A live AIWG worker hand-off on CLI 2026.11.13 wrote its artifact and a strict workerClaims final at the declared path (#2903, #3005, PR #4254, PR #4255, PR #4256).
+
+- `aiwg use all --provider cursor` installs the prompt-discovery hook in `.cursor/hooks.json` under `beforeSubmitPrompt`, answering with `continue` and `additional_context` kept under 600 characters; operator hooks are preserved and `aiwg refresh` reports missing registrations and missing, stale or edited scripts. Headless `cursor-agent -p` (CLI 2026.11.13) does not run project hooks, so headless runs rely on the deployed rules, which still put discovery first (#4251, PR #4275).
+
+### Changed
+
+- Generated bootstrap guidance (the agents bridge, the workspace context header, the rules index and Codex/Muse rule hooks) tells harnesses to run `aiwg discover` as the first information-gathering call on every new directive, before the project and framework context, and states that this order does not change policy precedence. It also says never to open `.agents/skills/**` or `agentic/code/**` for AIWG lookup, including a discovered skill's mirror file or a template, and to use `aiwg show` and its drill-ins instead. In a live check from a fresh deploy, Codex, Muse and Antigravity each started with `aiwg discover` and loaded skills through `aiwg show` (#4234, #4235, PR #4273).
+
+- Cursor's catalog roles use the models the 2026.11.13 CLI lists (reasoning `claude-opus-5-thinking-high`, coding `gpt-5.3-codex-high`, efficiency `composer-2.5`), rendered as `--model <id>`; the bracketed effort form is no longer emitted (#2903, PR #4254, PR #4265, PR #4286).
+
+- On the outbound maintainer-comment surface, threat assessment treats a sentence that names a context or workflow file as descriptive unless it requests an action on that file, so ordinary bug reports about those files are no longer held for authorization. Inbound issue text is assessed as before (#4253, PR #4277).
+
+### Fixed
+
+- A global Claude deploy no longer injects the discovery context twice per prompt: the user-scope prompt-discovery loader steps aside when the current project registers its own, whichever was installed first, and `aiwg workspace-context doctor` reports `duplicate-prompt-hook` (#4257, PR #4267).
+
+- `aiwg refresh` rewrites existing AIWG-managed relative user hooks (Claude and Muse) left by installs before #4037 to anchored commands, with a backup. It refuses to touch an operator-edited script and reports that as a warning without aborting the refresh (#4258, PR #4267).
+
+- The workspace-context walk prunes nested `.aiwg/.index`, fixture and template trees, so multi-repo workspaces no longer exhaust its directory budget and hide findings; when it stops early it names the limit, the folder and the busiest subtree (#4259, PR #4266).
+
+- Duplicate-directive warnings ignore Markdown structure and canonical bridge lines and only compare sources that share a load scope, so independent sibling repositories no longer trigger them (#4263, PR #4266).
+
+- `aiwg doctor --probe-workers` reports worker groups missing from `models.json` role guidance (blocking) and declared CLIs no group uses, each with the exact edit, and `aiwg models resolve` names the key to add. A qualification invalidated by a config change is reported with the requalify command instead of being skipped silently, and `aiwg config set parallelism.*` prints that command when routing or qualification inputs change (#4261, #4262, PR #4268).
+
+- OpenClaw project deploys place the AIWG agents bridge and steward identity at the project root on first and repeat deploys, where `openclaw agent exec --cwd` looks for startup context; the default-workspace copies remain and a global deploy adds nothing directly to the home folder. A live OpenClaw 2026.11.4 run on an upgraded project loaded both and called `aiwg discover` first (#4264, PR #4270).
+
+- The Codex hook-trust note on a trusted project is shown once per digest of the hook registration and script, returns when either changes, and reports the installed Codex version instead of a fixed one, read by a `codex --version` probe that runs with a cleared environment; untrusted projects keep the warning on every run (#4260, PR #4271, PR #4290).
+
+- Writing scanners report conditional defect reveals, consequence/repair/moral fragment runs, moral endings that quote a scenario name, and short "it doesn't anymore" corrections across the Python scanner, validation and contextual diagnostics, with code, quoted text, lists and definitions protected. Corpus recall rises from 46/56 to 47/56 per surface with zero findings on negative files (#4138, PR #4288).
+
+- The 2026.11.7 announcement describes the template lookup accurately: existing templates are now findable through discovery (PR #4250).
+
 ## [2026.11.7] - 2026-11-16
 
 ### Added
