@@ -8,6 +8,17 @@ export const configHandler: CommandHandler = {
   category: "config",
   aliases: [],
 
+  async help(ctx: HandlerContext): Promise<HandlerResult> {
+    if (ctx.args[0] === 'authorization') {
+      const { authorizationUsage } = await import('../../config/authorization-cli.js');
+      console.log(authorizationUsage);
+    } else {
+      const { printUsage } = await import('../../config/cli-help.js');
+      printUsage();
+    }
+    return { exitCode: 0 };
+  },
+
   async execute(ctx: HandlerContext): Promise<HandlerResult> {
     try {
       const { main } = await import("../../config/cli.js");

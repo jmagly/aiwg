@@ -31,7 +31,7 @@ describe('namespace help routing', () => {
   it('routes every namespace advertised by aiwg help without the generic stub', async () => {
     const output = captureOutput();
     await helpHandler.execute({ args: [], rawArgs: ['help'], cwd: process.cwd(), frameworkRoot: process.cwd() });
-    const namespaces = new Set<string>();
+    const namespaces = new Set<string>(['config', 'workspace-context']);
     for (const line of output.flatMap(chunk => stripVTControlCharacters(chunk).split('\n'))) {
       if (line.trim() === 'Examples:') break;
       // Namespace rows advertise a literal verb or an action/command placeholder.
@@ -53,7 +53,20 @@ describe('namespace help routing', () => {
     }
   });
 
+  it('routes authorization check help and help command forms to the action descriptor documentation', async () => {
+    const output = captureOutput();
+    for (const args of [['config', 'authorization', 'check', '--help'], ['help', 'config', 'authorization', 'check']]) {
+      output.length = 0;
+      await run(args);
+      expect(output.join('\n')).toContain('inputDigest');
+      expect(output.join('\n')).toContain('Example');
+    }
+  });
+
   it.each([
+    ['config', 'show', ['Usage:', 'show --project', '--json', '--config-dir']],
+    ['config', 'authorization', ['--action-file', 'category', 'verb', 'repo', 'environment', 'target', 'resources', 'reversible', 'impact', 'actor', 'inputDigest', 'Example']],
+    ['workspace-context', 'doctor', ['Usage:', 'doctor', '--json', '--apply', '--allow-conflicts']],
     ['models', '', ['list', 'audit', 'resolve', 'validate', 'sources', 'refresh', 'set-default', 'set', 'migrate', '--role', '--task', '--group', '--brief', '--workdir', '--final-output', '--transport', '--format', '--authorize-premium']],
     ['models', 'resolve', ['--task', '--group', '--brief', '--workdir', '--final-output', '--transport', '--format', '--authorize-premium']],
     ['corpus', '', ['snapshot', 'radar-init', 'curator-init', '--write', '--out', '--cadence', '--cluster', '--format']],

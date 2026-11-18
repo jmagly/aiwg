@@ -32,7 +32,43 @@ it does not perform the proposed action. Check writes a verified receipt before 
 auto-authorized; failures escalate. Action files must be host-classified descriptors,
 never issue/model output. Check looks up verified durable grants before asking and
 reports the nearest grant's differing fields when scope does not match.
-Action files cannot supply session authorization. Platform prompts remain authoritative.`;
+Action files cannot supply session authorization. Platform prompts remain authoritative.
+
+Action-file schema (JSON object; unknown fields are rejected):
+  Required: category, repo, environment (identifier strings: 1-256 characters,
+    starting alphanumeric, followed by letters, digits, or _ . : / @ -).
+  resources: required non-empty array of canonical repo-relative file paths,
+    each 1-512 characters; no traversal, absolute paths, whitespace, or globs.
+    The host must resolve symlinks before describing the effects.
+  reversible: required boolean. impact: required "low", "medium", or "high".
+  actor: host identity string (identifier format); required for repo.edit.
+  inputDigest: SHA-256 of exact proposed tool input, formatted as sha256:
+    followed by 64 lowercase hex characters; required for repo.edit.
+  target: optional host-classified target string (1-256 characters, starting
+    alphanumeric; letters, digits, and _ . : / @ # = -); defaults to repo:<repo>.
+  verb: optional lowercase action string, with dot/hyphen-separated segments;
+    defaults to the final component of category.
+  Bounded policy categories: repo.read, repo.edit, docs.edit, test.run,
+    testnet.configure. Environments: local, development, test, testnet.
+  A valid descriptor alone grants no authority; high impact or irreversible
+    actions do not qualify for automatic authorization.
+
+Example action file:
+{
+  "category": "repo.edit",
+  "verb": "edit",
+  "repo": "example/project",
+  "environment": "local",
+  "target": "repo:example/project",
+  "resources": ["src/example.ts"],
+  "reversible": true,
+  "impact": "low",
+  "actor": "local-worker",
+  "inputDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+Replace the example inputDigest with the host-computed digest of the real tool input.
+Run: aiwg config authorization check --action-file action.json --target .`;
+
 const usageError = (message: string) => new AiwgError({ code: 'ERR_AUTHORIZATION_USAGE', message, exitCode: EXIT_CODES.USAGE });
 async function jsonFile(file: string): Promise<unknown> {
   try { return JSON.parse(await readFile(file, 'utf8')); }
