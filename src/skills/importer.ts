@@ -503,12 +503,13 @@ function decodeGitOutput(bytes: Buffer, context: string): string {
   }
 }
 
-function collectGitTree(
+export function collectGitTree(
   source: Extract<AgentSkillImportSource, { kind: 'git' }>,
   limits: AgentSkillImportLimits,
+  repositoryRoot = false,
 ): MaterializedSource {
   validateGitLocator(source.url, source.revision);
-  const subpath = normalizeGitSubpath(source.subpath);
+  const subpath = repositoryRoot ? '.' : normalizeGitSubpath(source.subpath);
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-skill-git-'));
   const gitDir = path.join(tempRoot, 'repo.git');
 
@@ -579,7 +580,7 @@ function collectGitTree(
       }
       const [, mode, objectType, objectId, repositoryPath] = match;
       if (
-        repositoryPath !== subpath
+        !repositoryRoot && repositoryPath !== subpath
         && !repositoryPath.startsWith(`${subpath}/`)
       ) {
         fail(
@@ -589,7 +590,7 @@ function collectGitTree(
         );
       }
       const relativePath = validateRelativePath(
-        repositoryPath.slice(subpath.length + 1),
+        repositoryRoot ? repositoryPath : repositoryPath.slice(subpath.length + 1),
       );
       const depth = relativePath.split('/').length;
       if (depth > limits.maxDepth) {

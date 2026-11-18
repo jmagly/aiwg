@@ -392,6 +392,8 @@ function printImportUsage(): void {
   console.log('Usage:');
   console.log('  aiwg skills import <directory> [options]');
   console.log('  aiwg skills import --git <url> --rev <revision> --subpath <path> [options]');
+  console.log('  aiwg skills import <repo-url|path> --into <addon> [--ref <revision>] [--only <glob>] [--dry-run]');
+  console.log('  aiwg skills import --refresh <addon> [--dry-run]');
   console.log('');
   console.log('Options:');
   console.log('  --profile strict|compatible  Validation profile (default: strict)');
@@ -403,6 +405,9 @@ function printImportUsage(): void {
 }
 
 async function handleImport(args: string[]): Promise<void> {
+  if (args.includes('--into') || args.includes('--refresh')) {
+    return (await import('./bundle-import-cli.js')).handleBundleImport(args);
+  }
   let parsed: ParsedImportArgs;
   try {
     parsed = parseImportArgs(args);

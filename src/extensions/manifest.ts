@@ -267,6 +267,29 @@ export const CliCommandsSchema = z.strictObject({
 // Top-level BundleManifestSchema
 // ============================================
 
+/** Pinned, inert third-party skill sources; renames map upstream names to local names. */
+const upstreamSkillName = z.string().max(64).regex(bundleNamePattern);
+export const BundleUpstreamSchema = z.strictObject({
+  repo: z.string().min(1).max(2048).refine(value => {
+    if (/[\u0000-\u001f\u007f]/.test(value) || value.startsWith('-')) return false;
+    try {
+      const locator = new URL(value);
+      return !locator.username && !locator.password && !locator.search && !locator.hash;
+    } catch { return !value.includes('::'); }
+  }, 'must be a credential-free repository locator'),
+  commit: z.string().regex(/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/, 'must be a full Git commit id'),
+  license: z.string().min(1).max(128),
+  skills: z.array(upstreamSkillName).min(1).max(500),
+  renames: z.record(upstreamSkillName, upstreamSkillName),
+}).refine(value => {
+  const names = value.skills.map(name => value.renames[name] ?? name);
+  return new Set(value.skills).size === value.skills.length
+    && new Set(names).size === names.length
+    && Object.keys(value.renames).every(name => value.skills.includes(name));
+}, 'skills and renamed names must be unique; rename keys must be upstream skills');
+
+export type BundleUpstream = z.infer<typeof BundleUpstreamSchema>;
+
 export const BundleManifestSchema = z.strictObject({
   // Required core fields
   id: z.string()
@@ -286,6 +309,7 @@ export const BundleManifestSchema = z.strictObject({
   author: z.string().max(128).optional(),
   license: z.string().max(64).optional(),
   repository: url().max(512).optional(),
+  upstream: z.array(BundleUpstreamSchema).max(50).optional(),
 
   // Addon inventory/flags use the same top-level shape as validate-addon and
   // upstream manifests. Nested *Config declarations remain supported.

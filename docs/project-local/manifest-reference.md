@@ -61,6 +61,27 @@ agents are delivered; it is not a valid manifest value. For example:
 "platforms": { "claude": "full", "pi": "partial" }
 ```
 
+## Pinned upstream skill provenance
+
+An optional `upstream` array records imported repositories without a sidecar:
+
+```json
+"upstream": [{
+  "repo": "https://github.com/coreyhaines31/marketingskills",
+  "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "license": "MIT",
+  "skills": ["sales-enablement"],
+  "renames": { "sales-enablement": "marketingskills-sales-enablement" }
+}]
+```
+
+Commits must be full lowercase Git object IDs (40 or 64 hex characters).
+Repository locators must be credential-free; skill names and rename targets
+are safe kebab-case identifiers. Rename keys must belong to `skills`, and
+local names must be unique. The array and its entries remain strict.
+The top-level `skills` inventory lists local names. License bytes live under
+`licenses/` in the addon. See [repository import](../skills/agent-skills.md#import-a-repository-as-an-index-only-project-addon).
+
 ## Addon-contributed CLI commands
 
 Addon-shaped project-local bundles can register an expandable CLI namespace
