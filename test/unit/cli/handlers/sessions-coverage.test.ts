@@ -319,7 +319,8 @@ describe('sessions coverage CLI', () => {
   });
 
   itWithSqlite('reports complete default-scope acquisition and no resume requirement despite provider gaps', async () => {
-    const history = join(root, '.claude', 'projects', root.replace(/[/:]+/g, '-'));
+    // Use Claude's real key encoding: temp roots can contain dots (nix develop sets TMPDIR=/tmp/nix-shell.*, #4297).
+    const history = join(root, '.claude', 'projects', claudeProjectKey(root));
     mkdirSync(history, { recursive: true });
     writeFileSync(join(history, 'session.jsonl'), JSON.stringify({
       type: 'user', uuid: 'request', sessionId: 'synthetic-session',

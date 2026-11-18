@@ -96,6 +96,25 @@ Before starting, ensure you have:
   - VS Code: https://code.visualstudio.com
   - Cursor: https://cursor.com
 
+### Using Nix (optional)
+
+If you use Nix (flakes enabled), `nix develop` gives you every tool the build
+and test suites need, pinned by `flake.lock`: Node.js 24, git, gpg, OpenSSH,
+OpenSSL, Python 3, bash and the core text tools, plus `ps` and `setfacl` on
+Linux. The default test lanes spawn `gpg`, `ssh-keygen`, `openssl` and `ps`,
+so a shell without them shows unrelated test failures.
+
+```bash
+nix develop                       # enter the shell
+npm ci && npm run build:cli       # then build and test as usual
+npm run features:sqlite           # optional SQLite backend used by session tests
+npx vitest run --config config/vitest.config.js test/unit
+npm run test:node
+```
+
+To check that nothing outside the shell is needed, run a step with
+`nix develop --ignore-environment --keep HOME --command bash -c '<step>'`.
+
 ### Verify Prerequisites
 
 ```bash
