@@ -1,10 +1,12 @@
 # AIWG Writing Quality
 
-Writing quality validation and AI pattern detection.
+Writing quality validation and contextual editing guidance.
+
+Use the [shared structural editing rules](patterns/common-ai-tells.md) and [review checklist](validation/banned-patterns.md) for tiered examples, campaign review and substance checks. These are editing guidelines, not authorship detection.
 
 ## Features
 
-- **AI Pattern Detection**: Identify AI-generated writing patterns
+- **Structural Review**: Review formulaic writing patterns in context
 - **Authenticity Enhancement**: Suggestions for more authentic voice
 - **Writing Validation**: Check against AIWG principles
 

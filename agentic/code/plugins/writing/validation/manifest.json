@@ -1,0 +1,14 @@
+{
+  "name": "validation",
+  "path": "validation",
+  "files": [
+    "README.md",
+    "banned-patterns.md",
+    "manifest.json",
+    "manifest.md",
+    "validation-checklist.md"
+  ],
+  "ignore": [
+    "manifest.json"
+  ]
+}

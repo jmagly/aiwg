@@ -2,6 +2,8 @@
 
 Voice profile system for consistent, authentic writing.
 
+Use the [shared structural editing rules](docs/structural-editing.md) for tiered examples, campaign review and substance checks. These are editing guidelines, not authorship detection.
+
 ## Built-in Profiles
 
 - **technical-authority**: Direct, precise, confident

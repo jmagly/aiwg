@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AIWG Writing Validation Scoring Configuration",
+  "description": "Deprecated legacy heuristic weights and diagnostic cutoffs. Not authorship probabilities, quality guarantees or publication gates.",
+  "version": "1.0.0",
+
+  "authenticity": {
+    "humanMarkerWeight": {
+      "value": 10,
+      "description": "Legacy points per editorial marker (personal statements, metrics, trade-offs); not evidence of human authorship"
+    },
+    "aiTellPenalty": {
+      "value": 15,
+      "description": "Legacy points per phrase pattern; preserve necessary uncertainty and review context"
+    },
+    "baseScore": {
+      "value": 30,
+      "description": "Starting deprecated heuristic before marker/pattern adjustments; compatibility value only"
+    }
+  },
+
+  "issueScoring": {
+    "criticalPenalty": {
+      "value": 10,
+      "description": "Legacy penalty weighted by critical matches per 50 prose words; advisory unless an applicable user rule requires it"
+    },
+    "warningPenalty": {
+      "value": 3,
+      "description": "Legacy penalty weighted by warning matches per 50 prose words"
+    },
+    "aiPatternMultiplier": {
+      "value": 0.5,
+      "description": "Multiplier for AI pattern score impact on overall score. Lower = less impact from pattern density."
+    },
+    "aiPatternNormalizer": {
+      "value": 20,
+      "description": "Normalizer for legacy pattern density: (patternCount * 50 / max(1, proseWordCount)) * normalizer. Higher = stricter; not calibrated."
+    }
+  },
+
+  "voiceDetection": {
+    "mixedVoiceThreshold": {
+      "value": 1.5,
+      "description": "Ratio threshold for voice detection. If top voice score is not 1.5x higher than second, classify as 'mixed'."
+    },
+    "defaultMixedConfidence": {
+      "value": 50,
+      "description": "Confidence percentage assigned when voice is classified as 'mixed'."
+    },
+    "markerWeights": {
+      "strong": {
+        "value": 3,
+        "description": "Points per strong voice marker match (distinctive phrases, key terminology)"
+      },
+      "moderate": {
+        "value": 2,
+        "description": "Points per moderate voice marker match (tone indicators, common patterns)"
+      },
+      "weak": {
+        "value": 1,
+        "description": "Points per weak voice marker match (general style hints)"
+      }
+    }
+  },
+
+  "thresholds": {
+    "passScore": {
+      "value": 70,
+      "description": "Deprecated diagnostic cutoff retained for compatibility; not a publication gate"
+    },
+    "lowScoreWarning": {
+      "value": 50,
+      "description": "Score below which to show low-score warnings"
+    },
+    "highAIPatternWarning": {
+      "value": 30,
+      "description": "Deprecated phrase-density cutoff for contextual review; not an authorship signal or removal quota"
+    }
+  },
+
+  "_notes": {
+    "tuning": "Higher penalties change the legacy heuristic. Assess labeled findings by language and context before tuning; selected examples do not establish population error rates.",
+    "rationale": "Historical defaults retained for compatibility. The 10/15 weights assign 1.5x penalty versus reward; no controlled evidence or calibrated authorship inference is established by this configuration."
+  }
+}

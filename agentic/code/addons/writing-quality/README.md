@@ -20,6 +20,14 @@ These are editorial preferences, not evidence of human or AI authorship. Apply o
 
 ## Current Scanner Coverage (November 2026)
 
+The [shared structural editing rules](patterns/common-ai-tells.md) and
+[review checklist](validation/banned-patterns.md) give tiered examples and fixes
+for local rhetoric, campaign reuse and substance in articles and how-tos.
+Profiles inherit this guidance through the voice framework. Definitions,
+importance openings, broad effect triads, staged casualness and substance need
+editorial review beyond the automated checks described below. The dated lexical
+catalogue is reviewed quarterly; punctuation and passive voice alone are valid.
+
 The Python scanner, validation engine and contextual diagnostics detect local
 `not … but`, `X, not Y`, `rather than`, negated evidence/proof/substitute assertions,
 listed antonym pairs across a comma, significance labels and self-explaining

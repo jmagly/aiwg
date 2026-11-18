@@ -4,6 +4,33 @@
 
 Your assistant can use the diagnostics API to return located findings and record author-reviewed span exceptions.
 
+## Shared structural editing rules
+
+Profiles inherit the [shared structural rules](../../writing-quality/patterns/common-ai-tells.md)
+and [review checklist](../../writing-quality/validation/banned-patterns.md).
+Review negate-then-assert frames, mirrored pairs, moral endings, labelled
+significance, asserted importance and definition openings, effect triads,
+summary closers, colon reveals, fragment runs, faux-casual quips,
+throat-clearing and engagement bait in context. Tiers prioritize edits; they
+are not authorship detection or automatic publication gates.
+
+Campaign review covers thesis lines across channels, release openers and
+closers, recycled jokes and signature moves used as lede formulas. The substance
+requirement for articles and how-tos asks for a usable configuration, command,
+prompt, script or result. Never invent missing supporting material.
+These general guidelines require editorial judgment beyond scanner coverage.
+
+The diagnostics include local contrasts and significance labels, adjacent
+mirrored sentences, explicit moral endings, fragment runs and colon reveals.
+`diagnoseWritingBatch(documents, { cross: true })` adds repeated sentences,
+phrases and opening/closing skeletons across a supplied campaign. See the
+[scanner coverage and limits](../../writing-quality/README.md#current-scanner-coverage-november-2026)
+for thresholds and known residuals. Keep factual negations and useful summaries
+when they serve the reader. Em dashes, colons, semicolons, passive voice, plain
+transitions and real lists are not problems on their own. The existing
+[dated lexical catalogue](../../writing-quality/skills/ai-pattern-detection/references/current-patterns.json)
+is reviewed quarterly; word choice alone does not establish quality.
+
 ## Command reference
 
 The JavaScript package exports `diagnoseWriting`, `diagnoseWritingBatch` and
