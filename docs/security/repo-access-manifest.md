@@ -120,6 +120,29 @@ aiwg repo-access add --path /srv/ops/sysops --name sysops --allow read,issue-com
 `add` writes `repos` entries to `.aiwg/aiwg.config`; it does not create a legacy
 YAML manifest. The config must already exist. Grant only the authorized actions.
 
+## Itops control workspaces
+
+A control workspace can instead declare `config/workspace.yaml` with
+`apiVersion: workspace.aiwg.io/v1`, `kind: WorkspaceSpec`, and a `repos[]`
+list of `name`/`path` objects. If present, `config/repository-routing.yaml`
+contributes its `repositories[]` entries in the same shape. Paths resolve from
+the control workspace root. Canonical `.aiwg/aiwg.config` repos take precedence.
+
+Declared members default to `read,write`. Explicit `allowed` actions narrow or
+replace that default; when both files describe a member, their permissions are
+intersected. Push, commit, and other actions require explicit permission.
+Conflicting identities and malformed declarations fail closed. Unlisted paths
+remain denied.
+
+`list`, `status`, `check`, and `explain` read these declarations, including from
+nested member directories or through `AIWG_WORKSPACE`/`workspace.member_of`.
+`audit` also checks git repositories immediately under `repos/`.
+`add` and `remove` refuse to modify these externally managed files (exit `2`)
+and name both exact paths. `add` prints the membership edit and requested actions
+for operator review; it never creates a competing JSON manifest. Review explicit
+permission restrictions before applying an edit, especially when requested
+permissions differ from the read/write default.
+
 ## Legacy manifest compatibility
 
 Existing YAML manifests remain supported when the nearest workspace config does
