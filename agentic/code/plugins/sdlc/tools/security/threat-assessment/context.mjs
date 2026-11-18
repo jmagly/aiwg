@@ -95,8 +95,8 @@ export function inferContext(text, index, explicit, length = 0, ruleId = '', sur
   }
   const leading = requestPrefix(clause.before).replace(SENTENCE_LEAD_MARKERS, '').trimStart();
   if (IMPERATIVE_LEAD.test(`${leading}${clause.match}`) || REQUEST_CUE.test(leading)) return 'requested';
-  if (ruleId === 'sensitive-file-target' && surface === 'outbound-maintainer-comment') {
-    // Maintainer reports name files as subjects. Require a request rather than
+  if (ruleId === 'sensitive-file-target' && ['outbound-maintainer-comment', 'release-note'].includes(surface)) {
+    // Maintainer reports and release notes name files as subjects. Require a request rather than
     // treating an unrecognized reporting verb ("loaded", "reached") as intent.
     const indirect = /\b(?:(?:can|could|would|will)\s+you|(?:the\s+fix\s+is|you\s+need|i\s+want\s+you)\s+to)\s+(.+)$/i.exec(leading);
     const trailing = requestPrefix(sentence.trailing).replace(/^[\s`"'*:,]*(?:and\s+)?/i, '');
