@@ -198,9 +198,19 @@ export async function run(
   // Build context for handler and hooks
   const ctx = await buildContext(commandArgs, args, options);
 
-  // Read-only memory views (audit, cost, recommend, plan, verify, --preview) cannot invoke mutation-capable hooks or append command telemetry.
-  // Keep dispatch through the existing memory handler and strict parser.
-  if (commandId === 'memory' && (['audit', 'cost', 'recommend', 'plan', 'verify'].includes(commandArgs[0]) || commandArgs.includes('--preview'))) {
+  // Validate before mutation-capable hooks; successful scaffolds keep the normal hook path.
+  let readOnlyNew = false;
+  if (commandId === 'new') {
+    try {
+      const { parseNewProjectArgs } = await import('./new-project-options.js');
+      readOnlyNew = parseNewProjectArgs(commandArgs, ctx.cwd).mode !== 'scaffold';
+    } catch (error) {
+      ui.error(error instanceof Error ? error.message : String(error));
+      process.exit(2);
+    }
+  }
+  // Listings and read-only memory views cannot invoke hooks or append telemetry.
+  if (readOnlyNew || commandId === 'memory' && (['audit', 'cost', 'recommend', 'plan', 'verify'].includes(commandArgs[0]) || commandArgs.includes('--preview'))) {
     const result = await handler.execute(ctx);
     if (result.message) {
       if (result.exitCode !== 0) ui.error(result.message);
@@ -391,7 +401,7 @@ async function buildContext(
     || (rawArgs[0] === 'steward' && args[0] === 'decision-offload');
   const readOnlyMemoryAudit = rawArgs[0] === 'memory' && (['audit', 'cost', 'recommend', 'plan', 'verify'].includes(args[0]) || args.includes('--preview') || args.includes('--help') || args.includes('-h'));
   const frameworkRoot = await getFrameworkRoot({
-    createIfMissing: !args.includes('--dry-run') && !readOnlyRuleInventory && !readOnlyOffloadReport && !readOnlyMemoryAudit,
+    createIfMissing: !['new', '-new', '--new'].includes(rawArgs[0]) && !args.includes('--dry-run') && !readOnlyRuleInventory && !readOnlyOffloadReport && !readOnlyMemoryAudit,
   });
   const ctx: HandlerContext = {
     args,

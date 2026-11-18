@@ -8,7 +8,7 @@ import { authorizationCli } from '../../../src/config/authorization-cli.js';
 import { main as configMain } from '../../../src/config/cli.js';
 import { stewardHandler } from '../../../src/cli/handlers/steward.js';
 import { ensureAuthorization, loadHitlLayers } from '../../../src/policy/hitl-config.js';
-import { resolveHitlAuthorization } from '../../../src/policy/hitl.js';
+import { validHitlAction, resolveHitlAuthorization } from '../../../src/policy/hitl.js';
 import { action, context, policy } from '../../fixtures/policy/hitl.js';
 import type { HandlerContext } from '../../../src/cli/handlers/types.js';
 
@@ -120,6 +120,17 @@ describe('authorization config integration', () => {
       await authorizationCli(args);
       expect(output.mock.calls.flat().join('\n')).toContain('Action files cannot supply session authorization');
     }
+  });
+  it('documents the existing action descriptor fields and a valid example in check help', async () => {
+    const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await configMain(['authorization', 'check', '--help']);
+    const help = output.mock.calls.flat().join('\n');
+    for (const field of ['category', 'verb', 'repo', 'environment', 'target', 'resources', 'reversible', 'impact', 'actor', 'inputDigest']) {
+      expect(help).toContain(field);
+    }
+    const example = help.match(/Example action file:\n(\{[\s\S]*?\n\})/);
+    expect(example).not.toBeNull();
+    expect(validHitlAction(JSON.parse(example![1]))).toBe(true);
   });
   it('records a decision through the local effect ledger without performing the proposed action', async () => {
     const { dir } = await fixture();

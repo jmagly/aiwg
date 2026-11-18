@@ -135,6 +135,59 @@ describe('router', () => {
       });
     });
 
+    it('rejects malformed scaffolds before invoking handlers, hooks or telemetry', async () => {
+      const registry = await initRouter();
+      const execute = vi.spyOn(registry.handlerMap.get('new')!, 'execute');
+      const hooks = vi.spyOn(HookExecutor.prototype, 'execute');
+      const log = vi.spyOn(commandLog, 'maybeAppendCommandLog');
+      const usage = vi.spyOn(skillUsage, 'maybeAppendSkillUsage');
+      try {
+        await expect(run(['new', '--unknown'])).rejects.toThrow('process.exit called with 2');
+        expect(execute).not.toHaveBeenCalled();
+        expect(hooks).not.toHaveBeenCalled();
+        expect(log).not.toHaveBeenCalled();
+        expect(usage).not.toHaveBeenCalled();
+      } finally { execute.mockRestore(); hooks.mockRestore(); log.mockRestore(); usage.mockRestore(); }
+    });
+
+    it('preserves hooks and telemetry for an explicitly authorized scaffold', async () => {
+      const registry = await initRouter();
+      const handler = registry.handlerMap.get('new')!;
+      const execute = vi.spyOn(handler, 'execute').mockResolvedValue({ exitCode: 0 });
+      const hooks = vi.spyOn(HookExecutor.prototype, 'execute');
+      const log = vi.spyOn(commandLog, 'maybeAppendCommandLog').mockResolvedValue(undefined);
+      const usage = vi.spyOn(skillUsage, 'maybeAppendSkillUsage').mockResolvedValue(undefined);
+      try {
+        await run(['new', '.']);
+        expect(execute).toHaveBeenCalledOnce();
+        expect(hooks).toHaveBeenCalledWith('pre-command', expect.objectContaining({ command: 'new' }));
+        expect(hooks).toHaveBeenCalledWith('post-command', expect.objectContaining({ command: 'new' }));
+        expect(log).toHaveBeenCalledOnce();
+        expect(usage).toHaveBeenCalledOnce();
+      } finally { execute.mockRestore(); hooks.mockRestore(); log.mockRestore(); usage.mockRestore(); }
+    });
+
+    it.each([['--list-templates']].flatMap(args => [0, 1].map(status => ({ args, status }))))('keeps new $args free of hooks and telemetry at exit status $status', async ({ args, status }) => {
+      const registry = await initRouter();
+      const handler = registry.handlerMap.get('new')!;
+      const execute = vi.spyOn(handler, 'execute').mockResolvedValue({ exitCode: status });
+      const hooks = vi.spyOn(HookExecutor.prototype, 'execute');
+      const root = vi.spyOn(channelManager, 'getFrameworkRoot').mockResolvedValue(process.cwd());
+      const log = vi.spyOn(commandLog, 'maybeAppendCommandLog');
+      const usage = vi.spyOn(skillUsage, 'maybeAppendSkillUsage');
+      try {
+        if (status) await expect(run(['new', ...args])).rejects.toThrow('process.exit called with 1');
+        else await run(['new', ...args]);
+        expect(execute).toHaveBeenCalledOnce();
+        expect(root).toHaveBeenCalledWith({ createIfMissing: false });
+        expect(hooks).not.toHaveBeenCalled();
+        expect(log).not.toHaveBeenCalled();
+        expect(usage).not.toHaveBeenCalled();
+      } finally {
+        execute.mockRestore(); hooks.mockRestore(); root.mockRestore(); log.mockRestore(); usage.mockRestore();
+      }
+    });
+
     it.each([['audit', '--json'], ['plan', '--input', 'plan.json', '--preview'], ['apply', '--plan', 'plan.json', '--preview'], ['restore', '--plan', 'plan.json', '--preview']].flatMap(args => [0, 1].map(status => ({ args, status }))))('keeps memory $args free of hooks and telemetry at exit status $status', async ({ args, status }) => {
       const registry = await initRouter();
       const handler = registry.handlerMap.get('memory')!;

@@ -22,7 +22,7 @@ export const newProjectHandler: CommandHandler = {
     const result = await runner.run("tools/install/new-project.mjs", ctx.args, {
       cwd: ctx.cwd,
     });
-    if (result.exitCode === 0) {
+    if (result.exitCode === 0 && !ctx.args.includes("--list-templates")) {
       // The real scaffolder always runs in an existing target directory. Keep
       // mocked/script-runner-only calls side-effect free when their synthetic
       // cwd does not exist.

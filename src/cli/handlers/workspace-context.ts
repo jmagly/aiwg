@@ -31,6 +31,11 @@ export const workspaceContextHandler: CommandHandler = {
   category: 'maintenance',
   aliases: [],
 
+  async help(): Promise<HandlerResult> {
+    printHelp();
+    return { exitCode: 0 };
+  },
+
   async execute(ctx: HandlerContext): Promise<HandlerResult> {
     try {
       if (ctx.args.includes('--help') || ctx.args.includes('-h')) {

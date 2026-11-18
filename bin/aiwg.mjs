@@ -268,7 +268,9 @@ maybeWarnUnbuiltDist();
 // Propagate the strict no-write contract through helpers that may resolve
 // installation/channel state before the command context exists.
 function isReadOnlyReport(args) {
-  return (args[0] === 'memory' && (['audit', 'cost', 'recommend', 'plan', 'verify'].includes(args[1]) || args.includes('--preview') || args.includes('--help') || args.includes('-h')))
+  // Scaffolding validates its own writes; startup must leave rejected requests untouched.
+  return ['new', '-new', '--new'].includes(args[0])
+    || (args[0] === 'memory' && (['audit', 'cost', 'recommend', 'plan', 'verify'].includes(args[1]) || args.includes('--preview') || args.includes('--help') || args.includes('-h')))
     || (['marketplace', 'market'].includes(args[0]) && args[1] === 'search' && args.includes('--plugins'))
     || (args[0] === 'help' && args[1] === 'memory')
     || (args[0] === 'rules' && ['inventory', 'list'].includes(args[1]))

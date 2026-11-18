@@ -23,6 +23,7 @@ import { importImpl } from '../_resolve-impl.mjs';
 
 const { boundedSpawnSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
 const { helperEnvironment, DEPLOYMENT_HELPER_ENV_ALLOWLIST } = await importImpl(import.meta.url, 'process/cli-command.mjs');
+const { parseNewProjectArgs } = await importImpl(import.meta.url, 'cli/new-project-options.js');
 
 function printHelp() {
   console.log(`aiwg new — Scaffold a new AIWG project
@@ -35,6 +36,7 @@ Arguments:
 
 Options:
   --name <name>       Override project name explicitly
+  --list-templates    List supported project templates without writing files
   --no-agents         Skip framework indexing and kernel deployment
   --copy, --copy-all  Opt in to provider copies
   --provider <p>      Target provider: claude | openai (default: claude)
@@ -42,39 +44,29 @@ Options:
 
 Examples:
   aiwg new my-project
-  aiwg new --provider openai
+  aiwg new . --provider openai
+  aiwg new --list-templates
   aiwg new my-project --no-agents
 
 Notes:
   Scaffolds .aiwg/intake/ templates, CLAUDE.md, AIWG.md, README.md, and
   initializes a git repo in the current directory. Run from an empty or
-  fresh directory to avoid mixing scaffolded files into existing work.`);
+  fresh directory. A non-empty current directory requires an explicit . target.`);
 }
 
 function parseArgs() {
-  const args = process.argv.slice(2);
-
-  // #1264(f): --help / -h must be side-effect free. Previously, `aiwg new
-  // <name> --help` would scaffold an entire project in the current directory
-  // because the help flag was ignored. Agents probing for help could
-  // accidentally create .git/.aiwg/.claude in the wrong directory.
-  if (args.includes('--help') || args.includes('-h')) {
-    printHelp();
-    process.exit(0);
+  try {
+    const options = parseNewProjectArgs(process.argv.slice(2), process.cwd());
+    if (options.mode === 'help') { printHelp(); process.exit(0); }
+    if (options.mode === 'list') {
+      console.log('Available project templates:\n  sdlc  SDLC project with project-intake, solution-profile, and option-matrix intake templates');
+      process.exit(0);
+    }
+    return options;
+  } catch (error) {
+    console.error(error.message);
+    process.exit(2);
   }
-
-  let name = path.basename(process.cwd());
-  let withAgents = true; // index the framework and deploy its kernel by default
-  let copy = false;
-  let provider = 'claude';
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i];
-    if (a === '--name' && args[i + 1]) name = args[++i];
-    else if (a === '--no-agents') withAgents = false;
-    else if (a === '--copy' || a === '--copy-all') copy = true;
-    else if (a === '--provider' && args[i + 1]) provider = String(args[++i]).toLowerCase();
-  }
-  return { name, withAgents, provider, copy };
 }
 
 function ensureDir(d) { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); }
