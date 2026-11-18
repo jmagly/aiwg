@@ -45,6 +45,18 @@ export function toWorkerProbeRecord(finding) {
 // the binding-level fallback (no resolver snapshot is resolved here) — the
 // records only speak to installation readiness, so the snapshot would add
 // resolution cost without changing them.
+// With --cli, a group-scoped diagnostic blocks only when that group uses the requested CLI (#4293);
+// others stay listed as non-blocking. Static wiring diagnostics are unchanged.
+export function scopeDiagnosticsToCli(diagnostics, parallelism, cli) {
+  if (!cli) return diagnostics;
+  return diagnostics.map(row => {
+    const group = /^\/parallelism\/groups\/([^/]+)\//.exec(row.pointer ?? '')?.[1];
+    if (!group) return row;
+    const usesCli = (parallelism?.groups?.[group]?.members ?? []).some(member => member.cli === cli);
+    return usesCli ? row : { ...row, blocking: false };
+  });
+}
+
 export async function runWorkerProbe(projectDir, options, workerConfig) {
   let exitCode = 0;
   const parallelism = workerConfig?.parallelism;
@@ -107,7 +119,8 @@ export async function runWorkerProbe(projectDir, options, workerConfig) {
     }
   }
   const { collectWorkerPolicyDiagnostics } = await import('./doctor-worker-policy.mjs');
-  payload.workerPolicyDiagnostics = await collectWorkerPolicyDiagnostics(projectDir, workerConfig);
+  payload.workerPolicyDiagnostics = scopeDiagnosticsToCli(
+    await collectWorkerPolicyDiagnostics(projectDir, workerConfig), parallelism, options.cli);
   if (payload.workerPolicyDiagnostics.some(row => row.blocking !== false)) exitCode = 1;
   if (options.json !== false) process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   else {
