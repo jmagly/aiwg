@@ -162,8 +162,8 @@ describe('provider plugin search (#4084)', () => {
     const parsed = JSON.parse((await run('accessibility', ['--json'])).output);
     expect(parsed.results[0].id).toBe('ux-suite@outside');
   });
-  it('rejects invalid providers and incompatible mutation flags', async () => {
-    for (const flags of [['--provider', 'unknown'], ['--refresh'], ['--source', 'clawhub']]) {
+  it('rejects invalid providers and unsupported flags', async () => {
+    for (const flags of [['--provider', 'unknown'], ['--source', 'clawhub']]) {
       expect((await run('design', flags)).status.exitCode).toBe(1);
     }
   });

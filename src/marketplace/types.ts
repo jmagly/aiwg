@@ -117,3 +117,32 @@ export interface ParsedIdentifier {
   packageId: string;
   version?: string;
 }
+
+/** Public search adapters expose observations only; they never install packages. */
+export type SearchSourceId = 'mcp-registry' | 'github' | 'skills.sh';
+export interface SearchSignal {
+  value: string | number | null;
+  source: string;
+  asOf: string | null;
+}
+export interface SearchObservation {
+  id: string;
+  name: string;
+  description: string;
+  repository: string | null;
+  keywords: string[];
+  signals: Record<string, SearchSignal>;
+}
+export interface SearchSnapshot {
+  source: SearchSourceId;
+  query: string;
+  endpoint: string;
+  fetchedAt: string;
+  limited: boolean;
+  observations: SearchObservation[];
+}
+export interface MarketplaceSearchAdapter {
+  source: SearchSourceId;
+  endpoint(query: string): string;
+  normalize(body: unknown, endpoint: string, observedAt: string): Pick<SearchSnapshot, 'observations' | 'limited'>;
+}

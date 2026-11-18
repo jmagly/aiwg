@@ -1,0 +1,13 @@
+{
+  "query": "social media",
+  "skills": [
+    {
+      "id": "example/social-tools/social-media",
+      "skillId": "social-media",
+      "name": "Social media",
+      "installs": 1400000,
+      "source": "example/social-tools"
+    }
+  ],
+  "count": 1
+}

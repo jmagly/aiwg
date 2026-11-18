@@ -8,10 +8,12 @@
  * @implements #787
  */
 
+import { createHash, randomUUID } from 'node:crypto';
+import { validateSearchSnapshot } from './search-contract.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import type { MarketplaceSourceId, PackageBundle, PackageMetadata } from './types.js';
+import type { MarketplaceSourceId, PackageBundle, PackageMetadata, SearchSourceId, SearchSnapshot } from './types.js';
 
 /**
  * Resolve the cache root. Supports AIWG_CACHE_DIR override for testing.
@@ -155,4 +157,31 @@ export function uncachePackage(
   if (!fs.existsSync(pkgPath)) return false;
   fs.rmSync(pkgPath, { recursive: true, force: true });
   return true;
+}
+
+/** Query-scoped discovery data lives alongside the existing package caches. */
+export function getSearchCachePath(source: SearchSourceId, query: string, home?: string): string {
+  const root = home ? path.join(home, '.aiwg/marketplace-cache') : getCacheRoot();
+  return path.join(root, source, 'search', `${createHash('sha256').update(query).digest('hex')}.json`);
+}
+export function readSearchCache(source: SearchSourceId, query: string, home?: string): SearchSnapshot | null {
+  const file = getSearchCachePath(source, query, home);
+  if (!fs.existsSync(file)) return null;
+  const value: unknown = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (!validateSearchSnapshot(value) || value.source !== source || value.query !== query) {
+    throw new Error('Invalid discovery cache');
+  }
+  return value;
+}
+export function writeSearchCache(snapshot: SearchSnapshot, home?: string): void {
+  if (!validateSearchSnapshot(snapshot)) throw new Error('Invalid discovery snapshot');
+  const file = getSearchCachePath(snapshot.source, snapshot.query, home);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const temporary = `${file}.${randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temporary, JSON.stringify(snapshot, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+    fs.renameSync(temporary, file);
+  } finally {
+    fs.rmSync(temporary, { force: true });
+  }
 }

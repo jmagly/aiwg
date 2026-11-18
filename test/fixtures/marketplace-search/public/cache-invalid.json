@@ -1,0 +1,25 @@
+{
+  "source": "skills.sh",
+  "query": "social media",
+  "endpoint": "https://skills.sh/api/search?limit=100&q=social+media",
+  "fetchedAt": "2026-11-17T12:00:00.000Z",
+  "limited": false,
+  "observations": [
+    {
+      "id": "example/social-tools/social-media",
+      "name": "Social media",
+      "description": "",
+      "repository": "github.com/example/social-tools",
+      "keywords": [
+        "social-media"
+      ],
+      "signals": {
+        "installs": {
+          "value": 1400000,
+          "source": "https://skills.sh/api/search?limit=100&q=social+media",
+          "asOf": null
+        }
+      }
+    }
+  ]
+}

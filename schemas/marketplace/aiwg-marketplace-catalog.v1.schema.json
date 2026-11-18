@@ -36,5 +36,75 @@
       }
     },
     "signatures": { "type": "array", "minItems": 1, "items": { "$ref": "aiwg-marketplace-envelope.v1.schema.json#/$defs/signature" } }
+  },
+  "$defs": {
+    "searchSignal": {
+      "description": "Public observations are unsigned discovery data, never catalog verification or endorsement.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "source", "asOf"],
+      "properties": {
+        "value": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "null" }] },
+        "source": { "type": "string", "format": "uri" },
+        "asOf": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "if": { "properties": { "value": { "type": "null" } }, "required": ["value"] },
+      "then": { "properties": { "asOf": { "type": "null" } } },
+      "else": { "properties": { "asOf": { "type": "string", "format": "date-time" } } }
+    },
+    "searchCountSignal": {
+      "allOf": [{ "$ref": "#/$defs/searchSignal" }],
+      "type": "object",
+      "properties": { "value": { "type": ["integer", "null"], "minimum": 0, "maximum": 9007199254740991 } }
+    },
+    "searchTextSignal": {
+      "allOf": [{ "$ref": "#/$defs/searchSignal" }],
+      "type": "object",
+      "properties": { "value": { "type": ["string", "null"], "minLength": 1 } }
+    },
+    "searchDateSignal": {
+      "allOf": [{ "$ref": "#/$defs/searchTextSignal" }],
+      "type": "object",
+      "properties": { "value": { "type": ["string", "null"], "format": "date-time" } }
+    },
+    "searchObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "description", "repository", "keywords", "signals"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "repository": { "type": ["string", "null"] },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "signals": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "installs": { "$ref": "#/$defs/searchCountSignal" },
+            "stars": { "$ref": "#/$defs/searchCountSignal" },
+            "license": { "$ref": "#/$defs/searchTextSignal" },
+            "lastPush": { "$ref": "#/$defs/searchDateSignal" },
+            "version": { "$ref": "#/$defs/searchTextSignal" },
+            "publishedAt": { "$ref": "#/$defs/searchDateSignal" },
+            "updatedAt": { "$ref": "#/$defs/searchDateSignal" }
+          }
+        }
+      }
+    },
+    "searchCache": {
+      "description": "Query-scoped public search cache; independent of signed catalog entries.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "query", "endpoint", "fetchedAt", "limited", "observations"],
+      "properties": {
+        "source": { "enum": ["mcp-registry", "github", "skills.sh"] },
+        "query": { "type": "string", "minLength": 1 },
+        "endpoint": { "type": "string", "format": "uri" },
+        "fetchedAt": { "type": "string", "format": "date-time" },
+        "limited": { "type": "boolean" },
+        "observations": { "type": "array", "items": { "$ref": "#/$defs/searchObservation" } }
+      }
+    }
   }
 }
