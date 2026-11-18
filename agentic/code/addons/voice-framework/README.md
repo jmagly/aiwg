@@ -6,7 +6,14 @@ Voice profile and composable output-mode system for crafting and applying consis
 
 ## Overview
 
-The Voice Framework replaces pattern-avoidance approaches (like banned-patterns lists) with positive voice definition. Instead of listing what to avoid, define the voice you want and let the framework apply it consistently.
+The Voice Framework combines positive voice definition with the
+[shared structural editing rules](../writing-quality/patterns/common-ai-tells.md).
+Profiles inherit tiered examples and fixes for rhetorical frames, campaign reuse
+and substance in articles and how-tos. These are editing guidelines, not
+authorship detection. Preserve supported facts and intentional expression;
+never manufacture errors, quips or signature formulas. The
+[contextual diagnostics guide](docs/contextual-diagnostics.md) describes the
+automated checks and the editorial review they still require.
 
 ## Author-controlled writing
 
@@ -183,14 +190,12 @@ User: "Write this with 70% technical and 30% friendly"
 Process: Weighted merge of both profiles, applying combined characteristics.
 ```
 
-## Replaces
+## Shared review guidance
 
-This addon replaces:
-
-- `writing-quality/validation/banned-patterns.md` (deprecated)
-- `writing-quality/skills/ai-pattern-detection` (deprecated)
-
-The pattern-avoidance approach is replaced by positive voice definition.
+Voice profiles describe expression preferences. The writing-quality
+[review checklist](../writing-quality/validation/banned-patterns.md) supplements
+them with structural and campaign review. A profile selection or a clean scan
+does not certify quality or authorize publication.
 
 ## Dependencies
 

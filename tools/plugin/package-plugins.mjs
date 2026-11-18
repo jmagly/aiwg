@@ -145,15 +145,23 @@ Marketing automation framework with 37 specialized agents.
     },
     extraCopy: [
       { from: 'agentic/code/addons/voice-framework/voices', to: 'voices' },
+      { from: 'agentic/code/addons/writing-quality/patterns/common-ai-tells.md', to: 'docs/structural-editing.md' },
+      { from: 'agentic/code/addons/writing-quality/skills/ai-pattern-detection/references/current-patterns.json', to: 'docs/current-patterns.json' },
       { from: 'agentic/code/addons/voice-framework/docs/writing-workflows.md', to: 'docs/writing-workflows.md' },
       { from: 'agentic/code/addons/voice-framework/docs/voice-output-impact.md', to: 'docs/voice-output-impact.md' },
       { from: 'agentic/code/addons/voice-framework/docs/natural-voice/ADR-001-evidence-and-ownership.md', to: 'docs/natural-voice/ADR-001-evidence-and-ownership.md' },
       { from: 'agentic/code/addons/voice-framework/docs/natural-voice/evidence-ledger.v1.json', to: 'docs/natural-voice/evidence-ledger.v1.json' },
       { from: 'agentic/code/addons/voice-framework/flows/voice-critique-correction.flow.yaml', to: 'flows/voice-critique-correction.flow.yaml' }
     ],
+    rewrites: [
+      ...['voice-apply', 'voice-create'].map(name => ({ file: `skills/${name}/SKILL.md`, from: '../../../writing-quality/patterns/common-ai-tells.md', to: '../../docs/structural-editing.md' })),
+      { file: 'docs/structural-editing.md', from: '../skills/ai-pattern-detection/references/current-patterns.json', to: 'current-patterns.json' }
+    ],
     readme: `# AIWG Voice Framework
 
 Voice profile system for consistent, authentic writing.
+
+Use the [shared structural editing rules](docs/structural-editing.md) for tiered examples, campaign review and substance checks. These are editing guidelines, not authorship detection.
 
 ## Built-in Profiles
 
@@ -198,13 +206,19 @@ Voice profile system for consistent, authentic writing.
       agents: 'agentic/code/addons/writing-quality/agents',
       skills: 'agentic/code/addons/writing-quality/skills'
     },
+    extraCopy: [
+      { from: 'agentic/code/addons/writing-quality/patterns', to: 'patterns' },
+      { from: 'agentic/code/addons/writing-quality/validation', to: 'validation' }
+    ],
     readme: `# AIWG Writing Quality
 
-Writing quality validation and AI pattern detection.
+Writing quality validation and contextual editing guidance.
+
+Use the [shared structural editing rules](patterns/common-ai-tells.md) and [review checklist](validation/banned-patterns.md) for tiered examples, campaign review and substance checks. These are editing guidelines, not authorship detection.
 
 ## Features
 
-- **AI Pattern Detection**: Identify AI-generated writing patterns
+- **Structural Review**: Review formulaic writing patterns in context
 - **Authenticity Enhancement**: Suggestions for more authentic voice
 - **Writing Validation**: Check against AIWG principles
 

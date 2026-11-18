@@ -9,6 +9,23 @@ description: Generate custom voice profiles from natural language descriptions b
 
 Generate custom voice profiles from natural language descriptions.
 
+## Shared structural defaults
+
+New profiles inherit the [shared structural rules](../../docs/structural-editing.md).
+These cut/check/watch priorities are editing guidance, not authorship detection.
+Review rhetorical contrasts, mirrored pairs, moral endings, significance labels,
+generic openings, effect triads, summary closers, colon reveals, fragment runs,
+staged quips, empty openers and engagement bait. Keep useful definitions,
+comparisons, real lists, necessary uncertainty and deliberate punctuation.
+
+Include campaign review when relevant: no copied thesis lines across channels,
+rotate release-post openers and closers, never recycle a joke or line in a later
+post, and never make a signature move a lede formula. Include a substance check
+for articles and how-tos: a usable configuration, command, prompt, script or
+result. Never invent supporting facts, errors, jokes or a persona to meet a profile.
+These defaults guide editorial review; they do not change personal profiles or
+promise complete automated detection.
+
 ## Triggers
 
 
@@ -48,7 +65,7 @@ When triggered, this skill:
 3. **Generates vocabulary guidance**:
    - Preferred terms based on domain
    - Terms to avoid based on tone
-   - Signature phrases that match the voice
+   - Optional author-approved phrasing; do not generate a signature formula
 
 4. **Creates structure patterns**:
    - Sentence length preferences
@@ -142,7 +159,7 @@ Identify domain from context:
 Based on domain and tone, generate:
 - 5-10 preferred terms
 - 3-5 terms to avoid
-- 2-4 signature phrases
+- Optional phrases supplied and approved by the author; never insert them mechanically
 
 ### Step 4: Structure Selection
 

@@ -14,6 +14,22 @@ triggers:
 
 # Voice Apply Skill
 
+## Shared structural review
+
+Apply the [shared structural rules](../../../writing-quality/patterns/common-ai-tells.md)
+alongside the selected profile. Their cut/check/watch tiers are editing priorities,
+not authorship detection. Review rhetorical contrasts, mirrored pairs, moral
+endings, significance labels, generic openings, effect triads, summary closers,
+colon reveals, fragment runs, staged quips, empty openers and engagement bait.
+Preserve deliberate comparisons, factual negations, real lists and useful punctuation.
+
+Before finalizing a campaign, compare thesis lines across channels and rotate
+release-post openers and closers. Never recycle a joke or line in a later post
+or turn a signature move into a lede formula. For articles and how-tos, verify
+substance: a usable configuration, command, prompt, script or result. Report gaps;
+never invent evidence, personal experience, mistakes or casualness. The scanner
+covers only part of this guidance, so review meaning as well as findings.
+
 ## Local writing and participating consumer recipes
 
 Use [author-controlled writing workflows](../../docs/writing-workflows.md) for the

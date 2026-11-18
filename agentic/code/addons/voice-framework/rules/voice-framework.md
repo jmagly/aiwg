@@ -66,9 +66,25 @@ When generating or reviewing content:
 
 1. **Apply appropriate voice**: Match audience and context
 2. **Maintain sophistication**: Preserve domain-appropriate vocabulary - don't dumb down
-3. **Include authenticity markers**: Add opinions, acknowledge trade-offs, reference constraints
+3. **Preserve evidence**: Use supplied opinions, trade-offs and constraints only where relevant; never invent them
 4. **Vary structure**: Mix sentence lengths, paragraph structures, transition styles
 5. **Be specific**: Replace vague claims with exact metrics and concrete examples
+
+## Shared structural review
+
+Profiles inherit the [shared structural rules](../../writing-quality/patterns/common-ai-tells.md).
+Use their examples, fixes and cut/check/watch priorities during generation and
+review. Review contrasts, mirrored pairs, moral endings, significance labels,
+generic openings, effect triads, summary closers, colon reveals, fragments,
+staged quips, throat-clearing and engagement bait. This is not authorship detection.
+Em dashes, colons, semicolons, passive voice, plain transitions and real lists
+are not patterns on their own. Preserve necessary uncertainty and source meaning.
+
+Campaign review checks copied thesis lines across channels, repeated release
+openers and closers, recycled jokes and signature moves used as lede formulas.
+Verify substance for articles and how-tos: a usable configuration, command,
+prompt, script or result. Never invent facts or manufacture errors or casualness.
+Automated checks cover only part of these editorial guidelines.
 
 ## Content Quality Guidelines
 

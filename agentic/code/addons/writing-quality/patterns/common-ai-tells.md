@@ -1,178 +1,143 @@
-# Common AI Tells and How to Avoid Them
+# Structural editing patterns
 
-## The Top 10 AI Giveaways
+Reviewed 2026-11-17. These are editing guidelines, not authorship detection.
+The legacy filename remains for existing links. Review what a sentence carries
+for its reader; a pattern match does not establish who wrote it. Apply author
+and project requirements, and record reasons for deliberate exceptions.
 
-### 1. The "Comprehensive Solution" Syndrome
+## Review tiers
 
-**AI Tell**: Everything is comprehensive, robust, innovative, or cutting-edge. **Why it happens**: AI is trained to
-sound impressive and complete. **Fix**: Be specific about what the thing actually does.
+| Tier | Editorial action |
+|------|------------------|
+| cut | Usually remove the rhetorical frame and state the useful claim directly. |
+| check | Inspect the context and revise if the frame adds no information. |
+| watch | Review a possible habit; retain it when it serves the reader. |
 
-### 2. The Three-Item List Obsession
+Tiers prioritize review, not automatic deletion or publication decisions.
+These examples are invented editing exercises, not evidence of authorship.
 
-**AI Tell**: "The system is fast, reliable, and secure." **Why it happens**: Three items feel complete and balanced.
-**Fix**: Use 2, 4, or no list. Or just pick the most important item.
+## Structural patterns
 
-### 3. The Moreover Transition Addiction
+### Negate-then-assert
+**Tier: cut**
 
-**AI Tell**: Moreover, Furthermore, Additionally at the start of paragraphs. **Why it happens**: AI learned formal
-writing patterns. **Fix**: Just start the next sentence. No transition needed.
+**Example:** “This isn't about speed. It's about trust.”
+**Fix:** Name the actual change: “The audit log records who approved each update.” Retain negation when correcting a stated misconception or documenting a factual limitation. Scanner variants such as `not … but` and `X, not Y` are cut; the narrower `negate-then-assert` and `rather-than` checks use check tier.
 
-### 4. The Perfect World Problem
+### Mirrored pairs
+**Tier: cut**
 
-**AI Tell**: Everything works flawlessly, all stakeholders are satisfied. **Why it happens**: AI avoids negative
-outcomes. **Fix**: Include what broke, what was hard, what you'd change.
+**Example:** “The demo is simple. The deployment is complex.”
+**Fix:** Explain the difference: “Deployment requires a database and a separate worker.” Keep parallel clauses when the comparison itself conveys needed information.
 
-### 5. The Hedge Word Haven
+### Moral endings
+**Tier: cut**
 
-**AI Tell**: "can help to", "may provide", "seeks to enable" **Why it happens**: AI avoids absolute statements. **Fix**:
-Use direct verbs. It does or it doesn't.
+**Example:** “The lesson is simple: always test the edges.”
+**Fix:** End on the specific result or unresolved constraint: “The new test covers a missing switch.” A useful instruction can remain; an unsupported moral adds no evidence.
 
-### 6. The Em-Dash Epidemic
+### Labelled significance
+**Tier: cut**
 
-**AI Tell**: Multiple em-dashes — like this — throughout the text. **Why it happens**: AI uses them for parenthetical
-information. **Fix**: Use commas, parentheses, or separate sentences.
+**Example:** “Why this matters: the retry has a limit.”
+**Fix:** Connect the circumstance to its consequence: “After three failed attempts, the worker returns the error.” Removing only the label leaves the explanation unfinished.
 
-### 7. The Conclusion Compulsion
+### Asserted importance openings
+**Tier: check**
 
-**AI Tell**: "In conclusion", "To summarize", "All in all" **Why it happens**: AI follows essay structure. **Fix**: Just
-stop when you're done.
+**Example:** “Reliable backups are essential in today's world.”
+**Fix:** Open with the actual task or incident: “The restore job failed when the archive was empty.” Explain importance through consequences supported by the source.
 
-### 8. The Balance Beam Act
+### Definition openings
+**Tier: watch**
 
-**AI Tell**: "While X has challenges, it also provides opportunities" **Why it happens**: AI tries to present balanced
-viewpoints. **Fix**: Pick a side or state facts without the balance.
+**Example:** “A backup is a copy of stored data.”
+**Fix:** Start a how-to with the reader's task: “Restore the archive into an empty directory.” Retain definitions in glossaries and when readers need the term before proceeding.
 
-### 9. The Transformation Fixation
+### Effect triads
+**Tier: watch**
 
-**AI Tell**: Everything is transformative, revolutionary, or game-changing. **Why it happens**: AI amplifies importance.
-**Fix**: Most things are incremental improvements.
+**Example:** “The update makes work faster, easier, and better.”
+**Fix:** Name a supported effect: “The update removes the manual export step.” Keep three real effects when each has evidence; do not change list length just to avoid three.
 
-### 10. The Seamless Integration Illusion
+### Summary closers
+**Tier: check**
 
-**AI Tell**: Everything seamlessly integrates. **Why it happens**: AI implies perfection. **Fix**: Nothing is seamless.
-Everything has friction.
+**Example:** “In summary, this approach improves the whole workflow.”
+**Fix:** End on the last useful result, required action or limitation. Retain summaries that help readers navigate a long document or make a decision.
 
-## Structural Tells
+### Colon reveals
+**Tier: watch**
 
-### The Wikipedia Opening
+**Example:** “The system had one hidden weakness: nobody owned the queue.”
+**Fix:** State subject and consequence together: “The queue stalled because no worker was assigned.” A colon introducing a real list, definition or command needs no repair.
 
-**AI Tell**: Starting with a broad definition before getting specific.
-> "Digital transformation is the process by which organizations..."
+### Fragment runs
+**Tier: check**
 
-**Fix**: Start with the specific situation.
-> "We needed to get invoices online. Paper was killing us."
+**Example:** “One queue. Two workers. No owner. Nothing moved.”
+**Fix:** Join the facts to explain the result: “Neither worker owned the queue, so both waited.” Keep concise runbook steps; avoid manufacturing staccato rhythm through isolated paragraphs.
 
-### The Academic Structure
+### Faux-casual quips
+**Tier: check**
 
-**AI Tell**: Introduction → Body → Conclusion in every section. **Fix**: Sometimes just make your point and move on.
+**Example:** “Yeah, that happened. Classic. You're welcome.”
+**Fix:** Describe the event in the author's established voice. Remove stage-managed banter; never manufacture errors, jokes, experiences or a gruff persona to sound natural.
 
-### The Consistent Paragraph Pattern
+### Throat-clearing
+**Tier: cut**
 
-**AI Tell**: Every paragraph follows: claim → evidence → conclusion. **Fix**: Mix it up. Some paragraphs are one
-sentence. Others ramble.
+**Example:** “Here's the thing. Let's dive in.”
+**Fix:** Start with the information the reader came for: “Set the timeout before starting the worker.” Preserve context that changes how the instruction should be used.
 
-### The Summary Addiction
+### Engagement bait
+**Tier: cut**
 
-**AI Tell**: Summarizing what was just said. **Fix**: Trust the reader. They got it the first time.
+**Example:** “Thoughts? Agree? Drop a comment below.”
+**Fix:** End with the information, or ask an answerable question: “Which restore step failed, and what error did it return?”
 
-## Voice Tells
+## Campaign review
 
-### The Helpful Assistant Voice
+Do not copy a thesis line across channels. Rotate release-post openers and closers.
+Never reuse a joke or line in a later post. Do not use a signature move as a lede formula.
+Write each post around its reader's task and the relevant release facts; changing
+synonyms around an identical sentence skeleton does not create a new post.
+Keep product names, commands, required notices and deliberate quotations stable.
 
-**AI Tell**: "I hope this helps!", "Let me explain...", "Happy to elaborate!" **Why it happens**: AI is trained to be
-helpful. **Fix**: Just provide the information.
+Compare the current campaign with earlier posts during editorial review. The
+existing `aiwg writing --cross --json campaign/` checks repeated sentences,
+phrases and opening/closing skeletons within the supplied set. It cannot judge
+semantic thesis reuse, identify jokes reliably or remember posts not supplied.
 
-### The Marketing Voice
+## Substance for articles and how-tos
 
-**AI Tell**: Everything is an opportunity, solution, or journey. **Why it happens**: AI mimics corporate communication.
-**Fix**: Use plain language. Problems aren't opportunities.
+Articles and how-tos need at least one usable configuration, command, prompt,
+script or result relevant to their central claim. Explain how to use it or what
+it demonstrates. A rhetorical promise or ungrounded benefit is insufficient.
+Never invent metrics, experiments or examples presented as actual results.
+When supporting material is missing, report the gap and request the needed input.
 
-### The Academic Voice
+## Rotating lexical review
 
-**AI Tell**: "It is worth noting that...", "One might argue..." **Why it happens**: AI learned from formal texts.
-**Fix**: State facts directly. No throat-clearing.
+The word list lives in the existing [dated catalogue](../skills/ai-pattern-detection/references/current-patterns.json),
+with `reviewed: 2026-11-12` and `nextReview: 2027-02-12`. Review it quarterly:
+compare current drafts with accepted examples, retire stale entries and record
+the new dates. Keep runtime catalogue copies synchronized. Word-level preferences
+rotate; replacing each word with a synonym does not repair a structural habit.
+Lexical clusters are review prompts; a single word is not proof of poor writing.
 
-## Subtle Patterns
+## False positives and limits
 
-### The Perfection Problem
+Em dashes, colons, semicolons, passive voice, plain transitions and real lists
+are not patterns on their own. Keep punctuation that clarifies meaning, passive
+voice that puts the relevant subject first, and transitions that connect ideas.
+Preserve headings, front matter, alt text, code, quotations, terminology,
+inventories and necessary uncertainty. Do not rewrite protected material to
+satisfy a prose heuristic.
 
-AI never mentions:
-
-- Bugs that took weeks to fix
-- Features that users hate
-- Technical debt
-- Budget overruns
-- Missed deadlines
-- Arguments about architecture
-
-### The Politeness Pattern
-
-AI always:
-
-- Acknowledges all viewpoints
-- Avoids strong opinions
-- Hedges statements
-- Maintains positive tone
-- Provides complete coverage
-
-### The Completeness Compulsion
-
-AI tries to:
-
-- Cover every angle
-- List all possibilities
-- Provide comprehensive overview
-- Include all stakeholders
-- Address every concern
-
-## Detection Exercise
-
-### Spot the AI
-
-**Text A:**
-> "The authentication system uses JWT tokens with 15-minute expiry. Refresh tokens last 30 days. We store them in
-> httpOnly cookies after the XSS incident last year. Still arguing about whether to move to sessions."
-
-**Text B:**
-> "Our robust authentication solution leverages industry-standard JWT tokens to provide secure, seamless access control.
-> Furthermore, the implementation of refresh tokens ensures optimal balance between security and user experience."
-
-**Answer**: B is AI. Tells: "robust solution", "leverages", "seamless", "Furthermore", "optimal balance"
-
-## The Fix Formula
-
-When your writing sounds too AI:
-
-1. **Add a problem**: What went wrong?
-2. **Add specifics**: What technology? What numbers?
-3. **Add context**: Why this decision?
-4. **Add opinion**: What do you think?
-5. **Remove adjectives**: They're usually unnecessary
-6. **Remove transitions**: Just start the next sentence
-
-## Real Writing Has
-
-- Typos (occasionally)
-- Strong opinions
-- Specific numbers
-- Tech stack details
-- Things that failed
-- Inside jokes
-- Industry complaints
-- Time pressure mentions
-- Budget constraints
-- Team dynamics
-
-## The Ultimate Test
-
-If you can't imagine a tired developer writing this at 4pm on a Friday, it's too AI.
-
-Real human writing is:
-
-- Sometimes grumpy
-- Often imperfect
-- Occasionally brilliant
-- Always specific
-- Never seamless
-
-Remember: You're not trying to sound professional. You're trying to sound human.
+Factual technical negations (“is not a supported alias”) and short generic
+statements can resemble rhetorical contrasts or aphorisms. Review their meaning.
+Definition openings, broad assertions of importance, general effect triads,
+faux-casual quips and the substance requirement need editorial judgment; the
+scanner's narrow rhetorical adjective triad is only a partial aid. The scanner
+does not implement every guideline here. Zero findings is not a quality guarantee.

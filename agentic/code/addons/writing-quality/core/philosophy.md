@@ -46,11 +46,10 @@ Good:
 
 ### Principle 4: Natural Variation
 
-**Humans don't write with consistent patterns.**
-
-- Some paragraphs are one sentence.
-- Others run longer, include asides (like this one), and cover multiple related points without perfect structure.
-- Use fragments. Start with conjunctions. And break "rules" when it sounds natural.
+Let the explanation determine sentence and paragraph length. Keep related facts
+together so readers can follow the reason or result. Use the
+[shared structural rules](../patterns/common-ai-tells.md) to review fragment runs
+and repeated rhetorical frames; do not manufacture irregularity or errors.
 
 ### Principle 5: Include the Messy Reality
 
