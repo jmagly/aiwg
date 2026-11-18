@@ -51,7 +51,7 @@ it('counts shared operator mirrors without adopting unrelated files from another
     'unrelated.md': { owners: ['sdlc-complete'], kind: 'command' },
     'flow-retired.md': { owners: ['sdlc-complete'], kind: 'skill-command', sourcePath: path.join(root, 'missing') },
   } }));
-  expect(await countRecordedFrameworkArtifacts(root, 'claude', 'marketing', root, ['--no-utils'])).toEqual({ agents: 0, commands: 1, skills: 0, rules: 0 });
+  expect(await countRecordedFrameworkArtifacts(root, 'claude', 'marketing', root, ['--no-utils', '--copy-all'])).toEqual({ agents: 0, commands: 1, skills: 0, rules: 0 });
 });
 it('uses recorded skill identity for provider-specific command filenames', async () => {
   const source = write('agentic/code/frameworks/sdlc-complete/skills/flow-release/SKILL.md', 'source');

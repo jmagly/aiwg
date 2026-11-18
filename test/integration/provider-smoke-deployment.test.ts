@@ -101,7 +101,7 @@ describe('provider deployment smoke', () => {
       // OpenCode's agent writer consumes the framework layout; its tiny
       // external-bundle path deploys skills but does not collect direct agents.
       const framework = provider === 'opencode';
-      const result = spawnSync(process.execPath, [path.join(ROOT, 'bin/aiwg.mjs'), 'use', framework ? 'sdlc' : 'deploy-smoke',
+      const result = spawnSync(process.execPath, [path.join(ROOT, 'bin/aiwg.mjs'), 'use', framework ? 'sdlc' : 'deploy-smoke', '--copy-all',
         '--provider', provider, '--no-hooks', '--no-context-files', '--quiet',
         ...(framework ? ['--no-utils', '--no-project-local'] : []),
       ], { cwd: project, env, encoding: 'utf8', timeout: 60_000, maxBuffer: 2 * 1024 * 1024 });

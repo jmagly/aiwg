@@ -201,7 +201,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     try {
       for (const root of [...roots, ...roots]) {
         vi.stubEnv('AIWG_ROOT', root);
-        const args = ['decision-engine', '--provider', 'claude', '--target', project];
+        const args = ['decision-engine', '--copy-all', '--provider', 'claude', '--target', project];
         const result = await useHandler.execute({ cwd: project, frameworkRoot: root, rawArgs: ['use', ...args], args });
         expect(result.exitCode, result.message).toBe(0);
         output.mockClear();
@@ -239,7 +239,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
       const { useHandler } = await import('../../../../src/cli/handlers/use.js');
       const adapter = await import(`../../../../tools/agents/providers/${provider}.mjs`);
       // Grokbot exposes native writes only at user scope.
-      const args = ['decision-engine', '--provider', provider, '--target', project,
+      const args = ['decision-engine', '--copy-all', '--provider', provider, '--target', project,
         ...(provider === 'grokbot' ? ['--scope', 'user'] : [])];
       const result = await useHandler.execute({ cwd: project, frameworkRoot, rawArgs: ['use', ...args], args });
       expect(result.exitCode, result.message).toBe(0);
@@ -328,7 +328,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     const manager = await import('../../../../src/channel/manager.mjs');
     vi.mocked(manager.getFrameworkRoot).mockResolvedValue(sourceRoot);
     const { useHandler } = await import('../../../../src/cli/handlers/use.js');
-    const args = [bundle, '--provider', provider, '--target', project, '--json',
+    const args = [bundle, '--copy-all', '--provider', provider, '--target', project, '--json',
       ...(['grokbot', 'omp'].includes(provider) ? ['--scope', 'user'] : [])];
     const result = await useHandler.execute({ cwd: project, frameworkRoot: sourceRoot, rawArgs: ['use', ...args], args });
     expect(result.exitCode, result.message).toBe(1);
@@ -355,7 +355,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     vi.resetModules();
     await interceptVerification();
     const { useHandler } = await import('../../../../src/cli/handlers/use.js');
-    const args = ['decision-engine', '--provider', 'claude', '--target', project, '--json'];
+    const args = ['decision-engine', '--copy-all', '--provider', 'claude', '--target', project, '--json'];
     const result = await useHandler.execute({ cwd: project, frameworkRoot, rawArgs: ['use', ...args], args });
     expect(result.exitCode).toBe(1);
     const structured = JSON.parse(result.message!);
@@ -377,7 +377,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
       throw new Error('after completed generator writes');
     });
     const { useHandler } = await import('../../../../src/cli/handlers/use.js');
-    const args = ['decision-engine', '--provider', 'claude', '--target', project, '--json'];
+    const args = ['decision-engine', '--copy-all', '--provider', 'claude', '--target', project, '--json'];
     const result = await useHandler.execute({ cwd: project, frameworkRoot, rawArgs: ['use', ...args], args });
     expect(result.exitCode, result.message).toBe(1);
     const structured = JSON.parse(result.message!);
@@ -396,7 +396,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     await interceptVerification();
     afterVerification.mockImplementation(result => { if (result.provider === 'codex') result.outcome = 'failed'; });
     const { useHandler } = await import('../../../../src/cli/handlers/use.js');
-    const args = ['decision-engine', '--providers', 'claude,codex', '--target', project, '--json'];
+    const args = ['decision-engine', '--copy-all', '--providers', 'claude,codex', '--target', project, '--json'];
     const result = await useHandler.execute({ cwd: project, frameworkRoot, rawArgs: ['use', ...args], args });
     expect(result.exitCode, result.message).toBe(1);
     const structured = JSON.parse(result.message!);
@@ -412,7 +412,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     afterDeploy.mockImplementation(() => { throw new Error('after provider writes'); });
     vi.resetModules();
     const { useHandler } = await import('../../../../src/cli/handlers/use.js');
-    const args = ['decision-engine', '--provider', 'windsurf', '--target', project, '--json'];
+    const args = ['decision-engine', '--copy-all', '--provider', 'windsurf', '--target', project, '--json'];
     const result = await useHandler.execute({ cwd: project, frameworkRoot, rawArgs: ['use', ...args], args });
     expect(result.exitCode, result.message).toBe(1);
     const structured = JSON.parse(result.message!);
@@ -435,7 +435,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     expect(Object.keys(before.entries)).toHaveLength(1);
     afterDeploy.mockImplementation(() => buildIndex(partialRoot, { graph: 'framework', quiet: true }));
     // A fresh timestamp (or a reconcile receipt) cannot prove bundle coverage.
-    const args = ['decision-engine', '--provider', 'claude', '--target', project];
+    const args = ['decision-engine', '--copy-all', '--provider', 'claude', '--target', project];
     const result = await useHandler.execute({ cwd: project, frameworkRoot, rawArgs: ['use', ...args], args });
     expect(result.exitCode, result.message).toBe(0);
     const after = loadGraphIndexFile<any>(project, 'metadata.json', 'framework');
@@ -443,7 +443,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     expect(after.entries['agentic/code/frameworks/other/skills/unrelated/SKILL.md']).toBeUndefined();
   });
 
-  it('cleans removed standard skills and bundle-root support files on addon redeploy', { timeout: 60000 }, async () => {
+  it('cleans removed standard skills and bundle-root support files after reviewed removal and redeploy', { timeout: 60000 }, async () => {
     const sourceRoot = join(tempRoot, 'sources');
     writeSources(sourceRoot);
     const addon = join(sourceRoot, 'agentic/code/addons/decision-engine');
@@ -455,7 +455,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     await writeAiwgConfig(project, emptyConfig(['pi']));
     vi.resetModules();
     const { useHandler } = await import('../../../../src/cli/handlers/use.js');
-    const args = ['decision-engine', '--provider', 'pi', '--target', project];
+    const args = ['decision-engine', '--copy-all', '--provider', 'pi', '--target', project];
     const execute = () => useHandler.execute({ cwd: project, frameworkRoot: sourceRoot, rawArgs: ['use', ...args], args });
     const first = await execute();
     expect(first.exitCode, first.message).toBe(0);
@@ -468,6 +468,9 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     rmSync(join(addon, 'templates'), { recursive: true });
     rmSync(join(addon, 'assets'), { recursive: true });
     write(addon, 'skills/de-check/SKILL.md', '---\nname: de-check\nplatforms: [all]\n---\nUpdated.\n');
+    const { removeHandler } = await import('../../../../src/cli/handlers/subcommands.js');
+    const removed = await removeHandler.execute({ cwd: project, frameworkRoot: sourceRoot, rawArgs: [], args: ['decision-engine', '--provider', 'pi'] });
+    expect(removed.exitCode, removed.message).toBe(0);
     const second = await execute();
     expect(second.exitCode, second.message).toBe(0);
     expect(existsSync(join(deployed, 'retired/SKILL.md'))).toBe(false);
@@ -491,7 +494,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     const { useHandler } = await import('../../../../src/cli/handlers/use.js');
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      const args = ['decision-engine', '--provider', provider, '--target', project,
+      const args = ['decision-engine', '--copy-all', '--provider', provider, '--target', project,
         ...(provider === 'grokbot' ? ['--scope', 'user'] : [])];
       const result = await useHandler.execute({ cwd: project, frameworkRoot: sourceRoot, rawArgs: ['use', ...args], args });
       expect(result.exitCode, result.message).toBe(0);
@@ -534,7 +537,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
     await writeAiwgConfig(project, emptyConfig([provider]));
     vi.resetModules();
     const { useHandler } = await import('../../../../src/cli/handlers/use.js');
-    const args = ['decision-engine', '--provider', provider, '--target', project,
+    const args = ['decision-engine', '--copy-all', '--provider', provider, '--target', project,
       ...(provider === 'grokbot' ? ['--scope', 'user'] : [])];
     const result = await useHandler.execute({ cwd: project, frameworkRoot: sourceRoot, rawArgs: ['use', ...args], args });
     expect(result.exitCode, result.message).toBe(0);
@@ -565,7 +568,7 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
       receipt.managed['SKILL.md'].frameworkSlug = 'aiwg-utils';
       writeFileSync(receiptPath, JSON.stringify(receipt));
     });
-    const args = ['decision-engine', '--provider', 'pi', '--target', project, '--force'];
+    const args = ['decision-engine', '--copy-all', '--provider', 'pi', '--target', project, '--force'];
     const result = await useHandler.execute({ cwd: project, frameworkRoot: sourceRoot, rawArgs: ['use', ...args], args });
     expect(result.exitCode, result.message).toBe(0);
     const deployed = join(project, '.pi/.aiwg/skills/sess-probe');

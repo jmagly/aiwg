@@ -263,6 +263,7 @@ async function mainUnlocked(args, internal) {
 
   // Build options for provider
   const { writeContextFileSync } = await import('./providers/context-write.mjs');
+  const namedDiscoveryPass = cfg.discoveryOnly && (cfg.bundleOnly || (cfg.ruleSelectionMode || cfg.mode) !== 'all');
   const opts = {
     replacedSkillCopies: new Set(),
     writeReceipt: writeContextFileSync,
@@ -271,6 +272,7 @@ async function mainUnlocked(args, internal) {
     target: cfg.target,
     ...(cfg.userScope ? { userScope: true } : {}),
     mode: cfg.mode,
+    ruleSelectionMode: cfg.ruleSelectionMode,
     // Provider aliases are selectors, not artifact identities. Passing the
     // canonical id keeps generated frontmatter byte-identical for devin,
     // devin-desktop, and the deprecated windsurf selector.
@@ -293,12 +295,13 @@ async function mainUnlocked(args, internal) {
     deployBehaviors: cfg.kernelOnly ? false : cfg.deployBehaviors,
     commandsOnly: cfg.commandsOnly,
     // Grok bulk deployment includes native agents alongside kernel skills (#2577).
-    skillsOnly: cfg.skillsOnly || (cfg.kernelOnly && provider.name !== 'grok-build'),
+    skillsOnly: cfg.skillsOnly || cfg.discoveryOnly || (cfg.kernelOnly && provider.name !== 'grok-build'),
     rulesOnly: cfg.rulesOnly,
     strict: cfg.strict,
     reportOnly: cfg.reportOnly,
     allowOverBudget: cfg.allowOverBudget === true,
     kernelOnly: cfg.kernelOnly,
+    discoveryOnly: cfg.discoveryOnly,
     deferRuleProjection: cfg.deferRuleProjection,
     bundleOnly: cfg.bundleOnly,
     additionalSources: cfg.additionalSources,
@@ -318,7 +321,7 @@ async function mainUnlocked(args, internal) {
     // Default (#1217) is no-copy + index-driven discovery.
     fluePackage: cfg.fluePackage === true,
     copyStandardSkills: cfg.copyStandardSkills === true,
-    copyMode: cfg.copyStandardSkills === true && cfg.indexMode !== true,
+    copyMode: (cfg.discoveryOnly && provider.name !== 'flue') || (cfg.copyStandardSkills === true && cfg.indexMode !== true),
     // #228: Muse provider hooks/MCP profile surface.
     mcp: cfg.mcp === true,
     hooks: cfg.hooks !== false,
@@ -370,7 +373,7 @@ async function mainUnlocked(args, internal) {
   // Delegate to provider
   try {
     if (!internal.finalizeOnly) {
-      if (cfg.kernelOnly && (!cfg.deferRuleProjection || preparationActive)
+      if (opts.kernelOnly && !namedDiscoveryPass && (!cfg.deferRuleProjection || preparationActive)
         && !['claude', 'codex', 'cursor', 'hermes', 'warp', 'openclaw', 'flue', 'pi', 'copilot', 'factory', 'opencode', 'windsurf', 'antigravity', 'muse', 'omp', 'grok-build', 'generic'].includes(provider.name)) {
         const { deployWithRuleDelivery } = await import('./providers/rule-delivery.mjs');
         await deployWithRuleDelivery(opts, provider, staged => provider.deploy(staged));

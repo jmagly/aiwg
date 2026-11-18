@@ -42,6 +42,7 @@ registerProviderReconciliation('claude');
 it('plans exactly the dropped explicit voice bundle through refresh and update', () => {
   const { project, command, plans, readConfig, writeConfig, snapshot } = sdlcSetup('claude', true);
   command('use', 'voice-framework', '--provider', 'claude', '--declare');
+  command('use', 'voice-framework', '--provider', 'claude', '--copy-all', '--yes', '--json');
   command('use', 'voice-framework', '--provider', 'claude', '--yes', '--json');
   const voiceFile = path.join(project, '.claude/.aiwg/skills/voice-apply/SKILL.md');
   expect(fs.existsSync(voiceFile)).toBe(true);
@@ -82,20 +83,28 @@ it.each([false, true])('persists mode, updates unchanged standard copies, and ke
   expect(readConfig().installed['local-mode'].deployedTo.claude.copy).toBe(copy);
   const current = path.join(project, '.claude/skills/mode-current/SKILL.md');
   const edited = path.join(project, '.claude/skills/mode-edited/SKILL.md');
-  expect(fs.readFileSync(current, 'utf8')).toContain('Revision 1');
-  fs.writeFileSync(edited, 'Operator-edited skill\n');
+  if (copy) {
+    expect(fs.readFileSync(current, 'utf8')).toContain('Revision 1');
+    fs.writeFileSync(edited, 'Operator-edited skill\n');
+  } else expect(fs.existsSync(current)).toBe(false);
   command('use', 'sdlc', '--provider', 'claude', '--yes', '--json', ...(copy ? ['--copy-all'] : []));
   expect(readConfig().installed['local-mode'].deployedTo.claude.copy).toBe(copy);
   for (const [index, action] of ['update', 'refresh'].entries()) {
     writeSource(index + 2);
     const output = command(action, action === 'update' ? '--skip-check' : '--skip-update', '--provider', 'claude');
-    expect(fs.readFileSync(current, 'utf8')).toContain(`Revision ${index + 2}`);
-    expect(fs.readFileSync(edited, 'utf8')).toBe('Operator-edited skill\n');
-    expect(output).toContain('operator-edited');
+    if (copy) {
+      expect(fs.readFileSync(current, 'utf8')).toContain(`Revision ${index + 2}`);
+      expect(fs.readFileSync(edited, 'utf8')).toBe('Operator-edited skill\n');
+      expect(output).toContain('operator-edited');
+    } else {
+      expect(fs.existsSync(current)).toBe(false);
+      expect(command('show', 'skill', 'mode-current', '--graph', 'project', '--body')).toContain(`Revision ${index + 2}`);
+    }
     expect(readConfig().installed['local-mode'].deployedTo.claude.copy).toBe(copy);
   }
   command('use', 'local-mode', '--provider', 'claude', '--copy-standard-skills', '--yes', '--json');
   expect(readConfig().installed['local-mode'].deployedTo.claude.copy).toBe(true);
+  if (!copy) fs.writeFileSync(edited, 'Operator-edited skill\n');
   command('use', 'local-mode', '--provider', 'claude', '--yes', '--json');
   expect(readConfig().installed['local-mode'].deployedTo.claude.copy).toBe(false);
   if (copy) command('use', 'local-mode', '--provider', 'claude', '--copy-all', '--yes', '--json');

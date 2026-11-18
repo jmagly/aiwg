@@ -35,6 +35,7 @@ interface Env {
 
 function runAiwg(env: Env, args: string[]): { stdout: string; status: number } {
   const aiwgBin = path.join(REPO_ROOT, 'bin/aiwg.mjs');
+  if (args[0] === 'use' && !args.includes('--copy-all')) args = [...args, '--copy-all'];
   try {
     const stdout = execFileSync(process.execPath, [aiwgBin, ...args], {
       cwd: env.projectDir,
@@ -479,12 +480,7 @@ describe('project-local deploy integration (#1046)', () => {
     expect(existsSync(ruleFile), 'deploy is idempotent — restores missing file').toBe(true);
   });
 
-  // #1228 follow-up: `aiwg use` must invoke deploy-agents.mjs with --copy-all
-  // for project-local bundles. The default deploy mode (#1217) is no-copy +
-  // index-driven discovery, which assumes upstream skills at $AIWG_ROOT.
-  // Project-local bundles live under the project's .aiwg/ tree and aren't in
-  // the framework graph. Copying them to the provider's native skill root
-  // makes them available directly (#4086).
+  // Explicit copying keeps local supporting assets at the native provider root.
   it('PL-COPY-ALL: project-local skills land at the native skill root via aiwg use', () => {
     const aiwgBin = path.join(REPO_ROOT, 'bin/aiwg.mjs');
 
@@ -516,7 +512,7 @@ describe('project-local deploy integration (#1046)', () => {
     try {
       const stdout = execFileSync(
         process.execPath,
-        [aiwgBin, 'use', 'sdlc', '--provider', 'claude', '--quiet'],
+        [aiwgBin, 'use', 'sdlc', '--copy-all', '--provider', 'claude', '--quiet'],
         {
           cwd: env.projectDir,
           env: {
@@ -578,7 +574,7 @@ describe('project-local deploy integration (#1046)', () => {
     try {
       const stdout = execFileSync(
         process.execPath,
-        [aiwgBin, 'use', 'pl-test', '--provider', 'codex', '--quiet'],
+        [aiwgBin, 'use', 'pl-test', '--copy-all', '--provider', 'codex', '--quiet'],
         {
           cwd: env.projectDir,
           env: {

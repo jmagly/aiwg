@@ -223,7 +223,7 @@ describe('public experimental Flue app deployment', () => {
 
   it.each(['claude', 'codex'])('keeps matching %s provider payloads byte-identical on update', provider => {
     const { command, snapshot } = setup();
-    command('use', 'voice-framework', '--provider', provider, '--json');
+    command('use', 'voice-framework', '--provider', provider, '--copy-all', '--json');
     const payload = () => Object.fromEntries(Object.entries(snapshot()).filter(([name]) => name.startsWith(`.${provider}/`) || name.startsWith('.agents/')));
     const before = payload();
     expect(Object.keys(before).length).toBeGreaterThan(5);

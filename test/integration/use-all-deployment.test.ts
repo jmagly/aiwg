@@ -370,7 +370,7 @@ describe.skipIf(!GIT_AVAILABLE)('aiwg use all — deployment coverage', { timeou
         const codexAgents = existsSync(codexAgentsDir)
           ? (await fs.readdir(codexAgentsDir)).filter(name => name.endsWith('.toml'))
           : [];
-        expect(codexAgents).toEqual(['operator.toml']);
+        expect(codexAgents.sort()).toEqual(['operator.toml', 'stale-aiwg.toml']);
 
         const gitignore = await fs.readFile(path.join(projectDir, '.gitignore'), 'utf-8');
         expect(gitignore).toContain('.codex/');
@@ -381,7 +381,7 @@ describe.skipIf(!GIT_AVAILABLE)('aiwg use all — deployment coverage', { timeou
       }
     }, DEPLOY_TEST_TIMEOUT_MS);
 
-    it('deploys Pi prompts and kernel skills for the default bulk install', async () => {
+    it('indexes Pi prompts by default and copies them only on request', async () => {
       const homeDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-use-all-pi-home-'));
       try {
         const result = runAiwgWithEnv(
@@ -391,10 +391,13 @@ describe.skipIf(!GIT_AVAILABLE)('aiwg use all — deployment coverage', { timeou
         );
         expect(result.exitCode, `aiwg use all --provider pi failed:\nstdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
         expect(existsSync(path.join(projectDir, '.agents', 'skills', 'aiwg-regenerate', 'SKILL.md'))).toBe(true);
-        expect(existsSync(path.join(projectDir, '.pi', 'prompts', 'address-issues.md'))).toBe(true);
+        expect(existsSync(path.join(projectDir, '.pi', 'prompts', 'address-issues.md'))).toBe(false);
         expect(existsSync(path.join(projectDir, 'AGENTS.md'))).toBe(true);
         expect(existsSync(path.join(projectDir, '.pi', 'settings.json'))).toBe(false);
-        expect(result.stdout).toMatch(/Deployed to Pi Coding Agent \(pi\)[\s\S]*\bCommands [1-9]\d*\b[\s\S]*\bSkills [1-9]\d*\b/);
+        expect(result.stdout).toMatch(/Deployed to Pi Coding Agent \(pi\)[\s\S]*\bCommands 0\b[\s\S]*\bSkills [1-9]\d*\b/);
+        const copied = runAiwgWithEnv(['use', 'all', '--provider', 'pi', '--target', projectDir, '--copy-all'], projectDir, { HOME: homeDir, USERPROFILE: homeDir });
+        expect(copied.exitCode, copied.stdout + copied.stderr).toBe(0);
+        expect(existsSync(path.join(projectDir, '.pi', 'prompts', 'address-issues.md'))).toBe(true);
       } finally {
         rmSync(homeDir, { recursive: true, force: true });
       }
@@ -415,7 +418,7 @@ describe.skipIf(!GIT_AVAILABLE)('aiwg use all — deployment coverage', { timeou
         expect(rootMirrorSkills.slice(-rootAddonSkills.length).sort()).toEqual(rootAddonSkills);
 
         const result = runAiwgWithEnv(
-          ['use', 'sdlc', '--provider', 'pi', '--target', projectDir, '--scope', 'user'],
+          ['use', 'sdlc', '--copy-all', '--provider', 'pi', '--target', projectDir, '--scope', 'user'],
           projectDir,
           { HOME: homeDir, USERPROFILE: homeDir, PI_CODING_AGENT_DIR: agentDir },
         );
@@ -462,7 +465,7 @@ describe.skipIf(!GIT_AVAILABLE)('aiwg use all — deployment coverage', { timeou
         const agents = existsSync(agentsDir)
           ? (await fs.readdir(agentsDir)).filter(name => name.endsWith('.md'))
           : [];
-        expect(agents).toEqual(['operator.md']);
+        expect(agents.sort()).toEqual(['operator.md', 'stale-aiwg.md']);
       } finally {
         rmSync(homeDir, { recursive: true, force: true });
       }
@@ -487,7 +490,7 @@ describe.skipIf(!GIT_AVAILABLE)('aiwg use all — deployment coverage', { timeou
       const homeDir = mkdtempSync(path.join(os.tmpdir(), 'aiwg-testing-quality-codex-home-'));
       try {
         const result = runAiwgWithEnv(
-          ['use', 'testing-quality', '--provider', 'codex', '--target', projectDir],
+          ['use', 'testing-quality', '--copy-all', '--provider', 'codex', '--target', projectDir],
           projectDir,
           { HOME: homeDir, USERPROFILE: homeDir },
         );

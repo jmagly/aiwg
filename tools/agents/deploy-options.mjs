@@ -98,6 +98,7 @@ export function parseArgs(args = process.argv.slice(2)) {
     else if (a === '--allow-over-budget') cfg.allowOverBudget = true;
     else if (a === '--report-only') cfg.reportOnly = true;
     else if (a === '--kernel-only') cfg.kernelOnly = true;
+    else if (a === '--discovery-only') { cfg.kernelOnly = true; cfg.discoveryOnly = true; }
     // Internal use orchestration: the final source owns rule presentation.
     else if (a === '--defer-rule-projection') cfg.deferRuleProjection = true;
     else if (a === '--bundle-only') cfg.bundleOnly = true;

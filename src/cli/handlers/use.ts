@@ -47,7 +47,8 @@ import { initHandler } from './init.js';
 import { selectAddonProfile } from './use-addon-profile.js';
 import { deploymentEditWarnings } from '../../providers/deployment-preservation.mjs';
 import { permitsBundleDeployment } from '../../config/installed-selection.js';
-import { bundleDeploymentScope, recordBundleDeployment, copyCleanupArgs, projectLocalDeploymentContext, projectLocalCopyMode } from './bundle-deployment-mode.js';
+import { executeCopySelection, discoveryDeploymentArgs, reportDiscovery } from './use-copy-selection.js';
+import { bundleDeploymentScope, recordBundleDeployment, bundleProviderCopyArgs, projectLocalDeploymentContext, projectLocalCopyMode } from './bundle-deployment-mode.js';
 import { frameworkAdditiveBundles, getAllAddons, getAllExtensions } from './use-additive-bundles.js';
 export { getAllAddons, getAllExtensions, USE_ALL_DISALLOW, USE_ALL_EXTENSIONS_DISALLOW } from './use-additive-bundles.js';
 import {
@@ -641,6 +642,7 @@ async function validateDeployedModelWrappers(options: {
   filtered: boolean;
   verbose: boolean;
 }): Promise<HandlerResult | null> {
+  if (useDeployment?.indexOnly) return null;
   const paths = getProviderPaths(options.provider);
   const agentsPath = paths.agents ? resolveProviderPath(options.target, paths.agents) : null;
   const { collectProviderInventory } = await import('../../providers/provider-inventory.js');
@@ -1311,19 +1313,8 @@ async function deployOneProjectLocalBundle(opts: {
       '--deploy-commands', '--deploy-skills', '--deploy-rules',
       '--provider', provider,
       '--target', target,
-      // Project-local skills MUST land in the per-project skills tier
-      // (#1228 follow-up). Default deploy mode after #1217 is no-copy +
-      // index-driven discovery, but that model assumes upstream skills at
-      // $AIWG_ROOT — project-local bundles live under the project's .aiwg/
-      // tree and aren't reachable via `aiwg discover` of the framework
-      // graph. Without --copy-all, the bundle's rules deploy but its skills
-      // never reach <provider>/.aiwg/skills/, leaving them invisible to
-      // both the platform and the index.
-      '--copy-all', ...copyCleanupArgs(ctx.args),
-      // That copy-all is the deployer's doing, not the operator's, so the
-      // provider's startup listing cap still applies; overflow lands on the
-      // standard tier instead of over the cap (#2561).
-      '--listing-budget',
+      // Honor the local bundle's declared mode independently of its parent pass.
+      ...bundleProviderCopyArgs(ctx.args), '--listing-budget',
       // Provenance for the managed marker (#2502). Without this the deployer
       // stamps `bundled`/`unknown`, and `aiwg refresh`'s stale-artifact prune —
       // whose desired set is the packaged framework corpus — deletes every
@@ -1565,7 +1556,7 @@ async function deployProjectLocalBundles(opts: {
           deployedArtifactHashes,
         });
         await writeAiwgConfig(projectDir, updated);
-        await recordBundleDeployment(projectDir, bundle.id, provider, updated.installed[bundle.id].deployedTo[provider].copy ? ['--copy-all'] : [], frameworkRoot);
+        await recordBundleDeployment(projectDir, bundle.id, provider, updated.installed[bundle.id].deployedTo[provider].copy ? ['--copy-all'] : [], frameworkRoot, config);
       } catch (err) {
         // Non-fatal: deploy already succeeded
         ui.warn(`Project-local registry update failed for '${bundle.id}': ${err instanceof Error ? err.message : String(err)}`);
@@ -1652,7 +1643,7 @@ for (const flag of [...MODEL_DEPLOY_VALUE_FLAGS, '--reasoning', '--coding', '--e
   USE_FLAGS_WITH_VALUES.add(flag);
 }
 const USE_BOOLEAN_FLAGS = new Set([
-  '--package', '--force', '--copy-all', '--copy-standard-skills', '--dry-run', '--verbose', '-v', '--quiet', '-q',
+  '--package', '--force', '--copy', '--copy-all', '--copy-standard-skills', '--dry-run', '--verbose', '-v', '--quiet', '-q',
   '--json', '--no-project-local', '--no-context-files', '--no-workspace-md',
   '--no-aiwg-md', '--no-agents-md', '--force-context-files', '--global', '--user',
   '--no-utils', '--ci-hooks-enabled', '--skip-conflicts', '--no-harness-agents',
@@ -1703,9 +1694,9 @@ async function generateDeploymentContextFiles(options: ContextPipelineOptions): 
   return result;
 }
 
-let useDeployment: { ruleSelectionMode?: string; resourceCredentials?: Awaited<ReturnType<typeof prepareResourceCredentials>>; version: string; skipAttribution?: boolean; skipContextFiles: boolean; contextFiles: ContextPipelineResult[] } | undefined;
+let useDeployment: { indexOnly?: boolean; ruleSelectionMode?: string; resourceCredentials?: Awaited<ReturnType<typeof prepareResourceCredentials>>; version: string; skipAttribution?: boolean; skipContextFiles: boolean; contextFiles: ContextPipelineResult[] } | undefined;
 function useDeploymentArgs(args: string[]): string[] {
-  const forwarded = [...args];
+  const forwarded = discoveryDeploymentArgs(args, useDeployment?.indexOnly === true);
   const modeIndex = args.indexOf('--mode');
   if (useDeployment && modeIndex >= 0) useDeployment.ruleSelectionMode ??= args[modeIndex + 1];
   if (useDeployment?.ruleSelectionMode && !forwarded.includes('--rule-selection-mode')) forwarded.push('--rule-selection-mode', useDeployment.ruleSelectionMode);
@@ -2415,6 +2406,7 @@ async function deployOmpUserSource(opts: {
   const adapter = await import(pathToFileURL(path.join(opts.frameworkRoot, 'tools/agents/providers/omp.mjs')).href);
   await adapter.deploy({ srcRoot: opts.source, target: opts.target, provider: 'omp', scope: 'user',
     mode: opts.mode ?? 'general', deployCommands: true, deploySkills: true, deployRules: true,
+    skillsOnly: !opts.copyAll, kernelOnly: !opts.copyAll, discoveryOnly: !opts.copyAll, copyMode: true,
     copyStandardSkills: opts.copyAll, quiet: true, contextFiles: !useDeployment?.skipContextFiles, deployVersion: deploymentVersion(opts.frameworkRoot) });
   const sourceBundles = new Set([opts.source]);
   const { resourceDirs } = resolveOmpPaths({ cwd: opts.target });
@@ -2571,6 +2563,7 @@ Options:
   --force                   Re-write every artifact, replacing files AIWG does
                             not currently manage. Use this to reclaim a
                             directory left behind by an older AIWG install.
+  --copy [bundle]           Opt in to provider copies for this bundle (or one bundle with all)
   --copy-all                Mirror standard-tier skills into the project; for
                             all, restore the full agent, command and rule surface
   --dry-run                 Preview the deployment without writing files
@@ -2642,6 +2635,8 @@ export class UseHandler implements CommandHandler {
   }
 
   async execute(ctx: HandlerContext): Promise<HandlerResult> {
+    const selectedCopy = await executeCopySelection(ctx, next => this.execute(next));
+    if (selectedCopy) return selectedCopy;
     if (ctx.args.includes('--declare')) return (await import('./bundle-declaration.js')).declareBundle(ctx);
     let resourceCredentials = useDeployment?.resourceCredentials;
     try {
@@ -2656,6 +2651,7 @@ export class UseHandler implements CommandHandler {
     if (invalidOption) return { exitCode: 2, message: invalidOption };
     const previousDeployment = useDeployment;
     useDeployment = {
+      indexOnly: !ctx.args.includes('--copy-all') && !ctx.args.includes('--copy-standard-skills'),
       resourceCredentials,
       ruleSelectionMode: previousDeployment?.ruleSelectionMode,
       version: previousDeployment?.version ?? resolveDeployVersion(ctx.frameworkRoot || await getFrameworkRoot()),
@@ -2683,7 +2679,7 @@ export class UseHandler implements CommandHandler {
           result.message = [result.message, ...rollback.conflicts.map(conflict => `Context rollback conflict: ${conflict.path}: ${conflict.reason}`)].filter(Boolean).join('\n');
         }
       }
-      return result;
+      return reportDiscovery(ctx, result, useDeployment.indexOnly === true);
     } finally {
       journal?.dispose();
       useDeployment = previousDeployment;
@@ -3489,11 +3485,7 @@ export class UseHandler implements CommandHandler {
         const addonBaseArgs = ['--deploy-commands', '--deploy-skills', '--deploy-rules', '--bundle-only'];
         if (remainingArgs.includes('--allow-over-budget')) addonBaseArgs.push('--allow-over-budget');
         if (addonScope === 'user') addonBaseArgs.push('--scope', 'user');
-        // An explicitly selected upstream addon must be self-contained in the
-        // project. Unlike a full framework deploy, its standard skills cannot be
-        // left index-only: the user asked to install this specific bundle and
-        // its supporting scripts must travel with the skill directory.
-        addonBaseArgs.push('--copy-all', ...copyCleanupArgs(remainingArgs));
+        addonBaseArgs.push(...bundleProviderCopyArgs(remainingArgs));
         if (provider === 'flue' && remainingArgs.includes('--package')) addonBaseArgs.push('--package');
         addonBaseArgs.push(...modelDeployArgs);
         if (provider) addonBaseArgs.push('--provider', provider);
@@ -3578,7 +3570,7 @@ export class UseHandler implements CommandHandler {
         }
 
         if (!dryRunAddon && provider === 'omp' && (detectScope(remainingArgs) === 'user' || remainingArgs.includes('--user'))) {
-          try { await deployOmpUserSource({ frameworkRoot, source: addonSource, target, bundle: framework, copyAll: true }); }
+          try { await deployOmpUserSource({ frameworkRoot, source: addonSource, target, bundle: framework, copyAll: useDeployment?.indexOnly !== true }); }
           catch (error) { return { exitCode: 1, message: `OMP user deployment failed: ${error instanceof Error ? error.message : String(error)}` }; }
         }
 
@@ -3648,7 +3640,7 @@ export class UseHandler implements CommandHandler {
               copy: remainingArgs.includes('--copy-all') || remainingArgs.includes('--copy-standard-skills'),
             });
             await writeAiwgConfig(projectDir, updated);
-            await recordBundleDeployment(projectDir, framework, provider, remainingArgs, frameworkRoot);
+            await recordBundleDeployment(projectDir, framework, provider, remainingArgs, frameworkRoot, config);
             config = updated;
           } catch (error) {
             ui.warn(`Addon registry update failed for '${framework}': ${error instanceof Error ? error.message : String(error)}`);
@@ -3773,11 +3765,12 @@ export class UseHandler implements CommandHandler {
         const unsupported = unsupportedProviderMessage(requested);
         if (unsupported) return { exitCode: 1, message: unsupported };
         const resolved = resolveBuiltInProviderForUse(local.provider);
+        // Pi's discovery projection reads the preceding provider's recorded selection.
+        if (useDeployment?.indexOnly && resolved.provider === 'pi') { canPrepareConcurrently = false; break; }
         if (!PREPARABLE_BUILTIN_PROVIDERS.has(resolved.provider)) { canPrepareConcurrently = false; break; }
         const args = useDeploymentArgs(withProviderOverride([...deployFilteredArgs], resolved.provider));
         if (framework === 'all') {
-          const kernelOnly = !['pi', 'omp'].includes(resolved.provider)
-            && !remainingArgs.includes('--copy-all') && !remainingArgs.includes('--copy-standard-skills');
+          const kernelOnly = bundleDeploymentScope(framework, resolved.provider, remainingArgs).kernelOnly;
           if (kernelOnly) args.push('--kernel-only');
           if (!skipUtils && ((!kernelOnly && (await getAllExtensions(frameworkRoot)).length > 0)
             || (!mainDeploymentIncludesAddons(resolved.provider, mode, args) && (await getAllAddons(frameworkRoot)).length > 0))) {
@@ -3835,10 +3828,7 @@ export class UseHandler implements CommandHandler {
     const providerDeployArgs = builtInProviderResolution.requestedProvider
       ? withProviderOverride(deployFilteredArgs, provider)
       : deployFilteredArgs;
-    const bulkKernelOnly = framework === 'all'
-      && !['pi', 'omp'].includes(provider)
-      && !remainingArgs.includes('--copy-all')
-      && !remainingArgs.includes('--copy-standard-skills');
+    const bulkKernelOnly = bundleDeploymentScope(framework, provider, remainingArgs).kernelOnly;
     if (bulkKernelOnly) providerDeployArgs.push('--kernel-only');
     const { addons: allAddons, extensions: allExtensions } = await frameworkAdditiveBundles(frameworkRoot, provider, skipUtils, bulkKernelOnly);
     const mainIncludesAddons = mainDeploymentIncludesAddons(provider, mode, providerDeployArgs);
@@ -4470,7 +4460,7 @@ export class UseHandler implements CommandHandler {
           ...bundleDeploymentScope(framework, provider, remainingArgs),
         });
         await writeAiwgConfig(projectDir, updatedConfig);
-        await recordBundleDeployment(projectDir, framework, provider, remainingArgs, frameworkRoot);
+        await recordBundleDeployment(projectDir, framework, provider, remainingArgs, frameworkRoot, config);
       } catch {
         // Non-fatal: config tracking failure must not block deployment
       }

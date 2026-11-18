@@ -219,7 +219,7 @@ describe('aiwg use decision-engine --provider hermes (#2873)', () => {
     writeFileSync(join(hermesHome, 'skills', '.aiwg', 'seed', 'SKILL.md'), '# seed\n');
     const realHomeBefore = realHomeHermesState();
     const useHandler = await freshUseHandler();
-    const args = ['decision-engine', '--provider', 'hermes', '--target', projectDir];
+    const args = ['decision-engine', '--copy-all', '--provider', 'hermes', '--target', projectDir];
 
     const result = await useHandler.execute({ cwd: projectDir, frameworkRoot, rawArgs: ['use', ...args], args });
 
@@ -252,9 +252,8 @@ describe('aiwg use decision-engine --provider hermes (#2873)', () => {
     // Installed-state record is written for the requested addon.
     const config = await readAiwgConfig(projectDir);
     expect(config?.installed?.['decision-engine']).toBeDefined();
-    // Legacy migration acted inside HERMES_HOME only: the legacy tree is
-    // gone, and no ~/.hermes was ever created under the (temp) process home.
-    expect(existsSync(join(hermesHome, '.aiwg', 'skills'))).toBe(false);
+    // Existing legacy payload remains for review; no process-home writes escape HERMES_HOME.
+    expect(readFileSync(join(hermesHome, '.aiwg', 'skills', 'legacy-sentinel.md'), 'utf8')).toBe('# legacy\n');
     expect(existsSync(join(tmpHome, '.hermes'))).toBe(false);
     // Nothing under the operator's real home was touched.
     expect(realHomeHermesState()).toBe(realHomeBefore);

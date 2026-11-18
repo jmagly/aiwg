@@ -22,6 +22,7 @@ import os from 'os';
 import { importImpl } from '../_resolve-impl.mjs';
 
 const { boundedSpawnSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
+const { helperEnvironment, DEPLOYMENT_HELPER_ENV_ALLOWLIST } = await importImpl(import.meta.url, 'process/cli-command.mjs');
 
 function printHelp() {
   console.log(`aiwg new — Scaffold a new AIWG project
@@ -34,7 +35,8 @@ Arguments:
 
 Options:
   --name <name>       Override project name explicitly
-  --no-agents         Skip deploying agents
+  --no-agents         Skip framework indexing and kernel deployment
+  --copy, --copy-all  Opt in to provider copies
   --provider <p>      Target provider: claude | openai (default: claude)
   --help, -h          Show this help and exit (no side effects)
 
@@ -62,15 +64,17 @@ function parseArgs() {
   }
 
   let name = path.basename(process.cwd());
-  let withAgents = true; // deploy agents by default
+  let withAgents = true; // index the framework and deploy its kernel by default
+  let copy = false;
   let provider = 'claude';
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--name' && args[i + 1]) name = args[++i];
     else if (a === '--no-agents') withAgents = false;
+    else if (a === '--copy' || a === '--copy-all') copy = true;
     else if (a === '--provider' && args[i + 1]) provider = String(args[++i]).toLowerCase();
   }
-  return { name, withAgents, provider };
+  return { name, withAgents, provider, copy };
 }
 
 function ensureDir(d) { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); }
@@ -195,7 +199,7 @@ function createOrUpdateSettings(aiwgPath, provider) {
 }
 
 (async function main() {
-  const { name, withAgents, provider } = parseArgs();
+  const { name, withAgents, provider, copy } = parseArgs();
   const scriptDir = path.dirname(new URL(import.meta.url).pathname);
   const repoRoot = path.resolve(scriptDir, '..', '..');
 
@@ -294,35 +298,16 @@ function createOrUpdateSettings(aiwgPath, provider) {
     console.log(`created README.md`);
   }
 
-  // Deploy agents and commands by default (can be disabled with --no-agents)
+  // Share the use policy, receipt and discovery index rather than a second deploy path.
   if (withAgents) {
-    const deployPath = path.join(aiwgPath, 'tools', 'agents', 'deploy-agents.mjs');
-    if (fs.existsSync(deployPath)) {
-      // Deploy agents
-      const agentArgs = ['--provider', provider, '--mode', 'sdlc'];
-      if (provider === 'openai') agentArgs.push('--as-agents-md');
-      console.log('Deploying SDLC agents...');
-      const agentRes = boundedSpawnSync('node', [deployPath, ...agentArgs], 'long', { stdio: 'inherit' });
-      // `agentRes.error ||`, not just `status !== 0` (#3062 B/C finding 13):
-      // a surviving descendant holding the pipe can produce ETIMEDOUT with
-      // status 0 — status alone would then read as success.
-      if (agentRes.error || agentRes.status !== 0) {
-        // `agentRes.error` carries the enriched timeout explanation (tier,
-        // bound, AIWG_SYNC_LONG_TIMEOUT_MS override) that `status` alone
-        // does not (#3062 finding 17) — print it so a `long`-tier bound
-        // is not indistinguishable from a real deploy failure.
-        if (agentRes.error) console.warn(agentRes.error.message);
-        console.warn('Agent deployment returned non-zero status');
-      }
-
-      // Deploy commands (SDLC flow commands)
-      console.log('Deploying SDLC commands...');
-      const cmdArgs = ['--deploy-commands', '--provider', provider, '--mode', 'sdlc'];
-      const cmdRes = boundedSpawnSync('node', [deployPath, ...cmdArgs], 'long', { stdio: 'inherit' });
-      if (cmdRes.error || cmdRes.status !== 0) {
-        if (cmdRes.error) console.warn(cmdRes.error.message);
-        console.warn('Command deployment returned non-zero status');
-      }
+    const cliPath = path.join(aiwgPath, 'bin', 'aiwg.mjs');
+    const deployEnv = { ...helperEnvironment(process.env, DEPLOYMENT_HELPER_ENV_ALLOWLIST), HOME: os.homedir(), USERPROFILE: os.homedir(), AIWG_ROOT: aiwgPath };
+    const deployArgs = [cliPath, 'use', 'sdlc', '--provider', provider, '--no-utils', '--yes', ...(copy ? ['--copy-all'] : [])];
+    const deployed = boundedSpawnSync(process.execPath, deployArgs, 'long', { stdio: 'inherit', env: deployEnv });
+    if (deployed.error || deployed.status !== 0) {
+      if (deployed.error) console.warn(deployed.error.message);
+      console.warn('Framework indexing/deployment failed');
+      process.exitCode = 1;
     }
   }
 
@@ -388,8 +373,7 @@ function createOrUpdateSettings(aiwgPath, provider) {
   console.log(`Settings: .claude/settings.json configured with SDLC documentation access`);
   console.log(`SDLC Framework: ${aiwgPath}/agentic/code/frameworks/sdlc-complete/`);
   if (withAgents) {
-    console.log(`Agents deployed: .claude/agents/`);
-    console.log(`Commands deployed: .claude/commands/`);
+    console.log(`SDLC indexed; find capabilities with aiwg discover. Use aiwg use sdlc --copy for provider copies.`);
   }
-  console.log('\nReady to start! Fill intake forms and run: /flow-concept-to-inception .');
+  console.log('\nReady to start! Fill intake forms and run: aiwg discover "concept to inception"');
 })();

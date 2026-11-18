@@ -1,5 +1,6 @@
 // Redeploy each selected bundle only to its declared providers.
 import { bundleCopyArgs } from './bundle-deployment-mode.js';
+import { discoveryMessage } from './use-copy-selection.js';
 import type { AiwgConfig } from '../../config/aiwg-config.js';
 import { withInstalledSelection } from '../../config/installed-selection.js';
 import { bundleProviders, bundleUseName, pruneUndeclaredBundles, pruneAfterScopedDeployments } from './bundle-reconciliation.js';
@@ -11,6 +12,7 @@ export async function refreshDeclaredBundles(ctx: HandlerContext, config: AiwgCo
   if (!frameworks.length && !opts.quiet) console.log('  No installed frameworks or addons to re-deploy');
   for (const fw of frameworks) for (const provider of bundleProviders(config?.installed ?? {}, fw, requested)) {
     const copyArgs = bundleCopyArgs(config?.installed ?? {}, fw, provider);
+    if (!opts.quiet && !copyArgs.includes('--copy-all')) console.log(discoveryMessage(bundleUseName(fw), opts.dryRun));
     if (opts.dryRun) { if (!opts.quiet) console.log(`    Would re-deploy: ${fw} for ${provider} — aiwg use ${bundleUseName(fw)} --provider ${provider}${copyArgs.length ? ` ${copyArgs.join(' ')}` : ''}`); continue; }
     const result = await withInstalledSelection(ctx.cwd, config?.installed, () => opts.handler.execute({ ...ctx, frameworkRoot: opts.frameworkRoot,
       args: [bundleUseName(fw), '--provider', provider, '--target', ctx.cwd, '--yes', '--json', ...copyArgs,

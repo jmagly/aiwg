@@ -114,11 +114,12 @@ export function collectDeploymentRuleSources(opts) {
   };
   for (const bundle of bundles.filter(b => b.manifest.core && b.manifest.autoInstall)) select(bundle.id);
   for (const name of names.filter(name => name !== 'all')) select(name);
+  const kernelOnly = opts.kernelOnly && !(opts.discoveryOnly && (opts.bundleOnly || (opts.ruleSelectionMode || opts.mode) !== 'all'));
   const invoked = bundles.find(bundle => path.resolve(bundle.root) === path.resolve(opts.srcRoot));
-  if (invoked && !opts.kernelOnly) select(invoked.id);
+  if (invoked && !kernelOnly) select(invoked.id);
   // Include the invocation being installed before its config entry is saved.
-  if (!opts.kernelOnly) for (const framework of getFrameworksForMode(opts.srcRoot, opts.mode === 'all' && names.length ? 'general' : opts.mode)) select(framework.id);
-  const roots = [...(!invoked || !opts.kernelOnly ? [opts.srcRoot] : []), ...(opts.additionalSources || []), ...[...selected].map(bundle => bundle.root)];
+  if (!kernelOnly) for (const framework of getFrameworksForMode(opts.srcRoot, opts.mode === 'all' && names.length ? 'general' : opts.mode)) select(framework.id);
+  const roots = [...(!invoked || !kernelOnly ? [opts.srcRoot] : []), ...(opts.additionalSources || []), ...[...selected].map(bundle => bundle.root)];
   for (const entry of Object.values(installed)) if (entry?.localPath) roots.push(path.resolve(opts.target, entry.localPath));
   const files = roots.flatMap(root => listMdFiles(path.join(root, 'rules'))).filter(file => !structural(file));
   const behaviors = roots.flatMap(root => walk(path.join(root, 'behaviors')).filter(file => path.basename(file) === 'BEHAVIOR.md'));

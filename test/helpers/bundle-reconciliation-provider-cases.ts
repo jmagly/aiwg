@@ -47,7 +47,7 @@ export function registerProviderReconciliation(provider: 'claude' | 'codex') {
     }
     expect(snapshot()).toEqual(before);
   }, 600_000);
-  it.each([provider])('prunes only unchanged utils after a recorded --no-utils deploy (%s)', provider => {
+  it.each([provider])('retains skipped utils for review and removes only pristine files on request (%s)', provider => {
     const { project, command, plans, readConfig, writeConfig } = sdlcSetup(provider, true);
     const skills = provider === 'codex' ? '.agents/skills' : '.claude/skills';
     const unchanged = path.join(project, skills, 'aiwg-help/SKILL.md');
@@ -57,7 +57,7 @@ export function registerProviderReconciliation(provider: 'claude' | 'codex') {
     fs.writeFileSync(edited, fs.readFileSync(edited, 'utf8') + '\nOperator note\n');
     const editedBytes = fs.readFileSync(edited, 'utf8');
     command('use', 'sdlc', '--provider', provider, '--no-project-local', '--no-utils', '--yes');
-    expect(readConfig().installed.sdlc.deployedTo[provider]).toMatchObject({ skipUtils: true, kernelOnly: false });
+    expect(readConfig().installed.sdlc.deployedTo[provider]).toMatchObject({ skipUtils: true, kernelOnly: true });
     expect(fs.existsSync(unchanged)).toBe(true);
     const known = readConfig();
     const unknown = structuredClone(known);
@@ -67,13 +67,19 @@ export function registerProviderReconciliation(provider: 'claude' | 'codex') {
     for (const output of plans(provider)) expect(output).not.toContain(`Would remove aiwg-utils for ${provider}`);
     expect(fs.existsSync(unchanged)).toBe(true);
     writeConfig(known);
-    for (const output of plans(provider)) expect(output).toContain(`Would remove aiwg-utils for ${provider}`);
+    for (const output of plans(provider)) expect(output).not.toContain(`Would remove aiwg-utils for ${provider}`);
     for (const [action, flag] of [['update', '--skip-check'], ['refresh', '--skip-update']]) {
       command(action, flag, '--provider', provider);
-      expect(fs.existsSync(unchanged)).toBe(false);
+      expect(fs.existsSync(unchanged)).toBe(true);
       expect(fs.readFileSync(edited, 'utf8')).toBe(editedBytes);
       expect(fs.readFileSync(framework, 'utf8')).toBe(frameworkBytes);
       expect(readConfig().installed.sdlc.deployedTo[provider].skipUtils).toBe(true);
     }
+    command('use', 'aiwg-utils', '--provider', provider, '--declare');
+    expect(command('remove', 'aiwg-utils', '--provider', provider, '--dry-run')).toContain('Would remove');
+    command('remove', 'aiwg-utils', '--provider', provider);
+    expect(fs.existsSync(unchanged)).toBe(false);
+    expect(fs.readFileSync(edited, 'utf8')).toBe(editedBytes);
+    expect(fs.readFileSync(framework, 'utf8')).toBe(frameworkBytes);
   }, 600_000);
 }

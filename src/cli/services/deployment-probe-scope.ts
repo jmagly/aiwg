@@ -4,7 +4,19 @@ import os from 'node:os';
 import path from 'node:path';
 import { readAiwgConfig } from '../../config/aiwg-config.js';
 import { inspectUserRegistry } from '../../config/user-registry.js';
+import { frameworkRegistryId } from '../../config/framework-aliases.js';
 import type { DeploymentScope, UseDeploymentResult } from './deployment-verification.js';
+
+/** An indexed selection still requires a valid index, but may own no provider payload. */
+export async function deploymentIndexesOnly(projectRoot: string, provider: string, bundles: string[], scope: DeploymentScope = 'project'): Promise<boolean> {
+  const config = await readAiwgConfig(projectRoot);
+  const nativeInstalled = scope === 'user' ? (await inspectUserRegistry()).registry.installed : config?.installed;
+  return bundles.length > 0 && bundles.every(bundle => {
+    const flags = Object.entries(config?.installed ?? {}).find(([id]) => frameworkRegistryId(id) === frameworkRegistryId(bundle))?.[1].deployedTo[provider];
+    const native = Object.entries(nativeInstalled ?? {}).find(([id]) => frameworkRegistryId(id) === frameworkRegistryId(bundle))?.[1].deployedTo[provider];
+    return flags?.copy === false && native !== undefined && (['agents', 'commands', 'skills', 'rules'] as const).every(kind => !native[kind]);
+  });
+}
 
 export async function deploymentProbeScope(
   projectRoot: string,

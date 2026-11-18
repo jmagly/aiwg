@@ -28,7 +28,7 @@ function deploy(target: string, home: string, copyAll: boolean): void {
 function useAiwgUtils(target: string, home: string): string {
   return execFileSync(process.execPath, [
     join(REPO_ROOT, 'bin/aiwg.mjs'),
-    'use', 'aiwg-utils',
+    'use', 'aiwg-utils', '--copy-all',
     '--provider', 'codex',
     '--target', target,
     '--verbose',
