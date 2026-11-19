@@ -24,6 +24,7 @@ import {
   providerContextContract,
 } from '../../smiths/context-pipeline/workspace-context.js';
 import { USER_SCOPE_PATHS } from '../scope-resolver.js';
+import { withDeploymentStaleness } from './deployment-staleness.js';
 import { deploymentProbeNextCommand, deploymentProbeScope, deploymentIndexesOnly } from './deployment-probe-scope.js';
 
 export type DeploymentScope = 'project' | 'user';
@@ -1096,13 +1097,13 @@ export async function verifyConfiguredDeployments(
   for (const provider of providers) {
     const providerBundles = bundles.filter((bundle) => Boolean(installed[bundle]?.deployedTo[provider]));
     if (providerBundles.length === 0) continue;
-    results.push(await verifyProviderDeployment({
+    results.push(await withDeploymentStaleness(await verifyProviderDeployment({
       projectRoot,
       frameworkRoot,
       provider,
       scope: filters.scope ?? 'project',
       requestedBundles: providerBundles,
-    }));
+    }), { projectRoot, frameworkRoot, provider, scope: filters.scope ?? 'project', requestedBundles: providerBundles }, installed));
   }
   if (results.length === 0) {
     const fallback = providers[0] ?? 'generic';
@@ -1175,7 +1176,9 @@ export async function buildDeploymentStatusProbe(
     },
     verification: {
       required: true,
-      action: engaged
+      action: result.findings.some(item => item.id.startsWith('deployment-stale'))
+        ? 'Deployment staleness detected; run aiwg refresh and review the advisory findings.'
+        : engaged
         ? 'AIWG deployment is verified on disk.'
         : notConfigured
           ? 'Choose a provider and bundle to configure AIWG for this project.'

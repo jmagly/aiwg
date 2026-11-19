@@ -982,6 +982,10 @@ export async function runDoctor() {
   } catch {
     workerSectionsConfigFailed = true;
   }
+  const { configuredDeploymentStaleness } = await importImpl(import.meta.url, 'cli/services/deployment-staleness.js');
+  try {
+    for (const item of await configuredDeploymentStaleness(process.cwd(), AIWG_ROOT, workerSectionsConfig)) check('Deployment freshness', 'warn', `${item.message} — ${item.remediation}`);
+  } catch (error) { check('Deployment freshness', 'warn', `Unable to check: ${error.message}`); }
   const userDeployments = await homeDeploymentReceipts(process.cwd());
   for (const warning of nativeSandboxWarnings(workerSectionsConfig, process.cwd())) {
     check('Native sandbox isolation', 'warn', warning.message);

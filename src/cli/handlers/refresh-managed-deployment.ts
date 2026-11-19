@@ -52,7 +52,7 @@ function groups(doc: Record<string, unknown>, event: string): HookGroup[] {
   return Array.isArray(hooks?.[event]) ? hooks[event] as HookGroup[] : [];
 }
 
-async function staleHooks(projectRoot: string, frameworkRoot: string, provider: string): Promise<StaleManagedDeployment[]> {
+async function staleHooks(projectRoot: string, frameworkRoot: string, provider: string, scope: 'project' | 'user'): Promise<StaleManagedDeployment[]> {
   if (!['claude', 'muse', 'factory', 'codex', 'cursor'].includes(provider)) return [];
   const file = provider === 'claude' ? '.claude/settings.json' : `.${provider}/hooks.json`;
   let doc;
@@ -74,7 +74,9 @@ async function staleHooks(projectRoot: string, frameworkRoot: string, provider: 
     const { sources } = await loadHookSources(frameworkRoot);
     const source = sources.find(hook => hook.id === 'aiwg-prompt-discovery');
     if (!source?.args?.[0]) return [];
-    const expected = verifiedHookCommand(projectRoot, '.codex/hooks/aiwg-prompt-discovery.cjs', await fs.readFile(source.args[0]));
+    const anchor = scope === 'user' ? path.join(projectRoot, '.codex') : projectRoot;
+    const script = scope === 'user' ? 'hooks/aiwg-prompt-discovery.cjs' : '.codex/hooks/aiwg-prompt-discovery.cjs';
+    const expected = verifiedHookCommand(anchor, script, await fs.readFile(source.args[0]), [], scope);
     const candidates = groups(doc, 'UserPromptSubmit').flatMap(group => group.hooks || [])
       .filter(hook => hook._aiwg_id === source.id);
     if (!candidates.some(hook => hook.command === expected && hook.statusMessage === 'AIWG prompt discovery')) stale.push({ name: `UserPromptSubmit → ${source.id}`, file, reason: candidates.length ? 'outdated' : 'missing' });
@@ -179,12 +181,12 @@ async function staleHookScripts(projectRoot: string, frameworkRoot: string, prov
 }
 
 export async function checkManagedDeployment(options: {
-  projectRoot: string; frameworkRoot: string; provider: string; quiet: boolean;
+  projectRoot: string; frameworkRoot: string; provider: string; quiet: boolean; scope?: 'project' | 'user';
 }): Promise<StaleManagedDeployment[]> {
-  const { projectRoot, frameworkRoot, provider, quiet } = options;
+  const { projectRoot, frameworkRoot, provider, quiet, scope = 'project' } = options;
   const pkg = await readJson(path.join(frameworkRoot, 'package.json'));
   const [hooks, scripts, rules] = await Promise.all([
-    staleHooks(projectRoot, frameworkRoot, provider),
+    staleHooks(projectRoot, frameworkRoot, provider, scope),
     staleHookScripts(projectRoot, frameworkRoot, provider),
     typeof pkg.version === 'string' ? staleRules(projectRoot, provider, pkg.version) : [],
   ]);

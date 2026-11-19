@@ -6,7 +6,8 @@ import { join } from 'node:path';
 
 const simulatePlatform = usePlatformSimulation({ afterEach });
 
-const mocks = vi.hoisted(() => ({ execFile: vi.fn(), spawn: vi.fn(), version: vi.fn(), copies: vi.fn() }));
+const mocks = vi.hoisted(() => ({ execFile: vi.fn(), spawn: vi.fn(), version: vi.fn(), copies: vi.fn(), freshness: vi.fn() }));
+vi.mock('../../../src/cli/services/deployment-staleness.js', () => ({ configuredDeploymentStaleness: mocks.freshness }));
 vi.mock('../../../src/process/bounded-child-process.mjs', async importOriginal => ({
   ...await importOriginal(), boundedExecFileSync: mocks.execFile,
 }));
@@ -38,6 +39,7 @@ afterAll(() => { vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true
 
 describe('doctor command probe behavior', () => {
   beforeEach(() => {
+    mocks.freshness.mockResolvedValue([]);
     mocks.copies.mockReturnValue([]);
     vi.spyOn(process, 'cwd').mockReturnValue(root);
     vi.spyOn(process, 'exit').mockImplementation(() => {});
@@ -52,6 +54,15 @@ describe('doctor command probe behavior', () => {
     mocks.spawn.mockReturnValue({ status: 0, stdout: '{}', stderr: '' });
   });
   afterEach(() => { vi.restoreAllMocks(); });
+
+  it.each([false, true])('keeps deployment freshness findings advisory (unreadable: %s)', async unreadable => {
+    if (unreadable) mocks.freshness.mockRejectedValue(new Error('unreadable deployment'));
+    else mocks.freshness.mockResolvedValue([{ message: 'Stale deployment: old rule', remediation: 'aiwg refresh' }]);
+    await runDoctor();
+    const output = console.log.mock.calls.map(([line]) => String(line)).join('\n');
+    expect(output).toContain('⚠ Deployment freshness:');
+    expect(output).toContain(unreadable ? 'Unable to check: unreadable deployment' : 'old rule — aiwg refresh');
+  });
 
   it.each([
     { state: 'non-git workspace', inside: null, branchExists: false, status: 'info', message: 'not a git repository; branch check skipped' },
