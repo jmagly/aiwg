@@ -1,22 +1,25 @@
-import { usePlatformSimulation } from '../../helpers/windows-simulation.mjs';
+import { usePlatformSimulation, withPlatform } from '../../helpers/windows-simulation.mjs';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const simulatePlatform = usePlatformSimulation({ afterEach });
 
-const mocks = vi.hoisted(() => ({ execFile: vi.fn(), spawn: vi.fn(), version: vi.fn(), copies: vi.fn(), freshness: vi.fn() }));
+const mocks = vi.hoisted(() => ({ execFile: vi.fn(), spawn: vi.fn(), version: vi.fn(), copies: vi.fn(), freshness: vi.fn(), packageRoot: vi.fn(), realSpawn: null }));
 vi.mock('../../../src/cli/services/deployment-staleness.js', () => ({ configuredDeploymentStaleness: mocks.freshness }));
 vi.mock('../../../src/process/bounded-child-process.mjs', async importOriginal => ({
   ...await importOriginal(), boundedExecFileSync: mocks.execFile,
 }));
-vi.mock('node:child_process', async importOriginal => ({
-  ...await importOriginal(), execFileSync: mocks.execFile, execSync: mocks.execFile, spawnSync: mocks.spawn,
-}));
+vi.mock('node:child_process', async importOriginal => {
+  const original = await importOriginal();
+  mocks.realSpawn = original.spawnSync;
+  return { ...original, execFileSync: mocks.execFile, execSync: mocks.execFile, spawnSync: mocks.spawn };
+});
 vi.mock('../../../src/channel/manager.mjs', async importOriginal => ({
   ...await importOriginal(), getVersionInfo: mocks.version,
-  loadConfig: async () => ({}), resolveMcpServerEntrypointPath: root => join(root, 'missing-server.mjs'),
+  loadConfig: async () => ({}), getPackageRoot: mocks.packageRoot,
+  resolveMcpServerEntrypointPath: root => join(root, 'missing-server.mjs'),
 }));
 vi.mock('../../../src/installation/manager.mjs', async importOriginal => ({
   ...await importOriginal(), inspectInstallation: () => ({ state: 'aligned', drift: [] }),
@@ -41,6 +44,7 @@ describe('doctor command probe behavior', () => {
   beforeEach(() => {
     mocks.freshness.mockResolvedValue([]);
     mocks.copies.mockReturnValue([]);
+    mocks.packageRoot.mockReturnValue(root);
     vi.spyOn(process, 'cwd').mockReturnValue(root);
     vi.spyOn(process, 'exit').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -62,6 +66,80 @@ describe('doctor command probe behavior', () => {
     const output = console.log.mock.calls.map(([line]) => String(line)).join('\n');
     expect(output).toContain('⚠ Deployment freshness:');
     expect(output).toContain(unreadable ? 'Unable to check: unreadable deployment' : 'old rule — aiwg refresh');
+  });
+
+  it.each(['entrypoint', 'package'])('passes all four win32 discovery probes with spaces via %s (#437)', async via => {
+    const fixture = mkdtempSync(join(tmpdir(), 'aiwg-doctor-spaces-'));
+    const nativePlatform = process.platform;
+    const nativeNode = process.execPath;
+    const node = join(fixture, 'Program Files', 'nodejs', 'node.exe');
+    const packageRoot = join(fixture, 'Install Prefix');
+    const launcher = join(packageRoot, 'bin', 'aiwg.mjs');
+    mkdirSync(join(fixture, 'Program Files', 'nodejs'), { recursive: true });
+    mkdirSync(join(packageRoot, 'bin'), { recursive: true });
+    if (nativePlatform === 'win32') copyFileSync(nativeNode, node);
+    else symlinkSync(nativeNode, node);
+    writeFileSync(launcher, 'console.log(JSON.stringify({ results: [{ name: "aiwg-doctor" }] }));');
+    simulatePlatform('win32');
+    vi.spyOn(process, 'execPath', 'get').mockReturnValue(node);
+    vi.spyOn(process, 'argv', 'get').mockReturnValue([node, via === 'entrypoint' ? launcher : 'doctor.mjs', '--no-budget-check']);
+    mocks.packageRoot.mockReturnValue(packageRoot);
+    // Execute with the host's shell rules while exercising doctor's win32 branch.
+    mocks.spawn.mockImplementation((file, args, options) => withPlatform(nativePlatform,
+      () => mocks.realSpawn(file, args, options)));
+    try {
+      await runDoctor();
+      const output = console.log.mock.calls.map(([line]) => String(line)).join('\n');
+      for (const command of ['discover', 'show', 'index', 'runtime-info']) {
+        expect(output).toContain(`✓ Discovery: aiwg ${command}:`);
+      }
+      expect(mocks.spawn).toHaveBeenCalledTimes(4);
+      for (const [file, args, options] of mocks.spawn.mock.calls) {
+        expect(file).toBe(node);
+        expect(args[0]).toBe(launcher);
+        expect(options.shell).toBe(false);
+      }
+    } finally { rmSync(fixture, { recursive: true, force: true }); }
+  });
+
+  it.each(['linux', 'win32'])('keeps PATH-only discovery launchable on %s (#437)', async platform => {
+    simulatePlatform(platform);
+    mocks.spawn.mockReturnValue({ status: 0, stdout: '{"results":[{"name":"aiwg-doctor"}]}', stderr: '' });
+    await runDoctor();
+    const probes = mocks.spawn.mock.calls.filter(([, args]) => ['discover', 'show', 'index', 'runtime-info'].includes(args[0]));
+    expect(probes).toHaveLength(4);
+    for (const [file, , options] of probes) {
+      expect(file).toBe('aiwg');
+      expect(options.shell).toBe(platform === 'win32');
+    }
+    const output = console.log.mock.calls.map(([line]) => String(line)).join('\n');
+    for (const command of ['discover', 'show', 'index', 'runtime-info']) {
+      expect(output).toContain(`✓ Discovery: aiwg ${command}:`);
+    }
+  });
+
+  it('clears unrelated caller state from discovery child launches (#437)', async () => {
+    const names = ['AIWG_TEST_PROVIDER_SECRET', 'NODE_OPTIONS', 'NODE_DEBUG'];
+    const previous = names.map(name => process.env[name]);
+    vi.stubEnv('AIWG_TEST_PROVIDER_SECRET', 'synthetic-sensitive-value');
+    vi.stubEnv('NODE_OPTIONS', '--trace-warnings');
+    vi.stubEnv('NODE_DEBUG', 'child_process');
+    try {
+      await runDoctor();
+      const probes = mocks.spawn.mock.calls.filter(([, args]) => ['discover', 'show', 'index', 'runtime-info'].includes(args[0]));
+      expect(probes).toHaveLength(4);
+      for (const [, , options] of probes) {
+        expect(options.env).toEqual(expect.objectContaining({ HOME: process.env.HOME }));
+        expect(options.env).not.toHaveProperty('AIWG_TEST_PROVIDER_SECRET');
+        expect(options.env).not.toHaveProperty('NODE_OPTIONS');
+        expect(options.env).not.toHaveProperty('NODE_DEBUG');
+      }
+    } finally {
+      names.forEach((name, index) => {
+        if (previous[index] === undefined) delete process.env[name];
+        else process.env[name] = previous[index];
+      });
+    }
   });
 
   it.each([

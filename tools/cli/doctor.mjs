@@ -20,7 +20,7 @@ import { importImpl } from '../_resolve-impl.mjs';
 import { isMain } from '../_is-main.mjs';
 
 const { boundedExecFileSync } = await importImpl(import.meta.url, 'process/bounded-child-process.mjs');
-const { cliCommand } = await importImpl(import.meta.url, 'process/cli-command.mjs');
+const { cliCommand, helperEnvironment, DEPLOYMENT_HELPER_ENV_ALLOWLIST } = await importImpl(import.meta.url, 'process/cli-command.mjs');
 const { resolveAiwgProbeCommand, probeNotOnPathDetail } = await importImpl(import.meta.url, 'process/aiwg-probe-command.mjs');
 import { scanStartupContext,
   subagentDispatchHeadroom,
@@ -1552,6 +1552,7 @@ export async function runDoctor() {
   const probeCommand = (name, args, expectStdout = null, validateStdout = null) => {
     try {
       const r = spawnSync(aiwgProbe.file, [...aiwgProbe.prefix, ...args], {
+        env: helperEnvironment(process.env, DEPLOYMENT_HELPER_ENV_ALLOWLIST),
         stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         // Framework discovery can legitimately take longer than ten seconds
@@ -1559,7 +1560,8 @@ export async function runDoctor() {
         // provider indices. Keep the probe bounded, but align it with the
         // integration runner budget so doctor does not report a false outage.
         timeout: 30_000,
-        shell: process.platform === 'win32',
+        // Node executables and launcher paths may contain spaces (#437).
+        shell: process.platform === 'win32' && !['entrypoint', 'package'].includes(aiwgProbe.via),
         killSignal: 'SIGKILL',
       });
       if (r.error || r.status !== 0) {
