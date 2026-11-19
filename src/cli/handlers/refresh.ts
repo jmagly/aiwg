@@ -26,6 +26,7 @@ import { automaticRemovalAllowed } from '../../providers/deployment-preservation
 import { refreshDeclaredBundles } from './refresh-bundles.js';
 import { bundledRuleOutputNames } from './refresh-rule-inventory.js';
 import { checkManagedDeployment, sourcePrebuiltIndexRepairHint, type StaleManagedDeployment } from './refresh-managed-deployment.js';
+import { hasCurrentBundledArtifact } from './refresh-artifact-freshness.js';
 import { refreshUserHooksOrWarn } from './refresh-user-hooks.js';
 import { getFrameworkRoot } from '../../channel/manager.mjs';
 import { refreshAllPackages } from '../../packages/registry.js';
@@ -194,7 +195,7 @@ async function collectManagedProviderArtifacts(
     }
 
     for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      if (!entry.isFile() || !(entry.name.endsWith('.md') || provider === 'codex' && kind === 'agents' && entry.name.endsWith('.toml'))) continue;
       // Generated indexes are rewritten on every deploy, never orphaned.
       if (entry.name === 'RULES-INDEX.md' || entry.name === 'RULES-ONDEMAND.md') continue;
       const file = path.join(dir, entry.name);
@@ -246,8 +247,12 @@ export async function detectStaleProviderTrees(options: {
   const trees: ProviderStaleTree[] = [];
   for (const provider of Object.keys(PROVIDER_AGENT_DIRS)) {
     if (provider === options.provider) continue;
-    const hits = (await collectManagedProviderArtifacts(options.projectRoot, provider, PRUNABLE_ARTIFACT_KINDS))
+    const candidates = (await collectManagedProviderArtifacts(options.projectRoot, provider, PRUNABLE_ARTIFACT_KINDS))
       .filter((hit) => isOlderManagedVersion(hit.version, currentVersion));
+    const hits = (await Promise.all(candidates.map(async hit =>
+      ['claude', 'codex'].includes(provider) && hit.kind !== 'rules'
+        && await hasCurrentBundledArtifact(hit.absolutePath, options.frameworkRoot) ? null : hit)))
+      .filter((hit): hit is ManagedArtifactHit => hit !== null);
     if (hits.length === 0) continue;
 
     const counts: Record<ProviderArtifactKind, number> = { agents: 0, commands: 0, rules: 0 };
