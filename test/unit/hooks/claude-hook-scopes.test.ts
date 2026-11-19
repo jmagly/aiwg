@@ -42,18 +42,41 @@ it.each([['user', 'project'], ['project', 'user']])('injects once after installi
   expect(run(await command(home), project, '')).toBe('');
   expect(run(await command(home), root, project)).toBe('');
   expect(JSON.parse(run(await command(project))).hookSpecificOutput.additionalContext).toContain('aiwg discover');
-  expect(await diagnoseWorkspaceContext(project)).toContainEqual(expect.objectContaining({ code: 'duplicate-prompt-hook' }));
+  expect(await diagnoseWorkspaceContext(project)).not.toContainEqual(expect.objectContaining({ code: 'duplicate-prompt-hook' }));
   // Removing the project registration reactivates the user hook without redeploying.
   await fs.rm(path.join(project, '.claude/settings.json'));
   expect(JSON.parse(run(await command(home))).hookSpecificOutput.additionalContext).toContain('aiwg discover');
 });
 
-it('reports overlap independently of other workspace warnings and avoids a home self-overlap', async () => {
+it('warns for legacy non-deferring user hooks and clears the warning on redeploy', async () => {
   await installAiwgHooks({ frameworkRoot, projectPath: home, scope: 'user' });
   expect((await diagnoseWorkspaceContext(project)).some(d => d.code === 'duplicate-prompt-hook')).toBe(false);
   await installAiwgHooks({ frameworkRoot, projectPath: project, scope: 'project' });
+  const file = path.join(home, '.claude/settings.json');
+  const doc = JSON.parse(await fs.readFile(file, 'utf8'));
+  // The pre-#4257 verified loader had no project registration guard.
+  doc.hooks.UserPromptSubmit[0].hooks[0].command = (await command(home))
+    .replace(/try\{const project=.+?catch\{\}/, '');
+  await fs.writeFile(file, JSON.stringify(doc));
+  expect(JSON.parse(run(await command(home))).hookSpecificOutput.additionalContext).toContain('aiwg discover');
   expect((await diagnoseWorkspaceContext(project)).filter(d => d.code === 'duplicate-prompt-hook')).toHaveLength(1);
   expect((await diagnoseWorkspaceContext(home)).some(d => d.code === 'duplicate-prompt-hook')).toBe(false);
+  await installAiwgHooks({ frameworkRoot, projectPath: home, scope: 'user' });
+  expect((await diagnoseWorkspaceContext(project)).some(d => d.code === 'duplicate-prompt-hook')).toBe(false);
+});
+
+it('warns if any registered user prompt hook is still non-deferring', async () => {
+  await installAiwgHooks({ frameworkRoot, projectPath: home, scope: 'user' });
+  await installAiwgHooks({ frameworkRoot, projectPath: project, scope: 'project' });
+  const file = path.join(home, '.claude/settings.json');
+  const doc = JSON.parse(await fs.readFile(file, 'utf8'));
+  doc.hooks.UserPromptSubmit.push({ hooks: [{ type: 'command', _aiwg_managed: true,
+    _aiwg_id: 'aiwg-prompt-discovery', command: 'node .claude/hooks/aiwg-prompt-discovery.cjs' }] });
+  await fs.writeFile(file, JSON.stringify(doc));
+  expect(await diagnoseWorkspaceContext(project)).toContainEqual(expect.objectContaining({
+    code: 'duplicate-prompt-hook', severity: 'warning',
+    message: expect.stringContaining('aiwg use all --global --providers claude'),
+  }));
 });
 
 it('keeps user discovery for operator-only or malformed project settings', async () => {
