@@ -16,6 +16,37 @@ function python(text: string): Match[] {
 }
 
 describe('structural sequence checks', () => {
+  it.each([
+    ['The rule for tracker work is simple: send once.', 'colon-reveal', 'watch'],
+    ['The advice for publishing is clear: check first.', 'colon-reveal', 'watch'],
+    ['This is slower. Less noise. Fewer retries.', 'fragment-run', 'check'],
+    ['This is faster. Fewer errors. Less waiting.', 'fragment-run', 'check'],
+  ])('detects bounded corpus gaps on every surface: %s', async (content, pattern, tier) => {
+    const start = pattern === 'colon-reveal' ? content.indexOf(':') : 0;
+    const end = pattern === 'colon-reveal' ? start + 1 : content.length;
+    expect(python(content).filter(f => f.pattern === pattern)).toEqual([
+      expect.objectContaining({ position: start, text: content.slice(start, end), tier }),
+    ]);
+    expect(diagnoseWriting(content).diagnostics.filter(f => f.ruleId === pattern)).toEqual([
+      expect.objectContaining({ start, end, tier }),
+    ]);
+    expect((await new WritingValidationEngine(process.cwd()).validate(content)).issues.filter(f => f.ruleId === pattern)).toEqual([
+      expect.objectContaining({ location: expect.objectContaining({ start, end }), tier }),
+    ]);
+  });
+
+  it.each([
+    'The rule for tracker work is simple: send once.',
+    'This is slower. Less noise. Fewer retries.',
+  ])('preserves protected Markdown around gap candidates: %s', async content => {
+    for (const protectedText of [`\`${content}\``, `"${content}"`, `> ${content}`, `- ${content}`,
+      `# ${content}`, `---\ntitle: ${content}\n---`, `![${content}](image.png)`, `\`\`\`text\n${content}\n\`\`\``]) {
+      expect(python(protectedText)).toEqual([]);
+      expect(diagnoseWriting(protectedText).diagnostics).toEqual([]);
+      expect((await new WritingValidationEngine(process.cwd()).validate(protectedText)).issues.filter(f => f.type !== 'missing_authenticity')).toEqual([]);
+    }
+  });
+
   it('recognizes a withheld complement without requiring a pattern cluster on every surface', async () => {
     const content = 'The release now makes a promise: the queue drains.';
     const matches = python(content);
@@ -36,6 +67,18 @@ describe('structural sequence checks', () => {
     ['The worker is not fast. The worker is not slow.', ['mirrored-sentences']],
     ['The worker never logs. The worker never retries.', []],
     ['Ready.\nWaiting.\nDone.', []],
+    ['Ready. Waiting. Done.', []],
+    ['This is slower. Less noise.', []],
+    ['This is slower. Less noise. Retry later.', []],
+    ['This is version 2. Less noise. Fewer retries.', []],
+    ['The protocol is simple: a request identifier.', []],
+    ['The rule is simple: send once, check twice.', []],
+    ['The rule is simple: send once and check twice.', []],
+    ['The rule is simple: `send once`.', []],
+    ['The rule is simple: "send once".', []],
+    ['The rule is simple: send 3 requests.', []],
+    ['The rule is simple: send.', []],
+    ['The rule is simple: send once?', []],
     ['Ready. Waiting. Done. Verified.', ['fragment-run']],
     ['First wait. Then check. Finally send. Afterward verify.', ['fragment-run']],
     ['The worker had one bug: the switch vanished. Always test the switch.', ['colon-reveal', 'aphorism-ending']],
