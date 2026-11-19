@@ -79,10 +79,8 @@ describe('new project safety (#4278)', () => {
 describe('new project copy flags (#4279 with #4278)', () => {
   it('accepts --copy and --copy-all and defaults to indexed discovery', async () => {
     const { parseNewProjectArgs } = await import('../../../src/cli/new-project-options.js');
-    const { mkdtempSync } = await import('node:fs');
-    const { tmpdir } = await import('node:os');
-    const { join } = await import('node:path');
-    const empty = mkdtempSync(join(tmpdir(), 'aiwg-new-copy-'));
+    // The per-test project directory is empty and removed in afterEach.
+    const empty = project;
     expect(parseNewProjectArgs([], empty).copy).toBe(false);
     expect(parseNewProjectArgs(['--copy'], empty).copy).toBe(true);
     expect(parseNewProjectArgs(['--copy-all'], empty).copy).toBe(true);
