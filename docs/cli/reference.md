@@ -1588,8 +1588,12 @@ advanced cases, but the preferred user experience is the agent-led setup flow.
 
 Sensitive inputs and migration status: [Supplying sensitive values](sensitive-values.md#sensitive-input-inventory-3079-slice-1).
 
-Policy-plan and manage the project-local issue store. External issue-authoring
-skills use the same composition contract before their tracker-specific write.
+Policy-plan and manage issues with `issue` or its alias `issues`. Run
+`aiwg issues --help` or `aiwg issues list --help` for the command and flag reference.
+With a configured external tracker, `create`/`new`, `comment`, and `close` use that
+tracker and its verified actor; `--provider local` selects local storage.
+`list` queries local storage only: initialize it with `aiwg issues init`, then use
+`aiwg issues list --provider local`. Query external trackers with their tracker tools.
 
 ```bash
 aiwg issue init [--prefix KEY] [--padding N]

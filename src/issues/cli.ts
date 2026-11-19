@@ -435,7 +435,7 @@ function csvFlag(args: ParsedArgs, name: string): string[] {
   return value ? value.split(',').map((item) => item.trim()).filter(Boolean) : [];
 }
 
-function printUsage(): void {
+export function printUsage(): void {
   console.log(`Usage:
   aiwg issues create --title "..." --body-file path  (configured external tracker)
   aiwg issues comment|close <number> [--body-file path]  (configured external tracker)
@@ -443,7 +443,7 @@ function printUsage(): void {
   aiwg issue init [--prefix KEY] [--padding N]
   aiwg issue plan --title "..." [--body "..."] [--body-file path] [--json]
   aiwg issue new --title "..." [--body "..."] [--body-file path] [--authorize-policy DIGEST]
-  aiwg issue list [--status open] [--label bug] [--search text] [--limit 20] [--json]
+  aiwg issues list --provider local [--status open] [--label bug] [--search text] [--limit 20] [--json]
   aiwg issue show <KEY> [--comments last:10|all]
   aiwg issue import --from gitea|github --snapshot-file path [--json]
   aiwg issue export <KEY> --to gitea|github [--out path]
@@ -454,6 +454,14 @@ function printUsage(): void {
   aiwg issue comment <KEY> --body "..." [--author name]
   aiwg issue close <KEY> [--reason "..."]
   aiwg issue index rebuild [--force]
+
+Notes:
+  issue and issues are aliases; --help and -h show this reference for any subcommand.
+  list queries local storage only; initialize it with aiwg issues init.
+  External tracker queries require that tracker's tools, including duplicate searches.
+  create/new, comment and close use the configured external tracker and verified actor.
+  --provider local selects local storage; an external --provider must match project config.
+  --authorize-policy DIGEST authorizes a reviewed issue plan when policy requires it.
 
 Live token sources: --token-interactive, --token-stdin, --token-file <path>,
   --token-store <name>, --token-env <NAME> (see docs/cli/sensitive-values.md).`);

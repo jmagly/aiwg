@@ -67,7 +67,7 @@ AIWG CLI output is verbose. Preserve context:
 ## Decision Loop
 
 ```text
-1. DETECT       aiwg runtime-info --json | jq -r '.provider'
+1. DETECT       aiwg runtime-info --providers --json | jq -r '.activeProvider'
 2. BASELINE     aiwg doctor 2>&1 | grep -E "passed|FAIL|warning"
 3. CHECK        aiwg version --json | jq -r '.version'
 4. ROUTE        choose a Tier-2 quickref, CLI command, or capability matrix lookup

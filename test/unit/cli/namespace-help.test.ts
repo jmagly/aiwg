@@ -64,6 +64,8 @@ describe('namespace help routing', () => {
   });
 
   it.each([
+    ...['issue', 'issues'].flatMap(namespace => ['', 'list', 'create', 'comment', 'close'].map(verb =>
+      [namespace, verb, ['Usage:', 'create', 'comment', 'close', 'list --provider local', '--body-file', '--authorize-policy', 'local storage only', 'configured external tracker']] as [string, string, string[]])),
     ['config', 'show', ['Usage:', 'show --project', '--json', '--config-dir']],
     ['config', 'authorization', ['--action-file', 'category', 'verb', 'repo', 'environment', 'target', 'resources', 'reversible', 'impact', 'actor', 'inputDigest', 'Example']],
     ['workspace-context', 'doctor', ['Usage:', 'doctor', '--json', '--apply', '--allow-conflicts']],
