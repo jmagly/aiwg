@@ -3,6 +3,13 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import os from 'node:os';
 
+// Also identifies the already-shipped defer-aware loader in read-only diagnostics.
+export const CLAUDE_USER_PROMPT_DEFERRAL = [
+  "try{const project=p.resolve(process.env.CLAUDE_PROJECT_DIR||process.cwd());",
+  "if(project!==c.anchor){const groups=JSON.parse(fs.readFileSync(p.join(project,'.claude/settings.json'),'utf8')).hooks?.UserPromptSubmit;",
+  "if(Array.isArray(groups)&&groups.some(g=>Array.isArray(g?.hooks)&&g.hooks.some(h=>h?.type==='command'&&h._aiwg_managed===true&&h._aiwg_id==='aiwg-prompt-discovery'&&typeof h.command==='string'&&h.command.trim())))process.exit(0);}}catch{}",
+].join('');
+
 export function verifiedHookCommand(root: string, relative: string, bytes: Buffer, args: string[] = [], scope?: 'project' | 'user') {
   if (relative.split('/').includes('..') || !/^[.\w/-]+\.(?:cjs|js)$/.test(relative)) throw new Error('Invalid managed hook script path');
   const paths = process.platform === 'win32' ? path.win32 : path;
@@ -20,11 +27,7 @@ export function verifiedHookCommand(root: string, relative: string, bytes: Buffe
     `const c=JSON.parse(Buffer.from('${data}','base64').toString());`,
     // Claude merges project and user hooks. The project registration wins;
     // keep the global fallback active when this is the home settings itself.
-    ...(user && relative === '.claude/hooks/aiwg-prompt-discovery.cjs' ? [
-      "try{const project=p.resolve(process.env.CLAUDE_PROJECT_DIR||process.cwd());",
-      "if(project!==c.anchor){const groups=JSON.parse(fs.readFileSync(p.join(project,'.claude/settings.json'),'utf8')).hooks?.UserPromptSubmit;",
-      "if(Array.isArray(groups)&&groups.some(g=>Array.isArray(g?.hooks)&&g.hooks.some(h=>h?.type==='command'&&h._aiwg_managed===true&&h._aiwg_id==='aiwg-prompt-discovery'&&typeof h.command==='string'&&h.command.trim())))process.exit(0);}}catch{}",
-    ] : []),
+    ...(user && relative === '.claude/hooks/aiwg-prompt-discovery.cjs' ? [CLAUDE_USER_PROMPT_DEFERRAL] : []),
     'const root=c.projectEnv?process.env[c.projectEnv]||c.anchor:c.anchor;',
     `const script=p.resolve(root,'${relative}');`,
     "if(p.relative(fs.realpathSync(script),script)!==''||!fs.lstatSync(script).isFile())throw Error('Unsafe AIWG hook path');",
