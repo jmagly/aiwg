@@ -68,6 +68,14 @@ export function structuralPatterns(prose: string, antonyms: string[][], quotedPr
     let run: ProseSentence[] = [];
     const flush = () => {
       if (run.length >= 4 && new Set(run.map(s => s.tokens.join(' '))).size > 1) emit('fragment-run', 'check', { start: run[0].start, end: run.at(-1)!.end }, 'Four or more consecutive statements contain fewer than five words.', 'Join fragments to explain the reason or result.');
+      // Comparative verdict + two reduced comparative phrases is a rhetorical
+      // sequence; ordinary three-step statuses still require four statements.
+      if (run.length === 3 && !run.some(s => /[\d\u0001]/.test(s.text))
+        && /^(?:this|that|it) (?:is|was) (?:[a-z]+er|better|worse|(?:more|less) [a-z]+)[.!]$/i.test(run[0].text)
+        && run.slice(1).every(s => /^(?:less|fewer) [a-z]+(?: [a-z]+)?[.!]$/i.test(s.text))) {
+        emit('fragment-run', 'check', { start: run[0].start, end: run[2].end },
+          'A comparative verdict leads into two short comparative fragments.', 'Join fragments to explain the reason or result.');
+      }
       run = [];
     };
     for (const s of sentences) {
@@ -90,6 +98,16 @@ export function structuralPatterns(prose: string, antonyms: string[][], quotedPr
         && /^(?:is|are|was|were|can|will|must|has|had|does|[a-z]+(?:s|ed))$/.test(predicate);
       const conditional = /^if\b[^,;:]+,\s*(?:nothing|everything|it|this|that|the [a-z]+)\s+(?:[a-z]+(?:s|ed)|is|was|can|will)\b/i.test(after)
         && !/\b(?:and|or)\b|[?!]/i.test(after) && punchline.length <= 16;
+      // An evaluative rule/advice setup can also withhold an imperative.
+      // Keep nominal definitions, command introductions and lists protected.
+      const imperativeReveal = /^(?:the|our|this) (?:rule|advice|approach|policy)\b[^:]*\b(?:is|was) (?:simple|clear|obvious)$/i.test(before.trim())
+        && /^(?:send|check|read|test|keep|write|verify|review)\b/i.test(after)
+        && setup.length >= 4 && setup.length <= 12 && punchline.length >= 2 && punchline.length <= 4
+        && !/[,?!]|\b(?:and|or)\b/i.test(after);
+      if (imperativeReveal) {
+        emit('colon-reveal', 'watch', { start: s.start + colon, end: s.start + colon + 1 },
+          'An evaluative setup delays a short imperative until after the colon.', 'State the instruction directly.');
+      }
       if (conditional && /\b(?:bug|defect|flaw|failure|problem)$/i.test(before.trim()) && setup.length >= 4 && setup.length <= 12 && withheld) {
         emit('colon-reveal', 'watch', { start: s.start + colon, end: s.start + colon + 1 },
           'A short setup reveals its defect through a conditional consequence.', 'State the defect and consequence together.');

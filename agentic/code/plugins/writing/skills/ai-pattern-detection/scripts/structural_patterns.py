@@ -74,6 +74,10 @@ def structural_matches(prose, antonyms, match_type, quoted_prose=None):
         def flush():
             if len(run) >= 4 and len({' '.join(s['tokens']) for s in run}) > 1:
                 emit('fragment-run', {'start': run[0]['start'], 'end': run[-1]['end']}, 'check')
+            # A comparative verdict followed by two reduced comparative phrases
+            # is distinct from an ordinary three-step status sequence.
+            if len(run) == 3 and not any(re.search(r'[\d\x01]', s['text']) for s in run) and re.fullmatch(r'(?:this|that|it) (?:is|was) (?:[a-z]+er|better|worse|(?:more|less) [a-z]+)[.!]', run[0]['text'], re.I) and all(re.fullmatch(r'(?:less|fewer) [a-z]+(?: [a-z]+)?[.!]', s['text'], re.I) for s in run[1:]):
+                emit('fragment-run', {'start': run[0]['start'], 'end': run[-1]['end']}, 'check')
             run.clear()
         for s in seq:
             label = re.match(r'^([^:]+):', s['text'])
@@ -92,6 +96,12 @@ def structural_matches(prose, antonyms, match_type, quoted_prose=None):
             predicate = punchline[subject + 1] if len(punchline) > subject + 1 else ''
             clause = punchline and (subject == 1 or punchline[0] in ('it', 'this', 'that', 'we', 'you', 'they', 'he', 'she', 'nothing', 'everything')) and re.fullmatch(r'(?:is|are|was|were|can|will|must|has|had|does|[a-z]+(?:s|ed))', predicate)
             conditional = re.match(r'^if\b[^,;:]+,\s*(?:nothing|everything|it|this|that|the [a-z]+)\s+(?:[a-z]+(?:s|ed)|is|was|can|will)\b', after, re.I) and not re.search(r'\b(?:and|or)\b|[?!]', after, re.I) and len(punchline) <= 16
+            # Evaluative rule/advice setups can withhold an imperative, while
+            # nominal definitions, command introductions and lists stay protected.
+            imperative_reveal = re.fullmatch(r'(?:the|our|this) (?:rule|advice|approach|policy)\b[^:]*\b(?:is|was) (?:simple|clear|obvious)', before.strip(), re.I) and re.match(r'^(?:send|check|read|test|keep|write|verify|review)\b', after, re.I) and 4 <= len(words(before)) <= 12 and 2 <= len(punchline) <= 4 and not re.search(r'[,?!]|\b(?:and|or)\b', after, re.I)
+            if imperative_reveal:
+                pos = s['start'] + len(before)
+                emit('colon-reveal', {'start': pos, 'end': pos + 1}, 'watch')
             if conditional and re.search(r'\b(?:bug|defect|flaw|failure|problem)$', before.strip(), re.I) and 4 <= len(words(before)) <= 12 and withheld:
                 pos = s['start'] + len(before)
                 emit('colon-reveal', {'start': pos, 'end': pos + 1}, 'watch')
