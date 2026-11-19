@@ -7,6 +7,10 @@ and this project uses [Calendar Versioning (CalVer)](https://calver.org/) with n
 
 ## [Unreleased]
 
+### Changed
+
+- Writing-quality and voice-framework guidance shares tiered structural examples and fixes, campaign reuse rules and a substance requirement for articles and how-tos. It removes manufactured casualness and fragment advice, links the existing dated lexical catalogue with quarterly review, and states punctuation, passive-voice and authorship limits (#4141, #4137).
+
 ## [2026.11.8] - 2026-11-17
 
 ### Added

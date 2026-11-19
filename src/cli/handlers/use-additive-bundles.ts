@@ -79,9 +79,17 @@ export async function getAllExtensions(frameworkRoot: string): Promise<string[]>
   return result;
 }
 
+/**
+ * Only the bulk kernel surface (`use all` outside Pi/OMP) omits bundled extensions.
+ * Index-only framework passes keep them so extension rules still deliver (#4279).
+ */
+export function omitsExtensions(id: string, provider: string, kernelOnly: boolean): boolean {
+  return kernelOnly && id === 'all' && !['pi', 'omp'].includes(provider);
+}
+
 /** The same provider and kernel gates govern use passes and expected receipt owners. */
-export async function frameworkAdditiveBundles(frameworkRoot: string, provider: string, skipUtils = false, kernelOnly = false) {
+export async function frameworkAdditiveBundles(frameworkRoot: string, provider: string, skipUtils = false, kernelOnly = false, id = 'all') {
   const addons = skipUtils || provider === 'flue' ? [] : await getAllAddons(frameworkRoot);
-  const extensions = skipUtils || kernelOnly || provider === 'flue' ? [] : await getAllExtensions(frameworkRoot);
+  const extensions = skipUtils || omitsExtensions(id, provider, kernelOnly) || provider === 'flue' ? [] : await getAllExtensions(frameworkRoot);
   return { addons, extensions };
 }

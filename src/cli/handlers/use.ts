@@ -49,7 +49,7 @@ import { deploymentEditWarnings } from '../../providers/deployment-preservation.
 import { permitsBundleDeployment } from '../../config/installed-selection.js';
 import { executeCopySelection, discoveryDeploymentArgs, reportDiscovery } from './use-copy-selection.js';
 import { bundleDeploymentScope, recordBundleDeployment, bundleProviderCopyArgs, projectLocalDeploymentContext, projectLocalCopyMode } from './bundle-deployment-mode.js';
-import { frameworkAdditiveBundles, getAllAddons, getAllExtensions } from './use-additive-bundles.js';
+import { frameworkAdditiveBundles, getAllAddons, getAllExtensions, omitsExtensions } from './use-additive-bundles.js';
 export { getAllAddons, getAllExtensions, USE_ALL_DISALLOW, USE_ALL_EXTENSIONS_DISALLOW } from './use-additive-bundles.js';
 import {
   checkCollisions,
@@ -3772,7 +3772,7 @@ export class UseHandler implements CommandHandler {
         if (framework === 'all') {
           const kernelOnly = bundleDeploymentScope(framework, resolved.provider, remainingArgs).kernelOnly;
           if (kernelOnly) args.push('--kernel-only');
-          if (!skipUtils && ((!kernelOnly && (await getAllExtensions(frameworkRoot)).length > 0)
+          if (!skipUtils && ((!omitsExtensions(framework, resolved.provider, kernelOnly) && (await getAllExtensions(frameworkRoot)).length > 0)
             || (!mainDeploymentIncludesAddons(resolved.provider, mode, args) && (await getAllAddons(frameworkRoot)).length > 0))) {
             args.push('--defer-rule-projection');
           }
@@ -3830,7 +3830,7 @@ export class UseHandler implements CommandHandler {
       : deployFilteredArgs;
     const bulkKernelOnly = bundleDeploymentScope(framework, provider, remainingArgs).kernelOnly;
     if (bulkKernelOnly) providerDeployArgs.push('--kernel-only');
-    const { addons: allAddons, extensions: allExtensions } = await frameworkAdditiveBundles(frameworkRoot, provider, skipUtils, bulkKernelOnly);
+    const { addons: allAddons, extensions: allExtensions } = await frameworkAdditiveBundles(frameworkRoot, provider, skipUtils, bulkKernelOnly, framework);
     const mainIncludesAddons = mainDeploymentIncludesAddons(provider, mode, providerDeployArgs);
     // OMP's extension sources share the root transaction and binding scan.
     // Their CLI contributions are still registered below in source order.

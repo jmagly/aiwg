@@ -33,7 +33,7 @@ describe('OMP public use command integration',()=>{
     expect(existsSync(join(workspace,'.omp'))).toBe(false);
     expect(existsSync(join(workspace,'.agents/skills'))).toBe(false);
   },180000);
-  it('deploys/repeats full skills then reconciles kernel-only through the public command',()=>{
+  it('deploys/repeats full skills, then returns to index mode keeping extension rules and retained copies',()=>{
     const foreign={'.pi/AGENTS.md':'Pi operator context','.claude/CLAUDE.md':'Claude operator context','.codex/config.toml':'# Codex operator configuration','.agents/skills/operator/SKILL.md':'---\nname: operator\ndescription: operator owned\n---\nKeep this.'};
     for(const [name,body] of Object.entries(foreign))put(name,body);
     cli([...common,'--copy-all']);
@@ -59,17 +59,17 @@ describe('OMP public use command integration',()=>{
     expect(index).toContain('aiwg show rule net-tunnel-safety --body');
     expect(readFileSync(join(workspace, '.omp/rules/sys-interactive-gate.md'), 'utf8')).toContain('Interactive Command Gate');
     const kernel=files(join(workspace,'.agents/skills')).filter(f=>f.endsWith('/SKILL.md'));
-    expect(kernel.length).toBeLessThan(full.length);
+    // Returning to index mode retains prior copies for operator review (#4279).
+    expect(kernel).toEqual(expect.arrayContaining(full));
     expect(kernel.some(f=>f.includes('/aiwg-doctor/'))).toBe(true);
-    expect(kernel.some(f=>f.includes('/workspace-reset/'))).toBe(false);
     for(const [name,body] of Object.entries(foreign))expect(readFileSync(join(workspace,name),'utf8')).toBe(body);
     if(preservedSupport)expect(readFileSync(preservedSupport,'utf8')).toBe('Operator-owned support update');
   },300000);
   it('routes default user resources and named profile resources to isolated native roots',()=>{
-    cli([...common,'--scope','user']);
+    cli([...common,'--copy','--scope','user']); // Copies are opt-in since #4279.
     expect(existsSync(join(sandbox,'omp-agent/skills/aiwg-doctor/SKILL.md'))).toBe(true);
     expect(files(join(sandbox,'omp-config/agent/agents')).some(file=>file.endsWith('.md'))).toBe(true);
-    cli(['use','aiwg-utils','--provider','oh-my-pi','--no-project-local','--json','--scope','user'],{OMP_PROFILE:'conformance',PI_PROFILE:'ignored'});
+    cli(['use','aiwg-utils','--copy','--provider','oh-my-pi','--no-project-local','--json','--scope','user'],{OMP_PROFILE:'conformance',PI_PROFILE:'ignored'});
     expect(existsSync(join(sandbox,'omp-config/profiles/conformance/agent/skills/aiwg-doctor/SKILL.md'))).toBe(true);
     expect(existsSync(join(sandbox,'omp-config/profiles/ignored'))).toBe(false);
   },300000);
