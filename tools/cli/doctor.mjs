@@ -339,10 +339,10 @@ function mergeSkillMeasurements(measurements) {
 async function checkTotalDeployedSkillBudgetForProvider(provName, label, provider) {
   const paths = new Set();
   if (provider?.kernelSkillsPath) paths.add(provider.kernelSkillsPath);
-  // Codex only scans the native kernel directory at startup. Standard-tier
+  // Claude and Codex only scan the native kernel directory at startup. Standard-tier
   // skills remain available through `aiwg discover`/`aiwg show`, but adding
   // their hidden storage path here produces a false over-budget warning.
-  if (provName !== 'codex' && provider?.paths?.skills) paths.add(provider.paths.skills);
+  if (!['claude', 'codex'].includes(provName) && provider?.paths?.skills) paths.add(provider.paths.skills);
   if (paths.size === 0) return;
 
   const measurements = [];

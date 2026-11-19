@@ -267,9 +267,9 @@ If you regularly switch between very different domains (forensics, marketing, de
 aiwg doctor
 ```
 
-`aiwg doctor` runs a per-provider **Skill Budget** check (#1150) for every deployed skills directory it finds. The check sums each `SKILL.md`'s `name + description` from frontmatter, converts via the standard ~4 chars/token heuristic, and compares against the platform's default budget.
+`aiwg doctor` runs a per-provider **Skill Budget** check (#1150) for each startup skills directory it finds. The check sums each `SKILL.md`'s `name + description` from frontmatter, converts via the standard ~4 chars/token heuristic, and compares against the platform's default budget.
 
-Doctor also warns when the total deployed skill inventory exceeds a platform default, even if some skills are hidden from a platform's native startup scanner. If doctor warns, prefer `aiwg use all` or `aiwg use --profile <name>` to reduce the deployed set before raising a platform budget.
+Doctor's **Deployed Skill Count** check measures startup-visible skills for Claude Code and Codex (`kernelSkillsPath`). Hidden standard-tier skills remain available through `aiwg discover` and `aiwg show` and do not count against these listing budgets. A default kernel-only install can therefore retain its full hidden inventory without a warning. If the visible listing exceeds the budget, inspect it with `aiwg list --deployed` and reduce the startup-visible set before raising a platform budget.
 
 | Platform | Budget |
 |----------|--------|

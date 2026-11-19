@@ -1,4 +1,5 @@
 import { MODELS_HELP } from './models-help.js';
+import { museWrapperArtifacts, museWrapperCompilation } from './models-muse-wrapper.js';
 import { shellRefusalDiagnostics } from './models-refusal.js';
 import { updateJson } from '../../models/config-writer.js';
 import { atomicConfigWrite as atomicWrite } from '../../config/worker-write.js';
@@ -147,7 +148,7 @@ async function resolveDirect(ctx: HandlerContext, services: ModelsWorkerServices
 }
 
 type ArtifactKind = 'agent' | 'skill';
-interface Artifact {
+export interface Artifact {
   kind: ArtifactKind;
   name: string;
   file: string;
@@ -262,18 +263,18 @@ function resolved(item: Artifact, provider: string, catalog?: ProviderModelCatal
     tier: normalizedTier(item.tier),
     ...(item.effort ? { effort: item.effort } : {}),
   };
-  return { ...item, policy, compiled: compileModelPolicy({
+  return { ...item, policy, compiled: museWrapperCompilation(item, compileModelPolicy({
     provider: provider as Parameters<typeof compileModelPolicy>[0]['provider'],
     artifact: item.kind,
     policy,
     ...(catalog ? { catalog } : {}),
-  }) };
+  }), policy, catalog) };
 }
 function print(value: unknown, json: boolean): void {
   if (json) console.log(JSON.stringify(value, null, 2));
   else if (Array.isArray(value) && value.every(item => item?.kind && item?.relative)) {
     for (const item of value as any[]) {
-      const outcome = item.compiled?.outcome ? `\t${item.compiled.outcome}` : '';
+      const outcome = item.compiled?.outcome ? `\t${item.compiled.outcome}${item.compiled.provider === 'muse' && item.compiled.effectiveModel ? `\t${item.compiled.effectiveModel}` : ''}` : '';
       console.log(`${item.kind}\t${item.name}\t${item.role}/${item.tier}${outcome}\t${item.relative}`);
       for (const diagnostic of item.compiled?.diagnostics ?? []) {
         console.log(`  ${diagnostic.code}: ${diagnostic.message}`);
@@ -383,7 +384,7 @@ async function execute(ctx: HandlerContext, services: ModelsWorkerServices = { l
     return { exitCode: 0 };
   }
   const discovered = await discover(target);
-  const artifacts = select(discovered, parsed, parsed.subcommand !== 'set');
+  const artifacts = select(museWrapperArtifacts(discovered, provider, parsed), parsed, parsed.subcommand !== 'set');
   if (parsed.subcommand === 'list') { print(artifacts, json); return { exitCode: 0 }; }
   if (parsed.subcommand === 'audit' || parsed.subcommand === 'resolve') {
     const catalog = await effectiveCatalog(ctx, target, false, parsed, provider);

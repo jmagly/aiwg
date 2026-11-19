@@ -63,9 +63,13 @@ export function wrapperModelRisks(provider: string, artifact: DeployedWrapperCon
   const premium = !!state.effectiveModel && (Object.values(catalog.providers)
     .some(entry => matches([entry?.tiers?.premium?.id, entry?.roles.reasoning.id]))
     || (provider === 'claude' && state.effectiveModel === 'opus'));
+  // Muse's explicit session setting elects its sole catalog model without cross-provider pins.
+  const muse = catalog.providers.muse;
+  const museSessionElected = provider === 'muse' && !!muse && !muse.tiers
+    && Object.values(muse.roles).every(entry => entry.id === artifact.inheritedModel);
   // Flagship always needs an operator election, pinned or not. Premium is a normal ladder tier
   // (the reasoning role's default), so it is a risk only when a wrapper inherits it.
-  if ((flagship || (premium && state.model !== 'pinned')) && !flagshipElected(artifact)) {
+  if ((flagship || (premium && state.model !== 'pinned' && !museSessionElected)) && !flagshipElected(artifact)) {
     findings.push('delegation.flagship-inheritance');
   }
   return findings;
