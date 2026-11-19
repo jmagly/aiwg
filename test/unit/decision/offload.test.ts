@@ -4,7 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DecisionAskInput, DecisionAskResult } from '../../../src/decision/ask.js';
 import { DecisionAskUsageError } from '../../../src/decision/ask.js';
 import {
@@ -235,6 +235,30 @@ describe('decision offload checkpoint', () => {
 });
 
 describe('decision offload snapshot', () => {
+  // Snapshot fixtures require completed persistence, not the production deadline
+  // race. Freeze only deadlines so real filesystem I/O can finish under CI load.
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('awaits diagnostic persistence independently of the recording deadline and real clock', async () => {
+    const projectRoot = await root();
+    const env = await configureAsk(projectRoot);
+    vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2030, 0, 1));
+    // A zero deadline deterministically models I/O losing the recording race.
+    const checkpoint = await runDecisionOffloadCheckpoint(input, options(projectRoot, {
+      env, caller: 'diagnosis:connectivity', ask: async () => answered,
+      timeoutMs: 0, opportunityTimeoutMs: 0,
+    }));
+    expect(checkpoint.opportunity.ledgerRecorded).toBe(true);
+    const snapshot = await buildDecisionOffloadSnapshot({
+      projectRoot, env, windowHours: 1, now: new Date('2026-10-20T12:01:00.000Z'),
+    });
+    expect(snapshot.calls).toMatchObject({ organic: { completed: 0 }, excluded: { completed: 1 } });
+    expect(snapshot.opportunities).toMatchObject({ organic: { observed: 0 }, excluded: { observed: 1 } });
+    expect(snapshot.correlation).toMatchObject({ matched: 1, attemptedWithoutLedger: 0 });
+    expect(checkpoint.opportunity.timestamp).toBe('2026-10-20T12:00:00.000Z');
+  });
+
   it('correlates a real checkpoint opportunity with its completed-call ledger record', async () => {
     const projectRoot = await root();
     const env = await configureAsk(projectRoot);
