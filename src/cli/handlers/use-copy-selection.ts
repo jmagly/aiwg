@@ -36,5 +36,6 @@ export function discoveryMessage(target: string, dryRun = false): string {
 export function reportDiscovery(ctx: HandlerContext, result: HandlerResult, indexOnly: boolean): HandlerResult {
   if (result.exitCode || !indexOnly || ctx.args[0] === 'cockpit'
     || ctx.args.some(arg => ['--json', '--help', '-h', '--workspace-signals'].includes(arg))) return result;
-  return { ...result, message: [result.message, discoveryMessage(ctx.args[0] || 'all', ctx.args.includes('--dry-run'))].filter(Boolean).join('\n') };
+  // Lead with the discovery note so provider next steps (hook trust/acceptance) stay the last line.
+  return { ...result, message: [discoveryMessage(ctx.args[0] || 'all', ctx.args.includes('--dry-run')), result.message].filter(Boolean).join('\n') };
 }
