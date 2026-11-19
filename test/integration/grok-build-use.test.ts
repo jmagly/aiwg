@@ -13,6 +13,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { load as loadYaml } from 'js-yaml';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const roots: string[] = [];
@@ -112,7 +113,10 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     expect(readdirSync(outside)).toEqual(['operator.txt']);
   }, 180_000);
 
-  it('deploys project kernel skills, mirrors to $GROK_HOME, and records registry/receipts', () => {
+  it.each([
+    { mode: 'default', flags: [], agents: 0 },
+    { mode: 'copy-all', flags: ['--copy-all'], agents: 220 },
+  ])('deploys $mode with indexed availability, mirrors, and registry/receipts', ({ flags, agents }) => {
     const home = isolated('aiwg-grok-use-home-');
     const project = isolated('aiwg-grok-use-project-');
     const grokHome = path.join(home, 'custom-grok-home');
@@ -140,6 +144,7 @@ describe('aiwg use grok-build e2e (#2575)', () => {
       '--no-project-local',
       '--no-utils',
       '--json',
+      ...flags,
     ];
     const useEnv = {
       HOME: home,
@@ -176,15 +181,33 @@ describe('aiwg use grok-build e2e (#2575)', () => {
     expect(projectSkills.length).toBeGreaterThan(0);
     expect(projectSkills.length).toBeLessThan(80);
     // No full-corpus dump into the standard mirror without --copy-all.
-    expect(existsSync(path.join(project, '.grok', '.aiwg', 'skills'))).toBe(false);
-    // Default deployments expose native agent definitions through discovery.
+    expect(existsSync(path.join(project, '.grok', '.aiwg', 'skills'))).toBe(agents > 0);
+    expect(use.json.discovery).toMatchObject({ byType: { agent: expect.any(Number) } });
+    expect((use.json.discovery as { byType: { agent: number } }).byType.agent).toBeGreaterThanOrEqual(agents || 220);
+    // Native agent copies require explicit opt-in; all modes retain index discovery.
     const projectAgents = path.join(project, '.grok', 'agents');
-    expect(existsSync(projectAgents)).toBe(false);
+    expect(existsSync(projectAgents)).toBe(agents > 0);
+    expect((use.json.providers as Array<{ counts: { agents: number } }>)[0].counts.agents)
+      .toBe(agents);
+    expect(existsSync(projectAgents) ? readdirSync(projectAgents).filter(name => name.endsWith('.md')) : []).toHaveLength(agents);
     for (const name of ['test-engineer', 'aiwg-model-reasoning-worker', 'aiwg-model-coding-worker', 'aiwg-model-efficiency-worker', 'aiwg-model-explorer', 'aiwg-model-verifier']) {
       const shown = runUse(['show', 'agent', name, '--json'], useEnv, project);
       expect(shown.status, shown.stderr || shown.stdout).toBe(0);
-      expect(shown.json?.installed).toBe(false);
-      expect(existsSync(path.join(grokHome, 'agents', `${name}.md`))).toBe(false);
+      expect(shown.json?.installed).toBe(agents > 0);
+      expect(existsSync(path.join(grokHome, 'agents', `${name}.md`))).toBe(agents > 0);
+      if (!agents) continue;
+      const compiled = readFileSync(path.join(projectAgents, `${name}.md`), 'utf8');
+      expect(readFileSync(path.join(grokHome, 'agents', `${name}.md`), 'utf8')).toBe(compiled);
+      expect(Object.keys(loadYaml(compiled.split('---')[1]) as object).sort()).toEqual(['description', 'name']);
+      expect(compiled).toContain('AIWG model role:');
+      expect(compiled).toContain('-m');
+    }
+    const diagnostics = (use.json.providers as Array<{ findings: Array<{ id: string; message: string; remediation: string }> }>)[0].findings
+      .filter(item => item.id === 'grok-agent-model-pins-unenforced');
+    expect(diagnostics).toHaveLength(agents ? 1 : 0);
+    if (agents) {
+      expect(diagnostics[0].message).toMatch(/per-agent.*not enforced/);
+      expect(diagnostics[0].remediation).toContain('-m <model>');
     }
     assertStartupRuleDelivery(project, 'grok-build', readFileSync(path.join(project, 'AGENTS.md'), 'utf8'), '.grok/rules');
 

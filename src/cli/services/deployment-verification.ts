@@ -694,6 +694,11 @@ export async function verifyProviderDeployment(
     }
 
     if (normalized === 'grok-build') {
+      if (counts.agents > 0) findings.push(finding(
+        normalized, 'grok-agent-model-pins-unenforced', 'advisory',
+        'Grok Build ignores agent frontmatter model; per-agent model pins are not enforced. AIWG role/tier intent is informational.',
+        'Select the worker model with -m <model> on the worker command.',
+      ));
       const expectedSkillNames: string[] = [];
       // Prefer validating against kernel skills actually present under .grok/skills.
       try {

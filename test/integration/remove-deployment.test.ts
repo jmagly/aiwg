@@ -55,6 +55,25 @@ const REAL_DEPLOY_TEST_MS = 900_000;
 
 describe('receipt-backed removal after deployment (#3769)', () => {
 
+  it('removes copied Claude flow projections after --copy-all without touching operator files', () => {
+    const { project, command } = setup(false);
+    const operator = '.claude/.aiwg/skills/operator/SKILL.md';
+    write(project, operator, 'Operator instructions.\n');
+    command('bin/aiwg.mjs', ['use', 'sdlc', '--provider', 'claude', '--target', project,
+      '--scope', 'project', '--copy-all', '--no-project-local', '--json']);
+    // This YAML flow has no authored skill directory: the projector owns its copy.
+    const flow = path.join(project, '.claude/.aiwg/skills/flow-agentloop-lfd-controls/SKILL.md');
+    expect(fs.existsSync(flow)).toBe(true);
+    const record = records(project).get(flow);
+    expect(record).toMatchObject({ kind: 'skill', owners: ['sdlc-complete'] });
+    const preview = command('bin/aiwg.mjs', ['remove', 'sdlc', '--provider', 'claude', '--dry-run']);
+    expect(preview).toContain(path.relative(project, flow));
+    expect(fs.existsSync(flow)).toBe(true);
+    command('bin/aiwg.mjs', ['remove', 'sdlc', '--provider', 'claude']);
+    expect(fs.existsSync(flow)).toBe(false);
+    expect(fs.readFileSync(path.join(project, operator), 'utf8')).toBe('Operator instructions.\n');
+  }, REAL_DEPLOY_TEST_MS);
+
   it('restores Claude settings and managed hooks after public sdlc/marketing deployment and removal', () => {
     const { project, command } = setup(false);
     const settingsFile = path.join(project, '.claude/settings.json');

@@ -13,11 +13,36 @@ function options(requireNativeInspection: boolean) {
   return { projectRoot, frameworkRoot: projectRoot, provider: 'grok-build', scope: 'project' as const, requestedBundles: [], contextOptOut: true, requireNativeInspection };
 }
 describe('shared deployment native inspection gate', () => {
-  it.each([false, true])('promotes absent native inspection to blocking only in strict mode (%s)', async strict => {
+  it.each([
+    { strict: false, agents: false }, { strict: true, agents: false },
+    { strict: false, agents: true }, { strict: true, agents: true },
+  ])('scopes native inspection and pin diagnostics ($strict, $agents)', async ({ strict, agents }) => {
     vi.mocked(runGrokInspect).mockReturnValue({ status: 'absent', remediation: 'Install Grok' });
-    const result = await verifyProviderDeployment(options(strict));
+    const opts = options(strict);
+    if (agents) {
+      const directory = path.join(opts.projectRoot, '.grok/agents');
+      mkdirSync(directory, { recursive: true });
+      writeFileSync(path.join(directory, 'fixture.md'), '---\nname: fixture\ndescription: Fixture\n---\nRole intent.');
+    }
+    const result = await verifyProviderDeployment(opts);
+    const pins = result.findings.filter(finding => finding.id === 'grok-agent-model-pins-unenforced');
+    expect(pins).toHaveLength(agents ? 1 : 0);
+    if (agents) {
+      expect(pins[0].message).toContain('per-agent model pins are not enforced');
+      expect(pins[0].remediation).toContain('-m <model>');
+    }
     expect(result.findings.find(finding => finding.id === 'grok-inspect-absent')?.severity).toBe(strict ? 'blocking' : 'advisory');
     expect(result.verificationLevel).toBe('deployment');
+  });
+  it.each(['claude', 'unknown-provider'])('keeps Grok pin diagnostics scoped to Grok (%s)', async provider => {
+    const result = await verifyProviderDeployment({ ...options(false), provider });
+    expect(result.findings.some(finding => finding.id === 'grok-agent-model-pins-unenforced')).toBe(false);
+    expect(runGrokInspect).not.toHaveBeenCalled();
+    if (provider === 'unknown-provider') {
+      expect(result.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({ severity: 'blocking', message: expect.stringContaining('No provider definition') }),
+      ]));
+    }
   });
   it('checks every deployed skill and the exact project instruction path in strict mode', async () => {
     const opts = options(true);

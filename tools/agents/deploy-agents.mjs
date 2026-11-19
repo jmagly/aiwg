@@ -294,8 +294,7 @@ async function mainUnlocked(args, internal) {
     deployRules: !cfg.deferRuleProjection && (cfg.kernelOnly || cfg.deployRules),
     deployBehaviors: cfg.kernelOnly ? false : cfg.deployBehaviors,
     commandsOnly: cfg.commandsOnly,
-    // Grok bulk deployment includes native agents alongside kernel skills (#2577).
-    skillsOnly: cfg.skillsOnly || cfg.discoveryOnly || (cfg.kernelOnly && provider.name !== 'grok-build'),
+    skillsOnly: cfg.skillsOnly || cfg.discoveryOnly || cfg.kernelOnly,
     rulesOnly: cfg.rulesOnly,
     strict: cfg.strict,
     reportOnly: cfg.reportOnly,

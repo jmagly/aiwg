@@ -12,8 +12,9 @@ binary version, in
 
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-bound to
-`grok 1.0.50 (c58f321264ba, stable)` and help-evidenced only (`H:` evidence
-grade, captured from `grok --help` on host `noodle`, 2026-10-10;
+`grok 1.0.77` using the existing exact semver range semantics. Offline tests
+cover this pin and reject adjacent releases. Historical help provenance stays
+at 1.0.50 (`H:` evidence grade, captured on host `noodle`, 2026-10-10;
 `.aiwg/working/s1-scratch/cli-help/grok-1.0.50.txt`, plus the installed
 binary's own bundled docs read with `strings` — never a live prompted run).
 It stays `unqualified` for dispatch until a human qualifier reviews a live
@@ -38,8 +39,15 @@ The 2026-11-10 1.0.77 [capture replay tests](../../test/unit/providers/grok-buil
 show `workflow` spawning two children despite `--no-subagents`. This profile
 also emits `--disallowed-tools workflow`; [conformance tests](../../test/conformance/orchestration-v1/grok-build-direct.test.ts)
 check both the template and rendered argv. A live 1.0.77 run with both flags
-(2026-11-10) made no `spawn_subagent` or `workflow` call. Compatibility with the
-older pinned 1.0.50 profile remains unverified.
+(2026-11-10) made no `spawn_subagent` or `workflow` call. The profile now pins
+that 1.0.77 release; the pin change does not qualify live direct-worker dispatch.
+
+Native `.grok/agents/*.md` agents require `--copy <bundle>` or `--copy-all`;
+default and kernel-only deployments report agents through the index. Refresh
+preserves the copy selection. Compiled agents inherit the session model because Grok ignores
+frontmatter `model:`. AIWG preserves role/tier intent in the prompt body and
+reports this limit once in deployment diagnostics. Select each worker's model
+with `-m <model>` on the worker command; exact agent pins fail with that guidance.
 
 **`--permission-mode dontAsk` remains the profile's fixed permission mode.**
 Root `--help` lists `[possible values: default, acceptEdits, auto, dontAsk,
@@ -130,7 +138,7 @@ change: whole-turn totals also emit `{"type":"usage","usage":{...}}`,
 without `messageId`, `stopReason`, or `signature`. These frames are activity,
 not completion proof. The existing parser preserves the final text through
 consecutive response/turn usage frames and still requires a successful `end`.
-This source review does not requalify the version-bound 1.0.50 direct profile
+This source review does not requalify the version-bound direct profile
 or establish a live run.
 
 ### Manual smoke run

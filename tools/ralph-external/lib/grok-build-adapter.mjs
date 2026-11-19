@@ -1,8 +1,8 @@
 /**
  * Grok Build CLI direct-worker driver (B-OG-41, roctinam/aiwg#2906).
  *
- * Version-bound to the real installed `grok` 1.0.50 (c58f321264ba, stable)
- * root `--help` (help/version syntax only; captured on host 'noodle'
+ * Version-bound to `grok` 1.0.77; offline contracts replay the supplied captures.
+ * Historical 1.0.50 root `--help` (captured on host 'noodle'
  * 2026-10-10, see .aiwg/working/s1-scratch/cli-help/grok-1.0.50.txt; never a
  * live prompted run) plus the CLI's own bundled docs/strings (read via
  * `strings` on the installed binary, never executed with a prompt):
@@ -114,7 +114,7 @@ import { ProviderAdapter } from './provider-adapter.mjs';
 
 export const interfaceVersion = 1;
 
-export const GROK_BUILD_SUPPORTED_VERSIONS = Object.freeze(['1.0.50']);
+export const GROK_BUILD_SUPPORTED_VERSIONS = Object.freeze(['1.0.77']);
 export const GROK_BUILD_DIRECT_EFFORT_VALUES = Object.freeze(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 /** Brief transport: a prompt file, never argv text and never stdin. */
 export const GROK_BUILD_DIRECT_STDIN = 'closed';

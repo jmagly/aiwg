@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import yaml from 'js-yaml';
 import { importImpl } from '../../_resolve-impl.mjs';
+import { removeSkillCopy } from './skill-copy-prune.mjs';
 const { GROK_BUILD_STANDARD_SKILLS_PATH } = await importImpl(import.meta.url, 'providers/grok-build-paths.js');
 import {
   withRuleDeployment,
@@ -242,6 +243,14 @@ function matchesSkillSource(source, target) {
   } catch { return false; }
 }
 
+// Modern authored and projected skills share receipt-based copy verification.
+function removableSkill(skill, sources) {
+  if (fs.existsSync(path.join(skill, '.aiwg-manifest.json'))) {
+    return removeSkillCopy(skill, { dryRun: true });
+  }
+  return sources.some(source => matchesSkillSource(source, skill));
+}
+
 /** Remove only unchanged AIWG Grok artifacts; shared context files stay intact. */
 export function uninstall(target, opts = {}) {
   const root = path.resolve(target);
@@ -278,7 +287,7 @@ export function uninstall(target, opts = {}) {
       if (fs.lstatSync(marker).isSymbolicLink() || fs.readFileSync(marker, 'utf8') !== 'aiwg\n') {
         skipped.push(relative); continue;
       }
-      if ((byName.get(entry.name) ?? []).some(source => matchesSkillSource(source, skill))) {
+      if (removableSkill(skill, byName.get(entry.name) ?? [])) {
         planned.push(relative);
       } else skipped.push(relative);
     }
@@ -310,7 +319,7 @@ export function uninstall(target, opts = {}) {
       if (relative.includes(`${path.sep}skills${path.sep}`)) {
         const marker = path.join(file, '.aiwg-managed');
         if (!fs.existsSync(marker) || fs.readFileSync(marker, 'utf8') !== 'aiwg\n'
-          || !(byName.get(path.basename(file)) ?? []).some(source => matchesSkillSource(source, file))) {
+          || !removableSkill(file, byName.get(path.basename(file)) ?? [])) {
           skipped.push(relative); continue;
         }
         fs.rmSync(file, { recursive: true });
