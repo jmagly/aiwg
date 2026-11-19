@@ -10,8 +10,9 @@ import { installAiwgHooks, managedClaudeHooks } from '../../src/extensions/claud
 import { managedMuseHooks } from '../../src/extensions/muse-managed-hooks.js';
 import { installFactoryPromptDiscovery, managedFactoryHooks } from '../../src/smiths/hook-bridge/factory-translator.js';
 import { installCodexPromptDiscovery } from '../../src/smiths/hook-bridge/codex-translator.js';
-import { refreshHandler } from '../../src/cli/handlers/refresh.js';
+import { detectStaleProviderTrees, refreshHandler } from '../../src/cli/handlers/refresh.js';
 import * as ui from '../../src/cli/ui.js';
+import { workerVersionProbeEnvironment } from '../../src/models/worker-installation.mjs';
 
 const frameworkRoot = path.resolve(import.meta.dirname, '../..');
 const version = JSON.parse(fs.readFileSync(path.join(frameworkRoot, 'package.json'), 'utf8')).version;
@@ -79,13 +80,22 @@ function check(provider: string, quiet = true) {
   return checkManagedDeployment({ projectRoot, frameworkRoot, provider, quiet });
 }
 
-function cli(provider: string, quiet = false, dryRun = true) {
+function deploymentEnvironment() {
+  return { ...workerVersionProbeEnvironment(), HOME: process.env.HOME, USERPROFILE: process.env.HOME,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, XDG_DATA_HOME: process.env.XDG_DATA_HOME,
+    AIWG_RULE_BINDING_INDEX_CACHE: process.env.AIWG_RULE_BINDING_INDEX_CACHE,
+    AIWG_FRAMEWORK_INDEX_CACHE: process.env.AIWG_FRAMEWORK_INDEX_CACHE,
+    AIWG_FRAMEWORK_INDEX_CACHE_SOURCE: process.env.AIWG_FRAMEWORK_INDEX_CACHE_SOURCE,
+    AIWG_CONFIG: path.join(projectRoot, 'runtime-config'),
+    AIWG_NO_UPDATE_CHECK: '1', NO_UPDATE_NOTIFIER: '1', NO_COLOR: '1' };
+}
+
+function cli(provider: string, quiet = false, dryRun = true, timeout = 30_000) {
   return execFileSync(process.execPath, [path.join(frameworkRoot, 'bin/aiwg.mjs'), 'refresh',
     ...(dryRun ? ['--dry-run'] : ['--skip-update']),
     '--provider', provider, ...(quiet ? ['--quiet'] : [])], {
-    cwd: projectRoot, encoding: 'utf8', timeout: 30_000,
-    env: { ...process.env, AIWG_CONFIG: path.join(projectRoot, 'runtime-config'),
-      AIWG_NO_UPDATE_CHECK: '1', NO_UPDATE_NOTIFIER: '1', NO_COLOR: '1' },
+    cwd: projectRoot, encoding: 'utf8', timeout,
+    env: deploymentEnvironment(),
   });
 }
 
@@ -95,6 +105,47 @@ beforeEach(() => {
   vi.stubEnv('XDG_DATA_HOME', path.join(projectRoot, 'data'));
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); fs.rmSync(projectRoot, { recursive: true, force: true }); });
+
+it('evaluates native Codex agents with the same stale stamp rule as Claude agents and commands', async () => {
+  for (const file of ['.claude/agents/old.md', '.claude/commands/old.md',
+    '.codex/agents/old.toml', '.codex/commands/old.md']) {
+    write(file, '# aiwg:managed v2026.11.4 bundled\n');
+  }
+  const trees = await detectStaleProviderTrees({ projectRoot, frameworkRoot, provider: 'muse' });
+  expect(trees.map(tree => ({ provider: tree.provider, counts: tree.counts }))).toEqual([
+    { provider: 'claude', counts: { agents: 1, commands: 1, rules: 0 } },
+    { provider: 'codex', counts: { agents: 1, commands: 1, rules: 0 } },
+  ]);
+});
+
+it('leaves no stale warnings after refreshing otherwise current agents and commands across providers', async () => {
+  execFileSync(process.execPath, [path.join(frameworkRoot, 'bin/aiwg.mjs'), 'use', 'aiwg-utils', '--copy-all',
+    '--providers', 'claude,codex,muse', '--target', projectRoot, '--quiet'], {
+    cwd: projectRoot, encoding: 'utf8', timeout: 180_000, maxBuffer: 8 * 1024 * 1024,
+    env: deploymentEnvironment(),
+  });
+  const seeded: string[] = [];
+  for (const provider of ['claude', 'codex']) for (const kind of ['agents', 'commands']) {
+    const dir = path.join(projectRoot, `.${provider}`, kind);
+    const receiptPath = path.join(dir, '.aiwg-manifest.json');
+    const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+    for (const name of fs.readdirSync(dir).filter(name => /\.(md|toml)$/.test(name))) {
+      const file = path.join(dir, name);
+      const content = fs.readFileSync(file, 'utf8');
+      if (!content.includes('aiwg:managed')) continue;
+      const old = content.replace(/aiwg:managed v\S+ bundled/g, 'aiwg:managed v2026.11.4 bundled');
+      fs.writeFileSync(file, old);
+      receipt.managed[name].hash = 'sha256:' + createHash('sha256').update(old).digest('hex');
+      receipt.managed[name].version = '2026.11.4';
+      seeded.push(file);
+    }
+    fs.writeFileSync(receiptPath, JSON.stringify(receipt, null, 2));
+  }
+  expect(seeded.length).toBeGreaterThan(0);
+  for (const provider of ['claude', 'codex', 'muse']) cli(provider, false, false, 120_000);
+  expect(await detectStaleProviderTrees({ projectRoot, frameworkRoot, provider: 'muse' })).toEqual([]);
+  for (const provider of ['claude', 'codex', 'muse']) expect(cli(provider)).not.toMatch(/Stale (?:claude|codex) deployment:/);
+}, 480_000);
 
 describe.each(['claude', 'muse', 'factory'])('%s managed deployment drift', provider => {
   it('names prompt discovery when its registration is missing despite current manifest state', async () => {
