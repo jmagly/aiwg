@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Synthetic stand-in for Grok Build CLI 1.0.50 used by #2906 tests. It
+ * Synthetic stand-in for Grok Build CLI 1.0.77 used by #2906 tests. It
  * implements only the help-evidenced direct-worker surface:
  *
  *   grok --prompt-file <path> -m <model> --reasoning-effort <effort>
@@ -29,7 +29,7 @@ function fail(message, code = 1) {
 }
 
 if (args[0] === '--version' || args[0] === '-v') {
-  process.stdout.write('grok 1.0.50 (c58f321264ba) [stable]\n');
+  process.stdout.write('grok 1.0.77 (50ca579fa996) [stable]\n');
   process.exit(0);
 }
 if (!args.length || args[0] === '--help' || args[0] === '-h') {

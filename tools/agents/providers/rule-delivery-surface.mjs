@@ -291,8 +291,9 @@ export function projectBoundFlowSkills(opts, provider, selected) {
   const kernel = path.isAbsolute(provider.kernelSkillsPath || '') ? opts.kernelSkillsPath
     : path.join(opts.target, provider.kernelSkillsPath || `.${provider.name}/skills`);
   // Codex's opt-in standard tier shares the native skills directory.
-  const standard = provider.name === 'codex' ? kernel : path.isAbsolute(provider.paths.skills)
-    ? provider.paths.skills : path.join(opts.target, provider.paths.skills);
+  const standardPath = provider.standardSkillsPath || provider.paths.skills;
+  const standard = provider.name === 'codex' ? kernel : path.isAbsolute(standardPath)
+    ? standardPath : path.join(opts.target, standardPath);
   const flows = opts.ruleDelivery.targets.filter(entry => entry.type === 'flow' && selected(entry));
   const sources = new Set(flows.map(entry => entry.source));
   for (const root of new Set([kernel, standard])) {
@@ -336,9 +337,11 @@ export function projectBoundFlowSkills(opts, provider, selected) {
       const projected = provider.transformSkillMd ? provider.transformSkillMd(markdown, opts) : markdown;
       const content = managed(replaceBoundRulesBlock(projected, opts.ruleDelivery.bindings.get(entry.source)), opts);
       put(file, content);
-      put(path.join(dir, '.aiwg-managed'), 'true\n');
+      put(path.join(dir, '.aiwg-managed'), 'aiwg\n');
+      const frameworkSlug = extractFrameworkSlug(opts.logicalInputPath?.(entry.source) || entry.source);
       put(receiptFile, `${JSON.stringify({ flowSource: entry.source,
-        managed: { 'SKILL.md': { sourcePath: entry.source, hash: `sha256:${contentHash(content)}` } } }, null, 2)}\n`);
+        managed: { 'SKILL.md': { sourcePath: entry.source, source: opts.deploySource || 'bundled',
+          ...(frameworkSlug ? { frameworkSlug } : {}), hash: `sha256:${contentHash(content)}` } } }, null, 2)}\n`);
     }
     opts.flowSkillSources.set(file, entry.source);
     if (['warp', 'hermes'].includes(provider.name)) opts.definitionRoutes.push(`${name}: ${file}`);

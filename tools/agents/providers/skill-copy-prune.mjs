@@ -17,7 +17,11 @@ export function removeSkillCopy(dir, opts = {}) {
     return false;
   };
   let receipt;
-  try { receipt = JSON.parse(fs.readFileSync(path.join(dir, '.aiwg-manifest.json'), 'utf8')); }
+  try {
+    const manifest = path.join(dir, '.aiwg-manifest.json');
+    if (!fs.lstatSync(manifest).isFile()) return keep('unverifiable ownership');
+    receipt = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+  }
   catch (error) {
     if (opts.bundleOnly) return false;
     // Only a missing receipt may use legacy ownership. An invalid receipt must

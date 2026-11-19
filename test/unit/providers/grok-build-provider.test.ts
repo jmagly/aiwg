@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, existsSync, rmSync, writeFileSync, readFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, win32 } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { load as loadYaml } from 'js-yaml';
 
@@ -51,6 +51,7 @@ function writeSkill(root: string, name: string, opts: { kernel?: boolean } = {})
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
   delete process.env[GROK_HOME_ENV];
 });
@@ -310,10 +311,21 @@ describe('grok-build writer dry-run', () => {
     expect(existsSync(join(project, '.grok', 'skills', 'aiwg-kernel-one', 'SKILL.md'))).toBe(true);
     expect(existsSync(join(project, '.grok', '.aiwg', 'skills', 'aiwg-standard-one', 'SKILL.md'))).toBe(true);
   });
+
+  it('retains source verification for legacy skills without ownership receipts', () => {
+    const project = temporaryRoot('aiwg-grok-legacy-copy-');
+    const source = temporaryRoot('aiwg-grok-legacy-source-');
+    vi.stubEnv('AIWG_ROOT', source);
+    const skill = writeSkill(join(source, 'agentic/code/addons/demo/skills'), 'legacy', { kernel: true });
+    deploySkills([skill], project, { quiet: true, srcRoot: source, provider: 'grok-build' });
+    rmSync(join(project, '.grok/skills/legacy/.aiwg-manifest.json'));
+    expect(uninstall(project, { srcRoot: source, dryRun: true }).planned).toEqual(['.grok/skills/legacy']);
+    expect(uninstall(project, { srcRoot: source }).removed).toEqual(['.grok/skills/legacy']);
+  });
 });
 
 describe('grok-build kernel-only dry-run', () => {
-  it.each([false, true])('limits skills while retaining agents unless --skills-only is explicit (%s)', skillsOnly => {
+  it.each([false, true])('keeps kernel-only deployments index-only with explicit skills scope (%s)', skillsOnly => {
     const target = temporaryRoot('aiwg-grok-kernel-only-');
     const result = spawnSync(
       process.execPath,
@@ -335,8 +347,9 @@ describe('grok-build kernel-only dry-run', () => {
     const skillLines = out.split('\n').filter((line) =>
       // #3471 uses the shared transaction planner for kernel rule delivery.
       line.includes('[dry-run] Would write') && line.endsWith('/SKILL.md') && line.includes('.grok/skills/'));
-    expect(out.includes('.grok/agents/test-engineer.md')).toBe(!skillsOnly);
-    expect(out.includes('.grok/agents/aiwg-model-coding-worker.md')).toBe(!skillsOnly);
+    expect(out.includes('.grok/agents/test-engineer.md')).toBe(false);
+    expect(out.includes('.grok/agents/aiwg-model-coding-worker.md')).toBe(false);
+    expect(out).not.toContain('.grok/agents/');
     // Full corpus was ~525; kernel-only should be the kernel set (tens, not hundreds).
     expect(skillLines.length).toBeGreaterThan(0);
     expect(skillLines.length).toBeLessThan(80);

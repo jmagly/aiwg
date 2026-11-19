@@ -39,7 +39,7 @@ import { workerResolutionFixture } from '../../fixtures/worker-resolution.js';
 import { fixtureJson } from '../mission-v1/worker-contract-fixtures.js';
 
 const FAKE = path.resolve('test/fixtures/providers/grok-build/fake-grok-build.mjs');
-const VERSION = '1.0.50';
+const VERSION = '1.0.77';
 const MODEL = 'synthetic-grok/model';
 const MARKER = 'GROK-BRIEF-MARKER-7c2e9a';
 const MODULE = 'tools/ralph-external/lib/grok-build-adapter.mjs';
@@ -234,7 +234,7 @@ describe('Grok Build version-bound profile (B-OG-41)', () => {
     expect(profile.controls.sandbox.mapping).toMatch(/read-only|workspace/);
     expect(profile.health).toMatchObject({ handshake: 'process-only', outputFraming: 'jsonl',
       coverage: 'degraded', qualificationTarget: 'semantic', evidenceGrades: ['H'] });
-    expect(profile.health!.provenance!.find((row: any) => row.kind === 'help')).toMatchObject({ cliVersion: VERSION });
+    expect(profile.health!.provenance!.find((row: any) => row.kind === 'help')).toMatchObject({ cliVersion: '1.0.50' });
     expect(existsSync(profile.health!.fixtureRef)).toBe(true);
   });
 
