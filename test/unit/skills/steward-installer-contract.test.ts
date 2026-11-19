@@ -1,4 +1,7 @@
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { collectProviderInventory } from '../../../src/providers/provider-inventory.js';
 
 import { describe, expect, it } from 'vitest';
 import { load as loadYaml } from 'js-yaml';
@@ -113,6 +116,33 @@ describe('steward BYOK guidance (#4054)', () => {
       expect(body, file).not.toMatch(/\bsk-(?:or-)?/i);
       expect(body, file).not.toMatch(/--(?:api-key|provider-api-key|openrouter-api-key)(?:[=\s])/i);
       expect(body, file).not.toMatch(/["']apiKey["']\s*:\s*["'][^"']+/);
+    }
+  });
+});
+
+describe('steward provider detection (#4322)', () => {
+  it('selects Claude from the provider inventory using the documented DETECT query', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'aiwg-steward-detect-'));
+    try {
+      const inventory = await collectProviderInventory(root, {
+        homeDir: root,
+        env: { CLAUDECODE: '1' },
+        detectProcess: false,
+        findExecutable: async () => null,
+        pathExists: async () => false,
+      });
+      expect(inventory.activeProvider).toBe('claude');
+      for (const file of stewardInstructions.slice(0, 2)) {
+        const body = await readFile(file, 'utf8');
+        const detect = body.split('\n').find(line => line.startsWith('1. DETECT'))!;
+        expect(detect, file).toContain('aiwg runtime-info --providers --json');
+        // Resolve the documented top-level jq selector against the real inventory schema.
+        const selector = /jq -r '\.([A-Za-z]+)'/.exec(detect)?.[1];
+        expect(selector, file).toBeDefined();
+        expect(inventory[selector as keyof typeof inventory], file).toBe('claude');
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 });

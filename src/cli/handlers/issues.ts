@@ -17,6 +17,12 @@ export const issueHandler: CommandHandler = {
   category: 'project',
   aliases: ['issues'],
 
+  async help(): Promise<HandlerResult> {
+    const { printUsage } = await import('../../issues/cli.js');
+    printUsage();
+    return { exitCode: 0 };
+  },
+
   async execute(ctx: HandlerContext): Promise<HandlerResult> {
     try {
       const { main } = await import('../../issues/cli.js');
