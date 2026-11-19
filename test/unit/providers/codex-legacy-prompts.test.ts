@@ -102,6 +102,8 @@ it('adopts October prompts through aiwg use all --global without force', () => {
     cwd: root, env: { ...process.env, AIWG_RESOLVE_IMPL_FROM: 'dist' },
     encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'],
   });
+  // Intermittent CI miss (shard 2/4 on 0a8bf29a5): show the CLI output if the receipt is absent.
+  expect(fs.existsSync(path.join(prompts, '.aiwg-manifest.json')), output).toBe(true);
   for (const [name, fixture] of Object.entries(fixtures)) {
     expect(receipt()[name]).toMatchObject({ hash: hash(fixture.prompt), owners: [fixture.owner] });
   }
