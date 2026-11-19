@@ -7,23 +7,28 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import http from 'node:http';
 import * as path from 'path';
+import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe('Workspace CLI Commands', () => {
-  const testDir = path.join(__dirname, '../../fixtures/workspace-test');
-  const aiwgDir = path.join(testDir, '.aiwg');
+  // Keep fixtures out of the source tree: tree-walking tests (secret scans)
+  // race with directories created and removed under test/fixtures.
+  let parentDir: string;
+  let testDir: string;
+  let aiwgDir: string;
 
   beforeEach(async () => {
-    // Create test directory
+    parentDir = await fs.mkdtemp(path.join(tmpdir(), 'aiwg-workspace-commands-'));
+    testDir = path.join(parentDir, 'workspace-test');
+    aiwgDir = path.join(testDir, '.aiwg');
     await fs.mkdir(testDir, { recursive: true });
   });
 
   afterEach(async () => {
-    // Clean up test directory
-    await fs.rm(testDir, { recursive: true, force: true });
+    await fs.rm(parentDir, { recursive: true, force: true });
   });
 
   describe('workspace-status', () => {
