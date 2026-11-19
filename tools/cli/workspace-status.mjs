@@ -20,6 +20,7 @@
  */
 
 import fs from 'fs/promises';
+import { appendMuseDeployment, applyDeploymentHealth } from './workspace-deployment-health.mjs';
 import { readAuthorizationHealth } from './authorization-health.mjs';
 import { importImpl } from '../_resolve-impl.mjs';
 import { collectDecisionOffloadReport, formatDecisionOffloadReport } from './decision-offload-report.mjs';
@@ -220,7 +221,7 @@ function normalizeRegistryFrameworks(registry) {
 async function countDirEntries(dirPath) {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
-    return entries.length;
+    return entries.filter(entry => !entry.name.startsWith('.')).length;
   } catch {
     return 0;
   }
@@ -489,7 +490,7 @@ async function buildWorkspaceStatus(projectRoot) {
     });
   }
 
-  result.providerDeployments = await collectProviderDeployments(projectRoot);
+  result.providerDeployments = await appendMuseDeployment(projectRoot, await collectProviderDeployments(projectRoot), configRead.data);
   result.projectLocalBundles = await collectProjectLocalBundles(
     aiwgPath,
     new Set(result.frameworks.map(framework => framework.id))
@@ -522,6 +523,7 @@ async function buildWorkspaceStatus(projectRoot) {
     });
   }
 
+  await applyDeploymentHealth(result, projectRoot, packageRoot);
   return result;
 }
 
