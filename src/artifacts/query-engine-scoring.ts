@@ -2,7 +2,7 @@
 import { diagnoseFacetActivations } from './discover-facets.js';
 import { matchTemplateOutputKind } from './template-output-kind.js';
 import { verboseQueryProfile } from './query-engine-verbose.js';
-import { skillNameIntent } from './query-engine-name-intent.js';
+import { productNameEvidence, skillNameIntent } from './query-engine-name-intent.js';
 import type { MetadataEntry } from './types.js';
 
 export function containsTokenSequence(haystack: string[], needle: string[]): boolean {
@@ -489,6 +489,8 @@ export function scoreEntryDetailed(
     addMatch(0.1, { field: 'type', match: 'contained-phrase', value: entry.type });
   }
 
+  const product = productNameEvidence(entry, text, tokenize, damerauLevenshteinAtMostOne);
+  if (product) { matches.push(product); return finish(Math.max(score, product.contribution), Math.max(verbose?.coverage(matches) ?? 1, product.contribution)); }
   return finish();
 }
 

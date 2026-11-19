@@ -31,6 +31,38 @@ const entry = (overrides: Partial<MetadataEntry>): MetadataEntry => ({
 });
 
 describe('verbose discovery confidence (#3952)', () => {
+  it.each([
+    'use aiwg to verify the healty and deploy,ent in this work space, make corrections and file aiwg issues as neeed',
+    'verify aiwg deployment health',
+  ])('#4321: ranks workspace health owners in the top three: %s', async phrase => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await discoverCapability(tmp, { phrase, noBuild: true, json: true, limit: 5, offline: true });
+    const results = JSON.parse(String(log.mock.calls.at(-1)?.[0])).results;
+    const names = results.map((row: { name: string }) => row.name);
+    expect(names.slice(0, 3).some((name: string) => ['aiwg-doctor', 'aiwg-status'].includes(name)),
+      JSON.stringify(results)).toBe(true);
+    if (phrase.includes('file aiwg issues')) expect(names).toContain('aiwg-issue');
+  });
+
+  it.each(['verify aiwg healty', 'verify aiwg deploy,ent', 'verify aiwg work space'])(
+    '#4321: credits bounded spelling and compound-word matches: %s', phrase => {
+      const owner = entry({ name: 'aiwg-inspect', capability: 'Inspect healthy workspace deployment' });
+      expect(scoreEntryDetailed(owner, phrase).score).toBeGreaterThan(0.44);
+      expect(scoreEntryDetailed(owner, phrase).diagnostic.matches).toEqual(expect.arrayContaining([
+        expect.objectContaining({ field: 'capability', match: 'token-overlap' }),
+      ]));
+    });
+
+  it.each([
+    'verify DNS deployment health', 'verify aiwgish deployment health',
+    'write a test plan: verify aiwg deployment health', 'inspect `aiwg deployment health`',
+    'aiwg obscure zzzzz',
+  ])('#4321: keeps product matching scoped to explicit prose intent: %s', phrase => {
+    const owner = entry({ name: 'aiwg-inspect', capability: 'Inspect healthy workspace deployment' });
+    const generic = { ...owner, name: 'inspect' };
+    expect(scoreEntryDetailed(owner, phrase).score).toBe(scoreEntryDetailed(generic, phrase).score);
+  });
+
   const issueQueries = fs.readFileSync(path.join(repoRoot, 'test/fixtures/artifacts/discovery-relevance.jsonl'), 'utf8')
     .trim().split('\n').map(line => JSON.parse(line)).filter(row => row.id.startsWith('4283-'));
   it.each(issueQueries)('$id: finds issue filing in the shipped corpus', async ({ query }) => {
