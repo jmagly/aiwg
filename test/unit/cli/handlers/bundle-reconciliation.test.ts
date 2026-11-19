@@ -216,7 +216,14 @@ it.each([undefined, false, true])('uses each provider’s recorded additive gate
   const owners = await expectedBundleOwners(config, 'claude', root);
   expect(owners.has('aiwg-utils')).toBe(skipUtils !== true);
   expect(owners.has('example')).toBe(skipUtils !== true);
-  const kernel = await expectedBundleOwners(config, 'codex', root);
+  // An index-only framework still owns its extension rules (#4279 follow-up).
+  const indexed = await expectedBundleOwners(config, 'codex', root);
+  expect(indexed.has('aiwg-utils')).toBe(true);
+  expect(indexed.has('example')).toBe(true);
+  // Only the bulk kernel surface omits extensions.
+  const kernelConfig = emptyConfig(['codex']);
+  kernelConfig.installed.all = { deployedTo: { codex: { skipUtils: false, kernelOnly: true } } };
+  const kernel = await expectedBundleOwners(kernelConfig, 'codex', root);
   expect(kernel.has('aiwg-utils')).toBe(true);
   expect(kernel.has('example')).toBe(false);
   // Another framework with unknown flags broadens the union safely.

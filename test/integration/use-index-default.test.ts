@@ -77,6 +77,13 @@ describe('discovery-first CLI (#4279)', () => {
     const receipt = JSON.parse(readFileSync(join(project, '.aiwg/.aiwg-manifest.json'), 'utf8'));
     expect(Object.values(receipt.bundleDeployments.claude).some((entry: any) => entry.copy === true)).toBe(false);
   });
+  it('keeps bundled extension rules when a framework is indexed without copies', { timeout: 210_000 }, () => {
+    cli(['use', 'sdlc', '--provider', 'claude', '--no-hooks']);
+    expect(payloads(join(project, '.claude/agents'))).toEqual([]);
+    for (const rule of ['sys-interactive-gate.md', 'sys-hardware-safety.md']) {
+      expect(existsSync(join(project, '.claude/rules', rule)), rule).toBe(true);
+    }
+  });
   it.each(['codex', 'muse', 'pi', 'omp'])('indexes local bundles for %s without provider copies', { timeout: 210_000 }, provider => {
     localBundle();
     cli(['use', 'local-helper', '--provider', provider, '--no-hooks']);

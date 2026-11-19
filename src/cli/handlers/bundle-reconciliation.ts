@@ -37,7 +37,7 @@ export async function expectedBundleOwners(config: AiwgConfig, provider: string,
       }
     }
     // Unknown history must retain the broader additive surface.
-    const { addons, extensions } = await frameworkAdditiveBundles(frameworkRoot, provider, flags.skipUtils === true, flags.kernelOnly === true);
+    const { addons, extensions } = await frameworkAdditiveBundles(frameworkRoot, provider, flags.skipUtils === true, flags.kernelOnly === true, id);
     for (const owner of [...addons, ...extensions]) expected.add(frameworkRegistryId(owner));
   }
   if (provider !== 'flue') for (const id of selected) {
