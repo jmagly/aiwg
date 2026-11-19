@@ -153,6 +153,16 @@ You set model choices once, in AIWG: the role ladder and `models.json` above, th
 
 Harnesses differ in what they can enforce, so when `aiwg doctor` reports `global-only` or `inherited`, follow the remediation it prints for that harness rather than editing harness settings by hand. AIWG never rewrites a harness's global settings for you.
 
+For Muse, an explicit `model` in `$XDG_CONFIG_HOME/muse/settings.json`
+(default `~/.config/muse/settings.json`) counts as an election when it matches
+the catalog's sole model across all roles and the catalog has no tier ladder.
+This clears the premium-inheritance warning for `muse-spark-1.3` without
+changing Claude or Codex wrapper pins. Flagship models still require an election.
+`aiwg models resolve --agent aiwg-model-reasoning-worker --provider muse --tier standard`
+prints the concrete catalog model even in a kernel-only workspace. Muse has no
+native agent-scoped model control, so resolution reports that surface as
+`unsupported`; select the model through the Muse session settings or `--model`.
+
 ## Model management CLI
 
 Use the typed `aiwg models` command family to inspect effective policy before

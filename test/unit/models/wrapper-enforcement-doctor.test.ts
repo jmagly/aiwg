@@ -3,8 +3,28 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { deployedWrapperEnforcement, isConcreteWrapperModel, wrapperEnforcementReport,
   wrapperModelRisks } from '../../../src/models/wrapper-enforcement.js';
+import { loadProviderModelCatalog } from '../../../src/models/catalog-policy.js';
 
 describe('doctor wrapper enforcement', () => {
+  it('accepts only the configured sole Muse model as an election (#4325)', () => {
+    expect(wrapperModelRisks('muse', { inheritedModel: 'muse-spark-1.3' })).toEqual([]);
+    expect(wrapperModelRisks('muse', {})).toEqual(['delegation.unresolved-model']);
+    expect(wrapperModelRisks('muse', { model: 'muse-spark-1.3' })).toEqual(['delegation.unresolved-model']);
+    expect(wrapperModelRisks('muse', { inheritedModel: 'gpt-6-astra' })).toEqual(['delegation.flagship-inheritance']);
+    const catalog = structuredClone(loadProviderModelCatalog());
+    catalog.providers.muse!.roles.coding.id = 'another-muse-model';
+    expect(wrapperModelRisks('muse', { inheritedModel: 'muse-spark-1.3' }, catalog))
+      .toEqual(['delegation.flagship-inheritance']);
+    catalog.providers.muse!.roles.coding.id = 'muse-spark-1.3';
+    catalog.providers.muse!.tiers = structuredClone(catalog.providers.codex!.tiers);
+    expect(wrapperModelRisks('muse', { inheritedModel: 'muse-spark-1.3' }, catalog))
+      .toEqual(['delegation.flagship-inheritance']);
+    delete catalog.providers.muse!.tiers;
+    for (const role of Object.values(catalog.providers.muse!.roles)) role.id = 'gpt-6-astra';
+    expect(wrapperModelRisks('muse', { inheritedModel: 'gpt-6-astra' }, catalog))
+      .toEqual(['delegation.flagship-inheritance']);
+  });
+
   it('distinguishes observed pins from inherited model and effort', () => {
     expect(deployedWrapperEnforcement('codex', { model: 'custom-model', effort: 'medium', inheritedModel: 'gpt-6-astra' }))
       .toEqual({ model: 'pinned', effort: 'pinned', effectiveModel: 'custom-model', effectiveEffort: 'medium' });

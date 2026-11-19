@@ -38,6 +38,20 @@ beforeEach(async () => {
 afterEach(async () => { vi.unstubAllEnvs(); await rm(root, { recursive: true, force: true }); });
 
 describe('offline doctor wrapper checks', () => {
+  it('recognizes the single Muse catalog model elected in native settings without changing other pins (#4325)', async () => {
+    const claude = path.join(projectDir, `.claude/agents/${wrapper}.md`);
+    const codex = path.join(projectDir, `.codex/agents/${wrapper}.toml`);
+    await put(claude, '---\nmodel: sonnet\neffort: medium\n---\n');
+    await put(codex, 'model = "gpt-6-luna"\nmodel_reasoning_effort = "low"\n');
+    const before = await collect(['claude', 'codex']);
+    await put(path.join(root, 'xdg/muse/settings.json'), '{"model":"muse-spark-1.3","contributor_mode_enabled":false}');
+    const after = await collect(['muse', 'claude', 'codex']);
+    expect(after.filter((c: any) => c.provider === 'muse' && c.id)).toEqual([]);
+    expect(after.filter((c: any) => c.provider !== 'muse')).toEqual(before);
+    expect(await readFile(claude, 'utf8')).toBe('---\nmodel: sonnet\neffort: medium\n---\n');
+    expect(await readFile(codex, 'utf8')).toBe('model = "gpt-6-luna"\nmodel_reasoning_effort = "low"\n');
+  });
+
   it.each(cases)('reports $name and leaves fixture settings/wrappers byte-identical', async fixture => {
     const ext = fixture.provider === 'codex' ? 'toml' : 'md';
     const artifact = path.join(projectDir, `.${fixture.provider}/agents/${wrapper}.${ext}`);

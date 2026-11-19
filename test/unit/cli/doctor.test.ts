@@ -221,7 +221,7 @@ describe('doctor: deployed skill budget warning', () => {
     expect(content).not.toContain('aiwg use all --provider codex --force');
     expect(content).toContain('aiwg use <bundle> --provider codex');
     expect(content).toContain('standard tier');
-    expect(content).toContain("provName !== 'codex' && provider?.paths?.skills");
+    expect(content).toContain("!['claude', 'codex'].includes(provName) && provider?.paths?.skills");
     expect(content).toContain('startup-visible skills');
   });
 

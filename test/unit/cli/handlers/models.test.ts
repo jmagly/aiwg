@@ -46,6 +46,38 @@ async function run(root: string, args: string[]) {
 }
 
 describe('models CLI handler', () => {
+  it.each(['aiwg-model-reasoning-worker', 'aiwg-model-coding-worker', 'aiwg-model-efficiency-worker',
+    'aiwg-model-explorer', 'aiwg-model-verifier'])('resolves built-in Muse wrapper %s outside the source checkout (#4325)', async agent => {
+    const { root } = await fixture();
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect((await run(root, ['resolve', '--agent', agent, '--provider', 'muse', '--tier', 'standard', '--json'])).exitCode).toBe(0);
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]));
+    expect(output).toHaveLength(1);
+    expect(output[0]).toMatchObject({ name: agent, policy: { tier: 'standard' },
+      compiled: { effectiveModel: 'muse-spark-1.3', outcome: 'unsupported', fields: {} } });
+    log.mockClear();
+    expect((await run(root, ['resolve', '--agent', agent, '--provider', 'muse', '--tier', 'standard'])).exitCode).toBe(0);
+    expect(log.mock.calls.map(call => call.join(' ')).join('\n')).toContain('muse-spark-1.3');
+  });
+
+  it('uses the requested tier for a Muse wrapper found in source and leaves its bytes unchanged (#4325)', async () => {
+    const { root, agent } = await fixture();
+    const wrapperFile = path.join(path.dirname(agent), 'aiwg-model-reasoning-worker.md');
+    const original = '---\nmodel-role: reasoning\nmodel-tier: premium\n---\n';
+    await writeFile(wrapperFile, original);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await run(root, ['resolve', '--agent', 'aiwg-model-reasoning-worker', '--provider', 'muse', '--tier', 'standard', '--json']);
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))).toMatchObject([
+      { policy: { tier: 'standard', role: 'reasoning' }, compiled: { effectiveModel: 'muse-spark-1.3' } },
+    ]);
+    await run(root, ['resolve', '--agent', 'aiwg-model-reasoning-worker', '--provider', 'muse', '--json']);
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))[0].policy.tier).toBe('premium');
+    expect(await readFile(wrapperFile, 'utf8')).toBe(original);
+    await run(root, ['resolve', '--agent', 'missing-worker', '--provider', 'muse', '--json']);
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))).toEqual([]);
+    await run(root, ['resolve', '--agent', 'aiwg-model-coding-worker', '--provider', 'claude', '--json']);
+    expect(JSON.parse(String(log.mock.calls.at(-1)?.[0]))).toEqual([]);
+  });
 
   it.each(['success', 'partial', 'failure'] as const)(
     'T-OG-02/12 refresh preserves preference bytes after %s discovery', async outcome => {
