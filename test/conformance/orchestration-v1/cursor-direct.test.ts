@@ -203,14 +203,14 @@ describe('Cursor Agent version-bound profile (B-OG-38)', () => {
   it('CD01 pins the evidenced release, driver, catalog and argv template; unknown controls stay unqualified', () => {
     const adapter = loadProviderModelCapabilities().providers.cursor.workerHealthAdapter!;
     expect(CURSOR_SUPPORTED_VERSIONS).toEqual([VERSION]);
-    expect(adapter).toMatchObject({ supportedVersions: VERSION, adapterVersion: APPROVED.entry.packageVersion,
+    expect(adapter).toMatchObject({ supportedVersions: '>=2026.11.13', adapterVersion: APPROVED.entry.packageVersion,
       runtimeDriver: APPROVED.entry.reference,
       catalogAdapter: { kind: 'file', locator: 'agentic/code/providers/model-catalog.v1.json' },
       invocation: { executable: 'cursor-agent', stdin: 'brief-text',
         argv: ['-p', '--output-format', 'stream-json', '--trust', '--sandbox', 'enabled', '${mode}', '--workspace', '${workspace}', '--model', '${model}'] },
       qualification: { status: 'unqualified' } });
     const profile = adapter.invocationProfiles!['direct-shell'];
-    expect(profile.supportedVersions).toBe(VERSION);
+    expect(profile.supportedVersions).toBe('>=2026.11.13');
     expect(Object.keys(profile.controls).sort()).toEqual(['approval', 'children', 'effort', 'fallback', 'finalOutput', 'model',
       'sandbox', 'stdin', 'stepCap', 'structuredOutput', 'trust', 'workdir']);
     for (const [name, control] of Object.entries(profile.controls)) {

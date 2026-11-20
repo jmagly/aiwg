@@ -4,7 +4,10 @@ This is the lightweight CLI profile for dispatching `cursor-agent` as a
 direct worker alongside Codex and Muse.
 
 The bundled `direct-shell` invocation profile in
-`agentic/code/providers/model-capabilities.v1.json` is version-bound to
+`agentic/code/providers/model-capabilities.v1.json` admits Cursor builds from
+`2026.11.13` onward (`supportedVersions: >=2026.11.13`). Build hashes are
+ignored only for range comparison; approval still binds the exact build.
+Older builds and unknown build formats block. The tested build remains
 `cursor-agent 2026.11.13-eacade1`. Help, the live account model list and
 manual smoke runs were observed on 2026-11-17. Earlier `H`/`D` evidence
 includes help and an installed-module bundle read on `noodle` for
@@ -174,6 +177,15 @@ available…` and a non-zero exit, with no successful JSON terminal. Arrange
 the host profile before retrying; retain `--sandbox enabled`.
 
 ## Manual smoke run
+
+After a self-update, doctor warns when the build is newer than tested while
+keeping installation readiness. Run the smoke below; after a pass, return
+to the project and run `aiwg doctor --probe-workers --qualify --cli cursor --yes`
+to refresh approval for the exact installed build. Qualification checks the
+version, catalog and invocation; it does not perform the live smoke. The
+range already admits newer builds, so each update needs no catalog edit.
+If a smoke fails, report the version and failure so the supported range can
+be narrowed.
 
 The conductor runs this once, by hand, after `cursor-agent` is installed
 and authenticated (existing login or `CURSOR_API_KEY`), to record a pass/fail

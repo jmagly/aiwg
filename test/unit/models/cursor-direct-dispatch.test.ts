@@ -52,17 +52,23 @@ describe('operator-qualified Cursor native renderer', () => {
     const value = adapter();
     value.provider = 'unknown';
     expect(hasOperatorWorkerNativeRenderer(value)).toBe(false);
-    expect(() => inspectWorkerInvocationProfile(value, selection())).toThrow('unqualified: model');
+    // An unknown provider uses ordinary semver, so reach the control check with an in-range release.
+    expect(() => inspectWorkerInvocationProfile(value, { ...selection(), cliVersion: '2026.11.13' })).toThrow('unqualified: model');
   });
 
   it('preserves version, transport and explicit control requirements', () => {
     const value = adapter();
-    expect(() => inspectWorkerInvocationProfile(value, { ...selection(), cliVersion: '2026.11.14-eacade1' })).toThrow('outside qualified profile');
+    expect(() => inspectWorkerInvocationProfile(value, { ...selection(), cliVersion: '2026.11.11-b912975' })).toThrow('outside qualified profile');
     expect(() => inspectWorkerInvocationProfile(value, { ...selection(), transport: 'mcp' })).toThrow('unqualified');
     for (const control of ['model', 'effort', 'sandbox', 'stepCap', 'children', 'unknown']) {
       expect(() => inspectWorkerInvocationProfile(value, { ...selection(), requiredControls: [control] })).toThrow(`unqualified: ${control}`);
     }
   });
+
+  it.each(['2026.11.13-eacade1', '2026.11.17-f532c45', '2026.11.19-f005e9d'])(
+    '#4306 admits tested and newer builds at dispatch: %s', cliVersion => {
+      expect(() => inspectWorkerInvocationProfile(adapter(), { ...selection(), cliVersion })).not.toThrow();
+    });
 
   it.each(['codex', 'cursor'] as const)('preserves the explicit child-agent policy for %s', provider => {
     const value = adapter(provider);

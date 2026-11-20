@@ -213,7 +213,7 @@ export function inspectWorkerInvocationProfile(adapter: WorkerAdapterMetadata, s
   // Shared range predicate (worker-installation.mjs): read-only surfaces
   // (worker-direct-readiness.ts) reuse the same helper instead of
   // re-deriving this inspector's range logic.
-  if (workerVersionRangeMismatch(selection.cliVersion, [adapter.supportedVersions, profile.supportedVersions]) !== null) {
+  if (workerVersionRangeMismatch(selection.cliVersion, [adapter.supportedVersions, profile.supportedVersions], adapter.provider) !== null) {
     throw new Error('Worker CLI version is outside qualified profile');
   }
   // The direct CLI baseline trusts the installed driver's bounded renderer.

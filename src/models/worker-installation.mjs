@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { parse } from 'acorn';
 import { satisfies, valid, validRange } from 'semver';
+import { workerComparableVersion } from './cursor-worker-version.mjs';
 
 // Recovery metadata belongs to the installed driver identity, never its shape.
 const workerRecoveryCapabilities = new WeakMap();
@@ -138,7 +139,7 @@ export async function qualifyWorkerInstallation(instance, options) {
     const { evidence } = request;
     const { rawBanner, version } = await boundedVersionProbe(scope.binary.realpath,
       request.adapter.invocation.versionArgv, request.environment ?? {}, request.cwd,
-      request.timeoutMs ?? 10_000, Math.min(request.maxBytes ?? 4096, 4096), request.adapter.invocation.versionPattern);
+      request.timeoutMs ?? 10_000, Math.min(request.maxBytes ?? 4096, 4096), request.adapter.invocation.versionPattern, request.adapter.provider);
     if (version !== request.cliVersion) throw new Error('Installed CLI version changed');
     if (request.versionProbe) {
       const pattern = request.adapter.invocation.versionPattern;
@@ -373,7 +374,7 @@ export function compileWorkerVersionPattern(pattern) {
   return new RegExp(pattern, 'u');
 }
 
-export function normalizeWorkerVersionBanner(banner, pattern) {
+export function normalizeWorkerVersionBanner(banner, pattern, provider) {
   if (typeof banner !== 'string' || Buffer.byteLength(banner) > 4096) throw new Error('Worker version banner exceeds bound');
   if (pattern === undefined) return banner;
   const match = compileWorkerVersionPattern(pattern).exec(banner);
@@ -383,7 +384,8 @@ export function normalizeWorkerVersionBanner(banner, pattern) {
   // prerelease and build identifiers remain byte-for-byte unchanged.
   const version = match[1].replace(/^([0-9]+)\.([0-9]+)\.([0-9]+)/,
     (_, major, minor, patch) => [major, minor, patch].map(n => String(Number(n))).join('.'));
-  if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:-|\+|$)/.test(version) || !valid(version)) throw new Error('Worker version capture is not semver');
+  if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:-|\+|$)/.test(version)
+    || !(provider === 'cursor' ? workerComparableVersion(version, provider) : valid(version))) throw new Error('Worker version capture is not semver');
   return version;
 }
 
@@ -415,15 +417,15 @@ export const workerVersionProbeDefaults = Object.freeze({ timeoutMs: 10_000, max
 // Shared semver range check for an installed CLI version. Returns the first
 // unsupported range (or the invalid range declaration), else null. Read-only
 // surfaces reuse this instead of re-deriving the inspector's range logic.
-export function workerVersionRangeMismatch(version, ranges) {
+export function workerVersionRangeMismatch(version, ranges, provider) {
   for (const range of ranges) {
     if (typeof range !== 'string' || !validRange(range)) return `Unsupported version range '${range}'`;
-    if (!satisfies(version, range)) return range;
+    if (!satisfies(workerComparableVersion(version, provider), range)) return range;
   }
   return null;
 }
 
-export function boundedVersionProbe(executable, argv, environment, cwd, timeoutMs, maxBytes, versionPattern) {
+export function boundedVersionProbe(executable, argv, environment, cwd, timeoutMs, maxBytes, versionPattern, provider) {
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10_000
     || !Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > 5 * 1024 * 1024
     || !Array.isArray(argv) || argv.some(arg => typeof arg !== 'string' || arg.includes('\0'))) {
@@ -433,7 +435,7 @@ export function boundedVersionProbe(executable, argv, environment, cwd, timeoutM
   // process forked while the file was being written or a CLI mid-update. It
   // clears in milliseconds, so retry the spawn within the same overall bound.
   const deadline = Date.now() + timeoutMs;
-  const attempt = delayMs => runBoundedVersionProbe(executable, argv, environment, cwd, timeoutMs, maxBytes, versionPattern)
+  const attempt = delayMs => runBoundedVersionProbe(executable, argv, environment, cwd, timeoutMs, maxBytes, versionPattern, provider)
     .catch(error => {
       if (error?.code !== 'ETXTBSY' || Date.now() + delayMs >= deadline) throw error;
       return new Promise(resolveDelay => setTimeout(resolveDelay, delayMs)).then(() => attempt(Math.min(delayMs * 2, 200)));
@@ -441,7 +443,7 @@ export function boundedVersionProbe(executable, argv, environment, cwd, timeoutM
   return attempt(10);
 }
 
-function runBoundedVersionProbe(executable, argv, environment, cwd, timeoutMs, maxBytes, versionPattern) {
+function runBoundedVersionProbe(executable, argv, environment, cwd, timeoutMs, maxBytes, versionPattern, provider) {
   return new Promise((resolve, reject) => {
     const child = spawn(executable, argv, { cwd, env: environment, stdio: 'pipe', detached: true, shell: false });
     let output = Buffer.alloc(0);
@@ -481,7 +483,7 @@ function runBoundedVersionProbe(executable, argv, environment, cwd, timeoutMs, m
       else {
         try {
           const rawBanner = new TextDecoder('utf-8', { fatal: true }).decode(output);
-          resolve({ rawBanner, version: normalizeWorkerVersionBanner(rawBanner.trim(), versionPattern) });
+          resolve({ rawBanner, version: normalizeWorkerVersionBanner(rawBanner.trim(), versionPattern, provider) });
         }
         catch (error) { reject(error); }
       }
@@ -988,7 +990,7 @@ export async function loadRecordedWorkerInstallations({ registry, cwd, policy, p
       const { version } = await boundedVersionProbe(scope.binary.realpath,
         adapter.invocation.versionArgv, workerVersionProbeEnvironment(), cwd,
         workerVersionProbeDefaults.timeoutMs, workerVersionProbeDefaults.maxBytes,
-        adapter.invocation.versionPattern);
+        adapter.invocation.versionPattern, adapter.provider);
       if (version !== binding.cliVersion) throw fail();
       reason = 'scope-digest';
       if ((await inspectWorkerInstallation(instance, installation)).scopeDigest !== scope.scopeDigest) throw fail();

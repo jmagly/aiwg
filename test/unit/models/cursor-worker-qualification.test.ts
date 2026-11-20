@@ -8,7 +8,7 @@ import { writeExecutable } from '../../helpers/write-executable.js';
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 
-async function fixture(model = 'gpt-5.3-codex-high', failed = false, limits = true) {
+async function fixture(model = 'gpt-5.3-codex-high', failed = false, limits = true, version = '2026.11.13-eacade1') {
   const f = await doctorWorkerCliFixture();
   roots.push(f.root);
   const binary = path.join(f.root, 'fake-bin/cursor-agent');
@@ -20,7 +20,7 @@ async function fixture(model = 'gpt-5.3-codex-high', failed = false, limits = tr
   await writeExecutable(binary, `#!${process.execPath}
 import { appendFileSync } from 'node:fs';
 appendFileSync(${JSON.stringify(calls)}, JSON.stringify(process.argv.slice(2)) + '\\n');
-if (process.argv.slice(2).join(' ') === '--version') console.log('2026.11.13-eacade1');
+if (process.argv.slice(2).join(' ') === '--version') console.log(${JSON.stringify(version)});
 else if (process.argv.slice(2).join(' ') === '--list-models') {
   if (${failed}) { console.error('Not logged in; token=synthetic-secret'); process.exit(1); }
   console.log(${JSON.stringify(capture)});
@@ -76,6 +76,21 @@ it('caches listed Cursor observations, approves the exact configured model, and 
   const removed = await f.resolve();
   expect(removed.code, removed.stdout + removed.stderr).not.toBe(0);
 });
+
+it.each(['2026.11.17-f532c45', '2026.11.19-f005e9d', '2026.11.19-0001234'])(
+  '#4306 qualifies and resolves a newer Cursor build: %s', async version => {
+    const f = await fixture(undefined, false, true, version);
+    const result = await f.run(['doctor', '--probe-workers', '--qualify', '--cli', 'cursor', '--yes', '--json']);
+    expect(result.code, result.stdout + result.stderr).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.workers[0]).toMatchObject({ version, ready: true, inRange: true });
+    expect(payload.workers[0].warning).toContain('newer than tested');
+    expect(payload.workers[0].warning).toContain('aiwg doctor --probe-workers --qualify --cli cursor --yes');
+    expect(payload.qualification).toMatchObject({ status: 'recorded', results: [{ cli: 'cursor', status: 'qualified' }] });
+    const resolved = await f.resolve();
+    expect(resolved.code, resolved.stdout + resolved.stderr).toBe(0);
+    expect(JSON.parse(resolved.stdout).invocation).toMatchObject({ readiness: 'launchable' });
+  });
 
 it.each(['absent-model', 'auto', 'failed-list'] as const)('does not approve %s even with a matching older cached row', async state => {
   const model = state === 'failed-list' ? 'gpt-5.3-codex-high' : state;
