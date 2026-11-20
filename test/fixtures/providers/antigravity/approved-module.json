@@ -7,7 +7,7 @@
     "packageVersion": "1",
     "modulePath": "lib/antigravity-adapter.mjs",
     "interfaceVersion": 1,
-    "sha256": "sha256:3a07f3c2bc54fe4bcb18c8ed5ad09dbecd85ed5743bbb2813c650377eb99f6be",
+    "sha256": "sha256:550ac75316793e62945cba9c4871ecd1fcffc63d2d3dfe96a9891a2a6b6e4391",
     "adapterIds": ["antigravity"],
     "platforms": ["linux"]
   }

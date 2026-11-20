@@ -7,23 +7,24 @@
     "antigravity": {
       "roles": {
         "reasoning": {
-          "id": "configured/reasoning",
+          "id": "gemini-4-neon-high",
           "status": "unverified",
           "observed": false
         },
         "coding": {
-          "id": "configured/coding",
+          "id": "gemini-4-argon-medium",
           "status": "unverified",
           "observed": false
         },
         "efficiency": {
-          "id": "configured/efficiency",
+          "id": "gemini-4-hydrogen-low",
           "status": "unverified",
           "observed": false
         }
       },
       "sourceUrl": "https://antigravity.google/docs/cli/overview/",
-      "verifiedAt": "2026-09-04"
+      "verifiedAt": "2026-11-19",
+      "evidence": "#4348 supplied agy 1.5.10 models output: gemini-4-neon-low|medium|high|xhigh, gemini-4-argon-low|medium|high|xhigh, gemini-4-hydrogen-low|medium|high|xhigh, gemini-pro-orchestrator-neon. Role pins remain unverified; orchestrator effort support is unknown."
     },
     "claude": {
       "roles": {
