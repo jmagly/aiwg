@@ -35,8 +35,8 @@ import { workerStdinBytes } from '../../../src/serve/worker-stdin-frame.mjs';
 
 const FAKE = path.resolve('test/fixtures/providers/antigravity/fake-agy.mjs');
 const OBSERVATION = { transport: 'shell', status: 'completed', termination: 'confirmed', exitCode: 0 };
-const VERSION = '1.3.3';
-const MODEL = 'synthetic/antigravity-model';
+const VERSION = '>=1.5.10 <1.6.0';
+const MODEL = 'gemini-4-neon-low';
 const MODULE = 'tools/ralph-external/lib/antigravity-adapter.mjs';
 const APPROVED = JSON.parse(readFileSync('test/fixtures/providers/antigravity/approved-module.json', 'utf8'));
 const roots: string[] = [];
@@ -148,7 +148,7 @@ describe('Antigravity (agy) version-bound profile (B-OG-43)', () => {
       invocation: { executable: 'agy', stdin: 'adapter-frame' },
       qualification: { status: 'unqualified' } });
     expect(adapter.invocation.argv).toEqual(['--input-format', 'stream-json', '--output-format', 'stream-json',
-      '--model', '${model}', '--effort', '${effort}', '--sandbox', '--disable-slash-commands']);
+      '--model', '${model}', '--sandbox', '--disable-slash-commands']);
     expect(adapter.capabilities.sandboxModes).toEqual(['read-only']); // #3: must agree with the adapter's accepted modes
     const profile = adapter.invocationProfiles!['direct-shell'];
     expect(profile.supportedVersions).toBe(VERSION);
@@ -188,7 +188,7 @@ describe('T-OG-15 Antigravity direct command contract (render via production bui
     const owner = installed.owner;
     const input = { brief: 'synthetic brief', cwd: '/w', selected: { model: MODEL, effort: { value: 'low' } } };
     expect(owner.buildWorkerArgs(input, null, { sandbox: 'read-only' })).toEqual(['--input-format', 'stream-json',
-      '--output-format', 'stream-json', '--model', MODEL, '--effort', 'low', '--sandbox', '--disable-slash-commands']);
+      '--output-format', 'stream-json', '--model', MODEL, '--sandbox', '--disable-slash-commands']);
     // #1 regression: no --print flag, no prompt value, ever (live probes A/B/C).
     expect(() => owner.buildWorkerArgs(input, null, { sandbox: 'read-only' })).not.toThrow();
     // Option-like value refusal: a model/effort that looks like a flag can
@@ -229,7 +229,7 @@ describe('T-OG-15 Antigravity direct command contract (render via production bui
       env: { PATH: process.env.PATH!, AIWG_FAKE_WORKER_CONFIG: file, ANTIGRAVITY_UNRELATED_SECRET: 'fk-synthetic-should-not-pass' } });
     expect(result.code, result.stderr).toBe(0);
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
-    expect(record).toMatchObject({ model: MODEL, effort: 'low', sandbox: true, disableSlash: true, printTimeout: null, viaPrint: false });
+    expect(record).toMatchObject({ model: MODEL, effort: null, sandbox: true, disableSlash: true, printTimeout: null, viaPrint: false });
     expect(record.brief).toBe('synthetic brief content');
     expect(record.argv).toEqual(argv);
     expect(record.argv).not.toContain('--print');

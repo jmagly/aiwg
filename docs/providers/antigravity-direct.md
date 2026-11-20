@@ -5,15 +5,37 @@ Antigravity CLI) as a direct worker.
 
 The bundled `direct-shell` invocation profile in
 `agentic/code/providers/model-capabilities.v1.json` is version-bound to
-`agy 1.3.3` and stays `unqualified` for dispatch until a human qualifier
+`agy >=1.5.10 <1.6.0` and stays `unqualified` for dispatch until a human qualifier
 reviews a live run. The adapter (`tools/ralph-external/lib/antigravity-adapter.mjs`)
 renders:
 
 ```
 agy --input-format stream-json --output-format stream-json \
-  --model <model> --effort <effort> --sandbox \
-  --disable-slash-commands <<< '{"event":"user","message":<brief>}'
+  --model gemini-4-neon-low --sandbox \
+  --disable-slash-commands <<< '{"event":"user","message":{"content":<brief>}}'
 ```
+
+## agy 1.5.10 correction (#4348, 2026-11-19)
+
+The #3005 manual smoke reported two failures: `gemini-3-pro --effort low`
+is rejected, and a string-valued `message` cannot decode into
+`printmode.StreamInputUserMessage`. The reported `agy models` list includes
+`gemini-4-{neon,argon,hydrogen}-{low,medium,high,xhigh}` and
+`gemini-pro-orchestrator-neon`.
+
+The adapter maps the selected effort into the Gemini 4 model suffix,
+replacing an existing suffix when present. It emits no `--effort`. `max`,
+legacy models, the orchestrator, and unknown models are refused because
+no compatible effort mapping is evidenced. Catalog role pins now use
+`gemini-4-neon-high`, `gemini-4-argon-medium`, and `gemini-4-hydrogen-low`.
+They remain unverified for dispatch.
+
+**The nested `message: {content: brief}` is a candidate.** The error proves
+that `message` must be an object, but does not identify its fields. The
+offline host has agy 1.2.12; its help does not establish the 1.5.10 fields.
+`buildAntigravityStdinFrame` isolates this candidate. Synthetic tests prove
+framing and mapping only. The conductor must run the exact probe below on
+titan with agy 1.5.10 and confirm the content field before claiming success.
 
 ## Fix round 1 (conductor-run LIVE argument-parse probes, 2026-10-11)
 
@@ -47,17 +69,10 @@ attached, and still hard-errors on an explicit empty value. **D/E prove
 validation and reaches execution with no `--print` flag at all.** The
 brief therefore travels as exactly ONE NDJSON line on stdin, never argv.
 
-**NDJSON stdin input schema** (binary `strings`, never help text —
-extraction: `ssh noodle 'strings -n 8 ~/.local/bin/agy | grep -n "stream
-input"'`, 1.3.3): `"stream input message is missing the \"event\" field"`,
-`"stream input message event %q is not supported yet"`, and `"stream
-input \"user\" message is missing the \"message\" field"`. These strings
-support the field names (`event`, a `"user"` event, `message`), so this
-profile sends the one line `{"event":"user","message":<brief>}` (brief
-JSON-encoded so embedded newlines can never desynchronize framing). The
-envelope is **provisional**: the strings do not establish the type of
-`message` or that the CLI consumes it successfully. The first authenticated
-smoke run must confirm it.
+The earlier binary strings established `event` and `message` field names,
+but not the type of `message`. Round 1 provisionally sent a string; #4348
+proved that representation wrong on 1.5.10. The candidate builder now
+JSON-encodes a nested content object so embedded newlines stay in one turn.
 
 **C is also the first LIVE observation of the `result` event shape**:
 `event:"result"`, nested `result.conversation_id`/`result.status`/
@@ -80,8 +95,8 @@ remains unqualified until one authenticated smoke run confirms the envelope.
 
 ## Unchanged invariants
 
-`--model`/`--effort` (`low|medium|high|xhigh|max`, live 1.3.3 `--help`)
-are always explicit. **Only the `read-only` sandbox contract is
+`--model` encodes both the model family and selected reasoning effort
+for the supported Gemini 4 ids. `--effort` is never emitted. **Only the `read-only` sandbox contract is
 accepted**: there is no evidence `--mode accept-edits` is scoped to
 workspace-write only rather than a blanket approval, so `workspace-write`
 is refused outright; `--dangerously-skip-permissions` and
@@ -109,19 +124,25 @@ The [official authentication guide](https://antigravity.google/docs/install/)
 The key alone has no effect. Both session and worker lists retain this
 confirmed variable. The earlier probes did not select that provider and do
 not disprove key authentication. This documentation does not qualify the
-version-bound 1.3.3 worker profile or establish a successful authenticated
+version-bound worker profile or establish a successful authenticated
 run. **The manual smoke run remains blocked until an operator configures
 valid provider authentication on the target host.**
 
-## Manual smoke run (blocked on authentication — see above)
+## Manual smoke run (candidate envelope; conductor confirmation required)
 
 ```sh
 d=$(mktemp -d) && cd "$d" || exit 1
-MODEL="gemini-3-pro"
-printf '%s\n' '{"event":"user","message":"Reply with exactly: antigravity-smoke-ok"}' \
+agy --version
+MODEL="gemini-4-neon-low"
+printf '%s\n' '{"event":"user","message":{"content":"Reply with exactly: antigravity-smoke-ok"}}' \
   | agy --input-format stream-json --output-format stream-json \
-    --model "$MODEL" --effort low --sandbox --disable-slash-commands \
-    > out.jsonl ; echo "exit=$?"
+    --model "$MODEL" --sandbox --disable-slash-commands \
+    > out.jsonl 2> err.txt
+code=$?
+printf 'exit=%s\n' "$code"
+cat out.jsonl
+printf 'stderr-bytes=%s\n' "$(wc -c < err.txt)"
+cat err.txt
 ```
 
 ### Reading the result
@@ -147,3 +168,8 @@ pass/fail outcome (exit code + stream check + terminal `result` line
 contents + stderr) on the tracking issue. This manual run is evidence
 only; it never marks the registry profile as qualified for automated
 dispatch.
+
+#3005's Antigravity row must remain unticked until this probe yields
+`init → step_update → result(SUCCESS)`, `antigravity-smoke-ok`, exit 0,
+and zero stderr bytes on agy 1.5.10. This offline worker cannot record a
+successful live result or write to the tracker.

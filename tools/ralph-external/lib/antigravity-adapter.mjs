@@ -52,36 +52,21 @@
  * only, and this profile's own parser still rejects it (`status !==
  * 'SUCCESS'`).
  *
- * NDJSON stream-json INPUT message schema (binary `strings`, never help
- * text — extraction: `ssh noodle 'strings -n 8 ~/.local/bin/agy | grep -n
- * "stream input"'`, 1.3.3): `"stream input message is missing the
- * \"event\" field"`, `"stream input message event %q is not supported
- * yet"` / `"Print mode: ignoring unknown stream input message event %q"` /
- * `"warning: ignoring unsupported stream input message event %q"`, and
- * `"stream input \"user\" message is missing the \"message\" field"`
- * (also `"failed to decode stream input: %w"`, `"stream input cancelled:
- * %w"`). Together these prove the input envelope is `{"event":
- * <string>,...}` and that an `"event":"user"` message additionally
- * requires a `"message"` field; no other field name is evidenced. This
- * profile therefore renders EXACTLY ONE NDJSON line,
- * `{"event":"user","message":<brief>}` (brief JSON-encoded so embedded
- * newlines can never desynchronize the one-line/one-turn framing or be
- * mistaken for a second message), then closes stdin (EOF) —
- * `buildAntigravityStdinFrame` below. The shared adapter-frame stdin kind
- * delivers those exact bytes and closes stdin. The stdin control remains
- * unqualified pending an authenticated smoke run.
+ * #4348 (agy 1.5.10): the earlier string-valued message is rejected as
+ * StreamInputUserMessage, and Gemini models reject --effort. The supplied
+ * `agy models` observation lists gemini-4-{neon,argon,hydrogen} effort ids.
+ * Resolve the requested effort into those ids; refuse other models until
+ * their effort contract is evidenced. Never guess --effort support.
  *
- * Model/effort/sandbox/no-bypass evidence, and the rest of the headless
- * invariants, are unchanged from round 0 and still hold: `--model`/
- * `--effort` (`low|medium|high|xhigh|max`, live 1.3.3 `--help`) are always
- * explicit; `--dangerously-skip-permissions` and `--remote-control` are
- * never emitted; only the `read-only` sandbox contract is accepted
- * (`--mode accept-edits` scope is unverified, so `workspace-write` is
- * refused rather than invented); `--sandbox` (bare boolean) and
- * `--disable-slash-commands` are always emitted. `--print-timeout` is NOT
- * emitted: the help documents it as a "time limit for print mode" whose
- * default (0) already waits for the turn, and its effect without `--print`
- * is unverified.
+ * The candidate nested message {content: brief} below is isolated in the
+ * envelope builder. The installed offline binary is 1.2.12; its help does
+ * not establish 1.5.10's message fields. This candidate needs the exact
+ * live probe in docs/providers/antigravity-direct.md before qualification.
+ * Framing tests establish byte safety, not vendor acceptance.
+ *
+ * Only read-only sandbox requests are accepted; --sandbox and
+ * --disable-slash-commands are always emitted. No --print, permission
+ * bypass, remote control, or unverified write-approval flag is emitted.
  *
  * Auth: no environment-variable credential path is evidenced for this
  * CLI. Probes (D)/(E) show a bare, unauthenticated run stops at "Error:
@@ -105,9 +90,8 @@
 import { ProviderAdapter, registerProvider } from './provider-adapter.mjs';
 
 export const interfaceVersion = 1;
-export const ANTIGRAVITY_SUPPORTED_VERSIONS = Object.freeze(['1.3.3']);
-/** Live `agy --help` (1.3.3): "Reasoning effort for the current CLI
- * session (low|medium|high|xhigh|max)". */
+export const ANTIGRAVITY_SUPPORTED_VERSIONS = Object.freeze(['>=1.5.10 <1.6.0']);
+/** AIWG effort inputs; the 1.5.10 Gemini mapping below refuses max. */
 export const ANTIGRAVITY_DIRECT_EFFORT_VALUES = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max']);
 /** One adapter-supplied NDJSON user line, then EOF. */
 export const ANTIGRAVITY_DIRECT_STDIN = 'adapter-frame';
@@ -150,10 +134,9 @@ function assertSingleTokenValue(value, label) {
 }
 
 /**
- * Exactly one NDJSON input line for `--input-format stream-json`, per the
- * binary-`strings`-evidenced schema (module doc above): `{"event":"user",
- * "message":<brief>}` followed by `\n`. This is the ONLY input event this
- * profile ever renders — never a second line, never a bare/raw brief.
+ * Candidate agy 1.5.10 structured message, one NDJSON line then EOF.
+ * The nested content field needs live confirmation (see module doc).
+ * JSON encoding keeps embedded newlines inside the single user turn.
  * @param {string|Uint8Array} brief
  * @returns {Buffer}
  */
@@ -163,7 +146,7 @@ export function buildAntigravityStdinFrame(brief) {
   if (typeof text !== 'string' || !text || text.includes('\0')) {
     throw new Error('Antigravity worker requires a non-empty brief to frame as an NDJSON user message');
   }
-  return Buffer.from(`${JSON.stringify({ event: 'user', message: text })}\n`);
+  return Buffer.from(`${JSON.stringify({ event: 'user', message: { content: text } })}\n`);
 }
 
 export class AntigravityAdapter extends ProviderAdapter {
@@ -188,7 +171,7 @@ export class AntigravityAdapter extends ProviderAdapter {
    * swallows the next argv token when omitted, and still hard-errors on an
    * explicit empty value). The brief travels as the one stdin NDJSON frame
    * (`buildAntigravityStdinFrame`). Every other control is explicit: exact
-   * model, explicit reasoning effort, the one accepted (`read-only`)
+   * model with reasoning-effort suffix, the one accepted (`read-only`)
    * sandbox contract, and slash-command/skill expansion disabled.
    *
    * @param {{ selected?: { model?: unknown, effort?: { value?: unknown } }, cwd?: unknown, brief?: unknown }} invocation
@@ -213,6 +196,12 @@ export class AntigravityAdapter extends ProviderAdapter {
       throw new Error('Antigravity worker requires an explicit qualified reasoning effort (never a CLI default)');
     }
     assertSingleTokenValue(effort, 'reasoning effort');
+    // 1.5.10 lists effort-suffixed Gemini ids; --effort is rejected.
+    const family = /^(gemini-4-(?:neon|argon|hydrogen))(?:-(?:low|medium|high|xhigh))?$/.exec(model);
+    if (!family || effort === 'max') {
+      throw new Error(`Antigravity worker model/effort mapping is not evidenced: ${model} / ${effort}`);
+    }
+    const selectedModel = `${family[1]}-${effort}`;
     const sandbox = permissions?.sandbox ?? 'read-only';
     if (!ANTIGRAVITY_DIRECT_SANDBOX_MODES.includes(sandbox)) {
       throw new Error(`Antigravity worker sandbox is not a qualified direct mode (write is unavailable: no verified `
@@ -232,8 +221,7 @@ export class AntigravityAdapter extends ProviderAdapter {
     return [
       '--input-format', 'stream-json',
       '--output-format', 'stream-json',
-      '--model', model,
-      '--effort', effort,
+      '--model', selectedModel,
       '--sandbox',
       '--disable-slash-commands',
     ];

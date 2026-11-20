@@ -10,7 +10,7 @@
       "agent": "native",
       "skill": "native",
       "globalChild": "inherited",
-      "identifierSyntax": "model identifier accepted by Antigravity CLI 1.3.3 --model",
+      "identifierSyntax": "effort-suffixed Gemini model identifier accepted by Antigravity CLI 1.5.10 --model",
       "effortValues": [
         "low",
         "medium",
@@ -30,7 +30,7 @@
         "id": "antigravity",
         "provider": "antigravity",
         "adapterVersion": "1",
-        "supportedVersions": "1.3.3",
+        "supportedVersions": ">=1.5.10 <1.6.0",
         "runtimeDriver": "installed:antigravity",
         "catalogAdapter": {
           "kind": "file",
@@ -47,8 +47,6 @@
             "stream-json",
             "--model",
             "${model}",
-            "--effort",
-            "${effort}",
             "--sandbox",
             "--disable-slash-commands"
           ],
@@ -83,7 +81,7 @@
         "invocationProfiles": {
           "direct-shell": {
             "transport": "shell",
-            "supportedVersions": "1.3.3",
+            "supportedVersions": ">=1.5.10 <1.6.0",
             "controls": {
               "model": {
                 "support": "unqualified",
@@ -92,8 +90,8 @@
               },
               "effort": {
                 "support": "unqualified",
-                "mapping": "[--effort low|medium|high|xhigh|max], always explicit",
-                "evidence": "H: agy 1.3.3 --help documents --effort (low|medium|high|xhigh|max); D (strings): changelog fixes confirm both --model and --effort were previously silently ignored and now apply; unqualified until live evidence"
+                "mapping": "Map low|medium|high|xhigh into gemini-4-{neon,argon,hydrogen}-EFFORT; replace any existing suffix; reject max and unknown model mappings; never emit --effort without evidence of support",
+                "evidence": "R: #4348 reports agy 1.5.10 rejects gemini-3-pro with --effort low; agy models lists Gemini 4 neon/argon/hydrogen effort-suffixed ids; unqualified until a successful live run"
               },
               "sandbox": {
                 "support": "unqualified",
@@ -117,7 +115,7 @@
               },
               "stdin": {
                 "support": "unqualified",
-                "mapping": "adapter-frame: the installed adapter supplies exact bounded stdin bytes: one NDJSON line {\"event\":\"user\",\"message\":<brief>} on stdin, then EOF; no --print flag and no prompt value are ever emitted (--print requires a value, swallows the next argv token when omitted, and still hard-errors on an explicit empty value)",
+                "mapping": "adapter-frame: the installed adapter supplies exact bounded stdin bytes: one NDJSON line {\"event\":\"user\",\"message\":{\"content\":<brief>}} (candidate content field; live confirmation required) on stdin, then EOF; no --print flag and no prompt value are ever emitted (--print requires a value, swallows the next argv token when omitted, and still hard-errors on an explicit empty value)",
                 "evidence": "R: live, fix round 1, conductor probes A/B/C/D/E, 2026-10-11, no login reached. (A) `agy --print --output-format bogus-format </dev/null` -> \"Error: --print took \\\"--output-format\\\" as its prompt...\"; (B) `agy --output-format bogus-format --print </dev/null` -> \"flag needs an argument: -print\"; (C) `--print=` -> \"Error: empty prompt...\"; (D)/(E) `--input-format stream-json --output-format stream-json` with or without `--print` omitted entirely both pass argument validation and reach the same auth stop. D (strings, extraction: ssh noodle 'strings -n 8 ~/.local/bin/agy | grep -n \"stream input\"'): \"stream input message is missing the \\\"event\\\" field\", \"stream input message event %q is not supported yet\", \"stream input \\\"user\\\" message is missing the \\\"message\\\" field\" fix the NDJSON input envelope field names; unqualified until live evidence"
               },
               "structuredOutput": {
@@ -160,7 +158,7 @@
               "GEMINI_API_KEY is documented at https://antigravity.google/docs/install/ (reviewed 2026-10-26): settings.json must also set modelProvider to gemini; the key alone has no effect. Earlier 1.3.3 probes only exercised missing account login. This documentation confirms the credential name, not authenticated execution or qualification of this version-bound worker profile.",
               "The 1.3.3 --effort enum (low|medium|high|xhigh|max) supersedes the stale 1.1.26-pinned three-value set in tools/providers/antigravity-transport.mjs (a separate, unedited legacy transport used by the MCP/doctor bridge, not this direct-shell profile).",
               "Flag validation happens BEFORE auth: live probe F, `agy --print=x --input-format bogus --output-format stream-json`, returned \"Error: unknown --input-format \\\"bogus\\\" (want text or stream-json)\" without reaching the auth stop, confirming --input-format is validated against exactly {text, stream-json} independent of login state.",
-              "The brief reaches agy through adapter-frame: the installed buildWorkerStdinFrame hook supplies exactly one NDJSON user message and EOF. The stdin control stays unqualified pending one authenticated smoke run."
+              "#4348: agy 1.5.10 rejects a string message (StreamInputUserMessage). Nested content is a candidate, not confirmed vendor grammar. The brief reaches agy through adapter-frame: the installed buildWorkerStdinFrame hook supplies exactly one NDJSON user message and EOF. The stdin control stays unqualified pending one authenticated smoke run."
             ],
             "health": {
               "version": 1,

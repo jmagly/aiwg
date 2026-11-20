@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Synthetic stand-in for `agy` 1.3.3 (roctinam/aiwg#2908, fix round 1).
- * Implements only the help/live-probe-evidenced surface used by the
+ * Synthetic candidate for `agy` 1.5.10 (#4348), retaining #2908 probes.
+ * Implements the reported model surface and provisional stdin shape of the
  * version-bound direct-shell profile:
  *
  *   agy --input-format stream-json --output-format stream-json \
- *     --model M --effort E --sandbox --disable-slash-commands \
- *     <<< '{"event":"user","message":"<brief>"}'
+ *     --model gemini-4-neon-low --sandbox --disable-slash-commands \
+ *     <<< '{"event":"user","message":{"content":"<brief>"}}'
  *   agy --version | help
  *
  * No network, model, credential or real Antigravity code is involved. The
@@ -23,9 +23,9 @@
  *     is probe C and ALSO emits the real stdout error-result event; an
  *     invalid `--input-format` value is probe F and is checked before any
  *     auth gate.
- *   - the stream-json stdin path requires exactly one NDJSON line shaped
- *     `{"event":"user","message":<text>}` (binary-strings-evidenced field
- *     names, quoted in antigravity-adapter.mjs); a missing "event" field,
+ * The updated stream-json path accepts one candidate NDJSON line shaped
+ * `{"event":"user","message":{"content":<text>}}`. The content field is
+ * synthetic, pending confirmation on 1.5.10. A missing "event" field,
  *     an unsupported event name, or a missing "message" field on a "user"
  *     event are each distinct, real error strings.
  * The `init`/`step_update`/`result.status: SUCCESS` event vocabulary for
@@ -62,7 +62,7 @@ if (!args.length || args[0] === '--help' || args[0] === 'help') {
   process.exit(0);
 }
 if (args[0] === '--version') {
-  process.stdout.write('1.3.3\n');
+  process.stdout.write('1.5.10\n');
   process.exit(0);
 }
 
@@ -115,7 +115,8 @@ if (printValue === '') {
 // profile that ever emits one fails loudly instead of silently succeeding.
 if (dangerous) fail('--dangerously-skip-permissions is refused by this fixture (blanket bypass)');
 if (remoteControl) fail('--remote-control is refused by this fixture (opens a remote daemon)');
-if (!['low', 'medium', 'high', 'xhigh', 'max'].includes(effort)) fail(`invalid --effort: ${effort}`);
+if (effort !== null) fail(`--effort is not supported for model ${model}`);
+if (!/^gemini-4-(neon|argon|hydrogen)-(low|medium|high|xhigh)$/.test(model)) fail(`unknown model: ${model}`);
 if (!sandbox) fail('sandbox is required for every mode, including read-only');
 if (Array.isArray(config.knownModels) && !config.knownModels.includes(model)) {
   fail(`unknown model: ${model ?? '(no model)'}`);
@@ -155,10 +156,10 @@ if (typeof printValue === 'string' && printValue !== '') {
   if (message.event !== 'user') {
     fail(`stream input message event ${JSON.stringify(message.event)} is not supported yet`);
   }
-  if (typeof message.message !== 'string') {
+  if (!message.message || typeof message.message !== 'object' || typeof message.message.content !== 'string') {
     fail('stream input "user" message is missing the "message" field');
   }
-  brief = message.message;
+  brief = message.message.content;
   record({ inputFormat, outputFormat, model, effort, sandbox, disableSlash, printTimeout, brief, viaPrint: false });
 }
 
