@@ -73,21 +73,9 @@ registerProvider('dsh', () => new DeepSeekHarnessAdapter());
  *     proves neither that `sandbox-policy.mode` actually confines file/exec
  *     access, nor what `approval.policy: "never"` actually permits, because
  *     no probe can exercise a tool call without a real model response.
- *   - The stock `permission` (`@deepseek-ai/dsh-permission-presets`) plugin
- *     fails to mount for the `workspace-write` + `never` combination
- *     (`dsh: warning: 1 entry did not activate` / `permission: composed
- *     sandbox and approval defaults match no preset; configure
- *     defaultPreset explicitly`, confirmed live on the no-model probe).
- *     That means the stock preset-switch plugin is NOT mounted for this
- *     combination — it says nothing about whether `sandbox-policy`/
- *     `approval` themselves still enforce anything; it is evidence of an
- *     unmatched preset table entry, not evidence of functioning
- *     confinement.
- *   - `danger-full-access` (the only shipped preset pairing `approval:
- *     never`) is a full bypass and is never emitted by this profile. No
- *     analogy to another CLI's `-s workspace-write -c
- *     approval_policy="never"` semantics is drawn here: dsh's own
- *     behavior for this combination is simply unverified.
+ *   - The patch declares a matching named permission preset and explicit
+ *     defaultPreset for every accepted sandbox/approval pairing (#4313).
+ *     Plugin activation does not establish sandbox enforcement.
  *
  * Because of this, `model`/`effort`/`sandbox`/`approval` stay `unqualified`
  * in the registry below, matching grok-build/cursor/opencode's convention
@@ -101,7 +89,8 @@ registerProvider('dsh', () => new DeepSeekHarnessAdapter());
  * `DEEPSEEK_API_KEY` is the credential env var the no-model probe's
  * `MISSING_CREDENTIAL` error names (`llm-deepseek: no API key for
  * provider route "deepseek-official"; ... export DEEPSEEK_API_KEY`); it is
- * the one env allowlist entry (name only, value never rendered).
+ * the default route credential. The opt-in direct-shell-openrouter profile
+ * instead allowlists OPENROUTER_API_KEY (names only, values never rendered).
  *
  * KNOWN GAP (isolation): `getEnvOverrides()` is called with no invocation
  * context (`session-launcher.mjs` ~847: `providerAdapter.getEnvOverrides()`),
@@ -133,7 +122,7 @@ registerProvider('dsh', () => new DeepSeekHarnessAdapter());
  * `{"type":"error",...}` line and no `tool_result` with `status:"error"`
  * anywhere.
  */
-export const DEEPSEEK_HARNESS_SUPPORTED_VERSIONS = Object.freeze(['0.2.0-rc.2']);
+export const DEEPSEEK_HARNESS_SUPPORTED_VERSIONS = Object.freeze(['0.2.0-rc.2', '0.2.2-rc.1']);
 export const DEEPSEEK_HARNESS_DIRECT_EFFORT_VALUES = Object.freeze(['off', 'low', 'high', 'max']);
 export const DEEPSEEK_HARNESS_DIRECT_SANDBOX_MODES = Object.freeze(['read-only', 'workspace-write']);
 /** Non-prompting execution only: `ask` (the only alternative the CLI's own
@@ -190,6 +179,14 @@ function normalizeDeepSeekHarnessApproval(approval) {
   return approval;
 }
 
+function normalizeDeepSeekHarnessProvider(provider = 'deepseek-official') {
+  if (provider === 'deepseek') return 'deepseek-official';
+  if (!['deepseek-official', 'openrouter'].includes(provider)) {
+    throw new Error('DeepSeek Harness worker requires a supported inference provider');
+  }
+  return provider;
+}
+
 /** Pure: the `--patch` overlay YAML text for one invocation's model,
  * effort, sandbox and approval. Performs no I/O — see the module-level
  * execution-time artifact contract. Exported so tests and the docs' manual smoke
@@ -197,16 +194,21 @@ function normalizeDeepSeekHarnessApproval(approval) {
  * a conservative charset/enum AND `JSON.stringify`-quoted in the emitted
  * YAML (defense in depth): neither alone is trusted. The patch never
  * carries the brief or a credential.
- * @param {{ model: unknown, effort: unknown, sandbox: unknown, approval: unknown }} selection
+ * @param {{ model: unknown, effort: unknown, sandbox: unknown, approval: unknown, inferenceProvider?: unknown }} selection
  * @returns {string}
  */
-export function buildDeepSeekHarnessPatch({ model, effort, sandbox, approval }) {
+export function buildDeepSeekHarnessPatch({ model, effort, sandbox, approval, inferenceProvider }) {
   const safeModel = normalizeDeepSeekHarnessModel(model);
   const safeEffort = normalizeDeepSeekHarnessEffort(effort);
   const safeSandbox = normalizeDeepSeekHarnessSandbox(sandbox);
   const safeApproval = normalizeDeepSeekHarnessApproval(approval);
-  const provider = 'deepseek-official';
+  const provider = normalizeDeepSeekHarnessProvider(inferenceProvider);
+  const preset = `headless-${safeSandbox}`;
   return [
+    ...(provider === 'openrouter' ? [
+      '- id: llm-pi-ai', '  config:', '    providers:', '      openrouter:',
+      '        apiKeyEnv: OPENROUTER_API_KEY',
+    ] : []),
     '- id: agent-default-model',
     '  config:',
     `    provider: ${JSON.stringify(provider)}`,
@@ -218,6 +220,13 @@ export function buildDeepSeekHarnessPatch({ model, effort, sandbox, approval }) 
     '- id: approval',
     '  config:',
     `    policy: ${JSON.stringify(safeApproval)}`,
+    '- id: permission',
+    '  config:',
+    `    defaultPreset: ${JSON.stringify(preset)}`,
+    '    presets:',
+    `      ${preset}:`,
+    `        sandbox: ${JSON.stringify(safeSandbox)}`,
+    `        approval: ${JSON.stringify(safeApproval)}`,
     '',
   ].join('\n');
 }
@@ -338,7 +347,12 @@ export class DeepSeekHarnessDirectAdapter extends DeepSeekHarnessAdapter {
     const effort = invocation?.selected?.effort?.value;
     const sandbox = permissions.sandbox ?? 'workspace-write';
     const approval = permissions.approval ?? 'never';
-    buildDeepSeekHarnessPatch({ model, effort, sandbox, approval });
+    const inferenceProvider = normalizeDeepSeekHarnessProvider(invocation?.selected?.inferenceProvider);
+    const key = inferenceProvider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'DEEPSEEK_API_KEY';
+    if (_profile && !_profile.envAllowlist?.includes(key)) {
+      throw new Error('DeepSeek Harness worker inference provider does not match the selected profile');
+    }
+    buildDeepSeekHarnessPatch({ model, effort, sandbox, approval, inferenceProvider });
     const cwd = invocation?.cwd;
     if (typeof cwd !== 'string' || !cwd.startsWith('/') || cwd.includes('\0')) throw new Error('DeepSeek Harness worker requires an absolute workspace');
     const brief = invocation?.brief;
@@ -357,7 +371,7 @@ export class DeepSeekHarnessDirectAdapter extends DeepSeekHarnessAdapter {
   buildWorkerArtifacts(invocation) {
     const permissions = invocation.permissions ?? {};
     return [{ name: 'dsh-patch', location: 'run-directory', content: buildDeepSeekHarnessPatch({
-      model: invocation.selected.model, effort: invocation.selected.effort.value,
+      model: invocation.selected.model, inferenceProvider: invocation.selected.inferenceProvider, effort: invocation.selected.effort.value,
       sandbox: permissions.sandbox ?? 'workspace-write', approval: permissions.approval ?? 'never',
     }) }];
   }

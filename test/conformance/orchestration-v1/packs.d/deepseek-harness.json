@@ -1,5 +1,6 @@
 {
   "T-OG-15": [
+    "test/unit/ralph-external/deepseek-harness-route.test.ts",
     "test/conformance/orchestration-v1/deepseek-harness-direct.test.ts"
   ],
   "T-OG-20": [

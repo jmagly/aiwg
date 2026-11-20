@@ -2129,7 +2129,7 @@
         "id": "deepseek-harness-direct",
         "provider": "deepseek-harness",
         "adapterVersion": "1",
-        "supportedVersions": "0.2.0-rc.2",
+        "supportedVersions": "0.2.0-rc.2 || 0.2.2-rc.1",
         "runtimeDriver": "installed:deepseek-harness-direct",
         "catalogAdapter": {
           "kind": "file",
@@ -2151,6 +2151,7 @@
           "cwd": "${workspace}",
           "envAllowlist": [
             "DEEPSEEK_API_KEY",
+            "OPENROUTER_API_KEY",
             "PATH"
           ],
           "versionArgv": [
@@ -2177,11 +2178,11 @@
         "invocationProfiles": {
           "direct-shell": {
             "transport": "shell",
-            "supportedVersions": "0.2.0-rc.2",
+            "supportedVersions": "0.2.0-rc.2 || 0.2.2-rc.1",
             "controls": {
               "model": {
                 "support": "unqualified",
-                "mapping": "--patch YAML overlay would set the agent-default-model plugin entry {provider: \"deepseek-official\", model}; no --model flag exists on `--profile headless --help`. The launcher writes the declared patch exclusively into its private run directory and cleans it up; the override is unverified for enforcement, only for parse-before-model-call.",
+                "mapping": "--patch YAML overlay would set the agent-default-model plugin entry {provider: \"deepseek-official\", model}; no --model flag exists on `--profile headless --help`. The resolved inferenceProvider selects deepseek-official (deepseek alias accepted) or the opt-in direct-shell-openrouter profile; OpenRouter adds llm-pi-ai providers.openrouter.apiKeyEnv: OPENROUTER_API_KEY. The launcher writes the declared patch exclusively into its private run directory and cleans it up; the override is unverified for enforcement, only for parse-before-model-call.",
                 "evidence": "R: dsh 0.2.0-rc.2 --profile headless --dump-config-schema/--dump-default-config (agent-default-model config9, required provider+model); no-model probe on noodle 2026-10-11 confirmed a --patch file is read and parsed before any model call (MISSING_CREDENTIAL still names provider route deepseek-official), never that the override is enforced; unqualified until live model-pin evidence"
               },
               "effort": {
@@ -2197,7 +2198,7 @@
               "approval": {
                 "support": "unqualified",
                 "mapping": "--patch YAML overlay would set the approval plugin entry {policy: never}; ask is refused (no prompt channel in headless). What \"never\" actually permits is unverified: no analogy to another CLI's approval semantics is drawn.",
-                "evidence": "R: dsh 0.2.0-rc.2 --dump-default-config approval config.policy (APPROVAL_POLICIES ask|never, dsh-permission-presets/lib/index.js); no-model probe on noodle 2026-10-11 confirmed the stock permission-presets plugin fails to mount for workspace-write+never (\"did not activate\" diagnostic) -- this means that stock preset-switch plugin is not mounted for this combination, not that sandbox-policy/approval themselves enforce anything; unqualified"
+                "evidence": "R: dsh 0.2.0-rc.2 --dump-default-config approval config.policy (APPROVAL_POLICIES ask|never, dsh-permission-presets/lib/index.js); #4313 overlay adds permission.presets.headless-<sandbox> with the exact sandbox/approval pair and permission.defaultPreset; synthetic tests cover both accepted pairs. Plugin activation and enforcement remain separate; unqualified"
               },
               "workdir": {
                 "support": "unqualified",
@@ -2248,8 +2249,131 @@
               "buildWorkerArgs emits ${artifact:dsh-patch}; buildWorkerArtifacts declares the pure overlay. The launcher owns exclusive/no-follow private file creation and cleanup. Controls remain unqualified pending an authenticated run.",
               "Documentation/help, schema-dump and synthetic observations are not authenticated live qualification.",
               "Reaching MISSING_CREDENTIAL on a no-model probe proves the --patch file is parsed before any model call; it proves neither sandbox confinement nor approval semantics, since no probe without a real model call can exercise a tool call.",
-              "danger-full-access (the only shipped preset pairing approval:never) is a full bypass and is never emitted; this profile would patch sandbox-policy/approval directly instead, with unverified effect.",
-              "The stock dsh-permission-presets plugin fails to mount (\"did not activate\" diagnostic) for the workspace-write+never combination; this means only that the stock preset-switch plugin itself is unmounted, not that sandbox-policy/approval enforce anything.",
+              "danger-full-access (the only shipped preset pairing approval:never) is a full bypass and is never emitted; this profile patches sandbox-policy/approval and a matching named permission preset, with unverified confinement.",
+              "The overlay declares headless-read-only or headless-workspace-write and sets permission.defaultPreset explicitly so composed defaults match a named preset; activation does not prove confinement.",
+              "With DSH_HOME unset (KNOWN GAP: getEnvOverrides() has no invocation context to synthesize a per-run isolated home without a shared-code change), the operator's own profiles/plugins load and could alter behavior.",
+              "The agent-default-model/sandbox-policy/approval overlay shape comes only from --dump-config-schema/--dump-default-config, never from a live run; treat it as unverified, not confirmed.",
+              "Unknown model, effort, permission or required step mappings block dispatch.",
+              "Native MCP/client, MSP/ACP, gateway and conversation capabilities do not establish worker authority."
+            ],
+            "health": {
+              "version": 1,
+              "handshake": "process-only",
+              "outputFraming": "jsonl",
+              "signalParser": "provider-deepseek-harness-health-v1",
+              "sessionLogLocator": null,
+              "progressEvidence": [
+                "text",
+                "thinking",
+                "tool_call",
+                "tool_result"
+              ],
+              "stopEvidence": "owned process identity and observed exit; terminal text alone is insufficient",
+              "fixtureRef": "test/fixtures/providers/deepseek-harness/health/manifest-direct.json",
+              "qualifiedAt": null,
+              "statusOperation": null,
+              "cancelOperation": null,
+              "coverage": "degraded",
+              "qualificationTarget": "process-only",
+              "evidenceGrades": [
+                "R"
+              ],
+              "provenance": [
+                {
+                  "kind": "repository",
+                  "ref": "tools/ralph-external/lib/deepseek-harness-adapter.mjs",
+                  "observedAt": "2026-10-11T00:00:00Z",
+                  "cliVersion": null
+                }
+              ],
+              "qualificationOwner": "B-OG-44",
+              "qualification": {
+                "status": "unqualified",
+                "scopeDigest": null,
+                "cliVersion": null,
+                "accountScope": null,
+                "profileRef": null,
+                "modelKey": null,
+                "effort": null,
+                "authorizedLive": false
+              }
+            }
+          },
+          "direct-shell-openrouter": {
+            "transport": "shell",
+            "supportedVersions": "0.2.0-rc.2 || 0.2.2-rc.1",
+            "controls": {
+              "model": {
+                "support": "unqualified",
+                "mapping": "--patch YAML overlay would set the agent-default-model plugin entry {provider: \"deepseek-official\", model}; no --model flag exists on `--profile headless --help`. The resolved inferenceProvider selects deepseek-official (deepseek alias accepted) or the opt-in direct-shell-openrouter profile; OpenRouter adds llm-pi-ai providers.openrouter.apiKeyEnv: OPENROUTER_API_KEY. The launcher writes the declared patch exclusively into its private run directory and cleans it up; the override is unverified for enforcement, only for parse-before-model-call.",
+                "evidence": "R: dsh 0.2.0-rc.2 --profile headless --dump-config-schema/--dump-default-config (agent-default-model config9, required provider+model); no-model probe on noodle 2026-10-11 confirmed a --patch file is read and parsed before any model call (MISSING_CREDENTIAL still names provider route deepseek-official), never that the override is enforced; unqualified until live model-pin evidence"
+              },
+              "effort": {
+                "support": "unqualified",
+                "mapping": "Same --patch agent-default-model entry would set reasoningEffort (off|low|high|max); unverified for the same reason as model",
+                "evidence": "R: dsh 0.2.0-rc.2 --profile headless --dump-config-schema (deepseek-official provider reasoningEffort enum off|low|high|max); unqualified until live evidence"
+              },
+              "sandbox": {
+                "support": "unqualified",
+                "mapping": "--patch YAML overlay would set the sandbox-policy plugin entry {mode: read-only|workspace-write}; danger-full-access (full bypass) is never emitted. Reaching MISSING_CREDENTIAL proves the patch parses, not that sandbox-policy.mode actually confines file/exec access -- no probe without a real model call can exercise a tool call to prove confinement.",
+                "evidence": "R: dsh 0.2.0-rc.2 --dump-default-config sandbox-policy config.mode; no-model probe on noodle 2026-10-11 confirmed the run proceeds past plugin mount to MISSING_CREDENTIAL, which is evidence of parsing only; confinement itself is unverified"
+              },
+              "approval": {
+                "support": "unqualified",
+                "mapping": "--patch YAML overlay would set the approval plugin entry {policy: never}; ask is refused (no prompt channel in headless). What \"never\" actually permits is unverified: no analogy to another CLI's approval semantics is drawn.",
+                "evidence": "R: dsh 0.2.0-rc.2 --dump-default-config approval config.policy (APPROVAL_POLICIES ask|never, dsh-permission-presets/lib/index.js); #4313 overlay adds permission.presets.headless-<sandbox> with the exact sandbox/approval pair and permission.defaultPreset; synthetic tests cover both accepted pairs. Plugin activation and enforcement remain separate; unqualified"
+              },
+              "workdir": {
+                "support": "unqualified",
+                "mapping": "Spawn cwd option; `dsh --profile headless --help` has no --cwd flag and the headless runner uses process.cwd()",
+                "evidence": "H: dsh 0.2.0-rc.2 --profile headless --help (.aiwg/working/s1-scratch/cli-help/dsh-0.2.0-rc.2.txt); R: installed @deepseek-ai/dsh-headless package lib/index.js `run()`, read on noodle 2026-10-11; unqualified until live evidence"
+              },
+              "finalOutput": {
+                "support": "unqualified",
+                "mapping": "stdout --json event stream; the last {\"type\":\"final\",\"text\"} line is the answer, required to be the last event with the prior turn_end's reason.kind==\"completed\"",
+                "evidence": "R: installed @deepseek-ai/dsh-headless package lib/json-stream-*.js + lib/index.js, read on noodle 2026-10-11; confirmed live via the no-model probe's exact session/status/final lines; unqualified until live evidence"
+              },
+              "stdin": {
+                "support": "unqualified",
+                "mapping": "brief-text: the \"-\" task argument reads stdin to EOF",
+                "evidence": "H+R: dsh 0.2.0-rc.2 --profile headless --help (\"`-` reads stdin\"); no-model probe on noodle 2026-10-11 confirmed stdin arity (empty stdin -> \"a task is required\"; piped text -> reaches MISSING_CREDENTIAL, never a model call); unqualified until live evidence"
+              },
+              "structuredOutput": {
+                "support": "unqualified",
+                "mapping": "no --output-schema or structured-final flag documented on `--profile headless --help`",
+                "evidence": "H: dsh 0.2.0-rc.2 --profile headless --help (.aiwg/working/s1-scratch/cli-help/dsh-0.2.0-rc.2.txt); unqualified until live evidence"
+              },
+              "stepCap": {
+                "support": "unqualified",
+                "mapping": "no per-invocation step-cap flag documented on `--profile headless --help`",
+                "evidence": "H: dsh 0.2.0-rc.2 --profile headless --help (.aiwg/working/s1-scratch/cli-help/dsh-0.2.0-rc.2.txt); unknown controls block tasks requiring them"
+              },
+              "trust": {
+                "support": "unqualified",
+                "mapping": "no trust-workspace flag documented on `--profile headless --help`",
+                "evidence": "H: dsh 0.2.0-rc.2 --profile headless --help (.aiwg/working/s1-scratch/cli-help/dsh-0.2.0-rc.2.txt); unqualified until live evidence"
+              },
+              "children": {
+                "support": "unqualified",
+                "mapping": "subagent/fork tools (tool-subagent, tool-subagent-fork, subagent-spawn-in-process, subagent-fork-in-process) are bundled by default; a disabling patch is not live-verified",
+                "evidence": "R: installed @deepseek-ai/dsh package default profile config, read on noodle 2026-10-11; needs a verified disabling --patch before this control can be native"
+              },
+              "fallback": {
+                "support": "unqualified",
+                "mapping": "no CLI-level fallback-model control documented; agent-default-model is the only model source",
+                "evidence": "H: dsh 0.2.0-rc.2 --profile headless --help (.aiwg/working/s1-scratch/cli-help/dsh-0.2.0-rc.2.txt); this profile never emits a fallback"
+              }
+            },
+            "envAllowlist": [
+              "OPENROUTER_API_KEY",
+              "PATH"
+            ],
+            "pitfalls": [
+              "buildWorkerArgs emits ${artifact:dsh-patch}; buildWorkerArtifacts declares the pure overlay. The launcher owns exclusive/no-follow private file creation and cleanup. Controls remain unqualified pending an authenticated run.",
+              "Documentation/help, schema-dump and synthetic observations are not authenticated live qualification.",
+              "Reaching MISSING_CREDENTIAL on a no-model probe proves the --patch file is parsed before any model call; it proves neither sandbox confinement nor approval semantics, since no probe without a real model call can exercise a tool call.",
+              "danger-full-access (the only shipped preset pairing approval:never) is a full bypass and is never emitted; this profile patches sandbox-policy/approval and a matching named permission preset, with unverified confinement.",
+              "The overlay declares headless-read-only or headless-workspace-write and sets permission.defaultPreset explicitly so composed defaults match a named preset; activation does not prove confinement.",
               "With DSH_HOME unset (KNOWN GAP: getEnvOverrides() has no invocation context to synthesize a per-run isolated home without a shared-code change), the operator's own profiles/plugins load and could alter behavior.",
               "The agent-default-model/sandbox-policy/approval overlay shape comes only from --dump-config-schema/--dump-default-config, never from a live run; treat it as unverified, not confirmed.",
               "Unknown model, effort, permission or required step mappings block dispatch.",

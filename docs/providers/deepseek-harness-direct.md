@@ -22,14 +22,17 @@ dsh --profile headless --patch <patchPath> --json -
 ```
 
 - `<patchPath>` is a launcher-written YAML file that sets the
-  `agent-default-model` plugin entry (`provider: deepseek-official`,
+  `agent-default-model` plugin entry (`provider: deepseek-official` by default,
   `model`, `reasoningEffort`), the `sandbox-policy` entry
   (`mode: read-only|workspace-write`) and the `approval` entry
-  (`policy: never`). It never contains the brief or a credential. The launcher writes it exclusively with mode 0600 and cleans it up.
+  (`policy: never`). The `permission` entry defines
+  `headless-read-only` or `headless-workspace-write` with that exact
+  sandbox/approval pair and sets `defaultPreset` to its name, so
+  `dsh-permission-presets` can activate. It never contains the brief or a credential. The launcher writes it exclusively with mode 0600 and cleans it up.
 - The brief travels on stdin via the `-` task argument ("`-` reads stdin",
   `dsh --profile headless --help`), never on argv.
-- `DEEPSEEK_API_KEY` is the only allowlisted environment variable (the
-  no-model probe's `MISSING_CREDENTIAL` error names it explicitly).
+- The default `direct-shell` profile allowlists `DEEPSEEK_API_KEY` and
+  `PATH`. The opt-in OpenRouter profile below allowlists its own key instead.
 
 ## What is and is not verified
 
@@ -38,11 +41,12 @@ file is **read and parsed** before any model call. It proves **neither**
 that `sandbox-policy.mode` confines file/exec access, **nor** what
 `approval.policy: "never"` actually permits — no probe without a real
 model call can exercise a tool call, so sandbox confinement and approval
-semantics are **unverified**, not confirmed. The stock
-`dsh-permission-presets` plugin failing to mount ("did not activate") for
-the `workspace-write`+`never` combination means only that *that specific
-plugin* is not mounted for this combination; it is not evidence that
-`sandbox-policy`/`approval` enforce anything. No analogy to how any other
+semantics are **unverified**. Before #4313, the stock
+`dsh-permission-presets` plugin failed to mount for `read-only`+`never`
+and `workspace-write`+`never`, because neither matched a built-in preset.
+The generated overlay now supplies a named preset and explicit default
+for both accepted pairs. Offline patch tests cover the entire accepted
+matrix; mounting a preset still does not establish enforcement. No analogy to how any other
 CLI's sandbox/approval flags behave is drawn here — `dsh`'s own behavior
 for this overlay is simply unverified. The overlay shape itself (which
 plugin ids take which config fields) comes only from `--dump-config-schema`/
@@ -80,14 +84,51 @@ load and could alter behavior in ways this document cannot characterize.
   `dsh` itself fails closed here; this profile does not need a defensive
   check of its own for a missing patch.
 - `danger-full-access` is the only shipped preset pairing `approval: never`
-  and is a full bypass; this profile would never emit it, instead patching
-  `sandbox-policy`/`approval` directly — with unverified effect (see "What
-  is and is not verified" above). The stock `dsh-permission-presets` plugin
-  then logs one non-fatal `dsh: warning: 1 entry did not activate` /
-  `permission: composed sandbox and approval defaults match no preset`
-  diagnostic and declines to mount; this means only that the stock
-  preset-switch command plugin is unmounted for this combination, nothing
-  about enforcement.
+  and is a full bypass; this profile never emits it. The overlay now defines
+  the narrower headless preset explicitly instead of relying on inference.
+
+## Opt-in OpenRouter route
+
+Use the existing installation binding's `profile: direct-shell-openrouter`
+with a catalog/discovery model row whose `llmProvider` is `openrouter` and
+`apiModelId` is an exact model in pi-ai's bundled OpenRouter catalog, such as
+`deepseek/deepseek-v4.1-flash`. Select that row through the existing group
+member model setting. The resolver carries it as
+`selected.inferenceProvider: openrouter`; the adapter rejects a route/profile
+mismatch. The official route accepts `deepseek` or `deepseek-official` and
+continues to use `direct-shell`.
+
+The OpenRouter profile allowlists only `OPENROUTER_API_KEY` and `PATH`.
+The installation-level union permits either route's key, while each profile
+restricts it to its selected route. Configure the existing installation
+environment with the selected key; key values never enter argv, patches or
+rendered plans. The patch adds:
+
+```yaml
+- id: llm-pi-ai
+  config:
+    providers:
+      openrouter:
+        apiKeyEnv: OPENROUTER_API_KEY
+- id: agent-default-model
+  config:
+    provider: "openrouter"
+    model: "deepseek/deepseek-v4.1-flash"
+    reasoningEffort: "low"
+```
+
+For a standalone patch, pass `inferenceProvider: "openrouter"` and
+`model: "deepseek/deepseek-v4.1-flash"` to `buildDeepSeekHarnessPatch()` in
+the manual example below, and export `OPENROUTER_API_KEY` in the calling
+environment. The generated patch also includes the permission preset.
+The command remains `dsh --profile headless --patch <patchPath> --json -`.
+
+The direct profiles accept versions `0.2.0-rc.2` and `0.2.2-rc.1`. The
+issue's 2026-11-18 UAT reports this route working on `0.2.2-rc.1`; this fix
+uses synthetic fixtures and performs no paid model calls. Both profiles
+remain **unqualified**. Requalify the chosen model, effort, permissions,
+version and route before dispatch; the reported UAT does not automatically
+qualify this generated patch or installation.
 
 ## Known gaps (reported, not invented around)
 
@@ -105,7 +146,7 @@ load and could alter behavior in ways this document cannot characterize.
 ## Manual smoke run
 
 Requires an installed `dsh` and a real `DEEPSEEK_API_KEY` (or an
-OpenRouter-compatible route, if configured by patch — not yet qualified).
+OpenRouter route as described above — not yet qualified).
 This manual command writes the patch exclusively with mode 0600 using
 `buildDeepSeekHarnessPatch()`. Normal one-shot execution uses the shared
 launcher artifact hook.
