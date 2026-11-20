@@ -57,6 +57,7 @@
  * performs no live-qualification recording and requires no evidence files.
  */
 import { tmpdir } from 'node:os';
+import { cursorWorkerVersionWarning } from './cursor-worker-version.mjs';
 import { advisoryStatus, allConfiguredCliIds, checkDispatchEligibility, describeConfigContext,
   isCliRequired, memberLabels, memberReferences, resolveDirectBinding, SMOKE_NOTE,
 } from './worker-direct-readiness-policy.js';
@@ -244,7 +245,7 @@ export async function diagnoseDirectWorkerReadiness(input: {
   }
   const pushInstall = (finding: Omit<DirectWorkerReadinessFinding, 'kind' | 'eligibility' | 'eligibilityDetail'>): void => {
     report.findings.push({ ...finding, kind: 'install', eligibility: null, eligibilityDetail: null });
-    if (finding.status === 'error' || finding.status === 'warn') report.ready = false;
+    if (finding.readiness !== 'ready' && (finding.status === 'error' || finding.status === 'warn')) report.ready = false;
   };
   const pushDispatch = (cli: string, profile: string | null, status: 'ok' | 'info' | 'warn',
     code: string, eligibility: DirectWorkerDispatchEligibility, detail: string, configKey: string,
@@ -355,7 +356,7 @@ export async function diagnoseDirectWorkerReadiness(input: {
     const rawBanner = outcome.rawBanner.trim();
     let installedVersion: string;
     try {
-      installedVersion = normalizeWorkerVersionBanner(rawBanner, adapter.invocation.versionPattern);
+      installedVersion = normalizeWorkerVersionBanner(rawBanner, adapter.invocation.versionPattern, adapter.provider);
     } catch {
       pushInstall({ cli, profile: profileRef, executable, installedVersion: null,
         status: advisoryStatus('error', required), code: 'WORKER_DIRECT_BANNER_UNMATCHED',
@@ -367,7 +368,7 @@ export async function diagnoseDirectWorkerReadiness(input: {
         eligibility, detail, configKey, members, 'reinstall-supported-cli', diagnostics);
       return;
     }
-    const mismatch = workerVersionRangeMismatch(installedVersion, [profile.supportedVersions, adapter.supportedVersions]);
+    const mismatch = workerVersionRangeMismatch(installedVersion, [profile.supportedVersions, adapter.supportedVersions], adapter.provider);
     if (mismatch) {
       pushInstall({ cli, profile: profileRef, executable, installedVersion,
         status: advisoryStatus('warn', required), code: 'WORKER_DIRECT_VERSION_OUT_OF_RANGE',
@@ -379,9 +380,11 @@ export async function diagnoseDirectWorkerReadiness(input: {
         eligibility, detail, configKey, members, 'upgrade-or-pin-cli', diagnostics);
       return;
     }
+    const versionWarning = adapter.provider === 'cursor'
+      ? cursorWorkerVersionWarning(installedVersion, profile.health?.provenance?.map(row => row.cliVersion) ?? [], cli) : null;
     pushInstall({ cli, profile: profileRef, executable, installedVersion,
-      status: 'ok', code: 'WORKER_DIRECT_READY',
-      message: `CLI '${executable}' version ${installedVersion} matches profile '${profileRef}' for cli '${cli}' (config ${configFile} key ${configKey}). Installation readiness: ready. ${SMOKE_NOTE} See the dispatch finding for whether the resolver would dispatch. (${describeConfigContext(members)})`,
+      status: versionWarning ? 'warn' : 'ok', code: 'WORKER_DIRECT_READY',
+      message: `CLI '${executable}' version ${installedVersion} matches profile '${profileRef}' for cli '${cli}' (config ${configFile} key ${configKey}). Installation readiness: ready. ${versionWarning ?? ''} ${SMOKE_NOTE} See the dispatch finding for whether the resolver would dispatch. (${describeConfigContext(members)})`,
       nextAction: 'qualify-installed-cli',
       configFile, configKey, readiness: 'ready', members });
     const { eligibility, detail, diagnostics } = checkDispatchEligibility(parallelism, registry, cli, true, resolverSnapshot, refs);

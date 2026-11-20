@@ -36,6 +36,7 @@ export function toWorkerProbeRecord(finding) {
     inRange: finding.code === 'WORKER_DIRECT_READY' ? true : (version !== null ? false : null),
     ready: finding.code === 'WORKER_DIRECT_READY',
     reason: finding.code,
+    ...(finding.code === 'WORKER_DIRECT_READY' && finding.status === 'warn' ? { warning: finding.message } : {}),
   };
 }
 
@@ -127,7 +128,10 @@ export async function runWorkerProbe(projectDir, options, workerConfig) {
     for (const finding of wrapperTextFindings(payload.wrapperEnforcement)) console.log(`${finding.name}: ${finding.message}`);
     for (const diagnostic of payload.workerPolicyDiagnostics) console.log(`Worker Policy: ${diagnostic.code} ${diagnostic.pointer}: ${diagnostic.message}`);
     for (const warning of payload.nativeSandboxWarnings) console.log(`Warning: ${warning.message}`);
-    for (const worker of workers) console.log(`Direct Worker ${worker.cli}: ${worker.reason}`);
+    for (const worker of workers) {
+      console.log(`Direct Worker ${worker.cli}: ${worker.reason}`);
+      if (worker.warning) console.log(`Warning: ${worker.warning}`);
+    }
     if (payload.sandboxChecks?.length) console.log(`Worker sandbox checks: ${JSON.stringify(payload.sandboxChecks)}`);
     if (payload.qualification) console.log(`Worker qualification: ${JSON.stringify(payload.qualification)}`);
     if (payload.invocationChecks?.length) console.log(`Worker invocation checks: ${JSON.stringify(payload.invocationChecks)}`);

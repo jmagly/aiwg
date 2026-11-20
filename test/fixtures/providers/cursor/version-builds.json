@@ -1,0 +1,9 @@
+[
+  { "version": "2026.11.11-b912975", "ready": false, "newer": false },
+  { "version": "2026.11.13-eacade1", "ready": true, "newer": false },
+  { "version": "2026.11.17-f532c45", "ready": true, "newer": true },
+  { "version": "2026.11.19-f005e9d", "ready": true, "newer": true },
+  { "version": "2026.11.19-0001234", "ready": true, "newer": true },
+  { "version": "2026.11.19-unknown", "ready": false, "newer": false },
+  { "version": "unknown", "ready": false, "newer": false }
+]

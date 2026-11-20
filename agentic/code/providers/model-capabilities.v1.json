@@ -891,7 +891,7 @@
         "id": "cursor-direct",
         "provider": "cursor",
         "adapterVersion": "1",
-        "supportedVersions": "2026.11.13-eacade1",
+        "supportedVersions": ">=2026.11.13",
         "runtimeDriver": "installed:cursor",
         "catalogAdapter": {
           "kind": "file",
@@ -946,7 +946,7 @@
         "invocationProfiles": {
           "direct-shell": {
             "transport": "shell",
-            "supportedVersions": "2026.11.13-eacade1",
+            "supportedVersions": ">=2026.11.13",
             "controls": {
               "model": {
                 "support": "unqualified",
@@ -1025,7 +1025,7 @@
               "A type:\"interaction_query\" line means the CLI is waiting for an approval answer this profile cannot supply; treated as fatal regardless of position (before or after a success line), never as a pending success.",
               "The template placeholder ${mode} documents the conditional --mode ask that read-only additionally emits on top of --sandbox enabled; it is omitted entirely for workspace-write, never rendered as an empty token.",
               "Auth may use CURSOR_API_KEY or an existing login (live smoke used login); HOME locates ~/.cursor for persistent settings.",
-              "SE4: historical raw banner 2026.10.01-e373342 needs semver normalization to 2026.10.1-e373342; current supported version 2026.11.13-eacade1 needs no normalization."
+              "SE4: date cores normalize decimal components; Cursor build hashes are retained for approval identity but ignored for supported-range comparison. Builds from 2026.11.13 onward are admitted; newer than tested builds warn with the manual smoke and approval refresh path."
             ],
             "health": {
               "version": 1,
