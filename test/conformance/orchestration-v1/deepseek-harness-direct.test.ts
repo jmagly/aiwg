@@ -148,8 +148,11 @@ async function fakeConfig(root: string, scenario: string, extra: Record<string, 
 
 /** Real resolver snapshot with the bundled, version-bound DeepSeek Harness
  * direct-shell profile. */
-async function dshPlan(options: { qualify?: boolean; cliVersion?: string } = {}) {
+async function dshPlan(options: { qualify?: boolean; cliVersion?: string; openrouter?: boolean } = {}) {
   const f = workerResolutionFixture();
+  const model = options.openrouter ? 'deepseek/deepseek-v4.1-flash' : MODEL;
+  const key = options.openrouter ? 'OPENROUTER_API_KEY' : 'DEEPSEEK_API_KEY';
+  const profileId = options.openrouter ? 'direct-shell-openrouter' : 'direct-shell';
   const { root, workdir } = await scratch();
   const payload = `'double" leading 雪\n$(touch ${root}/injected); \`echo danger\` = value --model evil ${MARKER}`;
   const brief = path.join(root, "brief '雪\n.md");
@@ -157,7 +160,7 @@ async function dshPlan(options: { qualify?: boolean; cliVersion?: string } = {})
   const registry = f.snapshot.registry;
   delete registry.providers.codex.workerAdapter;
   const adapter = structuredClone(loadProviderModelCapabilities().providers['deepseek-harness'].workerHealthAdapter!) as any;
-  const profile = adapter.invocationProfiles['direct-shell'];
+  const profile = adapter.invocationProfiles[profileId];
   if (options.qualify !== false) {
     adapter.qualification = { status: 'qualified', fixtureDigest: workerConfigDigest('synthetic-dsh-fixture'),
       verifiedAt: f.observation.verifiedAt, evidenceRef: 'fixture:synthetic-only' };
@@ -165,23 +168,23 @@ async function dshPlan(options: { qualify?: boolean; cliVersion?: string } = {})
       if (name === 'stepCap') continue;
       Object.assign(control, { support: 'native', evidence: 'fixture:synthetic-dsh-host (not live evidence)' });
     }
-    profile.envAllowlist = ['AIWG_FAKE_WORKER_CONFIG'];
-    adapter.invocation.envAllowlist = ['AIWG_FAKE_WORKER_CONFIG'];
+    profile.envAllowlist = ['AIWG_FAKE_WORKER_CONFIG', key];
+    adapter.invocation.envAllowlist = ['AIWG_FAKE_WORKER_CONFIG', key];
     Object.assign(adapter.capabilities, { modelPin: 'requested', effort: 'explicit', sandboxModes: ['read-only', 'workspace-write'],
       nestedAgentsControllable: true, nativeFallbackControllable: true });
   }
   registry.providers['deepseek-harness'].workerAdapter = adapter;
   Object.assign(f.snapshot.models.defaults.workerSelection!.roleGuidance!.coding!, { initialEffort: EFFORT, effortLadder: [EFFORT] });
-  f.snapshot.config.parallelism!.groups!.workers.members.forEach(member => { member.cli = 'deepseek-harness'; member.model = MODEL; });
+  f.snapshot.config.parallelism!.groups!.workers.members.forEach(member => { member.cli = 'deepseek-harness'; member.model = model; });
   f.snapshot.config.parallelism!.groups!.workers.members.splice(1);
   f.snapshot.config.parallelism!.groups!.workers.fallback = [];
   f.snapshot.config.parallelism!.groups!.workers.execution = { sandbox: 'workspace-write' } as any;
-  const binding: any = { ...f.snapshot.installations.codex, profile: 'direct-shell', cliVersion: options.cliVersion ?? VERSION };
+  const binding: any = { ...f.snapshot.installations.codex, profile: profileId, cliVersion: options.cliVersion ?? VERSION };
   f.snapshot.installations = { 'deepseek-harness': binding };
   const discovery = f.snapshot.catalog.discovery!.instances!.codex;
   discovery.provider = 'deepseek-harness'; discovery.runtimeVersion = options.cliVersion ?? VERSION;
   discovery.models = discovery.models.slice(0, 1);
-  for (const row of discovery.models) { row.id = MODEL; row.apiModelId = MODEL; row.worker!.cliId = 'deepseek-harness';
+  for (const row of discovery.models) { row.id = model; row.apiModelId = model; row.llmProvider = options.openrouter ? 'openrouter' : 'deepseek'; row.worker!.cliId = 'deepseek-harness';
     row.worker!.runtimeVersion = options.cliVersion ?? VERSION; row.reasoningEfforts = [EFFORT];
     (row.worker as any).efforts = [{ id: EFFORT, selfDelegates: false }]; }
   f.snapshot.catalog.discovery!.instances = { 'deepseek-harness': discovery };
@@ -190,7 +193,7 @@ async function dshPlan(options: { qualify?: boolean; cliVersion?: string } = {})
     extractFinal: (output: string) => installed.owner.parseOutput(output),
     buildInvocation: async input => ({ argv: [process.execPath, FAKE, ...owner.buildWorkerArgs(input, profile, input.permissions)],
       artifacts: owner.buildWorkerArtifacts(input),
-      stdin: DEEPSEEK_HARNESS_DIRECT_STDIN, envNames: ['AIWG_FAKE_WORKER_CONFIG'] }),
+      stdin: DEEPSEEK_HARNESS_DIRECT_STDIN, envNames: ['AIWG_FAKE_WORKER_CONFIG', key] }),
   } };
   const request = { role: 'coding' as const, group: 'workers', task: 'implementation', brief, workdir,
     final_output: path.join(root, "final '雪\n.json"), transport: 'shell' as const };
@@ -275,11 +278,24 @@ describe('T-OG-15 DeepSeek Harness direct command contract', () => {
     expect(result.termination).toBe('confirmed');
     const record = JSON.parse(await readFile(recordPath, 'utf8'));
     expect(record).toMatchObject({ model: MODEL, effort: EFFORT, sandbox: 'workspace-write', approval: 'never', cwd: workdir,
-      patchPath: path.join(runDir, 'artifact-dsh-patch'), brief: workerPromptBrief(payload, plan.invocation!.finalPath!).toString() });
+      permissionPreset: 'headless-workspace-write', patchPath: path.join(runDir, 'artifact-dsh-patch'), brief: workerPromptBrief(payload, plan.invocation!.finalPath!).toString() });
     expect(existsSync(record.patchPath)).toBe(false);
     expect(record.argv).not.toContain(payload);
     expect(result.exitCode).toBe(0);
     vi.unstubAllEnvs();
+  });
+
+  it('DH02a resolves the opt-in OpenRouter route with a matching patch and scoped key name', async () => {
+    const { plan } = await dshPlan({ openrouter: true, cliVersion: '0.2.2-rc.1' });
+    expect(plan.invocation).toBeDefined();
+    expect(plan.invocation!.selected.inferenceProvider).toBe('openrouter');
+    expect(plan.invocation!.selected.profileRef).toBe('direct-shell-openrouter');
+    expect(plan.invocation!.envNames).toEqual(['AIWG_FAKE_WORKER_CONFIG', 'OPENROUTER_API_KEY']);
+    const patch = plan.invocation!.artifacts![0].content;
+    expect(patch).toContain('provider: "openrouter"');
+    expect(patch).toContain('model: "deepseek/deepseek-v4.1-flash"');
+    expect(patch).toContain('apiKeyEnv: OPENROUTER_API_KEY');
+    expect(plan.invocation!.argv).not.toContain('OPENROUTER_API_KEY');
   });
 
   it('DH03 the driver argv is PURE (no I/O) and refuses guessed or unsafe controls', () => {
@@ -338,8 +354,8 @@ describe('T-OG-20/21 DeepSeek Harness run identity and failure signals', () => {
 
   async function withPatch(root: string, extra: Record<string, unknown> = {}) {
     const patchPath = path.join(root, '.dsh-direct-patch.yml');
-    await writeFile(patchPath, `- id: agent-default-model\n  config:\n    provider: "deepseek-official"\n    model: "${MODEL}"\n    reasoningEffort: "${EFFORT}"\n`
-      + `- id: sandbox-policy\n  config:\n    mode: "workspace-write"\n- id: approval\n  config:\n    policy: "never"\n`);
+    await writeFile(patchPath, buildDeepSeekHarnessPatch({ model: MODEL, effort: EFFORT,
+      sandbox: 'workspace-write', approval: 'never' }));
     return patchPath;
   }
 

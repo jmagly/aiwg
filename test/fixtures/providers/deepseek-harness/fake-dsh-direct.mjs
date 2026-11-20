@@ -21,6 +21,7 @@
  * real parser's arity rather than hiding a broken argv.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { parse } from 'yaml';
 
 const config = process.env.AIWG_FAKE_WORKER_CONFIG
   ? JSON.parse(readFileSync(process.env.AIWG_FAKE_WORKER_CONFIG, 'utf8')) : {};
@@ -75,6 +76,19 @@ if (!effort || !['off', 'low', 'high', 'max'].includes(effort)) fail(`invalid re
 if (!sandbox || !['read-only', 'workspace-write'].includes(sandbox)) fail(`refused sandbox mode in patch: ${sandbox}`);
 if (approval !== 'never') fail(`refused approval policy in patch: ${approval}`);
 
+// Model the permission plugin's mount contract, including reserved preset names.
+const configs = Object.fromEntries(parse(patchText).map(row => [row.id, row.config]));
+const permission = configs.permission ?? {};
+const presets = { 'read-only': { sandbox: 'read-only', approval: 'ask' },
+  'workspace-write': { sandbox: 'workspace-write', approval: 'ask' },
+  'danger-full-access': { sandbox: 'danger-full-access', approval: 'never' }, ...permission.presets };
+if (['custom', 'auto'].some(name => Object.hasOwn(permission.presets ?? {}, name))) fail('reserved permission preset');
+const permissionPreset = permission.defaultPreset
+  ?? Object.keys(presets).find(name => presets[name].sandbox === sandbox && presets[name].approval === approval);
+if (!permissionPreset || presets[permissionPreset]?.sandbox !== sandbox || presets[permissionPreset]?.approval !== approval) {
+  fail('permission: composed sandbox and approval defaults match no preset; configure defaultPreset explicitly');
+}
+
 async function readStdin() {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);
@@ -84,7 +98,7 @@ async function readStdin() {
 function record(extra) {
   if (!config.recordPath) return;
   writeFileSync(config.recordPath, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(),
-    envNames: Object.keys(process.env).sort(), model, effort, sandbox, approval, patchPath, pid: process.pid, ...extra }),
+    envNames: Object.keys(process.env).sort(), model, effort, sandbox, approval, permissionPreset, patchPath, pid: process.pid, ...extra }),
     { mode: 0o600 });
 }
 
