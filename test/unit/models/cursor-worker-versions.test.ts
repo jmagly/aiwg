@@ -1,6 +1,8 @@
 // Cursor self-updates retain the lower bound and surface the explicit refresh path.
-import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildDirectWorkerDoctorSection, diagnoseDirectWorkerReadiness, probeDirectWorkerVersion } from '../../../src/models/worker-direct-readiness.js';
 import { boundedVersionProbe, normalizeWorkerVersionBanner, workerVersionProbeEnvironment, workerVersionRangeMismatch } from '../../../src/models/worker-installation.mjs';
 import { cursorWorkerVersionWarning, workerComparableVersion } from '../../../src/models/cursor-worker-version.mjs';
@@ -11,6 +13,19 @@ const builds: Array<{ version: string; ready: boolean; newer: boolean }> = JSON.
 installDirectWorkerFixtures();
 
 describe('#4306 Cursor build compatibility', () => {
+  // Cursor's model/version probes run in os.tmpdir(); the fake CLI records into its
+  // cwd. Point TMPDIR at a per-test directory so no probe record reaches the real temp root.
+  let previousTmp: string | undefined;
+  let scratchTmp: string;
+  beforeEach(() => {
+    previousTmp = process.env.TMPDIR;
+    scratchTmp = mkdtempSync(join(tmpdir(), 'aiwg-cursor-probe-tmp-'));
+    process.env.TMPDIR = scratchTmp;
+  });
+  afterEach(() => {
+    if (previousTmp === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = previousTmp;
+    rmSync(scratchTmp, { recursive: true, force: true });
+  });
   it.each(builds)('$version readiness=$ready newer=$newer', async ({ version, ready, newer }) => {
     const input = {
       parallelism: parallelismWith({ cursor: { adapter: 'providers:cursor', executable: await fakeCli(version),
