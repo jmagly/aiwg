@@ -180,7 +180,7 @@ describe('provider policy', () => {
     expect(shouldEmitContextFiles('codex')).toBe(true);
     expect(shouldEmitContextFiles('copilot')).toBe(true);
     expect(shouldEmitContextFiles('cursor')).toBe(true);
-    expect(shouldEmitContextFiles('windsurf')).toBe(true);
+    expect(shouldEmitContextFiles('devin')).toBe(true);
     expect(shouldEmitContextFiles('hermes')).toBe(true);
     expect(shouldEmitContextFiles('warp')).toBe(true);
     expect(shouldEmitContextFiles('factory')).toBe(true);
@@ -226,7 +226,7 @@ describe('provider policy', () => {
   });
 
   it('granular gates: AGENTS_MD providers get AIWG.md AND AGENTS.md but NOT claude hook', () => {
-    for (const p of ['codex', 'copilot', 'cursor', 'windsurf', 'hermes', 'warp', 'factory', 'opencode'] as const) {
+    for (const p of ['codex', 'copilot', 'cursor', 'devin', 'hermes', 'warp', 'factory', 'opencode'] as const) {
       expect(shouldEmitAiwgMd(p)).toBe(true);
       expect(shouldEmitAgentsMd(p)).toBe(true);
       expect(shouldEmitClaudeMdHook(p)).toBe(false);

@@ -26,7 +26,7 @@ const LIST_PROVIDER_TARGETS: ReadonlyArray<ProviderDeployTargets> = [
   { name: 'opencode', root: '.opencode', agentsPath: '.opencode/agent', skillsPath: '.opencode/skill', commandsPath: '.opencode/command' },
   { name: 'warp', root: '.warp', agentsPath: '.warp/agents', skillsPath: '.warp/skills', commandsPath: '.warp/commands' },
   { name: 'factory', root: '.factory', agentsPath: '.factory/droids', skillsPath: '.factory/skills', commandsPath: '.factory/commands' },
-  { name: 'windsurf', root: '.windsurf', agentsPath: '.windsurf/agents', skillsPath: '.windsurf/skills', commandsPath: '.windsurf/workflows' },
+  { name: 'devin', root: '.windsurf', agentsPath: '.windsurf/agents', skillsPath: '.windsurf/skills', commandsPath: '.windsurf/workflows' },
   { name: 'universal', root: '.agents', agentsPath: '.agents/agents', skillsPath: '.agents/skills', commandsPath: '.agents/commands' },
 ];
 

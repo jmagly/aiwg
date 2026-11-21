@@ -60,7 +60,7 @@ Each platform has a context file you own and a generated hook file managed by AI
 |----------|------------------|----------------|-----------------|
 | Claude Code | `CLAUDE.md` | `AIWG.md` | `@AIWG.md` |
 | Warp Terminal | `WARP.md` | `AIWG-warp.md` | `@AIWG-warp.md` |
-| Windsurf | `AGENTS.md` | `AIWG-windsurf.md` | `@AIWG-windsurf.md` |
+| Devin Desktop | `AGENTS.md` | `AIWG-windsurf.md` | `@AIWG-windsurf.md` |
 | GitHub Copilot | `.github/copilot-instructions.md` | `AIWG-copilot.md` | `@AIWG-copilot.md` |
 | Cursor | `.cursorrules` | `AIWG-cursor.md` | `@AIWG-cursor.md` |
 | Factory AI | `AGENTS.md` | `AIWG-factory.md` | `@AIWG-factory.md` |
@@ -93,7 +93,7 @@ AIWG Hook Status
   claude     ✓ enabled    (@AIWG.md in CLAUDE.md, 312 lines)
   warp       ✓ enabled    (@AIWG-warp.md in WARP.md)
   copilot    ✗ disabled   (AIWG-copilot.md exists but no directive)
-  windsurf   - not found  (AGENTS.md not present)
+  devin   - not found  (AGENTS.md not present)
 
 Summary: 2 enabled, 1 disabled, 1 not found
 

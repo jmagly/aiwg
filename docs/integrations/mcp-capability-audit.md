@@ -79,7 +79,7 @@ This re-audit keeps the default core lean and classifies the post-#1533 surfaces
 
 ## Provider-Agnostic Positioning
 
-MCP configuration belongs to the user or workspace, not to a specific AIWG provider adapter. The same `aiwg mcp serve` process can be connected from Claude, Codex, Cursor, Factory, GitHub Copilot, OpenCode, Warp, Windsurf, Hermes, OpenClaw, or any other MCP-capable host.
+MCP configuration belongs to the user or workspace, not to a specific AIWG provider adapter. The same `aiwg mcp serve` process can be connected from Claude, Codex, Cursor, Factory, GitHub Copilot, OpenCode, Warp, Devin Desktop, Hermes, OpenClaw, or any other MCP-capable host.
 
 Provider adapters should therefore say:
 

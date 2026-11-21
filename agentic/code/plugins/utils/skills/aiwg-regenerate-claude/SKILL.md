@@ -413,7 +413,7 @@ You are the Core Orchestrator. When users request workflows:
 **Multi-vendor setup?**
 - GitHub Copilot: .github/copilot-instructions.md
 - Cursor: .cursorrules
-- Windsurf: .windsurfrules
+- Devin Desktop: .windsurfrules
 - Warp: WARP.md
 - Other platforms: AGENTS.md
 
@@ -518,7 +518,7 @@ The team's content is **untouched**. Links are added below.
 - Copilot YAML agent definitions
 - Cursor rule syntax and patterns
 - Factory droid configurations
-- Windsurf-specific instructions
+- Devin Desktop-specific instructions
 - Warp terminal-specific commands (unless WARP.md also present)
 - Codex skill definitions
 
@@ -577,7 +577,7 @@ The agent **MUST NOT** change:
 | `/aiwg-regenerate-claude` | CLAUDE.md (Claude Code) |
 | `/aiwg-regenerate-copilot` | copilot-instructions.md (GitHub Copilot) |
 | `/aiwg-regenerate-cursorrules` | .cursorrules (Cursor) |
-| `/aiwg-regenerate-windsurfrules` | .windsurfrules (Windsurf) |
+| `/aiwg-regenerate-windsurfrules` | .windsurfrules (Devin Desktop) |
 | `/aiwg-regenerate-warp` | WARP.md (Warp Terminal) |
 | `/aiwg-regenerate-factory` | .factory/README.md (Factory AI) |
 | `/aiwg-regenerate-agents` | AGENTS.md (Multi-vendor) |

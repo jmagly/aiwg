@@ -28,7 +28,7 @@ describe('Provider classification', () => {
       // opencode: PUW-006 (#1107) — OpenCode scans .opencode/command/**/*.md
       expect(providerNeedsCommands('opencode')).toBe(true);
       expect(providerNeedsCommands('warp')).toBe(true);
-      expect(providerNeedsCommands('windsurf')).toBe(true);
+      expect(providerNeedsCommands('devin')).toBe(true);
       expect(providerNeedsCommands('copilot')).toBe(true);
       expect(providerNeedsCommands('codex')).toBe(true);
       expect(providerNeedsCommands('openclaw')).toBe(true);
@@ -478,7 +478,7 @@ Does simple things.`,
   });
 
   it('should work for all command-needing providers', async () => {
-    for (const provider of ['factory', 'opencode', 'warp', 'windsurf', 'copilot', 'codex', 'openclaw']) {
+    for (const provider of ['factory', 'opencode', 'warp', 'devin', 'copilot', 'codex', 'openclaw']) {
       const providerTarget = provider === 'copilot'
         ? path.join(tmpDir, '.github', 'commands')
         : path.join(tmpDir, `commands-${provider}`);

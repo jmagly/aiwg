@@ -365,7 +365,7 @@ RLM integrates with multiple AIWG systems:
 - Feedback-driven improvement
 
 ### Multi-Provider Support
-- Codex, Claude, Copilot, Cursor, Factory, OpenCode, Warp, Windsurf
+- Codex, Claude, Copilot, Cursor, Factory, OpenCode, Warp, Devin Desktop
 - Model mapping handles provider differences
 - Consistent RLM patterns across all platforms
 

@@ -312,7 +312,7 @@ const installDestinations = [
   { target: "factory", file: ".factory/mcp.json", home: true },
   { target: "codex", file: ".codex/config.toml", home: true },
   { target: "openai", file: ".codex/config.toml", home: true },
-  { target: "windsurf", file: ".codeium/windsurf/mcp_config.json", home: true },
+  { target: "devin", file: ".codeium/windsurf/mcp_config.json", home: true },
   { target: "vscode", file: ".vscode/mcp.json" },
   { target: "copilot", file: ".vscode/mcp.json" },
   { target: "opencode", file: "opencode.json" },

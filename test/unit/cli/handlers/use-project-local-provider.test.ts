@@ -125,13 +125,13 @@ describe('aiwg use project-local provider bundles (#1717)', () => {
     expect(state.run.mock.calls[0][1]).not.toContain('my-provider');
   });
 
-  it.each(['devin', 'devin-desktop', 'windsurf'])('resolves %s to the same Windsurf deploy adapter', async (selector) => {
+  it.each(['devin', 'devin-desktop', 'windsurf'])('resolves %s to the same Devin Desktop deploy adapter', async (selector) => {
     const args = ['sdlc', '--provider', selector, '--target', projectDir, '--dry-run', '--no-utils', '--no-project-local'];
     const result = await useHandler.execute({ cwd: projectDir, frameworkRoot, rawArgs: ['use', ...args], args });
 
     expect(result.exitCode).toBe(0);
-    expect(state.run).toHaveBeenCalledWith('tools/agents/deploy-agents.mjs', expect.arrayContaining(['--provider', 'windsurf']), expect.objectContaining({ capture: true, stdoutFd: expect.any(Number) }));
-    if (selector !== 'windsurf') expect(state.run.mock.calls[0][1]).not.toContain(selector);
+    expect(state.run).toHaveBeenCalledWith('tools/agents/deploy-agents.mjs', expect.arrayContaining(['--provider', 'devin']), expect.objectContaining({ capture: true, stdoutFd: expect.any(Number) }));
+    if (selector !== 'devin') expect(state.run.mock.calls[0][1]).not.toContain(selector);
   });
 
   it.each([

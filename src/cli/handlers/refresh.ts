@@ -55,7 +55,7 @@ const PROVIDER_AGENT_DIRS: Record<string, string> = {
   factory: '.factory/droids',
   opencode: '.opencode/agent',
   warp: '.warp/agents',
-  windsurf: '.windsurf/agents',
+  devin: '.windsurf/agents',
 };
 
 export async function currentBundledAgentBasenames(frameworkRoot: string): Promise<Set<string>> {

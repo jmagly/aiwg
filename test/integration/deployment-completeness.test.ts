@@ -329,8 +329,8 @@ const PROVIDER_EXPECTATIONS: Record<string, ProviderExpectation> = {
     agentFileExt: '.md',
     usesConsolidatedRules: false,  // rules go into WARP.md
   },
-  windsurf: {
-    name: 'windsurf',
+  devin: {
+    name: 'devin',
     requiredDirs: ['.windsurf/.aiwg/skills', '.windsurf/workflows', '.windsurf/rules'],
     rootFiles: ['AGENTS.md'],
     agentDir: '.windsurf/agents',
@@ -521,7 +521,7 @@ describe.skipIf(!GIT_INIT_AVAILABLE)('Deployment Completeness', () => {
   // -------------------------------------------------------------------------
   // Aggregated agent files (WARP.md, AGENTS.md)
   // -------------------------------------------------------------------------
-  describe.each(['warp', 'windsurf'])('%s: aggregated agent file', (providerName) => {
+  describe.each(['warp', 'devin'])('%s: aggregated agent file', (providerName) => {
     const prov = PROVIDER_EXPECTATIONS[providerName];
     let projectDir: string;
     let homeDir: string;

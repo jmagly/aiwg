@@ -30,7 +30,7 @@ export const PROVIDER_IDS: readonly Platform[] = [
   'pi',
   'omp',
   'warp',
-  'windsurf',
+  'devin',
   'generic',
 ];
 

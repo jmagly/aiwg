@@ -34,7 +34,7 @@ aiwg list
 | Warp | Full | WARP.md behavior section with session wrapper |
 | Copilot | Partial | Agent + rules; no persistent session, concierge activates per-interaction |
 | Cursor | Partial | Agent + rules; behavior emulated via rules |
-| Windsurf | Partial | Agent + rules; behavior emulated via rules |
+| Devin Desktop | Partial | Agent + rules; behavior emulated via rules |
 | OpenCode | Partial | Agent + rules |
 | Factory | Partial | Agent (droid) + rules |
 | Codex | Partial | Agent + rules |

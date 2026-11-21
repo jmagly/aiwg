@@ -25,7 +25,7 @@ const profile = JSON.parse(readFileSync(join(fixtures, "profile.json"), "utf-8")
 const servers = JSON.parse(readFileSync(join(fixtures, "servers.json"), "utf-8")) as McpServerDefinition[];
 const cliPath = resolve(__dirname, "../../../src/mcp/cli.mjs");
 
-const providers = ["claude-code", "codex", "opencode", "factory", "windsurf", "antigravity", "cursor", "warp"] as InjectProvider[];
+const providers = ["claude-code", "codex", "opencode", "factory", "devin", "antigravity", "cursor", "warp"] as InjectProvider[];
 
 function listFiles(root: string): string[] {
   if (!existsSync(root)) return [];
@@ -139,7 +139,7 @@ describe.each([
         .map(file => [relative(root, file), readFileSync(file, "utf-8")]),
     );
     const actual = { files, warnings: result.warnings };
-    const golden = join(fixtures, `${provider}.golden.json`);
+    const golden = join(fixtures, `${provider === "devin" ? "windsurf" : provider}.golden.json`);
     if (process.env.AIWG_UPDATE_GOLDEN === "1") writeFileSync(golden, JSON.stringify(actual, null, 2) + "\n");
     expect(actual).toEqual(JSON.parse(readFileSync(golden, "utf-8")));
   });

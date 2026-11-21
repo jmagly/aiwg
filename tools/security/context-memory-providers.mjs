@@ -55,7 +55,7 @@ export const PROVIDERS = Object.freeze({
     skills: ['.warp/skills', '.warp/.aiwg/skills'],
     bridges: ['WARP.md'],
   },
-  windsurf: {
+  devin: {
     agents: '.windsurf/agents', rules: '.windsurf/rules',
     skills: ['.windsurf/skills', '.windsurf/.aiwg/skills'],
     bridges: ['AGENTS.md'],

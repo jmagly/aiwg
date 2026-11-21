@@ -11,7 +11,7 @@ SkillSmith generates skills with proper SKILL.md format and deploys them to plat
 - **Platform-aware deployment**: Automatically deploys to correct directory for each platform
 - **Skill validation**: Validates skill names (kebab-case) and structure
 - **Reference generation**: Optionally creates supporting documentation
-- **Multi-platform support**: Claude, Factory, Cursor, Codex, Windsurf, Copilot, Generic
+- **Multi-platform support**: Claude, Factory, Cursor, Codex, Devin Desktop, Copilot, Generic
 - **Dry-run mode**: Preview deployment without writing files
 
 ## Platform Support
@@ -23,7 +23,7 @@ SkillSmith generates skills with proper SKILL.md format and deploys them to plat
 | Factory | `.factory/skills/` | No | Command |
 | Cursor | `.cursor/skills/` | Yes | - |
 | Codex | `.codex/skills/` | No | Command |
-| Windsurf | `.windsurf/skills/` | No | Command |
+| Devin Desktop | `.windsurf/skills/` | No | Command |
 | Copilot | `.github/copilot/skills/` | No | None |
 
 ## Usage

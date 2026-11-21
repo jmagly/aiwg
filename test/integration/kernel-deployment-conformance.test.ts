@@ -28,7 +28,7 @@ const PROVIDERS = [
   { id: 'factory', root: (project: string) => join(project, '.factory/skills'), standardRoot: (project: string) => join(project, '.factory/.aiwg/skills') },
   { id: 'opencode', root: (project: string) => join(project, '.opencode/skill'), standardRoot: (project: string) => join(project, '.opencode/.aiwg/skill') },
   { id: 'warp', root: (project: string) => join(project, '.warp/skills'), standardRoot: (project: string) => join(project, '.warp/.aiwg/skills') },
-  { id: 'windsurf', root: (project: string) => join(project, '.windsurf/skills'), standardRoot: (project: string) => join(project, '.windsurf/.aiwg/skills') },
+  { id: 'devin', root: (project: string) => join(project, '.windsurf/skills'), standardRoot: (project: string) => join(project, '.windsurf/.aiwg/skills') },
   { id: 'grokbot', root: (_project: string, home: string) => join(home, 'configured-grokbot-skills'), standardRoot: (_project: string, home: string) => join(home, 'configured-grokbot-skills/.aiwg/skills') },
   { id: 'hermes', root: (_project: string, home: string) => join(home, '.hermes/skills'), standardRoot: (_project: string, home: string) => join(home, '.hermes/skills/.aiwg') },
   { id: 'openclaw', root: (_project: string, home: string) => join(home, '.openclaw/skills/aiwg'), standardRoot: (_project: string, home: string) => join(home, '.openclaw/.aiwg/skills') },
@@ -300,7 +300,7 @@ describe('kernel deployment conformance', () => {
   }, DOUBLE_DEPLOY_TEST_TIMEOUT_MS);
 
   it('matches the command mirror policy for every deployable provider', () => {
-    const commandProviders = ['factory', 'opencode', 'warp', 'windsurf', 'copilot', 'codex', 'openclaw'];
+    const commandProviders = ['factory', 'opencode', 'warp', 'devin', 'copilot', 'codex', 'openclaw'];
     // #236: muse deploys skills natively (no command translation; writers land
     // agents/commands/rules as indexed-only), so it mirrors the native-only
     // peers (hermes/openhuman/grokbot).

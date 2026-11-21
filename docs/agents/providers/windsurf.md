@@ -6,14 +6,19 @@ stable_id: aiwg.agent-reference.provider.windsurf
 
 # Devin Desktop Operational Reference
 
+> **Deprecated reference ID:** `windsurf` remains discoverable for legacy installs;
+> new deployments use the canonical provider id `devin`.
+
 > **Selector and paths:** Use `--provider devin`. AIWG preserves the existing
-> `.windsurf/` files because Devin Desktop uses the Windsurf compatibility
-> adapter. `--provider windsurf` remains accepted with a deprecation notice;
+> `.windsurf/` files because AIWG retains the legacy compatibility
+> adapter. The deprecated alias `--provider windsurf` remains accepted with a deprecation notice;
 > the distinct `devin-cli` surface is not supported.
 
 > **First time using AIWG?** Begin with [Install, Connect, and Verify](https://docs.aiwg.io/pages/getting-started--install-connect-verify.html). This guide assumes AIWG is already installed, `all` is deployed for your provider, and `aiwg-regenerate` has connected the agent to this project.
 
 ---
+
+See [Desktop path verification](../../providers/devin-desktop-paths.md) for retained paths and the pending 3.14 check.
 
 ## Install & Deploy
 
@@ -66,7 +71,7 @@ AGENTS.md                    # Aggregated agent definitions (auto-loaded)
 ```
 
 **Key Architecture**:
-- **Agents**: Aggregated into single `AGENTS.md` at project root (Windsurf auto-discovers at root and subdirectories)
+- **Agents**: Aggregated into single `AGENTS.md` at project root (Devin Desktop auto-discovers at root and subdirectories)
 - **Commands**: Deployed as native workflows to `.windsurf/workflows/` (manual invocation via `/workflow-name`)
 - **Skills**: Deployed to `.windsurf/skills/` (native platform support — Cascade auto-matches by description)
 - **Rules**: Deployed to `.windsurf/rules/` with YAML frontmatter for trigger control (`always_on`, `model_decision`, `glob`, `manual`)
@@ -75,7 +80,7 @@ AGENTS.md                    # Aggregated agent definitions (auto-loaded)
 
 ## Using Agents
 
-Windsurf reads `AGENTS.md` automatically. Use natural language to invoke agents:
+Devin Desktop reads `AGENTS.md` automatically. Use natural language to invoke agents:
 
 ```text
 "Generate intake for an e-commerce platform"
@@ -96,7 +101,7 @@ Reference agents directly using @-mentions:
 
 ### Workflow Commands
 
-Commands are deployed as Windsurf workflows:
+Commands are deployed as Devin Desktop workflows:
 
 ```text
 /transition inception elaboration
@@ -108,10 +113,10 @@ Commands are deployed as Windsurf workflows:
 
 ## Agent Aggregation
 
-Windsurf discovers agent definitions exclusively via `AGENTS.md` files (no `.windsurf/agents/` directory support):
+Devin Desktop discovers agent definitions exclusively via `AGENTS.md` files (no `.windsurf/agents/` directory support):
 
 **Why Aggregation?**
-- Windsurf's rules engine processes `AGENTS.md` natively — root-level files are always-on
+- Devin Desktop's rules engine processes `AGENTS.md` natively — root-level files are always-on
 - Subdirectory `AGENTS.md` files auto-scope via generated globs (`<directory>/**`)
 - All agent definitions remain accessible via @-mentions
 - Regenerate updates aggregation when framework changes
@@ -119,14 +124,14 @@ Windsurf discovers agent definitions exclusively via `AGENTS.md` files (no `.win
 **How It Works**:
 1. Framework defines agents in `agentic/code/frameworks/sdlc-complete/agents/`
 2. Deployment aggregates all agents into root `AGENTS.md`
-3. Windsurf's rules engine loads `AGENTS.md` automatically — treated as always-on rules
+3. Devin Desktop's rules engine loads `AGENTS.md` automatically — treated as always-on rules
 4. Regenerate command updates aggregation if needed
 
 ---
 
 ## Regenerate Guide
 
-The regenerate command is essential for Windsurf integration:
+The regenerate command is essential for Devin Desktop integration:
 
 ```text
 /aiwg-regenerate
@@ -146,7 +151,7 @@ The regenerate command is essential for Windsurf integration:
 
 ---
 
-## Windsurf Commands
+## Devin Desktop Commands
 
 ```bash
 # Regenerate aggregated files
@@ -175,11 +180,11 @@ Run regenerate to update mappings:
 
 ### AGENTS.md not loading?
 
-Windsurf reads root `AGENTS.md` automatically. If agents aren't available:
+Devin Desktop reads root `AGENTS.md` automatically. If agents aren't available:
 
 1. Verify `AGENTS.md` exists at project root
 2. Check file isn't empty
-3. Restart Windsurf
+3. Restart Devin Desktop
 4. Regenerate if needed
 
 ### Workflows missing?
@@ -256,7 +261,7 @@ aiwg use sdlc --provider devin --force
 
 ## Rules System
 
-Windsurf uses `.windsurf/rules/*.md` files with optional YAML frontmatter for trigger control. AIWG deploys rules with appropriate trigger modes:
+Devin Desktop uses `.windsurf/rules/*.md` files with optional YAML frontmatter for trigger control. AIWG deploys rules with appropriate trigger modes:
 
 ### Trigger Modes
 
@@ -288,7 +293,7 @@ Follow AIWG SDLC conventions. Use @-mentions for traceability.
 
 ## Skills
 
-Windsurf natively supports skills since v1.13.6 (January 2026). Each skill is a directory with a `SKILL.md` file:
+Devin Desktop natively supports skills since v1.13.6 (January 2026). Each skill is a directory with a `SKILL.md` file:
 
 ```
 .windsurf/skills/
@@ -304,7 +309,7 @@ Skills are also discoverable at `.agents/skills/` (cross-agent compatibility pat
 
 ## Memories
 
-Windsurf has an automatic memory system (since v1.1.0) that persists context across conversations:
+Devin Desktop has an automatic memory system (since v1.1.0) that persists context across conversations:
 
 - Cascade auto-generates memories when it encounters reusable context
 - Stored locally at `~/.codeium/windsurf/memories/` (per-machine)
@@ -317,7 +322,7 @@ Windsurf has an automatic memory system (since v1.1.0) that persists context acr
 
 ## Agent Loop
 
-Agent loops support multi-provider execution. While Windsurf agents are deployed via AIWG, agent task loops run through the CLI:
+Agent loops support multi-provider execution. While Devin Desktop agents are deployed via AIWG, agent task loops run through the CLI:
 
 ```bash
 aiwg ralph "Fix all tests" --completion "npm test passes"
@@ -338,18 +343,18 @@ See [Agent Loop Guide](../../agent-loop-guide.md) for full documentation includi
 
 ## MCP Sidecar (Unrestricted AIWG Access)
 
-Windsurf has no dangerous mode flag. The MCP sidecar is the only path to unrestricted AIWG tool access:
+Devin Desktop has no dangerous mode flag. The MCP sidecar is the only path to unrestricted AIWG tool access:
 
 ```bash
-aiwg mcp install windsurf
+aiwg mcp install devin
 ```
 
-See the [Windsurf MCP Sidecar Guide](../../integrations/windsurf-mcp-sidecar.md) for complete setup including tool whitelisting and context optimization.
+See the [Devin Desktop MCP Sidecar Guide](../../integrations/windsurf-mcp-sidecar.md) for complete setup including tool whitelisting and context optimization.
 
 ---
 
 ## Additional Resources
 
-**Windsurf Documentation**: [docs.windsurf.com](https://docs.windsurf.com)
+**Devin Desktop Documentation**: [legacy documentation URL](https://docs.windsurf.com)
 **AIWG Repository**: [github.com/jmagly/aiwg](https://github.com/jmagly/aiwg)
 **Support**: [Discord](https://discord.gg/BuAusFMxdA) | [Telegram](https://t.me/+oJg9w2lE6A5lOGFh)

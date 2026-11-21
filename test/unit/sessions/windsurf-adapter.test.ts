@@ -34,7 +34,7 @@ function selected(name: string, locatorClass = 'windsurf-cascade-hook-jsonl'): S
   };
 }
 
-describe('Devin Desktop (Windsurf compatibility) session adapter', () => {
+describe('Devin Desktop (Devin Desktop compatibility) session adapter', () => {
 
   it('inspects and streams JSONL without collecting the source', async () => {
     const buffered = vi.spyOn(sessionReaders, 'readBoundedJsonLines')
@@ -201,7 +201,7 @@ describeWithSqlite('Devin Desktop adapter repository conformance', () => {
 
   it.each(['success', 'directory created', 'initial repository opened', 'initial import completed',
     'raw database opened', 'legacy rows written', 'repository reopened', 'replay completed'])(
-    'migrates a Windsurf catalog in place without duplicating stable rows with cleanup (%s)', async failureAt => {
+    'migrates a Devin Desktop catalog in place without duplicating stable rows with cleanup (%s)', async failureAt => {
       await checkFixtureCleanup(failureAt, async checkpoint => {
         const root = await mkdtemp(resolve(tmpdir(), 'aiwg-devin-migration-'));
         try {

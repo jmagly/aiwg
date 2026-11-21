@@ -190,7 +190,7 @@ effective_parallel = min(
 | Provider | `max_parallel_subagents` | `max_parallel_ralph_loops` | `max_parallel_mc_missions` |
 |----------|--------------------------|----------------------------|----------------------------|
 | `claude` | 4 | 2 | 4 |
-| `codex` / `copilot` / `cursor` / `factory` / `opencode` / `warp` / `windsurf` / `openclaw` / `hermes` | 10 | 3 | 6 |
+| `codex` / `copilot` / `cursor` / `factory` / `opencode` / `warp` / `devin` / `openclaw` / `hermes` | 10 | 3 | 6 |
 | unknown | 4 | 2 | 4 |
 
 Override for higher-tier plans: `aiwg config set --project parallelism.max_parallel_subagents 10`

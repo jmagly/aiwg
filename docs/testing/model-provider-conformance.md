@@ -36,7 +36,7 @@ exposes a stable machine-readable interface.
 The model-worker provider matrix deploys only generated files into temporary
 workspaces. It validates exact native model fields for Claude, Codex, Copilot,
 Cursor, Factory, and OpenCode; semantic OpenHuman hints; and honest
-inherited/global/unsupported degradation for OpenClaw, Pi, Warp, Windsurf, and
+inherited/global/unsupported degradation for OpenClaw, Pi, Warp, Devin Desktop, and
 Hermes. It never launches a provider or spends model tokens. Pi is an AIWG
 deployment provider here; Pi's own `--provider` flag selects an LLM backend
 and is outside this compiler contract.

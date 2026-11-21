@@ -32,7 +32,7 @@ describe('generateHelp', () => {
       expect(help).toContain('copilot');
       expect(help).toContain('factory');
       expect(help).toContain('openai → codex');
-      expect(help).toContain('windsurf');
+      expect(help).toContain('devin');
       expect(help).toContain('cursor');
       expect(help).toContain('opencode');
       expect(help).toContain('warp');

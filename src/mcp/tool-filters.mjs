@@ -32,7 +32,7 @@ import { resolve } from 'path';
 import { homedir } from 'os';
 import { normalizeRuntimeProviderId } from '../providers/provider-definitions.mjs';
 
-const PER_SERVER_DISABLED_TOOLS = new Set(['factory', 'windsurf', 'antigravity']);
+const PER_SERVER_DISABLED_TOOLS = new Set(['factory', 'devin', 'antigravity']);
 const SERVER_DISABLE_KEY = { factory: 'disabled', antigravity: 'disabled' };
 
 function unique(values) {

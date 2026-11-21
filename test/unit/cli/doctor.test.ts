@@ -574,7 +574,7 @@ describe('tools/cli/doctor.mjs — agent-def size ceiling (#1587)', () => {
   });
 
   it('scans the deployed agent definition file types', () => {
-    // .md, .agent.md (Copilot), .soul.md (Windsurf)
+    // .md, .agent.md (Copilot), .soul.md (Devin Desktop)
     expect(content).toContain('.soul.md');
   });
 

@@ -25,7 +25,7 @@ The `WARP.md` file is a **symbolic link** to `CLAUDE.md`. This enables configura
 | OpenCode | AGENTS.md | .opencode/agent/ |
 | Cursor | .cursor/rules/ (MDC) | .cursor/rules/ |
 | OpenAI/Codex | AGENTS.md | .codex/agents/ |
-| Windsurf | .windsurfrules | Inline |
+| Devin Desktop | .windsurfrules | Inline |
 
 ---
 

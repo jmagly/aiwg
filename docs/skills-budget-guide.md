@@ -47,7 +47,7 @@ For runtime costs after a Claude Code skill or subagent is invoked, see
 | Codex (OpenAI) | `project_doc_max_bytes` for AGENTS.md (bridge bytes, per-file upstream ingestion cap) | 32 KiB | Nest AGENTS.md per-subdir; do not raise blindly |
 | Codex | Skill listing ceiling (upstream) | 2% of model context (source: `docs/agents/providers/codex.md`, `codex-rs/core-skills/src/render.rs:18`) | Fixed by Codex; reduce skill count or split workspaces |
 | Codex | AIWG startup-listing cap (deployer-enforced) | 8,000 chars | `--listing-cap <chars>` or `AIWG_CODEX_LISTING_CAP` (`0` disables) |
-| Cursor / Warp / Windsurf | Startup hook (AGENTS.md or WARP.md) | 8 KiB AIWG bridge ceiling | Kernel and indexes live in harness rules files |
+| Cursor / Warp / Devin Desktop | Startup hook (AGENTS.md or WARP.md) | 8 KiB AIWG bridge ceiling | Kernel and indexes live in harness rules files |
 
 ---
 

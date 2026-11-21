@@ -373,9 +373,9 @@ spec:
 ---
 apiVersion: workflow.aiwg.io/v1
 kind: WorkflowCapability
-metadata: { name: verify-windsurf-agents-bridge, labels: { provider: windsurf, gap: agents-reachability } }
+metadata: { name: verify-windsurf-agents-bridge, labels: { provider: devin, gap: agents-reachability } }
 spec:
-  description: Windsurf uses a lean managed AGENTS.md bridge and .windsurf agent files.
+  description: Devin Desktop uses a lean managed AGENTS.md bridge and .windsurf agent files.
   version: "1.0.0"
   inputs: [{ name: project_path, type: path, required: true }]
   outputs: [{ name: bridge_present, type: boolean }]
@@ -385,9 +385,9 @@ spec:
 ---
 apiVersion: workflow.aiwg.io/v1
 kind: WorkflowCapability
-metadata: { name: verify-windsurf-workflows-dir, labels: { provider: windsurf, gap: workflows-not-commands } }
+metadata: { name: verify-windsurf-workflows-dir, labels: { provider: devin, gap: workflows-not-commands } }
 spec:
-  description: Windsurf commands deploy to workflows.
+  description: Devin Desktop commands deploy to workflows.
   version: "1.0.0"
   inputs: [{ name: project_path, type: path, required: true }]
   outputs: [{ name: workflow_count, type: integer }]
@@ -397,9 +397,9 @@ spec:
 ---
 apiVersion: workflow.aiwg.io/v1
 kind: WorkflowCapability
-metadata: { name: verify-windsurf-rule-frontmatter, labels: { provider: windsurf, gap: windsurf-rule-frontmatter } }
+metadata: { name: verify-windsurf-rule-frontmatter, labels: { provider: devin, gap: windsurf-rule-frontmatter } }
 spec:
-  description: Windsurf rules include provider-specific frontmatter.
+  description: Devin Desktop rules include provider-specific frontmatter.
   version: "1.0.0"
   inputs: [{ name: project_path, type: path, required: true }]
   outputs: [{ name: frontmatter_present, type: boolean }]
@@ -409,9 +409,9 @@ spec:
 ---
 apiVersion: workflow.aiwg.io/v1
 kind: WorkflowCapability
-metadata: { name: verify-windsurf-skill-mirrors, labels: { provider: windsurf, gap: skill-mirrors } }
+metadata: { name: verify-windsurf-skill-mirrors, labels: { provider: devin, gap: skill-mirrors } }
 spec:
-  description: Windsurf skills exist in provider and cross-agent mirrors.
+  description: Devin Desktop skills exist in provider and cross-agent mirrors.
   version: "1.0.0"
   inputs: [{ name: project_path, type: path, required: true }]
   outputs: [{ name: mirrors_present, type: boolean }]

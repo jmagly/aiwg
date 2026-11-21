@@ -241,7 +241,7 @@ When the user reports "Agent type not found" for an agent that clearly exists on
 | **Copilot (VS Code)** | `Developer: Reload Window` | VS Code caches workspace agent definitions |
 | **Cursor** | Close and reopen the project | `.cursor/agents/` and `.cursor/rules/` load on workspace open |
 | **Warp** | Open a fresh Warp tab | WARP.md is re-read on tab start |
-| **Windsurf** | Reload the workspace | AGENTS.md is parsed once per workspace session |
+| **Devin Desktop** | Reload the workspace | AGENTS.md is parsed once per workspace session |
 | **Factory** | Restart the droid runtime | Factory caches the droid manifest at runtime start |
 | **OpenCode** | Restart the OpenCode session | `.opencode/agent/` loads on session start (no hot-reload) |
 | **Hermes** | `/reload-skills` and `/reload-mcp` (slash commands; restart chat as fallback) | Skill and MCP config are loaded at session start; Hermes provides in-session re-scan commands |
@@ -307,7 +307,7 @@ When users report deploy issues, run through this triage list:
 |---|---|---|
 | Discover returns paths Hermes can't read | Hermes runs on host but `$AIWG_ROOT` may be in a path the runtime can't access | Verify with `ls -la $(aiwg version --json | jq -r '.installPath')`. May need to use legacy `.aiwg/skills/` per-project copy fallback |
 
-### Cursor / Factory / Copilot / Warp / Windsurf / OpenCode
+### Cursor / Factory / Copilot / Warp / Devin Desktop / OpenCode
 
 These platforms work cleanly with the no-copy model. If user reports issues, focus on the universal triage table above.
 

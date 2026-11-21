@@ -131,11 +131,11 @@ export const PROVIDER_DISCOVERY_DECISIONS: Record<string, ProviderDiscoveryDecis
     reason: 'Warp model choice is profile-managed and no documented CLI command enumerates account-available models.',
     documentation: 'https://docs.warp.dev/agent-platform/agent/using-agents',
   },
-  windsurf: {
-    provider: 'windsurf',
+  devin: {
+    provider: 'devin',
     status: 'unsupported',
     interface: null,
-    reason: 'The Windsurf/Devin desktop CLI exposes editor controls but no documented machine-readable model-list command.',
+    reason: 'The Devin Desktop CLI exposes editor controls but no documented machine-readable model-list command.',
     documentation: 'https://docs.windsurf.com/windsurf/getting-started',
   },
 };

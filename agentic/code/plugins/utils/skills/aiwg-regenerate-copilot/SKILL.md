@@ -283,7 +283,7 @@ Output: .github/copilot-instructions.md (234 lines)
 | `/aiwg-regenerate-claude` | CLAUDE.md (Claude Code) |
 | `/aiwg-regenerate-copilot` | copilot-instructions.md (GitHub Copilot) |
 | `/aiwg-regenerate-cursorrules` | .cursorrules (Cursor) |
-| `/aiwg-regenerate-windsurfrules` | .windsurfrules (Windsurf) |
+| `/aiwg-regenerate-windsurfrules` | .windsurfrules (Devin Desktop) |
 | `/aiwg-regenerate-warp` | WARP.md (Warp Terminal) |
 | `/aiwg-regenerate-factory` | .factory/README.md (Factory AI) |
 | `/aiwg-regenerate-agents` | AGENTS.md (Multi-vendor) |

@@ -24,6 +24,6 @@
     "omp": { "agent": "native", "skill": "inherited", "target": "OMP native agent frontmatter and runtime launch arguments", "format": "model and thinkingLevel frontmatter; --model and --thinking runtime flags", "modelField": "model", "effortField": "thinkingLevel" },
     "pi": { "agent": "native", "skill": "inherited", "target": "Pi headless launch arguments", "format": "Runtime --model and --thinking flags", "modelField": "model", "effortField": "thinking" },
     "warp": { "agent": "global-only", "skill": "unsupported", "target": "Warp agent profile or run configuration", "format": "Saved profile / run control plane" },
-    "windsurf": { "agent": "unsupported", "skill": "unsupported", "target": "No supported portable artifact field", "format": "Informational policy only" }
+    "devin": { "agent": "unsupported", "skill": "unsupported", "target": "No supported portable artifact field", "format": "Informational policy only" }
   }
 }

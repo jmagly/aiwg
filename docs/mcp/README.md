@@ -281,7 +281,7 @@ provider cannot express is printed as a `WARNING` line on stderr; it is not appl
 | Codex | `disabled_tools`; `enabled = false` for `<server>__*` | `enabled_tools` | no |
 | opencode | `tools` map entry `<server>_<tool>: false` | `<server>_*: false`, then each tool `true` | yes |
 | Factory, Antigravity | `disabledTools`; `disabled: true` for `<server>__*` | not supported | no |
-| Windsurf | `disabledTools` | not supported | no |
+| Devin Desktop | `disabledTools` | not supported | no |
 | Cursor, Warp, OMP, Grok Build | not supported | not supported | |
 
 `toolAllow` is per-server. Only servers named in an allow pattern enter allowlist mode; other
@@ -366,7 +366,7 @@ differently:
 | Harness | `--header-env` / `--env-from` renders as |
 | --- | --- |
 | Claude Code | `${VAR}` |
-| Cursor, Windsurf | `${env:VAR}` |
+| Cursor, Devin Desktop | `${env:VAR}` |
 | Factory | `${VAR}` |
 | opencode | `{env:VAR}` |
 | OMP, Grok Build | `${VAR}` |

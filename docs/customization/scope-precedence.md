@@ -22,7 +22,7 @@ The host platforms drive the policy — AIWG follows it.
   and [/sub-agents](https://code.claude.com/docs/en/sub-agents).
 - **Cursor**: project `.cursor/rules/` takes precedence over the
   user-scope rules path (per Cursor's MDC discovery rules).
-- **OpenCode / Warp / Windsurf / Factory**: similar
+- **OpenCode / Warp / Devin Desktop / Factory**: similar
   project-first-then-user resolution; AIWG records the user-scope
   paths in `USER_SCOPE_PATHS` but the platforms perform the actual
   shadow.

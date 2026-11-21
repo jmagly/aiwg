@@ -124,7 +124,7 @@ export function resolvePolicy(
         'uses the verified global one-level ~/.openhuman/skills layout',
       );
       break;
-    case 'windsurf':
+    case 'devin':
       status = 'projected';
       reasons.push(
         'uses one skill bundle directly below the one-level .windsurf/skills surface',

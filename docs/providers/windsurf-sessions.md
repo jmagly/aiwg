@@ -3,8 +3,8 @@
 The canonical session provider ID is `devin-desktop`. AIWG accepts `windsurf`
 as a deprecated compatibility alias through at least 2027-07-27 and for one
 major release after this policy ships. The current product and documentation
-surface is **Devin Desktop**. The former Windsurf Cascade Hooks URL redirects to Devin Docs. This adapter was
-verified against the current Devin Desktop hook contract, not an archived standalone-Windsurf schema.
+surface is **Devin Desktop**. The legacy Windsurf Cascade Hooks URL redirects to Devin Docs. This adapter was
+verified against the current Devin Desktop hook contract, not an archived legacy Windsurf schema.
 
 Alias resolution happens before stable session identity derivation. Both names
 therefore use the historical `windsurf` identity seed and resolve to the same

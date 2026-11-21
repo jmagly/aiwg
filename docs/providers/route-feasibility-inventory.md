@@ -31,7 +31,7 @@ another harness — it resolves to the `codex` harness target. Bare `grok`
 names the xAI model/API category, not a provider. `generic` is a
 registry-only deployment fallback ( nineteenth entry), not an executable
 provider and not a matrix row. Devin CLI is a nondeployable future surface
-of `windsurf`, not an alias. Gemini is not a provider and was not added.
+of `devin`, not an alias. Gemini is not a provider and was not added.
 
 | Alias / related name | Canonical target | Kind |
 |---|---|---|
@@ -41,7 +41,7 @@ of `windsurf`, not an alias. Gemini is not a provider and was not added.
 | `dsh` | `deepseek-harness` | alias → provider |
 | `oh-my-pi` | `omp` | alias → provider |
 | `pi-coding-agent` | `pi` | alias → provider |
-| `devin`, `devin-desktop`, `devin-local`, `cascade` | `windsurf` | alias → provider |
+| `windsurf` (deprecated), `devin-desktop`, `devin-local`, `cascade` | `devin` | alias → provider |
 | `devin-cli` | — | future-provider surface, not an alias |
 | `tinyhumansai` | `openhuman` | alias → provider |
 | `github-copilot` | `copilot` | alias → provider |
@@ -80,7 +80,7 @@ does not establish live qualification, which stays with B-OG-07/08/09/28
 | `pi` | IN | runtime-configured-only | R: `pi --mode json --model/--thinking/--tools`; `--no-approve` is a safety hazard needing explicit semantics; no budget/max-turn controls; JSON mode has no stdin abort | Unknown; blocks strict use | authorized (operator, 2026-10-07; titan, noodle): 3 / 30000 | B-OG-45 |
 | `omp` | IN | runtime-configured-only | R: `omp --mode json --model/--thinking/--profile`; `--no-tools` for text-only; no max-turn flag assumed; do not assume Pi parser/flags are identical | Unknown; blocks strict use | authorized (operator, 2026-10-07; titan, noodle): 3 / 30000 | B-OG-45 |
 | `local` (ollama / llama-server / OpenAI-compatible) | IN | unavailable | H: ollama 0.33.3 and llama-server installed but not running — stopped endpoint excluded without startup; bounded HTTP (`/api/generate` or equivalent), exact model in request body, effort null when unsupported; required profile: text-only roles and no cloud transfer (unproven) | Unknown fan-out and processing: endpoint ownership, upstream forwarding/redirects, cloud fallback, tools, telemetry and enforced egress controls unresolved; local-only whole path unproven; blocks strict use. Required: disable cloud inference/tools/telemetry and enforce egress; never start servers, download weights, or kill a shared server to cancel one request; health ≤60s old per 07 | authorized (operator, 2026-10-07; titan, noodle): 2 / 20000 | B-OG-09 |
-| `windsurf` | OUT | unavailable | R: no verified headless Desktop worker command; IDE startup is not inference; MCP client config is not worker serving | Unknown; recheck B-OG-47 before any scope change | authorized (operator, 2026-10-07; titan, noodle): 1 / 0 | B-OG-47 |
+| `devin` | OUT | unavailable | R: no verified headless Desktop worker command; IDE startup is not inference; MCP client config is not worker serving | Unknown; recheck B-OG-47 before any scope change | authorized (operator, 2026-10-07; titan, noodle): 1 / 0 | B-OG-47 |
 | `grokbot` | OUT | unavailable | R: desktop CreateAgent/registered-machine capabilities establish no headless subprocess contract; connectors consume tools | Unknown; recheck B-OG-47 | authorized (operator, 2026-10-07; titan, noodle): 1 / 0 | B-OG-47 |
 | `openhuman` | IN (promoted by B-OG-47, 2026-10-08) | runtime-configured-only | D: `openhuman-core --model M call --method openhuman.agent_chat --params-stdin` (in-process one-shot agent turn; conductor-framed params `message`, `model_override`, `cwd` on stdin until EOF; final JSON on stdout, no event stream); native `openhuman-core mcp` `agent.run_subagent` has no model/effort/workspace pin and is not a worker tool | Unknown: the orchestrator may spawn subagents (depth-capped only); effort, step-cap and approval/sandbox mapping unknown; blocks strict use | proposed (operator authorization required): 3 / 30000 | B-OG-47 |
 | `flue` | OUT | unavailable | R: Flue 2.3.0 app target; no worker dispatch (#3120 D6) | Unknown; app-only, no CLI adapter | proposed (operator authorization required): 0 / 0 | B-OG-47 |
@@ -131,7 +131,7 @@ excluded hosted rows were rechecked as recorded below.
 | `omp` | IN | roctinam/aiwg#2910 | 2026-10-07 | no | R: `omp-adapter.mjs` |
 | `openhuman` | IN | roctinam/aiwg#2911 | 2026-10-08 | no | D: promoted. Source at [216ea32](https://github.com/tinyhumansai/openhuman/tree/216ea322a3c1269dada70751ac5c08eac7dc7596) and [release v0.64.14](https://github.com/tinyhumansai/openhuman/releases/tag/v0.64.14) (standalone `openhuman-core` asset) evidence `--model` and `call --method openhuman.agent_chat --params`/`--params-stdin`; `agent` subcommands still only inspect prompts; native MCP `agent.run_subagent` has no model pin |
 | `local` | IN | roctinam/aiwg#2899 | 2026-10-07 | no | H: ollama/llama-server installed, endpoint not started |
-| `windsurf` | OUT | — | 2026-10-08 | no | Gap: Devin Desktop documents no headless worker command or worker-serving MCP tool. Recheck: unchanged; [Devin CLI](https://docs.devin.ai/cli/reference/commands.md) has `-p/--print`, `--model`, `--prompt-file` but stays a distinct future provider until registry support exists |
+| `devin` | OUT | — | 2026-10-08 | no | Gap: Devin Desktop documents no headless worker command or worker-serving MCP tool. Recheck: unchanged; [Devin CLI](https://docs.devin.ai/cli/reference/commands.md) has `-p/--print`, `--model`, `--prompt-file` but stays a distinct future provider until registry support exists |
 | `grokbot` | OUT | — | 2026-10-08 | no | Gap: Bots run on xAI-hosted computers from desktop/mobile chat, routines and connectors; no local CLI, headless subprocess or worker MCP tool. Recheck: unchanged per [Grok Bot docs](https://docs.x.ai/grok-bot/overview.md) |
 | `flue` | OUT | — | 2026-10-30 | no | Gap: app target only; argv prompts and absent worker model/effort flags. Recheck: installed Flue 2.3.0 source; #3120 D6 excludes worker dispatch; see [Flue](flue.md) |
 | `generic` | OUT | — | 2026-10-07 | no | Registry-only deployment fallback with no binary, flags or upstream interface to recheck |

@@ -4,7 +4,7 @@ name: hook-disable
 platforms: [all]
 description: Disable the AIWG context hook without uninstalling AIWG or deleting hook files
 commandHint:
-  argumentHint: "[--provider claude|warp|copilot|cursor|factory|windsurf|opencode|codex] [--all]"
+  argumentHint: "[--provider claude|warp|copilot|cursor|factory|devin|opencode|codex] [--all]"
   allowedTools: Read, Write, Edit, Bash, Glob
   model: haiku
   category: hook-management
@@ -24,7 +24,7 @@ Remove the AIWG hook directive from the platform context file(s) so AIWG context
 
 | Flag | Description |
 |------|-------------|
-| `--provider <name>` | Target specific provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `windsurf`, `opencode`, `codex` |
+| `--provider <name>` | Target specific provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `devin`, `opencode`, `codex` |
 | `--all` | Disable for all installed providers (default if no provider specified) |
 
 ## Hook File Map
@@ -33,7 +33,7 @@ Remove the AIWG hook directive from the platform context file(s) so AIWG context
 |----------|-------------|---------------------|
 | Claude Code | `CLAUDE.md` | `@AIWG.md` |
 | Warp Terminal | `WARP.md` | `@AIWG-warp.md` or AIWG section |
-| Windsurf | `AGENTS.md` | `@AIWG-windsurf.md` |
+| Devin Desktop | `AGENTS.md` | `@AIWG-windsurf.md` |
 | GitHub Copilot | `.github/copilot-instructions.md` | `@AIWG-copilot.md` |
 | Cursor | `.cursorrules` | `@AIWG-cursor.md` |
 | Factory AI | `AGENTS.md` | `@AIWG-factory.md` |
@@ -61,7 +61,7 @@ grep -q "@AIWG.md" CLAUDE.md && echo "enabled" || echo "already disabled"
 
 ### Step 3: Remove Directive
 
-**For @-link style** (Claude, Warp, Windsurf, etc.):
+**For @-link style** (Claude, Warp, Devin Desktop, etc.):
 
 Remove the `@AIWG-{provider}.md` line from the context file. Preserve all surrounding content.
 

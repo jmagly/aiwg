@@ -111,6 +111,34 @@ describe('ephemeral CLI transaction', () => {
     }));
   });
 
+  it('reuses legacy injection history once under the canonical Desktop identity', async () => {
+    const registry = new RuntimeRegistry(join(root, 'config'));
+    await registry.recordInjection('git', 'cursor');
+    await registry.recordInjection('git', 'windsurf');
+    await registry.recordInjection('git', 'devin');
+    const destination = join(root, 'desktop-history.json');
+    await main(['inject', '--all', '--profile', 'safe', '--ephemeral', '--out', destination]);
+    expect(console.log).toHaveBeenCalledWith(`cursor: ${destination}`);
+    expect(console.log).toHaveBeenCalledWith(`devin: ${destination}`);
+    expect(console.log).not.toHaveBeenCalledWith(`windsurf: ${destination}`);
+    expect(JSON.parse(readFileSync(destination, 'utf8')).mcpServers.git.disabledTools).toEqual(['delete']);
+  });
+
+  it.each(['devin', 'windsurf', 'devin-desktop'])('injects %s through the canonical Desktop config format', async selector => {
+    const destination = join(root, 'desktop.json');
+    await main(['inject', '--provider', selector, '--profile', 'safe', '--ephemeral', '--out', destination]);
+    expect(JSON.parse(readFileSync(destination, 'utf8')).mcpServers.git.disabledTools).toEqual(['delete']);
+    expect(console.log).toHaveBeenCalledWith(`devin: ${destination}`);
+    expect(existsSync(join(root, 'home/.devin'))).toBe(false);
+  });
+
+  it('keeps the existing Cursor injection identity', async () => {
+    const destination = join(root, 'cursor.json');
+    await main(['inject', '--provider', 'cursor', '--servers', 'git', '--ephemeral', '--out', destination]);
+    expect(JSON.parse(readFileSync(destination, 'utf8')).mcpServers.git.command).toBe('git-mcp');
+    expect(console.log).toHaveBeenCalledWith(`cursor: ${destination}`);
+  });
+
   it.each([false, true].flatMap(existing => [2, 3].map(nth => ({ existing, nth }))))(
     'restores all earlier files after write $nth fails (existing=$existing)', async ({ existing, nth }) => {
       if (existing) {
@@ -142,5 +170,24 @@ describe('ephemeral CLI transaction', () => {
     await expect(inject()).rejects.toThrow();
     expect(snapshot(root)).toEqual(before);
     expect(failure.calls).toEqual([]);
+  });
+});
+
+
+describe('Desktop MCP installation selectors', () => {
+  it('retains the existing Cursor dry-run destination', async () => {
+    await main(['install', 'cursor', '--dry-run']);
+    expect(console.log).toHaveBeenCalledWith('[DRY RUN] Config file: .cursor/mcp.json');
+  });
+  it.each(['devin', 'windsurf', 'devin-desktop', 'devin-local', 'cascade'])('installs %s at the retained legacy destination', async selector => {
+    await main(['install', selector, '--project', join(root, 'project')]);
+    const file = join(root, 'home/.codeium/windsurf/mcp_config.json');
+    expect(JSON.parse(readFileSync(file, 'utf8')).mcpServers.aiwg).toMatchObject({ command: 'aiwg', args: ['mcp', 'serve'] });
+    expect(existsSync(join(root, 'home/.devin'))).toBe(false);
+  });
+  it.each(['devin', 'windsurf', 'devin-desktop', 'devin-local', 'cascade'])('previews the real destination for %s', async selector => {
+    await main(['install', selector, '--project', join(root, 'project'), '--dry-run']);
+    expect(console.log).toHaveBeenCalledWith(`[DRY RUN] Config file: ${join(root, 'home/.codeium/windsurf/mcp_config.json')}`);
+    expect(existsSync(join(root, 'home/.codeium'))).toBe(false);
   });
 });

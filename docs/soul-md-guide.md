@@ -275,7 +275,7 @@ Soul enforcement works across all 8 AIWG providers:
 |----------|-----------|
 | Claude Code | `@SOUL.md` directive in CLAUDE.md |
 | Warp Terminal | `@SOUL.md` directive in WARP.md |
-| Windsurf | `@SOUL.md` directive in AGENTS.md |
+| Devin Desktop | `@SOUL.md` directive in AGENTS.md |
 | GitHub Copilot | `@SOUL.md` directive in copilot-instructions.md |
 | Cursor | `@SOUL.md` directive in .cursorrules |
 | Factory AI | `@SOUL.md` directive in AGENTS.md |

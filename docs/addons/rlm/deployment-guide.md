@@ -32,10 +32,10 @@ aiwg use rlm --provider factory
 aiwg use rlm --provider cursor
 aiwg use rlm --provider opencode
 aiwg use rlm --provider warp
-aiwg use rlm --provider windsurf
+aiwg use rlm --provider devin
 
 # Deploy to all providers
-for provider in claude codex copilot factory cursor opencode warp windsurf; do
+for provider in claude codex copilot factory cursor opencode warp devin; do
   aiwg use rlm --provider $provider
 done
 ```
@@ -44,7 +44,7 @@ done
 
 ### Full Cross-Provider Deployment Table
 
-| Artifact | Claude Code | Codex | Copilot | Factory | Cursor | OpenCode | Warp | Windsurf |
+| Artifact | Claude Code | Codex | Copilot | Factory | Cursor | OpenCode | Warp | Devin Desktop |
 |----------|-------------|-------|---------|---------|--------|----------|------|----------|
 | **rlm-agent.md** | `.claude/agents/` | `.codex/agents/` | `.github/agents/` | `.factory/droids/` | `.cursor/agents/` | `.opencode/agent/` | `.warp/agents/` + WARP.md | AGENTS.md |
 | **rlm-query.md** | `.claude/commands/` | `~/.codex/prompts/` | `.github/agents/` (YAML) | `.factory/commands/` | `.cursor/commands/` | `.opencode/commands/` | `.warp/commands/` + WARP.md | `.windsurf/workflows/` |
@@ -183,7 +183,7 @@ WARP.md  # Contains rlm-agent + all commands
 
 **Special Handling**: Agents and commands are also aggregated into single-file `WARP.md` for quick context loading.
 
-#### Windsurf
+#### Devin Desktop
 ```
 # Aggregated agents file (project root)
 AGENTS.md  # Contains rlm-agent
@@ -420,11 +420,11 @@ grep -q "# Command: rlm-query" WARP.md && echo "Commands aggregated"
 warp run-agent "rlm-agent" --query "sub-task"
 ```
 
-### Windsurf
+### Devin Desktop
 
 **Installation**:
 ```bash
-aiwg use rlm --provider windsurf
+aiwg use rlm --provider devin
 ```
 
 **What Happens**:
@@ -446,8 +446,8 @@ ls .windsurf/rules/rlm-context-management.md
 
 **Sub-Agent Spawning**:
 ```bash
-# Windsurf workflow execution
-windsurf exec --workflow "rlm-query" --input "sub-task"
+# Devin Desktop workflow execution
+devin exec --workflow "rlm-query" --input "sub-task"
 ```
 
 ## Quick Start by Provider
@@ -537,16 +537,16 @@ grep "rlm-agent" WARP.md
 warp run-agent "rlm-agent" --query "Analyze all TypeScript files"
 ```
 
-### Windsurf
+### Devin Desktop
 ```bash
 # Install
-aiwg use rlm --provider windsurf
+aiwg use rlm --provider devin
 
 # Verify
 grep "rlm-agent" AGENTS.md
 
 # Use
-windsurf exec --workflow "rlm-query" --input "Analyze all TypeScript files"
+devin exec --workflow "rlm-query" --input "Analyze all TypeScript files"
 ```
 
 ## Sub-Agent Spawning Support
@@ -561,7 +561,7 @@ RLM's core capability is recursive context decomposition via sub-agent spawning.
 | **Cursor** | ⚠️ Partial | Limited | Manual invocation only |
 | **OpenCode** | ✅ Full | Native | Uses `opencode query` |
 | **Warp** | ✅ Full | Native | Uses `warp run-agent` |
-| **Windsurf** | ⚠️ Partial | Limited | Workflow-based, not programmatic |
+| **Devin Desktop** | ⚠️ Partial | Limited | Workflow-based, not programmatic |
 | **Copilot** | ❌ None | Degraded | No sub-agent API |
 
 ### Degraded Mode Behavior
@@ -586,7 +586,7 @@ aiwg remove rlm
 aiwg remove rlm --provider codex
 
 # All providers
-for provider in claude codex copilot factory cursor opencode warp windsurf; do
+for provider in claude codex copilot factory cursor opencode warp devin; do
   aiwg remove rlm --provider $provider
 done
 ```
@@ -604,7 +604,7 @@ If `aiwg remove` fails, manually delete:
 | Cursor | `.cursor/agents/rlm-agent.md`, `.cursor/commands/rlm-*.md`, `.cursor/skills/rlm-mode.md`, `.cursor/rules/rlm-context-management.md` |
 | OpenCode | `.opencode/agent/rlm-agent.md`, `.opencode/commands/rlm-*.md`, `.opencode/skill/rlm-mode.md`, `.opencode/rule/rlm-context-management.md` |
 | Warp | `.warp/agents/rlm-agent.md`, `.warp/commands/rlm-*.md`, `.warp/skills/rlm-mode.md`, `.warp/rules/rlm-context-management.md`, remove from `WARP.md` |
-| Windsurf | Remove from `AGENTS.md`, `.windsurf/workflows/rlm-*.md`, `.windsurf/skills/rlm-mode.md`, `.windsurf/rules/rlm-context-management.md` |
+| Devin Desktop | Remove from `AGENTS.md`, `.windsurf/workflows/rlm-*.md`, `.windsurf/skills/rlm-mode.md`, `.windsurf/rules/rlm-context-management.md` |
 
 ## Verification Checklist
 
@@ -615,7 +615,7 @@ After deploying RLM to any provider:
 - [ ] Skill file exists at provider-specific skill location
 - [ ] Rule file exists at provider-specific rule location
 - [ ] For Warp: Agent and commands also aggregated in `WARP.md`
-- [ ] For Windsurf: Agent aggregated in `AGENTS.md`
+- [ ] For Devin Desktop: Agent aggregated in `AGENTS.md`
 - [ ] For Copilot: Commands converted to YAML format
 - [ ] For Codex: Commands in `~/.codex/prompts/`; native skills in project `.agents/skills/`
 - [ ] Provider-specific CLI command works (if applicable)
@@ -672,7 +672,7 @@ which factory && factory --version
 2. For Codex: Check `~/.codex/prompts/` not `.codex/prompts/`
 3. For Copilot: Check YAML files created in `.github/agents/`
 4. For Warp: Check both `.warp/commands/` AND `WARP.md`
-5. For Windsurf: Check `.windsurf/workflows/` not `.windsurf/commands/`
+5. For Devin Desktop: Check `.windsurf/workflows/` not `.windsurf/commands/`
 
 **Solution**:
 ```bash
@@ -684,7 +684,7 @@ aiwg use rlm --provider <name>
 
 ### Aggregation Files Not Updated
 
-**Symptom**: Warp `WARP.md` or Windsurf `AGENTS.md` missing RLM content
+**Symptom**: Warp `WARP.md` or Devin Desktop `AGENTS.md` missing RLM content
 
 **Check**:
 1. File exists before deployment (if not, AIWG creates it)
@@ -697,9 +697,9 @@ aiwg use rlm --provider <name>
 if [ ! -f WARP.md ]; then touch WARP.md; fi
 aiwg use rlm --provider warp
 
-# Windsurf
+# Devin Desktop
 if [ ! -f AGENTS.md ]; then touch AGENTS.md; fi
-aiwg use rlm --provider windsurf
+aiwg use rlm --provider devin
 ```
 
 ## Limitations by Provider
@@ -710,7 +710,7 @@ aiwg use rlm --provider windsurf
 - Recursive decomposition not available
 - Commands must be invoked manually via Copilot chat
 
-### Windsurf Limitations
+### Devin Desktop Limitations
 - Sub-agent spawning is workflow-based, not programmatic
 - Limited recursive depth (workflows don't spawn workflows)
 - Best for shallow task decomposition

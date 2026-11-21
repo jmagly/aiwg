@@ -115,14 +115,14 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
       '  aiwg mcp install warp && aiwg mcp serve\n' +
       'See: docs/integrations/warp-mcp-sidecar.md',
   },
-  windsurf: {
+  devin: {
     binary: null,
     dangerousFlag: null,
-    name: 'Windsurf',
+    name: 'Devin Desktop',
     guidanceMessage:
-      'Windsurf is IDE-integrated and cannot be spawned from the CLI.\n' +
+      'Devin Desktop is IDE-integrated and cannot be spawned from the CLI.\n' +
       'For unrestricted AIWG tool access, use the MCP sidecar:\n' +
-      '  aiwg mcp install windsurf && aiwg mcp serve\n' +
+      '  aiwg mcp install devin && aiwg mcp serve\n' +
       'See: docs/integrations/windsurf-mcp-sidecar.md',
   },
 };

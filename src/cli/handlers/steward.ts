@@ -160,7 +160,7 @@ async function handleSteward(args: string[], ctx?: HandlerContext): Promise<void
     aiwg steward permissions migrate --apply      Back up and atomically normalize config
 
   Providers:
-    antigravity (agy), claude-code, codex, copilot, cursor, deepseek-harness (dsh), factory, opencode, pi, omp, warp, windsurf, hermes, openclaw
+    antigravity (agy), claude-code, codex, copilot, cursor, deepseek-harness (dsh), factory, opencode, pi, omp, warp, devin, hermes, openclaw
 
   Features:
     cron, agent_teams, tasks, mcp, behaviors, mission_control, daemon

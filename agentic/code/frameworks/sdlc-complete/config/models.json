@@ -54,19 +54,19 @@
     }
   },
 
-  "windsurf": {
+  "devin": {
     "_status": "EXPERIMENTAL",
     "reasoning": {
       "model": "claude-opus-5",
-      "description": "Windsurf uses Claude models via API (experimental)"
+      "description": "Devin Desktop uses Claude models via API (experimental)"
     },
     "coding": {
       "model": "claude-sonnet-5",
-      "description": "Windsurf uses Claude models via API (experimental)"
+      "description": "Devin Desktop uses Claude models via API (experimental)"
     },
     "efficiency": {
       "model": "claude-haiku-4-5-20251001",
-      "description": "Windsurf uses Claude models via API (experimental)"
+      "description": "Devin Desktop uses Claude models via API (experimental)"
     }
   },
 

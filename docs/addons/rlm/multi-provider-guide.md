@@ -33,7 +33,7 @@ Based on `agentic/code/frameworks/sdlc-complete/config/models.json`:
 | **Cursor** | claude-opus-latest | claude-sonnet-latest | claude-haiku-latest |
 | **OpenCode** | provider-default | provider-default | provider-default |
 | **Warp** | claude-opus-latest | claude-sonnet-latest | claude-haiku-latest |
-| **Windsurf** | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5-20251001 |
+| **Devin Desktop** | claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5-20251001 |
 
 ### Root Model vs Sub-Call Model Selection
 
@@ -221,16 +221,16 @@ warp-agent --model opus --sub-model sonnet
 
 **Notes**: Warp supports Claude models via API. Configuration in `WARP.md`.
 
-### Windsurf
+### Devin Desktop
 
 **Status**: EXPERIMENTAL
 
 **Invocation**:
 ```bash
-windsurf --model claude-opus-5 --sub-model claude-sonnet-5
+devin --model claude-opus-5 --sub-model claude-sonnet-5
 ```
 
-**Notes**: Windsurf uses Claude models via API (experimental support).
+**Notes**: Devin Desktop uses Claude models via API (experimental support).
 
 ## Provider-Specific Prompt Adjustments
 
@@ -389,7 +389,7 @@ aiwg rlm-query "Generate API documentation" \
 | **Cursor** | ✅ Full | ✅ Full | 200K | 16K | Auto-updates to latest |
 | **OpenCode** | ⚠️ Partial | ⚠️ Partial | Varies | Varies | Provider-dependent |
 | **Warp** | ✅ Full | ✅ Full | 200K | 16K | Terminal-native |
-| **Windsurf** | 🧪 Experimental | 🧪 Experimental | 200K | 16K | Experimental support |
+| **Devin Desktop** | 🧪 Experimental | 🧪 Experimental | 200K | 16K | Experimental support |
 
 **Legend**:
 - ✅ Full: Native support, all features available
@@ -407,13 +407,13 @@ aiwg rlm-query "Generate API documentation" \
 | Cursor | ✅ Yes | ✅ Yes | Auto-updates, good for latest models |
 | OpenCode | ⚠️ Limited | ⚠️ Limited | Depends on configured provider |
 | Warp | ✅ Yes | ✅ Yes | Terminal context, good for dev tasks |
-| Windsurf | 🧪 Experimental | 🧪 Experimental | May have stability issues |
+| Devin Desktop | 🧪 Experimental | 🧪 Experimental | May have stability issues |
 
 ### Tool Availability Differences
 
 All AIWG providers support the core RLM tools:
 
-| Tool | Claude | OpenAI | Factory | Copilot | Cursor | OpenCode | Warp | Windsurf |
+| Tool | Claude | OpenAI | Factory | Copilot | Cursor | OpenCode | Warp | Devin Desktop |
 |------|--------|--------|---------|---------|--------|----------|------|----------|
 | Read | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Grep | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -424,7 +424,7 @@ All AIWG providers support the core RLM tools:
 | Task | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | ⚠️ |
 
 **Notes**:
-- ⚠️ Task tool: OpenAI/Codex, Copilot, OpenCode, Windsurf may require explicit sub-agent spawning (not native Task tool)
+- ⚠️ Task tool: OpenAI/Codex, Copilot, OpenCode, Devin Desktop may require explicit sub-agent spawning (not native Task tool)
 - AIWG abstracts this via provider-specific implementations
 
 ## Configuration Examples

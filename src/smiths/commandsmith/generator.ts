@@ -66,7 +66,7 @@ export function validateCommand(command: GeneratedCommand): ValidationResult {
   }
 
   // Validate platform
-  const validPlatforms = ['claude', 'codex', 'copilot', 'cursor', 'factory', 'generic', 'windsurf'];
+  const validPlatforms = ['claude', 'codex', 'copilot', 'cursor', 'factory', 'generic', 'devin'];
   if (!validPlatforms.includes(command.platform)) {
     issues.push({
       type: 'error',

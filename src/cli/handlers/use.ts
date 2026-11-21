@@ -829,7 +829,7 @@ const NEXT_STEPS: Record<string, string[]> = {
   'warp/sdlc': agenticNextSteps('Open Warp:         Start a Warp session in this project root.'),
   'copilot/sdlc': agenticNextSteps('Open VS Code:      Open this workspace and use Copilot Chat.'),
   'codex/sdlc': agenticNextSteps('Open Codex:        Restart Codex in this project root.'),
-  'windsurf/sdlc': agenticNextSteps('Open Devin Desktop: Open this project in Devin Desktop and ask Devin for AIWG status.'),
+  'devin/sdlc': agenticNextSteps('Open Devin Desktop: Open this project in Devin Desktop and ask Devin for AIWG status.'),
   'openclaw/sdlc': agenticNextSteps('Start OpenClaw:    Open OpenClaw with this project workspace.'),
   'openclaw/marketing': agenticNextSteps('Start OpenClaw:    Open OpenClaw with this project workspace.'),
   'openclaw/all': agenticNextSteps('Start OpenClaw:    Open OpenClaw with this project workspace.'),
@@ -892,9 +892,9 @@ const SESSION_RELOAD_NOTICE: Record<string, {
     action: 'Open a fresh Warp tab — WARP.md is re-read on tab start.',
     rationale: 'Warp aggregates context from WARP.md when a new tab spawns; existing tabs keep the prior version.',
   },
-  windsurf: {
+  devin: {
     action: 'Restart Devin Desktop or reload the workspace so the aggregated AGENTS.md is re-parsed.',
-    rationale: 'Devin Desktop reads the Windsurf-compatible AGENTS.md once per workspace session.',
+    rationale: 'Devin Desktop reads AGENTS.md once per workspace session.',
   },
   factory: {
     action: 'Restart your Factory droid runtime to pick up new entries in .factory/droids/.',

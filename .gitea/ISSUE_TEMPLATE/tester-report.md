@@ -23,7 +23,7 @@ node --version                # Node version
 
 - [ ] **AIWG version**: `<paste from aiwg version>`
 - [ ] **Operating system**: `<paste from uname -a>`
-- [ ] **Provider** (AIWG harness): one of `antigravity` / `claude` / `codex` / `copilot` / `cursor` / `deepseek-harness` / `factory` / `grokbot` / `grok-build` / `hermes` / `muse` / `opencode` / `openclaw` / `openhuman` / `pi` / `omp` / `warp` / `windsurf` / `generic`
+- [ ] **Provider** (AIWG harness): one of `antigravity` / `claude` / `codex` / `copilot` / `cursor` / `deepseek-harness` / `factory` / `grokbot` / `grok-build` / `hermes` / `muse` / `opencode` / `openclaw` / `openhuman` / `pi` / `omp` / `warp` / `devin` / `generic`
 - [ ] **Node version**: `<paste from node --version>`
 - [ ] **Install location**: one of `npm-global` / `linuxbrew` / `local-source` / `project-local`
 

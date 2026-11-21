@@ -23,7 +23,7 @@ memory:
   cross-session: true
 providers:
   native: [openclaw]
-  emulated: [claude-code, warp, copilot, cursor, windsurf, opencode, factory, codex]
+  emulated: [claude-code, warp, copilot, cursor, devin, opencode, factory, codex]
 ---
 
 # Concierge Behavior

@@ -128,7 +128,7 @@ async function validateArtifact(
     return mismatches;
   }
   const fields = artifactFields(file, content)
-    ?? (expectation.provider === 'windsurf' && content.includes(`### ${wrapper}`) ? { name: wrapper } : null);
+    ?? (expectation.provider === 'devin' && content.includes(`### ${wrapper}`) ? { name: wrapper } : null);
   if (!fields) {
     addMismatch(mismatches, wrapper, file, 'format', 'wrapper artifact is malformed or has no parseable metadata');
     return mismatches;

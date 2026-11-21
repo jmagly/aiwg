@@ -224,7 +224,7 @@ Comprehensive test suite with 25 tests covering:
 - Model tier selection and overrides
 - Tool selection and validation
 - Guidance extraction (expertise, responsibilities, examples)
-- Platform transformations (Claude, Cursor, Codex, Windsurf)
+- Platform transformations (Claude, Cursor, Codex, Devin Desktop)
 - Deployment path resolution
 - Input validation (name format, description length)
 - Category and version metadata

@@ -58,7 +58,7 @@ Models are defined in `models.json` files with the following priority:
 2. **User-level**: `~/.config/aiwg/models.json`
 3. **AIWG defaults**: `agentic/code/frameworks/sdlc-complete/config/models.json`
 
-Deployment merges AIWG defaults ← user ← project recursively: omitted provider tiers (`claude`, `factory`, `windsurf`), `shorthand` and `*_shorthand` entries inherit. Plain objects merge; a null, array, or scalar override of an inherited object is ignored with a warning naming the key and source file. Other explicit values replace lower-priority values.
+Deployment merges AIWG defaults ← user ← project recursively: omitted provider tiers (`claude`, `factory`, `devin`), `shorthand` and `*_shorthand` entries inherit. Plain objects merge; a null, array, or scalar override of an inherited object is ignored with a warning naming the key and source file. Other explicit values replace lower-priority values.
 A project containing only `defaults.workerSelection` keeps shipped Claude pins. Setting `claude.coding.model` overrides that pin and retains other roles. `_source` lists applied layers in merge order; CLI flags still win.
 
 ## Configuration File Format

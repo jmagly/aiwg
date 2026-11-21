@@ -177,7 +177,8 @@ export const ProviderConfigSchema = z.strictObject({
     'omp',
     'pi',
     'warp',
-    'windsurf',
+    'devin',
+    'windsurf', // Deprecated extends alias for existing provider bundles.
   ]),
   displayName: z.string().min(1).max(128).optional(),
   aliases: z.array(z.string().min(1).max(64)).max(20).optional(),

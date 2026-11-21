@@ -10,7 +10,7 @@ import { parse as parseYaml } from 'yaml';
 const root = path.resolve(import.meta.dirname, '../..');
 const providers = ['antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness',
   'factory', 'grokbot', 'grok-build', 'hermes', 'muse', 'opencode', 'openclaw',
-  'openhuman', 'pi', 'omp', 'warp', 'windsurf', 'generic'];
+  'openhuman', 'pi', 'omp', 'warp', 'devin', 'generic'];
 const kernels = ['skill-discovery', 'artifact-output-policy'];
 const cores = ['anti-laziness', 'no-attribution'];
 const hooks: Record<string, string> = {

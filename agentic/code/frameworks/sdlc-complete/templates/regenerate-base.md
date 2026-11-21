@@ -176,7 +176,7 @@ Output: {context-file} ({lines} lines, {bytes} bytes)
 | `/aiwg-regenerate-claude` | CLAUDE.md (Claude Code) |
 | `/aiwg-regenerate-copilot` | copilot-instructions.md (GitHub Copilot) |
 | `/aiwg-regenerate-cursorrules` | .cursorrules (Cursor) |
-| `/aiwg-regenerate-windsurfrules` | .windsurfrules (Windsurf) |
+| `/aiwg-regenerate-windsurfrules` | .windsurfrules (Devin Desktop) |
 | `/aiwg-regenerate-warp` | WARP.md (Warp Terminal) |
 | `/aiwg-regenerate-factory` | .factory/README.md (Factory AI) |
 | `/aiwg-regenerate-agents` | AGENTS.md (Multi-vendor) |
@@ -221,7 +221,7 @@ Request workflows using natural language:
 **Full pattern list:** @~/.local/share/ai-writing-guide/agentic/code/frameworks/sdlc-complete/docs/simple-language-translations.md
 ```
 
-**Cursor / Windsurf:**
+**Cursor / Devin Desktop:**
 ```markdown
 ### Workflow Requests
 

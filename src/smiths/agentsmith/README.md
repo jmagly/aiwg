@@ -10,7 +10,7 @@ AgentSmith generates custom agents that follow best practices from the Agent Des
 
 - **Template-based generation**: Simple, Complex, Orchestrator, Validator
 - **10 Golden Rules compliance**: Automatic adherence to agent design principles
-- **Platform-aware deployment**: Transforms agents for Claude, Cursor, Codex, Factory, Windsurf, etc.
+- **Platform-aware deployment**: Transforms agents for Claude, Cursor, Codex, Factory, Devin Desktop, etc.
 - **Model tier selection**: Auto-selects appropriate model based on template
 - **Tool constraints**: Enforces minimal tool usage (0-3 tools max)
 - **Interactive mode**: Guided agent creation via prompts
@@ -148,7 +148,7 @@ model = "gpt-5.6-luna"
 model_reasoning_effort = "low"
 ```
 
-### Windsurf (Plain markdown)
+### Devin Desktop (Plain markdown)
 
 ```markdown
 ### agent-name

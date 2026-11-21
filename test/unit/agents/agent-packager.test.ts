@@ -148,7 +148,7 @@ describe('AgentPackager', () => {
   });
 
   describe('convertToWindsurfFormat', () => {
-    it('should convert to Windsurf markdown format without YAML frontmatter', () => {
+    it('should convert to Devin Desktop markdown format without YAML frontmatter', () => {
       const agent = createSampleAgent();
       const result = packager.convertToWindsurfFormat(agent);
 
@@ -220,7 +220,7 @@ describe('AgentPackager', () => {
         { platform: 'cursor', expected: '.json' },
         { platform: 'codex', expected: '.md' },
         { platform: 'generic', expected: '.md' },
-        { platform: 'windsurf', expected: '.md' },
+        { platform: 'devin', expected: '.md' },
         { platform: 'factory', expected: '.md' },
         { platform: 'copilot', expected: '.md' },
       ];
@@ -239,8 +239,8 @@ describe('AgentPackager', () => {
         format: 'factory',
         content: expect.stringContaining('name: test-agent'),
       });
-      await expect(packager.package(agent, 'windsurf')).resolves.toMatchObject({
-        format: 'windsurf',
+      await expect(packager.package(agent, 'devin')).resolves.toMatchObject({
+        format: 'devin',
         content: expect.stringContaining('### test-agent'),
       });
     });
@@ -262,7 +262,7 @@ describe('AgentPackager', () => {
       expect(packager.getFileName(agent, 'cursor')).toBe('test-agent.json');
       expect(packager.getFileName(agent, 'codex')).toBe('test-agent.md');
       expect(packager.getFileName(agent, 'generic')).toBe('test-agent.md');
-      expect(packager.getFileName(agent, 'windsurf')).toBe('test-agent.md');
+      expect(packager.getFileName(agent, 'devin')).toBe('test-agent.md');
       expect(packager.getFileName(agent, 'factory')).toBe('test-agent.md');
       expect(packager.getFileName(agent, 'copilot')).toBe('test-agent.md');
     });
@@ -277,7 +277,7 @@ describe('AgentPackager', () => {
         { platform: 'cursor', expectedContent: null, noContent: null, parseJson: true, jsonField: 'name', jsonValue: 'test-agent' },
         { platform: 'codex', expectedContent: 'agent_name: test-agent', noContent: null },
         { platform: 'generic', expectedContent: '<!--', noContent: null },
-        { platform: 'windsurf', expectedContent: '### test-agent', noContent: '---' },
+        { platform: 'devin', expectedContent: '### test-agent', noContent: '---' },
         { platform: 'factory', expectedContent: 'name: test-agent', noContent: null },
         { platform: 'copilot', expectedContent: '<!--', noContent: null },
       ];

@@ -103,7 +103,7 @@ async function demo() {
   // Demo 5: Platform transformations
   console.log('\n5. Platform Transformation Examples:\n');
 
-  const platforms = ['claude', 'cursor', 'codex', 'windsurf'] as const;
+  const platforms = ['claude', 'cursor', 'codex', 'devin'] as const;
 
   for (const platform of platforms) {
     const agent = await generator.generateAgent({

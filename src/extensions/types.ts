@@ -45,7 +45,7 @@ export type SourceExtensionType = Exclude<ExtensionType, 'command'>;
  * Types that are generated at deploy time from source artifacts.
  *
  * Commands are generated from skills for providers that require command format
- * natively (Factory, OpenCode, Warp/Windsurf aggregation, legacy Codex).
+ * natively (Factory, OpenCode, Warp/Devin Desktop aggregation, legacy Codex).
  */
 export type DeploymentExtensionType = 'command';
 
@@ -665,7 +665,7 @@ export interface CommandOption {
  *
  * @deprecated As a source format. Commands are now generated from skills at deploy time.
  * This type is retained for providers that require command format natively
- * (Factory, OpenCode, Warp/Windsurf aggregation, legacy Codex).
+ * (Factory, OpenCode, Warp/Devin Desktop aggregation, legacy Codex).
  * New workflows should use `type: 'skill'` with `commandHint` for translation metadata.
  *
  * @see SkillMetadata.commandHint
@@ -758,7 +758,7 @@ export interface SkillReference {
  * Command translation hints for generating command artifacts from skills.
  *
  * Used by the skill→command translation layer when deploying to providers
- * that require command format natively (Factory, OpenCode, Warp/Windsurf, legacy Codex).
+ * that require command format natively (Factory, OpenCode, Warp/Devin Desktop, legacy Codex).
  */
 export interface CommandHint {
   /**

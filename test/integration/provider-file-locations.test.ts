@@ -18,7 +18,7 @@ import { mkdtempSync } from '../helpers/temp-dir.js';
  * - Cursor:   .cursor/agents/, .cursor/commands/, .cursor/skills/, .cursor/rules/
  * - OpenCode: .opencode/skill/, .opencode/rule/ (agents/commands not file-based)
  * - Warp:     .warp/skills/ (native) + WARP.md (aggregated agents/commands/rules)
- * - Windsurf: .windsurf/workflows/, .windsurf/skills/, .windsurf/rules/, .agents/skills/ + AGENTS.md (aggregated agents), .windsurfrules (deprecated stub)
+ * - Devin Desktop: .windsurf/workflows/, .windsurf/skills/, .windsurf/rules/, .agents/skills/ + AGENTS.md (aggregated agents), .windsurfrules (deprecated stub)
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
@@ -164,7 +164,7 @@ describe.skipIf(!GIT_INIT_AVAILABLE)('Provider File Locations', () => {
         'AGENTS.md',  // May be requested
         'WARP.md',    // Warp aggregated file
         'AIWG.md',    // AIWG hook file
-        '.windsurfrules', // Windsurf rules file
+        '.windsurfrules', // Devin Desktop rules file
         'opencode.json', // opencode: rules wired into instructions[] (#1548)
       ];
 
@@ -185,7 +185,7 @@ describe.skipIf(!GIT_INIT_AVAILABLE)('Provider File Locations', () => {
       cursor: ['.cursor'],
       opencode: ['.opencode', '.agents'], // PUW-012 #1113
       warp: ['.warp', '.agents'],  // Discrete files + WARP.md aggregated + .agents/skills/ cross-agent compat (#771)
-      windsurf: ['.windsurf', '.windsurfrules', '.agents'],  // .agents/skills/ cross-agent compat (#576)
+      devin: ['.windsurf', '.windsurfrules', '.agents'],  // .agents/skills/ cross-agent compat (#576)
     };
 
     it.each(Object.entries(providerDirs))('%s creates only its own directories', async (provider, expectedDirs) => {

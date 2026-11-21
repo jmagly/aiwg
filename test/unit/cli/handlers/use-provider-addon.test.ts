@@ -20,7 +20,7 @@ vi.mock('node:fs', async importOriginal => {
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const PROVIDERS = [
   'pi', 'openclaw', 'opencode', 'copilot', 'muse', 'openhuman',
-  'grokbot', 'grok-build', 'deepseek-harness', 'windsurf',
+  'grokbot', 'grok-build', 'deepseek-harness', 'devin',
 ] as const;
 
 // Node's homedir() observes the parent environment in Vitest worker threads.
@@ -406,13 +406,13 @@ describe('aiwg use addon requiring aiwg-utils across providers (#3035)', () => {
   });
 
   it('restores context written by a provider step that throws before returning', { timeout: 60000 }, async () => {
-    await writeAiwgConfig(project, emptyConfig(['windsurf']));
+    await writeAiwgConfig(project, emptyConfig(['devin']));
     const file = join(project, '.windsurfrules');
     writeFileSync(file, 'operator original');
     afterDeploy.mockImplementation(() => { throw new Error('after provider writes'); });
     vi.resetModules();
     const { useHandler } = await import('../../../../src/cli/handlers/use.js');
-    const args = ['decision-engine', '--copy-all', '--provider', 'windsurf', '--target', project, '--json'];
+    const args = ['decision-engine', '--copy-all', '--provider', 'devin', '--target', project, '--json'];
     const result = await useHandler.execute({ cwd: project, frameworkRoot, rawArgs: ['use', ...args], args });
     expect(result.exitCode, result.message).toBe(1);
     const structured = JSON.parse(result.message!);

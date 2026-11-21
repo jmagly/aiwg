@@ -111,7 +111,7 @@ API. Internal SQLite/protobuf parsing is out of scope.
 Sources: [slash commands](https://docs.warp.dev/agent-platform/capabilities/slash-commands),
 [privacy](https://docs.warp.dev/support-and-community/privacy-and-security/privacy).
 
-### Windsurf
+### Devin Desktop
 
 The transcript hook writes full Cascade JSONL to an opt-in directory, has
 bounded retention, and explicitly permits schema change. Legacy protobuf files

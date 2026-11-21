@@ -457,10 +457,10 @@ providers:
     deploy_target: project
     aggregated_output: true
 
-  windsurf:
+  devin:
     display_name: Devin Desktop
     aliases:
-      - devin
+      - windsurf
       - devin-desktop
       - devin-local
       - cascade
@@ -476,13 +476,13 @@ providers:
         source_date: "2026-10-08"
         live_qualified: false
         sources:
-          - "src/providers/provider-definitions.ts#windsurf"
+          - "src/providers/provider-seeds-3.ts#devin"
           - "https://docs.devin.ai/cli/reference/commands.md"
           - "https://docs.devin.ai/_llms/en/desktop.md"
         exclusion_gap: "Devin Desktop documents no headless worker command and no worker-serving MCP tool; its MCP settings configure clients, IDE startup is not inference."
         recheck: "Rechecked 2026-10-08: Desktop unchanged, still OUT. Devin CLI documents `devin -p/--print`, `--model`, `--prompt-file`, `--permission-mode` and `--sandbox` (no JSON output or effort flag found; `devin acp` is ACP, `devin mcp` manages client servers). Devin CLI stays a distinct future-provider surface, not a windsurf alias, until registry support exists."
     status: stable
-    # Devin Desktop uses the Windsurf compatibility surface and requires a VS Code host — daemon not supported
+    # Devin Desktop uses retained legacy compatibility paths and requires a VS Code host — daemon not supported
     daemon_tier: unsupported
     daemon_pty_adapter: false
     artifact_paths:

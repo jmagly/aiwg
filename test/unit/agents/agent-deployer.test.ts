@@ -383,9 +383,9 @@ Content`,
       expect(existsSync(agentsDir)).toBe(true);
     });
 
-    it('should deploy Windsurf agents to the ProviderDefinition artifact path', async () => {
+    it('should deploy Devin Desktop agents to the ProviderDefinition artifact path', async () => {
       const target: DeploymentTarget = {
-        platform: 'windsurf',
+        platform: 'devin',
         projectPath: projectDir,
       };
 

@@ -308,7 +308,7 @@ REPORTING:
 AGENT OPTIONS:
   --provider <name>       Agent system to use (default: claude)
                           Spawnable: ${spawnable}
-                          IDE-integrated (guidance only): copilot, cursor, factory, warp, windsurf
+                          IDE-integrated (guidance only): copilot, cursor, factory, warp, devin
   --dangerous             Enable unrestricted mode (passes provider's native flag).
   --params "<args>"       Pass arbitrary args verbatim to the agent binary.
 

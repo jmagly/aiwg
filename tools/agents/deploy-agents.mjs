@@ -92,16 +92,16 @@ import {
 const PROVIDER_ALIASES = {
   agy: 'antigravity',
   'openai': 'codex',
-  'devin': 'windsurf',
-  'devin-desktop': 'windsurf',
-  'devin-local': 'windsurf',
-  'cascade': 'windsurf',
+  'windsurf': 'devin',
+  'devin-desktop': 'devin',
+  'devin-local': 'devin',
+  'cascade': 'devin',
   'pi-coding-agent': 'pi',
   'oh-my-pi': 'omp',
   'dsh': 'deepseek-harness',
 };
 
-const AVAILABLE_PROVIDERS = ['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'flue', 'pi', 'omp', 'deepseek-harness', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse', 'generic'];
+const AVAILABLE_PROVIDERS = ['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'flue', 'pi', 'omp', 'deepseek-harness', 'warp', 'devin', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse', 'generic'];
 
 const UNSUPPORTED_PROVIDER_HINTS = {
   'devin-cli': [
@@ -373,7 +373,7 @@ async function mainUnlocked(args, internal) {
   try {
     if (!internal.finalizeOnly) {
       if (opts.kernelOnly && !namedDiscoveryPass && (!cfg.deferRuleProjection || preparationActive)
-        && !['claude', 'codex', 'cursor', 'hermes', 'warp', 'openclaw', 'flue', 'pi', 'copilot', 'factory', 'opencode', 'windsurf', 'antigravity', 'muse', 'omp', 'grok-build', 'generic'].includes(provider.name)) {
+        && !['claude', 'codex', 'cursor', 'hermes', 'warp', 'openclaw', 'flue', 'pi', 'copilot', 'factory', 'opencode', 'devin', 'antigravity', 'muse', 'omp', 'grok-build', 'generic'].includes(provider.name)) {
         const { deployWithRuleDelivery } = await import('./providers/rule-delivery.mjs');
         await deployWithRuleDelivery(opts, provider, staged => provider.deploy(staged));
       } else await provider.deploy(opts);

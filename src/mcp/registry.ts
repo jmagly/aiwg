@@ -145,7 +145,11 @@ export type InjectProvider =
   | 'openai'
   | 'grok-build'
   | 'opencode'
+  | 'devin'
   | 'windsurf'
+  | 'devin-desktop'
+  | 'devin-local'
+  | 'cascade'
   | 'warp';
 
 // ============================================
@@ -540,7 +544,11 @@ export function getProviderConfigPath(provider: InjectProvider, projectDir = '.'
       ? resolve(process.env.GROK_HOME || resolve(homeDir, '.grok'), 'config.toml')
       : resolve(projectDir, '.grok/config.toml'),
     opencode: resolve(projectDir, 'opencode.json'),
-    windsurf: resolve(homeDir, '.codeium/windsurf/mcp_config.json'),
+    devin: resolve(homeDir, '.codeium/windsurf/mcp_config.json'),
+    windsurf: resolve(homeDir, '.codeium/windsurf/mcp_config.json'), // Deprecated selector, same legacy path.
+    'devin-desktop': resolve(homeDir, '.codeium/windsurf/mcp_config.json'),
+    'devin-local': resolve(homeDir, '.codeium/windsurf/mcp_config.json'),
+    cascade: resolve(homeDir, '.codeium/windsurf/mcp_config.json'),
     warp: resolve(homeDir, '.warp/mcp.json'),
   };
 
@@ -769,6 +777,6 @@ export const SUPPORTED_PROVIDERS: InjectProvider[] = [
   'codex',
   'grok-build',
   'opencode',
-  'windsurf',
+  'devin',
   'warp',
 ];

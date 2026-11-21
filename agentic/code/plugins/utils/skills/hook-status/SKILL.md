@@ -41,7 +41,7 @@ For each provider, check:
 |----------|-------------|---------|
 | Claude Code | `CLAUDE.md` | `@AIWG.md` |
 | Warp Terminal | `WARP.md` | `@AIWG-warp.md` or `## AIWG` section |
-| Windsurf | `AGENTS.md` | `@AIWG-windsurf.md` |
+| Devin Desktop | `AGENTS.md` | `@AIWG-windsurf.md` |
 | GitHub Copilot | `.github/copilot-instructions.md` | `@AIWG-copilot.md` |
 | Cursor | `.cursorrules` | `@AIWG-cursor.md` |
 | Factory AI | `AGENTS.md` | `@AIWG-factory.md` |
@@ -57,7 +57,7 @@ AIWG Hook Status
   claude     ✓ enabled    (@AIWG.md in CLAUDE.md, 312 lines)
   warp       ✓ enabled    (@AIWG-warp.md in WARP.md)
   copilot    ✗ disabled   (AIWG-copilot.md exists but no directive)
-  windsurf   - not found  (AGENTS.md not present)
+  devin   - not found  (AGENTS.md not present)
   cursor     - not found  (.cursorrules not present)
   factory    ✗ disabled   (AIWG-factory.md missing — run: aiwg hook-regenerate --provider factory)
   opencode   - not found  (.opencode/context.md not present)

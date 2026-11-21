@@ -95,7 +95,7 @@ Deployment resolves each target through the provider definition:
 - project-scoped providers use their project kernel skill directory;
 - user-global providers use their home kernel directory and the project id in
   the skill name prevents ambiguous unqualified names;
-- aggregated providers such as Warp and Windsurf use their supported kernel
+- aggregated providers such as Warp and Devin Desktop use their supported kernel
   skill target;
 - providers without a kernel target use their defined skill surface as an
   explicit emulation target.

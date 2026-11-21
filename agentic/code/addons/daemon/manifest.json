@@ -62,7 +62,7 @@
     "warp": { "supported": true },
     "copilot": { "supported": "partial", "note": "No persistent session; concierge activates per-interaction" },
     "cursor": { "supported": "partial" },
-    "windsurf": { "supported": "partial" },
+    "devin": { "supported": "partial" },
     "opencode": { "supported": "partial" },
     "factory": { "supported": "partial" },
     "codex": { "supported": "partial" }

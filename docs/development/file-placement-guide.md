@@ -68,7 +68,7 @@ Project-local assets deploy into a namespace subdirectory (e.g., `.claude/agents
 | OpenCode | `.opencode/agent/`, `AGENTS.md` | `aiwg use sdlc --provider opencode` |
 | Cursor | `.cursor/rules/`, `AGENTS.md` | `aiwg use sdlc --provider cursor` |
 | OpenAI/Codex | `.codex/agents/`, `AGENTS.md` | `aiwg use sdlc --provider codex` |
-| Windsurf | `.windsurfrules` | `aiwg use sdlc --provider windsurf` |
+| Devin Desktop | `.windsurfrules` | `aiwg use sdlc --provider devin` |
 
 ## Correct Workflow
 

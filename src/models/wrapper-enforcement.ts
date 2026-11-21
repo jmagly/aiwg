@@ -120,7 +120,7 @@ export function wrapperEnforcementReport(provider: string, artifact?: DeployedWr
     openclaw: 'Markdown wrapper mirrors do not set native subagents.model or per-spawn overrides.',
     openhuman: 'User harness wrappers carry semantic model hints; project wrappers omit model. Neither is an exact pin.',
     antigravity: 'Wrapper mirrors do not project native CLI model/effort flags.',
-    windsurf: 'Portable wrapper model selection is unsupported; the main UI session controls selection.',
+    devin: 'Portable wrapper model selection is unsupported; the main UI session controls selection.',
     pi: 'Agents are reference skills; CLI model/thinking flags are separate from deployed wrappers.',
     'deepseek-harness': 'Agent references do not pin the configured Harness route.',
     hermes: 'All delegated workers share the provider delegation configuration.',

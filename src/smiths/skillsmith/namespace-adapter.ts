@@ -7,7 +7,7 @@
  * Platform groups:
  *   Group A (deep-recursion): Claude Code, Cursor, Codex, OpenCode, OpenClaw
  *     → Deploy both canonical subdir layout AND prefixed slug fallback.
- *   Group B (one-level):      Factory AI, Warp, Windsurf
+ *   Group B (one-level):      Factory AI, Warp, Devin Desktop
  *     → Deploy only the prefixed slug; no subdir (would break one-level discovery).
  *   Group C (unknown):        GitHub Copilot
  *     → Deploy only the prefixed slug (safe default until recursion depth confirmed).

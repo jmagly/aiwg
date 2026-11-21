@@ -305,7 +305,7 @@ This directive works across all AIWG-supported platforms:
 | Warp | `WARP.md` |
 | Factory AI | `.factory/` context |
 | OpenCode | `.opencode/` context |
-| Windsurf | `AGENTS.md` or `.windsurf/rules/` |
+| Devin Desktop | `AGENTS.md` or `.windsurf/rules/` |
 
 The `aiwg use` and `aiwg regenerate` commands will include the directive (commented out) in generated context files when scaffolding new projects.
 

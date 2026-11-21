@@ -25,7 +25,7 @@ const QUALIFICATION_OWNERS: Record<string, string> = {
   copilot: 'B-OG-36', factory: 'B-OG-37', cursor: 'B-OG-38', opencode: 'B-OG-39',
   warp: 'B-OG-40', 'grok-build': 'B-OG-41', openclaw: 'B-OG-42',
   antigravity: 'B-OG-43', 'deepseek-harness': 'B-OG-44', pi: 'B-OG-45',
-  omp: 'B-OG-45', windsurf: 'B-OG-47', grokbot: 'B-OG-47', openhuman: 'B-OG-47',
+  omp: 'B-OG-45', devin: 'B-OG-47', grokbot: 'B-OG-47', openhuman: 'B-OG-47',
   flue: 'B-OG-47', local: 'B-OG-09', generic: '—',
 };
 
@@ -130,10 +130,10 @@ const ALIAS_FIXTURES: Array<[alias: string, canonical: string]> = [
   ['dsh', 'deepseek-harness'],
   ['oh-my-pi', 'omp'],
   ['pi-coding-agent', 'pi'],
-  ['devin', 'windsurf'],
-  ['devin-desktop', 'windsurf'],
-  ['devin-local', 'windsurf'],
-  ['cascade', 'windsurf'],
+  ['devin', 'devin'],
+  ['devin-desktop', 'devin'],
+  ['devin-local', 'devin'],
+  ['cascade', 'devin'],
   ['tinyhumansai', 'openhuman'],
   ['github-copilot', 'copilot'],
   ['factory-ai', 'factory'],

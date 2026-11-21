@@ -77,10 +77,10 @@ describe('offline doctor wrapper checks', () => {
   });
 
   it('reports all configured providers, including those without deployed wrappers', async () => {
-    const checks = await collect(['codex', 'hermes', 'muse', 'windsurf']);
-    expect(checks.filter((c: any) => c.status === 'info' && !c.wrapper).map((c: any) => c.provider)).toEqual(['codex', 'hermes', 'muse', 'windsurf']);
+    const checks = await collect(['codex', 'hermes', 'muse', 'devin']);
+    expect(checks.filter((c: any) => c.status === 'info' && !c.wrapper).map((c: any) => c.provider)).toEqual(['codex', 'hermes', 'muse', 'devin']);
     expect(checks.find((c: any) => c.provider === 'hermes').message).toContain('): global-only;');
-    expect(checks.find((c: any) => c.provider === 'windsurf').message).toContain('): inherited;');
+    expect(checks.find((c: any) => c.provider === 'devin').message).toContain('): inherited;');
   });
 
   it.each([

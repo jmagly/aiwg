@@ -174,21 +174,21 @@ export const USER_SCOPE_PATHS: Record<string, { agents: string; skills: string; 
     rules: path.join(homedir(), '.warp', 'rules'),
     behaviors: '',
   },
-  windsurf: {
+  devin: {
     // #1163 — Non-applicable for filesystem user-scope discovery.
     //
-    // Windsurf's user-scope mechanism is **Cascade Memories** (in-app,
+    // Devin Desktop's user-scope mechanism is **Cascade Memories** (in-app,
     // managed by the Cascade agent itself, not file-discovered) and
-    // global rules in the Windsurf settings UI. Project-scope discovery
+    // global rules in the Devin Desktop settings UI. Project-scope discovery
     // is `.windsurf/{rules,workflows}/` and AGENTS.md aggregation. There
     // is no documented filesystem scan of `~/.windsurf/` for user-scope
     // content.
     //
     // The paths below remain populated as a "harmless mirror" — deploying
-    // there does not break Windsurf, but the runtime won't pick them up.
-    // Operators wanting cross-project Windsurf customization should use
+    // there does not break Devin Desktop, but the runtime won't pick them up.
+    // Operators wanting cross-project Devin Desktop customization should use
     // Cascade Memories (commit a memory via the agent UI) or the
-    // Windsurf settings UI, not AIWG `--scope user`.
+    // Devin Desktop settings UI, not AIWG `--scope user`.
     agents: path.join(homedir(), '.windsurf', 'agents'),
     skills: path.join(homedir(), '.windsurf', 'skills'),
     commands: path.join(homedir(), '.windsurf', 'workflows'),

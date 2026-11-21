@@ -948,7 +948,7 @@ On first run after the commands-to-skills migration, `aiwg use` detects an exist
   bridge. AIWG prunes only its own legacy entries from `~/.codex/skills/`.
 - **OpenClaw** — User-scope is the only supported scope. Project-scope is rejected at the CLI layer.
 - **Hermes** — User-scope is the canonical mode; `~/.hermes/skills/` is the primary loader path.
-- **Copilot / Cursor / Factory / OpenCode / Warp / Windsurf** — Global-install semantics on these providers are pending field validation as part of the Workstream A audit (`.aiwg/studies/novice-user-adoption/working/hookup-matrix.md`).
+- **Copilot / Cursor / Factory / OpenCode / Warp / Devin Desktop** — Global-install semantics on these providers are pending field validation as part of the Workstream A audit (`.aiwg/studies/novice-user-adoption/working/hookup-matrix.md`).
 
 Status (ADR-NUA-001): **first-class supported flow**. Project-scope remains the recommended default. No deprecation of either mode is planned for the `2026.5.x` line. See `.aiwg/studies/novice-user-adoption/architecture/adr-global-install.md` for the full decision and `.aiwg/studies/novice-user-adoption/working/global-install-rough-edges.md` for the per-provider rough-edge inventory.
 
@@ -1378,7 +1378,7 @@ aiwg session --non-interactive                 # force the non-interactive decis
 2. **Health check** — runs `aiwg doctor`; auto-repairs fixable issues via `aiwg refresh`
 3. **Deployment check** — redeploys framework files to the provider if missing or stale
 4. **MCP inject** (when `mcp` subcommand or `--profile` used) — runs `aiwg mcp inject --provider <p>`
-5. **Launch** — spawns binary (claude, codex, opencode) or prints start instructions (IDE providers: cursor, windsurf, copilot, etc.)
+5. **Launch** — spawns binary (claude, codex, opencode) or prints start instructions (IDE providers: cursor, devin, copilot, etc.)
 
 **Auto-repair escalation:**
 
@@ -2107,7 +2107,7 @@ aiwg mcp inject --all [--dry-run]
 
 - `--provider <name>` - Target provider: `claude` (`claude-code`),
   `cursor`, `factory` (`factory-ai`), `codex` (`openai`), `opencode`,
-  `windsurf` (`devin`, `devin-desktop`), or `warp`
+  `devin` (`devin`, `devin-desktop`), or `warp`
 - `--all` - Inject into all providers that have been configured before
 - `--profile <name>` - Resolve server set from a named MCP profile (see `mcp profile`)
 - `--ephemeral` - Write a standalone temp config without modifying the

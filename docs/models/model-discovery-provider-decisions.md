@@ -23,7 +23,7 @@ runs only when `aiwg runtime-info --providers` marks it available.
 | OpenClaw | Native | `openclaw models list --json` | The [documented read-only JSON command](https://docs.openclaw.ai/cli/models#list) reads configured catalog state without provider probes, API calls, or model tokens. Results are `local-runtime`, not entitlement proof. |
 | OpenHuman | Unsupported | — | Profiles support semantic `Hint(...)` routing, but there is no standardized model-list command. |
 | Warp | Unsupported | — | Model choice is profile-managed; no documented CLI enumeration surface exists. |
-| Windsurf/Devin Desktop | Unsupported | — | The desktop CLI exposes editor operations but no machine-readable model list. |
+| Devin Desktop | Unsupported | — | The desktop CLI exposes editor operations but no machine-readable model list. |
 
 The executable decision contract lives in
 `src/models/model-discovery.ts` as `PROVIDER_DISCOVERY_DECISIONS`. Tests fail

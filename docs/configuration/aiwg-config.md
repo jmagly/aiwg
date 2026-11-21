@@ -57,7 +57,7 @@ Writes are atomic: the loader writes to a randomly-suffixed temp sibling, then
 
 Valid `providers` values: `antigravity` (alias `agy`), `claude`, `codex`,
 `copilot`, `cursor`, `deepseek-harness`, `factory`, `grokbot`, `hermes`, `muse`, `opencode`, `openclaw`, `openhuman`,
-`omp`, `pi`, `warp`, and `windsurf`.
+`omp`, `pi`, `warp`, and `devin`.
 
 ## Sessions
 

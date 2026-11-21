@@ -1,9 +1,9 @@
-# AIWG Rules for Windsurf — Deprecated
+# AIWG Rules for Devin Desktop — Deprecated
 
 > **This file is deprecated.**
-> Windsurf reads `.windsurf/rules/*.md` natively (see official docs).
+> Devin Desktop reads `.windsurf/rules/*.md` natively (see official docs).
 > AIWG orchestration context is now deployed to:
 >   `.windsurf/rules/aiwg-orchestration.md`  (trigger: always_on)
 >
-> This root-level file may be silently ignored by Windsurf.
+> This root-level file may be silently ignored by Devin Desktop.
 > It is retained only for backward compatibility and will be removed in a future release.

@@ -42,7 +42,7 @@ SkillSmith is a tool for generating skills with platform-aware deployment. It cr
 - **Factory**: `.factory/skills/` - Maps to commands
 - **Cursor**: `.cursor/skills/` - Maps to commands
 - **Codex**: `.codex/skills/` - Maps to commands
-- **Windsurf**: `.windsurf/skills/` - Maps to commands
+- **Devin Desktop**: `.windsurf/skills/` - Maps to commands
 
 ### Limited/Manual
 - **Copilot**: `.github/copilot/skills/` - Manual integration

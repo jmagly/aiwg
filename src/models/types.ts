@@ -79,7 +79,7 @@ export type Provider =
   | 'pi'
   | 'openai'
   | 'warp'
-  | 'windsurf';
+  | 'devin';
 
 export type ModelEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 

@@ -76,12 +76,12 @@ export class DevinDesktopSessionAdapter implements SessionSourceAdapter {
     for await (const line of input) {
       const parsed = StepSchema.safeParse(line.value);
       if (!parsed.success) {
-        throw new SessionContractError('MALFORMED_SOURCE', 'Windsurf transcript step is malformed', schemaRejectionDetail(parsed.error));
+        throw new SessionContractError('MALFORMED_SOURCE', 'Devin Desktop transcript step is malformed', schemaRejectionDetail(parsed.error));
       }
       const step = parsed.data;
       const currentVersion = step.schema_version ?? DEVIN_DESKTOP_TRANSCRIPT_SCHEMA_VERSION;
       if (schemaVersion && schemaVersion !== currentVersion) {
-        throw new SessionContractError('SCHEMA_DRIFT', 'mixed Windsurf transcript schemas', schemaIssueDetail('schema_version'));
+        throw new SessionContractError('SCHEMA_DRIFT', 'mixed Devin Desktop transcript schemas', schemaIssueDetail('schema_version'));
       }
       schemaVersion = currentVersion;
       assertSupportedSchemaMajor(schemaVersion);
@@ -89,7 +89,7 @@ export class DevinDesktopSessionAdapter implements SessionSourceAdapter {
         ?? nativeSessionId
         ?? basename(source.locator, '.jsonl');
       if (step.trajectory_id && nativeSessionId && step.trajectory_id !== nativeSessionId) {
-        throw new SessionContractError('SCHEMA_DRIFT', 'mixed Windsurf trajectory identities', schemaIssueDetail('trajectory_id'));
+        throw new SessionContractError('SCHEMA_DRIFT', 'mixed Devin Desktop trajectory identities', schemaIssueDetail('trajectory_id'));
       }
       nativeSessionId = currentSession;
       if (seen++ < start) continue;
@@ -103,7 +103,7 @@ export class DevinDesktopSessionAdapter implements SessionSourceAdapter {
       );
     }
     if (seen === 0) {
-      throw new SessionContractError('MALFORMED_SOURCE', 'Windsurf transcript is empty or malformed', schemaIssueDetail('<root>'));
+      throw new SessionContractError('MALFORMED_SOURCE', 'Devin Desktop transcript is empty or malformed', schemaIssueDetail('<root>'));
     }
     return {
       sourceSchemaVersion: schemaVersion!,
@@ -122,7 +122,7 @@ export class DevinDesktopSessionAdapter implements SessionSourceAdapter {
     if (!isCurrentHookLocator(source.locatorClass)) {
       throw new SessionContractError(
         'UNSUPPORTED_OPERATION',
-        'Devin Desktop (Windsurf compatibility) requires an explicitly selected post_cascade_response_with_transcript JSONL file',
+        'Devin Desktop (legacy transcript compatibility) requires an explicitly selected post_cascade_response_with_transcript JSONL file',
       );
     }
   }
@@ -213,13 +213,13 @@ function timestamp(value?: string): string | undefined {
   if (!value) return undefined;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    throw new SessionContractError('AMBIGUOUS_TIMESTAMP', 'invalid Windsurf timestamp');
+    throw new SessionContractError('AMBIGUOUS_TIMESTAMP', 'invalid Devin Desktop timestamp');
   }
   return date.toISOString();
 }
 
 function parseCursor(value?: string): number {
   if (!value) return 0;
-  if (!/^\d+$/.test(value)) throw new SessionContractError('SCHEMA_DRIFT', 'invalid Windsurf cursor', schemaIssueDetail('cursor'));
+  if (!/^\d+$/.test(value)) throw new SessionContractError('SCHEMA_DRIFT', 'invalid Devin Desktop cursor', schemaIssueDetail('cursor'));
   return Number(value);
 }

@@ -458,7 +458,7 @@ cron support across providers:
   factory:      unsupported
   opencode:     unsupported
   warp:         unsupported
-  windsurf:     unsupported
+  devin:     unsupported
   openclaw:     unsupported
 ```
 

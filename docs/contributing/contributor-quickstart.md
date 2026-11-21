@@ -745,7 +745,7 @@ Choice: 2
 
 Launching Conflict Resolver agent...
 Analyzing conflict...
-✓ Conflict resolved: Kept both cursor and windsurf cases
+✓ Conflict resolved: Kept both cursor and devin cases
 ✓ Validated syntax
 
 Continuing rebase...
@@ -1413,7 +1413,7 @@ Now that you understand the contributor workflow:
 
 1. **Identify a contribution:**
 
-   - Platform integration (Cursor, Windsurf, Zed)
+   - Platform integration (Cursor, Devin Desktop, Zed)
    - New SDLC agent
    - Documentation improvement
    - Bug fix

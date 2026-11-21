@@ -57,7 +57,7 @@ export const support = {
   skills: 'native',
   // CONTEXT_CONTRACTS: https://docs.x.ai/build/features/project-rules
   // .grok/rules/*.md loads hierarchically on every task; no frontmatter marker
-  // is required for always-on rules (unlike Windsurf's trigger field).
+  // is required for always-on rules (unlike Devin Desktop's trigger field).
   rules: 'native', // always-on Markdown rules discovered root-to-cwd by Grok Build
 };
 

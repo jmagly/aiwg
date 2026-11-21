@@ -2,7 +2,7 @@
  * Skill→Command Translation Layer
  *
  * Generates command files from canonical SKILL.md sources for providers that
- * require command format natively (Factory, OpenCode, Warp, Windsurf, Copilot,
+ * require command format natively (Factory, OpenCode, Warp, Devin Desktop, Copilot,
  * Codex, OpenClaw).
  *
  * Skills are the canonical source format; commands are deployment artifacts.

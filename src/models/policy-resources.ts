@@ -19,5 +19,5 @@ export function requireModelResource(filename: string): unknown {
 }
 export const ProviderSchema = z.enum([
   'antigravity', 'claude', 'codex', 'copilot', 'cursor', 'deepseek-harness', 'factory', 'flue', 'grokbot', 'grok-build', 'hermes',
-  'muse', 'opencode', 'openclaw', 'openhuman', 'omp', 'pi', 'warp', 'windsurf',
+  'muse', 'opencode', 'openclaw', 'openhuman', 'omp', 'pi', 'warp', 'devin',
 ]);

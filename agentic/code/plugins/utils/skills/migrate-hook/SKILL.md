@@ -24,7 +24,7 @@ Detect AIWG injected content in platform context files, extract it to a dedicate
 
 | Flag | Description |
 |------|-------------|
-| `--provider <name>` | Migrate only this provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `windsurf`, `opencode`, `codex` |
+| `--provider <name>` | Migrate only this provider: `claude`, `warp`, `copilot`, `cursor`, `factory`, `devin`, `opencode`, `codex` |
 | `--all` | Migrate all detected providers (default) |
 | `--dry-run` | Show exactly what would change without writing any files |
 | `--no-backup` | Skip creating `.bak` files (use in CI environments) |
@@ -69,7 +69,7 @@ Migrates all detected provider files:
 |----------|-------------|-------------------|
 | Claude Code | `CLAUDE.md` | `AIWG.md` |
 | Warp Terminal | `WARP.md` | `AIWG-warp.md` |
-| Windsurf | `AGENTS.md` | `AIWG-windsurf.md` |
+| Devin Desktop | `AGENTS.md` | `AIWG-windsurf.md` |
 | GitHub Copilot | `.github/copilot-instructions.md` | `AIWG-copilot.md` |
 | Cursor | `.cursorrules` | `AIWG-cursor.md` |
 | Factory AI | `AGENTS.md` | `AIWG-factory.md` |

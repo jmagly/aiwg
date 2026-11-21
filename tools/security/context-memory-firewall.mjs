@@ -410,7 +410,7 @@ export async function scanContextMemoryFirewall(options = {}) {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const packageRoot = path.resolve(options.packageRoot ?? rootDir);
   const providerInput = options.providers ?? (options.provider ? [options.provider] : null);
-  let providers = providerInput?.length ? [...new Set(providerInput)] : [];
+  let providers = providerInput?.length ? [...new Set(providerInput.map(provider => provider === 'windsurf' ? 'devin' : provider))] : [];
   if (!providers.length) {
     for (const [provider, config] of Object.entries(PROVIDERS)) {
       const paths = [

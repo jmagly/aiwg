@@ -30,7 +30,7 @@ const PROVIDER_EXECUTABLES: Partial<Record<Platform, string[]>> = {
   pi: ['pi'],
   omp: ['omp'],
   warp: ['warp'],
-  windsurf: ['windsurf'],
+  devin: ['devin-desktop', 'windsurf'],
 };
 
 export type ProviderEvidenceKind =
@@ -202,6 +202,17 @@ export async function collectProviderInventory(
       : '';
     if (configPath && await pathExists(resolve(configPath))) {
       evidence.push({ kind: 'provider-config', scope: configPath.startsWith(homeDir) ? 'user' : 'project', value: configPath });
+    }
+
+    // Inspect directory existence only: current Desktop and legacy Windsurf may coexist.
+    // These are detection markers, not new deployment destinations (3.14 read paths unverified).
+    if (definition.id === 'devin') {
+      for (const marker of ['.devin', '.config/Devin', '.codeium', '.windsurf']) {
+        const location = join(homeDir, marker);
+        if (await pathExists(location)) evidence.push({ kind: 'provider-config', scope: 'user', value: location });
+      }
+      const legacyDeployment = join(projectDir, '.windsurf');
+      if (await pathExists(legacyDeployment)) evidence.push({ kind: 'provider-config', scope: 'project', value: legacyDeployment });
     }
 
     const configured = evidence.some(item => item.kind === 'project-config' || item.kind === 'user-config');

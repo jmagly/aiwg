@@ -239,16 +239,16 @@ export class AgentPackager {
   }
 
   /**
-   * Convert to Windsurf format (plain markdown, no YAML frontmatter)
+   * Convert to Devin Desktop format (plain markdown, no YAML frontmatter)
    *
-   * Windsurf uses AGENTS.md for directory-scoped instructions.
+   * Devin Desktop uses AGENTS.md for directory-scoped instructions.
    * Individual agent definitions use clean markdown sections.
    */
   convertToWindsurfFormat(agent: AgentInfo): string {
     const { metadata, content } = agent;
     const lines: string[] = [];
 
-    // Windsurf prefers clean markdown without YAML frontmatter
+    // Devin Desktop prefers clean markdown without YAML frontmatter
     lines.push(`### ${metadata.name}`);
     lines.push('');
 

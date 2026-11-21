@@ -609,7 +609,7 @@ MCP has achieved rapid industry adoption:
 **Ecosystem Scale**:
 - **10,000+ active MCP servers**
 - **Linux Foundation governance** (Agentic AI Foundation)
-- **Major integrations**: Claude Desktop, Cursor, Windsurf, Zed
+- **Major integrations**: Claude Desktop, Cursor, Devin Desktop, Zed
 
 **Three Primitives**:
 1. **Tools**: Actions with side effects (POST/PUT/DELETE equivalent)

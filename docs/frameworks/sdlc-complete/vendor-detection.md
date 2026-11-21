@@ -59,11 +59,11 @@ Each regenerate command should detect the active vendor to include only relevant
 - Custom rules and instructions
 - Multi-file editing
 
-### Windsurf (Codeium)
+### Devin Desktop (Codeium)
 
 **Primary indicators:**
 - `.windsurfrules` file exists at project root
-- Windsurf-specific configuration detected
+- Devin Desktop-specific configuration detected
 
 **Command format:** Natural language prompts
 
@@ -144,7 +144,7 @@ When multiple indicators are present, use this priority order:
 1. **Claude Code** - Most specific detection (`.claude/` + `CLAUDE.md`)
 2. **GitHub Copilot** - GitHub-specific indicators
 3. **Cursor** - `.cursorrules` is distinctive
-4. **Windsurf** - `.windsurfrules` is distinctive
+4. **Devin Desktop** - `.windsurfrules` is distinctive
 5. **Warp** - `WARP.md` is distinctive
 6. **Factory AI** - `.factory/droids/` structure
 7. **OpenCode** - `.opencode/agent/` structure
@@ -231,10 +231,10 @@ Each file references the others for full picture.
 - AIWG documentation
 - Links to other vendor configs
 
-### Windsurf Context (.windsurfrules)
+### Devin Desktop Context (.windsurfrules)
 
 **Include:**
-- Windsurf-specific instructions
+- Devin Desktop-specific instructions
 - Cascade AI patterns
 - Flow mode guidelines
 
@@ -329,7 +329,7 @@ Each vendor context file should target:
 - **Claude Code (CLAUDE.md)**: 300-500 lines
 - **GitHub Copilot**: 250-400 lines
 - **Cursor (.cursorrules)**: 200-350 lines
-- **Windsurf (.windsurfrules)**: 200-350 lines
+- **Devin Desktop (.windsurfrules)**: 200-350 lines
 - **Warp (WARP.md)**: 150-300 lines
 - **AGENTS.md**: 300-450 lines
 

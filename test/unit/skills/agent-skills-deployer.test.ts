@@ -150,7 +150,7 @@ describe('managed Agent Skills provider matrix', () => {
       ['pi', 'native'],
       ['omp', 'native'],
       ['warp', 'native'],
-      ['windsurf', 'projected'],
+      ['devin', 'projected'],
       ['generic', 'native'],
     ]);
 

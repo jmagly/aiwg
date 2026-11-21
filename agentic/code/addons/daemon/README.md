@@ -42,7 +42,7 @@ aiwg use daemon
 | Claude Code | Full | Behavior emulated via pre/post hooks |
 | OpenClaw | Full (native) | Native behavior activation |
 | Warp | Full | Session wrapper in WARP.md |
-| Copilot, Cursor, Windsurf, OpenCode, Factory, Codex | Partial | Agent + rules; per-interaction activation |
+| Copilot, Cursor, Devin Desktop, OpenCode, Factory, Codex | Partial | Agent + rules; per-interaction activation |
 
 ## Quick Start
 

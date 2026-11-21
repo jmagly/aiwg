@@ -178,7 +178,7 @@ Wrapper model pins are an offline artifact contract: provider or account policy 
 | Band | Meaning | Providers |
 |---|---|---|
 | Pinned | Wrapper carries an exact catalog model | Claude, Codex, Factory, Copilot, Cursor, OpenCode |
-| Inherited | Wrapper mirrors the session or needs exact role configuration | OMP, Antigravity, OpenClaw, OpenHuman, Windsurf, Pi, DeepSeek Harness, Grok Build |
+| Inherited | Wrapper mirrors the session or needs exact role configuration | OMP, Antigravity, OpenClaw, OpenHuman, Devin Desktop, Pi, DeepSeek Harness, Grok Build |
 | Global-only | Model comes from run, profile, session, or delegation settings | Warp, Hermes, Grokbot, Muse |
 
 Native effort fields also vary: Claude, Codex, Factory, and OMP enforce theirs; the rest do not. AIWG never rewrites global provider settings or environment variables to fill these gaps. The authoritative per-provider table is [Wrapper tier enforcement](../configuration/wrapper-tier-enforcement.md).

@@ -211,11 +211,11 @@ describe('model wrapper deployment verification', () => {
       .toContainEqual(expect.objectContaining({ field: 'return-contract' }));
   });
 
-  it('identifies Windsurf wrappers from a section heading when metadata is absent', async () => {
+  it('identifies Devin Desktop wrappers from a section heading when metadata is absent', async () => {
     const body = '### aiwg-model-explorer\nWorkerClaims: criterion evidence verdict. Stop rules\n';
     const target = await root();
     await writeFile(join(target, 'aiwg-model-explorer.md'), body);
-    expect((await verifyModelWrapperDeployment(target, { provider: 'windsurf', models })).mismatches).toEqual([]);
+    expect((await verifyModelWrapperDeployment(target, { provider: 'devin', models })).mismatches).toEqual([]);
     const other = await root();
     await writeFile(join(other, 'aiwg-model-explorer.md'), body);
     expect((await verifyModelWrapperDeployment(other, { provider: 'claude', models })).mismatches)

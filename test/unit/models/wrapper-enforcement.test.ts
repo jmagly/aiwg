@@ -63,7 +63,7 @@ describe('wrapper enforcement', () => {
   });
 
   it('reports providers without a native model control as inherited and global-only providers as global-only', () => {
-    expect(resolveWrapperPin('windsurf', coding)).toMatchObject({ model: undefined, effort: undefined, enforcement: 'inherited' });
+    expect(resolveWrapperPin('devin', coding)).toMatchObject({ model: undefined, effort: undefined, enforcement: 'inherited' });
     expect(resolveWrapperPin('hermes', coding)).toMatchObject({ model: undefined, enforcement: 'global-only' });
   });
 
@@ -88,7 +88,7 @@ describe('wrapper enforcement', () => {
   });
 
   it('reports known providers without model controls as inherited with their specific detail', () => {
-    expect(wrapperEnforcementReport('windsurf')).toContain('): inherited; effort: not enforced per wrapper. Portable wrapper model selection is unsupported');
+    expect(wrapperEnforcementReport('devin')).toContain('): inherited; effort: not enforced per wrapper. Portable wrapper model selection is unsupported');
     expect(wrapperEnforcementReport('omp')).toContain('): inherited;');
   });
 

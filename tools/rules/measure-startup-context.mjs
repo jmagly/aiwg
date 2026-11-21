@@ -35,9 +35,9 @@ function record(file, base, content = fs.readFileSync(file, 'utf8'), suffix = ''
 export function measureDeployed(project, home, provider) {
   if (!PROVIDERS.includes(provider)) throw new Error(`Unsupported provider: ${provider}`);
   const base = provider === 'openclaw' ? home : project;
-  const ruleDir = path.join(base, provider === 'openclaw' ? '.openclaw/rules' : `.${provider}/rules`);
+  const ruleDir = path.join(base, provider === 'openclaw' ? '.openclaw/rules' : `.${provider === 'devin' ? 'windsurf' : provider}/rules`);
   const behaviorDir = path.join(base, provider === 'hermes' ? '.hermes/behaviors'
-    : provider === 'openclaw' ? '.openclaw/behaviors' : `.${provider}/rules/behaviors`);
+    : provider === 'openclaw' ? '.openclaw/behaviors' : `.${provider === 'devin' ? 'windsurf' : provider}/rules/behaviors`);
   const ruleFiles = filesUnder(ruleDir).filter(file => /\.(md|mdc)$/.test(file)
     && !file.startsWith(behaviorDir + path.sep));
   const behaviorFiles = filesUnder(behaviorDir).filter(file => /\.(md|mdc)$/.test(file));

@@ -13,7 +13,7 @@ features; it does not promise every provider has every output surface.
 The following **20 IDs** are in `PROVIDER_IDS` in 2026.11.x, in registry order:
 
 <!-- provider-ids:start -->
-`antigravity`, `claude`, `codex`, `copilot`, `cursor`, `deepseek-harness`, `factory`, `flue`, `grokbot`, `grok-build`, `hermes`, `muse`, `opencode`, `openclaw`, `openhuman`, `pi`, `omp`, `warp`, `windsurf`, `generic`.
+`antigravity`, `claude`, `codex`, `copilot`, `cursor`, `deepseek-harness`, `factory`, `flue`, `grokbot`, `grok-build`, `hermes`, `muse`, `opencode`, `openclaw`, `openhuman`, `pi`, `omp`, `warp`, `devin`, `generic`.
 <!-- provider-ids:end -->
 
 `generic` is the fallback layout, not a separate AI harness. Aliases such as

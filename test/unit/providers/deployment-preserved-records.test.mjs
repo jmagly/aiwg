@@ -10,7 +10,7 @@ const roots = [];
 afterEach(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
 const digest = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 it.each(['antigravity', 'claude', 'factory', 'codex', 'opencode', 'copilot', 'cursor', 'flue', 'pi', 'omp',
-  'deepseek-harness', 'warp', 'windsurf', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse'])(
+  'deepseek-harness', 'warp', 'devin', 'hermes', 'openclaw', 'openhuman', 'grokbot', 'grok-build', 'muse'])(
   '%s stage and commit retain the original record when a helper only rewrites receipts', async name => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'aiwg-preserved-record-')); roots.push(root);
     const source = path.join(root, 'source'), target = path.join(root, 'target');
