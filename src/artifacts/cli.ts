@@ -727,6 +727,10 @@ async function validateIndexConfigOrExit(cwd: string): Promise<void> {
  * Stub — full implementation in #416
  */
 async function handleQuery(args: string[]): Promise<void> {
+  if (args.includes('--help') || args.includes('-h')) {
+    const { printIndexQueryHelp } = await import('./index-query-help.js');
+    return printIndexQueryHelp();
+  }
   const { queryIndex } = await import('./query-engine.js');
   const cwd = process.cwd();
 
@@ -1310,7 +1314,7 @@ async function handleSync(args: string[]): Promise<void> {
         console.log(JSON.stringify({ manifests, failures }, null, 2));
         return;
       }
-      console.log(`Fortemi Core sync: ${manifests.length} graph(s) succeeded, ${failures.length} failed`);
+      console.log(`Fortemi Core sync: ${manifests.length} graph(s) succeeded, ${failures.length} failed\nSource bodies: no size cap; 0 items omitted for size.`);
       for (const manifest of manifests) {
         console.log(`  ${manifest.graph}: ${manifest.status}, ${manifest.item_count} item(s) → ${manifest.export_path}`);
         warnSyncTextQuality(manifest);
@@ -1328,7 +1332,7 @@ async function handleSync(args: string[]): Promise<void> {
       console.log(JSON.stringify(manifest, null, 2));
       return;
     }
-    console.log(`Fortemi Core ${manifest.status}: ${manifest.item_count} item(s) → ${manifest.export_path}`);
+    console.log(`Fortemi Core ${manifest.status}: ${manifest.item_count} item(s) → ${manifest.export_path}\nSource bodies: no size cap; 0 items omitted for size.`);
     warnSyncTextQuality(manifest);
   } catch (err) {
     console.error('Error: ' + (err instanceof Error ? err.message : String(err)));

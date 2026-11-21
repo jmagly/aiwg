@@ -297,6 +297,8 @@ export function syncFortemiCoreIndex(
       privacy: options.privacy,
       generatedAt,
       schemaVersion: "v2",
+      // Fulltext must include trailing tokens even beyond the standalone export cap (#4352).
+      maxSourceBodyBytes: Number.POSITIVE_INFINITY,
     });
     const checksum = writeExport(temporaryPath, exported, maxChars);
     const recordsWithConcepts = exported.items.filter(

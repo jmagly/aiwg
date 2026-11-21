@@ -10,6 +10,11 @@ export const indexHandler: CommandHandler = {
 
   async help(ctx: HandlerContext): Promise<HandlerResult> {
     if (ctx.args[0] === "discover") return discoverHandler.help!(ctx);
+    if (ctx.args[0] === "query") {
+      const { printIndexQueryHelp } = await import("../../artifacts/index-query-help.js");
+      printIndexQueryHelp();
+      return { exitCode: 0 };
+    }
     const { printIndexUsage } = await import("../../artifacts/cli.js");
     printIndexUsage();
     return { exitCode: 0 };
