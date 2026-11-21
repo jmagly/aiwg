@@ -112,6 +112,20 @@ query/fulltext return empty results, discover reports a Fortemi static-cache
 no-match hint, and show does not fall back to the local AIWG corpus when the
 Fortemi backend was explicit.
 
+### Full-text Source Sizes
+
+`aiwg index query "<text>" --fulltext` uses BM25 over source bodies:
+
+- **Fortemi Core (default)** searches text bodies captured at sync, without a
+  size cap or truncation. Binary and unreadable sources remain metadata-only.
+  `aiwg index sync` reports that zero bodies were omitted for size.
+- **`--backend local`** reads current source files at query time, without a
+  size cap or truncation; missing or unreadable sources are skipped.
+
+Re-run `aiwg index sync --graph <name>` to replace older Fortemi caches that
+omitted bodies larger than 256 KiB. The standalone `index export` API retains
+its default 256 KiB source-body cap; sync explicitly lifts that cap.
+
 ## Examples
 
 ### Example 1: Build the index
